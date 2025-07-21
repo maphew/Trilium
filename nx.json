@@ -90,5 +90,6 @@
       "unitTestRunner": "vitest",
       "e2eTestRunner": "playwright"
     }
-  }
+  },
+  "nxCloudId": "687d8d7758006b54dd8febe4"
 }
