@@ -18,12 +18,19 @@ import { createMcpServer } from "../services/mcp/mcp_server.js";
 
 export function register(app: express.Application) {
     // Token guessing is unbounded once the endpoint is reachable off-loopback, so cap
-    // failures per IP. `skipSuccessfulRequests` keeps a working client from ever counting
-    // against the limit — only 4xx/5xx responses do. Mirrors the login limiter.
+    // failed authentications per IP. Mirrors the login limiter.
+    //
+    // Only a 401 counts. `skipSuccessfulRequests` alone would spend the budget on every
+    // 4xx/5xx — a 403 while MCP is disabled, a transport-level 406/415, a 500 — none of
+    // which is an attempt at the credential. Since the limiter necessarily runs ahead of
+    // mcpGuard, letting those count would let an unauthenticated caller exhaust the budget
+    // deliberately and lock out a valid token for the whole window. The budget is per-IP,
+    // and a Docker port mapping or a reverse proxy collapses every client onto one address.
     const mcpRateLimiter = rateLimit({
         windowMs: 15 * 60 * 1000,
         max: 10,
-        skipSuccessfulRequests: true
+        skipSuccessfulRequests: true,
+        requestWasSuccessful: (_req, res) => res.statusCode !== 401
     });
 
     app.post("/mcp", mcpRateLimiter, mcpGuard, handleMcpRequest);

@@ -1,7 +1,7 @@
 import { cls, options as optionService, sql_init } from "@triliumnext/core";
 import type { Application } from "express";
 import supertest from "supertest";
-import { beforeAll, describe, expect, it, vi } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 
 import { type ApiTestContext, bootLoggedInApp, createTextNote } from "../../spec/support/internal_api.js";
 import etapiTokenService from "../services/etapi_tokens.js";
@@ -223,6 +223,75 @@ describe("Route transport & middleware", () => {
                 .set("Accept", "application/json, text/event-stream")
                 .send(initializeRequest);
             expect(res.status).toBe(200);
+        });
+
+        /**
+         * The limiter's budget is per-IP, and these tests have to exhaust one to say anything.
+         * `trust proxy` makes the limiter key off `X-Forwarded-For`, so each test spends a
+         * bucket of its own instead of the shared loopback one every other test in this file
+         * uses — otherwise the first exhaustion here would 429 all of them.
+         */
+        describe("rate limiting", () => {
+            let authToken: string;
+
+            beforeAll(() => {
+                app.set("trust proxy", 1);
+                cls.init(() => optionService.setOption("mcpEnabled", "true"));
+                ({ authToken } = cls.init(() => etapiTokenService.createToken("mcp rate limit spec")));
+            });
+
+            afterAll(() => {
+                app.set("trust proxy", false);
+            });
+
+            function mcpPostFrom(clientIp: string) {
+                return supertest(app)
+                    .post("/mcp")
+                    .set("X-Forwarded-For", clientIp)
+                    .set("Content-Type", "application/json")
+                    .set("Accept", "application/json, text/event-stream");
+            }
+
+            it("does not spend the token-guessing budget on failures that are not failed authentication", async () => {
+                cls.init(() => optionService.setOption("mcpEnabled", "false"));
+
+                // A full budget's worth of responses that have nothing to do with credentials. A
+                // client polling a server whose MCP toggle is off reaches this on its own, without
+                // anyone ever presenting a bad token — as does one that trips a transport-level
+                // 4xx or a 500.
+                for (let i = 0; i < 10; i++) {
+                    await mcpPostFrom("203.0.113.1").send(initializeRequest).expect(403);
+                }
+
+                cls.init(() => optionService.setOption("mcpEnabled", "true"));
+
+                // Nothing above was an authentication failure, so a valid token must still be
+                // served. If every 4xx/5xx counts, this is a 429 — and since the limiter runs
+                // ahead of the guard, an unauthenticated caller can spend the budget on purpose
+                // and lock out a legitimate client, or everyone sharing a NAT or Docker bridge
+                // address, for fifteen minutes.
+                const res = await mcpPostFrom("203.0.113.1")
+                    .set("Authorization", `Bearer ${authToken}`)
+                    .send(initializeRequest);
+                expect(res.status).toBe(200);
+            });
+
+            it("still throttles a caller guessing tokens", async () => {
+                for (let i = 0; i < 10; i++) {
+                    await mcpPostFrom("203.0.113.2")
+                        .set("Authorization", "Bearer not_a_real_token")
+                        .send(initializeRequest)
+                        .expect(401);
+                }
+
+                // Repeated bad tokens are what the limiter exists for: once the budget is gone
+                // the IP is cut off, valid token or not. Guards against "fixing" the above by
+                // dropping the limiter.
+                const res = await mcpPostFrom("203.0.113.2")
+                    .set("Authorization", `Bearer ${authToken}`)
+                    .send(initializeRequest);
+                expect(res.status).toBe(429);
+            });
         });
     });
 });
