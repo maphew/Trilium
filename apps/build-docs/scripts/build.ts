@@ -17,7 +17,7 @@ async function main() {
     build.copy("src/index.html", "index.html");
 
     // Copy node modules dependencies if needed
-    build.copyNodeModules([ "better-sqlite3", "bindings", "file-uri-to-path" ]);
+    build.copyNodeModules([ "better-sqlite3" ]);
 }
 
 main();
