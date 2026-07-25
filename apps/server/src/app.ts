@@ -97,8 +97,9 @@ export default async function buildApp() {
     app.use(express.urlencoded({ extended: false }));
     app.use(cookieParser());
 
-    // MCP is registered before session/auth middleware — it uses its own
-    // localhost-only guard and does not require Trilium authentication.
+    // MCP is registered before session/auth middleware — it authenticates with its own
+    // guard (an ETAPI token, always required) and never uses the Trilium session, which
+    // would make the endpoint CSRF-able.
     mcpRoutes.register(app);
 
     // Desktop only: gate web access (SPA/login, /share, /api, static assets) behind

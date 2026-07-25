@@ -4,7 +4,15 @@ import supertest from "supertest";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { type ApiTestContext, bootLoggedInApp, createTextNote } from "../../spec/support/internal_api.js";
+import etapiTokenService from "../services/etapi_tokens.js";
 import port from "../services/port.js";
+
+const initializeRequest = {
+    jsonrpc: "2.0",
+    method: "initialize",
+    id: 1,
+    params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "spec", version: "1" } }
+};
 
 let ctx: ApiTestContext;
 let app: Application;
@@ -129,35 +137,67 @@ describe("Route transport & middleware", () => {
             expect(res.body.error).toContain("disabled");
         });
 
-        it("reaches the MCP transport over loopback with a valid Host once enabled", async () => {
+        it("rejects an untokened request with 401 even over loopback, with no OAuth challenge", async () => {
             cls.init(() => optionService.setOption("mcpEnabled", "true"));
-            // supertest connects over loopback so the guard passes; a Host matching
-            // the configured port clears DNS-rebinding protection and the request
-            // is handed to the streamable transport (any status is fine — we only
-            // need the handler to execute past header validation).
+            // supertest dials loopback, which used to be sufficient on its own. It no longer
+            // is: any local process can reach the listener, so a token is always required.
             const res = await supertest(app)
                 .post("/mcp")
                 .set("Host", `localhost:${port}`)
                 .set("Content-Type", "application/json")
                 .set("Accept", "application/json, text/event-stream")
-                .send({ jsonrpc: "2.0", method: "initialize", id: 1, params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "spec", version: "1" } } });
-            expect(res.status).toBeGreaterThanOrEqual(200);
-            expect(JSON.stringify(res.body)).not.toContain("Invalid Host header");
+                .send(initializeRequest)
+                .expect(401);
+            expect(res.body.error).toContain("ETAPI token");
+            // A WWW-Authenticate header would send spec-compliant MCP clients into an
+            // OAuth discovery flow Trilium cannot serve.
+            expect(res.headers["www-authenticate"]).toBeUndefined();
         });
 
-        it("rejects a forged Host header (DNS rebinding) with 403", async () => {
+        it("rejects a bogus token with 401", async () => {
             cls.init(() => optionService.setOption("mcpEnabled", "true"));
-            // A DNS-rebinding attacker reaches the loopback listener through the
-            // victim's browser (so the IP guard passes) but carries an attacker-
-            // controlled Host. It must be rejected before any MCP tool can run.
             const res = await supertest(app)
                 .post("/mcp")
-                .set("Host", "attacker.example.com")
+                .set("Host", `localhost:${port}`)
+                .set("Authorization", "Bearer not_a_real_token")
                 .set("Content-Type", "application/json")
                 .set("Accept", "application/json, text/event-stream")
-                .send({ jsonrpc: "2.0", method: "initialize", id: 1, params: { protocolVersion: "2024-11-05", capabilities: {}, clientInfo: { name: "spec", version: "1" } } })
-                .expect(403);
-            expect(res.body?.error?.message ?? "").toContain("Invalid Host header");
+                .send(initializeRequest)
+                .expect(401);
+            expect(res.body.error).toContain("ETAPI token");
+        });
+
+        it("serves a token-authenticated caller, including on a foreign Host", async () => {
+            cls.init(() => optionService.setOption("mcpEnabled", "true"));
+            const { authToken } = cls.init(() => etapiTokenService.createToken("mcp transport spec"));
+
+            // A remote client's Host is its own domain and could never satisfy a loopback
+            // allow-list; the token is what authorises it, so no Host check applies.
+            for (const host of [`localhost:${port}`, "trilium.example.com"]) {
+                const res = await supertest(app)
+                    .post("/mcp")
+                    .set("Host", host)
+                    .set("Authorization", `Bearer ${authToken}`)
+                    .set("Content-Type", "application/json")
+                    .set("Accept", "application/json, text/event-stream")
+                    .send(initializeRequest);
+                expect(res.status).toBe(200);
+                expect(JSON.stringify(res.body)).not.toContain("Invalid Host header");
+            }
+        });
+
+        it("accepts the ETAPI Basic-auth form as well as Bearer", async () => {
+            cls.init(() => optionService.setOption("mcpEnabled", "true"));
+            const { authToken } = cls.init(() => etapiTokenService.createToken("mcp basic spec"));
+            // isValidAuthHeader also parses `Basic etapi:<token>`, which some clients emit
+            // when given a username/password pair rather than a raw header.
+            const res = await supertest(app)
+                .post("/mcp")
+                .auth("etapi", authToken, { type: "basic" })
+                .set("Content-Type", "application/json")
+                .set("Accept", "application/json, text/event-stream")
+                .send(initializeRequest);
+            expect(res.status).toBe(200);
         });
     });
 });
