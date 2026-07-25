@@ -2306,7 +2306,6 @@
     "note_tools": "Accès aux notes",
     "sources": "Sources",
     "extended_thinking": "Réflexion étendue",
-    "legacy_models": "Modèles hérités",
     "thinking": "Réflexion...",
     "thought_process": "Processus de réflexion",
     "tool_calls": "{{count}} appel(s) d'outil",
@@ -2519,13 +2518,11 @@
     "configured_providers": "Fournisseurs configurés",
     "no_providers_configured": "Aucun fournisseur n'est encore configuré.",
     "provider_name": "Nom",
-    "provider_type": "Fournisseur",
     "actions": "Actions",
     "delete_provider": "Supprimer",
     "delete_provider_confirmation": "Êtes-vous sûr de vouloir supprimer le fournisseur \"{{name}}\" ?",
     "api_key": "Clé API",
     "api_key_placeholder": "Entrer votre clé API",
-    "cancel": "Annuler",
     "tools": {
       "note_in_parent": "<Note/> dans <Parent/>",
       "search_notes": "Rechercher des notes",
@@ -2849,7 +2846,6 @@
     "checkbox-tooltip": "Clic droit pour plus d'états.\nAppuyez sur {{shortcut}} pour changer d'état.",
     "edit-states-tooltip": "Modifier les états des tâches",
     "unknown-task-state": "État personnalisé non défini",
-    "task-state-dropped": "L'état \"{{title}}\" {{id}} a été supprimé pour la raison suivante : {{reason}}",
     "validation-errors": {
       "undefined-name": "identifiant non défini",
       "invalid-name": "identifiant invalide",
@@ -2995,9 +2991,6 @@
   "file_upload": {
     "drop_or_browse_single": "Glissez-déposez un fichier ici, ou cliquez pour parcourir",
     "drop_or_browse_multiple": "Glissez-déposez des fichiers ici, ou cliquez pour parcourir",
-    "selected_one": "{{count}} fichier sélectionné",
-    "selected_many": "{{count}} fichiers sélectionnés",
-    "selected_other": "{{count}} fichiers sélectionnés",
     "browse_single": "Touchez pour choisir un fichier",
     "browse_multiple": "Touchez pour choisir des fichiers"
   },

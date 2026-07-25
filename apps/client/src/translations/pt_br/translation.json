@@ -2088,10 +2088,8 @@
   },
   "llm": {
     "provider_name": "Nome",
-    "provider_type": "Provedor",
     "actions": "Ações",
     "delete_provider": "Deletar",
-    "cancel": "Cancelar",
     "tools": {
       "clone_note": "Clonar nota",
       "move_note": "Mover nota",

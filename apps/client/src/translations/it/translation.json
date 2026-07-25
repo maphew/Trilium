@@ -2453,7 +2453,6 @@
     "note_tools": "Nota di accesso",
     "sources": "Fonti",
     "extended_thinking": "Riflessioni approfondite",
-    "legacy_models": "Modelli precedenti",
     "thinking": "Sto riflettendo...",
     "thought_process": "Processo mentale",
     "tool_calls": "{{count}} chiamata/e di funzione",
@@ -2501,13 +2500,11 @@
     "configured_providers": "Fornitori configurati",
     "no_providers_configured": "Non sono stati ancora configurati fornitori.",
     "provider_name": "Nome",
-    "provider_type": "Fornitore",
     "actions": "Azioni",
     "delete_provider": "Elimina",
     "delete_provider_confirmation": "Sei sicuro di voler eliminare il provider \"{{name}}\"?",
     "api_key": "Chiave API",
     "api_key_placeholder": "Inserisci la tua chiave API",
-    "cancel": "Annulla",
     "feature_not_enabled": "Abilita la funzione sperimentale LLM in Impostazioni → Avanzate → Funzioni sperimentali per utilizzare le integrazioni basate sull'intelligenza artificiale.",
     "mcp_title": "MCP (Model Context Protocol)",
     "mcp_enabled": "Server MCP",
@@ -2799,7 +2796,6 @@
     "checkbox-tooltip": "Clicca con il tasto destro del mouse per visualizzare altri stati dell'attività.\nPremi {{shortcut}} per passare da uno stato all'altro.",
     "edit-states-tooltip": "Modifica gli stati delle attività",
     "unknown-task-state": "Stato dell'attività personalizzata non definito",
-    "task-state-dropped": "La definizione dello stato dell'attività personalizzata \"{{title}}\" ({{id}}) è stata eliminata per il seguente motivo: {{reason}}",
     "validation-errors": {
       "undefined-name": "identificatore non definito",
       "invalid-name": "identificatore non valido",
@@ -2891,10 +2887,7 @@
     "drop_or_browse_single": "Trascina un file qui, oppure clicca per selezionare un file",
     "drop_or_browse_multiple": "Trascina i file qui oppure clicca per selezionarli",
     "browse_single": "Tocca per selezionare un file",
-    "browse_multiple": "Tocca per selezionare i file",
-    "selected_one": "E' stato selezionato {{count}} file",
-    "selected_many": "Sono stati selezionati {{count}} files",
-    "selected_other": "Sono stati selezionati {{count}} files"
+    "browse_multiple": "Tocca per selezionare i file"
   },
   "import_provider": {
     "choose_provider": "Scegli uno dei servizi sopra elencati da cui effettuare l'importazione."

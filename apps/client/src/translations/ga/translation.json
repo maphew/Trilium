@@ -2605,7 +2605,6 @@
     "note_tools": "Rochtain nótaí",
     "sources": "Foinsí",
     "extended_thinking": "Smaointeoireacht leathnaithe",
-    "legacy_models": "Samhlacha oidhreachta",
     "thinking": "Ag smaoineamh...",
     "thought_process": "Próiseas smaointeoireachta",
     "tool_calls": "{{count}} glao(í) uirlisí",
@@ -2693,13 +2692,11 @@
     "configured_providers": "Soláthraithe Cumraithe",
     "no_providers_configured": "Níl aon soláthraithe cumraithe fós.",
     "provider_name": "Ainm",
-    "provider_type": "Soláthraí",
     "actions": "Gníomhartha",
     "delete_provider": "Scrios",
     "delete_provider_confirmation": "An bhfuil tú cinnte gur mian leat an soláthraí \"{{name}}\" a scriosadh?",
     "api_key": "Eochair API",
     "api_key_placeholder": "Cuir isteach d'eochair API",
-    "cancel": "Cealaigh",
     "feature_not_enabled": "Cumasaigh an ghné turgnamhach LLM i Socruithe → Ardleibhéil → Gnéithe turgnamhacha chun comhtháthú AI a úsáid.",
     "mcp_title": "MCP (Prótacal Comhthéacs Múnla)",
     "mcp_enabled": "Freastalaí MCP",
@@ -2986,7 +2983,6 @@
     "checkbox-tooltip": "Cliceáil ar dheis nó brúigh {{- shortcut}} chun an stát a athrú.",
     "edit-states-tooltip": "Cuir stáit tascanna in eagar",
     "unknown-task-state": "Stádas tasc saincheaptha neamhshainithe",
-    "task-state-dropped": "Sainmhíniú stádais tasc saincheaptha \"{{title}}\" ({{id}}) curtha ar leataobh mar gheall ar: {{reason}}",
     "validation-errors": {
       "undefined-name": "aitheantóir neamhshainithe",
       "invalid-name": "aitheantóir neamhbhailí",
@@ -3114,12 +3110,7 @@
     "drop_or_browse_single": "Tarraing agus scaoil comhad anseo, nó cliceáil chun brabhsáil",
     "drop_or_browse_multiple": "Tarraing agus scaoil comhaid anseo, nó cliceáil chun brabhsáil",
     "browse_single": "Tapáil chun comhad a roghnú",
-    "browse_multiple": "Tapáil chun comhaid a roghnú",
-    "selected_one": "{{count}} comhad roghnaithe",
-    "selected_two": "{{count}} comhaid roghnaithe",
-    "selected_few": "{{count}} comhaid roghnaithe",
-    "selected_many": "{{count}} comhaid roghnaithe",
-    "selected_other": "{{count}} comhaid roghnaithe"
+    "browse_multiple": "Tapáil chun comhaid a roghnú"
   },
   "notion_import": {
     "name": "Notion",

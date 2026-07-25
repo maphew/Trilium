@@ -2496,7 +2496,6 @@
     "web_search": "联网搜索",
     "sources": "来源",
     "extended_thinking": "延伸思考",
-    "legacy_models": "传统模型",
     "thinking": "正在思考...",
     "thought_process": "思考过程",
     "tool_calls": "{{count}} 次工具调用",
@@ -2603,13 +2602,11 @@
     "configured_providers": "已配置的提供商",
     "no_providers_configured": "尚未配置任何提供商。",
     "provider_name": "名称",
-    "provider_type": "提供商",
     "actions": "操作",
     "delete_provider": "删除",
     "delete_provider_confirmation": "确定要删除提供商 \"{{name}}\"?",
     "api_key": "API 密钥",
     "api_key_placeholder": "输入你的 API 密钥",
-    "cancel": "取消",
     "mcp_title": "MCP（模型上下文协议）",
     "mcp_enabled": "MCP 服务器",
     "mcp_enabled_description": "对外暴露一个模型上下文协议（MCP）端点，让 AI 编程助手（如 Claude Code、GitHub Copilot）能够读取和修改你的笔记。该端点仅限本地访问。",
@@ -2874,7 +2871,6 @@
     "checkbox-tooltip": "单击右键或按下 {{- shortcut}} 修改状态。",
     "edit-states-tooltip": "编辑任务状态",
     "unknown-task-state": "未定义的自定义任务状态",
-    "task-state-dropped": "自定义任务状态定义“{{title}}”({{id}}) 因以下原因被丢弃：{{reason}}",
     "validation-errors": {
       "undefined-name": "未定义的标识符",
       "invalid-name": "无效的标识符",
@@ -3023,8 +3019,7 @@
     "drop_or_browse_single": "将文件拖拽至此处，或点击浏览选择文件",
     "drop_or_browse_multiple": "将多个文件拖拽至此，或点击浏览选取文件",
     "browse_single": "点击选择文件",
-    "browse_multiple": "点击选择多个文件",
-    "selected_other": "已选中 {{count}} 个文件"
+    "browse_multiple": "点击选择多个文件"
   },
   "anytype_import": {
     "name": "Anytype",
