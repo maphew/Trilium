@@ -453,7 +453,8 @@ function parseEnVar(node: HTMLElement, name: string): string | undefined {
     return (node.getAttribute("style") ?? "").match(new RegExp(`${name}\\s*:\\s*([^;]+)`))?.[1]?.trim();
 }
 
-function isTag(node: HTMLElement, tag: string): boolean {
-    return node.tagName?.toLowerCase() === tag;
+/** Accepts null so callers can pass a `parentNode` directly: a missing node is simply not that tag. */
+function isTag(node: HTMLElement | null, tag: string): boolean {
+    return node?.tagName?.toLowerCase() === tag;
 }
 // #endregion
