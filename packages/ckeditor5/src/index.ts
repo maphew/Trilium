@@ -2,6 +2,7 @@ import "ckeditor5/ckeditor5.css";
 // Premium features CSS loaded dynamically with the plugins
 // import 'ckeditor5-premium-features/ckeditor5-premium-features.css';
 import "./theme/code_block_toolbar.css";
+import "./theme/link_embed_form.css";
 import { COMMON_PLUGINS, CORE_PLUGINS, POPUP_EDITOR_PLUGINS } from "./plugins.js";
 import { BalloonEditor, DecoupledEditor, FindAndReplaceEditing, FindCommand } from "ckeditor5";
 import "./translation_overrides.js";

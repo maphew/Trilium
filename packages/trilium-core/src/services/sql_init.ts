@@ -1,4 +1,5 @@
-import { deferred, isDisplayableLocale, OptionRow } from "@triliumnext/commons";
+import { deferred, isDisplayableLocale, OptionRow, setDayjsLocale } from "@triliumnext/commons";
+import i18next from "i18next";
 import { getSql } from "./sql";
 import { getLog } from "./log";
 import { getBackup } from "./backup";
@@ -131,12 +132,14 @@ async function createInitialDatabase(skipDemoDb?: boolean, locale?: string) {
     let rootNote!: BNote;
 
     // We have to import async since options init requires keyboard actions which require translations.
-    const { initDocumentOptions, initNotSyncedOptions, initStartupOptions } = await import("./options_init.js");
+    const { initDocumentOptions, initNewDocumentOptions, initNotSyncedOptions, initStartupOptions } = await import("./options_init.js");
     const { load: loadBecca } = await import("../becca/becca_loader.js");
 
     const sql = getSql();
     const log = getLog();
     sql.transactional(() => {
+        wipePartialSchema();
+
         log.info("Creating database schema ...");
         sql.executeScript(schema);
 
@@ -163,6 +166,9 @@ async function createInitialDatabase(skipDemoDb?: boolean, locale?: string) {
         // Bring in option init.
         initDocumentOptions();
         initNotSyncedOptions(true, {});
+        // Only on this path, and never in `createDatabaseForSync`: these defaults are synced, so on a
+        // database created for sync they would overwrite the server's values (see #10626).
+        initNewDocumentOptions();
         initStartupOptions();
         // Persist the language chosen during setup, overriding the default ("en").
         if (isDisplayableLocale(locale)) {
@@ -170,6 +176,12 @@ async function createInitialDatabase(skipDemoDb?: boolean, locale?: string) {
         }
         passwordService.resetPassword();
     });
+
+    // Persisting the `locale` option above only records the choice in the DB; it does not switch the
+    // active i18next language. Switch it now, before `checkHiddenSubtree` builds the built-in titles,
+    // otherwise every system note (Options, Launch Bar, templates, Help) is created in English regardless
+    // of the language selected during setup.
+    await applySetupLanguage(locale);
 
     // Check hidden subtree.
     // This ensures the existence of system templates, for the demo content.
@@ -224,6 +236,24 @@ async function createInitialDatabase(skipDemoDb?: boolean, locale?: string) {
     log.info("Database initialization completed, emitted DB_INITIALIZED event");
 }
 
+/**
+ * Applies the display language chosen during initial setup to the running i18next (and dayjs) instance.
+ *
+ * `createInitialDatabase` persists the choice as the `locale` option, but that is only a DB write: because
+ * `initTranslations` runs before `initSql` inside `initializeCore` (options_init needs translations),
+ * i18next is still on the boot default "en" at setup time. Switching here, before the hidden subtree is
+ * built, ensures the built-in note titles are generated in the selected language. Undefined or
+ * non-displayable locales are ignored so the default is kept.
+ */
+export async function applySetupLanguage(locale: string | undefined) {
+    if (!isDisplayableLocale(locale)) {
+        return;
+    }
+
+    await i18next.changeLanguage(locale);
+    await setDayjsLocale(locale);
+}
+
 async function createDatabaseForSync(options: OptionRow[], syncServerHost = "", syncProxy = "", syncMaxBlobContentSize = 0) {
     const log = getLog();
     const sql = getSql();
@@ -237,6 +267,8 @@ async function createDatabaseForSync(options: OptionRow[], syncServerHost = "", 
     const { initNotSyncedOptions } = await import("./options_init.js");
 
     sql.transactional(() => {
+        wipePartialSchema();
+
         sql.executeScript(schema);
 
         initNotSyncedOptions(false, { syncServerHost, syncProxy, syncMaxBlobContentSize });
@@ -248,6 +280,30 @@ async function createDatabaseForSync(options: OptionRow[], syncServerHost = "", 
     });
 
     log.info("Schema and not synced options generated.");
+}
+
+/**
+ * Drops every table and view left behind by a FAILED sync-from-server attempt (schema
+ * created, sync never converged, `initialized` still false — see #10548). From that state
+ * the setup wizard lets the user take any path again: resubmit the sync form, sync from a
+ * desktop, or create a new document — all of which rebuild the schema and must start from
+ * a clean slate, since the partially pulled rows may even belong to a different server.
+ * No-op on a virgin database.
+ */
+function wipePartialSchema() {
+    if (!schemaExists()) {
+        return;
+    }
+
+    getLog().info("Schema exists from a previous unfinished setup — wiping it before re-creating.");
+
+    const sql = getSql();
+    const objects = sql.getRows<{ name: string; type: string }>(
+        /*sql*/`SELECT name, type FROM sqlite_master WHERE type IN ('table', 'view') AND name NOT LIKE 'sqlite_%'`
+    );
+    for (const { name, type } of objects) {
+        sql.execute(`DROP ${type === "view" ? "VIEW" : "TABLE"} IF EXISTS "${name.replace(/"/g, '""')}"`);
+    }
 }
 
 export default { isDbInitialized, createDatabaseForSync, setDbAsInitialized, schemaExists, getDbSize, initDbConnection, dbReady, initializeDb, createInitialDatabase };

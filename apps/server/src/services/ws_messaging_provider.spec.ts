@@ -54,7 +54,7 @@ vi.mock("@triliumnext/core", async () => {
     return { getLog: () => getLogMock, shouldLogMessage };
 });
 
-import WebSocketMessagingProvider from "./ws_messaging_provider.js";
+import WebSocketMessagingProvider, { isHttpAttachableMessagingProvider } from "./ws_messaging_provider.js";
 
 function makeSocket(readyState = OPEN) {
     const handlers: Record<string, Handler> = {};
@@ -92,10 +92,20 @@ describe("WebSocketMessagingProvider", () => {
         vi.restoreAllMocks();
     });
 
+    it("is recognised as HTTP-attachable (the capability www.ts gates the WS server on)", () => {
+        expect(isHttpAttachableMessagingProvider(provider)).toBe(true);
+        // A plain IPC-style provider without attachToHttpServer must not qualify.
+        expect(isHttpAttachableMessagingProvider({
+            sendMessageToAllClients() {},
+            sendMessageToClient: () => false,
+            setClientMessageHandler() {}
+        })).toBe(false);
+    });
+
     function init() {
         const httpServer = {} as any;
         const sessionParser = vi.fn((_req: any, _params: any, cb: () => void) => cb());
-        provider.init(httpServer, sessionParser as any);
+        provider.attachToHttpServer(httpServer, sessionParser as any);
         return { server: state.instances[0], sessionParser };
     }
 

@@ -60,6 +60,16 @@ export function createAnchorFromSelection(root: HTMLElement, range: Range): Omit
     };
 }
 
+/** The prose root of a rendered message — the element a message's anchors resolve against. */
+export function findMessageContentRoot(container: HTMLElement, messageId: string): HTMLElement | null {
+    // Match on the parsed dataset value rather than an attribute selector: persisted/imported chats
+    // may carry ids with characters that would make a selector invalid and throw.
+    for (const el of container.querySelectorAll<HTMLElement>("[data-message-id]")) {
+        if (el.dataset.messageId === messageId) return el.querySelector<HTMLElement>(".llm-chat-message-content");
+    }
+    return null;
+}
+
 /** Resolve a stored anchor to a live {@link Range} within `root`, or `null` if it can't be located. */
 export function resolveAnchorRange(root: HTMLElement, anchor: HighlightAnchor): Range | null {
     const projection = buildProseProjection(root);

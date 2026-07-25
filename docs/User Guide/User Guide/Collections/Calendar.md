@@ -60,7 +60,44 @@ In the _Collections_ tab in the <a class="reference-link" href="../Basic%20Conc
 
 The following attributes can be added to the Collection type:
 
-<table><thead><tr><th>Name</th><th>Description</th></tr></thead><tbody><tr><td><code spellcheck="false">#calendar:hideWeekends</code></td><td>When present (regardless of value), it will hide Saturday and Sundays from the calendar.</td></tr><tr><td><code spellcheck="false">#calendar:weekNumbers</code></td><td>When present (regardless of value), it will show the number of the week on the calendar.</td></tr><tr><td><code spellcheck="false">#calendar:initialDate</code></td><td>Change the date the calendar opens on. When not present, the calendar opens on the current date.</td></tr><tr><td><code spellcheck="false">#calendar:view</code></td><td><p>Which view to display in the calendar:</p><ul><li data-list-item-id="e2cd230dc41f41fe91ee74d7d1fa87381"><code spellcheck="false">timeGridDay</code> for the <em>day</em> view;</li><li data-list-item-id="e2cd230dc41f41fe91ee74d7d1fa87372"><code spellcheck="false">timeGridWeek</code> for the <em>week</em> view;</li><li data-list-item-id="eee1dba4c6cc51ebd53d0a0dd52044cd6"><code spellcheck="false">dayGridMonth</code> for the <em>month</em> view;</li><li data-list-item-id="ed8721a76a1865dac882415f662ed45b9"><code spellcheck="false">multiMonthYear</code> for the <em>year</em> view;</li><li data-list-item-id="edf09a13759102d98dac34c33eb690c05"><code spellcheck="false">listMonth</code> for the <em>list</em> view.</li></ul><p>Any other value will be dismissed and the default view (month) will be used instead.</p><p>The value of this label is automatically updated when changing the view using the UI buttons.</p></td></tr><tr><td><code spellcheck="false">#calendar:slotDuration</code></td><td>Sets how long each timeslot is on the calendar. Defaults to <code spellcheck="false">00:15:00</code> (15 minutes). Must have the format "HH:MM:SS". For example, to create timeslots for every 10 minutes, you would set <code spellcheck="false">#calendar:slotDuration="00:10:00"</code>.</td></tr><tr><td><code spellcheck="false">#calendar:slotLabelInterval</code></td><td>Sets how often the timeslots on the calendar should be labeled. Defaults to <code spellcheck="false">01:00:00</code> (1 hour). Must have the format "HH:MM:SS". For example, to label timeslots every 30 minutes, you would set <code spellcheck="false">#calendar:slotLabelInterval="00:30:00"</code>.</td></tr><tr><td><code spellcheck="false">~child:template</code></td><td>Defines the template for newly created notes in the calendar (via dragging or clicking).</td></tr></tbody></table>
+<table>
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Description</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><code spellcheck="false">#calendar:hideWeekends</code></td>
+            <td>When present (regardless of value), it will hide Saturday and Sundays from the calendar.</td>
+        </tr>
+        <tr>
+            <td><code spellcheck="false">#calendar:weekNumbers</code></td>
+            <td>When present (regardless of value), it will show the number of the week on the calendar.</td>
+        </tr>
+        <tr>
+            <td><code spellcheck="false">#calendar:initialDate</code></td>
+            <td>Change the date the calendar opens on. When not present, the calendar opens on the current date.</td>
+        </tr>
+        <tr>
+            <td><code spellcheck="false">#calendar:view</code></td>
+            <td><p>Which view to display in the calendar:</p><ul><li><code spellcheck="false">timeGridDay</code> for the <em>day</em> view;</li><li><code spellcheck="false">timeGridWeek</code> for the <em>week</em> view;</li><li><code spellcheck="false">dayGridMonth</code> for the <em>month</em> view;</li><li><code spellcheck="false">multiMonthYear</code> for the <em>year</em> view;</li><li><code spellcheck="false">listMonth</code> for the <em>list</em> view.</li></ul><p>Any other value will be dismissed and the default view (month) will be used instead.</p><p>The value of this label is automatically updated when changing the view using the UI buttons.</p></td>
+        </tr>
+        <tr>
+            <td><code spellcheck="false">#calendar:slotDuration</code></td>
+            <td>Sets how long each timeslot is on the calendar. Defaults to <code spellcheck="false">00:15:00</code> (15 minutes). Must have the format "HH:MM:SS". For example, to create timeslots for every 10 minutes, you would set <code spellcheck="false">#calendar:slotDuration="00:10:00"</code>.</td>
+        </tr>
+        <tr>
+            <td><code spellcheck="false">#calendar:slotLabelInterval</code></td>
+            <td>Sets how often the timeslots on the calendar should be labeled. Defaults to <code spellcheck="false">01:00:00</code> (1 hour). Must have the format "HH:MM:SS". For example, to label timeslots every 30 minutes, you would set <code spellcheck="false">#calendar:slotLabelInterval="00:30:00"</code>.</td>
+        </tr>
+        <tr>
+            <td><code spellcheck="false">~child:template</code></td>
+            <td>Defines the template for newly created notes in the calendar (via dragging or clicking).</td>
+        </tr>
+    </tbody>
+</table>
 
 In addition, the first day of the week can be either Sunday or Monday and can be adjusted from the application settings.
 
@@ -194,7 +231,20 @@ By default, events are displayed on the calendar by their note title. However, i
 
 To do so, assign `#calendar:title` to the child note (not the calendar/Collection note), with the value being `name` where `name` can be any label (make not to add the `#` prefix). The attribute can also come through inheritance such as a template attribute. If the note does not have the requested label, the title of the note will be used instead.
 
-<table><thead><tr><th>&nbsp;</th><th>&nbsp;</th></tr></thead><tbody><tr><td><pre><code class="language-text-x-trilium-auto">#startDate=2025-02-11 #endDate=2025-02-13 #name="My vacation" #calendar:title="name"</code></pre></td><td><p>&nbsp;</p><figure class="image image-style-align-center"><img style="aspect-ratio:445/124;" src="3_Calendar_image.png" width="445" height="124"></figure></td></tr></tbody></table>
+<table>
+    <thead>
+        <tr>
+            <th>&nbsp;</th>
+            <th>&nbsp;</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><pre><code class="language-text-x-trilium-auto">#startDate=2025-02-11 #endDate=2025-02-13 #name="My vacation" #calendar:title="name"</code></pre></td>
+            <td><p>&nbsp;</p><figure class="image image-style-align-center"><img style="aspect-ratio:445/124;" src="3_Calendar_image.png" width="445" height="124"></figure></td>
+        </tr>
+    </tbody>
+</table>
 
 ### Using a relation attribute as event title
 
@@ -202,8 +252,34 @@ Similarly to using an attribute, use `#calendar:title` and set it to `name` wher
 
 Moreover, if there are more relations of the same name, they will be displayed as multiple events coming from the same note.
 
-<table><thead><tr><th>&nbsp;</th><th>&nbsp;</th></tr></thead><tbody><tr><td><pre><code class="language-text-x-trilium-auto">#startDate=2025-02-14 #endDate=2025-02-15 ~for=@John Smith ~for=@Jane Doe #calendar:title="for"</code></pre></td><td><img src="4_Calendar_image.png" width="294" height="151"></td></tr></tbody></table>
+<table>
+    <thead>
+        <tr>
+            <th>&nbsp;</th>
+            <th>&nbsp;</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><pre><code class="language-text-x-trilium-auto">#startDate=2025-02-14 #endDate=2025-02-15 ~for=@John Smith ~for=@Jane Doe #calendar:title="for"</code></pre></td>
+            <td><img src="4_Calendar_image.png" width="294" height="151"></td>
+        </tr>
+    </tbody>
+</table>
 
 Note that it's even possible to have a `#calendar:title` on the target note (e.g. “John Smith”) which will try to render an attribute of it. Note that it's not possible to use a relation here as well for safety reasons (an accidental recursion  of attributes could cause the application to loop infinitely).
 
-<table><thead><tr><th>&nbsp;</th><th>&nbsp;</th></tr></thead><tbody><tr><td><pre><code class="language-text-x-trilium-auto">#calendar:title="shortName" #shortName="John S."</code></pre></td><td><figure class="image image-style-align-center"><img style="aspect-ratio:296/150;" src="1_Calendar_image.png" width="296" height="150"></figure></td></tr></tbody></table>
+<table>
+    <thead>
+        <tr>
+            <th>&nbsp;</th>
+            <th>&nbsp;</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td><pre><code class="language-text-x-trilium-auto">#calendar:title="shortName" #shortName="John S."</code></pre></td>
+            <td><figure class="image image-style-align-center"><img style="aspect-ratio:296/150;" src="1_Calendar_image.png" width="296" height="150"></figure></td>
+        </tr>
+    </tbody>
+</table>

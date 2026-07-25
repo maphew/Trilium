@@ -173,7 +173,7 @@ export function sanitizeSvg(svg: string): string {
 export function getContentDisposition(filename: string) {
     const sanitizedFilename = sanitizeFileName(filename).trim() || "file";
     const uriEncodedFilename = encodeURIComponent(sanitizedFilename);
-    return `file; filename="${uriEncodedFilename}"; filename*=UTF-8''${uriEncodedFilename}`;
+    return `attachment; filename="${uriEncodedFilename}"; filename*=UTF-8''${uriEncodedFilename}`;
 }
 
 export function formatDownloadTitle(fileName: string, type: string | null, mime: string) {
@@ -285,6 +285,7 @@ export function removeFileExtension(filePath: string, mime?: string) {
         case ".pdf":
         case ".xlsx":
         case ".csv":
+        case ".triliumsheet":
             return filePath.substring(0, filePath.length - extension.length);
         default:
             return filePath;

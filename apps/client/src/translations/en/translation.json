@@ -45,7 +45,7 @@
     },
     "widget-missing-parent": "Custom widget does not have mandatory '{{property}}' property defined.\n\nIf this script is meant to be run without a UI element, use '#run=frontendStartup' instead.",
     "open-script-note": "Open script note",
-    "scripting-error": "Custom script error: {{title}}"
+    "scripting-error": "The script note failed to run"
   },
   "add_link": {
     "add_link": "Add link",
@@ -250,8 +250,7 @@
     "drop_or_browse_multiple": "Drag and drop files here, or click to browse",
     "browse_single": "Tap to choose a file",
     "browse_multiple": "Tap to choose files",
-    "selected_one": "{{count}} file selected",
-    "selected_other": "{{count}} files selected"
+    "remove_file": "Remove file"
   },
   "import_provider": {
     "choose_provider": "Choose a service above to import from."
@@ -262,8 +261,11 @@
     "connect_description": "Sign in with your Microsoft account to import your OneNote notebooks.",
     "connect": "Sign in with Microsoft",
     "section_heading": "Microsoft OneNote",
-    "checking": "Checking your OneNote connection…",
+    "checking": "Connecting to OneNote…",
     "connecting": "Waiting for sign-in to complete…",
+    "device_instructions": "Open the Microsoft sign-in page and enter this code:",
+    "device_open_page": "Open the sign-in page",
+    "device_cancel": "Cancel sign-in",
     "connected_as": "Connected as {{name}}",
     "disconnect": "Disconnect",
     "load_failed": "Could not load your OneNote notebooks.",
@@ -271,6 +273,8 @@
     "select_sections": "Select the sections to import",
     "select_sections_hint": "OneNote doesn't include the original ordering in the import data, so sections and groups are sorted by creation date and may not match how they appear in OneNote.",
     "import": "Import selected",
+    "import_count_one": "Import {{count}} section",
+    "import_count_other": "Import {{count}} sections",
     "attach_source": "Attach original HTML (debug)",
     "attach_source_hint": "Saves each page's unmodified OneNote HTML as an attachment on the imported note, for comparing against the converted result."
   },
@@ -417,11 +421,20 @@
   },
   "recent_changes": {
     "title": "Recent changes",
+    "deleted_notes_title": "Deleted notes",
+    "title_with_ancestor": "{{- title}} - {{- ancestorTitle}}",
     "erase_notes_button": "Erase deleted notes now",
+    "more_actions": "More actions",
+    "deleted_notes_settings": "Deleted Notes Settings",
     "deleted_notes_message": "Deleted notes have been erased.",
     "no_changes_message": "No changes yet...",
+    "no_deleted_notes_message": "There are no deleted notes to show.",
+    "no_deleted_notes_erasure_hint": "Deleted notes are kept for {{- duration}} before being permanently erased.",
     "undelete_link": "undelete",
-    "confirm_undelete": "Do you want to undelete this note and its sub-notes?"
+    "confirm_undelete": "Do you want to undelete this note and its sub-notes?",
+    "confirm_undelete_to_default_location": "The parent of this note no longer exists, so it can't be restored to its original location. Restore it to the default location for new notes instead?",
+    "undeleted_to_default_location": "Its original location no longer exists, so the note was restored to \"{{- title}}\".",
+    "undelete_failed": "The note could not be restored — it may have been permanently erased."
   },
   "revisions": {
     "note_revisions": "Note Revisions",
@@ -696,6 +709,11 @@
     "undelete_notes_instruction": "After the deletion, it's possible to undelete them from Recent Changes dialog.",
     "erase_notes_instruction": "To erase notes permanently, you can go after the deletion to the Option -> Other and click the \"Erase deleted notes now\" button."
   },
+  "save_revision": {
+    "save_revision": "Save revision",
+    "revision_name_placeholder": "Revision name (optional)",
+    "help": "A named revision will be saved for each matched note, capturing its current content and title."
+  },
   "delete_revisions": {
     "delete_note_revisions": "Delete note revisions",
     "all_past_note_revisions": "All past note revisions of matched notes will be deleted. Note itself will be fully preserved. In other terms, note's history will be removed."
@@ -708,6 +726,16 @@
     "move_note_new_parent": "move note to the new parent if note has only one parent (i.e. the old branch is removed and new branch into the new parent is created)",
     "clone_note_new_parent": "clone note to the new parent if note has multiple clones/branches (it's not clear which branch should be removed)",
     "nothing_will_happen": "nothing will happen if note cannot be moved to the target note (i.e. this would create a tree cycle)"
+  },
+  "convert_note": {
+    "convert_note": "Convert",
+    "convert_note_to": "Convert note",
+    "choose_conversion": "(choose a conversion)",
+    "conversion_htmlToMarkdown": "Text Notes → Markdown Notes (lossy)",
+    "conversion_markdownToHtml": "Markdown Notes → Text Notes",
+    "help_text": "The conversion is applied only to notes matching the source type; other notes are left untouched. A revision of each converted note is saved beforehand.",
+    "warning": "Some formatting may be lost when converting notes and you may need to fix a few things afterwards. A revision of each converted note will be saved beforehand so you can restore it. Do you want to continue?",
+    "warning_risky": "You are converting between two formats that don't have identical capabilities, so some formatting may be lost and some unsupported elements may be dropped.<br><br>Do you fully assume this risk and want to proceed with the conversion?<br><br>A revision of each converted note will be saved beforehand, so you can revert to the original format."
   },
   "rename_note": {
     "rename_note": "Rename note",
@@ -843,6 +871,7 @@
     "zoom_in": "Zoom In",
     "configure_launchbar": "Configure Launchbar",
     "show_shared_notes_subtree": "Show Shared Notes Subtree",
+    "show_deleted_notes": "Show Deleted Notes",
     "advanced": "Advanced",
     "open_dev_tools": "Open Dev Tools",
     "open_sql_console": "Open SQL Console",
@@ -908,6 +937,12 @@
     "convert_into_attachment_failed": "Converting note '{{title}}' failed.",
     "convert_into_attachment_successful": "Note '{{title}}' has been converted to attachment.",
     "convert_into_attachment_prompt": "Are you sure you want to convert note '{{title}}' into an attachment of the parent note?",
+    "convert_to_markdown": "Convert to Markdown Note",
+    "convert_to_text": "Convert to Text Note",
+    "convert_format_warning": "Some formatting may be lost during the conversion and you may need to fix a few things afterwards. A revision of the current note will be saved beforehand so you can restore it. Do you want to continue?",
+    "convert_format_warning_risky": "You are converting between two formats that don't have identical capabilities, so some formatting may be lost and some unsupported elements may be dropped.<br><br>Do you fully assume this risk and want to proceed with the conversion?<br><br>A revision of the current note will be saved beforehand, so you can revert to the original format.",
+    "convert_to_markdown_successful": "Note has been converted to Markdown.",
+    "convert_to_text_successful": "Note has been converted to a text note.",
     "print_pdf": "Export as PDF...",
     "export_as_image": "Export as image",
     "export_as_image_png": "PNG (raster)",
@@ -966,7 +1001,28 @@
     "next": "Next image: {{- title}}"
   },
   "image_viewer": {
-    "loading_error": "There was an error loading the image."
+    "loading_error": "There was an error loading the image.",
+    "hints": {
+      "zoom": "Zoom",
+      "zoom_in": "Zoom in",
+      "zoom_out": "Zoom out",
+      "reset_zoom": "Reset zoom",
+      "pan": "Pan",
+      "pan_up": "Up",
+      "pan_down": "Down",
+      "pan_left": "Left",
+      "pan_right": "Right",
+      "pan_fast": "Faster panning",
+      "navigation": "Navigation",
+      "next_image": "Next image",
+      "previous_image": "Previous image",
+      "first_image": "First image",
+      "last_image": "Last image"
+    }
+  },
+  "shortcut_hints": {
+    "show_button": "Show shortcut hints",
+    "esc_hint": "to close"
   },
   "zpetne_odkazy": {
     "backlink_one": "{{count}} Backlink",
@@ -1254,6 +1310,14 @@
     "show_details": "Show details",
     "last_valid_render": "Showing last valid render"
   },
+  "icon_pack": {
+    "preview_title": "Icon pack preview",
+    "invalid_manifest": "The icon pack manifest could not be parsed. Check that it is valid JSON.",
+    "no_icons": "This icon pack contains no icons.",
+    "tooltip": "Class: {{- class}}\nGlyph code: {{- code}}\nTerms: {{- terms}}",
+    "count_one": "{{count}} icon",
+    "count_other": "{{count}} icons"
+  },
   "editable_text": {
     "placeholder": "Type the content of your note here...",
     "editor_crashed_title": "The text editor crashed",
@@ -1278,17 +1342,18 @@
     "too_big": "The preview only shows the first {{maxNumChars}} characters of the file for performance reasons. Download the file and open it externally to be able to see the entire content."
   },
   "media": {
-    "play": "Play (Space)",
-    "pause": "Pause (Space)",
-    "seek": "Seek (Left/Right arrow keys)",
-    "back-10s": "Back 10s (Left arrow key)",
-    "forward-10s": "Forward 10s (Right arrow key)",
+    "play": "Play",
+    "activate": "Play {{- title}}",
+    "pause": "Pause",
+    "seek": "Seek",
+    "back-10s": "Back 10s",
+    "forward-10s": "Forward 10s",
     "previous-video": "Previous video: {{- title}}",
     "next-video": "Next video: {{- title}}",
     "previous-audio": "Previous audio: {{- title}}",
     "next-audio": "Next audio: {{- title}}",
-    "mute": "Mute (M)",
-    "unmute": "Unmute (M)",
+    "mute": "Mute",
+    "unmute": "Unmute",
     "playback-speed": "Playback speed",
     "play-mode-title": "Play mode: {{mode}}",
     "play-mode-once": "Play once",
@@ -1297,11 +1362,24 @@
     "rotate": "Rotate",
     "picture-in-picture": "Picture-in-picture",
     "exit-picture-in-picture": "Exit picture-in-picture",
-    "fullscreen": "Fullscreen (F)",
+    "fullscreen": "Fullscreen",
     "exit-fullscreen": "Exit fullscreen",
     "unsupported-format": "Media preview is not available for this file format:\n{{mime}}",
     "zoom-to-fit": "Zoom to fill",
-    "zoom-reset": "Reset zoom to fill"
+    "zoom-reset": "Reset zoom to fill",
+    "hints": {
+      "playback": "Playback",
+      "play_pause": "Play/Pause",
+      "back_10s": "Back 10s",
+      "forward_10s": "Forward 10s",
+      "jump_start": "Jump to start",
+      "jump_end": "Jump to end",
+      "mute": "Mute",
+      "fullscreen": "Fullscreen",
+      "navigation": "Navigation",
+      "previous": "Previous",
+      "next": "Next"
+    }
   },
   "protected_session": {
     "enter_password_instruction": "Showing protected note requires entering your password:",
@@ -1337,7 +1415,10 @@
     "setup_create_sample_html": "Create sample note with HTML",
     "setup_sample_created": "A sample note was created as a child note.",
     "disabled_description": "This render notes comes from an external source. To protect you from malicious content, it is not enabled by default. Make sure you trust the source before enabling it.",
-    "disabled_button_enable": "Enable render note"
+    "disabled_button_enable": "Enable render note",
+    "error_title": "The script note failed to run",
+    "error_show_details": "Show details",
+    "error_note_label": "Script note:"
   },
   "web_view_setup": {
     "title": "Create a live view of a webpage directly into Trilium",
@@ -1481,6 +1562,11 @@
     "color_scheme_light": "Light",
     "color_scheme_dark": "Dark",
     "color_scheme_custom_disabled": "Color scheme override is not available for custom themes",
+    "color_scheme_switcher_system": "System mode",
+    "color_scheme_switcher_light": "Light mode",
+    "color_scheme_switcher_dark": "Dark mode",
+    "color_scheme_switcher_hint": "Click to switch the color scheme.",
+    "color_scheme_switcher_unsupported": "The current theme doesn't support changing the color scheme.",
     "layout": "Layout",
     "layout-vertical-title": "Vertical",
     "layout-horizontal-title": "Horizontal",
@@ -1493,6 +1579,8 @@
     "enable-shadows": "Shadows",
     "enable-backdrop-effects": "Background effects for menus, popups and panels",
     "enable-smooth-scroll": "Smooth scrolling",
+    "enable-hardware-acceleration": "Hardware acceleration (GPU)",
+    "enable-hardware-acceleration-description": "Disable this if the app shows a blank window or has display glitches caused by your GPU drivers. Requires an app restart.",
     "app-restart-required": "Requires app restart"
   },
   "zoom_factor": {
@@ -1548,6 +1636,7 @@
     "batch_ocr_starting": "Starting batch processing...",
     "batch_ocr_progress": "Processing {{processed}} of {{total}} files...",
     "batch_ocr_completed": "Batch processing completed! Processed {{processed}} files.",
+    "batch_ocr_completed_with_failures": "Batch processing completed. Processed {{processed}} files, but {{failed}} could not be read (see logs for details).",
     "batch_ocr_error": "Error during batch processing: {{error}}"
   },
   "attachment_erasure_timeout": {
@@ -1753,9 +1842,9 @@
     "sql_console_label": "SQL console",
     "sql_console_description": "Allow execution of queries in the SQL console.",
     "lan_access_title": "Network access",
-    "lan_access_section_description": "By default the desktop app only accepts connections from this computer. Allow access from your local network so other devices can connect to it — for example to sync from another device. Only enable this on networks you trust.",
-    "lan_access_label": "Allow connections from other devices",
-    "lan_access_description": "Bind the server to all network interfaces instead of localhost only.",
+    "lan_access_section_description": "By default the desktop app is self-contained: the app and your shared notes aren't served over the network, and only local integrations (web clipper, MCP, ETAPI) can reach it from this computer. Enable this to open the app and shared notes in a browser, and to let other devices connect — for example, to sync. Only enable this on networks you trust.",
+    "lan_access_label": "Allow web and network access",
+    "lan_access_description": "Serves the app, shared notes and live updates over HTTP — reachable from a browser on this computer and from other devices on your network. When off, only local integrations (web clipper, MCP, ETAPI) remain reachable.",
     "how_to_enable": "How to enable",
     "server_config_hint": "Add the following to your config.ini file:",
     "server_env_hint": "Or set the following environment variable:",
@@ -1870,6 +1959,7 @@
     "oauth_disconnected": "Disconnected {{account}} from {{provider}}.",
     "oauth_connect_success": "Connected to {{provider}} as {{account}}.",
     "oauth_connect_success_generic": "Account connected successfully.",
+    "oauth_connect_failed": "Could not connect to the OpenID provider",
     "oauth_account_unknown": "your account"
   },
   "shortcuts": {
@@ -1900,6 +1990,23 @@
     "conflicts_badge_one": "{{count}} conflict",
     "conflicts_badge_other": "{{count}} conflicts",
     "conflicts_badge_tooltip": "Some shortcuts are assigned to more than one action. Click to show only the conflicting shortcuts."
+  },
+  "keyboard_shortcut_keys": {
+    "ctrl": "Ctrl",
+    "alt": "Alt",
+    "shift": "Shift",
+    "meta": "Meta",
+    "enter": "Enter",
+    "escape": "Esc",
+    "delete": "Delete",
+    "backspace": "Backspace",
+    "space": "Space",
+    "tab": "Tab",
+    "home": "Home",
+    "end": "End",
+    "page_up": "Page Up",
+    "page_down": "Page Down",
+    "insert": "Insert"
   },
   "spellcheck": {
     "title": "Spell Check",
@@ -2052,7 +2159,10 @@
     "sources": "Sources",
     "sources_summary": "{{count}} sources from {{sites}} sites",
     "extended_thinking": "Extended thinking",
-    "legacy_models": "Legacy models",
+    "model_cost_included": "Subscription",
+    "no_models_selected": "No models selected — click the pencil to choose",
+    "no_model_selected": "Select a model",
+    "edit_models": "Edit models",
     "thinking": "Thinking...",
     "thought_process": "Thought process",
     "tool_calls": "{{count}} tool call(s)",
@@ -2074,6 +2184,7 @@
     "note_context_disabled": "Click to include current note in context",
     "no_provider_message": "No AI provider configured. Add one to start chatting.",
     "add_provider": "Add AI Provider",
+    "free": "Free",
     "stop": "Stop",
     "retry": "Retry",
     "scroll_to_bottom": "Scroll to latest",
@@ -2229,9 +2340,6 @@
     "search_not_executed": "Search has not been executed yet.",
     "search_now": "Search now"
   },
-  "spacer": {
-    "configure_launchbar": "Configure Launchbar"
-  },
   "sql_result": {
     "not_executed": "The query has not been executed yet.",
     "no_rows": "No rows have been returned for this query",
@@ -2304,7 +2412,12 @@
   },
   "frontend_script_api": {
     "async_warning": "You're passing an async function to `api.runOnBackend()` which will likely not work as you intended.\\nEither make the function synchronous (by removing `async` keyword), or use `api.runAsyncOnBackendWithManualTransactionHandling()`.",
-    "sync_warning": "You're passing a synchronous function to `api.runAsyncOnBackendWithManualTransactionHandling()`,\\nwhile you should likely use `api.runOnBackend()` instead."
+    "sync_warning": "You're passing a synchronous function to `api.runAsyncOnBackendWithManualTransactionHandling()`,\\nwhile you should likely use `api.runOnBackend()` instead.",
+    "backend_scripting_disabled_title": "Backend scripting is disabled",
+    "backend_scripting_disabled_message": "A script tried to run code on the server, but backend scripting is turned off for security reasons. Enable it in Options → Security if you trust this script.",
+    "backend_scripting_disabled_notes_heading": "Scripts that tried to run backend code:",
+    "backend_scripting_disabled_open_settings": "Open security settings",
+    "backend_scripting_disabled_more_info": "More info"
   },
   "ws": {
     "sync-check-failed": "Sync check failed!",
@@ -2329,7 +2442,10 @@
     "duplicate-launcher": "Duplicate launcher <kbd data-command=\"duplicateSubtree\">"
   },
   "launcher_button_context_menu": {
-    "remove_from_launch_bar": "Remove from launch bar"
+    "remove_from_launch_bar": "Remove from launch bar",
+    "configure_launch_bar": "Configure launch bar",
+    "launch_bar_orientation": "Launch bar orientation",
+    "will_reload_frontend": "(will reload app)"
   },
   "highlighting": {
     "title": "Code Blocks",
@@ -2386,6 +2502,20 @@
     "failed_to_open": "Failed to open link '{{- href}}': {{- message}}",
     "copy_url": "Copy URL"
   },
+  "link_embed": {
+    "play_video": "Play video",
+    "title": "Link preview",
+    "url": "URL",
+    "insert": "Insert",
+    "display": "Display",
+    "mode_inline": "Inline",
+    "mode_card": "Card",
+    "mode_embed": "Embed",
+    "mode_plain": "Plain link",
+    "edit_title": "Edit title",
+    "title_label": "Title",
+    "save": "Save"
+  },
   "link_context_menu": {
     "open_note_in_new_tab": "Open note in a new tab",
     "open_note_in_new_split": "Open note in a new split",
@@ -2434,6 +2564,16 @@
     "minutes": "Minutes",
     "hours": "Hours",
     "days": "Days"
+  },
+  "time_interval": {
+    "seconds_one": "{{count}} second",
+    "seconds_other": "{{count}} seconds",
+    "minutes_one": "{{count}} minute",
+    "minutes_other": "{{count}} minutes",
+    "hours_one": "{{count}} hour",
+    "hours_other": "{{count}} hours",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days"
   },
   "share": {
     "title": "Share",
@@ -2515,7 +2655,11 @@
     "note_completion_enabled": "Note auto-completion",
     "note_completion_description": "Links to notes can be created by typing `@` followed by the title of a note.",
     "slash_commands_enabled": "Slash commands",
-    "slash_commands_description": "Editing commands such as inserting line breaks or headings can be toggled by typing `/`."
+    "slash_commands_description": "Editing commands such as inserting line breaks or headings can be toggled by typing `/`.",
+    "content_hints_enabled": "Content hints",
+    "content_hints_description": "Show short hints in the bottom corner of the editor that explain how to interact with the element under the caret or pointer.",
+    "auto_link_previews_enabled": "Autogenerate link previews",
+    "auto_link_previews_description": "Automatically turn a detected link into a preview showing the title, description and image of the web page. Inserting a preview from the toolbar always works, regardless of this setting."
   },
   "table_view": {
     "new-row": "New row",
@@ -2631,7 +2775,13 @@
   },
   "modal": {
     "close": "Close",
+    "cancel": "Cancel",
     "help_title": "Display more information about this screen"
+  },
+  "wizard": {
+    "back": "Back",
+    "next": "Next",
+    "step_progress": "Step {{current}} of {{total}}"
   },
   "call_to_action": {
     "next_theme_title": "Try the new Trilium theme",
@@ -2906,7 +3056,8 @@
     "connection-error": "Couldn't reach the server. Check your connection and try again.",
     "sign_in_with_sso": "Sign in with {{ssoIssuerName}}",
     "sso-wrong-account": "That account isn't the one linked to this Trilium instance. Sign in with the linked account.",
-    "sso-not-enrolled": "Single sign-on isn't set up yet. Sign in with your password first, then link your account from the settings."
+    "sso-not-enrolled": "Single sign-on isn't set up yet. Sign in with your password first, then link your account from the settings.",
+    "sso-connection-failed": "Couldn't reach the authentication provider. Try again, or check the server logs for details."
   },
   "set_password": {
     "heading": "Set password",
@@ -2959,7 +3110,12 @@
     "sync-from-desktop-unreachable-description": "To sync, the other desktop has to connect to this one over the network. For security, this desktop app only accepts connections from this computer, so that other desktop can't reach it yet. Allow network access below — Trilium will restart to apply it.",
     "sync-from-desktop-allow-access": "Allow network access & restart",
     "advanced-options": "Advanced options",
-    "sync-failed": "Failed to sync: {{message}}",
+    "sync-failed": "Failed to sync: {{- message}}",
+    "sync-failed-title": "Sync failed",
+    "sync-failed-description": "The initial synchronization could not be completed. You can retry, or go back to check the server address and credentials.",
+    "sync-failed-admonition-title": "The last sync attempt failed",
+    "sync-failed-hint": "This can be caused by a wrong server address, a proxy interfering with the connection, or the server being temporarily unreachable.",
+    "button-retry": "Retry",
     "server-host": "Trilium server address",
     "server-host-placeholder": "https://<hostname>:<port>",
     "server-password": "Password",
@@ -2992,19 +3148,52 @@
     "feature_not_enabled": "Enable the LLM experimental feature in Settings → Advanced → Experimental features to use AI integrations.",
     "add_provider": "Add Provider",
     "add_provider_title": "Add AI Provider",
+    "edit_provider_title": "Edit {{- name}}",
+    "edit_provider": "Edit",
+    "save": "Save",
+    "select_models": "Select models",
+    "models_loading": "Loading models…",
+    "models_load_failed": "Could not load models: {{error}}",
+    "models_none_available": "This provider returned no models.",
+    "models_selected_count": "{{count}} of {{total}} selected",
+    "model_cost_per_mtok": "${{input}} / ${{output}} per Mtok",
+    "models_select_all": "Select all",
+    "models_select_none": "Select none",
+    "models_reset_defaults": "Reset to defaults",
+    "provider_model_count_one": "{{count}} model",
+    "provider_model_count_other": "{{count}} models",
     "configured_providers": "Configured Providers",
     "no_providers_configured": "No providers configured yet.",
     "provider_name": "Name",
-    "provider_type": "Provider",
+    "beta": "Beta",
+    "provider_desc_claude_agent": "Requires Claude Code on the machine running Trilium.",
     "actions": "Actions",
     "delete_provider": "Delete",
     "delete_provider_confirmation": "Are you sure you want to delete the provider \"{{name}}\"?",
     "api_key": "API Key",
     "api_key_placeholder": "Enter your API key",
     "base_url": "Base URL",
-    "base_url_description": "Optional. Override the default API endpoint — useful for self-hosted models (Ollama, LM Studio, vLLM) or proxies.",
+    "base_url_description": "Optional. Reaches the same API through a proxy or gateway. To run a model yourself, add an Ollama or LM Studio provider instead.",
     "base_url_invalid": "Base URL must be a valid http:// or https:// URL",
-    "cancel": "Cancel",
+    "claude_agent_description": "Uses your Claude Pro/Max subscription through Claude Code, so no API key is needed. Claude Code must be installed on the machine running Trilium (the server when self-hosting, or this computer on desktop); sign in once by running \"claude /login\" there.",
+    "add_provider_title_named": "Add {{- name}}",
+    "provider_group_cloud": "Cloud providers",
+    "provider_group_cloud_description": "Pay per use with an API key, billed separately from any subscription you already have. Your notes are sent to the provider's servers.",
+    "provider_group_subscription": "Subscription",
+    "provider_group_subscription_description": "Reuses a subscription you already pay for, at no extra cost. Your notes are sent to the provider's servers.",
+    "provider_group_local": "Local / self-hosted",
+    "provider_group_local_description": "No API key, no usage cost. Your notes only reach the machine running the model.",
+    "provider_group_custom": "Custom endpoint",
+    "provider_group_custom_description": "Any OpenAI-compatible API, local or hosted (OpenRouter, Groq, Mistral). Cost and privacy depend on where you point it.",
+    "provider_openai_compatible": "OpenAI-compatible",
+    "provider_desc_openai_compatible": "Point Trilium at any endpoint that speaks the OpenAI API.",
+    "api_key_optional_description": "Optional. Only needed if your endpoint is behind an authenticating proxy or gateway.",
+    "setup_hint_ollama": "Ollama must be running on this address — start it with <Code>ollama serve</Code> if it isn't.",
+    "setup_hint_lmstudio": "Start the server in LM Studio under the Developer tab, then check the port shown there matches this address.",
+    "setup_hint_openai_compatible": "The base URL of the OpenAI-compatible API, usually ending in <Code>/v1</Code>.",
+    "troubleshoot_server_running": "Is the server running on the machine you expect?",
+    "troubleshoot_port": "Does the port in the URL match the one the server reports?",
+    "troubleshoot_remote": "If the server is on another machine, is it configured to accept connections from the network rather than localhost only?",
     "mcp_title": "MCP (Model Context Protocol)",
     "mcp_enabled": "MCP server",
     "mcp_enabled_description": "Expose a Model Context Protocol (MCP) endpoint so that AI coding assistants (e.g. Claude Code, GitHub Copilot) can read and modify your notes. The endpoint is only accessible from localhost.",
@@ -3034,7 +3223,9 @@
       "delete_note": "Delete note",
       "move_note": "Move note",
       "clone_note": "Clone note",
-      "search_icons": "Search icons"
+      "search_icons": "Search icons",
+      "search_help": "Search User Guide",
+      "get_help_toc": "Get User Guide contents"
     }
   },
   "common": {
@@ -3049,17 +3240,23 @@
     "export-csv-failed": "Failed to export the spreadsheet to CSV."
   },
   "text-editor": {
-    "checkbox-tooltip": "Right click for more task states.\nPress {{shortcut}} to cycle between states.",
+    "checkbox-tooltip": "Right-click or press {{- shortcut}} to change state.",
+    "checkbox-tooltip-state-label": "Task state:",
+    "checkbox-tooltip-state-unknown-suffix": "(missing definition)",
     "collapsible-body-placeholder": "Type the content here...",
     "collapsible-button-label": "Collapsible block",
     "collapsible-handle-tooltip": "Drag to reposition the collapsible block",
     "collapsible-select-label": "Select collapsible block",
     "collapsible-title-placeholder": "Summary",
     "collapsible-toggle-label": "Toggle collapsible block",
-    "collapsible-tooltip": "Click on the arrow or press {{shortcut}} to collapse/expand.",
+    "collapsible-tooltip": "Click on the arrow or press {{- shortcut}} to collapse/expand.",
     "edit-states-tooltip": "Edit task states",
     "unknown-task-state": "Undefined custom task state",
-    "task-state-dropped": "Dropped custom task state definition \"{{title}}\" ({{id}}) due to: {{reason}}",
+    "task-state-dropped-title": "Invalid task states",
+    "task-state-dropped-message_one": "A custom task state definition is invalid and was ignored.",
+    "task-state-dropped-message_other": "{{count}} custom task state definitions are invalid and were ignored.",
+    "task-state-dropped-heading": "Ignored definitions:",
+    "task-state-dropped-configure": "Configure task states",
     "validation-errors": {
       "undefined-name": "undefined identifier",
       "invalid-name": "invalid identifier",

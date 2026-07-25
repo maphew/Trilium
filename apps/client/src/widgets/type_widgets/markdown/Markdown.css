@@ -15,20 +15,29 @@
         user-select: text;
     }
 
+    /* The marker is drawn as an overlay so it doesn't disturb each block's own box. */
     .markdown-preview [data-source-line] {
-        border-left: 2px solid transparent;
-        padding-left: 0.5em;
-        margin-left: -0.5em;
+        position: relative;
     }
 
-    [data-source-line].markdown-preview-active {
-        border-left-color: var(--main-text-color);
+    .markdown-preview [data-source-line].markdown-preview-active::before {
+        content: "";
+        position: absolute;
+        inset-block: 0;
+        left: -0.5em;
+        width: 2px;
+        background: var(--main-text-color);
+    }
+
+    /* Collapsibles clip their overflow, so the marker has to sit inside the block. */
+    .markdown-preview details.trilium-collapsible.markdown-preview-active::before {
+        left: 0;
     }
 
 }
 
 /* Markdown preview content blocks in split-view */
-.note-detail-split.split-horizontal .note-detail-split-preview > .note-detail-readonly-text-content > div {
+.note-detail-split.split-horizontal .note-detail-split-preview > .note-detail-readonly-text-content > * {
     max-width: var(--preferred-max-content-width);
 
     body.prefers-centered-content & {

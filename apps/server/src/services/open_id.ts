@@ -2,6 +2,7 @@ import { getLog, options } from "@triliumnext/core";
 import type { NextFunction, Request, RequestHandler, Response } from "express";
 import type { Session } from "express-openid-connect";
 
+import { describeError } from "../routes/error_handlers.js";
 import config from "./config.js";
 import openIDEncryption from "./encryption/open_id_encryption.js";
 import sql from "./sql.js";
@@ -132,14 +133,18 @@ function deriveFaviconUrl(baseUrl: string) {
     }
 }
 
-function generateOAuthConfig(endSessionSupported = false) {
-    const authRoutes = {
-        callback: "/callback",
-        login: "/authenticate",
-        postLogoutRedirect: "/login",
-        logout: "/logout",
-    };
+/**
+ * The routes express-openid-connect owns. Hoisted out of {@link generateOAuthConfig} so
+ * {@link OIDC_NAVIGATION_PATHS} is derived from the same source rather than repeating the literals.
+ */
+const OIDC_ROUTES = {
+    callback: "/callback",
+    login: "/authenticate",
+    postLogoutRedirect: "/login",
+    logout: "/logout",
+} as const;
 
+function generateOAuthConfig(endSessionSupported = false) {
     const logoutParams = {
     };
 
@@ -156,7 +161,7 @@ function generateOAuthConfig(endSessionSupported = false) {
             response_type: "code",
             scope: "openid profile email",
         },
-        routes: authRoutes,
+        routes: { ...OIDC_ROUTES },
         // Only enable RP-Initiated Logout when the provider actually advertises an end_session_endpoint
         // (see isRpInitiatedLogoutSupported). With idpLogout on, express-openid-connect unconditionally
         // builds a redirect to that endpoint at logout; providers without one (e.g. Google, Authelia)
@@ -307,7 +312,7 @@ export function createReactiveOidcMiddleware(deps: Partial<ReactiveOidcDeps> = {
                 // discovery-probe failure, malformed config, etc.) would leave the rejected promise
                 // cached and break every subsequent OAuth request until a server restart.
                 oidcInit = null;
-                throw error;
+                return failRoundTrip(req, res, next, error);
             }
         }
 
@@ -318,9 +323,75 @@ export function createReactiveOidcMiddleware(deps: Partial<ReactiveOidcDeps> = {
         if (!oidcMiddleware) {
             return next();
         }
-        return oidcMiddleware(req, res, next);
+
+        // The library reports a broken round-trip by calling next(err) rather than by rejecting, so the
+        // interception has to happen on `next` — a try/catch around this call would never see it. A bare
+        // next() (the pass-through for non-OIDC routes) must still propagate untouched.
+        return oidcMiddleware(req, res, (error?: unknown) => {
+            if (!error) {
+                return next();
+            }
+            return failRoundTrip(req, res, next, error);
+        });
     };
 }
+
+/**
+ * Handles an OIDC round-trip that failed outright — as opposed to one that completed with a rejection
+ * (wrong account, not enrolled), which `afterCallback` already reports via `ssoError`.
+ *
+ * Previously such a failure fell through to the generic error handler, which answers with JSON. Since
+ * `/authenticate` is a full-page navigation, that stranded the user on a raw `{"message":"fetch failed"}`
+ * page with no way back — particularly unhelpful during first-time setup, where reaching the provider is
+ * exactly what's being configured. Instead we mirror the success path: flag the session and redirect to
+ * the app root, letting the client surface a toast carrying the technical detail.
+ */
+function failRoundTrip(req: Request, res: Response, next: NextFunction, error: unknown) {
+    // `describeError` unwraps the `.cause` chain, which is where the actionable reason actually lives:
+    // undici surfaces only "fetch failed" at the top level, with e.g. "self-signed certificate
+    // [DEPTH_ZERO_SELF_SIGNED_CERT]" nested underneath. Kept non-empty — its presence is what marks the
+    // failure downstream, so an error that describes to nothing must not read as "no failure".
+    const detail = describeError(error) || String(error) || "unknown error";
+    getLog().error(`OAuth provider round-trip failed on ${req.method} ${req.url}: ${detail}`);
+
+    // Nothing to redirect if the library already started answering; let Express finish it.
+    if (res.headersSent) {
+        return next(error);
+    }
+
+    // Redirecting only makes sense for the provider round-trip itself, which is a full-page navigation.
+    // This middleware is mounted ahead of every route, so without this guard two things break:
+    //
+    // - An `/api/*` XHR caught by a failed lazy init would receive a 302 to HTML where it expects JSON.
+    // - A failure on `/` would redirect `/` to `/`. Transient failures self-heal (the init promise is
+    //   reset, so the next request retries), but a persistent one — a malformed `oauthBaseUrl` that
+    //   `auth()` rejects on every build, say — would loop the browser until it gave up, replacing a
+    //   JSON error that named the bad config with an opaque ERR_TOO_MANY_REDIRECTS.
+    //
+    // Everything else keeps the old behaviour and goes to the generic handler, which answers JSON.
+    if (!OIDC_NAVIGATION_PATHS.has(req.path)) {
+        return next(error);
+    }
+
+    // Bounded: this rides in the session store until the next bootstrap consumes it, and a deep cause
+    // chain would otherwise be unbounded.
+    req.session.ssoConnectionFailed = detail.slice(0, MAX_CONNECTION_FAILURE_DETAIL_LENGTH);
+    return res.redirect("/");
+}
+
+/**
+ * The subset of {@link OIDC_ROUTES} the user reaches by navigating, and therefore the only paths where
+ * answering a failure with a redirect (rather than an error) is right. `postLogoutRedirect` is excluded:
+ * it is where the library sends the browser afterwards, not a route it handles.
+ */
+const OIDC_NAVIGATION_PATHS = new Set<string>([
+    OIDC_ROUTES.login,
+    OIDC_ROUTES.callback,
+    OIDC_ROUTES.logout
+]);
+
+/** Upper bound on the technical detail carried to the client; enough for a full cause chain. */
+const MAX_CONNECTION_FAILURE_DETAIL_LENGTH = 300;
 
 export default {
     generateOAuthConfig,
@@ -334,8 +405,6 @@ export default {
     isUserSaved,
     isRpInitiatedLogoutSupported,
 };
-
-const GOOGLE_ISSUER = "https://accounts.google.com";
 
 // Cap the startup discovery probe so a slow/unreachable provider can't stall server boot.
 const DISCOVERY_TIMEOUT_MS = 10_000;
@@ -395,22 +464,60 @@ export function supportsRpInitiatedLogout(metadata: unknown) {
     return typeof end_session_endpoint === "string" && end_session_endpoint.length > 0;
 }
 
+export const CLIENT_AUTH_METHODS = ["client_secret_basic", "client_secret_post"] as const;
+export type ClientAuthMethod = (typeof CLIENT_AUTH_METHODS)[number];
+
 /**
- * Chooses the token-endpoint client authentication method based on the issuer.
+ * Issuers whose token endpoint does **not** percent-decode HTTP Basic credentials.
  *
- * - **Google** → `client_secret_post`. express-openid-connect defaults to `client_secret_basic`,
- *   whose oauth4webapi implementation form-url-encodes the client_id/secret per RFC 6749 §2.3.1
- *   ("-" → %2D, "." → %2E) inside the HTTP Basic header. Google does not decode Basic credentials, so
- *   a Google client_id (which always contains "-" and ".") arrives corrupted and the token exchange
- *   fails with "invalid_client: The OAuth client was not found." Posting the credentials in the body
- *   sidesteps the Basic-auth encoding.
- * - **Any other issuer** → `client_secret_basic`, the OIDC default a spec-compliant provider expects
- *   (e.g. Authelia/Keycloak register confidential clients as `client_secret_basic` and reject a
- *   mismatched method).
+ * `client_secret_basic` — the OIDC Core default, and what express-openid-connect picks on its own —
+ * form-url-encodes the client_id/secret per RFC 6749 §2.3.1 ("-" → %2D, "_" → %5F, "." → %2E) *inside*
+ * the Basic header. A provider that base64-decodes that header without percent-decoding it therefore
+ * compares against corrupted credentials and rejects the token exchange:
+ *
+ * - **Google** — client_ids always contain "-" and "."; fails with
+ *   "invalid_client: The OAuth client was not found."
+ * - **GitLab** — client secrets are `gloas-` prefixed; fails with OAUTH_WWW_AUTHENTICATE_CHALLENGE
+ *   (#10585, a regression from the openid-client v5 → v6 upgrade, where v5's plainer
+ *   `encodeURIComponent` left those characters intact).
+ *
+ * This deliberately is *not* derived from the discovery document. `token_endpoint_auth_methods_supported`
+ * advertises what the **server** supports, but the method is agreed **per client** at registration and
+ * is not discoverable — Authelia, for instance, advertises all five methods while defaulting confidential
+ * clients to `client_secret_basic` and rejecting anything else with `invalid_client`. Preferring
+ * `client_secret_post` on the strength of discovery alone therefore breaks spec-compliant providers.
+ *
+ * Only exact issuer matches are listed, so a self-hosted GitLab needs `oauthClientAuthMethod` set
+ * explicitly — see {@link resolveClientAuthMethod}.
  */
-function resolveClientAuthMethod() {
+const BASIC_AUTH_INCOMPATIBLE_ISSUERS = new Set([
+    "https://accounts.google.com",
+    "https://gitlab.com"
+]);
+
+/**
+ * Chooses the token-endpoint client authentication method.
+ *
+ * An explicit `oauthClientAuthMethod` always wins — it's the escape hatch for any provider we don't
+ * know about, notably self-hosted instances of the ones in {@link BASIC_AUTH_INCOMPATIBLE_ISSUERS}.
+ * Otherwise known-incompatible issuers get `client_secret_post` and everyone else gets the spec
+ * default, `client_secret_basic`.
+ */
+export function resolveClientAuthMethod(): ClientAuthMethod {
+    const configured = config.MultiFactorAuthentication.oauthClientAuthMethod.trim();
+    if (configured) {
+        if (isClientAuthMethod(configured)) {
+            return configured;
+        }
+        getLog().error(`OAuth: ignoring unrecognised oauthClientAuthMethod '${configured}', expected one of ${CLIENT_AUTH_METHODS.join(", ")}.`);
+    }
+
     const issuer = config.MultiFactorAuthentication.oauthIssuerBaseUrl.replace(/\/+$/, "");
-    return issuer === GOOGLE_ISSUER ? "client_secret_post" : "client_secret_basic";
+    return BASIC_AUTH_INCOMPATIBLE_ISSUERS.has(issuer) ? "client_secret_post" : "client_secret_basic";
+}
+
+function isClientAuthMethod(value: string): value is ClientAuthMethod {
+    return (CLIENT_AUTH_METHODS as readonly string[]).includes(value);
 }
 
 /**

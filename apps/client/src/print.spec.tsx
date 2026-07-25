@@ -174,7 +174,7 @@ describe("SingleNoteRenderer", () => {
             expect(onReady).toHaveBeenCalledWith({ type: "single-note" });
         });
         // Printing preserves full include-note nesting via expandNestedIncludes.
-        expect(h.getRenderedContent).toHaveBeenCalledWith(note, { noChildrenList: true, expandNestedIncludes: true });
+        expect(h.getRenderedContent).toHaveBeenCalledWith(note, { noChildrenList: true, expandNestedIncludes: true, mediaEnvironment: "native" });
     });
 
     it("renders a non-text, non-spreadsheet note via the content renderer", async () => {
@@ -184,7 +184,7 @@ describe("SingleNoteRenderer", () => {
 
         await vi.waitFor(() => expect(onReady).toHaveBeenCalledWith({ type: "single-note" }));
         // Printing preserves full include-note nesting via expandNestedIncludes.
-        expect(h.getRenderedContent).toHaveBeenCalledWith(note, { noChildrenList: true, expandNestedIncludes: true });
+        expect(h.getRenderedContent).toHaveBeenCalledWith(note, { noChildrenList: true, expandNestedIncludes: true, mediaEnvironment: "native" });
     });
 });
 

@@ -2,6 +2,8 @@ import "./SelectableCard.css";
 
 import type { ComponentChildren } from "preact";
 
+import MaskedIcon from "./MaskedIcon";
+
 export interface SelectableCardProps {
     title: ComponentChildren;
     description?: ComponentChildren;
@@ -23,7 +25,7 @@ export default function SelectableCard({ title, description, iconUrl, icon, sele
     return (
         <button type="button" className={`selectable-card ${selected ? "selected" : ""} ${className ?? ""}`} onClick={onSelect}>
             {iconUrl
-                ? <span className="selectable-card-icon" style={{ "--card-mask": `url("${iconUrl}")` }} />
+                ? <MaskedIcon url={iconUrl} />
                 : icon ? <span className={`selectable-card-bxicon ${icon}`} /> : null}
             <span className="selectable-card-text">
                 <span className="selectable-card-name">{title}</span>

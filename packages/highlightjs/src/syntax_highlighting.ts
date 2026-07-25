@@ -108,6 +108,7 @@ export const byMimeType: MimeRecord = {
     "text/x-mumps": null,
     "text/x-mysql": () => import("highlight.js/lib/languages/sql"),
     "text/x-nix": () => import("highlight.js/lib/languages/nix"),
+    "text/x-nim": () => import("highlight.js/lib/languages/nim"),
     "text/x-nginx-conf": () => import("highlight.js/lib/languages/nginx"),
     "text/x-nsis": () => import("highlight.js/lib/languages/nsis"),
     "text/x-objectivec": () => import("highlight.js/lib/languages/objectivec"),

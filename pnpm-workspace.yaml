@@ -20,8 +20,8 @@ overrides:
   # facets to work. A partial bump leaves two copies in the tree, which breaks
   # both typechecking (nominal type clashes) and runtime (lint markers, etc.).
   # Keep every core singleton pinned here so the whole tree resolves to one copy.
-  "@codemirror/view": "6.43.4"
-  "@codemirror/state": "6.7.0"
+  "@codemirror/view": "6.43.6"
+  "@codemirror/state": "6.7.1"
   "@codemirror/language": "6.12.4"
   "@codemirror/commands": "6.10.4"
   "@codemirror/autocomplete": "6.20.3"
@@ -31,10 +31,10 @@ overrides:
   "@lezer/highlight": "1.2.3"
   "@lezer/lr": "1.4.10"
   "mermaid": "11.16.0"
-  "preact": "10.29.3"
+  "preact": "10.29.7"
   "roughjs": "4.6.6"
-  "@types/express-serve-static-core": "5.1.1"
-  "node-abi": "4.32.0"
+  "@types/express-serve-static-core": "5.1.2"
+  "node-abi": "4.33.0"
   "flat@<5.0.1": ">=5.0.1"
   "debug@>=3.2.0 <3.2.7": ">=3.2.7"
   "nanoid@<3.3.8": ">=3.3.8"
@@ -98,11 +98,22 @@ overrides:
   # electron/electron#51619). yauzl@>=3.3.1 is the maintainer-recommended fix.
   "extract-zip>yauzl": "3.4.0"
 
+# Trilium's Claude Agent provider (apps/server) runs the SDK in
+# "bring-your-own-binary" mode (pathToClaudeCodeExecutable), so the ~250 MB
+# bundled per-platform binaries are never used and must not be downloaded into
+# every server install and Docker layer. Only the tiny JS wrapper is kept.
+# Declarative replacement for the former .pnpmfile.cjs readPackage hook: a
+# pnpmfile pins a pnpmfileChecksum into the lockfile, which Renovate's
+# --ignore-pnpmfile lockfile updates silently drop, breaking every frozen
+# CI install on its PRs (ERR_PNPM_LOCKFILE_CONFIG_MISMATCH).
+ignoredOptionalDependencies:
+  - "@anthropic-ai/claude-agent-sdk-*"
+
 patchedDependencies:
   "@ckeditor/ckeditor5-mention": patches/@ckeditor__ckeditor5-mention.patch
-  "@ckeditor/ckeditor5-code-block": patches/@ckeditor__ckeditor5-code-block.patch
   '@maplibre/maplibre-gl-leaflet@0.1.3': patches/@maplibre__maplibre-gl-leaflet@0.1.3.patch
   leaflet@1.9.4: patches/leaflet@1.9.4.patch
+  '@excalidraw/excalidraw@0.18.1': patches/@excalidraw__excalidraw@0.18.1.patch
 
 allowBuilds:
   better-sqlite3: true

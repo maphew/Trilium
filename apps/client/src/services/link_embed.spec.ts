@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import server from "./server.js";
+import { uploadImageAttachment } from "./image_upload.js";
 import {
     applyLinkEmbeds,
     detectEmbedType,
@@ -9,6 +9,13 @@ import {
     renderMentionPreview,
     safeHostname
 } from "./link_embed.js";
+import server from "./server.js";
+
+vi.mock("./image_upload.js", () => ({
+    uploadImageAttachment: vi.fn()
+}));
+
+const uploadImageAttachmentMock = vi.mocked(uploadImageAttachment);
 
 let container: HTMLDivElement | undefined;
 
@@ -60,7 +67,7 @@ describe("safeHostname", () => {
 });
 
 describe("fetchMetadata", () => {
-    it("maps server metadata into the embed shape and encodes the URL", async () => {
+    it("maps server metadata into the embed shape, POSTing the URL in the body", async () => {
         const url = "https://example.com/path?a=b&c=d";
         const fromServer = {
             url: "https://canonical.example.com",
@@ -71,42 +78,156 @@ describe("fetchMetadata", () => {
             siteName: "Example",
             image: "https://example.com/img.png"
         };
-        server.get = vi.fn(async () => fromServer) as typeof server.get;
+        server.post = vi.fn(async () => fromServer) as typeof server.post;
 
         const result = await fetchMetadata(url);
 
-        expect(server.get).toHaveBeenCalledWith(
-            `link-embed/metadata?url=${encodeURIComponent(url)}`
-        );
+        // The URL travels in the body, so it never reaches an access log — a pasted URL can carry a
+        // one-time token or a signature in its query string.
+        expect(server.post).toHaveBeenCalledWith("link-embed/metadata", { url });
         expect(result).toEqual(fromServer);
     });
 
     it("falls back to local detection when the server request fails", async () => {
-        server.get = vi.fn(async () => {
+        server.post = vi.fn(async () => {
             throw new Error("network down");
-        }) as typeof server.get;
+        }) as typeof server.post;
 
         const result = await fetchMetadata("https://youtu.be/abcdefghijk");
         expect(result).toEqual({
             url: "https://youtu.be/abcdefghijk",
             embedType: "youtube",
-            title: "youtu.be"
+            title: "youtu.be",
+            // Nothing was actually read about the page, so callers can keep a plain link instead.
+            unresolved: true
+        });
+    });
+
+    it("passes the server's unresolved flag through", async () => {
+        server.post = vi.fn(async () => ({
+            url: "https://blocked.example.com/x",
+            embedType: "opengraph",
+            title: "blocked.example.com",
+            unresolved: true
+        })) as typeof server.post;
+
+        const result = await fetchMetadata("https://blocked.example.com/x");
+        expect(result.unresolved).toBe(true);
+    });
+
+    describe("image offload to attachment", () => {
+        const metaWithDataUriImage = {
+            url: "https://example.com",
+            embedType: "opengraph",
+            title: "Title",
+            favicon: "data:image/png;base64,FAV",
+            image: "data:image/jpeg;base64,IMG"
+        };
+
+        it("stores the image as an attachment of the owning note, keeping the favicon inline", async () => {
+            server.post = vi.fn(async () => metaWithDataUriImage) as typeof server.post;
+            uploadImageAttachmentMock.mockResolvedValueOnce("api/attachments/att1/image/image.jpg");
+
+            const result = await fetchMetadata("https://example.com", "note1");
+
+            expect(uploadImageAttachmentMock).toHaveBeenCalledExactlyOnceWith("note1", "data:image/jpeg;base64,IMG");
+            // Only the attachment URL lands in the note content — inlined base64 would count against
+            // the auto-read-only size threshold. The favicon stays inline: it is small and shared
+            // with inline mentions.
+            expect(result.image).toBe("api/attachments/att1/image/image.jpg");
+            expect(result.favicon).toBe("data:image/png;base64,FAV");
+        });
+
+        it("keeps the data URI when the upload fails, so the preview still persists", async () => {
+            server.post = vi.fn(async () => metaWithDataUriImage) as typeof server.post;
+            uploadImageAttachmentMock.mockResolvedValueOnce(null);
+
+            const result = await fetchMetadata("https://example.com", "note1");
+
+            expect(result.image).toBe("data:image/jpeg;base64,IMG");
+        });
+
+        it("does not upload without an owning note, a non-data-URI image, or a missing image", async () => {
+            uploadImageAttachmentMock.mockClear();
+
+            server.post = vi.fn(async () => metaWithDataUriImage) as typeof server.post;
+            const withoutNote = await fetchMetadata("https://example.com");
+            expect(withoutNote.image).toBe("data:image/jpeg;base64,IMG");
+
+            server.post = vi.fn(async () => ({ ...metaWithDataUriImage, image: "https://img.example/x.png" })) as typeof server.post;
+            const remoteImage = await fetchMetadata("https://example.com", "note1");
+            expect(remoteImage.image).toBe("https://img.example/x.png");
+
+            server.post = vi.fn(async () => ({ ...metaWithDataUriImage, image: undefined })) as typeof server.post;
+            const noImage = await fetchMetadata("https://example.com", "note1");
+            expect(noImage.image).toBeUndefined();
+
+            expect(uploadImageAttachmentMock).not.toHaveBeenCalled();
         });
     });
 });
 
 describe("renderEmbedPreview", () => {
-    it("renders a YouTube iframe when embedType is not opengraph and the URL is a video", () => {
+    it("shows a click-to-play facade for a video, contacting YouTube only once clicked", async () => {
+        const root = makeContainer();
+        renderEmbedPreview(root, {
+            url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            embedType: "youtube",
+            image: "data:image/jpeg;base64,AAA"
+        });
+
+        // Nothing is loaded from YouTube until the user asks for it: no iframe, just the thumbnail
+        // stored in the note.
+        expect(root.querySelector("iframe")).toBeNull();
+        expect(root.querySelector("a.link-embed-card")).toBeNull();
+        const facade = root.querySelector<HTMLButtonElement>("button.link-embed-video-facade");
+        expect(facade).not.toBeNull();
+        expect(root.querySelector("img.link-embed-video-thumbnail")?.getAttribute("src")).toBe("data:image/jpeg;base64,AAA");
+
+        facade?.click();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+
+        const iframe = root.querySelector("iframe");
+        expect(iframe).not.toBeNull();
+        expect(iframe?.getAttribute("src")).toContain("youtube-nocookie.com/embed/dQw4w9WgXcQ");
+        // The click was the play command, so the player starts straight away.
+        expect(iframe?.getAttribute("src")).toContain("autoplay=1");
+        expect(root.querySelector("button.link-embed-video-facade")).toBeNull();
+    });
+
+    it("omits the player's origin param when not served from a web origin (desktop custom protocol)", async () => {
+        // On desktop the renderer is served from trilium-app://app, which YouTube's player rejects
+        // as an `origin` value — the param must be left out entirely there.
+        const happyDOM = (window as unknown as { happyDOM: { setURL(url: string): void } }).happyDOM;
+        const previousUrl = window.location.href;
+        happyDOM.setURL("trilium-app://app/index.html");
+
+        try {
+            const root = makeContainer();
+            renderEmbedPreview(root, {
+                url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+                embedType: "youtube"
+            });
+            root.querySelector<HTMLButtonElement>("button.link-embed-video-facade")?.click();
+            await new Promise((resolve) => setTimeout(resolve, 0));
+
+            const src = root.querySelector("iframe")?.getAttribute("src") ?? "";
+            expect(src).toContain("youtube-nocookie.com/embed/dQw4w9WgXcQ");
+            expect(src).not.toContain("origin=");
+        } finally {
+            happyDOM.setURL(previousUrl);
+        }
+    });
+
+    it("shows the facade without a thumbnail when the note stores no image", () => {
         const root = makeContainer();
         renderEmbedPreview(root, {
             url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
             embedType: "youtube"
         });
 
-        const iframe = root.querySelector("iframe");
-        expect(iframe).not.toBeNull();
-        expect(iframe!.getAttribute("src")).toContain("youtube-nocookie.com/embed/dQw4w9WgXcQ");
-        expect(root.querySelector("a.link-embed-card")).toBeNull();
+        expect(root.querySelector("button.link-embed-video-facade")).not.toBeNull();
+        expect(root.querySelector("img.link-embed-video-thumbnail")).toBeNull();
     });
 
     it("renders a card (not an iframe) for a YouTube URL forced to opengraph", () => {
@@ -129,6 +250,43 @@ describe("renderEmbedPreview", () => {
         // image present -> real <img>, no placeholder
         expect(root.querySelector("img.link-embed-card-image")).not.toBeNull();
         expect(root.querySelector(".link-embed-card-image-placeholder")).toBeNull();
+    });
+
+    it("renders a hostile scheme inert rather than as a live link", () => {
+        // `data-url` reaches here straight from the stored note HTML — the sanitizers keep `data-*`
+        // values verbatim — so a crafted note must not become <a href="javascript:...">.
+        const card = makeContainer();
+        renderEmbedPreview(card, { url: "javascript:alert(document.cookie)", embedType: "opengraph", title: "Evil" });
+        expect(card.querySelector("a.link-embed-card")?.getAttribute("href")).toBe("about:blank");
+
+        const mention = document.createElement("div");
+        renderMentionPreview(mention, { url: "javascript:alert(1)", title: "Evil" });
+        expect(mention.querySelector("a.link-embed-mention")?.getAttribute("href")).toBe("about:blank");
+    });
+
+    it("shows the stored favicon beside the site name, falling back to a dot without one", () => {
+        const root = makeContainer();
+        const meta = {
+            url: "https://example.com/page",
+            embedType: "opengraph",
+            siteName: "Example",
+            favicon: "data:image/png;base64,AAA"
+        };
+
+        renderEmbedPreview(root, meta);
+
+        // The card reuses the favicon the inline mention shows, straight from the stored metadata.
+        const urlLine = root.querySelector(".link-embed-card-url")!;
+        const favicon = urlLine.querySelector("img.link-embed-mention-favicon")!;
+        expect(favicon.getAttribute("src")).toBe(meta.favicon);
+        expect(urlLine.textContent).toBe("Example");
+        // The favicon leads the line, so it renders to the left of the site name.
+        expect(urlLine.firstElementChild).toBe(favicon);
+
+        const withoutFavicon = document.createElement("div");
+        renderEmbedPreview(withoutFavicon, { ...meta, favicon: undefined });
+        expect(withoutFavicon.querySelector(".link-embed-card-url .link-embed-mention-dot")).not.toBeNull();
+        expect(withoutFavicon.querySelector(".link-embed-card-url img")).toBeNull();
     });
 
     it("omits optional fields and falls back to hostname, and drops target when editable", () => {

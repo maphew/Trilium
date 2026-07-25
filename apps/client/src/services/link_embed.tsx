@@ -1,13 +1,12 @@
 import "../widgets/type_widgets/text/LinkEmbed.css";
 
-import { type LinkEmbedMetadata, YOUTUBE_REGEX, extractYouTubeVideoId } from "@triliumnext/commons";
+import { extractYouTubeVideoId, type LinkEmbedMetadata, safeLinkPreviewHref, YOUTUBE_REGEX } from "@triliumnext/commons";
 import { render } from "preact";
 import { useState } from "preact/hooks";
 
+import { t } from "./i18n.js";
+import { uploadImageAttachment } from "./image_upload.js";
 import server from "./server.js";
-
-/** Paste mode chosen by user from the floating popup. */
-export type LinkPasteMode = "mention" | "url" | "embed";
 
 export interface EmbedMetadata {
     url: string;
@@ -17,6 +16,8 @@ export interface EmbedMetadata {
     favicon?: string;
     siteName?: string;
     image?: string;
+    /** See {@link LinkEmbedMetadata.unresolved}. Not persisted into the note's HTML. */
+    unresolved?: boolean;
 }
 
 
@@ -31,10 +32,17 @@ export function safeHostname(url: string): string {
 /**
  * Fetches link metadata from the server. Called once at link creation time.
  * The returned metadata is then stored in the note's HTML as data attributes.
+ *
+ * When `ownerNoteId` is given, the preview image is stored as an attachment of that note and only
+ * its `api/attachments/...` URL ends up in the metadata. Inlined as a base64 data URI it would be
+ * 10–140KB of note content per preview — enough for a single card to push the note past the
+ * `autoReadonlySizeText` threshold (32KB by default) and flip it read-only.
  */
-export async function fetchMetadata(url: string): Promise<EmbedMetadata> {
+export async function fetchMetadata(url: string, ownerNoteId?: string): Promise<EmbedMetadata> {
     try {
-        const metadata = await server.get<LinkEmbedMetadata>(`link-embed/metadata?url=${encodeURIComponent(url)}`);
+        // POSTed rather than passed in the query string: a URL can carry a one-time token or a
+        // signed signature, and a query string ends up in every access log along the way.
+        const metadata = await server.post<LinkEmbedMetadata>("link-embed/metadata", { url });
         return {
             url: metadata.url,
             embedType: metadata.embedType,
@@ -42,15 +50,33 @@ export async function fetchMetadata(url: string): Promise<EmbedMetadata> {
             description: metadata.description,
             favicon: metadata.favicon,
             siteName: metadata.siteName,
-            image: metadata.image
+            image: await offloadImageToAttachment(metadata.image, ownerNoteId),
+            unresolved: metadata.unresolved
         };
     } catch {
         return {
             url,
             embedType: detectEmbedType(url),
-            title: safeHostname(url)
+            title: safeHostname(url),
+            unresolved: true
         };
     }
+}
+
+/**
+ * Converts a base64 preview image into an attachment of the owning note, returning its
+ * `api/attachments/...` URL — or the data URI unchanged when the upload fails, so the preview
+ * still persists and renders, just at the old inline cost.
+ *
+ * Only the card image is offloaded. The favicon stays inline on purpose: it is a few KB, and it is
+ * carried by inline mentions too, where an attachment per mention would flood the attachment list.
+ */
+async function offloadImageToAttachment(image: string | undefined, ownerNoteId: string | undefined): Promise<string | undefined> {
+    if (!image || !ownerNoteId || !image.startsWith("data:")) {
+        return image;
+    }
+
+    return await uploadImageAttachment(ownerNoteId, image) ?? image;
 }
 
 // ---------------------------------------------------------------------------
@@ -95,13 +121,62 @@ function CardImage({ src }: { src?: string }) {
             src={src}
             alt=""
             loading="lazy"
+            draggable={false}
             onError={() => setFailed(true)}
         />
     );
 }
 
+/**
+ * A YouTube player that only contacts YouTube once the user asks it to.
+ *
+ * Until then it shows the thumbnail already stored in the note, so merely opening a note with an
+ * embedded video does not tell Google that the reader opened it — the note stays free of
+ * third-party requests, which is the whole point of embedding the metadata server-side.
+ */
+function VideoEmbed({ meta, videoId }: { meta: EmbedMetadata; videoId: string }) {
+    const [playing, setPlaying] = useState(false);
+
+    if (!playing) {
+        return (
+            <div className="link-embed-video">
+                <button
+                    type="button"
+                    className="link-embed-video-facade"
+                    aria-label={t("link_embed.play_video")}
+                    title={t("link_embed.play_video")}
+                    onClick={() => setPlaying(true)}
+                >
+                    {meta.image && <img className="link-embed-video-thumbnail" src={meta.image} alt="" draggable={false} />}
+                    <span className="link-embed-video-play" aria-hidden="true" />
+                </button>
+            </div>
+        );
+    }
+
+    // The `origin` param is only valid for a real web origin. On desktop the
+    // renderer is served from `trilium-app://app`, which YouTube's player
+    // rejects ("video player configuration error"), so omit it there.
+    const webOrigin = window.location.protocol.startsWith("http") ? window.location.origin : null;
+    // autoplay: the click on the facade *was* the play command; without it the user would have to
+    // press play a second time, inside YouTube's own player.
+    const embedSrc = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0&autoplay=1${webOrigin ? `&origin=${encodeURIComponent(webOrigin)}` : ""}`;
+
+    return (
+        <div className="link-embed-video">
+            <iframe
+                src={embedSrc}
+                frameBorder="0"
+                allowFullScreen
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+            />
+        </div>
+    );
+}
+
 function EmbedPreview({ meta, editable }: { meta: EmbedMetadata; editable?: boolean }) {
-    // Only show the YouTube iframe embed when embedType is not explicitly
+    // Only show the YouTube player when embedType is not explicitly
     // set to 'opengraph' (Card mode). This lets the user choose between
     // an embedded player and a static card preview for YouTube links.
     const videoId = meta.embedType !== "opengraph"
@@ -109,23 +184,7 @@ function EmbedPreview({ meta, editable }: { meta: EmbedMetadata; editable?: bool
         : null;
 
     if (videoId) {
-        // The `origin` param is only valid for a real web origin. On desktop the
-        // renderer is served from `trilium-app://app`, which YouTube's player
-        // rejects ("video player configuration error"), so omit it there.
-        const webOrigin = window.location.protocol.startsWith("http") ? window.location.origin : null;
-        const embedSrc = `https://www.youtube-nocookie.com/embed/${videoId}?rel=0${webOrigin ? `&origin=${encodeURIComponent(webOrigin)}` : ""}`;
-        return (
-            <div className="link-embed-video">
-                <iframe
-                    src={embedSrc}
-                    frameBorder="0"
-                    allowFullScreen
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    referrerPolicy="strict-origin-when-cross-origin"
-                    loading="lazy"
-                />
-            </div>
-        );
+        return <VideoEmbed meta={meta} videoId={videoId} />;
     }
 
     // In editing mode, omit target="_blank" so Trilium's global link handler
@@ -134,14 +193,19 @@ function EmbedPreview({ meta, editable }: { meta: EmbedMetadata; editable?: bool
     const target = editable ? undefined : "_blank";
 
     return (
-        <a className="link-embed-card" href={meta.url} target={target} rel="noopener noreferrer">
+        <a className="link-embed-card" href={safeLinkPreviewHref(meta.url)} target={target} rel="noopener noreferrer">
             <div className="link-embed-card-image-wrapper">
                 <CardImage src={meta.image} />
             </div>
             <div className="link-embed-card-content">
                 {meta.title && <div className="link-embed-card-title">{meta.title}</div>}
                 {meta.description && <div className="link-embed-card-description">{meta.description}</div>}
-                <div className="link-embed-card-url">{meta.siteName || safeHostname(meta.url)}</div>
+                <div className="link-embed-card-url">
+                    {/* The same favicon the inline mention shows, read from the metadata already stored
+                        on the element — the data URI is not duplicated. */}
+                    <Favicon src={meta.favicon} />
+                    <span>{meta.siteName || safeHostname(meta.url)}</span>
+                </div>
             </div>
         </a>
     );
@@ -151,7 +215,7 @@ function MentionPreview({ meta, editable }: { meta: { url: string; title?: strin
     const target = editable ? undefined : "_blank";
 
     return (
-        <a className="link-embed-mention" href={meta.url} target={target} rel="noopener noreferrer">
+        <a className="link-embed-mention" href={safeLinkPreviewHref(meta.url)} target={target} rel="noopener noreferrer">
             <Favicon src={meta.favicon} />
             <span className="link-embed-mention-title">{meta.title || safeHostname(meta.url)}</span>
         </a>

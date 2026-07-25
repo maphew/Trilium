@@ -48,6 +48,12 @@ async function importSingleFile(taskContext: TaskContext<"importNotes">, file: F
         return importCustomType(taskContext, file, parentNote, "mermaid", mime);
     }
 
+    // `.triliumsheet` is Trilium's native lossless spreadsheet format (see single-note export): the raw
+    // Univer workbook JSON is re-imported verbatim, unlike `.xlsx`/`.csv` which are parsed into a workbook.
+    if (mime === "text/x-spreadsheet") {
+        return importCustomType(taskContext, file, parentNote, "spreadsheet", mime);
+    }
+
     if (taskContext?.data?.codeImportedAsCode && mimeService.getType(taskContext.data, mime) === "code") {
         return importCodeNote(taskContext, file, parentNote);
     }

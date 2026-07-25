@@ -143,6 +143,17 @@ describe("fetch routing", () => {
         await event._response;
         expect(fetch).toHaveBeenCalled();
     });
+
+    it("bypasses SW routing on the capacitor:// scheme (assets load via the WebView)", async () => {
+        // On a Capacitor custom scheme the WebView serves assets natively and the SW cannot
+        // fetch() them, so it must not intercept — no respondWith, no SW-issued fetch.
+        vi.stubGlobal("location", { origin, protocol: "capacitor:" });
+        const handlers = await loadSw();
+        const event = fetchEvent(`${origin}/app.js`);
+        handlers.fetch(event);
+        expect(event._response).toBeUndefined();
+        expect(fetch).not.toHaveBeenCalled();
+    });
 });
 
 describe("forwardToClientLocalServer", () => {

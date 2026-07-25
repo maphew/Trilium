@@ -81,12 +81,15 @@ describe("capacitorHttpHandler", () => {
         expect(result.body).toBe('{"ok":true}');
     });
 
-    it("re-serializes object response data (CapacitorHttp pre-parses JSON)", async () => {
+    it("passes parsed object response data through via structured clone (no re-serialization)", async () => {
         const capacitorHttp = vi.fn().mockResolvedValue({ status: 200, headers: {}, data: { ok: true } });
         installCapacitor({ capacitorHttp });
 
         const result = await capacitorHttpHandler({ method: "GET", url: "https://x", headers: {} });
-        expect(result.body).toBe(JSON.stringify({ ok: true }));
+        // CapacitorHttp pre-parses JSON; the handler hands the object straight to the worker via
+        // structured clone (no intermediate string) rather than re-serializing it to `body`.
+        expect(result.data).toEqual({ ok: true });
+        expect(result.body).toBeUndefined();
     });
 
     it("passes arraybuffer responses through as the raw base64 string", async () => {

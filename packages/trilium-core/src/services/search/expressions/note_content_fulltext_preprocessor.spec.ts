@@ -38,3 +38,38 @@ describe("Canvas preprocessing", () => {
         expect(preprocessContent(`{ "elements": [ { "type": "text" }, { "type": "text", "text": "World" }, { "type": "rectangle", "text": "Ignored" } ] }`, type, mime)).toEqual("world");
     });
 });
+
+describe("Text (HTML) preprocessing", () => {
+    const type: NoteType = "text";
+    const mime = "text/html";
+
+    it("surfaces link-preview title, url and description from data attributes", () => {
+        const content = `<section class="link-embed" data-url="https://en.wikipedia.org/wiki/The_Terminator" data-title="The Terminator - Wikipedia" data-description="A 1984 science fiction film.">&nbsp;</section>`;
+        const result = preprocessContent(content, type, mime);
+
+        expect(result).toContain("the terminator - wikipedia");
+        expect(result).toContain("https://en.wikipedia.org/wiki/the_terminator");
+        expect(result).toContain("a 1984 science fiction film.");
+    });
+});
+
+describe("LLM chat preprocessing", () => {
+    const type: NoteType = "llmChat";
+    const mime = "application/json";
+
+    it("supports empty / invalid JSON", () => {
+        expect(preprocessContent("{}", type, mime)).toEqual("");
+        expect(preprocessContent("", type, mime)).toEqual("");
+    });
+
+    it("reads conversation prose and skips metadata", () => {
+        const chat = JSON.stringify({
+            version: 1,
+            messages: [
+                { id: "1", role: "user", content: "What is a Branch?" },
+                { id: "2", role: "assistant", content: [ { type: "text", content: "A parent-child link." } ] }
+            ]
+        });
+        expect(preprocessContent(chat, type, mime)).toEqual("what is a branch? a parent-child link.");
+    });
+});

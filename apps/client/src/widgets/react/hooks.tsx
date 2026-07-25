@@ -12,6 +12,7 @@ import NoteContext, { NoteContextDataMap } from "../../components/note_context";
 import FBlob from "../../entities/fblob";
 import FNote from "../../entities/fnote";
 import attributes from "../../services/attributes";
+import { expandAncestorDetails } from "../../services/collapsible";
 import froca from "../../services/froca";
 import { t } from "../../services/i18n";
 import keyboard_actions from "../../services/keyboard_actions";
@@ -19,6 +20,7 @@ import { parseNavigationStateFromUrl, ViewScope } from "../../services/link";
 import options, { type OptionValue } from "../../services/options";
 import protected_session_holder from "../../services/protected_session_holder";
 import server from "../../services/server";
+import type { ShortcutHintDefinition, ShortcutHintProvider } from "../../services/shortcut_hints";
 import shortcuts, { Handler, removeIndividualBinding } from "../../services/shortcuts";
 import SpacedUpdate, { type StateCallback } from "../../services/spaced_update";
 import { getEffectiveThemeStyle } from "../../services/theme";
@@ -782,11 +784,25 @@ export function useNoteBlob(note: FNote | null | undefined, componentId?: string
      * only be set by widgets whose main content display is gated on this blob. (Passed
      * explicitly because NoteContextContext is only provided in dialogs, not the main window.) */
     reportLoadStateTo?: NoteContext | null;
+    /** Whether the consuming widget is currently displayed. When explicitly `false`, load states
+     * are not published — a cached/hidden type widget must not drive the note detail's loading
+     * overlay over the widget the user is actually looking at (#10575). Leave undefined when the
+     * consumer has no cached-hidden state. */
+    isVisible?: boolean;
+    /** Refetch on becoming visible if a content change was skipped while hidden because it came
+     * from this widget's own component (`componentId`). For widgets that display saved content
+     * produced by a sibling under the same parent component (e.g. the read-only text view behind
+     * the editor), own-component changes are somebody else's edits that must eventually show. */
+    refreshOnShow?: boolean;
 }): FBlob | null | undefined {
     const [ blob, setBlob ] = useState<FBlob | null>();
     const requestIdRef = useRef(0);
+    const missedContentChangeRef = useRef(false);
 
     function reportLoadState(state: "loading" | "loaded" | "error") {
+        if (opts?.isVisible === false) {
+            return;
+        }
         opts?.reportLoadStateTo?.setContextData("contentLoad", { state, retry: () => refresh() });
     }
 
@@ -820,8 +836,19 @@ export function useNoteBlob(note: FNote | null | undefined, componentId?: string
 
         if (loadResults.isNoteContentReloaded(note.noteId, componentId)) {
             refresh();
+        } else if (opts?.refreshOnShow && loadResults.isNoteContentReloaded(note.noteId)) {
+            // The change came from our own component, so the refetch was skipped; remember it so
+            // the content is brought up to date when the widget is displayed again.
+            missedContentChangeRef.current = true;
         }
     });
+
+    useEffect(() => {
+        if (opts?.refreshOnShow && opts?.isVisible && missedContentChangeRef.current) {
+            missedContentChangeRef.current = false;
+            refresh();
+        }
+    }, [ opts?.isVisible ]); // eslint-disable-line react-hooks/exhaustive-deps
 
     useDebugValue(note?.noteId);
 
@@ -1051,9 +1078,11 @@ export function useTooltip(elRef: RefObject<HTMLElement>, config: Partial<Toolti
         const tooltip = Tooltip.getInstance(element);
 
         return () => {
-            if (element.isConnected) {
-                tooltip?.dispose();
-            }
+            // Dispose even when the trigger element is already detached (e.g. a keyed remount
+            // replaced it before this cleanup ran) — dispose() also removes a currently-shown
+            // popup from the DOM, and with the trigger gone nothing else ever would (#10567).
+            // The pending-callback crash of bootstrap#37474 is handled by the dispose() patch above.
+            tooltip?.dispose();
         };
     }, [ elRef, config ]);
 
@@ -1107,17 +1136,31 @@ export function useStaticTooltip(elRef: RefObject<Element>, config?: Partial<Too
 
         return () => {
             tooltips.delete(tooltip);
-            if (element.isConnected) {
-                tooltip.dispose();
-            }
+            // Dispose even when the trigger element is already detached (e.g. a keyed remount
+            // replaced it before this cleanup ran) — dispose() also removes a currently-shown
+            // popup from the DOM, and with the trigger gone nothing else ever would (#10567).
+            // The pending-callback crash of bootstrap#37474 is handled by the dispose() patch above.
+            tooltip.dispose();
 
-            // Remove any lingering tooltip popup elements from the DOM. This must stay
-            // unconditional: delegated (`selector:`) configs spawn per-target Tooltip
-            // instances whose popups the parent's dispose() does not remove, and cleanups
-            // run before DOM removal, so a disconnected-only sweep would not catch them.
-            document
-                .querySelectorAll(".tooltip")
-                .forEach(t => t.remove());
+            // For delegated (`selector:`) configs, hovered children spawn per-target
+            // Tooltip instances whose popups the parent's dispose() does not remove;
+            // sweep them here. Scope by walking the container's descendants that
+            // still carry `aria-describedby` — Bootstrap stamps that attribute
+            // while a tooltip is shown and clears it on hide, so the ids we find
+            // point exactly at the currently-visible popups this delegated config
+            // owns. A blanket `document.querySelectorAll(".tooltip")` would wipe
+            // unrelated tooltips (e.g. CKEditor plugins') every time this hook's
+            // effect re-runs — which is what caused the checkbox tooltip in
+            // `TodoListMultistateEditing` to vanish whenever the "note saved" badge
+            // transitioned states.
+            if (config?.selector) {
+                for (const target of element.querySelectorAll<HTMLElement>("[aria-describedby]")) {
+                    const popupId = target.getAttribute("aria-describedby");
+                    if (popupId) {
+                        document.getElementById(popupId)?.remove();
+                    }
+                }
+            }
         };
     }, [ elRef, config ]);
 }
@@ -1142,6 +1185,47 @@ export function useLegacyImperativeHandlers(handlers: Record<string, Function>) 
     useEffect(() => {
         Object.assign(parentComponent as never, handlers);
     }, [ handlers ]);
+}
+
+/**
+ * Registers this widget's contextual shortcut hints on its host component. When the user requests
+ * contextual shortcut help (Alt+F1 by default), the dispatcher walks up from the focused element
+ * and asks each component in the chain to contribute its hints — so these appear only while this
+ * widget (or one of its descendants) is focused. The registration is removed automatically on unmount.
+ *
+ * @param hints the sections to contribute, or a function returning them (use the function form when
+ *              the hints depend on component state). Read lazily on each request, so it need not be a
+ *              stable reference.
+ */
+export function useContextualShortcutHints(hints: ShortcutHintDefinition | (() => ShortcutHintDefinition)) {
+    const parentComponent = useContext(ParentComponent);
+    // Keep the latest hints in a ref so the provider registers once per host rather than
+    // re-registering on every render when the caller passes an inline array/function.
+    const hintsRef = useRef(hints);
+    hintsRef.current = hints;
+
+    useEffect(() => {
+        // A standalone Preact root mounted by the content renderer (a media player in a collection tile,
+        // an included note) is hosted by appContext itself. Every chain the dispatcher walks ends there,
+        // so registering would make these hints show up in *every* context — e.g. a played collection
+        // tile adding its Playback section to the image viewer's. Contextual hints need a host that
+        // sits inside the focused chain; the root never does.
+        if (!parentComponent || parentComponent === appContext) return;
+
+        const provider: ShortcutHintProvider = (collector) => {
+            const current = hintsRef.current;
+            collector.add(...(typeof current === "function" ? current() : current));
+        };
+        parentComponent.getContextualShortcutHints = provider;
+
+        return () => {
+            // Only clear our own registration, in case another provider replaced it in the meantime.
+            if (parentComponent.getContextualShortcutHints === provider) {
+                delete parentComponent.getContextualShortcutHints;
+            }
+        };
+    }, [ parentComponent ]);
+    useDebugValue("contextual-shortcut-hints");
 }
 
 export function useSyncedRef<T>(externalRef?: Ref<T>, initialValue: T | null = null): RefObject<T> {
@@ -1176,7 +1260,12 @@ export function useImperativeSearchHighlighlighting(highlightedTokens: string[] 
         mark.current.unmark();
         mark.current.markRegExp(highlightRegex, {
             element: "span",
-            className: "ck-find-result"
+            className: "ck-find-result",
+            // Reveal matches that landed inside collapsed <details> blocks — they
+            // are highlighted in the DOM but hidden until the block is expanded.
+            done: () => {
+                el.querySelectorAll<HTMLElement>(".ck-find-result").forEach(expandAncestorDetails);
+            }
         });
     };
 }

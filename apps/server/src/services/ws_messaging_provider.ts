@@ -10,21 +10,38 @@ import { randomString } from "./utils.js";
 type SessionParser = (req: IncomingMessage, params: {}, cb: () => void) => void;
 
 /**
+ * A messaging provider that serves clients over the TCP HTTP listener and so
+ * needs the `http.Server` (and session parser for auth) handed to it once www.ts
+ * has built them. www.ts detects this capability via the type guard below rather
+ * than a concrete `instanceof`, so a desktop composite that wraps a WS provider
+ * qualifies too.
+ */
+export interface HttpAttachableMessagingProvider extends MessagingProvider {
+    attachToHttpServer(httpServer: HttpServer, sessionParser: express.RequestHandler): void;
+}
+
+export function isHttpAttachableMessagingProvider(provider: MessagingProvider): provider is HttpAttachableMessagingProvider {
+    return typeof (provider as Partial<HttpAttachableMessagingProvider>).attachToHttpServer === "function";
+}
+
+/**
  * WebSocket-based implementation of MessagingProvider.
  *
  * Handles the raw WebSocket transport: server setup, connection management,
  * message serialization, and client tracking.
  *
- * Note: this provider is no longer used by the Electron desktop build —
- * desktop runs IpcMessagingProvider instead so the renderer↔server messaging
- * channel never crosses a TCP socket. See `apps/server/src/main.ts`.
+ * Used directly by the server build, and by the Electron desktop build only when
+ * the user has opted into LAN/network access — there it's wrapped in a composite
+ * alongside the IPC provider so browser clients get live updates while the trusted
+ * renderer keeps talking over IPC. Without that opt-in the desktop binds no WS
+ * endpoint. See `apps/desktop/src/composite_messaging_provider.ts`.
  */
-export default class WebSocketMessagingProvider implements MessagingProvider {
+export default class WebSocketMessagingProvider implements HttpAttachableMessagingProvider {
     private webSocketServer!: WebSocketServer;
     private clientMap = new Map<string, WebSocket>();
     private clientMessageHandler?: ClientMessageHandler;
 
-    init(httpServer: HttpServer, sessionParser: express.RequestHandler) {
+    attachToHttpServer(httpServer: HttpServer, sessionParser: express.RequestHandler) {
         this.webSocketServer = new WebSocketServer({
             verifyClient: (info, done) => {
                 sessionParser(info.req as express.Request, {} as express.Response, () => {

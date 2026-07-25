@@ -1,3 +1,5 @@
+import "./llm.css";
+
 import { useCallback, useMemo, useState } from "preact/hooks";
 
 import dialog from "../../../services/dialog";
@@ -8,6 +10,7 @@ import Button from "../../react/Button";
 import FormTextBox from "../../react/FormTextBox";
 import FormToggle from "../../react/FormToggle";
 import { useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
+import MaskedIcon from "../../react/MaskedIcon";
 import NoItems from "../../react/NoItems";
 import OptionsPageHeader from "./components/OptionsPageHeader";
 import OptionsRow, { OptionsRowWithToggle } from "./components/OptionsRow";
@@ -69,10 +72,23 @@ function ProviderSettings() {
     const setProviders = useCallback((newProviders: LlmProviderConfig[]) => {
         setProvidersJson(JSON.stringify(newProviders));
     }, [setProvidersJson]);
-    const [showAddModal, setShowAddModal] = useState(false);
+    // `undefined` while closed; the edited provider (or a fresh marker) while open.
+    // The bumping token keys the modal so it re-initializes its wizard on every open.
+    const [modalProvider, setModalProvider] = useState<LlmProviderConfig | undefined>();
+    const [modalOpen, setModalOpen] = useState(false);
+    const [openToken, setOpenToken] = useState(0);
 
-    const handleAddProvider = useCallback((newProvider: LlmProviderConfig) => {
-        setProviders([...providers, newProvider]);
+    const openModal = useCallback((provider?: LlmProviderConfig) => {
+        setModalProvider(provider);
+        setOpenToken(token => token + 1);
+        setModalOpen(true);
+    }, []);
+
+    // Upsert: editing replaces the config with the matching id, adding appends.
+    const handleSaveProvider = useCallback((saved: LlmProviderConfig) => {
+        setProviders(providers.some(p => p.id === saved.id)
+            ? providers.map(p => (p.id === saved.id ? saved : p))
+            : [...providers, saved]);
     }, [providers, setProviders]);
 
     const handleDeleteProvider = useCallback(async (providerId: string, providerName: string) => {
@@ -86,6 +102,7 @@ function ProviderSettings() {
         <OptionsSection title={t("llm.configured_providers")}>
             <ProviderList
                 providers={providers}
+                onEdit={openModal}
                 onDelete={handleDeleteProvider}
             />
 
@@ -94,14 +111,16 @@ function ProviderSettings() {
                     name="add-llm-provider-button"
                     size="micro" icon="bx bx-plus"
                     text={t("llm.add_provider")}
-                    onClick={() => setShowAddModal(true)}
+                    onClick={() => openModal()}
                 />
             </OptionsRow>
 
             <AddProviderModal
-                show={showAddModal}
-                onHidden={() => setShowAddModal(false)}
-                onSave={handleAddProvider}
+                key={openToken}
+                show={modalOpen}
+                existingProvider={modalProvider}
+                onHidden={() => setModalOpen(false)}
+                onSave={handleSaveProvider}
             />
         </OptionsSection>
     );
@@ -147,10 +166,11 @@ function McpSettings() {
 
 interface ProviderListProps {
     providers: LlmProviderConfig[];
+    onEdit: (provider: LlmProviderConfig) => void;
     onDelete: (providerId: string, providerName: string) => Promise<void>;
 }
 
-function ProviderList({ providers, onDelete }: ProviderListProps) {
+function ProviderList({ providers, onEdit, onDelete }: ProviderListProps) {
     if (!providers.length) {
         return <NoItems icon="bx bx-bot" text={t("llm.no_providers_configured")} />;
     }
@@ -158,18 +178,33 @@ function ProviderList({ providers, onDelete }: ProviderListProps) {
     return <>
         {providers.map((provider) => {
             const providerType = PROVIDER_TYPES.find(p => p.id === provider.provider);
+            const modelCount = provider.selectedModels?.length ?? 0;
             return (
                 <OptionsRow
                     key={provider.id}
                     name="llm-provider"
-                    label={provider.name}
-                    description={providerType?.name || provider.provider}
+                    label={
+                        <span className="llm-provider-name">
+                            {providerType?.iconUrl && <MaskedIcon url={providerType.iconUrl} />}
+                            {provider.name}
+                        </span>
+                    }
+                    description={modelCount > 0
+                        ? t("llm.provider_model_count", { count: modelCount })
+                        : providerType?.name || provider.provider}
                 >
-                    <ActionButton
-                        icon="bx bx-trash"
-                        text={t("llm.delete_provider")}
-                        onClick={() => onDelete(provider.id, provider.name)}
-                    />
+                    <>
+                        <ActionButton
+                            icon="bx bx-edit"
+                            text={t("llm.edit_provider")}
+                            onClick={() => onEdit(provider)}
+                        />
+                        <ActionButton
+                            icon="bx bx-trash"
+                            text={t("llm.delete_provider")}
+                            onClick={() => onDelete(provider.id, provider.name)}
+                        />
+                    </>
                 </OptionsRow>
             );
         })}

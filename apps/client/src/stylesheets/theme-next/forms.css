@@ -225,6 +225,67 @@ button.tn-low-profile:hover {
 }
 
 /*
+ * Overlay buttons
+ */
+
+:where(.tn-overlay-control-group) {
+    display: flex;
+    align-items: stretch;
+    gap: 0px;
+    border-radius: var(--overlay-button-border-radius);
+    border-right: 1px solid var(--overlay-button-shadow-color);
+    border-bottom: 1px solid var(--overlay-button-shadow-color);
+
+    :where(button) {
+        display: inline-flex;
+        justify-content: center;
+        align-items: center;
+        border: none;
+        margin: 0;
+        backdrop-filter: var(--overlay-button-backdrop-filter);
+        background-color: var(--overlay-button-background);
+        color: var(--overlay-button-color);
+
+        &:not(:disabled):hover {
+            background-color: var(--opaque-icon-button-hover-background-color);
+            color: var(--opaque-icon-button-hover-color);
+        }
+
+        &.tn-overlay-icon-button {
+            height: var(--overlay-button-height);
+            width: 32px;
+            font-size: var(--overlay-button-icon-size);
+
+            &:active {
+                font-size: calc(var(--overlay-button-icon-size) * .85);
+            }
+        }
+
+        &.tn-overlay-text-button {
+            height: var(--overlay-button-height);
+            min-width: 50px;
+            font-size: var(--overlay-button-text-size);
+        }
+
+        &:first-child {
+            --_start-border-radius: var(--overlay-button-border-radius);
+        }
+
+        &:last-child {
+            --_end-border-radius: var(--overlay-button-border-radius);
+        }
+
+        /* Reboot sets `button { border-radius: 0 }` (specificity 0,0,1), so the rounding must live on
+           these end selectors (0,1,0) to out-specify it; middle buttons keep Reboot's square corners. */
+        &:first-child,
+        &:last-child {
+            border-radius: var(--_start-border-radius, 0) var(--_end-border-radius, 0) var(--_end-border-radius, 0) var(--_start-border-radius, 0);
+        }
+
+    }
+}
+
+/*
  * Input boxes
  */
 

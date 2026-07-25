@@ -1,10 +1,11 @@
-import { cls, options } from "@triliumnext/core";
+import { cls, getLog, options } from "@triliumnext/core";
 import type { NextFunction, Request as ExpressRequest, RequestHandler, Response as ExpressResponse } from "express";
+import { ClientSecretBasic, ClientSecretPost } from "openid-client";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import config from "./config.js";
 import openIDEncryption from "./encryption/open_id_encryption.js";
-import openID, { createReactiveOidcMiddleware, resolveOAuthIdentity, supportsRpInitiatedLogout } from "./open_id.js";
+import openID, { createReactiveOidcMiddleware, resolveClientAuthMethod, resolveOAuthIdentity, supportsRpInitiatedLogout } from "./open_id.js";
 import sql from "./sql.js";
 import sqlInit from "./sql_init.js";
 
@@ -18,6 +19,7 @@ function setOauthConfig(complete: boolean) {
     mfa.oauthIssuerBaseUrl = "https://issuer.example.com";
     mfa.oauthIssuerName = "Acme";
     mfa.oauthIssuerIcon = "icon.png";
+    mfa.oauthClientAuthMethod = "";
 }
 
 describe("open_id", () => {
@@ -174,15 +176,11 @@ describe("open_id", () => {
             expect(typeof cfg.afterCallback).toBe("function");
         });
 
-        it("auto-selects the token-endpoint auth method by issuer", () => {
+        it("passes the resolved token-endpoint auth method through to express-openid-connect", () => {
             setOauthConfig(true);
-
-            // Non-Google issuer (the setOauthConfig default) → spec-default client_secret_basic.
             expect(openID.generateOAuthConfig().clientAuthMethod).toBe("client_secret_basic");
 
-            // Google issuer (trailing slash tolerated) → client_secret_post, since Google rejects the
-            // RFC-encoded Basic credentials (client_ids contain "-"/"." which become %2D/%2E).
-            mfa.oauthIssuerBaseUrl = "https://accounts.google.com/";
+            mfa.oauthIssuerBaseUrl = "https://gitlab.com";
             expect(openID.generateOAuthConfig().clientAuthMethod).toBe("client_secret_post");
         });
 
@@ -381,6 +379,94 @@ describe("open_id", () => {
         });
     });
 
+    /**
+     * Regression cover for #10585: OIDC login against GitLab broke in v0.104.0 with
+     * `OAUTH_WWW_AUTHENTICATE_CHALLENGE`, caused by the express-openid-connect 2.20.2 → 3.2.0 bump
+     * (openid-client v5 → v6/oauth4webapi). v6's `ClientSecretBasic` applies strict RFC 6749 §2.3.1
+     * form-encoding *inside* the HTTP Basic header, escaping `- _ . ! ~ * ' ( )`; v5 used plain
+     * `encodeURIComponent`, which leaves them alone.
+     */
+    describe("resolveClientAuthMethod", () => {
+        it("uses client_secret_post only for issuers that can't decode Basic credentials", () => {
+            setOauthConfig(true);
+
+            // GitLab's secrets are `gloas-` prefixed; Google's client_ids always carry "-" and ".".
+            mfa.oauthIssuerBaseUrl = "https://gitlab.com";
+            expect(resolveClientAuthMethod()).toBe("client_secret_post");
+            mfa.oauthIssuerBaseUrl = "https://accounts.google.com/"; // trailing slash tolerated
+            expect(resolveClientAuthMethod()).toBe("client_secret_post");
+
+            // Everyone else keeps the OIDC Core default. Critically this includes providers that
+            // *advertise* client_secret_post but register the client as basic and reject a mismatch
+            // (Authelia responds 401 invalid_client), which is why this is an issuer table and not a
+            // reading of token_endpoint_auth_methods_supported.
+            mfa.oauthIssuerBaseUrl = "https://auth.example.com:9091";
+            expect(resolveClientAuthMethod()).toBe("client_secret_basic");
+
+            // A self-hosted instance is not the public issuer, so it does not match the table.
+            mfa.oauthIssuerBaseUrl = "https://gitlab.example.com";
+            expect(resolveClientAuthMethod()).toBe("client_secret_basic");
+        });
+
+        it("lets an explicit oauthClientAuthMethod override the issuer table", () => {
+            setOauthConfig(true);
+
+            // The escape hatch for self-hosted GitLab and any provider we don't know about.
+            mfa.oauthIssuerBaseUrl = "https://gitlab.example.com";
+            mfa.oauthClientAuthMethod = "client_secret_post";
+            expect(resolveClientAuthMethod()).toBe("client_secret_post");
+
+            // It overrides in both directions, so a table entry can be undone if a provider changes.
+            mfa.oauthIssuerBaseUrl = "https://gitlab.com";
+            mfa.oauthClientAuthMethod = "  client_secret_basic  ";
+            expect(resolveClientAuthMethod()).toBe("client_secret_basic");
+
+            // An unrecognised value is logged and ignored rather than passed to express-openid-connect,
+            // whose Joi schema would otherwise reject it and take the whole server down at first use.
+            const logSpy = vi.spyOn(getLog(), "error").mockImplementation(() => {});
+            mfa.oauthClientAuthMethod = "private_key_jwt";
+            expect(resolveClientAuthMethod()).toBe("client_secret_post");
+            expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("private_key_jwt"));
+        });
+
+        /**
+         * The property the issuer table exists to protect. `client_secret_post` puts the credentials in
+         * the form body, which every provider form-decodes, so they always arrive intact. Under
+         * `client_secret_basic` they arrive intact *only* if the provider percent-decodes per spec —
+         * both halves are pinned so the tradeoff stays explicit.
+         */
+        it("delivers credentials to the token endpoint intact under the selected method", () => {
+            setOauthConfig(true);
+
+            // GitLab: 64-hex Application ID, `gloas-` prefixed secret (the hyphen is what breaks Basic).
+            const clientId = "a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0a1b2";
+            const clientSecret = "gloas-4f3a2b1c-9d8e-7f6a-5b4c-3d2e1f0a9b8c";
+            mfa.oauthIssuerBaseUrl = "https://gitlab.com";
+
+            expect(credentialsAtTokenEndpoint(resolveClientAuthMethod(), clientId, clientSecret))
+                .toEqual({ clientId, clientSecret });
+
+            // Had GitLab been left on basic, Doorkeeper would have compared against a mangled secret —
+            // this is the exact corruption behind #10585.
+            expect(credentialsAtTokenEndpoint("client_secret_basic", clientId, clientSecret))
+                .toEqual({ clientId, clientSecret: "gloas%2D4f3a2b1c%2D9d8e%2D7f6a%2D5b4c%2D3d2e1f0a9b8c" });
+        });
+
+        it("relies on the provider decoding per spec when it stays on basic", () => {
+            setOauthConfig(true);
+            // The credentials from Trilium's own Authelia dev harness; the "_" is what Basic escapes.
+            const clientId = "trilium";
+            const clientSecret = "insecure_secret";
+            mfa.oauthIssuerBaseUrl = "https://auth.example.com:9091";
+            const method = resolveClientAuthMethod();
+            expect(method).toBe("client_secret_basic");
+
+            // Authelia percent-decodes per RFC 6749, so the credentials round-trip correctly.
+            expect(credentialsAtTokenEndpoint(method, clientId, clientSecret, { percentDecodes: true }))
+                .toEqual({ clientId, clientSecret });
+        });
+    });
+
     describe("isRpInitiatedLogoutSupported", () => {
         const wellKnownUrl = "https://issuer.example.com/.well-known/openid-configuration";
 
@@ -462,12 +548,16 @@ describe("createReactiveOidcMiddleware", () => {
         };
     }
 
-    async function run(middleware: RequestHandler) {
+    async function run(middleware: RequestHandler, url = "/authenticate") {
         const next = vi.fn() as unknown as NextFunction;
-        const req = {} as ExpressRequest;
-        const res = {} as ExpressResponse;
+        // A failed round-trip redirects back to the app root and flags the session, so both have to be
+        // present for the middleware to drive them. `path` mirrors Express's query-stripped getter,
+        // which decides whether a failure is answered with a redirect or handed to the error chain.
+        const [path] = url.split("?");
+        const req = { method: "GET", url, path, session: {} } as ExpressRequest;
+        const res = { headersSent: false, redirect: vi.fn() } as unknown as ExpressResponse;
         await middleware(req, res, next);
-        return { next, req, res };
+        return { next, req, res, redirect: res.redirect as unknown as ReturnType<typeof vi.fn> };
     }
 
     it("passes through without building the OIDC handler when OAuth is not selected", async () => {
@@ -578,7 +668,11 @@ describe("createReactiveOidcMiddleware", () => {
         t.setConfigured(true);
         t.isRpInitiatedLogoutSupported.mockRejectedValueOnce(new Error("transient discovery failure"));
 
-        await expect(run(t.middleware)).rejects.toThrow("transient discovery failure");
+        // The failure is reported to the user via the redirect-and-flag path rather than thrown at the
+        // generic error handler, which would answer this full-page navigation with raw JSON.
+        const failed = await run(t.middleware);
+        expect(failed.redirect).toHaveBeenCalledWith("/");
+        expect(failed.req.session.ssoConnectionFailed).toContain("transient discovery failure");
         expect(t.oidcHandler).not.toHaveBeenCalled();
 
         // Second request: the probe succeeds and the handler is finally built and delegated to.
@@ -586,4 +680,160 @@ describe("createReactiveOidcMiddleware", () => {
         expect(t.buildAuth).toHaveBeenCalledOnce();
         expect(t.oidcHandler).toHaveBeenCalledWith(req, res, expect.any(Function));
     });
+
+    // The provider round-trip failing outright (unreachable host, untrusted TLS certificate, token
+    // exchange error) used to fall through to the generic JSON error handler, stranding the user on a
+    // `{"message":"fetch failed"}` page mid-way through connecting an account.
+    it("redirects back to the app root and flags the session when the round-trip fails", async () => {
+        const t = setup();
+        t.setConfigured(true);
+        // express-openid-connect reports a broken round-trip through next(err), not by rejecting. The
+        // shape mirrors undici's: an opaque top-level message with the real reason nested in `.cause`.
+        const tlsFailure = Object.assign(new Error("self-signed certificate"), { code: "DEPTH_ZERO_SELF_SIGNED_CERT" });
+        t.oidcHandler.mockImplementation(((_req, _res, next) =>
+            next(new Error("fetch failed", { cause: tlsFailure }))) as RequestHandler);
+
+        const { req, redirect, next } = await run(t.middleware);
+
+        expect(redirect).toHaveBeenCalledWith("/");
+        // The detail travels to the client verbatim, so the actionable reason buried in the cause chain
+        // reaches the user rather than only the opaque top-level "fetch failed".
+        expect(req.session.ssoConnectionFailed).toBe("fetch failed ← caused by: self-signed certificate [DEPTH_ZERO_SELF_SIGNED_CERT]");
+        // The error must not also continue down the chain, or Express would answer the request twice.
+        expect(next).not.toHaveBeenCalled();
+    });
+
+    // The detail's presence is what marks the failure downstream, so an error that describes to nothing
+    // must still produce a non-empty string — otherwise the client would read it as "no failure" and the
+    // user would land back on the app root with no explanation at all.
+    it("still records a detail for an error that describes to nothing", async () => {
+        const t = setup();
+        t.setConfigured(true);
+        // An object with neither a message nor any system/OAuth field — describeError yields null for it.
+        t.oidcHandler.mockImplementation(((_req, _res, next) => next({})) as RequestHandler);
+
+        const { req, redirect } = await run(t.middleware);
+
+        expect(redirect).toHaveBeenCalledWith("/");
+        expect(req.session.ssoConnectionFailed).toBeTruthy();
+    });
+
+    it("falls back to a generic detail when the thrown value stringifies to nothing", async () => {
+        const t = setup();
+        t.setConfigured(true);
+        // A thrown empty string reaches failRoundTrip through the init catch (the round-trip wrapper
+        // treats falsy as "no error"). describeError yields null and String() yields "" for it, so
+        // only the final fallback keeps the session marker non-empty — and its presence is what marks
+        // the failure downstream.
+        t.isRpInitiatedLogoutSupported.mockRejectedValueOnce("");
+
+        const { req, redirect } = await run(t.middleware);
+
+        expect(redirect).toHaveBeenCalledWith("/");
+        expect(req.session.ssoConnectionFailed).toBe("unknown error");
+    });
+
+    // This middleware is mounted ahead of every route, so a failed lazy init is reached by ordinary
+    // traffic too. Redirecting those would hand an XHR a 302 to HTML where it expects JSON, so only the
+    // provider round-trip — a full-page navigation — is answered that way.
+    it("hands non-navigation requests to the error chain instead of redirecting", async () => {
+        const t = setup();
+        t.setConfigured(true);
+        const failure = new Error("fetch failed");
+        t.oidcHandler.mockImplementation(((_req, _res, next) => next(failure)) as RequestHandler);
+
+        const { req, redirect, next } = await run(t.middleware, "/api/notes/root");
+
+        expect(redirect).not.toHaveBeenCalled();
+        expect(next).toHaveBeenCalledWith(failure);
+        expect(req.session.ssoConnectionFailed).toBeUndefined();
+    });
+
+    // The redirect target is itself covered by this middleware. A transient failure self-heals (the init
+    // promise is reset, so the next request retries), but a persistent one — a malformed oauthBaseUrl
+    // that auth() rejects every time — would bounce "/" to "/" until the browser gave up, turning a JSON
+    // error that named the bad config into an opaque ERR_TOO_MANY_REDIRECTS.
+    it("does not redirect the app root to itself", async () => {
+        const t = setup();
+        t.setConfigured(true);
+        const failure = new Error("invalid config");
+        t.isRpInitiatedLogoutSupported.mockRejectedValue(failure);
+
+        const { redirect, next } = await run(t.middleware, "/");
+
+        expect(redirect).not.toHaveBeenCalled();
+        expect(next).toHaveBeenCalledWith(failure);
+    });
+
+    // The callback carries ?code=&state=, so the guard has to compare against the query-stripped path.
+    it("still redirects the callback when it arrives with query parameters", async () => {
+        const t = setup();
+        t.setConfigured(true);
+        t.oidcHandler.mockImplementation(((_req, _res, next) => next(new Error("token exchange failed"))) as RequestHandler);
+
+        const { req, redirect } = await run(t.middleware, "/callback?code=abc&state=xyz");
+
+        expect(redirect).toHaveBeenCalledWith("/");
+        expect(req.session.ssoConnectionFailed).toContain("token exchange failed");
+    });
+
+    // Once the library has begun answering (e.g. it already started the redirect to the provider), we
+    // can't redirect on top of it — the error has to go to Express instead of causing a double response.
+    it("defers to the error chain when the response has already started", async () => {
+        const t = setup();
+        t.setConfigured(true);
+        const failure = new Error("fetch failed");
+        t.oidcHandler.mockImplementation(((_req, res, next) => {
+            (res as { headersSent: boolean }).headersSent = true;
+            next(failure);
+        }) as RequestHandler);
+
+        const { req, redirect, next } = await run(t.middleware);
+
+        expect(redirect).not.toHaveBeenCalled();
+        expect(next).toHaveBeenCalledWith(failure);
+        expect(req.session.ssoConnectionFailed).toBeUndefined();
+    });
 });
+
+/**
+ * Replays what a provider's token endpoint actually receives for a given client authentication method,
+ * driving the real openid-client encoders rather than re-implementing them.
+ *
+ * `percentDecodes` models the one behavioural split that matters. oauth4webapi always percent-encodes
+ * the Basic credentials per RFC 6749 §2.3.1, so what the provider ends up with depends entirely on
+ * whether it decodes them again:
+ *
+ * - `true` — a spec-compliant provider (Authelia/fosite, Keycloak). Basic round-trips correctly.
+ * - `false` — Rack/Doorkeeper, i.e. GitLab: it base64-decodes the header and splits on ":" but never
+ *   percent-decodes, so it compares against a corrupted secret. That asymmetry is the bug behind #10585.
+ *
+ * `client_secret_post` is unaffected either way: the credentials ride in the form body, which every
+ * provider form-decodes as a matter of course.
+ */
+function credentialsAtTokenEndpoint(
+    method: "client_secret_basic" | "client_secret_post",
+    clientId: string,
+    clientSecret: string,
+    { percentDecodes = false } = {}
+) {
+    const headers = new Headers();
+    const body = new URLSearchParams();
+    const applyAuth = method === "client_secret_post"
+        ? ClientSecretPost(clientSecret)
+        : ClientSecretBasic(clientSecret);
+    applyAuth({} as never, { client_id: clientId } as never, body, headers);
+
+    const authorization = headers.get("authorization");
+    if (authorization) {
+        const decoded = Buffer.from(authorization.replace(/^Basic /, ""), "base64").toString();
+        const separator = decoded.indexOf(":");
+        const asReceived = (value: string) => (percentDecodes ? decodeURIComponent(value) : value);
+        return {
+            clientId: asReceived(decoded.slice(0, separator)),
+            clientSecret: asReceived(decoded.slice(separator + 1))
+        };
+    }
+
+    return { clientId: body.get("client_id"), clientSecret: body.get("client_secret") };
+}

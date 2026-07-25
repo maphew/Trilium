@@ -1,4 +1,4 @@
-import { NoteType } from "@triliumnext/commons";
+import { getImageAttachmentTitle, NoteType } from "@triliumnext/commons";
 import sanitize from "sanitize-filename";
 
 import packageInfo from "../../../package.json" with { type: "json" };
@@ -18,6 +18,7 @@ import { ValidationError } from "../../errors";
 import { extname } from "../utils/path";
 import { truncateUtf8Bytes } from "../utils/binary";
 import { rewriteMarkdownContentLinks, isMarkdownCodeNote } from "./rewrite_links.js";
+import { stripListItemIds } from "./strip_list_item_ids.js";
 
 // Most filesystems cap a single path component at 255 bytes; keep exported file names within that.
 const MAX_FILENAME_BYTES = 255;
@@ -209,7 +210,7 @@ async function exportToZip(taskContext: TaskContext<"export">, branch: BBranch, 
         return meta as NoteMeta;
     }
 
-    function getNoteTargetUrl(targetNoteId: string, sourceMeta: NoteMeta): string | null {
+    function getNoteTargetUrl(targetNoteId: string, sourceMeta: NoteMeta, fileNameOverride?: string): string | null {
         const targetMeta = noteIdToMeta[targetNoteId];
 
         if (!targetMeta || !targetMeta.notePath || !sourceMeta.notePath) {
@@ -241,22 +242,44 @@ async function exportToZip(taskContext: TaskContext<"export">, branch: BBranch, 
         const meta = noteIdToMeta[targetPath[targetPath.length - 1]];
 
         // link can target note which is only "folder-note" and as such, will not have a file in an export
-        url += encodeURIComponent(meta.dataFileName || meta.dirFileName || "");
+        url += encodeURIComponent(fileNameOverride ?? (meta.dataFileName || meta.dirFileName || ""));
 
         return url;
     }
 
+    /**
+     * Resolves an `api/images/<noteId>` embed to the file that actually holds the image. For a
+     * mermaid or canvas note that is the exported `*-export.svg` attachment sitting next to the
+     * note's data file, not the data file itself — which holds the diagram source, or the note's
+     * own HTML page in a share export, and renders as a broken image.
+     */
+    function getEmbeddedImageUrl(targetNoteId: string, sourceMeta: NoteMeta): string | null {
+        // `targetMeta` is undefined when the embedded note lies outside the exported subtree. It is
+        // typed as always present, so guard it explicitly rather than leaning on `attachmentTitle`
+        // happening to be undefined in that case.
+        const targetMeta = noteIdToMeta[targetNoteId];
+        const attachmentTitle = getImageAttachmentTitle(targetMeta?.type);
+        const attachmentMeta = targetMeta && attachmentTitle
+            ? (targetMeta.attachments || []).find((attMeta) => attMeta.title === attachmentTitle)
+            : undefined;
+
+        // Falls back to the note's own data file when the attachment was never generated.
+        return getNoteTargetUrl(targetNoteId, sourceMeta, attachmentMeta?.dataFileName);
+    }
+
     function rewriteLinks(content: string, noteMeta: NoteMeta): string {
         content = content.replace(/src="[^"]*api\/images\/([a-zA-Z0-9_]+)\/[^"]*"/g, (match, targetNoteId) => {
-            const url = getNoteTargetUrl(targetNoteId, noteMeta);
+            const url = getEmbeddedImageUrl(targetNoteId, noteMeta);
 
             return url ? `src="${url}"` : match;
         });
 
-        content = content.replace(/src="[^"]*api\/attachments\/([a-zA-Z0-9_]+)\/image\/[^"]*"/g, (match, targetAttachmentId) => {
+        // `data-image` is where link previews (section.link-embed / span.link-mention) keep their
+        // card image reference; it points at the exported attachment file just like an <img> src.
+        content = content.replace(/(src|data-image)="[^"]*api\/attachments\/([a-zA-Z0-9_]+)\/image\/[^"]*"/g, (match, attrName, targetAttachmentId) => {
             const url = findAttachment(targetAttachmentId);
 
-            return url ? `src="${url}"` : match;
+            return url ? `${attrName}="${url}"` : match;
         });
 
         content = content.replace(/href="[^"]*#root[^"]*attachmentId=([a-zA-Z0-9_]+)\/?"/g, (match, targetAttachmentId) => {
@@ -299,6 +322,13 @@ async function exportToZip(taskContext: TaskContext<"export">, branch: BBranch, 
         const isText = ["html", "markdown"].includes(noteMeta?.format || "");
         if (isText) {
             content = content.toString();
+        }
+
+        // Text notes store HTML regardless of the export format, so strip CKEditor's per-list-item
+        // bookkeeping before the provider runs: gone from HTML exports and from the raw-HTML tables
+        // that survive Markdown conversion alike.
+        if (noteMeta?.type === "text" && typeof content === "string") {
+            content = stripListItemIds(content);
         }
 
         content = provider.prepareContent(title, content, noteMeta, note, branch);

@@ -18,6 +18,7 @@ import utils, {
     isLaunchBarConfig,
     isMac,
     isMobileApp,
+    isPreAuthScreen,
     isPWA,
     isUpdateAvailable,
     mapToKeyValueArray,
@@ -28,18 +29,9 @@ import utils, {
     reloadFrontendApp,
     replaceHtmlEscapedSlashes,
     restartDesktopApp,
+    rootCauseMessage,
     toggleBodyClass
 } from "./utils.js";
-
-// `snapdom` is used by downloadAsSvg / downloadAsPng; stub it so no real rendering happens.
-vi.mock("@zumer/snapdom", () => ({
-    snapdom: vi.fn(async () => ({
-        url: "data:image/svg+xml;base64,AAA",
-        toPng: vi.fn(async () => ({ src: "data:image/png;base64,BBB" }))
-    }))
-}));
-
-import { snapdom } from "@zumer/snapdom";
 
 // `logInfo` / `logError` are normally attached to window/globalThis by ws.ts, which is mocked
 // out by the test setup. Provide no-op globals so the few code paths that log don't crash.
@@ -674,34 +666,67 @@ describe("createImageSrcUrl", () => {
     });
 });
 
-describe("snapdom downloads (default export)", () => {
-    it("downloadAsSvg parses an SVG string with the SVG mime type, renders it and triggers a download", async () => {
-        const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
-        // happy-dom's image/svg+xml documentElement lacks a writable `.style`, so return a real
-        // HTML element from the parser while still asserting the SVG mime branch was taken.
-        const parseSpy = vi.spyOn(DOMParser.prototype, "parseFromString").mockImplementation(() => {
-            const doc = document.implementation.createHTMLDocument("");
-            return doc;
+describe("SVG downloads (default export)", () => {
+    function captureDownload() {
+        const downloads: { name: string | null, href: string | null }[] = [];
+        vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(function(this: HTMLAnchorElement) {
+            downloads.push({ name: this.getAttribute("download"), href: this.getAttribute("href") });
         });
-        await utils.downloadAsSvg("diagram", "  <svg><rect/></svg>");
-        expect(parseSpy).toHaveBeenCalledWith("  <svg><rect/></svg>", "image/svg+xml");
-        expect(snapdom).toHaveBeenCalled();
-        expect(clickSpy).toHaveBeenCalled();
+        return downloads;
+    }
+
+    function captureObjectUrls() {
+        const blobs: Blob[] = [];
+        vi.spyOn(URL, "createObjectURL").mockImplementation((blob) => {
+            blobs.push(blob as Blob);
+            return `blob:mock-${blobs.length}`;
+        });
+        vi.spyOn(URL, "revokeObjectURL").mockImplementation(() => {});
+        return blobs;
+    }
+
+    it("downloadSvg downloads the SVG string as a data URL (a blob-URL anchor click after " +
+        "the export's awaits is silently blocked without user activation)", () => {
+        const downloads = captureDownload();
+        utils.downloadSvg("diagram", `<svg><text>a & b</text></svg>`);
+
+        expect(downloads).toHaveLength(1);
+        expect(downloads[0].name).toBe("diagram.svg");
+        const href = downloads[0].href ?? "";
+        expect(href.startsWith("data:image/svg+xml;charset=utf-8,")).toBe(true);
+        expect(decodeURIComponent(href.split(",")[1])).toBe(`<svg><text>a & b</text></svg>`);
     });
 
-    it("downloadAsSvg accepts an existing element without attaching it", async () => {
-        const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
-        const el = document.createElement("div");
-        await utils.downloadAsSvg("diagram", el);
-        expect(snapdom).toHaveBeenCalled();
-        expect(clickSpy).toHaveBeenCalled();
+    it("downloadSvgAsPng rasterizes at the given scale and downloads a PNG", async () => {
+        const downloads = captureDownload();
+        captureObjectUrls();
+        const drawImage = vi.fn();
+        const canvasSizes: { width: number, height: number }[] = [];
+        vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockReturnValue({ drawImage } as unknown as RenderingContext);
+        vi.spyOn(HTMLCanvasElement.prototype, "toDataURL").mockImplementation(function(this: HTMLCanvasElement) {
+            canvasSizes.push({ width: this.width, height: this.height });
+            return "data:image/png;base64,BBB";
+        });
+        vi.stubGlobal("Image", class {
+            src = "";
+            decode = vi.fn(async () => {});
+        });
+
+        try {
+            await utils.downloadSvgAsPng("diagram", `<svg width="100" height="50"></svg>`);
+        } finally {
+            vi.unstubAllGlobals();
+        }
+
+        expect(canvasSizes).toEqual([ { width: 200, height: 100 } ]); // default scale is 2
+        expect(drawImage).toHaveBeenCalled();
+        expect(downloads).toEqual([ { name: "diagram.png", href: "data:image/png;base64,BBB" } ]);
     });
 
-    it("downloadAsPng renders an HTML string to PNG and downloads it", async () => {
-        const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, "click").mockImplementation(() => {});
-        await utils.downloadAsPng("diagram", "<div>hello</div>");
-        expect(snapdom).toHaveBeenCalled();
-        expect(clickSpy).toHaveBeenCalled();
+    it("downloadSvgAsPng rejects when the SVG has no usable dimensions", async () => {
+        vi.spyOn(console, "warn").mockImplementation(() => {});
+        await expect(utils.downloadSvgAsPng("diagram", `<svg xmlns="http://www.w3.org/2000/svg"/>`))
+            .rejects.toThrow("dimensions");
     });
 });
 
@@ -775,6 +800,38 @@ describe("getErrorMessage", () => {
         expect(getErrorMessage("plain string")).toBe("Unknown error");
         expect(getErrorMessage({ message: 5 })).toBe("Unknown error");
         expect(getErrorMessage(null)).toBe("Unknown error");
+    });
+});
+
+describe("rootCauseMessage", () => {
+    it("walks the cause chain to the bottom and returns the root message", () => {
+        const root = new Error("boom");
+        const middle = new Error(`Load of script note "B" (id2) failed with: boom`, { cause: root });
+        const outer = new Error(`Load of script note "A" (id1) failed with: ...`, { cause: middle });
+        expect(rootCauseMessage(outer)).toBe("boom");
+    });
+
+    it("returns the message of an unwrapped error or error-like object as-is", () => {
+        expect(rootCauseMessage(new Error("plain"))).toBe("plain");
+        expect(rootCauseMessage({ message: "server-side" })).toBe("server-side");
+    });
+
+    it("passes strings through and stringifies other primitives", () => {
+        expect(rootCauseMessage("raw string")).toBe("raw string");
+        expect(rootCauseMessage(42)).toBe("42");
+        expect(rootCauseMessage(new Error("outer", { cause: "string cause" }))).toBe("string cause");
+    });
+
+    it("does not loop forever on a cyclic cause chain", () => {
+        const self = new Error("self-cycle");
+        self.cause = self;
+        expect(rootCauseMessage(self)).toBe("self-cycle");
+
+        // A longer cycle: a -> b -> a. Walking stops once a repeat is seen.
+        const a = new Error("a");
+        const b = new Error("b", { cause: a });
+        a.cause = b;
+        expect(rootCauseMessage(b)).toBe("a");
     });
 });
 
@@ -854,5 +911,44 @@ describe("openInReusableSplit / openInAppHelpFromUrl", () => {
         };
         await openInAppHelpFromUrl("MyPage");
         expect(setNote).toHaveBeenCalledWith("_help_MyPage", { viewScope: { viewMode: "contextual-help" } });
+    });
+});
+
+describe("isPreAuthScreen", () => {
+    const originalGlob = window.glob;
+
+    afterEach(() => {
+        window.glob = originalGlob;
+    });
+
+    function setGlob(patch: Record<string, unknown>) {
+        // The eager module-load side effects (froca tree load, ws connect, options /
+        // keyboard-actions / fonts fetches) read `glob` directly; we only need the auth flags here.
+        window.glob = { isMainWindow: true, ...patch } as typeof window.glob;
+    }
+
+    it("flags the login screen (loggedIn:false) so eager loads skip their unauthenticated calls", () => {
+        setGlob({ dbInitialized: true, loggedIn: false });
+        expect(isPreAuthScreen()).toBe(true);
+    });
+
+    it("flags the set-password screen (passwordSet:false)", () => {
+        setGlob({ dbInitialized: true, passwordSet: false });
+        expect(isPreAuthScreen()).toBe(true);
+    });
+
+    it("does NOT flag the setup screen — froca/ws already gate on !dbInitialized and the server permits pre-init requests", () => {
+        setGlob({ dbInitialized: false });
+        expect(isPreAuthScreen()).toBe(false);
+    });
+
+    it("does NOT flag the fully authenticated app", () => {
+        setGlob({ dbInitialized: true, loggedIn: true, passwordSet: true });
+        expect(isPreAuthScreen()).toBe(false);
+    });
+
+    it("does NOT flag an unset glob (unit-test / unknown state) — strict === false keeps eager loads working", () => {
+        setGlob({});
+        expect(isPreAuthScreen()).toBe(false);
     });
 });

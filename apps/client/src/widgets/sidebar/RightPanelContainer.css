@@ -21,6 +21,10 @@ body.experimental-feature-new-layout #vertical-main-container {
     padding-inline-end: var(--right-pane-peek-button-gutter);
 }
 
+body.experimental-feature-new-layout.layout-horizontal #vertical-main-container {
+    --right-pane-peek-button-gutter: calc(var(--right-pane-peek-button-width) + 2px);
+}
+
 /* Persistent host wrapping the spacer + #right-pane (see RightPanelContainer.tsx), so #right-pane
    never reparents between modes. A flex row: docked it fills with the pane (spacer hidden); peek
    it lays out [spacer | gutter | pane]. */
@@ -185,4 +189,9 @@ body.experimental-feature-new-layout #right-pane {
     .gutter-vertical + .card .card-header {
         padding-top: 0;
     }
+}
+
+/* Backdrop effects are disabled, so peek mode needs a solid background. */
+body.experimental-feature-new-layout.backdrop-effects-disabled #right-pane.right-pane-mode-peek {
+    background: var(--right-pane-background-color);
 }

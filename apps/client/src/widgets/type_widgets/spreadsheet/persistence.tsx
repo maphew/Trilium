@@ -1,3 +1,4 @@
+import { NOTE_TYPE_IMAGE_ATTACHMENTS } from "@triliumnext/commons";
 import { SHEET_DRAWING_RESOURCE } from "@triliumnext/commons/src/lib/spreadsheet/workbook_model";
 import { CommandType, FUniver, IDisposable, IWorkbookData, LocaleType } from "@univerjs/presets";
 import { MutableRef, useEffect, useRef } from "preact/hooks";
@@ -188,7 +189,7 @@ export default function usePersistence(note: FNote, noteContext: NoteContext | n
                 const base64 = dataUrl.split(",")[1];
                 attachments.push({
                     role: "image",
-                    title: "spreadsheet-export.png",
+                    title: NOTE_TYPE_IMAGE_ATTACHMENTS.spreadsheet,
                     mime: "image/png",
                     content: base64,
                     position: 0,

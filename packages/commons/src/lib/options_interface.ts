@@ -138,6 +138,8 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     shadowsEnabled: boolean;
     backdropEffectsEnabled: boolean;
     smoothScrollEnabled: boolean;
+    /** Desktop only: when disabled, Electron starts with GPU hardware acceleration turned off (workaround for GPU driver incompatibilities that cause a blank window). Requires an app restart. */
+    hardwareAccelerationEnabled: boolean;
     codeNoteTheme: string;
     codeNoteThemeMatchesApp: boolean;
     codeNoteThemeLight: string;
@@ -187,8 +189,20 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     textNoteCompletionEnabled: boolean;
     /** Whether keyboard auto-completion for editing commands is triggered when typing `/`. */
     textNoteSlashCommandsEnabled: boolean;
+    /** Whether the editor surfaces content-area hints (bottom-corner popups that document how to interact with the element under the caret or pointer, e.g. task-state cycle, collapsible-summary shortcut, drag-handle label). */
+    textNoteContentHintsEnabled: boolean;
+    /** Whether a URL typed or pasted into a text note is automatically turned into a link preview. The "Link preview" dialog is unaffected and always inserts one on request. */
+    textNoteAutoLinkPreviewsEnabled: boolean;
     backgroundEffects: boolean;
     newLayout: boolean;
+
+    // PDF settings
+    /**
+     * The pdf.js reusable signature library, stored as a JSON string keyed by signature UUID
+     * (`{ [uuid]: { description, signatureData } }`). Persisted here — instead of pdf.js' default
+     * per-browser `localStorage` — so saved signatures sync across devices.
+     */
+    pdfSignatures: string;
 
     // Search settings
     /** Whether fuzzy matching is enabled in search (matches similar words when exact matches are insufficient). */

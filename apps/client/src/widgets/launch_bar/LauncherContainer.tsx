@@ -9,6 +9,7 @@ import { useTriliumEvent } from "../react/hooks";
 import { onWheelHorizontalScroll } from "../widget_utils";
 import BookmarkButtons from "./BookmarkButtons";
 import CalendarWidget from "./CalendarWidget";
+import ColorSchemeSwitcher from "./ColorSchemeSwitcher";
 import HistoryNavigationButton from "./HistoryNavigation";
 import { LaunchBarContext } from "./launch_bar_widgets";
 import { CommandButton, CustomWidget, NoteLauncher, QuickSearchLauncherWidget, ScriptLauncher, TodayLauncher } from "./LauncherDefinitions";
@@ -102,20 +103,23 @@ function initBuiltinWidget(note: FNote, isHorizontalLayout: boolean) {
             return <TabSwitcher launcherNote={note} />;
         case "sidebarChat":
             return isExperimentalFeatureEnabled("llm") ? <SidebarChatButton launcherNote={note} /> : undefined;
+        case "colorSchemeSwitcher":
+            return <ColorSchemeSwitcher launcherNote={note} />;
         default:
             console.warn(`Unrecognized builtin widget ${builtinWidget} for launcher ${note.noteId} "${note.title}"`);
     }
 }
 
-function useLauncherChildNotes() {
+export function useLauncherChildNotes() {
     const [ visibleLaunchersRoot, setVisibleLaunchersRoot ] = useState<FNote | undefined | null>();
     const [ childNotes, setChildNotes ] = useState<FNote[]>();
 
     // Load the root note.
-    useLayoutEffect(() => {
+    const loadRoot = useCallback(() => {
         const visibleLaunchersRootId = isMobile() ? "_lbMobileVisibleLaunchers" : "_lbVisibleLaunchers";
         froca.getNote(visibleLaunchersRootId, true).then(setVisibleLaunchersRoot);
     }, []);
+    useLayoutEffect(loadRoot, [ loadRoot ]);
 
     // Load the children.
     const refresh = useCallback(() => {
@@ -123,6 +127,12 @@ function useLauncherChildNotes() {
         visibleLaunchersRoot.getChildNotes().then(setChildNotes);
     }, [ visibleLaunchersRoot, setChildNotes ]);
     useLayoutEffect(refresh, [ visibleLaunchersRoot ]);
+
+    // Swap to fresh FNote refs after a full froca reload (e.g. entering a protected session
+    // clears the cache and creates new instances — old refs are orphaned with stale titles,
+    // leaving launcher tooltips stuck at "[protected]" when the launchers themselves are
+    // protected notes). Re-resolving the root also refreshes the children via the effect above.
+    useTriliumEvent("frocaReloaded", loadRoot);
 
     // React to position changes.
     useTriliumEvent("entitiesReloaded", ({loadResults}) => {

@@ -462,6 +462,12 @@ class NoteContext extends Component implements EventListener<"entitiesReloaded">
             return false;
         }
 
+        // Icon packs render their glyph-grid preview across the whole pane; a children overview below it
+        // would be out of place.
+        if (note.isIconPack()) {
+            return false;
+        }
+
         if (note.isLabelTruthy("hideChildrenOverview")) {
             return false;
         }

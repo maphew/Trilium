@@ -66,8 +66,40 @@ describe("triliumLogHighlighter", () => {
     it("recognises JS Info lines and leaves plain lines with only a timestamp", () => {
         expect(classesOf("17:34:08.519 JS Info: something happened")).toContain("cm-log-info");
 
-        const plain = classesOf("18:18:40.077 Slow query took 78ms: SELECT 1");
+        const plain = classesOf("17:35:56.745 Backend script execution is DISABLED.");
         expect(plain).toEqual([ "cm-log-timestamp" ]);
+    });
+
+    it("highlights a slow SQL query: the whole `Slow query` verb and the statement", () => {
+        const doc = "00:10:01.540 Slow query took 78ms: SELECT content FROM blobs WHERE blobId = ?";
+        const spans = decorationsOf(state(doc));
+
+        expect(classesOf(doc)).toContain("cm-log-query"); // whole-line tint
+        expect(sliceOf(doc, spans, "cm-log-query-verb")).toBe("Slow query");
+        expect(sliceOf(doc, spans, "cm-log-sql")).toBe("SELECT content FROM blobs WHERE blobId = ?");
+        // `Slow` is part of the verb here, not the conditional warning marker used on HTTP lines; and
+        // the query verb has its own colour rather than the HTTP method's. The duration is undecorated.
+        expect(classesOf(doc)).not.toContain("cm-log-slow");
+        expect(classesOf(doc)).not.toContain("cm-log-verb");
+    });
+
+    it("handles recursive queries, whose verb spans `recursive` and which carry no statement", () => {
+        const doc = "00:10:02.113 Slow recursive query took 45ms.";
+        const spans = decorationsOf(state(doc));
+
+        expect(sliceOf(doc, spans, "cm-log-query-verb")).toBe("Slow recursive query");
+        expect(classesOf(doc)).not.toContain("cm-log-sql");
+    });
+
+    it("does not mistake sibling timing lines for queries", () => {
+        // Same `Slow … took <n>ms` shape, but not a query — must stay a plain entry.
+        for (const doc of [
+            "18:00:00.000 Slow autocomplete took 120ms",
+            "18:00:00.000 Becca (note cache) load took 250ms",
+            "18:00:00.000 Content hash computation took 90ms"
+        ]) {
+            expect(classesOf(doc)).toEqual([ "cm-log-timestamp" ]);
+        }
     });
 
     it("locates the verb and URL spans for variable-length HTTP methods", () => {
@@ -80,6 +112,22 @@ describe("triliumLogHighlighter", () => {
             expect(sliceOf(doc, spans, "cm-log-verb")).toBe(verb);
             expect(sliceOf(doc, spans, "cm-log-url")).toBe(url);
         }
+    });
+
+    it("handles the `Slow` marker the server prepends to slow requests", () => {
+        // The `Slow ` prefix shifts the status/verb/URL offsets, so assert each span exactly.
+        const doc = "00:10:01.540 Slow 304 GET /api/notes/kwjrB3G4TbPY/blob with 209 bytes took 147ms";
+        const spans = decorationsOf(state(doc));
+
+        expect(sliceOf(doc, spans, "cm-log-slow")).toBe("Slow");
+        expect(sliceOf(doc, spans, "cm-log-status cm-log-status-3xx")).toBe("304");
+        expect(sliceOf(doc, spans, "cm-log-verb")).toBe("GET");
+        expect(sliceOf(doc, spans, "cm-log-url")).toBe("/api/notes/kwjrB3G4TbPY/blob");
+        expect(sliceOf(doc, spans, "cm-log-timestamp")).toBe("00:10:01.540");
+        expect(classesOf(doc)).toContain("cm-log-http"); // still treated as an HTTP line
+
+        // A non-slow line carries no marker.
+        expect(classesOf("18:18:38.904 204 PUT /api/options with 0 bytes took 2ms")).not.toContain("cm-log-slow");
     });
 
     it("handles ERROR: blocks, closes them at the next entry, and carries JS Info across lines", () => {
@@ -100,7 +148,7 @@ describe("triliumLogHighlighter", () => {
     });
 
     it("rebuilds decorations when the document changes (editable notes)", () => {
-        let s = state("18:18:40.077 Slow query took 78ms");
+        let s = state("17:35:56.745 Backend script execution is DISABLED.");
         expect(classesOfState(s)).toEqual([ "cm-log-timestamp" ]);
 
         s = s.update({ changes: { from: s.doc.length, insert: "\n17:34:08.519 JS Error: boom" } }).state;

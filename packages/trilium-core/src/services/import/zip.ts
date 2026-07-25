@@ -1,4 +1,4 @@
-import { ALLOWED_NOTE_TYPES, type NoteType } from "@triliumnext/commons";
+import { ALLOWED_NOTE_TYPES, getImageAttachmentTitle, type NoteType } from "@triliumnext/commons";
 import { basename, dirname } from "../utils/path.js";
 import { getZipProvider, type ZipSource } from "../zip_provider.js";
 
@@ -7,6 +7,7 @@ import BAttachment from "../../becca/entities/battachment.js";
 import BAttribute from "../../becca/entities/battribute.js";
 import BBranch from "../../becca/entities/bbranch.js";
 import type BNote from "../../becca/entities/bnote.js";
+import * as cls from "../context.js";
 import attributeService from "../../services/attributes.js";
 import { getLog } from "../../services/log.js";
 import noteService from "../../services/notes.js";
@@ -74,6 +75,19 @@ async function importZip(taskContext: TaskContext<"importNotes">, source: ZipSou
     let firstNote: BNote | null = null;
     let topLevelPath = "";
     const createdNoteIds = new Set<string>();
+
+    // Records the first created note as the de-facto import root (its position is deliberately left to float
+    // per any inherited #newNotesOnTop — see the notePosition logic below). Once it exists, order-preservation
+    // is turned on so the remaining entries keep their archive order: this only matters for a non-Trilium
+    // folder zip, which carries no position metadata, since a Trilium export restores explicit positions for
+    // every non-root note and so never consults getNewNotePosition. See cls.setImportOrderPreserved.
+    function trackFirstNote(note: BNote) {
+        if (firstNote) {
+            return;
+        }
+        firstNote = note;
+        cls.setImportOrderPreserved(true);
+    }
 
     function getNewNoteId(origNoteId: string) {
         if (!origNoteId.trim()) {
@@ -305,7 +319,7 @@ async function importZip(taskContext: TaskContext<"importNotes">, source: ZipSou
 
         saveAttributes(note, noteMeta);
 
-        firstNote = firstNote || note;
+        trackFirstNote(note);
         return noteId;
     }
 
@@ -341,7 +355,12 @@ async function importZip(taskContext: TaskContext<"importNotes">, source: ZipSou
             return {
                 attachmentId: getNewAttachmentId(attachmentMeta.attachmentId),
                 attachmentTitle: attachmentMeta.title,
-                noteId: getNewNoteId(noteMeta.noteId)
+                noteId: getNewNoteId(noteMeta.noteId),
+                // The rendered image of a mermaid/canvas note, which the export writes out as a
+                // sibling file. An <img> aimed at it belongs back on `api/images/<noteId>`: that
+                // keeps the embed tied to the live diagram instead of freezing it into a copy of
+                // the exported picture.
+                isRenderedNoteImage: getImageAttachmentTitle(noteMeta.type) === attachmentMeta.title
             };
         }
         // don't check for noteMeta since it's not mandatory for notes
@@ -391,7 +410,7 @@ async function importZip(taskContext: TaskContext<"importNotes">, source: ZipSou
 
             const target = getEntityIdFromRelativeUrl(url, filePath);
 
-            if (target.attachmentId) {
+            if (target.attachmentId && !target.isRenderedNoteImage) {
                 return `src="api/attachments/${target.attachmentId}/image/${basename(url)}"`;
             } else if (target.noteId) {
                 return `src="api/images/${target.noteId}/${basename(url)}"`;
@@ -494,7 +513,7 @@ async function importZip(taskContext: TaskContext<"importNotes">, source: ZipSou
 
             const target = getEntityIdFromRelativeUrl(url, filePath);
 
-            if (target.attachmentId) {
+            if (target.attachmentId && !target.isRenderedNoteImage) {
                 return `![${alt}](api/attachments/${target.attachmentId}/image/${encodeURIComponent(target.attachmentTitle || "image")})`;
             } else if (target.noteId) {
                 return `![${alt}](api/images/${target.noteId}/${basename(url)})`;
@@ -639,7 +658,7 @@ async function importZip(taskContext: TaskContext<"importNotes">, source: ZipSou
             }
 
             if (opts?.preserveIds || isImportRootNote) {
-                firstNote = firstNote || note;
+                trackFirstNote(note);
             }
         } else {
             if (detectedType as string === "geoMap") {
@@ -686,7 +705,7 @@ async function importZip(taskContext: TaskContext<"importNotes">, source: ZipSou
                 note.addLabel(attribute.name, attribute.value);
             }
 
-            firstNote = firstNote || note;
+            trackFirstNote(note);
         }
 
         if (!noteMeta && (type === "file" || type === "image")) {

@@ -1,4 +1,4 @@
-import { extractYouTubeVideoId } from "@triliumnext/commons";
+import { extractYouTubeVideoId, safeLinkPreviewHref } from "@triliumnext/commons";
 import { renderToHtml as renderMarkdownToHtml } from "@triliumnext/commons/src/lib/markdown_renderer.js";
 import { renderSpreadsheetToHtml } from "@triliumnext/commons/src/lib/spreadsheet/render_to_html.js";
 import { type BAttachment, type BBranch, becca, BNote, getLog, icon_packs as iconPackService, options, sanitize, task_states, utils } from "@triliumnext/core";
@@ -355,17 +355,22 @@ function renderText(result: Result, note: SNote | BNote, options: ShareRenderOpt
     };
     const document = parse(result.content || "", parseOpts);
 
+    // The site's favicon, or a neutral dot when it has none — shown by both the inline mention and
+    // the card's URL line, from the one `data-favicon` the element already carries.
+    const renderFavicon = (favicon: string | undefined) => (favicon
+        ? `<img class="link-embed-mention-favicon" src="${escapeHtml(favicon)}" width="16" height="16">`
+        : `<span class="link-embed-mention-dot"></span>`);
+
     // Process link mentions (inline) — metadata is stored in data attributes.
     for (const mentionEl of document.querySelectorAll("span.link-mention")) {
         const url = mentionEl.getAttribute("data-url");
         if (!url) continue;
         const title = mentionEl.getAttribute("data-title") || safeHostnameForShare(url);
-        const favicon = mentionEl.getAttribute("data-favicon");
-        const faviconHtml = favicon
-            ? `<img class="link-embed-mention-favicon" src="${escapeHtml(favicon)}" width="16" height="16">`
-            : `<span class="link-embed-mention-dot"></span>`;
-        mentionEl.innerHTML = `<a class="link-embed-mention" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">` +
-            faviconHtml +
+        // escapeHtml() makes the value safe to *place* in the attribute; it says nothing about the
+        // scheme. `data-*` survives the save-time sanitizer untouched, so a stored
+        // `data-url="javascript:…"` would otherwise become a live link on a public page.
+        mentionEl.innerHTML = `<a class="link-embed-mention" href="${escapeHtml(safeLinkPreviewHref(url))}" target="_blank" rel="noopener noreferrer">` +
+            renderFavicon(mentionEl.getAttribute("data-favicon")) +
             `<span class="link-embed-mention-title">${escapeHtml(title)}</span></a>`;
     }
 
@@ -378,7 +383,19 @@ function renderText(result: Result, note: SNote | BNote, options: ShareRenderOpt
         if (embedType === "youtube") {
             const videoId = extractYouTubeVideoId(url);
             if (videoId) {
-                embedEl.innerHTML = `<div class="link-embed-video"><iframe src="https://www.youtube-nocookie.com/embed/${escapeHtml(videoId)}?rel=0" frameborder="0" allowfullscreen loading="lazy" referrerpolicy="strict-origin-when-cross-origin" style="width:100%;aspect-ratio:16/9;border:none;"></iframe></div>`;
+                // Click-to-play: the shared page shows the thumbnail stored in the note and only
+                // loads YouTube's player once a visitor asks for it, so simply reading the page does
+                // not hand every visitor's IP to Google. The swap is done by the share theme's
+                // video_facade script, which reads data-video-id.
+                const image = embedEl.getAttribute("data-image");
+                const thumbnailHtml = image
+                    ? `<img class="link-embed-video-thumbnail" src="${escapeHtml(image)}" alt="" loading="lazy">`
+                    : "";
+                embedEl.innerHTML = `<div class="link-embed-video">`
+                    + `<button type="button" class="link-embed-video-facade" data-video-id="${escapeHtml(videoId)}" aria-label="Play video" title="Play video">`
+                    + thumbnailHtml
+                    + `<span class="link-embed-video-play" aria-hidden="true"></span>`
+                    + `</button></div>`;
             }
         } else {
             const title = embedEl.getAttribute("data-title") || safeHostnameForShare(url);
@@ -390,10 +407,13 @@ function renderText(result: Result, note: SNote | BNote, options: ShareRenderOpt
                 ? `<div class="link-embed-card-image-wrapper"><img class="link-embed-card-image" src="${escapeHtml(image)}" alt="" loading="lazy"></div>`
                 : `<div class="link-embed-card-image-wrapper"><div class="link-embed-card-image-placeholder">&#128279;</div></div>`;
             const descHtml = description ? `<div class="link-embed-card-description">${escapeHtml(description)}</div>` : "";
+            const urlHtml = `<div class="link-embed-card-url">`
+                + renderFavicon(embedEl.getAttribute("data-favicon"))
+                + `<span>${escapeHtml(siteName)}</span></div>`;
 
-            embedEl.innerHTML = `<a class="link-embed-card" href="${escapeHtml(url)}" target="_blank" rel="noopener noreferrer">` +
+            embedEl.innerHTML = `<a class="link-embed-card" href="${escapeHtml(safeLinkPreviewHref(url))}" target="_blank" rel="noopener noreferrer">` +
                 imageHtml +
-                `<div class="link-embed-card-content"><div class="link-embed-card-title">${escapeHtml(title)}</div>${descHtml}<div class="link-embed-card-url">${escapeHtml(siteName)}</div></div></a>`;
+                `<div class="link-embed-card-content"><div class="link-embed-card-title">${escapeHtml(title)}</div>${descHtml}${urlHtml}</div></a>`;
         }
     }
 

@@ -417,6 +417,12 @@ export type BootstrapDefinition = {
         totpEnabled: boolean;
         /** One-shot SSO error from a failed OIDC round-trip ("wrong_account" / "not_enrolled"). */
         ssoError?: string | false;
+        /**
+         * One-shot flag set when the OIDC provider couldn't be reached at all during an
+         * unauthenticated round-trip, so the login screen can explain the bounce back. Deliberately
+         * a boolean: the technical detail stays in the server log rather than being exposed pre-auth.
+         */
+        ssoConnectionFailed?: boolean;
     };
     baseApiUrl: string;
     assetPath: string;
@@ -470,6 +476,13 @@ export type BootstrapDefinition = {
      * one-shot "account connected" toast once the post-enrollment redirect lands on the app root.
      */
     oauthJustEnrolled?: boolean;
+    /**
+     * Set for exactly one bootstrap after an OAuth round-trip failed to reach the provider at all,
+     * letting the client explain the bounce back to the app root with a one-shot error toast. Carries
+     * the technical reason (e.g. `fetch failed ← caused by: self-signed certificate
+     * [DEPTH_ZERO_SELF_SIGNED_CERT]`), shown verbatim in monospace; non-empty whenever present.
+     */
+    oauthConnectionFailed?: string;
 };
 
 /**

@@ -562,12 +562,13 @@ export function renderWithSourceLines(src: string): { html: string; headings: Ma
     const container = document.createElement("div");
     container.innerHTML = html;
 
-    const parts: string[] = [];
+    // The line goes on the block itself rather than on a wrapper, so blocks stay direct
+    // siblings and the .ck-content sibling rules (e.g. collapsible runs) keep matching.
     const children = Array.from(container.children);
     for (let i = 0; i < children.length; i++) {
         const sourceLine = lines[i] ?? lines[lines.length - 1] ?? 1;
-        parts.push(`<div data-source-line="${sourceLine}">${children[i].outerHTML}</div>`);
+        children[i].setAttribute("data-source-line", String(sourceLine));
     }
-    return { html: parts.join(""), headings };
+    return { html: container.innerHTML, headings };
 }
 //#endregion

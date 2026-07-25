@@ -12,8 +12,9 @@ describe("renderWithSourceLines", () => {
         return [ ...html.matchAll(/data-source-line="(\d+)"/g) ].map((m) => parseInt(m[1], 10));
     }
 
+    /** Markup with the source-line attributes stripped, so markup assertions stay readable. */
     function html(src: string): string {
-        return renderWithSourceLines(src).html;
+        return renderWithSourceLines(src).html.replace(/ data-source-line="\d+"/g, "");
     }
 
     it("returns empty html for empty input", () => {
@@ -51,11 +52,32 @@ describe("renderWithSourceLines", () => {
         expect(extractLines(src)).toEqual([ 1, 6 ]);
     });
 
-    it("renders standard markdown constructs inside the wrappers", () => {
+    it("renders standard markdown constructs", () => {
         const result = html("## Heading\n\n- item\n");
         expect(result).toContain("<h2>Heading</h2>");
         expect(result).toContain("<ul>");
         expect(result).toContain("<li>item</li>");
+    });
+
+    it("tags blocks in place so they stay direct siblings", () => {
+        // The .ck-content styles use sibling combinators (e.g. the stacked look of consecutive
+        // collapsibles), which only match if blocks are not each wrapped in a container.
+        const src = [
+            '<details class="trilium-collapsible">',
+            "<summary>One</summary>",
+            "</details>",
+            "",
+            '<details class="trilium-collapsible">',
+            "<summary>Two</summary>",
+            "</details>"
+        ].join("\n");
+
+        const container = document.createElement("div");
+        container.innerHTML = renderWithSourceLines(src).html;
+
+        const blocks = Array.from(container.children);
+        expect(blocks.map((block) => block.tagName)).toEqual([ "DETAILS", "DETAILS" ]);
+        expect(blocks.every((block) => block.hasAttribute("data-source-line"))).toBe(true);
     });
 
     it("keeps H1 as H1 in the preview (no title-row context to avoid)", () => {

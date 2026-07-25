@@ -151,6 +151,21 @@ describe("processNoteContent", () => {
         });
     });
 
+    it("imports a .triliumsheet file as a spreadsheet note, preserving content verbatim", async () => {
+        // .triliumsheet is Trilium's lossless round-trip format: the raw Univer workbook JSON exported
+        // by single-note export is re-imported byte-for-byte (unlike .xlsx, which is parsed/re-serialized).
+        const workbookJson = JSON.stringify({ workbook: { id: "wb", sheetOrder: ["s1"], sheets: { s1: { cellData: {} } } } });
+
+        const { importedNote } = await testImport("Budget.triliumsheet", "application/json", Buffer.from(workbookJson));
+
+        expect(importedNote).toMatchObject({
+            mime: "text/x-spreadsheet",
+            type: "spreadsheet",
+            title: "Budget"
+        });
+        expect(importedNote.getContent().toString()).toBe(workbookJson);
+    });
+
     it("imports .xlsx as a spreadsheet note", async () => {
         const wb = new ExcelJS.Workbook();
         const ws = wb.addWorksheet("Sheet1");

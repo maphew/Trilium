@@ -1918,7 +1918,6 @@
     "sources": "Sumber",
     "sources_summary": "{{count}} sumber dari {{sites}} situs",
     "extended_thinking": "Pemikiran lanjutan",
-    "legacy_models": "Model lama",
     "thinking": "Sedang berpikir...",
     "thought_process": "Proses berpikir",
     "tool_calls": "{{count}} panggilan tool",
@@ -2056,9 +2055,6 @@
     "note_type_switcher_collection": "Koleksi",
     "edited_notes": "Catatan yang diedit pada hari ini",
     "promoted_attributes": "Atribut yang dipromosikan"
-  },
-  "spacer": {
-    "configure_launchbar": "Konfigurasikan Launchbar"
   },
   "sql_result": {
     "not_executed": "Query belum dijalankan.",
@@ -2765,7 +2761,6 @@
     "configured_providers": "Provider yang Dikonfigurasi",
     "no_providers_configured": "Belum ada provider yang dikonfigurasi.",
     "provider_name": "Nama",
-    "provider_type": "Provider",
     "actions": "Tindakan",
     "delete_provider": "Hapus",
     "delete_provider_confirmation": "Apakah Anda yakin ingin menghapus provider \"{{name}}\"?",
@@ -2774,7 +2769,6 @@
     "base_url": "Base URL",
     "base_url_description": "Opsional. Override endpoint API default — berguna untuk model self-hosted (Ollama, LM Studio, vLLM) atau proxy.",
     "base_url_invalid": "Base URL harus berupa URL http:// atau https:// yang valid",
-    "cancel": "Batal",
     "mcp_title": "MCP (Model Context Protocol)",
     "mcp_enabled": "Server MCP",
     "mcp_enabled_description": "Ekspos endpoint Model Context Protocol (MCP) agar AI coding assistant (misalnya Claude Code, GitHub Copilot) dapat membaca dan mengubah catatan Anda. Endpoint ini hanya dapat diakses dari localhost.",
@@ -2831,7 +2825,6 @@
     "collapsible-tooltip": "Klik panah atau tekan {{shortcut}} untuk melipat/membuka.",
     "edit-states-tooltip": "Edit status tugas",
     "unknown-task-state": "Status tugas kustom tidak terdefinisi",
-    "task-state-dropped": "Definisi status tugas kustom \"{{title}}\" ({{id}}) diabaikan karena: {{reason}}",
     "validation-errors": {
       "undefined-name": "identifier tidak terdefinisi",
       "invalid-name": "identifier tidak valid",

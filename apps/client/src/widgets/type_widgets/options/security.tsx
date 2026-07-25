@@ -174,6 +174,7 @@ function LanAccessSettings({ liveValue, pendingValue, setPendingValue }: ToggleS
         <OptionsSection
             title={t("security.lan_access_title")}
             description={t("security.lan_access_section_description")}
+            helpUrl="swSFivWk6KkA"
         >
             <OptionsRowWithToggle
                 name="lan-access-enabled"

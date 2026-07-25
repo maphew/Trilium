@@ -32,15 +32,6 @@ body.mobile .selectable-card-grid {
     color: var(--active-item-text-color);
 }
 
-.selectable-card-icon {
-    flex-shrink: 0;
-    width: 1.5em;
-    height: 1.5em;
-    background-color: currentColor;
-    -webkit-mask: var(--card-mask) center / contain no-repeat;
-    mask: var(--card-mask) center / contain no-repeat;
-}
-
 /* Boxicons-based card icon (used when `icon` is supplied instead of `iconUrl`). */
 .selectable-card-bxicon {
     flex-shrink: 0;

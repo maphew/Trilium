@@ -139,6 +139,13 @@ async function nativeProxyFetch(request: NativeHttpRequest): ReturnType<NativeHt
  *
  * This bypasses the WebView's fetch — no CORS preflight, no SameSite cookie
  * restrictions, and plain HTTP targets work from an HTTPS WebView origin.
+ *
+ * Memory-critical: for JSON responses we pass `response.data` (already parsed
+ * by Capacitor) directly through postMessage instead of re-stringifying. The
+ * worker receives a structured-clone copy and skips its own JSON.parse. This
+ * avoids holding two ~60 MB strings (one on each side of the bridge) plus the
+ * parsed object simultaneously, which was OOM-killing the iOS Web Worker on
+ * large blob sync batches.
  */
 export const capacitorHttpHandler: NativeHttpHandler = async (request) => {
     if (canUseNativeProxy(request) && await isNativeProxyAvailable()) {
@@ -166,18 +173,19 @@ export const capacitorHttpHandler: NativeHttpHandler = async (request) => {
         headers[key.toLowerCase()] = value;
     }
 
-    let body: string;
+    // Binary responses come back from Capacitor as a base64 string — pass it
+    // through as `body` so the worker's atob+Uint8Array path still works.
     if (request.responseType === "arraybuffer") {
-        // CapacitorHttp returns binary data as a base64 string — pass it through directly.
-        body = String(response.data);
-    } else {
-        // CapacitorHttp force-parses application/json responses into an object, so it has to
-        // be re-serialized for the worker (which parses the body itself); other content types
-        // arrive as a plain string and pass straight through.
-        body = typeof response.data === "string"
-            ? response.data
-            : JSON.stringify(response.data);
+        const body = String(response.data);
+        return { status: response.status, headers, body };
     }
 
-    return { status: response.status, headers, body };
+    // Server-sent plain strings (rare for JSON APIs, but valid) — pass through.
+    if (typeof response.data === "string") {
+        return { status: response.status, headers, body: response.data };
+    }
+
+    // Common case: JSON. Hand the parsed object to the worker via structured
+    // clone. No intermediate string allocation on either side.
+    return { status: response.status, headers, data: response.data };
 };

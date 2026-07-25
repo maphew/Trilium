@@ -7,14 +7,35 @@ import type { PromptDialogOptions } from "../widgets/dialogs/prompt.js";
 import { focusSavedElement, saveFocusedElement } from "./focus.js";
 import keyboardActionsService from "./keyboard_actions.js";
 
-export async function openDialog($dialog: JQuery<HTMLElement>, closeActDialog = true, config?: Partial<Modal.Options>) {
+/**
+ * @param declaredZIndex the z-index the dialog defines for itself, if any (see {@link raiseAboveStackedPopup}).
+ */
+export async function openDialog($dialog: JQuery<HTMLElement>, closeActDialog = true, config?: Partial<Modal.Options>, declaredZIndex?: number) {
     if (closeActDialog) {
         closeActiveDialog();
         glob.activeDialog = $dialog;
     }
 
     saveFocusedElement();
+
+    // Lift this dialog above a stacked quick-edit / tree popup if one is open (see raiseAboveStackedPopup).
+    const bumpedZIndex = raiseAboveStackedPopup($dialog[0], declaredZIndex);
+
     Modal.getOrCreateInstance($dialog[0], config).show();
+
+    // Normalise the just-shown dialog's backdrop z-index. Bootstrap appends the backdrop during
+    // show(), and reuses the *same* element across shows of a kept-in-DOM modal — so a lift applied on
+    // a previous open would otherwise persist as a stale inline z-index and leave the backdrop
+    // floating above unrelated content on a later, non-lifted open. Always set it: raised alongside a
+    // lifted dialog (so the popup behind is dimmed and click-blocked), or cleared back to the default
+    // layer otherwise. Skipped when this dialog has no backdrop, so we never touch another modal's.
+    if (config?.backdrop !== false) {
+        const backdrops = document.querySelectorAll<HTMLElement>(".modal-backdrop");
+        const ownBackdrop = backdrops[backdrops.length - 1];
+        if (ownBackdrop) {
+            ownBackdrop.style.zIndex = bumpedZIndex !== null ? String(bumpedZIndex - 1) : "";
+        }
+    }
 
     $dialog.on("hidden.bs.modal", () => {
         const $autocompleteEl = $(".aa-input");
@@ -37,6 +58,41 @@ export function closeActiveDialog() {
         Modal.getOrCreateInstance(glob.activeDialog[0]).hide();
         glob.activeDialog = null;
     }
+}
+
+/** Self-managing popups (quick-edit, tree popup) set their own z-index via CSS; never lift them. */
+const SELF_MANAGED_POPUP_SELECTOR = ".popup-editor-dialog, .tree-popup-editor-dialog";
+
+/**
+ * When a quick-edit / tree popup is stacked on top of another modal it sits at z-index 1100 — above
+ * the standard dialog layer (1055). A dialog opened from within it (delete/confirm/prompt/…) would
+ * then render *behind* the popup. Detect that case and give the incoming dialog an inline z-index
+ * just above the current top-most modal so it clears the popup.
+ *
+ * The dialog's inline z-index is rewritten from scratch on every open, so a lift never outlives the
+ * stacked context that warranted it. `declaredZIndex` is the layer the dialog defines for itself
+ * (`Modal`'s `zIndex` prop, e.g. 1100 for the note type chooser or 2000 for confirm/prompt) and is
+ * what it falls back to — clearing the property outright would strip that.
+ *
+ * Returns the assigned z-index (for the caller to match the backdrop), or `null` when no lift was
+ * applied.
+ */
+function raiseAboveStackedPopup(dialogEl: HTMLElement, declaredZIndex?: number): number | null {
+    const hasStackedPopup = document.body.classList.contains("popup-editor-stacked")
+        || document.body.classList.contains("tree-popup-stacked");
+    if (!hasStackedPopup || dialogEl.matches(SELF_MANAGED_POPUP_SELECTOR)) {
+        dialogEl.style.zIndex = declaredZIndex ? String(declaredZIndex) : "";
+        return null;
+    }
+
+    const others = Array.from(document.querySelectorAll<HTMLElement>(".modal.show"))
+        .filter((modal) => modal !== dialogEl);
+    const maxZIndex = others.reduce((max, modal) => Math.max(max, parseInt(getComputedStyle(modal).zIndex, 10) || 0), 0);
+
+    // A dialog that already declares a layer above the popup keeps it; lifting only ever raises.
+    const zIndex = Math.max(maxZIndex + 10, declaredZIndex ?? 0);
+    dialogEl.style.zIndex = String(zIndex);
+    return zIndex;
 }
 
 async function info(message: MessageType, extraProps?: InfoExtraProps) {

@@ -228,6 +228,75 @@ describe("blob", () => {
         });
     });
 
+    describe("getDeletedNoteBlobPojo", () => {
+        function createDeletedNote(overrides: { content?: string | Uint8Array; type?: string; mime?: string } = {}) {
+            const { note } = notesService.createNewNote({
+                parentNoteId: "root",
+                title: "deleted blob spec note",
+                content: overrides.content ?? "<p>deleted note body</p>",
+                type: (overrides.type ?? "text") as any,
+                mime: overrides.mime
+            });
+            // Soft-delete only: the row and its blob survive, so the content stays readable.
+            getSql().execute("UPDATE notes SET isDeleted = 1 WHERE noteId = ?", [note.noteId]);
+            return note;
+        }
+
+        it("throws NotFoundError for a live (not soft-deleted) note", () => {
+            expect(() => getContext().init(() => {
+                const { note } = notesService.createNewNote({
+                    parentNoteId: "root",
+                    title: "live note",
+                    content: "<p>alive</p>",
+                    type: "text"
+                });
+                return blob.getDeletedNoteBlobPojo(note.noteId);
+            })).toThrow(NotFoundError);
+        });
+
+        it("throws NotFoundError for an unknown note", () => {
+            expect(() => getContext().init(() => blob.getDeletedNoteBlobPojo("doesNotExist123"))).toThrow(NotFoundError);
+        });
+
+        it("returns the decoded string content of a soft-deleted text note", () => {
+            const content = getContext().init(() => blob.getDeletedNoteBlobPojo(createDeletedNote().noteId).content);
+            expect(content).toBe("<p>deleted note body</p>");
+        });
+
+        it("nulls out the content for a soft-deleted binary note", () => {
+            const { content, contentLength } = getContext().init(() => {
+                const note = createDeletedNote({ content: Uint8Array.from([0, 1, 2, 3]), type: "image", mime: "image/png" });
+                const pojo = blob.getDeletedNoteBlobPojo(note.noteId);
+                return { content: pojo.content, contentLength: pojo.contentLength };
+            });
+            expect(content).toBeNull();
+            expect(contentLength).toBeGreaterThan(0);
+        });
+
+        it("decrypts a soft-deleted protected note's content when a protected session is available, and blanks it otherwise", () => {
+            const noteId = getContext().init(() => {
+                const note = createDeletedNote();
+                // Turn it into a protected note whose blob holds the encrypted content.
+                const cipher = dataEncryption.encrypt(PROTECTED_KEY, "<p>secret deleted body</p>");
+                getSql().execute("UPDATE notes SET isProtected = 1 WHERE noteId = ?", [note.noteId]);
+                getSql().execute("UPDATE blobs SET content = ? WHERE blobId = ?", [cipher, note.blobId]);
+                return note.noteId;
+            });
+
+            // Without a session the content is blanked, not leaked.
+            protectedSessionService.resetDataKey();
+            expect(getContext().init(() => blob.getDeletedNoteBlobPojo(noteId).content)).toBe("");
+
+            // With a session it is decrypted.
+            protectedSessionService.setDataKey(PROTECTED_KEY);
+            try {
+                expect(getContext().init(() => blob.getDeletedNoteBlobPojo(noteId).content)).toBe("<p>secret deleted body</p>");
+            } finally {
+                protectedSessionService.resetDataKey();
+            }
+        });
+    });
+
     describe("EMPTY_BLOB_ID", () => {
         it("equals hashedBlobId of empty content", () => {
             // Guards the hard-coded constant in commons (which cannot call hashedBlobId at module load).

@@ -4,21 +4,95 @@ import { RefObject } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import type NoteContext from "../../../components/note_context";
+import type FAttachment from "../../../entities/fattachment";
 import type FNote from "../../../entities/fnote";
 import attributes from "../../../services/attributes";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
+import type { ViewScope } from "../../../services/link";
+import type { ShortcutHint, ShortcutHintDefinition, ShortcutHintSection } from "../../../services/shortcut_hints";
+import { isAppShortcutChord } from "../../../services/shortcuts";
 import { isMobile } from "../../../services/utils";
 import { logError } from "../../../services/ws";
 import ActionButton from "../../react/ActionButton";
 import Dropdown from "../../react/Dropdown";
-import { useTriliumEvent, useTriliumEvents } from "../../react/hooks";
+import { useContextualShortcutHints, useTriliumEvent, useTriliumEvents } from "../../react/hooks";
 import Icon from "../../react/Icon";
 import { getParentFromNotePath } from "../../react/sibling_navigation";
-import { noteSiblingProvider, type SiblingNavigationState, useSiblingKeyboard, useSiblingNavigation } from "../../react/SiblingNavigator";
+import { attachmentSiblingProvider, noteSiblingProvider, type SiblingNavigationState, useSiblingKeyboard, useSiblingNavigation } from "../../react/SiblingNavigator";
+import type { MediaEnvironment } from "./media_environment";
 import { getAutoAdvanceTarget, MEDIA_PLAY_MODE_ICONS, MEDIA_PLAY_MODE_LABEL, MEDIA_PLAY_MODE_LABEL_KEYS, MEDIA_PLAY_MODES, type MediaPlayMode, playModeFromLabel, playModeToLabel, shouldLoop } from "./media_play_mode";
+import type { MediaSource } from "./media_source";
 
 const NO_KEYS: readonly string[] = [];
+
+/** What {@link AudioPreview} and {@link VideoPreview} are given, whichever environment they render in. */
+export interface MediaPlayerProps {
+    /** What is being played: a file note, or an attachment. {@link source} is its resolved media. */
+    entity: FNote | FAttachment;
+    source: MediaSource;
+    environment: MediaEnvironment;
+    /**
+     * The tab showing the media. Only a detail view has one; it enables sibling navigation, the folder-level
+     * play mode and OS media session ownership, all of which are silently skipped without it.
+     */
+    noteContext?: NoteContext;
+    /**
+     * When {@link entity} is an attachment: the note owning it and the tab's view scope. Together they are what
+     * lets the player cycle the owner's other media attachments — the equivalent of a note's folder siblings.
+     */
+    ownerNote?: FNote;
+    viewScope?: ViewScope;
+    isVisible?: boolean;
+    /** Start playing as soon as the media is ready — the user just activated a lazy preview. */
+    autoPlay?: boolean;
+}
+
+// Navigation is Page Up/Down only — the player reserves Home/End for seeking (edgeKeys: false), and
+// Space/Backspace aren't bound.
+const MEDIA_NAVIGATION_HINTS: ShortcutHintSection = {
+    titleKey: "media.hints.navigation",
+    hints: [
+        { keys: ["PageUp"], labelKey: "media.hints.previous" },
+        { keys: ["PageDown"], labelKey: "media.hints.next" }
+    ]
+};
+
+/**
+ * Registers the media player's contextual keyboard hints. Video passes `fullscreen: true`; audio has
+ * no fullscreen. Mirrors the actual keys bound in Video/Audio's `useKeyboardShortcuts`.
+ */
+export function useMediaPlayerShortcutHints({ fullscreen }: { fullscreen: boolean }) {
+    useContextualShortcutHints((): ShortcutHintDefinition => {
+        const playback: ShortcutHint[] = [
+            { keys: ["Space"], labelKey: "media.hints.play_pause" },
+            { keys: ["Left"], labelKey: "media.hints.back_10s" },
+            { keys: ["Right"], labelKey: "media.hints.forward_10s" },
+            { keys: ["Home"], labelKey: "media.hints.jump_start" },
+            { keys: ["End"], labelKey: "media.hints.jump_end" },
+            { keys: ["M"], labelKey: "media.hints.mute" }
+        ];
+        if (fullscreen) {
+            playback.push({ keys: ["F"], labelKey: "media.hints.fullscreen" });
+        }
+        return [
+            { titleKey: "media.hints.playback", hints: playback },
+            MEDIA_NAVIGATION_HINTS
+        ];
+    });
+}
+
+/**
+ * Whether a keystroke belongs to the player rather than to Trilium's own shortcuts. The players bind bare
+ * keys (Space, arrows, M, F), which as chords are the application's — Ctrl+F is not "fullscreen", and acting
+ * on it would fire alongside whatever the app does with it. The single exception is the player's own
+ * Ctrl+Left/Right minute jump.
+ */
+export function claimsKeystroke(e: KeyboardEvent): boolean {
+    if (!isAppShortcutChord(e)) return true;
+    const isMinuteJump = e.key === "ArrowLeft" || e.key === "ArrowRight";
+    return isMinuteJump && e.ctrlKey && !e.altKey && !e.metaKey;
+}
 
 export function SeekBar({ mediaRef }: { mediaRef: RefObject<HTMLVideoElement | HTMLAudioElement> }) {
     const [currentTime, setCurrentTime] = useState(0);
@@ -152,8 +226,8 @@ export function VolumeControl({ mediaRef }: { mediaRef: RefObject<HTMLVideoEleme
     );
 }
 
-/** noteId of the sibling we're jumping to, so only *that* note auto-plays (a cancelled jump can't leak). */
-let autoPlayTargetNoteId: string | null = null;
+/** Id of the sibling we're jumping to, so only *that* media auto-plays (a cancelled jump can't leak). */
+let autoPlayTargetId: string | null = null;
 
 /** The player instance currently owning the (global) Media Session action handlers, if any. */
 let mediaSessionOwner: object | null = null;
@@ -184,8 +258,17 @@ const OWNED_MEDIA_ACTIONS: MediaSessionAction[] = [ "previoustrack", "nexttrack"
  * playing in the background). It releases the session — and, when its tab switches to a different note type so
  * this player is hidden/cached, also stops playing — on that navigation, on a handover, or on unmount.
  */
-export function useMediaSessionController(note: FNote, noteContext: NoteContext | undefined, mimePrefix: string, mediaRef: RefObject<HTMLVideoElement | HTMLAudioElement>, isVisible: boolean, playMode: MediaPlayMode) {
-    const navigation = useSiblingNavigation(noteSiblingProvider(note, noteContext, { mimePrefix }));
+export function useMediaSessionController({ source, entity, noteContext, ownerNote, viewScope, mimePrefix, mediaRef, isVisible = true, playMode, autoPlay }: MediaPlayerProps & {
+    mimePrefix: string;
+    mediaRef: RefObject<HTMLVideoElement | HTMLAudioElement>;
+    playMode: MediaPlayMode;
+}) {
+    // A note cycles the playable siblings in its folder; an attachment cycles the owner note's playable
+    // attachments. Either way it takes a tab to navigate in, so without one there is nothing to move between.
+    const note = "noteId" in entity ? entity : undefined;
+    const navigation = useSiblingNavigation(note
+        ? noteSiblingProvider(note, noteContext, { mimePrefix })
+        : attachmentSiblingProvider(ownerNote, noteContext, viewScope ?? {}, { mimePrefix }));
     // Stable identity for this player instance, used to coordinate with the other mounted players.
     const self = useRef<object>({}).current;
 
@@ -205,8 +288,8 @@ export function useMediaSessionController(note: FNote, noteContext: NoteContext 
 
     const wrapped = navigation && isVisible ? {
         ...navigation,
-        navigatePrevious: () => { autoPlayTargetNoteId = navigation.previousId; navigation.navigatePrevious(); },
-        navigateNext: () => { autoPlayTargetNoteId = navigation.nextId; navigation.navigateNext(); }
+        navigatePrevious: () => { autoPlayTargetId = navigation.previousId; navigation.navigatePrevious(); },
+        navigateNext: () => { autoPlayTargetId = navigation.nextId; navigation.navigateNext(); }
     } : null;
 
     useSiblingKeyboard(wrapped, noteContext, undefined, NO_KEYS, NO_KEYS, { edgeKeys: false });
@@ -287,18 +370,18 @@ export function useMediaSessionController(note: FNote, noteContext: NoteContext 
         mediaSessionOwner = self;
         // Metadata makes Chromium reliably present the OS controls for video (it does so for audio by
         // default) and shows the note title there.
-        if (typeof MediaMetadata !== "undefined") mediaSession.metadata = new MediaMetadata({ title: note.title });
+        if (typeof MediaMetadata !== "undefined") mediaSession.metadata = new MediaMetadata({ title: source.title });
         // Previous/next track navigate siblings (only when there are any); the live re-check guards against
         // the context having navigated to a different note since these handlers were bound.
-        setHandler("previoustrack", hasMediaNav ? () => { if (isCurrentContextNote(noteContext, note.noteId)) wrappedRef.current?.navigatePrevious(); } : null);
-        setHandler("nexttrack", hasMediaNav ? () => { if (isCurrentContextNote(noteContext, note.noteId)) wrappedRef.current?.navigateNext(); } : null);
+        setHandler("previoustrack", hasMediaNav ? () => { if (isCurrentContextMedia(noteContext, source.id)) wrappedRef.current?.navigatePrevious(); } : null);
+        setHandler("nexttrack", hasMediaNav ? () => { if (isCurrentContextMedia(noteContext, source.id)) wrappedRef.current?.navigateNext(); } : null);
         // Seek/stop drive this player's element, using the same amounts as its rewind/fast-forward buttons.
         setHandler("seekbackward", (details) => seekBy(mediaRef, -(details.seekOffset || SEEK_BACK_SECONDS)));
         setHandler("seekforward", (details) => seekBy(mediaRef, details.seekOffset || SEEK_FORWARD_SECONDS));
         setHandler("seekto", (details) => { if (details.seekTime != null) seekTo(mediaRef, details.seekTime); });
         setHandler("stop", () => stopMedia(mediaRef));
         return release;
-    }, [ ownsSession, hasMediaNav, noteContext, note.noteId, note.title, mediaRef, self ]);
+    }, [ ownsSession, hasMediaNav, noteContext, source.id, source.title, mediaRef, self ]);
 
     // Keep the OS Media Session's playback and position state in sync while we own it. Android Chrome relies on
     // these to treat the page as actively playing media: it keeps the notification controls present and makes
@@ -355,10 +438,13 @@ export function useMediaSessionController(note: FNote, noteContext: NoteContext 
         };
     }, [ ownsSession, mediaRef, self ]);
 
-    // Auto-play the freshly-opened sibling once it can play (only when reached via navigation).
+    // Play as soon as the media can: either this note was reached by a sibling jump, or the user just
+    // activated a lazy preview (whose player only mounts on that click, so it starts playing right away).
     useEffect(() => {
-        if (autoPlayTargetNoteId !== note.noteId) return;
-        autoPlayTargetNoteId = null;
+        const jumpedTo = autoPlayTargetId === source.id;
+        if (jumpedTo) autoPlayTargetId = null;
+        if (!jumpedTo && !autoPlay) return;
+
         const media = mediaRef.current;
         if (!media) return;
         const play = () => { media.play().catch(() => {}); };
@@ -368,20 +454,22 @@ export function useMediaSessionController(note: FNote, noteContext: NoteContext 
             media.addEventListener("canplay", play, { once: true });
             return () => media.removeEventListener("canplay", play);
         }
-    }, [ note.noteId, mediaRef ]);
+    }, [ source.id, autoPlay, mediaRef ]);
 
     return wrapped;
 }
 
 /**
- * Whether `noteId` is the current note of `noteContext` — the note this player is showing in its own
- * tab/split, regardless of whether that tab is the active one. This gates Media Session ownership: a
- * backgrounded player stays the owner while its media plays, and only a stale/cached player (whose context
- * has since moved to a different note) reports false and stands down. Closing the tab unmounts the player,
- * which releases the session via the effect cleanup instead.
+ * Whether `id` (a noteId, or an attachmentId when playing an attachment) is what `noteContext` currently
+ * shows in its own tab/split, regardless of whether that tab is the active one. This gates Media Session
+ * ownership: a backgrounded player stays the owner while its media plays, and only a stale/cached player
+ * (whose context has since moved elsewhere) reports false and stands down. Closing the tab unmounts the
+ * player, which releases the session via the effect cleanup instead.
  */
-function isCurrentContextNote(noteContext: NoteContext | undefined, noteId: string): boolean {
-    return !!noteContext && noteContext.noteId === noteId;
+function isCurrentContextMedia(noteContext: NoteContext | undefined, id: string): boolean {
+    if (!noteContext) return false;
+    // An attachment view names its attachment in the view scope; the note behind it is only the owner.
+    return noteContext.viewScope?.attachmentId ? noteContext.viewScope.attachmentId === id : noteContext.noteId === id;
 }
 
 /** Marks `player` as the one currently playing and notifies the rest so they pause and release the session. */
@@ -435,13 +523,14 @@ export function SkipButton({ mediaRef, seconds, icon, text }: { mediaRef: RefObj
 }
 
 /**
- * The folder-level play mode (read from the parent's `#mediaNotesPlayMode` label) for the current media note,
- * kept in sync as that label changes. Derives the element's `loop` from the mode and persists changes back to
- * the parent — the `next` mode's actual auto-advance is handled by {@link useMediaSessionController} (which
- * receives the resolved `mode`).
+ * The play mode (a `#mediaNotesPlayMode` label) shared by everything the player can move between, kept in sync
+ * as that label changes. It lives on whatever holds that playlist: the parent folder for a media note, or — via
+ * `playlistNoteId` — the owner note for one of its media attachments. Derives the element's `loop` from the
+ * mode and persists changes back there; the `next` mode's actual auto-advance is handled by
+ * {@link useMediaSessionController} (which receives the resolved `mode`).
  */
-export function useMediaPlayMode(noteContext: NoteContext | undefined, mediaRef: RefObject<HTMLVideoElement | HTMLAudioElement>): { mode: MediaPlayMode; setMode: (mode: MediaPlayMode) => void } {
-    const parentNoteId = getParentFromNotePath(noteContext?.notePath)?.parentNoteId;
+export function useMediaPlayMode(noteContext: NoteContext | undefined, mediaRef: RefObject<HTMLVideoElement | HTMLAudioElement>, playlistNoteId?: string): { mode: MediaPlayMode; setMode: (mode: MediaPlayMode) => void } {
+    const parentNoteId = playlistNoteId ?? getParentFromNotePath(noteContext?.notePath)?.parentNoteId;
     const [ mode, setLocalMode ] = useState<MediaPlayMode>("once");
     const [ refreshCounter, setRefreshCounter ] = useState(0);
 
@@ -496,7 +585,7 @@ export function useMediaPlayMode(noteContext: NoteContext | undefined, mediaRef:
     return { mode, setMode };
 }
 
-/** Replaces the loop toggle: a dropdown to pick the folder's play mode (play once / loop / autoplay). */
+/** Replaces the loop toggle: a dropdown to pick the playlist's play mode (play once / loop / autoplay). */
 export function PlayModeButton({ mode, onSelectMode }: { mode: MediaPlayMode, onSelectMode: (mode: MediaPlayMode) => void }) {
     return (
         <Dropdown

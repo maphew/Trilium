@@ -191,6 +191,26 @@ describe.skipIf(isBrowserRuntime)("zip export (real DB)", () => {
             expect(entries[rootMeta.dataFileName!].toString("utf-8")).toContain("## Heading");
         });
 
+        it("strips CKEditor's data-list-item-id from HTML and Markdown exports", async () => {
+            // A plain list converts to Markdown syntax (turndown drops attributes), but a list
+            // inside a table survives as raw HTML — both must come out without the editor-only id.
+            const content = `<ul><li data-list-item-id="e0123">Bullet</li></ul>`
+                + `<table><tbody><tr><td><ul><li data-list-item-id="e4567">Cell</li></ul></td></tr></tbody></table>`;
+            const { note } = createNote("root", { title: "ListIds", content });
+            const branch = note.getParentBranches()[0];
+
+            for (const format of ["html", "markdown"] as const) {
+                const { entries } = await exportSubtree(branch, format);
+                const dataFileName = parseMeta(entries).files[0].dataFileName ?? "";
+                const exported = entries[dataFileName].toString("utf-8");
+
+                expect(exported).not.toContain("data-list-item-id");
+                // The list content itself still round-trips.
+                expect(exported).toContain("Bullet");
+                expect(exported).toContain("Cell");
+            }
+        });
+
         it("carries owned attributes into the note meta but drops out-of-export relations", async () => {
             // A note living outside the exported subtree: a relation to it is valid
             // to save but must be filtered out of the export meta.
@@ -301,6 +321,65 @@ describe.skipIf(isBrowserRuntime)("zip export (real DB)", () => {
             expect(entries[attFileName]).toBeDefined();
             // The exported bytes must equal the stored bytes exactly.
             expect(Buffer.compare(entries[attFileName], binaryContent)).toBe(0);
+        });
+
+        it("resolves embedded mermaid/canvas images to their rendered image attachment", async () => {
+            // A mermaid/canvas note is not an image itself: `api/images/<noteId>` serves its
+            // generated `*-export.svg` attachment. An <img> embedding such a note must therefore
+            // resolve to that attachment, not to the note's own data file (the mermaid source or,
+            // in the share export, the note's HTML page).
+            const cases = [
+                { type: "mermaid", mime: "text/mermaid", content: "flowchart TD\n A --> B", attachment: "mermaid-export.svg" },
+                { type: "canvas", mime: "application/json", content: "{}", attachment: "canvas-export.svg" }
+            ] as const;
+
+            for (const { type, mime, content, attachment } of cases) {
+                const hostTitle = `${type}Host`;
+                const { note: host } = createNote("root", { title: hostTitle, content: "" });
+                const { note: diagram } = createNote(host.noteId, { title: "Diagram", type, mime, content });
+
+                getContext().init(() => {
+                    diagram.saveAttachment({ role: "image", mime: "image/svg+xml", title: attachment, content: "<svg/>" });
+                    host.setContent(`<p><img src="api/images/${diagram.noteId}/Diagram"></p>`);
+                });
+
+                const { entries } = await exportSubtree(host.getParentBranches()[0], "html");
+                const rootMeta = parseMeta(entries).files[0];
+                const exported = entries[rootMeta.dataFileName ?? ""].toString("utf-8");
+
+                // The SVG really is in the archive, next to the diagram note's own data file.
+                const svgPath = `${hostTitle}/Diagram_${attachment}`;
+                expect(entries[svgPath], svgPath).toBeDefined();
+
+                expect(exported, type).toContain(`src="${svgPath}"`);
+                // ...and not at the diagram note's data file, which no browser can render as an image.
+                expect(exported, type).not.toMatch(/src="[^"]*Diagram\.(txt|json|html)"/);
+            }
+        });
+
+        it("rewrites a link preview's data-image reference to the exported attachment file", async () => {
+            // A link preview stores its card image as an attachment referenced from `data-image`
+            // (not an <img src>), so the attribute must be rewritten to the exported attachment
+            // file just like an image src. The markdown export keeps the preview's raw HTML, so
+            // the same rewrite must land there too.
+            const { note } = createNote("root", { title: "LinkPreviewHost", content: "" });
+            getContext().init(() => {
+                const attachment = note.saveAttachment({ role: "image", mime: "image/jpeg", title: "preview.jpg", content: "jpeg-bytes" });
+                note.setContent(`<section class="link-embed" data-url="https://example.com" data-embed-type="opengraph"` +
+                    ` data-title="Example" data-image="api/attachments/${attachment.attachmentId}/image/preview.jpg"></section>`);
+            });
+
+            for (const format of ["html", "markdown"] as const) {
+                const { entries } = await exportSubtree(note.getParentBranches()[0], format);
+                const rootMeta = parseMeta(entries).files[0];
+
+                const attFileName = (rootMeta.attachments ?? [])[0]?.dataFileName ?? "";
+                expect(entries[attFileName], format).toBeDefined();
+
+                const exported = entries[rootMeta.dataFileName ?? ""].toString("utf-8");
+                expect(exported, format).toContain(`data-image="${attFileName}"`);
+                expect(exported, format).not.toContain("api/attachments");
+            }
         });
 
         it("pipes the archive to the response before appending any content", async () => {

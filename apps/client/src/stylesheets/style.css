@@ -58,6 +58,9 @@ body#trilium-app.backdrop-effects-disabled *::after {
 
 .table {
     --bs-table-bg: transparent !important;
+    --bs-table-border-color: var(--main-border-color);
+    --bs-table-striped-bg: color-mix(in srgb, var(--main-text-color) 5%, transparent);
+    --bs-table-striped-color: var(--main-text-color);
 }
 
 :root {
@@ -757,6 +760,13 @@ table.promoted-attributes-in-tooltip th {
     z-index: 32767 !important;
 }
 
+/* Note tooltips are appended to <body> and are frequently triggered from inside modals
+   (e.g. links or deleted-note entries in a dialog). The base .tooltip z-index sits below
+   Bootstrap's modal, so raise them above it — matching .tooltip-top. */
+.tooltip.note-tooltip {
+    z-index: 32767 !important;
+}
+
 
 /* Tooltip for text editor content, placed at the bottom of the screen to be less intruive when editing */
 .tooltip.text-editor-content-tooltip {
@@ -1334,6 +1344,17 @@ body.mobile .modal-content-with-sidebar > .modal-main > .modal-header > .modal-t
     height: 10em;
 }
 
+/* The small box has room for the compact audio player's visualizer band (which carries a floor of its own) or
+   for its controls row and the file footer below it — not for all three. Drop the band, and release the floor
+   so the box shrinks to what is left instead of overflowing onto the Download / Open buttons. */
+.include-note[data-box-size="small"] .include-note-content.type-audio .audio-preview-visualization-wrapper {
+    display: none;
+}
+
+.include-note[data-box-size="small"] .include-note-content.type-audio .rendered-media {
+    min-height: 0;
+}
+
 .include-note[data-box-size="medium"] .include-note-content {
     max-height: 20em;
     overflow: auto;
@@ -1591,6 +1612,14 @@ body.desktop li.dropdown-submenu:hover > ul.dropdown-menu {
     /* to make submenu scrollable https://github.com/zadam/trilium/issues/3136 */
     max-height: 600px;
     overflow: auto;
+}
+
+/* Flipped upward (added by ContextMenu.repositionSubmenu) when the submenu would overflow the bottom of the viewport. */
+.dropdown-submenu > .dropdown-menu.submenu-flip-up {
+    top: auto;
+    bottom: 0;
+    margin-top: 0;
+    margin-bottom: -10px;
 }
 
 body.desktop .dropdown-submenu > .dropdown-menu {
@@ -2218,6 +2247,7 @@ body.zen .inline-title,
 body.zen .promoted-attributes-widget,
 body.zen .floating-buttons-children > *:not(.bx-edit-alt),
 body.zen .action-button,
+body.zen .tooltip.content-hint, /* content-area hints (task states, collapsible summaries, drag handles) */
 body.zen .note-split:not(.type-book) .note-list-widget {
     display: none !important;
 }
@@ -2879,6 +2909,17 @@ iframe.print-iframe {
 }
 
 /*
+ * COLLAPSIBLE LIST ITEMS
+ */
+
+:where(:root) {
+    --text-editor-collapsible-list-arrow-color: var(--muted-text-color);
+    /* Neutral by design: a translucent grey reads on both light and dark backgrounds. */
+    --text-editor-collapsible-list-arrow-hover-background: rgba(128, 128, 128, 0.25);
+    --text-editor-collapsible-list-arrow-hover-color: var(--main-text-color);
+}
+
+/*
  * TASK STATES
  */
 
@@ -2899,6 +2940,34 @@ iframe.print-iframe {
     position: relative;
     width: var(--_checkbox-size);
     height: var(--_checkbox-size);
+}
+
+/* Inline-block slot for using .tn-task-checkbox inside flowing text (e.g. the
+   task-state line in the checkbox tooltip). Without a block-formatting
+   ancestor the inner span is inline and its ::before / ::after collapse to
+   zero size, showing only the glyph. */
+.tn-task-checkbox-inline {
+    display: inline-block;
+    margin-inline-start: 8px;
+    vertical-align: middle;
+    line-height: 0;
+}
+
+.tn-task-checkbox-inline > .tn-task-checkbox {
+    /* Scale the checkbox (and, via `calc(var(--_checkbox-size) * ratio)`,
+       its glyph) to the surrounding text size so it fits the tooltip line
+       instead of forcing the default 18px. */
+    --_checkbox-size: 1.1em;
+    display: block;
+    transform: translateY(-0.05em);
+}
+
+/* Status line block above the checkbox tooltip's body. The 8px bottom margin
+   separates it from the "Right click…" hint when the line is present; when
+   the state is an anchor (unchecked/checked) the line is omitted entirely,
+   so no spacing is added. */
+.tn-task-tooltip-state {
+    margin-bottom: 8px;
 }
 
 /* Prevent variables from bleeding into nested items */
@@ -2926,8 +2995,37 @@ iframe.print-iframe {
     --_task-checkbox-background: var(--task-checkbox-done-color);
 }
 
+/* The read-only view renders a real <label>, which Bootstrap's reboot makes
+   inline-block — an empty label (its checkbox is absolutely positioned below)
+   then produces a full-height line of its own, pushing the item text onto the
+   next line. Restore the plain inline display so the empty label collapses. */
+:root .ck-content.ck-content ul.todo-list li .todo-list__label {
+    display: inline;
+}
+
 :root .ck-content.ck-content ul.todo-list li .todo-list__label input[type="checkbox"] {
     --_checkbox-size: var(--ck-content-todo-list-checkmark-size);
+
+    /* Take the checkbox out of the inline flow in every variant and centre it
+       geometrically on the first text line (the li is the positioned ancestor,
+       `li p` has no margin, and CKEditor's own `left/right: -25px` still places
+       it in the gutter). Centering via `vertical-align: middle` depends on font
+       metrics and differs from the absolutely-positioned `_without-description`
+       variant — this makes both variants share one deterministic geometry. */
+    position: absolute;
+    top: calc((1lh - var(--_checkbox-size)) / 2);
+    /* `1lh` must resolve against the text's line height, not the UA form-control
+       font, and the UA's 3px checkbox margins would offset the absolute position.
+       (Bootstrap's reboot happens to do both, but don't depend on it.) */
+    margin: 0;
+    font: inherit;
+}
+
+/* CKEditor middle-aligns the inline description span, while a real-<p> description
+   (the `_without-description` variant) sits on the plain baseline — so the text
+   position depended on which variant rendered. Align both on the baseline. */
+:root .ck-content.ck-content ul.todo-list li .todo-list__label .todo-list__label__description {
+    vertical-align: baseline;
 }
 
 /* Checkbox */
@@ -2947,21 +3045,223 @@ iframe.print-iframe {
     /* Checkbox tick */
     &::after {
         all: unset;
-        display: inline-flex;
+        display: flex;
         align-items: center;
         justify-content: center;
         position: absolute;
         inset: 0;
         content: var(--task-state-glyph);
         font-family: var(--task-state-glyph-font-family, inherit);
-        font-size: calc(var(--_checkbox-size) * var(--task-checkbox-glyph-ratio));
+        /* Em box == checkbox box: the flex centering has zero leftover
+           space to round, so nothing can snap asymmetrically. */
+        font-size: var(--_checkbox-size);
+        line-height: 1;
         color: var(--task-checkbox-glyph-color);
-        text-box-trim: trim-both;
+        /* The shrink is geometric, not typographic — scale() doesn't snap
+           to the device-pixel grid, so the glyph stays centred at any zoom. */
+        transform: scale(var(--task-checkbox-glyph-ratio));
     }
 
     &:disabled {
         opacity: 1;
-        cursor: not-allowed;
+    }
+}
+
+/*
+ * Collapsible blocks
+ */
+
+ /*
+ * Shared styles for collapsible blocks (rendered as native HTML <details>/<summary>).
+ * Used in both the editor and the read-only/published view via .ck-content.
+ */
+
+.ck-content details.trilium-collapsible {
+    --collapsible-block-background: var(--card-background-color);
+    --collapsible-block-summary-background: var(--card-background-color);
+    --collapsible-block-summary-delimiter-color: var(--main-background-color);
+    
+    --_border-radius: 8px;
+    --_block-padding: .75rem;
+    --_inline-padding: 1rem;
+    --_margin-between-collapsibles: 3px;
+    --_content-indent: 2rem;
+    --_arrow-gap: 2rem;
+
+    position: relative;
+    overflow: hidden;
+    isolation: isolate;
+    margin: 1em 0;
+    border-radius: var(--_border-radius);
+    background: var(--collapsible-block-background);
+    padding: var(--_block-padding) var(--_inline-padding) var(--_block-padding) var(--_content-indent);
+
+    &:not(& + &):has(+ details.trilium-collapsible) {
+        /* First collapsibile from the series */
+        margin-bottom: var(--_margin-between-collapsibles);
+        border-end-start-radius: 0;
+        border-end-end-radius: 0;
+    }
+
+    & + &:has(+ details.trilium-collapsible) {
+        /* Middle collapsibile blocks from the series */
+        margin-bottom: var(--_margin-between-collapsibles);
+        margin-top: 0;
+        border-radius: 0;
+    }
+
+    & + &:not(:has(+ details.trilium-collapsible)) {
+        /* The last collapsibile from the series */
+        margin-top: 0;
+        border-start-start-radius: 0;
+        border-start-end-radius: 0;
+    }
+
+    > summary {
+        position: relative;
+        left: calc(0px - var(--_content-indent ) / 2);
+        width: calc(100% + var(--_content-indent));
+        padding-left: var(--_arrow-gap);
+        cursor: pointer;
+        font-weight: 500;
+        outline: none;
+        list-style: none; /* native marker replaced by the custom arrow below */
+
+        &::-webkit-details-marker {
+            display: none;
+        }
+
+        &::after {
+            display: block;
+            content: "";
+            z-index: -1;
+            position: absolute;
+            top: calc(0px - (var(--_block-padding) + 1px));
+            left: calc(0px - var(--_content-indent ) / 2);
+            width: calc(100% + var(--_inline-padding) * 2 + 1px);
+            height: calc(100% + var(--_block-padding) * 2 + 1px);
+            background: var(--collapsible-block-summary-background);
+        }
+
+        &:hover::after {
+            background: var(--card-background-hover-color);
+        }
+    }
+
+    &[open] > summary {
+        margin-bottom: calc(var(--_block-padding) * 2);
+        
+        &::after {
+            border-bottom: 2px solid var(--collapsible-block-summary-delimiter-color);            
+        }
+    }
+
+    >*:last-child:not(summary) {
+        margin-bottom: 0;
+    }
+}
+
+/*
+ * Custom arrow, shared by every view. In the editor it is a real <span> (inserted by the
+ * editing downcast) because it needs click and keyboard handlers; elsewhere that span
+ * doesn't exist — the arrow is deliberately not part of the saved HTML — so the data view
+ * (read-only text notes, markdown preview) draws it on the summary instead and lets the
+ * native <details> toggle do the work. Both share the geometry and the glyph below.
+ */
+.ck-content details.trilium-collapsible > summary > .trilium-collapsible-arrow,
+.ck-content:not(.ck-editor__editable) details.trilium-collapsible > summary::before {
+    position: absolute;
+    left: 0;
+    top: -0.05em;
+    width: 1lh;
+    height: 1lh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-family: boxicons;
+    cursor: pointer;
+    user-select: none;
+    /* Scaled rather than sized with font-size, so the box keeps the summary's line metrics
+     * and the arrow stays centred on the first line of the title. */
+    transform: scale(1.3);
+    transition: transform 0.15s ease;
+}
+
+.ck-content details.trilium-collapsible > summary > .trilium-collapsible-arrow::before,
+.ck-content:not(.ck-editor__editable) details.trilium-collapsible > summary::before {
+    content: "\ea50";
+}
+
+.ck-content details.trilium-collapsible[open] > summary > .trilium-collapsible-arrow,
+.ck-content:not(.ck-editor__editable) details.trilium-collapsible[open] > summary::before {
+    transform: scale(1.3) rotate(90deg);
+}
+
+/*
+ * Editor-only tweaks: summary acts like a regular editable text block, and the arrow is the
+ * only collapse affordance (clicking the summary text places a caret instead of toggling).
+ */
+
+.ck-editor__editable details.trilium-collapsible {
+
+    .ck-placeholder::before {
+        opacity: 0.5;
+    }
+
+    /* Body-paragraph placeholder ("Content") is registered on the first body
+     * block. Hide it whenever the body has more than one block — the hint is
+     * only useful when the body is a single empty <p>. The body blocks live in
+     * the editing-only `.trilium-collapsible-content` wrapper, so `:has(> :nth-child(2))`
+     * matches a wrapper with 2+ body children; `:not(:last-child)` would only hide
+     * the placeholder on non-last paragraphs, leaving the last one (e.g. the
+     * original empty body after Enter-in-summary) still visible. */
+    .trilium-collapsible-content:has(> :nth-child(2)) > p.ck-placeholder::before {
+        display: none;
+    }
+
+    /* The shared `> *:last-child:not(summary)` rule now lands on the content
+     * wrapper (which has no margin of its own); zero the wrapper's last body
+     * block instead so the collapsible keeps its tight bottom padding. */
+    .trilium-collapsible-content > *:last-child {
+        margin-bottom: 0;
+    }
+
+    > summary {
+        cursor: text;
+        padding-right: calc(var(--_inline-padding) + 1lh); /* extra space for the handle on the right */
+
+        /* Block selection handle (mirror of the table widget's drag handle).
+         * Click selects the whole <details>; movement uses Alt+↑/↓ from there.
+         * Sits in the details' top-left padding area, visible on hover. */
+        > .trilium-collapsible-handle {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            right: var(--_inline-padding);
+            z-index: 1000;
+            width: 1lh;
+            height: 1lh;
+            cursor: default;
+            opacity: 0;
+            transition: opacity 0.15s ease;
+
+            &::before {
+                position: absolute;
+                inset: 0;
+                content: "\ec6c";
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                font-size: 1em;
+                font-family: boxicons;
+                color: var(--muted-text-color, currentColor);
+            }
+        }
+    }
+
+    &:hover > summary > .trilium-collapsible-handle,
+    &:focus-within > summary > .trilium-collapsible-handle {
+        opacity: 1;
     }
 }
 

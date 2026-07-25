@@ -72,6 +72,13 @@ interface CreateLinkOptions {
     referenceLink?: boolean;
     autoConvertToImage?: boolean;
     viewScope?: ViewScope;
+    /**
+     * Inline text appended right after the link title (before the note path, which renders on its
+     * own line). Rendered as a `.note-link-suffix` span so it rides the title's baseline instead of
+     * being pushed into a column by the wider note-path block — e.g. an annotation on why the note
+     * is being shown.
+     */
+    titleSuffix?: string;
 }
 
 async function createLink(notePath: string | undefined, options: CreateLinkOptions = {}) {
@@ -155,6 +162,10 @@ async function createLink(notePath: string | undefined, options: CreateLinkOptio
     }
 
     $container.append($noteLink);
+
+    if (options.titleSuffix) {
+        $container.append($("<span>").addClass("note-link-suffix").text(options.titleSuffix));
+    }
 
     if (showNotePath) {
         let pathSegments: string[];
@@ -279,8 +290,22 @@ export function parseNavigationStateFromUrl(url: string | undefined) {
     };
 }
 
+/**
+ * Interactive content that handles its own clicks opts out of link navigation by carrying this class. It is
+ * needed where such content sits inside a link — a media player in a collection card, whose card is itself a
+ * `.block-link` — so that pressing play doesn't also open the note. Marking the content is what lets its
+ * clicks keep bubbling to the document, which the Bootstrap dropdowns inside it rely on; stopping propagation
+ * at the player would kill link navigation and those dropdowns alike.
+ */
+const NO_LINK_NAVIGATION_SELECTOR = ".no-link-navigation";
+
 function goToLink(evt: MouseEvent | JQuery.ClickEvent | JQuery.MouseDownEvent) {
-    const $link = $(evt.target as any).closest("a,.block-link");
+    const $target = $(evt.target as any);
+    if ($target.closest(NO_LINK_NAVIGATION_SELECTOR).length) {
+        return false;
+    }
+
+    const $link = $target.closest("a,.block-link");
     const hrefLink = $link.attr("href") || $link.attr("data-href");
 
     return goToLinkExt(evt, hrefLink, $link);

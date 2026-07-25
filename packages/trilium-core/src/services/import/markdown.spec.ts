@@ -209,6 +209,16 @@ second line 2</code></pre><ul><li>Hello</li><li>world</li></ul><ol><li>Hello</li
         expect(markdownService.renderToHtml(input, "Title")).toStrictEqual(expected);
     });
 
+    it("imports back link previews exported as raw HTML", () => {
+        // The Markdown exporter emits link previews as their canonical HTML plus a fallback
+        // anchor; both forms must survive sanitization so the editor can upcast them again.
+        const block = '<section class="link-embed" data-url="https://e.com/" data-embed-type="opengraph" data-title="Example"><a href="https://e.com/">Example</a></section>';
+        expect(markdownService.renderToHtml(block, "Title")).toStrictEqual(block);
+
+        const inline = 'See <span class="link-mention" data-url="https://e.com/" data-title="Example"><a href="https://e.com/">Example</a></span> for details.';
+        expect(markdownService.renderToHtml(inline, "Title")).toStrictEqual(`<p>${inline}</p>`);
+    });
+
     it("preserves figures and images with sizes", () => {
         const scenarios = [
             /*html*/`<figure class="image image-style-align-center image_resized" style="width:53.44%;"><img style="aspect-ratio:991/403;" src="Jump to Note_image.png" width="991" height="403"></figure>`,
@@ -242,6 +252,26 @@ $$`;
 \\sqrt{x^{2}+1} \\
 + \\frac{1}{2}
 \\]</span>`;
+        expect(markdownService.renderToHtml(input, "Title")).toStrictEqual(expected);
+    });
+
+    it("escapes HTML-significant characters in display math so they survive sanitization (#10418)", () => {
+        // The `<` in `k<K` used to be treated as the start of an HTML tag by the
+        // sanitizer, which stripped everything from `<K` onwards and truncated the
+        // formula. Escaping `<`/`>`/`&` (matching how CKEditor serializes the math
+        // text node) keeps the whole equation intact.
+        const input = `$$
+\\min_{0\\le k<K}\\|\\operatorname{grad}\\Phi(x_k)\\|^2 = O(1/K),
+$$`;
+        const expected = /*html*/`<span class="math-tex">\\[
+\\min_{0\\le k&lt;K}\\|\\operatorname{grad}\\Phi(x_k)\\|^2 = O(1/K),
+\\]</span>`;
+        expect(markdownService.renderToHtml(input, "Title")).toStrictEqual(expected);
+    });
+
+    it("escapes HTML-significant characters in inline math (#10418)", () => {
+        const input = `Condition: $a<b$ and $c>d$ with $x \\& y$.`;
+        const expected = /*html*/`<p>Condition: <span class="math-tex">\\(a&lt;b\\)</span> and <span class="math-tex">\\(c&gt;d\\)</span> with <span class="math-tex">\\(x \\&amp; y\\)</span>.</p>`;
         expect(markdownService.renderToHtml(input, "Title")).toStrictEqual(expected);
     });
 
@@ -308,6 +338,34 @@ $$`;
         expect(markdownService.renderToHtml(html, "Title")).toStrictEqual(html);
     });
 
+    // The exporter keeps headerless tables (and heading-column-only tables) as raw
+    // HTML rather than inventing a phantom empty header row, pretty-printed across
+    // multiple indented lines. Confirm the import side passes that exact multi-line
+    // HTML through unchanged (no blank lines means it stays a single HTML block), so
+    // the round-trip introduces no blank row.
+    it("preserves a headerless table (heading columns only) without a phantom header row", () => {
+        // Exactly what the Markdown exporter emits for such a table.
+        const html = [
+            `<table>`,
+            `    <tbody>`,
+            `        <tr>`,
+            `            <th>Heading</th>`,
+            `            <td>Not a heading</td>`,
+            `        </tr>`,
+            `        <tr>`,
+            `            <td>Heading</td>`,
+            `            <td>Not a heading</td>`,
+            `        </tr>`,
+            `    </tbody>`,
+            `</table>`
+        ].join("\n");
+        const result = markdownService.renderToHtml(html, "Title");
+        expect(result).toStrictEqual(html);
+        // No synthesized empty header row leaked in.
+        expect(result).not.toContain("<thead>");
+        expect(result).not.toContain("<th></th>");
+    });
+
     it("generates strike-through text", () => {
         const input = `~~Hello~~ world.`;
         const expected = /*html*/`<p><del>Hello</del> world.</p>`;
@@ -340,16 +398,19 @@ $$`;
         expect(markdownService.renderToHtml(input, "Title")).toStrictEqual(expected);
     });
 
-    it("imports todo list multistate markers as data-trilium-task-state", () => {
+    it("imports todo list multistate markers as data-trilium-task-state and titles the <li> with the state's human name", () => {
+        // The `title` attribute mirrors what the CKEditor data downcast emits — it's
+        // the hover tooltip viewers of the shared page, the read-only preview and
+        // exported HTML rely on to name a custom task state.
         const input = trimIndentation`\
             - [/] Doing
             - [-] Cancelled
             - [?] Maybe`;
         const expected = [
             `<ul class="todo-list">`,
-            `<li data-trilium-task-state="doing"><label class="todo-list__label"><input type="checkbox" disabled="disabled"><span class="todo-list__label__description">Doing</span></label></li>`,
-            `<li data-trilium-task-state="cancelled"><label class="todo-list__label"><input type="checkbox" disabled="disabled"><span class="todo-list__label__description">Cancelled</span></label></li>`,
-            `<li data-trilium-task-state="maybe"><label class="todo-list__label"><input type="checkbox" disabled="disabled"><span class="todo-list__label__description">Maybe</span></label></li>`,
+            `<li data-trilium-task-state="doing" title="Doing"><label class="todo-list__label"><input type="checkbox" disabled="disabled"><span class="todo-list__label__description">Doing</span></label></li>`,
+            `<li data-trilium-task-state="cancelled" title="Cancelled"><label class="todo-list__label"><input type="checkbox" disabled="disabled"><span class="todo-list__label__description">Cancelled</span></label></li>`,
+            `<li data-trilium-task-state="maybe" title="Maybe"><label class="todo-list__label"><input type="checkbox" disabled="disabled"><span class="todo-list__label__description">Maybe</span></label></li>`,
             `</ul>`
         ].join("");
         expect(markdownService.renderToHtml(input, "Title")).toStrictEqual(expected);

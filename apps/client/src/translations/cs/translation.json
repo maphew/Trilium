@@ -1549,7 +1549,6 @@
     "sources": "Zdroje",
     "sources_summary": "{{count}} zdrojů z {{sites}} webů",
     "extended_thinking": "Rozšířené myšlení",
-    "legacy_models": "Starší modely",
     "thinking": "Přemýšlím...",
     "thought_process": "Myšlenkový proces",
     "tool_calls": "{{count}} volání nástroje(ů)",
@@ -1676,9 +1675,6 @@
     "no_notes_found": "Pro zadané parametry hledání nebyly nalezeny žádné poznámky.",
     "search_not_executed": "Hledání ještě nebylo provedeno.",
     "search_now": "Hledat nyní"
-  },
-  "spacer": {
-    "configure_launchbar": "Konfigurovat Launchbar"
   },
   "sql_result": {
     "not_executed": "Dotaz ještě nebyl proveden.",
@@ -2254,13 +2250,11 @@
     "configured_providers": "Konfigurovaní poskytovatelé",
     "no_providers_configured": "Ještě nejsou nakonfigurováni žádní poskytovatelé.",
     "provider_name": "Název",
-    "provider_type": "Poskytovatel",
     "actions": "Akce",
     "delete_provider": "Odstranit",
     "delete_provider_confirmation": "Opravdu chcete odstranit poskytovatele \"{{name}}\"?",
     "api_key": "API klíč",
     "api_key_placeholder": "Zadejte svůj API klíč",
-    "cancel": "Zrušit",
     "mcp_title": "MCP (Model Context Protocol)",
     "mcp_enabled": "MCP server",
     "mcp_enabled_description": "Zpřístupněte endpoint Model Context Protocol (MCP), aby si AI asistenti pro kódování (např. Claude Code, GitHub Copilot) mohli číst a upravovat vaše poznámky. Endpoint je přístupný pouze z localhost.",

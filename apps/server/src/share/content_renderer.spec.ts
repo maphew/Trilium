@@ -155,7 +155,9 @@ describe("content_renderer", () => {
             const result = getContent(note);
             const elapsed = Date.now() - start;
 
-            expect(elapsed).toBeLessThan(2000);
+            // Generous budget: the pre-fix path was effectively unbounded, and CI runs this
+            // under V8 coverage with several forked workers, where 2s was at the noise floor.
+            expect(elapsed).toBeLessThan(15_000);
             if (typeof result.content !== "string") throw new Error("expected string content");
             // The code is escaped, not re-parsed into markup, and not highlighted (over the limit).
             expect(result.content).toContain("&lt;Map&lt;string");
@@ -280,6 +282,74 @@ describe("content_renderer", () => {
                     </p>
                 `);
             });
+        });
+    });
+
+    describe("Link previews", () => {
+        const FAVICON = "data:image/png;base64,AAA";
+
+        it("renders a card, showing the stored favicon beside the site name", () => {
+            const note = buildShareNote({
+                content: `<section class="link-embed" data-url="https://example.com/page" data-embed-type="opengraph"`
+                    + ` data-title="A title" data-description="A description" data-site-name="Example"`
+                    + ` data-favicon="${FAVICON}" data-image="data:image/jpeg;base64,BBB"></section>`
+            });
+
+            const content = String(getContent(note).content);
+            expect(content).toContain(`<div class="link-embed-card-url">`
+                + `<img class="link-embed-mention-favicon" src="${FAVICON}" width="16" height="16">`
+                + `<span>Example</span></div>`);
+        });
+
+        it("falls back to a dot when the site has no favicon", () => {
+            const note = buildShareNote({
+                content: `<section class="link-embed" data-url="https://example.com/page" data-embed-type="opengraph" data-title="A title"></section>`
+            });
+
+            const content = String(getContent(note).content);
+            expect(content).toContain(`<div class="link-embed-card-url"><span class="link-embed-mention-dot"></span><span>example.com</span></div>`);
+        });
+
+        it("renders a video as a click-to-play facade, without contacting YouTube", () => {
+            const note = buildShareNote({
+                content: `<section class="link-embed" data-url="https://www.youtube.com/watch?v=dQw4w9WgXcQ"`
+                    + ` data-embed-type="youtube" data-title="A video" data-image="data:image/jpeg;base64,BBB"></section>`
+            });
+
+            const content = String(getContent(note).content);
+            // A visitor who merely reads the page sends nothing to YouTube: no iframe, just the
+            // thumbnail already stored in the note. The theme's script swaps in the player on click.
+            expect(content).not.toContain("<iframe");
+            expect(content).not.toContain("youtube-nocookie.com");
+            expect(content).toContain(`<button type="button" class="link-embed-video-facade" data-video-id="dQw4w9WgXcQ"`);
+            expect(content).toContain(`<img class="link-embed-video-thumbnail" src="data:image/jpeg;base64,BBB"`);
+        });
+
+        it("neuters a hostile scheme in the stored URL, on a page served to anyone", () => {
+            // `data-*` values pass through the save-time sanitizer verbatim, so a note that arrives
+            // by import, ETAPI or sync can carry `data-url="javascript:…"`. It must not become a
+            // live link on the public share page.
+            const note = buildShareNote({
+                content: `<section class="link-embed" data-url="javascript:alert(document.cookie)" data-embed-type="opengraph" data-title="Evil"></section>`
+                    + `<p><span class="link-mention" data-url="javascript:alert(1)" data-title="Evil"></span></p>`
+            });
+
+            const content = String(getContent(note).content);
+            // The element keeps its inert data-url attribute — nothing reads it on the shared page —
+            // but no href points at the payload.
+            expect(content).not.toContain(`href="javascript:`);
+            expect(content).toContain(`<a class="link-embed-card" href="about:blank"`);
+            expect(content).toContain(`<a class="link-embed-mention" href="about:blank"`);
+        });
+
+        it("renders an inline mention with the same favicon markup", () => {
+            const note = buildShareNote({
+                content: `<p><span class="link-mention" data-url="https://example.com/page" data-title="A title" data-favicon="${FAVICON}"></span></p>`
+            });
+
+            const content = String(getContent(note).content);
+            expect(content).toContain(`<img class="link-embed-mention-favicon" src="${FAVICON}" width="16" height="16">`);
+            expect(content).toContain(`<span class="link-embed-mention-title">A title</span>`);
         });
     });
 

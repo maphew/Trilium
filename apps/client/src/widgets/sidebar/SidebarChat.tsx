@@ -414,6 +414,7 @@ export default function SidebarChat() {
                         activeNoteId={activeNoteId ?? undefined}
                         activeNoteTitle={activeNote?.title}
                         onSubmit={handleSubmit}
+                        inSidebar
                     />
                 )}
             </div>

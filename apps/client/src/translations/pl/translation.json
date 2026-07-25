@@ -97,7 +97,12 @@
     "erase_notes_warning": "Wymaż notatki trwale (nie można cofnąć), w tym wszystkie klony. Wymusi to przeładowanie aplikacji.",
     "notes_to_be_deleted": "Następujące notatki zostaną usunięte ({{notesCount}})",
     "no_note_to_delete": "Żadna notatka nie zostanie usunięta (tylko klony).",
-    "broken_relations_to_be_deleted": "Następujące relacje zostaną zerwane i usunięte ({{ relationCount}})"
+    "broken_relations_to_be_deleted": "Następujące relacje zostaną zerwane i usunięte ({{ relationCount}})",
+    "title": "Skasuj notatki",
+    "erase_notes_label": "Usuń trwale",
+    "table_note_with_relation": "Notatka z relacją",
+    "table_relation": "Relacja",
+    "delete": "Skasuj"
   },
   "export": {
     "close": "Zamknij",
@@ -107,7 +112,13 @@
     "export": "Eksportuj",
     "choose_export_type": "Proszę najpierw wybrać typ eksportu",
     "export_finished_successfully": "Eksport zakończony pomyślnie.",
-    "format_pdf": "PDF - do druku lub udostępniania."
+    "format_pdf": "PDF - do druku lub udostępniania.",
+    "format": "Format",
+    "format_html_name": "HTML",
+    "format_html_description": "Zachowaj całe formatowanie",
+    "format_markdown_name": "Markdown",
+    "format_markdown_description": "Zachowaj większość formatowania",
+    "recommended": "Zalecane"
   },
   "clone_to": {
     "clone_notes_to": "Sklonuj notatki do...",
@@ -1817,9 +1828,6 @@
     "no_notes_found": "Nie znaleziono notatek dla podanych parametrów wyszukiwania.",
     "search_not_executed": "Nie przeprowadzono jeszcze wyszukiwania.",
     "search_now": "Szukaj teraz"
-  },
-  "spacer": {
-    "configure_launchbar": "Konfiguruj pasek szybkiego dostępu"
   },
   "sql_result": {
     "no_rows": "Dla tego zapytania nie zwrócono żadnych wierszy",

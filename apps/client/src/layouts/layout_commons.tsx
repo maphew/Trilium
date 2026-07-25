@@ -7,6 +7,7 @@ import CallToActionDialog from "../widgets/dialogs/call_to_action.jsx";
 import PopupEditorDialog from "../widgets/dialogs/PopupEditor.jsx";
 import { useTriliumEvents } from "../widgets/react/hooks.jsx";
 import { ParentComponent } from "../widgets/react/react_utils.jsx";
+import ShortcutHintsPanel from "../widgets/shortcut_hints/shortcut_hints_panel.jsx";
 import ToastContainer from "../widgets/Toast.jsx";
 
 export function applyModals(rootContainer: RootContainer) {
@@ -14,11 +15,10 @@ export function applyModals(rootContainer: RootContainer) {
         .child(<LazyDialog triggerEvents={["openBulkActionsDialog"]} loader={() => import("../widgets/dialogs/bulk_actions.js")} />)
         .child(<LazyDialog triggerEvents={["openAboutDialog"]} loader={() => import("../widgets/dialogs/about.js")} />)
         .child(<LazyDialog triggerEvents={["showCheatsheet"]} loader={() => import("../widgets/dialogs/help.js")} />)
-        .child(<LazyDialog triggerEvents={["showRecentChanges"]} loader={() => import("../widgets/dialogs/recent_changes.js")} />)
+        .child(<LazyDialog triggerEvents={["showRecentChanges", "showDeletedNotes"]} loader={() => import("../widgets/dialogs/recent_changes.js")} />)
         .child(<LazyDialog triggerEvents={["editBranchPrefix"]} loader={() => import("../widgets/dialogs/branch_prefix.js")} />)
         .child(<LazyDialog triggerEvents={["sortChildNotes"]} loader={() => import("../widgets/dialogs/sort_child_notes.js")} />)
         .child(<LazyDialog triggerEvents={["showIncludeNoteDialog"]} loader={() => import("../widgets/dialogs/include_note.js")} />)
-        .child(<LazyDialog triggerEvents={["showLinkEmbedDialog"]} loader={() => import("../widgets/dialogs/link_embed.js")} />)
         .child(<LazyDialog triggerEvents={["chooseNoteType"]} loader={() => import("../widgets/dialogs/note_type_chooser.js")} />)
         .child(<LazyDialog triggerEvents={["jumpToNote", "commandPalette"]} loader={() => import("../widgets/dialogs/jump_to_note.js")} />)
         .child(<LazyDialog triggerEvents={["showAddLinkDialog"]} loader={() => import("../widgets/dialogs/add_link.js")} />)
@@ -45,7 +45,9 @@ export function applyModals(rootContainer: RootContainer) {
         //  - Toast is needed immediately and continuously to surface messages/errors, including ones raised during startup.
         .child(<PopupEditorDialog />)
         .child(<CallToActionDialog />)
-        .child(<ToastContainer />);
+        .child(<ToastContainer />)
+        // Auxiliary tooltip-style panel; always mounted (renders nothing until summoned), like the toast host.
+        .child(<ShortcutHintsPanel />);
 }
 
 interface LazyDialogProps {

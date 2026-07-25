@@ -12,6 +12,7 @@ import linkService, { type ViewScope } from "../services/link.js";
 import type LoadResults from "../services/load_results.js";
 import type { CreateNoteOpts } from "../services/note_create.js";
 import options from "../services/options.js";
+import type { ShortcutHintSection } from "../services/shortcut_hints.js";
 import toast from "../services/toast.js";
 import utils from "../services/utils.js";
 import { ReactWrappedWidget } from "../widgets/basic_widget.js";
@@ -20,7 +21,6 @@ import { AddLinkOpts } from "../widgets/dialogs/add_link.jsx";
 import type { ConfirmWithMessageOptions, ConfirmWithTitleOptions } from "../widgets/dialogs/confirm.js";
 import type { ResolveOptions } from "../widgets/dialogs/delete_notes.js";
 import { IncludeNoteOpts } from "../widgets/dialogs/include_note.jsx";
-import { LinkEmbedOpts } from "../widgets/dialogs/link_embed.jsx";
 import type { InfoProps } from "../widgets/dialogs/info.jsx";
 import type { MarkdownImportOpts } from "../widgets/dialogs/markdown_import.jsx";
 import { ChooseNoteTypeCallback } from "../widgets/dialogs/note_type_chooser.jsx";
@@ -143,6 +143,7 @@ export type CommandMappings = {
     showInfoDialog: InfoProps;
     showConfirmDialog: ConfirmWithMessageOptions;
     showRecentChanges: CommandData & { ancestorNoteId: string };
+    showDeletedNotes: CommandData & { ancestorNoteId?: string };
     showImportDialog: CommandData & { noteId: string };
     openNewNoteSplit: NoteCommandData;
     openInWindow: NoteCommandData;
@@ -242,7 +243,6 @@ export type CommandMappings = {
     showProtectedSessionPasswordDialog: CommandData;
     showUploadAttachmentsDialog: CommandData & { noteId: string };
     showIncludeNoteDialog: CommandData & IncludeNoteOpts;
-    showLinkEmbedDialog: CommandData & LinkEmbedOpts;
     showAddLinkDialog: CommandData & AddLinkOpts;
     showPasteMarkdownDialog: CommandData & MarkdownImportOpts;
     closeProtectedSessionPasswordDialog: CommandData;
@@ -332,6 +332,7 @@ export type CommandMappings = {
     showSQLConsole: CommandData;
     showBackendLog: CommandData;
     showCheatsheet: CommandData;
+    showShortcutHints: CommandData;
     showHelp: CommandData;
     addLinkToText: CommandData;
     followLinkUnderCursor: CommandData;
@@ -449,6 +450,14 @@ type EventMappings = {
     };
     activeContextChanged: {
         noteContext: NoteContext;
+    };
+    /** Emitted with the hints collected from the focused component chain (via the
+     * {@link CommandMappings.showShortcutHints} handler) or from a widget's help button, for the
+     * shortcut-hints pane to render. When `anchor` is set the pane opens as a dropdown by it;
+     * otherwise it opens in the bottom-right corner. */
+    shortcutHintsRequested: {
+        sections: ShortcutHintSection[];
+        anchor?: HTMLElement | null;
     };
     beforeNoteSwitch: {
         noteContext: NoteContext;

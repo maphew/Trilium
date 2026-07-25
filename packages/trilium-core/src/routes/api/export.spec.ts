@@ -71,4 +71,19 @@ describe("Export API (core)", () => {
         expect(res.status).toBe(500);
         expect(res.headers["Content-Type"]).toBe("text/plain");
     });
+
+    it("exports an unhandled note type as a .dat file instead of a zero-byte .undefined download", async () => {
+        // Regression: note types mapByNoteType doesn't handle (book, webView, mindMap, …) used to fall
+        // through to res.send(undefined), producing a "<title>.undefined", zero-byte download. They now
+        // fall back to a raw dump with a generic `.dat` extension.
+        const created = await api.post<{ branch: { branchId: string } }>(
+            "/api/notes/root/children?target=into",
+            { body: { title: "My book", type: "book", content: "" } }
+        );
+        expect(created.status).toBe(200);
+
+        const res = await api.get<string>(`/api/branches/${created.body.branch.branchId}/export/single/html/exportTask`);
+        expect(res.status).toBe(200);
+        expect(res.headers["Content-Disposition"]).toContain(".dat");
+    });
 });

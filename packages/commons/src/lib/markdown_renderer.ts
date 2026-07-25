@@ -332,18 +332,34 @@ function extractFormulas(text: string): { processedText: string; placeholderMap:
     let processedText = noCodeText
         .replace(/(?<![\\$])\$\$(?!\$)((?:(?!\n{2,})[^$])+?)\$\$(?!\$)/g, (_, formula: string) => {
             const key = `<!--FORMULA_BLOCK_${timestamp}_${id++}-->`;
-            formulaMap.set(key, `<span class="math-tex">\\[${formula}\\]</span>`);
+            formulaMap.set(key, `<span class="math-tex">\\[${escapeMathFormula(formula)}\\]</span>`);
             return key;
         })
         .replace(/(?<![\\$])\$(?!\$)([^$\n]+?)\$(?!\$)/g, (_, formula: string) => {
             const key = `<!--FORMULA_INLINE_${timestamp}_${id++}-->`;
-            formulaMap.set(key, `<span class="math-tex">\\(${formula}\\)</span>`);
+            formulaMap.set(key, `<span class="math-tex">\\(${escapeMathFormula(formula)}\\)</span>`);
             return key;
         });
 
     processedText = restoreFromMap(processedText, codeMap);
 
     return { processedText, placeholderMap: formulaMap };
+}
+
+/**
+ * Escapes the HTML-significant characters (`&`, `<`, `>`) in a math formula body.
+ *
+ * The formula is restored into the HTML string *before* sanitization, so a raw `<`
+ * (e.g. `k<K`) would be parsed as the start of an HTML tag and the sanitizer would
+ * strip everything after it, truncating the equation (#10418). Escaping matches how
+ * CKEditor serializes the equation (a text node, so quotes are intentionally left
+ * untouched) and round-trips cleanly back into the editor.
+ */
+function escapeMathFormula(formula: string): string {
+    return formula
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
 }
 
 function restoreFromMap(text: string, map: Map<string, string>): string {
@@ -367,9 +383,21 @@ export class CustomMarkdownRenderer extends Renderer {
     /** Whether to recognise Obsidian's extended callout types, inline titles and fold markers. */
     readonly #obsidianCallouts: boolean;
 
-    constructor(options?: MarkedOptions & { obsidianCallouts?: boolean }) {
+    /**
+     * Configured state name → definition. Consulted by {@link listitem} to attach
+     * the state's `title` (human-readable name) as an HTML `title` attribute on
+     * the emitted `<li>`, matching the CKEditor data downcast — so shared,
+     * read-only and exported HTML all show the same native tooltip on the
+     * task item ("Doing", "Cancelled", …) when hovered.
+     */
+    readonly #stateByName: Map<string, TaskStateDef>;
+
+    constructor(options?: MarkedOptions & { obsidianCallouts?: boolean; taskStates?: TaskStateDef[] }) {
         super(options);
         this.#obsidianCallouts = options?.obsidianCallouts ?? false;
+        this.#stateByName = new Map(
+            (options?.taskStates ?? DEFAULT_TASK_STATES).map((state) => [state.name, state])
+        );
     }
 
     override heading(data: Tokens.Heading): string {
@@ -417,6 +445,13 @@ export class CustomMarkdownRenderer extends Renderer {
         if (item.task) {
             const taskState = (item as TaskListItem)._taskState;
             const dataAttr = taskState ? ` data-trilium-task-state="${taskState}"` : "";
+            // Native hover tooltip on the `<li>` — matches the CKEditor data
+            // downcast, so shared / read-only / exported HTML all surface the
+            // state's human-readable title when the task item is hovered.
+            // Skipped when the state has no definition in the current config.
+            const stateDef = taskState ? this.#stateByName.get(taskState) : undefined;
+            const titleText = stateDef?.title || stateDef?.name;
+            const titleAttr = titleText ? ` title="${escapeHtml(titleText)}"` : "";
             let itemBody = "";
             const checkbox = this.checkbox({ checked: !!item.checked, raw: "- [ ]", type: "checkbox" });
             if (item.loose) {
@@ -439,7 +474,7 @@ export class CustomMarkdownRenderer extends Renderer {
             }
 
             itemBody += `<span class="todo-list__label__description">${this.parser.parse(item.tokens.filter((t) => t.type !== "checkbox"))}</span>`;
-            return `<li${dataAttr}><label class="todo-list__label">${itemBody}</label></li>`;
+            return `<li${dataAttr}${titleAttr}><label class="todo-list__label">${itemBody}</label></li>`;
         }
 
         return super.listitem(item).trimEnd();
@@ -552,7 +587,11 @@ export function renderToHtml(content: string, title: string, options: RenderToHt
     }
     marked.use({ extensions });
 
-    const renderer = options.renderer ?? new CustomMarkdownRenderer({ async: false, obsidianCallouts: options.obsidian });
+    const renderer = options.renderer ?? new CustomMarkdownRenderer({
+        async: false,
+        obsidianCallouts: options.obsidian,
+        taskStates: options.taskStates
+    });
     let html = marked.parse(processedText, { async: false, renderer }) as string;
 
     html = restoreFromMap(html, formulaMap);

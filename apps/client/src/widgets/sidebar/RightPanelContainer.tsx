@@ -4,7 +4,7 @@ import "./RightPanelContainer.css";
 import Split from "@triliumnext/split.js";
 import clsx from "clsx";
 import { VNode } from "preact";
-import { useEffect, useRef } from "preact/hooks";
+import { useLayoutEffect, useRef } from "preact/hooks";
 
 import appContext from "../../components/app_context";
 import { WidgetsByParent } from "../../services/bundle";
@@ -183,7 +183,12 @@ function useItems(rightPaneVisible: boolean, widgetsByParent: WidgetsByParent) {
 }
 
 function useSplit(mode: PaneMode) {
-    useEffect(() => {
+    // A layout effect, not an effect: Preact flushes effects *after* paint, which would leave one
+    // frame where the host is already laid out (absolute and full-width in peek mode) but neither
+    // the spacer nor the pane has Split's inline width yet — the pane collapses to its content width
+    // against the host's left edge, then jumps right. The peek fade-in used to mask that frame; with
+    // motion disabled it's plainly visible.
+    useLayoutEffect(() => {
         if (mode === "closed") return;
 
         // We are intentionally omitting useTriliumOption to avoid re-render due to size change.
@@ -199,27 +204,47 @@ function useSplit(mode: PaneMode) {
         };
         const onDragEnd = (sizes: number[]) => options.save("rightPaneWidth", Math.round(sizes[1]));
 
-        // Docked: resize the host (and thus the content) against #center-pane.
-        // Peek: resize the pane against the spacer inside the absolute host — the content (#center-pane)
-        // is untouched, so it never reflows.
-        splitInstance = mode === "docked"
-            ? Split(["#center-pane", "#right-pane-host"], {
-                sizes: [100 - rightPaneWidth, rightPaneWidth],
-                gutterSize: DEFAULT_GUTTER_SIZE,
-                minSize: [300, 180],
-                rtl: glob.isRtl,
-                onDrag,
-                onDragEnd
-            })
-            : Split([".right-pane-peek-spacer", "#right-pane"], {
-                sizes: [100 - rightPaneWidth, rightPaneWidth],
-                gutterSize: DEFAULT_GUTTER_SIZE,
-                minSize: [0, 180],
-                rtl: glob.isRtl,
-                onDrag,
-                onDragEnd
+        // Docked: resize the host (and thus the content) against #center-pane — which lives outside this
+        // island, so on the initial mount it may not be committed yet when this layout effect runs.
+        // Peek: resize the pane against the spacer inside the absolute host — both are rendered here, so
+        // they're always present; #center-pane is untouched, so it never reflows.
+        const selectors = mode === "docked"
+            ? [ "#center-pane", "#right-pane-host" ]
+            : [ ".right-pane-peek-spacer", "#right-pane" ];
+        const minSize = mode === "docked" ? [ 300, 180 ] : [ 0, 180 ];
+
+        const createSplit = () => Split(selectors, {
+            sizes: [100 - rightPaneWidth, rightPaneWidth],
+            gutterSize: DEFAULT_GUTTER_SIZE,
+            minSize,
+            rtl: glob.isRtl,
+            onDrag,
+            onDragEnd
+        });
+
+        // Split throws if any target selector isn't in the DOM. When everything is present, create it
+        // synchronously so the panes carry Split's inline widths before paint (no flicker — see above).
+        // Otherwise defer a frame until the sibling layout has been committed, mirroring the left/note
+        // split resizers in resizer.ts; re-check on the next frame so a still-missing target is skipped
+        // rather than throwing.
+        let rafId: number | undefined;
+        if (selectors.every((selector) => document.querySelector(selector))) {
+            splitInstance = createSplit();
+        } else {
+            rafId = requestAnimationFrame(() => {
+                rafId = undefined;
+                if (selectors.every((selector) => document.querySelector(selector))) {
+                    splitInstance = createSplit();
+                }
             });
-        return () => splitInstance?.destroy();
+        }
+
+        return () => {
+            if (rafId !== undefined) {
+                cancelAnimationFrame(rafId);
+            }
+            splitInstance?.destroy();
+        };
     }, [ mode ]);
 }
 

@@ -1,22 +1,9 @@
 # AI
-> [!WARNING]
-> This feature is currently marked as experimental. While it is functional, we do expect that the user interface might change or we might add or remove some features related to it.
+Trilium can connect to a large language model and use it as an assistant that works directly on your notes: ask questions about the note you're reading, have it draft or restructure content, or get it to write scripts and widgets for you.
 
-## History
+The integration is off by default and does nothing until you enable it and configure a provider; Trilium ships no model of its own. Which provider you pick also decides where your notes travel: a cloud API billed per use, a subscription you already pay for, or a model running on your own hardware, in which case nothing leaves the machine. See <a class="reference-link" href="AI/Providers.md">Providers</a> for what each involves, and <a class="reference-link" href="AI/Privacy.md">Privacy</a> for exactly what gets sent.
 
-### Removal in v0.102.0
-
-Starting with version v0.102.0, AI/LLM integration has been removed from the Trilium Notes core.
-
-While a significant amount of effort went into developing this feature, maintaining and supporting it long-term proved to be unsustainable.
-
-When upgrading to v0.102.0, your Chat notes will be preserved, but instead of the dedicated chat window they will be turned to a normal <a class="reference-link" href="Note%20Types/Code.md">Code</a> note, revealing the underlying JSON of the conversation.
-
-### Reintroduction in v0.103.0
-
-Given the recent advancements of the AI scene, we decided to give the LLM integration another try. v0.103.0 introduces a completely new chat system.
-
-One of the key changes that lead to the reimplementation is that now we are using a library ([Vercel AI](https://github.com/vercel/ai)) to manage the inner mechanism and the differences between LLM providers instead of having to implement it on our own.
+Once enabled, the assistant is available both as a panel in the right sidebar and as a dedicated note type. It can read and modify notes through tools, which you can switch off per conversation if you would rather it only saw what you type.
 
 ## Feature highlights
 
@@ -38,34 +25,28 @@ One of the key changes that lead to the reimplementation is that now we are usin
 
 ## LLM Providers
 
-### Cloud providers
+Trilium supports four different types of providers:
 
-Currently, only three cloud providers are supported:
+*   **Cloud providers**  
+    Pay-per use with an API key which is billed separately from any subscription you might already have
+    *   Anthropic (Claude)
+    *   OpenAI (GPT)
+    *   Google (Gemini)
+    *   DeepSeek
+*   **Subscription-based**  
+    Reuses an existing subscription instead of paying per use.
+    *   Currently only Claude Code is supported.
+*   **Local or self-hosted LLM solutions**
+    *   Ollama
+    *   LM Studio.
+*   **Custom OpenAI compatible endpoints**  
+    For other providers that are not directly supported by Trilium, either local or hosted (e.g. OpenRouter, Groq, Mistral).
 
-*   [Anthropic](https://platform.claude.com/settings/workspaces/default/keys)
-*   OpenAI
-*   Gemini
-
-For all the providers, an API key is needed. Note that this is charged separately from the subscription you might already have (e.g. Claude Pro). If that might be a problem, consider using the MCP server and connecting it to your agent (e.g. Claude Code).
-
-> [!NOTE]
-> We don't plan to support all cloud providers, even if the library we are using would theoretically support them. Before opening a PR adding support for a different cloud provider, make sure to discuss it over GitHub discussions.
-
-### Self-hosted providers
-
-Since v0.104.0, self-hosted LLM providers are supported indirectly. Simply create an Anthropic, ChatGPT, or Gemini provider and select the appropriate base URL.
-
-Model selection for self-hosted providers is not yet supported, but generally the default or the loaded one is used instead.
-
-> [!WARNING]
-> When dealing with self-hosted LLM models, depending on the training and the size of the model, the quality of the output may vary. Before [reporting issues](Troubleshooting/Reporting%20issues.md) regarding the quality of the output (e.g. hallucinating tool calls), consider benchmarking the response against a cloud provider (Claude Sonnet is recommended).
+For more information about each provider, see <a class="reference-link" href="AI/Providers.md">Providers</a>. See the dedicated <a class="reference-link" href="AI/Privacy.md">Privacy</a> to better understand what data is sent to providers.
 
 ## Enabling the AI integration
 
-Because it is an experimental feature, enabling the AI integration is a two-step process:
-
-1.  Go to <a class="reference-link" href="Basic%20Concepts%20and%20Features/UI%20Elements/Options.md">Options</a> → _Advanced_ and check _AI / LLM Chat_ in the _Experimental Options_ section.
-2.  Go to <a class="reference-link" href="Basic%20Concepts%20and%20Features/UI%20Elements/Options.md">Options</a> → _AI / LLM_ and configure a new provider.
+To enable the AI integration, simply go to <a class="reference-link" href="Basic%20Concepts%20and%20Features/UI%20Elements/Options.md">Options</a> → _AI / LLM_ and press the toggle in the top-right of the dialog and configure a provider.
 
 ## Creating a new chat
 
@@ -97,6 +78,14 @@ Unlike the sidebar, the AI will not be aware of the current note it's in.
 ### Templates
 
 Chat notes can be set as <a class="reference-link" href="Advanced%20Usage/Templates.md">Templates</a> to make them easily reusable. The entire conversation history is kept, allowing a basic form of specialization for the LLM with the existing chat acting like a system prompt. 
+
+### Model selection
+
+When a provider is configured in <a class="reference-link" href="Basic%20Concepts%20and%20Features/UI%20Elements/Options.md">Options</a>, the next step is to select the models that will be available for the chat.
+
+The models are retrieved dynamically from the provider, only when the model selection list is visible. To alter the list of models, simply press the Edit button in the model selection box.
+
+Pricing information is displayed for known models. The pricing information (price per million tokens) is embedded in the application (using a subset of LiteLLM's data) and is updated with new versions of Trilium. Local providers are considered free, whereas custom endpoint providers don't offer any pricing information.
 
 ## Features
 
@@ -219,3 +208,19 @@ The following are alternatives to Trilium's built-in MCP feature. Since Trilium'
 
 > [!IMPORTANT]
 > These solutions are third-party and thus not endorsed or supported directly by the Trilium Notes team. Please address questions and issues on their corresponding repository instead.
+
+## History
+
+### Removal in v0.102.0
+
+Starting with version v0.102.0, AI/LLM integration has been removed from the Trilium Notes core.
+
+While a significant amount of effort went into developing this feature, maintaining and supporting it long-term proved to be unsustainable.
+
+When upgrading to v0.102.0, your Chat notes will be preserved, but instead of the dedicated chat window they will be turned to a normal <a class="reference-link" href="Note%20Types/Code.md">Code</a> note, revealing the underlying JSON of the conversation.
+
+### Reintroduction in v0.103.0
+
+Given the recent advancements of the AI scene, we decided to give the LLM integration another try. v0.103.0 introduces a completely new chat system.
+
+One of the key changes that lead to the reimplementation is that now we are using a library ([Vercel AI](https://github.com/vercel/ai)) to manage the inner mechanism and the differences between LLM providers instead of having to implement it on our own.

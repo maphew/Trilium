@@ -1,20 +1,75 @@
-import { Plugin, Enter, Delete, enableViewPlaceholder, getEnvKeystrokeText, type ViewDocumentEnterEvent, type ViewDocumentDeleteEvent, type ViewDocumentArrowKeyEvent } from "ckeditor5";
-import { Tooltip } from "bootstrap";
+import { Plugin, Enter, Delete, enableViewPlaceholder, env, type ViewDocumentEnterEvent, type ViewDocumentDeleteEvent, type ViewDocumentArrowKeyEvent } from "ckeditor5";
+import { formatShortcut, joinShortcut } from "@triliumnext/commons";
+import { ContentHintManager, type HintHandle } from "@triliumnext/ckeditor5-utils";
 import BlockDragHandle from "./block-drag-handle.js";
 import CollapsibleCommand from "./collapsible-command.js";
+import { OPEN_ATTRIBUTE, TRANSIENT_OPEN_ATTRIBUTE } from "./constants.js";
 
 type TranslateFn = (key: string, params?: Record<string, unknown>) => string;
 
 /**
+ * The keyboard shortcut for toggling a collapsible's `open` state. Shared as
+ * a single source of truth between the `Ctrl+Enter` DOM keydown handler in
+ * {@link CollapsibleEditing#onDomKeydown} and the summary hint's rendered
+ * label — a rebinding in one has to be mirrored in the other.
+ */
+const TOGGLE_SHORTCUT = "Ctrl+Enter";
+
+/**
+ * Dwell delay before hover or a stationary caret pops a summary/handle hint.
+ * Long enough that mouse flyovers don't spawn a popup, short enough that
+ * intentional attention still produces one.
+ */
+const HINT_DWELL_MS = 200;
+
+/**
+ * How long a hint stays visible without any new event (push, content refresh,
+ * caret movement) before it fades itself out. Matches the todo-list multistate
+ * plugin's cadence so the two feel consistent.
+ */
+const HINT_AUTO_HIDE_MS = 2000;
+
+/**
+ * Per-summary hint state. Combines a single {@link HintHandle} with the two
+ * independent visibility drivers — hover and caret — so both can coexist
+ * without racing the manager's element-swap logic. `handle.show()` /
+ * `handle.hide()` are called from a single derived predicate
+ * (`hoverActive || caretActive`), never from either driver directly, so the
+ * handle's element identity is stable for as long as the summary lives.
+ */
+interface SummaryHintState {
+    /** Currently-mapped DOM element for this summary. Kept in sync on every render. */
+    dom: HTMLElement;
+    handle: HintHandle;
+    hoverActive: boolean;
+    caretActive: boolean;
+    /**
+     * Bound mouseenter/mouseleave listeners for {@link dom}. Held so we can
+     * `removeEventListener` on the old DOM before re-attaching to a fresh one
+     * after a CKEditor reconvert — without these references the listeners
+     * would linger on the detached node, keeping their `state` closures alive
+     * until GC and silently mutating shared state if the node ever re-attaches.
+     */
+    mouseEnter?: (event: MouseEvent) => void;
+    mouseLeave?: (event: MouseEvent) => void;
+}
+
+
+/**
  * Schema, conversion and key handling for collapsible blocks.
  *
- * Model:        <details><summary>title</summary>…blocks…</details>
- * Data view:    <details class="trilium-collapsible"><summary>…</summary>…</details>
+ * Model:        <details open><summary>title</summary>…blocks…</details>
+ * Data view:    <details class="trilium-collapsible" open><summary>…</summary>…</details>
  * Editing view: same, plus a custom arrow UIElement in the summary for toggling.
- *               The DOM `open` attribute is the source of truth for collapsed state
- *               and is intentionally not persisted in the model — everything loads
- *               collapsed; freshly-inserted blocks (including those re-created by
- *               redo) are opened by the differ-driven listener below.
+ *
+ * The expanded state lives in the model as the {@link OPEN_ATTRIBUTE} attribute and
+ * is therefore persisted into the note's saved HTML: a block the user left open
+ * reopens on the next visit. A **missing** attribute means collapsed, so notes
+ * written before the state was persisted keep loading fully collapsed.
+ *
+ * Toggling is a model change like any other, with one deliberate exception: it runs
+ * in a non-undoable batch (see {@link CollapsibleEditing#setDetailsOpen}), so
+ * Ctrl+Z after reading a note doesn't re-collapse what the reader just expanded.
  */
 export default class CollapsibleEditing extends Plugin {
 
@@ -28,21 +83,42 @@ export default class CollapsibleEditing extends Plugin {
 
     private keydownListeners: Array<{ root: HTMLElement, handler: (e: KeyboardEvent) => void }> = [];
     private toggleListeners: Array<{ root: HTMLElement, handler: (e: Event) => void }> = [];
-    private autoOpenTimer?: ReturnType<typeof setTimeout>;
     private dragHandle!: BlockDragHandle;
     /**
-     * Pre-move open state for details that are about to be re-inserted via
-     * drag. Consulted by the auto-open differ listener so a collapsed block
-     * stays collapsed after being moved (instead of being unconditionally
-     * opened like a freshly-inserted one).
+     * Shared manager for summary hints (screen-corner popup on each <summary>).
+     * Each summary owns ONE handle in {@link summaryHints}; visibility is
+     * driven by the two booleans on {@link SummaryHintState} (hover, caret)
+     * rather than by stacking two handles against the manager. This matters
+     * because pushing distinct hover + caret handles risks pointing them at
+     * different DOM nodes for the same summary (`getDom` may return a fresh
+     * DOM element after a reconvert while the hover map still holds the old
+     * one), which would make the manager dispose the current tooltip and
+     * create a new one — a visible ~150ms fade-out overlapping a ~150ms
+     * fade-in when caret entry overlaps hover.
      */
-    private readonly preserveOpenOnNextInsert = new Map<any, boolean>();
-    /** Summary DOM elements that currently have a Bootstrap tooltip attached. */
-    private readonly summaryTooltips = new Set<HTMLElement>();
-    /** The summary tooltip we currently have force-shown because the caret is inside it. */
-    private caretShownTooltip?: HTMLElement;
-    /** Drag-handle DOM elements that currently have a Bootstrap tooltip attached. */
-    private readonly handleTooltips = new Set<HTMLElement>();
+    private summaryHintManager?: ContentHintManager;
+    /**
+     * Per-summary hint state, keyed by the model element so DOM churn doesn't
+     * lose it. Updated on every view render — new summaries get a state,
+     * detached ones are reaped.
+     */
+    private readonly summaryHints = new Map<any, SummaryHintState>();
+    /**
+     * Shared visibility stack for the drag-handle hints. Drag handles use
+     * default near-element placement (no `text-editor-content-tooltip` class),
+     * so they live in their own manager with plain `tooltipOptions`.
+     */
+    private handleHintManager?: ContentHintManager;
+    /** Hover-driven handle per rendered drag-handle. Disposed when the handle detaches. */
+    private readonly handleHoverHandles = new Map<HTMLElement, HintHandle>();
+    /**
+     * Collapsed <details> currently force-opened to reveal a find-in-note match.
+     * This is transient editing-view state only: it never touches the model, so
+     * it produces no `change:data`, no autosave, and no revision — searching must
+     * not rewrite the open/closed layout the user saved. A block is held here only
+     * while the find highlight sits inside it and is released the moment it leaves.
+     */
+    private readonly findRevealed = new Set<any>();
 
     public init(): void {
         this.editor.commands.add("collapsible", new CollapsibleCommand(this.editor));
@@ -61,11 +137,6 @@ export default class CollapsibleEditing extends Plugin {
             onClick: (model) => {
                 this.editor.model.change(w => w.setSelection(model, "on"));
                 this.editor.editing.view.focus();
-            },
-            beforeMove: (model) => {
-                if (model?.is?.("element", "details")) {
-                    this.preserveOpenOnNextInsert.set(model, this.isDetailsOpen(model));
-                }
             }
         });
         this.registerSchema();
@@ -74,10 +145,16 @@ export default class CollapsibleEditing extends Plugin {
         this.registerKeyHandlers();
         this.registerClickHandler();
         this.registerDomListeners();
-        this.registerAutoOpenNewDetails();
         this.registerPostFixers();
-        this.registerSummaryTooltips();
-        this.registerHandleTooltips();
+        this.registerFindReveal();
+        // Global user preference: skip all content-hint wiring when off. The
+        // rest of `init()` (schema, key handlers, drag, post-fixers) stays
+        // intact — hints are additive UX, not a load-bearing feature. Missing
+        // config (external CKEditor consumers, tests) → hints on.
+        if (this.editor.config.get("contentHintsEnabled") !== false) {
+            this.registerSummaryHints();
+            this.registerHandleHints();
+        }
     }
 
     public override destroy(): void {
@@ -89,21 +166,21 @@ export default class CollapsibleEditing extends Plugin {
             root.removeEventListener("toggle", handler, true);
         }
         this.toggleListeners = [];
-        if (this.autoOpenTimer !== undefined) {
-            clearTimeout(this.autoOpenTimer);
-            this.autoOpenTimer = undefined;
+        for (const state of this.summaryHints.values()) {
+            this.detachSummaryHoverListeners(state, state.dom);
+            state.handle.dispose();
         }
-        for (const summary of this.summaryTooltips) {
-            Tooltip.getInstance(summary)?.dispose();
+        this.summaryHints.clear();
+        this.summaryHintManager?.destroy();
+        this.summaryHintManager = undefined;
+        for (const handle of this.handleHoverHandles.values()) {
+            handle.dispose();
         }
-        this.summaryTooltips.clear();
-        this.caretShownTooltip = undefined;
-        for (const handle of this.handleTooltips) {
-            Tooltip.getInstance(handle)?.dispose();
-        }
-        this.handleTooltips.clear();
+        this.handleHoverHandles.clear();
+        this.handleHintManager?.destroy();
+        this.handleHintManager = undefined;
+        this.findRevealed.clear();
         this.dragHandle?.cancel();
-        this.preserveOpenOnNextInsert.clear();
         super.destroy();
     }
 
@@ -113,7 +190,12 @@ export default class CollapsibleEditing extends Plugin {
 
     private registerSchema() {
         const schema = this.editor.model.schema;
-        schema.register("details", { inheritAllFrom: "$container" });
+        schema.register("details", {
+            inheritAllFrom: "$container",
+            // Without this the attribute would be stripped by `insertContent`
+            // (schema-driven filtering) when a collapsible is pasted or inserted.
+            allowAttributes: [OPEN_ATTRIBUTE]
+        });
         schema.register("summary", {
             allowIn: "details",
             allowContentOf: "$block",
@@ -132,7 +214,75 @@ export default class CollapsibleEditing extends Plugin {
         // <details>
         conversion.for("upcast").elementToElement({ view: "details", model: "details" });
         conversion.for("dataDowncast").elementToElement({ model: "details", view: detailsView });
-        conversion.for("editingDowncast").elementToElement({ model: "details", view: detailsView });
+
+        // `open` — the persisted expanded state. Upcast maps the native boolean
+        // attribute (whose value is the empty string) to a model `true`; a missing
+        // attribute yields no model attribute at all, i.e. collapsed.
+        conversion.for("upcast").attributeToAttribute({
+            view: { name: "details", key: OPEN_ATTRIBUTE },
+            model: { key: OPEN_ATTRIBUTE, value: () => true }
+        });
+        // Both downcasts use the same explicit converter rather than the
+        // `attributeToAttribute` helper: the helper derives the view value from the
+        // model value (giving `open="true"`), whereas a native boolean attribute
+        // wants `open=""`. Removal has to clear the view attribute outright.
+        const openDowncast = (dispatcher: any) => {
+            dispatcher.on(`attribute:${OPEN_ATTRIBUTE}:details`, (evt: any, data: any, conversionApi: any) => {
+                if (!conversionApi.consumable.consume(data.item, evt.name)) return;
+                const viewElement = conversionApi.mapper.toViewElement(data.item);
+                if (!viewElement) return;
+                if (data.attributeNewValue) {
+                    conversionApi.writer.setAttribute(OPEN_ATTRIBUTE, "", viewElement);
+                } else {
+                    conversionApi.writer.removeAttribute(OPEN_ATTRIBUTE, viewElement);
+                }
+            });
+        };
+        conversion.for("dataDowncast").add(openDowncast);
+        conversion.for("editingDowncast").add(openDowncast);
+        // The editing view wraps the body blocks in a <div class="trilium-collapsible-content">.
+        // Chromium caps a native mouse drag-selection to a single block whenever the blocks are
+        // direct children of a <details> in a contenteditable (its ::details-content slot acts as
+        // a hard selection boundary — keyboard and programmatic selection cross it fine, only the
+        // drag algorithm doesn't). Giving the body a single wrapping container removes that
+        // boundary. This is editing-only: the data downcast above stays flat
+        // (<details><summary>…</summary><blocks>) so the saved HTML signature is unchanged. The
+        // <summary> stays a direct child of <details> (native collapse hides everything else), so
+        // only the non-summary blocks go into the wrapper.
+        conversion.for("editingDowncast").elementToStructure({
+            model: "details",
+            view: (modelElement: any, { writer }: any) => {
+                // Reconversion (triggered whenever the body blocks change) rebuilds this
+                // <details>, which would otherwise default to closed and collapse a block
+                // the user is editing. Seed `open` from the model here so the renderer
+                // itself restores it — a post-render fix-up can't, because the view's
+                // "render" event fires *before* the DOM is reconciled.
+                const attributes: Record<string, string> = { class: "trilium-collapsible" };
+                if (modelElement.getAttribute(OPEN_ATTRIBUTE)) {
+                    attributes.open = "";
+                } else if (this.findRevealed.has(modelElement)) {
+                    // Force-open for a find match, without a persisted `open`. Tag it
+                    // so this "opened only by search" state is styleable and can be
+                    // stripped again cleanly when the highlight moves on.
+                    attributes.open = "";
+                    attributes[TRANSIENT_OPEN_ATTRIBUTE] = "";
+                }
+                const details = writer.createContainerElement("details", attributes);
+                writer.insert(
+                    writer.createPositionAt(details, 0),
+                    writer.createSlot((node: any) => node.is("element", "summary"))
+                );
+                const content = writer.createContainerElement("div", {
+                    class: "trilium-collapsible-content"
+                });
+                writer.insert(
+                    writer.createPositionAt(content, 0),
+                    writer.createSlot((node: any) => !node.is("element", "summary"))
+                );
+                writer.insert(writer.createPositionAt(details, "end"), content);
+                return details;
+            }
+        });
 
         // <summary>
         conversion.for("upcast").elementToElement({ view: "summary", model: "summary" });
@@ -169,12 +319,7 @@ export default class CollapsibleEditing extends Plugin {
             "aria-label": t("text-editor.collapsible-select-label")
         }, function(this: any, domDocument: any) {
             const span: HTMLElement = this.toDomElement(domDocument);
-            const resolveDetails = () => {
-                const detailsDom = span.closest("details");
-                if (!detailsDom) return null;
-                const view = editor.editing.view.domConverter.mapDomToView(detailsDom);
-                return view ? editor.editing.mapper.toModelElement(view as any) : null;
-            };
+            const resolveDetails = () => plugin.detailsFromDom(span);
             const selectBlock = () => {
                 const model = resolveDetails();
                 if (!model) return;
@@ -219,9 +364,12 @@ export default class CollapsibleEditing extends Plugin {
             "aria-expanded": "false"
         }, function(this: any, domDocument: any) {
             const span: HTMLElement = this.toDomElement(domDocument);
+            // Toggle through the model, never by writing `detailsDom.open`: `open` is
+            // now part of the editing view, so a direct DOM write would desynchronise
+            // the view tree from the DOM and be clobbered by the next render.
             const toggle = () => {
-                const details = span.closest("details");
-                if (details) details.open = !details.open;
+                const model = plugin.detailsFromDom(span);
+                if (model) plugin.toggleDetails(model);
             };
             // mousedown preventDefault keeps the browser from placing a caret
             // inside the non-editable UI element.
@@ -265,16 +413,46 @@ export default class CollapsibleEditing extends Plugin {
         return dom instanceof Element ? (dom as unknown as T) : null;
     }
 
-    /** True if the <details> is currently expanded (or no DOM mapping yet). */
+    /** True if the <details> is currently expanded. A missing attribute means collapsed. */
     private isDetailsOpen(model: any): boolean {
-        const dom = this.getDom<HTMLDetailsElement>(model);
-        return !dom || dom.open;
+        return !!model.getAttribute?.(OPEN_ATTRIBUTE);
     }
 
-    /** Toggle the DOM `open` attribute directly (the source of truth in this plugin). */
+    /**
+     * Write the expanded state to the model, which the downcast reflects to the DOM.
+     *
+     * `enqueueChange`, not `change`: a toggle can originate from a DOM event that
+     * fires while a model change block is still open (the downcast setting `open`
+     * makes the browser emit `toggle`), and `model.change` nested in a block joins
+     * that block's batch — silently making the toggle part of the user's undo step.
+     * `enqueueChange` always creates its own batch, and `isUndoable: false` keeps it
+     * off the undo stack: Ctrl+Z after reading must not re-collapse the block.
+     */
     private setDetailsOpen(model: any, open: boolean) {
-        const dom = this.getDom<HTMLDetailsElement>(model);
-        if (dom) dom.open = open;
+        // Cheap guard against the downcast → DOM `toggle` → write-back loop. The
+        // writer would swallow the no-op anyway, but bailing here also avoids
+        // queueing an empty change block on every render-driven toggle.
+        if (this.isDetailsOpen(model) === open) return;
+        this.editor.model.enqueueChange({ isUndoable: false }, (writer: any) => {
+            if (open) {
+                writer.setAttribute(OPEN_ATTRIBUTE, true, model);
+            } else {
+                writer.removeAttribute(OPEN_ATTRIBUTE, model);
+            }
+        });
+    }
+
+    /** Flip the expanded state of a <details>. */
+    private toggleDetails(model: any) {
+        this.setDetailsOpen(model, !this.isDetailsOpen(model));
+    }
+
+    /** Resolve the <details> model element enclosing a DOM node, if any. */
+    private detailsFromDom(node: Element): any | null {
+        const detailsDom = node.closest("details");
+        if (!detailsDom) return null;
+        const view = this.editor.editing.view.domConverter.mapDomToView(detailsDom);
+        return view ? this.editor.editing.mapper.toModelElement(view as any) : null;
     }
 
     /** Is the caret on the first ("top") or last ("bottom") visual line of `dom`? */
@@ -386,22 +564,13 @@ export default class CollapsibleEditing extends Plugin {
         const details = summary.parent;
         if (!details || !details.is("element", "details")) return;
 
-        // If the title is currently collapsed and we'll need to expand it (middle-
-        // of-title split), do it now — before model.change runs and the hidden-body
-        // post-fixer gets a chance to snap the caret out of the new body paragraph.
-        const willSplit = !selection.isCollapsed
-            ? false  // selection will be deleted first, then the new collapsed position determines branch
-            : !selection.getLastPosition()!.isAtStart && !selection.getLastPosition()!.isAtEnd;
-        if (willSplit && !this.isDetailsOpen(details)) {
-            this.setDetailsOpen(details, true);
-        }
-
         model.change(writer => {
             // Drop any non-collapsed selection so we operate on a single position.
             if (!selection.isCollapsed) {
                 model.deleteContent(selection);
             }
-            const position = selection.getLastPosition()!;
+            const position = selection.getLastPosition();
+            if (!position) return;
 
             if (position.isAtStart) {
                 this.insertParagraphAt(writer, writer.createPositionBefore(details));
@@ -426,11 +595,13 @@ export default class CollapsibleEditing extends Plugin {
                 return;
             }
 
-            // Middle of title: split. If we entered this branch via the selection-
-            // delete path (rather than `willSplit` above), expand now too.
-            if (!this.isDetailsOpen(details)) {
-                this.setDetailsOpen(details, true);
-            }
+            // Middle of title: split, which needs the body visible. Expand inside
+            // this same change block so the hidden-body post-fixer (which runs once
+            // the block completes) sees the block already open and leaves the caret
+            // in the new body paragraph. Using the block's own writer rather than
+            // `setDetailsOpen` is deliberate here: the expansion is part of the
+            // user's edit, so undoing the split should restore the collapsed state.
+            writer.setAttribute(OPEN_ATTRIBUTE, true, details);
             const rightRange = writer.createRange(
                 writer.createPositionAt(summary, position.offset),
                 writer.createPositionAt(summary, "end")
@@ -645,9 +816,7 @@ export default class CollapsibleEditing extends Plugin {
             const summary = selection.getFirstPosition()?.findAncestor("summary");
             const details = summary?.parent;
             if (!details?.is("element", "details")) return;
-            const dom = this.getDom<HTMLDetailsElement>(details);
-            if (!dom) return;
-            dom.open = !dom.open;
+            this.toggleDetails(details);
             event.preventDefault();
             event.stopPropagation();
             return;
@@ -671,8 +840,16 @@ export default class CollapsibleEditing extends Plugin {
         }
     }
 
+    /**
+     * The DOM `toggle` event, which fires both for our own downcast-driven changes
+     * and for toggles the browser performs on its own (Chromium expands a closed
+     * <details> to reveal a find-in-page match).
+     *
+     * Moving the caret out of a body that just collapsed is *not* handled here —
+     * {@link CollapsibleEditing#hiddenBodyPostFixer} reads the same model attribute
+     * and does it for every path that can close a block, including this one.
+     */
     private onDetailsToggle(event: Event) {
-        const editor = this.editor;
         const detailsDom = event.target as HTMLDetailsElement;
         if (detailsDom.tagName?.toLowerCase() !== "details") return;
         if (!detailsDom.classList.contains("trilium-collapsible")) return;
@@ -681,224 +858,303 @@ export default class CollapsibleEditing extends Plugin {
         const arrow = detailsDom.querySelector(":scope > summary > .trilium-collapsible-arrow");
         arrow?.setAttribute("aria-expanded", String(detailsDom.open));
 
-        if (detailsDom.open) return;
-
-        const detailsView = editor.editing.view.domConverter.mapDomToView(detailsDom);
-        const detailsModel = detailsView ? editor.editing.mapper.toModelElement(detailsView as any) : null;
+        // Adopt a state the model doesn't know about yet. Toggles that originated
+        // from the model land here too and are absorbed by setDetailsOpen's guard.
+        const detailsModel = this.detailsFromDom(detailsDom);
         if (!detailsModel) return;
+        // A find-reveal drives this block's `open` transiently in the editing view
+        // only — adopting it into the (persisted) model would let a search rewrite
+        // the saved open/closed layout, so leave the model alone here.
+        if (this.findRevealed.has(detailsModel)) return;
+        this.setDetailsOpen(detailsModel, detailsDom.open);
+    }
 
-        const summary = detailsModel.getChild(0);
-        if (!summary?.is("element", "summary")) return;
+    // -----------------------------------------------------------------
+    // Find-in-note reveal (transient, editing-view only)
+    // -----------------------------------------------------------------
 
-        const position = editor.model.document.selection.getFirstPosition();
-        if (!position) return;
+    /**
+     * Follow the find-and-replace highlight: when it lands inside a collapsed
+     * block, open that block (and any collapsed ancestors) just enough to show
+     * the match; re-collapse the moment the highlight leaves. Purely editing-view
+     * state — see {@link findRevealed}. No-op when the editor has no find plugin.
+     */
+    private registerFindReveal() {
+        if (!this.editor.plugins.has("FindAndReplaceEditing")) return;
+        const findEditing: any = this.editor.plugins.get("FindAndReplaceEditing");
+        const state = findEditing?.state;
+        if (!state?.on) return;
+        this.listenTo(state, "change:highlightedResult", (_evt: any, _name: any, highlighted: any) => {
+            this.syncFindReveal(highlighted);
+        });
+    }
 
-        // Already in the toggled block's own summary — caret is still visible.
-        if (position.findAncestor("summary") === summary) return;
-
-        // The caret only needs to move if it's inside the toggled details
-        // (could be many levels deep — e.g. a nested collapsible's body or its
-        // summary; both get hidden when the outer one collapses).
-        let isInside = false;
-        for (let node: any = position.parent; node; node = node.parent) {
-            if (node === detailsModel) { isInside = true; break; }
+    /**
+     * Reconcile {@link findRevealed} with the block(s) the current highlight sits
+     * in. Ancestors newly holding the highlight get revealed; blocks that no
+     * longer hold it are re-collapsed. A `null` highlight (search cleared/closed)
+     * collapses everything.
+     */
+    private syncFindReveal(highlighted: any) {
+        const wanted = new Set<any>();
+        for (let node = highlighted?.marker?.getStart?.()?.parent; node; node = node.parent) {
+            // A persisted-open block is already visible — nothing transient to do.
+            if (node.is?.("element", "details") && !this.isDetailsOpen(node)) {
+                wanted.add(node);
+            }
         }
-        if (!isInside) return;
 
-        editor.model.change(writer => writer.setSelection(summary, "end"));
+        for (const details of this.findRevealed) {
+            if (!wanted.has(details)) {
+                // Keep the entry in the set until the reveal is stripped: while it's present,
+                // onDetailsToggle's guard swallows the write-back from the DOM `toggle` that
+                // removing `open` fires (mirrors the reveal path below). setDetailsOpen's own
+                // no-op guard is the backstop where `toggle` fires asynchronously.
+                this.applyFindReveal(details, false);
+                this.findRevealed.delete(details);
+            }
+        }
+        for (const details of wanted) {
+            if (!this.findRevealed.has(details)) {
+                this.findRevealed.add(details);
+                this.applyFindReveal(details, true);
+            }
+        }
+    }
+
+    /** Add or strip the transient `open` (and its CSS marker) on the editing view. */
+    private applyFindReveal(details: any, reveal: boolean) {
+        const viewElement = this.editor.editing.mapper.toViewElement(details);
+        if (!viewElement) return;
+        this.editor.editing.view.change((writer: any) => {
+            if (reveal) {
+                writer.setAttribute(OPEN_ATTRIBUTE, "", viewElement);
+                writer.setAttribute(TRANSIENT_OPEN_ATTRIBUTE, "", viewElement);
+            } else {
+                // If the user genuinely toggled it open mid-search, leave it open;
+                // only the transient marker is ours to remove.
+                if (!this.isDetailsOpen(details)) {
+                    writer.removeAttribute(OPEN_ATTRIBUTE, viewElement);
+                }
+                writer.removeAttribute(TRANSIENT_OPEN_ATTRIBUTE, viewElement);
+            }
+        });
     }
 
     // -----------------------------------------------------------------
-    // Auto-open freshly-inserted collapsibles
+    // Summary hint (screen-corner popup) — driven by ContentHintManager
     // -----------------------------------------------------------------
 
     /**
-     * The editing downcast emits <details> closed by default so loaded documents
-     * stay collapsed. We do want freshly-inserted collapsibles to open, though —
-     * via the toolbar, via paste, and importantly via *redo* (which re-applies
-     * the insert and would otherwise leave the redone block closed because the
-     * one-shot `setTimeout` from `CollapsibleCommand.execute` has already run).
+     * Register the summary-hint plumbing:
+     *  - hover-driven show/hide on every rendered <summary>;
+     *  - caret-driven show/hide following the model selection;
+     *  - one handle per summary, `hoverActive || caretActive` drives visibility.
      *
-     * Watching the differ for new <details> insertions after the editor is
-     * `ready` covers all three paths uniformly and survives undo/redo.
+     * The single-handle design (instead of pushing separate hover + caret
+     * handles onto the manager stack) avoids the fade-out+fade-in flicker
+     * that occurs when hover has already pushed on one DOM node and caret
+     * pushes on a different DOM node for the same model summary (e.g. after
+     * a CKEditor reconvert). Only one Bootstrap Tooltip is ever created per
+     * summary, and its target element is stable across combined interactions.
      */
-    private registerAutoOpenNewDetails() {
-        const editor = this.editor;
-        let ready = false;
-        // Trilium loads note content via `editor.setData(...)` after the editor
-        // is ready, so the change:data that follows is a wholesale data load —
-        // not user-initiated insertions. Bracket the entire setData call with
-        // `loading=true/false` (highest fires before the data is written,
-        // lowest after everything setData triggered synchronously) so every
-        // change:data that fires inside is covered — not just the first one.
-        // The CKEditor public API doesn't guarantee setData emits exactly one
-        // change:data, so a single-shot flag would leak follow-ups.
-        let loading = false;
-        // Accumulate across `change:data` events: if two events fire in the
-        // same tick (separate model transactions), each restarting the timer
-        // would otherwise drop the previous batch on the floor.
-        const pendingOpen = new Set<any>();
-
-        this.listenTo(editor, "ready", () => { ready = true; });
-        this.listenTo(editor.data, "set", () => { loading = true; }, { priority: "highest" });
-        this.listenTo(editor.data, "set", () => { loading = false; }, { priority: "lowest" });
-
-        this.listenTo(editor.model.document, "change:data", () => {
-            if (loading) return;
-            if (!ready) return;
-            for (const entry of editor.model.document.differ.getChanges()) {
-                if (entry.type !== "insert") continue;
-                // A single insert entry can cover multiple top-level nodes (e.g. a
-                // multi-block paste). Walk via nextSibling up to entry.length so
-                // every inserted <details> gets queued for auto-open, not just the
-                // first one at the entry's position.
-                let node = (entry as any).position?.nodeAfter;
-                for (let i = 0; i < (entry as any).length && node; i++) {
-                    if (node.is?.("element", "details")) pendingOpen.add(node);
-                    node = node.nextSibling;
-                }
-            }
-            if (pendingOpen.size === 0) return;
-
-            // Defer to the next tick so the editing view has rendered the new
-            // DOM elements. Replace any in-flight timer so destroy can cancel.
-            // The accumulated `pendingOpen` survives the restart.
-            if (this.autoOpenTimer !== undefined) clearTimeout(this.autoOpenTimer);
-            this.autoOpenTimer = setTimeout(() => {
-                this.autoOpenTimer = undefined;
-                if ((editor as any).state === "destroyed") {
-                    pendingOpen.clear();
-                    this.preserveOpenOnNextInsert.clear();
-                    return;
-                }
-                for (const node of pendingOpen) {
-                    const dom = this.getDom<HTMLDetailsElement>(node);
-                    if (!dom) continue;
-                    // A move (drag-and-drop) records as remove + insert; restore the
-                    // pre-move open state so a collapsed block stays collapsed.
-                    // Fresh inserts have no entry here and default to open.
-                    if (this.preserveOpenOnNextInsert.has(node)) {
-                        dom.open = this.preserveOpenOnNextInsert.get(node)!;
-                        this.preserveOpenOnNextInsert.delete(node);
-                    } else {
-                        dom.open = true;
-                    }
-                }
-                pendingOpen.clear();
-            }, 0);
-        });
-    }
-
-    // -----------------------------------------------------------------
-    // Summary tooltip (Bootstrap, screen-corner hint)
-    // -----------------------------------------------------------------
-
-    /**
-     * Attach a Bootstrap tooltip to every <summary> DOM element so hovering or
-     * focusing the title pops up a "click the arrow or press Ctrl+Enter" hint
-     * in the screen corner (the same UX as the todo-list multistate plugin).
-     */
-    private registerSummaryTooltips() {
+    private registerSummaryHints() {
         const editor = this.editor;
         const t = this.translate();
-
-        this.listenTo(editor.editing.view, "render", () => {
-            // 1. Reap tooltips whose summaries CKEditor has detached. Doing this
-            //    FIRST (a) frees the references so GC can collect them and
-            //    (b) keeps `summaryTooltips.size` honest for the fast-path below.
-            let cleaned = false;
-            for (const summary of this.summaryTooltips) {
-                if (!summary.isConnected) {
-                    Tooltip.getInstance(summary)?.dispose();
-                    this.summaryTooltips.delete(summary);
-                    if (this.caretShownTooltip === summary) this.caretShownTooltip = undefined;
-                    cleaned = true;
-                }
-            }
-
-            // 2. Collect current summaries from the DOM.
-            const currentSummaries: HTMLElement[] = [];
-            this.forEachDomRoot(root => {
-                for (const s of root.querySelectorAll<HTMLElement>("details.trilium-collapsible > summary")) {
-                    currentSummaries.push(s);
-                }
-            });
-
-            // 3. Fast-path: nothing was reaped AND the count still matches the
-            //    tracked set — no work to do. This covers the typical keystroke
-            //    render where nothing about the summary set has changed.
-            if (!cleaned && currentSummaries.length === this.summaryTooltips.size) return;
-
-            // 4. Wire up tooltips on newly-appeared summaries.
-            for (const summary of currentSummaries) {
-                if (this.summaryTooltips.has(summary)) continue;
-                const title = t("text-editor.collapsible-tooltip", {
-                    shortcut: getEnvKeystrokeText("Ctrl+Enter")
-                });
-                new Tooltip(summary, { title, customClass: "text-editor-content-tooltip" });
-                this.summaryTooltips.add(summary);
-            }
+        const title = t("text-editor.collapsible-tooltip", {
+            shortcut: renderToggleShortcut(t)
         });
-
-        // The caret moving into a <summary> doesn't fire DOM focus (the editable
-        // root keeps focus), so Bootstrap's focus trigger won't notice. Manually
-        // show/hide the tooltip on model-selection changes so the hint also
-        // appears when the user navigates into the title via keyboard or click.
-        this.listenTo(editor.model.document.selection, "change:range", () => {
-            const summaryModel = editor.model.document.selection.getFirstPosition()?.findAncestor("summary");
-            const targetDom = summaryModel ? this.getDom<HTMLElement>(summaryModel) : null;
-
-            // No-op when the target hasn't changed (selection moves on every keystroke
-            // while typing in the summary; re-calling show() retriggers the animation).
-            if (this.caretShownTooltip === targetDom) return;
-
-            if (this.caretShownTooltip) {
-                Tooltip.getInstance(this.caretShownTooltip)?.hide();
-                this.caretShownTooltip = undefined;
-            }
-            if (targetDom) {
-                Tooltip.getInstance(targetDom)?.show();
-                this.caretShownTooltip = targetDom;
-            }
+        const manager = new ContentHintManager({
+            tooltipOptions: {
+                sanitize: false,
+                customClass: "text-editor-content-tooltip"
+            },
+            autoHideAfterMs: HINT_AUTO_HIDE_MS
         });
+        this.summaryHintManager = manager;
+
+        // Re-sync on every render: adopt fresh <summary> DOM nodes, drop
+        // stale ones, and refresh caret ownership so a reconvert-in-flight
+        // doesn't leave a handle pointing at a detached element.
+        this.listenTo(editor.editing.view, "render", () => this.syncSummaryHints(manager, title));
+
+        // The caret moving into a <summary> doesn't fire DOM focus (the
+        // editable root keeps focus), so a hover-only trigger would miss
+        // keyboard-into-summary navigation. Re-sync on selection changes to
+        // update `caretActive` across every tracked summary.
+        this.listenTo(editor.model.document.selection, "change:range", () => this.syncSummaryCaret());
     }
 
     /**
-     * Attach a plain Bootstrap tooltip (default near-element placement, no
-     * screen-corner styling) to each drag handle so hover/focus surfaces the
-     * "Drag to reposition" hint. Tracked in a Set and reaped on view render
-     * the same way summary tooltips are.
+     * Reap dead summaries, adopt new ones (wiring up mouse listeners and a
+     * fresh handle), and re-run caret sync so `caretActive` reflects the
+     * current selection against the current DOM.
      */
-    private registerHandleTooltips() {
+    private syncSummaryHints(manager: ContentHintManager, title: string): void {
+        // Collect the current summaries and their model elements. Do this
+        // BEFORE the reap loop so we can detect summaries whose DOM was
+        // replaced (model still present, DOM changed) and rebind their state
+        // to the new element in place — no dispose+create flicker.
+        const current = new Map<any, HTMLElement>();
+        const mapper = this.editor.editing.mapper;
+        const domConverter = this.editor.editing.view.domConverter;
+        this.forEachDomRoot(root => {
+            for (const dom of root.querySelectorAll<HTMLElement>("details.trilium-collapsible > summary")) {
+                const view = domConverter.mapDomToView(dom);
+                const model = view ? mapper.toModelElement(view as any) : null;
+                if (model) current.set(model, dom);
+            }
+        });
+
+        // Fast-path: `render` fires after every keystroke, so most invocations
+        // find the summary set completely unchanged (same models, same DOM
+        // nodes). Bail before the reap+adopt loops when nothing structural
+        // changed — caret sync is driven by `change:range` and doesn't need
+        // to run again here.
+        let structuralChange = current.size !== this.summaryHints.size;
+        if (!structuralChange) {
+            for (const [model, dom] of current) {
+                const existing = this.summaryHints.get(model);
+                if (!existing || existing.dom !== dom) {
+                    structuralChange = true;
+                    break;
+                }
+            }
+        }
+        if (!structuralChange) return;
+
+        // Drop states whose model is no longer in the rendered tree.
+        for (const [model, state] of this.summaryHints) {
+            if (!current.has(model)) {
+                this.detachSummaryHoverListeners(state, state.dom);
+                state.handle.dispose();
+                this.summaryHints.delete(model);
+            }
+        }
+
+        // For each current summary: adopt (fresh state) or refresh (existing
+        // state, possibly with a new DOM node after a reconvert).
+        for (const [model, dom] of current) {
+            const existing = this.summaryHints.get(model);
+            if (existing) {
+                if (existing.dom !== dom) {
+                    // Model persisted but its DOM was regenerated. Rebind:
+                    // remove the old listeners (their closures would otherwise
+                    // pin the detached DOM), dispose the old handle, then wire
+                    // fresh listeners + handle on the new element.
+                    this.detachSummaryHoverListeners(existing, existing.dom);
+                    existing.handle.dispose();
+                    existing.dom = dom;
+                    existing.handle = manager.createHandle(dom, title);
+                    // Rederive `hoverActive` from the new DOM — the mouse
+                    // may or may not still be over the fresh element, and
+                    // carrying over the boolean would strand a "phantom
+                    // hover" popup when the pointer already left during the
+                    // reconvert.
+                    existing.hoverActive = dom.matches(":hover");
+                    this.attachSummaryHoverListeners(existing);
+                    this.applyVisibility(existing);
+                }
+                continue;
+            }
+            const state: SummaryHintState = {
+                dom,
+                handle: manager.createHandle(dom, title),
+                // Same reasoning as the rebind path: adopt the DOM's actual
+                // hover state so a summary that mounted under an already-
+                // hovering pointer picks up correctly.
+                hoverActive: dom.matches(":hover"),
+                caretActive: false
+            };
+            this.summaryHints.set(model, state);
+            this.attachSummaryHoverListeners(state);
+        }
+
+        this.syncSummaryCaret();
+    }
+
+    /**
+     * Recompute `caretActive` for every tracked summary from the current
+     * model selection. Idempotent: only touches handles whose caret ownership
+     * actually flipped, so a keystroke inside a summary that doesn't cross a
+     * boundary is free.
+     */
+    private syncSummaryCaret(): void {
+        const caretSummary = this.editor.model.document.selection.getFirstPosition()?.findAncestor("summary") ?? null;
+        for (const [model, state] of this.summaryHints) {
+            const shouldBeActive = model === caretSummary;
+            if (state.caretActive === shouldBeActive) continue;
+            state.caretActive = shouldBeActive;
+            this.applyVisibility(state);
+        }
+    }
+
+    /**
+     * Apply the derived predicate `hoverActive || caretActive` to a state's
+     * handle. Hover has a dwell delay; caret is immediate — pushing without
+     * dwell when caret takes ownership matches user intent (keyboard/click
+     * navigation should reveal the hint promptly).
+     */
+    private applyVisibility(state: SummaryHintState): void {
+        if (state.caretActive) {
+            // Caret entering trumps any pending hover dwell — show now.
+            state.handle.show();
+        } else if (state.hoverActive) {
+            state.handle.showAfter(HINT_DWELL_MS);
+        } else {
+            state.handle.hide();
+        }
+    }
+
+    private attachSummaryHoverListeners(state: SummaryHintState): void {
+        state.mouseEnter = () => {
+            state.hoverActive = true;
+            this.applyVisibility(state);
+        };
+        state.mouseLeave = () => {
+            state.hoverActive = false;
+            this.applyVisibility(state);
+        };
+        state.dom.addEventListener("mouseenter", state.mouseEnter);
+        state.dom.addEventListener("mouseleave", state.mouseLeave);
+    }
+
+    private detachSummaryHoverListeners(state: SummaryHintState, previousDom: HTMLElement): void {
+        if (state.mouseEnter) previousDom.removeEventListener("mouseenter", state.mouseEnter);
+        if (state.mouseLeave) previousDom.removeEventListener("mouseleave", state.mouseLeave);
+    }
+
+    /**
+     * Attach a manager-mediated hover hint to each drag handle. Drag handles
+     * use default near-element Bootstrap placement (no screen-corner CSS),
+     * so they live in their own manager with plain `tooltipOptions`.
+     */
+    private registerHandleHints() {
         const editor = this.editor;
         const t = this.translate();
+        const title = t("text-editor.collapsible-handle-tooltip");
+        const manager = new ContentHintManager({
+            autoHideAfterMs: HINT_AUTO_HIDE_MS
+        });
+        this.handleHintManager = manager;
 
         this.listenTo(editor.editing.view, "render", () => {
-            let cleaned = false;
-            for (const handle of this.handleTooltips) {
-                if (!handle.isConnected) {
-                    Tooltip.getInstance(handle)?.dispose();
-                    this.handleTooltips.delete(handle);
-                    cleaned = true;
+            for (const [dragHandle, handle] of this.handleHoverHandles) {
+                if (!dragHandle.isConnected) {
+                    handle.dispose();
+                    this.handleHoverHandles.delete(dragHandle);
                 }
             }
 
-            const current: HTMLElement[] = [];
             this.forEachDomRoot(root => {
-                for (const h of root.querySelectorAll<HTMLElement>(".trilium-collapsible-handle")) {
-                    current.push(h);
+                for (const dragHandle of root.querySelectorAll<HTMLElement>(".trilium-collapsible-handle")) {
+                    if (this.handleHoverHandles.has(dragHandle)) continue;
+                    const handle = manager.createHandle(dragHandle, title);
+                    this.handleHoverHandles.set(dragHandle, handle);
+                    dragHandle.addEventListener("mouseenter", () => handle.showAfter(HINT_DWELL_MS));
+                    dragHandle.addEventListener("mouseleave", () => handle.hide());
                 }
             });
-
-            if (!cleaned && current.length === this.handleTooltips.size) return;
-
-            for (const handle of current) {
-                if (this.handleTooltips.has(handle)) continue;
-                new Tooltip(handle, {
-                    title: t("text-editor.collapsible-handle-tooltip")
-                });
-                this.handleTooltips.add(handle);
-            }
         });
     }
 
@@ -1112,8 +1368,7 @@ export default class CollapsibleEditing extends Plugin {
         let outermostClosed: any = null;
         for (let node: any = position.parent; node; node = node.parent) {
             if (!node.is?.("element", "details")) continue;
-            const dom = this.getDom<HTMLDetailsElement>(node);
-            if (dom && !dom.open) outermostClosed = node;
+            if (!this.isDetailsOpen(node)) outermostClosed = node;
         }
         if (!outermostClosed) return false;
 
@@ -1124,4 +1379,16 @@ export default class CollapsibleEditing extends Plugin {
         writer.setSelection(summary, "end");
         return true;
     }
+}
+
+/**
+ * Render the toggle shortcut as `<kbd>Ctrl</kbd>+<kbd>Enter</kbd>` (or
+ * `<kbd>⌃</kbd><kbd>↩</kbd>` on macOS). Uses the shared `formatShortcut` /
+ * `joinShortcut` from `@triliumnext/commons` so key labels flow through the
+ * same i18n and Mac-glyph rules as the rest of the app.
+ */
+function renderToggleShortcut(translate: TranslateFn): string {
+    const kbdTokens = formatShortcut(TOGGLE_SHORTCUT, translate, env.isMac)
+        .map((token: string) => `<kbd>${token}</kbd>`);
+    return joinShortcut(kbdTokens, env.isMac);
 }

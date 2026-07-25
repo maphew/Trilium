@@ -332,7 +332,7 @@
     "branch_prefix_saved": "Prefixul ramurii a fost salvat.",
     "edit_branch_prefix": "Editează prefixul ramurii",
     "help_on_tree_prefix": "Informații despre prefixe de ierarhie",
-    "prefix": "Prefix: ",
+    "prefix": "Prefix",
     "save": "Salvează",
     "edit_branch_prefix_multiple": "Editează prefixul pentru {{count}} ramuri",
     "branch_prefix_saved_multiple": "Prefixul a fost modificat pentru {{count}} ramuri.",
@@ -1667,9 +1667,6 @@
   "show_floating_buttons_button": {
     "button_title": "Afișează butoanele"
   },
-  "spacer": {
-    "configure_launchbar": "Configurează bara de lansare"
-  },
   "sql_result": {
     "no_rows": "Nu s-a găsit niciun rând pentru această interogare",
     "not_executed": "Această interogare nu a fost executată încă.",
@@ -2466,7 +2463,6 @@
     "sources": "Surse",
     "sources_summary": "{{count}} surse de pe {{sites}} site-uri",
     "extended_thinking": "Gândire extinsă",
-    "legacy_models": "Modele vechi",
     "thinking": "Se gândește...",
     "thought_process": "Procesul de gândire",
     "tool_calls": "{{count}} apel(uri) de unelte",
@@ -2659,7 +2655,6 @@
     "configured_providers": "Furnizori configurați",
     "no_providers_configured": "Niciun furnizor configurat încă.",
     "provider_name": "Nume",
-    "provider_type": "Furnizor",
     "actions": "Acțiuni",
     "delete_provider": "Șterge",
     "delete_provider_confirmation": "Sigur doriți să ștergeți furnizorul „{{name}}”?",
@@ -2668,7 +2663,6 @@
     "base_url": "URL de bază",
     "base_url_description": "Opțional. Suprascrie punctul final API implicit — util pentru modele auto-găzduite (Ollama, LM Studio, vLLM) sau proxy-uri.",
     "base_url_invalid": "URL-ul de bază trebuie să fie un URL valid http:// sau https://",
-    "cancel": "Anulează",
     "mcp_title": "MCP (Model Context Protocol)",
     "mcp_enabled": "Server MCP",
     "mcp_enabled_description": "Expune un punct final Model Context Protocol (MCP) astfel încât asistenții AI de programare (de ex. Claude Code, GitHub Copilot) să poată citi și modifica notițele dvs. Punctul final este accesibil doar de pe localhost.",
@@ -2718,7 +2712,6 @@
     "collapsible-tooltip": "Faceți clic pe săgeată sau apăsați {{shortcut}} pentru a restrânge/extinde.",
     "edit-states-tooltip": "Editează stările sarcinii",
     "unknown-task-state": "Stare personalizată de sarcină nedefinită",
-    "task-state-dropped": "Definiția stării personalizate de sarcină „{{title}}” ({{id}}) a fost eliminată din cauza: {{reason}}",
     "validation-errors": {
       "undefined-name": "identificator nedefinit",
       "invalid-name": "identificator invalid",
@@ -2728,5 +2721,22 @@
       "invalid-symbol": "simbolul markdown trebuie să fie un singur caracter, cu excepția „[”, „ ”, „X” și „]”",
       "duplicate-symbol": "simbol markdown duplicat"
     }
+  },
+  "keyboard_shortcut_keys": {
+    "ctrl": "Ctrl",
+    "alt": "Alt",
+    "shift": "Shift",
+    "meta": "Meta",
+    "enter": "Enter",
+    "escape": "Esc",
+    "delete": "Delete",
+    "backspace": "Backspace",
+    "space": "Spațiu",
+    "tab": "Tab",
+    "home": "Home",
+    "end": "End",
+    "page_up": "Page Up",
+    "page_down": "Page Down",
+    "insert": "Insert"
   }
 }

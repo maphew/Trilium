@@ -220,6 +220,15 @@ describe("createLink", () => {
         expect($el.find("a").text()).toBe("Override");
     });
 
+    it("appends a .note-link-suffix span right after the link when titleSuffix is set", async () => {
+        const note = buildNote({ title: "Base" });
+        const $el = await linkService.createLink(`root/${note.noteId}`, { titleSuffix: "— dropped" });
+        const $suffix = $el.children("span.note-link-suffix");
+        expect($suffix.length).toBe(1);
+        expect($suffix.text()).toBe("— dropped");
+        expect($suffix.prev().is("a")).toBe(true);
+    });
+
     it("auto-converts image notes to an <img> element", async () => {
         const note = buildNote({ title: "Pic", type: "image" });
         const $el = await linkService.createLink(`root/${note.noteId}`, { autoConvertToImage: true, title: "Pic" });
@@ -672,6 +681,25 @@ describe("module-level click handlers", () => {
         // goToLink -> goToLinkExt should attempt to open the note in the current context
         expect(openInCurrentNoteContext).toHaveBeenCalled();
         $a.remove();
+    });
+
+    it("leaves navigation to content that handles its own clicks (no-link-navigation)", () => {
+        // A media player inside a collection card: the card is itself a link (it wires its own click straight
+        // to goToLink), so pressing play in the player must not also open the note.
+        const $card = $("<div class='block-link' data-href='#root/aaaaaaaaaaaa'></div>");
+        $card.append("<div class='no-link-navigation'><button class='play'></button></div>");
+        $("body").append($card);
+
+        const clickOn = (el: HTMLElement | undefined) =>
+            linkService.goToLink($.Event("click", { which: 1, target: el }) as unknown as JQuery.ClickEvent);
+
+        clickOn($card.find(".play")[0]);
+        expect(openInCurrentNoteContext).not.toHaveBeenCalled();
+
+        // A click on the card outside that content still navigates.
+        clickOn($card[0]);
+        expect(openInCurrentNoteContext).toHaveBeenCalled();
+        $card.remove();
     });
 
     it("opens the link context menu on contextmenu of an internal link", () => {

@@ -113,7 +113,13 @@ type AllTaskDefinitions =
     | TaskDefinition<"importAttachments">;
 
 export type WebSocketMessage = AllTaskDefinitions | {
-    type: "ping"
+    type: "ping",
+    /**
+     * Live protected-session state of the backend, present on server→client pings. Lets the client
+     * detect a protected-session expiry whose `reload-frontend` broadcast never arrived (e.g. the
+     * WebSocket was dead at expiry time) and reload itself. Absent on client→server pings.
+     */
+    protectedSessionAvailable?: boolean
 } | {
     type: "frontend-update",
     data: {

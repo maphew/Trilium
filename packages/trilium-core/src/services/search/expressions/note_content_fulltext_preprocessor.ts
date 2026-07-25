@@ -1,3 +1,4 @@
+import { extractLlmChatText } from "@triliumnext/commons/src/lib/llm/extract_chat_text.js";
 import { extractSpreadsheetText } from "@triliumnext/commons/src/lib/spreadsheet/extract_text.js";
 import striptags from "striptags";
 import { normalizeSearchText } from "../utils/text_utils";
@@ -8,8 +9,12 @@ export default function preprocessContent(rawContent: string | Uint8Array, type:
 
     if (type === "text" && mime === "text/html") {
         if (!raw) {
+            // surface link-preview metadata (title/url/description) as text, since it lives in
+            // data attributes that stripTags would otherwise discard along with the element
+            const previewText = [...content.matchAll(/\sdata-(?:title|url|description)="([^"]*)"/gi)].map((match) => match[1]).join(" ");
+
             // Content size already filtered at DB level, safe to process
-            content = stripTags(content);
+            content = stripTags(`${previewText} ${content}`);
         }
 
         content = content.replace(/&nbsp;/g, " ");
@@ -19,6 +24,8 @@ export default function preprocessContent(rawContent: string | Uint8Array, type:
         content = processCanvasContent(content);
     } else if (type === "spreadsheet" && mime === "application/json") {
         content = extractSpreadsheetText(content);
+    } else if (type === "llmChat" && mime === "application/json") {
+        content = extractLlmChatText(content);
     }
 
     return content.trim();

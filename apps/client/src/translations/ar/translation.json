@@ -1670,9 +1670,6 @@
     "button-link-map": "خريطة الروابط",
     "button-tree-map": "خريطة الشجرة"
   },
-  "spacer": {
-    "configure_launchbar": "تهيئة شريط الاطلاق"
-  },
   "entrypoints": {
     "note-executed": "تم تنفيذ الملاحظة.",
     "save-named-revision-title": "حفظ نسخة باسم",
@@ -2235,7 +2232,6 @@
     "web_search": "بحث الويب",
     "note_tools": "وصول الملاحظة",
     "extended_thinking": "تفكير موسّع",
-    "legacy_models": "النماذج القديمة",
     "thought_process": "عملية التفكير",
     "placeholder": "اكتب رسالة...",
     "searching_web": "جارٍ البحث في الويب...",
@@ -2263,10 +2259,8 @@
   },
   "llm": {
     "provider_name": "اسم",
-    "provider_type": "المجهز",
     "actions": "الإجراءات",
     "delete_provider": "حذف",
-    "cancel": "الغاء",
     "add_provider": "إضافة مزود",
     "configured_providers": "المزوّدون المُهيّؤون",
     "api_key": "مفتاح API",
@@ -2629,7 +2623,6 @@
       "invalid-symbol": "يجب أن يكون رمز Markdown عبارة عن حرف واحد، باستثناء \"[\", \" \", \"X\", و \"]\""
     },
     "unknown-task-state": "حالة مهمة مخصصة غير مُعرّفة",
-    "task-state-dropped": "تم تجاهل تعريف حالة المهمة المخصصة \"{{title}}\" ({{id}}) بسبب: {{reason}}",
     "checkbox-tooltip": "انقر بزر الفأرة الأيمن لمزيد من حالات المهمة.\nاضغط {{shortcut}} للتنقل بين الحالات."
   },
   "note-color": {

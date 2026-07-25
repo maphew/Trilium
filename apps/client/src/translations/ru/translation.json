@@ -1930,9 +1930,6 @@
     "options_status": "Статус опций",
     "options_change_saved": "Изменения параметров сохранены."
   },
-  "spacer": {
-    "configure_launchbar": "Конфигурация лаунчбара"
-  },
   "entrypoints": {
     "note-executed": "Заметка выполнена.",
     "note-revision-created": "Снимок версии заметки создан успешно.",
@@ -2304,7 +2301,6 @@
     "note_tools": "Доступ к заметке",
     "sources": "Источники",
     "extended_thinking": "Расширенное мышление",
-    "legacy_models": "Устаревшие модели",
     "thinking": "Обработка...",
     "thought_process": "Процесс обработки",
     "tool_calls": "{{count}} вызов(а/ов) инструмента",
@@ -2389,13 +2385,11 @@
     "configured_providers": "Настроенные провайдеры",
     "no_providers_configured": "Провайдеры пока не настроены.",
     "provider_name": "Название",
-    "provider_type": "Провайдер",
     "actions": "Действия",
     "delete_provider": "Удалить",
     "delete_provider_confirmation": "Удалить провайдера «{{name}}»?",
     "api_key": "Ключ API",
     "api_key_placeholder": "Введите свой ключ API",
-    "cancel": "Отмена",
     "tools": {
       "clone_note": "Клонировать заметку",
       "move_note": "Переместить заметку",
@@ -2661,7 +2655,6 @@
     },
     "unknown-task-state": "Неопределеннре пользовательское состояние задачи",
     "edit-states-tooltip": "Управление состояниями",
-    "checkbox-tooltip": "Щелкните правой кнопкой мыши, чтобы просмотреть другие состояния задачи.\nНажмите {{shortcut}} для переключения между состояниями.",
-    "task-state-dropped": "Удалено определение пользовательского состояния задачи \"{{title}}\" ({{id}}) по причине: {{reason}}"
+    "checkbox-tooltip": "Щелкните правой кнопкой мыши, чтобы просмотреть другие состояния задачи.\nНажмите {{shortcut}} для переключения между состояниями."
   }
 }

@@ -1560,9 +1560,6 @@
     "no_notes_found": "Nenhuma nota encontrada para os parâmetros de pesquisa digitados.",
     "search_not_executed": "A pesquisa ainda não foi executada. Clique no botão \"Pesquisar\" acima para ver os resultados."
   },
-  "spacer": {
-    "configure_launchbar": "Configurar Barra de Lançamento"
-  },
   "sql_result": {
     "no_rows": "Esta consulta não retornou nenhuma linha"
   },

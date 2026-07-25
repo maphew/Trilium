@@ -4,6 +4,7 @@
 type Labels = {
     color: string;
     iconClass: string;
+    iconPack: string;
     workspace: boolean;
     workspaceTabBackgroundColor: string;
     workspaceIconClass: string;

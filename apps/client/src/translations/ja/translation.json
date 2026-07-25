@@ -101,7 +101,8 @@
     "show_shared_notes_subtree": "共有ノートのサブツリーを表示",
     "new-version-available": "新しいアップデートが利用可能",
     "download-update": "{{latestVersion}} をバージョンを入手",
-    "search_notes": "検索ノート"
+    "search_notes": "検索ノート",
+    "show_deleted_notes": "削除されたノートを表示"
   },
   "left_pane_toggle": {
     "show_panel": "パネルを表示",
@@ -175,7 +176,10 @@
     "list": "リスト",
     "today": "今日",
     "pin_date": "現在の日付を固定し、カレンダーが「今日」ではなく常にこの日付で開くようにする",
-    "unpin_date": "日付の固定を解除し、カレンダーが再び「今日」の日付で開くようにする"
+    "unpin_date": "日付の固定を解除し、カレンダーが再び「今日」の日付で開くようにする",
+    "day": "日",
+    "day_previous": "前の日",
+    "day_next": "次の日"
   },
   "note_icon": {
     "change_note_icon": "ノートアイコンの変更",
@@ -327,7 +331,9 @@
     "result_share": "共有ノートテーマを使用した、公開可能な静的ウェブサイトを含む ZIP アーカイブ。",
     "result_opml": "単一の OPML アウトラインファイル。ノートのタイトルとテキストは含まれますが、画像、コードファイル、添付ファイルは含まれません。",
     "result_single_html": "単一の HTML ファイル。画像や添付ファイルが埋め込まれます。",
-    "result_single_markdown": "単一のマークダウン (.md) ファイル。"
+    "result_single_markdown": "単一のマークダウン (.md) ファイル。",
+    "preparing_export": "エクスポートを準備中…",
+    "export_in_progress_with_total": "{{totalCount}} 件中 {{progressCount}} 件のノートをエクスポートしました"
   },
   "help": {
     "title": "チートシート",
@@ -405,18 +411,20 @@
       "placeholder": "HTMLタグを1行に1つ入力",
       "reset_button": "リストをデフォルトにリセット"
     },
-    "in-progress": "インポート中: {{progress}}",
+    "in-progress": "{{progress}} 件のノートをインポートしました",
     "successful": "インポートは正常に終了しました。",
     "explodeArchives": "<code>.zip</code>, <code>.enex</code> および <code>.opml</code> アーカイブの内容を読み取ります。",
     "importZipRecommendation": "ZIP ファイルをインポートすると、ノートの階層はアーカイブ内のサブディレクトリ構造を反映します。",
     "spreadsheetImportedAsSpreadsheet": "CSV ファイルや Excel ファイルを、ファイルとしてではなく編集可能なスプレッドシートとしてインポートする",
     "starting": "インポート中…",
-    "in-progress-with-total": "{{total}} 件中 {{progress}} 件をインポート中",
+    "in-progress-with-total": "{{total}} 件中 {{progress}} 件をインポートしました",
     "importIntoNoteNamed": "{{- title}} にインポート",
     "import_from": "インポート元",
     "cardName": "ファイルとその他のフォーマット",
     "cardDescription": "ZIP, ENEX, OPML, Markdown, HTML, 画像など",
-    "shrinkImagesProviderTooltip": "インポートした画像のサイズを調整および最適化して容量を節約しますが、画質が若干低下する場合があります。"
+    "shrinkImagesProviderTooltip": "インポートした画像のサイズを調整および最適化して容量を節約しますが、画質が若干低下する場合があります。",
+    "extracting": "{{total}} 件中 {{progress}} 件のアイテムを抽出しました",
+    "processing": "{{total}} 件中 {{progress}} 件のノートを処理しました"
   },
   "password_not_set": {
     "title": "パスワードが設定されていない",
@@ -430,7 +438,16 @@
     "deleted_notes_message": "削除されたノートは完全に消去されました。",
     "no_changes_message": "変更はまだありません...",
     "undelete_link": "削除を取り消す",
-    "confirm_undelete": "このノートとサブノートを復元しますか？"
+    "confirm_undelete": "このノートとサブノートを復元しますか？",
+    "deleted_notes_title": "削除されたノート",
+    "more_actions": "その他の操作",
+    "deleted_notes_settings": "削除されたノートの設定",
+    "no_deleted_notes_message": "削除されたノートはありません。",
+    "undelete_failed": "ノートを復元できませんでした。完全に削除されている可能性があります。",
+    "title_with_ancestor": "{{- title}} - {{- ancestorTitle}}",
+    "no_deleted_notes_erasure_hint": "削除されたノートは {{- duration}} の間保持された後、完全に削除されます。",
+    "confirm_undelete_to_default_location": "このノートの親ノートは既に存在しないため、元の場所に復元できません。代わりに、新しいノートのデフォルトの場所に復元しますか？",
+    "undeleted_to_default_location": "元の場所が存在しないため、ノートは \"{{- title}}\" に復元されました。"
   },
   "sort_child_notes": {
     "sort_children_by": "子ノートの並び替え...",
@@ -551,7 +568,13 @@
     "word_wrap_on": "オン",
     "word_wrap_off": "オフ",
     "save_named_revision": "名前を付けて変更履歴を保存...",
-    "print_or_export_to_pdf": "印刷 / PDF へのエクスポート..."
+    "print_or_export_to_pdf": "印刷 / PDF へのエクスポート...",
+    "convert_to_markdown": "マークダウンノートに変換",
+    "convert_to_text": "テキストノートに変換",
+    "convert_format_warning": "変換中に一部の書式が失われる可能性があり、後で修正が必要になる場合があります。現在のノートの変更履歴は事前に保存されるため、復元できます。続行しますか？",
+    "convert_format_warning_risky": "機能の異なる2つの形式間で変換を行うため、一部の書式が失われたり、サポートされていない要素が削除されたりする可能性があります。<br><br>このリスクを十分に理解した上で、変換を続行しますか？<br><br> 現在のノートの変更履歴が事前に保存されるため、元の形式に戻すことができます。",
+    "convert_to_markdown_successful": "ノートがマークダウンに変換されました。",
+    "convert_to_text_successful": "ノートがテキストノートに変換されました。"
   },
   "command_palette": {
     "export_note_title": "ノートをエクスポート",
@@ -950,7 +973,12 @@
     "color_scheme_system": "システム",
     "color_scheme_light": "ライト",
     "color_scheme_dark": "ダーク",
-    "color_scheme_custom_disabled": "カスタムテーマでは配色の上書きは利用できません"
+    "color_scheme_custom_disabled": "カスタムテーマでは配色の上書きは利用できません",
+    "color_scheme_switcher_system": "システムモード",
+    "color_scheme_switcher_light": "ライトモード",
+    "color_scheme_switcher_dark": "ダークモード",
+    "color_scheme_switcher_hint": "クリックして配色を切り替えます。",
+    "color_scheme_switcher_unsupported": "現在のテーマは配色の変更に対応していません。"
   },
   "vim_key_bindings": {
     "use_vim_keybindings_in_code_notes": "Vimキーバインド",
@@ -983,7 +1011,8 @@
     "batch_ocr_starting": "バッチ処理を開始しています...",
     "batch_ocr_progress": "{{total}} ファイルのうち {{processed}} ファイルを処理中...",
     "batch_ocr_completed": "バッチ処理が完了しました！{{processed}} ファイルを処理しました。",
-    "batch_ocr_error": "バッチ処理中にエラーが発生しました: {{error}}"
+    "batch_ocr_error": "バッチ処理中にエラーが発生しました: {{error}}",
+    "batch_ocr_completed_with_failures": "バッチ処理が完了しました。{{processed}} 個のファイルを処理しましたが、{{failed}} 個は読み込めませんでした（詳細はログを参照してください）。"
   },
   "search_engine": {
     "title": "検索エンジン",
@@ -1097,7 +1126,7 @@
     "set_password_heading": "パスワードの設定",
     "set_password": "パスワードの設定",
     "password_mismatch": "新しいパスワードが同じではありません。",
-    "password_changed_success": "パスワードが変更されました。OKを押すとTriliumがリロードされます。",
+    "password_changed_success": "パスワードが正常に変更されました。",
     "change_password_description": "現在のパスワードを更新",
     "reset_password": "パスワードをリセット",
     "reset_password_description": "保護されたノートへのアクセス権を完全に失います",
@@ -1151,7 +1180,8 @@
   },
   "modal": {
     "close": "閉じる",
-    "help_title": "この画面に関する詳細情報を表示"
+    "help_title": "この画面に関する詳細情報を表示",
+    "cancel": "キャンセル"
   },
   "bookmark_switch": {
     "bookmark": "ブックマーク",
@@ -1534,7 +1564,9 @@
     "note_completion_description": "ノートへのリンクは \"@\" の後にノートのタイトルを入力することで作成できます。",
     "slash_commands_enabled": "スラッシュコマンド",
     "slash_commands_description": "改行や見出しの挿入などの編集コマンドは \"/\" を入力して切り替えることができます。",
-    "title": "機能"
+    "title": "機能",
+    "content_hints_enabled": "コンテンツのヒント",
+    "content_hints_description": "エディターの右下隅に、カーソルまたはポインターの下にある要素の操作方法を説明する短いヒントを表示します。"
   },
   "table_context_menu": {
     "delete_row": "行を削除"
@@ -1611,7 +1643,7 @@
     "note_revisions": "ノートの変更履歴"
   },
   "note_launcher": {
-    "this_launcher_doesnt_define_target_note": "このランチャーはターゲットノートを定義していません。"
+    "this_launcher_doesnt_define_target_note": "このランチャーにはターゲットとなるノートが設定されていないため、開く対象がありません。\"ターゲット\" リレーションを設定して、特定のノートを指すようにしてください。"
   },
   "zpetne_odkazy": {
     "relation": "リレーション",
@@ -1874,7 +1906,8 @@
     "title": "ドロップダウンで利用可能なMIMEタイプ",
     "tooltip_syntax_highlighting": "構文ハイライト表示",
     "tooltip_code_block_syntax": "テキストノート内のコードブロック",
-    "tooltip_code_note_syntax": "コードノート"
+    "tooltip_code_note_syntax": "コードノート",
+    "trilium_log": "Trilium ログ"
   },
   "attachment_erasure_timeout": {
     "attachment_erasure_timeout": "未使用の添付ファイル",
@@ -2204,9 +2237,6 @@
     "button-link-map": "リンクマップ",
     "button-tree-map": "ツリーマップ"
   },
-  "spacer": {
-    "configure_launchbar": "ランチャーバーを設定"
-  },
   "attachment_detail_2": {
     "will_be_deleted_in": "この添付ファイルは {{time}} 後に自動的に削除されます",
     "will_be_deleted_soon": "この添付ファイルはすぐに自動的に削除されます",
@@ -2221,7 +2251,12 @@
     "slide-overview": "スライドの概要を切り替え"
   },
   "calendar_view": {
-    "delete_note": "ノートを削除..."
+    "delete_note": "ノートを削除...",
+    "time_slots": "時間枠",
+    "slot_label_interval": "ラベルの間隔",
+    "slot_duration": "期間",
+    "minutes_other": "{{count}} 分",
+    "hours_other": "{{count}} 時間"
   },
   "read-only-info": {
     "read-only-note": "現在、読み取り専用のノートを表示しています。",
@@ -2414,7 +2449,8 @@
     "play-mode-loop": "ループ",
     "play-mode-next": "次を再生",
     "seek": "シーク（左右矢印キー）",
-    "forward-10s": "10 秒進む (右矢印キー)"
+    "forward-10s": "10 秒進む (右矢印キー)",
+    "activate": "{{- title}} を再生"
   },
   "mermaid": {
     "placeholder": "マーメイド図の内容を入力するか、以下のサンプル図のいずれかを使用してください。",
@@ -2446,7 +2482,10 @@
     "sample_treeview": "ツリービュー",
     "sample_wardley": "ウォードリーマップ",
     "slash_command_blank_description": "空のマーメイド図を挿入",
-    "slash_command_description": "\"{{name}}\" マーメイド図テンプレートを挿入"
+    "slash_command_description": "\"{{name}}\" マーメイド図テンプレートを挿入",
+    "sample_cynefin": "クネビン（Cynefin）",
+    "sample_swimlane": "スイムレーン",
+    "sample_railroad": "レイルロード図"
   },
   "llm_chat": {
     "placeholder": "メッセージを入力してください…",
@@ -2458,7 +2497,6 @@
     "note_tools": "ノートへのアクセス",
     "sources": "ソース",
     "extended_thinking": "思考を拡張",
-    "legacy_models": "レガシーモデル",
     "thinking": "思考中...",
     "thought_process": "思考プロセス",
     "tool_calls": "{{count}} 回のツール呼び出し",
@@ -2487,7 +2525,26 @@
     "attach_file": "画像、PDF、またはテキストファイルを添付",
     "remove_attachment": "添付ファイルを削除",
     "attachment_upload_failed": "\"{{name}}\" のアップロードに失敗しました。",
-    "attachment_unsupported_type": "\"{{name}}\" はサポートされていない添付ファイル形式です。画像（PNG、JPEG、GIF、WebP）、PDF、またはテキスト/ソースファイルをご利用ください。"
+    "attachment_unsupported_type": "\"{{name}}\" はサポートされていない添付ファイル形式です。画像（PNG、JPEG、GIF、WebP）、PDF、またはテキスト/ソースファイルをご利用ください。",
+    "scroll_to_bottom": "最新へスクロール",
+    "read_only_notice": "この AI チャットは読み取り専用のため、返信はできません。",
+    "toc_file": "ファイル: {{name}}",
+    "highlights_title": "ハイライト ({{count}})",
+    "highlights_empty": "ハイライトはまだありません。メッセージ内のテキストを選択し、\"ハイライト\" を選択してください。",
+    "copy": "コピー",
+    "highlight_add": "ハイライト",
+    "highlight_remove": "ハイライトを削除",
+    "highlight_remove_confirm": "このハイライトを削除しますか？",
+    "quote_selection": "選択範囲を引用",
+    "quoted_from": "引用元",
+    "show_quote_source": "引用元を表示",
+    "copy_message": "メッセージをコピー",
+    "save_to_subnote": "サブノートに保存",
+    "save_as_note": "ノートとして保存",
+    "save_note_failed": "メッセージからノートを作成できませんでした。",
+    "regenerate": "再生成",
+    "delete_message": "メッセージを削除",
+    "delete_message_confirm": "このメッセージを削除しますか？この操作は取り消せません。"
   },
   "sidebar_chat": {
     "title": "AI チャット",
@@ -2498,7 +2555,14 @@
     "history": "チャット履歴",
     "recent_chats": "最近のチャット",
     "no_chats": "過去のチャットはありません",
-    "view_all_chats": "すべてのチャットを表示"
+    "view_all_chats": "すべてのチャットを表示",
+    "more_actions": "その他の操作",
+    "rename": "名前を変更",
+    "rename_title": "チャットの名前を変更",
+    "rename_message": "このチャットの新しい名前を入力してください:",
+    "delete": "削除",
+    "delete_chat": "チャットを削除",
+    "delete_confirm": "このチャットを削除しますか？この操作は取り消せません。"
   },
   "mind-map": {
     "addChild": "子ノードを追加",
@@ -2520,13 +2584,11 @@
     "configured_providers": "設定済みプロバイダー",
     "no_providers_configured": "まだプロバイダーが設定されていません。",
     "provider_name": "名前",
-    "provider_type": "プロバイダー",
     "actions": "アクション",
     "delete_provider": "削除",
     "delete_provider_confirmation": "プロバイダー \"{{name}}\" を削除してもよろしいですか？",
     "api_key": "API キー",
     "api_key_placeholder": "API キーを入力してください",
-    "cancel": "キャンセル",
     "feature_not_enabled": "AI 連携機能を使用するには、「設定」→「高度」→「実験的機能」で LLM 実験的機能を有効にしてください。",
     "mcp_title": "MCP（モデル コンテキスト プロトコル）",
     "mcp_enabled": "MCP サーバー",
@@ -2693,7 +2755,10 @@
     "title": "ノートの変更履歴"
   },
   "launcher_button_context_menu": {
-    "remove_from_launch_bar": "ランチャーバーから削除"
+    "remove_from_launch_bar": "ランチャーバーから削除",
+    "configure_launch_bar": "ランチャーバーの設定",
+    "launch_bar_orientation": "ランチャーバーの向き",
+    "will_reload_frontend": "（アプリが再読み込みされます）"
   },
   "display_mode": {
     "source": "ソースビュー",
@@ -2803,10 +2868,9 @@
     "sync-from-desktop-allow-access": "ネットワークアクセスを許可して再起動"
   },
   "text-editor": {
-    "checkbox-tooltip": "右クリックでさらに多くのタスクの状態を表示\n{{shortcut}} を押すと、状態を順に切り替え",
+    "checkbox-tooltip": "右クリックするか、{{- shortcut}} を押すと、状態を変更できます。",
     "edit-states-tooltip": "タスクの状態を編集",
     "unknown-task-state": "未定義のカスタムタスクの状態",
-    "task-state-dropped": "次の理由により、カスタムタスクの状態定義 \"{{title}}\" {{id}} を破棄しました: {{reason}}",
     "validation-errors": {
       "undefined-name": "未定義の識別子",
       "invalid-name": "無効な識別子",
@@ -2822,7 +2886,9 @@
     "collapsible-select-label": "折りたたみブロックを選択",
     "collapsible-title-placeholder": "概要",
     "collapsible-toggle-label": "折りたたみブロックの切り替え",
-    "collapsible-tooltip": "矢印をクリックするか、{{shortcut}} を押して開閉する。"
+    "collapsible-tooltip": "矢印をクリックするか、{{- shortcut}} を押すと、折りたたみ/展開ができます。",
+    "checkbox-tooltip-state-label": "タスクの状態:",
+    "checkbox-tooltip-state-unknown-suffix": "(定義がありません)"
   },
   "slash_commands": {
     "bulleted_list_description": "箇条書きリストを作成",
@@ -2953,8 +3019,7 @@
     "drop_or_browse_single": "ここにファイルをドラッグ＆ドロップするか、クリックして選択",
     "drop_or_browse_multiple": "ここにファイルをドラッグ＆ドロップするか、クリックして選択",
     "browse_single": "タップしてファイルを選択",
-    "browse_multiple": "タップしてファイルを選択",
-    "selected_other": "{{count}} 件のファイルを選択済み"
+    "browse_multiple": "タップしてファイルを選択"
   },
   "anytype_import": {
     "name": "Anytype",
@@ -2969,5 +3034,78 @@
     "description_long": "Obsidian の Vault フォルダを ZIP 形式で圧縮し、作成された .zip ファイルをここで選択してください。",
     "choose_file": "Obsidian vault (.zip)",
     "import": "インポート"
+  },
+  "save_revision": {
+    "save_revision": "変更履歴を保存",
+    "revision_name_placeholder": "変更履歴名（任意）",
+    "help": "該当する各ノートの現在の内容とタイトルを保持した、名前付きの変更履歴が保存されます。"
+  },
+  "convert_note": {
+    "convert_note": "変換",
+    "convert_note_to": "ノートを変換",
+    "choose_conversion": "（変換方法を選択）",
+    "conversion_htmlToMarkdown": "テキストノート → マークダウンノート（一部書式が失われます）",
+    "conversion_markdownToHtml": "マークダウンノート → テキストノート",
+    "help_text": "この変換は、変換元の形式に一致するノートにのみ適用され、その他のノートは変更されません。変換対象となる各ノートの変更履歴は、事前に保存されます。",
+    "warning": "ノートの変換時に一部の書式が失われる可能性があり、後で修正が必要になる場合があります。変換対象となる各ノートの変更履歴は事前に保存されるため、元に戻すことが可能です。続行しますか？",
+    "warning_risky": "機能の異なる2つの形式間で変換を行うため、一部の書式が失われたり、サポートされていない要素が削除されたりする可能性があります。<br><br>このリスクを十分に理解した上で、変換を続行しますか？<br><br> 変換された各ノートについては、事前に変更履歴が保存されるため、元の形式に戻すことが可能です。"
+  },
+  "icon_pack": {
+    "preview_title": "アイコンパックのプレビュー",
+    "invalid_manifest": "アイコンパックのマニフェストを解析できませんでした。有効な JSON 形式であるか確認してください。",
+    "no_icons": "このアイコンパックにはアイコンが含まれていません。",
+    "tooltip": "クラス: {{- class}}\nグリフコード: {{- code}}\n関連用語: {{- terms}}",
+    "count_other": "{{count}} 個のアイコン"
+  },
+  "blob_stub": {
+    "not_synced": "このノートの内容はサイズが大きすぎるため、このデバイスに同期できません。代わりに同期サーバー上で開くことができます。",
+    "open_on_server": "サーバーで開く"
+  },
+  "keyboard_shortcut_keys": {
+    "ctrl": "Ctrl",
+    "alt": "Alt",
+    "shift": "Shift",
+    "meta": "Win/Cmd",
+    "enter": "Enter",
+    "escape": "Esc",
+    "delete": "Delete",
+    "backspace": "Backspace",
+    "space": "Space",
+    "tab": "Tab",
+    "home": "Home",
+    "end": "End",
+    "page_up": "Page Up",
+    "page_down": "Page Down",
+    "insert": "Insert"
+  },
+  "login": {
+    "heading": "Trilium Notes にログイン",
+    "password": "パスワード",
+    "totp-token": "ワンタイムパスワードまたはリカバリーコード",
+    "button": "ログイン",
+    "remember-me": "ログイン状態を保持する",
+    "incorrect-password": "パスワードが間違っています。もう一度お試しください。",
+    "incorrect-totp": "ワンタイムパスワードが間違っています。もう一度お試しください。",
+    "incorrect-recovery-code": "リカバリーコードが間違っているか、既に使用されています。",
+    "too-many-attempts": "ログインの試行回数が制限を超えました。数分待ってから再度お試しください。",
+    "connection-error": "サーバーに接続できませんでした。接続状況を確認して、もう一度お試しください。",
+    "sign_in_with_sso": "{{ssoIssuerName}} でサインイン",
+    "sso-wrong-account": "そのアカウントは、この Trilium インスタンスに連携されていません。連携済みのアカウントでサインインしてください。",
+    "sso-not-enrolled": "シングルサインオンはまだ設定されていません。まずはパスワードでサインインし、その後、設定からアカウントを連携させてください。"
+  },
+  "set_password": {
+    "heading": "パスワードの設定",
+    "description": "ウェブから Trilium を利用し始めるには、まずパスワードを設定する必要があります。設定したパスワードは、今後のログインに使用します。",
+    "password": "パスワード",
+    "password-confirmation": "パスワードの確認",
+    "button": "パスワードを設定",
+    "password-too-short": "パスワードは {{length}} 文字以上である必要があります。",
+    "passwords-dont-match": "入力されたパスワードが一致しません。"
+  },
+  "time_interval": {
+    "seconds_other": "{{count}} 秒",
+    "minutes_other": "{{count}} 分",
+    "hours_other": "{{count}} 時間",
+    "days_other": "{{count}} 日"
   }
 }

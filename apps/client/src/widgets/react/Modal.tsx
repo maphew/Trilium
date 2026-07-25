@@ -1,3 +1,5 @@
+import "./Modal.css";
+
 import { Modal as BootstrapModal } from "bootstrap";
 import clsx from "clsx";
 import { ComponentChildren, CSSProperties, RefObject } from "preact";
@@ -8,6 +10,7 @@ import { openDialog } from "../../services/dialog";
 import { t } from "../../services/i18n";
 import { openInAppHelpFromUrl } from "../../services/utils";
 import { useSyncedRef } from "./hooks";
+import { suspendModalFocusTraps } from "./modal_focustrap";
 import { ContainerVisibilityContext } from "./react_utils";
 
 interface CustomTitleBarButton {
@@ -132,13 +135,22 @@ export default function Modal({ children, className, size, title, customTitleBar
             elementToFocus.current = document.activeElement;
             openDialog($(modalRef.current), !stackable, {
                 focus: !noFocus
-            }).then(($widget) => {
+            }, zIndex).then(($widget) => {
                 modalInstanceRef.current = BootstrapModal.getOrCreateInstance($widget[0]);
             });
         } else {
             modalInstanceRef.current?.hide();
         }
-    }, [ show, modalRef.current, noFocus ]);
+    }, [ show, modalRef.current, noFocus, zIndex ]);
+
+    // While this modal is shown, ensure it is the only modal trapping focus. Bootstrap has no stacked
+    // modal support: every underlying modal keeps its own focus-trap active and steals focus from inputs
+    // in the modal on top (e.g. the custom-dictionary editor in the quick-edit popup that opens over the
+    // Options dialog gets no cursor). Suspend the other modals' traps here and restore them on close.
+    useEffect(() => {
+        if (!show || !modalRef.current) return;
+        return suspendModalFocusTraps(modalRef.current);
+    }, [ show ]);
 
     // Memoize styles to prevent recreation on every render
     const dialogStyle = useMemo<CSSProperties>(() => {

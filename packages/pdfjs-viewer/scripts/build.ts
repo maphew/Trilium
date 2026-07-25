@@ -46,7 +46,10 @@ async function main() {
     // version declared in this package.json, wherever pnpm places it — under
     // the hoisted nodeLinker it lands in the root node_modules, not the
     // package's own, so a hardcoded relative path would miss it.
-    const pdfjsBuildDir = join(dirname(require.resolve("pdfjs-dist/package.json")), "build");
+    // The legacy build ships core-js polyfills for the newest JS APIs; the modern
+    // build requires browsers only a few months old (Chrome 145+/Safari 26.2+).
+    // Keep in sync with the legacy viewer vendored by scripts/update-viewer.ts.
+    const pdfjsBuildDir = join(dirname(require.resolve("pdfjs-dist/package.json")), "legacy", "build");
     const pdfjsBuildDirFromRoot = "/" + relative(build.rootDir, pdfjsBuildDir);
     for (const file of [ "pdf.mjs", "pdf.worker.mjs", "pdf.sandbox.mjs" ]) {
         build.copy(join(pdfjsBuildDirFromRoot, file), join("build", file));

@@ -7,6 +7,26 @@ const SVG_MIME = "image/svg+xml";
 
 export const isShare = !window.glob;
 
+/**
+ * True when the client is showing one of the DB-initialized *pre-auth* SPA screens — the login
+ * screen (`loggedIn: false`) or the set-password screen (`passwordSet: false`).
+ *
+ * These screens run with the database already initialized, so `glob.dbInitialized` (the historical
+ * proxy for "pre-auth", back when setup was the only pre-auth screen) does NOT catch them. The eager
+ * module-load side effects — froca's initial tree load, the WebSocket auto-connect, and the options /
+ * keyboard-actions / fonts fetches — must skip on these screens too, otherwise they fire
+ * unauthenticated requests that 401 with "Logged in session not found" (#10589).
+ *
+ * The setup screen (`dbInitialized: false`) is deliberately NOT flagged here: froca and the WebSocket
+ * already gate on `!glob.dbInitialized`, and the options / keyboard-actions / fonts requests are
+ * accepted unauthenticated server-side while the DB is uninitialized. The strict `=== false`
+ * comparison is intentional: an unset flag (the fully-authenticated app, or a unit-test `glob`) must
+ * not be treated as pre-auth, so the eager loads keep working there.
+ */
+export function isPreAuthScreen(): boolean {
+    return glob.loggedIn === false || glob.passwordSet === false;
+}
+
 export function reloadFrontendApp(reason?: string) {
     if (reason) {
         logInfo(`Frontend app reload: ${reason}`);
@@ -610,65 +630,17 @@ export function createImageSrcUrl(note: FNote) {
 
 
 /**
- * Helper function to prepare an element for snapdom rendering.
- * Handles string parsing and temporary DOM attachment for style computation.
- *
- * @param source - Either an SVG/HTML string to be parsed, or an existing SVG/HTML element.
- * @returns An object containing the prepared element and a cleanup function.
- *          The cleanup function removes temporarily attached elements from the DOM,
- *          or is a no-op if the element was already in the DOM.
- */
-function prepareElementForSnapdom(source: string | SVGElement | HTMLElement): {
-    element: SVGElement | HTMLElement;
-    cleanup: () => void;
-} {
-    if (typeof source === 'string') {
-        const parser = new DOMParser();
-
-        // Detect if content is SVG or HTML
-        const isSvg = source.trim().startsWith('<svg');
-        const mimeType = isSvg ? SVG_MIME : 'text/html';
-
-        const doc = parser.parseFromString(source, mimeType);
-        const element = doc.documentElement;
-
-        // Temporarily attach to DOM for proper style computation
-        element.style.position = 'absolute';
-        element.style.left = '-9999px';
-        element.style.top = '-9999px';
-        document.body.appendChild(element);
-
-        return {
-            element,
-            cleanup: () => document.body.removeChild(element)
-        };
-    }
-
-    return {
-        element: source,
-        cleanup: () => {} // No-op for existing elements
-    };
-}
-
-/**
- * Downloads an SVG using snapdom for proper rendering. Can accept either an SVG string, an SVG element, or an HTML element.
+ * Given a string representation of an SVG, triggers a download of the file on the client device.
  *
  * @param nameWithoutExtension the name of the file. The .svg suffix is automatically added to it.
- * @param svgSource either an SVG string, an SVGElement, or an HTMLElement to be downloaded.
+ * @param svgContent the content of the SVG file to download.
  */
-async function downloadAsSvg(nameWithoutExtension: string, svgSource: string | SVGElement | HTMLElement) {
-    const { snapdom } = await import("@zumer/snapdom");
-    const { element, cleanup } = prepareElementForSnapdom(svgSource);
-
-    try {
-        const result = await snapdom(element, {
-            backgroundColor: "transparent",
-            scale: 2
-        });
-        triggerDownload(`${nameWithoutExtension}.svg`, result.url);
-    } finally {
-        cleanup();
-    }
+function downloadSvg(nameWithoutExtension: string, svgContent: string) {
+    // The download MUST go through a data: URL, not a blob URL: export runs after awaits have
+    // consumed the transient user-activation, and a blob-URL anchor click without activation is
+    // silently blocked (same constraint documented in spreadsheet/export.tsx `download()`).
+    const dataUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgContent)}`;
+    triggerDownload(`${nameWithoutExtension}.svg`, dataUrl);
 }
 
 /**
@@ -690,32 +662,58 @@ function triggerDownload(fileName: string, dataUrl: string) {
     document.body.removeChild(element);
 }
 /**
- * Downloads an SVG as PNG using snapdom. Can accept either an SVG string, an SVG element, or an HTML element.
+ * Given a string representation of an SVG, rasterizes it to PNG and triggers a download of the
+ * file on the client device.
+ *
+ * The SVG must carry usable dimensions (numeric `width`/`height` attributes or a `viewBox`).
+ * Note that rasterization happens in the browser's SVG-as-image context: document fonts are not
+ * applied (only system fonts resolve) and external resources referenced by the SVG are not
+ * loaded, so any embedded images must use data URLs.
  *
  * @param nameWithoutExtension the name of the file. The .png suffix is automatically added to it.
- * @param svgSource either an SVG string, an SVGElement, or an HTMLElement to be converted to PNG.
+ * @param svgContent the content of the SVG file to rasterize.
+ * @param scale the rasterization scale factor (2 doubles the resolution).
  */
-async function downloadAsPng(nameWithoutExtension: string, svgSource: string | SVGElement | HTMLElement) {
-    const { snapdom } = await import("@zumer/snapdom");
-    const { element, cleanup } = prepareElementForSnapdom(svgSource);
-
-    try {
-        const result = await snapdom(element, {
-            backgroundColor: "transparent",
-            scale: 2
-        });
-        const pngImg = await result.toPng();
-        await triggerDownload(`${nameWithoutExtension}.png`, pngImg.src);
-    } finally {
-        cleanup();
+async function downloadSvgAsPng(nameWithoutExtension: string, svgContent: string, scale = 2) {
+    const size = getSizeFromSvg(svgContent);
+    if (!size) {
+        throw new Error("Could not determine the dimensions of the SVG.");
     }
+
+    // Decode through an <img> element — the browser's own SVG renderer. A blob URL avoids the
+    // encoding overhead and URL length limits of a data: URL for large diagrams.
+    const blob = new Blob([ svgContent ], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const image = new Image();
+    image.src = url;
+    try {
+        await image.decode();
+    } finally {
+        URL.revokeObjectURL(url);
+    }
+
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(size.width * scale);
+    canvas.height = Math.round(size.height * scale);
+    const context = canvas.getContext("2d");
+    if (!context || !canvas.width || !canvas.height) {
+        throw new Error("The SVG has no drawable dimensions.");
+    }
+    context.drawImage(image, 0, 0, canvas.width, canvas.height);
+
+    triggerDownload(`${nameWithoutExtension}.png`, canvas.toDataURL("image/png"));
 }
 export function getSizeFromSvg(svgContent: string) {
     const svgDocument = (new DOMParser()).parseFromString(svgContent, SVG_MIME);
 
-    // Try to use width & height attributes if available.
+    // Try to use width & height attributes if available. Relative units (e.g. mermaid's
+    // width="100%") carry no absolute size, so fall through to the viewBox for those.
     let width = svgDocument.documentElement?.getAttribute("width");
     let height = svgDocument.documentElement?.getAttribute("height");
+    if (width?.includes("%") || height?.includes("%")) {
+        width = null;
+        height = null;
+    }
 
     // If not, use the viewbox.
     if (!width || !height) {
@@ -728,10 +726,10 @@ export function getSizeFromSvg(svgContent: string) {
     }
 
     if (width && height) {
-        return {
-            width: parseFloat(width),
-            height: parseFloat(height)
-        };
+        const size = { width: parseFloat(width), height: parseFloat(height) };
+        if (Number.isFinite(size.width) && Number.isFinite(size.height)) {
+            return size;
+        }
     }
     console.warn("SVG export error", svgDocument.documentElement);
     return null;
@@ -869,6 +867,42 @@ export function getErrorMessage(e: unknown) {
 
 }
 
+/**
+ * The script bundler wraps each script note's thrown errors as
+ * `Load of script note "<title>" (<noteId>) failed with: <inner>` and attaches the original error
+ * as the `cause` (see the bundle template in trilium-core's `script.ts`). That prefix is useful in
+ * backend logs but redundant in the UI, where the failing note is already shown as a reference link,
+ * so we surface the underlying error instead — walking the `cause` chain to the bottom also unwraps
+ * the nested errors produced when a `require()`d module fails.
+ */
+export function rootCauseMessage(e: unknown): string {
+    let root: unknown = e;
+    for (const error of causeChain(e)) {
+        root = error;
+    }
+    if (typeof root === "string") {
+        return root;
+    }
+    if (root && typeof root === "object" && "message" in root && typeof root.message === "string") {
+        return root.message;
+    }
+    return String(root);
+}
+
+/**
+ * Walks an error's `cause` chain, yielding each error from `e` down to the root. Guards against
+ * cyclic chains (e.g. `err.cause === err`, or a longer loop) so callers can't spin forever.
+ */
+export function* causeChain(e: unknown): Generator<unknown> {
+    const seen = new Set<unknown>();
+    let error: unknown = e;
+    while (error !== undefined && !seen.has(error)) {
+        seen.add(error);
+        yield error;
+        error = error instanceof Error ? error.cause : undefined;
+    }
+}
+
 export function replaceHtmlEscapedSlashes(str: string) {
     return str.replace(/&#x2F;/g, "/");
 }
@@ -926,8 +960,8 @@ export default {
     areObjectsEqual,
     copyHtmlToClipboard,
     createImageSrcUrl,
-    downloadAsSvg,
-    downloadAsPng,
+    downloadSvg,
+    downloadSvgAsPng,
     triggerDownload,
     compareVersions,
     isUpdateAvailable,

@@ -19,8 +19,6 @@ export interface CKEditorApi {
     addHtmlToEditor(html: string): void;
     addIncludeNote(noteId: string, boxSize?: BoxSize): void;
     addImage(noteId: string): Promise<void>;
-    addLinkEmbed(metadata: EmbedMetadata): void;
-    addLinkMention(metadata: EmbedMetadata): void;
 }
 
 interface CKEditorWithWatchdogProps extends Pick<HTMLProps<HTMLDivElement>, "className" | "tabIndex"> {
@@ -46,7 +44,7 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
     // editor-creation time, so the editor must be recreated when it changes.
     const [ multilineToolbar ] = useTriliumOptionBool("textNoteEditorMultilineToolbar");
     const [ editor, setEditor ] = useState<CKTextEditor>();
-    const { parentComponent, ntxId } = useNoteContext();
+    const { parentComponent, ntxId, note } = useNoteContext();
 
     useKeyboardShortcuts("text-detail", containerRef, parentComponent, ntxId);
 
@@ -146,38 +144,6 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
                 editor?.execute("insertImage", { source: src });
             });
         },
-        addLinkEmbed(metadata: EmbedMetadata) {
-            const editor = watchdogRef.current?.editor;
-            if (!editor) return;
-
-            editor.model.change((writer) => {
-                editor.model.insertContent(
-                    writer.createElement("linkEmbed", {
-                        url: metadata.url,
-                        embedType: metadata.embedType,
-                        title: metadata.title,
-                        description: metadata.description,
-                        favicon: metadata.favicon,
-                        siteName: metadata.siteName,
-                        image: metadata.image
-                    })
-                );
-            });
-        },
-        addLinkMention(metadata: EmbedMetadata) {
-            const editor = watchdogRef.current?.editor;
-            if (!editor) return;
-
-            editor.model.change((writer) => {
-                editor.model.insertContent(
-                    writer.createElement("linkMention", {
-                        url: metadata.url,
-                        title: metadata.title,
-                        favicon: metadata.favicon
-                    })
-                );
-            });
-        },
     }));
 
     useLegacyImperativeHandlers({
@@ -185,7 +151,7 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
             await link.loadReferenceLinkTitle($el, href);
         },
         async fetchLinkMetadata(url: string) {
-            return await linkEmbedService.fetchMetadata(url);
+            return await linkEmbedService.fetchMetadata(url, note?.noteId);
         },
         detectEmbedType(url: string) {
             return linkEmbedService.detectEmbedType(url);
