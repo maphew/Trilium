@@ -28,14 +28,14 @@ index 50d1b0005b464f33fb3f07f69c06f36a35e0c406..785e95ceeb7fce12be6249b43abf9b83
    background: unset;
    border-radius: 0;
 diff --git a/dist/index.js b/dist/index.js
-index 2e231803ce8450f8498e2a37f1be8c32ff52d090..b54c4943904d2b325f3ca6cef08888b3defc29b9 100644
+index 055bdaeb3665fd469b59e09ec1111fc4da20be6c..b405e7c2b76c33e6a41d221389ffff3c2d791300 100644
 --- a/dist/index.js
 +++ b/dist/index.js
-@@ -673,6 +673,7 @@ function getLastOutdentableSequenceRange(model, position, sequence) {
-         // Attributes added only in the editing view.
-         if (useLabels) {
-             preAttributes['data-language'] = languagesToLabels[codeBlockLanguage];
-+            preAttributes.class = "hljs";
-             preAttributes.spellcheck = 'false';
-         }
-         const codeAttributes = languagesToClasses[codeBlockLanguage] ? {
+@@ -540,6 +540,7 @@ function modelToViewCodeBlockInsertion(model, languageDefs, useLabels = false) {
+ 		const preAttributes = {};
+ 		if (useLabels) {
+ 			preAttributes["data-language"] = languagesToLabels[codeBlockLanguage];
++			preAttributes.class = "hljs";
+ 			preAttributes.spellcheck = "false";
+ 		}
+ 		const codeAttributes = languagesToClasses[codeBlockLanguage] ? { class: languagesToClasses[codeBlockLanguage] } : void 0;
