@@ -1,7 +1,6 @@
-import * as htmlParser from "node-html-parser";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
-import { convertEnexContent, rewriteEvernoteLinks } from "./enex_converter.js";
+import { convertEnexContent, hasEvernoteLink, rewriteEvernoteLinks } from "./enex_converter.js";
 
 // Mirrors the canonical CKEditor todo-list serialization the converter emits (checked before disabled).
 const todoItem = (desc: string, opts: { checked?: boolean; nested?: string } = {}) =>
@@ -309,18 +308,19 @@ describe("rewriteEvernoteLinks — internal note references", () => {
     });
 
     it("only parses when an evernote link is present (fast path skips parsing otherwise)", () => {
-        const parseSpy = vi.spyOn(htmlParser, "parse");
-        try {
-            // Content with no evernote link is returned untouched without paying for an HTML parse.
-            const noLinks = `<p>No internal links</p><a href="http://triliumnotes.org">External</a>`;
-            expect(rewriteEvernoteLinks(noLinks, resolve)).toBe(noLinks);
-            expect(parseSpy).not.toHaveBeenCalled();
+        // hasEvernoteLink is the cheap guard rewriteEvernoteLinks checks before paying for a parse,
+        // so assert it directly: node-html-parser 9 ships real ESM, and its `parse` export can no
+        // longer be spied on from a module the bundler externalizes.
+        const noLinks = `<p>No internal links</p><a href="http://triliumnotes.org">External</a>`;
+        const withLink = `<a href="evernote://view-note/x">Orar legislație</a>`;
 
-            // A present evernote link still triggers a parse so it can be rewritten.
-            rewriteEvernoteLinks(`<a href="evernote://view-note/x">Orar legislație</a>`, resolve);
-            expect(parseSpy).toHaveBeenCalledOnce();
-        } finally {
-            parseSpy.mockRestore();
-        }
+        expect(hasEvernoteLink(noLinks)).toBe(false);
+        expect(hasEvernoteLink(withLink)).toBe(true);
+
+        // Content the guard rejects comes back verbatim; content it accepts is rewritten.
+        expect(rewriteEvernoteLinks(noLinks, resolve)).toBe(noLinks);
+        expect(rewriteEvernoteLinks(withLink, resolve)).toBe(
+            `<a href="#root/noteA" class="reference-link">Orar legislație</a>`
+        );
     });
 });
