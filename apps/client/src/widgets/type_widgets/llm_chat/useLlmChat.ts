@@ -78,6 +78,27 @@ export interface ModelOption extends LlmModelInfo {
     costDescription?: string;
 }
 
+/**
+ * Resolve the active model from the available list. Several providers can expose
+ * the same model ID (e.g. an Anthropic API key and a Claude subscription, or two
+ * OpenAI-compatible endpoints), so the recorded provider type/config id narrow
+ * the match; when they're absent (chats saved before they existed) we fall back
+ * to the first ID match. Returns undefined when nothing matches — e.g. a saved
+ * model ID that has since been deselected — which callers treat as "no model".
+ */
+export function resolveSelectedModel(
+    availableModels: ModelOption[],
+    selectedModel: string,
+    selectedProvider: string | undefined,
+    selectedProviderId: string | undefined
+): ModelOption | undefined {
+    if (!selectedModel) return undefined;
+    return availableModels.find(m =>
+        m.id === selectedModel
+        && (!selectedProvider || m.provider === selectedProvider)
+        && (!selectedProviderId || m.providerId === selectedProviderId));
+}
+
 /** A configured provider and the models the user selected for it (possibly none). */
 export interface ModelProviderGroup {
     /** Provider config id — stable group key. */
@@ -238,6 +259,8 @@ export function useLlmChat(
     // Refs to get fresh values in getContent (avoids stale closures)
     const messagesRef = useRef(messages);
     messagesRef.current = messages;
+    const availableModelsRef = useRef(availableModels);
+    availableModelsRef.current = availableModels;
     const selectedModelRef = useRef(selectedModel);
     selectedModelRef.current = selectedModel;
     const selectedProviderRef = useRef(selectedProvider);
@@ -808,6 +831,14 @@ export function useLlmChat(
     const handleSubmit = useCallback(async (e: Event) => {
         e.preventDefault();
         if (isStreaming) return;
+        // The picked model must resolve to one the provider actually offers.
+        // A bare `selectedModel` truthiness check isn't enough: a saved chat can
+        // restore a model ID that has since been deselected (so it's absent from
+        // availableModels). Sending it anyway would let the server silently fall
+        // back to some default, so block until an available model is chosen.
+        if (!resolveSelectedModel(availableModelsRef.current, selectedModelRef.current, selectedProviderRef.current, selectedProviderIdRef.current)) {
+            return;
+        }
         const trimmedInput = inputRef.current.trim();
         const attachments = pendingAttachmentsRef.current;
         if (!trimmedInput && attachments.length === 0) return;

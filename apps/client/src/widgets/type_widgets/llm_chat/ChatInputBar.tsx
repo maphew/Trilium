@@ -19,7 +19,7 @@ import { insertNewBlock as insertNewBlockCommand, isSelectionInCodeBlock, outden
 import { editorHtmlToMarkdown } from "./chat_input_markdown.js";
 import { SafeImage } from "./retry_image.js";
 import { useChatAttachments } from "./useChatAttachments.js";
-import type { ModelOption, UseLlmChatReturn } from "./useLlmChat.js";
+import { type ModelOption, resolveSelectedModel, type UseLlmChatReturn } from "./useLlmChat.js";
 
 const READ_ONLY_LOCK = "llm-chat-streaming";
 
@@ -115,13 +115,14 @@ export default function ChatInputBar({
     // the draft state) avoids the React-render / CKEditor-change-event race that left
     // the editor visually populated after submit.
     const handleSubmit = useCallback((e: Event) => {
-        const willSubmit = (chat.hasInputText || chat.pendingAttachments.length > 0) && !chat.isStreaming;
+        const hasResolvedModel = !!resolveSelectedModel(chat.availableModels, chat.selectedModel, chat.selectedProvider, chat.selectedProviderId);
+        const willSubmit = (chat.hasInputText || chat.pendingAttachments.length > 0) && !chat.isStreaming && hasResolvedModel;
         baseSubmit(e);
         if (willSubmit) {
             editorApiRef.current?.setText("");
             editorApiRef.current?.focus();
         }
-    }, [baseSubmit, chat.hasInputText, chat.isStreaming, chat.pendingAttachments.length]);
+    }, [baseSubmit, chat.hasInputText, chat.isStreaming, chat.pendingAttachments.length, chat.availableModels, chat.selectedModel, chat.selectedProvider, chat.selectedProviderId]);
     submitRef.current = handleSubmit;
 
     // Expose the reply-input editor to the chat hook so timeline actions (e.g. quoting a selection)
@@ -200,15 +201,9 @@ export default function ChatInputBar({
 
     const isNoteContextEnabled = !!chat.contextNoteId && !!activeNoteId;
 
-    // Several providers can expose the same model ID (e.g. an Anthropic API key
-    // and a Claude subscription both offering "claude-sonnet-5", or two
-    // OpenAI-compatible endpoints), so identify the active model by its provider
-    // config too. Mirror the sender's resolution: prefer the recorded provider
-    // id/type, else fall back to the first ID match (pre-existing chats).
-    const currentModel = chat.availableModels.find(m =>
-        m.id === chat.selectedModel
-        && (!chat.selectedProvider || m.provider === chat.selectedProvider)
-        && (!chat.selectedProviderId || m.providerId === chat.selectedProviderId));
+    // Identify the active model; mirrors the sender's resolution so what the UI
+    // shows as selected is exactly what will be sent (see resolveSelectedModel).
+    const currentModel = resolveSelectedModel(chat.availableModels, chat.selectedModel, chat.selectedProvider, chat.selectedProviderId);
     const isSelectedModel = (m: ModelOption) => m === currentModel;
     // Gemini 2.x cannot combine googleSearch with function tools in a single
     // request. When note tools are enabled on a Gemini model we silently drop
@@ -473,9 +468,11 @@ export default function ChatInputBar({
                     />
                     <ActionButton
                         icon={chat.isStreaming ? "bx bx-stop" : "bx bx-send"}
-                        text={chat.isStreaming ? t("llm_chat.stop") : t("llm_chat.send")}
+                        text={chat.isStreaming
+                            ? t("llm_chat.stop")
+                            : !currentModel ? t("llm_chat.no_model_selected") : t("llm_chat.send")}
                         onClick={chat.isStreaming ? chat.stopStreaming : handleSubmit}
-                        disabled={!chat.isStreaming && !chat.hasInputText && chat.pendingAttachments.length === 0}
+                        disabled={!chat.isStreaming && (!currentModel || (!chat.hasInputText && chat.pendingAttachments.length === 0))}
                         className={`llm-chat-send-btn ${chat.isStreaming ? "llm-chat-stop-btn" : ""}`}
                     />
                 </div>
