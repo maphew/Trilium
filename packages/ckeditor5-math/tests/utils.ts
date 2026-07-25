@@ -20,19 +20,29 @@ describe( 'renderEquation (KaTeX)', () => {
 	} );
 
 	// Regression for #9523: CKEditor stores config objects with a null prototype
-	// (`Object.create( null )`), and KaTeX calls `macros.hasOwnProperty()` directly while
-	// expanding macros, which throws "hasOwnProperty is not a function" on such an object.
+	// (`Object.create( null )`). KaTeX <= 0.17 called `macros.hasOwnProperty()` directly while
+	// expanding macros and threw "hasOwnProperty is not a function" on such an object; 0.18 moved to
+	// `Object.prototype.hasOwnProperty.call()`, so the crash is gone upstream. Either way the
+	// normalization runs and the formula has to render.
 	it( 'renders with a prototype-less macros object (as produced by CKEditor config)', async () => {
 		const macros = Object.assign( Object.create( null ), { '\\differentialD': '\\mathrm{d}' } );
 
-		// Confirms the root cause: passing the raw null-prototype object straight to KaTeX throws.
-		expect( () => katex.renderToString( '\\differentialD', { macros, throwOnError: true } ) ).to.throw();
-
 		await renderEquation( '\\int f(x) \\differentialD x', element, 'katex', undefined, false, false, '', [], { macros } );
 
-		// renderEquation normalizes the object, so the formula renders instead of erroring.
 		expect( element.querySelector( '.katex' ) ).to.not.be.null;
 		expect( element.textContent ?? '' ).to.not.contain( 'hasOwnProperty' );
+	} );
+
+	// KaTeX writes `\gdef` definitions straight into the `macros` object it is handed, and Trilium
+	// passes the shared `KATEX_MACROS` constant by reference, so one note's `\gdef` must not leak
+	// into every later render in the session. This is what keeps the normalization load-bearing now
+	// that KaTeX itself tolerates prototype-less macros.
+	it( 'keeps a \\gdef out of the caller\'s macros object', async () => {
+		const macros = { '\\differentialD': '\\mathrm{d}' };
+
+		await renderEquation( '\\gdef\\leaked{42}\\leaked', element, 'katex', undefined, false, false, '', [], { macros } );
+
+		expect( Object.keys( macros ) ).to.deep.equal( [ '\\differentialD' ] );
 	} );
 
 	it( 'renders without any custom macros', async () => {
