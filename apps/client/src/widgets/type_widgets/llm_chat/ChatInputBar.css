@@ -216,6 +216,10 @@
     cursor: not-allowed;
 }
 
+.llm-chat-model-placeholder {
+    color: var(--muted-text-color);
+}
+
 /* Note context toggle */
 .llm-chat-note-context.tn-low-profile {
     max-width: 150px;

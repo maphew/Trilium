@@ -369,7 +369,9 @@ export default function ChatInputBar({
                     <div className="llm-chat-model-selector">
                         <span className="bx bx-chip" />
                         <Dropdown
-                            text={<>{currentModel?.name}</>}
+                            text={currentModel
+                                ? <>{currentModel.name}</>
+                                : <span className="llm-chat-model-placeholder">{t("llm_chat.no_model_selected")}</span>}
                             disabled={chat.isStreaming}
                             buttonClassName="llm-chat-model-select"
                             className="llm-chat-model-dropdown"

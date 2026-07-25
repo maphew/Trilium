@@ -2161,6 +2161,7 @@
     "extended_thinking": "Extended thinking",
     "model_cost_included": "Subscription",
     "no_models_selected": "No models selected — click the pencil to choose",
+    "no_model_selected": "Select a model",
     "edit_models": "Edit models",
     "thinking": "Thinking...",
     "thought_process": "Thought process",
