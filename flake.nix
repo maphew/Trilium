@@ -2,10 +2,10 @@
   description = "Trilium Notes (experimental flake)";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
     flake-utils.url = "github:numtide/flake-utils";
     pnpm2nix = {
-      url = "github:TriliumNext/pnpm2nix-nzbr/main";
+      url = "github:FliegendeWurst/pnpm2nix-nzbr/main";
       inputs = {
         flake-utils.follows = "flake-utils";
         nixpkgs.follows = "nixpkgs";
@@ -303,14 +303,15 @@ nodejs.python
 
         server = makeApp {
           app = "server";
-          # pnpm throws an error at the end of `pnpm rebuild`, but it doesn't seem to matter:
+          # Important note: if pnpm throws an error similar to the follow at the end of `pnpm rebuild`,
+          # you should ensure the version of tsx (and other dependencies mentioned in the error) is identical project-wide.
           # ERR_PNPM_MISSING_HOISTED_LOCATIONS
           # vite@7.1.5(@types/node@24.3.0)(jiti@2.5.1)(less@4.1.3)(lightningcss@1.30.1)
           # (sass-embedded@1.91.0)(sass@1.91.0)(terser@5.43.1)(tsx@4.20.5)(yaml@2.8.1)
           # is not found in hoistedLocations inside node_modules/.modules.yaml
           preBuildCommands = ''
             pushd apps/server
-            pnpm rebuild || true
+            pnpm rebuild
             popd
           '';
           buildTask = "server:build";
