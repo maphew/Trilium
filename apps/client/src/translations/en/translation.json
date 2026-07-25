@@ -261,7 +261,7 @@
     "connect_description": "Sign in with your Microsoft account to import your OneNote notebooks.",
     "connect": "Sign in with Microsoft",
     "section_heading": "Microsoft OneNote",
-    "checking": "Checking your OneNote connection…",
+    "checking": "Connecting to OneNote…",
     "connecting": "Waiting for sign-in to complete…",
     "device_instructions": "Open the Microsoft sign-in page and enter this code:",
     "device_open_page": "Open the sign-in page",
