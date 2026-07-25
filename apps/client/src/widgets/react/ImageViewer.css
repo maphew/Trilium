@@ -6,6 +6,14 @@
     outline: none;
 }
 
+/* Zoom controls pinned to the bottom-right corner of the viewport. */
+.image-viewer-controls {
+    position: absolute;
+    inset-inline-end: 10px;
+    bottom: 10px;
+    z-index: 1;
+}
+
 /* Shortcut-hints button pinned to the top-right corner of the viewport. */
 .image-viewer-hint-button {
     position: absolute;
