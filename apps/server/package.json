@@ -39,7 +39,7 @@
     "@anthropic-ai/claude-agent-sdk": "^0.3.207",
     "@modelcontextprotocol/sdk": "^1.12.1",
     "ai": "7.0.34",
-    "better-sqlite3": "12.11.1",
+    "better-sqlite3": "13.0.1",
     "html-to-text": "10.0.0",
     "i18next": "26.3.6",
     "ipaddr.js": "^2.4.0",

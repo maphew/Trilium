@@ -47,13 +47,12 @@
     "dev:format-fix": "eslint -c eslint.format.config.mjs . --fix",
     "dev:linter-check": "cross-env NODE_OPTIONS=--max_old_space_size=4096 eslint .",
     "dev:linter-fix": "cross-env NODE_OPTIONS=--max_old_space_size=4096 eslint . --fix",
-    "postinstall": "tsx scripts/electron-rebuild.mts && pnpm prepare",
+    "postinstall": "pnpm prepare",
     "prepare": "pnpm run --filter pdfjs-viewer --filter share-theme build && pnpm run --filter web-clipper postinstall",
     "update-contributors": "tsx ./scripts/update-contributors.ts"
   },
   "private": true,
   "devDependencies": {
-    "@electron/rebuild": "4.2.0",
     "@fast-csv/parse": "5.0.7",
     "@playwright/test": "1.61.1",
     "@triliumnext/server": "workspace:*",
@@ -76,7 +75,7 @@
     "tslib": "2.8.1",
     "tsx": "4.23.1",
     "typescript": "6.0.3",
-    "typescript-eslint": "8.64.0",
+    "typescript-eslint": "8.65.0",
     "vite": "8.1.5",
     "vitest": "4.1.10"
   },

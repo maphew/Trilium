@@ -203,7 +203,7 @@ nodejs.python
                 makeShellWrapper
                 wrapGAppsHook3
 
-                # For determining the Electron version to rebuild for:
+                # For the launcher wrapper generated in installCommands:
                 which
                 electron
               ]
@@ -279,16 +279,15 @@ nodejs.python
 
         desktop = makeApp {
           app = "desktop";
+          # better-sqlite3 v13 is N-API based and ships prebuilt binaries that
+          # load unchanged under Electron, so there is no native rebuild step
+          # (and no need for ELECTRON_NODEDIR) any more.
           preBuildCommands = ''
-            export ELECTRON_NODEDIR=${electron.headers}
             pnpm postinstall
           '';
           buildTask = "desktop:build";
           mainProgram = "trilium";
           installCommands = ''
-            #remove-references-to -t ${electron.headers} apps/desktop/dist/node_modules/better-sqlite3/build/config.gypi
-            #remove-references-to -t ${nodejs.python} apps/desktop/dist/node_modules/better-sqlite3/build/config.gypi
-
             mkdir -p $out/{bin,share/icons/hicolor/512x512/apps,opt/trilium}
             cp --archive apps/desktop/dist/* $out/opt/trilium
             cp apps/client/src/assets/icon.png $out/share/icons/hicolor/512x512/apps/trilium.png
@@ -317,17 +316,9 @@ nodejs.python
           buildTask = "server:build";
           mainProgram = "trilium-server";
           installCommands = ''
-            #remove-references-to -t ${nodejs.python} apps/server/dist/node_modules/better-sqlite3/build/config.gypi
-            #remove-references-to -t ${pnpm} apps/server/dist/node_modules/better-sqlite3/build/config.gypi
-
-            pushd apps/server/dist
-            rm -rf node_modules/better-sqlite3/build/Release/obj \
-                   node_modules/better-sqlite3/build/Release/obj.target \
-                   node_modules/better-sqlite3/build/Release/sqlite3.a \
-                   node_modules/better-sqlite3/build/{Makefile,better_sqlite3.target.mk,test_extension.target.mk,binding.Makefile} \
-                   node_modules/better-sqlite3/deps/sqlite3
-            popd
-
+            # No better-sqlite3 cleanup needed here any more: the server build
+            # trims deps/, src/ and build/ (which held the store paths that used
+            # to need remove-references-to) out of dist itself.
             mkdir -p $out/{bin,opt/trilium-server}
             cp --archive apps/server/dist/* $out/opt/trilium-server
             makeWrapper ${lib.getExe nodejs} $out/bin/trilium-server \
@@ -338,15 +329,11 @@ nodejs.python
         edit-docs = makeApp {
           app = "edit-docs";
           preBuildCommands = ''
-            export ELECTRON_NODEDIR=${electron.headers}
             pnpm postinstall
           '';
           buildTask = "edit-docs:build";
           mainProgram = "trilium-edit-docs";
           installCommands = ''
-            #remove-references-to -t ${electron.headers} apps/edit-docs/dist/node_modules/better-sqlite3/build/config.gypi
-            #remove-references-to -t ${nodejs.python} apps/edit-docs/dist/node_modules/better-sqlite3/build/config.gypi
-
             mkdir -p $out/{bin,opt/trilium-edit-docs}
             cp --archive apps/edit-docs/dist/* $out/opt/trilium-edit-docs
             makeShellWrapper ${lib.getExe electron} $out/bin/trilium-edit-docs \
