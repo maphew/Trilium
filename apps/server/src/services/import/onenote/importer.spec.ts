@@ -267,14 +267,13 @@ describe("importSelection (real DB)", () => {
 
     it("imports a section that fails to list for a non-protected reason as a plain placeholder showing the error", async () => {
         // A transient/other Graph failure (not password protection): no lock icon, and the raw error is
-        // surfaced so the user can see what went wrong.
+        // surfaced so the user can see what went wrong. The failing section rejects with a non-Error
+        // value so the catch's `String(e)` fallback (not just `e.message`) is exercised.
         graphMock.isEncryptedSectionError.mockReturnValue(false);
-        graphMock.listPages.mockImplementation(async (_token, sectionId) => {
-            if (sectionId === "sec-broken") {
-                throw new Error("Microsoft Graph request failed (HTTP 504) from https://graph.microsoft.com/v1.0/me/onenote/sections/sec-broken/pages");
-            }
-            return [{ id: "1-ok2", title: "Fine Page", level: 0 }];
-        });
+        graphMock.listPages.mockImplementation((_token, sectionId) =>
+            sectionId === "sec-broken"
+                ? Promise.reject("Microsoft Graph request failed (HTTP 504) from https://graph.microsoft.com/v1.0/me/onenote/sections/sec-broken/pages")
+                : Promise.resolve([{ id: "1-ok2", title: "Fine Page", level: 0 }]));
         graphMock.getPageContent.mockResolvedValue({ html: "<p>hi</p>", inkml: "" });
 
         const parent = cls.init(() => noteService.createNewNote({
