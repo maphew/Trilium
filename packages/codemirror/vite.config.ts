@@ -27,6 +27,11 @@ export default defineConfig(() => ({
     },
   },
   test: {
+    watch: false,
+    globals: true,
+    environment: 'happy-dom',
+    include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
+    reporters: ['default'],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],

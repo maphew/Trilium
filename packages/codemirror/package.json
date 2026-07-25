@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "main": "./src/index.ts",
+  "scripts": {
+    "test": "vitest"
+  },
   "dependencies": {
     "@catppuccin/codemirror": "1.0.3",
     "@codemirror/commands": "6.10.4",
