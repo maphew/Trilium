@@ -3,6 +3,7 @@ import { useState } from "preact/hooks";
 import { t } from "../../../services/i18n";
 import { isElectron, restartDesktopApp } from "../../../services/utils";
 import Button from "../../react/Button";
+import CodeBlock from "../../react/CodeBlock";
 import Collapsible from "../../react/Collapsible";
 import { useTriliumOptionBool } from "../../react/hooks";
 import OptionsPageHeader from "./components/OptionsPageHeader";
@@ -70,9 +71,9 @@ function ServerConfigHint({ configKey, envVar }: { configKey: string; envVar: st
     return (
         <Collapsible title={t("security.how_to_enable")}>
             <p>{t("security.server_config_hint")}</p>
-            <pre><code>{`[Security]\n${configKey}=true`}</code></pre>
+            <CodeBlock code={`[Security]\n${configKey}=true`} />
             <p>{t("security.server_env_hint")}</p>
-            <pre><code>{envVar}=true</code></pre>
+            <CodeBlock code={`${envVar}=true`} />
         </Collapsible>
     );
 }

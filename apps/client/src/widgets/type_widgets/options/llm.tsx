@@ -9,6 +9,7 @@ import server from "../../../services/server";
 import { isStandalone } from "../../../services/utils";
 import ActionButton from "../../react/ActionButton";
 import Button from "../../react/Button";
+import CodeBlock from "../../react/CodeBlock";
 import Collapsible from "../../react/Collapsible";
 import FormTextBox from "../../react/FormTextBox";
 import FormToggle from "../../react/FormToggle";
@@ -180,9 +181,9 @@ function McpSettings() {
 
                     <Collapsible title={t("llm.mcp_config_title")} initiallyExpanded>
                         <p>{t("llm.mcp_config_description")}</p>
-                        <pre><code>{buildMcpClientConfig(localUrl, t("llm.mcp_config_token_placeholder"))}</code></pre>
+                        <CodeBlock code={buildMcpClientConfig(localUrl, t("llm.mcp_config_token_placeholder"))} />
                         <p>{t("llm.mcp_config_cli_description")}</p>
-                        <pre><code>{buildMcpClientCommand(localUrl, t("llm.mcp_config_token_placeholder"))}</code></pre>
+                        <CodeBlock code={buildMcpClientCommand(localUrl, t("llm.mcp_config_token_placeholder"))} wrap />
                         <p class="mcp-config-warning">{t("llm.mcp_config_warning")}</p>
                     </Collapsible>
                 </>

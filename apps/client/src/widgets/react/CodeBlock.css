@@ -1,0 +1,56 @@
+/*
+ * Mirrors the code-block treatment text notes get from theme-next
+ * (stylesheets/theme-next/notes/text.css → "Code Blocks"), reusing the same
+ * --code-block-* variables so both stay in step when a theme retunes them.
+ */
+
+.code-block {
+    position: relative;
+    margin: 0;
+    padding: 0.75em 1em;
+    border: 0;
+    border-radius: 6px;
+    background-color: var(--accented-background-color);
+    box-shadow: var(--code-block-box-shadow);
+    overflow-x: auto;
+}
+
+.code-block > code {
+    display: block;
+    font-variant: none;
+    tab-size: var(--code-block-tab-width, 4);
+    white-space: pre;
+}
+
+.code-block.wrap > code {
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+/* Reserve room so a long line never slides under the button. The margin centres the
+   button on single-line blocks, matching the calculation used for text notes. */
+.code-block:has(> .code-block-copy) {
+    --code-block-copy-size: 1.8em;
+    padding-inline-end: calc(var(--code-block-copy-size) + 1.5em);
+}
+
+.code-block > .code-block-copy {
+    position: absolute;
+    top: 0.4em;
+    inset-inline-end: 0.4em;
+    font-size: 1em; /* --icon-button-size misbehaves with em units; matches text.css */
+    opacity: 0;
+    transition: opacity 150ms ease;
+}
+
+.code-block:hover > .code-block-copy,
+.code-block > .code-block-copy:focus-visible {
+    opacity: 1;
+}
+
+/* Touch devices have no hover, so the affordance must always be visible. */
+@media (hover: none) {
+    .code-block > .code-block-copy {
+        opacity: 1;
+    }
+}
