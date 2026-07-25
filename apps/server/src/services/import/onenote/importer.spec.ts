@@ -13,7 +13,8 @@ vi.mock("./graph.js", () => ({
         getPageContent: vi.fn(),
         getResource: vi.fn(),
         getThrottleStats: vi.fn(() => ({ requestCount: 0, waitMs: 0 })),
-        resetThrottleStats: vi.fn()
+        resetThrottleStats: vi.fn(),
+        isEncryptedSectionError: vi.fn(() => false)
     }
 }));
 
@@ -198,10 +199,11 @@ describe("importSelection (real DB)", () => {
         expect(content).toContain(`href="#root/${badNote?.noteId}"`);
     });
 
-    it("imports a placeholder folder for a section whose pages can't be listed, keeping order and the rest", async () => {
-        // The first (locked) section's page list fails, e.g. it's encrypted/password-protected; the
+    it("imports a password-protected section as a locked placeholder with friendly guidance, keeping order and the rest", async () => {
+        // The first section is password-protected (Graph rejects its page list with 403/20185); the
         // second succeeds. The locked section is ordered first to prove it doesn't abort the rest and
         // that its placeholder keeps its position.
+        graphMock.isEncryptedSectionError.mockImplementation((e) => e instanceof Error && e.message.includes("20185"));
         graphMock.listPages.mockImplementation(async (_token, sectionId) => {
             if (sectionId === "sec-locked") {
                 throw new Error("Microsoft Graph request failed (HTTP 403: 20185: Encrypted sections are not accessible.)");
@@ -231,13 +233,16 @@ describe("importSelection (real DB)", () => {
         // The readable section still imports: one bad section must not abort the whole import.
         expect(Object.values(becca.notes).find((note) => note.title === "Readable Page")).toBeDefined();
 
-        // The locked section becomes an empty placeholder folder: self-explaining, labeled, and keeping
-        // the section id so a later retry pass can re-fetch it.
+        // The locked section becomes an empty placeholder folder: lock icon, self-explaining with the
+        // steps to fix it, labeled, and keeping the section id so a later retry pass can re-fetch it.
         const lockedNote = Object.values(becca.notes).find((note) => note.title === "Locked Section");
         expect(lockedNote?.hasOwnedLabel("oneNoteImportFailed")).toBe(true);
         expect(lockedNote?.getOwnedLabelValue("oneNoteSectionId")).toBe("sec-locked");
-        expect(lockedNote?.getContent()).toContain("could not be imported");
-        expect(lockedNote?.getContent()).toContain("Encrypted sections are not accessible.");
+        expect(lockedNote?.getOwnedLabelValue("iconClass")).toBe("bx bx-lock-alt");
+        expect(lockedNote?.getContent()).toContain("password-protected");
+        expect(lockedNote?.getContent()).toContain("Remove Password");
+        // The opaque Graph error is replaced by the friendly guidance, not shown to the user.
+        expect(lockedNote?.getContent()).not.toContain("20185");
         expect(lockedNote?.getChildNotes()).toHaveLength(0);
 
         // Order is preserved: both sections share a notebook folder, and the locked placeholder keeps
@@ -251,12 +256,52 @@ describe("importSelection (real DB)", () => {
         expect(orderedSectionTitles).toEqual(["Locked Section", "Open Section"]);
 
         // The report records it (imported/total section count + a dedicated table linking to the
-        // placeholder) and surfaces the Graph error verbatim.
+        // placeholder) with the friendly reason, not the raw Graph error code.
         const content = parent.getChildNotes()[0]?.getContent() as string;
         expect(content).toContain('<tr><th scope="row">Sections imported</th><td>1/2</td></tr>');
         expect(content).toContain("Sections that could not be imported");
         expect(content).toContain(`href="#root/${lockedNote?.noteId}"`);
-        expect(content).toContain("Encrypted sections are not accessible.");
+        expect(content).toContain("Remove its password in OneNote");
+        expect(content).not.toContain("20185");
+    });
+
+    it("imports a section that fails to list for a non-protected reason as a plain placeholder showing the error", async () => {
+        // A transient/other Graph failure (not password protection): no lock icon, and the raw error is
+        // surfaced so the user can see what went wrong.
+        graphMock.isEncryptedSectionError.mockReturnValue(false);
+        graphMock.listPages.mockImplementation(async (_token, sectionId) => {
+            if (sectionId === "sec-broken") {
+                throw new Error("Microsoft Graph request failed (HTTP 504) from https://graph.microsoft.com/v1.0/me/onenote/sections/sec-broken/pages");
+            }
+            return [{ id: "1-ok2", title: "Fine Page", level: 0 }];
+        });
+        graphMock.getPageContent.mockResolvedValue({ html: "<p>hi</p>", inkml: "" });
+
+        const parent = cls.init(() => noteService.createNewNote({
+            parentNoteId: "root",
+            title: "broken parent",
+            content: "",
+            type: "text",
+            mime: "text/html"
+        }).note);
+
+        await cls.init(() => importSelection({
+            getAccessToken: () => Promise.resolve("token"),
+            parentNoteId: parent.noteId,
+            sections: [
+                { id: "sec-broken", title: "Broken Section", groupPath: [], notebookId: "nb-broken", notebookTitle: "Broken Notebook" },
+                { id: "sec-fine", title: "Fine Section", groupPath: [], notebookId: "nb-broken", notebookTitle: "Broken Notebook" }
+            ],
+            taskId: "task-broken"
+        }));
+
+        const brokenNote = Object.values(becca.notes).find((note) => note.title === "Broken Section");
+        expect(brokenNote?.hasOwnedLabel("oneNoteImportFailed")).toBe(true);
+        // Not password-protected: no lock icon, and the raw Graph error is kept for diagnosis.
+        expect(brokenNote?.getOwnedLabelValue("iconClass")).toBeNull();
+        expect(brokenNote?.getContent()).toContain("HTTP 504");
+        expect(brokenNote?.getContent()).not.toContain("password-protected");
+        expect(Object.values(becca.notes).find((note) => note.title === "Fine Page")).toBeDefined();
     });
 
     it("preserves the OneNote page order even when #newNotesOnTop is inherited onto the target", async () => {

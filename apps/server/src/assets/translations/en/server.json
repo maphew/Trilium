@@ -331,7 +331,9 @@
   "onenote_import": {
     "root-title": "OneNote import",
     "failed-page-placeholder": "This page could not be imported from OneNote. Error: {{error}}",
-    "failed-section-placeholder": "This section could not be imported from OneNote, so it was created empty. This often means the section is password-protected — unlock it in OneNote and import again. Error: {{error}}",
+    "failed-section-placeholder": "This section could not be imported from OneNote, so it was created empty. Error: {{error}}",
+    "protected-section-error": "This section is password-protected. Remove its password in OneNote, then import it again.",
+    "protected-section-placeholder": "This section is password-protected, so its pages could not be imported and it was created empty. To import it, open the section in OneNote, remove its password protection (right-click the section &rarr; Password Protection &rarr; Remove Password), then run the import again.",
     "report": {
       "row-pages": "Pages imported successfully",
       "row-notebooks": "Notebooks imported",

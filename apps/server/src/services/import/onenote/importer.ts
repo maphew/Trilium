@@ -95,6 +95,9 @@ interface FetchedSection {
      * so the user sees where it belongs and can unlock and re-import it.
      */
     fetchError?: string;
+    /** Whether {@link fetchError} was caused by the section being password-protected: drives a friendlier
+     *  placeholder message and a lock icon, distinguishing it from other (transient) section failures. */
+    passwordProtected?: boolean;
 }
 
 /**
@@ -114,7 +117,7 @@ export async function importSelection({ getAccessToken, parentNoteId, sections, 
 
         // Enumerate every selected section's pages up front so the total page count is known before
         // any content is fetched — this lets the client show a real progress bar rather than a bare count.
-        const sectionPages: { section: OneNoteSectionSelection; pages: OneNotePage[]; error?: string }[] = [];
+        const sectionPages: { section: OneNoteSectionSelection; pages: OneNotePage[]; error?: string; passwordProtected?: boolean }[] = [];
         for (const section of sections) {
             // A section whose page list can't be fetched doesn't abort the whole import: it is tagged
             // with the error here and imported as a placeholder folder below, holding its place so the
@@ -123,20 +126,25 @@ export async function importSelection({ getAccessToken, parentNoteId, sections, 
             try {
                 sectionPages.push({ section, pages: await graph.listPages(getAccessToken, section.id) });
             } catch (e: unknown) {
-                const message = e instanceof Error ? e.message : String(e);
-                getLog().error(`OneNote import: could not list the pages of section '${section.title}' (${section.id}); it will be imported as a placeholder: ${message}`);
-                sectionPages.push({ section, pages: [], error: message });
+                const rawMessage = e instanceof Error ? e.message : String(e);
+                // A password-protected section is a user-fixable, expected case, so replace Graph's opaque
+                // "HTTP 403: 20185: Encrypted sections are not accessible." with actionable guidance. The
+                // raw error is still logged for diagnosis.
+                const passwordProtected = graph.isEncryptedSectionError(e);
+                const error = passwordProtected ? t("onenote_import.protected-section-error") : rawMessage;
+                getLog().error(`OneNote import: could not list the pages of section '${section.title}' (${section.id}); it will be imported as a placeholder: ${rawMessage}`);
+                sectionPages.push({ section, pages: [], error, passwordProtected });
             }
         }
         taskContext.setTotalCount(sectionPages.reduce((total, entry) => total + entry.pages.length, 0));
 
         const fetched: FetchedSection[] = [];
         let consecutivePageFailures = 0;
-        for (const { section, pages, error } of sectionPages) {
+        for (const { section, pages, error, passwordProtected } of sectionPages) {
             // A section whose pages couldn't be listed keeps its slot in `fetched` (so import order is
             // preserved) but carries the error instead of pages — createNotes renders it as a placeholder.
             if (error !== undefined) {
-                fetched.push(toFetchedSection(section, [], error));
+                fetched.push(toFetchedSection(section, [], error, passwordProtected));
                 continue;
             }
             const fetchedPages: FetchedPage[] = [];
@@ -189,7 +197,7 @@ export async function importSelection({ getAccessToken, parentNoteId, sections, 
 
 /** Copies a selected section's metadata into a {@link FetchedSection}, attaching its fetched pages and
  *  (when its page list couldn't be loaded) the error that turns it into a placeholder folder. */
-function toFetchedSection(section: OneNoteSectionSelection, pages: FetchedPage[], fetchError?: string): FetchedSection {
+function toFetchedSection(section: OneNoteSectionSelection, pages: FetchedPage[], fetchError?: string, passwordProtected?: boolean): FetchedSection {
     return {
         id: section.id,
         title: section.title,
@@ -201,7 +209,8 @@ function toFetchedSection(section: OneNoteSectionSelection, pages: FetchedPage[]
         notebookCreatedDateTime: section.notebookCreatedDateTime,
         notebookLastModifiedDateTime: section.notebookLastModifiedDateTime,
         pages,
-        fetchError
+        fetchError,
+        passwordProtected
     };
 }
 
@@ -262,10 +271,14 @@ function createNotes(parentNoteId: string, sections: FetchedSection[], debug: bo
         if (section.fetchError !== undefined) {
             // A section whose pages couldn't be listed becomes an empty placeholder folder: it holds the
             // section's place in the tree (so order and hierarchy are preserved), explains itself, and is
-            // findable/retryable by label + section id. The report links to this note.
-            sectionNote.setContent(renderFailedSectionPlaceholder(section.fetchError));
+            // findable/retryable by label + section id. The report links to this note. A password-protected
+            // section — the expected, user-fixable case — gets a lock icon and tailored guidance.
+            sectionNote.setContent(section.passwordProtected ? renderProtectedSectionPlaceholder() : renderFailedSectionPlaceholder(section.fetchError));
             sectionNote.addLabel("oneNoteImportFailed");
             sectionNote.addLabel("oneNoteSectionId", section.id);
+            if (section.passwordProtected) {
+                sectionNote.addLabel("iconClass", "bx bx-lock-alt");
+            }
             // Applied after setContent, whose save would otherwise re-stamp the modification date.
             applyOriginalDates(sectionNote, section.createdDateTime, section.lastModifiedDateTime);
             failedSections.push({ title: section.title, notebookTitle: section.notebookTitle, noteId: sectionNote.noteId, error: section.fetchError });
@@ -404,6 +417,12 @@ function renderFailedPagePlaceholder(error: string): string {
 /** The body of a placeholder folder standing in for a section whose page list could not be fetched. */
 function renderFailedSectionPlaceholder(error: string): string {
     return `<p>${t("onenote_import.failed-section-placeholder", { error })}</p>`;
+}
+
+/** The body of a placeholder folder standing in for a password-protected section, with the steps to
+ *  make it importable. No error is interpolated — the cause is known. */
+function renderProtectedSectionPlaceholder(): string {
+    return `<p>${t("onenote_import.protected-section-placeholder")}</p>`;
 }
 
 /** Totals `value` over every downloaded page resource of the given kind. */

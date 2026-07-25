@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 vi.mock("../../safe_fetch.js", () => ({ safeFetch: vi.fn() }));
 
 import { safeFetch } from "../../safe_fetch.js";
-import { backoffDelayMs, extractGraphErrorDetail, getAccount, getPageContent, getResource, getThrottleStats, listPages, resetThrottleGate, resetThrottleStats, retryAfterMs, sanitizeGraphUrl } from "./graph.js";
+import { backoffDelayMs, ENCRYPTED_SECTION_ERROR_CODE, extractGraphErrorDetail, getAccount, getPageContent, getResource, getThrottleStats, GraphRequestError, isEncryptedSectionError, listPages, resetThrottleGate, resetThrottleStats, retryAfterMs, sanitizeGraphUrl } from "./graph.js";
 
 const safeFetchMock = vi.mocked(safeFetch);
 
@@ -295,6 +295,29 @@ describe("failed Graph requests", () => {
         await expect(getResource(token, url)).rejects.toThrow(
             `Failed to fetch OneNote resource (HTTP 502) from ${url}`
         );
+    });
+});
+
+describe("isEncryptedSectionError", () => {
+    afterEach(() => safeFetchMock.mockReset());
+
+    it("is true only for a 403 with the encrypted-section code", () => {
+        expect(isEncryptedSectionError(new GraphRequestError("msg", 403, ENCRYPTED_SECTION_ERROR_CODE))).toBe(true);
+        // Wrong status, wrong code, or a plain error must not be mistaken for a protected section.
+        expect(isEncryptedSectionError(new GraphRequestError("msg", 404, ENCRYPTED_SECTION_ERROR_CODE))).toBe(false);
+        expect(isEncryptedSectionError(new GraphRequestError("msg", 403, "40003"))).toBe(false);
+        expect(isEncryptedSectionError(new GraphRequestError("msg", 403))).toBe(false);
+        expect(isEncryptedSectionError(new Error("HTTP 403: 20185"))).toBe(false);
+    });
+
+    it("makes a protected section detectable end to end: listPages throws a matching GraphRequestError", async () => {
+        safeFetchMock.mockResolvedValue(graphResponse(403, JSON.stringify({
+            error: { code: ENCRYPTED_SECTION_ERROR_CODE, message: "Encrypted sections are not accessible." }
+        })));
+
+        const error = await listPages(token, "sec-locked").catch((e: unknown) => e);
+        expect(error).toBeInstanceOf(GraphRequestError);
+        expect(isEncryptedSectionError(error)).toBe(true);
     });
 });
 
