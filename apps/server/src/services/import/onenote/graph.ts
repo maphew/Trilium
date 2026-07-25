@@ -398,19 +398,51 @@ async function graphGetAll<T>(getAccessToken: AccessTokenProvider, pathOrUrl: st
 }
 
 /**
+ * A failed Graph request, carrying the HTTP status and (when present) the Graph error code from the
+ * response body alongside the human-readable message, so callers can react to specific failures — e.g.
+ * {@link isEncryptedSectionError} — instead of parsing the message string.
+ */
+export class GraphRequestError extends Error {
+    readonly status: number;
+    /** The `error.code` from Graph's JSON error envelope, if the body was one (e.g. "20185"). */
+    readonly code?: string;
+
+    constructor(message: string, status: number, code?: string) {
+        super(message);
+        this.name = "GraphRequestError";
+        this.status = status;
+        this.code = code;
+    }
+}
+
+/**
+ * The Graph error code returned (with HTTP 403) when a section is encrypted/password-protected: its
+ * pages can't be listed or read through the API at all. Not in Microsoft's published error-code list —
+ * that only documents the write-side 10004 ("can't create a page … protected by a password") — so it
+ * was captured from a live import. See {@link isEncryptedSectionError}.
+ */
+export const ENCRYPTED_SECTION_ERROR_CODE = "20185";
+
+/** Whether an error is Graph rejecting a section because it is encrypted/password-protected. */
+export function isEncryptedSectionError(e: unknown): boolean {
+    return e instanceof GraphRequestError && e.status === 403 && e.code === ENCRYPTED_SECTION_ERROR_CODE;
+}
+
+/**
  * Builds the error for a failed Graph request. A bare HTTP status is not actionable when an import of
  * thousands of pages fails on one of them, so the message carries the request URL plus whatever error
  * code/message Graph itself returned in the response body.
  */
-async function graphRequestError(summary: string, url: string, response: Response): Promise<Error> {
+async function graphRequestError(summary: string, url: string, response: Response): Promise<GraphRequestError> {
     let body = "";
     try {
         body = await response.text();
     } catch {
         // The status and URL are still worth reporting when the body cannot be read.
     }
+    const { code } = parseGraphError(body);
     const detail = extractGraphErrorDetail(body);
-    return new Error(`${summary} (HTTP ${response.status}${detail ? `: ${detail}` : ""}) from ${sanitizeGraphUrl(url)}`);
+    return new GraphRequestError(`${summary} (HTTP ${response.status}${detail ? `: ${detail}` : ""}) from ${sanitizeGraphUrl(url)}`, response.status, code);
 }
 
 /**
@@ -428,16 +460,25 @@ export function sanitizeGraphUrl(url: string): string {
 }
 
 /**
+ * Parses Graph's standard JSON error envelope (`{"error": {"code": "...", "message": "..."}}`) into its
+ * code and message, or an empty object when the body is not one.
+ */
+function parseGraphError(body: string): { code?: string; message?: string } {
+    try {
+        const parsed = JSON.parse(body) as { error?: { code?: string; message?: string } };
+        return { code: parsed?.error?.code, message: parsed?.error?.message };
+    } catch {
+        return {};
+    }
+}
+
+/**
  * Extracts "code: message" from Graph's standard JSON error envelope
  * (`{"error": {"code": "...", "message": "..."}}`), or "" when the body is not one.
  */
 export function extractGraphErrorDetail(body: string): string {
-    try {
-        const parsed = JSON.parse(body) as { error?: { code?: string; message?: string } };
-        return [parsed?.error?.code, parsed?.error?.message].filter(Boolean).join(": ");
-    } catch {
-        return "";
-    }
+    const { code, message } = parseGraphError(body);
+    return [code, message].filter(Boolean).join(": ");
 }
 
 export default {
@@ -447,5 +488,6 @@ export default {
     getPageContent,
     getResource,
     getThrottleStats,
-    resetThrottleStats
+    resetThrottleStats,
+    isEncryptedSectionError
 };

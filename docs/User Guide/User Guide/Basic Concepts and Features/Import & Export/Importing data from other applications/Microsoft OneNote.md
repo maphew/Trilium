@@ -73,6 +73,14 @@ In addition, drawing in OneNote can be interleaved with text boxes. Text notes i
 > [!NOTE]
 > There are plans to support drawing-heavy notes that interleave with text boxes by converting them to a <a class="reference-link" href="../../../Note%20Types/Canvas.md">Canvas</a> instead.
 
+### Password-protected sections
+
+OneNote supports encryption at section level; when importing a notebook that contains these password-protection sections, Trilium will not be able to read the content of password-protected sections so they will appear empty. This is not a limitation of Trilium, the information is simply not available from the source (Graph API).
+
+The section itself is kept for reference and all the sections that could not be imported will be shown in the report (the top-level note called _OneNote import_).
+
+To unprotect a section in OneNote Desktop, right click on the protected section → _Password Protect This Section_ and press _Remove Password_ and sync. Then reimport either only the protected sessions or the remove everything and start the import from scratch.
+
 ## Other limitations
 
 The following are known limitations due to how the information comes from the import (Microsoft Graph API), which means that they cannot be fixed.

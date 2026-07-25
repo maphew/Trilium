@@ -13,7 +13,8 @@ vi.mock("./graph.js", () => ({
         getPageContent: vi.fn(),
         getResource: vi.fn(),
         getThrottleStats: vi.fn(() => ({ requestCount: 0, waitMs: 0 })),
-        resetThrottleStats: vi.fn()
+        resetThrottleStats: vi.fn(),
+        isEncryptedSectionError: vi.fn(() => false)
     }
 }));
 
@@ -198,6 +199,110 @@ describe("importSelection (real DB)", () => {
         expect(content).toContain(`href="#root/${badNote?.noteId}"`);
     });
 
+    it("imports a password-protected section as a locked placeholder with friendly guidance, keeping order and the rest", async () => {
+        // The first section is password-protected (Graph rejects its page list with 403/20185); the
+        // second succeeds. The locked section is ordered first to prove it doesn't abort the rest and
+        // that its placeholder keeps its position.
+        graphMock.isEncryptedSectionError.mockImplementation((e) => e instanceof Error && e.message.includes("20185"));
+        graphMock.listPages.mockImplementation(async (_token, sectionId) => {
+            if (sectionId === "sec-locked") {
+                throw new Error("Microsoft Graph request failed (HTTP 403: 20185: Encrypted sections are not accessible.)");
+            }
+            return [{ id: "1-ok", title: "Readable Page", level: 0 }];
+        });
+        graphMock.getPageContent.mockResolvedValue({ html: "<p>hi</p>", inkml: "" });
+
+        const parent = cls.init(() => noteService.createNewNote({
+            parentNoteId: "root",
+            title: "skip parent",
+            content: "",
+            type: "text",
+            mime: "text/html"
+        }).note);
+
+        await cls.init(() => importSelection({
+            getAccessToken: () => Promise.resolve("token"),
+            parentNoteId: parent.noteId,
+            sections: [
+                { id: "sec-locked", title: "Locked Section", groupPath: [], notebookId: "nb-skip", notebookTitle: "Skip Notebook" },
+                { id: "sec-open", title: "Open Section", groupPath: [], notebookId: "nb-skip", notebookTitle: "Skip Notebook" }
+            ],
+            taskId: "task-skip"
+        }));
+
+        // The readable section still imports: one bad section must not abort the whole import.
+        expect(Object.values(becca.notes).find((note) => note.title === "Readable Page")).toBeDefined();
+
+        // The locked section becomes an empty placeholder folder: lock icon, self-explaining with the
+        // steps to fix it, labeled, and keeping the section id so a later retry pass can re-fetch it.
+        const lockedNote = Object.values(becca.notes).find((note) => note.title === "Locked Section");
+        expect(lockedNote?.hasOwnedLabel("oneNoteImportFailed")).toBe(true);
+        expect(lockedNote?.getOwnedLabelValue("oneNoteSectionId")).toBe("sec-locked");
+        expect(lockedNote?.getOwnedLabelValue("iconClass")).toBe("bx bx-lock-alt");
+        expect(lockedNote?.getContent()).toContain("password-protected");
+        expect(lockedNote?.getContent()).toContain("Remove Password");
+        // The opaque Graph error is replaced by the friendly guidance, not shown to the user.
+        expect(lockedNote?.getContent()).not.toContain("20185");
+        expect(lockedNote?.getChildNotes()).toHaveLength(0);
+
+        // Order is preserved: both sections share a notebook folder, and the locked placeholder keeps
+        // its selected position ahead of the readable section.
+        const notebookNote = lockedNote?.getParentNotes()[0];
+        const orderedSectionTitles = notebookNote
+            ?.getChildBranches()
+            .slice()
+            .sort((a, b) => a.notePosition - b.notePosition)
+            .map((branch) => branch.getNote().title);
+        expect(orderedSectionTitles).toEqual(["Locked Section", "Open Section"]);
+
+        // The report records it (imported/total section count + a dedicated table linking to the
+        // placeholder) with the friendly reason, not the raw Graph error code.
+        const content = parent.getChildNotes()[0]?.getContent() as string;
+        expect(content).toContain('<tr><th scope="row">Sections imported</th><td>1/2</td></tr>');
+        expect(content).toContain("Sections that could not be imported");
+        expect(content).toContain(`href="#root/${lockedNote?.noteId}"`);
+        expect(content).toContain("Remove its password in OneNote");
+        expect(content).not.toContain("20185");
+    });
+
+    it("imports a section that fails to list for a non-protected reason as a plain placeholder showing the error", async () => {
+        // A transient/other Graph failure (not password protection): no lock icon, and the raw error is
+        // surfaced so the user can see what went wrong. The failing section rejects with a non-Error
+        // value so the catch's `String(e)` fallback (not just `e.message`) is exercised.
+        graphMock.isEncryptedSectionError.mockReturnValue(false);
+        graphMock.listPages.mockImplementation((_token, sectionId) =>
+            sectionId === "sec-broken"
+                ? Promise.reject("Microsoft Graph request failed (HTTP 504) from https://graph.microsoft.com/v1.0/me/onenote/sections/sec-broken/pages")
+                : Promise.resolve([{ id: "1-ok2", title: "Fine Page", level: 0 }]));
+        graphMock.getPageContent.mockResolvedValue({ html: "<p>hi</p>", inkml: "" });
+
+        const parent = cls.init(() => noteService.createNewNote({
+            parentNoteId: "root",
+            title: "broken parent",
+            content: "",
+            type: "text",
+            mime: "text/html"
+        }).note);
+
+        await cls.init(() => importSelection({
+            getAccessToken: () => Promise.resolve("token"),
+            parentNoteId: parent.noteId,
+            sections: [
+                { id: "sec-broken", title: "Broken Section", groupPath: [], notebookId: "nb-broken", notebookTitle: "Broken Notebook" },
+                { id: "sec-fine", title: "Fine Section", groupPath: [], notebookId: "nb-broken", notebookTitle: "Broken Notebook" }
+            ],
+            taskId: "task-broken"
+        }));
+
+        const brokenNote = Object.values(becca.notes).find((note) => note.title === "Broken Section");
+        expect(brokenNote?.hasOwnedLabel("oneNoteImportFailed")).toBe(true);
+        // Not password-protected: no lock icon, and the raw Graph error is kept for diagnosis.
+        expect(brokenNote?.getOwnedLabelValue("iconClass")).toBeNull();
+        expect(brokenNote?.getContent()).toContain("HTTP 504");
+        expect(brokenNote?.getContent()).not.toContain("password-protected");
+        expect(Object.values(becca.notes).find((note) => note.title === "Fine Page")).toBeDefined();
+    });
+
     it("preserves the OneNote page order even when #newNotesOnTop is inherited onto the target", async () => {
         graphMock.listPages.mockResolvedValue([
             { id: "1-ord-a", title: "Order Page A", level: 0 },
@@ -267,6 +372,104 @@ describe("importSelection (real DB)", () => {
         // import aborts without creating any notes (a placeholder-only tree would be worthless).
         expect(graphMock.getPageContent).toHaveBeenCalledTimes(6);
         expect(parent.getChildNotes()).toHaveLength(0);
+    });
+
+    it("aborts the import when too many consecutive sections fail to enumerate (systemic failure)", async () => {
+        // Every section's page list fails for a non-protected reason (e.g. the token expired mid-import):
+        // this must abort rather than build a placeholder-only tree and report success.
+        graphMock.isEncryptedSectionError.mockReturnValue(false);
+        graphMock.listPages.mockClear();
+        graphMock.listPages.mockImplementation(async () => {
+            throw new Error("Microsoft Graph request failed (HTTP 401: 40001: Access token has expired.)");
+        });
+
+        const parent = cls.init(() => noteService.createNewNote({
+            parentNoteId: "root",
+            title: "section breaker parent",
+            content: "",
+            type: "text",
+            mime: "text/html"
+        }).note);
+
+        await cls.init(() => importSelection({
+            getAccessToken: () => Promise.resolve("token"),
+            parentNoteId: parent.noteId,
+            sections: Array.from({ length: 8 }, (_, i) => ({ id: `sec-cb${i}`, title: `SB Section ${i}`, groupPath: [], notebookId: "nb-sb", notebookTitle: "SB Notebook" })),
+            taskId: "task-section-breaker"
+        }));
+
+        // Six consecutive enumeration failures trip the breaker: the remaining sections are never listed
+        // and the import aborts without creating any notes (a placeholder-only tree would be worthless).
+        expect(graphMock.listPages).toHaveBeenCalledTimes(6);
+        expect(parent.getChildNotes()).toHaveLength(0);
+    });
+
+    it("still trips the section breaker when a systemic failure run is interleaved with protected sections", async () => {
+        // A protected section between systemic failures must not mask the outage: it is skipped, not a
+        // streak reset, so the non-protected failures keep accumulating across it and still trip.
+        graphMock.isEncryptedSectionError.mockImplementation((e) => e instanceof Error && e.message.includes("20185"));
+        graphMock.listPages.mockClear();
+        graphMock.listPages.mockImplementation((_token, sectionId) =>
+            sectionId === "sec-locked-mid"
+                ? Promise.reject(new Error("Microsoft Graph request failed (HTTP 403: 20185: Encrypted sections are not accessible.)"))
+                : Promise.reject(new Error("Microsoft Graph request failed (HTTP 401: 40001: Access token has expired.)")));
+
+        const parent = cls.init(() => noteService.createNewNote({
+            parentNoteId: "root",
+            title: "interleaved parent",
+            content: "",
+            type: "text",
+            mime: "text/html"
+        }).note);
+
+        // Three failures, a protected section, then more failures: the streak survives the protected one
+        // (1,2,3, skip, 4,5,6) and trips on the sixth non-protected failure — the seventh section listed.
+        await cls.init(() => importSelection({
+            getAccessToken: () => Promise.resolve("token"),
+            parentNoteId: parent.noteId,
+            sections: [
+                ...Array.from({ length: 3 }, (_, i) => ({ id: `sec-a${i}`, title: `A${i}`, groupPath: [], notebookId: "nb-il", notebookTitle: "IL Notebook" })),
+                { id: "sec-locked-mid", title: "Locked Mid", groupPath: [], notebookId: "nb-il", notebookTitle: "IL Notebook" },
+                ...Array.from({ length: 4 }, (_, i) => ({ id: `sec-b${i}`, title: `B${i}`, groupPath: [], notebookId: "nb-il", notebookTitle: "IL Notebook" }))
+            ],
+            taskId: "task-interleaved"
+        }));
+
+        expect(graphMock.listPages).toHaveBeenCalledTimes(7);
+        expect(parent.getChildNotes()).toHaveLength(0);
+    });
+
+    it("does not trip the section breaker on a notebook full of password-protected sections", async () => {
+        // Password-protected sections are an expected, healthy outcome (Graph answers with 403/20185), so
+        // even a long run of them must not abort — every one becomes a placeholder.
+        graphMock.isEncryptedSectionError.mockImplementation((e) => e instanceof Error && e.message.includes("20185"));
+        graphMock.listPages.mockClear();
+        graphMock.listPages.mockImplementation(async () => {
+            throw new Error("Microsoft Graph request failed (HTTP 403: 20185: Encrypted sections are not accessible.)");
+        });
+
+        const parent = cls.init(() => noteService.createNewNote({
+            parentNoteId: "root",
+            title: "all locked parent",
+            content: "",
+            type: "text",
+            mime: "text/html"
+        }).note);
+
+        await cls.init(() => importSelection({
+            getAccessToken: () => Promise.resolve("token"),
+            parentNoteId: parent.noteId,
+            sections: Array.from({ length: 8 }, (_, i) => ({ id: `sec-lk${i}`, title: `Locked ${i}`, groupPath: [], notebookId: "nb-lk", notebookTitle: "Locked Notebook" })),
+            taskId: "task-all-locked"
+        }));
+
+        // All eight were listed (no early abort) and each imported as a locked placeholder folder. Scope
+        // the check to this import's tree: import root → the single shared notebook folder → 8 sections.
+        expect(graphMock.listPages).toHaveBeenCalledTimes(8);
+        const notebookFolder = parent.getChildNotes()[0]?.getChildNotes()[0];
+        const sectionNotes = notebookFolder?.getChildNotes() ?? [];
+        expect(sectionNotes).toHaveLength(8);
+        expect(sectionNotes.every((note) => note.getOwnedLabelValue("iconClass") === "bx bx-lock-alt")).toBe(true);
     });
 
     it("does not trip the breaker when pages fetch but fail local processing", async () => {
