@@ -82,7 +82,6 @@ overrides:
   extract-zip>yauzl: 3.4.0
 
 patchedDependencies:
-  '@ckeditor/ckeditor5-code-block': 34e1e0b5d23dc9072aba2893a309957255ac1afb90eb07bff913fa3030def91a
   '@ckeditor/ckeditor5-mention': 91c41ee286960cf306640d976142aa98e286415096d5731828d796ac574fdbe8
   '@excalidraw/excalidraw@0.18.1': 859531a8ff622291b895d36bcd33e07ced6fcb3bcc90631ccaf776789b03f0c2
   '@maplibre/maplibre-gl-leaflet@0.1.3': c30b921f19820021e9c5c23d64378cbdf3dfba379cd4b5daff8a3f1f8b3578d5
@@ -14291,7 +14290,7 @@ snapshots:
       '@ckeditor/ckeditor5-upload': 48.3.1
       '@ckeditor/ckeditor5-utils': 48.3.1
 
-  '@ckeditor/ckeditor5-code-block@48.3.1(patch_hash=34e1e0b5d23dc9072aba2893a309957255ac1afb90eb07bff913fa3030def91a)':
+  '@ckeditor/ckeditor5-code-block@48.3.1':
     dependencies:
       '@ckeditor/ckeditor5-clipboard': 48.3.1
       '@ckeditor/ckeditor5-core': 48.3.1
@@ -14921,7 +14920,7 @@ snapshots:
   '@ckeditor/ckeditor5-track-changes@48.3.1':
     dependencies:
       '@ckeditor/ckeditor5-clipboard': 48.3.1
-      '@ckeditor/ckeditor5-code-block': 48.3.1(patch_hash=34e1e0b5d23dc9072aba2893a309957255ac1afb90eb07bff913fa3030def91a)
+      '@ckeditor/ckeditor5-code-block': 48.3.1
       '@ckeditor/ckeditor5-collaboration-core': 48.3.1
       '@ckeditor/ckeditor5-comments': 48.3.1
       '@ckeditor/ckeditor5-core': 48.3.1
@@ -21546,7 +21545,7 @@ snapshots:
       '@ckeditor/ckeditor5-ckfinder': 48.3.1
       '@ckeditor/ckeditor5-clipboard': 48.3.1
       '@ckeditor/ckeditor5-cloud-services': 48.3.1
-      '@ckeditor/ckeditor5-code-block': 48.3.1(patch_hash=34e1e0b5d23dc9072aba2893a309957255ac1afb90eb07bff913fa3030def91a)
+      '@ckeditor/ckeditor5-code-block': 48.3.1
       '@ckeditor/ckeditor5-core': 48.3.1
       '@ckeditor/ckeditor5-easy-image': 48.3.1
       '@ckeditor/ckeditor5-editor-balloon': 48.3.1

@@ -34,6 +34,7 @@ import ImageActions from "./plugins/image_actions.js";
 import CodeBlockToolbar from "./plugins/code_block_toolbar.js";
 import CodeBlockLanguageDropdown from "./plugins/code_block_language_dropdown.js";
 import CodeBlockInsertParagraph from "./plugins/code_block_insert_paragraph.js";
+import CodeBlockHljsClass from "./plugins/code_block_hljs_class.js";
 import MoveBlockUpDownPlugin from "./plugins/move_block_updown.js";
 import ScrollOnUndoRedoPlugin from "./plugins/scroll_on_undo_redo.js"
 import InlineCodeNoSpellcheck from "./plugins/inline_code_no_spellcheck.js";
@@ -68,6 +69,7 @@ const TRILIUM_PLUGINS: typeof Plugin[] = [
     CodeBlockLanguageDropdown,
     CodeBlockToolbar,
     CodeBlockInsertParagraph,
+    CodeBlockHljsClass,
     MoveBlockUpDownPlugin,
     ScrollOnUndoRedoPlugin,
     InlineCodeNoSpellcheck,
