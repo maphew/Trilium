@@ -634,6 +634,41 @@
                                             "dataFileName": "Tray icon & automatic startup_image.png"
                                         }
                                     ]
+                                },
+                                {
+                                    "isClone": false,
+                                    "noteId": "hvRfsDr591WP",
+                                    "notePath": [
+                                        "pOsGYCXsbNQG",
+                                        "Otzi9La2YAUX",
+                                        "poXkQfguuA0U",
+                                        "hvRfsDr591WP"
+                                    ],
+                                    "title": "Troubleshooting",
+                                    "notePosition": 60,
+                                    "prefix": null,
+                                    "isExpanded": false,
+                                    "type": "text",
+                                    "mime": "text/html",
+                                    "attributes": [
+                                        {
+                                            "type": "relation",
+                                            "name": "internalLink",
+                                            "value": "4TIF1oA4VQRO",
+                                            "isInheritable": false,
+                                            "position": 30
+                                        },
+                                        {
+                                            "type": "label",
+                                            "name": "shareAlias",
+                                            "value": "troubleshooting",
+                                            "isInheritable": false,
+                                            "position": 40
+                                        }
+                                    ],
+                                    "format": "markdown",
+                                    "dataFileName": "Troubleshooting.md",
+                                    "attachments": []
                                 }
                             ]
                         },
@@ -7415,6 +7450,13 @@
                                                 {
                                                     "type": "relation",
                                                     "name": "internalLink",
+                                                    "value": "NdowYOC1GFKS",
+                                                    "isInheritable": false,
+                                                    "position": 30
+                                                },
+                                                {
+                                                    "type": "relation",
+                                                    "name": "internalLink",
                                                     "value": "0vhv7lsOLy82",
                                                     "isInheritable": false,
                                                     "position": 40
@@ -7474,13 +7516,6 @@
                                                     "value": "bx bx-window-open",
                                                     "isInheritable": false,
                                                     "position": 20
-                                                },
-                                                {
-                                                    "type": "relation",
-                                                    "name": "internalLink",
-                                                    "value": "NdowYOC1GFKS",
-                                                    "isInheritable": false,
-                                                    "position": 110
                                                 }
                                             ],
                                             "format": "markdown",
