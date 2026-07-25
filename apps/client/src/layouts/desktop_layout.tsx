@@ -48,7 +48,6 @@ import SharedInfo from "../widgets/shared_info.jsx";
 import RightPanelContainer from "../widgets/sidebar/RightPanelContainer.jsx";
 import TabRowWidget from "../widgets/tab_row.js";
 import TabHistoryNavigationButtons from "../widgets/TabHistoryNavigationButtons.jsx";
-import TitleBarButtons from "../widgets/title_bar_buttons.jsx";
 import TocWidget from "../widgets/toc.js";
 import WatchedFileUpdateStatusWidget from "../widgets/watched_file_update_status.js";
 import { applyModals } from "./layout_commons.js";
@@ -75,9 +74,6 @@ export default class DesktopLayout {
          * On macOS we need to force the full-width tab bar on Electron in order to allow the semaphore (window controls) enough space.
          */
         const fullWidthTabBar = launcherPaneIsHorizontal || (isElectron && !hasNativeTitleBar && isMac);
-        // No platform draws its own title bar buttons any more: macOS has the traffic lights and
-        // Windows/Linux get the Chromium-drawn Window Controls Overlay.
-        const customTitleBarButtons = false;
         const isNewLayout = isExperimentalFeatureEnabled("new-layout");
 
         const rootContainer = new RootContainer(true)
@@ -92,7 +88,6 @@ export default class DesktopLayout {
                     .child(<TabHistoryNavigationButtons />)
                     .child(new TabRowWidget().class("full-width"))
                     .optChild(isNewLayout, <RightPaneToggle />)
-                    .optChild(customTitleBarButtons, <TitleBarButtons />)
                     .css("height", "40px")
                     .css("background-color", "var(--launcher-pane-background-color)")
                     .setParent(appContext)
@@ -119,7 +114,6 @@ export default class DesktopLayout {
                                     .child(<TabHistoryNavigationButtons />)
                                     .child(new TabRowWidget())
                                     .optChild(isNewLayout, <RightPaneToggle />)
-                                    .optChild(customTitleBarButtons, <TitleBarButtons />)
                                     .css("height", "40px")
                                     .css("align-items", "center")
                             )

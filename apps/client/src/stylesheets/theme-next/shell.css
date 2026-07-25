@@ -1166,10 +1166,6 @@ body.desktop:not(.background-effects) #root-widget.horizontal-layout {
     transition: none;
 }
 
-.tab-row-container .title-bar-buttons {
-    margin-top: calc((var(--tab-bar-height) - var(--tab-height)) * -1);
-}
-
 body.layout-horizontal div.tab-row-widget div.note-tab div.note-tab-wrapper {
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
