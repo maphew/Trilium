@@ -24,6 +24,8 @@ async function main() {
 
     // Copy node modules dependencies
     build.copyNodeModules([ "better-sqlite3" ]);
+    // No musl build: Electron itself ships glibc-only Linux binaries.
+    build.trimBetterSqlite3({ includeMusl: false });
 
     build.copy("/node_modules/ckeditor5/dist/ckeditor5-content.css", "ckeditor5-content.css");
 

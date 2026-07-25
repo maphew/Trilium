@@ -18,6 +18,7 @@ async function main() {
 
     // Copy node modules dependencies if needed
     build.copyNodeModules([ "better-sqlite3" ]);
+    build.trimBetterSqlite3();
 }
 
 main();

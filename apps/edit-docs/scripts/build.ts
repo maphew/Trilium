@@ -18,6 +18,8 @@ async function main() {
 
     // Copy node modules dependencies
     build.copyNodeModules(["better-sqlite3"]);
+    // No musl build: Electron itself ships glibc-only Linux binaries.
+    build.trimBetterSqlite3({ includeMusl: false });
 
     generatePackageJson();
 }

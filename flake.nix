@@ -316,17 +316,9 @@ nodejs.python
           buildTask = "server:build";
           mainProgram = "trilium-server";
           installCommands = ''
-            #remove-references-to -t ${nodejs.python} apps/server/dist/node_modules/better-sqlite3/build/config.gypi
-            #remove-references-to -t ${pnpm} apps/server/dist/node_modules/better-sqlite3/build/config.gypi
-
-            pushd apps/server/dist
-            rm -rf node_modules/better-sqlite3/build/Release/obj \
-                   node_modules/better-sqlite3/build/Release/obj.target \
-                   node_modules/better-sqlite3/build/Release/sqlite3.a \
-                   node_modules/better-sqlite3/build/{Makefile,better_sqlite3.target.mk,test_extension.target.mk,binding.Makefile} \
-                   node_modules/better-sqlite3/deps/sqlite3
-            popd
-
+            # No better-sqlite3 cleanup needed here any more: the server build
+            # trims deps/, src/ and build/ (which held the store paths that used
+            # to need remove-references-to) out of dist itself.
             mkdir -p $out/{bin,opt/trilium-server}
             cp --archive apps/server/dist/* $out/opt/trilium-server
             makeWrapper ${lib.getExe nodejs} $out/bin/trilium-server \
