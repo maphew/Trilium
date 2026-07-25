@@ -2438,7 +2438,6 @@
     "sources": "來源",
     "sources_summary": "來自 {{sites}} 個網站的 {{count}} 個來源",
     "extended_thinking": "延伸思考",
-    "legacy_models": "傳統模型",
     "thinking": "正在思考…",
     "thought_process": "思考過程",
     "tool_calls": "{{count}} 次工具調用",
@@ -2498,13 +2497,11 @@
     "configured_providers": "已設定的提供者",
     "no_providers_configured": "尚未設定任何提供者。",
     "provider_name": "名稱",
-    "provider_type": "提供者",
     "actions": "動作",
     "delete_provider": "刪除",
     "delete_provider_confirmation": "您確定要刪除提供者 \"{{name}}\" 嗎？",
     "api_key": "API 金鑰",
     "api_key_placeholder": "請輸入您的 API 金鑰",
-    "cancel": "取消",
     "mcp_title": "MCP（模型上下文協定）",
     "mcp_enabled": "MCP 伺服器",
     "mcp_enabled_description": "公開一個模型上下文協定 (MCP) 端點，以便人工智慧編程助手（例如 Claude Code、GitHub Copilot）能夠讀取並修改您的筆記。此端點僅限從 localhost 存取。",
@@ -2699,9 +2696,7 @@
     "drop_or_browse_single": "將檔案拖曳至此處，或點擊瀏覽並選擇",
     "drop_or_browse_multiple": "將檔案拖曳至此處，或點擊瀏覽並選擇",
     "browse_single": "點擊以選擇檔案",
-    "browse_multiple": "點擊以選擇多個檔案",
-    "selected_one": "已選擇 {{count}} 個檔案",
-    "selected_other": "已選擇 {{count}} 個檔案"
+    "browse_multiple": "點擊以選擇多個檔案"
   },
   "import_provider": {
     "choose_provider": "請從上方選擇要匯入的服務。"

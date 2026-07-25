@@ -2461,7 +2461,6 @@
     "web_search": "Websuche",
     "note_tools": "Notizzugriff",
     "sources": "Quellen",
-    "legacy_models": "Veraltete Modelle",
     "thinking": "Denke...",
     "thought_process": "Denkprozess",
     "result": "Ergebnis",
@@ -2531,11 +2530,9 @@
       "edit_note_content": "Notiz bearbeiten",
       "search_icons": "Symbole suchen"
     },
-    "cancel": "Abbrechen",
     "api_key": "API Schlüssel",
     "delete_provider": "Löschen",
     "actions": "Aktionen",
-    "provider_type": "Anbieter",
     "provider_name": "Name",
     "add_provider": "Anbieter hinzufügen",
     "add_provider_title": "KI-Anbieter hinzufügen",
@@ -2794,7 +2791,6 @@
     "checkbox-tooltip": "Rechtsklick für weitere Aufgabenzustände.\n{{shortcut}} drücken, um zwischen den Zuständen zu wechseln.",
     "edit-states-tooltip": "Aufgabenzustände bearbeiten",
     "unknown-task-state": "Unbekannter benutzerdefinierter Aufgabenzustand",
-    "task-state-dropped": "Benutzerdefinierte Aufgabenzustand-Definition \"{{title}}\" ({{id}}) wurde verworfen: {{reason}}",
     "validation-errors": {
       "undefined-name": "undefinierter Bezeichner",
       "invalid-name": "ungültiger Bezeichner",

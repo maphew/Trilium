@@ -2497,7 +2497,6 @@
     "note_tools": "ノートへのアクセス",
     "sources": "ソース",
     "extended_thinking": "思考を拡張",
-    "legacy_models": "レガシーモデル",
     "thinking": "思考中...",
     "thought_process": "思考プロセス",
     "tool_calls": "{{count}} 回のツール呼び出し",
@@ -2585,13 +2584,11 @@
     "configured_providers": "設定済みプロバイダー",
     "no_providers_configured": "まだプロバイダーが設定されていません。",
     "provider_name": "名前",
-    "provider_type": "プロバイダー",
     "actions": "アクション",
     "delete_provider": "削除",
     "delete_provider_confirmation": "プロバイダー \"{{name}}\" を削除してもよろしいですか？",
     "api_key": "API キー",
     "api_key_placeholder": "API キーを入力してください",
-    "cancel": "キャンセル",
     "feature_not_enabled": "AI 連携機能を使用するには、「設定」→「高度」→「実験的機能」で LLM 実験的機能を有効にしてください。",
     "mcp_title": "MCP（モデル コンテキスト プロトコル）",
     "mcp_enabled": "MCP サーバー",
@@ -2874,7 +2871,6 @@
     "checkbox-tooltip": "右クリックするか、{{- shortcut}} を押すと、状態を変更できます。",
     "edit-states-tooltip": "タスクの状態を編集",
     "unknown-task-state": "未定義のカスタムタスクの状態",
-    "task-state-dropped": "次の理由により、カスタムタスクの状態定義 \"{{title}}\" {{id}} を破棄しました: {{reason}}",
     "validation-errors": {
       "undefined-name": "未定義の識別子",
       "invalid-name": "無効な識別子",
@@ -3023,8 +3019,7 @@
     "drop_or_browse_single": "ここにファイルをドラッグ＆ドロップするか、クリックして選択",
     "drop_or_browse_multiple": "ここにファイルをドラッグ＆ドロップするか、クリックして選択",
     "browse_single": "タップしてファイルを選択",
-    "browse_multiple": "タップしてファイルを選択",
-    "selected_other": "{{count}} 件のファイルを選択済み"
+    "browse_multiple": "タップしてファイルを選択"
   },
   "anytype_import": {
     "name": "Anytype",
