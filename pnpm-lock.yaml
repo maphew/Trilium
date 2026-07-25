@@ -502,8 +502,8 @@ importers:
         specifier: 6.0.5
         version: 6.0.5
       electron:
-        specifier: 42.7.0
-        version: 42.7.0(supports-color@10.2.2)
+        specifier: 42.7.1
+        version: 42.7.1(supports-color@10.2.2)
       gifenc:
         specifier: 1.0.3
         version: 1.0.3
@@ -567,8 +567,8 @@ importers:
         specifier: workspace:*
         version: link:../desktop
       electron:
-        specifier: 42.7.0
-        version: 42.7.0(supports-color@10.2.2)
+        specifier: 42.7.1
+        version: 42.7.1(supports-color@10.2.2)
 
   apps/icon-pack-builder:
     devDependencies:
@@ -2629,7 +2629,7 @@ packages:
     engines: {node: '>=22.12.0'}
 
   '@electron/node-gyp@https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2':
-    resolution: {gitHosted: true, tarball: https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2}
+    resolution: {gitHosted: true, integrity: sha512-MXgzlTDEEndJB3TBbvd5uFQO/8gaINo1Hfen8vef5rq/VHVPeB63uuv/uO5+8GFsAJ/rauu6XB79S6K4+aXc+w==, tarball: https://codeload.github.com/electron/node-gyp/tar.gz/06b29aafb7708acef8b3669835c8a7857ebc92d2}
     version: 10.2.0-electron.1
     engines: {node: '>=12.13.0'}
     hasBin: true
@@ -8382,8 +8382,8 @@ packages:
     resolution: {integrity: sha512-bO3y10YikuUwUuDUQRM4KfwNkKhnpVO7IPdbsrejwN9/AABJzzTQ4GeHwyzNSrVO+tEH3/Np255a3sVZpZDjvg==}
     engines: {node: '>=8.0.0'}
 
-  electron@42.7.0:
-    resolution: {integrity: sha512-Uu5p03M5o7aqulT8QxFYYg3eJVDfuNEUuasBU1qFl05ghVRRH7UHL7na8S3GhxVScZQ2D7j9DCMsc+qT5FuxtQ==}
+  electron@42.7.1:
+    resolution: {integrity: sha512-fmjFv4Ebbs/FNZg6a/IAu25lBb8vo/HBVa2vtE2GvYlgAC7/fu8dx1b2pL2wV1yWlfMI2q3Npe4eVYSFGirnwA==}
     engines: {node: '>= 22.12.0'}
     hasBin: true
 
@@ -22748,7 +22748,7 @@ snapshots:
       - supports-color
     optional: true
 
-  electron@42.7.0(supports-color@10.2.2):
+  electron@42.7.1(supports-color@10.2.2):
     dependencies:
       '@electron-internal/extract-zip': 1.0.3
       '@electron/get': 5.0.0(supports-color@10.2.2)
