@@ -154,6 +154,31 @@ describe("Route transport & middleware", () => {
             expect(res.headers["www-authenticate"]).toBeUndefined();
         });
 
+        it("does not accept a logged-in browser session in place of a token", async () => {
+            cls.init(() => optionService.setOption("mcpEnabled", "true"));
+            // A session of its own: the shared ctx.agent was logged out by an earlier test,
+            // and a dead session would make this pass without proving anything.
+            const agent = supertest.agent(app);
+            await agent.post("/login").send({ password: "demo1234" }).expect(302);
+            const csrfToken = (await agent.get("/bootstrap").expect(200)).body.csrfToken;
+            await agent.post("/api/tree/load")
+                .set("x-csrf-token", csrfToken)
+                .send({ noteIds: ["root"] })
+                .expect(200);
+
+            // That cookie now demonstrably authenticates the internal API. If it also worked
+            // here, /mcp would be CSRF-able by any page the logged-in user visits — with full
+            // tool access. Only the Authorization header may authenticate.
+            const res = await agent
+                .post("/mcp")
+                .set("Host", `localhost:${port}`)
+                .set("Content-Type", "application/json")
+                .set("Accept", "application/json, text/event-stream")
+                .send(initializeRequest)
+                .expect(401);
+            expect(res.body.error).toContain("ETAPI token");
+        });
+
         it("rejects a bogus token with 401", async () => {
             cls.init(() => optionService.setOption("mcpEnabled", "true"));
             const res = await supertest(app)
