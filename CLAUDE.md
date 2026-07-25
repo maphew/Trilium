@@ -341,6 +341,7 @@ Tools are defined using `defineTools()` in `apps/server/src/services/llm/tools/`
 ## MCP Server
 - Trilium exposes an MCP (Model Context Protocol) server at `http://localhost:8080/mcp`, configured in `.mcp.json`
 - The MCP server is **only available when the Trilium server is running** (`pnpm run server:start`)
+- It requires an ETAPI token on every request — create one in Options → ETAPI and export it as `TRILIUM_ETAPI_TOKEN` before starting Claude Code (`.mcp.json` reads that variable). Without it the endpoint answers `401`
 - It provides tools for reading, searching, and modifying notes directly from the AI assistant
 - Use it to interact with actual note data when developing or debugging note-related features
 

@@ -1,6 +1,6 @@
 {
     "formatVersion": 2,
-    "appVersion": "0.104.0",
+    "appVersion": "0.104.1",
     "files": [
         {
             "isClone": false,
@@ -19351,6 +19351,13 @@
                             "value": "bx bx-bot",
                             "isInheritable": false,
                             "position": 30
+                        },
+                        {
+                            "type": "relation",
+                            "name": "internalLink",
+                            "value": "KOWBFgsZXJAD",
+                            "isInheritable": false,
+                            "position": 190
                         }
                     ],
                     "format": "markdown",
@@ -19462,10 +19469,65 @@
                                     "value": "bx bx-lock-alt",
                                     "isInheritable": false,
                                     "position": 50
+                                },
+                                {
+                                    "type": "relation",
+                                    "name": "internalLink",
+                                    "value": "swSFivWk6KkA",
+                                    "isInheritable": false,
+                                    "position": 60
                                 }
                             ],
                             "format": "markdown",
                             "dataFileName": "Privacy.md",
+                            "attachments": []
+                        },
+                        {
+                            "isClone": false,
+                            "noteId": "KOWBFgsZXJAD",
+                            "notePath": [
+                                "pOsGYCXsbNQG",
+                                "GBBMSlVSOIGP",
+                                "KOWBFgsZXJAD"
+                            ],
+                            "title": "MCP",
+                            "notePosition": 30,
+                            "prefix": null,
+                            "isExpanded": false,
+                            "type": "text",
+                            "mime": "text/html",
+                            "attributes": [
+                                {
+                                    "type": "label",
+                                    "name": "shareAlias",
+                                    "value": "mcp",
+                                    "isInheritable": false,
+                                    "position": 30
+                                },
+                                {
+                                    "type": "label",
+                                    "name": "iconClass",
+                                    "value": "bx bx-network-chart",
+                                    "isInheritable": false,
+                                    "position": 40
+                                },
+                                {
+                                    "type": "relation",
+                                    "name": "internalLink",
+                                    "value": "4TIF1oA4VQRO",
+                                    "isInheritable": false,
+                                    "position": 50
+                                },
+                                {
+                                    "type": "relation",
+                                    "name": "internalLink",
+                                    "value": "pgxEVkzLl1OP",
+                                    "isInheritable": false,
+                                    "position": 60
+                                }
+                            ],
+                            "format": "markdown",
+                            "dataFileName": "MCP.md",
                             "attachments": []
                         }
                     ]
