@@ -21,15 +21,22 @@ body.mobile #root-widget {
 }
 
 body {
-    /*
-     * The Windows / Linux caption buttons are centred within the overlay, so its height has to be
-     * twice the centre line of the tab bar's own buttons for the two to line up. Those buttons are
-     * top-aligned (`margin: 3px ... auto ...` below), so the centre line follows the tab bar
-     * height: 3 + 30/2 = 18 here, and 26 in the taller horizontal layout.
-     */
-    --native-titlebar-height: 36 !important;
     --native-titlebar-darwin-x-offset: 10;
     --native-titlebar-darwin-y-offset: 12 !important;
+}
+
+/*
+ * The caption buttons are centred within the overlay, so its height has to be twice the centre
+ * line of the tab bar's own buttons for the two to line up. Those buttons are top-aligned
+ * (`margin: 3px ... auto ...` below), so the centre line follows the tab bar height: 3 + 30/2 = 18
+ * here, and 26 in the taller horizontal layout. Linux-only, as in the base stylesheet.
+ */
+body.platform-linux {
+    --native-titlebar-height: 36 !important;
+}
+
+body.platform-linux.layout-horizontal {
+    --native-titlebar-height: 52 !important;
 }
 
 body.layout-horizontal {
@@ -37,7 +44,6 @@ body.layout-horizontal {
     --active-tab-hover-background-color: var(--active-tab-background-color);
     --new-tab-button-background: transparent;
     --tab-bar-height: 44px;
-    --native-titlebar-height: 52 !important;
     --native-titlebar-darwin-x-offset: 12;
     --native-titlebar-darwin-y-offset: 14 !important;
 }

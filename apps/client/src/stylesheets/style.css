@@ -87,19 +87,26 @@ body {
     font-size: var(--main-font-size);
 
     --native-titlebar-foreground: var(--main-text-color);
-    /*
-     * Height of the Window Controls Overlay on Windows and Linux. Chromium centres the caption
-     * buttons within it, so this is the only way to shift them vertically -- there is no x/y
-     * equivalent to macOS' setWindowButtonPosition(). Set it to twice the centre line of the tab
-     * bar's own buttons so the two line up; themes that place those buttons differently (see
-     * theme-next) need their own value.
-     */
-    --native-titlebar-height: 40;
     --native-titlebar-darwin-x-offset: 10;
     --native-titlebar-darwin-y-offset: 12;
     --launcher-pane-height: 53px;
     --tab-bar-height: 40px;
     --mobile-bottom-offset: env(safe-area-inset-bottom);
+}
+
+/*
+ * Height of the Window Controls Overlay. Chromium centres the caption buttons within it, so this
+ * is the only way to shift them vertically -- there is no x/y equivalent to macOS'
+ * setWindowButtonPosition(). Set it to twice the centre line of the tab bar's own buttons so the
+ * two line up; themes that place those buttons differently (see theme-next) need their own value.
+ *
+ * Scoped to Linux on purpose. Windows also supports the overlay, but leaving the variable unset
+ * there keeps Chromium's system caption height, whose taller hover fills would otherwise spill
+ * past the tab bar. Dropping the scope is fine once the result has actually been looked at on
+ * Windows.
+ */
+body.platform-linux {
+    --native-titlebar-height: 40;
 }
 
 body.ios {
