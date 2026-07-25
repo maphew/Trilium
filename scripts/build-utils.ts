@@ -1,6 +1,6 @@
 import { execSync } from "child_process";
 import { build as esbuild } from "esbuild";
-import { cpSync, existsSync, mkdirSync, readdirSync, rmSync, writeFileSync } from "fs";
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from "fs";
 import { delimiter, join } from "path";
 
 export default class BuildHelper {
@@ -161,8 +161,20 @@ export default class BuildHelper {
         const { platform = process.platform, arch = targetArch(), includeMusl = true } = opts;
         const moduleDir = join(this.outDir, "node_modules", "better-sqlite3");
         const prebuildDir = join(moduleDir, "prebuilds");
+
+        // Every v13 install ships prebuilds/, so its absence means the module that
+        // got copied is not the one the lockfile pins. The usual cause is a stale
+        // pre-v13 tree in <app>/node_modules, which copyNodeModules prefers over the
+        // hoisted root -- pnpm's `hoisted` linker never creates those, so anything
+        // there is leftover residue. Fail here rather than shipping it: a pre-v13
+        // module needs the `bindings` package that is no longer copied, so the
+        // artifact would instead die at startup with a confusing resolution error.
         if (!existsSync(prebuildDir)) {
-            return;
+            const version = JSON.parse(readFileSync(join(moduleDir, "package.json"), "utf-8")).version;
+            throw new Error(
+                `better-sqlite3 ${version} in ${moduleDir} has no prebuilds/ directory. `
+                + `Expected a v13+ layout -- delete any <app>/node_modules/better-sqlite3 and reinstall.`
+            );
         }
 
         // Keep both libc variants on Linux by default. The server's dist is built
