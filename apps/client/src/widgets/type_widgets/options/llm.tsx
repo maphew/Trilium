@@ -168,7 +168,7 @@ function McpSettings() {
 
             {mcpEnabled && (
                 <>
-                    <OptionsRow name="mcp-endpoint" label={t("llm.mcp_endpoint_title")} description={t("llm.mcp_endpoint_description")}>
+                    <OptionsRow name="mcp-endpoint" label={t("llm.mcp_endpoint_title")} description={t("llm.mcp_endpoint_description")} stacked>
                         <div class="mcp-endpoint-list">
                             <McpEndpointGroup label={t("llm.mcp_endpoint_this_device")} urls={[localUrl]} />
                             {networkUrls.length > 0 && (

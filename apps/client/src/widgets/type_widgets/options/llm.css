@@ -13,8 +13,13 @@
    listing its URLs as read-only, selectable fields. */
 .mcp-endpoint-list {
     display: flex;
+    gap: 1em;
     flex-direction: column;
-    gap: 0.75em;
+
+    @media (min-width: 992px) {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+    }
 }
 
 .mcp-endpoint-group {
