@@ -203,7 +203,7 @@ nodejs.python
                 makeShellWrapper
                 wrapGAppsHook3
 
-                # For determining the Electron version to rebuild for:
+                # For the launcher wrapper generated in installCommands:
                 which
                 electron
               ]
@@ -279,16 +279,15 @@ nodejs.python
 
         desktop = makeApp {
           app = "desktop";
+          # better-sqlite3 v13 is N-API based and ships prebuilt binaries that
+          # load unchanged under Electron, so there is no native rebuild step
+          # (and no need for ELECTRON_NODEDIR) any more.
           preBuildCommands = ''
-            export ELECTRON_NODEDIR=${electron.headers}
             pnpm postinstall
           '';
           buildTask = "desktop:build";
           mainProgram = "trilium";
           installCommands = ''
-            #remove-references-to -t ${electron.headers} apps/desktop/dist/node_modules/better-sqlite3/build/config.gypi
-            #remove-references-to -t ${nodejs.python} apps/desktop/dist/node_modules/better-sqlite3/build/config.gypi
-
             mkdir -p $out/{bin,share/icons/hicolor/512x512/apps,opt/trilium}
             cp --archive apps/desktop/dist/* $out/opt/trilium
             cp apps/client/src/assets/icon.png $out/share/icons/hicolor/512x512/apps/trilium.png
@@ -338,15 +337,11 @@ nodejs.python
         edit-docs = makeApp {
           app = "edit-docs";
           preBuildCommands = ''
-            export ELECTRON_NODEDIR=${electron.headers}
             pnpm postinstall
           '';
           buildTask = "edit-docs:build";
           mainProgram = "trilium-edit-docs";
           installCommands = ''
-            #remove-references-to -t ${electron.headers} apps/edit-docs/dist/node_modules/better-sqlite3/build/config.gypi
-            #remove-references-to -t ${nodejs.python} apps/edit-docs/dist/node_modules/better-sqlite3/build/config.gypi
-
             mkdir -p $out/{bin,opt/trilium-edit-docs}
             cp --archive apps/edit-docs/dist/* $out/opt/trilium-edit-docs
             makeShellWrapper ${lib.getExe electron} $out/bin/trilium-edit-docs \
