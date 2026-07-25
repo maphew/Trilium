@@ -87,6 +87,14 @@ body {
     font-size: var(--main-font-size);
 
     --native-titlebar-foreground: var(--main-text-color);
+    /*
+     * Height of the Window Controls Overlay on Windows and Linux. Chromium centres the caption
+     * buttons within it, so this is the only way to shift them vertically -- there is no x/y
+     * equivalent to macOS' setWindowButtonPosition(). Set it to twice the centre line of the tab
+     * bar's own buttons so the two line up; themes that place those buttons differently (see
+     * theme-next) need their own value.
+     */
+    --native-titlebar-height: 40;
     --native-titlebar-darwin-x-offset: 10;
     --native-titlebar-darwin-y-offset: 12;
     --launcher-pane-height: 53px;
@@ -2188,8 +2196,14 @@ body.electron.platform-darwin:not(.native-titlebar):not(.full-screen) #tab-row-l
     width: 80px;
 }
 
+/*
+ * Keep the tab bar clear of the Window Controls Overlay. On Windows the controls are always on
+ * the right, but on Linux their side follows the desktop's decoration layout (GNOME's
+ * `button-layout`), so reserve space on whichever side(s) Chromium actually took.
+ */
 body.electron:not(.platform-darwin) .tab-row-container {
-    padding-inline-end: calc(100vw - env(titlebar-area-width, 100vw));
+    padding-inline-start: env(titlebar-area-x, 0px);
+    padding-inline-end: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw));
 }
 
 .tab-row-container .toggle-button {

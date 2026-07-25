@@ -75,7 +75,9 @@ export default class DesktopLayout {
          * On macOS we need to force the full-width tab bar on Electron in order to allow the semaphore (window controls) enough space.
          */
         const fullWidthTabBar = launcherPaneIsHorizontal || (isElectron && !hasNativeTitleBar && isMac);
-        const customTitleBarButtons = !hasNativeTitleBar && utils.isLinux();
+        // No platform draws its own title bar buttons any more: macOS has the traffic lights and
+        // Windows/Linux get the Chromium-drawn Window Controls Overlay.
+        const customTitleBarButtons = false;
         const isNewLayout = isExperimentalFeatureEnabled("new-layout");
 
         const rootContainer = new RootContainer(true)

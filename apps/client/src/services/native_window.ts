@@ -65,11 +65,13 @@ function applyTransparencyEffects(win: ElectronWindowApi, style: CSSStyleDeclara
 }
 
 function applyTitleBarButtons(win: ElectronWindowApi, style: CSSStyleDeclaration) {
-    if (window.glob.platform === "win32") {
+    // Window Controls Overlay is supported on Windows and Linux.
+    if (window.glob.platform === "win32" || window.glob.platform === "linux") {
         const color = style.getPropertyValue("--native-titlebar-background");
         const symbolColor = style.getPropertyValue("--native-titlebar-foreground");
+        const height = parseInt(style.getPropertyValue("--native-titlebar-height"), 10);
         if (color && symbolColor) {
-            win.setTitleBarOverlay({ color, symbolColor });
+            win.setTitleBarOverlay({ color, symbolColor, ...(Number.isFinite(height) && { height }) });
         }
     }
 
