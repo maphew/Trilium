@@ -29,21 +29,21 @@
         electronFromNixpkgs = pkgs."electron_${lib.versions.major electronVersion}";
 
         # nixpkgs lags behind the Electron version pinned in apps/desktop/package.json
-        # (electron_42 is still 42.5.1), and its source build cannot be bumped without
+        # (electron_43 is still 43.1.0), and its source build cannot be bumped without
         # upstream's Chromium dependency hashes. Build the exact pinned version from
         # Electron's official binary release instead, reusing the nixpkgs builder.
         #
         # When bumping Electron, refresh these hashes:
         #   zips:    curl -sL https://github.com/electron/electron/releases/download/v<version>/SHASUMS256.txt
         #   headers: nix-prefetch-url --unpack https://artifacts.electronjs.org/headers/dist/v<version>/node-v<version>-headers.tar.gz
-        pinnedElectronVersion = "42.7.1";
+        pinnedElectronVersion = "43.2.0";
         pinnedElectronHashes = {
-          x86_64-linux = "e85b28245deaa75c3c4f2cf5da084f4c7fbedd5af1630c59a827c41ac1f5e1af";
-          armv7l-linux = "32d446a7a8f1f430c2030a1b2cd4220e52f95d24a607db28539b00ac6141c1d5";
-          aarch64-linux = "ba1f8055a6b601e9cd771a7c750ed37b912c486a51f51e58654ed9414bc898ba";
-          x86_64-darwin = "a2f361b66b24b694715b057a9d4ba8c30457ce994e19acd9185c131539bc8900";
-          aarch64-darwin = "13b7c3782ac73ba64410542410a2d06f022c515730e97c5149aff2190a6c8e80";
-          headers = "1aidb6q7hfz0569qm8ah77dgw2zzp157ls1kbs0ylsifgvxc0zkd";
+          x86_64-linux = "f77ca6ed67bbc68702b69b56ad499bca6ae090705ade7d04f0ac545e409dec68";
+          armv7l-linux = "e5cf445bda3ef071bbe9f16dfbabbca61b24b528f2dcbdff227e98fb349c99e8";
+          aarch64-linux = "50e1cdefbf8590e0d89b0276314a99c7b98e8eed732204c6f1a1c2a38376ed87";
+          x86_64-darwin = "1349ff423539cfe2b3edf1b14111e618db234d9ba761cbe97ea549edcb2e7a98";
+          aarch64-darwin = "ad4a0ae3c37ee05aa06c7e2ed0627608389790f0505a2b0d20319efbe33ffe28";
+          headers = "0jxrbsi1ipzkq3ah7vbqd3glzd423603ii1d1i7kabirxmxra5kk";
         };
         mkElectronBin = pkgs.callPackage (
           pkgs.path + "/pkgs/development/tools/electron/binary/generic.nix"
