@@ -6,11 +6,10 @@
 
 .code-block {
     position: relative;
-    margin: 0;
+    margin: 0 0 0.9em 0;
     padding: 0.75em 1em;
     border: 0;
     border-radius: 6px;
-    background-color: var(--accented-background-color);
     box-shadow: var(--code-block-box-shadow);
     overflow-x: auto;
 }
@@ -20,6 +19,7 @@
     font-variant: none;
     tab-size: var(--code-block-tab-width, 4);
     white-space: pre;
+    user-select: text;
 }
 
 .code-block.wrap > code {
