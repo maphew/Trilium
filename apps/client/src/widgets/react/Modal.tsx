@@ -10,6 +10,7 @@ import { openDialog } from "../../services/dialog";
 import { t } from "../../services/i18n";
 import { openInAppHelpFromUrl } from "../../services/utils";
 import { useSyncedRef } from "./hooks";
+import { suspendModalFocusTraps } from "./modal_focustrap";
 import { ContainerVisibilityContext } from "./react_utils";
 
 interface CustomTitleBarButton {
@@ -148,7 +149,7 @@ export default function Modal({ children, className, size, title, customTitleBar
     // Options dialog gets no cursor). Suspend the other modals' traps here and restore them on close.
     useEffect(() => {
         if (!show || !modalRef.current) return;
-        return suspendOtherModalFocusTraps(modalRef.current);
+        return suspendModalFocusTraps(modalRef.current);
     }, [ show ]);
 
     // Memoize styles to prevent recreation on every render
@@ -226,48 +227,6 @@ export default function Modal({ children, className, size, title, customTitleBar
             </div></ContainerVisibilityContext.Provider>}
         </div>
     );
-}
-
-/** Bootstrap's private focus-trap, reachable via `Modal._focustrap` (see {@link suspendOtherModalFocusTraps}). */
-interface BootstrapFocusTrap {
-    activate(): void;
-    deactivate(): void;
-    _isActive: boolean;
-}
-
-/**
- * Suspends the focus-traps of every currently-shown modal other than {@link ownElement}, returning a
- * function that reactivates exactly those that were suspended.
- *
- * Bootstrap activates a document-wide `focusin` focus-trap on each modal opened with `focus: true`, and
- * that trap yanks focus back to its own modal whenever focus lands elsewhere ({@link https://github.com/twbs/bootstrap/blob/main/js/src/util/focustrap.js focustrap.js}).
- * Bootstrap does not support stacked modals, so an underlying modal's trap fights the modal stacked on
- * top of it — e.g. clicking into the custom-dictionary CKEditor in the quick-edit popup (which opens over
- * the Options dialog) immediately loses focus, so there is no cursor and typing does nothing.
- *
- * Enforcing "only the topmost modal traps focus" fixes this: each modal, on show, suspends the traps of
- * the modals below it and, on close, restores precisely those it suspended. Because only currently-active
- * traps are captured, restoring in reverse open order re-establishes the invariant at every stack depth.
- * Reaches into `Modal._focustrap` since Bootstrap exposes no public API for this.
- */
-function suspendOtherModalFocusTraps(ownElement: HTMLElement): () => void {
-    const suspended: BootstrapFocusTrap[] = [];
-    for (const modalElement of document.querySelectorAll<HTMLElement>(".modal.show")) {
-        if (modalElement === ownElement) continue;
-
-        const instance = BootstrapModal.getInstance(modalElement) as (BootstrapModal & { _focustrap?: BootstrapFocusTrap }) | null;
-        const focustrap = instance?._focustrap;
-        if (focustrap?._isActive) {
-            focustrap.deactivate();
-            suspended.push(focustrap);
-        }
-    }
-
-    return () => {
-        for (const focustrap of suspended) {
-            focustrap.activate();
-        }
-    };
 }
 
 function ModalMain({ sidebar, children }: { sidebar: boolean; children: ComponentChildren }) {

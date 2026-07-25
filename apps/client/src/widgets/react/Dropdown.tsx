@@ -5,6 +5,7 @@ import { MutableRef, useCallback, useEffect, useLayoutEffect, useMemo, useRef, u
 
 import { isMobile } from "../../services/utils";
 import { useTooltip, useUniqueName } from "./hooks";
+import { suspendModalFocusTraps } from "./modal_focustrap";
 
 type DataAttributes = {
     [key: `data-${string}`]: string | number | boolean | undefined;
@@ -136,6 +137,14 @@ export default function Dropdown({ id, className, buttonClassName, isStatic, chi
             document.getElementById("context-menu-cover")?.classList.remove("show", "global-menu-cover");
         }
     }, [ mobileBackdrop ]);
+
+    // A portaled menu lives in `document.body`, outside any modal that opened it. That modal's focus-trap
+    // would keep yanking focus back into the modal, so an input in the menu (e.g. the note-icon picker's
+    // search box) could never hold focus. Suspend the shown modals' traps while the menu is open.
+    useEffect(() => {
+        if (!portalToBody || !shown) return;
+        return suspendModalFocusTraps();
+    }, [ portalToBody, shown ]);
 
     useEffect(() => {
         if (!containerRef.current) return;
