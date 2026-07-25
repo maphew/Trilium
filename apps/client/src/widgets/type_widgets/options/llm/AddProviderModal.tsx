@@ -107,7 +107,7 @@ export const PROVIDER_TYPES: ProviderType[] = [
     // Reachable through the custom endpoint card too — it speaks the OpenAI API —
     // but carded here so its models resolve against the committed price table,
     // which a nameless endpoint never can.
-    { id: "deepseek", name: "DeepSeek", group: "cloud", defaultBaseUrl: "https://api.deepseek.com/v1", iconUrl: deepseekIcon },
+    { id: "deepseek", name: "DeepSeek", group: "cloud", defaultBaseUrl: "https://api.deepseek.com/v1", iconUrl: deepseekIcon, beta: true },
     // Uses the Claude Agent SDK on the server; auth belongs to Claude Code (`claude /login`),
     // and usage is covered by the subscription rather than charged per token.
     { id: "claude-agent", name: "Claude Code", group: "subscription", defaultBaseUrl: "", iconUrl: claudeAgentIcon, description: t("llm.provider_desc_claude_agent"), beta: true, apiKey: "none", baseUrl: "none" },
@@ -118,17 +118,20 @@ export const PROVIDER_TYPES: ProviderType[] = [
     {
         id: "ollama", name: "Ollama", group: "local", defaultBaseUrl: "http://localhost:11434", prefillBaseUrl: true,
         iconUrl: ollamaIcon,
-        setupHintKey: "llm.setup_hint_ollama", apiKey: "none", baseUrl: "required"
+        setupHintKey: "llm.setup_hint_ollama", apiKey: "none", baseUrl: "required",
+        beta: true
     },
     {
         id: "lmstudio", name: "LM Studio", group: "local", defaultBaseUrl: "http://localhost:1234/v1", prefillBaseUrl: true,
         iconUrl: lmStudioIcon,
-        setupHintKey: "llm.setup_hint_lmstudio", apiKey: "none", baseUrl: "required"
+        setupHintKey: "llm.setup_hint_lmstudio", apiKey: "none", baseUrl: "required",
+        beta: true
     },
     {
         id: "openai-compatible", name: t("llm.provider_openai_compatible"), group: "custom", defaultBaseUrl: "http://localhost:8080/v1",
         iconUrl: openAiCompatibleIcon, description: t("llm.provider_desc_openai_compatible"),
-        setupHintKey: "llm.setup_hint_openai_compatible", apiKey: "optional", baseUrl: "required"
+        setupHintKey: "llm.setup_hint_openai_compatible", apiKey: "optional", baseUrl: "required",
+        beta: true
     }
 ];
 
