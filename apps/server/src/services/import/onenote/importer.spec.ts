@@ -404,6 +404,41 @@ describe("importSelection (real DB)", () => {
         expect(parent.getChildNotes()).toHaveLength(0);
     });
 
+    it("still trips the section breaker when a systemic failure run is interleaved with protected sections", async () => {
+        // A protected section between systemic failures must not mask the outage: it is skipped, not a
+        // streak reset, so the non-protected failures keep accumulating across it and still trip.
+        graphMock.isEncryptedSectionError.mockImplementation((e) => e instanceof Error && e.message.includes("20185"));
+        graphMock.listPages.mockClear();
+        graphMock.listPages.mockImplementation((_token, sectionId) =>
+            sectionId === "sec-locked-mid"
+                ? Promise.reject(new Error("Microsoft Graph request failed (HTTP 403: 20185: Encrypted sections are not accessible.)"))
+                : Promise.reject(new Error("Microsoft Graph request failed (HTTP 401: 40001: Access token has expired.)")));
+
+        const parent = cls.init(() => noteService.createNewNote({
+            parentNoteId: "root",
+            title: "interleaved parent",
+            content: "",
+            type: "text",
+            mime: "text/html"
+        }).note);
+
+        // Three failures, a protected section, then more failures: the streak survives the protected one
+        // (1,2,3, skip, 4,5,6) and trips on the sixth non-protected failure — the seventh section listed.
+        await cls.init(() => importSelection({
+            getAccessToken: () => Promise.resolve("token"),
+            parentNoteId: parent.noteId,
+            sections: [
+                ...Array.from({ length: 3 }, (_, i) => ({ id: `sec-a${i}`, title: `A${i}`, groupPath: [], notebookId: "nb-il", notebookTitle: "IL Notebook" })),
+                { id: "sec-locked-mid", title: "Locked Mid", groupPath: [], notebookId: "nb-il", notebookTitle: "IL Notebook" },
+                ...Array.from({ length: 4 }, (_, i) => ({ id: `sec-b${i}`, title: `B${i}`, groupPath: [], notebookId: "nb-il", notebookTitle: "IL Notebook" }))
+            ],
+            taskId: "task-interleaved"
+        }));
+
+        expect(graphMock.listPages).toHaveBeenCalledTimes(7);
+        expect(parent.getChildNotes()).toHaveLength(0);
+    });
+
     it("does not trip the section breaker on a notebook full of password-protected sections", async () => {
         // Password-protected sections are an expected, healthy outcome (Graph answers with 403/20185), so
         // even a long run of them must not abort — every one becomes a placeholder.

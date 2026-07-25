@@ -66,12 +66,13 @@ interface FetchedPage {
 const MAX_CONSECUTIVE_PAGE_FAILURES = 5;
 
 /**
- * Aborts the import once this many sections in a row fail to enumerate for a non-protected reason.
- * A section whose page list can't be listed normally becomes a placeholder folder, but a streak of
- * such failures means a systemic problem (expired token, Graph outage) rather than individual bad
- * sections — failing fast beats marking a placeholder-only tree "successful". Password-protected
- * sections don't count: Graph answered cleanly (a structured 403/20185), so auth and connectivity
- * are healthy and a placeholder is the correct, expected outcome.
+ * Aborts the import once this many non-protected sections fail to enumerate without a successful one
+ * in between. A section whose page list can't be listed normally becomes a placeholder folder, but a
+ * streak of such failures means a systemic problem (expired token, Graph outage) rather than
+ * individual bad sections — failing fast beats marking a placeholder-only tree "successful".
+ * Password-protected sections are skipped, not counted: a structured 403/20185 is a known per-section
+ * condition, so it neither trips the breaker nor resets the streak (so a systemic run interleaved with
+ * locked sections still trips). Only a genuine success resets the streak.
  */
 const MAX_CONSECUTIVE_SECTION_FAILURES = 5;
 
@@ -147,13 +148,14 @@ export async function importSelection({ getAccessToken, parentNoteId, sections, 
                 getLog().error(`OneNote import: could not list the pages of section '${section.title}' (${section.id}); it will be imported as a placeholder: ${rawMessage}`);
                 sectionPages.push({ section, pages: [], error, passwordProtected });
 
-                // Only unexpected failures count toward the circuit breaker: a protected section means
-                // Graph is healthy (it returned a structured 403/20185), so it doesn't signal a systemic
-                // problem and mustn't trip the breaker on a notebook full of locked sections.
-                if (passwordProtected) {
-                    consecutiveSectionFailures = 0;
-                } else if (++consecutiveSectionFailures > MAX_CONSECUTIVE_SECTION_FAILURES) {
-                    throw new Error(`Aborting the OneNote import: ${consecutiveSectionFailures} sections in a row failed to list their pages, which points to a systemic problem (expired authentication, Graph outage) rather than individual unreadable sections. Last error: ${rawMessage}`);
+                // Only unexpected failures count toward the circuit breaker. A password-protected section
+                // is a known per-section condition, not a failure signal, so it is skipped entirely — it
+                // neither increments the streak nor resets it. Skipping (rather than resetting) is what
+                // keeps a systemic run of failures *interleaved* with locked sections tripping the breaker,
+                // instead of each protected response masking the outage. Only a genuine success (above)
+                // resets, since it proves real pages came back and the pipeline is healthy.
+                if (!passwordProtected && ++consecutiveSectionFailures > MAX_CONSECUTIVE_SECTION_FAILURES) {
+                    throw new Error(`Aborting the OneNote import: ${consecutiveSectionFailures} sections failed to list their pages without a successful one in between, which points to a systemic problem (expired authentication, Graph outage) rather than individual unreadable sections. Last error: ${rawMessage}`);
                 }
             }
         }
