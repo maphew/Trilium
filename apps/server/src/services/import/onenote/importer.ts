@@ -65,6 +65,16 @@ interface FetchedPage {
  */
 const MAX_CONSECUTIVE_PAGE_FAILURES = 5;
 
+/**
+ * Aborts the import once this many sections in a row fail to enumerate for a non-protected reason.
+ * A section whose page list can't be listed normally becomes a placeholder folder, but a streak of
+ * such failures means a systemic problem (expired token, Graph outage) rather than individual bad
+ * sections — failing fast beats marking a placeholder-only tree "successful". Password-protected
+ * sections don't count: Graph answered cleanly (a structured 403/20185), so auth and connectivity
+ * are healthy and a placeholder is the correct, expected outcome.
+ */
+const MAX_CONSECUTIVE_SECTION_FAILURES = 5;
+
 interface DownloadedResource {
     /** The Graph resource URL as it still appears in the converted HTML; used to match references. */
     url: string;
@@ -118,6 +128,7 @@ export async function importSelection({ getAccessToken, parentNoteId, sections, 
         // Enumerate every selected section's pages up front so the total page count is known before
         // any content is fetched — this lets the client show a real progress bar rather than a bare count.
         const sectionPages: { section: OneNoteSectionSelection; pages: OneNotePage[]; error?: string; passwordProtected?: boolean }[] = [];
+        let consecutiveSectionFailures = 0;
         for (const section of sections) {
             // A section whose page list can't be fetched doesn't abort the whole import: it is tagged
             // with the error here and imported as a placeholder folder below, holding its place so the
@@ -125,6 +136,7 @@ export async function importSelection({ getAccessToken, parentNoteId, sections, 
             // sections — which Graph rejects outright — as well as any other per-section Graph failure.
             try {
                 sectionPages.push({ section, pages: await graph.listPages(getAccessToken, section.id) });
+                consecutiveSectionFailures = 0;
             } catch (e: unknown) {
                 const rawMessage = e instanceof Error ? e.message : String(e);
                 // A password-protected section is a user-fixable, expected case, so replace Graph's opaque
@@ -134,6 +146,15 @@ export async function importSelection({ getAccessToken, parentNoteId, sections, 
                 const error = passwordProtected ? t("onenote_import.protected-section-error") : rawMessage;
                 getLog().error(`OneNote import: could not list the pages of section '${section.title}' (${section.id}); it will be imported as a placeholder: ${rawMessage}`);
                 sectionPages.push({ section, pages: [], error, passwordProtected });
+
+                // Only unexpected failures count toward the circuit breaker: a protected section means
+                // Graph is healthy (it returned a structured 403/20185), so it doesn't signal a systemic
+                // problem and mustn't trip the breaker on a notebook full of locked sections.
+                if (passwordProtected) {
+                    consecutiveSectionFailures = 0;
+                } else if (++consecutiveSectionFailures > MAX_CONSECUTIVE_SECTION_FAILURES) {
+                    throw new Error(`Aborting the OneNote import: ${consecutiveSectionFailures} sections in a row failed to list their pages, which points to a systemic problem (expired authentication, Graph outage) rather than individual unreadable sections. Last error: ${rawMessage}`);
+                }
             }
         }
         taskContext.setTotalCount(sectionPages.reduce((total, entry) => total + entry.pages.length, 0));
