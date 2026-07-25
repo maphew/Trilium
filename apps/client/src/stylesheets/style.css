@@ -2195,8 +2195,16 @@ body.electron.platform-darwin:not(.native-titlebar) .tab-row-container {
 }
 
 #tab-row-left-spacer {
-    width: env(titlebar-area-x);
     -webkit-app-region: drag;
+}
+
+/*
+ * Only macOS reserves the traffic lights' room with this spacer; every other platform uses the
+ * container padding below, which handles controls on either side. Keeping the spacer at zero
+ * elsewhere avoids reserving `titlebar-area-x` twice on a Linux desktop with left-hand controls.
+ */
+body.electron.platform-darwin #tab-row-left-spacer {
+    width: env(titlebar-area-x);
 }
 
 body.electron.platform-darwin:not(.native-titlebar):not(.full-screen) #tab-row-left-spacer {

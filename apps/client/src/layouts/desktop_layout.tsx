@@ -66,14 +66,15 @@ export default class DesktopLayout {
         const launcherPaneIsHorizontal = options.get("layoutOrientation") === "horizontal";
         const launcherPane = this.#buildLauncherPane(launcherPaneIsHorizontal);
         const isElectron = utils.isElectron();
-        const isMac = window.glob.platform === "darwin";
         const hasNativeTitleBar = window.glob.hasNativeTitleBar;
 
         /**
          * If true, the tab bar is displayed above the launcher pane with full width; if false (default), the tab bar is displayed in the rest pane.
-         * On macOS we need to force the full-width tab bar on Electron in order to allow the semaphore (window controls) enough space.
+         * We force the full-width tab bar on Electron whenever the window controls sit on the left (always on macOS, and on Linux
+         * depending on the desktop's decoration layout): the rest pane starts past the launcher pane, so a tab bar confined to it
+         * cannot give those controls room, and they end up drawn over the launcher pane instead.
          */
-        const fullWidthTabBar = launcherPaneIsHorizontal || (isElectron && !hasNativeTitleBar && isMac);
+        const fullWidthTabBar = launcherPaneIsHorizontal || (isElectron && !hasNativeTitleBar && utils.areWindowControlsOnLeft());
         const isNewLayout = isExperimentalFeatureEnabled("new-layout");
 
         const rootContainer = new RootContainer(true)
