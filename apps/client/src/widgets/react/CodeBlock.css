@@ -14,6 +14,13 @@
     overflow-x: auto;
 }
 
+/* Only supply a background when highlighting is off. A highlighted block carries `hljs`,
+   whose theme stylesheet brings its own — and that sheet is injected at runtime, so
+   relying on source order to win an equal-specificity fight would be fragile. */
+.code-block:not(.hljs) {
+    background-color: var(--accented-background-color);
+}
+
 .code-block > code {
     display: block;
     font-variant: none;

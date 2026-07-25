@@ -181,9 +181,9 @@ function McpSettings() {
 
                     <Collapsible title={t("llm.mcp_config_title")} initiallyExpanded>
                         <p>{t("llm.mcp_config_description")}</p>
-                        <CodeBlock code={buildMcpClientConfig(localUrl, t("llm.mcp_config_token_placeholder"))} />
+                        <CodeBlock mimeType="application/json" code={buildMcpClientConfig(localUrl, t("llm.mcp_config_token_placeholder"))} />
                         <p>{t("llm.mcp_config_cli_description")}</p>
-                        <CodeBlock code={buildMcpClientCommand(localUrl, t("llm.mcp_config_token_placeholder"))} wrap />
+                        <CodeBlock mimeType="text/x-sh" code={buildMcpClientCommand(localUrl, t("llm.mcp_config_token_placeholder"))} wrap />
                         <p class="mcp-config-warning">{t("llm.mcp_config_warning")}</p>
                     </Collapsible>
                 </>

@@ -71,9 +71,11 @@ function ServerConfigHint({ configKey, envVar }: { configKey: string; envVar: st
     return (
         <Collapsible title={t("security.how_to_enable")}>
             <p>{t("security.server_config_hint")}</p>
-            <CodeBlock code={`[Security]\n${configKey}=true`} />
+            {/* `text/x-toml` is Trilium's entry for INI-family files — it is backed by
+                highlight.js's `ini` grammar, which is what config.ini actually is. */}
+            <CodeBlock mimeType="text/x-toml" code={`[Security]\n${configKey}=true`} />
             <p>{t("security.server_env_hint")}</p>
-            <CodeBlock code={`${envVar}=true`} />
+            <CodeBlock mimeType="text/x-sh" code={`${envVar}=true`} />
         </Collapsible>
     );
 }
