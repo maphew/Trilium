@@ -198,6 +198,48 @@ describe("importSelection (real DB)", () => {
         expect(content).toContain(`href="#root/${badNote?.noteId}"`);
     });
 
+    it("skips a section whose pages can't be listed, imports the rest, and reports the skip", async () => {
+        // One section's page list fails (e.g. it's encrypted/password-protected); the other succeeds.
+        graphMock.listPages.mockImplementation(async (_token, sectionId) => {
+            if (sectionId === "sec-locked") {
+                throw new Error("Microsoft Graph request failed (HTTP 403: 20185: Encrypted sections are not accessible.)");
+            }
+            return [{ id: "1-ok", title: "Readable Page", level: 0 }];
+        });
+        graphMock.getPageContent.mockResolvedValue({ html: "<p>hi</p>", inkml: "" });
+
+        const parent = cls.init(() => noteService.createNewNote({
+            parentNoteId: "root",
+            title: "skip parent",
+            content: "",
+            type: "text",
+            mime: "text/html"
+        }).note);
+
+        await cls.init(() => importSelection({
+            getAccessToken: () => Promise.resolve("token"),
+            parentNoteId: parent.noteId,
+            sections: [
+                { id: "sec-locked", title: "Locked Section", groupPath: [], notebookId: "nb-skip", notebookTitle: "Skip Notebook" },
+                { id: "sec-open", title: "Open Section", groupPath: [], notebookId: "nb-skip", notebookTitle: "Skip Notebook" }
+            ],
+            taskId: "task-skip"
+        }));
+
+        // The readable section still imports: one bad section must not abort the whole import.
+        expect(Object.values(becca.notes).find((note) => note.title === "Readable Page")).toBeDefined();
+        expect(Object.values(becca.notes).find((note) => note.title === "Open Section")).toBeDefined();
+        // The locked section is skipped entirely — no section note, no placeholder.
+        expect(Object.values(becca.notes).find((note) => note.title === "Locked Section")).toBeUndefined();
+
+        // The report records the skip (imported/total section count + a dedicated table) and surfaces
+        // the Graph error verbatim so the user can see why.
+        const content = parent.getChildNotes()[0]?.getContent() as string;
+        expect(content).toContain('<tr><th scope="row">Sections imported</th><td>1/2</td></tr>');
+        expect(content).toContain("Sections that could not be imported");
+        expect(content).toContain("Encrypted sections are not accessible.");
+    });
+
     it("preserves the OneNote page order even when #newNotesOnTop is inherited onto the target", async () => {
         graphMock.listPages.mockResolvedValue([
             { id: "1-ord-a", title: "Order Page A", level: 0 },

@@ -15,7 +15,7 @@ import converter, { ONENOTE_ATTACHMENT_CLASS } from "./converter.js";
 import graph, { type AccessTokenProvider, type OneNotePage, sanitizeGraphUrl } from "./graph.js";
 import { inkmlToSvg } from "./inkml.js";
 import { type LinkTarget, rewritePageLinks } from "./links.js";
-import { type FailedPageReport, type ImportReportData, renderImportReport } from "./report.js";
+import { type FailedPageReport, type FailedSectionReport, type ImportReportData, renderImportReport } from "./report.js";
 
 interface FetchedPage {
     /**
@@ -105,8 +105,19 @@ export async function importSelection({ getAccessToken, parentNoteId, sections, 
         // Enumerate every selected section's pages up front so the total page count is known before
         // any content is fetched — this lets the client show a real progress bar rather than a bare count.
         const sectionPages: { section: OneNoteSectionSelection; pages: OneNotePage[] }[] = [];
+        const failedSections: FailedSectionReport[] = [];
         for (const section of sections) {
-            sectionPages.push({ section, pages: await graph.listPages(getAccessToken, section.id) });
+            // A section whose page list can't be fetched is skipped rather than aborting the whole
+            // import: the remaining sections still import, and the skipped section is recorded in the
+            // import report. This covers e.g. encrypted/password-protected sections — which Graph
+            // rejects outright — as well as any other per-section Graph failure.
+            try {
+                sectionPages.push({ section, pages: await graph.listPages(getAccessToken, section.id) });
+            } catch (e: unknown) {
+                const message = e instanceof Error ? e.message : String(e);
+                getLog().error(`OneNote import: could not list the pages of section '${section.title}' (${section.id}); skipping the section: ${message}`);
+                failedSections.push({ title: section.title, notebookTitle: section.notebookTitle, error: message });
+            }
         }
         taskContext.setTotalCount(sectionPages.reduce((total, entry) => total + entry.pages.length, 0));
 
@@ -162,7 +173,7 @@ export async function importSelection({ getAccessToken, parentNoteId, sections, 
         }
 
         // Phase 2: create the note tree.
-        const rootNoteId = sql.transactional(() => createNotes(parentNoteId, fetched, debug, shrinkImages, startedAtMs));
+        const rootNoteId = sql.transactional(() => createNotes(parentNoteId, fetched, failedSections, debug, shrinkImages, startedAtMs));
 
         taskContext.taskSucceeded({ parentNoteId, importedNoteId: rootNoteId });
     } catch (e: unknown) {
@@ -177,7 +188,7 @@ function buildPlaceholderPage(page: OneNotePage, error: string): FetchedPage {
     return { id: page.id, title: page.title, level: page.level, pageId: page.pageId, html: "", rawHtml: "", rawInkml: "", inkSvg: null, resources: [], failedResourceCount: 0, fetchError: error, createdDateTime: page.createdDateTime, lastModifiedDateTime: page.lastModifiedDateTime };
 }
 
-function createNotes(parentNoteId: string, sections: FetchedSection[], debug: boolean, shrinkImages: boolean, startedAtMs: number): string {
+function createNotes(parentNoteId: string, sections: FetchedSection[], failedSections: FailedSectionReport[], debug: boolean, shrinkImages: boolean, startedAtMs: number): string {
     const parentNote = becca.getNoteOrThrow(parentNoteId);
     const isProtected = parentNote.isProtected && protectedSession.isProtectedSessionAvailable();
 
@@ -335,6 +346,7 @@ function createNotes(parentNoteId: string, sections: FetchedSection[], debug: bo
         unresolvedLinkCount,
         throttledRequestCount: throttleStats.requestCount,
         throttleWaitMs: throttleStats.waitMs,
+        failedSections,
         failedPages,
         failedResources: allPages
             .filter(({ page }) => page.failedResourceCount > 0)

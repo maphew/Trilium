@@ -16,6 +16,17 @@ export interface FailedPageReport {
     error: string;
 }
 
+/**
+ * A section whose page list could not be fetched, so the whole section was skipped (no notes created
+ * for it). Unlike a failed page there is no placeholder note to link to — the section left no trace in
+ * the tree — so only its title, notebook (for disambiguation) and the error are recorded.
+ */
+export interface FailedSectionReport {
+    title: string;
+    notebookTitle: string;
+    error: string;
+}
+
 /** A page for which one or more image/attachment downloads failed (the page itself was imported). */
 export interface FailedResourceReport {
     pageTitle: string;
@@ -42,12 +53,22 @@ export interface ImportReportData {
     throttleWaitMs: number;
     failedPages: FailedPageReport[];
     failedResources: FailedResourceReport[];
+    /** Sections skipped entirely because their page list could not be fetched. */
+    failedSections: FailedSectionReport[];
 }
 
 export function renderImportReport(data: ImportReportData): string {
     const parts: string[] = [];
 
     parts.push(renderSummaryTable(data));
+
+    if (data.failedSections.length > 0) {
+        const rows = data.failedSections.map((section) =>
+            `<tr><td>${utils.escapeHtml(section.title)}</td><td>${utils.escapeHtml(section.notebookTitle)}</td><td>${utils.escapeHtml(section.error)}</td></tr>`);
+        parts.push(`<h2>${t("onenote_import.report.skipped-sections-title")}</h2>`
+            + `<figure class="table"><table><thead><tr><th>${t("onenote_import.report.skipped-sections-section")}</th><th>${t("onenote_import.report.skipped-sections-notebook")}</th><th>${t("onenote_import.report.skipped-sections-error")}</th></tr></thead>`
+            + `<tbody>${rows.join("")}</tbody></table></figure>`);
+    }
 
     if (data.failedPages.length > 0) {
         const rows = data.failedPages.map((page) =>
@@ -79,7 +100,7 @@ function renderSummaryTable(data: ImportReportData): string {
     const rows: [string, string | number][] = [
         [t("onenote_import.report.row-pages"), `${data.importedPageCount}/${totalPageCount} (${successPercent}%)`],
         [t("onenote_import.report.row-notebooks"), data.notebookCount],
-        [t("onenote_import.report.row-sections"), data.sectionCount],
+        [t("onenote_import.report.row-sections"), data.failedSections.length > 0 ? `${data.sectionCount}/${data.sectionCount + data.failedSections.length}` : data.sectionCount],
         [t("onenote_import.report.row-duration"), formatDuration(data.durationMs)]
     ];
     if (data.imageCount > 0) {
