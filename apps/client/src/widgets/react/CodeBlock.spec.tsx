@@ -87,10 +87,16 @@ describe("CodeBlock", () => {
     });
 
     it("re-marks the placeholder after highlighting rebuilds the subtree", async () => {
-        // The real highlighter replaces innerHTML, wiping the marks added on first paint.
+        // The real highlighter rebuilds the subtree, wiping the marks added on first paint.
+        // Built through the DOM rather than by assigning innerHTML: the wipe is what this
+        // test needs, and reinterpreting the element's own text as markup would be both
+        // pointless here and the shape of an XSS sink.
         applySingleBlockSyntaxHighlight.mockImplementationOnce(async (codeBlock: unknown) => {
             const element = codeBlock as HTMLElement;
-            element.innerHTML = `<span class="hljs-string">${element.textContent}</span>`;
+            const token = document.createElement("span");
+            token.className = "hljs-string";
+            token.textContent = element.textContent;
+            element.replaceChildren(token);
         });
 
         render(<CodeBlock code={'"Bearer TOKEN"'} mimeType="application/json" placeholder="TOKEN" />, container);
