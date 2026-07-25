@@ -331,6 +331,7 @@
   "onenote_import": {
     "root-title": "OneNote import",
     "failed-page-placeholder": "This page could not be imported from OneNote. Error: {{error}}",
+    "failed-section-placeholder": "This section could not be imported from OneNote, so it was created empty. This often means the section is password-protected — unlock it in OneNote and import again. Error: {{error}}",
     "report": {
       "row-pages": "Pages imported successfully",
       "row-notebooks": "Notebooks imported",

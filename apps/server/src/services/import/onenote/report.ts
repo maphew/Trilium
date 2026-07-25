@@ -17,13 +17,13 @@ export interface FailedPageReport {
 }
 
 /**
- * A section whose page list could not be fetched, so the whole section was skipped (no notes created
- * for it). Unlike a failed page there is no placeholder note to link to — the section left no trace in
- * the tree — so only its title, notebook (for disambiguation) and the error are recorded.
+ * A section whose page list could not be fetched; `noteId` is the empty placeholder folder created in
+ * its stead. The notebook title is kept for disambiguation when several notebooks share a section name.
  */
 export interface FailedSectionReport {
     title: string;
     notebookTitle: string;
+    noteId: string;
     error: string;
 }
 
@@ -64,7 +64,7 @@ export function renderImportReport(data: ImportReportData): string {
 
     if (data.failedSections.length > 0) {
         const rows = data.failedSections.map((section) =>
-            `<tr><td>${utils.escapeHtml(section.title)}</td><td>${utils.escapeHtml(section.notebookTitle)}</td><td>${utils.escapeHtml(section.error)}</td></tr>`);
+            `<tr><td>${noteLink(section.noteId, section.title)}</td><td>${utils.escapeHtml(section.notebookTitle)}</td><td>${utils.escapeHtml(section.error)}</td></tr>`);
         parts.push(`<h2>${t("onenote_import.report.skipped-sections-title")}</h2>`
             + `<figure class="table"><table><thead><tr><th>${t("onenote_import.report.skipped-sections-section")}</th><th>${t("onenote_import.report.skipped-sections-notebook")}</th><th>${t("onenote_import.report.skipped-sections-error")}</th></tr></thead>`
             + `<tbody>${rows.join("")}</tbody></table></figure>`);

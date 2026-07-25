@@ -198,8 +198,10 @@ describe("importSelection (real DB)", () => {
         expect(content).toContain(`href="#root/${badNote?.noteId}"`);
     });
 
-    it("skips a section whose pages can't be listed, imports the rest, and reports the skip", async () => {
-        // One section's page list fails (e.g. it's encrypted/password-protected); the other succeeds.
+    it("imports a placeholder folder for a section whose pages can't be listed, keeping order and the rest", async () => {
+        // The first (locked) section's page list fails, e.g. it's encrypted/password-protected; the
+        // second succeeds. The locked section is ordered first to prove it doesn't abort the rest and
+        // that its placeholder keeps its position.
         graphMock.listPages.mockImplementation(async (_token, sectionId) => {
             if (sectionId === "sec-locked") {
                 throw new Error("Microsoft Graph request failed (HTTP 403: 20185: Encrypted sections are not accessible.)");
@@ -228,15 +230,32 @@ describe("importSelection (real DB)", () => {
 
         // The readable section still imports: one bad section must not abort the whole import.
         expect(Object.values(becca.notes).find((note) => note.title === "Readable Page")).toBeDefined();
-        expect(Object.values(becca.notes).find((note) => note.title === "Open Section")).toBeDefined();
-        // The locked section is skipped entirely — no section note, no placeholder.
-        expect(Object.values(becca.notes).find((note) => note.title === "Locked Section")).toBeUndefined();
 
-        // The report records the skip (imported/total section count + a dedicated table) and surfaces
-        // the Graph error verbatim so the user can see why.
+        // The locked section becomes an empty placeholder folder: self-explaining, labeled, and keeping
+        // the section id so a later retry pass can re-fetch it.
+        const lockedNote = Object.values(becca.notes).find((note) => note.title === "Locked Section");
+        expect(lockedNote?.hasOwnedLabel("oneNoteImportFailed")).toBe(true);
+        expect(lockedNote?.getOwnedLabelValue("oneNoteSectionId")).toBe("sec-locked");
+        expect(lockedNote?.getContent()).toContain("could not be imported");
+        expect(lockedNote?.getContent()).toContain("Encrypted sections are not accessible.");
+        expect(lockedNote?.getChildNotes()).toHaveLength(0);
+
+        // Order is preserved: both sections share a notebook folder, and the locked placeholder keeps
+        // its selected position ahead of the readable section.
+        const notebookNote = lockedNote?.getParentNotes()[0];
+        const orderedSectionTitles = notebookNote
+            ?.getChildBranches()
+            .slice()
+            .sort((a, b) => a.notePosition - b.notePosition)
+            .map((branch) => branch.getNote().title);
+        expect(orderedSectionTitles).toEqual(["Locked Section", "Open Section"]);
+
+        // The report records it (imported/total section count + a dedicated table linking to the
+        // placeholder) and surfaces the Graph error verbatim.
         const content = parent.getChildNotes()[0]?.getContent() as string;
         expect(content).toContain('<tr><th scope="row">Sections imported</th><td>1/2</td></tr>');
         expect(content).toContain("Sections that could not be imported");
+        expect(content).toContain(`href="#root/${lockedNote?.noteId}"`);
         expect(content).toContain("Encrypted sections are not accessible.");
     });
 
