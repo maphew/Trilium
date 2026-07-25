@@ -76,6 +76,31 @@ describe("CodeBlock", () => {
         expect(container.querySelector("pre")?.classList.contains("hljs")).toBe(true);
     });
 
+    it("marks every occurrence of the placeholder without altering the code", () => {
+        render(<CodeBlock code={"a TOKEN b TOKEN c"} placeholder="TOKEN" />, container);
+
+        const marks = container.querySelectorAll(".code-block-placeholder");
+        expect(marks.length).toBe(2);
+        expect([...marks].map((m) => m.textContent)).toEqual(["TOKEN", "TOKEN"]);
+        // Marking is purely decorative — what gets copied must still be the original.
+        expect(container.querySelector("code")?.textContent).toBe("a TOKEN b TOKEN c");
+    });
+
+    it("re-marks the placeholder after highlighting rebuilds the subtree", async () => {
+        // The real highlighter replaces innerHTML, wiping the marks added on first paint.
+        applySingleBlockSyntaxHighlight.mockImplementationOnce(async (codeBlock: unknown) => {
+            const element = codeBlock as HTMLElement;
+            element.innerHTML = `<span class="hljs-string">${element.textContent}</span>`;
+        });
+
+        render(<CodeBlock code={'"Bearer TOKEN"'} mimeType="application/json" placeholder="TOKEN" />, container);
+
+        // Nested inside the token span, which is why the CSS has to outrank hljs colours.
+        await vi.waitFor(() => expect(container.querySelector(".hljs-string > .code-block-placeholder")).not.toBeNull());
+        expect(container.querySelectorAll(".code-block-placeholder").length).toBe(1);
+        expect(container.querySelector("code")?.textContent).toBe('"Bearer TOKEN"');
+    });
+
     it("rewrites the plain text when the code changes", () => {
         render(<CodeBlock code={"first"} />, container);
         expect(container.querySelector("code")?.textContent).toBe("first");

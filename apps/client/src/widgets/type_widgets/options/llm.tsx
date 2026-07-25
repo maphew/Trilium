@@ -134,6 +134,7 @@ function McpSettings() {
     const [mcpEnabled, setMcpEnabled] = useTriliumOptionBool("mcpEnabled");
     const [networkInfo, setNetworkInfo] = useState<NetworkAddressesResponse | null>(null);
     const localUrl = useMemo(() => getMcpEndpointUrl(), []);
+    const tokenPlaceholder = t("llm.mcp_config_token_placeholder");
 
     // The renderer can't enumerate network interfaces itself (Node integration is
     // disabled on desktop), so reuse the endpoint the sync-from-desktop setup screen
@@ -181,9 +182,18 @@ function McpSettings() {
 
                     <Collapsible title={t("llm.mcp_config_title")} initiallyExpanded>
                         <p>{t("llm.mcp_config_description")}</p>
-                        <CodeBlock mimeType="application/json" code={buildMcpClientConfig(localUrl, t("llm.mcp_config_token_placeholder"))} />
+                        <CodeBlock
+                            mimeType="application/json"
+                            code={buildMcpClientConfig(localUrl, tokenPlaceholder)}
+                            placeholder={tokenPlaceholder}
+                        />
                         <p>{t("llm.mcp_config_cli_description")}</p>
-                        <CodeBlock mimeType="text/x-sh" code={buildMcpClientCommand(localUrl, t("llm.mcp_config_token_placeholder"))} wrap />
+                        <CodeBlock
+                            mimeType="text/x-sh"
+                            code={buildMcpClientCommand(localUrl, tokenPlaceholder)}
+                            placeholder={tokenPlaceholder}
+                            wrap
+                        />
                         <p class="mcp-config-warning">{t("llm.mcp_config_warning")}</p>
                     </Collapsible>
                 </>

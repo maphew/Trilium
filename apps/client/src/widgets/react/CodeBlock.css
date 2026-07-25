@@ -29,6 +29,18 @@
     user-select: text;
 }
 
+/* Marks a value the user has to substitute. Two selectors deep so it outranks the
+   highlight.js token colour of whatever string it sits inside. The tint is mixed from
+   currentColor rather than a theme variable because the backdrop here is the hljs theme's,
+   which may be light or dark independently of the rest of the UI. */
+.code-block .code-block-placeholder {
+    padding: 0 0.2em;
+    border-radius: 3px;
+    outline: 1px dashed currentColor;
+    outline-offset: -1px;
+    background-color: color-mix(in srgb, currentColor 12%, transparent);
+}
+
 .code-block.wrap > code {
     white-space: pre-wrap;
     word-break: break-word;
