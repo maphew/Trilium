@@ -138,6 +138,8 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     shadowsEnabled: boolean;
     backdropEffectsEnabled: boolean;
     smoothScrollEnabled: boolean;
+    /** Desktop only: when disabled, Electron starts with GPU hardware acceleration turned off (workaround for GPU driver incompatibilities that cause a blank window). Requires an app restart. */
+    hardwareAccelerationEnabled: boolean;
     codeNoteTheme: string;
     codeNoteThemeMatchesApp: boolean;
     codeNoteThemeLight: string;

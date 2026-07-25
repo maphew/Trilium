@@ -658,6 +658,8 @@ function Performance() {
 
         {isElectron() && <SmoothScrollEnabledOption />}
 
+        {isElectron() && <HardwareAccelerationOption />}
+
     </OptionsSection>;
 }
 
@@ -670,6 +672,18 @@ function SmoothScrollEnabledOption() {
         description={t("ui-performance.app-restart-required")}
         currentValue={smoothScrollEnabled}
         onChange={setSmoothScrollEnabled}
+    />;
+}
+
+function HardwareAccelerationOption() {
+    const [ hardwareAccelerationEnabled, setHardwareAccelerationEnabled ] = useTriliumOptionBool("hardwareAccelerationEnabled");
+
+    return <OptionsRowWithToggle
+        name="hardware-acceleration-enabled"
+        label={t("ui-performance.enable-hardware-acceleration")}
+        description={t("ui-performance.enable-hardware-acceleration-description")}
+        currentValue={hardwareAccelerationEnabled}
+        onChange={setHardwareAccelerationEnabled}
     />;
 }
 

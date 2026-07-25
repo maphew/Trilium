@@ -84,6 +84,7 @@ const ALLOWED_OPTIONS = new Set<OptionNames>([
     "motionEnabled",
     "shadowsEnabled",
     "smoothScrollEnabled",
+    "hardwareAccelerationEnabled",
     "backdropEffectsEnabled",
     "maxContentWidth",
     "centerContent",

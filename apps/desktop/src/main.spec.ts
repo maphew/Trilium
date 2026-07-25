@@ -53,6 +53,8 @@ const h = vi.hoisted(() => ({
     isPrimaryInstance: true as boolean,
     allWindows: [] as unknown[],
     smoothScroll: "true" as string | null,
+    hardwareAcceleration: "true" as string | null,
+    disableHardwareAcceleration: vi.fn(),
     // When true, reading an option throws (simulates first run before the schema exists).
     dbUninitialized: false as boolean,
     isDbInitialized: true as boolean,
@@ -91,6 +93,7 @@ vi.mock("electron", () => {
         setName: (...a: unknown[]) => h.setName(...a),
         setUserTasks: (...a: unknown[]) => h.setUserTasks(...a),
         commandLine: { appendSwitch: (...a: unknown[]) => h.appendSwitch(...a) },
+        disableHardwareAcceleration: (...a: unknown[]) => h.disableHardwareAcceleration(...a),
         on: (event: string, cb: Handler) => h.appOn.set(event, cb),
         quit: (...a: unknown[]) => h.quit(...a),
         exit: (...a: unknown[]) => h.exit(...a),
@@ -183,6 +186,7 @@ vi.mock("@triliumnext/server/src/sql_provider.js", () => ({
             if (h.dbUninitialized) throw new Error("no such table: options");
             const values: Record<string, string | null> = {
                 smoothScrollEnabled: h.smoothScroll,
+                hardwareAccelerationEnabled: h.hardwareAcceleration,
                 locale: h.locale,
                 formattingLocale: h.formattingLocale
             };
@@ -264,6 +268,8 @@ function resetState() {
     h.isPrimaryInstance = true;
     h.allWindows = [];
     h.smoothScroll = "true";
+    h.hardwareAcceleration = "true";
+    h.disableHardwareAcceleration.mockClear();
     h.dbUninitialized = false;
     h.isDbInitialized = true;
     h.securitySettings = {};
@@ -404,6 +410,28 @@ describe("main() bootstrap", () => {
         await main();
         const switches = h.appendSwitch.mock.calls.map((c) => c[0]);
         expect(switches).not.toContain("disable-smooth-scrolling");
+    });
+
+    // #10572: hardware acceleration is disabled before `ready` from the shared provider
+    // (same reason as smooth-scroll — core options aren't wired up yet).
+    it("disables hardware acceleration when the option is off", async () => {
+        setPlatform("darwin");
+        h.hardwareAcceleration = "false";
+        const { main } = await importMain();
+        await main();
+        expect(h.disableHardwareAcceleration).toHaveBeenCalled();
+    });
+
+    it("keeps hardware acceleration when the option is on, absent, or the DB has no schema yet", async () => {
+        for (const scenario of [{ value: "true" as string | null }, { value: null }, { value: "false" as string | null, uninitialized: true }]) {
+            resetState();
+            setPlatform("darwin");
+            h.hardwareAcceleration = scenario.value;
+            if (scenario.uninitialized) h.dbUninitialized = true;
+            const { main } = await importMain();
+            await main();
+            expect(h.disableHardwareAcceleration).not.toHaveBeenCalled();
+        }
     });
 
     // Regression for #10559 (sibling of the smooth-scroll bug): the --lang switch is set

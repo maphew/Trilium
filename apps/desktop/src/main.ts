@@ -191,6 +191,12 @@ export async function main() {
     if (readDbOption(dbProvider, "smoothScrollEnabled") === "false") {
         app.commandLine.appendSwitch("disable-smooth-scrolling");
     }
+    // Lets users work around GPU driver incompatibilities that render a blank window
+    // (see #10572) without having to pass --disable-gpu on the command line. Like the
+    // switch above, this must run before `ready`.
+    if (readDbOption(dbProvider, "hardwareAccelerationEnabled") === "false") {
+        app.disableHardwareAcceleration();
+    }
 
     // The IPC provider just registers an `ipcMain.on` listener; no TCP socket
     // or session parser needed, so we can init it here (before startTriliumServer).

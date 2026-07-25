@@ -1579,6 +1579,8 @@
     "enable-shadows": "Shadows",
     "enable-backdrop-effects": "Background effects for menus, popups and panels",
     "enable-smooth-scroll": "Smooth scrolling",
+    "enable-hardware-acceleration": "Hardware acceleration (GPU)",
+    "enable-hardware-acceleration-description": "Disable this if the app shows a blank window or has display glitches caused by your GPU drivers. Requires an app restart.",
     "app-restart-required": "Requires app restart"
   },
   "zoom_factor": {
