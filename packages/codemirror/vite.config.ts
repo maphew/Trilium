@@ -31,7 +31,10 @@ export default defineConfig(() => ({
     globals: true,
     environment: 'happy-dom',
     include: ['src/**/*.{test,spec}.{js,mjs,cjs,ts,mts,cts,jsx,tsx}'],
-    reporters: ['default'],
+    reporters: [
+      'default',
+      ['junit', { outputFile: './test-output/vitest/junit.xml', addFileAttribute: true }]
+    ],
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],

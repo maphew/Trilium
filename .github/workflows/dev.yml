@@ -216,8 +216,68 @@ jobs:
           flags: commons
           fail_ci_if_error: false
 
+      - name: Run the codemirror tests
+        run: pnpm run --filter=codemirror test --coverage
+
+      - name: Upload codemirror coverage to Codecov
+        uses: codecov/codecov-action@v7
+        if: always()
+        with:
+          files: packages/codemirror/test-output/vitest/coverage/lcov.info
+          flags: codemirror
+          fail_ci_if_error: false
+
+      - name: Upload codemirror test results to Codecov
+        uses: codecov/test-results-action@v1
+        if: ${{ !cancelled() }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: packages/codemirror/test-output/vitest/junit.xml
+          flags: codemirror
+          fail_ci_if_error: false
+
+      - name: Run the express-partial-content tests
+        run: pnpm run --filter=express-partial-content test --coverage
+
+      - name: Upload express-partial-content coverage to Codecov
+        uses: codecov/codecov-action@v7
+        if: always()
+        with:
+          files: packages/express-partial-content/test-output/vitest/coverage/lcov.info
+          flags: express-partial-content
+          fail_ci_if_error: false
+
+      - name: Upload express-partial-content test results to Codecov
+        uses: codecov/test-results-action@v1
+        if: ${{ !cancelled() }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: packages/express-partial-content/test-output/vitest/junit.xml
+          flags: express-partial-content
+          fail_ci_if_error: false
+
+      - name: Run the highlightjs tests
+        run: pnpm run --filter=highlightjs test --coverage
+
+      - name: Upload highlightjs coverage to Codecov
+        uses: codecov/codecov-action@v7
+        if: always()
+        with:
+          files: packages/highlightjs/test-output/vitest/coverage/lcov.info
+          flags: highlightjs
+          fail_ci_if_error: false
+
+      - name: Upload highlightjs test results to Codecov
+        uses: codecov/test-results-action@v1
+        if: ${{ !cancelled() }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: packages/highlightjs/test-output/vitest/junit.xml
+          flags: highlightjs
+          fail_ci_if_error: false
+
       - name: Run the rest of the tests
-        run: pnpm run --filter=\!client --filter=\!standalone --filter=\!server --filter=\!desktop --filter=\!commons --filter=\!ckeditor5-mermaid --filter=\!ckeditor5-math --filter=\!ckeditor5 --filter=\!ckeditor5-utils test
+        run: pnpm run --filter=\!client --filter=\!standalone --filter=\!server --filter=\!desktop --filter=\!commons --filter=\!ckeditor5-mermaid --filter=\!ckeditor5-math --filter=\!ckeditor5 --filter=\!ckeditor5-utils --filter=\!codemirror --filter=\!express-partial-content --filter=\!highlightjs test
 
   build_docker:
     name: Build Docker image

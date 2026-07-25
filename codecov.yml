@@ -45,6 +45,22 @@ flags:
     paths:
       - packages/ckeditor5/src/
     carryforward: true
+  ckeditor5-utils:
+    paths:
+      - packages/ckeditor5-utils/src/
+    carryforward: true
+  codemirror:
+    paths:
+      - packages/codemirror/src/
+    carryforward: true
+  express-partial-content:
+    paths:
+      - packages/express-partial-content/src/
+    carryforward: true
+  highlightjs:
+    paths:
+      - packages/highlightjs/src/
+    carryforward: true
 
 comment:
   layout: "condensed_header, condensed_files, condensed_footer"
