@@ -36,14 +36,14 @@
         # When bumping Electron, refresh these hashes:
         #   zips:    curl -sL https://github.com/electron/electron/releases/download/v<version>/SHASUMS256.txt
         #   headers: nix-prefetch-url --unpack https://artifacts.electronjs.org/headers/dist/v<version>/node-v<version>-headers.tar.gz
-        pinnedElectronVersion = "42.7.0";
+        pinnedElectronVersion = "42.7.1";
         pinnedElectronHashes = {
-          x86_64-linux = "18f889e05b4879d4b1faaabcae2e6bcfdb62c0884b4ab49b3049b82b849b26e8";
-          armv7l-linux = "8f2c2c6f50048567ecfae57e22e52afa9ff2c1a85420eb73421fbccd1088c21a";
-          aarch64-linux = "65cb5b9eff4e6435dec006fc78b95498971f7edb78365b2ce1ed5c44767a9085";
-          x86_64-darwin = "0db6f623fccabafe797bc3c9c8776707c4c87b40ffad6a46134536aa84b32c94";
-          aarch64-darwin = "1bdf5c042e0282e59784264cb29bb3341b1a17d4d14de591a834afb714ce8f63";
-          headers = "05ay892md7p872aii3kykl97nl082wmnnlb3hm2mwxpwwi0amzf1";
+          x86_64-linux = "e85b28245deaa75c3c4f2cf5da084f4c7fbedd5af1630c59a827c41ac1f5e1af";
+          armv7l-linux = "32d446a7a8f1f430c2030a1b2cd4220e52f95d24a607db28539b00ac6141c1d5";
+          aarch64-linux = "ba1f8055a6b601e9cd771a7c750ed37b912c486a51f51e58654ed9414bc898ba";
+          x86_64-darwin = "a2f361b66b24b694715b057a9d4ba8c30457ce994e19acd9185c131539bc8900";
+          aarch64-darwin = "13b7c3782ac73ba64410542410a2d06f022c515730e97c5149aff2190a6c8e80";
+          headers = "1aidb6q7hfz0569qm8ah77dgw2zzp157ls1kbs0ylsifgvxc0zkd";
         };
         mkElectronBin = pkgs.callPackage (
           pkgs.path + "/pkgs/development/tools/electron/binary/generic.nix"
