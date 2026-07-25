@@ -94,6 +94,21 @@ body {
     --mobile-bottom-offset: env(safe-area-inset-bottom);
 }
 
+/*
+ * Height of the Window Controls Overlay. Chromium centres the caption buttons within it, so this
+ * is the only way to shift them vertically -- there is no x/y equivalent to macOS'
+ * setWindowButtonPosition(). Set it to twice the centre line of the tab bar's own buttons so the
+ * two line up; themes that place those buttons differently (see theme-next) need their own value.
+ *
+ * Scoped to Linux on purpose. Windows also supports the overlay, but leaving the variable unset
+ * there keeps Chromium's system caption height, whose taller hover fills would otherwise spill
+ * past the tab bar. Dropping the scope is fine once the result has actually been looked at on
+ * Windows.
+ */
+body.platform-linux {
+    --native-titlebar-height: 40;
+}
+
 body.ios {
     --mobile-bottom-offset: calc(env(safe-area-inset-bottom) * 0.25);
 }
@@ -2180,16 +2195,30 @@ body.electron.platform-darwin:not(.native-titlebar) .tab-row-container {
 }
 
 #tab-row-left-spacer {
-    width: env(titlebar-area-x);
     -webkit-app-region: drag;
+}
+
+/*
+ * Only macOS reserves the traffic lights' room with this spacer; every other platform uses the
+ * container padding below, which handles controls on either side. Keeping the spacer at zero
+ * elsewhere avoids reserving `titlebar-area-x` twice on a Linux desktop with left-hand controls.
+ */
+body.electron.platform-darwin #tab-row-left-spacer {
+    width: env(titlebar-area-x);
 }
 
 body.electron.platform-darwin:not(.native-titlebar):not(.full-screen) #tab-row-left-spacer {
     width: 80px;
 }
 
+/*
+ * Keep the tab bar clear of the Window Controls Overlay. On Windows the controls are always on
+ * the right, but on Linux their side follows the desktop's decoration layout (GNOME's
+ * `button-layout`), so reserve space on whichever side(s) Chromium actually took.
+ */
 body.electron:not(.platform-darwin) .tab-row-container {
-    padding-inline-end: calc(100vw - env(titlebar-area-width, 100vw));
+    padding-inline-start: env(titlebar-area-x, 0px);
+    padding-inline-end: calc(100vw - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100vw));
 }
 
 .tab-row-container .toggle-button {

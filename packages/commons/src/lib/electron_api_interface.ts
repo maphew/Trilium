@@ -76,10 +76,11 @@ export interface ElectronWindowApi {
     // #region Title bar
 
     /**
-     * Customizes the colors of the Windows native title bar overlay
-     * (the area containing the minimize / maximize / close buttons).
+     * Customizes the Windows and Linux native title bar overlay (the area containing the
+     * minimize / maximize / close buttons). `height` also controls their vertical placement,
+     * since the buttons are centred within the overlay.
      */
-    setTitleBarOverlay(options: { color: string; symbolColor: string }): void;
+    setTitleBarOverlay(options: { color: string; symbolColor: string; height?: number }): void;
 
     /**
      * Repositions the macOS traffic-light window buttons.
