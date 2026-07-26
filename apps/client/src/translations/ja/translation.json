@@ -45,7 +45,7 @@
     },
     "widget-missing-parent": "カスタムウィジェットに必須の '{{property}}' プロパティが定義されていません。\n\nこのスクリプトを UI 要素なしで実行する場合は、代わりに '#run=frontendStartup' を使用してください。",
     "open-script-note": "スクリプトノートを開く",
-    "scripting-error": "カスタムスクリプトエラー: {{title}}"
+    "scripting-error": "スクリプトノートの実行に失敗しました"
   },
   "add_link": {
     "add_link": "リンクを追加",
@@ -1566,7 +1566,9 @@
     "slash_commands_description": "改行や見出しの挿入などの編集コマンドは \"/\" を入力して切り替えることができます。",
     "title": "機能",
     "content_hints_enabled": "コンテンツのヒント",
-    "content_hints_description": "エディターの右下隅に、カーソルまたはポインターの下にある要素の操作方法を説明する短いヒントを表示します。"
+    "content_hints_description": "エディターの右下隅に、カーソルまたはポインターの下にある要素の操作方法を説明する短いヒントを表示します。",
+    "auto_link_previews_enabled": "リンクプレビューを自動生成",
+    "auto_link_previews_description": "検出されたリンクを、ウェブページのタイトル、説明、画像を表示するプレビューに自動的に変換します。ツールバーからプレビューを挿入する操作は、この設定にかかわらず常に機能します。"
   },
   "table_context_menu": {
     "delete_row": "行を削除"
@@ -1900,7 +1902,9 @@
     "enable-backdrop-effects": "メニュー、ポップアップ、パネルの背景効果",
     "title": "パフォーマンス",
     "enable-smooth-scroll": "スムーズスクロール",
-    "app-restart-required": "アプリの再起動が必要です"
+    "app-restart-required": "アプリの再起動が必要です",
+    "enable-hardware-acceleration": "ハードウェアアクセラレーション (GPU)",
+    "enable-hardware-acceleration-description": "GPUドライバーに起因してアプリのウィンドウが真っ白になったり、表示の不具合が生じたりする場合は、この設定を無効にしてください。設定の反映にはアプリの再起動が必要です。"
   },
   "code_mime_types": {
     "title": "ドロップダウンで利用可能なMIMEタイプ",
@@ -2014,7 +2018,12 @@
   },
   "frontend_script_api": {
     "async_warning": "`api.runOnBackend()` に非同期関数を渡していますが、これは意図したとおりに動作しない可能性があります。\\n関数を同期させる(`async` キーワードを削除する)か、`api.runAsyncOnBackendWithManualTransactionHandling()` を使用してください。",
-    "sync_warning": "`api.runAsyncOnBackendWithManualTransactionHandling()` に同期関数を渡していますが、\\n代わりに `api.runOnBackend()` を使用する必要がある可能性があります。"
+    "sync_warning": "`api.runAsyncOnBackendWithManualTransactionHandling()` に同期関数を渡していますが、\\n代わりに `api.runOnBackend()` を使用する必要がある可能性があります。",
+    "backend_scripting_disabled_title": "バックエンドスクリプトは無効になっています",
+    "backend_scripting_disabled_message": "スクリプトがサーバー上でコードを実行しようとしましたが、セキュリティ上の理由により、バックエンドスクリプト機能は無効になっています。このスクリプトを信頼できる場合は、オプション → セキュリティ で有効にしてください。",
+    "backend_scripting_disabled_notes_heading": "バックエンドコードを実行を試みたスクリプト:",
+    "backend_scripting_disabled_open_settings": "セキュリティ設定を開く",
+    "backend_scripting_disabled_more_info": "詳細情報"
   },
   "ws": {
     "sync-check-failed": "同期チェックに失敗しました！",
@@ -2231,7 +2240,8 @@
     "oauth_disconnected": "{{provider}} から {{account}} の接続を解除しました。",
     "oauth_connect_success": "{{account}} として {{provider}} に接続しました。",
     "oauth_connect_success_generic": "アカウントの接続に成功しました。",
-    "oauth_account_unknown": "あなたのアカウント"
+    "oauth_account_unknown": "あなたのアカウント",
+    "oauth_connect_failed": "OpenID プロバイダーに接続できませんでした"
   },
   "note-map": {
     "button-link-map": "リンクマップ",
@@ -2395,7 +2405,10 @@
     "setup_create_sample_html": "HTML でサンプルノートを作成",
     "setup_sample_created": "子ノートとしてサンプルノートが作成されました。",
     "disabled_description": "このレンダリングノートは外部ソースから提供されています。悪意のあるコンテンツからユーザーを保護するため、デフォルトでは有効になっていません。有効にする前に、ソースが信頼できるかどうかをご確認ください。",
-    "disabled_button_enable": "レンダリングノートを有効"
+    "disabled_button_enable": "レンダリングノートを有効",
+    "error_title": "スクリプトの実行に失敗しました",
+    "error_show_details": "詳細を表示",
+    "error_note_label": "スクリプトノート:"
   },
   "active_content_badges": {
     "type_icon_pack": "アイコンパック",
@@ -2426,16 +2439,16 @@
     "more_info": "さらに詳しく"
   },
   "media": {
-    "play": "再生 (スペース)",
-    "pause": "一時停止 (スペース)",
-    "back-10s": "10 秒戻る (左矢印キー)",
-    "mute": "ミュート (M)",
-    "unmute": "ミュート解除 (M)",
+    "play": "再生",
+    "pause": "一時停止",
+    "back-10s": "10 秒戻る",
+    "mute": "ミュート",
+    "unmute": "ミュート解除",
     "playback-speed": "再生速度",
     "rotate": "回転",
     "picture-in-picture": "ピクチャーインピクチャー",
     "exit-picture-in-picture": "ピクチャーインピクチャーを終了",
-    "fullscreen": "全画面表示 (F)",
+    "fullscreen": "全画面表示",
     "exit-fullscreen": "全画面表示を終了",
     "unsupported-format": "このファイル形式ではメディアプレビューはご利用いただけません:\n{{mime}}",
     "zoom-to-fit": "ズームして全体を表示",
@@ -2448,9 +2461,22 @@
     "play-mode-once": "1回再生",
     "play-mode-loop": "ループ",
     "play-mode-next": "次を再生",
-    "seek": "シーク（左右矢印キー）",
-    "forward-10s": "10 秒進む (右矢印キー)",
-    "activate": "{{- title}} を再生"
+    "seek": "シーク",
+    "forward-10s": "10 秒進む",
+    "activate": "{{- title}} を再生",
+    "hints": {
+      "playback": "再生",
+      "play_pause": "再生/一時停止",
+      "back_10s": "10 秒戻る",
+      "forward_10s": "10 秒進む",
+      "jump_start": "先頭へ移動",
+      "jump_end": "最後へ移動",
+      "mute": "ミュート",
+      "fullscreen": "全画面表示",
+      "navigation": "ナビゲーション",
+      "previous": "前へ",
+      "next": "次へ"
+    }
   },
   "mermaid": {
     "placeholder": "マーメイド図の内容を入力するか、以下のサンプル図のいずれかを使用してください。",
@@ -2544,7 +2570,12 @@
     "save_note_failed": "メッセージからノートを作成できませんでした。",
     "regenerate": "再生成",
     "delete_message": "メッセージを削除",
-    "delete_message_confirm": "このメッセージを削除しますか？この操作は取り消せません。"
+    "delete_message_confirm": "このメッセージを削除しますか？この操作は取り消せません。",
+    "model_cost_included": "サブスクリプション",
+    "no_models_selected": "モデルが選択されていません — 鉛筆アイコンをクリックして選択してください",
+    "no_model_selected": "モデルを選択",
+    "edit_models": "モデルを編集",
+    "free": "フリー"
   },
   "sidebar_chat": {
     "title": "AI チャット",
@@ -2619,13 +2650,49 @@
       "clone_note": "ノートをクローン",
       "set_note_content": "ノートを書き直す",
       "edit_note_content": "ノートを編集",
-      "search_icons": "アイコンを検索"
+      "search_icons": "アイコンを検索",
+      "search_help": "ユーザーガイドを検索",
+      "get_help_toc": "ユーザーガイドの目次を取得"
     },
     "base_url": "ベース URL",
-    "base_url_description": "オプション。デフォルトの API エンドポイントを上書きします — これは、セルフホスト型モデル（Ollama、LM Studio、vLLM）やプロキシを使用する場合に便利です。",
+    "base_url_description": "オプション。プロキシやゲートウェイ経由で同じ API に接続します。モデルを自前で実行したい場合は、代わりに Ollama または LM Studio のプロバイダーを追加してください。",
     "base_url_invalid": "ベース URL は、有効な http:// または https:// 形式の URL である必要があります",
     "not_available_in_standalone": "LLM プロバイダーがブラウザからの直接アクセスを許可していないため、AI/LLM 機能は Trilium のスタンドアロン版では利用できません。",
-    "disabled_placeholder": "AI 機能が無効になっています。有効にすると、プロバイダーや MCP の設定ができるようになります。"
+    "disabled_placeholder": "AI 機能が無効になっています。有効にすると、プロバイダーや MCP の設定ができるようになります。",
+    "edit_provider_title": "{{- name}} を編集",
+    "edit_provider": "編集",
+    "save": "保存",
+    "select_models": "モデルを選択",
+    "models_loading": "モデルを読み込み中…",
+    "models_load_failed": "モデルを読み込めませんでした: {{error}}",
+    "models_none_available": "このプロバイダーからはモデルが返されませんでした。",
+    "models_selected_count": "{{total}} 件中 {{count}} 件を選択",
+    "model_cost_per_mtok": "100万トークンあたり ${{input}} / ${{output}}",
+    "models_select_all": "すべて選択",
+    "models_select_none": "すべて選択解除",
+    "models_reset_defaults": "デフォルトにリセット",
+    "provider_model_count_other": "{{count}} モデル",
+    "beta": "ベータ",
+    "provider_desc_claude_agent": "Trilium を実行しているマシンに Claude Code がインストールされている必要があります。",
+    "claude_agent_description": "Claude Code 経由で Claude Pro/Max のサブスクリプションを利用するため、API キーは不要です。Trilium を実行しているマシン（セルフホストの場合はサーバー、デスクトップ版の場合はこのコンピュータ）に Claude Code をインストールし、そこで \"claude /login\" を実行して一度サインインしておく必要があります。",
+    "add_provider_title_named": "{{- name}} を追加",
+    "provider_group_cloud": "クラウドプロバイダー",
+    "provider_group_cloud_description": "API キーを使用した従量課金制で、既存のサブスクリプションとは別に請求されます。ノートはプロバイダーのサーバーに送信されます。",
+    "provider_group_subscription": "サブスクリプション",
+    "provider_group_subscription_description": "すでに契約されているサブスクリプションを利用するため、追加費用はかかりません。ノートはプロバイダーのサーバーに送信されます。",
+    "provider_group_local": "ローカル / セルフホスト",
+    "provider_group_local_description": "API キーや利用料は不要です。ノートはモデルを実行しているマシン内でのみ処理されます。",
+    "provider_group_custom": "カスタムエンドポイント",
+    "provider_group_custom_description": "OpenAI 互換の API であれば、ローカル環境かホスト型サービス（OpenRouter、Groq、Mistral など）を問わず利用可能です。コストやプライバシーは、どのサービスを利用するかによって異なります。",
+    "provider_openai_compatible": "OpenAI 互換",
+    "provider_desc_openai_compatible": "Trillium を OpenAI API に対応する任意のエンドポイントに接続してください。",
+    "api_key_optional_description": "オプション。エンドポイントが認証プロキシまたはゲートウェイの背後にある場合にのみ必要です。",
+    "setup_hint_ollama": "Ollama はこのアドレスで実行されている必要があります — 実行されていない場合は、<Code>ollama serve</Code> で起動してください。",
+    "setup_hint_lmstudio": "LM Studioの Developer タブでサーバーを起動し、そこに表示されるポートがこのアドレスと一致しているか確認してください。",
+    "setup_hint_openai_compatible": "OpenAI 互換 API のベース URL。通常は <Code>/v1</Code> で終わります。",
+    "troubleshoot_server_running": "サーバーは想定どおりのマシンで実行されていますか？",
+    "troubleshoot_port": "URL のポートはサーバーが報告するポートと一致していますか？",
+    "troubleshoot_remote": "サーバーが別のマシンにある場合、localhost（ローカルホスト）からだけでなく、ネットワーク経由の接続も受け入れるように設定されていますか？"
   },
   "ocr": {
     "extracted_text": "抽出されたテキスト（OCR）",
@@ -2850,7 +2917,7 @@
     "sync-from-desktop-warning": "両方のデバイスが同じネットワークに接続されていることを確認してください。",
     "sync-from-desktop-waiting": "接続を待機中...",
     "advanced-options": "詳細オプション",
-    "sync-failed": "同期に失敗しました: {{message}}",
+    "sync-failed": "同期に失敗しました: {{- message}}",
     "server-host": "Trilium サーバーアドレス",
     "server-host-placeholder": "https://<hostname>:<port>",
     "server-password": "パスワード",
@@ -2865,7 +2932,12 @@
     "sync-in-progress-banner": "ノートのサイズによっては、同期に時間がかかる場合があります。同期が完了するまで、他のアプリケーションに切り替えないでください。",
     "sync-from-desktop-unreachable-title": "このデバイスには他のデバイスからアクセスできません",
     "sync-from-desktop-unreachable-description": "同期を行うには、もう一方のデスクトップがネットワーク経由でこのデスクトップに接続する必要があります。セキュリティ上の理由から、このデスクトップアプリはこのコンピューターからの接続のみを受け付けるようになっており、現時点では他のデスクトップからは接続できません。以下でネットワークアクセスを許可してください — Trilium が再起動して適用されます。",
-    "sync-from-desktop-allow-access": "ネットワークアクセスを許可して再起動"
+    "sync-from-desktop-allow-access": "ネットワークアクセスを許可して再起動",
+    "sync-failed-title": "同期に失敗しました",
+    "sync-failed-description": "初期同期を完了できませんでした。再試行するか、戻ってサーバーアドレスと認証情報を確認してください。",
+    "sync-failed-admonition-title": "前回の同期の試行が失敗しました",
+    "sync-failed-hint": "原因として、サーバーアドレスの誤り、プロキシによる接続の妨害、またはサーバーへの一時的な接続不可などが考えられます。",
+    "button-retry": "再試行"
   },
   "text-editor": {
     "checkbox-tooltip": "右クリックするか、{{- shortcut}} を押すと、状態を変更できます。",
@@ -2888,7 +2960,11 @@
     "collapsible-toggle-label": "折りたたみブロックの切り替え",
     "collapsible-tooltip": "矢印をクリックするか、{{- shortcut}} を押すと、折りたたみ/展開ができます。",
     "checkbox-tooltip-state-label": "タスクの状態:",
-    "checkbox-tooltip-state-unknown-suffix": "(定義がありません)"
+    "checkbox-tooltip-state-unknown-suffix": "(定義がありません)",
+    "task-state-dropped-title": "無効なタスク状態",
+    "task-state-dropped-message_other": "{{count}} 件のカスタムタスク状態の定義が無効であるため、無視されました。",
+    "task-state-dropped-heading": "無視された定義:",
+    "task-state-dropped-configure": "タスク状態の設定"
   },
   "slash_commands": {
     "bulleted_list_description": "箇条書きリストを作成",
@@ -2924,9 +3000,9 @@
     "restart_required": "この変更を有効にするには、再起動が必要です。",
     "restart_now": "今すぐアプリケーションを再起動する",
     "lan_access_title": "ネットワークアクセス",
-    "lan_access_section_description": "デフォルトでは、デスクトップアプリはこのコンピューターからの接続のみを許可しています。他のデバイスから接続（例：別のデバイスからの同期など）できるようにするには、ローカルネットワークからのアクセスを許可してください。— この設定は、信頼できるネットワークでのみ有効にしてください。",
-    "lan_access_label": "他のデバイスからの接続を許可",
-    "lan_access_description": "サーバーを localhost だけでなく、すべてのネットワークインターフェースにバインドします。"
+    "lan_access_section_description": "デフォルトでは、デスクトップアプリはスタンドアロン（自己完結）で動作します。アプリや共有ノートがネットワーク上に公開されることはなく、このコンピューターからのローカル連携（Web クリッパー、MCP、ETAPI など）のみがアクセス可能です。これを有効にすると、ブラウザでアプリや共有ノートを開けるようになり、他のデバイスからの接続（同期など）が可能になります。信頼できるネットワーク上でのみ有効にしてください。",
+    "lan_access_label": "Web およびネットワークアクセスを許可",
+    "lan_access_description": "HTTP 経由でアプリ、共有ノート、ライブアップデートを提供します — このコンピュータ上のブラウザや、ネットワーク上の他のデバイスからアクセス可能です。無効にすると、ローカルでの連携機能（Web クリッパー、MCP、ETAPI）のみが利用可能となります。"
   },
   "snippet_badge": {
     "label": "{{type}} スニペット",
@@ -2944,7 +3020,24 @@
     "next": "次の画像: {{- title}}"
   },
   "image_viewer": {
-    "loading_error": "画像の読み込み中にエラーが発生しました。"
+    "loading_error": "画像の読み込み中にエラーが発生しました。",
+    "hints": {
+      "zoom": "ズーム",
+      "zoom_in": "拡大",
+      "zoom_out": "縮小",
+      "reset_zoom": "ズームをリセット",
+      "pan": "パン",
+      "pan_up": "上",
+      "pan_down": "下",
+      "pan_left": "左",
+      "pan_right": "右",
+      "pan_fast": "パン高速化",
+      "navigation": "ナビゲーション",
+      "next_image": "次の画像",
+      "previous_image": "前の画像",
+      "first_image": "最初の画像",
+      "last_image": "最後の画像"
+    }
   },
   "options": {
     "title": "オプション",
@@ -2992,7 +3085,11 @@
     "attach_source_hint": "変換後の結果と比較できるように、各ページの変更されていない OneNote の HTML をインポートされたノートに添付ファイルとして保存します。",
     "section_heading": "Microsoft OneNote",
     "checking": "OneNote への接続を確認中…",
-    "select_sections_hint": "OneNote のインポートデータには元の並び順が含まれないため、セクションやグループは作成日順に並べ替えられます。そのため、OneNote 上での表示順序とは異なる場合があります。"
+    "select_sections_hint": "OneNote のインポートデータには元の並び順が含まれないため、セクションやグループは作成日順に並べ替えられます。そのため、OneNote 上での表示順序とは異なる場合があります。",
+    "device_instructions": "Microsoftのサインインページを開き、このコードを入力してください:",
+    "device_open_page": "サインインページを開く",
+    "device_cancel": "サインインをキャンセル",
+    "import_count_other": "{{count}} 個のセクションをインポート"
   },
   "notion_import": {
     "name": "Notion",
@@ -3019,7 +3116,8 @@
     "drop_or_browse_single": "ここにファイルをドラッグ＆ドロップするか、クリックして選択",
     "drop_or_browse_multiple": "ここにファイルをドラッグ＆ドロップするか、クリックして選択",
     "browse_single": "タップしてファイルを選択",
-    "browse_multiple": "タップしてファイルを選択"
+    "browse_multiple": "タップしてファイルを選択",
+    "remove_file": "ファイルを削除"
   },
   "anytype_import": {
     "name": "Anytype",
@@ -3091,7 +3189,8 @@
     "connection-error": "サーバーに接続できませんでした。接続状況を確認して、もう一度お試しください。",
     "sign_in_with_sso": "{{ssoIssuerName}} でサインイン",
     "sso-wrong-account": "そのアカウントは、この Trilium インスタンスに連携されていません。連携済みのアカウントでサインインしてください。",
-    "sso-not-enrolled": "シングルサインオンはまだ設定されていません。まずはパスワードでサインインし、その後、設定からアカウントを連携させてください。"
+    "sso-not-enrolled": "シングルサインオンはまだ設定されていません。まずはパスワードでサインインし、その後、設定からアカウントを連携させてください。",
+    "sso-connection-failed": "認証プロバイダーに接続できませんでした。再試行するか、サーバーログで詳細を確認してください。"
   },
   "set_password": {
     "heading": "パスワードの設定",
@@ -3107,5 +3206,28 @@
     "minutes_other": "{{count}} 分",
     "hours_other": "{{count}} 時間",
     "days_other": "{{count}} 日"
+  },
+  "shortcut_hints": {
+    "show_button": "ショートカットのヒントを表示",
+    "esc_hint": "閉じる"
+  },
+  "link_embed": {
+    "play_video": "動画を再生",
+    "title": "リンクプレビュー",
+    "url": "URL",
+    "insert": "挿入",
+    "display": "表示",
+    "mode_inline": "インライン",
+    "mode_card": "カード",
+    "mode_embed": "埋め込み",
+    "mode_plain": "プレーンリンク",
+    "edit_title": "タイトルを編集",
+    "title_label": "タイトル",
+    "save": "保存"
+  },
+  "wizard": {
+    "back": "戻る",
+    "next": "次へ",
+    "step_progress": "ステップ {{current}} / {{total}}"
   }
 }
