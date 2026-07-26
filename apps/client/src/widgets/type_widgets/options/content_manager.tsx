@@ -47,7 +47,9 @@ export default function ContentManagerSettings({ note }: TypeWidgetProps) {
                 <SortOrderSelect currentValue={sortOrder} onChange={(newValue) => void setSortOrder(newValue)} />
             </div>
 
-            <CategoryList pageNote={note} categories={categories} />
+            <div className="content-manager-list">
+                <CategoryList pageNote={note} categories={categories} />
+            </div>
         </>
     );
 }

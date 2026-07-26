@@ -1,8 +1,14 @@
 .content-manager-toolbar {
     display: flex;
+    justify-content: flex-end;
     align-items: center;
     gap: 0.75em;
     margin-bottom: 1em;
+}
+
+/* Space out the per-category lists, which bring no bottom margin of their own. */
+.content-manager-list .note-list.list-view {
+    margin-bottom: 2em;
 }
 
 .content-manager-toolbar-label {
