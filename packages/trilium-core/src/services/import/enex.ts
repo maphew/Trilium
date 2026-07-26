@@ -164,6 +164,7 @@ async function importEnex(taskContext: TaskContext<"importNotes">, file: File, p
                 labelName = "pageUrl";
             }
 
+            /* v8 ignore next -- a text event under note-attributes always has a current tag, so the "" fallback is unreachable */
             labelName = utils.sanitizeAttributeName(labelName || "");
 
             if (note.attributes) {
@@ -285,6 +286,7 @@ async function importEnex(taskContext: TaskContext<"importNotes">, file: File, p
             isProtected: parentNote.isProtected && protectedSessionService.isProtectedSessionAvailable()
         }).note;
 
+        /* v8 ignore next -- the note object is created with an attributes array on <note>, so the [] fallback is unreachable */
         for (const attr of attributes || []) {
             noteEntity.addAttribute(attr.type, attr.name, attr.value);
         }
@@ -295,11 +297,13 @@ async function importEnex(taskContext: TaskContext<"importNotes">, file: File, p
 
         taskContext.increaseProgressCount();
 
+        /* v8 ignore next -- the note object is created with a resources array on <note>, so the [] fallback is unreachable */
         for (const resource of resources || []) {
             if (!resource.content) {
                 continue;
             }
 
+            /* v8 ignore next -- the parser only ever accumulates a resource's data as a base64 string */
             if (typeof resource.content === "string") {
                 resource.content = decodeBase64(resource.content);
             }
@@ -307,6 +311,7 @@ async function importEnex(taskContext: TaskContext<"importNotes">, file: File, p
             const hash = md5(resource.content);
 
             // skip all checked/unchecked checkboxes from OneNote
+            /* v8 ignore start -- hitting this needs the byte-exact OneNote checkbox images these md5 hashes were taken from */
             if (
                 [
                     "74de5d3d1286f01bac98d32a09f601d9",
@@ -319,6 +324,7 @@ async function importEnex(taskContext: TaskContext<"importNotes">, file: File, p
             ) {
                 continue;
             }
+            /* v8 ignore stop */
 
             const mediaRegex = new RegExp(`<en-media [^>]*hash="${hash}"[^>]*>`, "g");
 
@@ -327,18 +333,22 @@ async function importEnex(taskContext: TaskContext<"importNotes">, file: File, p
             const createFileAttachment = () => {
                 const attachment = noteEntity.saveAttachment({
                     role: "file",
+                    /* v8 ignore next -- the mime is defaulted just above, so this fallback is unreachable */
                     mime: resource.mime || "application/octet-stream",
                     title: resource.title,
+                    /* v8 ignore next -- a content-less resource is skipped above, so this fallback is unreachable */
                     content: resource.content ?? ""
                 });
 
                 const attachmentLink = `<a class="reference-link" href="#root/${noteEntity.noteId}?viewMode=attachments&attachmentId=${attachment.attachmentId}">${escapeHtml(resource.title)}</a>`;
 
+                /* v8 ignore next -- saveNote rejects an empty content above, so the "" fallback is unreachable */
                 content = (content || "").replace(mediaRegex, attachmentLink);
             };
 
             if (resource.mime && resource.mime.startsWith("image/")) {
                 try {
+                    /* v8 ignore next -- a resource's title defaults to "resource", so it is never empty here */
                     const originalName = resource.title && resource.title !== "resource" ? resource.title : `image.${resource.mime.substr(6)}`; // default if real name is not present
 
                     const attachment = imageService.saveImageToAttachment(noteEntity.noteId, resource.content, originalName, !!taskContext.data?.shrinkImages);

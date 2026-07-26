@@ -415,6 +415,7 @@ async function importZip(taskContext: TaskContext<"importNotes">, source: ZipSou
             } else if (target.noteId) {
                 return `src="api/images/${target.noteId}/${basename(url)}"`;
             }
+            /* v8 ignore next -- unreachable: getEntityIdFromRelativeUrl always yields a noteId; kept so the callback returns a string on every path */
             return match;
 
         });
@@ -441,6 +442,7 @@ async function importZip(taskContext: TaskContext<"importNotes">, source: ZipSou
             } else if (target.noteId) {
                 return `href="#root/${target.noteId}"`;
             }
+            /* v8 ignore next -- unreachable: getEntityIdFromRelativeUrl always yields a noteId; kept so the callback returns a string on every path */
             return match;
 
         });
@@ -518,6 +520,7 @@ async function importZip(taskContext: TaskContext<"importNotes">, source: ZipSou
             } else if (target.noteId) {
                 return `![${alt}](api/images/${target.noteId}/${basename(url)})`;
             }
+            /* v8 ignore next -- unreachable: getEntityIdFromRelativeUrl always yields a noteId; kept so the callback returns a string on every path */
             return match;
         });
 
@@ -540,6 +543,7 @@ async function importZip(taskContext: TaskContext<"importNotes">, source: ZipSou
             } else if (target.noteId) {
                 return `[${text}](#root/${target.noteId})`;
             }
+            /* v8 ignore next -- unreachable: getEntityIdFromRelativeUrl always yields a noteId; kept so the callback returns a string on every path */
             return match;
         });
 

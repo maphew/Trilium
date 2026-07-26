@@ -60,9 +60,11 @@ async function importOpml(taskContext: TaskContext<"importNotes">, fileBuffer: s
         } else if (opmlVersion === 2) {
             title = outline.$.text;
             content = outline.$._note; // _note is already HTML
+            /* v8 ignore start -- unreachable: the version check above admits only 1.0/1.1/2.0, so parseInt is always 1 or 2 */
         } else {
             throw new Error(`Unrecognized OPML version ${opmlVersion}`);
         }
+        /* v8 ignore stop */
 
         content = sanitizeHtml(content || "");
 

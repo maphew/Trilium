@@ -105,6 +105,7 @@ function convertTaskGroups(root: HTMLElement, tasks: EnexTask[]) {
             used.add(index);
         }
         if (items.length > 0) {
+            /* v8 ignore next -- a parsed <task> always has a (possibly empty) title, so the ?? fallback is unreachable */
             const list = renderTodoList(items.map(({ task }) => renderTodoItem(task.status === "completed", escapeHtml((task.title ?? "").trim()))));
             placeholder.insertAdjacentHTML("beforebegin", list);
         }
@@ -177,8 +178,10 @@ function toggleBody(contentDiv: HTMLElement): string {
 /** True for a node carrying real content — text, or an embedded image/media — i.e. not an empty spacer block. */
 function isNonEmptyBlock(node: HTMLElement["childNodes"][number]): boolean {
     if (!(node instanceof HTMLElement)) {
+        /* v8 ignore next -- node-html-parser always returns a string from textContent, so the ?? fallback is unreachable */
         return (node.textContent ?? "").trim() !== "";
     }
+    /* v8 ignore next -- as above: textContent is never nullish */
     return (node.textContent ?? "").trim() !== "" || node.querySelectorAll("img, en-media").length > 0;
 }
 // #endregion
@@ -363,11 +366,13 @@ function blockText(container: HTMLElement): string {
     if (lines.length > 0) {
         return lines.map((line) => lineText(line)).join("\n");
     }
+    /* v8 ignore next -- node-html-parser always returns a string from textContent, so the ?? fallback is unreachable */
     return container.textContent ?? "";
 }
 
 /** A single line's text. node-html-parser renders `<br>` as a newline, so a lone-`<br>` line (Evernote's blank line) reads as empty. */
 function lineText(line: HTMLElement): string {
+    /* v8 ignore next -- as above: textContent is never nullish */
     const text = line.textContent ?? "";
     if (text.trim() === "" && line.querySelectorAll("br").length > 0) {
         return "";
@@ -423,6 +428,7 @@ function convertParagraphs(root: HTMLElement) {
 
 /** A blank line — an empty div, or one holding only a `<br>` — with no embedded image. */
 function isBlankLine(div: HTMLElement): boolean {
+    /* v8 ignore next -- node-html-parser always returns a string from textContent, so the ?? fallback is unreachable */
     return (div.textContent ?? "").trim() === "" && div.querySelectorAll("img, en-media").length === 0;
 }
 
