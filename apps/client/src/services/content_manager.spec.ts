@@ -74,18 +74,18 @@ describe("CONTENT_CATEGORIES", () => {
 
     it("covers the categories the manager is expected to list", () => {
         expect(CONTENT_CATEGORIES.map((category) => category.id)).toEqual([
-            "backendScripts",
-            "frontendScripts",
-            "eventHandlers",
-            "endpoints",
-            "widgets",
-            "renderNotes",
-            "themes",
-            "customCss",
-            "iconPacks",
             "templates",
             "snippets",
-            "sharing"
+            "iconPacks",
+            "themes",
+            "customCss",
+            "sharing",
+            "frontendScripts",
+            "widgets",
+            "renderNotes",
+            "eventHandlers",
+            "endpoints",
+            "backendScripts"
         ]);
     });
 });

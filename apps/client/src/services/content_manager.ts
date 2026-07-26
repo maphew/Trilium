@@ -75,26 +75,57 @@ const EVENT_HANDLERS = [
 
 export const CONTENT_CATEGORIES: ContentCategory[] = [
     {
-        id: "backendScripts",
-        titleKey: "content_manager.category_backend_scripts",
-        filter: "#run = backendStartup OR #run = hourly OR #run = daily"
-            + " OR #disabled:run = backendStartup OR #disabled:run = hourly OR #disabled:run = daily",
-        properties: [
-            {
-                titleKey: "content_manager.property_trigger",
-                values: [
-                    { titleKey: "content_manager.trigger_backend_startup", condition: { label: "run", is: "backendStartup" } },
-                    { titleKey: "content_manager.trigger_hourly", condition: { label: "run", is: "hourly" } },
-                    { titleKey: "content_manager.trigger_daily", condition: { label: "run", is: "daily" } }
-                ]
-            },
-            {
-                // The scheduler skips the script on any instance not named here, so a script can look
-                // enabled yet never run.
-                titleKey: "content_manager.property_instance",
-                values: [ { valueOfLabel: "runOnInstance" } ]
-            }
-        ]
+        id: "templates",
+        titleKey: "content_manager.category_templates",
+        filter: "#template OR #disabled:template",
+        properties: [ {
+            titleKey: "content_manager.property_scope",
+            // A bare condition tests only that the label is present.
+            values: [ { titleKey: "content_manager.scope_workspace", condition: { label: "workspaceTemplate" } } ]
+        } ]
+    },
+    {
+        id: "snippets",
+        titleKey: "content_manager.category_snippets",
+        filter: "#snippet OR #textSnippet OR #disabled:snippet OR #disabled:textSnippet"
+    },
+    {
+        id: "iconPacks",
+        titleKey: "content_manager.category_icon_packs",
+        filter: "#iconPack OR #disabled:iconPack",
+        properties: [ {
+            titleKey: "content_manager.property_prefix",
+            values: [ { valueOfLabel: "iconPack" } ]
+        } ]
+    },
+    {
+        id: "themes",
+        titleKey: "content_manager.category_themes",
+        filter: "#appTheme OR #disabled:appTheme",
+        properties: [ {
+            titleKey: "content_manager.property_base_theme",
+            values: [ { valueOfLabel: "appThemeBase" } ]
+        } ]
+    },
+    {
+        id: "customCss",
+        titleKey: "content_manager.category_custom_css",
+        filter: "#appCss OR #disabled:appCss"
+    },
+    {
+        id: "sharing",
+        titleKey: "content_manager.category_sharing",
+        filter: "#shareRaw OR ~shareJs OR ~shareHtml OR ~shareTemplate"
+            + " OR #disabled:shareRaw OR ~disabled:shareJs OR ~disabled:shareHtml OR ~disabled:shareTemplate",
+        properties: [ {
+            titleKey: "content_manager.property_kind",
+            values: [
+                { titleKey: "content_manager.share_raw", condition: { label: "shareRaw" } },
+                { titleKey: "content_manager.share_js", condition: { relation: "shareJs" } },
+                { titleKey: "content_manager.share_html", condition: { relation: "shareHtml" } },
+                { titleKey: "content_manager.share_template", condition: { relation: "shareTemplate" } }
+            ]
+        } ]
     },
     {
         id: "frontendScripts",
@@ -108,6 +139,16 @@ export const CONTENT_CATEGORIES: ContentCategory[] = [
                 { titleKey: "content_manager.trigger_mobile_startup", condition: { label: "run", is: "mobileStartup" } }
             ]
         } ]
+    },
+    {
+        id: "widgets",
+        titleKey: "content_manager.category_widgets",
+        filter: "#widget OR #disabled:widget"
+    },
+    {
+        id: "renderNotes",
+        titleKey: "content_manager.category_render_notes",
+        filter: "~renderNote OR ~disabled:renderNote"
     },
     {
         id: "eventHandlers",
@@ -144,67 +185,26 @@ export const CONTENT_CATEGORIES: ContentCategory[] = [
         ]
     },
     {
-        id: "widgets",
-        titleKey: "content_manager.category_widgets",
-        filter: "#widget OR #disabled:widget"
-    },
-    {
-        id: "renderNotes",
-        titleKey: "content_manager.category_render_notes",
-        filter: "~renderNote OR ~disabled:renderNote"
-    },
-    {
-        id: "themes",
-        titleKey: "content_manager.category_themes",
-        filter: "#appTheme OR #disabled:appTheme",
-        properties: [ {
-            titleKey: "content_manager.property_base_theme",
-            values: [ { valueOfLabel: "appThemeBase" } ]
-        } ]
-    },
-    {
-        id: "customCss",
-        titleKey: "content_manager.category_custom_css",
-        filter: "#appCss OR #disabled:appCss"
-    },
-    {
-        id: "iconPacks",
-        titleKey: "content_manager.category_icon_packs",
-        filter: "#iconPack OR #disabled:iconPack",
-        properties: [ {
-            titleKey: "content_manager.property_prefix",
-            values: [ { valueOfLabel: "iconPack" } ]
-        } ]
-    },
-    {
-        id: "templates",
-        titleKey: "content_manager.category_templates",
-        filter: "#template OR #disabled:template",
-        properties: [ {
-            titleKey: "content_manager.property_scope",
-            // A bare condition tests only that the label is present.
-            values: [ { titleKey: "content_manager.scope_workspace", condition: { label: "workspaceTemplate" } } ]
-        } ]
-    },
-    {
-        id: "snippets",
-        titleKey: "content_manager.category_snippets",
-        filter: "#snippet OR #textSnippet OR #disabled:snippet OR #disabled:textSnippet"
-    },
-    {
-        id: "sharing",
-        titleKey: "content_manager.category_sharing",
-        filter: "#shareRaw OR ~shareJs OR ~shareHtml OR ~shareTemplate"
-            + " OR #disabled:shareRaw OR ~disabled:shareJs OR ~disabled:shareHtml OR ~disabled:shareTemplate",
-        properties: [ {
-            titleKey: "content_manager.property_kind",
-            values: [
-                { titleKey: "content_manager.share_raw", condition: { label: "shareRaw" } },
-                { titleKey: "content_manager.share_js", condition: { relation: "shareJs" } },
-                { titleKey: "content_manager.share_html", condition: { relation: "shareHtml" } },
-                { titleKey: "content_manager.share_template", condition: { relation: "shareTemplate" } }
-            ]
-        } ]
+        id: "backendScripts",
+        titleKey: "content_manager.category_backend_scripts",
+        filter: "#run = backendStartup OR #run = hourly OR #run = daily"
+            + " OR #disabled:run = backendStartup OR #disabled:run = hourly OR #disabled:run = daily",
+        properties: [
+            {
+                titleKey: "content_manager.property_trigger",
+                values: [
+                    { titleKey: "content_manager.trigger_backend_startup", condition: { label: "run", is: "backendStartup" } },
+                    { titleKey: "content_manager.trigger_hourly", condition: { label: "run", is: "hourly" } },
+                    { titleKey: "content_manager.trigger_daily", condition: { label: "run", is: "daily" } }
+                ]
+            },
+            {
+                // The scheduler skips the script on any instance not named here, so a script can look
+                // enabled yet never run.
+                titleKey: "content_manager.property_instance",
+                values: [ { valueOfLabel: "runOnInstance" } ]
+            }
+        ]
     }
 ];
 
