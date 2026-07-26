@@ -36,6 +36,12 @@ export interface ContentProperty {
     /** Translation key for the property name. */
     titleKey: string;
     values: ContentPropertyValue[];
+    /**
+     * Renders each value as a badge, with the property name as its tooltip. Suits a small fixed set
+     * of values a row can be scanned for; free-form values (a path, an icon prefix) read better as
+     * plain text, where the property name gives them meaning.
+     */
+    badge?: boolean;
 }
 
 export interface ContentCategory {
@@ -80,6 +86,7 @@ export const CONTENT_CATEGORIES: ContentCategory[] = [
         filter: "#template OR #disabled:template",
         properties: [ {
             titleKey: "content_manager.property_scope",
+            badge: true,
             // A bare condition tests only that the label is present.
             values: [ { titleKey: "content_manager.scope_workspace", condition: { label: "workspaceTemplate" } } ]
         } ]
@@ -104,6 +111,7 @@ export const CONTENT_CATEGORIES: ContentCategory[] = [
         filter: "#appTheme OR #disabled:appTheme",
         properties: [ {
             titleKey: "content_manager.property_base_theme",
+            badge: true,
             values: [ { valueOfLabel: "appThemeBase" } ]
         } ]
     },
@@ -119,6 +127,7 @@ export const CONTENT_CATEGORIES: ContentCategory[] = [
             + " OR #disabled:shareRaw OR ~disabled:shareJs OR ~disabled:shareHtml OR ~disabled:shareTemplate",
         properties: [ {
             titleKey: "content_manager.property_kind",
+            badge: true,
             values: [
                 { titleKey: "content_manager.share_raw", condition: { label: "shareRaw" } },
                 { titleKey: "content_manager.share_js", condition: { relation: "shareJs" } },
@@ -134,6 +143,7 @@ export const CONTENT_CATEGORIES: ContentCategory[] = [
             + " OR #disabled:run = frontendStartup OR #disabled:run = mobileStartup",
         properties: [ {
             titleKey: "content_manager.property_trigger",
+            badge: true,
             values: [
                 { titleKey: "content_manager.trigger_frontend_startup", condition: { label: "run", is: "frontendStartup" } },
                 { titleKey: "content_manager.trigger_mobile_startup", condition: { label: "run", is: "mobileStartup" } }
@@ -166,6 +176,7 @@ export const CONTENT_CATEGORIES: ContentCategory[] = [
         filter: EVENT_HANDLERS.flatMap(({ relation }) => [ `~${relation}`, `~disabled:${relation}` ]).join(" OR "),
         properties: [ {
             titleKey: "content_manager.property_event",
+            badge: true,
             values: EVENT_HANDLERS.map(({ relation, titleKey }) => ({ titleKey, condition: { relation } }))
         } ]
     },
@@ -177,6 +188,7 @@ export const CONTENT_CATEGORIES: ContentCategory[] = [
         properties: [
             {
                 titleKey: "content_manager.property_kind",
+                badge: true,
                 values: [
                     { titleKey: "content_manager.endpoint_request_handler", condition: { label: "customRequestHandler" } },
                     { titleKey: "content_manager.endpoint_resource_provider", condition: { label: "customResourceProvider" } }
@@ -200,6 +212,7 @@ export const CONTENT_CATEGORIES: ContentCategory[] = [
         properties: [
             {
                 titleKey: "content_manager.property_trigger",
+                badge: true,
                 values: [
                     { titleKey: "content_manager.trigger_backend_startup", condition: { label: "run", is: "backendStartup" } },
                     { titleKey: "content_manager.trigger_hourly", condition: { label: "run", is: "hourly" } },
@@ -280,6 +293,7 @@ export interface ResolvedPropertyValue {
 export interface ResolvedProperty {
     titleKey: string;
     values: ResolvedPropertyValue[];
+    badge?: boolean;
 }
 
 /**
@@ -310,7 +324,7 @@ export function resolveProperties(note: FNote, category: ContentCategory): Resol
         }
 
         if (values.length) {
-            resolved.push({ titleKey: property.titleKey, values });
+            resolved.push({ titleKey: property.titleKey, values, badge: property.badge });
         }
     }
 

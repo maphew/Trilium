@@ -22,6 +22,7 @@ import debounce from "../../../services/debounce";
 import { t } from "../../../services/i18n";
 import { ListView, type ListViewOptions } from "../../collections/legacy/ListOrGridView";
 import ActionButton from "../../react/ActionButton";
+import { Badge } from "../../react/Badge";
 import Button, { ButtonGroup } from "../../react/Button";
 import FormTextBox from "../../react/FormTextBox";
 import FormToggle from "../../react/FormToggle";
@@ -87,7 +88,12 @@ function ContentItemMenu({ note }: { note: FNote }) {
 
 type ContentItemCommand = "openNoteInNewTab" | "deleteNote";
 
-/** Renders a note's extra detail, e.g. `Trigger: backend startup, hourly; Mode: authentic`. */
+/**
+ * A note's extra detail as badges — `Hourly`, `main` — one per value.
+ *
+ * The value is shown rather than the property name so a row stays scannable at a glance; the name
+ * ("Trigger", "Instance") is the badge's tooltip, since it is only needed once to learn the pattern.
+ */
 function ContentProperties({ note, category }: { note: FNote, category: ContentCategory }) {
     const properties = resolveProperties(note, category);
 
@@ -95,13 +101,22 @@ function ContentProperties({ note, category }: { note: FNote, category: ContentC
 
     return (
         <span className="content-manager-properties">
-            {properties.map(({ titleKey, values }) => (
-                <span key={titleKey} className="content-manager-property">
-                    <strong>{t(titleKey)}:</strong>
-                    {" "}
-                    {values.map((value) => value.titleKey ? t(value.titleKey) : value.text).join(", ")}
-                </span>
-            ))}
+            {properties.flatMap(({ titleKey, values, badge }) => badge
+                ? values.map((value, index) => (
+                    <Badge
+                        key={`${titleKey}-${index}`}
+                        className="content-manager-badge"
+                        text={value.titleKey ? t(value.titleKey) : value.text}
+                        tooltip={t(titleKey)}
+                    />
+                ))
+                : (
+                    <span key={titleKey} className="content-manager-property">
+                        <strong>{t(titleKey)}:</strong>
+                        {" "}
+                        {values.map((value) => value.titleKey ? t(value.titleKey) : value.text).join(", ")}
+                    </span>
+                ))}
         </span>
     );
 }

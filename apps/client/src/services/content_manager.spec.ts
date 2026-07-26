@@ -246,8 +246,9 @@ describe("resolveProperties", () => {
         const script = buildNote({ title: "S", "#run": "daily", "#runOnInstance": "main" });
 
         expect(resolveProperties(script, categoryById("backendScripts"))).toEqual([
-            { titleKey: "content_manager.property_trigger", values: [ { titleKey: "content_manager.trigger_daily" } ] },
-            { titleKey: "content_manager.property_instance", values: [ { text: "main" } ] }
+            // The trigger is one of a fixed set, so it is badged; the instance name is free-form.
+            { titleKey: "content_manager.property_trigger", badge: true, values: [ { titleKey: "content_manager.trigger_daily" } ] },
+            { titleKey: "content_manager.property_instance", badge: undefined, values: [ { text: "main" } ] }
         ]);
 
         // The bare `workspaceTemplate` condition is a presence test, so an unrestricted template
@@ -256,7 +257,7 @@ describe("resolveProperties", () => {
         const plain = buildNote({ title: "P", "#template": "" });
 
         expect(resolveProperties(workspace, categoryById("templates"))).toEqual([
-            { titleKey: "content_manager.property_scope", values: [ { titleKey: "content_manager.scope_workspace" } ] }
+            { titleKey: "content_manager.property_scope", badge: true, values: [ { titleKey: "content_manager.scope_workspace" } ] }
         ]);
         expect(resolveProperties(plain, categoryById("templates"))).toEqual([]);
     });
@@ -270,6 +271,7 @@ describe("resolveProperties", () => {
 
         expect(resolveProperties(note, categoryById("eventHandlers"))).toEqual([ {
             titleKey: "content_manager.property_event",
+            badge: true,
             values: [
                 { titleKey: "content_manager.event_note_creation" },
                 { titleKey: "content_manager.event_branch_deletion" }
@@ -296,8 +298,9 @@ describe("resolveProperties", () => {
         const note = buildNote({ title: "API", "#customRequestHandler": "api/my-handler/([a-z]+)" });
 
         expect(resolveProperties(note, categoryById("endpoints"))).toEqual([
-            { titleKey: "content_manager.property_kind", values: [ { titleKey: "content_manager.endpoint_request_handler" } ] },
-            { titleKey: "content_manager.property_path", values: [ { text: "api/my-handler/([a-z]+)" } ] }
+            { titleKey: "content_manager.property_kind", badge: true, values: [ { titleKey: "content_manager.endpoint_request_handler" } ] },
+            // A path pattern is free-form, so it stays plain text rather than becoming a badge.
+            { titleKey: "content_manager.property_path", badge: undefined, values: [ { text: "api/my-handler/([a-z]+)" } ] }
         ]);
     });
 

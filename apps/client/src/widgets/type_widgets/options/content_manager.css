@@ -21,14 +21,26 @@
     white-space: nowrap;
 }
 
+/* Values sit on the item's own line, so a row stays one line tall. */
 .content-manager-properties {
-    font-size: .75em;
-    opacity: .75;
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+    align-items: center;
+    gap: 0.35em;
 }
 
-/* Separate consecutive properties: "Trigger: hourly; Mode: authentic". */
-.content-manager-property:not(:last-child)::after {
-    content: "; ";
+/* `Badge` paints its background from `--color`. The selector repeats `.ext-badge` so the text colour
+   outranks the component's own `color: white`, which is unreadable on this light fill. */
+.ext-badge.content-manager-badge {
+    --color: var(--more-accented-background-color);
+    color: var(--main-text-color);
+}
+
+/* Free-form values (a path, an icon prefix) stay plain text, where the name gives them meaning. */
+.content-manager-property {
+    font-size: .75em;
+    opacity: .75;
 }
 
 .content-manager-loading {
