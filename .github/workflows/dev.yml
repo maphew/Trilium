@@ -307,23 +307,26 @@ jobs:
           fail_ci_if_error: false
 
       - name: Run the pdfjs-viewer tests
+        id: test-pdfjs-viewer
         run: pnpm run --filter=pdfjs-viewer test --coverage
 
       - name: Upload pdfjs-viewer coverage to Codecov
         uses: codecov/codecov-action@v7
-        if: always()
+        if: ${{ !cancelled() && steps.test-pdfjs-viewer.outcome == 'success' }}
         with:
           files: packages/pdfjs-viewer/test-output/vitest/coverage/lcov.info
           flags: pdfjs-viewer
+          disable_search: true
           fail_ci_if_error: false
 
       - name: Upload pdfjs-viewer test results to Codecov
         uses: codecov/test-results-action@v1
-        if: ${{ !cancelled() }}
+        if: ${{ !cancelled() && steps.test-pdfjs-viewer.outcome != 'skipped' }}
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: packages/pdfjs-viewer/test-output/vitest/junit.xml
           flags: pdfjs-viewer
+          disable_search: true
           fail_ci_if_error: false
 
       - name: Run the rest of the tests
