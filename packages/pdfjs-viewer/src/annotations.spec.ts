@@ -144,20 +144,28 @@ describe("extraction from a real document", () => {
         expect(highlight).toMatchObject({ id: "5R", color: "#00ff00", contents: "Edited in the viewer" });
     });
 
-    it("DEFECT: keeps the second of two consecutively deleted annotations", async () => {
+    it("removes deleted annotations even when they are adjacent", async () => {
         viewer = await installViewerApp(allFeaturesPdf());
         vi.spyOn(viewer.pdfDocument.annotationStorage, "getEditor").mockReturnValue({ deleted: true });
 
         await setupPdfAnnotations();
 
-        // `applyEditorOverrides` splices from the array it is iterating with `for...of`, so
-        // removing an element shifts the next one into the consumed index and skips it. Both
-        // fixture annotations are marked deleted, so the sidebar should end up empty — instead
-        // the second survives and shows an annotation the user already removed. Pinned rather
-        // than silently accepted; the fix is to build a filtered array instead of splicing.
+        // Both fixture annotations are adjacent in the page's /Annots order, which is what
+        // used to break: removing one from the array under iteration shifted the next into
+        // the consumed index, so it was skipped and stayed in the sidebar — showing an
+        // annotation the user had deleted until a save round-trip replaced the list.
+        expect(viewer.lastMessageOfType("pdfjs-viewer-annotations").annotations).toEqual([]);
+    });
+
+    it("keeps the annotations that were not deleted", async () => {
+        viewer = await installViewerApp(allFeaturesPdf());
+        vi.spyOn(viewer.pdfDocument.annotationStorage, "getEditor")
+            .mockImplementation((id: string) => (id === "5R" ? { deleted: true } : null));
+
+        await setupPdfAnnotations();
+
         const { annotations } = viewer.lastMessageOfType("pdfjs-viewer-annotations");
-        expect(annotations).toHaveLength(1);
-        expect(annotations[0].id).toBe("14R");
+        expect(annotations.map((annotation: any) => annotation.id)).toEqual([ "14R" ]);
     });
 
     it("reports an empty list when extraction fails", async () => {
