@@ -98,6 +98,13 @@ describe("BackupService singleton (getBackup / initBackup)", () => {
     });
 });
 
+describe("BackupService.getBackupFolderPath", () => {
+    it("defaults to null when the implementation exposes no user-accessible location", () => {
+        // e.g. the standalone provider, which stores backups in OPFS.
+        expect(new TestBackupService(new FakeOptions()).getBackupFolderPath()).toBeNull();
+    });
+});
+
 describe("BackupService.isBackupEnabled", () => {
     it("maps each backup type to the matching boolean option", () => {
         const service = new TestBackupService(
