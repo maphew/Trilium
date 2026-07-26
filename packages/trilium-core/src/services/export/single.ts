@@ -7,6 +7,7 @@ import mimeTypes from "mime-types";
 import becca from "../../becca/becca.js";
 import type BBranch from "../../becca/entities/bbranch.js";
 import type BNote from "../../becca/entities/bnote.js";
+import { ValidationError } from "../../errors.js";
 import type TaskContext from "../task_context.js";
 import { escapeHtml,getContentDisposition } from "../utils/index.js";
 import mdService from "./markdown.js";
@@ -17,12 +18,16 @@ import { encodeBase64 } from "../utils/binary.js";
 function exportSingleNote(taskContext: TaskContext<"export">, branch: BBranch, format: ExportFormat, res: Response) {
     const note = branch.getNote();
 
+    // These are thrown rather than returned: the export route writes straight to `res` and has no
+    // result handler, so a returned [status, body] tuple was silently dropped and the request was
+    // left unanswered. Throwing reaches the route's catch, which both answers the request and
+    // reports the failure to the task context (i.e. to the client's export progress UI).
     if (note.type === "image" || note.type === "file") {
-        return [400, `Note type '${note.type}' cannot be exported as single file.`];
+        throw new ValidationError(`Note type '${note.type}' cannot be exported as single file.`);
     }
 
     if (format !== "html" && format !== "markdown") {
-        return [400, `Unrecognized format '${format}'`];
+        throw new ValidationError(`Unrecognized format '${format}'`);
     }
 
     const { payload, extension, mime } = mapByNoteType(note, note.getContent(), format);

@@ -234,18 +234,23 @@ describe("exportSingleNote", () => {
         expect(res.send).toHaveBeenCalledWith("# hi");
     });
 
-    it("returns a 400 tuple for note types and formats it cannot export", () => {
-        // NOTE: routes/api/export.ts discards this return value and never sends a response of its
-        // own, so these rejections currently leave the HTTP request unanswered.
+    it("throws a ValidationError for note types and formats it cannot export", () => {
+        // A returned [status, body] tuple used to be dropped on the floor by the route, leaving the
+        // request unanswered; throwing an HttpError is what actually reaches the client.
         for (const type of ["image", "file"] as const) {
-            const { result, res } = exportNote(buildNote({ type, title: "Binary" }), "html");
+            const note = buildNote({ type, title: "Binary" });
 
-            expect(result).toEqual([400, `Note type '${type}' cannot be exported as single file.`]);
-            expect(res.send).not.toHaveBeenCalled();
+            expect(() => exportNote(note, "html")).toThrow(
+                expect.objectContaining({
+                    name: "ValidationError",
+                    statusCode: 400,
+                    message: `Note type '${type}' cannot be exported as single file.`
+                })
+            );
         }
 
-        const { result, res } = exportNote(buildNote({ type: "text", title: "Texty" }), "pdf");
-        expect(result).toEqual([400, "Unrecognized format 'pdf'"]);
-        expect(res.send).not.toHaveBeenCalled();
+        expect(() => exportNote(buildNote({ type: "text", title: "Texty" }), "pdf")).toThrow(
+            expect.objectContaining({ name: "ValidationError", statusCode: 400, message: "Unrecognized format 'pdf'" })
+        );
     });
 });
