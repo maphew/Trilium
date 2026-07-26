@@ -78,12 +78,12 @@
     "incorrect-totp": "Das Einmalpasswort ist falsch. Bitte erneut versuchen.",
     "sign_in_with_sso": "Mit {{ ssoIssuerName }} anmelden",
     "sso-wrong-account": "Dieses Konto ist nicht mit dieser Trilium-Instanz verknüpft. Melden Sie sich mit dem verknüpften Konto an.",
-    "sso-not-enrolled": "Single Sign-On ist noch nicht eingerichtet. Melden Sie sich zunächst mit Ihrem Passwort an und verknüpfen Sie Ihr Konto anschließend in den Einstellungen."
+    "sso-not-enrolled": "Single Sign-on ist noch nicht eingerichtet. Melden Sie sich zuerst mit Ihrem Passwort an und verknüpfen Sie anschließend Ihr Konto in den Einstellungen."
   },
   "set_password": {
     "title": "Passwort festlegen",
     "heading": "Passwort festlegen",
-    "description": "Bevor Sie Trilium im Web nutzen können, müssen Sie zunächst ein Passwort festlegen. Mit diesem Passwort melden Sie sich anschließend an.",
+    "description": "Bevor Sie Trilium im Web verwenden können, müssen Sie zuerst ein Passwort festlegen. Anschließend verwenden Sie dieses Passwort zum Anmelden.",
     "password": "Passwort",
     "password-confirmation": "Passwortbestätigung",
     "button": "Passwort festlegen"
