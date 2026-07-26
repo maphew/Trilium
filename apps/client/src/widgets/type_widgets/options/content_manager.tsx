@@ -160,29 +160,31 @@ export default function ContentManagerSettings({ note }: TypeWidgetProps) {
 
     return (
         <>
-            <OptionsPageHeader />
-
-            <div className="content-manager-toolbar">
-                <div className="input-group content-manager-filter">
-                    <FormTextBox
-                        inputRef={filterRef}
-                        placeholder={t("content_manager.filter_placeholder")}
-                        currentValue={typedFilter}
-                        onChange={(newValue) => {
-                            setTypedFilter(newValue);
-                            applyFilter(newValue);
-                        }}
-                    />
-                    <button
-                        type="button"
-                        className="input-group-text input-clearer-button bx bxs-tag-x"
-                        title={t("content_manager.clear_filter")}
-                        onClick={clearFilter}
-                    />
+            {/* In the header's own row rather than the page body, so the controls stay put as the
+                list scrolls beneath them. */}
+            <OptionsPageHeader below={
+                <div className="content-manager-toolbar">
+                    <div className="input-group content-manager-filter">
+                        <FormTextBox
+                            inputRef={filterRef}
+                            placeholder={t("content_manager.filter_placeholder")}
+                            currentValue={typedFilter}
+                            onChange={(newValue) => {
+                                setTypedFilter(newValue);
+                                applyFilter(newValue);
+                            }}
+                        />
+                        <button
+                            type="button"
+                            className="input-group-text input-clearer-button bx bxs-tag-x"
+                            title={t("content_manager.clear_filter")}
+                            onClick={clearFilter}
+                        />
+                    </div>
+                    <span className="content-manager-toolbar-label">{t("content_manager.sort_order")}</span>
+                    <SortOrderSelect currentValue={sortOrder} onChange={(newValue) => void setSortOrder(newValue)} />
                 </div>
-                <span className="content-manager-toolbar-label">{t("content_manager.sort_order")}</span>
-                <SortOrderSelect currentValue={sortOrder} onChange={(newValue) => void setSortOrder(newValue)} />
-            </div>
+            } />
 
             <div className="content-manager-list">
                 <CategoryList pageNote={note} categories={categories} isFiltered={!!appliedFilter.trim()} />
