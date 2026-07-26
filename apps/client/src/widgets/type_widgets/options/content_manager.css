@@ -9,6 +9,10 @@
     white-space: nowrap;
 }
 
+.content-manager-loading {
+    opacity: 0.7;
+}
+
 .content-manager-items {
     display: flex;
     flex-direction: column;

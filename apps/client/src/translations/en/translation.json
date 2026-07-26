@@ -2609,6 +2609,7 @@
     "category_icon_packs": "Icon Packs",
     "category_templates": "Templates",
     "category_snippets": "Snippets",
+    "loading": "Retrieving content...",
     "sort_order": "Sort by",
     "sort_by_name": "Name",
     "sort_by_date_created": "Creation date",

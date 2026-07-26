@@ -21,7 +21,6 @@ import OptionsSection from "./components/OptionsSection";
 export default function ContentManagerSettings() {
     const [ sortOrder, setSortOrder ] = useTriliumOption("contentManagerSortOrder");
     const categories = useCategoryNotes(sortOrder as ContentSortOrder);
-    const isEmpty = categories.every(({ notes }) => !notes.length);
 
     return (
         <>
@@ -32,21 +31,39 @@ export default function ContentManagerSettings() {
                 <SortOrderSelect currentValue={sortOrder} onChange={(newValue) => void setSortOrder(newValue)} />
             </div>
 
-            {isEmpty
-                ? <NoItems icon="bx bx-package" text={t("content_manager.no_items")}>
-                    <small>{t("content_manager.no_items_hint")}</small>
-                </NoItems>
-                : categories.map(({ category, notes }) => notes.length > 0 && (
-                    <OptionsSection key={category.id} title={t(category.titleKey)}>
-                        <div className="content-manager-items">
-                            {notes.map((note) => (
-                                <p key={note.noteId} className="content-manager-item">
-                                    <NoteLink notePath={note.noteId} showNoteIcon showNotePath />
-                                </p>
-                            ))}
-                        </div>
-                    </OptionsSection>
-                ))}
+            <CategoryList categories={categories} />
+        </>
+    );
+}
+
+function CategoryList({ categories }: { categories: CategoryNotes[] | null }) {
+    if (!categories) {
+        return <p className="content-manager-loading">{t("content_manager.loading")}</p>;
+    }
+
+    const populated = categories.filter(({ notes }) => notes.length > 0);
+
+    if (!populated.length) {
+        return (
+            <NoItems icon="bx bx-package" text={t("content_manager.no_items")}>
+                <small>{t("content_manager.no_items_hint")}</small>
+            </NoItems>
+        );
+    }
+
+    return (
+        <>
+            {populated.map(({ category, notes }) => (
+                <OptionsSection key={category.id} title={t(category.titleKey)}>
+                    <div className="content-manager-items">
+                        {notes.map((note) => (
+                            <p key={note.noteId} className="content-manager-item">
+                                <NoteLink notePath={note.noteId} showNoteIcon showNotePath />
+                            </p>
+                        ))}
+                    </div>
+                </OptionsSection>
+            ))}
         </>
     );
 }
@@ -85,8 +102,9 @@ interface CategoryNotes {
  * be noticeable.
  */
 function useCategoryNotes(sortOrder: ContentSortOrder) {
-    const [ categories, setCategories ] = useState<CategoryNotes[]>(() =>
-        CONTENT_CATEGORIES.map((category) => ({ category, notes: [] })));
+    // `null` until the first search resolves, so the page can tell "still loading" apart from
+    // "genuinely nothing to show" instead of flashing the empty state on every open.
+    const [ categories, setCategories ] = useState<CategoryNotes[] | null>(null);
 
     const refresh = useCallback(async () => {
         setCategories(await Promise.all(CONTENT_CATEGORIES.map(async (category) => ({
