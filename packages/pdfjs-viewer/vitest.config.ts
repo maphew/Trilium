@@ -14,7 +14,7 @@ export default defineConfig(() => ({
             'reportsDirectory': './test-output/vitest/coverage',
             'provider': 'v8' as const,
             'include': ["src/**/*.{ts,tsx}"],
-            'exclude': ["**/*.{test,spec}.{ts,mts,cts,tsx,js,jsx}", "**/*.d.ts"],
+            'exclude': ["**/*.{test,spec}.{ts,mts,cts,tsx,js,jsx}", "**/*.d.ts", "src/test/**"],
             'reporter': ["text", "lcov"],
         }
     },
