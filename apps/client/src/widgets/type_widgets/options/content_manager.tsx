@@ -10,6 +10,7 @@ import {
     type ContentSortOrder,
     findCategoryNotes,
     isCategoryEnabled,
+    resolveProperties,
     setCategoryEnabled
 } from "../../../services/content_manager";
 import { t } from "../../../services/i18n";
@@ -22,6 +23,25 @@ import type { TypeWidgetProps } from "../type_widget";
 import OptionsPageHeader from "./components/OptionsPageHeader";
 
 const NOOP = () => {};
+
+/** Renders a note's extra detail, e.g. `Trigger: backend startup, hourly; Mode: authentic`. */
+function ContentProperties({ note, category }: { note: FNote, category: ContentCategory }) {
+    const properties = resolveProperties(note, category);
+
+    if (!properties.length) return null;
+
+    return (
+        <span className="content-manager-properties">
+            {properties.map(({ titleKey, values }) => (
+                <span key={titleKey} className="content-manager-property">
+                    <strong>{t(titleKey)}:</strong>
+                    {" "}
+                    {values.map((value) => value.titleKey ? t(value.titleKey) : value.text).join(", ")}
+                </span>
+            ))}
+        </span>
+    );
+}
 
 function ContentToggle({ note, category }: { note: FNote, category: ContentCategory }) {
     const [ enabled, setEnabled ] = useState(() => isCategoryEnabled(note, category));
@@ -106,7 +126,12 @@ function CategoryList({ pageNote, categories }: { pageNote: FNote, categories: C
                     listOptions={{
                         ...LIST_OPTIONS,
                         title: t(category.titleKey),
-                        renderItemActions: (note) => <ContentToggle note={note} category={category} />
+                        renderItemActions: (note) => (
+                            <>
+                                <ContentProperties note={note} category={category} />
+                                <ContentToggle note={note} category={category} />
+                            </>
+                        )
                     }}
                 />
             ))}

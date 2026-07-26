@@ -15,6 +15,16 @@
     white-space: nowrap;
 }
 
+.content-manager-properties {
+    font-size: .75em;
+    opacity: .75;
+}
+
+/* Separate consecutive properties: "Trigger: hourly; Mode: authentic". */
+.content-manager-property:not(:last-child)::after {
+    content: "; ";
+}
+
 .content-manager-loading {
     opacity: 0.7;
 }

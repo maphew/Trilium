@@ -11,10 +11,36 @@ export interface ContentTrigger {
 /** How the notes within each category are ordered. */
 export type ContentSortOrder = "title" | "dateCreated";
 
+/** Matched against the note's own labels, reading through the `disabled:` prefix. */
+export interface ContentPropertyCondition {
+    label: string;
+    /** Matches when the label carries any of these values. */
+    is?: string | string[];
+    /** Matches when the label exists and carries none of these values. */
+    isNot?: string | string[];
+}
+
+export interface ContentPropertyValue {
+    /** Translation key for the text shown when {@link condition} matches. */
+    titleKey?: string;
+    /** Shows this label's own value instead of a fixed title. */
+    valueOfLabel?: string;
+    condition?: ContentPropertyCondition;
+}
+
+/** Extra detail shown next to an item, e.g. `Trigger: backend startup, hourly`. */
+export interface ContentProperty {
+    /** Translation key for the property name. */
+    titleKey: string;
+    values: ContentPropertyValue[];
+}
+
 export interface ContentCategory {
     id: string;
     /** Translation key for the category heading. */
     titleKey: string;
+    /** Extra detail to show per item. Only properties that resolve to a value are displayed. */
+    properties?: ContentProperty[];
     /**
      * Search query selecting the notes of this category.
      *
@@ -30,13 +56,28 @@ export const CONTENT_CATEGORIES: ContentCategory[] = [
         id: "backendScripts",
         titleKey: "content_manager.category_backend_scripts",
         filter: "#run = backendStartup OR #run = hourly OR #run = daily"
-            + " OR #disabled:run = backendStartup OR #disabled:run = hourly OR #disabled:run = daily"
+            + " OR #disabled:run = backendStartup OR #disabled:run = hourly OR #disabled:run = daily",
+        properties: [ {
+            titleKey: "content_manager.property_trigger",
+            values: [
+                { titleKey: "content_manager.trigger_backend_startup", condition: { label: "run", is: "backendStartup" } },
+                { titleKey: "content_manager.trigger_hourly", condition: { label: "run", is: "hourly" } },
+                { titleKey: "content_manager.trigger_daily", condition: { label: "run", is: "daily" } }
+            ]
+        } ]
     },
     {
         id: "frontendScripts",
         titleKey: "content_manager.category_frontend_scripts",
         filter: "#run = frontendStartup OR #run = mobileStartup"
-            + " OR #disabled:run = frontendStartup OR #disabled:run = mobileStartup"
+            + " OR #disabled:run = frontendStartup OR #disabled:run = mobileStartup",
+        properties: [ {
+            titleKey: "content_manager.property_trigger",
+            values: [
+                { titleKey: "content_manager.trigger_frontend_startup", condition: { label: "run", is: "frontendStartup" } },
+                { titleKey: "content_manager.trigger_mobile_startup", condition: { label: "run", is: "mobileStartup" } }
+            ]
+        } ]
     },
     {
         id: "widgets",
@@ -51,7 +92,11 @@ export const CONTENT_CATEGORIES: ContentCategory[] = [
     {
         id: "themes",
         titleKey: "content_manager.category_themes",
-        filter: "#appTheme OR #disabled:appTheme"
+        filter: "#appTheme OR #disabled:appTheme",
+        properties: [ {
+            titleKey: "content_manager.property_base_theme",
+            values: [ { valueOfLabel: "appThemeBase" } ]
+        } ]
     },
     {
         id: "customCss",
@@ -61,7 +106,11 @@ export const CONTENT_CATEGORIES: ContentCategory[] = [
     {
         id: "iconPacks",
         titleKey: "content_manager.category_icon_packs",
-        filter: "#iconPack OR #disabled:iconPack"
+        filter: "#iconPack OR #disabled:iconPack",
+        properties: [ {
+            titleKey: "content_manager.property_prefix",
+            values: [ { valueOfLabel: "iconPack" } ]
+        } ]
     },
     {
         id: "templates",
@@ -106,6 +155,81 @@ export function buildCategoryQuery(filter: string, sortOrder: ContentSortOrder) 
  */
 export function isUserContent(note: FNote) {
     return !note.noteId.startsWith("_");
+}
+
+/** One resolved value: either a fixed title to translate, or text taken from the note itself. */
+export interface ResolvedPropertyValue {
+    titleKey?: string;
+    text?: string;
+}
+
+export interface ResolvedProperty {
+    titleKey: string;
+    values: ResolvedPropertyValue[];
+}
+
+/**
+ * Works out the extra detail to show for a note, dropping properties that resolve to nothing.
+ *
+ * Translation is left to the caller: a value is either a key to translate or text read off the note,
+ * and mixing the two here would drag i18n into what is otherwise pure data.
+ */
+export function resolveProperties(note: FNote, category: ContentCategory): ResolvedProperty[] {
+    const resolved: ResolvedProperty[] = [];
+
+    for (const property of category.properties ?? []) {
+        const values: ResolvedPropertyValue[] = [];
+
+        for (const value of property.values) {
+            if (value.condition && !matchesCondition(note, value.condition)) {
+                continue;
+            }
+
+            if (value.titleKey) {
+                values.push({ titleKey: value.titleKey });
+            } else if (value.valueOfLabel) {
+                // Several labels of the same name are possible, e.g. two `#run` triggers.
+                values.push(...getOwnedLabelValues(note, value.valueOfLabel)
+                    .filter((text) => text.trim())
+                    .map((text) => ({ text })));
+            }
+        }
+
+        if (values.length) {
+            resolved.push({ titleKey: property.titleKey, values });
+        }
+    }
+
+    return resolved;
+}
+
+function matchesCondition(note: FNote, { label, is, isNot }: ContentPropertyCondition) {
+    const values = getOwnedLabelValues(note, label);
+
+    if (!values.length) {
+        return false;
+    }
+
+    if (is !== undefined && !values.some((value) => toArray(is).includes(value))) {
+        return false;
+    }
+
+    return isNot === undefined || !values.some((value) => toArray(isNot).includes(value));
+}
+
+/**
+ * All values the note holds for a label, matched through the `disabled:` prefix so that switching an
+ * item off doesn't blank out the detail explaining what it does.
+ */
+function getOwnedLabelValues(note: FNote, name: string) {
+    return note.getOwnedAttributes()
+        .filter((attribute) => attribute.type === "label"
+            && attributes.getNameWithoutDangerousPrefix(attribute.name).toLowerCase() === name.toLowerCase())
+        .map((attribute) => attribute.value);
+}
+
+function toArray(value: string | string[]) {
+    return Array.isArray(value) ? value : [ value ];
 }
 
 /** Whether the note is currently active in this category, i.e. at least one trigger is not disabled. */

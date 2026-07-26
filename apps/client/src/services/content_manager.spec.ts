@@ -4,9 +4,11 @@ import { buildNote } from "../test/easy-froca";
 import {
     buildCategoryQuery,
     CONTENT_CATEGORIES,
+    type ContentCategory,
     isCategoryEnabled,
     isUserContent,
-    parseFilterTriggers
+    parseFilterTriggers,
+    resolveProperties
 } from "./content_manager";
 
 function categoryById(id: string) {
@@ -129,6 +131,68 @@ describe("isCategoryEnabled", () => {
         const note = buildNote({ title: "Mixed", "#run": "daily", "#disabled:customRequestHandler": "api/x" });
 
         expect(isCategoryEnabled(note, scripts)).toBe(true);
+    });
+});
+
+describe("resolveProperties", () => {
+    const triggers: ContentCategory = {
+        id: "test",
+        titleKey: "unused",
+        filter: "#run OR #disabled:run",
+        properties: [ {
+            titleKey: "prop.trigger",
+            values: [
+                { titleKey: "value.hourly", condition: { label: "run", is: "hourly" } },
+                { titleKey: "value.daily", condition: { label: "run", is: "daily" } },
+                { titleKey: "value.other", condition: { label: "run", isNot: [ "hourly", "daily" ] } }
+            ]
+        } ]
+    };
+
+    it("returns each matching value, so several triggers read as a list", () => {
+        const note = buildNote({ title: "Both", "#run": "hourly" });
+
+        expect(resolveProperties(note, triggers)).toEqual([
+            { titleKey: "prop.trigger", values: [ { titleKey: "value.hourly" } ] }
+        ]);
+    });
+
+    it("still describes a disabled item, matching through the disabled: prefix", () => {
+        // The detail explaining what an item does is most useful precisely when it is switched off.
+        const note = buildNote({ title: "Paused", "#disabled:run": "daily" });
+
+        expect(resolveProperties(note, triggers)).toEqual([
+            { titleKey: "prop.trigger", values: [ { titleKey: "value.daily" } ] }
+        ]);
+    });
+
+    it("honours isNot, and requires the label to be present at all", () => {
+        const other = buildNote({ title: "Custom", "#run": "weekly" });
+        const absent = buildNote({ title: "None" });
+
+        expect(resolveProperties(other, triggers)).toEqual([
+            { titleKey: "prop.trigger", values: [ { titleKey: "value.other" } ] }
+        ]);
+        expect(resolveProperties(absent, triggers)).toEqual([]);
+    });
+
+    it("reads a label's own value, skipping the property when it is missing or blank", () => {
+        const category: ContentCategory = {
+            id: "themes",
+            titleKey: "unused",
+            filter: "#appTheme",
+            properties: [ { titleKey: "prop.base", values: [ { valueOfLabel: "appThemeBase" } ] } ]
+        };
+
+        expect(resolveProperties(buildNote({ title: "T", "#appThemeBase": "next-dark" }), category)).toEqual([
+            { titleKey: "prop.base", values: [ { text: "next-dark" } ] }
+        ]);
+        expect(resolveProperties(buildNote({ title: "T", "#appThemeBase": "  " }), category)).toEqual([]);
+        expect(resolveProperties(buildNote({ title: "T" }), category)).toEqual([]);
+    });
+
+    it("returns nothing for a category that declares no properties", () => {
+        expect(resolveProperties(buildNote({ title: "X", "#appCss": "" }), categoryById("customCss"))).toEqual([]);
     });
 });
 
