@@ -1,5 +1,12 @@
 import type FNote from "../entities/fnote";
+import attributes from "./attributes";
 import search from "./search";
+
+/** An attribute that makes a note part of a category. */
+export interface ContentTrigger {
+    type: "label" | "relation";
+    name: string;
+}
 
 /** How the notes within each category are ordered. */
 export type ContentSortOrder = "title" | "dateCreated";
@@ -93,3 +100,72 @@ export function buildCategoryQuery(filter: string, sortOrder: ContentSortOrder) 
 export function isUserContent(note: FNote) {
     return !note.noteId.startsWith("_");
 }
+
+/** Whether the note is currently active in this category, i.e. at least one trigger is not disabled. */
+export function isCategoryEnabled(note: FNote, category: ContentCategory) {
+    return getCategoryTriggers(note, category).some(({ enabled }) => enabled);
+}
+
+/**
+ * Enables or disables the note's participation in this category, and only this one.
+ *
+ * A note can be active content in several ways at once — a script that is also a template — so the
+ * triggers of other categories are deliberately left alone.
+ */
+export async function setCategoryEnabled(note: FNote, category: ContentCategory, enabled: boolean) {
+    for (const { type, name } of getCategoryTriggers(note, category)) {
+        await attributes.toggleDangerousAttribute(note, type, name, enabled);
+    }
+}
+
+/**
+ * The triggers of this category that the note actually owns, deduplicated by type and name, with
+ * `disabled:` stripped so the name is the one to write back.
+ */
+function getCategoryTriggers(note: FNote, category: ContentCategory) {
+    const wanted = new Set(parseFilterTriggers(category.filter).map(toTriggerKey));
+    const found = new Map<string, ContentTrigger & { enabled: boolean }>();
+
+    for (const attribute of note.getOwnedAttributes()) {
+        if (attribute.type !== "label" && attribute.type !== "relation") {
+            continue;
+        }
+
+        const trigger: ContentTrigger = {
+            type: attribute.type,
+            name: attributes.getNameWithoutDangerousPrefix(attribute.name)
+        };
+        const key = toTriggerKey(trigger);
+
+        if (!wanted.has(key)) {
+            continue;
+        }
+
+        // An enabled spelling wins: the note counts as active if any of its triggers is live.
+        const enabled = !attribute.name.startsWith(DISABLED_PREFIX);
+        found.set(key, { ...trigger, enabled: enabled || (found.get(key)?.enabled ?? false) });
+    }
+
+    return [ ...found.values() ];
+}
+
+/** Reads the attribute names out of a category's search query, so it stays the single source of truth. */
+export function parseFilterTriggers(filter: string): ContentTrigger[] {
+    const triggers = new Map<string, ContentTrigger>();
+
+    for (const match of filter.match(/[#~][\w:]+/g) ?? []) {
+        const trigger: ContentTrigger = {
+            type: match.startsWith("#") ? "label" : "relation",
+            name: attributes.getNameWithoutDangerousPrefix(match.slice(1))
+        };
+        triggers.set(toTriggerKey(trigger), trigger);
+    }
+
+    return [ ...triggers.values() ];
+}
+
+function toTriggerKey({ type, name }: ContentTrigger) {
+    return `${type}-${name.toLowerCase()}`;
+}
+
+const DISABLED_PREFIX = "disabled:";

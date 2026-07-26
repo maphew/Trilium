@@ -8,17 +8,41 @@ import {
     CONTENT_CATEGORIES,
     type ContentCategory,
     type ContentSortOrder,
-    findCategoryNotes
+    findCategoryNotes,
+    isCategoryEnabled,
+    setCategoryEnabled
 } from "../../../services/content_manager";
 import { t } from "../../../services/i18n";
 import { ListView, type ListViewOptions } from "../../collections/legacy/ListOrGridView";
 import Button, { ButtonGroup } from "../../react/Button";
+import FormToggle from "../../react/FormToggle";
 import { useTriliumEvent, useTriliumOption } from "../../react/hooks";
 import NoItems from "../../react/NoItems";
 import type { TypeWidgetProps } from "../type_widget";
 import OptionsPageHeader from "./components/OptionsPageHeader";
 
 const NOOP = () => {};
+
+function ContentToggle({ note, category }: { note: FNote, category: ContentCategory }) {
+    const [ enabled, setEnabled ] = useState(() => isCategoryEnabled(note, category));
+
+    // Re-sync when the row is reused for another note, or the state changed elsewhere.
+    useEffect(() => setEnabled(isCategoryEnabled(note, category)), [ note, category ]);
+
+    return (
+        <FormToggle
+            switchOnName="" switchOffName=""
+            currentValue={enabled}
+            switchOnTooltip={t("content_manager.toggle_enable")}
+            switchOffTooltip={t("content_manager.toggle_disable")}
+            onChange={(willEnable) => {
+                // Applied straight away so the switch responds before the lists are rebuilt.
+                setEnabled(willEnable);
+                void setCategoryEnabled(note, category, willEnable);
+            }}
+        />
+    );
+}
 
 const LIST_OPTIONS: ListViewOptions = {
     // These notes are scattered across the tree rather than being children of this page, so they are
@@ -28,10 +52,7 @@ const LIST_OPTIONS: ListViewOptions = {
     // Collapsed by default: the list is meant to be scanned, and expanding reveals the note's own
     // preview rather than a subtree.
     expandDepth: 0,
-    pageSize: 50,
-    // Deliberately empty for now: it suppresses the note's attributes and reserves the spot for the
-    // enable/disable toggle and status badges.
-    renderItemActions: () => null
+    pageSize: 50
 };
 
 export default function ContentManagerSettings({ note }: TypeWidgetProps) {
@@ -82,7 +103,11 @@ function CategoryList({ pageNote, categories }: { pageNote: FNote, categories: C
                     saveConfig={NOOP}
                     media="screen"
                     onReady={NOOP}
-                    listOptions={{ ...LIST_OPTIONS, title: t(category.titleKey) }}
+                    listOptions={{
+                        ...LIST_OPTIONS,
+                        title: t(category.titleKey),
+                        renderItemActions: (note) => <ContentToggle note={note} category={category} />
+                    }}
                 />
             ))}
         </>

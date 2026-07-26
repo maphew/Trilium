@@ -67,6 +67,8 @@ export default [
     { type: "label", name: "hideRelations" },
     { type: "label", name: "titleTemplate", isDangerous: true },
     { type: "label", name: "template" },
+    { type: "label", name: "snippet" },
+    { type: "label", name: "textSnippet" },
     { type: "label", name: "toc" },
     { type: "label", name: "color" },
     { type: "label", name: "keepCurrentHoisting" },

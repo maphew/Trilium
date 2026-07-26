@@ -1,7 +1,19 @@
 import { describe, expect, it } from "vitest";
 
 import { buildNote } from "../test/easy-froca";
-import { buildCategoryQuery, CONTENT_CATEGORIES, isUserContent } from "./content_manager";
+import {
+    buildCategoryQuery,
+    CONTENT_CATEGORIES,
+    isCategoryEnabled,
+    isUserContent,
+    parseFilterTriggers
+} from "./content_manager";
+
+function categoryById(id: string) {
+    const category = CONTENT_CATEGORIES.find((candidate) => candidate.id === id);
+    if (!category) throw new Error(`Unknown category '${id}'`);
+    return category;
+}
 
 describe("buildCategoryQuery", () => {
     it("orders alphabetically by title", () => {
@@ -58,6 +70,59 @@ describe("CONTENT_CATEGORIES", () => {
             "templates",
             "snippets"
         ]);
+    });
+});
+
+describe("parseFilterTriggers", () => {
+    it("reads attribute names off a filter, ignoring values and the disabled: spelling", () => {
+        expect(parseFilterTriggers("#run = hourly OR #disabled:run = hourly")).toEqual([
+            { type: "label", name: "run" }
+        ]);
+    });
+
+    it("distinguishes labels from relations", () => {
+        expect(parseFilterTriggers("~renderNote OR ~disabled:renderNote OR #webViewSrc")).toEqual([
+            { type: "relation", name: "renderNote" },
+            { type: "label", name: "webViewSrc" }
+        ]);
+    });
+
+    it("finds the triggers of every real category", () => {
+        expect(parseFilterTriggers(categoryById("snippets").filter)).toEqual([
+            { type: "label", name: "snippet" },
+            { type: "label", name: "textSnippet" }
+        ]);
+        expect(parseFilterTriggers(categoryById("backendScripts").filter)).toEqual([
+            { type: "label", name: "run" }
+        ]);
+    });
+});
+
+describe("isCategoryEnabled", () => {
+    const scripts = categoryById("backendScripts");
+    const widgets = categoryById("widgets");
+
+    it("reports an enabled trigger as on and a disabled one as off", () => {
+        expect(isCategoryEnabled(buildNote({ title: "Live", "#run": "hourly" }), scripts)).toBe(true);
+        expect(isCategoryEnabled(buildNote({ title: "Paused", "#disabled:run": "hourly" }), scripts)).toBe(false);
+    });
+
+    it("only considers the triggers of the category asked about", () => {
+        // The note is a live widget but a disabled backend script; each row answers for itself.
+        const note = buildNote({ title: "Both", "#widget": "", "#disabled:run": "daily" });
+
+        expect(isCategoryEnabled(note, widgets)).toBe(true);
+        expect(isCategoryEnabled(note, scripts)).toBe(false);
+    });
+
+    it("is off for a note carrying none of the category's triggers", () => {
+        expect(isCategoryEnabled(buildNote({ title: "Plain" }), scripts)).toBe(false);
+    });
+
+    it("counts the note as on while any one of its triggers is still live", () => {
+        const note = buildNote({ title: "Mixed", "#run": "daily", "#disabled:customRequestHandler": "api/x" });
+
+        expect(isCategoryEnabled(note, scripts)).toBe(true);
     });
 });
 
