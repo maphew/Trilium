@@ -458,7 +458,10 @@
       "failed-pages-error": "エラー",
       "failed-resources-title": "画像や添付ファイルが見つかりません",
       "failed-resources-item_other": "{{- pageLink}}: {{count}} 件のリソースをダウンロードできませんでした"
-    }
+    },
+    "failed-section-placeholder": "このセクションは OneNote からインポートできなかったため、空の状態で作成されました。エラー: {{error}}",
+    "protected-section-error": "このセクションはパスワードで保護されています。OneNote でパスワードを解除してから、再度インポートしてください。",
+    "protected-section-placeholder": "このセクションはパスワードで保護されているため、ページをインポートできず、空の状態で作成されました。インポートするには、OneNote でセクションを開き、パスワード保護を解除（セクションを右クリック → パスワード保護 → パスワードの解除）してから、インポートを再度実行してください。"
   },
   "notion_import": {
     "root-title": "Notion インポート",
