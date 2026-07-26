@@ -57,6 +57,10 @@ flags:
     paths:
       - packages/highlightjs/src/
     carryforward: true
+  pdfjs-viewer:
+    paths:
+      - packages/pdfjs-viewer/src/
+    carryforward: true
 
 comment:
   layout: "condensed_header, condensed_files, condensed_footer"
