@@ -46,6 +46,10 @@ export interface InstalledViewer {
     sendFromParent(data: unknown): void;
     /** Scrolls the fake container, as the active-heading tracker observes it. */
     scrollTo(scrollTop: number): void;
+    /** The `#viewer` element pdf.js renders pages into. */
+    viewerEl: HTMLElement;
+    /** Records `container.scrollTo` calls, since happy-dom does not scroll. */
+    scrollRequests: Mock;
 }
 
 /**
@@ -64,9 +68,18 @@ export async function installViewerApp(data: Uint8Array, pageGeometry: Record<nu
 
     const container = document.createElement("div");
     container.style.height = "800px";
+    // `#viewer` is where pdf.js appends rendered pages; `scrollToAnnotation` observes it for
+    // annotations that have not been rendered yet, and throws outright if it is missing.
+    const viewerEl = document.createElement("div");
+    viewerEl.id = "viewer";
+    container.append(viewerEl);
     document.body.append(container);
     // happy-dom leaves layout at zero; the tracker only needs a readable clientHeight.
     Object.defineProperty(container, "clientHeight", { value: 800, configurable: true });
+    // happy-dom performs no scrolling, so record the requests instead. Positions asserted
+    // against this will be zero-based, since getBoundingClientRect() is also flat.
+    const scrollRequests = vi.fn();
+    container.scrollTo = scrollRequests;
 
     const pdfLinkService = { goToDestination: vi.fn() };
     const messages: any[] = [];
@@ -118,7 +131,9 @@ export async function installViewerApp(data: Uint8Array, pageGeometry: Record<nu
         },
         scrollTo: (scrollTop) => {
             container.scrollTop = scrollTop;
-        }
+        },
+        viewerEl,
+        scrollRequests
     };
 }
 

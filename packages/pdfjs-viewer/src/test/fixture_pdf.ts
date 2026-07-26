@@ -55,8 +55,9 @@ export function allFeaturesPdf(): Uint8Array {
         "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>",
         // 3 — page 1, carrying both annotations.
         "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [5 0 R 14 0 R] >>",
-        // 4 — page 2, target of the second outline entry.
-        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>",
+        // 4 — page 2, target of the second outline entry, carrying the two annotations that
+        //     must be filtered out: a link (wrong type) and a highlight with nothing to show.
+        "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Annots [16 0 R 17 0 R] >>",
         // 5 — highlight annotation with a comment, author and colour.
         "<< /Type /Annot /Subtype /Highlight /Rect [100 700 200 720] "
             + "/Contents (A remark) /T (Alice) /C [1 0 0] "
@@ -83,7 +84,12 @@ export function allFeaturesPdf(): Uint8Array {
             + "/Contents (A sticky note) /T (Bob) /C [0 0 1] >>",
         // 15 — the attachment payload itself.
         `<< /Type /EmbeddedFile /Length ${ATTACHMENT_TEXT.length} >>\n`
-            + `stream\n${ATTACHMENT_TEXT}\nendstream`
+            + `stream\n${ATTACHMENT_TEXT}\nendstream`,
+        // 16 — a link annotation: a type the sidebar does not display.
+        "<< /Type /Annot /Subtype /Link /Rect [50 50 150 70] /A << /S /URI /URI (https://example.com) >> >>",
+        // 17 — a highlight with neither a comment nor highlighted text, so nothing to show.
+        "<< /Type /Annot /Subtype /Highlight /Rect [200 200 300 220] "
+            + "/QuadPoints [200 220 300 220 200 200 300 200] >>"
     ]);
 }
 
