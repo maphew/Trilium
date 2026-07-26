@@ -144,24 +144,42 @@ export default function ContentManagerSettings({ note }: TypeWidgetProps) {
     const [ appliedFilter, setAppliedFilter ] = useState("");
     const categories = useCategoryNotes(sortOrder as ContentSortOrder, appliedFilter);
 
+    const filterRef = useRef<HTMLInputElement>(null);
+
     // Typing stays instant while the searches only re-run once the user pauses.
     const applyFilter = useMemo(() => debounce(setAppliedFilter, FILTER_DEBOUNCE_MS), []);
     useEffect(() => () => applyFilter.clear(), [ applyFilter ]);
+
+    const clearFilter = useCallback(() => {
+        // Drop any pending debounced call, otherwise the text just cleared would be re-applied.
+        applyFilter.clear();
+        setTypedFilter("");
+        setAppliedFilter("");
+        filterRef.current?.focus();
+    }, [ applyFilter ]);
 
     return (
         <>
             <OptionsPageHeader />
 
             <div className="content-manager-toolbar">
-                <FormTextBox
-                    className="content-manager-filter"
-                    placeholder={t("content_manager.filter_placeholder")}
-                    currentValue={typedFilter}
-                    onChange={(newValue) => {
-                        setTypedFilter(newValue);
-                        applyFilter(newValue);
-                    }}
-                />
+                <div className="input-group content-manager-filter">
+                    <FormTextBox
+                        inputRef={filterRef}
+                        placeholder={t("content_manager.filter_placeholder")}
+                        currentValue={typedFilter}
+                        onChange={(newValue) => {
+                            setTypedFilter(newValue);
+                            applyFilter(newValue);
+                        }}
+                    />
+                    <button
+                        type="button"
+                        className="input-group-text input-clearer-button bx bxs-tag-x"
+                        title={t("content_manager.clear_filter")}
+                        onClick={clearFilter}
+                    />
+                </div>
                 <span className="content-manager-toolbar-label">{t("content_manager.sort_order")}</span>
                 <SortOrderSelect currentValue={sortOrder} onChange={(newValue) => void setSortOrder(newValue)} />
             </div>
