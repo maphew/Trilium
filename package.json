@@ -68,7 +68,7 @@
     "eslint-config-preact": "2.0.0",
     "eslint-plugin-playwright": "2.10.5",
     "eslint-plugin-simple-import-sort": "14.0.0",
-    "happy-dom": "20.11.0",
+    "happy-dom": "20.11.1",
     "http-server": "14.1.1",
     "jiti": "2.7.0",
     "js-yaml": "5.2.2",
