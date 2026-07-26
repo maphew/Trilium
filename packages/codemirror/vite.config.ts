@@ -37,6 +37,12 @@ export default defineConfig(() => ({
       ['junit', { outputFile: './test-output/vitest/junit.xml', addFileAttribute: true }]
     ],
     coverage: {
+      thresholds: {
+        lines: 100,
+        functions: 100,
+        branches: 100,
+        statements: 100
+      },
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],
       exclude: ['**/*.{test,spec}.{ts,mts,cts,tsx,js,jsx}', '**/*.d.ts'],
