@@ -1,15 +1,21 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { buildNote } from "../test/easy-froca";
+import attributeService from "./attributes";
 import {
     buildCategoryQuery,
     CONTENT_CATEGORIES,
     type ContentCategory,
+    findCategoryNotes,
     isCategoryEnabled,
     isUserContent,
     parseFilterTriggers,
-    resolveProperties
+    resolveProperties,
+    setCategoryEnabled
 } from "./content_manager";
+import searchService from "./search";
+
+afterEach(() => vi.restoreAllMocks());
 
 function categoryById(id: string) {
     const category = CONTENT_CATEGORIES.find((candidate) => candidate.id === id);
@@ -96,6 +102,10 @@ describe("parseFilterTriggers", () => {
             { type: "relation", name: "renderNote" },
             { type: "label", name: "webViewSrc" }
         ]);
+    });
+
+    it("returns nothing for a filter naming no attributes", () => {
+        expect(parseFilterTriggers("")).toEqual([]);
     });
 
     it("finds the triggers of every real category", () => {
@@ -253,8 +263,96 @@ describe("resolveProperties", () => {
         ]);
     });
 
+    it("skips a value whose condition names neither a label nor a relation", () => {
+        const category: ContentCategory = {
+            id: "test",
+            titleKey: "unused",
+            filter: "#anything",
+            properties: [ { titleKey: "prop.k", values: [ { titleKey: "v", condition: {} } ] } ]
+        };
+
+        expect(resolveProperties(buildNote({ title: "X", "#anything": "" }), category)).toEqual([]);
+    });
+
+    it("ignores a value that specifies neither a title nor a label to read", () => {
+        const category: ContentCategory = {
+            id: "test",
+            titleKey: "unused",
+            filter: "#anything",
+            properties: [ { titleKey: "prop.k", values: [ {} ] } ]
+        };
+
+        expect(resolveProperties(buildNote({ title: "X", "#anything": "" }), category)).toEqual([]);
+    });
+
     it("returns nothing for a category that declares no properties", () => {
         expect(resolveProperties(buildNote({ title: "X", "#appCss": "" }), categoryById("customCss"))).toEqual([]);
+    });
+});
+
+describe("setCategoryEnabled", () => {
+    function spyOnToggle() {
+        return vi.spyOn(attributeService, "toggleDangerousAttribute").mockResolvedValue(undefined);
+    }
+
+    it("renames only the triggers of the category, leaving the note's other capabilities alone", async () => {
+        // The whole point of toggling per category: this note is both a widget and a backend script.
+        const toggle = spyOnToggle();
+        const note = buildNote({ title: "Both", "#widget": "", "#run": "daily" });
+
+        await setCategoryEnabled(note, categoryById("widgets"), false);
+
+        expect(toggle).toHaveBeenCalledTimes(1);
+        expect(toggle).toHaveBeenCalledWith(note, "label", "widget", false);
+    });
+
+    it("toggles relation triggers as relations", async () => {
+        const toggle = spyOnToggle();
+        const note = buildNote({ title: "Render", "~renderNote": "abc123" });
+
+        await setCategoryEnabled(note, categoryById("renderNotes"), false);
+
+        expect(toggle).toHaveBeenCalledWith(note, "relation", "renderNote", false);
+    });
+
+    it("writes back the canonical name when re-enabling a disabled trigger", async () => {
+        const toggle = spyOnToggle();
+        const note = buildNote({ title: "Paused", "#disabled:widget": "" });
+
+        await setCategoryEnabled(note, categoryById("widgets"), true);
+
+        expect(toggle).toHaveBeenCalledWith(note, "label", "widget", true);
+    });
+
+    it("toggles each distinct trigger once, even with several attributes of the same name", async () => {
+        const toggle = spyOnToggle();
+        const note = buildNote({ title: "Two triggers", "#run": "hourly" });
+
+        await setCategoryEnabled(note, categoryById("backendScripts"), false);
+
+        expect(toggle).toHaveBeenCalledTimes(1);
+    });
+
+    it("does nothing when the note carries none of the category's triggers", async () => {
+        const toggle = spyOnToggle();
+
+        await setCategoryEnabled(buildNote({ title: "Plain" }), categoryById("widgets"), false);
+
+        expect(toggle).not.toHaveBeenCalled();
+    });
+});
+
+describe("findCategoryNotes", () => {
+    it("runs the category's ordered query and drops built-in notes", async () => {
+        const mine = buildNote({ id: "mine123", title: "My theme" });
+        const builtIn = buildNote({ id: "_builtInTheme", title: "Built-in" });
+        const search = vi.spyOn(searchService, "searchForNotes").mockResolvedValue([ mine, builtIn ]);
+        const category = categoryById("themes");
+
+        const notes = await findCategoryNotes(category, "title");
+
+        expect(search).toHaveBeenCalledWith(buildCategoryQuery(category.filter, "title"));
+        expect(notes).toEqual([ mine ]);
     });
 });
 

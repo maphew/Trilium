@@ -344,10 +344,6 @@ function getCategoryTriggers(note: FNote, category: ContentCategory) {
     const found = new Map<string, ContentTrigger & { enabled: boolean }>();
 
     for (const attribute of note.getOwnedAttributes()) {
-        if (attribute.type !== "label" && attribute.type !== "relation") {
-            continue;
-        }
-
         const trigger: ContentTrigger = {
             type: attribute.type,
             name: attributes.getNameWithoutDangerousPrefix(attribute.name)
