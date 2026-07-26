@@ -57,11 +57,7 @@ function ContentItemMenu({ note }: { note: FNote }) {
                         hoistedNoteId: appContext.tabManager.getActiveContext()?.hoistedNoteId ?? null
                     });
                 } else if (command === "deleteNote") {
-                    const branchId = getDisplayedBranchId(
-                        note,
-                        appContext.tabManager.getActiveContext()?.hoistedNoteId ?? "root",
-                        appContext.tabManager.getActiveContextNotePath()
-                    );
+                    const branchId = getDisplayedBranchId(note, appContext.tabManager.getActiveContextNotePath());
 
                     if (branchId) {
                         // One branch, not all of them: the dialog counts a note's *other* placements

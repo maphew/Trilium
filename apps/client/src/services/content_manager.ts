@@ -369,9 +369,15 @@ function toArray(value: string | string[]) {
  * renders the location under each title from the note's "best" path, so resolving that same path
  * here makes the delete act on the placement the user can actually see, rather than on whichever
  * branch happens to come first in cache order.
+ *
+ * @param activeNotePath tie-breaker for equally good paths, matching what the link resolution passes.
  */
-export function getDisplayedBranchId(note: FNote, hoistedNoteId = "root", activeNotePath: string | null = null) {
-    const parentNoteId = note.getBestNotePath(hoistedNoteId, activeNotePath)?.at(-2);
+export function getDisplayedBranchId(note: FNote, activeNotePath: string | null = null) {
+    // Resolved from the root, never from the active hoist, because that is what `link.createLink`
+    // does when it renders the path — it calls `resolveNotePathToSegments(notePath)` without a
+    // hoisted note. Passing the active hoist here would pick a different placement for a note cloned
+    // both inside and outside the hoisted subtree, and delete something other than the row shows.
+    const parentNoteId = note.getBestNotePath("root", activeNotePath)?.at(-2);
     const branchId = parentNoteId ? note.parentToBranch[parentNoteId] : undefined;
 
     // Search results are backed by virtual branches, which cannot be deleted.
