@@ -421,6 +421,14 @@ describe("renderToHtml", () => {
             expect(html).toBe('<aside class="admonition note">&nbsp;</aside>');
         });
 
+        it("treats the whole marker paragraph as the title when it is raw, unterminated HTML", () => {
+            // A callout authored as a raw HTML paragraph reaches the renderer verbatim, so the
+            // marker paragraph carries neither a closing `</p>` nor a soft line break to split on.
+            // Everything after the marker is then the title, with no body.
+            expect(render("> <p>[!NOTE] raw html para"))
+                .toBe('<aside class="admonition note"><p><strong>raw html para</strong></p></aside>');
+        });
+
         it("keeps an unknown admonition type as a normal blockquote", () => {
             const html = render("> [!FOO]\n> body");
             expect(html).toContain("<blockquote>");
