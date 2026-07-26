@@ -2599,6 +2599,22 @@
   "content_widget": {
     "unknown_widget": "Unknown widget for \"{{id}}\"."
   },
+  "content_manager": {
+    "category_backend_scripts": "Backend Scripts",
+    "category_frontend_scripts": "Front-end Scripts",
+    "category_widgets": "Custom Widgets",
+    "category_render_notes": "Render Notes",
+    "category_themes": "Custom Themes",
+    "category_custom_css": "Custom CSS",
+    "category_icon_packs": "Icon Packs",
+    "category_templates": "Templates",
+    "category_snippets": "Snippets",
+    "sort_order": "Sort by",
+    "sort_by_name": "Name",
+    "sort_by_date_created": "Creation date",
+    "no_items": "No active content found.",
+    "no_items_hint": "Scripts, themes, templates and snippets you create will be listed here."
+  },
   "note_language": {
     "not_set": "No language set",
     "configure-languages": "Configure languages...",
