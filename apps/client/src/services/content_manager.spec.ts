@@ -191,6 +191,25 @@ describe("resolveProperties", () => {
         expect(resolveProperties(buildNote({ title: "T" }), category)).toEqual([]);
     });
 
+    it("describes the instance restriction and the workspace scope of real categories", () => {
+        const script = buildNote({ title: "S", "#run": "daily", "#runOnInstance": "main" });
+
+        expect(resolveProperties(script, categoryById("backendScripts"))).toEqual([
+            { titleKey: "content_manager.property_trigger", values: [ { titleKey: "content_manager.trigger_daily" } ] },
+            { titleKey: "content_manager.property_instance", values: [ { text: "main" } ] }
+        ]);
+
+        // The bare `workspaceTemplate` condition is a presence test, so an unrestricted template
+        // shows no scope at all.
+        const workspace = buildNote({ title: "W", "#template": "", "#workspaceTemplate": "" });
+        const plain = buildNote({ title: "P", "#template": "" });
+
+        expect(resolveProperties(workspace, categoryById("templates"))).toEqual([
+            { titleKey: "content_manager.property_scope", values: [ { titleKey: "content_manager.scope_workspace" } ] }
+        ]);
+        expect(resolveProperties(plain, categoryById("templates"))).toEqual([]);
+    });
+
     it("returns nothing for a category that declares no properties", () => {
         expect(resolveProperties(buildNote({ title: "X", "#appCss": "" }), categoryById("customCss"))).toEqual([]);
     });

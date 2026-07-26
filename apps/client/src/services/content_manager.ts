@@ -57,14 +57,22 @@ export const CONTENT_CATEGORIES: ContentCategory[] = [
         titleKey: "content_manager.category_backend_scripts",
         filter: "#run = backendStartup OR #run = hourly OR #run = daily"
             + " OR #disabled:run = backendStartup OR #disabled:run = hourly OR #disabled:run = daily",
-        properties: [ {
-            titleKey: "content_manager.property_trigger",
-            values: [
-                { titleKey: "content_manager.trigger_backend_startup", condition: { label: "run", is: "backendStartup" } },
-                { titleKey: "content_manager.trigger_hourly", condition: { label: "run", is: "hourly" } },
-                { titleKey: "content_manager.trigger_daily", condition: { label: "run", is: "daily" } }
-            ]
-        } ]
+        properties: [
+            {
+                titleKey: "content_manager.property_trigger",
+                values: [
+                    { titleKey: "content_manager.trigger_backend_startup", condition: { label: "run", is: "backendStartup" } },
+                    { titleKey: "content_manager.trigger_hourly", condition: { label: "run", is: "hourly" } },
+                    { titleKey: "content_manager.trigger_daily", condition: { label: "run", is: "daily" } }
+                ]
+            },
+            {
+                // The scheduler skips the script on any instance not named here, so a script can look
+                // enabled yet never run.
+                titleKey: "content_manager.property_instance",
+                values: [ { valueOfLabel: "runOnInstance" } ]
+            }
+        ]
     },
     {
         id: "frontendScripts",
@@ -115,7 +123,12 @@ export const CONTENT_CATEGORIES: ContentCategory[] = [
     {
         id: "templates",
         titleKey: "content_manager.category_templates",
-        filter: "#template OR #disabled:template"
+        filter: "#template OR #disabled:template",
+        properties: [ {
+            titleKey: "content_manager.property_scope",
+            // A bare condition tests only that the label is present.
+            values: [ { titleKey: "content_manager.scope_workspace", condition: { label: "workspaceTemplate" } } ]
+        } ]
     },
     {
         id: "snippets",
