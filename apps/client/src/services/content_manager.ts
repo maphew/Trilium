@@ -327,6 +327,22 @@ function toArray(value: string | string[]) {
 }
 
 /**
+ * The branch for the placement shown on the note's row, or `undefined` if there isn't a deletable one.
+ *
+ * A row identifies a note, but deleting needs a branch, and a cloned note has several. `NoteLink`
+ * renders the location under each title from the note's "best" path, so resolving that same path
+ * here makes the delete act on the placement the user can actually see, rather than on whichever
+ * branch happens to come first in cache order.
+ */
+export function getDisplayedBranchId(note: FNote, hoistedNoteId = "root", activeNotePath: string | null = null) {
+    const parentNoteId = note.getBestNotePath(hoistedNoteId, activeNotePath)?.at(-2);
+    const branchId = parentNoteId ? note.parentToBranch[parentNoteId] : undefined;
+
+    // Search results are backed by virtual branches, which cannot be deleted.
+    return branchId && !branchId.startsWith("virt-") ? branchId : undefined;
+}
+
+/**
  * Whether the note itself carries one of the category's triggers.
  *
  * The search engine expands inheritable attributes across subtrees and templated notes, so a note

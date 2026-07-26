@@ -13,6 +13,7 @@ import {
     type ContentCategory,
     type ContentSortOrder,
     findCategoryNotes,
+    getDisplayedBranchId,
     isCategoryEnabled,
     resolveProperties,
     setCategoryEnabled
@@ -50,13 +51,16 @@ function ContentItemMenu({ note }: { note: FNote }) {
                         hoistedNoteId: appContext.tabManager.getActiveContext()?.hoistedNoteId ?? null
                     });
                 } else if (command === "deleteNote") {
-                    // Search results carry virtual branches, which cannot be deleted.
-                    const [ branchId ] = note.getParentBranchIds().filter((id) => !id.startsWith("virt-"));
+                    const branchId = getDisplayedBranchId(
+                        note,
+                        appContext.tabManager.getActiveContext()?.hoistedNoteId ?? "root",
+                        appContext.tabManager.getActiveContextNotePath()
+                    );
 
                     if (branchId) {
-                        // Deliberately one branch, not all of them: the dialog counts a note's
-                        // *other* placements to warn about clones and offer "delete all clones", so
-                        // passing every branch would zero that count and delete them all silently.
+                        // One branch, not all of them: the dialog counts a note's *other* placements
+                        // to warn about clones and offer "delete all clones", so passing every branch
+                        // would zero that count and remove them all silently.
                         // `moveToParent` is off — the user is on this page, not on the note.
                         void branches.deleteNotes([ branchId ], false, false);
                     }

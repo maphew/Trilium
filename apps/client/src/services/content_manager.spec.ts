@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import FBranch from "../entities/fbranch";
 import { buildNote } from "../test/easy-froca";
 import attributeService from "./attributes";
 import {
@@ -7,6 +8,7 @@ import {
     CONTENT_CATEGORIES,
     type ContentCategory,
     findCategoryNotes,
+    getDisplayedBranchId,
     isCategoryEnabled,
     isUserContent,
     ownsCategoryTrigger,
@@ -14,6 +16,7 @@ import {
     resolveProperties,
     setCategoryEnabled
 } from "./content_manager";
+import froca from "./froca";
 import searchService from "./search";
 
 afterEach(() => vi.restoreAllMocks());
@@ -389,6 +392,56 @@ describe("findCategoryNotes", () => {
         vi.spyOn(searchService, "searchForNotes").mockResolvedValue([ parent, child ]);
 
         expect(await findCategoryNotes(categoryById("backendScripts"), "title")).toEqual([ parent ]);
+    });
+});
+
+describe("getDisplayedBranchId", () => {
+    // A note path is only resolvable if it reaches the root, so anchor the fixtures there.
+    function buildTree() {
+        buildNote({
+            id: "root",
+            title: "root",
+            children: [
+                { id: "shallowParent", title: "Scripts", children: [ { id: "target", title: "Startup" } ] },
+                { id: "deepParent", title: "Deep", children: [ { id: "deepChild", title: "Nested" } ] }
+            ]
+        });
+        return froca.notes["target"];
+    }
+
+    it("resolves the branch of the placement the row shows", () => {
+        expect(getDisplayedBranchId(buildTree())).toBe("shallowParent_target");
+    });
+
+    it("picks the placement matching the best path for a cloned note, not whichever branch was added first", () => {
+        // `NoteLink` renders that same best path under the title, so the delete has to agree with it.
+        const note = buildTree();
+        const deepChild = froca.notes["deepChild"];
+        const clonedBranchId = "deepChild_target";
+
+        froca.branches[clonedBranchId] = new FBranch(froca, {
+            branchId: clonedBranchId,
+            noteId: note.noteId,
+            parentNoteId: deepChild.noteId,
+            notePosition: 0,
+            fromSearchNote: false
+        });
+        note.addParent(deepChild.noteId, clonedBranchId, false);
+        deepChild.addChild(note.noteId, clonedBranchId, false);
+
+        const parentNoteId = note.getBestNotePath()?.at(-2);
+
+        expect(getDisplayedBranchId(note)).toBe(note.parentToBranch[parentNoteId ?? ""]);
+        // The shorter path wins, so it is the original placement rather than the deeper clone.
+        expect(getDisplayedBranchId(note)).toBe("shallowParent_target");
+    });
+
+    it("ignores the virtual branches that back search results", () => {
+        const note = buildTree();
+
+        note.parentToBranch["shallowParent"] = "virt-something";
+
+        expect(getDisplayedBranchId(note)).toBeUndefined();
     });
 });
 
