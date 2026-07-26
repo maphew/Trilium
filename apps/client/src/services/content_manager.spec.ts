@@ -70,13 +70,16 @@ describe("CONTENT_CATEGORIES", () => {
         expect(CONTENT_CATEGORIES.map((category) => category.id)).toEqual([
             "backendScripts",
             "frontendScripts",
+            "eventHandlers",
+            "endpoints",
             "widgets",
             "renderNotes",
             "themes",
             "customCss",
             "iconPacks",
             "templates",
-            "snippets"
+            "snippets",
+            "sharing"
         ]);
     });
 });
@@ -208,6 +211,46 @@ describe("resolveProperties", () => {
             { titleKey: "content_manager.property_scope", values: [ { titleKey: "content_manager.scope_workspace" } ] }
         ]);
         expect(resolveProperties(plain, categoryById("templates"))).toEqual([]);
+    });
+
+    it("matches relations, listing every event a note handles", () => {
+        const note = buildNote({
+            title: "Handler",
+            "~runOnNoteCreation": "script1",
+            "~disabled:runOnBranchDeletion": "script2"
+        });
+
+        expect(resolveProperties(note, categoryById("eventHandlers"))).toEqual([ {
+            titleKey: "content_manager.property_event",
+            values: [
+                { titleKey: "content_manager.event_note_creation" },
+                { titleKey: "content_manager.event_branch_deletion" }
+            ]
+        } ]);
+    });
+
+    it("does not confuse a label with a relation of the same name", () => {
+        // `widget` exists as both; a relation condition must not be satisfied by the label.
+        const category: ContentCategory = {
+            id: "test",
+            titleKey: "unused",
+            filter: "~widget",
+            properties: [ { titleKey: "prop.k", values: [ { titleKey: "v.rel", condition: { relation: "widget" } } ] } ]
+        };
+
+        expect(resolveProperties(buildNote({ title: "L", "#widget": "" }), category)).toEqual([]);
+        expect(resolveProperties(buildNote({ title: "R", "~widget": "abc" }), category)).toEqual([
+            { titleKey: "prop.k", values: [ { titleKey: "v.rel" } ] }
+        ]);
+    });
+
+    it("shows an endpoint's kind and its path pattern", () => {
+        const note = buildNote({ title: "API", "#customRequestHandler": "api/my-handler/([a-z]+)" });
+
+        expect(resolveProperties(note, categoryById("endpoints"))).toEqual([
+            { titleKey: "content_manager.property_kind", values: [ { titleKey: "content_manager.endpoint_request_handler" } ] },
+            { titleKey: "content_manager.property_path", values: [ { text: "api/my-handler/([a-z]+)" } ] }
+        ]);
     });
 
     it("returns nothing for a category that declares no properties", () => {

@@ -11,12 +11,15 @@ export interface ContentTrigger {
 /** How the notes within each category are ordered. */
 export type ContentSortOrder = "title" | "dateCreated";
 
-/** Matched against the note's own labels, reading through the `disabled:` prefix. */
+/** Matched against the note's own attributes, reading through the `disabled:` prefix. */
 export interface ContentPropertyCondition {
-    label: string;
-    /** Matches when the label carries any of these values. */
+    /** Label to match. Set either this or {@link relation}, not both. */
+    label?: string;
+    /** Relation to match, e.g. an event handler. */
+    relation?: string;
+    /** Matches when the attribute carries any of these values. */
     is?: string | string[];
-    /** Matches when the label exists and carries none of these values. */
+    /** Matches when the attribute exists and carries none of these values. */
     isNot?: string | string[];
 }
 
@@ -50,6 +53,25 @@ export interface ContentCategory {
      */
     filter: string;
 }
+
+/**
+ * The event relations that actually fire, paired with how they read in the UI.
+ *
+ * `runOnNoteDeletion` is deliberately absent: it is declared in `BUILTIN_ATTRIBUTES` but nothing in
+ * `handlers.ts` subscribes to it, so listing it would advertise a trigger that never runs.
+ */
+const EVENT_HANDLERS = [
+    { relation: "runOnNoteCreation", titleKey: "content_manager.event_note_creation" },
+    { relation: "runOnNoteTitleChange", titleKey: "content_manager.event_note_title_change" },
+    { relation: "runOnNoteChange", titleKey: "content_manager.event_note_change" },
+    { relation: "runOnNoteContentChange", titleKey: "content_manager.event_note_content_change" },
+    { relation: "runOnChildNoteCreation", titleKey: "content_manager.event_child_note_creation" },
+    { relation: "runOnAttributeCreation", titleKey: "content_manager.event_attribute_creation" },
+    { relation: "runOnAttributeChange", titleKey: "content_manager.event_attribute_change" },
+    { relation: "runOnBranchCreation", titleKey: "content_manager.event_branch_creation" },
+    { relation: "runOnBranchChange", titleKey: "content_manager.event_branch_change" },
+    { relation: "runOnBranchDeletion", titleKey: "content_manager.event_branch_deletion" }
+];
 
 export const CONTENT_CATEGORIES: ContentCategory[] = [
     {
@@ -86,6 +108,40 @@ export const CONTENT_CATEGORIES: ContentCategory[] = [
                 { titleKey: "content_manager.trigger_mobile_startup", condition: { label: "run", is: "mobileStartup" } }
             ]
         } ]
+    },
+    {
+        id: "eventHandlers",
+        titleKey: "content_manager.category_event_handlers",
+        // The relation lives on the note the handler is attached to, not on the script it runs, so
+        // these rows are the notes whose changes trigger something.
+        filter: EVENT_HANDLERS.flatMap(({ relation }) => [ `~${relation}`, `~disabled:${relation}` ]).join(" OR "),
+        properties: [ {
+            titleKey: "content_manager.property_event",
+            values: EVENT_HANDLERS.map(({ relation, titleKey }) => ({ titleKey, condition: { relation } }))
+        } ]
+    },
+    {
+        id: "endpoints",
+        titleKey: "content_manager.category_endpoints",
+        filter: "#customRequestHandler OR #customResourceProvider"
+            + " OR #disabled:customRequestHandler OR #disabled:customResourceProvider",
+        properties: [
+            {
+                titleKey: "content_manager.property_kind",
+                values: [
+                    { titleKey: "content_manager.endpoint_request_handler", condition: { label: "customRequestHandler" } },
+                    { titleKey: "content_manager.endpoint_resource_provider", condition: { label: "customResourceProvider" } }
+                ]
+            },
+            {
+                // The label's value is the regular expression matched against the request path.
+                titleKey: "content_manager.property_path",
+                values: [
+                    { valueOfLabel: "customRequestHandler" },
+                    { valueOfLabel: "customResourceProvider" }
+                ]
+            }
+        ]
     },
     {
         id: "widgets",
@@ -134,6 +190,21 @@ export const CONTENT_CATEGORIES: ContentCategory[] = [
         id: "snippets",
         titleKey: "content_manager.category_snippets",
         filter: "#snippet OR #textSnippet OR #disabled:snippet OR #disabled:textSnippet"
+    },
+    {
+        id: "sharing",
+        titleKey: "content_manager.category_sharing",
+        filter: "#shareRaw OR ~shareJs OR ~shareHtml OR ~shareTemplate"
+            + " OR #disabled:shareRaw OR ~disabled:shareJs OR ~disabled:shareHtml OR ~disabled:shareTemplate",
+        properties: [ {
+            titleKey: "content_manager.property_kind",
+            values: [
+                { titleKey: "content_manager.share_raw", condition: { label: "shareRaw" } },
+                { titleKey: "content_manager.share_js", condition: { relation: "shareJs" } },
+                { titleKey: "content_manager.share_html", condition: { relation: "shareHtml" } },
+                { titleKey: "content_manager.share_template", condition: { relation: "shareTemplate" } }
+            ]
+        } ]
     }
 ];
 
@@ -202,7 +273,7 @@ export function resolveProperties(note: FNote, category: ContentCategory): Resol
                 values.push({ titleKey: value.titleKey });
             } else if (value.valueOfLabel) {
                 // Several labels of the same name are possible, e.g. two `#run` triggers.
-                values.push(...getOwnedLabelValues(note, value.valueOfLabel)
+                values.push(...getOwnedAttributeValues(note, value.valueOfLabel, "label")
                     .filter((text) => text.trim())
                     .map((text) => ({ text })));
             }
@@ -216,8 +287,10 @@ export function resolveProperties(note: FNote, category: ContentCategory): Resol
     return resolved;
 }
 
-function matchesCondition(note: FNote, { label, is, isNot }: ContentPropertyCondition) {
-    const values = getOwnedLabelValues(note, label);
+function matchesCondition(note: FNote, { label, relation, is, isNot }: ContentPropertyCondition) {
+    const values = relation
+        ? getOwnedAttributeValues(note, relation, "relation")
+        : label ? getOwnedAttributeValues(note, label, "label") : [];
 
     if (!values.length) {
         return false;
@@ -231,12 +304,12 @@ function matchesCondition(note: FNote, { label, is, isNot }: ContentPropertyCond
 }
 
 /**
- * All values the note holds for a label, matched through the `disabled:` prefix so that switching an
- * item off doesn't blank out the detail explaining what it does.
+ * All values the note holds for an attribute, matched through the `disabled:` prefix so that
+ * switching an item off doesn't blank out the detail explaining what it does.
  */
-function getOwnedLabelValues(note: FNote, name: string) {
+function getOwnedAttributeValues(note: FNote, name: string, type: "label" | "relation") {
     return note.getOwnedAttributes()
-        .filter((attribute) => attribute.type === "label"
+        .filter((attribute) => attribute.type === type
             && attributes.getNameWithoutDangerousPrefix(attribute.name).toLowerCase() === name.toLowerCase())
         .map((attribute) => attribute.value);
 }
