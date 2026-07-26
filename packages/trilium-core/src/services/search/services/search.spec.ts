@@ -663,6 +663,66 @@ describe("Search", () => {
         expect(searchResults.length).toEqual(4);
     });
 
+    it("test order by multiple properties", () => {
+        // Two notes deliberately share a title: with only one order key their relative order is
+        // whatever the sort happens to produce, so a second key is what makes the result stable.
+        const bravo = new NoteBuilder(new BNote({ noteId: "nB", title: "Shared", type: "text" }));
+        const alpha = new NoteBuilder(new BNote({ noteId: "nA", title: "Shared", type: "text" }));
+        const unique = new NoteBuilder(new BNote({ noteId: "nZ", title: "Unique", type: "text" }));
+
+        rootNote.child(note("Europe").child(bravo).child(alpha).child(unique));
+
+        const searchContext = new SearchContext();
+
+        let searchResults = searchService.findResultsWithQuery("# note.parents.title = Europe orderBy note.title, note.noteId", searchContext);
+        expect(searchResults.map((sr) => sr.noteId)).toEqual([ "nA", "nB", "nZ" ]);
+
+        // The secondary key carries its own direction, independently of the primary one.
+        searchResults = searchService.findResultsWithQuery("# note.parents.title = Europe orderBy note.title, note.noteId DESC", searchContext);
+        expect(searchResults.map((sr) => sr.noteId)).toEqual([ "nB", "nA", "nZ" ]);
+    });
+
+    it("test attribute group AND-ed with a note property, then ordered", () => {
+        // The shape the Content Manager builds when its filter box is used: an OR chain of attribute
+        // filters grouped in parens, AND-ed with a title match, with `orderBy` still at top level.
+        // The title condition leads deliberately — a query *starting* with "(" is mis-lexed, since
+        // the paren is swallowed into the fulltext portion before any token ends it.
+        const alpha = note("Alpha script").label("run", "hourly");
+        const beta = note("Beta script").label("run", "daily");
+        const gamma = note("Gamma other").label("disabled:run", "hourly");
+
+        rootNote.child(note("Scripts").child(alpha).child(beta).child(gamma));
+
+        const searchContext = new SearchContext();
+
+        // The attribute group leads so the cheap index-backed lookup narrows the set before the
+        // title comparison walks it. A bare "#" ends the fulltext portion, which a leading "(" alone
+        // would not do.
+        let searchResults = searchService.findResultsWithQuery(
+            `# (#run OR #disabled:run) AND note.title *=* script orderBy note.title`, searchContext);
+        expect(searchResults.map((sr) => becca.notes[sr.noteId].title)).toEqual([ "Alpha script", "Beta script" ]);
+
+        // Same results with the operands the other way round, confirming the ordering is purely an
+        // optimisation rather than a semantic difference.
+        searchResults = searchService.findResultsWithQuery(
+            `note.title *=* script AND (#run OR #disabled:run) orderBy note.title`, searchContext);
+        expect(searchResults.map((sr) => becca.notes[sr.noteId].title)).toEqual([ "Alpha script", "Beta script" ]);
+
+        // A quoted value keeps a multi-word filter in one token.
+        searchResults = searchService.findResultsWithQuery(
+            `# (#run OR #disabled:run) AND note.title *=* "gamma other" orderBy note.title`, searchContext);
+        expect(searchResults.map((sr) => becca.notes[sr.noteId].title)).toEqual([ "Gamma other" ]);
+
+        // The filter also matches the parent's title, so a second group is AND-ed on as a whole.
+        searchResults = searchService.findResultsWithQuery(
+            `# (#run OR #disabled:run) AND (note.title *=* nothing OR note.parents.title *=* scripts) orderBy note.title`,
+            searchContext);
+        expect(searchResults.map((sr) => becca.notes[sr.noteId].title))
+            .toEqual([ "Alpha script", "Beta script", "Gamma other" ]);
+
+        expect(searchContext.getError()).toBeFalsy();
+    });
+
     it("test not(...)", () => {
         const italy = note("Italy").label("capital", "Rome");
         const slovakia = note("Slovakia").label("capital", "Bratislava");

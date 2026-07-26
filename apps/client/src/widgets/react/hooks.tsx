@@ -1251,13 +1251,22 @@ export function useImperativeSearchHighlighlighting(highlightedTokens: string[] 
     }, [ highlightedTokens ]);
 
     return (el: HTMLElement | null | undefined) => {
-        if (!el || !highlightRegex) return;
+        if (!el) return;
+
+        // Nothing has ever been highlighted here, so there is also nothing to clear.
+        if (!mark.current && !highlightRegex) return;
 
         if (!mark.current) {
             mark.current = new Mark(el);
         }
 
+        // Clearing comes first and happens even with no tokens left: callers that keep the same
+        // element and merely drop the tokens (e.g. emptying a filter box) rely on this to remove the
+        // previous highlights, which would otherwise stay in the DOM for good.
         mark.current.unmark();
+
+        if (!highlightRegex) return;
+
         mark.current.markRegExp(highlightRegex, {
             element: "span",
             className: "ck-find-result",

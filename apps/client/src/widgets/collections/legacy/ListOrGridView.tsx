@@ -23,21 +23,52 @@ import { ComponentChildren, TargetedMouseEvent } from "preact";
 
 const contentSizeObserver = new ResizeObserver(onContentResized);
 
-export function ListView({ note, noteIds: unfilteredNoteIds, highlightedTokens, showTextRepresentation }: ViewModeProps<{}>) {
-    const expandDepth = useExpansionDepth(note);
+/**
+ * Opt-in adjustments for callers that reuse the list outside a collection note. Every field is
+ * optional and defaults to the collection behaviour, so existing views are unaffected.
+ */
+export interface ListViewOptions {
+    /** Heading shown at the top of the list's card. */
+    title?: string;
+    /**
+     * Lays the items out the way search results are shown — the note's path under its title, and a
+     * path that addresses the note directly rather than through the parent. Search notes always use
+     * this layout; set it when the parent isn't the notes' real parent.
+     */
+    searchResultsLayout?: boolean;
+    /** Omits the nested subnote tree, leaving only each note's own content preview. */
+    hideSubNotes?: boolean;
+    /** Overrides how many levels start expanded, otherwise read from the parent's `#expanded`. */
+    expandDepth?: number;
+    /** Overrides the number of notes per page, otherwise read from the parent's `#pageSize`. */
+    pageSize?: number;
+    /** Rendered on the title row in place of the note's attributes. */
+    renderItemActions?: (note: FNote) => ComponentChildren;
+    /** Rendered in place of the item's "..." menu, for lists offering their own actions. */
+    renderItemMenu?: (note: FNote) => ComponentChildren;
+}
+
+export function ListView({ note, noteIds: unfilteredNoteIds, highlightedTokens, showTextRepresentation, listOptions }: ViewModeProps<{}> & { listOptions?: ListViewOptions }) {
+    const labelExpandDepth = useExpansionDepth(note);
     const noteIds = useFilteredNoteIds(note, unfilteredNoteIds);
-    const { pageNotes, ...pagination } = usePagination(note, noteIds);
+    const { pageNotes, ...pagination } = usePagination(note, noteIds, listOptions?.pageSize);
     const [ includeArchived ] = useNoteLabelBoolean(note, "includeArchived");
     const noteType = useNoteProperty(note, "type");
+    const searchResultsLayout = (noteType === "search") || !!listOptions?.searchResultsLayout;
+    const expandDepth = listOptions?.expandDepth ?? labelExpandDepth;
 
     return <NoteList note={note} viewMode="list-view" noteIds={noteIds} pagination={pagination}>
-        <Card className={clsx("nested-note-list", {"search-results": (noteType === "search")})}>
+        <Card heading={listOptions?.title} className={clsx("nested-note-list", {"search-results": searchResultsLayout})}>
             {pageNotes?.map(childNote => (
                 <ListNoteCard
                     key={childNote.noteId}
                     note={childNote} parentNote={note}
                     expandDepth={expandDepth} highlightedTokens={highlightedTokens}
                     currentLevel={1} includeArchived={includeArchived}
+                    searchResultsLayout={searchResultsLayout}
+                    hideSubNotes={listOptions?.hideSubNotes}
+                    renderItemActions={listOptions?.renderItemActions}
+                    renderItemMenu={listOptions?.renderItemMenu}
                     showTextRepresentation={showTextRepresentation} />
             ))}
         </Card>
@@ -93,7 +124,7 @@ function NoteList(props: NoteListProps) {
     </div>
 }
 
-function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expandDepth, includeArchived, showTextRepresentation }: {
+function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expandDepth, includeArchived, showTextRepresentation, searchResultsLayout, hideSubNotes, renderItemActions, renderItemMenu }: {
     note: FNote,
     parentNote: FNote,
     currentLevel: number,
@@ -101,10 +132,10 @@ function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expan
     highlightedTokens: string[] | null | undefined;
     includeArchived: boolean;
     showTextRepresentation?: boolean;
-}) {
+} & Pick<ListViewOptions, "searchResultsLayout" | "hideSubNotes" | "renderItemActions" | "renderItemMenu">) {
 
     const [ isExpanded, setExpanded ] = useState(currentLevel <= expandDepth);
-    const notePath = getNotePath(parentNote, note);
+    const notePath = getNotePath(parentNote, note, searchResultsLayout);
 
     // Reset expand state if switching to another note, or if user manually toggled expansion state.
     useEffect(() => setExpanded(currentLevel <= expandDepth), [ note, currentLevel, expandDepth ]);
@@ -120,12 +151,19 @@ function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expan
                              showTextRepresentation={showTextRepresentation} />
             </CardSection>
 
-            <NoteChildren note={note}
-                          parentNote={parentNote}
-                          highlightedTokens={highlightedTokens}
-                          currentLevel={currentLevel}
-                          expandDepth={expandDepth}
-                          includeArchived={includeArchived} />
+            {!hideSubNotes && (
+                <NoteChildren
+                    note={note}
+                    parentNote={parentNote}
+                    highlightedTokens={highlightedTokens}
+                    currentLevel={currentLevel}
+                    expandDepth={expandDepth}
+                    searchResultsLayout={searchResultsLayout}
+                    renderItemActions={renderItemActions}
+                    renderItemMenu={renderItemMenu}
+                    includeArchived={includeArchived}
+                />
+            )}
         </>
     }
     
@@ -147,10 +185,12 @@ function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expan
                 <NoteLink className="note-book-title"
                           notePath={notePath}
                           noPreview
-                          showNotePath={parentNote.type === "search"}
+                          showNotePath={searchResultsLayout}
                           highlightedTokens={highlightedTokens} />
-                <NoteAttributes note={note} />
-                <NoteMenuButton notePath={notePath} />
+                {renderItemActions
+                    ? <div className="note-list-item-actions">{renderItemActions(note)}</div>
+                    : <NoteAttributes note={note} />}
+                {renderItemMenu ? renderItemMenu(note) : <NoteMenuButton notePath={notePath} />}
             </h5>
         </CardSection>
     );
@@ -290,14 +330,14 @@ export function NoteContent({ note, trim, noChildrenList, highlightedTokens, inc
     return <div ref={contentRef} className={clsx("note-book-content", `type-${noteType}`, {"note-book-content-ready": ready})} />;
 }
 
-function NoteChildren({ note, parentNote, highlightedTokens, currentLevel, expandDepth, includeArchived }: {
+function NoteChildren({ note, parentNote, highlightedTokens, currentLevel, expandDepth, includeArchived, searchResultsLayout, renderItemActions, renderItemMenu }: {
     note: FNote,
     parentNote: FNote,
     currentLevel: number,
     expandDepth: number,
     highlightedTokens: string[] | null | undefined
     includeArchived: boolean;
-}) {
+} & Pick<ListViewOptions, "searchResultsLayout" | "renderItemActions" | "renderItemMenu">) {
     const [ childNotes, setChildNotes ] = useState<FNote[]>();
 
     useEffect(() => {
@@ -311,6 +351,9 @@ function NoteChildren({ note, parentNote, highlightedTokens, currentLevel, expan
         highlightedTokens={highlightedTokens}
         currentLevel={currentLevel + 1} expandDepth={expandDepth}
         includeArchived={includeArchived}
+        searchResultsLayout={searchResultsLayout}
+        renderItemActions={renderItemActions}
+        renderItemMenu={renderItemMenu}
     />);
 }
 
@@ -326,8 +369,8 @@ function NoteMenuButton(props: {notePath: string}) {
             />
 }
 
-export function getNotePath(parentNote: FNote, childNote: FNote) {
-    if (parentNote.type === "search") {
+export function getNotePath(parentNote: FNote, childNote: FNote, flat = parentNote.type === "search") {
+    if (flat) {
         // for search note parent, we want to display a non-search path
         return childNote.noteId;
     }

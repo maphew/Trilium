@@ -61,6 +61,7 @@ const ALLOWED_OPTIONS = new Set<OptionNames>([
     "vimKeymapEnabled",
     "codeLineWrapEnabled",
     "codeNotesMimeTypes",
+    "contentManagerSortOrder",
     "spellCheckEnabled",
     "spellCheckLanguageCode",
     "imageMaxWidthHeight",

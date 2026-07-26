@@ -6,6 +6,35 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { type DelayedVisibilityPhase, useDelayedVisibility, useImperativeSearchHighlighlighting, useStaticTooltip } from "./hooks";
 
+/**
+ * mark.js delegating to the real implementation, so marking still works, while recording the calls
+ * `unmark()` receives — its DOM effect cannot be observed under happy-dom, where it removes nothing.
+ */
+const markSpies = vi.hoisted(() => ({ unmark: vi.fn() }));
+
+vi.mock("mark.js", async (importOriginal) => {
+    const actual = await importOriginal<{ default: new (ctx: unknown) => Record<string, (...args: unknown[]) => unknown> }>();
+
+    return {
+        default: class {
+            private inner: Record<string, (...args: unknown[]) => unknown>;
+
+            constructor(ctx: unknown) {
+                this.inner = new actual.default(ctx);
+            }
+
+            markRegExp(...args: unknown[]) {
+                return this.inner.markRegExp(...args);
+            }
+
+            unmark(...args: unknown[]) {
+                markSpies.unmark(...args);
+                return this.inner.unmark(...args);
+            }
+        }
+    };
+});
+
 let currentPhase: DelayedVisibilityPhase | undefined;
 
 function Probe({ active }: { active: boolean }) {
@@ -166,6 +195,38 @@ describe("useImperativeSearchHighlighlighting", () => {
 
         expect(target.querySelectorAll(".ck-find-result").length).toBeGreaterThan(0);
         expect(target.querySelector("details")?.open).toBe(true);
+        target.remove();
+    });
+
+    it("clears previous highlights once the tokens are cleared", async () => {
+        // Callers that keep the same element and merely drop the tokens — emptying a filter box —
+        // rely on this, or the old highlights stay in the DOM for good.
+        //
+        // The removal itself is asserted through mark.js rather than the DOM: its `unmark()` is a
+        // no-op under happy-dom (it removes nothing even from a fresh instance), so only the call
+        // can be observed here.
+        await mount([ "needle" ]);
+        const target = content("<p>a needle here</p>");
+        highlight?.(target);
+        expect(target.querySelectorAll(".ck-find-result").length).toBeGreaterThan(0);
+        markSpies.unmark.mockClear();
+
+        await mount(null);
+        highlight?.(target);
+
+        expect(markSpies.unmark).toHaveBeenCalled();
+        target.remove();
+    });
+
+    it("does not touch an element that was never highlighted", async () => {
+        await mount(null);
+        const target = content("<p>a needle here</p>");
+        markSpies.unmark.mockClear();
+
+        highlight?.(target);
+
+        expect(markSpies.unmark).not.toHaveBeenCalled();
+        expect(target.innerHTML).toBe("<p>a needle here</p>");
         target.remove();
     });
 

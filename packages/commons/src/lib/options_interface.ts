@@ -68,6 +68,7 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     monospaceFontFamily: FontFamily;
     spellCheckLanguageCode: string;
     codeNotesMimeTypes: string;
+    contentManagerSortOrder: string;
     headingStyle: string;
     highlightsList: string;
     customSearchEngineName: string;
