@@ -11,14 +11,30 @@ import {
     findCategoryNotes
 } from "../../../services/content_manager";
 import { t } from "../../../services/i18n";
+import { ListView, type ListViewOptions } from "../../collections/legacy/ListOrGridView";
 import Button, { ButtonGroup } from "../../react/Button";
 import { useTriliumEvent, useTriliumOption } from "../../react/hooks";
 import NoItems from "../../react/NoItems";
-import NoteLink from "../../react/NoteLink";
+import type { TypeWidgetProps } from "../type_widget";
 import OptionsPageHeader from "./components/OptionsPageHeader";
-import OptionsSection from "./components/OptionsSection";
 
-export default function ContentManagerSettings() {
+const NOOP = () => {};
+
+const LIST_OPTIONS: ListViewOptions = {
+    // These notes are scattered across the tree rather than being children of this page, so they are
+    // listed flat with their real location shown underneath, the way search results are.
+    searchResultsLayout: true,
+    hideSubNotes: true,
+    // Collapsed by default: the list is meant to be scanned, and expanding reveals the note's own
+    // preview rather than a subtree.
+    expandDepth: 0,
+    pageSize: 50,
+    // Deliberately empty for now: it suppresses the note's attributes and reserves the spot for the
+    // enable/disable toggle and status badges.
+    renderItemActions: () => null
+};
+
+export default function ContentManagerSettings({ note }: TypeWidgetProps) {
     const [ sortOrder, setSortOrder ] = useTriliumOption("contentManagerSortOrder");
     const categories = useCategoryNotes(sortOrder as ContentSortOrder);
 
@@ -31,12 +47,12 @@ export default function ContentManagerSettings() {
                 <SortOrderSelect currentValue={sortOrder} onChange={(newValue) => void setSortOrder(newValue)} />
             </div>
 
-            <CategoryList categories={categories} />
+            <CategoryList pageNote={note} categories={categories} />
         </>
     );
 }
 
-function CategoryList({ categories }: { categories: CategoryNotes[] | null }) {
+function CategoryList({ pageNote, categories }: { pageNote: FNote, categories: CategoryNotes[] | null }) {
     if (!categories) {
         return <p className="content-manager-loading">{t("content_manager.loading")}</p>;
     }
@@ -54,15 +70,18 @@ function CategoryList({ categories }: { categories: CategoryNotes[] | null }) {
     return (
         <>
             {populated.map(({ category, notes }) => (
-                <OptionsSection key={category.id} title={t(category.titleKey)}>
-                    <div className="content-manager-items">
-                        {notes.map((note) => (
-                            <p key={note.noteId} className="content-manager-item">
-                                <NoteLink notePath={note.noteId} showNoteIcon showNotePath />
-                            </p>
-                        ))}
-                    </div>
-                </OptionsSection>
+                <ListView
+                    key={category.id}
+                    note={pageNote}
+                    notePath={pageNote.noteId}
+                    noteIds={notes.map(({ noteId }) => noteId)}
+                    highlightedTokens={null}
+                    viewConfig={undefined}
+                    saveConfig={NOOP}
+                    media="screen"
+                    onReady={NOOP}
+                    listOptions={{ ...LIST_OPTIONS, title: t(category.titleKey) }}
+                />
             ))}
         </>
     );
