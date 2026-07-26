@@ -88,21 +88,30 @@ export function allFeaturesPdf(): Uint8Array {
 }
 
 /**
- * A document whose optional-content groups cover the awkward cases `layers.ts` filters on:
- * a normal visible layer, a hidden one, one with no `/Name`, and one nested under a label.
+ * A document whose optional-content groups cover every awkward case `layers.ts` has to cope
+ * with: a normal visible layer, a hidden one, one with no `/Name`, one nested under a group
+ * label, and one left out of `/Order` entirely.
+ *
+ * The last two both reach us as `{ name, order }` entries — a nested group keeps its label,
+ * while groups missing from `/Order` are gathered into a synthetic entry with a null name (see
+ * `parseOrder`/`parseNestedOrder` in pdf.js' catalog). Note the nesting syntax: the label
+ * belongs *inside* the sub-array, as `[(Grouped) 7 0 R]`.
  */
 export function layeredPdf(): Uint8Array {
     return buildPdf([
         "<< /Type /Catalog /Pages 2 0 R /OCProperties "
-            + "<< /OCGs [4 0 R 5 0 R 6 0 R 7 0 R] "
-            + "/D << /Order [4 0 R 5 0 R 6 0 R (Grouped) [7 0 R]] /ON [4 0 R 6 0 R 7 0 R] /OFF [5 0 R] >> >> >>",
+            + "<< /OCGs [4 0 R 5 0 R 6 0 R 7 0 R 8 0 R] "
+            + "/D << /Order [4 0 R 5 0 R 6 0 R [(Grouped) 7 0 R]] "
+            + "/ON [4 0 R 6 0 R 7 0 R 8 0 R] /OFF [5 0 R] >> >> >>",
         "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
         "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>",
         "<< /Type /OCG /Name (Visible layer) >>",
         "<< /Type /OCG /Name (Hidden layer) >>",
         // No /Name: pdf.js reports `name: null`, which we must not surface as a layer.
         "<< /Type /OCG >>",
-        "<< /Type /OCG /Name (Nested layer) >>"
+        "<< /Type /OCG /Name (Nested layer) >>",
+        // Absent from /Order, so pdf.js hands it back under the synthetic null-named entry.
+        "<< /Type /OCG /Name (Unordered layer) >>"
     ]);
 }
 

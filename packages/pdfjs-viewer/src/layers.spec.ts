@@ -2,13 +2,13 @@
 /**
  * Drives the optional-content (layer) plumbing against a real `OptionalContentConfig` built by
  * pdf.js from the fixtures in {@link ./test/fixture_pdf}, rather than a stand-in with
- * hand-chosen fields. Two of the branches in `layers.ts` turn out to be unreachable against
- * real pdf.js output, and one real shape is mishandled — see the tests below.
+ * hand-chosen fields. Driving the real thing is what surfaced the nested-group handling
+ * covered below: a fake built from our own assumptions would have agreed with them.
  */
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { setupPdfLayers } from "./layers";
-import { allFeaturesPdf, barePdf, layeredPdf } from "./test/fixture_pdf";
+import { allFeaturesPdf, barePdf, buildPdf, layeredPdf } from "./test/fixture_pdf";
 import { InstalledViewer, installViewerApp, uninstallViewerApp } from "./test/viewer_app";
 
 let viewer: InstalledViewer;
@@ -40,7 +40,23 @@ describe("layer extraction", () => {
         // The nameless OCG in the fixture must not reach the sidebar as an unlabelled row.
         const { layers } = viewer.lastMessageOfType("pdfjs-viewer-layers");
         expect(layers.map((layer: any) => layer.name)).not.toContain(null);
-        expect(layers.map((layer: any) => layer.name)).toEqual([ "Visible layer", "Hidden layer" ]);
+    });
+
+    it("includes layers nested under a group label and layers missing from /Order", async () => {
+        viewer = await installViewerApp(layeredPdf());
+
+        await setupPdfLayers();
+
+        // pdf.js reports both of these as `{ name, order }` wrappers rather than plain ids:
+        // "Nested layer" sits under a "Grouped" label, and "Unordered layer" is absent from
+        // /Order so pdf.js gathers it into a synthetic null-named entry. Grouped layers are
+        // routine in CAD and Illustrator exports, so dropping them hid real content.
+        expect(viewer.lastMessageOfType("pdfjs-viewer-layers").layers).toEqual([
+            { id: expect.any(String), name: "Visible layer", visible: true },
+            { id: expect.any(String), name: "Hidden layer", visible: false },
+            { id: expect.any(String), name: "Nested layer", visible: true },
+            { id: expect.any(String), name: "Unordered layer", visible: true }
+        ]);
     });
 
     it("reports an empty list for a document with no optional content", async () => {
@@ -110,23 +126,21 @@ describe("layer toggling", () => {
     });
 });
 
-describe("getOrder() shapes we do not handle", () => {
-    it("DEFECT: silently drops layers nested under a group label", async () => {
-        viewer = await installViewerApp(layeredPdf());
+describe("nesting depth", () => {
+    it("reaches layers nested more than one level deep", async () => {
+        // pdf.js allows nesting up to MAX_NESTED_LEVELS, so the flattening has to recurse
+        // rather than special-case a single level.
+        viewer = await installViewerApp(buildPdf([
+            "<< /Type /Catalog /Pages 2 0 R /OCProperties << /OCGs [4 0 R] "
+                + "/D << /Order [[(Outer) [(Inner) 4 0 R]]] /ON [4 0 R] >> >> >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] >>",
+            "<< /Type /OCG /Name (Deeply nested layer) >>"
+        ]));
 
         await setupPdfLayers();
 
-        // pdf.js returns a nested group as `{ name, order: [...] }`. `flattenOrder` only
-        // recurses into bare arrays and only reads `item.id` off objects, so neither branch
-        // matches and "Nested layer" never reaches the sidebar. Grouped layers are common in
-        // CAD/Illustrator exports, so this is a real gap, not a fixture artefact — the fix is
-        // to recurse into `item.order`. Pinned here so it is visible rather than silent.
-        const { layers } = viewer.lastMessageOfType("pdfjs-viewer-layers");
-        expect(layers.map((layer: any) => layer.name)).not.toContain("Nested layer");
-
-        // Meanwhile pdf.js does know about it, which is what makes this our bug.
-        const config = await viewer.pdfDocument.getOptionalContentConfig();
-        const nested = config?.getOrder().find((item: any) => typeof item === "object");
-        expect(config?.getGroup(nested.order[0]).name).toBe("Nested layer");
+        expect(viewer.lastMessageOfType("pdfjs-viewer-layers").layers)
+            .toEqual([ { id: expect.any(String), name: "Deeply nested layer", visible: true } ]);
     });
 });

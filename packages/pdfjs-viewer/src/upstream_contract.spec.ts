@@ -18,10 +18,17 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
 import { AnnotationType } from "./annotations";
 import { ANNOTATION_EDITOR_MODE_NONE } from "./editing";
-import { allFeaturesPdf } from "./test/fixture_pdf";
+import { allFeaturesPdf, layeredPdf } from "./test/fixture_pdf";
 import { InstalledViewer, installViewerApp, uninstallViewerApp } from "./test/viewer_app";
 
 let viewer: InstalledViewer;
+
+/** Swaps in the layer-heavy fixture and returns its optional-content config. */
+async function installLayeredDocument() {
+    uninstallViewerApp();
+    viewer = await installViewerApp(layeredPdf());
+    return await viewer.optionalContentConfig();
+}
 
 beforeEach(async () => {
     viewer = await installViewerApp(allFeaturesPdf());
@@ -139,6 +146,26 @@ describe("PDFDocumentProxy shape", () => {
         // The toggle path mutates the same config object in place.
         config?.setVisibility(order[1], true);
         expect(config?.getGroup(order[1]).visible).toBe(true);
+    });
+
+    it("orders optional-content groups as ids and { name, order } wrappers only", async () => {
+        // `flattenOrder` in layers.ts walks exactly these two shapes. pdf.js builds them in
+        // parseOrder/parseNestedOrder: a group id string, or a wrapper holding nested groups —
+        // the latter used both for labelled groups and for a synthetic, null-named entry
+        // collecting groups left out of /Order. If a third shape ever appears, or nesting stops
+        // being expressed this way, layers silently vanish from the sidebar; fail here instead.
+        const config = await installLayeredDocument();
+        const order = config.getOrder();
+
+        expect(order).toEqual([
+            expect.any(String),
+            expect.any(String),
+            expect.any(String),
+            { name: "Grouped", order: [ expect.any(String) ] },
+            { name: null, order: [ expect.any(String) ] }
+        ]);
+        // Specifically: never a bare nested array, which the old flattening looked for.
+        expect(order.some((item: any) => Array.isArray(item))).toBe(false);
     });
 
     it("keeps annotationStorage's modification hooks reachable", () => {
