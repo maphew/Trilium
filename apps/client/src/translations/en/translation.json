@@ -2613,7 +2613,7 @@
     "toggle_enable": "Enable",
     "toggle_disable": "Disable",
     "sort_order": "Sort by:",
-    "sort_by_name": "Name",
+    "sort_by_title": "Title",
     "sort_by_date_created": "Creation date",
     "no_items": "No active content found.",
     "no_items_hint": "Scripts, themes, templates and snippets you create will be listed here."

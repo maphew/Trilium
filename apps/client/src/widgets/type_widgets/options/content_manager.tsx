@@ -131,7 +131,7 @@ function SortOrderSelect({ currentValue, onChange }: { currentValue: string, onC
 }
 
 const SORT_ORDERS: { value: ContentSortOrder, label: string }[] = [
-    { value: "title", label: t("content_manager.sort_by_name") },
+    { value: "title", label: t("content_manager.sort_by_title") },
     { value: "dateCreated", label: t("content_manager.sort_by_date_created") }
 ];
 
