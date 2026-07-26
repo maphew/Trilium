@@ -150,6 +150,13 @@ export default function ContentManagerSettings({ note }: TypeWidgetProps) {
     const applyFilter = useMemo(() => debounce(setAppliedFilter, FILTER_DEBOUNCE_MS), []);
     useEffect(() => () => applyFilter.clear(), [ applyFilter ]);
 
+    // A single token, not one per word: the query matches the typed text as one substring, so
+    // splitting it would highlight words that never took part in the match.
+    const highlightedTokens = useMemo(() => {
+        const wanted = appliedFilter.trim();
+        return wanted ? [ wanted ] : null;
+    }, [ appliedFilter ]);
+
     const clearFilter = useCallback(() => {
         // Drop any pending debounced call, otherwise the text just cleared would be re-applied.
         applyFilter.clear();
@@ -187,17 +194,20 @@ export default function ContentManagerSettings({ note }: TypeWidgetProps) {
             } />
 
             <div className="content-manager-list">
-                <CategoryList pageNote={note} categories={categories} isFiltered={!!appliedFilter.trim()} />
+                <CategoryList pageNote={note} categories={categories} highlightedTokens={highlightedTokens} />
             </div>
         </>
     );
 }
 
-function CategoryList({ pageNote, categories, isFiltered }: {
+function CategoryList({ pageNote, categories, highlightedTokens }: {
     pageNote: FNote,
     categories: CategoryNotes[] | null,
-    isFiltered: boolean
+    /** The filter text, so matches stand out in each row's title and path. `null` when not filtering. */
+    highlightedTokens: string[] | null
 }) {
+    const isFiltered = !!highlightedTokens;
+
     if (!categories) {
         return <p className="content-manager-loading">{t("content_manager.loading")}</p>;
     }
@@ -224,7 +234,7 @@ function CategoryList({ pageNote, categories, isFiltered }: {
                     note={pageNote}
                     notePath={pageNote.noteId}
                     noteIds={notes.map(({ noteId }) => noteId)}
-                    highlightedTokens={null}
+                    highlightedTokens={highlightedTokens}
                     viewConfig={undefined}
                     saveConfig={NOOP}
                     media="screen"
