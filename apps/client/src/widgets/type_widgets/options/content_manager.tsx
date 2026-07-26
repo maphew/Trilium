@@ -2,7 +2,7 @@ import "./content_manager.css";
 
 import clsx from "clsx";
 import type { TargetedMouseEvent } from "preact";
-import { useCallback, useEffect, useState } from "preact/hooks";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../../../components/app_context";
 import type FNote from "../../../entities/fnote";
@@ -51,10 +51,15 @@ function ContentItemMenu({ note }: { note: FNote }) {
                     });
                 } else if (command === "deleteNote") {
                     // Search results carry virtual branches, which cannot be deleted.
-                    const branchIds = note.getParentBranchIds().filter((branchId) => !branchId.startsWith("virt-"));
-                    // `moveToParent` is off: the user is on the Content Manager, not on the note, so
-                    // there is nothing to navigate away from.
-                    void branches.deleteNotes(branchIds, false, false);
+                    const [ branchId ] = note.getParentBranchIds().filter((id) => !id.startsWith("virt-"));
+
+                    if (branchId) {
+                        // Deliberately one branch, not all of them: the dialog counts a note's
+                        // *other* placements to warn about clones and offer "delete all clones", so
+                        // passing every branch would zero that count and delete them all silently.
+                        // `moveToParent` is off — the user is on this page, not on the note.
+                        void branches.deleteNotes([ branchId ], false, false);
+                    }
                 }
             }
         });
@@ -226,12 +231,20 @@ function useCategoryNotes(sortOrder: ContentSortOrder) {
     // `null` until the first search resolves, so the page can tell "still loading" apart from
     // "genuinely nothing to show" instead of flashing the empty state on every open.
     const [ categories, setCategories ] = useState<CategoryNotes[] | null>(null);
+    const latestRequest = useRef(0);
 
     const refresh = useCallback(async () => {
-        setCategories(await Promise.all(CONTENT_CATEGORIES.map(async (category) => ({
+        const requestId = ++latestRequest.current;
+        const refreshed = await Promise.all(CONTENT_CATEGORIES.map(async (category) => ({
             category,
             notes: await findCategoryNotes(category, sortOrder)
-        }))));
+        })));
+
+        // Both the sort order and `entitiesReloaded` trigger a refresh, so two can be in flight at
+        // once. Drop a superseded response instead of letting it repaint over newer results.
+        if (requestId === latestRequest.current) {
+            setCategories(refreshed);
+        }
     }, [ sortOrder ]);
 
     useEffect(() => { void refresh(); }, [ refresh ]);

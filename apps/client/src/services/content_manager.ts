@@ -220,7 +220,7 @@ export const CONTENT_CATEGORIES: ContentCategory[] = [
 export async function findCategoryNotes(category: ContentCategory, sortOrder: ContentSortOrder) {
     const notes = await search.searchForNotes(buildCategoryQuery(category.filter, sortOrder));
 
-    return notes.filter((note) => isUserContent(note));
+    return notes.filter((note) => isUserContent(note) && ownsCategoryTrigger(note, category));
 }
 
 /**
@@ -324,6 +324,18 @@ function getOwnedAttributeValues(note: FNote, name: string, type: "label" | "rel
 
 function toArray(value: string | string[]) {
     return Array.isArray(value) ? value : [ value ];
+}
+
+/**
+ * Whether the note itself carries one of the category's triggers.
+ *
+ * The search engine expands inheritable attributes across subtrees and templated notes, so a note
+ * that merely *inherits* `#run` — every note using a template that declares it, for instance — comes
+ * back as a match. Such a note owns no attribute to rename, so without this check it would be listed
+ * as a permanently disabled row whose toggle does nothing.
+ */
+export function ownsCategoryTrigger(note: FNote, category: ContentCategory) {
+    return getCategoryTriggers(note, category).length > 0;
 }
 
 /** Whether the note is currently active in this category, i.e. at least one trigger is not disabled. */

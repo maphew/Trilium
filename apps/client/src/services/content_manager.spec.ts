@@ -9,6 +9,7 @@ import {
     findCategoryNotes,
     isCategoryEnabled,
     isUserContent,
+    ownsCategoryTrigger,
     parseFilterTriggers,
     resolveProperties,
     setCategoryEnabled
@@ -365,8 +366,8 @@ describe("setCategoryEnabled", () => {
 
 describe("findCategoryNotes", () => {
     it("runs the category's ordered query and drops built-in notes", async () => {
-        const mine = buildNote({ id: "mine123", title: "My theme" });
-        const builtIn = buildNote({ id: "_builtInTheme", title: "Built-in" });
+        const mine = buildNote({ id: "mine123", title: "My theme", "#appTheme": "mine" });
+        const builtIn = buildNote({ id: "_builtInTheme", title: "Built-in", "#appTheme": "built-in" });
         const search = vi.spyOn(searchService, "searchForNotes").mockResolvedValue([ mine, builtIn ]);
         const category = categoryById("themes");
 
@@ -374,6 +375,37 @@ describe("findCategoryNotes", () => {
 
         expect(search).toHaveBeenCalledWith(buildCategoryQuery(category.filter, "title"));
         expect(notes).toEqual([ mine ]);
+    });
+
+    it("drops notes that merely inherit the trigger instead of owning it", async () => {
+        // The search engine expands an inheritable attribute across the subtree, so the child comes
+        // back as a match. It owns nothing to rename, so listing it would give a dead toggle.
+        const parent = buildNote({
+            title: "Owner",
+            "#run(inheritable)": "daily",
+            children: [ { title: "Inheritor" } ]
+        });
+        const [ child ] = await parent.getChildNotes();
+        vi.spyOn(searchService, "searchForNotes").mockResolvedValue([ parent, child ]);
+
+        expect(await findCategoryNotes(categoryById("backendScripts"), "title")).toEqual([ parent ]);
+    });
+});
+
+describe("ownsCategoryTrigger", () => {
+    it("accepts an owned trigger in either spelling, and rejects an inherited one", async () => {
+        const scripts = categoryById("backendScripts");
+        const parent = buildNote({
+            title: "Owner",
+            "#run(inheritable)": "daily",
+            children: [ { title: "Inheritor" } ]
+        });
+        const [ child ] = await parent.getChildNotes();
+
+        expect(ownsCategoryTrigger(parent, scripts)).toBe(true);
+        expect(ownsCategoryTrigger(child, scripts)).toBe(false);
+        expect(ownsCategoryTrigger(buildNote({ title: "Off", "#disabled:run": "daily" }), scripts)).toBe(true);
+        expect(ownsCategoryTrigger(buildNote({ title: "Unrelated", "#widget": "" }), scripts)).toBe(false);
     });
 });
 
