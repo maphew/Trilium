@@ -663,6 +663,25 @@ describe("Search", () => {
         expect(searchResults.length).toEqual(4);
     });
 
+    it("test order by multiple properties", () => {
+        // Two notes deliberately share a title: with only one order key their relative order is
+        // whatever the sort happens to produce, so a second key is what makes the result stable.
+        const bravo = new NoteBuilder(new BNote({ noteId: "nB", title: "Shared", type: "text" }));
+        const alpha = new NoteBuilder(new BNote({ noteId: "nA", title: "Shared", type: "text" }));
+        const unique = new NoteBuilder(new BNote({ noteId: "nZ", title: "Unique", type: "text" }));
+
+        rootNote.child(note("Europe").child(bravo).child(alpha).child(unique));
+
+        const searchContext = new SearchContext();
+
+        let searchResults = searchService.findResultsWithQuery("# note.parents.title = Europe orderBy note.title, note.noteId", searchContext);
+        expect(searchResults.map((sr) => sr.noteId)).toEqual([ "nA", "nB", "nZ" ]);
+
+        // The secondary key carries its own direction, independently of the primary one.
+        searchResults = searchService.findResultsWithQuery("# note.parents.title = Europe orderBy note.title, note.noteId DESC", searchContext);
+        expect(searchResults.map((sr) => sr.noteId)).toEqual([ "nB", "nA", "nZ" ]);
+    });
+
     it("test not(...)", () => {
         const italy = note("Italy").label("capital", "Rome");
         const slovakia = note("Slovakia").label("capital", "Bratislava");

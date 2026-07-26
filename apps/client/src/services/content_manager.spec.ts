@@ -16,12 +16,18 @@ function categoryById(id: string) {
 }
 
 describe("buildCategoryQuery", () => {
-    it("orders alphabetically by title", () => {
-        expect(buildCategoryQuery("#appCss", "title")).toBe("#appCss orderBy note.title");
+    it("orders alphabetically by title, then by note ID", () => {
+        expect(buildCategoryQuery("#appCss", "title")).toBe("#appCss orderBy note.title, note.noteId");
     });
 
-    it("orders newest first by creation date", () => {
-        expect(buildCategoryQuery("#appCss", "dateCreated")).toBe("#appCss orderBy note.dateCreated desc");
+    it("orders newest first by creation date, then by note ID", () => {
+        expect(buildCategoryQuery("#appCss", "dateCreated")).toBe("#appCss orderBy note.dateCreated desc, note.noteId");
+    });
+
+    it("always breaks ties on note ID so the order never shifts between refreshes", () => {
+        for (const sortOrder of [ "title", "dateCreated" ] as const) {
+            expect(buildCategoryQuery("#appCss", sortOrder)).toMatch(/, note\.noteId$/);
+        }
     });
 
     it("keeps the ordering clause at the top level of an OR chain", () => {
@@ -29,7 +35,7 @@ describe("buildCategoryQuery", () => {
         // filters must not be wrapped in parentheses.
         const query = buildCategoryQuery("#widget OR #disabled:widget", "title");
 
-        expect(query).toBe("#widget OR #disabled:widget orderBy note.title");
+        expect(query).toBe("#widget OR #disabled:widget orderBy note.title, note.noteId");
         expect(query).not.toContain("(");
     });
 });

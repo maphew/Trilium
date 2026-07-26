@@ -82,10 +82,17 @@ export async function findCategoryNotes(category: ContentCategory, sortOrder: Co
     return notes.filter((note) => isUserContent(note));
 }
 
-/** Appends the ordering clause, which the search engine applies server-side. */
+/**
+ * Appends the ordering clause, which the search engine applies server-side.
+ *
+ * Note IDs break ties. Notes routinely share a title, and the sort would otherwise be unstable —
+ * equally named rows could swap places on every refresh, which reads as the list jumping about.
+ */
 export function buildCategoryQuery(filter: string, sortOrder: ContentSortOrder) {
     // Newest first reads better for dates, while titles are most useful alphabetically.
-    const orderBy = sortOrder === "dateCreated" ? "note.dateCreated desc" : "note.title";
+    const orderBy = sortOrder === "dateCreated"
+        ? "note.dateCreated desc, note.noteId"
+        : "note.title, note.noteId";
 
     return `${filter} orderBy ${orderBy}`;
 }
