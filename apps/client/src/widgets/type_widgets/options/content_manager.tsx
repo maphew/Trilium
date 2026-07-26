@@ -1,9 +1,13 @@
 import "./content_manager.css";
 
 import clsx from "clsx";
+import type { TargetedMouseEvent } from "preact";
 import { useCallback, useEffect, useState } from "preact/hooks";
 
+import appContext from "../../../components/app_context";
 import type FNote from "../../../entities/fnote";
+import contextMenu, { type MenuItem } from "../../../menus/context_menu";
+import branches from "../../../services/branches";
 import {
     CONTENT_CATEGORIES,
     type ContentCategory,
@@ -15,6 +19,7 @@ import {
 } from "../../../services/content_manager";
 import { t } from "../../../services/i18n";
 import { ListView, type ListViewOptions } from "../../collections/legacy/ListOrGridView";
+import ActionButton from "../../react/ActionButton";
 import Button, { ButtonGroup } from "../../react/Button";
 import FormToggle from "../../react/FormToggle";
 import { useTriliumEvent, useTriliumOption } from "../../react/hooks";
@@ -23,6 +28,50 @@ import type { TypeWidgetProps } from "../type_widget";
 import OptionsPageHeader from "./components/OptionsPageHeader";
 
 const NOOP = () => {};
+
+/**
+ * The item's "..." menu. The collection menu is replaced here because most of its entries act on a
+ * note in the context of its parent, which this list is not: these notes live all over the tree.
+ */
+function ContentItemMenu({ note }: { note: FNote }) {
+    const openMenu = useCallback((e: TargetedMouseEvent<HTMLElement>) => {
+        const items: MenuItem<ContentItemCommand>[] = [
+            { title: t("link_context_menu.open_note_in_new_tab"), command: "openNoteInNewTab", uiIcon: "bx bx-link-external" },
+            { title: t("tree-context-menu.delete"), command: "deleteNote", uiIcon: "bx bx-trash destructive-action-icon" }
+        ];
+
+        void contextMenu.show<ContentItemCommand>({
+            x: e.pageX,
+            y: e.pageY,
+            items,
+            selectMenuItemHandler: ({ command }) => {
+                if (command === "openNoteInNewTab") {
+                    void appContext.tabManager.openContextWithNote(note.noteId, {
+                        hoistedNoteId: appContext.tabManager.getActiveContext()?.hoistedNoteId ?? null
+                    });
+                } else if (command === "deleteNote") {
+                    // Search results carry virtual branches, which cannot be deleted.
+                    const branchIds = note.getParentBranchIds().filter((branchId) => !branchId.startsWith("virt-"));
+                    // `moveToParent` is off: the user is on the Content Manager, not on the note, so
+                    // there is nothing to navigate away from.
+                    void branches.deleteNotes(branchIds, false, false);
+                }
+            }
+        });
+
+        e.stopPropagation();
+    }, [ note ]);
+
+    return (
+        <ActionButton
+            className="note-book-item-menu"
+            icon="bx bx-dots-vertical-rounded" text=""
+            onClick={openMenu}
+        />
+    );
+}
+
+type ContentItemCommand = "openNoteInNewTab" | "deleteNote";
 
 /** Renders a note's extra detail, e.g. `Trigger: backend startup, hourly; Mode: authentic`. */
 function ContentProperties({ note, category }: { note: FNote, category: ContentCategory }) {
@@ -131,7 +180,8 @@ function CategoryList({ pageNote, categories }: { pageNote: FNote, categories: C
                                 <ContentProperties note={note} category={category} />
                                 <ContentToggle note={note} category={category} />
                             </>
-                        )
+                        ),
+                        renderItemMenu: (note) => <ContentItemMenu note={note} />
                     }}
                 />
             ))}

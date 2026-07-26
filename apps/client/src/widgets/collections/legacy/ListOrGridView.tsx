@@ -44,6 +44,8 @@ export interface ListViewOptions {
     pageSize?: number;
     /** Rendered on the title row in place of the note's attributes. */
     renderItemActions?: (note: FNote) => ComponentChildren;
+    /** Rendered in place of the item's "..." menu, for lists offering their own actions. */
+    renderItemMenu?: (note: FNote) => ComponentChildren;
 }
 
 export function ListView({ note, noteIds: unfilteredNoteIds, highlightedTokens, showTextRepresentation, listOptions }: ViewModeProps<{}> & { listOptions?: ListViewOptions }) {
@@ -66,6 +68,7 @@ export function ListView({ note, noteIds: unfilteredNoteIds, highlightedTokens, 
                     searchResultsLayout={searchResultsLayout}
                     hideSubNotes={listOptions?.hideSubNotes}
                     renderItemActions={listOptions?.renderItemActions}
+                    renderItemMenu={listOptions?.renderItemMenu}
                     showTextRepresentation={showTextRepresentation} />
             ))}
         </Card>
@@ -121,7 +124,7 @@ function NoteList(props: NoteListProps) {
     </div>
 }
 
-function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expandDepth, includeArchived, showTextRepresentation, searchResultsLayout, hideSubNotes, renderItemActions }: {
+function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expandDepth, includeArchived, showTextRepresentation, searchResultsLayout, hideSubNotes, renderItemActions, renderItemMenu }: {
     note: FNote,
     parentNote: FNote,
     currentLevel: number,
@@ -129,7 +132,7 @@ function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expan
     highlightedTokens: string[] | null | undefined;
     includeArchived: boolean;
     showTextRepresentation?: boolean;
-} & Pick<ListViewOptions, "searchResultsLayout" | "hideSubNotes" | "renderItemActions">) {
+} & Pick<ListViewOptions, "searchResultsLayout" | "hideSubNotes" | "renderItemActions" | "renderItemMenu">) {
 
     const [ isExpanded, setExpanded ] = useState(currentLevel <= expandDepth);
     const notePath = getNotePath(parentNote, note, searchResultsLayout);
@@ -157,6 +160,7 @@ function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expan
                     expandDepth={expandDepth}
                     searchResultsLayout={searchResultsLayout}
                     renderItemActions={renderItemActions}
+                    renderItemMenu={renderItemMenu}
                     includeArchived={includeArchived}
                 />
             )}
@@ -186,7 +190,7 @@ function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expan
                 {renderItemActions
                     ? <div className="note-list-item-actions">{renderItemActions(note)}</div>
                     : <NoteAttributes note={note} />}
-                <NoteMenuButton notePath={notePath} />
+                {renderItemMenu ? renderItemMenu(note) : <NoteMenuButton notePath={notePath} />}
             </h5>
         </CardSection>
     );
@@ -326,14 +330,14 @@ export function NoteContent({ note, trim, noChildrenList, highlightedTokens, inc
     return <div ref={contentRef} className={clsx("note-book-content", `type-${noteType}`, {"note-book-content-ready": ready})} />;
 }
 
-function NoteChildren({ note, parentNote, highlightedTokens, currentLevel, expandDepth, includeArchived, searchResultsLayout, renderItemActions }: {
+function NoteChildren({ note, parentNote, highlightedTokens, currentLevel, expandDepth, includeArchived, searchResultsLayout, renderItemActions, renderItemMenu }: {
     note: FNote,
     parentNote: FNote,
     currentLevel: number,
     expandDepth: number,
     highlightedTokens: string[] | null | undefined
     includeArchived: boolean;
-} & Pick<ListViewOptions, "searchResultsLayout" | "renderItemActions">) {
+} & Pick<ListViewOptions, "searchResultsLayout" | "renderItemActions" | "renderItemMenu">) {
     const [ childNotes, setChildNotes ] = useState<FNote[]>();
 
     useEffect(() => {
@@ -349,6 +353,7 @@ function NoteChildren({ note, parentNote, highlightedTokens, currentLevel, expan
         includeArchived={includeArchived}
         searchResultsLayout={searchResultsLayout}
         renderItemActions={renderItemActions}
+        renderItemMenu={renderItemMenu}
     />);
 }
 
