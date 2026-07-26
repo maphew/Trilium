@@ -347,8 +347,6 @@ async function importZip(taskContext: TaskContext<"importNotes">, source: ZipSou
             absUrl = topLevelPath + url;
         }
 
-        console.log(url, "-->", absUrl);
-
         const { noteMeta, attachmentMeta } = getMeta(absUrl);
 
         if (attachmentMeta && attachmentMeta.attachmentId && noteMeta.noteId) {
