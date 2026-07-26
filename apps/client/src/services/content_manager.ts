@@ -217,8 +217,8 @@ export const CONTENT_CATEGORIES: ContentCategory[] = [
 ];
 
 /** Runs one category's query and returns the user-made notes it matches, already sorted. */
-export async function findCategoryNotes(category: ContentCategory, sortOrder: ContentSortOrder) {
-    const notes = await search.searchForNotes(buildCategoryQuery(category.filter, sortOrder));
+export async function findCategoryNotes(category: ContentCategory, sortOrder: ContentSortOrder, titleFilter = "") {
+    const notes = await search.searchForNotes(buildCategoryQuery(category.filter, sortOrder, titleFilter));
 
     return notes.filter((note) => isUserContent(note) && ownsCategoryTrigger(note, category));
 }
@@ -229,13 +229,25 @@ export async function findCategoryNotes(category: ContentCategory, sortOrder: Co
  * Note IDs break ties. Notes routinely share a title, and the sort would otherwise be unstable —
  * equally named rows could swap places on every refresh, which reads as the list jumping about.
  */
-export function buildCategoryQuery(filter: string, sortOrder: ContentSortOrder) {
+export function buildCategoryQuery(filter: string, sortOrder: ContentSortOrder, titleFilter = "") {
     // Newest first reads better for dates, while titles are most useful alphabetically.
     const orderBy = sortOrder === "dateCreated"
         ? "note.dateCreated desc, note.noteId"
         : "note.title, note.noteId";
+    const wanted = titleFilter.trim();
 
-    return `${filter} orderBy ${orderBy}`;
+    // The attribute group comes first on purpose: `AndExp` threads the narrowing note set through
+    // its operands in order, so the index-backed attribute lookup shrinks the set before the title
+    // comparison has to walk it. The leading bare "#" is what ends the fulltext portion — without
+    // it the opening paren is swallowed into that portion and the expression parses unbalanced.
+    const expression = wanted ? `# (${filter}) AND note.title *=* ${quoteSearchValue(wanted)}` : filter;
+
+    return `${expression} orderBy ${orderBy}`;
+}
+
+/** Quotes a user-typed value so spaces keep it one token and quotes in it can't end it early. */
+function quoteSearchValue(value: string) {
+    return `"${value.replace(/\\/g, "\\\\").replace(/"/g, "\\\"")}"`;
 }
 
 /**

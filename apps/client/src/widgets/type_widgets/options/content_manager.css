@@ -1,6 +1,5 @@
 .content-manager-toolbar {
     display: flex;
-    justify-content: flex-end;
     align-items: center;
     gap: 0.75em;
     margin-bottom: 1em;
@@ -11,7 +10,14 @@
     margin-bottom: 2em;
 }
 
+.content-manager-filter {
+    flex-grow: 1;
+    max-width: 25em;
+}
+
 .content-manager-toolbar-label {
+    /* Pushes the sort control to the trailing edge, leaving the filter box on the leading one. */
+    margin-inline-start: auto;
     white-space: nowrap;
 }
 

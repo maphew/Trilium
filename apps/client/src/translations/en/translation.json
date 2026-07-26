@@ -2614,6 +2614,8 @@
     "category_endpoints": "Custom Endpoints",
     "category_sharing": "Sharing",
     "loading": "Retrieving content...",
+    "filter_placeholder": "Type text to filter by title...",
+    "no_matches": "No active content matches the filter.",
     "toggle_enable": "Enable",
     "toggle_disable": "Disable",
     "property_trigger": "Trigger",

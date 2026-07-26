@@ -2,7 +2,7 @@ import "./content_manager.css";
 
 import clsx from "clsx";
 import type { TargetedMouseEvent } from "preact";
-import { useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import appContext from "../../../components/app_context";
 import type FNote from "../../../entities/fnote";
@@ -18,10 +18,12 @@ import {
     resolveProperties,
     setCategoryEnabled
 } from "../../../services/content_manager";
+import debounce from "../../../services/debounce";
 import { t } from "../../../services/i18n";
 import { ListView, type ListViewOptions } from "../../collections/legacy/ListOrGridView";
 import ActionButton from "../../react/ActionButton";
 import Button, { ButtonGroup } from "../../react/Button";
+import FormTextBox from "../../react/FormTextBox";
 import FormToggle from "../../react/FormToggle";
 import { useTriliumEvent, useTriliumOption } from "../../react/hooks";
 import NoItems from "../../react/NoItems";
@@ -29,6 +31,9 @@ import type { TypeWidgetProps } from "../type_widget";
 import OptionsPageHeader from "./components/OptionsPageHeader";
 
 const NOOP = () => {};
+
+/** Long enough that a burst of typing issues one round of searches, short enough to feel immediate. */
+const FILTER_DEBOUNCE_MS = 300;
 
 /**
  * The item's "..." menu. The collection menu is replaced here because most of its entries act on a
@@ -135,25 +140,44 @@ const LIST_OPTIONS: ListViewOptions = {
 
 export default function ContentManagerSettings({ note }: TypeWidgetProps) {
     const [ sortOrder, setSortOrder ] = useTriliumOption("contentManagerSortOrder");
-    const categories = useCategoryNotes(sortOrder as ContentSortOrder);
+    const [ typedFilter, setTypedFilter ] = useState("");
+    const [ appliedFilter, setAppliedFilter ] = useState("");
+    const categories = useCategoryNotes(sortOrder as ContentSortOrder, appliedFilter);
+
+    // Typing stays instant while the searches only re-run once the user pauses.
+    const applyFilter = useMemo(() => debounce(setAppliedFilter, FILTER_DEBOUNCE_MS), []);
+    useEffect(() => () => applyFilter.clear(), [ applyFilter ]);
 
     return (
         <>
             <OptionsPageHeader />
 
             <div className="content-manager-toolbar">
+                <FormTextBox
+                    className="content-manager-filter"
+                    placeholder={t("content_manager.filter_placeholder")}
+                    currentValue={typedFilter}
+                    onChange={(newValue) => {
+                        setTypedFilter(newValue);
+                        applyFilter(newValue);
+                    }}
+                />
                 <span className="content-manager-toolbar-label">{t("content_manager.sort_order")}</span>
                 <SortOrderSelect currentValue={sortOrder} onChange={(newValue) => void setSortOrder(newValue)} />
             </div>
 
             <div className="content-manager-list">
-                <CategoryList pageNote={note} categories={categories} />
+                <CategoryList pageNote={note} categories={categories} isFiltered={!!appliedFilter.trim()} />
             </div>
         </>
     );
 }
 
-function CategoryList({ pageNote, categories }: { pageNote: FNote, categories: CategoryNotes[] | null }) {
+function CategoryList({ pageNote, categories, isFiltered }: {
+    pageNote: FNote,
+    categories: CategoryNotes[] | null,
+    isFiltered: boolean
+}) {
     if (!categories) {
         return <p className="content-manager-loading">{t("content_manager.loading")}</p>;
     }
@@ -161,11 +185,15 @@ function CategoryList({ pageNote, categories }: { pageNote: FNote, categories: C
     const populated = categories.filter(({ notes }) => notes.length > 0);
 
     if (!populated.length) {
-        return (
-            <NoItems icon="bx bx-package" text={t("content_manager.no_items")}>
-                <small>{t("content_manager.no_items_hint")}</small>
-            </NoItems>
-        );
+        // An empty result means something different while filtering: content may well exist, just
+        // none of it matching, so the "nothing here yet" hint would be misleading.
+        return isFiltered
+            ? <NoItems icon="bx bx-search" text={t("content_manager.no_matches")} />
+            : (
+                <NoItems icon="bx bx-package" text={t("content_manager.no_items")}>
+                    <small>{t("content_manager.no_items_hint")}</small>
+                </NoItems>
+            );
     }
 
     return (
@@ -231,7 +259,7 @@ interface CategoryNotes {
  * each category's definition self-contained and the counts stay far too small for the difference to
  * be noticeable.
  */
-function useCategoryNotes(sortOrder: ContentSortOrder) {
+function useCategoryNotes(sortOrder: ContentSortOrder, titleFilter: string) {
     // `null` until the first search resolves, so the page can tell "still loading" apart from
     // "genuinely nothing to show" instead of flashing the empty state on every open.
     const [ categories, setCategories ] = useState<CategoryNotes[] | null>(null);
@@ -241,7 +269,7 @@ function useCategoryNotes(sortOrder: ContentSortOrder) {
         const requestId = ++latestRequest.current;
         const refreshed = await Promise.all(CONTENT_CATEGORIES.map(async (category) => ({
             category,
-            notes: await findCategoryNotes(category, sortOrder)
+            notes: await findCategoryNotes(category, sortOrder, titleFilter)
         })));
 
         // Both the sort order and `entitiesReloaded` trigger a refresh, so two can be in flight at
@@ -249,7 +277,7 @@ function useCategoryNotes(sortOrder: ContentSortOrder) {
         if (requestId === latestRequest.current) {
             setCategories(refreshed);
         }
-    }, [ sortOrder ]);
+    }, [ sortOrder, titleFilter ]);
 
     useEffect(() => { void refresh(); }, [ refresh ]);
 

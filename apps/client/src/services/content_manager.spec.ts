@@ -42,6 +42,27 @@ describe("buildCategoryQuery", () => {
         }
     });
 
+    it("appends a title match, keeping the cheap attribute lookup first", () => {
+        // `AndExp` narrows its operands left to right, so the indexed attribute group has to lead;
+        // the bare "#" is what ends the fulltext portion so the following "(" is not swallowed.
+        expect(buildCategoryQuery("#appCss OR #disabled:appCss", "title", "dark")).toBe(
+            `# (#appCss OR #disabled:appCss) AND note.title *=* "dark" orderBy note.title, note.noteId`
+        );
+    });
+
+    it("leaves the query untouched when the filter is empty or only whitespace", () => {
+        const plain = "#appCss orderBy note.title, note.noteId";
+
+        expect(buildCategoryQuery("#appCss", "title")).toBe(plain);
+        expect(buildCategoryQuery("#appCss", "title", "   ")).toBe(plain);
+    });
+
+    it("quotes the filter so spaces and quotes cannot break out of the term", () => {
+        expect(buildCategoryQuery("#appCss", "title", "my theme")).toContain(`note.title *=* "my theme"`);
+        expect(buildCategoryQuery("#appCss", "title", `a" OR #run`)).toContain(`note.title *=* "a\\" OR #run"`);
+        expect(buildCategoryQuery("#appCss", "title", "back\\slash")).toContain(`note.title *=* "back\\\\slash"`);
+    });
+
     it("keeps the ordering clause at the top level of an OR chain", () => {
         // `orderBy` is rejected by the parser unless it sits on the top expression level, so the
         // filters must not be wrapped in parentheses.
