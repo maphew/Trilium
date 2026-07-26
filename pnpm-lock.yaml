@@ -613,7 +613,7 @@ importers:
         version: 4.0.18(zod@4.4.3)
       '@anthropic-ai/claude-agent-sdk':
         specifier: ^0.3.207
-        version: 0.3.217(@anthropic-ai/sdk@0.111.0(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(supports-color@10.2.2)(zod@4.4.3))(zod@4.4.3)
+        version: 0.3.218(@anthropic-ai/sdk@0.111.0(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(supports-color@10.2.2)(zod@4.4.3))(zod@4.4.3)
       '@modelcontextprotocol/sdk':
         specifier: ^1.12.1
         version: 1.29.0(supports-color@10.2.2)(zod@4.4.3)
@@ -1807,8 +1807,8 @@ packages:
   '@antfu/install-pkg@1.1.0':
     resolution: {integrity: sha512-MGQsmw10ZyI+EJo45CdSER4zEb+p31LpDAFp2Z3gkSd1yqVZGi0Ebx++YTEMonJy4oChEMLsxZ64j8FH6sSqtQ==}
 
-  '@anthropic-ai/claude-agent-sdk@0.3.217':
-    resolution: {integrity: sha512-juszT3itL8R6OQ6nb/8IZE34UjKps8Jf7N8vjCXLx+vbJc+k3EojZOs93tJwT5iTRvfV1a0N53zJbKn/iJpKrQ==}
+  '@anthropic-ai/claude-agent-sdk@0.3.218':
+    resolution: {integrity: sha512-lbVOmgdzjBdSUCTbxElpoTxxP/u9jY8gpG/3cr5l1jSSvSY5FrANdRcze/z6gM330xo32SHH6WPGFd4+K0fMoQ==}
     engines: {node: '>=18.0.0'}
     peerDependencies:
       '@anthropic-ai/sdk': '>=0.93.0'
@@ -13858,7 +13858,7 @@ snapshots:
       package-manager-detector: 1.6.0
       tinyexec: 1.1.2
 
-  '@anthropic-ai/claude-agent-sdk@0.3.217(@anthropic-ai/sdk@0.111.0(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(supports-color@10.2.2)(zod@4.4.3))(zod@4.4.3)':
+  '@anthropic-ai/claude-agent-sdk@0.3.218(@anthropic-ai/sdk@0.111.0(zod@4.4.3))(@modelcontextprotocol/sdk@1.29.0(supports-color@10.2.2)(zod@4.4.3))(zod@4.4.3)':
     dependencies:
       '@anthropic-ai/sdk': 0.111.0(zod@4.4.3)
       '@modelcontextprotocol/sdk': 1.29.0(supports-color@10.2.2)(zod@4.4.3)
