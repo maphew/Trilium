@@ -238,11 +238,21 @@ export function buildCategoryQuery(filter: string, sortOrder: ContentSortOrder, 
 
     // The attribute group comes first on purpose: `AndExp` threads the narrowing note set through
     // its operands in order, so the index-backed attribute lookup shrinks the set before the title
-    // comparison has to walk it. The leading bare "#" is what ends the fulltext portion — without
+    // comparisons have to walk it. The leading bare "#" is what ends the fulltext portion — without
     // it the opening paren is swallowed into that portion and the expression parses unbalanced.
-    const expression = wanted ? `# (${filter}) AND note.title *=* ${quoteSearchValue(wanted)}` : filter;
+    const expression = wanted ? `# (${filter}) AND (${buildTitleFilter(wanted)})` : filter;
 
     return `${expression} orderBy ${orderBy}`;
+}
+
+/**
+ * Matches the note's own title or its parent's, so an item can be found by where it lives as well as
+ * by what it is called — the location is shown on every row, so it reads as searchable.
+ */
+function buildTitleFilter(wanted: string) {
+    const value = quoteSearchValue(wanted);
+
+    return `note.title *=* ${value} OR note.parents.title *=* ${value}`;
 }
 
 /** Quotes a user-typed value so spaces keep it one token and quotes in it can't end it early. */

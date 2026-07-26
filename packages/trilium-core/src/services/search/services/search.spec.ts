@@ -713,6 +713,13 @@ describe("Search", () => {
             `# (#run OR #disabled:run) AND note.title *=* "gamma other" orderBy note.title`, searchContext);
         expect(searchResults.map((sr) => becca.notes[sr.noteId].title)).toEqual([ "Gamma other" ]);
 
+        // The filter also matches the parent's title, so a second group is AND-ed on as a whole.
+        searchResults = searchService.findResultsWithQuery(
+            `# (#run OR #disabled:run) AND (note.title *=* nothing OR note.parents.title *=* scripts) orderBy note.title`,
+            searchContext);
+        expect(searchResults.map((sr) => becca.notes[sr.noteId].title))
+            .toEqual([ "Alpha script", "Beta script", "Gamma other" ]);
+
         expect(searchContext.getError()).toBeFalsy();
     });
 

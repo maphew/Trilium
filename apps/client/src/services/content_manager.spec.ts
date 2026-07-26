@@ -46,8 +46,18 @@ describe("buildCategoryQuery", () => {
         // `AndExp` narrows its operands left to right, so the indexed attribute group has to lead;
         // the bare "#" is what ends the fulltext portion so the following "(" is not swallowed.
         expect(buildCategoryQuery("#appCss OR #disabled:appCss", "title", "dark")).toBe(
-            `# (#appCss OR #disabled:appCss) AND note.title *=* "dark" orderBy note.title, note.noteId`
+            `# (#appCss OR #disabled:appCss)`
+            + ` AND (note.title *=* "dark" OR note.parents.title *=* "dark")`
+            + ` orderBy note.title, note.noteId`
         );
+    });
+
+    it("matches the parent's title too, so an item can be found by where it lives", () => {
+        const query = buildCategoryQuery("#appCss", "title", "themes");
+
+        expect(query).toContain(`note.parents.title *=* "themes"`);
+        // Both title conditions are grouped, so the OR cannot swallow the attribute filter.
+        expect(query).toContain(`AND (note.title *=* "themes" OR note.parents.title *=* "themes")`);
     });
 
     it("leaves the query untouched when the filter is empty or only whitespace", () => {
@@ -61,6 +71,8 @@ describe("buildCategoryQuery", () => {
         expect(buildCategoryQuery("#appCss", "title", "my theme")).toContain(`note.title *=* "my theme"`);
         expect(buildCategoryQuery("#appCss", "title", `a" OR #run`)).toContain(`note.title *=* "a\\" OR #run"`);
         expect(buildCategoryQuery("#appCss", "title", "back\\slash")).toContain(`note.title *=* "back\\\\slash"`);
+        // The parent condition is built from the same escaped value, not a raw second copy.
+        expect(buildCategoryQuery("#appCss", "title", `a" OR #run`)).toContain(`note.parents.title *=* "a\\" OR #run"`);
     });
 
     it("keeps the ordering clause at the top level of an OR chain", () => {
