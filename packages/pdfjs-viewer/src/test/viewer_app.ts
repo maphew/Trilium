@@ -92,7 +92,11 @@ export async function installViewerApp(data: Uint8Array, pageGeometry: Record<nu
     // happy-dom has no real parent frame (window.parent === window), so intercept instead of
     // racing the async message event — matches the approach in persistence.spec.ts.
     vi.spyOn(window.parent, "postMessage").mockImplementation((message: any) => {
-        messages.push(message);
+        // Cloned, as a real cross-frame postMessage would. This is load-bearing for the saved
+        // document: the viewer hands the bytes to the parent and then immediately reopens them,
+        // and pdf.js transfers that ArrayBuffer to its worker — which would leave a captured
+        // reference detached and empty by the time a test looked at it.
+        messages.push(structuredClone(message));
     });
 
     window.PDFViewerApplication = {

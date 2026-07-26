@@ -14,7 +14,9 @@ export default defineConfig(() => ({
             'reportsDirectory': './test-output/vitest/coverage',
             'provider': 'v8' as const,
             'include': ["src/**/*.{ts,tsx}"],
-            'exclude': ["**/*.{test,spec}.{ts,mts,cts,tsx,js,jsx}", "**/*.d.ts", "src/test/**"],
+            // custom.ts is the bundle entry point and does nothing but call into bootstrap.ts;
+            // importing it would run the viewer boot sequence, so the e2e suite covers it.
+            'exclude': ["**/*.{test,spec}.{ts,mts,cts,tsx,js,jsx}", "**/*.d.ts", "src/test/**", "src/custom.ts"],
             'reporter': ["text", "lcov"],
         }
     },
