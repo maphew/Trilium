@@ -128,12 +128,31 @@
   "export": {
     "export_note_title": "Notiz exportieren",
     "close": "Schließen",
-    "export_type_subtree": "Diese Notiz und alle ihre Unternotizen",
-    "export_type_single": "Nur diese Notiz ohne ihre Unternotizen",
+    "export_type_subtree": "Diese Notiz und alle Unternotizen",
+    "export_type_single": "Nur diese Notiz",
     "export": "Export",
     "choose_export_type": "Bitte wählen Sie zuerst den Exporttyp aus",
     "export_finished_successfully": "Der Export wurde erfolgreich abgeschlossen.",
-    "format_pdf": "PDF - für Ausdrucke oder Teilen."
+    "format_pdf": "PDF - für Ausdrucke oder Teilen.",
+    "what_to_export": "Was soll exportiert werden?",
+    "format": "Format",
+    "format_html_name": "HTML",
+    "format_html_description": "Behält alle Formatierungen bei",
+    "format_markdown_name": "Markdown",
+    "format_markdown_description": "Behält die meisten Formatierungen bei",
+    "format_opml_name": "OPML",
+    "format_opml_description": "Gliederungsformat mit HTML-Inhalten",
+    "format_share_name": "HTML für das Web",
+    "format_share_description": "Veröffentlichbare statische Website mit dem Design für geteilte Notizen",
+    "recommended": "Empfohlen",
+    "result_subtree_html": "Ein ZIP-Archiv, in dem Textnotizen als HTML gespeichert werden. Code, Bilder und andere Dateien behalten ihr ursprüngliches Format bei.",
+    "result_subtree_markdown": "Ein ZIP-Archiv, in dem Textnotizen als Markdown gespeichert werden. Code, Bilder und andere Dateien behalten ihr ursprüngliches Format bei.",
+    "result_share": "Ein ZIP-Archiv mit einer veröffentlichbaren statischen Website, die das Design für geteilte Notizen verwendet.",
+    "result_opml": "Eine einzelne OPML-Gliederungsdatei. Notiztitel und Text sind enthalten; Bilder, Codedateien und Anhänge nicht.",
+    "result_single_html": "Eine einzelne HTML-Datei. Bilder und Anhänge werden darin eingebettet.",
+    "result_single_markdown": "Eine einzelne Markdown-Datei (.md).",
+    "preparing_export": "Export wird vorbereitet …",
+    "export_in_progress_with_total": "{{progressCount}} von {{totalCount}} Notizen exportiert"
   },
   "help": {
     "noteNavigation": "Notiz Navigation",
@@ -195,11 +214,11 @@
     "importIntoNote": "In Notiz importieren",
     "chooseImportFile": "Importdatei auswählen",
     "options": "Optionen",
-    "safeImportTooltip": "Trilium <code>.zip</code>-Exportdateien können ausführbare Skripte enthalten, die möglicherweise schädliches Verhalten aufweisen. Der sichere Import deaktiviert die automatische Ausführung aller importierten Skripte. Deaktivieren Sie 'Sicherer Import' nur, wenn das importierte Archiv ausführbare Skripte enthalten soll und Sie dem Inhalt der Importdatei vollständig vertrauen.",
+    "safeImportTooltip": "Trilium-<code>.zip</code>-Exporte können ausführbare Skripte enthalten. Der sichere Import deaktiviert sie; deaktivieren Sie diese Option nur, wenn das Archiv Skripte ausführen soll und Sie seinem Inhalt vertrauen.",
     "safeImport": "Sicherer Import",
-    "explodeArchivesTooltip": "Wenn dies aktiviert ist, liest Trilium die Dateien <code>.zip</code>, <code>.enex</code> und <code>.opml</code> und erstellt Notizen aus Dateien in diesen Archiven. Wenn diese Option deaktiviert ist, hängt Trilium die Archive selbst an die Notiz an.",
+    "explodeArchivesTooltip": "Erstellt Notizen aus den Dateien in <code>.zip</code>-, <code>.enex</code>- und <code>.opml</code>-Archiven. Wenn deaktiviert, werden die Archive unverändert angehängt.",
     "explodeArchives": "Lese den Inhalt der Archive <code>.zip</code>, <code>.enex</code> und <code>.opml</code>.",
-    "shrinkImagesTooltip": "<p>Wenn Sie diese Option aktivieren, versucht Trilium, die importierten Bilder durch Skalierung und Optimierung zu verkleinern, was sich auf die wahrgenommene Bildqualität auswirken kann. Wenn diese Option deaktiviert ist, werden Bilder ohne Änderungen importiert.</p><p>Dies gilt nicht für <code>.zip</code>-Importe mit Metadaten, da davon ausgegangen wird, dass diese Dateien bereits optimiert sind.</p>",
+    "shrinkImagesTooltip": "Skaliert und optimiert Bilder, um Speicherplatz zu sparen, wodurch sich die Qualität leicht verringern kann. Gilt nicht für <code>.zip</code>-Importe mit Metadaten, da diese als bereits optimiert gelten.",
     "shrinkImages": "Bilder verkleinern",
     "textImportedAsText": "Importiere HTML, Markdown und TXT als Textnotizen, wenn die Metadaten unklar sind",
     "codeImportedAsCode": "Importiere erkannte Codedateien (z. B. <code>.json</code>) als Codenotizen, wenn die Metadaten unklar sind",
@@ -212,12 +231,19 @@
       "placeholder": "HTML tags eintragen, pro Zeile nur einer pro Zeile",
       "reset_button": "Zur Standardliste zurücksetzen"
     },
-    "in-progress": "Import läuft: {{progress}}",
+    "in-progress": "{{progress}} Notizen importiert",
     "successful": "Import erfolgreich abgeschlossen.",
     "importZipRecommendation": "Beim Import einer ZIP-Datei wird die Notizhierarchie aus der Ordnerstruktur im Archiv übernommen.",
     "spreadsheetImportedAsSpreadsheet": "CSV- und Excel-Dateien als bearbeitbare Tabellen statt als Dateien importieren",
     "starting": "Wird importiert…",
-    "in-progress-with-total": "Importiere {{progress}} von {{total}}"
+    "in-progress-with-total": "{{progress}} von {{total}} Notizen importiert",
+    "importIntoNoteNamed": "In {{- title}} importieren",
+    "import_from": "Importieren aus",
+    "cardName": "Dateien und andere Formate",
+    "cardDescription": "ZIP, ENEX, OPML, Markdown, HTML, Bilder und mehr",
+    "shrinkImagesProviderTooltip": "Skaliert und optimiert importierte Bilder, um Speicherplatz zu sparen, wodurch sich die Qualität leicht verringern kann.",
+    "extracting": "{{progress}} von {{total}} Elementen extrahiert",
+    "processing": "{{progress}} von {{total}} Notizen verarbeitet"
   },
   "include_note": {
     "dialog_title": "Notiz beifügen",
@@ -287,7 +313,16 @@
     "deleted_notes_message": "Gelöschte Notizen wurden gelöscht.",
     "no_changes_message": "Noch keine Änderungen...",
     "undelete_link": "Wiederherstellen",
-    "confirm_undelete": "Möchten Sie diese Notiz und ihre Unternotizen wiederherstellen?"
+    "confirm_undelete": "Möchten Sie diese Notiz und ihre Unternotizen wiederherstellen?",
+    "deleted_notes_title": "Gelöschte Notizen",
+    "title_with_ancestor": "{{- title}} – {{- ancestorTitle}}",
+    "more_actions": "Weitere Aktionen",
+    "deleted_notes_settings": "Einstellungen für gelöschte Notizen",
+    "no_deleted_notes_message": "Es gibt keine gelöschten Notizen zum Anzeigen.",
+    "no_deleted_notes_erasure_hint": "Gelöschte Notizen werden {{- duration}} lang aufbewahrt, bevor sie endgültig gelöscht werden.",
+    "confirm_undelete_to_default_location": "Die übergeordnete Notiz existiert nicht mehr, daher kann diese Notiz nicht an ihrem ursprünglichen Ort wiederhergestellt werden. Stattdessen am Standardort für neue Notizen wiederherstellen?",
+    "undeleted_to_default_location": "Der ursprüngliche Ort existiert nicht mehr, daher wurde die Notiz in \"{{- title}}\" wiederhergestellt.",
+    "undelete_failed": "Die Notiz konnte nicht wiederhergestellt werden – möglicherweise wurde sie endgültig gelöscht."
   },
   "sort_child_notes": {
     "sort_children_by": "Unternotizen sortieren nach...",
@@ -567,7 +602,7 @@
     "download": "Herunterladen",
     "rename_attachment": "Anhang umbenennen",
     "upload_new_revision": "Neue Revision hochladen",
-    "copy_link_to_clipboard": "Link in die Zwischenablage kopieren",
+    "copy_link_to_clipboard": "Verweis in die Zwischenablage kopieren",
     "convert_attachment_into_note": "Anhang in Notiz umwandeln",
     "delete_attachment": "Anhang löschen",
     "upload_success": "Eine neue Revision des Anhangs wurde hochgeladen.",
@@ -612,7 +647,12 @@
     "year_previous": "vorheriges Jahr",
     "year_next": "nächstes Jahr",
     "list": "Liste",
-    "today": "Heute"
+    "today": "Heute",
+    "day": "Tag",
+    "day_previous": "Vorheriger Tag",
+    "day_next": "Nächster Tag",
+    "pin_date": "Aktuelles Datum anheften, damit sich der Kalender immer in diesem Zeitraum statt bei heute öffnet",
+    "unpin_date": "Datum lösen, damit sich der Kalender wieder beim heutigen Datum öffnet"
   },
   "close_pane_button": {
     "close_this_pane": "Schließe diesen Bereich"
@@ -658,7 +698,8 @@
     "toggle-zen-mode": "Zen Modus",
     "new-version-available": "Neues Update verfügbar",
     "download-update": "Version {{latestVersion}} herunterladen",
-    "search_notes": "Notizen durchsuchen"
+    "search_notes": "Notizen durchsuchen",
+    "show_deleted_notes": "Gelöschte Notizen anzeigen"
   },
   "sync_status": {
     "unknown": "<p>Der Synchronisations-Status wird bekannt, sobald der nächste Synchronisierungsversuch gestartet wird.</p><p>Klicken Sie hier, um die Synchronisierung jetzt auszulösen.</p>",
@@ -708,7 +749,13 @@
     "word_wrap_off": "Aus",
     "print_or_export_to_pdf": "Drucken/als PDF exportieren...",
     "save_named_revision": "Benannte Revision speichern...",
-    "word_wrap_auto_description": "Der globalen Einstellung folgen"
+    "word_wrap_auto_description": "Der globalen Einstellung folgen",
+    "convert_to_markdown": "In Markdown-Notiz konvertieren",
+    "convert_to_text": "In Textnotiz konvertieren",
+    "convert_format_warning": "Bei der Konvertierung können einige Formatierungen verloren gehen und anschließend Anpassungen nötig sein. Vorher wird eine Revision der aktuellen Notiz gespeichert, damit Sie sie wiederherstellen können. Möchten Sie fortfahren?",
+    "convert_format_warning_risky": "Sie konvertieren zwischen zwei Formaten mit unterschiedlichen Möglichkeiten. Dabei können Formatierungen verloren gehen und nicht unterstützte Elemente entfernt werden.<br><br>Übernehmen Sie dieses Risiko und möchten Sie mit der Konvertierung fortfahren?<br><br>Vorher wird eine Revision der aktuellen Notiz gespeichert, damit Sie zum ursprünglichen Format zurückkehren können.",
+    "convert_to_markdown_successful": "Die Notiz wurde in Markdown konvertiert.",
+    "convert_to_text_successful": "Die Notiz wurde in eine Textnotiz konvertiert."
   },
   "onclick_button": {
     "no_click_handler": "Das Schaltflächen-Widget „{{componentId}}“ hat keinen definierten Klick-Handler"
@@ -724,7 +771,7 @@
     "update_available": "Update verfügbar"
   },
   "note_launcher": {
-    "this_launcher_doesnt_define_target_note": "Dieser Starter definiert keine Zielnotiz."
+    "this_launcher_doesnt_define_target_note": "Für diesen Starter ist keine Zielnotiz konfiguriert, daher gibt es nichts zu öffnen. Legen Sie die Relation \"target\" so fest, dass sie auf eine Notiz verweist."
   },
   "code_buttons": {
     "execute_button_title": "Skript ausführen",
@@ -1202,7 +1249,12 @@
     "color_scheme_system": "System",
     "color_scheme_light": "Hell",
     "color_scheme_dark": "Dunkel",
-    "color_scheme_custom_disabled": "Überschreiben des Farbschemas ist für benutzerdefinierte Themes nicht verfügbar"
+    "color_scheme_custom_disabled": "Überschreiben des Farbschemas ist für benutzerdefinierte Themes nicht verfügbar",
+    "color_scheme_switcher_system": "Systemmodus",
+    "color_scheme_switcher_light": "Heller Modus",
+    "color_scheme_switcher_dark": "Dunkler Modus",
+    "color_scheme_switcher_hint": "Klicken Sie, um das Farbschema zu wechseln.",
+    "color_scheme_switcher_unsupported": "Das aktuelle Design unterstützt keinen Wechsel des Farbschemas."
   },
   "zoom_factor": {
     "title": "Zoomfaktor (nur Desktop-Build)",
@@ -1218,7 +1270,8 @@
     "title": "Verfügbare MIME-Typen im Dropdown-Menü",
     "tooltip_syntax_highlighting": "Syntaxhervorhebung",
     "tooltip_code_block_syntax": "Code-Blöcke in Textnotizen",
-    "tooltip_code_note_syntax": "Code-Notizen"
+    "tooltip_code_note_syntax": "Code-Notizen",
+    "trilium_log": "Trilium-Protokoll"
   },
   "vim_key_bindings": {
     "use_vim_keybindings_in_code_notes": "Vim Tastenbelegung",
@@ -1251,7 +1304,8 @@
     "batch_ocr_completed": "Stapelverarbeitung abgeschlossen! {{processed}} Dateien wurden verarbeitet.",
     "batch_ocr_error": "Fehler bei der Stapelverarbeitung: {{error}}",
     "ocr_confidence_description": "Nur Text oberhalb dieses Konfidenzschwellenwerts extrahieren. Niedrigere Werte erfassen mehr Text, können aber ungenauer sein.",
-    "batch_ocr_description": "Text aus allen vorhandenen Bildern, PDFs und Office-Dokumenten in Ihren Notizen extrahieren. Das kann je nach Anzahl der Dateien etwas dauern."
+    "batch_ocr_description": "Text aus allen vorhandenen Bildern, PDFs und Office-Dokumenten in Ihren Notizen extrahieren. Das kann je nach Anzahl der Dateien etwas dauern.",
+    "batch_ocr_completed_with_failures": "Stapelverarbeitung abgeschlossen. {{processed}} Dateien wurden verarbeitet, {{failed}} konnten jedoch nicht gelesen werden (Details im Protokoll)."
   },
   "attachment_erasure_timeout": {
     "attachment_erasure_timeout": "Nicht verwendete Anhänge",
@@ -1433,7 +1487,7 @@
     "set_password_heading": "Passwort festlegen",
     "set_password": "Passwort festlegen",
     "password_mismatch": "Neue Passwörter sind nicht dasselbe.",
-    "password_changed_success": "Das Passwort wurde geändert. Trilium wird neu geladen, nachdem Sie auf OK geklickt haben.",
+    "password_changed_success": "Passwort wurde erfolgreich geändert.",
     "change_password_description": "Aktualisieren Sie Ihr aktuelles Passwort",
     "reset_password": "Passwort zurücksetzen",
     "cancel": "Abbrechen",
@@ -1506,7 +1560,7 @@
     "will_be_deleted_soon": "Dieser Anhang wird bald automatisch gelöscht",
     "deletion_reason": ", da der Anhang nicht im Inhalt der Notiz verlinkt ist. Um das Löschen zu verhindern, füge den Anhangslink wieder in den Inhalt ein oder wandel den Anhang in eine Notiz um.",
     "role_and_size": "Rolle: {{role}}, Größe: {{size}}, MIME: {{- mimeType}}",
-    "link_copied": "Anhangslink in die Zwischenablage kopiert.",
+    "link_copied": "Anhangsverweis in die Zwischenablage kopiert.",
     "unrecognized_role": "Unbekannte Anhangsrolle „{{role}}“."
   },
   "bookmark_switch": {
@@ -1665,7 +1719,9 @@
     "subtree-hidden-tooltip_other": "{{count}} untergeordnete Notizen, die im Baum ausgeblendet sind",
     "subtree-hidden-moved-title": "Zu {{title}} hinzugefügt",
     "subtree-hidden-moved-description-collection": "Diese Sammlung blendet ihre untergeordneten Notizen im Baum aus.",
-    "subtree-hidden-moved-description-other": "Untergeordnete Notizen sind im Baum für diese Notiz ausgeblendet."
+    "subtree-hidden-moved-description-other": "Untergeordnete Notizen sind im Baum für diese Notiz ausgeblendet.",
+    "follow-active-note": "Aktiver Notiz folgen",
+    "follow-active-note-title": "Scrollt im Baum und erweitert übergeordnete Knoten, um die aktive Notiz anzuzeigen. Wenn deaktiviert, bleibt der Baum an seiner Position und nur die Hintergrundmarkierung wird aktualisiert."
   },
   "title_bar_buttons": {
     "window-on-top": "Dieses Fenster immer oben halten"
@@ -1880,7 +1936,8 @@
     "create-child-note-title": "Neue untergeordnete Notiz anlegen und zur Karte hinzufügen",
     "create-child-note-instruction": "Auf die Karte klicken, um eine neue Notiz an der Stelle zu erstellen oder Escape drücken um abzubrechen.",
     "unable-to-load-map": "Karte konnte nicht geladen werden.",
-    "create-child-note-text": "Marker hinzufügen"
+    "create-child-note-text": "Marker hinzufügen",
+    "create-child-note-toast-title": "Neue Notiz"
   },
   "geo-map-context": {
     "open-location": "Ort öffnen",
@@ -1902,7 +1959,8 @@
   },
   "modal": {
     "close": "Schließen",
-    "help_title": "Zeige mehr Informationen zu diesem Fenster"
+    "help_title": "Zeige mehr Informationen zu diesem Fenster",
+    "cancel": "Abbrechen"
   },
   "zen_mode": {
     "button_exit": "Verlasse Zen Modus"
@@ -2082,7 +2140,9 @@
     "emoji_completion_description": "Emojis lassen sich einfach einfügen, indem man `:` gefolgt vom Namen des Emojis eingibt.",
     "note_completion_description": "Links zu Notizen lassen sich durch Eingabe von `@` gefolgt vom Notiztitel erstellen.",
     "slash_commands_enabled": "Slash-Befehle",
-    "slash_commands_description": "Bearbeitungsbefehle wie das Einfügen von Zeilenumbrüchen oder Überschriften lassen sich durch Eingabe von `/` aufrufen."
+    "slash_commands_description": "Bearbeitungsbefehle wie das Einfügen von Zeilenumbrüchen oder Überschriften lassen sich durch Eingabe von `/` aufrufen.",
+    "content_hints_enabled": "Inhaltshinweise",
+    "content_hints_description": "Kurze Hinweise in der unteren Ecke des Editors anzeigen, die erklären, wie Sie mit dem Element unter der Einfügemarke oder dem Mauszeiger interagieren."
   },
   "table_view": {
     "new-row": "Neue Zeile",
@@ -2209,7 +2269,14 @@
     "edit-note": "Notiz bearbeiten"
   },
   "calendar_view": {
-    "delete_note": "Notiz löschen..."
+    "delete_note": "Notiz löschen...",
+    "time_slots": "Zeitfenster",
+    "slot_duration": "Dauer",
+    "slot_label_interval": "Beschriftungsintervall",
+    "minutes_one": "{{count}} Minute",
+    "minutes_other": "{{count}} Minuten",
+    "hours_one": "{{count}} Stunde",
+    "hours_other": "{{count}} Stunden"
   },
   "note-color": {
     "clear-color": "Notizfarbe entfernen",
@@ -2311,7 +2378,11 @@
     "empty_message": "Für diese Notiz gibt es nichts anzuzeigen",
     "empty_button": "Leiste ausblenden",
     "toggle": "Rechte Leiste umschalten",
-    "custom_widget_go_to_source": "Zum Quellcode"
+    "custom_widget_go_to_source": "Zum Quellcode",
+    "peek": "Rechten Bereich einblenden",
+    "hide": "Rechten Bereich ausblenden",
+    "dock": "Bereich andocken",
+    "close": "Bereich schließen"
   },
   "pdf": {
     "attachments_one": "{{count}} Anhang",
@@ -2404,7 +2475,8 @@
     "play-mode-title": "Wiedergabemodus: {{mode}}",
     "play-mode-once": "Einmal abspielen",
     "play-mode-loop": "Wiederholen",
-    "play-mode-next": "Nächstes abspielen"
+    "play-mode-next": "Nächstes abspielen",
+    "activate": "{{- title}} wiedergeben"
   },
   "mermaid": {
     "placeholder": "Geben den Inhalt des Mermaid-Diagramms ein oder verwenden eine der folgenden Beispieldiagramme.",
@@ -2436,7 +2508,10 @@
     "sample_treeview": "Baumansicht",
     "sample_wardley": "Wardley-Map",
     "slash_command_blank_description": "Leeres Mermaid-Diagramm einfügen",
-    "slash_command_description": "Mermaid-Diagrammvorlage \"{{name}}\" einfügen"
+    "slash_command_description": "Mermaid-Diagrammvorlage \"{{name}}\" einfügen",
+    "sample_cynefin": "Cynefin",
+    "sample_swimlane": "Swimlane",
+    "sample_railroad": "Eisenbahn"
   },
   "database": {
     "title": "Datenbank"
@@ -2490,7 +2565,26 @@
     "attach_file": "Bild, PDF oder Textdatei anhängen",
     "remove_attachment": "Anhang entfernen",
     "attachment_upload_failed": "\"{{name}}\" konnte nicht hochgeladen werden.",
-    "attachment_unsupported_type": "\"{{name}}\" ist kein unterstützter Anhangstyp. Bitte ein Bild (PNG, JPEG, GIF, WebP), eine PDF oder eine Text-/Quelldatei verwenden."
+    "attachment_unsupported_type": "\"{{name}}\" ist kein unterstützter Anhangstyp. Bitte ein Bild (PNG, JPEG, GIF, WebP), eine PDF oder eine Text-/Quelldatei verwenden.",
+    "scroll_to_bottom": "Zum neuesten Eintrag scrollen",
+    "read_only_notice": "Antworten ist nicht verfügbar, da dieser KI-Chat schreibgeschützt ist.",
+    "toc_file": "Datei: {{name}}",
+    "highlights_title": "Markierungen ({{count}})",
+    "highlights_empty": "Noch keine Markierungen. Wählen Sie Text in einer Nachricht aus und wählen Sie \"Markieren\".",
+    "copy": "Kopieren",
+    "highlight_add": "Markieren",
+    "highlight_remove": "Markierung entfernen",
+    "highlight_remove_confirm": "Diese Markierung entfernen?",
+    "quote_selection": "Auswahl zitieren",
+    "quoted_from": "Zitiert aus",
+    "show_quote_source": "Zitatquelle anzeigen",
+    "copy_message": "Nachricht kopieren",
+    "save_to_subnote": "In Unternotiz speichern",
+    "save_as_note": "Als Notiz speichern",
+    "save_note_failed": "Notiz aus der Nachricht konnte nicht erstellt werden.",
+    "regenerate": "Neu generieren",
+    "delete_message": "Nachricht löschen",
+    "delete_message_confirm": "Diese Nachricht löschen? Dieser Vorgang kann nicht rückgängig gemacht werden."
   },
   "sidebar_chat": {
     "title": "KI-Chat",
@@ -2501,7 +2595,14 @@
     "history": "Chathistorie",
     "recent_chats": "Kürzliche Chats",
     "no_chats": "Keine vorherigen Chats",
-    "view_all_chats": "Alle Chats anzeigen"
+    "view_all_chats": "Alle Chats anzeigen",
+    "more_actions": "Weitere Aktionen",
+    "rename": "Umbenennen",
+    "rename_title": "Chat umbenennen",
+    "rename_message": "Geben Sie einen neuen Namen für diesen Chat ein:",
+    "delete": "Löschen",
+    "delete_chat": "Chat löschen",
+    "delete_confirm": "Diesen Chat löschen? Dies kann nicht rückgängig gemacht werden."
   },
   "llm": {
     "tools": {
@@ -2660,8 +2761,11 @@
     "placeholders": {
       "math": "Gleichung",
       "collapsible_summary": "Zusammenfassung",
-      "collapsible_details": "Details"
-    }
+      "collapsible_details": "Details",
+      "table_column": "Spalte {{number}}"
+    },
+    "page_break": "Seitenumbruch einfügen (zum Drucken)",
+    "table": "Tabelle einfügen"
   },
   "auto_link_attribute_list": {
     "title": "Systemattribute"
@@ -2690,7 +2794,10 @@
     "more_actions": "Weitere Aktionen"
   },
   "launcher_button_context_menu": {
-    "remove_from_launch_bar": "Aus der Startleiste entfernen"
+    "remove_from_launch_bar": "Aus der Startleiste entfernen",
+    "configure_launch_bar": "Startleiste konfigurieren",
+    "launch_bar_orientation": "Ausrichtung der Startleiste",
+    "will_reload_frontend": "(App wird neu geladen)"
   },
   "link": {
     "failed_to_open": "Link '{{- href}}' konnte nicht geöffnet werden: {{- message}}",
@@ -2788,7 +2895,7 @@
     "sync-from-desktop-allow-access": "Netzwerkzugriff erlauben und neu starten"
   },
   "text-editor": {
-    "checkbox-tooltip": "Rechtsklick für weitere Aufgabenzustände.\n{{shortcut}} drücken, um zwischen den Zuständen zu wechseln.",
+    "checkbox-tooltip": "Klicken Sie mit der rechten Maustaste oder drücken Sie {{- shortcut}}, um den Status zu ändern.",
     "edit-states-tooltip": "Aufgabenzustände bearbeiten",
     "unknown-task-state": "Unbekannter benutzerdefinierter Aufgabenzustand",
     "validation-errors": {
@@ -2806,7 +2913,9 @@
     "collapsible-select-label": "Einklappbaren Block auswählen",
     "collapsible-title-placeholder": "Zusammenfassung",
     "collapsible-toggle-label": "Einklappbaren Block umschalten",
-    "collapsible-tooltip": "Auf den Pfeil klicken oder {{shortcut}} drücken um ein-/auszuklappen."
+    "collapsible-tooltip": "Klicken Sie auf den Pfeil oder drücken Sie {{- shortcut}}, um ein- oder auszuklappen.",
+    "checkbox-tooltip-state-label": "Aufgabenstatus:",
+    "checkbox-tooltip-state-unknown-suffix": "(fehlende Definition)"
   },
   "slash_commands": {
     "bulleted_list_description": "Aufzählungsliste erstellen",
@@ -2889,11 +2998,11 @@
     "empty-hint": "Jede untergeordnete Notiz wird zu einem Widget. Ziehen Sie eine Notiz aus der Baumstruktur hierher oder erstellen Sie eine neue."
   },
   "import_provider": {
-    "choose_provider": "Wählen Sie einen Dienst zum Importieren:"
+    "choose_provider": "Wählen Sie oben einen Dienst für den Import aus."
   },
   "onenote_import": {
     "name": "Microsoft OneNote",
-    "description": "Notizbücher, Abschnitte und Seiten aus Ihrem OneNote-Konto importieren.",
+    "description": "Verbindet sich mit Ihrem Konto",
     "connect_description": "Melden Sie sich mit Ihrem Microsoft-Konto an, um Ihre OneNote-Notizbücher zu importieren.",
     "connect": "Mit Microsoft anmelden",
     "connecting": "Warte auf Abschluss der Anmeldung…",
@@ -2901,12 +3010,133 @@
     "disconnect": "Trennen",
     "load_failed": "Ihre OneNote-Notizbücher konnten nicht geladen werden.",
     "no_notebooks": "In diesem Konto wurden keine Notizbücher gefunden.",
-    "select_sections": "Wählen Sie die zu importierenden Abschnitte:",
+    "select_sections": "Wählen Sie die zu importierenden Abschnitte aus",
     "import": "Auswahl importieren",
     "attach_source": "Original-HTML anhängen (Debug)",
-    "attach_source_hint": "Speichert das unveränderte OneNote-HTML jeder Seite als Anhang der importierten Notiz, um es mit dem konvertierten Ergebnis zu vergleichen."
+    "attach_source_hint": "Speichert das unveränderte OneNote-HTML jeder Seite als Anhang der importierten Notiz, um es mit dem konvertierten Ergebnis zu vergleichen.",
+    "section_heading": "Microsoft OneNote",
+    "checking": "OneNote-Verbindung wird geprüft …",
+    "select_sections_hint": "OneNote enthält die ursprüngliche Reihenfolge nicht in den Importdaten. Abschnitte und Gruppen werden daher nach Erstellungsdatum sortiert und können von der Darstellung in OneNote abweichen."
   },
   "full_content_width_switch": {
     "title": "Volle Breite"
+  },
+  "file_upload": {
+    "drop_or_browse_single": "Ziehen Sie eine Datei hierher oder klicken Sie zum Durchsuchen",
+    "drop_or_browse_multiple": "Ziehen Sie Dateien hierher oder klicken Sie zum Durchsuchen",
+    "browse_single": "Tippen Sie, um eine Datei auszuwählen",
+    "browse_multiple": "Tippen Sie, um Dateien auszuwählen"
+  },
+  "notion_import": {
+    "name": "Notion",
+    "description": "Aus einem HTML-Export",
+    "description_long": "Exportieren Sie in Notion Ihren Arbeitsbereich oder eine Seite als HTML inklusive Unterseiten und wählen Sie anschließend hier die entstandene .zip-Datei aus.",
+    "choose_file": "Notion-Export (.zip)",
+    "import": "Importieren"
+  },
+  "keep_import": {
+    "name": "Google Keep",
+    "description": "Aus einem Takeout-Export",
+    "description_long": "Exportieren Sie Ihre Keep-Daten in Google Takeout als .zip-Datei und wählen Sie anschließend hier die entstandene Datei aus.",
+    "choose_file": "Google-Keep-Export (.zip)",
+    "import": "Importieren"
+  },
+  "anytype_import": {
+    "name": "Anytype",
+    "description": "Aus einem JSON-Export",
+    "description_long": "Exportieren Sie in Anytype Ihren Bereich im Format \"Any-Block\" mit ausgewähltem \"JSON\" und wählen Sie anschließend hier die entstandene .zip-Datei aus. Derzeit werden nur Seiten und deren Text importiert.",
+    "choose_file": "Anytype-Export (.zip)",
+    "import": "Importieren"
+  },
+  "obsidian_import": {
+    "name": "Obsidian",
+    "description": "Aus einem Vault",
+    "description_long": "Packen Sie Ihren Obsidian-Vault-Ordner als ZIP-Datei und wählen Sie anschließend hier die entstandene .zip-Datei aus.",
+    "choose_file": "Obsidian-Vault (.zip)",
+    "import": "Importieren"
+  },
+  "evernote_import": {
+    "name": "Evernote",
+    "description": "Aus .enex-Dateien",
+    "description_long": "Exportieren Sie in Evernote ein Notizbuch oder bis zu 100 Notizen gleichzeitig als ENEX-Datei und wählen Sie anschließend hier eine oder mehrere .enex-Dateien aus. Jede Datei wird als separates Notizbuch importiert.",
+    "choose_file": "Evernote-Export (.enex)",
+    "import": "Importieren"
+  },
+  "save_revision": {
+    "save_revision": "Revision speichern",
+    "revision_name_placeholder": "Revisionsname (optional)",
+    "help": "Für jede passende Notiz wird eine benannte Revision mit ihrem aktuellen Inhalt und Titel gespeichert."
+  },
+  "convert_note": {
+    "convert_note": "Konvertieren",
+    "convert_note_to": "Notiz konvertieren",
+    "choose_conversion": "(Konvertierung auswählen)",
+    "conversion_htmlToMarkdown": "Textnotizen → Markdown-Notizen (verlustbehaftet)",
+    "conversion_markdownToHtml": "Markdown-Notizen → Textnotizen",
+    "help_text": "Die Konvertierung wird nur auf Notizen des Quelltyps angewendet; andere Notizen bleiben unverändert. Vorher wird eine Revision jeder konvertierten Notiz gespeichert.",
+    "warning": "Bei der Konvertierung von Notizen können einige Formatierungen verloren gehen und anschließend Anpassungen nötig sein. Vorher wird eine Revision jeder konvertierten Notiz gespeichert, damit Sie sie wiederherstellen können. Möchten Sie fortfahren?",
+    "warning_risky": "Sie konvertieren zwischen zwei Formaten mit unterschiedlichen Möglichkeiten. Dabei können Formatierungen verloren gehen und nicht unterstützte Elemente entfernt werden.<br><br>Übernehmen Sie dieses Risiko und möchten Sie mit der Konvertierung fortfahren?<br><br>Vorher wird eine Revision jeder konvertierten Notiz gespeichert, damit Sie zum ursprünglichen Format zurückkehren können."
+  },
+  "icon_pack": {
+    "preview_title": "Vorschau des Icon-Pakets",
+    "invalid_manifest": "Das Manifest des Icon-Pakets konnte nicht verarbeitet werden. Prüfen Sie, ob es gültiges JSON ist.",
+    "no_icons": "Dieses Icon-Paket enthält keine Icons.",
+    "count_one": "{{count}} Icon",
+    "count_other": "{{count}} Icons"
+  },
+  "blob_stub": {
+    "not_synced": "Der Inhalt dieser Notiz ist zu groß, um mit diesem Gerät synchronisiert zu werden. Sie können sie stattdessen auf dem Synchronisierungsserver öffnen.",
+    "open_on_server": "Auf dem Server öffnen"
+  },
+  "keyboard_shortcut_keys": {
+    "ctrl": "Strg",
+    "alt": "Alt",
+    "shift": "Umschalt",
+    "meta": "Meta",
+    "enter": "Eingabe",
+    "escape": "Esc",
+    "delete": "Entf",
+    "backspace": "Rücktaste",
+    "space": "Leertaste",
+    "tab": "Tab",
+    "home": "Pos1",
+    "end": "Ende",
+    "page_up": "Bild auf",
+    "page_down": "Bild ab",
+    "insert": "Einfg"
+  },
+  "time_interval": {
+    "seconds_one": "{{count}} Sekunde",
+    "seconds_other": "{{count}} Sekunden",
+    "minutes_one": "{{count}} Minute",
+    "minutes_other": "{{count}} Minuten",
+    "hours_one": "{{count}} Stunde",
+    "hours_other": "{{count}} Stunden",
+    "days_one": "{{count}} Tag",
+    "days_other": "{{count}} Tage"
+  },
+  "login": {
+    "heading": "Bei Trilium Notes anmelden",
+    "password": "Passwort",
+    "totp-token": "Einmalpasswort oder Wiederherstellungscode",
+    "button": "Anmelden",
+    "remember-me": "Angemeldet bleiben",
+    "incorrect-password": "Das Passwort ist falsch. Bitte versuchen Sie es erneut.",
+    "incorrect-totp": "Das Einmalpasswort ist falsch. Bitte versuchen Sie es erneut.",
+    "incorrect-recovery-code": "Der Wiederherstellungscode ist falsch oder wurde bereits verwendet.",
+    "too-many-attempts": "Zu viele Anmeldeversuche. Bitte warten Sie einige Minuten und versuchen Sie es erneut.",
+    "connection-error": "Der Server konnte nicht erreicht werden. Prüfen Sie Ihre Verbindung und versuchen Sie es erneut.",
+    "sign_in_with_sso": "Mit {{ssoIssuerName}} anmelden",
+    "sso-wrong-account": "Dieses Konto ist nicht mit dieser Trilium-Instanz verknüpft. Melden Sie sich mit dem verknüpften Konto an.",
+    "sso-not-enrolled": "Single Sign-on ist noch nicht eingerichtet. Melden Sie sich zuerst mit Ihrem Passwort an und verknüpfen Sie anschließend Ihr Konto in den Einstellungen."
+  },
+  "set_password": {
+    "heading": "Passwort festlegen",
+    "description": "Bevor Sie Trilium im Web verwenden können, müssen Sie zuerst ein Passwort festlegen. Anschließend verwenden Sie dieses Passwort zum Anmelden.",
+    "password": "Passwort",
+    "password-confirmation": "Passwortbestätigung",
+    "button": "Passwort festlegen",
+    "password-too-short": "Das Passwort muss mindestens {{length}} Zeichen lang sein.",
+    "passwords-dont-match": "Die eingegebenen Passwörter stimmen nicht überein."
   }
 }

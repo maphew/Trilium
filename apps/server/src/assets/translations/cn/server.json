@@ -68,7 +68,8 @@
     "save-named-revision": "保存活动笔记的命名修订",
     "toggle-archived-notes": "在笔记树中显示/隐藏已归档笔记",
     "show-deleted-notes": "显示“已删除的笔记”对话框",
-    "peek-right-pane": "将右侧面板以浮动面板的形式预览，失去焦点时自动关闭"
+    "peek-right-pane": "将右侧面板以浮动面板的形式预览，失去焦点时自动关闭",
+    "show-shortcut-hints": "显示当前聚焦组件的键盘快捷键"
   },
   "login": {
     "title": "登录",
@@ -344,7 +345,8 @@
     "save-named-revision": "保存已命名的修订",
     "toggle-archived-notes": "显示/隐藏已归档笔记",
     "show-deleted-notes": "显示已删除的笔记",
-    "peek-right-pane": "快速查看右侧面板"
+    "peek-right-pane": "快速查看右侧面板",
+    "show-shortcut-hints": "显示快捷键提示"
   },
   "share_theme": {
     "site-theme": "网站主题",
@@ -429,10 +431,34 @@
     "sql-console": "SQL 控制台",
     "sql-console-warning": "SQL 控制台允许对数据库执行任意 SQL 查询。",
     "lan-access": "网络访问",
-    "lan-access-warning": "你本地网络中的其他设备将能够连接到此 Trilium 实例。"
+    "lan-access-warning": "应用和共享笔记可通过本机浏览器或局域网中的其他设备访问。"
   },
   "onenote_import": {
-    "root-title": "OneNote 导入"
+    "root-title": "OneNote 导入",
+    "failed-page-placeholder": "无法从 OneNote 导入此页面。错误：{{error}}",
+    "report": {
+      "row-pages": "页面导入成功",
+      "row-notebooks": "笔记本已导入",
+      "row-sections": "分区已导入",
+      "row-duration": "导入总时长",
+      "row-images": "图片",
+      "row-attachments": "文件附件",
+      "row-ink": "包含手写或绘图内容的页面",
+      "row-links": "跨页面链接",
+      "row-throttling": "被 Microsoft Graph 限流的时间",
+      "value-links": "{{resolved}} 个已解析，{{unresolved}} 个指向导入范围之外",
+      "value-throttling_other": "{{- wait}}（{{count}} 个被限流的请求）",
+      "skipped-sections-title": "无法导入的分区",
+      "skipped-sections-section": "分区",
+      "skipped-sections-notebook": "笔记本",
+      "skipped-sections-error": "错误",
+      "failed-pages-title": "无法导入的页面",
+      "failed-pages-page": "页面",
+      "failed-pages-section": "分区",
+      "failed-pages-error": "错误",
+      "failed-resources-title": "缺失的图片和附件",
+      "failed-resources-item_other": "{{- pageLink}}：{{count}} 个资源无法下载"
+    }
   },
   "notion_import": {
     "root-title": "Notion 导入",
