@@ -143,7 +143,15 @@ export const CONTENT_CATEGORIES: ContentCategory[] = [
     {
         id: "widgets",
         titleKey: "content_manager.category_widgets",
+        // The widget script itself, dispatched to a parent widget by the object it returns.
         filter: "#widget OR #disabled:widget"
+    },
+    {
+        id: "launcherWidgets",
+        titleKey: "content_manager.category_launcher_widgets",
+        // A separate mechanism: the relation sits on the launcher that mounts the widget, not on the
+        // widget script, so these rows are launchers rather than scripts.
+        filter: "~widget OR ~disabled:widget"
     },
     {
         id: "renderNotes",

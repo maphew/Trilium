@@ -82,6 +82,7 @@ describe("CONTENT_CATEGORIES", () => {
             "sharing",
             "frontendScripts",
             "widgets",
+            "launcherWidgets",
             "renderNotes",
             "eventHandlers",
             "endpoints",
@@ -331,6 +332,26 @@ describe("setCategoryEnabled", () => {
         await setCategoryEnabled(note, categoryById("backendScripts"), false);
 
         expect(toggle).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps the two widget mechanisms apart, despite sharing the name", async () => {
+        // `#widget` marks the widget script; `~widget` sits on the launcher that mounts one.
+        const toggle = spyOnToggle();
+        const script = buildNote({ title: "Script", "#widget": "" });
+        const launcher = buildNote({ title: "Launcher", "~widget": "abc123" });
+
+        await setCategoryEnabled(launcher, categoryById("launcherWidgets"), false);
+        expect(toggle).toHaveBeenCalledExactlyOnceWith(launcher, "relation", "widget", false);
+
+        toggle.mockClear();
+        await setCategoryEnabled(script, categoryById("widgets"), false);
+        expect(toggle).toHaveBeenCalledExactlyOnceWith(script, "label", "widget", false);
+
+        // Neither note belongs to the other's category.
+        toggle.mockClear();
+        await setCategoryEnabled(script, categoryById("launcherWidgets"), false);
+        await setCategoryEnabled(launcher, categoryById("widgets"), false);
+        expect(toggle).not.toHaveBeenCalled();
     });
 
     it("does nothing when the note carries none of the category's triggers", async () => {
