@@ -1,7 +1,7 @@
 import "./attribute_detail.css";
 
 import type { DefinitionObject, LabelType, Multiplicity } from "@triliumnext/commons";
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../../components/app_context.js";
 import type { Attribute } from "../../services/attribute_parser.js";
@@ -13,6 +13,7 @@ import promotedAttributeDefinitionParser from "../../services/promoted_attribute
 import server from "../../services/server.js";
 import { isIMEComposing } from "../../services/shortcuts.js";
 import utils from "../../services/utils.js";
+import BasicWidget from "../basic_widget.js";
 import NoteContextAwareWidget from "../note_context_aware_widget.js";
 import Button from "../react/Button.jsx";
 import FormAutocomplete, { AUTOCOMPLETE_DROPDOWN_SELECTOR } from "../react/FormAutocomplete.jsx";
@@ -22,9 +23,9 @@ import FormTextBox, { FormTextBoxWithUnit } from "../react/FormTextBox.jsx";
 import HelpButton from "../react/HelpButton.jsx";
 import NoteAutocomplete from "../react/NoteAutocomplete.jsx";
 import NoteLink from "../react/NoteLink.jsx";
+import { disposeReactWidget, ParentComponent, renderReactWidgetAtElement } from "../react/react_utils.jsx";
 import RawHtml from "../react/RawHtml.jsx";
 import { ATTR_HELP } from "./attr_help.js";
-import { disposeReactWidget, renderReactWidgetAtElement } from "../react/react_utils.jsx";
 
 export interface AttributeDetailOpts {
     allAttributes?: Attribute[];
@@ -48,8 +49,6 @@ export interface AttributeDetailOpts {
  */
 export default class AttributeDetailWidget extends NoteContextAwareWidget {
     private opts: AttributeDetailOpts | null = null;
-    /** Bumped on every show so the form remounts with state seeded from the new attribute. */
-    private showId = 0;
 
     doRender() {
         // No initial renderComponent() here: doRender() runs synchronously inside the
@@ -74,10 +73,7 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
             return;
         }
 
-        saveFocusedElement();
-
         this.opts = opts;
-        this.showId++;
         // The widget has no note context, so isEnabled() is falsy and render()
         // stamps the container with hidden-int; visibility is driven manually,
         // exactly like the legacy widget did. The container must be visible
@@ -101,16 +97,12 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
         await this.triggerCommand("reloadAttributes");
 
         this.hide();
-
-        focusSavedElement();
     }
 
     private async saveAndClose() {
         await this.triggerCommand("saveAttributes");
 
         this.hide();
-
-        focusSavedElement();
     }
 
     private async deleteAndClose() {
@@ -130,9 +122,7 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
             this,
             <AttributeDetail
                 opts={this.opts}
-                showId={this.showId}
                 currentNoteId={this.noteId}
-                parentOffset={this.parent?.$widget?.offset() ?? { top: 0, left: 0 }}
                 onDismiss={() => this.hide()}
                 onCancel={() => this.cancelAndClose()}
                 onAttributesChanged={(attributes) => this.triggerCommand("updateAttributeList", { attributes })}
@@ -143,31 +133,63 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
     }
 }
 
-interface AttributeDetailProps extends AttributeFormCallbacks {
+export interface AttributeDetailProps extends AttributeFormCallbacks {
+    /** The attribute to show; `null` keeps the popup closed. A new object counts as a new show. */
     opts: AttributeDetailOpts | null;
-    showId: number;
     /** The note being viewed, excluded from the related notes list. */
     currentNoteId?: string | null;
-    /** Offset of the spawning widget, the reference point for classic-layout coordinates. */
-    parentOffset: { top: number; left: number };
     /** Plain close, e.g. on click outside the popup. */
     onDismiss: () => void;
     /** Close discarding unsaved changes (close button, escape). */
     onCancel: () => void;
 }
 
-function AttributeDetail({ opts, showId, currentNoteId, parentOffset, onDismiss, onCancel, ...formCallbacks }: AttributeDetailProps) {
+/**
+ * The attribute detail popup: a floating editor for one attribute, positioned at the coordinates in
+ * {@link AttributeDetailProps.opts}. Render it unconditionally and drive it through `opts`.
+ */
+export function AttributeDetail({ opts, currentNoteId, onDismiss, onCancel, ...formCallbacks }: AttributeDetailProps) {
     const popupRef = useRef<HTMLDivElement>(null);
+    const parentComponent = useContext(ParentComponent);
     const shown = !!opts;
     const { onSaveAndClose } = formCallbacks;
+
+    // A different opts object means a new show, so the form is keyed on this counter to remount
+    // and reseed its fields from the new attribute.
+    const showCount = useRef(0);
+    const lastOpts = useRef<AttributeDetailOpts | null>(null);
+    if (lastOpts.current !== opts) {
+        lastOpts.current = opts;
+        showCount.current++;
+
+        if (opts) {
+            // Deliberately captured while rendering: an effect would run after the form has
+            // mounted and possibly focused its name field, recording that instead.
+            saveFocusedElement();
+        }
+    }
+
+    /** Closes discarding the pending edits, returning focus where it was before the popup opened. */
+    function cancel() {
+        onCancel();
+        focusSavedElement();
+    }
+
+    function saveAndClose() {
+        onSaveAndClose?.();
+        focusSavedElement();
+    }
 
     // Positioning needs the popup's rendered size, so it runs after the DOM is
     // built but before paint.
     useLayoutEffect(() => {
         if (popupRef.current && opts) {
-            positionPopup(popupRef.current, opts, parentOffset);
+            // Classic-layout coordinates are relative to the hosting widget, mirroring how the
+            // legacy widget resolved its own parent in the component tree.
+            const hostWidget = parentComponent instanceof BasicWidget ? parentComponent : null;
+            positionPopup(popupRef.current, opts, hostWidget?.$widget?.offset() ?? { top: 0, left: 0 });
         }
-    }, [ opts, parentOffset ]);
+    }, [ opts, parentComponent ]);
 
     // Dismiss on click outside the popup, except in floating UI logically belonging
     // to it (autocomplete dropdowns and context menus are appended to the body).
@@ -217,11 +239,11 @@ function AttributeDetail({ opts, showId, currentNoteId, parentOffset, onDismiss,
 
                 if (e.key === "Escape") {
                     e.stopPropagation();
-                    onCancel();
+                    cancel();
                 } else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
                     e.preventDefault();
                     e.stopPropagation();
-                    onSaveAndClose();
+                    saveAndClose();
                 }
             }}
         >
@@ -231,20 +253,28 @@ function AttributeDetail({ opts, showId, currentNoteId, parentOffset, onDismiss,
                 <button
                     class="close-attr-detail-button icon-action bx bx-x"
                     title={t("attribute_detail.close_button_title")}
-                    onClick={onCancel}
+                    onClick={cancel}
                 />
             </div>
 
-            <AttributeForm key={showId} opts={opts} attrType={attrType} currentNoteId={currentNoteId} {...formCallbacks} />
+            <AttributeForm
+                key={showCount.current}
+                opts={opts}
+                attrType={attrType}
+                currentNoteId={currentNoteId}
+                {...formCallbacks}
+                onSaveAndClose={onSaveAndClose && saveAndClose}
+            />
         </div>
     );
 }
 
 interface AttributeFormCallbacks {
     /** Reports the edited attribute list back to the spawning widget, which re-renders from it. */
-    onAttributesChanged: (attributes: Attribute[]) => void;
-    onSaveAndClose: () => void;
-    onDelete: () => void;
+    onAttributesChanged?: (attributes: Attribute[]) => void;
+    /** Omitted for read-only popups, which show no save or delete button. */
+    onSaveAndClose?: () => void;
+    onDelete?: () => void;
 }
 
 /**
@@ -305,13 +335,13 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
 
         setName(filteredName);
         attribute.name = addDefinitionPrefix(filteredName, attrType);
-        onAttributesChanged(allAttributes ?? []);
+        onAttributesChanged?.(allAttributes ?? []);
     }
 
     function commitValue(newValue: string) {
         setValue(newValue);
         attribute.value = newValue;
-        onAttributesChanged(allAttributes ?? []);
+        onAttributesChanged?.(allAttributes ?? []);
     }
 
     /** Definitions keep their settings serialized in the value, so any change rebuilds the whole thing. */
@@ -320,13 +350,13 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
 
         setDefinition(newDefinition);
         attribute.value = buildDefinitionValue(newDefinition, attrType);
-        onAttributesChanged(allAttributes ?? []);
+        onAttributesChanged?.(allAttributes ?? []);
     }
 
     // A relation stores the target note's id as its value; clearing the field clears the target.
     const commitTargetNote = useCallback((targetNoteId?: string) => {
         attribute.value = targetNoteId ?? "";
-        onAttributesChanged(allAttributes ?? []);
+        onAttributesChanged?.(allAttributes ?? []);
     }, [ attribute, allAttributes, onAttributesChanged ]);
 
     return (
@@ -509,7 +539,7 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
                                 onChange={(checked) => {
                                     setIsInheritable(checked);
                                     attribute.isInheritable = checked;
-                                    onAttributesChanged(allAttributes ?? []);
+                                    onAttributesChanged?.(allAttributes ?? []);
                                 }}
                             />
                         </td>
@@ -525,14 +555,14 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
                         size="small"
                         text={t("attribute_detail.save_and_close_button")}
                         keyboardShortcut="Ctrl+Enter"
-                        onClick={onSaveAndClose}
+                        onClick={() => onSaveAndClose?.()}
                     />
 
                     <Button
                         className="attr-delete-button"
                         size="small"
                         text={t("attribute_detail.delete")}
-                        onClick={onDelete}
+                        onClick={() => onDelete?.()}
                     />
                 </div>
             )}
