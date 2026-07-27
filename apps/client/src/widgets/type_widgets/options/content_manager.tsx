@@ -272,8 +272,13 @@ function LocationList({ pageNote, categories, highlightedTokens }: CategoryListP
                 hideSubNotes: false,
                 expandDepth: Number.MAX_SAFE_INTEGER,
                 resolveChildren,
-                // Grouping folders exist to hold items; their own content is not what is being shown.
-                showPreview: (note) => itemsByNoteId.has(note.noteId),
+                // No inline previews: every level starts open here, so previews would push the rows
+                // apart and bury the hierarchy the view exists to show. Hovering a title gives the
+                // content instead, `ListView` offering the tooltip wherever the preview is absent.
+                showPreview: () => false,
+                // Only the grouping folders state where they sit; repeating it on each item beneath
+                // would undo the grouping. An item's own path is in its hover tooltip.
+                showNotePath: (note) => !itemsByNoteId.has(note.noteId),
                 // Grouping folders are not active content, so they carry neither toggle nor menu —
                 // just how much they hold, which is the only reason they are on screen.
                 renderItemActions: (note) => {

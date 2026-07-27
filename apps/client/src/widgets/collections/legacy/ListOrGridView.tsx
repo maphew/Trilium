@@ -44,10 +44,19 @@ export interface ListViewOptions {
      */
     resolveChildren?: (note: FNote) => FNote[];
     /**
-     * Decides per row whether its content preview is rendered; previews show for every row by
+     * Decides per row whether its content preview is rendered inline; previews show for every row by
      * default. Useful when a caller inserts rows of its own, whose content is not the point.
+     *
+     * A row without an inline preview gets the hover preview tooltip on its link instead, so the
+     * content stays reachable — the two are alternatives, never both at once.
      */
     showPreview?: (note: FNote) => boolean;
+    /**
+     * Decides per row whether the note's path is shown under its title, overriding
+     * {@link searchResultsLayout}. Only the display is affected: the path is still *resolved* flat,
+     * so links keep addressing the note directly.
+     */
+    showNotePath?: (note: FNote) => boolean;
     /** Overrides how many levels start expanded, otherwise read from the parent's `#expanded`. */
     expandDepth?: number;
     /** Overrides the number of notes per page, otherwise read from the parent's `#pageSize`. */
@@ -79,6 +88,7 @@ export function ListView({ note, noteIds: unfilteredNoteIds, highlightedTokens, 
                     hideSubNotes={listOptions?.hideSubNotes}
                     resolveChildren={listOptions?.resolveChildren}
                     showPreview={listOptions?.showPreview}
+                    showNotePath={listOptions?.showNotePath}
                     renderItemActions={listOptions?.renderItemActions}
                     renderItemMenu={listOptions?.renderItemMenu}
                     showTextRepresentation={showTextRepresentation} />
@@ -136,7 +146,7 @@ function NoteList(props: NoteListProps) {
     </div>
 }
 
-function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expandDepth, includeArchived, showTextRepresentation, searchResultsLayout, hideSubNotes, resolveChildren, showPreview, renderItemActions, renderItemMenu }: {
+function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expandDepth, includeArchived, showTextRepresentation, searchResultsLayout, hideSubNotes, resolveChildren, showPreview, showNotePath, renderItemActions, renderItemMenu }: {
     note: FNote,
     parentNote: FNote,
     currentLevel: number,
@@ -144,10 +154,13 @@ function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expan
     highlightedTokens: string[] | null | undefined;
     includeArchived: boolean;
     showTextRepresentation?: boolean;
-} & Pick<ListViewOptions, "searchResultsLayout" | "hideSubNotes" | "resolveChildren" | "showPreview" | "renderItemActions" | "renderItemMenu">) {
+} & Pick<ListViewOptions, "searchResultsLayout" | "hideSubNotes" | "resolveChildren" | "showPreview" | "showNotePath" | "renderItemActions" | "renderItemMenu">) {
 
     const [ isExpanded, setExpanded ] = useState(currentLevel <= expandDepth);
     const notePath = getNotePath(parentNote, note, searchResultsLayout);
+    // The hover tooltip stands in for the inline preview, so exactly one of the two is offered.
+    const showsPreview = showPreview?.(note) ?? true;
+    const showsNotePath = showNotePath?.(note) ?? searchResultsLayout;
 
     // Reset expand state if switching to another note, or if user manually toggled expansion state.
     useEffect(() => setExpanded(currentLevel <= expandDepth), [ note, currentLevel, expandDepth ]);
@@ -155,7 +168,7 @@ function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expan
     let subSections: JSX.Element | undefined = undefined;
     if (isExpanded) {
         subSections = <>
-            {(showPreview?.(note) ?? true) && (
+            {showsPreview && (
                 <CardSection className="note-content-preview">
                     <NoteContent note={note}
                                  highlightedTokens={highlightedTokens}
@@ -175,6 +188,7 @@ function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expan
                     searchResultsLayout={searchResultsLayout}
                     resolveChildren={resolveChildren}
                     showPreview={showPreview}
+                    showNotePath={showNotePath}
                     renderItemActions={renderItemActions}
                     renderItemMenu={renderItemMenu}
                     includeArchived={includeArchived}
@@ -200,8 +214,8 @@ function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expan
                 <Icon className="note-icon" icon={note.getIcon()} />
                 <NoteLink className="note-book-title"
                           notePath={notePath}
-                          noPreview
-                          showNotePath={searchResultsLayout}
+                          noPreview={showsPreview}
+                          showNotePath={showsNotePath}
                           highlightedTokens={highlightedTokens} />
                 {renderItemActions
                     ? <div className="note-list-item-actions">{renderItemActions(note)}</div>
@@ -346,14 +360,14 @@ export function NoteContent({ note, trim, noChildrenList, highlightedTokens, inc
     return <div ref={contentRef} className={clsx("note-book-content", `type-${noteType}`, {"note-book-content-ready": ready})} />;
 }
 
-function NoteChildren({ note, parentNote, highlightedTokens, currentLevel, expandDepth, includeArchived, searchResultsLayout, resolveChildren, showPreview, renderItemActions, renderItemMenu }: {
+function NoteChildren({ note, parentNote, highlightedTokens, currentLevel, expandDepth, includeArchived, searchResultsLayout, resolveChildren, showPreview, showNotePath, renderItemActions, renderItemMenu }: {
     note: FNote,
     parentNote: FNote,
     currentLevel: number,
     expandDepth: number,
     highlightedTokens: string[] | null | undefined
     includeArchived: boolean;
-} & Pick<ListViewOptions, "searchResultsLayout" | "resolveChildren" | "showPreview" | "renderItemActions" | "renderItemMenu">) {
+} & Pick<ListViewOptions, "searchResultsLayout" | "resolveChildren" | "showPreview" | "showNotePath" | "renderItemActions" | "renderItemMenu">) {
     const [ childNotes, setChildNotes ] = useState<FNote[]>();
 
     useEffect(() => {
@@ -375,6 +389,7 @@ function NoteChildren({ note, parentNote, highlightedTokens, currentLevel, expan
         searchResultsLayout={searchResultsLayout}
         resolveChildren={resolveChildren}
         showPreview={showPreview}
+        showNotePath={showNotePath}
         renderItemActions={renderItemActions}
         renderItemMenu={renderItemMenu}
     />);
