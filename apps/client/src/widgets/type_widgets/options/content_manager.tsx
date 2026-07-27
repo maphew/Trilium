@@ -245,7 +245,10 @@ export default function ContentManagerSettings({ note }: TypeWidgetProps) {
  * together — several render notes under one "Statistics" note — reads as a single feature.
  */
 function LocationList({ pageNote, categories, highlightedTokens }: CategoryListProps) {
-    const { rootIds, childrenByNoteId, itemsByNoteId } = useMemo(() => buildLocationView(categories), [ categories ]);
+    const { rootIds, childrenByNoteId, itemsByNoteId, itemCountByNoteId } = useMemo(
+        () => buildLocationView(categories),
+        [ categories ]
+    );
 
     // Stable identity: `NoteChildren` re-fetches whenever the resolver changes.
     const resolveChildren = useCallback(
@@ -273,13 +276,30 @@ function LocationList({ pageNote, categories, highlightedTokens }: CategoryListP
                 resolveChildren,
                 // Grouping folders exist to hold items; their own content is not what is being shown.
                 showPreview: (note) => itemsByNoteId.has(note.noteId),
-                // Grouping folders are not active content, so they carry neither toggle nor menu.
+                // Grouping folders are not active content, so they carry neither toggle nor menu —
+                // just how much they hold, which is the only reason they are on screen.
                 renderItemActions: (note) => {
                     const item = itemsByNoteId.get(note.noteId);
-                    if (!item) return null;
+
+                    if (!item) {
+                        return (
+                            <span className="content-manager-property">
+                                {t("content_manager.item_count", { count: itemCountByNoteId.get(note.noteId) ?? 0 })}
+                            </span>
+                        );
+                    }
 
                     return (
                         <>
+                            {/* The category is otherwise invisible here, the headings being gone. */}
+                            {item.categories.map((category) => (
+                                <Badge
+                                    key={category.id}
+                                    className="content-manager-badge"
+                                    text={t(category.titleKey)}
+                                    tooltip={t("content_manager.property_category")}
+                                />
+                            ))}
                             <ContentProperties note={note} category={item.categories[0]} />
                             <ContentToggle note={note} categories={item.categories} />
                         </>
@@ -305,15 +325,21 @@ function buildLocationView(categories: CategoryNotes[]) {
 
     const tree = buildLocationTree([ ...itemsByNoteId.values() ].map(({ note }) => note));
     const childrenByNoteId = new Map<string, FNote[]>();
+    const itemCountByNoteId = new Map<string, number>();
 
-    function record(node: LocationNode) {
+    /** Records a node's children and returns how many items its subtree holds, groups excluded. */
+    function record(node: LocationNode): number {
         childrenByNoteId.set(node.note.noteId, node.children.map(({ note }) => note));
-        node.children.forEach(record);
+
+        const count = node.children.reduce((total, child) => total + record(child), node.isGroup ? 0 : 1);
+        itemCountByNoteId.set(node.note.noteId, count);
+
+        return count;
     }
 
     tree.forEach(record);
 
-    return { rootIds: tree.map(({ note }) => note.noteId), childrenByNoteId, itemsByNoteId };
+    return { rootIds: tree.map(({ note }) => note.noteId), childrenByNoteId, itemsByNoteId, itemCountByNoteId };
 }
 
 interface CategoryListProps {
