@@ -19,8 +19,11 @@ import FormAutocomplete, { AUTOCOMPLETE_DROPDOWN_SELECTOR } from "../react/FormA
 import FormCheckbox from "../react/FormCheckbox.jsx";
 import FormSelect from "../react/FormSelect.jsx";
 import FormTextBox, { FormTextBoxWithUnit } from "../react/FormTextBox.jsx";
+import HelpButton from "../react/HelpButton.jsx";
 import NoteAutocomplete from "../react/NoteAutocomplete.jsx";
 import NoteLink from "../react/NoteLink.jsx";
+import RawHtml from "../react/RawHtml.jsx";
+import { ATTR_HELP } from "./attr_help.js";
 import { disposeReactWidget, renderReactWidgetAtElement } from "../react/react_utils.jsx";
 
 export interface AttributeDetailOpts {
@@ -350,6 +353,8 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
                         </td>
                     </tr>
 
+                    <AttributeNameHelp attrType={attrType} name={name} />
+
                     {attrType === "relation" && (
                         <tr class="attr-row-target-note">
                             <th title={t("attribute_detail.target_note_title")}>{t("attribute_detail.target_note")}</th>
@@ -525,6 +530,32 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
 
             <RelatedNotes attribute={attribute} currentNoteId={currentNoteId} />
         </>
+    );
+}
+
+/**
+ * Describes what a well-known attribute does, for the attribute currently being edited. Renders
+ * nothing for names Trilium attaches no meaning to, which is most of them.
+ */
+function AttributeNameHelp({ attrType, name }: { attrType: AttrType; name: string }) {
+    const entry = attrType ? ATTR_HELP[attrType]?.[name] : undefined;
+
+    if (!entry) {
+        return null;
+    }
+
+    const { description, helpPage } = typeof entry === "string" ? { description: entry, helpPage: undefined } : entry;
+
+    return (
+        <tr class="attr-help">
+            {/* Descriptions carry markup of their own, e.g. <code> or a list of possible values. */}
+            <td colSpan={2}>
+                <strong>{name}</strong>
+                {" - "}
+                <RawHtml html={description} />
+                {helpPage && <HelpButton className="attr-help-page-button" helpPage={helpPage} />}
+            </td>
+        </tr>
     );
 }
 

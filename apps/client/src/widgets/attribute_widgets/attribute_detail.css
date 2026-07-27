@@ -18,6 +18,11 @@
     padding: 5px;
 }
 
+.attr-help .attr-help-page-button {
+    margin-inline-start: 5px;
+    vertical-align: middle;
+}
+
 .related-notes-container {
     margin-top: 20px;
 }
