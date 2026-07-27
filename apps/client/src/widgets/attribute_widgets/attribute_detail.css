@@ -36,6 +36,13 @@
     display: inline-block;
 }
 
+.attr-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 8px;
+}
+
 .close-attr-detail-button {
     font-size: x-large;
     cursor: pointer;

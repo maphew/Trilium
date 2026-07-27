@@ -2,7 +2,7 @@ import appContext from "../../components/app_context.js";
 import attributeAutocompleteService from "../../services/attribute_autocomplete.js";
 import type { Attribute } from "../../services/attribute_parser.js";
 import { isExperimentalFeatureEnabled } from "../../services/experimental_features.js";
-import { focusSavedElement, saveFocusedElement } from "../../services/focus.js";
+import { focusSavedElement } from "../../services/focus.js";
 import froca from "../../services/froca.js";
 import { t } from "../../services/i18n.js";
 import linkService from "../../services/link.js";
@@ -18,12 +18,6 @@ import type { AttributeDetailOpts } from "./attribute_detail.jsx";
 
 const TPL = /*html*/`
 <div>
-    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
-        <h5 class="attr-detail-title">${t("attribute_detail.attr_detail_title")}</h5>
-
-        <button class="close-attr-detail-button icon-action bx bx-x" title="${t("attribute_detail.close_button_title")}"></button>
-    </div>
-
     <div class="attr-is-owned-by">${t("attribute_detail.attr_is_owned_by")}</div>
 
     <table class="attr-edit-table">
@@ -137,13 +131,6 @@ const TPL = /*html*/`
 
 const DISPLAYED_NOTES = 10;
 
-const ATTR_TITLES: Record<string, string> = {
-    label: t("attribute_detail.label"),
-    "label-definition": t("attribute_detail.label_definition"),
-    relation: t("attribute_detail.relation"),
-    "relation-definition": t("attribute_detail.relation_definition")
-};
-
 interface SearchRelatedResponse {
     // TODO: Deduplicate once we split client from server.
     results: {
@@ -156,7 +143,6 @@ interface SearchRelatedResponse {
 const isNewLayout = isExperimentalFeatureEnabled("new-layout");
 
 export default class AttributeDetailWidget extends NoteContextAwareWidget {
-    private $title!: JQuery<HTMLElement>;
     private $inputName!: JQuery<HTMLElement>;
     private $inputValue!: JQuery<HTMLElement>;
     private $rowPromoted!: JQuery<HTMLElement>;
@@ -177,7 +163,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
     private $rowPromotedAlias!: JQuery<HTMLElement>;
     private $attrIsOwnedBy!: JQuery<HTMLElement>;
     private $attrSaveDeleteButtonContainer!: JQuery<HTMLElement>;
-    private $closeAttrDetailButton!: JQuery<HTMLElement>;
     private $saveAndCloseButton!: JQuery<HTMLElement>;
     private $deleteButton!: JQuery<HTMLElement>;
     private $relatedNotesContainer!: JQuery<HTMLElement>;
@@ -199,8 +184,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
 
         shortcutService.bindElShortcut(this.$widget, "ctrl+return", () => this.saveAndClose());
         shortcutService.bindElShortcut(this.$widget, "esc", () => this.cancelAndClose());
-
-        this.$title = this.$widget.find(".attr-detail-title");
 
         this.$inputName = this.$widget.find(".attr-input-name");
         this.$inputName.on("input", (ev) => {
@@ -286,9 +269,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
         this.$inputInheritable = this.$widget.find(".attr-input-inheritable");
         this.$inputInheritable.on("change", () => this.userEditedAttribute());
 
-        this.$closeAttrDetailButton = this.$widget.find(".close-attr-detail-button");
-        this.$closeAttrDetailButton.on("click", () => this.cancelAndClose());
-
         this.$attrIsOwnedBy = this.$widget.find(".attr-is-owned-by");
 
         this.$attrSaveDeleteButtonContainer = this.$widget.find(".attr-save-delete-button-container");
@@ -313,32 +293,14 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
         this.$relatedNotesTitle = this.$relatedNotesContainer.find(".related-notes-tile");
         this.$relatedNotesList = this.$relatedNotesContainer.find(".related-notes-list");
         this.$relatedNotesMoreNotes = this.$relatedNotesContainer.find(".related-notes-more-notes");
-
-        $(window).on("mousedown", (e) => {
-            if (!$(e.target).closest(this.$widget[0]).length && !$(e.target).closest(".algolia-autocomplete").length && !$(e.target).closest("#context-menu-container").length) {
-                this.hide();
-            }
-        });
     }
 
     async showAttributeDetail({ allAttributes, attribute, isOwned, x, y, focus, hideMultiplicity }: AttributeDetailOpts) {
-        if (!attribute) {
-            this.hide();
-
-            return;
-        }
-
-        saveFocusedElement();
-
         this.attrType = this.getAttrType(attribute);
 
         const attrName = this.attrType === "label-definition" ? attribute.name.substr(6) : this.attrType === "relation-definition" ? attribute.name.substr(9) : attribute.name;
 
         const definition = this.attrType?.endsWith("-definition") ? promotedAttributeDefinitionParser.parse(attribute.value || "") : {};
-
-        if (this.attrType) {
-            this.$title.text(ATTR_TITLES[this.attrType]);
-        }
 
         this.allAttributes = allAttributes;
         this.attribute = attribute;
@@ -557,8 +519,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
         } else if (attribute.type === "relation") {
             return "relation";
         }
-        this.$title.text("");
-
     }
 
     updateAttributeInEditor() {
