@@ -1,5 +1,4 @@
 import appContext from "../../components/app_context.js";
-import attributeAutocompleteService from "../../services/attribute_autocomplete.js";
 import type { Attribute } from "../../services/attribute_parser.js";
 import froca from "../../services/froca.js";
 import { t } from "../../services/i18n.js";
@@ -113,7 +112,6 @@ interface SearchRelatedResponse {
 
 export default class AttributeDetailWidget extends NoteContextAwareWidget {
     private $inputName!: JQuery<HTMLElement>;
-    private $inputValue!: JQuery<HTMLElement>;
     private $rowPromoted!: JQuery<HTMLElement>;
     private $inputPromoted!: JQuery<HTMLElement>;
     private $inputPromotedAlias!: JQuery<HTMLElement>;
@@ -146,16 +144,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
         this.$widget = $(TPL);
 
         this.$inputName = this.$widget.find(".attr-input-name");
-
-        this.$inputValue = this.$widget.find(".attr-input-value");
-        this.$inputValue.on("autocomplete:closed", () => this.userEditedAttribute());
-        this.$inputValue.on("focus", () => {
-            attributeAutocompleteService.initLabelValueAutocomplete({
-                $el: this.$inputValue,
-                open: true,
-                nameCallback: () => String(this.$inputName.val())
-            });
-        });
 
         this.$rowPromoted = this.$widget.find(".attr-row-promoted");
         this.$inputPromoted = this.$widget.find(".attr-input-promoted");

@@ -13,7 +13,6 @@ import NoteContextAwareWidget from "../note_context_aware_widget.js";
 import Button from "../react/Button.jsx";
 import FormAutocomplete, { AUTOCOMPLETE_DROPDOWN_SELECTOR } from "../react/FormAutocomplete.jsx";
 import FormCheckbox from "../react/FormCheckbox.jsx";
-import FormTextBox from "../react/FormTextBox.jsx";
 import { disposeReactWidget, renderReactWidgetAtElement } from "../react/react_utils.jsx";
 
 export interface AttributeDetailOpts {
@@ -249,6 +248,24 @@ function AttributeForm({ opts, attrType, onAttributesChanged, onSaveAndClose, on
     const [ value, setValue ] = useState(attribute.value ?? "");
     const [ isInheritable, setIsInheritable ] = useState(!!attribute.isInheritable);
     const nameRef = useRef<HTMLInputElement>(null);
+    // The values known for a label name never change while the popup is open, so they are fetched
+    // once per name and filtered locally afterwards.
+    const knownValues = useRef<{ name: string; values: string[] }>();
+    const suggestLabelValues = useCallback(async (query: string) => {
+        if (!name.trim()) {
+            return [];
+        }
+
+        if (knownValues.current?.name !== name) {
+            knownValues.current = {
+                name,
+                values: await server.get<string[]>(`attribute-values/${encodeURIComponent(name)}`)
+            };
+        }
+
+        const term = query.toLowerCase();
+        return knownValues.current.values.filter((value) => value.toLowerCase().includes(term));
+    }, [ name ]);
     // Committing mid-composition makes the spawning editor re-render and swallow the
     // characters being composed: https://github.com/zadam/trilium/pull/3812
     const isComposing = useRef(false);
@@ -305,10 +322,12 @@ function AttributeForm({ opts, attrType, onAttributesChanged, onSaveAndClose, on
                         <tr class="attr-row-value">
                             <th>{t("attribute_detail.value")}</th>
                             <td>
-                                <FormTextBox
+                                <FormAutocomplete
                                     className="attr-input-value"
                                     currentValue={value}
                                     readOnly={!isOwned}
+                                    source={suggestLabelValues}
+                                    openOnFocus
                                     onChange={(newValue) => isComposing.current ? setValue(newValue) : commitValue(newValue)}
                                     onCompositionStart={() => isComposing.current = true}
                                     onCompositionEnd={(e) => {
