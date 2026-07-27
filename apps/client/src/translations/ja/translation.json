@@ -3271,7 +3271,6 @@
     "trigger_daily": "1日ごと",
     "property_event": "イベント",
     "property_kind": "種類",
-    "property_path": "パス",
     "event_note_creation": "ノート作成時",
     "event_note_title_change": "タイトル変更時",
     "event_note_change": "ノート変更時",
