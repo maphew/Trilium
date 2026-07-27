@@ -13,6 +13,7 @@ import shortcutService from "../../services/shortcuts.js";
 import SpacedUpdate from "../../services/spaced_update.js";
 import utils, { openInAppHelpFromUrl } from "../../services/utils.js";
 import NoteContextAwareWidget from "../note_context_aware_widget.js";
+import { ATTR_HELP } from "./attr_help.js";
 
 const TPL = /*html*/`
 <div class="attr-detail tn-tool-dialog">
@@ -204,101 +205,6 @@ const ATTR_TITLES: Record<string, string> = {
     "label-definition": t("attribute_detail.label_definition"),
     relation: t("attribute_detail.relation"),
     "relation-definition": t("attribute_detail.relation_definition")
-};
-
-interface AttrHelpEntry {
-    description: string;
-    helpPage?: string;
-}
-
-type AttrHelpMap = Record<string, Record<string, string | AttrHelpEntry>>;
-
-const ATTR_HELP: AttrHelpMap = {
-    label: {
-        disableVersioning: t("attribute_detail.disable_versioning"),
-        calendarRoot: t("attribute_detail.calendar_root"),
-        archived: t("attribute_detail.archived"),
-        excludeFromExport: t("attribute_detail.exclude_from_export"),
-        run: t("attribute_detail.run"),
-        runOnInstance: t("attribute_detail.run_on_instance"),
-        runAtHour: t("attribute_detail.run_at_hour"),
-        disableInclusion: t("attribute_detail.disable_inclusion"),
-        sorted: t("attribute_detail.sorted"),
-        sortDirection: t("attribute_detail.sort_direction"),
-        sortFoldersFirst: t("attribute_detail.sort_folders_first"),
-        top: t("attribute_detail.top"),
-        hidePromotedAttributes: t("attribute_detail.hide_promoted_attributes"),
-        readOnly: t("attribute_detail.read_only"),
-        autoReadOnlyDisabled: t("attribute_detail.auto_read_only_disabled"),
-        appCss: t("attribute_detail.app_css"),
-        appTheme: t("attribute_detail.app_theme"),
-        appThemeBase: t("attribute_detail.app_theme_base"),
-        cssClass: t("attribute_detail.css_class"),
-        iconClass: t("attribute_detail.icon_class"),
-        pageSize: t("attribute_detail.page_size"),
-        customRequestHandler: { description: t("attribute_detail.custom_request_handler"), helpPage: "J5Ex1ZrMbyJ6" },
-        customResourceProvider: { description: t("attribute_detail.custom_resource_provider"), helpPage: "J5Ex1ZrMbyJ6" },
-        widget: t("attribute_detail.widget"),
-        workspace: t("attribute_detail.workspace"),
-        workspaceIconClass: t("attribute_detail.workspace_icon_class"),
-        workspaceTabBackgroundColor: t("attribute_detail.workspace_tab_background_color"),
-        workspaceCalendarRoot: t("attribute_detail.workspace_calendar_root"),
-        workspaceTemplate: t("attribute_detail.workspace_template"),
-        searchHome: t("attribute_detail.search_home"),
-        workspaceSearchHome: t("attribute_detail.workspace_search_home"),
-        inbox: t("attribute_detail.inbox"),
-        workspaceInbox: t("attribute_detail.workspace_inbox"),
-        sqlConsoleHome: t("attribute_detail.sql_console_home"),
-        bookmarkFolder: t("attribute_detail.bookmark_folder"),
-        shareHiddenFromTree: t("attribute_detail.share_hidden_from_tree"),
-        shareExternalLink: t("attribute_detail.share_external_link"),
-        shareAlias: t("attribute_detail.share_alias"),
-        shareOmitDefaultCss: t("attribute_detail.share_omit_default_css"),
-        shareRoot: t("attribute_detail.share_root"),
-        shareDescription: t("attribute_detail.share_description"),
-        shareRaw: t("attribute_detail.share_raw"),
-        shareDisallowRobotIndexing: t("attribute_detail.share_disallow_robot_indexing"),
-        shareCredentials: t("attribute_detail.share_credentials"),
-        shareIndex: t("attribute_detail.share_index"),
-        displayRelations: t("attribute_detail.display_relations"),
-        hideRelations: t("attribute_detail.hide_relations"),
-        titleTemplate: t("attribute_detail.title_template"),
-        template: t("attribute_detail.template"),
-        toc: t("attribute_detail.toc"),
-        color: t("attribute_detail.color"),
-        keyboardShortcut: t("attribute_detail.keyboard_shortcut"),
-        keepCurrentHoisting: t("attribute_detail.keep_current_hoisting"),
-        executeButton: t("attribute_detail.execute_button"),
-        executeDescription: t("attribute_detail.execute_description"),
-        excludeFromNoteMap: t("attribute_detail.exclude_from_note_map"),
-        newNotesOnTop: t("attribute_detail.new_notes_on_top"),
-        hideHighlightWidget: t("attribute_detail.hide_highlight_widget"),
-        printLandscape: t("attribute_detail.print_landscape"),
-        printPageSize: t("attribute_detail.print_page_size"),
-        printScale: t("attribute_detail.print_scale"),
-        printMargins: t("attribute_detail.print_margins")
-    },
-    relation: {
-        runOnNoteCreation: t("attribute_detail.run_on_note_creation"),
-        runOnChildNoteCreation: t("attribute_detail.run_on_child_note_creation"),
-        runOnNoteTitleChange: t("attribute_detail.run_on_note_title_change"),
-        runOnNoteContentChange: t("attribute_detail.run_on_note_content_change"),
-        runOnNoteChange: t("attribute_detail.run_on_note_change"),
-        runOnNoteDeletion: t("attribute_detail.run_on_note_deletion"),
-        runOnBranchCreation: t("attribute_detail.run_on_branch_creation"),
-        runOnBranchChange: t("attribute_detail.run_on_branch_change"),
-        runOnBranchDeletion: t("attribute_detail.run_on_branch_deletion"),
-        runOnAttributeCreation: t("attribute_detail.run_on_attribute_creation"),
-        runOnAttributeChange: t("attribute_detail.run_on_attribute_change"),
-        template: t("attribute_detail.relation_template"),
-        inherit: t("attribute_detail.inherit"),
-        renderNote: t("attribute_detail.render_note"),
-        widget: t("attribute_detail.widget_relation"),
-        shareCss: t("attribute_detail.share_css"),
-        shareJs: t("attribute_detail.share_js"),
-        shareTemplate: t("attribute_detail.share_template"),
-        shareFavicon: t("attribute_detail.share_favicon")
-    }
 };
 
 interface AttributeDetailOpts {
