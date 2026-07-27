@@ -283,9 +283,12 @@ function LocationList({ pageNote, categories, highlightedTokens }: CategoryListP
             onReady={NOOP}
             listOptions={{
                 ...LIST_OPTIONS,
-                // The tree is the point, so nesting is on and every level starts open.
                 hideSubNotes: false,
-                expandDepth: Number.MAX_SAFE_INTEGER,
+                // Collapsed, so the tree is discovered a level at a time rather than arriving as one
+                // long indented wall — the group rows carry their item counts, which is the summary
+                // expanding would have given. Filtering opens it back up: matches would otherwise be
+                // hidden inside collapsed groups, leaving a count with nothing to show for it.
+                expandDepth: highlightedTokens ? Number.MAX_SAFE_INTEGER : 0,
                 resolveChildren,
                 // No inline previews: every level starts open here, so previews would push the rows
                 // apart and bury the hierarchy the view exists to show. Hovering a title gives the
