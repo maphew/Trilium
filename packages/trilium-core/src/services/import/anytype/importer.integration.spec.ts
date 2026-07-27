@@ -116,6 +116,11 @@ function memberObject(id: string, props: Record<string, unknown>): string {
     });
 }
 
+/** A bare page object carrying only the given timestamp details (Unix seconds). */
+function datedObject(id: string, name: string, dates: { createdDate?: number; lastModifiedDate?: number }): string {
+    return JSON.stringify({ sbType: "Page", snapshot: { data: { blocks: [{ id, childrenIds: [] }], details: { id, name, layout: 0, ...dates } } } });
+}
+
 describe("Anytype importer — integration", () => {
     it("imports each page as a flat child of an 'Anytype import' root, with its text content", async () => {
         const importRoot = await importAnytype({
@@ -171,6 +176,39 @@ describe("Anytype importer — integration", () => {
         expect(decodeUtf8(children[0]?.getContent() ?? "")).toBe(
             `<section class="link-embed" data-url="https://triliumnotes.org/" data-embed-type="opengraph" data-title="Trilium Notes" data-description="An open-source note-taking app." data-favicon="data:image/vnd.microsoft.icon;base64,${faviconBytes.toString("base64")}"></section>`
         );
+    });
+
+    it("leaves a card with no favicon/preview untouched, and falls back to a generic MIME for an unrecognized one", async () => {
+        const bookmarkPage = (bookmark: Record<string, unknown>) => JSON.stringify({
+            sbType: "Page",
+            snapshot: {
+                data: {
+                    blocks: [
+                        { id: "page1", childrenIds: ["header", "bm"] },
+                        { id: "header", childrenIds: ["title"] },
+                        { id: "title", text: { text: "", style: "Title" } },
+                        { id: "bm", bookmark }
+                    ],
+                    details: { id: "page1", name: "Links", resolvedLayout: 0 }
+                }
+            }
+        });
+
+        // No favicon/preview ids at all: there's nothing to resolve, so the body is left exactly as rendered.
+        const plain = await importAnytype({ "objects/page1.pb.json": bookmarkPage({ url: "https://example.com/", title: "Example" }) });
+        expect(decodeUtf8(plain.getChildNotes()[0]?.getContent() ?? "")).toBe(
+            '<section class="link-embed" data-url="https://example.com/" data-embed-type="opengraph" data-title="Example"></section>'
+        );
+
+        // A favicon whose file carries neither a known extension nor an exported MIME falls back to octet-stream.
+        const bytes = Buffer.from([0x09]);
+        const odd = await importAnytype({
+            "objects/page1.pb.json": bookmarkPage({ url: "https://example.com/", faviconHash: "fav-cid" }),
+            "filesObjects/fav.pb.json": fileObjectJson("fav-cid", "icon", "", "", "files\\icon.weirdext"),
+            "files/icon.weirdext": bytes
+        });
+        expect(decodeUtf8(odd.getChildNotes()[0]?.getContent() ?? ""))
+            .toContain(`data-favicon="data:application/octet-stream;base64,${bytes.toString("base64")}"`);
     });
 
     it("drops a bookmark's favicon placeholder when the export has no bytes for it", async () => {
@@ -1025,14 +1063,14 @@ describe("Anytype importer — integration", () => {
         expect(content).toBe("<p><a>gone.pdf</a></p>");
     });
 
-    it("skips a file property whose file object's bytes are missing, leaving no attachment or link", async () => {
-        // The file property references a FileObject, but its bytes are absent — so no attachment is created and
-        // the body keeps no reference link to it.
+    it("skips a file property whose file object's metadata or bytes are missing, leaving no attachment or link", async () => {
+        // One value references a FileObject whose bytes are absent, the other a file id the export carries no
+        // metadata for — neither yields an attachment, and the body keeps no reference link to them.
         const fileKey = "6a3e3323cafa6953a4661c6f";
         const fileCid = "bafyreimissingprop";
         const importRoot = await importAnytype({
             "objects/coll.pb.json": collectionObject("coll", "Files", ["m1"], [fileKey]),
-            "objects/m1.pb.json": memberObject("m1", { [fileKey]: [fileCid] }),
+            "objects/m1.pb.json": memberObject("m1", { [fileKey]: [fileCid, "bafyreiunknownfile"] }),
             "relations/file.pb.json": relationObject(fileKey, "File", 5),
             "filesObjects/f1.pb.json": fileObjectJson(fileCid, "log", "csv", "text/csv", "files\\log.csv")
             // No files/log.csv entry — the bytes are missing.
@@ -1041,6 +1079,65 @@ describe("Anytype importer — integration", () => {
         const row = importRoot.getChildNotes()[0].getChildNotes()[0];
         expect(row.getAttachmentsByRole("file")).toHaveLength(0);
         expect(decodeUtf8(row.getContent() ?? "")).not.toContain("reference-link");
+    });
+
+    it("falls back between created and modified when a page exports only one of them", async () => {
+        const importRoot = await importAnytype({
+            "objects/a.pb.json": datedObject("a", "Created only", { createdDate: 1735632037 }),
+            "objects/b.pb.json": datedObject("b", "Modified only", { lastModifiedDate: 1735632353 })
+        });
+
+        const createdOnly = importRoot.getChildNotes().find((note) => note.title === "Created only");
+        expect(createdOnly?.utcDateCreated).toBe("2024-12-31 08:00:37.000Z");
+        expect(createdOnly?.utcDateModified).toBe("2024-12-31 08:00:37.000Z");
+
+        // With no exported creation time the note keeps its import-time one; only modified is restored.
+        const modifiedOnly = importRoot.getChildNotes().find((note) => note.title === "Modified only");
+        expect(modifiedOnly?.utcDateModified).toBe("2024-12-31 08:05:53.000Z");
+        expect(modifiedOnly?.utcDateCreated).not.toBe("2024-12-31 08:05:53.000Z");
+    });
+
+    it("ignores a collection member the export doesn't contain", async () => {
+        // Both collections list the same absent member, so the second one reaches the membership (cloning)
+        // pass for it — with no note to clone.
+        const importRoot = await importAnytype({
+            "objects/c1.pb.json": collectionObject("c1", "First", ["ghost"], []),
+            "objects/c2.pb.json": collectionObject("c2", "Second", ["ghost"], [])
+        });
+
+        expect(importRoot.getChildNotes().map((note) => note.getChildNotes().length)).toEqual([0, 0]);
+    });
+
+    it("attaches a file property carried by the collection itself, the link becoming its whole body", async () => {
+        const fileKey = "6a3e3323cafa6953a4661c6f";
+        const fileCid = "bafyreicollfile";
+        const collection = JSON.stringify({
+            sbType: "Page",
+            snapshot: {
+                data: {
+                    blocks: [
+                        { id: "coll", childrenIds: ["header", "dataview"] },
+                        { id: "header", childrenIds: ["title"] },
+                        { id: "title", text: { text: "", style: "Title" } },
+                        { id: "dataview", dataview: { isCollection: true, views: [{ relations: [] }] } }
+                    ],
+                    details: { id: "coll", name: "Files", resolvedLayout: 14, links: [], [fileKey]: [fileCid] }
+                }
+            }
+        });
+        const importRoot = await importAnytype({
+            "objects/coll.pb.json": collection,
+            "relations/file.pb.json": relationObject(fileKey, "File", 5),
+            "filesObjects/f1.pb.json": fileObjectJson(fileCid, "log", "csv", "text/csv", "files\\log.csv"),
+            "files/log.csv": "a,b\n1,2"
+        });
+
+        const note = importRoot.getChildNotes()[0];
+        const attachments = note.getAttachmentsByRole("file");
+        expect(attachments.map((attachment) => attachment.title)).toEqual(["log.csv"]);
+        // A collection note has no body of its own, so the reference link is all of its content.
+        expect(decodeUtf8(note.getContent()))
+            .toBe(`<p><a class="reference-link" href="#root/${note.noteId}?viewMode=attachments&attachmentId=${attachments[0]?.attachmentId}">log.csv</a></p>`);
     });
 
     it("imports a collection-scoped export (no wrapper) as a named table whose columns are synthesized from members", async () => {

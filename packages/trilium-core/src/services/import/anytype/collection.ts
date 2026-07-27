@@ -350,6 +350,7 @@ export function applyFiles(note: BNote, page: ParsedObject, fileObjects: Map<str
             continue;
         }
         const attachment = saveFileAttachment(note, info.title, bytes, info.mime);
+        /* v8 ignore next -- saveAttachment always returns the id of the attachment it just created, so this guard is never false in practice */
         if (attachment.attachmentId) {
             fileLinks.push(`<p>${attachmentReferenceLink(note.noteId, attachment.attachmentId, info.title)}</p>`);
         }

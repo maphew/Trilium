@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { sanitizeHtml } from "./sanitizer.js";
+import optionService from "./options.js";
 import { trimIndentation } from "@triliumnext/commons";
 
 describe("sanitize", () => {
@@ -75,6 +76,18 @@ describe("sanitize", () => {
         expect(sanitizeHtml(`<img style="aspect-ratio:577.5/277.5" src="x.png" />`)).toContain("aspect-ratio:577.5/277.5");
         // A non-ratio value is still rejected.
         expect(sanitizeHtml(`<img style="aspect-ratio:auto" src="x.png" />`)).not.toContain("aspect-ratio");
+    });
+
+    it("falls back to the default allowed tags when the allowedHtmlTags option is unusable", () => {
+        const optionSpy = vi.spyOn(optionService, "getOption").mockReturnValue("{ not json");
+        try {
+            // The parse failure must not propagate; sanitization still applies the default list.
+            const sanitized = sanitizeHtml(`<p>kept</p><script>alert(1)</script>`);
+            expect(sanitized).toContain(`<p>kept</p>`);
+            expect(sanitized).not.toContain(`<script>`);
+        } finally {
+            optionSpy.mockRestore();
+        }
     });
 
     describe("bookmark anchors", () => {
