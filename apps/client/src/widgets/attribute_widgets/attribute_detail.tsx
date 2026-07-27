@@ -349,7 +349,8 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
         const newDefinition = { ...definition, ...changes };
 
         setDefinition(newDefinition);
-        attribute.value = buildDefinitionValue(newDefinition, attrType);
+        attribute.value = promotedAttributeDefinitionParser.serialize(
+            newDefinition, attrType === "label-definition" ? "label" : "relation");
         onAttributesChanged?.(allAttributes ?? []);
     }
 
@@ -628,40 +629,6 @@ function isDefinition(attrType: AttrType) {
 
 function parseDefinition(attribute: Attribute, attrType: AttrType): DefinitionObject {
     return isDefinition(attrType) ? promotedAttributeDefinitionParser.parse(attribute.value || "") : {};
-}
-
-/**
- * Serializes a definition back into the comma separated form stored in the attribute value, e.g.
- * `promoted,alias=Foo,single,number,precision=2`.
- *
- * Unlike the legacy widget, the multiplicity and label type always land in the output with their
- * effective defaults rather than as an empty token, which the parser only warned about.
- */
-function buildDefinitionValue(definition: DefinitionObject, attrType: AttrType) {
-    const props: string[] = [];
-
-    if (definition.isPromoted) {
-        props.push("promoted");
-
-        if (definition.promotedAlias) {
-            props.push(`alias=${definition.promotedAlias}`);
-        }
-    }
-
-    props.push(definition.multiplicity ?? "single");
-
-    if (attrType === "label-definition") {
-        const labelType = definition.labelType ?? "text";
-        props.push(labelType);
-
-        if (labelType === "number" && definition.numberPrecision !== undefined) {
-            props.push(`precision=${definition.numberPrecision}`);
-        }
-    } else if (definition.inverseRelation?.trim()) {
-        props.push(`inverse=${utils.filterAttributeName(definition.inverseRelation)}`);
-    }
-
-    return props.join(",");
 }
 
 const DISPLAYED_NOTES = 10;
