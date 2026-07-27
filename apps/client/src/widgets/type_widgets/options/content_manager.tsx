@@ -45,6 +45,7 @@ const FILTER_DEBOUNCE_MS = 300;
 function ContentItemMenu({ note }: { note: FNote }) {
     return (
         <Dropdown
+            className="content-manager-item-menu"
             buttonClassName="note-book-item-menu bx bx-dots-vertical-rounded"
             hideToggleArrow noSelectButtonStyle noDropdownListStyle iconAction
             // Out of the row and into the body: nested, the open menu would still count as hovering

@@ -48,6 +48,13 @@
     white-space: nowrap;
 }
 
+/* The item menu is portaled to <body> (so an open menu isn't counted as hovering its row), which
+   drops it below Bootstrap's modal when the page is opened in the settings dialog. Raised the same
+   way as the body-appended tooltips in style.css. */
+.content-manager-item-menu .dropdown-menu {
+    z-index: 32767;
+}
+
 .content-manager-loading {
     opacity: 0.7;
 }
