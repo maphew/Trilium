@@ -521,9 +521,7 @@
     "tooltip": "If you check this option, Trilium will attempt to shrink the uploaded images by scaling and optimization which may affect the perceived image quality. If unchecked, images will be uploaded without changes."
   },
   "attribute_detail": {
-    "attr_detail_title": "Attribute Detail Title",
     "close_button_title": "Cancel changes and close",
-    "attr_is_owned_by": "Attribute is owned by",
     "attr_name_title": "Attribute name can be composed of alphanumeric characters, colon and underscore only",
     "name": "Name",
     "value": "Value",
@@ -554,7 +552,7 @@
     "inverse_relation": "Inverse relation",
     "inheritable_title": "Inheritable attribute will be inherited to all descendants under this tree.",
     "inheritable": "Inheritable",
-    "save_and_close": "Save & close <kbd>Ctrl+Enter</kbd>",
+    "save_and_close_button": "Save & close",
     "delete": "Delete",
     "related_notes_title": "Other notes with this label",
     "more_notes": "More notes",
@@ -2245,6 +2243,7 @@
     "title": "Full width"
   },
   "open-help-page": "Open help page",
+  "show-help": "Show help",
   "find": {
     "case_sensitive": "Case sensitive",
     "match_words": "Match words",

@@ -1,0 +1,78 @@
+.attr-detail {
+    display: block;
+    background-color: var(--accented-background-color);
+    border: 1px solid var(--main-border-color);
+    border-radius: 4px;
+    z-index: 1000;
+    padding: 15px;
+    position: absolute;
+    width: 500px;
+    max-height: 600px;
+    overflow: auto;
+    box-shadow: 10px 10px 93px -25px black;
+    contain: none;
+}
+
+.attr-help td {
+    color: var(--muted-text-color);
+    padding: 5px;
+}
+
+.attr-help .attr-help-page-button {
+    margin-inline-start: 5px;
+    vertical-align: middle;
+}
+
+.related-notes-container {
+    margin-top: 20px;
+}
+
+.related-notes-list {
+    padding-inline-start: 20px;
+    margin-top: 10px;
+    margin-bottom: 10px;
+}
+
+.attr-edit-table {
+    width: 100%;
+}
+
+.attr-edit-table th {
+    text-align: start;
+}
+
+.attr-edit-table td input[type="checkbox"] {
+    display: inline-block;
+}
+
+.attr-detail-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 8px;
+}
+
+.close-attr-detail-button {
+    font-size: x-large;
+    cursor: pointer;
+    position: relative;
+    top: -2px;
+}
+
+.attr-save-delete-button-container {
+    display: flex;
+    margin-top: 15px;
+}
+
+.attr-save-delete-button-container .attr-save-changes-and-close-button {
+    flex-grow: 1;
+    margin-inline-end: 20px;
+}
+
+.attr-detail input[readonly] {
+    background-color: var(--accented-background-color) !important;
+}
+
+.attr-edit-table td {
+    padding: 4px 0;
+}
