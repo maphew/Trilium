@@ -2,7 +2,7 @@ import type { Attribute } from "../../services/attribute_parser.js";
 import { t } from "../../services/i18n.js";
 import linkService from "../../services/link.js";
 import promotedAttributeDefinitionParser from "../../services/promoted_attribute_definition_parser.js";
-import utils, { openInAppHelpFromUrl } from "../../services/utils.js";
+import { openInAppHelpFromUrl } from "../../services/utils.js";
 import NoteContextAwareWidget from "../note_context_aware_widget.js";
 import { ATTR_HELP } from "./attr_help.js";
 import type { AttributeDetailOpts } from "./attribute_detail.jsx";
@@ -13,58 +13,6 @@ const TPL = /*html*/`
 
     <table class="attr-edit-table">
         <tr class="attr-help"></tr>
-        <tr class="attr-row-promoted"
-            title="${t("attribute_detail.promoted_title")}">
-            <th></th>
-            <td>
-                <label class="tn-checkbox">
-                    <input type="checkbox" class="attr-input-promoted" />
-                    ${t("attribute_detail.promoted")}
-                </label>
-            </td>
-        </tr>
-        <tr class="attr-row-promoted-alias">
-            <th title="${t("attribute_detail.promoted_alias_title")}">${t("attribute_detail.promoted_alias")}</th>
-            <td>
-                <div class="input-group">
-                    <input type="text" class="attr-input-promoted-alias form-control" />
-                </div>
-            </td>
-        </tr>
-        <tr class="attr-row-multiplicity">
-            <th title="${t("attribute_detail.multiplicity_title")}">${t("attribute_detail.multiplicity")}</th>
-            <td>
-                <select class="attr-input-multiplicity form-control">
-                  <option value="single">${t("attribute_detail.single_value")}</option>
-                  <option value="multi">${t("attribute_detail.multi_value")}</option>
-                </select>
-            </td>
-        </tr>
-        <tr class="attr-row-label-type">
-            <th title="${t("attribute_detail.label_type_title")}">${t("attribute_detail.label_type")}</th>
-            <td>
-                <select class="attr-input-label-type form-control">
-                  <option value="text">${t("attribute_detail.text")}</option>
-                  <option value="textarea">${t("attribute_detail.textarea")}</option>
-                  <option value="number">${t("attribute_detail.number")}</option>
-                  <option value="boolean">${t("attribute_detail.boolean")}</option>
-                  <option value="date">${t("attribute_detail.date")}</option>
-                  <option value="datetime">${t("attribute_detail.date_time")}</option>
-                  <option value="time">${t("attribute_detail.time")}</option>
-                  <option value="url">${t("attribute_detail.url")}</option>
-                  <option value="color">${t("attribute_detail.color_type")}</option>
-                </select>
-            </td>
-        </tr>
-        <tr class="attr-row-number-precision">
-            <th title="${t("attribute_detail.precision_title")}">${t("attribute_detail.precision")}</th>
-            <td>
-                <div class="input-group">
-                    <input type="number" class="form-control attr-input-number-precision" style="text-align: end">
-                    <span class="input-group-text">${t("attribute_detail.digits")}</span>
-                </div>
-            </td>
-        </tr>
         <tr class="attr-row-inverse-relation">
             <th title="${t("attribute_detail.inverse_relation_title")}">${t("attribute_detail.inverse_relation")}</th>
             <td>
@@ -78,18 +26,8 @@ const TPL = /*html*/`
 
 export default class AttributeDetailWidget extends NoteContextAwareWidget {
     private $inputName!: JQuery<HTMLElement>;
-    private $rowPromoted!: JQuery<HTMLElement>;
-    private $inputPromoted!: JQuery<HTMLElement>;
-    private $inputPromotedAlias!: JQuery<HTMLElement>;
-    private $inputMultiplicity!: JQuery<HTMLElement>;
     private $inputInverseRelation!: JQuery<HTMLElement>;
-    private $inputLabelType!: JQuery<HTMLElement>;
-    private $inputNumberPrecision!: JQuery<HTMLElement>;
-    private $rowMultiplicity!: JQuery<HTMLElement>;
-    private $rowLabelType!: JQuery<HTMLElement>;
-    private $rowNumberPrecision!: JQuery<HTMLElement>;
     private $rowInverseRelation!: JQuery<HTMLElement>;
-    private $rowPromotedAlias!: JQuery<HTMLElement>;
     private $attrIsOwnedBy!: JQuery<HTMLElement>;
     private $attrHelp!: JQuery<HTMLElement>;
 
@@ -101,26 +39,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
         this.$widget = $(TPL);
 
         this.$inputName = this.$widget.find(".attr-input-name");
-
-        this.$rowPromoted = this.$widget.find(".attr-row-promoted");
-        this.$inputPromoted = this.$widget.find(".attr-input-promoted");
-        this.$inputPromoted.on("change", () => this.userEditedAttribute());
-
-        this.$rowPromotedAlias = this.$widget.find(".attr-row-promoted-alias");
-        this.$inputPromotedAlias = this.$widget.find(".attr-input-promoted-alias");
-        this.$inputPromotedAlias.on("change", () => this.userEditedAttribute());
-
-        this.$rowMultiplicity = this.$widget.find(".attr-row-multiplicity");
-        this.$inputMultiplicity = this.$widget.find(".attr-input-multiplicity");
-        this.$inputMultiplicity.on("change", () => this.userEditedAttribute());
-
-        this.$rowLabelType = this.$widget.find(".attr-row-label-type");
-        this.$inputLabelType = this.$widget.find(".attr-input-label-type");
-        this.$inputLabelType.on("change", () => this.userEditedAttribute());
-
-        this.$rowNumberPrecision = this.$widget.find(".attr-row-number-precision");
-        this.$inputNumberPrecision = this.$widget.find(".attr-input-number-precision");
-        this.$inputNumberPrecision.on("change", () => this.userEditedAttribute());
 
         this.$rowInverseRelation = this.$widget.find(".attr-row-inverse-relation");
         this.$inputInverseRelation = this.$widget.find(".attr-input-inverse-relation");
@@ -157,21 +75,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
 
         const disabledFn = () => (!isOwned ? "true" : undefined);
 
-        this.$rowPromoted.toggle(["label-definition", "relation-definition"].includes(this.attrType || ""));
-        this.$inputPromoted.prop("checked", !!definition.isPromoted).attr("disabled", disabledFn);
-
-        this.$rowPromotedAlias.toggle(!!definition.isPromoted);
-        this.$inputPromotedAlias.val(definition.promotedAlias || "").attr("disabled", disabledFn);
-
-        this.$rowMultiplicity.toggle(["label-definition", "relation-definition"].includes(this.attrType || "") && !hideMultiplicity);
-        this.$inputMultiplicity.val(definition.multiplicity || "").attr("disabled", disabledFn);
-
-        this.$rowLabelType.toggle(this.attrType === "label-definition");
-        this.$inputLabelType.val(definition.labelType || "").attr("disabled", disabledFn);
-
-        this.$rowNumberPrecision.toggle(this.attrType === "label-definition" && definition.labelType === "number");
-        this.$inputNumberPrecision.val(definition.numberPrecision || "").attr("disabled", disabledFn);
-
         this.$rowInverseRelation.toggle(this.attrType === "relation-definition");
         this.$inputInverseRelation.val(definition.inverseRelation || "").attr("disabled", disabledFn);
 
@@ -181,7 +84,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
     }
 
     userEditedAttribute() {
-        this.updateAttributeInEditor();
         this.updateHelp();
     }
 
@@ -222,46 +124,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
         } else if (attribute.type === "relation") {
             return "relation";
         }
-    }
-
-    updateAttributeInEditor() {
-        if (this.attrType?.endsWith("-definition")) {
-            this.attribute.value = this.buildDefinitionValue();
-        }
-
-        this.triggerCommand("updateAttributeList", { attributes: this.allAttributes ?? [] });
-    }
-
-    buildDefinitionValue() {
-        const props: string[] = [];
-
-        if (this.$inputPromoted.is(":checked")) {
-            props.push("promoted");
-
-            if (this.$inputPromotedAlias.val() !== "") {
-                props.push(`alias=${this.$inputPromotedAlias.val()}`);
-            }
-        }
-
-        props.push(this.$inputMultiplicity.val() as string);
-
-        if (this.attrType === "label-definition") {
-            props.push(this.$inputLabelType.val() as string);
-
-            if (this.$inputLabelType.val() === "number" && this.$inputNumberPrecision.val() !== "") {
-                props.push(`precision=${this.$inputNumberPrecision.val()}`);
-            }
-        } else if (this.attrType === "relation-definition" && String(this.$inputInverseRelation.val())?.trim().length > 0) {
-            const inverseRelationName = this.$inputInverseRelation.val();
-
-            props.push(`inverse=${utils.filterAttributeName(String(inverseRelationName))}`);
-        }
-
-        this.$rowNumberPrecision.toggle(this.attrType === "label-definition" && this.$inputLabelType.val() === "number");
-
-        this.$rowPromotedAlias.toggle(this.$inputPromoted.is(":checked"));
-
-        return props.join(",");
     }
 
     hide() {

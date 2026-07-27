@@ -1,5 +1,6 @@
 import "./attribute_detail.css";
 
+import type { DefinitionObject, LabelType, Multiplicity } from "@triliumnext/commons";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../../components/app_context.js";
@@ -8,6 +9,7 @@ import { isExperimentalFeatureEnabled } from "../../services/experimental_featur
 import { focusSavedElement, saveFocusedElement } from "../../services/focus.js";
 import froca from "../../services/froca.js";
 import { t } from "../../services/i18n.js";
+import promotedAttributeDefinitionParser from "../../services/promoted_attribute_definition_parser.js";
 import server from "../../services/server.js";
 import { isIMEComposing } from "../../services/shortcuts.js";
 import utils from "../../services/utils.js";
@@ -15,6 +17,8 @@ import NoteContextAwareWidget from "../note_context_aware_widget.js";
 import Button from "../react/Button.jsx";
 import FormAutocomplete, { AUTOCOMPLETE_DROPDOWN_SELECTOR } from "../react/FormAutocomplete.jsx";
 import FormCheckbox from "../react/FormCheckbox.jsx";
+import FormSelect from "../react/FormSelect.jsx";
+import FormTextBox, { FormTextBoxWithUnit } from "../react/FormTextBox.jsx";
 import NoteAutocomplete from "../react/NoteAutocomplete.jsx";
 import NoteLink from "../react/NoteLink.jsx";
 import { disposeReactWidget, renderReactWidgetAtElement } from "../react/react_utils.jsx";
@@ -258,6 +262,7 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
     const [ name, setName ] = useState(() => stripDefinitionPrefix(attribute.name, attrType));
     const [ value, setValue ] = useState(attribute.value ?? "");
     const [ isInheritable, setIsInheritable ] = useState(!!attribute.isInheritable);
+    const [ definition, setDefinition ] = useState(() => parseDefinition(attribute, attrType));
     const nameRef = useRef<HTMLInputElement>(null);
     // The values known for a label name never change while the popup is open, so they are fetched
     // once per name and filtered locally afterwards.
@@ -302,6 +307,15 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
     function commitValue(newValue: string) {
         setValue(newValue);
         attribute.value = newValue;
+        onAttributesChanged(allAttributes ?? []);
+    }
+
+    /** Definitions keep their settings serialized in the value, so any change rebuilds the whole thing. */
+    function commitDefinition(changes: Partial<DefinitionObject>) {
+        const newDefinition = { ...definition, ...changes };
+
+        setDefinition(newDefinition);
+        attribute.value = buildDefinitionValue(newDefinition, attrType);
         onAttributesChanged(allAttributes ?? []);
     }
 
@@ -370,6 +384,87 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
                         </tr>
                     )}
 
+                    {isDefinition(attrType) && (
+                        <tr class="attr-row-promoted" title={t("attribute_detail.promoted_title")}>
+                            <th></th>
+                            <td>
+                                <FormCheckbox
+                                    label={t("attribute_detail.promoted")}
+                                    currentValue={!!definition.isPromoted}
+                                    disabled={!isOwned}
+                                    onChange={(isPromoted) => commitDefinition({ isPromoted })}
+                                />
+                            </td>
+                        </tr>
+                    )}
+
+                    {isDefinition(attrType) && definition.isPromoted && (
+                        <tr class="attr-row-promoted-alias">
+                            <th title={t("attribute_detail.promoted_alias_title")}>{t("attribute_detail.promoted_alias")}</th>
+                            <td>
+                                <FormTextBox
+                                    className="attr-input-promoted-alias"
+                                    currentValue={definition.promotedAlias ?? ""}
+                                    disabled={!isOwned}
+                                    onChange={(promotedAlias) => commitDefinition({ promotedAlias })}
+                                />
+                            </td>
+                        </tr>
+                    )}
+
+                    {isDefinition(attrType) && !opts.hideMultiplicity && (
+                        <tr class="attr-row-multiplicity">
+                            <th title={t("attribute_detail.multiplicity_title")}>{t("attribute_detail.multiplicity")}</th>
+                            <td>
+                                <FormSelect
+                                    className="attr-input-multiplicity"
+                                    values={MULTIPLICITIES}
+                                    keyProperty="value"
+                                    titleProperty="title"
+                                    currentValue={definition.multiplicity ?? "single"}
+                                    disabled={!isOwned}
+                                    onChange={(multiplicity) => commitDefinition({ multiplicity: multiplicity as Multiplicity })}
+                                />
+                            </td>
+                        </tr>
+                    )}
+
+                    {attrType === "label-definition" && (
+                        <tr class="attr-row-label-type">
+                            <th title={t("attribute_detail.label_type_title")}>{t("attribute_detail.label_type")}</th>
+                            <td>
+                                <FormSelect
+                                    className="attr-input-label-type"
+                                    values={LABEL_TYPES}
+                                    keyProperty="value"
+                                    titleProperty="title"
+                                    currentValue={definition.labelType ?? "text"}
+                                    disabled={!isOwned}
+                                    onChange={(labelType) => commitDefinition({ labelType: labelType as LabelType })}
+                                />
+                            </td>
+                        </tr>
+                    )}
+
+                    {attrType === "label-definition" && definition.labelType === "number" && (
+                        <tr class="attr-row-number-precision">
+                            <th title={t("attribute_detail.precision_title")}>{t("attribute_detail.precision")}</th>
+                            <td>
+                                <FormTextBoxWithUnit
+                                    className="attr-input-number-precision"
+                                    type="number"
+                                    min={0}
+                                    unit={t("attribute_detail.digits")}
+                                    currentValue={definition.numberPrecision?.toString() ?? ""}
+                                    disabled={!isOwned}
+                                    onChange={(precision) => commitDefinition({
+                                        numberPrecision: precision === "" ? undefined : parseInt(precision, 10)
+                                    })}
+                                />
+                            </td>
+                        </tr>
+                    )}
+
                     <tr title={t("attribute_detail.inheritable_title")}>
                         <th></th>
                         <td>
@@ -415,6 +510,65 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
 
 /** Constant so it does not re-initialise the autocomplete on every render. */
 const TARGET_NOTE_OPTS = { allowCreatingNotes: true };
+
+const MULTIPLICITIES = [
+    { value: "single", title: t("attribute_detail.single_value") },
+    { value: "multi", title: t("attribute_detail.multi_value") }
+];
+
+const LABEL_TYPES = [
+    { value: "text", title: t("attribute_detail.text") },
+    { value: "textarea", title: t("attribute_detail.textarea") },
+    { value: "number", title: t("attribute_detail.number") },
+    { value: "boolean", title: t("attribute_detail.boolean") },
+    { value: "date", title: t("attribute_detail.date") },
+    { value: "datetime", title: t("attribute_detail.date_time") },
+    { value: "time", title: t("attribute_detail.time") },
+    { value: "url", title: t("attribute_detail.url") },
+    { value: "color", title: t("attribute_detail.color_type") }
+];
+
+function isDefinition(attrType: AttrType) {
+    return attrType === "label-definition" || attrType === "relation-definition";
+}
+
+function parseDefinition(attribute: Attribute, attrType: AttrType): DefinitionObject {
+    return isDefinition(attrType) ? promotedAttributeDefinitionParser.parse(attribute.value || "") : {};
+}
+
+/**
+ * Serializes a definition back into the comma separated form stored in the attribute value, e.g.
+ * `promoted,alias=Foo,single,number,precision=2`.
+ *
+ * Unlike the legacy widget, the multiplicity and label type always land in the output with their
+ * effective defaults rather than as an empty token, which the parser only warned about.
+ */
+function buildDefinitionValue(definition: DefinitionObject, attrType: AttrType) {
+    const props: string[] = [];
+
+    if (definition.isPromoted) {
+        props.push("promoted");
+
+        if (definition.promotedAlias) {
+            props.push(`alias=${definition.promotedAlias}`);
+        }
+    }
+
+    props.push(definition.multiplicity ?? "single");
+
+    if (attrType === "label-definition") {
+        const labelType = definition.labelType ?? "text";
+        props.push(labelType);
+
+        if (labelType === "number" && definition.numberPrecision !== undefined) {
+            props.push(`precision=${definition.numberPrecision}`);
+        }
+    } else if (definition.inverseRelation?.trim()) {
+        props.push(`inverse=${utils.filterAttributeName(definition.inverseRelation)}`);
+    }
+
+    return props.join(",");
+}
 
 const DISPLAYED_NOTES = 10;
 /** Edits keep arriving while typing, so the lookup waits for a pause instead of running per keystroke. */
