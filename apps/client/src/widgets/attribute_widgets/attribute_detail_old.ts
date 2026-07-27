@@ -1,14 +1,12 @@
 import appContext from "../../components/app_context.js";
 import attributeAutocompleteService from "../../services/attribute_autocomplete.js";
 import type { Attribute } from "../../services/attribute_parser.js";
-import { focusSavedElement } from "../../services/focus.js";
 import froca from "../../services/froca.js";
 import { t } from "../../services/i18n.js";
 import linkService from "../../services/link.js";
 import noteAutocompleteService from "../../services/note_autocomplete.js";
 import promotedAttributeDefinitionParser from "../../services/promoted_attribute_definition_parser.js";
 import server from "../../services/server.js";
-import shortcutService from "../../services/shortcuts.js";
 import SpacedUpdate from "../../services/spaced_update.js";
 import utils, { openInAppHelpFromUrl } from "../../services/utils.js";
 import NoteContextAwareWidget from "../note_context_aware_widget.js";
@@ -147,9 +145,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
 
         this.$widget = $(TPL);
 
-        shortcutService.bindElShortcut(this.$widget, "ctrl+return", () => this.saveAndClose());
-        shortcutService.bindElShortcut(this.$widget, "esc", () => this.cancelAndClose());
-
         this.$inputName = this.$widget.find(".attr-input-name");
         this.$inputName.on("autocomplete:closed", () => this.userEditedAttribute());
 
@@ -285,22 +280,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
         this.updateHelp();
 
         this.toggleInt(true);
-    }
-
-    async saveAndClose() {
-        await this.triggerCommand("saveAttributes");
-
-        this.hide();
-
-        focusSavedElement();
-    }
-
-    async cancelAndClose() {
-        await this.triggerCommand("reloadAttributes");
-
-        this.hide();
-
-        focusSavedElement();
     }
 
     userEditedAttribute() {

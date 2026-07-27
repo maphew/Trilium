@@ -6,6 +6,7 @@ import type { Attribute } from "../../services/attribute_parser.js";
 import { isExperimentalFeatureEnabled } from "../../services/experimental_features.js";
 import { focusSavedElement, saveFocusedElement } from "../../services/focus.js";
 import { t } from "../../services/i18n.js";
+import { isIMEComposing } from "../../services/shortcuts.js";
 import utils from "../../services/utils.js";
 import NoteContextAwareWidget from "../note_context_aware_widget.js";
 import Button from "../react/Button.jsx";
@@ -143,6 +144,7 @@ interface AttributeDetailProps extends AttributeFormCallbacks {
 function AttributeDetail({ opts, showId, parentOffset, onDismiss, onCancel, ...formCallbacks }: AttributeDetailProps) {
     const popupRef = useRef<HTMLDivElement>(null);
     const shown = !!opts;
+    const { onSaveAndClose } = formCallbacks;
 
     // Positioning needs the popup's rendered size, so it runs after the DOM is
     // built but before paint.
@@ -185,7 +187,26 @@ function AttributeDetail({ opts, showId, parentOffset, onDismiss, onCancel, ...f
     const attrType = getAttrType(opts.attribute);
 
     return (
-        <div ref={popupRef} class="attr-detail tn-tool-dialog">
+        <div
+            ref={popupRef}
+            class="attr-detail tn-tool-dialog"
+            // Handled here rather than through the shortcut service so the keys stay scoped
+            // to the popup subtree and unbind with it.
+            onKeyDown={(e) => {
+                if (isIMEComposing(e)) {
+                    return;
+                }
+
+                if (e.key === "Escape") {
+                    e.stopPropagation();
+                    onCancel();
+                } else if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onSaveAndClose();
+                }
+            }}
+        >
             <div class="attr-detail-header">
                 <h5 class="attr-detail-title">{attrType ? ATTR_TITLES[attrType] : ""}</h5>
 
