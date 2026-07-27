@@ -9,12 +9,14 @@ import type FNote from "../../../entities/fnote";
 import contextMenu, { type MenuItem } from "../../../menus/context_menu";
 import branches from "../../../services/branches";
 import {
+    buildLocationTree,
     CONTENT_CATEGORIES,
     type ContentCategory,
     type ContentSortOrder,
     findCategoryNotes,
     getDisplayedBranchId,
     isCategoryEnabled,
+    type LocationNode,
     resolveProperties,
     setCategoryEnabled
 } from "../../../services/content_manager";
@@ -117,11 +119,22 @@ function ContentProperties({ note, category }: { note: FNote, category: ContentC
     );
 }
 
-function ContentToggle({ note, category }: { note: FNote, category: ContentCategory }) {
-    const [ enabled, setEnabled ] = useState(() => isCategoryEnabled(note, category));
+/**
+ * @param categories every category this row stands for — normally one, but the location view merges
+ *                   the categories, and a note can be active content in more than one way.
+ */
+function ContentToggle({ note, categories }: { note: FNote, categories: ContentCategory[] }) {
+    // Keyed on the ids rather than on `categories`, which is a fresh array on every render.
+    const categoryKey = categories.map(({ id }) => id).join(",");
+    const isEnabled = useCallback(
+        () => categories.some((category) => isCategoryEnabled(note, category)),
+        // eslint-disable-next-line react-hooks/exhaustive-deps -- `categoryKey` stands in for `categories`
+        [ note, categoryKey ]
+    );
+    const [ enabled, setEnabled ] = useState(isEnabled);
 
     // Re-sync when the row is reused for another note, or the state changed elsewhere.
-    useEffect(() => setEnabled(isCategoryEnabled(note, category)), [ note, category ]);
+    useEffect(() => setEnabled(isEnabled()), [ isEnabled ]);
 
     return (
         <FormToggle
@@ -132,7 +145,7 @@ function ContentToggle({ note, category }: { note: FNote, category: ContentCateg
             onChange={(willEnable) => {
                 // Applied straight away so the switch responds before the lists are rebuilt.
                 setEnabled(willEnable);
-                void setCategoryEnabled(note, category, willEnable);
+                void Promise.all(categories.map((category) => setCategoryEnabled(note, category, willEnable)));
             }}
         />
     );
@@ -151,6 +164,7 @@ const LIST_OPTIONS: ListViewOptions = {
 
 export default function ContentManagerSettings({ note }: TypeWidgetProps) {
     const [ sortOrder, setSortOrder ] = useTriliumOption("contentManagerSortOrder");
+    const [ viewMode, setViewMode ] = useTriliumOption("contentManagerViewMode");
     const [ typedFilter, setTypedFilter ] = useState("");
     const [ appliedFilter, setAppliedFilter ] = useState("");
     const categories = useCategoryNotes(sortOrder as ContentSortOrder, appliedFilter);
@@ -199,26 +213,123 @@ export default function ContentManagerSettings({ note }: TypeWidgetProps) {
                             onClick={clearFilter}
                         />
                     </div>
+                    <span className="content-manager-toolbar-label">{t("content_manager.view_mode")}</span>
+                    <SegmentedChoice
+                        options={VIEW_MODES}
+                        currentValue={viewMode}
+                        onChange={(newValue) => void setViewMode(newValue)}
+                    />
                     <span className="content-manager-toolbar-label">{t("content_manager.sort_order")}</span>
-                    <SortOrderSelect currentValue={sortOrder} onChange={(newValue) => void setSortOrder(newValue)} />
+                    <SegmentedChoice
+                        options={SORT_ORDERS}
+                        currentValue={sortOrder}
+                        onChange={(newValue) => void setSortOrder(newValue)}
+                    />
                 </div>
             } />
 
             <div className="content-manager-list">
-                <CategoryList pageNote={note} categories={categories} highlightedTokens={highlightedTokens} />
+                <ContentList
+                    pageNote={note}
+                    categories={categories}
+                    highlightedTokens={highlightedTokens}
+                    viewMode={viewMode}
+                />
             </div>
         </>
     );
 }
 
-function CategoryList({ pageNote, categories, highlightedTokens }: {
+/**
+ * The same items arranged by where they live rather than by what they are, so a set of items kept
+ * together — several render notes under one "Statistics" note — reads as a single feature.
+ */
+function LocationList({ pageNote, categories, highlightedTokens }: CategoryListProps) {
+    const { rootIds, childrenByNoteId, itemsByNoteId } = useMemo(() => buildLocationView(categories), [ categories ]);
+
+    // Stable identity: `NoteChildren` re-fetches whenever the resolver changes.
+    const resolveChildren = useCallback(
+        (note: FNote) => childrenByNoteId.get(note.noteId) ?? [],
+        [ childrenByNoteId ]
+    );
+
+    if (!rootIds.length) return null;
+
+    return (
+        <ListView
+            note={pageNote}
+            notePath={pageNote.noteId}
+            noteIds={rootIds}
+            highlightedTokens={highlightedTokens}
+            viewConfig={undefined}
+            saveConfig={NOOP}
+            media="screen"
+            onReady={NOOP}
+            listOptions={{
+                ...LIST_OPTIONS,
+                // The tree is the point, so nesting is on and every level starts open.
+                hideSubNotes: false,
+                expandDepth: Number.MAX_SAFE_INTEGER,
+                resolveChildren,
+                // Grouping folders exist to hold items; their own content is not what is being shown.
+                showPreview: (note) => itemsByNoteId.has(note.noteId),
+                // Grouping folders are not active content, so they carry neither toggle nor menu.
+                renderItemActions: (note) => {
+                    const item = itemsByNoteId.get(note.noteId);
+                    if (!item) return null;
+
+                    return (
+                        <>
+                            <ContentProperties note={note} category={item.categories[0]} />
+                            <ContentToggle note={note} categories={item.categories} />
+                        </>
+                    );
+                },
+                renderItemMenu: (note) => itemsByNoteId.has(note.noteId) ? <ContentItemMenu note={note} /> : null
+            }}
+        />
+    );
+}
+
+/** Flattens the location tree into the shape `ListView` consumes: roots, children, and item lookup. */
+function buildLocationView(categories: CategoryNotes[]) {
+    const itemsByNoteId = new Map<string, { note: FNote, categories: ContentCategory[] }>();
+
+    for (const { category, notes } of categories) {
+        for (const note of notes) {
+            const item = itemsByNoteId.get(note.noteId) ?? { note, categories: [] };
+            item.categories.push(category);
+            itemsByNoteId.set(note.noteId, item);
+        }
+    }
+
+    const tree = buildLocationTree([ ...itemsByNoteId.values() ].map(({ note }) => note));
+    const childrenByNoteId = new Map<string, FNote[]>();
+
+    function record(node: LocationNode) {
+        childrenByNoteId.set(node.note.noteId, node.children.map(({ note }) => note));
+        node.children.forEach(record);
+    }
+
+    tree.forEach(record);
+
+    return { rootIds: tree.map(({ note }) => note.noteId), childrenByNoteId, itemsByNoteId };
+}
+
+interface CategoryListProps {
+    pageNote: FNote;
+    categories: CategoryNotes[];
+    highlightedTokens: string[] | null;
+}
+
+/** Handles the states both views share, then hands the results to the chosen one. */
+function ContentList({ pageNote, categories, highlightedTokens, viewMode }: {
     pageNote: FNote,
     categories: CategoryNotes[] | null,
     /** The filter text, so matches stand out in each row's title and path. `null` when not filtering. */
-    highlightedTokens: string[] | null
+    highlightedTokens: string[] | null,
+    viewMode: string
 }) {
-    const isFiltered = !!highlightedTokens;
-
     if (!categories) {
         return <p className="content-manager-loading">{t("content_manager.loading")}</p>;
     }
@@ -228,7 +339,7 @@ function CategoryList({ pageNote, categories, highlightedTokens }: {
     if (!populated.length) {
         // An empty result means something different while filtering: content may well exist, just
         // none of it matching, so the "nothing here yet" hint would be misleading.
-        return isFiltered
+        return highlightedTokens
             ? <NoItems icon="bx bx-search" text={t("content_manager.no_matches")} />
             : (
                 <NoItems icon="bx bx-package" text={t("content_manager.no_items")}>
@@ -237,9 +348,15 @@ function CategoryList({ pageNote, categories, highlightedTokens }: {
             );
     }
 
+    const List = viewMode === "location" ? LocationList : CategoryList;
+
+    return <List pageNote={pageNote} categories={populated} highlightedTokens={highlightedTokens} />;
+}
+
+function CategoryList({ pageNote, categories, highlightedTokens }: CategoryListProps) {
     return (
         <>
-            {populated.map(({ category, notes }) => (
+            {categories.map(({ category, notes }) => (
                 <ListView
                     key={category.id}
                     note={pageNote}
@@ -256,7 +373,7 @@ function CategoryList({ pageNote, categories, highlightedTokens }: {
                         renderItemActions: (note) => (
                             <>
                                 <ContentProperties note={note} category={category} />
-                                <ContentToggle note={note} category={category} />
+                                <ContentToggle note={note} categories={[ category ]} />
                             </>
                         ),
                         renderItemMenu: (note) => <ContentItemMenu note={note} />
@@ -267,10 +384,14 @@ function CategoryList({ pageNote, categories, highlightedTokens }: {
     );
 }
 
-function SortOrderSelect({ currentValue, onChange }: { currentValue: string, onChange: (newValue: string) => void }) {
+function SegmentedChoice({ options, currentValue, onChange }: {
+    options: { value: string, label: string }[];
+    currentValue: string;
+    onChange: (newValue: string) => void;
+}) {
     return (
         <ButtonGroup size="sm">
-            {SORT_ORDERS.map(({ value, label }) => (
+            {options.map(({ value, label }) => (
                 <Button
                     key={value}
                     text={label}
@@ -286,6 +407,11 @@ function SortOrderSelect({ currentValue, onChange }: { currentValue: string, onC
 const SORT_ORDERS: { value: ContentSortOrder, label: string }[] = [
     { value: "title", label: t("content_manager.sort_by_title") },
     { value: "dateCreated", label: t("content_manager.sort_by_date_created") }
+];
+
+const VIEW_MODES = [
+    { value: "category", label: t("content_manager.view_by_category") },
+    { value: "location", label: t("content_manager.view_by_location") }
 ];
 
 interface CategoryNotes {

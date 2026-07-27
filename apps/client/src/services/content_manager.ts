@@ -1,5 +1,6 @@
 import type FNote from "../entities/fnote";
 import attributes from "./attributes";
+import froca from "./froca";
 import search from "./search";
 
 /** An attribute that makes a note part of a category. */
@@ -360,6 +361,86 @@ function getOwnedAttributeValues(note: FNote, name: string, type: "label" | "rel
 
 function toArray(value: string | string[]) {
     return Array.isArray(value) ? value : [ value ];
+}
+
+/** A node of the "by location" tree: either an item, or a folder inserted to group several. */
+export interface LocationNode {
+    note: FNote;
+    /** A folder holding several items rather than active content itself, so it carries no toggle. */
+    isGroup: boolean;
+    children: LocationNode[];
+}
+
+/**
+ * Arranges items into a tree that mirrors where the user actually keeps them, so a set of items
+ * living together — the render notes under a single "Statistics" note — reads as one feature instead
+ * of as several unrelated rows.
+ *
+ * A node earns a place in the tree when it is either an item itself, or a folder where two or more
+ * item-bearing paths diverge. Everything else is a pass-through ancestor and is dropped, which is
+ * what keeps a lone item at the top level rather than buried under its whole ancestry.
+ */
+export function buildLocationTree(items: FNote[]): LocationNode[] {
+    const itemsById = new Map(items.map((item) => [ item.noteId, item ]));
+    const childIds = new Map<string, string[]>();
+    const parented = new Set<string>();
+    const roots: string[] = [];
+
+    for (const item of items) {
+        const path = item.getBestNotePath() ?? [ item.noteId ];
+
+        if (!parented.has(path[0]) && !roots.includes(path[0])) {
+            roots.push(path[0]);
+        }
+
+        for (let i = 0; i < path.length - 1; i++) {
+            const siblings = childIds.get(path[i]) ?? [];
+
+            if (!siblings.includes(path[i + 1])) {
+                siblings.push(path[i + 1]);
+            }
+
+            childIds.set(path[i], siblings);
+            parented.add(path[i + 1]);
+        }
+    }
+
+    const holdsItem = new Map<string, boolean>();
+
+    function subtreeHoldsItem(noteId: string): boolean {
+        const known = holdsItem.get(noteId);
+        if (known !== undefined) return known;
+
+        const result = itemsById.has(noteId)
+            || (childIds.get(noteId) ?? []).some(subtreeHoldsItem);
+        holdsItem.set(noteId, result);
+
+        return result;
+    }
+
+    function isKept(noteId: string) {
+        // The tree root is never a grouping node: it would only ever say "everything lives in the
+        // vault", and would swallow the whole tree under one useless heading.
+        if (noteId === "root") return false;
+        if (itemsById.has(noteId)) return true;
+
+        return (childIds.get(noteId) ?? []).filter(subtreeHoldsItem).length >= 2;
+    }
+
+    function build(noteId: string): LocationNode[] {
+        const collected = (childIds.get(noteId) ?? []).flatMap(build);
+
+        if (!isKept(noteId)) return collected;
+
+        const note = itemsById.get(noteId) ?? froca.getNoteFromCache(noteId);
+        // A grouping folder that is not in the cache cannot be labelled, so its children take its
+        // place rather than disappearing with it.
+        if (!note) return collected;
+
+        return [ { note, isGroup: !itemsById.has(noteId), children: collected } ];
+    }
+
+    return roots.filter((noteId) => !parented.has(noteId)).flatMap(build);
 }
 
 /**

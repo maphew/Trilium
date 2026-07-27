@@ -38,6 +38,16 @@ export interface ListViewOptions {
     searchResultsLayout?: boolean;
     /** Omits the nested subnote tree, leaving only each note's own content preview. */
     hideSubNotes?: boolean;
+    /**
+     * Supplies a row's nested notes, replacing its real child notes. Lets a caller present its own
+     * hierarchy — grouping scattered notes by where they live — through the same nesting UI.
+     */
+    resolveChildren?: (note: FNote) => FNote[];
+    /**
+     * Decides per row whether its content preview is rendered; previews show for every row by
+     * default. Useful when a caller inserts rows of its own, whose content is not the point.
+     */
+    showPreview?: (note: FNote) => boolean;
     /** Overrides how many levels start expanded, otherwise read from the parent's `#expanded`. */
     expandDepth?: number;
     /** Overrides the number of notes per page, otherwise read from the parent's `#pageSize`. */
@@ -67,6 +77,8 @@ export function ListView({ note, noteIds: unfilteredNoteIds, highlightedTokens, 
                     currentLevel={1} includeArchived={includeArchived}
                     searchResultsLayout={searchResultsLayout}
                     hideSubNotes={listOptions?.hideSubNotes}
+                    resolveChildren={listOptions?.resolveChildren}
+                    showPreview={listOptions?.showPreview}
                     renderItemActions={listOptions?.renderItemActions}
                     renderItemMenu={listOptions?.renderItemMenu}
                     showTextRepresentation={showTextRepresentation} />
@@ -124,7 +136,7 @@ function NoteList(props: NoteListProps) {
     </div>
 }
 
-function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expandDepth, includeArchived, showTextRepresentation, searchResultsLayout, hideSubNotes, renderItemActions, renderItemMenu }: {
+function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expandDepth, includeArchived, showTextRepresentation, searchResultsLayout, hideSubNotes, resolveChildren, showPreview, renderItemActions, renderItemMenu }: {
     note: FNote,
     parentNote: FNote,
     currentLevel: number,
@@ -132,7 +144,7 @@ function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expan
     highlightedTokens: string[] | null | undefined;
     includeArchived: boolean;
     showTextRepresentation?: boolean;
-} & Pick<ListViewOptions, "searchResultsLayout" | "hideSubNotes" | "renderItemActions" | "renderItemMenu">) {
+} & Pick<ListViewOptions, "searchResultsLayout" | "hideSubNotes" | "resolveChildren" | "showPreview" | "renderItemActions" | "renderItemMenu">) {
 
     const [ isExpanded, setExpanded ] = useState(currentLevel <= expandDepth);
     const notePath = getNotePath(parentNote, note, searchResultsLayout);
@@ -143,13 +155,15 @@ function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expan
     let subSections: JSX.Element | undefined = undefined;
     if (isExpanded) {
         subSections = <>
-            <CardSection className="note-content-preview">
-                <NoteContent note={note}
-                             highlightedTokens={highlightedTokens}
-                             noChildrenList
-                             includeArchivedNotes={includeArchived}
-                             showTextRepresentation={showTextRepresentation} />
-            </CardSection>
+            {(showPreview?.(note) ?? true) && (
+                <CardSection className="note-content-preview">
+                    <NoteContent note={note}
+                                 highlightedTokens={highlightedTokens}
+                                 noChildrenList
+                                 includeArchivedNotes={includeArchived}
+                                 showTextRepresentation={showTextRepresentation} />
+                </CardSection>
+            )}
 
             {!hideSubNotes && (
                 <NoteChildren
@@ -159,6 +173,8 @@ function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expan
                     currentLevel={currentLevel}
                     expandDepth={expandDepth}
                     searchResultsLayout={searchResultsLayout}
+                    resolveChildren={resolveChildren}
+                    showPreview={showPreview}
                     renderItemActions={renderItemActions}
                     renderItemMenu={renderItemMenu}
                     includeArchived={includeArchived}
@@ -330,19 +346,24 @@ export function NoteContent({ note, trim, noChildrenList, highlightedTokens, inc
     return <div ref={contentRef} className={clsx("note-book-content", `type-${noteType}`, {"note-book-content-ready": ready})} />;
 }
 
-function NoteChildren({ note, parentNote, highlightedTokens, currentLevel, expandDepth, includeArchived, searchResultsLayout, renderItemActions, renderItemMenu }: {
+function NoteChildren({ note, parentNote, highlightedTokens, currentLevel, expandDepth, includeArchived, searchResultsLayout, resolveChildren, showPreview, renderItemActions, renderItemMenu }: {
     note: FNote,
     parentNote: FNote,
     currentLevel: number,
     expandDepth: number,
     highlightedTokens: string[] | null | undefined
     includeArchived: boolean;
-} & Pick<ListViewOptions, "searchResultsLayout" | "renderItemActions" | "renderItemMenu">) {
+} & Pick<ListViewOptions, "searchResultsLayout" | "resolveChildren" | "showPreview" | "renderItemActions" | "renderItemMenu">) {
     const [ childNotes, setChildNotes ] = useState<FNote[]>();
 
     useEffect(() => {
+        if (resolveChildren) {
+            setChildNotes(resolveChildren(note));
+            return;
+        }
+
         filterChildNotes(note, includeArchived).then(setChildNotes);
-    }, [ note, includeArchived ]);
+    }, [ note, includeArchived, resolveChildren ]);
 
     return childNotes?.map(childNote => <ListNoteCard
         key={childNote.noteId}
@@ -352,6 +373,8 @@ function NoteChildren({ note, parentNote, highlightedTokens, currentLevel, expan
         currentLevel={currentLevel + 1} expandDepth={expandDepth}
         includeArchived={includeArchived}
         searchResultsLayout={searchResultsLayout}
+        resolveChildren={resolveChildren}
+        showPreview={showPreview}
         renderItemActions={renderItemActions}
         renderItemMenu={renderItemMenu}
     />);

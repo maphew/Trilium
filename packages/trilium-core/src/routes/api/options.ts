@@ -62,6 +62,7 @@ const ALLOWED_OPTIONS = new Set<OptionNames>([
     "codeLineWrapEnabled",
     "codeNotesMimeTypes",
     "contentManagerSortOrder",
+    "contentManagerViewMode",
     "spellCheckEnabled",
     "spellCheckLanguageCode",
     "imageMaxWidthHeight",
