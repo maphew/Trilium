@@ -161,6 +161,9 @@ function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expan
     // The hover tooltip stands in for the inline preview, so exactly one of the two is offered.
     const showsPreview = showPreview?.(note) ?? true;
     const showsNotePath = showNotePath?.(note) ?? searchResultsLayout;
+    // Whether expanding would reveal anything at all. Collections always have a preview to show, so
+    // only callers that suppress it can produce a row with nothing underneath.
+    const isExpandable = showsPreview || hasNestedNotes(note, hideSubNotes, resolveChildren);
 
     // Reset expand state if switching to another note, or if user manually toggled expansion state.
     useEffect(() => setExpanded(currentLevel <= expandDepth), [ note, currentLevel, expandDepth ]);
@@ -209,8 +212,11 @@ function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expan
             data-note-id={note.noteId}
         >
             <h5>
-                <span className={`note-expander ${isExpanded ? "bx bx-chevron-down" : "bx bx-chevron-right"}`} 
-                      onClick={() => setExpanded(!isExpanded)}/>
+                {/* Kept in the DOM when there is nothing to expand, so titles stay aligned. */}
+                <span
+                    className={clsx("note-expander", isExpanded ? "bx bx-chevron-down" : "bx bx-chevron-right", { "note-expander-empty": !isExpandable })}
+                    onClick={isExpandable ? () => setExpanded(!isExpanded) : undefined}
+                />
                 <Icon className="note-icon" icon={note.getIcon()} />
                 <NoteLink className="note-book-title"
                           notePath={notePath}
@@ -405,6 +411,21 @@ function NoteMenuButton(props: {notePath: string}) {
                           icon="bx bx-dots-vertical-rounded" text=""
                           onClick={openMenu} 
             />
+}
+
+/**
+ * Whether a row has nested notes to reveal, decided synchronously so the expander can be hidden
+ * before the children are fetched.
+ *
+ * Falls back to the note's own children, which is a slight over-estimate: {@link filterChildNotes}
+ * later drops image links and (when excluded) archived notes, so a note whose only children are of
+ * that kind still offers an expander.
+ */
+function hasNestedNotes(note: FNote, hideSubNotes?: boolean, resolveChildren?: ListViewOptions["resolveChildren"]) {
+    if (hideSubNotes) return false;
+    if (resolveChildren) return resolveChildren(note).length > 0;
+
+    return note.hasChildren();
 }
 
 export function getNotePath(parentNote: FNote, childNote: FNote, flat = parentNote.type === "search") {

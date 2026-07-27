@@ -175,6 +175,11 @@
         cursor: pointer;
     }
 
+    /* Nothing to reveal: hidden rather than removed, so the title still lines up with its siblings. */
+    .note-expander-empty {
+        visibility: hidden;
+    }
+
     .tn-icon {
         color: var(--note-list-view-icon-color);
     }
