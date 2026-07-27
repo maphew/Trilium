@@ -22,10 +22,13 @@ import {
 } from "../../../services/content_manager";
 import debounce from "../../../services/debounce";
 import { t } from "../../../services/i18n";
+import { isMobile } from "../../../services/utils";
 import { ListView, type ListViewOptions } from "../../collections/legacy/ListOrGridView";
 import ActionButton from "../../react/ActionButton";
 import { Badge } from "../../react/Badge";
 import Button, { ButtonGroup } from "../../react/Button";
+import Dropdown from "../../react/Dropdown";
+import { FormListItem } from "../../react/FormList";
 import FormTextBox from "../../react/FormTextBox";
 import FormToggle from "../../react/FormToggle";
 import { useTriliumEvent, useTriliumOption } from "../../react/hooks";
@@ -219,12 +222,7 @@ export default function ContentManagerSettings({ note }: TypeWidgetProps) {
                         currentValue={viewMode}
                         onChange={(newValue) => void setViewMode(newValue)}
                     />
-                    <span className="content-manager-toolbar-label">{t("content_manager.sort_order")}</span>
-                    <SegmentedChoice
-                        options={SORT_ORDERS}
-                        currentValue={sortOrder}
-                        onChange={(newValue) => void setSortOrder(newValue)}
-                    />
+                    <SortOrderMenu currentValue={sortOrder} onChange={(newValue) => void setSortOrder(newValue)} />
                 </div>
             } />
 
@@ -427,6 +425,24 @@ function SegmentedChoice({ options, currentValue, onChange }: {
                 />
             ))}
         </ButtonGroup>
+    );
+}
+
+/** A single icon rather than a labelled pair of buttons, the order being set rarely. */
+function SortOrderMenu({ currentValue, onChange }: { currentValue: string, onChange: (newValue: string) => void }) {
+    return (
+        <Dropdown
+            buttonClassName="bx bx-sort"
+            hideToggleArrow noSelectButtonStyle noDropdownListStyle iconAction
+            title={t("content_manager.sort_order")}
+            dropdownContainerClassName={isMobile() ? "mobile-bottom-menu" : undefined}
+        >
+            {SORT_ORDERS.map(({ value, label }) => (
+                <FormListItem key={value} checked={currentValue === value} onClick={() => onChange(value)}>
+                    {label}
+                </FormListItem>
+            ))}
+        </Dropdown>
     );
 }
 
