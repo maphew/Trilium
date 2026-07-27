@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks"
 
 import appContext from "../../../components/app_context";
 import type FNote from "../../../entities/fnote";
+import attributeService from "../../../services/attributes";
 import branches from "../../../services/branches";
 import {
     buildLocationTree,
@@ -144,8 +145,17 @@ function ContentProperties({ note, category }: { note: FNote, category: ContentC
 function ContentToggle({ note, category }: { note: FNote, category: ContentCategory }) {
     const [ enabled, setEnabled ] = useState(() => isCategoryEnabled(note, category));
 
-    // Re-sync when the row is reused for another note, or the state changed elsewhere.
+    // Re-sync when the row is reused for another note.
     useEffect(() => setEnabled(isCategoryEnabled(note, category)), [ note, category ]);
+
+    // ...and when the attributes change under it. The switch holds its own optimistic state, so
+    // without this it goes stale on any change it did not make itself — another row, the attribute
+    // bar, or a sync.
+    useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
+        if (loadResults.getAttributeRows().some((attribute) => attributeService.isAffecting(attribute, note))) {
+            setEnabled(isCategoryEnabled(note, category));
+        }
+    });
 
     return (
         <FormToggle
