@@ -2623,9 +2623,9 @@
     "feature_not_enabled": "AI 連携機能を使用するには、「設定」→「高度」→「実験的機能」で LLM 実験的機能を有効にしてください。",
     "mcp_title": "MCP（モデル コンテキスト プロトコル）",
     "mcp_enabled": "MCP サーバー",
-    "mcp_enabled_description": "AI コーディングアシスタント（例：Claude Code、GitHub Copilot）がノートを読み取って変更できるように、モデルコンテキストプロトコル（MCP）エンドポイントを公開します。このエンドポイントは localhost からのみアクセス可能です。",
+    "mcp_enabled_description": "AI コーディングアシスタント（例：Claude Code、GitHub Copilot）がノートを読み取って変更できるように、Model Context Protocol (MCP) エンドポイントを公開します。すべてのリクエストは ETAPI トークンによる認証が必要です。",
     "mcp_endpoint_title": "エンドポイント URL",
-    "mcp_endpoint_description": "この URL を AI アシスタントの MCP 設定に追加してください",
+    "mcp_endpoint_description": "SSE ではなく HTTP (ストリーミング可能) トランスポートを使用して、これらの URL の いずれかを AI アシスタントの MCP 設定に追加してください。",
     "tools": {
       "search_notes": "ノートを検索",
       "get_note": "ノートを取得",
@@ -2692,7 +2692,15 @@
     "setup_hint_openai_compatible": "OpenAI 互換 API のベース URL。通常は <Code>/v1</Code> で終わります。",
     "troubleshoot_server_running": "サーバーは想定どおりのマシンで実行されていますか？",
     "troubleshoot_port": "URL のポートはサーバーが報告するポートと一致していますか？",
-    "troubleshoot_remote": "サーバーが別のマシンにある場合、localhost（ローカルホスト）からだけでなく、ネットワーク経由の接続も受け入れるように設定されていますか？"
+    "troubleshoot_remote": "サーバーが別のマシンにある場合、localhost（ローカルホスト）からだけでなく、ネットワーク経由の接続も受け入れるように設定されていますか？",
+    "mcp_endpoint_this_device": "このデバイス",
+    "mcp_endpoint_network": "ネットワーク上の他のデバイスから",
+    "mcp_endpoint_loopback_only": "Trilium は localhost でのみで待ち受けしているため、他のデバイスからこのエンドポイントにアクセスすることはできません。",
+    "mcp_config_title": "アシスタントの接続方法",
+    "mcp_config_description": "オプション → ETAPI でトークンを作成し、次に、プレースホルダーをトークンに置き換えて、アシスタントの MCP 設定に以下を追加します:",
+    "mcp_config_token_placeholder": "あなたの etapi トークン",
+    "mcp_config_cli_description": "Claude Code はコマンドラインから設定することもできます:",
+    "mcp_config_warning": "トークンは、すべてのノートへの完全な読み取りおよび書き込みアクセス権を付与するため、パスワードと同様に扱ってください。別のデバイスから接続する場合は、HTTPS 接続を推奨します — プレーンな HTTP 経由で送信されるトークンは傍受される可能性があります。"
   },
   "ocr": {
     "extracted_text": "抽出されたテキスト（OCR）",
@@ -3084,7 +3092,7 @@
     "attach_source": "元のHTMLを添付（デバッグ）",
     "attach_source_hint": "変換後の結果と比較できるように、各ページの変更されていない OneNote の HTML をインポートされたノートに添付ファイルとして保存します。",
     "section_heading": "Microsoft OneNote",
-    "checking": "OneNote への接続を確認中…",
+    "checking": "OneNote に接続中…",
     "select_sections_hint": "OneNote のインポートデータには元の並び順が含まれないため、セクションやグループは作成日順に並べ替えられます。そのため、OneNote 上での表示順序とは異なる場合があります。",
     "device_instructions": "Microsoftのサインインページを開き、このコードを入力してください:",
     "device_open_page": "サインインページを開く",

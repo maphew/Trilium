@@ -458,7 +458,10 @@
       "failed-pages-error": "错误",
       "failed-resources-title": "缺失的图片和附件",
       "failed-resources-item_other": "{{- pageLink}}：{{count}} 个资源无法下载"
-    }
+    },
+    "failed-section-placeholder": "无法从 OneNote 导入此分区，因此已创建为空分区。错误：{{error}}",
+    "protected-section-error": "此分区受密码保护。请在 OneNote 中移除其密码，然后重新导入。",
+    "protected-section-placeholder": "此分区受密码保护，因此无法导入其页面，已创建为空分区。要导入它，请在 OneNote 中打开该分区，移除其密码保护（右键点击分区 →「密码保护」→「移除密码」），然后重新运行导入。"
   },
   "notion_import": {
     "root-title": "Notion 导入",
