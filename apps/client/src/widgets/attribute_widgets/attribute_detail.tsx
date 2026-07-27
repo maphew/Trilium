@@ -178,7 +178,10 @@ function AttributeDetail({ opts, showId, currentNoteId, parentOffset, onDismiss,
                 // attribute or close; dismissing here first would hide and immediately
                 // re-show the popup, which reads as a flicker.
                 || spawner?.contains(e.target)
-                || e.target.closest(`${AUTOCOMPLETE_DROPDOWN_SELECTOR}, .algolia-autocomplete, #context-menu-container`)) {
+                // Modals count as belonging to the popup: creating a note straight from the target
+                // note field opens the note type chooser, and dismissing on its clicks would tear
+                // the popup down before the created note could be filled in.
+                || e.target.closest(`${AUTOCOMPLETE_DROPDOWN_SELECTOR}, .algolia-autocomplete, #context-menu-container, .modal, .modal-backdrop`)) {
                 return;
             }
             onDismiss();
