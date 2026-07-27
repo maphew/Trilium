@@ -25,7 +25,7 @@
     "@mermaid-js/layout-elk": "0.2.2",
     "@mind-elixir/node-menu": "5.0.1",
     "@popperjs/core": "2.11.8",
-    "@preact/signals": "2.9.4",
+    "@preact/signals": "2.10.0",
     "@sqlite.org/sqlite-wasm": "3.51.1-build2",
     "@triliumnext/ckeditor5": "workspace:*",
     "@triliumnext/codemirror": "workspace:*",
