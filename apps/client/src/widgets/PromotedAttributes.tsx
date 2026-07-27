@@ -2,12 +2,13 @@ import "./PromotedAttributes.css";
 
 import { DefinitionObject, LabelType, UpdateAttributeResponse } from "@triliumnext/commons";
 import clsx from "clsx";
-import { ComponentChild, createElement, HTMLInputTypeAttribute, InputHTMLAttributes, MouseEventHandler, TargetedEvent, TargetedInputEvent } from "preact";
-import { Dispatch, StateUpdater, useCallback, useEffect, useRef, useState } from "preact/hooks";
+import { ComponentChild, createElement, HTMLInputTypeAttribute, InputHTMLAttributes, MouseEventHandler, TargetedEvent } from "preact";
+import { Dispatch, StateUpdater, useCallback, useEffect, useState } from "preact/hooks";
 
 import NoteContext from "../components/note_context";
 import FAttribute from "../entities/fattribute";
 import FNote from "../entities/fnote";
+import { ColorPicker } from "../menus/custom-items/NoteColorPicker";
 import { Attribute } from "../services/attribute_parser";
 import attributes from "../services/attributes";
 import { t } from "../services/i18n";
@@ -254,7 +255,12 @@ function LabelInput(props: CellProps & { inputId: string }) {
     return (
         <div className="input-group">
             {inputNode}
-            { definition.labelType === "color" && <ColorPicker {...props} onChange={onChangeListener} inputId={inputId} />}
+            { definition.labelType === "color" && (
+                <ColorPicker
+                    currentValue={valueAttr.value || null}
+                    onChange={(color) => updateAttribute(note, cell, componentId, color ?? "", setCells)}
+                />
+            )}
             { definition.labelType === "url" && (
                 <InputButton
                     className="open-external-link-button"
@@ -272,47 +278,6 @@ function LabelInput(props: CellProps & { inputId: string }) {
         </div>
     );
 
-}
-
-
-// We insert a separate input since the color input does not support empty value.
-// This is a workaround to allow clearing the color input.
-function ColorPicker({ cell, onChange, inputId }: CellProps & {
-    onChange: (e: TargetedEvent<HTMLInputElement, Event>) => Promise<void>,
-    inputId: string;
-}) {
-    const defaultColor = "#ffffff";
-    const colorInputRef = useRef<HTMLInputElement>(null);
-    return (
-        <>
-            <input
-                ref={colorInputRef}
-                className="form-control promoted-attribute-input"
-                type="color"
-                value={cell.valueAttr.value || defaultColor}
-                onChange={onChange}
-            />
-            <InputButton
-                icon="bx bxs-tag-x"
-                title={t("promoted_attributes.remove_color")}
-                onClick={(e) => {
-                    // Indicate to the user the color was reset.
-                    if (colorInputRef.current) {
-                        colorInputRef.current.value = defaultColor;
-                    }
-
-                    // Trigger the actual attribute change by injecting it into the hidden field.
-                    const inputEl = document.getElementById(inputId) as HTMLInputElement | null;
-                    if (!inputEl) return;
-                    inputEl.value = "";
-                    onChange({
-                        ...e,
-                        target: inputEl
-                    } as unknown as TargetedInputEvent<HTMLInputElement>);
-                }}
-            />
-        </>
-    );
 }
 
 function RelationInput({ inputId, ...props }: CellProps & { inputId: string }) {

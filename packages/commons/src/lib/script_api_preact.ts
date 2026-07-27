@@ -125,10 +125,9 @@ interface ExternallyControlledCollapsibleProps {
 export declare const ExternallyControlledCollapsible: FunctionComponent<ExternallyControlledCollapsibleProps>;
 
 interface ColorPickerProps {
-    currentValue: string;
-    onChange(newValue: string): void;
+    currentValue: string | null;
+    onChange(newValue: string | null): void;
     presets?: string[];
-    title?: string;
     disabled?: boolean;
     className?: string;
 }
@@ -352,6 +351,12 @@ interface NoteAutocompleteProps {
     noteId?: string;
 }
 export declare const NoteAutocomplete: FunctionComponent<NoteAutocompleteProps>;
+
+interface NoteColorPickerProps {
+    /** The target note instance (FNote) or its ID string. */
+    note: unknown | string | null;
+}
+export declare const NoteColorPicker: FunctionComponent<NoteColorPickerProps>;
 
 interface NoteLinkProps {
     className?: string;

@@ -1,31 +1,29 @@
 import "./NoteColorPicker.css";
-import { t } from "../../services/i18n";
-import { useCallback, useEffect, useRef, useState} from "preact/hooks";
-import {ComponentChildren} from "preact";
-import attributes from "../../services/attributes";
+
 import clsx from "clsx";
 import Color, { ColorInstance } from "color";
-import Debouncer from "../../utils/debouncer";
-import FNote from "../../entities/fnote";
-import froca from "../../services/froca";
-import { isMobile } from "../../services/utils";
+import { ComponentChildren } from "preact";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
-const COLOR_PALETTE = [
-    "#e64d4d", "#e6994d", "#e5e64d", "#99e64d", "#4de64d", "#4de699",
-    "#4de5e6", "#4d99e6", "#4d4de6", "#994de6", "#e64db3"
-];
+import FNote from "../../entities/fnote";
+import attributes from "../../services/attributes";
+import froca from "../../services/froca";
+import { t } from "../../services/i18n";
+import { isMobile } from "../../services/utils";
+import Debouncer from "../../utils/debouncer";
 
 export interface NoteColorPickerProps {
     /** The target Note instance or its ID string. */
     note: FNote | string | null;
 }
 
+/**
+ * Note-bound variant of {@link ColorPicker}: reads the current color from the note's `color` label
+ * and writes picks back to it. For a plain controlled picker, use {@link ColorPicker} directly.
+ */
 export default function NoteColorPicker(props: NoteColorPickerProps) {
-    if (!props.note) return null;
-
     const [note, setNote] = useState<FNote | null>(null);
     const [currentColor, setCurrentColor] = useState<string | null>(null);
-    const [isCustomColor, setIsCustomColor] = useState<boolean>(false);
 
     useEffect(() => {
         const retrieveNote = async (noteId: string) => {
@@ -33,7 +31,7 @@ export default function NoteColorPicker(props: NoteColorPickerProps) {
             if (noteInstance) {
                 setNote(noteInstance);
             }
-        }
+        };
 
         if (typeof props.note === "string") {
             retrieveNote(props.note); // Get the note from the given ID string
@@ -43,20 +41,10 @@ export default function NoteColorPicker(props: NoteColorPickerProps) {
     }, []);
 
     useEffect(() => {
-        const colorLabel = note?.getLabel("color")?.value ?? null;
-        if (colorLabel) {
-            let color = tryParseColor(colorLabel);
-            if (color) {
-                setCurrentColor(color.hex().toLowerCase());
-            }
-        }
+        setCurrentColor(note?.getLabel("color")?.value ?? null);
     }, [note]);
 
-    useEffect(() => {
-        setIsCustomColor(currentColor !== null && COLOR_PALETTE.indexOf(currentColor) === -1);
-    }, [currentColor])
-
-    const onColorCellClicked = useCallback((color: string | null) => {
+    const onChange = useCallback((color: string | null) => {
         if (note) {
             if (color !== null) {
                 attributes.setLabel(note.noteId, "color", color);
@@ -66,16 +54,53 @@ export default function NoteColorPicker(props: NoteColorPickerProps) {
 
             setCurrentColor(color);
         }
-    }, [note, currentColor]);
+    }, [note]);
 
-    return <div className="note-color-picker">
+    if (!props.note) return null;
+
+    return <ColorPicker
+        currentValue={currentColor}
+        onChange={onChange}
+        disabled={note === null} />;
+}
+
+/** Curated default preset palette, using Trilium note-color-friendly CSS colors. */
+export const DEFAULT_COLOR_PALETTE = [
+    "#e64d4d", "#e6994d", "#e5e64d", "#99e64d", "#4de64d", "#4de699",
+    "#4de5e6", "#4d99e6", "#4d4de6", "#994de6", "#e64db3"
+];
+
+export interface ColorPickerProps {
+    /** The current CSS color (e.g. `#ff8800`). `null` means "no color". */
+    currentValue: string | null;
+    /** Called with the newly picked color, or `null` when the color is cleared. */
+    onChange(newValue: string | null): void;
+    /** Preset swatches shown in the row. Defaults to a curated palette. */
+    presets?: string[];
+    disabled?: boolean;
+    className?: string;
+}
+
+/**
+ * A row of preset color swatches plus a "clear" cell and a custom cell backed by the browser's
+ * native `<input type="color">`.
+ *
+ * This is a controlled component: it renders `currentValue` and reports picks through `onChange`
+ * (`onChange(null)` clears). It has no knowledge of notes or attributes — for the note-bound
+ * variant that reads and writes the `color` label, see {@link NoteColorPicker}.
+ */
+export function ColorPicker({ currentValue, onChange, presets = DEFAULT_COLOR_PALETTE, disabled, className }: ColorPickerProps) {
+    const normalizedValue = currentValue ? tryParseColor(currentValue)?.hex().toLowerCase() ?? null : null;
+    const isCustomColor = normalizedValue !== null && presets.indexOf(normalizedValue) === -1;
+
+    return <div className={clsx("note-color-picker", className)}>
 
         <ColorCell className="color-cell-reset"
-                   tooltip={t("note-color.clear-color")}
-                   color={null}
-                   isSelected={(currentColor === null)}
-                   isDisabled={(note === null)}
-                   onSelect={onColorCellClicked}>
+            tooltip={t("note-color.clear-color")}
+            color={null}
+            isSelected={(normalizedValue === null)}
+            isDisabled={disabled}
+            onSelect={onChange}>
 
             {/* https://pictogrammers.com/library/mdi/icon/close/ */}
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
@@ -84,21 +109,21 @@ export default function NoteColorPicker(props: NoteColorPickerProps) {
         </ColorCell>
 
 
-        {COLOR_PALETTE.map((color) => (
+        {presets.map((color) => (
             <ColorCell key={color}
-                       tooltip={t("note-color.set-color")}
-                       color={color}
-                       isSelected={(color === currentColor)}
-                       isDisabled={(note === null)}
-                       onSelect={onColorCellClicked} />
+                tooltip={t("note-color.set-color")}
+                color={color}
+                isSelected={(color === normalizedValue)}
+                isDisabled={disabled}
+                onSelect={onChange} />
         ))}
 
         <CustomColorCell tooltip={t("note-color.set-custom-color")}
-                         color={currentColor}
-                         isSelected={isCustomColor}
-                         isDisabled={(note === null)}
-                         onSelect={onColorCellClicked} />
-    </div>
+            color={normalizedValue}
+            isSelected={isCustomColor}
+            isDisabled={disabled}
+            onSelect={onChange} />
+    </div>;
 }
 
 interface ColorCellProps {
@@ -113,13 +138,13 @@ interface ColorCellProps {
 
 function ColorCell(props: ColorCellProps) {
     return <div className={clsx(props.className, {
-                    "color-cell": true,
-                    "selected": props.isSelected,
-                    "disabled-color-cell": props.isDisabled
-                })}
-                style={`${(props.color !== null) ? `--color: ${props.color}` : ""}`}
-                title={props.tooltip}
-                onClick={() => props.onSelect?.(props.color)}>
+        "color-cell": true,
+        "selected": props.isSelected,
+        "disabled-color-cell": props.isDisabled
+    })}
+    style={`${(props.color !== null) ? `--color: ${props.color}` : ""}`}
+    title={props.tooltip}
+    onClick={() => !props.isDisabled && props.onSelect?.(props.color)}>
         {props.children}
     </div>;
 }
@@ -138,14 +163,14 @@ function CustomColorCell(props: ColorCellProps) {
 
         return () => {
             colorInputDebouncer.current?.destroy();
-        }
+        };
     }, []);
 
     useEffect(() => {
         if (props.isSelected && pickedColor === null) {
             setPickedColor(props.color);
         }
-    }, [props.isSelected])
+    }, [props.isSelected]);
 
     useEffect(() => {
         callbackRef.current = props.onSelect;
@@ -160,25 +185,26 @@ function CustomColorCell(props: ColorCellProps) {
     }, [pickedColor]);
 
     return <div style={`--foreground: ${getForegroundColor(props.color)};`}
-                onClick={isMobile() ? (e) => {
-                    // The color picker dropdown will close on some browser if the parent context menu is
-                    // dismissed, so stop the click propagation to prevent dismissing the menu.
-                    e.stopPropagation();
-                } : undefined}>
+        onClick={isMobile() ? (e) => {
+            // The color picker dropdown will close on some browser if the parent context menu is
+            // dismissed, so stop the click propagation to prevent dismissing the menu.
+            e.stopPropagation();
+        } : undefined}>
         <ColorCell {...props}
-                   color={pickedColor}
-                   className={clsx("custom-color-cell", {
-                        "custom-color-cell-empty": (pickedColor === null)
-                   })}
-                   onSelect={onSelect}>
+            color={pickedColor}
+            className={clsx("custom-color-cell", {
+                "custom-color-cell-empty": (pickedColor === null)
+            })}
+            onSelect={onSelect}>
 
             <input ref={colorInput}
-                   type="color"
-                   value={pickedColor ?? props.color ?? "#40bfbf"}
-                   onChange={() => {colorInputDebouncer.current?.updateValue(colorInput.current?.value ?? null)}}
-                   style="width: 0; height: 0; opacity: 0" />
+                type="color"
+                disabled={props.isDisabled}
+                value={pickedColor ?? props.color ?? "#40bfbf"}
+                onChange={() => {colorInputDebouncer.current?.updateValue(colorInput.current?.value ?? null);}}
+                style="width: 0; height: 0; opacity: 0" />
         </ColorCell>
-    </div>
+    </div>;
 }
 
 function getForegroundColor(backgroundColor: string | null) {
@@ -186,14 +212,14 @@ function getForegroundColor(backgroundColor: string | null) {
 
     const colorHsl = tryParseColor(backgroundColor)?.hsl();
     if (colorHsl) {
-        let l = colorHsl.lightness();
+        const l = colorHsl.lightness();
         return colorHsl.saturationl(0).lightness(l >= 50 ? 0 : 100).hex();
-    } else {
-        return "inherit";
     }
+    return "inherit";
+
 }
 
-function tryParseColor(colorStr: string): ColorInstance | null {
+export function tryParseColor(colorStr: string): ColorInstance | null {
     try {
         return new Color(colorStr);
     } catch(ex) {
