@@ -295,13 +295,11 @@ describe("resolveProperties", () => {
         ]);
     });
 
-    it("shows an endpoint's kind and its path pattern", () => {
+    it("shows an endpoint's kind, but not the path pattern its label carries", () => {
         const note = buildNote({ title: "API", "#customRequestHandler": "api/my-handler/([a-z]+)" });
 
         expect(resolveProperties(note, categoryById("endpoints"))).toEqual([
-            { titleKey: "content_manager.property_kind", badge: true, values: [ { titleKey: "content_manager.endpoint_request_handler" } ] },
-            // A path pattern is free-form, so it stays plain text rather than becoming a badge.
-            { titleKey: "content_manager.property_path", badge: undefined, values: [ { text: "api/my-handler/([a-z]+)" } ] }
+            { titleKey: "content_manager.property_kind", badge: true, values: [ { titleKey: "content_manager.endpoint_request_handler" } ] }
         ]);
     });
 

@@ -194,14 +194,6 @@ export const CONTENT_CATEGORIES: ContentCategory[] = [
                     { titleKey: "content_manager.endpoint_request_handler", condition: { label: "customRequestHandler" } },
                     { titleKey: "content_manager.endpoint_resource_provider", condition: { label: "customResourceProvider" } }
                 ]
-            },
-            {
-                // The label's value is the regular expression matched against the request path.
-                titleKey: "content_manager.property_path",
-                values: [
-                    { valueOfLabel: "customRequestHandler" },
-                    { valueOfLabel: "customResourceProvider" }
-                ]
             }
         ]
     },

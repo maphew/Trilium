@@ -2637,7 +2637,6 @@
     "trigger_daily": "Daily",
     "property_event": "Event",
     "property_kind": "Kind",
-    "property_path": "Path",
     "event_note_creation": "Note created",
     "event_note_title_change": "Title changed",
     "event_note_change": "Note changed",
