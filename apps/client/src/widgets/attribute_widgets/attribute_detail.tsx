@@ -15,6 +15,7 @@ import NoteContextAwareWidget from "../note_context_aware_widget.js";
 import Button from "../react/Button.jsx";
 import FormAutocomplete, { AUTOCOMPLETE_DROPDOWN_SELECTOR } from "../react/FormAutocomplete.jsx";
 import FormCheckbox from "../react/FormCheckbox.jsx";
+import NoteAutocomplete from "../react/NoteAutocomplete.jsx";
 import NoteLink from "../react/NoteLink.jsx";
 import { disposeReactWidget, renderReactWidgetAtElement } from "../react/react_utils.jsx";
 
@@ -301,6 +302,12 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
         onAttributesChanged(allAttributes ?? []);
     }
 
+    // A relation stores the target note's id as its value; clearing the field clears the target.
+    const commitTargetNote = useCallback((targetNoteId?: string) => {
+        attribute.value = targetNoteId ?? "";
+        onAttributesChanged(allAttributes ?? []);
+    }, [ attribute, allAttributes, onAttributesChanged ]);
+
     return (
         <>
             <table class="attr-edit-table">
@@ -324,6 +331,20 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
                             />
                         </td>
                     </tr>
+
+                    {attrType === "relation" && (
+                        <tr class="attr-row-target-note">
+                            <th title={t("attribute_detail.target_note_title")}>{t("attribute_detail.target_note")}</th>
+                            <td>
+                                <NoteAutocomplete
+                                    noteId={attribute.value || undefined}
+                                    readOnly={!isOwned}
+                                    opts={TARGET_NOTE_OPTS}
+                                    noteIdChanged={commitTargetNote}
+                                />
+                            </td>
+                        </tr>
+                    )}
 
                     {attrType === "label" && (
                         <tr class="attr-row-value">
@@ -388,6 +409,9 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
         </>
     );
 }
+
+/** Constant so it does not re-initialise the autocomplete on every render. */
+const TARGET_NOTE_OPTS = { allowCreatingNotes: true };
 
 const DISPLAYED_NOTES = 10;
 /** Edits keep arriving while typing, so the lookup waits for a pause instead of running per keystroke. */

@@ -1,8 +1,6 @@
 import type { Attribute } from "../../services/attribute_parser.js";
-import froca from "../../services/froca.js";
 import { t } from "../../services/i18n.js";
 import linkService from "../../services/link.js";
-import noteAutocompleteService from "../../services/note_autocomplete.js";
 import promotedAttributeDefinitionParser from "../../services/promoted_attribute_definition_parser.js";
 import utils, { openInAppHelpFromUrl } from "../../services/utils.js";
 import NoteContextAwareWidget from "../note_context_aware_widget.js";
@@ -15,14 +13,6 @@ const TPL = /*html*/`
 
     <table class="attr-edit-table">
         <tr class="attr-help"></tr>
-        <tr class="attr-row-target-note">
-            <th title="${t("attribute_detail.target_note_title")}">${t("attribute_detail.target_note")}</th>
-            <td>
-                <div class="input-group">
-                    <input type="text" class="attr-input-target-note form-control" />
-                </div>
-            </td>
-        </tr>
         <tr class="attr-row-promoted"
             title="${t("attribute_detail.promoted_title")}">
             <th></th>
@@ -94,13 +84,11 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
     private $inputMultiplicity!: JQuery<HTMLElement>;
     private $inputInverseRelation!: JQuery<HTMLElement>;
     private $inputLabelType!: JQuery<HTMLElement>;
-    private $inputTargetNote!: JQuery<HTMLElement>;
     private $inputNumberPrecision!: JQuery<HTMLElement>;
     private $rowMultiplicity!: JQuery<HTMLElement>;
     private $rowLabelType!: JQuery<HTMLElement>;
     private $rowNumberPrecision!: JQuery<HTMLElement>;
     private $rowInverseRelation!: JQuery<HTMLElement>;
-    private $rowTargetNote!: JQuery<HTMLElement>;
     private $rowPromotedAlias!: JQuery<HTMLElement>;
     private $attrIsOwnedBy!: JQuery<HTMLElement>;
     private $attrHelp!: JQuery<HTMLElement>;
@@ -143,21 +131,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
             }
         });
 
-        this.$rowTargetNote = this.$widget.find(".attr-row-target-note");
-        this.$inputTargetNote = this.$widget.find(".attr-input-target-note");
-
-        noteAutocompleteService.initNoteAutocomplete(this.$inputTargetNote, { allowCreatingNotes: true }).on("autocomplete:noteselected", (event, suggestion, dataset) => {
-            if (!suggestion.notePath) {
-                return false;
-            }
-
-            const pathChunks = suggestion.notePath.split("/");
-
-            this.attribute.value = pathChunks[pathChunks.length - 1]; // noteId
-
-            this.triggerCommand("updateAttributeList", { attributes: this.allAttributes ?? [] });
-        });
-
         this.$attrIsOwnedBy = this.$widget.find(".attr-is-owned-by");
 
         this.$attrHelp = this.$widget.find(".attr-help");
@@ -184,8 +157,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
 
         const disabledFn = () => (!isOwned ? "true" : undefined);
 
-        this.$rowTargetNote.toggle(this.attrType === "relation");
-
         this.$rowPromoted.toggle(["label-definition", "relation-definition"].includes(this.attrType || ""));
         this.$inputPromoted.prop("checked", !!definition.isPromoted).attr("disabled", disabledFn);
 
@@ -203,18 +174,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
 
         this.$rowInverseRelation.toggle(this.attrType === "relation-definition");
         this.$inputInverseRelation.val(definition.inverseRelation || "").attr("disabled", disabledFn);
-
-        if (attribute.type === "relation") {
-            this.$inputTargetNote.attr("readonly", disabledFn).val("").setSelectedNotePath("");
-
-            if (attribute.value) {
-                const targetNote = await froca.getNote(attribute.value);
-
-                if (targetNote) {
-                    this.$inputTargetNote.val(targetNote ? targetNote.title : "").setSelectedNotePath(attribute.value);
-                }
-            }
-        }
 
         this.updateHelp();
 
@@ -268,8 +227,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
     updateAttributeInEditor() {
         if (this.attrType?.endsWith("-definition")) {
             this.attribute.value = this.buildDefinitionValue();
-        } else if (this.attrType === "relation") {
-            this.attribute.value = this.$inputTargetNote.getSelectedNoteId() || "";
         }
 
         this.triggerCommand("updateAttributeList", { attributes: this.allAttributes ?? [] });
