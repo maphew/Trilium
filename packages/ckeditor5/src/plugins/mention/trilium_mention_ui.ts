@@ -57,8 +57,10 @@ export default class TriliumMentionUI extends Plugin {
     private _patterns: Pattern[] = [];
 
     private _balloon?: ContextualBalloon;
-    private _lastRequestedQuery?: string;
     private _feedTimer?: ReturnType<typeof setTimeout>;
+
+    /** Monotonic id of the most recently *started* feed request; see {@link _requestFeed}. */
+    private _requestId = 0;
 
     /**
      * Where the marker of the panel the user dismissed with Escape sits, or `null` when nothing is
@@ -119,6 +121,10 @@ export default class TriliumMentionUI extends Plugin {
 
     private get _isVisible() {
         return this._balloon?.visibleView === this._view;
+    }
+
+    private _isCurrentRequest(requestId: number) {
+        return this._requestId === requestId;
     }
 
     /**
@@ -250,12 +256,12 @@ export default class TriliumMentionUI extends Plugin {
             }
         });
 
-        this._lastRequestedQuery = query;
+        const requestId = ++this._requestId;
         clearTimeout(this._feedTimer);
-        this._feedTimer = setTimeout(() => void this._requestFeed(feed, query), FEED_DEBOUNCE_MS);
+        this._feedTimer = setTimeout(() => void this._requestFeed(feed, query, requestId), FEED_DEBOUNCE_MS);
     }
 
-    private async _requestFeed(feed: TriliumMentionFeed, query: string) {
+    private async _requestFeed(feed: TriliumMentionFeed, query: string, requestId: number) {
         let items: Array<MentionFeedObjectItem | string>;
 
         try {
@@ -263,13 +269,21 @@ export default class TriliumMentionUI extends Plugin {
                 ? await feed.feed.call(this.editor, query)
                 : feed.feed.filter((item) => String(typeof item === "object" ? item.id : item).toLowerCase().includes(query.toLowerCase()));
         } catch {
-            this._hide();
+            // Only the request still in flight may act on a failure. Debouncing bounds how many
+            // requests are *started*, not how many are outstanding, so an earlier one rejecting
+            // must not tear down the panel a later one has since populated.
+            if (this._isCurrentRequest(requestId)) {
+                this._hide();
+            }
             return;
         }
 
         // Drop out-of-order responses, and responses that arrived after the panel was dismissed or
-        // the marker went away.
-        if (this._lastRequestedQuery !== query || !this.editor.model.markers.has(MARKER_NAME)) {
+        // the marker went away. Correlating on the request rather than the query text matters when
+        // the same text is retyped, or typed under a different marker: `#al` and `~al` produce equal
+        // queries but different feeds, and the stale one would otherwise fill the panel with the
+        // wrong suggestions.
+        if (!this._isCurrentRequest(requestId) || !this.editor.model.markers.has(MARKER_NAME)) {
             return;
         }
 

@@ -423,6 +423,55 @@ describe("TriliumMentionUI", () => {
             pressKey(keyCodes.enter);
             expect(getModelData(editor.model, { withoutSelection: true })).toContain("#alpha");
         });
+
+        it("discards a stale response even when the newer request has the same query text", async () => {
+            const resolvers: Array<(items: MentionFeedObjectItem[]) => void> = [];
+            await createEditor({
+                feed: (() => new Promise((resolve) => resolvers.push(resolve))) as unknown as TriliumMentionFeed["feed"]
+            });
+            setModelData(editor.model, "<paragraph>[]</paragraph>");
+
+            // Same query typed twice, so correlating on the text alone cannot tell them apart.
+            type("#al");
+            await settle();
+            editor.model.change((writer) => writer.remove(editor.model.createRangeIn(editor.model.document.getRoot()?.getChild(0) as never)));
+            type("#al");
+            await settle();
+
+            resolvers[1]?.([ { id: "#fresh", text: "#fresh" } ]);
+            resolvers[0]?.([ { id: "#stale", text: "#stale" } ]);
+            await settle();
+
+            pressKey(keyCodes.enter);
+            const data = getModelData(editor.model, { withoutSelection: true });
+            expect(data).toContain("#fresh");
+            expect(data).not.toContain("#stale");
+        });
+
+        it("does not let an earlier request's rejection close the panel a later one opened", async () => {
+            let rejectFirst: (reason: Error) => void = () => {};
+            let call = 0;
+            await createEditor({
+                feed: (() => {
+                    if (call++ === 0) {
+                        return new Promise((_resolve, reject) => { rejectFirst = reject; });
+                    }
+                    return Promise.resolve([ { id: "#alpha", text: "#alpha" } ]);
+                }) as unknown as TriliumMentionFeed["feed"]
+            });
+            setModelData(editor.model, "<paragraph>[]</paragraph>");
+
+            type("#a");
+            await settle();
+            type("l");
+            await settle();
+            expect(isPanelVisible()).toBe(true);
+
+            rejectFirst(new Error("boom"));
+            await settle();
+
+            expect(isPanelVisible()).toBe(true);
+        });
     });
 
     it("does not re-trigger inside an existing mention", async () => {

@@ -21,8 +21,6 @@ import { registerMentionFeed } from "./register_feed.js";
 
 export const SLASH_MARKER = "/";
 
-const DROPDOWN_LIMIT = 10;
-
 /**
  * One entry of the `/` palette. Structurally the same shape premium `SlashCommand` accepted, so the
  * definitions in `extra_slash_commands.ts` carry over unchanged.
@@ -40,11 +38,19 @@ export interface SlashCommandDefinition {
     commandName?: string;
     /** Runs instead of `commandName`, for entries that need arguments or open a UI. */
     execute?: (editor: Editor) => void;
+    /**
+     * Whether the entry applies to the current selection. Defaults to the `isEnabled` of
+     * {@link commandName}; entries that only provide {@link execute} are always offered unless they
+     * define this. Mirrors premium's `_proxyIsEnabled`.
+     */
+    isEnabled?: (editor: Editor) => boolean;
 }
 
 export interface SlashCommandConfig {
     extraCommands?: SlashCommandDefinition[];
     removeCommands?: string[];
+    /** How many entries the palette shows at once. Unlimited by default, as premium's was. */
+    dropdownLimit?: number;
 }
 
 /**
@@ -74,7 +80,9 @@ export default class TriliumSlashCommands extends Plugin {
             marker: SLASH_MARKER,
             // A bare `/` opens the full palette, as the premium plugin did.
             minimumCharacters: 0,
-            dropdownLimit: DROPDOWN_LIMIT,
+            // Premium defaulted this to `Infinity` and let the panel scroll. Capping it would hide
+            // entries the user cannot then reach, since the query only narrows the list.
+            dropdownLimit: (editor.config.get("slashCommand.dropdownLimit") as number | undefined) ?? Infinity,
             feed: (query: string) => matchSlashCommands(this._catalog(), query).map(toFeedItem),
             itemRenderer: (item) => renderRow(item as SlashCommandItem),
             commit: (editorInstance, item) => runSlashCommand(editorInstance, (item as SlashCommandItem).definition)
@@ -82,8 +90,9 @@ export default class TriliumSlashCommands extends Plugin {
     }
 
     /**
-     * The definitions available in *this* editor: the built-in palette plus the configured extras,
-     * minus anything `removeCommands` names and anything whose command is not loaded.
+     * The definitions available in *this* editor right now: the built-in palette plus the configured
+     * extras, minus anything `removeCommands` names and anything that does not apply to the current
+     * selection.
      */
     private _catalog(): SlashCommandDefinition[] {
         const editor = this.editor;
@@ -92,11 +101,29 @@ export default class TriliumSlashCommands extends Plugin {
 
         return [ ...buildDefaultSlashCommands(editor), ...(config.extraCommands ?? []) ]
             .filter((definition) => !removed.has(definition.id))
-            // An entry naming a command no plugin registered would throw on execute. Entries with
-            // their own `execute` are the caller's responsibility, exactly as upstream treated
-            // `extraCommands`.
-            .filter((definition) => !definition.commandName || !!editor.commands.get(definition.commandName));
+            .filter((definition) => isSlashCommandEnabled(editor, definition));
     }
+}
+
+/**
+ * Whether an entry should be offered for the caret's current position.
+ *
+ * Existence of the command is not enough: a registered but disabled command (`indent` in a plain
+ * paragraph, say) makes `editor.execute()` a no-op, and since committing an entry first deletes the
+ * `/query` the user would lose what they typed and get nothing back. Premium evaluated the same
+ * predicate on every keystroke in `getMatchingCommands()`, so entries appear and disappear as the
+ * selection moves.
+ */
+function isSlashCommandEnabled(editor: Editor, definition: SlashCommandDefinition): boolean {
+    if (definition.isEnabled) {
+        return definition.isEnabled(editor);
+    }
+
+    if (!definition.commandName) {
+        return true;
+    }
+
+    return editor.commands.get(definition.commandName)?.isEnabled ?? false;
 }
 
 type SlashCommandItem = MentionFeedObjectItem & { definition: SlashCommandDefinition };

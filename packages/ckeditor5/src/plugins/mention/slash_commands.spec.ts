@@ -129,6 +129,14 @@ describe("TriliumSlashCommands", () => {
         expect(slashFeed().minimumCharacters).toBe(0);
     });
 
+    it("shows the palette unbounded by default, since the query only ever narrows it", async () => {
+        // Premium defaulted to `Infinity`; a cap would hide entries no query could then reach.
+        expect(slashFeed().dropdownLimit).toBe(Infinity);
+
+        await createEditor({ dropdownLimit: 3 });
+        expect(slashFeed().dropdownLimit).toBe(3);
+    });
+
     describe("catalog", () => {
         it("derives heading entries from heading.options, so the palette matches the configured levels", () => {
             const defaults = buildDefaultSlashCommands(editor).map((definition) => definition.id);
@@ -177,6 +185,37 @@ describe("TriliumSlashCommands", () => {
             expect(ids).not.toContain("/blockQuote");
             expect(ids).not.toContain("/heading3");
             expect(ids).toContain("/heading2");
+        });
+
+        it("hides an entry whose command is registered but disabled for the current selection", async () => {
+            const blockQuote = editor.commands.get("blockQuote");
+
+            if (!blockQuote) {
+                throw new Error("the editor should register the blockQuote command");
+            }
+
+            expect((await queryPalette("")).map((item) => (item as { id: string }).id)).toContain("/blockQuote");
+
+            // Committing an entry first deletes the `/query`, so an entry whose command would no-op
+            // costs the user their input and returns nothing.
+            blockQuote.forceDisabled("spec");
+            expect((await queryPalette("")).map((item) => (item as { id: string }).id)).not.toContain("/blockQuote");
+
+            blockQuote.clearForceDisabled("spec");
+            expect((await queryPalette("")).map((item) => (item as { id: string }).id)).toContain("/blockQuote");
+        });
+
+        it("honours an entry's own isEnabled predicate, which is the only gate an execute-only entry has", async () => {
+            const isEnabled = vi.fn(() => false);
+            await createEditor({
+                extraCommands: [ { id: "custom", title: "Custom thing", icon: "<svg/>", execute: () => {}, isEnabled } ]
+            });
+
+            expect((await queryPalette("")).map((item) => (item as { id: string }).id)).not.toContain("/custom");
+            expect(isEnabled).toHaveBeenCalledWith(editor);
+
+            isEnabled.mockReturnValue(true);
+            expect((await queryPalette("")).map((item) => (item as { id: string }).id)).toContain("/custom");
         });
 
         it("appends extraCommands after the defaults, without gating them on a command", async () => {
