@@ -837,9 +837,7 @@
     "tooltip": "Se selezioni questa opzione, Trilium tenterà di ridurre le immagini caricate tramite ridimensionamento e ottimizzazione, il che potrebbe influire sulla qualità percepita delle immagini. Se non selezionata, le immagini verranno caricate senza modifiche."
   },
   "attribute_detail": {
-    "attr_detail_title": "Titolo dettagli attributo",
     "close_button_title": "Annulla modifiche e chiudi",
-    "attr_is_owned_by": "L'attributo è di proprietà di",
     "attr_name_title": "Il nome dell'attributo può essere composto solo da caratteri alfanumerici, due punti e trattino basso",
     "name": "Nome",
     "app_theme_base": "impostare su \"next\", \"next-light\" o \"next-dark\" per utilizzare il tema TriliumNext corrispondente (automatico, chiaro o scuro) come base per un tema personalizzato, invece di quello precedente.",
@@ -882,7 +880,6 @@
     "inheritable": "Ereditabile",
     "inverse_relation": "Relazione inversa",
     "inheritable_title": "L'attributo ereditario verrà ereditato da tutti i discendenti sotto questo albero.",
-    "save_and_close": "Salva e chiudi <kbd>Ctrl+Enter</kbd>",
     "delete": "Eliminazione",
     "related_notes_title": "Altre note con questa etichetta",
     "more_notes": "Altre note",

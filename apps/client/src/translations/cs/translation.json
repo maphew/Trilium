@@ -282,9 +282,7 @@
     "tooltip": "Pokud tuto možnost zaškrtnete, Trilium se pokusí zmenšit nahrané obrázky škálováním a optimalizací, což může ovlivnit vnímanou kvalitu obrazu. Pokud není zaškrtnuta, obrázky budou nahrány beze změn."
   },
   "attribute_detail": {
-    "attr_detail_title": "Detail Atributu",
     "close_button_title": "Zrušit změny a zavřít",
-    "attr_is_owned_by": "Atribut je vlastněn",
     "attr_name_title": "Název atributu může obsahovat pouze alfanumerické znaky, dvojtečku a podtržítko",
     "name": "Název",
     "value": "Hodnota",
@@ -315,7 +313,6 @@
     "inverse_relation": "Inverzní vazba",
     "inheritable_title": "Dědičný atribut bude zděděn všemi potomky pod tímto stromem.",
     "inheritable": "Dědičný",
-    "save_and_close": "Uložit & zavřít <kbd>Ctrl+Enter</kbd>",
     "delete": "Smazat",
     "related_notes_title": "Další poznámky s tímto štítkem",
     "more_notes": "Další poznámky",

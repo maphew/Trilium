@@ -312,9 +312,7 @@
     "tooltip": "Si marca esta opción, Trilium intentará reducir las imágenes cargadas mediante escalado y optimización, lo que puede afectar la calidad de la imagen percibida. Si no está marcada, las imágenes se cargarán sin cambios."
   },
   "attribute_detail": {
-    "attr_detail_title": "Título del detalle del atributo",
     "close_button_title": "Cancelar cambios y cerrar",
-    "attr_is_owned_by": "El atributo es propiedad de",
     "attr_name_title": "El nombre del atributo solo puede estar compuesto de caracteres alfanuméricos, dos puntos y guión bajo",
     "name": "Nombre",
     "value": "Valor",
@@ -344,7 +342,6 @@
     "inverse_relation": "Relación inversa",
     "inheritable_title": "El atributo heredable se heredará a todos los descendientes de este árbol.",
     "inheritable": "Heredable",
-    "save_and_close": "Guardar y cerrar <kbd>Ctrl+Enter</kbd>",
     "delete": "Eliminar",
     "related_notes_title": "Otras notas con esta etiqueta",
     "more_notes": "Más notas",

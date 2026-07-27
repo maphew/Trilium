@@ -351,9 +351,7 @@
     "tooltip": "如果您勾選此選項，Trilium 將嘗試透過縮放和最佳化來縮小上傳的圖片，這可能會影響圖片的觀看品質。如果未勾選，則將不進行修改直接上傳圖片。"
   },
   "attribute_detail": {
-    "attr_detail_title": "屬性內容標題",
     "close_button_title": "取消修改並關閉",
-    "attr_is_owned_by": "屬性所有者",
     "attr_name_title": "屬性名稱只能由字母、數字、冒號和下劃線組成",
     "name": "名稱",
     "value": "值",
@@ -383,7 +381,6 @@
     "inverse_relation": "反向關聯",
     "inheritable_title": "可繼承屬性將被繼承至此樹下的所有後代。",
     "inheritable": "可繼承",
-    "save_and_close": "儲存並關閉 <kbd>Ctrl+Enter</kbd>",
     "delete": "刪除",
     "related_notes_title": "含有此標籤的其他筆記",
     "more_notes": "更多筆記",

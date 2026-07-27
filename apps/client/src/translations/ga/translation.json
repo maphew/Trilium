@@ -386,9 +386,7 @@
     "tooltip": "Má roghnaíonn tú an rogha seo, déanfaidh Trilium iarracht na híomhánna uaslódáilte a chrapadh trí scálú agus uasmhéadú a d'fhéadfadh difear a dhéanamh don cháilíocht íomhá a bhraitear. Mura roghnaítear é, uaslódáilfear na híomhánna gan aon athruithe."
   },
   "attribute_detail": {
-    "attr_detail_title": "Teideal Sonraí Tréithe",
     "close_button_title": "Cealaigh athruithe agus dún",
-    "attr_is_owned_by": "Is leis an tréith",
     "attr_name_title": "Ní féidir ach carachtair alfa-uimhriúla, colon agus fo-líne a úsáid in ainm na tréithe",
     "name": "Ainm",
     "value": "Luach",
@@ -418,7 +416,6 @@
     "inverse_relation": "Gaol inbhéartach",
     "inheritable_title": "Déanfar tréith oidhreachtúil a oidhreachtú chuig gach sliocht faoin gcrann seo.",
     "inheritable": "Oidhreachtúil",
-    "save_and_close": "Sábháil & dún <kbd>Ctrl+Enter</kbd>",
     "delete": "Scrios",
     "related_notes_title": "Nótaí eile leis an lipéad seo",
     "more_notes": "Tuilleadh nótaí",
