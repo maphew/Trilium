@@ -45,7 +45,7 @@
     },
     "widget-missing-parent": "自定义小部件未定义强制性的 \"{{property}}\" 属性。\n\n如果此脚本需要在没有 UI 元素的情况下运行，请改用“#run=frontendStartup”。",
     "open-script-note": "打开脚本笔记",
-    "scripting-error": "自定义脚本错误：{{title}}"
+    "scripting-error": "脚本笔记运行失败"
   },
   "add_link": {
     "add_link": "添加链接",
@@ -350,9 +350,7 @@
     "tooltip": "如果你勾选此选项，Trilium 将尝试通过缩放和优化来缩小上传的图像，这可能会影响感知的图像质量。如果未选中，则将以不进行修改的方式上传图像。"
   },
   "attribute_detail": {
-    "attr_detail_title": "属性详情标题",
     "close_button_title": "取消修改并关闭",
-    "attr_is_owned_by": "属性所有者",
     "attr_name_title": "属性名称只能由字母数字字符、冒号和下划线组成",
     "name": "名称",
     "value": "值",
@@ -382,7 +380,6 @@
     "inverse_relation": "反向关系",
     "inheritable_title": "可继承属性将被继承到此树下的所有后代。",
     "inheritable": "可继承",
-    "save_and_close": "保存并关闭 <kbd>Ctrl+回车</kbd>",
     "delete": "删除",
     "related_notes_title": "含有此标签的其他笔记",
     "more_notes": "更多笔记",
@@ -1572,7 +1569,8 @@
     "oauth_disconnected": "已断开{{account}}与{{provider}}的连接。",
     "oauth_connect_success": "已以 {{account}} 身份连接到 {{provider}}。",
     "oauth_connect_success_generic": "账户连接成功。",
-    "oauth_account_unknown": "你的账户"
+    "oauth_account_unknown": "你的账户",
+    "oauth_connect_failed": "无法连接到 OpenID 提供商"
   },
   "shortcuts": {
     "keyboard_shortcuts": "快捷键",
@@ -1688,7 +1686,7 @@
     "apply-bulk-actions": "应用批量操作",
     "converted-to-attachments_other": "{{count}} 个笔记已被转换为附件。",
     "convert-to-attachment-confirm": "确定要将选中的笔记转换为其父笔记的附件吗？此操作仅适用于图像笔记，其他笔记将被跳过。",
-    "duplicate": "复制",
+    "duplicate": "创建子树副本",
     "open-in-popup": "快速编辑",
     "archive": "归档",
     "unarchive": "解压",
@@ -1903,7 +1901,12 @@
   },
   "frontend_script_api": {
     "async_warning": "你正在将一个异步函数传递给 `api.runOnBackend()`，这可能无法按预期工作。\\n要么使该函数同步（通过移除 `async` 关键字），要么使用 `api.runAsyncOnBackendWithManualTransactionHandling()`。",
-    "sync_warning": "你正在将一个同步函数传递给 `api.runAsyncOnBackendWithManualTransactionHandling()`，\\n而你可能应该使用 `api.runOnBackend()`。"
+    "sync_warning": "你正在将一个同步函数传递给 `api.runAsyncOnBackendWithManualTransactionHandling()`，\\n而你可能应该使用 `api.runOnBackend()`。",
+    "backend_scripting_disabled_title": "后端脚本已禁用",
+    "backend_scripting_disabled_message": "某个脚本尝试在服务器上运行代码，但出于安全原因后端脚本功能已关闭。如果你信任此脚本，请在「选项 → 安全」中启用。",
+    "backend_scripting_disabled_notes_heading": "尝试运行后端代码的脚本：",
+    "backend_scripting_disabled_open_settings": "打开安全设置",
+    "backend_scripting_disabled_more_info": "更多信息"
   },
   "ws": {
     "sync-check-failed": "同步检查失败！",
@@ -2117,7 +2120,9 @@
     "slash_commands_enabled": "斜杠命令",
     "slash_commands_description": "可以经由输入 `/` 来触发命令，如插入换行符或标题。",
     "content_hints_enabled": "内容提示",
-    "content_hints_description": "在编辑器底部角落显示简短提示，说明如何操作光标或指针指向的元素。"
+    "content_hints_description": "在编辑器底部角落显示简短提示，说明如何操作光标或指针指向的元素。",
+    "auto_link_previews_enabled": "自动生成链接预览",
+    "auto_link_previews_description": "自动将检测到的链接转换为预览，显示网页的标题、描述和图片。从工具栏插入预览始终有效，不受此设置影响。"
   },
   "table_view": {
     "new-row": "新增行",
@@ -2235,7 +2240,9 @@
     "enable-shadows": "阴影",
     "enable-backdrop-effects": "菜单、弹窗和面板的背景效果",
     "enable-smooth-scroll": "平滑滚动",
-    "app-restart-required": "需要重启应用"
+    "app-restart-required": "需要重启应用",
+    "enable-hardware-acceleration": "硬件加速（GPU）",
+    "enable-hardware-acceleration-description": "如果应用显示空白窗口或出现 GPU 驱动导致的显示异常，请禁用此选项。修改后需要重启应用。"
   },
   "pagination": {
     "total_notes_other": "{{count}} 篇笔记",
@@ -2395,7 +2402,10 @@
     "setup_create_sample_html": "使用 HTML 建立范例笔记",
     "setup_sample_created": "已建立一个范例笔记作为子笔记。",
     "disabled_description": "此渲染笔记来自外部来源。为保护你免受恶意内容侵害，该功能默认处于禁用状态。启用前请确保你信任该来源。",
-    "disabled_button_enable": "启用渲染笔记"
+    "disabled_button_enable": "启用渲染笔记",
+    "error_title": "脚本笔记运行失败",
+    "error_show_details": "显示详情",
+    "error_note_label": "脚本笔记："
   },
   "active_content_badges": {
     "type_icon_pack": "图标包",
@@ -2426,16 +2436,16 @@
     "more_info": "了解更多"
   },
   "media": {
-    "play": "播放（空格）",
-    "pause": "暂停（空格）",
-    "back-10s": "后退10秒（左箭头键）",
-    "mute": "静音（M）",
-    "unmute": "取消静音（M）",
+    "play": "播放",
+    "pause": "暂停",
+    "back-10s": "后退10秒",
+    "mute": "静音",
+    "unmute": "取消静音",
     "playback-speed": "播放速度",
     "rotate": "旋转",
     "picture-in-picture": "画中画",
     "exit-picture-in-picture": "退出画中画",
-    "fullscreen": "全屏（F）",
+    "fullscreen": "全屏",
     "exit-fullscreen": "退出全屏",
     "unsupported-format": "此文件格式不支持媒体预览：\n{{mime}}",
     "zoom-to-fit": "缩放以填充",
@@ -2444,13 +2454,26 @@
     "next-video": "下一个视频：{{- title}}",
     "previous-audio": "上一个音频：{{- title}}",
     "next-audio": "下一个音频：{{- title}}",
-    "seek": "定位（左/右箭头键）",
+    "seek": "定位",
     "play-mode-title": "播放模式：{{mode}}",
     "play-mode-once": "单次播放",
     "play-mode-loop": "循环播放",
     "play-mode-next": "播放下一个",
-    "forward-10s": "快进10秒（右方向键）",
-    "activate": "播放 {{- title}}"
+    "forward-10s": "快进10秒",
+    "activate": "播放 {{- title}}",
+    "hints": {
+      "playback": "回放",
+      "play_pause": "播放/暂停",
+      "back_10s": "后退 10 秒",
+      "forward_10s": "快进 10 秒",
+      "jump_start": "跳转到开头",
+      "jump_end": "跳转到结尾",
+      "mute": "静音",
+      "fullscreen": "全屏",
+      "navigation": "导航",
+      "previous": "上一个",
+      "next": "下一个"
+    }
   },
   "mermaid": {
     "sample_diagrams": "示例图：",
@@ -2496,7 +2519,6 @@
     "web_search": "联网搜索",
     "sources": "来源",
     "extended_thinking": "延伸思考",
-    "legacy_models": "传统模型",
     "thinking": "正在思考...",
     "thought_process": "思考过程",
     "tool_calls": "{{count}} 次工具调用",
@@ -2545,7 +2567,12 @@
     "save_note_failed": "从消息创建笔记失败。",
     "regenerate": "重新生成",
     "delete_message": "删除消息",
-    "delete_message_confirm": "删除这条消息吗？此操作无法撤销。"
+    "delete_message_confirm": "删除这条消息吗？此操作无法撤销。",
+    "model_cost_included": "订阅",
+    "no_models_selected": "未选择模型 — 点击铅笔图标进行选择",
+    "no_model_selected": "选择一个模型",
+    "edit_models": "编辑模型",
+    "free": "免费"
   },
   "sidebar_chat": {
     "title": "AI对话",
@@ -2603,18 +2630,16 @@
     "configured_providers": "已配置的提供商",
     "no_providers_configured": "尚未配置任何提供商。",
     "provider_name": "名称",
-    "provider_type": "提供商",
     "actions": "操作",
     "delete_provider": "删除",
     "delete_provider_confirmation": "确定要删除提供商 \"{{name}}\"?",
     "api_key": "API 密钥",
     "api_key_placeholder": "输入你的 API 密钥",
-    "cancel": "取消",
     "mcp_title": "MCP（模型上下文协议）",
     "mcp_enabled": "MCP 服务器",
-    "mcp_enabled_description": "对外暴露一个模型上下文协议（MCP）端点，让 AI 编程助手（如 Claude Code、GitHub Copilot）能够读取和修改你的笔记。该端点仅限本地访问。",
+    "mcp_enabled_description": "对外暴露一个模型上下文协议（MCP）端点，让 AI 编程助手（如 Claude Code、GitHub Copilot）能够读取和修改你的笔记。每个请求都必须通过 ETAPI 令牌进行身份验证。",
     "mcp_endpoint_title": "端点 URL",
-    "mcp_endpoint_description": "将此 URL 添加到你的 AI 助手的 MCP 配置中",
+    "mcp_endpoint_description": "将以下任一 URL 添加到你的 AI 助手的 MCP 配置中，传输方式选择 HTTP（streamable），不要用 SSE。",
     "tools": {
       "search_notes": "搜索笔记",
       "get_note": "获取笔记",
@@ -2639,13 +2664,57 @@
       "clone_note": "克隆笔记",
       "set_note_content": "重写笔记",
       "edit_note_content": "编辑笔记",
-      "search_icons": "搜索图标"
+      "search_icons": "搜索图标",
+      "search_help": "搜索用户指南",
+      "get_help_toc": "获取用户指南内容"
     },
     "base_url": "基础 URL",
-    "base_url_description": "可选。覆盖默认的API端点——适用于自托管模型（如Ollama、LM Studio、vLLM）或代理服务器。",
+    "base_url_description": "可选。通过代理或网关访问同一 API。要自行运行模型，请改为添加 Ollama 或 LM Studio 提供商。",
     "base_url_invalid": "基础 URL 必须以 http:// 或 https:// 开头",
     "disabled_placeholder": "AI 功能已关闭。开启后才能配置提供商和 MCP。",
-    "not_available_in_standalone": "AI/LLM 功能在 Trilium 独立版中不可用，因为 LLM 提供商不允许从浏览器直接访问。"
+    "not_available_in_standalone": "AI/LLM 功能在 Trilium 独立版中不可用，因为 LLM 提供商不允许从浏览器直接访问。",
+    "edit_provider_title": "编辑 {{- name}}",
+    "edit_provider": "编辑",
+    "save": "保存",
+    "select_models": "选择模型",
+    "models_loading": "正在加载模型…",
+    "models_load_failed": "无法加载模型：{{error}}",
+    "models_none_available": "此提供商未返回任何模型。",
+    "models_selected_count": "已选择 {{count}} / {{total}}",
+    "model_cost_per_mtok": "每百万 Token：输入 ${{input}} / 输出 ${{output}}",
+    "models_select_all": "全选",
+    "models_select_none": "全部取消选择",
+    "models_reset_defaults": "重置为默认值",
+    "provider_model_count_other": "{{count}} 个模型",
+    "beta": "测试版",
+    "provider_desc_claude_agent": "需要在运行 Trilium 的机器上安装 Claude Code。",
+    "claude_agent_description": "通过 Claude Code 使用你的 Claude Pro/Max 订阅，因此无需 API 密钥。Claude Code 必须安装在运行 Trilium 的机器上（自托管时为服务器，桌面版为本机）；在该机器上运行「claude /login」登录一次即可。",
+    "add_provider_title_named": "添加 {{- name}}",
+    "provider_group_cloud": "云提供商",
+    "provider_group_cloud_description": "使用 API 密钥按量付费，与你已有的订阅分开计费。你的笔记将被发送到提供商的服务器。",
+    "provider_group_subscription": "订阅",
+    "provider_group_subscription_description": "复用你已有的订阅，无需额外费用。你的笔记将被发送到提供商的服务器。",
+    "provider_group_local": "本地 / 自托管",
+    "provider_group_local_description": "无需 API 密钥，无使用成本。你的笔记仅到达运行模型的机器。",
+    "provider_group_custom": "自定义端点",
+    "provider_group_custom_description": "任何兼容 OpenAI 的 API，无论是本地托管还是远程服务（OpenRouter、Groq、Mistral）。费用和隐私取决于你所指向的端点。",
+    "provider_openai_compatible": "兼容 OpenAI",
+    "provider_desc_openai_compatible": "将 Trilium 指向任何支持 OpenAI API 的端点。",
+    "api_key_optional_description": "可选。仅当你的端点位于需要身份验证的代理或网关之后时才需要。",
+    "setup_hint_ollama": "Ollama 必须在此地址上运行 — 如果尚未启动，请用 <Code>ollama serve</Code> 命令启动。",
+    "setup_hint_lmstudio": "在 LM Studio 的「开发者」选项卡下启动服务器，然后检查其中显示的端口是否与此地址匹配。",
+    "setup_hint_openai_compatible": "兼容 OpenAI 的 API 基础 URL，通常以 <Code>/v1</Code> 结尾。",
+    "troubleshoot_server_running": "服务是否在你期望的机器上运行？",
+    "troubleshoot_port": "URL 中的端口是否与服务器报告的端口一致？",
+    "troubleshoot_remote": "如果服务器在另一台机器上，是否已配置为接受来自网络的连接，而不仅仅是本地连接？",
+    "mcp_endpoint_this_device": "本设备",
+    "mcp_endpoint_network": "对外",
+    "mcp_endpoint_loopback_only": "Trilium 仅在本地监听，因此其他设备无法访问此端点。",
+    "mcp_config_title": "如何连接助手",
+    "mcp_config_description": "在「选项 → ETAPI」下创建一个令牌，然后将以下内容添加到助手的 MCP 配置中，将占位符替换为你的令牌：",
+    "mcp_config_token_placeholder": "你的-etapi-令牌",
+    "mcp_config_cli_description": "Claude Code 也可以通过命令行配置：",
+    "mcp_config_warning": "令牌拥有对你所有笔记的完全读写权限，请像对待密码一样对待它。如果从其他设备连接，请优先使用 HTTPS — 通过明文 HTTP 发送的令牌可能被截获。"
   },
   "revisions": {
     "note_revisions": "笔记修订",
@@ -2843,7 +2912,7 @@
     "create-new-document-options-empty-description": "从一个空白知识库开始。你可以稍后导入演示笔记。",
     "create-new-document-title": "正在准备你的知识库",
     "create-new-document-description": "稍等片刻即可。",
-    "sync-illustration-this-device": "此设备",
+    "sync-illustration-this-device": "本地",
     "sync-illustration-desktop-app": "你的桌面应用",
     "sync-illustration-server": "你的服务器",
     "sync-from-desktop-step1": "打开你桌面端的 Trilium Notes。",
@@ -2854,7 +2923,7 @@
     "sync-from-desktop-warning": "请确保两台设备处于同一网络。",
     "sync-from-desktop-waiting": "正在等待连接…",
     "advanced-options": "高级选项",
-    "sync-failed": "同步失败：{{message}}",
+    "sync-failed": "同步失败： {{- message}}",
     "server-host": "Trilium 服务器地址",
     "server-host-placeholder": "https://<hostname>:<port>",
     "server-password": "密码",
@@ -2868,13 +2937,17 @@
     "your-ip-addresses": "此设备的地址",
     "sync-from-desktop-unreachable-title": "其他设备无法访问此设备",
     "sync-from-desktop-unreachable-description": "要进行同步，另一台桌面设备需通过网络连接到此设备。出于安全考虑，此桌面应用仅接受来自本机的连接，因此另一台桌面设备尚无法访问。请在下方允许网络访问——Trilium 将重启以应用此设置。",
-    "sync-from-desktop-allow-access": "允许网络访问并重启"
+    "sync-from-desktop-allow-access": "允许网络访问并重启",
+    "sync-failed-title": "同步失败",
+    "sync-failed-description": "无法完成初始同步。你可以重试，或返回检查服务器地址和凭据。",
+    "sync-failed-admonition-title": "上次同步尝试失败",
+    "sync-failed-hint": "这可能是由于服务器地址错误、代理干扰连接或服务器暂时无法访问导致的。",
+    "button-retry": "重试"
   },
   "text-editor": {
     "checkbox-tooltip": "单击右键或按下 {{- shortcut}} 修改状态。",
     "edit-states-tooltip": "编辑任务状态",
     "unknown-task-state": "未定义的自定义任务状态",
-    "task-state-dropped": "自定义任务状态定义“{{title}}”({{id}}) 因以下原因被丢弃：{{reason}}",
     "validation-errors": {
       "undefined-name": "未定义的标识符",
       "invalid-name": "无效的标识符",
@@ -2892,7 +2965,11 @@
     "collapsible-toggle-label": "切换可折叠块",
     "collapsible-tooltip": "点击箭头或按 {{- shortcut}} 键以折叠/展开。",
     "checkbox-tooltip-state-label": "任务状态：",
-    "checkbox-tooltip-state-unknown-suffix": "（缺少定义）"
+    "checkbox-tooltip-state-unknown-suffix": "（缺少定义）",
+    "task-state-dropped-title": "无效的任务状态",
+    "task-state-dropped-message_other": "{{count}}项自定义任务状态定义无效，已被忽略。",
+    "task-state-dropped-heading": "被忽略的定义：",
+    "task-state-dropped-configure": "配置任务状态"
   },
   "slash_commands": {
     "bulleted_list_description": "创建一个项目符号列表",
@@ -2923,7 +3000,24 @@
     "next": "下一张图片：{{- title}}"
   },
   "image_viewer": {
-    "loading_error": "图片加载出错。"
+    "loading_error": "图片加载出错。",
+    "hints": {
+      "zoom": "缩放",
+      "zoom_in": "放大",
+      "zoom_out": "缩小",
+      "reset_zoom": "重置缩放",
+      "pan": "平移",
+      "pan_up": "上",
+      "pan_down": "下",
+      "pan_left": "左",
+      "pan_right": "右",
+      "pan_fast": "快速平移",
+      "navigation": "导航",
+      "next_image": "下一张图片",
+      "previous_image": "上一张图片",
+      "first_image": "第一张图片",
+      "last_image": "最后一张图片"
+    }
   },
   "security": {
     "backend_scripting_title": "后端脚本",
@@ -2939,10 +3033,10 @@
     "server_env_hint": "或者设置以下环境变量：",
     "restart_required": "此更改需要重启才能生效。",
     "restart_now": "立即重启应用",
-    "lan_access_label": "允许来自其他设备的连接",
-    "lan_access_description": "将服务器绑定到所有网络接口，而不仅仅是本地主机。",
+    "lan_access_label": "允许浏览器和网络访问",
+    "lan_access_description": "通过 HTTP 提供应用、共享笔记和实时更新——可以从本机的浏览器以及网络中的其他设备访问。关闭时，仅保留本地集成功能（网页剪藏器、MCP、ETAPI）可访问。",
     "lan_access_title": "网络访问",
-    "lan_access_section_description": "默认情况下，桌面应用仅接受来自本机的连接。允许来自本地网络的访问，以便其他设备可以连接到本机应用 — 例如从另一台设备进行同步。请仅在你信任的网络中启用此功能。"
+    "lan_access_section_description": "桌面端为\"自包含\"（self-contained）应用：默认情况下，只有本机功能（网页剪藏器、MCP、ETAPI）可以访问它。启用此选项后，可以在浏览器中打开应用和共享笔记，也能让其他设备连接进来——例如从另一台设备同步数据。建议只在信任的网络中开启。"
   },
   "snippet_badge": {
     "label": "{{type}} 片段",
@@ -2968,8 +3062,12 @@
     "attach_source": "附加原始 HTML（debug）",
     "attach_source_hint": "将每个页面未经修改的 OneNote HTML 作为附件保存在导入后的笔记上，便于与转换结果进行对比。",
     "section_heading": "微软 OneNote",
-    "checking": "正在校验 OneNote 连接状态…",
-    "select_sections_hint": "OneNote导入数据不会保留原始排序，分区与分组将按创建日期排序，显示顺序可能与OneNote内原有布局不一致。"
+    "checking": "正在连接 OneNote…",
+    "select_sections_hint": "OneNote导入数据不会保留原始排序，分区与分组将按创建日期排序，显示顺序可能与OneNote内原有布局不一致。",
+    "device_instructions": "打开 Microsoft 登录页面并输入此代码：",
+    "device_open_page": "打开登录页面",
+    "device_cancel": "取消登录",
+    "import_count_other": "导入 {{count}} 个分区"
   },
   "notion_import": {
     "name": "Notion",
@@ -3024,7 +3122,7 @@
     "drop_or_browse_multiple": "将多个文件拖拽至此，或点击浏览选取文件",
     "browse_single": "点击选择文件",
     "browse_multiple": "点击选择多个文件",
-    "selected_other": "已选中 {{count}} 个文件"
+    "remove_file": "删除文件"
   },
   "anytype_import": {
     "name": "Anytype",
@@ -3096,7 +3194,8 @@
     "connection-error": "无法连接到服务器，请检查网络连接后重试。",
     "sign_in_with_sso": "使用 {{ssoIssuerName}} 登录",
     "sso-wrong-account": "该账户不是绑定到此 Trilium 实例的账户，请使用已绑定的账户登录。",
-    "sso-not-enrolled": "单点登录尚未设置。请先使用密码登录，然后在设置中绑定你的账户。"
+    "sso-not-enrolled": "单点登录尚未设置。请先使用密码登录，然后在设置中绑定你的账户。",
+    "sso-connection-failed": "无法访问认证提供商。请重试，或查看服务器日志了解详情。"
   },
   "set_password": {
     "heading": "设置密码",
@@ -3112,5 +3211,28 @@
     "minutes_other": "{{count}} 分钟",
     "hours_other": "{{count}} 小时",
     "days_other": "{{count}} 天"
+  },
+  "shortcut_hints": {
+    "show_button": "显示快捷键提示",
+    "esc_hint": "关闭"
+  },
+  "link_embed": {
+    "play_video": "播放视频",
+    "title": "链接预览",
+    "url": "URL",
+    "insert": "插入",
+    "display": "显示方式",
+    "mode_inline": "行内",
+    "mode_card": "卡片",
+    "mode_embed": "嵌入",
+    "mode_plain": "纯链接",
+    "edit_title": "编辑标题",
+    "title_label": "标题",
+    "save": "保存"
+  },
+  "wizard": {
+    "back": "返回",
+    "next": "下一步",
+    "step_progress": "第 {{current}} 步，共 {{total}} 步"
   }
 }

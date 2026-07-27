@@ -1,8 +1,39 @@
+import { Tooltip } from "bootstrap";
 import { render } from "preact";
+import { useRef } from "preact/hooks";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type DelayedVisibilityPhase, useDelayedVisibility } from "./hooks";
+import { type DelayedVisibilityPhase, useDelayedVisibility, useImperativeSearchHighlighlighting, useStaticTooltip } from "./hooks";
+
+/**
+ * mark.js delegating to the real implementation, so marking still works, while recording the calls
+ * `unmark()` receives — its DOM effect cannot be observed under happy-dom, where it removes nothing.
+ */
+const markSpies = vi.hoisted(() => ({ unmark: vi.fn() }));
+
+vi.mock("mark.js", async (importOriginal) => {
+    const actual = await importOriginal<{ default: new (ctx: unknown) => Record<string, (...args: unknown[]) => unknown> }>();
+
+    return {
+        default: class {
+            private inner: Record<string, (...args: unknown[]) => unknown>;
+
+            constructor(ctx: unknown) {
+                this.inner = new actual.default(ctx);
+            }
+
+            markRegExp(...args: unknown[]) {
+                return this.inner.markRegExp(...args);
+            }
+
+            unmark(...args: unknown[]) {
+                markSpies.unmark(...args);
+                return this.inner.unmark(...args);
+            }
+        }
+    };
+});
 
 let currentPhase: DelayedVisibilityPhase | undefined;
 
@@ -79,5 +110,144 @@ describe("useDelayedVisibility", () => {
         await show(false);
         await advance(0);
         expect(currentPhase).toBe("hidden");
+    });
+});
+
+describe("useStaticTooltip", () => {
+    let container: HTMLElement;
+
+    beforeEach(() => {
+        container = document.createElement("div");
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        render(null, container);
+        container.remove();
+        for (const orphan of document.querySelectorAll(".tooltip")) {
+            orphan.remove();
+        }
+    });
+
+    function TooltipHarness({ generation }: { generation: number }) {
+        const ref = useRef<HTMLSpanElement>(null);
+        // The inline config object gets a new identity on every render, so the hook's effect
+        // re-runs after each commit — mirroring SyncStatus, where the cleanup for the previous
+        // trigger element runs only after the keyed remount has already detached it.
+        useStaticTooltip(ref, { title: "Sync status", animation: false });
+        return <span key={generation} ref={ref} />;
+    }
+
+    it("removes a shown tooltip popup when the trigger element is remounted (#10567)", async () => {
+        await act(async () => render(<TooltipHarness generation={1} />, container));
+
+        const trigger = container.querySelector("span");
+        expect(trigger).not.toBeNull();
+        act(() => {
+            if (trigger) Tooltip.getInstance(trigger)?.show();
+        });
+        expect(document.querySelector(".tooltip")).not.toBeNull();
+
+        // Remount the trigger while its tooltip is shown — like a sync state change
+        // arriving while the user hovers the sync button.
+        await act(async () => render(<TooltipHarness generation={2} />, container));
+
+        expect(document.querySelector(".tooltip")).toBeNull();
+    });
+});
+
+describe("useImperativeSearchHighlighlighting", () => {
+    let container: HTMLElement;
+    let highlight: ((el: HTMLElement | null | undefined) => void) | undefined;
+
+    function Probe({ tokens }: { tokens: string[] | null | undefined }) {
+        highlight = useImperativeSearchHighlighlighting(tokens);
+        return null;
+    }
+
+    beforeEach(() => {
+        container = document.createElement("div");
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        render(null, container);
+        container.remove();
+        highlight = undefined;
+    });
+
+    async function mount(tokens: string[] | null | undefined) {
+        await act(async () => render(<Probe tokens={tokens} />, container));
+    }
+
+    function content(html: string): HTMLElement {
+        const el = document.createElement("div");
+        el.innerHTML = html;
+        document.body.appendChild(el);
+        return el;
+    }
+
+    it("highlights matches and opens the collapsed <details> that contains them", async () => {
+        await mount([ "needle" ]);
+        const target = content("<details><summary>t</summary><p>a needle here</p></details>");
+
+        highlight?.(target);
+
+        expect(target.querySelectorAll(".ck-find-result").length).toBeGreaterThan(0);
+        expect(target.querySelector("details")?.open).toBe(true);
+        target.remove();
+    });
+
+    it("clears previous highlights once the tokens are cleared", async () => {
+        // Callers that keep the same element and merely drop the tokens — emptying a filter box —
+        // rely on this, or the old highlights stay in the DOM for good.
+        //
+        // The removal itself is asserted through mark.js rather than the DOM: its `unmark()` is a
+        // no-op under happy-dom (it removes nothing even from a fresh instance), so only the call
+        // can be observed here.
+        await mount([ "needle" ]);
+        const target = content("<p>a needle here</p>");
+        highlight?.(target);
+        expect(target.querySelectorAll(".ck-find-result").length).toBeGreaterThan(0);
+        markSpies.unmark.mockClear();
+
+        await mount(null);
+        highlight?.(target);
+
+        expect(markSpies.unmark).toHaveBeenCalled();
+        target.remove();
+    });
+
+    it("does not touch an element that was never highlighted", async () => {
+        await mount(null);
+        const target = content("<p>a needle here</p>");
+        markSpies.unmark.mockClear();
+
+        highlight?.(target);
+
+        expect(markSpies.unmark).not.toHaveBeenCalled();
+        expect(target.innerHTML).toBe("<p>a needle here</p>");
+        target.remove();
+    });
+
+    it("leaves a collapsed block closed when it holds no match", async () => {
+        await mount([ "needle" ]);
+        const target = content("<details><summary>t</summary><p>nothing relevant</p></details>");
+
+        highlight?.(target);
+
+        expect(target.querySelector("details")?.open).toBe(false);
+        target.remove();
+    });
+
+    it("does nothing without tokens", async () => {
+        await mount([]);
+        const target = content("<details><summary>t</summary><p>needle</p></details>");
+
+        highlight?.(target);
+
+        expect(target.querySelectorAll(".ck-find-result").length).toBe(0);
+        expect(target.querySelector("details")?.open).toBe(false);
+        target.remove();
     });
 });

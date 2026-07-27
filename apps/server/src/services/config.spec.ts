@@ -373,7 +373,7 @@ corsAllowOrigin=https://ini-cors.com
 
             // Network defaults (host is the web/server bind address)
             expect(config.Network.host).toBe("0.0.0.0");
-            expect(config.Network.port).toBe("3000");
+            expect(config.Network.port).toBe("8080");
             expect(config.Network.https).toBe(false);
             expect(config.Network.certPath).toBe("");
             expect(config.Network.keyPath).toBe("");

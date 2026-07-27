@@ -1,5 +1,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 
+import protectedSessionService from "../../services/protected_session";
+import { encodeUtf8 } from "../../services/utils/binary";
 import { createTextNote } from "../../test/api_fixtures";
 import { CoreApiTester } from "../../test/api_tester";
 
@@ -54,6 +56,22 @@ describe("Files API (core)", () => {
         it("404s when downloading a missing note", async () => {
             const res = await api.get("/api/notes/missingNote123/download");
             expect(res.status).toBe(404);
+        });
+
+        it("401s when downloading a protected note without an active protected session", async () => {
+            const { noteId } = await createTextNote(api, { content: "<p>secret</p>" });
+
+            // Protecting a note needs the data key; dropping it afterwards leaves exactly the
+            // state the download guard rejects (protected note + no protected session).
+            protectedSessionService.setDataKey(encodeUtf8("0123456789abcdef")); // exactly 16 bytes
+            try {
+                expect((await api.put(`/api/notes/${noteId}/protect/1`)).status).toBe(204);
+            } finally {
+                protectedSessionService.resetDataKey();
+            }
+
+            const res = await api.get(`/api/notes/${noteId}/download`);
+            expect(res.status).toBe(401);
         });
     });
 

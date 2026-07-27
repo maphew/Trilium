@@ -51,12 +51,14 @@ describe("sync protocol with built-in OIDC enabled (#10548)", () => {
     });
 
     it("engages the OIDC middleware (sanity check that this suite tests what it claims)", async () => {
-        // /authenticate only exists inside the express-openid-connect router. When the
-        // reactive middleware is active it handles the route (and errors with 500 because
-        // the issuer above is unreachable); were OAuth unconfigured, the request would fall
-        // through to the 404 handler and this suite would silently test nothing.
+        // /authenticate only exists inside the express-openid-connect router. When the reactive
+        // middleware is active it handles the route; the issuer above is unreachable, so the round-trip
+        // fails and is answered with a redirect back to the app root carrying the failure on the session
+        // (see failRoundTrip). Were OAuth unconfigured, the request would instead fall through to the
+        // 404 handler and this suite would silently test nothing — which is what this asserts.
         const res = await supertest(app).get("/authenticate");
-        expect(res.status).toBe(500);
+        expect(res.status).toBe(302);
+        expect(res.headers.location).toBe("/");
     });
 
     it("performs the full desktop sync round-trip: login, push, pull, finished", async () => {

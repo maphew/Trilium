@@ -15,7 +15,7 @@
     border: 0 !important;
     outline: 0 !important;
     box-shadow: none !important;
-    padding: 0 100px 0 5px !important;
+    padding: 0 140px 0 5px !important;
     margin: 0 !important;
     max-height: 100px;
     overflow: auto;
@@ -23,7 +23,7 @@
 }
 
 body[dir=rtl] .attribute-list-editor {
-    padding: 0 5px 0 100px !important;
+    padding: 0 5px 0 140px !important;
     text-align: right !important;
 }
 
@@ -48,5 +48,5 @@ body[dir=rtl] .attribute-list-editor {
 
 .attribute-errors {
     color: red;
-    padding: 5px 100px 0px 5px; /* large right padding to avoid buttons */
+    padding: 5px 140px 0px 5px; /* large right padding to avoid buttons */
 }

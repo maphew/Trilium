@@ -155,7 +155,9 @@ describe("content_renderer", () => {
             const result = getContent(note);
             const elapsed = Date.now() - start;
 
-            expect(elapsed).toBeLessThan(2000);
+            // Generous budget: the pre-fix path was effectively unbounded, and CI runs this
+            // under V8 coverage with several forked workers, where 2s was at the noise floor.
+            expect(elapsed).toBeLessThan(15_000);
             if (typeof result.content !== "string") throw new Error("expected string content");
             // The code is escaped, not re-parsed into markup, and not highlighted (over the limit).
             expect(result.content).toContain("&lt;Map&lt;string");

@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 import { webdriverio } from "@vitest/browser-webdriverio";
 import { defineConfig } from "vitest/config";
 
@@ -26,7 +28,11 @@ export default defineConfig({
             allowExternal: false,
             include: ["src/**/*.{ts,tsx}"],
             exclude: ["**/*.{test,spec}.{ts,mts,cts,tsx,js,jsx}", "**/*.d.ts", "**/node_modules/**"],
-            reporter: ["text", "lcov"]
+            // Codecov resolves an lcov `SF:` path by matching it against the repo's file list, so
+            // the package-relative paths istanbul emits by default (`src/index.ts`, relative to
+            // cwd) are ambiguous in this monorepo and get attributed to whichever package wins the
+            // match. Emit repo-root-relative paths instead.
+            reporter: ["text", ["lcov", { projectRoot: resolve(__dirname, "../..") }]]
         }
     }
 });

@@ -11,7 +11,7 @@
  * ║      2     │ config.ini File                 │ [Network]                   ║
  * ║      ↓     │ (User Configuration)            │ port=8080                   ║
  * ║            │                                                                ║
- * ║      3     │ Default Values                  │ port='3000'                 ║
+ * ║      3     │ Default Values                  │ port='8080'                 ║
  * ║            │ (Lowest Priority - Fallback)    │ (hardcoded defaults)        ║
  * ║                                                                            ║
  * ╠════════════════════════════════════════════════════════════════════════════╣
@@ -134,6 +134,11 @@ export interface TriliumConfig {
         oauthIssuerName: string;
         /** URL to the OAuth provider's icon/logo */
         oauthIssuerIcon: string;
+        /**
+         * How to authenticate to the provider's token endpoint: 'client_secret_basic' or
+         * 'client_secret_post'. Leave empty to auto-detect from the issuer.
+         */
+        oauthClientAuthMethod: string;
     };
     /** Logging configuration */
     Logging: {
@@ -163,6 +168,17 @@ export interface TriliumConfig {
  * After this period, old log files are automatically deleted during rotation.
  */
 export const LOGGING_DEFAULT_RETENTION_DAYS = 90;
+
+/**
+ * Port the server listens on when neither an environment variable nor a
+ * `port=` entry in config.ini supplies one.
+ *
+ * In practice this fallback is rarely reached: `config-sample.ini` ships
+ * `port=8080` and is copied into the data directory on first run, so a fresh
+ * install already has the value set. Keep the two in sync — a mismatch here
+ * reads as "the default port changed" to anyone inspecting this file.
+ */
+export const DEFAULT_NETWORK_PORT = "8080";
 
 /**
  * Configuration value source with precedence handling.
@@ -342,7 +358,7 @@ const configMapping = {
         port: {
             standardEnvVar: 'TRILIUM_NETWORK_PORT',
             iniGetter: () => getIniSection("Network")?.port,
-            defaultValue: '3000'
+            defaultValue: DEFAULT_NETWORK_PORT
         },
         https: {
             standardEnvVar: 'TRILIUM_NETWORK_HTTPS',
@@ -472,6 +488,13 @@ const configMapping = {
             aliasEnvVars: ['TRILIUM_OAUTH_ISSUER_ICON'],
             iniGetter: () => getIniSection("MultiFactorAuthentication")?.oauthIssuerIcon,
             defaultValue: ''
+        },
+        oauthClientAuthMethod: {
+            standardEnvVar: 'TRILIUM_MULTIFACTORAUTHENTICATION_OAUTHCLIENTAUTHMETHOD',
+            // alternative format
+            aliasEnvVars: ['TRILIUM_OAUTH_CLIENT_AUTH_METHOD'],
+            iniGetter: () => getIniSection("MultiFactorAuthentication")?.oauthClientAuthMethod,
+            defaultValue: ''
         }
     },
     Logging: {
@@ -555,7 +578,8 @@ const config: TriliumConfig = {
         oauthClientSecret: getConfigValue(configMapping.MultiFactorAuthentication.oauthClientSecret),
         oauthIssuerBaseUrl: getConfigValue(configMapping.MultiFactorAuthentication.oauthIssuerBaseUrl),
         oauthIssuerName: getConfigValue(configMapping.MultiFactorAuthentication.oauthIssuerName),
-        oauthIssuerIcon: getConfigValue(configMapping.MultiFactorAuthentication.oauthIssuerIcon)
+        oauthIssuerIcon: getConfigValue(configMapping.MultiFactorAuthentication.oauthIssuerIcon),
+        oauthClientAuthMethod: getConfigValue(configMapping.MultiFactorAuthentication.oauthClientAuthMethod)
     },
     Logging: {
         retentionDays: getConfigValue(configMapping.Logging.retentionDays)
@@ -619,6 +643,7 @@ const config: TriliumConfig = {
  * - TRILIUM_MULTIFACTORAUTHENTICATION_OAUTHISSUERBASEURL : OAuth issuer URL
  * - TRILIUM_MULTIFACTORAUTHENTICATION_OAUTHISSUERNAME    : OAuth provider name
  * - TRILIUM_MULTIFACTORAUTHENTICATION_OAUTHISSUERICON    : OAuth provider icon
+ * - TRILIUM_MULTIFACTORAUTHENTICATION_OAUTHCLIENTAUTHMETHOD : Token-endpoint auth method
  *
  * Logging Section:
  * - TRILIUM_LOGGING_RETENTIONDAYS        : Log retention period in days

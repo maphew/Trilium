@@ -116,16 +116,18 @@ describe("Notion importer — integration", () => {
         ).rejects.toThrow(/Create folders for subpages/i);
     });
 
-    it("imports a flat export containing an empty database (no rows) without flagging", async () => {
-        // An empty database (CSV header only) contributes no row titles, so a legitimately flat export that
-        // happens to include one isn't mistaken for a flattened hierarchy.
-        const importRoot = await importNotion({
-            "Empty DB 08d361c59a9940c2a9d7237a4e6cd09a.csv": "Name,Status",
-            "Note A 4f195d8c55fb44f4b94a063e643b0297.html": pageHtml("Note A", "4f195d8c55fb44f4b94a063e643b0297"),
-            "Note B 388c5eca1b8b80929a78da7c68154bd7.html": pageHtml("Note B", "388c5eca1b8b80929a78da7c68154bd7")
-        });
+    it("imports a flat export containing a database with no rows, or only unnamed ones, without flagging", async () => {
+        // A CSV holding only a header — or only rows with a blank first column — contributes no row titles, so
+        // a legitimately flat export that happens to include one isn't mistaken for a flattened hierarchy.
+        for (const csv of ["Name,Status", "Name,Status\n,Done"]) {
+            const importRoot = await importNotion({
+                "Empty DB 08d361c59a9940c2a9d7237a4e6cd09a.csv": csv,
+                "Note A 4f195d8c55fb44f4b94a063e643b0297.html": pageHtml("Note A", "4f195d8c55fb44f4b94a063e643b0297"),
+                "Note B 388c5eca1b8b80929a78da7c68154bd7.html": pageHtml("Note B", "388c5eca1b8b80929a78da7c68154bd7")
+            });
 
-        expect(importRoot.getChildNotes().map((note) => note.title)).toEqual(expect.arrayContaining(["Note A", "Note B"]));
+            expect(importRoot.getChildNotes().map((note) => note.title)).toEqual(expect.arrayContaining(["Note A", "Note B"]));
+        }
     });
 
     it("imports flat top-level pages that only mention each other (no subpage blocks) without flagging", async () => {

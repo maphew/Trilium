@@ -293,6 +293,7 @@
     "shortcuts-title": "Shortcuts",
     "text-notes": "Text Notes",
     "code-notes-title": "Code Notes",
+    "content-manager-title": "Content Manager",
     "images-title": "Media",
     "spellcheck-title": "Spellcheck",
     "desktop-title": "Desktop",
@@ -329,7 +330,36 @@
     "note-cannot-be-displayed": "This note type cannot be displayed."
   },
   "onenote_import": {
-    "root-title": "OneNote import"
+    "root-title": "OneNote import",
+    "failed-page-placeholder": "This page could not be imported from OneNote. Error: {{error}}",
+    "failed-section-placeholder": "This section could not be imported from OneNote, so it was created empty. Error: {{error}}",
+    "protected-section-error": "This section is password-protected. Remove its password in OneNote, then import it again.",
+    "protected-section-placeholder": "This section is password-protected, so its pages could not be imported and it was created empty. To import it, open the section in OneNote, remove its password protection (right-click the section &rarr; Password Protection &rarr; Remove Password), then run the import again.",
+    "report": {
+      "row-pages": "Pages imported successfully",
+      "row-notebooks": "Notebooks imported",
+      "row-sections": "Sections imported",
+      "row-duration": "Total import duration",
+      "row-images": "Images",
+      "row-attachments": "File attachments",
+      "row-ink": "Pages with handwriting or drawings",
+      "row-links": "Cross-page links",
+      "row-throttling": "Time throttled by Microsoft Graph",
+      "value-links": "{{resolved}} resolved, {{unresolved}} pointing outside the imported selection",
+      "value-throttling_one": "{{- wait}} ({{count}} throttled request)",
+      "value-throttling_other": "{{- wait}} ({{count}} throttled requests)",
+      "skipped-sections-title": "Sections that could not be imported",
+      "skipped-sections-section": "Section",
+      "skipped-sections-notebook": "Notebook",
+      "skipped-sections-error": "Error",
+      "failed-pages-title": "Pages that could not be imported",
+      "failed-pages-page": "Page",
+      "failed-pages-section": "Section",
+      "failed-pages-error": "Error",
+      "failed-resources-title": "Missing images and attachments",
+      "failed-resources-item_one": "{{- pageLink}}: {{count}} resource could not be downloaded",
+      "failed-resources-item_other": "{{- pageLink}}: {{count}} resources could not be downloaded"
+    }
   },
   "notion_import": {
     "root-title": "Notion import",
@@ -460,6 +490,6 @@
     "sql-console": "SQL console",
     "sql-console-warning": "The SQL console allows executing arbitrary SQL queries against the database.",
     "lan-access": "network access",
-    "lan-access-warning": "Other devices on your local network will be able to connect to this Trilium instance."
+    "lan-access-warning": "The app and your shared notes will be served over the network — reachable from a browser on this computer and from other devices on your local network."
   }
 }

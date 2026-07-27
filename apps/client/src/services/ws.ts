@@ -9,7 +9,7 @@ import { t } from "./i18n.js";
 import options from "./options.js";
 import server from "./server.js";
 import toastService from "./toast.js";
-import utils from "./utils.js";
+import utils, { isPreAuthScreen } from "./utils.js";
 
 type MessageHandler = (message: WebSocketMessage) => void;
 let messageHandlers: MessageHandler[] = [];
@@ -310,7 +310,10 @@ async function sendPing() {
 
 setTimeout(() => {
     if (glob.device === "print") return;
-    if (!glob.dbInitialized) return;
+    // Skip on the setup screen (!dbInitialized) and on the login / set-password pre-auth
+    // screens (isPreAuthScreen) — otherwise the browser opens a WebSocket it isn't authorised
+    // for, which the server refuses (#10589).
+    if (!glob.dbInitialized || isPreAuthScreen()) return;
 
     if (glob.isStandalone) {
         // In standalone mode, listen for messages from the local worker via custom event

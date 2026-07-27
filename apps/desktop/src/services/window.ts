@@ -1,5 +1,6 @@
 import { app_info, cls, events, getLog, keyboard_actions as keyboardActionsService, options as optionService, sql_init, utils as coreUtils } from "@triliumnext/core";
 import { RESOURCE_DIR } from "@triliumnext/server/src/services/resource_dir.js";
+import { supportsBackgroundMaterial } from "@triliumnext/server/src/services/utils.js";
 import { type BrowserWindow, type BrowserWindowConstructorOptions, default as electron, type Session, type WebContents } from "electron";
 import path from "path";
 
@@ -178,11 +179,13 @@ function getWindowExtraOpts() {
         if (coreUtils.isMac()) {
             extraOpts.titleBarStyle = "hiddenInset";
             extraOpts.titleBarOverlay = true;
-        } else if (coreUtils.isWindows()) {
+        } else if (coreUtils.isWindows() || coreUtils.isLinux()) {
+            // Window Controls Overlay: Chromium draws the caption buttons itself, following the
+            // platform's own conventions (button glyphs, order and which side they sit on).
+            // Supported on Windows and, since Electron 27, on Linux too.
             extraOpts.titleBarStyle = "hidden";
             extraOpts.titleBarOverlay = true;
         } else {
-            // Linux or other platforms.
             extraOpts.frame = false;
         }
 
@@ -192,7 +195,7 @@ function getWindowExtraOpts() {
             if (coreUtils.isMac()) {
                 extraOpts.transparent = true;
                 extraOpts.visualEffectState = "active";
-            } else if (coreUtils.isWindows()) {
+            } else if (coreUtils.isWindows() && supportsBackgroundMaterial) {
                 extraOpts.backgroundMaterial = "auto";
             }
         }
@@ -366,8 +369,8 @@ async function createSetupWindow() {
         autoHideMenuBar: true,
         title: "Trilium Notes Setup",
         icon: getIcon(),
-        // Background effects (Mica on Windows, vibrancy on macOS)
-        ...(coreUtils.isWindows() && { backgroundMaterial: "mica" as const }),
+        // Background effects (Mica on Windows 11 22H2+, vibrancy on macOS)
+        ...(coreUtils.isWindows() && supportsBackgroundMaterial && { backgroundMaterial: "mica" as const }),
         ...(coreUtils.isMac() && { transparent: true, visualEffectState: "active" as const, vibrancy: "under-window" as const, titleBarStyle: "hiddenInset" as const }),
         webPreferences: {
             nodeIntegration: false,
@@ -534,7 +537,7 @@ export function setupWindowing() {
     });
 
     // Window management IPC handlers (replacing @electron/remote for renderer access)
-    electron.ipcMain.on("set-title-bar-overlay", (event, options: { color: string; symbolColor: string }) => {
+    electron.ipcMain.on("set-title-bar-overlay", (event, options: { color: string; symbolColor: string; height?: number }) => {
         electron.BrowserWindow.fromWebContents(event.sender)?.setTitleBarOverlay(options);
     });
 

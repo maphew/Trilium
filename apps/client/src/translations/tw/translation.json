@@ -351,9 +351,7 @@
     "tooltip": "如果您勾選此選項，Trilium 將嘗試透過縮放和最佳化來縮小上傳的圖片，這可能會影響圖片的觀看品質。如果未勾選，則將不進行修改直接上傳圖片。"
   },
   "attribute_detail": {
-    "attr_detail_title": "屬性內容標題",
     "close_button_title": "取消修改並關閉",
-    "attr_is_owned_by": "屬性所有者",
     "attr_name_title": "屬性名稱只能由字母、數字、冒號和下劃線組成",
     "name": "名稱",
     "value": "值",
@@ -383,7 +381,6 @@
     "inverse_relation": "反向關聯",
     "inheritable_title": "可繼承屬性將被繼承至此樹下的所有後代。",
     "inheritable": "可繼承",
-    "save_and_close": "儲存並關閉 <kbd>Ctrl+Enter</kbd>",
     "delete": "刪除",
     "related_notes_title": "含有此標籤的其他筆記",
     "more_notes": "更多筆記",
@@ -2438,7 +2435,6 @@
     "sources": "來源",
     "sources_summary": "來自 {{sites}} 個網站的 {{count}} 個來源",
     "extended_thinking": "延伸思考",
-    "legacy_models": "傳統模型",
     "thinking": "正在思考…",
     "thought_process": "思考過程",
     "tool_calls": "{{count}} 次工具調用",
@@ -2498,13 +2494,11 @@
     "configured_providers": "已設定的提供者",
     "no_providers_configured": "尚未設定任何提供者。",
     "provider_name": "名稱",
-    "provider_type": "提供者",
     "actions": "動作",
     "delete_provider": "刪除",
     "delete_provider_confirmation": "您確定要刪除提供者 \"{{name}}\" 嗎？",
     "api_key": "API 金鑰",
     "api_key_placeholder": "請輸入您的 API 金鑰",
-    "cancel": "取消",
     "mcp_title": "MCP（模型上下文協定）",
     "mcp_enabled": "MCP 伺服器",
     "mcp_enabled_description": "公開一個模型上下文協定 (MCP) 端點，以便人工智慧編程助手（例如 Claude Code、GitHub Copilot）能夠讀取並修改您的筆記。此端點僅限從 localhost 存取。",
@@ -2699,9 +2693,7 @@
     "drop_or_browse_single": "將檔案拖曳至此處，或點擊瀏覽並選擇",
     "drop_or_browse_multiple": "將檔案拖曳至此處，或點擊瀏覽並選擇",
     "browse_single": "點擊以選擇檔案",
-    "browse_multiple": "點擊以選擇多個檔案",
-    "selected_one": "已選擇 {{count}} 個檔案",
-    "selected_other": "已選擇 {{count}} 個檔案"
+    "browse_multiple": "點擊以選擇多個檔案"
   },
   "import_provider": {
     "choose_provider": "請從上方選擇要匯入的服務。"

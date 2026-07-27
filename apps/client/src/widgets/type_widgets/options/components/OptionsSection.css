@@ -4,4 +4,8 @@
         border-bottom-left-radius: 0;
         border-bottom-right-radius: 0;
     }
+
+    .collapsible {
+        margin-top: 0.5em;
+    }
 }

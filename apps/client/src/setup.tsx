@@ -26,7 +26,13 @@ async function main() {
     bodyWrapper.classList.add("setup-outer-wrapper");
     document.body.classList.add("setup", window.glob.device || "desktop");
     if (isElectron()) {
-        document.body.classList.add("electron", `platform-${window.glob.platform}`, "background-effects");
+        document.body.classList.add("electron", `platform-${window.glob.platform}`);
+        // Going transparent is only safe where the window actually has a backdrop material
+        // (Windows 11 22H2+ Mica / macOS vibrancy) — elsewhere the window composites to
+        // black, making light-theme text unreadable (#10590).
+        if (window.glob.hasBackgroundEffects) {
+            document.body.classList.add("background-effects");
+        }
     }
     render(<App />, bodyWrapper);
     document.body.replaceChildren(bodyWrapper);

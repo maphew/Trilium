@@ -66,6 +66,12 @@
     flex-shrink: 0;
 }
 
+.ck-content .image img.link-embed-mention-favicon {
+    min-width: unset;
+    margin: 0 4px 0 0;
+    display: unset;
+}
+
 .link-embed-mention-dot {
     display: inline-block;
     width: 8px;
@@ -136,7 +142,7 @@
 /* ---------- Click-to-play facade ----------
    Shown in place of the player until the user asks for it, so opening a note never contacts
    YouTube. The thumbnail is the one stored in the note, not a remote one. */
-   
+
 
 .link-embed-video-facade {
     position: relative;

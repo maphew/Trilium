@@ -9,7 +9,7 @@ import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import note_create from "../../../services/note_create";
 import server from "../../../services/server";
-import { BoardViewData } from ".";
+import { BoardColumnData, BoardViewData } from ".";
 import { ColumnMap } from "./data";
 
 export default class BoardApi {
@@ -64,19 +64,11 @@ export default class BoardApi {
             return;
         }
 
-        if (!this.viewConfig) {
-            this.viewConfig = {};
-        }
-
-        if (!this.viewConfig.columns) {
-            this.viewConfig.columns = [];
-        }
+        const columns = this.viewConfig?.columns ?? [];
 
         // Add the new column to persisted data if it doesn't exist
-        const existingColumn = this.viewConfig.columns.find(col => col.value === columnName);
-        if (existingColumn) return false;
-        this.viewConfig.columns.push({ value: columnName });
-        this.saveConfig(this.viewConfig);
+        if (columns.some(col => col.value === columnName)) return false;
+        this.storeColumns([ ...columns, { value: columnName } ]);
         return true;
     }
 
@@ -88,8 +80,7 @@ export default class BoardApi {
             ? { name: "deleteRelation", relationName: this.statusAttribute }
             : { name: "deleteLabel", labelName: this.statusAttribute };
         await executeBulkActions(noteIds, [ action ]);
-        this.viewConfig.columns = (this.viewConfig.columns ?? []).filter(col => col.value !== column);
-        this.saveConfig(this.viewConfig);
+        this.storeColumns((this.viewConfig?.columns ?? []).filter(col => col.value !== column));
     }
 
     async renameColumn(oldValue: string, newValue: string) {
@@ -102,12 +93,8 @@ export default class BoardApi {
         await executeBulkActions(noteIds, [ action ]);
 
         // Rename the column in the persisted data.
-        for (const column of this.viewConfig.columns || []) {
-            if (column.value === oldValue) {
-                column.value = newValue;
-            }
-        }
-        this.saveConfig(this.viewConfig);
+        this.storeColumns((this.viewConfig?.columns ?? [])
+            .map(col => col.value === oldValue ? { ...col, value: newValue } : col));
     }
 
     reorderColumn(fromIndex: number, toIndex: number) {
@@ -125,14 +112,25 @@ export default class BoardApi {
 
         newColumns.splice(adjustedToIndex, 0, movedColumn);
 
-        // Update view config with new column order
-        const newViewConfig = {
-            ...this.viewConfig,
-            columns: newColumns.map(col => ({ value: col }))
-        };
+        // `columns` is derived render state and can lag behind the persisted config (it is rebuilt
+        // only once the view re-renders), so anything it hasn't caught up with yet is kept at the
+        // end instead of being dropped from the config.
+        const missingColumns = (this.viewConfig?.columns ?? []).filter(col => !newColumns.includes(col.value));
+        this.storeColumns([ ...newColumns.map(value => ({ value })), ...missingColumns ]);
 
-        this.saveConfig(newViewConfig);
         return newColumns;
+    }
+
+    /**
+     * Persists a new column list.
+     *
+     * The config is always replaced with a fresh object instead of being edited in place: the board
+     * re-renders off the identity of the config it was handed, so an in-place edit would be written
+     * to disk but stay invisible until the view is re-entered.
+     */
+    private storeColumns(columns: BoardColumnData[]) {
+        this.viewConfig = { ...this.viewConfig, columns };
+        this.saveConfig(this.viewConfig);
     }
 
     async insertRowAtPosition(

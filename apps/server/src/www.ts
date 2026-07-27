@@ -13,7 +13,7 @@ import host from "./services/host.js";
 import port from "./services/port.js";
 import { isScriptingEnabled } from "./services/scripting_guard.js";
 import { getDbSize } from "./services/sql_init.js";
-import WebSocketMessagingProvider from "./services/ws_messaging_provider.js";
+import { isHttpAttachableMessagingProvider } from "./services/ws_messaging_provider.js";
 
 const MINIMUM_NODE_VERSION = "20.0.0";
 
@@ -79,14 +79,15 @@ export default async function startTriliumServer(): Promise<Express> {
     const app = await buildApp();
     const httpServer = startHttpServer(app);
 
-    // Only the WS provider needs the HTTP server and session parser; other
-    // providers (e.g. the Electron-IPC provider from apps/desktop) are
-    // initialised by their owning app before startup. Gating on the concrete
-    // type keeps www.ts platform-agnostic.
+    // Only providers that serve clients over the TCP listener need the HTTP server
+    // and session parser (the server's WebSocket provider, or the desktop composite
+    // when LAN access is on). A pure Electron-IPC provider isn't HTTP-attachable, so
+    // it's skipped here and no WS endpoint is bound. Gating on the capability rather
+    // than a concrete type keeps www.ts platform-agnostic.
     const messaging = getMessagingProvider();
-    if (messaging instanceof WebSocketMessagingProvider) {
+    if (isHttpAttachableMessagingProvider(messaging)) {
         const sessionParser = (await import("./routes/session_parser.js")).default;
-        messaging.init(httpServer, sessionParser);
+        messaging.attachToHttpServer(httpServer, sessionParser);
     }
 
     const { ws } = await import("@triliumnext/core");

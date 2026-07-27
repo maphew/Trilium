@@ -9,6 +9,11 @@ export function getMaxMigrationVersion() {
 
 // Migrations should be kept in descending order, so the latest migration is first.
 export const MIGRATIONS: (SqlMigration | JsMigration)[] = [
+    // Turn TOTP back off for installs that had disabled MFA before the enable flag was removed
+    {
+        version: 239,
+        module: () => import("./0239__disable_totp_when_mfa_was_turned_off.js")
+    },
     // Add description column to revisions table for manual revision comments
     {
         version: 238,

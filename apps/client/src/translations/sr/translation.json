@@ -258,9 +258,7 @@
     "tooltip": "Ako je označeno, Trilium će pokušati da smanji otpremljene slike skaliranjem i optimizacijom što može uticati na kvalitet slike. Ako nije označeno, slike će biti otpremljene bez izmena."
   },
   "attribute_detail": {
-    "attr_detail_title": "Naslov detalja atributa",
     "close_button_title": "Otkaži izmene i zatvori",
-    "attr_is_owned_by": "Atribut je u vlasništvu",
     "attr_name_title": "Naziv atributa može biti sastavljen samo od alfanumeričkih znakova, dvotačke i donje crte",
     "name": "Naziv",
     "value": "Vrednost",
@@ -290,7 +288,6 @@
     "inverse_relation": "Inverzna relacija",
     "inheritable_title": "Atributi koji mogu da se nasleđuju će biti nasleđeni od strane svih potomaka unutar ovog stabla.",
     "inheritable": "Nasledno",
-    "save_and_close": "Sačuvaj i zatvori <kbd>Ctrl+Enter</kbd>",
     "delete": "Obriši",
     "related_notes_title": "Druge beleške sa ovom oznakom",
     "more_notes": "Još beleški",

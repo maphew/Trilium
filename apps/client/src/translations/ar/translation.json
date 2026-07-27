@@ -123,10 +123,7 @@
     "date_time": "التاريخ والوقت",
     "label_definition": "تفاصيل تعريف التصنيف",
     "relation_definition": "تفاصيل تعريف العلاقة",
-    "attr_detail_title": "عنوان تفاصيل السمة",
     "close_button_title": "الغاء التغييرات و اغلاق",
-    "attr_is_owned_by": "السمة مملوكة ل",
-    "save_and_close": "حفظ ونسخ <kbd>Ctrl+Enter</kbd>",
     "workspace_calendar_root": "‎تحديد جذر التقويم لكل مساحة عمل",
     "hide_highlight_widget": "اخفاء عنصر واجهة قائمة التمييزات",
     "is_owned_by_note": "تخص الملاحظة",
@@ -2232,7 +2229,6 @@
     "web_search": "بحث الويب",
     "note_tools": "وصول الملاحظة",
     "extended_thinking": "تفكير موسّع",
-    "legacy_models": "النماذج القديمة",
     "thought_process": "عملية التفكير",
     "placeholder": "اكتب رسالة...",
     "searching_web": "جارٍ البحث في الويب...",
@@ -2260,10 +2256,8 @@
   },
   "llm": {
     "provider_name": "اسم",
-    "provider_type": "المجهز",
     "actions": "الإجراءات",
     "delete_provider": "حذف",
-    "cancel": "الغاء",
     "add_provider": "إضافة مزود",
     "configured_providers": "المزوّدون المُهيّؤون",
     "api_key": "مفتاح API",
@@ -2626,7 +2620,6 @@
       "invalid-symbol": "يجب أن يكون رمز Markdown عبارة عن حرف واحد، باستثناء \"[\", \" \", \"X\", و \"]\""
     },
     "unknown-task-state": "حالة مهمة مخصصة غير مُعرّفة",
-    "task-state-dropped": "تم تجاهل تعريف حالة المهمة المخصصة \"{{title}}\" ({{id}}) بسبب: {{reason}}",
     "checkbox-tooltip": "انقر بزر الفأرة الأيمن لمزيد من حالات المهمة.\nاضغط {{shortcut}} للتنقل بين الحالات."
   },
   "note-color": {
