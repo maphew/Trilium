@@ -1,7 +1,7 @@
 import "./InheritedAttributesTab.css";
 
 import { createPortal } from "preact/compat";
-import { useEffect, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 
 import FAttribute from "../../entities/fattribute";
 import attribute_renderer from "../../services/attribute_renderer";
@@ -19,6 +19,7 @@ type InheritedAttributesTabArgs = Pick<TabContext, "note" | "componentId"> & {
 
 export default function InheritedAttributesTab({ note, componentId, emptyListString }: InheritedAttributesTabArgs) {
     const [ inheritedAttributes, setInheritedAttributes ] = useState<FAttribute[]>();
+    const containerRef = useRef<HTMLDivElement>(null);
     const [ attributeDetailWidgetEl, attributeDetailWidget ] = useLegacyWidget(() => new AttributeDetailWidget());
 
     function refresh() {
@@ -46,29 +47,36 @@ export default function InheritedAttributesTab({ note, componentId, emptyListStr
 
     return (
         <div className="inherited-attributes-widget">
-            <div className="inherited-attributes-container selectable-text">
+            <div
+                className="inherited-attributes-container selectable-text"
+                ref={containerRef}
+                // Presses inside the container do not dismiss the popup (so that clicking
+                // another attribute swaps it in place instead of flickering), which leaves
+                // closing on a click next to an attribute up to this handler.
+                onClick={() => attributeDetailWidget.hide()}
+            >
                 {inheritedAttributes?.length ? (
                     joinElements(inheritedAttributes.map(attribute => (
                         <InheritedAttribute
                             key={attribute.attributeId}
                             attribute={attribute}
                             onClick={(e) => {
-                                setTimeout(
-                                    () =>
-                                        attributeDetailWidget.showAttributeDetail({
-                                            attribute: {
-                                                noteId: attribute.noteId,
-                                                type: attribute.type,
-                                                name: attribute.name,
-                                                value: attribute.value,
-                                                isInheritable: attribute.isInheritable
-                                            },
-                                            isOwned: false,
-                                            x: e.pageX,
-                                            y: e.pageY
-                                        }),
-                                    100
-                                );
+                                // Keep the container's closing handler from undoing this.
+                                e.stopPropagation();
+
+                                attributeDetailWidget.showAttributeDetail({
+                                    attribute: {
+                                        noteId: attribute.noteId,
+                                        type: attribute.type,
+                                        name: attribute.name,
+                                        value: attribute.value,
+                                        isInheritable: attribute.isInheritable
+                                    },
+                                    isOwned: false,
+                                    x: e.pageX,
+                                    y: e.pageY,
+                                    parent: containerRef.current ?? undefined
+                                });
                             }}
                         />
                     )), " ")
