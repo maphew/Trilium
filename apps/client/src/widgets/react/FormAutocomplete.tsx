@@ -1,7 +1,7 @@
 import "./FormAutocomplete.css";
 
 import type { TargetedKeyboardEvent } from "preact";
-import { createPortal } from "preact/compat";
+import { createPortal, type CSSProperties } from "preact/compat";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import FormTextBox from "./FormTextBox";
@@ -42,7 +42,7 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
     const [ isOpen, setIsOpen ] = useState(false);
     const [ items, setItems ] = useState<string[]>([]);
     const [ activeIndex, setActiveIndex ] = useState(-1);
-    const [ position, setPosition ] = useState<DropdownPosition>();
+    const [ position, setPosition ] = useState<CSSProperties>();
 
     // Discards responses of queries that were superseded while in flight.
     const latestQuery = useRef(0);
@@ -196,19 +196,12 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
     );
 }
 
-interface DropdownPosition {
-    left: number;
-    top: number;
-    width: number;
-    maxHeight: number;
-}
-
 /**
  * Places the dropdown under the input, flipping above it only when the space below is too small to
  * be useful. Preferring below matters for inputs sitting in a panel docked to the bottom of the
  * screen: the room under them is limited but ample, while flipping would cover the panel itself.
  */
-function computeDropdownPosition(input: HTMLElement): DropdownPosition {
+function computeDropdownPosition(input: HTMLElement): CSSProperties {
     const rect = input.getBoundingClientRect();
     const viewportHeight = document.documentElement.clientHeight;
     const spaceBelow = viewportHeight - rect.bottom - VIEWPORT_MARGIN;
@@ -218,9 +211,9 @@ function computeDropdownPosition(input: HTMLElement): DropdownPosition {
     const maxHeight = Math.min(MAX_DROPDOWN_HEIGHT, Math.max(available, 0));
 
     return {
-        left: rect.left,
-        top: flipAbove ? rect.top - maxHeight : rect.bottom,
-        width: rect.width,
-        maxHeight
+        left: `${rect.left}px`,
+        top: `${flipAbove ? rect.top - maxHeight : rect.bottom}px`,
+        width: `${rect.width}px`,
+        maxHeight: `${maxHeight}px`
     };
 }

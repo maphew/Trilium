@@ -23,8 +23,8 @@ import FormTextBox, { FormTextBoxWithUnit } from "../react/FormTextBox.jsx";
 import HelpButton from "../react/HelpButton.jsx";
 import NoteAutocomplete from "../react/NoteAutocomplete.jsx";
 import NoteLink from "../react/NoteLink.jsx";
-import { disposeReactWidget, ParentComponent, renderReactWidgetAtElement } from "../react/react_utils.jsx";
 import RawHtml from "../react/RawHtml.jsx";
+import { disposeReactWidget, ParentComponent, renderReactWidgetAtElement } from "../react/react_utils.jsx";
 import { ATTR_HELP } from "./attr_help.js";
 
 export interface AttributeDetailOpts {
@@ -431,7 +431,7 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
 
                     {isDefinition(attrType) && (
                         <tr class="attr-row-promoted" title={t("attribute_detail.promoted_title")}>
-                            <th></th>
+                            <th />
                             <td>
                                 <FormCheckbox
                                     label={t("attribute_detail.promoted")}
@@ -530,7 +530,7 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
                     )}
 
                     <tr title={t("attribute_detail.inheritable_title")}>
-                        <th></th>
+                        <th />
                         <td>
                             <FormCheckbox
                                 label={t("attribute_detail.inheritable")}
