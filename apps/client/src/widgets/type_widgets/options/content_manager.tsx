@@ -304,7 +304,7 @@ function LocationList({ pageNote, categories, highlightedTokens }: CategoryListP
 
                     if (!item) {
                         return (
-                            <span className="content-manager-property">
+                            <span className="content-manager-property content-manager-item-count">
                                 {t("content_manager.item_count", { count: itemCountByNoteId.get(note.noteId) ?? 0 })}
                             </span>
                         );

@@ -43,6 +43,11 @@
     opacity: .75;
 }
 
+.content-manager-item-count {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
 .content-manager-loading {
     opacity: 0.7;
 }
