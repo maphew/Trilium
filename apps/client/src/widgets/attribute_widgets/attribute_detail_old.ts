@@ -1,7 +1,6 @@
 import appContext from "../../components/app_context.js";
 import attributeAutocompleteService from "../../services/attribute_autocomplete.js";
 import type { Attribute } from "../../services/attribute_parser.js";
-import { isExperimentalFeatureEnabled } from "../../services/experimental_features.js";
 import { focusSavedElement } from "../../services/focus.js";
 import froca from "../../services/froca.js";
 import { t } from "../../services/i18n.js";
@@ -140,8 +139,6 @@ interface SearchRelatedResponse {
     count: number;
 }
 
-const isNewLayout = isExperimentalFeatureEnabled("new-layout");
-
 export default class AttributeDetailWidget extends NoteContextAwareWidget {
     private $inputName!: JQuery<HTMLElement>;
     private $inputValue!: JQuery<HTMLElement>;
@@ -170,7 +167,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
     private $relatedNotesList!: JQuery<HTMLElement>;
     private $relatedNotesMoreNotes!: JQuery<HTMLElement>;
     private $attrHelp!: JQuery<HTMLElement>;
-    private $statusBar?: JQuery<HTMLElement>;
 
     private relatedNotesSpacedUpdate!: SpacedUpdate;
     private attribute!: Attribute;
@@ -366,62 +362,9 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
 
         this.toggleInt(true);
 
-        const offset = this.parent?.$widget?.offset() || { top: 0, left: 0 };
-        const detPosition = this.getDetailPosition(x, offset);
-        const outerHeight = this.$widget.outerHeight();
-        const height = $(window).height();
-
-        if (!detPosition || !outerHeight || !height) {
-            console.warn("Can't position popup, is it attached?");
-            return;
-        }
-
-        if (isNewLayout) {
-            if (!this.$statusBar) {
-                this.$statusBar = $(document.body).find(".component.status-bar");
-            }
-
-            const statusBarHeight = this.$statusBar.outerHeight() ?? 0;
-            const maxHeight = document.body.clientHeight - statusBarHeight;
-            this.$widget
-                .css("left", offset.left + (typeof detPosition.left === "number" ? detPosition.left : 0))
-                .css("top", "unset")
-                .css("bottom", statusBarHeight ?? 0)
-                .css("max-height", maxHeight);
-        } else {
-            this.$widget
-                .css("left", detPosition.left)
-                .css("right", detPosition.right)
-                .css("top", y - offset.top + 70)
-                .css("max-height", outerHeight + y > height - 50 ? height - y - 50 : 10000);
-        }
-
         if (focus === "name") {
             this.$inputName.trigger("focus").trigger("select");
         }
-    }
-
-    getDetailPosition(x: number, offset: { left: number }) {
-        const outerWidth = this.$widget.outerWidth();
-        if (!outerWidth) {
-            return null;
-        }
-
-        let left: number | string = x - offset.left - outerWidth / 2;
-        let right: number | string = "";
-
-        if (left < 0) {
-            left = 10;
-        } else {
-            const rightEdge = left + outerWidth;
-
-            if (rightEdge > outerWidth - 10) {
-                left = "";
-                right = 10;
-            }
-        }
-
-        return { left, right };
     }
 
     async saveAndClose() {

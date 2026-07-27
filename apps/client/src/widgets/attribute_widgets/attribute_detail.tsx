@@ -1,8 +1,9 @@
 import "./attribute_detail.css";
 
-import { useEffect, useRef } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 
 import type { Attribute } from "../../services/attribute_parser.js";
+import { isExperimentalFeatureEnabled } from "../../services/experimental_features.js";
 import { focusSavedElement, saveFocusedElement } from "../../services/focus.js";
 import { t } from "../../services/i18n.js";
 import NoteContextAwareWidget from "../note_context_aware_widget.js";
@@ -53,11 +54,13 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
         saveFocusedElement();
 
         this.opts = opts;
-        this.renderComponent();
         // The widget has no note context, so isEnabled() is falsy and render()
         // stamps the container with hidden-int; visibility is driven manually,
-        // exactly like the legacy widget did.
+        // exactly like the legacy widget did. The container must be visible
+        // before rendering: the positioning layout effect runs synchronously
+        // inside renderComponent() and needs to measure the popup.
         this.toggleInt(true);
+        this.renderComponent();
     }
 
     hide() {
@@ -83,6 +86,7 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
             this,
             <AttributeDetail
                 opts={this.opts}
+                parentOffset={this.parent?.$widget?.offset() ?? { top: 0, left: 0 }}
                 onDismiss={() => this.hide()}
                 onCancel={() => this.cancelAndClose()}
             />,
@@ -92,15 +96,25 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
 
 interface AttributeDetailProps {
     opts: AttributeDetailOpts | null;
+    /** Offset of the spawning widget, the reference point for classic-layout coordinates. */
+    parentOffset: { top: number; left: number };
     /** Plain close, e.g. on click outside the popup. */
     onDismiss: () => void;
     /** Close discarding unsaved changes (close button, escape). */
     onCancel: () => void;
 }
 
-function AttributeDetail({ opts, onDismiss, onCancel }: AttributeDetailProps) {
+function AttributeDetail({ opts, parentOffset, onDismiss, onCancel }: AttributeDetailProps) {
     const popupRef = useRef<HTMLDivElement>(null);
     const shown = !!opts;
+
+    // Positioning needs the popup's rendered size, so it runs after the DOM is
+    // built but before paint.
+    useLayoutEffect(() => {
+        if (popupRef.current && opts) {
+            positionPopup(popupRef.current, opts, parentOffset);
+        }
+    }, [ opts, parentOffset ]);
 
     // Dismiss on click outside the popup, except in floating UI logically belonging
     // to it (autocomplete dropdowns and context menus are appended to the body).
@@ -130,7 +144,7 @@ function AttributeDetail({ opts, onDismiss, onCancel }: AttributeDetailProps) {
     const attrType = getAttrType(opts.attribute);
 
     return (
-        <div ref={popupRef} class="attr-detail tn-tool-dialog" style={{ left: opts.x, top: opts.y }}>
+        <div ref={popupRef} class="attr-detail tn-tool-dialog">
             <div class="attr-detail-header">
                 <h5 class="attr-detail-title">{attrType ? ATTR_TITLES[attrType] : ""}</h5>
 
@@ -152,6 +166,70 @@ const ATTR_TITLES: Record<string, string> = {
     relation: t("attribute_detail.relation"),
     "relation-definition": t("attribute_detail.relation_definition")
 };
+
+const isNewLayout = isExperimentalFeatureEnabled("new-layout");
+
+function positionPopup(popup: HTMLElement, { x, y }: AttributeDetailOpts, parentOffset: { top: number; left: number }) {
+    const outerWidth = popup.offsetWidth;
+    const outerHeight = popup.offsetHeight;
+    const windowHeight = document.documentElement.clientHeight;
+
+    if (!outerWidth || !outerHeight || !windowHeight) {
+        console.warn("Can't position popup, is it attached?");
+        return;
+    }
+
+    const detPosition = getDetailPosition(x, parentOffset.left, outerWidth);
+
+    if (isNewLayout) {
+        // The popup always sits above the note attributes pane so it never covers it;
+        // when the pane is closed (e.g. opened from the collection column editor),
+        // it docks to the status bar instead.
+        const attrPane = document.querySelector(".bottom-panel.attribute-list");
+        const paneShown = attrPane instanceof HTMLElement && !attrPane.classList.contains("hidden-ext");
+        const anchorTop = paneShown
+            ? attrPane.getBoundingClientRect().top
+            : document.body.clientHeight - (document.querySelector<HTMLElement>(".component.status-bar")?.offsetHeight ?? 0);
+
+        popup.style.left = `${parentOffset.left + (typeof detPosition.left === "number" ? detPosition.left : 0)}px`;
+        popup.style.right = "";
+        popup.style.top = "unset";
+        popup.style.bottom = `${document.body.clientHeight - anchorTop}px`;
+        popup.style.maxHeight = `${anchorTop}px`;
+    } else {
+        popup.style.left = toCssPos(detPosition.left);
+        popup.style.right = toCssPos(detPosition.right);
+        popup.style.top = `${y - parentOffset.top + 70}px`;
+        popup.style.bottom = "";
+        popup.style.maxHeight = outerHeight + y > windowHeight - 50 ? `${windowHeight - y - 50}px` : "10000px";
+    }
+}
+
+function getDetailPosition(x: number, offsetLeft: number, outerWidth: number) {
+    let left: number | string = x - offsetLeft - outerWidth / 2;
+    let right: number | string = "";
+
+    if (left < 0) {
+        left = 10;
+    } else {
+        const rightEdge = left + outerWidth;
+
+        // Kept bug-for-bug from the legacy widget: this compares against the popup's own
+        // width instead of the viewport's, so it holds whenever left >= 0 and the popup
+        // effectively pins to the right edge except for far-left clicks.
+        if (rightEdge > outerWidth - 10) {
+            left = "";
+            right = 10;
+        }
+    }
+
+    return { left, right };
+}
+
+/** An empty string clears the property, matching the jQuery `.css()` behavior. */
+function toCssPos(value: number | string) {
+    return typeof value === "number" ? `${value}px` : value;
+}
 
 function getAttrType(attribute: Attribute) {
     if (attribute.type === "label") {
