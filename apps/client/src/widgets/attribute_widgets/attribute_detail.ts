@@ -1,3 +1,5 @@
+import "./attribute_detail.css";
+
 import appContext from "../../components/app_context.js";
 import attributeAutocompleteService from "../../services/attribute_autocomplete.js";
 import type { Attribute } from "../../services/attribute_parser.js";
@@ -17,70 +19,6 @@ import { ATTR_HELP } from "./attr_help.js";
 
 const TPL = /*html*/`
 <div class="attr-detail tn-tool-dialog">
-    <style>
-        .attr-detail {
-            display: block;
-            background-color: var(--accented-background-color);
-            border: 1px solid var(--main-border-color);
-            border-radius: 4px;
-            z-index: 1000;
-            padding: 15px;
-            position: absolute;
-            width: 500px;
-            max-height: 600px;
-            overflow: auto;
-            box-shadow: 10px 10px 93px -25px black;
-            contain: none;
-        }
-
-        .attr-help td {
-            color: var(--muted-text-color);
-            padding: 5px;
-        }
-
-        .related-notes-list {
-            padding-inline-start: 20px;
-            margin-top: 10px;
-            margin-bottom: 10px;
-        }
-
-        .attr-edit-table {
-            width: 100%;
-        }
-
-        .attr-edit-table th {
-            text-align: start;
-        }
-
-        .attr-edit-table td input[not(type="checkbox")] {
-            width: 100%;
-        }
-
-        .attr-edit-table td input[type="checkbox"] {
-            display: inline-block;
-        }
-
-        .close-attr-detail-button {
-            font-size: x-large;
-            cursor: pointer;
-            position: relative;
-            top: -2px;
-        }
-
-        .attr-save-delete-button-container {
-            display: flex;
-            margin-top: 15px;
-        }
-
-        .attr-detail input[readonly] {
-            background-color: var(--accented-background-color) !important;
-        }
-
-        .attr-edit-table td {
-            padding: 4px 0;
-        }
-    </style>
-
     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
         <h5 class="attr-detail-title">${t("attribute_detail.attr_detail_title")}</h5>
 
