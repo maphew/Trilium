@@ -83,7 +83,9 @@
         letter-spacing: .5pt;
     }
 
-    .tn-icon {
+    /* The row's own note icon only: a bare `.tn-icon` would also catch icons of anything nested in
+       the row, such as the entries of a dropdown menu opened from it. */
+    .note-icon {
         display: flex;
         flex-shrink: 0;
         justify-content: center;

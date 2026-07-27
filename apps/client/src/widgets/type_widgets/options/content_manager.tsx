@@ -1,12 +1,10 @@
 import "./content_manager.css";
 
 import clsx from "clsx";
-import type { TargetedMouseEvent } from "preact";
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import appContext from "../../../components/app_context";
 import type FNote from "../../../entities/fnote";
-import contextMenu, { type MenuItem } from "../../../menus/context_menu";
 import branches from "../../../services/branches";
 import {
     buildLocationTree,
@@ -24,7 +22,6 @@ import debounce from "../../../services/debounce";
 import { t } from "../../../services/i18n";
 import { isMobile } from "../../../services/utils";
 import { ListView, type ListViewOptions } from "../../collections/legacy/ListOrGridView";
-import ActionButton from "../../react/ActionButton";
 import { Badge } from "../../react/Badge";
 import Button, { ButtonGroup } from "../../react/Button";
 import Dropdown from "../../react/Dropdown";
@@ -46,48 +43,39 @@ const FILTER_DEBOUNCE_MS = 300;
  * note in the context of its parent, which this list is not: these notes live all over the tree.
  */
 function ContentItemMenu({ note }: { note: FNote }) {
-    const openMenu = useCallback((e: TargetedMouseEvent<HTMLElement>) => {
-        const items: MenuItem<ContentItemCommand>[] = [
-            { title: t("link_context_menu.open_note_in_new_tab"), command: "openNoteInNewTab", uiIcon: "bx bx-link-external" },
-            { title: t("tree-context-menu.delete"), command: "deleteNote", uiIcon: "bx bx-trash destructive-action-icon" }
-        ];
-
-        void contextMenu.show<ContentItemCommand>({
-            x: e.pageX,
-            y: e.pageY,
-            items,
-            selectMenuItemHandler: ({ command }) => {
-                if (command === "openNoteInNewTab") {
-                    void appContext.tabManager.openContextWithNote(note.noteId, {
-                        hoistedNoteId: appContext.tabManager.getActiveContext()?.hoistedNoteId ?? null
-                    });
-                } else if (command === "deleteNote") {
-                    const branchId = getDisplayedBranchId(note, appContext.tabManager.getActiveContextNotePath());
-
-                    if (branchId) {
-                        // One branch, not all of them: the dialog counts a note's *other* placements
-                        // to warn about clones and offer "delete all clones", so passing every branch
-                        // would zero that count and remove them all silently.
-                        // `moveToParent` is off — the user is on this page, not on the note.
-                        void branches.deleteNotes([ branchId ], false, false);
-                    }
-                }
-            }
-        });
-
-        e.stopPropagation();
-    }, [ note ]);
-
     return (
-        <ActionButton
-            className="note-book-item-menu"
-            icon="bx bx-dots-vertical-rounded" text=""
-            onClick={openMenu}
-        />
+        <Dropdown
+            buttonClassName="note-book-item-menu bx bx-dots-vertical-rounded"
+            hideToggleArrow noSelectButtonStyle noDropdownListStyle iconAction
+            // Out of the row and into the body: nested, the open menu would still count as hovering
+            // the row, leaving it highlighted while the cursor is over the menu.
+            portalToBody
+            title={t("content_manager.item_menu")}
+            dropdownContainerClassName={isMobile() ? "mobile-bottom-menu" : undefined}
+        >
+            <FormListItem
+                icon="bx bx-link-external"
+                onClick={() => void appContext.tabManager.openContextWithNote(note.noteId, {
+                    hoistedNoteId: appContext.tabManager.getActiveContext()?.hoistedNoteId ?? null
+                })}
+            >{t("link_context_menu.open_note_in_new_tab")}</FormListItem>
+
+            <FormListItem
+                icon="bx bx-trash destructive-action-icon"
+                onClick={() => {
+                    const branchId = getDisplayedBranchId(note, appContext.tabManager.getActiveContextNotePath());
+                    if (!branchId) return;
+
+                    // One branch, not all of them: the dialog counts a note's *other* placements to
+                    // warn about clones and offer "delete all clones", so passing every branch would
+                    // zero that count and remove them all silently.
+                    // `moveToParent` is off — the user is on this page, not on the note.
+                    void branches.deleteNotes([ branchId ], false, false);
+                }}
+            >{t("tree-context-menu.delete")}</FormListItem>
+        </Dropdown>
     );
 }
-
-type ContentItemCommand = "openNoteInNewTab" | "deleteNote";
 
 /**
  * A row's trailing detail, all within one container so the category and the properties read as a
