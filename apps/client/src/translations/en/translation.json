@@ -2602,7 +2602,7 @@
   },
   "content_manager": {
     "category_backend_scripts": "Backend Scripts",
-    "category_frontend_scripts": "Front-end Scripts",
+    "category_frontend_scripts": "Frontend Scripts",
     "category_widgets": "Custom Widgets",
     "category_launcher_widgets": "Launcher Widgets",
     "category_render_notes": "Render Notes",
