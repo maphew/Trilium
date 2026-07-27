@@ -84,22 +84,21 @@ function ContentItemMenu({ note }: { note: FNote }) {
  *
  * @param showCategory the category is worth stating only where the headings don't already say it.
  */
-function ItemDetail({ note, categories, showCategory }: {
+function ItemDetail({ note, category, showCategory }: {
     note: FNote,
-    categories: ContentCategory[],
+    category: ContentCategory,
     showCategory?: boolean
 }) {
     return (
         <span className="content-manager-properties">
-            {showCategory && categories.map((category) => (
+            {showCategory && (
                 <Badge
-                    key={category.id}
                     className="content-manager-badge"
                     text={t(category.titleKey)}
                     tooltip={t("content_manager.property_category")}
                 />
-            ))}
-            <ContentProperties note={note} category={categories[0]} />
+            )}
+            <ContentProperties note={note} category={category} />
         </span>
     );
 }
@@ -139,21 +138,14 @@ function ContentProperties({ note, category }: { note: FNote, category: ContentC
 }
 
 /**
- * @param categories every category this row stands for — normally one, but the location view merges
- *                   the categories, and a note can be active content in more than one way.
+ * Always one category, never a note's categories merged: a note can be active content in several
+ * ways at once, and one switch over all of them would overwrite the states the user didn't touch.
  */
-function ContentToggle({ note, categories }: { note: FNote, categories: ContentCategory[] }) {
-    // Keyed on the ids rather than on `categories`, which is a fresh array on every render.
-    const categoryKey = categories.map(({ id }) => id).join(",");
-    const isEnabled = useCallback(
-        () => categories.some((category) => isCategoryEnabled(note, category)),
-        // eslint-disable-next-line react-hooks/exhaustive-deps -- `categoryKey` stands in for `categories`
-        [ note, categoryKey ]
-    );
-    const [ enabled, setEnabled ] = useState(isEnabled);
+function ContentToggle({ note, category }: { note: FNote, category: ContentCategory }) {
+    const [ enabled, setEnabled ] = useState(() => isCategoryEnabled(note, category));
 
     // Re-sync when the row is reused for another note, or the state changed elsewhere.
-    useEffect(() => setEnabled(isEnabled()), [ isEnabled ]);
+    useEffect(() => setEnabled(isCategoryEnabled(note, category)), [ note, category ]);
 
     return (
         <FormToggle
@@ -164,7 +156,7 @@ function ContentToggle({ note, categories }: { note: FNote, categories: ContentC
             onChange={(willEnable) => {
                 // Applied straight away so the switch responds before the lists are rebuilt.
                 setEnabled(willEnable);
-                void Promise.all(categories.map((category) => setCategoryEnabled(note, category, willEnable)));
+                void setCategoryEnabled(note, category, willEnable);
             }}
         />
     );
@@ -311,13 +303,16 @@ function LocationList({ pageNote, categories, highlightedTokens }: CategoryListP
                         );
                     }
 
-                    return (
-                        <>
-                            {/* The category is otherwise invisible here, the headings being gone. */}
-                            <ItemDetail note={note} categories={item.categories} showCategory />
-                            <ContentToggle note={note} categories={item.categories} />
-                        </>
-                    );
+                    // One strip per category, each with its own switch: a note can be active content
+                    // in several ways, and merging them into one switch would overwrite the states
+                    // the user did not touch. The category is named here because the headings that
+                    // would otherwise say it are gone.
+                    return item.categories.map((category) => (
+                        <span key={category.id} className="content-manager-item-strip">
+                            <ItemDetail note={note} category={category} showCategory />
+                            <ContentToggle note={note} category={category} />
+                        </span>
+                    ));
                 },
                 renderItemMenu: (note) => itemsByNoteId.has(note.noteId) ? <ContentItemMenu note={note} /> : null
             }}
@@ -412,8 +407,8 @@ function CategoryList({ pageNote, categories, highlightedTokens }: CategoryListP
                         title: t(category.titleKey),
                         renderItemActions: (note) => (
                             <>
-                                <ItemDetail note={note} categories={[ category ]} />
-                                <ContentToggle note={note} categories={[ category ]} />
+                                <ItemDetail note={note} category={category} />
+                                <ContentToggle note={note} category={category} />
                             </>
                         ),
                         renderItemMenu: (note) => <ContentItemMenu note={note} />

@@ -43,6 +43,17 @@
     opacity: .75;
 }
 
+/* A note in several categories gets a strip each; the extra gap keeps them from reading as one run. */
+.content-manager-item-strip {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+}
+
+.content-manager-item-strip + .content-manager-item-strip {
+    margin-inline-start: 0.75em;
+}
+
 .content-manager-item-count {
     flex-shrink: 0;
     white-space: nowrap;
