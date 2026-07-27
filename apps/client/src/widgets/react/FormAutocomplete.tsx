@@ -1,0 +1,226 @@
+import "./FormAutocomplete.css";
+
+import type { TargetedKeyboardEvent } from "preact";
+import { createPortal } from "preact/compat";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+
+import FormTextBox from "./FormTextBox";
+
+/** Marks the dropdown, which is portalled to the body: popups checking for outside clicks must ignore it. */
+export const AUTOCOMPLETE_DROPDOWN_SELECTOR = ".form-autocomplete-dropdown";
+
+const DEBOUNCE_MS = 150;
+const MAX_DROPDOWN_HEIGHT = 300;
+/** Below this the space under the input is considered unusable, and the dropdown flips above it. */
+const MIN_DROPDOWN_HEIGHT = 120;
+const VIEWPORT_MARGIN = 8;
+
+type FormTextBoxProps = Parameters<typeof FormTextBox>[0];
+
+interface FormAutocompleteProps extends Omit<FormTextBoxProps, "onChange"> {
+    currentValue: string;
+    onChange(newValue: string): void;
+    /**
+     * Provides the suggestions for a query. Called debounced while the dropdown is open; results
+     * arriving after a newer query has been issued are discarded, so it may resolve out of order.
+     */
+    source(query: string): Promise<string[]>;
+    /** Opens the dropdown as soon as the field receives focus, not just on typing. */
+    openOnFocus?: boolean;
+}
+
+/**
+ * A text box with a suggestion dropdown, driven by an async {@link FormAutocompleteProps.source}.
+ *
+ * The dropdown is portalled to the body and positioned over everything else, so it is not clipped
+ * by scrolling ancestors. Selecting a suggestion reports it through `onChange`, exactly like typing.
+ */
+export default function FormAutocomplete({ currentValue, onChange, source, openOnFocus, inputRef, onBlur, onKeyDown, ...restProps }: FormAutocompleteProps) {
+    const ownInputRef = useRef<HTMLInputElement>(null);
+    const inputEl = inputRef ?? ownInputRef;
+    const dropdownRef = useRef<HTMLUListElement>(null);
+    const [ isOpen, setIsOpen ] = useState(false);
+    const [ items, setItems ] = useState<string[]>([]);
+    const [ activeIndex, setActiveIndex ] = useState(-1);
+    const [ position, setPosition ] = useState<DropdownPosition>();
+
+    // Discards responses of queries that were superseded while in flight.
+    const latestQuery = useRef(0);
+    const isDisabled = !!(restProps.readOnly || restProps.disabled);
+
+    const close = useCallback(() => {
+        // Invalidates in-flight queries too, so a late response cannot repopulate a closed dropdown.
+        latestQuery.current++;
+        setIsOpen(false);
+        setActiveIndex(-1);
+        setItems([]);
+    }, []);
+
+    // Fetch suggestions for the current query, debounced. The previous items stay visible while
+    // the request is in flight, so refining a query does not make the dropdown flicker.
+    useEffect(() => {
+        if (!isOpen) {
+            return;
+        }
+
+        const queryId = ++latestQuery.current;
+        const timeout = setTimeout(async () => {
+            const suggestions = await source(currentValue);
+
+            // A newer query (or a close) happened while awaiting.
+            if (latestQuery.current === queryId) {
+                setItems(suggestions);
+                setActiveIndex(-1);
+            }
+        }, DEBOUNCE_MS);
+
+        return () => clearTimeout(timeout);
+    }, [ isOpen, currentValue, source ]);
+
+    // Keep the dropdown glued to the input.
+    useLayoutEffect(() => {
+        if (!isOpen || !items.length) {
+            return;
+        }
+
+        const reposition = () => {
+            if (inputEl.current) {
+                setPosition(computeDropdownPosition(inputEl.current));
+            }
+        };
+
+        reposition();
+        window.addEventListener("resize", reposition);
+        // Capture: the input may live inside a scrolling container rather than the document.
+        window.addEventListener("scroll", reposition, true);
+        return () => {
+            window.removeEventListener("resize", reposition);
+            window.removeEventListener("scroll", reposition, true);
+        };
+    }, [ isOpen, items.length, inputEl ]);
+
+    function selectItem(item: string) {
+        onChange(item);
+        close();
+        inputEl.current?.focus();
+    }
+
+    function handleKeyDown(e: TargetedKeyboardEvent<HTMLInputElement>) {
+        const isDropdownShown = isOpen && items.length > 0;
+
+        switch (e.key) {
+            case "ArrowDown":
+            case "ArrowUp":
+                e.preventDefault();
+                if (!isDropdownShown) {
+                    setIsOpen(true);
+                } else {
+                    const delta = e.key === "ArrowDown" ? 1 : -1;
+                    setActiveIndex((index) => (index + delta + items.length) % items.length);
+                }
+                break;
+
+            case "Enter":
+                if (isDropdownShown && activeIndex >= 0) {
+                    // Consume the key so it does not also reach the surrounding form or dialog.
+                    e.preventDefault();
+                    e.stopPropagation();
+                    selectItem(items[activeIndex]);
+                }
+                break;
+
+            case "Escape":
+                if (isDropdownShown) {
+                    // Only dismiss the dropdown; a surrounding popup keeps its own Escape handling.
+                    e.stopPropagation();
+                    close();
+                }
+                break;
+
+            case "Tab":
+                close();
+                break;
+        }
+
+        onKeyDown?.(e);
+    }
+
+    return (
+        <>
+            <FormTextBox
+                {...restProps}
+                inputRef={inputEl}
+                currentValue={currentValue}
+                onChange={(newValue) => {
+                    onChange(newValue);
+                    if (!isDisabled) {
+                        setIsOpen(true);
+                    }
+                }}
+                onFocus={openOnFocus && !isDisabled ? () => setIsOpen(true) : undefined}
+                onBlur={(newValue) => {
+                    close();
+                    onBlur?.(newValue);
+                }}
+                onKeyDown={handleKeyDown}
+                role="combobox"
+                aria-expanded={isOpen && items.length > 0}
+                aria-autocomplete="list"
+            />
+
+            {isOpen && items.length > 0 && position && createPortal(
+                <ul
+                    ref={dropdownRef}
+                    className="form-autocomplete-dropdown"
+                    role="listbox"
+                    style={position}
+                    // Keeps the input focused, so the blur handler does not close the dropdown
+                    // before the click lands on an item.
+                    onMouseDown={(e) => e.preventDefault()}
+                >
+                    {items.map((item, index) => (
+                        <li
+                            key={item}
+                            className={`form-autocomplete-item ${index === activeIndex ? "active" : ""}`}
+                            role="option"
+                            aria-selected={index === activeIndex}
+                            onMouseEnter={() => setActiveIndex(index)}
+                            onClick={() => selectItem(item)}
+                        >
+                            {item}
+                        </li>
+                    ))}
+                </ul>,
+                document.body)}
+        </>
+    );
+}
+
+interface DropdownPosition {
+    left: number;
+    top: number;
+    width: number;
+    maxHeight: number;
+}
+
+/**
+ * Places the dropdown under the input, flipping above it only when the space below is too small to
+ * be useful. Preferring below matters for inputs sitting in a panel docked to the bottom of the
+ * screen: the room under them is limited but ample, while flipping would cover the panel itself.
+ */
+function computeDropdownPosition(input: HTMLElement): DropdownPosition {
+    const rect = input.getBoundingClientRect();
+    const viewportHeight = document.documentElement.clientHeight;
+    const spaceBelow = viewportHeight - rect.bottom - VIEWPORT_MARGIN;
+    const spaceAbove = rect.top - VIEWPORT_MARGIN;
+    const flipAbove = spaceBelow < MIN_DROPDOWN_HEIGHT && spaceAbove > spaceBelow;
+    const available = flipAbove ? spaceAbove : spaceBelow;
+    const maxHeight = Math.min(MAX_DROPDOWN_HEIGHT, Math.max(available, 0));
+
+    return {
+        left: rect.left,
+        top: flipAbove ? rect.top - maxHeight : rect.bottom,
+        width: rect.width,
+        maxHeight
+    };
+}

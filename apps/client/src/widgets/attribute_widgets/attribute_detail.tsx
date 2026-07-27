@@ -1,15 +1,17 @@
 import "./attribute_detail.css";
 
-import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { Attribute } from "../../services/attribute_parser.js";
 import { isExperimentalFeatureEnabled } from "../../services/experimental_features.js";
 import { focusSavedElement, saveFocusedElement } from "../../services/focus.js";
 import { t } from "../../services/i18n.js";
+import server from "../../services/server.js";
 import { isIMEComposing } from "../../services/shortcuts.js";
 import utils from "../../services/utils.js";
 import NoteContextAwareWidget from "../note_context_aware_widget.js";
 import Button from "../react/Button.jsx";
+import FormAutocomplete, { AUTOCOMPLETE_DROPDOWN_SELECTOR } from "../react/FormAutocomplete.jsx";
 import FormCheckbox from "../react/FormCheckbox.jsx";
 import FormTextBox from "../react/FormTextBox.jsx";
 import { disposeReactWidget, renderReactWidgetAtElement } from "../react/react_utils.jsx";
@@ -170,7 +172,7 @@ function AttributeDetail({ opts, showId, parentOffset, onDismiss, onCancel, ...f
                 // attribute or close; dismissing here first would hide and immediately
                 // re-show the popup, which reads as a flicker.
                 || spawner?.contains(e.target)
-                || e.target.closest(".algolia-autocomplete, #context-menu-container")) {
+                || e.target.closest(`${AUTOCOMPLETE_DROPDOWN_SELECTOR}, .algolia-autocomplete, #context-menu-container`)) {
                 return;
             }
             onDismiss();
@@ -238,6 +240,11 @@ function AttributeForm({ opts, attrType, onAttributesChanged, onSaveAndClose, on
     attrType: AttrType;
 }) {
     const { attribute, allAttributes, isOwned, focus } = opts;
+    // Definitions describe the attribute they define, so they complete against its own type.
+    const suggestAttributeNames = useCallback((query: string) => {
+        const type = attrType === "relation" || attrType === "relation-definition" ? "relation" : "label";
+        return server.get<string[]>(`attribute-names/?type=${type}&query=${encodeURIComponent(query)}`);
+    }, [ attrType ]);
     const [ name, setName ] = useState(() => stripDefinitionPrefix(attribute.name, attrType));
     const [ value, setValue ] = useState(attribute.value ?? "");
     const [ isInheritable, setIsInheritable ] = useState(!!attribute.isInheritable);
@@ -277,11 +284,13 @@ function AttributeForm({ opts, attrType, onAttributesChanged, onSaveAndClose, on
                     <tr title={t("attribute_detail.attr_name_title")}>
                         <th>{t("attribute_detail.name")}</th>
                         <td>
-                            <FormTextBox
+                            <FormAutocomplete
                                 className="attr-input-name"
                                 inputRef={nameRef}
                                 currentValue={name}
                                 readOnly={!isOwned}
+                                source={suggestAttributeNames}
+                                openOnFocus
                                 onChange={(newName) => isComposing.current ? setName(newName) : commitName(newName)}
                                 onCompositionStart={() => isComposing.current = true}
                                 onCompositionEnd={(e) => {

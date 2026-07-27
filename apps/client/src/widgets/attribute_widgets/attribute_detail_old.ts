@@ -146,15 +146,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
         this.$widget = $(TPL);
 
         this.$inputName = this.$widget.find(".attr-input-name");
-        this.$inputName.on("autocomplete:closed", () => this.userEditedAttribute());
-
-        this.$inputName.on("focus", () => {
-            attributeAutocompleteService.initAttributeNameAutocomplete({
-                $el: this.$inputName,
-                attributeType: () => (["relation", "relation-definition"].includes(this.attrType || "") ? "relation" : "label"),
-                open: true
-            });
-        });
 
         this.$inputValue = this.$widget.find(".attr-input-value");
         this.$inputValue.on("autocomplete:closed", () => this.userEditedAttribute());
