@@ -18,6 +18,10 @@
     padding: 5px;
 }
 
+.related-notes-container {
+    margin-top: 20px;
+}
+
 .related-notes-list {
     padding-inline-start: 20px;
     margin-top: 10px;

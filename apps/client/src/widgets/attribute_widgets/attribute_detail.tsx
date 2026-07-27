@@ -2,9 +2,11 @@ import "./attribute_detail.css";
 
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
+import appContext from "../../components/app_context.js";
 import type { Attribute } from "../../services/attribute_parser.js";
 import { isExperimentalFeatureEnabled } from "../../services/experimental_features.js";
 import { focusSavedElement, saveFocusedElement } from "../../services/focus.js";
+import froca from "../../services/froca.js";
 import { t } from "../../services/i18n.js";
 import server from "../../services/server.js";
 import { isIMEComposing } from "../../services/shortcuts.js";
@@ -13,6 +15,7 @@ import NoteContextAwareWidget from "../note_context_aware_widget.js";
 import Button from "../react/Button.jsx";
 import FormAutocomplete, { AUTOCOMPLETE_DROPDOWN_SELECTOR } from "../react/FormAutocomplete.jsx";
 import FormCheckbox from "../react/FormCheckbox.jsx";
+import NoteLink from "../react/NoteLink.jsx";
 import { disposeReactWidget, renderReactWidgetAtElement } from "../react/react_utils.jsx";
 
 export interface AttributeDetailOpts {
@@ -120,6 +123,7 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
             <AttributeDetail
                 opts={this.opts}
                 showId={this.showId}
+                currentNoteId={this.noteId}
                 parentOffset={this.parent?.$widget?.offset() ?? { top: 0, left: 0 }}
                 onDismiss={() => this.hide()}
                 onCancel={() => this.cancelAndClose()}
@@ -134,6 +138,8 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
 interface AttributeDetailProps extends AttributeFormCallbacks {
     opts: AttributeDetailOpts | null;
     showId: number;
+    /** The note being viewed, excluded from the related notes list. */
+    currentNoteId?: string | null;
     /** Offset of the spawning widget, the reference point for classic-layout coordinates. */
     parentOffset: { top: number; left: number };
     /** Plain close, e.g. on click outside the popup. */
@@ -142,7 +148,7 @@ interface AttributeDetailProps extends AttributeFormCallbacks {
     onCancel: () => void;
 }
 
-function AttributeDetail({ opts, showId, parentOffset, onDismiss, onCancel, ...formCallbacks }: AttributeDetailProps) {
+function AttributeDetail({ opts, showId, currentNoteId, parentOffset, onDismiss, onCancel, ...formCallbacks }: AttributeDetailProps) {
     const popupRef = useRef<HTMLDivElement>(null);
     const shown = !!opts;
     const { onSaveAndClose } = formCallbacks;
@@ -218,7 +224,7 @@ function AttributeDetail({ opts, showId, parentOffset, onDismiss, onCancel, ...f
                 />
             </div>
 
-            <AttributeForm key={showId} opts={opts} attrType={attrType} {...formCallbacks} />
+            <AttributeForm key={showId} opts={opts} attrType={attrType} currentNoteId={currentNoteId} {...formCallbacks} />
         </div>
     );
 }
@@ -234,9 +240,10 @@ interface AttributeFormCallbacks {
  * The editable part of the popup. Remounted per show (keyed on `showId`) so the field state is
  * simply seeded from the attribute instead of being synchronized to it on every change.
  */
-function AttributeForm({ opts, attrType, onAttributesChanged, onSaveAndClose, onDelete }: AttributeFormCallbacks & {
+function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onSaveAndClose, onDelete }: AttributeFormCallbacks & {
     opts: AttributeDetailOpts;
     attrType: AttrType;
+    currentNoteId?: string | null;
 }) {
     const { attribute, allAttributes, isOwned, focus } = opts;
     // Definitions describe the attribute they define, so they complete against its own type.
@@ -376,7 +383,89 @@ function AttributeForm({ opts, attrType, onAttributesChanged, onSaveAndClose, on
                     />
                 </div>
             )}
+
+            <RelatedNotes attribute={attribute} currentNoteId={currentNoteId} />
         </>
+    );
+}
+
+const DISPLAYED_NOTES = 10;
+/** Edits keep arriving while typing, so the lookup waits for a pause instead of running per keystroke. */
+const RELATED_NOTES_DEBOUNCE_MS = 1000;
+
+interface SearchRelatedResponse {
+    // TODO: Deduplicate once we split client from server.
+    results: {
+        noteId: string;
+        notePathArray: string[];
+    }[];
+    count: number;
+}
+
+/** Lists the other notes carrying the same attribute, hidden entirely when there are none. */
+function RelatedNotes({ attribute, currentNoteId }: { attribute: Attribute; currentNoteId?: string | null }) {
+    const [ related, setRelated ] = useState<{ notePaths: string[]; moreCount: number }>();
+    const latestRequest = useRef(0);
+    const isInitialLookup = useRef(true);
+    const { type, name, value } = attribute;
+
+    useEffect(() => {
+        const requestId = ++latestRequest.current;
+
+        async function lookup() {
+            const { results, count } = await server.post<SearchRelatedResponse>("search-related", attribute);
+            const otherNotes = results.filter((result) => result.notePathArray.at(-1) !== currentNoteId);
+            const notes = await froca.getNotes(otherNotes
+                .slice(0, DISPLAYED_NOTES)
+                .map((result) => result.notePathArray.at(-1) ?? ""));
+
+            // A newer edit superseded this lookup while it was awaiting.
+            if (latestRequest.current !== requestId) {
+                return;
+            }
+
+            const hoistedNoteId = appContext.tabManager.getActiveContext()?.hoistedNoteId;
+            setRelated({
+                notePaths: notes.map((note) => note.getBestNotePathString(hoistedNoteId)),
+                // Counted against the server's total, so it also covers what the search itself capped.
+                moreCount: otherNotes.length > DISPLAYED_NOTES ? count - DISPLAYED_NOTES : 0
+            });
+        }
+
+        // The attribute the popup opened on is looked up right away; later edits are debounced.
+        if (isInitialLookup.current) {
+            isInitialLookup.current = false;
+            void lookup();
+            return;
+        }
+
+        const timeout = setTimeout(() => void lookup(), RELATED_NOTES_DEBOUNCE_MS);
+        return () => clearTimeout(timeout);
+        // `attribute` is edited in place, so its fields rather than its identity are the real inputs.
+    }, [ type, name, value, currentNoteId ]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    if (!related?.notePaths.length) {
+        return null;
+    }
+
+    return (
+        <div class="related-notes-container">
+            <h5 class="related-notes-title">
+                {t("attribute_detail.other_notes_with_name", { attributeType: type, attributeName: name })}
+            </h5>
+
+            <ul class="related-notes-list">
+                {related.notePaths.map((notePath) => (
+                    <li key={notePath}><NoteLink notePath={notePath} showNotePath /></li>
+                ))}
+            </ul>
+
+            {related.moreCount > 0 && (
+                <div class="related-notes-more-notes">
+                    {t("attribute_detail.and_more", { count: related.moreCount })}
+                </div>
+            )}
+        </div>
     );
 }
 

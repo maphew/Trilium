@@ -1,12 +1,9 @@
-import appContext from "../../components/app_context.js";
 import type { Attribute } from "../../services/attribute_parser.js";
 import froca from "../../services/froca.js";
 import { t } from "../../services/i18n.js";
 import linkService from "../../services/link.js";
 import noteAutocompleteService from "../../services/note_autocomplete.js";
 import promotedAttributeDefinitionParser from "../../services/promoted_attribute_definition_parser.js";
-import server from "../../services/server.js";
-import SpacedUpdate from "../../services/spaced_update.js";
 import utils, { openInAppHelpFromUrl } from "../../services/utils.js";
 import NoteContextAwareWidget from "../note_context_aware_widget.js";
 import { ATTR_HELP } from "./attr_help.js";
@@ -87,28 +84,7 @@ const TPL = /*html*/`
             </td>
         </tr>
     </table>
-
-    <div class="related-notes-container">
-        <br/>
-
-        <h5 class="related-notes-tile">${t("attribute_detail.related_notes_title")}</h5>
-
-        <ul class="related-notes-list"></ul>
-
-        <div class="related-notes-more-notes">${t("attribute_detail.more_notes")}</div>
-    </div>
 </div>`;
-
-const DISPLAYED_NOTES = 10;
-
-interface SearchRelatedResponse {
-    // TODO: Deduplicate once we split client from server.
-    results: {
-        noteId: string;
-        notePathArray: string[];
-    }[];
-    count: number;
-}
 
 export default class AttributeDetailWidget extends NoteContextAwareWidget {
     private $inputName!: JQuery<HTMLElement>;
@@ -127,20 +103,13 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
     private $rowTargetNote!: JQuery<HTMLElement>;
     private $rowPromotedAlias!: JQuery<HTMLElement>;
     private $attrIsOwnedBy!: JQuery<HTMLElement>;
-    private $relatedNotesContainer!: JQuery<HTMLElement>;
-    private $relatedNotesTitle!: JQuery<HTMLElement>;
-    private $relatedNotesList!: JQuery<HTMLElement>;
-    private $relatedNotesMoreNotes!: JQuery<HTMLElement>;
     private $attrHelp!: JQuery<HTMLElement>;
 
-    private relatedNotesSpacedUpdate!: SpacedUpdate;
     private attribute!: Attribute;
     private allAttributes?: Attribute[];
     private attrType!: ReturnType<AttributeDetailWidget["getAttrType"]>;
 
     doRender() {
-        this.relatedNotesSpacedUpdate = new SpacedUpdate(async () => this.updateRelatedNotes(), 1000);
-
         this.$widget = $(TPL);
 
         this.$inputName = this.$widget.find(".attr-input-name");
@@ -187,17 +156,11 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
             this.attribute.value = pathChunks[pathChunks.length - 1]; // noteId
 
             this.triggerCommand("updateAttributeList", { attributes: this.allAttributes ?? [] });
-            this.updateRelatedNotes();
         });
 
         this.$attrIsOwnedBy = this.$widget.find(".attr-is-owned-by");
 
         this.$attrHelp = this.$widget.find(".attr-help");
-
-        this.$relatedNotesContainer = this.$widget.find(".related-notes-container");
-        this.$relatedNotesTitle = this.$relatedNotesContainer.find(".related-notes-tile");
-        this.$relatedNotesList = this.$relatedNotesContainer.find(".related-notes-list");
-        this.$relatedNotesMoreNotes = this.$relatedNotesContainer.find(".related-notes-more-notes");
     }
 
     async showAttributeDetail({ allAttributes, attribute, isOwned, x, y, focus, hideMultiplicity }: AttributeDetailOpts) {
@@ -207,9 +170,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
 
         this.allAttributes = allAttributes;
         this.attribute = attribute;
-
-        // can be slightly slower so just make it async
-        this.updateRelatedNotes();
 
         if (isOwned) {
             this.$attrIsOwnedBy.hide();
@@ -264,7 +224,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
     userEditedAttribute() {
         this.updateAttributeInEditor();
         this.updateHelp();
-        this.relatedNotesSpacedUpdate.scheduleUpdate();
     }
 
     updateHelp() {
@@ -289,42 +248,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
                 .show();
         } else {
             this.$attrHelp.empty().hide();
-        }
-    }
-
-    async updateRelatedNotes() {
-        let { results, count } = await server.post<SearchRelatedResponse>("search-related", this.attribute);
-
-        for (const res of results) {
-            res.noteId = res.notePathArray[res.notePathArray.length - 1];
-        }
-
-        results = results.filter(({ noteId }) => noteId !== this.noteId);
-
-        if (results.length === 0) {
-            this.$relatedNotesContainer.hide();
-        } else {
-            this.$relatedNotesContainer.show();
-            this.$relatedNotesTitle.text(t("attribute_detail.other_notes_with_name", { attributeType: this.attribute.type, attributeName: this.attribute.name }));
-
-            this.$relatedNotesList.empty();
-
-            const displayedResults = results.length <= DISPLAYED_NOTES ? results : results.slice(0, DISPLAYED_NOTES);
-            const displayedNotes = await froca.getNotes(displayedResults.map((res) => res.noteId));
-            const hoistedNoteId = appContext.tabManager.getActiveContext()?.hoistedNoteId;
-
-            for (const note of displayedNotes) {
-                const notePath = note.getBestNotePathString(hoistedNoteId);
-                const $noteLink = await linkService.createLink(notePath, { showNotePath: true });
-
-                this.$relatedNotesList.append($("<li>").append($noteLink));
-            }
-
-            if (results.length > DISPLAYED_NOTES) {
-                this.$relatedNotesMoreNotes.show().text(t("attribute_detail.and_more", { count: count - DISPLAYED_NOTES }));
-            } else {
-                this.$relatedNotesMoreNotes.hide();
-            }
         }
     }
 
