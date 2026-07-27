@@ -295,7 +295,8 @@
     "security-title": "セキュリティ",
     "desktop-title": "デスクトップ",
     "deleted-notes-title": "削除されたノート",
-    "color-scheme-switcher-title": "配色の切り替え"
+    "color-scheme-switcher-title": "配色の切り替え",
+    "content-manager-title": "コンテンツマネージャー"
   },
   "notes": {
     "new-note": "新しいノート",
