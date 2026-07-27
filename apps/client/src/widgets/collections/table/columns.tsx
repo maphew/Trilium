@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { CellComponent, ColumnDefinition, EmptyCallback, FormatterParams, RowComponent, ValueBooleanCallback, ValueVoidCallback } from "tabulator-tables";
 
 import froca from "../../../services/froca.js";
+import { formatDateTime } from "../../../utils/formatters.js";
 import Icon from "../../react/Icon.jsx";
 import NoteAutocomplete from "../../react/NoteAutocomplete.jsx";
 import { renderReactWidget } from "../../react/react_utils.jsx";
@@ -37,9 +38,12 @@ const labelTypeMappings: Record<ColumnType, Partial<ColumnDefinition>> = {
     },
     date: {
         editor: "date",
+        // Values are stored as ISO ("YYYY-MM-DD"), which Tabulator would otherwise render as-is.
+        formatter: (cell) => formatLabelDate(cell.getValue(), "none")
     },
     datetime: {
-        editor: "datetime"
+        editor: "datetime",
+        formatter: (cell) => formatLabelDate(cell.getValue(), "short")
     },
     number: {
         editor: "number",
@@ -66,6 +70,22 @@ const labelTypeMappings: Record<ColumnType, Partial<ColumnDefinition>> = {
         formatter: wrapFormatter(NoteFormatter)
     }
 };
+
+/**
+ * Renders a stored date label through the user's formatting locale.
+ *
+ * Unparseable values are echoed back rather than formatted: label values are free text, so a
+ * date-typed column can hold anything a user typed, imported, or left behind by retyping a text
+ * label as a date. `Intl.DateTimeFormat` throws a `RangeError` on an invalid date, and since this
+ * runs inside a Tabulator formatter, that would take down the whole grid rather than one cell.
+ */
+export function formatLabelDate(value: unknown, timeStyle: "none" | "short") {
+    if (typeof value !== "string" || !value) return "";
+    // Passed as a string so that formatDateTime() keeps its date-only ("YYYY-MM-DD") handling,
+    // which pins the value to the local calendar day instead of shifting it across timezones.
+    if (Number.isNaN(new Date(value).getTime())) return value;
+    return formatDateTime(value, "short", timeStyle);
+}
 
 interface BuildColumnArgs {
     info: AttributeDefinitionInformation[];

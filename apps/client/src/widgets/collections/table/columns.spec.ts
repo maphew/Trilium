@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
-import { restoreExistingData } from "./columns";
+import { formatLabelDate, restoreExistingData } from "./columns";
 import type { ColumnDefinition } from "tabulator-tables";
+
+import options from "../../../services/options";
 
 describe("restoreExistingData", () => {
     it("maintains important columns properties", () => {
@@ -129,5 +131,35 @@ describe("restoreExistingData", () => {
         ];
         const restored = restoreExistingData(newDefs, oldDefs);
         expect(restored[0].width).toStrictEqual("100px");
+    });
+});
+
+describe("formatLabelDate", () => {
+    it("renders dates and datetimes in the configured formatting locale", () => {
+        options.set("formattingLocale", "de");
+
+        expect(formatLabelDate("2026-01-31", "none")).toBe("31.01.26");
+        expect(formatLabelDate("2026-01-31T14:05", "short")).toBe("31.01.26, 14:05");
+    });
+
+    it("keeps a date-only value on its calendar day rather than shifting it by timezone", () => {
+        options.set("formattingLocale", "de");
+
+        // Parsed as UTC midnight, "2026-01-31" would roll back a day in a negative UTC offset.
+        expect(formatLabelDate("2026-01-31", "none")).toBe("31.01.26");
+    });
+
+    it("echoes values that are not dates instead of throwing inside the grid render", () => {
+        options.set("formattingLocale", "de");
+
+        // Intl throws a RangeError on an invalid date, which would break the whole table.
+        expect(formatLabelDate("not a date", "short")).toBe("not a date");
+        expect(formatLabelDate("not a date", "none")).toBe("not a date");
+    });
+
+    it("renders a blank cell for missing values", () => {
+        expect(formatLabelDate(undefined, "none")).toBe("");
+        expect(formatLabelDate(null, "short")).toBe("");
+        expect(formatLabelDate("", "none")).toBe("");
     });
 });
