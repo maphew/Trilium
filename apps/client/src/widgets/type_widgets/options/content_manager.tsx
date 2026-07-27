@@ -90,6 +90,32 @@ function ContentItemMenu({ note }: { note: FNote }) {
 type ContentItemCommand = "openNoteInNewTab" | "deleteNote";
 
 /**
+ * A row's trailing detail, all within one container so the category and the properties read as a
+ * single run rather than as two groups.
+ *
+ * @param showCategory the category is worth stating only where the headings don't already say it.
+ */
+function ItemDetail({ note, categories, showCategory }: {
+    note: FNote,
+    categories: ContentCategory[],
+    showCategory?: boolean
+}) {
+    return (
+        <span className="content-manager-properties">
+            {showCategory && categories.map((category) => (
+                <Badge
+                    key={category.id}
+                    className="content-manager-badge"
+                    text={t(category.titleKey)}
+                    tooltip={t("content_manager.property_category")}
+                />
+            ))}
+            <ContentProperties note={note} category={categories[0]} />
+        </span>
+    );
+}
+
+/**
  * A note's extra detail as badges — `Hourly`, `main` — one per value.
  *
  * The value is shown rather than the property name so a row stays scannable at a glance; the name
@@ -100,8 +126,9 @@ function ContentProperties({ note, category }: { note: FNote, category: ContentC
 
     if (!properties.length) return null;
 
+    // Deliberately no container of its own: {@link ItemDetail} supplies the shared one.
     return (
-        <span className="content-manager-properties">
+        <>
             {properties.flatMap(({ titleKey, values, badge }) => badge
                 ? values.map((value, index) => (
                     <Badge
@@ -118,7 +145,7 @@ function ContentProperties({ note, category }: { note: FNote, category: ContentC
                         {values.map((value) => value.titleKey ? t(value.titleKey) : value.text).join(", ")}
                     </span>
                 ))}
-        </span>
+        </>
     );
 }
 
@@ -295,15 +322,7 @@ function LocationList({ pageNote, categories, highlightedTokens }: CategoryListP
                     return (
                         <>
                             {/* The category is otherwise invisible here, the headings being gone. */}
-                            {item.categories.map((category) => (
-                                <Badge
-                                    key={category.id}
-                                    className="content-manager-badge"
-                                    text={t(category.titleKey)}
-                                    tooltip={t("content_manager.property_category")}
-                                />
-                            ))}
-                            <ContentProperties note={note} category={item.categories[0]} />
+                            <ItemDetail note={note} categories={item.categories} showCategory />
                             <ContentToggle note={note} categories={item.categories} />
                         </>
                     );
@@ -401,7 +420,7 @@ function CategoryList({ pageNote, categories, highlightedTokens }: CategoryListP
                         title: t(category.titleKey),
                         renderItemActions: (note) => (
                             <>
-                                <ContentProperties note={note} category={category} />
+                                <ItemDetail note={note} categories={[ category ]} />
                                 <ContentToggle note={note} categories={[ category ]} />
                             </>
                         ),
