@@ -443,9 +443,7 @@
     "tooltip": "Bu seçeneği işaretlerseniz, Trilium yüklenen görüntüleri ölçeklendirme ve optimizasyon yoluyla küçültmeye çalışacaktır; bu da algılanan görüntü kalitesini etkileyebilir. İşaretlenmezse, görüntüler değişiklik yapılmadan yüklenecektir."
   },
   "attribute_detail": {
-    "attr_detail_title": "Öznitelik Detay Başlığı",
     "close_button_title": "Değişiklikleri iptal et ve kapat",
-    "attr_is_owned_by": "Öznitelik sahibi",
     "attr_name_title": "Öznitelik adı yalnızca alfanümerik karakterler, iki nokta üst üste ve alt çizgiden oluşabilir",
     "name": "İsim",
     "value": "Değer",
@@ -471,7 +469,6 @@
     "inverse_relation": "Ters ilişki",
     "inheritable_title": "Kalıtsal özellik, bu ağacın altındaki tüm alt ögelere aktarılacaktır.",
     "inheritable": "Kalıtsal",
-    "save_and_close": "Kaydet & kapat <kbd>Ctrl+Enter</kbd>",
     "delete": "Sil",
     "related_notes_title": "Bu etiketle ilişkili diğer notlar",
     "more_notes": "Diğer notlar",

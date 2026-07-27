@@ -333,9 +333,7 @@
     "tooltip": "Si vous cochez cette option, Trilium tentera de réduire la taille des images importées, ce qui peut affecter la qualité perçue des images. Si cette option est décochée, les images seront importées sans modification."
   },
   "attribute_detail": {
-    "attr_detail_title": "Titre détaillé de l'attribut",
     "close_button_title": "Annuler les modifications et fermer",
-    "attr_is_owned_by": "L'attribut appartient à",
     "attr_name_title": "Le nom de l'attribut ne peut être composé que de caractères alphanumériques, de deux-points et de tirets bas",
     "name": "Nom",
     "value": "Valeur",
@@ -365,7 +363,6 @@
     "inverse_relation": "Relation inverse",
     "inheritable_title": "L'attribut hérité sera transmis à tous les descendants dans cet arbre.",
     "inheritable": "Héritable",
-    "save_and_close": "Enregistrer et fermer <kbd>Ctrl+Entrée</kbd>",
     "delete": "Supprimer",
     "related_notes_title": "Autres notes avec ce label",
     "more_notes": "Plus de notes",

@@ -351,9 +351,7 @@
     "tooltip": "Wenn Sie diese Option aktivieren, versucht Trilium, die hochgeladenen Bilder durch Skalierung und Optimierung zu verkleinern, was sich auf die wahrgenommene Bildqualität auswirken kann. Wenn diese Option deaktiviert ist, werden die Bilder ohne Änderungen hochgeladen."
   },
   "attribute_detail": {
-    "attr_detail_title": "Attributdetailtitel",
     "close_button_title": "Änderungen verwerfen und schließen",
-    "attr_is_owned_by": "Attribut gehört zu",
     "attr_name_title": "Der Attributname darf nur aus alphanumerischen Zeichen, Doppelpunkten und Unterstrichen bestehen",
     "name": "Name",
     "value": "Wert",
@@ -383,7 +381,6 @@
     "inverse_relation": "Inverse Relation",
     "inheritable_title": "Das vererbbare Attribut wird an alle Nachkommen unter diesem Baum vererbt.",
     "inheritable": "Vererbbar",
-    "save_and_close": "Speichern und schließen <kbd>Strg+Eingabetaste</kbd>",
     "delete": "Löschen",
     "related_notes_title": "Weitere Notizen mit diesem Label",
     "more_notes": "Weitere Notizen",

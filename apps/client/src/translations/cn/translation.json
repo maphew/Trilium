@@ -350,9 +350,7 @@
     "tooltip": "如果你勾选此选项，Trilium 将尝试通过缩放和优化来缩小上传的图像，这可能会影响感知的图像质量。如果未选中，则将以不进行修改的方式上传图像。"
   },
   "attribute_detail": {
-    "attr_detail_title": "属性详情标题",
     "close_button_title": "取消修改并关闭",
-    "attr_is_owned_by": "属性所有者",
     "attr_name_title": "属性名称只能由字母数字字符、冒号和下划线组成",
     "name": "名称",
     "value": "值",
@@ -382,7 +380,6 @@
     "inverse_relation": "反向关系",
     "inheritable_title": "可继承属性将被继承到此树下的所有后代。",
     "inheritable": "可继承",
-    "save_and_close": "保存并关闭 <kbd>Ctrl+回车</kbd>",
     "delete": "删除",
     "related_notes_title": "含有此标签的其他笔记",
     "more_notes": "更多笔记",
