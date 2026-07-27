@@ -16,6 +16,10 @@ export interface AttributeDetailOpts {
     x: number;
     y: number;
     focus?: "name";
+    /**
+     * The element the popup was spawned from. Mouse presses inside it do not dismiss the
+     * popup, leaving the spawning widget free to swap the shown attribute on click.
+     */
     parent?: HTMLElement;
     hideMultiplicity?: boolean;
 }
@@ -119,6 +123,7 @@ function AttributeDetail({ opts, parentOffset, onDismiss, onCancel }: AttributeD
     // Dismiss on click outside the popup, except in floating UI logically belonging
     // to it (autocomplete dropdowns and context menus are appended to the body).
     // Unlike the legacy widget, the listener only exists while the popup is shown.
+    const spawner = opts?.parent;
     useEffect(() => {
         if (!shown) {
             return;
@@ -127,6 +132,10 @@ function AttributeDetail({ opts, parentOffset, onDismiss, onCancel }: AttributeD
         const onMouseDown = (e: MouseEvent) => {
             if (!(e.target instanceof Element)
                 || popupRef.current?.contains(e.target)
+                // The spawning widget decides for itself on click whether to show another
+                // attribute or close; dismissing here first would hide and immediately
+                // re-show the popup, which reads as a flicker.
+                || spawner?.contains(e.target)
                 || e.target.closest(".algolia-autocomplete, #context-menu-container")) {
                 return;
             }
@@ -135,7 +144,7 @@ function AttributeDetail({ opts, parentOffset, onDismiss, onCancel }: AttributeD
 
         window.addEventListener("mousedown", onMouseDown);
         return () => window.removeEventListener("mousedown", onMouseDown);
-    }, [ shown, onDismiss ]);
+    }, [ shown, spawner, onDismiss ]);
 
     if (!opts) {
         return null;

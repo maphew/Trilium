@@ -242,17 +242,15 @@ export default function AttributeEditor({ api, note, componentId, notePath, ntxI
         // this.$editor.scrollTop(this.$editor[0].scrollHeight);
         const rect = wrapperRef.current?.getBoundingClientRect();
 
-        setTimeout(() => {
-            // showing a little bit later because there's a conflict with outside click closing the attr detail
-            attributeDetailWidget.showAttributeDetail({
-                allAttributes: attrs,
-                attribute: attrs[attrs.length - 1],
-                isOwned: true,
-                x: rect ? (rect.left + rect.right) / 2 : 0,
-                y: rect?.bottom ?? 0,
-                focus: "name"
-            });
-        }, 100);
+        attributeDetailWidget.showAttributeDetail({
+            allAttributes: attrs,
+            attribute: attrs[attrs.length - 1],
+            isOwned: true,
+            x: rect ? (rect.left + rect.right) / 2 : 0,
+            y: rect?.bottom ?? 0,
+            focus: "name",
+            parent: wrapperRef.current ?? undefined
+        });
     }
 
     // Refresh with note
@@ -370,21 +368,24 @@ export default function AttributeEditor({ api, note, componentId, notePath, ntxI
                                     }
                                 }
 
-                                setTimeout(() => {
-                                    if (matchedAttr) {
-                                        attributeDetailWidget.showAttributeDetail({
-                                            allAttributes: parsedAttrs,
-                                            attribute: matchedAttr,
-                                            isOwned: true,
-                                            x: e.pageX,
-                                            y: e.pageY
-                                        });
-                                        setState("showAttributeDetail");
-                                    } else {
-                                        setState("showHelpTooltip");
-                                    }
-                                }, 100);
+                                if (matchedAttr) {
+                                    attributeDetailWidget.showAttributeDetail({
+                                        allAttributes: parsedAttrs,
+                                        attribute: matchedAttr,
+                                        isOwned: true,
+                                        x: e.pageX,
+                                        y: e.pageY,
+                                        parent: wrapperRef.current ?? undefined
+                                    });
+                                    setState("showAttributeDetail");
+                                } else {
+                                    // Presses inside the editor no longer dismiss the popup, so
+                                    // clicking next to an attribute has to close it explicitly.
+                                    attributeDetailWidget.hide();
+                                    setState("showHelpTooltip");
+                                }
                             } else {
+                                attributeDetailWidget.hide();
                                 setState("showHelpTooltip");
                             }
                         }}
