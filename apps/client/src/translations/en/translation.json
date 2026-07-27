@@ -521,9 +521,7 @@
     "tooltip": "If you check this option, Trilium will attempt to shrink the uploaded images by scaling and optimization which may affect the perceived image quality. If unchecked, images will be uploaded without changes."
   },
   "attribute_detail": {
-    "attr_detail_title": "Attribute Detail Title",
     "close_button_title": "Cancel changes and close",
-    "attr_is_owned_by": "Attribute is owned by",
     "attr_name_title": "Attribute name can be composed of alphanumeric characters, colon and underscore only",
     "name": "Name",
     "value": "Value",

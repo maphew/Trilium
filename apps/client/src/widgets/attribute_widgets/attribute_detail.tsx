@@ -331,6 +331,15 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
 
     return (
         <>
+            {!isOwned && attribute.noteId && (
+                <div class="attr-is-owned-by">
+                    {/* TODO: the attribute type is not translated, as in the widget this was ported from. */}
+                    {attribute.type === "label" ? "Label" : "Relation"}
+                    {` ${t("attribute_detail.is_owned_by_note")} `}
+                    <NoteLink notePath={attribute.noteId} />
+                </div>
+            )}
+
             <table class="attr-edit-table">
                 <tbody>
                     <tr title={t("attribute_detail.attr_name_title")}>
