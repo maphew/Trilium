@@ -179,8 +179,6 @@ function positionPopup(popup: HTMLElement, { x, y }: AttributeDetailOpts, parent
         return;
     }
 
-    const detPosition = getDetailPosition(x, parentOffset.left, outerWidth);
-
     if (isNewLayout) {
         // The popup always sits above the note attributes pane so it never covers it;
         // when the pane is closed (e.g. opened from the collection column editor),
@@ -191,12 +189,20 @@ function positionPopup(popup: HTMLElement, { x, y }: AttributeDetailOpts, parent
             ? attrPane.getBoundingClientRect().top
             : document.body.clientHeight - (document.querySelector<HTMLElement>(".component.status-bar")?.offsetHeight ?? 0);
 
-        popup.style.left = `${parentOffset.left + (typeof detPosition.left === "number" ? detPosition.left : 0)}px`;
+        // Centered on the click, clamped to the viewport. Deliberately not using
+        // getDetailPosition(): its legacy right-pin quirk reads as a plain 0 here,
+        // which kept the popup flush left regardless of the click position.
+        const windowWidth = document.documentElement.clientWidth;
+        const left = Math.max(Math.min(x - outerWidth / 2, windowWidth - outerWidth - 10), 10);
+
+        popup.style.left = `${left}px`;
         popup.style.right = "";
         popup.style.top = "unset";
         popup.style.bottom = `${document.body.clientHeight - anchorTop}px`;
         popup.style.maxHeight = `${anchorTop}px`;
     } else {
+        const detPosition = getDetailPosition(x, parentOffset.left, outerWidth);
+
         popup.style.left = toCssPos(detPosition.left);
         popup.style.right = toCssPos(detPosition.right);
         popup.style.top = `${y - parentOffset.top + 70}px`;
