@@ -554,7 +554,7 @@
     "inverse_relation": "Inverse relation",
     "inheritable_title": "Inheritable attribute will be inherited to all descendants under this tree.",
     "inheritable": "Inheritable",
-    "save_and_close": "Save & close <kbd>Ctrl+Enter</kbd>",
+    "save_and_close_button": "Save & close",
     "delete": "Delete",
     "related_notes_title": "Other notes with this label",
     "more_notes": "More notes",

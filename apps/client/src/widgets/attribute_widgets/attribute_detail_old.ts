@@ -20,15 +20,7 @@ const TPL = /*html*/`
     <div class="attr-is-owned-by">${t("attribute_detail.attr_is_owned_by")}</div>
 
     <table class="attr-edit-table">
-        <tr title="${t("attribute_detail.attr_name_title")}">
-            <th>${t("attribute_detail.name")}</th>
-            <td><input type="text" class="attr-input-name form-control" /></td>
-        </tr>
         <tr class="attr-help"></tr>
-        <tr class="attr-row-value">
-            <th>${t("attribute_detail.value")}</th>
-            <td><input type="text" class="attr-input-value form-control" /></td>
-        </tr>
         <tr class="attr-row-target-note">
             <th title="${t("attribute_detail.target_note_title")}">${t("attribute_detail.target_note")}</th>
             <td>
@@ -97,25 +89,7 @@ const TPL = /*html*/`
                 </div>
             </td>
         </tr>
-        <tr title="${t("attribute_detail.inheritable_title")}">
-            <th></th>
-            <td>
-                <label class="tn-checkbox">
-                    <input type="checkbox" class="attr-input-inheritable" />
-                    ${t("attribute_detail.inheritable")}
-                </label>
-            </td>
-        </tr>
     </table>
-
-    <div class="attr-save-delete-button-container">
-        <button class="btn btn-primary btn-sm attr-save-changes-and-close-button"
-            style="flex-grow: 1; margin-inline-end: 20px">
-            ${t("attribute_detail.save_and_close")}</button>
-
-        <button class="btn btn-secondary btn-sm attr-delete-button">
-            ${t("attribute_detail.delete")}</button>
-    </div>
 
     <div class="related-notes-container">
         <br/>
@@ -150,8 +124,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
     private $inputLabelType!: JQuery<HTMLElement>;
     private $inputTargetNote!: JQuery<HTMLElement>;
     private $inputNumberPrecision!: JQuery<HTMLElement>;
-    private $inputInheritable!: JQuery<HTMLElement>;
-    private $rowValue!: JQuery<HTMLElement>;
     private $rowMultiplicity!: JQuery<HTMLElement>;
     private $rowLabelType!: JQuery<HTMLElement>;
     private $rowNumberPrecision!: JQuery<HTMLElement>;
@@ -159,9 +131,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
     private $rowTargetNote!: JQuery<HTMLElement>;
     private $rowPromotedAlias!: JQuery<HTMLElement>;
     private $attrIsOwnedBy!: JQuery<HTMLElement>;
-    private $attrSaveDeleteButtonContainer!: JQuery<HTMLElement>;
-    private $saveAndCloseButton!: JQuery<HTMLElement>;
-    private $deleteButton!: JQuery<HTMLElement>;
     private $relatedNotesContainer!: JQuery<HTMLElement>;
     private $relatedNotesTitle!: JQuery<HTMLElement>;
     private $relatedNotesList!: JQuery<HTMLElement>;
@@ -182,13 +151,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
         shortcutService.bindElShortcut(this.$widget, "esc", () => this.cancelAndClose());
 
         this.$inputName = this.$widget.find(".attr-input-name");
-        this.$inputName.on("input", (ev) => {
-            if (!(ev.originalEvent as KeyboardEvent)?.isComposing) {
-                // https://github.com/zadam/trilium/pull/3812
-                this.userEditedAttribute();
-            }
-        });
-        this.$inputName.on("change", () => this.userEditedAttribute());
         this.$inputName.on("autocomplete:closed", () => this.userEditedAttribute());
 
         this.$inputName.on("focus", () => {
@@ -199,15 +161,7 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
             });
         });
 
-        this.$rowValue = this.$widget.find(".attr-row-value");
         this.$inputValue = this.$widget.find(".attr-input-value");
-        this.$inputValue.on("input", (ev) => {
-            if (!(ev.originalEvent as KeyboardEvent)?.isComposing) {
-                // https://github.com/zadam/trilium/pull/3812
-                this.userEditedAttribute();
-            }
-        });
-        this.$inputValue.on("change", () => this.userEditedAttribute());
         this.$inputValue.on("autocomplete:closed", () => this.userEditedAttribute());
         this.$inputValue.on("focus", () => {
             attributeAutocompleteService.initLabelValueAutocomplete({
@@ -262,26 +216,7 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
             this.updateRelatedNotes();
         });
 
-        this.$inputInheritable = this.$widget.find(".attr-input-inheritable");
-        this.$inputInheritable.on("change", () => this.userEditedAttribute());
-
         this.$attrIsOwnedBy = this.$widget.find(".attr-is-owned-by");
-
-        this.$attrSaveDeleteButtonContainer = this.$widget.find(".attr-save-delete-button-container");
-
-        this.$saveAndCloseButton = this.$widget.find(".attr-save-changes-and-close-button");
-        this.$saveAndCloseButton.on("click", () => this.saveAndClose());
-
-        this.$deleteButton = this.$widget.find(".attr-delete-button");
-        this.$deleteButton.on("click", async () => {
-            await this.triggerCommand("updateAttributeList", {
-                attributes: (this.allAttributes || []).filter((attr) => attr !== this.attribute)
-            });
-
-            await this.triggerCommand("saveAttributes");
-
-            this.hide();
-        });
 
         this.$attrHelp = this.$widget.find(".attr-help");
 
@@ -294,8 +229,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
     async showAttributeDetail({ allAttributes, attribute, isOwned, x, y, focus, hideMultiplicity }: AttributeDetailOpts) {
         this.attrType = this.getAttrType(attribute);
 
-        const attrName = this.attrType === "label-definition" ? attribute.name.substr(6) : this.attrType === "relation-definition" ? attribute.name.substr(9) : attribute.name;
-
         const definition = this.attrType?.endsWith("-definition") ? promotedAttributeDefinitionParser.parse(attribute.value || "") : {};
 
         this.allAttributes = allAttributes;
@@ -303,8 +236,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
 
         // can be slightly slower so just make it async
         this.updateRelatedNotes();
-
-        this.$attrSaveDeleteButtonContainer.toggle(!!isOwned);
 
         if (isOwned) {
             this.$attrIsOwnedBy.hide();
@@ -319,9 +250,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
 
         const disabledFn = () => (!isOwned ? "true" : undefined);
 
-        this.$inputName.val(attrName).attr("readonly", disabledFn);
-
-        this.$rowValue.toggle(this.attrType === "label");
         this.$rowTargetNote.toggle(this.attrType === "relation");
 
         this.$rowPromoted.toggle(["label-definition", "relation-definition"].includes(this.attrType || ""));
@@ -342,9 +270,7 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
         this.$rowInverseRelation.toggle(this.attrType === "relation-definition");
         this.$inputInverseRelation.val(definition.inverseRelation || "").attr("disabled", disabledFn);
 
-        if (attribute.type === "label") {
-            this.$inputValue.val(attribute.value || "").attr("readonly", disabledFn);
-        } else if (attribute.type === "relation") {
+        if (attribute.type === "relation") {
             this.$inputTargetNote.attr("readonly", disabledFn).val("").setSelectedNotePath("");
 
             if (attribute.value) {
@@ -356,15 +282,9 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
             }
         }
 
-        this.$inputInheritable.prop("checked", !!attribute.isInheritable).attr("disabled", disabledFn);
-
         this.updateHelp();
 
         this.toggleInt(true);
-
-        if (focus === "name") {
-            this.$inputName.trigger("focus").trigger("select");
-        }
     }
 
     async saveAndClose() {
@@ -465,30 +385,10 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
     }
 
     updateAttributeInEditor() {
-        let attrName = String(this.$inputName.val());
-
-        if (!utils.isValidAttributeName(attrName)) {
-            // invalid characters are simply ignored (from user perspective they are not even entered)
-            attrName = utils.filterAttributeName(attrName);
-
-            this.$inputName.val(attrName);
-        }
-
-        if (this.attrType === "label-definition") {
-            attrName = `label:${attrName}`;
-        } else if (this.attrType === "relation-definition") {
-            attrName = `relation:${attrName}`;
-        }
-
-        this.attribute.name = attrName;
-        this.attribute.isInheritable = this.$inputInheritable.is(":checked");
-
         if (this.attrType?.endsWith("-definition")) {
             this.attribute.value = this.buildDefinitionValue();
         } else if (this.attrType === "relation") {
             this.attribute.value = this.$inputTargetNote.getSelectedNoteId() || "";
-        } else {
-            this.attribute.value = String(this.$inputValue.val());
         }
 
         this.triggerCommand("updateAttributeList", { attributes: this.allAttributes ?? [] });

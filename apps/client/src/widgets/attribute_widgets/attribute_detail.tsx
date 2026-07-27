@@ -1,12 +1,16 @@
 import "./attribute_detail.css";
 
-import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import type { Attribute } from "../../services/attribute_parser.js";
 import { isExperimentalFeatureEnabled } from "../../services/experimental_features.js";
 import { focusSavedElement, saveFocusedElement } from "../../services/focus.js";
 import { t } from "../../services/i18n.js";
+import utils from "../../services/utils.js";
 import NoteContextAwareWidget from "../note_context_aware_widget.js";
+import Button from "../react/Button.jsx";
+import FormCheckbox from "../react/FormCheckbox.jsx";
+import FormTextBox from "../react/FormTextBox.jsx";
 import { disposeReactWidget, renderReactWidgetAtElement } from "../react/react_utils.jsx";
 
 export interface AttributeDetailOpts {
@@ -31,6 +35,8 @@ export interface AttributeDetailOpts {
  */
 export default class AttributeDetailWidget extends NoteContextAwareWidget {
     private opts: AttributeDetailOpts | null = null;
+    /** Bumped on every show so the form remounts with state seeded from the new attribute. */
+    private showId = 0;
 
     doRender() {
         // No initial renderComponent() here: doRender() runs synchronously inside the
@@ -58,6 +64,7 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
         saveFocusedElement();
 
         this.opts = opts;
+        this.showId++;
         // The widget has no note context, so isEnabled() is falsy and render()
         // stamps the container with hidden-int; visibility is driven manually,
         // exactly like the legacy widget did. The container must be visible
@@ -85,21 +92,46 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
         focusSavedElement();
     }
 
+    private async saveAndClose() {
+        await this.triggerCommand("saveAttributes");
+
+        this.hide();
+
+        focusSavedElement();
+    }
+
+    private async deleteAndClose() {
+        await this.triggerCommand("updateAttributeList", {
+            // the popup edits the very attribute object it was handed, so identity
+            // is what identifies the attribute to remove
+            attributes: (this.opts?.allAttributes ?? []).filter((attr) => attr !== this.opts?.attribute)
+        });
+
+        await this.triggerCommand("saveAttributes");
+
+        this.hide();
+    }
+
     private renderComponent() {
         renderReactWidgetAtElement(
             this,
             <AttributeDetail
                 opts={this.opts}
+                showId={this.showId}
                 parentOffset={this.parent?.$widget?.offset() ?? { top: 0, left: 0 }}
                 onDismiss={() => this.hide()}
                 onCancel={() => this.cancelAndClose()}
+                onAttributesChanged={(attributes) => this.triggerCommand("updateAttributeList", { attributes })}
+                onSaveAndClose={() => this.saveAndClose()}
+                onDelete={() => this.deleteAndClose()}
             />,
             this.$widget[0]);
     }
 }
 
-interface AttributeDetailProps {
+interface AttributeDetailProps extends AttributeFormCallbacks {
     opts: AttributeDetailOpts | null;
+    showId: number;
     /** Offset of the spawning widget, the reference point for classic-layout coordinates. */
     parentOffset: { top: number; left: number };
     /** Plain close, e.g. on click outside the popup. */
@@ -108,7 +140,7 @@ interface AttributeDetailProps {
     onCancel: () => void;
 }
 
-function AttributeDetail({ opts, parentOffset, onDismiss, onCancel }: AttributeDetailProps) {
+function AttributeDetail({ opts, showId, parentOffset, onDismiss, onCancel, ...formCallbacks }: AttributeDetailProps) {
     const popupRef = useRef<HTMLDivElement>(null);
     const shown = !!opts;
 
@@ -164,8 +196,138 @@ function AttributeDetail({ opts, parentOffset, onDismiss, onCancel }: AttributeD
                 />
             </div>
 
-            Hello world
+            <AttributeForm key={showId} opts={opts} attrType={attrType} {...formCallbacks} />
         </div>
+    );
+}
+
+interface AttributeFormCallbacks {
+    /** Reports the edited attribute list back to the spawning widget, which re-renders from it. */
+    onAttributesChanged: (attributes: Attribute[]) => void;
+    onSaveAndClose: () => void;
+    onDelete: () => void;
+}
+
+/**
+ * The editable part of the popup. Remounted per show (keyed on `showId`) so the field state is
+ * simply seeded from the attribute instead of being synchronized to it on every change.
+ */
+function AttributeForm({ opts, attrType, onAttributesChanged, onSaveAndClose, onDelete }: AttributeFormCallbacks & {
+    opts: AttributeDetailOpts;
+    attrType: AttrType;
+}) {
+    const { attribute, allAttributes, isOwned, focus } = opts;
+    const [ name, setName ] = useState(() => stripDefinitionPrefix(attribute.name, attrType));
+    const [ value, setValue ] = useState(attribute.value ?? "");
+    const [ isInheritable, setIsInheritable ] = useState(!!attribute.isInheritable);
+    const nameRef = useRef<HTMLInputElement>(null);
+    // Committing mid-composition makes the spawning editor re-render and swallow the
+    // characters being composed: https://github.com/zadam/trilium/pull/3812
+    const isComposing = useRef(false);
+
+    useEffect(() => {
+        if (focus === "name") {
+            nameRef.current?.focus();
+            nameRef.current?.select();
+        }
+    }, [ focus ]);
+
+    // The attribute object is shared with the spawning widget: it is edited in place so that
+    // its identity survives, which is how the delete path recognizes it.
+    function commitName(newName: string) {
+        // invalid characters are simply ignored (from the user's perspective they are not even entered)
+        const filteredName = utils.filterAttributeName(newName);
+
+        setName(filteredName);
+        attribute.name = addDefinitionPrefix(filteredName, attrType);
+        onAttributesChanged(allAttributes ?? []);
+    }
+
+    function commitValue(newValue: string) {
+        setValue(newValue);
+        attribute.value = newValue;
+        onAttributesChanged(allAttributes ?? []);
+    }
+
+    return (
+        <>
+            <table class="attr-edit-table">
+                <tbody>
+                    <tr title={t("attribute_detail.attr_name_title")}>
+                        <th>{t("attribute_detail.name")}</th>
+                        <td>
+                            <FormTextBox
+                                className="attr-input-name"
+                                inputRef={nameRef}
+                                currentValue={name}
+                                readOnly={!isOwned}
+                                onChange={(newName) => isComposing.current ? setName(newName) : commitName(newName)}
+                                onCompositionStart={() => isComposing.current = true}
+                                onCompositionEnd={(e) => {
+                                    isComposing.current = false;
+                                    commitName(e.currentTarget.value);
+                                }}
+                            />
+                        </td>
+                    </tr>
+
+                    {attrType === "label" && (
+                        <tr class="attr-row-value">
+                            <th>{t("attribute_detail.value")}</th>
+                            <td>
+                                <FormTextBox
+                                    className="attr-input-value"
+                                    currentValue={value}
+                                    readOnly={!isOwned}
+                                    onChange={(newValue) => isComposing.current ? setValue(newValue) : commitValue(newValue)}
+                                    onCompositionStart={() => isComposing.current = true}
+                                    onCompositionEnd={(e) => {
+                                        isComposing.current = false;
+                                        commitValue(e.currentTarget.value);
+                                    }}
+                                />
+                            </td>
+                        </tr>
+                    )}
+
+                    <tr title={t("attribute_detail.inheritable_title")}>
+                        <th></th>
+                        <td>
+                            <FormCheckbox
+                                label={t("attribute_detail.inheritable")}
+                                currentValue={isInheritable}
+                                disabled={!isOwned}
+                                onChange={(checked) => {
+                                    setIsInheritable(checked);
+                                    attribute.isInheritable = checked;
+                                    onAttributesChanged(allAttributes ?? []);
+                                }}
+                            />
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+
+            {isOwned && (
+                <div class="attr-save-delete-button-container">
+                    <Button
+                        className="attr-save-changes-and-close-button"
+                        kind="primary"
+                        size="small"
+                        text={t("attribute_detail.save_and_close_button")}
+                        keyboardShortcut="Ctrl+Enter"
+                        onClick={onSaveAndClose}
+                    />
+
+                    <Button
+                        className="attr-delete-button"
+                        size="small"
+                        text={t("attribute_detail.delete")}
+                        onClick={onDelete}
+                    />
+                </div>
+            )}
+        </>
     );
 }
 
@@ -246,7 +408,9 @@ function toCssPos(value: number | string) {
     return typeof value === "number" ? `${value}px` : value;
 }
 
-function getAttrType(attribute: Attribute) {
+type AttrType = "label" | "label-definition" | "relation" | "relation-definition" | undefined;
+
+function getAttrType(attribute: Attribute): AttrType {
     if (attribute.type === "label") {
         if (attribute.name.startsWith("label:")) {
             return "label-definition";
@@ -257,4 +421,23 @@ function getAttrType(attribute: Attribute) {
     } else if (attribute.type === "relation") {
         return "relation";
     }
+}
+
+/** Definitions are stored prefixed (`label:foo`), but the popup edits the bare name. */
+function stripDefinitionPrefix(name: string, attrType: AttrType) {
+    if (attrType === "label-definition") {
+        return name.substring("label:".length);
+    } else if (attrType === "relation-definition") {
+        return name.substring("relation:".length);
+    }
+    return name;
+}
+
+function addDefinitionPrefix(name: string, attrType: AttrType) {
+    if (attrType === "label-definition") {
+        return `label:${name}`;
+    } else if (attrType === "relation-definition") {
+        return `relation:${name}`;
+    }
+    return name;
 }

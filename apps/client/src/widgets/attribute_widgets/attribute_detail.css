@@ -55,6 +55,11 @@
     margin-top: 15px;
 }
 
+.attr-save-delete-button-container .attr-save-changes-and-close-button {
+    flex-grow: 1;
+    margin-inline-end: 20px;
+}
+
 .attr-detail input[readonly] {
     background-color: var(--accented-background-color) !important;
 }
