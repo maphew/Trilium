@@ -2640,9 +2640,9 @@
     "api_key_placeholder": "输入你的 API 密钥",
     "mcp_title": "MCP（模型上下文协议）",
     "mcp_enabled": "MCP 服务器",
-    "mcp_enabled_description": "对外暴露一个模型上下文协议（MCP）端点，让 AI 编程助手（如 Claude Code、GitHub Copilot）能够读取和修改你的笔记。该端点仅限本地访问。",
+    "mcp_enabled_description": "对外暴露一个模型上下文协议（MCP）端点，让 AI 编程助手（如 Claude Code、GitHub Copilot）能够读取和修改你的笔记。每个请求都必须通过 ETAPI 令牌进行身份验证。",
     "mcp_endpoint_title": "端点 URL",
-    "mcp_endpoint_description": "将此 URL 添加到你的 AI 助手的 MCP 配置中",
+    "mcp_endpoint_description": "将以下任一 URL 添加到你的 AI 助手的 MCP 配置中，传输方式选择 HTTP（streamable），不要用 SSE。",
     "tools": {
       "search_notes": "搜索笔记",
       "get_note": "获取笔记",
@@ -2709,7 +2709,15 @@
     "setup_hint_openai_compatible": "兼容 OpenAI 的 API 基础 URL，通常以 <Code>/v1</Code> 结尾。",
     "troubleshoot_server_running": "服务是否在你期望的机器上运行？",
     "troubleshoot_port": "URL 中的端口是否与服务器报告的端口一致？",
-    "troubleshoot_remote": "如果服务器在另一台机器上，是否已配置为接受来自网络的连接，而不仅仅是本地连接？"
+    "troubleshoot_remote": "如果服务器在另一台机器上，是否已配置为接受来自网络的连接，而不仅仅是本地连接？",
+    "mcp_endpoint_this_device": "本设备",
+    "mcp_endpoint_network": "对外",
+    "mcp_endpoint_loopback_only": "Trilium 仅在本地监听，因此其他设备无法访问此端点。",
+    "mcp_config_title": "如何连接助手",
+    "mcp_config_description": "在「选项 → ETAPI」下创建一个令牌，然后将以下内容添加到助手的 MCP 配置中，将占位符替换为你的令牌：",
+    "mcp_config_token_placeholder": "你的-etapi-令牌",
+    "mcp_config_cli_description": "Claude Code 也可以通过命令行配置：",
+    "mcp_config_warning": "令牌拥有对你所有笔记的完全读写权限，请像对待密码一样对待它。如果从其他设备连接，请优先使用 HTTPS — 通过明文 HTTP 发送的令牌可能被截获。"
   },
   "revisions": {
     "note_revisions": "笔记修订",
@@ -2907,7 +2915,7 @@
     "create-new-document-options-empty-description": "从一个空白知识库开始。你可以稍后导入演示笔记。",
     "create-new-document-title": "正在准备你的知识库",
     "create-new-document-description": "稍等片刻即可。",
-    "sync-illustration-this-device": "此设备",
+    "sync-illustration-this-device": "本地",
     "sync-illustration-desktop-app": "你的桌面应用",
     "sync-illustration-server": "你的服务器",
     "sync-from-desktop-step1": "打开你桌面端的 Trilium Notes。",
@@ -3031,7 +3039,7 @@
     "lan_access_label": "允许浏览器和网络访问",
     "lan_access_description": "通过 HTTP 提供应用、共享笔记和实时更新——可以从本机的浏览器以及网络中的其他设备访问。关闭时，仅保留本地集成功能（网页剪藏器、MCP、ETAPI）可访问。",
     "lan_access_title": "网络访问",
-    "lan_access_section_description": "默认情况下，桌面应用为自包含模式：应用和共享笔记不通过网络提供服务，只有本地集成功能（网页剪藏器、MCP、ETAPI）可以从本机访问。启用此选项后，可以在浏览器中打开应用和共享笔记，并允许其他设备连接—— 例如从另一台设备进行同步。请仅在你信任的网络中启用此功能。"
+    "lan_access_section_description": "桌面端为\"自包含\"（self-contained）应用：默认情况下，只有本机功能（网页剪藏器、MCP、ETAPI）可以访问它。启用此选项后，可以在浏览器中打开应用和共享笔记，也能让其他设备连接进来——例如从另一台设备同步数据。建议只在信任的网络中开启。"
   },
   "snippet_badge": {
     "label": "{{type}} 片段",
@@ -3057,7 +3065,7 @@
     "attach_source": "附加原始 HTML（debug）",
     "attach_source_hint": "将每个页面未经修改的 OneNote HTML 作为附件保存在导入后的笔记上，便于与转换结果进行对比。",
     "section_heading": "微软 OneNote",
-    "checking": "正在校验 OneNote 连接状态…",
+    "checking": "正在连接 OneNote…",
     "select_sections_hint": "OneNote导入数据不会保留原始排序，分区与分组将按创建日期排序，显示顺序可能与OneNote内原有布局不一致。",
     "device_instructions": "打开 Microsoft 登录页面并输入此代码：",
     "device_open_page": "打开登录页面",
