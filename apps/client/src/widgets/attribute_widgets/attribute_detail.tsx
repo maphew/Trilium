@@ -255,10 +255,11 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
 }) {
     const { attribute, allAttributes, isOwned, focus } = opts;
     // Definitions describe the attribute they define, so they complete against its own type.
-    const suggestAttributeNames = useCallback((query: string) => {
-        const type = attrType === "relation" || attrType === "relation-definition" ? "relation" : "label";
-        return server.get<string[]>(`attribute-names/?type=${type}&query=${encodeURIComponent(query)}`);
-    }, [ attrType ]);
+    const suggestAttributeNames = useCallback((query: string) => fetchAttributeNames(
+        attrType === "relation" || attrType === "relation-definition" ? "relation" : "label", query
+    ), [ attrType ]);
+    // Whatever a relation is the inverse of is itself a relation.
+    const suggestRelationNames = useCallback((query: string) => fetchAttributeNames("relation", query), []);
     const [ name, setName ] = useState(() => stripDefinitionPrefix(attribute.name, attrType));
     const [ value, setValue ] = useState(attribute.value ?? "");
     const [ isInheritable, setIsInheritable ] = useState(!!attribute.isInheritable);
@@ -469,10 +470,12 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
                         <tr class="attr-row-inverse-relation">
                             <th title={t("attribute_detail.inverse_relation_title")}>{t("attribute_detail.inverse_relation")}</th>
                             <td>
-                                <FormTextBox
+                                <FormAutocomplete
                                     className="attr-input-inverse-relation"
                                     currentValue={definition.inverseRelation ?? ""}
                                     disabled={!isOwned}
+                                    source={suggestRelationNames}
+                                    openOnFocus
                                     onChange={(inverseRelation) => commitDefinition({
                                         // A relation name, so the same characters are dropped as in the name field
                                         inverseRelation: utils.filterAttributeName(inverseRelation)
@@ -544,6 +547,10 @@ const LABEL_TYPES = [
     { value: "url", title: t("attribute_detail.url") },
     { value: "color", title: t("attribute_detail.color_type") }
 ];
+
+function fetchAttributeNames(type: "label" | "relation", query: string) {
+    return server.get<string[]>(`attribute-names/?type=${type}&query=${encodeURIComponent(query)}`);
+}
 
 function isDefinition(attrType: AttrType) {
     return attrType === "label-definition" || attrType === "relation-definition";
