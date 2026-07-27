@@ -1,5 +1,3 @@
-import "./attribute_detail.css";
-
 import appContext from "../../components/app_context.js";
 import attributeAutocompleteService from "../../services/attribute_autocomplete.js";
 import type { Attribute } from "../../services/attribute_parser.js";
@@ -16,9 +14,10 @@ import SpacedUpdate from "../../services/spaced_update.js";
 import utils, { openInAppHelpFromUrl } from "../../services/utils.js";
 import NoteContextAwareWidget from "../note_context_aware_widget.js";
 import { ATTR_HELP } from "./attr_help.js";
+import type { AttributeDetailOpts } from "./attribute_detail.jsx";
 
 const TPL = /*html*/`
-<div class="attr-detail tn-tool-dialog">
+<div>
     <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
         <h5 class="attr-detail-title">${t("attribute_detail.attr_detail_title")}</h5>
 
@@ -145,17 +144,6 @@ const ATTR_TITLES: Record<string, string> = {
     "relation-definition": t("attribute_detail.relation_definition")
 };
 
-interface AttributeDetailOpts {
-    allAttributes?: Attribute[];
-    attribute: Attribute;
-    isOwned: boolean;
-    x: number;
-    y: number;
-    focus?: "name";
-    parent?: HTMLElement;
-    hideMultiplicity?: boolean;
-}
-
 interface SearchRelatedResponse {
     // TODO: Deduplicate once we split client from server.
     results: {
@@ -203,12 +191,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
     private attribute!: Attribute;
     private allAttributes?: Attribute[];
     private attrType!: ReturnType<AttributeDetailWidget["getAttrType"]>;
-
-    async refresh() {
-        // switching note/tab should close the widget
-
-        this.hide();
-    }
 
     doRender() {
         this.relatedNotesSpacedUpdate = new SpacedUpdate(async () => this.updateRelatedNotes(), 1000);
@@ -650,9 +632,5 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
             href: `#root/${noteId}`,
             class: "reference-link"
         });
-    }
-
-    async noteSwitched() {
-        this.hide();
     }
 }
