@@ -1,0 +1,67 @@
+/*
+ * Layout for the `/` command palette rows rendered by `TriliumSlashCommands`.
+ *
+ * Ported from the premium `SlashCommand` stylesheet, which we no longer load. The class names are
+ * kept identical on purpose: Trilium's own overrides in `apps/client/src/stylesheets/style.css` and
+ * in the Next theme already target them, and community (GPL) builds never loaded the premium CSS at
+ * all — so this also gives them a styled palette for the first time.
+ */
+
+:root {
+    --ck-slash-command-button-width: 250px;
+    --ck-slash-command-description-width: 200px;
+}
+
+.ck-mentions .ck.ck-button.ck-slash-command-button {
+    display: flex;
+    justify-content: flex-start;
+    width: var(--ck-slash-command-button-width);
+    padding: calc(0.2 * var(--ck-line-height-base) * var(--ck-font-size-base));
+
+    & .ck.ck-icon {
+        flex-shrink: 0;
+        box-sizing: initial;
+        margin: 0 var(--ck-spacing-small) 0 0;
+        padding: 5px;
+        border-radius: 2px;
+        color: var(--ck-color-base-text);
+        background-color: var(--ck-color-base-background);
+    }
+
+    & > .ck-slash-command-button__text-part {
+        display: flex;
+        flex-direction: column;
+        margin-left: var(--ck-spacing-small);
+
+        & > span {
+            width: var(--ck-slash-command-description-width);
+            overflow: hidden;
+            line-height: 1.2em;
+            text-overflow: ellipsis;
+        }
+
+        & > .ck-button__label {
+            font-weight: bold;
+        }
+
+        & > .ck-slash-command-button__description {
+            font-size: var(--ck-font-size-small);
+            opacity: 0.75;
+        }
+    }
+
+    &.ck-on > .ck-slash-command-button__text-part > span {
+        color: var(--ck-color-list-button-on-text);
+    }
+}
+
+[dir="rtl"] .ck-mentions .ck.ck-button.ck-slash-command-button {
+    & .ck.ck-icon {
+        margin: 0 0 0 var(--ck-spacing-small);
+    }
+
+    & > .ck-slash-command-button__text-part {
+        margin-right: var(--ck-spacing-small);
+        margin-left: 0;
+    }
+}

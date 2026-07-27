@@ -1,5 +1,4 @@
 import type { Editor } from 'ckeditor5';
-import type { SlashCommandEditorConfig  } from 'ckeditor5-premium-features';
 import { icons as footnoteIcons } from '@triliumnext/ckeditor5-footnotes';
 import { IconPageBreak, IconAlignLeft, IconAlignCenter, IconAlignRight, IconAlignJustify, IconBulletedList, IconNumberedList, IconTodoList } from "@ckeditor/ckeditor5-icons";
 import bxInfoCircle from "boxicons/svg/regular/bx-info-circle.svg?raw";
@@ -22,8 +21,7 @@ import { INSERT_MERMAID_COMMAND, type MermaidSample } from '@triliumnext/ckedito
 import { BookmarkUI } from "ckeditor5";
 import bxBookmark from "boxicons/svg/regular/bx-bookmark.svg?raw";
 import bxNetworkChart from "boxicons/svg/regular/bx-network-chart.svg?raw";
-
-type SlashCommandDefinition = SlashCommandEditorConfig["extraCommands"][number];
+import type { SlashCommandDefinition } from './plugins/mention/slash_commands.js';
 
 /**
  * Translation function supplied by the client (which owns i18n). Resolves the

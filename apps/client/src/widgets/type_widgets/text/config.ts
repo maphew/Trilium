@@ -251,7 +251,9 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
 
                         return itemElement;
                     },
-                    minimumCharacters: 0
+                    minimumCharacters: 0,
+                    // Note titles contain spaces, so the query must be allowed to as well.
+                    allowSpaces: true
                 }
             ],
         };
@@ -304,11 +306,11 @@ function getDisabledPlugins() {
     const disabledPlugins: string[] = [];
 
     if (options.get("textNoteEmojiCompletionEnabled") !== "true") {
-        disabledPlugins.push("EmojiMention");
+        disabledPlugins.push("TriliumEmojiMention");
     }
 
     if (options.get("textNoteSlashCommandsEnabled") !== "true") {
-        disabledPlugins.push("SlashCommand");
+        disabledPlugins.push("TriliumSlashCommands");
     }
 
     return disabledPlugins;

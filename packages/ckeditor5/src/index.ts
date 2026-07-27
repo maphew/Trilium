@@ -9,6 +9,8 @@ import "./translation_overrides.js";
 export { default as EditorWatchdog } from "./custom_watchdog";
 export { CHAT_INPUT_PLUGINS, loadPremiumPlugins } from "./plugins.js";
 export type { EditorConfig, MentionFeed, MentionFeedObjectItem, ModelNode, ModelPosition, ModelElement, ModelText, WatchdogConfig, WatchdogState } from "ckeditor5";
+export type { SlashCommandConfig, SlashCommandDefinition } from "./plugins/mention/slash_commands.js";
+export type { TriliumMentionFeed } from "./plugins/mention/types.js";
 export type { TemplateDefinition } from "ckeditor5-premium-features";
 export { default as buildExtraCommands } from "./extra_slash_commands.js";
 export { default as getCkLocale } from "./i18n.js";

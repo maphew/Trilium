@@ -286,13 +286,13 @@ describe("CK config - mention feed", () => {
 describe("CK config - disabled plugins", () => {
     it("removes the emoji and slash-command plugins based on their option toggles", async () => {
         const disabled = await buildConfig(baseOpts());
-        expect(disabled.removePlugins).toContain("EmojiMention");
-        expect(disabled.removePlugins).toContain("SlashCommand");
+        expect(disabled.removePlugins).toContain("TriliumEmojiMention");
+        expect(disabled.removePlugins).toContain("TriliumSlashCommands");
 
         optionsState.map["textNoteEmojiCompletionEnabled"] = "true";
         optionsState.map["textNoteSlashCommandsEnabled"] = "true";
         const enabled = await buildConfig(baseOpts());
-        expect(enabled.removePlugins).not.toContain("EmojiMention");
-        expect(enabled.removePlugins).not.toContain("SlashCommand");
+        expect(enabled.removePlugins).not.toContain("TriliumEmojiMention");
+        expect(enabled.removePlugins).not.toContain("TriliumSlashCommands");
     });
 });
