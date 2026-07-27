@@ -1,7 +1,6 @@
 import type { Attribute } from "../../services/attribute_parser.js";
 import { t } from "../../services/i18n.js";
 import linkService from "../../services/link.js";
-import promotedAttributeDefinitionParser from "../../services/promoted_attribute_definition_parser.js";
 import { openInAppHelpFromUrl } from "../../services/utils.js";
 import NoteContextAwareWidget from "../note_context_aware_widget.js";
 import { ATTR_HELP } from "./attr_help.js";
@@ -13,41 +12,20 @@ const TPL = /*html*/`
 
     <table class="attr-edit-table">
         <tr class="attr-help"></tr>
-        <tr class="attr-row-inverse-relation">
-            <th title="${t("attribute_detail.inverse_relation_title")}">${t("attribute_detail.inverse_relation")}</th>
-            <td>
-                <div class="input-group">
-                    <input type="text" class="attr-input-inverse-relation form-control" />
-                </div>
-            </td>
-        </tr>
     </table>
 </div>`;
 
 export default class AttributeDetailWidget extends NoteContextAwareWidget {
     private $inputName!: JQuery<HTMLElement>;
-    private $inputInverseRelation!: JQuery<HTMLElement>;
-    private $rowInverseRelation!: JQuery<HTMLElement>;
     private $attrIsOwnedBy!: JQuery<HTMLElement>;
     private $attrHelp!: JQuery<HTMLElement>;
 
-    private attribute!: Attribute;
-    private allAttributes?: Attribute[];
     private attrType!: ReturnType<AttributeDetailWidget["getAttrType"]>;
 
     doRender() {
         this.$widget = $(TPL);
 
         this.$inputName = this.$widget.find(".attr-input-name");
-
-        this.$rowInverseRelation = this.$widget.find(".attr-row-inverse-relation");
-        this.$inputInverseRelation = this.$widget.find(".attr-input-inverse-relation");
-        this.$inputInverseRelation.on("input", (ev) => {
-            if (!(ev.originalEvent as KeyboardEvent)?.isComposing) {
-                // https://github.com/zadam/trilium/pull/3812
-                this.userEditedAttribute();
-            }
-        });
 
         this.$attrIsOwnedBy = this.$widget.find(".attr-is-owned-by");
 
@@ -56,11 +34,6 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
 
     async showAttributeDetail({ allAttributes, attribute, isOwned, x, y, focus, hideMultiplicity }: AttributeDetailOpts) {
         this.attrType = this.getAttrType(attribute);
-
-        const definition = this.attrType?.endsWith("-definition") ? promotedAttributeDefinitionParser.parse(attribute.value || "") : {};
-
-        this.allAttributes = allAttributes;
-        this.attribute = attribute;
 
         if (isOwned) {
             this.$attrIsOwnedBy.hide();
@@ -73,18 +46,9 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
                 .append(await linkService.createLink(attribute.noteId));
         }
 
-        const disabledFn = () => (!isOwned ? "true" : undefined);
-
-        this.$rowInverseRelation.toggle(this.attrType === "relation-definition");
-        this.$inputInverseRelation.val(definition.inverseRelation || "").attr("disabled", disabledFn);
-
         this.updateHelp();
 
         this.toggleInt(true);
-    }
-
-    userEditedAttribute() {
-        this.updateHelp();
     }
 
     updateHelp() {

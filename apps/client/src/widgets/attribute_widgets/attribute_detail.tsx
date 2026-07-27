@@ -465,6 +465,23 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
                         </tr>
                     )}
 
+                    {attrType === "relation-definition" && (
+                        <tr class="attr-row-inverse-relation">
+                            <th title={t("attribute_detail.inverse_relation_title")}>{t("attribute_detail.inverse_relation")}</th>
+                            <td>
+                                <FormTextBox
+                                    className="attr-input-inverse-relation"
+                                    currentValue={definition.inverseRelation ?? ""}
+                                    disabled={!isOwned}
+                                    onChange={(inverseRelation) => commitDefinition({
+                                        // A relation name, so the same characters are dropped as in the name field
+                                        inverseRelation: utils.filterAttributeName(inverseRelation)
+                                    })}
+                                />
+                            </td>
+                        </tr>
+                    )}
+
                     <tr title={t("attribute_detail.inheritable_title")}>
                         <th></th>
                         <td>
