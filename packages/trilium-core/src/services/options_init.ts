@@ -176,6 +176,7 @@ const defaultOptions: DefaultOption[] = [
         isSynced: true
     },
     { name: "contentManagerSortOrder", value: "title", isSynced: true },
+    { name: "contentManagerViewMode", value: "category", isSynced: true },
     { name: "leftPaneWidth", value: "25", isSynced: false },
     { name: "leftPaneVisible", value: "true", isSynced: false },
     { name: "rightPaneWidth", value: "25", isSynced: false },

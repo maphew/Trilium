@@ -38,6 +38,25 @@ export interface ListViewOptions {
     searchResultsLayout?: boolean;
     /** Omits the nested subnote tree, leaving only each note's own content preview. */
     hideSubNotes?: boolean;
+    /**
+     * Supplies a row's nested notes, replacing its real child notes. Lets a caller present its own
+     * hierarchy — grouping scattered notes by where they live — through the same nesting UI.
+     */
+    resolveChildren?: (note: FNote) => FNote[];
+    /**
+     * Decides per row whether its content preview is rendered inline; previews show for every row by
+     * default. Useful when a caller inserts rows of its own, whose content is not the point.
+     *
+     * A row without an inline preview gets the hover preview tooltip on its link instead, so the
+     * content stays reachable — the two are alternatives, never both at once.
+     */
+    showPreview?: (note: FNote) => boolean;
+    /**
+     * Decides per row whether the note's path is shown under its title, overriding
+     * {@link searchResultsLayout}. Only the display is affected: the path is still *resolved* flat,
+     * so links keep addressing the note directly.
+     */
+    showNotePath?: (note: FNote) => boolean;
     /** Overrides how many levels start expanded, otherwise read from the parent's `#expanded`. */
     expandDepth?: number;
     /** Overrides the number of notes per page, otherwise read from the parent's `#pageSize`. */
@@ -67,6 +86,9 @@ export function ListView({ note, noteIds: unfilteredNoteIds, highlightedTokens, 
                     currentLevel={1} includeArchived={includeArchived}
                     searchResultsLayout={searchResultsLayout}
                     hideSubNotes={listOptions?.hideSubNotes}
+                    resolveChildren={listOptions?.resolveChildren}
+                    showPreview={listOptions?.showPreview}
+                    showNotePath={listOptions?.showNotePath}
                     renderItemActions={listOptions?.renderItemActions}
                     renderItemMenu={listOptions?.renderItemMenu}
                     showTextRepresentation={showTextRepresentation} />
@@ -124,7 +146,7 @@ function NoteList(props: NoteListProps) {
     </div>
 }
 
-function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expandDepth, includeArchived, showTextRepresentation, searchResultsLayout, hideSubNotes, renderItemActions, renderItemMenu }: {
+function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expandDepth, includeArchived, showTextRepresentation, searchResultsLayout, hideSubNotes, resolveChildren, showPreview, showNotePath, renderItemActions, renderItemMenu }: {
     note: FNote,
     parentNote: FNote,
     currentLevel: number,
@@ -132,10 +154,16 @@ function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expan
     highlightedTokens: string[] | null | undefined;
     includeArchived: boolean;
     showTextRepresentation?: boolean;
-} & Pick<ListViewOptions, "searchResultsLayout" | "hideSubNotes" | "renderItemActions" | "renderItemMenu">) {
+} & Pick<ListViewOptions, "searchResultsLayout" | "hideSubNotes" | "resolveChildren" | "showPreview" | "showNotePath" | "renderItemActions" | "renderItemMenu">) {
 
     const [ isExpanded, setExpanded ] = useState(currentLevel <= expandDepth);
     const notePath = getNotePath(parentNote, note, searchResultsLayout);
+    // The hover tooltip stands in for the inline preview, so exactly one of the two is offered.
+    const showsPreview = showPreview?.(note) ?? true;
+    const showsNotePath = showNotePath?.(note) ?? searchResultsLayout;
+    // Whether expanding would reveal anything at all. Collections always have a preview to show, so
+    // only callers that suppress it can produce a row with nothing underneath.
+    const isExpandable = showsPreview || hasNestedNotes(note, hideSubNotes, resolveChildren);
 
     // Reset expand state if switching to another note, or if user manually toggled expansion state.
     useEffect(() => setExpanded(currentLevel <= expandDepth), [ note, currentLevel, expandDepth ]);
@@ -143,13 +171,15 @@ function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expan
     let subSections: JSX.Element | undefined = undefined;
     if (isExpanded) {
         subSections = <>
-            <CardSection className="note-content-preview">
-                <NoteContent note={note}
-                             highlightedTokens={highlightedTokens}
-                             noChildrenList
-                             includeArchivedNotes={includeArchived}
-                             showTextRepresentation={showTextRepresentation} />
-            </CardSection>
+            {showsPreview && (
+                <CardSection className="note-content-preview">
+                    <NoteContent note={note}
+                                 highlightedTokens={highlightedTokens}
+                                 noChildrenList
+                                 includeArchivedNotes={includeArchived}
+                                 showTextRepresentation={showTextRepresentation} />
+                </CardSection>
+            )}
 
             {!hideSubNotes && (
                 <NoteChildren
@@ -159,6 +189,9 @@ function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expan
                     currentLevel={currentLevel}
                     expandDepth={expandDepth}
                     searchResultsLayout={searchResultsLayout}
+                    resolveChildren={resolveChildren}
+                    showPreview={showPreview}
+                    showNotePath={showNotePath}
                     renderItemActions={renderItemActions}
                     renderItemMenu={renderItemMenu}
                     includeArchived={includeArchived}
@@ -179,13 +212,16 @@ function ListNoteCard({ note, parentNote, highlightedTokens, currentLevel, expan
             data-note-id={note.noteId}
         >
             <h5>
-                <span className={`note-expander ${isExpanded ? "bx bx-chevron-down" : "bx bx-chevron-right"}`} 
-                      onClick={() => setExpanded(!isExpanded)}/>
+                {/* Kept in the DOM when there is nothing to expand, so titles stay aligned. */}
+                <span
+                    className={clsx("note-expander", isExpanded ? "bx bx-chevron-down" : "bx bx-chevron-right", { "note-expander-empty": !isExpandable })}
+                    onClick={isExpandable ? () => setExpanded(!isExpanded) : undefined}
+                />
                 <Icon className="note-icon" icon={note.getIcon()} />
                 <NoteLink className="note-book-title"
                           notePath={notePath}
-                          noPreview
-                          showNotePath={searchResultsLayout}
+                          noPreview={showsPreview}
+                          showNotePath={showsNotePath}
                           highlightedTokens={highlightedTokens} />
                 {renderItemActions
                     ? <div className="note-list-item-actions">{renderItemActions(note)}</div>
@@ -330,19 +366,24 @@ export function NoteContent({ note, trim, noChildrenList, highlightedTokens, inc
     return <div ref={contentRef} className={clsx("note-book-content", `type-${noteType}`, {"note-book-content-ready": ready})} />;
 }
 
-function NoteChildren({ note, parentNote, highlightedTokens, currentLevel, expandDepth, includeArchived, searchResultsLayout, renderItemActions, renderItemMenu }: {
+function NoteChildren({ note, parentNote, highlightedTokens, currentLevel, expandDepth, includeArchived, searchResultsLayout, resolveChildren, showPreview, showNotePath, renderItemActions, renderItemMenu }: {
     note: FNote,
     parentNote: FNote,
     currentLevel: number,
     expandDepth: number,
     highlightedTokens: string[] | null | undefined
     includeArchived: boolean;
-} & Pick<ListViewOptions, "searchResultsLayout" | "renderItemActions" | "renderItemMenu">) {
+} & Pick<ListViewOptions, "searchResultsLayout" | "resolveChildren" | "showPreview" | "showNotePath" | "renderItemActions" | "renderItemMenu">) {
     const [ childNotes, setChildNotes ] = useState<FNote[]>();
 
     useEffect(() => {
+        if (resolveChildren) {
+            setChildNotes(resolveChildren(note));
+            return;
+        }
+
         filterChildNotes(note, includeArchived).then(setChildNotes);
-    }, [ note, includeArchived ]);
+    }, [ note, includeArchived, resolveChildren ]);
 
     return childNotes?.map(childNote => <ListNoteCard
         key={childNote.noteId}
@@ -352,6 +393,9 @@ function NoteChildren({ note, parentNote, highlightedTokens, currentLevel, expan
         currentLevel={currentLevel + 1} expandDepth={expandDepth}
         includeArchived={includeArchived}
         searchResultsLayout={searchResultsLayout}
+        resolveChildren={resolveChildren}
+        showPreview={showPreview}
+        showNotePath={showNotePath}
         renderItemActions={renderItemActions}
         renderItemMenu={renderItemMenu}
     />);
@@ -367,6 +411,21 @@ function NoteMenuButton(props: {notePath: string}) {
                           icon="bx bx-dots-vertical-rounded" text=""
                           onClick={openMenu} 
             />
+}
+
+/**
+ * Whether a row has nested notes to reveal, decided synchronously so the expander can be hidden
+ * before the children are fetched.
+ *
+ * Falls back to the note's own children, which is a slight over-estimate: {@link filterChildNotes}
+ * later drops image links and (when excluded) archived notes, so a note whose only children are of
+ * that kind still offers an expander.
+ */
+function hasNestedNotes(note: FNote, hideSubNotes?: boolean, resolveChildren?: ListViewOptions["resolveChildren"]) {
+    if (hideSubNotes) return false;
+    if (resolveChildren) return resolveChildren(note).length > 0;
+
+    return note.hasChildren();
 }
 
 export function getNotePath(parentNote: FNote, childNote: FNote, flat = parentNote.type === "search") {

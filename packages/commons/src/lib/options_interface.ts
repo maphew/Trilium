@@ -69,6 +69,7 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     spellCheckLanguageCode: string;
     codeNotesMimeTypes: string;
     contentManagerSortOrder: string;
+    contentManagerViewMode: string;
     headingStyle: string;
     highlightsList: string;
     customSearchEngineName: string;

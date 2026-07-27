@@ -5,6 +5,7 @@ import { buildNote } from "../test/easy-froca";
 import attributeService from "./attributes";
 import {
     buildCategoryQuery,
+    buildLocationTree,
     CONTENT_CATEGORIES,
     type ContentCategory,
     findCategoryNotes,
@@ -294,13 +295,11 @@ describe("resolveProperties", () => {
         ]);
     });
 
-    it("shows an endpoint's kind and its path pattern", () => {
+    it("shows an endpoint's kind, but not the path pattern its label carries", () => {
         const note = buildNote({ title: "API", "#customRequestHandler": "api/my-handler/([a-z]+)" });
 
         expect(resolveProperties(note, categoryById("endpoints"))).toEqual([
-            { titleKey: "content_manager.property_kind", badge: true, values: [ { titleKey: "content_manager.endpoint_request_handler" } ] },
-            // A path pattern is free-form, so it stays plain text rather than becoming a badge.
-            { titleKey: "content_manager.property_path", badge: undefined, values: [ { text: "api/my-handler/([a-z]+)" } ] }
+            { titleKey: "content_manager.property_kind", badge: true, values: [ { titleKey: "content_manager.endpoint_request_handler" } ] }
         ]);
     });
 
@@ -428,6 +427,107 @@ describe("findCategoryNotes", () => {
         vi.spyOn(searchService, "searchForNotes").mockResolvedValue([ parent, child ]);
 
         expect(await findCategoryNotes(categoryById("backendScripts"), "title")).toEqual([ parent ]);
+    });
+});
+
+describe("buildLocationTree", () => {
+    /** Shapes the tree as `title` / `title(group)` strings, so the assertions read as the rendering. */
+    function outline(nodes: ReturnType<typeof buildLocationTree>, depth = 0): string[] {
+        return nodes.flatMap((node) => [
+            `${"  ".repeat(depth)}${node.note.title}${node.isGroup ? " (group)" : ""}`,
+            ...outline(node.children, depth + 1)
+        ]);
+    }
+
+    function itemsOf(...noteIds: string[]) {
+        return noteIds.map((noteId) => froca.notes[noteId]);
+    }
+
+    it("groups items sharing a parent under that parent, which carries no toggle", () => {
+        buildNote({
+            id: "root",
+            title: "root",
+            children: [ { id: "demo", title: "Demo", children: [
+                { id: "stats", title: "Statistics", children: [
+                    { id: "statA", title: "Chart A" },
+                    { id: "statB", title: "Chart B" }
+                ] }
+            ] } ]
+        });
+
+        expect(outline(buildLocationTree(itemsOf("statA", "statB")))).toEqual([
+            "Statistics (group)",
+            "  Chart A",
+            "  Chart B"
+        ]);
+    });
+
+    it("nests an item under an item that is its ancestor", () => {
+        buildNote({
+            id: "root",
+            title: "root",
+            children: [ { id: "outer", title: "Outer script", children: [
+                { id: "mid", title: "Mid", children: [ { id: "inner", title: "Inner script" } ] }
+            ] } ]
+        });
+
+        // "Mid" is a pass-through: it holds a single item-bearing path, so it is dropped.
+        expect(outline(buildLocationTree(itemsOf("outer", "inner")))).toEqual([
+            "Outer script",
+            "  Inner script"
+        ]);
+    });
+
+    it("puts a grouping folder under an active ancestor when both apply", () => {
+        buildNote({
+            id: "root",
+            title: "root",
+            children: [ { id: "top", title: "Top script", children: [
+                { id: "bucket", title: "Bucket", children: [
+                    { id: "one", title: "One" },
+                    { id: "two", title: "Two" }
+                ] }
+            ] } ]
+        });
+
+        expect(outline(buildLocationTree(itemsOf("top", "one", "two")))).toEqual([
+            "Top script",
+            "  Bucket (group)",
+            "    One",
+            "    Two"
+        ]);
+    });
+
+    it("leaves an unrelated item at the top level, without its ancestry", () => {
+        buildNote({
+            id: "root",
+            title: "root",
+            children: [ { id: "deep1", title: "A", children: [
+                { id: "deep2", title: "B", children: [ { id: "lonely", title: "Lonely script" } ] }
+            ] } ]
+        });
+
+        expect(outline(buildLocationTree(itemsOf("lonely")))).toEqual([ "Lonely script" ]);
+    });
+
+    it("never groups under the tree root, even when items live in separate subtrees", () => {
+        buildNote({
+            id: "root",
+            title: "root",
+            children: [
+                { id: "left", title: "Left", children: [ { id: "leftItem", title: "Left item" } ] },
+                { id: "right", title: "Right", children: [ { id: "rightItem", title: "Right item" } ] }
+            ]
+        });
+
+        expect(outline(buildLocationTree(itemsOf("leftItem", "rightItem")))).toEqual([
+            "Left item",
+            "Right item"
+        ]);
+    });
+
+    it("returns nothing for no items", () => {
+        expect(buildLocationTree([])).toEqual([]);
     });
 });
 

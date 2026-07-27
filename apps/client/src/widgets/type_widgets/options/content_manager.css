@@ -43,6 +43,29 @@
     opacity: .75;
 }
 
+/* A note in several categories gets a strip each; the extra gap keeps them from reading as one run. */
+.content-manager-item-strip {
+    display: flex;
+    align-items: center;
+    gap: 0.5em;
+}
+
+.content-manager-item-strip + .content-manager-item-strip {
+    margin-inline-start: 0.75em;
+}
+
+.content-manager-item-count {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+/* The item menu is portaled to <body> (so an open menu isn't counted as hovering its row), which
+   drops it below Bootstrap's modal when the page is opened in the settings dialog. Raised the same
+   way as the body-appended tooltips in style.css. */
+.content-manager-item-menu .dropdown-menu {
+    z-index: 32767;
+}
+
 .content-manager-loading {
     opacity: 0.7;
 }
