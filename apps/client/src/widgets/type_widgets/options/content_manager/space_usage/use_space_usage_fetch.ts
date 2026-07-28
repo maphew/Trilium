@@ -7,15 +7,28 @@ import { useTriliumEvent } from "../../../../react/hooks";
 /** One reload per burst — a subtree delete floods entity changes. */
 const REFRESH_DEBOUNCE_MS = 1000;
 
+export interface SpaceUsageFetch<T> {
+    data: T | null;
+    /** The last attempt failed. Meaningful only while {@link data} is still null — see below. */
+    failed: boolean;
+}
+
 /**
  * Fetches a space-usage endpoint and keeps it current: content changes anywhere — deletes, moves,
  * uploads — shift the sizes, so any note/branch/attachment change schedules one debounced reload.
  *
  * `null` until the first response; on a URL change (Browse navigation) the previous payload stays
  * up while the new one is in flight, so the charts transition instead of blanking.
+ *
+ * A failure is reported rather than swallowed, because there is nothing to fall back on before the
+ * first success: the view would otherwise claim to be measuring for as long as it stayed open. The
+ * server service toasts most failures, but not one the browser itself rejected (a dropped
+ * connection, an unreachable server), which would leave no trace at all. Callers show the failure
+ * only while `data` is null — once a payload exists, keeping it beats blanking the charts.
  */
-export function useSpaceUsageFetch<T>(url: string) {
+export function useSpaceUsageFetch<T>(url: string): SpaceUsageFetch<T> {
     const [ data, setData ] = useState<T | null>(null);
+    const [ failed, setFailed ] = useState(false);
     const latestRequest = useRef(0);
 
     const refresh = useCallback(async () => {
@@ -27,11 +40,13 @@ export function useSpaceUsageFetch<T>(url: string) {
             // A stale response must not repaint over a newer one.
             if (requestId === latestRequest.current) {
                 setData(response);
+                setFailed(false);
             }
         } catch {
-            // The server service has already reported the failure to the user (toast); keeping the
-            // last successful payload beats blanking the charts, and the callers fire-and-forget,
-            // so the rejection must not escape.
+            // The callers fire-and-forget, so the rejection must not escape.
+            if (requestId === latestRequest.current) {
+                setFailed(true);
+            }
         }
     }, [ url ]);
 
@@ -46,5 +61,5 @@ export function useSpaceUsageFetch<T>(url: string) {
         }
     });
 
-    return data;
+    return { data, failed };
 }

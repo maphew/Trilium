@@ -6,11 +6,12 @@ import { t } from "../../../../../services/i18n";
 import { formatSize } from "../../../../../services/utils";
 
 const mocks = vi.hoisted(() => ({
-    overview: undefined as unknown
+    overview: undefined as unknown,
+    failed: false
 }));
 
 vi.mock("./use_space_usage_fetch", () => ({
-    useSpaceUsageFetch: () => mocks.overview
+    useSpaceUsageFetch: () => ({ data: mocks.overview, failed: mocks.failed })
 }));
 
 vi.mock("./browse", () => ({
@@ -64,6 +65,7 @@ afterEach(() => {
         container = undefined;
     }
     mocks.overview = undefined;
+    mocks.failed = false;
 });
 
 describe("SpaceUsage section", () => {
@@ -74,6 +76,15 @@ describe("SpaceUsage section", () => {
         expect(probe.querySelector(".space-usage-loading")).not.toBeNull();
         expect(probe.querySelector(".space-usage-status")).toBeNull();
         expect(probe.querySelector(".switcher-stub")).not.toBeNull();
+    });
+
+    it("says so when the overview could not be measured, rather than measuring on", () => {
+        mocks.overview = undefined;
+        mocks.failed = true;
+        const probe = renderSection();
+
+        expect(probe.querySelector(".space-usage-loading")).toBeNull();
+        expect(probe.querySelector(".no-items")).not.toBeNull();
     });
 
     it("renders the overview with the two-part status line", () => {

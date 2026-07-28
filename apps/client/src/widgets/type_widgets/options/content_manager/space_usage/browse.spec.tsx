@@ -17,6 +17,7 @@ interface CapturedDonutProps {
 
 const mocks = vi.hoisted(() => ({
     usage: undefined as unknown,
+    failed: false,
     fetchedUrls: [] as string[],
     donutProps: undefined as unknown,
     openContextMenu: vi.fn()
@@ -29,7 +30,7 @@ vi.mock("./context_menu", () => ({
 vi.mock("./use_space_usage_fetch", () => ({
     useSpaceUsageFetch: (url: string) => {
         mocks.fetchedUrls.push(url);
-        return mocks.usage;
+        return { data: mocks.usage, failed: mocks.failed };
     }
 }));
 
@@ -110,6 +111,7 @@ afterEach(() => {
         container = undefined;
     }
     mocks.usage = undefined;
+    mocks.failed = false;
     mocks.fetchedUrls = [];
     mocks.donutProps = undefined;
     mocks.openContextMenu.mockClear();
@@ -123,6 +125,17 @@ describe("Browse", () => {
         expect(probe.querySelector(".space-usage-loading")).not.toBeNull();
         expect(probe.querySelector(".donut-stub")).toBeNull();
         expect(mocks.fetchedUrls).toEqual([ "space-usage/note/root" ]);
+    });
+
+    it("says so when the note's usage could not be measured, rather than measuring on", () => {
+        mocks.usage = undefined;
+        mocks.failed = true;
+        const probe = renderBrowse();
+
+        expect(probe.querySelector(".space-usage-loading")).toBeNull();
+        expect(probe.querySelector(".no-items")).not.toBeNull();
+        // The breadcrumb still stands, so the user can climb back out of a note that would not load.
+        expect(probe.querySelector(".space-usage-breadcrumb")).not.toBeNull();
     });
 
     it("renders the donut for the root with its children ring and resolved titles", async () => {

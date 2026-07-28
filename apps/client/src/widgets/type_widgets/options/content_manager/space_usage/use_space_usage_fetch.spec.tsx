@@ -32,8 +32,8 @@ function fireEntitiesReloaded(loadResults: LoadResults) {
 import { useSpaceUsageFetch } from "./use_space_usage_fetch";
 
 function Probe({ url }: { url: string }) {
-    const data = useSpaceUsageFetch<{ label: string }>(url);
-    return <div>{data ? data.label : "loading"}</div>;
+    const { data, failed } = useSpaceUsageFetch<{ label: string }>(url);
+    return <div>{data ? data.label : (failed ? "failed" : "loading")}</div>;
 }
 
 let container: HTMLDivElement | undefined;
@@ -83,6 +83,19 @@ describe("useSpaceUsageFetch", () => {
         renderProbe("space-usage/note/b");
         await vi.waitFor(() => expect(serverGet).toHaveBeenCalledTimes(2));
         expect(probe.textContent).toBe("first");
+    });
+
+    it("reports a first fetch that fails, instead of measuring forever", async () => {
+        // Nothing to fall back on yet, and a browser-rejected request is not even toasted, so a
+        // silent catch would leave the view claiming to measure for as long as it stayed open.
+        serverGet.mockRejectedValueOnce(new Error("rejected by browser"));
+        const probe = renderProbe("space-usage/overview");
+        await vi.waitFor(() => expect(probe.textContent).toBe("failed"));
+
+        // ...and it clears itself the moment an attempt succeeds.
+        serverGet.mockResolvedValueOnce({ label: "recovered" });
+        renderProbe("space-usage/note/a");
+        await vi.waitFor(() => expect(probe.textContent).toBe("recovered"));
     });
 
     it("drops a stale response that resolves after a newer request", async () => {

@@ -2665,6 +2665,7 @@
   },
   "space_usage": {
     "loading": "Measuring space usage...",
+    "load_failed": "Space usage could not be measured",
     "view_overview": "Overview",
     "view_browse": "Browse",
     "other_notes_one": "1 other note",

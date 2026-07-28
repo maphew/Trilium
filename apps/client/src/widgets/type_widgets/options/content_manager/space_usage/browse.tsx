@@ -12,6 +12,7 @@ import type { DonutRing } from "../../../../react/charts/DonutChart";
 import { openSpaceUsageContextMenu } from "./context_menu";
 import { buildChildrenSegments, type UsageSegmentData } from "./donut_segments";
 import NoteUsageDonut, { segmentTooltip } from "./note_usage_donut";
+import SpaceUsagePlaceholder from "./placeholder";
 import { useSpaceUsageFetch } from "./use_space_usage_fetch";
 
 const CHILDREN_RING_RADIUS = 180;
@@ -33,7 +34,7 @@ interface BrowseProps {
  */
 export default function Browse({ path, onPathChange }: BrowseProps) {
     const noteId = path[path.length - 1];
-    const usage = useSpaceUsageFetch<SpaceUsageNoteResponse>(`space-usage/note/${noteId}`);
+    const { data: usage, failed } = useSpaceUsageFetch<SpaceUsageNoteResponse>(`space-usage/note/${noteId}`);
     const titles = useNoteTitles(path, usage);
     const getTitle = useCallback((id: string) => titles.get(id) ?? id, [ titles ]);
 
@@ -106,7 +107,7 @@ export default function Browse({ path, onPathChange }: BrowseProps) {
                     />
                 </div>
             ) : (
-                <p className="space-usage-loading">{t("space_usage.loading")}</p>
+                <SpaceUsagePlaceholder failed={failed} />
             )}
         </div>
     );

@@ -11,6 +11,7 @@ import OptionsPageHeader from "../../components/OptionsPageHeader";
 import type { ContentManagerSectionProps } from "../index";
 import Browse from "./browse";
 import Overview from "./overview";
+import SpaceUsagePlaceholder from "./placeholder";
 import { useSpaceUsageFetch } from "./use_space_usage_fetch";
 
 /** Matches the server default; the treemap could not label more cells anyway. */
@@ -30,7 +31,7 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
     // Kept fetched across both views so returning to the treemap draws immediately rather than
     // blanking. Revisions stay out of the ranking so it shares the basis of the areas the treemap
     // draws — asking for one basis and drawing the other would rank in notes the cells then shrink.
-    const overview = useSpaceUsageFetch<SpaceUsageOverviewResponse>(
+    const { data: overview, failed } = useSpaceUsageFetch<SpaceUsageOverviewResponse>(
         `space-usage/overview?limit=${OVERVIEW_LIMIT}`);
 
     return (
@@ -49,7 +50,7 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
             {view === "browse" && <Browse path={browsePath} onPathChange={setBrowsePath} />}
             {view === "overview" && (overview
                 ? <Overview overview={overview} onShowDetails={showDetails} />
-                : <p className="space-usage-loading">{t("space_usage.loading")}</p>)}
+                : <SpaceUsagePlaceholder failed={failed} />)}
 
             {/* Overview only: these are whole-database totals, and beside a single note's donut
                 they would read as being about that note. */}
