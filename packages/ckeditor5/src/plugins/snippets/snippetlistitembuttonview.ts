@@ -18,7 +18,7 @@ export default class SnippetListItemButtonView extends ButtonView {
     private noteIconView: NoteIconView | null = null;
     private textPartView: SnippetTextPartView | null = null;
 
-    constructor(locale: Locale, definition: SnippetDefinition) {
+    constructor(locale: Locale | undefined, definition: SnippetDefinition) {
         super(locale);
 
         this.definition = definition;
@@ -33,8 +33,10 @@ export default class SnippetListItemButtonView extends ButtonView {
     public override render(): void {
         super.render();
 
+        // `labelView` is always rendered by `super.render()` above, so its element (and id) exist.
+        const labelElement = this.labelView.element as HTMLElement;
         this.noteIconView = new NoteIconView(this.locale, this.definition);
-        this.textPartView = new SnippetTextPartView(this.locale, this.definition, this.labelView.element?.id);
+        this.textPartView = new SnippetTextPartView(this.locale, this.definition, labelElement.id);
 
         // Replace the plain label with a note-icon + (title + description) block.
         this.children.remove(this.labelView);

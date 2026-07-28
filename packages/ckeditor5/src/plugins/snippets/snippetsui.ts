@@ -1,4 +1,4 @@
-import { createDropdown, type Locale, MenuBarMenuListItemButtonView, MenuBarMenuListItemView, MenuBarMenuListView, MenuBarMenuView, Plugin, SearchTextView } from "ckeditor5";
+import { type Command, createDropdown, type Locale, MenuBarMenuListItemButtonView, MenuBarMenuListItemView, MenuBarMenuListView, MenuBarMenuView, Plugin, SearchTextView } from "ckeditor5";
 
 import SnippetsEditing from "./snippetsediting.js";
 import SnippetListView from "./snippetlistview.js";
@@ -35,7 +35,9 @@ export default class SnippetsUI extends Plugin {
         };
 
         editor.ui.componentFactory.add("insertTemplate", (locale) => {
-            const command = editor.commands.get("insertTemplate");
+            // Cast (rather than guard) since `SnippetsUI` requires `SnippetsEditing`, which registers
+            // the command in its `init()`; it is always present by the time the UI is built.
+            const command = editor.commands.get("insertTemplate") as Command;
             const dropdownView = createDropdown(locale);
 
             const listView = new SnippetListView(locale, editing.definitions, (definition) => insert(definition.data));
@@ -60,14 +62,12 @@ export default class SnippetsUI extends Plugin {
             });
 
             searchView.on("search", (evt, data: { query: string; resultsCount: number }) => {
-                if (data.query?.length) {
+                if (data.query.length) {
                     editor.ui.ariaLiveAnnouncer.announce(t("%0 templates found", data.resultsCount));
                 }
             });
 
-            if (command) {
-                dropdownView.bind("isEnabled").to(command);
-            }
+            dropdownView.bind("isEnabled").to(command);
             dropdownView.panelView.children.add(searchView);
             dropdownView.buttonView.set({
                 label: t("Insert template"),
@@ -86,7 +86,7 @@ export default class SnippetsUI extends Plugin {
         });
 
         editor.ui.componentFactory.add("menuBar:insertTemplate", (locale) => {
-            const command = editor.commands.get("insertTemplate");
+            const command = editor.commands.get("insertTemplate") as Command;
             const menuView = new MenuBarMenuView(locale);
             menuView.buttonView.set({
                 label: t("Template"),
@@ -102,9 +102,7 @@ export default class SnippetsUI extends Plugin {
             });
 
             menuView.panelView.children.add(listView);
-            if (command) {
-                menuView.bind("isEnabled").to(command, "isEnabled");
-            }
+            menuView.bind("isEnabled").to(command, "isEnabled");
 
             return menuView;
         });

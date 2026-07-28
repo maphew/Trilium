@@ -3,15 +3,21 @@ import { type Collection, type FilteredView, ListItemView, ListView, type Locale
 import type { SnippetDefinition } from "./snippetsconfig.js";
 import SnippetListItemButtonView from "./snippetlistitembuttonview.js";
 
+interface SnippetRow {
+    item: ListItemView;
+    button: SnippetListItemButtonView;
+}
+
 /**
  * The scrollable list of snippets shown inside the `insertTemplate` search dropdown.
  *
- * Its rows are **bound** to a live {@link Collection} of definitions: adding, removing or editing a
- * snippet note updates the collection, and the list re-renders in place — no editor rebuild. It
- * implements {@link FilteredView} so the surrounding {@link module:ui/search/text/searchtextview~SearchTextView}
- * can filter it by the user's query.
+ * It rebuilds itself from a live {@link Collection} of definitions — adding, removing or editing a
+ * snippet note re-renders the rows in place, no editor rebuild. It implements {@link FilteredView} so
+ * the surrounding {@link module:ui/search/text/searchtextview~SearchTextView} can filter it by query.
  */
 export default class SnippetListView extends ListView implements FilteredView {
+
+    private readonly rows: SnippetRow[] = [];
 
     constructor(locale: Locale, definitions: Collection<SnippetDefinition>, insert: (definition: SnippetDefinition) => void) {
         super(locale);
@@ -23,30 +29,14 @@ export default class SnippetListView extends ListView implements FilteredView {
             }
         });
 
-        this.items.bindTo(definitions).using((definition) => {
-            const item = new ListItemView(locale);
-            const button = new SnippetListItemButtonView(locale, definition);
-
-            button.on("execute", () => insert(definition));
-
-            item.children.add(button);
-            return item;
-        });
+        this._rebuild(definitions, insert);
+        this.listenTo(definitions, "change", () => this._rebuild(definitions, insert));
     }
 
     public filter(regExp: RegExp | null): { resultsCount: number; totalItemsCount: number } {
         let resultsCount = 0;
 
-        for (const item of this.items) {
-            if (!(item instanceof ListItemView)) {
-                continue;
-            }
-
-            const button = getButton(item);
-            if (!button) {
-                continue;
-            }
-
+        for (const { item, button } of this.rows) {
             const isVisible = regExp ? !!button.isMatching(regExp) : true;
 
             item.isVisible = isVisible;
@@ -59,22 +49,33 @@ export default class SnippetListView extends ListView implements FilteredView {
 
         return {
             resultsCount,
-            totalItemsCount: this.items.length
+            totalItemsCount: this.rows.length
         };
     }
 
     public override focus(): void {
         // Focus the first *visible* row so keyboard users skip rows hidden by the current filter.
-        for (const item of this.items) {
-            if (item instanceof ListItemView && item.isVisible) {
-                getButton(item)?.focus();
+        for (const { item, button } of this.rows) {
+            if (item.isVisible) {
+                button.focus();
                 return;
             }
         }
     }
-}
 
-function getButton(item: ListItemView): SnippetListItemButtonView | null {
-    const first = item.children.first;
-    return first instanceof SnippetListItemButtonView ? first : null;
+    private _rebuild(definitions: Collection<SnippetDefinition>, insert: (definition: SnippetDefinition) => void): void {
+        this.rows.length = 0;
+        this.items.clear();
+
+        for (const definition of definitions) {
+            const item = new ListItemView(this.locale);
+            const button = new SnippetListItemButtonView(this.locale, definition);
+
+            button.on("execute", () => insert(definition));
+
+            item.children.add(button);
+            this.items.add(item);
+            this.rows.push({ item, button });
+        }
+    }
 }
