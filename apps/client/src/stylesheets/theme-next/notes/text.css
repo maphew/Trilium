@@ -433,10 +433,12 @@ div.ck-template-form .ck-labeled-field-view {
    clobbering the glyph's `content`. */
 :root div.ck-template-form .ck-template-icon {
     position: relative;
-    /* Honour the note's `#color` (carried by the `use-note-color` class, which defines
-       `--custom-color`), falling back to the default icon colour when the note has none — the same
-       mechanism the note tree uses for its icons. */
-    color: var(--custom-color, var(--note-icon-color));
+    /* Render like a real note icon (cf. the list/grid view's `.note-icon`): a hue-light glyph on a
+       hue-tinted circular backdrop when the note has a `#color`, falling back to the neutral icon
+       colours otherwise. The `--note-icon-custom-*` variables come from the `.with-hue` rule the
+       plugin opts into (see theme-next-{dark,light}.css); they derive from `--custom-color-hue`,
+       which the note's colour class carries. */
+    color: var(--note-icon-custom-color, var(--note-icon-color));
 
     &::after {
         display: block;
@@ -444,7 +446,7 @@ div.ck-template-form .ck-labeled-field-view {
         position: absolute;
         inset: 2px;
         border-radius: 50%;
-        background: var(--note-icon-hover-background-color);
+        background: var(--note-icon-custom-background-color, var(--note-icon-hover-background-color));
         z-index: -1;
     }
 }
