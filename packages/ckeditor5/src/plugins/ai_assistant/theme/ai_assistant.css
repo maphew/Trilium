@@ -7,7 +7,18 @@
 }
 
 .ck.ck-ai-assistant-form .ck-ai-assistant-form__heading {
+    display: flex;
+    align-items: center;
+    gap: var(--ck-spacing-small);
     font-weight: bold;
+}
+
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__title {
+    flex-grow: 1;
+}
+
+.ck.ck-ai-assistant-form .ck-button.ck-ai-assistant-form__viewmode {
+    font-weight: normal;
 }
 
 .ck.ck-ai-assistant-form .ck-ai-assistant-form__prompt-row {
@@ -46,6 +57,42 @@
 /* An actions row with every button hidden should not reserve a gap's worth of height. */
 .ck.ck-ai-assistant-form .ck-ai-assistant-form__actions:not(:has(.ck-button:not(.ck-hidden))) {
     display: none;
+}
+
+/* The inline diff shown by the "Changes" view (htmldiff-js `ins`/`del` markup, the same
+   convention the revisions dialog styles). Colors are self-contained rather than borrowing the
+   client's Bootstrap variables, so the plugin package stays host-agnostic. */
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__preview ins {
+    text-decoration: none;
+}
+
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__preview ins.diffins,
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__preview ins.diffmod {
+    background-color: rgba(63, 185, 80, 0.25);
+}
+
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__preview del {
+    text-decoration: line-through;
+}
+
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__preview del.diffdel,
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__preview del.diffmod {
+    background-color: rgba(248, 81, 73, 0.25);
+}
+
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__preview ins img,
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__preview del img {
+    border: 3px solid;
+    border-radius: 4px;
+}
+
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__preview ins img {
+    border-color: rgba(63, 185, 80, 0.7);
+}
+
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__preview del img {
+    border-color: rgba(248, 81, 73, 0.7);
+    opacity: 0.6;
 }
 
 /* The tint on the note text the assistant was opened on — what "Replace" will hit. */

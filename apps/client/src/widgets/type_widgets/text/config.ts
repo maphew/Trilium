@@ -1,6 +1,7 @@
 import { buildExtraCommands, type EditorConfig, getCkLocale, loadPremiumPlugins, SnippetDefinition } from "@triliumnext/ckeditor5";
 import emojiDefinitionsUrl from "@triliumnext/ckeditor5/src/emoji_definitions/en.json?url";
 import { ALLOWED_PROTOCOLS, DISPLAYABLE_LOCALE_IDS, KATEX_MACROS, MIME_TYPE_AUTO, normalizeMimeTypeForCKEditor } from "@triliumnext/commons";
+import HtmlDiff from "htmldiff-js";
 
 import { copyTextWithToast } from "../../../services/clipboard_ext.js";
 import { t } from "../../../services/i18n.js";
@@ -183,7 +184,10 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
         },
         aiAssistant: {
             // `undefined` when no LLM provider is configured, which disables the feature.
-            stream: buildAiAssistantStream()
+            stream: buildAiAssistantStream(),
+            // The "Changes" review view: the same HTML-aware inline diff (`<ins>`/`<del>`
+            // markup) the revisions dialog uses.
+            diff: (oldHtml: string, newHtml: string) => HtmlDiff.execute(oldHtml, newHtml)
         },
         htmlSupport: {
             allow: JSON.parse(options.get("allowedHtmlTags"))

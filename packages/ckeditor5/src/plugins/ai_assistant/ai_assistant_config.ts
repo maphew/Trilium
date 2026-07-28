@@ -34,10 +34,25 @@ export type AiStreamFunction = (
     signal: AbortSignal
 ) => Promise<void>;
 
+/**
+ * Renders an inline HTML diff between two HTML fragments, returning HTML in which insertions and
+ * deletions are marked with `<ins>`/`<del>` elements (the `htmldiff-js` output convention, the
+ * same mechanism Trilium's revision dialog uses).
+ */
+export type AiDiffFunction = (oldHtml: string, newHtml: string) => string;
+
 export interface AiAssistantConfig {
     /**
      * Streams a completion for a request. When absent (no LLM provider configured), the whole
      * feature stays disabled.
      */
     stream?: AiStreamFunction;
+
+    /**
+     * Renders the "Changes" view of the review phase: an inline diff of the response against the
+     * content it replaces. Optional — without it the review phase only shows the result. The diff
+     * is computed once per finished run, never against a partial stream (a half-streamed response
+     * would render as a sea of deletions).
+     */
+    diff?: AiDiffFunction;
 }

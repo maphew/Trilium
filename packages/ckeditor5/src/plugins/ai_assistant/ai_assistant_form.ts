@@ -23,11 +23,15 @@ type Translate = (key: string, fallback: string) => string;
  */
 export type AiAssistantFormPhase = "prompt" | "streaming" | "review";
 
+/** What the preview shows in the review phase: the response, or its diff against the context. */
+export type AiAssistantViewMode = "result" | "changes";
+
 /**
  * The AI assistant balloon: a prompt row, a read-only streaming preview styled like note content,
- * and the review actions. Purely presentational — the orchestration (markers, streaming, committing
- * to the model) lives in `AiAssistantUI`, which listens to this view's `submit`, `stop`, `replace`,
- * `insertBelow` and `tryAgain` events.
+ * and the review actions. In the review phase the preview can toggle between the plain result and
+ * an inline diff ("Changes"), when the host provides a diff renderer. Purely presentational — the
+ * orchestration (markers, streaming, diffing, committing to the model) lives in `AiAssistantUI`,
+ * which listens to this view's `submit`, `stop`, `replace`, `insertBelow` and `tryAgain` events.
  */
 export default class AiAssistantFormView extends View {
 
@@ -36,9 +40,20 @@ export default class AiAssistantFormView extends View {
     declare public query: string;
     /** A transport/provider failure to surface; empty string when there is none. */
     declare public errorMessage: string;
+    /** Which of the stored contents the preview shows. Only meaningful in the review phase. */
+    declare public viewMode: AiAssistantViewMode;
+    /** Whether the current review has a diff to offer; controls the view-mode toggle. */
+    declare public hasDiff: boolean;
+
+    /** The (sanitized) response HTML, kept for re-rendering when the view mode flips. */
+    private _resultHtml = "";
+    /** The (sanitized) diff HTML of the review phase, when the host provided one. */
+    private _diffHtml = "";
 
     public readonly promptInputView: LabeledFieldView<InputTextView>;
     public readonly sendButtonView: ButtonView;
+    public readonly resultToggleView: ButtonView;
+    public readonly changesToggleView: ButtonView;
     public readonly previewView: AiPreviewView;
     public readonly stopButtonView: ButtonView;
     public readonly replaceButtonView: ButtonView;
@@ -57,7 +72,14 @@ export default class AiAssistantFormView extends View {
         this.set("phase", "prompt");
         this.set("query", "");
         this.set("errorMessage", "");
+        this.set("viewMode", "result");
+        this.set("hasDiff", false);
 
+        // Re-render the preview from the stored contents whenever the toggle flips.
+        this.on("change:viewMode", () => this._renderPreview());
+
+        this.resultToggleView = this._createViewModeButton(locale, translate("ai_assistant.result", "Result"), "result");
+        this.changesToggleView = this._createViewModeButton(locale, translate("ai_assistant.changes", "Changes"), "changes");
         this.promptInputView = this._createPromptInput(locale, translate);
         this.sendButtonView = this._createSendButton(locale, translate);
         this.previewView = new AiPreviewView(locale);
@@ -81,7 +103,15 @@ export default class AiAssistantFormView extends View {
                 {
                     tag: "div",
                     attributes: { class: ["ck", "ck-ai-assistant-form__heading"] },
-                    children: [{ text: translate("ai_assistant.title", "AI assistant") }]
+                    children: [
+                        {
+                            tag: "span",
+                            attributes: { class: ["ck", "ck-ai-assistant-form__title"] },
+                            children: [{ text: translate("ai_assistant.title", "AI assistant") }]
+                        },
+                        this.resultToggleView,
+                        this.changesToggleView
+                    ]
                 },
                 this.previewView,
                 {
@@ -131,6 +161,8 @@ export default class AiAssistantFormView extends View {
         submitHandler({ view: this });
 
         const focusables = [
+            this.resultToggleView,
+            this.changesToggleView,
             this.promptInputView,
             this.sendButtonView,
             this.stopButtonView,
@@ -163,32 +195,67 @@ export default class AiAssistantFormView extends View {
         this.phase = "prompt";
         this.query = "";
         this.errorMessage = "";
-        this.previewView.setContent("");
+        this._resultHtml = "";
+        this._diffHtml = "";
+        this.hasDiff = false;
+        this.viewMode = "result";
+        this._renderPreview();
     }
 
-    /** Enters the streaming phase with an empty preview. */
+    /** Enters the streaming phase with an empty preview. Streaming always shows the raw result. */
     public beginStreaming(): void {
         this.phase = "streaming";
         this.errorMessage = "";
-        this.previewView.setContent("");
+        this._resultHtml = "";
+        this._diffHtml = "";
+        this.hasDiff = false;
+        this.viewMode = "result";
+        this._renderPreview();
     }
 
     /** Renders the (sanitized, cumulative) response received so far. */
     public setPreview(html: string): void {
-        this.previewView.setContent(html);
+        this._resultHtml = html;
+        this._renderPreview();
     }
 
     /**
-     * Leaves the streaming phase. With content the form enters review; a run that produced
-     * nothing falls back to the prompt phase, showing `errorMessage` when the run failed.
+     * Leaves the streaming phase. With content the form enters review — defaulting to the
+     * "Changes" view when a diff is available — while a run that produced nothing falls back to
+     * the prompt phase, showing `errorMessage` when the run failed.
      */
-    public endStreaming(hasContent: boolean, errorMessage: string): void {
+    public enterReview(hasContent: boolean, diffHtml: string | null, errorMessage: string): void {
         this.phase = hasContent ? "review" : "prompt";
         this.errorMessage = errorMessage;
+        this._diffHtml = diffHtml ?? "";
+        this.hasDiff = hasContent && !!this._diffHtml;
+        this.viewMode = this.hasDiff ? "changes" : "result";
+        this._renderPreview();
     }
 
     public focus(): void {
         this._focusCycler.focusFirst();
+    }
+
+    /** Shows whichever stored content the current view mode selects. */
+    private _renderPreview(): void {
+        this.previewView.setContent(this.viewMode === "changes" && this._diffHtml ? this._diffHtml : this._resultHtml);
+    }
+
+    /** One half of the Result/Changes toggle, visible only when a review has a diff to offer. */
+    private _createViewModeButton(locale: Locale, label: string, mode: AiAssistantViewMode) {
+        const button = new ButtonView(locale);
+        button.set({ label, withText: true, isToggleable: true, class: "ck-ai-assistant-form__viewmode" });
+        button.bind("isOn").to(this, "viewMode", (viewMode) => viewMode === mode);
+        button.bind("isVisible").to(
+            this, "phase",
+            this, "hasDiff",
+            (phase, hasDiff) => phase === "review" && hasDiff
+        );
+        button.on("execute", () => {
+            this.viewMode = mode;
+        });
+        return button;
     }
 
     private _createPromptInput(locale: Locale, translate: Translate) {

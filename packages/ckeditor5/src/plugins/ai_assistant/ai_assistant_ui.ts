@@ -138,6 +138,14 @@ export default class AiAssistantUI extends Plugin {
             void this._run(this._lastQuery);
         });
 
+        // The Result and Changes views usually differ in height; keep the balloon anchored.
+        this.listenTo(form, "change:viewMode", () => {
+            const balloon = this.editor.plugins.get(ContextualBalloon);
+            if (balloon.visibleView === form) {
+                balloon.updatePosition();
+            }
+        });
+
         // Esc always dismisses. A click outside only dismisses an idle, empty form — mid-stream or
         // with a response on screen it would silently throw the result away.
         form.keystrokes.set("Esc", (_data, cancel) => {
@@ -229,7 +237,28 @@ export default class AiAssistantUI extends Plugin {
             // Follow-up queries chain on the response ("now make it shorter"), premium-style.
             this._context = this._cumulative;
         }
-        form.endStreaming(!!this._cumulative, errorMessage);
+        form.enterReview(!!this._cumulative, this._buildDiff(), errorMessage);
+    }
+
+    /**
+     * The "Changes" view of the review: the finished response diffed against the context the run
+     * saw (`_previousContext` — so a follow-up query diffs against the response it refined, not
+     * the original selection). Only computed once the stream is complete; diffing a partial
+     * response would render everything not yet streamed as deleted. Null when the host provides
+     * no diff renderer or there is nothing to diff against (generate-from-scratch).
+     */
+    private _buildDiff(): string | null {
+        const diff = this.editor.config.get("aiAssistant")?.diff;
+        if (!diff || !this._cumulative || !this._previousContext) {
+            return null;
+        }
+        try {
+            return sanitizeAiHtml(diff(this._previousContext, this._cumulative));
+        } catch (error) {
+            // A host diff failure only costs the Changes view, never the response itself.
+            console.warn("AI assistant: diff renderer failed", error);
+            return null;
+        }
     }
 
     /**
