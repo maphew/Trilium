@@ -4,17 +4,19 @@
     height: 100%;
     overflow: hidden;
 
+    /* Painted through a variable, not a competing rule: consumers set `--treemap-cell-background`
+       and never race this stylesheet's cascade position. */
     .treemap-cell {
         position: absolute;
         border-radius: 4px;
-        background: var(--accented-background-color);
+        background: var(--treemap-cell-background, var(--accented-background-color));
         cursor: pointer;
     }
 
     /* The group tint stays a mix into the theme's own surface, so the map keeps a coherent look
        under light and dark themes alike. */
     .treemap-cell.treemap-colored {
-        background: color-mix(
+        --treemap-cell-background: color-mix(
             in srgb,
             var(--accented-background-color) 55%,
             hsl(var(--treemap-hue) 65% 55%) 45%

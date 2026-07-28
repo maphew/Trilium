@@ -45,17 +45,19 @@
 }
 
 /* The bucket cells stand for no single note: identity comes from the border and texture rather
-   than a hue (user themes make any fixed palette unreliable), and they respond to nothing. */
+   than a hue (user themes make any fixed palette unreliable), and they respond to nothing.
+   Repeats .treemap-cell to outrank the primitive's cursor rule. */
 .space-usage-overview {
-    .treemap-cell-other,
-    .treemap-cell-deleted {
+    .treemap-cell.treemap-cell-other,
+    .treemap-cell.treemap-cell-deleted {
+        --treemap-cell-background: transparent;
+
         border: 1px dashed var(--main-border-color);
-        background: transparent;
         cursor: default;
     }
 
-    .treemap-cell-deleted {
-        background: repeating-linear-gradient(
+    .treemap-cell.treemap-cell-deleted {
+        --treemap-cell-background: repeating-linear-gradient(
             -45deg,
             var(--accented-background-color) 0 5px,
             transparent 5px 10px
