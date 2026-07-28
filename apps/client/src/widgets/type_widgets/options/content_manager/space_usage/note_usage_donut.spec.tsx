@@ -18,6 +18,12 @@ vi.mock("../../../../../components/app_context", () => ({
     }
 }));
 
+// Uninitialized, the real `t` answers undefined for every key — which would silently drop anything
+// the component only renders when its wording resolves, the contextual-help icon included.
+vi.mock("../../../../../services/i18n", () => ({
+    t: (key: string) => key
+}));
+
 // The real i18n is not initialized under test, so `Trans` would render the bare key and drop the
 // interpolated value; the stub renders exactly what the component wires in.
 vi.mock("react-i18next", () => ({
@@ -83,6 +89,23 @@ describe("NoteUsageDonut", () => {
         expect(probe.querySelector("circle.space-usage-segment-revisions")).toBeNull();
     });
 
+    it("gives every centre line a contextual-help affordance and no tooltip of its own", () => {
+        const probe = renderDonut();
+        const lines = [ ...probe.querySelectorAll(".note-usage-donut-size") ];
+
+        // Note, Revisions, Subtree — each says what it covers through its own icon.
+        expect(lines).toHaveLength(3);
+        for (const line of lines) {
+            const icon = line.querySelector(".contextual-help");
+            expect(icon?.classList.contains("bx-info-circle")).toBe(true);
+            // The app's tooltip, never the browser's: a native title would style and place itself
+            // apart from every other hint in the hole.
+            expect(icon?.getAttribute("title")).toBeNull();
+            // The hint hangs off the icon alone; hovering the value itself explains nothing.
+            expect(line.getAttribute("title")).toBeNull();
+        }
+    });
+
     it("defines the hatch the revisions segment is stroked with", () => {
         const probe = renderDonut();
         const pattern = probe.querySelector("svg > defs > pattern#space-usage-revisions-hatch");
@@ -138,5 +161,10 @@ describe("segmentTooltip", () => {
             .toBe(t("space_usage.attachment_tooltip", { title: "img.png", size: formatSize(20) }));
         expect(segmentTooltip("child", "Projects", 30))
             .toBe(t("space_usage.child_tooltip", { title: "Projects", size: formatSize(30) }));
+        expect(segmentTooltip("revisions", "Revisions (including subtree revisions)", 40))
+            .toBe(t("space_usage.revisions_tooltip", {
+                title: "Revisions (including subtree revisions)",
+                size: formatSize(40)
+            }));
     });
 });

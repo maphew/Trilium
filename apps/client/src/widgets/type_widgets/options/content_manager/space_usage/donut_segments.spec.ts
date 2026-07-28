@@ -164,10 +164,11 @@ describe("buildChildrenSegments", () => {
 
         expect(segments.map((segment) => segment.id))
             .toEqual([ "child/big", "others", "revisions", "/deleted-notes" ]);
+        // Its own tooltip kind: the label already carries parentheses, so the size follows a colon.
         expect(segments[2]).toMatchObject({
             value: 24,
             className: "space-usage-segment-revisions",
-            tooltip: "plain:Revisions/24"
+            tooltip: "revisions:Revisions/24"
         });
         expect(segments[2].hue).toBeUndefined();
     });

@@ -9,8 +9,12 @@ export interface UsageSegmentData {
     attachmentId?: string;
 }
 
-/** Which wording a segment's tooltip gets: a plain label, or one prefixed with its case. */
-export type UsageTooltipKind = "plain" | "attachment" | "child";
+/**
+ * Which wording a segment's tooltip gets: a plain label, one prefixed with its case, or the
+ * revisions one — whose label carries parentheses of its own, so its size cannot follow in another
+ * pair.
+ */
+export type UsageTooltipKind = "plain" | "attachment" | "child" | "revisions";
 
 type MakeTooltip = (kind: UsageTooltipKind, title: string, size: number) => string;
 
@@ -109,7 +113,7 @@ export function buildChildrenSegments(
             id: "revisions",
             value: revisionsSize,
             className: "space-usage-segment-revisions",
-            tooltip: makeTooltip("plain", revisionsLabel, revisionsSize)
+            tooltip: makeTooltip("revisions", revisionsLabel, revisionsSize)
         });
     }
 

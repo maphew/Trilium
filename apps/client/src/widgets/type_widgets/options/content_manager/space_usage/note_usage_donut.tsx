@@ -20,6 +20,13 @@ import {
     type UsageTooltipKind
 } from "./donut_segments";
 
+/**
+ * The app's "raise above everything" tooltip class. Bootstrap appends tooltips to `<body>`, where
+ * the base `.tooltip` z-index sits below a modal — and this section is usually shown inside the
+ * settings dialog, so without it every hint here opens behind the dialog that triggered it.
+ */
+const RAISED_TOOLTIP = "tooltip-top";
+
 export const COMPOSITION_RING_RADIUS = 133;
 /** Half the children ring's: the note's own breakdown reads as the quieter, supporting ring. */
 export const COMPOSITION_RING_THICKNESS = 23;
@@ -78,23 +85,25 @@ export default function NoteUsageDonut({ usage, title, notePath, outerRings = []
                 }}
                 onContextMenu={onTitleContextMenu}
             >{title}</a>
-            {/* Each line is the total of what surrounds it, so the hole reads as the rings' legend.
-                The deduplicated on-disk figures are the hints' business — they answer a different
-                question (what erasing would reclaim) and would not match any drawn area. */}
+            {/* Each line is the total of what surrounds it, so the hole reads as the rings' legend,
+                and each carries an icon saying which part of the chart it adds up. */}
             <div className="note-usage-donut-sizes">
+                {/* The bracketed figure is the deduplicated one: what the note or subtree really
+                    costs on disk, which the drawn per-entity totals overstate wherever content is
+                    shared. Revisions need no such aside — their line already draws that figure. */}
                 <SizeLine
                     i18nKey="space_usage.center_note_size"
-                    hint={t("space_usage.center_note_size_hint", { size: formatSize(usage.noteContentSize) })}
+                    help={t("space_usage.center_note_size_help", { size: formatSize(usage.noteContentSize) })}
                     size={noteWeight(usage)}
                 />
                 <SizeLine
                     i18nKey="space_usage.center_revisions_size"
-                    hint={t("space_usage.center_revisions_size_hint")}
+                    help={t("space_usage.center_revisions_help")}
                     size={usage.subtreeRevisionsContentSize}
                 />
                 <SizeLine
                     i18nKey="space_usage.center_subtree_size"
-                    hint={t("space_usage.center_subtree_size_hint", { size: formatSize(usage.subtreeContentSize) })}
+                    help={t("space_usage.center_subtree_size_help", { size: formatSize(usage.subtreeContentSize) })}
                     size={subtreeWeight(usage)}
                 />
             </div>
@@ -129,27 +138,41 @@ function RevisionsHatch() {
  * One labelled center line, the value emphasized, with the app's tooltip explaining what the figure
  * covers. `<Trans>` lets translations put the value wherever their wording needs it.
  */
-function SizeLine({ i18nKey, hint, size }: { i18nKey: string, hint: string, size: number }) {
-    const ref = useRef<HTMLSpanElement>(null);
-    useStaticTooltip(ref, useMemo(() => ({ title: hint, placement: "bottom" }), [ hint ]));
-
+function SizeLine({ i18nKey, help, size }: { i18nKey: string, help: string, size: number }) {
     return (
-        <span ref={ref} className="note-usage-donut-size">
+        <span className="note-usage-donut-size">
             <Trans
                 i18nKey={i18nKey}
                 components={{
                     Size: <span className="note-usage-donut-size-value">{formatSize(size)}</span> as React.ReactElement
                 }}
             />
+            <ContextualHelp title={help} />
         </span>
     );
+}
+
+/**
+ * The info affordance the option lists already use, on the app's tooltip rather than the browser's:
+ * a native one would appear somewhere else, after its own delay, and in its own styling — while the
+ * line's own hint is already the app's. Showing one dismisses the other, so the two never overlap.
+ */
+function ContextualHelp({ title }: { title: string }) {
+    const ref = useRef<HTMLSpanElement>(null);
+    useStaticTooltip(ref, useMemo(
+        () => ({ title, placement: "bottom", customClass: RAISED_TOOLTIP }),
+        [ title ]
+    ));
+
+    return <span ref={ref} className="bx bx-info-circle contextual-help" />;
 }
 
 /** "Title (1.2 MiB)", prefixed with its case ("Attachment: ", "Child note: ") where one applies. */
 export function segmentTooltip(kind: UsageTooltipKind, title: string, size: number) {
     const key = kind === "attachment" ? "space_usage.attachment_tooltip"
         : kind === "child" ? "space_usage.child_tooltip"
-            : "space_usage.segment_tooltip";
+            : kind === "revisions" ? "space_usage.revisions_tooltip"
+                : "space_usage.segment_tooltip";
 
     return t(key, { title, size: formatSize(size) });
 }

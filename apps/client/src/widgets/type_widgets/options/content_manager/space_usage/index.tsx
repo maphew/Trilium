@@ -84,7 +84,12 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
  */
 function StatusEntry({ text, hint }: { text: string, hint: string }) {
     const ref = useRef<HTMLSpanElement>(null);
-    useStaticTooltip(ref, useMemo(() => ({ title: hint, placement: "top" }), [ hint ]));
+    // `tooltip-top` raises the popup above the settings dialog: Bootstrap appends tooltips to
+    // `<body>`, where the base `.tooltip` z-index sits below a modal.
+    useStaticTooltip(ref, useMemo(
+        () => ({ title: hint, placement: "top", customClass: "tooltip-top" }),
+        [ hint ]
+    ));
 
     return <span ref={ref}>{text}</span>;
 }
