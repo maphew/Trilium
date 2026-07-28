@@ -1,14 +1,32 @@
 import { Locale } from "ckeditor5";
 import { afterEach, describe, expect, it } from "vitest";
 
+import type { AiQuickAction, AiQuickActionGroup } from "./ai_assistant_config.js";
+import type { AiQuickActionEvent } from "./ai_assistant_form.js";
 import AiAssistantFormView from "./ai_assistant_form.js";
 
 let form: AiAssistantFormView;
 
-function makeForm(): AiAssistantFormView {
-    form = new AiAssistantFormView(new Locale(), (_key, fallback) => fallback);
+function makeForm(quickActions: AiQuickActionGroup[] = []): AiAssistantFormView {
+    form = new AiAssistantFormView(new Locale(), (_key, fallback) => fallback, quickActions);
     form.render();
     return form;
+}
+
+const SAMPLE_ACTIONS: AiQuickActionGroup[] = [{
+    id: "edit",
+    label: "Edit or review",
+    actions: [
+        { id: "fixTypos", label: "Fix typos", prompt: "Fix all mistakes." },
+        { id: "generate", label: "Generate", prompt: "Write something.", requiresContent: false }
+    ]
+}];
+
+/** The rendered quick-action item buttons, in definition order. */
+function quickActionButtons(): HTMLButtonElement[] {
+    form.quickActionsDropdownView.isOpen = true;
+    const panel = form.quickActionsDropdownView.panelView.element;
+    return Array.from(panel?.querySelectorAll("button") ?? []);
 }
 
 function previewHtml(): string {
@@ -100,6 +118,37 @@ describe("AiAssistantFormView", () => {
 
         expect(form.phase).toBe("prompt");
         expect(form.errorMessage).toBe("provider unreachable");
+    });
+
+    it("hides the quick-actions dropdown when no actions are configured", () => {
+        const form = makeForm();
+        expect(form.quickActionsDropdownView.class).toBe("ck-hidden");
+    });
+
+    it("gates content-requiring quick actions on hasContext and fires quickAction on pick", () => {
+        const form = makeForm(SAMPLE_ACTIONS);
+        const picked: AiQuickAction[] = [];
+        form.on<AiQuickActionEvent>("quickAction", (_evt, quickAction) => {
+            picked.push(quickAction);
+        });
+
+        expect(form.quickActionsDropdownView.class).not.toBe("ck-hidden");
+
+        // Opened on an empty selection: "Fix typos" needs content, "Generate" does not.
+        const [fixTypos, generate] = quickActionButtons();
+        expect(fixTypos.classList.contains("ck-disabled")).toBe(true);
+        expect(generate.classList.contains("ck-disabled")).toBe(false);
+
+        fixTypos.click();
+        expect(picked).toHaveLength(0);
+        generate.click();
+        expect(picked.map((quickAction) => quickAction.id)).toEqual(["generate"]);
+
+        // With content (a selection, or a response to chain on) everything unlocks.
+        form.hasContext = true;
+        expect(fixTypos.classList.contains("ck-disabled")).toBe(false);
+        fixTypos.click();
+        expect(picked.map((quickAction) => quickAction.prompt)).toEqual(["Write something.", "Fix all mistakes."]);
     });
 
     it("reset clears the stored contents and view-mode state", () => {

@@ -10,7 +10,7 @@ import {
 import { translate } from "../translate.js";
 import type { AiCompletionUsage } from "./ai_assistant_config.js";
 import AiAssistantEditing, { AI_TARGET_MARKER } from "./ai_assistant_editing.js";
-import AiAssistantFormView from "./ai_assistant_form.js";
+import AiAssistantFormView, { type AiQuickActionEvent } from "./ai_assistant_form.js";
 import { sanitizeAiHtml, stripMarkdownFences } from "./ai_html.js";
 import aiIcon from "./theme/icons/ai.svg?raw";
 import "./theme/ai_assistant.css";
@@ -100,6 +100,7 @@ export default class AiAssistantUI extends Plugin {
             : editor.data.stringify(model.getSelectedContent(selection));
         this._previousContext = this._context;
         this._cumulative = "";
+        form.hasContext = !!this._context;
 
         const range = selection.getFirstRange();
         /* v8 ignore next -- the document selection always has at least one range */
@@ -120,7 +121,11 @@ export default class AiAssistantUI extends Plugin {
         }
 
         const editor = this.editor;
-        const form = new AiAssistantFormView(editor.locale, (key, fallback) => translate(editor, key, fallback));
+        const form = new AiAssistantFormView(
+            editor.locale,
+            (key, fallback) => translate(editor, key, fallback),
+            editor.config.get("aiAssistant")?.quickActions ?? []
+        );
         this._formView = form;
 
         form.on("submit", () => {
@@ -129,6 +134,9 @@ export default class AiAssistantUI extends Plugin {
                 form.query = "";
                 void this._run(query);
             }
+        });
+        form.on<AiQuickActionEvent>("quickAction", (_evt, action) => {
+            void this._run(action.prompt);
         });
         form.on("stop", () => this._abortController?.abort());
         form.on("replace", () => this._commit("replace"));
@@ -239,6 +247,8 @@ export default class AiAssistantUI extends Plugin {
             // Follow-up queries chain on the response ("now make it shorter"), premium-style.
             this._context = this._cumulative;
         }
+        // A response counts as content, so content-requiring quick actions unlock for chaining.
+        form.hasContext = !!this._context;
         form.enterReview(!!this._cumulative, this._buildDiff(), errorMessage, this._formatUsage(usage));
     }
 

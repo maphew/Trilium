@@ -27,6 +27,12 @@
     gap: var(--ck-spacing-small);
 }
 
+/* The quick-actions list is long (four groups); scroll it rather than overflow the screen. */
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__prompt-row .ck-dropdown__panel {
+    max-height: 320px;
+    overflow-y: auto;
+}
+
 .ck.ck-ai-assistant-form .ck-ai-assistant-form__prompt-row .ck-labeled-field-view {
     flex-grow: 1;
 }

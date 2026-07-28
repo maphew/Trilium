@@ -13,7 +13,7 @@ import options from "../../../services/options.js";
 import { ensureMimeTypesForHighlighting, isSyntaxHighlightEnabled } from "../../../services/syntax_highlight.js";
 import { getTaskStateDefinitions, openCustomTaskStateConfig } from "../../../services/task_states.js";
 import SAMPLE_DIAGRAMS from "../mermaid/sample_diagrams.js";
-import buildAiAssistantStream from "./ai_assistant_stream.js";
+import buildAiAssistantStream, { buildAiAssistantQuickActions } from "./ai_assistant_stream.js";
 import { buildToolbarConfig } from "./toolbar.js";
 
 export const OPEN_SOURCE_LICENSE_KEY = "GPL";
@@ -187,7 +187,8 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
             stream: buildAiAssistantStream(),
             // The "Changes" review view: the same HTML-aware inline diff (`<ins>`/`<del>`
             // markup) the revisions dialog uses.
-            diff: (oldHtml: string, newHtml: string) => HtmlDiff.execute(oldHtml, newHtml)
+            diff: (oldHtml: string, newHtml: string) => HtmlDiff.execute(oldHtml, newHtml),
+            quickActions: buildAiAssistantQuickActions()
         },
         htmlSupport: {
             allow: JSON.parse(options.get("allowedHtmlTags"))
