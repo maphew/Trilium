@@ -397,9 +397,6 @@
     "db_not_initialized_desktop": "Base de datos no inicializada, por favor, siga las instrucciones en pantalla.",
     "db_not_initialized_server": "Base de datos no inicializada, por favor, visite la página de configuración - http://[your-server-host]:{{port}} para ver instrucciones sobre cómo inicializar Trilium."
   },
-  "desktop": {
-    "instance_already_running": "Ya hay una instancia en ejecución, enfocando esa instancia en su lugar."
-  },
   "password": {
     "incorrect": "La contraseña que ha introducido es incorrecta."
   },
