@@ -23,9 +23,10 @@ function child(noteId: string, subtreeSize: number) {
 }
 
 const makeTooltip = (kind: UsageTooltipKind, title: string, size: number) => `${kind}:${title}/${size}`;
+const makeOthersTooltip = (count: number, size: number) => `${count} more/${size}`;
 
 describe("buildCompositionSegments", () => {
-    const options = { bodyLabel: "Body", revisionsLabel: "Revisions", othersLabel: "Others", makeTooltip };
+    const options = { bodyLabel: "Body", revisionsLabel: "Revisions", makeTooltip, makeOthersTooltip };
 
     it("orders body, attachments largest-first, then revisions, with case-prefixed tooltips", () => {
         const segments = buildCompositionSegments(usage({
@@ -49,7 +50,7 @@ describe("buildCompositionSegments", () => {
         expect(segments[3]).toMatchObject({ value: 40, className: "space-usage-segment-revisions", tooltip: "plain:Revisions/40" });
     });
 
-    it("consolidates segments below 2% of the ring into an inert Others", () => {
+    it("consolidates segments below 2% of the ring into an inert counted bucket", () => {
         const segments = buildCompositionSegments(usage({
             ownSize: 1000,
             attachments: [
@@ -62,7 +63,7 @@ describe("buildCompositionSegments", () => {
         expect(segments[1]).toMatchObject({
             value: 15,
             className: "space-usage-segment-others",
-            tooltip: "plain:Others/15",
+            tooltip: "2 more/15",
             data: {}
         });
     });
@@ -80,8 +81,8 @@ describe("buildChildrenSegments", () => {
     const options = {
         getTitle: (noteId: string) => `title of ${noteId}`,
         deletedNotesLabel: "Deleted notes",
-        othersLabel: "Others",
-        makeTooltip
+        makeTooltip,
+        makeOthersTooltip
     };
 
     it("weights children by subtree, largest first, each with its own stable hue", () => {
@@ -98,13 +99,13 @@ describe("buildChildrenSegments", () => {
         });
     });
 
-    it("consolidates children below 0.5% of the ring into an inert Others", () => {
+    it("consolidates children below 0.5% of the ring into an inert counted bucket", () => {
         const segments = buildChildrenSegments(usage({
             children: [ child("big", 10000), child("tiny1", 30), child("tiny2", 10) ]
         }), options);
 
         expect(segments.map((segment) => segment.id)).toEqual([ "child/big", "others" ]);
-        expect(segments[1]).toMatchObject({ value: 40, tooltip: "plain:Others/40", data: {} });
+        expect(segments[1]).toMatchObject({ value: 40, tooltip: "2 more/40", data: {} });
         expect(segments[1].hue).toBeUndefined();
     });
 

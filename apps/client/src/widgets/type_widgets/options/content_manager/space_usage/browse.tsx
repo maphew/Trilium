@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 
 import froca from "../../../../../services/froca";
 import { t } from "../../../../../services/i18n";
+import { formatSize } from "../../../../../services/utils";
 import ActionButton from "../../../../react/ActionButton";
 import type { DonutRing } from "../../../../react/charts/DonutChart";
 import { buildChildrenSegments, type UsageSegmentData } from "./donut_segments";
@@ -34,8 +35,9 @@ export default function Browse() {
         segments: usage ? buildChildrenSegments(usage, {
             getTitle,
             deletedNotesLabel: t("space_usage.deleted_notes"),
-            othersLabel: t("space_usage.others"),
-            makeTooltip: segmentTooltip
+            makeTooltip: segmentTooltip,
+            makeOthersTooltip: (count, size) =>
+                t("space_usage.others_notes", { count, size: formatSize(size) })
         }) : [],
         onSegmentClick: (segment) => {
             const childId = segment.data?.noteId;
@@ -49,12 +51,6 @@ export default function Browse() {
     return (
         <div className="space-usage-browse">
             <nav className="space-usage-breadcrumb">
-                <ActionButton
-                    icon="bx bx-arrow-back"
-                    text={t("space_usage.back")}
-                    disabled={stack.length === 1}
-                    onClick={() => setStack((current) => current.length > 1 ? current.slice(0, -1) : current)}
-                />
                 {stack.map((id, index) => (
                     <Fragment key={`${index}/${id}`}>
                         {index > 0 && <span className="space-usage-crumb-separator" aria-hidden="true">›</span>}
@@ -78,6 +74,15 @@ export default function Browse() {
                         title={getTitle(usage.noteId)}
                         notePath={stack}
                         outerRings={[ childrenRing ]}
+                        centerActions={
+                            <ActionButton
+                                className="space-usage-back"
+                                icon="bx bx-arrow-back"
+                                text={t("space_usage.back")}
+                                disabled={stack.length === 1}
+                                onClick={() => setStack((current) => current.length > 1 ? current.slice(0, -1) : current)}
+                            />
+                        }
                     />
                 </div>
             ) : (

@@ -2,7 +2,10 @@ import "./note_usage_donut.css";
 
 import type { SpaceUsageNoteResponse } from "@triliumnext/commons";
 import clsx from "clsx";
+import type { ComponentChildren } from "preact";
 import { useMemo } from "preact/hooks";
+import type React from "react";
+import { Trans } from "react-i18next";
 
 import appContext from "../../../../../components/app_context";
 import { t } from "../../../../../services/i18n";
@@ -22,6 +25,8 @@ interface NoteUsageDonutProps {
     notePath: string[];
     /** Extra rings drawn around the composition ring, e.g. Browse's children ring. */
     outerRings?: DonutRing<UsageSegmentData>[];
+    /** Rendered centered above the title in the hole — e.g. Browse's back button. */
+    centerActions?: ComponentChildren;
     className?: string;
 }
 
@@ -31,7 +36,7 @@ interface NoteUsageDonutProps {
  * link: it opens the note and carries the note preview tooltip. Reusable wherever one note's usage
  * needs breaking down; Browse wraps it with its children ring via {@link outerRings}.
  */
-export default function NoteUsageDonut({ usage, title, notePath, outerRings = [], className }: NoteUsageDonutProps) {
+export default function NoteUsageDonut({ usage, title, notePath, outerRings = [], centerActions, className }: NoteUsageDonutProps) {
     const compositionRing: DonutRing<UsageSegmentData> = useMemo(() => ({
         id: "composition",
         radius: COMPOSITION_RING_RADIUS,
@@ -39,8 +44,9 @@ export default function NoteUsageDonut({ usage, title, notePath, outerRings = []
         segments: buildCompositionSegments(usage, {
             bodyLabel: t("space_usage.note_body"),
             revisionsLabel: t("space_usage.revisions"),
-            othersLabel: t("space_usage.others"),
-            makeTooltip: segmentTooltip
+            makeTooltip: segmentTooltip,
+            makeOthersTooltip: (count, size) =>
+                t("space_usage.others_attachments", { count, size: formatSize(size) })
         })
     }), [ usage ]);
 
@@ -50,6 +56,7 @@ export default function NoteUsageDonut({ usage, title, notePath, outerRings = []
             rings={[ compositionRing, ...outerRings ]}
             className={clsx("note-usage-donut", className)}
         >
+            {centerActions}
             <a
                 className="note-usage-donut-title"
                 href={`#${notePath.join("/")}`}
@@ -65,12 +72,24 @@ export default function NoteUsageDonut({ usage, title, notePath, outerRings = []
                 }}
             >{title}</a>
             <span className="note-usage-donut-size" title={t("space_usage.center_note_size_hint")}>
-                {t("space_usage.center_note_size", { size: formatSize(usage.noteContentSize) })}
+                <SizeLine i18nKey="space_usage.center_note_size" size={usage.noteContentSize} />
             </span>
             <span className="note-usage-donut-size" title={t("space_usage.center_subtree_size_hint")}>
-                {t("space_usage.center_subtree_size", { size: formatSize(usage.subtreeContentSize) })}
+                <SizeLine i18nKey="space_usage.center_subtree_size" size={usage.subtreeContentSize} />
             </span>
         </DonutChart>
+    );
+}
+
+/** One labelled center line, the value emphasized; `<Trans>` lets translations reorder the parts. */
+function SizeLine({ i18nKey, size }: { i18nKey: string, size: number }) {
+    return (
+        <Trans
+            i18nKey={i18nKey}
+            components={{
+                Size: <span className="note-usage-donut-size-value">{formatSize(size)}</span> as React.ReactElement
+            }}
+        />
     );
 }
 

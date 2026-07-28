@@ -52,6 +52,12 @@
         padding-block: 8px;
     }
 
+    /* At the root there is nowhere to go back to: the arrow disappears but keeps its box, so the
+       center text doesn't jump between levels. */
+    .space-usage-back.disabled {
+        visibility: hidden;
+    }
+
     /* Not a note: nothing to navigate into, painted like the revisions it will one day free.
        Repeats .donut-segment to outrank the primitive's clickable-cursor rule. */
     .donut-segment.space-usage-segment-deleted {

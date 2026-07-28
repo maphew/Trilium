@@ -23,23 +23,33 @@
         cursor: default;
     }
 
-    /* Keeps the text inside the hole (inner ring inner edge ≈ 21% in from the box edge). */
+    /* Keeps the text inside the hole (inner ring inner edge ≈ 21% in from the box edge); nudged
+       upward so the button + three text lines sit visually centered rather than sagging low. */
     .donut-chart-center {
         padding: 23%;
         gap: 2px;
+        transform: translateY(-4%);
     }
 
     .note-usage-donut-title {
         overflow: hidden;
         max-width: 100%;
-        color: var(--main-text-color);
+        color: var(--link-color);
         font-size: 1.05rem;
         white-space: nowrap;
         text-overflow: ellipsis;
     }
 
+    .note-usage-donut-title:hover {
+        text-decoration: underline;
+    }
+
     .note-usage-donut-size {
         opacity: 0.7;
-        font-size: 0.85rem;
+        font-size: 0.85em;
+    }
+
+    .note-usage-donut-size-value {
+        font-weight: 600;
     }
 }

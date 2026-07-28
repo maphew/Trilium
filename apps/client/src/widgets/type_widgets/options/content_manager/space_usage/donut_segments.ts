@@ -20,11 +20,13 @@ export const MIN_COMPOSITION_SEGMENT_FRACTION = 0.02;
 /** Child segments smaller than this share of the ring consolidate into "Others". */
 export const MIN_CHILD_SEGMENT_FRACTION = 0.005;
 
+type MakeOthersTooltip = (count: number, size: number) => string;
+
 interface CompositionOptions {
     bodyLabel: string;
     revisionsLabel: string;
-    othersLabel: string;
     makeTooltip: MakeTooltip;
+    makeOthersTooltip: MakeOthersTooltip;
 }
 
 /**
@@ -34,7 +36,7 @@ interface CompositionOptions {
  */
 export function buildCompositionSegments(
     usage: SpaceUsageNoteResponse,
-    { bodyLabel, revisionsLabel, othersLabel, makeTooltip }: CompositionOptions
+    { bodyLabel, revisionsLabel, makeTooltip, makeOthersTooltip }: CompositionOptions
 ): DonutSegment<UsageSegmentData>[] {
     const segments: DonutSegment<UsageSegmentData>[] = [];
 
@@ -71,14 +73,14 @@ export function buildCompositionSegments(
         });
     }
 
-    return consolidateSmallSegments(segments, MIN_COMPOSITION_SEGMENT_FRACTION, othersLabel, makeTooltip);
+    return consolidateSmallSegments(segments, MIN_COMPOSITION_SEGMENT_FRACTION, makeOthersTooltip);
 }
 
 interface ChildrenOptions {
     getTitle: (noteId: string) => string;
     deletedNotesLabel: string;
-    othersLabel: string;
     makeTooltip: MakeTooltip;
+    makeOthersTooltip: MakeOthersTooltip;
 }
 
 /**
@@ -88,7 +90,7 @@ interface ChildrenOptions {
  */
 export function buildChildrenSegments(
     usage: SpaceUsageNoteResponse,
-    { getTitle, deletedNotesLabel, othersLabel, makeTooltip }: ChildrenOptions
+    { getTitle, deletedNotesLabel, makeTooltip, makeOthersTooltip }: ChildrenOptions
 ): DonutSegment<UsageSegmentData>[] {
     const children = [ ...usage.children ]
         .filter((child) => child.subtreeSize > 0)
@@ -101,7 +103,7 @@ export function buildChildrenSegments(
             data: { noteId: child.noteId }
         }));
 
-    const segments = consolidateSmallSegments(children, MIN_CHILD_SEGMENT_FRACTION, othersLabel, makeTooltip);
+    const segments = consolidateSmallSegments(children, MIN_CHILD_SEGMENT_FRACTION, makeOthersTooltip);
 
     if (usage.deletedNotes && usage.deletedNotes.size > 0) {
         segments.push({
@@ -116,12 +118,11 @@ export function buildChildrenSegments(
     return segments;
 }
 
-/** Replaces the segments below the given share of the ring's total with one inert "Others". */
+/** Replaces the segments below the given share of the ring's total with one inert "N more (size)". */
 function consolidateSmallSegments(
     segments: DonutSegment<UsageSegmentData>[],
     minFraction: number,
-    othersLabel: string,
-    makeTooltip: MakeTooltip
+    makeOthersTooltip: MakeOthersTooltip
 ): DonutSegment<UsageSegmentData>[] {
     const total = segments.reduce((sum, segment) => sum + segment.value, 0);
 
@@ -131,12 +132,14 @@ function consolidateSmallSegments(
 
     const kept: DonutSegment<UsageSegmentData>[] = [];
     let othersSize = 0;
+    let othersCount = 0;
 
     for (const segment of segments) {
         if (segment.value / total >= minFraction) {
             kept.push(segment);
         } else {
             othersSize += segment.value;
+            othersCount++;
         }
     }
 
@@ -145,7 +148,7 @@ function consolidateSmallSegments(
             id: "others",
             value: othersSize,
             className: "space-usage-segment-others",
-            tooltip: makeTooltip("plain", othersLabel, othersSize),
+            tooltip: makeOthersTooltip(othersCount, othersSize),
             data: {}
         });
     }
