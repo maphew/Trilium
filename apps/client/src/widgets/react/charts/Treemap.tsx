@@ -2,9 +2,10 @@ import "./Treemap.css";
 
 import clsx from "clsx";
 import { hierarchy, treemap, treemapSquarify } from "d3-hierarchy";
-import { useMemo, useRef } from "preact/hooks";
+import { useMemo } from "preact/hooks";
 
 import { useElementSize } from "../hooks";
+import { useChartTooltip } from "./chart_tooltip";
 
 export interface TreemapItem<T = unknown> {
     /** Stable identity for reconciliation; unique across the whole tree. */
@@ -19,10 +20,11 @@ export interface TreemapItem<T = unknown> {
     hue?: number;
     /** Extra classes on the cell, for special entries the consumer styles itself. */
     className?: string;
+    /** Text for the chart's own tooltip, for cells that identify themselves rather than a note. */
+    tooltip?: string;
     /**
      * Attributes sprinkled onto the cell element — the cells carry no text of their own, so this
-     * is where identity comes from: `data-href` opts into the note tooltip, `title` gives plain
-     * cells a native one.
+     * is the other way identity is given: `data-href` opts a cell into the note preview tooltip.
      */
     attributes?: Record<string, string>;
     /** The consumer's payload, handed back on click. */
@@ -51,7 +53,7 @@ const CELL_GAP = 3;
  * surface color, which keeps the map coherent under any user theme.
  */
 export default function Treemap<T>({ root, onItemClick, className }: TreemapProps<T>) {
-    const containerRef = useRef<HTMLDivElement>(null);
+    const { containerRef, containerProps, showTooltip, hideTooltip, tooltipNode } = useChartTooltip<HTMLDivElement>();
     const size = useElementSize(containerRef);
     const width = Math.floor(size?.width ?? 0);
     const height = Math.floor(size?.height ?? 0);
@@ -75,7 +77,7 @@ export default function Treemap<T>({ root, onItemClick, className }: TreemapProp
     }, [ root, width, height ]);
 
     return (
-        <div ref={containerRef} className={clsx("treemap", className)}>
+        <div ref={containerRef} className={clsx("treemap", className)} {...containerProps}>
             {cells.map((cell) => {
                 const item = cell.data;
                 const cellWidth = cell.x1 - cell.x0;
@@ -98,10 +100,13 @@ export default function Treemap<T>({ root, onItemClick, className }: TreemapProp
                             ...(item.hue !== undefined && { "--treemap-hue": String(item.hue) })
                         }}
                         onClick={onItemClick && (() => onItemClick(item))}
+                        onMouseEnter={(event) => showTooltip(item.tooltip, event)}
+                        onMouseLeave={hideTooltip}
                         {...item.attributes}
                     />
                 );
             })}
+            {tooltipNode}
         </div>
     );
 }

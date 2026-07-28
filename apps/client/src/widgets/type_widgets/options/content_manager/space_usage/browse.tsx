@@ -34,7 +34,7 @@ export default function Browse() {
         thickness: CHILDREN_RING_THICKNESS,
         segments: usage ? buildChildrenSegments(usage, {
             getTitle,
-            deletedNotesLabel: t("space_usage.deleted_notes"),
+            deletedNotesLabel: t("space_usage.deleted_notes", { count: usage.deletedNotes?.noteCount ?? 0 }),
             makeTooltip: segmentTooltip,
             makeOthersTooltip: (count, size) =>
                 t("space_usage.others_notes", { count, size: formatSize(size) })
@@ -51,6 +51,7 @@ export default function Browse() {
     return (
         <div className="space-usage-browse">
             <nav className="space-usage-breadcrumb">
+                <span className="space-usage-crumb-label">{t("space_usage.current_note")}</span>
                 {stack.map((id, index) => (
                     <Fragment key={`${index}/${id}`}>
                         {index > 0 && <span className="space-usage-crumb-separator" aria-hidden="true">›</span>}

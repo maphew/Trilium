@@ -31,8 +31,16 @@
         );
     }
 
+    /* An outline that traces the arc rather than its box: `outline` on a dashed circle would frame
+       the entire ring, since that is the element's extent. Blur-less shadows in the four directions
+       hug the painted shape instead, and stay inside the inter-segment gap. */
     .donut-segment:hover {
-        filter: brightness(1.12);
+        filter:
+            brightness(1.12)
+            drop-shadow(2px 0 0 var(--input-focus-outline-color))
+            drop-shadow(-2px 0 0 var(--input-focus-outline-color))
+            drop-shadow(0 2px 0 var(--input-focus-outline-color))
+            drop-shadow(0 -2px 0 var(--input-focus-outline-color));
     }
 
     .donut-clickable {
@@ -55,22 +63,6 @@
         pointer-events: auto;
     }
 
-    /* The cursor-following tooltip. It must never catch the pointer, or it would flicker by
-       stealing the hover it reports. */
-    .donut-chart-tooltip {
-        position: absolute;
-        pointer-events: none;
-        transform: translate(14px, 14px);
-    }
-
-    .donut-chart-tooltip-flipped {
-        transform: translate(calc(-100% - 14px), 14px);
-    }
-
-    .donut-chart-tooltip .tooltip-inner {
-        white-space: nowrap;
-        max-width: none;
-    }
 }
 
 @keyframes donut-sweep {

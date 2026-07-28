@@ -1,10 +1,11 @@
 import "./index.css";
 
 import type { SpaceUsageOverviewResponse } from "@triliumnext/commons";
-import { useState } from "preact/hooks";
+import { useMemo, useRef, useState } from "preact/hooks";
 
 import { t } from "../../../../../services/i18n";
 import { formatSize } from "../../../../../services/utils";
+import { useStaticTooltip } from "../../../../react/hooks";
 import SegmentedChoice from "../../../../react/SegmentedChoice";
 import OptionsPageHeader from "../../components/OptionsPageHeader";
 import type { ContentManagerSectionProps } from "../index";
@@ -25,7 +26,14 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
     return (
         <div className="space-usage-section">
             <OptionsPageHeader actions={sectionSwitcher} below={
-                <SegmentedChoice options={VIEWS} currentValue={view} onChange={setView} />
+                <div className="space-usage-toolbar">
+                    <SegmentedChoice
+                        className="content-manager-view-choice"
+                        options={VIEWS}
+                        currentValue={view}
+                        onChange={setView}
+                    />
+                </div>
             } />
 
             {view === "browse" && <Browse />}
@@ -35,25 +43,39 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
 
             {overview && (
                 <footer className="space-usage-status">
-                    <span title={t("space_usage.status_content_hint")}>
-                        {t("space_usage.status_content", {
+                    <StatusEntry
+                        text={t("space_usage.status_content", {
                             count: overview.content.noteCount,
                             size: formatSize(overview.content.size),
                             revisionsSize: formatSize(overview.content.revisionsSize),
                             attachmentsSize: formatSize(overview.content.attachmentsSize)
                         })}
-                    </span>
+                        hint={t("space_usage.status_content_hint")}
+                    />
                     <span className="space-usage-status-separator" aria-hidden="true">–</span>
-                    <span title={t("space_usage.status_deleted_hint")}>
-                        {t("space_usage.status_deleted", {
+                    <StatusEntry
+                        text={t("space_usage.status_deleted", {
                             count: overview.deletedNotes.noteCount,
                             size: formatSize(overview.deletedNotes.size)
                         })}
-                    </span>
+                        hint={t("space_usage.status_deleted_hint")}
+                    />
                 </footer>
             )}
         </div>
     );
+}
+
+/**
+ * One figure of the status line, with the app's tooltip explaining how it is measured — the
+ * distinctions between the figures (deduplicated vs per entity, what each covers) are worth a
+ * sentence, but not one taking up the bar itself.
+ */
+function StatusEntry({ text, hint }: { text: string, hint: string }) {
+    const ref = useRef<HTMLSpanElement>(null);
+    useStaticTooltip(ref, useMemo(() => ({ title: hint, placement: "top" }), [ hint ]));
+
+    return <span ref={ref}>{text}</span>;
 }
 
 const VIEWS: { value: SpaceUsageView, label: string }[] = [

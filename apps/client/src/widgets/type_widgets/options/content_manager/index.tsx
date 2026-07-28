@@ -1,3 +1,5 @@
+import "./index.css";
+
 import type { ComponentChildren } from "preact";
 import { useState } from "preact/hooks";
 
@@ -26,7 +28,9 @@ export interface ContentManagerSectionProps extends TypeWidgetProps {
 export default function ContentManagerSettings(props: TypeWidgetProps) {
     const [ section, setSection ] = useState<ContentManagerSection>("activeContent");
     const sectionSwitcher = (
-        <SegmentedChoice options={SECTIONS} currentValue={section} onChange={setSection} />
+        <div className="content-manager-section-switcher">
+            <SegmentedChoice options={SECTIONS} currentValue={section} onChange={setSection} />
+        </div>
     );
 
     return section === "spaceUsage"

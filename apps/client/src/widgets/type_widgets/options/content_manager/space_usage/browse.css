@@ -7,11 +7,18 @@
     .space-usage-breadcrumb {
         display: flex;
         flex: 0 0 auto;
+        justify-content: center;
         align-items: center;
         gap: 0.35em;
         padding-block: 6px;
         overflow: hidden;
         white-space: nowrap;
+    }
+
+    /* Names what the path leads to, so a lone root crumb still reads as a location. */
+    .space-usage-crumb-label {
+        flex-shrink: 0;
+        opacity: 0.7;
     }
 
     .space-usage-crumb {

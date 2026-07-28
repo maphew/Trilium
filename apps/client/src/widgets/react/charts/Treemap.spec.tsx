@@ -1,5 +1,9 @@
 import { render } from "preact";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+
+import { enableMouseEventProperties } from "../../../test/dom_events";
+
+beforeAll(enableMouseEventProperties);
 
 // The container never gets a real layout under happy-dom, so the size hook is stubbed to give the
 // treemap a canvas; everything else renders for real.
@@ -45,7 +49,7 @@ const ROOT: TreemapItem<string> = {
                 { id: "small", value: 100, data: "small" }
             ]
         },
-        { id: "bucket", value: 100, className: "bucket-cell" },
+        { id: "bucket", value: 100, className: "bucket-cell", tooltip: "A crowd of notes" },
         { id: "empty", value: 0 },
         { id: "no-value" }
     ]
@@ -98,6 +102,33 @@ describe("Treemap", () => {
         render(null, container as HTMLDivElement);
         mocks.size = { width: 5, height: 5 };
         expect(renderTreemap(ROOT).querySelectorAll(".treemap-cell").length).toBe(0);
+    });
+
+    it("shows the app's own tooltip for a cell that carries one, and none for the others", async () => {
+        const probe = renderTreemap(ROOT);
+        const flushRender = () => new Promise((resolve) => setTimeout(resolve));
+
+        probe.querySelector('[data-href="#root/folder/big"]')
+            ?.dispatchEvent(new MouseEvent("mouseenter", { clientX: 10, clientY: 10 }));
+        await flushRender();
+        // A note cell is described by the note preview tooltip instead, via its data-href.
+        expect(probe.querySelector(".chart-tooltip")).toBeNull();
+
+        probe.querySelector(".bucket-cell")
+            ?.dispatchEvent(new MouseEvent("mouseenter", { clientX: 10, clientY: 10 }));
+        await flushRender();
+        const tooltip = probe.querySelector<HTMLElement>(".chart-tooltip");
+        expect(tooltip?.textContent).toBe("A crowd of notes");
+        expect(tooltip?.classList.contains("tooltip")).toBe(true);
+
+        // No native tooltip anywhere: the browser's own bubble is never what the app shows.
+        for (const cell of probe.querySelectorAll(".treemap-cell")) {
+            expect(cell.getAttribute("title")).toBeNull();
+        }
+
+        probe.querySelector(".bucket-cell")?.dispatchEvent(new MouseEvent("mouseleave"));
+        await flushRender();
+        expect(probe.querySelector(".chart-tooltip")).toBeNull();
     });
 
     it("gives bigger values proportionally bigger areas", () => {

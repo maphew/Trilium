@@ -1,20 +1,10 @@
 import { render } from "preact";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { enableMouseEventProperties } from "../../../test/dom_events";
 import DonutChart, { type DonutRing } from "./DonutChart";
 
-// Preact decides the event name by probing for the element's on* IDL property; happy-dom's SVG (and
-// some HTML) prototypes lack the mouse ones, so without this the handlers register under a
-// case-mangled name and dispatched events never connect. Real browsers have these properties.
-beforeAll(() => {
-    for (const prototype of [ SVGElement.prototype, HTMLElement.prototype ]) {
-        for (const name of [ "onmouseenter", "onmouseleave", "onmousemove", "onclick" ]) {
-            if (!(name in prototype)) {
-                Object.defineProperty(prototype, name, { value: null, writable: true });
-            }
-        }
-    }
-});
+beforeAll(enableMouseEventProperties);
 
 let container: HTMLDivElement | undefined;
 
@@ -24,14 +14,9 @@ function renderChart(rings: DonutRing<string>[], center?: preact.ComponentChildr
     return container;
 }
 
-/** happy-dom lays nothing out, so the chart box is stated explicitly for the flip math. */
-function statChartBox(probe: HTMLElement) {
+function chartOf(probe: HTMLElement) {
     const chart = probe.querySelector<HTMLElement>(".donut-chart");
     if (!chart) throw new Error("No chart rendered");
-    chart.getBoundingClientRect = () => ({
-        left: 0, top: 0, width: 200, height: 200, right: 200, bottom: 200, x: 0, y: 0,
-        toJSON: () => ({})
-    } as DOMRect);
     return chart;
 }
 
@@ -99,47 +84,69 @@ describe("DonutChart rendering", () => {
         expect(onSegmentClick.mock.calls[0][0]).toMatchObject({ id: "b", data: "b" });
     });
 
-    it("shows the cursor-following tooltip on hover, moves it, flips it past midline and hides it", async () => {
+    it("shows the cursor-following tooltip on hover, moves it, and hides it on leave", async () => {
         const probe = renderChart([ ring() ]);
-        const chart = statChartBox(probe);
+        const chart = chartOf(probe);
         const [ a ] = [ ...probe.querySelectorAll<SVGCircleElement>("circle") ];
 
         a.dispatchEvent(new MouseEvent("mouseenter", { clientX: 30, clientY: 40 }));
         await flushRender();
-        const tooltip = probe.querySelector<HTMLElement>(".donut-chart-tooltip");
+        const tooltip = probe.querySelector<HTMLElement>(".chart-tooltip");
         expect(tooltip?.textContent).toBe("A tip");
         // The Trilium look depends on riding the real tooltip classes.
         expect(tooltip?.classList.contains("tooltip")).toBe(true);
         expect(tooltip?.classList.contains("show")).toBe(true);
+        // Positioned fixed, straight from the viewport coordinates, so no clipping ancestor cuts it.
         expect(tooltip?.style.left).toBe("30px");
-        expect(tooltip?.classList.contains("donut-chart-tooltip-flipped")).toBe(false);
+        expect(tooltip?.style.top).toBe("40px");
 
-        chart.dispatchEvent(new MouseEvent("mousemove", { clientX: 150, clientY: 60 }));
+        chart.dispatchEvent(new MouseEvent("mousemove", { clientX: 50, clientY: 60 }));
         await flushRender();
-        const moved = probe.querySelector<HTMLElement>(".donut-chart-tooltip");
-        expect(moved?.style.left).toBe("150px");
+        const moved = probe.querySelector<HTMLElement>(".chart-tooltip");
+        expect(moved?.style.left).toBe("50px");
         expect(moved?.style.top).toBe("60px");
-        expect(moved?.classList.contains("donut-chart-tooltip-flipped")).toBe(true);
 
         a.dispatchEvent(new MouseEvent("mouseleave"));
         await flushRender();
-        expect(probe.querySelector(".donut-chart-tooltip")).toBeNull();
+        expect(probe.querySelector(".chart-tooltip")).toBeNull();
+    });
+
+    it("flips the bubble at the viewport's midlines so it never runs off-screen", async () => {
+        const probe = renderChart([ ring() ]);
+        const [ a ] = [ ...probe.querySelectorAll<SVGCircleElement>("circle") ];
+        const flipsOf = (x: number, y: number) => {
+            a.dispatchEvent(new MouseEvent("mouseenter", { clientX: x, clientY: y }));
+            return flushRender().then(() => {
+                const classes = probe.querySelector(".chart-tooltip")?.classList;
+                return {
+                    x: classes?.contains("chart-tooltip-flip-x"),
+                    y: classes?.contains("chart-tooltip-flip-y")
+                };
+            });
+        };
+
+        const nearOrigin = { x: window.innerWidth * 0.25, y: window.innerHeight * 0.25 };
+        const nearCorner = { x: window.innerWidth * 0.75, y: window.innerHeight * 0.75 };
+
+        expect(await flipsOf(nearOrigin.x, nearOrigin.y)).toEqual({ x: false, y: false });
+        expect(await flipsOf(nearCorner.x, nearOrigin.y)).toEqual({ x: true, y: false });
+        expect(await flipsOf(nearOrigin.x, nearCorner.y)).toEqual({ x: false, y: true });
+        expect(await flipsOf(nearCorner.x, nearCorner.y)).toEqual({ x: true, y: true });
     });
 
     it("shows no tooltip for a segment without one, and clears on leaving the chart", async () => {
         const probe = renderChart([ ring() ]);
-        statChartBox(probe);
         const [ a, b ] = [ ...probe.querySelectorAll<SVGCircleElement>("circle") ];
 
         b.dispatchEvent(new MouseEvent("mouseenter", { clientX: 10, clientY: 10 }));
         await flushRender();
-        expect(probe.querySelector(".donut-chart-tooltip")).toBeNull();
+        expect(probe.querySelector(".chart-tooltip")).toBeNull();
 
         a.dispatchEvent(new MouseEvent("mouseenter", { clientX: 10, clientY: 10 }));
         await flushRender();
-        expect(probe.querySelector(".donut-chart-tooltip")).not.toBeNull();
+        expect(probe.querySelector(".chart-tooltip")).not.toBeNull();
         probe.querySelector(".donut-chart")?.dispatchEvent(new MouseEvent("mouseleave"));
         await flushRender();
-        expect(probe.querySelector(".donut-chart-tooltip")).toBeNull();
+        expect(probe.querySelector(".chart-tooltip")).toBeNull();
     });
 });

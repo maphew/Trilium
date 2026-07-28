@@ -24,7 +24,7 @@ interface OverviewModelOptions {
  * the status line counts has a cell somewhere.
  *
  * The cells carry no text — identity comes from hovering: note cells get the note preview tooltip
- * via `data-href`, the bucket cells a plain `title`.
+ * via `data-href`, the bucket cells the chart's own tooltip naming the crowd they stand for.
  */
 export function buildOverviewModel(
     overview: SpaceUsageOverviewResponse,
@@ -92,21 +92,21 @@ export function buildOverviewModel(
             id: "/other-notes",
             value: overview.otherNotes.size + (includeRevisions ? overview.otherNotes.revisionsSize : 0),
             className: "treemap-cell-other",
-            attributes: { title: otherNotesLabel },
+            tooltip: otherNotesLabel,
             data: {}
         },
         {
             id: "/hidden-notes",
             value: overview.hiddenNotes.size + (includeRevisions ? overview.hiddenNotes.revisionsSize : 0),
             className: "treemap-cell-hidden",
-            attributes: { title: hiddenNotesLabel },
+            tooltip: hiddenNotesLabel,
             data: {}
         },
         {
             id: "/deleted-notes",
             value: overview.deletedNotes.size,
             className: "treemap-cell-deleted",
-            attributes: { title: deletedNotesLabel },
+            tooltip: deletedNotesLabel,
             data: {}
         }
     );

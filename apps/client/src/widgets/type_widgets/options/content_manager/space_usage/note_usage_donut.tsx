@@ -3,7 +3,7 @@ import "./note_usage_donut.css";
 import type { SpaceUsageNoteResponse } from "@triliumnext/commons";
 import clsx from "clsx";
 import type { ComponentChildren } from "preact";
-import { useMemo } from "preact/hooks";
+import { useMemo, useRef } from "preact/hooks";
 import type React from "react";
 import { Trans } from "react-i18next";
 
@@ -11,6 +11,7 @@ import appContext from "../../../../../components/app_context";
 import { t } from "../../../../../services/i18n";
 import { formatSize } from "../../../../../services/utils";
 import DonutChart, { type DonutRing } from "../../../../react/charts/DonutChart";
+import { useStaticTooltip } from "../../../../react/hooks";
 import { buildCompositionSegments, type UsageSegmentData, type UsageTooltipKind } from "./donut_segments";
 
 export const COMPOSITION_RING_RADIUS = 133;
@@ -71,25 +72,37 @@ export default function NoteUsageDonut({ usage, title, notePath, outerRings = []
                     });
                 }}
             >{title}</a>
-            <span className="note-usage-donut-size" title={t("space_usage.center_note_size_hint")}>
-                <SizeLine i18nKey="space_usage.center_note_size" size={usage.noteContentSize} />
-            </span>
-            <span className="note-usage-donut-size" title={t("space_usage.center_subtree_size_hint")}>
-                <SizeLine i18nKey="space_usage.center_subtree_size" size={usage.subtreeContentSize} />
-            </span>
+            <SizeLine
+                i18nKey="space_usage.center_note_size"
+                hintKey="space_usage.center_note_size_hint"
+                size={usage.noteContentSize}
+            />
+            <SizeLine
+                i18nKey="space_usage.center_subtree_size"
+                hintKey="space_usage.center_subtree_size_hint"
+                size={usage.subtreeContentSize}
+            />
         </DonutChart>
     );
 }
 
-/** One labelled center line, the value emphasized; `<Trans>` lets translations reorder the parts. */
-function SizeLine({ i18nKey, size }: { i18nKey: string, size: number }) {
+/**
+ * One labelled center line, the value emphasized, with the app's tooltip explaining what the figure
+ * covers. `<Trans>` lets translations put the value wherever their wording needs it.
+ */
+function SizeLine({ i18nKey, hintKey, size }: { i18nKey: string, hintKey: string, size: number }) {
+    const ref = useRef<HTMLSpanElement>(null);
+    useStaticTooltip(ref, useMemo(() => ({ title: t(hintKey), placement: "bottom" }), [ hintKey ]));
+
     return (
-        <Trans
-            i18nKey={i18nKey}
-            components={{
-                Size: <span className="note-usage-donut-size-value">{formatSize(size)}</span> as React.ReactElement
-            }}
-        />
+        <span ref={ref} className="note-usage-donut-size">
+            <Trans
+                i18nKey={i18nKey}
+                components={{
+                    Size: <span className="note-usage-donut-size-value">{formatSize(size)}</span> as React.ReactElement
+                }}
+            />
+        </span>
     );
 }
 

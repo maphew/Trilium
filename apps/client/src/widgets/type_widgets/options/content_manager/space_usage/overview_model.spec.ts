@@ -102,7 +102,7 @@ describe("buildOverviewModel", () => {
         expect(childById(withRevisions, "/hidden-notes").value).toBe(5);
     });
 
-    it("appends inert bucket cells, identified by a plain title rather than a note tooltip", () => {
+    it("appends inert bucket cells, identified by the chart tooltip rather than a note preview", () => {
         const model = build(response([], {
             otherNotes: { size: 11, revisionsSize: 0, noteCount: 3 },
             hiddenNotes: { size: 7, revisionsSize: 5, noteCount: 40 },
@@ -113,18 +113,20 @@ describe("buildOverviewModel", () => {
         expect(other.value).toBe(11);
         expect(other.hue).toBeUndefined();
         expect(other.data).toEqual({});
-        expect(other.attributes).toEqual({ title: "Other notes" });
+        expect(other.tooltip).toBe("Other notes");
+        // No `data-href`: a crowd of notes has no note preview to show.
+        expect(other.attributes).toBeUndefined();
 
         // Hidden space gets a cell too — every byte the status line counts is on the map.
         const hidden = childById(model, "/hidden-notes");
         expect(hidden.value).toBe(7);
         expect(hidden.className).toBe("treemap-cell-hidden");
-        expect(hidden.attributes).toEqual({ title: "Hidden notes" });
+        expect(hidden.tooltip).toBe("Hidden notes");
 
         const deleted = childById(model, "/deleted-notes");
         expect(deleted.value).toBe(22);
         expect(deleted.className).toBe("treemap-cell-deleted");
-        expect(deleted.attributes).toEqual({ title: "Deleted notes" });
+        expect(deleted.tooltip).toBe("Deleted notes");
     });
 
     it("places an entry for the root itself as a top-level cell", () => {

@@ -2,7 +2,8 @@ import "./DonutChart.css";
 
 import clsx from "clsx";
 import type { ComponentChildren } from "preact";
-import { useRef, useState } from "preact/hooks";
+
+import { useChartTooltip } from "./chart_tooltip";
 
 export interface DonutSegment<T = unknown> {
     /** Stable identity for reconciliation; unique within the ring. */
@@ -43,14 +44,6 @@ export const DONUT_VIEW_SIZE = 420;
 
 const SEGMENT_GAP = 3;
 
-interface HoverState {
-    text: string;
-    x: number;
-    y: number;
-    /** Near the right edge the tooltip sits to the cursor's left instead of running off the chart. */
-    flipped: boolean;
-}
-
 /**
  * One or more concentric donut rings, drawn as circle strokes: each segment is a `stroke-dasharray`
  * arc, which is what makes navigation animate — dash geometry is plain CSS, so segments sweep in on
@@ -58,36 +51,18 @@ interface HoverState {
  * height and keeps a square aspect where the width allows; center content overlays the hole as
  * regular HTML.
  *
- * Segment tooltips are the chart's own cursor-following bubble (Trilium-styled via `tooltip-inner`)
- * rather than anything anchored to the element: a dashed circle's bounding box is the whole ring,
- * so an anchored tooltip would hover far from the segment it describes.
+ * Segment tooltips are the shared cursor-following chart bubble rather than anything anchored to
+ * the element: a dashed circle's extent is the whole ring, so an anchored tooltip would hover far
+ * from the segment it describes.
  */
 export default function DonutChart<T>({ rings, className, children }: DonutChartProps<T>) {
     const half = DONUT_VIEW_SIZE / 2;
-    const containerRef = useRef<HTMLDivElement>(null);
-    const [ hover, setHover ] = useState<HoverState | null>(null);
-
-    const positionOf = (event: { clientX: number, clientY: number }) => {
-        const rect = containerRef.current?.getBoundingClientRect();
-
-        /* v8 ignore next 3 -- the events only fire from inside the rendered container */
-        if (!rect) {
-            return { x: 0, y: 0, flipped: false };
-        }
-
-        const x = event.clientX - rect.left;
-        return { x, y: event.clientY - rect.top, flipped: x > rect.width / 2 };
-    };
+    const { containerRef, containerProps, showTooltip, hideTooltip, tooltipNode } = useChartTooltip<HTMLDivElement>();
 
     return (
-        <div
-            ref={containerRef}
-            className={clsx("donut-chart", className)}
-            // Mouse events rather than pointer events: hover has no meaning on touch anyway, and
-            // pointer handlers don't register correctly under the test DOM (see the render spec).
-            onMouseMove={(event) => setHover((current) => current && { ...current, ...positionOf(event) })}
-            onMouseLeave={() => setHover(null)}
-        >
+        // Mouse events rather than pointer events: hover has no meaning on touch anyway, and
+        // pointer handlers don't register correctly under the test DOM (see the render spec).
+        <div ref={containerRef} className={clsx("donut-chart", className)} {...containerProps}>
             <svg viewBox={`${-half} ${-half} ${DONUT_VIEW_SIZE} ${DONUT_VIEW_SIZE}`}>
                 {/* Rotated so every ring starts at 12 o'clock. */}
                 <g transform="rotate(-90)">
@@ -95,25 +70,15 @@ export default function DonutChart<T>({ rings, className, children }: DonutChart
                         <Ring
                             key={ring.id}
                             ring={ring}
-                            onSegmentHover={(segment, event) => setHover(segment?.tooltip && event
-                                ? { text: segment.tooltip, ...positionOf(event) }
-                                : null)}
+                            onSegmentHover={(segment, event) => segment && event
+                                ? showTooltip(segment.tooltip, event)
+                                : hideTooltip()}
                         />
                     ))}
                 </g>
             </svg>
             {children && <div className="donut-chart-center">{children}</div>}
-            {hover && (
-                // The `tooltip show` classes matter: the themes set the tooltip colors on `.tooltip`
-                // and scope the text color to `.tooltip .tooltip-inner` — a bare inner keeps the
-                // theme's background but inherits the page's text color.
-                <div
-                    className={clsx("tooltip", "show", "donut-chart-tooltip", hover.flipped && "donut-chart-tooltip-flipped")}
-                    style={{ left: hover.x, top: hover.y }}
-                >
-                    <div className="tooltip-inner">{hover.text}</div>
-                </div>
-            )}
+            {tooltipNode}
         </div>
     );
 }

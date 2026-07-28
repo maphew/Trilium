@@ -10,15 +10,16 @@ interface SegmentedChoiceProps<T extends string> {
      */
     currentValue: string;
     onChange: (newValue: T) => void;
+    className?: string;
 }
 
 /**
  * A row of buttons acting as one exclusive choice, the current one highlighted — for switching
  * between a few named views or sections where a dropdown would hide the alternatives.
  */
-export default function SegmentedChoice<T extends string>({ options, currentValue, onChange }: SegmentedChoiceProps<T>) {
+export default function SegmentedChoice<T extends string>({ options, currentValue, onChange, className }: SegmentedChoiceProps<T>) {
     return (
-        <ButtonGroup size="sm">
+        <ButtonGroup size="sm" className={className}>
             {options.map(({ value, label }) => (
                 <Button
                     key={value}

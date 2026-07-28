@@ -235,6 +235,7 @@ export default function ActiveContent({ note, sectionSwitcher }: ContentManagerS
                     </div>
                     <span className="active-content-toolbar-label">{t("content_manager.view_mode")}</span>
                     <SegmentedChoice
+                        className="content-manager-view-choice"
                         options={VIEW_MODES}
                         currentValue={viewMode}
                         onChange={(newValue) => void setViewMode(newValue)}

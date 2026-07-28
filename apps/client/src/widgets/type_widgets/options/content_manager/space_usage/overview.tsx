@@ -8,10 +8,12 @@ import { buildOverviewModel, type OverviewCell } from "./overview_model";
 
 /** The treemap over the whole database: every large note at its tree location. */
 export default function Overview({ overview }: { overview: SpaceUsageOverviewResponse }) {
+    // The labels are formatted here rather than in the model, which stays free of i18n: a bucket
+    // stands for a crowd, so its tooltip names how many notes it holds.
     const model = useMemo(() => buildOverviewModel(overview, {
-        otherNotesLabel: t("space_usage.other_notes"),
-        hiddenNotesLabel: t("space_usage.hidden_notes"),
-        deletedNotesLabel: t("space_usage.deleted_notes"),
+        otherNotesLabel: t("space_usage.other_notes", { count: overview.otherNotes.noteCount }),
+        hiddenNotesLabel: t("space_usage.hidden_notes", { count: overview.hiddenNotes.noteCount }),
+        deletedNotesLabel: t("space_usage.deleted_notes", { count: overview.deletedNotes.noteCount }),
         includeRevisions: false
     }), [ overview ]);
 
