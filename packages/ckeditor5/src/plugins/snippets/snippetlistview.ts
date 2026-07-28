@@ -19,7 +19,7 @@ export default class SnippetListView extends ListView implements FilteredView {
         this.extendTemplate({
             attributes: {
                 role: "listbox",
-                class: ["ck-snippet-list"]
+                class: ["ck-template-list"]
             }
         });
 

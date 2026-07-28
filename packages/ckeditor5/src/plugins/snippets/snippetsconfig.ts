@@ -1,10 +1,8 @@
 /**
  * The shape of a single text-snippet ("template") entry shown in the `insertTemplate` dropdown.
  *
- * Intentionally structurally compatible with the premium `TemplateDefinition` this plugin replaces,
- * so the client-side builder in `snippets.ts` does not have to change: `data` may be a plain HTML
- * string or a getter, which lets the content stay live (the getter reads a mutable cache) without
- * recreating the editor.
+ * `data` may be a plain HTML string or a getter, which lets the content stay live (the getter reads
+ * a mutable cache) without recreating the editor.
  */
 export interface SnippetDefinition {
     /** The title of the snippet, shown as the primary label and used for search matching. */
@@ -16,8 +14,15 @@ export interface SnippetDefinition {
      */
     data: (() => string) | string;
 
-    /** Optional SVG string used as the entry icon. A generic icon is used when omitted. */
-    icon?: string;
+    /**
+     * The note's icon as a Boxicon/`tn-icon` class list (e.g. `"tn-icon bx bx-note"`). Rendered
+     * directly as a font-icon `<span>` — since Trilium owns this plugin, there is no need to wrap the
+     * icon in an SVG `<foreignObject>` to satisfy CKEditor's generic `IconView`.
+     */
+    iconClass?: string;
+
+    /** Optional colour class applied alongside {@link iconClass} (from the note's `#color` label). */
+    iconColorClass?: string;
 
     /** Optional longer description shown under the title and also matched during search. */
     description?: string;

@@ -7,13 +7,15 @@ import type { SnippetDefinition } from "./snippetsconfig.js";
  * (optionally) its description. Both the title and description can be highlighted to reflect the
  * current search query.
  *
- * Mirrors the row rendered by the premium `Template` plugin this replaces, so the visual layout and
- * search behaviour stay familiar.
+ * The note icon is rendered as a plain font-icon `<span>` (see {@link NoteIconView}) rather than fed
+ * through CKEditor's SVG-only `IconView` — Trilium owns this plugin, so the old SVG `<foreignObject>`
+ * wrapper around a Boxicon is no longer needed.
  */
 export default class SnippetListItemButtonView extends ButtonView {
 
     public readonly definition: SnippetDefinition;
 
+    private noteIconView: NoteIconView | null = null;
     private textPartView: SnippetTextPartView | null = null;
 
     constructor(locale: Locale, definition: SnippetDefinition) {
@@ -23,23 +25,20 @@ export default class SnippetListItemButtonView extends ButtonView {
 
         this.set({
             withText: true,
-            class: "ck-snippet-button",
-            role: "option",
-            icon: definition.icon
+            class: "ck-template-button",
+            role: "option"
         });
-
-        // Snippet icons carry the note's own colours (see `buildIcon` in the client), so don't let
-        // the button's theme recolour them.
-        this.iconView.isColorInherited = false;
     }
 
     public override render(): void {
         super.render();
 
+        this.noteIconView = new NoteIconView(this.locale, this.definition);
         this.textPartView = new SnippetTextPartView(this.locale, this.definition, this.labelView.element?.id);
 
-        // Swap the plain label for the richer title + description block.
+        // Replace the plain label with a note-icon + (title + description) block.
         this.children.remove(this.labelView);
+        this.children.add(this.noteIconView);
         this.children.add(this.textPartView);
     }
 
@@ -64,6 +63,24 @@ export default class SnippetListItemButtonView extends ButtonView {
     public override destroy(): void {
         super.destroy();
         this.labelView.destroy();
+    }
+}
+
+/**
+ * A note's font icon (`tn-icon bx bx-…`), rendered as a `<span>`. The colour class from the note's
+ * `#color` label, when present, is applied alongside so the icon keeps its note colour.
+ */
+class NoteIconView extends View {
+
+    constructor(locale: Locale | undefined, definition: SnippetDefinition) {
+        super(locale);
+
+        this.setTemplate({
+            tag: "span",
+            attributes: {
+                class: ["ck-template-icon", definition.iconClass, definition.iconColorClass].filter(Boolean)
+            }
+        });
     }
 }
 
@@ -96,7 +113,7 @@ class SnippetTextPartView extends View {
             this.descriptionView.extendTemplate({
                 tag: "p",
                 attributes: {
-                    class: ["ck-snippet__description"]
+                    class: ["ck-template-form__description"]
                 }
             });
             children.push(this.descriptionView);
@@ -107,7 +124,7 @@ class SnippetTextPartView extends View {
         this.setTemplate({
             tag: "div",
             attributes: {
-                class: ["ck", "ck-snippet__text-part"]
+                class: ["ck", "ck-template-form__text-part"]
             },
             children
         });

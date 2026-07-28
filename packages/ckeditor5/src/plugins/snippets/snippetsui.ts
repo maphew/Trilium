@@ -45,7 +45,7 @@ export default class SnippetsUI extends Plugin {
                 queryView: {
                     label: t("Search template")
                 },
-                class: "ck-snippet-form",
+                class: "ck-template-form",
                 infoView: {
                     text: {
                         notFound: {
@@ -129,10 +129,11 @@ export default class SnippetsUI extends Plugin {
         for (const definition of definitions) {
             const item = new MenuBarMenuListItemView(locale, menuView);
             const button = new MenuBarMenuListItemButtonView(locale);
+            // No per-item note icon here: `MenuBarMenuListItemButtonView` only accepts an SVG icon,
+            // and Trilium does not enable CKEditor's menu bar, so this surface is never shown anyway.
             button.set({
-                class: "ck-snippet-button",
-                label: definition.title,
-                icon: definition.icon
+                class: "ck-template-button",
+                label: definition.title
             });
             button.delegate("execute").to(menuView);
             button.on("execute", () => insert(definition.data));

@@ -1,21 +1,11 @@
 :root {
-    --ck-snippet-dropdown-width: 345px;
-    --ck-snippet-dropdown-height: 300px;
-    --ck-snippet-icon-size: 45px;
+    --ck-template-dropdown-width: 345px;
+    --ck-template-dropdown-height: 300px;
+    --ck-template-icon-size: 45px;
 }
 
-/* Keep the note's own icon colours instead of the button's theme colour. */
-.ck-button.ck-snippet-button .ck.ck-icon,
-.ck-button.ck-snippet-button .ck.ck-icon * {
-    color: unset;
-}
-
-.ck-button.ck-snippet-button .ck.ck-icon *:not([fill]) {
-    fill: unset;
-}
-
-.ck.ck-snippet-form {
-    width: var(--ck-snippet-dropdown-width);
+.ck.ck-template-form {
+    width: var(--ck-template-dropdown-width);
 
     & > .ck-labeled-field-view {
         padding: var(--ck-spacing-large);
@@ -25,8 +15,8 @@
         border-top: 1px solid var(--ck-color-base-border);
     }
 
-    & > .ck-search__results > .ck.ck-list.ck-snippet-list {
-        max-height: var(--ck-snippet-dropdown-height);
+    & > .ck-search__results > .ck.ck-list.ck-template-list {
+        max-height: var(--ck-template-dropdown-height);
         padding: var(--ck-spacing-large);
         overflow: hidden auto;
         overscroll-behavior: contain;
@@ -38,9 +28,9 @@
 
         & > .ck.ck-list__item > .ck.ck-button {
             display: grid;
-            grid-template-columns: var(--ck-snippet-icon-size) 1fr;
-            grid-template-rows: var(--ck-snippet-icon-size);
-            grid-template-areas: "ck-snippet-icon ck-snippet-content";
+            grid-template-columns: var(--ck-template-icon-size) 1fr;
+            grid-template-rows: var(--ck-template-icon-size);
+            grid-template-areas: "ck-template-icon ck-template-content";
             gap: var(--ck-spacing-large);
             align-items: center;
             width: 100%;
@@ -53,15 +43,21 @@
                 border-color: var(--ck-color-dropdown-panel-background);
             }
 
-            & > .ck.ck-icon {
-                grid-area: ck-snippet-icon;
-                width: var(--ck-snippet-icon-size);
-                height: auto;
+            /* The note's font icon, rendered as a plain <span> (no SVG wrapper). */
+            & > .ck-template-icon {
+                grid-area: ck-template-icon;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                width: var(--ck-template-icon-size);
+                height: var(--ck-template-icon-size);
                 margin: 0;
+                font-size: calc(var(--ck-template-icon-size) * 0.55);
+                line-height: 1;
             }
 
-            & > .ck-snippet__text-part {
-                grid-area: ck-snippet-content;
+            & > .ck-template-form__text-part {
+                grid-area: ck-template-content;
                 display: flex;
                 flex-direction: column;
                 justify-content: space-evenly;
@@ -80,7 +76,7 @@
                     text-overflow: ellipsis;
                 }
 
-                & .ck-snippet__description {
+                & .ck-template-form__description {
                     display: -webkit-box;
                     overflow: hidden;
                     margin-top: var(--ck-spacing-tiny);
@@ -105,7 +101,7 @@
 }
 
 @media screen and (width <= 600px) {
-    .ck.ck-snippet-form {
-        --ck-snippet-dropdown-width: 260px;
+    .ck.ck-template-form {
+        --ck-template-dropdown-width: 260px;
     }
 }
