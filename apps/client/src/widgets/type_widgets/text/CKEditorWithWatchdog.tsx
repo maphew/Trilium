@@ -39,6 +39,12 @@ interface CKEditorWithWatchdogProps extends Pick<HTMLProps<HTMLDivElement>, "cla
 export default function CKEditorWithWatchdog({ containerRef: externalContainerRef, contentLanguage, className, tabIndex, isClassicEditor, watchdogRef: externalWatchdogRef, watchdogConfig, onNotificationWarning, onWatchdogStateChange, onChange, onEditorInitialized, editorApi, templates }: CKEditorWithWatchdogProps) {
     const containerRef = useSyncedRef<HTMLDivElement>(externalContainerRef, null);
     const watchdogRef = useRef<EditorWatchdog>(null);
+    // Serializes editor build/teardown so overlapping effect runs never operate on the same
+    // container concurrently. Under Vite + Prefresh HMR, effects are force-re-run (ignoring the
+    // dependency array) and can fire several times in quick succession; without this queue two
+    // `buildEditor` calls could race on the same <div> and trip CKEditor's
+    // `editor-source-element-already-used` guard.
+    const buildQueueRef = useRef<Promise<void>>(Promise.resolve());
     // Keep the latest snippet definitions reachable from the (rarely re-running) build effect without
     // listing `templates` as one of its dependencies. Snippet changes are pushed into the live editor
     // instead of forcing a rebuild — see the "push snippet definitions" effect below.
@@ -246,7 +252,15 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
             });
         };
 
-        init();
+        // Chain this run behind any in-flight build/teardown so two editors are never created on
+        // the same container concurrently. Skipping when already stale avoids rebuilding for an
+        // effect run that a newer one has already superseded. The queue promise is kept
+        // always-resolving so one failed build can't wedge every subsequent run.
+        buildQueueRef.current = buildQueueRef.current
+            .then(() => (isStale ? undefined : init()))
+            .catch((e) => {
+                console.warn("CKEditor build failed", e);
+            });
 
         return () => {
             isStale = true;
