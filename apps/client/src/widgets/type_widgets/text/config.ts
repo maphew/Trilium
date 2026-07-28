@@ -1,4 +1,4 @@
-import { buildExtraCommands, type EditorConfig, getCkLocale, loadPremiumPlugins, SnippetDefinition } from "@triliumnext/ckeditor5";
+import { buildExtraCommands, type EditorConfig, getCkLocale, SnippetDefinition } from "@triliumnext/ckeditor5";
 import emojiDefinitionsUrl from "@triliumnext/ckeditor5/src/emoji_definitions/en.json?url";
 import { ALLOWED_PROTOCOLS, DISPLAYABLE_LOCALE_IDS, KATEX_MACROS, MIME_TYPE_AUTO, normalizeMimeTypeForCKEditor } from "@triliumnext/commons";
 
@@ -14,10 +14,13 @@ import { getTaskStateDefinitions, openCustomTaskStateConfig } from "../../../ser
 import SAMPLE_DIAGRAMS from "../mermaid/sample_diagrams.js";
 import { buildToolbarConfig } from "./toolbar.js";
 
+/**
+ * The only license key Trilium ever passes to CKEditor. Every premium plugin the editor used has
+ * been replaced by a GPL in-tree one, so there is no commercial license to configure any more.
+ */
 export const OPEN_SOURCE_LICENSE_KEY = "GPL";
 
 export interface BuildEditorOptions {
-    forceGplLicense: boolean;
     isClassicEditor: boolean;
     uiLanguage: DISPLAYABLE_LOCALE_IDS;
     contentLanguage: string | null;
@@ -25,11 +28,8 @@ export interface BuildEditorOptions {
 }
 
 export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfig> {
-    const licenseKey = (opts.forceGplLicense ? OPEN_SOURCE_LICENSE_KEY : getLicenseKey());
-    const hasPremiumLicense = (licenseKey !== OPEN_SOURCE_LICENSE_KEY);
-
     const config: EditorConfig = {
-        licenseKey,
+        licenseKey: OPEN_SOURCE_LICENSE_KEY,
         placeholder: t("editable_text.placeholder"),
         codeBlock: {
             languages: buildListOfLanguages()
@@ -259,11 +259,6 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
         };
     }
 
-    // Enable premium plugins dynamically to avoid eager loading.
-    if (hasPremiumLicense) {
-        config.extraPlugins = await loadPremiumPlugins();
-    }
-
     return {
         ...config,
         ...buildToolbarConfig(opts.isClassicEditor)
@@ -290,16 +285,6 @@ function buildListOfLanguages() {
         },
         ...userLanguages
     ];
-}
-
-function getLicenseKey() {
-    const premiumLicenseKey = import.meta.env.VITE_CKEDITOR_KEY;
-    if (!premiumLicenseKey) {
-        logError("CKEditor license key is not set, premium features will not be available.");
-        return OPEN_SOURCE_LICENSE_KEY;
-    }
-
-    return premiumLicenseKey;
 }
 
 function getDisabledPlugins() {

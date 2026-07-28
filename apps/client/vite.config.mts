@@ -79,7 +79,6 @@ export default defineConfig(() => ({
     },
     optimizeDeps: {
         include: [
-            "ckeditor5-premium-features",
             "ckeditor5",
             "mathlive",
             // Pre-bundle so the first spreadsheet XLSX export (which dynamically imports
