@@ -157,7 +157,14 @@ export async function main() {
     // emit `ready`, while still letting us open the database and read options from it first.
     const isPrimaryInstance = app.requestSingleInstanceLock();
     if (!isPrimaryInstance) {
-        console.info(t("desktop.instance_already_running"));
+        // Deliberately not localized: this guard runs before the database is
+        // opened and initializeCore() wires up i18next, so t() would always
+        // return undefined here (which is why a second launch used to print a
+        // bare "undefined"). Opening the DB just to translate a diagnostic line
+        // that a second, immediately-exiting instance emits would defeat the
+        // point of bailing out early. The already-running window is focused via
+        // the `second-instance` handler registered above.
+        console.info("There's already an instance running, focusing that instance instead.");
         process.exit(0);
     }
 

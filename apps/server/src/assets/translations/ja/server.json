@@ -397,9 +397,6 @@
     "db_not_initialized_desktop": "DB が初期化されていません。画面の指示に従ってください。",
     "db_not_initialized_server": "DB が初期化されていません。セットアップ ページ 「http://[your-server-host]:{{port}}」 にアクセスして、Trilium を初期化する方法の説明を確認してください。"
   },
-  "desktop": {
-    "instance_already_running": "すでにインスタンスが実行されているので、代わりにそのインスタンスにフォーカスします。"
-  },
   "search": {
     "error": {
       "in-context": "{{- context}} でエラーが発生しました: {{- message}}",

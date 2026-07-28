@@ -458,9 +458,6 @@
     "db_not_initialized_desktop": "DB not initialized, please follow on-screen instructions.",
     "db_not_initialized_server": "DB not initialized, please visit setup page - http://[your-server-host]:{{port}} to see instructions on how to initialize Trilium."
   },
-  "desktop": {
-    "instance_already_running": "There's already an instance running, focusing that instance instead."
-  },
   "script": {
     "wrong-environment": "Cannot execute note \"{{- noteTitle}}\" ({{- noteId}}). This is a {{- actualEnv}} script, but execution was attempted in the {{- expectedEnv}}."
   },

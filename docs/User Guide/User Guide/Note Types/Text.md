@@ -70,7 +70,7 @@ Here's a list of various features supported by text notes:
         </tr>
         <tr>
             <td><a class="reference-link" href="Text/Premium%20features.md">Premium features</a></td>
-            <td><ul><li><a class="reference-link" href="Text/Premium%20features/Slash%20Commands.md">Slash Commands</a></li><li><a class="reference-link" href="../Advanced%20Usage/Templates.md">Templates</a></li><li><a class="reference-link" href="Text/Premium%20features/Format%20Painter.md">Format Painter</a></li></ul></td>
+            <td><ul><li><a class="reference-link" href="Text/Slash%20Commands.md">Slash Commands</a></li><li><a class="reference-link" href="../Advanced%20Usage/Templates.md">Templates</a></li><li><a class="reference-link" href="Text/Format%20Painter.md">Format Painter</a></li></ul></td>
         </tr>
     </tbody>
 </table>

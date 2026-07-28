@@ -1,10 +1,7 @@
 # Slash Commands
 <figure class="image image-style-align-right"><img style="aspect-ratio:419/571;" src="Slash Commands_image.png" width="419" height="571"></figure>
 
-> [!NOTE]
-> This is a premium feature of the editor we are using (CKEditor) and we benefit from it thanks to an written agreement with the team. See  <a class="reference-link" href="../Premium%20features.md">Premium features</a> for more information.
-
-Slash commands is a feature of <a class="reference-link" href="../../Text.md">Text</a> notes which allows easily accessing commonly used commands simply by using the keyboard, without having to remember dedicated <a class="reference-link" href="../../../Basic%20Concepts%20and%20Features/Keyboard%20Shortcuts.md">Keyboard Shortcuts</a>.
+Slash commands is a feature of <a class="reference-link" href="../Text.md">Text</a> notes which allows easily accessing commonly used commands simply by using the keyboard, without having to remember dedicated <a class="reference-link" href="../../Basic%20Concepts%20and%20Features/Keyboard%20Shortcuts.md">Keyboard Shortcuts</a>.
 
 ## Interaction
 
@@ -18,5 +15,5 @@ Slash commands is a feature of <a class="reference-link" href="../../Text.md">T
 
 Apart from the common set of commands, some features are specially integrated with the slash commands:
 
-*   For [admonitions](../Block%20quotes%20%26%20admonitions.md), each admonition type (e.g. note, tip) will be individually displayed.
+*   For [admonitions](Block%20quotes%20%26%20admonitions.md), each admonition type (e.g. note, tip) will be individually displayed.
 *   Every <a class="reference-link" href="Text%20Snippets.md">Text Snippets</a> will also appear individually, making it easy to insert them.

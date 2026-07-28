@@ -453,6 +453,38 @@ describe("main() bootstrap", () => {
         await expect(main()).rejects.toThrow("__exit__");
         expect(exitSpy).toHaveBeenCalledWith(0);
     });
+
+    // The single-instance guard runs *before* initializeCore() wires up
+    // translations, so it must log a plain, translation-independent string. It
+    // once passed the message through i18next's t(), which returns undefined
+    // when uninitialized — so a second launch printed a bare "undefined".
+    //
+    // This models that uninitialized behaviour (t() -> undefined) to guard
+    // against anyone reintroducing a `t()` call on this path — the file-level
+    // `vi.mock("i18next")` echoes the key back and the test-suite's shared,
+    // already-initialized i18next singleton would both otherwise mask it.
+    it("logs a non-empty message (never undefined) even though translations aren't initialized yet", async () => {
+        vi.doMock("i18next", () => ({ t: () => undefined }));
+        h.isPrimaryInstance = false;
+        const infoSpy = vi.spyOn(console, "info").mockImplementation(() => {});
+        try {
+            const { main } = await importMain();
+            await expect(main()).rejects.toThrow("__exit__");
+
+            // Regression guard: the second instance exits before initializeCore()
+            // runs, so translations are unavailable — the message must not fall
+            // through to a bare `undefined`.
+            const { initializeTranslations } = await import("@triliumnext/server/src/services/i18n.js");
+            expect(initializeTranslations).not.toHaveBeenCalled();
+            expect(infoSpy).toHaveBeenCalledTimes(1);
+            const logged = infoSpy.mock.calls[0]?.[0];
+            expect(typeof logged).toBe("string");
+            expect(logged).not.toBe("");
+        } finally {
+            infoSpy.mockRestore();
+            vi.doUnmock("i18next");
+        }
+    });
 });
 
 describe("stream EPIPE error handler", () => {

@@ -1,7 +1,7 @@
 import "./EditableText.css";
 import "./LinkEmbed.css";
 
-import { CKTextEditor, EditorWatchdog, TemplateDefinition } from "@triliumnext/ckeditor5";
+import { CKTextEditor, EditorWatchdog, SnippetDefinition } from "@triliumnext/ckeditor5";
 import { deferred } from "@triliumnext/commons";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
@@ -490,7 +490,7 @@ function placeCursorInNewTopParagraph(editor: CKTextEditor) {
 }
 
 function useTemplates() {
-    const [ templates, setTemplates ] = useState<TemplateDefinition[]>();
+    const [ templates, setTemplates ] = useState<SnippetDefinition[]>();
 
     useEffect(() => {
         getTemplates().then(setTemplates);
