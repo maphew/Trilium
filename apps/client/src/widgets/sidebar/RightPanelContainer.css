@@ -156,6 +156,13 @@ body.experimental-feature-new-layout #right-pane {
         &.collapsed .card-header > .icon-action {
             transform: rotate(-90deg);
         }
+
+        /* The only widget of a tab has no chevron (see RightPanelWidget.tsx): its header is not
+           something to press, and its title takes over where the chevron would have started. */
+        &.not-collapsible .card-header {
+            cursor: default;
+            padding-inline-start: 8px;
+        }
     }
 
     /* One per opened tab, all but the shown one display:none (see RightPanelContainer.tsx). Takes the

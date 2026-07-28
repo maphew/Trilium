@@ -26,7 +26,7 @@ import PdfAnnotations from "./pdf/PdfAnnotations";
 import PdfAttachments from "./pdf/PdfAttachments";
 import PdfLayers from "./pdf/PdfLayers";
 import PdfPages from "./pdf/PdfPages";
-import RightPanelWidget from "./RightPanelWidget";
+import RightPanelWidget, { CollapsibleWidgets } from "./RightPanelWidget";
 import RightPanePeekButton from "./RightPanePeekButton";
 import RightPaneTabs, { RIGHT_PANE_TABS, RightPaneTabDefinition, RightPaneTabId } from "./RightPaneTabs";
 import TableOfContents from "./TableOfContents";
@@ -132,7 +132,11 @@ export default function RightPanelContainer({ widgetsByParent }: { widgetsByPare
                                         role="tabpanel"
                                         class={clsx("right-pane-tab-body", tab.id !== activeTab?.id && "hidden-ext")}
                                     >
-                                        {tab.items}
+                                        {/* Collapsing the only widget of a tab would leave the tab empty,
+                                            so a tab of one offers no collapsing at all. */}
+                                        <CollapsibleWidgets.Provider value={tab.items.length > 1}>
+                                            {tab.items}
+                                        </CollapsibleWidgets.Provider>
                                     </div>
                                 ))}
                             </>

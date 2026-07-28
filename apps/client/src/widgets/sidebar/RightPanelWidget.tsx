@@ -1,11 +1,17 @@
 import clsx from "clsx";
-import { ComponentChildren, RefObject } from "preact";
+import { ComponentChildren, createContext, RefObject } from "preact";
 import { useContext, useState } from "preact/hooks";
 
 import contextMenu, { MenuItem } from "../../menus/context_menu";
 import ActionButton from "../react/ActionButton";
 import { useSyncedRef, useTriliumOptionJson } from "../react/hooks";
 import { ParentComponent } from "../react/react_utils";
+
+/**
+ * Whether the widgets below can be collapsed, set by whoever lays them out: collapsing the only widget
+ * of a right pane tab would leave the tab empty, so the tab says so and the widget drops its chevron.
+ */
+export const CollapsibleWidgets = createContext(true);
 
 interface RightPanelWidgetProps {
     id: string;
@@ -26,9 +32,13 @@ interface RightPanelWidgetProps {
 
 export default function RightPanelWidget({ id, title, buttons, children, containerRef: externalContainerRef, contextMenuItems, grow, keepMounted }: RightPanelWidgetProps) {
     const [ rightPaneCollapsedItems, setRightPaneCollapsedItems ] = useTriliumOptionJson<string[]>("rightPaneCollapsedItems");
-    const [ expanded, setExpanded ] = useState(!rightPaneCollapsedItems.includes(id));
+    const [ collapsedByUser, setCollapsedByUser ] = useState(rightPaneCollapsedItems.includes(id));
     const containerRef = useSyncedRef<HTMLDivElement>(externalContainerRef, null);
     const parentComponent = useContext(ParentComponent);
+    const collapsible = useContext(CollapsibleWidgets);
+    // Whatever an earlier layout collapsed stays remembered but is disregarded here: the widget is all
+    // its tab has, so a collapsed one would leave nothing behind, chevron included, to expand it again.
+    const expanded = collapsible ? !collapsedByUser : true;
 
     if (parentComponent) {
         parentComponent.initialized = Promise.resolve();
@@ -40,24 +50,24 @@ export default function RightPanelWidget({ id, title, buttons, children, contain
             id={id}
             class={clsx("card widget", {
                 collapsed: !expanded,
+                "not-collapsible": !collapsible,
                 grow
             })}
         >
             <div
                 class="card-header"
-                onClick={() => {
-                    const newExpanded = !expanded;
-                    setExpanded(newExpanded);
+                onClick={collapsible ? () => {
+                    setCollapsedByUser(expanded);
                     const rightPaneCollapsedItemsSet = new Set(rightPaneCollapsedItems);
-                    if (newExpanded) {
-                        rightPaneCollapsedItemsSet.delete(id);
-                    } else {
+                    if (expanded) {
                         rightPaneCollapsedItemsSet.add(id);
+                    } else {
+                        rightPaneCollapsedItemsSet.delete(id);
                     }
                     setRightPaneCollapsedItems(Array.from(rightPaneCollapsedItemsSet));
-                }}
+                } : undefined}
             >
-                <ActionButton icon="bx bx-chevron-down" text="" />
+                {collapsible && <ActionButton icon="bx bx-chevron-down" text="" />}
                 <div class="card-header-title">{title}</div>
                 <div class="card-header-buttons" onClick={e => e.stopPropagation()}>
                     {buttons}
