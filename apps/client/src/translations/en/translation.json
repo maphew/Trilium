@@ -646,7 +646,8 @@
     "print_page_size": "When exporting to PDF, changes the size of the page. Supported values: <code>A0</code>, <code>A1</code>, <code>A2</code>, <code>A3</code>, <code>A4</code>, <code>A5</code>, <code>A6</code>, <code>Legal</code>, <code>Letter</code>, <code>Tabloid</code>, <code>Ledger</code>.",
     "print_scale": "When exporting to PDF, changes the scale of the rendered content. Values range from 0.1 (10%) to 2 (200%), default is 1 (100%).",
     "print_margins": "When exporting to PDF, sets page margins. Use <code>default</code>, <code>none</code>, <code>minimum</code>, or custom values as <code>top,right,bottom,left</code> in millimeters.",
-    "color_type": "Color"
+    "color_type": "Color",
+    "relation_type": "Relation"
   },
   "attribute_editor": {
     "help_text_body1": "To add label, just type e.g. <code>#rock</code> or if you want to add also value then e.g. <code>#year = 2020</code>",

@@ -21,8 +21,8 @@ import NoteContextAwareWidget from "../note_context_aware_widget.js";
 import { Badge, BadgeWithDropdown } from "../react/Badge.jsx";
 import Button from "../react/Button.jsx";
 import FormAutocomplete, { AUTOCOMPLETE_DROPDOWN_SELECTOR } from "../react/FormAutocomplete.jsx";
-import { FormDropdownDivider, FormListItem } from "../react/FormList.jsx";
 import FormDropdownList from "../react/FormDropdownList.jsx";
+import { FormDropdownDivider, FormListItem } from "../react/FormList.jsx";
 import FormTextBox, { FormTextBoxWithUnit } from "../react/FormTextBox.jsx";
 import HelpTooltipButton from "../react/HelpTooltipButton.jsx";
 import NoteAutocomplete from "../react/NoteAutocomplete.jsx";
@@ -282,12 +282,16 @@ interface AttributeFormCallbacks {
  * The editable part of the popup. Remounted per show (keyed on `showId`) so the field state is
  * simply seeded from the attribute instead of being synchronized to it on every change.
  */
-function AttributeForm({ opts, attrType, currentNoteId, onCancel, onAttributesChanged, onSaveAndClose, onDelete }: AttributeFormCallbacks & {
+function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, onCancel, onAttributesChanged, onSaveAndClose, onDelete }: AttributeFormCallbacks & {
     opts: AttributeDetailOpts;
     attrType: AttrType;
     currentNoteId?: string | null;
 }) {
     const { attribute, allAttributes, isOwned, focus } = opts;
+    // Held rather than read from the attribute, which the popup can change the kind of: a definition
+    // switched between holding a value and pointing at a note is renamed in place, and the spawning
+    // widget the kind would otherwise be resolved by does not re-render the popup.
+    const [ attrType, setAttrType ] = useState(initialAttrType);
     // Definitions describe the attribute they define, so they complete against its own type.
     const nameType = attrType === "relation" || attrType === "relation-definition" ? "relation" : "label";
     const suggestAttributeNames = useCallback((query: string) => fetchAttributeNames(nameType, query), [ nameType ]);
@@ -350,13 +354,30 @@ function AttributeForm({ opts, attrType, currentNoteId, onCancel, onAttributesCh
     }
 
     /** Definitions keep their settings serialized in the value, so any change rebuilds the whole thing. */
-    function commitDefinition(changes: Partial<DefinitionObject>) {
+    function commitDefinition(changes: Partial<DefinitionObject>, kind = attrType) {
         const newDefinition = { ...definition, ...changes };
 
         setDefinition(newDefinition);
         attribute.value = promotedAttributeDefinitionParser.serialize(
-            newDefinition, attrType === "label-definition" ? "label" : "relation");
+            newDefinition, kind === "label-definition" ? "label" : "relation");
         onAttributesChanged?.(allAttributes ?? []);
+    }
+
+    /**
+     * What a definition sets up is a field, and pointing at a note is one more kind of field to the eye
+     * that reads the form — so the two kinds of definition are offered as two values of one type rather
+     * than as two things. What tells them apart underneath is the name they are stored under, `label:foo`
+     * against `relation:foo`, and the settings the value carries: a label type against an inverse.
+     */
+    function commitDefinitionType(type: string) {
+        const isRelation = type === RELATION_DEFINITION_TYPE;
+        const newAttrType = isRelation ? "relation-definition" : "label-definition";
+
+        setAttrType(newAttrType);
+        attribute.name = addDefinitionPrefix(name, newAttrType);
+        // The label type is kept in the definition while the popup is open, so switching to a relation
+        // and back leaves the field as it was rather than back at the default.
+        commitDefinition(isRelation ? {} : { labelType: type as LabelType }, newAttrType);
     }
 
     // A relation stores the target note's id as its value; clearing the field clears the target.
@@ -447,17 +468,20 @@ function AttributeForm({ opts, attrType, currentNoteId, onCancel, onAttributesCh
 
                 {/* No description: the values name themselves, and what they do to the field is plain
                     enough once one is picked. */}
-                {attrType === "label-definition" && (
+                {isDefinition(attrType) && (
                     <OptionsRow name="attr-label-type" label={t("attribute_detail.label_type")}>
                         <FormDropdownList
                             className="attr-input-label-type"
-                            values={LABEL_TYPES}
+                            values={DEFINITION_TYPES}
                             keyProperty="value"
                             titleProperty="title"
                             iconProperty="icon"
-                            currentValue={definition.labelType ?? "text"}
+                            dividerBeforeProperty="startsGroup"
+                            currentValue={attrType === "relation-definition"
+                                ? RELATION_DEFINITION_TYPE
+                                : definition.labelType ?? "text"}
                             disabled={!isOwned}
-                            onChange={(labelType) => commitDefinition({ labelType: labelType as LabelType })}
+                            onChange={commitDefinitionType}
                         />
                     </OptionsRow>
                 )}
@@ -620,6 +644,12 @@ function lookupAttributeHelp(attrType: AttrType, name: string): AttrHelpEntry | 
 /** Constant so it does not re-initialise the autocomplete on every render. */
 const TARGET_NOTE_OPTS = { allowCreatingNotes: true };
 
+/**
+ * The value standing for a definition that points at a note rather than holding a value of its own.
+ * Not a label type: it is what the definition is named after, `relation:foo` rather than `label:foo`.
+ */
+export const RELATION_DEFINITION_TYPE = "relation";
+
 /** Exported so that hosts listing definitions can name their label type as the popup does. */
 export const LABEL_TYPES = [
     { value: "text", title: t("attribute_detail.text"), icon: "bx bx-text" },
@@ -631,6 +661,21 @@ export const LABEL_TYPES = [
     { value: "time", title: t("attribute_detail.time"), icon: "bx bx-time" },
     { value: "url", title: t("attribute_detail.url"), icon: "bx bx-link" },
     { value: "color", title: t("attribute_detail.color_type"), icon: "bx bx-palette" }
+];
+
+/**
+ * What a definition can set its field up to hold, the note it can point at instead included. The last
+ * of them is set apart: the others only decide which field the value is typed into, while this one
+ * decides what the attribute is, renaming it and leaving whatever was filled in under the old name.
+ */
+const DEFINITION_TYPES: { value: string; title: string; icon: string; startsGroup?: boolean }[] = [
+    ...LABEL_TYPES,
+    {
+        value: RELATION_DEFINITION_TYPE,
+        title: t("attribute_detail.relation_type"),
+        icon: "bx bx-transfer",
+        startsGroup: true
+    }
 ];
 
 function fetchAttributeNames(type: "label" | "relation", query: string) {
