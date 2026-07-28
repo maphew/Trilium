@@ -7,7 +7,7 @@ import { useContext, useEffect, useRef, useState } from "preact/hooks";
 
 import FAttribute from "../../entities/fattribute";
 import FNote from "../../entities/fnote";
-import contextMenu from "../../menus/context_menu";
+import contextMenu, { MenuItem } from "../../menus/context_menu";
 import type { Attribute } from "../../services/attribute_parser";
 import attributes, { isBuiltinAttribute } from "../../services/attributes";
 import dialog from "../../services/dialog";
@@ -166,14 +166,10 @@ export default function AttributeList() {
                     buttons={note && (
                         <>
                             <HelpButton helpPage={ATTRIBUTE_HELP_PAGE} />
-                            <ActionButton
-                                icon="bx bx-plus"
+                            <AddAttributeButton
                                 text={t("attribute_editor.add_a_new_attribute")}
-                                onClick={(e) => {
-                                    // Keep the press from reaching the card header, which would collapse the card.
-                                    e.stopPropagation();
-                                    showAddMenu(e, (attrType) => addAttribute(attrType, e));
-                                }}
+                                attrTypes={ALL_ATTRIBUTE_KINDS}
+                                onSelect={addAttribute}
                             />
                         </>
                     )}
@@ -204,6 +200,13 @@ export default function AttributeList() {
                     <RightPanelWidget
                         id="attributes-definitions"
                         title={t("attribute_list_panel.definitions", { count: sections.definitions.length })}
+                        buttons={note && (
+                            <AddAttributeButton
+                                text={t("attribute_list_panel.add_definition")}
+                                attrTypes={DEFINITION_KINDS}
+                                onSelect={addAttribute}
+                            />
+                        )}
                     >
                         <div class="attribute-list-panel" onClick={() => setDetail(null)}>
                             <AttributeRowList rows={sections.definitions} {...rowProps} />
@@ -446,18 +449,60 @@ const KIND_TITLES: Record<AttributeKind, string> = {
     "relation-definition": t("attribute_list_panel.type_relation_definition")
 };
 
-function showAddMenu(e: MouseEvent, onSelect: (attrType: AttributeKind) => void) {
+/**
+ * A card's add button: it offers the kinds the card is about, so the definitions card offers the two
+ * definitions alone while the note's own attributes are added from the top of the panel, whether or not
+ * a definitions card exists yet to add one from.
+ */
+function AddAttributeButton({ text, attrTypes, onSelect }: {
+    text: string;
+    attrTypes: AttributeKind[];
+    onSelect: (attrType: AttributeKind, e: MouseEvent) => void;
+}) {
+    return (
+        <ActionButton
+            icon="bx bx-plus"
+            text={text}
+            onClick={(e) => {
+                // Keep the press from reaching the card header, which would collapse the card.
+                e.stopPropagation();
+                showAddMenu(e, attrTypes, (attrType) => onSelect(attrType, e));
+            }}
+        />
+    );
+}
+
+/** What each card's add button offers, in the order the attributes editor's own menu offers it. */
+const ADD_MENU_ENTRIES: { attrType: AttributeKind; title: string; icon: string }[] = [
+    { attrType: "label", title: t("attribute_editor.add_new_label"), icon: "bx bx-hash" },
+    { attrType: "relation", title: t("attribute_editor.add_new_relation"), icon: "bx bx-transfer" },
+    { attrType: "label-definition", title: t("attribute_editor.add_new_label_definition"), icon: "bx bx-hash" },
+    { attrType: "relation-definition", title: t("attribute_editor.add_new_relation_definition"), icon: "bx bx-transfer" }
+];
+
+const ALL_ATTRIBUTE_KINDS = ADD_MENU_ENTRIES.map((entry) => entry.attrType);
+
+/** The kinds the definitions card can add: the last two of the menu above, on their own. */
+const DEFINITION_KINDS: AttributeKind[] = [ "label-definition", "relation-definition" ];
+
+function showAddMenu(e: MouseEvent, attrTypes: AttributeKind[], onSelect: (attrType: AttributeKind) => void) {
+    const offered = ADD_MENU_ENTRIES.filter((entry) => attrTypes.includes(entry.attrType));
+    const items: MenuItem<never>[] = [];
+
+    for (const [ index, entry ] of offered.entries()) {
+        // A definition is set apart from what it defines, where the two are offered together.
+        if (index > 0 && isDefinition(entry.attrType) && !isDefinition(offered[index - 1].attrType)) {
+            items.push({ kind: "separator" });
+        }
+
+        items.push({ title: entry.title, uiIcon: entry.icon, handler: () => onSelect(entry.attrType) });
+    }
+
     void contextMenu.show({
         x: e.pageX,
         y: e.pageY,
         orientation: "left",
-        items: [
-            { title: t("attribute_editor.add_new_label"), uiIcon: "bx bx-hash", handler: () => onSelect("label") },
-            { title: t("attribute_editor.add_new_relation"), uiIcon: "bx bx-transfer", handler: () => onSelect("relation") },
-            { kind: "separator" },
-            { title: t("attribute_editor.add_new_label_definition"), uiIcon: "bx bx-hash", handler: () => onSelect("label-definition") },
-            { title: t("attribute_editor.add_new_relation_definition"), uiIcon: "bx bx-transfer", handler: () => onSelect("relation-definition") }
-        ],
+        items,
         selectMenuItemHandler: () => {}
     });
 }
