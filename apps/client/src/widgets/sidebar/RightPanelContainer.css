@@ -109,6 +109,9 @@ body.experimental-feature-new-layout #right-pane {
     position: relative;
     display: flex;
     flex-direction: column;
+    /* The scrolling belongs to the shown tab's body rather than to the pane, which would carry the tab
+       strip (and the actions overlaying it) off the top with it. */
+    overflow: hidden;
 
     &.right-pane-mode-peek {
         background: var(--right-pane-peek-background);
@@ -153,13 +156,29 @@ body.experimental-feature-new-layout #right-pane {
         &.collapsed .card-header > .icon-action {
             transform: rotate(-90deg);
         }
+
+        /* The only widget of a tab has no chevron (see RightPanelWidget.tsx): its header is not
+           something to press, and its title takes over where the chevron would have started. */
+        &.not-collapsible .card-header {
+            cursor: default;
+            padding-inline-start: 8px;
+        }
     }
 
-    .right-pane-actions + * {
-    /* TODO: Find a more elegant way to avoid the right-pane-actions overlapping the card-header. */
-        .card-header {
-            padding-inline-end: 80px;
-        }
+    /* One per opened tab, all but the shown one display:none (see RightPanelContainer.tsx). Takes the
+       pane's leftover height so a `grow` card inside it can still claim it. */
+    .right-pane-tab-body {
+        flex: 1;
+        min-height: 0;
+        display: flex;
+        flex-direction: column;
+        overflow-y: auto;
+    }
+
+    /* The strip is what the pane's actions overlay, so the cards no longer make room for them (the
+       first card's header used to be what they sat over); it sits right under the strip's border. */
+    .right-pane-tab-body > .card:first-child .card-header {
+        padding-top: 0;
     }
 
     .card.grow:not(.collapsed) {

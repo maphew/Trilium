@@ -369,18 +369,6 @@ export interface IconRegistry {
     }[];
 }
 
-export type LabelType = "text" | "textarea" | "number" | "boolean" | "date" | "datetime" | "time" | "url" | "color";
-export type Multiplicity = "single" | "multi";
-
-export interface DefinitionObject {
-    isPromoted?: boolean;
-    labelType?: LabelType;
-    multiplicity?: Multiplicity;
-    numberPrecision?: number;
-    promotedAlias?: string;
-    inverseRelation?: string;
-}
-
 /**
  * Bootstrap items that the client needs to start up. These are sent by the server in the HTML and made available as `window.glob`.
  */

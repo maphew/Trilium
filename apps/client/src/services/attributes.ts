@@ -1,4 +1,4 @@
-import { AttributeType } from "@triliumnext/commons";
+import { AttributeType, BUILTIN_ATTRIBUTES } from "@triliumnext/commons";
 
 import type FNote from "../entities/fnote.js";
 import froca from "./froca.js";
@@ -210,6 +210,23 @@ async function toggleDangerousAttribute(note: FNote, type: "label" | "relation",
 function getNameWithoutDangerousPrefix(name: string) {
     return name.startsWith("disabled:") ? name.substring(9) : name;
 }
+
+/**
+ * Whether the name is one Trilium itself attaches a meaning to, rather than one the user invented.
+ *
+ * Matched exactly, on purpose: a definition (`label:archived`) describes a system attribute without
+ * being one, and a disabled one (`disabled:run`) has been deliberately made inert. Both are ordinary
+ * attributes as far as the name alone is concerned.
+ */
+export function isBuiltinAttribute(type: "label" | "relation", name: string) {
+    return BUILTIN_ATTRIBUTE_KEYS.has(`${type}:${name}`);
+}
+
+/**
+ * The built-ins keyed by type and name. There is no ambiguity in joining the two with a colon: the
+ * type is always exactly `label` or `relation`, so the first segment of a key is never in doubt.
+ */
+const BUILTIN_ATTRIBUTE_KEYS = new Set(BUILTIN_ATTRIBUTES.map(({ type, name }) => `${type}:${name}`));
 
 export default {
     addLabel,

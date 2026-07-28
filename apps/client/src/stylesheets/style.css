@@ -2104,7 +2104,6 @@ body:not(.mobile) #launcher-pane.horizontal .dropdown-submenu > .dropdown-menu {
 }
 
 #right-pane .card-body ul {
-    padding-inline-start: 25px;
     margin-bottom: 5px;
 }
 
@@ -3109,7 +3108,7 @@ iframe.print-iframe {
     --collapsible-block-background: var(--card-background-color);
     --collapsible-block-summary-background: var(--card-background-color);
     --collapsible-block-summary-delimiter-color: var(--main-background-color);
-    
+
     --_border-radius: 8px;
     --_block-padding: .75rem;
     --_inline-padding: 1rem;
@@ -3179,9 +3178,9 @@ iframe.print-iframe {
 
     &[open] > summary {
         margin-bottom: calc(var(--_block-padding) * 2);
-        
+
         &::after {
-            border-bottom: 2px solid var(--collapsible-block-summary-delimiter-color);            
+            border-bottom: 2px solid var(--collapsible-block-summary-delimiter-color);
         }
     }
 

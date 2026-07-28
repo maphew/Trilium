@@ -119,6 +119,7 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     leftPaneWidth: number;
     rightPaneWidth: number;
     rightPaneCollapsedItems: string;
+    rightPaneSelectedTab: string;
     eraseEntitiesAfterTimeInSeconds: number;
     eraseEntitiesAfterTimeScale: number;
     autoReadonlySizeText: number;

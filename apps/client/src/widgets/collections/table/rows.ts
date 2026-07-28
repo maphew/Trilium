@@ -1,7 +1,6 @@
-import { LabelType } from "@triliumnext/commons";
+import { extractAttributeDefinitionTypeAndName, LabelType } from "@triliumnext/commons";
 
 import FNote from "../../../entities/fnote.js";
-import { extractAttributeDefinitionTypeAndName } from "../../../services/promoted_attribute_definition_parser.js";
 import type { AttributeDefinitionInformation } from "./columns.js";
 
 export type TableData = {
