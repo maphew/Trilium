@@ -20,6 +20,14 @@ interface RightPanelWidgetProps {
     buttons?: ComponentChildren;
     containerRef?: RefObject<HTMLDivElement>;
     contextMenuItems?: MenuItem<unknown>[];
+    /**
+     * Take the height the other widgets of the tab leave over, scrolling the body within it, instead of
+     * keeping to the height of the content. Use for the one widget a tab is really about — a note's own
+     * attributes, its table of contents, the chat — so that the rest keep to their content around it.
+     *
+     * At most one widget per tab should ask for it: they would otherwise share the leftover height
+     * between them. It lapses while the widget is collapsed, so the others move up to fill the room.
+     */
     grow?: boolean;
     /**
      * Keep the body in the DOM when collapsed (hidden via CSS) instead of unmounting it. Use for a

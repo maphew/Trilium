@@ -162,6 +162,7 @@ export default function AttributeList() {
                 <RightPanelWidget
                     id="attributes"
                     title={t("attribute_list_panel.owned", { count: sections.owned.length })}
+                    grow
                     buttons={note && (
                         <>
                             <HelpButton helpPage={ATTRIBUTE_HELP_PAGE} />
