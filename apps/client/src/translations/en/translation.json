@@ -2664,7 +2664,11 @@
     "section_space_usage": "Space Usage"
   },
   "space_usage": {
-    "coming_soon": "Space Usage is coming soon."
+    "loading": "Measuring space usage...",
+    "other_notes": "Other notes",
+    "deleted_notes": "Deleted notes",
+    "status_total": "Total: {{size}}",
+    "status_deleted": "Deleted notes: {{size}}"
   },
   "note_language": {
     "not_set": "No language set",

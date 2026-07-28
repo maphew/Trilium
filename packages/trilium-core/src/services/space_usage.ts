@@ -28,7 +28,7 @@ import { getSql } from "./sql/index.js";
  * exception — it only counts blobs no live entity still uses, i.e. what erasing would reclaim.
  */
 
-export const DEFAULT_OVERVIEW_LIMIT = 250;
+export const DEFAULT_OVERVIEW_LIMIT = 500;
 export const MAX_OVERVIEW_LIMIT = 1000;
 
 const ROOT_NOTE_ID = "root";

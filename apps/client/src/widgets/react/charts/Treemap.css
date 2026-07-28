@@ -1,0 +1,29 @@
+.treemap {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+
+    .treemap-cell {
+        position: absolute;
+        border-radius: 4px;
+        background: var(--accented-background-color);
+        cursor: pointer;
+    }
+
+    /* The group tint stays a mix into the theme's own surface, so the map keeps a coherent look
+       under light and dark themes alike. */
+    .treemap-cell.treemap-colored {
+        background: color-mix(
+            in srgb,
+            var(--accented-background-color) 55%,
+            hsl(var(--treemap-hue) 65% 55%) 45%
+        );
+    }
+
+    .treemap-cell:hover {
+        outline: 2px solid var(--main-text-color);
+        outline-offset: -1px;
+        z-index: 1;
+    }
+}

@@ -1,0 +1,64 @@
+/* The section replaces the page's scrolling with a viewport-filling layout: flex chains from the
+   scroll container down to the section, in a tab (.scrolling-container) and in the settings dialog
+   (.modal-body) alike. Active Content keeps the default scrolling page — these rules only bite
+   while the Space Usage section is mounted. */
+.scrolling-container:has(.space-usage-section),
+.options-dialog .modal-body:has(.space-usage-section) {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.note-detail:has(.space-usage-section),
+.note-detail:has(.space-usage-section) .note-detail-content-widget,
+.note-detail:has(.space-usage-section) .note-detail-content-widget-content {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+}
+
+.space-usage-section {
+    display: flex;
+    flex: 1 1 auto;
+    flex-direction: column;
+    min-height: 0;
+
+    .space-usage-overview {
+        flex: 1 1 auto;
+        min-height: 0;
+        padding-block: 8px;
+    }
+
+    .space-usage-status {
+        display: flex;
+        flex: 0 0 auto;
+        gap: 2em;
+        border-top: 1px solid var(--main-border-color);
+        padding-block: 6px;
+        font-size: 0.85em;
+    }
+
+    .space-usage-loading {
+        opacity: 0.7;
+    }
+}
+
+/* The bucket cells stand for no single note: identity comes from the border and texture rather
+   than a hue (user themes make any fixed palette unreliable), and they respond to nothing. */
+.space-usage-overview {
+    .treemap-cell-other,
+    .treemap-cell-deleted {
+        border: 1px dashed var(--main-border-color);
+        background: transparent;
+        cursor: default;
+    }
+
+    .treemap-cell-deleted {
+        background: repeating-linear-gradient(
+            -45deg,
+            var(--accented-background-color) 0 5px,
+            transparent 5px 10px
+        );
+    }
+}
