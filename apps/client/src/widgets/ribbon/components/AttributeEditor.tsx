@@ -1,6 +1,6 @@
 import "./AttributeEditor.css";
 
-import type { AttributeEditor as CKEditorAttributeEditor, MentionFeed, ModelElement, ModelNode, ModelPosition } from "@triliumnext/ckeditor5";
+import type { AttributeEditor as CKEditorAttributeEditor, ModelElement, ModelNode, ModelPosition, TriliumMentionFeed } from "@triliumnext/ckeditor5";
 import { AttributeType } from "@triliumnext/commons";
 import { createPortal } from "preact/compat";
 import { MutableRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "preact/hooks";
@@ -29,7 +29,9 @@ import AttributeHelp, { ATTRIBUTE_HELP_PAGE } from "./AttributeHelp";
 
 type AttributeCommandNames = FilteredCommandNames<CommandData>;
 
-const mentionSetup: MentionFeed[] = [
+// `preselectFirstItem: false` throughout: in this editor Enter means "save the attributes", so an
+// open panel must not silently swallow it into committing whichever suggestion happens to be first.
+const mentionSetup: TriliumMentionFeed[] = [
     {
         marker: "@",
         feed: (queryText) => note_autocomplete.autocompleteSourceForCKEditor(queryText),
@@ -41,7 +43,10 @@ const mentionSetup: MentionFeed[] = [
 
             return itemElement;
         },
-        minimumCharacters: 0
+        minimumCharacters: 0,
+        // Relation targets are note titles, which contain spaces.
+        allowSpaces: true,
+        preselectFirstItem: false
     },
     {
         marker: "#",
@@ -55,7 +60,8 @@ const mentionSetup: MentionFeed[] = [
                 };
             });
         },
-        minimumCharacters: 0
+        minimumCharacters: 0,
+        preselectFirstItem: false
     },
     {
         marker: "~",
@@ -69,7 +75,8 @@ const mentionSetup: MentionFeed[] = [
                 };
             });
         },
-        minimumCharacters: 0
+        minimumCharacters: 0,
+        preselectFirstItem: false
     }
 ];
 
