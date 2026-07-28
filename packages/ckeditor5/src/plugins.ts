@@ -34,6 +34,7 @@ import ImageActions from "./plugins/image_actions.js";
 import CodeBlockToolbar from "./plugins/code_block_toolbar.js";
 import CodeBlockLanguageDropdown from "./plugins/code_block_language_dropdown.js";
 import CodeBlockInsertParagraph from "./plugins/code_block_insert_paragraph.js";
+import CodeBlockHljsClass from "./plugins/code_block_hljs_class.js";
 import MoveBlockUpDownPlugin from "./plugins/move_block_updown.js";
 import ScrollOnUndoRedoPlugin from "./plugins/scroll_on_undo_redo.js"
 import InlineCodeNoSpellcheck from "./plugins/inline_code_no_spellcheck.js";
@@ -46,6 +47,7 @@ import LinkEmbedToolbar from "./plugins/link_embed/link_embed_toolbar.js";
 import TodoListMultistate from "./plugins/todo_list_multistate/todo_list_multistate.js";
 import TodoListUncheckOnEnter from "./plugins/todo_list_uncheck_on_enter.js";
 import CollapsibleListItems from "./plugins/collapsible_list_items.js";
+import TableIndent from "./plugins/table_indent.js";
 
 /**
  * Plugins that are specific to Trilium and not part of the CKEditor 5 core, included in both text editors but not in the attribute editor.
@@ -67,6 +69,7 @@ const TRILIUM_PLUGINS: typeof Plugin[] = [
     CodeBlockLanguageDropdown,
     CodeBlockToolbar,
     CodeBlockInsertParagraph,
+    CodeBlockHljsClass,
     MoveBlockUpDownPlugin,
     ScrollOnUndoRedoPlugin,
     InlineCodeNoSpellcheck,
@@ -78,6 +81,7 @@ const TRILIUM_PLUGINS: typeof Plugin[] = [
     LinkEmbedToolbar,
     TodoListMultistate,
     CollapsibleListItems,
+    TableIndent,
     CopyAnchorLinkButton,
     CopyLinkUrlButton,
     ImageActions,

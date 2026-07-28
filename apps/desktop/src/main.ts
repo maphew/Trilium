@@ -9,6 +9,7 @@ import config from "@triliumnext/server/src/services/config.js";
 import dataDirs from "@triliumnext/server/src/services/data_dir.js";
 import port from "@triliumnext/server/src/services/port.js";
 import { RESOURCE_DIR } from "@triliumnext/server/src/services/resource_dir.js";
+import WebSocketMessagingProvider from "@triliumnext/server/src/services/ws_messaging_provider.js";
 import BetterSqlite3Provider from "@triliumnext/server/src/sql_provider.js";
 import NodejsZipProvider from "@triliumnext/server/src/zip_provider.js";
 import { app, BrowserWindow,globalShortcut } from "electron";
@@ -21,6 +22,7 @@ import path, { join, resolve } from "path";
 
 import { deferred, LOCALES } from "../../../packages/commons/src";
 import { PRODUCT_NAME } from "./app-info";
+import CompositeMessagingProvider from "./composite_messaging_provider";
 import IpcMessagingProvider from "./ipc_messaging_provider";
 import DesktopPlatformProvider from "./platform_provider";
 import { registerTriliumAppScheme, setupTriliumAppProtocol } from "./protocol";
@@ -189,13 +191,29 @@ export async function main() {
     if (readDbOption(dbProvider, "smoothScrollEnabled") === "false") {
         app.commandLine.appendSwitch("disable-smooth-scrolling");
     }
+    // Lets users work around GPU driver incompatibilities that render a blank window
+    // (see #10572) without having to pass --disable-gpu on the command line. Like the
+    // switch above, this must run before `ready`.
+    if (readDbOption(dbProvider, "hardwareAccelerationEnabled") === "false") {
+        app.disableHardwareAcceleration();
+    }
 
     // The IPC provider just registers an `ipcMain.on` listener; no TCP socket
-    // or session parser needed, so we can init it here (before startTriliumServer)
-    // instead of going through www.ts. www.ts then only knows about the
-    // socket-bound WebSocket provider.
+    // or session parser needed, so we can init it here (before startTriliumServer).
+    // It's the messaging channel to the trusted renderer window(s).
     const ipcMessaging = new IpcMessagingProvider();
     ipcMessaging.init();
+
+    // Browser clients (accessing the desktop's HTTP listener directly) can't use the
+    // IPC channel, so they need a WebSocket endpoint for live updates. We only expose
+    // one when the user has opted into LAN/network access (`allowLanAccess`, already
+    // applied to config above) — otherwise the renderer's IPC channel is the sole
+    // transport and no WS port is bound. When enabled, the composite serves both: IPC
+    // for the renderer and WS for browsers. www.ts attaches the WS server (it owns the
+    // http.Server + session parser) via attachToHttpServer().
+    const messaging = config.Security.allowLanAccess
+        ? new CompositeMessagingProvider(ipcMessaging, new WebSocketMessagingProvider())
+        : ipcMessaging;
 
     await initializeCore({
         dbConfig: {
@@ -222,7 +240,7 @@ export async function main() {
         zipExportProviderFactory: (await import("@triliumnext/server/src/services/export/zip/factory.js")).serverZipExportProviderFactory,
         request: new ElectronRequestProvider(),
         executionContext: new ClsHookedExecutionContext(),
-        messaging: ipcMessaging,
+        messaging,
         schema: loadCoreSchema(),
         platform: new DesktopPlatformProvider(),
         translations: (await import("@triliumnext/server/src/services/i18n.js")).initializeTranslations,

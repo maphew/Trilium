@@ -20,6 +20,7 @@ import { formatDateTime } from "../../utils/formatters";
 import { BacklinksList, useBacklinkCount } from "../FloatingButtonsDefinitions";
 import Dropdown, { DropdownProps } from "../react/Dropdown";
 import { FormDropdownDivider, FormListHeader, FormListItem } from "../react/FormList";
+import HelpDropdown from "../react/HelpDropdown";
 import { useActiveNoteContext, useLegacyImperativeHandlers, useNoteLabel, useNoteLabelInt, useNoteLabelOptionalBool, useNoteProperty, useStaticTooltip, useTriliumEvent, useTriliumEvents, useTriliumOptionBool, useTriliumOptionInt } from "../react/hooks";
 import Icon from "../react/Icon";
 import LinkButton from "../react/LinkButton";
@@ -27,6 +28,7 @@ import { ParentComponent } from "../react/react_utils";
 import AutoLinkAttributesTab from "../ribbon/AutoLinkAttributesTab";
 import { ContentLanguagesModal, NoteTypeCodeNoteList, NoteTypeOptionsModal, useLanguageSwitcher, useMimeTypes } from "../ribbon/BasicPropertiesTab";
 import AttributeEditor, { AttributeEditorImperativeHandlers } from "../ribbon/components/AttributeEditor";
+import AttributeHelp, { ATTRIBUTE_HELP_PAGE } from "../ribbon/components/AttributeHelp";
 import InheritedAttributesTab from "../ribbon/InheritedAttributesTab";
 import { NoteSizeWidget, useNoteMetadata } from "../ribbon/NoteInfoTab";
 import { NotePathsWidget, useSortedNotePaths } from "../ribbon/NotePathsTab";
@@ -408,7 +410,8 @@ function AttributesPane({ note, noteContext, attributesShown, setAttributesShown
             className="attribute-list"
             visible={attributesShown}
             setVisible={setAttributesShown}
-            helpPage="zEY4DaJG4YT5">
+            helpPage={ATTRIBUTE_HELP_PAGE}
+            helpContent={<AttributeHelp />}>
 
             <span class="attributes-panel-label">{t("inherited_attribute_list.title")}</span>
             <InheritedAttributesTab {...context} emptyListString="inherited_attribute_list.none" />
@@ -422,6 +425,8 @@ function AttributesPane({ note, noteContext, attributesShown, setAttributesShown
                 {...context}
                 api={api}
                 ntxId={noteContext.ntxId}
+                // The panel's title bar already carries the same help.
+                hideHelpButton
             />}
         </BottomPanel>
     );
@@ -595,13 +600,17 @@ interface BottomPanelParams {
     setVisible?: (visible: boolean) => void;
     className?: string;
     helpPage?: string;
+    /** Inline help shown by the title bar's `?`; without it the `?` opens {@link helpPage} directly. */
+    helpContent?: ComponentChildren;
 }
 
-function BottomPanel({ children, title, visible, setVisible, className, helpPage }: BottomPanelParams) {
+function BottomPanel({ children, title, visible, setVisible, className, helpPage, helpContent }: BottomPanelParams) {
     return <div className={clsx("bottom-panel", className, {"hidden-ext": !visible})}>
         <div className="bottom-panel-title-bar">
             <span className="bottom-panel-title-bar-caption">{title}</span>
-            {helpPage && <button class="icon-action bx bx-question-mark" onClick={() => openInAppHelpFromUrl(helpPage)} title={t("open-help-page")} />}
+            {helpContent
+                ? <HelpDropdown helpPage={helpPage}>{helpContent}</HelpDropdown>
+                : helpPage && <button class="icon-action bx bx-question-mark" onClick={() => openInAppHelpFromUrl(helpPage)} title={t("open-help-page")} />}
             <button class="icon-action bx bx-x" onClick={() => setVisible?.(false)} />
         </div>
         <div class={clsx("bottom-panel-content")}>

@@ -22,6 +22,8 @@ const fencedCodeBlockFilter: Rule = {
     },
 
     replacement (content, node, options) {
+        /* v8 ignore next 3 -- unreachable: the filter above only matches when firstChild is a <code>
+           element, so getAttribute is always there; the guard is here to narrow the `Node` type. */
         if (!node.firstChild || !("getAttribute" in node.firstChild) || typeof node.firstChild.getAttribute !== "function") {
             return content;
         }
@@ -142,11 +144,14 @@ function buildImageFilter() {
 
 function buildAdmonitionFilter() {
     function parseAdmonitionType(_node: Node) {
+        /* v8 ignore next 3 -- unreachable: the filter below only matches an <aside> element, so
+           getAttribute is always there; the guard is here to narrow the `Node` type. */
         if (!("getAttribute" in _node)) {
             return DEFAULT_ADMONITION_TYPE;
         }
 
         const node = _node as Element;
+        /* v8 ignore next -- the filter requires class="… admonition …", so the attribute is always set. */
         const classList = node.getAttribute("class")?.split(" ") ?? [];
 
         for (const className of classList) {
@@ -209,6 +214,7 @@ function buildInlineLinkFilter(): Rule {
             // Otherwise treat as normal.
             // TODO: Call super() somehow instead of duplicating the implementation.
             let href = node.getAttribute('href');
+            /* v8 ignore next -- the filter requires a non-empty href, so this never falls through. */
             if (href) href = href.replace(/([()])/g, '\\$1');
             let title = cleanAttribute(node.getAttribute('title'));
             if (title) title = ` "${title.replace(/"/g, '\\"')}"`;

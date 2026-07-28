@@ -216,10 +216,11 @@ export function getBalloonPositionData( editor: Editor ): {
 	}
 }
 
-// CKEditor stores plain-object config values with a null prototype (`Object.create( null )`),
-// but KaTeX calls `macros.hasOwnProperty()` directly while expanding macros, which throws on a
-// prototype-less object. Rebuild `macros` as an ordinary object so the lookup works (this also
-// hands KaTeX a disposable copy it can safely mutate, e.g. via `\gdef`).
+// KaTeX writes macro definitions from `\gdef` straight into the `macros` object it is handed, so
+// give it a disposable copy: Trilium supplies the shared `KATEX_MACROS` constant by reference, and
+// one note's `\gdef` would otherwise leak into every later render. The copy also hands KaTeX an
+// ordinary-prototype object — CKEditor config values are prototype-less (`Object.create( null )`),
+// which crashed KaTeX <= 0.17 (#9523) before it switched to `Object.prototype.hasOwnProperty.call()`.
 function normalizeKatexMacros( options: KatexOptions ): { macros?: object } {
 	const { macros } = options;
 	if ( macros && typeof macros === 'object' ) {

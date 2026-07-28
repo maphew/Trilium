@@ -7,8 +7,10 @@ vi.mock("../services/i18n", () => ({
     t: (key: string, opts?: { count?: number }) => `${key}|${opts?.count}`
 }));
 
+import { LOCALES } from "@triliumnext/commons";
+
 import options from "../services/options";
-import { formatDateTime, formatDuration, normalizeLocale } from "./formatters";
+import { formatDateNumeric, formatDateTime, formatDuration, normalizeLocale } from "./formatters";
 
 describe("formatters", () => {
     it("tolerates incorrect locale", () => {
@@ -92,6 +94,63 @@ describe("formatters", () => {
         // With both dateStyle and timeStyle "none", every formatting branch is
         // skipped and execution reaches the final guard.
         expect(() => formatDateTime(new Date(), "none", "none")).toThrow("Incorrect state.");
+    });
+
+    describe("formatDateNumeric", () => {
+        // Every locale the user can actually pick as a formatting locale, which is the set that
+        // declares an electronLocale (see the options page).
+        const FORMATTING_LOCALES = LOCALES.filter((locale) => locale.electronLocale);
+
+        it("renders an all-numeric, four-digit-year date in every selectable formatting locale", () => {
+            expect(FORMATTING_LOCALES.length).toBeGreaterThan(0);
+
+            for (const locale of FORMATTING_LOCALES) {
+                options.set("formattingLocale", locale.id);
+                const formatted = formatDateNumeric("2026-01-31");
+
+                // The two things a dateStyle preset could not guarantee across locales: "short"
+                // yields a two-digit year in some ("31.01.26" in German), and "medium" spells the
+                // month out in others ("Jan 31, 2026" in US English).
+                expect(formatted, locale.id).toContain("2026");
+                expect(formatted, locale.id).not.toMatch(/\p{L}/u);
+            }
+        });
+
+        it("formats the reported German case as DD.MM.YYYY", () => {
+            options.set("formattingLocale", "de");
+
+            expect(formatDateNumeric("2026-01-31")).toBe("31.01.2026");
+            expect(formatDateNumeric("2026-01-31T14:05", true)).toBe("31.01.2026, 14:05");
+        });
+
+        it("pads a single-digit hour in 24-hour locales but not in 12-hour ones", () => {
+            // A fixed hour option gets one of these wrong: "numeric" renders German as "2:05",
+            // "2-digit" renders US English as "02:05 AM".
+            options.set("formattingLocale", "de");
+            expect(formatDateNumeric("2026-01-31T02:05", true)).toBe("31.01.2026, 02:05");
+            expect(formatDateNumeric("2026-01-31T14:05", true)).toBe("31.01.2026, 14:05");
+
+            options.set("formattingLocale", "ja");
+            expect(formatDateNumeric("2026-01-31T02:05", true)).toBe("2026/01/31 02:05");
+
+            options.set("formattingLocale", "en");
+            // Normalized because ICU 72+ separates the day period with U+202F rather than a space.
+            expect(formatDateNumeric("2026-01-31T02:05", true).replace(/\s/g, " ")).toBe("01/31/2026, 2:05 AM");
+            expect(formatDateNumeric("2026-01-31T14:05", true).replace(/\s/g, " ")).toBe("01/31/2026, 2:05 PM");
+        });
+
+        it("falls back to the default locale when the configured one is unusable", () => {
+            // The dev-only "en_rtl" normalizes to "en-rtl", which Intl rejects outright.
+            options.set("formattingLocale", "en_rtl");
+
+            expect(formatDateNumeric("2026-01-31")).toContain("2026");
+        });
+
+        it("returns an empty string for falsy dates", () => {
+            expect(formatDateNumeric(null)).toBe("");
+            expect(formatDateNumeric(undefined)).toBe("");
+            expect(formatDateNumeric("")).toBe("");
+        });
     });
 
     describe("formatDuration", () => {

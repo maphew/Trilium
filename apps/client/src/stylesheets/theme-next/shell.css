@@ -25,6 +25,20 @@ body {
     --native-titlebar-darwin-y-offset: 12 !important;
 }
 
+/*
+ * The caption buttons are centred within the overlay, so its height has to be twice the centre
+ * line of the tab bar's own buttons for the two to line up. Those buttons are top-aligned
+ * (`margin: 3px ... auto ...` below), so the centre line follows the tab bar height: 3 + 30/2 = 18
+ * here, and 26 in the taller horizontal layout. Linux-only, as in the base stylesheet.
+ */
+body.platform-linux {
+    --native-titlebar-height: 36 !important;
+}
+
+body.platform-linux.layout-horizontal {
+    --native-titlebar-height: 52 !important;
+}
+
 body.layout-horizontal {
     --active-tab-background-color: var(--launcher-pane-horiz-background-color);
     --active-tab-hover-background-color: var(--active-tab-background-color);
@@ -111,7 +125,6 @@ body.background-effects.theme-supports-background-effects #center-pane .note-spl
 /* Matches when the left pane is collapsed */
 #horizontal-main-container.left-pane-hidden {
     --note-split-top-border-radius: 0;
-    --tab-first-item-horiz-offset: 5px;
 }
 
 /* Matches when a status bar panel is open */
@@ -1159,10 +1172,6 @@ body.desktop:not(.background-effects) #root-widget.horizontal-layout {
     transition: none;
 }
 
-.tab-row-container .title-bar-buttons {
-    margin-top: calc((var(--tab-bar-height) - var(--tab-height)) * -1);
-}
-
 body.layout-horizontal div.tab-row-widget div.note-tab div.note-tab-wrapper {
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
@@ -1180,10 +1189,6 @@ body.layout-horizontal div.tab-row-widget div.note-tab div.note-tab-wrapper {
     inset-inline-end: 0;
     height: 3px;
     background-color: var(--workspace-tab-background-color);
-}
-
-body:not([dir=rtl]) .tab-row-widget .note-tab:nth-child(1) {
-    transform: translate3d(var(--tab-first-item-horiz-offset), 0, 0);
 }
 
 :root .tab-row-widget .note-tab .note-tab-icon {

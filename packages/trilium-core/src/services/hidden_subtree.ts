@@ -299,6 +299,7 @@ function buildHiddenSubtreeDefinition(helpSubtree: HiddenSubtreeItem[]): HiddenS
                     { id: "_optionsShortcuts", title: t("hidden-subtree.shortcuts-title"), type: "contentWidget", icon: "bxs-keyboard" },
                     { id: "_optionsTextNotes", title: t("hidden-subtree.text-notes"), type: "contentWidget", icon: "bx-text" },
                     { id: "_optionsCodeNotes", title: t("hidden-subtree.code-notes-title"), type: "contentWidget", icon: "bx-code" },
+                    { id: "_optionsContentManager", title: t("hidden-subtree.content-manager-title"), type: "contentWidget", icon: "bx-package" },
                     { id: "_optionsImages", title: "Images", type: "contentWidget", enforceDeleted: true },
                     { id: "_optionsMedia", title: t("hidden-subtree.images-title"), type: "contentWidget", icon: "bx-image" },
                     { id: "_optionsSpellcheck", title: t("hidden-subtree.spellcheck-title"), type: "contentWidget", icon: "bx-check-double", attributes: [{ type: "label", name: "electronOnly" }] },

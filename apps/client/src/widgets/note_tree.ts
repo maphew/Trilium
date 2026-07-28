@@ -22,6 +22,7 @@ import type { AttributeRow, BranchRow } from "../services/load_results.js";
 import noteCreateService from "../services/note_create.js";
 import options from "../services/options.js";
 import server from "../services/server.js";
+import { buildShareLink } from "../services/share_link.js";
 import shortcutService from "../services/shortcuts.js";
 import toastService from "../services/toast.js";
 import treeService from "../services/tree.js";
@@ -1956,7 +1957,9 @@ function buildEnhanceTitle() {
         // Add shared indicator with tooltip if note is shared
         if (note.isShared()) {
             const shareId = note.getOwnedLabelValue("shareAlias") || note.noteId;
-            const shareUrl = `${location.origin}${location.pathname}share/${shareId}`;
+            // Pass no sync host to preserve this tooltip's prior local-origin behavior; the helper
+            // still substitutes the loopback origin for the trilium-app:// desktop renderer (#10589).
+            const shareUrl = buildShareLink(shareId, undefined);
             const tooltipText = t("note_tree.shared-indicator-tooltip-with-url", { url: shareUrl });
 
             const $sharedIndicator = $(`<span class="note-indicator-icon shared-indicator"></span>`);

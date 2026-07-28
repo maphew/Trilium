@@ -21,6 +21,10 @@ body.experimental-feature-new-layout #vertical-main-container {
     padding-inline-end: var(--right-pane-peek-button-gutter);
 }
 
+body.experimental-feature-new-layout.layout-horizontal #vertical-main-container {
+    --right-pane-peek-button-gutter: calc(var(--right-pane-peek-button-width) + 2px);
+}
+
 /* Persistent host wrapping the spacer + #right-pane (see RightPanelContainer.tsx), so #right-pane
    never reparents between modes. A flex row: docked it fills with the pane (spacer hidden); peek
    it lays out [spacer | gutter | pane]. */

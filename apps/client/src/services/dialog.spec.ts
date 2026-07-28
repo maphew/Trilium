@@ -233,13 +233,59 @@ describe("dialog service", () => {
             expect($popup[0].style.zIndex).toBe("");
         });
 
-        it("clears a stale inline z-index when reopened without a stacked popup", async () => {
+        it("reverts its own lift when the dialog is reopened without a stacked popup", async () => {
             const $dialog = makeDialog().appendTo(document.body);
-            $dialog[0].style.zIndex = "1110"; // leftover from a previous stacked open
 
+            document.body.classList.add("tree-popup-stacked");
+            openStackedPopup("1100");
+            await openDialog($dialog, true);
+            expect($dialog[0].style.zIndex).toBe("1110");
+
+            // Reopened once the popup is gone: back to the default layer.
+            document.body.className = "";
+            document.body.innerHTML = "";
+            $dialog.appendTo(document.body);
             await openDialog($dialog, true);
 
             expect($dialog[0].style.zIndex).toBe("");
+        });
+
+        it("restores a dialog's own declared z-index instead of clearing it", async () => {
+            // `Modal` passes its `zIndex` prop through (note type chooser: 1100, confirm/prompt:
+            // 2000). Opening the dialog must not strip that layer.
+            const $dialog = makeDialog().appendTo(document.body);
+
+            await openDialog($dialog, true, undefined, 1100); // no stacked popup
+
+            expect($dialog[0].style.zIndex).toBe("1100");
+        });
+
+        it("keeps a declared z-index that already clears the stacked popup", async () => {
+            document.body.classList.add("tree-popup-stacked");
+            openStackedPopup("1100");
+
+            const $dialog = makeDialog().appendTo(document.body);
+
+            await openDialog($dialog, true, undefined, 2000); // e.g. the confirm/prompt layer
+
+            // Lifting only ever raises: 2000 already beats max(1100) + 10.
+            expect($dialog[0].style.zIndex).toBe("2000");
+        });
+
+        it("lifts a declared z-index that is below the stacked popup, then restores it", async () => {
+            const $dialog = makeDialog().appendTo(document.body);
+
+            document.body.classList.add("tree-popup-stacked");
+            openStackedPopup("1200");
+            await openDialog($dialog, true, undefined, 1100);
+            expect($dialog[0].style.zIndex).toBe("1210");
+
+            document.body.className = "";
+            document.body.innerHTML = "";
+            $dialog.appendTo(document.body);
+            await openDialog($dialog, true, undefined, 1100);
+
+            expect($dialog[0].style.zIndex).toBe("1100");
         });
     });
 

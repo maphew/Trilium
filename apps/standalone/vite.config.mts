@@ -358,7 +358,12 @@ export default defineConfig(() => ({
                 // core initialization; it is exercised by the Playwright e2e suite instead.
                 "**/local-server-worker.ts"
             ],
-            reporter: ["text", "html", "lcov"]
+            // Codecov resolves an lcov `SF:` path by matching it against the repo's file list.
+            // Vitest defaults the lcov reporter's `projectRoot` to the Vite `root` — here `src`,
+            // so paths would emit as bare `main.ts` / `../../../packages/trilium-core/src/…`,
+            // which are ambiguous in this monorepo and get attributed to whichever project wins
+            // the match. Anchor to the repo root so every path is unambiguous.
+            reporter: ["text", "html", ["lcov", { projectRoot: join(__dirname, "../..") }]]
         },
         server: {
             deps: {

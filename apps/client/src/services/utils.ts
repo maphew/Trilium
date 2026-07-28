@@ -7,6 +7,26 @@ const SVG_MIME = "image/svg+xml";
 
 export const isShare = !window.glob;
 
+/**
+ * True when the client is showing one of the DB-initialized *pre-auth* SPA screens — the login
+ * screen (`loggedIn: false`) or the set-password screen (`passwordSet: false`).
+ *
+ * These screens run with the database already initialized, so `glob.dbInitialized` (the historical
+ * proxy for "pre-auth", back when setup was the only pre-auth screen) does NOT catch them. The eager
+ * module-load side effects — froca's initial tree load, the WebSocket auto-connect, and the options /
+ * keyboard-actions / fonts fetches — must skip on these screens too, otherwise they fire
+ * unauthenticated requests that 401 with "Logged in session not found" (#10589).
+ *
+ * The setup screen (`dbInitialized: false`) is deliberately NOT flagged here: froca and the WebSocket
+ * already gate on `!glob.dbInitialized`, and the options / keyboard-actions / fonts requests are
+ * accepted unauthenticated server-side while the DB is uninitialized. The strict `=== false`
+ * comparison is intentional: an unset flag (the fully-authenticated app, or a unit-test `glob`) must
+ * not be treated as pre-auth, so the eager loads keep working there.
+ */
+export function isPreAuthScreen(): boolean {
+    return glob.loggedIn === false || glob.passwordSet === false;
+}
+
 export function reloadFrontendApp(reason?: string) {
     if (reason) {
         logInfo(`Frontend app reload: ${reason}`);
@@ -143,7 +163,7 @@ export function isPWA() {
         window.matchMedia('(display-mode: standalone)').matches
         || window.matchMedia('(display-mode: window-controls-overlay)').matches
         || window.navigator.standalone
-        || window.navigator.windowControlsOverlay
+        || !!window.navigator.windowControlsOverlay
     );
 }
 
@@ -165,6 +185,28 @@ export function isMac() {
  */
 export function isLinux() {
     return window.glob?.platform === "linux";
+}
+
+/**
+ * Returns `true` when the native caption buttons sit on the leading (left) edge of the title bar,
+ * where they overlap the top of a vertical launcher pane. Always the case on macOS; on Linux it
+ * follows the desktop's decoration layout (e.g. GNOME's `button-layout`), which Chromium mirrors
+ * into the Window Controls Overlay geometry. Windows always keeps them on the right.
+ *
+ * Reflects the layout as of the call; it is not re-evaluated if the desktop setting changes while
+ * the app is running.
+ */
+export function areWindowControlsOnLeft() {
+    if (isMac()) {
+        return true;
+    }
+
+    const overlay = window.navigator.windowControlsOverlay;
+    if (!overlay?.visible) {
+        return false;
+    }
+
+    return overlay.getTitlebarAreaRect().x > 0;
 }
 
 /**
@@ -917,6 +959,7 @@ export default {
     isMac,
     isLinux,
     isWindows,
+    areWindowControlsOnLeft,
     isCtrlKey,
     assertArguments,
     escapeHtml,

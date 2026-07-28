@@ -49,7 +49,7 @@ export interface NoteContextDataMap {
     };
     pdfAttachments: {
         attachments: PdfAttachment[];
-        downloadAttachment(filename: string): void;
+        downloadAttachment(id: string): void;
     };
     pdfLayers: {
         layers: PdfLayer[];

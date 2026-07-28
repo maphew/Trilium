@@ -84,13 +84,15 @@ export function showError(message: string, timeout = 10000) {
     });
 }
 
-function showErrorTitleAndMessage(title: string, message: string, timeout = 10000) {
+function showErrorTitleAndMessage(title: string, message: string, timeout = 10000, opts?: { monospace?: boolean }) {
     console.log(utils.now(), "error: ", message);
 
     addToast({
         title,
         icon: "bx bx-error-circle",
         message,
+        // Raw error strings are shown verbatim, so render them monospace.
+        messageMonospace: opts?.monospace,
         timeout
     });
 }

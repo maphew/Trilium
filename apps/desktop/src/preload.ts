@@ -17,7 +17,7 @@ contextBridge.exposeInMainWorld("electronApi", {
         },
 
         // Title bar
-        setTitleBarOverlay(options: { color: string; symbolColor: string }) {
+        setTitleBarOverlay(options: { color: string; symbolColor: string; height?: number }) {
             ipcRenderer.send("set-title-bar-overlay", options);
         },
         setWindowButtonPosition(position: { x: number; y: number }) {
