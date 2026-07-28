@@ -1,12 +1,9 @@
-import "./content_manager.css";
+import "./active_content.css";
 
-import clsx from "clsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
-import appContext from "../../../components/app_context";
-import type FNote from "../../../entities/fnote";
-import attributeService from "../../../services/attributes";
-import branches from "../../../services/branches";
+import appContext from "../../../../components/app_context";
+import type FNote from "../../../../entities/fnote";
 import {
     buildLocationTree,
     CONTENT_CATEGORIES,
@@ -18,21 +15,23 @@ import {
     type LocationNode,
     resolveProperties,
     setCategoryEnabled
-} from "../../../services/content_manager";
-import debounce from "../../../services/debounce";
-import { t } from "../../../services/i18n";
-import { isMobile } from "../../../services/utils";
-import { ListView, type ListViewOptions } from "../../collections/legacy/ListOrGridView";
-import { Badge } from "../../react/Badge";
-import Button, { ButtonGroup } from "../../react/Button";
-import Dropdown from "../../react/Dropdown";
-import { FormListItem } from "../../react/FormList";
-import FormTextBox from "../../react/FormTextBox";
-import FormToggle from "../../react/FormToggle";
-import { useTriliumEvent, useTriliumOption } from "../../react/hooks";
-import NoItems from "../../react/NoItems";
-import type { TypeWidgetProps } from "../type_widget";
-import OptionsPageHeader from "./components/OptionsPageHeader";
+} from "../../../../services/active_content";
+import attributeService from "../../../../services/attributes";
+import branches from "../../../../services/branches";
+import debounce from "../../../../services/debounce";
+import { t } from "../../../../services/i18n";
+import { isMobile } from "../../../../services/utils";
+import { ListView, type ListViewOptions } from "../../../collections/legacy/ListOrGridView";
+import { Badge } from "../../../react/Badge";
+import Dropdown from "../../../react/Dropdown";
+import { FormListItem } from "../../../react/FormList";
+import FormTextBox from "../../../react/FormTextBox";
+import FormToggle from "../../../react/FormToggle";
+import { useTriliumEvent, useTriliumOption } from "../../../react/hooks";
+import NoItems from "../../../react/NoItems";
+import SegmentedChoice from "../../../react/SegmentedChoice";
+import OptionsPageHeader from "../components/OptionsPageHeader";
+import type { ContentManagerSectionProps } from "./index";
 
 const NOOP = () => {};
 
@@ -46,7 +45,7 @@ const FILTER_DEBOUNCE_MS = 300;
 function ContentItemMenu({ note }: { note: FNote }) {
     return (
         <Dropdown
-            className="content-manager-item-menu"
+            className="active-content-item-menu"
             buttonClassName="note-book-item-menu bx bx-dots-vertical-rounded"
             hideToggleArrow noSelectButtonStyle noDropdownListStyle iconAction
             // Out of the row and into the body: nested, the open menu would still count as hovering
@@ -91,10 +90,10 @@ function ItemDetail({ note, category, showCategory }: {
     showCategory?: boolean
 }) {
     return (
-        <span className="content-manager-properties">
+        <span className="active-content-properties">
             {showCategory && (
                 <Badge
-                    className="content-manager-badge"
+                    className="active-content-badge"
                     text={t(category.titleKey)}
                     tooltip={t("content_manager.property_category")}
                 />
@@ -122,13 +121,13 @@ function ContentProperties({ note, category }: { note: FNote, category: ContentC
                 ? values.map((value, index) => (
                     <Badge
                         key={`${titleKey}-${index}`}
-                        className="content-manager-badge"
+                        className="active-content-badge"
                         text={value.titleKey ? t(value.titleKey) : value.text}
                         tooltip={t(titleKey)}
                     />
                 ))
                 : (
-                    <span key={titleKey} className="content-manager-property">
+                    <span key={titleKey} className="active-content-property">
                         <strong>{t(titleKey)}:</strong>
                         {" "}
                         {values.map((value) => value.titleKey ? t(value.titleKey) : value.text).join(", ")}
@@ -183,7 +182,7 @@ const LIST_OPTIONS: ListViewOptions = {
     pageSize: 50
 };
 
-export default function ContentManagerSettings({ note }: TypeWidgetProps) {
+export default function ActiveContent({ note, sectionSwitcher }: ContentManagerSectionProps) {
     const [ sortOrder, setSortOrder ] = useTriliumOption("contentManagerSortOrder");
     const [ viewMode, setViewMode ] = useTriliumOption("contentManagerViewMode");
     const [ typedFilter, setTypedFilter ] = useState("");
@@ -215,9 +214,9 @@ export default function ContentManagerSettings({ note }: TypeWidgetProps) {
         <>
             {/* In the header's own row rather than the page body, so the controls stay put as the
                 list scrolls beneath them. */}
-            <OptionsPageHeader below={
-                <div className="content-manager-toolbar">
-                    <div className="input-group content-manager-filter">
+            <OptionsPageHeader actions={sectionSwitcher} below={
+                <div className="active-content-toolbar">
+                    <div className="input-group active-content-filter">
                         <FormTextBox
                             inputRef={filterRef}
                             placeholder={t("content_manager.filter_placeholder")}
@@ -234,8 +233,9 @@ export default function ContentManagerSettings({ note }: TypeWidgetProps) {
                             onClick={clearFilter}
                         />
                     </div>
-                    <span className="content-manager-toolbar-label">{t("content_manager.view_mode")}</span>
+                    <span className="active-content-toolbar-label">{t("content_manager.view_mode")}</span>
                     <SegmentedChoice
+                        className="content-manager-view-choice"
                         options={VIEW_MODES}
                         currentValue={viewMode}
                         onChange={(newValue) => void setViewMode(newValue)}
@@ -244,7 +244,7 @@ export default function ContentManagerSettings({ note }: TypeWidgetProps) {
                 </div>
             } />
 
-            <div className="content-manager-list">
+            <div className="active-content-list">
                 <ContentList
                     pageNote={note}
                     categories={categories}
@@ -307,7 +307,7 @@ function LocationList({ pageNote, categories, highlightedTokens }: CategoryListP
 
                     if (!item) {
                         return (
-                            <span className="content-manager-property content-manager-item-count">
+                            <span className="active-content-property active-content-item-count">
                                 {t("content_manager.item_count", { count: itemCountByNoteId.get(note.noteId) ?? 0 })}
                             </span>
                         );
@@ -318,7 +318,7 @@ function LocationList({ pageNote, categories, highlightedTokens }: CategoryListP
                     // the user did not touch. The category is named here because the headings that
                     // would otherwise say it are gone.
                     return item.categories.map((category) => (
-                        <span key={category.id} className="content-manager-item-strip">
+                        <span key={category.id} className="active-content-item-strip">
                             <ItemDetail note={note} category={category} showCategory />
                             <ContentToggle note={note} category={category} />
                         </span>
@@ -376,7 +376,7 @@ function ContentList({ pageNote, categories, highlightedTokens, viewMode }: {
     viewMode: string
 }) {
     if (!categories) {
-        return <p className="content-manager-loading">{t("content_manager.loading")}</p>;
+        return <p className="active-content-loading">{t("content_manager.loading")}</p>;
     }
 
     const populated = categories.filter(({ notes }) => notes.length > 0);
@@ -426,26 +426,6 @@ function CategoryList({ pageNote, categories, highlightedTokens }: CategoryListP
                 />
             ))}
         </>
-    );
-}
-
-function SegmentedChoice({ options, currentValue, onChange }: {
-    options: { value: string, label: string }[];
-    currentValue: string;
-    onChange: (newValue: string) => void;
-}) {
-    return (
-        <ButtonGroup size="sm">
-            {options.map(({ value, label }) => (
-                <Button
-                    key={value}
-                    text={label}
-                    size="small"
-                    className={clsx(currentValue === value && "active")}
-                    onClick={() => onChange(value)}
-                />
-            ))}
-        </ButtonGroup>
     );
 }
 

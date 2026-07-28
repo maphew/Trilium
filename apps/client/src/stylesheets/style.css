@@ -912,6 +912,13 @@ table.promoted-attributes-in-tooltip th {
     overflow: hidden;
 }
 
+.note-tooltip-detail {
+    margin-top: -5px;
+    margin-bottom: 5px;
+    color: var(--muted-text-color);
+    font-size: small;
+}
+
 .note-tooltip-content {
     /* height needs to stay small because tooltip has problem when it can't fit to either top or bottom of the cursor */
     max-height: 300px;

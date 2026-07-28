@@ -286,6 +286,9 @@ importers:
       color:
         specifier: 5.0.3
         version: 5.0.3
+      d3-hierarchy:
+        specifier: 3.1.2
+        version: 3.1.2
       diff:
         specifier: 9.0.0
         version: 9.0.0
@@ -383,6 +386,9 @@ importers:
       '@types/bootstrap':
         specifier: 5.2.11
         version: 5.2.11
+      '@types/d3-hierarchy':
+        specifier: 3.1.7
+        version: 3.1.7
       '@types/jquery':
         specifier: 4.0.1
         version: 4.0.1

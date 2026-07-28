@@ -2,7 +2,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import FBranch from "../entities/fbranch";
 import { buildNote } from "../test/easy-froca";
-import attributeService from "./attributes";
 import {
     buildCategoryQuery,
     buildLocationTree,
@@ -16,7 +15,8 @@ import {
     parseFilterTriggers,
     resolveProperties,
     setCategoryEnabled
-} from "./content_manager";
+} from "./active_content";
+import attributeService from "./attributes";
 import froca from "./froca";
 import searchService from "./search";
 

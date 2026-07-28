@@ -9,6 +9,7 @@ import otherRoute from "./api/others";
 import branchesApiRoute from "./api/branches";
 import appInfoRoute from "./api/app_info";
 import statsRoute from "./api/stats";
+import spaceUsageRoute from "./api/space_usage";
 import AbstractBeccaEntity from "../becca/entities/abstract_becca_entity";
 import cloningApiRoute from "./api/cloning";
 import sqlRoute from "./api/sql";
@@ -200,6 +201,9 @@ export function buildSharedApiRoutes({ route, asyncRoute, apiRoute, asyncApiRout
 
     apiRoute(GET, "/api/stats/note-size/:noteId", statsRoute.getNoteSize);
     apiRoute(GET, "/api/stats/subtree-size/:noteId", statsRoute.getSubtreeSize);
+
+    apiRoute(GET, "/api/space-usage/overview", spaceUsageRoute.getOverview);
+    apiRoute(GET, "/api/space-usage/note/:noteId", spaceUsageRoute.getNoteUsage);
 
     apiRoute(GET, "/api/sql/schema", sqlRoute.getSchema);
     apiRoute(PST, "/api/sql/execute/:noteId", sqlRoute.execute);
