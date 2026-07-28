@@ -1,6 +1,7 @@
 import "./attribute_detail.css";
 
 import type { DefinitionObject, LabelType, Multiplicity } from "@triliumnext/commons";
+import { ComponentProps } from "preact";
 import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../../components/app_context.js";
@@ -22,13 +23,12 @@ import FormAutocomplete, { AUTOCOMPLETE_DROPDOWN_SELECTOR } from "../react/FormA
 import { FormDropdownDivider, FormListItem } from "../react/FormList.jsx";
 import FormSelect from "../react/FormSelect.jsx";
 import FormTextBox, { FormTextBoxWithUnit } from "../react/FormTextBox.jsx";
-import FormToggle from "../react/FormToggle.jsx";
-import HelpButton from "../react/HelpButton.jsx";
+import HelpTooltipButton from "../react/HelpTooltipButton.jsx";
 import NoteAutocomplete from "../react/NoteAutocomplete.jsx";
 import NoteLink, { NewNoteLink } from "../react/NoteLink.jsx";
-import RawHtml from "../react/RawHtml.jsx";
 import { disposeReactWidget, ParentComponent, renderReactWidgetAtElement } from "../react/react_utils.jsx";
-import { ATTR_HELP } from "./attr_help.js";
+import OptionsRow, { OptionsRowWithToggle } from "../type_widgets/options/components/OptionsRow.jsx";
+import { ATTR_HELP, AttrHelpEntry } from "./attr_help.js";
 
 export interface AttributeDetailOpts {
     allAttributes?: Attribute[];
@@ -313,6 +313,7 @@ function AttributeForm({ opts, attrType, currentNoteId, onCancel, onAttributesCh
     // Committing mid-composition makes the spawning editor re-render and swallow the
     // characters being composed: https://github.com/zadam/trilium/pull/3812
     const isComposing = useRef(false);
+    const nameHelp = lookupAttributeHelp(attrType, name);
 
     useEffect(() => {
         if (focus === "name") {
@@ -381,180 +382,173 @@ function AttributeForm({ opts, attrType, currentNoteId, onCancel, onAttributesCh
                 </div>
             )}
 
-            <table class="attr-edit-table">
-                <tbody>
-                    <tr title={t("attribute_detail.attr_name_title")}>
-                        <th>{t("attribute_detail.name")}</th>
-                        <td>
-                            <FormAutocomplete
-                                className="attr-input-name"
-                                inputRef={nameRef}
-                                currentValue={name}
-                                readOnly={!isOwned}
-                                source={suggestAttributeNames}
-                                openOnFocus
-                                onChange={(newName) => isComposing.current ? setName(newName) : commitName(newName)}
-                                onCompositionStart={() => isComposing.current = true}
-                                onCompositionEnd={(e) => {
-                                    isComposing.current = false;
-                                    commitName(e.currentTarget.value);
-                                }}
-                            />
-                        </td>
-                    </tr>
+            <div class="attr-edit-rows">
+                <OptionsRow name="attr-name" label={t("attribute_detail.name")}>
+                    <AttributeNameField
+                        help={nameHelp}
+                        className="attr-input-name"
+                        inputRef={nameRef}
+                        currentValue={name}
+                        readOnly={!isOwned}
+                        source={suggestAttributeNames}
+                        openOnFocus
+                        onChange={(newName) => isComposing.current ? setName(newName) : commitName(newName)}
+                        onCompositionStart={() => isComposing.current = true}
+                        onCompositionEnd={(e) => {
+                            isComposing.current = false;
+                            commitName(e.currentTarget.value);
+                        }}
+                    />
+                </OptionsRow>
 
-                    <AttributeNameHelp attrType={attrType} name={name} />
+                {attrType === "relation" && (
+                    <OptionsRow
+                        name="attr-target-note"
+                        label={t("attribute_detail.target_note")}
+                        description={t("attribute_detail.target_note_title")}
+                    >
+                        <NoteAutocomplete
+                            noteId={attribute.value || undefined}
+                            readOnly={!isOwned}
+                            opts={TARGET_NOTE_OPTS}
+                            noteIdChanged={commitTargetNote}
+                        />
+                    </OptionsRow>
+                )}
 
-                    {attrType === "relation" && (
-                        <tr class="attr-row-target-note">
-                            <th title={t("attribute_detail.target_note_title")}>{t("attribute_detail.target_note")}</th>
-                            <td>
-                                <NoteAutocomplete
-                                    noteId={attribute.value || undefined}
-                                    readOnly={!isOwned}
-                                    opts={TARGET_NOTE_OPTS}
-                                    noteIdChanged={commitTargetNote}
-                                />
-                            </td>
-                        </tr>
-                    )}
+                {attrType === "label" && (
+                    <OptionsRow name="attr-value" label={t("attribute_detail.value")}>
+                        <FormAutocomplete
+                            className="attr-input-value"
+                            currentValue={value}
+                            readOnly={!isOwned}
+                            source={suggestLabelValues}
+                            openOnFocus
+                            onChange={(newValue) => isComposing.current ? setValue(newValue) : commitValue(newValue)}
+                            onCompositionStart={() => isComposing.current = true}
+                            onCompositionEnd={(e) => {
+                                isComposing.current = false;
+                                commitValue(e.currentTarget.value);
+                            }}
+                        />
+                    </OptionsRow>
+                )}
 
-                    {attrType === "label" && (
-                        <tr class="attr-row-value">
-                            <th>{t("attribute_detail.value")}</th>
-                            <td>
-                                <FormAutocomplete
-                                    className="attr-input-value"
-                                    currentValue={value}
-                                    readOnly={!isOwned}
-                                    source={suggestLabelValues}
-                                    openOnFocus
-                                    onChange={(newValue) => isComposing.current ? setValue(newValue) : commitValue(newValue)}
-                                    onCompositionStart={() => isComposing.current = true}
-                                    onCompositionEnd={(e) => {
-                                        isComposing.current = false;
-                                        commitValue(e.currentTarget.value);
-                                    }}
-                                />
-                            </td>
-                        </tr>
-                    )}
+                {isDefinition(attrType) && (
+                    <OptionsRowWithToggle
+                        name="attr-promoted"
+                        label={t("attribute_detail.promoted")}
+                        description={t("attribute_detail.promoted_title")}
+                        currentValue={!!definition.isPromoted}
+                        disabled={!isOwned}
+                        onChange={(isPromoted) => commitDefinition({ isPromoted })}
+                    />
+                )}
 
-                    {isDefinition(attrType) && (
-                        <tr class="attr-row-promoted" title={t("attribute_detail.promoted_title")}>
-                            <th>{t("attribute_detail.promoted")}</th>
-                            <td>
-                                <FormToggle
-                                    currentValue={!!definition.isPromoted}
-                                    disabled={!isOwned}
-                                    onChange={(isPromoted) => commitDefinition({ isPromoted })}
-                                />
-                            </td>
-                        </tr>
-                    )}
+                {isDefinition(attrType) && definition.isPromoted && (
+                    <OptionsRow
+                        name="attr-promoted-alias"
+                        label={t("attribute_detail.promoted_alias")}
+                        description={t("attribute_detail.promoted_alias_title")}
+                    >
+                        <FormTextBox
+                            className="attr-input-promoted-alias"
+                            currentValue={definition.promotedAlias ?? ""}
+                            disabled={!isOwned}
+                            onChange={(promotedAlias) => commitDefinition({ promotedAlias })}
+                        />
+                    </OptionsRow>
+                )}
 
-                    {isDefinition(attrType) && definition.isPromoted && (
-                        <tr class="attr-row-promoted-alias">
-                            <th title={t("attribute_detail.promoted_alias_title")}>{t("attribute_detail.promoted_alias")}</th>
-                            <td>
-                                <FormTextBox
-                                    className="attr-input-promoted-alias"
-                                    currentValue={definition.promotedAlias ?? ""}
-                                    disabled={!isOwned}
-                                    onChange={(promotedAlias) => commitDefinition({ promotedAlias })}
-                                />
-                            </td>
-                        </tr>
-                    )}
+                {isDefinition(attrType) && !opts.hideMultiplicity && (
+                    <OptionsRow
+                        name="attr-multiplicity"
+                        label={t("attribute_detail.multiplicity")}
+                        description={t("attribute_detail.multiplicity_title")}
+                    >
+                        <FormSelect
+                            className="attr-input-multiplicity"
+                            values={MULTIPLICITIES}
+                            keyProperty="value"
+                            titleProperty="title"
+                            currentValue={definition.multiplicity ?? "single"}
+                            disabled={!isOwned}
+                            onChange={(multiplicity) => commitDefinition({ multiplicity: multiplicity as Multiplicity })}
+                        />
+                    </OptionsRow>
+                )}
 
-                    {isDefinition(attrType) && !opts.hideMultiplicity && (
-                        <tr class="attr-row-multiplicity">
-                            <th title={t("attribute_detail.multiplicity_title")}>{t("attribute_detail.multiplicity")}</th>
-                            <td>
-                                <FormSelect
-                                    className="attr-input-multiplicity"
-                                    values={MULTIPLICITIES}
-                                    keyProperty="value"
-                                    titleProperty="title"
-                                    currentValue={definition.multiplicity ?? "single"}
-                                    disabled={!isOwned}
-                                    onChange={(multiplicity) => commitDefinition({ multiplicity: multiplicity as Multiplicity })}
-                                />
-                            </td>
-                        </tr>
-                    )}
+                {attrType === "label-definition" && (
+                    <OptionsRow
+                        name="attr-label-type"
+                        label={t("attribute_detail.label_type")}
+                        description={t("attribute_detail.label_type_title")}
+                    >
+                        <FormSelect
+                            className="attr-input-label-type"
+                            values={LABEL_TYPES}
+                            keyProperty="value"
+                            titleProperty="title"
+                            currentValue={definition.labelType ?? "text"}
+                            disabled={!isOwned}
+                            onChange={(labelType) => commitDefinition({ labelType: labelType as LabelType })}
+                        />
+                    </OptionsRow>
+                )}
 
-                    {attrType === "label-definition" && (
-                        <tr class="attr-row-label-type">
-                            <th title={t("attribute_detail.label_type_title")}>{t("attribute_detail.label_type")}</th>
-                            <td>
-                                <FormSelect
-                                    className="attr-input-label-type"
-                                    values={LABEL_TYPES}
-                                    keyProperty="value"
-                                    titleProperty="title"
-                                    currentValue={definition.labelType ?? "text"}
-                                    disabled={!isOwned}
-                                    onChange={(labelType) => commitDefinition({ labelType: labelType as LabelType })}
-                                />
-                            </td>
-                        </tr>
-                    )}
+                {attrType === "label-definition" && definition.labelType === "number" && (
+                    <OptionsRow
+                        name="attr-number-precision"
+                        label={t("attribute_detail.precision")}
+                        description={t("attribute_detail.precision_title")}
+                    >
+                        <FormTextBoxWithUnit
+                            className="attr-input-number-precision"
+                            type="number"
+                            min={0}
+                            unit={t("attribute_detail.digits")}
+                            currentValue={definition.numberPrecision?.toString() ?? ""}
+                            disabled={!isOwned}
+                            onChange={(precision) => commitDefinition({
+                                numberPrecision: precision === "" ? undefined : parseInt(precision, 10)
+                            })}
+                        />
+                    </OptionsRow>
+                )}
 
-                    {attrType === "label-definition" && definition.labelType === "number" && (
-                        <tr class="attr-row-number-precision">
-                            <th title={t("attribute_detail.precision_title")}>{t("attribute_detail.precision")}</th>
-                            <td>
-                                <FormTextBoxWithUnit
-                                    className="attr-input-number-precision"
-                                    type="number"
-                                    min={0}
-                                    unit={t("attribute_detail.digits")}
-                                    currentValue={definition.numberPrecision?.toString() ?? ""}
-                                    disabled={!isOwned}
-                                    onChange={(precision) => commitDefinition({
-                                        numberPrecision: precision === "" ? undefined : parseInt(precision, 10)
-                                    })}
-                                />
-                            </td>
-                        </tr>
-                    )}
+                {attrType === "relation-definition" && (
+                    <OptionsRow
+                        name="attr-inverse-relation"
+                        label={t("attribute_detail.inverse_relation")}
+                        description={t("attribute_detail.inverse_relation_title")}
+                    >
+                        <FormAutocomplete
+                            className="attr-input-inverse-relation"
+                            currentValue={definition.inverseRelation ?? ""}
+                            disabled={!isOwned}
+                            source={suggestRelationNames}
+                            openOnFocus
+                            onChange={(inverseRelation) => commitDefinition({
+                                // A relation name, so the same characters are dropped as in the name field
+                                inverseRelation: utils.filterAttributeName(inverseRelation)
+                            })}
+                        />
+                    </OptionsRow>
+                )}
 
-                    {attrType === "relation-definition" && (
-                        <tr class="attr-row-inverse-relation">
-                            <th title={t("attribute_detail.inverse_relation_title")}>{t("attribute_detail.inverse_relation")}</th>
-                            <td>
-                                <FormAutocomplete
-                                    className="attr-input-inverse-relation"
-                                    currentValue={definition.inverseRelation ?? ""}
-                                    disabled={!isOwned}
-                                    source={suggestRelationNames}
-                                    openOnFocus
-                                    onChange={(inverseRelation) => commitDefinition({
-                                        // A relation name, so the same characters are dropped as in the name field
-                                        inverseRelation: utils.filterAttributeName(inverseRelation)
-                                    })}
-                                />
-                            </td>
-                        </tr>
-                    )}
-
-                    <tr class="attr-row-inheritable" title={t("attribute_detail.inheritable_title")}>
-                        <th>{t("attribute_detail.inheritable")}</th>
-                        <td>
-                            <FormToggle
-                                currentValue={isInheritable}
-                                disabled={!isOwned}
-                                onChange={(checked) => {
-                                    setIsInheritable(checked);
-                                    attribute.isInheritable = checked;
-                                    onAttributesChanged?.(allAttributes ?? []);
-                                }}
-                            />
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+                <OptionsRowWithToggle
+                    name="attr-inheritable"
+                    label={t("attribute_detail.inheritable")}
+                    description={t("attribute_detail.inheritable_title")}
+                    currentValue={isInheritable}
+                    disabled={!isOwned}
+                    onChange={(checked) => {
+                        setIsInheritable(checked);
+                        attribute.isInheritable = checked;
+                        onAttributesChanged?.(allAttributes ?? []);
+                    }}
+                />
+            </div>
 
             {isOwned && (
                 <div class="attr-save-delete-button-container">
@@ -580,29 +574,23 @@ function AttributeForm({ opts, attrType, currentNoteId, onCancel, onAttributesCh
 }
 
 /**
- * Describes what a well-known attribute does, for the attribute currently being edited. Renders
- * nothing for names Trilium attaches no meaning to, which is most of them.
+ * The name field and, for a name Trilium attaches a meaning to, the button explaining what it does. The
+ * explanations run to several lines and most names have none, so they are not shown under the field.
  */
-function AttributeNameHelp({ attrType, name }: { attrType: AttrType; name: string }) {
-    const entry = attrType ? ATTR_HELP[attrType]?.[name] : undefined;
-
-    if (!entry) {
-        return null;
-    }
-
-    const { description, helpPage } = typeof entry === "string" ? { description: entry, helpPage: undefined } : entry;
-
+function AttributeNameField({ help, ...autocompleteProps }: { help?: AttrHelpEntry } & ComponentProps<typeof FormAutocomplete>) {
     return (
-        <tr class="attr-help">
-            {/* Descriptions carry markup of their own, e.g. <code> or a list of possible values. */}
-            <td colSpan={2}>
-                <strong>{name}</strong>
-                {" - "}
-                <RawHtml html={description} />
-                {helpPage && <HelpButton className="attr-help-page-button" helpPage={helpPage} />}
-            </td>
-        </tr>
+        <div class="attr-name-field">
+            {/* The row's label is bound to the field by the id the row hands down, which lands here. */}
+            <FormAutocomplete {...autocompleteProps} />
+            {help && <HelpTooltipButton {...help} />}
+        </div>
     );
+}
+
+/** Normalised so that the shorthand entries, which are the description alone, read like the rest. */
+function lookupAttributeHelp(attrType: AttrType, name: string): AttrHelpEntry | undefined {
+    const entry = attrType ? ATTR_HELP[attrType]?.[name] : undefined;
+    return typeof entry === "string" ? { description: entry } : entry;
 }
 
 /** Constant so it does not re-initialise the autocomplete on every render. */
@@ -613,7 +601,8 @@ const MULTIPLICITIES = [
     { value: "multi", title: t("attribute_detail.multi_value") }
 ];
 
-const LABEL_TYPES = [
+/** Exported so that hosts listing definitions can name their label type as the popup does. */
+export const LABEL_TYPES = [
     { value: "text", title: t("attribute_detail.text") },
     { value: "textarea", title: t("attribute_detail.textarea") },
     { value: "number", title: t("attribute_detail.number") },
@@ -768,7 +757,7 @@ const ATTR_TITLES: Record<string, string> = {
 
 const isNewLayout = isExperimentalFeatureEnabled("new-layout");
 
-function positionPopup(popup: HTMLElement, { x, y }: AttributeDetailOpts, parentOffset: { top: number; left: number }) {
+function positionPopup(popup: HTMLElement, { x, y, anchor }: AttributeDetailOpts, parentOffset: { top: number; left: number }) {
     const outerWidth = popup.offsetWidth;
     const outerHeight = popup.offsetHeight;
     const windowHeight = document.documentElement.clientHeight;
@@ -836,9 +825,9 @@ function toCssPos(value: number | string) {
     return typeof value === "number" ? `${value}px` : value;
 }
 
-type AttrType = "label" | "label-definition" | "relation" | "relation-definition" | undefined;
+export type AttrType = "label" | "label-definition" | "relation" | "relation-definition" | undefined;
 
-function getAttrType(attribute: Attribute): AttrType {
+export function getAttrType(attribute: Attribute): AttrType {
     if (attribute.type === "label") {
         // A bare prefix (`#label:`) defines nothing, so it stays an ordinary label — editing it as a
         // definition would only offer a name-less one back.
