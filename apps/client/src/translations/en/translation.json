@@ -2680,6 +2680,7 @@
     "others_attachments_one": "{{count}} more attachment ({{size}})",
     "others_attachments_other": "{{count}} more attachments ({{size}})",
     "cell_size": "Size: {{size}}",
+    "cell_size_with_attachments": "Size: {{size}} (of which {{attachmentsSize}} as attachments)",
     "segment_tooltip": "{{- title}} ({{size}})",
     "attachment_tooltip": "Attachment: {{- title}} ({{size}})",
     "child_tooltip": "Child note: {{- title}} ({{size}})",

@@ -43,7 +43,14 @@ export default function Overview({ overview, onShowDetails }: OverviewProps) {
         ),
         includeRevisions: INCLUDE_REVISIONS,
         getIcon: (noteId) => icons.get(noteId),
-        makeSizeDetail: (size) => t("space_usage.cell_size", { size: formatSize(size) })
+        // A cell's area covers the note's body and its attachments together; where attachments are
+        // part of that, the line says how much, so a big cell is read for the right reason.
+        makeSizeDetail: (size, attachmentsSize) => attachmentsSize > 0
+            ? t("space_usage.cell_size_with_attachments", {
+                size: formatSize(size),
+                attachmentsSize: formatSize(attachmentsSize)
+            })
+            : t("space_usage.cell_size", { size: formatSize(size) })
     }), [ overview, icons ]);
 
     return (

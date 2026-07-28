@@ -26,7 +26,7 @@ function build(overview: SpaceUsageOverviewResponse, includeRevisions = false) {
         hiddenNotesLabel: "Hidden notes",
         deletedNotesLabel: "Deleted notes",
         includeRevisions,
-        makeSizeDetail: (size) => `size:${size}`
+        makeSizeDetail: (size, attachmentsSize) => `size:${size}/att:${attachmentsSize}`
     });
 }
 
@@ -54,14 +54,20 @@ describe("buildOverviewModel", () => {
         // The size rides along in the note preview tooltip rather than a second tooltip of its own.
         expect(leaf.attributes).toEqual({
             "data-href": "#root/folder/leaf",
-            "data-tooltip-detail": "size:120"
+            "data-tooltip-detail": "size:120/att:20"
         });
     });
 
-    it("states the size its area encodes, and stays silent when no wording is given", () => {
+    it("states the size its area encodes and how much of it is attachments, or stays silent", () => {
         const overview = response([ entry("a", [ "a" ], { ownSize: 5, revisionsSize: 7 }) ]);
+        const detailOf = (model: TreemapItem<OverviewCell>) =>
+            childById(model, "a").attributes?.["data-tooltip-detail"];
 
-        expect(childById(build(overview, true), "a").attributes?.["data-tooltip-detail"]).toBe("size:12");
+        expect(detailOf(build(overview, true))).toBe("size:12/att:0");
+
+        // The attachment share is the note's own figure, whatever the weight happens to cover.
+        const withAttachments = response([ entry("a", [ "a" ], { ownSize: 5, attachmentsSize: 30 }) ]);
+        expect(detailOf(build(withAttachments))).toBe("size:35/att:30");
 
         const silent = buildOverviewModel(overview, {
             otherNotesLabel: "Other notes",
@@ -120,7 +126,7 @@ describe("buildOverviewModel", () => {
         expect(selfCell.data).toEqual({ noteId: "parent", notePath: [ "root", "parent" ] });
         expect(selfCell.attributes).toEqual({
             "data-href": "#root/parent",
-            "data-tooltip-detail": "size:50"
+            "data-tooltip-detail": "size:50/att:0"
         });
         expect(childById(parent, "child").value).toBe(10);
     });

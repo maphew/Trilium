@@ -24,9 +24,10 @@ interface OverviewModelOptions {
     getIcon?: (noteId: string) => string | undefined;
     /**
      * Wording for the size a note cell contributes to its hover tooltip, given the weight its area
-     * encodes. Omit to leave the cells silent about their size.
+     * encodes and how much of that weight is attachments rather than the note's own body. Omit to
+     * leave the cells silent about their size.
      */
-    makeSizeDetail?: (size: number) => string;
+    makeSizeDetail?: (size: number, attachmentsSize: number) => string;
 }
 
 /**
@@ -89,7 +90,7 @@ export function buildOverviewModel(
             "data-href": `#${cell.notePath?.join("/")}`,
             // The note preview tooltip shows this under the title, which is how a cell states its
             // size without any text of its own — and without a second tooltip competing with it.
-            ...(makeSizeDetail ? { "data-tooltip-detail": makeSizeDetail(weight) } : {})
+            ...(makeSizeDetail ? { "data-tooltip-detail": makeSizeDetail(weight, entry.attachmentsSize) } : {})
         };
 
         const icon = getIcon?.(entry.noteId);
