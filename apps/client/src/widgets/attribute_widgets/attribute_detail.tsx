@@ -43,6 +43,12 @@ export interface AttributeDetailOpts {
      */
     parent?: HTMLElement;
     hideMultiplicity?: boolean;
+    /**
+     * Places the popup beside this element instead of at `x`/`y`. For hosts whose attributes are shown
+     * far from the note attributes pane the coordinates are otherwise resolved against, e.g. the
+     * attributes panel in the right pane.
+     */
+    anchor?: HTMLElement;
 }
 
 /**
@@ -759,7 +765,9 @@ function positionPopup(popup: HTMLElement, { x, y, anchor }: AttributeDetailOpts
         return;
     }
 
-    if (isNewLayout) {
+    if (anchor) {
+        positionPopupBesideAnchor(popup, anchor);
+    } else if (isNewLayout) {
         // The popup always sits above the note attributes pane so it never covers it;
         // when the pane is closed (e.g. opened from the collection column editor),
         // it docks to the status bar instead.
@@ -789,6 +797,35 @@ function positionPopup(popup: HTMLElement, { x, y, anchor }: AttributeDetailOpts
         popup.style.bottom = "";
         popup.style.maxHeight = outerHeight + y > windowHeight - 50 ? `${windowHeight - y - 50}px` : "10000px";
     }
+}
+
+/** How far the popup stays from its anchor, and from the edges of the viewport. */
+const ANCHOR_GAP = 8;
+const VIEWPORT_MARGIN = 10;
+
+/**
+ * Beside the anchor rather than over it: the hosts that anchor sit against an edge of the viewport
+ * (the right pane), so the popup takes whichever side of the anchor has the room for it.
+ */
+function positionPopupBesideAnchor(popup: HTMLElement, anchor: HTMLElement) {
+    const anchorRect = anchor.getBoundingClientRect();
+    const windowWidth = document.documentElement.clientWidth;
+    const windowHeight = document.documentElement.clientHeight;
+
+    // Set before measuring the height below, which the cap may well decide.
+    popup.style.maxHeight = `${windowHeight - 2 * VIEWPORT_MARGIN}px`;
+
+    const outerWidth = popup.offsetWidth;
+    const outerHeight = popup.offsetHeight;
+    const left = anchorRect.left >= outerWidth + ANCHOR_GAP + VIEWPORT_MARGIN
+        ? anchorRect.left - outerWidth - ANCHOR_GAP
+        : Math.min(anchorRect.right + ANCHOR_GAP, windowWidth - outerWidth - VIEWPORT_MARGIN);
+
+    popup.style.left = `${Math.max(left, VIEWPORT_MARGIN)}px`;
+    popup.style.right = "";
+    // Level with the anchor, slid up as far as needed to stay wholly on screen.
+    popup.style.top = `${Math.max(Math.min(anchorRect.top, windowHeight - outerHeight - VIEWPORT_MARGIN), VIEWPORT_MARGIN)}px`;
+    popup.style.bottom = "";
 }
 
 function getDetailPosition(x: number, offsetLeft: number, outerWidth: number) {

@@ -19,6 +19,7 @@ import LazyComponent from "../react/LazyComponent";
 import NoItems from "../react/NoItems";
 import { PaneMode, usePaneMode, usePeekDismiss } from "../react/peek_pane";
 import LegacyRightPanelWidget from "../right_panel_widget";
+import AttributeList from "./AttributeList";
 import ChatHighlightsList from "./ChatHighlightsList";
 import HighlightsList from "./HighlightsList";
 import PdfAnnotations from "./pdf/PdfAnnotations";
@@ -117,6 +118,10 @@ function useItems(rightPaneVisible: boolean, widgetsByParent: WidgetsByParent) {
 
     if (!rightPaneVisible) return [];
     const definitions: RightPanelWidgetDefinition[] = [
+        {
+            el: <AttributeList />,
+            enabled: !!note
+        },
         {
             el: <TableOfContents />,
             enabled: (noteType === "text" || noteType === "doc" || isPdf || noteType === "llmChat" || !!note?.isMarkdown()),

@@ -1,0 +1,131 @@
+.attribute-list-panel {
+    display: flex;
+    flex-direction: column;
+}
+
+.attribute-list-panel .attribute-rows {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.attribute-list-panel .attribute-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 4px;
+    border-radius: var(--border-radius-size, 4px);
+    cursor: pointer;
+    /* A row stands for its attribute rather than spelling it out, so nothing wraps: the name and the
+       value are cut off instead, and the popup the row opens has them in full. */
+    white-space: nowrap;
+    overflow: hidden;
+}
+
+.attribute-list-panel .attribute-row:hover,
+.attribute-list-panel .attribute-row.active {
+    background-color: var(--hover-item-background-color);
+}
+
+/*
+ * The kind of the attribute, as the icon of what it is (a label or a relation). It is the only thing
+ * saying so, the row carrying neither the `#`/`~` prefix nor the type as a word.
+ */
+.attribute-list-panel .attribute-kind {
+    position: relative;
+    display: flex;
+    flex-shrink: 0;
+    color: var(--muted-text-color);
+}
+
+/* A definition is the same icon with a cog on it: it configures the label or relation it names, so it
+   reads as one, rather than as a third kind of thing with an icon of its own. */
+.attribute-list-panel .attribute-kind.definition::after {
+    content: "\ea6e"; /* lookup code for "cog" in boxicons.css */
+    position: absolute;
+    inset-inline-end: -3px;
+    bottom: -2px;
+    font-family: boxicons;
+    font-size: 0.62em;
+    font-weight: normal;
+    line-height: 1;
+    /* Punched out of the icon it sits on, so the two glyphs stay legible where they overlap. */
+    text-shadow:
+        0 0 2px var(--card-background-color, var(--main-background-color)),
+        0 0 2px var(--card-background-color, var(--main-background-color));
+}
+
+.attribute-list-panel .attribute-name {
+    flex-shrink: 0;
+    max-width: 65%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    font-weight: bold;
+}
+
+.attribute-list-panel .attribute-value {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--muted-text-color);
+}
+
+.attribute-list-panel .attribute-value.empty {
+    font-style: italic;
+    opacity: 0.7;
+}
+
+/* The settings of a definition, which are a summary and not a value: quieter than one, and never the
+   reason the row is as wide as it is. */
+.attribute-list-panel .attribute-value.definition {
+    font-size: 0.85em;
+    text-transform: lowercase;
+}
+
+.attribute-list-panel .attribute-marker,
+.attribute-list-panel .attribute-owner {
+    flex-shrink: 0;
+    color: var(--muted-text-color);
+    font-size: 0.85em;
+}
+
+.attribute-list-panel .attribute-owner {
+    max-width: 40%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Deleting is destructive and one row deep, so the button only appears on the row being pointed at. */
+.attribute-list-panel .attribute-delete-button {
+    flex-shrink: 0;
+    visibility: hidden;
+}
+
+.attribute-list-panel .attribute-row:hover .attribute-delete-button,
+.attribute-list-panel .attribute-row.active .attribute-delete-button {
+    visibility: visible;
+}
+
+.attribute-list-panel .attribute-group-header {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    margin-top: 8px;
+    padding: 2px 4px;
+    border: none;
+    background: none;
+    color: var(--muted-text-color);
+    font-size: 0.85em;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+}
+
+.attribute-list-panel .attribute-group-header .group-chevron {
+    transition: transform 0.2s ease;
+}
+
+.attribute-list-panel .attribute-group-header .group-chevron.collapsed {
+    transform: rotate(-90deg);
+}
