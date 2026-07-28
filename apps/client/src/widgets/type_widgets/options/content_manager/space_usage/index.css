@@ -33,10 +33,15 @@
     .space-usage-status {
         display: flex;
         flex: 0 0 auto;
-        gap: 2em;
+        flex-wrap: wrap;
+        gap: 0.6em;
         border-top: 1px solid var(--main-border-color);
         padding-block: 6px;
         font-size: 0.85em;
+    }
+
+    .space-usage-status-separator {
+        opacity: 0.6;
     }
 
     .space-usage-loading {

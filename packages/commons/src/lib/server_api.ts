@@ -269,14 +269,28 @@ export interface SpaceUsageDeletedNotes {
     noteCount: number;
 }
 
+/**
+ * What the live content actually occupies — every blob referenced by a live note, attachment or
+ * revision, hidden subtree included, counted once however many entities share it through
+ * deduplication. The breakdown attributes each blob to exactly one tier — bodies first, then
+ * attachments, then revisions — so the parts sum to {@link size} and each reads as "the space only
+ * this category holds". The per-note numbers elsewhere intentionally count per entity instead, so
+ * a note's reported size never depends on duplicates elsewhere.
+ */
+export interface SpaceUsageContent {
+    /** The whole live content; the "database size" figure. */
+    size: number;
+    /** Live notes, hidden ones included. */
+    noteCount: number;
+    /** Space only note-owned attachments hold: their blobs minus those shared with note bodies. */
+    attachmentsSize: number;
+    /** Space only revisions hold (snapshot attachments included): their blobs minus those shared
+     *  with live bodies or live attachments. */
+    revisionsSize: number;
+}
+
 export interface SpaceUsageOverviewResponse {
-    /**
-     * What the live content actually occupies: every blob referenced by a live note, attachment or
-     * revision — hidden subtree included — counted once however many entities share it through
-     * deduplication. This is the "database size" figure; the per-note numbers below intentionally
-     * count per entity instead, so a note's reported size never depends on duplicates elsewhere.
-     */
-    contentSize: number;
+    content: SpaceUsageContent;
     /** The largest notes first, ranked by body + attachments (+ revisions when requested). */
     notes: SpaceUsageOverviewNote[];
     /** The remaining notes of the visible tree, below the ranking cutoff. */

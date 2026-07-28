@@ -10,7 +10,7 @@ function entry(noteId: string, notePath: string[], sizes: Partial<SpaceUsageOver
 
 function response(notes: SpaceUsageOverviewNote[], overrides: Partial<SpaceUsageOverviewResponse> = {}): SpaceUsageOverviewResponse {
     return {
-        contentSize: 0,
+        content: { size: 0, noteCount: 0, attachmentsSize: 0, revisionsSize: 0 },
         notes,
         otherNotes: { size: 0, revisionsSize: 0, noteCount: 0 },
         hiddenNotes: { size: 0, revisionsSize: 0, noteCount: 0 },

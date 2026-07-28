@@ -88,7 +88,7 @@ describe("Space usage API (core)", () => {
         expect(limited.otherNotes.noteCount).toBe(limited.total.noteCount - 1);
     });
 
-    it("counts deduplicated content once in contentSize, but per entity in the note sizes", async () => {
+    it("counts deduplicated content once in the content figure, but per entity in the note sizes", async () => {
         const duplicated = `<p>${"space-usage-dedup-".repeat(300)}</p>`;
         const before = await getOverview({ limit: 1 });
 
@@ -99,7 +99,20 @@ describe("Space usage API (core)", () => {
         // Two notes, one shared blob: the visible-tree total grows twice, the deduplicated
         // database-content figure only once.
         expect(after.total.size - before.total.size).toBe(2 * duplicated.length);
-        expect(after.contentSize - before.contentSize).toBe(duplicated.length);
+        expect(after.content.size - before.content.size).toBe(duplicated.length);
+        expect(after.content.noteCount - before.content.noteCount).toBe(2);
+    });
+
+    it("attributes each blob to exactly one content tier: bodies, then attachments, then revisions", async () => {
+        const { content } = await getOverview({ limit: 1 });
+
+        // The fixture attachment shares no blob with any body, so its tier holds at least it; the
+        // revision-heavy note's snapshot no longer matches its shrunken body, so the revisions tier
+        // holds at least that. The child's unchanged revision shares its body's blob and thus
+        // belongs to the bodies tier — invisible here.
+        expect(content.attachmentsSize).toBeGreaterThanOrEqual(ATTACHMENT_CONTENT.length);
+        expect(content.revisionsSize).toBeGreaterThanOrEqual(REVISION_HEAVY_CONTENT.length);
+        expect(content.size).toBeGreaterThanOrEqual(content.attachmentsSize + content.revisionsSize);
     });
 
     it("keeps zero-sized notes out of the individual listing", async () => {
@@ -152,7 +165,7 @@ describe("Space usage API (core)", () => {
         const overview = await getOverview({ limit: 1 });
         const rootUsage = await getNoteUsage("root");
         expect(rootUsage.subtreeContentSize).toBeGreaterThan(0);
-        expect(rootUsage.subtreeContentSize).toBeLessThanOrEqual(overview.contentSize);
+        expect(rootUsage.subtreeContentSize).toBeLessThanOrEqual(overview.content.size);
     });
 
     it("counts a cloned note only under its canonical parent", async () => {

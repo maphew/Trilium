@@ -36,10 +36,19 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
             {overview && (
                 <footer className="space-usage-status">
                     <span title={t("space_usage.status_content_hint")}>
-                        {t("space_usage.status_content", { size: formatSize(overview.contentSize) })}
+                        {t("space_usage.status_content", {
+                            count: overview.content.noteCount,
+                            size: formatSize(overview.content.size),
+                            revisionsSize: formatSize(overview.content.revisionsSize),
+                            attachmentsSize: formatSize(overview.content.attachmentsSize)
+                        })}
                     </span>
+                    <span className="space-usage-status-separator" aria-hidden="true">–</span>
                     <span title={t("space_usage.status_deleted_hint")}>
-                        {t("space_usage.status_deleted", { size: formatSize(overview.deletedNotes.size) })}
+                        {t("space_usage.status_deleted", {
+                            count: overview.deletedNotes.noteCount,
+                            size: formatSize(overview.deletedNotes.size)
+                        })}
                     </span>
                 </footer>
             )}

@@ -1,5 +1,6 @@
 import {
     SpaceUsageBucket,
+    SpaceUsageContent,
     SpaceUsageDeletedNotes,
     SpaceUsageNoteResponse,
     SpaceUsageOverviewResponse,
@@ -53,7 +54,7 @@ export function getOverview({ includeRevisions, limit }: { includeRevisions: boo
     }
 
     return {
-        contentSize: collectContentSize(),
+        content: collectContent(),
         notes: top.map(({ noteId, ...entrySizes }) => ({
             noteId,
             notePath: buildNotePath(forest.parentByNoteId, noteId),
@@ -335,23 +336,54 @@ function bucketOf(entries: SpaceUsageSizes[]): SpaceUsageBucket {
     return bucket;
 }
 
+const LIVE_BODY_BLOBS = `SELECT blobId FROM notes WHERE isDeleted = 0 AND blobId IS NOT NULL`;
+
+const LIVE_NOTE_ATTACHMENT_BLOBS = `
+    SELECT attachments.blobId FROM attachments
+    JOIN notes ON notes.noteId = attachments.ownerId
+    WHERE attachments.isDeleted = 0 AND notes.isDeleted = 0 AND attachments.blobId IS NOT NULL`;
+
+const LIVE_REVISION_BLOBS = `
+    SELECT revisions.blobId FROM revisions
+    JOIN notes ON notes.noteId = revisions.noteId
+    WHERE notes.isDeleted = 0 AND revisions.blobId IS NOT NULL
+    UNION
+    SELECT attachments.blobId FROM attachments
+    JOIN revisions ON revisions.revisionId = attachments.ownerId
+    JOIN notes ON notes.noteId = revisions.noteId
+    WHERE attachments.isDeleted = 0 AND notes.isDeleted = 0 AND attachments.blobId IS NOT NULL`;
+
 /**
- * What the live content actually occupies on disk: every blob referenced by a live note, a live
- * attachment or a revision of a live note — the hidden subtree included — counted once however
- * many entities share it through deduplication. The per-entity numbers elsewhere deliberately
- * count differently, so this is the one figure comparable to the database's real size.
+ * What the live content actually occupies on disk, deduplicated, broken into mutually exclusive
+ * tiers: bodies claim their blobs first, then note-owned attachments, then revisions (snapshot
+ * attachments included). The tiers sum to the total by construction, so each parenthetical figure
+ * reads as "the space that would go away if only this category vanished". The per-entity numbers
+ * elsewhere deliberately count differently; this is the one figure comparable to the database's
+ * real size.
  */
-function collectContentSize(): number {
-    return getSql().getValue<number | null>(`
-        SELECT SUM(COALESCE(LENGTH(blobs.content), 0))
-        FROM blobs
-        WHERE blobs.blobId IN (
-            SELECT blobId FROM notes WHERE isDeleted = 0 AND blobId IS NOT NULL
-            UNION SELECT blobId FROM attachments WHERE isDeleted = 0 AND blobId IS NOT NULL
-            UNION SELECT revisions.blobId FROM revisions
-                JOIN notes ON notes.noteId = revisions.noteId
-                WHERE notes.isDeleted = 0 AND revisions.blobId IS NOT NULL
-        )`) ?? 0;
+function collectContent(): SpaceUsageContent {
+    const sql = getSql();
+    const sumBlobs = (tier: string) =>
+        sql.getValue<number | null>(`
+            SELECT SUM(COALESCE(LENGTH(blobs.content), 0))
+            FROM blobs
+            WHERE ${tier}`) ?? 0;
+
+    const bodiesSize = sumBlobs(`blobs.blobId IN (${LIVE_BODY_BLOBS})`);
+    const attachmentsSize = sumBlobs(`
+        blobs.blobId IN (${LIVE_NOTE_ATTACHMENT_BLOBS})
+        AND blobs.blobId NOT IN (${LIVE_BODY_BLOBS})`);
+    const revisionsSize = sumBlobs(`
+        blobs.blobId IN (${LIVE_REVISION_BLOBS})
+        AND blobs.blobId NOT IN (${LIVE_BODY_BLOBS})
+        AND blobs.blobId NOT IN (${LIVE_NOTE_ATTACHMENT_BLOBS})`);
+
+    return {
+        size: bodiesSize + attachmentsSize + revisionsSize,
+        noteCount: sql.getValue<number>(`SELECT COUNT(*) FROM notes WHERE isDeleted = 0`),
+        attachmentsSize,
+        revisionsSize
+    };
 }
 
 /**
