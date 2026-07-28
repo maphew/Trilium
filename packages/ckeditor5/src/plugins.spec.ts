@@ -5,6 +5,7 @@ import { Admonition } from "@triliumnext/ckeditor5-admonition";
 import { COMMON_PLUGINS, CORE_PLUGINS, loadPremiumPlugins, POPUP_EDITOR_PLUGINS } from "./plugins.js";
 import CutToNotePlugin from "./plugins/cuttonote.js";
 import Uploadfileplugin from "./plugins/file_upload/uploadfileplugin.js";
+import TriliumFormatPainter from "./plugins/format_painter/format_painter.js";
 import IncludeNote from "./plugins/includenote.js";
 import InternalLinkPlugin from "./plugins/internallink.js";
 import LinkEmbed from "./plugins/link_embed/link_embed.js";
@@ -73,6 +74,7 @@ describe("plugin lists", () => {
         expect(COMMON_PLUGINS).toContain(IncludeNote);
         expect(COMMON_PLUGINS).toContain(LinkEmbed);
         expect(COMMON_PLUGINS).toContain(Uploadfileplugin);
+        expect(COMMON_PLUGINS).toContain(TriliumFormatPainter);
     });
 
     it("COMMON_PLUGINS includes the external widget plugins", () => {
@@ -95,14 +97,16 @@ describe("loadPremiumPlugins", () => {
         }
     });
 
-    it("includes Template and FormatPainter, but not SlashCommand", async () => {
+    it("includes Template, but not SlashCommand or FormatPainter", async () => {
         const { SlashCommand, Template, FormatPainter } = await import("ckeditor5-premium-features");
         const plugins = await loadPremiumPlugins();
         expect(plugins).toContain(Template);
-        expect(plugins).toContain(FormatPainter);
 
         // `SlashCommand` requires the `Mention` façade, which would load upstream's `MentionUI`
         // alongside `TriliumMentionUI`; `TriliumSlashCommands` provides `/` instead.
         expect(plugins).not.toContain(SlashCommand);
+
+        // `FormatPainter` is replaced by the GPL `TriliumFormatPainter`.
+        expect(plugins).not.toContain(FormatPainter);
     });
 });

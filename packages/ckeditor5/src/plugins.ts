@@ -16,6 +16,7 @@ import MentionCustomization from "./plugins/mention_customization.js";
 import TriliumEmojiMention from "./plugins/mention/emoji_mention.js";
 import TriliumMentionUI from "./plugins/mention/trilium_mention_ui.js";
 import TriliumSlashCommands from "./plugins/mention/slash_commands.js";
+import TriliumFormatPainter from "./plugins/format_painter/format_painter.js";
 import IncludeNote from "./plugins/includenote.js";
 import LinkEmbed from "./plugins/link_embed/link_embed.js";
 import Uploadfileplugin from "./plugins/file_upload/uploadfileplugin.js";
@@ -144,10 +145,13 @@ export async function loadPremiumPlugins(): Promise<(typeof Plugin)[]> {
     // `SlashCommand` is deliberately not among them: it `requires` the `Mention` façade, which loads
     // upstream's `MentionUI` next to `TriliumMentionUI` and leaves the two fighting over the same
     // balloon. `TriliumSlashCommands` provides `/` instead, for premium and GPL builds alike.
-    const { Template, FormatPainter } = await import('ckeditor5-premium-features');
+    //
+    // `FormatPainter` is likewise gone: the GPL `TriliumFormatPainter` (built on the public
+    // `isFormatting` schema flag) replaces it, so only `Template` still needs the premium licence.
+    const { Template } = await import('ckeditor5-premium-features');
     // Also load the CSS when premium features are used
     await import('ckeditor5-premium-features/ckeditor5-premium-features.css');
-    return [Template, FormatPainter];
+    return [Template];
 }
 
 /**
@@ -216,6 +220,10 @@ export const COMMON_PLUGINS: typeof Plugin[] = [
     EmojiPicker,
     TriliumEmojiMention,
     TriliumSlashCommands,
+
+    // GPL reimplementation of premium `FormatPainter` (the `formatPainter` toolbar button), built on
+    // the public `isFormatting` schema flag, so the commercial plugin can be dropped.
+    TriliumFormatPainter,
 
     ...TRILIUM_PLUGINS,
     ...EXTERNAL_PLUGINS
