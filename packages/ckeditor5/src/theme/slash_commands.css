@@ -32,12 +32,17 @@
          * `.ck.ck-icon { width/height: var(--ck-icon-size) }` sized the glyph. Here the class is on
          * a wrapping span and the raw `<svg>` — injected via innerHTML from mixed sources (CKEditor
          * 20px viewBoxes, 24px boxicons, custom footnote/math art) — is left unconstrained and
-         * renders at its intrinsic size. Pin it to the icon box so every source lands the same size.
+         * renders at its intrinsic size.
+         *
+         * Fill the span's content box rather than re-applying `--ck-icon-size` to the svg:
+         * the variable is `em`-relative, and the svg carries a larger font-size than the chip, so
+         * `width: var(--ck-icon-size)` on the svg resolves ~20% bigger than the box it sits in and
+         * spills over the padding. `100%` ties it to the box the chip already sized.
          */
         & > svg {
             display: block;
-            width: var(--ck-icon-size);
-            height: var(--ck-icon-size);
+            width: 100%;
+            height: 100%;
         }
     }
 
