@@ -232,6 +232,79 @@ export interface SubtreeSizeResponse {
     subTreeSize: number;
 }
 
+/**
+ * The size components of a single note. Revisions are always reported separately so a client can
+ * include or exclude them without another request.
+ */
+export interface SpaceUsageSizes {
+    /** Size of the note's own body. */
+    ownSize: number;
+    /** Combined size of the attachments owned by the note. */
+    attachmentsSize: number;
+    /** Combined size of the note's revisions, including attachments owned by those revisions. */
+    revisionsSize: number;
+}
+
+export interface SpaceUsageOverviewNote extends SpaceUsageSizes {
+    noteId: string;
+    /**
+     * Note IDs from a top-level note down to this note, following each note's canonical placement
+     * (see the space usage service); the root itself is omitted.
+     */
+    notePath: string[];
+}
+
+/** An aggregate over notes that are not listed individually. */
+export interface SpaceUsageBucket {
+    /** Note bodies plus attachments; revisions are in {@link revisionsSize}. */
+    size: number;
+    revisionsSize: number;
+    noteCount: number;
+}
+
+/** Space still held by deleted entities whose blobs have not been erased yet. */
+export interface SpaceUsageDeletedNotes {
+    size: number;
+    /** Deleted notes whose body blob still exists; erased notes no longer count. */
+    noteCount: number;
+}
+
+export interface SpaceUsageOverviewResponse {
+    /** The largest notes first, ranked by body + attachments (+ revisions when requested). */
+    notes: SpaceUsageOverviewNote[];
+    /** The remaining notes of the visible tree, below the ranking cutoff. */
+    otherNotes: SpaceUsageBucket;
+    /** Notes reachable only through the hidden subtree, plus any note not reachable at all. */
+    hiddenNotes: SpaceUsageBucket;
+    deletedNotes: SpaceUsageDeletedNotes;
+    /** Every note of the visible tree: {@link notes} and {@link otherNotes} combined. */
+    total: SpaceUsageBucket;
+}
+
+export interface SpaceUsageChild {
+    noteId: string;
+    /** Bodies plus attachments of the child's whole canonical subtree. */
+    subtreeSize: number;
+    subtreeRevisionsSize: number;
+    subtreeNoteCount: number;
+}
+
+export interface SpaceUsageAttachment {
+    attachmentId: string;
+    title: string;
+    role: string;
+    size: number;
+}
+
+export interface SpaceUsageNoteResponse extends SpaceUsageSizes {
+    noteId: string;
+    attachments: SpaceUsageAttachment[];
+    /** Canonical children only: a cloned child is listed under its canonical parent alone. */
+    children: SpaceUsageChild[];
+    /** Only present on the root, deleted notes having no place in the tree. */
+    deletedNotes?: SpaceUsageDeletedNotes;
+}
+
 export interface SimilarNote {
     score: number;
     notePath: string[];
