@@ -48,23 +48,29 @@ interface RightPaneTabsProps {
  */
 export default function RightPaneTabs({ tabs, activeTabId, onSelect }: RightPaneTabsProps) {
     return (
-        <div class="right-pane-tabs" role="tablist">
-            {tabs.map((tab) => (
-                <RightPaneTab
-                    key={tab.id}
-                    tab={tab}
-                    active={tab.id === activeTabId}
-                    onSelect={() => onSelect(tab.id)}
-                />
-            ))}
+        // Centred in the row rather than run up against its start (see RightPaneTabs.css).
+        <div class="right-pane-tabs">
+            {/* A button group, which is how Trilium draws a choice between several things: a recessed
+                track with the one on show raised out of it. The theme dresses the class; all this pane
+                does is size it to a header row (see RightPaneTabs.css). */}
+            <div class="btn-group right-pane-tab-group" role="tablist">
+                {tabs.map((tab) => (
+                    <RightPaneTab
+                        key={tab.id}
+                        tab={tab}
+                        active={tab.id === activeTabId}
+                        onSelect={() => onSelect(tab.id)}
+                    />
+                ))}
+            </div>
         </div>
     );
 }
 
 function RightPaneTab({ tab, active, onSelect }: { tab: RightPaneTabDefinition; active: boolean; onSelect: () => void }) {
     const buttonRef = useRef<HTMLButtonElement>(null);
-    // No tab is named in the strip, the selected one included: every tab is the same icon-sized square,
-    // which is what keeps the whole strip inside a pane narrow enough to only fit the icons. The name is
+    // No tab is named in the strip, the selected one included: every tab is the same icon-sized segment,
+    // which is what keeps the whole group inside a pane narrow enough to only fit the icons. The name is
     // the tooltip, and it is the only place it appears.
     useStaticTooltip(buttonRef, {
         title: tab.title,
@@ -80,7 +86,9 @@ function RightPaneTab({ tab, active, onSelect }: { tab: RightPaneTabDefinition; 
             role="tab"
             aria-selected={active}
             aria-label={tab.title}
-            class={clsx("right-pane-tab", active && "active")}
+            // `icon-action` is what the button group sizes and fills its segments by; `active` is what
+            // it raises the one on show with.
+            class={clsx("right-pane-tab icon-action", active && "active")}
             onClick={onSelect}
         >
             <span class={clsx("right-pane-tab-icon tn-icon", tab.icon)} />

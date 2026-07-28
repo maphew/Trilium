@@ -1,13 +1,13 @@
 /*
- * The tab strip is also the pane's header row: the pin/close actions are absolutely positioned over
- * its end (see RightPanelContainer.css), so it keeps that much room free of tabs.
+ * The tab strip is also the pane's header row: the pin/close actions are absolutely positioned over its
+ * end (see RightPanelContainer.css), and as much room again is kept free at the start, so the group is
+ * centred in the pane rather than in what is left of the row. `safe` centring gives way to the start of
+ * the row rather than pushing the first tab out of reach, for a pane too narrow to hold the group.
  */
 .right-pane-tabs {
-    --right-pane-tab-size: 28px;
-
     display: flex;
-    align-items: stretch;
-    gap: 2px;
+    align-items: center;
+    justify-content: safe center;
     flex-shrink: 0;
     height: var(--right-pane-header-height);
     padding-inline: 50px;
@@ -22,38 +22,34 @@
         display: none;
     }
 
-    /* Every tab is the same square: nothing but the icon is in it, centred on both axes. */
-    .right-pane-tab {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        flex: 0 0 auto;
-        width: var(--right-pane-tab-size);
-        padding: 0;
-        border: none;
-        border-bottom: 2px solid transparent;
-        /* The bottom border is the selected tab's indicator, so the corners it runs between are kept
-           square: rounding them curls both of its ends up, away from the strip's own border. */
-        border-end-start-radius: 0;
-        border-end-end-radius: 0;
-        background: none;
-        color: var(--muted-text-color);
-        cursor: pointer;
-    }
+    /*
+     * The group is the theme's (recessed track, raised active segment); only its size is this pane's own
+     * business, the theme building it for a toolbar, where it stands taller than a header row. The
+     * button selector out-specifies the theme's own sizing of the segments, which is a tie without it.
+     */
+    div.btn-group {
+        flex-shrink: 0;
+        gap: 2px;
+        padding: 2px;
 
-    .right-pane-tab:hover {
-        color: var(--main-text-color);
-    }
-
-    .right-pane-tab.active {
-        border-bottom-color: currentcolor;
-        color: var(--main-text-color);
+        button.right-pane-tab {
+            --icon-button-size: 22px;
+            /* Kept well inside the segment: the theme's own ratio is meant for a segment half again as
+               tall, where the same glyph has room to breathe. */
+            --icon-button-icon-ratio: 0.62;
+        }
     }
 
     .right-pane-tab-icon {
-        font-size: 1.1em;
+        /* Sized by the same formula the theme sizes an icon button's glyph by. It is spelled out here
+           because that rule reaches the glyph through `::before`, and this one is a span of its own —
+           which is what the strip needs to keep the segment and its icon separately sized. */
+        font-size: calc(var(--icon-button-size) * var(--icon-button-icon-ratio));
         /* The glyph is what is being centred: themes centre icons with `text-align`, which leaves it on
-           the text baseline of its span rather than in the middle of the square. */
+           the text baseline of its span rather than in the middle of the segment. */
+        display: flex;
+        align-items: center;
+        justify-content: center;
         line-height: 1;
     }
 }
