@@ -1,7 +1,7 @@
 import "./Treemap.css";
 
 import clsx from "clsx";
-import { hierarchy, treemap, treemapSquarify } from "d3-hierarchy";
+import { hierarchy, type HierarchyRectangularNode, treemap, treemapSquarify } from "d3-hierarchy";
 import { useMemo } from "preact/hooks";
 
 import { useElementSize } from "../hooks";
@@ -37,7 +37,20 @@ interface TreemapProps<T> {
     className?: string;
 }
 
-const CELL_GAP = 3;
+/** Between the top-level blocks — a group of related cells, or a lone cell standing on its own. */
+const BLOCK_GAP = 4;
+
+/** Between cells within one block, which read as one surface split up rather than separate things. */
+const CELL_GAP = 2;
+
+const BLOCK_CORNER_RADIUS = 4;
+
+/** Breathing room at the map's edge: a hovered cell's outline straddles its border and would
+ *  otherwise be shaved off by the container's clipping along the outermost rows and columns. */
+const MAP_INSET = 2;
+
+/** Layout coordinates are floats; edges meant to coincide can differ in the last bit. */
+const EDGE_EPSILON = 0.5;
 
 /**
  * A treemap over an arbitrary {@link TreemapItem} hierarchy, sized to fill its container and
@@ -47,6 +60,10 @@ const CELL_GAP = 3;
  * — their leaves stay clustered — and lend their group a shared {@link TreemapItem.hue}, but paint
  * no cell of their own, so nothing sits between the pointer and the leaf it is over. Identity is
  * explored by hovering, via the {@link TreemapItem.attributes} tooltips.
+ *
+ * Each top-level block is drawn as one rounded card: its cells sit {@link CELL_GAP} apart and square,
+ * rounding only the corners they share with the block, so a group reads as a single surface divided
+ * up rather than as loose tiles. Blocks stand {@link BLOCK_GAP} apart from each other.
  *
  * d3 computes the geometry only; the cells are plain absolutely-positioned divs so hover and
  * tooltips behave like everywhere else in the app. The hue tint is mixed into the theme's own
@@ -71,7 +88,12 @@ export default function Treemap<T>({ root, onItemClick, className }: TreemapProp
         const layout = treemap<TreemapItem<T>>()
             .tile(treemapSquarify)
             .size([ width, height ])
-            .paddingInner(CELL_GAP);
+            // Invoked per node with children, separating that node's own children: the root spaces
+            // the blocks apart, everything below it spaces cells within a block.
+            .paddingInner((node) => node.depth === 0 ? BLOCK_GAP : CELL_GAP)
+            // Only the root insets its children. A block must keep filling its own rect exactly,
+            // or no cell would touch its corners and the block would lose its rounding.
+            .paddingOuter((node) => node.depth === 0 ? MAP_INSET : 0);
 
         return layout(weighted).leaves().filter((leaf) => leaf.depth > 0);
     }, [ root, width, height ]);
@@ -97,6 +119,7 @@ export default function Treemap<T>({ root, onItemClick, className }: TreemapProp
                             top: cell.y0,
                             width: cellWidth,
                             height: cellHeight,
+                            borderRadius: blockCornerRadius(cell),
                             ...(item.hue !== undefined && { "--treemap-hue": String(item.hue) })
                         }}
                         onClick={onItemClick && (() => onItemClick(item))}
@@ -109,4 +132,29 @@ export default function Treemap<T>({ root, onItemClick, className }: TreemapProp
             {tooltipNode}
         </div>
     );
+}
+
+/**
+ * The rounding a cell needs so its block is a rounded card: a cell rounds a corner only where that
+ * corner is the block's own, leaving the cuts inside a block square. A cell that is a block by
+ * itself therefore rounds all four.
+ */
+function blockCornerRadius<T>(cell: HierarchyRectangularNode<TreemapItem<T>>) {
+    const block = cell.ancestors().find((node) => node.depth === 1) ?? cell;
+    const atLeft = isSameEdge(cell.x0, block.x0);
+    const atRight = isSameEdge(cell.x1, block.x1);
+    const atTop = isSameEdge(cell.y0, block.y0);
+    const atBottom = isSameEdge(cell.y1, block.y1);
+    const corner = (isBlockCorner: boolean) => isBlockCorner ? `${BLOCK_CORNER_RADIUS}px` : "0";
+
+    return [
+        corner(atTop && atLeft),
+        corner(atTop && atRight),
+        corner(atBottom && atRight),
+        corner(atBottom && atLeft)
+    ].join(" ");
+}
+
+function isSameEdge(a: number, b: number) {
+    return Math.abs(a - b) < EDGE_EPSILON;
 }

@@ -6,9 +6,10 @@
 
     /* Painted through a variable, not a competing rule: consumers set `--treemap-cell-background`
        and never race this stylesheet's cascade position. */
+    /* The corner rounding is per cell — a cell rounds only the corners its block owns — so it is
+       computed with the geometry rather than set here. */
     .treemap-cell {
         position: absolute;
-        border-radius: 4px;
         background: var(--treemap-cell-background, var(--accented-background-color));
         cursor: pointer;
     }

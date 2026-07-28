@@ -46,7 +46,7 @@ const ROOT: TreemapItem<string> = {
                     data: "big",
                     attributes: { "data-href": "#root/folder/big" }
                 },
-                { id: "small", value: 100, data: "small" }
+                { id: "small", value: 100, data: "small", attributes: { id: "cell-small" } }
             ]
         },
         { id: "bucket", value: 100, className: "bucket-cell", tooltip: "A crowd of notes" },
@@ -129,6 +129,42 @@ describe("Treemap", () => {
         probe.querySelector(".bucket-cell")?.dispatchEvent(new MouseEvent("mouseleave"));
         await flushRender();
         expect(probe.querySelector(".chart-tooltip")).toBeNull();
+    });
+
+    it("insets the whole map, so an edge cell's hover outline has room", () => {
+        const probe = renderTreemap(ROOT);
+
+        for (const cell of probe.querySelectorAll<HTMLElement>(".treemap-cell")) {
+            const { left, top, width, height } = cell.style;
+            expect(parseFloat(left)).toBeGreaterThanOrEqual(2);
+            expect(parseFloat(top)).toBeGreaterThanOrEqual(2);
+            // The stubbed container is 400×300.
+            expect(parseFloat(left) + parseFloat(width)).toBeLessThanOrEqual(398);
+            expect(parseFloat(top) + parseFloat(height)).toBeLessThanOrEqual(298);
+        }
+    });
+
+    it("rounds each block's own corners, leaving the cuts inside a block square", () => {
+        const probe = renderTreemap(ROOT);
+        // Read as longhands: the shorthand collapses "4px 4px 4px 4px" down to "4px".
+        const cornersOf = (selector: string) => {
+            const style = probe.querySelector<HTMLElement>(selector)?.style;
+            return [
+                style?.borderTopLeftRadius, style?.borderTopRightRadius,
+                style?.borderBottomRightRadius, style?.borderBottomLeftRadius
+            ];
+        };
+
+        // A cell that is a block by itself owns all four corners.
+        expect(cornersOf(".bucket-cell")).toEqual([ "4px", "4px", "4px", "4px" ]);
+
+        // The two cells sharing a block split it, so between them they own its four corners while
+        // the edge where they meet stays square.
+        const grouped = [ '[data-href="#root/folder/big"]', "#cell-small" ].map(cornersOf);
+        expect(grouped.flat().filter((corner) => corner === "4px").length).toBe(4);
+        for (const corners of grouped) {
+            expect(corners.filter((corner) => corner === "0px").length).toBeGreaterThan(0);
+        }
     });
 
     it("gives bigger values proportionally bigger areas", () => {
