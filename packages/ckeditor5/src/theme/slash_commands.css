@@ -26,6 +26,19 @@
         border-radius: 2px;
         color: var(--ck-color-base-text);
         background-color: var(--ck-color-base-background);
+
+        /*
+         * Premium put `ck-icon` on the `<svg>` itself (via `IconView`), so CKEditor's core
+         * `.ck.ck-icon { width/height: var(--ck-icon-size) }` sized the glyph. Here the class is on
+         * a wrapping span and the raw `<svg>` — injected via innerHTML from mixed sources (CKEditor
+         * 20px viewBoxes, 24px boxicons, custom footnote/math art) — is left unconstrained and
+         * renders at its intrinsic size. Pin it to the icon box so every source lands the same size.
+         */
+        & > svg {
+            display: block;
+            width: var(--ck-icon-size);
+            height: var(--ck-icon-size);
+        }
     }
 
     & > .ck-slash-command-button__text-part {
