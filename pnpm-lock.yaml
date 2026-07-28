@@ -730,8 +730,8 @@ importers:
         specifier: 5.2.1
         version: 5.2.1(supports-color@10.2.2)
       express-openid-connect:
-        specifier: 3.2.0
-        version: 3.2.0(express@5.2.1(supports-color@10.2.2))(supports-color@10.2.2)
+        specifier: 3.2.1
+        version: 3.2.1(express@5.2.1(supports-color@10.2.2))(supports-color@10.2.2)
       express-rate-limit:
         specifier: 8.6.0
         version: 8.6.0(express@5.2.1(supports-color@10.2.2))(supports-color@10.2.2)
@@ -8692,8 +8692,8 @@ packages:
   exponential-backoff@3.1.3:
     resolution: {integrity: sha512-ZgEeZXj30q+I0EN+CbSSpIyPaJ5HVQD18Z1m+u1FXbAeT94mr1zw50q4q6jiiC447Nl/YTcIYSAftiGqetwXCA==}
 
-  express-openid-connect@3.2.0:
-    resolution: {integrity: sha512-x+i7bhVj8StxLww3u0Rd4nzOMO+bdjkXLS1mkPmsChkjTRjqW58IlJNaG1nNNCAfoVfhfg0XkWJejTXllhtsuw==}
+  express-openid-connect@3.2.1:
+    resolution: {integrity: sha512-NCYhsAB/AtVzHuqRcJMhRcRDhhGlA++2pJfDYptE70GkntN3P2WGZ3rIFIqiz4QeDkS86m5R/fNTs+4spPdrDQ==}
     engines: {node: ^20.19.0 || ^22.12.0 || >= 23.0.0}
     peerDependencies:
       express: '>= 4.17.0'
@@ -23113,7 +23113,7 @@ snapshots:
 
   exponential-backoff@3.1.3: {}
 
-  express-openid-connect@3.2.0(express@5.2.1(supports-color@10.2.2))(supports-color@10.2.2):
+  express-openid-connect@3.2.1(express@5.2.1(supports-color@10.2.2))(supports-color@10.2.2):
     dependencies:
       base64url: 3.0.1
       clone: 2.1.2
@@ -23123,6 +23123,7 @@ snapshots:
       http-errors: 1.8.1
       joi: 17.13.3
       jose: 6.2.3
+      on-headers: 1.1.0
       openid-client: 6.8.4
       url-join: 4.0.1
       util-promisify: 3.0.0
