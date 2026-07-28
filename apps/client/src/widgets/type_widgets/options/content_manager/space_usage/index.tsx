@@ -27,9 +27,9 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
         setBrowsePath(notePath);
         setView("browse");
     }, []);
-    // Fetched in both views: the treemap consumes it, and the status line is view-independent.
-    // Revisions stay out of the ranking so it shares the basis of the areas the treemap draws —
-    // asking for one basis and drawing the other would rank in notes the cells then shrink away.
+    // Kept fetched across both views so returning to the treemap draws immediately rather than
+    // blanking. Revisions stay out of the ranking so it shares the basis of the areas the treemap
+    // draws — asking for one basis and drawing the other would rank in notes the cells then shrink.
     const overview = useSpaceUsageFetch<SpaceUsageOverviewResponse>(
         `space-usage/overview?limit=${OVERVIEW_LIMIT}`);
 
@@ -51,7 +51,9 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
                 ? <Overview overview={overview} onShowDetails={showDetails} />
                 : <p className="space-usage-loading">{t("space_usage.loading")}</p>)}
 
-            {overview && (
+            {/* Overview only: these are whole-database totals, and beside a single note's donut
+                they would read as being about that note. */}
+            {view === "overview" && overview && (
                 <footer className="space-usage-status">
                     <StatusEntry
                         // Revisions are left out: they carry their own cell on the map, which names

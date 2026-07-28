@@ -11,7 +11,7 @@ import { t } from "../../../../../services/i18n";
 import { formatSize } from "../../../../../services/utils";
 import DonutChart, { type DonutRing } from "../../../../react/charts/DonutChart";
 import { useStaticTooltip } from "../../../../react/hooks";
-import { openNoteInNewTab } from "./context_menu";
+import { quickEditNote } from "./context_menu";
 import {
     buildCompositionSegments,
     noteWeight,
@@ -47,10 +47,11 @@ interface NoteUsageDonutProps {
 }
 
 /**
- * The composition donut of a single note — body (blue), each attachment (yellow) and revisions
- * (gray) as ring segments, the note's name and total size in the hole. The name is a live note
- * link: it opens the note and carries the note preview tooltip. Reusable wherever one note's usage
- * needs breaking down; Browse wraps it with its children ring via {@link outerRings}.
+ * The composition donut of a single note — its body (blue) and each attachment (yellow) as ring
+ * segments, the note's name and the totals in the hole. The name is a live note link: it opens the
+ * note in the quick-edit popup, which stacks over the settings page rather than replacing what the
+ * user was reading. Reusable wherever one note's usage needs breaking down; Browse wraps it with
+ * its children ring via {@link outerRings}, which is also where history is drawn.
  */
 export default function NoteUsageDonut({ usage, title, notePath, outerRings = [], centerActions, onTitleContextMenu, className }: NoteUsageDonutProps) {
     const compositionRing: DonutRing<UsageSegmentData> = useMemo(() => ({
@@ -75,13 +76,15 @@ export default function NoteUsageDonut({ usage, title, notePath, outerRings = []
             {centerActions}
             <a
                 className="note-usage-donut-title"
-                href={`#${notePath.join("/")}`}
+                // `?popup` is the app's own quick-edit link form, so the markup advertises what the
+                // click does — and a copied link opens the same way anywhere else.
+                href={`#${notePath.join("/")}?popup`}
                 onClick={(event) => {
                     // Handled here: default hash navigation would swap the settings page itself,
                     // and the dialog's link interception must not double-handle it.
                     event.preventDefault();
                     event.stopPropagation();
-                    openNoteInNewTab(usage.noteId);
+                    quickEditNote(notePath);
                 }}
                 onContextMenu={onTitleContextMenu}
             >{title}</a>

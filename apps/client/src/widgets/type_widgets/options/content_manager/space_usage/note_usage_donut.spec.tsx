@@ -6,15 +6,13 @@ import { t } from "../../../../../services/i18n";
 import { formatSize } from "../../../../../services/utils";
 
 const mocks = vi.hoisted(() => ({
-    openContextWithNote: vi.fn()
+    triggerCommand: vi.fn()
 }));
 
 vi.mock("../../../../../components/app_context", () => ({
     default: {
-        tabManager: {
-            openContextWithNote: mocks.openContextWithNote,
-            getActiveContext: () => ({ hoistedNoteId: "hoistedNote" })
-        }
+        triggerCommand: mocks.triggerCommand,
+        tabManager: { getActiveContext: () => ({ hoistedNoteId: "hoistedNote" }) }
     }
 }));
 
@@ -73,7 +71,7 @@ afterEach(() => {
         container.remove();
         container = undefined;
     }
-    mocks.openContextWithNote.mockClear();
+    mocks.triggerCommand.mockClear();
 });
 
 describe("NoteUsageDonut", () => {
@@ -118,21 +116,21 @@ describe("NoteUsageDonut", () => {
         expect(pattern?.namespaceURI).toBe("http://www.w3.org/2000/svg");
     });
 
-    it("links the center title to the note and opens it in a new tab instead of navigating", () => {
+    it("quick-edits the note from the center title rather than navigating away", () => {
         const probe = renderDonut();
         const title = probe.querySelector<HTMLAnchorElement>(".note-usage-donut-title");
 
         expect(title?.textContent).toBe("My note");
-        expect(title?.getAttribute("href")).toBe("#root/n1");
+        // The app's own quick-edit link form, so the markup says what the click does.
+        expect(title?.getAttribute("href")).toBe("#root/n1?popup");
 
         const click = new MouseEvent("click", { bubbles: true, cancelable: true });
         title?.dispatchEvent(click);
 
+        // Handled here rather than let through: the hash would otherwise swap the settings page
+        // itself, and the popup must stack over the dialog instead of replacing it.
         expect(click.defaultPrevented).toBe(true);
-        expect(mocks.openContextWithNote).toHaveBeenCalledWith("n1", {
-            activate: true,
-            hoistedNoteId: "hoistedNote"
-        });
+        expect(mocks.triggerCommand).toHaveBeenCalledWith("openInPopup", { noteIdOrPath: "root/n1" });
     });
 
     it("totals each ring in the hole, with the actions above the title", () => {

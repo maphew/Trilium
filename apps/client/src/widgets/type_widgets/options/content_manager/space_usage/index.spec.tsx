@@ -97,7 +97,7 @@ describe("SpaceUsage section", () => {
         }) ?? "");
     });
 
-    it("switches to Browse and back, keeping the status line up", async () => {
+    it("switches to Browse and back, leaving the whole-database totals behind", async () => {
         mocks.overview = OVERVIEW;
         const probe = renderSection();
 
@@ -110,11 +110,13 @@ describe("SpaceUsage section", () => {
         await flushRender();
         expect(probe.querySelector(".browse-stub")).not.toBeNull();
         expect(probe.querySelector(".overview-stub")).toBeNull();
-        expect(probe.querySelector(".space-usage-status")).not.toBeNull();
+        // Browse is about one note; database-wide totals under it would read as that note's.
+        expect(probe.querySelector(".space-usage-status")).toBeNull();
 
         inactiveViewButton()?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
         await flushRender();
         expect(probe.querySelector(".overview-stub")).not.toBeNull();
         expect(probe.querySelector(".browse-stub")).toBeNull();
+        expect(probe.querySelector(".space-usage-status")).not.toBeNull();
     });
 });
