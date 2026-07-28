@@ -428,31 +428,27 @@ div.ck-template-form .ck-labeled-field-view {
     border-color: transparent;
 }
 
-/* Template icon */
-:root .ck-template-form .ck-button__icon {
-    --ck-spacing-medium: 2px;
-}
-
-:root div.ck-template-form .ck-icon foreignObject {
+/* Note icon — a plain font-icon <span>, no SVG <foreignObject> wrapper. The glyph is drawn by the
+   Boxicons font on the element's own ::before, so the circular backdrop goes on ::after to avoid
+   clobbering the glyph's `content`. */
+:root div.ck-template-form .ck-template-icon {
     position: relative;
+    /* Render like a real note icon (cf. the list/grid view's `.note-icon`): a hue-light glyph on a
+       hue-tinted circular backdrop when the note has a `#color`, falling back to the neutral icon
+       colours otherwise. The `--note-icon-custom-*` variables come from the `.with-hue` rule the
+       plugin opts into (see theme-next-{dark,light}.css); they derive from `--custom-color-hue`,
+       which the note's colour class carries. */
+    color: var(--note-icon-custom-color, var(--note-icon-color));
 
-    &::before {
+    &::after {
         display: block;
         content: "";
         position: absolute;
         inset: 2px;
         border-radius: 50%;
-        background: var(--note-icon-hover-background-color);
+        background: var(--note-icon-custom-background-color, var(--note-icon-hover-background-color));
         z-index: -1;
     }
-} 
-
-:root div.ck-template-form .ck-icon .note-icon {
-    display: flex;
-    height: 100%;
-    justify-content: center;
-    align-items: center;
-    color: var(--note-icon-color);
 }
 
 /* Template name */

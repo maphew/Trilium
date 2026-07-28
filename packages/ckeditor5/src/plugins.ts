@@ -29,6 +29,7 @@ import { Math, AutoformatMath } from "@triliumnext/ckeditor5-math";
 import CopyAnchorLinkButton from "./plugins/copy_anchor_link.js";
 import CopyLinkUrlButton from "./plugins/copy_link_url.js";
 import ImageActions from "./plugins/image_actions.js";
+import TriliumSnippets from "./plugins/snippets/snippets.js";
 
 // import "@triliumnext/ckeditor5-mermaid/index.css";
 // import "@triliumnext/ckeditor5-admonition/index.css";
@@ -88,6 +89,7 @@ const TRILIUM_PLUGINS: typeof Plugin[] = [
     CopyAnchorLinkButton,
     CopyLinkUrlButton,
     ImageActions,
+    TriliumSnippets,
 ];
 
 /**
@@ -144,10 +146,14 @@ export async function loadPremiumPlugins(): Promise<(typeof Plugin)[]> {
     // `SlashCommand` is deliberately not among them: it `requires` the `Mention` façade, which loads
     // upstream's `MentionUI` next to `TriliumMentionUI` and leaves the two fighting over the same
     // balloon. `TriliumSlashCommands` provides `/` instead, for premium and GPL builds alike.
-    const { Template, FormatPainter } = await import('ckeditor5-premium-features');
+    //
+    // `Template` is likewise absent: the GPL `TriliumSnippets` plugin replaces it (see
+    // `plugins/snippets/`), and additionally supports live reloading of the snippet list — the
+    // premium plugin baked its definitions in at startup, forcing an editor rebuild on any change.
+    const { FormatPainter } = await import('ckeditor5-premium-features');
     // Also load the CSS when premium features are used
     await import('ckeditor5-premium-features/ckeditor5-premium-features.css');
-    return [Template, FormatPainter];
+    return [FormatPainter];
 }
 
 /**

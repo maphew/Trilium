@@ -1,4 +1,4 @@
-import { buildExtraCommands, type EditorConfig, getCkLocale, loadPremiumPlugins, TemplateDefinition } from "@triliumnext/ckeditor5";
+import { buildExtraCommands, type EditorConfig, getCkLocale, loadPremiumPlugins, SnippetDefinition } from "@triliumnext/ckeditor5";
 import emojiDefinitionsUrl from "@triliumnext/ckeditor5/src/emoji_definitions/en.json?url";
 import { ALLOWED_PROTOCOLS, DISPLAYABLE_LOCALE_IDS, KATEX_MACROS, MIME_TYPE_AUTO, normalizeMimeTypeForCKEditor } from "@triliumnext/commons";
 
@@ -21,7 +21,7 @@ export interface BuildEditorOptions {
     isClassicEditor: boolean;
     uiLanguage: DISPLAYABLE_LOCALE_IDS;
     contentLanguage: string | null;
-    templates: TemplateDefinition[];
+    templates: SnippetDefinition[];
 }
 
 export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfig> {
@@ -177,7 +177,7 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
             dropdownLimit: Number.MAX_SAFE_INTEGER,
             extraCommands: buildExtraCommands((key, params) => t(key, params), SAMPLE_DIAGRAMS)
         },
-        template: {
+        snippets: {
             definitions: opts.templates
         },
         htmlSupport: {
