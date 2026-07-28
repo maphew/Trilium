@@ -91,7 +91,9 @@ describe("buildCanonicalForest", () => {
 });
 
 describe("computeSubtreeTotals", () => {
-    it("sums bodies with attachments, keeps revisions apart and counts notes", () => {
+    // The per-entity revision sizes are fed in and deliberately ignored: a subtree's history is
+    // measured deduplicated instead, which no sum of per-note figures can produce.
+    it("sums bodies with attachments and counts notes, leaving revisions out", () => {
         const forest = forestOf({ root: [ "a", "b" ], a: [ "c" ] });
         const totals = computeSubtreeTotals(forest, sizeLookup({
             a: { ownSize: 10, attachmentsSize: 5, revisionsSize: 2 },
@@ -99,9 +101,9 @@ describe("computeSubtreeTotals", () => {
             c: { ownSize: 1, revisionsSize: 1 }
         }));
 
-        expect(totals.get("c")).toEqual({ size: 1, revisionsSize: 1, noteCount: 1 });
-        expect(totals.get("a")).toEqual({ size: 16, revisionsSize: 3, noteCount: 2 });
-        expect(totals.get("root")).toEqual({ size: 19, revisionsSize: 3, noteCount: 4 });
+        expect(totals.get("c")).toEqual({ size: 1, noteCount: 1 });
+        expect(totals.get("a")).toEqual({ size: 16, noteCount: 2 });
+        expect(totals.get("root")).toEqual({ size: 19, noteCount: 4 });
     });
 
     it("counts a note cloned into the hidden subtree in its user placement only", () => {
@@ -113,9 +115,9 @@ describe("computeSubtreeTotals", () => {
         const totals = computeSubtreeTotals(forest, sizeLookup({ bm: { ownSize: 7 } }));
 
         expect(totals.get("a")?.size).toBe(7);
-        expect(totals.get("_hidden")).toEqual({ size: 0, revisionsSize: 0, noteCount: 1 });
+        expect(totals.get("_hidden")).toEqual({ size: 0, noteCount: 1 });
         // The hidden subtree still folds into the root, so the root total covers everything.
-        expect(totals.get("root")).toEqual({ size: 7, revisionsSize: 0, noteCount: 4 });
+        expect(totals.get("root")).toEqual({ size: 7, noteCount: 4 });
     });
 
     it("survives a pathologically deep chain without recursing", () => {
@@ -130,7 +132,7 @@ describe("computeSubtreeTotals", () => {
         const forest = forestOf(edges);
         const totals = computeSubtreeTotals(forest, () => ({ ownSize: 1, attachmentsSize: 0, revisionsSize: 0 }));
 
-        expect(totals.get("root")).toEqual({ size: 2001, revisionsSize: 0, noteCount: 2001 });
+        expect(totals.get("root")).toEqual({ size: 2001, noteCount: 2001 });
     });
 });
 

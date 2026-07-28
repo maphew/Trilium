@@ -82,9 +82,9 @@ interface ChildrenOptions {
  * "random" stable hue. Slivers consolidate into "Others"; the subtree's history then closes the
  * ring, and on the root the deleted-notes bucket follows it — neither is ever folded away.
  *
- * Child weights leave history out, so one revisions segment stands for all of it at once: this
- * note's own and every descendant's. Splitting it per child would mean drawing per-entity revision
- * figures, which count a snapshot's blob again at every entity sharing it.
+ * Child weights leave history out, so one revisions segment stands for all of it at once. Like the
+ * deleted bucket beside it, that segment is a deduplicated reclaimable figure rather than a
+ * comparable per-entity one — which is why neither is tinted, clickable, or foldable into "Others".
  */
 export function buildChildrenSegments(
     usage: SpaceUsageNoteResponse,
@@ -102,7 +102,7 @@ export function buildChildrenSegments(
         }));
 
     const segments = consolidateSmallSegments(children, MIN_CHILD_SEGMENT_FRACTION, makeOthersTooltip);
-    const revisionsSize = subtreeRevisionsSize(usage);
+    const revisionsSize = usage.subtreeRevisionsContentSize;
 
     if (revisionsSize > 0) {
         segments.push({
@@ -124,18 +124,6 @@ export function buildChildrenSegments(
     }
 
     return segments;
-}
-
-/**
- * The whole subtree's history: this note's own revisions plus every descendant's, the children
- * already carrying their own subtrees' totals. Exported so the view can quote the same figure the
- * ring draws rather than reproducing the sum.
- */
-export function subtreeRevisionsSize(usage: SpaceUsageNoteResponse) {
-    return usage.children.reduce(
-        (sum, child) => sum + child.subtreeRevisionsSize,
-        usage.revisionsSize
-    );
 }
 
 /** What the composition ring sums to: the note's body and its attachments, history excluded. */

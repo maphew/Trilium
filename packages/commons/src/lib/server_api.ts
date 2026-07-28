@@ -304,9 +304,8 @@ export interface SpaceUsageOverviewResponse {
 
 export interface SpaceUsageChild {
     noteId: string;
-    /** Bodies plus attachments of the child's whole canonical subtree. */
+    /** Bodies plus attachments of the child's whole canonical subtree; revisions are left out. */
     subtreeSize: number;
-    subtreeRevisionsSize: number;
     subtreeNoteCount: number;
 }
 
@@ -327,6 +326,13 @@ export interface SpaceUsageNoteResponse extends SpaceUsageSizes {
     noteContentSize: number;
     /** Like {@link noteContentSize}, over the note's whole canonical subtree. */
     subtreeContentSize: number;
+    /**
+     * What erasing the whole subtree's history would actually reclaim: blobs held only by the
+     * subtree's revisions, each counted once, and none that a live body or note attachment still
+     * shares. Tiered like the database-wide figure, so the two are comparable — unlike the
+     * per-entity {@link revisionsSize}, which counts a shared snapshot at every entity holding it.
+     */
+    subtreeRevisionsContentSize: number;
     attachments: SpaceUsageAttachment[];
     /** Canonical children only: a cloned child is listed under its canonical parent alone. */
     children: SpaceUsageChild[];

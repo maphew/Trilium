@@ -33,6 +33,7 @@ const USAGE: SpaceUsageNoteResponse = {
     ownSize: 10000,
     attachmentsSize: 5010,
     revisionsSize: 3000,
+    subtreeRevisionsContentSize: 2400,
     noteContentSize: 150,
     subtreeContentSize: 700,
     attachments: [
@@ -41,7 +42,7 @@ const USAGE: SpaceUsageNoteResponse = {
         { attachmentId: "tiny", title: "Tiny attachment", role: "file", size: 10 }
     ],
     // One child, so the subtree figures are tellable apart from the note's own.
-    children: [ { noteId: "c1", subtreeSize: 4000, subtreeRevisionsSize: 500, subtreeNoteCount: 2 } ]
+    children: [ { noteId: "c1", subtreeSize: 4000, subtreeNoteCount: 2 } ]
 };
 
 let container: HTMLDivElement | undefined;
@@ -119,8 +120,9 @@ describe("NoteUsageDonut", () => {
         expect(values).toEqual([
             // Body + attachments, what the composition ring draws — not the deduplicated 150.
             formatSize(15010),
-            // This note's revisions plus the child subtree's, what the gray segment draws.
-            formatSize(3500),
+            // What erasing the subtree's history would reclaim, what the gray segment draws — not
+            // the per-entity 3000 sitting beside it on the payload.
+            formatSize(2400),
             // Both rings together, history excluded — not the deduplicated 700.
             formatSize(19010)
         ]);

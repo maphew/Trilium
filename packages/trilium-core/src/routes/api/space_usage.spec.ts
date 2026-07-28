@@ -143,8 +143,27 @@ describe("Space usage API (core)", () => {
 
         const childEntry = usage.children.find((entry) => entry.noteId === child.noteId);
         expect(childEntry?.subtreeSize).toBe(CHILD_CONTENT.length + ATTACHMENT_CONTENT.length);
-        expect(childEntry?.subtreeRevisionsSize).toBeGreaterThanOrEqual(CHILD_CONTENT.length);
         expect(childEntry?.subtreeNoteCount).toBe(1);
+    });
+
+    it("measures a subtree's history by what erasing it would reclaim, not by snapshot sizes", async () => {
+        // This note's revision holds the content its shrunken body no longer does, so erasing the
+        // history really would free it.
+        const heavyUsage = await getNoteUsage(revisionHeavy.noteId);
+        expect(heavyUsage.subtreeRevisionsContentSize).toBeGreaterThanOrEqual(REVISION_HEAVY_CONTENT.length);
+
+        // The child's revision snapshots an unchanged body and attachment, so it shares their blobs:
+        // it weighs plenty per entity, yet erasing it would reclaim nothing at all.
+        const childUsage = await getNoteUsage(child.noteId);
+        expect(childUsage.revisionsSize).toBeGreaterThan(0);
+        expect(childUsage.subtreeRevisionsContentSize).toBe(0);
+
+        // The root's subtree covers both, and cannot exceed the database-wide revisions tier — the
+        // figure the overview's own revisions bucket draws, which is what makes the two comparable.
+        const rootUsage = await getNoteUsage("root");
+        const overview = await getOverview({ limit: 1 });
+        expect(rootUsage.subtreeRevisionsContentSize).toBeGreaterThanOrEqual(heavyUsage.subtreeRevisionsContentSize);
+        expect(rootUsage.subtreeRevisionsContentSize).toBeLessThanOrEqual(overview.content.revisionsSize);
     });
 
     it("reports deduplicated note and subtree content sizes", async () => {

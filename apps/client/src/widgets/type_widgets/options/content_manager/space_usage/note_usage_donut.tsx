@@ -15,7 +15,6 @@ import { openNoteInNewTab } from "./context_menu";
 import {
     buildCompositionSegments,
     noteWeight,
-    subtreeRevisionsSize,
     subtreeWeight,
     type UsageSegmentData,
     type UsageTooltipKind
@@ -91,7 +90,7 @@ export default function NoteUsageDonut({ usage, title, notePath, outerRings = []
                 <SizeLine
                     i18nKey="space_usage.center_revisions_size"
                     hint={t("space_usage.center_revisions_size_hint")}
-                    size={subtreeRevisionsSize(usage)}
+                    size={usage.subtreeRevisionsContentSize}
                 />
                 <SizeLine
                     i18nKey="space_usage.center_subtree_size"

@@ -81,7 +81,6 @@ export function getNoteUsage(noteId: string): SpaceUsageNoteResponse {
             /* v8 ignore next 3 -- the totals cover every note of the forest, so the fallbacks
                would only fire on an internally inconsistent forest */
             subtreeSize: total?.size ?? 0,
-            subtreeRevisionsSize: total?.revisionsSize ?? 0,
             subtreeNoteCount: total?.noteCount ?? 0
         };
     });
@@ -109,11 +108,14 @@ export function getNoteUsage(noteId: string): SpaceUsageNoteResponse {
         } ];
     });
 
+    const subtreeNoteIds = collectSubtreeNoteIds(forest, noteId);
+
     return {
         noteId,
         ...sizesOf(noteId, sizes),
         noteContentSize: collectContentSizeOf([ noteId ]),
-        subtreeContentSize: collectContentSizeOf(collectSubtreeNoteIds(forest, noteId)),
+        subtreeContentSize: collectContentSizeOf(subtreeNoteIds),
+        subtreeRevisionsContentSize: collectRevisionsSizeOf(subtreeNoteIds),
         attachments,
         children,
         // Deleted notes have no place in the tree, so they surface once, at its root.
@@ -210,9 +212,12 @@ function appendAll(target: string[], items: string[]) {
 
 /** The aggregate of a note's whole canonical subtree, the note itself included. */
 export interface SubtreeTotal {
-    /** Bodies plus attachments; revisions kept apart so clients can toggle them. */
+    /**
+     * Bodies plus attachments. Revisions are absent on purpose: summing the per-entity figures would
+     * count a snapshot's blob again at every entity sharing it, so a subtree's history is measured
+     * deduplicated instead, by {@link collectRevisionsSizeOf}.
+     */
     size: number;
-    revisionsSize: number;
     noteCount: number;
 }
 
@@ -230,8 +235,8 @@ export function computeSubtreeTotals(
     const totals = new Map<string, SubtreeTotal>();
 
     for (const noteId of [ ...forest.userNoteIds, ...forest.hiddenNoteIds ]) {
-        const { ownSize, attachmentsSize, revisionsSize } = getSizes(noteId);
-        totals.set(noteId, { size: ownSize + attachmentsSize, revisionsSize, noteCount: 1 });
+        const { ownSize, attachmentsSize } = getSizes(noteId);
+        totals.set(noteId, { size: ownSize + attachmentsSize, noteCount: 1 });
     }
 
     for (const order of [ forest.hiddenNoteIds, forest.userNoteIds ]) {
@@ -245,7 +250,6 @@ export function computeSubtreeTotals(
             }
 
             parentTotal.size += total.size;
-            parentTotal.revisionsSize += total.revisionsSize;
             parentTotal.noteCount += total.noteCount;
         }
     }
@@ -417,6 +421,34 @@ function collectContentSizeOf(noteIds: string[]): number {
                 JOIN param_list ON param_list.paramId = revisions.noteId
                 WHERE attachments.isDeleted = 0 AND attachments.blobId IS NOT NULL
         )`) ?? 0;
+}
+
+/**
+ * The revision tier of {@link collectContentSizeOf}: what erasing the given notes' history would
+ * actually reclaim. Deduplicated, and subtracted against the *database-wide* live bodies and note
+ * attachments exactly as {@link collectContent} does — a snapshot still sharing its blob with any
+ * live note frees nothing, so it counts for zero here. That tiering is what makes a subtree's figure
+ * comparable to the database-wide one, and what separates this from the per-entity `revisionsSize`,
+ * which counts a shared snapshot again at every entity holding it.
+ */
+function collectRevisionsSizeOf(noteIds: string[]): number {
+    const sql = getSql();
+    sql.fillParamList(noteIds);
+
+    return sql.getValue<number | null>(`
+        SELECT SUM(COALESCE(LENGTH(blobs.content), 0))
+        FROM blobs
+        WHERE blobs.blobId IN (
+            SELECT revisions.blobId FROM revisions
+                JOIN param_list ON param_list.paramId = revisions.noteId
+                WHERE revisions.blobId IS NOT NULL
+            UNION SELECT attachments.blobId FROM attachments
+                JOIN revisions ON revisions.revisionId = attachments.ownerId
+                JOIN param_list ON param_list.paramId = revisions.noteId
+                WHERE attachments.isDeleted = 0 AND attachments.blobId IS NOT NULL
+        )
+        AND blobs.blobId NOT IN (${LIVE_BODY_BLOBS})
+        AND blobs.blobId NOT IN (${LIVE_NOTE_ATTACHMENT_BLOBS})`) ?? 0;
 }
 
 /**

@@ -10,6 +10,7 @@ function usage(overrides: Partial<SpaceUsageNoteResponse> = {}): SpaceUsageNoteR
         ownSize: 0,
         attachmentsSize: 0,
         revisionsSize: 0,
+        subtreeRevisionsContentSize: 0,
         noteContentSize: 0,
         subtreeContentSize: 0,
         attachments: [],
@@ -18,8 +19,8 @@ function usage(overrides: Partial<SpaceUsageNoteResponse> = {}): SpaceUsageNoteR
     };
 }
 
-function child(noteId: string, subtreeSize: number, subtreeRevisionsSize = 0) {
-    return { noteId, subtreeSize, subtreeRevisionsSize, subtreeNoteCount: 1 };
+function child(noteId: string, subtreeSize: number) {
+    return { noteId, subtreeSize, subtreeNoteCount: 1 };
 }
 
 const makeTooltip = (kind: UsageTooltipKind, title: string, size: number) => `${kind}:${title}/${size}`;
@@ -150,18 +151,19 @@ describe("buildChildrenSegments", () => {
         expect(buildChildrenSegments(usage({ deletedNotes: { size: 0, noteCount: 0 } }), options)).toEqual([]);
     });
 
-    it("carries the whole subtree's history in one segment, ahead of the deleted bucket", () => {
+    it("carries the subtree's reclaimable history in one segment, ahead of the deleted bucket", () => {
         const segments = buildChildrenSegments(usage({
+            // Per-entity history counts a shared snapshot at every entity holding it, so it is never
+            // what the segment draws — only the deduplicated subtree figure is.
+            revisionsSize: 900,
+            subtreeRevisionsContentSize: 24,
             // Far below 0.5% of the ring, yet history must stay its own segment rather than fold in.
-            revisionsSize: 7,
-            children: [ child("big", 100000, 12), child("small", 50, 5) ],
+            children: [ child("big", 100000), child("small", 50) ],
             deletedNotes: { size: 25, noteCount: 3 }
         }), options);
 
         expect(segments.map((segment) => segment.id))
             .toEqual([ "child/big", "others", "revisions", "/deleted-notes" ]);
-        // This note's own 7 plus both children's subtree totals — never the per-child figures drawn
-        // separately, which would count a shared snapshot at each entity holding it.
         expect(segments[2]).toMatchObject({
             value: 24,
             className: "space-usage-segment-revisions",
@@ -170,8 +172,12 @@ describe("buildChildrenSegments", () => {
         expect(segments[2].hue).toBeUndefined();
     });
 
-    it("omits the revisions segment when the subtree has no history at all", () => {
-        const segments = buildChildrenSegments(usage({ children: [ child("a", 10) ] }), options);
+    it("omits the revisions segment when erasing the history would reclaim nothing", () => {
+        const segments = buildChildrenSegments(usage({
+            // Every snapshot still shares its blobs with a live note: weighty per entity, worth zero.
+            revisionsSize: 900,
+            children: [ child("a", 10) ]
+        }), options);
 
         expect(segments.map((segment) => segment.id)).toEqual([ "child/a" ]);
     });

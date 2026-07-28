@@ -63,13 +63,13 @@ function usageOf(noteId: string, children: string[]): SpaceUsageNoteResponse {
         ownSize: 10,
         attachmentsSize: 0,
         revisionsSize: 0,
+        subtreeRevisionsContentSize: 0,
         noteContentSize: 10,
         subtreeContentSize: 100,
         attachments: [],
         children: children.map((childId) => ({
             noteId: childId,
             subtreeSize: 40,
-            subtreeRevisionsSize: 0,
             subtreeNoteCount: 2
         }))
     };

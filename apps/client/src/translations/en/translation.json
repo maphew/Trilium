@@ -2687,7 +2687,7 @@
     "center_note_size": "Note: <Size/>",
     "center_note_size_hint": "This note's body and its attachments, matching the inner ring. It actually occupies {{size}} on disk with its revisions included, shared content counted once.",
     "center_revisions_size": "Revisions: <Size/>",
-    "center_revisions_size_hint": "Every revision in this subtree, this note's and its descendants', matching the gray segment. A snapshot still sharing content with the live note is counted again here.",
+    "center_revisions_size_hint": "Space erasing this subtree's history would reclaim, matching the gray segment; snapshots still sharing content with a live note free nothing and count for nothing here",
     "center_subtree_size": "Subtree: <Size/>",
     "center_subtree_size_hint": "This note and all of its descendants with their history left out, matching the rings together. The subtree actually occupies {{size}} on disk with revisions included, shared content counted once.",
     "back": "Back",
