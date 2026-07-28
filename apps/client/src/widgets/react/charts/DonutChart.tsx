@@ -36,6 +36,12 @@ export interface DonutRing<T = unknown> {
 interface DonutChartProps<T> {
     rings: DonutRing<T>[];
     className?: string;
+    /**
+     * SVG paint servers (gradients, patterns) for segments whose class points `--donut-segment-color`
+     * at one: a stroke can only reference them through `url(#id)`, so they must live in this chart's
+     * own `<defs>`.
+     */
+    defs?: ComponentChildren;
     /** Rendered centered in the hole, above the rings. */
     children?: ComponentChildren;
 }
@@ -56,7 +62,7 @@ const SEGMENT_GAP = 3;
  * the element: a dashed circle's extent is the whole ring, so an anchored tooltip would hover far
  * from the segment it describes.
  */
-export default function DonutChart<T>({ rings, className, children }: DonutChartProps<T>) {
+export default function DonutChart<T>({ rings, className, defs, children }: DonutChartProps<T>) {
     const half = DONUT_VIEW_SIZE / 2;
     const { containerRef, containerProps, showTooltip, hideTooltip, tooltipNode } = useChartTooltip<HTMLDivElement>();
 
@@ -65,6 +71,7 @@ export default function DonutChart<T>({ rings, className, children }: DonutChart
         // pointer handlers don't register correctly under the test DOM (see the render spec).
         <div ref={containerRef} className={clsx("donut-chart", className)} {...containerProps}>
             <svg viewBox={`${-half} ${-half} ${DONUT_VIEW_SIZE} ${DONUT_VIEW_SIZE}`}>
+                {defs && <defs>{defs}</defs>}
                 {/* Rotated so every ring starts at 12 o'clock. */}
                 <g transform="rotate(-90)">
                     {rings.map((ring) => (

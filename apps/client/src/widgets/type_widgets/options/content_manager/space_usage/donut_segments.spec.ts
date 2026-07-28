@@ -18,17 +18,17 @@ function usage(overrides: Partial<SpaceUsageNoteResponse> = {}): SpaceUsageNoteR
     };
 }
 
-function child(noteId: string, subtreeSize: number) {
-    return { noteId, subtreeSize, subtreeRevisionsSize: 0, subtreeNoteCount: 1 };
+function child(noteId: string, subtreeSize: number, subtreeRevisionsSize = 0) {
+    return { noteId, subtreeSize, subtreeRevisionsSize, subtreeNoteCount: 1 };
 }
 
 const makeTooltip = (kind: UsageTooltipKind, title: string, size: number) => `${kind}:${title}/${size}`;
 const makeOthersTooltip = (count: number, size: number) => `${count} more/${size}`;
 
 describe("buildCompositionSegments", () => {
-    const options = { bodyLabel: "Body", revisionsLabel: "Revisions", makeTooltip, makeOthersTooltip };
+    const options = { bodyLabel: "Body", makeTooltip, makeOthersTooltip };
 
-    it("orders body, attachments largest-first, then revisions, with case-prefixed tooltips", () => {
+    it("orders body then attachments largest-first, leaving history to the children ring", () => {
         const segments = buildCompositionSegments(usage({
             noteId: "note",
             ownSize: 100,
@@ -39,7 +39,8 @@ describe("buildCompositionSegments", () => {
             ]
         }), options);
 
-        expect(segments.map((segment) => segment.id)).toEqual([ "body", "attachment/big", "attachment/small", "revisions" ]);
+        // The note's own revisions are on the payload and deliberately unused here.
+        expect(segments.map((segment) => segment.id)).toEqual([ "body", "attachment/big", "attachment/small" ]);
         expect(segments[0]).toMatchObject({
             value: 100,
             className: "space-usage-segment-body",
@@ -47,7 +48,6 @@ describe("buildCompositionSegments", () => {
             data: { noteId: "note" }
         });
         expect(segments[1]).toMatchObject({ value: 50, tooltip: "attachment:Big image/50", data: { attachmentId: "big" } });
-        expect(segments[3]).toMatchObject({ value: 40, className: "space-usage-segment-revisions", tooltip: "plain:Revisions/40" });
     });
 
     it("consolidates segments below 2% of the ring into an inert counted bucket", () => {
@@ -91,6 +91,7 @@ describe("buildCompositionSegments", () => {
 describe("buildChildrenSegments", () => {
     const options = {
         getTitle: (noteId: string) => `title of ${noteId}`,
+        revisionsLabel: "Revisions",
         deletedNotesLabel: "Deleted notes",
         makeTooltip,
         makeOthersTooltip
@@ -147,5 +148,31 @@ describe("buildChildrenSegments", () => {
     it("omits the deleted-notes segment off the root or when nothing is deleted", () => {
         expect(buildChildrenSegments(usage(), options)).toEqual([]);
         expect(buildChildrenSegments(usage({ deletedNotes: { size: 0, noteCount: 0 } }), options)).toEqual([]);
+    });
+
+    it("carries the whole subtree's history in one segment, ahead of the deleted bucket", () => {
+        const segments = buildChildrenSegments(usage({
+            // Far below 0.5% of the ring, yet history must stay its own segment rather than fold in.
+            revisionsSize: 7,
+            children: [ child("big", 100000, 12), child("small", 50, 5) ],
+            deletedNotes: { size: 25, noteCount: 3 }
+        }), options);
+
+        expect(segments.map((segment) => segment.id))
+            .toEqual([ "child/big", "others", "revisions", "/deleted-notes" ]);
+        // This note's own 7 plus both children's subtree totals — never the per-child figures drawn
+        // separately, which would count a shared snapshot at each entity holding it.
+        expect(segments[2]).toMatchObject({
+            value: 24,
+            className: "space-usage-segment-revisions",
+            tooltip: "plain:Revisions/24"
+        });
+        expect(segments[2].hue).toBeUndefined();
+    });
+
+    it("omits the revisions segment when the subtree has no history at all", () => {
+        const segments = buildChildrenSegments(usage({ children: [ child("a", 10) ] }), options);
+
+        expect(segments.map((segment) => segment.id)).toEqual([ "child/a" ]);
     });
 });

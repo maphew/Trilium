@@ -5,6 +5,9 @@
     --space-usage-body-color: color-mix(in srgb, var(--accented-background-color) 70%, #5b8dd9 30%);
     --space-usage-attachments-color: color-mix(in srgb, var(--accented-background-color) 70%, #d9a93d 30%);
     --space-usage-revisions-color: color-mix(in srgb, var(--accented-background-color) 70%, #8f959c 30%);
+    /* The hatch's stripes: the same gray carried further from the surface, so the texture reads at
+       ring thickness without becoming a second color. */
+    --space-usage-revisions-stripe-color: color-mix(in srgb, var(--accented-background-color) 40%, #8f959c 60%);
 
     .space-usage-segment-body {
         --donut-segment-color: var(--space-usage-body-color);
@@ -14,8 +17,19 @@
         --donut-segment-color: var(--space-usage-attachments-color);
     }
 
+    /* Stroked with the hatch rather than a flat fill: history is not content the user put there,
+       and the texture says so without spending another color. */
     .space-usage-segment-revisions {
-        --donut-segment-color: var(--space-usage-revisions-color);
+        --donut-segment-color: url(#space-usage-revisions-hatch);
+    }
+
+    .space-usage-hatch-base {
+        fill: var(--space-usage-revisions-color);
+    }
+
+    .space-usage-hatch-stripe {
+        stroke: var(--space-usage-revisions-stripe-color);
+        stroke-width: 2;
     }
 
     /* Repeats .donut-segment to outrank the primitive's clickable-cursor rule. */

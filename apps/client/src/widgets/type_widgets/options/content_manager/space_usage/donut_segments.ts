@@ -24,19 +24,21 @@ type MakeOthersTooltip = (count: number, size: number) => string;
 
 interface CompositionOptions {
     bodyLabel: string;
-    revisionsLabel: string;
     makeTooltip: MakeTooltip;
     makeOthersTooltip: MakeOthersTooltip;
 }
 
 /**
- * The composition ring of a single note: its body, each attachment on its own, and the revisions
- * total — in that order, attachments largest-first. Empty components are dropped, and segments too
- * small to see consolidate into a trailing "Others".
+ * The composition ring of a single note: its body and each attachment on its own, attachments
+ * largest-first. Empty components are dropped, and segments too small to see consolidate into a
+ * trailing "Others".
+ *
+ * History is deliberately absent: it belongs to the whole subtree rather than to this note alone,
+ * so the children ring carries it for every note at once (see {@link buildChildrenSegments}).
  */
 export function buildCompositionSegments(
     usage: SpaceUsageNoteResponse,
-    { bodyLabel, revisionsLabel, makeTooltip, makeOthersTooltip }: CompositionOptions
+    { bodyLabel, makeTooltip, makeOthersTooltip }: CompositionOptions
 ): DonutSegment<UsageSegmentData>[] {
     const segments: DonutSegment<UsageSegmentData>[] = [];
 
@@ -64,20 +66,12 @@ export function buildCompositionSegments(
         });
     }
 
-    if (usage.revisionsSize > 0) {
-        segments.push({
-            id: "revisions",
-            value: usage.revisionsSize,
-            className: "space-usage-segment-revisions",
-            tooltip: makeTooltip("plain", revisionsLabel, usage.revisionsSize)
-        });
-    }
-
     return consolidateSmallSegments(segments, MIN_COMPOSITION_SEGMENT_FRACTION, makeOthersTooltip);
 }
 
 interface ChildrenOptions {
     getTitle: (noteId: string) => string;
+    revisionsLabel: string;
     deletedNotesLabel: string;
     makeTooltip: MakeTooltip;
     makeOthersTooltip: MakeOthersTooltip;
@@ -85,12 +79,16 @@ interface ChildrenOptions {
 
 /**
  * The children ring: each child weighted by its whole subtree, largest first, tinted by its own
- * "random" stable hue. Slivers consolidate into "Others"; on the root, the deleted-notes bucket
- * closes the ring afterwards — deleted space is its own entry, never folded away.
+ * "random" stable hue. Slivers consolidate into "Others"; the subtree's history then closes the
+ * ring, and on the root the deleted-notes bucket follows it — neither is ever folded away.
+ *
+ * Child weights leave history out, so one revisions segment stands for all of it at once: this
+ * note's own and every descendant's. Splitting it per child would mean drawing per-entity revision
+ * figures, which count a snapshot's blob again at every entity sharing it.
  */
 export function buildChildrenSegments(
     usage: SpaceUsageNoteResponse,
-    { getTitle, deletedNotesLabel, makeTooltip, makeOthersTooltip }: ChildrenOptions
+    { getTitle, revisionsLabel, deletedNotesLabel, makeTooltip, makeOthersTooltip }: ChildrenOptions
 ): DonutSegment<UsageSegmentData>[] {
     const children = [ ...usage.children ]
         .filter((child) => child.subtreeSize > 0)
@@ -104,6 +102,16 @@ export function buildChildrenSegments(
         }));
 
     const segments = consolidateSmallSegments(children, MIN_CHILD_SEGMENT_FRACTION, makeOthersTooltip);
+    const revisionsSize = subtreeRevisionsSize(usage);
+
+    if (revisionsSize > 0) {
+        segments.push({
+            id: "revisions",
+            value: revisionsSize,
+            className: "space-usage-segment-revisions",
+            tooltip: makeTooltip("plain", revisionsLabel, revisionsSize)
+        });
+    }
 
     if (usage.deletedNotes && usage.deletedNotes.size > 0) {
         segments.push({
@@ -116,6 +124,18 @@ export function buildChildrenSegments(
     }
 
     return segments;
+}
+
+/**
+ * The whole subtree's history: this note's own revisions plus every descendant's, the children
+ * already carrying their own subtrees' totals. Exported so the view can quote the same figure the
+ * ring draws rather than reproducing the sum.
+ */
+export function subtreeRevisionsSize(usage: SpaceUsageNoteResponse) {
+    return usage.children.reduce(
+        (sum, child) => sum + child.subtreeRevisionsSize,
+        usage.revisionsSize
+    );
 }
 
 /** Replaces the segments below the given share of the ring's total with one inert "N more (size)". */

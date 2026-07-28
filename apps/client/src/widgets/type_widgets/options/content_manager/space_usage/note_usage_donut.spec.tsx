@@ -69,14 +69,28 @@ afterEach(() => {
 });
 
 describe("NoteUsageDonut", () => {
-    it("renders the composition ring with the semantic segment classes", () => {
+    it("renders the composition ring with the semantic segment classes, history excluded", () => {
         const probe = renderDonut();
 
         expect(probe.querySelector("circle.space-usage-segment-body")).not.toBeNull();
         expect(probe.querySelector("circle.space-usage-segment-attachment")).not.toBeNull();
-        expect(probe.querySelector("circle.space-usage-segment-revisions")).not.toBeNull();
         // The sub-2% attachment consolidated into the counted bucket.
         expect(probe.querySelector("circle.space-usage-segment-others")).not.toBeNull();
+        // Despite the note's own revisions being on the payload: history belongs to the whole
+        // subtree, so the children ring carries it instead.
+        expect(probe.querySelector("circle.space-usage-segment-revisions")).toBeNull();
+    });
+
+    it("defines the hatch the revisions segment is stroked with", () => {
+        const probe = renderDonut();
+        const pattern = probe.querySelector("svg > defs > pattern#space-usage-revisions-hatch");
+
+        expect(pattern).not.toBeNull();
+        expect(pattern?.querySelector(".space-usage-hatch-base")).not.toBeNull();
+        expect(pattern?.querySelector(".space-usage-hatch-stripe")).not.toBeNull();
+        // An HTML-namespaced pattern parses but paints nothing, so the stroke would silently
+        // fall back to no color at all.
+        expect(pattern?.namespaceURI).toBe("http://www.w3.org/2000/svg");
     });
 
     it("links the center title to the note and opens it in a new tab instead of navigating", () => {

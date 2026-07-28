@@ -43,6 +43,7 @@ export default function Browse({ path, onPathChange }: BrowseProps) {
         thickness: CHILDREN_RING_THICKNESS,
         segments: usage ? buildChildrenSegments(usage, {
             getTitle,
+            revisionsLabel: t("space_usage.revisions"),
             deletedNotesLabel: t("space_usage.deleted_notes", { count: usage.deletedNotes?.noteCount ?? 0 }),
             makeTooltip: segmentTooltip,
             makeOthersTooltip: (count, size) =>

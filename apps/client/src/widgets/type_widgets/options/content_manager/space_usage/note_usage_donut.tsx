@@ -46,7 +46,6 @@ export default function NoteUsageDonut({ usage, title, notePath, outerRings = []
         thickness: COMPOSITION_RING_THICKNESS,
         segments: buildCompositionSegments(usage, {
             bodyLabel: t("space_usage.note_body"),
-            revisionsLabel: t("space_usage.revisions"),
             makeTooltip: segmentTooltip,
             makeOthersTooltip: (count, size) =>
                 t("space_usage.others_attachments", { count, size: formatSize(size) })
@@ -58,6 +57,7 @@ export default function NoteUsageDonut({ usage, title, notePath, outerRings = []
         <DonutChart<UsageSegmentData>
             rings={[ compositionRing, ...outerRings ]}
             className={clsx("note-usage-donut", className)}
+            defs={<RevisionsHatch />}
         >
             {centerActions}
             <a
@@ -83,6 +83,29 @@ export default function NoteUsageDonut({ usage, title, notePath, outerRings = []
                 size={usage.subtreeContentSize}
             />
         </DonutChart>
+    );
+}
+
+/**
+ * The hatch the revisions segment is stroked with — history reads as the same gray as everything
+ * else that is not live content, textured so it is told apart from a note at a glance.
+ *
+ * A stroke can only reach a pattern through `url(#id)`, which forces a document-wide ID. Two donuts
+ * on one page would therefore both resolve to the first — harmless here, since the pattern carries
+ * no per-instance state and every copy is identical.
+ */
+function RevisionsHatch() {
+    return (
+        <pattern
+            id="space-usage-revisions-hatch"
+            width="6"
+            height="6"
+            patternUnits="userSpaceOnUse"
+            patternTransform="rotate(45)"
+        >
+            <rect className="space-usage-hatch-base" width="6" height="6" />
+            <line className="space-usage-hatch-stripe" x1="0" y1="0" x2="0" y2="6" />
+        </pattern>
     );
 }
 
