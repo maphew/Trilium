@@ -59,6 +59,14 @@
     gap: var(--ck-spacing-small);
 }
 
+/* The run's model/token/cost line, tucked to the right of the review actions. */
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__usage {
+    margin-left: auto;
+    align-self: center;
+    font-size: var(--ck-font-size-small);
+    opacity: 0.7;
+}
+
 /* An actions row with every button hidden should not reserve a gap's worth of height. */
 .ck.ck-ai-assistant-form .ck-ai-assistant-form__actions:not(:has(.ck-button:not(.ck-hidden))) {
     display: none;

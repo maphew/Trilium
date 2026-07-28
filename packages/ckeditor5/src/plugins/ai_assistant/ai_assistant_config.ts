@@ -20,19 +20,33 @@ export interface AiCompletionRequest {
 export type AiStreamCallback = (cumulativeHtml: string) => void;
 
 /**
+ * What a finished completion cost, shown in the review phase. All fields are optional — whatever
+ * the provider reports gets displayed, the rest is omitted.
+ */
+export interface AiCompletionUsage {
+    /** Identifier of the model that produced the response. */
+    model?: string;
+    /** Total tokens consumed (prompt + completion). */
+    totalTokens?: number;
+    /** Estimated cost in USD. */
+    cost?: number;
+}
+
+/**
  * Host-provided transport for AI completions. The plugin knows nothing about providers, endpoints
  * or authentication — the client injects this the same way it injects `snippets.definitions` or
  * `syntaxHighlighting.loadHighlightJs`.
  *
- * The returned promise resolves when the stream finishes and rejects on transport or provider
- * error. An abort through `signal` must reject with a DOM `AbortError`; the partial content
- * already delivered through `onData` stays usable.
+ * The returned promise resolves when the stream finishes — with the run's usage, when the
+ * provider reports it — and rejects on transport or provider error. An abort through `signal`
+ * must reject with a DOM `AbortError`; the partial content already delivered through `onData`
+ * stays usable.
  */
 export type AiStreamFunction = (
     request: AiCompletionRequest,
     onData: AiStreamCallback,
     signal: AbortSignal
-) => Promise<void>;
+) => Promise<AiCompletionUsage | void>;
 
 /**
  * Renders an inline HTML diff between two HTML fragments, returning HTML in which insertions and

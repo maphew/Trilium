@@ -44,6 +44,8 @@ export default class AiAssistantFormView extends View {
     declare public viewMode: AiAssistantViewMode;
     /** Whether the current review has a diff to offer; controls the view-mode toggle. */
     declare public hasDiff: boolean;
+    /** The run's cost line ("model · tokens · price"), shown in the review actions row. */
+    declare public usageText: string;
 
     /** The (sanitized) response HTML, kept for re-rendering when the view mode flips. */
     private _resultHtml = "";
@@ -74,6 +76,7 @@ export default class AiAssistantFormView extends View {
         this.set("errorMessage", "");
         this.set("viewMode", "result");
         this.set("hasDiff", false);
+        this.set("usageText", "");
 
         // Re-render the preview from the stored contents whenever the toggle flips.
         this.on("change:viewMode", () => this._renderPreview());
@@ -137,7 +140,18 @@ export default class AiAssistantFormView extends View {
                         this.stopButtonView,
                         this.replaceButtonView,
                         this.insertBelowButtonView,
-                        this.tryAgainButtonView
+                        this.tryAgainButtonView,
+                        {
+                            tag: "span",
+                            attributes: {
+                                class: [
+                                    "ck",
+                                    "ck-ai-assistant-form__usage",
+                                    bind.if("usageText", "ck-hidden", (text) => !text)
+                                ]
+                            },
+                            children: [{ text: bind.to("usageText") }]
+                        }
                     ]
                 }
             ]
@@ -199,6 +213,7 @@ export default class AiAssistantFormView extends View {
         this._diffHtml = "";
         this.hasDiff = false;
         this.viewMode = "result";
+        this.usageText = "";
         this._renderPreview();
     }
 
@@ -210,6 +225,7 @@ export default class AiAssistantFormView extends View {
         this._diffHtml = "";
         this.hasDiff = false;
         this.viewMode = "result";
+        this.usageText = "";
         this._renderPreview();
     }
 
@@ -224,12 +240,13 @@ export default class AiAssistantFormView extends View {
      * "Changes" view when a diff is available — while a run that produced nothing falls back to
      * the prompt phase, showing `errorMessage` when the run failed.
      */
-    public enterReview(hasContent: boolean, diffHtml: string | null, errorMessage: string): void {
+    public enterReview(hasContent: boolean, diffHtml: string | null, errorMessage: string, usageText = ""): void {
         this.phase = hasContent ? "review" : "prompt";
         this.errorMessage = errorMessage;
         this._diffHtml = diffHtml ?? "";
         this.hasDiff = hasContent && !!this._diffHtml;
         this.viewMode = this.hasDiff ? "changes" : "result";
+        this.usageText = hasContent ? usageText : "";
         this._renderPreview();
     }
 

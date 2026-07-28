@@ -1,5 +1,5 @@
-import type { AiStreamFunction } from "@triliumnext/ckeditor5";
-import type { LlmChatConfig, LlmMessage, LlmModelInfo } from "@triliumnext/commons";
+import type { AiCompletionUsage, AiStreamFunction } from "@triliumnext/ckeditor5";
+import type { LlmChatConfig, LlmMessage, LlmModelInfo, LlmUsage } from "@triliumnext/commons";
 
 import { streamChatCompletion } from "../../../services/llm_chat.js";
 import options from "../../../services/options.js";
@@ -18,7 +18,7 @@ export default function buildAiAssistantStream(): AiStreamFunction | undefined {
         return undefined;
     }
 
-    return async (request, onData, signal) => {
+    return async (request, onData, signal): Promise<AiCompletionUsage> => {
         const messages: LlmMessage[] = [
             { role: "system", content: SYSTEM_PROMPT },
             {
@@ -29,21 +29,33 @@ export default function buildAiAssistantStream(): AiStreamFunction | undefined {
             }
         ];
 
+        const config = pickDefaultModel();
         let cumulative = "";
-        await new Promise<void>((resolve, reject) => {
-            streamChatCompletion(messages, pickDefaultModel(), {
+        const usage = await new Promise<LlmUsage | null>((resolve, reject) => {
+            let reported: LlmUsage | null = null;
+            streamChatCompletion(messages, config, {
                 onChunk: (text) => {
                     cumulative += text;
                     onData(cumulative);
                 },
+                onUsage: (chunk) => {
+                    reported = chunk;
+                },
                 onError: (error) => reject(new Error(error)),
-                onDone: () => resolve()
+                onDone: () => resolve(reported)
             }, signal).then(
                 // A stream that ends without a "done" event (connection dropped) still settles.
-                () => resolve(),
+                () => resolve(reported),
                 reject
             );
         });
+
+        return {
+            // The server reports the model's display name; fall back to the id we asked for.
+            model: usage?.model ?? config.model,
+            totalTokens: usage?.totalTokens,
+            cost: usage?.cost
+        };
     };
 }
 

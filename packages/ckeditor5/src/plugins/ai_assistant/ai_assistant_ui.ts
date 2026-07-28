@@ -8,6 +8,7 @@ import {
 } from "ckeditor5";
 
 import { translate } from "../translate.js";
+import type { AiCompletionUsage } from "./ai_assistant_config.js";
 import AiAssistantEditing, { AI_TARGET_MARKER } from "./ai_assistant_editing.js";
 import AiAssistantFormView from "./ai_assistant_form.js";
 import { sanitizeAiHtml, stripMarkdownFences } from "./ai_html.js";
@@ -214,8 +215,9 @@ export default class AiAssistantUI extends Plugin {
         };
 
         let errorMessage = "";
+        let usage: AiCompletionUsage | null = null;
         try {
-            await stream({ query, context: this._context }, onData, abortController.signal);
+            usage = (await stream({ query, context: this._context }, onData, abortController.signal)) ?? null;
         } catch (error) {
             // An abort is the user's Stop: whatever already streamed stays reviewable.
             if (!(error instanceof DOMException && error.name === "AbortError")) {
@@ -237,7 +239,29 @@ export default class AiAssistantUI extends Plugin {
             // Follow-up queries chain on the response ("now make it shorter"), premium-style.
             this._context = this._cumulative;
         }
-        form.enterReview(!!this._cumulative, this._buildDiff(), errorMessage);
+        form.enterReview(!!this._cumulative, this._buildDiff(), errorMessage, this._formatUsage(usage));
+    }
+
+    /**
+     * The review's cost line, e.g. `claude-sonnet-5 · 1,234 tokens · ~$0.0042`. Only the fields
+     * the provider reported are shown; an aborted or failed run has none at all.
+     */
+    private _formatUsage(usage: AiCompletionUsage | null): string {
+        if (!usage) {
+            return "";
+        }
+        const parts: string[] = [];
+        if (usage.model) {
+            parts.push(usage.model);
+        }
+        if (usage.totalTokens != null) {
+            parts.push(`${usage.totalTokens.toLocaleString()} ${translate(this.editor, "ai_assistant.tokens", "tokens")}`);
+        }
+        if (usage.cost != null) {
+            // A single completion usually costs well under a cent; two decimals would show $0.00.
+            parts.push(`~$${usage.cost < 0.01 ? usage.cost.toFixed(4) : usage.cost.toFixed(2)}`);
+        }
+        return parts.join(" · ");
     }
 
     /**

@@ -2525,7 +2525,8 @@
     "insert_below": "Insert below",
     "try_again": "Try again",
     "result": "Result",
-    "changes": "Changes"
+    "changes": "Changes",
+    "tokens": "tokens"
   },
   "link_context_menu": {
     "open_note_in_new_tab": "Open note in a new tab",

@@ -74,6 +74,25 @@ describe("AiAssistantFormView", () => {
         expect(form.changesToggleView.isVisible).toBe(false);
     });
 
+    it("shows the usage line only for a review that has one, and clears it on the next run", () => {
+        const form = makeForm();
+        const usageEl = form.element?.querySelector(".ck-ai-assistant-form__usage");
+
+        form.beginStreaming();
+        form.setPreview("<p>new</p>");
+        form.enterReview(true, null, "", "some-model · 1,234 tokens · ~$0.0042");
+        expect(form.usageText).toBe("some-model · 1,234 tokens · ~$0.0042");
+        expect(usageEl?.textContent).toBe("some-model · 1,234 tokens · ~$0.0042");
+        expect(usageEl?.classList.contains("ck-hidden")).toBe(false);
+
+        // A failed follow-up run must not keep advertising the previous run's cost.
+        form.beginStreaming();
+        expect(form.usageText).toBe("");
+        expect(usageEl?.classList.contains("ck-hidden")).toBe(true);
+        form.enterReview(false, null, "boom", "ignored — no content to review");
+        expect(form.usageText).toBe("");
+    });
+
     it("falls back to the prompt phase with the error when a run produced nothing", () => {
         const form = makeForm();
         form.beginStreaming();
