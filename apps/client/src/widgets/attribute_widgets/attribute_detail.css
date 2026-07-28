@@ -23,49 +23,6 @@
     vertical-align: middle;
 }
 
-/*
- * The related notes come from an asynchronous lookup that lands well after the popup has been positioned,
- * and they come and go again as the attribute is edited. The section therefore stays in the DOM and eases
- * its height open and shut, so the popup grows and shrinks instead of snapping to a new size under the
- * pointer. The grid row is what makes an automatic height animatable, the inner wrapper clips the content
- * while it is collapsed, and the delayed visibility drops the links out of the tab order once they are
- * fully hidden.
- */
-.related-notes-container {
-    display: grid;
-    grid-template-rows: 0fr;
-    margin-top: 0;
-    opacity: 0;
-    visibility: hidden;
-    transition:
-        grid-template-rows 200ms ease,
-        margin-top 200ms ease,
-        opacity 200ms ease,
-        visibility 0s linear 200ms;
-}
-
-.related-notes-container.expanded {
-    grid-template-rows: 1fr;
-    margin-top: 20px;
-    opacity: 1;
-    visibility: visible;
-    transition:
-        grid-template-rows 200ms ease,
-        margin-top 200ms ease,
-        opacity 200ms ease;
-}
-
-.related-notes-inner {
-    overflow: hidden;
-    min-height: 0;
-}
-
-.related-notes-list {
-    padding-inline-start: 20px;
-    margin-top: 10px;
-    margin-bottom: 10px;
-}
-
 .attr-edit-table {
     width: 100%;
 }
@@ -78,18 +35,48 @@
     display: inline-block;
 }
 
+/* The title takes the leftover room, so the badge follows it and the close button stays at the end. */
 .attr-detail-header {
     display: flex;
-    justify-content: space-between;
-    align-items: start;
-    margin-bottom: 8px;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.attr-detail-title {
+    margin: 0;
+    margin-inline-end: auto;
 }
 
 .close-attr-detail-button {
     font-size: x-large;
     cursor: pointer;
-    position: relative;
-    top: -2px;
+}
+
+/*
+ * The count of the other notes carrying the attribute. It is advisory, so it stays quiet: a neutral fill
+ * rather than a color of its own, and an outline while the attribute is unique to this note.
+ */
+.related-notes-badge {
+    --color: var(--input-background-color);
+    color: var(--main-text-color);
+    flex-shrink: 0;
+
+    &.outline {
+        --color: var(--muted-text-color);
+    }
+}
+
+.dropdown-related-notes-badge .related-notes-menu {
+    max-width: 400px;
+
+    /* The links carry the icon and the title, so the item's own icon slot only applies to the search entry. */
+    .dropdown-item .tn-link {
+        flex-grow: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
 }
 
 .attr-save-delete-button-container {

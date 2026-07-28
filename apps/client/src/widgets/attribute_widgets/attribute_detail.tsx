@@ -1,7 +1,6 @@
 import "./attribute_detail.css";
 
 import type { DefinitionObject, LabelType, Multiplicity } from "@triliumnext/commons";
-import clsx from "clsx";
 import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../../components/app_context.js";
@@ -17,14 +16,16 @@ import { isIMEComposing } from "../../services/shortcuts.js";
 import utils from "../../services/utils.js";
 import BasicWidget from "../basic_widget.js";
 import NoteContextAwareWidget from "../note_context_aware_widget.js";
+import { Badge, BadgeWithDropdown } from "../react/Badge.jsx";
 import Button from "../react/Button.jsx";
 import FormAutocomplete, { AUTOCOMPLETE_DROPDOWN_SELECTOR } from "../react/FormAutocomplete.jsx";
 import FormCheckbox from "../react/FormCheckbox.jsx";
+import { FormDropdownDivider, FormListItem } from "../react/FormList.jsx";
 import FormSelect from "../react/FormSelect.jsx";
 import FormTextBox, { FormTextBoxWithUnit } from "../react/FormTextBox.jsx";
 import HelpButton from "../react/HelpButton.jsx";
 import NoteAutocomplete from "../react/NoteAutocomplete.jsx";
-import NoteLink from "../react/NoteLink.jsx";
+import NoteLink, { NewNoteLink } from "../react/NoteLink.jsx";
 import RawHtml from "../react/RawHtml.jsx";
 import { disposeReactWidget, ParentComponent, renderReactWidgetAtElement } from "../react/react_utils.jsx";
 import { ATTR_HELP } from "./attr_help.js";
@@ -142,8 +143,6 @@ export interface AttributeDetailProps extends AttributeFormCallbacks {
     currentNoteId?: string | null;
     /** Plain close, e.g. on click outside the popup. */
     onDismiss: () => void;
-    /** Close discarding unsaved changes (close button, escape). */
-    onCancel: () => void;
 }
 
 /**
@@ -249,22 +248,13 @@ export function AttributeDetail({ opts, currentNoteId, onDismiss, onCancel, ...f
                 }
             }}
         >
-            <div class="attr-detail-header">
-                <h5 class="attr-detail-title">{attrType ? ATTR_TITLES[attrType] : ""}</h5>
-
-                <button
-                    class="close-attr-detail-button icon-action bx bx-x"
-                    title={t("attribute_detail.close_button_title")}
-                    onClick={cancel}
-                />
-            </div>
-
             <AttributeForm
                 key={showCount.current}
                 opts={opts}
                 attrType={attrType}
                 currentNoteId={currentNoteId}
                 {...formCallbacks}
+                onCancel={cancel}
                 onSaveAndClose={onSaveAndClose && saveAndClose}
             />
         </div>
@@ -272,6 +262,8 @@ export function AttributeDetail({ opts, currentNoteId, onDismiss, onCancel, ...f
 }
 
 interface AttributeFormCallbacks {
+    /** Close discarding unsaved changes (close button, escape). */
+    onCancel: () => void;
     /** Reports the edited attribute list back to the spawning widget, which re-renders from it. */
     onAttributesChanged?: (attributes: Attribute[]) => void;
     /** Omitted for read-only popups, which show no save or delete button. */
@@ -283,7 +275,7 @@ interface AttributeFormCallbacks {
  * The editable part of the popup. Remounted per show (keyed on `showId`) so the field state is
  * simply seeded from the attribute instead of being synchronized to it on every change.
  */
-function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onSaveAndClose, onDelete }: AttributeFormCallbacks & {
+function AttributeForm({ opts, attrType, currentNoteId, onCancel, onAttributesChanged, onSaveAndClose, onDelete }: AttributeFormCallbacks & {
     opts: AttributeDetailOpts;
     attrType: AttrType;
     currentNoteId?: string | null;
@@ -364,6 +356,22 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
 
     return (
         <>
+            <div class="attr-detail-header">
+                <h5 class="attr-detail-title">{attrType ? ATTR_TITLES[attrType] : ""}</h5>
+
+                {/* Sits in the header, and not in a section of its own, so that the popup keeps the size it
+                    was positioned at: the lookup behind it is asynchronous and re-runs as the attribute is
+                    edited, and a block coming and going below the form would resize the popup under the
+                    pointer. */}
+                <RelatedNotesBadge attribute={attribute} currentNoteId={currentNoteId} />
+
+                <button
+                    class="close-attr-detail-button icon-action bx bx-x"
+                    title={t("attribute_detail.close_button_title")}
+                    onClick={onCancel}
+                />
+            </div>
+
             {!isOwned && attribute.noteId && (
                 <div class="attr-is-owned-by">
                     {/* TODO: the attribute type is not translated, as in the widget this was ported from. */}
@@ -569,8 +577,6 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
                     />
                 </div>
             )}
-
-            <RelatedNotes attribute={attribute} currentNoteId={currentNoteId} />
         </>
     );
 }
@@ -647,15 +653,19 @@ interface SearchRelatedResponse {
 }
 
 interface RelatedNotesResult {
-    notePaths: string[];
-    /** How many further notes the list does not show, `0` when it shows them all. */
-    moreCount: number;
+    /** The first {@link DISPLAYED_NOTES} other notes carrying the attribute, by best path. */
+    notes: { notePath: string; icon: string }[];
+    /** How many notes other than the current one carry the attribute, however many of them are listed. */
+    otherCount: number;
 }
 
-/** Lists the other notes carrying the same attribute, collapsed entirely when there are none. */
-function RelatedNotes({ attribute, currentNoteId }: { attribute: Attribute; currentNoteId?: string | null }) {
+/**
+ * How many notes carry the same attribute, listing them on click. The count alone answers the question
+ * the popup cannot otherwise: whether the name being typed is one already in use somewhere, or a new one
+ * (which, mid-edit, usually means a typo).
+ */
+function RelatedNotesBadge({ attribute, currentNoteId }: { attribute: Attribute; currentNoteId?: string | null }) {
     const [ related, setRelated ] = useState<RelatedNotesResult>();
-    const lastFilled = useRef<RelatedNotesResult>();
     const latestRequest = useRef(0);
     const isInitialLookup = useRef(true);
     const { type, name, value } = attribute;
@@ -677,9 +687,14 @@ function RelatedNotes({ attribute, currentNoteId }: { attribute: Attribute; curr
 
             const hoistedNoteId = appContext.tabManager.getActiveContext()?.hoistedNoteId;
             setRelated({
-                notePaths: notes.map((note) => note.getBestNotePathString(hoistedNoteId)),
-                // Counted against the server's total, so it also covers what the search itself capped.
-                moreCount: otherNotes.length > DISPLAYED_NOTES ? count - DISPLAYED_NOTES : 0
+                notes: notes.map((note) => ({
+                    notePath: note.getBestNotePathString(hoistedNoteId),
+                    icon: note.getIcon()
+                })),
+                // The server counts every match, the current note included, but only returns the first
+                // twenty of them — so past twenty matches, a current note that did not make the cut leaves
+                // the count one too high. Being out by one is immaterial at that size.
+                otherCount: Math.max(count - (otherNotes.length < results.length ? 1 : 0), 0)
             });
         }
 
@@ -695,36 +710,55 @@ function RelatedNotes({ attribute, currentNoteId }: { attribute: Attribute; curr
         // `attribute` is edited in place, so its fields rather than its identity are the real inputs.
     }, [ type, name, value, currentNoteId ]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    // The section stays mounted so that the CSS can ease its height: the lookup lands after the popup has
-    // been positioned, and mounting it then would snap the popup to a new size. The last non-empty result
-    // stays as its content so that collapsing animates as well, rather than emptying out at once.
-    const shown = !!related?.notePaths.length;
-    if (shown) {
-        lastFilled.current = related;
+    // Nothing at all until the first lookup lands, rather than a placeholder: the badge shares its row with
+    // the title and the close button, so it can appear without moving anything around it.
+    if (!related) {
+        return null;
     }
-    const content = lastFilled.current;
+
+    if (!related.otherCount) {
+        return (
+            <Badge
+                className="related-notes-badge"
+                outline
+                text={t("attribute_detail.no_other_notes")}
+                tooltip={t("attribute_detail.no_other_notes_title", { attributeType: type, attributeName: name })}
+            />
+        );
+    }
 
     return (
-        <div class={clsx("related-notes-container", shown && "expanded")}>
-            <div class="related-notes-inner">
-                <h5 class="related-notes-title">
-                    {t("attribute_detail.other_notes_with_name", { attributeType: type, attributeName: name })}
-                </h5>
+        <BadgeWithDropdown
+            className="related-notes-badge"
+            icon="bx bx-file"
+            text={t("attribute_detail.other_notes_count", { count: related.otherCount })}
+            tooltip={t("attribute_detail.other_notes_with_name", { attributeType: type, attributeName: name })}
+            // The menu stays nested in the popup: the badge places it with `position: fixed`, and the popup
+            // sets `contain: none` and no transform, so it is not a containing block and does not clip it.
+            dropdownOptions={{ dropdownContainerClassName: "related-notes-menu" }}
+        >
+            {/* The icon comes from the item rather than from the link, so that the note entries and the
+                search entry below them line up on the same slot. */}
+            {related.notes.map(({ notePath, icon }) => (
+                <FormListItem key={notePath} icon={icon}>
+                    <NewNoteLink notePath={notePath} noPreview />
+                </FormListItem>
+            ))}
 
-                <ul class="related-notes-list">
-                    {content?.notePaths.map((notePath) => (
-                        <li key={notePath}><NoteLink notePath={notePath} showNotePath /></li>
-                    ))}
-                </ul>
+            <FormDropdownDivider />
 
-                {(content?.moreCount ?? 0) > 0 && (
-                    <div class="related-notes-more-notes">
-                        {t("attribute_detail.and_more", { count: content?.moreCount })}
-                    </div>
-                )}
-            </div>
-        </div>
+            <FormListItem
+                icon="bx bx-search-alt"
+                onClick={() => void appContext.triggerCommand("searchNotes", { searchString: formatAttributeForSearch(attribute) })}
+            >{t("attribute_detail.show_all_in_search")}</FormListItem>
+        </BadgeWithDropdown>
     );
+}
+
+/** The query for every note carrying the attribute, mirroring the name-only search behind the count. */
+function formatAttributeForSearch({ type, name }: Attribute) {
+    // Names are filtered as they are typed, so there is nothing in one that would need quoting.
+    return `${type === "label" ? "#" : "~"}${name}`;
 }
 
 const ATTR_TITLES: Record<string, string> = {
