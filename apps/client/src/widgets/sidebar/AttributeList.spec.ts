@@ -48,6 +48,16 @@ describe("splitIntoSections", () => {
         // Which of the definitions the note may edit is the row's to know, the card holding both.
         expect(sections.definitions.map((entry) => entry.isOwned)).toEqual([ true, true, false ]);
     });
+
+    it("sorts the names Trilium reads for itself last, each group keeping its order", () => {
+        const { owned } = splitIntoSections(
+            [ plain("cssClass"), plain("priority"), plain("archived"), plain("author") ],
+            []
+        );
+
+        expect(owned.map((entry) => entry.attribute.name)).toEqual([ "priority", "author", "cssClass", "archived" ]);
+        expect(owned.map((entry) => entry.isSystem)).toEqual([ false, false, true, true ]);
+    });
 });
 
 describe("getAttributeKind / getDisplayName", () => {

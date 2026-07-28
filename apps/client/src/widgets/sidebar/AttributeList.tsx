@@ -9,7 +9,7 @@ import FAttribute from "../../entities/fattribute";
 import FNote from "../../entities/fnote";
 import contextMenu from "../../menus/context_menu";
 import type { Attribute } from "../../services/attribute_parser";
-import attributes from "../../services/attributes";
+import attributes, { isBuiltinAttribute } from "../../services/attributes";
 import dialog from "../../services/dialog";
 import { t } from "../../services/i18n";
 import server from "../../services/server";
@@ -246,24 +246,41 @@ interface AttributeRowListProps {
 }
 
 /**
- * One card's worth of rows. What a row offers follows from whether the note owns its attribute rather
+ * One card's worth of rows, in two lists: what the note was given a name for, and below a rule, what
+ * Trilium reads for itself. What a row offers follows from whether the note owns its attribute rather
  * than from the card it is in: the definitions card holds the note's own alongside a template's.
  */
 function AttributeRowList({ rows, activeAttribute, onOpen, onDelete }: AttributeRowListProps) {
+    function renderRows(group: AttributeEntry[]) {
+        return (
+            <ul class="attribute-rows">
+                {group.map(({ attribute, isOwned, isSystem }, index) => (
+                    <AttributeRow
+                        key={attribute.attributeId ?? `new-${index}`}
+                        attribute={attribute}
+                        active={activeAttribute === attribute}
+                        isSystem={isSystem}
+                        // An attribute of another note names it; the current note's own would name itself.
+                        showOwner={!isOwned}
+                        onOpen={(anchor, e) => onOpen(attribute, isOwned, anchor, e)}
+                        onDelete={isOwned ? () => onDelete(attribute) : undefined}
+                    />
+                ))}
+            </ul>
+        );
+    }
+
+    // The system attributes are sorted last (see splitIntoSections), so one index is the whole boundary.
+    const boundary = rows.findIndex((entry) => entry.isSystem);
+    const userDefined = boundary < 0 ? rows : rows.slice(0, boundary);
+    const system = boundary < 0 ? [] : rows.slice(boundary);
+
     return (
-        <ul class="attribute-rows">
-            {rows.map(({ attribute, isOwned }, index) => (
-                <AttributeRow
-                    key={attribute.attributeId ?? `new-${index}`}
-                    attribute={attribute}
-                    active={activeAttribute === attribute}
-                    // An attribute of another note names it; the current note's own would name itself.
-                    showOwner={!isOwned}
-                    onOpen={(anchor, e) => onOpen(attribute, isOwned, anchor, e)}
-                    onDelete={isOwned ? () => onDelete(attribute) : undefined}
-                />
-            ))}
-        </ul>
+        <>
+            {userDefined.length > 0 && renderRows(userDefined)}
+            {userDefined.length > 0 && system.length > 0 && <hr class="attribute-rows-divider" />}
+            {system.length > 0 && renderRows(system)}
+        </>
     );
 }
 
@@ -271,13 +288,15 @@ interface AttributeRowProps {
     attribute: Attribute;
     /** Whether the detail popup is currently showing this attribute. */
     active: boolean;
+    /** Whether the name is one Trilium reads for itself rather than one the note was given. */
+    isSystem?: boolean;
     /** Names the note the attribute is inherited from, for attributes not owned by the current note. */
     showOwner?: boolean;
     onOpen: (anchor: HTMLElement | null, e: MouseEvent) => void;
     onDelete?: () => void;
 }
 
-function AttributeRow({ attribute, active, showOwner, onOpen, onDelete }: AttributeRowProps) {
+function AttributeRow({ attribute, active, isSystem, showOwner, onOpen, onDelete }: AttributeRowProps) {
     const rowRef = useRef<HTMLLIElement>(null);
     const attrType = getAttributeKind(attribute);
 
@@ -292,9 +311,15 @@ function AttributeRow({ attribute, active, showOwner, onOpen, onDelete }: Attrib
                 onOpen(rowRef.current, e);
             }}
         >
-            {/* The kind is the icon: a definition carries the icon of what it defines, marked as a
-                definition, so `label:foo` reads as a label rather than as a label named "label:foo". */}
-            <span class={clsx("attribute-kind", isDefinition(attrType) && "definition")}>
+            {/* The kind is the icon: a definition carries the icon of what it defines, flagged as a
+                definition, so `label:foo` reads as a label rather than as a label named "label:foo".
+                A system attribute carries a cog on the same corner — the two never coincide, a
+                definition being named by whoever writes it. Its own tooltip names it, the marker being
+                the only thing that says so. */}
+            <span
+                class={clsx("attribute-kind", isDefinition(attrType) ? "marker-definition" : isSystem && "marker-system")}
+                title={isSystem ? t("attribute_names.system") : undefined}
+            >
                 <Icon icon={attrType === "relation" || attrType === "relation-definition" ? "bx bx-transfer" : "bx bx-hash"} />
             </span>
 
@@ -432,6 +457,8 @@ function createAttribute(attrType: AttributeKind): Attribute {
 export interface AttributeEntry {
     attribute: Attribute;
     isOwned: boolean;
+    /** Whether Trilium reads this name for itself, as opposed to the note having been given it. */
+    isSystem: boolean;
 }
 
 export interface AttributeSections {
@@ -450,14 +477,28 @@ export interface AttributeSections {
 
 export function splitIntoSections(owned: Attribute[], inherited: Attribute[]): AttributeSections {
     const isDefinitionEntry = ({ attribute }: AttributeEntry) => isDefinition(getAttributeKind(attribute));
-    const ownedEntries = owned.map((attribute) => ({ attribute, isOwned: true }));
-    const inheritedEntries = inherited.map((attribute) => ({ attribute, isOwned: false }));
+    const toEntry = (isOwned: boolean) => (attribute: Attribute): AttributeEntry => ({
+        attribute,
+        isOwned,
+        isSystem: isBuiltinAttribute(attribute.type, attribute.name)
+    });
+    const ownedEntries = owned.map(toEntry(true));
+    const inheritedEntries = inherited.map(toEntry(false));
 
     return {
-        owned: ownedEntries.filter((entry) => !isDefinitionEntry(entry)),
-        inherited: inheritedEntries.filter((entry) => !isDefinitionEntry(entry)),
-        definitions: [ ...ownedEntries, ...inheritedEntries ].filter(isDefinitionEntry)
+        owned: sortSystemLast(ownedEntries.filter((entry) => !isDefinitionEntry(entry))),
+        inherited: sortSystemLast(inheritedEntries.filter((entry) => !isDefinitionEntry(entry))),
+        definitions: sortSystemLast([ ...ownedEntries, ...inheritedEntries ].filter(isDefinitionEntry))
     };
+}
+
+/**
+ * The names the note was given first, the ones Trilium reads for itself after them: the note's own
+ * vocabulary is what its reader is looking for, and `cssClass` or `template` is plumbing they set once.
+ * A stable sort, so each group keeps the order it was collected in.
+ */
+function sortSystemLast(entries: AttributeEntry[]) {
+    return entries.toSorted((a, b) => Number(a.isSystem) - Number(b.isSystem));
 }
 
 function collectOwned(note: FNote | null | undefined): Attribute[] {

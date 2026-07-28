@@ -38,10 +38,13 @@
     color: var(--muted-text-color);
 }
 
-/* A definition is the same icon with a cog on it: it configures the label or relation it names, so it
-   reads as one, rather than as a third kind of thing with an icon of its own. */
-.attribute-list-panel .attribute-kind.definition::after {
-    content: "\ea6e"; /* lookup code for "cog" in boxicons.css */
+/*
+ * Both markers are the icon of what the attribute is with a second glyph on its corner, so a definition
+ * of a label still reads as a label and `cssClass` still reads as the label it is — rather than either
+ * becoming a kind of its own with an icon to learn.
+ */
+.attribute-list-panel .attribute-kind.marker-definition::after,
+.attribute-list-panel .attribute-kind.marker-system::after {
     position: absolute;
     inset-inline-end: -3px;
     bottom: -2px;
@@ -53,6 +56,25 @@
     text-shadow:
         0 0 2px var(--card-background-color, var(--main-background-color)),
         0 0 2px var(--card-background-color, var(--main-background-color));
+}
+
+/* A definition flags the attribute it names rather than being one. */
+.attribute-list-panel .attribute-kind.marker-definition::after {
+    content: "\eade"; /* lookup code for "flag" in boxicons.css */
+}
+
+/* A cog for the names Trilium reads for itself: settings of the note rather than a word for it. */
+.attribute-list-panel .attribute-kind.marker-system::after {
+    content: "\ea6e"; /* lookup code for "cog" in boxicons.css */
+}
+
+/* What separates the note's own vocabulary from the names Trilium reads for itself. Quiet: the sort is
+   what carries the split, the rule only marks where it falls. */
+.attribute-list-panel .attribute-rows-divider {
+    margin: 4px 4px 5px;
+    border: none;
+    border-top: 1px solid var(--main-border-color);
+    opacity: 0.6;
 }
 
 .attribute-list-panel .attribute-name {
