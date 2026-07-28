@@ -1311,7 +1311,8 @@
     "print_page_size": "PDF にエクスポートするときに、ページのサイズを変更します。サポートされる値: <code>A0</code>, <code>A1</code>, <code>A2</code>, <code>A3</code>, <code>A4</code>, <code>A5</code>, <code>A6</code>, <code>Legal</code>, <code>Letter</code>, <code>Tabloid</code>, <code>Ledger</code>。",
     "textarea": "複数行テキスト",
     "print_scale": "PDF にエクスポートする際に、レンダリングされるコンテンツの縮尺を変更します。値の範囲は 0.1（10%）から 2（200%）までで、デフォルト値は 1（100%）です。",
-    "print_margins": "PDF に書き出す際に、ページ余白を設定します。<code>デフォルト</code>, <code>なし</code>, <code>最小</code>, または <code>上、右、下、左</code> のようなカスタム値をミリメートル単位で指定できます。"
+    "print_margins": "PDF に書き出す際に、ページ余白を設定します。<code>デフォルト</code>, <code>なし</code>, <code>最小</code>, または <code>上、右、下、左</code> のようなカスタム値をミリメートル単位で指定できます。",
+    "save_and_close_button": "保存して閉じる"
   },
   "link_context_menu": {
     "open_note_in_popup": "クイック編集",
@@ -3284,10 +3285,17 @@
     "share_js": "JavaScript",
     "share_html": "HTML",
     "share_template": "テンプレート",
-    "sort_order": "並べ替え:",
+    "sort_order": "並べ替え",
     "sort_by_title": "タイトル",
     "sort_by_date_created": "作成日時",
     "no_items": "アクティブなコンテンツは見つかりませんでした。",
-    "no_items_hint": "作成したスクリプト、テーマ、テンプレート、スニペットがここに表示されます。"
-  }
+    "no_items_hint": "作成したスクリプト、テーマ、テンプレート、スニペットがここに表示されます。",
+    "item_menu": "アクション",
+    "property_category": "カテゴリ",
+    "item_count_other": "{{count}} アイテム",
+    "view_mode": "表示:",
+    "view_by_category": "カテゴリ別",
+    "view_by_location": "場所別"
+  },
+  "show-help": "ヘルプを表示"
 }
