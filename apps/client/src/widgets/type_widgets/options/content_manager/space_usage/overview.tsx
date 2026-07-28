@@ -7,8 +7,14 @@ import { formatSize } from "../../../../../services/utils";
 import Treemap, { type TreemapItem } from "../../../../react/charts/Treemap";
 import { bucketWeight, buildOverviewModel, type OverviewCell } from "./overview_model";
 
-/** A cell's area covers a note's whole weight, history included; its tooltip says the same. */
-const INCLUDE_REVISIONS = true;
+/**
+ * A cell's area covers a note's body and attachments, leaving history out; its tooltip says the
+ * same. Per-note revision sizes are counted per entity rather than deduplicated, so a revision
+ * snapshotting an unchanged body reports its full size while costing the database nothing — folding
+ * that into the areas would inflate cells by bytes that were never spent. The status line reports
+ * the deduplicated revisions total instead.
+ */
+const INCLUDE_REVISIONS = false;
 
 /** The treemap over the whole database: every large note at its tree location. */
 export default function Overview({ overview }: { overview: SpaceUsageOverviewResponse }) {
