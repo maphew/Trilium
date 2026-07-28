@@ -77,9 +77,6 @@ const config: ForgeConfig = {
             }
         ]
     },
-    rebuildConfig: {
-        extraModules: [ "better-sqlite3" ]
-    },
     makers: [
         {
             name: "@electron-forge/maker-deb",
