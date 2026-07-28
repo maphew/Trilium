@@ -25,6 +25,8 @@ describe("AiAssistantFormView", () => {
         expect(form.phase).toBe("prompt");
         expect(form.resultToggleView.isVisible).toBe(false);
         expect(form.changesToggleView.isVisible).toBe(false);
+        // Without the reset exemption, the balloon's `.ck-reset_all` nowraps every paragraph.
+        expect(form.previewView.element?.classList.contains("ck-reset_all-excluded")).toBe(true);
     });
 
     it("streams into the preview and always shows the raw result while streaming", () => {

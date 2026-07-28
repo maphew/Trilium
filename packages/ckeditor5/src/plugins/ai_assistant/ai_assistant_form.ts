@@ -323,6 +323,11 @@ class AiPreviewView extends View {
                     "ck",
                     "ck-ai-assistant-form__preview",
                     "ck-content",
+                    // Exempt the preview subtree from CKEditor's UI reset — inside the balloon,
+                    // `.ck-reset_all` otherwise forces `white-space: nowrap` (plus zeroed margins
+                    // and the UI font) onto the content, making every paragraph one long
+                    // unwrappable line.
+                    "ck-reset_all-excluded",
                     bind.if("isVisible", "ck-hidden", (isVisible) => !isVisible)
                 ]
             }
