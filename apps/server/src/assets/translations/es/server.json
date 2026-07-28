@@ -435,8 +435,8 @@
       "row-throttling": "Tiempo limitado por Microsoft Graph",
       "value-links": "{{resolved}} resueltos, {{unresolved}} apuntando fuera de la selección importada",
       "value-throttling_one": "{{- wait}} ({{count}} petición limitada)",
-      "value-throttling_many": "",
-      "value-throttling_other": "",
+      "value-throttling_many": "{{- wait}} ({{count}} peticiones limitadas)",
+      "value-throttling_other": "{{- wait}} ({{count}} peticiones limitadas)",
       "skipped-sections-title": "Secciones que no se pudieron importar",
       "skipped-sections-section": "Sección",
       "skipped-sections-notebook": "Cuaderno",
@@ -447,8 +447,8 @@
       "failed-pages-error": "Error",
       "failed-resources-title": "Imágenes y archivos adjuntos faltantes",
       "failed-resources-item_one": "{{- pageLink}}: no se pudo descargar {{count}} recurso",
-      "failed-resources-item_many": "",
-      "failed-resources-item_other": ""
+      "failed-resources-item_many": "{{- pageLink}}: no se pudieron descargar {{count}} recursos",
+      "failed-resources-item_other": "{{- pageLink}}: no se pudieron descargar {{count}} recursos"
     }
   },
   "notion_import": {
