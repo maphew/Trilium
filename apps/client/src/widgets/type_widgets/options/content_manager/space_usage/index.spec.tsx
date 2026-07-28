@@ -89,7 +89,6 @@ describe("SpaceUsage section", () => {
         expect(contentSpan.textContent?.trim()).toBe(t("space_usage.status_content", {
             count: 12,
             size: formatSize(4000),
-            revisionsSize: formatSize(200),
             attachmentsSize: formatSize(300)
         }) ?? "");
         expect(deletedSpan.textContent?.trim()).toBe(t("space_usage.status_deleted", {

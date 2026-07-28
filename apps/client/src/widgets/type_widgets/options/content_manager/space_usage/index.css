@@ -37,13 +37,15 @@
         padding-block: 8px;
     }
 
+    /* Reads as a caption under the chart rather than a bar fenced off from it: centered, muted and
+       unruled, so the map keeps the eye and the totals stay available underneath it. */
     .space-usage-status {
         display: flex;
         flex: 0 0 auto;
         flex-wrap: wrap;
+        justify-content: center;
         gap: 0.6em;
-        border-top: 1px solid var(--main-border-color);
-        padding-block: 6px;
+        color: var(--muted-text-color);
         font-size: 0.85em;
     }
 

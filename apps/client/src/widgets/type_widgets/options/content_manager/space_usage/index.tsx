@@ -54,15 +54,16 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
             {overview && (
                 <footer className="space-usage-status">
                     <StatusEntry
+                        // Revisions are left out: they carry their own cell on the map, which names
+                        // their size, so repeating it here would only lengthen the line.
                         text={t("space_usage.status_content", {
                             count: overview.content.noteCount,
                             size: formatSize(overview.content.size),
-                            revisionsSize: formatSize(overview.content.revisionsSize),
                             attachmentsSize: formatSize(overview.content.attachmentsSize)
                         })}
                         hint={t("space_usage.status_content_hint")}
                     />
-                    <span className="space-usage-status-separator" aria-hidden="true">–</span>
+                    <span className="space-usage-status-separator" aria-hidden="true">•</span>
                     <StatusEntry
                         text={t("space_usage.status_deleted", {
                             count: overview.deletedNotes.noteCount,
