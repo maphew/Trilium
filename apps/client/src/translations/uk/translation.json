@@ -20,7 +20,9 @@
     "affected_branches": "Уражені гілки ({{count}}):"
   },
   "about": {
-    "data_directory": "Каталог даних:"
+    "data_directory": "Каталог даних:",
+    "version_label": "Версія:",
+    "version": "{{appVersion}} (база даних: {{dbVersion}}, протокол синхронізації: {{syncVersion}})"
   },
   "global_menu": {
     "about": "Про Trilium Notes",
@@ -185,7 +187,8 @@
     "notes_to_be_deleted": "Наступні нотатки будуть видалені ({{notesCount}})",
     "no_note_to_delete": "Жодну нотатку не буде видалено (лише клони).",
     "broken_relations_to_be_deleted": "Наступні зв'язки будуть розірвані та видалені ({{ relationCount}})",
-    "cancel": "Скасувати"
+    "cancel": "Скасувати",
+    "title": "Видалити нотатки"
   },
   "export": {
     "export_note_title": "Експорт нотатки",
@@ -295,7 +298,8 @@
     "deleted_notes_message": "Видалені нотатки стерто.",
     "no_changes_message": "Поки що жодних змін...",
     "undelete_link": "відновити",
-    "confirm_undelete": "Ви хочете відновити цю нотатку та її піднотатки?"
+    "confirm_undelete": "Ви хочете відновити цю нотатку та її піднотатки?",
+    "deleted_notes_title": "Видалені нотатки"
   },
   "include_note": {
     "dialog_title": "Включити нотатку",
@@ -1041,7 +1045,7 @@
     "no_attachments": "Ця нотатка не має вкладень."
   },
   "book": {
-    "no_children_help": "Ця колекція не має дочірніх нотаток, тому нічого відображати. Див. <a href=\"https://triliumnext.github.io/Docs/Wiki/book-note.html\">вікі</a> для отримання детальної інформації.",
+    "no_children_help": "Ця колекція не має дочірніх нотаток, тому нічого відображати.",
     "drag_locked_title": "Заблоковано для редагування",
     "drag_locked_message": "Перетягування заборонено, оскільки колекцію заблоковано для редагування."
   },
@@ -1411,7 +1415,8 @@
     "toggle-sidebar": "Перемикання бічної панелі",
     "subtree-hidden-tooltip_one": "{{count}} дочірня нотатка, прихована від дерев",
     "subtree-hidden-tooltip_few": "{{count}} дочірніх нотатки, прихованих від дерев",
-    "subtree-hidden-tooltip_many": "{{count}} дочірніх нотаток, прихованих від дерев"
+    "subtree-hidden-tooltip_many": "{{count}} дочірніх нотаток, прихованих від дерев",
+    "subtree-hidden-moved-description-collection": "Ця колекція приховує свої дочірні нотатки в дереві."
   },
   "title_bar_buttons": {
     "window-on-top": "Тримати вікно зверху"
@@ -1423,7 +1428,10 @@
     "print_report_collection_content_many": "{{count}} нотаток з колекції не вдалося роздрукувати, тому що вони не підтримуються або захищені."
   },
   "note_title": {
-    "placeholder": "введіть тут заголовок нотатки..."
+    "placeholder": "введіть тут заголовок нотатки...",
+    "note_type_switcher_label": "Змінити з {{type}} на:",
+    "note_type_switcher_collection": "Колекція",
+    "note_type_switcher_others": "Інший тип нотатки"
   },
   "search_result": {
     "no_notes_found": "За заданими параметрами пошуку нотаток не знайдено.",
@@ -1902,5 +1910,17 @@
     "setup_create_sample_preact": "Створіть зразок нотатки за допомогою Preact",
     "setup_create_sample_html": "Створити зразок нотатки за допомогою HTML",
     "setup_sample_created": "Зразок нотатки було створено як дочірню нотатку."
+  },
+  "revisions": {
+    "delete_button": "Видалити"
+  },
+  "keyboard_shortcut_keys": {
+    "delete": "Видалити"
+  },
+  "sidebar_chat": {
+    "delete": "Видалити"
+  },
+  "llm": {
+    "delete_provider": "Видалити"
   }
 }
