@@ -433,7 +433,10 @@ div.ck-template-form .ck-labeled-field-view {
    clobbering the glyph's `content`. */
 :root div.ck-template-form .ck-template-icon {
     position: relative;
-    color: var(--note-icon-color);
+    /* Honour the note's `#color` (carried by the `use-note-color` class, which defines
+       `--custom-color`), falling back to the default icon colour when the note has none — the same
+       mechanism the note tree uses for its icons. */
+    color: var(--custom-color, var(--note-icon-color));
 
     &::after {
         display: block;
