@@ -34,6 +34,7 @@ export interface TreemapItem<T = unknown> {
 interface TreemapProps<T> {
     root: TreemapItem<T>;
     onItemClick?: (item: TreemapItem<T>) => void;
+    onItemContextMenu?: (item: TreemapItem<T>, event: MouseEvent) => void;
     className?: string;
 }
 
@@ -69,7 +70,7 @@ const EDGE_EPSILON = 0.5;
  * tooltips behave like everywhere else in the app. The hue tint is mixed into the theme's own
  * surface color, which keeps the map coherent under any user theme.
  */
-export default function Treemap<T>({ root, onItemClick, className }: TreemapProps<T>) {
+export default function Treemap<T>({ root, onItemClick, onItemContextMenu, className }: TreemapProps<T>) {
     const { containerRef, containerProps, showTooltip, hideTooltip, tooltipNode } = useChartTooltip<HTMLDivElement>();
     const size = useElementSize(containerRef);
     const width = Math.floor(size?.width ?? 0);
@@ -123,6 +124,7 @@ export default function Treemap<T>({ root, onItemClick, className }: TreemapProp
                             ...(item.hue !== undefined && { "--treemap-hue": String(item.hue) })
                         }}
                         onClick={onItemClick && (() => onItemClick(item))}
+                        onContextMenu={onItemContextMenu && ((event) => onItemContextMenu(item, event))}
                         onMouseEnter={(event) => showTooltip(item.tooltip, event)}
                         onMouseLeave={hideTooltip}
                         {...item.attributes}

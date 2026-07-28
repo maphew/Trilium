@@ -49,7 +49,8 @@ describe("buildOverviewModel", () => {
 
         const leaf = childById(folder, "leaf");
         expect(leaf.value).toBe(120);
-        expect(leaf.data).toEqual({ noteId: "leaf" });
+        // The path the cell's actions need, rooted — unlike the server's, which omits the root.
+        expect(leaf.data).toEqual({ noteId: "leaf", notePath: [ "root", "folder", "leaf" ] });
         // The size rides along in the note preview tooltip rather than a second tooltip of its own.
         expect(leaf.attributes).toEqual({
             "data-href": "#root/folder/leaf",
@@ -98,7 +99,7 @@ describe("buildOverviewModel", () => {
         const selfCell = childById(parent, "parent/own");
         expect(selfCell.value).toBe(50);
         expect(selfCell.hue).toBe(hueOf("parent"));
-        expect(selfCell.data).toEqual({ noteId: "parent" });
+        expect(selfCell.data).toEqual({ noteId: "parent", notePath: [ "root", "parent" ] });
         expect(selfCell.attributes).toEqual({
             "data-href": "#root/parent",
             "data-tooltip-detail": "size:50"

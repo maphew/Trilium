@@ -9,6 +9,7 @@ import { t } from "../../../../../services/i18n";
 import { formatSize } from "../../../../../services/utils";
 import ActionButton from "../../../../react/ActionButton";
 import type { DonutRing } from "../../../../react/charts/DonutChart";
+import { openSpaceUsageContextMenu } from "./context_menu";
 import { buildChildrenSegments, type UsageSegmentData } from "./donut_segments";
 import NoteUsageDonut, { segmentTooltip } from "./note_usage_donut";
 import { useSpaceUsageFetch } from "./use_space_usage_fetch";
@@ -16,16 +17,24 @@ import { useSpaceUsageFetch } from "./use_space_usage_fetch";
 const CHILDREN_RING_RADIUS = 180;
 const CHILDREN_RING_THICKNESS = 46;
 
+interface BrowseProps {
+    /** Note IDs from the root (inclusive) down to the note in view. */
+    path: string[];
+    onPathChange: (path: string[]) => void;
+}
+
 /**
  * The Browse view: the composition donut of the current note wrapped by its children ring, entered
  * from the root and navigated by clicking children. The breadcrumb mirrors the descent and jumps
  * anywhere back up; the back button pops one level.
+ *
+ * The path is owned by the section rather than the view, so that "Show details" elsewhere in Space
+ * Usage can drop the user straight onto a note here.
  */
-export default function Browse() {
-    const [ stack, setStack ] = useState([ "root" ]);
-    const noteId = stack[stack.length - 1];
+export default function Browse({ path, onPathChange }: BrowseProps) {
+    const noteId = path[path.length - 1];
     const usage = useSpaceUsageFetch<SpaceUsageNoteResponse>(`space-usage/note/${noteId}`);
-    const titles = useNoteTitles(stack, usage);
+    const titles = useNoteTitles(path, usage);
     const getTitle = useCallback((id: string) => titles.get(id) ?? id, [ titles ]);
 
     const childrenRing: DonutRing<UsageSegmentData> = useMemo(() => ({
@@ -43,23 +52,31 @@ export default function Browse() {
             const childId = segment.data?.noteId;
 
             if (childId) {
-                setStack((current) => [ ...current, childId ]);
+                onPathChange([ ...path, childId ]);
+            }
+        },
+        // Descending is what "Show details" means here, so the menu's own handler is the navigation.
+        onSegmentContextMenu: (segment, event) => {
+            const childId = segment.data?.noteId;
+
+            if (childId) {
+                void openSpaceUsageContextMenu(event, [ ...path, childId ], onPathChange);
             }
         }
-    }), [ usage, getTitle ]);
+    }), [ usage, getTitle, path, onPathChange ]);
 
     return (
         <div className="space-usage-browse">
             <nav className="space-usage-breadcrumb">
                 <span className="space-usage-crumb-label">{t("space_usage.current_note")}</span>
-                {stack.map((id, index) => (
+                {path.map((id, index) => (
                     <Fragment key={`${index}/${id}`}>
                         {index > 0 && <span className="space-usage-crumb-separator" aria-hidden="true">›</span>}
-                        {index < stack.length - 1 ? (
+                        {index < path.length - 1 ? (
                             <button
                                 type="button"
                                 className="space-usage-crumb"
-                                onClick={() => setStack((current) => current.slice(0, index + 1))}
+                                onClick={() => onPathChange(path.slice(0, index + 1))}
                             >{getTitle(id)}</button>
                         ) : (
                             <span className="space-usage-crumb space-usage-crumb-current">{getTitle(id)}</span>
@@ -73,15 +90,16 @@ export default function Browse() {
                     <NoteUsageDonut
                         usage={usage}
                         title={getTitle(usage.noteId)}
-                        notePath={stack}
+                        notePath={path}
                         outerRings={[ childrenRing ]}
+                        onTitleContextMenu={(event) => void openSpaceUsageContextMenu(event, path, onPathChange)}
                         centerActions={
                             <ActionButton
                                 className="space-usage-back"
                                 icon="bx bx-arrow-back"
                                 text={t("space_usage.back")}
-                                disabled={stack.length === 1}
-                                onClick={() => setStack((current) => current.length > 1 ? current.slice(0, -1) : current)}
+                                disabled={path.length === 1}
+                                onClick={() => path.length > 1 && onPathChange(path.slice(0, -1))}
                             />
                         }
                     />
@@ -97,11 +115,11 @@ export default function Browse() {
  * Batch-loads the titles the view needs — the breadcrumb's path and the children ring's tooltips.
  * Until (or unless) a title arrives, the ID stands in.
  */
-function useNoteTitles(stack: string[], usage: SpaceUsageNoteResponse | null) {
+function useNoteTitles(path: string[], usage: SpaceUsageNoteResponse | null) {
     const [ titles, setTitles ] = useState(new Map<string, string>());
 
     useEffect(() => {
-        const noteIds = [ ...stack, ...(usage?.children.map((child) => child.noteId) ?? []) ];
+        const noteIds = [ ...path, ...(usage?.children.map((child) => child.noteId) ?? []) ];
         let cancelled = false;
 
         // Silent: a note deleted since the usage was computed must not fail the whole view.
@@ -114,7 +132,7 @@ function useNoteTitles(stack: string[], usage: SpaceUsageNoteResponse | null) {
         return () => {
             cancelled = true;
         };
-    }, [ stack, usage ]);
+    }, [ path, usage ]);
 
     return titles;
 }

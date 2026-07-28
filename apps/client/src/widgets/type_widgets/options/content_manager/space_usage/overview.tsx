@@ -1,10 +1,10 @@
 import type { SpaceUsageOverviewResponse } from "@triliumnext/commons";
 import { useMemo } from "preact/hooks";
 
-import appContext from "../../../../../components/app_context";
 import { t } from "../../../../../services/i18n";
 import { formatSize } from "../../../../../services/utils";
 import Treemap, { type TreemapItem } from "../../../../react/charts/Treemap";
+import { openSpaceUsageContextMenu, quickEditNote, type ShowDetailsHandler } from "./context_menu";
 import { bucketWeight, buildOverviewModel, type OverviewCell } from "./overview_model";
 
 /**
@@ -16,8 +16,13 @@ import { bucketWeight, buildOverviewModel, type OverviewCell } from "./overview_
  */
 const INCLUDE_REVISIONS = false;
 
+interface OverviewProps {
+    overview: SpaceUsageOverviewResponse;
+    onShowDetails: ShowDetailsHandler;
+}
+
 /** The treemap over the whole database: every large note at its tree location. */
-export default function Overview({ overview }: { overview: SpaceUsageOverviewResponse }) {
+export default function Overview({ overview, onShowDetails }: OverviewProps) {
     // The labels are formatted here rather than in the model, which stays free of i18n: a bucket
     // stands for a crowd, so its tooltip names how many notes it holds and how much they take.
     const model = useMemo(() => buildOverviewModel(overview, {
@@ -39,7 +44,12 @@ export default function Overview({ overview }: { overview: SpaceUsageOverviewRes
 
     return (
         <div className="space-usage-overview">
-            <Treemap<OverviewCell> root={model} onItemClick={openCellNote} />
+            <Treemap<OverviewCell>
+                root={model}
+                onItemClick={(item) => withCellPath(item, quickEditNote)}
+                onItemContextMenu={(item, event) => withCellPath(item, (notePath) =>
+                    void openSpaceUsageContextMenu(event, notePath, onShowDetails))}
+            />
         </div>
     );
 }
@@ -53,19 +63,11 @@ function withSize(name: string, size: number) {
     return t("space_usage.segment_tooltip", { title: name, size: formatSize(size) });
 }
 
-/**
- * Opens the clicked note in a new tab, leaving the settings page in place. The bucket cells carry
- * no note and do nothing.
- */
-function openCellNote(item: TreemapItem<OverviewCell>) {
-    const noteId = item.data?.noteId;
+/** Runs an action on the cell's note, if it has one — the bucket cells stand for a crowd and stay inert. */
+function withCellPath(item: TreemapItem<OverviewCell>, action: (notePath: string[]) => void) {
+    const notePath = item.data?.notePath;
 
-    if (!noteId) {
-        return;
+    if (notePath?.length) {
+        action(notePath);
     }
-
-    void appContext.tabManager.openContextWithNote(noteId, {
-        activate: true,
-        hoistedNoteId: appContext.tabManager.getActiveContext()?.hoistedNoteId ?? null
-    });
 }

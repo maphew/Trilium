@@ -1,7 +1,7 @@
 import "./index.css";
 
 import type { SpaceUsageOverviewResponse } from "@triliumnext/commons";
-import { useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useMemo, useRef, useState } from "preact/hooks";
 
 import { t } from "../../../../../services/i18n";
 import { formatSize } from "../../../../../services/utils";
@@ -20,6 +20,13 @@ type SpaceUsageView = "overview" | "browse";
 
 export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionProps) {
     const [ view, setView ] = useState<SpaceUsageView>("overview");
+    // Browse's position lives here so that "Show details", offered on any note either view draws,
+    // can land the user on that note — switching the view along the way when it comes from Overview.
+    const [ browsePath, setBrowsePath ] = useState([ "root" ]);
+    const showDetails = useCallback((notePath: string[]) => {
+        setBrowsePath(notePath);
+        setView("browse");
+    }, []);
     // Fetched in both views: the treemap consumes it, and the status line is view-independent.
     // Revisions stay out of the ranking so it shares the basis of the areas the treemap draws —
     // asking for one basis and drawing the other would rank in notes the cells then shrink away.
@@ -39,9 +46,9 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
                 </div>
             } />
 
-            {view === "browse" && <Browse />}
+            {view === "browse" && <Browse path={browsePath} onPathChange={setBrowsePath} />}
             {view === "overview" && (overview
-                ? <Overview overview={overview} />
+                ? <Overview overview={overview} onShowDetails={showDetails} />
                 : <p className="space-usage-loading">{t("space_usage.loading")}</p>)}
 
             {overview && (

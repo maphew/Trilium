@@ -1,5 +1,6 @@
 import type { SpaceUsageNoteResponse } from "@triliumnext/commons";
 import { type ComponentChildren, render } from "preact";
+import { useState } from "preact/hooks";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { DonutRing } from "../../../../react/charts/DonutChart";
@@ -11,12 +12,18 @@ interface CapturedDonutProps {
     notePath: string[];
     outerRings: DonutRing<UsageSegmentData>[];
     centerActions: ComponentChildren;
+    onTitleContextMenu: (event: MouseEvent) => void;
 }
 
 const mocks = vi.hoisted(() => ({
     usage: undefined as unknown,
     fetchedUrls: [] as string[],
-    donutProps: undefined as unknown
+    donutProps: undefined as unknown,
+    openContextMenu: vi.fn()
+}));
+
+vi.mock("./context_menu", () => ({
+    openSpaceUsageContextMenu: (...args: unknown[]) => mocks.openContextMenu(...args)
 }));
 
 vi.mock("./use_space_usage_fetch", () => ({
@@ -70,9 +77,16 @@ function usageOf(noteId: string, children: string[]): SpaceUsageNoteResponse {
 
 let container: HTMLDivElement | undefined;
 
+/** The path is owned by the section in the app; here a minimal host stands in for it. */
+function BrowseHost() {
+    const [ path, setPath ] = useState([ "root" ]);
+
+    return <Browse path={path} onPathChange={setPath} />;
+}
+
 function renderBrowse() {
     container = document.body.appendChild(document.createElement("div"));
-    render(<Browse />, container);
+    render(<BrowseHost />, container);
     return container;
 }
 
@@ -98,6 +112,7 @@ afterEach(() => {
     mocks.usage = undefined;
     mocks.fetchedUrls = [];
     mocks.donutProps = undefined;
+    mocks.openContextMenu.mockClear();
 });
 
 describe("Browse", () => {
@@ -164,5 +179,28 @@ describe("Browse", () => {
         await flushRender();
 
         expect(crumbTexts(probe)).toEqual([ "title:root" ]);
+    });
+
+    it("opens the shared menu on a child's own path and on the current note, descending on show-details", async () => {
+        mocks.usage = usageOf("root", [ "child1" ]);
+        const probe = renderBrowse();
+        await vi.waitFor(() => expect(crumbTexts(probe)).toEqual([ "title:root" ]));
+
+        const event = new MouseEvent("contextmenu");
+        const ring = donutProps().outerRings[0];
+        ring.onSegmentContextMenu?.({ id: "child/child1", value: 40, data: { noteId: "child1" } }, event);
+        expect(mocks.openContextMenu).toHaveBeenCalledWith(event, [ "root", "child1" ], expect.any(Function));
+
+        donutProps().onTitleContextMenu(event);
+        expect(mocks.openContextMenu).toHaveBeenLastCalledWith(event, [ "root" ], expect.any(Function));
+
+        // Showing a note's details from within Browse is this view's own descent.
+        mocks.openContextMenu.mock.calls[0][2]([ "root", "child1" ]);
+        await vi.waitFor(() => expect(crumbTexts(probe)).toEqual([ "title:root", "title:child1" ]));
+
+        // A segment naming no note has nothing to offer.
+        mocks.openContextMenu.mockClear();
+        ring.onSegmentContextMenu?.({ id: "/deleted-notes", value: 5, data: {} }, event);
+        expect(mocks.openContextMenu).not.toHaveBeenCalled();
     });
 });

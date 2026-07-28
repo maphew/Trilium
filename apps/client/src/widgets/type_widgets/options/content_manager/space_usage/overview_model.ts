@@ -2,9 +2,13 @@ import type { SpaceUsageBucket, SpaceUsageOverviewNote, SpaceUsageOverviewRespon
 
 import type { TreemapItem } from "../../../../react/charts/Treemap";
 
+const ROOT_NOTE_ID = "root";
+
 /** What a treemap cell stands for; the bucket cells ("other", "deleted") name no note at all. */
 export interface OverviewCell {
     noteId?: string;
+    /** Note IDs from the root (inclusive) down to the note, as the cell's actions need it. */
+    notePath?: string[];
 }
 
 interface OverviewModelOptions {
@@ -74,8 +78,10 @@ export function buildOverviewModel(
             continue;
         }
 
+        // The server omits the root from its paths, but a note path the app can act on starts there.
+        const cell: OverviewCell = { noteId: entry.noteId, notePath: [ ROOT_NOTE_ID, ...path ] };
         const attributes = {
-            "data-href": `#root/${path.join("/")}`,
+            "data-href": `#${cell.notePath?.join("/")}`,
             // The note preview tooltip shows this under the title, which is how a cell states its
             // size without any text of its own — and without a second tooltip competing with it.
             ...(makeSizeDetail ? { "data-tooltip-detail": makeSizeDetail(weight) } : {})
@@ -87,13 +93,13 @@ export function buildOverviewModel(
                 value: weight,
                 // The self-cell sits among the note's own children, so it wears their group hue.
                 hue: hueOf(entry.noteId),
-                data: { noteId: entry.noteId },
+                data: cell,
                 attributes
             });
         } else {
             node.value = weight;
-            node.hue = hueOf(path.at(-2) ?? "root");
-            node.data = { noteId: entry.noteId };
+            node.hue = hueOf(path.at(-2) ?? ROOT_NOTE_ID);
+            node.data = cell;
             node.attributes = attributes;
         }
     }

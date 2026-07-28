@@ -7,11 +7,11 @@ import { useMemo, useRef } from "preact/hooks";
 import type React from "react";
 import { Trans } from "react-i18next";
 
-import appContext from "../../../../../components/app_context";
 import { t } from "../../../../../services/i18n";
 import { formatSize } from "../../../../../services/utils";
 import DonutChart, { type DonutRing } from "../../../../react/charts/DonutChart";
 import { useStaticTooltip } from "../../../../react/hooks";
+import { openNoteInNewTab } from "./context_menu";
 import { buildCompositionSegments, type UsageSegmentData, type UsageTooltipKind } from "./donut_segments";
 
 export const COMPOSITION_RING_RADIUS = 133;
@@ -28,6 +28,8 @@ interface NoteUsageDonutProps {
     outerRings?: DonutRing<UsageSegmentData>[];
     /** Rendered centered above the title in the hole — e.g. Browse's back button. */
     centerActions?: ComponentChildren;
+    /** Right-clicking the center title, which stands for the note itself. */
+    onTitleContextMenu?: (event: MouseEvent) => void;
     className?: string;
 }
 
@@ -37,7 +39,7 @@ interface NoteUsageDonutProps {
  * link: it opens the note and carries the note preview tooltip. Reusable wherever one note's usage
  * needs breaking down; Browse wraps it with its children ring via {@link outerRings}.
  */
-export default function NoteUsageDonut({ usage, title, notePath, outerRings = [], centerActions, className }: NoteUsageDonutProps) {
+export default function NoteUsageDonut({ usage, title, notePath, outerRings = [], centerActions, onTitleContextMenu, className }: NoteUsageDonutProps) {
     const compositionRing: DonutRing<UsageSegmentData> = useMemo(() => ({
         id: "composition",
         radius: COMPOSITION_RING_RADIUS,
@@ -66,11 +68,9 @@ export default function NoteUsageDonut({ usage, title, notePath, outerRings = []
                     // and the dialog's link interception must not double-handle it.
                     event.preventDefault();
                     event.stopPropagation();
-                    void appContext.tabManager.openContextWithNote(usage.noteId, {
-                        activate: true,
-                        hoistedNoteId: appContext.tabManager.getActiveContext()?.hoistedNoteId ?? null
-                    });
+                    openNoteInNewTab(usage.noteId);
                 }}
+                onContextMenu={onTitleContextMenu}
             >{title}</a>
             <SizeLine
                 i18nKey="space_usage.center_note_size"

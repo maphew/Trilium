@@ -30,6 +30,7 @@ export interface DonutRing<T = unknown> {
     thickness: number;
     segments: DonutSegment<T>[];
     onSegmentClick?: (segment: DonutSegment<T>) => void;
+    onSegmentContextMenu?: (segment: DonutSegment<T>, event: MouseEvent) => void;
 }
 
 interface DonutChartProps<T> {
@@ -111,6 +112,7 @@ function Ring<T>({ ring, onSegmentHover }: {
                         r={ring.radius}
                         fill="none"
                         onClick={ring.onSegmentClick && (() => ring.onSegmentClick?.(segment))}
+                        onContextMenu={ring.onSegmentContextMenu && ((event) => ring.onSegmentContextMenu?.(segment, event))}
                         onMouseEnter={(event) => onSegmentHover(segment, event)}
                         onMouseLeave={() => onSegmentHover(null)}
                         // Arc geometry is data-driven; as inline *style* (not attributes) it stays

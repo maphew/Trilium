@@ -3,16 +3,22 @@ import { render } from "preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-    openContextWithNote: vi.fn()
+    triggerCommand: vi.fn(),
+    openContextMenu: vi.fn(),
+    showDetails: vi.fn()
 }));
 
 vi.mock("../../../../../components/app_context", () => ({
     default: {
-        tabManager: {
-            openContextWithNote: mocks.openContextWithNote,
-            getActiveContext: () => null
-        }
+        triggerCommand: mocks.triggerCommand,
+        tabManager: { getActiveContext: () => null }
     }
+}));
+
+// The menu itself is covered by its own spec; here only the wiring matters.
+vi.mock("./context_menu", async (importOriginal) => ({
+    ...await importOriginal<typeof import("./context_menu")>(),
+    openSpaceUsageContextMenu: (...args: unknown[]) => mocks.openContextMenu(...args)
 }));
 
 // The treemap container never gets a real layout under happy-dom.
@@ -35,7 +41,7 @@ let container: HTMLDivElement | undefined;
 
 function renderOverview() {
     container = document.body.appendChild(document.createElement("div"));
-    render(<Overview overview={OVERVIEW} />, container);
+    render(<Overview overview={OVERVIEW} onShowDetails={mocks.showDetails} />, container);
     return container;
 }
 
@@ -45,7 +51,9 @@ afterEach(() => {
         container.remove();
         container = undefined;
     }
-    mocks.openContextWithNote.mockClear();
+    mocks.triggerCommand.mockClear();
+    mocks.openContextMenu.mockClear();
+    mocks.showDetails.mockClear();
 });
 
 describe("Overview", () => {
@@ -58,19 +66,23 @@ describe("Overview", () => {
         expect(probe.querySelector(".treemap-cell-deleted")).not.toBeNull();
     });
 
-    it("opens a clicked note in a new tab, while the bucket cells stay inert", () => {
+    it("quick-edits a clicked note and offers the menu on right-click, while the bucket cells stay inert", () => {
         const probe = renderOverview();
+        const cell = probe.querySelector('[data-href="#root/n1"]');
 
-        probe.querySelector('[data-href="#root/n1"]')
-            ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-        expect(mocks.openContextWithNote).toHaveBeenCalledWith("n1", {
-            activate: true,
-            hoistedNoteId: null
-        });
+        cell?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        expect(mocks.triggerCommand).toHaveBeenCalledWith("openInPopup", { noteIdOrPath: "root/n1" });
 
-        mocks.openContextWithNote.mockClear();
-        probe.querySelector(".treemap-cell-deleted")
-            ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-        expect(mocks.openContextWithNote).not.toHaveBeenCalled();
+        cell?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+        expect(mocks.openContextMenu).toHaveBeenCalledWith(
+            expect.anything(), [ "root", "n1" ], mocks.showDetails);
+
+        mocks.triggerCommand.mockClear();
+        mocks.openContextMenu.mockClear();
+        const bucket = probe.querySelector(".treemap-cell-deleted");
+        bucket?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        bucket?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+        expect(mocks.triggerCommand).not.toHaveBeenCalled();
+        expect(mocks.openContextMenu).not.toHaveBeenCalled();
     });
 });
