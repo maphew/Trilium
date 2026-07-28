@@ -59,6 +59,23 @@ export default function ActionButton({ text, icon, className, triggerCommand, ti
         }
     }, [title]);
 
+    // A "hover focus" tooltip survives the press that opened something, so it ends up sitting on top
+    // of whatever was opened — a context menu, a dropdown, a popup — until the pointer leaves the
+    // button. Dismiss it on press, as the legacy button widgets did (`onclick_button.ts`).
+    //
+    // Listened for natively rather than wrapped around the `onClick` prop, because a button can also
+    // act through `data-trigger-command` alone, with no `onClick` of its own. It has to be `click`
+    // and not `pointerdown`: the focus that follows a press would re-trigger the `focus` half of the
+    // tooltip's trigger and bring it straight back.
+    useEffect(() => {
+        const button = buttonRef.current;
+        if (!button) return;
+
+        const hideTooltip = () => Tooltip.getInstance(button)?.hide();
+        button.addEventListener("click", hideTooltip);
+        return () => button.removeEventListener("click", hideTooltip);
+    }, []);
+
     useEffect(() => {
         if (triggerCommand) {
             keyboard_actions.getAction(triggerCommand, true).then(action => setKeyboardShortcut(action?.effectiveShortcuts));
