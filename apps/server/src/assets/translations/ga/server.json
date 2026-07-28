@@ -394,9 +394,6 @@
     "db_not_initialized_desktop": "Níl an bunachar sonraí tosaithe, lean na treoracha ar an scáileán le do thoil.",
     "db_not_initialized_server": "Níl an bunachar sonraí tosaithe, tabhair cuairt ar an leathanach socraithe - http://[your-server-host]:{{port}} le treoracha a fheiceáil maidir le conas Trilium a thosú."
   },
-  "desktop": {
-    "instance_already_running": "Tá sampla ag rith cheana féin, agus tá fócas á chur ar an sampla sin ina ionad."
-  },
   "script": {
     "wrong-environment": "Ní féidir an nóta \"{{- noteTitle}}\" ({{- noteId}}) a fhorghníomhú. Is script {{- actualEnv}} é seo, ach rinneadh iarracht é a fhorghníomhú sa {{- expectedEnv}}."
   },
