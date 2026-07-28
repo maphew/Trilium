@@ -36,7 +36,8 @@
 }
 
 .attr-edit-rows .option-row-input > input,
-.attr-edit-rows .option-row-input > select {
+.attr-edit-rows .option-row-input > select,
+.attr-edit-rows .option-row-input > .dropdown {
     width: 100%;
 }
 

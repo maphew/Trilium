@@ -21,7 +21,7 @@ import { Badge, BadgeWithDropdown } from "../react/Badge.jsx";
 import Button from "../react/Button.jsx";
 import FormAutocomplete, { AUTOCOMPLETE_DROPDOWN_SELECTOR } from "../react/FormAutocomplete.jsx";
 import { FormDropdownDivider, FormListItem } from "../react/FormList.jsx";
-import FormSelect from "../react/FormSelect.jsx";
+import FormDropdownList from "../react/FormDropdownList.jsx";
 import FormTextBox, { FormTextBoxWithUnit } from "../react/FormTextBox.jsx";
 import HelpTooltipButton from "../react/HelpTooltipButton.jsx";
 import NoteAutocomplete from "../react/NoteAutocomplete.jsx";
@@ -444,7 +444,7 @@ function AttributeForm({ opts, attrType, currentNoteId, onCancel, onAttributesCh
                     enough once one is picked. */}
                 {attrType === "label-definition" && (
                     <OptionsRow name="attr-label-type" label={t("attribute_detail.label_type")}>
-                        <FormSelect
+                        <FormDropdownList
                             className="attr-input-label-type"
                             values={LABEL_TYPES}
                             keyProperty="value"
@@ -454,6 +454,7 @@ function AttributeForm({ opts, attrType, currentNoteId, onCancel, onAttributesCh
                             onChange={(labelType) => commitDefinition({ labelType: labelType as LabelType })}
                         />
                     </OptionsRow>
+                            iconProperty="icon"
                 )}
 
                 {attrType === "label-definition" && definition.labelType === "number" && (
@@ -601,15 +602,15 @@ const TARGET_NOTE_OPTS = { allowCreatingNotes: true };
 
 /** Exported so that hosts listing definitions can name their label type as the popup does. */
 export const LABEL_TYPES = [
-    { value: "text", title: t("attribute_detail.text") },
-    { value: "textarea", title: t("attribute_detail.textarea") },
-    { value: "number", title: t("attribute_detail.number") },
-    { value: "boolean", title: t("attribute_detail.boolean") },
-    { value: "date", title: t("attribute_detail.date") },
-    { value: "datetime", title: t("attribute_detail.date_time") },
-    { value: "time", title: t("attribute_detail.time") },
-    { value: "url", title: t("attribute_detail.url") },
-    { value: "color", title: t("attribute_detail.color_type") }
+    { value: "text", title: t("attribute_detail.text"), icon: "bx bx-text" },
+    { value: "textarea", title: t("attribute_detail.textarea"), icon: "bx bx-align-left" },
+    { value: "number", title: t("attribute_detail.number"), icon: "bx bx-hash" },
+    { value: "boolean", title: t("attribute_detail.boolean"), icon: "bx bx-toggle-left" },
+    { value: "date", title: t("attribute_detail.date"), icon: "bx bx-calendar" },
+    { value: "datetime", title: t("attribute_detail.date_time"), icon: "bx bx-calendar-event" },
+    { value: "time", title: t("attribute_detail.time"), icon: "bx bx-time" },
+    { value: "url", title: t("attribute_detail.url"), icon: "bx bx-link" },
+    { value: "color", title: t("attribute_detail.color_type"), icon: "bx bx-palette" }
 ];
 
 function fetchAttributeNames(type: "label" | "relation", query: string) {
