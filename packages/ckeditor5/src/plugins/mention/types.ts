@@ -29,6 +29,18 @@ declare module "@ckeditor/ckeditor5-mention" {
         preselectFirstItem?: boolean;
 
         /**
+         * Whether the picked item can still be committed, checked the instant the user commits it —
+         * before the trigger text is removed. Returning `false` closes the panel without touching
+         * the document, so the user keeps what they typed. Feeds that omit it always commit.
+         *
+         * The `/` palette needs it: an entry's command can lose `isEnabled` between the keystroke
+         * that listed it and the Enter that commits it, and since committing first deletes the
+         * `/query`, an unchecked no-op would eat the input. The query-time filter cannot cover that
+         * window, because no keystroke re-runs the feed once the selection has settled.
+         */
+        canCommit?: ( editor: Editor, item: MentionFeedObjectItem ) => boolean;
+
+        /**
          * What to do when the user picks an item, called with the trigger text (the marker and the
          * query) already removed and the selection collapsed in its place.
          *

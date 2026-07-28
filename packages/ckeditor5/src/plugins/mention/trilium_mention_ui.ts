@@ -381,13 +381,19 @@ export default class TriliumMentionUI extends Plugin {
 
             // Replace everything from the marker up to the caret, not just the marker itself.
             const range = model.createRange(model.createPositionAt(marker.getStart()), model.createPositionAt(focus));
+            const feed = this._patterns.find((pattern) => pattern.marker === data.marker);
 
             this._hide();
             this._clearDismissal();
 
-            const commit = this._patterns.find((feed) => feed.marker === data.marker)?.commit;
+            // Bail before deleting anything if the item went stale while it sat in the open panel —
+            // a `/` command that lost `isEnabled` as the selection settled. Committing it would drop
+            // the trigger text and then no-op, eating what the user typed.
+            if (feed?.canCommit && !feed.canCommit(editor, data.item)) {
+                return;
+            }
 
-            if (commit) {
+            if (feed?.commit) {
                 // Drop the trigger text first so the callback sees a collapsed selection where the
                 // query used to be, and run it outside the change block — some callbacks open a
                 // balloon (`/math`, `/anchor`) rather than touching the model, which needs a settled
@@ -395,7 +401,7 @@ export default class TriliumMentionUI extends Plugin {
                 // a UI takes focus itself, and must do so last.
                 model.change((writer) => model.deleteContent(writer.createSelection(range)));
                 editor.editing.view.focus();
-                commit(editor, data.item);
+                feed.commit(editor, data.item);
             } else {
                 editor.execute("mention", { mention: data.item, text: data.item.text, marker: data.marker, range });
                 editor.editing.view.focus();

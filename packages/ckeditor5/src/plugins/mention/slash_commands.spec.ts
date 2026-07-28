@@ -260,6 +260,27 @@ describe("TriliumSlashCommands", () => {
 
             expect(getModelData(editor.model, { withoutSelection: true })).toContain("<heading2>");
         });
+
+        it("keeps the trigger text when the selected command goes disabled before Enter", async () => {
+            type("/quo");
+            await settle();
+
+            // The entry was listed while enabled; committing it deletes the `/quo` first, so a
+            // command that no-ops here would silently eat the user's input. Disable it after the
+            // panel is populated to reproduce the window the query-time filter cannot see.
+            const blockQuote = editor.commands.get("blockQuote");
+
+            if (!blockQuote) {
+                throw new Error("the editor should register the blockQuote command");
+            }
+
+            blockQuote.forceDisabled("spec");
+            pressKey(keyCodes.enter);
+
+            const data = getModelData(editor.model, { withoutSelection: true });
+            expect(data).not.toContain("<blockQuote>");
+            expect(data).toContain("/quo");
+        });
     });
 
     describe("row rendering", () => {

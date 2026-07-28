@@ -85,6 +85,9 @@ export default class TriliumSlashCommands extends Plugin {
             dropdownLimit: (editor.config.get("slashCommand.dropdownLimit") as number | undefined) ?? Infinity,
             feed: (query: string) => matchSlashCommands(this._catalog(), query).map(toFeedItem),
             itemRenderer: (item) => renderRow(item as SlashCommandItem),
+            // The catalog gates on `isEnabled` at query time, but an entry can go stale while the
+            // panel is open; re-check here so a no-op commit never costs the user their `/query`.
+            canCommit: (editorInstance, item) => isSlashCommandEnabled(editorInstance, (item as SlashCommandItem).definition),
             commit: (editorInstance, item) => runSlashCommand(editorInstance, (item as SlashCommandItem).definition)
         });
     }
