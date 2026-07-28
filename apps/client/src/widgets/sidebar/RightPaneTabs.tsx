@@ -12,14 +12,24 @@ export interface RightPaneTabDefinition {
     id: RightPaneTabId;
     title: string;
     icon: string;
+    /**
+     * Keep the tab in the strip for a note it has nothing to show, saying so in its body instead of
+     * going away. For a tab whose widgets come and go with the type of the note being read: leaving
+     * would take the strip's shape — and, where it is the tab on show, the pane's contents — with it,
+     * so that merely moving between notes moves the tabs about under the pointer.
+     */
+    alwaysShown?: boolean;
 }
 
 /**
  * The groups the right pane's widgets are divided into, in the order they are offered. A tab with
- * nothing to show for the current note is left out entirely, so most notes see fewer than all four.
+ * nothing to show for the current note is left out entirely unless it asks to stay, so most notes see
+ * fewer than all four.
  */
 export const RIGHT_PANE_TABS: RightPaneTabDefinition[] = [
-    { id: "outline", title: t("right_pane.tab_outline"), icon: "bx bx-list-ul" },
+    // The outline is what a note's type decides the most: a text note has headings, a PDF has pages,
+    // an image has neither. It stays put through all of them.
+    { id: "outline", title: t("right_pane.tab_outline"), icon: "bx bx-list-ul", alwaysShown: true },
     { id: "attributes", title: t("right_pane.tab_attributes"), icon: "bx bx-hash" },
     { id: "chat", title: t("right_pane.tab_chat"), icon: "bx bx-bot" },
     // Widgets contributed by the user's own scripts, which belong to none of the groups above.

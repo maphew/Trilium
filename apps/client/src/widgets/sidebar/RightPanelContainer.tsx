@@ -43,7 +43,7 @@ export interface RightPanelWidgetDefinition {
 }
 
 export interface RightPaneTabContents extends RightPaneTabDefinition {
-    /** The enabled widgets of this tab, in the order they are shown. Never empty. */
+    /** The enabled widgets of this tab, in the order they are shown. Empty only for an always-shown tab. */
     items: VNode[];
 }
 
@@ -135,7 +135,11 @@ export default function RightPanelContainer({ widgetsByParent }: { widgetsByPare
                                         {/* Collapsing the only widget of a tab would leave the tab empty,
                                             so a tab of one offers no collapsing at all. */}
                                         <CollapsibleWidgets.Provider value={tab.items.length > 1}>
-                                            {tab.items}
+                                            {tab.items.length > 0 ? tab.items : (
+                                                // A tab that stays for a note it has nothing to show
+                                                // (see RightPaneTabDefinition.alwaysShown) says so.
+                                                <NoItems icon={tab.icon} text={t("right_pane.empty_message")} />
+                                            )}
                                         </CollapsibleWidgets.Provider>
                                     </div>
                                 ))}
@@ -240,15 +244,20 @@ function useItems(rightPaneVisible: boolean, widgetsByParent: WidgetsByParent): 
         })
     ];
 
-    return groupIntoTabs(definitions);
+    // A note-less pane (an empty tab) keeps its own empty state rather than an outline with nothing in
+    // it: there is no navigating between notes to keep the strip still for.
+    return groupIntoTabs(definitions, !!note);
 }
 
 /**
- * Splits the enabled widgets into the pane's tabs, each in position order. A tab with no enabled
- * widget is dropped rather than shown empty, which is what makes the strip follow the note: a plain
- * image note offers attributes alone, a PDF the whole outline.
+ * Splits the enabled widgets into the pane's tabs, each in position order. A tab with no enabled widget
+ * is dropped rather than shown empty, which is what makes the strip follow the note: a plain image note
+ * offers attributes alone, a PDF the whole outline.
+ *
+ * @param keepAlwaysShown keeps the tabs that ask to stay (see {@link RightPaneTabDefinition.alwaysShown})
+ *                        even with nothing to show, for the caller to fill with a word to that effect.
  */
-export function groupIntoTabs(definitions: RightPanelWidgetDefinition[]): RightPaneTabContents[] {
+export function groupIntoTabs(definitions: RightPanelWidgetDefinition[], keepAlwaysShown = false): RightPaneTabContents[] {
     // Assign a position to items that don't have one yet.
     let pos = 10;
     for (const definition of definitions) {
@@ -264,7 +273,7 @@ export function groupIntoTabs(definitions: RightPanelWidgetDefinition[]): RightP
 
     return RIGHT_PANE_TABS
         .map((tab) => ({ ...tab, items: enabled.filter((e) => e.tab === tab.id).map((e) => e.el) }))
-        .filter((tab) => tab.items.length > 0);
+        .filter((tab) => tab.items.length > 0 || (keepAlwaysShown && tab.alwaysShown));
 }
 
 function useSplit(mode: PaneMode) {
