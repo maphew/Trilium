@@ -198,6 +198,14 @@ describe("SnippetsUI — menu-bar entry", () => {
         expect(emptyButton.label).toBe("No templates available.");
         expect(emptyButton.isEnabled).toBe(false);
     });
+
+    it("destroys the previous menu items on rebuild, so live updates don't leak views", () => {
+        const staleItem = menuButtons()[0] as ListItemView;
+        const destroy = vi.spyOn(staleItem, "destroy");
+
+        editor.plugins.get(SnippetsEditing).setDefinitions([DEF_FULL]);
+        expect(destroy).toHaveBeenCalled();
+    });
 });
 
 describe("SnippetListView", () => {
@@ -254,6 +262,14 @@ describe("SnippetListView", () => {
     it("rebuilds in place when the underlying collection changes", () => {
         collection.remove(DEF_MINIMAL);
         expect(list.items.length).toBe(1);
+    });
+
+    it("destroys the previous rows on rebuild, so live updates don't leak views", () => {
+        const staleRow = list.items.get(0) as ListItemView;
+        const destroy = vi.spyOn(staleRow, "destroy");
+
+        collection.remove(DEF_MINIMAL); // any change triggers a full rebuild
+        expect(destroy).toHaveBeenCalled();
     });
 });
 

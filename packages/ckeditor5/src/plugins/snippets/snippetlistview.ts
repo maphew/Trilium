@@ -64,8 +64,14 @@ export default class SnippetListView extends ListView implements FilteredView {
     }
 
     private _rebuild(definitions: Collection<SnippetDefinition>, insert: (definition: SnippetDefinition) => void): void {
-        this.rows.length = 0;
+        // `ViewCollection.clear()` only detaches its views, so destroy the previous rows (which
+        // cascades to their buttons and icon/text subviews) before discarding them — otherwise
+        // rebuilding on every snippet change would leak views and their `execute` listeners.
+        const previous = this.rows.splice(0);
         this.items.clear();
+        for (const { item } of previous) {
+            item.destroy();
+        }
 
         for (const definition of definitions) {
             const item = new ListItemView(this.locale);
