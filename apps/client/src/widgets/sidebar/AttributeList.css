@@ -3,9 +3,9 @@
     flex-direction: column;
 }
 
-.attribute-list-panel .attribute-rows {
+.attribute-list-panel ul.attribute-rows {
     margin: 0;
-    padding: 0;
+    padding-inline-start: 0;
     list-style: none;
 }
 
@@ -107,25 +107,3 @@
     visibility: visible;
 }
 
-.attribute-list-panel .attribute-group-header {
-    display: flex;
-    align-items: center;
-    gap: 2px;
-    margin-top: 8px;
-    padding: 2px 4px;
-    border: none;
-    background: none;
-    color: var(--muted-text-color);
-    font-size: 0.85em;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    cursor: pointer;
-}
-
-.attribute-list-panel .attribute-group-header .group-chevron {
-    transition: transform 0.2s ease;
-}
-
-.attribute-list-panel .attribute-group-header .group-chevron.collapsed {
-    transform: rotate(-90deg);
-}

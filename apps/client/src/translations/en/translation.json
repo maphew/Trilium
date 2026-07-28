@@ -661,10 +661,11 @@
     "placeholder": "Type the labels and relations here"
   },
   "attribute_list_panel": {
-    "title": "Attributes",
     "no_attributes": "No attributes",
-    "inherited_one": "{{count}} inherited",
-    "inherited_other": "{{count}} inherited",
+    "owned_one": "Owned Attributes ({{count}})",
+    "owned_other": "Owned Attributes ({{count}})",
+    "inherited_one": "Inherited Attributes ({{count}})",
+    "inherited_other": "Inherited Attributes ({{count}})",
     "inheritable": "Inheritable: applies to this note and to its whole subtree",
     "delete": "Delete this attribute",
     "no_target": "No target note",

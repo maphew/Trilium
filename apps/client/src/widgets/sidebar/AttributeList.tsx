@@ -21,7 +21,7 @@ import NoItems from "../react/NoItems";
 import NoteLink from "../react/NoteLink";
 import { ParentComponent } from "../react/react_utils";
 import { ATTRIBUTE_HELP_PAGE } from "../ribbon/components/AttributeHelp";
-import RightPanelWidget from "./RightPanelWidget";
+import RightPanelWidget, { CollapsibleWidgets } from "./RightPanelWidget";
 
 /**
  * The note's attributes as a list, one row per attribute: the kind (label, relation, or either's
@@ -34,7 +34,6 @@ export default function AttributeList() {
     const parentComponent = useContext(ParentComponent);
     const containerRef = useRef<HTMLDivElement>(null);
     const [ detail, setDetail ] = useState<AttributeDetailOpts | null>(null);
-    const [ inheritedShown, setInheritedShown ] = useState(false);
     const componentId = parentComponent?.componentId;
 
     // The owned rows double as the detail popup's working copy: it edits the very objects it is handed,
@@ -85,8 +84,17 @@ export default function AttributeList() {
             y: e.pageY,
             anchor: anchor ?? undefined,
             // Presses on another row swap the shown attribute instead of dismissing the popup first.
-            parent: containerRef.current ?? undefined
+            parent: spawningArea()
         });
+    }
+
+    /**
+     * What the popup treats as the widget it was spawned from: the two sections are separate cards, so
+     * it takes in the whole tab holding them, and a row of either swaps the shown attribute rather than
+     * dismissing the popup and re-opening it. Falls back to the section itself outside of a tab.
+     */
+    function spawningArea() {
+        return containerRef.current?.closest<HTMLElement>(".right-pane-tab-body") ?? containerRef.current ?? undefined;
     }
 
     function addAttribute(attrType: AttributeKind, e: MouseEvent) {
@@ -102,7 +110,7 @@ export default function AttributeList() {
             focus: "name",
             // There is no row to anchor to yet: the attribute only joins the list once it is saved.
             anchor: containerRef.current ?? undefined,
-            parent: containerRef.current ?? undefined
+            parent: spawningArea()
         });
     }
 
@@ -124,63 +132,61 @@ export default function AttributeList() {
         await save();
     }
 
+    const hasInherited = inherited.current.length > 0;
+
     return (
-        <RightPanelWidget
-            id="attributes"
-            title={t("attribute_list_panel.title")}
-            buttons={note && (
-                <>
-                    <HelpButton helpPage={ATTRIBUTE_HELP_PAGE} />
-                    <ActionButton
-                        icon="bx bx-plus"
-                        text={t("attribute_editor.add_a_new_attribute")}
-                        onClick={(e) => {
-                            // Keep the press from reaching the card header, which would collapse the card.
-                            e.stopPropagation();
-                            showAddMenu(e, (attrType) => addAttribute(attrType, e));
-                        }}
-                    />
-                </>
-            )}
-        >
-            {/* Presses inside the container do not dismiss the popup (see `parent` above), which leaves
-                closing on a press next to a row up to this handler. */}
-            <div class="attribute-list-panel" ref={containerRef} onClick={() => setDetail(null)}>
-                {!owned.current.length && !inherited.current.length && (
-                    <NoItems icon="bx bx-hash" text={t("attribute_list_panel.no_attributes")} />
-                )}
-
-                {owned.current.length > 0 && (
-                    <ul class="attribute-rows">
-                        {owned.current.map((attribute, index) => (
-                            <AttributeRow
-                                key={attribute.attributeId ?? `new-${index}`}
-                                attribute={attribute}
-                                active={detail?.attribute === attribute}
-                                onOpen={(anchor, e) => openDetail(attribute, true, anchor, e)}
-                                onDelete={() => void deleteAttribute(attribute)}
+        <>
+            {/* Two cards of its own, so each is collapsed on its own and the inherited ones — which a
+                template can run to dozens of — can be put away without taking the note's own with them.
+                Which is also why the collapsing is offered here rather than left to the tab: the tab
+                counts this as one widget (see RightPanelContainer), being one entry in its list. With
+                nothing inherited there is only the one card, and collapsing it away is not on offer. */}
+            <CollapsibleWidgets.Provider value={hasInherited}>
+                <RightPanelWidget
+                    id="attributes"
+                    title={t("attribute_list_panel.owned", { count: owned.current.length })}
+                    buttons={note && (
+                        <>
+                            <HelpButton helpPage={ATTRIBUTE_HELP_PAGE} />
+                            <ActionButton
+                                icon="bx bx-plus"
+                                text={t("attribute_editor.add_a_new_attribute")}
+                                onClick={(e) => {
+                                    // Keep the press from reaching the card header, which would collapse the card.
+                                    e.stopPropagation();
+                                    showAddMenu(e, (attrType) => addAttribute(attrType, e));
+                                }}
                             />
-                        ))}
-                    </ul>
-                )}
+                        </>
+                    )}
+                >
+                    {/* Presses inside the sections do not dismiss the popup (see `parent` above), which
+                        leaves closing on a press next to a row up to this handler. */}
+                    <div class="attribute-list-panel" ref={containerRef} onClick={() => setDetail(null)}>
+                        {owned.current.length > 0 ? (
+                            <ul class="attribute-rows">
+                                {owned.current.map((attribute, index) => (
+                                    <AttributeRow
+                                        key={attribute.attributeId ?? `new-${index}`}
+                                        attribute={attribute}
+                                        active={detail?.attribute === attribute}
+                                        onOpen={(anchor, e) => openDetail(attribute, true, anchor, e)}
+                                        onDelete={() => void deleteAttribute(attribute)}
+                                    />
+                                ))}
+                            </ul>
+                        ) : (
+                            <NoItems icon="bx bx-hash" text={t("attribute_list_panel.no_attributes")} />
+                        )}
+                    </div>
+                </RightPanelWidget>
 
-                {inherited.current.length > 0 && (
-                    <>
-                        {/* Inherited attributes are read-only and usually outnumber the note's own, so
-                            they stay folded away behind their count. */}
-                        <button
-                            class="attribute-group-header"
-                            type="button"
-                            onClick={(e) => {
-                                e.stopPropagation();
-                                setInheritedShown(!inheritedShown);
-                            }}
-                        >
-                            <Icon icon="bx bx-chevron-down" className={clsx("group-chevron", !inheritedShown && "collapsed")} />
-                            {t("attribute_list_panel.inherited", { count: inherited.current.length })}
-                        </button>
-
-                        {inheritedShown && (
+                {hasInherited && (
+                    <RightPanelWidget
+                        id="attributes-inherited"
+                        title={t("attribute_list_panel.inherited", { count: inherited.current.length })}
+                    >
+                        <div class="attribute-list-panel" onClick={() => setDetail(null)}>
                             <ul class="attribute-rows">
                                 {inherited.current.map((attribute) => (
                                     <AttributeRow
@@ -192,10 +198,10 @@ export default function AttributeList() {
                                     />
                                 ))}
                             </ul>
-                        )}
-                    </>
+                        </div>
+                    </RightPanelWidget>
                 )}
-            </div>
+            </CollapsibleWidgets.Provider>
 
             {createPortal(
                 <AttributeDetail
@@ -219,7 +225,7 @@ export default function AttributeList() {
                     onDelete={detail?.isOwned ? () => void deleteAttribute(detail.attribute) : undefined}
                 />,
                 document.body)}
-        </RightPanelWidget>
+        </>
     );
 }
 
