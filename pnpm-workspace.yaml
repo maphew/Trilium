@@ -116,7 +116,7 @@ patchedDependencies:
   '@excalidraw/excalidraw@0.18.1': patches/@excalidraw__excalidraw@0.18.1.patch
 
 allowBuilds:
-  better-sqlite3: true
+  better-sqlite3: false
   core-js: false
   edgedriver: false
   electron: true
