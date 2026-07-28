@@ -10,6 +10,8 @@ function usage(overrides: Partial<SpaceUsageNoteResponse> = {}): SpaceUsageNoteR
         ownSize: 0,
         attachmentsSize: 0,
         revisionsSize: 0,
+        noteContentSize: 0,
+        subtreeContentSize: 0,
         attachments: [],
         children: [],
         ...overrides

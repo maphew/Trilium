@@ -1,7 +1,7 @@
 import { SpaceUsageSizes } from "@triliumnext/commons";
 import { describe, expect, it } from "vitest";
 
-import { buildCanonicalForest, buildNotePath, computeSubtreeTotals } from "./space_usage.js";
+import { buildCanonicalForest, buildNotePath, collectSubtreeNoteIds, computeSubtreeTotals } from "./space_usage.js";
 
 /** Builds a forest from a plain parent → ordered children map; extras model orphan roots. */
 function forestOf(edges: Record<string, string[]>, extraNoteIds: string[] = []) {
@@ -123,6 +123,16 @@ describe("computeSubtreeTotals", () => {
         const totals = computeSubtreeTotals(forest, () => ({ ownSize: 1, attachmentsSize: 0, revisionsSize: 0 }));
 
         expect(totals.get("root")).toEqual({ size: 2001, revisionsSize: 0, noteCount: 2001 });
+    });
+});
+
+describe("collectSubtreeNoteIds", () => {
+    it("collects the canonical subtree only — a cloned-in child counts elsewhere", () => {
+        const forest = forestOf({ root: [ "a", "b" ], a: [ "x" ], b: [ "x" ] });
+
+        expect(collectSubtreeNoteIds(forest, "a")).toEqual([ "a", "x" ]);
+        expect(collectSubtreeNoteIds(forest, "b")).toEqual([ "b" ]);
+        expect([ ...collectSubtreeNoteIds(forest, "root") ].sort()).toEqual([ "a", "b", "root", "x" ]);
     });
 });
 

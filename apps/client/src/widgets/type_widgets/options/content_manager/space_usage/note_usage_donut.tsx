@@ -44,9 +44,6 @@ export default function NoteUsageDonut({ usage, title, notePath, outerRings = []
         })
     }), [ usage ]);
 
-    const noteSize = usage.ownSize + usage.attachmentsSize + usage.revisionsSize;
-    const subtreeSize = noteSize + usage.children.reduce(
-        (sum, child) => sum + child.subtreeSize + child.subtreeRevisionsSize, 0);
 
     return (
         <DonutChart<UsageSegmentData>
@@ -67,8 +64,12 @@ export default function NoteUsageDonut({ usage, title, notePath, outerRings = []
                     });
                 }}
             >{title}</a>
-            <span className="note-usage-donut-size">{t("space_usage.center_note_size", { size: formatSize(noteSize) })}</span>
-            <span className="note-usage-donut-size">{t("space_usage.center_subtree_size", { size: formatSize(subtreeSize) })}</span>
+            <span className="note-usage-donut-size" title={t("space_usage.center_note_size_hint")}>
+                {t("space_usage.center_note_size", { size: formatSize(usage.noteContentSize) })}
+            </span>
+            <span className="note-usage-donut-size" title={t("space_usage.center_subtree_size_hint")}>
+                {t("space_usage.center_subtree_size", { size: formatSize(usage.subtreeContentSize) })}
+            </span>
         </DonutChart>
     );
 }

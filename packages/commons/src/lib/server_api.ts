@@ -270,6 +270,13 @@ export interface SpaceUsageDeletedNotes {
 }
 
 export interface SpaceUsageOverviewResponse {
+    /**
+     * What the live content actually occupies: every blob referenced by a live note, attachment or
+     * revision — hidden subtree included — counted once however many entities share it through
+     * deduplication. This is the "database size" figure; the per-note numbers below intentionally
+     * count per entity instead, so a note's reported size never depends on duplicates elsewhere.
+     */
+    contentSize: number;
     /** The largest notes first, ranked by body + attachments (+ revisions when requested). */
     notes: SpaceUsageOverviewNote[];
     /** The remaining notes of the visible tree, below the ranking cutoff. */
@@ -298,6 +305,14 @@ export interface SpaceUsageAttachment {
 
 export interface SpaceUsageNoteResponse extends SpaceUsageSizes {
     noteId: string;
+    /**
+     * What the note alone actually occupies — body, attachments and revisions, each shared blob
+     * counted once. Smaller than the per-entity components sum whenever revisions still share the
+     * note's blob or attachments repeat content.
+     */
+    noteContentSize: number;
+    /** Like {@link noteContentSize}, over the note's whole canonical subtree. */
+    subtreeContentSize: number;
     attachments: SpaceUsageAttachment[];
     /** Canonical children only: a cloned child is listed under its canonical parent alone. */
     children: SpaceUsageChild[];

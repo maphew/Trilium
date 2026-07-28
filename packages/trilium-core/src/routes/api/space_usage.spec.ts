@@ -88,6 +88,20 @@ describe("Space usage API (core)", () => {
         expect(limited.otherNotes.noteCount).toBe(limited.total.noteCount - 1);
     });
 
+    it("counts deduplicated content once in contentSize, but per entity in the note sizes", async () => {
+        const duplicated = `<p>${"space-usage-dedup-".repeat(300)}</p>`;
+        const before = await getOverview({ limit: 1 });
+
+        await createTextNote(api, { title: "Space usage dedup 1", content: duplicated });
+        await createTextNote(api, { title: "Space usage dedup 2", content: duplicated });
+
+        const after = await getOverview({ limit: 1 });
+        // Two notes, one shared blob: the visible-tree total grows twice, the deduplicated
+        // database-content figure only once.
+        expect(after.total.size - before.total.size).toBe(2 * duplicated.length);
+        expect(after.contentSize - before.contentSize).toBe(duplicated.length);
+    });
+
     it("keeps zero-sized notes out of the individual listing", async () => {
         const empty = await createTextNote(api, { title: "Space usage empty", content: "" });
         const overview = await getOverview({ limit: 1000 });
@@ -118,6 +132,27 @@ describe("Space usage API (core)", () => {
         expect(childEntry?.subtreeSize).toBe(CHILD_CONTENT.length + ATTACHMENT_CONTENT.length);
         expect(childEntry?.subtreeRevisionsSize).toBeGreaterThanOrEqual(CHILD_CONTENT.length);
         expect(childEntry?.subtreeNoteCount).toBe(1);
+    });
+
+    it("reports deduplicated note and subtree content sizes", async () => {
+        const childUsage = await getNoteUsage(child.noteId);
+        // The revision snapshots the unchanged body and attachment, sharing their blobs — so it
+        // adds nothing to the deduplicated figures, unlike the per-entity revisionsSize.
+        expect(childUsage.noteContentSize).toBe(CHILD_CONTENT.length + ATTACHMENT_CONTENT.length);
+        expect(childUsage.subtreeContentSize).toBe(childUsage.noteContentSize);
+        expect(childUsage.revisionsSize).toBeGreaterThan(0);
+
+        const parentUsage = await getNoteUsage(parent.noteId);
+        expect(parentUsage.noteContentSize).toBe(PARENT_CONTENT.length);
+        expect(parentUsage.subtreeContentSize)
+            .toBe(PARENT_CONTENT.length + CHILD_CONTENT.length + ATTACHMENT_CONTENT.length);
+
+        // The root's canonical subtree is the whole live tree, so its figure can only stay within
+        // the database-content total (which additionally sweeps up unreachable leftovers).
+        const overview = await getOverview({ limit: 1 });
+        const rootUsage = await getNoteUsage("root");
+        expect(rootUsage.subtreeContentSize).toBeGreaterThan(0);
+        expect(rootUsage.subtreeContentSize).toBeLessThanOrEqual(overview.contentSize);
     });
 
     it("counts a cloned note only under its canonical parent", async () => {

@@ -53,6 +53,7 @@ export function getOverview({ includeRevisions, limit }: { includeRevisions: boo
     }
 
     return {
+        contentSize: collectContentSize(),
         notes: top.map(({ noteId, ...entrySizes }) => ({
             noteId,
             notePath: buildNotePath(forest.parentByNoteId, noteId),
@@ -106,6 +107,8 @@ export function getNoteUsage(noteId: string): SpaceUsageNoteResponse {
     return {
         noteId,
         ...sizesOf(noteId, sizes),
+        noteContentSize: collectContentSizeOf([ noteId ]),
+        subtreeContentSize: collectContentSizeOf(collectSubtreeNoteIds(forest, noteId)),
         attachments,
         children,
         // Deleted notes have no place in the tree, so they surface once, at its root.
@@ -245,6 +248,20 @@ export function computeSubtreeTotals(
     return totals;
 }
 
+/** The note's whole canonical subtree, itself included — the canonical forest is a tree, so no
+ *  note is visited twice. The queue is its own cursor-scanned array, keeping deep trees safe. */
+export function collectSubtreeNoteIds(forest: CanonicalForest, noteId: string): string[] {
+    const queue = [ noteId ];
+
+    for (let i = 0; i < queue.length; i++) {
+        for (const childId of forest.childrenByNoteId.get(queue[i]) ?? []) {
+            queue.push(childId);
+        }
+    }
+
+    return queue;
+}
+
 /** The note's canonical ancestor chain, root excluded, ending with the note itself. */
 export function buildNotePath(parentByNoteId: Map<string, string>, noteId: string, rootNoteId = ROOT_NOTE_ID): string[] {
     const path: string[] = [];
@@ -316,6 +333,54 @@ function bucketOf(entries: SpaceUsageSizes[]): SpaceUsageBucket {
     }
 
     return bucket;
+}
+
+/**
+ * What the live content actually occupies on disk: every blob referenced by a live note, a live
+ * attachment or a revision of a live note — the hidden subtree included — counted once however
+ * many entities share it through deduplication. The per-entity numbers elsewhere deliberately
+ * count differently, so this is the one figure comparable to the database's real size.
+ */
+function collectContentSize(): number {
+    return getSql().getValue<number | null>(`
+        SELECT SUM(COALESCE(LENGTH(blobs.content), 0))
+        FROM blobs
+        WHERE blobs.blobId IN (
+            SELECT blobId FROM notes WHERE isDeleted = 0 AND blobId IS NOT NULL
+            UNION SELECT blobId FROM attachments WHERE isDeleted = 0 AND blobId IS NOT NULL
+            UNION SELECT revisions.blobId FROM revisions
+                JOIN notes ON notes.noteId = revisions.noteId
+                WHERE notes.isDeleted = 0 AND revisions.blobId IS NOT NULL
+        )`) ?? 0;
+}
+
+/**
+ * Like {@link collectContentSize}, but restricted to the given notes: every blob referenced by
+ * their bodies, their attachments, their revisions or those revisions' attachments, counted once.
+ * This is what makes a note's — or a subtree's — figure comparable to the database-content one.
+ */
+function collectContentSizeOf(noteIds: string[]): number {
+    const sql = getSql();
+    sql.fillParamList(noteIds);
+
+    return sql.getValue<number | null>(`
+        SELECT SUM(COALESCE(LENGTH(blobs.content), 0))
+        FROM blobs
+        WHERE blobs.blobId IN (
+            SELECT notes.blobId FROM notes
+                JOIN param_list ON param_list.paramId = notes.noteId
+                WHERE notes.isDeleted = 0 AND notes.blobId IS NOT NULL
+            UNION SELECT attachments.blobId FROM attachments
+                JOIN param_list ON param_list.paramId = attachments.ownerId
+                WHERE attachments.isDeleted = 0 AND attachments.blobId IS NOT NULL
+            UNION SELECT revisions.blobId FROM revisions
+                JOIN param_list ON param_list.paramId = revisions.noteId
+                WHERE revisions.blobId IS NOT NULL
+            UNION SELECT attachments.blobId FROM attachments
+                JOIN revisions ON revisions.revisionId = attachments.ownerId
+                JOIN param_list ON param_list.paramId = revisions.noteId
+                WHERE attachments.isDeleted = 0 AND attachments.blobId IS NOT NULL
+        )`) ?? 0;
 }
 
 /**
