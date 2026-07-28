@@ -209,7 +209,6 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
                 }
 
                 const editor = await buildEditor(container, !!isClassicEditor, {
-                    forceGplLicense: false,
                     isClassicEditor: !!isClassicEditor,
                     uiLanguage: uiLanguage as DISPLAYABLE_LOCALE_IDS,
                     contentLanguage: contentLanguage ?? null,
@@ -310,15 +309,6 @@ function buildWatchdog(isClassicEditor: boolean, watchdogConfig?: WatchdogConfig
 
 async function buildEditor(element: HTMLElement, isClassicEditor: boolean, opts: BuildEditorOptions) {
     const editorClass = isClassicEditor ? ClassicEditor : PopupEditor;
-    let config = await buildConfig(opts);
-    let editor = await editorClass.create(element, config);
-
-    if (editor.isReadOnly) {
-        editor.destroy();
-
-        opts.forceGplLicense = true;
-        config = await buildConfig(opts);
-        editor = await editorClass.create(element, config);
-    }
-    return editor;
+    const config = await buildConfig(opts);
+    return await editorClass.create(element, config);
 }

@@ -2,15 +2,17 @@ import { BlockToolbar } from "ckeditor5";
 import { describe, expect, it } from "vitest";
 
 import { Admonition } from "@triliumnext/ckeditor5-admonition";
-import { COMMON_PLUGINS, CORE_PLUGINS, loadPremiumPlugins, POPUP_EDITOR_PLUGINS } from "./plugins.js";
+import { COMMON_PLUGINS, CORE_PLUGINS, POPUP_EDITOR_PLUGINS } from "./plugins.js";
 import CutToNotePlugin from "./plugins/cuttonote.js";
 import Uploadfileplugin from "./plugins/file_upload/uploadfileplugin.js";
 import TriliumFormatPainter from "./plugins/format_painter/format_painter.js";
 import IncludeNote from "./plugins/includenote.js";
 import InternalLinkPlugin from "./plugins/internallink.js";
 import LinkEmbed from "./plugins/link_embed/link_embed.js";
+import TriliumSlashCommands from "./plugins/mention/slash_commands.js";
 import MentionCustomization from "./plugins/mention_customization.js";
 import ReferenceLink from "./plugins/referencelink.js";
+import TriliumSnippets from "./plugins/snippets/snippets.js";
 
 describe("plugin lists", () => {
     it("CORE_PLUGINS is a non-empty array", () => {
@@ -74,7 +76,6 @@ describe("plugin lists", () => {
         expect(COMMON_PLUGINS).toContain(IncludeNote);
         expect(COMMON_PLUGINS).toContain(LinkEmbed);
         expect(COMMON_PLUGINS).toContain(Uploadfileplugin);
-        expect(COMMON_PLUGINS).toContain(TriliumFormatPainter);
     });
 
     it("COMMON_PLUGINS includes the external widget plugins", () => {
@@ -85,16 +86,13 @@ describe("plugin lists", () => {
         expect(POPUP_EDITOR_PLUGINS).toContain(BlockToolbar);
         expect(COMMON_PLUGINS).not.toContain(BlockToolbar);
     });
-});
 
-describe("loadPremiumPlugins", () => {
-    it("loads no premium plugins, since every one of them now has a GPL replacement", async () => {
-        // `SlashCommand` requires the `Mention` façade, which would load upstream's `MentionUI`
-        // alongside `TriliumMentionUI`; `TriliumSlashCommands` provides `/` instead.
-        // `FormatPainter` is replaced by the GPL `TriliumFormatPainter`, and `Template` by the GPL
-        // `TriliumSnippets`, which additionally supports live reloading of the snippet list without
-        // rebuilding the editor.
-        const plugins = await loadPremiumPlugins();
-        expect(plugins).toEqual([]);
+    // Each of these replaced a premium plugin, which is why `ckeditor5-premium-features` is no
+    // longer a dependency at all. Dropping one of the registrations silently would put the editor
+    // back to missing the feature outright, so pin them here.
+    it("COMMON_PLUGINS includes the GPL replacements for the former premium plugins", () => {
+        expect(COMMON_PLUGINS).toContain(TriliumSlashCommands);
+        expect(COMMON_PLUGINS).toContain(TriliumFormatPainter);
+        expect(COMMON_PLUGINS).toContain(TriliumSnippets);
     });
 });

@@ -66,8 +66,9 @@ data (HTML) ──upcast──▶ MODEL ──editing downcast──▶ editing 
 ## Importing CKEditor in Trilium
 
 Import everything from the single **`ckeditor5`** aggregate package (pinned `48.2.0`; it is a
-`peerDependency` + `devDependency` of every plugin package). Premium symbols come from
-`ckeditor5-premium-features` (lazy-loaded, see `loadPremiumPlugins()`):
+`peerDependency` + `devDependency` of every plugin package). There is no premium package: every
+premium plugin Trilium used has an in-tree GPL replacement, and the editor always runs under the
+`GPL` license key:
 
 ```ts
 import { Plugin, ButtonView, Command, _setModelData } from 'ckeditor5';

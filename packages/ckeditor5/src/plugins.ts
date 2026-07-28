@@ -1,6 +1,8 @@
 import { Autoformat, AutoLink, BlockQuote, BlockToolbar, Bold, CKFinderUploadAdapter, Clipboard, Code, CodeBlock, Enter, Font, FontBackgroundColor, FontColor, GeneralHtmlSupport, Heading, HeadingButtonsUI, HorizontalLine, Image, ImageCaption, ImageInline, ImageResize, ImageStyle, ImageToolbar, ImageUpload, Alignment, Indent, IndentBlock, Italic, Link, List, ListProperties, MentionEditing, PageBreak, Paragraph, ParagraphButtonUI, PasteFromOffice, PictureEditing, RemoveFormat, SelectAll, ShiftEnter, SpecialCharacters, SpecialCharactersEssentials, Strikethrough, Style, Subscript, Superscript, Table, TableCaption, TableCellProperties, TableColumnResize, TableProperties, TableSelection, TableToolbar, TextPartLanguage, TextTransformation, TodoList, Typing, Underline, Undo, Bookmark, EmojiPicker, FindAndReplaceEditing } from "ckeditor5";
-// Premium features loaded dynamically to improve initial load time
-// import { SlashCommand, Template, FormatPainter } from "ckeditor5-premium-features";
+// Nothing here comes from `ckeditor5-premium-features` any more: every premium plugin Trilium
+// once loaded has an in-tree GPL replacement — `SlashCommand` -> `TriliumSlashCommands`,
+// `FormatPainter` -> `TriliumFormatPainter`, `Template` -> `TriliumSnippets`. See each plugin's
+// doc comment for the details.
 import type { Plugin } from "ckeditor5";
 import CutToNotePlugin from "./plugins/cuttonote.js";
 import UploadimagePlugin from "./plugins/uploadimage.js";
@@ -138,26 +140,6 @@ export const CHAT_INPUT_PLUGINS: typeof Plugin[] = [
     Link,
     AutoLink
 ];
-
-/**
- * Dynamically loads plugins that require a premium CKEditor license key.
- * This avoids loading ~6 seconds of premium features code during initial app startup.
- *
- * Every premium plugin Trilium used now has a GPL in-tree replacement, so this currently loads
- * nothing at all — neither the premium bundle nor its CSS is fetched:
- *
- * - `SlashCommand` `requires` the `Mention` façade, which loads upstream's `MentionUI` next to
- *   `TriliumMentionUI` and leaves the two fighting over the same balloon. `TriliumSlashCommands`
- *   provides `/` instead.
- * - `FormatPainter` is replaced by `TriliumFormatPainter`, built on the public `isFormatting`
- *   schema flag.
- * - `Template` is replaced by `TriliumSnippets` (see `plugins/snippets/`), which additionally
- *   supports live reloading of the snippet list — the premium plugin baked its definitions in at
- *   startup, forcing an editor rebuild on any change.
- */
-export async function loadPremiumPlugins(): Promise<(typeof Plugin)[]> {
-    return [];
-}
 
 /**
  * The set of plugins that are required for the editor to work. This is used in normal text editors (floating or fixed toolbar) but not in the attribute editor.
