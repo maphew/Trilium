@@ -1,6 +1,6 @@
 import "./PromotedAttributes.css";
 
-import { DefinitionObject, LabelType, UpdateAttributeResponse } from "@triliumnext/commons";
+import { DefinitionObject, extractAttributeDefinitionTypeAndName, LabelType, UpdateAttributeResponse } from "@triliumnext/commons";
 import clsx from "clsx";
 import { ComponentChild, createElement, HTMLInputTypeAttribute, InputHTMLAttributes, MouseEventHandler, TargetedEvent, TargetedInputEvent } from "preact";
 import { Dispatch, StateUpdater, useCallback, useEffect, useRef, useState } from "preact/hooks";
@@ -11,7 +11,6 @@ import FNote from "../entities/fnote";
 import { Attribute } from "../services/attribute_parser";
 import attributes from "../services/attributes";
 import { t } from "../services/i18n";
-import { extractAttributeDefinitionTypeAndName } from "../services/promoted_attribute_definition_parser";
 import server from "../services/server";
 import { randomString } from "../services/utils";
 import ws from "../services/ws";

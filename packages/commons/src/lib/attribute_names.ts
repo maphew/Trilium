@@ -107,6 +107,29 @@ type Relations = [
 export type LabelNames = keyof Labels;
 export type RelationNames = Relations[number];
 
+/**
+ * The characters an attribute name may consist of: letters, numbers, underscore and colon. Kept as a
+ * single source of truth so that {@link filterAttributeName} and {@link isValidAttributeName} cannot
+ * drift apart.
+ *
+ * Note that {@link sanitizeAttributeName} in `trilium-core` deliberately applies the *same* character
+ * set with different semantics (it substitutes an underscore and renames the empty string, rather than
+ * stripping), so it is not expressed in terms of these helpers.
+ */
+const ATTRIBUTE_NAME_CHARS = "\\p{L}\\p{N}_:";
+const DISALLOWED_MATCHER = new RegExp(`[^${ATTRIBUTE_NAME_CHARS}]`, "gu");
+const ATTR_NAME_MATCHER = new RegExp(`^[${ATTRIBUTE_NAME_CHARS}]+$`, "u");
+
+/** Strips every character an attribute name may not contain, returning a usable (possibly empty) name. */
+export function filterAttributeName(name: string) {
+    return name.replace(DISALLOWED_MATCHER, "");
+}
+
+/** Whether the name is a valid attribute name, i.e. non-empty and free of disallowed characters. */
+export function isValidAttributeName(name: string) {
+    return ATTR_NAME_MATCHER.test(name);
+}
+
 export type FilterLabelsByType<U> = {
     [K in keyof Labels]: Labels[K] extends U ? K : never;
 }[keyof Labels];

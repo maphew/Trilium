@@ -1,5 +1,6 @@
 import "./AttributeList.css";
 
+import { promotedAttributeDefinitionParser } from "@triliumnext/commons";
 import clsx from "clsx";
 import { createPortal } from "preact/compat";
 import { useContext, useEffect, useRef, useState } from "preact/hooks";
@@ -10,7 +11,6 @@ import contextMenu from "../../menus/context_menu";
 import type { Attribute } from "../../services/attribute_parser";
 import attributes from "../../services/attributes";
 import { t } from "../../services/i18n";
-import promotedAttributeDefinitionParser from "../../services/promoted_attribute_definition_parser";
 import server from "../../services/server";
 import { AttributeDetail, AttributeDetailOpts, AttrType, getAttrType, LABEL_TYPES } from "../attribute_widgets/attribute_detail";
 import ActionButton from "../react/ActionButton";

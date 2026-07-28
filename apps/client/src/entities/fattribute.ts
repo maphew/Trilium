@@ -1,5 +1,6 @@
+import { promotedAttributeDefinitionParser } from "@triliumnext/commons";
+
 import type { Froca } from "../services/froca-interface.js";
-import promotedAttributeDefinitionParser from "../services/promoted_attribute_definition_parser.js";
 
 /**
  * There are currently only two types of attributes, labels or relations.

@@ -1,6 +1,6 @@
 import "./attribute_detail.css";
 
-import type { DefinitionObject, LabelType } from "@triliumnext/commons";
+import { type DefinitionObject, type LabelType, promotedAttributeDefinitionParser } from "@triliumnext/commons";
 import { ComponentProps } from "preact";
 import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
@@ -11,7 +11,6 @@ import { isExperimentalFeatureEnabled } from "../../services/experimental_featur
 import { focusSavedElement, saveFocusedElement } from "../../services/focus.js";
 import froca from "../../services/froca.js";
 import { t } from "../../services/i18n.js";
-import promotedAttributeDefinitionParser from "../../services/promoted_attribute_definition_parser.js";
 import server from "../../services/server.js";
 import { isIMEComposing } from "../../services/shortcuts.js";
 import utils from "../../services/utils.js";

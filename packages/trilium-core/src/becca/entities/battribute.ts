@@ -3,7 +3,7 @@
 import BNote from "./bnote.js";
 import AbstractBeccaEntity from "./abstract_becca_entity.js";
 import dateUtils from "../../services/utils/date";
-import promotedAttributeDefinitionParser from "../../services/promoted_attribute_definition_parser.js";
+import { promotedAttributeDefinitionParser } from "@triliumnext/commons";
 import type { AttributeRow, AttributeType } from "@triliumnext/commons";
 import { normalize, sanitizeAttributeName } from "../../services/utils/index.js";
 
