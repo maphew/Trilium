@@ -1,0 +1,54 @@
+.ck.ck-ai-assistant-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ck-spacing-medium);
+    padding: var(--ck-spacing-large);
+    width: min(560px, 90vw);
+}
+
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__heading {
+    font-weight: bold;
+}
+
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__prompt-row {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--ck-spacing-small);
+}
+
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__prompt-row .ck-labeled-field-view {
+    flex-grow: 1;
+}
+
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__preview {
+    max-height: 320px;
+    overflow-y: auto;
+    border: 1px solid var(--ck-color-base-border);
+    border-radius: var(--ck-border-radius);
+    padding: var(--ck-spacing-medium);
+    background: var(--ck-color-base-background);
+}
+
+/* An empty preview is just a hollow frame — collapse it until the first chunk arrives. */
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__preview:empty {
+    display: none;
+}
+
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__error {
+    color: var(--ck-color-base-error);
+}
+
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__actions {
+    display: flex;
+    gap: var(--ck-spacing-small);
+}
+
+/* An actions row with every button hidden should not reserve a gap's worth of height. */
+.ck.ck-ai-assistant-form .ck-ai-assistant-form__actions:not(:has(.ck-button:not(.ck-hidden))) {
+    display: none;
+}
+
+/* The tint on the note text the assistant was opened on — what "Replace" will hit. */
+.ck-content .ck-ai-assistant-target {
+    background: rgba(148, 112, 219, 0.22);
+}

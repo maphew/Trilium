@@ -374,6 +374,7 @@
     "align_right_description": "Align text to the right",
     "justify_description": "Justify text alignment",
     "admonition_description": "Inserts a new admonition",
+    "ai_assistant_description": "Ask AI to rewrite the selection or generate new content.",
     "collapsible_description": "Insert a toggleable section that hides/shows content on click.",
     "footnote_description": "Create a new footnote and reference it here",
     "datetime_description": "Insert the current date and time",
@@ -2514,6 +2515,15 @@
     "edit_title": "Edit title",
     "title_label": "Title",
     "save": "Save"
+  },
+  "ai_assistant": {
+    "title": "AI assistant",
+    "prompt_label": "Ask AI to…",
+    "send": "Send",
+    "stop": "Stop",
+    "replace": "Replace",
+    "insert_below": "Insert below",
+    "try_again": "Try again"
   },
   "link_context_menu": {
     "open_note_in_new_tab": "Open note in a new tab",

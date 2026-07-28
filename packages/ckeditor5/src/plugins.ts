@@ -30,6 +30,7 @@ import CopyAnchorLinkButton from "./plugins/copy_anchor_link.js";
 import CopyLinkUrlButton from "./plugins/copy_link_url.js";
 import ImageActions from "./plugins/image_actions.js";
 import TriliumSnippets from "./plugins/snippets/snippets.js";
+import TriliumAiAssistant from "./plugins/ai_assistant/ai_assistant.js";
 
 // import "@triliumnext/ckeditor5-mermaid/index.css";
 // import "@triliumnext/ckeditor5-admonition/index.css";
@@ -90,6 +91,7 @@ const TRILIUM_PLUGINS: typeof Plugin[] = [
     CopyLinkUrlButton,
     ImageActions,
     TriliumSnippets,
+    TriliumAiAssistant,
 ];
 
 /**

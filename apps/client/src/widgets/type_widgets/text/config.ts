@@ -12,6 +12,7 @@ import options from "../../../services/options.js";
 import { ensureMimeTypesForHighlighting, isSyntaxHighlightEnabled } from "../../../services/syntax_highlight.js";
 import { getTaskStateDefinitions, openCustomTaskStateConfig } from "../../../services/task_states.js";
 import SAMPLE_DIAGRAMS from "../mermaid/sample_diagrams.js";
+import buildAiAssistantStream from "./ai_assistant_stream.js";
 import { buildToolbarConfig } from "./toolbar.js";
 
 export const OPEN_SOURCE_LICENSE_KEY = "GPL";
@@ -179,6 +180,10 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
         },
         snippets: {
             definitions: opts.templates
+        },
+        aiAssistant: {
+            // `undefined` when no LLM provider is configured, which disables the feature.
+            stream: buildAiAssistantStream()
         },
         htmlSupport: {
             allow: JSON.parse(options.get("allowedHtmlTags"))
