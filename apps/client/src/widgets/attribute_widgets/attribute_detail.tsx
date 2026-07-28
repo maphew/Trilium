@@ -434,12 +434,10 @@ function AttributeForm({ opts, attrType, currentNoteId, onCancel, onAttributesCh
                     </OptionsRow>
                 )}
 
+                {/* No description: the values name themselves, and what they do to the field is plain
+                    enough once one is picked. */}
                 {attrType === "label-definition" && (
-                    <OptionsRow
-                        name="attr-label-type"
-                        label={t("attribute_detail.label_type")}
-                        description={t("attribute_detail.label_type_title")}
-                    >
+                    <OptionsRow name="attr-label-type" label={t("attribute_detail.label_type")}>
                         <FormSelect
                             className="attr-input-label-type"
                             values={LABEL_TYPES}
