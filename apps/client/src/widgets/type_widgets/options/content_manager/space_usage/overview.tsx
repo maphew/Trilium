@@ -37,6 +37,9 @@ export default function Overview({ overview, onShowDetails }: OverviewProps) {
             t("space_usage.hidden_notes", { count: overview.hiddenNotes.noteCount }),
             bucketWeight(overview.hiddenNotes, INCLUDE_REVISIONS)
         ),
+        // Not a crowd of notes but a tier of content, so it names itself rather than a count — and
+        // the figure is the deduplicated one the status line quotes, which is what its cell draws.
+        revisionsLabel: withSize(t("space_usage.revisions"), overview.content.revisionsSize),
         deletedNotesLabel: withSize(
             t("space_usage.deleted_notes", { count: overview.deletedNotes.noteCount }),
             overview.deletedNotes.size

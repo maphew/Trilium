@@ -14,6 +14,7 @@ export interface OverviewCell {
 interface OverviewModelOptions {
     otherNotesLabel: string;
     hiddenNotesLabel: string;
+    revisionsLabel: string;
     deletedNotesLabel: string;
     /** Folds revision sizes into each cell's weight. */
     includeRevisions: boolean;
@@ -35,15 +36,18 @@ interface OverviewModelOptions {
  * location, pass-through ancestors shaping the layout without drawing anything, so large notes
  * appear near their siblings and share their parent's hue. An entry that is itself an ancestor of
  * other entries keeps its own weight as a nested self-cell inside its area. The "other notes",
- * "hidden notes" and "deleted notes" buckets join at the top level as inert cells, so every byte
- * the status line counts has a cell somewhere.
+ * "hidden notes", "revisions" and "deleted notes" buckets join at the top level as inert cells, so
+ * every byte the status line counts has a cell somewhere.
  *
  * The cells carry no text — identity comes from hovering: note cells get the note preview tooltip
  * via `data-href`, the bucket cells the chart's own tooltip naming the crowd they stand for.
  */
 export function buildOverviewModel(
     overview: SpaceUsageOverviewResponse,
-    { otherNotesLabel, hiddenNotesLabel, deletedNotesLabel, includeRevisions, getIcon, makeSizeDetail }: OverviewModelOptions
+    {
+        otherNotesLabel, hiddenNotesLabel, revisionsLabel, deletedNotesLabel,
+        includeRevisions, getIcon, makeSizeDetail
+    }: OverviewModelOptions
 ): TreemapItem<OverviewCell> {
     const root: TreemapItem<OverviewCell> = { id: "root", children: [] };
     const nodesByNoteId = new Map<string, TreemapItem<OverviewCell>>();
@@ -130,6 +134,17 @@ export function buildOverviewModel(
             className: "treemap-cell-hidden",
             icon: "bx bx-hide",
             tooltip: hiddenNotesLabel,
+            data: {}
+        },
+        {
+            // The deduplicated tier from the content totals, never a sum of the per-note figures:
+            // those count a revision's blob again at each entity that shares it, so summing them
+            // would give the map an area the database never spent.
+            id: "/revisions",
+            value: overview.content.revisionsSize,
+            className: "treemap-cell-revisions",
+            icon: "bx bx-history",
+            tooltip: revisionsLabel,
             data: {}
         },
         {

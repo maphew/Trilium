@@ -36,7 +36,7 @@ vi.mock("../../../../../services/froca", () => ({
 import Overview from "./overview";
 
 const OVERVIEW: SpaceUsageOverviewResponse = {
-    content: { size: 400, noteCount: 3, attachmentsSize: 0, revisionsSize: 0 },
+    content: { size: 400, noteCount: 3, attachmentsSize: 0, revisionsSize: 60 },
     notes: [ { noteId: "n1", notePath: [ "n1" ], ownSize: 200, attachmentsSize: 0, revisionsSize: 0 } ],
     otherNotes: { size: 50, revisionsSize: 0, noteCount: 2 },
     hiddenNotes: { size: 80, revisionsSize: 0, noteCount: 10 },
@@ -64,12 +64,13 @@ afterEach(() => {
 });
 
 describe("Overview", () => {
-    it("renders a cell per note plus the three bucket cells", () => {
+    it("renders a cell per note plus the four bucket cells", () => {
         const probe = renderOverview();
 
         expect(probe.querySelector('[data-href="#root/n1"]')).not.toBeNull();
         expect(probe.querySelector(".treemap-cell-other")).not.toBeNull();
         expect(probe.querySelector(".treemap-cell-hidden")).not.toBeNull();
+        expect(probe.querySelector(".treemap-cell-revisions")).not.toBeNull();
         expect(probe.querySelector(".treemap-cell-deleted")).not.toBeNull();
     });
 
@@ -83,6 +84,7 @@ describe("Overview", () => {
 
         expect(iconIn(".treemap-cell-other")).toContain("bx-dots-horizontal-rounded");
         expect(iconIn(".treemap-cell-hidden")).toContain("bx-hide");
+        expect(iconIn(".treemap-cell-revisions")).toContain("bx-history");
         expect(iconIn(".treemap-cell-deleted")).toContain("bx-trash-alt");
     });
 

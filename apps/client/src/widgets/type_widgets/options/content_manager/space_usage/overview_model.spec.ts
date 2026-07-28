@@ -24,6 +24,7 @@ function build(overview: SpaceUsageOverviewResponse, includeRevisions = false) {
     return buildOverviewModel(overview, {
         otherNotesLabel: "Other notes",
         hiddenNotesLabel: "Hidden notes",
+        revisionsLabel: "Revisions",
         deletedNotesLabel: "Deleted notes",
         includeRevisions,
         makeSizeDetail: (size, attachmentsSize) => `size:${size}/att:${attachmentsSize}`
@@ -72,6 +73,7 @@ describe("buildOverviewModel", () => {
         const silent = buildOverviewModel(overview, {
             otherNotesLabel: "Other notes",
             hiddenNotesLabel: "Hidden notes",
+            revisionsLabel: "Revisions",
             deletedNotesLabel: "Deleted notes",
             includeRevisions: true
         });
@@ -99,6 +101,7 @@ describe("buildOverviewModel", () => {
             {
                 otherNotesLabel: "Other notes",
                 hiddenNotesLabel: "Hidden notes",
+                revisionsLabel: "Revisions",
                 deletedNotesLabel: "Deleted notes",
                 includeRevisions: false,
                 getIcon: (noteId) => noteId === "parent" ? "tn-icon bx bx-folder" : undefined
@@ -178,6 +181,27 @@ describe("buildOverviewModel", () => {
         expect(deleted.className).toBe("treemap-cell-deleted");
         expect(deleted.tooltip).toBe("Deleted notes");
         expect(deleted.icon).toBe("bx bx-trash-alt");
+    });
+
+    it("sizes the revisions bucket from the deduplicated content tier, not the per-note figures", () => {
+        const model = build(response(
+            // Per-note revision sizes count each blob again at every entity sharing it, so they add
+            // up to far more than the database spent — the bucket must ignore them entirely.
+            [ entry("a", [ "a" ], { ownSize: 5, revisionsSize: 900 }) ],
+            {
+                content: { size: 60, noteCount: 1, attachmentsSize: 0, revisionsSize: 40 },
+                hiddenNotes: { size: 0, revisionsSize: 700, noteCount: 2 }
+            }
+        ));
+
+        const revisions = childById(model, "/revisions");
+        expect(revisions.value).toBe(40);
+        expect(revisions.className).toBe("treemap-cell-revisions");
+        expect(revisions.icon).toBe("bx bx-history");
+        expect(revisions.tooltip).toBe("Revisions");
+        // Inert like the other buckets: history is not a note to preview or open.
+        expect(revisions.data).toEqual({});
+        expect(revisions.attributes).toBeUndefined();
     });
 
     it("places an entry for the root itself as a top-level cell", () => {
