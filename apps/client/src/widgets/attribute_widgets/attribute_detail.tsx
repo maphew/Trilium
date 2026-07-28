@@ -1,6 +1,6 @@
 import "./attribute_detail.css";
 
-import type { DefinitionObject, LabelType, Multiplicity } from "@triliumnext/commons";
+import type { DefinitionObject, LabelType } from "@triliumnext/commons";
 import { ComponentProps } from "preact";
 import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
@@ -461,21 +461,14 @@ function AttributeForm({ opts, attrType, currentNoteId, onCancel, onAttributesCh
                 )}
 
                 {isDefinition(attrType) && !opts.hideMultiplicity && (
-                    <OptionsRow
+                    <OptionsRowWithToggle
                         name="attr-multiplicity"
                         label={t("attribute_detail.multiplicity")}
                         description={t("attribute_detail.multiplicity_title")}
-                    >
-                        <FormSelect
-                            className="attr-input-multiplicity"
-                            values={MULTIPLICITIES}
-                            keyProperty="value"
-                            titleProperty="title"
-                            currentValue={definition.multiplicity ?? "single"}
-                            disabled={!isOwned}
-                            onChange={(multiplicity) => commitDefinition({ multiplicity: multiplicity as Multiplicity })}
-                        />
-                    </OptionsRow>
+                        currentValue={definition.multiplicity === "multi"}
+                        disabled={!isOwned}
+                        onChange={(multiple) => commitDefinition({ multiplicity: multiple ? "multi" : "single" })}
+                    />
                 )}
 
                 {attrType === "label-definition" && (
@@ -595,11 +588,6 @@ function lookupAttributeHelp(attrType: AttrType, name: string): AttrHelpEntry | 
 
 /** Constant so it does not re-initialise the autocomplete on every render. */
 const TARGET_NOTE_OPTS = { allowCreatingNotes: true };
-
-const MULTIPLICITIES = [
-    { value: "single", title: t("attribute_detail.single_value") },
-    { value: "multi", title: t("attribute_detail.multi_value") }
-];
 
 /** Exported so that hosts listing definitions can name their label type as the popup does. */
 export const LABEL_TYPES = [
