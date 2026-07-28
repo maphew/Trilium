@@ -49,6 +49,14 @@ describe("buildCanonicalForest", () => {
         expect(forest.childrenByNoteId.get("a")).toBeUndefined();
     });
 
+    it("handles a root whose only child is the hidden subtree", () => {
+        const forest = forestOf({ root: [ "_hidden" ], _hidden: [ "h1" ] });
+
+        expect(forest.userNoteIds).toEqual([ "root" ]);
+        expect(forest.hiddenNoteIds).toEqual([ "_hidden", "h1" ]);
+        expect(forest.childrenByNoteId.get("root")).toEqual([ "_hidden" ]);
+    });
+
     it("walks the hidden subtree last, so a note cloned into both worlds stays a user note", () => {
         // `bm` models a bookmark: a user note cloned under the hidden bookmarks folder.
         const forest = forestOf({

@@ -68,6 +68,17 @@ describe("buildCompositionSegments", () => {
         });
     });
 
+    it("breaks size ties deterministically by attachment ID", () => {
+        const segments = buildCompositionSegments(usage({
+            attachments: [
+                { attachmentId: "beta", title: "B", role: "file", size: 40 },
+                { attachmentId: "alpha", title: "A", role: "file", size: 40 }
+            ]
+        }), options);
+
+        expect(segments.map((segment) => segment.id)).toEqual([ "attachment/alpha", "attachment/beta" ]);
+    });
+
     it("drops empty components entirely", () => {
         const segments = buildCompositionSegments(usage({
             attachments: [ { attachmentId: "empty", title: "Empty", role: "file", size: 0 } ]
@@ -97,6 +108,14 @@ describe("buildChildrenSegments", () => {
             tooltip: "child:title of big/90",
             data: { noteId: "big" }
         });
+    });
+
+    it("breaks subtree-size ties deterministically by note ID", () => {
+        const segments = buildChildrenSegments(usage({
+            children: [ child("zebra", 40), child("aardvark", 40) ]
+        }), options);
+
+        expect(segments.map((segment) => segment.id)).toEqual([ "child/aardvark", "child/zebra" ]);
     });
 
     it("consolidates children below 0.5% of the ring into an inert counted bucket", () => {

@@ -70,6 +70,7 @@ export default function DonutChart<T>({ rings, className, children }: DonutChart
     const positionOf = (event: { clientX: number, clientY: number }) => {
         const rect = containerRef.current?.getBoundingClientRect();
 
+        /* v8 ignore next 3 -- the events only fire from inside the rendered container */
         if (!rect) {
             return { x: 0, y: 0, flipped: false };
         }
@@ -82,8 +83,10 @@ export default function DonutChart<T>({ rings, className, children }: DonutChart
         <div
             ref={containerRef}
             className={clsx("donut-chart", className)}
-            onPointerMove={(event) => setHover((current) => current && { ...current, ...positionOf(event) })}
-            onPointerLeave={() => setHover(null)}
+            // Mouse events rather than pointer events: hover has no meaning on touch anyway, and
+            // pointer handlers don't register correctly under the test DOM (see the render spec).
+            onMouseMove={(event) => setHover((current) => current && { ...current, ...positionOf(event) })}
+            onMouseLeave={() => setHover(null)}
         >
             <svg viewBox={`${-half} ${-half} ${DONUT_VIEW_SIZE} ${DONUT_VIEW_SIZE}`}>
                 {/* Rotated so every ring starts at 12 o'clock. */}
@@ -143,8 +146,8 @@ function Ring<T>({ ring, onSegmentHover }: {
                         r={ring.radius}
                         fill="none"
                         onClick={ring.onSegmentClick && (() => ring.onSegmentClick?.(segment))}
-                        onPointerEnter={(event) => onSegmentHover(segment, event)}
-                        onPointerLeave={() => onSegmentHover(null)}
+                        onMouseEnter={(event) => onSegmentHover(segment, event)}
+                        onMouseLeave={() => onSegmentHover(null)}
                         // Arc geometry is data-driven; as inline *style* (not attributes) it stays
                         // animatable by the stylesheet's transition and sweep keyframes.
                         style={{

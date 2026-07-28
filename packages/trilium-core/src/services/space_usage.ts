@@ -78,6 +78,8 @@ export function getNoteUsage(noteId: string): SpaceUsageNoteResponse {
 
         return {
             noteId: childId,
+            /* v8 ignore next 3 -- the totals cover every note of the forest, so the fallbacks
+               would only fire on an internally inconsistent forest */
             subtreeSize: total?.size ?? 0,
             subtreeRevisionsSize: total?.revisionsSize ?? 0,
             subtreeNoteCount: total?.noteCount ?? 0
@@ -93,6 +95,8 @@ export function getNoteUsage(noteId: string): SpaceUsageNoteResponse {
         [ noteId ]
     );
     const attachments = note.getAttachments().flatMap((attachment) => {
+        /* v8 ignore next 3 -- a becca-loaded attachment always carries its row ID; the type merely
+           allows unsaved ones */
         if (!attachment.attachmentId) {
             return [];
         }
@@ -455,11 +459,13 @@ function buildForestFromBecca(): CanonicalForest {
     return buildCanonicalForest(
         (noteId) => {
             const note = becca.notes[noteId];
+            /* v8 ignore next 3 -- only visited IDs are queried, and those come from becca itself */
             if (!note) {
                 return [];
             }
 
             return note.getChildBranches()
+                /* v8 ignore next -- getChildBranches' nulls only appear on a corrupted cache */
                 .flatMap((branch) => branch ? [ branch ] : [])
                 // Sorted here rather than trusting cache order, so the canonical choice between
                 // equally deep clones is the same on every instance of a sync cluster.

@@ -204,6 +204,22 @@ describe("Space usage API (core)", () => {
         expect(rootUsage.deletedNotes?.size).toBeGreaterThanOrEqual(doomedSize);
     });
 
+    it("defaults and clamps the overview limit", async () => {
+        // No limit → the server default applies and the request just works.
+        const defaulted = await getOverview();
+        expect(defaulted.notes.length).toBeGreaterThan(0);
+
+        // Below the floor → clamped up to a single note, not zero.
+        const floored = await getOverview({ limit: 0 });
+        expect(floored.notes.length).toBe(1);
+
+        // Absurdly high and non-numeric values are tolerated too.
+        const ceiled = await getOverview({ limit: 999999 });
+        expect(ceiled.notes.length).toBeGreaterThan(0);
+        const garbage = await getOverview({ limit: "abc" });
+        expect(garbage.notes.length).toBeGreaterThan(0);
+    });
+
     it("404s for a missing note", async () => {
         const res = await api.get("/api/space-usage/note/spaceUsageMissing");
         expect(res.status).toBe(404);

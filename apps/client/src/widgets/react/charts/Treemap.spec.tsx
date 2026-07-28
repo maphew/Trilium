@@ -1,0 +1,114 @@
+import { render } from "preact";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+// The container never gets a real layout under happy-dom, so the size hook is stubbed to give the
+// treemap a canvas; everything else renders for real.
+const mocks = vi.hoisted(() => ({
+    size: { width: 400, height: 300 } as { width: number, height: number } | undefined
+}));
+vi.mock("../hooks", () => ({
+    useElementSize: () => mocks.size
+}));
+
+import Treemap, { type TreemapItem } from "./Treemap";
+
+let container: HTMLDivElement | undefined;
+
+function renderTreemap(root: TreemapItem<string>, onItemClick?: (item: TreemapItem<string>) => void) {
+    container = document.body.appendChild(document.createElement("div"));
+    render(<Treemap<string> root={root} onItemClick={onItemClick} />, container);
+    return container;
+}
+
+afterEach(() => {
+    if (container) {
+        render(null, container);
+        container.remove();
+        container = undefined;
+    }
+    mocks.size = { width: 400, height: 300 };
+});
+
+const ROOT: TreemapItem<string> = {
+    id: "root",
+    children: [
+        {
+            id: "folder",
+            children: [
+                {
+                    id: "big",
+                    value: 300,
+                    hue: 120,
+                    data: "big",
+                    attributes: { "data-href": "#root/folder/big" }
+                },
+                { id: "small", value: 100, data: "small" }
+            ]
+        },
+        { id: "bucket", value: 100, className: "bucket-cell" },
+        { id: "empty", value: 0 },
+        { id: "no-value" }
+    ]
+};
+
+describe("Treemap", () => {
+    it("draws only the leaves: parents shape the layout, zero-weight cells disappear", () => {
+        const probe = renderTreemap(ROOT);
+        const cells = [ ...probe.querySelectorAll(".treemap-cell") ];
+
+        // big, small and the bucket — no cell for the folder, none for the empty leaf.
+        expect(cells.length).toBe(3);
+
+        for (const cell of cells) {
+            const { left, top, width, height } = (cell as HTMLElement).style;
+            expect(parseFloat(width)).toBeGreaterThan(0);
+            expect(parseFloat(height)).toBeGreaterThan(0);
+            expect(left).not.toBe("");
+            expect(top).not.toBe("");
+        }
+    });
+
+    it("tints a cell through its hue variable and forwards attributes and classes", () => {
+        const probe = renderTreemap(ROOT);
+
+        const big = probe.querySelector<HTMLElement>('[data-href="#root/folder/big"]');
+        expect(big?.classList.contains("treemap-colored")).toBe(true);
+        expect(big?.style.getPropertyValue("--treemap-hue")).toBe("120");
+
+        const bucket = probe.querySelector<HTMLElement>(".bucket-cell");
+        expect(bucket?.classList.contains("treemap-colored")).toBe(false);
+        expect(bucket?.style.getPropertyValue("--treemap-hue")).toBe("");
+    });
+
+    it("hands the clicked item back to the consumer", () => {
+        const onItemClick = vi.fn();
+        const probe = renderTreemap(ROOT, onItemClick);
+
+        probe.querySelector('[data-href="#root/folder/big"]')
+            ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+
+        expect(onItemClick).toHaveBeenCalledTimes(1);
+        expect(onItemClick.mock.calls[0][0]).toMatchObject({ id: "big", data: "big" });
+    });
+
+    it("draws nothing until the container has a usable size", () => {
+        mocks.size = undefined;
+        expect(renderTreemap(ROOT).querySelectorAll(".treemap-cell").length).toBe(0);
+
+        render(null, container as HTMLDivElement);
+        mocks.size = { width: 5, height: 5 };
+        expect(renderTreemap(ROOT).querySelectorAll(".treemap-cell").length).toBe(0);
+    });
+
+    it("gives bigger values proportionally bigger areas", () => {
+        const probe = renderTreemap(ROOT);
+        const areaOf = (selector: string) => {
+            const cell = probe.querySelector<HTMLElement>(selector);
+            if (!cell) throw new Error(`No cell for '${selector}'`);
+            return parseFloat(cell.style.width) * parseFloat(cell.style.height);
+        };
+
+        // 300 vs 100: padding shaves a little off, so demand a clear factor rather than exactness.
+        expect(areaOf('[data-href="#root/folder/big"]') / areaOf(".bucket-cell")).toBeGreaterThan(2);
+    });
+});
