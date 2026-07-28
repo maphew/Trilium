@@ -421,7 +421,9 @@ function useTextLabelAutocomplete(inputId: string, valueAttr: Attribute, definit
 
     // Obtain data.
     useEffect(() => {
-        if (definition.labelType !== "text") {
+        // A nameless attribute has no values to suggest, and would request `attribute-values/`, which
+        // matches no route.
+        if (definition.labelType !== "text" || !valueAttr.name) {
             return;
         }
 

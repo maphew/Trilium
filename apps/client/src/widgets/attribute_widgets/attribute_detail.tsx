@@ -4,6 +4,7 @@ import type { DefinitionObject, LabelType, Multiplicity } from "@triliumnext/com
 import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../../components/app_context.js";
+import { isDefinitionName } from "../../entities/fattribute.js";
 import type { Attribute } from "../../services/attribute_parser.js";
 import { isExperimentalFeatureEnabled } from "../../services/experimental_features.js";
 import { focusSavedElement, saveFocusedElement } from "../../services/focus.js";
@@ -792,10 +793,10 @@ type AttrType = "label" | "label-definition" | "relation" | "relation-definition
 
 function getAttrType(attribute: Attribute): AttrType {
     if (attribute.type === "label") {
-        if (attribute.name.startsWith("label:")) {
-            return "label-definition";
-        } else if (attribute.name.startsWith("relation:")) {
-            return "relation-definition";
+        // A bare prefix (`#label:`) defines nothing, so it stays an ordinary label — editing it as a
+        // definition would only offer a name-less one back.
+        if (isDefinitionName(attribute.name)) {
+            return attribute.name.startsWith("label:") ? "label-definition" : "relation-definition";
         }
         return "label";
     } else if (attribute.type === "relation") {
