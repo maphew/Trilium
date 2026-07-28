@@ -10,6 +10,7 @@ import FNote from "../../entities/fnote";
 import contextMenu from "../../menus/context_menu";
 import type { Attribute } from "../../services/attribute_parser";
 import attributes from "../../services/attributes";
+import dialog from "../../services/dialog";
 import { t } from "../../services/i18n";
 import server from "../../services/server";
 import { AttributeDetail, AttributeDetailOpts, AttrType, getAttrType, LABEL_TYPES } from "../attribute_widgets/attribute_detail";
@@ -124,7 +125,16 @@ export default function AttributeList() {
         }
     }
 
+    /**
+     * Deleting is a press away in every row, and the row is all there is to tell one attribute from
+     * another, so it is confirmed first — from the popup too, which deletes the very same thing.
+     */
     async function deleteAttribute(attribute: Attribute) {
+        const name = getDisplayName(attribute, getAttributeKind(attribute));
+        if (!await dialog.confirm(t("attribute_list_panel.delete_confirm", { name }))) {
+            return;
+        }
+
         owned.current = owned.current.filter((candidate) => candidate !== attribute);
         setDetail(null);
         rerender();
@@ -132,19 +142,26 @@ export default function AttributeList() {
         await save();
     }
 
-    const hasInherited = inherited.current.length > 0;
+    const sections = splitIntoSections(owned.current, inherited.current);
+    const rowProps = {
+        activeAttribute: detail?.attribute,
+        onOpen: openDetail,
+        onDelete: (attribute: Attribute) => void deleteAttribute(attribute)
+    };
+    // The cards a section has nothing for are left out, so an ordinary note sees one or two of the three.
+    const shownCards = 1 + (sections.inherited.length ? 1 : 0) + (sections.definitions.length ? 1 : 0);
 
     return (
         <>
-            {/* Two cards of its own, so each is collapsed on its own and the inherited ones — which a
+            {/* A card each, so a section is collapsed on its own and the inherited attributes — which a
                 template can run to dozens of — can be put away without taking the note's own with them.
                 Which is also why the collapsing is offered here rather than left to the tab: the tab
-                counts this as one widget (see RightPanelContainer), being one entry in its list. With
-                nothing inherited there is only the one card, and collapsing it away is not on offer. */}
-            <CollapsibleWidgets.Provider value={hasInherited}>
+                counts this whole panel as one widget (see RightPanelContainer), being one entry in its
+                list. Down to a single card, collapsing it away is not on offer. */}
+            <CollapsibleWidgets.Provider value={shownCards > 1}>
                 <RightPanelWidget
                     id="attributes"
-                    title={t("attribute_list_panel.owned", { count: owned.current.length })}
+                    title={t("attribute_list_panel.owned", { count: sections.owned.length })}
                     buttons={note && (
                         <>
                             <HelpButton helpPage={ATTRIBUTE_HELP_PAGE} />
@@ -163,41 +180,32 @@ export default function AttributeList() {
                     {/* Presses inside the sections do not dismiss the popup (see `parent` above), which
                         leaves closing on a press next to a row up to this handler. */}
                     <div class="attribute-list-panel" ref={containerRef} onClick={() => setDetail(null)}>
-                        {owned.current.length > 0 ? (
-                            <ul class="attribute-rows">
-                                {owned.current.map((attribute, index) => (
-                                    <AttributeRow
-                                        key={attribute.attributeId ?? `new-${index}`}
-                                        attribute={attribute}
-                                        active={detail?.attribute === attribute}
-                                        onOpen={(anchor, e) => openDetail(attribute, true, anchor, e)}
-                                        onDelete={() => void deleteAttribute(attribute)}
-                                    />
-                                ))}
-                            </ul>
+                        {sections.owned.length > 0 ? (
+                            <AttributeRowList rows={sections.owned} {...rowProps} />
                         ) : (
                             <NoItems icon="bx bx-hash" text={t("attribute_list_panel.no_attributes")} />
                         )}
                     </div>
                 </RightPanelWidget>
 
-                {hasInherited && (
+                {sections.inherited.length > 0 && (
                     <RightPanelWidget
                         id="attributes-inherited"
-                        title={t("attribute_list_panel.inherited", { count: inherited.current.length })}
+                        title={t("attribute_list_panel.inherited", { count: sections.inherited.length })}
                     >
                         <div class="attribute-list-panel" onClick={() => setDetail(null)}>
-                            <ul class="attribute-rows">
-                                {inherited.current.map((attribute) => (
-                                    <AttributeRow
-                                        key={attribute.attributeId}
-                                        attribute={attribute}
-                                        active={detail?.attribute === attribute}
-                                        showOwner
-                                        onOpen={(anchor, e) => openDetail(attribute, false, anchor, e)}
-                                    />
-                                ))}
-                            </ul>
+                            <AttributeRowList rows={sections.inherited} {...rowProps} />
+                        </div>
+                    </RightPanelWidget>
+                )}
+
+                {sections.definitions.length > 0 && (
+                    <RightPanelWidget
+                        id="attributes-definitions"
+                        title={t("attribute_list_panel.definitions", { count: sections.definitions.length })}
+                    >
+                        <div class="attribute-list-panel" onClick={() => setDetail(null)}>
+                            <AttributeRowList rows={sections.definitions} {...rowProps} />
                         </div>
                     </RightPanelWidget>
                 )}
@@ -229,6 +237,36 @@ export default function AttributeList() {
     );
 }
 
+interface AttributeRowListProps {
+    rows: AttributeEntry[];
+    /** The attribute the detail popup is showing, marked as such in the list. */
+    activeAttribute?: Attribute;
+    onOpen: (attribute: Attribute, isOwned: boolean, anchor: HTMLElement | null, e: MouseEvent) => void;
+    onDelete: (attribute: Attribute) => void;
+}
+
+/**
+ * One card's worth of rows. What a row offers follows from whether the note owns its attribute rather
+ * than from the card it is in: the definitions card holds the note's own alongside a template's.
+ */
+function AttributeRowList({ rows, activeAttribute, onOpen, onDelete }: AttributeRowListProps) {
+    return (
+        <ul class="attribute-rows">
+            {rows.map(({ attribute, isOwned }, index) => (
+                <AttributeRow
+                    key={attribute.attributeId ?? `new-${index}`}
+                    attribute={attribute}
+                    active={activeAttribute === attribute}
+                    // An attribute of another note names it; the current note's own would name itself.
+                    showOwner={!isOwned}
+                    onOpen={(anchor, e) => onOpen(attribute, isOwned, anchor, e)}
+                    onDelete={isOwned ? () => onDelete(attribute) : undefined}
+                />
+            ))}
+        </ul>
+    );
+}
+
 interface AttributeRowProps {
     attribute: Attribute;
     /** Whether the detail popup is currently showing this attribute. */
@@ -247,7 +285,7 @@ function AttributeRow({ attribute, active, showOwner, onOpen, onDelete }: Attrib
         <li
             ref={rowRef}
             class={clsx("attribute-row", active && "active")}
-            title={t(KIND_TITLES[attrType])}
+            title={KIND_TITLES[attrType]}
             onClick={(e) => {
                 // Keep the container's closing handler from undoing this.
                 e.stopPropagation();
@@ -304,9 +342,9 @@ function AttributeValue({ attribute, attrType }: { attribute: Attribute; attrTyp
         return <span class="attribute-value definition">{summarizeDefinition(attribute, attrType)}</span>;
     }
 
-    return attribute.value
-        ? <span class="attribute-value" title={attribute.value}>{attribute.value}</span>
-        : null;
+    // A label with no value still gets its slot: it is what takes up the room between the name and what
+    // the row ends with, so a bare label lines its markers and its delete button up with every other row's.
+    return <span class="attribute-value" title={attribute.value}>{attribute.value}</span>;
 }
 
 /** What a definition sets up, in the order the popup offers it: type, multiplicity, then the extras. */
@@ -388,6 +426,38 @@ function createAttribute(attrType: AttributeKind): Attribute {
         case "relation-definition":
             return { type: "label", name: "relation:myRelation", value: "promoted,single", isInheritable: false };
     }
+}
+
+/** An attribute as a row: what the row offers depends on whether the current note owns it. */
+export interface AttributeEntry {
+    attribute: Attribute;
+    isOwned: boolean;
+}
+
+export interface AttributeSections {
+    /** The note's own labels and relations. */
+    owned: AttributeEntry[];
+    /** Labels and relations reaching it from elsewhere. */
+    inherited: AttributeEntry[];
+    /**
+     * The definitions among either, the note's own first. They share a card rather than following the
+     * split above: they are the schema behind an attribute and not something the note is tagged with,
+     * there are rarely more than a handful, and a row already names the note its definition lives on —
+     * which for a definition (nearly always a template's) is the more precise answer anyway.
+     */
+    definitions: AttributeEntry[];
+}
+
+export function splitIntoSections(owned: Attribute[], inherited: Attribute[]): AttributeSections {
+    const isDefinitionEntry = ({ attribute }: AttributeEntry) => isDefinition(getAttributeKind(attribute));
+    const ownedEntries = owned.map((attribute) => ({ attribute, isOwned: true }));
+    const inheritedEntries = inherited.map((attribute) => ({ attribute, isOwned: false }));
+
+    return {
+        owned: ownedEntries.filter((entry) => !isDefinitionEntry(entry)),
+        inherited: inheritedEntries.filter((entry) => !isDefinitionEntry(entry)),
+        definitions: [ ...ownedEntries, ...inheritedEntries ].filter(isDefinitionEntry)
+    };
 }
 
 function collectOwned(note: FNote | null | undefined): Attribute[] {

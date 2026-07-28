@@ -1,8 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import FAttribute, { FAttributeRow } from "../../entities/fattribute";
+import type { Attribute } from "../../services/attribute_parser";
 import froca from "../../services/froca";
-import { getAttributeKind, getDisplayName, listInherited, listOwned } from "./AttributeList";
+import { getAttributeKind, getDisplayName, listInherited, listOwned, splitIntoSections } from "./AttributeList";
 
 describe("listOwned", () => {
     it("orders by position and leaves out the attributes Trilium maintains itself", () => {
@@ -33,6 +34,22 @@ describe("listInherited", () => {
     });
 });
 
+describe("splitIntoSections", () => {
+    it("sets the definitions of either aside, the note's own first, and splits the rest by ownership", () => {
+        const sections = splitIntoSections(
+            [ plain("cssClass"), plain("label:priority"), plain("relation:owner") ],
+            [ plain("archived", "parent"), plain("label:status", "template") ]
+        );
+
+        expect(sections.owned.map((entry) => entry.attribute.name)).toEqual([ "cssClass" ]);
+        expect(sections.inherited.map((entry) => entry.attribute.name)).toEqual([ "archived" ]);
+        expect(sections.definitions.map((entry) => entry.attribute.name))
+            .toEqual([ "label:priority", "relation:owner", "label:status" ]);
+        // Which of the definitions the note may edit is the row's to know, the card holding both.
+        expect(sections.definitions.map((entry) => entry.isOwned)).toEqual([ true, true, false ]);
+    });
+});
+
 describe("getAttributeKind / getDisplayName", () => {
     it("tells a definition from what it defines, and shows it without its prefix", () => {
         const cases: [ FAttributeRow["type"], string, string, string ][] = [
@@ -52,6 +69,10 @@ describe("getAttributeKind / getDisplayName", () => {
         }
     });
 });
+
+function plain(name: string, noteId = "own"): Attribute {
+    return { type: "label", name, noteId, value: "", isInheritable: false };
+}
 
 function attribute(row: Partial<FAttributeRow>) {
     return new FAttribute(froca, {
