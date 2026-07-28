@@ -12,8 +12,7 @@ import { bucketWeight, buildOverviewModel, type OverviewCell } from "./overview_
  * A cell's area covers a note's body and attachments, leaving history out; its tooltip says the
  * same. Per-note revision sizes are counted per entity rather than deduplicated, so a revision
  * snapshotting an unchanged body reports its full size while costing the database nothing — folding
- * that into the areas would inflate cells by bytes that were never spent. The status line reports
- * the deduplicated revisions total instead.
+ * that into the areas would inflate cells by bytes that were never spent.
  */
 const INCLUDE_REVISIONS = false;
 

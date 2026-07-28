@@ -37,7 +37,12 @@ interface OverviewModelOptions {
  * appear near their siblings and share their parent's hue. An entry that is itself an ancestor of
  * other entries keeps its own weight as a nested self-cell inside its area. The "other notes",
  * "hidden notes", "revisions" and "deleted notes" buckets join at the top level as inert cells, so
- * every byte the status line counts has a cell somewhere.
+ * nothing the database holds is left off the map.
+ *
+ * The areas deliberately do not add up to the status line's total. A note's cell is its own
+ * per-entity size, so content shared byte for byte is counted at every note holding it, while the
+ * revisions and deleted buckets are deduplicated figures. Each basis is the right one for what it
+ * measures — per-note for a cell, whole-database for a total — but the two are not summable.
  *
  * The cells carry no text — identity comes from hovering: note cells get the note preview tooltip
  * via `data-href`, the bucket cells the chart's own tooltip naming the crowd they stand for.

@@ -9,6 +9,8 @@ import froca from "../../../../../services/froca";
 import { t } from "../../../../../services/i18n";
 import { downloadFileNote } from "../../../../../services/open";
 
+const ROOT_NOTE_ID = "root";
+
 /** Switches the section to Browse, focused on the given path. */
 export type ShowDetailsHandler = (notePath: string[]) => void;
 
@@ -40,8 +42,10 @@ export async function openSpaceUsageContextMenu(
         return;
     }
 
-    // The root has no parent, so it has neither a branch to delete nor a path the export dialog can
-    // resolve into one.
+    // The root has no parent, so no path the export dialog can resolve into a branch. Note that
+    // `getBranchId` answers the placeholder "none_root" for the root rather than nothing, so the
+    // root is recognised by its ID and never by the absence of a branch.
+    const isRoot = noteId === ROOT_NOTE_ID;
     const branchId = parentNoteId ? await froca.getBranchId(parentNoteId, noteId) : null;
     const notePathString = notePath.join("/");
 
@@ -85,18 +89,21 @@ export async function openSpaceUsageContextMenu(
             }
         },
 
-        { kind: "separator" },
-
-        {
-            title: t("tree-context-menu.delete"),
-            uiIcon: "bx bx-trash destructive-action-icon",
-            enabled: !!branchId,
-            handler: () => {
-                if (branchId) {
-                    void branches.deleteNotes([ branchId ], false, false);
+        // The root cannot be deleted at all, so it is left out rather than shown struck through —
+        // and its separator goes with it, or the menu would end on a dangling divider.
+        ...(isRoot ? [] : [
+            { kind: "separator" as const },
+            {
+                title: t("tree-context-menu.delete"),
+                uiIcon: "bx bx-trash destructive-action-icon",
+                enabled: !!branchId,
+                handler: () => {
+                    if (branchId) {
+                        void branches.deleteNotes([ branchId ], false, false);
+                    }
                 }
             }
-        }
+        ])
     ];
 
     await contextMenu.show({

@@ -157,17 +157,22 @@ describe("openSpaceUsageContextMenu", () => {
         expect(itemByIcon(DOWNLOAD)?.enabled).toBe(false);
     });
 
-    it("disables Export and Delete on the root, which has no parent to place it", async () => {
+    it("drops Delete on the root and disables Export, however it was reached", async () => {
         givenNote("root");
 
         await openFor([ "root" ]);
 
+        // Not merely struck through: the root can never be deleted, so it is not offered.
+        expect(icons()).toEqual([ QUICK_EDIT, NEW_TAB, SHOW_DETAILS, EXPORT ]);
         expect(itemByIcon(EXPORT)?.enabled).toBe(false);
-        expect(itemByIcon(DELETE)?.enabled).toBe(false);
-        invoke(DELETE);
-        expect(mocks.deleteNotes).not.toHaveBeenCalled();
         // Opening it is still fine.
         expect(itemByIcon(QUICK_EDIT)?.enabled).toBeUndefined();
+
+        // The overview builds the root's path as "root/root", making it look parented; the root
+        // is recognised by its ID, so that path fares no differently.
+        mocks.branchIds.set("root/root", "none_root");
+        await openFor([ "root", "root" ]);
+        expect(itemByIcon(DELETE)).toBeUndefined();
     });
 
     it("shows no menu at all for a note deleted since the usage was measured", async () => {
