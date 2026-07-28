@@ -23,8 +23,41 @@
     vertical-align: middle;
 }
 
+/*
+ * The related notes come from an asynchronous lookup that lands well after the popup has been positioned,
+ * and they come and go again as the attribute is edited. The section therefore stays in the DOM and eases
+ * its height open and shut, so the popup grows and shrinks instead of snapping to a new size under the
+ * pointer. The grid row is what makes an automatic height animatable, the inner wrapper clips the content
+ * while it is collapsed, and the delayed visibility drops the links out of the tab order once they are
+ * fully hidden.
+ */
 .related-notes-container {
+    display: grid;
+    grid-template-rows: 0fr;
+    margin-top: 0;
+    opacity: 0;
+    visibility: hidden;
+    transition:
+        grid-template-rows 200ms ease,
+        margin-top 200ms ease,
+        opacity 200ms ease,
+        visibility 0s linear 200ms;
+}
+
+.related-notes-container.expanded {
+    grid-template-rows: 1fr;
     margin-top: 20px;
+    opacity: 1;
+    visibility: visible;
+    transition:
+        grid-template-rows 200ms ease,
+        margin-top 200ms ease,
+        opacity 200ms ease;
+}
+
+.related-notes-inner {
+    overflow: hidden;
+    min-height: 0;
 }
 
 .related-notes-list {

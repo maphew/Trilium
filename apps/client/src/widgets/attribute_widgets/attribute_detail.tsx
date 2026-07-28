@@ -1,6 +1,7 @@
 import "./attribute_detail.css";
 
 import type { DefinitionObject, LabelType, Multiplicity } from "@triliumnext/commons";
+import clsx from "clsx";
 import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../../components/app_context.js";
@@ -645,9 +646,16 @@ interface SearchRelatedResponse {
     count: number;
 }
 
-/** Lists the other notes carrying the same attribute, hidden entirely when there are none. */
+interface RelatedNotesResult {
+    notePaths: string[];
+    /** How many further notes the list does not show, `0` when it shows them all. */
+    moreCount: number;
+}
+
+/** Lists the other notes carrying the same attribute, collapsed entirely when there are none. */
 function RelatedNotes({ attribute, currentNoteId }: { attribute: Attribute; currentNoteId?: string | null }) {
-    const [ related, setRelated ] = useState<{ notePaths: string[]; moreCount: number }>();
+    const [ related, setRelated ] = useState<RelatedNotesResult>();
+    const lastFilled = useRef<RelatedNotesResult>();
     const latestRequest = useRef(0);
     const isInitialLookup = useRef(true);
     const { type, name, value } = attribute;
@@ -687,27 +695,34 @@ function RelatedNotes({ attribute, currentNoteId }: { attribute: Attribute; curr
         // `attribute` is edited in place, so its fields rather than its identity are the real inputs.
     }, [ type, name, value, currentNoteId ]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    if (!related?.notePaths.length) {
-        return null;
+    // The section stays mounted so that the CSS can ease its height: the lookup lands after the popup has
+    // been positioned, and mounting it then would snap the popup to a new size. The last non-empty result
+    // stays as its content so that collapsing animates as well, rather than emptying out at once.
+    const shown = !!related?.notePaths.length;
+    if (shown) {
+        lastFilled.current = related;
     }
+    const content = lastFilled.current;
 
     return (
-        <div class="related-notes-container">
-            <h5 class="related-notes-title">
-                {t("attribute_detail.other_notes_with_name", { attributeType: type, attributeName: name })}
-            </h5>
+        <div class={clsx("related-notes-container", shown && "expanded")}>
+            <div class="related-notes-inner">
+                <h5 class="related-notes-title">
+                    {t("attribute_detail.other_notes_with_name", { attributeType: type, attributeName: name })}
+                </h5>
 
-            <ul class="related-notes-list">
-                {related.notePaths.map((notePath) => (
-                    <li key={notePath}><NoteLink notePath={notePath} showNotePath /></li>
-                ))}
-            </ul>
+                <ul class="related-notes-list">
+                    {content?.notePaths.map((notePath) => (
+                        <li key={notePath}><NoteLink notePath={notePath} showNotePath /></li>
+                    ))}
+                </ul>
 
-            {related.moreCount > 0 && (
-                <div class="related-notes-more-notes">
-                    {t("attribute_detail.and_more", { count: related.moreCount })}
-                </div>
-            )}
+                {(content?.moreCount ?? 0) > 0 && (
+                    <div class="related-notes-more-notes">
+                        {t("attribute_detail.and_more", { count: content?.moreCount })}
+                    </div>
+                )}
+            </div>
         </div>
     );
 }
