@@ -1,4 +1,4 @@
-import { CKTextEditor, ClassicEditor, EditorWatchdog, PopupEditor, TemplateDefinition, type WatchdogConfig } from "@triliumnext/ckeditor5";
+import { CKTextEditor, ClassicEditor, EditorWatchdog, PopupEditor, SnippetDefinition, type WatchdogConfig } from "@triliumnext/ckeditor5";
 import { DISPLAYABLE_LOCALE_IDS } from "@triliumnext/commons";
 import { HTMLProps, RefObject, useEffect, useImperativeHandle, useRef, useState } from "preact/compat";
 
@@ -32,13 +32,18 @@ interface CKEditorWithWatchdogProps extends Pick<HTMLProps<HTMLDivElement>, "cla
     /** Called upon whenever a new CKEditor instance is initialized, whether it's the first initialization, after a crash or after a config change that requires it (e.g. content language). */
     onEditorInitialized?: (editor: CKTextEditor) => void;
     editorApi: RefObject<CKEditorApi>;
-    templates: TemplateDefinition[];
+    templates: SnippetDefinition[];
     containerRef?: RefObject<HTMLDivElement>;
 }
 
 export default function CKEditorWithWatchdog({ containerRef: externalContainerRef, contentLanguage, className, tabIndex, isClassicEditor, watchdogRef: externalWatchdogRef, watchdogConfig, onNotificationWarning, onWatchdogStateChange, onChange, onEditorInitialized, editorApi, templates }: CKEditorWithWatchdogProps) {
     const containerRef = useSyncedRef<HTMLDivElement>(externalContainerRef, null);
     const watchdogRef = useRef<EditorWatchdog>(null);
+    // Keep the latest snippet definitions reachable from the (rarely re-running) build effect without
+    // listing `templates` as one of its dependencies. Snippet changes are pushed into the live editor
+    // instead of forcing a rebuild — see the "push snippet definitions" effect below.
+    const templatesRef = useRef(templates);
+    templatesRef.current = templates;
     const [ uiLanguage ] = useTriliumOption("locale");
     // Read purely as a rebuild trigger: the value is consumed by buildToolbarConfig() via options.get() at
     // editor-creation time, so the editor must be recreated when it changes.
@@ -202,7 +207,7 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
                     isClassicEditor: !!isClassicEditor,
                     uiLanguage: uiLanguage as DISPLAYABLE_LOCALE_IDS,
                     contentLanguage: contentLanguage ?? null,
-                    templates
+                    templates: templatesRef.current
                 });
 
                 if (isStale) {
@@ -246,7 +251,19 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
         return () => {
             isStale = true;
         };
-    }, [ contentLanguage, templates, uiLanguage, isClassicEditor, multilineToolbar ]);
+        // `templates` is intentionally excluded: snippet changes are pushed into the live editor by the
+        // effect below, so they must not trigger a full editor rebuild.
+    }, [ contentLanguage, uiLanguage, isClassicEditor, multilineToolbar ]);
+
+    // Push snippet ("template") definitions into the live editor instead of rebuilding it. The premium
+    // Template plugin read its definitions once at init; TriliumSnippets keeps them in a live
+    // collection, so add/remove/rename/re-icon all apply in place.
+    useEffect(() => {
+        if (!editor || !templates) return;
+        if (editor.plugins.has("TriliumSnippets")) {
+            editor.plugins.get("TriliumSnippets").updateDefinitions(templates);
+        }
+    }, [ editor, templates ]);
 
 
     // React to notification warning callback.

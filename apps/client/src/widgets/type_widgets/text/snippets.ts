@@ -2,7 +2,7 @@ import debounce from "../../../services/debounce.js";
 import froca from "../../../services/froca.js";
 import type LoadResults from "../../../services/load_results.js";
 import search from "../../../services/search.js";
-import type { TemplateDefinition } from "@triliumnext/ckeditor5";
+import type { SnippetDefinition } from "@triliumnext/ckeditor5";
 import type FNote from "../../../entities/fnote.js";
 import { escapeHtml } from "../../../services/utils.js";
 
@@ -29,7 +29,7 @@ export default async function getTemplates() {
         // corrupts the parse and matches every note.
         const snippets = (await search.searchForNotes("#textSnippet OR #snippet"))
             .filter((snippet) => snippet.type === "text" && !snippet.isArchived && snippet.isContentAvailable());
-        const definitions: TemplateDefinition[] = [];
+        const definitions: SnippetDefinition[] = [];
         for (const snippet of snippets) {
             const { description } = await invalidateCacheFor(snippet);
 
@@ -69,7 +69,7 @@ function buildIcon(snippet: FNote) {
 </svg>`
 }
 
-async function handleContentUpdate(affectedNoteIds: string[], setTemplates: (value: TemplateDefinition[]) => void) {
+async function handleContentUpdate(affectedNoteIds: string[], setTemplates: (value: SnippetDefinition[]) => void) {
     const updatedNoteIds = new Set(affectedNoteIds);
     const templateNoteIds = new Set(templateCache.keys());
     const affectedTemplateNoteIds = templateNoteIds.intersection(updatedNoteIds);
@@ -103,7 +103,7 @@ async function handleContentUpdate(affectedNoteIds: string[], setTemplates: (val
     }
 }
 
-export async function updateTemplateCache(loadResults: LoadResults, setTemplates: (value: TemplateDefinition[]) => void) {
+export async function updateTemplateCache(loadResults: LoadResults, setTemplates: (value: SnippetDefinition[]) => void) {
     const affectedNoteIds = loadResults.getNoteIds();
 
     // React to creation or deletion of text snippets.

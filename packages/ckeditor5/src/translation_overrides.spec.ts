@@ -21,9 +21,10 @@ describe("translation overrides", () => {
         expect(labels).not.toContain("Bookmark");
     });
 
-    it("register the text-snippet relabels for the premium template feature", () => {
-        // The Template feature is premium and not loaded here, so its relabel can't be exercised
-        // through the UI — assert the override dictionary carries it instead.
+    it("register the text-snippet relabels for the snippets feature", () => {
+        // The GPL `TriliumSnippets` plugin reuses the same English source strings the premium
+        // Template feature used ("Insert template" / "Search template"), so these overrides relabel
+        // its dropdown to "…text snippet". Assert the override dictionary carries them.
         const dictionary = window.CKEDITOR_TRANSLATIONS?.en?.dictionary ?? {};
         expect(dictionary["Insert template"]).toBe("Insert text snippet");
         expect(dictionary["Search template"]).toBe("Search text snippet");

@@ -95,14 +95,17 @@ describe("loadPremiumPlugins", () => {
         }
     });
 
-    it("includes Template and FormatPainter, but not SlashCommand", async () => {
+    it("includes FormatPainter, but not SlashCommand or Template", async () => {
         const { SlashCommand, Template, FormatPainter } = await import("ckeditor5-premium-features");
         const plugins = await loadPremiumPlugins();
-        expect(plugins).toContain(Template);
         expect(plugins).toContain(FormatPainter);
 
         // `SlashCommand` requires the `Mention` façade, which would load upstream's `MentionUI`
         // alongside `TriliumMentionUI`; `TriliumSlashCommands` provides `/` instead.
         expect(plugins).not.toContain(SlashCommand);
+
+        // `Template` is replaced by the GPL `TriliumSnippets` plugin, which additionally supports
+        // live reloading of the snippet list without rebuilding the editor.
+        expect(plugins).not.toContain(Template);
     });
 });
