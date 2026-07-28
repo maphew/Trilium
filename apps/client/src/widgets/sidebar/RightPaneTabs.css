@@ -10,8 +10,7 @@
     gap: 2px;
     flex-shrink: 0;
     height: var(--right-pane-header-height);
-    padding-inline: 4px;
-    padding-inline-end: 84px;
+    padding-inline: 50px;
     border-bottom: 1px solid var(--main-border-color);
     /* More tabs than the pane is wide for is possible at the smallest widths; they scroll rather than
        wrap, which would break the fixed header height. */
