@@ -1,4 +1,5 @@
 import "./attribute_detail.css";
+import "./attribute_name_suggestion.css";
 
 import { type DefinitionObject, type LabelType, promotedAttributeDefinitionParser } from "@triliumnext/commons";
 import { ComponentProps } from "preact";
@@ -7,6 +8,7 @@ import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState }
 import appContext from "../../components/app_context.js";
 import { isDefinitionName } from "../../entities/fattribute.js";
 import type { Attribute } from "../../services/attribute_parser.js";
+import { isBuiltinAttribute } from "../../services/attributes.js";
 import { isExperimentalFeatureEnabled } from "../../services/experimental_features.js";
 import { focusSavedElement, saveFocusedElement } from "../../services/focus.js";
 import froca from "../../services/froca.js";
@@ -287,11 +289,14 @@ function AttributeForm({ opts, attrType, currentNoteId, onCancel, onAttributesCh
 }) {
     const { attribute, allAttributes, isOwned, focus } = opts;
     // Definitions describe the attribute they define, so they complete against its own type.
-    const suggestAttributeNames = useCallback((query: string) => fetchAttributeNames(
-        attrType === "relation" || attrType === "relation-definition" ? "relation" : "label", query
-    ), [ attrType ]);
+    const nameType = attrType === "relation" || attrType === "relation-definition" ? "relation" : "label";
+    const suggestAttributeNames = useCallback((query: string) => fetchAttributeNames(nameType, query), [ nameType ]);
+    const renderNameSuggestion = useCallback(
+        (suggestion: string) => <AttributeNameSuggestion type={nameType} name={suggestion} />, [ nameType ]);
     // Whatever a relation is the inverse of is itself a relation.
     const suggestRelationNames = useCallback((query: string) => fetchAttributeNames("relation", query), []);
+    const renderRelationSuggestion = useCallback(
+        (suggestion: string) => <AttributeNameSuggestion type="relation" name={suggestion} />, []);
     const [ name, setName ] = useState(() => stripDefinitionPrefix(attribute.name, attrType));
     const [ value, setValue ] = useState(attribute.value ?? "");
     const [ isInheritable, setIsInheritable ] = useState(!!attribute.isInheritable);
@@ -396,6 +401,7 @@ function AttributeForm({ opts, attrType, currentNoteId, onCancel, onAttributesCh
                         currentValue={name}
                         readOnly={!isOwned}
                         source={suggestAttributeNames}
+                        renderItem={renderNameSuggestion}
                         openOnFocus
                         onChange={(newName) => isComposing.current ? setName(newName) : commitName(newName)}
                         onCompositionStart={() => isComposing.current = true}
@@ -448,12 +454,12 @@ function AttributeForm({ opts, attrType, currentNoteId, onCancel, onAttributesCh
                             values={LABEL_TYPES}
                             keyProperty="value"
                             titleProperty="title"
+                            iconProperty="icon"
                             currentValue={definition.labelType ?? "text"}
                             disabled={!isOwned}
                             onChange={(labelType) => commitDefinition({ labelType: labelType as LabelType })}
                         />
                     </OptionsRow>
-                            iconProperty="icon"
                 )}
 
                 {attrType === "label-definition" && definition.labelType === "number" && (
@@ -487,6 +493,7 @@ function AttributeForm({ opts, attrType, currentNoteId, onCancel, onAttributesCh
                             currentValue={definition.inverseRelation ?? ""}
                             disabled={!isOwned}
                             source={suggestRelationNames}
+                            renderItem={renderRelationSuggestion}
                             openOnFocus
                             onChange={(inverseRelation) => commitDefinition({
                                 // A relation name, so the same characters are dropped as in the name field
@@ -587,6 +594,20 @@ function AttributeNameField({ help, ...autocompleteProps }: { help?: AttrHelpEnt
             <FormAutocomplete {...autocompleteProps} />
             {help && <HelpTooltipButton {...help} />}
         </div>
+    );
+}
+
+/**
+ * One row of an attribute name completion, marking the names Trilium itself attaches a meaning to.
+ * The mark answers what a list of bare names cannot: whether picking one buys behaviour, or is only
+ * a name. The inline editor's `#`/`~` completion lists the same names and marks them the same way.
+ */
+function AttributeNameSuggestion({ type, name }: { type: "label" | "relation"; name: string }) {
+    return (
+        <span class="attr-name-suggestion">
+            <span class="attr-name-suggestion-name">{name}</span>
+            {isBuiltinAttribute(type, name) && <Badge outline text={t("attribute_names.system")} />}
+        </span>
     );
 }
 

@@ -674,6 +674,9 @@
     "type_label_definition": "Label definition",
     "type_relation_definition": "Relation definition"
   },
+  "attribute_names": {
+    "system": "System"
+  },
   "abstract_bulk_action": {
     "remove_this_search_action": "Remove this search action"
   },

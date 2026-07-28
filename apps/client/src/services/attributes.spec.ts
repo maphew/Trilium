@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildNote } from "../test/easy-froca";
-import attributeService, { removeOwnedAttributesByNameOrType, setAttribute, setBooleanWithInheritance, setLabel, setRelation } from "./attributes";
+import attributeService, { isBuiltinAttribute, removeOwnedAttributesByNameOrType, setAttribute, setBooleanWithInheritance, setLabel, setRelation } from "./attributes";
 import froca from "./froca";
 import server from "./server.js";
 
@@ -366,5 +366,31 @@ describe("getNameWithoutDangerousPrefix", () => {
     it("strips the disabled: prefix when present and leaves plain names untouched", () => {
         expect(attributeService.getNameWithoutDangerousPrefix("disabled:run")).toBe("run");
         expect(attributeService.getNameWithoutDangerousPrefix("run")).toBe("run");
+    });
+});
+
+describe("isBuiltinAttribute", () => {
+    it("recognizes built-ins of each type and rejects user-invented names", () => {
+        expect(isBuiltinAttribute("label", "archived")).toBe(true);
+        expect(isBuiltinAttribute("relation", "template")).toBe(true);
+        expect(isBuiltinAttribute("label", "myOwnLabel")).toBe(false);
+        expect(isBuiltinAttribute("relation", "myOwnRelation")).toBe(false);
+    });
+
+    it("does not confuse the two types", () => {
+        // `archived` is a label only, `renderNote` a relation only.
+        expect(isBuiltinAttribute("relation", "archived")).toBe(false);
+        expect(isBuiltinAttribute("label", "renderNote")).toBe(false);
+        // `template` and `widget` exist as both, so both must be recognized.
+        expect(isBuiltinAttribute("label", "template")).toBe(true);
+        expect(isBuiltinAttribute("relation", "widget")).toBe(true);
+    });
+
+    it("matches exactly, so prefixed names are not built-ins", () => {
+        // A definition describes a built-in without being one, and a disabled one is inert.
+        expect(isBuiltinAttribute("label", "label:archived")).toBe(false);
+        expect(isBuiltinAttribute("label", "disabled:run")).toBe(false);
+        // Casing is part of the name; the server's own lookup is likewise name-sensitive.
+        expect(isBuiltinAttribute("label", "Archived")).toBe(false);
     });
 });
