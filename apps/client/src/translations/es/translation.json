@@ -4,14 +4,14 @@
     "version_label": "Versión:",
     "version": "{{appVersion}} (base de datos: {{dbVersion}}, protocolo de sincronización: {{syncVersion}})",
     "build_info": "Compilación: {{buildDate}}, revisión: <buildRevision />",
-    "contributors_label": "Contribuidores:",
+    "contributors_label": "Colaboradores:",
     "contributor_roles": {
       "lead-dev": "desarrollador principal",
       "original-dev": "desarrollador original"
     },
     "role_brief_history": {
-      "lead-dev": "Elian Doran fundó TriliumNext en 2024, una bifurcación de la comunidad creado después de que Zadam dejara el proyecto. Más tarde Zadam transfirió el repositorio original al equipo de TriliumNext, fusionando ambos proyectos en uno.",
-      "original-dev": "El 25 de diciembre de 2017, Zadam lanzó la primera beta de Trilium (escrito con una solo \"l\", a diferencia de la flor). Insatisfecho con los organizadores de notas existentes, él construyó una poderosa base de conocimientos jerárquica auto hospedada que reunió más de 22.000 estrellas en GitHub. En 2024, a medida que la vida fue más activa, puso el proyecto en modo de mantenimiento."
+      "lead-dev": "Elian Doran fundó TriliumNext en 2024, una bifurcación de la comunidad creada después de que Zadam dejara el proyecto. Más tarde Zadam transfirió el repositorio original al equipo de TriliumNext, fusionando ambos proyectos en uno.",
+      "original-dev": "El 25 de diciembre de 2017, Zadam lanzó la primera beta de Trilium (escrito con una sola «l», a diferencia de la flor). Insatisfecho con los organizadores de notas existentes, construyó una poderosa base de conocimientos jerárquica autoalojada que reunió más de 22.000 estrellas en GitHub. En 2024, a medida que la vida fue más activa, puso el proyecto en modo de mantenimiento."
     },
     "contributor_full_list": "Ver la comunidad entera",
     "github_tooltip": "Reportar errores, sugerir características o contribuir en GitHub",
@@ -45,7 +45,7 @@
     },
     "widget-missing-parent": "El widget personalizado no tiene definida la propiedad obligatoria '{{property}}'.\n\nSi este script está pensado para ejecutarse sin un elemento de interfaz de usuario, utilice '#run=frontendStartup' en su lugar.",
     "open-script-note": "Abrir script",
-    "scripting-error": "Error en script personalizado: {{title}}"
+    "scripting-error": "La nota de script no se pudo ejecutar"
   },
   "add_link": {
     "add_link": "Agregar enlace",
@@ -68,7 +68,9 @@
     "edit_branch_prefix_multiple": "Editar prefijo de rama para {{count}} ramas",
     "branch_prefix_saved_multiple": "El prefijo de rama se ha guardado para {{count}} ramas.",
     "affected_branches": "Ramas afectadas ({{count}}):",
-    "preview_in_tree": "Vista previa en el árbol"
+    "preview_in_tree": "Vista previa en el árbol",
+    "description": "Se antepone al título de la nota solo en esta rama. Otras ramas conservan el título original.",
+    "cancel": "Cancelar"
   },
   "bulk_actions": {
     "bulk_actions": "Acciones en bloque",
@@ -94,7 +96,7 @@
     "prefix_optional": "Prefijo (opcional)",
     "clone_to_selected_note": "Clonar a nota seleccionada",
     "no_path_to_clone_to": "No hay ruta para clonar.",
-    "note_cloned": "La nota \"{{clonedTitle}}\" a sido clonada en \"{{targetTitle}}\""
+    "note_cloned": "La nota \"{{clonedTitle}}\" ha sido clonada en \"{{targetTitle}}\"."
   },
   "confirm": {
     "confirmation": "Confirmación",
@@ -111,13 +113,13 @@
     "erase_notes_warning": "Eliminar notas permanentemente (no se puede deshacer), incluidos todos los clones. Esto forzará la recarga de la aplicación.",
     "notes_to_be_deleted": "Notas a ser eliminadas ({{notesCount}})",
     "no_note_to_delete": "No se eliminará ninguna nota (solo clones).",
-    "broken_relations_to_be_deleted": "Relaciones rotas ({{ relationCount}})",
+    "broken_relations_to_be_deleted": "Relaciones rotas ({{relationCount}})",
     "cancel": "Cancelar",
     "title": "Eliminar notas",
     "clones_label": "Clones",
-    "delete_clones_description_one": "También eliminar otro clon. Puede deshacerse en los cambios recientes.",
-    "delete_clones_description_many": "También eliminar otros {{count}} clones. Puede deshacerse en los cambios recientes.",
-    "delete_clones_description_other": "También eliminar otros {{count}} clones. Puede deshacerse en los cambios recientes.",
+    "delete_clones_description_one": "Eliminar también {{count}} clon adicional. Se puede deshacer en los cambios recientes.",
+    "delete_clones_description_many": "",
+    "delete_clones_description_other": "",
     "erase_notes_label": "Borrar permanentemente",
     "table_note_with_relation": "Nota con relación",
     "table_relation": "Relación",
@@ -132,7 +134,26 @@
     "export": "Exportar",
     "choose_export_type": "Por favor, elija primero el tipo de exportación",
     "export_finished_successfully": "La exportación finalizó exitosamente.",
-    "format_pdf": "PDF - para propósitos de impresión o compartición."
+    "format_pdf": "PDF - para propósitos de impresión o compartición.",
+    "what_to_export": "Qué exportar",
+    "format": "Formato",
+    "format_html_name": "HTML",
+    "format_html_description": "Conserva todo el formato",
+    "format_markdown_name": "Markdown",
+    "format_markdown_description": "Conserva la mayor parte del formato",
+    "format_opml_name": "OPML",
+    "format_opml_description": "Formato de esquema con contenido HTML",
+    "format_share_name": "HTML para web",
+    "format_share_description": "Sitio estático publicable con el tema de notas compartidas",
+    "recommended": "Recomendado",
+    "result_subtree_html": "Un archivo ZIP en el que las notas de texto se guardan como HTML. El código, las imágenes y otros archivos conservan su formato original.",
+    "result_subtree_markdown": "Un archivo ZIP en el que las notas de texto se guardan como Markdown. El código, las imágenes y otros archivos conservan su formato original.",
+    "result_share": "Un archivo ZIP con un sitio web estático publicable que usa el tema de notas compartidas.",
+    "result_opml": "Un único archivo de esquema OPML. Se incluyen títulos y texto de las notas; no se incluyen imágenes, archivos de código ni adjuntos.",
+    "result_single_html": "Un único archivo HTML. Las imágenes y los adjuntos se incrustan en él.",
+    "result_single_markdown": "Un único archivo Markdown (.md).",
+    "preparing_export": "Preparando la exportación…",
+    "export_in_progress_with_total": "Se han exportado {{progressCount}} notas de {{totalCount}}"
   },
   "help": {
     "noteNavigation": "Navegación de notas",
@@ -198,7 +219,7 @@
     "safeImport": "Importación segura",
     "explodeArchivesTooltip": "Si esto está marcado, Trilium leerá los archivos <code>.zip</code>, <code>.enex</code> y <code>.opml</code> y creará notas a partir de archivos dentro de esos archivos. Si no está marcado, Trilium adjuntará los archivos a la nota.",
     "explodeArchives": "Leer el contenido de los archivos <code>.zip</code>, <code>.enex</code> y <code>.opml</code>.",
-    "shrinkImagesTooltip": "<p>Si marca esta opción, Trilium intentará reducir las imágenes importadas mediante escalado y optimización, lo que puede afectar la calidad de la imagen percibida. Si no está marcada, las imágenes se importarán sin cambios.</p><p>Esto no se aplica a las importaciones <code>.zip</code> con metadatos, ya que se supone que estos archivos ya están optimizados.</p>",
+    "shrinkImagesTooltip": "Escala y optimiza las imágenes para ahorrar espacio, lo que puede reducir ligeramente la calidad. No se aplica a las importaciones <code>.zip</code> con metadatos, que se asumen ya optimizadas.",
     "shrinkImages": "Reducir imágenes",
     "textImportedAsText": "Importar HTML, Markdown y TXT como notas de texto si no está claro en los metadatos",
     "codeImportedAsCode": "Importar archivos de código reconocidos (por ejemplo, <code>.json</code>) como notas de código si no están claros en los metadatos",
@@ -213,7 +234,17 @@
     },
     "in-progress": "Importación en progreso: {{progress}}",
     "successful": "Importación finalizada exitosamente.",
-    "importZipRecommendation": "Al importar un archivo ZIP, la jerarquía de notas reflejará la estructura de subdirectorios dentro del archivo comprimido."
+    "importZipRecommendation": "Al importar un archivo ZIP, la jerarquía de notas reflejará la estructura de subdirectorios dentro del archivo comprimido.",
+    "importIntoNoteNamed": "Importar en {{- title}}",
+    "import_from": "Importar desde",
+    "cardName": "Archivos y otros formatos",
+    "cardDescription": "ZIP, ENEX, OPML, Markdown, HTML, imágenes y más",
+    "shrinkImagesProviderTooltip": "Escala y optimiza las imágenes importadas para ahorrar espacio, lo que puede reducir ligeramente la calidad.",
+    "spreadsheetImportedAsSpreadsheet": "Importar archivos CSV y Excel como hojas de cálculo editables en lugar de como archivos",
+    "starting": "Importando…",
+    "in-progress-with-total": "Se han importado {{progress}} notas de {{total}}",
+    "extracting": "Se han extraído {{progress}} elementos de {{total}}",
+    "processing": "Se han procesado {{progress}} notas de {{total}}"
   },
   "include_note": {
     "dialog_title": "Incluir nota",
@@ -263,7 +294,7 @@
     "title": "La contraseña no está establecida",
     "body1": "Las notas protegidas se cifran mediante una contraseña de usuario, pero la contraseña aún no se ha establecido.",
     "go_to_password_options": "Ir a opciones de contraseña",
-    "body2": "Para poder proteger las notas, haz click en el botón inferior para abrir la pantalla de Opciones y establecer tu contraseña."
+    "body2": "Para poder proteger las notas, haga clic en el botón inferior para abrir la pantalla de Opciones y establecer su contraseña."
   },
   "prompt": {
     "title": "Aviso",
@@ -283,7 +314,16 @@
     "deleted_notes_message": "Las notas eliminadas han sido borradas.",
     "no_changes_message": "Aún no hay cambios...",
     "undelete_link": "recuperar",
-    "confirm_undelete": "¿Quiere recuperar esta nota y sus subnotas?"
+    "confirm_undelete": "¿Quiere recuperar esta nota y sus subnotas?",
+    "deleted_notes_title": "Notas eliminadas",
+    "title_with_ancestor": "{{- title}} - {{- ancestorTitle}}",
+    "more_actions": "Más acciones",
+    "deleted_notes_settings": "Ajustes de notas eliminadas",
+    "no_deleted_notes_message": "No hay notas eliminadas que mostrar.",
+    "no_deleted_notes_erasure_hint": "Las notas eliminadas se conservan durante {{- duration}} antes de borrarse de forma permanente.",
+    "confirm_undelete_to_default_location": "El padre de esta nota ya no existe, por lo que no se puede restaurar en su ubicación original. ¿Restaurarla en la ubicación predeterminada de las notas nuevas?",
+    "undeleted_to_default_location": "Su ubicación original ya no existe, por lo que la nota se restauró en «{{- title}}».",
+    "undelete_failed": "No se pudo restaurar la nota: es posible que se haya borrado de forma permanente."
   },
   "sort_child_notes": {
     "sort_children_by": "Ordenar hijos por...",
@@ -434,7 +474,8 @@
     "color_type": "Color",
     "textarea": "Texto multilínea",
     "print_scale": "Al exportar a PDF, cambia la escala del contenido renderizado. Los valores varían de 0.1 (10%) a 2 (200%), por defecto es 1 (100%).",
-    "print_margins": "Al exportar a PDF, establece márgenes de página. Use <code>default</code>, <code>none</code>, <code>minimum</code>, o valores personalizados como <code>top,right,bottom,left</code> en milímetros."
+    "print_margins": "Al exportar a PDF, establece márgenes de página. Use <code>default</code>, <code>none</code>, <code>minimum</code>, o valores personalizados como <code>top,right,bottom,left</code> en milímetros.",
+    "save_and_close_button": "Guardar y cerrar"
   },
   "attribute_editor": {
     "help_text_body1": "Para agregar una etiqueta, simplemente escriba, por ejemplo. <code>#rock</code> o si desea agregar también valor, p.e. <code>#año = 2020</code>",
@@ -605,7 +646,12 @@
     "year_previous": "Año anterior",
     "year_next": "Año siguiente",
     "list": "Lista",
-    "today": "Hoy"
+    "today": "Hoy",
+    "day": "Día",
+    "day_previous": "Día anterior",
+    "day_next": "Día siguiente",
+    "pin_date": "Fijar la fecha actual para que el calendario siempre se abra en este intervalo en lugar de hoy",
+    "unpin_date": "Desfijar la fecha para que el calendario se abra de nuevo en la fecha de hoy"
   },
   "close_pane_button": {
     "close_this_pane": "Cerrar este panel"
@@ -651,7 +697,8 @@
     "toggle-zen-mode": "Modo Zen",
     "new-version-available": "Nueva actualización disponible",
     "download-update": "Obtener versión {{latestVersion}}",
-    "search_notes": "Buscar notas"
+    "search_notes": "Buscar notas",
+    "show_deleted_notes": "Mostrar notas eliminadas"
   },
   "zen_mode": {
     "button_exit": "Salir del modo Zen"
@@ -704,7 +751,13 @@
     "word_wrap_off": "Apagado",
     "save_named_revision": "Guardar revisión nombrada...",
     "word_wrap": "Ajuste de línea",
-    "print_or_export_to_pdf": "Imprimir/exportar a PDF..."
+    "print_or_export_to_pdf": "Imprimir/exportar a PDF...",
+    "convert_to_markdown": "Convertir a nota Markdown",
+    "convert_to_text": "Convertir a nota de texto",
+    "convert_format_warning": "Es posible que se pierda parte del formato durante la conversión y que deba corregir algunos detalles después. Se guardará de antemano una revisión de la nota actual para que pueda restaurarla. ¿Desea continuar?",
+    "convert_format_warning_risky": "Está convirtiendo entre dos formatos que no tienen las mismas capacidades, por lo que puede perderse parte del formato y omitirse algunos elementos no admitidos.<br><br>¿Asume plenamente este riesgo y desea proceder con la conversión?<br><br>Se guardará de antemano una revisión de la nota actual, de modo que pueda volver al formato original.",
+    "convert_to_markdown_successful": "La nota se ha convertido a Markdown.",
+    "convert_to_text_successful": "La nota se ha convertido a nota de texto."
   },
   "onclick_button": {
     "no_click_handler": "El widget de botón '{{componentId}}' no tiene un controlador de clics definido"
@@ -727,7 +780,8 @@
     "trilium_api_docs_button_title": "Abrir documentación de la API de Trilium",
     "save_to_note_button_title": "Guardar en nota",
     "opening_api_docs_message": "Abriendo documentación API...",
-    "sql_console_saved_message": "La nota de la consola SQL se ha guardado en {{note_path}}"
+    "sql_console_saved_message": "La nota de la consola SQL se ha guardado en {{note_path}}",
+    "electron_api_docs_button_title": "Abrir la documentación de la API de Electron"
   },
   "copy_image_reference_button": {
     "button_title": "Copiar la referencia de la imagen al portapapeles; se puede pegar en una nota de texto."
@@ -750,8 +804,8 @@
   "zpetne_odkazy": {
     "relation": "relación",
     "backlink_one": "{{count}} Vínculo de retroceso",
-    "backlink_many": "{{count}} Vínculos de retroceso",
-    "backlink_other": "{{count}} Vínculos de retroceso"
+    "backlink_many": "",
+    "backlink_other": ""
   },
   "mobile_detail_menu": {
     "insert_child_note": "Insertar subnota",
@@ -767,8 +821,8 @@
     "search": "Búsqueda:",
     "reset-default": "Restablecer a icono por defecto",
     "search_placeholder_one": "Buscar {{number}} icono a través de {{count}} paquetes",
-    "search_placeholder_many": "Buscar {{number}} iconos a través de {{count}} paquetes",
-    "search_placeholder_other": "Buscar {{number}} iconos a través de {{count}} paquetes",
+    "search_placeholder_many": "",
+    "search_placeholder_other": "",
     "search_placeholder_filtered": "Buscar {{number}} iconos en {{name}}",
     "filter": "Filtro",
     "filter-none": "Todos los iconos",
@@ -810,7 +864,8 @@
     "open_all_confirm_other": "",
     "open_all_too_one": " ",
     "open_all_too_many": " ",
-    "open_all_too_other": " "
+    "open_all_too_other": " ",
+    "dashboard": "Panel"
   },
   "edited_notes": {
     "no_edited_notes_found": "Aún no hay notas editadas en este día...",
@@ -867,9 +922,10 @@
     "title": "Mapa de notas",
     "fix-nodes": "Fijar nodos",
     "link-distance": "Distancia de enlace",
-    "too-many-notes_one": "Este subárbol contiene {{count}} notas, lo que excede el límite de {{max}} que se puede mostrar en el mapa de notas.",
+    "too-many-notes_one": "Aquí hay {{count}} nota. Mostrarla puede ralentizar el sistema.",
     "too-many-notes_many": "",
-    "too-many-notes_other": ""
+    "too-many-notes_other": "",
+    "show-anyway": "Mostrar mapa"
   },
   "note_paths": {
     "title": "Rutas de nota",
@@ -1023,13 +1079,16 @@
   "book": {
     "no_children_help": "Esta colección no tiene ninguna subnota así que no hay nada que mostrar.",
     "drag_locked_title": "Bloqueado para edición",
-    "drag_locked_message": "No se permite Arrastrar pues la colección está bloqueada para edición."
+    "drag_locked_message": "No se permite Arrastrar pues la colección está bloqueada para edición.",
+    "archived_notes_hidden_one": "Se copió aquí una nota archivada, pero permanece oculta hasta que active «Mostrar notas archivadas».",
+    "archived_notes_hidden_many": "",
+    "archived_notes_hidden_other": ""
   },
   "editable_code": {
     "placeholder": "Escriba el contenido de su nota de código aquí..."
   },
   "editable_text": {
-    "placeholder": "Escribe aquí el contenido de tu nota...",
+    "placeholder": "Escriba aquí el contenido de su nota...",
     "auto-detect-language": "Detectado automáticamente",
     "editor_crashed_title": "El editor de texto ha dejado de responder",
     "editor_crashed_content": "Su contenido ha sido recuperado con éxito, pero puede que algunos de sus cambios más recientes no se hayan guardado.",
@@ -1102,7 +1161,9 @@
     "successfully_created_fully_anonymized_database": "Se creó una base de datos completamente anónima en {{anonymizedFilePath}}",
     "successfully_created_lightly_anonymized_database": "Se creó una base de datos ligeramente anónima en {{anonymizedFilePath}}",
     "no_anonymized_database_yet": "Aún no hay base de datos anónima.",
-    "description": "Crear una copia anónima de su base de datos para compartir con los desarrolladores cuando depuren problemas, sin exponer datos personales."
+    "description": "Crear una copia anónima de su base de datos para compartir con los desarrolladores cuando depuren problemas, sin exponer datos personales.",
+    "anonymized_databases_location": "Las bases de datos anonimizadas se almacenan en {{- anonymizedFolder}}.",
+    "download": "Descargar"
   },
   "database_integrity_check": {
     "title": "Verificación de integridad de la base de datos",
@@ -1199,7 +1260,12 @@
     "color_scheme_system": "Sistema",
     "color_scheme_light": "Luz",
     "color_scheme_dark": "Oscuro",
-    "color_scheme_custom_disabled": "La opción de anulación de la combinación de colores no está disponible para temas personalizados"
+    "color_scheme_custom_disabled": "La opción de anulación de la combinación de colores no está disponible para temas personalizados",
+    "color_scheme_switcher_system": "Modo del sistema",
+    "color_scheme_switcher_light": "Modo claro",
+    "color_scheme_switcher_dark": "Modo oscuro",
+    "color_scheme_switcher_hint": "Haga clic para cambiar el esquema de color.",
+    "color_scheme_switcher_unsupported": "El tema actual no admite cambiar el esquema de color."
   },
   "zoom_factor": {
     "title": "Factor de zoom (solo versión de escritorio)",
@@ -1220,7 +1286,8 @@
     "title": "Tipos MIME disponibles en el menú desplegable",
     "tooltip_syntax_highlighting": "Resaltado de sintaxis",
     "tooltip_code_block_syntax": "Bloques de código en Notas de texto",
-    "tooltip_code_note_syntax": "Notas de código"
+    "tooltip_code_note_syntax": "Notas de código",
+    "trilium_log": "Registro de Trilium"
   },
   "vim_key_bindings": {
     "use_vim_keybindings_in_code_notes": "Combinaciones de teclas Vim",
@@ -1253,7 +1320,8 @@
     "batch_ocr_starting": "Iniciando procesamiento por lotes...",
     "batch_ocr_progress": "Procesando {{processed}} de {{total}} archivos...",
     "batch_ocr_completed": "¡Procesamiento por lotes completado! Se procesaron {{processed}} archivos.",
-    "batch_ocr_error": "Error durante el procesamiento por lotes: {{error}}"
+    "batch_ocr_error": "Error durante el procesamiento por lotes: {{error}}",
+    "batch_ocr_completed_with_failures": "Procesamiento por lotes completado. Se procesaron {{processed}} archivos, pero {{failed}} no se pudieron leer (consulte los registros para más detalles)."
   },
   "attachment_erasure_timeout": {
     "attachment_erasure_timeout": "Archivos adjuntos sin usar",
@@ -1262,7 +1330,8 @@
     "erase_unused_attachments_now": "Borrar ahora los archivos adjuntos no utilizados",
     "unused_attachments_erased": "Los archivos adjuntos no utilizados se han eliminado.",
     "description": "Los archivos adjuntos que ya no son referenciados por ninguna nota se consideran no utilizados y se pueden borrar automáticamente después de un período de tiempo.",
-    "erase_attachments_after_description": "El tiempo antes del cual los archivos adjuntos no utilizados se borran permanentemente."
+    "erase_attachments_after_description": "El tiempo antes del cual los archivos adjuntos no utilizados se borran permanentemente.",
+    "erase_now_button": "Borrar ahora"
   },
   "network_connections": {
     "network_connections_title": "Red",
@@ -1276,7 +1345,8 @@
     "erase_deleted_notes_now": "Borrar notas eliminadas ahora",
     "deleted_notes_erased": "Las notas eliminadas han sido borradas.",
     "description": "Las notas eliminadas primero sólo se marcan como eliminadas y se pueden recuperar de Notas recientes. Después de un período de tiempo, se borran permanentemente.",
-    "erase_notes_after_description": "El tiempo antes de que las notas eliminadas se borran permanentemente."
+    "erase_notes_after_description": "El tiempo antes de que las notas eliminadas se borran permanentemente.",
+    "erase_now_button": "Borrar ahora"
   },
   "revisions_snapshot_interval": {
     "note_revisions_snapshot_interval_title": "Intervalo de instantáneas de revisiones de notas",
@@ -1292,7 +1362,8 @@
     "erase_excess_revision_snapshots": "Eliminar el exceso de respaldos de revisiones ahora",
     "erase_excess_revision_snapshots_prompt": "El exceso de respaldos de revisiones han sido eliminadas.",
     "note_revisions_snapshot_limit_description_short": "Revisiones máximas por nota. Use -1 para ilimitado, 0 para desactivar.",
-    "erase_excess_revision_snapshots_description": "Eliminar revisiones que excedan el límite para todas las notas."
+    "erase_excess_revision_snapshots_description": "Eliminar revisiones que excedan el límite para todas las notas.",
+    "erase_now_button": "Borrar ahora"
   },
   "search_engine": {
     "title": "Motor de búsqueda",
@@ -1312,7 +1383,9 @@
   "tray": {
     "title": "Bandeja de sistema",
     "enable_tray": "Icono de bandeja",
-    "enable_tray_description": "Trilium debe ser reiniciado para que este cambio surta efecto."
+    "enable_tray_description": "Trilium debe ser reiniciado para que este cambio surta efecto.",
+    "close_to_tray": "Cerrar a la bandeja",
+    "close_to_tray_description": "Al cerrar la ventana, mantener Trilium en ejecución en la bandeja del sistema en lugar de salir. Requiere tener activado el icono de la bandeja."
   },
   "heading_style": {
     "title": "Estilo de títulos",
@@ -1389,7 +1462,10 @@
     "database_backed_up_to": "Se ha realizado una copia de seguridad de la base de datos en {{- backupFilePath}}",
     "no_backup_yet": "no hay copia de seguridad todavía",
     "download": "Descargar",
-    "title": "Respaldo"
+    "title": "Respaldo",
+    "automatic_backups_title": "Copias de seguridad automáticas",
+    "automatic_backups_description": "Trilium puede hacer copias de seguridad de la base de datos automáticamente. Se recomienda mantener las copias de seguridad activadas, pero esto puede ralentizar el arranque de la aplicación con bases de datos grandes o dispositivos de almacenamiento lentos.",
+    "backup_location_description": "Las copias de seguridad se almacenan en {{- backupFolder}}."
   },
   "etapi": {
     "description": "ETAPI es una REST API que se utiliza para acceder a la instancia de Trilium mediante programación, sin interfaz de usuario.",
@@ -1409,7 +1485,8 @@
     "delete_token": "Eliminar/Desactivar este token",
     "rename_token_title": "Renombrar token",
     "rename_token_message": "Por favor ingresa el nombre del nuevo token",
-    "delete_token_confirmation": "¿Está seguro de que desea eliminar el token ETAPI \"{{name}}\"?"
+    "delete_token_confirmation": "¿Está seguro de que desea eliminar el token ETAPI \"{{name}}\"?",
+    "no_tokens": "Aún no hay tokens."
   },
   "options_widget": {
     "options_status": "Estado de las opciones",
@@ -1428,7 +1505,7 @@
     "wiki": "wiki",
     "for_more_info": "para más información.",
     "protected_session_timeout_label": "Cerrar sesión automáticamente después de",
-    "reset_confirmation": "Al restablecer la contraseña, perderá para siempre el acceso a todas sus notas protegidas existentes. ¿Realmente quieres restablecer la contraseña?",
+    "reset_confirmation": "Al restablecer la contraseña, perderá para siempre el acceso a todas sus notas protegidas existentes. ¿Realmente desea restablecer la contraseña?",
     "reset_success_message": "La contraseña ha sido restablecida. Por favor establezca una nueva contraseña",
     "change_password_heading": "Cambiar contraseña",
     "set_password_heading": "Establecer contraseña",
@@ -1438,19 +1515,93 @@
     "change_password_description": "Actualice su contraseña actual",
     "reset_password": "Reiniciar contraseña",
     "reset_password_description": "Perder el acceso permanente a las notas protegidas",
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "change_password_button": "Actualizar contraseña",
+    "reset_password_button": "Restablecer ahora"
   },
   "multi_factor_authentication": {
-    "recovery_keys_description_warning": "Las claves de recuperación no son mostrada de nuevo después de dejar esta página, manténgalas en un lugar seguro.<br>Después de que una clave de recuperación es utilizada ya no puede utilizarse de nuevo.",
+    "recovery_keys_description_warning": "Los códigos de recuperación no se mostrarán de nuevo tras abandonar esta página; guárdelos en un lugar seguro.<br>Después de usar un código de recuperación, no podrá utilizarse de nuevo.",
     "recovery_keys_error": "Error al generar códigos de recuperación",
     "recovery_keys_no_key_set": "No hay códigos de recuperación establecidos",
     "recovery_keys_regenerate": "Regenerar códigos de recuperación",
-    "oauth_title": "OAuth/OpenID",
-    "oauth_description": "OpenID es un método estandarizado que permite iniciar sesión en sitios web usando una cuenta de otro servicio, como Google, para verificar tu identidad. El emisor predeterminado es Google, pero se puede cambiar a cualquier otro proveedor de OpenID. Consulta <a href=\"#root/_hidden/_help/_help_Otzi9La2YAUX/_help_WOcw2SLH6tbX/_help_7DAiwaf8Z7Rz\">aquí</a> para más información. Sigue estas <a href=\"https://developers.google.com/identity/openid-connect/openid-connect\">instrucciones</a> para configurar un servicio OpenID a través de Google.",
-    "oauth_missing_vars": "Ajustes faltantes: {{-variables}}",
-    "oauth_user_account": "Cuenta de usuario: ",
-    "oauth_user_email": "Correo electrónico de usuario: ",
-    "oauth_user_not_logged_in": "¡No ha iniciado sesión!"
+    "oauth_title": "OpenID Connect",
+    "oauth_description": "OpenID es un método estandarizado que permite iniciar sesión en sitios web usando una cuenta de otro servicio, como Google, para verificar su identidad. El emisor predeterminado es Google, pero puede cambiarlo a cualquier otro proveedor de OpenID Connect. Consulte <a href=\"#root/_hidden/_help/_help_Otzi9La2YAUX/_help_WOcw2SLH6tbX/_help_7DAiwaf8Z7Rz\">aquí</a> para más información. Siga estas <a href=\"https://developers.google.com/identity/openid-connect/openid-connect\">instrucciones</a> para configurar un servicio OpenID Connect a través de Google.",
+    "oauth_missing_vars": "Pendiente de configurar: {{-variables}}",
+    "oauth_user_account": "Nombre de la cuenta",
+    "oauth_user_email": "Dirección de correo electrónico",
+    "oauth_user_not_logged_in": "¡No ha iniciado sesión!",
+    "authentication_title": "Autenticación",
+    "signin_method": "Iniciar sesión con",
+    "signin_local": "Contraseña local (opcionalmente con autenticación en dos factores)",
+    "signin_oauth": "Proveedor OpenID Connect (p. ej., Google)",
+    "signin_local_description": "Inicie sesión con su contraseña de Trilium. Opcionalmente puede habilitar la autenticación en dos factores para una capa adicional de seguridad.",
+    "totp_setup_label": "Contraseña de un solo uso basada en el tiempo (TOTP)",
+    "totp_setup_description": "Genere un código basado en el tiempo desde una aplicación de autenticación como segundo factor. Escaneará un código QR y confirmará un código para finalizar. Al final se emiten códigos de recuperación.",
+    "totp_setup_button": "Configurar",
+    "totp_enroll_title": "Confirme su autenticador",
+    "totp_enroll_instructions": "TOTP no se habilitará hasta que confirme un código válido a continuación, de modo que no pueda bloquearse por error.",
+    "totp_enroll_step1_title": "1. Añada la cuenta a su aplicación de autenticación",
+    "totp_enroll_step2_title": "2. Introduzca el código de verificación",
+    "totp_enroll_scan": "Escanee este código QR:",
+    "totp_enroll_secret_label": "¿No puede escanearlo? Introduzca este código manualmente",
+    "totp_enroll_code_label": "Código de verificación",
+    "totp_enroll_code_placeholder": "000000",
+    "totp_enroll_verify": "Verificar y continuar",
+    "totp_enroll_cancel": "Cancelar",
+    "totp_enroll_invalid_code": "Ese código no coincide. Compruebe que el reloj de su dispositivo sea correcto e introduzca el código más reciente.",
+    "totp_enroll_generate_error": "No se pudo generar un secreto TOTP. Por favor, cierre este cuadro de diálogo e inténtelo de nuevo.",
+    "totp_enroll_enabled": "La autenticación en dos factores está ahora habilitada.",
+    "totp_enroll_recovery_title": "Guarde sus códigos de recuperación",
+    "totp_enroll_recovery_instructions": "Guarde estos códigos de recuperación en un lugar seguro. Cada uno puede usarse una vez para iniciar sesión si pierde el acceso a su aplicación de autenticación.",
+    "totp_enroll_recovery_copy": "Copiar",
+    "totp_enroll_recovery_copied": "Códigos de recuperación copiados al portapapeles.",
+    "totp_enroll_recovery_download": "Descargar",
+    "totp_enroll_saved_ack": "He guardado mis códigos de recuperación en un lugar seguro",
+    "totp_enroll_finish": "Finalizar configuración",
+    "totp_enroll_enable_error": "No se pudo habilitar la autenticación en dos factores. Por favor, inténtelo de nuevo.",
+    "totp_section_title": "Autenticación en dos factores",
+    "totp_status_active": "Activa",
+    "totp_status_inactive": "Inactiva",
+    "totp_remove_label": "Eliminar la autenticación en dos factores",
+    "totp_remove_description": "Eliminar por completo la configuración de autenticación en dos factores. A diferencia de desactivarla arriba, tendría que configurarla de nuevo desde cero para usarla.",
+    "totp_remove_button": "Eliminar",
+    "totp_remove_confirm": "¿Eliminar permanentemente la autenticación en dos factores? Esto borra su configuración, no solo la desactiva, por lo que tendría que configurarla de nuevo desde cero para usarla. Hasta entonces, iniciará sesión solo con su contraseña.",
+    "totp_removed": "Se ha eliminado la autenticación en dos factores.",
+    "recovery_keys_regenerate_confirm": "¿Regenerar los códigos de recuperación? Sus códigos actuales dejarán de funcionar de inmediato y deberá guardar los nuevos.",
+    "recovery_keys_regenerated_title": "Nuevos códigos de recuperación",
+    "recovery_keys_regenerated_instructions": "Estos son sus nuevos códigos de recuperación. Guárdelos ahora: sustituyen a los anteriores y no se mostrarán de nuevo.",
+    "recovery_keys_done": "Hecho",
+    "recovery_keys_label": "Códigos de recuperación",
+    "recovery_keys_remaining": "{{remaining}} de {{total}} restantes. No pueden mostrarse de nuevo; solo reemplazarse.",
+    "recovery_keys_dot_available": "Disponible",
+    "recovery_keys_dot_used": "Usado el {{- date}}",
+    "oauth_status_connected": "Conectado",
+    "oauth_status_not_connected": "No conectado",
+    "oauth_status_not_configured": "No configurado",
+    "oauth_not_configured_title": "Configurar OpenID Connect",
+    "oauth_not_configured_hint": "OpenID Connect debe configurarse primero mediante config.ini o variables de entorno.",
+    "oauth_how_to_enable": "Cómo habilitarlo",
+    "oauth_server_config_hint": "Añada lo siguiente a su archivo config.ini y reinicie la aplicación:",
+    "oauth_server_env_hint": "O establezca las siguientes variables de entorno:",
+    "oauth_provider": "Proveedor",
+    "oauth_provider_url": "URL del emisor",
+    "oauth_provider_unknown": "Proveedor desconocido",
+    "oauth_not_enrolled_title": "Ninguna cuenta conectada",
+    "oauth_not_enrolled_hint": "OpenID Connect está configurado, pero aún no hay ninguna cuenta conectada.",
+    "oauth_not_enrolled_details_label": "¿Qué significa esto?",
+    "oauth_not_enrolled_details": "Hasta que se conecte una cuenta, OpenID Connect no estará activo y seguirá iniciando sesión con su contraseña. Conecte su cuenta a continuación para activarlo.",
+    "oauth_connect_label": "Conectar cuenta",
+    "oauth_connect_description": "Inicie sesión una vez con su proveedor para vincular su cuenta. Solo esta cuenta podrá iniciar sesión a partir de entonces.",
+    "oauth_connect_button": "Conectar cuenta",
+    "oauth_disconnect_label": "Desconectar cuenta",
+    "oauth_disconnect_description": "Desvincular la cuenta conectada. El inicio de sesión volverá a basarse en su contraseña hasta que vuelva a conectar una cuenta.",
+    "oauth_disconnect_button": "Desconectar",
+    "oauth_disconnect_confirm": "¿Está seguro de que desea desconectar esta cuenta? El inicio de sesión volverá a basarse en su contraseña hasta que vuelva a conectar una cuenta.",
+    "oauth_disconnected": "Se ha desconectado {{account}} de {{provider}}.",
+    "oauth_connect_success": "Conectado a {{provider}} como {{account}}.",
+    "oauth_connect_success_generic": "Cuenta conectada correctamente.",
+    "oauth_connect_failed": "No se pudo conectar con el proveedor OpenID",
+    "oauth_account_unknown": "su cuenta"
   },
   "shortcuts": {
     "keyboard_shortcuts": "Atajos de teclado",
@@ -1458,7 +1609,29 @@
     "reload_app": "Vuelva a cargar la aplicación para aplicar los cambios",
     "set_all_to_default": "Establecer todos los accesos directos al valor predeterminado",
     "confirm_reset": "¿Realmente desea restablecer todos los atajos de teclado a sus valores predeterminados?",
-    "no_results": "No se encontraron atajos que coincidan con '{{filter}} '"
+    "no_results": "No se encontraron atajos que coincidan con '{{filter}} '",
+    "modified_from_default": "Este atajo se ha modificado respecto a su valor predeterminado.",
+    "revert_to_default": "Restablecer el valor predeterminado ({{shortcuts}})",
+    "no_default_shortcut": "sin atajo",
+    "record_shortcut": "Añadir un atajo",
+    "remove_shortcut": "Quitar este atajo",
+    "press_keys": "Pulse las teclas…",
+    "recording_toast": "Pulse una combinación de teclas para asignarla, o Esc para cancelar.",
+    "make_global": "Convertir en atajo a nivel de sistema (global)",
+    "make_local": "Convertir en atajo dentro de la aplicación",
+    "global_shortcut": "Atajo a nivel de sistema (global); solo activo en la aplicación de escritorio",
+    "conflict_chip": "Esta combinación también está asignada a: {{actions}}",
+    "no_conflicts": "No hay atajos en conflicto.",
+    "no_matches": "Ningún atajo coincide con los filtros seleccionados.",
+    "filter": "Filtrar atajos",
+    "filter_all": "Todos los atajos",
+    "filter_conflicts": "Conflictos ({{count}})",
+    "filter_global": "Atajos globales ({{count}})",
+    "filter_modified": "Modificados respecto al valor predeterminado ({{count}})",
+    "conflicts_badge_one": "{{count}} conflicto",
+    "conflicts_badge_many": "",
+    "conflicts_badge_other": "",
+    "conflicts_badge_tooltip": "Algunos atajos están asignados a más de una acción. Haga clic para mostrar solo los atajos en conflicto."
   },
   "spellcheck": {
     "title": "Revisión ortográfica",
@@ -1470,7 +1643,8 @@
     "custom_dictionary_edit": "Palabras personalizadas",
     "custom_dictionary_edit_description": "Edita la lista de palabras que no deben ser marcadas por el corrector ortográfico. Los cambios serán visibles después de un reinicio.",
     "custom_dictionary_open": "Editar diccionario",
-    "related_description": "Configurar idiomas del corrector ortográfico y diccionario personalizado."
+    "related_description": "Configurar idiomas del corrector ortográfico y diccionario personalizado.",
+    "disabled_placeholder": "La corrección ortográfica está desactivada. Habilítela para elegir idiomas y gestionar el diccionario personalizado."
   },
   "sync_2": {
     "config_title": "Sincronizar servidor",
@@ -1619,8 +1793,8 @@
     "title": "Lista de destacados",
     "options": "Opciones",
     "title_with_count_one": "{{count}} punto destacado",
-    "title_with_count_many": "{{count}} puntos destacados",
-    "title_with_count_other": "{{count}} puntos destacados",
+    "title_with_count_many": "",
+    "title_with_count_other": "",
     "modal_title": "Configurar la lista de puntos destacados",
     "menu_configure": "Configurar la lista de puntos destacados...",
     "no_highlights": "Ningún punto destacado encontrado."
@@ -1653,11 +1827,13 @@
     "shared-indicator-tooltip": "Esta nota está compartida públicamente",
     "shared-indicator-tooltip-with-url": "Esta nota está compartida públicamente en: {{- url}}",
     "subtree-hidden-tooltip_one": "{{count}} subnota que está oculta del árbol",
-    "subtree-hidden-tooltip_many": "{{count}} subnotas que están ocultas del árbol",
-    "subtree-hidden-tooltip_other": "{{count}} subnotas que están ocultas del árbol",
+    "subtree-hidden-tooltip_many": "",
+    "subtree-hidden-tooltip_other": "",
     "subtree-hidden-moved-title": "Agregado a {{title}}",
     "subtree-hidden-moved-description-collection": "Esta colección oculta sus subnotas en el árbol.",
-    "subtree-hidden-moved-description-other": "Las subnotas están ocultas en el árbol para esta nota."
+    "subtree-hidden-moved-description-other": "Las subnotas están ocultas en el árbol para esta nota.",
+    "follow-active-note": "Seguir la nota activa",
+    "follow-active-note-title": "Desplaza el árbol y expande los nodos padre para mostrar la nota activa. Si está desactivado, el árbol permanece en su sitio y solo se actualiza el resaltado de fondo."
   },
   "title_bar_buttons": {
     "window-on-top": "Mantener esta ventana en la parte superior"
@@ -1667,13 +1843,16 @@
     "printing": "Impresión en curso...",
     "printing_pdf": "Preparando vista preliminar de impresión...",
     "print_report_collection_content_one": "{{count}} nota en la colección no se puede imprimir porque no son compatibles o está protegida.",
-    "print_report_collection_content_many": "{{count}} notas en la colección no se pueden imprimir porque no son compatibles o están protegidas.",
-    "print_report_collection_content_other": "{{count}} notas en la colección no se pueden imprimir porque no son compatibles o están protegidas.",
+    "print_report_collection_content_many": "",
+    "print_report_collection_content_other": "",
     "print_report_title": "Imprimir informe",
     "print_report_collection_details_button": "Ver detalles",
     "print_report_collection_details_ignored_notes": "Notas ignoradas",
     "print_report_stack_trace": "Rastreo de pila",
-    "print_report_error_title": "Fallo al imprimir"
+    "print_report_error_title": "Fallo al imprimir",
+    "content_load_error": "No se pudo cargar el contenido de la nota.",
+    "content_load_retry": "Reintentar",
+    "content_load_stalled": "Aún se está cargando el contenido de la nota…"
   },
   "note_title": {
     "placeholder": "escriba el título de la nota aquí...",
@@ -1711,7 +1890,10 @@
     "reopen_last_tab": "Reabrir última pestaña cerrada",
     "move_tab_to_new_window": "Mover esta pestaña a una nueva ventana",
     "copy_tab_to_new_window": "Copiar esta pestaña a una ventana nueva",
-    "new_tab": "Nueva pestaña"
+    "new_tab": "Nueva pestaña",
+    "pin_tab": "Fijar pestaña",
+    "unpin_tab": "Desfijar pestaña",
+    "pinned_prefix": "Fijada: "
   },
   "toc": {
     "table_of_contents": "Tabla de contenido",
@@ -1731,7 +1913,12 @@
   },
   "image": {
     "copied-to-clipboard": "Una referencia a la imagen ha sido copiada al portapapeles. Esta puede ser pegada en cualquier nota de texto.",
-    "cannot-copy": "No se pudo copiar la referencia de imagen al portapapeles."
+    "cannot-copy": "No se pudo copiar la referencia de imagen al portapapeles.",
+    "copy-to-clipboard": "Copiar imagen al portapapeles",
+    "download": "Descargar imagen",
+    "image-copied-to-clipboard": "La imagen se ha copiado al portapapeles.",
+    "cannot-copy-image": "No se pudo copiar la imagen al portapapeles.",
+    "cannot-download": "No se pudo descargar la imagen."
   },
   "clipboard": {
     "cut": "La(s) notas(s) han sido cortadas al portapapeles.",
@@ -1755,7 +1942,12 @@
   },
   "frontend_script_api": {
     "async_warning": "Está pasando una función asíncrona a `api.runOnBackend ()` que probablemente no funcionará como pretendía.\\nO haga la función sincrónica (removiendo la palabra `async`), o use `api.runAsyncOnBackendWithManualTransactionHandling()`.",
-    "sync_warning": "Estás pasando una función sincrónica a `api.runasynconbackendwithmanualTransactionHandling ()`, \\n while debería usar `api.runonbackend ()` en su lugar."
+    "sync_warning": "Estás pasando una función sincrónica a `api.runasynconbackendwithmanualTransactionHandling ()`, \\n while debería usar `api.runonbackend ()` en su lugar.",
+    "backend_scripting_disabled_title": "Los scripts de backend están deshabilitados",
+    "backend_scripting_disabled_message": "Un script intentó ejecutar código en el servidor, pero los scripts de backend están desactivados por motivos de seguridad. Habilítelos en Opciones → Seguridad si confía en este script.",
+    "backend_scripting_disabled_notes_heading": "Scripts que intentaron ejecutar código de backend:",
+    "backend_scripting_disabled_open_settings": "Abrir ajustes de seguridad",
+    "backend_scripting_disabled_more_info": "Más información"
   },
   "ws": {
     "sync-check-failed": "¡La comprobación de sincronización falló!",
@@ -1862,7 +2054,8 @@
     "create-child-note-title": "Crear una nueva subnota y agregarla al mapa",
     "create-child-note-instruction": "Dé clic en el mapa para crear una nueva nota en esa ubicación o presione Escape para cancelar.",
     "unable-to-load-map": "No se puede cargar el mapa.",
-    "create-child-note-text": "Agregar marcador"
+    "create-child-note-text": "Agregar marcador",
+    "create-child-note-toast-title": "Nueva nota"
   },
   "geo-map-context": {
     "open-location": "Abrir ubicación",
@@ -1930,7 +2123,12 @@
   "code_theme": {
     "title": "Apariencia",
     "word_wrapping": "Ajuste de palabras",
-    "color-scheme": "Esquema de color"
+    "color-scheme": "Esquema de color",
+    "theme_mode": "Modo del tema",
+    "match_app_appearance": "Igualar la apariencia de la aplicación",
+    "always_use_one_theme": "Usar siempre un tema",
+    "light_theme": "Tema claro",
+    "dark_theme": "Tema oscuro"
   },
   "cpu_arch_warning": {
     "title": "Por favor descargue la versión ARM64",
@@ -1974,7 +2172,8 @@
     "column-already-exists": "Esta columna ya existe en el tablero."
   },
   "content_renderer": {
-    "open_externally": "Abrir externamente"
+    "open_externally": "Abrir externamente",
+    "mermaid_diagram_error": "Error al renderizar el diagrama Mermaid: {{error}}"
   },
   "table_view": {
     "new-column": "Nueva columna",
@@ -2003,7 +2202,11 @@
     "emoji_completion_description": "Los emojis pueden fácilmente insertarse en el texto escribiendo `:`, seguido del nombre de un emoji.",
     "note_completion_description": "Los vínculos a notas pueden crearse escribiendo `@` seguido del título de una nota.",
     "slash_commands_enabled": "Comandos de barra",
-    "slash_commands_description": "Comandos de edición como insertar saltos de línea o títulos, puede alternarse escribiendo `/`."
+    "slash_commands_description": "Comandos de edición como insertar saltos de línea o títulos, puede alternarse escribiendo `/`.",
+    "content_hints_enabled": "Sugerencias de contenido",
+    "content_hints_description": "Mostrar sugerencias breves en la esquina inferior del editor que explican cómo interactuar con el elemento bajo el cursor o el puntero.",
+    "auto_link_previews_enabled": "Generar vistas previas de enlaces automáticamente",
+    "auto_link_previews_description": "Convertir automáticamente un enlace detectado en una vista previa que muestra el título, la descripción y la imagen de la página web. Insertar una vista previa desde la barra de herramientas siempre funciona, independientemente de este ajuste."
   },
   "command_palette": {
     "tree-action-name": "Árbol:{{name}}",
@@ -2018,11 +2221,16 @@
     "search_history_title": "Mostrar historial de búsqueda",
     "search_history_description": "Ver búsquedas previas",
     "configure_launch_bar_title": "Configurar barra de inicio",
-    "configure_launch_bar_description": "Abrir la configuración de la barra de inicio, para agregar o quitar elementos."
+    "configure_launch_bar_description": "Abrir la configuración de la barra de inicio, para agregar o quitar elementos.",
+    "pin_tab_title": "Fijar pestaña",
+    "pin_tab_description": "Mantener siempre abierta esta nota en esta pestaña al inicio de la barra de pestañas e impedir que se cierre accidentalmente",
+    "unpin_tab_title": "Desfijar pestaña",
+    "unpin_tab_description": "Desfijar esta pestaña, permitiendo cerrarla y moverla libremente"
   },
   "modal": {
     "close": "Cerrar",
-    "help_title": "Mostrar más información sobre esta pantalla"
+    "help_title": "Mostrar más información sobre esta pantalla",
+    "cancel": "Cancelar"
   },
   "call_to_action": {
     "next_theme_title": "Prueba el nuevo tema de Trilium",
@@ -2034,7 +2242,10 @@
     "dismiss": "Desestimar",
     "new_layout_title": "Nuevo diseño",
     "new_layout_message": "Hemos introducido un diseño modernizado para Trilium. La cinta se ha eliminado y se ha integrado perfectamente en la interfaz principal, con una nueva barra de estado y secciones ampliables (como los atributos promovidos) que tienen funciones clave.\n\nEl nuevo diseño está habilitado por defecto, y puede ser deshabilitado temporalmente a través de Opciones → Apariencia.",
-    "new_layout_button": "Más información"
+    "new_layout_button": "Más información",
+    "scripting_disabled_title": "Se han deshabilitado los scripts de backend",
+    "scripting_disabled_message": "Los scripts de backend están ahora deshabilitados de forma predeterminada por seguridad. Sus notas contienen scripts de backend (notas con una etiqueta #run) que ya no se ejecutarán automáticamente.\n\nSi depende de estos scripts, puede volver a habilitar los scripts de backend en los ajustes de seguridad.",
+    "scripting_disabled_button": "Abrir ajustes de seguridad"
   },
   "ui-performance": {
     "title": "Rendimiento",
@@ -2042,7 +2253,9 @@
     "enable-shadows": "Sombras",
     "enable-backdrop-effects": "Efectos de fondo para menús, ventanas emergentes y paneles",
     "enable-smooth-scroll": "Desplazamiento suave",
-    "app-restart-required": "Requiere reiniciar la aplicación"
+    "app-restart-required": "Requiere reiniciar la aplicación",
+    "enable-hardware-acceleration": "Aceleración por hardware (GPU)",
+    "enable-hardware-acceleration-description": "Desactive esto si la aplicación muestra una ventana en blanco o fallos de visualización causados por los controladores de la GPU. Requiere reiniciar la aplicación."
   },
   "settings": {
     "related_settings": "Configuración relacionada"
@@ -2080,7 +2293,16 @@
     "edit-note": "Editar nota"
   },
   "calendar_view": {
-    "delete_note": "Eliminar nota..."
+    "delete_note": "Eliminar nota...",
+    "time_slots": "Franjas horarias",
+    "slot_duration": "Duración",
+    "slot_label_interval": "Intervalo de etiqueta",
+    "minutes_one": "{{count}} minuto",
+    "minutes_many": "",
+    "minutes_other": "",
+    "hours_one": "{{count}} hora",
+    "hours_many": "",
+    "hours_other": ""
   },
   "note-color": {
     "clear-color": "Borrar color de nota",
@@ -2089,23 +2311,23 @@
   },
   "status_bar": {
     "backlinks_one": "{{count}} vínculo de retroceso",
-    "backlinks_many": "{{count}} vínculos de retroceso",
-    "backlinks_other": "{{count}} vínculos de retroceso",
+    "backlinks_many": "",
+    "backlinks_other": "",
     "backlinks_title_one": "Ver vínculo de retroceso",
-    "backlinks_title_many": "Ver vínculos de retroceso",
-    "backlinks_title_other": "Ver vínculos de retroceso",
+    "backlinks_title_many": "",
+    "backlinks_title_other": "",
     "attachments_one": "{{count}} adjunto",
-    "attachments_many": "{{count}} adjuntos",
-    "attachments_other": "{{count}} adjuntos",
+    "attachments_many": "",
+    "attachments_other": "",
     "attachments_title_one": "Ver adjunto en una nueva pestaña",
-    "attachments_title_many": "Ver adjuntos en una nueva pestaña",
-    "attachments_title_other": "Ver adjuntos en una nueva pestaña",
+    "attachments_title_many": "",
+    "attachments_title_other": "",
     "attributes_one": "{{count}} atributo",
-    "attributes_many": "{{count}} atributos",
-    "attributes_other": "{{count}} atributos",
+    "attributes_many": "",
+    "attributes_other": "",
     "note_paths_one": "{{count}} ruta",
-    "note_paths_many": "{{count}} rutas",
-    "note_paths_other": "{{count}} rutas",
+    "note_paths_many": "",
+    "note_paths_other": "",
     "language_title": "Cambiar el idioma del contenido",
     "note_info_title": "Ver información de la nota (p. e., fechas, tamaño de la nota)",
     "attributes_title": "Atributos propios y atributos heredados",
@@ -2128,19 +2350,19 @@
   },
   "pdf": {
     "attachments_one": "{{count}} adjunto",
-    "attachments_many": "{{count}} adjuntos",
-    "attachments_other": "{{count}} adjuntos",
+    "attachments_many": "",
+    "attachments_other": "",
     "layers_one": "{{count}} capa",
-    "layers_many": "{{count}} capas",
-    "layers_other": "{{count}} capas",
+    "layers_many": "",
+    "layers_other": "",
     "pages_one": "{{count}} página",
-    "pages_many": "{{count}} páginas",
-    "pages_other": "{{count}} páginas",
+    "pages_many": "",
+    "pages_other": "",
     "pages_alt": "Página {{pageNumber}}",
     "pages_loading": "Cargando...",
     "annotations_one": "{{count}} anotación",
-    "annotations_many": "{{count}} anotaciones",
-    "annotations_other": "{{count}} anotaciones"
+    "annotations_many": "",
+    "annotations_other": ""
   },
   "experimental_features": {
     "title": "Opciones experimentales",
@@ -2194,7 +2416,9 @@
     "save_status_saving_tooltip": "Los cambios están siendo guardados.",
     "save_status_unsaved_tooltip": "Hay cambios sin guardar. Se guardarán automáticamente en un momento.",
     "save_status_error_tooltip": "Se produjo un error al guardar la nota. Si es posible, trate de copiar el contenido de la nota en otro lugar y recargar la aplicación.",
-    "clipped_note": "Clip web"
+    "clipped_note": "Clip web",
+    "doc_url": "Documentación en línea",
+    "doc_url_description": "Haga clic para ver esta página en el sitio de documentación en línea."
   },
   "attributes_panel": {
     "title": "Atributos de nota"
@@ -2203,15 +2427,19 @@
     "empty_message": "Nada que mostrar para esta nota",
     "empty_button": "Ocultar el panel",
     "toggle": "Alternar panel derecho",
-    "custom_widget_go_to_source": "Ir al código fuente"
+    "custom_widget_go_to_source": "Ir al código fuente",
+    "peek": "Vista rápida del panel derecho",
+    "hide": "Ocultar panel derecho",
+    "dock": "Anclar panel",
+    "close": "Cerrar panel"
   },
   "platform_indicator": {
     "available_on": "Disponible en {{platform}}"
   },
   "mobile_tab_switcher": {
     "title_one": "{{count}} pestaña",
-    "title_many": "{{count}} pestañas",
-    "title_other": "{{count}} pestañas",
+    "title_many": "",
+    "title_other": "",
     "more_options": "Más opciones"
   },
   "bookmark_buttons": {
@@ -2232,7 +2460,10 @@
     "setup_create_sample_html": "Crear nota de muestra con HTML",
     "setup_sample_created": "Se creó una nota de muestra como subnota.",
     "disabled_description": "Esta nota de renderización proviene de una fuente externa. Para protegerlo de contenido malicioso, no está habilitado por defecto. Asegúrese de confiar en la fuente antes de habilitarla.",
-    "disabled_button_enable": "Habilitar nota de renderización"
+    "disabled_button_enable": "Habilitar nota de renderización",
+    "error_title": "La nota de script no se pudo ejecutar",
+    "error_show_details": "Mostrar detalles",
+    "error_note_label": "Nota de script:"
   },
   "active_content_badges": {
     "type_icon_pack": "Paquete de iconos",
@@ -2256,7 +2487,8 @@
     "menu_run_mobile_startup": "Cuando el frontend móvil inicia",
     "menu_change_to_widget": "Cambiar a widget",
     "menu_change_to_frontend_script": "Cambiar a script de frontend",
-    "menu_theme_base": "Tema base"
+    "menu_theme_base": "Tema base",
+    "type_custom_request_handler": "Controlador de peticiones personalizado"
   },
   "setup_form": {
     "more_info": "Para saber más"
@@ -2275,7 +2507,31 @@
     "exit-fullscreen": "Salir de la pantalla completa",
     "unsupported-format": "La vista previa del medio no está disponible para este formato de archivo:\n{{mime}}",
     "zoom-to-fit": "Acercamiento para llenar",
-    "zoom-reset": "Reiniciar acercamiento para llenar"
+    "zoom-reset": "Reiniciar acercamiento para llenar",
+    "activate": "Reproducir {{- title}}",
+    "seek": "Buscar",
+    "forward-10s": "Avanzar 10 s",
+    "previous-video": "Vídeo anterior: {{- title}}",
+    "next-video": "Vídeo siguiente: {{- title}}",
+    "previous-audio": "Audio anterior: {{- title}}",
+    "next-audio": "Audio siguiente: {{- title}}",
+    "play-mode-title": "Modo de reproducción: {{mode}}",
+    "play-mode-once": "Reproducir una vez",
+    "play-mode-loop": "Bucle",
+    "play-mode-next": "Reproducir siguiente",
+    "hints": {
+      "playback": "Reproducción",
+      "play_pause": "Reproducir/Pausa",
+      "back_10s": "Retroceder 10 s",
+      "forward_10s": "Avanzar 10 s",
+      "jump_start": "Ir al inicio",
+      "jump_end": "Ir al final",
+      "mute": "Silenciar",
+      "fullscreen": "Pantalla completa",
+      "navigation": "Navegación",
+      "previous": "Anterior",
+      "next": "Siguiente"
+    }
   },
   "mermaid": {
     "placeholder": "Ingrese el contenido de su diagrama Mermaid o utilice uno de los diagramas de muestra a continuación.",
@@ -2305,7 +2561,12 @@
     "sample_ishikawa": "Ishikawa",
     "sample_treemap": "Mapa de árbol",
     "sample_treeview": "Vista de árbol",
-    "sample_wardley": "Mapa de Wardley"
+    "sample_wardley": "Mapa de Wardley",
+    "slash_command_blank_description": "Insertar un diagrama Mermaid vacío",
+    "slash_command_description": "Insertar una plantilla de diagrama Mermaid «{{name}}»",
+    "sample_cynefin": "Cynefin",
+    "sample_swimlane": "Carril",
+    "sample_railroad": "Diagrama de ferrocarril"
   },
   "revisions": {
     "note_revisions": "Revisiones de nota",
@@ -2361,7 +2622,9 @@
     "source_description_unknown": "Fuente no disponible",
     "snapshot_header": "Instantánea de revisión de nota",
     "save_revision_tooltip": "Guardar manualmente una instantánea de la nota actual",
-    "source_unknown": "Instantánea"
+    "source_unknown": "Instantánea",
+    "back": "Atrás",
+    "diff_identical": "Esta revisión es idéntica al contenido actual de la nota."
   },
   "auto_link_attribute_list": {
     "title": "Atributos del sistema"
@@ -2380,7 +2643,8 @@
     "autocomplete_fuzzy_description": "Afecta a los selectores de nota y salto a nota. Más lento pero tolera errores tipográficos."
   },
   "text_editor": {
-    "title": "Editor"
+    "title": "Editor",
+    "related_task_states": "Estados personalizados de casilla para listas de tareas"
   },
   "llm_chat": {
     "placeholder": "Escriba un mensaje...",
@@ -2412,7 +2676,39 @@
     "tokens_used": "{{prompt}} (entrada) + {{completion}} (respuesta) = {{total}} tokens",
     "tokens_used_with_cost": "{{prompt}} (entrada) + {{completion}} (respuesta) = {{total}} tokens (~${{cost}})",
     "tokens_used_with_model": "{{model}}: {{prompt}} (entrada) + {{completion}} (respuesta) = {{total}} tokens",
-    "tokens_used_with_model_and_cost": "{{model}}: {{prompt}} (entrada) + {{completion}} (respuesta) = {{total}} tokens (~${{cost}})"
+    "tokens_used_with_model_and_cost": "{{model}}: {{prompt}} (entrada) + {{completion}} (respuesta) = {{total}} tokens (~${{cost}})",
+    "web_search_unavailable_gemini": "No disponible en modelos Gemini mientras el acceso a notas esté activado: la API de Google no permite combinar ambos. Desactive el acceso a notas o cambie a otro proveedor para usar la búsqueda web.",
+    "model_cost_included": "Suscripción",
+    "no_models_selected": "No hay modelos seleccionados: haga clic en el lápiz para elegir",
+    "no_model_selected": "Seleccione un modelo",
+    "edit_models": "Editar modelos",
+    "input_streaming": "Entrada (transmitiendo…)",
+    "edit_index": "Edición {{index}} de {{total}}",
+    "free": "Gratis",
+    "retry": "Reintentar",
+    "scroll_to_bottom": "Ir al más reciente",
+    "read_only_notice": "No se puede responder porque este chat de IA es de solo lectura.",
+    "toc_file": "Archivo: {{name}}",
+    "highlights_title": "Resaltados ({{count}})",
+    "highlights_empty": "Aún no hay resaltados. Seleccione texto en un mensaje y elija «Resaltar».",
+    "copy": "Copiar",
+    "highlight_add": "Resaltar",
+    "highlight_remove": "Quitar resaltado",
+    "highlight_remove_confirm": "¿Quitar este resaltado?",
+    "quote_selection": "Citar selección",
+    "quoted_from": "Citado de",
+    "show_quote_source": "Mostrar origen de la cita",
+    "copy_message": "Copiar mensaje",
+    "save_to_subnote": "Guardar en subnota",
+    "save_as_note": "Guardar como nota",
+    "save_note_failed": "Error al crear una nota a partir del mensaje.",
+    "regenerate": "Regenerar",
+    "delete_message": "Eliminar mensaje",
+    "delete_message_confirm": "¿Eliminar este mensaje? Esta operación no se puede deshacer.",
+    "attach_file": "Adjuntar imagen, PDF o archivo de texto",
+    "remove_attachment": "Quitar adjunto",
+    "attachment_upload_failed": "Error al subir «{{name}}».",
+    "attachment_unsupported_type": "«{{name}}» no es un tipo de adjunto admitido. Use una imagen (PNG, JPEG, GIF, WebP), un PDF o un archivo de texto/código fuente."
   },
   "sidebar_chat": {
     "title": "Chat de IA",
@@ -2422,10 +2718,19 @@
     "empty_state": "Iniciar una conversación",
     "history": "Historial de chat",
     "recent_chats": "Chats recientes",
-    "no_chats": "No hay chats anteriores"
+    "no_chats": "No hay chats anteriores",
+    "more_actions": "Más acciones",
+    "view_all_chats": "Ver todos los chats",
+    "rename": "Renombrar",
+    "rename_title": "Renombrar chat",
+    "rename_message": "Introduzca un nuevo nombre para este chat:",
+    "delete": "Eliminar",
+    "delete_chat": "Eliminar chat",
+    "delete_confirm": "¿Eliminar este chat? Esta acción no se puede deshacer."
   },
   "link": {
-    "failed_to_open": "Fallo al abrir enlace '{{- href}}': {{- message}}"
+    "failed_to_open": "Fallo al abrir enlace '{{- href}}': {{- message}}",
+    "copy_url": "Copiar URL"
   },
   "display_mode": {
     "source": "Vista de fuente",
@@ -2450,7 +2755,10 @@
     "image_based_pdf_not_supported": "Este PDF parece estar basado en una imagen (escaneado). Todavía no se admite la extracción de texto de PDF basados en imágenes."
   },
   "launcher_button_context_menu": {
-    "remove_from_launch_bar": "Quitar de la barra de inicio"
+    "remove_from_launch_bar": "Quitar de la barra de inicio",
+    "configure_launch_bar": "Configurar barra de inicio",
+    "launch_bar_orientation": "Orientación de la barra de inicio",
+    "will_reload_frontend": "(se recargará la aplicación)"
   },
   "print_preview": {
     "title": "Vista previa de impresión",
@@ -2494,7 +2802,7 @@
     "moveDown": "Mover abajo",
     "link": "Enlace",
     "linkBidirectional": "Enlace bidireccional",
-    "clickTips": "Haz clic en el nodo de destino",
+    "clickTips": "Haga clic en el nodo de destino",
     "summary": "Resumen"
   },
   "llm": {
@@ -2535,14 +2843,536 @@
       "rename_note": "Renombrar nota",
       "delete_note": "Eliminar nota",
       "move_note": "Mover nota",
-      "clone_note": "Clonar nota"
-    }
+      "clone_note": "Clonar nota",
+      "set_note_content": "Reescribir nota",
+      "edit_note_content": "Editar nota",
+      "search_icons": "Buscar iconos",
+      "search_help": "Buscar en la guía del usuario",
+      "get_help_toc": "Obtener el índice de la guía del usuario"
+    },
+    "disabled_placeholder": "Las funciones de IA están desactivadas. Habilítelas para configurar proveedores y MCP.",
+    "not_available_in_standalone": "Las funciones de IA/LLM no están disponibles en la versión autónoma de Trilium, ya que los proveedores de LLM no permiten el acceso directo desde un navegador.",
+    "edit_provider_title": "Editar {{- name}}",
+    "edit_provider": "Editar",
+    "save": "Guardar",
+    "select_models": "Seleccionar modelos",
+    "models_loading": "Cargando modelos…",
+    "models_load_failed": "No se pudieron cargar los modelos: {{error}}",
+    "models_none_available": "Este proveedor no devolvió ningún modelo.",
+    "models_selected_count": "{{count}} de {{total}} seleccionados",
+    "model_cost_per_mtok": "${{input}} / ${{output}} por Mtok",
+    "models_select_all": "Seleccionar todo",
+    "models_select_none": "Seleccionar ninguno",
+    "models_reset_defaults": "Restablecer valores predeterminados",
+    "provider_model_count_one": "{{count}} modelo",
+    "provider_model_count_many": "",
+    "provider_model_count_other": "",
+    "beta": "Beta",
+    "provider_desc_claude_agent": "Requiere Claude Code en la máquina que ejecuta Trilium.",
+    "base_url": "URL base",
+    "base_url_description": "Opcional. Accede a la misma API a través de un proxy o puerta de enlace. Para ejecutar un modelo usted mismo, añada en su lugar un proveedor Ollama o LM Studio.",
+    "base_url_invalid": "La URL base debe ser una URL http:// o https:// válida",
+    "claude_agent_description": "Usa su suscripción Claude Pro/Max a través de Claude Code, por lo que no se necesita clave de API. Claude Code debe estar instalado en la máquina que ejecuta Trilium (el servidor si es autoalojado, o este equipo en escritorio); inicie sesión una vez ejecutando «claude /login» allí.",
+    "add_provider_title_named": "Añadir {{- name}}",
+    "provider_group_cloud": "Proveedores en la nube",
+    "provider_group_cloud_description": "Pago por uso con una clave de API, facturado por separado de cualquier suscripción que ya tenga. Sus notas se envían a los servidores del proveedor.",
+    "provider_group_subscription": "Suscripción",
+    "provider_group_subscription_description": "Reutiliza una suscripción que ya paga, sin coste adicional. Sus notas se envían a los servidores del proveedor.",
+    "provider_group_local": "Local / autoalojado",
+    "provider_group_local_description": "Sin clave de API ni coste de uso. Sus notas solo llegan a la máquina que ejecuta el modelo.",
+    "provider_group_custom": "Endpoint personalizado",
+    "provider_group_custom_description": "Cualquier API compatible con OpenAI, local o alojada (OpenRouter, Groq, Mistral). El coste y la privacidad dependen de a dónde lo apunte.",
+    "provider_openai_compatible": "Compatible con OpenAI",
+    "provider_desc_openai_compatible": "Apunte Trilium a cualquier endpoint que hable la API de OpenAI.",
+    "api_key_optional_description": "Opcional. Solo es necesario si su endpoint está detrás de un proxy o puerta de enlace con autenticación.",
+    "setup_hint_ollama": "Ollama debe estar en ejecución en esta dirección: inícielo con <Code>ollama serve</Code> si no lo está.",
+    "setup_hint_lmstudio": "Inicie el servidor en LM Studio en la pestaña Developer y compruebe que el puerto indicado coincida con esta dirección.",
+    "setup_hint_openai_compatible": "La URL base de la API compatible con OpenAI, que suele terminar en <Code>/v1</Code>.",
+    "troubleshoot_server_running": "¿Está el servidor en ejecución en la máquina esperada?",
+    "troubleshoot_port": "¿Coincide el puerto de la URL con el que indica el servidor?",
+    "troubleshoot_remote": "Si el servidor está en otra máquina, ¿está configurado para aceptar conexiones desde la red y no solo desde localhost?",
+    "mcp_endpoint_this_device": "Este dispositivo",
+    "mcp_endpoint_network": "Desde otros dispositivos de su red",
+    "mcp_endpoint_loopback_only": "Trilium solo escucha en localhost, por lo que el endpoint no es accesible desde otros dispositivos.",
+    "mcp_config_title": "Cómo conectar un asistente",
+    "mcp_config_description": "Cree un token en Opciones → ETAPI y, a continuación, añada lo siguiente a la configuración MCP de su asistente, sustituyendo el marcador de posición por su token:",
+    "mcp_config_token_placeholder": "su-token-etapi",
+    "mcp_config_cli_description": "Claude Code también puede configurarse desde la línea de comandos:",
+    "mcp_config_warning": "Un token otorga acceso completo de lectura y escritura a todas sus notas, así que considérelo como una contraseña. Si se conecta desde otro dispositivo, prefiera HTTPS: un token enviado por HTTP sin cifrar puede interceptarse."
   },
   "common": {
     "save": "Guardar",
     "cancel": "Cancelar"
   },
   "spreadsheet": {
-    "read-only": "Esta nota es de sólo lectura."
+    "read-only": "Esta nota es de sólo lectura.",
+    "export-xlsx": "Exportar a Excel (.xlsx)",
+    "export-csv": "Exportar a CSV (.csv)",
+    "export-failed": "Error al exportar la hoja de cálculo a Excel.",
+    "export-csv-failed": "Error al exportar la hoja de cálculo a CSV."
+  },
+  "login": {
+    "incorrect-password": "La contraseña es incorrecta. Por favor, inténtelo de nuevo.",
+    "sso-wrong-account": "Esa cuenta no es la vinculada a esta instancia de Trilium. Inicie sesión con la cuenta vinculada.",
+    "sso-not-enrolled": "El inicio de sesión único aún no está configurado. Inicie sesión primero con su contraseña y, a continuación, vincule su cuenta desde la configuración.",
+    "heading": "Iniciar sesión en Trilium Notes",
+    "password": "Contraseña",
+    "totp-token": "Contraseña de un solo uso o código de recuperación",
+    "button": "Iniciar sesión",
+    "remember-me": "Recordarme",
+    "incorrect-totp": "La contraseña de un solo uso es incorrecta. Por favor, inténtelo de nuevo.",
+    "incorrect-recovery-code": "El código de recuperación es incorrecto o ya se ha utilizado.",
+    "too-many-attempts": "Demasiados intentos de inicio de sesión. Por favor, espere unos minutos e inténtelo de nuevo.",
+    "connection-error": "No se pudo contactar con el servidor. Compruebe su conexión e inténtelo de nuevo.",
+    "sign_in_with_sso": "Iniciar sesión con {{ssoIssuerName}}",
+    "sso-connection-failed": "No se pudo contactar con el proveedor de autenticación. Inténtelo de nuevo o consulte los registros del servidor para más detalles."
+  },
+  "file_upload": {
+    "drop_or_browse_single": "Arrastre y suelte un archivo aquí, o haga clic para examinar",
+    "drop_or_browse_multiple": "Arrastre y suelte archivos aquí, o haga clic para examinar",
+    "browse_single": "Toque para elegir un archivo",
+    "browse_multiple": "Toque para elegir archivos",
+    "remove_file": "Quitar archivo"
+  },
+  "import_provider": {
+    "choose_provider": "Elija arriba un servicio desde el que importar."
+  },
+  "onenote_import": {
+    "name": "Microsoft OneNote",
+    "description": "Se conecta a su cuenta",
+    "connect_description": "Inicie sesión con su cuenta de Microsoft para importar sus cuadernos de OneNote.",
+    "connect": "Iniciar sesión con Microsoft",
+    "section_heading": "Microsoft OneNote",
+    "checking": "Conectando con OneNote…",
+    "connecting": "Esperando a que finalice el inicio de sesión…",
+    "device_instructions": "Abra la página de inicio de sesión de Microsoft e introduzca este código:",
+    "device_open_page": "Abrir la página de inicio de sesión",
+    "device_cancel": "Cancelar inicio de sesión",
+    "connected_as": "Conectado como {{name}}",
+    "disconnect": "Desconectar",
+    "load_failed": "No se pudieron cargar sus cuadernos de OneNote.",
+    "no_notebooks": "No se encontraron cuadernos en esta cuenta.",
+    "select_sections": "Seleccione las secciones que desea importar",
+    "select_sections_hint": "OneNote no incluye el orden original en los datos de importación, por lo que las secciones y los grupos se ordenan por fecha de creación y pueden no coincidir con cómo aparecen en OneNote.",
+    "import": "Importar selección",
+    "import_count_one": "Importar {{count}} sección",
+    "import_count_many": "",
+    "import_count_other": "",
+    "attach_source": "Adjuntar HTML original (depuración)",
+    "attach_source_hint": "Guarda el HTML original sin modificar de cada página de OneNote como adjunto de la nota importada, para compararlo con el resultado convertido."
+  },
+  "notion_import": {
+    "name": "Notion",
+    "description": "Desde una exportación HTML",
+    "description_long": "En Notion, exporte su espacio de trabajo o una página como HTML con subpáginas incluidas y, a continuación, elija aquí el archivo .zip resultante.",
+    "choose_file": "Exportación de Notion (.zip)",
+    "import": "Importar"
+  },
+  "keep_import": {
+    "name": "Google Keep",
+    "description": "Desde una exportación de Takeout",
+    "description_long": "En Google Takeout, exporte sus datos de Keep como .zip y, a continuación, elija aquí el archivo resultante.",
+    "choose_file": "Exportación de Google Keep (.zip)",
+    "import": "Importar"
+  },
+  "anytype_import": {
+    "name": "Anytype",
+    "description": "Desde una exportación JSON",
+    "description_long": "En Anytype, exporte su espacio usando el formato «Any-Block» con «JSON» seleccionado y, a continuación, elija aquí el archivo .zip resultante. Por ahora solo se importan las páginas y su texto.",
+    "choose_file": "Exportación de Anytype (.zip)",
+    "import": "Importar"
+  },
+  "obsidian_import": {
+    "name": "Obsidian",
+    "description": "Desde una bóveda",
+    "description_long": "Comprima en ZIP la carpeta de su bóveda de Obsidian y, a continuación, elija aquí el archivo .zip resultante.",
+    "choose_file": "Bóveda de Obsidian (.zip)",
+    "import": "Importar"
+  },
+  "evernote_import": {
+    "name": "Evernote",
+    "description": "Desde archivos .enex",
+    "description_long": "En Evernote, exporte un cuaderno (o hasta 100 notas a la vez) como archivo ENEX y, a continuación, elija aquí uno o más archivos .enex. Cada archivo se importa como un cuaderno independiente.",
+    "choose_file": "Exportación de Evernote (.enex)",
+    "import": "Importar"
+  },
+  "markdown_editor": {
+    "image_upload_failed": "No se puede subir la imagen «{{name}}»."
+  },
+  "markdown_slash_commands": {
+    "date": "Insertar la fecha y hora actuales",
+    "include": "Incluir otra nota",
+    "image": "Subir e insertar una imagen",
+    "link": "Insertar un enlace a una nota",
+    "math": "Insertar un bloque de ecuación matemática",
+    "footnote": "Insertar una nota al pie",
+    "mermaid": "Insertar un diagrama Mermaid",
+    "mermaid_template": "Insertar un diagrama Mermaid «{{name}}»",
+    "collapsible": "Insertar un bloque plegable",
+    "page_break": "Insertar un salto de página (para impresión)",
+    "table": "Insertar una tabla",
+    "admonition": "Insertar admonición {{type}}",
+    "todo": "Insertar un elemento de tarea «{{title}}»",
+    "todo_nonstandard": "Insertar un elemento de tarea «{{title}}» (no estándar)",
+    "placeholders": {
+      "math": "ecuación",
+      "collapsible_summary": "Resumen",
+      "collapsible_details": "Detalles",
+      "table_column": "Columna {{number}}"
+    }
+  },
+  "slash_commands": {
+    "bulleted_list_description": "Crear una lista con viñetas",
+    "numbered_list_description": "Crear una lista numerada",
+    "todo_list_description": "Crear una lista de tareas",
+    "align_left_description": "Alinear el texto a la izquierda",
+    "align_center_description": "Alinear el texto al centro",
+    "align_right_description": "Alinear el texto a la derecha",
+    "justify_description": "Justificar la alineación del texto",
+    "admonition_description": "Inserta una nueva admonición",
+    "collapsible_description": "Insertar una sección conmutable que oculta o muestra el contenido al hacer clic.",
+    "footnote_description": "Crear una nueva nota al pie y referenciarla aquí",
+    "datetime_description": "Insertar la fecha y hora actuales",
+    "internal_link_description": "Insertar un enlace a otra nota de Trilium",
+    "math_description": "Insertar una ecuación matemática",
+    "include_note_description": "Mostrar el contenido de otra nota en esta nota",
+    "page_break_description": "Insertar un salto de página (para impresión)",
+    "markdown_import_description": "Importar un archivo Markdown a esta nota",
+    "anchor_description": "Insertar un ancla para enlaces internos"
+  },
+  "save_revision": {
+    "save_revision": "Guardar revisión",
+    "revision_name_placeholder": "Nombre de la revisión (opcional)",
+    "help": "Se guardará una revisión con nombre de cada nota coincidente, capturando su contenido y título actuales."
+  },
+  "convert_note": {
+    "convert_note": "Convertir",
+    "convert_note_to": "Convertir nota",
+    "choose_conversion": "(elija una conversión)",
+    "conversion_htmlToMarkdown": "Notas de texto → Notas Markdown (con pérdida)",
+    "conversion_markdownToHtml": "Notas Markdown → Notas de texto",
+    "help_text": "La conversión se aplica solo a las notas que coinciden con el tipo de origen; las demás no se modifican. Antes se guarda una revisión de cada nota convertida.",
+    "warning": "Es posible que se pierda parte del formato al convertir notas y que deba corregir algunos detalles después. Se guardará de antemano una revisión de cada nota convertida para que pueda restaurarla. ¿Desea continuar?",
+    "warning_risky": "Está convirtiendo entre dos formatos que no tienen las mismas capacidades, por lo que puede perderse parte del formato y omitirse algunos elementos no admitidos.<br><br>¿Asume plenamente este riesgo y desea proceder con la conversión?<br><br>Se guardará de antemano una revisión de cada nota convertida, de modo que pueda volver al formato original."
+  },
+  "options": {
+    "title": "Opciones",
+    "back": "Volver a todas las opciones"
+  },
+  "image_buttons": {
+    "zoom_in": "Acercar",
+    "zoom_out": "Alejar",
+    "reset_zoom": "Restablecer zoom"
+  },
+  "image_navigation": {
+    "previous": "Imagen anterior: {{- title}}",
+    "next": "Imagen siguiente: {{- title}}"
+  },
+  "image_viewer": {
+    "loading_error": "Se produjo un error al cargar la imagen.",
+    "hints": {
+      "zoom": "Zoom",
+      "zoom_in": "Acercar",
+      "zoom_out": "Alejar",
+      "reset_zoom": "Restablecer zoom",
+      "pan": "Desplazar",
+      "pan_up": "Arriba",
+      "pan_down": "Abajo",
+      "pan_left": "Izquierda",
+      "pan_right": "Derecha",
+      "pan_fast": "Desplazamiento más rápido",
+      "navigation": "Navegación",
+      "next_image": "Imagen siguiente",
+      "previous_image": "Imagen anterior",
+      "first_image": "Primera imagen",
+      "last_image": "Última imagen"
+    }
+  },
+  "shortcut_hints": {
+    "show_button": "Mostrar sugerencias de atajos",
+    "esc_hint": "para cerrar"
+  },
+  "split_editor": {
+    "render_error": "No se pudo renderizar la vista previa",
+    "show_details": "Mostrar detalles",
+    "last_valid_render": "Mostrando el último renderizado válido"
+  },
+  "icon_pack": {
+    "preview_title": "Vista previa del paquete de iconos",
+    "invalid_manifest": "No se pudo analizar el manifiesto del paquete de iconos. Compruebe que sea JSON válido.",
+    "no_icons": "Este paquete de iconos no contiene iconos.",
+    "tooltip": "Clase: {{- class}}\nCódigo del glifo: {{- code}}\nTérminos: {{- terms}}",
+    "count_one": "{{count}} icono",
+    "count_many": "",
+    "count_other": ""
+  },
+  "blob_stub": {
+    "not_synced": "El contenido de esta nota es demasiado grande para sincronizarlo con este dispositivo. Puede abrirlo en el servidor de sincronización en su lugar.",
+    "open_on_server": "Abrir en el servidor"
+  },
+  "desktop": {
+    "web_placeholder": "Estas opciones solo se aplican a las compilaciones de escritorio."
+  },
+  "startup": {
+    "title": "Inicio",
+    "launch_on_startup": "Iniciar al arrancar el sistema",
+    "launch_on_startup_description": "Abrir Trilium automáticamente cuando inicie sesión en su equipo.",
+    "hide_on_auto_start": "Iniciar minimizado en la bandeja del sistema",
+    "hide_on_auto_start_description": "Al iniciarse automáticamente al iniciar sesión, arrancar oculto en la bandeja del sistema en lugar de abrir una ventana. Requiere tener activados el inicio automático y el icono de la bandeja."
+  },
+  "security": {
+    "backend_scripting_title": "Scripts de backend",
+    "backend_scripting_section_description": "Los scripts de backend tienen acceso completo al servidor, incluido el sistema de archivos, la red y los comandos del sistema operativo. Pueden activarse mediante sincronización, importación o cualquier contenido que incluya atributos ejecutables. Los scripts de frontend siempre están habilitados, ya que se ejecutan en un contexto de navegador aislado (sandbox).",
+    "backend_scripting_label": "Ejecución de scripts de backend",
+    "backend_scripting_description": "Permitir la ejecución de scripts de backend (scripts de inicio, controladores de peticiones personalizados, controladores de eventos, scripts programados, etc.).",
+    "sql_console_title": "Consola SQL",
+    "sql_console_section_description": "La consola SQL permite ejecutar consultas SQL directas contra la base de datos. Puede usarse para leer datos confidenciales (p. ej., secretos de sincronización, claves de API) y alterar o eliminar cualquier dato. Un script de frontend malicioso también podría acceder a la API de la consola SQL de forma programática.",
+    "sql_console_label": "Consola SQL",
+    "sql_console_description": "Permitir la ejecución de consultas en la consola SQL.",
+    "lan_access_title": "Acceso de red",
+    "lan_access_section_description": "De forma predeterminada, la aplicación de escritorio es autónoma: la aplicación y sus notas compartidas no se sirven por la red, y solo las integraciones locales (web clipper, MCP, ETAPI) pueden acceder desde este equipo. Habilite esta opción para abrir la aplicación y las notas compartidas en un navegador, y para permitir que otros dispositivos se conecten —por ejemplo, para sincronizar—. Habilítela únicamente en redes de confianza.",
+    "lan_access_label": "Permitir acceso web y de red",
+    "lan_access_description": "Sirve la aplicación, las notas compartidas y las actualizaciones en vivo por HTTP: accesible desde un navegador en este equipo y desde otros dispositivos de su red. Si está desactivado, solo permanecen accesibles las integraciones locales (web clipper, MCP, ETAPI).",
+    "how_to_enable": "Cómo habilitarlo",
+    "server_config_hint": "Añada lo siguiente a su archivo config.ini:",
+    "server_env_hint": "O establezca la siguiente variable de entorno:",
+    "restart_required": "Se requiere reiniciar para que este cambio surta efecto.",
+    "restart_now": "Reiniciar la aplicación ahora"
+  },
+  "keyboard_shortcut_keys": {
+    "ctrl": "Ctrl",
+    "alt": "Alt",
+    "shift": "Mayús",
+    "meta": "Meta",
+    "enter": "Intro",
+    "escape": "Esc",
+    "delete": "Supr",
+    "backspace": "Retroceso",
+    "space": "Espacio",
+    "tab": "Tab",
+    "home": "Inicio",
+    "end": "Fin",
+    "page_up": "Re Pág",
+    "page_down": "Av Pág",
+    "insert": "Insert"
+  },
+  "full_content_width_switch": {
+    "title": "Ancho completo"
+  },
+  "show-help": "Mostrar ayuda",
+  "mobile_note_navigator": {
+    "back": "Subir un nivel",
+    "loading": "Cargando...",
+    "empty": "Esta nota no tiene hijas.",
+    "children_count_one": "{{count}} nota",
+    "children_count_many": "",
+    "children_count_other": "",
+    "add_child": "Añadir nota hija",
+    "more_actions": "Más acciones"
+  },
+  "link_embed": {
+    "play_video": "Reproducir vídeo",
+    "title": "Vista previa del enlace",
+    "url": "URL",
+    "insert": "Insertar",
+    "display": "Visualización",
+    "mode_inline": "En línea",
+    "mode_card": "Tarjeta",
+    "mode_embed": "Incrustar",
+    "mode_plain": "Enlace simple",
+    "edit_title": "Editar título",
+    "title_label": "Título",
+    "save": "Guardar"
+  },
+  "time_interval": {
+    "seconds_one": "{{count}} segundo",
+    "seconds_many": "",
+    "seconds_other": "",
+    "minutes_one": "{{count}} minuto",
+    "minutes_many": "",
+    "minutes_other": "",
+    "hours_one": "{{count}} hora",
+    "hours_many": "",
+    "hours_other": "",
+    "days_one": "{{count}} día",
+    "days_many": "",
+    "days_other": ""
+  },
+  "content_manager": {
+    "category_backend_scripts": "Scripts de backend",
+    "category_frontend_scripts": "Scripts de frontend",
+    "category_widgets": "Widgets personalizados",
+    "category_launcher_widgets": "Widgets de la barra de inicio",
+    "category_render_notes": "Notas de renderizado",
+    "category_themes": "Temas personalizados",
+    "category_custom_css": "CSS personalizado",
+    "category_icon_packs": "Paquetes de iconos",
+    "category_templates": "Plantillas",
+    "category_snippets": "Fragmentos",
+    "category_event_handlers": "Controladores de eventos",
+    "category_endpoints": "Endpoints personalizados",
+    "category_sharing": "Compartir",
+    "loading": "Recuperando contenido...",
+    "filter_placeholder": "Escriba texto para filtrar por título...",
+    "clear_filter": "Borrar filtro",
+    "item_menu": "Acciones",
+    "no_matches": "Ningún contenido activo coincide con el filtro.",
+    "toggle_enable": "Habilitar",
+    "toggle_disable": "Deshabilitar",
+    "property_category": "Categoría",
+    "item_count_one": "{{count}} elemento",
+    "item_count_many": "",
+    "item_count_other": "",
+    "property_trigger": "Disparador",
+    "property_instance": "Instancia",
+    "property_scope": "Ámbito",
+    "scope_workspace": "Espacio de trabajo",
+    "property_base_theme": "Tema base",
+    "property_prefix": "Prefijo",
+    "trigger_backend_startup": "Inicio de backend",
+    "trigger_frontend_startup": "Inicio de frontend",
+    "trigger_mobile_startup": "Inicio en móvil",
+    "trigger_hourly": "Cada hora",
+    "trigger_daily": "Diario",
+    "property_event": "Evento",
+    "property_kind": "Tipo",
+    "event_note_creation": "Nota creada",
+    "event_note_title_change": "Título modificado",
+    "event_note_change": "Nota modificada",
+    "event_note_content_change": "Contenido modificado",
+    "event_child_note_creation": "Nota hija creada",
+    "event_attribute_creation": "Atributo creado",
+    "event_attribute_change": "Atributo modificado",
+    "event_branch_creation": "Rama creada",
+    "event_branch_change": "Rama modificada",
+    "event_branch_deletion": "Rama eliminada",
+    "endpoint_request_handler": "Controlador de peticiones",
+    "endpoint_resource_provider": "Proveedor de recursos",
+    "share_raw": "En bruto",
+    "share_js": "JavaScript",
+    "share_html": "HTML",
+    "share_template": "Plantilla",
+    "view_mode": "Vista:",
+    "view_by_category": "Por categoría",
+    "view_by_location": "Por ubicación",
+    "sort_order": "Ordenar por",
+    "sort_by_title": "Título",
+    "sort_by_date_created": "Fecha de creación",
+    "no_items": "No se encontró contenido activo.",
+    "no_items_hint": "Los scripts, temas, plantillas y fragmentos que cree aparecerán aquí."
+  },
+  "dashboard_view": {
+    "refresh-widget": "Actualizar",
+    "remove-widget": "Quitar del panel",
+    "empty-hint": "Cualquier nota hija se convierte en un widget. Arrastre aquí una nota desde el árbol o cree una nueva."
+  },
+  "wizard": {
+    "back": "Atrás",
+    "next": "Siguiente",
+    "step_progress": "Paso {{current}} de {{total}}"
+  },
+  "snippet_badge": {
+    "label": "Fragmento de {{type}}",
+    "type_text": "Texto",
+    "type_code": "Código",
+    "tooltip": "Un trozo reutilizable de texto o código, pensado para insertarse en el editor (desde el menú de fragmentos de la barra de herramientas, o mediante un comando con barra)."
+  },
+  "set_password": {
+    "heading": "Establecer contraseña",
+    "description": "Antes de poder usar Trilium desde la web, debe establecer una contraseña. A continuación, utilizará esta contraseña para iniciar sesión.",
+    "password": "Contraseña",
+    "password-confirmation": "Confirmación de contraseña",
+    "button": "Establecer contraseña",
+    "password-too-short": "La contraseña debe tener al menos {{length}} caracteres.",
+    "passwords-dont-match": "Las contraseñas introducidas no coinciden."
+  },
+  "setup": {
+    "heading": "Empezar con Trilium",
+    "new-document": "Nueva base de conocimientos",
+    "new-document-description": "Comience con una base de conocimientos limpia y empiece de inmediato.",
+    "sync-from-desktop": "Conectar una aplicación de escritorio",
+    "sync-from-desktop-description": "Solo tiene una aplicación de escritorio de Trilium en otro dispositivo. Este dispositivo sincronizará sus datos desde esa aplicación de escritorio.",
+    "sync-from-server": "Conectar a un servidor existente",
+    "sync-from-server-description": "Tiene un servidor de Trilium en otro lugar (autoalojado o en la nube). Este dispositivo sincronizará sus datos desde ese servidor.",
+    "next": "Siguiente",
+    "init-in-progress": "Inicialización del documento en curso",
+    "redirecting": "En breve será redirigido a la aplicación.",
+    "title": "Configuración",
+    "sync-from-server-page-description": "Introduzca a continuación los datos de su servidor para conectar su espacio de trabajo existente.",
+    "sync-in-progress-title": "Sincronización en curso",
+    "sync-in-progress-description": "Su dispositivo ya está conectado y se están sincronizando los elementos.",
+    "sync-in-progress-banner": "Esto puede tardar un tiempo según el tamaño de sus notas. Por favor, no cambie a otra aplicación hasta que la sincronización haya finalizado.",
+    "button-back": "Atrás",
+    "button-finish-setup": "Finalizar configuración",
+    "sync-step-connecting": "Conectando al servidor",
+    "sync-step-syncing": "Sincronizando datos",
+    "sync-step-finalizing": "Configurando opciones",
+    "create-new-document-options-title": "¿Cómo desea comenzar?",
+    "create-new-document-options-with-demo": "Con contenido de demostración",
+    "create-new-document-options-with-demo-description": "Explore Trilium con contenido de ejemplo.",
+    "create-new-document-options-empty": "Vacía",
+    "create-new-document-options-empty-description": "Comience con una base de conocimientos en blanco. Puede importar notas de demostración más adelante.",
+    "create-new-document-title": "Preparando su base de conocimientos",
+    "create-new-document-description": "Esto solo tomará un momento.",
+    "sync-illustration-this-device": "Este dispositivo",
+    "sync-illustration-desktop-app": "Su aplicación de escritorio",
+    "sync-illustration-server": "Su servidor",
+    "sync-from-desktop-step1": "Abra su instancia de escritorio de Trilium Notes.",
+    "sync-from-desktop-step2": "En el menú de Trilium, haga clic en Opciones.",
+    "sync-from-desktop-step3": "Haga clic en la categoría Sincronización en el árbol de notas.",
+    "sync-from-desktop-step4": "Cambie la dirección de la instancia del servidor para que apunte a una de las direcciones de la derecha y haga clic en Guardar.",
+    "sync-from-desktop-step5": "Haga clic en el botón «Probar sincronización» para verificar que la conexión es correcta.",
+    "sync-from-desktop-warning": "Asegúrese de que ambos dispositivos estén en la misma red.",
+    "sync-from-desktop-waiting": "Esperando conexión...",
+    "sync-from-desktop-unreachable-title": "Otros dispositivos no pueden alcanzar este dispositivo",
+    "sync-from-desktop-unreachable-description": "Para sincronizar, el otro escritorio debe conectarse a este a través de la red. Por seguridad, esta aplicación de escritorio solo acepta conexiones desde este equipo, por lo que el otro escritorio aún no puede alcanzarlo. Permita el acceso de red a continuación: Trilium se reiniciará para aplicarlo.",
+    "sync-from-desktop-allow-access": "Permitir acceso de red y reiniciar",
+    "advanced-options": "Opciones avanzadas",
+    "sync-failed": "Error al sincronizar: {{- message}}",
+    "sync-failed-title": "Error de sincronización",
+    "sync-failed-description": "No se pudo completar la sincronización inicial. Puede reintentarlo o volver atrás para comprobar la dirección del servidor y las credenciales.",
+    "sync-failed-admonition-title": "El último intento de sincronización falló",
+    "sync-failed-hint": "Puede deberse a una dirección de servidor incorrecta, a un proxy que interfiere con la conexión o a que el servidor esté temporalmente inaccesible.",
+    "button-retry": "Reintentar",
+    "server-host": "Dirección del servidor de Trilium",
+    "server-host-placeholder": "https://<hostname>:<port>",
+    "server-password": "Contraseña",
+    "proxy-server": "Servidor proxy (opcional)",
+    "proxy-server-placeholder": "https://<hostname>:<port>",
+    "proxy-instruction": "Si deja la configuración del proxy en blanco, se usará el proxy del sistema.",
+    "dismiss-error": "Descartar error",
+    "wrong-password": "Contraseña incorrecta. Por favor, inténtelo de nuevo.",
+    "language": "Idioma",
+    "continue": "Continuar",
+    "your-ip-addresses": "Direcciones de este dispositivo"
+  },
+  "text-editor": {
+    "checkbox-tooltip": "Haga clic derecho o pulse {{- shortcut}} para cambiar el estado.",
+    "checkbox-tooltip-state-label": "Estado de la tarea:",
+    "checkbox-tooltip-state-unknown-suffix": "(definición ausente)",
+    "collapsible-body-placeholder": "Escriba aquí el contenido...",
+    "collapsible-button-label": "Bloque plegable",
+    "collapsible-handle-tooltip": "Arrastre para reposicionar el bloque plegable",
+    "collapsible-select-label": "Seleccionar bloque plegable",
+    "collapsible-title-placeholder": "Resumen",
+    "collapsible-toggle-label": "Alternar bloque plegable",
+    "collapsible-tooltip": "Haga clic en la flecha o pulse {{- shortcut}} para plegar o expandir.",
+    "edit-states-tooltip": "Editar estados de tarea",
+    "unknown-task-state": "Estado de tarea personalizado no definido",
+    "task-state-dropped-title": "Estados de tarea no válidos",
+    "task-state-dropped-message_one": "Una definición personalizada de estado de tarea no es válida y se ha ignorado.",
+    "task-state-dropped-message_many": "",
+    "task-state-dropped-message_other": "",
+    "task-state-dropped-heading": "Definiciones ignoradas:",
+    "task-state-dropped-configure": "Configurar estados de tarea",
+    "validation-errors": {
+      "undefined-name": "identificador no definido",
+      "invalid-name": "identificador no válido",
+      "duplicate-name": "identificador duplicado",
+      "missing-title": "falta el título",
+      "missing-icon": "falta el icono",
+      "invalid-symbol": "el símbolo Markdown debe ser un carácter, excepto «[», « », «X» y «]»",
+      "duplicate-symbol": "símbolo Markdown duplicado"
+    }
   }
 }
