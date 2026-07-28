@@ -103,12 +103,14 @@ describe("promoted_attribute_definition_parser.parse", () => {
 });
 
 describe("promoted_attribute_definition_parser.serialize", () => {
-    it("writes the promoted flag and its alias, the alias only when promoted", () => {
+    it("writes the promoted flag and the alias independently of each other", () => {
         expect(serialize({ isPromoted: true, promotedAlias: "Foo" }, "label"))
             .toBe("promoted,alias=Foo,single,text");
 
-        // An alias is meaningless without the flag, so it is left out.
-        expect(serialize({ promotedAlias: "Foo" }, "label")).toBe("single,text");
+        // The alias is read by the table view and the attribute list as well, neither of which asks
+        // whether the attribute is promoted, so it is written whether or not the flag is set.
+        expect(serialize({ promotedAlias: "Foo" }, "label")).toBe("alias=Foo,single,text");
+        expect(serialize({ isPromoted: true }, "label")).toBe("promoted,single,text");
     });
 
     it("falls back to the multiplicity and label type the consumers assume", () => {

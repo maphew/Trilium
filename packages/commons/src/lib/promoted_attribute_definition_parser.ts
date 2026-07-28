@@ -80,10 +80,12 @@ function serialize(definition: DefinitionObject, valueType: "label" | "relation"
 
     if (definition.isPromoted) {
         props.push("promoted");
+    }
 
-        if (definition.promotedAlias) {
-            props.push(`alias=${definition.promotedAlias}`);
-        }
+    // Not only the promoted field's label: the table view titles its columns with it and the attribute
+    // list names its values by it, neither of which asks whether the attribute is promoted.
+    if (definition.promotedAlias) {
+        props.push(`alias=${definition.promotedAlias}`);
     }
 
     props.push(definition.multiplicity ?? "single");
