@@ -19,10 +19,10 @@ import NoteContextAwareWidget from "../note_context_aware_widget.js";
 import { Badge, BadgeWithDropdown } from "../react/Badge.jsx";
 import Button from "../react/Button.jsx";
 import FormAutocomplete, { AUTOCOMPLETE_DROPDOWN_SELECTOR } from "../react/FormAutocomplete.jsx";
-import FormCheckbox from "../react/FormCheckbox.jsx";
 import { FormDropdownDivider, FormListItem } from "../react/FormList.jsx";
 import FormSelect from "../react/FormSelect.jsx";
 import FormTextBox, { FormTextBoxWithUnit } from "../react/FormTextBox.jsx";
+import FormToggle from "../react/FormToggle.jsx";
 import HelpButton from "../react/HelpButton.jsx";
 import NoteAutocomplete from "../react/NoteAutocomplete.jsx";
 import NoteLink, { NewNoteLink } from "../react/NoteLink.jsx";
@@ -442,10 +442,9 @@ function AttributeForm({ opts, attrType, currentNoteId, onCancel, onAttributesCh
 
                     {isDefinition(attrType) && (
                         <tr class="attr-row-promoted" title={t("attribute_detail.promoted_title")}>
-                            <th />
+                            <th>{t("attribute_detail.promoted")}</th>
                             <td>
-                                <FormCheckbox
-                                    label={t("attribute_detail.promoted")}
+                                <FormToggle
                                     currentValue={!!definition.isPromoted}
                                     disabled={!isOwned}
                                     onChange={(isPromoted) => commitDefinition({ isPromoted })}
@@ -540,11 +539,10 @@ function AttributeForm({ opts, attrType, currentNoteId, onCancel, onAttributesCh
                         </tr>
                     )}
 
-                    <tr title={t("attribute_detail.inheritable_title")}>
-                        <th />
+                    <tr class="attr-row-inheritable" title={t("attribute_detail.inheritable_title")}>
+                        <th>{t("attribute_detail.inheritable")}</th>
                         <td>
-                            <FormCheckbox
-                                label={t("attribute_detail.inheritable")}
+                            <FormToggle
                                 currentValue={isInheritable}
                                 disabled={!isOwned}
                                 onChange={(checked) => {

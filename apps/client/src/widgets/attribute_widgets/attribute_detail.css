@@ -31,8 +31,10 @@
     text-align: start;
 }
 
-.attr-edit-table td input[type="checkbox"] {
-    display: inline-block;
+/* The switch carries no label of its own here — the row header names it, as it does for every
+   other field — so it does not need the gap it would otherwise keep for one. */
+.attr-edit-table .switch-button {
+    margin-inline-start: 0;
 }
 
 /* The title takes the leftover room, so the badge follows it and the close button stays at the end. */
