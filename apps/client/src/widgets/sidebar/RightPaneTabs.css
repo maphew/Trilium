@@ -1,0 +1,60 @@
+/*
+ * The tab strip is also the pane's header row: the pin/close actions are absolutely positioned over
+ * its end (see RightPanelContainer.css), so it keeps that much room free of tabs.
+ */
+.right-pane-tabs {
+    --right-pane-tab-size: 28px;
+
+    display: flex;
+    align-items: stretch;
+    gap: 2px;
+    flex-shrink: 0;
+    height: var(--right-pane-header-height);
+    padding-inline: 4px;
+    padding-inline-end: 84px;
+    border-bottom: 1px solid var(--main-border-color);
+    /* More tabs than the pane is wide for is possible at the smallest widths; they scroll rather than
+       wrap, which would break the fixed header height. */
+    overflow-x: auto;
+    overflow-y: hidden;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+        display: none;
+    }
+
+    /* Every tab is the same square: nothing but the icon is in it, centred on both axes. */
+    .right-pane-tab {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex: 0 0 auto;
+        width: var(--right-pane-tab-size);
+        padding: 0;
+        border: none;
+        border-bottom: 2px solid transparent;
+        /* The bottom border is the selected tab's indicator, so the corners it runs between are kept
+           square: rounding them curls both of its ends up, away from the strip's own border. */
+        border-end-start-radius: 0;
+        border-end-end-radius: 0;
+        background: none;
+        color: var(--muted-text-color);
+        cursor: pointer;
+    }
+
+    .right-pane-tab:hover {
+        color: var(--main-text-color);
+    }
+
+    .right-pane-tab.active {
+        border-bottom-color: currentcolor;
+        color: var(--main-text-color);
+    }
+
+    .right-pane-tab-icon {
+        font-size: 1.1em;
+        /* The glyph is what is being centred: themes centre icons with `text-align`, which leaves it on
+           the text baseline of its span rather than in the middle of the square. */
+        line-height: 1;
+    }
+}

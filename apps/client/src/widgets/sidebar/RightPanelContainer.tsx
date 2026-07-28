@@ -14,7 +14,7 @@ import { DEFAULT_GUTTER_SIZE } from "../../services/resizer";
 import { isStandalone } from "../../services/utils";
 import ActionButton from "../react/ActionButton";
 import Button from "../react/Button";
-import { useActiveNoteContext, useGetContextData, useLegacyWidget, useNoteProperty, useTriliumEvent, useTriliumOptionBool, useTriliumOptionJson } from "../react/hooks";
+import { useActiveNoteContext, useGetContextData, useLegacyWidget, useNoteProperty, useTriliumEvent, useTriliumOption, useTriliumOptionBool, useTriliumOptionJson } from "../react/hooks";
 import LazyComponent from "../react/LazyComponent";
 import NoItems from "../react/NoItems";
 import { PaneMode, usePaneMode, usePeekDismiss } from "../react/peek_pane";
@@ -28,26 +28,63 @@ import PdfLayers from "./pdf/PdfLayers";
 import PdfPages from "./pdf/PdfPages";
 import RightPanelWidget from "./RightPanelWidget";
 import RightPanePeekButton from "./RightPanePeekButton";
+import RightPaneTabs, { RIGHT_PANE_TABS, RightPaneTabDefinition, RightPaneTabId } from "./RightPaneTabs";
 import TableOfContents from "./TableOfContents";
 
 const MIN_WIDTH_PERCENT = 5;
 const MAX_WIDTH_PERCENT = 90;
 
-interface RightPanelWidgetDefinition {
+export interface RightPanelWidgetDefinition {
     el: VNode;
     enabled: boolean;
     position?: number;
+    /** Which tab of the pane the widget belongs in. */
+    tab: RightPaneTabId;
+}
+
+export interface RightPaneTabContents extends RightPaneTabDefinition {
+    /** The enabled widgets of this tab, in the order they are shown. Never empty. */
+    items: VNode[];
 }
 
 export default function RightPanelContainer({ widgetsByParent }: { widgetsByParent: WidgetsByParent }) {
     const { mode, visible, mounted, togglePeek, toggleDocked, dock, close, dismiss } = usePaneMode("rightPaneVisible");
-    const items = useItems(mounted, widgetsByParent);
+    const tabs = useItems(mounted, widgetsByParent);
+    const [ selectedTabId, setSelectedTabId ] = useTriliumOption("rightPaneSelectedTab");
     useSplit(mode);
+
+    // The chosen tab may have nothing to show for this note (or may have gone away entirely, e.g. the
+    // chat once AI is switched off), in which case the first one that does stands in — without
+    // overwriting the choice, so it is back as soon as the note has that tab again.
+    const activeTab = tabs.find((tab) => tab.id === selectedTabId) ?? tabs[0];
+
+    // A tab's widgets are mounted when it is first opened and kept mounted afterwards: switching back
+    // is instant and stateful (a chat in progress survives it), while a tab never opened costs
+    // nothing — which is what keeps the LLM chat's bundle out of the pane until it is asked for.
+    const openedTabs = useRef(new Set<RightPaneTabId>());
+    if (activeTab) {
+        openedTabs.current.add(activeTab.id);
+    }
 
     // Legacy entry points (tab-row toggle, empty-state button) open/close the *docked* pane;
     // the keyboard shortcut peeks it (same as clicking the peek button).
     useTriliumEvent("toggleRightPane", toggleDocked);
     useTriliumEvent("peekRightPane", togglePeek);
+
+    // An entry point aimed at one tab (the chat launcher): it opens the pane on that tab, brings it to
+    // the front if the pane is already open on another one, and closes it if it is the tab on show —
+    // so the button it comes from keeps behaving like a toggle for its own tab.
+    useTriliumEvent("selectRightPaneTab", ({ tabId }) => {
+        if (visible && activeTab?.id === tabId) {
+            close();
+            return;
+        }
+
+        void setSelectedTabId(tabId);
+        if (!visible) {
+            toggleDocked();
+        }
+    });
 
     // Outside-press / Esc *soft*-dismisses the peek: it hides but stays mounted, so re-peeking is
     // instant and preserves widget state. The × button and the docked toggle hard-close (unmount).
@@ -81,8 +118,24 @@ export default function RightPanelContainer({ widgetsByParent }: { widgetsByPare
                         </div>
                     )}
                     {mounted && (
-                        items.length > 0 ? (
-                            items
+                        tabs.length > 0 ? (
+                            <>
+                                <RightPaneTabs
+                                    tabs={tabs}
+                                    activeTabId={activeTab?.id}
+                                    onSelect={(tabId) => void setSelectedTabId(tabId)}
+                                />
+
+                                {tabs.filter((tab) => openedTabs.current.has(tab.id)).map((tab) => (
+                                    <div
+                                        key={tab.id}
+                                        role="tabpanel"
+                                        class={clsx("right-pane-tab-body", tab.id !== activeTab?.id && "hidden-ext")}
+                                    >
+                                        {tab.items}
+                                    </div>
+                                ))}
+                            </>
                         ) : (
                             <NoItems
                                 icon="bx bx-sidebar"
@@ -104,7 +157,7 @@ export default function RightPanelContainer({ widgetsByParent }: { widgetsByPare
     );
 }
 
-function useItems(rightPaneVisible: boolean, widgetsByParent: WidgetsByParent) {
+function useItems(rightPaneVisible: boolean, widgetsByParent: WidgetsByParent): RightPaneTabContents[] {
     const { note } = useActiveNoteContext();
     const noteType = useNoteProperty(note, "type");
     const noteMime = useNoteProperty(note, "mime");
@@ -120,58 +173,78 @@ function useItems(rightPaneVisible: boolean, widgetsByParent: WidgetsByParent) {
     const definitions: RightPanelWidgetDefinition[] = [
         {
             el: <AttributeList />,
-            enabled: !!note
+            enabled: !!note,
+            tab: "attributes"
         },
         {
             el: <TableOfContents />,
             enabled: (noteType === "text" || noteType === "doc" || isPdf || noteType === "llmChat" || !!note?.isMarkdown()),
+            tab: "outline"
         },
         {
             el: <PdfPages />,
             enabled: isPdf,
+            tab: "outline"
         },
         {
             el: <PdfAttachments />,
             enabled: isPdf,
+            tab: "outline"
         },
         {
             el: <PdfLayers />,
             enabled: isPdf,
+            tab: "outline"
         },
         {
             el: <PdfAnnotations />,
             enabled: isPdf,
+            tab: "outline"
         },
         {
             el: <HighlightsList />,
             enabled: noteType === "text" && highlightsList.length > 0,
+            tab: "outline"
         },
         {
             el: <ChatHighlightsList />,
             enabled: noteType === "llmChat" && (chatHighlights?.highlights.length ?? 0) > 0,
+            tab: "outline"
         },
         {
             // Loaded lazily because the chat pulls in the whole LLM + CKEditor graph,
             // which users without the LLM experimental feature should never download.
             el: <LazyComponent loader={() => import("./SidebarChat.jsx")} />,
             enabled: noteType !== "llmChat" && !isStandalone && aiEnabled,
-            position: 1000
+            position: 1000,
+            tab: "chat"
         },
         ...widgetsByParent.getLegacyWidgets("right-pane").map((widget) => ({
             el: <CustomLegacyWidget key={widget._noteId} originalWidget={widget as LegacyRightPanelWidget} />,
             enabled: true,
-            position: widget.position
+            position: widget.position,
+            tab: "widgets" as const
         })),
         ...widgetsByParent.getPreactWidgets("right-pane").map((widget) => {
             const El = widget.render;
             return {
                 el: <El />,
                 enabled: true,
-                position: widget.position
+                position: widget.position,
+                tab: "widgets" as const
             };
         })
     ];
 
+    return groupIntoTabs(definitions);
+}
+
+/**
+ * Splits the enabled widgets into the pane's tabs, each in position order. A tab with no enabled
+ * widget is dropped rather than shown empty, which is what makes the strip follow the note: a plain
+ * image note offers attributes alone, a PDF the whole outline.
+ */
+export function groupIntoTabs(definitions: RightPanelWidgetDefinition[]): RightPaneTabContents[] {
     // Assign a position to items that don't have one yet.
     let pos = 10;
     for (const definition of definitions) {
@@ -181,10 +254,13 @@ function useItems(rightPaneVisible: boolean, widgetsByParent: WidgetsByParent) {
         }
     }
 
-    return definitions
+    const enabled = definitions
         .filter(e => e.enabled)
-        .toSorted((a, b) => (a.position ?? 10) - (b.position ?? 10))
-        .map(e => e.el);
+        .toSorted((a, b) => (a.position ?? 10) - (b.position ?? 10));
+
+    return RIGHT_PANE_TABS
+        .map((tab) => ({ ...tab, items: enabled.filter((e) => e.tab === tab.id).map((e) => e.el) }))
+        .filter((tab) => tab.items.length > 0);
 }
 
 function useSplit(mode: PaneMode) {

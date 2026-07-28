@@ -2998,7 +2998,11 @@
     "hide": "Hide right pane",
     "dock": "Dock panel",
     "close": "Close panel",
-    "custom_widget_go_to_source": "Go to source code"
+    "custom_widget_go_to_source": "Go to source code",
+    "tab_outline": "Outline",
+    "tab_attributes": "Attributes",
+    "tab_chat": "AI chat",
+    "tab_widgets": "Widgets"
   },
   "print_preview": {
     "title": "Print preview",
