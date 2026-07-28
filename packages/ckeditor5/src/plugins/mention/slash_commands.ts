@@ -108,6 +108,15 @@ export default class TriliumSlashCommands extends Plugin {
     }
 }
 
+// `EditorConfig.slashCommand` used to be typed by premium's `@ckeditor/ckeditor5-slash-command`
+// augmentation, which reached the type graph via a premium type import. Now that Trilium owns the
+// `/` palette (and no longer statically imports premium types), declare the config shape here.
+declare module "ckeditor5" {
+    interface EditorConfig {
+        slashCommand?: SlashCommandConfig;
+    }
+}
+
 /**
  * Whether an entry should be offered for the caret's current position.
  *

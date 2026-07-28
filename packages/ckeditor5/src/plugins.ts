@@ -30,6 +30,7 @@ import { Math, AutoformatMath } from "@triliumnext/ckeditor5-math";
 import CopyAnchorLinkButton from "./plugins/copy_anchor_link.js";
 import CopyLinkUrlButton from "./plugins/copy_link_url.js";
 import ImageActions from "./plugins/image_actions.js";
+import TriliumSnippets from "./plugins/snippets/snippets.js";
 
 // import "@triliumnext/ckeditor5-mermaid/index.css";
 // import "@triliumnext/ckeditor5-admonition/index.css";
@@ -89,6 +90,7 @@ const TRILIUM_PLUGINS: typeof Plugin[] = [
     CopyAnchorLinkButton,
     CopyLinkUrlButton,
     ImageActions,
+    TriliumSnippets,
 ];
 
 /**
@@ -140,18 +142,21 @@ export const CHAT_INPUT_PLUGINS: typeof Plugin[] = [
 /**
  * Dynamically loads plugins that require a premium CKEditor license key.
  * This avoids loading ~6 seconds of premium features code during initial app startup.
+ *
+ * Every premium plugin Trilium used now has a GPL in-tree replacement, so this currently loads
+ * nothing at all — neither the premium bundle nor its CSS is fetched:
+ *
+ * - `SlashCommand` `requires` the `Mention` façade, which loads upstream's `MentionUI` next to
+ *   `TriliumMentionUI` and leaves the two fighting over the same balloon. `TriliumSlashCommands`
+ *   provides `/` instead.
+ * - `FormatPainter` is replaced by `TriliumFormatPainter`, built on the public `isFormatting`
+ *   schema flag.
+ * - `Template` is replaced by `TriliumSnippets` (see `plugins/snippets/`), which additionally
+ *   supports live reloading of the snippet list — the premium plugin baked its definitions in at
+ *   startup, forcing an editor rebuild on any change.
  */
 export async function loadPremiumPlugins(): Promise<(typeof Plugin)[]> {
-    // `SlashCommand` is deliberately not among them: it `requires` the `Mention` façade, which loads
-    // upstream's `MentionUI` next to `TriliumMentionUI` and leaves the two fighting over the same
-    // balloon. `TriliumSlashCommands` provides `/` instead, for premium and GPL builds alike.
-    //
-    // `FormatPainter` is likewise gone: the GPL `TriliumFormatPainter` (built on the public
-    // `isFormatting` schema flag) replaces it, so only `Template` still needs the premium licence.
-    const { Template } = await import('ckeditor5-premium-features');
-    // Also load the CSS when premium features are used
-    await import('ckeditor5-premium-features/ckeditor5-premium-features.css');
-    return [Template];
+    return [];
 }
 
 /**
