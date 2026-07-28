@@ -1,3 +1,4 @@
+import { userEvent } from "vitest/browser";
 import {
     Bold,
     type ButtonView,
@@ -121,6 +122,51 @@ describe("FormatPainterUI", () => {
             setModelData(editor.model, "<paragraph>[bar]</paragraph>");
             paintClick();
             expect(model()).toContain("<paragraph>bar</paragraph>");
+        });
+
+        // The tests above drive `mouseup` synthetically, with the model selection already moved, so
+        // they cannot show whether a *real* pointer interaction has updated the model selection by
+        // the time the DOM `mouseup` listener runs. It has: the browser dispatches the queued
+        // `selectionchange` (which CKEditor converts to a model selection synchronously) before it
+        // dispatches `mouseup`. These two run in a real Chrome, so a regression here — a paint that
+        // lands on the pre-click selection — turns the suite red rather than shipping.
+        it("paints onto a real click's selection, not the one it replaced", async () => {
+            setModelData(editor.model,
+                "<paragraph><$text bold=\"true\">[foo]</$text></paragraph><paragraph>barbarbarbar</paragraph>");
+            button().fire("execute");
+
+            const target = root().children[1];
+            if (!(target instanceof HTMLElement)) {
+                throw new Error("target paragraph is not attached");
+            }
+            await userEvent.click(target);
+
+            // Collapsed target: the format arrives as selection attributes, in the clicked paragraph.
+            const position = editor.model.document.selection.getFirstPosition();
+            expect(position?.path[0]).toBe(1);
+            expect(editor.model.document.selection.getAttribute("bold")).toBe(true);
+        });
+
+        it("paints onto a real drag-selection", async () => {
+            setModelData(editor.model,
+                "<paragraph><$text bold=\"true\">[foo]</$text></paragraph>"
+                + "<paragraph>barbarbarbarbarbarba</paragraph><paragraph>bazbazbazbazbazbazba</paragraph>");
+            button().fire("execute");
+
+            const [ , second, third ] = Array.from(root().children);
+            if (!(second instanceof HTMLElement) || !(third instanceof HTMLElement)) {
+                throw new Error("target paragraphs are not attached");
+            }
+            // A real pointer press, move and release — i.e. a native text drag-select.
+            await userEvent.dragAndDrop(second, third);
+
+            const selection = editor.model.document.selection;
+            expect(selection.isCollapsed).toBe(false);
+            // The paint covered exactly what the drag selected, across the two paragraphs it spans.
+            const [ firstRange ] = [ ...selection.getRanges() ];
+            expect(model()).toContain("<$text bold=\"true\">");
+            expect(firstRange.start.path[0]).toBe(1);
+            expect(firstRange.end.path[0]).toBe(2);
         });
     });
 
