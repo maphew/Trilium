@@ -812,11 +812,17 @@ function formatAttributeForSearch({ type, name }: Attribute) {
     return `${type === "label" ? "#" : "~"}${name}`;
 }
 
+/**
+ * The two kinds of definition share a title: which of them it is now being one of the values of the
+ * type below, a title naming it too would say it twice and would rename the popup as the type is
+ * changed — while what the title is for is the distinction the form cannot show, between a value this
+ * note carries and a declaration of what the attribute it names is for.
+ */
 const ATTR_TITLES: Record<string, string> = {
     label: t("attribute_detail.label"),
-    "label-definition": t("attribute_detail.label_definition"),
+    "label-definition": t("attribute_detail.definition"),
     relation: t("attribute_detail.relation"),
-    "relation-definition": t("attribute_detail.relation_definition")
+    "relation-definition": t("attribute_detail.definition")
 };
 
 const isNewLayout = isExperimentalFeatureEnabled("new-layout");
