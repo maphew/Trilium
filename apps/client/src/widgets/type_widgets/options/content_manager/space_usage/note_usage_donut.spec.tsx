@@ -40,7 +40,8 @@ const USAGE: SpaceUsageNoteResponse = {
         // Below 2% of the ring: consolidates into the "others" segment.
         { attachmentId: "tiny", title: "Tiny attachment", role: "file", size: 10 }
     ],
-    children: []
+    // One child, so the subtree figures are tellable apart from the note's own.
+    children: [ { noteId: "c1", subtreeSize: 4000, subtreeRevisionsSize: 500, subtreeNoteCount: 2 } ]
 };
 
 let container: HTMLDivElement | undefined;
@@ -110,12 +111,19 @@ describe("NoteUsageDonut", () => {
         });
     });
 
-    it("shows the deduplicated note and subtree sizes, with the actions above the title", () => {
+    it("totals each ring in the hole, with the actions above the title", () => {
         const probe = renderDonut();
         const center = probe.querySelector<HTMLElement>(".donut-chart-center");
         const values = [ ...probe.querySelectorAll(".note-usage-donut-size-value") ].map((el) => el.textContent);
 
-        expect(values).toEqual([ formatSize(150), formatSize(700) ]);
+        expect(values).toEqual([
+            // Body + attachments, what the composition ring draws — not the deduplicated 150.
+            formatSize(15010),
+            // This note's revisions plus the child subtree's, what the gray segment draws.
+            formatSize(3500),
+            // Both rings together, history excluded — not the deduplicated 700.
+            formatSize(19010)
+        ]);
         expect(center?.firstElementChild?.classList.contains("extra-action")).toBe(true);
     });
 });

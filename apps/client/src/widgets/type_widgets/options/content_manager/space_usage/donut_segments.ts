@@ -138,6 +138,19 @@ export function subtreeRevisionsSize(usage: SpaceUsageNoteResponse) {
     );
 }
 
+/** What the composition ring sums to: the note's body and its attachments, history excluded. */
+export function noteWeight(usage: SpaceUsageNoteResponse) {
+    return usage.ownSize + usage.attachmentsSize;
+}
+
+/**
+ * What the composition ring and the children ring's child segments sum to together — the subtree
+ * without its history, which the ring keeps as a segment of its own.
+ */
+export function subtreeWeight(usage: SpaceUsageNoteResponse) {
+    return usage.children.reduce((sum, child) => sum + child.subtreeSize, noteWeight(usage));
+}
+
 /** Replaces the segments below the given share of the ring's total with one inert "N more (size)". */
 function consolidateSmallSegments(
     segments: DonutSegment<UsageSegmentData>[],

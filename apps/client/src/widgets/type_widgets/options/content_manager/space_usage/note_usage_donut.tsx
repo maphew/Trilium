@@ -12,7 +12,14 @@ import { formatSize } from "../../../../../services/utils";
 import DonutChart, { type DonutRing } from "../../../../react/charts/DonutChart";
 import { useStaticTooltip } from "../../../../react/hooks";
 import { openNoteInNewTab } from "./context_menu";
-import { buildCompositionSegments, type UsageSegmentData, type UsageTooltipKind } from "./donut_segments";
+import {
+    buildCompositionSegments,
+    noteWeight,
+    subtreeRevisionsSize,
+    subtreeWeight,
+    type UsageSegmentData,
+    type UsageTooltipKind
+} from "./donut_segments";
 
 export const COMPOSITION_RING_RADIUS = 133;
 /** Half the children ring's: the note's own breakdown reads as the quieter, supporting ring. */
@@ -72,16 +79,26 @@ export default function NoteUsageDonut({ usage, title, notePath, outerRings = []
                 }}
                 onContextMenu={onTitleContextMenu}
             >{title}</a>
-            <SizeLine
-                i18nKey="space_usage.center_note_size"
-                hintKey="space_usage.center_note_size_hint"
-                size={usage.noteContentSize}
-            />
-            <SizeLine
-                i18nKey="space_usage.center_subtree_size"
-                hintKey="space_usage.center_subtree_size_hint"
-                size={usage.subtreeContentSize}
-            />
+            {/* Each line is the total of what surrounds it, so the hole reads as the rings' legend.
+                The deduplicated on-disk figures are the hints' business — they answer a different
+                question (what erasing would reclaim) and would not match any drawn area. */}
+            <div className="note-usage-donut-sizes">
+                <SizeLine
+                    i18nKey="space_usage.center_note_size"
+                    hint={t("space_usage.center_note_size_hint", { size: formatSize(usage.noteContentSize) })}
+                    size={noteWeight(usage)}
+                />
+                <SizeLine
+                    i18nKey="space_usage.center_revisions_size"
+                    hint={t("space_usage.center_revisions_size_hint")}
+                    size={subtreeRevisionsSize(usage)}
+                />
+                <SizeLine
+                    i18nKey="space_usage.center_subtree_size"
+                    hint={t("space_usage.center_subtree_size_hint", { size: formatSize(usage.subtreeContentSize) })}
+                    size={subtreeWeight(usage)}
+                />
+            </div>
         </DonutChart>
     );
 }
@@ -113,9 +130,9 @@ function RevisionsHatch() {
  * One labelled center line, the value emphasized, with the app's tooltip explaining what the figure
  * covers. `<Trans>` lets translations put the value wherever their wording needs it.
  */
-function SizeLine({ i18nKey, hintKey, size }: { i18nKey: string, hintKey: string, size: number }) {
+function SizeLine({ i18nKey, hint, size }: { i18nKey: string, hint: string, size: number }) {
     const ref = useRef<HTMLSpanElement>(null);
-    useStaticTooltip(ref, useMemo(() => ({ title: t(hintKey), placement: "bottom" }), [ hintKey ]));
+    useStaticTooltip(ref, useMemo(() => ({ title: hint, placement: "bottom" }), [ hint ]));
 
     return (
         <span ref={ref} className="note-usage-donut-size">

@@ -38,7 +38,7 @@
     }
 
     /* Keeps the text inside the hole (inner ring inner edge ≈ 21% in from the box edge); nudged
-       upward so the button + three text lines sit visually centered rather than sagging low. */
+       upward so the button + four text lines sit visually centered rather than sagging low. */
     .donut-chart-center {
         padding: 23%;
         gap: 2px;
@@ -58,9 +58,19 @@
         text-decoration: underline;
     }
 
+    /* The lines carry their own tight leading, so the block sets its own spacing: one gap above it,
+       and the center's own gap no longer stretches the lines apart. */
+    .note-usage-donut-sizes {
+        display: flex;
+        flex-direction: column;
+        margin-top: 8px;
+        gap: 2px;
+    }
+
     .note-usage-donut-size {
         opacity: 0.7;
         font-size: 0.85em;
+        line-height: 1;
     }
 
     .note-usage-donut-size-value {
