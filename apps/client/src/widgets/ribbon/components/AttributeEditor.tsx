@@ -2,6 +2,7 @@ import "./AttributeEditor.css";
 
 import type { AttributeEditor as CKEditorAttributeEditor, ModelElement, ModelNode, ModelPosition, TriliumMentionFeed } from "@triliumnext/ckeditor5";
 import { AttributeType } from "@triliumnext/commons";
+import clsx from "clsx";
 import { createPortal } from "preact/compat";
 import { MutableRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "preact/hooks";
 
@@ -28,6 +29,12 @@ import { useLegacyImperativeHandlers, useLegacyWidget, useTriliumEvent } from ".
 import AttributeHelp, { ATTRIBUTE_HELP_PAGE } from "./AttributeHelp";
 
 type AttributeCommandNames = FilteredCommandNames<CommandData>;
+
+/**
+ * How long the post-save blink runs for. Matches the animation in the CSS, and only serves to take the
+ * class back off again — shortening it would cut the animation short.
+ */
+const BLINK_DURATION = 300;
 
 // `preselectFirstItem: false` throughout: in this editor Enter means "save the attributes", so an
 // open panel must not silently swallow it into committing whichever suggestion happens to be first.
@@ -106,9 +113,11 @@ export default function AttributeEditor({ api, note, componentId, notePath, ntxI
     const [ currentValue, setCurrentValue ] = useState("");
     const [ error, setError ] = useState<unknown>();
     const [ needsSaving, setNeedsSaving ] = useState(false);
+    const [ isBlinking, setIsBlinking ] = useState(false);
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const suppressNextOnHide = useRef(false);
 
+    const blinkTimeout = useRef<ReturnType<typeof setTimeout>>();
     const lastSavedContent = useRef<string>();
     const currentValueRef = useRef(currentValue);
     const wrapperRef = useRef<HTMLDivElement>(null);
@@ -132,6 +141,8 @@ export default function AttributeEditor({ api, note, componentId, notePath, ntxI
     }, []);
 
     const [ attributeDetailWidgetEl, attributeDetailWidget ] = useLegacyWidget(() => new AttributeDetailWidget());
+
+    useEffect(() => () => clearTimeout(blinkTimeout.current), []);
 
     async function renderOwnedAttributes(ownedAttributes: FAttribute[], saved: boolean) {
         // attrs are not resorted if position changes after the initial load
@@ -171,14 +182,9 @@ export default function AttributeEditor({ api, note, componentId, notePath, ntxI
         setNeedsSaving(false);
 
         // blink the attribute text to give a visual hint that save has been executed
-        if (wrapperRef.current) {
-            wrapperRef.current.style.opacity = "0";
-            setTimeout(() => {
-                if (wrapperRef.current) {
-                    wrapperRef.current.style.opacity = "1";
-                }
-            }, 100);
-        }
+        setIsBlinking(true);
+        clearTimeout(blinkTimeout.current);
+        blinkTimeout.current = setTimeout(() => setIsBlinking(false), BLINK_DURATION);
     }
 
     async function handleAddNewAttributeCommand(command: AttributeCommandNames | undefined) {
@@ -292,7 +298,7 @@ export default function AttributeEditor({ api, note, componentId, notePath, ntxI
     return (
         <>
             {!hidden && <div
-                className="attribute-list-editor-wrapper"
+                className={clsx("attribute-list-editor-wrapper", isBlinking && "blink")}
                 ref={wrapperRef}
                 style="position: relative; padding-top: 10px; padding-bottom: 10px"
                 onKeyDown={(e) => {
