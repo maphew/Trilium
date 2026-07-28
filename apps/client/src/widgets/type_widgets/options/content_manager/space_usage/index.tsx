@@ -21,7 +21,10 @@ type SpaceUsageView = "overview" | "browse";
 export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionProps) {
     const [ view, setView ] = useState<SpaceUsageView>("overview");
     // Fetched in both views: the treemap consumes it, and the status line is view-independent.
-    const overview = useSpaceUsageFetch<SpaceUsageOverviewResponse>(`space-usage/overview?limit=${OVERVIEW_LIMIT}`);
+    // Revisions count towards the ranking because the treemap shows them in a cell's area — asking
+    // for one basis and drawing the other would hide notes whose weight is all history.
+    const overview = useSpaceUsageFetch<SpaceUsageOverviewResponse>(
+        `space-usage/overview?limit=${OVERVIEW_LIMIT}&includeRevisions=true`);
 
     return (
         <div className="space-usage-section">

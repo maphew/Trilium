@@ -1,4 +1,4 @@
-import type { SpaceUsageOverviewNote, SpaceUsageOverviewResponse } from "@triliumnext/commons";
+import type { SpaceUsageBucket, SpaceUsageOverviewNote, SpaceUsageOverviewResponse } from "@triliumnext/commons";
 
 import type { TreemapItem } from "../../../../react/charts/Treemap";
 
@@ -13,6 +13,11 @@ interface OverviewModelOptions {
     deletedNotesLabel: string;
     /** Folds revision sizes into each cell's weight. */
     includeRevisions: boolean;
+    /**
+     * Wording for the size a note cell contributes to its hover tooltip, given the weight its area
+     * encodes. Omit to leave the cells silent about their size.
+     */
+    makeSizeDetail?: (size: number) => string;
 }
 
 /**
@@ -28,7 +33,7 @@ interface OverviewModelOptions {
  */
 export function buildOverviewModel(
     overview: SpaceUsageOverviewResponse,
-    { otherNotesLabel, hiddenNotesLabel, deletedNotesLabel, includeRevisions }: OverviewModelOptions
+    { otherNotesLabel, hiddenNotesLabel, deletedNotesLabel, includeRevisions, makeSizeDetail }: OverviewModelOptions
 ): TreemapItem<OverviewCell> {
     const root: TreemapItem<OverviewCell> = { id: "root", children: [] };
     const nodesByNoteId = new Map<string, TreemapItem<OverviewCell>>();
@@ -64,11 +69,17 @@ export function buildOverviewModel(
     // nested self-cell depends on whether some later entry turned it into a group.
     for (const { node, entry, path } of entries) {
         const weight = weightOf(entry, includeRevisions);
-        const attributes = { "data-href": `#root/${path.join("/")}` };
 
         if (weight <= 0) {
             continue;
         }
+
+        const attributes = {
+            "data-href": `#root/${path.join("/")}`,
+            // The note preview tooltip shows this under the title, which is how a cell states its
+            // size without any text of its own — and without a second tooltip competing with it.
+            ...(makeSizeDetail ? { "data-tooltip-detail": makeSizeDetail(weight) } : {})
+        };
 
         if (node.children?.length) {
             node.children.push({
@@ -90,14 +101,14 @@ export function buildOverviewModel(
     root.children?.push(
         {
             id: "/other-notes",
-            value: overview.otherNotes.size + (includeRevisions ? overview.otherNotes.revisionsSize : 0),
+            value: bucketWeight(overview.otherNotes, includeRevisions),
             className: "treemap-cell-other",
             tooltip: otherNotesLabel,
             data: {}
         },
         {
             id: "/hidden-notes",
-            value: overview.hiddenNotes.size + (includeRevisions ? overview.hiddenNotes.revisionsSize : 0),
+            value: bucketWeight(overview.hiddenNotes, includeRevisions),
             className: "treemap-cell-hidden",
             tooltip: hiddenNotesLabel,
             data: {}
@@ -112,6 +123,14 @@ export function buildOverviewModel(
     );
 
     return root;
+}
+
+/**
+ * The area a bucket's cell takes. Exported so the caller's tooltip can quote the same figure the
+ * cell draws, rather than reproducing the rule and drifting from it.
+ */
+export function bucketWeight(bucket: SpaceUsageBucket, includeRevisions: boolean) {
+    return bucket.size + (includeRevisions ? bucket.revisionsSize : 0);
 }
 
 /**

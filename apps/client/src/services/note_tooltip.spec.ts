@@ -243,6 +243,22 @@ describe("renderTooltip", () => {
         expect(html).toContain('class="note-tooltip-attributes"');
     });
 
+    it("places a contributed detail between the title and the attributes, escaping it", async () => {
+        const note = fakeNote({ noteId: "n1", bestPath: "root/n1" });
+        const html = (await renderTooltip(note, "Size: 1.2 MiB <>")) as string;
+
+        expect(html).toContain('<div class="note-tooltip-detail">Size: 1.2 MiB &lt;&gt;</div>');
+        expect(html.indexOf("note-tooltip-title")).toBeLessThan(html.indexOf("note-tooltip-detail"));
+        expect(html.indexOf("note-tooltip-detail")).toBeLessThan(html.indexOf("note-tooltip-attributes"));
+    });
+
+    it("adds nothing when no detail was contributed", async () => {
+        const note = fakeNote({ noteId: "n1", bestPath: "root/n1" });
+
+        expect((await renderTooltip(note)) as string).not.toContain("note-tooltip-detail");
+        expect((await renderTooltip(note, "")) as string).not.toContain("note-tooltip-detail");
+    });
+
     it("omits the title heading when the path suffix resolves to empty", async () => {
         getNoteTitleWithPathAsSuffix.mockResolvedValue("");
         const note = fakeNote({ noteId: "n3", bestPath: "root/n3" });

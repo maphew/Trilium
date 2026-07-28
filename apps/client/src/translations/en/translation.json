@@ -2679,6 +2679,7 @@
     "others_notes_other": "{{count}} more notes ({{size}})",
     "others_attachments_one": "{{count}} more attachment ({{size}})",
     "others_attachments_other": "{{count}} more attachments ({{size}})",
+    "cell_size": "Size: {{size}}",
     "segment_tooltip": "{{- title}} ({{size}})",
     "attachment_tooltip": "Attachment: {{- title}} ({{size}})",
     "child_tooltip": "Child note: {{- title}} ({{size}})",

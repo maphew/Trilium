@@ -76,6 +76,10 @@ export async function mouseEnterHandler<T>(this: HTMLElement, e: JQuery.Triggere
         return;
     }
 
+    // An optional line the trigger element contributes about the note it links to — a size in a
+    // space-usage cell, say. Plain text: the element states a fact, it does not render markup.
+    const detail = $link.attr("data-tooltip-detail");
+
     let renderPromise;
     let note: FNote | null = null;
     // In-page anchors and footnotes are always bare `#fragment` references; a `?` means this is a
@@ -91,12 +95,12 @@ export async function mouseEnterHandler<T>(this: HTMLElement, e: JQuery.Triggere
         // transitively imports this module via the context menu).
         const { default: DeletedFNote } = await import("../entities/deleted_fnote.js");
         note = await DeletedFNote.load(noteId);
-        renderPromise = renderTooltip(note);
+        renderPromise = renderTooltip(note, detail);
     } else {
         // Default route: a live note. A missing note (deleted/erased) renders the "note has been
         // deleted" placeholder — content previews of deleted notes are opt-in via `data-note-deleted`.
         note = await froca.getNote(noteId);
-        renderPromise = renderTooltip(note);
+        renderPromise = renderTooltip(note, detail);
     }
 
     const [content] = await Promise.all([
@@ -162,7 +166,12 @@ export async function mouseEnterHandler<T>(this: HTMLElement, e: JQuery.Triggere
     }
 }
 
-export async function renderTooltip(note: FNote | null) {
+/**
+ * @param detail plain text the trigger element contributed about this note (see the `data-tooltip-detail`
+ *               attribute), shown under the title. Absent on the vast majority of links, which say
+ *               nothing beyond the note itself.
+ */
+export async function renderTooltip(note: FNote | null, detail?: string) {
     if (!note) {
         return `<div>${t("note_tooltip.note-has-been-deleted")}</div>`;
     }
@@ -204,6 +213,10 @@ export async function renderTooltip(note: FNote | null) {
                     <a href="#${note.noteId}" data-no-context-menu="true">${noteTitleWithPathAsSuffix.prop("outerHTML")}</a>
                 </h5>`;
         }
+    }
+
+    if (detail) {
+        content = `${content}<div class="note-tooltip-detail">${utils.escapeHtml(detail)}</div>`;
     }
 
     content = `${content}<div class="note-tooltip-attributes">${$renderedAttributes[0].outerHTML}</div>`;

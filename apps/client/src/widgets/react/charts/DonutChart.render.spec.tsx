@@ -93,9 +93,11 @@ describe("DonutChart rendering", () => {
         await flushRender();
         const tooltip = probe.querySelector<HTMLElement>(".chart-tooltip");
         expect(tooltip?.textContent).toBe("A tip");
-        // The Trilium look depends on riding the real tooltip classes.
+        // The Trilium look depends on riding the real tooltip classes; `tooltip-top` is what keeps
+        // the bubble above the hovered mark, which lifts itself to draw its outline.
         expect(tooltip?.classList.contains("tooltip")).toBe(true);
         expect(tooltip?.classList.contains("show")).toBe(true);
+        expect(tooltip?.classList.contains("tooltip-top")).toBe(true);
         // Positioned fixed, straight from the viewport coordinates, so no clipping ancestor cuts it.
         expect(tooltip?.style.left).toBe("30px");
         expect(tooltip?.style.top).toBe("40px");

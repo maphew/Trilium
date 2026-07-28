@@ -49,9 +49,12 @@ export function useChartTooltip<T extends HTMLElement>() {
         tooltipNode: tooltip && (
             // The `tooltip show` classes matter: the themes set the colours on `.tooltip` and scope
             // the text colour to `.tooltip .tooltip-inner`, so a bare inner would inherit the page's.
+            // `tooltip-top` is the app's "raise above everything" class: the base `.tooltip` z-index
+            // is derived from a CKEditor variable that is out of scope here, leaving the bubble at
+            // `auto` — under the hovered mark, which lifts itself to draw its outline.
             <div
                 className={clsx(
-                    "tooltip", "show", "chart-tooltip",
+                    "tooltip", "show", "tooltip-top", "chart-tooltip",
                     tooltip.flipX && "chart-tooltip-flip-x",
                     tooltip.flipY && "chart-tooltip-flip-y"
                 )}

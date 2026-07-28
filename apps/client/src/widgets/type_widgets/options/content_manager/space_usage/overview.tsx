@@ -3,18 +3,32 @@ import { useMemo } from "preact/hooks";
 
 import appContext from "../../../../../components/app_context";
 import { t } from "../../../../../services/i18n";
+import { formatSize } from "../../../../../services/utils";
 import Treemap, { type TreemapItem } from "../../../../react/charts/Treemap";
-import { buildOverviewModel, type OverviewCell } from "./overview_model";
+import { bucketWeight, buildOverviewModel, type OverviewCell } from "./overview_model";
+
+/** A cell's area covers a note's whole weight, history included; its tooltip says the same. */
+const INCLUDE_REVISIONS = true;
 
 /** The treemap over the whole database: every large note at its tree location. */
 export default function Overview({ overview }: { overview: SpaceUsageOverviewResponse }) {
     // The labels are formatted here rather than in the model, which stays free of i18n: a bucket
-    // stands for a crowd, so its tooltip names how many notes it holds.
+    // stands for a crowd, so its tooltip names how many notes it holds and how much they take.
     const model = useMemo(() => buildOverviewModel(overview, {
-        otherNotesLabel: t("space_usage.other_notes", { count: overview.otherNotes.noteCount }),
-        hiddenNotesLabel: t("space_usage.hidden_notes", { count: overview.hiddenNotes.noteCount }),
-        deletedNotesLabel: t("space_usage.deleted_notes", { count: overview.deletedNotes.noteCount }),
-        includeRevisions: false
+        otherNotesLabel: withSize(
+            t("space_usage.other_notes", { count: overview.otherNotes.noteCount }),
+            bucketWeight(overview.otherNotes, INCLUDE_REVISIONS)
+        ),
+        hiddenNotesLabel: withSize(
+            t("space_usage.hidden_notes", { count: overview.hiddenNotes.noteCount }),
+            bucketWeight(overview.hiddenNotes, INCLUDE_REVISIONS)
+        ),
+        deletedNotesLabel: withSize(
+            t("space_usage.deleted_notes", { count: overview.deletedNotes.noteCount }),
+            overview.deletedNotes.size
+        ),
+        includeRevisions: INCLUDE_REVISIONS,
+        makeSizeDetail: (size) => t("space_usage.cell_size", { size: formatSize(size) })
     }), [ overview ]);
 
     return (
@@ -22,6 +36,15 @@ export default function Overview({ overview }: { overview: SpaceUsageOverviewRes
             <Treemap<OverviewCell> root={model} onItemClick={openCellNote} />
         </div>
     );
+}
+
+/**
+ * "Other 1928 notes (512 MiB)" — the same "name (size)" wording the donut segments use, so a
+ * bucket reads alike wherever it appears. Composed here rather than baked into the count keys,
+ * which Browse reuses on its own and appends the size to itself.
+ */
+function withSize(name: string, size: number) {
+    return t("space_usage.segment_tooltip", { title: name, size: formatSize(size) });
 }
 
 /**

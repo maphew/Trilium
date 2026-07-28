@@ -25,7 +25,8 @@ function build(overview: SpaceUsageOverviewResponse, includeRevisions = false) {
         otherNotesLabel: "Other notes",
         hiddenNotesLabel: "Hidden notes",
         deletedNotesLabel: "Deleted notes",
-        includeRevisions
+        includeRevisions,
+        makeSizeDetail: (size) => `size:${size}`
     });
 }
 
@@ -49,7 +50,25 @@ describe("buildOverviewModel", () => {
         const leaf = childById(folder, "leaf");
         expect(leaf.value).toBe(120);
         expect(leaf.data).toEqual({ noteId: "leaf" });
-        expect(leaf.attributes).toEqual({ "data-href": "#root/folder/leaf" });
+        // The size rides along in the note preview tooltip rather than a second tooltip of its own.
+        expect(leaf.attributes).toEqual({
+            "data-href": "#root/folder/leaf",
+            "data-tooltip-detail": "size:120"
+        });
+    });
+
+    it("states the size its area encodes, and stays silent when no wording is given", () => {
+        const overview = response([ entry("a", [ "a" ], { ownSize: 5, revisionsSize: 7 }) ]);
+
+        expect(childById(build(overview, true), "a").attributes?.["data-tooltip-detail"]).toBe("size:12");
+
+        const silent = buildOverviewModel(overview, {
+            otherNotesLabel: "Other notes",
+            hiddenNotesLabel: "Hidden notes",
+            deletedNotesLabel: "Deleted notes",
+            includeRevisions: true
+        });
+        expect(childById(silent, "a").attributes).toEqual({ "data-href": "#root/a" });
     });
 
     it("colors cells by their parent: siblings share a hue, other groups get their own", () => {
@@ -80,7 +99,10 @@ describe("buildOverviewModel", () => {
         expect(selfCell.value).toBe(50);
         expect(selfCell.hue).toBe(hueOf("parent"));
         expect(selfCell.data).toEqual({ noteId: "parent" });
-        expect(selfCell.attributes).toEqual({ "data-href": "#root/parent" });
+        expect(selfCell.attributes).toEqual({
+            "data-href": "#root/parent",
+            "data-tooltip-detail": "size:50"
+        });
         expect(childById(parent, "child").value).toBe(10);
     });
 
