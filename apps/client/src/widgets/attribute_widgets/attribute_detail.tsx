@@ -434,43 +434,6 @@ function AttributeForm({ opts, attrType, currentNoteId, onCancel, onAttributesCh
                     </OptionsRow>
                 )}
 
-                {isDefinition(attrType) && (
-                    <OptionsRowWithToggle
-                        name="attr-promoted"
-                        label={t("attribute_detail.promoted")}
-                        description={t("attribute_detail.promoted_title")}
-                        currentValue={!!definition.isPromoted}
-                        disabled={!isOwned}
-                        onChange={(isPromoted) => commitDefinition({ isPromoted })}
-                    />
-                )}
-
-                {isDefinition(attrType) && definition.isPromoted && (
-                    <OptionsRow
-                        name="attr-promoted-alias"
-                        label={t("attribute_detail.promoted_alias")}
-                        description={t("attribute_detail.promoted_alias_title")}
-                    >
-                        <FormTextBox
-                            className="attr-input-promoted-alias"
-                            currentValue={definition.promotedAlias ?? ""}
-                            disabled={!isOwned}
-                            onChange={(promotedAlias) => commitDefinition({ promotedAlias })}
-                        />
-                    </OptionsRow>
-                )}
-
-                {isDefinition(attrType) && !opts.hideMultiplicity && (
-                    <OptionsRowWithToggle
-                        name="attr-multiplicity"
-                        label={t("attribute_detail.multiplicity")}
-                        description={t("attribute_detail.multiplicity_title")}
-                        currentValue={definition.multiplicity === "multi"}
-                        disabled={!isOwned}
-                        onChange={(multiple) => commitDefinition({ multiplicity: multiple ? "multi" : "single" })}
-                    />
-                )}
-
                 {attrType === "label-definition" && (
                     <OptionsRow
                         name="attr-label-type"
@@ -529,6 +492,23 @@ function AttributeForm({ opts, attrType, currentNoteId, onCancel, onAttributesCh
                     </OptionsRow>
                 )}
 
+                {/*
+                 * What is filled in comes first, what is switched on after it, so that the toggles read as
+                 * one block rather than as interruptions between the fields. Promotion comes last of the
+                 * three, its alias being a field that only exists while it is on: anywhere else in the
+                 * block, turning promotion on would push a field in between the toggles.
+                 */}
+                {isDefinition(attrType) && !opts.hideMultiplicity && (
+                    <OptionsRowWithToggle
+                        name="attr-multiplicity"
+                        label={t("attribute_detail.multiplicity")}
+                        description={t("attribute_detail.multiplicity_title")}
+                        currentValue={definition.multiplicity === "multi"}
+                        disabled={!isOwned}
+                        onChange={(multiple) => commitDefinition({ multiplicity: multiple ? "multi" : "single" })}
+                    />
+                )}
+
                 <OptionsRowWithToggle
                     name="attr-inheritable"
                     label={t("attribute_detail.inheritable")}
@@ -541,6 +521,32 @@ function AttributeForm({ opts, attrType, currentNoteId, onCancel, onAttributesCh
                         onAttributesChanged?.(allAttributes ?? []);
                     }}
                 />
+
+                {isDefinition(attrType) && (
+                    <OptionsRowWithToggle
+                        name="attr-promoted"
+                        label={t("attribute_detail.promoted")}
+                        description={t("attribute_detail.promoted_title")}
+                        currentValue={!!definition.isPromoted}
+                        disabled={!isOwned}
+                        onChange={(isPromoted) => commitDefinition({ isPromoted })}
+                    />
+                )}
+
+                {isDefinition(attrType) && definition.isPromoted && (
+                    <OptionsRow
+                        name="attr-promoted-alias"
+                        label={t("attribute_detail.promoted_alias")}
+                        description={t("attribute_detail.promoted_alias_title")}
+                    >
+                        <FormTextBox
+                            className="attr-input-promoted-alias"
+                            currentValue={definition.promotedAlias ?? ""}
+                            disabled={!isOwned}
+                            onChange={(promotedAlias) => commitDefinition({ promotedAlias })}
+                        />
+                    </OptionsRow>
+                )}
             </div>
 
             {isOwned && (
