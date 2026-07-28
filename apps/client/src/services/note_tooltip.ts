@@ -41,8 +41,17 @@ function setupElementTooltip($el: JQuery<HTMLElement>) {
     $el.on("pointerenter", mouseEnterHandler);
 }
 
+/**
+ * A context menu is what the pointer is dealing with while it is up — the element underneath it is
+ * only the menu's subject. `contextMenu.show()` dismisses the open tooltips, but the preview is
+ * delayed and async, so one already in flight when the menu opened would still land on top of it.
+ */
+function isContextMenuShown() {
+    return document.body.classList.contains("context-menu-shown");
+}
+
 export async function mouseEnterHandler<T>(this: HTMLElement, e: JQuery.TriggeredEvent<T, undefined, T, T>) {
-    if (e.pointerType !== "mouse") return;
+    if (e.pointerType !== "mouse" || isContextMenuShown()) return;
 
     const $link = $(this);
 
@@ -120,7 +129,8 @@ export async function mouseEnterHandler<T>(this: HTMLElement, e: JQuery.Triggere
     // we need to check if we're still hovering over the element
     // since the operation to get tooltip content was async, it is possible that
     // we now create tooltip which won't close because it won't receive mouseleave event
-    if ($link.filter(":hover").length > 0) {
+    // — or that a context menu was invoked in the meantime, which the preview must not cover.
+    if ($link.filter(":hover").length > 0 && !isContextMenuShown()) {
         $link.tooltip({
             container: "body",
             // https://github.com/zadam/trilium/issues/2794 https://github.com/zadam/trilium/issues/2988

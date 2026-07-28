@@ -95,6 +95,7 @@ beforeEach(() => {
 afterEach(() => {
     // Clear any tracked tooltip elements while the .tooltip stub is still installed.
     dismissAllTooltips();
+    document.body.classList.remove("context-menu-shown");
     $.fn.filter = origFilter;
     $.fn.is = origIs;
     delete ($.fn as any).tooltip;
@@ -337,6 +338,31 @@ describe("mouseEnterHandler", () => {
         parseNavigationStateFromUrl.mockReturnValue({ notePath: "p", noteId: "x", viewScope: { viewMode: "source" } });
         await mouseEnterHandler.call($link[0], eventFor($link));
         expect(($.fn as any).tooltip).not.toHaveBeenCalled();
+    });
+
+    it("stays out of the way of a context menu, whether already up or invoked mid-flight", async () => {
+        vi.useFakeTimers();
+        const $link = makeLink('<a data-href="#root/abc">x</a>');
+        parseNavigationStateFromUrl.mockReturnValue({ notePath: "root/abc", noteId: "abc", viewScope: { viewMode: "default" } });
+        // A best path, so the render yields real content and only the guard can hold the tooltip back.
+        froca.getNote = vi.fn(async () => fakeNote({ noteId: "abc", bestPath: "root/abc" })) as unknown as typeof froca.getNote;
+        hoverActive = true;
+
+        // Menu already up when the pointer arrives: nothing is even looked up.
+        document.body.classList.add("context-menu-shown");
+        await mouseEnterHandler.call($link[0], eventFor($link));
+        expect(parseNavigationStateFromUrl).not.toHaveBeenCalled();
+
+        // Menu invoked while the delayed preview was in flight: it resolves, but shows nothing —
+        // the tooltip would otherwise land on top of the menu the right-click just opened.
+        document.body.classList.remove("context-menu-shown");
+        const promise = mouseEnterHandler.call($link[0], eventFor($link));
+        document.body.classList.add("context-menu-shown");
+        await vi.advanceTimersByTimeAsync(600);
+        await promise;
+
+        expect(parseNavigationStateFromUrl).toHaveBeenCalled();
+        expect($.fn.tooltip as unknown as ReturnType<typeof vi.fn>).not.toHaveBeenCalled();
     });
 
     it("short-circuits when a tooltip for this link is already visible", async () => {
