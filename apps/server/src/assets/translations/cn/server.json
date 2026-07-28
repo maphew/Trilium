@@ -205,7 +205,8 @@
     "security-title": "安全",
     "desktop-title": "桌面",
     "deleted-notes-title": "已删除的笔记",
-    "color-scheme-switcher-title": "配色方案切换"
+    "color-scheme-switcher-title": "配色方案切换",
+    "content-manager-title": "扩展管理"
   },
   "notes": {
     "new-note": "新建笔记",
