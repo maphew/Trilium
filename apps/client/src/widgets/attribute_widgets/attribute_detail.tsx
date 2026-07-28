@@ -661,8 +661,10 @@ export const LABEL_TYPES = [
  * What a definition can set its field up to hold, the note it can point at instead included. The last
  * of them is set apart: the others only decide which field the value is typed into, while this one
  * decides what the attribute is, renaming it and leaving whatever was filled in under the old name.
+ *
+ * Exported so that hosts listing definitions can show them by the same icon the popup edits them with.
  */
-const DEFINITION_TYPES: { value: string; title: string; icon: string; startsGroup?: boolean }[] = [
+export const DEFINITION_TYPES: { value: string; title: string; icon: string; startsGroup?: boolean }[] = [
     ...LABEL_TYPES,
     {
         value: RELATION_DEFINITION_TYPE,

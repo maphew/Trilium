@@ -39,12 +39,12 @@
 }
 
 /*
- * Both markers are the icon of what the attribute is with a second glyph on its corner, so a definition
- * of a label still reads as a label and `cssClass` still reads as the label it is — rather than either
- * becoming a kind of its own with an icon to learn.
+ * A cog on the corner of the icon for the names Trilium reads for itself: settings of the note rather
+ * than a word for it. A second glyph rather than an icon of its own, so `cssClass` still reads as the
+ * label it is.
  */
-.attribute-list-panel .attribute-kind.marker-definition::after,
 .attribute-list-panel .attribute-kind.marker-system::after {
+    content: "\ea6e"; /* lookup code for "cog" in boxicons.css */
     position: absolute;
     inset-inline-end: -3px;
     bottom: -2px;
@@ -56,16 +56,6 @@
     text-shadow:
         0 0 2px var(--card-background-color, var(--main-background-color)),
         0 0 2px var(--card-background-color, var(--main-background-color));
-}
-
-/* A definition flags the attribute it names rather than being one. */
-.attribute-list-panel .attribute-kind.marker-definition::after {
-    content: "\eade"; /* lookup code for "flag" in boxicons.css */
-}
-
-/* A cog for the names Trilium reads for itself: settings of the note rather than a word for it. */
-.attribute-list-panel .attribute-kind.marker-system::after {
-    content: "\ea6e"; /* lookup code for "cog" in boxicons.css */
 }
 
 /* What separates the note's own vocabulary from the names Trilium reads for itself. Quiet: the sort is

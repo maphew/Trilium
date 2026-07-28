@@ -13,7 +13,7 @@ import attributes, { isBuiltinAttribute } from "../../services/attributes";
 import dialog from "../../services/dialog";
 import { t } from "../../services/i18n";
 import server from "../../services/server";
-import { AttributeDetail, AttributeDetailOpts, AttrType, getAttrType, LABEL_TYPES } from "../attribute_widgets/attribute_detail";
+import { AttributeDetail, AttributeDetailOpts, AttrType, DEFINITION_TYPES, getAttrType, LABEL_TYPES, RELATION_DEFINITION_TYPE } from "../attribute_widgets/attribute_detail";
 import ActionButton from "../react/ActionButton";
 import HelpButton from "../react/HelpButton";
 import { useActiveNoteContext, useTriliumEvent } from "../react/hooks";
@@ -311,16 +311,13 @@ function AttributeRow({ attribute, active, isSystem, showOwner, onOpen, onDelete
                 onOpen(rowRef.current, e);
             }}
         >
-            {/* The kind is the icon: a definition carries the icon of what it defines, flagged as a
-                definition, so `label:foo` reads as a label rather than as a label named "label:foo".
-                A system attribute carries a cog on the same corner — the two never coincide, a
-                definition being named by whoever writes it. Its own tooltip names it, the marker being
-                the only thing that says so. */}
+            {/* The kind is the icon, and a system attribute carries a cog on its corner: its own tooltip
+                names it, the marker being the only thing that says so. */}
             <span
-                class={clsx("attribute-kind", isDefinition(attrType) ? "marker-definition" : isSystem && "marker-system")}
+                class={clsx("attribute-kind", isSystem && "marker-system")}
                 title={isSystem ? t("attribute_names.system") : undefined}
             >
-                <Icon icon={attrType === "relation" || attrType === "relation-definition" ? "bx bx-transfer" : "bx bx-hash"} />
+                <Icon icon={getKindIcon(attribute, attrType)} />
             </span>
 
             <span class="attribute-name">{getDisplayName(attribute, attrType)}</span>
@@ -352,6 +349,31 @@ function AttributeRow({ attribute, active, isSystem, showOwner, onOpen, onDelete
             )}
         </li>
     );
+}
+
+/**
+ * What the attribute is, as an icon. A definition takes the icon of the field it sets up, the same one
+ * the popup offers that field under — it needs no marker of its own, being only ever listed in a card
+ * of definitions. Everything else is the icon of a label or of a relation.
+ */
+function getKindIcon(attribute: Attribute, attrType: AttributeKind) {
+    if (isDefinition(attrType)) {
+        // A definition written by hand can name a field the popup knows nothing of, leaving the icon of
+        // the label it defines to stand for it.
+        return getDefinitionType(attribute, attrType)?.icon ?? "bx bx-hash";
+    }
+
+    return attrType === "relation" ? "bx bx-transfer" : "bx bx-hash";
+}
+
+/** The entry of the popup's definition-type list that the definition is currently set to. */
+function getDefinitionType(attribute: Attribute, attrType: AttributeKind) {
+    // A relation definition is named after what it points at rather than after a field it fills in.
+    const value = attrType === "relation-definition"
+        ? RELATION_DEFINITION_TYPE
+        : promotedAttributeDefinitionParser.parse(attribute.value ?? "").labelType ?? "text";
+
+    return DEFINITION_TYPES.find((definitionType) => definitionType.value === value);
 }
 
 /** A preview of what the attribute holds — the row stands for the attribute, the popup shows it in full. */
