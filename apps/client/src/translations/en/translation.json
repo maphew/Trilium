@@ -2659,7 +2659,12 @@
     "sort_by_title": "Title",
     "sort_by_date_created": "Creation date",
     "no_items": "No active content found.",
-    "no_items_hint": "Scripts, themes, templates and snippets you create will be listed here."
+    "no_items_hint": "Scripts, themes, templates and snippets you create will be listed here.",
+    "section_active_content": "Active Content",
+    "section_space_usage": "Space Usage"
+  },
+  "space_usage": {
+    "coming_soon": "Space Usage is coming soon."
   },
   "note_language": {
     "not_set": "No language set",
