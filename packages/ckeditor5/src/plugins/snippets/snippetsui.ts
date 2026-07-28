@@ -113,7 +113,13 @@ export default class SnippetsUI extends Plugin {
         const t = editor.t;
         const definitions = editor.plugins.get(SnippetsEditing).definitions;
 
+        // Destroy the previous menu items before replacing them; `clear()` alone only detaches, so a
+        // live snippet change would otherwise leak the old buttons and their listeners.
+        const previous = [...listView.items];
         listView.items.clear();
+        for (const item of previous) {
+            item.destroy();
+        }
 
         if (!definitions.length) {
             const emptyItem = new MenuBarMenuListItemView(locale, menuView);
