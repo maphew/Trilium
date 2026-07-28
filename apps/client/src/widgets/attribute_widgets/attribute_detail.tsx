@@ -527,12 +527,20 @@ function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, onCance
                     </OptionsRow>
                 )}
 
-                {/*
-                 * What is filled in comes first, what is switched on after it, so that the toggles read as
-                 * one block rather than as interruptions between the fields. Promotion comes last of the
-                 * three, its alias being a field that only exists while it is on: anywhere else in the
-                 * block, turning promotion on would push a field in between the toggles.
-                 */}
+                {/* No description: what a display name is needs no explaining. */}
+                {isDefinition(attrType) && (
+                    <OptionsRow name="attr-promoted-alias" label={t("attribute_detail.promoted_alias")}>
+                        <FormTextBox
+                            className="attr-input-promoted-alias"
+                            currentValue={definition.promotedAlias ?? ""}
+                            disabled={!isOwned}
+                            onChange={(promotedAlias) => commitDefinition({ promotedAlias })}
+                        />
+                    </OptionsRow>
+                )}
+
+                {/* What is filled in comes first, what is switched on after it, so that the toggles read
+                    as one block rather than as interruptions between the fields. */}
                 {isDefinition(attrType) && !opts.hideMultiplicity && (
                     <OptionsRowWithToggle
                         name="attr-multiplicity"
@@ -568,20 +576,6 @@ function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, onCance
                     />
                 )}
 
-                {isDefinition(attrType) && definition.isPromoted && (
-                    <OptionsRow
-                        name="attr-promoted-alias"
-                        label={t("attribute_detail.promoted_alias")}
-                        description={t("attribute_detail.promoted_alias_title")}
-                    >
-                        <FormTextBox
-                            className="attr-input-promoted-alias"
-                            currentValue={definition.promotedAlias ?? ""}
-                            disabled={!isOwned}
-                            onChange={(promotedAlias) => commitDefinition({ promotedAlias })}
-                        />
-                    </OptionsRow>
-                )}
             </div>
 
             {isOwned && (
