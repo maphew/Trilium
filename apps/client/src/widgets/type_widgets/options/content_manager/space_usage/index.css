@@ -54,6 +54,7 @@
    Repeats .treemap-cell to outrank the primitive's cursor rule. */
 .space-usage-overview {
     .treemap-cell.treemap-cell-other,
+    .treemap-cell.treemap-cell-hidden,
     .treemap-cell.treemap-cell-deleted {
         --treemap-cell-background: transparent;
 

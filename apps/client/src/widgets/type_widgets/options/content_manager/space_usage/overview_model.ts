@@ -9,6 +9,7 @@ export interface OverviewCell {
 
 interface OverviewModelOptions {
     otherNotesLabel: string;
+    hiddenNotesLabel: string;
     deletedNotesLabel: string;
     /** Folds revision sizes into each cell's weight. */
     includeRevisions: boolean;
@@ -18,15 +19,16 @@ interface OverviewModelOptions {
  * Arranges the overview entries into the treemap hierarchy: every entry sits at its canonical tree
  * location, pass-through ancestors shaping the layout without drawing anything, so large notes
  * appear near their siblings and share their parent's hue. An entry that is itself an ancestor of
- * other entries keeps its own weight as a nested self-cell inside its area. The "other notes" and
- * "deleted notes" buckets join at the top level as inert cells.
+ * other entries keeps its own weight as a nested self-cell inside its area. The "other notes",
+ * "hidden notes" and "deleted notes" buckets join at the top level as inert cells, so every byte
+ * the status line counts has a cell somewhere.
  *
  * The cells carry no text — identity comes from hovering: note cells get the note preview tooltip
  * via `data-href`, the bucket cells a plain `title`.
  */
 export function buildOverviewModel(
     overview: SpaceUsageOverviewResponse,
-    { otherNotesLabel, deletedNotesLabel, includeRevisions }: OverviewModelOptions
+    { otherNotesLabel, hiddenNotesLabel, deletedNotesLabel, includeRevisions }: OverviewModelOptions
 ): TreemapItem<OverviewCell> {
     const root: TreemapItem<OverviewCell> = { id: "root", children: [] };
     const nodesByNoteId = new Map<string, TreemapItem<OverviewCell>>();
@@ -91,6 +93,13 @@ export function buildOverviewModel(
             value: overview.otherNotes.size + (includeRevisions ? overview.otherNotes.revisionsSize : 0),
             className: "treemap-cell-other",
             attributes: { title: otherNotesLabel },
+            data: {}
+        },
+        {
+            id: "/hidden-notes",
+            value: overview.hiddenNotes.size + (includeRevisions ? overview.hiddenNotes.revisionsSize : 0),
+            className: "treemap-cell-hidden",
+            attributes: { title: hiddenNotesLabel },
             data: {}
         },
         {

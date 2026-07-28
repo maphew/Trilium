@@ -23,6 +23,7 @@ function response(notes: SpaceUsageOverviewNote[], overrides: Partial<SpaceUsage
 function build(overview: SpaceUsageOverviewResponse, includeRevisions = false) {
     return buildOverviewModel(overview, {
         otherNotesLabel: "Other notes",
+        hiddenNotesLabel: "Hidden notes",
         deletedNotesLabel: "Deleted notes",
         includeRevisions
     });
@@ -85,20 +86,26 @@ describe("buildOverviewModel", () => {
 
     it("counts revisions into the weights only when asked to", () => {
         const notes = [ entry("a", [ "a" ], { ownSize: 5, revisionsSize: 7 }) ];
-        const buckets = { otherNotes: { size: 30, revisionsSize: 4, noteCount: 9 } };
+        const buckets = {
+            otherNotes: { size: 30, revisionsSize: 4, noteCount: 9 },
+            hiddenNotes: { size: 2, revisionsSize: 3, noteCount: 5 }
+        };
 
         const without = build(response(notes, buckets));
         expect(childById(without, "a").value).toBe(5);
         expect(childById(without, "/other-notes").value).toBe(30);
+        expect(childById(without, "/hidden-notes").value).toBe(2);
 
         const withRevisions = build(response(notes, buckets), true);
         expect(childById(withRevisions, "a").value).toBe(12);
         expect(childById(withRevisions, "/other-notes").value).toBe(34);
+        expect(childById(withRevisions, "/hidden-notes").value).toBe(5);
     });
 
     it("appends inert bucket cells, identified by a plain title rather than a note tooltip", () => {
         const model = build(response([], {
             otherNotes: { size: 11, revisionsSize: 0, noteCount: 3 },
+            hiddenNotes: { size: 7, revisionsSize: 5, noteCount: 40 },
             deletedNotes: { size: 22, noteCount: 2 }
         }));
 
@@ -107,6 +114,12 @@ describe("buildOverviewModel", () => {
         expect(other.hue).toBeUndefined();
         expect(other.data).toEqual({});
         expect(other.attributes).toEqual({ title: "Other notes" });
+
+        // Hidden space gets a cell too — every byte the status line counts is on the map.
+        const hidden = childById(model, "/hidden-notes");
+        expect(hidden.value).toBe(7);
+        expect(hidden.className).toBe("treemap-cell-hidden");
+        expect(hidden.attributes).toEqual({ title: "Hidden notes" });
 
         const deleted = childById(model, "/deleted-notes");
         expect(deleted.value).toBe(22);

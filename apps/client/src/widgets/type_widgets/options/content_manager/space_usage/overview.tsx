@@ -10,6 +10,7 @@ import { buildOverviewModel, type OverviewCell } from "./overview_model";
 export default function Overview({ overview }: { overview: SpaceUsageOverviewResponse }) {
     const model = useMemo(() => buildOverviewModel(overview, {
         otherNotesLabel: t("space_usage.other_notes"),
+        hiddenNotesLabel: t("space_usage.hidden_notes"),
         deletedNotesLabel: t("space_usage.deleted_notes"),
         includeRevisions: false
     }), [ overview ]);

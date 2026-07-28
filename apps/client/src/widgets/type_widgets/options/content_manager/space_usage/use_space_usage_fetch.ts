@@ -20,11 +20,18 @@ export function useSpaceUsageFetch<T>(url: string) {
 
     const refresh = useCallback(async () => {
         const requestId = ++latestRequest.current;
-        const response = await server.get<T>(url);
 
-        // A stale response must not repaint over a newer one.
-        if (requestId === latestRequest.current) {
-            setData(response);
+        try {
+            const response = await server.get<T>(url);
+
+            // A stale response must not repaint over a newer one.
+            if (requestId === latestRequest.current) {
+                setData(response);
+            }
+        } catch {
+            // The server service has already reported the failure to the user (toast); keeping the
+            // last successful payload beats blanking the charts, and the callers fire-and-forget,
+            // so the rejection must not escape.
         }
     }, [ url ]);
 
