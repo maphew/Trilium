@@ -1,6 +1,7 @@
 import type { SpaceUsageOverviewResponse } from "@triliumnext/commons";
-import { useMemo } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 
+import froca from "../../../../../services/froca";
 import { t } from "../../../../../services/i18n";
 import { formatSize } from "../../../../../services/utils";
 import Treemap, { type TreemapItem } from "../../../../react/charts/Treemap";
@@ -23,6 +24,8 @@ interface OverviewProps {
 
 /** The treemap over the whole database: every large note at its tree location. */
 export default function Overview({ overview, onShowDetails }: OverviewProps) {
+    const icons = useNoteIcons(overview);
+
     // The labels are formatted here rather than in the model, which stays free of i18n: a bucket
     // stands for a crowd, so its tooltip names how many notes it holds and how much they take.
     const model = useMemo(() => buildOverviewModel(overview, {
@@ -39,8 +42,9 @@ export default function Overview({ overview, onShowDetails }: OverviewProps) {
             overview.deletedNotes.size
         ),
         includeRevisions: INCLUDE_REVISIONS,
+        getIcon: (noteId) => icons.get(noteId),
         makeSizeDetail: (size) => t("space_usage.cell_size", { size: formatSize(size) })
-    }), [ overview ]);
+    }), [ overview, icons ]);
 
     return (
         <div className="space-usage-overview">
@@ -52,6 +56,32 @@ export default function Overview({ overview, onShowDetails }: OverviewProps) {
             />
         </div>
     );
+}
+
+/**
+ * Batch-loads the icons the cells wear — one froca call for the whole ranking, not one per cell.
+ * The map draws immediately and picks the icons up on the next render: an icon is an extra reading
+ * of a cell, never something the layout should wait for.
+ */
+function useNoteIcons(overview: SpaceUsageOverviewResponse) {
+    const [ icons, setIcons ] = useState(new Map<string, string>());
+
+    useEffect(() => {
+        let cancelled = false;
+
+        // Silent: a note deleted since the usage was computed must not fail the whole view.
+        void froca.getNotes(overview.notes.map((note) => note.noteId), true).then((notes) => {
+            if (!cancelled) {
+                setIcons(new Map(notes.map((note) => [ note.noteId, note.getIcon() ])));
+            }
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [ overview ]);
+
+    return icons;
 }
 
 /**

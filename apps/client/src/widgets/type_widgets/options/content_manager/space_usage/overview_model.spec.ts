@@ -87,6 +87,24 @@ describe("buildOverviewModel", () => {
         expect(childById(model, "top").hue).toBe(hueOf("root"));
     });
 
+    it("dresses both a plain cell and a self-cell in the note's icon, leaving unknown notes plain", () => {
+        const model = buildOverviewModel(
+            response([ entry("parent", [ "parent" ], { ownSize: 50 }), entry("child", [ "parent", "child" ], { ownSize: 10 }) ]),
+            {
+                otherNotesLabel: "Other notes",
+                hiddenNotesLabel: "Hidden notes",
+                deletedNotesLabel: "Deleted notes",
+                includeRevisions: false,
+                getIcon: (noteId) => noteId === "parent" ? "tn-icon bx bx-folder" : undefined
+            }
+        );
+
+        const parent = childById(model, "parent");
+        expect(childById(parent, "parent/own").icon).toBe("tn-icon bx bx-folder");
+        // Not yet loaded (or already gone): the cell simply keeps its color and nothing else.
+        expect(childById(parent, "child").icon).toBeUndefined();
+    });
+
     it("gives an entry that is also an ancestor a nested self-cell wearing its children's hue", () => {
         const model = build(response([
             entry("parent", [ "parent" ], { ownSize: 50 }),
@@ -139,17 +157,21 @@ describe("buildOverviewModel", () => {
         expect(other.tooltip).toBe("Other notes");
         // No `data-href`: a crowd of notes has no note preview to show.
         expect(other.attributes).toBeUndefined();
+        // A bucket names no note, so it wears what it stands for.
+        expect(other.icon).toBe("bx bx-dots-horizontal-rounded");
 
         // Hidden space gets a cell too — every byte the status line counts is on the map.
         const hidden = childById(model, "/hidden-notes");
         expect(hidden.value).toBe(7);
         expect(hidden.className).toBe("treemap-cell-hidden");
         expect(hidden.tooltip).toBe("Hidden notes");
+        expect(hidden.icon).toBe("bx bx-hide");
 
         const deleted = childById(model, "/deleted-notes");
         expect(deleted.value).toBe(22);
         expect(deleted.className).toBe("treemap-cell-deleted");
         expect(deleted.tooltip).toBe("Deleted notes");
+        expect(deleted.icon).toBe("bx bx-trash-alt");
     });
 
     it("places an entry for the root itself as a top-level cell", () => {

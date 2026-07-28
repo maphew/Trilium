@@ -18,6 +18,11 @@ interface OverviewModelOptions {
     /** Folds revision sizes into each cell's weight. */
     includeRevisions: boolean;
     /**
+     * The note's icon classes, for the cell to wear. Resolved by the caller, which has froca; a note
+     * not loaded (or already gone) simply yields none and its cell stays plain.
+     */
+    getIcon?: (noteId: string) => string | undefined;
+    /**
      * Wording for the size a note cell contributes to its hover tooltip, given the weight its area
      * encodes. Omit to leave the cells silent about their size.
      */
@@ -37,7 +42,7 @@ interface OverviewModelOptions {
  */
 export function buildOverviewModel(
     overview: SpaceUsageOverviewResponse,
-    { otherNotesLabel, hiddenNotesLabel, deletedNotesLabel, includeRevisions, makeSizeDetail }: OverviewModelOptions
+    { otherNotesLabel, hiddenNotesLabel, deletedNotesLabel, includeRevisions, getIcon, makeSizeDetail }: OverviewModelOptions
 ): TreemapItem<OverviewCell> {
     const root: TreemapItem<OverviewCell> = { id: "root", children: [] };
     const nodesByNoteId = new Map<string, TreemapItem<OverviewCell>>();
@@ -87,28 +92,34 @@ export function buildOverviewModel(
             ...(makeSizeDetail ? { "data-tooltip-detail": makeSizeDetail(weight) } : {})
         };
 
+        const icon = getIcon?.(entry.noteId);
+
         if (node.children?.length) {
             node.children.push({
                 id: `${entry.noteId}/own`,
                 value: weight,
                 // The self-cell sits among the note's own children, so it wears their group hue.
                 hue: hueOf(entry.noteId),
+                icon,
                 data: cell,
                 attributes
             });
         } else {
             node.value = weight;
             node.hue = hueOf(path.at(-2) ?? ROOT_NOTE_ID);
+            node.icon = icon;
             node.data = cell;
             node.attributes = attributes;
         }
     }
 
+    // The buckets name no note, so they wear what they stand for rather than a note's own icon.
     root.children?.push(
         {
             id: "/other-notes",
             value: bucketWeight(overview.otherNotes, includeRevisions),
             className: "treemap-cell-other",
+            icon: "bx bx-dots-horizontal-rounded",
             tooltip: otherNotesLabel,
             data: {}
         },
@@ -116,6 +127,7 @@ export function buildOverviewModel(
             id: "/hidden-notes",
             value: bucketWeight(overview.hiddenNotes, includeRevisions),
             className: "treemap-cell-hidden",
+            icon: "bx bx-hide",
             tooltip: hiddenNotesLabel,
             data: {}
         },
@@ -123,6 +135,7 @@ export function buildOverviewModel(
             id: "/deleted-notes",
             value: overview.deletedNotes.size,
             className: "treemap-cell-deleted",
+            icon: "bx bx-trash-alt",
             tooltip: deletedNotesLabel,
             data: {}
         }

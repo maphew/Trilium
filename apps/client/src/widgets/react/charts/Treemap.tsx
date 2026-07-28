@@ -20,6 +20,11 @@ export interface TreemapItem<T = unknown> {
     hue?: number;
     /** Extra classes on the cell, for special entries the consumer styles itself. */
     className?: string;
+    /**
+     * Icon classes drawn centered in the cell, sized to it — what the cell holds, at a glance.
+     * Dropped on cells too small to render it legibly.
+     */
+    icon?: string;
     /** Text for the chart's own tooltip, for cells that identify themselves rather than a note. */
     tooltip?: string;
     /**
@@ -52,6 +57,15 @@ const MAP_INSET = 2;
 
 /** Layout coordinates are floats; edges meant to coincide can differ in the last bit. */
 const EDGE_EPSILON = 0.5;
+
+/** Share of the cell's shorter side left clear around the icon, on each edge. */
+const ICON_MARGIN = 0.1;
+
+/** Past this the glyph stops reading as an icon and starts dominating its cell. */
+const MAX_ICON_SIZE = 24;
+
+/** Below this it is a smudge rather than a symbol, so the cell is better left as plain color. */
+const MIN_ICON_SIZE = 10;
 
 /**
  * A treemap over an arbitrary {@link TreemapItem} hierarchy, sized to fill its container and
@@ -110,6 +124,8 @@ export default function Treemap<T>({ root, onItemClick, onItemContextMenu, class
                     return null;
                 }
 
+                const iconSize = fittedIconSize(cellWidth, cellHeight);
+
                 return (
                     <div
                         key={item.id}
@@ -128,12 +144,25 @@ export default function Treemap<T>({ root, onItemClick, onItemContextMenu, class
                         onMouseEnter={(event) => showTooltip(item.tooltip, event)}
                         onMouseLeave={hideTooltip}
                         {...item.attributes}
-                    />
+                    >
+                        {item.icon && iconSize >= MIN_ICON_SIZE && (
+                            <span className={clsx("treemap-cell-icon", item.icon)} style={{ fontSize: iconSize }} />
+                        )}
+                    </div>
                 );
             })}
             {tooltipNode}
         </div>
     );
+}
+
+/**
+ * The icon size a cell affords: it fits the shorter side with {@link ICON_MARGIN} clear on either
+ * edge, and stops growing at {@link MAX_ICON_SIZE} — past that a large cell would read as a huge
+ * glyph rather than as an area.
+ */
+function fittedIconSize(cellWidth: number, cellHeight: number) {
+    return Math.min(Math.min(cellWidth, cellHeight) * (1 - 2 * ICON_MARGIN), MAX_ICON_SIZE);
 }
 
 /**

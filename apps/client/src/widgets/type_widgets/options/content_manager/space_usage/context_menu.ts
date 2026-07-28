@@ -1,6 +1,9 @@
 import appContext from "../../../../../components/app_context";
 import type FNote from "../../../../../entities/fnote";
-import contextMenu, { type ContextMenuEvent, type MenuItem } from "../../../../../menus/context_menu";
+import contextMenu, {
+    type ContextMenuEvent,
+    type MenuItem
+} from "../../../../../menus/context_menu";
 import branches from "../../../../../services/branches";
 import froca from "../../../../../services/froca";
 import { t } from "../../../../../services/i18n";
@@ -16,8 +19,8 @@ export type ShowDetailsHandler = (notePath: string[]) => void;
  *
  * `notePath` runs from the root (inclusive) down to the note: the charts already carry it for their
  * links, and it is what identifies the placement to act on — a clone occupies space once, at the
- * canonical placement the usage figures were attributed to, so that is the branch Delete removes and
- * the path Export resolves.
+ * canonical placement the usage figures were attributed to, so that is the branch Delete removes
+ * and the path Export resolves.
  */
 export async function openSpaceUsageContextMenu(
     event: ContextMenuEvent,
@@ -29,7 +32,8 @@ export async function openSpaceUsageContextMenu(
 
     const noteId = notePath[notePath.length - 1];
     const parentNoteId = notePath[notePath.length - 2];
-    // Silent: the usage snapshot predates the menu, so the note may already be gone — no menu, no error.
+    // Silent: the usage snapshot predates the menu, so the note may already be gone — no menu,
+    // no error.
     const note = noteId ? await froca.getNote(noteId, true) : null;
 
     if (!note) {
@@ -120,7 +124,7 @@ export function openNoteInNewTab(noteId: string) {
     });
 }
 
-/** The note types whose content is a saveable file — the same ones the ribbon offers Download for. */
+/** Note types whose content is a saveable file — the same ones the ribbon offers Download for. */
 function isDownloadable(note: FNote) {
     return note.type === "file" || note.type === "image";
 }

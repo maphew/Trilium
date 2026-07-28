@@ -1,7 +1,11 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type FNote from "../../../../../entities/fnote";
-import type { ContextMenuEvent, MenuCommandItem, MenuItem } from "../../../../../menus/context_menu";
+import type {
+    ContextMenuEvent,
+    MenuCommandItem,
+    MenuItem
+} from "../../../../../menus/context_menu";
 
 const mocks = vi.hoisted(() => ({
     shown: undefined as { items: MenuItem<never>[] } | undefined,
@@ -60,7 +64,9 @@ const EXPORT = "bx bx-export";
 const DELETE = "bx bx-trash destructive-action-icon";
 
 function givenNote(noteId: string, type = "text", isContentAvailable = true) {
-    mocks.notes.set(noteId, { noteId, type, isContentAvailable: () => isContentAvailable } as FNote);
+    mocks.notes.set(noteId, {
+        noteId, type, isContentAvailable: () => isContentAvailable
+    } as FNote);
 }
 
 function contextMenuEvent() {
@@ -79,12 +85,17 @@ function itemByIcon(icon: string) {
 }
 
 function icons() {
-    return mocks.shown?.items.flatMap((item) => "uiIcon" in item && item.uiIcon ? [ item.uiIcon ] : []);
+    return mocks.shown?.items.flatMap((item) =>
+        "uiIcon" in item && item.uiIcon ? [ item.uiIcon ] : []);
 }
 
 /** Every item carries a nullary handler; the menu dispatches no commands by name. */
 function invoke(icon: string) {
     (itemByIcon(icon) as { handler?: () => void } | undefined)?.handler?.();
+}
+
+function openFor(notePath: string[]) {
+    return openSpaceUsageContextMenu(contextMenuEvent(), notePath, mocks.showDetails);
 }
 
 afterEach(() => {
@@ -109,10 +120,12 @@ describe("openSpaceUsageContextMenu", () => {
         expect(icons()).toEqual([ QUICK_EDIT, NEW_TAB, SHOW_DETAILS, EXPORT, DELETE ]);
 
         invoke(QUICK_EDIT);
-        expect(mocks.triggerCommand).toHaveBeenCalledWith("openInPopup", { noteIdOrPath: "root/p/n1" });
+        expect(mocks.triggerCommand)
+            .toHaveBeenCalledWith("openInPopup", { noteIdOrPath: "root/p/n1" });
 
         invoke(NEW_TAB);
-        expect(mocks.openContextWithNote).toHaveBeenCalledWith("n1", { activate: true, hoistedNoteId: null });
+        expect(mocks.openContextWithNote)
+            .toHaveBeenCalledWith("n1", { activate: true, hoistedNoteId: null });
 
         invoke(SHOW_DETAILS);
         expect(mocks.showDetails).toHaveBeenCalledWith([ "root", "p", "n1" ]);
@@ -129,10 +142,10 @@ describe("openSpaceUsageContextMenu", () => {
         expect(mocks.deleteNotes).toHaveBeenCalledWith([ "b1" ], false, false);
     });
 
-    it("adds Download for the note types that hold a file, disabled when the content is unavailable", async () => {
+    it("adds Download for file-bearing types, disabled when the content is away", async () => {
         givenNote("f1", "file");
         mocks.branchIds.set("p/f1", "b1");
-        await openSpaceUsageContextMenu(contextMenuEvent(), [ "root", "p", "f1" ], mocks.showDetails);
+        await openFor([ "root", "p", "f1" ]);
         expect(itemByIcon(DOWNLOAD)?.enabled).toBe(true);
 
         invoke(DOWNLOAD);
@@ -140,14 +153,14 @@ describe("openSpaceUsageContextMenu", () => {
 
         // A protected image whose content is locked away: offered, but not actionable.
         givenNote("i1", "image", false);
-        await openSpaceUsageContextMenu(contextMenuEvent(), [ "root", "p", "i1" ], mocks.showDetails);
+        await openFor([ "root", "p", "i1" ]);
         expect(itemByIcon(DOWNLOAD)?.enabled).toBe(false);
     });
 
-    it("disables Export and Delete on the root, which has no parent to place it under", async () => {
+    it("disables Export and Delete on the root, which has no parent to place it", async () => {
         givenNote("root");
 
-        await openSpaceUsageContextMenu(contextMenuEvent(), [ "root" ], mocks.showDetails);
+        await openFor([ "root" ]);
 
         expect(itemByIcon(EXPORT)?.enabled).toBe(false);
         expect(itemByIcon(DELETE)?.enabled).toBe(false);
@@ -158,7 +171,7 @@ describe("openSpaceUsageContextMenu", () => {
     });
 
     it("shows no menu at all for a note deleted since the usage was measured", async () => {
-        await openSpaceUsageContextMenu(contextMenuEvent(), [ "root", "gone" ], mocks.showDetails);
+        await openFor([ "root", "gone" ]);
 
         expect(mocks.shown).toBeUndefined();
     });

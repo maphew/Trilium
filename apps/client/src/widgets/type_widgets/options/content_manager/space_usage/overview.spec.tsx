@@ -26,6 +26,13 @@ vi.mock("../../../../react/hooks", () => ({
     useElementSize: () => ({ width: 400, height: 300 })
 }));
 
+vi.mock("../../../../../services/froca", () => ({
+    default: {
+        getNotes: async (noteIds: string[]) =>
+            noteIds.map((noteId) => ({ noteId, getIcon: () => `tn-icon bx bx-${noteId}` }))
+    }
+}));
+
 import Overview from "./overview";
 
 const OVERVIEW: SpaceUsageOverviewResponse = {
@@ -64,6 +71,19 @@ describe("Overview", () => {
         expect(probe.querySelector(".treemap-cell-other")).not.toBeNull();
         expect(probe.querySelector(".treemap-cell-hidden")).not.toBeNull();
         expect(probe.querySelector(".treemap-cell-deleted")).not.toBeNull();
+    });
+
+    it("dresses note cells in their froca icons and the buckets in what they stand for", async () => {
+        const probe = renderOverview();
+        const iconIn = (selector: string) =>
+            probe.querySelector(`${selector} > .treemap-cell-icon`)?.className;
+
+        // The map draws first and picks the note icons up on the next render.
+        await vi.waitFor(() => expect(iconIn('[data-href="#root/n1"]')).toContain("bx-n1"));
+
+        expect(iconIn(".treemap-cell-other")).toContain("bx-dots-horizontal-rounded");
+        expect(iconIn(".treemap-cell-hidden")).toContain("bx-hide");
+        expect(iconIn(".treemap-cell-deleted")).toContain("bx-trash-alt");
     });
 
     it("quick-edits a clicked note and offers the menu on right-click, while the bucket cells stay inert", () => {

@@ -43,10 +43,11 @@ const ROOT: TreemapItem<string> = {
                     id: "big",
                     value: 300,
                     hue: 120,
+                    icon: "tn-icon bx bx-file",
                     data: "big",
                     attributes: { "data-href": "#root/folder/big" }
                 },
-                { id: "small", value: 100, data: "small", attributes: { id: "cell-small" } }
+                { id: "small", value: 100, icon: "tn-icon bx bx-note", data: "small", attributes: { id: "cell-small" } }
             ]
         },
         { id: "bucket", value: 100, className: "bucket-cell", tooltip: "A crowd of notes" },
@@ -165,6 +166,34 @@ describe("Treemap", () => {
         for (const corners of grouped) {
             expect(corners.filter((corner) => corner === "0px").length).toBeGreaterThan(0);
         }
+    });
+
+    it("fits each cell's icon to its shorter side, capped, and drops it when illegibly small", () => {
+        const probe = renderTreemap(ROOT);
+        const iconIn = (selector: string) =>
+            probe.querySelector<HTMLElement>(`${selector} > .treemap-cell-icon`);
+
+        // A cell with room gets the icon it was given, at the capped size.
+        const big = iconIn('[data-href="#root/folder/big"]');
+        expect(big?.classList.contains("bx-file")).toBe(true);
+        expect(parseFloat(big?.style.fontSize ?? "")).toBe(24);
+
+        // 80% of the shorter side — a tenth left clear on either edge — until the cap takes over.
+        const small = probe.querySelector<HTMLElement>("#cell-small");
+        const shorterSide = Math.min(parseFloat(small?.style.width ?? ""), parseFloat(small?.style.height ?? ""));
+        expect(parseFloat(iconIn("#cell-small")?.style.fontSize ?? ""))
+            .toBeCloseTo(Math.min(shorterSide * 0.8, 24), 5);
+
+        // A cell that was given no icon shows none.
+        expect(iconIn(".bucket-cell")).toBeNull();
+
+        // Squeeze the map until the icons no longer read, and they go rather than turn into smudges
+        // — the cells themselves stay, so this is the icons dropping out and not an empty map.
+        render(null, container as HTMLDivElement);
+        mocks.size = { width: 20, height: 20 };
+        const squeezed = renderTreemap(ROOT);
+        expect(squeezed.querySelectorAll(".treemap-cell").length).toBeGreaterThan(0);
+        expect(squeezed.querySelectorAll(".treemap-cell-icon").length).toBe(0);
     });
 
     it("gives bigger values proportionally bigger areas", () => {
