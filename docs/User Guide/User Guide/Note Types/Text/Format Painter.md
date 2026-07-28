@@ -7,11 +7,12 @@ The Format Painter is a feature in text notes that allows users to copy the form
 
 Click the text that you want to copy the formatting from and use the paint formatting toolbar button (<img class="image_resized" style="aspect-ratio:150/150;width:2.7%;" src="Format Painter_746436a2e1.svg" alt="Format painter" width="150" height="150">) to copy the style. Then select the target text with your mouse to apply the formatting.
 
-*   **To copy the formatting**: Place the cursor inside a text with some formatting and click the paint formatting toolbar button. Notice that the mouse cursor changes to the <img class="image_resized" style="aspect-ratio:30/20;width:3.64%;" src="Format Painter_e144e96df9.svg" alt="Format painter text cursor" width="30" height="20">.
-*   **To paint with the copied formatting**: Click any word in the document and the new formatting will be applied. Alternatively, instead of clicking a single word, you can select a text fragment (like an entire paragraph). Notice that the cursor will go back to the default one after the formatting is applied.
-*   **To keep painting using the same formatting**: Open the toolbar dropdown and enable the continuous painting mode. Once copied, the same formatting can be applied multiple times in different places until the paint formatting button is clicked (the cursor will then revert to the regular one).
+*   **To copy the formatting**: Place the cursor inside text with some formatting and click the paint formatting toolbar button. The mouse cursor changes to indicate the painter is armed.
+*   **To paint with the copied formatting**: Select the target text with your mouse. The formatting is applied when you release the button, and the painter disarms — the cursor returns to normal.
+*   **To cancel without painting**: Click the toolbar button again or press <kbd spellcheck="false">Escape</kbd>.
 
 ## Limitations
 
 1.  Painting with block-level formatting (like headings or image styles) is not supported yet. This is because, in <a class="reference-link" href="../../Advanced%20Usage/Technologies%20used/CKEditor.md">CKEditor</a>, they are considered a part of the content rather than text formatting.
-2.  When applying formatting to words, spaces or other Western punctuation are used as word boundaries, which prevents proper handling of languages that do not use space-based word segmentation.
+2.  The painter applies to a selection, not to a word: clicking a single word does not format it. A click only primes the caret, so text you type there takes the copied formatting.
+3.  The painter is one-shot; each paint requires copying the formatting again.
