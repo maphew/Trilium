@@ -163,13 +163,17 @@ describe("buildColumnDefinitions — select columns", () => {
         return params({} as CellComponent) as SelectEditorParams;
     }
 
-    function selectColumn(onCreateSelectOption?: (columnName: string, option: string) => void) {
+    function selectColumn(
+        onCreateSelectOption?: (columnName: string, option: string) => void,
+        currentSelectOptions?: (columnName: string) => string[] | undefined
+    ) {
         const columns = buildColumnDefinitions({
             info: [ { name: "status", type: "select", options: [ "Todo", "Done" ] } ],
             movableRows: false,
             existingColumnData: undefined,
             rowNumberHint: 1,
-            onCreateSelectOption
+            onCreateSelectOption,
+            currentSelectOptions
         });
         return columns.find((column) => column.field === "labels.status");
     }
@@ -183,6 +187,20 @@ describe("buildColumnDefinitions — select columns", () => {
         // The editor knows the option alone; the column it belongs to is bound in here.
         params.onCreateOption?.("Blocked");
         expect(onCreateSelectOption).toHaveBeenCalledWith("status", "Blocked");
+    });
+
+    it("asks for the options as a cell is opened, so one just created is already among them", () => {
+        // A cell can add an option to the definition, and the table does not rebuild its columns for
+        // a change of its own — so a column built before that must not answer with what it was built
+        // with, or the option would go missing until something else rebuilt the table.
+        const currentSelectOptions = vi.fn(() => [ "Todo", "Done", "Blocked" ]);
+        const params = editorParamsOf(selectColumn(undefined, currentSelectOptions));
+
+        expect(params.options).toEqual([ "Todo", "Done", "Blocked" ]);
+        expect(currentSelectOptions).toHaveBeenCalledWith("status");
+
+        // Asked but unanswered — a column whose definition has since gone — falls back to its own.
+        expect(editorParamsOf(selectColumn(undefined, () => undefined)).options).toEqual([ "Todo", "Done" ]);
     });
 
     it("leaves the editor no way to create where the caller offers none", () => {

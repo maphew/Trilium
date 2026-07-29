@@ -139,9 +139,15 @@ interface BuildColumnArgs {
      * the column does not list yet. Omitted, such a value cannot be created from a cell.
      */
     onCreateSelectOption?: (columnName: string, option: string) => void | Promise<void>;
+    /**
+     * The options a select column offers, asked for as a cell is opened. A definition can gain an
+     * option from the very editor that is open, which the columns as built know nothing about — so
+     * where this is left out, or answers nothing, a cell falls back to the options it was built with.
+     */
+    currentSelectOptions?: (columnName: string) => string[] | undefined;
 }
 
-export function buildColumnDefinitions({ info, movableRows, existingColumnData, rowNumberHint, position, onCreateSelectOption }: BuildColumnArgs) {
+export function buildColumnDefinitions({ info, movableRows, existingColumnData, rowNumberHint, position, onCreateSelectOption, currentSelectOptions }: BuildColumnArgs) {
     let columnDefs: ColumnDefinition[] = [
         {
             title: "#",
@@ -189,10 +195,12 @@ export function buildColumnDefinitions({ info, movableRows, existingColumnData, 
             rowHandle: false,
             ...labelTypeMappings[type ?? "text"],
             // A select's options come from its own definition, so they attach per column. Handed as
-            // a function because that is the shape Tabulator types for params of an editor's own.
+            // a function because that is the shape Tabulator types for params of an editor's own —
+            // which also means the options are answered for as each cell is opened, late enough to
+            // include one the definition has just been given.
             ...(type === "select" && {
                 editorParams: (): Record<string, unknown> => ({
-                    options: options ?? [],
+                    options: currentSelectOptions?.(name) ?? options ?? [],
                     isMulti,
                     onCreateOption: onCreateSelectOption
                         && ((option: string) => onCreateSelectOption(name, option))

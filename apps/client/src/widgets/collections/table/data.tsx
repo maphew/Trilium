@@ -1,7 +1,8 @@
 import type { ColumnDefinition } from "tabulator-tables";
 import FNote from "../../../entities/fnote";
 import { useNoteLabelBoolean, useNoteLabelInt, useTriliumEvent } from "../../react/hooks";
-import { useEffect, useState } from "preact/hooks";
+import { ParentComponent } from "../../react/react_utils";
+import { useContext, useEffect, useState } from "preact/hooks";
 import getAttributeDefinitionInformation, { buildRowDefinitions, TableData } from "./rows";
 import froca from "../../../services/froca";
 import { buildColumnDefinitions } from "./columns";
@@ -17,6 +18,9 @@ export interface TableConfig {
 export default function useData(note: FNote, noteIds: string[], viewConfig: TableConfig | undefined, newAttributePosition: RefObject<number | undefined> | undefined, resetNewAttributePosition: () => void) {
     const [ maxDepth ] = useNoteLabelInt(note, "maxNestingDepth");
     const [ includeArchived ] = useNoteLabelBoolean(note, "includeArchived");
+    // Whose writes these are, so that the table can tell a definition it changed itself from one
+    // changed elsewhere — rebuilding for its own would pull the open editor out from under the user.
+    const componentId = useContext(ParentComponent)?.componentId;
 
     const [ columnDefs, setColumnDefs ] = useState<ColumnDefinition[]>();
     const [ rowData, setRowData ] = useState<TableData[]>();
@@ -37,7 +41,12 @@ export default function useData(note: FNote, noteIds: string[], viewConfig: Tabl
             existingColumnData: viewConfig?.tableData?.columns,
             rowNumberHint: rowNumber,
             position: newAttributePosition?.current ?? undefined,
-            onCreateSelectOption: (columnName, option) => addSelectOption(note, columnName, option)
+            // Read from the note as a cell is opened rather than taken from `info`, which was read
+            // when the columns were last built: a definition can gain an option from the very editor
+            // that is open, and the table does not rebuild for a change of its own.
+            currentSelectOptions: (columnName) => getAttributeDefinitionInformation(note)
+                .find((definition) => definition.name === columnName)?.options,
+            onCreateSelectOption: (columnName, option) => addSelectOption(note, columnName, option, componentId)
         });
         setColumnDefs(columnDefs);
         setRowData(rowData);
@@ -50,8 +59,10 @@ export default function useData(note: FNote, noteIds: string[], viewConfig: Tabl
     useTriliumEvent("entitiesReloaded", ({ loadResults}) => {
         if (glob.device === "print") return;
 
-        // React to column changes.
-        if (loadResults.getAttributeRows().find(attr =>
+        // React to column changes, barring those this table made itself: rebuilding the columns
+        // replaces them wholesale, which takes down the editor that asked for the change — losing,
+        // in a multi-valued cell, the values gathered but not yet handed over.
+        if (loadResults.getAttributeRows(componentId).find(attr =>
             attr.type === "label" &&
             (attr.name?.startsWith("label:") || attr.name?.startsWith("relation:")) &&
             attributes.isAffecting(attr, note))) {
@@ -82,13 +93,14 @@ export default function useData(note: FNote, noteIds: string[], viewConfig: Tabl
  * value the column does not list yet. The definition is looked up as the columns themselves are, so
  * an inherited one is written where it lives and the option reaches every note the field covers.
  *
- * The write reloads the collection, which rebuilds the columns off the definition as it now reads —
- * so nothing has to be patched in place here, unlike in the promoted grid.
+ * Stamped with the table's own component id, so that the reload it causes does not rebuild the
+ * columns underneath the editor that asked for it. The option still reaches the cache, which is
+ * where a cell being opened reads the choices it offers.
  */
-async function addSelectOption(parentNote: FNote, columnName: string, option: string) {
+async function addSelectOption(parentNote: FNote, columnName: string, option: string, componentId?: string) {
     const definitionAttr = parentNote.getAttributeDefinitions()
         .find((attr) => attr.name === `label:${columnName}`);
     if (definitionAttr) {
-        await attributes.addSelectOption(definitionAttr, option);
+        await attributes.addSelectOption(definitionAttr, option, componentId);
     }
 }
