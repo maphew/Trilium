@@ -197,10 +197,12 @@ body.experimental-feature-new-layout #right-pane {
        it reaches the floor there is nowhere left to take the room from, which is where
        `.right-pane-tab-body` starts scrolling instead — the outcome wanted all along. */
     .card.grow:not(.collapsed) {
-        /* Sized to its content first and grown into whatever is spare, rather than taken from zero:
-           two grow cards in a tab (a PDF's outline has them) then share the room left over instead
-           of splitting the tab evenly between them. */
-        flex: 1 1 auto;
+        /* Offered from nothing rather than from its content, as the cards that keep to theirs are
+           (below): two growing cards in a tab — a PDF's outline has its contents and its pages — then
+           take an equal share of what is going, instead of the longer one taking nearly all of it and
+           leaving the other at its floor. Which is the wrong way round of the two: what a card grows
+           for is what it cannot show at its content's height anyway. */
+        flex: 1 1 0;
         min-height: var(--right-pane-grow-min-height);
         display: flex;
         flex-direction: column;
@@ -227,9 +229,14 @@ body.experimental-feature-new-layout #right-pane {
        laid out in full and pushes everything after it off the pane. Each card gives up room and
        scrolls within itself instead — as little as it can, which is the rule below; this much is
        what every engine can be counted on for, and it crops each card a little rather than any one
-       of them badly. This is also what the growing card gives up while it has company: taking the
-       room the others leave over is only its job when it is the one thing there is to read. */
-    .right-pane-tab-body:has(> .card:not(.collapsed) ~ .card:not(.collapsed)) > .card:not(.collapsed) {
+       of them badly.
+
+       Every card but the growing one, which keeps both its claim on the room the others leave over
+       and the floor it stops at (see `.card.grow` above). Company is no reason to take that away: a
+       card asks to grow because what is in it is worth the room, and one of them cannot be measured
+       for it at all — a PDF's pages are drawn to fill the card they are in, so a card capped at what
+       it holds holds nothing, and holding nothing is what caps it. */
+    .right-pane-tab-body:has(> .card:not(.collapsed) ~ .card:not(.collapsed)) > .card:not(.collapsed):not(.grow) {
         flex: 0 1 auto;
         /* No card is given less than its own header, so a pane too short to hold even those is
            scrolled rather than being split into slivers with the titles cut off. */
@@ -263,7 +270,7 @@ body.experimental-feature-new-layout #right-pane {
        everything left over — instead of each section being cropped a little for the sake of a
        section that had room to spare. */
     @supports (max-height: max-content) {
-        .right-pane-tab-body:has(> .card:not(.collapsed) ~ .card:not(.collapsed)) > .card:not(.collapsed) {
+        .right-pane-tab-body:has(> .card:not(.collapsed) ~ .card:not(.collapsed)) > .card:not(.collapsed):not(.grow) {
             /* Offered from nothing rather than from its content: a card asking for its content up
                front leaves the pane over-subscribed, and nothing to hand back out. */
             flex: 1 1 0;
