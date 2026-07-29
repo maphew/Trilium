@@ -39,12 +39,13 @@
 }
 
 /*
- * A cog on the corner of the icon for the names Trilium reads for itself: settings of the note rather
- * than a word for it. A second glyph rather than an icon of its own, so `cssClass` still reads as the
- * label it is.
+ * A badge on the corner of the icon: a cog for the names Trilium reads for itself (settings of the note
+ * rather than a word for it), a chevron for a definition of a promoted field (one lifted out of the
+ * attributes and into the note's own ribbon). A second glyph rather than an icon of its own, so
+ * `cssClass` still reads as the label it is, and a promoted date field as the date field it defines.
  */
-.attribute-list-panel .attribute-kind.marker-system::after {
-    content: "\ea6e"; /* lookup code for "cog" in boxicons.css */
+.attribute-list-panel .attribute-kind.marker-system::after,
+.attribute-list-panel .attribute-kind.marker-promoted::after {
     position: absolute;
     inset-inline-end: -3px;
     bottom: -2px;
@@ -56,6 +57,18 @@
     text-shadow:
         0 0 2px var(--card-background-color, var(--main-background-color)),
         0 0 2px var(--card-background-color, var(--main-background-color));
+}
+
+.attribute-list-panel .attribute-kind.marker-system::after {
+    content: "\ea6e"; /* lookup code for "cog" in boxicons.css */
+}
+
+.attribute-list-panel .attribute-kind.marker-promoted::after {
+    content: "\ea57"; /* lookup code for "chevron-up" in boxicons.css */
+    /* A single stroke where the cog is a whole shape, so it is drawn a size up to weigh the same. */
+    font-size: 0.8em;
+    inset-inline-end: -4px;
+    bottom: -4px;
 }
 
 /* What separates the note's own vocabulary from the names Trilium reads for itself. Quiet: the sort is
@@ -89,10 +102,16 @@
 }
 
 /* The settings of a definition, which are a summary and not a value: quieter than one, and never the
-   reason the row is as wide as it is. */
+   reason the row is as wide as it is. Lowercased, the settings being sentence-cased words of Trilium's
+   own read as a list where they read as a sentence otherwise. */
 .attribute-list-panel .attribute-value.definition {
     font-size: 0.85em;
     text-transform: lowercase;
+}
+
+/* The one part of the summary the user wrote, so it is shown as they capitalised it. */
+.attribute-list-panel .definition-display-name {
+    text-transform: none;
 }
 
 .attribute-list-panel .attribute-marker,

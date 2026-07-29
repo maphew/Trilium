@@ -13,7 +13,7 @@ import attributes, { isBuiltinAttribute } from "../../services/attributes";
 import dialog from "../../services/dialog";
 import { t } from "../../services/i18n";
 import server from "../../services/server";
-import { AttributeDetail, AttributeDetailOpts, AttrType, DEFINITION_TYPES, getAttrType, LABEL_TYPES, RELATION_DEFINITION_TYPE } from "../attribute_widgets/attribute_detail";
+import { AttributeDetail, AttributeDetailOpts, AttrType, DEFINITION_TYPES, getAttrType, RELATION_DEFINITION_TYPE } from "../attribute_widgets/attribute_detail";
 import ActionButton from "../react/ActionButton";
 import HelpButton from "../react/HelpButton";
 import { useActiveNoteContext, useTriliumEvent } from "../react/hooks";
@@ -303,6 +303,7 @@ interface AttributeRowProps {
 function AttributeRow({ attribute, active, isSystem, showOwner, onOpen, onDelete }: AttributeRowProps) {
     const rowRef = useRef<HTMLLIElement>(null);
     const attrType = getAttributeKind(attribute);
+    const marker = getKindMarker(attribute, attrType, isSystem);
 
     return (
         <li
@@ -315,12 +316,9 @@ function AttributeRow({ attribute, active, isSystem, showOwner, onOpen, onDelete
                 onOpen(rowRef.current, e);
             }}
         >
-            {/* The kind is the icon, and a system attribute carries a cog on its corner: its own tooltip
-                names it, the marker being the only thing that says so. */}
-            <span
-                class={clsx("attribute-kind", isSystem && "marker-system")}
-                title={isSystem ? t("attribute_names.system") : undefined}
-            >
+            {/* The kind is the icon, and what is worth saying about it beyond that is a badge on its
+                corner: its own tooltip names it, the badge being the only thing that says so. */}
+            <span class={clsx("attribute-kind", marker?.class)} title={marker?.title}>
                 <Icon icon={getKindIcon(attribute, attrType)} />
             </span>
 
@@ -370,6 +368,24 @@ function getKindIcon(attribute: Attribute, attrType: AttributeKind) {
     return attrType === "relation" ? "bx bx-transfer" : "bx bx-hash";
 }
 
+/**
+ * The badge the kind icon carries on its corner, where there is one to carry: a cog for the names
+ * Trilium reads for itself, and a chevron for a definition whose field is promoted — lifted, that is,
+ * out of the attributes and into the note's own ribbon. At most one of the two, which no attribute is
+ * ever both of: no built-in name is a definition.
+ */
+function getKindMarker(attribute: Attribute, attrType: AttributeKind, isSystem?: boolean) {
+    if (isSystem) {
+        return { class: "marker-system", title: t("attribute_names.system") };
+    }
+
+    if (isDefinition(attrType) && promotedAttributeDefinitionParser.parse(attribute.value ?? "").isPromoted) {
+        return { class: "marker-promoted", title: t("attribute_detail.promoted") };
+    }
+
+    return undefined;
+}
+
 /** The entry of the popup's definition-type list that the definition is currently set to. */
 function getDefinitionType(attribute: Attribute, attrType: AttributeKind) {
     // A relation definition is named after what it points at rather than after a field it fills in.
@@ -390,7 +406,7 @@ function AttributeValue({ attribute, attrType }: { attribute: Attribute; attrTyp
     }
 
     if (isDefinition(attrType)) {
-        return <span class="attribute-value definition">{summarizeDefinition(attribute, attrType)}</span>;
+        return <DefinitionSummary attribute={attribute} />;
     }
 
     // A label with no value still gets its slot: it is what takes up the room between the name and what
@@ -398,30 +414,41 @@ function AttributeValue({ attribute, attrType }: { attribute: Attribute; attrTyp
     return <span class="attribute-value" title={attribute.value}>{attribute.value}</span>;
 }
 
-/** What a definition sets up, in the order the popup offers it: type, multiplicity, then the extras. */
-function summarizeDefinition(attribute: Attribute, attrType: AttributeKind) {
+/**
+ * What a definition sets up, beyond the two things its icon and its badge already say — the type of
+ * field it defines, and whether that field is promoted. First the name that field goes by, if it was
+ * given one of its own; then its settings, which are quiet enough that a plain single-value definition
+ * summarises to the display name alone, or to nothing at all.
+ */
+function DefinitionSummary({ attribute }: { attribute: Attribute }) {
     const definition = promotedAttributeDefinitionParser.parse(attribute.value ?? "");
-    const parts: string[] = [];
-
-    if (attrType === "label-definition") {
-        const labelType = definition.labelType ?? "text";
-        parts.push(LABEL_TYPES.find(({ value }) => value === labelType)?.title ?? labelType);
-    }
+    const displayName = definition.promotedAlias?.trim();
+    const settings: string[] = [];
 
     if (definition.multiplicity === "multi") {
-        parts.push(t("attribute_detail.multi_value"));
-    }
-
-    if (definition.isPromoted) {
-        parts.push(t("attribute_detail.promoted"));
+        settings.push(t("attribute_detail.multi_value"));
     }
 
     if (definition.inverseRelation) {
-        parts.push(t("attribute_list_panel.inverse_of", { name: definition.inverseRelation }));
+        settings.push(t("attribute_list_panel.inverse_of", { name: definition.inverseRelation }));
     }
 
-    return parts.join(" · ");
+    return (
+        <span class="attribute-value definition">
+            {displayName && (
+                // Written by hand and shown as written, unlike the settings beside it, which are words
+                // of Trilium's own (see AttributeList.css).
+                <span class="definition-display-name" title={t("attribute_detail.promoted_alias")}>
+                    {displayName}
+                </span>
+            )}
+            {displayName && settings.length > 0 && SUMMARY_SEPARATOR}
+            {settings.join(SUMMARY_SEPARATOR)}
+        </span>
+    );
 }
+
+const SUMMARY_SEPARATOR = " · ";
 
 type AttributeKind = NonNullable<AttrType>;
 
