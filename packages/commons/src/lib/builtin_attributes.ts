@@ -1,3 +1,5 @@
+import { type LabelType } from "./promoted_attribute_definition_parser.js";
+
 /**
  * Every attribute name Trilium itself gives a meaning to, as opposed to the ones a user invents.
  *
@@ -14,10 +16,14 @@ export interface BuiltinLabel {
     type: "label";
     name: string;
     /**
-     * The shape the label's value is read as. Not enforced at runtime — attribute values are always
-     * stored as strings — but it types the `useNoteLabel*` hooks via {@link FilterLabelsByType}.
+     * What kind of value the label holds. Not enforced at runtime — attribute values are always stored
+     * as strings — but it types the `useNoteLabel*` hooks via {@link FilterLabelsByType}, and tells the
+     * attribute editor which field to offer.
+     *
+     * Deliberately the same vocabulary a promoted attribute definition declares, rather than one of its
+     * own: a system label and a user's promoted field describe the same thing when they say `color`.
      */
-    valueType: "boolean" | "string" | "number";
+    valueType: LabelType;
     /**
      * Whether the attribute executes or embeds content, and so must be neutralised on import.
      * Dangerous attributes can be deactivated by prefixing them with `disabled:`, which is where the
@@ -52,24 +58,24 @@ const BUILTIN_ATTRIBUTES = [
     { type: "label", name: "excludeFromExport", valueType: "boolean" },
     { type: "label", name: "disableInclusion", valueType: "boolean" },
     { type: "label", name: "appCss", valueType: "boolean" },
-    { type: "label", name: "appTheme", valueType: "string" },
-    { type: "label", name: "appThemeBase", valueType: "string" },
+    { type: "label", name: "appTheme", valueType: "text" },
+    { type: "label", name: "appThemeBase", valueType: "text" },
     { type: "label", name: "hidePromotedAttributes", valueType: "boolean" },
     { type: "label", name: "readOnly", valueType: "boolean" },
     { type: "label", name: "autoReadOnlyDisabled", valueType: "boolean" },
-    { type: "label", name: "cssClass", valueType: "string" },
-    { type: "label", name: "iconClass", valueType: "string" },
-    { type: "label", name: "keyboardShortcut", valueType: "string" },
-    { type: "label", name: "run", valueType: "string", isDangerous: true },
-    { type: "label", name: "runOnInstance", valueType: "string", isDangerous: false },
+    { type: "label", name: "cssClass", valueType: "text" },
+    { type: "label", name: "iconClass", valueType: "text" },
+    { type: "label", name: "keyboardShortcut", valueType: "text" },
+    { type: "label", name: "run", valueType: "text", isDangerous: true },
+    { type: "label", name: "runOnInstance", valueType: "text", isDangerous: false },
     { type: "label", name: "runAtHour", valueType: "number", isDangerous: false },
-    { type: "label", name: "customRequestHandler", valueType: "string", isDangerous: true },
-    { type: "label", name: "customResourceProvider", valueType: "string", isDangerous: true },
+    { type: "label", name: "customRequestHandler", valueType: "text", isDangerous: true },
+    { type: "label", name: "customResourceProvider", valueType: "text", isDangerous: true },
     { type: "label", name: "widget", valueType: "boolean", isDangerous: true },
     { type: "label", name: "similarNotesWidgetDisabled", valueType: "boolean" },
     { type: "label", name: "workspace", valueType: "boolean" },
-    { type: "label", name: "workspaceIconClass", valueType: "string" },
-    { type: "label", name: "workspaceTabBackgroundColor", valueType: "string" },
+    { type: "label", name: "workspaceIconClass", valueType: "text" },
+    { type: "label", name: "workspaceTabBackgroundColor", valueType: "color" },
     { type: "label", name: "workspaceCalendarRoot", valueType: "boolean" },
     { type: "label", name: "workspaceTemplate", valueType: "boolean" },
     { type: "label", name: "searchHome", valueType: "boolean" },
@@ -78,107 +84,107 @@ const BUILTIN_ATTRIBUTES = [
     { type: "label", name: "sqlConsoleHome", valueType: "boolean" },
     { type: "label", name: "llmChatHome", valueType: "boolean" },
     { type: "label", name: "workspaceLlmChatHome", valueType: "boolean" },
-    { type: "label", name: "datePattern", valueType: "string" },
-    { type: "label", name: "weekPattern", valueType: "string" },
+    { type: "label", name: "datePattern", valueType: "text" },
+    { type: "label", name: "weekPattern", valueType: "text" },
     { type: "label", name: "enableWeekNote", valueType: "boolean" },
-    { type: "label", name: "monthPattern", valueType: "string" },
-    { type: "label", name: "quarterPattern", valueType: "string" },
-    { type: "label", name: "yearPattern", valueType: "string" },
+    { type: "label", name: "monthPattern", valueType: "text" },
+    { type: "label", name: "quarterPattern", valueType: "text" },
+    { type: "label", name: "yearPattern", valueType: "text" },
     { type: "label", name: "enableQuarterNote", valueType: "boolean" },
     // Stamped onto each generated journal note, holding the period it stands for.
-    { type: "label", name: "dateNote", valueType: "string", hasUserValue: true },
-    { type: "label", name: "weekNote", valueType: "string", hasUserValue: true },
-    { type: "label", name: "monthNote", valueType: "string", hasUserValue: true },
-    { type: "label", name: "quarterNote", valueType: "string", hasUserValue: true },
-    { type: "label", name: "yearNote", valueType: "string", hasUserValue: true },
+    { type: "label", name: "dateNote", valueType: "date", hasUserValue: true },
+    { type: "label", name: "weekNote", valueType: "text", hasUserValue: true },
+    { type: "label", name: "monthNote", valueType: "text", hasUserValue: true },
+    { type: "label", name: "quarterNote", valueType: "text", hasUserValue: true },
+    { type: "label", name: "yearNote", valueType: "text", hasUserValue: true },
     { type: "label", name: "pageSize", valueType: "number" },
-    { type: "label", name: "viewType", valueType: "string" },
-    { type: "label", name: "mapRootNoteId", valueType: "string" },
-    { type: "label", name: "mapExcludeRelation", valueType: "string" },
-    { type: "label", name: "mapIncludeRelation", valueType: "string" },
+    { type: "label", name: "viewType", valueType: "text" },
+    { type: "label", name: "mapRootNoteId", valueType: "text" },
+    { type: "label", name: "mapExcludeRelation", valueType: "text" },
+    { type: "label", name: "mapIncludeRelation", valueType: "text" },
     // Keeps a note out of the note map -- unless the map is rooted at it, which journals rely on.
     { type: "label", name: "excludeFromNoteMap", valueType: "boolean" },
     { type: "label", name: "bookmarkFolder", valueType: "boolean" },
     { type: "label", name: "sorted", valueType: "boolean" },
-    { type: "label", name: "sortDirection", valueType: "string" },
+    { type: "label", name: "sortDirection", valueType: "text" },
     { type: "label", name: "sortFoldersFirst", valueType: "boolean" },
     { type: "label", name: "sortNatural", valueType: "boolean" },
-    { type: "label", name: "sortLocale", valueType: "string" },
+    { type: "label", name: "sortLocale", valueType: "text" },
     { type: "label", name: "top", valueType: "boolean" },
     { type: "label", name: "bottom", valueType: "boolean" },
     { type: "label", name: "fullContentWidth", valueType: "boolean" },
     { type: "label", name: "subtreeHidden", valueType: "boolean", hasUserValue: true },
-    { type: "label", name: "expanded", valueType: "string", hasUserValue: true },
+    { type: "label", name: "expanded", valueType: "text", hasUserValue: true },
 
     // Sharing
     { type: "label", name: "shareHiddenFromTree", valueType: "boolean" },
     // Both hold the URL to link out to; `shareExternal` is the older spelling the theme still reads.
-    { type: "label", name: "shareExternalLink", valueType: "string", hasUserValue: true },
-    { type: "label", name: "shareExternal", valueType: "string", hasUserValue: true },
-    { type: "label", name: "shareRootLink", valueType: "string", hasUserValue: true },
+    { type: "label", name: "shareExternalLink", valueType: "url", hasUserValue: true },
+    { type: "label", name: "shareExternal", valueType: "url", hasUserValue: true },
+    { type: "label", name: "shareRootLink", valueType: "url", hasUserValue: true },
     { type: "label", name: "shareLogoWidth", valueType: "number" },
     { type: "label", name: "shareLogoHeight", valueType: "number" },
-    { type: "label", name: "shareOpenGraphColor", valueType: "string" },
-    { type: "label", name: "shareOpenGraphURL", valueType: "string", hasUserValue: true },
-    { type: "label", name: "shareOpenGraphDomain", valueType: "string", hasUserValue: true },
+    { type: "label", name: "shareOpenGraphColor", valueType: "color" },
+    { type: "label", name: "shareOpenGraphURL", valueType: "url", hasUserValue: true },
+    { type: "label", name: "shareOpenGraphDomain", valueType: "text", hasUserValue: true },
     // Also exists as a relation, pointing at an image note instead of naming a URL.
-    { type: "label", name: "shareOpenGraphImage", valueType: "string", hasUserValue: true },
-    { type: "label", name: "shareAlias", valueType: "string", hasUserValue: true },
+    { type: "label", name: "shareOpenGraphImage", valueType: "url", hasUserValue: true },
+    { type: "label", name: "shareAlias", valueType: "text", hasUserValue: true },
     { type: "label", name: "shareOmitDefaultCss", valueType: "boolean" },
     { type: "label", name: "shareRoot", valueType: "boolean" },
-    { type: "label", name: "shareDescription", valueType: "string" },
+    { type: "label", name: "shareDescription", valueType: "textarea" },
     { type: "label", name: "shareRaw", valueType: "boolean", isDangerous: true },
     { type: "label", name: "shareDisallowRobotIndexing", valueType: "boolean" },
-    { type: "label", name: "shareCredentials", valueType: "string", hasUserValue: true },
+    { type: "label", name: "shareCredentials", valueType: "text", hasUserValue: true },
     { type: "label", name: "shareIndex", valueType: "boolean" },
-    { type: "label", name: "shareHtmlLocation", valueType: "string" },
+    { type: "label", name: "shareHtmlLocation", valueType: "text" },
 
     // Attributes & scripting
-    { type: "label", name: "displayRelations", valueType: "string" },
-    { type: "label", name: "hideRelations", valueType: "string" },
-    { type: "label", name: "titleTemplate", valueType: "string", isDangerous: true },
+    { type: "label", name: "displayRelations", valueType: "text" },
+    { type: "label", name: "hideRelations", valueType: "text" },
+    { type: "label", name: "titleTemplate", valueType: "text", isDangerous: true },
     { type: "label", name: "template", valueType: "boolean" },
     { type: "label", name: "snippet", valueType: "boolean" },
-    { type: "label", name: "snippetDescription", valueType: "string", hasUserValue: true },
+    { type: "label", name: "snippetDescription", valueType: "text", hasUserValue: true },
     { type: "label", name: "textSnippet", valueType: "boolean" },
-    { type: "label", name: "textSnippetDescription", valueType: "string", hasUserValue: true },
-    { type: "label", name: "toc", valueType: "string" },
-    { type: "label", name: "color", valueType: "string" },
+    { type: "label", name: "textSnippetDescription", valueType: "text", hasUserValue: true },
+    { type: "label", name: "toc", valueType: "text" },
+    { type: "label", name: "color", valueType: "color" },
     { type: "label", name: "keepCurrentHoisting", valueType: "boolean" },
     { type: "label", name: "executeButton", valueType: "boolean" },
-    { type: "label", name: "executeDescription", valueType: "string" },
-    { type: "label", name: "executeTitle", valueType: "string", hasUserValue: true },
+    { type: "label", name: "executeDescription", valueType: "text" },
+    { type: "label", name: "executeTitle", valueType: "text", hasUserValue: true },
     { type: "label", name: "newNotesOnTop", valueType: "boolean" },
     { type: "label", name: "clipperInbox", valueType: "boolean" },
-    { type: "label", name: "clipType", valueType: "string" },
+    { type: "label", name: "clipType", valueType: "text" },
     { type: "label", name: "sentFromSender", valueType: "boolean" },
     { type: "label", name: "hideChildrenOverview", valueType: "boolean" },
-    { type: "label", name: "mediaNotesPlayMode", valueType: "string" },
+    { type: "label", name: "mediaNotesPlayMode", valueType: "text" },
     { type: "label", name: "collection", valueType: "boolean" },
-    { type: "label", name: "webViewSrc", valueType: "string", isDangerous: true },
+    { type: "label", name: "webViewSrc", valueType: "url", isDangerous: true },
     { type: "label", name: "hideHighlightWidget", valueType: "boolean" },
-    { type: "label", name: "iconPack", valueType: "string", isDangerous: true },
-    { type: "label", name: "docName", valueType: "string", isDangerous: true },
-    { type: "label", name: "docUrl", valueType: "string", isDangerous: true },
-    { type: "label", name: "language", valueType: "string", hasUserValue: true },
-    { type: "label", name: "originalFileName", valueType: "string", hasUserValue: true },
-    { type: "label", name: "pageUrl", valueType: "string", hasUserValue: true },
-    { type: "label", name: "command", valueType: "string", hasUserValue: true },
-    { type: "label", name: "displayMode", valueType: "string", hasUserValue: true },
+    { type: "label", name: "iconPack", valueType: "text", isDangerous: true },
+    { type: "label", name: "docName", valueType: "text", isDangerous: true },
+    { type: "label", name: "docUrl", valueType: "url", isDangerous: true },
+    { type: "label", name: "language", valueType: "text", hasUserValue: true },
+    { type: "label", name: "originalFileName", valueType: "text", hasUserValue: true },
+    { type: "label", name: "pageUrl", valueType: "url", hasUserValue: true },
+    { type: "label", name: "command", valueType: "text", hasUserValue: true },
+    { type: "label", name: "displayMode", valueType: "text", hasUserValue: true },
 
     // Search
-    { type: "label", name: "searchString", valueType: "string", hasUserValue: true },
-    { type: "label", name: "ancestorDepth", valueType: "string", hasUserValue: true },
-    { type: "label", name: "orderBy", valueType: "string", hasUserValue: true },
-    { type: "label", name: "orderDirection", valueType: "string", hasUserValue: true },
-    { type: "label", name: "limit", valueType: "string", hasUserValue: true },
+    { type: "label", name: "searchString", valueType: "text", hasUserValue: true },
+    { type: "label", name: "ancestorDepth", valueType: "text", hasUserValue: true },
+    { type: "label", name: "orderBy", valueType: "text", hasUserValue: true },
+    { type: "label", name: "orderDirection", valueType: "text", hasUserValue: true },
+    { type: "label", name: "limit", valueType: "text", hasUserValue: true },
     { type: "label", name: "fastSearch", valueType: "boolean" },
     { type: "label", name: "includeArchivedNotes", valueType: "boolean" },
     { type: "label", name: "debug", valueType: "boolean" },
 
     // Launch bar, and the hidden subtree items that back it
-    { type: "label", name: "launcherType", valueType: "string" },
-    { type: "label", name: "builtinWidget", valueType: "string" },
+    { type: "label", name: "launcherType", valueType: "text" },
+    { type: "label", name: "builtinWidget", valueType: "text" },
     // Dangerous together with `~script` below: it makes the launcher run its own content instead, so
     // neutralising only the relation would leave this as a way around it.
     { type: "label", name: "scriptInLauncherContent", valueType: "boolean", isDangerous: true },
@@ -190,46 +196,46 @@ const BUILTIN_ATTRIBUTES = [
     { type: "label", name: "beta", valueType: "boolean" },
 
     // Recorded on import, to trace a note back to where it came from
-    { type: "label", name: "oneNotePageId", valueType: "string", hasUserValue: true },
-    { type: "label", name: "oneNoteSectionId", valueType: "string", hasUserValue: true },
+    { type: "label", name: "oneNotePageId", valueType: "text", hasUserValue: true },
+    { type: "label", name: "oneNoteSectionId", valueType: "text", hasUserValue: true },
     { type: "label", name: "oneNoteImportFailed", valueType: "boolean" },
 
     // Collections
-    { type: "label", name: "status", valueType: "string", hasUserValue: true },
-    { type: "label", name: "board:groupBy", valueType: "string", hasUserValue: true },
+    { type: "label", name: "status", valueType: "text", hasUserValue: true },
+    { type: "label", name: "board:groupBy", valueType: "text", hasUserValue: true },
     // Carried by the task-state definition notes under `_taskStates`, which back the board columns.
-    { type: "label", name: "stateId", valueType: "string", hasUserValue: true },
-    { type: "label", name: "markdownSymbol", valueType: "string" },
+    { type: "label", name: "stateId", valueType: "text", hasUserValue: true },
+    { type: "label", name: "markdownSymbol", valueType: "text" },
     { type: "label", name: "isCompleted", valueType: "boolean" },
     { type: "label", name: "isHidden", valueType: "boolean" },
     { type: "label", name: "maxNestingDepth", valueType: "number", hasUserValue: true },
     { type: "label", name: "includeArchived", valueType: "boolean", hasUserValue: true },
-    { type: "label", name: "calendar:view", valueType: "string", hasUserValue: true },
-    { type: "label", name: "calendar:initialDate", valueType: "string", hasUserValue: true },
+    { type: "label", name: "calendar:view", valueType: "text", hasUserValue: true },
+    { type: "label", name: "calendar:initialDate", valueType: "date", hasUserValue: true },
     { type: "label", name: "calendar:hideWeekends", valueType: "boolean", hasUserValue: true },
     { type: "label", name: "calendar:weekNumbers", valueType: "boolean", hasUserValue: true },
-    { type: "label", name: "calendar:slotDuration", valueType: "string", hasUserValue: true },
-    { type: "label", name: "calendar:slotLabelInterval", valueType: "string", hasUserValue: true },
-    { type: "label", name: "calendar:title", valueType: "string", hasUserValue: true },
-    { type: "label", name: "calendar:displayedAttributes", valueType: "string", hasUserValue: true },
+    { type: "label", name: "calendar:slotDuration", valueType: "text", hasUserValue: true },
+    { type: "label", name: "calendar:slotLabelInterval", valueType: "text", hasUserValue: true },
+    { type: "label", name: "calendar:title", valueType: "text", hasUserValue: true },
+    { type: "label", name: "calendar:displayedAttributes", valueType: "text", hasUserValue: true },
     // Each names the label an event reads a given field from, overriding the default listed after it.
-    { type: "label", name: "calendar:startDate", valueType: "string", hasUserValue: true },
-    { type: "label", name: "calendar:endDate", valueType: "string", hasUserValue: true },
-    { type: "label", name: "calendar:startTime", valueType: "string", hasUserValue: true },
-    { type: "label", name: "calendar:endTime", valueType: "string", hasUserValue: true },
-    { type: "label", name: "calendar:recurrence", valueType: "string", hasUserValue: true },
-    { type: "label", name: "startDate", valueType: "string", hasUserValue: true },
-    { type: "label", name: "endDate", valueType: "string", hasUserValue: true },
-    { type: "label", name: "startTime", valueType: "string", hasUserValue: true },
-    { type: "label", name: "endTime", valueType: "string", hasUserValue: true },
-    { type: "label", name: "recurrence", valueType: "string", hasUserValue: true },
-    { type: "label", name: "geolocation", valueType: "string", hasUserValue: true },
-    { type: "label", name: "mapType", valueType: "string", hasUserValue: true },
-    { type: "label", name: "map:style", valueType: "string", hasUserValue: true },
+    { type: "label", name: "calendar:startDate", valueType: "text", hasUserValue: true },
+    { type: "label", name: "calendar:endDate", valueType: "text", hasUserValue: true },
+    { type: "label", name: "calendar:startTime", valueType: "text", hasUserValue: true },
+    { type: "label", name: "calendar:endTime", valueType: "text", hasUserValue: true },
+    { type: "label", name: "calendar:recurrence", valueType: "text", hasUserValue: true },
+    { type: "label", name: "startDate", valueType: "date", hasUserValue: true },
+    { type: "label", name: "endDate", valueType: "date", hasUserValue: true },
+    { type: "label", name: "startTime", valueType: "time", hasUserValue: true },
+    { type: "label", name: "endTime", valueType: "time", hasUserValue: true },
+    { type: "label", name: "recurrence", valueType: "text", hasUserValue: true },
+    { type: "label", name: "geolocation", valueType: "text", hasUserValue: true },
+    { type: "label", name: "mapType", valueType: "text", hasUserValue: true },
+    { type: "label", name: "map:style", valueType: "text", hasUserValue: true },
     { type: "label", name: "map:scale", valueType: "boolean", hasUserValue: true },
     { type: "label", name: "map:hideLabels", valueType: "boolean", hasUserValue: true },
-    { type: "label", name: "presentation:theme", valueType: "string", hasUserValue: true },
-    { type: "label", name: "slide:background", valueType: "string", hasUserValue: true },
+    { type: "label", name: "presentation:theme", valueType: "text", hasUserValue: true },
+    { type: "label", name: "slide:background", valueType: "text", hasUserValue: true },
 
     // Code notes
     { type: "label", name: "tabWidth", valueType: "number" },
@@ -238,9 +244,9 @@ const BUILTIN_ATTRIBUTES = [
 
     // Printing
     { type: "label", name: "printLandscape", valueType: "boolean" },
-    { type: "label", name: "printPageSize", valueType: "string" },
-    { type: "label", name: "printScale", valueType: "string" },
-    { type: "label", name: "printMargins", valueType: "string" },
+    { type: "label", name: "printPageSize", valueType: "text" },
+    { type: "label", name: "printScale", valueType: "text" },
+    { type: "label", name: "printMargins", valueType: "text" },
     { type: "label", name: "internalBookmark", valueType: "boolean" },
 
     // relation names
@@ -303,10 +309,20 @@ type RelationEntry = Extract<BuiltinAttributeEntry, { type: "relation" }>;
  */
 type DisabledForms<T extends { name: string }> = `disabled:${Extract<T, { isDangerous: true }>["name"]}`;
 
-/** Maps a value type back onto the {@link BuiltinLabel.valueType} discriminant that stands for it. */
-type ValueTypeName<U> = U extends boolean ? "boolean" : U extends number ? "number" : U extends string ? "string" : never;
+/**
+ * What each label type is read as in TypeScript. Written as a mapped type over {@link LabelType} so a
+ * type added to that vocabulary cannot be left without a reading here.
+ */
+type ValueTypeToTs = {
+    [K in LabelType]: K extends "boolean" ? boolean : K extends "number" ? number : string;
+};
 
-type LabelsWithValueType<U> = Extract<LabelEntry, { valueType: ValueTypeName<U> }>;
+/** The label types read as `U`, e.g. every string-ish one — `text`, `url`, `color`, … — for `string`. */
+type ValueTypeNamesFor<U> = {
+    [K in LabelType]: ValueTypeToTs[K] extends U ? K : never;
+}[LabelType];
+
+type LabelsWithValueType<U> = Extract<LabelEntry, { valueType: ValueTypeNamesFor<U> }>;
 
 export type LabelNames = LabelEntry["name"] | DisabledForms<LabelEntry>;
 export type RelationNames = RelationEntry["name"] | DisabledForms<RelationEntry>;

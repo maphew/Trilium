@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import BUILTIN_ATTRIBUTES, { type FilterLabelsByType, type LabelNames, type RelationNames } from "./builtin_attributes.js";
+import { LABEL_TYPES } from "./promoted_attribute_definition_parser.js";
 
 describe("BUILTIN_ATTRIBUTES", () => {
     it("declares each name once per type, with a value type on every label", () => {
@@ -12,7 +13,8 @@ describe("BUILTIN_ATTRIBUTES", () => {
             seen.add(key);
 
             if (attr.type === "label") {
-                expect([ "boolean", "string", "number" ]).toContain(attr.valueType);
+                // Checked against the promoted-attribute vocabulary itself, so the two cannot diverge.
+                expect(LABEL_TYPES).toContain(attr.valueType);
             }
         }
     });
