@@ -1,3 +1,33 @@
+/*
+ * A select combobox is typed into like a text box, so nothing about it says a list of choices waits
+ * underneath — it wears the arrow a `<select>` draws instead, the same one the type dropdown of the
+ * attribute definition shows. Themes defining the arrow lend theirs, which follows their text colour;
+ * the older ones, which draw it inside their own `.form-select` rule, fall back to that very image.
+ *
+ * The arrow sits where a select's does — measured from the edge the user sees, which for a field
+ * inside an input group is the group's rather than the field's own, hence the padding taken off.
+ *
+ * The hover and focus states are listed because the themes restate the whole `background` for them,
+ * which would drop the image; `:root` and the always-present `form-control` are there to outweigh
+ * those rules whichever way the stylesheets happen to be ordered.
+ */
+:root .label-select-combobox.form-control,
+:root .label-select-combobox.form-control:hover,
+:root .label-select-combobox.form-control:focus {
+    background-image: var(--select-arrow-svg, url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='%23ffffff' stroke='%23343a40' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/></svg>"));
+    background-repeat: no-repeat;
+    background-position: right calc(0.75rem - var(--input-group-padding-inline-end, 0px)) center;
+    background-size: 15px 20px;
+    /* Keeps a long value from running under the arrow. */
+    padding-inline-end: calc(15px + 1.5rem);
+}
+
+body[dir=rtl] .label-select-combobox.form-control,
+body[dir=rtl] .label-select-combobox.form-control:hover,
+body[dir=rtl] .label-select-combobox.form-control:focus {
+    background-position: left calc(0.75rem - var(--input-group-padding-inline-end, 0px)) center;
+}
+
 /* The "Create" entry of a select combobox, set apart from the options it sits under: it makes a new
    choice rather than picking one. Scoped to the dropdown, which is portaled to the body. */
 .form-autocomplete-dropdown .label-select-create-option {

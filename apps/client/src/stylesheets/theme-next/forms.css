@@ -376,11 +376,15 @@ input::selection,
 /* Input groups */
 
 .input-group {
+    /* Named rather than written into the padding alone, so that a field drawing an indicator of its
+       own can place it against the group's edge — which is this much further out than the field's. */
+    --input-group-padding-inline-end: 8px;
+
     outline: 3px solid transparent;
     outline-offset: 6px;
     background: var(--input-background-color);
     border-radius: 6px;
-    padding-inline-end: 8px;
+    padding-inline-end: var(--input-group-padding-inline-end);
     color: var(--quick-search-color);
     flex-wrap: nowrap;
 }
