@@ -22,7 +22,8 @@
   "about": {
     "data_directory": "Каталог даних:",
     "version_label": "Версія:",
-    "version": "{{appVersion}} (база даних: {{dbVersion}}, протокол синхронізації: {{syncVersion}})"
+    "version": "{{appVersion}} (база даних: {{dbVersion}}, протокол синхронізації: {{syncVersion}})",
+    "license_tooltip": "Переглянути ліцензійну угоду"
   },
   "global_menu": {
     "about": "Про Trilium Notes",
@@ -1206,7 +1207,9 @@
     "date-and-time": "Дата & час",
     "path": "Шлях",
     "database_backed_up_to": "Резервну копію бази даних створено у {{backupFilePath}}",
-    "no_backup_yet": "резервної копії поки що немає"
+    "no_backup_yet": "резервної копії поки що немає",
+    "title": "Резервна копія",
+    "backup_location_description": "Резервні копії зберігаються в {{- backupFolder}}."
   },
   "etapi": {
     "description": "ETAPI — це REST API, який використовується для програмного доступу до екземпляра Trilium без інтерфейсу користувача.",
@@ -1384,7 +1387,12 @@
     "first-week-has-minimum-days": "Перший тиждень має мінімальну кількість днів",
     "min-days-in-first-week": "Мінімальна кількість днів у першому тижні",
     "first-week-warning": "Зміна параметрів першого тижня може призвести до дублювання з існуючими нотатками тижня, і існуючі нотатки тижня не будуть оновлені відповідно.",
-    "formatting-locale": "Формат дати & числа"
+    "formatting-locale": "Формат дати & числа",
+    "tuesday": "Вівторок",
+    "wednesday": "Середа",
+    "thursday": "Четвер",
+    "friday": "П'ятниця",
+    "saturday": "Субота"
   },
   "quick-search": {
     "no-results": "Результатів не знайдено",
@@ -1426,7 +1434,9 @@
     "placeholder": "введіть тут заголовок нотатки...",
     "note_type_switcher_label": "Змінити з {{type}} на:",
     "note_type_switcher_collection": "Колекція",
-    "note_type_switcher_others": "Інший тип нотатки"
+    "note_type_switcher_others": "Інший тип нотатки",
+    "created_on": "Створено <Value />",
+    "last_modified": "Змінено <Value />"
   },
   "search_result": {
     "no_notes_found": "За заданими параметрами пошуку нотаток не знайдено.",
@@ -1917,5 +1927,8 @@
   },
   "llm": {
     "delete_provider": "Видалити"
+  },
+  "dashboard_view": {
+    "refresh-widget": "Оновити"
   }
 }
