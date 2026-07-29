@@ -556,6 +556,9 @@ export function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, 
                     <OptionsRow name="attr-label-type" label={t("attribute_detail.label_type")}>
                         <FormDropdownList
                             className="attr-input-label-type"
+                            // The popup is a scroll container, so an inline menu could only grow by
+                            // scrolling the form under itself — and the type list only gets longer.
+                            portalToBody
                             values={DEFINITION_TYPES}
                             keyProperty="value"
                             titleProperty="title"
