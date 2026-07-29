@@ -217,6 +217,42 @@ describe("LabelValueInput", () => {
             expect(onCommit).toHaveBeenCalledWith("Blocked");
         });
 
+        it("filters by typed text even when it retypes the stored value, bolding the match", async () => {
+            const onCommit = vi.fn();
+            // "Blo" is a stale value: stored once, but no longer among the options.
+            await mount({
+                labelType: "select", value: "Blo", selectOptions: [ "Alpha", "Beta" ],
+                onCommit, onCreateOption: vi.fn()
+            });
+
+            const input = container.querySelector("input");
+            await act(async () => input?.focus());
+            // Opened without typing: every choice is offered, the stored text notwithstanding.
+            expect((await settleDropdown()).map((item) => item.textContent)).toEqual([ "Alpha", "Beta" ]);
+
+            // Typing the very text the box already held must still filter (and offer creating it):
+            // the list follows the typing, not how the text compares to the value. Typed in two
+            // keystrokes, as a user would: a lone input event carrying the unchanged text is
+            // indistinguishable from no edit at all.
+            await typeInto(input, "B");
+            await typeInto(input, "Blo");
+            const items = await settleDropdown();
+            expect(items).toHaveLength(1);
+            expect(items[0]?.querySelector(".label-select-create-option")).not.toBeNull();
+
+            // The part an entry matched is set in bold.
+            await typeInto(input, "et");
+            const [ beta ] = await settleDropdown();
+            expect(beta?.innerHTML).toContain("B<b>et</b>a");
+
+            // Even text spelling an option exactly keeps filtering and bolding: it is not yet a
+            // pick, so nothing commits and the list must not snap back to everything.
+            await typeInto(input, "Beta");
+            const [ exact ] = await settleDropdown();
+            expect(exact?.innerHTML).toContain("<b>Beta</b>");
+            expect(onCommit).not.toHaveBeenCalled();
+        });
+
         it("reverts unpicked text on blur, while an emptied box commits the unset value", async () => {
             const onCommit = vi.fn();
             await mount({
@@ -232,11 +268,18 @@ describe("LabelValueInput", () => {
             expect(onCommit).not.toHaveBeenCalled();
             expect(input?.value).toBe("Todo");
 
+            // Leaving after typing an option's full name commits it like a pick, in its own casing.
+            await typeInto(input, "done");
+            await act(async () => {
+                input?.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+            });
+            expect(onCommit).toHaveBeenLastCalledWith("Done");
+
             await typeInto(input, "");
             await act(async () => {
                 input?.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
             });
-            expect(onCommit).toHaveBeenCalledWith("");
+            expect(onCommit).toHaveBeenLastCalledWith("");
         });
     });
 

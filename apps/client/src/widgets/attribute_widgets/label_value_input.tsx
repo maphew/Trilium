@@ -240,25 +240,32 @@ function SelectComboBox({ options, value, onCommit, onCreateOption, inputProps }
     const [ draft, setDraft ] = useState(value);
     // What the note holds is what the box shows, however the value came to change.
     useEffect(() => setDraft(value), [ value ]);
+    // Whether the text is something typed this visit, rather than the value the box opened with.
+    // Only typed text filters the list and offers creating: comparing the text against the value
+    // instead would stop filtering whenever typing happens to pass through it (retyping what was
+    // erased, or reproducing a stale value), which is exactly when the list must keep up.
+    const typedSinceFocus = useRef(false);
 
     // Narrowed because Preact types the attribute as possibly signal-backed, while the text box
     // underneath takes the plain string.
     const { id, ...restInputProps } = inputProps ?? {};
 
+    // What the list is narrowed by: the typed text, or nothing while the box still shows the value
+    // it opened with — reopening a filled field offers every choice, not the one already made.
+    const filter = typedSinceFocus.current ? draft.trim() : "";
+
     const source = useCallback(async (query: string) => {
         const trimmed = query.trim();
-        // The stored value in the box means the list was only just opened, so the whole of it is
-        // offered rather than the near-empty tail that filtering by the value would leave.
-        const items = !trimmed || trimmed === value
-            ? [ ...options ]
-            : options.filter((option) => option.toLowerCase().includes(trimmed.toLowerCase()));
+        const typed = typedSinceFocus.current ? trimmed : "";
+        const items = typed
+            ? options.filter((option) => option.toLowerCase().includes(typed.toLowerCase()))
+            : [ ...options ];
 
-        if (trimmed && trimmed !== value
-            && !options.some((option) => option.toLowerCase() === trimmed.toLowerCase())) {
+        if (typed && !options.some((option) => option.toLowerCase() === typed.toLowerCase())) {
             items.push(CREATE_OPTION_SENTINEL + trimmed);
         }
         return items;
-    }, [ options, value ]);
+    }, [ options ]);
 
     return (
         <FormAutocomplete
@@ -273,33 +280,68 @@ function SelectComboBox({ options, value, onCommit, onCreateOption, inputProps }
                     <span className="bx bx-plus" />{" "}
                     {t("promoted_attributes.create_option", { option: item.substring(CREATE_OPTION_SENTINEL.length) })}
                 </span>
-                : item}
+                : highlightMatch(item, filter)}
             onChange={(newValue) => {
-                if (newValue.startsWith(CREATE_OPTION_SENTINEL)) {
-                    const option = newValue.substring(CREATE_OPTION_SENTINEL.length);
+                // Typing only — a made choice arrives through onPick — so the text is never a
+                // commit, only the filter. Even text spelling an option exactly keeps filtering:
+                // "bar" typed on the way to "barr" is not yet a decision for either.
+                typedSinceFocus.current = true;
+                setDraft(newValue);
+            }}
+            onPick={(item) => {
+                // A made choice resets the box to its opened-with state: the text is the value
+                // again, so the list is back to offering everything.
+                typedSinceFocus.current = false;
+                if (item.startsWith(CREATE_OPTION_SENTINEL)) {
+                    const option = item.substring(CREATE_OPTION_SENTINEL.length);
                     void onCreateOption(option);
                     setDraft(option);
                     onCommit(option);
-                } else if (options.includes(newValue)) {
-                    setDraft(newValue);
-                    onCommit(newValue);
                 } else {
-                    // Not a pick yet — the text is a filter, held until an entry is chosen.
-                    setDraft(newValue);
+                    setDraft(item);
+                    onCommit(item);
                 }
             }}
             onBlur={(leftBehind) => {
-                if (!leftBehind.trim()) {
+                typedSinceFocus.current = false;
+                const trimmed = leftBehind.trim();
+                if (!trimmed) {
                     setDraft("");
                     if (value) {
                         onCommit("");
                     }
+                    return;
+                }
+
+                // Text spelling an option's full name is as good as picking it — leaving the field
+                // after typing it out must not throw the choice away. The option's own casing wins.
+                const match = options.find((option) => option.toLowerCase() === trimmed.toLowerCase());
+                if (match && match !== value) {
+                    setDraft(match);
+                    onCommit(match);
                 } else if (leftBehind !== value) {
                     setDraft(value);
                 }
             }}
         />
     );
+}
+
+/**
+ * An option with the part the typed text matched set in bold, so a filtered list shows why each of
+ * its entries is still there. Case-insensitive like the filtering, first occurrence only — the same
+ * match the filter found. Without a filter (or, defensively, without a match) the text is plain.
+ */
+function highlightMatch(text: string, filter: string) {
+    const index = filter ? text.toLowerCase().indexOf(filter.toLowerCase()) : -1;
+    if (index < 0) {
+        return text;
+    }
+    return <>
+        {text.substring(0, index)}
+        <b>{text.substring(index, index + filter.length)}</b>
+        {text.substring(index + filter.length)}
+    </>;
 }
 
 /**
