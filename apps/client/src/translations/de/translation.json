@@ -2835,9 +2835,6 @@
     "page_break": "Seitenumbruch einfügen (zum Drucken)",
     "table": "Tabelle einfügen"
   },
-  "auto_link_attribute_list": {
-    "title": "Systemattribute"
-  },
   "revisions_snapshot": {
     "title": "Revisionsverlauf"
   },

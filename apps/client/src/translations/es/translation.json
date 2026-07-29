@@ -2620,9 +2620,6 @@
     "back": "Atrás",
     "diff_identical": "Esta revisión es idéntica al contenido actual de la nota."
   },
-  "auto_link_attribute_list": {
-    "title": "Atributos del sistema"
-  },
   "database": {
     "title": "Base de datos"
   },

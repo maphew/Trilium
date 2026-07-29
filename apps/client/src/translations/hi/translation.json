@@ -2516,9 +2516,6 @@
   "image_viewer": {
     "loading_error": "इमेज लोड करने में त्रुटि हुई थी।"
   },
-  "auto_link_attribute_list": {
-    "title": "सिस्टम एट्रिब्यूट्स"
-  },
   "split_editor": {
     "render_error": "प्रीव्यू रेंडर करने में असमर्थ",
     "show_details": "विवरण दिखाएं",

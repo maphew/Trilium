@@ -2629,9 +2629,6 @@
     "diff_identical": "Questa revisione è identica al contenuto dell'attuale.",
     "back": "Indietro"
   },
-  "auto_link_attribute_list": {
-    "title": "Attributi di sistema"
-  },
   "database": {
     "title": "Database"
   },

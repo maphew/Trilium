@@ -2489,9 +2489,6 @@
     "source_description_unknown": "Источник недоступен",
     "diff_identical": "Эта версия идентична текущему содержанию заметки."
   },
-  "auto_link_attribute_list": {
-    "title": "Системные атрибуты"
-  },
   "revisions_snapshot": {
     "title": "Версии заметки"
   },

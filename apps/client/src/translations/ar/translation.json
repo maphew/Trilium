@@ -2639,9 +2639,6 @@
   "revisions_snapshot": {
     "title": "إصدارات الملاحظة"
   },
-  "auto_link_attribute_list": {
-    "title": "سمات النظام"
-  },
   "platform_indicator": {
     "available_on": "متاح على {{platform}}"
   },
