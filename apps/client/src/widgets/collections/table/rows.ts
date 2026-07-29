@@ -71,8 +71,9 @@ export async function buildRowDefinitions(parentNote: FNote, infos: AttributeDef
 
 export default function getAttributeDefinitionInformation(parentNote: FNote) {
     const info: AttributeDefinitionInformation[] = [];
-    const attrDefs = parentNote.getAttributes()
-        .filter(attr => attr.isDefinition());
+    // Nearest-wins, so a collection redefining an inherited field is described by its own definition
+    // rather than by whichever of the two the scan happened to reach first.
+    const attrDefs = parentNote.getAttributeDefinitions();
     for (const attrDef of attrDefs) {
         const def = attrDef.getDefinition();
         if (def.multiplicity !== "single") {
