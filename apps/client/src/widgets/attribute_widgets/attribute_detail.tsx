@@ -25,6 +25,7 @@ import FormDropdownList from "../react/FormDropdownList.jsx";
 import { FormDropdownDivider, FormListItem } from "../react/FormList.jsx";
 import FormTextBox, { FormTextBoxWithUnit } from "../react/FormTextBox.jsx";
 import HelpTooltipButton from "../react/HelpTooltipButton.jsx";
+import { suspendModalFocusTraps } from "../react/modal_focustrap.js";
 import NoteAutocomplete from "../react/NoteAutocomplete.jsx";
 import NoteLink, { NewNoteLink } from "../react/NoteLink.jsx";
 import { disposeReactWidget, ParentComponent, renderReactWidgetAtElement } from "../react/react_utils.jsx";
@@ -232,6 +233,17 @@ export function AttributeDetail({ opts, currentNoteId, onDismiss, onCancel, ...f
         window.addEventListener("mousedown", onMouseDown);
         return () => window.removeEventListener("mousedown", onMouseDown);
     }, [ shown, spawner, onDismiss ]);
+
+    // The popup is rendered outside whatever modal it was opened from (its host portals it to the body,
+    // and a modal counts as belonging to it — see above), which Bootstrap's focus-trap would otherwise
+    // keep pulling focus back out of, leaving the fields unusable. Suspended while the popup is shown.
+    useEffect(() => {
+        if (!shown) {
+            return;
+        }
+
+        return suspendModalFocusTraps();
+    }, [ shown ]);
 
     if (!opts) {
         return null;

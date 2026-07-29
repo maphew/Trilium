@@ -1,0 +1,70 @@
+/*
+ * The panel lays its sections out in cards, which the right pane is what dresses (`#right-pane .card`
+ * in style.css, and RightPanelContainer.css over it) — none of which reaches a modal, where the cards
+ * would otherwise come out as Bootstrap draws them: bordered, rounded boxes of their own. Dressed here
+ * as the pane dresses them, one section under the next, each headed by a line that is pressed to put it
+ * away.
+ */
+.modal.note-attributes-modal {
+    .modal-body {
+        padding-block: 0;
+    }
+
+    .card {
+        border: 0;
+        border-bottom: 1px solid var(--main-border-color);
+        border-radius: 0;
+        background: transparent;
+
+        &:last-of-type {
+            border-bottom: 0;
+        }
+    }
+
+    .card-header {
+        display: flex;
+        align-items: center;
+        justify-content: flex-start;
+        padding: 4px 0;
+        border: 0;
+        background: transparent;
+        cursor: pointer;
+        --icon-button-size: 26px;
+
+        .icon-action {
+            flex-shrink: 0;
+            transition: transform 0.15s ease;
+        }
+    }
+
+    /* Read as the sentences they are ("3 owned attributes"), rather than uppercased as the right pane
+       heads its own cards: this is a page of its own on a phone, not a column of headings beside one. */
+    .card-header-title {
+        flex-grow: 1;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        font-weight: 600;
+        color: var(--muted-text-color);
+    }
+
+    .card-header-buttons {
+        display: flex;
+        align-items: center;
+    }
+
+    .card.collapsed .card-header > .icon-action {
+        transform: rotate(-90deg);
+    }
+
+    /* The one section a note has, having nothing to be put away in favour of (see RightPanelWidget),
+       has no chevron either — so its title starts where the others' do. */
+    .card.not-collapsible .card-header {
+        cursor: default;
+        padding-inline-start: 8px;
+    }
+
+    .card-body {
+        padding: 0 0 8px;
+    }
+}

@@ -16,7 +16,7 @@ import { t } from "../../services/i18n";
 import protected_session from "../../services/protected_session";
 import server from "../../services/server";
 import toast from "../../services/toast";
-import { isDesktop,isElectron as getIsElectron, isMac as getIsMac } from "../../services/utils";
+import { isElectron as getIsElectron, isMac as getIsMac, isMobile as getIsMobile } from "../../services/utils";
 import ws from "../../services/ws";
 import ClosePaneButton from "../buttons/close_pane_button";
 import CreatePaneButton from "../buttons/create_pane_button";
@@ -94,6 +94,7 @@ export function NoteContextMenu({ note, noteContext, itemsAtStart, itemsNearNote
     );
     const isElectron = getIsElectron();
     const isMac = getIsMac();
+    const isMobile = getIsMobile();
     const hasSource = ["text", "code", "relationMap", "mermaid", "canvas", "mindMap", "spreadsheet", "llmChat"].includes(noteType) || note.isSvg();
     const isSearchOrBook = ["search", "book"].includes(noteType);
     const isHelpPage = note.noteId.startsWith("_help");
@@ -135,6 +136,9 @@ export function NoteContextMenu({ note, noteContext, itemsAtStart, itemsNearNote
                 <CommandItem command="findInText" icon="bx bx-search" disabled={!isSearchable} text={t("note_actions.search_in_note")} />
                 <CommandItem command="showAttachments" icon="bx bx-paperclip" disabled={isInOptionsOrHelp} text={t("note_actions.note_attachments")} />
                 {isNewLayout && <CommandItem command="toggleRibbonTabNoteMap" icon="bx bxs-network-chart" disabled={isInOptionsOrHelp} text={t("note_actions.note_map")} />}
+                {/* The attributes panel is a right pane tab where there is a right pane; on a phone the
+                    menu is where it is reached, and a modal is where it is shown. */}
+                {isMobile && <CommandItem command="showNoteAttributes" icon="bx bx-list-check" disabled={isInOptionsOrHelp} text={t("note_actions.note_attributes")} />}
 
                 <FormDropdownDivider />
 

@@ -159,6 +159,7 @@ export type CommandMappings = {
     showCpuArchWarning: CommandData;
     showLeftPane: CommandData;
     showAttachments: CommandData;
+    showNoteAttributes: CommandData;
     showSearchHistory: CommandData;
     showShareSubtree: CommandData;
     hoistNote: CommandData & { noteId: string };
