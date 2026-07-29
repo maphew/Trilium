@@ -9,7 +9,7 @@ import { t } from "../../../../../services/i18n";
 import { formatSize } from "../../../../../services/utils";
 import ActionButton from "../../../../react/ActionButton";
 import type { DonutRing } from "../../../../react/charts/DonutChart";
-import { openSpaceUsageContextMenu } from "./context_menu";
+import { type ContentChangedHandler, openSpaceUsageContextMenu } from "./context_menu";
 import { buildChildrenSegments, type UsageSegmentData } from "./donut_segments";
 import NoteUsageDonut, { segmentTooltip } from "./note_usage_donut";
 import SpaceUsagePlaceholder from "./placeholder";
@@ -22,6 +22,10 @@ interface BrowseProps {
     /** Note IDs from the root (inclusive) down to the note in view. */
     path: string[];
     onPathChange: (path: string[]) => void;
+    /** Changes when the section's refresh button asks for a fresh reading of this note. */
+    refreshToken: number;
+    /** Called once the menu deleted something, so the donut stops drawing what is no longer there. */
+    onContentChanged: ContentChangedHandler;
 }
 
 /**
@@ -32,9 +36,10 @@ interface BrowseProps {
  * The path is owned by the section rather than the view, so that "Show details" elsewhere in Space
  * Usage can drop the user straight onto a note here.
  */
-export default function Browse({ path, onPathChange }: BrowseProps) {
+export default function Browse({ path, onPathChange, refreshToken, onContentChanged }: BrowseProps) {
     const noteId = path[path.length - 1];
-    const { data: usage, failed } = useSpaceUsageFetch<SpaceUsageNoteResponse>(`space-usage/note/${noteId}`);
+    const { data: usage, failed } = useSpaceUsageFetch<SpaceUsageNoteResponse>(
+        `space-usage/note/${noteId}`, refreshToken);
     const titles = useNoteTitles(path, usage);
     const getTitle = useCallback((id: string) => titles.get(id) ?? id, [ titles ]);
 
@@ -62,10 +67,10 @@ export default function Browse({ path, onPathChange }: BrowseProps) {
             const childId = segment.data?.noteId;
 
             if (childId) {
-                void openSpaceUsageContextMenu(event, [ ...path, childId ], onPathChange);
+                void openSpaceUsageContextMenu(event, [ ...path, childId ], onPathChange, onContentChanged);
             }
         }
-    }), [ usage, getTitle, path, onPathChange ]);
+    }), [ usage, getTitle, path, onPathChange, onContentChanged ]);
 
     return (
         <div className="space-usage-browse">
@@ -94,7 +99,8 @@ export default function Browse({ path, onPathChange }: BrowseProps) {
                         title={getTitle(usage.noteId)}
                         notePath={path}
                         outerRings={[ childrenRing ]}
-                        onTitleContextMenu={(event) => void openSpaceUsageContextMenu(event, path, onPathChange)}
+                        onTitleContextMenu={(event) =>
+                            void openSpaceUsageContextMenu(event, path, onPathChange, onContentChanged)}
                         centerActions={
                             <ActionButton
                                 className="space-usage-back"

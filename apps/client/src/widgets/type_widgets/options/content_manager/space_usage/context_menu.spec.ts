@@ -13,9 +13,12 @@ const mocks = vi.hoisted(() => ({
     branchIds: new Map<string, string>(),
     triggerCommand: vi.fn(),
     openContextWithNote: vi.fn(),
-    deleteNotes: vi.fn(),
+    // Answers like the real one: true when the deletion went through, false when the user backed
+    // out of its confirmation dialog.
+    deleteNotes: vi.fn(async (..._args: unknown[]) => true),
     downloadFileNote: vi.fn(),
-    showDetails: vi.fn()
+    showDetails: vi.fn(),
+    contentChanged: vi.fn()
 }));
 
 vi.mock("../../../../../menus/context_menu", () => ({
@@ -95,7 +98,7 @@ function invoke(icon: string) {
 }
 
 function openFor(notePath: string[]) {
-    return openSpaceUsageContextMenu(contextMenuEvent(), notePath, mocks.showDetails);
+    return openSpaceUsageContextMenu(contextMenuEvent(), notePath, mocks.showDetails, mocks.contentChanged);
 }
 
 afterEach(() => {
@@ -111,7 +114,7 @@ describe("openSpaceUsageContextMenu", () => {
         mocks.branchIds.set("p/n1", "b1");
         const event = contextMenuEvent();
 
-        await openSpaceUsageContextMenu(event, [ "root", "p", "n1" ], mocks.showDetails);
+        await openSpaceUsageContextMenu(event, [ "root", "p", "n1" ], mocks.showDetails, mocks.contentChanged);
 
         // The chart keeps the pointer, and the browser's own menu stays out of the way.
         expect(event.preventDefault).toHaveBeenCalled();
@@ -140,6 +143,23 @@ describe("openSpaceUsageContextMenu", () => {
         // attributed to.
         invoke(DELETE);
         expect(mocks.deleteNotes).toHaveBeenCalledWith([ "b1" ], false, false);
+    });
+
+    it("asks for a fresh reading once a delete goes through, and not when it is called off", async () => {
+        givenNote("n1");
+        mocks.branchIds.set("p/n1", "b1");
+        await openFor([ "root", "p", "n1" ]);
+
+        // The views measure on demand, so the one thing that can outdate them from inside has to
+        // say so — otherwise the deleted note keeps its cell and stays counted in the totals.
+        invoke(DELETE);
+        await vi.waitFor(() => expect(mocks.contentChanged).toHaveBeenCalledTimes(1));
+
+        // Backing out of the confirmation changes nothing, so nothing is re-measured either.
+        mocks.deleteNotes.mockResolvedValueOnce(false);
+        invoke(DELETE);
+        await vi.waitFor(() => expect(mocks.deleteNotes).toHaveBeenCalledTimes(2));
+        expect(mocks.contentChanged).toHaveBeenCalledTimes(1);
     });
 
     it("adds Download for file-bearing types, disabled when the content is away", async () => {

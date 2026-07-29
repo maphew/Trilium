@@ -2691,6 +2691,7 @@
     "load_failed": "Space usage could not be measured",
     "view_overview": "Overview",
     "view_browse": "Browse",
+    "refresh": "Refresh",
     "other_notes_one": "1 other note",
     "other_notes_other": "Other {{count}} notes",
     "hidden_notes_one": "1 hidden note",

@@ -5,7 +5,8 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
     triggerCommand: vi.fn(),
     openContextMenu: vi.fn(),
-    showDetails: vi.fn()
+    showDetails: vi.fn(),
+    contentChanged: vi.fn()
 }));
 
 vi.mock("../../../../../components/app_context", () => ({
@@ -48,7 +49,14 @@ let container: HTMLDivElement | undefined;
 
 function renderOverview() {
     container = document.body.appendChild(document.createElement("div"));
-    render(<Overview overview={OVERVIEW} onShowDetails={mocks.showDetails} />, container);
+    render(
+        <Overview
+            overview={OVERVIEW}
+            onShowDetails={mocks.showDetails}
+            onContentChanged={mocks.contentChanged}
+        />,
+        container
+    );
     return container;
 }
 
@@ -97,7 +105,7 @@ describe("Overview", () => {
 
         cell?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
         expect(mocks.openContextMenu).toHaveBeenCalledWith(
-            expect.anything(), [ "root", "n1" ], mocks.showDetails);
+            expect.anything(), [ "root", "n1" ], mocks.showDetails, mocks.contentChanged);
 
         mocks.triggerCommand.mockClear();
         mocks.openContextMenu.mockClear();

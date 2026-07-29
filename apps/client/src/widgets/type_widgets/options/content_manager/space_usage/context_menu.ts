@@ -15,6 +15,15 @@ const ROOT_NOTE_ID = "root";
 export type ShowDetailsHandler = (notePath: string[]) => void;
 
 /**
+ * Asks the section for a fresh reading, after this menu changed what there is to measure.
+ *
+ * The views take a reading when asked rather than following the database, so an action taken from
+ * within them has to say so — otherwise a note the user just deleted keeps its cell, and the totals
+ * keep counting it.
+ */
+export type ContentChangedHandler = () => void;
+
+/**
  * The actions every Space Usage view offers on a note it draws — the treemap cells of Overview, the
  * children ring and center note of Browse. One builder so a note answers the same way whichever
  * chart the pointer is over.
@@ -27,7 +36,8 @@ export type ShowDetailsHandler = (notePath: string[]) => void;
 export async function openSpaceUsageContextMenu(
     event: ContextMenuEvent,
     notePath: string[],
-    onShowDetails: ShowDetailsHandler
+    onShowDetails: ShowDetailsHandler,
+    onContentChanged: ContentChangedHandler
 ) {
     event.preventDefault();
     event.stopPropagation();
@@ -98,9 +108,15 @@ export async function openSpaceUsageContextMenu(
                 uiIcon: "bx bx-trash destructive-action-icon",
                 enabled: !!branchId,
                 handler: () => {
-                    if (branchId) {
-                        void branches.deleteNotes([ branchId ], false, false);
+                    if (!branchId) {
+                        return;
                     }
+
+                    // Only once the deletion actually happened: `deleteNotes` answers false when
+                    // the user backs out of its confirmation, and re-measuring the whole database
+                    // for a cancelled action is exactly what the views avoid doing.
+                    void branches.deleteNotes([ branchId ], false, false)
+                        .then((deleted) => deleted && onContentChanged());
                 }
             }
         ])
