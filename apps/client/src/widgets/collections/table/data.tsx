@@ -36,7 +36,8 @@ export default function useData(note: FNote, noteIds: string[], viewConfig: Tabl
             movableRows,
             existingColumnData: viewConfig?.tableData?.columns,
             rowNumberHint: rowNumber,
-            position: newAttributePosition?.current ?? undefined
+            position: newAttributePosition?.current ?? undefined,
+            onCreateSelectOption: (columnName, option) => addSelectOption(note, columnName, option)
         });
         setColumnDefs(columnDefs);
         setRowData(rowData);
@@ -74,4 +75,20 @@ export default function useData(note: FNote, noteIds: string[], viewConfig: Tabl
     }, [ isSorted, note, hasChildren ]);
 
     return { columnDefs, rowData, movableRows, hasChildren };
+}
+
+/**
+ * Adds an option to the definition a select column reads from, for the entry its editor offers on a
+ * value the column does not list yet. The definition is looked up as the columns themselves are, so
+ * an inherited one is written where it lives and the option reaches every note the field covers.
+ *
+ * The write reloads the collection, which rebuilds the columns off the definition as it now reads —
+ * so nothing has to be patched in place here, unlike in the promoted grid.
+ */
+async function addSelectOption(parentNote: FNote, columnName: string, option: string) {
+    const definitionAttr = parentNote.getAttributeDefinitions()
+        .find((attr) => attr.name === `label:${columnName}`);
+    if (definitionAttr) {
+        await attributes.addSelectOption(definitionAttr, option);
+    }
 }

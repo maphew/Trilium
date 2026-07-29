@@ -5,6 +5,7 @@ import type { CellComponent, ColumnDefinition, EmptyCallback, FormatterParams, R
 
 import froca from "../../../services/froca.js";
 import { formatDateNumeric } from "../../../utils/formatters.js";
+import LabelValueInput from "../../attribute_widgets/label_value_input.jsx";
 import Icon from "../../react/Icon.jsx";
 import NoteAutocomplete from "../../react/NoteAutocomplete.jsx";
 import { renderReactWidget } from "../../react/react_utils.jsx";
@@ -31,9 +32,9 @@ const labelTypeMappings: Record<ColumnType, Partial<ColumnDefinition>> = {
         }
     },
     select: {
-        // The choices come from the column's definition, so `editorParams` is attached per column
+        // The options come from the column's definition, so `editorParams` is attached per column
         // in `buildColumnDefinitions` rather than here.
-        editor: "list"
+        editor: wrapEditor(SelectEditor)
     },
     boolean: {
         formatter: "tickCross",
@@ -123,9 +124,14 @@ interface BuildColumnArgs {
     existingColumnData: ColumnDefinition[] | undefined;
     rowNumberHint: number;
     position?: number;
+    /**
+     * Adds an option to a select column's definition, for the entry its editor offers on a value
+     * the column does not list yet. Omitted, such a value cannot be created from a cell.
+     */
+    onCreateSelectOption?: (columnName: string, option: string) => void | Promise<void>;
 }
 
-export function buildColumnDefinitions({ info, movableRows, existingColumnData, rowNumberHint, position }: BuildColumnArgs) {
+export function buildColumnDefinitions({ info, movableRows, existingColumnData, rowNumberHint, position, onCreateSelectOption }: BuildColumnArgs) {
     let columnDefs: ColumnDefinition[] = [
         {
             title: "#",
@@ -172,10 +178,14 @@ export function buildColumnDefinitions({ info, movableRows, existingColumnData, 
             editor: "input",
             rowHandle: false,
             ...labelTypeMappings[type ?? "text"],
-            // A select's choices come from its definition, so they attach per column. `clearable`
-            // restores the blank the promoted grid offers as its unset entry.
+            // A select's options come from its own definition, so they attach per column. Handed as
+            // a function because that is the shape Tabulator types for params of an editor's own.
             ...(type === "select" && {
-                editorParams: { values: options ?? [], clearable: true }
+                editorParams: (): Record<string, unknown> => ({
+                    options: options ?? [],
+                    onCreateOption: onCreateSelectOption
+                        && ((option: string) => onCreateSelectOption(name, option))
+                } satisfies SelectEditorParams)
             })
         });
         seenFields.add(field);
@@ -309,6 +319,42 @@ function NoteFormatter({ cell }: FormatterOpts) {
         {note && <><Icon icon={note?.getIcon()} />{" "}{note.title}</>}
     </span>;
 }
+
+/**
+ * A select cell is edited through the very field the promoted-attribute grid offers, so a column and
+ * the note's own field behave alike — the options listed on opening, typing filtering them, and an
+ * unlisted value offered as one to create.
+ *
+ * The field is focused from the wrapper because it is reached through {@link LabelValueInput}, which
+ * hands no reference to the box it builds; the list then opens as it does for any focused combobox.
+ */
+function SelectEditor({ cell, success, editorParams }: EditorOpts) {
+    const { options, onCreateOption } = editorParams as SelectEditorParams;
+    const containerRef = useRef<HTMLDivElement>(null);
+    useEffect(() => containerRef.current?.querySelector("input")?.focus(), []);
+
+    return (
+        <div ref={containerRef} className="table-select-editor">
+            <LabelValueInput
+                labelType="select"
+                value={cell.getValue() ?? ""}
+                selectOptions={options}
+                onCommit={success}
+                onCreateOption={onCreateOption}
+            />
+        </div>
+    );
+}
+
+/**
+ * What a select column hands its editor: the options it offers, and how to add one to them. A type
+ * rather than an interface so that it still reads as the loose record Tabulator types params as.
+ */
+export type SelectEditorParams = {
+    options: string[];
+    /** Absent where the definition cannot be written to, which leaves the field a plain picker. */
+    onCreateOption?: (option: string) => void | Promise<void>;
+};
 
 function RelationEditor({ cell, success }: EditorOpts) {
     const inputRef = useRef<HTMLInputElement>(null);

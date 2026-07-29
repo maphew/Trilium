@@ -187,6 +187,55 @@ describe("addLabel / setLabel / setRelation", () => {
     });
 });
 
+describe("addSelectOption", () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    /** The note carrying the definition, which is not the note the field is edited on. */
+    function definitionOf(value: string) {
+        const owner = buildNote({ title: "Owner", [`#label:status`]: value });
+        const definitionAttr = owner.getAttributeDefinitions()
+            .find((attr) => attr.name === "label:status");
+        if (!definitionAttr) throw new Error("expected the definition to be built");
+        return definitionAttr;
+    }
+
+    it("appends the option to the definition, writing it back to the note that owns it", async () => {
+        const definitionAttr = definitionOf("promoted,single,select,options=Todo;Done");
+
+        const newDefinition = await attributeService.addSelectOption(definitionAttr, "Blocked", "comp-1");
+
+        expect(newDefinition.selectOptions).toEqual([ "Todo", "Done", "Blocked" ]);
+        expect(server.put).toHaveBeenCalledWith(
+            `notes/${definitionAttr.noteId}/attribute`,
+            {
+                attributeId: definitionAttr.attributeId,
+                type: "label",
+                name: "label:status",
+                value: "promoted,single,select,options=Todo;Done;Blocked"
+            },
+            "comp-1"
+        );
+    });
+
+    it("gives a definition with no options its first, and escapes what the format claims", async () => {
+        await attributeService.addSelectOption(definitionOf("promoted,single,select"), "1,5 kg");
+        expect(server.put).toHaveBeenCalledWith(
+            expect.any(String),
+            expect.objectContaining({ value: "promoted,single,select,options=1%2C5 kg" }),
+            undefined
+        );
+    });
+
+    it("leaves an option it already offers alone, without a write", async () => {
+        const definitionAttr = definitionOf("promoted,single,select,options=Todo;Done");
+
+        const unchanged = await attributeService.addSelectOption(definitionAttr, "Done");
+
+        expect(unchanged.selectOptions).toEqual([ "Todo", "Done" ]);
+        expect(server.put).not.toHaveBeenCalled();
+    });
+});
+
 describe("removeAttributeById / removeOwnedAttributesByNameOrType", () => {
     beforeEach(() => vi.clearAllMocks());
 

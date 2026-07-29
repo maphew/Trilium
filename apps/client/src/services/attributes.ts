@@ -1,5 +1,6 @@
-import { AttributeType, BUILTIN_ATTRIBUTES, type BuiltinLabel, type LabelType } from "@triliumnext/commons";
+import { AttributeType, BUILTIN_ATTRIBUTES, type BuiltinLabel, type DefinitionObject, type LabelType, promotedAttributeDefinitionParser } from "@triliumnext/commons";
 
+import type FAttribute from "../entities/fattribute.js";
 import type FNote from "../entities/fnote.js";
 import froca from "./froca.js";
 import type { AttributeRow } from "./load_results.js";
@@ -106,6 +107,39 @@ function removeOwnedRelationByName(note: FNote, relationName: string) {
         return true;
     }
     return false;
+}
+
+/**
+ * Adds an option to a `select` definition, for a field offering to create the choice being typed
+ * into it.
+ *
+ * Written back to the very attribute the definition was read from — which is to say to whichever
+ * note owns it, typically a parent or a template, rather than to the note being edited — so that
+ * every note the field reaches offers the new option from now on.
+ *
+ * @param definitionAttr the `label:foo` attribute declaring the field.
+ * @param option the option to add; already offered, it is left as it stands.
+ * @returns the definition as it now reads, for a caller holding a parsed copy of its own.
+ */
+export async function addSelectOption(definitionAttr: FAttribute, option: string, componentId?: string) {
+    const definition = definitionAttr.getDefinition();
+    const options = definition.selectOptions ?? [];
+    if (options.includes(option)) {
+        return definition;
+    }
+
+    const newDefinition: DefinitionObject = { ...definition, selectOptions: [ ...options, option ] };
+    await server.put(
+        `notes/${definitionAttr.noteId}/attribute`,
+        {
+            attributeId: definitionAttr.attributeId,
+            type: "label",
+            name: definitionAttr.name,
+            value: promotedAttributeDefinitionParser.serialize(newDefinition, "label")
+        },
+        componentId
+    );
+    return newDefinition;
 }
 
 /**
@@ -258,6 +292,7 @@ export default {
     setLabel,
     setRelation,
     setAttribute,
+    addSelectOption,
     setBooleanWithInheritance,
     removeAttributeById,
     removeOwnedLabelByName,

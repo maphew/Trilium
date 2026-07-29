@@ -1,6 +1,6 @@
 import "./PromotedAttributes.css";
 
-import { DefinitionObject, extractAttributeDefinitionTypeAndName, promotedAttributeDefinitionParser, UpdateAttributeResponse } from "@triliumnext/commons";
+import { DefinitionObject, extractAttributeDefinitionTypeAndName, UpdateAttributeResponse } from "@triliumnext/commons";
 import clsx from "clsx";
 import { ComponentChild, MouseEventHandler, TargetedEvent } from "preact";
 import { Dispatch, StateUpdater, useCallback, useEffect, useState } from "preact/hooks";
@@ -180,23 +180,10 @@ function LabelInput(props: CellProps & { inputId: string }) {
         (value: string) => updateAttribute(note, cell, componentId, value, setCells),
         [ cell, componentId, note, setCells ]);
 
-    // A choice created straight from the field is added to the definition — on whichever note owns
+    // An option created straight from the field is added to the definition — on whichever note owns
     // it, typically a parent or template — so every note sharing the field offers it from now on.
     const createOption = useCallback(async (option: string) => {
-        const newDefinition: DefinitionObject = {
-            ...definition,
-            selectOptions: [ ...(definition.selectOptions ?? []), option ]
-        };
-        await server.put(
-            `notes/${definitionAttr.noteId}/attribute`,
-            {
-                attributeId: definitionAttr.attributeId,
-                type: "label",
-                name: definitionAttr.name,
-                value: promotedAttributeDefinitionParser.serialize(newDefinition, "label")
-            },
-            componentId
-        );
+        const newDefinition = await attributes.addSelectOption(definitionAttr, option, componentId);
         // The grid ignores reloads it is itself the source of (see usePromotedAttributeData), so the
         // cells sharing the definition are patched in place, as updateAttribute does for a value —
         // otherwise the list keeps offering the old options until something else changes.
@@ -205,7 +192,7 @@ function LabelInput(props: CellProps & { inputId: string }) {
                 ? { ...c, definition: newDefinition }
                 : c
         ));
-    }, [ definition, definitionAttr, componentId, setCells ]);
+    }, [ definitionAttr, componentId, setCells ]);
 
     useTextLabelAutocomplete(inputId, valueAttr, definition, (e) => {
         if (e.currentTarget instanceof HTMLInputElement) {

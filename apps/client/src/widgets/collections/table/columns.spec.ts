@@ -1,6 +1,6 @@
-import { describe, expect, it } from "vitest";
-import { formatLabelDate, restoreExistingData } from "./columns";
-import type { ColumnDefinition } from "tabulator-tables";
+import { describe, expect, it, vi } from "vitest";
+import { buildColumnDefinitions, formatLabelDate, restoreExistingData, type SelectEditorParams } from "./columns";
+import type { CellComponent, ColumnDefinition } from "tabulator-tables";
 
 import options from "../../../services/options";
 
@@ -131,6 +131,42 @@ describe("restoreExistingData", () => {
         ];
         const restored = restoreExistingData(newDefs, oldDefs);
         expect(restored[0].width).toStrictEqual("100px");
+    });
+});
+
+describe("buildColumnDefinitions — select columns", () => {
+    /** Resolves the params a column hands its editor, which Tabulator asks for as a function. */
+    function editorParamsOf(column: ColumnDefinition | undefined) {
+        const params = column?.editorParams;
+        if (typeof params !== "function") throw new Error("expected the params to be a function");
+        return params({} as CellComponent) as SelectEditorParams;
+    }
+
+    function selectColumn(onCreateSelectOption?: (columnName: string, option: string) => void) {
+        const columns = buildColumnDefinitions({
+            info: [ { name: "status", type: "select", options: [ "Todo", "Done" ] } ],
+            movableRows: false,
+            existingColumnData: undefined,
+            rowNumberHint: 1,
+            onCreateSelectOption
+        });
+        return columns.find((column) => column.field === "labels.status");
+    }
+
+    it("hands the editor the column's own options, and a way to add to them", () => {
+        const onCreateSelectOption = vi.fn();
+        const params = editorParamsOf(selectColumn(onCreateSelectOption));
+
+        expect(params.options).toEqual([ "Todo", "Done" ]);
+
+        // The editor knows the option alone; the column it belongs to is bound in here.
+        params.onCreateOption?.("Blocked");
+        expect(onCreateSelectOption).toHaveBeenCalledWith("status", "Blocked");
+    });
+
+    it("leaves the editor no way to create where the caller offers none", () => {
+        // Without it the field stays a plain picker rather than calling something undefined.
+        expect(editorParamsOf(selectColumn()).onCreateOption).toBeUndefined();
     });
 });
 
