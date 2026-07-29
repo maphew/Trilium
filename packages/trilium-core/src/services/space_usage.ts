@@ -8,6 +8,7 @@ import {
 } from "@triliumnext/commons";
 
 import becca from "../becca/becca.js";
+import { getLog } from "./log.js";
 import { getSql } from "./sql/index.js";
 
 /**
@@ -35,13 +36,44 @@ export const MAX_OVERVIEW_LIMIT = 1000;
 const ROOT_NOTE_ID = "root";
 const HIDDEN_ROOT_ID = "_hidden";
 
+const LOG_PREFIX = "Space Usage Analyzer: ";
+
+function log(message: string) {
+    getLog().info(`${LOG_PREFIX}${message}`);
+}
+
+/**
+ * Reports how long a step took. These endpoints read the whole database, so when one is slow the
+ * only useful question is *which* part was slow — on a large database that is almost always the
+ * measuring pass, and the log says so rather than leaving it to be guessed.
+ */
+function timed<T>(step: string, run: () => T): T {
+    const startedAt = Date.now();
+
+    try {
+        return run();
+    } finally {
+        log(`${step} took ${Date.now() - startedAt} ms.`);
+    }
+}
+
 export function getOverview(options: { includeRevisions: boolean, limit: number }): SpaceUsageOverviewResponse {
-    return withBlobUsage(() => buildOverview(options));
+    log(`building the overview (limit ${options.limit}, `
+        + `revisions ${options.includeRevisions ? "included" : "excluded"})...`);
+
+    return timed("the overview", () => {
+        const overview = withBlobUsage(() => buildOverview(options));
+
+        log(`the overview lists ${overview.notes.length} of ${overview.content.noteCount} notes, `
+            + `holding ${overview.content.size} bytes.`);
+
+        return overview;
+    });
 }
 
 function buildOverview({ includeRevisions, limit }: { includeRevisions: boolean, limit: number }): SpaceUsageOverviewResponse {
-    const sizes = collectSizes();
-    const forest = buildForestFromBecca();
+    const sizes = timed("adding the sizes up per note", collectSizes);
+    const forest = timed("placing the notes in the tree", buildForestFromBecca);
     const rankOf = (entry: SpaceUsageSizes) =>
         entry.ownSize + entry.attachmentsSize + (includeRevisions ? entry.revisionsSize : 0);
 
@@ -75,14 +107,16 @@ export function getNoteUsage(noteId: string): SpaceUsageNoteResponse {
     // Resolved before the measuring pass, so a bad note ID costs nothing.
     const note = becca.getNoteOrThrow(noteId);
 
-    return withBlobUsage(() => buildNoteUsage(note.noteId));
+    log(`measuring note ${note.noteId} and its subtree...`);
+
+    return timed(`note ${note.noteId}`, () => withBlobUsage(() => buildNoteUsage(note.noteId)));
 }
 
 function buildNoteUsage(noteId: string): SpaceUsageNoteResponse {
     const note = becca.getNoteOrThrow(noteId);
-    const sizes = collectSizes();
-    const forest = buildForestFromBecca();
-    const totals = computeSubtreeTotals(forest, (id) => sizesOf(id, sizes));
+    const sizes = timed("adding the sizes up per note", collectSizes);
+    const forest = timed("placing the notes in the tree", buildForestFromBecca);
+    const totals = timed("adding the subtrees up", () => computeSubtreeTotals(forest, (id) => sizesOf(id, sizes)));
 
     const children = (forest.childrenByNoteId.get(noteId) ?? []).map((childId) => {
         const total = totals.get(childId);
@@ -415,23 +449,31 @@ function withBlobUsage<T>(collect: () => T): T {
                 kind INTEGER NOT NULL DEFAULT ${BLOB_UNREFERENCED}
             )`);
 
+        // One statement measures and sorts every blob at once.
+        //
         // `octet_length`, not `length`: on a text value `length` counts *characters*, so it has to
         // decode every note in the database. Bytes are what a space report is about anyway — the
         // character count also under-reported anything non-ASCII.
-        sql.execute(`
-            INSERT INTO blob_usage (blobId, size)
-            SELECT blobId, COALESCE(octet_length(content), 0) FROM blobs`);
+        //
+        // The `CASE` reads top-down, so the strongest claim on a blob wins and each reference set
+        // is built once for the whole scan. Assigning the kinds here rather than in follow-up
+        // `UPDATE`s also keeps the pass to a single write — and `execute()` refuses a statement
+        // starting with `UPDATE` on a read-only database, which would have left every blob
+        // unclassified and quietly reported zeros.
+        const measured = timed("measuring the blobs", () => sql.execute(`
+            INSERT INTO blob_usage (blobId, size, kind)
+            SELECT blobs.blobId,
+                   COALESCE(octet_length(blobs.content), 0),
+                   CASE
+                       WHEN blobs.blobId IN (${LIVE_BODY_BLOBS}) THEN ${BLOB_BODY}
+                       WHEN blobs.blobId IN (${LIVE_NOTE_ATTACHMENT_BLOBS}) THEN ${BLOB_ATTACHMENT}
+                       WHEN blobs.blobId IN (${LIVE_REVISION_BLOBS}) THEN ${BLOB_REVISION}
+                       WHEN blobs.blobId IN (${DELETED_BLOBS}) THEN ${BLOB_DELETED}
+                       ELSE ${BLOB_UNREFERENCED}
+                   END
+            FROM blobs`));
 
-        // Claims in ascending priority, each overwriting the last, so a blob ends up under the
-        // strongest thing holding it. These walk the reference tables only — no content is read.
-        for (const [ kind, referencedBy ] of [
-            [ BLOB_DELETED, DELETED_BLOBS ],
-            [ BLOB_REVISION, LIVE_REVISION_BLOBS ],
-            [ BLOB_ATTACHMENT, LIVE_NOTE_ATTACHMENT_BLOBS ],
-            [ BLOB_BODY, LIVE_BODY_BLOBS ]
-        ] as const) {
-            sql.execute(`UPDATE blob_usage SET kind = ${kind} WHERE blobId IN (${referencedBy})`);
-        }
+        log(`measured ${measured.changes} blobs.`);
 
         return collect();
     } finally {
