@@ -737,7 +737,7 @@ describe("Notion importer — integration", () => {
         expect(row?.getOwnedLabelValue("lastEditedBy")).toBe("Elian Doran");
     });
 
-    it("imports url, email and phone columns as url-typed labels (mailto:/tel: schemes)", async () => {
+    it("imports url, email and phone columns as their own typed labels, holding the bare address", async () => {
         const dbId = "388c5eca1b8b8078a20fd18330d81306";
         const rowId = "388c5eca1b8b80929a78da7c68154bd7";
         // All three render as <a class="url-value">; email/phone hrefs are bare addresses.
@@ -755,16 +755,17 @@ describe("Notion importer — integration", () => {
         });
 
         const db = importRoot.getChildNotes().find((n) => n.title === "DB");
-        // Each column gets a url-typed definition.
+        // Each column gets a definition of the type its values are, rather than all three being urls.
         expect(db?.getOwnedLabel("label:url")?.value).toBe("promoted,single,url,alias=URL");
-        expect(db?.getOwnedLabel("label:email")?.value).toBe("promoted,single,url,alias=Email");
-        expect(db?.getOwnedLabel("label:phone")?.value).toBe("promoted,single,url,alias=Phone");
+        expect(db?.getOwnedLabel("label:email")?.value).toBe("promoted,single,email,alias=Email");
+        expect(db?.getOwnedLabel("label:phone")?.value).toBe("promoted,single,phone,alias=Phone");
 
         const row = db?.getChildNotes().find((n) => n.title === "Row");
         expect(row?.getOwnedLabelValue("url")).toBe("https://triliumnotes.org");
-        // Email/phone are stored as clickable mailto:/tel: links.
-        expect(row?.getOwnedLabelValue("email")).toBe("mailto:test@acme.org");
-        expect(row?.getOwnedLabelValue("phone")).toBe("tel:12345678");
+        // Stored bare, which is what the typed email/phone inputs hold; the scheme is applied where the
+        // value is rendered as a link.
+        expect(row?.getOwnedLabelValue("email")).toBe("test@acme.org");
+        expect(row?.getOwnedLabelValue("phone")).toBe("12345678");
     });
 
     it("imports a dated column with a clock time as a datetime label", async () => {
