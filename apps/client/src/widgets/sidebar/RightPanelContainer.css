@@ -7,6 +7,9 @@
     --right-pane-peek-background: #ffffffe7;
     --right-pane-peek-backdrop-filter: blur(12px) saturate(1.5);
     --right-pane-header-height: 30px;
+    /* How far a `grow` card may be squeezed by the cards around it — its header, its padding and a
+       row or three, so it is still something to read rather than a title. See `.card.grow` below. */
+    --right-pane-grow-min-height: 110px;
 }
 
 /* Reserve a fixed-width gutter on the viewport's right edge for the peek button, which is
@@ -123,6 +126,11 @@ body.experimental-feature-new-layout #right-pane {
         margin-inline: 0;
         border-bottom: 1px solid var(--main-border-color);
         border-radius: 0;
+        /* A card that ends up shorter than what is in it keeps it to itself: whatever it cannot show
+           is cut off at its own edge rather than painted over the card below. Which no card should
+           be doing in the first place (see `.card.grow` below) — this is what keeps a header from
+           landing on another one where one manages to. */
+        overflow: hidden;
 
         .card-header {
             padding: 1px 0 0 0;
@@ -181,10 +189,19 @@ body.experimental-feature-new-layout #right-pane {
         padding-top: 0;
     }
 
+    /* The one card of a tab that takes the height the others leave over (see RightPanelWidget.tsx).
+       It is also the only one of them that can be sized down at all — the rest keep to their content
+       (`flex-shrink: 0`, see style.css) — so it is what the tab spends when there is not enough room
+       to go round, and it needs a floor to stop at: without one it is spent all the way down to
+       nothing, leaving the note's own attributes as a header printed over the card below them. Once
+       it reaches the floor there is nowhere left to take the room from, which is where
+       `.right-pane-tab-body` starts scrolling instead — the outcome wanted all along. */
     .card.grow:not(.collapsed) {
-        flex: 1;
-        flex-shrink: 1;
-        min-height: 0;
+        /* Sized to its content first and grown into whatever is spare, rather than taken from zero:
+           two grow cards in a tab (a PDF's outline has them) then share the room left over instead
+           of splitting the tab evenly between them. */
+        flex: 1 1 auto;
+        min-height: var(--right-pane-grow-min-height);
         display: flex;
         flex-direction: column;
 
