@@ -167,6 +167,24 @@ describe("attribute detail popup naming", () => {
         expect(lookupAttributeHelp(undefined, "customRequestHandler")).toBeUndefined();
     });
 
+    it("explains every name Trilium reads for itself, and no name it does not", async () => {
+        const { ATTR_HELP } = await import("./attr_help");
+        const { default: BUILTIN_ATTRIBUTES } = await import("@triliumnext/commons/src/lib/builtin_attributes");
+
+        // Asserted on the entry being declared rather than on what it reads: `t()` resolves to nothing
+        // without the translations loaded, which is why the lookup below is checked by its help page.
+        for (const { type, name } of BUILTIN_ATTRIBUTES) {
+            expect(Object.hasOwn(ATTR_HELP[type] ?? {}, name), `${type} ${name} has no help`).toBe(true);
+        }
+
+        for (const type of [ "label", "relation" ] as const) {
+            for (const name of Object.keys(ATTR_HELP[type] ?? {})) {
+                expect(BUILTIN_ATTRIBUTES.some((attr) => attr.type === type && attr.name === name),
+                    `${type} ${name} is explained but is not a builtin`).toBe(true);
+            }
+        }
+    });
+
     it("marks the names Trilium reads for itself, a definition named after one excepted", async () => {
         const { isSystemAttribute } = await import("./attribute_detail");
 
