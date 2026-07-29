@@ -5,7 +5,12 @@ import froca from "../../../../../services/froca";
 import { t } from "../../../../../services/i18n";
 import { formatSize } from "../../../../../services/utils";
 import Treemap, { type TreemapItem } from "../../../../react/charts/Treemap";
-import { openSpaceUsageContextMenu, quickEditNote, type ShowDetailsHandler } from "./context_menu";
+import {
+    type ContentChangedHandler,
+    openSpaceUsageContextMenu,
+    quickEditNote,
+    type ShowDetailsHandler
+} from "./context_menu";
 import { bucketWeight, buildOverviewModel, type OverviewCell } from "./overview_model";
 
 /**
@@ -19,10 +24,12 @@ const INCLUDE_REVISIONS = false;
 interface OverviewProps {
     overview: SpaceUsageOverviewResponse;
     onShowDetails: ShowDetailsHandler;
+    /** Called once the menu deleted something, so the map stops drawing what is no longer there. */
+    onContentChanged: ContentChangedHandler;
 }
 
 /** The treemap over the whole database: every large note at its tree location. */
-export default function Overview({ overview, onShowDetails }: OverviewProps) {
+export default function Overview({ overview, onShowDetails, onContentChanged }: OverviewProps) {
     const icons = useNoteIcons(overview);
 
     // The labels are formatted here rather than in the model, which stays free of i18n: a bucket
@@ -61,7 +68,7 @@ export default function Overview({ overview, onShowDetails }: OverviewProps) {
                 root={model}
                 onItemClick={(item) => withCellPath(item, quickEditNote)}
                 onItemContextMenu={(item, event) => withCellPath(item, (notePath) =>
-                    void openSpaceUsageContextMenu(event, notePath, onShowDetails))}
+                    void openSpaceUsageContextMenu(event, notePath, onShowDetails, onContentChanged))}
             />
         </div>
     );

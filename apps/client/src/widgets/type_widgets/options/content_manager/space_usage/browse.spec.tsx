@@ -18,9 +18,12 @@ interface CapturedDonutProps {
 const mocks = vi.hoisted(() => ({
     usage: undefined as unknown,
     failed: false,
+    loading: false,
     fetchedUrls: [] as string[],
     donutProps: undefined as unknown,
-    openContextMenu: vi.fn()
+    openContextMenu: vi.fn(),
+    contentChanged: vi.fn(),
+    loadingChange: vi.fn()
 }));
 
 vi.mock("./context_menu", () => ({
@@ -30,7 +33,7 @@ vi.mock("./context_menu", () => ({
 vi.mock("./use_space_usage_fetch", () => ({
     useSpaceUsageFetch: (url: string) => {
         mocks.fetchedUrls.push(url);
-        return { data: mocks.usage, failed: mocks.failed };
+        return { data: mocks.usage, failed: mocks.failed, loading: mocks.loading };
     }
 }));
 
@@ -82,7 +85,16 @@ let container: HTMLDivElement | undefined;
 function BrowseHost() {
     const [ path, setPath ] = useState([ "root" ]);
 
-    return <Browse path={path} onPathChange={setPath} />;
+    // The refresh token never changes here: navigation is what this spec is about.
+    return (
+        <Browse
+            path={path}
+            onPathChange={setPath}
+            refreshToken={0}
+            onContentChanged={mocks.contentChanged}
+            onLoadingChange={mocks.loadingChange}
+        />
+    );
 }
 
 function renderBrowse() {
@@ -202,10 +214,12 @@ describe("Browse", () => {
         const event = new MouseEvent("contextmenu");
         const ring = donutProps().outerRings[0];
         ring.onSegmentContextMenu?.({ id: "child/child1", value: 40, data: { noteId: "child1" } }, event);
-        expect(mocks.openContextMenu).toHaveBeenCalledWith(event, [ "root", "child1" ], expect.any(Function));
+        expect(mocks.openContextMenu).toHaveBeenCalledWith(
+            event, [ "root", "child1" ], expect.any(Function), mocks.contentChanged);
 
         donutProps().onTitleContextMenu(event);
-        expect(mocks.openContextMenu).toHaveBeenLastCalledWith(event, [ "root" ], expect.any(Function));
+        expect(mocks.openContextMenu).toHaveBeenLastCalledWith(
+            event, [ "root" ], expect.any(Function), mocks.contentChanged);
 
         // Showing a note's details from within Browse is this view's own descent.
         mocks.openContextMenu.mock.calls[0][2]([ "root", "child1" ]);

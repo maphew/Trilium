@@ -5,6 +5,7 @@ import { useCallback, useMemo, useRef, useState } from "preact/hooks";
 
 import { t } from "../../../../../services/i18n";
 import { formatSize } from "../../../../../services/utils";
+import ActionButton from "../../../../react/ActionButton";
 import { useStaticTooltip } from "../../../../react/hooks";
 import SegmentedChoice from "../../../../react/SegmentedChoice";
 import OptionsPageHeader from "../../components/OptionsPageHeader";
@@ -21,6 +22,15 @@ type SpaceUsageView = "overview" | "browse";
 
 export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionProps) {
     const [ view, setView ] = useState<SpaceUsageView>("overview");
+    // Bumped by the refresh button. Both views read it, so one press re-measures whatever is on
+    // screen; a number rather than a callback, which would change identity on every render here and
+    // have the views re-measuring the database continuously.
+    const [ refreshToken, setRefreshToken ] = useState(0);
+    // Stable, so handing it to the views costs them nothing on re-render.
+    const refresh = useCallback(() => setRefreshToken((token) => token + 1), []);
+    // Browse measures its own note through a separate request, which this component would not
+    // otherwise know about; without it the button would free up while that reading was still running.
+    const [ browseLoading, setBrowseLoading ] = useState(false);
     // Browse's position lives here so that "Show details", offered on any note either view draws,
     // can land the user on that note — switching the view along the way when it comes from Overview.
     const [ browsePath, setBrowsePath ] = useState([ "root" ]);
@@ -31,8 +41,8 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
     // Kept fetched across both views so returning to the treemap draws immediately rather than
     // blanking. Revisions stay out of the ranking so it shares the basis of the areas the treemap
     // draws — asking for one basis and drawing the other would rank in notes the cells then shrink.
-    const { data: overview, failed } = useSpaceUsageFetch<SpaceUsageOverviewResponse>(
-        `space-usage/overview?limit=${OVERVIEW_LIMIT}`);
+    const { data: overview, failed, loading } = useSpaceUsageFetch<SpaceUsageOverviewResponse>(
+        `space-usage/overview?limit=${OVERVIEW_LIMIT}`, refreshToken);
 
     return (
         <div className="space-usage-section">
@@ -44,12 +54,29 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
                         currentValue={view}
                         onChange={setView}
                     />
+                    {/* Measuring is expensive, so a reading is taken when asked for rather than
+                        kept live — and the button stays out while one is being taken. */}
+                    <ActionButton
+                        className="space-usage-refresh"
+                        icon="bx bx-refresh"
+                        text={t("space_usage.refresh")}
+                        disabled={loading || browseLoading}
+                        onClick={refresh}
+                    />
                 </div>
             } />
 
-            {view === "browse" && <Browse path={browsePath} onPathChange={setBrowsePath} />}
+            {view === "browse" && (
+                <Browse
+                    path={browsePath}
+                    onPathChange={setBrowsePath}
+                    refreshToken={refreshToken}
+                    onContentChanged={refresh}
+                    onLoadingChange={setBrowseLoading}
+                />
+            )}
             {view === "overview" && (overview
-                ? <Overview overview={overview} onShowDetails={showDetails} />
+                ? <Overview overview={overview} onShowDetails={showDetails} onContentChanged={refresh} />
                 : <SpaceUsagePlaceholder failed={failed} />)}
 
             {/* Overview only: these are whole-database totals, and beside a single note's donut
