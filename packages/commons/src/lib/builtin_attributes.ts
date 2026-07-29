@@ -93,6 +93,8 @@ const BUILTIN_ATTRIBUTES = [
     { type: "label", name: "mapRootNoteId", valueType: "string" },
     { type: "label", name: "mapExcludeRelation", valueType: "string" },
     { type: "label", name: "mapIncludeRelation", valueType: "string" },
+    // Keeps a note out of the note map -- unless the map is rooted at it, which journals rely on.
+    { type: "label", name: "excludeFromNoteMap", valueType: "boolean" },
     { type: "label", name: "bookmarkFolder", valueType: "boolean" },
     { type: "label", name: "sorted", valueType: "boolean" },
     { type: "label", name: "sortDirection", valueType: "string" },
@@ -154,6 +156,11 @@ const BUILTIN_ATTRIBUTES = [
     // Collections
     { type: "label", name: "status", valueType: "string", hasUserValue: true },
     { type: "label", name: "board:groupBy", valueType: "string", hasUserValue: true },
+    // Carried by the task-state definition notes under `_taskStates`, which back the board columns.
+    { type: "label", name: "stateId", valueType: "string", hasUserValue: true },
+    { type: "label", name: "markdownSymbol", valueType: "string" },
+    { type: "label", name: "isCompleted", valueType: "boolean" },
+    { type: "label", name: "isHidden", valueType: "boolean" },
     { type: "label", name: "maxNestingDepth", valueType: "number", hasUserValue: true },
     { type: "label", name: "includeArchived", valueType: "boolean", hasUserValue: true },
     { type: "label", name: "calendar:view", valueType: "string", hasUserValue: true },

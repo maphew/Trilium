@@ -395,6 +395,18 @@ describe("isBuiltinAttribute", () => {
         expect(isBuiltinAttribute("label", "calendar:startDate")).toBe(true);
     });
 
+    it("recognizes the board's task-state names", () => {
+        expect(isBuiltinAttribute("label", "board:groupBy")).toBe(true);
+        expect(isBuiltinAttribute("label", "stateId")).toBe(true);
+        expect(isBuiltinAttribute("label", "isCompleted")).toBe(true);
+    });
+
+    it("recognizes the map names", () => {
+        expect(isBuiltinAttribute("label", "geolocation")).toBe(true);
+        expect(isBuiltinAttribute("label", "map:style")).toBe(true);
+        expect(isBuiltinAttribute("label", "excludeFromNoteMap")).toBe(true);
+    });
+
     it("matches exactly, so prefixed names are not built-ins", () => {
         // A definition describes a built-in without being one, and a disabled one is inert.
         expect(isBuiltinAttribute("label", "label:archived")).toBe(false);
