@@ -295,10 +295,6 @@ body.desktop .revisions-dialog {
 /* The master-detail flow itself is the shared one (master_detail.css); what is particular here is that
    the revision fills its pane and scrolls inside itself rather than as a pane. */
 body.mobile .revisions-dialog.mobile-master-detail {
-    .modal-body {
-        padding: 0;
-    }
-
     .revision-detail {
         overflow: hidden;
     }

@@ -153,6 +153,15 @@ body.mobile .modal.note-attributes-modal {
  * over a page — a modal over a modal. The flow itself is the shared one (master_detail.css); what is
  * particular to this dialog is what the page holds.
  */
+body.mobile .modal.note-attributes-modal.mobile-master-detail {
+    /* The panes carry what was the body's padding, so that a pane looks the same whether it is being
+       slid (placed against the padding box) or at rest (see master_detail.css). */
+    .tn-master-pane,
+    .tn-detail-pane {
+        padding-inline: var(--bs-modal-padding, 16px);
+    }
+}
+
 .attribute-detail-page {
     /* The form was drawn as a popup, and a page needs neither of the two things a popup has to carry: a
        heading naming what is being edited (the page is headed with its name, and the badges beside it say

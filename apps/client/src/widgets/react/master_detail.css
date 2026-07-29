@@ -5,8 +5,22 @@
  * is in them (its own padding, what scrolls, a footer).
  */
 body.mobile .modal.mobile-master-detail {
-    .modal-body {
+    /*
+     * Spelled out through the dialog to out-specify the body a full-page dialog is given
+     * (`overflow: scroll` in style.css, at the same weight as a plainer selector here would carry), and
+     * neither of the two can be left to the other:
+     *
+     *  - a body that scrolls is a body that scrolls sideways through a slide, the pane coming in
+     *    standing a screen's width past its end. A scrollbar appears for as long as the slide lasts,
+     *    and everything under it shifts by its width and back;
+     *  - a body with padding is a body whose panes have two geometries: an absolutely positioned pane
+     *    is placed against the padding box, so a pane at rest sits inside that padding and the same
+     *    pane mid-slide covers it — a jump of the padding's width at each end of the animation. The
+     *    padding belongs to the panes here, which carry it into both states.
+     */
+    > .modal-dialog > .modal-content > .modal-body {
         position: relative;
+        padding: 0;
         /* Each pane scrolls itself, which is also what keeps the sliding ones contained. */
         overflow: hidden;
     }
