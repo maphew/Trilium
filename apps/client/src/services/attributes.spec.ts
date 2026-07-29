@@ -401,6 +401,19 @@ describe("isBuiltinAttribute", () => {
         expect(isBuiltinAttribute("label", "isCompleted")).toBe(true);
     });
 
+    it("recognizes the names of the smaller subsystems", () => {
+        expect(isBuiltinAttribute("label", "fastSearch")).toBe(true);
+        expect(isBuiltinAttribute("label", "launcherType")).toBe(true);
+        expect(isBuiltinAttribute("relation", "hoistedNote")).toBe(true);
+        expect(isBuiltinAttribute("label", "shareOpenGraphURL")).toBe(true);
+        expect(isBuiltinAttribute("label", "oneNotePageId")).toBe(true);
+        expect(isBuiltinAttribute("label", "versioningLimit")).toBe(true);
+        expect(isBuiltinAttribute("relation", "includeNoteLink")).toBe(true);
+        // `shareOpenGraphImage` is read as either a label or a relation, so both must be recognized.
+        expect(isBuiltinAttribute("label", "shareOpenGraphImage")).toBe(true);
+        expect(isBuiltinAttribute("relation", "shareOpenGraphImage")).toBe(true);
+    });
+
     it("recognizes the map names", () => {
         expect(isBuiltinAttribute("label", "geolocation")).toBe(true);
         expect(isBuiltinAttribute("label", "map:style")).toBe(true);
