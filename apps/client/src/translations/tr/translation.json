@@ -444,20 +444,17 @@
   },
   "attribute_detail": {
     "close_button_title": "Değişiklikleri iptal et ve kapat",
-    "attr_name_title": "Öznitelik adı yalnızca alfanümerik karakterler, iki nokta üst üste ve alt çizgiden oluşabilir",
     "name": "İsim",
     "value": "Değer",
     "target_note_title": "İlişki, kaynak not ile hedef not arasında kurulan adlandırılmış bir bağlantıdır.",
     "target_note": "Hedef not",
     "promoted_title": "Öne çıkarılan öznitelik, not üzerinde belirgin bir şekilde gösterilir.",
     "promoted": "Öne Çıkarılan",
-    "promoted_alias_title": "“Öne çıkarılan öznitelikler arayüzünde gösterilecek ad.",
     "promoted_alias": "Takma ad",
     "multiplicity_title": "Çokluk, aynı isimde kaç tane öznitelik oluşturulabileceğini belirler. (sadece 1 veya 1 den fazla)",
     "multiplicity": "Çokluk",
     "single_value": "Tek değerli",
     "multi_value": "Çok değerli",
-    "label_type_title": "Etiket türü, Trilium'un etiket değerini girmek için uygun arayüzü seçmesine yardımcı olacaktır.",
     "label_type": "Tür",
     "text": "Metin",
     "textarea": "Çok Satırlı Metin",
@@ -473,8 +470,6 @@
     "related_notes_title": "Bu etiketle ilişkili diğer notlar",
     "more_notes": "Diğer notlar",
     "label": "Etiket ayrıntısı",
-    "label_definition": "Etiket tanımı ayrıntısı",
-    "relation": "İlişki ayrıntısı",
-    "relation_definition": "İlişki tanımı ayrıntısı"
+    "relation": "İlişki ayrıntısı"
   }
 }
