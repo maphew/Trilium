@@ -233,7 +233,7 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
     return (
         <>
             {leading !== undefined
-                ? <div ref={fieldRef} className="tn-chips-field form-autocomplete-field">{leading}{field}</div>
+                ? <div ref={fieldRef} className="tn-field form-autocomplete-field">{leading}{field}</div>
                 : field}
 
             {isOpen && items.length > 0 && position && createPortal(

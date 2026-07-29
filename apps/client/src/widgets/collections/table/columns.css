@@ -71,7 +71,7 @@
 
     /* Over that surface the film reads as it does anywhere else: as a field within the thing it
        floats on, rather than as a hole in it. */
-    > .tn-chips-field {
+    > .tn-field {
         background-color: var(--input-background-color);
     }
 }

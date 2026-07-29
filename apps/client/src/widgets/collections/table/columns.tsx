@@ -359,13 +359,20 @@ function SelectEditor({ cell, success, editorParams }: EditorOpts) {
 
     return (
         <div ref={containerRef} className="table-values-editor">
-            <LabelValueInput
-                labelType="select"
-                value={cell.getValue() ?? ""}
-                selectOptions={options}
-                onCommit={success}
-                onCreateOption={onCreateOption}
-            />
+            {/* Framed as the field of a cell holding several values is, and by the very same class, so
+                that a column reads alike whichever it holds. A box on its own would come out unframed:
+                an editor stands over its cell rather than in it, and a cell being edited strips the
+                border and background from the boxes within — which is right where one sits in the cell,
+                and leaves this one adrift on the editor's own surface. */}
+            <div className="tn-field">
+                <LabelValueInput
+                    labelType="select"
+                    value={cell.getValue() ?? ""}
+                    selectOptions={options}
+                    onCommit={success}
+                    onCreateOption={onCreateOption}
+                />
+            </div>
         </div>
     );
 }

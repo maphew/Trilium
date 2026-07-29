@@ -91,7 +91,7 @@ export default function ValuesInput({ labelType, values, onCommit, renderValue, 
     }
 
     return (
-        <div className="tn-chips-field values-input">
+        <div className="tn-field values-input">
             {values.map((value) => (
                 <Chip
                     key={value}

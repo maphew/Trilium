@@ -1,7 +1,7 @@
 /*
  * A field carrying chips ahead of the box typed into (see the component's `leading`) looks the same
- * here as anywhere else a set is edited, so it wears the shared `tn-chips-field` and adds nothing of
- * its own. The class remains as the handle the dropdown is measured against.
+ * here as anywhere else a field is framed, so it wears the shared `tn-field` and adds nothing of its
+ * own. The class remains as the handle the dropdown is measured against.
  */
 
 /*

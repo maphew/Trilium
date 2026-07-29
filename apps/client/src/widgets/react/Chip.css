@@ -1,9 +1,13 @@
 /*
- * A field carrying chips ahead of the box typed into: the two are framed as one, so the chips read
- * as being in the field rather than stacked above it. The box gives up its own frame and takes what
- * room is left on the line, wrapping onto the next once the chips have filled it.
+ * The field itself: whatever it is edited through — chips standing for the values held, a box typed
+ * into, a swatch — is framed as the one thing, so that its parts read as being in the field rather
+ * than stacked within it. Each gives up a frame of its own, the box taking what room is left on the
+ * line and wrapping onto the next once the chips have filled it.
+ *
+ * Named for the field rather than for the chips because a field need hold none: one value picked from
+ * a list is framed the same way, and by this same class.
  */
-.tn-chips-field {
+.tn-field {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
