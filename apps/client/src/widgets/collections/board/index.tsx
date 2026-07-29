@@ -17,6 +17,7 @@ import { onWheelHorizontalScroll } from "../../widget_utils";
 import { ViewModeProps } from "../interface";
 import Api from "./api";
 import BoardApi from "./api";
+import { getStatusDefinition } from "./columns";
 import Column from "./column";
 import { ColumnMap, getBoardData } from "./data";
 
@@ -61,9 +62,14 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     const [ columnHoverIndex, setColumnHoverIndex ] = useState<number | null>(null);
     const [ branchIdToEdit, setBranchIdToEdit ] = useState<string>();
     const [ columnNameToEdit, setColumnNameToEdit ] = useState<string>();
+    /** Bumped when the definition changes, since it is read off the note rather than held in state. */
+    const [ definitionRevision, setDefinitionRevision ] = useState(0);
+    const statusDefinition = useMemo(
+        () => getStatusDefinition(parentNote, statusAttributeWithPrefix),
+        [ parentNote, statusAttributeWithPrefix, definitionRevision ]);
     const api = useMemo(() => {
-        return new Api(byColumn, columns ?? [], parentNote, statusAttributeWithPrefix, viewConfig ?? {}, saveConfig, setBranchIdToEdit );
-    }, [ byColumn, columns, parentNote, statusAttributeWithPrefix, viewConfig, saveConfig, setBranchIdToEdit ]);
+        return new Api(byColumn, columns ?? [], parentNote, statusAttributeWithPrefix, viewConfig ?? {}, saveConfig, setBranchIdToEdit, statusDefinition );
+    }, [ byColumn, columns, parentNote, statusAttributeWithPrefix, viewConfig, saveConfig, setBranchIdToEdit, statusDefinition ]);
     const boardViewContext = useMemo<BoardViewContextData>(() => ({
         api,
         parentNote,
@@ -85,24 +91,20 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     ]);
 
     function refresh() {
-        getBoardData(parentNote, statusAttributeWithPrefix, viewConfig ?? {}, includeArchived).then(({ byColumn, newPersistedData, isInRelationMode }) => {
-            setByColumn(byColumn);
-            setIsRelationMode(isInRelationMode);
+        getBoardData(parentNote, statusAttributeWithPrefix, viewConfig ?? {}, includeArchived, statusDefinition?.options ?? [])
+            .then(({ byColumn, columns, newPersistedData, isInRelationMode }) => {
+                setByColumn(byColumn);
+                setIsRelationMode(isInRelationMode);
+                setColumns(columns);
 
-            if (newPersistedData) {
-                viewConfig = { ...newPersistedData };
-                saveConfig(newPersistedData);
-            }
-
-            // Use the order from persistedData.columns, then add any new columns found
-            const orderedColumns = viewConfig?.columns?.map(col => col.value) || [];
-            const allColumns = Array.from(byColumn.keys());
-            const newColumns = allColumns.filter(col => !orderedColumns.includes(col));
-            setColumns([...orderedColumns, ...newColumns]);
-        });
+                if (newPersistedData) {
+                    viewConfig = { ...newPersistedData };
+                    saveConfig(newPersistedData);
+                }
+            });
     }
 
-    useEffect(refresh, [ parentNote, noteIds, viewConfig, statusAttributeWithPrefix ]);
+    useEffect(refresh, [ parentNote, noteIds, viewConfig, statusAttributeWithPrefix, statusDefinition ]);
 
     const handleColumnDrop = useCallback((fromIndex: number, toIndex: number) => {
         const newColumns = api.reorderColumn(fromIndex, toIndex);
@@ -115,6 +117,12 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     }, [api]);
 
     useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
+        // The column list is read off the definition, which may be edited from the attribute panel,
+        // another split, or a synced instance. Re-reading it re-runs the refresh through the effect.
+        if (loadResults.getAttributeRows().some(attr => attr.name === `label:${api.statusAttribute}`)) {
+            setDefinitionRevision(revision => revision + 1);
+        }
+
         // Check if any changes affect our board
         const hasRelevantChanges =
             // React to changes in status attribute for notes in this board

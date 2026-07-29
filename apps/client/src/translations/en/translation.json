@@ -2936,7 +2936,8 @@
     "add-column-placeholder": "Enter column name...",
     "edit-note-title": "Click to edit note title",
     "edit-column-title": "Click to edit column title",
-    "column-already-exists": "This column already exists on the board."
+    "column-already-exists": "This column already exists on the board.",
+    "column-definition-save-error": "The columns were saved on the board, but could not be saved to the status attribute."
   },
   "dashboard_view": {
     "refresh-widget": "Refresh",
