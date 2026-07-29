@@ -197,12 +197,25 @@ export function AttributeDetail({ opts, currentNoteId, onDismiss, onCancel, ...f
     // Positioning needs the popup's rendered size, so it runs after the DOM is
     // built but before paint.
     useLayoutEffect(() => {
-        if (popupRef.current && opts) {
-            // Classic-layout coordinates are relative to the hosting widget, mirroring how the
-            // legacy widget resolved its own parent in the component tree.
-            const hostWidget = parentComponent instanceof BasicWidget ? parentComponent : null;
-            positionPopup(popupRef.current, opts, hostWidget?.$widget?.offset() ?? { top: 0, left: 0 });
+        const popup = popupRef.current;
+        if (!popup || !opts) {
+            return;
         }
+
+        // Classic-layout coordinates are relative to the hosting widget, mirroring how the
+        // legacy widget resolved its own parent in the component tree.
+        const hostWidget = parentComponent instanceof BasicWidget ? parentComponent : null;
+        const reposition = () =>
+            positionPopup(popup, opts, hostWidget?.$widget?.offset() ?? { top: 0, left: 0 });
+        reposition();
+
+        // The placement holds only for the size it measured, and editing changes that size — a
+        // select definition grows a row per option — so the popup is re-placed as it resizes,
+        // sliding back on screen instead of pushing its lower controls past the viewport edge.
+        // Settles because re-placing an unchanged size sets the very same styles.
+        const resizeObserver = new ResizeObserver(reposition);
+        resizeObserver.observe(popup);
+        return () => resizeObserver.disconnect();
     }, [ opts, parentComponent ]);
 
     // Dismiss on click outside the popup, except in floating UI logically belonging
@@ -965,7 +978,9 @@ export function positionPopup(popup: HTMLElement, { x, y, anchor }: AttributeDet
         popup.style.right = toCssPos(detPosition.right);
         popup.style.top = `${y - parentOffset.top + 70}px`;
         popup.style.bottom = "";
-        popup.style.maxHeight = outerHeight + y > windowHeight - 50 ? `${windowHeight - y - 50}px` : "10000px";
+        // `>=` so that re-placing a popup already at the cap keeps the cap: with `>` it would
+        // un-cap, grow, and be capped again by the resize-driven re-placement, ping-ponging forever.
+        popup.style.maxHeight = outerHeight + y >= windowHeight - 50 ? `${windowHeight - y - 50}px` : "10000px";
     }
 }
 
