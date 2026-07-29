@@ -327,10 +327,12 @@ interface AttributeFormCallbacks {
 }
 
 /**
- * The editable part of the popup. Remounted per show (keyed on `showId`) so the field state is
- * simply seeded from the attribute instead of being synchronized to it on every change.
+ * The editable part of the popup, and of whatever else edits an attribute — a pane of a master-detail
+ * modal shows the same form, having no room to float one over itself. Remounted per show (keyed on
+ * `showId`) so the field state is simply seeded from the attribute instead of being synchronized to it
+ * on every change.
  */
-function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, onCancel, onAttributesChanged, onSaveAndClose, onDelete }: AttributeFormCallbacks & {
+export function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, onCancel, onAttributesChanged, onSaveAndClose, onDelete }: AttributeFormCallbacks & {
     opts: AttributeDetailOpts;
     attrType: AttrType;
     currentNoteId?: string | null;

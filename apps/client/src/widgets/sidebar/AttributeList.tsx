@@ -15,12 +15,13 @@ import dialog from "../../services/dialog";
 import { t } from "../../services/i18n";
 import server from "../../services/server";
 import { isMobile } from "../../services/utils";
-import { AttributeDetail, AttributeDetailOpts, AttrType, DEFINITION_TYPES, getAttrType, RELATION_DEFINITION_TYPE } from "../attribute_widgets/attribute_detail";
+import { AttributeDetail, AttributeDetailOpts, AttributeForm, AttrType, DEFINITION_TYPES, getAttrType, RELATION_DEFINITION_TYPE } from "../attribute_widgets/attribute_detail";
 import ActionButton from "../react/ActionButton";
 import { FormListItem } from "../react/FormList";
 import HelpButton from "../react/HelpButton";
 import { useActiveNoteContext, useTriliumEvent } from "../react/hooks";
 import Icon from "../react/Icon";
+import { DetailPane, MasterPane, useMasterDetail, useMasterDetailPage } from "../react/master_detail";
 import NoItems from "../react/NoItems";
 import NoteLink from "../react/NoteLink";
 import { ParentComponent } from "../react/react_utils";
@@ -32,10 +33,15 @@ import RightPanelWidget, { CollapsibleWidgets } from "./RightPanelWidget";
  * The note's attributes as a list, one row per attribute: the kind (label, relation, or either's
  * definition) is carried by an icon instead of by the `#`/`~`/`label:` syntax the attributes editor
  * spells out, and the value is shown as a preview rather than in full. Rows open the same detail
- * popup the editor uses, which is where an attribute is actually edited.
+ * form the editor uses, which is where an attribute is actually edited.
+ *
+ * The form floats beside its row where there is room for it — a panel with a note's width beside it —
+ * and is a page of its own inside a master-detail host (a modal on a phone), which slides it in over
+ * the list and heads it with a way back.
  */
 export default function AttributeList() {
     const { note } = useActiveNoteContext();
+    const { isMasterDetail } = useMasterDetail();
     const parentComponent = useContext(ParentComponent);
     const containerRef = useRef<HTMLDivElement>(null);
     const [ detail, setDetail ] = useState<AttributeDetailOpts | null>(null);
@@ -122,7 +128,7 @@ export default function AttributeList() {
         });
     }
 
-    /** Closes the popup keeping its edits: a list of rows has no save step of its own. */
+    /** Closes the form keeping its edits: a list of rows has no save step of its own. */
     function commit() {
         const isOwned = detail?.isOwned;
 
@@ -131,6 +137,10 @@ export default function AttributeList() {
             void save();
         }
     }
+
+    // A master-detail host heads the page it shows the form on with the attribute's name, and goes back
+    // to the list by closing it. Nothing happens outside such a host, where the form is a popup.
+    useMasterDetailPage(detail ? getDisplayName(detail.attribute, getAttributeKind(detail.attribute)) : null, commit);
 
     /**
      * Deleting is a press away in every row, and the row is all there is to tell one attribute from
@@ -162,7 +172,25 @@ export default function AttributeList() {
         + (sections.definitions.length ? 1 : 0)
         + (internalRows.length ? 1 : 0);
 
-    return (
+    // The same callbacks whichever of the two the form is shown in.
+    const formCallbacks = {
+        // A press outside keeps the edits, matching the attributes editor (which saves on blur); the
+        // close button and escape go through onCancel and revert instead.
+        onCancel: () => {
+            if (note) {
+                owned.current = collectOwned(note);
+            }
+            setDetail(null);
+            rerender();
+        },
+        // The form edits the attribute in place, so there is nothing to apply here: the rows only need
+        // to be redrawn to follow along as it is typed into.
+        onAttributesChanged: rerender,
+        // An inherited attribute is shown read-only, so it has neither of the two.
+        onSaveAndClose: detail?.isOwned ? commit : undefined,
+        onDelete: detail?.isOwned ? () => void deleteAttribute(detail.attribute) : undefined
+    };
+    const sectionList = (
         <>
             {/* A card each, so a section is collapsed on its own and the inherited attributes — which a
                 template can run to dozens of — can be put away without taking the note's own with them.
@@ -236,27 +264,42 @@ export default function AttributeList() {
                     </AttributeSection>
                 )}
             </CollapsibleWidgets.Provider>
+        </>
+    );
+
+    // Inside a master-detail host the list and the form are its two panes, which it slides over each
+    // other — so they are handed over as siblings rather than nested in a wrapper of ours.
+    if (isMasterDetail) {
+        return (
+            <>
+                <MasterPane>{sectionList}</MasterPane>
+                <DetailPane className="attribute-detail-page">
+                    {detail && (
+                        <AttributeForm
+                            // Reseeded from whichever attribute the page is showing, the fields being
+                            // seeded once per show (see AttributeForm).
+                            key={detail.attribute.attributeId ?? "new"}
+                            opts={detail}
+                            attrType={getAttrType(detail.attribute)}
+                            currentNoteId={note?.noteId}
+                            {...formCallbacks}
+                        />
+                    )}
+                </DetailPane>
+            </>
+        );
+    }
+
+    return (
+        <>
+            {sectionList}
 
             {createPortal(
                 <AttributeDetail
                     opts={detail}
                     currentNoteId={note?.noteId}
-                    // A press outside keeps the edits, matching the attributes editor (which saves on
-                    // blur); the close button and escape go through onCancel and revert instead.
                     onDismiss={commit}
-                    onCancel={() => {
-                        if (note) {
-                            owned.current = collectOwned(note);
-                        }
-                        setDetail(null);
-                        rerender();
-                    }}
-                    // The popup edits the attribute in place, so there is nothing to apply here: the
-                    // rows only need to be redrawn to follow along as it is typed into.
-                    onAttributesChanged={rerender}
-                    // An inherited attribute is shown read-only, so it has neither of the two.
-                    onSaveAndClose={detail?.isOwned ? commit : undefined}
-                    onDelete={detail?.isOwned ? () => void deleteAttribute(detail.attribute) : undefined}
+                    {...formCallbacks}
                 />,
                 document.body)}
         </>

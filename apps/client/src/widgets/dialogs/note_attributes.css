@@ -146,3 +146,19 @@ body.mobile .modal.note-attributes-modal {
         overflow-y: auto;
     }
 }
+
+/*
+ * Editing one attribute is a page of its own on a narrow screen rather than a form floating over the
+ * list: a popup wide enough for the fields would cover the whole of it anyway, and it would be a page
+ * over a page — a modal over a modal. The flow itself is the shared one (master_detail.css); what is
+ * particular to this dialog is what the page holds.
+ */
+.attribute-detail-page {
+    /* The form was drawn as a popup, and a page needs neither of the two things a popup has to carry: a
+       heading naming what is being edited (the page is headed with its name, and the badges beside it say
+       the rest) and a button to close itself with (the way back is in that header). */
+    .attr-detail-title,
+    .close-attr-detail-button {
+        display: none;
+    }
+}

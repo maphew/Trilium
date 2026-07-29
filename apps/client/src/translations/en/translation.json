@@ -798,6 +798,7 @@
     "definitions_other": "{{count}} definitions",
     "internal_one": "{{count}} internal system attribute",
     "internal_other": "{{count}} internal system attributes",
+    "back": "Back to the attributes",
     "inheritable": "Inheritable: applies to this note and to its whole subtree",
     "delete": "Delete this attribute",
     "delete_confirm": "Delete the attribute \"{{name}}\"?",
