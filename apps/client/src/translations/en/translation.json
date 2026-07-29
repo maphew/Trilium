@@ -1328,6 +1328,7 @@
     "open_external_link": "Open external link",
     "send_email": "Send an email to this address",
     "call_phone": "Call this number",
+    "create_option": "Create \"{{- option}}\"",
     "unknown_label_type": "Unknown label type '{{type}}'",
     "unknown_attribute_type": "Unknown attribute type '{{type}}'",
     "add_new_attribute": "Add new attribute",

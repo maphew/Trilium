@@ -106,8 +106,10 @@ describe("LabelValueInput", () => {
         });
         expect(onCommit).not.toHaveBeenCalled();
 
+        // `focusout`, the bubbling event a browser fires alongside `blur`, is what the input listens
+        // for — both by its own binding and under preact/compat's `onBlur` remap.
         await act(async () => {
-            input?.dispatchEvent(new Event("blur", { bubbles: true }));
+            input?.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
         });
         expect(onCommit).toHaveBeenCalledWith("after");
     });
@@ -146,6 +148,96 @@ describe("LabelValueInput", () => {
             }
         });
         expect(onCommit).toHaveBeenCalledWith("Done");
+    });
+
+    describe("creatable select combobox", () => {
+        /** Lets the debounced suggestion fetch run; the dropdown is portaled to the body. */
+        async function settleDropdown() {
+            await act(async () => {
+                await new Promise((resolve) => setTimeout(resolve, 200));
+            });
+            return [ ...document.querySelectorAll(".form-autocomplete-dropdown li") ];
+        }
+
+        async function typeInto(input: HTMLInputElement | null, value: string) {
+            await act(async () => {
+                if (input) {
+                    input.value = value;
+                    input.dispatchEvent(new Event("input", { bubbles: true }));
+                }
+            });
+        }
+
+        it("lists every option on focus, and commits a pick, not the typing before it", async () => {
+            const onCommit = vi.fn();
+            await mount({
+                labelType: "select", value: "Todo", selectOptions: [ "Todo", "Done" ],
+                onCommit, onCreateOption: vi.fn()
+            });
+
+            // A combobox rather than a fixed dropdown.
+            expect(container.querySelector("select")).toBeNull();
+            const input = container.querySelector("input");
+            expect(input?.value).toBe("Todo");
+
+            // The box still holds the stored value, so the whole list is offered, unfiltered.
+            await act(async () => input?.focus());
+            expect((await settleDropdown()).map((item) => item.textContent)).toEqual([ "Todo", "Done" ]);
+
+            await typeInto(input, "Do");
+            expect(onCommit).not.toHaveBeenCalled();
+
+            // "Do" matches both options as a substring, plus the entry offering to create it.
+            const items = await settleDropdown();
+            const done = items.find((item) => item.textContent === "Done");
+            await act(async () => (done as HTMLElement | undefined)?.click());
+            expect(onCommit).toHaveBeenCalledWith("Done");
+        });
+
+        it("offers creating unmatched text as an explicit entry, never committing it on its own", async () => {
+            const onCommit = vi.fn();
+            const onCreateOption = vi.fn();
+            await mount({
+                labelType: "select", value: "", selectOptions: [ "Todo", "Done" ],
+                onCommit, onCreateOption
+            });
+
+            const input = container.querySelector("input");
+            await act(async () => input?.focus());
+            await typeInto(input, "Blocked");
+
+            // Nothing matches, so the create entry is the only row. Recognized by its class rather
+            // than its label: `t()` renders empty under the test environment's uninitialized i18n.
+            const items = await settleDropdown();
+            expect(items).toHaveLength(1);
+            expect(items[0]?.querySelector(".label-select-create-option")).not.toBeNull();
+
+            await act(async () => (items[0] as HTMLElement | undefined)?.click());
+            expect(onCreateOption).toHaveBeenCalledWith("Blocked");
+            expect(onCommit).toHaveBeenCalledWith("Blocked");
+        });
+
+        it("reverts unpicked text on blur, while an emptied box commits the unset value", async () => {
+            const onCommit = vi.fn();
+            await mount({
+                labelType: "select", value: "Todo", selectOptions: [ "Todo", "Done" ],
+                onCommit, onCreateOption: vi.fn()
+            });
+
+            const input = container.querySelector("input");
+            await typeInto(input, "Blo");
+            await act(async () => {
+                input?.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+            });
+            expect(onCommit).not.toHaveBeenCalled();
+            expect(input?.value).toBe("Todo");
+
+            await typeInto(input, "");
+            await act(async () => {
+                input?.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+            });
+            expect(onCommit).toHaveBeenCalledWith("");
+        });
     });
 
     it("opens an email or a phone through its scheme, not doubling one an old value carries", async () => {

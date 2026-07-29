@@ -1,9 +1,12 @@
+import "./label_value_input.css";
+
 import { type LabelType } from "@triliumnext/commons";
 import clsx from "clsx";
 import { createElement, type HTMLInputTypeAttribute, type InputHTMLAttributes, type MouseEventHandler } from "preact";
-import { useRef } from "preact/hooks";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import { t } from "../../services/i18n";
+import FormAutocomplete from "../react/FormAutocomplete";
 
 /**
  * The field a label of each type is edited through, shared so that a promoted field and a system
@@ -78,6 +81,14 @@ interface LabelValueInputProps {
     numberPrecision?: number;
     /** The values a select field offers, from the definition that declared it. */
     selectOptions?: string[];
+    /**
+     * Called when the user asks a select field for a choice its definition does not offer yet;
+     * expected to add it to the definition, while the value itself still arrives via `onCommit`.
+     * Providing this turns the plain dropdown into a combobox: the full list opens on focus, typing
+     * filters it, and an unmatched text offers an explicit "Create" entry — never committing free
+     * text on its own, so a typo cannot slip into the shared definition.
+     */
+    onCreateOption?: (option: string) => void | Promise<void>;
     /** Merged onto the input, for the id, tab order and data attributes a host needs to attach. */
     inputProps?: InputHTMLAttributes<HTMLInputElement> & Record<`data-${string}`, string | undefined>;
 }
@@ -90,7 +101,7 @@ interface LabelValueInputProps {
  * checkbox, which a host wanting the label after the box has to arrange itself.
  */
 export default function LabelValueInput({
-    labelType, value, onCommit, commitOn = "input", numberPrecision, selectOptions, inputProps
+    labelType, value, onCommit, commitOn = "input", numberPrecision, selectOptions, onCreateOption, inputProps
 }: LabelValueInputProps) {
     const colorInputRef = useRef<HTMLInputElement>(null);
     // What has been typed but not yet committed is still what the field shows, so anything acting on
@@ -106,6 +117,18 @@ export default function LabelValueInput({
         } else {
             onCommit(input.value);
         }
+    }
+
+    if (labelType === "select" && onCreateOption) {
+        return (
+            <SelectComboBox
+                options={selectOptions ?? []}
+                value={value}
+                onCommit={onCommit}
+                onCreateOption={onCreateOption}
+                inputProps={inputProps}
+            />
+        );
     }
 
     const openButton = OPEN_BUTTONS[labelType];
@@ -137,7 +160,10 @@ export default function LabelValueInput({
             // After the host's props, so that a host cannot leave the value uncommitted by supplying
             // its own. A select commits as it is picked even for a host that commits on blur: there is
             // nothing to type into it, so waiting for the blur would only hold a made choice back.
-            [commitOn === "blur" && !isSelect ? "onBlur" : "onInput"]: commitFromEvent
+            // `focusout` by its DOM name rather than `onBlur`: preact/compat — loaded module-graph-wide
+            // by any compat-using import — remaps `onBlur` to `focusout` anyway, so naming the event
+            // keeps the binding the same whether or not compat happens to be loaded.
+            [commitOn === "blur" && !isSelect ? "onfocusout" : "onInput"]: commitFromEvent
         },
         isSelect ? selectOptionElements(
             selectOptions ?? [],
@@ -188,6 +214,91 @@ export default function LabelValueInput({
                 />
             )}
         </>
+    );
+}
+
+/**
+ * Marks the "Create" entry apart from the options it sits under. An option can never start with it:
+ * it cannot be typed, and the definition editor takes what was typed.
+ */
+const CREATE_OPTION_SENTINEL = "\u0000";
+
+/**
+ * The combobox a select with {@link LabelValueInputProps#onCreateOption} is edited through. The box
+ * holds a draft of the value: the full list opens on focus, typing filters it, and only picking an
+ * entry commits — an option by its text, the "Create" entry by first handing the typed text to
+ * `onCreateOption`. Text that matches nothing reverts on blur, except an emptied box, which commits
+ * the empty value: clearing is a choice of its own, and cannot pollute the definition.
+ */
+function SelectComboBox({ options, value, onCommit, onCreateOption, inputProps }: {
+    options: string[];
+    value: string;
+    onCommit: (value: string) => void;
+    onCreateOption: (option: string) => void | Promise<void>;
+    inputProps?: LabelValueInputProps["inputProps"];
+}) {
+    const [ draft, setDraft ] = useState(value);
+    // What the note holds is what the box shows, however the value came to change.
+    useEffect(() => setDraft(value), [ value ]);
+
+    // Narrowed because Preact types the attribute as possibly signal-backed, while the text box
+    // underneath takes the plain string.
+    const { id, ...restInputProps } = inputProps ?? {};
+
+    const source = useCallback(async (query: string) => {
+        const trimmed = query.trim();
+        // The stored value in the box means the list was only just opened, so the whole of it is
+        // offered rather than the near-empty tail that filtering by the value would leave.
+        const items = !trimmed || trimmed === value
+            ? [ ...options ]
+            : options.filter((option) => option.toLowerCase().includes(trimmed.toLowerCase()));
+
+        if (trimmed && trimmed !== value
+            && !options.some((option) => option.toLowerCase() === trimmed.toLowerCase())) {
+            items.push(CREATE_OPTION_SENTINEL + trimmed);
+        }
+        return items;
+    }, [ options, value ]);
+
+    return (
+        <FormAutocomplete
+            {...restInputProps}
+            id={typeof id === "string" ? id : undefined}
+            className={clsx(inputProps?.className, "label-select-combobox")}
+            currentValue={draft}
+            openOnFocus
+            source={source}
+            renderItem={(item) => item.startsWith(CREATE_OPTION_SENTINEL)
+                ? <span className="label-select-create-option">
+                    <span className="bx bx-plus" />{" "}
+                    {t("promoted_attributes.create_option", { option: item.substring(CREATE_OPTION_SENTINEL.length) })}
+                </span>
+                : item}
+            onChange={(newValue) => {
+                if (newValue.startsWith(CREATE_OPTION_SENTINEL)) {
+                    const option = newValue.substring(CREATE_OPTION_SENTINEL.length);
+                    void onCreateOption(option);
+                    setDraft(option);
+                    onCommit(option);
+                } else if (options.includes(newValue)) {
+                    setDraft(newValue);
+                    onCommit(newValue);
+                } else {
+                    // Not a pick yet — the text is a filter, held until an entry is chosen.
+                    setDraft(newValue);
+                }
+            }}
+            onBlur={(leftBehind) => {
+                if (!leftBehind.trim()) {
+                    setDraft("");
+                    if (value) {
+                        onCommit("");
+                    }
+                } else if (leftBehind !== value) {
+                    setDraft(value);
+                }
+            }}
+        />
     );
 }
 
