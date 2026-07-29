@@ -1,4 +1,46 @@
 /*
+ * A field carrying chips ahead of the box typed into: the two are framed as one, so the chips read
+ * as being in the field rather than stacked above it. The box gives up its own frame and takes what
+ * room is left on the line, wrapping onto the next once the chips have filled it.
+ */
+.tn-chips-field {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 6px;
+    border: 1px solid var(--main-border-color);
+    border-radius: 6px;
+    background: var(--input-background-color);
+
+    &:focus-within {
+        outline: 2px solid var(--input-focus-outline-color);
+    }
+
+    > input.form-control {
+        flex: 1;
+        min-width: 6ch;
+        width: auto;
+        padding: 2px 0;
+        border: none;
+        outline: none;
+
+        &,
+        &:hover,
+        &:focus {
+            background: transparent;
+        }
+    }
+
+    /* A chip standing for a value holds text rather than a box to type in, so it needs none of the
+       field styling the chip leaves to its contents — only room for the word itself. */
+    > .tn-chip > span {
+        padding-block: 2px;
+        white-space: nowrap;
+    }
+}
+
+/*
  * One entry of a set: a rounded chip holding whatever it stands for, and a button removing it. The
  * chip is the surface — its contents give up borders and backgrounds of their own — so that a set
  * being read and a set being edited come out looking alike.

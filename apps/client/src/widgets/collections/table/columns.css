@@ -1,6 +1,6 @@
-/* The chips of a multi-valued select cell, read-only here: the cell shows the set, the editor edits
-   it. They wrap rather than being clipped one word in, a row growing to the tallest cell in it. */
-.table-select-values {
+/* The chips of a multi-valued cell, read-only here: the cell shows the set, the editor edits it.
+   They wrap rather than being clipped one word in, a row growing to the tallest cell in it. */
+.table-values {
     display: flex;
     flex-wrap: wrap;
     align-items: center;
@@ -20,7 +20,7 @@
  * The cell it belongs to therefore stops clipping while it is being edited, and comes forward so the
  * editor is drawn over the rows below rather than under them.
  */
-.tabulator-row:not(.tabulator-moving) .tabulator-cell.tabulator-editing:has(> .table-select-editor) {
+.tabulator-row:not(.tabulator-moving) .tabulator-cell.tabulator-editing:has(> .table-values-editor) {
     overflow: visible !important;
     z-index: 10;
 
@@ -32,7 +32,7 @@
     background: transparent;
 }
 
-.table-select-editor {
+.table-values-editor {
     position: absolute;
     inset-block-start: 0;
     inset-inline-start: 0;
@@ -60,14 +60,14 @@
 
     /* Over that surface the film reads as it does anywhere else: as a field within the thing it
        floats on, rather than as a hole in it. */
-    > .form-autocomplete-field {
+    > .tn-chips-field {
         background-color: var(--input-background-color);
     }
 }
 
 /* Anchored by its foot instead, so that what it gains rises over the rows above rather than pressing
    past the foot of the pane. Applied from the editor, which is what can tell the room is short. */
-.table-select-editor.grows-upwards {
+.table-values-editor.grows-upwards {
     inset-block-start: auto;
     inset-block-end: 0;
 }

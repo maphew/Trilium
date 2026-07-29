@@ -11,6 +11,7 @@ import { t } from "../../../services/i18n.js";
 import { formatDateNumeric } from "../../../utils/formatters.js";
 import LabelValueInput from "../../attribute_widgets/label_value_input.jsx";
 import { SelectValuesInput } from "../../attribute_widgets/select_input.jsx";
+import ValuesInput from "../../attribute_widgets/values_input.jsx";
 import Icon from "../../react/Icon.jsx";
 import NoteAutocomplete from "../../react/NoteAutocomplete.jsx";
 import { renderReactWidget } from "../../react/react_utils.jsx";
@@ -24,7 +25,7 @@ export interface AttributeDefinitionInformation {
     type?: ColumnType;
     /** The values a `select` column offers, from the definition that declared it. */
     options?: string[];
-    /** Whether the column holds a set of values rather than one, which only a `select` may. */
+    /** Whether the column holds a set of values rather than one, shown and edited as chips. */
     isMulti?: boolean;
 }
 
@@ -189,22 +190,25 @@ export function buildColumnDefinitions({ info, movableRows, existingColumnData, 
             editor: "input",
             rowHandle: false,
             ...labelTypeMappings[type ?? "text"],
-            // A select's options come from its own definition, so they attach per column. Handed as
-            // a function because that is the shape Tabulator types for params of an editor's own —
-            // which also means the options are answered for as each cell is opened, late enough to
-            // include one the definition has just been given.
-            ...(type === "select" && {
+            // What a cell's editor needs beyond the value itself, which for a select is the options
+            // it offers. Handed as a function because that is the shape Tabulator types for params
+            // of an editor's own — which also means the options are answered for as each cell is
+            // opened, late enough to include one the definition has just been given.
+            ...((type === "select" || isMulti) && {
                 editorParams: (): Record<string, unknown> => ({
+                    labelType: type ?? "text",
                     options: currentSelectOptions?.(name) ?? options ?? [],
                     isMulti,
                     onCreateOption: onCreateSelectOption
                         && ((option: string) => onCreateSelectOption(name, option))
-                } satisfies SelectEditorParams)
+                } satisfies ValuesEditorParams)
             }),
-            // A set is shown as the chips it is edited as, and sorted by the values it holds rather
-            // than by the array Tabulator would otherwise compare as an object.
-            ...(type === "select" && isMulti && {
-                formatter: wrapFormatter(SelectValuesFormatter),
+            // A set is shown as the chips it is edited as, whatever it holds — and sorted by those
+            // values rather than by the array Tabulator would otherwise compare as an object.
+            ...(isMulti && {
+                editor: wrapEditor(ValuesEditor),
+                formatter: wrapFormatter(ValuesFormatter),
+                formatterParams: { type: type ?? "text" },
                 sorter: (a, b) => joinValues(a).localeCompare(joinValues(b))
             })
         });
@@ -349,54 +353,82 @@ function NoteFormatter({ cell }: FormatterOpts) {
  * hands no reference to the box it builds; the list then opens as it does for any focused combobox.
  */
 function SelectEditor({ cell, success, editorParams }: EditorOpts) {
-    const { options, isMulti, onCreateOption } = editorParams as SelectEditorParams;
+    const { options, onCreateOption } = editorParams as ValuesEditorParams;
     const containerRef = useRef<HTMLDivElement>(null);
     useEffect(() => containerRef.current?.querySelector("input")?.focus(), []);
-    // The set as it stands while the cell is open. Reporting each chip as it is taken would close the
-    // editor on the first one — `success` is Tabulator's "the edit is done" — so the set is held here
-    // and handed over once, when the field is left. A ref beside it because the handler below is
-    // bound once and would otherwise report the set the editor opened with.
+
+    return (
+        <div ref={containerRef} className="table-values-editor">
+            <LabelValueInput
+                labelType="select"
+                value={cell.getValue() ?? ""}
+                selectOptions={options}
+                onCommit={success}
+                onCreateOption={onCreateOption}
+            />
+        </div>
+    );
+}
+
+/**
+ * A cell holding several values is edited as the chips it shows: a select picks them from its
+ * options, anything else takes what is typed. Either way the set is what is being edited, so the two
+ * share everything around the field — how the set is gathered, and when it is handed over.
+ *
+ * Reporting a value as it is taken would close the editor on the first one — reporting is Tabulator's
+ * "the edit is done" — so the set is held here and handed over once, when the cell is left.
+ */
+function ValuesEditor({ cell, success, editorParams }: EditorOpts) {
+    const { labelType, options, onCreateOption } = editorParams as ValuesEditorParams;
+    const containerRef = useRef<HTMLDivElement>(null);
+    useEffect(() => containerRef.current?.querySelector("input")?.focus(), []);
+
     const [ values, setValues ] = useState<string[]>(() => asValues(cell.getValue()));
+    // The set as the handler below will read it. Written as the edit is made rather than left to the
+    // next render, because leaving the field both takes what was typed and ends the edit — in that
+    // order, and within the one event, which a value only reachable through a render would miss.
     const editedValues = useRef(values);
-    editedValues.current = values;
+    function editValues(edited: string[]) {
+        editedValues.current = edited;
+        setValues(edited);
+    }
 
     useEffect(() => {
         const editor = containerRef.current;
-        if (!isMulti || !editor) return;
+        if (!editor) return;
 
         const onFocusOut = (e: FocusEvent) => {
             // Focus moving within the editor — the box to a chip's remove button, or back — is not
-            // leaving it. Picking from the list does not blur at all: the list keeps the focus in
-            // the box, which is what lets it stay open across picks.
+            // leaving it. Picking from a list does not blur at all: the list keeps the focus in the
+            // box, which is what lets it stay open across picks.
             if (e.relatedTarget instanceof Node && editor.contains(e.relatedTarget)) return;
             success(editedValues.current);
         };
 
         editor.addEventListener("focusout", onFocusOut);
         return () => editor.removeEventListener("focusout", onFocusOut);
-    }, [ isMulti, success ]);
+    }, [ success ]);
 
-    // The editor grows downwards as chips are taken, which the pane the table scrolls in cuts off at
+    // The editor grows downwards as values are taken, which the pane the table scrolls in cuts off at
     // its foot — on the last row there is nothing below the cell to grow into.
     const growsUpwards = useGrowsUpwards(containerRef);
 
     return (
-        <div ref={containerRef} className={clsx("table-select-editor", growsUpwards && "grows-upwards")}>
-            {isMulti ? (
+        <div ref={containerRef} className={clsx("table-values-editor", growsUpwards && "grows-upwards")}>
+            {labelType === "select" ? (
                 <SelectValuesInput
                     options={options}
                     values={values}
                     placeholder={t("promoted_attributes.select_values_placeholder")}
                     onCreateOption={onCreateOption}
-                    onCommit={setValues}
+                    onCommit={editValues}
                 />
             ) : (
-                <LabelValueInput
-                    labelType="select"
-                    value={cell.getValue() ?? ""}
-                    selectOptions={options}
-                    onCommit={success}
-                    onCreateOption={onCreateOption}
+                <ValuesInput
+                    labelType={labelType === "relation" ? "text" : labelType}
+                    values={values}
+                    placeholder={t("promoted_attributes.values_placeholder")}
+                    onCommit={editValues}
                 />
             )}
         </div>
@@ -404,14 +436,33 @@ function SelectEditor({ cell, success, editorParams }: EditorOpts) {
 }
 
 /** A multi-valued cell as the chips it is edited as, so reading and editing show the same set. */
-function SelectValuesFormatter({ cell }: FormatterOpts) {
+function ValuesFormatter({ cell, formatterParams }: FormatterOpts) {
+    const { type } = formatterParams as { type?: ColumnType };
     return (
-        <span className="table-select-values">
+        <span className="table-values">
             {asValues(cell.getValue()).map((value) => (
-                <span key={value} className="tn-chip">{value}</span>
+                <span key={value} className="tn-chip"><span>{renderValue(value, type)}</span></span>
             ))}
         </span>
     );
+}
+
+/** The schemes that make a value of a link-like type clickable; a url carries its own. */
+const LINK_SCHEMES: Partial<Record<ColumnType, string>> = { url: "", email: "mailto:", phone: "tel:" };
+
+/**
+ * One value of a set, read as its type reads it — so that a set of dates is as legible as a single
+ * one, and a set of addresses is as clickable. Anything else is the value as stored.
+ */
+function renderValue(value: string, type: ColumnType | undefined) {
+    if (type === "date" || type === "datetime") {
+        return formatLabelDate(value, type === "datetime");
+    }
+
+    const scheme = type && LINK_SCHEMES[type];
+    return scheme !== undefined
+        ? <a href={applyLinkScheme(value, scheme)}>{value}</a>
+        : value;
 }
 
 /**
@@ -429,11 +480,12 @@ function joinValues(value: unknown) {
 }
 
 /**
- * What a select column hands its editor: the options it offers, whether it holds a set of them, and
- * how to add one. A type rather than an interface so that it still reads as the loose record
- * Tabulator types params as.
+ * What a column hands its editor beyond the value: the kind of value it holds, and — a select being
+ * the one type whose values are a closed set — the options it offers and how to add one. A type
+ * rather than an interface so that it still reads as the loose record Tabulator types params as.
  */
-export type SelectEditorParams = {
+export type ValuesEditorParams = {
+    labelType: ColumnType;
     options: string[];
     isMulti?: boolean;
     /** Absent where the definition cannot be written to, which leaves the field a plain picker. */

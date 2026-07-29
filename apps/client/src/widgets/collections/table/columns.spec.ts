@@ -1,6 +1,6 @@
 import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import { buildColumnDefinitions, formatLabelDate, restoreExistingData, type SelectEditorParams } from "./columns";
+import { type AttributeDefinitionInformation, buildColumnDefinitions, formatLabelDate, restoreExistingData, type ValuesEditorParams } from "./columns";
 import type { CellComponent, ColumnDefinition } from "tabulator-tables";
 
 import options from "../../../services/options";
@@ -242,7 +242,7 @@ describe("buildColumnDefinitions — select columns", () => {
     function editorParamsOf(column: ColumnDefinition | undefined) {
         const params = column?.editorParams;
         if (typeof params !== "function") throw new Error("expected the params to be a function");
-        return params({} as CellComponent) as SelectEditorParams;
+        return params({} as CellComponent) as ValuesEditorParams;
     }
 
     function selectColumn(
@@ -288,6 +288,42 @@ describe("buildColumnDefinitions — select columns", () => {
     it("leaves the editor no way to create where the caller offers none", () => {
         // Without it the field stays a plain picker rather than calling something undefined.
         expect(editorParamsOf(selectColumn()).onCreateOption).toBeUndefined();
+    });
+});
+
+describe("buildColumnDefinitions — multi-valued columns", () => {
+    function multiColumn(type: AttributeDefinitionInformation["type"]) {
+        return buildColumnDefinitions({
+            info: [ { name: "tags", type, isMulti: true } ],
+            movableRows: false,
+            existingColumnData: undefined,
+            rowNumberHint: 1
+        }).find((column) => column.field === "labels.tags");
+    }
+
+    it("edits and shows a set as chips whatever it holds, not only a set of options", () => {
+        for (const type of [ "text", "date", "url", "select" ] as const) {
+            const column = multiColumn(type);
+            // The type's own single-value editor would show one of the values and store back one.
+            expect(typeof column?.editor).toBe("function");
+            expect(typeof column?.formatter).toBe("function");
+            expect(column?.formatterParams).toEqual({ type });
+            // The editor is told which kind of value it is gathering, since that decides the field.
+            const params = column?.editorParams;
+            if (typeof params !== "function") throw new Error("expected the params to be a function");
+            expect((params({} as CellComponent) as ValuesEditorParams).labelType).toBe(type);
+        }
+    });
+
+    it("sorts by the values a cell holds, not by the array they arrive in", () => {
+        const sorter = multiColumn("text")?.sorter;
+        if (typeof sorter !== "function") throw new Error("expected a sorter of its own");
+
+        const compare = (a: unknown, b: unknown) =>
+            Math.sign((sorter as (a: unknown, b: unknown, ...rest: never[]) => number)(a, b));
+        expect(compare([ "alpha", "beta" ], [ "alpha", "gamma" ])).toBe(-1);
+        expect(compare([ "beta" ], [ "alpha", "beta" ])).toBe(1);
+        expect(compare([ "alpha" ], [ "alpha" ])).toBe(0);
     });
 });
 

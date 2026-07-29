@@ -91,14 +91,7 @@ export default function getAttributeDefinitionInformation(parentNote: FNote) {
             type = "relation";
         }
 
-        // A select is the one field a column can show several values in: its values are a set drawn
-        // from the options, which chips display and edit as the set it is. Any other type holds free
-        // text, for which a column has one cell and no way to tell one value from the next.
-        const isMulti = def.multiplicity === "multi";
-        if (isMulti && type !== "select") {
-            console.warn("Multiple values are not supported for now");
-            continue;
-        }
+        const isMulti = def.multiplicity === "multi" && MULTI_VALUE_TYPES.has(type);
 
         info.push({
             name,
@@ -110,3 +103,15 @@ export default function getAttributeDefinitionInformation(parentNote: FNote) {
     }
     return info;
 }
+
+/**
+ * The types a column can hold several values of, shown and edited as chips.
+ *
+ * The two left out are the ones a set says nothing for: a flag means what it means by being there at
+ * all, so several of them are the same one flag; and a colour is a single quality of the thing it
+ * describes. A column of either shows the first value it finds, as it did before it was declared to
+ * hold many — better a value than a column that quietly goes missing.
+ */
+const MULTI_VALUE_TYPES = new Set<LabelType | "relation">([
+    "text", "textarea", "number", "select", "date", "datetime", "time", "url", "email", "phone"
+]);

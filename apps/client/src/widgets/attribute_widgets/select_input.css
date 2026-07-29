@@ -7,12 +7,3 @@
         color: var(--muted-text-color);
     }
 }
-
-/*
- * The chips of a multi-valued select. They hold text rather than a box typed into, so they need none
- * of the field styling the shared chip leaves to its contents — only room for the word itself.
- */
-.form-autocomplete-field .select-values-chip > span {
-    padding-block: 2px;
-    white-space: nowrap;
-}

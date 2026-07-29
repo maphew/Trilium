@@ -1,38 +1,8 @@
 /*
- * A field carrying chips ahead of the box typed into (see the component's `leading`): the two are
- * framed as one, so the chips read as being in the field rather than stacked above it. The box gives
- * up its own frame and takes what room is left on the line, wrapping onto the next once the chips
- * have filled it.
+ * A field carrying chips ahead of the box typed into (see the component's `leading`) looks the same
+ * here as anywhere else a set is edited, so it wears the shared `tn-chips-field` and adds nothing of
+ * its own. The class remains as the handle the dropdown is measured against.
  */
-.form-autocomplete-field {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px;
-    padding: 3px 6px;
-    border: 1px solid var(--main-border-color);
-    border-radius: 6px;
-    background: var(--input-background-color);
-
-    &:focus-within {
-        outline: 2px solid var(--input-focus-outline-color);
-    }
-
-    > input.form-control {
-        flex: 1;
-        min-width: 6ch;
-        width: auto;
-        padding: 2px 0;
-        border: none;
-        outline: none;
-
-        &,
-        &:hover,
-        &:focus {
-            background: transparent;
-        }
-    }
-}
 
 /*
  * The suggestion list, dressed as one of the application's menus — the same metrics the mention list
