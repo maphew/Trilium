@@ -179,7 +179,9 @@ const BUILTIN_ATTRIBUTES = [
     // Launch bar, and the hidden subtree items that back it
     { type: "label", name: "launcherType", valueType: "string" },
     { type: "label", name: "builtinWidget", valueType: "string" },
-    { type: "label", name: "scriptInLauncherContent", valueType: "boolean" },
+    // Dangerous together with `~script` below: it makes the launcher run its own content instead, so
+    // neutralising only the relation would leave this as a way around it.
+    { type: "label", name: "scriptInLauncherContent", valueType: "boolean", isDangerous: true },
     { type: "label", name: "baseSize", valueType: "number" },
     { type: "label", name: "growthFactor", valueType: "number" },
     { type: "label", name: "desktopOnly", valueType: "boolean" },
@@ -267,10 +269,12 @@ const BUILTIN_ATTRIBUTES = [
     { type: "relation", name: "yearTemplate" },
     { type: "relation", name: "widget", isDangerous: true },
     { type: "relation", name: "renderNote", isDangerous: true },
-    { type: "relation", name: "searchScript" },
+    { type: "relation", name: "searchScript", isDangerous: true },
     { type: "relation", name: "ancestor" },
     { type: "relation", name: "target" },
-    { type: "relation", name: "script" },
+    // Both execute a script, unlike the handlers above only once the user opens or clicks something.
+    // Flagged all the same, so a safe import cannot leave one primed behind a single keystroke.
+    { type: "relation", name: "script", isDangerous: true },
     { type: "relation", name: "hoistedNote" },
     { type: "relation", name: "shareCss" },
     { type: "relation", name: "shareLogo" },
