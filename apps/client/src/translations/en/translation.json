@@ -1333,7 +1333,9 @@
     "unknown_attribute_type": "Unknown attribute type '{{type}}'",
     "add_new_attribute": "Add new attribute",
     "remove_this_attribute": "Remove this attribute",
-    "remove_color": "Remove the color label"
+    "remove_color": "Remove the color label",
+    "remove_value": "Remove this value",
+    "select_values_placeholder": "Select an option or create one"
   },
   "script_executor": {
     "query": "Query",

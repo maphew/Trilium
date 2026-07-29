@@ -1,0 +1,54 @@
+/*
+ * One entry of a set: a rounded chip holding whatever it stands for, and a button removing it. The
+ * chip is the surface — its contents give up borders and backgrounds of their own — so that a set
+ * being read and a set being edited come out looking alike.
+ */
+.tn-chip {
+    --chip-remove-size: 18px;
+
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    /* Tighter at the trailing edge, where the remove button brings padding of its own. */
+    padding-inline: 8px 3px;
+    border-radius: var(--badge-radius, 12px);
+    background-color: var(--hover-item-background-color);
+
+    /* The chip carries the focus ring, anything typed into it having given up one of its own —
+       otherwise a field's outline would be drawn inside a chip that already looks like a box. */
+    &:focus-within {
+        outline: 2px solid var(--input-focus-outline-color);
+    }
+
+    > .tn-chip-remove {
+        --icon-button-size: var(--chip-remove-size);
+        --icon-button-icon-ratio: 0.9;
+
+        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: var(--chip-remove-size);
+        height: var(--chip-remove-size);
+        padding: 0;
+        font-size: calc(var(--chip-remove-size) * 0.9);
+        line-height: 1;
+
+        /* Blank until aimed at, where the theme's own hover treatment takes back over — the chip is
+           the surface it sits on, not a button plate of its own. */
+        &:not(:hover):not(:focus-visible) {
+            background: transparent;
+        }
+    }
+
+    /* Nothing to press where the set is read-only: the chips are then only a display of it, and a
+       button offering a removal that is not on the table would say otherwise. */
+    > .tn-chip-remove:disabled {
+        display: none;
+    }
+
+    /* With no button at the trailing edge, the chip pads itself as evenly as it started. */
+    &:has(> .tn-chip-remove:disabled) {
+        padding-inline-end: 8px;
+    }
+}

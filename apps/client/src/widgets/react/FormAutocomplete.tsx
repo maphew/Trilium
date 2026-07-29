@@ -36,11 +36,27 @@ interface FormAutocompleteProps extends Omit<FormTextBoxProps, "onChange"> {
      */
     onPick?(item: string): void;
     /**
+     * Leaves the list open once an entry is picked, for a field collecting several — where picking
+     * one is rarely the end of it, and closing would ask for the list back each time.
+     *
+     * The entries are fetched afresh, so a list narrowing as it is picked from (one leaving out what
+     * has been taken already) is correct the moment its source says so.
+     */
+    keepOpenOnPick?: boolean;
+    /**
      * Renders one suggestion, for lists where the bare text does not tell the whole story. Only the
      * appearance of the row is affected: what a suggestion means and what selecting it commits stay
      * the string the source returned. Defaults to showing that string.
      */
     renderItem?(item: string): ComponentChildren;
+    /**
+     * Rendered inside the field, ahead of the box being typed into — the chips of a field holding
+     * several values, which belong within its frame rather than above it.
+     *
+     * The two are then wrapped together, and the list is measured against that wrapper, so it spans
+     * the whole field instead of only the stretch of it left over for typing.
+     */
+    leading?: ComponentChildren;
     /**
      * Opens the list with an entry already picked out — the one the field's text names, or failing
      * that the first — so that Enter takes it without arrowing down to it first.
@@ -58,9 +74,10 @@ interface FormAutocompleteProps extends Omit<FormTextBoxProps, "onChange"> {
  * The dropdown is portalled to the body and positioned over everything else, so it is not clipped
  * by scrolling ancestors. Selecting a suggestion reports it through `onChange`, exactly like typing.
  */
-export default function FormAutocomplete({ currentValue, onChange, source, openOnFocus, onPick, renderItem, autoActivate, inputRef, onBlur, onKeyDown, ...restProps }: FormAutocompleteProps) {
+export default function FormAutocomplete({ currentValue, onChange, source, openOnFocus, onPick, keepOpenOnPick, renderItem, leading, autoActivate, inputRef, onBlur, onKeyDown, ...restProps }: FormAutocompleteProps) {
     const ownInputRef = useRef<HTMLInputElement>(null);
     const inputEl = inputRef ?? ownInputRef;
+    const fieldRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLUListElement>(null);
     const [ isOpen, setIsOpen ] = useState(false);
     const [ items, setItems ] = useState<string[]>([]);
@@ -120,8 +137,10 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
         }
 
         const reposition = () => {
-            if (inputEl.current) {
-                setPosition(computeDropdownPosition(inputEl.current));
+            // The wrapper where there is one, so a field carrying chips is spanned whole.
+            const anchor = fieldRef.current ?? inputEl.current;
+            if (anchor) {
+                setPosition(computeDropdownPosition(anchor));
             }
         };
 
@@ -137,7 +156,13 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
 
     function selectItem(item: string) {
         (onPick ?? onChange)(item);
-        close();
+        if (keepOpenOnPick) {
+            // Nothing is highlighted until the refreshed entries arrive, so Enter cannot take twice
+            // what the list is about to stop offering.
+            setActiveIndex(-1);
+        } else {
+            close();
+        }
         inputEl.current?.focus();
     }
 
@@ -181,29 +206,35 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
         onKeyDown?.(e);
     }
 
+    const field = (
+        <FormTextBox
+            {...restProps}
+            inputRef={inputEl}
+            currentValue={currentValue}
+            onChange={(newValue) => {
+                onChange(newValue);
+                if (!isDisabled) {
+                    setIsOpen(true);
+                }
+            }}
+            onFocus={openOnFocus && !isDisabled ? () => setIsOpen(true) : undefined}
+            onBlur={(newValue) => {
+                close();
+                onBlur?.(newValue);
+            }}
+            onKeyDown={handleKeyDown}
+            role="combobox"
+            aria-expanded={isOpen && items.length > 0}
+            aria-autocomplete="list"
+            aria-activedescendant={activeItemId}
+        />
+    );
+
     return (
         <>
-            <FormTextBox
-                {...restProps}
-                inputRef={inputEl}
-                currentValue={currentValue}
-                onChange={(newValue) => {
-                    onChange(newValue);
-                    if (!isDisabled) {
-                        setIsOpen(true);
-                    }
-                }}
-                onFocus={openOnFocus && !isDisabled ? () => setIsOpen(true) : undefined}
-                onBlur={(newValue) => {
-                    close();
-                    onBlur?.(newValue);
-                }}
-                onKeyDown={handleKeyDown}
-                role="combobox"
-                aria-expanded={isOpen && items.length > 0}
-                aria-autocomplete="list"
-                aria-activedescendant={activeItemId}
-            />
+            {leading !== undefined
+                ? <div ref={fieldRef} className="form-autocomplete-field">{leading}{field}</div>
+                : field}
 
             {isOpen && items.length > 0 && position && createPortal(
                 <ul

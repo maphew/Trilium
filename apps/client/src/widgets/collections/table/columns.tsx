@@ -1,11 +1,15 @@
+import "./columns.css";
+
 import { LabelType } from "@triliumnext/commons";
 import { JSX } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { CellComponent, ColumnDefinition, EmptyCallback, FormatterParams, RowComponent, ValueBooleanCallback, ValueVoidCallback } from "tabulator-tables";
 
 import froca from "../../../services/froca.js";
+import { t } from "../../../services/i18n.js";
 import { formatDateNumeric } from "../../../utils/formatters.js";
 import LabelValueInput from "../../attribute_widgets/label_value_input.jsx";
+import { SelectValuesInput } from "../../attribute_widgets/select_input.jsx";
 import Icon from "../../react/Icon.jsx";
 import NoteAutocomplete from "../../react/NoteAutocomplete.jsx";
 import { renderReactWidget } from "../../react/react_utils.jsx";
@@ -18,6 +22,8 @@ export interface AttributeDefinitionInformation {
     type?: ColumnType;
     /** The values a `select` column offers, from the definition that declared it. */
     options?: string[];
+    /** Whether the column holds a set of values rather than one, which only a `select` may. */
+    isMulti?: boolean;
 }
 
 const labelTypeMappings: Record<ColumnType, Partial<ColumnDefinition>> = {
@@ -164,7 +170,7 @@ export function buildColumnDefinitions({ info, movableRows, existingColumnData, 
     ];
 
     const seenFields = new Set<string>();
-    for (const { name, title, type, options } of info) {
+    for (const { name, title, type, options, isMulti } of info) {
         const prefix = (type === "relation" ? "relations" : "labels");
         const field = `${prefix}.${name}`;
 
@@ -183,9 +189,16 @@ export function buildColumnDefinitions({ info, movableRows, existingColumnData, 
             ...(type === "select" && {
                 editorParams: (): Record<string, unknown> => ({
                     options: options ?? [],
+                    isMulti,
                     onCreateOption: onCreateSelectOption
                         && ((option: string) => onCreateSelectOption(name, option))
                 } satisfies SelectEditorParams)
+            }),
+            // A set is shown as the chips it is edited as, and sorted by the values it holds rather
+            // than by the array Tabulator would otherwise compare as an object.
+            ...(type === "select" && isMulti && {
+                formatter: wrapFormatter(SelectValuesFormatter),
+                sorter: (a, b) => joinValues(a).localeCompare(joinValues(b))
             })
         });
         seenFields.add(field);
@@ -329,29 +342,89 @@ function NoteFormatter({ cell }: FormatterOpts) {
  * hands no reference to the box it builds; the list then opens as it does for any focused combobox.
  */
 function SelectEditor({ cell, success, editorParams }: EditorOpts) {
-    const { options, onCreateOption } = editorParams as SelectEditorParams;
+    const { options, isMulti, onCreateOption } = editorParams as SelectEditorParams;
     const containerRef = useRef<HTMLDivElement>(null);
     useEffect(() => containerRef.current?.querySelector("input")?.focus(), []);
+    // The set as it stands while the cell is open. Reporting each chip as it is taken would close the
+    // editor on the first one — `success` is Tabulator's "the edit is done" — so the set is held here
+    // and handed over once, when the field is left. A ref beside it because the handler below is
+    // bound once and would otherwise report the set the editor opened with.
+    const [ values, setValues ] = useState<string[]>(() => asValues(cell.getValue()));
+    const editedValues = useRef(values);
+    editedValues.current = values;
+
+    useEffect(() => {
+        const editor = containerRef.current;
+        if (!isMulti || !editor) return;
+
+        const onFocusOut = (e: FocusEvent) => {
+            // Focus moving within the editor — the box to a chip's remove button, or back — is not
+            // leaving it. Picking from the list does not blur at all: the list keeps the focus in
+            // the box, which is what lets it stay open across picks.
+            if (e.relatedTarget instanceof Node && editor.contains(e.relatedTarget)) return;
+            success(editedValues.current);
+        };
+
+        editor.addEventListener("focusout", onFocusOut);
+        return () => editor.removeEventListener("focusout", onFocusOut);
+    }, [ isMulti, success ]);
 
     return (
         <div ref={containerRef} className="table-select-editor">
-            <LabelValueInput
-                labelType="select"
-                value={cell.getValue() ?? ""}
-                selectOptions={options}
-                onCommit={success}
-                onCreateOption={onCreateOption}
-            />
+            {isMulti ? (
+                <SelectValuesInput
+                    options={options}
+                    values={values}
+                    placeholder={t("promoted_attributes.select_values_placeholder")}
+                    onCreateOption={onCreateOption}
+                    onCommit={setValues}
+                />
+            ) : (
+                <LabelValueInput
+                    labelType="select"
+                    value={cell.getValue() ?? ""}
+                    selectOptions={options}
+                    onCommit={success}
+                    onCreateOption={onCreateOption}
+                />
+            )}
         </div>
     );
 }
 
+/** A multi-valued cell as the chips it is edited as, so reading and editing show the same set. */
+function SelectValuesFormatter({ cell }: FormatterOpts) {
+    return (
+        <span className="table-select-values">
+            {asValues(cell.getValue()).map((value) => (
+                <span key={value} className="tn-chip">{value}</span>
+            ))}
+        </span>
+    );
+}
+
 /**
- * What a select column hands its editor: the options it offers, and how to add one to them. A type
- * rather than an interface so that it still reads as the loose record Tabulator types params as.
+ * A multi-valued cell's values. Stored as an array, but a cell can hold what an older single-valued
+ * definition left behind, or nothing at all, so anything else is read as the set it stands for.
+ */
+function asValues(value: unknown): string[] {
+    if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string");
+    return typeof value === "string" && value ? [ value ] : [];
+}
+
+/** The values as one string, for comparing two sets in a sort. */
+function joinValues(value: unknown) {
+    return asValues(value).join(", ");
+}
+
+/**
+ * What a select column hands its editor: the options it offers, whether it holds a set of them, and
+ * how to add one. A type rather than an interface so that it still reads as the loose record
+ * Tabulator types params as.
  */
 export type SelectEditorParams = {
     options: string[];
+    isMulti?: boolean;
     /** Absent where the definition cannot be written to, which leaves the field a plain picker. */
     onCreateOption?: (option: string) => void | Promise<void>;
 };

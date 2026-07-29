@@ -110,6 +110,35 @@ function removeOwnedRelationByName(note: FNote, relationName: string) {
 }
 
 /**
+ * Sets the labels of one name on a note to exactly `values`, for a field holding a set of them.
+ *
+ * The labels already there are reused in order, so taking a value out of the middle of a set renames
+ * the ones after it rather than deleting and recreating the lot — which keeps their positions, and
+ * with them the order the set reads in. Only owned labels are touched: an inherited one belongs to
+ * the note it is written on.
+ */
+export async function setLabelValues(note: FNote, name: string, values: string[], componentId?: string) {
+    const existing = note.getOwnedLabels(name);
+
+    for (const [ index, value ] of values.entries()) {
+        const attributeId = existing[index]?.attributeId;
+        if (existing[index]?.value === value) {
+            continue;
+        }
+        await server.put(
+            `notes/${note.noteId}/attribute`,
+            { attributeId, type: "label", name, value },
+            componentId
+        );
+    }
+
+    // Whatever the new set did not fill is no longer held.
+    for (const spare of existing.slice(values.length)) {
+        await server.remove(`notes/${note.noteId}/attributes/${spare.attributeId}`, componentId);
+    }
+}
+
+/**
  * Adds an option to a `select` definition, for a field offering to create the choice being typed
  * into it.
  *
@@ -292,6 +321,7 @@ export default {
     setLabel,
     setRelation,
     setAttribute,
+    setLabelValues,
     addSelectOption,
     setBooleanWithInheritance,
     removeAttributeById,

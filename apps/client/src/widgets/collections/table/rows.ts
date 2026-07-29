@@ -7,7 +7,7 @@ export type TableData = {
     iconClass: string;
     noteId: string;
     title: string;
-    labels: Record<string, boolean | string | null>;
+    labels: Record<string, boolean | string | string[] | null>;
     relations: Record<string, boolean | string | null>;
     branchId: string;
     colorClass: string | undefined;
@@ -33,9 +33,13 @@ export async function buildRowDefinitions(parentNote: FNote, infos: AttributeDef
 
         const labels: typeof definitions[0]["labels"] = {};
         const relations: typeof definitions[0]["relations"] = {};
-        for (const { name, type } of infos) {
+        for (const { name, type, isMulti } of infos) {
             if (type === "relation") {
                 relations[name] = note.getRelationValue(name);
+            } else if (isMulti) {
+                // Every label of the name rather than the first, blanks dropped: the cell holds the
+                // set, and an empty one is a value the field never offered.
+                labels[name] = note.getLabels(name).map((label) => label.value).filter(Boolean);
             } else {
                 labels[name] = note.getLabelValue(name);
             }
@@ -76,11 +80,6 @@ export default function getAttributeDefinitionInformation(parentNote: FNote) {
     const attrDefs = parentNote.getAttributeDefinitions();
     for (const attrDef of attrDefs) {
         const def = attrDef.getDefinition();
-        if (def.multiplicity !== "single") {
-            console.warn("Multiple values are not supported for now");
-            continue;
-        }
-
         const [ attrType, name ] = extractAttributeDefinitionTypeAndName(attrDef.name);
         if (attrDef.type !== "label") {
             console.warn("Relations are not supported for now");
@@ -92,11 +91,21 @@ export default function getAttributeDefinitionInformation(parentNote: FNote) {
             type = "relation";
         }
 
+        // A select is the one field a column can show several values in: its values are a set drawn
+        // from the options, which chips display and edit as the set it is. Any other type holds free
+        // text, for which a column has one cell and no way to tell one value from the next.
+        const isMulti = def.multiplicity === "multi";
+        if (isMulti && type !== "select") {
+            console.warn("Multiple values are not supported for now");
+            continue;
+        }
+
         info.push({
             name,
             title: def.promotedAlias,
             type,
-            options: def.selectOptions
+            options: def.selectOptions,
+            isMulti
         });
     }
     return info;

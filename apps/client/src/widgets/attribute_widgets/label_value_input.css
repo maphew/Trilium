@@ -27,13 +27,3 @@ body[dir=rtl] .label-select-combobox.form-control:hover,
 body[dir=rtl] .label-select-combobox.form-control:focus {
     background-position: left calc(0.75rem - var(--input-group-padding-inline-end, 0px)) center;
 }
-
-/* The "Create" entry of a select combobox, set apart from the options it sits under: it makes a new
-   choice rather than picking one. Scoped to the dropdown, which is portaled to the body. */
-.form-autocomplete-dropdown .label-select-create-option {
-    font-style: italic;
-
-    > .bx {
-        color: var(--muted-text-color);
-    }
-}

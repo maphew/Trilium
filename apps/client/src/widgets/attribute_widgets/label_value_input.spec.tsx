@@ -268,7 +268,7 @@ describe("LabelValueInput", () => {
             // than its label: `t()` renders empty under the test environment's uninitialized i18n.
             const items = await settleDropdown();
             expect(items).toHaveLength(1);
-            expect(items[0]?.querySelector(".label-select-create-option")).not.toBeNull();
+            expect(items[0]?.querySelector(".select-create-option")).not.toBeNull();
 
             await act(async () => (items[0] as HTMLElement | undefined)?.click());
             expect(onCreateOption).toHaveBeenCalledWith("Blocked");
@@ -296,7 +296,7 @@ describe("LabelValueInput", () => {
             await typeInto(input, "Blo");
             const items = await settleDropdown();
             expect(items).toHaveLength(1);
-            expect(items[0]?.querySelector(".label-select-create-option")).not.toBeNull();
+            expect(items[0]?.querySelector(".select-create-option")).not.toBeNull();
 
             // The part an entry matched is set in bold.
             await typeInto(input, "et");

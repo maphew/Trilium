@@ -187,6 +187,63 @@ describe("addLabel / setLabel / setRelation", () => {
     });
 });
 
+describe("setLabelValues", () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    /** A note holding the given values under one name, as several labels of it. */
+    function noteHolding(...values: string[]) {
+        const note = buildNote({ title: "N" });
+        for (const [ index, value ] of values.entries()) {
+            note.attributes.push(`attr-${index}`);
+            froca.attributes[`attr-${index}`] = {
+                attributeId: `attr-${index}`, noteId: note.noteId, type: "label",
+                name: "tags", value, position: index, isInheritable: false
+            } as never;
+        }
+        return note;
+    }
+
+    it("reuses the labels already there, so the set keeps its order and positions", async () => {
+        const note = noteHolding("a", "b");
+
+        await attributeService.setLabelValues(note, "tags", [ "a", "c" ]);
+
+        // "a" is where it was, so only the label that changed is written.
+        expect(server.put).toHaveBeenCalledTimes(1);
+        expect(server.put).toHaveBeenCalledWith(
+            `notes/${note.noteId}/attribute`,
+            { attributeId: "attr-1", type: "label", name: "tags", value: "c" },
+            undefined
+        );
+        expect(server.remove).not.toHaveBeenCalled();
+    });
+
+    it("creates what the set gained, having no label left to reuse for it", async () => {
+        const note = noteHolding("a");
+
+        await attributeService.setLabelValues(note, "tags", [ "a", "b" ], "comp-1");
+
+        expect(server.put).toHaveBeenCalledWith(
+            `notes/${note.noteId}/attribute`,
+            { attributeId: undefined, type: "label", name: "tags", value: "b" },
+            "comp-1"
+        );
+    });
+
+    it("removes the labels the set no longer fills, emptying included", async () => {
+        const note = noteHolding("a", "b", "c");
+
+        await attributeService.setLabelValues(note, "tags", [ "a" ]);
+
+        expect(server.remove).toHaveBeenCalledWith(`notes/${note.noteId}/attributes/attr-1`, undefined);
+        expect(server.remove).toHaveBeenCalledWith(`notes/${note.noteId}/attributes/attr-2`, undefined);
+
+        vi.clearAllMocks();
+        await attributeService.setLabelValues(note, "tags", []);
+        expect(server.remove).toHaveBeenCalledTimes(3);
+    });
+});
+
 describe("addSelectOption", () => {
     beforeEach(() => vi.clearAllMocks());
 

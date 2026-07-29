@@ -251,6 +251,21 @@ describe("AttributeList", () => {
         expect(put.mock.calls[0][0]).toBe("notes/subject/attributes");
     });
 
+    it("edits a system attribute that is a closed set as a dropdown of the values it allows", () => {
+        renderPanel(buildNote({ id: "subject", title: "Subject", "#sortDirection": "desc" }));
+
+        act(() => firstRow().click());
+
+        const field = document.querySelector<HTMLSelectElement>(".attr-detail .attr-input-value");
+        expect(field?.tagName).toBe("SELECT");
+        expect([ ...(field?.options ?? []) ].map((option) => option.value)).toEqual([ "", "asc", "desc" ]);
+        expect(field?.value).toBe("desc");
+        // Not framed by an input group: it has no buttons to be grouped with, and a group blanks the
+        // background of the fields inside it — which is the background the themes draw the dropdown's
+        // arrow on, leaving nothing to say the field is one.
+        expect(field?.closest(".input-group")).toBeNull();
+    });
+
     it("saves an attribute left open for editing to the note it belongs to, on reading another", () => {
         renderPanel(noteWithAttributes());
         act(() => firstRow().click());

@@ -2,8 +2,8 @@ import "./FormTextBoxList.css";
 
 import { useEffect, useRef, useState } from "preact/hooks";
 
-import ActionButton from "./ActionButton.jsx";
 import Button from "./Button.jsx";
+import Chip from "./Chip.jsx";
 import FormTextBox from "./FormTextBox.jsx";
 
 /** Room to start typing an option into an empty chip, and a ceiling so one long one cannot hog a line. */
@@ -59,7 +59,13 @@ export default function FormTextBoxList({ initialValues, disabled, onChange, add
     return (
         <div ref={containerRef} className="form-textbox-list">
             {rows.map((row) => (
-                <div key={row.id} className="form-textbox-list-row">
+                <Chip
+                    key={row.id}
+                    className="form-textbox-list-row"
+                    removeButtonText={removeButtonText}
+                    disabled={disabled}
+                    onRemove={() => commitRows(rows.filter((other) => other.id !== row.id))}
+                >
                     <FormTextBox
                         currentValue={row.value}
                         // A chip is as wide as its own word. `field-sizing` does this exactly (see
@@ -70,14 +76,7 @@ export default function FormTextBoxList({ initialValues, disabled, onChange, add
                         onChange={(value) => commitRows(
                             rows.map((other) => other.id === row.id ? { ...other, value } : other))}
                     />
-                    <ActionButton
-                        className="form-textbox-list-remove"
-                        icon="bx bx-x"
-                        text={removeButtonText}
-                        disabled={disabled}
-                        onClick={() => commitRows(rows.filter((other) => other.id !== row.id))}
-                    />
-                </div>
+                </Chip>
             ))}
             <Button
                 className="form-textbox-list-add"
