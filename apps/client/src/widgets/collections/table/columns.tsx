@@ -92,7 +92,7 @@ const labelTypeMappings: Record<ColumnType, Partial<ColumnDefinition>> = {
     },
     color: {
         editor: wrapEditor(ColorEditor),
-        formatter: "color"
+        formatter: wrapFormatter(ColorFormatter)
     },
     relation: {
         editor: wrapEditor(RelationEditor),
@@ -477,6 +477,27 @@ function ColorEditor({ cell, success }: EditorOpts) {
             />
         </div>
     );
+}
+
+/**
+ * A colour cell as the swatch its editor shows, so that reading and editing a colour look alike, and
+ * so that the row keeps its own striping, hover and selection — all of which a cell flooded with the
+ * colour, as Tabulator's own colour formatter fills it, hides.
+ *
+ * The value itself is carried in the tooltip rather than set beside the swatch: a column of colours is
+ * read by eye, and the text behind one is wanted only now and then — including where it names no
+ * colour at all, a cell holding whatever the label does, which the swatch alone could not say.
+ */
+function ColorFormatter({ cell }: FormatterOpts) {
+    const value = cell.getValue();
+    const color = typeof value === "string" ? value : "";
+    // A formatter hands back an element, so an unset cell is an empty one rather than nothing at all.
+    if (!color) return <span />;
+
+    // The colour is the one thing about the swatch that cannot be told beforehand; its shape and size
+    // are its class's. A value naming no colour is dropped by the browser, leaving the outline behind
+    // rather than showing it as a colour it is not.
+    return <span className="table-color-swatch" title={color} style={{ backgroundColor: color }} />;
 }
 
 function RelationEditor({ cell, success }: EditorOpts) {

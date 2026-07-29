@@ -94,14 +94,21 @@
 }
 
 /*
- * A colour cell is read as the colour filling it, which it gives up while it is being edited to look
- * like any other cell in hand: the swatch is what says the colour then, and a cell still flooded with
- * it would leave the pair standing on the very value they are there to change — the field lost in it,
- * and a colour picked showing the old one all around.
+ * A colour cell says its colour with a swatch of its own, as its editor does, rather than by being
+ * filled with it: a row keeps the striping, hover and selection that a flood of colour covers over,
+ * and a cell reads the same whether it is being looked at or edited.
  *
- * Insisted upon because the fill is written onto the cell itself by the formatter, which the rule
- * dressing an editing cell is otherwise powerless against.
+ * Sized to the line rather than to the editor's field, a swatch as tall as that one would make every
+ * row in the table taller — rows being of one height, colours in them or not.
  */
-.tabulator-cell.tabulator-editing:has(> .table-color-editor) {
-    background-color: var(--cell-editing-background-color) !important;
+.table-color-swatch {
+    display: inline-block;
+    width: 1.25em;
+    height: 1.25em;
+    vertical-align: middle;
+    border-radius: 25%;
+
+    /* Drawn within, so that a colour close to the row's own still reads as a swatch rather than as a
+       gap — and so that a value naming no colour at all is an empty swatch rather than nothing. */
+    box-shadow: inset 0 0 0 1px var(--main-border-color);
 }

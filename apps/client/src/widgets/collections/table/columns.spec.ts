@@ -200,6 +200,34 @@ describe("buildColumnDefinitions — colour columns", () => {
         expect(success).toHaveBeenCalledWith("");
     });
 
+    it("shows a colour as a swatch, naming it in the tooltip, and an unset one as nothing", () => {
+        const [ column ] = buildColumnDefinitions({
+            info: [ { name: "tint", type: "color" } ],
+            movableRows: false,
+            existingColumnData: undefined,
+            rowNumberHint: 1
+        }).filter((candidate) => candidate.field === "labels.tint");
+
+        const formatter = column?.formatter;
+        if (typeof formatter !== "function") throw new Error("expected a formatter of its own");
+        const format = (value: unknown) =>
+            formatter({ getValue: () => value } as CellComponent, {}, () => {}) as HTMLElement;
+
+        // Filling the cell instead would paint over the row's own striping, hover and selection.
+        const swatch = format("#ff2e88");
+        expect(swatch.className).toBe("table-color-swatch");
+        expect(swatch.style.backgroundColor).toBe("#ff2e88");
+        expect(swatch.title).toBe("#ff2e88");
+
+        // A cell holds whatever the label does: text naming no colour keeps the swatch, which the
+        // browser leaves unpainted, and says what is stored where it can be read.
+        expect(format("nonsense").title).toBe("nonsense");
+
+        for (const empty of [ "", undefined, null ]) {
+            expect(format(empty).className).toBe("");
+        }
+    });
+
     it("leaves a cell alone until a colour is picked, an opened picker being no decision", async () => {
         // A colour input has no empty value, so it shows black over an unset cell; committing that on
         // the way out would fill in a colour nobody chose.
