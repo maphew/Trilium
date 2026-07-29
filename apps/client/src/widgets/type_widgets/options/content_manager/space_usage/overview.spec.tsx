@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
     triggerCommand: vi.fn(),
     openContextMenu: vi.fn(),
+    openDeletedNotesMenu: vi.fn(),
     showDetails: vi.fn(),
     contentChanged: vi.fn()
 }));
@@ -16,10 +17,11 @@ vi.mock("../../../../../components/app_context", () => ({
     }
 }));
 
-// The menu itself is covered by its own spec; here only the wiring matters.
+// The menus themselves are covered by their own spec; here only the wiring matters.
 vi.mock("./context_menu", async (importOriginal) => ({
     ...await importOriginal<typeof import("./context_menu")>(),
-    openSpaceUsageContextMenu: (...args: unknown[]) => mocks.openContextMenu(...args)
+    openSpaceUsageContextMenu: (...args: unknown[]) => mocks.openContextMenu(...args),
+    openDeletedNotesContextMenu: (...args: unknown[]) => mocks.openDeletedNotesMenu(...args)
 }));
 
 // The treemap container never gets a real layout under happy-dom.
@@ -68,6 +70,7 @@ afterEach(() => {
     }
     mocks.triggerCommand.mockClear();
     mocks.openContextMenu.mockClear();
+    mocks.openDeletedNotesMenu.mockClear();
     mocks.showDetails.mockClear();
 });
 
@@ -109,10 +112,26 @@ describe("Overview", () => {
 
         mocks.triggerCommand.mockClear();
         mocks.openContextMenu.mockClear();
-        const bucket = probe.querySelector(".treemap-cell-deleted");
+        const bucket = probe.querySelector(".treemap-cell-other");
         bucket?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
         bucket?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
         expect(mocks.triggerCommand).not.toHaveBeenCalled();
         expect(mocks.openContextMenu).not.toHaveBeenCalled();
+    });
+
+    it("answers the deleted bucket with its own menu, never the note one", () => {
+        const probe = renderOverview();
+        const deleted = probe.querySelector(".treemap-cell-deleted");
+
+        deleted?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+
+        // The bucket names no note, so the note menu has nothing to act on; erasing does.
+        expect(mocks.openContextMenu).not.toHaveBeenCalled();
+        expect(mocks.openDeletedNotesMenu)
+            .toHaveBeenCalledWith(expect.anything(), mocks.contentChanged);
+
+        // Clicking it stays inert, like the other buckets.
+        deleted?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        expect(mocks.triggerCommand).not.toHaveBeenCalled();
     });
 });

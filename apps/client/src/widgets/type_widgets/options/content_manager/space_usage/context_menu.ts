@@ -8,6 +8,8 @@ import branches from "../../../../../services/branches";
 import froca from "../../../../../services/froca";
 import { t } from "../../../../../services/i18n";
 import { downloadFileNote } from "../../../../../services/open";
+import server from "../../../../../services/server";
+import toast from "../../../../../services/toast";
 
 const ROOT_NOTE_ID = "root";
 
@@ -127,6 +129,38 @@ export async function openSpaceUsageContextMenu(
         y: event.pageY,
         items,
         // Every item carries its own handler; nothing here dispatches a command by name.
+        selectMenuItemHandler: () => {}
+    });
+}
+
+/**
+ * The menu on the deleted-notes cell, which stands for space the tree has already let go of but the
+ * database still holds until the retention window runs out. Its one action is releasing that space
+ * now — the same erasure the Recent Changes dialog and the options page run, so the wording and the
+ * confirmation-free behaviour are theirs.
+ */
+export async function openDeletedNotesContextMenu(
+    event: ContextMenuEvent,
+    onContentChanged: ContentChangedHandler
+) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    await contextMenu.show({
+        x: event.pageX,
+        y: event.pageY,
+        items: [ {
+            title: t("recent_changes.erase_notes_button"),
+            uiIcon: "bx bx-trash destructive-action-icon",
+            handler: () => {
+                void server.post("notes/erase-deleted-notes-now").then(() => {
+                    toast.showMessage(t("recent_changes.deleted_notes_message"));
+                    // The cell just lost everything it stood for, so the section has to measure
+                    // again — the views take a reading when asked, never on their own.
+                    onContentChanged();
+                });
+            }
+        } ],
         selectMenuItemHandler: () => {}
     });
 }

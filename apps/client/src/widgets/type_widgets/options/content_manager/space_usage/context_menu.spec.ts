@@ -18,7 +18,9 @@ const mocks = vi.hoisted(() => ({
     deleteNotes: vi.fn(async (..._args: unknown[]) => true),
     downloadFileNote: vi.fn(),
     showDetails: vi.fn(),
-    contentChanged: vi.fn()
+    contentChanged: vi.fn(),
+    post: vi.fn(async (..._args: unknown[]) => undefined),
+    showMessage: vi.fn()
 }));
 
 vi.mock("../../../../../menus/context_menu", () => ({
@@ -45,6 +47,14 @@ vi.mock("../../../../../services/open", () => ({
     downloadFileNote: (...args: unknown[]) => mocks.downloadFileNote(...args)
 }));
 
+vi.mock("../../../../../services/server", () => ({
+    default: { post: (...args: unknown[]) => mocks.post(...args) }
+}));
+
+vi.mock("../../../../../services/toast", () => ({
+    default: { showMessage: (...args: unknown[]) => mocks.showMessage(...args) }
+}));
+
 vi.mock("../../../../../components/app_context", () => ({
     default: {
         triggerCommand: mocks.triggerCommand,
@@ -55,7 +65,7 @@ vi.mock("../../../../../components/app_context", () => ({
     }
 }));
 
-import { openSpaceUsageContextMenu } from "./context_menu";
+import { openDeletedNotesContextMenu, openSpaceUsageContextMenu } from "./context_menu";
 
 // The translations are uninitialized under the test i18n, so titles come back empty; items are
 // identified by their icon, which is what distinguishes them anyway.
@@ -65,6 +75,8 @@ const SHOW_DETAILS = "bx bx-detail";
 const DOWNLOAD = "bx bx-download";
 const EXPORT = "bx bx-export";
 const DELETE = "bx bx-trash destructive-action-icon";
+// The deleted bucket's erase item wears the same destructive trash icon, in a menu of its own.
+const ERASE = DELETE;
 
 function givenNote(noteId: string, type = "text", isContentAvailable = true) {
     mocks.notes.set(noteId, {
@@ -199,5 +211,26 @@ describe("openSpaceUsageContextMenu", () => {
         await openFor([ "root", "gone" ]);
 
         expect(mocks.shown).toBeUndefined();
+    });
+});
+
+describe("openDeletedNotesContextMenu", () => {
+    it("erases the deleted notes and asks for a fresh reading once the server is done", async () => {
+        const event = contextMenuEvent();
+
+        await openDeletedNotesContextMenu(event, mocks.contentChanged);
+
+        expect(event.preventDefault).toHaveBeenCalled();
+        expect(event.stopPropagation).toHaveBeenCalled();
+        // The bucket stands for a crowd of notes, not one of them, so erasing is all it offers.
+        expect(icons()).toEqual([ ERASE ]);
+
+        invoke(ERASE);
+        expect(mocks.post).toHaveBeenCalledWith("notes/erase-deleted-notes-now");
+        // Not before the server answers: the bucket keeps its area until the space is really gone.
+        expect(mocks.contentChanged).not.toHaveBeenCalled();
+
+        await vi.waitFor(() => expect(mocks.contentChanged).toHaveBeenCalledTimes(1));
+        expect(mocks.showMessage).toHaveBeenCalled();
     });
 });

@@ -162,7 +162,8 @@ describe("buildOverviewModel", () => {
         const other = childById(model, "/other-notes");
         expect(other.value).toBe(11);
         expect(other.hue).toBeUndefined();
-        expect(other.data).toEqual({});
+        // Named rather than empty: a bucket's own actions key off which crowd it stands for.
+        expect(other.data).toEqual({ bucket: "other" });
         expect(other.tooltip).toBe("Other notes");
         // No `data-href`: a crowd of notes has no note preview to show.
         expect(other.attributes).toBeUndefined();
@@ -181,6 +182,7 @@ describe("buildOverviewModel", () => {
         expect(deleted.className).toBe("treemap-cell-deleted");
         expect(deleted.tooltip).toBe("Deleted notes");
         expect(deleted.icon).toBe("bx bx-trash-alt");
+        expect(deleted.data).toEqual({ bucket: "deleted" });
     });
 
     it("sizes the revisions bucket from the deduplicated content tier, not the per-note figures", () => {
@@ -200,7 +202,7 @@ describe("buildOverviewModel", () => {
         expect(revisions.icon).toBe("bx bx-history");
         expect(revisions.tooltip).toBe("Revisions");
         // Inert like the other buckets: history is not a note to preview or open.
-        expect(revisions.data).toEqual({});
+        expect(revisions.data).toEqual({ bucket: "revisions" });
         expect(revisions.attributes).toBeUndefined();
     });
 

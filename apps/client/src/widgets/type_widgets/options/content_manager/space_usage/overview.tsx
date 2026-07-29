@@ -7,6 +7,7 @@ import { formatSize } from "../../../../../services/utils";
 import Treemap, { type TreemapItem } from "../../../../react/charts/Treemap";
 import {
     type ContentChangedHandler,
+    openDeletedNotesContextMenu,
     openSpaceUsageContextMenu,
     quickEditNote,
     type ShowDetailsHandler
@@ -67,8 +68,17 @@ export default function Overview({ overview, onShowDetails, onContentChanged }: 
             <Treemap<OverviewCell>
                 root={model}
                 onItemClick={(item) => withCellPath(item, quickEditNote)}
-                onItemContextMenu={(item, event) => withCellPath(item, (notePath) =>
-                    void openSpaceUsageContextMenu(event, notePath, onShowDetails, onContentChanged))}
+                onItemContextMenu={(item, event) => {
+                    // The deleted bucket names no note, so it answers with what can be done to the
+                    // crowd it stands for rather than with the note menu.
+                    if (item.data?.bucket === "deleted") {
+                        void openDeletedNotesContextMenu(event, onContentChanged);
+                        return;
+                    }
+
+                    withCellPath(item, (notePath) =>
+                        void openSpaceUsageContextMenu(event, notePath, onShowDetails, onContentChanged));
+                }}
             />
         </div>
     );
