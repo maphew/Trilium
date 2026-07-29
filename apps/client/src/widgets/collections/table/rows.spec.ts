@@ -24,7 +24,7 @@ describe("getAttributeDefinitionInformation", () => {
         ]);
     });
 
-    it("holds several values of the types a set means something for, and one of the rest", async () => {
+    it("holds several values of every kind of label, a relation excepted", async () => {
         const note = buildNote({
             title: "Note 1",
             "#label:tags(inheritable)": "promoted,multi,text",
@@ -32,20 +32,17 @@ describe("getAttributeDefinitionInformation", () => {
             "#label:site(inheritable)": "promoted,multi,url",
             "#label:status(inheritable)": "promoted,multi,select,options=Todo;Done",
             "#label:tint(inheritable)": "promoted,multi,color",
-            // A flag means what it means by being there at all, so several are the same one flag.
             "#label:done(inheritable)": "promoted,multi,boolean",
             "#label:owner(inheritable)": "promoted,single,text"
         });
 
-        // The one left out still has a column — holding the first value, as before it was declared
-        // to hold many. It used to be dropped from the table altogether.
         expect(getAttributeDefinitionInformation(note)).toMatchObject([
             { name: "tags", type: "text", isMulti: true },
             { name: "due", type: "date", isMulti: true },
             { name: "site", type: "url", isMulti: true },
             { name: "status", type: "select", isMulti: true },
             { name: "tint", type: "color", isMulti: true },
-            { name: "done", type: "boolean", isMulti: false },
+            { name: "done", type: "boolean", isMulti: true },
             { name: "owner", type: "text", isMulti: false }
         ]);
     });

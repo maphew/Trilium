@@ -302,7 +302,7 @@ describe("buildColumnDefinitions — multi-valued columns", () => {
     }
 
     it("edits and shows a set as chips whatever it holds, not only a set of options", () => {
-        for (const type of [ "text", "date", "url", "select", "color" ] as const) {
+        for (const type of [ "text", "date", "url", "select", "color", "boolean" ] as const) {
             const column = multiColumn(type);
             // The type's own single-value editor would show one of the values and store back one.
             expect(typeof column?.editor).toBe("function");
@@ -356,6 +356,27 @@ describe("buildColumnDefinitions — multi-valued columns", () => {
         expect(success).toHaveBeenCalledWith([ "#ff0000" ]);
 
         element.remove();
+    });
+
+    it("shows each value as its type reads it, rather than as the text it is stored as", () => {
+        const format = (type: AttributeDefinitionInformation["type"], values: string[]) => {
+            const formatter = multiColumn(type)?.formatter;
+            if (typeof formatter !== "function") throw new Error("expected a formatter of its own");
+            return formatter(
+                { getValue: () => values } as CellComponent, { type }, () => {}
+            ) as HTMLElement;
+        };
+
+        // A flag reads as the mark a column of single flags shows, not as the word "true".
+        const flags = format("boolean", [ "true", "false" ]);
+        expect([ ...flags.querySelectorAll(".tn-icon") ].map((mark) => mark.getAttribute("title")))
+            .toEqual([ "true", "false" ]);
+        expect(flags.querySelector(".table-flag-set")?.className).toContain("bx-check");
+        expect(flags.querySelector(".table-flag-unset")?.className).toContain("bx-x");
+
+        // And a colour as the same swatch a single one is shown by.
+        expect(format("color", [ "#ff2e88" ]).querySelector(".table-color-swatch")?.getAttribute("title"))
+            .toBe("#ff2e88");
     });
 
     it("sorts by the values a cell holds, not by the array they arrive in", () => {

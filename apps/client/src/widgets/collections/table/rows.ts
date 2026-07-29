@@ -105,13 +105,14 @@ export default function getAttributeDefinitionInformation(parentNote: FNote) {
 }
 
 /**
- * The types a column can hold several values of, shown and edited as chips.
+ * The types a column can hold several values of, shown and edited as chips: every kind of label a
+ * note can carry, since a note can carry any of them more than once and the table has no business
+ * showing fewer than it holds.
  *
- * The one left out is the one a set says nothing for: a flag means what it means by being there at
- * all, so several of them are the same one flag. Such a column shows the first value it finds, as it
- * did before it was declared to hold many — better a value than a column that quietly goes missing.
+ * Only a relation is left out, its values being notes rather than text — a column of them is still
+ * a column of one.
  */
 const MULTI_VALUE_TYPES = new Set<LabelType | "relation">([
-    "text", "textarea", "number", "select", "date", "datetime", "time", "url", "email", "phone",
-    "color"
+    "text", "textarea", "number", "boolean", "select", "date", "datetime", "time", "url", "email",
+    "phone", "color"
 ]);

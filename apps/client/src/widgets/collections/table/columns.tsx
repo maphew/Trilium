@@ -424,12 +424,15 @@ function ValuesEditor({ cell, success, editorParams }: EditorOpts) {
 
     return (
         <div ref={containerRef} className={clsx("table-values-editor", growsUpwards && "grows-upwards")}>
-            {labelType === "select" ? (
+            {/* A flag is picked from a closed set as a select is — its set is simply the two values
+                a flag has — so the two are gathered through the same field. */}
+            {labelType === "select" || labelType === "boolean" ? (
                 <SelectValuesInput
-                    options={options}
+                    options={labelType === "boolean" ? BOOLEAN_OPTIONS : options}
                     values={values}
                     placeholder={t("promoted_attributes.select_values_placeholder")}
-                    onCreateOption={onCreateOption}
+                    onCreateOption={labelType === "boolean" ? undefined : onCreateOption}
+                    renderValue={labelType === "boolean" ? renderFlag : undefined}
                     onCommit={editValues}
                 />
             ) : (
@@ -462,6 +465,9 @@ function ValuesFormatter({ cell, formatterParams }: FormatterOpts) {
 /** The schemes that make a value of a link-like type clickable; a url carries its own. */
 const LINK_SCHEMES: Partial<Record<ColumnType, string>> = { url: "", email: "mailto:", phone: "tel:" };
 
+/** The whole of what a flag can be, which is what a column of flags picks its values from. */
+const BOOLEAN_OPTIONS = [ "true", "false" ];
+
 /**
  * One value of a set, read as its type reads it — so that a set of dates is as legible as a single
  * one, and a set of addresses is as clickable. Anything else is the value as stored.
@@ -475,10 +481,27 @@ function renderValue(value: string, type: ColumnType | undefined) {
         return <ColorSwatch color={value} />;
     }
 
+    if (type === "boolean") {
+        return renderFlag(value);
+    }
+
     const scheme = type && LINK_SCHEMES[type];
     return scheme !== undefined
         ? <a href={applyLinkScheme(value, scheme)}>{value}</a>
         : value;
+}
+
+/**
+ * A flag as the mark a column of single flags shows, so that a cell holding several reads the same
+ * way as one holding the one. The stored text is kept in the tooltip, a value that is neither of the
+ * two being a thing worth being able to see.
+ */
+function renderFlag(value: string) {
+    return <Icon
+        className={value === "true" ? "table-flag-set" : "table-flag-unset"}
+        icon={value === "true" ? "bx bx-check" : "bx bx-x"}
+        title={value}
+    />;
 }
 
 /**

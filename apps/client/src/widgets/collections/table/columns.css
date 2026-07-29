@@ -12,6 +12,17 @@
     }
 }
 
+/* A flag among several, marked as the cell of a single flag marks it: set is told from unset by the
+   mark itself, so an unset one is drawn back rather than in a colour of its own. */
+.table-flag-set {
+    color: var(--muted-text-color);
+}
+
+.table-flag-unset {
+    color: var(--muted-text-color);
+    opacity: 0.55;
+}
+
 /*
  * The editor opens over its cell rather than inside it. A cell is as tall as one line and as wide as
  * the column was dragged to, which a set of chips and a box to type in outgrows at once — laid out

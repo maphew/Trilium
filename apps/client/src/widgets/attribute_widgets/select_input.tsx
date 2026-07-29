@@ -1,7 +1,7 @@
 import "./select_input.css";
 
 import clsx from "clsx";
-import type { InputHTMLAttributes, TargetedKeyboardEvent } from "preact";
+import type { ComponentChildren, InputHTMLAttributes, TargetedKeyboardEvent } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import { t } from "../../services/i18n";
@@ -123,6 +123,11 @@ interface SelectValuesInputProps {
      * the field picks from the options as they stand.
      */
     onCreateOption?(option: string): void | Promise<void>;
+    /**
+     * Shows a value as something other than the text it is stored as — a flag as its mark. Left out,
+     * a chip reads as the option it stands for, which is what a list of options names it.
+     */
+    renderValue?(value: string): ComponentChildren;
     placeholder?: string;
     disabled?: boolean;
 }
@@ -135,7 +140,7 @@ interface SelectValuesInputProps {
  * is ever kept: an entry has to be picked, and what is left behind is dropped when the field is. The
  * list stays open across picks, since taking one value is rarely the end of it.
  */
-export function SelectValuesInput({ options, values, onCommit, onCreateOption, placeholder, disabled }: SelectValuesInputProps) {
+export function SelectValuesInput({ options, values, onCommit, onCreateOption, renderValue, placeholder, disabled }: SelectValuesInputProps) {
     const [ filter, setFilter ] = useState("");
 
     // Taken values leave the list: what is held is shown as a chip, so offering it again would only
@@ -183,7 +188,7 @@ export function SelectValuesInput({ options, values, onCommit, onCreateOption, p
                     disabled={disabled}
                     onRemove={() => drop(value)}
                 >
-                    <span>{value}</span>
+                    <span>{renderValue ? renderValue(value) : value}</span>
                 </Chip>
             ))}
             onChange={setFilter}
