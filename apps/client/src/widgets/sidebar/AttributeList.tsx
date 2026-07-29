@@ -402,7 +402,10 @@ function getKindIcon(attribute: Attribute, attrType: AttributeKind) {
  */
 function getKindMarker(attribute: Attribute, attrType: AttributeKind, isSystem?: boolean) {
     if (isSystem) {
-        return { class: "marker-system", title: t("attribute_names.system") };
+        // The hint the detail popup's badge carries, rather than the word the badge shows beside it:
+        // there is no text against the cog to be named, so what a reader hovering it wants is what
+        // being a system attribute means.
+        return { class: "marker-system", title: t("attribute_names.system_description") };
     }
 
     if (isDefinition(attrType) && promotedAttributeDefinitionParser.parse(attribute.value ?? "").isPromoted) {
