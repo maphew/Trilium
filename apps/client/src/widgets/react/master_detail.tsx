@@ -196,7 +196,9 @@ export function MasterDetailModal({ backTitle, listIcon, listActions, children, 
     const { isMasterDetail, mobileView, switchMobileView, resetMobileView } = useMobileMasterDetail(modalRef);
 
     const showPage = useCallback((title: string | null, close: () => void) => {
-        setPage((current) => title === null ? null : (current?.title === title ? current : { title, close }));
+        // Whatever was announced last, `close` included: two pages of the same name are still two pages,
+        // and holding on to the first one's would be closing something else than what is on show.
+        setPage(title === null ? null : { title, close });
         switchMobileView(title === null ? "list" : "page");
     }, [ switchMobileView ]);
 

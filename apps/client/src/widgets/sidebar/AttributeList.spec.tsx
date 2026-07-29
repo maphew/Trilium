@@ -4,12 +4,27 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import FNote from "../../entities/fnote";
 
-// The panel follows whichever note is being read; the tests hand it one directly.
-const shownNote = vi.hoisted(() => ({ current: null as FNote | null }));
-vi.mock("../react/hooks", async (importOriginal) => ({
-    ...(await importOriginal<typeof import("../react/hooks")>()),
-    useActiveNoteContext: () => ({ note: shownNote.current })
-}));
+// The panel follows whichever note is being read; the tests hand it one directly. Handing it another
+// redraws it, as the real hook does by listening for the switch — rendering the panel a second time
+// would not: the same element with no props of its own is the same vnode to Preact, which skips it.
+const shownNote = vi.hoisted(() => ({ current: null as FNote | null, listeners: new Set<() => void>() }));
+vi.mock("../react/hooks", async (importOriginal) => {
+    const { useEffect, useState } = await import("preact/hooks");
+
+    return {
+        ...(await importOriginal<typeof import("../react/hooks")>()),
+        useActiveNoteContext: () => {
+            const [ , setRevision ] = useState(0);
+            useEffect(() => {
+                const listener = () => setRevision((revision) => revision + 1);
+                shownNote.listeners.add(listener);
+                return () => shownNote.listeners.delete(listener);
+            }, []);
+
+            return { note: shownNote.current };
+        }
+    };
+});
 
 // Deleting is confirmed first, and adding goes through a menu; neither dialog belongs to this widget.
 const confirm = vi.hoisted(() => vi.fn(async () => true));
@@ -230,6 +245,26 @@ describe("AttributeList", () => {
 
         act(() => container.querySelector<HTMLElement>(".attribute-list-panel")?.click());
         expect(document.querySelector(".attr-detail")).toBeNull();
+        // Closing keeps what was typed, whether the press landed beside the rows or clear of the panel:
+        // both are a press away from the form rather than a refusal of what is in it.
+        expect(put).toHaveBeenCalledOnce();
+        expect(put.mock.calls[0][0]).toBe("notes/subject/attributes");
+    });
+
+    it("saves an attribute left open for editing to the note it belongs to, on reading another", () => {
+        renderPanel(noteWithAttributes());
+        act(() => firstRow().click());
+
+        // Read another note without pressing away from the form first, as a keyboard shortcut does.
+        showNote(buildNote({ id: "elsewhere", title: "Elsewhere", "#other": "x" }));
+
+        expect(document.querySelector(".attr-detail")).toBeNull();
+        expect(namesIn(container)).toEqual([ "other" ]);
+        // Saved against the note it was typed on, not against the one now being read.
+        expect(put).toHaveBeenCalledOnce();
+        const [ url, saved ] = put.mock.calls[0] as [ string, { name: string }[] ];
+        expect(url).toBe("notes/subject/attributes");
+        expect(saved.map((attribute) => attribute.name)).toContain("author");
     });
 
     it("confirms a deletion before persisting what is left of the note's attributes", async () => {
@@ -312,6 +347,16 @@ describe("AttributeList", () => {
     function renderPanel(note: FNote) {
         shownNote.current = note;
         act(() => render(<AttributeList />, container));
+    }
+
+    /** Reads another note in the panel already rendered, as navigating to one does. */
+    function showNote(note: FNote) {
+        act(() => {
+            shownNote.current = note;
+            for (const listener of shownNote.listeners) {
+                listener();
+            }
+        });
     }
 
     function cardIds() {

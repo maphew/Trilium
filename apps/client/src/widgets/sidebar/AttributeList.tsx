@@ -55,18 +55,37 @@ export default function AttributeList() {
     const [ , setRevision ] = useState(0);
     const rerender = () => setRevision((revision) => revision + 1);
 
+    // The draft of the note being left, handed over by the check below for the effect to persist: the
+    // note it belongs to is no longer the one the list is showing, so it cannot be saved from here.
+    const draftToFlush = useRef<{ noteId: string; attributes: Attribute[] } | null>(null);
+
     // Collected while rendering rather than in an effect, which would leave one frame listing the
     // attributes of the note navigated away from. The initial `undefined` is what collects the first.
     const shownNoteId = useRef<string | null>();
     if (shownNoteId.current !== (note?.noteId ?? null)) {
+        // An attribute left open for editing is closed by the change of note, and closing keeps what
+        // was typed into it — as a press outside does — rather than dropping it. Which the list cannot
+        // do itself once it holds another note's attributes, hence the hand-over.
+        if (detail?.isOwned && shownNoteId.current) {
+            draftToFlush.current = { noteId: shownNoteId.current, attributes: owned.current };
+        }
+
         shownNoteId.current = note?.noteId ?? null;
         owned.current = collectOwned(note);
         inherited.current = collectInherited(note);
         internal.current = collectInternal(note);
     }
 
-    // The popup edits one attribute of the note being left, so it closes with the note.
-    useEffect(() => setDetail(null), [ note ]);
+    // The form edits one attribute of the note being left, so it closes with the note.
+    useEffect(() => {
+        setDetail(null);
+
+        const draft = draftToFlush.current;
+        draftToFlush.current = null;
+        if (draft) {
+            void persist(draft.noteId, draft.attributes);
+        }
+    }, [ note ]);
 
     useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
         // While the popup is open, the changes this widget itself made are skipped: its edits are the
@@ -85,8 +104,14 @@ export default function AttributeList() {
     /** Persists the whole draft: the endpoint replaces the note's owned attributes with the list. */
     async function save() {
         if (note) {
-            await server.put(`notes/${note.noteId}/attributes`, owned.current, componentId);
+            await persist(note.noteId, owned.current);
         }
+    }
+
+    /** Named apart from {@link save} so a draft can be saved to the note it belongs to, whichever the
+     *  list has moved on to. */
+    async function persist(noteId: string, attributes: Attribute[]) {
+        await server.put(`notes/${noteId}/attributes`, attributes, componentId);
     }
 
     function openDetail(attribute: Attribute, isOwned: boolean, anchor: HTMLElement | null, e: MouseEvent) {
@@ -215,7 +240,7 @@ export default function AttributeList() {
                 >
                     {/* Presses inside the sections do not dismiss the popup (see `parent` above), which
                         leaves closing on a press next to a row up to this handler. */}
-                    <div class="attribute-list-panel" ref={containerRef} onClick={() => setDetail(null)}>
+                    <div class="attribute-list-panel" ref={containerRef} onClick={commit}>
                         {sections.owned.length > 0 ? (
                             <AttributeRowList rows={sections.owned} {...rowProps} />
                         ) : (
@@ -229,7 +254,7 @@ export default function AttributeList() {
                         id="attributes-inherited"
                         title={t("attribute_list_panel.inherited", { count: sections.inherited.length })}
                     >
-                        <div class="attribute-list-panel" onClick={() => setDetail(null)}>
+                        <div class="attribute-list-panel" onClick={commit}>
                             <AttributeRowList rows={sections.inherited} {...rowProps} />
                         </div>
                     </AttributeSection>
@@ -247,7 +272,7 @@ export default function AttributeList() {
                             />
                         )}
                     >
-                        <div class="attribute-list-panel" onClick={() => setDetail(null)}>
+                        <div class="attribute-list-panel" onClick={commit}>
                             <AttributeRowList rows={sections.definitions} {...rowProps} />
                         </div>
                     </AttributeSection>
@@ -258,7 +283,7 @@ export default function AttributeList() {
                         id="attributes-internal"
                         title={t("attribute_list_panel.internal", { count: internalRows.length })}
                     >
-                        <div class="attribute-list-panel" onClick={() => setDetail(null)}>
+                        <div class="attribute-list-panel" onClick={commit}>
                             <AttributeRowList rows={internalRows} readOnly {...rowProps} />
                         </div>
                     </AttributeSection>
