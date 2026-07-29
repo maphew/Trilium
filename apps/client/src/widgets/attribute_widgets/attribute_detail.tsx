@@ -223,8 +223,10 @@ export function AttributeDetail({ opts, currentNoteId, onDismiss, onCancel, ...f
                 || spawner?.contains(e.target)
                 // Modals count as belonging to the popup: creating a note straight from the target
                 // note field opens the note type chooser, and dismissing on its clicks would tear
-                // the popup down before the created note could be filled in.
-                || e.target.closest(`${AUTOCOMPLETE_DROPDOWN_SELECTOR}, .algolia-autocomplete, #context-menu-container, .modal, .modal-backdrop`)) {
+                // the popup down before the created note could be filled in. The type menu belongs
+                // to it too: it is portaled to the body (see the dropdown's `portalToBody`), so a
+                // press on one of its items lands outside the popup element.
+                || e.target.closest(`${AUTOCOMPLETE_DROPDOWN_SELECTOR}, .algolia-autocomplete, #context-menu-container, .modal, .modal-backdrop, .attr-input-label-type`)) {
                 return;
             }
             onDismiss();
