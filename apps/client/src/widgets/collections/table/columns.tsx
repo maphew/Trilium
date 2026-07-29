@@ -1,6 +1,6 @@
 import "./columns.css";
 
-import { LabelType } from "@triliumnext/commons";
+import { LabelType, safeLinkPreviewHref } from "@triliumnext/commons";
 import clsx from "clsx";
 import { JSX } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -73,6 +73,9 @@ const labelTypeMappings: Record<ColumnType, Partial<ColumnDefinition>> = {
     },
     url: {
         formatter: "link",
+        formatterParams: {
+            url: (cell) => safeUrlHref(cell.getValue())
+        },
         editor: "input"
     },
     email: {
@@ -105,6 +108,19 @@ const labelTypeMappings: Record<ColumnType, Partial<ColumnDefinition>> = {
 function applyLinkScheme(value: unknown, scheme: string): string {
     if (typeof value !== "string" || !value) return "";
     return value.startsWith(scheme) ? value : `${scheme}${value}`;
+}
+
+/**
+ * The `href` a url value may be linked as. A label's value is free text that can have arrived from an
+ * import or a sync peer, so a hostile scheme (`javascript:`, `data:`) is made inert rather than
+ * clickable; a value carrying no scheme at all gets the `https://` an address bar would give it,
+ * rather than being linked as a path relative to Trilium itself.
+ */
+export function safeUrlHref(value: unknown): string {
+    if (typeof value !== "string" || !value.trim()) return "";
+
+    const trimmed = value.trim();
+    return safeLinkPreviewHref(/^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`);
 }
 
 /**
@@ -469,8 +485,8 @@ function ValuesFormatter({ cell, formatterParams }: FormatterOpts) {
     );
 }
 
-/** The schemes that make a value of a link-like type clickable; a url carries its own. */
-const LINK_SCHEMES: Partial<Record<ColumnType, string>> = { url: "", email: "mailto:", phone: "tel:" };
+/** The schemes that make a value of a link-like type clickable; a url is linked by {@link safeUrlHref}. */
+const LINK_SCHEMES: Partial<Record<ColumnType, string>> = { email: "mailto:", phone: "tel:" };
 
 /** The whole of what a flag can be, which is what a column of flags picks its values from. */
 const BOOLEAN_OPTIONS = [ "true", "false" ];
@@ -490,6 +506,10 @@ function renderValue(value: string, type: ColumnType | undefined) {
 
     if (type === "boolean") {
         return renderFlag(value);
+    }
+
+    if (type === "url") {
+        return <a href={safeUrlHref(value)}>{value}</a>;
     }
 
     const scheme = type && LINK_SCHEMES[type];

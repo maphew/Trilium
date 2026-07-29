@@ -1,6 +1,6 @@
 import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
-import { type AttributeDefinitionInformation, buildColumnDefinitions, formatLabelDate, restoreExistingData, type ValuesEditorParams } from "./columns";
+import { type AttributeDefinitionInformation, buildColumnDefinitions, formatLabelDate, restoreExistingData, safeUrlHref, type ValuesEditorParams } from "./columns";
 import type { CellComponent, ColumnDefinition } from "tabulator-tables";
 
 import options from "../../../services/options";
@@ -153,6 +153,21 @@ describe("buildColumnDefinitions — typed columns", () => {
         expect(editorOf("datetime")).toBe("datetime");
         // A plain input here would be a text box to type "14:05" into by hand.
         expect(editorOf("time")).toBe("time");
+    });
+
+    it("hands a url column's href through the scheme guard rather than linking the value as stored", () => {
+        const column = buildColumnDefinitions({
+            info: [ { name: "site", type: "url" } ],
+            movableRows: false,
+            existingColumnData: undefined,
+            rowNumberHint: 1
+        }).find((column) => column.field === "labels.site");
+
+        // Tabulator's link formatter assigns whatever it is given straight to the anchor's href.
+        const url = (column?.formatterParams as { url?: (cell: CellComponent) => string })?.url;
+        if (typeof url !== "function") throw new Error("expected the href to be built by a callback");
+        expect(url({ getValue: () => "javascript:alert(1)" } as CellComponent)).toBe("about:blank");
+        expect(url({ getValue: () => "https://example.com" } as CellComponent)).toBe("https://example.com");
     });
 });
 
@@ -379,6 +394,20 @@ describe("buildColumnDefinitions — multi-valued columns", () => {
             .toBe("#ff2e88");
     });
 
+    it("links each url of a set, without making a hostile scheme clickable", () => {
+        const formatter = multiColumn("url")?.formatter;
+        if (typeof formatter !== "function") throw new Error("expected a formatter of its own");
+        const cell = formatter(
+            { getValue: () => [ "example.com", "javascript:alert(1)" ] } as CellComponent,
+            { type: "url" }, () => {}
+        ) as HTMLElement;
+
+        expect([ ...cell.querySelectorAll("a") ].map((link) => link.getAttribute("href")))
+            .toEqual([ "https://example.com", "about:blank" ]);
+        // The value is still readable even where it is not one we may link to.
+        expect(cell.textContent).toContain("javascript:alert(1)");
+    });
+
     it("sorts by the values a cell holds, not by the array they arrive in", () => {
         const sorter = multiColumn("text")?.sorter;
         if (typeof sorter !== "function") throw new Error("expected a sorter of its own");
@@ -388,6 +417,31 @@ describe("buildColumnDefinitions — multi-valued columns", () => {
         expect(compare([ "alpha", "beta" ], [ "alpha", "gamma" ])).toBe(-1);
         expect(compare([ "beta" ], [ "alpha", "beta" ])).toBe(1);
         expect(compare([ "alpha" ], [ "alpha" ])).toBe(0);
+    });
+});
+
+describe("safeUrlHref", () => {
+    it("keeps the schemes a link may carry, and defaults the one a bare address is missing", () => {
+        expect(safeUrlHref("https://example.com/a?b=c#d")).toBe("https://example.com/a?b=c#d");
+        expect(safeUrlHref("http://example.com")).toBe("http://example.com");
+        // Linked as stored, a bare address would resolve against Trilium's own origin.
+        expect(safeUrlHref("example.com/path")).toBe("https://example.com/path");
+        expect(safeUrlHref("  example.com  ")).toBe("https://example.com");
+    });
+
+    it("makes an executable scheme inert instead of clickable", () => {
+        // A label's value can arrive from an import or a sync peer, so clicking a cell must not run it.
+        expect(safeUrlHref("javascript:alert(1)")).toBe("about:blank");
+        expect(safeUrlHref("JavaScript:alert(1)")).toBe("about:blank");
+        expect(safeUrlHref("  javascript:alert(1)")).toBe("about:blank");
+        expect(safeUrlHref("data:text/html,<script>alert(1)</script>")).toBe("about:blank");
+        expect(safeUrlHref("vbscript:msgbox(1)")).toBe("about:blank");
+    });
+
+    it("renders a blank href for missing values", () => {
+        expect(safeUrlHref(undefined)).toBe("");
+        expect(safeUrlHref(null)).toBe("");
+        expect(safeUrlHref("   ")).toBe("");
     });
 });
 
