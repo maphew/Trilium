@@ -188,7 +188,8 @@
     "no_note_to_delete": "Жодну нотатку не буде видалено (лише клони).",
     "broken_relations_to_be_deleted": "Наступні зв'язки будуть розірвані та видалені ({{ relationCount}})",
     "cancel": "Скасувати",
-    "title": "Видалити нотатки"
+    "title": "Видалити нотатки",
+    "delete": "Видалити"
   },
   "export": {
     "export_note_title": "Експорт нотатки",
