@@ -280,7 +280,9 @@ interface AttributeSectionProps {
  */
 function AttributeSection({ id, title, children, buttons, grow }: AttributeSectionProps) {
     if (IS_MOBILE) {
-        return <OptionsSection title={title} actions={buttons}>{children}</OptionsSection>;
+        // The id names the section here too, as a class: it is what the right pane knows the section by,
+        // and there is no reason for a stylesheet (or a test) to know it by anything else.
+        return <OptionsSection className={id} title={title} actions={buttons}>{children}</OptionsSection>;
     }
 
     return (
