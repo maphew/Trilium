@@ -282,6 +282,9 @@ function SelectComboBox({ options, value, onCommit, onCreateOption, inputProps }
             className={clsx(inputProps?.className, "label-select-combobox")}
             currentValue={draft}
             openOnFocus
+            // The suggestions are the choices themselves, so the list opens on the option already
+            // held — Enter then keeps it, as a dropdown's would.
+            autoActivate
             source={source}
             renderItem={(item) => item.startsWith(CREATE_OPTION_SENTINEL)
                 ? <span className="label-select-create-option">

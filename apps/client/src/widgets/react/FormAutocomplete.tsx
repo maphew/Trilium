@@ -5,6 +5,7 @@ import { createPortal, type CSSProperties } from "preact/compat";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import FormTextBox from "./FormTextBox";
+import { useUniqueName } from "./hooks";
 
 /** Marks the dropdown, which is portalled to the body: popups checking for outside clicks must ignore it. */
 export const AUTOCOMPLETE_DROPDOWN_SELECTOR = ".form-autocomplete-dropdown";
@@ -40,6 +41,15 @@ interface FormAutocompleteProps extends Omit<FormTextBoxProps, "onChange"> {
      * the string the source returned. Defaults to showing that string.
      */
     renderItem?(item: string): ComponentChildren;
+    /**
+     * Opens the list with an entry already picked out — the one the field's text names, or failing
+     * that the first — so that Enter takes it without arrowing down to it first.
+     *
+     * For a box whose suggestions are the choices themselves: there the highlighted entry is where
+     * the field already stands, and Enter means "this one". Left out for a box that only helps with
+     * typing, where nothing is chosen until the user says so and Enter belongs to the form around it.
+     */
+    autoActivate?: boolean;
 }
 
 /**
@@ -48,7 +58,7 @@ interface FormAutocompleteProps extends Omit<FormTextBoxProps, "onChange"> {
  * The dropdown is portalled to the body and positioned over everything else, so it is not clipped
  * by scrolling ancestors. Selecting a suggestion reports it through `onChange`, exactly like typing.
  */
-export default function FormAutocomplete({ currentValue, onChange, source, openOnFocus, onPick, renderItem, inputRef, onBlur, onKeyDown, ...restProps }: FormAutocompleteProps) {
+export default function FormAutocomplete({ currentValue, onChange, source, openOnFocus, onPick, renderItem, autoActivate, inputRef, onBlur, onKeyDown, ...restProps }: FormAutocompleteProps) {
     const ownInputRef = useRef<HTMLInputElement>(null);
     const inputEl = inputRef ?? ownInputRef;
     const dropdownRef = useRef<HTMLUListElement>(null);
@@ -60,6 +70,10 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
     // Discards responses of queries that were superseded while in flight.
     const latestQuery = useRef(0);
     const isDisabled = !!(restProps.readOnly || restProps.disabled);
+    // Names the entries so the field can point at the highlighted one: focus stays in the box, so
+    // that pointer is all a screen reader has to go on.
+    const itemIdPrefix = useUniqueName("autocomplete-item");
+    const activeItemId = activeIndex >= 0 ? `${itemIdPrefix}-${activeIndex}` : undefined;
 
     const close = useCallback(() => {
         // Invalidates in-flight queries too, so a late response cannot repopulate a closed dropdown.
@@ -83,12 +97,21 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
             // A newer query (or a close) happened while awaiting.
             if (latestQuery.current === queryId) {
                 setItems(suggestions);
-                setActiveIndex(-1);
+                setActiveIndex(autoActivate ? bestMatchIndex(suggestions, currentValue) : -1);
             }
         }, DEBOUNCE_MS);
 
         return () => clearTimeout(timeout);
-    }, [ isOpen, currentValue, source ]);
+    }, [ isOpen, currentValue, source, autoActivate ]);
+
+    // Keep the highlighted entry in sight: it can be picked out on opening, or arrowed past the
+    // bottom of a list taller than the room the dropdown was given.
+    useEffect(() => {
+        if (activeIndex < 0) return;
+        // `nearest` scrolls the list by as little as it takes, and not at all while the entry is
+        // already in view — so hovering down a visible list never moves it under the pointer.
+        dropdownRef.current?.children[activeIndex]?.scrollIntoView({ block: "nearest" });
+    }, [ activeIndex, items ]);
 
     // Keep the dropdown glued to the input.
     useLayoutEffect(() => {
@@ -179,6 +202,7 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
                 role="combobox"
                 aria-expanded={isOpen && items.length > 0}
                 aria-autocomplete="list"
+                aria-activedescendant={activeItemId}
             />
 
             {isOpen && items.length > 0 && position && createPortal(
@@ -194,6 +218,7 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
                     {items.map((item, index) => (
                         <li
                             key={item}
+                            id={`${itemIdPrefix}-${index}`}
                             className={`form-autocomplete-item ${index === activeIndex ? "active" : ""}`}
                             role="option"
                             aria-selected={index === activeIndex}
@@ -207,6 +232,20 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
                 document.body)}
         </>
     );
+}
+
+/**
+ * Which entry a list opens on: the one the field's text names, or the first, so that a field whose
+ * text stands for a choice already made opens on it and one being typed into opens on its best
+ * candidate. Matched the way the sources filter — ignoring case and surrounding space.
+ */
+function bestMatchIndex(items: string[], text: string) {
+    if (!items.length) {
+        return -1;
+    }
+    const trimmed = text.trim().toLowerCase();
+    const exact = items.findIndex((item) => item.toLowerCase() === trimmed);
+    return exact >= 0 ? exact : 0;
 }
 
 /**

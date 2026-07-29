@@ -181,6 +181,51 @@ describe("LabelValueInput", () => {
             });
         }
 
+        it("opens on the option it holds, so Enter takes it without arrowing down first", async () => {
+            const onCommit = vi.fn();
+            await mount({
+                labelType: "select", value: "Done", selectOptions: [ "Todo", "Done", "Archived" ],
+                onCommit, onCreateOption: vi.fn()
+            });
+
+            const input = container.querySelector("input");
+            await act(async () => input?.focus());
+
+            // The whole list is offered, with the option already held picked out — and the field
+            // points at it, focus staying in the box.
+            const items = await settleDropdown();
+            expect(items.map((item) => item.className.includes("active")))
+                .toEqual([ false, true, false ]);
+            expect(input?.getAttribute("aria-activedescendant")).toBe(items[1]?.id);
+
+            await act(async () => {
+                input?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            });
+            expect(onCommit).toHaveBeenCalledWith("Done");
+        });
+
+        it("picks out the best match while typing, so Enter takes it", async () => {
+            const onCommit = vi.fn();
+            await mount({
+                labelType: "select", value: "", selectOptions: [ "Alpha", "Beta", "Bravo" ],
+                onCommit, onCreateOption: vi.fn()
+            });
+
+            const input = container.querySelector("input");
+            await act(async () => input?.focus());
+            await typeInto(input, "Br");
+
+            // Nothing is named exactly, so the first surviving entry is the one Enter would take.
+            const items = await settleDropdown();
+            expect(items[0]?.textContent).toBe("Bravo");
+            expect(items[0]?.className).toContain("active");
+
+            await act(async () => {
+                input?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            });
+            expect(onCommit).toHaveBeenCalledWith("Bravo");
+        });
+
         it("lists every option on focus, and commits a pick, not the typing before it", async () => {
             const onCommit = vi.fn();
             await mount({
