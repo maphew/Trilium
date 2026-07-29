@@ -222,6 +222,55 @@ body.experimental-feature-new-layout #right-pane {
         }
     }
 
+    /* Several cards open at once share the pane between them instead of being laid out one under the
+       next, where the one section a note has dozens of rows in (a template's definitions, say) is
+       laid out in full and pushes everything after it off the pane. Each card gives up room and
+       scrolls within itself instead — as little as it can, which is the rule below; this much is
+       what every engine can be counted on for, and it crops each card a little rather than any one
+       of them badly. This is also what the growing card gives up while it has company: taking the
+       room the others leave over is only its job when it is the one thing there is to read. */
+    .right-pane-tab-body:has(> .card:not(.collapsed) ~ .card:not(.collapsed)) > .card:not(.collapsed) {
+        flex: 0 1 auto;
+        /* No card is given less than its own header, so a pane too short to hold even those is
+           scrolled rather than being split into slivers with the titles cut off. */
+        min-height: var(--right-pane-header-height);
+
+        .body-wrapper {
+            flex: 1 1 auto;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .card-body {
+            flex: 1 1 auto;
+            min-height: 0;
+            overflow: auto;
+            display: flex;
+            flex-direction: column;
+            /* Its own height rather than the `height: 100%` it is given otherwise (see style.css),
+               so that measuring a card by its content below is measuring what is in it rather than
+               the height the card happens to have been given. */
+            height: auto;
+        }
+    }
+
+    /* Where a card can be capped at its own content, the room is shared by need rather than in
+       equal parts: every card is offered the same share of the pane, hands back whatever it has
+       nothing to put there (`max-content`), and what is handed back is offered again to the cards
+       still short. So the sections with a row or two in them are shown whole and the long one takes
+       everything left over — instead of each section being cropped a little for the sake of a
+       section that had room to spare. */
+    @supports (max-height: max-content) {
+        .right-pane-tab-body:has(> .card:not(.collapsed) ~ .card:not(.collapsed)) > .card:not(.collapsed) {
+            /* Offered from nothing rather than from its content: a card asking for its content up
+               front leaves the pane over-subscribed, and nothing to hand back out. */
+            flex: 1 1 0;
+            max-height: max-content;
+        }
+    }
+
     .gutter-vertical + .card .card-header {
         padding-top: 0;
     }
