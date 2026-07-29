@@ -28,6 +28,9 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
     const [ refreshToken, setRefreshToken ] = useState(0);
     // Stable, so handing it to the views costs them nothing on re-render.
     const refresh = useCallback(() => setRefreshToken((token) => token + 1), []);
+    // Browse measures its own note through a separate request, which this component would not
+    // otherwise know about; without it the button would free up while that reading was still running.
+    const [ browseLoading, setBrowseLoading ] = useState(false);
     // Browse's position lives here so that "Show details", offered on any note either view draws,
     // can land the user on that note — switching the view along the way when it comes from Overview.
     const [ browsePath, setBrowsePath ] = useState([ "root" ]);
@@ -57,7 +60,7 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
                         className="space-usage-refresh"
                         icon="bx bx-refresh"
                         text={t("space_usage.refresh")}
-                        disabled={loading}
+                        disabled={loading || browseLoading}
                         onClick={refresh}
                     />
                 </div>
@@ -69,6 +72,7 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
                     onPathChange={setBrowsePath}
                     refreshToken={refreshToken}
                     onContentChanged={refresh}
+                    onLoadingChange={setBrowseLoading}
                 />
             )}
             {view === "overview" && (overview

@@ -11,7 +11,8 @@ const mocks = vi.hoisted(() => ({
     loading: false,
     /** The token the section last asked each view to measure at. */
     overviewToken: undefined as number | undefined,
-    browseToken: undefined as number | undefined
+    browseToken: undefined as number | undefined,
+    reportBrowseLoading: undefined as ((loading: boolean) => void) | undefined
 }));
 
 vi.mock("./use_space_usage_fetch", () => ({
@@ -22,8 +23,12 @@ vi.mock("./use_space_usage_fetch", () => ({
 }));
 
 vi.mock("./browse", () => ({
-    default: ({ refreshToken }: { refreshToken: number }) => {
+    default: ({ refreshToken, onLoadingChange }: {
+        refreshToken: number,
+        onLoadingChange: (loading: boolean) => void
+    }) => {
         mocks.browseToken = refreshToken;
+        mocks.reportBrowseLoading = onLoadingChange;
         return <div className="browse-stub" />;
     }
 }));
@@ -79,6 +84,7 @@ afterEach(() => {
     mocks.loading = false;
     mocks.overviewToken = undefined;
     mocks.browseToken = undefined;
+    mocks.reportBrowseLoading = undefined;
 });
 
 describe("SpaceUsage section", () => {
@@ -173,5 +179,26 @@ describe("SpaceUsage section", () => {
         mocks.loading = true;
 
         expect(renderSection().querySelector<HTMLButtonElement>(".space-usage-refresh")?.disabled).toBe(true);
+    });
+
+    it("keeps it out for Browse's own reading too, which it cannot see otherwise", async () => {
+        mocks.overview = OVERVIEW;
+        const probe = renderSection();
+        const refresh = () => probe.querySelector<HTMLButtonElement>(".space-usage-refresh");
+
+        [ ...probe.querySelectorAll<HTMLButtonElement>(".content-manager-view-choice button") ][1]
+            ?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await flushRender();
+        expect(refresh()?.disabled).toBe(false);
+
+        // Browse measures its note through a request of its own; a second press meanwhile would
+        // start another scan of the whole database alongside the one already running.
+        mocks.reportBrowseLoading?.(true);
+        await flushRender();
+        expect(refresh()?.disabled).toBe(true);
+
+        mocks.reportBrowseLoading?.(false);
+        await flushRender();
+        expect(refresh()?.disabled).toBe(false);
     });
 });

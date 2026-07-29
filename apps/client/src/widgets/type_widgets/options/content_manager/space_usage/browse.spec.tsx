@@ -18,10 +18,12 @@ interface CapturedDonutProps {
 const mocks = vi.hoisted(() => ({
     usage: undefined as unknown,
     failed: false,
+    loading: false,
     fetchedUrls: [] as string[],
     donutProps: undefined as unknown,
     openContextMenu: vi.fn(),
-    contentChanged: vi.fn()
+    contentChanged: vi.fn(),
+    loadingChange: vi.fn()
 }));
 
 vi.mock("./context_menu", () => ({
@@ -31,7 +33,7 @@ vi.mock("./context_menu", () => ({
 vi.mock("./use_space_usage_fetch", () => ({
     useSpaceUsageFetch: (url: string) => {
         mocks.fetchedUrls.push(url);
-        return { data: mocks.usage, failed: mocks.failed };
+        return { data: mocks.usage, failed: mocks.failed, loading: mocks.loading };
     }
 }));
 
@@ -84,7 +86,15 @@ function BrowseHost() {
     const [ path, setPath ] = useState([ "root" ]);
 
     // The refresh token never changes here: navigation is what this spec is about.
-    return <Browse path={path} onPathChange={setPath} refreshToken={0} onContentChanged={mocks.contentChanged} />;
+    return (
+        <Browse
+            path={path}
+            onPathChange={setPath}
+            refreshToken={0}
+            onContentChanged={mocks.contentChanged}
+            onLoadingChange={mocks.loadingChange}
+        />
+    );
 }
 
 function renderBrowse() {

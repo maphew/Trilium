@@ -26,6 +26,11 @@ interface BrowseProps {
     refreshToken: number;
     /** Called once the menu deleted something, so the donut stops drawing what is no longer there. */
     onContentChanged: ContentChangedHandler;
+    /**
+     * Reports whether this view is measuring, so the section can keep its refresh button out while
+     * it is — this view's reading is its own request, which the section cannot otherwise see.
+     */
+    onLoadingChange: (loading: boolean) => void;
 }
 
 /**
@@ -36,10 +41,17 @@ interface BrowseProps {
  * The path is owned by the section rather than the view, so that "Show details" elsewhere in Space
  * Usage can drop the user straight onto a note here.
  */
-export default function Browse({ path, onPathChange, refreshToken, onContentChanged }: BrowseProps) {
+export default function Browse({
+    path, onPathChange, refreshToken, onContentChanged, onLoadingChange
+}: BrowseProps) {
     const noteId = path[path.length - 1];
-    const { data: usage, failed } = useSpaceUsageFetch<SpaceUsageNoteResponse>(
+    const { data: usage, failed, loading } = useSpaceUsageFetch<SpaceUsageNoteResponse>(
         `space-usage/note/${noteId}`, refreshToken);
+
+    useEffect(() => onLoadingChange(loading), [ loading, onLoadingChange ]);
+    // Leaving the view mid-measure would otherwise strand the section believing one is still under
+    // way, with its refresh button disabled for good.
+    useEffect(() => () => onLoadingChange(false), [ onLoadingChange ]);
     const titles = useNoteTitles(path, usage);
     const getTitle = useCallback((id: string) => titles.get(id) ?? id, [ titles ]);
 
