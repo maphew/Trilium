@@ -1,21 +1,88 @@
+/*
+ * Laid out as chips rather than as a stack of fields: an option is one short word, so a full-width
+ * boxed input per entry spends a whole row of the form on it and lists ten of them down the page.
+ * A wrapping run of chips fits several to a line and shows the set as the set it is.
+ */
 .form-textbox-list {
+    --textbox-list-remove-size: 18px;
+
     display: flex;
-    flex-direction: column;
+    flex-wrap: wrap;
+    align-items: center;
     gap: 4px;
 
     .form-textbox-list-row {
         display: flex;
         align-items: center;
-        gap: 4px;
+        gap: 2px;
+        /* Tighter at the trailing edge, where the remove button brings padding of its own. */
+        padding-inline: 8px 3px;
+        border-radius: var(--badge-radius, 12px);
+        background-color: var(--hover-item-background-color);
+
+        /* The chip carries the focus ring, its input having given up one of its own — otherwise a
+           field's outline would be drawn inside a chip that already looks like a box. */
+        &:focus-within {
+            outline: 2px solid var(--input-focus-outline-color);
+        }
 
         > input {
-            flex: 1;
-            min-width: 0;
+            /* `form-control` is full-width by default; a chip is as wide as the word it holds. */
+            width: auto;
+            field-sizing: content;
+            /* Also the width where `field-sizing` is not supported, the `size` attribute standing
+               in for it there — see the component. */
+            min-width: 4ch;
+            /* The same ceiling the `size` attribute is capped at, so a long option scrolls inside
+               its chip either way instead of taking a line to itself. */
+            max-width: 30ch;
+            padding: 3px 0;
+            border: none;
+            outline: none;
+            font-size: inherit;
+
+            &,
+            &:hover,
+            &:focus {
+                background: transparent;
+            }
+        }
+
+        > .form-textbox-list-remove {
+            --icon-button-size: var(--textbox-list-remove-size);
+            --icon-button-icon-ratio: 0.9;
+
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: var(--textbox-list-remove-size);
+            height: var(--textbox-list-remove-size);
+            padding: 0;
+            font-size: calc(var(--textbox-list-remove-size) * 0.9);
+            line-height: 1;
+
+            /* Blank until aimed at, where the theme's own hover treatment takes back over — the
+               chip is the surface it sits on, not a button plate of its own. */
+            &:not(:hover):not(:focus-visible) {
+                background: transparent;
+            }
+        }
+
+        /* Nothing to press where the list is read-only: the chips are then only a display of the
+           set, and a button offering a removal that is not on the table would say otherwise. */
+        > .form-textbox-list-remove:disabled {
+            display: none;
+        }
+
+        /* With no button at the trailing edge, the chip pads itself as evenly as it started. */
+        &:has(> .form-textbox-list-remove:disabled) {
+            padding-inline-end: 8px;
         }
     }
 
-    /* Sized to its words: a full-width bar under the rows would read as a field of the list itself. */
+    /* Last in the run rather than under it, so adding reads as extending the set in place. */
     .form-textbox-list-add {
-        align-self: flex-start;
+        flex-shrink: 0;
     }
 }
