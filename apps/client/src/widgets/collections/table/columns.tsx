@@ -56,6 +56,22 @@ const labelTypeMappings: Record<ColumnType, Partial<ColumnDefinition>> = {
         formatter: "link",
         editor: "input"
     },
+    email: {
+        // The stored value is the bare address; the link formatter's url callback gives it its
+        // scheme without repeating one an older value (imported as a url) may already carry.
+        formatter: "link",
+        formatterParams: {
+            url: (cell) => applyLinkScheme(cell.getValue(), "mailto:")
+        },
+        editor: "input"
+    },
+    phone: {
+        formatter: "link",
+        formatterParams: {
+            url: (cell) => applyLinkScheme(cell.getValue(), "tel:")
+        },
+        editor: "input"
+    },
     color: {
         editor: "input",
         formatter: "color",
@@ -70,6 +86,12 @@ const labelTypeMappings: Record<ColumnType, Partial<ColumnDefinition>> = {
         formatter: wrapFormatter(NoteFormatter)
     }
 };
+
+/** Gives an email/phone value its clickable scheme unless it (an older value, stored as a url) already carries it. */
+function applyLinkScheme(value: unknown, scheme: string): string {
+    if (typeof value !== "string" || !value) return "";
+    return value.startsWith(scheme) ? value : `${scheme}${value}`;
+}
 
 /**
  * Renders a stored date label through the user's formatting locale, all-numeric so that columns stay

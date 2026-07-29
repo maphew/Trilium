@@ -6,7 +6,8 @@ import { filterAttributeName } from "./attribute_names.js";
  * type cannot be added to the union without {@link parse} also accepting it.
  */
 export const LABEL_TYPES = [
-    "text", "textarea", "number", "boolean", "date", "datetime", "time", "url", "color"
+    "text", "textarea", "number", "boolean", "date", "datetime", "time", "url", "email", "phone",
+    "color"
 ] as const;
 
 export type LabelType = typeof LABEL_TYPES[number];

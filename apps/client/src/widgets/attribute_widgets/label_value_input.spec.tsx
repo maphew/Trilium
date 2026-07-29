@@ -7,7 +7,7 @@ import LabelValueInput, { getTypedInputForLabel, LABEL_MAPPINGS } from "./label_
 
 describe("getTypedInputForLabel", () => {
     it("offers a field of its own only where one beats the box a host already shows", () => {
-        for (const labelType of [ "color", "date", "datetime", "time", "number", "url" ] as const) {
+        for (const labelType of [ "color", "date", "datetime", "time", "number", "url", "email", "phone" ] as const) {
             expect(getTypedInputForLabel(labelType)).toBe(labelType);
         }
 
@@ -116,6 +116,24 @@ describe("LabelValueInput", () => {
         await mount({ labelType: "number", value: "1", onCommit: vi.fn(), numberPrecision: 2 });
 
         expect(container.querySelector("input")?.getAttribute("step")).toBe("0.01");
+    });
+
+    it("opens an email or a phone through its scheme, not doubling one an old value carries", async () => {
+        const open = vi.spyOn(window, "open").mockImplementation(() => null);
+        try {
+            await mount({ labelType: "email", value: "contact@acme.com", onCommit: vi.fn() });
+            expect(container.querySelector("input")?.type).toBe("email");
+            await act(async () => container.querySelector<HTMLElement>(".open-external-link-button")?.click());
+            expect(open).toHaveBeenLastCalledWith("mailto:contact@acme.com", "_blank");
+
+            // A value imported as a url label before the typed field existed already carries its scheme.
+            await mount({ labelType: "phone", value: "tel:12345", onCommit: vi.fn() });
+            expect(container.querySelector("input")?.type).toBe("tel");
+            await act(async () => container.querySelector<HTMLElement>(".open-external-link-button")?.click());
+            expect(open).toHaveBeenLastCalledWith("tel:12345", "_blank");
+        } finally {
+            open.mockRestore();
+        }
     });
 
     it("maps every label type to a field, colour included", () => {

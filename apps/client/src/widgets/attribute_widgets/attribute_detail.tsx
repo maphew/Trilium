@@ -749,6 +749,8 @@ export const LABEL_TYPES = [
     { value: "datetime", title: t("attribute_detail.date_time"), icon: "bx bx-calendar-event" },
     { value: "time", title: t("attribute_detail.time"), icon: "bx bx-time" },
     { value: "url", title: t("attribute_detail.url"), icon: "bx bx-link" },
+    { value: "email", title: t("attribute_detail.email"), icon: "bx bx-envelope" },
+    { value: "phone", title: t("attribute_detail.phone"), icon: "bx bx-phone" },
     { value: "color", title: t("attribute_detail.color_type"), icon: "bx bx-palette" }
 ];
 

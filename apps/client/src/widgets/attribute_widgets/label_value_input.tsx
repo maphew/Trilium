@@ -21,10 +21,45 @@ export const LABEL_MAPPINGS: Record<LabelType, HTMLInputTypeAttribute | undefine
     datetime: "datetime-local",
     time: "time",
     color: "hidden",
-    url: "url"
+    url: "url",
+    email: "email",
+    phone: "tel"
 };
 
 const DEFAULT_COLOR = "#ffffff";
+
+/**
+ * The button beside a link-like field, opening what the field holds: a url as a page, an email or a
+ * phone number through whatever the platform has registered for its scheme. The title is a thunk so
+ * it is translated when rendered, not when the module loads.
+ */
+const OPEN_BUTTONS: Partial<Record<LabelType, {
+    icon: string;
+    title: () => string;
+    /** Builds the href to open from the bare stored value. */
+    toHref: (value: string) => string;
+}>> = {
+    url: {
+        icon: "bx bx-window-open",
+        title: () => t("promoted_attributes.open_external_link"),
+        toHref: (value) => value
+    },
+    email: {
+        icon: "bx bx-envelope",
+        title: () => t("promoted_attributes.send_email"),
+        toHref: (value) => applyScheme(value, "mailto:")
+    },
+    phone: {
+        icon: "bx bx-phone",
+        title: () => t("promoted_attributes.call_phone"),
+        toHref: (value) => applyScheme(value, "tel:")
+    }
+};
+
+/** A stored value is the bare address; an older one imported as a url may already carry the scheme. */
+function applyScheme(value: string, scheme: string) {
+    return value.startsWith(scheme) ? value : `${scheme}${value}`;
+}
 
 interface LabelValueInputProps {
     labelType: LabelType;
@@ -69,6 +104,8 @@ export default function LabelValueInput({
             onCommit(input.value);
         }
     }
+
+    const openButton = OPEN_BUTTONS[labelType];
 
     const extraProps: InputHTMLAttributes<HTMLInputElement> = {};
     if (labelType === "number" && numberPrecision) {
@@ -119,15 +156,15 @@ export default function LabelValueInput({
                     />
                 </>
             )}
-            {labelType === "url" && (
+            {openButton && (
                 <InputButton
                     className="open-external-link-button"
-                    icon="bx bx-window-open"
-                    title={t("promoted_attributes.open_external_link")}
+                    icon={openButton.icon}
+                    title={openButton.title()}
                     onClick={() => {
-                        const url = inputRef.current?.value || value;
-                        if (url) {
-                            window.open(url, "_blank");
+                        const target = inputRef.current?.value || value;
+                        if (target) {
+                            window.open(openButton.toHref(target), "_blank");
                         }
                     }}
                 />
