@@ -64,3 +64,10 @@
         background-color: var(--input-background-color);
     }
 }
+
+/* Anchored by its foot instead, so that what it gains rises over the rows above rather than pressing
+   past the foot of the pane. Applied from the editor, which is what can tell the room is short. */
+.table-select-editor.grows-upwards {
+    inset-block-start: auto;
+    inset-block-end: 0;
+}

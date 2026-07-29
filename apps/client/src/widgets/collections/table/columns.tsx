@@ -1,6 +1,7 @@
 import "./columns.css";
 
 import { LabelType } from "@triliumnext/commons";
+import clsx from "clsx";
 import { JSX } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 import type { CellComponent, ColumnDefinition, EmptyCallback, FormatterParams, RowComponent, ValueBooleanCallback, ValueVoidCallback } from "tabulator-tables";
@@ -13,6 +14,7 @@ import { SelectValuesInput } from "../../attribute_widgets/select_input.jsx";
 import Icon from "../../react/Icon.jsx";
 import NoteAutocomplete from "../../react/NoteAutocomplete.jsx";
 import { renderReactWidget } from "../../react/react_utils.jsx";
+import { useGrowsUpwards } from "./grows_upwards.js";
 
 type ColumnType = LabelType | "relation";
 
@@ -369,8 +371,12 @@ function SelectEditor({ cell, success, editorParams }: EditorOpts) {
         return () => editor.removeEventListener("focusout", onFocusOut);
     }, [ isMulti, success ]);
 
+    // The editor grows downwards as chips are taken, which the pane the table scrolls in cuts off at
+    // its foot — on the last row there is nothing below the cell to grow into.
+    const growsUpwards = useGrowsUpwards(containerRef);
+
     return (
-        <div ref={containerRef} className="table-select-editor">
+        <div ref={containerRef} className={clsx("table-select-editor", growsUpwards && "grows-upwards")}>
             {isMulti ? (
                 <SelectValuesInput
                     options={options}
