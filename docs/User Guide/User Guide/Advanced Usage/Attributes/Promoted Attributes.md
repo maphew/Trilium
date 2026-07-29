@@ -34,6 +34,8 @@ The following types are supported:
 *   _Boolean_, which renders as a checkbox for a true/false value.
 *   _Select,_ which provides a list of user-defined options when editing.
     *   The list is not fixed, meaning that new options can be easily added from the promoted attribute.
+    *   Renaming an option does not change the existing values since the value is stored as text. Consider a [bulk rename](../Bulk%20Actions.md).
+    *   The items do not have a custom color or icon. This is intentional as selects are meant to be light-weight. For a more customizable option, consider using <a class="reference-link" href="Relations.md">Relations</a> instead which use notes as items and those notes can be colorized and also carry an icon.
 *   _Date,_ which provides a date picker.
 *   _Date & Time,_ which provides a date & time picker.
 *   _Time,_ which provides a time picker.
@@ -98,3 +100,7 @@ Another example is with parent-child relationship. Again these always occur in p
 Relation definition allows you to specify such "inverse relation" - for the relation you just define you specify which is the inverse relation. Note that in the second example we should have two relation definitions - one for `isParentOf` which defines `isChildOf` as inverse relation and then second relation definition for `isChildOf` which defines `isParentOf` as inverse relation.
 
 What this does internally is that whenever we save a relation which has defined inverse relation, we check that this inverse relation exists on the relation target note. Similarly, when we delete relation, we also delete inverse relation on the target note.
+
+## See also
+
+*   The <a class="reference-link" href="../../Collections/Table.md">Table</a> collection makes heavy use of promoted attributes to define the columns of the table, since they already carry the type information. When made inheritable, it's also easy to change those fields when the child notes are opened.

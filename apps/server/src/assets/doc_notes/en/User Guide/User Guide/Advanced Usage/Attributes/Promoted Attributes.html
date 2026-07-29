@@ -46,6 +46,13 @@
     <ul>
       <li>The list is not fixed, meaning that new options can be easily added from
         the promoted attribute.</li>
+      <li>Renaming an option does not change the existing values since the value
+        is stored as text. Consider a <a href="#root/pOsGYCXsbNQG/tC7s2alapj8V/_help_ivYnonVFBxbQ">bulk rename</a>.</li>
+      <li>The items do not have a custom color or icon. This is intentional as selects
+        are meant to be light-weight. For a more customizable option, consider
+        using&nbsp;<a class="reference-link" href="#root/pOsGYCXsbNQG/tC7s2alapj8V/zEY4DaJG4YT5/_help_Cq5X6iKQop6R">Relations</a>&nbsp;instead
+        which use notes as items and those notes can be colorized and also carry
+        an icon.</li>
     </ul>
   </li>
   <li><em>Date, </em>which provides a date picker.</li>
@@ -177,3 +184,12 @@
   defined inverse relation, we check that this inverse relation exists on
   the relation target note. Similarly, when we delete relation, we also delete
   inverse relation on the target note.</p>
+<h2>See also</h2>
+<ul>
+  <li>
+    <p>The&nbsp;<a class="reference-link" href="#root/pOsGYCXsbNQG/GTwFsgaA0lCt/_help_2FvYrpmOXm29">Table</a>&nbsp;collection
+      makes heavy use of promoted attributes to define the columns of the table,
+      since they already carry the type information. When made inheritable, it's
+      also easy to change those fields when the child notes are opened.</p>
+  </li>
+</ul>
