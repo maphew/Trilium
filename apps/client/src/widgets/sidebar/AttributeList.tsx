@@ -2,6 +2,7 @@ import "./AttributeList.css";
 
 import { promotedAttributeDefinitionParser } from "@triliumnext/commons";
 import clsx from "clsx";
+import { ComponentChildren } from "preact";
 import { createPortal } from "preact/compat";
 import { useContext, useEffect, useRef, useState } from "preact/hooks";
 
@@ -24,6 +25,7 @@ import NoItems from "../react/NoItems";
 import NoteLink from "../react/NoteLink";
 import { ParentComponent } from "../react/react_utils";
 import { ATTRIBUTE_HELP_PAGE } from "../ribbon/components/AttributeHelp";
+import OptionsSection from "../type_widgets/options/components/OptionsSection";
 import RightPanelWidget, { CollapsibleWidgets } from "./RightPanelWidget";
 
 /**
@@ -168,7 +170,7 @@ export default function AttributeList() {
                 counts this whole panel as one widget (see RightPanelContainer), being one entry in its
                 list. Down to a single card, collapsing it away is not on offer. */}
             <CollapsibleWidgets.Provider value={shownCards > 1}>
-                <RightPanelWidget
+                <AttributeSection
                     id="attributes"
                     title={t("attribute_list_panel.owned", { count: sections.owned.length })}
                     grow
@@ -192,21 +194,21 @@ export default function AttributeList() {
                             <NoItems icon="bx bx-hash" text={t("attribute_list_panel.no_attributes")} />
                         )}
                     </div>
-                </RightPanelWidget>
+                </AttributeSection>
 
                 {sections.inherited.length > 0 && (
-                    <RightPanelWidget
+                    <AttributeSection
                         id="attributes-inherited"
                         title={t("attribute_list_panel.inherited", { count: sections.inherited.length })}
                     >
                         <div class="attribute-list-panel" onClick={() => setDetail(null)}>
                             <AttributeRowList rows={sections.inherited} {...rowProps} />
                         </div>
-                    </RightPanelWidget>
+                    </AttributeSection>
                 )}
 
                 {sections.definitions.length > 0 && (
-                    <RightPanelWidget
+                    <AttributeSection
                         id="attributes-definitions"
                         title={t("attribute_list_panel.definitions", { count: sections.definitions.length })}
                         buttons={note && (
@@ -220,18 +222,18 @@ export default function AttributeList() {
                         <div class="attribute-list-panel" onClick={() => setDetail(null)}>
                             <AttributeRowList rows={sections.definitions} {...rowProps} />
                         </div>
-                    </RightPanelWidget>
+                    </AttributeSection>
                 )}
 
                 {internalRows.length > 0 && (
-                    <RightPanelWidget
+                    <AttributeSection
                         id="attributes-internal"
                         title={t("attribute_list_panel.internal", { count: internalRows.length })}
                     >
                         <div class="attribute-list-panel" onClick={() => setDetail(null)}>
                             <AttributeRowList rows={internalRows} readOnly {...rowProps} />
                         </div>
-                    </RightPanelWidget>
+                    </AttributeSection>
                 )}
             </CollapsibleWidgets.Provider>
 
@@ -258,6 +260,33 @@ export default function AttributeList() {
                 />,
                 document.body)}
         </>
+    );
+}
+
+interface AttributeSectionProps {
+    /** What the right pane remembers the section by, collapsed state and all. */
+    id: string;
+    title: string;
+    children: ComponentChildren;
+    buttons?: ComponentChildren;
+    /** Passed on to {@link RightPanelWidget}, which is the only host that has room to give. */
+    grow?: boolean;
+}
+
+/**
+ * One section, drawn as the layout it is in draws a titled group of things: a card of the right pane on
+ * a desktop, foldable and remembered as folded; the same card the settings pages are built from on a
+ * phone, where the panel is a page of its own and a title is read rather than pressed.
+ */
+function AttributeSection({ id, title, children, buttons, grow }: AttributeSectionProps) {
+    if (IS_MOBILE) {
+        return <OptionsSection title={title} actions={buttons}>{children}</OptionsSection>;
+    }
+
+    return (
+        <RightPanelWidget id={id} title={title} buttons={buttons} grow={grow}>
+            {children}
+        </RightPanelWidget>
     );
 }
 

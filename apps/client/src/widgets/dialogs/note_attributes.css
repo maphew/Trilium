@@ -1,34 +1,20 @@
 /*
- * The panel lays its sections out in cards, which the right pane is what dresses (`#right-pane .card`
- * in style.css, and RightPanelContainer.css over it) — none of which reaches a modal, where the cards
- * would otherwise come out as Bootstrap draws them: bordered, rounded boxes of their own. Dressed here
- * as the pane dresses them, one section under the next, each headed by a line that is pressed to put it
- * away.
+ * The panel lays its sections out in cards, which the right pane is what dresses (`#right-pane .card` in
+ * style.css, and RightPanelContainer.css over it) — none of which reaches a modal, where the cards would
+ * otherwise come out as Bootstrap draws them: bordered, rounded boxes of their own. What follows dresses
+ * them for a modal instead, and dresses them differently on a phone (see the two blocks below).
  */
 .modal.note-attributes-modal {
     .modal-body {
         padding-block: 0;
     }
 
-    .card {
-        border: 0;
-        border-bottom: 1px solid var(--main-border-color);
-        border-radius: 0;
-        background: transparent;
-
-        &:last-of-type {
-            border-bottom: 0;
-        }
-    }
-
     .card-header {
         display: flex;
         align-items: center;
         justify-content: flex-start;
-        padding: 4px 0;
         border: 0;
         background: transparent;
-        cursor: pointer;
         --icon-button-size: 26px;
 
         .icon-action {
@@ -52,13 +38,35 @@
         display: flex;
         align-items: center;
     }
+}
+
+/*
+ * On a desktop the sections are the pane's: transparent, one under the next, each headed by a line that
+ * is pressed to fold it away.
+ */
+body.desktop .modal.note-attributes-modal {
+    .card {
+        border: 0;
+        border-bottom: 1px solid var(--main-border-color);
+        border-radius: 0;
+        background: transparent;
+
+        &:last-of-type {
+            border-bottom: 0;
+        }
+    }
+
+    .card-header {
+        padding: 4px 0;
+        cursor: pointer;
+    }
 
     .card.collapsed .card-header > .icon-action {
         transform: rotate(-90deg);
     }
 
-    /* The one section a note has, having nothing to be put away in favour of (see RightPanelWidget),
-       has no chevron either — so its title starts where the others' do. */
+    /* The one section a note has, having nothing to be put away in favour of (see RightPanelWidget), has
+       no chevron either — so its title starts where the others' do. */
     .card.not-collapsible .card-header {
         cursor: default;
         padding-inline-start: 8px;
@@ -67,28 +75,55 @@
     .card-body {
         padding: 0 0 8px;
     }
-
 }
 
 /*
- * A page rather than a sheet: the sections are the whole of what there is to read here, and a sheet
- * sized to them jumps between a hand's width and a screen's as they are put away and brought back.
+ * On a phone the sections are the settings pages' own cards (OptionsSection, see AttributeList.tsx): a
+ * title over a surface, with nothing to fold away — the modal is a page of its own, so a section has
+ * nothing to be put away in favour of. All that is left here is fitting the rows to that card, the rows
+ * being full-width menu items where a settings card holds inset controls.
  *
- * `isFullPageOnMobile` asks for the height, and being scrollable with it takes it away again — the two
- * generic rules collide (`height: 100%` against `height: unset`, at equal weight, in that order in
- * style.css), so the height is claimed here and passed down: the content fills the dialog, and the body
- * takes what the header leaves and scrolls the sections within it.
+ * A page rather than a sheet, too: the sections are the whole of what there is to read here, and a sheet
+ * sized to them would stand as tall as whatever the note happens to carry. `isFullPageOnMobile` asks for
+ * the height, and being scrollable with it takes it away again — the two generic rules collide
+ * (`height: 100%` against `height: unset`, at equal weight, in that order in style.css) — so the height
+ * is claimed here and passed down: the content fills the dialog, and the body takes what the header
+ * leaves and scrolls the sections within it.
  */
 body.mobile .modal.note-attributes-modal {
+    .options-section-card {
+        /* The rows bring their own padding as menu items, and reach the card's edges — so the card
+           spends none of its own on them, and cuts them to its corners. */
+        --options-card-padding: 0;
+
+        padding-block: 8px;
+        overflow: hidden;
+    }
+
     /* The rows are menu items and their list stands in as the menu that dresses them (see
-       AttributeList.tsx), but it is not a menu that opens: it sits in a card, so it keeps the items and
-       none of the surface a floating menu would bring with it. */
+       AttributeList.tsx), but it is not a menu that opens: it sits in a card, and keeps the items alone
+       out of everything a floating menu would otherwise bring with it. */
     .attribute-rows.dropdown-menu {
-        /* Overriding an `!important` of its own (style.css paints every menu), as the code-note
-           switcher does for the same reason: a list of menu items that is not a menu. */
+        /* Overriding an `!important` of its own (style.css paints every menu), as the code-note switcher
+           does for the same reason: a list of menu items that is not a menu. */
         background: none !important;
         box-shadow: none;
         min-width: 0;
+        padding: 0;
+
+        /* The card is the surface now, so the rows keep only what tells them apart from one another: the
+           dividers between them, and whatever a row is being pressed or read in. */
+        .attribute-row {
+            background: transparent;
+            border-radius: 0;
+        }
+    }
+
+    /* What separates the note's own names from the ones Trilium reads for itself, drawn between two lists
+       of rows: inset to the rows' own text rather than run to the card's edges, where it would read as
+       the end of the card. */
+    .attribute-rows-divider {
+        margin-inline: 1em;
     }
 
     .modal-dialog {
