@@ -9,7 +9,7 @@ Click the text that you want to copy the formatting from and use the paint forma
 
 *   **To copy the formatting**: Place the cursor inside text with some formatting and click the paint formatting toolbar button. The mouse cursor changes to indicate the painter is armed.
 *   **To paint with the copied formatting**: Select the target text with your mouse. The formatting is applied when you release the button, and the painter disarms — the cursor returns to normal.
-*   **To cancel without painting**: Click the toolbar button again or press <kbd spellcheck="false">Escape</kbd>.
+*   **To cancel without painting**: Click the toolbar button again or press <kbd>Escape</kbd>.
 
 ## Limitations
 

@@ -48,6 +48,20 @@ describe("promoted_attribute_definition_parser.parse", () => {
         expect(parse("precision")).toEqual({ numberPrecision: NaN });
     });
 
+    it("parses the select options, dropping blank entries and decoding the escapes", () => {
+        expect(parse("options=Todo;In progress;Done")).toEqual({
+            selectOptions: [ "Todo", "In progress", "Done" ]
+        });
+        // `%2C`/`%3B`/`%25` carry the characters the format claims for itself.
+        expect(parse("options=1%2C5 kg;a%3Bb;100%25")).toEqual({
+            selectOptions: [ "1,5 kg", "a;b", "100%" ]
+        });
+        // A blank entry offers nothing to pick; an empty or missing value means no options at all.
+        expect(parse("options=a;;b;")).toEqual({ selectOptions: [ "a", "b" ] });
+        expect(parse("options=")).toEqual({ selectOptions: [] });
+        expect(parse("options")).toEqual({ selectOptions: [] });
+    });
+
     it("parses the promoted alias verbatim, including spaces", () => {
         expect(parse("alias=My Label")).toEqual({ promotedAlias: "My Label" });
         expect(parse("alias=")).toEqual({ promotedAlias: "" });
@@ -130,6 +144,18 @@ describe("promoted_attribute_definition_parser.serialize", () => {
             .toBe("single,number,precision=0");
     });
 
+    it("writes the options only for a select with some, escaping the separators", () => {
+        expect(serialize({ labelType: "select", selectOptions: [ "Todo", "In progress" ] }, "label"))
+            .toBe("single,select,options=Todo;In progress");
+        // The characters the format claims for itself are escaped; everything else is verbatim.
+        expect(serialize({ labelType: "select", selectOptions: [ "1,5 kg", "a;b", "100%" ] }, "label"))
+            .toBe("single,select,options=1%2C5 kg;a%3Bb;100%25");
+        // No options, an empty list, or a non-select type all write no token.
+        expect(serialize({ labelType: "select" }, "label")).toBe("single,select");
+        expect(serialize({ labelType: "select", selectOptions: [] }, "label")).toBe("single,select");
+        expect(serialize({ labelType: "text", selectOptions: [ "a" ] }, "label")).toBe("single,text");
+    });
+
     it("writes the inverse relation for relations only, filtering invalid characters", () => {
         expect(serialize({ inverseRelation: "isChildOf" }, "relation"))
             .toBe("single,inverse=isChildOf");
@@ -149,6 +175,21 @@ describe("promoted_attribute_definition_parser round-trip", () => {
 
         const relationDefinition = "promoted,single,inverse=isChildOf";
         expect(serialize(parse(relationDefinition), "relation")).toBe(relationDefinition);
+    });
+
+    it("round-trips select options through the escaping, edge cases included", () => {
+        // Values that already look like escapes must survive a round trip unchanged.
+        for (const options of [
+            [ "Todo", "In progress", "Done" ],
+            [ "1,5 kg", "a;b", "100%" ],
+            [ "50%25", "%2C", "a%3Bb" ],
+            [ "C:\\Users\\bin", "a=b" ]
+        ]) {
+            const definition = { labelType: "select", selectOptions: options } as const;
+            expect(parse(serialize(definition, "label"))).toEqual({
+                labelType: "select", multiplicity: "single", selectOptions: options
+            });
+        }
     });
 
     it("parses a serialized definition back to the same object, for every label type", () => {

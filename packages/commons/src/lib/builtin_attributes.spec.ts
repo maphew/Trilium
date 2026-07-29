@@ -19,6 +19,29 @@ describe("BUILTIN_ATTRIBUTES", () => {
         }
     });
 
+    it("gives every closed set its choices, and nothing else choices to offer", () => {
+        const selectNames: string[] = [];
+
+        for (const attr of BUILTIN_ATTRIBUTES) {
+            if (attr.type !== "label") continue;
+
+            if (attr.valueType !== "select") {
+                expect(attr.selectOptions, `${attr.name} offers choices but is not a select`).toBeUndefined();
+                continue;
+            }
+
+            selectNames.push(attr.name);
+            const options = attr.selectOptions ?? [];
+            expect(options.length, `${attr.name} offers nothing to pick`).toBeGreaterThan(0);
+            // A blank is what an empty field already says, and a duplicate is two identical rows.
+            expect(new Set(options).size, `${attr.name} repeats an option`).toBe(options.length);
+            expect(options.filter((option) => option.trim() === ""), `${attr.name} offers a blank`).toEqual([]);
+        }
+
+        // Guards against the whole set being dropped, which would leave the loop above vacuous.
+        expect(selectNames).toContain("sortDirection");
+    });
+
     it("marks a value as user-authored only where a value exists to author", () => {
         // Relations always point at a note ID, so `hasUserValue` would be meaningless on one.
         const flaggedRelations = BUILTIN_ATTRIBUTES

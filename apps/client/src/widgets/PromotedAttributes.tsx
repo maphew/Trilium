@@ -180,6 +180,20 @@ function LabelInput(props: CellProps & { inputId: string }) {
         (value: string) => updateAttribute(note, cell, componentId, value, setCells),
         [ cell, componentId, note, setCells ]);
 
+    // An option created straight from the field is added to the definition — on whichever note owns
+    // it, typically a parent or template — so every note sharing the field offers it from now on.
+    const createOption = useCallback(async (option: string) => {
+        const newDefinition = await attributes.addSelectOption(definitionAttr, option, componentId);
+        // The grid ignores reloads it is itself the source of (see usePromotedAttributeData), so the
+        // cells sharing the definition are patched in place, as updateAttribute does for a value —
+        // otherwise the list keeps offering the old options until something else changes.
+        setCells(prev => prev?.map(c =>
+            c.definitionAttr.attributeId === definitionAttr.attributeId
+                ? { ...c, definition: newDefinition }
+                : c
+        ));
+    }, [ definitionAttr, componentId, setCells ]);
+
     useTextLabelAutocomplete(inputId, valueAttr, definition, (e) => {
         if (e.currentTarget instanceof HTMLInputElement) {
             setDraft(e.currentTarget.value);
@@ -199,6 +213,8 @@ function LabelInput(props: CellProps & { inputId: string }) {
             onCommit={commit}
             commitOn="blur"
             numberPrecision={definition.numberPrecision}
+            selectOptions={definition.selectOptions}
+            onCreateOption={labelType === "select" ? createOption : undefined}
             inputProps={{
                 className: "form-control promoted-attribute-input",
                 tabIndex: 200 + definitionAttr.position,

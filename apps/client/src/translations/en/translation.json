@@ -544,6 +544,13 @@
     "date_time": "Date & Time",
     "time": "Time",
     "url": "URL",
+    "email": "Email",
+    "phone": "Phone",
+    "select_type": "Select",
+    "select_options": "Options",
+    "select_options_title": "The options the field offers, in this order.",
+    "add_option": "Add option",
+    "remove_option": "Remove this option",
     "precision_title": "Max number of decimal places.",
     "precision": "Precision",
     "digits": "digits",
@@ -1321,11 +1328,17 @@
     "unset-field-placeholder": "not set",
     "url_placeholder": "http://website...",
     "open_external_link": "Open external link",
+    "send_email": "Send an email to this address",
+    "call_phone": "Call this number",
+    "create_option": "Create \"{{- option}}\"",
     "unknown_label_type": "Unknown label type '{{type}}'",
     "unknown_attribute_type": "Unknown attribute type '{{type}}'",
     "add_new_attribute": "Add new attribute",
     "remove_this_attribute": "Remove this attribute",
-    "remove_color": "Remove the color label"
+    "remove_color": "Remove the color label",
+    "remove_value": "Remove this value",
+    "select_values_placeholder": "Select an option or create one",
+    "values_placeholder": "Type a value and press Enter"
   },
   "script_executor": {
     "query": "Query",
@@ -2971,7 +2984,8 @@
     "add-column-placeholder": "Enter column name...",
     "edit-note-title": "Click to edit note title",
     "edit-column-title": "Click to edit column title",
-    "column-already-exists": "This column already exists on the board."
+    "column-already-exists": "This column already exists on the board.",
+    "column-definition-save-error": "The columns were saved on the board, but could not be saved to the status attribute."
   },
   "dashboard_view": {
     "refresh-widget": "Refresh",

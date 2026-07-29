@@ -1,5 +1,6 @@
-import { AttributeType, BUILTIN_ATTRIBUTES, type LabelType } from "@triliumnext/commons";
+import { AttributeType, BUILTIN_ATTRIBUTES, type BuiltinLabel, type DefinitionObject, type LabelType, promotedAttributeDefinitionParser } from "@triliumnext/commons";
 
+import type FAttribute from "../entities/fattribute.js";
 import type FNote from "../entities/fnote.js";
 import froca from "./froca.js";
 import type { AttributeRow } from "./load_results.js";
@@ -106,6 +107,68 @@ function removeOwnedRelationByName(note: FNote, relationName: string) {
         return true;
     }
     return false;
+}
+
+/**
+ * Sets the labels of one name on a note to exactly `values`, for a field holding a set of them.
+ *
+ * The labels already there are reused in order, so taking a value out of the middle of a set renames
+ * the ones after it rather than deleting and recreating the lot — which keeps their positions, and
+ * with them the order the set reads in. Only owned labels are touched: an inherited one belongs to
+ * the note it is written on.
+ */
+export async function setLabelValues(note: FNote, name: string, values: string[], componentId?: string) {
+    const existing = note.getOwnedLabels(name);
+
+    for (const [ index, value ] of values.entries()) {
+        const attributeId = existing[index]?.attributeId;
+        if (existing[index]?.value === value) {
+            continue;
+        }
+        await server.put(
+            `notes/${note.noteId}/attribute`,
+            { attributeId, type: "label", name, value },
+            componentId
+        );
+    }
+
+    // Whatever the new set did not fill is no longer held.
+    for (const spare of existing.slice(values.length)) {
+        await server.remove(`notes/${note.noteId}/attributes/${spare.attributeId}`, componentId);
+    }
+}
+
+/**
+ * Adds an option to a `select` definition, for a field offering to create the choice being typed
+ * into it.
+ *
+ * Written back to the very attribute the definition was read from — which is to say to whichever
+ * note owns it, typically a parent or a template, rather than to the note being edited — so that
+ * every note the field reaches offers the new option from now on.
+ *
+ * @param definitionAttr the `label:foo` attribute declaring the field.
+ * @param option the option to add; already offered, it is left as it stands.
+ * @returns the definition as it now reads, for a caller holding a parsed copy of its own.
+ */
+export async function addSelectOption(definitionAttr: FAttribute, option: string, componentId?: string) {
+    const definition = definitionAttr.getDefinition();
+    const options = definition.selectOptions ?? [];
+    if (options.includes(option)) {
+        return definition;
+    }
+
+    const newDefinition: DefinitionObject = { ...definition, selectOptions: [ ...options, option ] };
+    await server.put(
+        `notes/${definitionAttr.noteId}/attribute`,
+        {
+            attributeId: definitionAttr.attributeId,
+            type: "label",
+            name: definitionAttr.name,
+            value: promotedAttributeDefinitionParser.serialize(newDefinition, "label")
+        },
+        componentId
+    );
+    return newDefinition;
 }
 
 /**
@@ -235,11 +298,22 @@ const BUILTIN_ATTRIBUTE_KEYS = new Set(BUILTIN_ATTRIBUTES.map(({ type, name }) =
  * carries a definition string rather than a value of the type it describes.
  */
 export function getBuiltinLabelValueType(name: string): LabelType | undefined {
-    return BUILTIN_LABEL_VALUE_TYPES.get(name);
+    return BUILTIN_LABELS.get(name)?.valueType;
 }
 
-const BUILTIN_LABEL_VALUE_TYPES = new Map<string, LabelType>(
-    BUILTIN_ATTRIBUTES.flatMap((attr) => attr.type === "label" ? [ [ attr.name, attr.valueType ] as const ] : [])
+/**
+ * The values a built-in label of the `select` type accepts, or `undefined` for every other name —
+ * whether it is a label of another type or none of Trilium's at all.
+ *
+ * The list is what to *offer*, not what to allow: a value outside it is kept and shown, since the sets
+ * grow between versions and a note may have been written by a newer one.
+ */
+export function getBuiltinLabelSelectOptions(name: string): readonly string[] | undefined {
+    return BUILTIN_LABELS.get(name)?.selectOptions;
+}
+
+const BUILTIN_LABELS = new Map<string, BuiltinLabel>(
+    BUILTIN_ATTRIBUTES.flatMap((attr) => attr.type === "label" ? [ [ attr.name, attr ] as const ] : [])
 );
 
 export default {
@@ -247,6 +321,8 @@ export default {
     setLabel,
     setRelation,
     setAttribute,
+    setLabelValues,
+    addSelectOption,
     setBooleanWithInheritance,
     removeAttributeById,
     removeOwnedLabelByName,

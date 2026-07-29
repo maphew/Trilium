@@ -10,20 +10,12 @@ import { type LabelType } from "./promoted_attribute_definition_parser.js";
  */
 
 /**
- * A label, i.e. an attribute carrying a value.
+ * What every label carries regardless of the kind of value it holds; see {@link BuiltinLabel}, which
+ * pairs this with the value type and whatever that type needs alongside it.
  */
-export interface BuiltinLabel {
+interface BuiltinLabelCommon {
     type: "label";
     name: string;
-    /**
-     * What kind of value the label holds. Not enforced at runtime — attribute values are always stored
-     * as strings — but it types the `useNoteLabel*` hooks via {@link FilterLabelsByType}, and tells the
-     * attribute editor which field to offer.
-     *
-     * Deliberately the same vocabulary a promoted attribute definition declares, rather than one of its
-     * own: a system label and a user's promoted field describe the same thing when they say `color`.
-     */
-    valueType: LabelType;
     /**
      * Whether the attribute executes or embeds content, and so must be neutralised on import.
      * Dangerous attributes can be deactivated by prefixing them with `disabled:`, which is where the
@@ -37,6 +29,40 @@ export interface BuiltinLabel {
      */
     hasUserValue?: boolean;
 }
+
+/**
+ * A label, i.e. an attribute carrying a value.
+ *
+ * The `valueType` says what kind of value it holds. Not enforced at runtime — attribute values are
+ * always stored as strings — but it types the `useNoteLabel*` hooks via {@link FilterLabelsByType},
+ * and tells the attribute editor which field to offer.
+ *
+ * Deliberately the same vocabulary a promoted attribute definition declares, rather than one of its
+ * own: a system label and a user's promoted field describe the same thing when they say `color`.
+ *
+ * Written as a union rather than as one shape with an optional list, so that the two halves of a
+ * `select` cannot come apart: a closed set must name its choices, and a label of any other type
+ * cannot carry choices that nothing would ever offer.
+ */
+export type BuiltinLabel = BuiltinLabelCommon & (
+    | {
+        valueType: "select";
+        /**
+         * The values the label accepts, in the order they are offered — the *stored* spellings, not
+         * display names, since that is what the attribute editor writes and what the code reading
+         * the label compares against.
+         *
+         * A value outside this list is still shown rather than dropped: the editor appends whatever
+         * the note holds to the list it offers, so a label written by a newer version, by a script or
+         * by hand survives being looked at.
+         */
+        selectOptions: readonly string[];
+    }
+    | {
+        valueType: Exclude<LabelType, "select">;
+        selectOptions?: never;
+    }
+);
 
 /**
  * A relation, i.e. an attribute pointing at a note. Its value is always a note ID, so it needs neither
@@ -59,7 +85,10 @@ const BUILTIN_ATTRIBUTES = [
     { type: "label", name: "disableInclusion", valueType: "boolean" },
     { type: "label", name: "appCss", valueType: "boolean" },
     { type: "label", name: "appTheme", valueType: "text" },
-    { type: "label", name: "appThemeBase", valueType: "text" },
+    // The stock theme a custom one is layered over; `next` follows the colour scheme in use.
+    { type: "label", name: "appThemeBase", valueType: "select", selectOptions: [
+        "next", "next-light", "next-dark"
+    ] },
     { type: "label", name: "hidePromotedAttributes", valueType: "boolean" },
     { type: "label", name: "readOnly", valueType: "boolean" },
     { type: "label", name: "autoReadOnlyDisabled", valueType: "boolean" },
@@ -98,7 +127,9 @@ const BUILTIN_ATTRIBUTES = [
     { type: "label", name: "quarterNote", valueType: "text", hasUserValue: true },
     { type: "label", name: "yearNote", valueType: "text", hasUserValue: true },
     { type: "label", name: "pageSize", valueType: "number" },
-    { type: "label", name: "viewType", valueType: "text" },
+    { type: "label", name: "viewType", valueType: "select", selectOptions: [
+        "list", "grid", "calendar", "table", "geoMap", "board", "presentation", "dashboard"
+    ] },
     { type: "label", name: "mapRootNoteId", valueType: "text" },
     { type: "label", name: "mapExcludeRelation", valueType: "text" },
     { type: "label", name: "mapIncludeRelation", valueType: "text" },
@@ -106,7 +137,7 @@ const BUILTIN_ATTRIBUTES = [
     { type: "label", name: "excludeFromNoteMap", valueType: "boolean" },
     { type: "label", name: "bookmarkFolder", valueType: "boolean" },
     { type: "label", name: "sorted", valueType: "boolean" },
-    { type: "label", name: "sortDirection", valueType: "text" },
+    { type: "label", name: "sortDirection", valueType: "select", selectOptions: [ "asc", "desc" ] },
     { type: "label", name: "sortFoldersFirst", valueType: "boolean" },
     { type: "label", name: "sortNatural", valueType: "boolean" },
     { type: "label", name: "sortLocale", valueType: "text" },
@@ -137,7 +168,11 @@ const BUILTIN_ATTRIBUTES = [
     { type: "label", name: "shareDisallowRobotIndexing", valueType: "boolean" },
     { type: "label", name: "shareCredentials", valueType: "text", hasUserValue: true },
     { type: "label", name: "shareIndex", valueType: "boolean" },
-    { type: "label", name: "shareHtmlLocation", valueType: "text" },
+    // Where a `~shareHtml` snippet is injected into the shared page. A bare `head`/`body`/`content` is
+    // read as its `:end`, but the full spellings are what the theme documents and what is offered.
+    { type: "label", name: "shareHtmlLocation", valueType: "select", selectOptions: [
+        "head:start", "head:end", "body:start", "body:end", "content:start", "content:end"
+    ] },
 
     // Attributes & scripting
     { type: "label", name: "displayRelations", valueType: "text" },
@@ -148,7 +183,8 @@ const BUILTIN_ATTRIBUTES = [
     { type: "label", name: "snippetDescription", valueType: "text", hasUserValue: true },
     { type: "label", name: "textSnippet", valueType: "boolean" },
     { type: "label", name: "textSnippetDescription", valueType: "text", hasUserValue: true },
-    { type: "label", name: "toc", valueType: "text" },
+    // Forces the table of contents open or shut; without the label the heading count decides.
+    { type: "label", name: "toc", valueType: "select", selectOptions: [ "show", "hide" ] },
     { type: "label", name: "color", valueType: "color" },
     { type: "label", name: "keepCurrentHoisting", valueType: "boolean" },
     { type: "label", name: "executeButton", valueType: "boolean" },
@@ -156,10 +192,15 @@ const BUILTIN_ATTRIBUTES = [
     { type: "label", name: "executeTitle", valueType: "text", hasUserValue: true },
     { type: "label", name: "newNotesOnTop", valueType: "boolean" },
     { type: "label", name: "clipperInbox", valueType: "boolean" },
-    { type: "label", name: "clipType", valueType: "text" },
+    // Stamped by the web clipper on what it saves, recording which of its actions produced the note.
+    { type: "label", name: "clipType", valueType: "select", selectOptions: [
+        "clippings", "page", "note", "tabs"
+    ] },
     { type: "label", name: "sentFromSender", valueType: "boolean" },
     { type: "label", name: "hideChildrenOverview", valueType: "boolean" },
-    { type: "label", name: "mediaNotesPlayMode", valueType: "text" },
+    // Set on the folder, for its media children. "Play once" is the absence of the label, so it is not
+    // among the choices: leaving the field empty is what says it.
+    { type: "label", name: "mediaNotesPlayMode", valueType: "select", selectOptions: [ "loop", "next" ] },
     { type: "label", name: "collection", valueType: "boolean" },
     { type: "label", name: "webViewSrc", valueType: "url", isDangerous: true },
     { type: "label", name: "hideHighlightWidget", valueType: "boolean" },
@@ -170,21 +211,34 @@ const BUILTIN_ATTRIBUTES = [
     { type: "label", name: "originalFileName", valueType: "text", hasUserValue: true },
     { type: "label", name: "pageUrl", valueType: "url", hasUserValue: true },
     { type: "label", name: "command", valueType: "text", hasUserValue: true },
-    { type: "label", name: "displayMode", valueType: "text", hasUserValue: true },
+    // Which half of the split editor a code-like note opens on; without it the read-only state decides.
+    { type: "label", name: "displayMode", valueType: "select", hasUserValue: true, selectOptions: [
+        "source", "split", "preview"
+    ] },
 
     // Search
     { type: "label", name: "searchString", valueType: "text", hasUserValue: true },
     { type: "label", name: "ancestorDepth", valueType: "text", hasUserValue: true },
     { type: "label", name: "orderBy", valueType: "text", hasUserValue: true },
-    { type: "label", name: "orderDirection", valueType: "text", hasUserValue: true },
+    { type: "label", name: "orderDirection", valueType: "select", hasUserValue: true, selectOptions: [
+        "asc", "desc"
+    ] },
     { type: "label", name: "limit", valueType: "text", hasUserValue: true },
     { type: "label", name: "fastSearch", valueType: "boolean" },
     { type: "label", name: "includeArchivedNotes", valueType: "boolean" },
     { type: "label", name: "debug", valueType: "boolean" },
 
     // Launch bar, and the hidden subtree items that back it
-    { type: "label", name: "launcherType", valueType: "text" },
-    { type: "label", name: "builtinWidget", valueType: "text" },
+    { type: "label", name: "launcherType", valueType: "select", selectOptions: [
+        "command", "note", "script", "builtinWidget", "customWidget"
+    ] },
+    // Only read when the launcher is of the `builtinWidget` type above; each names a widget the
+    // launch bar knows how to build.
+    { type: "label", name: "builtinWidget", valueType: "select", selectOptions: [
+        "calendar", "spacer", "bookmarks", "protectedSession", "syncStatus", "backInHistoryButton",
+        "forwardInHistoryButton", "todayInJournal", "quickSearch", "mobileTabSwitcher", "sidebarChat",
+        "colorSchemeSwitcher"
+    ] },
     // Dangerous together with `~script` below: it makes the launcher run its own content instead, so
     // neutralising only the relation would leave this as a way around it.
     { type: "label", name: "scriptInLauncherContent", valueType: "boolean", isDangerous: true },
@@ -210,7 +264,10 @@ const BUILTIN_ATTRIBUTES = [
     { type: "label", name: "isHidden", valueType: "boolean" },
     { type: "label", name: "maxNestingDepth", valueType: "number", hasUserValue: true },
     { type: "label", name: "includeArchived", valueType: "boolean", hasUserValue: true },
-    { type: "label", name: "calendar:view", valueType: "text", hasUserValue: true },
+    // FullCalendar's own view names, which is what the calendar hands back when the view is switched.
+    { type: "label", name: "calendar:view", valueType: "select", hasUserValue: true, selectOptions: [
+        "timeGridDay", "timeGridWeek", "dayGridMonth", "multiMonthYear", "listMonth"
+    ] },
     { type: "label", name: "calendar:initialDate", valueType: "date", hasUserValue: true },
     { type: "label", name: "calendar:hideWeekends", valueType: "boolean", hasUserValue: true },
     { type: "label", name: "calendar:weekNumbers", valueType: "boolean", hasUserValue: true },
@@ -230,11 +287,18 @@ const BUILTIN_ATTRIBUTES = [
     { type: "label", name: "endTime", valueType: "time", hasUserValue: true },
     { type: "label", name: "recurrence", valueType: "text", hasUserValue: true },
     { type: "label", name: "geolocation", valueType: "text", hasUserValue: true },
-    { type: "label", name: "mapType", valueType: "text", hasUserValue: true },
+    // Which note map a note map note draws; anything but `tree` is read as `link`.
+    { type: "label", name: "mapType", valueType: "select", hasUserValue: true, selectOptions: [
+        "link", "tree"
+    ] },
     { type: "label", name: "map:style", valueType: "text", hasUserValue: true },
     { type: "label", name: "map:scale", valueType: "boolean", hasUserValue: true },
     { type: "label", name: "map:hideLabels", valueType: "boolean", hasUserValue: true },
-    { type: "label", name: "presentation:theme", valueType: "text", hasUserValue: true },
+    // Reveal.js' own stock themes, which is what the presentation bundles; anything else falls back
+    // to `white`.
+    { type: "label", name: "presentation:theme", valueType: "select", hasUserValue: true, selectOptions: [
+        "black", "white", "beige", "serif", "simple", "solarized", "moon", "dracula", "sky", "blood"
+    ] },
     { type: "label", name: "slide:background", valueType: "text", hasUserValue: true },
 
     // Code notes
@@ -244,7 +308,9 @@ const BUILTIN_ATTRIBUTES = [
 
     // Printing
     { type: "label", name: "printLandscape", valueType: "boolean" },
-    { type: "label", name: "printPageSize", valueType: "text" },
+    { type: "label", name: "printPageSize", valueType: "select", selectOptions: [
+        "A0", "A1", "A2", "A3", "A4", "A5", "A6", "Legal", "Letter", "Tabloid", "Ledger"
+    ] },
     { type: "label", name: "printScale", valueType: "text" },
     { type: "label", name: "printMargins", valueType: "text" },
     { type: "label", name: "internalBookmark", valueType: "boolean" },

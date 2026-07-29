@@ -71,7 +71,7 @@ describe("collection properties", () => {
     ]);
 
     describe("parseObject — property values", () => {
-        it("maps supported property values to labels, schemes email/phone with mailto:/tel:", () => {
+        it("maps supported property values to labels, keeping email/phone as bare addresses", () => {
             const details = {
                 id: "obj",
                 name: "Row",
@@ -93,8 +93,8 @@ describe("collection properties", () => {
                 { name: "dateTime", value: localDate(1782461208, true) },
                 { name: "checkbox", value: "true" },
                 { name: "url", value: "https://triliumnotes.org" },
-                { name: "email", value: "mailto:contact@acme.com" },
-                { name: "phone", value: "tel:12345" }
+                { name: "email", value: "contact@acme.com" },
+                { name: "phone", value: "12345" }
             ]);
         });
 
@@ -131,16 +131,16 @@ describe("collection properties", () => {
             expect(result.properties).toEqual([]);
         });
 
-        it("ignores system relations (non-hex keys), unset values and an existing scheme", () => {
+        it("ignores system relations (non-hex keys) and unset values, and strips a scheme an email carries", () => {
             const details = {
                 id: "obj",
                 name: "Named", // the title, not a property
                 description: "a system longtext", // system relation, non-hex key → not a property
                 "6a3e335dcafa6953a4661c74": "", // unset url → skipped
-                "6a3e336dcafa6953a4661c75": "mailto:already@scheme.com" // keeps its existing scheme
+                "6a3e336dcafa6953a4661c75": "mailto:already@scheme.com" // scheme stripped to the bare address
             };
             const result = parseObject(snapshot([{ id: "obj", childrenIds: [] }], details), undefined, rels);
-            expect(result.properties).toEqual([{ name: "email", value: "mailto:already@scheme.com" }]);
+            expect(result.properties).toEqual([{ name: "email", value: "already@scheme.com" }]);
         });
 
         it("returns no properties when no relation map is supplied", () => {
@@ -353,7 +353,7 @@ describe("collection properties", () => {
             const m2 = { id: "m2", "6a3e336dcafa6953a4661c75": "a@b.com", "6a3e335dcafa6953a4661c74": "https://y" }; // Email + URL (already seen)
             expect(synthesizeColumns([m1, m2], rels)).toEqual([
                 { name: "url", labelType: "url", alias: "URL", multiplicity: "single" },
-                { name: "email", labelType: "url", alias: "Email", multiplicity: "single" }
+                { name: "email", labelType: "email", alias: "Email", multiplicity: "single" }
             ]);
         });
     });

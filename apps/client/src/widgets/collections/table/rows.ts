@@ -7,7 +7,7 @@ export type TableData = {
     iconClass: string;
     noteId: string;
     title: string;
-    labels: Record<string, boolean | string | null>;
+    labels: Record<string, boolean | string | string[] | null>;
     relations: Record<string, boolean | string | null>;
     branchId: string;
     colorClass: string | undefined;
@@ -33,9 +33,13 @@ export async function buildRowDefinitions(parentNote: FNote, infos: AttributeDef
 
         const labels: typeof definitions[0]["labels"] = {};
         const relations: typeof definitions[0]["relations"] = {};
-        for (const { name, type } of infos) {
+        for (const { name, type, isMulti } of infos) {
             if (type === "relation") {
                 relations[name] = note.getRelationValue(name);
+            } else if (isMulti) {
+                // Every label of the name rather than the first, blanks dropped: the cell holds the
+                // set, and an empty one is a value the field never offered.
+                labels[name] = note.getLabels(name).map((label) => label.value).filter(Boolean);
             } else {
                 labels[name] = note.getLabelValue(name);
             }
@@ -71,15 +75,11 @@ export async function buildRowDefinitions(parentNote: FNote, infos: AttributeDef
 
 export default function getAttributeDefinitionInformation(parentNote: FNote) {
     const info: AttributeDefinitionInformation[] = [];
-    const attrDefs = parentNote.getAttributes()
-        .filter(attr => attr.isDefinition());
+    // Nearest-wins, so a collection redefining an inherited field is described by its own definition
+    // rather than by whichever of the two the scan happened to reach first.
+    const attrDefs = parentNote.getAttributeDefinitions();
     for (const attrDef of attrDefs) {
         const def = attrDef.getDefinition();
-        if (def.multiplicity !== "single") {
-            console.warn("Multiple values are not supported for now");
-            continue;
-        }
-
         const [ attrType, name ] = extractAttributeDefinitionTypeAndName(attrDef.name);
         if (attrDef.type !== "label") {
             console.warn("Relations are not supported for now");
@@ -91,11 +91,28 @@ export default function getAttributeDefinitionInformation(parentNote: FNote) {
             type = "relation";
         }
 
+        const isMulti = def.multiplicity === "multi" && MULTI_VALUE_TYPES.has(type);
+
         info.push({
             name,
             title: def.promotedAlias,
-            type
+            type,
+            options: def.selectOptions,
+            isMulti
         });
     }
     return info;
 }
+
+/**
+ * The types a column can hold several values of, shown and edited as chips: every kind of label a
+ * note can carry, since a note can carry any of them more than once and the table has no business
+ * showing fewer than it holds.
+ *
+ * Only a relation is left out, its values being notes rather than text — a column of them is still
+ * a column of one.
+ */
+const MULTI_VALUE_TYPES = new Set<LabelType | "relation">([
+    "text", "textarea", "number", "boolean", "select", "date", "datetime", "time", "url", "email",
+    "phone", "color"
+]);

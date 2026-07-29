@@ -712,15 +712,16 @@ describe("Anytype importer — integration", () => {
         // Each visible column is a single-valued promoted definition, in the view's order.
         expect(collection.getOwnedAttributes().filter((a) => a.name.startsWith("label:")).map((a) => a.name)).toEqual(["label:url", "label:email"]);
         expect(collection.getOwnedLabelValue("label:url")).toBe("promoted,single,url,alias=URL");
-        expect(collection.getOwnedLabelValue("label:email")).toBe("promoted,single,url,alias=Email");
+        expect(collection.getOwnedLabelValue("label:email")).toBe("promoted,single,email,alias=Email");
 
-        // Members are the table rows, carrying their own values; email gets a clickable mailto: scheme.
+        // Members are the table rows, carrying their own values; an email is stored bare, which is what
+        // the typed input holds.
         const rows = collection.getChildNotes();
         expect(rows.map((n) => n.title).sort()).toEqual(["Untitled", "Untitled"]);
         const byUrl = rows.find((n) => n.getOwnedLabelValue("url"));
         const byEmail = rows.find((n) => n.getOwnedLabelValue("email"));
         expect(byUrl?.getOwnedLabelValue("url")).toBe("https://triliumnotes.org");
-        expect(byEmail?.getOwnedLabelValue("email")).toBe("mailto:contact@acme.com");
+        expect(byEmail?.getOwnedLabelValue("email")).toBe("contact@acme.com");
     });
 
     it("maps each Anytype view layout to the matching Trilium collection view type", async () => {

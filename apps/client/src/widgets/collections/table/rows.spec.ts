@@ -23,4 +23,27 @@ describe("getAttributeDefinitionInformation", () => {
             { name: "_TEST:TEST:TEST:Test1", type: "text" }
         ]);
     });
+
+    it("holds several values of every kind of label, a relation excepted", async () => {
+        const note = buildNote({
+            title: "Note 1",
+            "#label:tags(inheritable)": "promoted,multi,text",
+            "#label:due(inheritable)": "promoted,multi,date",
+            "#label:site(inheritable)": "promoted,multi,url",
+            "#label:status(inheritable)": "promoted,multi,select,options=Todo;Done",
+            "#label:tint(inheritable)": "promoted,multi,color",
+            "#label:done(inheritable)": "promoted,multi,boolean",
+            "#label:owner(inheritable)": "promoted,single,text"
+        });
+
+        expect(getAttributeDefinitionInformation(note)).toMatchObject([
+            { name: "tags", type: "text", isMulti: true },
+            { name: "due", type: "date", isMulti: true },
+            { name: "site", type: "url", isMulti: true },
+            { name: "status", type: "select", isMulti: true },
+            { name: "tint", type: "color", isMulti: true },
+            { name: "done", type: "boolean", isMulti: true },
+            { name: "owner", type: "text", isMulti: false }
+        ]);
+    });
 });

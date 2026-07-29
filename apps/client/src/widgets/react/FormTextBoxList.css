@@ -1,0 +1,41 @@
+/*
+ * Laid out as chips rather than as a stack of fields: an option is one short word, so a full-width
+ * boxed input per entry spends a whole row of the form on it and lists ten of them down the page.
+ * A wrapping run of chips fits several to a line and shows the set as the set it is.
+ *
+ * The chip itself is the shared one (see Chip.css); what belongs here is what makes this chip's
+ * contents a field one types into rather than text one reads.
+ */
+.form-textbox-list {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px;
+
+    .form-textbox-list-row > input {
+        /* `form-control` is full-width by default; a chip is as wide as the word it holds. */
+        width: auto;
+        field-sizing: content;
+        /* Also the width where `field-sizing` is not supported, the `size` attribute standing
+           in for it there — see the component. */
+        min-width: 4ch;
+        /* The same ceiling the `size` attribute is capped at, so a long option scrolls inside
+           its chip either way instead of taking a line to itself. */
+        max-width: 30ch;
+        padding: 3px 0;
+        border: none;
+        outline: none;
+        font-size: inherit;
+
+        &,
+        &:hover,
+        &:focus {
+            background: transparent;
+        }
+    }
+
+    /* Last in the run rather than under it, so adding reads as extending the set in place. */
+    .form-textbox-list-add {
+        flex-shrink: 0;
+    }
+}
