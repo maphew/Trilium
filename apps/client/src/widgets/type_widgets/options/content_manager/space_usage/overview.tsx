@@ -1,5 +1,5 @@
 import type { SpaceUsageOverviewResponse } from "@triliumnext/commons";
-import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useState } from "preact/hooks";
 
 import froca from "../../../../../services/froca";
 import { t } from "../../../../../services/i18n";
@@ -14,7 +14,6 @@ import {
     type ShowDetailsHandler
 } from "./context_menu";
 import { bucketWeight, buildOverviewModel, type OverviewCell } from "./overview_model";
-import RevisionLimitDialog from "./revision_limit_dialog";
 
 /**
  * A cell's area covers a note's body and attachments, leaving history out; its tooltip says the
@@ -34,9 +33,6 @@ interface OverviewProps {
 /** The treemap over the whole database: every large note at its tree location. */
 export default function Overview({ overview, onShowDetails, onContentChanged }: OverviewProps) {
     const icons = useNoteIcons(overview);
-    // Only ever raised by the revisions cell, when there is no snapshot limit for it to trim to.
-    const [ configuringRevisionLimit, setConfiguringRevisionLimit ] = useState(false);
-    const configureRevisionLimit = useCallback(() => setConfiguringRevisionLimit(true), []);
 
     // The labels are formatted here rather than in the model, which stays free of i18n: a bucket
     // stands for a crowd, so its tooltip names how many notes it holds and how much they take.
@@ -82,18 +78,13 @@ export default function Overview({ overview, onShowDetails, onContentChanged }: 
                     }
 
                     if (item.data?.bucket === "revisions") {
-                        void openRevisionsContextMenu(event, onContentChanged, configureRevisionLimit);
+                        void openRevisionsContextMenu(event, onContentChanged);
                         return;
                     }
 
                     withCellPath(item, (notePath) =>
                         void openSpaceUsageContextMenu(event, notePath, onShowDetails, onContentChanged));
                 }}
-            />
-
-            <RevisionLimitDialog
-                show={configuringRevisionLimit}
-                onHidden={() => setConfiguringRevisionLimit(false)}
             />
         </div>
     );

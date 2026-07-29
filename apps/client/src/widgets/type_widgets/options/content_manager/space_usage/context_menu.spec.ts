@@ -22,7 +22,8 @@ const mocks = vi.hoisted(() => ({
     post: vi.fn(async (..._args: unknown[]) => undefined),
     showMessage: vi.fn(),
     revisionLimit: 0 as number | null,
-    configureLimit: vi.fn()
+    // Answers like the real one: true when the user accepts the box, false when they dismiss it.
+    confirm: vi.fn(async (..._args: unknown[]) => true)
 }));
 
 vi.mock("../../../../../menus/context_menu", () => ({
@@ -59,6 +60,10 @@ vi.mock("../../../../../services/toast", () => ({
 
 vi.mock("../../../../../services/options", () => ({
     default: { getInt: () => mocks.revisionLimit }
+}));
+
+vi.mock("../../../../../services/dialog", () => ({
+    default: { confirm: (...args: unknown[]) => mocks.confirm(...args) }
 }));
 
 vi.mock("../../../../../components/app_context", () => ({
@@ -248,7 +253,7 @@ describe("openDeletedNotesContextMenu", () => {
 describe("openRevisionsContextMenu", () => {
     async function openRevisionsFor(revisionLimit: number | null) {
         mocks.revisionLimit = revisionLimit;
-        await openRevisionsContextMenu(contextMenuEvent(), mocks.contentChanged, mocks.configureLimit);
+        await openRevisionsContextMenu(contextMenuEvent(), mocks.contentChanged);
     }
 
     it("trims the excess snapshots and asks for a fresh reading, once a limit is set", async () => {
@@ -258,7 +263,7 @@ describe("openRevisionsContextMenu", () => {
 
         invoke(ERASE);
         expect(mocks.post).toHaveBeenCalledWith("revisions/erase-all-excess-revisions");
-        expect(mocks.configureLimit).not.toHaveBeenCalled();
+        expect(mocks.triggerCommand).not.toHaveBeenCalled();
 
         await vi.waitFor(() => expect(mocks.contentChanged).toHaveBeenCalledTimes(1));
         expect(mocks.showMessage).toHaveBeenCalled();
@@ -268,20 +273,52 @@ describe("openRevisionsContextMenu", () => {
         await openRevisionsFor(0);
         invoke(ERASE);
         expect(mocks.post).toHaveBeenCalledTimes(2);
-        expect(mocks.configureLimit).not.toHaveBeenCalled();
+        expect(mocks.triggerCommand).not.toHaveBeenCalled();
     });
 
-    it("offers the limit instead of an erasure that would drop nothing, when there is none", async () => {
+    it("lands on the limit field itself, cursor in it, once the settings page has rendered", async () => {
+        // Rendered late on purpose: the page comes up after the command asking for it, which is
+        // what the reveal has to wait out.
+        const field = document.createElement("input");
+        field.name = "revision-snapshot-number-limit";
+        field.scrollIntoView = vi.fn();
+        setTimeout(() => document.body.appendChild(field), 60);
+
+        await openRevisionsFor(-1);
+        invoke(ERASE);
+
+        await vi.waitFor(() => expect(document.activeElement).toBe(field));
+        expect(field.scrollIntoView).toHaveBeenCalled();
+
+        field.remove();
+    });
+
+    it("offers the limit setting instead of an erasure that would drop nothing, when there is none", async () => {
         // A negative limit keeps everything, so there is no ceiling to trim down to and the erasure
         // would report success having changed nothing. An unreadable option counts as no limit
         // rather than as the harshest one, which would erase every snapshot in the database.
         for (const noLimit of [ -1, null ]) {
             await openRevisionsFor(noLimit);
             invoke(ERASE);
+            await vi.waitFor(() => expect(mocks.confirm).toHaveBeenCalled());
         }
 
-        expect(mocks.configureLimit).toHaveBeenCalledTimes(2);
         expect(mocks.post).not.toHaveBeenCalled();
         expect(mocks.contentChanged).not.toHaveBeenCalled();
+        // Accepted: lands on the card holding the limit, in the settings dialog already open.
+        expect(mocks.triggerCommand)
+            .toHaveBeenCalledWith("showOptions", { section: "_optionsOther" });
+    });
+
+    it("leaves the map where it is when the box is dismissed", async () => {
+        mocks.confirm.mockResolvedValueOnce(false);
+        await openRevisionsFor(-1);
+
+        invoke(ERASE);
+        await vi.waitFor(() => expect(mocks.confirm).toHaveBeenCalledTimes(1));
+
+        // Nothing erased and nowhere else to be: someone who backs out of the box stays on the map.
+        expect(mocks.triggerCommand).not.toHaveBeenCalled();
+        expect(mocks.post).not.toHaveBeenCalled();
     });
 });

@@ -5,6 +5,7 @@ import contextMenu, {
     type MenuItem
 } from "../../../../../menus/context_menu";
 import branches from "../../../../../services/branches";
+import dialog from "../../../../../services/dialog";
 import froca from "../../../../../services/froca";
 import { t } from "../../../../../services/i18n";
 import { downloadFileNote } from "../../../../../services/open";
@@ -171,13 +172,12 @@ export async function openDeletedNotesContextMenu(
  * snapshots each note keeps beyond its limit.
  *
  * Without a limit set, nothing is excess and the action would do nothing at all — so it says why and
- * offers the setting, via `onConfigureLimit`, rather than answering with an erasure that changes
- * nothing.
+ * shows the setting instead, by taking the settings dialog it is already inside to the card that
+ * holds it, the way the deleted-notes view offers its own retention settings.
  */
 export async function openRevisionsContextMenu(
     event: ContextMenuEvent,
-    onContentChanged: ContentChangedHandler,
-    onConfigureLimit: () => void
+    onContentChanged: ContentChangedHandler
 ) {
     event.preventDefault();
     event.stopPropagation();
@@ -193,7 +193,15 @@ export async function openRevisionsContextMenu(
                 // down to; 0 is a limit like any other, and erases every snapshot there is. An
                 // unreadable option is treated as no limit rather than as the harshest one.
                 if ((options.getInt("revisionSnapshotNumberLimit") ?? -1) < 0) {
-                    onConfigureLimit();
+                    // Offered rather than done: the card lives on another settings page, and being
+                    // taken off the map is only worth it for someone who means to set the limit.
+                    void dialog.confirm(t("space_usage.revisions_limit_required"))
+                        .then(async (confirmed) => {
+                            if (confirmed) {
+                                await appContext.triggerCommand("showOptions", { section: "_optionsOther" });
+                                await revealRevisionLimitField();
+                            }
+                        });
                     return;
                 }
 
@@ -226,4 +234,29 @@ export function openNoteInNewTab(noteId: string) {
 /** Note types whose content is a saveable file — the same ones the ribbon offers Download for. */
 function isDownloadable(note: FNote) {
     return note.type === "file" || note.type === "image";
+}
+
+/**
+ * Brings the snapshot limit field into view with the cursor in it, once the settings page holding it
+ * has rendered: someone who accepted being taken there should land on the field to fill in, not on a
+ * page to search through.
+ *
+ * The field is found by its name, which the settings row keeps as given (its `id` carries a random
+ * suffix, being unique per mount). Awaited in short steps because the page renders after the command
+ * that asks for it, and given up on quietly — a page that never came is not worth an error.
+ */
+async function revealRevisionLimitField() {
+    for (let attempt = 0; attempt < 20; attempt++) {
+        const field = document.querySelector<HTMLElement>('[name="revision-snapshot-number-limit"]');
+
+        if (field) {
+            // Focused first, without the jump it would cause on its own, so the smooth scroll is
+            // the only movement the eye has to follow.
+            field.focus({ preventScroll: true });
+            field.scrollIntoView({ block: "center", behavior: "smooth" });
+            return;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+    }
 }
