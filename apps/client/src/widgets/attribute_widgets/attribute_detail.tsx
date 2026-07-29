@@ -2,7 +2,7 @@ import "./attribute_detail.css";
 import "./attribute_name_suggestion.css";
 
 import { type DefinitionObject, type LabelType, promotedAttributeDefinitionParser } from "@triliumnext/commons";
-import { ComponentProps } from "preact";
+import { ComponentChildren, ComponentProps } from "preact";
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import appContext from "../../components/app_context.js";
@@ -547,7 +547,7 @@ export function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, 
                 {attrType === "label" && (
                     <OptionsRow name="attr-value" label={t("attribute_detail.value")}>
                         {typedInput ? (
-                            <div className="input-group">
+                            <TypedValueField isSelect={typedInput.labelType === "select"}>
                                 <LabelValueInput
                                     labelType={typedInput.labelType}
                                     selectOptions={typedInput.selectOptions}
@@ -565,7 +565,7 @@ export function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, 
                                         })
                                     }}
                                 />
-                            </div>
+                            </TypedValueField>
                         ) : (
                             <FormAutocomplete
                                 className="attr-input-value"
@@ -739,6 +739,19 @@ export function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, 
             )}
         </>
     );
+}
+
+/**
+ * Wraps the value field in the group that frames it together with the buttons beside it — a colour's
+ * picker and its reset, a link's open button — which is what an input group is for.
+ *
+ * A dropdown is handed straight through instead. It has no buttons to be grouped with, and the themes
+ * dress a bare one completely: the group would draw a second frame around it, and, since it blanks the
+ * background of the fields inside it so that its own shows through, would take with it the arrow the
+ * themes draw on that very background — leaving a dropdown that does not look like one.
+ */
+function TypedValueField({ isSelect, children }: { isSelect: boolean; children: ComponentChildren }) {
+    return isSelect ? <>{children}</> : <div className="input-group">{children}</div>;
 }
 
 /**
