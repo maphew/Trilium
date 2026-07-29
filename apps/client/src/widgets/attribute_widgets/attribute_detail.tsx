@@ -24,6 +24,7 @@ import FormAutocomplete, { AUTOCOMPLETE_DROPDOWN_SELECTOR } from "../react/FormA
 import FormDropdownList from "../react/FormDropdownList.jsx";
 import { FormDropdownDivider, FormListItem } from "../react/FormList.jsx";
 import FormTextBox, { FormTextBoxWithUnit } from "../react/FormTextBox.jsx";
+import FormTextBoxList from "../react/FormTextBoxList.jsx";
 import HelpTooltipButton from "../react/HelpTooltipButton.jsx";
 import { suspendModalFocusTraps } from "../react/modal_focustrap.js";
 import NoteAutocomplete from "../react/NoteAutocomplete.jsx";
@@ -608,6 +609,25 @@ export function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, 
                     </OptionsRow>
                 )}
 
+                {attrType === "label-definition" && definition.labelType === "select" && (
+                    <OptionsRow
+                        name="attr-select-options"
+                        label={t("attribute_detail.select_options")}
+                        description={t("attribute_detail.select_options_title")}
+                    >
+                        {/* The draft rows need no synchronizing back from the definition: the form
+                            remounts per show (see above), so they are seeded once, like the fields
+                            around them. */}
+                        <FormTextBoxList
+                            initialValues={definition.selectOptions ?? []}
+                            disabled={!isOwned}
+                            addButtonText={t("attribute_detail.add_option")}
+                            removeButtonText={t("attribute_detail.remove_option")}
+                            onChange={(selectOptions) => commitDefinition({ selectOptions })}
+                        />
+                    </OptionsRow>
+                )}
+
                 {attrType === "relation-definition" && (
                     <OptionsRow
                         name="attr-inverse-relation"
@@ -763,6 +783,7 @@ export const LABEL_TYPES = [
     { value: "textarea", title: t("attribute_detail.textarea"), icon: "bx bx-align-left" },
     { value: "number", title: t("attribute_detail.number"), icon: "bx bx-hash" },
     { value: "boolean", title: t("attribute_detail.boolean"), icon: "bx bx-toggle-left" },
+    { value: "select", title: t("attribute_detail.select_type"), icon: "bx bx-list-ul" },
     { value: "date", title: t("attribute_detail.date"), icon: "bx bx-calendar" },
     { value: "datetime", title: t("attribute_detail.date_time"), icon: "bx bx-calendar-event" },
     { value: "time", title: t("attribute_detail.time"), icon: "bx bx-time" },

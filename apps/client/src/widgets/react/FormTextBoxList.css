@@ -1,0 +1,21 @@
+.form-textbox-list {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+
+    .form-textbox-list-row {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+
+        > input {
+            flex: 1;
+            min-width: 0;
+        }
+    }
+
+    /* Sized to its words: a full-width bar under the rows would read as a field of the list itself. */
+    .form-textbox-list-add {
+        align-self: flex-start;
+    }
+}

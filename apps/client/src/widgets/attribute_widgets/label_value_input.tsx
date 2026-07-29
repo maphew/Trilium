@@ -17,6 +17,7 @@ export const LABEL_MAPPINGS: Record<LabelType, HTMLInputTypeAttribute | undefine
     textarea: undefined,
     number: "number",
     boolean: "checkbox",
+    select: undefined,
     date: "date",
     datetime: "datetime-local",
     time: "time",
@@ -75,6 +76,8 @@ interface LabelValueInputProps {
     commitOn?: "input" | "blur";
     /** How many decimals a number field steps by, from the definition that declared it. */
     numberPrecision?: number;
+    /** The values a select field offers, from the definition that declared it. */
+    selectOptions?: string[];
     /** Merged onto the input, for the id, tab order and data attributes a host needs to attach. */
     inputProps?: InputHTMLAttributes<HTMLInputElement> & Record<`data-${string}`, string | undefined>;
 }
@@ -87,15 +90,15 @@ interface LabelValueInputProps {
  * checkbox, which a host wanting the label after the box has to arrange itself.
  */
 export default function LabelValueInput({
-    labelType, value, onCommit, commitOn = "input", numberPrecision, inputProps
+    labelType, value, onCommit, commitOn = "input", numberPrecision, selectOptions, inputProps
 }: LabelValueInputProps) {
     const colorInputRef = useRef<HTMLInputElement>(null);
     // What has been typed but not yet committed is still what the field shows, so anything acting on
     // the value as it stands reads the element rather than the prop it was last rendered from.
-    const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement>(null);
+    const inputRef = useRef<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>(null);
 
     function commitFromEvent(e: { currentTarget: EventTarget | null }) {
-        const input = e.currentTarget as HTMLInputElement | HTMLTextAreaElement | null;
+        const input = e.currentTarget as HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement | null;
         if (!input) return;
 
         if (input instanceof HTMLInputElement && input.type === "checkbox") {
@@ -118,16 +121,31 @@ export default function LabelValueInput({
         extraProps.placeholder = t("promoted_attributes.url_placeholder");
     }
 
-    const input = createElement(labelType === "textarea" ? "textarea" : "input", {
-        ref: inputRef,
-        type: LABEL_MAPPINGS[labelType],
-        value,
-        checked: labelType === "boolean" ? value === "true" : undefined,
-        ...extraProps,
-        ...inputProps,
-        // After the host's props, so that a host cannot leave the value uncommitted by supplying its own.
-        [commitOn === "blur" ? "onBlur" : "onInput"]: commitFromEvent
-    });
+    const isSelect = labelType === "select";
+    const input = createElement(
+        labelType === "textarea" ? "textarea" : isSelect ? "select" : "input",
+        {
+            ref: inputRef,
+            type: LABEL_MAPPINGS[labelType],
+            value,
+            checked: labelType === "boolean" ? value === "true" : undefined,
+            ...extraProps,
+            ...inputProps,
+            // Bootstrap draws the chevron for `form-select`, which the host — handing the class of a
+            // field one types into — has no reason to know to pass.
+            ...(isSelect && { className: clsx(inputProps?.className, "form-select") }),
+            // After the host's props, so that a host cannot leave the value uncommitted by supplying
+            // its own. A select commits as it is picked even for a host that commits on blur: there is
+            // nothing to type into it, so waiting for the blur would only hold a made choice back.
+            [commitOn === "blur" && !isSelect ? "onBlur" : "onInput"]: commitFromEvent
+        },
+        isSelect ? selectOptionElements(
+            selectOptions ?? [],
+            value,
+            // Narrowed because Preact types the attribute as possibly signal-backed.
+            typeof inputProps?.placeholder === "string" ? inputProps.placeholder : undefined
+        ) : undefined
+    );
 
     return (
         <>
@@ -171,6 +189,23 @@ export default function LabelValueInput({
             )}
         </>
     );
+}
+
+/**
+ * The choices a select offers: the unset entry first — a promoted field can always be left blank, and
+ * it wears the host's placeholder so "not set" reads the same as in a text field — then the defined
+ * options, then the stored value if the options no longer name it (renamed or removed since it was
+ * picked), so that what the note holds is shown rather than silently blanked.
+ */
+function selectOptionElements(options: string[], value: string, placeholder?: string) {
+    const entries = [ ...options ];
+    if (value && !options.includes(value)) {
+        entries.push(value);
+    }
+    return [
+        <option key="" value="">{placeholder ?? ""}</option>,
+        ...entries.map((option) => <option key={option} value={option}>{option}</option>)
+    ];
 }
 
 export function InputButton({ icon, className, title, onClick }: {

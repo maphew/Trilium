@@ -199,6 +199,7 @@ function LabelInput(props: CellProps & { inputId: string }) {
             onCommit={commit}
             commitOn="blur"
             numberPrecision={definition.numberPrecision}
+            selectOptions={definition.selectOptions}
             inputProps={{
                 className: "form-control promoted-attribute-input",
                 tabIndex: 200 + definitionAttr.position,

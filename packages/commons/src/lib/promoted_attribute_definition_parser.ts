@@ -6,8 +6,8 @@ import { filterAttributeName } from "./attribute_names.js";
  * type cannot be added to the union without {@link parse} also accepting it.
  */
 export const LABEL_TYPES = [
-    "text", "textarea", "number", "boolean", "date", "datetime", "time", "url", "email", "phone",
-    "color"
+    "text", "textarea", "number", "boolean", "select", "date", "datetime", "time", "url", "email",
+    "phone", "color"
 ] as const;
 
 export type LabelType = typeof LABEL_TYPES[number];
@@ -21,6 +21,8 @@ export interface DefinitionObject {
     labelType?: LabelType;
     multiplicity?: Multiplicity;
     numberPrecision?: number;
+    /** The values a `select` field offers, in the order they are offered. */
+    selectOptions?: string[];
     promotedAlias?: string;
     inverseRelation?: string;
 }
@@ -50,6 +52,13 @@ function parse(value: string): DefinitionObject {
         } else if (token.startsWith("precision")) {
             // A missing value parses to NaN, which the consumers treat as "no precision set".
             defObj.numberPrecision = parseInt(parameterValue(token) ?? "");
+        } else if (token.startsWith("options")) {
+            // A blank entry offers nothing to pick and is dropped, so `options=` and a stray `;;`
+            // both parse to what they mean rather than to invisible choices.
+            defObj.selectOptions = (parameterValue(token) ?? "")
+                .split(";")
+                .filter((option) => option !== "")
+                .map(decodeOption);
         } else if (token.startsWith("alias")) {
             defObj.promotedAlias = parameterValue(token);
         } else if (token.startsWith("inverse")) {
@@ -99,6 +108,11 @@ function serialize(definition: DefinitionObject, valueType: "label" | "relation"
         if (labelType === "number" && definition.numberPrecision !== undefined) {
             props.push(`precision=${definition.numberPrecision}`);
         }
+
+        // Options are only meaningful for a select, and an empty list means the same as none at all.
+        if (labelType === "select" && definition.selectOptions?.length) {
+            props.push(`options=${definition.selectOptions.map(encodeOption).join(";")}`);
+        }
     } else if (definition.inverseRelation?.trim()) {
         props.push(`inverse=${filterAttributeName(definition.inverseRelation)}`);
     }
@@ -130,6 +144,26 @@ export function extractAttributeDefinitionTypeAndName(
 function parameterValue(token: string): string | undefined {
     const separatorIndex = token.indexOf("=");
     return separatorIndex < 0 ? undefined : token.substring(separatorIndex + 1);
+}
+
+/**
+ * Escapes a select option for storage inside the `options=` token, where `;` separates the options
+ * and `,` would be cut by the definition tokenizer before this module ever saw it.
+ *
+ * Substitution (URL-style) rather than a `\`-escape on purpose: an escaped form must not *contain*
+ * the raw separators, or every already-shipped parser — the split in {@link parse} runs before any
+ * token logic — would cut straight through it, and the fragments of an option could even spell a
+ * live token (`multi`, a label type, …) and be executed as one. `%` is the only character claimed
+ * from the option itself, and the exact triplets below essentially never occur in natural text.
+ */
+function encodeOption(option: string): string {
+    // `%` first, so the escapes written below are not re-escaped.
+    return option.replace(/%/g, "%25").replace(/,/g, "%2C").replace(/;/g, "%3B");
+}
+
+/** The exact inverse of {@link encodeOption}: `%25` last, so a decoded `%` cannot start a triplet. */
+function decodeOption(option: string): string {
+    return option.replace(/%2C/gi, ",").replace(/%3B/gi, ";").replace(/%25/gi, "%");
 }
 
 function isLabelType(token: string): token is LabelType {

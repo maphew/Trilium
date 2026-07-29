@@ -94,7 +94,8 @@ export default function getAttributeDefinitionInformation(parentNote: FNote) {
         info.push({
             name,
             title: def.promotedAlias,
-            type
+            type,
+            options: def.selectOptions
         });
     }
     return info;

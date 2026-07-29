@@ -15,6 +15,8 @@ export interface AttributeDefinitionInformation {
     name: string;
     title?: string;
     type?: ColumnType;
+    /** The values a `select` column offers, from the definition that declared it. */
+    options?: string[];
 }
 
 const labelTypeMappings: Record<ColumnType, Partial<ColumnDefinition>> = {
@@ -27,6 +29,11 @@ const labelTypeMappings: Record<ColumnType, Partial<ColumnDefinition>> = {
         editorParams: {
             shiftEnterSubmit: true
         }
+    },
+    select: {
+        // The choices come from the column's definition, so `editorParams` is attached per column
+        // in `buildColumnDefinitions` rather than here.
+        editor: "list"
     },
     boolean: {
         formatter: "tickCross",
@@ -151,7 +158,7 @@ export function buildColumnDefinitions({ info, movableRows, existingColumnData, 
     ];
 
     const seenFields = new Set<string>();
-    for (const { name, title, type } of info) {
+    for (const { name, title, type, options } of info) {
         const prefix = (type === "relation" ? "relations" : "labels");
         const field = `${prefix}.${name}`;
 
@@ -165,6 +172,11 @@ export function buildColumnDefinitions({ info, movableRows, existingColumnData, 
             editor: "input",
             rowHandle: false,
             ...labelTypeMappings[type ?? "text"],
+            // A select's choices come from its definition, so they attach per column. `clearable`
+            // restores the blank the promoted grid offers as its unset entry.
+            ...(type === "select" && {
+                editorParams: { values: options ?? [], clearable: true }
+            })
         });
         seenFields.add(field);
     }

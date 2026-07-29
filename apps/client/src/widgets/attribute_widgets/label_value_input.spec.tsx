@@ -118,6 +118,36 @@ describe("LabelValueInput", () => {
         expect(container.querySelector("input")?.getAttribute("step")).toBe("0.01");
     });
 
+    it("offers a select's options after the unset entry, keeping a stored value the options lost", async () => {
+        const onCommit = vi.fn();
+        await mount({
+            labelType: "select",
+            // A value the definition no longer names (its option renamed or removed) must stay shown.
+            value: "Archived",
+            selectOptions: [ "Todo", "Done" ],
+            onCommit,
+            commitOn: "blur",
+            inputProps: { placeholder: "not set" }
+        });
+
+        const select = container.querySelector("select");
+        expect([ ...(select?.options ?? []) ].map((option) => option.value))
+            .toEqual([ "", "Todo", "Done", "Archived" ]);
+        // The unset entry wears the host's placeholder, and the field dresses as a select.
+        expect(select?.options[0]?.text).toBe("not set");
+        expect(select?.value).toBe("Archived");
+        expect(select?.className).toContain("form-select");
+
+        // Picking commits at once even though the host asked for a blur commit.
+        await act(async () => {
+            if (select) {
+                select.value = "Done";
+                select.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+        });
+        expect(onCommit).toHaveBeenCalledWith("Done");
+    });
+
     it("opens an email or a phone through its scheme, not doubling one an old value carries", async () => {
         const open = vi.spyOn(window, "open").mockImplementation(() => null);
         try {
