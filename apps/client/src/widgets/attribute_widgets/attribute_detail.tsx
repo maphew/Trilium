@@ -630,7 +630,7 @@ function AttributeNameSuggestion({ type, name }: { type: "label" | "relation"; n
 }
 
 /** Normalised so that the shorthand entries, which are the description alone, read like the rest. */
-function lookupAttributeHelp(attrType: AttrType, name: string): AttrHelpEntry | undefined {
+export function lookupAttributeHelp(attrType: AttrType, name: string): AttrHelpEntry | undefined {
     const entry = attrType ? ATTR_HELP[attrType]?.[name] : undefined;
     return typeof entry === "string" ? { description: entry } : entry;
 }
@@ -803,7 +803,7 @@ function RelatedNotesBadge({ attribute, currentNoteId }: { attribute: Attribute;
 }
 
 /** The query for every note carrying the attribute, mirroring the name-only search behind the count. */
-function formatAttributeForSearch({ type, name }: Attribute) {
+export function formatAttributeForSearch({ type, name }: Attribute) {
     // Names are filtered as they are typed, so there is nothing in one that would need quoting.
     return `${type === "label" ? "#" : "~"}${name}`;
 }
@@ -823,7 +823,7 @@ const ATTR_TITLES: Record<string, string> = {
 
 const isNewLayout = isExperimentalFeatureEnabled("new-layout");
 
-function positionPopup(popup: HTMLElement, { x, y, anchor }: AttributeDetailOpts, parentOffset: { top: number; left: number }) {
+export function positionPopup(popup: HTMLElement, { x, y, anchor }: AttributeDetailOpts, parentOffset: { top: number; left: number }) {
     const outerWidth = popup.offsetWidth;
     const outerHeight = popup.offsetHeight;
     const windowHeight = document.documentElement.clientHeight;
@@ -938,7 +938,7 @@ export function getAttrType(attribute: Attribute): AttrType {
 }
 
 /** Definitions are stored prefixed (`label:foo`), but the popup edits the bare name. */
-function stripDefinitionPrefix(name: string, attrType: AttrType) {
+export function stripDefinitionPrefix(name: string, attrType: AttrType) {
     if (attrType === "label-definition") {
         return name.substring("label:".length);
     } else if (attrType === "relation-definition") {
@@ -947,7 +947,7 @@ function stripDefinitionPrefix(name: string, attrType: AttrType) {
     return name;
 }
 
-function addDefinitionPrefix(name: string, attrType: AttrType) {
+export function addDefinitionPrefix(name: string, attrType: AttrType) {
     if (attrType === "label-definition") {
         return `label:${name}`;
     } else if (attrType === "relation-definition") {
