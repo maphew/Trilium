@@ -667,6 +667,8 @@
     "inherited_other": "{{count}} inherited attributes",
     "definitions_one": "{{count}} definition",
     "definitions_other": "{{count}} definitions",
+    "internal_one": "{{count}} internal system attribute",
+    "internal_other": "{{count}} internal system attributes",
     "inheritable": "Inheritable: applies to this note and to its whole subtree",
     "delete": "Delete this attribute",
     "delete_confirm": "Delete the attribute \"{{name}}\"?",
@@ -1139,9 +1141,6 @@
     "title": "Inherited Attributes",
     "no_inherited_attributes": "No inherited attributes.",
     "none": "none"
-  },
-  "auto_link_attribute_list": {
-    "title": "System Attributes"
   },
   "note_info_widget": {
     "note_id": "Note ID",

@@ -90,8 +90,7 @@
             font-weight: 600;
         }
 
-        .inherited-attributes-widget,
-        .auto-link-attributes-widget {
+        .inherited-attributes-widget {
             display: inline;
 
             > div {

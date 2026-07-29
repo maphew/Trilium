@@ -33,7 +33,7 @@ import noteAttributeCache from "../../services/note_attribute_cache";
 import options from "../../services/options";
 import server from "../../services/server";
 import { buildNote } from "../../test/easy-froca";
-import AttributeList, { getAttributeKind, getDisplayName, listInherited, listOwned, splitIntoSections } from "./AttributeList";
+import AttributeList, { getAttributeKind, getDisplayName, listInherited, listInternal, listOwned, splitIntoSections } from "./AttributeList";
 
 describe("listOwned", () => {
     it("orders by position and leaves out the attributes Trilium maintains itself", () => {
@@ -61,6 +61,18 @@ describe("listInherited", () => {
 
         expect(rows.map((row) => row.name)).toEqual([ "fromA", "fromB1", "fromB2" ]);
         expect(rows.map((row) => row.noteId)).toEqual([ "aaa", "bbb", "bbb" ]);
+    });
+});
+
+describe("listInternal", () => {
+    it("keeps exactly what the owned list leaves out: what Trilium wrote from the note's content", () => {
+        const rows = listInternal([
+            attribute({ name: "author", value: "Elian" }),
+            attribute({ type: "relation", name: "internalLink", value: "target", position: 30 }),
+            attribute({ type: "relation", name: "imageLink", value: "image", position: 20 })
+        ]);
+
+        expect(rows.map((row) => row.name)).toEqual([ "imageLink", "internalLink" ]);
     });
 });
 
@@ -117,6 +129,8 @@ describe("AttributeList", () => {
     beforeEach(() => {
         vi.clearAllMocks();
         options.set("rightPaneCollapsedItems", "[]");
+        // A release build, unless the test at hand is about what only a development one shows.
+        setDevBuild(false);
         put = vi.fn(async () => ({}));
         server.put = put as unknown as typeof server.put;
         // The detail popup looks up the notes sharing the attribute it opens on, against the tab the
@@ -182,6 +196,29 @@ describe("AttributeList", () => {
 
         expect(container.querySelectorAll(".attribute-row")).toHaveLength(0);
         expect(container.querySelector(".no-items")).not.toBeNull();
+    });
+
+    it("leaves what Trilium wrote for itself out of a release build, and gives it its own card in a development one", () => {
+        buildNote({ id: "target", title: "Target" });
+        const note = buildNote({ id: "linking", title: "Linking", "#author": "Elian", "~internalLink": "target" });
+
+        renderPanel(note);
+        expect(cardIds()).toEqual([ "attributes" ]);
+
+        // Unmounted first, the panel collecting the attributes of the note it is handed as it mounts.
+        setDevBuild(true);
+        render(null, container);
+        renderPanel(note);
+
+        const cards = [ ...container.querySelectorAll(".card") ];
+        expect(cardIds()).toEqual([ "attributes", "attributes-internal" ]);
+        expect(namesIn(cards[1])).toEqual([ "internalLink" ]);
+        // Nothing on such a row is the note's to change, and nothing marks it as Trilium's own: the
+        // card it is in says as much of every row it holds.
+        expect(cards[1].querySelectorAll(".attribute-delete-button")).toHaveLength(0);
+        expect(cards[1].querySelectorAll(".attribute-owner")).toHaveLength(0);
+        expect(cards[1].querySelector(".attribute-kind")?.className).not.toContain("marker-system");
+        expect(cards[1].querySelectorAll("hr.attribute-rows-divider")).toHaveLength(0);
     });
 
     it("opens the detail popup on a row and closes it again on a press beside the rows", () => {
@@ -277,12 +314,21 @@ describe("AttributeList", () => {
         act(() => render(<AttributeList />, container));
     }
 
+    function cardIds() {
+        return [ ...container.querySelectorAll(".card") ].map((card) => card.id);
+    }
+
     function firstRow() {
         const row = container.querySelector<HTMLElement>(".attribute-row");
         expect(row).not.toBeNull();
         return row as HTMLElement;
     }
 });
+
+/** Which build the panel believes it is running in, which is all that decides one of its cards. */
+function setDevBuild(isDev: boolean) {
+    (window as unknown as { glob: { isDev: boolean } }).glob.isDev = isDev;
+}
 
 function namesIn(root: Element) {
     return [ ...root.querySelectorAll(".attribute-name") ].map((name) => name.textContent);

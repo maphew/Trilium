@@ -25,7 +25,6 @@ import { useActiveNoteContext, useLegacyImperativeHandlers, useNoteLabel, useNot
 import Icon from "../react/Icon";
 import LinkButton from "../react/LinkButton";
 import { ParentComponent } from "../react/react_utils";
-import AutoLinkAttributesTab from "../ribbon/AutoLinkAttributesTab";
 import { ContentLanguagesModal, NoteTypeCodeNoteList, NoteTypeOptionsModal, useLanguageSwitcher, useMimeTypes } from "../ribbon/BasicPropertiesTab";
 import AttributeEditor, { AttributeEditorImperativeHandlers } from "../ribbon/components/AttributeEditor";
 import AttributeHelp, { ATTRIBUTE_HELP_PAGE } from "../ribbon/components/AttributeHelp";
@@ -415,11 +414,6 @@ function AttributesPane({ note, noteContext, attributesShown, setAttributesShown
 
             <span class="attributes-panel-label">{t("inherited_attribute_list.title")}</span>
             <InheritedAttributesTab {...context} emptyListString="inherited_attribute_list.none" />
-
-            {glob.isDev && <div>
-                <span class="attributes-panel-label">{t("auto_link_attribute_list.title")}</span>
-                <AutoLinkAttributesTab {...context} />
-            </div>}
 
             {editorMounted && <AttributeEditor
                 {...context}

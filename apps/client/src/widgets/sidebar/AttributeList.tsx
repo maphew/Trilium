@@ -41,6 +41,7 @@ export default function AttributeList() {
     // so both lists are kept in refs (whose identity the popup holds on to) and redrawn by hand.
     const owned = useRef<Attribute[]>([]);
     const inherited = useRef<Attribute[]>([]);
+    const internal = useRef<Attribute[]>([]);
     const [ , setRevision ] = useState(0);
     const rerender = () => setRevision((revision) => revision + 1);
 
@@ -51,6 +52,7 @@ export default function AttributeList() {
         shownNoteId.current = note?.noteId ?? null;
         owned.current = collectOwned(note);
         inherited.current = collectInherited(note);
+        internal.current = collectInternal(note);
     }
 
     // The popup edits one attribute of the note being left, so it closes with the note.
@@ -65,6 +67,7 @@ export default function AttributeList() {
         if (note && changed.some((attr) => attributes.isAffecting(attr, note))) {
             owned.current = collectOwned(note);
             inherited.current = collectInherited(note);
+            internal.current = collectInternal(note);
             rerender();
         }
     });
@@ -143,13 +146,17 @@ export default function AttributeList() {
     }
 
     const sections = splitIntoSections(owned.current, inherited.current);
+    const internalRows = internal.current.map((attribute) => toEntry(attribute, true));
     const rowProps = {
         activeAttribute: detail?.attribute,
         onOpen: openDetail,
         onDelete: (attribute: Attribute) => void deleteAttribute(attribute)
     };
-    // The cards a section has nothing for are left out, so an ordinary note sees one or two of the three.
-    const shownCards = 1 + (sections.inherited.length ? 1 : 0) + (sections.definitions.length ? 1 : 0);
+    // The cards a section has nothing for are left out, so an ordinary note sees one or two of the four.
+    const shownCards = 1
+        + (sections.inherited.length ? 1 : 0)
+        + (sections.definitions.length ? 1 : 0)
+        + (internalRows.length ? 1 : 0);
 
     return (
         <>
@@ -213,6 +220,17 @@ export default function AttributeList() {
                         </div>
                     </RightPanelWidget>
                 )}
+
+                {internalRows.length > 0 && (
+                    <RightPanelWidget
+                        id="attributes-internal"
+                        title={t("attribute_list_panel.internal", { count: internalRows.length })}
+                    >
+                        <div class="attribute-list-panel" onClick={() => setDetail(null)}>
+                            <AttributeRowList rows={internalRows} readOnly {...rowProps} />
+                        </div>
+                    </RightPanelWidget>
+                )}
             </CollapsibleWidgets.Provider>
 
             {createPortal(
@@ -245,6 +263,13 @@ interface AttributeRowListProps {
     rows: AttributeEntry[];
     /** The attribute the detail popup is showing, marked as such in the list. */
     activeAttribute?: Attribute;
+    /**
+     * The rows stand for attributes Trilium writes and keeps up to date itself, which leaves them
+     * nothing to offer: nothing to edit, nothing to delete, no note to name as their source (they are
+     * always the current one's), and no split to draw between the note's own names and Trilium's —
+     * every one of them is Trilium's, which is what the card they are in says.
+     */
+    readOnly?: boolean;
     onOpen: (attribute: Attribute, isOwned: boolean, anchor: HTMLElement | null, e: MouseEvent) => void;
     onDelete: (attribute: Attribute) => void;
 }
@@ -254,7 +279,7 @@ interface AttributeRowListProps {
  * Trilium reads for itself. What a row offers follows from whether the note owns its attribute rather
  * than from the card it is in: the definitions card holds the note's own alongside a template's.
  */
-function AttributeRowList({ rows, activeAttribute, onOpen, onDelete }: AttributeRowListProps) {
+function AttributeRowList({ rows, activeAttribute, readOnly, onOpen, onDelete }: AttributeRowListProps) {
     function renderRows(group: AttributeEntry[]) {
         return (
             <ul class="attribute-rows">
@@ -263,11 +288,12 @@ function AttributeRowList({ rows, activeAttribute, onOpen, onDelete }: Attribute
                         key={attribute.attributeId ?? `new-${index}`}
                         attribute={attribute}
                         active={activeAttribute === attribute}
-                        isSystem={isSystem}
+                        isSystem={isSystem && !readOnly}
                         // An attribute of another note names it; the current note's own would name itself.
-                        showOwner={!isOwned}
-                        onOpen={(anchor, e) => onOpen(attribute, isOwned, anchor, e)}
-                        onDelete={isOwned ? () => onDelete(attribute) : undefined}
+                        showOwner={!isOwned && !readOnly}
+                        // A read-only row opens the popup as an inherited one does: to be read, not edited.
+                        onOpen={(anchor, e) => onOpen(attribute, isOwned && !readOnly, anchor, e)}
+                        onDelete={isOwned && !readOnly ? () => onDelete(attribute) : undefined}
                     />
                 ))}
             </ul>
@@ -275,7 +301,7 @@ function AttributeRowList({ rows, activeAttribute, onOpen, onDelete }: Attribute
     }
 
     // The system attributes are sorted last (see splitIntoSections), so one index is the whole boundary.
-    const boundary = rows.findIndex((entry) => entry.isSystem);
+    const boundary = readOnly ? -1 : rows.findIndex((entry) => entry.isSystem);
     const userDefined = boundary < 0 ? rows : rows.slice(0, boundary);
     const system = boundary < 0 ? [] : rows.slice(boundary);
 
@@ -572,19 +598,18 @@ export interface AttributeSections {
 
 export function splitIntoSections(owned: Attribute[], inherited: Attribute[]): AttributeSections {
     const isDefinitionEntry = ({ attribute }: AttributeEntry) => isDefinition(getAttributeKind(attribute));
-    const toEntry = (isOwned: boolean) => (attribute: Attribute): AttributeEntry => ({
-        attribute,
-        isOwned,
-        isSystem: isBuiltinAttribute(attribute.type, attribute.name)
-    });
-    const ownedEntries = owned.map(toEntry(true));
-    const inheritedEntries = inherited.map(toEntry(false));
+    const ownedEntries = owned.map((attribute) => toEntry(attribute, true));
+    const inheritedEntries = inherited.map((attribute) => toEntry(attribute, false));
 
     return {
         owned: sortSystemLast(ownedEntries.filter((entry) => !isDefinitionEntry(entry))),
         inherited: sortSystemLast(inheritedEntries.filter((entry) => !isDefinitionEntry(entry))),
         definitions: sortSystemLast([ ...ownedEntries, ...inheritedEntries ].filter(isDefinitionEntry))
     };
+}
+
+function toEntry(attribute: Attribute, isOwned: boolean): AttributeEntry {
+    return { attribute, isOwned, isSystem: isBuiltinAttribute(attribute.type, attribute.name) };
 }
 
 /**
@@ -604,6 +629,15 @@ function collectInherited(note: FNote | null | undefined): Attribute[] {
     return listInherited(note?.getAttributes() ?? [], note?.noteId);
 }
 
+/**
+ * The attributes Trilium writes for itself. They are bookkeeping rather than metadata — of interest
+ * when working on Trilium and noise to everyone else — so they are collected in a development build
+ * alone, as the attributes pane listed them in one before this panel took them over.
+ */
+function collectInternal(note: FNote | null | undefined): Attribute[] {
+    return glob.isDev ? listInternal(note?.getOwnedAttributes() ?? []) : [];
+}
+
 /** The note's own attributes, in the order it holds them. */
 export function listOwned(ownedAttributes: FAttribute[]): Attribute[] {
     return ownedAttributes
@@ -621,6 +655,18 @@ export function listInherited(effectiveAttributes: FAttribute[], noteId: string 
         // Inherited attributes stay grouped by the note they come from:
         // https://github.com/zadam/trilium/issues/3761
         .toSorted((a, b) => a.noteId === b.noteId ? a.position - b.position : a.noteId.localeCompare(b.noteId))
+        .map(toPlainAttribute);
+}
+
+/**
+ * The other half of what the note holds: exactly the attributes the two lists above leave out, which
+ * Trilium wrote from the note's own content (a link in it is a `~internalLink`) and rewrites whenever
+ * that content is saved. Only the note's own, an inherited one being the source note's bookkeeping.
+ */
+export function listInternal(ownedAttributes: FAttribute[]): Attribute[] {
+    return ownedAttributes
+        .filter((attribute) => attribute.isAutoLink)
+        .toSorted((a, b) => a.position - b.position)
         .map(toPlainAttribute);
 }
 
