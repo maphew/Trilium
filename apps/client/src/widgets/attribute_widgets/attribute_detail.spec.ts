@@ -166,6 +166,22 @@ describe("attribute detail popup naming", () => {
         expect(lookupAttributeHelp("label", "somethingInvented")).toBeUndefined();
         expect(lookupAttributeHelp(undefined, "customRequestHandler")).toBeUndefined();
     });
+
+    it("marks the names Trilium reads for itself, a definition named after one excepted", async () => {
+        const { isSystemAttribute } = await import("./attribute_detail");
+
+        expect(isSystemAttribute("label", "archived")).toBe(true);
+        expect(isSystemAttribute("relation", "template")).toBe(true);
+        // Most system attributes have no help entry, which is what the mark is for.
+        expect(isSystemAttribute("label", "dateNote")).toBe(true);
+        expect(isSystemAttribute("label", "somethingInvented")).toBe(false);
+
+        // A definition sets up a field named after a system attribute without being one, and the popup
+        // edits it under the bare name -- so the name alone would wrongly say yes.
+        expect(isSystemAttribute("label-definition", "archived")).toBe(false);
+        expect(isSystemAttribute("relation-definition", "template")).toBe(false);
+        expect(isSystemAttribute(undefined, "archived")).toBe(false);
+    });
 });
 
 const NO_OFFSET = { top: 0, left: 0 };

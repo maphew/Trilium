@@ -13,6 +13,16 @@
     contain: none;
 }
 
+/*
+ * The same mark the name completion puts against a system name, and so the same colour: quiet, because
+ * it tells the reader whose name this is rather than asking anything of them. Without a `--color` the
+ * outline variant has neither border nor text colour to draw, and reads as a bare word.
+ */
+.attr-detail-system-badge {
+    --color: var(--muted-text-color);
+    flex-shrink: 0;
+}
+
 /* The help sits beside the name rather than under it: only a handful of names have any, and the ones
    that do run to several lines, which would push the rest of the form out of reach. */
 .attr-name-field {

@@ -372,6 +372,7 @@ function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, onCance
     // characters being composed: https://github.com/zadam/trilium/pull/3812
     const isComposing = useRef(false);
     const nameHelp = lookupAttributeHelp(attrType, name);
+    const isSystem = isSystemAttribute(attrType, name);
 
     useEffect(() => {
         if (focus === "name") {
@@ -434,6 +435,20 @@ function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, onCance
         <>
             <div class="attr-detail-header">
                 <h5 class="attr-detail-title">{attrType ? ATTR_TITLES[attrType] : ""}</h5>
+
+                {/* Beside the related-notes badge rather than by the name field, for the same reason: a
+                    mark that comes and going as the name is typed would resize the popup under the
+                    pointer. The help button by the field explains what a name does; this says the name
+                    is Trilium's at all, which most system attributes have no explanation to say for
+                    them. */}
+                {isSystem && (
+                    <Badge
+                        outline
+                        className="attr-detail-system-badge"
+                        text={t("attribute_names.system")}
+                        tooltip={t("attribute_names.system_description")}
+                    />
+                )}
 
                 {/* Sits in the header, and not in a section of its own, so that the popup keeps the size it
                     was positioned at: the lookup behind it is asynchronous and re-runs as the attribute is
@@ -682,6 +697,17 @@ function AttributeNameSuggestion({ type, name }: { type: "label" | "relation"; n
             {isBuiltinAttribute(type, name) && <Badge outline text={t("attribute_names.system")} />}
         </span>
     );
+}
+
+/**
+ * Whether the attribute being edited is one Trilium reads for itself, and so is marked as such.
+ *
+ * A definition is excluded on purpose: `label:archived` sets up a field named after a system attribute
+ * without being one, and the popup edits it under the stripped name — so the name alone would answer
+ * yes where {@link isBuiltinAttribute}, which sees the whole name, answers no.
+ */
+export function isSystemAttribute(attrType: AttrType, name: string) {
+    return (attrType === "label" || attrType === "relation") && isBuiltinAttribute(attrType, name);
 }
 
 /** Normalised so that the shorthand entries, which are the description alone, read like the rest. */

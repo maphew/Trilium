@@ -681,7 +681,8 @@
     "type_relation_definition": "Relation definition"
   },
   "attribute_names": {
-    "system": "System"
+    "system": "System",
+    "system_description": "Trilium attaches a meaning to this name: its value can change how the note behaves, rather than only describing it."
   },
   "abstract_bulk_action": {
     "remove_this_search_action": "Remove this search action"
