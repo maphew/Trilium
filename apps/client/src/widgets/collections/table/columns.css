@@ -71,3 +71,37 @@
     inset-block-start: auto;
     inset-block-end: 0;
 }
+
+/*
+ * The colour picker and the button emptying it, framed as the one group they are — the same group,
+ * dressed the same way, that the promoted field and the attribute editor show. It sits within the cell
+ * rather than standing over it, as the select editor does: a swatch and a button ask for no more room
+ * than a cell has.
+ *
+ * All this adds is where it sits: an editing cell gives up its padding and is a line tall, so the pair
+ * is centred in what is left rather than hanging from the top of it.
+ */
+.table-color-editor.input-group {
+    height: 100%;
+    align-items: center;
+    padding-inline-start: 4px;
+
+    /* A row is only as tall as the text in it, which a column of colours need not be taller than: the
+       swatch gives up its squareness rather than being cut off by the cell. */
+    > .label-color-picker {
+        max-height: 100%;
+    }
+}
+
+/*
+ * A colour cell is read as the colour filling it, which it gives up while it is being edited to look
+ * like any other cell in hand: the swatch is what says the colour then, and a cell still flooded with
+ * it would leave the pair standing on the very value they are there to change — the field lost in it,
+ * and a colour picked showing the old one all around.
+ *
+ * Insisted upon because the fill is written onto the cell itself by the formatter, which the rule
+ * dressing an editing cell is otherwise powerless against.
+ */
+.tabulator-cell.tabulator-editing:has(> .table-color-editor) {
+    background-color: var(--cell-editing-background-color) !important;
+}

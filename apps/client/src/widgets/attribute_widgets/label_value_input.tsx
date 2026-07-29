@@ -188,7 +188,10 @@ export default function LabelValueInput({
                 <>
                     <input
                         ref={colorInputRef}
-                        className={clsx("form-control", inputProps?.className)}
+                        // The swatch dresses the same wherever a label is edited, and says for itself
+                        // when the label is unset — the one thing the value it shows cannot, a colour
+                        // input having no empty value to fall to.
+                        className={clsx("form-control label-color-picker", !value && "label-color-picker-unset", inputProps?.className)}
                         type="color"
                         disabled={inputProps?.disabled || inputProps?.readOnly}
                         value={value || DEFAULT_COLOR}

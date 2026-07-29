@@ -91,13 +91,8 @@ const labelTypeMappings: Record<ColumnType, Partial<ColumnDefinition>> = {
         editor: "input"
     },
     color: {
-        editor: "input",
-        formatter: "color",
-        editorParams: {
-            elementAttributes: {
-                type: "color"
-            }
-        }
+        editor: wrapEditor(ColorEditor),
+        formatter: "color"
     },
     relation: {
         editor: wrapEditor(RelationEditor),
@@ -444,6 +439,45 @@ export type SelectEditorParams = {
     /** Absent where the definition cannot be written to, which leaves the field a plain picker. */
     onCreateOption?: (option: string) => void | Promise<void>;
 };
+
+/**
+ * A colour cell is edited through the very field the promoted grid and the attribute editor offer: a
+ * picker, and beside it the button that empties it. A bare colour input cannot be emptied — it has no
+ * such value — so a cell opened by accident used to fall to black, with no way back to unset.
+ *
+ * The colour is taken from the picker's own `change` rather than through the field's commit, which a
+ * colour input fires at every step of a drag through it: reporting is Tabulator's "the edit is done",
+ * so the first step would tear the editor out from under the open picker. `change` comes once, when
+ * the pick is settled, which is also when a cell is finished with.
+ *
+ * The picker is reached through the container because {@link LabelValueInput} hands no reference to
+ * what it builds, as {@link SelectEditor} reaches its box for the same reason.
+ */
+function ColorEditor({ cell, success }: EditorOpts) {
+    const containerRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const picker = containerRef.current?.querySelector<HTMLInputElement>("input[type=color]");
+        if (!picker) return;
+
+        picker.focus();
+        const onPicked = () => success(picker.value);
+        picker.addEventListener("change", onPicked);
+        return () => picker.removeEventListener("change", onPicked);
+    }, [ success ]);
+
+    return (
+        <div ref={containerRef} className="input-group table-color-editor">
+            <LabelValueInput
+                labelType="color"
+                value={cell.getValue() ?? ""}
+                // Nothing is what the clear button hands back, and only it — a picker always names a
+                // colour. There being nothing to follow a clear with, it finishes the edit itself.
+                onCommit={(value) => !value && success("")}
+            />
+        </div>
+    );
+}
 
 function RelationEditor({ cell, success }: EditorOpts) {
     const inputRef = useRef<HTMLInputElement>(null);

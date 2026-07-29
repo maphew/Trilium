@@ -1,3 +1,4 @@
+import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
 import { buildColumnDefinitions, formatLabelDate, restoreExistingData, type SelectEditorParams } from "./columns";
 import type { CellComponent, ColumnDefinition } from "tabulator-tables";
@@ -152,6 +153,59 @@ describe("buildColumnDefinitions — typed columns", () => {
         expect(editorOf("datetime")).toBe("datetime");
         // A plain input here would be a text box to type "14:05" into by hand.
         expect(editorOf("time")).toBe("time");
+    });
+});
+
+describe("buildColumnDefinitions — colour columns", () => {
+    /** Opens a colour cell's editor, as Tabulator does, and hands back what it built. */
+    async function editColorCell(value: string) {
+        const [ column ] = buildColumnDefinitions({
+            info: [ { name: "tint", type: "color" } ],
+            movableRows: false,
+            existingColumnData: undefined,
+            rowNumberHint: 1
+        }).filter((candidate) => candidate.field === "labels.tint");
+
+        const editor = column?.editor;
+        if (typeof editor !== "function") throw new Error("expected an editor of its own");
+
+        const success = vi.fn();
+        let element: HTMLElement | false = false;
+        await act(async () => {
+            element = editor({ getValue: () => value } as CellComponent, () => {}, success, () => {}, {});
+        });
+        if (!element) throw new Error("expected the editor to build a field");
+        return { element: element as HTMLElement, success };
+    }
+
+    it("reports the picked colour once the pick is settled, not through the drag", async () => {
+        const { element, success } = await editColorCell("#ff0000");
+        const picker = element.querySelector<HTMLInputElement>("input[type=color]");
+        if (!picker) throw new Error("expected a colour picker");
+
+        picker.value = "#00ff00";
+        // Reporting ends the edit, so a colour reported as the picker is dragged through would tear
+        // the editor down — and with it the open picker — at the first step.
+        picker.dispatchEvent(new Event("input", { bubbles: true }));
+        expect(success).not.toHaveBeenCalled();
+
+        picker.dispatchEvent(new Event("change", { bubbles: true }));
+        expect(success).toHaveBeenCalledWith("#00ff00");
+    });
+
+    it("clears a colour back to the unset value a bare picker cannot express", async () => {
+        const { element, success } = await editColorCell("#ff0000");
+
+        element.querySelector<HTMLElement>(".input-group-text")?.click();
+        expect(success).toHaveBeenCalledWith("");
+    });
+
+    it("leaves a cell alone until a colour is picked, an opened picker being no decision", async () => {
+        // A colour input has no empty value, so it shows black over an unset cell; committing that on
+        // the way out would fill in a colour nobody chose.
+        const { element, success } = await editColorCell("");
+        expect(element.querySelector<HTMLInputElement>("input[type=hidden]")?.value).toBe("");
+        expect(success).not.toHaveBeenCalled();
     });
 });
 

@@ -66,6 +66,9 @@ describe("LabelValueInput", () => {
         const picker = container.querySelector<HTMLInputElement>("input[type=color]");
         expect(stored?.value).toBe("");
         expect(picker?.value).toBe("#ffffff");
+        // The default it shows is not a colour anybody chose, and the field says so: the swatch is
+        // marked by a class, the hidden field's value never reaching the DOM as an attribute to read.
+        expect(picker?.className).toContain("label-color-picker-unset");
 
         await act(async () => {
             if (picker) {
@@ -78,6 +81,13 @@ describe("LabelValueInput", () => {
         const clear = container.querySelector<HTMLElement>(".input-group-text");
         await act(async () => clear?.click());
         expect(onCommit).toHaveBeenLastCalledWith("");
+
+        // A colour that was chosen wears the swatch's own class alone, the marking being for the
+        // default a field falls to rather than for the field itself.
+        await mount({ labelType: "color", value: "#ff0000", onCommit });
+        const chosen = container.querySelector<HTMLInputElement>("input[type=color]");
+        expect(chosen?.className).toContain("label-color-picker");
+        expect(chosen?.className).not.toContain("label-color-picker-unset");
     });
 
     it("reports a flag as the words a label stores rather than as a checked box", async () => {
