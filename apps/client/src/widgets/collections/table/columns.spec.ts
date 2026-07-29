@@ -302,7 +302,7 @@ describe("buildColumnDefinitions — multi-valued columns", () => {
     }
 
     it("edits and shows a set as chips whatever it holds, not only a set of options", () => {
-        for (const type of [ "text", "date", "url", "select" ] as const) {
+        for (const type of [ "text", "date", "url", "select", "color" ] as const) {
             const column = multiColumn(type);
             // The type's own single-value editor would show one of the values and store back one.
             expect(typeof column?.editor).toBe("function");
@@ -313,6 +313,49 @@ describe("buildColumnDefinitions — multi-valued columns", () => {
             if (typeof params !== "function") throw new Error("expected the params to be a function");
             expect((params({} as CellComponent) as ValuesEditorParams).labelType).toBe(type);
         }
+    });
+
+    /** Opens a multi-valued cell's editor, as Tabulator does, and puts it in the document. */
+    async function editMultiCell(type: AttributeDefinitionInformation["type"], values: string[]) {
+        const column = multiColumn(type);
+        const editor = column?.editor;
+        const params = column?.editorParams;
+        if (typeof editor !== "function") throw new Error("expected an editor of its own");
+        if (typeof params !== "function") throw new Error("expected the params to be a function");
+
+        const success = vi.fn();
+        let element: HTMLElement | false = false;
+        await act(async () => {
+            element = editor(
+                { getValue: () => values } as CellComponent,
+                () => {}, success, () => {}, params({} as CellComponent)
+            );
+        });
+        if (!element) throw new Error("expected the editor to build a field");
+
+        // Focus only means anything for an element the document holds.
+        const built = element as HTMLElement;
+        document.body.appendChild(built);
+        return { element: built, success };
+    }
+
+    it("stays open where the focus leaves the page rather than the cell", async () => {
+        const { element, success } = await editMultiCell("color", [ "#ff0000" ]);
+        const picker = element.querySelector<HTMLInputElement>("input[type=color]");
+        if (!picker) throw new Error("expected a colour picker");
+        picker.focus();
+
+        // A native picker's dialog takes the focus with nothing in the page gaining it. Ending the
+        // edit here would take the editor down, and the dialog with it, before it reported a colour.
+        picker.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+        expect(success).not.toHaveBeenCalled();
+
+        // Whereas the cell being left for good: nothing in the editor holds the focus any more.
+        picker.blur();
+        picker.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+        expect(success).toHaveBeenCalledWith([ "#ff0000" ]);
+
+        element.remove();
     });
 
     it("sorts by the values a cell holds, not by the array they arrive in", () => {

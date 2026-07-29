@@ -80,6 +80,67 @@ describe("ValuesInput", () => {
         expect(onCommit).toHaveBeenCalledWith([ "2026-07-29" ]);
     });
 
+    it("takes a colour when the pick is settled, not through the drag, and shows it as given", async () => {
+        const onCommit = vi.fn();
+        const input = await mount({
+            labelType: "color",
+            values: [ "#ff0000" ],
+            onCommit,
+            renderValue: (value) => <i data-color={value} />
+        });
+
+        // Stored as text a picker cannot show, so the chip is whatever the host makes of it.
+        expect(container.querySelector(".tn-chip i")?.getAttribute("data-color")).toBe("#ff0000");
+        expect(input?.type).toBe("color");
+
+        // Nothing may be written into the picker while the pick is being made: the browser takes its
+        // value changing underneath an open dialog as reason to close it, losing the pick with it.
+        const picker = watch(input);
+
+        // A picker reports every shade the pointer passes through on its way to the one chosen.
+        for (const shade of [ "#00ff00", "#00ee00" ]) {
+            await act(async () => picker.dragTo(shade));
+        }
+        expect(onCommit).not.toHaveBeenCalled();
+
+        await act(async () => {
+            input?.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        expect(onCommit).toHaveBeenCalledWith([ "#ff0000", "#00ee00" ]);
+        // Not once through the whole gesture, the settling included: a dialog can still be open when
+        // it reports, and writing then is what closes it.
+        expect(picker.writes()).toBe(0);
+    });
+
+    /**
+     * A picker whose value can be moved as the user moves it, apart from anything the component
+     * writes into it — which is what is being counted.
+     */
+    function watch(element: HTMLInputElement | null) {
+        const own = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value");
+        const read = own?.get;
+        const write = own?.set;
+        if (!element || !read || !write) throw new Error("expected a picker holding its own value");
+
+        let written = 0;
+        Object.defineProperty(element, "value", {
+            get: read,
+            set(value: string) {
+                written++;
+                write.call(this, value);
+            },
+            configurable: true
+        });
+
+        return {
+            writes: () => written,
+            dragTo(shade: string) {
+                write.call(element, shade);
+                element.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+        };
+    }
+
     it("drops the last chip on backspace in an empty box, and leaves a filled one alone", async () => {
         const onCommit = vi.fn();
         const input = await mount({ labelType: "text", values: [ "one", "two" ], onCommit });

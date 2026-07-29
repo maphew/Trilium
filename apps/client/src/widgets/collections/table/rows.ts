@@ -107,11 +107,11 @@ export default function getAttributeDefinitionInformation(parentNote: FNote) {
 /**
  * The types a column can hold several values of, shown and edited as chips.
  *
- * The two left out are the ones a set says nothing for: a flag means what it means by being there at
- * all, so several of them are the same one flag; and a colour is a single quality of the thing it
- * describes. A column of either shows the first value it finds, as it did before it was declared to
- * hold many — better a value than a column that quietly goes missing.
+ * The one left out is the one a set says nothing for: a flag means what it means by being there at
+ * all, so several of them are the same one flag. Such a column shows the first value it finds, as it
+ * did before it was declared to hold many — better a value than a column that quietly goes missing.
  */
 const MULTI_VALUE_TYPES = new Set<LabelType | "relation">([
-    "text", "textarea", "number", "select", "date", "datetime", "time", "url", "email", "phone"
+    "text", "textarea", "number", "select", "date", "datetime", "time", "url", "email", "phone",
+    "color"
 ]);

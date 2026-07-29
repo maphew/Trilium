@@ -30,7 +30,8 @@ export const LABEL_MAPPINGS: Record<LabelType, HTMLInputTypeAttribute | undefine
     phone: "tel"
 };
 
-const DEFAULT_COLOR = "#ffffff";
+/** What a colour picker shows where the value names no colour, a picker having no empty of its own. */
+export const DEFAULT_COLOR = "#ffffff";
 
 /**
  * The button beside a link-like field, opening what the field holds: a url as a page, an email or a

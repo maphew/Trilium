@@ -402,6 +402,15 @@ function ValuesEditor({ cell, success, editorParams }: EditorOpts) {
             // leaving it. Picking from a list does not blur at all: the list keeps the focus in the
             // box, which is what lets it stay open across picks.
             if (e.relatedTarget instanceof Node && editor.contains(e.relatedTarget)) return;
+
+            // Nothing in the page took the focus over, and either the editor still holds it or the
+            // window itself has lost it — which is what opening a native picker's dialog does. The
+            // cell has not been left, and ending the edit here would take the dialog down with it
+            // before it could report the colour picked.
+            if (!e.relatedTarget && (!document.hasFocus() || editor.contains(document.activeElement))) {
+                return;
+            }
+
             success(editedValues.current);
         };
 
@@ -428,6 +437,9 @@ function ValuesEditor({ cell, success, editorParams }: EditorOpts) {
                     labelType={labelType === "relation" ? "text" : labelType}
                     values={values}
                     placeholder={t("promoted_attributes.values_placeholder")}
+                    // A colour reads as its swatch even while being edited, `#3d5a80` naming nothing
+                    // to the eye. The rest show what is stored, which is what is being edited.
+                    renderValue={labelType === "color" ? (value) => <ColorSwatch color={value} /> : undefined}
                     onCommit={editValues}
                 />
             )}
@@ -457,6 +469,10 @@ const LINK_SCHEMES: Partial<Record<ColumnType, string>> = { url: "", email: "mai
 function renderValue(value: string, type: ColumnType | undefined) {
     if (type === "date" || type === "datetime") {
         return formatLabelDate(value, type === "datetime");
+    }
+
+    if (type === "color") {
+        return <ColorSwatch color={value} />;
     }
 
     const scheme = type && LINK_SCHEMES[type];
@@ -546,9 +562,19 @@ function ColorFormatter({ cell }: FormatterOpts) {
     // A formatter hands back an element, so an unset cell is an empty one rather than nothing at all.
     if (!color) return <span />;
 
-    // The colour is the one thing about the swatch that cannot be told beforehand; its shape and size
-    // are its class's. A value naming no colour is dropped by the browser, leaving the outline behind
-    // rather than showing it as a colour it is not.
+    return <ColorSwatch color={color} />;
+}
+
+/**
+ * A colour as the square it is read as, wherever one is shown: a cell of its own, or a chip in a cell
+ * holding several.
+ *
+ * The colour is the one thing about the swatch that cannot be told beforehand; its shape and size are
+ * its class's. A value naming no colour is dropped by the browser, leaving the outline behind rather
+ * than showing it as a colour it is not — and the text behind it is carried in the tooltip, a column
+ * of colours being read by eye and its values wanted only now and then.
+ */
+export function ColorSwatch({ color }: { color: string }) {
     return <span className="table-color-swatch" title={color} style={{ backgroundColor: color }} />;
 }
 

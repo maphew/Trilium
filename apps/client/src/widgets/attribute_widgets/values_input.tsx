@@ -1,11 +1,13 @@
+import "./values_input.css";
+
 import { type LabelType } from "@triliumnext/commons";
-import type { TargetedKeyboardEvent } from "preact";
-import { useState } from "preact/hooks";
+import type { ComponentChildren, TargetedKeyboardEvent } from "preact";
+import { useEffect, useRef, useState } from "preact/hooks";
 
 import { t } from "../../services/i18n";
 import Chip from "../react/Chip";
 import FormTextBox from "../react/FormTextBox";
-import { LABEL_MAPPINGS } from "./label_value_input";
+import { DEFAULT_COLOR, LABEL_MAPPINGS } from "./label_value_input";
 
 interface ValuesInputProps {
     /** What kind of value is being entered, deciding the box the next one is typed into. */
@@ -14,6 +16,11 @@ interface ValuesInputProps {
     values: readonly string[];
     /** Receives the values as they now stand, whenever one is taken or dropped. */
     onCommit(values: string[]): void;
+    /**
+     * Shows a value as something other than the text it is stored as — a colour as its swatch. Left
+     * out, a chip reads as what is stored, which for most types is what is being edited anyway.
+     */
+    renderValue?(value: string): ComponentChildren;
     placeholder?: string;
     disabled?: boolean;
 }
@@ -27,8 +34,35 @@ interface ValuesInputProps {
  * rather than quietly dropped. A value already held is not taken a second time: the chips are a set,
  * and two alike could not be told apart.
  */
-export default function ValuesInput({ labelType, values, onCommit, placeholder, disabled }: ValuesInputProps) {
+export default function ValuesInput({ labelType, values, onCommit, renderValue, placeholder, disabled }: ValuesInputProps) {
     const [ draft, setDraft ] = useState("");
+    const pickerRef = useRef<HTMLInputElement>(null);
+    // A colour is picked rather than typed, so there is no Enter to end it and nothing worth keeping
+    // half-entered: the pick itself is the whole gesture, and `change` is when it is settled.
+    const isPicked = labelType === "color";
+
+    // The picker holds its own value and is never told one: it is set at birth and only read from
+    // after that. Anything written into it can reach a dialog that is still open — a colour input
+    // reports its pick before the dialog is dismissed — and the browser takes its value changing
+    // underneath as reason to close, dropping the pick. So it keeps showing the colour last taken,
+    // which is also the truer thing for it to show.
+    useEffect(() => {
+        if (pickerRef.current) {
+            pickerRef.current.value = DEFAULT_COLOR;
+        }
+    }, []);
+
+    useEffect(() => {
+        const picker = pickerRef.current;
+        if (!picker) return;
+
+        // Bound by hand rather than through the JSX: preact/compat — loaded module-graph-wide by any
+        // compat-using import — remaps `onChange` onto the input event, which a colour picker fires
+        // at every step of a drag through it, taking a chip for each shade passed over.
+        const onPicked = () => take(picker.value);
+        picker.addEventListener("change", onPicked);
+        return () => picker.removeEventListener("change", onPicked);
+    });
 
     function take(value: string) {
         const trimmed = value.trim();
@@ -65,19 +99,28 @@ export default function ValuesInput({ labelType, values, onCommit, placeholder, 
                     disabled={disabled}
                     onRemove={() => drop(value)}
                 >
-                    <span>{value}</span>
+                    <span>{renderValue ? renderValue(value) : value}</span>
                 </Chip>
             ))}
-            <FormTextBox
-                type={LABEL_MAPPINGS[labelType] ?? "text"}
-                currentValue={draft}
-                // Only while the field is empty: beside chips it would read as one of them.
-                placeholder={values.length ? undefined : placeholder}
-                disabled={disabled}
-                onChange={setDraft}
-                onBlur={take}
-                onKeyDown={handleKeyDown}
-            />
+            {isPicked ? (
+                <input
+                    ref={pickerRef}
+                    className="form-control"
+                    type="color"
+                    disabled={disabled}
+                />
+            ) : (
+                <FormTextBox
+                    type={LABEL_MAPPINGS[labelType] ?? "text"}
+                    currentValue={draft}
+                    // Only while the field is empty: beside chips it would read as one of them.
+                    placeholder={values.length ? undefined : placeholder}
+                    disabled={disabled}
+                    onChange={setDraft}
+                    onBlur={take}
+                    onKeyDown={handleKeyDown}
+                />
+            )}
         </div>
     );
 }
