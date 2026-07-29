@@ -27,6 +27,9 @@ describe("getTypedInputForLabel", () => {
         expect(getTypedInputForLabel(getBuiltinLabelValueType("startTime"))).toBe("time");
         expect(getTypedInputForLabel(getBuiltinLabelValueType("docUrl"))).toBe("url");
         expect(getTypedInputForLabel(getBuiltinLabelValueType("pageSize"))).toBe("number");
+        // A system label that is a closed set is picked from rather than typed into.
+        expect(getTypedInputForLabel(getBuiltinLabelValueType("sortDirection"))).toBe("select");
+        expect(getTypedInputForLabel(getBuiltinLabelValueType("viewType"))).toBe("select");
 
         // `#calendar:startDate` names the label a date is read from, so it is a name, not a date.
         expect(getTypedInputForLabel(getBuiltinLabelValueType("calendar:startDate"))).toBeUndefined();
@@ -148,6 +151,16 @@ describe("LabelValueInput", () => {
             }
         });
         expect(onCommit).toHaveBeenCalledWith("Done");
+    });
+
+    it("locks a select a host marked read-only, which a browser would otherwise let through", async () => {
+        await mount({
+            labelType: "select", value: "Todo", selectOptions: [ "Todo", "Done" ],
+            onCommit: vi.fn(), inputProps: { readOnly: true }
+        });
+
+        // `readonly` is inert on a dropdown, so it has to arrive as `disabled` instead.
+        expect(container.querySelector("select")?.disabled).toBe(true);
     });
 
     describe("creatable select combobox", () => {

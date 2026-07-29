@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildNote } from "../test/easy-froca";
-import attributeService, { getBuiltinLabelValueType, isBuiltinAttribute, removeOwnedAttributesByNameOrType, setAttribute, setBooleanWithInheritance, setLabel, setRelation } from "./attributes";
+import { allViewTypes } from "../widgets/collections/interface";
+import { getPresentationThemes } from "../widgets/collections/presentation/themes";
+import { MEDIA_PLAY_MODES } from "../widgets/type_widgets/file/media_play_mode";
+import attributeService, { getBuiltinLabelSelectOptions, getBuiltinLabelValueType, isBuiltinAttribute, removeOwnedAttributesByNameOrType, setAttribute, setBooleanWithInheritance, setLabel, setRelation } from "./attributes";
 import froca from "./froca";
 import server from "./server.js";
 
@@ -430,6 +433,27 @@ describe("isBuiltinAttribute", () => {
         // Matched exactly, as the built-in lookup is.
         expect(getBuiltinLabelValueType("disabled:webViewSrc")).toBeUndefined();
         expect(getBuiltinLabelValueType("myOwnLabel")).toBeUndefined();
+    });
+
+    it("reports the choices of a built-in closed set, and nothing for anything else", () => {
+        expect(getBuiltinLabelValueType("sortDirection")).toBe("select");
+        expect(getBuiltinLabelSelectOptions("sortDirection")).toEqual([ "asc", "desc" ]);
+        // A built-in label of any other type has no choices to offer, nor has a name Trilium
+        // attaches no meaning to.
+        expect(getBuiltinLabelSelectOptions("color")).toBeUndefined();
+        expect(getBuiltinLabelSelectOptions("myOwnLabel")).toBeUndefined();
+    });
+
+    it("offers the same choices the widgets reading those labels act on", () => {
+        // The lists live in two places by necessity — the vocabulary is shared, the widgets are the
+        // client's — so drift between them is caught here rather than by an unexplained blank field.
+        expect(getBuiltinLabelSelectOptions("viewType")).toEqual([ ...allViewTypes ]);
+        // "Play once" is the absence of the label, so it is the one mode not offered as a value.
+        expect(getBuiltinLabelSelectOptions("mediaNotesPlayMode"))
+            .toEqual(MEDIA_PLAY_MODES.filter((mode) => mode !== "once"));
+        // The stored value is the theme's id, not the name the collection properties show.
+        expect(getBuiltinLabelSelectOptions("presentation:theme"))
+            .toEqual(getPresentationThemes().map((theme) => theme.id));
     });
 
     it("matches exactly, so prefixed names are not built-ins", () => {

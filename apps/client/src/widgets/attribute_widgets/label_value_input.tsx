@@ -79,8 +79,11 @@ interface LabelValueInputProps {
     commitOn?: "input" | "blur";
     /** How many decimals a number field steps by, from the definition that declared it. */
     numberPrecision?: number;
-    /** The values a select field offers, from the definition that declared it. */
-    selectOptions?: string[];
+    /**
+     * The values a select field offers: from the definition that declared it, or — for a system label
+     * that is a closed set of its own — from the built-in vocabulary.
+     */
+    selectOptions?: readonly string[];
     /**
      * Called when the user asks a select field for a choice its definition does not offer yet;
      * expected to add it to the definition, while the value itself still arrives via `onCommit`.
@@ -155,8 +158,13 @@ export default function LabelValueInput({
             ...extraProps,
             ...inputProps,
             // Bootstrap draws the chevron for `form-select`, which the host — handing the class of a
-            // field one types into — has no reason to know to pass.
-            ...(isSelect && { className: clsx(inputProps?.className, "form-select") }),
+            // field one types into — has no reason to know to pass. `readOnly` is likewise translated:
+            // a host marks a field it does not own with it, but a browser only honours it on a box one
+            // types into, so a read-only dropdown would be freely changeable.
+            ...(isSelect && {
+                className: clsx(inputProps?.className, "form-select"),
+                disabled: inputProps?.disabled || inputProps?.readOnly
+            }),
             // After the host's props, so that a host cannot leave the value uncommitted by supplying
             // its own. A select commits as it is picked even for a host that commits on blur: there is
             // nothing to type into it, so waiting for the blur would only hold a made choice back.
@@ -231,7 +239,7 @@ const CREATE_OPTION_SENTINEL = "\u0000";
  * the empty value: clearing is a choice of its own, and cannot pollute the definition.
  */
 function SelectComboBox({ options, value, onCommit, onCreateOption, inputProps }: {
-    options: string[];
+    options: readonly string[];
     value: string;
     onCommit: (value: string) => void;
     onCreateOption: (option: string) => void | Promise<void>;
@@ -350,7 +358,7 @@ function highlightMatch(text: string, filter: string) {
  * options, then the stored value if the options no longer name it (renamed or removed since it was
  * picked), so that what the note holds is shown rather than silently blanked.
  */
-function selectOptionElements(options: string[], value: string, placeholder?: string) {
+function selectOptionElements(options: readonly string[], value: string, placeholder?: string) {
     const entries = [ ...options ];
     if (value && !options.includes(value)) {
         entries.push(value);

@@ -8,7 +8,7 @@ import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, u
 import appContext from "../../components/app_context.js";
 import { isDefinitionName } from "../../entities/fattribute.js";
 import type { Attribute } from "../../services/attribute_parser.js";
-import { getBuiltinLabelValueType, isBuiltinAttribute } from "../../services/attributes.js";
+import { getBuiltinLabelSelectOptions, getBuiltinLabelValueType, isBuiltinAttribute } from "../../services/attributes.js";
 import { isExperimentalFeatureEnabled } from "../../services/experimental_features.js";
 import { focusSavedElement, saveFocusedElement } from "../../services/focus.js";
 import froca from "../../services/froca.js";
@@ -374,12 +374,19 @@ export function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, 
     const nameRef = useRef<HTMLInputElement>(null);
     /**
      * A system label whose value has a kind of its own is typed into the field that fits it — a palette
-     * for `#color`, a date picker for `#startDate`. The rest keep the autocomplete, which is worth more
-     * to them than a plain box would be: it offers the values the name has been given before.
+     * for `#color`, a date picker for `#startDate`, a dropdown of the choices for `#sortDirection`. The
+     * rest keep the autocomplete, which is worth more to them than a plain box would be: it offers the
+     * values the name has been given before.
      */
-    const typedInput = useMemo(
-        () => attrType === "label" ? getTypedInputForLabel(getBuiltinLabelValueType(name)) : undefined,
-        [ attrType, name ]);
+    const typedInput = useMemo(() => {
+        if (attrType !== "label") {
+            return undefined;
+        }
+        const labelType = getTypedInputForLabel(getBuiltinLabelValueType(name));
+        // The options belong to the name, not to a definition the user wrote, so they are read from the
+        // same place the type came from rather than passed in.
+        return labelType && { labelType, selectOptions: getBuiltinLabelSelectOptions(name) };
+    }, [ attrType, name ]);
     // The values known for a label name never change while the popup is open, so they are fetched
     // once per name and filtered locally afterwards.
     const knownValues = useRef<{ name: string; values: string[] }>();
@@ -542,10 +549,21 @@ export function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, 
                         {typedInput ? (
                             <div className="input-group">
                                 <LabelValueInput
-                                    labelType={typedInput}
+                                    labelType={typedInput.labelType}
+                                    selectOptions={typedInput.selectOptions}
                                     value={value}
                                     onCommit={commitValue}
-                                    inputProps={{ className: "form-control attr-input-value", readOnly: !isOwned }}
+                                    inputProps={{
+                                        className: "form-control attr-input-value",
+                                        readOnly: !isOwned,
+                                        // Names the dropdown's empty entry, which would otherwise be a
+                                        // blank row one has to guess the meaning of. Only for a select:
+                                        // for the typed boxes it would override the placeholder the
+                                        // field sets for itself.
+                                        ...(typedInput.labelType === "select" && {
+                                            placeholder: t("promoted_attributes.unset-field-placeholder")
+                                        })
+                                    }}
                                 />
                             </div>
                         ) : (

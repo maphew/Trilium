@@ -1,4 +1,4 @@
-import { AttributeType, BUILTIN_ATTRIBUTES, type LabelType } from "@triliumnext/commons";
+import { AttributeType, BUILTIN_ATTRIBUTES, type BuiltinLabel, type LabelType } from "@triliumnext/commons";
 
 import type FNote from "../entities/fnote.js";
 import froca from "./froca.js";
@@ -235,11 +235,22 @@ const BUILTIN_ATTRIBUTE_KEYS = new Set(BUILTIN_ATTRIBUTES.map(({ type, name }) =
  * carries a definition string rather than a value of the type it describes.
  */
 export function getBuiltinLabelValueType(name: string): LabelType | undefined {
-    return BUILTIN_LABEL_VALUE_TYPES.get(name);
+    return BUILTIN_LABELS.get(name)?.valueType;
 }
 
-const BUILTIN_LABEL_VALUE_TYPES = new Map<string, LabelType>(
-    BUILTIN_ATTRIBUTES.flatMap((attr) => attr.type === "label" ? [ [ attr.name, attr.valueType ] as const ] : [])
+/**
+ * The values a built-in label of the `select` type accepts, or `undefined` for every other name —
+ * whether it is a label of another type or none of Trilium's at all.
+ *
+ * The list is what to *offer*, not what to allow: a value outside it is kept and shown, since the sets
+ * grow between versions and a note may have been written by a newer one.
+ */
+export function getBuiltinLabelSelectOptions(name: string): readonly string[] | undefined {
+    return BUILTIN_LABELS.get(name)?.selectOptions;
+}
+
+const BUILTIN_LABELS = new Map<string, BuiltinLabel>(
+    BUILTIN_ATTRIBUTES.flatMap((attr) => attr.type === "label" ? [ [ attr.name, attr ] as const ] : [])
 );
 
 export default {
