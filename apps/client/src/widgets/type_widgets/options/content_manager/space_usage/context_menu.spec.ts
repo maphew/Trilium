@@ -20,7 +20,9 @@ const mocks = vi.hoisted(() => ({
     showDetails: vi.fn(),
     contentChanged: vi.fn(),
     post: vi.fn(async (..._args: unknown[]) => undefined),
-    showMessage: vi.fn()
+    showMessage: vi.fn(),
+    revisionLimit: 0 as number | null,
+    configureLimit: vi.fn()
 }));
 
 vi.mock("../../../../../menus/context_menu", () => ({
@@ -55,6 +57,10 @@ vi.mock("../../../../../services/toast", () => ({
     default: { showMessage: (...args: unknown[]) => mocks.showMessage(...args) }
 }));
 
+vi.mock("../../../../../services/options", () => ({
+    default: { getInt: () => mocks.revisionLimit }
+}));
+
 vi.mock("../../../../../components/app_context", () => ({
     default: {
         triggerCommand: mocks.triggerCommand,
@@ -65,7 +71,11 @@ vi.mock("../../../../../components/app_context", () => ({
     }
 }));
 
-import { openDeletedNotesContextMenu, openSpaceUsageContextMenu } from "./context_menu";
+import {
+    openDeletedNotesContextMenu,
+    openRevisionsContextMenu,
+    openSpaceUsageContextMenu
+} from "./context_menu";
 
 // The translations are uninitialized under the test i18n, so titles come back empty; items are
 // identified by their icon, which is what distinguishes them anyway.
@@ -232,5 +242,46 @@ describe("openDeletedNotesContextMenu", () => {
 
         await vi.waitFor(() => expect(mocks.contentChanged).toHaveBeenCalledTimes(1));
         expect(mocks.showMessage).toHaveBeenCalled();
+    });
+});
+
+describe("openRevisionsContextMenu", () => {
+    async function openRevisionsFor(revisionLimit: number | null) {
+        mocks.revisionLimit = revisionLimit;
+        await openRevisionsContextMenu(contextMenuEvent(), mocks.contentChanged, mocks.configureLimit);
+    }
+
+    it("trims the excess snapshots and asks for a fresh reading, once a limit is set", async () => {
+        await openRevisionsFor(10);
+
+        expect(icons()).toEqual([ ERASE ]);
+
+        invoke(ERASE);
+        expect(mocks.post).toHaveBeenCalledWith("revisions/erase-all-excess-revisions");
+        expect(mocks.configureLimit).not.toHaveBeenCalled();
+
+        await vi.waitFor(() => expect(mocks.contentChanged).toHaveBeenCalledTimes(1));
+        expect(mocks.showMessage).toHaveBeenCalled();
+
+        // A limit of zero keeps no snapshot at all, so every one of them is excess — a limit like
+        // any other, not an unset one.
+        await openRevisionsFor(0);
+        invoke(ERASE);
+        expect(mocks.post).toHaveBeenCalledTimes(2);
+        expect(mocks.configureLimit).not.toHaveBeenCalled();
+    });
+
+    it("offers the limit instead of an erasure that would drop nothing, when there is none", async () => {
+        // A negative limit keeps everything, so there is no ceiling to trim down to and the erasure
+        // would report success having changed nothing. An unreadable option counts as no limit
+        // rather than as the harshest one, which would erase every snapshot in the database.
+        for (const noLimit of [ -1, null ]) {
+            await openRevisionsFor(noLimit);
+            invoke(ERASE);
+        }
+
+        expect(mocks.configureLimit).toHaveBeenCalledTimes(2);
+        expect(mocks.post).not.toHaveBeenCalled();
+        expect(mocks.contentChanged).not.toHaveBeenCalled();
     });
 });

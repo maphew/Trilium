@@ -8,6 +8,7 @@ import branches from "../../../../../services/branches";
 import froca from "../../../../../services/froca";
 import { t } from "../../../../../services/i18n";
 import { downloadFileNote } from "../../../../../services/open";
+import options from "../../../../../services/options";
 import server from "../../../../../services/server";
 import toast from "../../../../../services/toast";
 
@@ -157,6 +158,47 @@ export async function openDeletedNotesContextMenu(
                     toast.showMessage(t("recent_changes.deleted_notes_message"));
                     // The cell just lost everything it stood for, so the section has to measure
                     // again — the views take a reading when asked, never on their own.
+                    onContentChanged();
+                });
+            }
+        } ],
+        selectMenuItemHandler: () => {}
+    });
+}
+
+/**
+ * The menu on the revisions cell, offering the same trimming as the options page: dropping the
+ * snapshots each note keeps beyond its limit.
+ *
+ * Without a limit set, nothing is excess and the action would do nothing at all — so it says why and
+ * offers the setting, via `onConfigureLimit`, rather than answering with an erasure that changes
+ * nothing.
+ */
+export async function openRevisionsContextMenu(
+    event: ContextMenuEvent,
+    onContentChanged: ContentChangedHandler,
+    onConfigureLimit: () => void
+) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    await contextMenu.show({
+        x: event.pageX,
+        y: event.pageY,
+        items: [ {
+            title: t("revisions_snapshot_limit.erase_excess_revision_snapshots"),
+            uiIcon: "bx bx-trash destructive-action-icon",
+            handler: () => {
+                // A negative limit is the one that keeps everything, so there is nothing to trim
+                // down to; 0 is a limit like any other, and erases every snapshot there is. An
+                // unreadable option is treated as no limit rather than as the harshest one.
+                if ((options.getInt("revisionSnapshotNumberLimit") ?? -1) < 0) {
+                    onConfigureLimit();
+                    return;
+                }
+
+                void server.post("revisions/erase-all-excess-revisions").then(() => {
+                    toast.showMessage(t("revisions_snapshot_limit.erase_excess_revision_snapshots_prompt"));
                     onContentChanged();
                 });
             }

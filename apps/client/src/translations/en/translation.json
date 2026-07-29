@@ -2856,7 +2856,8 @@
     "status_deleted_one": "Deleted notes: {{size}} in {{count}} note",
     "status_deleted_other": "Deleted notes: {{size}} in {{count}} notes",
     "status_deleted_hint": "Space still held by deleted notes; erasing them reclaims it",
-    "menu_show_details": "Show details"
+    "menu_show_details": "Show details",
+    "revisions_limit_required": "Excess snapshots can only be erased once a maximum number of revision snapshots per note is set. Without a limit, no snapshot counts as excess."
   },
   "note_language": {
     "not_set": "No language set",

@@ -6,6 +6,7 @@ const mocks = vi.hoisted(() => ({
     triggerCommand: vi.fn(),
     openContextMenu: vi.fn(),
     openDeletedNotesMenu: vi.fn(),
+    openRevisionsMenu: vi.fn(),
     showDetails: vi.fn(),
     contentChanged: vi.fn()
 }));
@@ -21,12 +22,22 @@ vi.mock("../../../../../components/app_context", () => ({
 vi.mock("./context_menu", async (importOriginal) => ({
     ...await importOriginal<typeof import("./context_menu")>(),
     openSpaceUsageContextMenu: (...args: unknown[]) => mocks.openContextMenu(...args),
-    openDeletedNotesContextMenu: (...args: unknown[]) => mocks.openDeletedNotesMenu(...args)
+    openDeletedNotesContextMenu: (...args: unknown[]) => mocks.openDeletedNotesMenu(...args),
+    openRevisionsContextMenu: (...args: unknown[]) => mocks.openRevisionsMenu(...args)
 }));
 
-// The treemap container never gets a real layout under happy-dom.
-vi.mock("../../../../react/hooks", () => ({
+// The treemap container never gets a real layout under happy-dom; the rest of the hooks are the
+// real ones.
+vi.mock("../../../../react/hooks", async (importOriginal) => ({
+    ...await importOriginal<typeof import("../../../../react/hooks")>(),
     useElementSize: () => ({ width: 400, height: 300 })
+}));
+
+// Stood in for so the dialog's own state is visible in the DOM: what this spec covers is whether
+// the revisions menu raises it, not the options card it carries.
+vi.mock("./revision_limit_dialog", () => ({
+    default: ({ show }: { show: boolean }) =>
+        <div className="revision-limit-dialog" data-show={String(show)} />
 }));
 
 vi.mock("../../../../../services/froca", () => ({
@@ -71,6 +82,7 @@ afterEach(() => {
     mocks.triggerCommand.mockClear();
     mocks.openContextMenu.mockClear();
     mocks.openDeletedNotesMenu.mockClear();
+    mocks.openRevisionsMenu.mockClear();
     mocks.showDetails.mockClear();
 });
 
@@ -133,5 +145,25 @@ describe("Overview", () => {
         // Clicking it stays inert, like the other buckets.
         deleted?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
         expect(mocks.triggerCommand).not.toHaveBeenCalled();
+    });
+
+    it("answers the revisions bucket with its own menu, which can raise the limit dialog", async () => {
+        const probe = renderOverview();
+        const dialogShown = () =>
+            probe.querySelector(".revision-limit-dialog")?.getAttribute("data-show");
+
+        expect(dialogShown()).toBe("false");
+
+        probe.querySelector(".treemap-cell-revisions")
+            ?.dispatchEvent(new MouseEvent("contextmenu", { bubbles: true }));
+
+        expect(mocks.openContextMenu).not.toHaveBeenCalled();
+        expect(mocks.openRevisionsMenu).toHaveBeenCalledWith(
+            expect.anything(), mocks.contentChanged, expect.any(Function));
+
+        // The menu raises the dialog only when there is no snapshot limit to erase down to; the
+        // view's part is having one to raise.
+        mocks.openRevisionsMenu.mock.calls[0][2]();
+        await vi.waitFor(() => expect(dialogShown()).toBe("true"));
     });
 });

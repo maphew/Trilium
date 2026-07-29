@@ -106,7 +106,12 @@ function AttachmentErasureTimeout() {
     );
 }
 
-function RevisionSettings() {
+/**
+ * Exported so a surface that needs the revision limit set — Space Usage, whose revisions cell can
+ * only erase excess snapshots once there is a limit — can offer this very card in a dialog rather
+ * than sending the user off to the options page and back.
+ */
+export function RevisionSettings() {
     const [ revisionSnapshotNumberLimit, setRevisionSnapshotNumberLimit ] = useTriliumOption("revisionSnapshotNumberLimit");
 
     return (
