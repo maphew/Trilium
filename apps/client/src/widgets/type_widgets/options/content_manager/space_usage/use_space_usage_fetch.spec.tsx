@@ -1,8 +1,6 @@
 import { render } from "preact";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import type LoadResults from "../../../../../services/load_results";
-
 // Hoisted alongside the mock factories, which can run before this file's top-level constants exist.
 const mocks = vi.hoisted(() => ({
     serverGet: undefined as unknown as (url: string) => Promise<unknown>,
@@ -16,17 +14,13 @@ vi.mock("../../../../../services/server", () => ({
 }));
 
 // A full mock, not a partial one: the real hooks module transitively imports half the app at module
-// scope (app_context, keyboard actions), and the hook under test only needs this one export.
-// The subscription is captured so a change can be fired without the app's event plumbing.
+// scope (app_context, keyboard actions). Any subscription the hook made would land here, which is
+// how the "measures only when asked" test can prove it makes none.
 vi.mock("../../../../react/hooks", () => ({
     useTriliumEvent: (_name: string, handler: (data: { loadResults: unknown }) => void) => {
         mocks.entitiesReloadedHandler = handler;
     }
 }));
-
-function fireEntitiesReloaded(loadResults: LoadResults) {
-    mocks.entitiesReloadedHandler?.({ loadResults });
-}
 
 // Import AFTER the mocks (vi.mock is hoisted, but the hook import must resolve the mocked deps).
 import { useSpaceUsageFetch } from "./use_space_usage_fetch";
@@ -42,14 +36,6 @@ function renderProbe(url: string) {
     container = container ?? document.body.appendChild(document.createElement("div"));
     render(<Probe url={url} />, container);
     return container;
-}
-
-function loadResultsWith(noteIds: string[]): LoadResults {
-    return {
-        getNoteIds: () => noteIds,
-        getBranchRows: () => [],
-        getAttachmentRows: () => []
-    } as unknown as LoadResults;
 }
 
 afterEach(() => {
@@ -112,21 +98,19 @@ describe("useSpaceUsageFetch", () => {
         expect(probe.textContent).toBe("fast");
     });
 
-    it("refetches once, debounced, when notes change — and not on irrelevant reloads", async () => {
+    it("never re-measures on its own when notes change", async () => {
         serverGet.mockResolvedValue({ label: "data" });
         const probe = renderProbe("space-usage/overview");
         await vi.waitFor(() => expect(probe.textContent).toBe("data"));
         expect(serverGet).toHaveBeenCalledTimes(1);
 
-        vi.useFakeTimers();
-        fireEntitiesReloaded(loadResultsWith([]));
-        await vi.advanceTimersByTimeAsync(1500);
-        expect(serverGet).toHaveBeenCalledTimes(1);
+        // Measuring the database is far too expensive to repeat after every edit; the user asks for
+        // a fresh reading instead. A subscription that merely fires later would be just as bad, so
+        // assert the hook subscribes to nothing at all.
+        expect(mocks.entitiesReloadedHandler).toBeUndefined();
 
-        // A burst of changes coalesces into a single reload.
-        fireEntitiesReloaded(loadResultsWith([ "changed" ]));
-        fireEntitiesReloaded(loadResultsWith([ "changed" ]));
-        await vi.advanceTimersByTimeAsync(1500);
-        expect(serverGet).toHaveBeenCalledTimes(2);
+        vi.useFakeTimers();
+        await vi.advanceTimersByTimeAsync(60_000);
+        expect(serverGet).toHaveBeenCalledTimes(1);
     });
 });

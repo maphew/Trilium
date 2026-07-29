@@ -1,11 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
-import debounce from "../../../../../services/debounce";
 import server from "../../../../../services/server";
-import { useTriliumEvent } from "../../../../react/hooks";
-
-/** One reload per burst — a subtree delete floods entity changes. */
-const REFRESH_DEBOUNCE_MS = 1000;
 
 export interface SpaceUsageFetch<T> {
     data: T | null;
@@ -14,11 +9,14 @@ export interface SpaceUsageFetch<T> {
 }
 
 /**
- * Fetches a space-usage endpoint and keeps it current: content changes anywhere — deletes, moves,
- * uploads — shift the sizes, so any note/branch/attachment change schedules one debounced reload.
+ * Fetches a space-usage endpoint once, and again whenever the URL changes (Browse navigation).
  *
- * `null` until the first response; on a URL change (Browse navigation) the previous payload stays
- * up while the new one is in flight, so the charts transition instead of blanking.
+ * Deliberately *not* refreshed when notes change: measuring the database is expensive enough that
+ * re-running it after every edit would keep the server busy for as long as this page stayed open —
+ * and the numbers are a snapshot to read, not a live readout. Re-measuring is the user's call.
+ *
+ * `null` until the first response; on a URL change the previous payload stays up while the new one
+ * is in flight, so the charts transition instead of blanking.
  *
  * A failure is reported rather than swallowed, because there is nothing to fall back on before the
  * first success: the view would otherwise claim to be measuring for as long as it stayed open. The
@@ -51,15 +49,6 @@ export function useSpaceUsageFetch<T>(url: string): SpaceUsageFetch<T> {
     }, [ url ]);
 
     useEffect(() => { void refresh(); }, [ refresh ]);
-
-    const delayedRefresh = useMemo(() => debounce(() => void refresh(), REFRESH_DEBOUNCE_MS), [ refresh ]);
-    useEffect(() => () => delayedRefresh.clear(), [ delayedRefresh ]);
-
-    useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
-        if (loadResults.getNoteIds().length || loadResults.getBranchRows().length || loadResults.getAttachmentRows().length) {
-            delayedRefresh();
-        }
-    });
 
     return { data, failed };
 }

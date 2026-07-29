@@ -35,7 +35,11 @@ export const MAX_OVERVIEW_LIMIT = 1000;
 const ROOT_NOTE_ID = "root";
 const HIDDEN_ROOT_ID = "_hidden";
 
-export function getOverview({ includeRevisions, limit }: { includeRevisions: boolean, limit: number }): SpaceUsageOverviewResponse {
+export function getOverview(options: { includeRevisions: boolean, limit: number }): SpaceUsageOverviewResponse {
+    return withBlobUsage(() => buildOverview(options));
+}
+
+function buildOverview({ includeRevisions, limit }: { includeRevisions: boolean, limit: number }): SpaceUsageOverviewResponse {
     const sizes = collectSizes();
     const forest = buildForestFromBecca();
     const rankOf = (entry: SpaceUsageSizes) =>
@@ -68,6 +72,13 @@ export function getOverview({ includeRevisions, limit }: { includeRevisions: boo
 }
 
 export function getNoteUsage(noteId: string): SpaceUsageNoteResponse {
+    // Resolved before the measuring pass, so a bad note ID costs nothing.
+    const note = becca.getNoteOrThrow(noteId);
+
+    return withBlobUsage(() => buildNoteUsage(note.noteId));
+}
+
+function buildNoteUsage(noteId: string): SpaceUsageNoteResponse {
     const note = becca.getNoteOrThrow(noteId);
     const sizes = collectSizes();
     const forest = buildForestFromBecca();
@@ -87,9 +98,9 @@ export function getNoteUsage(noteId: string): SpaceUsageNoteResponse {
 
     const attachmentSizes = getSql().getMap<string, number>(
         `
-        SELECT attachments.attachmentId, COALESCE(LENGTH(blobs.content), 0)
+        SELECT attachments.attachmentId, blob_usage.size
         FROM attachments
-        JOIN blobs ON blobs.blobId = attachments.blobId
+        JOIN blob_usage ON blob_usage.blobId = attachments.blobId
         WHERE attachments.ownerId = ? AND attachments.isDeleted = 0`,
         [ noteId ]
     );
@@ -282,55 +293,56 @@ export function buildNotePath(parentByNoteId: Map<string, string>, noteId: strin
     return path.reverse();
 }
 
-interface SizeLookup {
-    own: Record<string, number>;
-    attachments: Record<string, number>;
-    revisions: Record<string, number>;
-}
+type SizeLookup = Map<string, SpaceUsageSizes>;
 
-/** One grouped pass per component over the blobs — the whole request's byte counting. */
+/**
+ * Every note's own components, in one grouped query over the measured blobs. Notes holding nothing
+ * produce no row and are simply absent, which keeps the map to what actually occupies space.
+ */
 function collectSizes(): SizeLookup {
-    const sql = getSql();
-
-    const own = sql.getMap<string, number>(`
-        SELECT notes.noteId, COALESCE(LENGTH(blobs.content), 0)
-        FROM notes
-        JOIN blobs ON blobs.blobId = notes.blobId
-        WHERE notes.isDeleted = 0`);
-
-    // Owners that are revisions rather than notes simply never match a live noteId here; their
-    // attachments are picked up by the revisions query below.
-    const attachments = sql.getMap<string, number>(`
-        SELECT attachments.ownerId, SUM(COALESCE(LENGTH(blobs.content), 0))
-        FROM attachments
-        JOIN blobs ON blobs.blobId = attachments.blobId
-        WHERE attachments.isDeleted = 0
-        GROUP BY attachments.ownerId`);
-
-    const revisions = sql.getMap<string, number>(`
-        SELECT noteId, SUM(size)
+    const rows = getSql().getRows<{
+        noteId: string, ownSize: number, attachmentsSize: number, revisionsSize: number
+    }>(`
+        SELECT noteId,
+               SUM(own) AS ownSize,
+               SUM(attachment) AS attachmentsSize,
+               SUM(revision) AS revisionsSize
         FROM (
-            SELECT revisions.noteId AS noteId, COALESCE(LENGTH(blobs.content), 0) AS size
-            FROM revisions
-            JOIN blobs ON blobs.blobId = revisions.blobId
+            SELECT notes.noteId AS noteId, blob_usage.size AS own, 0 AS attachment, 0 AS revision
+            FROM notes
+            JOIN blob_usage ON blob_usage.blobId = notes.blobId
+            WHERE notes.isDeleted = 0
+
             UNION ALL
-            SELECT revisions.noteId, COALESCE(LENGTH(blobs.content), 0)
+            -- Owners that are revisions rather than notes never match a live noteId here; those
+            -- attachments are picked up by the revision branch below.
+            SELECT attachments.ownerId, 0, blob_usage.size, 0
+            FROM attachments
+            JOIN blob_usage ON blob_usage.blobId = attachments.blobId
+            WHERE attachments.isDeleted = 0
+
+            UNION ALL
+            SELECT revisions.noteId, 0, 0, blob_usage.size
+            FROM revisions
+            JOIN blob_usage ON blob_usage.blobId = revisions.blobId
+
+            UNION ALL
+            SELECT revisions.noteId, 0, 0, blob_usage.size
             FROM attachments
             JOIN revisions ON revisions.revisionId = attachments.ownerId
-            JOIN blobs ON blobs.blobId = attachments.blobId
+            JOIN blob_usage ON blob_usage.blobId = attachments.blobId
             WHERE attachments.isDeleted = 0
         )
         GROUP BY noteId`);
 
-    return { own, attachments, revisions };
+    return new Map(rows.map(({ noteId, ownSize, attachmentsSize, revisionsSize }) =>
+        [ noteId, { ownSize, attachmentsSize, revisionsSize } ]));
 }
 
+const NO_SIZES: SpaceUsageSizes = { ownSize: 0, attachmentsSize: 0, revisionsSize: 0 };
+
 function sizesOf(noteId: string, sizes: SizeLookup): SpaceUsageSizes {
-    return {
-        ownSize: sizes.own[noteId] ?? 0,
-        attachmentsSize: sizes.attachments[noteId] ?? 0,
-        revisionsSize: sizes.revisions[noteId] ?? 0
-    };
+    return sizes.get(noteId) ?? NO_SIZES;
 }
 
 function bucketOf(entries: SpaceUsageSizes[]): SpaceUsageBucket {
@@ -343,6 +355,24 @@ function bucketOf(entries: SpaceUsageSizes[]): SpaceUsageBucket {
 
     return bucket;
 }
+
+/**
+ * What still keeps a blob alive, in ascending priority. A blob claimed by several kinds is
+ * attributed to the highest, which is what makes the reported tiers add up to the total instead of
+ * counting shared content twice.
+ */
+const BLOB_UNREFERENCED = 0;
+const BLOB_DELETED = 1;
+const BLOB_REVISION = 2;
+const BLOB_ATTACHMENT = 3;
+const BLOB_BODY = 4;
+
+const DELETED_BLOBS = `
+    SELECT blobId FROM notes WHERE isDeleted = 1 AND blobId IS NOT NULL
+    UNION SELECT blobId FROM attachments WHERE isDeleted = 1 AND blobId IS NOT NULL
+    UNION SELECT revisions.blobId FROM revisions
+        JOIN notes ON notes.noteId = revisions.noteId
+        WHERE notes.isDeleted = 1 AND revisions.blobId IS NOT NULL`;
 
 const LIVE_BODY_BLOBS = `SELECT blobId FROM notes WHERE isDeleted = 0 AND blobId IS NOT NULL`;
 
@@ -362,6 +392,55 @@ const LIVE_REVISION_BLOBS = `
     WHERE attachments.isDeleted = 0 AND notes.isDeleted = 0 AND attachments.blobId IS NOT NULL`;
 
 /**
+ * Measures every blob exactly once into a temporary table, tags each with what still keeps it
+ * alive, and runs the caller against that.
+ *
+ * This is the only pass over blob content a request makes, and it is what keeps these endpoints
+ * usable on a large database. Measuring is the expensive part — everything downstream then joins
+ * integers. The shape this replaced re-measured the whole database for each figure it reported,
+ * seven times over; since the SQLite connection is synchronous, the server could serve nothing at
+ * all meanwhile, so a slow report froze the whole app rather than just this page.
+ */
+function withBlobUsage<T>(collect: () => T): T {
+    const sql = getSql();
+
+    // A leftover from a request that died mid-flight would otherwise be reused as if it were fresh.
+    sql.execute("DROP TABLE IF EXISTS blob_usage");
+
+    try {
+        sql.execute(`
+            CREATE TEMP TABLE blob_usage (
+                blobId TEXT NOT NULL PRIMARY KEY,
+                size INTEGER NOT NULL,
+                kind INTEGER NOT NULL DEFAULT ${BLOB_UNREFERENCED}
+            )`);
+
+        // `octet_length`, not `length`: on a text value `length` counts *characters*, so it has to
+        // decode every note in the database. Bytes are what a space report is about anyway — the
+        // character count also under-reported anything non-ASCII.
+        sql.execute(`
+            INSERT INTO blob_usage (blobId, size)
+            SELECT blobId, COALESCE(octet_length(content), 0) FROM blobs`);
+
+        // Claims in ascending priority, each overwriting the last, so a blob ends up under the
+        // strongest thing holding it. These walk the reference tables only — no content is read.
+        for (const [ kind, referencedBy ] of [
+            [ BLOB_DELETED, DELETED_BLOBS ],
+            [ BLOB_REVISION, LIVE_REVISION_BLOBS ],
+            [ BLOB_ATTACHMENT, LIVE_NOTE_ATTACHMENT_BLOBS ],
+            [ BLOB_BODY, LIVE_BODY_BLOBS ]
+        ] as const) {
+            sql.execute(`UPDATE blob_usage SET kind = ${kind} WHERE blobId IN (${referencedBy})`);
+        }
+
+        return collect();
+    } finally {
+        // The connection outlives the request, so the table must not linger for the next one.
+        sql.execute("DROP TABLE IF EXISTS blob_usage");
+    }
+}
+
+/**
  * What the live content actually occupies on disk, deduplicated, broken into mutually exclusive
  * tiers: bodies claim their blobs first, then note-owned attachments, then revisions (snapshot
  * attachments included). The tiers sum to the total by construction, so each parenthetical figure
@@ -371,23 +450,16 @@ const LIVE_REVISION_BLOBS = `
  */
 function collectContent(): SpaceUsageContent {
     const sql = getSql();
-    const sumBlobs = (tier: string) =>
-        sql.getValue<number | null>(`
-            SELECT SUM(COALESCE(LENGTH(blobs.content), 0))
-            FROM blobs
-            WHERE ${tier}`) ?? 0;
+    const byKind = new Map(sql
+        .getRows<{ kind: number, size: number }>(`SELECT kind, SUM(size) AS size FROM blob_usage GROUP BY kind`)
+        .map(({ kind, size }) => [ kind, size ]));
+    const sizeOf = (kind: number) => byKind.get(kind) ?? 0;
 
-    const bodiesSize = sumBlobs(`blobs.blobId IN (${LIVE_BODY_BLOBS})`);
-    const attachmentsSize = sumBlobs(`
-        blobs.blobId IN (${LIVE_NOTE_ATTACHMENT_BLOBS})
-        AND blobs.blobId NOT IN (${LIVE_BODY_BLOBS})`);
-    const revisionsSize = sumBlobs(`
-        blobs.blobId IN (${LIVE_REVISION_BLOBS})
-        AND blobs.blobId NOT IN (${LIVE_BODY_BLOBS})
-        AND blobs.blobId NOT IN (${LIVE_NOTE_ATTACHMENT_BLOBS})`);
+    const attachmentsSize = sizeOf(BLOB_ATTACHMENT);
+    const revisionsSize = sizeOf(BLOB_REVISION);
 
     return {
-        size: bodiesSize + attachmentsSize + revisionsSize,
+        size: sizeOf(BLOB_BODY) + attachmentsSize + revisionsSize,
         noteCount: sql.getValue<number>(`SELECT COUNT(*) FROM notes WHERE isDeleted = 0`),
         attachmentsSize,
         revisionsSize
@@ -404,9 +476,9 @@ function collectContentSizeOf(noteIds: string[]): number {
     sql.fillParamList(noteIds);
 
     return sql.getValue<number | null>(`
-        SELECT SUM(COALESCE(LENGTH(blobs.content), 0))
-        FROM blobs
-        WHERE blobs.blobId IN (
+        SELECT SUM(blob_usage.size)
+        FROM blob_usage
+        WHERE blob_usage.blobId IN (
             SELECT notes.blobId FROM notes
                 JOIN param_list ON param_list.paramId = notes.noteId
                 WHERE notes.isDeleted = 0 AND notes.blobId IS NOT NULL
@@ -436,9 +508,9 @@ function collectRevisionsSizeOf(noteIds: string[]): number {
     sql.fillParamList(noteIds);
 
     return sql.getValue<number | null>(`
-        SELECT SUM(COALESCE(LENGTH(blobs.content), 0))
-        FROM blobs
-        WHERE blobs.blobId IN (
+        SELECT SUM(blob_usage.size)
+        FROM blob_usage
+        WHERE blob_usage.blobId IN (
             SELECT revisions.blobId FROM revisions
                 JOIN param_list ON param_list.paramId = revisions.noteId
                 WHERE revisions.blobId IS NOT NULL
@@ -447,8 +519,9 @@ function collectRevisionsSizeOf(noteIds: string[]): number {
                 JOIN param_list ON param_list.paramId = revisions.noteId
                 WHERE attachments.isDeleted = 0 AND attachments.blobId IS NOT NULL
         )
-        AND blobs.blobId NOT IN (${LIVE_BODY_BLOBS})
-        AND blobs.blobId NOT IN (${LIVE_NOTE_ATTACHMENT_BLOBS})`) ?? 0;
+        -- The same subtraction the database-wide tiers make, read off the tag each blob already
+        -- carries: one still held by a live body or note attachment frees nothing.
+        AND blob_usage.kind NOT IN (${BLOB_BODY}, ${BLOB_ATTACHMENT})`) ?? 0;
 }
 
 /**
@@ -461,30 +534,17 @@ function collectRevisionsSizeOf(noteIds: string[]): number {
 function collectDeletedNotes(): SpaceUsageDeletedNotes {
     const sql = getSql();
 
-    const size = sql.getValue<number | null>(`
-        SELECT SUM(COALESCE(LENGTH(blobs.content), 0))
-        FROM blobs
-        WHERE blobs.blobId IN (
-            SELECT blobId FROM notes WHERE isDeleted = 1
-            UNION SELECT blobId FROM attachments WHERE isDeleted = 1
-            UNION SELECT revisions.blobId FROM revisions
-                JOIN notes ON notes.noteId = revisions.noteId
-                WHERE notes.isDeleted = 1
-        ) AND blobs.blobId NOT IN (
-            SELECT blobId FROM notes WHERE isDeleted = 0 AND blobId IS NOT NULL
-            UNION SELECT blobId FROM attachments WHERE isDeleted = 0 AND blobId IS NOT NULL
-            UNION SELECT revisions.blobId FROM revisions
-                JOIN notes ON notes.noteId = revisions.noteId
-                WHERE notes.isDeleted = 0 AND revisions.blobId IS NOT NULL
-        )`) ?? 0;
-
-    const noteCount = sql.getValue<number>(`
-        SELECT COUNT(*)
-        FROM notes
-        JOIN blobs ON blobs.blobId = notes.blobId
-        WHERE notes.isDeleted = 1`);
-
-    return { size, noteCount };
+    return {
+        // Blobs no live entity claimed: the tagging already resolved that, a live claim of any kind
+        // having overwritten the deleted one.
+        size: sql.getValue<number | null>(
+            `SELECT SUM(size) FROM blob_usage WHERE kind = ${BLOB_DELETED}`) ?? 0,
+        noteCount: sql.getValue<number>(`
+            SELECT COUNT(*)
+            FROM notes
+            JOIN blob_usage ON blob_usage.blobId = notes.blobId
+            WHERE notes.isDeleted = 1`)
+    };
 }
 
 function buildForestFromBecca(): CanonicalForest {
