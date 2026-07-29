@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildSectionSelections, type OneNoteNotebook, orderedChildren } from "./onenote_import.js";
+import { buildSectionSelections, extractServerMessage, type OneNoteNotebook, orderedChildren } from "./onenote_import.js";
 
 const NOTEBOOKS: OneNoteNotebook[] = [
     {
@@ -94,5 +94,20 @@ describe("buildSectionSelections", () => {
 
         expect(buildSectionSelections(NOTEBOOKS, new Set())).toEqual([]);
         expect(buildSectionSelections(NOTEBOOKS, new Set(["does-not-exist"]))).toEqual([]);
+    });
+});
+
+describe("extractServerMessage", () => {
+    it("unwraps both response shapes the API rejects with, and reports nothing usable as null", () => {
+        // A thrown server error arrives as the JSON envelope; a [status, message] route result as text.
+        expect(extractServerMessage('{"message":"The OneNote connection was lost."}')).toBe("The OneNote connection was lost.");
+        expect(extractServerMessage("Not connected to OneNote.")).toBe("Not connected to OneNote.");
+        expect(extractServerMessage(new Error("Failed to fetch"))).toBe("Failed to fetch");
+
+        // Nothing worth showing: the caller falls back to its own wording rather than printing "{}" or "".
+        expect(extractServerMessage('{"message":"  "}')).toBeNull();
+        expect(extractServerMessage('{"status":500}')).toBeNull();
+        expect(extractServerMessage("   ")).toBeNull();
+        expect(extractServerMessage(undefined)).toBeNull();
     });
 });

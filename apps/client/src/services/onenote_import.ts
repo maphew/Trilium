@@ -62,6 +62,28 @@ export default {
     runImport
 };
 
+/**
+ * Pulls the human-readable reason out of a rejected API call, so the dialog can show what actually went
+ * wrong instead of a generic failure. The request layer rejects with the raw response body, which is
+ * either a JSON error envelope (`{"message": …}`, from a server error) or plain text (from a
+ * `[status, message]` route result) — both shapes are unwrapped here. Returns null when the response
+ * carried no usable message and the caller should fall back to its own wording.
+ */
+export function extractServerMessage(e: unknown): string | null {
+    const raw = typeof e === "string" ? e : e instanceof Error ? e.message : null;
+    const trimmed = raw?.trim();
+    if (!trimmed) {
+        return null;
+    }
+    try {
+        const parsed = JSON.parse(trimmed) as { message?: unknown };
+        return typeof parsed.message === "string" && parsed.message.trim() ? parsed.message : null;
+    } catch {
+        // Not JSON: a plain-text body is already the message.
+        return trimmed;
+    }
+}
+
 export type OneNoteContainer = OneNoteNotebook | OneNoteSectionGroup;
 
 /** A container's direct child in the OneNote left rail — either a section or a (nested) section group. */
