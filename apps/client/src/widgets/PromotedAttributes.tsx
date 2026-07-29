@@ -182,7 +182,6 @@ function LabelInput(props: CellProps & { inputId: string }) {
 
     // A choice created straight from the field is added to the definition — on whichever note owns
     // it, typically a parent or template — so every note sharing the field offers it from now on.
-    // The reload that write triggers refreshes the cells with the new option.
     const createOption = useCallback(async (option: string) => {
         const newDefinition: DefinitionObject = {
             ...definition,
@@ -198,7 +197,15 @@ function LabelInput(props: CellProps & { inputId: string }) {
             },
             componentId
         );
-    }, [ definition, definitionAttr, componentId ]);
+        // The grid ignores reloads it is itself the source of (see usePromotedAttributeData), so the
+        // cells sharing the definition are patched in place, as updateAttribute does for a value —
+        // otherwise the list keeps offering the old options until something else changes.
+        setCells(prev => prev?.map(c =>
+            c.definitionAttr.attributeId === definitionAttr.attributeId
+                ? { ...c, definition: newDefinition }
+                : c
+        ));
+    }, [ definition, definitionAttr, componentId, setCells ]);
 
     useTextLabelAutocomplete(inputId, valueAttr, definition, (e) => {
         if (e.currentTarget instanceof HTMLInputElement) {
