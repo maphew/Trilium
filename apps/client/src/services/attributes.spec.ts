@@ -386,6 +386,15 @@ describe("isBuiltinAttribute", () => {
         expect(isBuiltinAttribute("relation", "widget")).toBe(true);
     });
 
+    it("recognizes the journal and calendar names, which the list long omitted", () => {
+        expect(isBuiltinAttribute("label", "yearNote")).toBe(true);
+        expect(isBuiltinAttribute("relation", "dateTemplate")).toBe(true);
+        expect(isBuiltinAttribute("label", "calendar:view")).toBe(true);
+        // An event reads its dates from these by default, so the names are Trilium's, not the user's.
+        expect(isBuiltinAttribute("label", "startDate")).toBe(true);
+        expect(isBuiltinAttribute("label", "calendar:startDate")).toBe(true);
+    });
+
     it("matches exactly, so prefixed names are not built-ins", () => {
         // A definition describes a built-in without being one, and a disabled one is inert.
         expect(isBuiltinAttribute("label", "label:archived")).toBe(false);
