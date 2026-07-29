@@ -2590,9 +2590,6 @@
     "back": "返回",
     "diff_identical": "此修訂內容與目前筆記內容相同。"
   },
-  "auto_link_attribute_list": {
-    "title": "系統屬性"
-  },
   "database": {
     "title": "資料庫"
   },

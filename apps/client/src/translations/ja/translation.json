@@ -2842,9 +2842,6 @@
     "split": "分割ビュー",
     "preview": "プレビュー"
   },
-  "auto_link_attribute_list": {
-    "title": "システム属性"
-  },
   "common": {
     "save": "保存",
     "cancel": "キャンセル"

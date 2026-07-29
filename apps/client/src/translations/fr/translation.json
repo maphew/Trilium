@@ -2764,9 +2764,6 @@
     "page_ranges_invalid": "Format invalide. Utilisez par exemple : 1-5, 8, 11-13.",
     "page_ranges_placeholder": "ex. : 1-5, 8, 11-13"
   },
-  "auto_link_attribute_list": {
-    "title": "Attributs système"
-  },
   "setup": {
     "heading": "Démarrer avec Trilium",
     "new-document": "Nouvelle base de connaissances",
