@@ -369,6 +369,24 @@ describe("LabelValueInput", () => {
         }
     });
 
+    it("opens a url only where its scheme is one that may be followed", async () => {
+        const open = vi.spyOn(window, "open").mockImplementation(() => null);
+        try {
+            // A bare address would otherwise be opened relative to Trilium's own origin.
+            await mount({ labelType: "url", value: "example.com/docs", onCommit: vi.fn() });
+            await act(async () => container.querySelector<HTMLElement>(".open-external-link-button")?.click());
+            expect(open).toHaveBeenLastCalledWith("https://example.com/docs", "_blank");
+
+            // Whereas a scheme that would run in Trilium's origin opens nothing at all.
+            await mount({ labelType: "url", value: "javascript:alert(1)", onCommit: vi.fn() });
+            open.mockClear();
+            await act(async () => container.querySelector<HTMLElement>(".open-external-link-button")?.click());
+            expect(open).not.toHaveBeenCalled();
+        } finally {
+            open.mockRestore();
+        }
+    });
+
     it("maps every label type to a field, colour included", () => {
         // Guards the mapping against a type being added to the vocabulary without a field to edit it.
         expect(Object.keys(LABEL_MAPPINGS).length).toBeGreaterThan(0);

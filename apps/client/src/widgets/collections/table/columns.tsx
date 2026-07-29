@@ -1,6 +1,6 @@
 import "./columns.css";
 
-import { LabelType, safeLinkPreviewHref } from "@triliumnext/commons";
+import { LabelType } from "@triliumnext/commons";
 import clsx from "clsx";
 import { JSX } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -9,6 +9,7 @@ import type { CellComponent, ColumnDefinition, EmptyCallback, FormatterParams, R
 import froca from "../../../services/froca.js";
 import { t } from "../../../services/i18n.js";
 import { formatDateNumeric } from "../../../utils/formatters.js";
+import { safeUrlHref } from "../../../utils/url.js";
 import LabelValueInput from "../../attribute_widgets/label_value_input.jsx";
 import { SelectValuesInput } from "../../attribute_widgets/select_input.jsx";
 import ValuesInput from "../../attribute_widgets/values_input.jsx";
@@ -108,19 +109,6 @@ const labelTypeMappings: Record<ColumnType, Partial<ColumnDefinition>> = {
 function applyLinkScheme(value: unknown, scheme: string): string {
     if (typeof value !== "string" || !value) return "";
     return value.startsWith(scheme) ? value : `${scheme}${value}`;
-}
-
-/**
- * The `href` a url value may be linked as. A label's value is free text that can have arrived from an
- * import or a sync peer, so a hostile scheme (`javascript:`, `data:`) is made inert rather than
- * clickable; a value carrying no scheme at all gets the `https://` an address bar would give it,
- * rather than being linked as a path relative to Trilium itself.
- */
-export function safeUrlHref(value: unknown): string {
-    if (typeof value !== "string" || !value.trim()) return "";
-
-    const trimmed = value.trim();
-    return safeLinkPreviewHref(/^[a-z][a-z0-9+.-]*:/i.test(trimmed) ? trimmed : `https://${trimmed}`);
 }
 
 /**

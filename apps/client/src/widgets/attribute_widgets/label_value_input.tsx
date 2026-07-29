@@ -6,6 +6,7 @@ import { createElement, type HTMLInputTypeAttribute, type InputHTMLAttributes, t
 import { useRef } from "preact/hooks";
 
 import { t } from "../../services/i18n";
+import { normalizeExternalUrl } from "../../utils/url";
 import { SelectComboBox } from "./select_input";
 
 /**
@@ -41,13 +42,15 @@ export const DEFAULT_COLOR = "#ffffff";
 const OPEN_BUTTONS: Partial<Record<LabelType, {
     icon: string;
     title: () => string;
-    /** Builds the href to open from the bare stored value. */
-    toHref: (value: string) => string;
+    /** Builds the href to open from the bare stored value, or `null` for one that may not be opened. */
+    toHref: (value: string) => string | null;
 }>> = {
     url: {
         icon: "bx bx-window-open",
         title: () => t("promoted_attributes.open_external_link"),
-        toHref: (value) => value
+        // A stored value is free text, so the button opens only what may be followed as an address —
+        // never a `javascript:` scheme, which would otherwise run in Trilium's own origin.
+        toHref: normalizeExternalUrl
     },
     email: {
         icon: "bx bx-envelope",
@@ -219,8 +222,9 @@ export default function LabelValueInput({
                     title={openButton.title()}
                     onClick={() => {
                         const target = inputRef.current?.value || value;
-                        if (target) {
-                            window.open(openButton.toHref(target), "_blank");
+                        const href = target ? openButton.toHref(target) : null;
+                        if (href) {
+                            window.open(href, "_blank");
                         }
                     }}
                 />
