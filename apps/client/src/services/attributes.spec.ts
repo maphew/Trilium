@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildNote } from "../test/easy-froca";
-import attributeService, { isBuiltinAttribute, removeOwnedAttributesByNameOrType, setAttribute, setBooleanWithInheritance, setLabel, setRelation } from "./attributes";
+import attributeService, { getBuiltinLabelValueType, isBuiltinAttribute, removeOwnedAttributesByNameOrType, setAttribute, setBooleanWithInheritance, setLabel, setRelation } from "./attributes";
 import froca from "./froca";
 import server from "./server.js";
 
@@ -384,6 +384,52 @@ describe("isBuiltinAttribute", () => {
         // `template` and `widget` exist as both, so both must be recognized.
         expect(isBuiltinAttribute("label", "template")).toBe(true);
         expect(isBuiltinAttribute("relation", "widget")).toBe(true);
+    });
+
+    it("recognizes the journal and calendar names, which the list long omitted", () => {
+        expect(isBuiltinAttribute("label", "yearNote")).toBe(true);
+        expect(isBuiltinAttribute("relation", "dateTemplate")).toBe(true);
+        expect(isBuiltinAttribute("label", "calendar:view")).toBe(true);
+        // An event reads its dates from these by default, so the names are Trilium's, not the user's.
+        expect(isBuiltinAttribute("label", "startDate")).toBe(true);
+        expect(isBuiltinAttribute("label", "calendar:startDate")).toBe(true);
+    });
+
+    it("recognizes the board's task-state names", () => {
+        expect(isBuiltinAttribute("label", "board:groupBy")).toBe(true);
+        expect(isBuiltinAttribute("label", "stateId")).toBe(true);
+        expect(isBuiltinAttribute("label", "isCompleted")).toBe(true);
+    });
+
+    it("recognizes the names of the smaller subsystems", () => {
+        expect(isBuiltinAttribute("label", "fastSearch")).toBe(true);
+        expect(isBuiltinAttribute("label", "launcherType")).toBe(true);
+        expect(isBuiltinAttribute("relation", "hoistedNote")).toBe(true);
+        expect(isBuiltinAttribute("label", "shareOpenGraphURL")).toBe(true);
+        expect(isBuiltinAttribute("label", "oneNotePageId")).toBe(true);
+        expect(isBuiltinAttribute("label", "versioningLimit")).toBe(true);
+        expect(isBuiltinAttribute("relation", "includeNoteLink")).toBe(true);
+        // `shareOpenGraphImage` is read as either a label or a relation, so both must be recognized.
+        expect(isBuiltinAttribute("label", "shareOpenGraphImage")).toBe(true);
+        expect(isBuiltinAttribute("relation", "shareOpenGraphImage")).toBe(true);
+    });
+
+    it("recognizes the map names", () => {
+        expect(isBuiltinAttribute("label", "geolocation")).toBe(true);
+        expect(isBuiltinAttribute("label", "map:style")).toBe(true);
+        expect(isBuiltinAttribute("label", "excludeFromNoteMap")).toBe(true);
+    });
+
+    it("reports the value type of a built-in label, and nothing for anything else", () => {
+        expect(getBuiltinLabelValueType("color")).toBe("color");
+        expect(getBuiltinLabelValueType("archived")).toBe("boolean");
+        expect(getBuiltinLabelValueType("pageSize")).toBe("number");
+        // Relations point at a note, so they carry no value type even under a shared name.
+        expect(getBuiltinLabelValueType("template")).toBe("boolean");
+        expect(getBuiltinLabelValueType("renderNote")).toBeUndefined();
+        // Matched exactly, as the built-in lookup is.
+        expect(getBuiltinLabelValueType("disabled:webViewSrc")).toBeUndefined();
+        expect(getBuiltinLabelValueType("myOwnLabel")).toBeUndefined();
     });
 
     it("matches exactly, so prefixed names are not built-ins", () => {

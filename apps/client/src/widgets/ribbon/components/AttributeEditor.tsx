@@ -444,7 +444,7 @@ interface AttributeNameItem {
     name: string;
 }
 
-async function fetchAttributeNames(type: "label" | "relation", queryText: string): Promise<AttributeNameItem[]> {
+export async function fetchAttributeNames(type: "label" | "relation", queryText: string): Promise<AttributeNameItem[]> {
     const names = await server.get<string[]>(`attribute-names/?type=${type}&query=${encodeURIComponent(queryText)}`);
     const marker = type === "label" ? "#" : "~";
 
@@ -460,7 +460,7 @@ async function fetchAttributeNames(type: "label" | "relation", queryText: string
  * per row would leak. The badge markup is mirrored from `Badge` rather than restyled, so that both
  * surfaces still take their look from the one stylesheet.
  */
-function renderAttributeName(type: "label" | "relation", name: string) {
+export function renderAttributeName(type: "label" | "relation", name: string) {
     const button = document.createElement("button");
     button.type = "button";
     button.tabIndex = -1;
@@ -495,7 +495,8 @@ function renderAttributeName(type: "label" | "relation", name: string) {
     return button;
 }
 
-function getPreprocessedData(currentValue: string) {
+/** The attributes as plain text: reference links back down to their note path, entities resolved. */
+export function getPreprocessedData(currentValue: string) {
     const str = currentValue
         .replace(/<a[^>]+href="(#[A-Za-z0-9_/]*)"[^>]*>[^<]*<\/a>/g, "$1")
         .replace(/&nbsp;/g, " "); // otherwise .text() below outputs non-breaking space in unicode
@@ -503,7 +504,12 @@ function getPreprocessedData(currentValue: string) {
     return $("<div>").html(str).text();
 }
 
-function getClickIndex(pos: ModelPosition) {
+/**
+ * Where the press landed in {@link getPreprocessedData}'s text, which is what the parsed attributes
+ * carry their offsets in: the editor's own offset counts a reference link as one node, so every
+ * sibling before the pressed one is measured as the text it stands for.
+ */
+export function getClickIndex(pos: ModelPosition) {
     let clickIndex = pos.offset - (pos.textNode?.startOffset ?? 0);
 
     let curNode: ModelNode | Text | ModelElement | null = pos.textNode;

@@ -3,14 +3,31 @@
     background-color: var(--accented-background-color);
     border: 1px solid var(--main-border-color);
     border-radius: 4px;
-    z-index: 1000;
+    /* Above a modal (1055): the attributes it is editing may well be listed in one, and the popup is
+       always the topmost thing while it is open. Below the confirmations and prompts it summons itself
+       (2000), which have to come out above it in turn. */
+    z-index: 1060;
     padding: 15px;
     position: absolute;
     width: 600px;
+    /* Narrower than that on a phone, where the popup is wider than the screen it is being placed on:
+       its host measures it to place it (see positionPopupBesideAnchor), so capping the width here is
+       what keeps it on screen. */
+    max-width: calc(100vw - 20px);
     max-height: 600px;
     overflow: auto;
     box-shadow: 10px 10px 93px -25px black;
     contain: none;
+}
+
+/*
+ * The same mark the name completion puts against a system name, and so the same colour: quiet, because
+ * it tells the reader whose name this is rather than asking anything of them. Without a `--color` the
+ * outline variant has neither border nor text colour to draw, and reads as a bare word.
+ */
+.attr-detail-system-badge {
+    --color: var(--muted-text-color);
+    flex-shrink: 0;
 }
 
 /* The help sits beside the name rather than under it: only a handful of names have any, and the ones

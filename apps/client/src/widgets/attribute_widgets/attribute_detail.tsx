@@ -3,12 +3,12 @@ import "./attribute_name_suggestion.css";
 
 import { type DefinitionObject, type LabelType, promotedAttributeDefinitionParser } from "@triliumnext/commons";
 import { ComponentProps } from "preact";
-import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import appContext from "../../components/app_context.js";
 import { isDefinitionName } from "../../entities/fattribute.js";
 import type { Attribute } from "../../services/attribute_parser.js";
-import { isBuiltinAttribute } from "../../services/attributes.js";
+import { getBuiltinLabelValueType, isBuiltinAttribute } from "../../services/attributes.js";
 import { isExperimentalFeatureEnabled } from "../../services/experimental_features.js";
 import { focusSavedElement, saveFocusedElement } from "../../services/focus.js";
 import froca from "../../services/froca.js";
@@ -25,11 +25,13 @@ import FormDropdownList from "../react/FormDropdownList.jsx";
 import { FormDropdownDivider, FormListItem } from "../react/FormList.jsx";
 import FormTextBox, { FormTextBoxWithUnit } from "../react/FormTextBox.jsx";
 import HelpTooltipButton from "../react/HelpTooltipButton.jsx";
+import { suspendModalFocusTraps } from "../react/modal_focustrap.js";
 import NoteAutocomplete from "../react/NoteAutocomplete.jsx";
 import NoteLink, { NewNoteLink } from "../react/NoteLink.jsx";
 import { disposeReactWidget, ParentComponent, renderReactWidgetAtElement } from "../react/react_utils.jsx";
 import OptionsRow, { OptionsRowWithToggle } from "../type_widgets/options/components/OptionsRow.jsx";
 import { ATTR_HELP, AttrHelpEntry } from "./attr_help.js";
+import LabelValueInput, { getTypedInputForLabel } from "./label_value_input.js";
 
 export interface AttributeDetailOpts {
     allAttributes?: Attribute[];
@@ -144,7 +146,7 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
 }
 
 export interface AttributeDetailProps extends AttributeFormCallbacks {
-    /** The attribute to show; `null` keeps the popup closed. A new object counts as a new show. */
+    /** The attribute to show; `null` keeps the popup closed. A different attribute is a new show. */
     opts: AttributeDetailOpts | null;
     /** The note being viewed, excluded from the related notes list. */
     currentNoteId?: string | null;
@@ -162,12 +164,16 @@ export function AttributeDetail({ opts, currentNoteId, onDismiss, onCancel, ...f
     const shown = !!opts;
     const { onSaveAndClose } = formCallbacks;
 
-    // A different opts object means a new show, so the form is keyed on this counter to remount
-    // and reseed its fields from the new attribute.
+    // The form is keyed on this counter, so it is remounted and reseeded whenever the popup is shown
+    // something other than what it already holds. Being handed the same attribute over again is not
+    // that (see isSameShow): a row pressed a second time would otherwise tear the form down and
+    // fetch the related notes afresh, which is seen as the popup flickering.
     const showCount = useRef(0);
     const lastOpts = useRef<AttributeDetailOpts | null>(null);
-    if (lastOpts.current !== opts) {
-        lastOpts.current = opts;
+    const isNewShow = !isSameShow(lastOpts.current, opts);
+    lastOpts.current = opts;
+
+    if (isNewShow) {
         showCount.current++;
 
         if (opts) {
@@ -228,6 +234,17 @@ export function AttributeDetail({ opts, currentNoteId, onDismiss, onCancel, ...f
         return () => window.removeEventListener("mousedown", onMouseDown);
     }, [ shown, spawner, onDismiss ]);
 
+    // The popup is rendered outside whatever modal it was opened from (its host portals it to the body,
+    // and a modal counts as belonging to it — see above), which Bootstrap's focus-trap would otherwise
+    // keep pulling focus back out of, leaving the fields unusable. Suspended while the popup is shown.
+    useEffect(() => {
+        if (!shown) {
+            return;
+        }
+
+        return suspendModalFocusTraps();
+    }, [ shown ]);
+
     if (!opts) {
         return null;
     }
@@ -268,6 +285,37 @@ export function AttributeDetail({ opts, currentNoteId, onDismiss, onCancel, ...f
     );
 }
 
+/**
+ * Whether the popup is being shown what it is already showing. The form seeds its fields from the
+ * attribute once and is remounted to seed them again, so two shows whose fields would come out the
+ * same are one show — however many objects the host built along the way, which is more than one:
+ * the attributes editor re-parses its text on every press and the inherited list builds a fresh
+ * attribute per press, so identity says a great deal less here than the values do.
+ *
+ * A show asking for the focus is always a new one. It is asking to be acted upon, and mounting is
+ * the only time the form acts on it — but only where it is genuinely being asked again: the very
+ * same request handed back is the host re-rendering around a popup it has not touched, which every
+ * keystroke does (the name typed into the form is reported straight back out to it).
+ */
+export function isSameShow(previous: AttributeDetailOpts | null, next: AttributeDetailOpts | null) {
+    if (!previous || !next) {
+        return previous === next;
+    }
+
+    if (previous === next) {
+        return true;
+    }
+
+    return !next.focus
+        && previous.isOwned === next.isOwned
+        && previous.hideMultiplicity === next.hideMultiplicity
+        && previous.attribute.noteId === next.attribute.noteId
+        && previous.attribute.type === next.attribute.type
+        && previous.attribute.name === next.attribute.name
+        && previous.attribute.value === next.attribute.value
+        && !!previous.attribute.isInheritable === !!next.attribute.isInheritable;
+}
+
 interface AttributeFormCallbacks {
     /** Close discarding unsaved changes (close button, escape). */
     onCancel: () => void;
@@ -279,10 +327,12 @@ interface AttributeFormCallbacks {
 }
 
 /**
- * The editable part of the popup. Remounted per show (keyed on `showId`) so the field state is
- * simply seeded from the attribute instead of being synchronized to it on every change.
+ * The editable part of the popup, and of whatever else edits an attribute — a pane of a master-detail
+ * modal shows the same form, having no room to float one over itself. Remounted per show (keyed on
+ * `showId`) so the field state is simply seeded from the attribute instead of being synchronized to it
+ * on every change.
  */
-function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, onCancel, onAttributesChanged, onSaveAndClose, onDelete }: AttributeFormCallbacks & {
+export function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, onCancel, onAttributesChanged, onSaveAndClose, onDelete }: AttributeFormCallbacks & {
     opts: AttributeDetailOpts;
     attrType: AttrType;
     currentNoteId?: string | null;
@@ -306,6 +356,14 @@ function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, onCance
     const [ isInheritable, setIsInheritable ] = useState(!!attribute.isInheritable);
     const [ definition, setDefinition ] = useState(() => parseDefinition(attribute, attrType));
     const nameRef = useRef<HTMLInputElement>(null);
+    /**
+     * A system label whose value has a kind of its own is typed into the field that fits it — a palette
+     * for `#color`, a date picker for `#startDate`. The rest keep the autocomplete, which is worth more
+     * to them than a plain box would be: it offers the values the name has been given before.
+     */
+    const typedInput = useMemo(
+        () => attrType === "label" ? getTypedInputForLabel(getBuiltinLabelValueType(name)) : undefined,
+        [ attrType, name ]);
     // The values known for a label name never change while the popup is open, so they are fetched
     // once per name and filtered locally afterwards.
     const knownValues = useRef<{ name: string; values: string[] }>();
@@ -328,6 +386,7 @@ function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, onCance
     // characters being composed: https://github.com/zadam/trilium/pull/3812
     const isComposing = useRef(false);
     const nameHelp = lookupAttributeHelp(attrType, name);
+    const isSystem = isSystemAttribute(attrType, name);
 
     useEffect(() => {
         if (focus === "name") {
@@ -391,6 +450,20 @@ function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, onCance
             <div class="attr-detail-header">
                 <h5 class="attr-detail-title">{attrType ? ATTR_TITLES[attrType] : ""}</h5>
 
+                {/* Beside the related-notes badge rather than by the name field, for the same reason: a
+                    mark that comes and going as the name is typed would resize the popup under the
+                    pointer. The help button by the field explains what a name does; this says the name
+                    is Trilium's at all, which most system attributes have no explanation to say for
+                    them. */}
+                {isSystem && (
+                    <Badge
+                        outline
+                        className="attr-detail-system-badge"
+                        text={t("attribute_names.system")}
+                        tooltip={t("attribute_names.system_description")}
+                    />
+                )}
+
                 {/* Sits in the header, and not in a section of its own, so that the popup keeps the size it
                     was positioned at: the lookup behind it is asynchronous and re-runs as the attribute is
                     edited, and a block coming and going below the form would resize the popup under the
@@ -450,19 +523,30 @@ function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, onCance
 
                 {attrType === "label" && (
                     <OptionsRow name="attr-value" label={t("attribute_detail.value")}>
-                        <FormAutocomplete
-                            className="attr-input-value"
-                            currentValue={value}
-                            readOnly={!isOwned}
-                            source={suggestLabelValues}
-                            openOnFocus
-                            onChange={(newValue) => isComposing.current ? setValue(newValue) : commitValue(newValue)}
-                            onCompositionStart={() => isComposing.current = true}
-                            onCompositionEnd={(e) => {
-                                isComposing.current = false;
-                                commitValue(e.currentTarget.value);
-                            }}
-                        />
+                        {typedInput ? (
+                            <div className="input-group">
+                                <LabelValueInput
+                                    labelType={typedInput}
+                                    value={value}
+                                    onCommit={commitValue}
+                                    inputProps={{ className: "form-control attr-input-value", readOnly: !isOwned }}
+                                />
+                            </div>
+                        ) : (
+                            <FormAutocomplete
+                                className="attr-input-value"
+                                currentValue={value}
+                                readOnly={!isOwned}
+                                source={suggestLabelValues}
+                                openOnFocus
+                                onChange={(newValue) => isComposing.current ? setValue(newValue) : commitValue(newValue)}
+                                onCompositionStart={() => isComposing.current = true}
+                                onCompositionEnd={(e) => {
+                                    isComposing.current = false;
+                                    commitValue(e.currentTarget.value);
+                                }}
+                            />
+                        )}
                     </OptionsRow>
                 )}
 
@@ -629,8 +713,19 @@ function AttributeNameSuggestion({ type, name }: { type: "label" | "relation"; n
     );
 }
 
+/**
+ * Whether the attribute being edited is one Trilium reads for itself, and so is marked as such.
+ *
+ * A definition is excluded on purpose: `label:archived` sets up a field named after a system attribute
+ * without being one, and the popup edits it under the stripped name — so the name alone would answer
+ * yes where {@link isBuiltinAttribute}, which sees the whole name, answers no.
+ */
+export function isSystemAttribute(attrType: AttrType, name: string) {
+    return (attrType === "label" || attrType === "relation") && isBuiltinAttribute(attrType, name);
+}
+
 /** Normalised so that the shorthand entries, which are the description alone, read like the rest. */
-function lookupAttributeHelp(attrType: AttrType, name: string): AttrHelpEntry | undefined {
+export function lookupAttributeHelp(attrType: AttrType, name: string): AttrHelpEntry | undefined {
     const entry = attrType ? ATTR_HELP[attrType]?.[name] : undefined;
     return typeof entry === "string" ? { description: entry } : entry;
 }
@@ -803,7 +898,7 @@ function RelatedNotesBadge({ attribute, currentNoteId }: { attribute: Attribute;
 }
 
 /** The query for every note carrying the attribute, mirroring the name-only search behind the count. */
-function formatAttributeForSearch({ type, name }: Attribute) {
+export function formatAttributeForSearch({ type, name }: Attribute) {
     // Names are filtered as they are typed, so there is nothing in one that would need quoting.
     return `${type === "label" ? "#" : "~"}${name}`;
 }
@@ -823,7 +918,7 @@ const ATTR_TITLES: Record<string, string> = {
 
 const isNewLayout = isExperimentalFeatureEnabled("new-layout");
 
-function positionPopup(popup: HTMLElement, { x, y, anchor }: AttributeDetailOpts, parentOffset: { top: number; left: number }) {
+export function positionPopup(popup: HTMLElement, { x, y, anchor }: AttributeDetailOpts, parentOffset: { top: number; left: number }) {
     const outerWidth = popup.offsetWidth;
     const outerHeight = popup.offsetHeight;
     const windowHeight = document.documentElement.clientHeight;
@@ -938,7 +1033,7 @@ export function getAttrType(attribute: Attribute): AttrType {
 }
 
 /** Definitions are stored prefixed (`label:foo`), but the popup edits the bare name. */
-function stripDefinitionPrefix(name: string, attrType: AttrType) {
+export function stripDefinitionPrefix(name: string, attrType: AttrType) {
     if (attrType === "label-definition") {
         return name.substring("label:".length);
     } else if (attrType === "relation-definition") {
@@ -947,7 +1042,7 @@ function stripDefinitionPrefix(name: string, attrType: AttrType) {
     return name;
 }
 
-function addDefinitionPrefix(name: string, attrType: AttrType) {
+export function addDefinitionPrefix(name: string, attrType: AttrType) {
     if (attrType === "label-definition") {
         return `label:${name}`;
     } else if (attrType === "relation-definition") {

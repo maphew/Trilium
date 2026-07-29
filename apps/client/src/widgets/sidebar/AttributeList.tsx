@@ -2,6 +2,7 @@ import "./AttributeList.css";
 
 import { promotedAttributeDefinitionParser } from "@triliumnext/commons";
 import clsx from "clsx";
+import { ComponentChildren } from "preact";
 import { createPortal } from "preact/compat";
 import { useContext, useEffect, useRef, useState } from "preact/hooks";
 
@@ -13,25 +14,34 @@ import attributes, { isBuiltinAttribute } from "../../services/attributes";
 import dialog from "../../services/dialog";
 import { t } from "../../services/i18n";
 import server from "../../services/server";
-import { AttributeDetail, AttributeDetailOpts, AttrType, DEFINITION_TYPES, getAttrType, LABEL_TYPES, RELATION_DEFINITION_TYPE } from "../attribute_widgets/attribute_detail";
+import { isMobile } from "../../services/utils";
+import { AttributeDetail, AttributeDetailOpts, AttributeForm, AttrType, DEFINITION_TYPES, getAttrType, RELATION_DEFINITION_TYPE } from "../attribute_widgets/attribute_detail";
 import ActionButton from "../react/ActionButton";
+import { FormListItem } from "../react/FormList";
 import HelpButton from "../react/HelpButton";
 import { useActiveNoteContext, useTriliumEvent } from "../react/hooks";
 import Icon from "../react/Icon";
+import { DetailPane, MasterPane, useMasterDetail, useMasterDetailPage } from "../react/master_detail";
 import NoItems from "../react/NoItems";
 import NoteLink from "../react/NoteLink";
 import { ParentComponent } from "../react/react_utils";
 import { ATTRIBUTE_HELP_PAGE } from "../ribbon/components/AttributeHelp";
+import OptionsSection from "../type_widgets/options/components/OptionsSection";
 import RightPanelWidget, { CollapsibleWidgets } from "./RightPanelWidget";
 
 /**
  * The note's attributes as a list, one row per attribute: the kind (label, relation, or either's
  * definition) is carried by an icon instead of by the `#`/`~`/`label:` syntax the attributes editor
  * spells out, and the value is shown as a preview rather than in full. Rows open the same detail
- * popup the editor uses, which is where an attribute is actually edited.
+ * form the editor uses, which is where an attribute is actually edited.
+ *
+ * The form floats beside its row where there is room for it — a panel with a note's width beside it —
+ * and is a page of its own inside a master-detail host (a modal on a phone), which slides it in over
+ * the list and heads it with a way back.
  */
 export default function AttributeList() {
     const { note } = useActiveNoteContext();
+    const { isMasterDetail } = useMasterDetail();
     const parentComponent = useContext(ParentComponent);
     const containerRef = useRef<HTMLDivElement>(null);
     const [ detail, setDetail ] = useState<AttributeDetailOpts | null>(null);
@@ -41,20 +51,41 @@ export default function AttributeList() {
     // so both lists are kept in refs (whose identity the popup holds on to) and redrawn by hand.
     const owned = useRef<Attribute[]>([]);
     const inherited = useRef<Attribute[]>([]);
+    const internal = useRef<Attribute[]>([]);
     const [ , setRevision ] = useState(0);
     const rerender = () => setRevision((revision) => revision + 1);
+
+    // The draft of the note being left, handed over by the check below for the effect to persist: the
+    // note it belongs to is no longer the one the list is showing, so it cannot be saved from here.
+    const draftToFlush = useRef<{ noteId: string; attributes: Attribute[] } | null>(null);
 
     // Collected while rendering rather than in an effect, which would leave one frame listing the
     // attributes of the note navigated away from. The initial `undefined` is what collects the first.
     const shownNoteId = useRef<string | null>();
     if (shownNoteId.current !== (note?.noteId ?? null)) {
+        // An attribute left open for editing is closed by the change of note, and closing keeps what
+        // was typed into it — as a press outside does — rather than dropping it. Which the list cannot
+        // do itself once it holds another note's attributes, hence the hand-over.
+        if (detail?.isOwned && shownNoteId.current) {
+            draftToFlush.current = { noteId: shownNoteId.current, attributes: owned.current };
+        }
+
         shownNoteId.current = note?.noteId ?? null;
         owned.current = collectOwned(note);
         inherited.current = collectInherited(note);
+        internal.current = collectInternal(note);
     }
 
-    // The popup edits one attribute of the note being left, so it closes with the note.
-    useEffect(() => setDetail(null), [ note ]);
+    // The form edits one attribute of the note being left, so it closes with the note.
+    useEffect(() => {
+        setDetail(null);
+
+        const draft = draftToFlush.current;
+        draftToFlush.current = null;
+        if (draft) {
+            void persist(draft.noteId, draft.attributes);
+        }
+    }, [ note ]);
 
     useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
         // While the popup is open, the changes this widget itself made are skipped: its edits are the
@@ -65,6 +96,7 @@ export default function AttributeList() {
         if (note && changed.some((attr) => attributes.isAffecting(attr, note))) {
             owned.current = collectOwned(note);
             inherited.current = collectInherited(note);
+            internal.current = collectInternal(note);
             rerender();
         }
     });
@@ -72,8 +104,14 @@ export default function AttributeList() {
     /** Persists the whole draft: the endpoint replaces the note's owned attributes with the list. */
     async function save() {
         if (note) {
-            await server.put(`notes/${note.noteId}/attributes`, owned.current, componentId);
+            await persist(note.noteId, owned.current);
         }
+    }
+
+    /** Named apart from {@link save} so a draft can be saved to the note it belongs to, whichever the
+     *  list has moved on to. */
+    async function persist(noteId: string, attributes: Attribute[]) {
+        await server.put(`notes/${noteId}/attributes`, attributes, componentId);
     }
 
     function openDetail(attribute: Attribute, isOwned: boolean, anchor: HTMLElement | null, e: MouseEvent) {
@@ -115,7 +153,7 @@ export default function AttributeList() {
         });
     }
 
-    /** Closes the popup keeping its edits: a list of rows has no save step of its own. */
+    /** Closes the form keeping its edits: a list of rows has no save step of its own. */
     function commit() {
         const isOwned = detail?.isOwned;
 
@@ -124,6 +162,10 @@ export default function AttributeList() {
             void save();
         }
     }
+
+    // A master-detail host heads the page it shows the form on with the attribute's name, and goes back
+    // to the list by closing it. Nothing happens outside such a host, where the form is a popup.
+    useMasterDetailPage(detail ? getDisplayName(detail.attribute, getAttributeKind(detail.attribute)) : null, commit);
 
     /**
      * Deleting is a press away in every row, and the row is all there is to tell one attribute from
@@ -143,15 +185,37 @@ export default function AttributeList() {
     }
 
     const sections = splitIntoSections(owned.current, inherited.current);
+    const internalRows = internal.current.map((attribute) => toEntry(attribute, true));
     const rowProps = {
         activeAttribute: detail?.attribute,
         onOpen: openDetail,
         onDelete: (attribute: Attribute) => void deleteAttribute(attribute)
     };
-    // The cards a section has nothing for are left out, so an ordinary note sees one or two of the three.
-    const shownCards = 1 + (sections.inherited.length ? 1 : 0) + (sections.definitions.length ? 1 : 0);
+    // The cards a section has nothing for are left out, so an ordinary note sees one or two of the four.
+    const shownCards = 1
+        + (sections.inherited.length ? 1 : 0)
+        + (sections.definitions.length ? 1 : 0)
+        + (internalRows.length ? 1 : 0);
 
-    return (
+    // The same callbacks whichever of the two the form is shown in.
+    const formCallbacks = {
+        // A press outside keeps the edits, matching the attributes editor (which saves on blur); the
+        // close button and escape go through onCancel and revert instead.
+        onCancel: () => {
+            if (note) {
+                owned.current = collectOwned(note);
+            }
+            setDetail(null);
+            rerender();
+        },
+        // The form edits the attribute in place, so there is nothing to apply here: the rows only need
+        // to be redrawn to follow along as it is typed into.
+        onAttributesChanged: rerender,
+        // An inherited attribute is shown read-only, so it has neither of the two.
+        onSaveAndClose: detail?.isOwned ? commit : undefined,
+        onDelete: detail?.isOwned ? () => void deleteAttribute(detail.attribute) : undefined
+    };
+    const sectionList = (
         <>
             {/* A card each, so a section is collapsed on its own and the inherited attributes — which a
                 template can run to dozens of — can be put away without taking the note's own with them.
@@ -159,7 +223,7 @@ export default function AttributeList() {
                 counts this whole panel as one widget (see RightPanelContainer), being one entry in its
                 list. Down to a single card, collapsing it away is not on offer. */}
             <CollapsibleWidgets.Provider value={shownCards > 1}>
-                <RightPanelWidget
+                <AttributeSection
                     id="attributes"
                     title={t("attribute_list_panel.owned", { count: sections.owned.length })}
                     grow
@@ -176,28 +240,28 @@ export default function AttributeList() {
                 >
                     {/* Presses inside the sections do not dismiss the popup (see `parent` above), which
                         leaves closing on a press next to a row up to this handler. */}
-                    <div class="attribute-list-panel" ref={containerRef} onClick={() => setDetail(null)}>
+                    <div class="attribute-list-panel" ref={containerRef} onClick={commit}>
                         {sections.owned.length > 0 ? (
                             <AttributeRowList rows={sections.owned} {...rowProps} />
                         ) : (
                             <NoItems icon="bx bx-hash" text={t("attribute_list_panel.no_attributes")} />
                         )}
                     </div>
-                </RightPanelWidget>
+                </AttributeSection>
 
                 {sections.inherited.length > 0 && (
-                    <RightPanelWidget
+                    <AttributeSection
                         id="attributes-inherited"
                         title={t("attribute_list_panel.inherited", { count: sections.inherited.length })}
                     >
-                        <div class="attribute-list-panel" onClick={() => setDetail(null)}>
+                        <div class="attribute-list-panel" onClick={commit}>
                             <AttributeRowList rows={sections.inherited} {...rowProps} />
                         </div>
-                    </RightPanelWidget>
+                    </AttributeSection>
                 )}
 
                 {sections.definitions.length > 0 && (
-                    <RightPanelWidget
+                    <AttributeSection
                         id="attributes-definitions"
                         title={t("attribute_list_panel.definitions", { count: sections.definitions.length })}
                         buttons={note && (
@@ -208,36 +272,91 @@ export default function AttributeList() {
                             />
                         )}
                     >
-                        <div class="attribute-list-panel" onClick={() => setDetail(null)}>
+                        <div class="attribute-list-panel" onClick={commit}>
                             <AttributeRowList rows={sections.definitions} {...rowProps} />
                         </div>
-                    </RightPanelWidget>
+                    </AttributeSection>
+                )}
+
+                {internalRows.length > 0 && (
+                    <AttributeSection
+                        id="attributes-internal"
+                        title={t("attribute_list_panel.internal", { count: internalRows.length })}
+                    >
+                        <div class="attribute-list-panel" onClick={commit}>
+                            <AttributeRowList rows={internalRows} readOnly {...rowProps} />
+                        </div>
+                    </AttributeSection>
                 )}
             </CollapsibleWidgets.Provider>
+        </>
+    );
+
+    // Inside a master-detail host the list and the form are its two panes, which it slides over each
+    // other — so they are handed over as siblings rather than nested in a wrapper of ours.
+    if (isMasterDetail) {
+        return (
+            <>
+                <MasterPane>{sectionList}</MasterPane>
+                <DetailPane className="attribute-detail-page">
+                    {detail && (
+                        <AttributeForm
+                            // Reseeded from whichever attribute the page is showing, the fields being
+                            // seeded once per show (see AttributeForm).
+                            key={detail.attribute.attributeId ?? "new"}
+                            opts={detail}
+                            attrType={getAttrType(detail.attribute)}
+                            currentNoteId={note?.noteId}
+                            {...formCallbacks}
+                        />
+                    )}
+                </DetailPane>
+            </>
+        );
+    }
+
+    return (
+        <>
+            {sectionList}
 
             {createPortal(
                 <AttributeDetail
                     opts={detail}
                     currentNoteId={note?.noteId}
-                    // A press outside keeps the edits, matching the attributes editor (which saves on
-                    // blur); the close button and escape go through onCancel and revert instead.
                     onDismiss={commit}
-                    onCancel={() => {
-                        if (note) {
-                            owned.current = collectOwned(note);
-                        }
-                        setDetail(null);
-                        rerender();
-                    }}
-                    // The popup edits the attribute in place, so there is nothing to apply here: the
-                    // rows only need to be redrawn to follow along as it is typed into.
-                    onAttributesChanged={rerender}
-                    // An inherited attribute is shown read-only, so it has neither of the two.
-                    onSaveAndClose={detail?.isOwned ? commit : undefined}
-                    onDelete={detail?.isOwned ? () => void deleteAttribute(detail.attribute) : undefined}
+                    {...formCallbacks}
                 />,
                 document.body)}
         </>
+    );
+}
+
+interface AttributeSectionProps {
+    /** What the right pane remembers the section by, collapsed state and all. */
+    id: string;
+    title: string;
+    children: ComponentChildren;
+    buttons?: ComponentChildren;
+    /** Passed on to {@link RightPanelWidget}, which is the only host that has room to give. */
+    grow?: boolean;
+}
+
+/**
+ * One section, drawn as the layout it is in draws a titled group of things: a card of the right pane on
+ * a desktop, foldable and remembered as folded; the same card the settings pages are built from on a
+ * phone, where the panel is a page of its own and a title is read rather than pressed.
+ */
+function AttributeSection({ id, title, children, buttons, grow }: AttributeSectionProps) {
+    if (IS_MOBILE) {
+        // The id names the section here too, as a class: it is what the right pane knows the section by,
+        // and there is no reason for a stylesheet (or a test) to know it by anything else.
+        return <OptionsSection className={id} title={title} actions={buttons}>{children}</OptionsSection>;
+    }
+
+    return (
+        <RightPanelWidget id={id} title={title} buttons={buttons} grow={grow}>
+            {children}
+        </RightPanelWidget>
     );
 }
 
@@ -245,6 +364,13 @@ interface AttributeRowListProps {
     rows: AttributeEntry[];
     /** The attribute the detail popup is showing, marked as such in the list. */
     activeAttribute?: Attribute;
+    /**
+     * The rows stand for attributes Trilium writes and keeps up to date itself, which leaves them
+     * nothing to offer: nothing to edit, nothing to delete, no note to name as their source (they are
+     * always the current one's), and no split to draw between the note's own names and Trilium's —
+     * every one of them is Trilium's, which is what the card they are in says.
+     */
+    readOnly?: boolean;
     onOpen: (attribute: Attribute, isOwned: boolean, anchor: HTMLElement | null, e: MouseEvent) => void;
     onDelete: (attribute: Attribute) => void;
 }
@@ -254,20 +380,25 @@ interface AttributeRowListProps {
  * Trilium reads for itself. What a row offers follows from whether the note owns its attribute rather
  * than from the card it is in: the definitions card holds the note's own alongside a template's.
  */
-function AttributeRowList({ rows, activeAttribute, onOpen, onDelete }: AttributeRowListProps) {
+function AttributeRowList({ rows, activeAttribute, readOnly, onOpen, onDelete }: AttributeRowListProps) {
     function renderRows(group: AttributeEntry[]) {
         return (
-            <ul class="attribute-rows">
+            // The rows are menu items on a phone (see AttributeRow), and the theme dresses a menu item
+            // through the menu around it — so the list stands in as that menu, the way the other lists
+            // of menu items outside a dropdown do (`dropdown-menu static show`, as in the code-note
+            // switcher). Static: it opens nowhere and is positioned by nothing.
+            <ul class={clsx("attribute-rows", IS_MOBILE && "dropdown-menu tn-dropdown-menu static show")}>
                 {group.map(({ attribute, isOwned, isSystem }, index) => (
                     <AttributeRow
                         key={attribute.attributeId ?? `new-${index}`}
                         attribute={attribute}
                         active={activeAttribute === attribute}
-                        isSystem={isSystem}
+                        isSystem={isSystem && !readOnly}
                         // An attribute of another note names it; the current note's own would name itself.
-                        showOwner={!isOwned}
-                        onOpen={(anchor, e) => onOpen(attribute, isOwned, anchor, e)}
-                        onDelete={isOwned ? () => onDelete(attribute) : undefined}
+                        showOwner={!isOwned && !readOnly}
+                        // A read-only row opens the popup as an inherited one does: to be read, not edited.
+                        onOpen={(anchor, e) => onOpen(attribute, isOwned && !readOnly, anchor, e)}
+                        onDelete={isOwned && !readOnly ? () => onDelete(attribute) : undefined}
                     />
                 ))}
             </ul>
@@ -275,7 +406,7 @@ function AttributeRowList({ rows, activeAttribute, onOpen, onDelete }: Attribute
     }
 
     // The system attributes are sorted last (see splitIntoSections), so one index is the whole boundary.
-    const boundary = rows.findIndex((entry) => entry.isSystem);
+    const boundary = readOnly ? -1 : rows.findIndex((entry) => entry.isSystem);
     const userDefined = boundary < 0 ? rows : rows.slice(0, boundary);
     const system = boundary < 0 ? [] : rows.slice(boundary);
 
@@ -303,27 +434,18 @@ interface AttributeRowProps {
 function AttributeRow({ attribute, active, isSystem, showOwner, onOpen, onDelete }: AttributeRowProps) {
     const rowRef = useRef<HTMLLIElement>(null);
     const attrType = getAttributeKind(attribute);
+    const marker = getKindMarker(attribute, attrType, isSystem);
+    const kindIcon = getKindIcon(attribute, attrType);
+    const rowClass = clsx("attribute-row", active && "active");
 
-    return (
-        <li
-            ref={rowRef}
-            class={clsx("attribute-row", active && "active")}
-            title={KIND_TITLES[attrType]}
-            onClick={(e) => {
-                // Keep the container's closing handler from undoing this.
-                e.stopPropagation();
-                onOpen(rowRef.current, e);
-            }}
-        >
-            {/* The kind is the icon, and a system attribute carries a cog on its corner: its own tooltip
-                names it, the marker being the only thing that says so. */}
-            <span
-                class={clsx("attribute-kind", isSystem && "marker-system")}
-                title={isSystem ? t("attribute_names.system") : undefined}
-            >
-                <Icon icon={getKindIcon(attribute, attrType)} />
-            </span>
+    function open(e: MouseEvent) {
+        // Keep the container's closing handler from undoing this.
+        e.stopPropagation();
+        onOpen(rowRef.current, e);
+    }
 
+    const contents = (
+        <>
             <span class="attribute-name">{getDisplayName(attribute, attrType)}</span>
 
             <AttributeValue attribute={attribute} attrType={attrType} />
@@ -351,9 +473,51 @@ function AttributeRow({ attribute, active, isSystem, showOwner, onOpen, onDelete
                     }}
                 />
             )}
+        </>
+    );
+
+    // On a phone the rows are menu items, drawn as everything else the note's menu leads to is: the
+    // panel is reached from that menu (see the note attributes modal), and a row there is something
+    // pressed with a thumb rather than pointed at.
+    if (IS_MOBILE) {
+        return (
+            <FormListItem
+                itemRef={rowRef}
+                className={rowClass}
+                icon={kindIcon}
+                // The badge hangs off the icon's own corner here, there being no wrapper to hang it on.
+                iconClassName={clsx("attribute-kind", marker?.class)}
+                title={[ KIND_TITLES[attrType], marker?.title ].filter(Boolean).join(" · ")}
+                onClick={open}
+            >
+                {contents}
+            </FormListItem>
+        );
+    }
+
+    return (
+        <li
+            ref={rowRef}
+            class={rowClass}
+            title={KIND_TITLES[attrType]}
+            onClick={open}
+        >
+            {/* The kind is the icon, and what is worth saying about it beyond that is a badge on its
+                corner: its own tooltip names it, the badge being the only thing that says so. */}
+            <span class={clsx("attribute-kind", marker?.class)} title={marker?.title}>
+                <Icon icon={kindIcon} />
+            </span>
+
+            {contents}
         </li>
     );
 }
+
+/**
+ * Whether a row is a menu item, read once: what the app is running on does not change under it, and
+ * the rows are redrawn on every keystroke the popup takes.
+ */
+const IS_MOBILE = isMobile();
 
 /**
  * What the attribute is, as an icon. A definition takes the icon of the field it sets up, the same one
@@ -368,6 +532,27 @@ function getKindIcon(attribute: Attribute, attrType: AttributeKind) {
     }
 
     return attrType === "relation" ? "bx bx-transfer" : "bx bx-hash";
+}
+
+/**
+ * The badge the kind icon carries on its corner, where there is one to carry: a cog for the names
+ * Trilium reads for itself, and a chevron for a definition whose field is promoted — lifted, that is,
+ * out of the attributes and into the note's own ribbon. At most one of the two, which no attribute is
+ * ever both of: no built-in name is a definition.
+ */
+function getKindMarker(attribute: Attribute, attrType: AttributeKind, isSystem?: boolean) {
+    if (isSystem) {
+        // The hint the detail popup's badge carries, rather than the word the badge shows beside it:
+        // there is no text against the cog to be named, so what a reader hovering it wants is what
+        // being a system attribute means.
+        return { class: "marker-system", title: t("attribute_names.system_description") };
+    }
+
+    if (isDefinition(attrType) && promotedAttributeDefinitionParser.parse(attribute.value ?? "").isPromoted) {
+        return { class: "marker-promoted", title: t("attribute_detail.promoted") };
+    }
+
+    return undefined;
 }
 
 /** The entry of the popup's definition-type list that the definition is currently set to. */
@@ -390,7 +575,7 @@ function AttributeValue({ attribute, attrType }: { attribute: Attribute; attrTyp
     }
 
     if (isDefinition(attrType)) {
-        return <span class="attribute-value definition">{summarizeDefinition(attribute, attrType)}</span>;
+        return <DefinitionSummary attribute={attribute} />;
     }
 
     // A label with no value still gets its slot: it is what takes up the room between the name and what
@@ -398,30 +583,41 @@ function AttributeValue({ attribute, attrType }: { attribute: Attribute; attrTyp
     return <span class="attribute-value" title={attribute.value}>{attribute.value}</span>;
 }
 
-/** What a definition sets up, in the order the popup offers it: type, multiplicity, then the extras. */
-function summarizeDefinition(attribute: Attribute, attrType: AttributeKind) {
+/**
+ * What a definition sets up, beyond the two things its icon and its badge already say — the type of
+ * field it defines, and whether that field is promoted. First the name that field goes by, if it was
+ * given one of its own; then its settings, which are quiet enough that a plain single-value definition
+ * summarises to the display name alone, or to nothing at all.
+ */
+function DefinitionSummary({ attribute }: { attribute: Attribute }) {
     const definition = promotedAttributeDefinitionParser.parse(attribute.value ?? "");
-    const parts: string[] = [];
-
-    if (attrType === "label-definition") {
-        const labelType = definition.labelType ?? "text";
-        parts.push(LABEL_TYPES.find(({ value }) => value === labelType)?.title ?? labelType);
-    }
+    const displayName = definition.promotedAlias?.trim();
+    const settings: string[] = [];
 
     if (definition.multiplicity === "multi") {
-        parts.push(t("attribute_detail.multi_value"));
-    }
-
-    if (definition.isPromoted) {
-        parts.push(t("attribute_detail.promoted"));
+        settings.push(t("attribute_detail.multi_value"));
     }
 
     if (definition.inverseRelation) {
-        parts.push(t("attribute_list_panel.inverse_of", { name: definition.inverseRelation }));
+        settings.push(t("attribute_list_panel.inverse_of", { name: definition.inverseRelation }));
     }
 
-    return parts.join(" · ");
+    return (
+        <span class="attribute-value definition">
+            {displayName && (
+                // Written by hand and shown as written, unlike the settings beside it, which are words
+                // of Trilium's own (see AttributeList.css).
+                <span class="definition-display-name" title={t("attribute_detail.promoted_alias")}>
+                    {displayName}
+                </span>
+            )}
+            {displayName && settings.length > 0 && SUMMARY_SEPARATOR}
+            {settings.join(SUMMARY_SEPARATOR)}
+        </span>
+    );
 }
+
+const SUMMARY_SEPARATOR = " · ";
 
 type AttributeKind = NonNullable<AttrType>;
 
@@ -545,19 +741,18 @@ export interface AttributeSections {
 
 export function splitIntoSections(owned: Attribute[], inherited: Attribute[]): AttributeSections {
     const isDefinitionEntry = ({ attribute }: AttributeEntry) => isDefinition(getAttributeKind(attribute));
-    const toEntry = (isOwned: boolean) => (attribute: Attribute): AttributeEntry => ({
-        attribute,
-        isOwned,
-        isSystem: isBuiltinAttribute(attribute.type, attribute.name)
-    });
-    const ownedEntries = owned.map(toEntry(true));
-    const inheritedEntries = inherited.map(toEntry(false));
+    const ownedEntries = owned.map((attribute) => toEntry(attribute, true));
+    const inheritedEntries = inherited.map((attribute) => toEntry(attribute, false));
 
     return {
         owned: sortSystemLast(ownedEntries.filter((entry) => !isDefinitionEntry(entry))),
         inherited: sortSystemLast(inheritedEntries.filter((entry) => !isDefinitionEntry(entry))),
         definitions: sortSystemLast([ ...ownedEntries, ...inheritedEntries ].filter(isDefinitionEntry))
     };
+}
+
+function toEntry(attribute: Attribute, isOwned: boolean): AttributeEntry {
+    return { attribute, isOwned, isSystem: isBuiltinAttribute(attribute.type, attribute.name) };
 }
 
 /**
@@ -577,6 +772,15 @@ function collectInherited(note: FNote | null | undefined): Attribute[] {
     return listInherited(note?.getAttributes() ?? [], note?.noteId);
 }
 
+/**
+ * The attributes Trilium writes for itself. They are bookkeeping rather than metadata — of interest
+ * when working on Trilium and noise to everyone else — so they are collected in a development build
+ * alone, as the attributes pane listed them in one before this panel took them over.
+ */
+function collectInternal(note: FNote | null | undefined): Attribute[] {
+    return glob.isDev ? listInternal(note?.getOwnedAttributes() ?? []) : [];
+}
+
 /** The note's own attributes, in the order it holds them. */
 export function listOwned(ownedAttributes: FAttribute[]): Attribute[] {
     return ownedAttributes
@@ -594,6 +798,18 @@ export function listInherited(effectiveAttributes: FAttribute[], noteId: string 
         // Inherited attributes stay grouped by the note they come from:
         // https://github.com/zadam/trilium/issues/3761
         .toSorted((a, b) => a.noteId === b.noteId ? a.position - b.position : a.noteId.localeCompare(b.noteId))
+        .map(toPlainAttribute);
+}
+
+/**
+ * The other half of what the note holds: exactly the attributes the two lists above leave out, which
+ * Trilium wrote from the note's own content (a link in it is a `~internalLink`) and rewrites whenever
+ * that content is saved. Only the note's own, an inherited one being the source note's bookkeeping.
+ */
+export function listInternal(ownedAttributes: FAttribute[]): Attribute[] {
+    return ownedAttributes
+        .filter((attribute) => attribute.isAutoLink)
+        .toSorted((a, b) => a.position - b.position)
         .map(toPlainAttribute);
 }
 

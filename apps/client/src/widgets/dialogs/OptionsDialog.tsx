@@ -9,9 +9,9 @@ import type FNote from "../../entities/fnote";
 import { t } from "../../services/i18n";
 import utils, { isElectron } from "../../services/utils";
 import NoteDetail from "../NoteDetail";
-import ActionButton from "../react/ActionButton";
 import FormList, { FormListItem } from "../react/FormList";
-import { useChildNotes, useContainedLinkNavigation, useMobileMasterDetail, useNoteContext, useTriliumEvent } from "../react/hooks";
+import { useChildNotes, useContainedLinkNavigation, useNoteContext, useTriliumEvent } from "../react/hooks";
+import { DetailPane, MasterDetailHeader, MasterPane, useMobileMasterDetail } from "../react/master_detail";
 import Modal from "../react/Modal";
 import { NoteContextContext, ParentComponent } from "../react/react_utils";
 import SettingsNavigation from "../type_widgets/options/components/SettingsNavigation";
@@ -36,7 +36,7 @@ export default function OptionsDialog() {
     const [ lastSection, setLastSection ] = useState<string | null>(null);
     const modalRef = useRef<HTMLDivElement>(null);
     const isMobile = utils.isMobile();
-    const { isMasterDetail, mobileView, switchMobileView, resetMobileView } = useMobileMasterDetail(modalRef, "options-slide");
+    const { isMasterDetail, mobileView, switchMobileView, resetMobileView } = useMobileMasterDetail(modalRef);
 
     useTriliumEvent("showOptions", async ({ section }) => {
         const noteContext = new NoteContext("_options-dialog");
@@ -66,7 +66,15 @@ export default function OptionsDialog() {
             <Modal
                 modalRef={modalRef}
                 title={t("options.title")}
-                header={isMasterDetail && (mobileView === "page" ? <MobilePageHeader onBack={() => switchMobileView("list")} /> : <MobilePageHeader />)}
+                header={isMasterDetail && (
+                    <MasterDetailHeader
+                        inPage={mobileView === "page"}
+                        onBack={() => switchMobileView("list")}
+                        backTitle={t("options.back")}
+                        listTitle={t("options.title")}
+                        listIcon="bx bx-cog"
+                    />
+                )}
                 sidebar={isMasterDetail ? undefined : <SettingsSidebar />}
                 isFullPageOnMobile
                 customTitleBarButtons={!isMobile ? [{
@@ -91,15 +99,18 @@ export default function OptionsDialog() {
                 }}
             >
                 {isMasterDetail && (
-                    <div className="options-mobile-nav">
+                    <MasterPane className="options-mobile-nav">
                         <MobileSettingsList onSelect={(noteId) => {
                             void noteContext.setNote(noteId, { keepActiveDialog: true });
                             switchMobileView("page");
                         }} />
-                    </div>
+                    </MasterPane>
                 )}
                 <SettingsScrollReset modalRef={modalRef} />
-                <NoteDetail />
+                {/* The settings page is the detail half of the flow, and is wrapped as a pane only where
+                    there is a flow for it to be half of: the sidebar layout expects it as the body's own
+                    child. */}
+                {isMasterDetail ? <DetailPane><NoteDetail /></DetailPane> : <NoteDetail />}
             </Modal>
         </NoteContextContext.Provider>
     );
@@ -192,29 +203,3 @@ function MobileSettingsList({ onSelect }: { onSelect: (noteId: string) => void }
     );
 }
 
-/**
- * Replaces the static "Options" title on mobile. In the page view it shows just a back button
- * returning to the master list — the page title itself is rendered by the page's own
- * {@link OptionsPageHeader} below. In the list view a decorative settings icon and the dialog title
- * take its place.
- */
-function MobilePageHeader({ onBack }: { onBack?: () => void }) {
-    if (onBack) {
-        return (
-            <div className="options-mobile-page-header">
-                <ActionButton
-                    icon="bx bx-chevron-left"
-                    text={t("options.back")}
-                    onClick={onBack}
-                />
-            </div>
-        );
-    }
-
-    return (
-        <div className="options-mobile-page-header">
-            <span className="options-header-icon icon-action bx bx-cog" aria-hidden="true" />
-            <h5 className="options-mobile-page-title">{t("options.title")}</h5>
-        </div>
-    );
-}
