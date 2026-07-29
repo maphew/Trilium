@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { buildNote } from "../test/easy-froca";
-import attributeService, { isBuiltinAttribute, removeOwnedAttributesByNameOrType, setAttribute, setBooleanWithInheritance, setLabel, setRelation } from "./attributes";
+import attributeService, { getBuiltinLabelValueType, isBuiltinAttribute, removeOwnedAttributesByNameOrType, setAttribute, setBooleanWithInheritance, setLabel, setRelation } from "./attributes";
 import froca from "./froca";
 import server from "./server.js";
 
@@ -418,6 +418,18 @@ describe("isBuiltinAttribute", () => {
         expect(isBuiltinAttribute("label", "geolocation")).toBe(true);
         expect(isBuiltinAttribute("label", "map:style")).toBe(true);
         expect(isBuiltinAttribute("label", "excludeFromNoteMap")).toBe(true);
+    });
+
+    it("reports the value type of a built-in label, and nothing for anything else", () => {
+        expect(getBuiltinLabelValueType("color")).toBe("color");
+        expect(getBuiltinLabelValueType("archived")).toBe("boolean");
+        expect(getBuiltinLabelValueType("pageSize")).toBe("number");
+        // Relations point at a note, so they carry no value type even under a shared name.
+        expect(getBuiltinLabelValueType("template")).toBe("boolean");
+        expect(getBuiltinLabelValueType("renderNote")).toBeUndefined();
+        // Matched exactly, as the built-in lookup is.
+        expect(getBuiltinLabelValueType("disabled:webViewSrc")).toBeUndefined();
+        expect(getBuiltinLabelValueType("myOwnLabel")).toBeUndefined();
     });
 
     it("matches exactly, so prefixed names are not built-ins", () => {

@@ -1,4 +1,4 @@
-import { AttributeType, BUILTIN_ATTRIBUTES } from "@triliumnext/commons";
+import { AttributeType, BUILTIN_ATTRIBUTES, type LabelType } from "@triliumnext/commons";
 
 import type FNote from "../entities/fnote.js";
 import froca from "./froca.js";
@@ -227,6 +227,20 @@ export function isBuiltinAttribute(type: "label" | "relation", name: string) {
  * type is always exactly `label` or `relation`, so the first segment of a key is never in doubt.
  */
 const BUILTIN_ATTRIBUTE_KEYS = new Set(BUILTIN_ATTRIBUTES.map(({ type, name }) => `${type}:${name}`));
+
+/**
+ * What kind of value a built-in label holds, or `undefined` for a name Trilium attaches no meaning to.
+ *
+ * Matched exactly, as {@link isBuiltinAttribute} is: a `disabled:` attribute is inert and a definition
+ * carries a definition string rather than a value of the type it describes.
+ */
+export function getBuiltinLabelValueType(name: string): LabelType | undefined {
+    return BUILTIN_LABEL_VALUE_TYPES.get(name);
+}
+
+const BUILTIN_LABEL_VALUE_TYPES = new Map<string, LabelType>(
+    BUILTIN_ATTRIBUTES.flatMap((attr) => attr.type === "label" ? [ [ attr.name, attr.valueType ] as const ] : [])
+);
 
 export default {
     addLabel,

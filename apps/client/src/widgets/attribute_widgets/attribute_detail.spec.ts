@@ -132,6 +132,33 @@ describe("attribute detail popup naming", () => {
         expect(formatAttributeForSearch({ type: "relation", name: "template" })).toBe("~template");
     });
 
+    it("counts a show as new by what it would put in the form, not by the objects it arrives in", async () => {
+        const { isSameShow } = await import("./attribute_detail");
+        const shown = opts({ attribute: { type: "label", name: "author", value: "Tolkien" } });
+
+        // The same row pressed again: a fresh opts object around an equal attribute is the same show,
+        // whether or not the attribute object itself survived.
+        expect(isSameShow(shown, { ...shown, x: 40, y: 90 })).toBe(true);
+        expect(isSameShow(shown, opts({ attribute: { type: "label", name: "author", value: "Tolkien" } }))).toBe(true);
+
+        // Anything the form would show differently is another show.
+        expect(isSameShow(shown, opts({ attribute: { type: "label", name: "author", value: "Lewis" } }))).toBe(false);
+        expect(isSameShow(shown, opts({ attribute: { type: "relation", name: "author", value: "Tolkien" } }))).toBe(false);
+        expect(isSameShow(shown, opts({ ...shown, isOwned: false }))).toBe(false);
+        expect(isSameShow(shown, opts({ ...shown, focus: "name" }))).toBe(false);
+
+        // ...but the very same request handed back is the host re-rendering around an untouched
+        // popup, which every keystroke does — rebuilding the form there costs the focus and, with a
+        // request that asks for it, re-selects the field so the next character replaces the name.
+        const focused = opts({ focus: "name" });
+        expect(isSameShow(focused, focused)).toBe(true);
+
+        // Opening and closing are shows of their own, so reopening rebuilds the form.
+        expect(isSameShow(null, shown)).toBe(false);
+        expect(isSameShow(shown, null)).toBe(false);
+        expect(isSameShow(null, null)).toBe(true);
+    });
+
     it("explains only the names Trilium attaches a meaning to, and points at a help page where there is one", async () => {
         const { lookupAttributeHelp } = await import("./attribute_detail");
 

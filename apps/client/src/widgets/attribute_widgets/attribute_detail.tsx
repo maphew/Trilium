@@ -3,12 +3,12 @@ import "./attribute_name_suggestion.css";
 
 import { type DefinitionObject, type LabelType, promotedAttributeDefinitionParser } from "@triliumnext/commons";
 import { ComponentProps } from "preact";
-import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import appContext from "../../components/app_context.js";
 import { isDefinitionName } from "../../entities/fattribute.js";
 import type { Attribute } from "../../services/attribute_parser.js";
-import { isBuiltinAttribute } from "../../services/attributes.js";
+import { getBuiltinLabelValueType, isBuiltinAttribute } from "../../services/attributes.js";
 import { isExperimentalFeatureEnabled } from "../../services/experimental_features.js";
 import { focusSavedElement, saveFocusedElement } from "../../services/focus.js";
 import froca from "../../services/froca.js";
@@ -30,6 +30,7 @@ import NoteLink, { NewNoteLink } from "../react/NoteLink.jsx";
 import { disposeReactWidget, ParentComponent, renderReactWidgetAtElement } from "../react/react_utils.jsx";
 import OptionsRow, { OptionsRowWithToggle } from "../type_widgets/options/components/OptionsRow.jsx";
 import { ATTR_HELP, AttrHelpEntry } from "./attr_help.js";
+import LabelValueInput, { getTypedInputForLabel } from "./label_value_input.js";
 
 export interface AttributeDetailOpts {
     allAttributes?: Attribute[];
@@ -144,7 +145,7 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
 }
 
 export interface AttributeDetailProps extends AttributeFormCallbacks {
-    /** The attribute to show; `null` keeps the popup closed. A new object counts as a new show. */
+    /** The attribute to show; `null` keeps the popup closed. A different attribute is a new show. */
     opts: AttributeDetailOpts | null;
     /** The note being viewed, excluded from the related notes list. */
     currentNoteId?: string | null;
@@ -162,12 +163,16 @@ export function AttributeDetail({ opts, currentNoteId, onDismiss, onCancel, ...f
     const shown = !!opts;
     const { onSaveAndClose } = formCallbacks;
 
-    // A different opts object means a new show, so the form is keyed on this counter to remount
-    // and reseed its fields from the new attribute.
+    // The form is keyed on this counter, so it is remounted and reseeded whenever the popup is shown
+    // something other than what it already holds. Being handed the same attribute over again is not
+    // that (see isSameShow): a row pressed a second time would otherwise tear the form down and
+    // fetch the related notes afresh, which is seen as the popup flickering.
     const showCount = useRef(0);
     const lastOpts = useRef<AttributeDetailOpts | null>(null);
-    if (lastOpts.current !== opts) {
-        lastOpts.current = opts;
+    const isNewShow = !isSameShow(lastOpts.current, opts);
+    lastOpts.current = opts;
+
+    if (isNewShow) {
         showCount.current++;
 
         if (opts) {
@@ -268,6 +273,37 @@ export function AttributeDetail({ opts, currentNoteId, onDismiss, onCancel, ...f
     );
 }
 
+/**
+ * Whether the popup is being shown what it is already showing. The form seeds its fields from the
+ * attribute once and is remounted to seed them again, so two shows whose fields would come out the
+ * same are one show — however many objects the host built along the way, which is more than one:
+ * the attributes editor re-parses its text on every press and the inherited list builds a fresh
+ * attribute per press, so identity says a great deal less here than the values do.
+ *
+ * A show asking for the focus is always a new one. It is asking to be acted upon, and mounting is
+ * the only time the form acts on it — but only where it is genuinely being asked again: the very
+ * same request handed back is the host re-rendering around a popup it has not touched, which every
+ * keystroke does (the name typed into the form is reported straight back out to it).
+ */
+export function isSameShow(previous: AttributeDetailOpts | null, next: AttributeDetailOpts | null) {
+    if (!previous || !next) {
+        return previous === next;
+    }
+
+    if (previous === next) {
+        return true;
+    }
+
+    return !next.focus
+        && previous.isOwned === next.isOwned
+        && previous.hideMultiplicity === next.hideMultiplicity
+        && previous.attribute.noteId === next.attribute.noteId
+        && previous.attribute.type === next.attribute.type
+        && previous.attribute.name === next.attribute.name
+        && previous.attribute.value === next.attribute.value
+        && !!previous.attribute.isInheritable === !!next.attribute.isInheritable;
+}
+
 interface AttributeFormCallbacks {
     /** Close discarding unsaved changes (close button, escape). */
     onCancel: () => void;
@@ -306,6 +342,14 @@ function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, onCance
     const [ isInheritable, setIsInheritable ] = useState(!!attribute.isInheritable);
     const [ definition, setDefinition ] = useState(() => parseDefinition(attribute, attrType));
     const nameRef = useRef<HTMLInputElement>(null);
+    /**
+     * A system label whose value has a kind of its own is typed into the field that fits it — a palette
+     * for `#color`, a date picker for `#startDate`. The rest keep the autocomplete, which is worth more
+     * to them than a plain box would be: it offers the values the name has been given before.
+     */
+    const typedInput = useMemo(
+        () => attrType === "label" ? getTypedInputForLabel(getBuiltinLabelValueType(name)) : undefined,
+        [ attrType, name ]);
     // The values known for a label name never change while the popup is open, so they are fetched
     // once per name and filtered locally afterwards.
     const knownValues = useRef<{ name: string; values: string[] }>();
@@ -450,19 +494,30 @@ function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, onCance
 
                 {attrType === "label" && (
                     <OptionsRow name="attr-value" label={t("attribute_detail.value")}>
-                        <FormAutocomplete
-                            className="attr-input-value"
-                            currentValue={value}
-                            readOnly={!isOwned}
-                            source={suggestLabelValues}
-                            openOnFocus
-                            onChange={(newValue) => isComposing.current ? setValue(newValue) : commitValue(newValue)}
-                            onCompositionStart={() => isComposing.current = true}
-                            onCompositionEnd={(e) => {
-                                isComposing.current = false;
-                                commitValue(e.currentTarget.value);
-                            }}
-                        />
+                        {typedInput ? (
+                            <div className="input-group">
+                                <LabelValueInput
+                                    labelType={typedInput}
+                                    value={value}
+                                    onCommit={commitValue}
+                                    inputProps={{ className: "form-control attr-input-value", readOnly: !isOwned }}
+                                />
+                            </div>
+                        ) : (
+                            <FormAutocomplete
+                                className="attr-input-value"
+                                currentValue={value}
+                                readOnly={!isOwned}
+                                source={suggestLabelValues}
+                                openOnFocus
+                                onChange={(newValue) => isComposing.current ? setValue(newValue) : commitValue(newValue)}
+                                onCompositionStart={() => isComposing.current = true}
+                                onCompositionEnd={(e) => {
+                                    isComposing.current = false;
+                                    commitValue(e.currentTarget.value);
+                                }}
+                            />
+                        )}
                     </OptionsRow>
                 )}
 
