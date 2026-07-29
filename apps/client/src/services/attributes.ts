@@ -1,4 +1,4 @@
-import { AttributeType } from "@triliumnext/commons";
+import { AttributeType, BUILTIN_ATTRIBUTES, type LabelType } from "@triliumnext/commons";
 
 import type FNote from "../entities/fnote.js";
 import froca from "./froca.js";
@@ -210,6 +210,37 @@ async function toggleDangerousAttribute(note: FNote, type: "label" | "relation",
 function getNameWithoutDangerousPrefix(name: string) {
     return name.startsWith("disabled:") ? name.substring(9) : name;
 }
+
+/**
+ * Whether the name is one Trilium itself attaches a meaning to, rather than one the user invented.
+ *
+ * Matched exactly, on purpose: a definition (`label:archived`) describes a system attribute without
+ * being one, and a disabled one (`disabled:run`) has been deliberately made inert. Both are ordinary
+ * attributes as far as the name alone is concerned.
+ */
+export function isBuiltinAttribute(type: "label" | "relation", name: string) {
+    return BUILTIN_ATTRIBUTE_KEYS.has(`${type}:${name}`);
+}
+
+/**
+ * The built-ins keyed by type and name. There is no ambiguity in joining the two with a colon: the
+ * type is always exactly `label` or `relation`, so the first segment of a key is never in doubt.
+ */
+const BUILTIN_ATTRIBUTE_KEYS = new Set(BUILTIN_ATTRIBUTES.map(({ type, name }) => `${type}:${name}`));
+
+/**
+ * What kind of value a built-in label holds, or `undefined` for a name Trilium attaches no meaning to.
+ *
+ * Matched exactly, as {@link isBuiltinAttribute} is: a `disabled:` attribute is inert and a definition
+ * carries a definition string rather than a value of the type it describes.
+ */
+export function getBuiltinLabelValueType(name: string): LabelType | undefined {
+    return BUILTIN_LABEL_VALUE_TYPES.get(name);
+}
+
+const BUILTIN_LABEL_VALUE_TYPES = new Map<string, LabelType>(
+    BUILTIN_ATTRIBUTES.flatMap((attr) => attr.type === "label" ? [ [ attr.name, attr.valueType ] as const ] : [])
+);
 
 export default {
     addLabel,

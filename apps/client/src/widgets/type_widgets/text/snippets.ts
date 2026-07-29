@@ -2,9 +2,8 @@ import debounce from "../../../services/debounce.js";
 import froca from "../../../services/froca.js";
 import type LoadResults from "../../../services/load_results.js";
 import search from "../../../services/search.js";
-import type { TemplateDefinition } from "@triliumnext/ckeditor5";
+import type { SnippetDefinition } from "@triliumnext/ckeditor5";
 import type FNote from "../../../entities/fnote.js";
-import { escapeHtml } from "../../../services/utils.js";
 
 interface TemplateData {
     title: string;
@@ -29,14 +28,15 @@ export default async function getTemplates() {
         // corrupts the parse and matches every note.
         const snippets = (await search.searchForNotes("#textSnippet OR #snippet"))
             .filter((snippet) => snippet.type === "text" && !snippet.isArchived && snippet.isContentAvailable());
-        const definitions: TemplateDefinition[] = [];
+        const definitions: SnippetDefinition[] = [];
         for (const snippet of snippets) {
             const { description } = await invalidateCacheFor(snippet);
 
             definitions.push({
                 title: snippet.title,
                 data: () => templateCache.get(snippet.noteId)?.content ?? "",
-                icon: buildIcon(snippet),
+                iconClass: snippet.getIcon(),
+                iconColorClass: snippet.getColorClass() || undefined,
                 description
             });
         }
@@ -60,16 +60,7 @@ async function invalidateCacheFor(snippet: FNote) {
     return data;
 }
 
-function buildIcon(snippet: FNote) {
-    return /*xml*/`\
-<svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
-  <foreignObject x="0" y="0" width="20" height="20">
-    <span class="note-icon ${escapeHtml(snippet.getIcon())} ${escapeHtml(snippet.getColorClass())}" xmlns="http://www.w3.org/1999/xhtml"></span>
-  </foreignObject>
-</svg>`
-}
-
-async function handleContentUpdate(affectedNoteIds: string[], setTemplates: (value: TemplateDefinition[]) => void) {
+async function handleContentUpdate(affectedNoteIds: string[], setTemplates: (value: SnippetDefinition[]) => void) {
     const updatedNoteIds = new Set(affectedNoteIds);
     const templateNoteIds = new Set(templateCache.keys());
     const affectedTemplateNoteIds = templateNoteIds.intersection(updatedNoteIds);
@@ -103,7 +94,7 @@ async function handleContentUpdate(affectedNoteIds: string[], setTemplates: (val
     }
 }
 
-export async function updateTemplateCache(loadResults: LoadResults, setTemplates: (value: TemplateDefinition[]) => void) {
+export async function updateTemplateCache(loadResults: LoadResults, setTemplates: (value: SnippetDefinition[]) => void) {
     const affectedNoteIds = loadResults.getNoteIds();
 
     // React to creation or deletion of text snippets.

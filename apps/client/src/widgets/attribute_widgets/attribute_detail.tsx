@@ -1,31 +1,37 @@
 import "./attribute_detail.css";
+import "./attribute_name_suggestion.css";
 
-import type { DefinitionObject, LabelType, Multiplicity } from "@triliumnext/commons";
-import { useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
+import { type DefinitionObject, type LabelType, promotedAttributeDefinitionParser } from "@triliumnext/commons";
+import { ComponentProps } from "preact";
+import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import appContext from "../../components/app_context.js";
+import { isDefinitionName } from "../../entities/fattribute.js";
 import type { Attribute } from "../../services/attribute_parser.js";
+import { getBuiltinLabelValueType, isBuiltinAttribute } from "../../services/attributes.js";
 import { isExperimentalFeatureEnabled } from "../../services/experimental_features.js";
 import { focusSavedElement, saveFocusedElement } from "../../services/focus.js";
 import froca from "../../services/froca.js";
 import { t } from "../../services/i18n.js";
-import promotedAttributeDefinitionParser from "../../services/promoted_attribute_definition_parser.js";
 import server from "../../services/server.js";
 import { isIMEComposing } from "../../services/shortcuts.js";
 import utils from "../../services/utils.js";
 import BasicWidget from "../basic_widget.js";
 import NoteContextAwareWidget from "../note_context_aware_widget.js";
+import { Badge, BadgeWithDropdown } from "../react/Badge.jsx";
 import Button from "../react/Button.jsx";
 import FormAutocomplete, { AUTOCOMPLETE_DROPDOWN_SELECTOR } from "../react/FormAutocomplete.jsx";
-import FormCheckbox from "../react/FormCheckbox.jsx";
-import FormSelect from "../react/FormSelect.jsx";
+import FormDropdownList from "../react/FormDropdownList.jsx";
+import { FormDropdownDivider, FormListItem } from "../react/FormList.jsx";
 import FormTextBox, { FormTextBoxWithUnit } from "../react/FormTextBox.jsx";
-import HelpButton from "../react/HelpButton.jsx";
+import HelpTooltipButton from "../react/HelpTooltipButton.jsx";
+import { suspendModalFocusTraps } from "../react/modal_focustrap.js";
 import NoteAutocomplete from "../react/NoteAutocomplete.jsx";
-import NoteLink from "../react/NoteLink.jsx";
-import RawHtml from "../react/RawHtml.jsx";
+import NoteLink, { NewNoteLink } from "../react/NoteLink.jsx";
 import { disposeReactWidget, ParentComponent, renderReactWidgetAtElement } from "../react/react_utils.jsx";
-import { ATTR_HELP } from "./attr_help.js";
+import OptionsRow, { OptionsRowWithToggle } from "../type_widgets/options/components/OptionsRow.jsx";
+import { ATTR_HELP, AttrHelpEntry } from "./attr_help.js";
+import LabelValueInput, { getTypedInputForLabel } from "./label_value_input.js";
 
 export interface AttributeDetailOpts {
     allAttributes?: Attribute[];
@@ -40,6 +46,12 @@ export interface AttributeDetailOpts {
      */
     parent?: HTMLElement;
     hideMultiplicity?: boolean;
+    /**
+     * Places the popup beside this element instead of at `x`/`y`. For hosts whose attributes are shown
+     * far from the note attributes pane the coordinates are otherwise resolved against, e.g. the
+     * attributes panel in the right pane.
+     */
+    anchor?: HTMLElement;
 }
 
 /**
@@ -134,14 +146,12 @@ export default class AttributeDetailWidget extends NoteContextAwareWidget {
 }
 
 export interface AttributeDetailProps extends AttributeFormCallbacks {
-    /** The attribute to show; `null` keeps the popup closed. A new object counts as a new show. */
+    /** The attribute to show; `null` keeps the popup closed. A different attribute is a new show. */
     opts: AttributeDetailOpts | null;
     /** The note being viewed, excluded from the related notes list. */
     currentNoteId?: string | null;
     /** Plain close, e.g. on click outside the popup. */
     onDismiss: () => void;
-    /** Close discarding unsaved changes (close button, escape). */
-    onCancel: () => void;
 }
 
 /**
@@ -154,12 +164,16 @@ export function AttributeDetail({ opts, currentNoteId, onDismiss, onCancel, ...f
     const shown = !!opts;
     const { onSaveAndClose } = formCallbacks;
 
-    // A different opts object means a new show, so the form is keyed on this counter to remount
-    // and reseed its fields from the new attribute.
+    // The form is keyed on this counter, so it is remounted and reseeded whenever the popup is shown
+    // something other than what it already holds. Being handed the same attribute over again is not
+    // that (see isSameShow): a row pressed a second time would otherwise tear the form down and
+    // fetch the related notes afresh, which is seen as the popup flickering.
     const showCount = useRef(0);
     const lastOpts = useRef<AttributeDetailOpts | null>(null);
-    if (lastOpts.current !== opts) {
-        lastOpts.current = opts;
+    const isNewShow = !isSameShow(lastOpts.current, opts);
+    lastOpts.current = opts;
+
+    if (isNewShow) {
         showCount.current++;
 
         if (opts) {
@@ -220,6 +234,17 @@ export function AttributeDetail({ opts, currentNoteId, onDismiss, onCancel, ...f
         return () => window.removeEventListener("mousedown", onMouseDown);
     }, [ shown, spawner, onDismiss ]);
 
+    // The popup is rendered outside whatever modal it was opened from (its host portals it to the body,
+    // and a modal counts as belonging to it — see above), which Bootstrap's focus-trap would otherwise
+    // keep pulling focus back out of, leaving the fields unusable. Suspended while the popup is shown.
+    useEffect(() => {
+        if (!shown) {
+            return;
+        }
+
+        return suspendModalFocusTraps();
+    }, [ shown ]);
+
     if (!opts) {
         return null;
     }
@@ -247,29 +272,53 @@ export function AttributeDetail({ opts, currentNoteId, onDismiss, onCancel, ...f
                 }
             }}
         >
-            <div class="attr-detail-header">
-                <h5 class="attr-detail-title">{attrType ? ATTR_TITLES[attrType] : ""}</h5>
-
-                <button
-                    class="close-attr-detail-button icon-action bx bx-x"
-                    title={t("attribute_detail.close_button_title")}
-                    onClick={cancel}
-                />
-            </div>
-
             <AttributeForm
                 key={showCount.current}
                 opts={opts}
                 attrType={attrType}
                 currentNoteId={currentNoteId}
                 {...formCallbacks}
+                onCancel={cancel}
                 onSaveAndClose={onSaveAndClose && saveAndClose}
             />
         </div>
     );
 }
 
+/**
+ * Whether the popup is being shown what it is already showing. The form seeds its fields from the
+ * attribute once and is remounted to seed them again, so two shows whose fields would come out the
+ * same are one show — however many objects the host built along the way, which is more than one:
+ * the attributes editor re-parses its text on every press and the inherited list builds a fresh
+ * attribute per press, so identity says a great deal less here than the values do.
+ *
+ * A show asking for the focus is always a new one. It is asking to be acted upon, and mounting is
+ * the only time the form acts on it — but only where it is genuinely being asked again: the very
+ * same request handed back is the host re-rendering around a popup it has not touched, which every
+ * keystroke does (the name typed into the form is reported straight back out to it).
+ */
+export function isSameShow(previous: AttributeDetailOpts | null, next: AttributeDetailOpts | null) {
+    if (!previous || !next) {
+        return previous === next;
+    }
+
+    if (previous === next) {
+        return true;
+    }
+
+    return !next.focus
+        && previous.isOwned === next.isOwned
+        && previous.hideMultiplicity === next.hideMultiplicity
+        && previous.attribute.noteId === next.attribute.noteId
+        && previous.attribute.type === next.attribute.type
+        && previous.attribute.name === next.attribute.name
+        && previous.attribute.value === next.attribute.value
+        && !!previous.attribute.isInheritable === !!next.attribute.isInheritable;
+}
+
 interface AttributeFormCallbacks {
+    /** Close discarding unsaved changes (close button, escape). */
+    onCancel: () => void;
     /** Reports the edited attribute list back to the spawning widget, which re-renders from it. */
     onAttributesChanged?: (attributes: Attribute[]) => void;
     /** Omitted for read-only popups, which show no save or delete button. */
@@ -278,26 +327,43 @@ interface AttributeFormCallbacks {
 }
 
 /**
- * The editable part of the popup. Remounted per show (keyed on `showId`) so the field state is
- * simply seeded from the attribute instead of being synchronized to it on every change.
+ * The editable part of the popup, and of whatever else edits an attribute — a pane of a master-detail
+ * modal shows the same form, having no room to float one over itself. Remounted per show (keyed on
+ * `showId`) so the field state is simply seeded from the attribute instead of being synchronized to it
+ * on every change.
  */
-function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onSaveAndClose, onDelete }: AttributeFormCallbacks & {
+export function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, onCancel, onAttributesChanged, onSaveAndClose, onDelete }: AttributeFormCallbacks & {
     opts: AttributeDetailOpts;
     attrType: AttrType;
     currentNoteId?: string | null;
 }) {
     const { attribute, allAttributes, isOwned, focus } = opts;
+    // Held rather than read from the attribute, which the popup can change the kind of: a definition
+    // switched between holding a value and pointing at a note is renamed in place, and the spawning
+    // widget the kind would otherwise be resolved by does not re-render the popup.
+    const [ attrType, setAttrType ] = useState(initialAttrType);
     // Definitions describe the attribute they define, so they complete against its own type.
-    const suggestAttributeNames = useCallback((query: string) => fetchAttributeNames(
-        attrType === "relation" || attrType === "relation-definition" ? "relation" : "label", query
-    ), [ attrType ]);
+    const nameType = attrType === "relation" || attrType === "relation-definition" ? "relation" : "label";
+    const suggestAttributeNames = useCallback((query: string) => fetchAttributeNames(nameType, query), [ nameType ]);
+    const renderNameSuggestion = useCallback(
+        (suggestion: string) => <AttributeNameSuggestion type={nameType} name={suggestion} />, [ nameType ]);
     // Whatever a relation is the inverse of is itself a relation.
     const suggestRelationNames = useCallback((query: string) => fetchAttributeNames("relation", query), []);
+    const renderRelationSuggestion = useCallback(
+        (suggestion: string) => <AttributeNameSuggestion type="relation" name={suggestion} />, []);
     const [ name, setName ] = useState(() => stripDefinitionPrefix(attribute.name, attrType));
     const [ value, setValue ] = useState(attribute.value ?? "");
     const [ isInheritable, setIsInheritable ] = useState(!!attribute.isInheritable);
     const [ definition, setDefinition ] = useState(() => parseDefinition(attribute, attrType));
     const nameRef = useRef<HTMLInputElement>(null);
+    /**
+     * A system label whose value has a kind of its own is typed into the field that fits it — a palette
+     * for `#color`, a date picker for `#startDate`. The rest keep the autocomplete, which is worth more
+     * to them than a plain box would be: it offers the values the name has been given before.
+     */
+    const typedInput = useMemo(
+        () => attrType === "label" ? getTypedInputForLabel(getBuiltinLabelValueType(name)) : undefined,
+        [ attrType, name ]);
     // The values known for a label name never change while the popup is open, so they are fetched
     // once per name and filtered locally afterwards.
     const knownValues = useRef<{ name: string; values: string[] }>();
@@ -319,6 +385,8 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
     // Committing mid-composition makes the spawning editor re-render and swallow the
     // characters being composed: https://github.com/zadam/trilium/pull/3812
     const isComposing = useRef(false);
+    const nameHelp = lookupAttributeHelp(attrType, name);
+    const isSystem = isSystemAttribute(attrType, name);
 
     useEffect(() => {
         if (focus === "name") {
@@ -345,13 +413,30 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
     }
 
     /** Definitions keep their settings serialized in the value, so any change rebuilds the whole thing. */
-    function commitDefinition(changes: Partial<DefinitionObject>) {
+    function commitDefinition(changes: Partial<DefinitionObject>, kind = attrType) {
         const newDefinition = { ...definition, ...changes };
 
         setDefinition(newDefinition);
         attribute.value = promotedAttributeDefinitionParser.serialize(
-            newDefinition, attrType === "label-definition" ? "label" : "relation");
+            newDefinition, kind === "label-definition" ? "label" : "relation");
         onAttributesChanged?.(allAttributes ?? []);
+    }
+
+    /**
+     * What a definition sets up is a field, and pointing at a note is one more kind of field to the eye
+     * that reads the form — so the two kinds of definition are offered as two values of one type rather
+     * than as two things. What tells them apart underneath is the name they are stored under, `label:foo`
+     * against `relation:foo`, and the settings the value carries: a label type against an inverse.
+     */
+    function commitDefinitionType(type: string) {
+        const isRelation = type === RELATION_DEFINITION_TYPE;
+        const newAttrType = isRelation ? "relation-definition" : "label-definition";
+
+        setAttrType(newAttrType);
+        attribute.name = addDefinitionPrefix(name, newAttrType);
+        // The label type is kept in the definition while the popup is open, so switching to a relation
+        // and back leaves the field as it was rather than back at the default.
+        commitDefinition(isRelation ? {} : { labelType: type as LabelType }, newAttrType);
     }
 
     // A relation stores the target note's id as its value; clearing the field clears the target.
@@ -362,6 +447,36 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
 
     return (
         <>
+            <div class="attr-detail-header">
+                <h5 class="attr-detail-title">{attrType ? ATTR_TITLES[attrType] : ""}</h5>
+
+                {/* Beside the related-notes badge rather than by the name field, for the same reason: a
+                    mark that comes and going as the name is typed would resize the popup under the
+                    pointer. The help button by the field explains what a name does; this says the name
+                    is Trilium's at all, which most system attributes have no explanation to say for
+                    them. */}
+                {isSystem && (
+                    <Badge
+                        outline
+                        className="attr-detail-system-badge"
+                        text={t("attribute_names.system")}
+                        tooltip={t("attribute_names.system_description")}
+                    />
+                )}
+
+                {/* Sits in the header, and not in a section of its own, so that the popup keeps the size it
+                    was positioned at: the lookup behind it is asynchronous and re-runs as the attribute is
+                    edited, and a block coming and going below the form would resize the popup under the
+                    pointer. */}
+                <RelatedNotesBadge attribute={attribute} currentNoteId={currentNoteId} />
+
+                <button
+                    class="close-attr-detail-button icon-action bx bx-x"
+                    title={t("attribute_detail.close_button_title")}
+                    onClick={onCancel}
+                />
+            </div>
+
             {!isOwned && attribute.noteId && (
                 <div class="attr-is-owned-by">
                     {/* TODO: the attribute type is not translated, as in the widget this was ported from. */}
@@ -371,182 +486,181 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
                 </div>
             )}
 
-            <table class="attr-edit-table">
-                <tbody>
-                    <tr title={t("attribute_detail.attr_name_title")}>
-                        <th>{t("attribute_detail.name")}</th>
-                        <td>
+            <div class="attr-edit-rows">
+                <OptionsRow name="attr-name" label={t("attribute_detail.name")}>
+                    <AttributeNameField
+                        help={nameHelp}
+                        className="attr-input-name"
+                        inputRef={nameRef}
+                        currentValue={name}
+                        readOnly={!isOwned}
+                        source={suggestAttributeNames}
+                        renderItem={renderNameSuggestion}
+                        openOnFocus
+                        onChange={(newName) => isComposing.current ? setName(newName) : commitName(newName)}
+                        onCompositionStart={() => isComposing.current = true}
+                        onCompositionEnd={(e) => {
+                            isComposing.current = false;
+                            commitName(e.currentTarget.value);
+                        }}
+                    />
+                </OptionsRow>
+
+                {attrType === "relation" && (
+                    <OptionsRow
+                        name="attr-target-note"
+                        label={t("attribute_detail.target_note")}
+                        description={t("attribute_detail.target_note_title")}
+                    >
+                        <NoteAutocomplete
+                            noteId={attribute.value || undefined}
+                            readOnly={!isOwned}
+                            opts={TARGET_NOTE_OPTS}
+                            noteIdChanged={commitTargetNote}
+                        />
+                    </OptionsRow>
+                )}
+
+                {attrType === "label" && (
+                    <OptionsRow name="attr-value" label={t("attribute_detail.value")}>
+                        {typedInput ? (
+                            <div className="input-group">
+                                <LabelValueInput
+                                    labelType={typedInput}
+                                    value={value}
+                                    onCommit={commitValue}
+                                    inputProps={{ className: "form-control attr-input-value", readOnly: !isOwned }}
+                                />
+                            </div>
+                        ) : (
                             <FormAutocomplete
-                                className="attr-input-name"
-                                inputRef={nameRef}
-                                currentValue={name}
+                                className="attr-input-value"
+                                currentValue={value}
                                 readOnly={!isOwned}
-                                source={suggestAttributeNames}
+                                source={suggestLabelValues}
                                 openOnFocus
-                                onChange={(newName) => isComposing.current ? setName(newName) : commitName(newName)}
+                                onChange={(newValue) => isComposing.current ? setValue(newValue) : commitValue(newValue)}
                                 onCompositionStart={() => isComposing.current = true}
                                 onCompositionEnd={(e) => {
                                     isComposing.current = false;
-                                    commitName(e.currentTarget.value);
+                                    commitValue(e.currentTarget.value);
                                 }}
                             />
-                        </td>
-                    </tr>
+                        )}
+                    </OptionsRow>
+                )}
 
-                    <AttributeNameHelp attrType={attrType} name={name} />
+                {/* No description: the values name themselves, and what they do to the field is plain
+                    enough once one is picked. */}
+                {isDefinition(attrType) && (
+                    <OptionsRow name="attr-label-type" label={t("attribute_detail.label_type")}>
+                        <FormDropdownList
+                            className="attr-input-label-type"
+                            values={DEFINITION_TYPES}
+                            keyProperty="value"
+                            titleProperty="title"
+                            iconProperty="icon"
+                            dividerBeforeProperty="startsGroup"
+                            currentValue={attrType === "relation-definition"
+                                ? RELATION_DEFINITION_TYPE
+                                : definition.labelType ?? "text"}
+                            disabled={!isOwned}
+                            onChange={commitDefinitionType}
+                        />
+                    </OptionsRow>
+                )}
 
-                    {attrType === "relation" && (
-                        <tr class="attr-row-target-note">
-                            <th title={t("attribute_detail.target_note_title")}>{t("attribute_detail.target_note")}</th>
-                            <td>
-                                <NoteAutocomplete
-                                    noteId={attribute.value || undefined}
-                                    readOnly={!isOwned}
-                                    opts={TARGET_NOTE_OPTS}
-                                    noteIdChanged={commitTargetNote}
-                                />
-                            </td>
-                        </tr>
-                    )}
+                {attrType === "label-definition" && definition.labelType === "number" && (
+                    <OptionsRow
+                        name="attr-number-precision"
+                        label={t("attribute_detail.precision")}
+                        description={t("attribute_detail.precision_title")}
+                    >
+                        <FormTextBoxWithUnit
+                            className="attr-input-number-precision"
+                            type="number"
+                            min={0}
+                            unit={t("attribute_detail.digits")}
+                            currentValue={definition.numberPrecision?.toString() ?? ""}
+                            disabled={!isOwned}
+                            onChange={(precision) => commitDefinition({
+                                numberPrecision: precision === "" ? undefined : parseInt(precision, 10)
+                            })}
+                        />
+                    </OptionsRow>
+                )}
 
-                    {attrType === "label" && (
-                        <tr class="attr-row-value">
-                            <th>{t("attribute_detail.value")}</th>
-                            <td>
-                                <FormAutocomplete
-                                    className="attr-input-value"
-                                    currentValue={value}
-                                    readOnly={!isOwned}
-                                    source={suggestLabelValues}
-                                    openOnFocus
-                                    onChange={(newValue) => isComposing.current ? setValue(newValue) : commitValue(newValue)}
-                                    onCompositionStart={() => isComposing.current = true}
-                                    onCompositionEnd={(e) => {
-                                        isComposing.current = false;
-                                        commitValue(e.currentTarget.value);
-                                    }}
-                                />
-                            </td>
-                        </tr>
-                    )}
+                {attrType === "relation-definition" && (
+                    <OptionsRow
+                        name="attr-inverse-relation"
+                        label={t("attribute_detail.inverse_relation")}
+                        description={t("attribute_detail.inverse_relation_title")}
+                    >
+                        <FormAutocomplete
+                            className="attr-input-inverse-relation"
+                            currentValue={definition.inverseRelation ?? ""}
+                            disabled={!isOwned}
+                            source={suggestRelationNames}
+                            renderItem={renderRelationSuggestion}
+                            openOnFocus
+                            onChange={(inverseRelation) => commitDefinition({
+                                // A relation name, so the same characters are dropped as in the name field
+                                inverseRelation: utils.filterAttributeName(inverseRelation)
+                            })}
+                        />
+                    </OptionsRow>
+                )}
 
-                    {isDefinition(attrType) && (
-                        <tr class="attr-row-promoted" title={t("attribute_detail.promoted_title")}>
-                            <th />
-                            <td>
-                                <FormCheckbox
-                                    label={t("attribute_detail.promoted")}
-                                    currentValue={!!definition.isPromoted}
-                                    disabled={!isOwned}
-                                    onChange={(isPromoted) => commitDefinition({ isPromoted })}
-                                />
-                            </td>
-                        </tr>
-                    )}
+                {/* No description: what a display name is needs no explaining. */}
+                {isDefinition(attrType) && (
+                    <OptionsRow name="attr-promoted-alias" label={t("attribute_detail.promoted_alias")}>
+                        <FormTextBox
+                            className="attr-input-promoted-alias"
+                            currentValue={definition.promotedAlias ?? ""}
+                            disabled={!isOwned}
+                            onChange={(promotedAlias) => commitDefinition({ promotedAlias })}
+                        />
+                    </OptionsRow>
+                )}
 
-                    {isDefinition(attrType) && definition.isPromoted && (
-                        <tr class="attr-row-promoted-alias">
-                            <th title={t("attribute_detail.promoted_alias_title")}>{t("attribute_detail.promoted_alias")}</th>
-                            <td>
-                                <FormTextBox
-                                    className="attr-input-promoted-alias"
-                                    currentValue={definition.promotedAlias ?? ""}
-                                    disabled={!isOwned}
-                                    onChange={(promotedAlias) => commitDefinition({ promotedAlias })}
-                                />
-                            </td>
-                        </tr>
-                    )}
+                {/* What is filled in comes first, what is switched on after it, so that the toggles read
+                    as one block rather than as interruptions between the fields. */}
+                {isDefinition(attrType) && !opts.hideMultiplicity && (
+                    <OptionsRowWithToggle
+                        name="attr-multiplicity"
+                        label={t("attribute_detail.multiplicity")}
+                        description={t("attribute_detail.multiplicity_title")}
+                        currentValue={definition.multiplicity === "multi"}
+                        disabled={!isOwned}
+                        onChange={(multiple) => commitDefinition({ multiplicity: multiple ? "multi" : "single" })}
+                    />
+                )}
 
-                    {isDefinition(attrType) && !opts.hideMultiplicity && (
-                        <tr class="attr-row-multiplicity">
-                            <th title={t("attribute_detail.multiplicity_title")}>{t("attribute_detail.multiplicity")}</th>
-                            <td>
-                                <FormSelect
-                                    className="attr-input-multiplicity"
-                                    values={MULTIPLICITIES}
-                                    keyProperty="value"
-                                    titleProperty="title"
-                                    currentValue={definition.multiplicity ?? "single"}
-                                    disabled={!isOwned}
-                                    onChange={(multiplicity) => commitDefinition({ multiplicity: multiplicity as Multiplicity })}
-                                />
-                            </td>
-                        </tr>
-                    )}
+                <OptionsRowWithToggle
+                    name="attr-inheritable"
+                    label={t("attribute_detail.inheritable")}
+                    description={t("attribute_detail.inheritable_title")}
+                    currentValue={isInheritable}
+                    disabled={!isOwned}
+                    onChange={(checked) => {
+                        setIsInheritable(checked);
+                        attribute.isInheritable = checked;
+                        onAttributesChanged?.(allAttributes ?? []);
+                    }}
+                />
 
-                    {attrType === "label-definition" && (
-                        <tr class="attr-row-label-type">
-                            <th title={t("attribute_detail.label_type_title")}>{t("attribute_detail.label_type")}</th>
-                            <td>
-                                <FormSelect
-                                    className="attr-input-label-type"
-                                    values={LABEL_TYPES}
-                                    keyProperty="value"
-                                    titleProperty="title"
-                                    currentValue={definition.labelType ?? "text"}
-                                    disabled={!isOwned}
-                                    onChange={(labelType) => commitDefinition({ labelType: labelType as LabelType })}
-                                />
-                            </td>
-                        </tr>
-                    )}
+                {isDefinition(attrType) && (
+                    <OptionsRowWithToggle
+                        name="attr-promoted"
+                        label={t("attribute_detail.promoted")}
+                        description={t("attribute_detail.promoted_title")}
+                        currentValue={!!definition.isPromoted}
+                        disabled={!isOwned}
+                        onChange={(isPromoted) => commitDefinition({ isPromoted })}
+                    />
+                )}
 
-                    {attrType === "label-definition" && definition.labelType === "number" && (
-                        <tr class="attr-row-number-precision">
-                            <th title={t("attribute_detail.precision_title")}>{t("attribute_detail.precision")}</th>
-                            <td>
-                                <FormTextBoxWithUnit
-                                    className="attr-input-number-precision"
-                                    type="number"
-                                    min={0}
-                                    unit={t("attribute_detail.digits")}
-                                    currentValue={definition.numberPrecision?.toString() ?? ""}
-                                    disabled={!isOwned}
-                                    onChange={(precision) => commitDefinition({
-                                        numberPrecision: precision === "" ? undefined : parseInt(precision, 10)
-                                    })}
-                                />
-                            </td>
-                        </tr>
-                    )}
-
-                    {attrType === "relation-definition" && (
-                        <tr class="attr-row-inverse-relation">
-                            <th title={t("attribute_detail.inverse_relation_title")}>{t("attribute_detail.inverse_relation")}</th>
-                            <td>
-                                <FormAutocomplete
-                                    className="attr-input-inverse-relation"
-                                    currentValue={definition.inverseRelation ?? ""}
-                                    disabled={!isOwned}
-                                    source={suggestRelationNames}
-                                    openOnFocus
-                                    onChange={(inverseRelation) => commitDefinition({
-                                        // A relation name, so the same characters are dropped as in the name field
-                                        inverseRelation: utils.filterAttributeName(inverseRelation)
-                                    })}
-                                />
-                            </td>
-                        </tr>
-                    )}
-
-                    <tr title={t("attribute_detail.inheritable_title")}>
-                        <th />
-                        <td>
-                            <FormCheckbox
-                                label={t("attribute_detail.inheritable")}
-                                currentValue={isInheritable}
-                                disabled={!isOwned}
-                                onChange={(checked) => {
-                                    setIsInheritable(checked);
-                                    attribute.isInheritable = checked;
-                                    onAttributesChanged?.(allAttributes ?? []);
-                                }}
-                            />
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            </div>
 
             {isOwned && (
                 <div class="attr-save-delete-button-container">
@@ -567,56 +681,92 @@ function AttributeForm({ opts, attrType, currentNoteId, onAttributesChanged, onS
                     />
                 </div>
             )}
-
-            <RelatedNotes attribute={attribute} currentNoteId={currentNoteId} />
         </>
     );
 }
 
 /**
- * Describes what a well-known attribute does, for the attribute currently being edited. Renders
- * nothing for names Trilium attaches no meaning to, which is most of them.
+ * The name field and, for a name Trilium attaches a meaning to, the button explaining what it does. The
+ * explanations run to several lines and most names have none, so they are not shown under the field.
  */
-function AttributeNameHelp({ attrType, name }: { attrType: AttrType; name: string }) {
-    const entry = attrType ? ATTR_HELP[attrType]?.[name] : undefined;
-
-    if (!entry) {
-        return null;
-    }
-
-    const { description, helpPage } = typeof entry === "string" ? { description: entry, helpPage: undefined } : entry;
-
+function AttributeNameField({ help, ...autocompleteProps }: { help?: AttrHelpEntry } & ComponentProps<typeof FormAutocomplete>) {
     return (
-        <tr class="attr-help">
-            {/* Descriptions carry markup of their own, e.g. <code> or a list of possible values. */}
-            <td colSpan={2}>
-                <strong>{name}</strong>
-                {" - "}
-                <RawHtml html={description} />
-                {helpPage && <HelpButton className="attr-help-page-button" helpPage={helpPage} />}
-            </td>
-        </tr>
+        <div class="attr-name-field">
+            {/* The row's label is bound to the field by the id the row hands down, which lands here. */}
+            <FormAutocomplete {...autocompleteProps} />
+            {help && <HelpTooltipButton {...help} />}
+        </div>
     );
+}
+
+/**
+ * One row of an attribute name completion, marking the names Trilium itself attaches a meaning to.
+ * The mark answers what a list of bare names cannot: whether picking one buys behaviour, or is only
+ * a name. The inline editor's `#`/`~` completion lists the same names and marks them the same way.
+ */
+function AttributeNameSuggestion({ type, name }: { type: "label" | "relation"; name: string }) {
+    return (
+        <span class="attr-name-suggestion">
+            <span class="attr-name-suggestion-name">{name}</span>
+            {isBuiltinAttribute(type, name) && <Badge outline text={t("attribute_names.system")} />}
+        </span>
+    );
+}
+
+/**
+ * Whether the attribute being edited is one Trilium reads for itself, and so is marked as such.
+ *
+ * A definition is excluded on purpose: `label:archived` sets up a field named after a system attribute
+ * without being one, and the popup edits it under the stripped name — so the name alone would answer
+ * yes where {@link isBuiltinAttribute}, which sees the whole name, answers no.
+ */
+export function isSystemAttribute(attrType: AttrType, name: string) {
+    return (attrType === "label" || attrType === "relation") && isBuiltinAttribute(attrType, name);
+}
+
+/** Normalised so that the shorthand entries, which are the description alone, read like the rest. */
+export function lookupAttributeHelp(attrType: AttrType, name: string): AttrHelpEntry | undefined {
+    const entry = attrType ? ATTR_HELP[attrType]?.[name] : undefined;
+    return typeof entry === "string" ? { description: entry } : entry;
 }
 
 /** Constant so it does not re-initialise the autocomplete on every render. */
 const TARGET_NOTE_OPTS = { allowCreatingNotes: true };
 
-const MULTIPLICITIES = [
-    { value: "single", title: t("attribute_detail.single_value") },
-    { value: "multi", title: t("attribute_detail.multi_value") }
+/**
+ * The value standing for a definition that points at a note rather than holding a value of its own.
+ * Not a label type: it is what the definition is named after, `relation:foo` rather than `label:foo`.
+ */
+export const RELATION_DEFINITION_TYPE = "relation";
+
+/** Exported so that hosts listing definitions can name their label type as the popup does. */
+export const LABEL_TYPES = [
+    { value: "text", title: t("attribute_detail.text"), icon: "bx bx-text" },
+    { value: "textarea", title: t("attribute_detail.textarea"), icon: "bx bx-align-left" },
+    { value: "number", title: t("attribute_detail.number"), icon: "bx bx-hash" },
+    { value: "boolean", title: t("attribute_detail.boolean"), icon: "bx bx-toggle-left" },
+    { value: "date", title: t("attribute_detail.date"), icon: "bx bx-calendar" },
+    { value: "datetime", title: t("attribute_detail.date_time"), icon: "bx bx-calendar-event" },
+    { value: "time", title: t("attribute_detail.time"), icon: "bx bx-time" },
+    { value: "url", title: t("attribute_detail.url"), icon: "bx bx-link" },
+    { value: "color", title: t("attribute_detail.color_type"), icon: "bx bx-palette" }
 ];
 
-const LABEL_TYPES = [
-    { value: "text", title: t("attribute_detail.text") },
-    { value: "textarea", title: t("attribute_detail.textarea") },
-    { value: "number", title: t("attribute_detail.number") },
-    { value: "boolean", title: t("attribute_detail.boolean") },
-    { value: "date", title: t("attribute_detail.date") },
-    { value: "datetime", title: t("attribute_detail.date_time") },
-    { value: "time", title: t("attribute_detail.time") },
-    { value: "url", title: t("attribute_detail.url") },
-    { value: "color", title: t("attribute_detail.color_type") }
+/**
+ * What a definition can set its field up to hold, the note it can point at instead included. The last
+ * of them is set apart: the others only decide which field the value is typed into, while this one
+ * decides what the attribute is, renaming it and leaving whatever was filled in under the old name.
+ *
+ * Exported so that hosts listing definitions can show them by the same icon the popup edits them with.
+ */
+export const DEFINITION_TYPES: { value: string; title: string; icon: string; startsGroup?: boolean }[] = [
+    ...LABEL_TYPES,
+    {
+        value: RELATION_DEFINITION_TYPE,
+        title: t("attribute_detail.relation_type"),
+        icon: "bx bx-transfer",
+        startsGroup: true
+    }
 ];
 
 function fetchAttributeNames(type: "label" | "relation", query: string) {
@@ -644,9 +794,20 @@ interface SearchRelatedResponse {
     count: number;
 }
 
-/** Lists the other notes carrying the same attribute, hidden entirely when there are none. */
-function RelatedNotes({ attribute, currentNoteId }: { attribute: Attribute; currentNoteId?: string | null }) {
-    const [ related, setRelated ] = useState<{ notePaths: string[]; moreCount: number }>();
+interface RelatedNotesResult {
+    /** The first {@link DISPLAYED_NOTES} other notes carrying the attribute, by best path. */
+    notes: { notePath: string; icon: string }[];
+    /** How many notes other than the current one carry the attribute, however many of them are listed. */
+    otherCount: number;
+}
+
+/**
+ * How many notes carry the same attribute, listing them on click. The count alone answers the question
+ * the popup cannot otherwise: whether the name being typed is one already in use somewhere, or a new one
+ * (which, mid-edit, usually means a typo).
+ */
+function RelatedNotesBadge({ attribute, currentNoteId }: { attribute: Attribute; currentNoteId?: string | null }) {
+    const [ related, setRelated ] = useState<RelatedNotesResult>();
     const latestRequest = useRef(0);
     const isInitialLookup = useRef(true);
     const { type, name, value } = attribute;
@@ -668,9 +829,14 @@ function RelatedNotes({ attribute, currentNoteId }: { attribute: Attribute; curr
 
             const hoistedNoteId = appContext.tabManager.getActiveContext()?.hoistedNoteId;
             setRelated({
-                notePaths: notes.map((note) => note.getBestNotePathString(hoistedNoteId)),
-                // Counted against the server's total, so it also covers what the search itself capped.
-                moreCount: otherNotes.length > DISPLAYED_NOTES ? count - DISPLAYED_NOTES : 0
+                notes: notes.map((note) => ({
+                    notePath: note.getBestNotePathString(hoistedNoteId),
+                    icon: note.getIcon()
+                })),
+                // The server counts every match, the current note included, but only returns the first
+                // twenty of them — so past twenty matches, a current note that did not make the cut leaves
+                // the count one too high. Being out by one is immaterial at that size.
+                otherCount: Math.max(count - (otherNotes.length < results.length ? 1 : 0), 0)
             });
         }
 
@@ -686,41 +852,73 @@ function RelatedNotes({ attribute, currentNoteId }: { attribute: Attribute; curr
         // `attribute` is edited in place, so its fields rather than its identity are the real inputs.
     }, [ type, name, value, currentNoteId ]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    if (!related?.notePaths.length) {
+    // Nothing at all until the first lookup lands, rather than a placeholder: the badge shares its row with
+    // the title and the close button, so it can appear without moving anything around it.
+    if (!related) {
         return null;
     }
 
+    if (!related.otherCount) {
+        return (
+            <Badge
+                className="related-notes-badge"
+                outline
+                text={t("attribute_detail.no_other_notes")}
+                tooltip={t("attribute_detail.no_other_notes_title", { attributeType: type, attributeName: name })}
+            />
+        );
+    }
+
     return (
-        <div class="related-notes-container">
-            <h5 class="related-notes-title">
-                {t("attribute_detail.other_notes_with_name", { attributeType: type, attributeName: name })}
-            </h5>
+        <BadgeWithDropdown
+            className="related-notes-badge"
+            icon="bx bx-file"
+            text={t("attribute_detail.other_notes_count", { count: related.otherCount })}
+            tooltip={t("attribute_detail.other_notes_with_name", { attributeType: type, attributeName: name })}
+            // The menu stays nested in the popup: the badge places it with `position: fixed`, and the popup
+            // sets `contain: none` and no transform, so it is not a containing block and does not clip it.
+            dropdownOptions={{ dropdownContainerClassName: "related-notes-menu" }}
+        >
+            {/* The icon comes from the item rather than from the link, so that the note entries and the
+                search entry below them line up on the same slot. */}
+            {related.notes.map(({ notePath, icon }) => (
+                <FormListItem key={notePath} icon={icon}>
+                    <NewNoteLink notePath={notePath} noPreview />
+                </FormListItem>
+            ))}
 
-            <ul class="related-notes-list">
-                {related.notePaths.map((notePath) => (
-                    <li key={notePath}><NoteLink notePath={notePath} showNotePath /></li>
-                ))}
-            </ul>
+            <FormDropdownDivider />
 
-            {related.moreCount > 0 && (
-                <div class="related-notes-more-notes">
-                    {t("attribute_detail.and_more", { count: related.moreCount })}
-                </div>
-            )}
-        </div>
+            <FormListItem
+                icon="bx bx-search-alt"
+                onClick={() => void appContext.triggerCommand("searchNotes", { searchString: formatAttributeForSearch(attribute) })}
+            >{t("attribute_detail.show_all_in_search")}</FormListItem>
+        </BadgeWithDropdown>
     );
 }
 
+/** The query for every note carrying the attribute, mirroring the name-only search behind the count. */
+export function formatAttributeForSearch({ type, name }: Attribute) {
+    // Names are filtered as they are typed, so there is nothing in one that would need quoting.
+    return `${type === "label" ? "#" : "~"}${name}`;
+}
+
+/**
+ * The two kinds of definition share a title: which of them it is now being one of the values of the
+ * type below, a title naming it too would say it twice and would rename the popup as the type is
+ * changed — while what the title is for is the distinction the form cannot show, between a value this
+ * note carries and a declaration of what the attribute it names is for.
+ */
 const ATTR_TITLES: Record<string, string> = {
     label: t("attribute_detail.label"),
-    "label-definition": t("attribute_detail.label_definition"),
+    "label-definition": t("attribute_detail.definition"),
     relation: t("attribute_detail.relation"),
-    "relation-definition": t("attribute_detail.relation_definition")
+    "relation-definition": t("attribute_detail.definition")
 };
 
 const isNewLayout = isExperimentalFeatureEnabled("new-layout");
 
-function positionPopup(popup: HTMLElement, { x, y }: AttributeDetailOpts, parentOffset: { top: number; left: number }) {
+export function positionPopup(popup: HTMLElement, { x, y, anchor }: AttributeDetailOpts, parentOffset: { top: number; left: number }) {
     const outerWidth = popup.offsetWidth;
     const outerHeight = popup.offsetHeight;
     const windowHeight = document.documentElement.clientHeight;
@@ -730,7 +928,9 @@ function positionPopup(popup: HTMLElement, { x, y }: AttributeDetailOpts, parent
         return;
     }
 
-    if (isNewLayout) {
+    if (anchor) {
+        positionPopupBesideAnchor(popup, anchor);
+    } else if (isNewLayout) {
         // The popup always sits above the note attributes pane so it never covers it;
         // when the pane is closed (e.g. opened from the collection column editor),
         // it docks to the status bar instead.
@@ -762,6 +962,35 @@ function positionPopup(popup: HTMLElement, { x, y }: AttributeDetailOpts, parent
     }
 }
 
+/** How far the popup stays from its anchor, and from the edges of the viewport. */
+const ANCHOR_GAP = 8;
+const VIEWPORT_MARGIN = 10;
+
+/**
+ * Beside the anchor rather than over it: the hosts that anchor sit against an edge of the viewport
+ * (the right pane), so the popup takes whichever side of the anchor has the room for it.
+ */
+function positionPopupBesideAnchor(popup: HTMLElement, anchor: HTMLElement) {
+    const anchorRect = anchor.getBoundingClientRect();
+    const windowWidth = document.documentElement.clientWidth;
+    const windowHeight = document.documentElement.clientHeight;
+
+    // Set before measuring the height below, which the cap may well decide.
+    popup.style.maxHeight = `${windowHeight - 2 * VIEWPORT_MARGIN}px`;
+
+    const outerWidth = popup.offsetWidth;
+    const outerHeight = popup.offsetHeight;
+    const left = anchorRect.left >= outerWidth + ANCHOR_GAP + VIEWPORT_MARGIN
+        ? anchorRect.left - outerWidth - ANCHOR_GAP
+        : Math.min(anchorRect.right + ANCHOR_GAP, windowWidth - outerWidth - VIEWPORT_MARGIN);
+
+    popup.style.left = `${Math.max(left, VIEWPORT_MARGIN)}px`;
+    popup.style.right = "";
+    // Level with the anchor, slid up as far as needed to stay wholly on screen.
+    popup.style.top = `${Math.max(Math.min(anchorRect.top, windowHeight - outerHeight - VIEWPORT_MARGIN), VIEWPORT_MARGIN)}px`;
+    popup.style.bottom = "";
+}
+
 function getDetailPosition(x: number, offsetLeft: number, outerWidth: number) {
     let left: number | string = x - offsetLeft - outerWidth / 2;
     let right: number | string = "";
@@ -788,14 +1017,14 @@ function toCssPos(value: number | string) {
     return typeof value === "number" ? `${value}px` : value;
 }
 
-type AttrType = "label" | "label-definition" | "relation" | "relation-definition" | undefined;
+export type AttrType = "label" | "label-definition" | "relation" | "relation-definition" | undefined;
 
-function getAttrType(attribute: Attribute): AttrType {
+export function getAttrType(attribute: Attribute): AttrType {
     if (attribute.type === "label") {
-        if (attribute.name.startsWith("label:")) {
-            return "label-definition";
-        } else if (attribute.name.startsWith("relation:")) {
-            return "relation-definition";
+        // A bare prefix (`#label:`) defines nothing, so it stays an ordinary label — editing it as a
+        // definition would only offer a name-less one back.
+        if (isDefinitionName(attribute.name)) {
+            return attribute.name.startsWith("label:") ? "label-definition" : "relation-definition";
         }
         return "label";
     } else if (attribute.type === "relation") {
@@ -804,7 +1033,7 @@ function getAttrType(attribute: Attribute): AttrType {
 }
 
 /** Definitions are stored prefixed (`label:foo`), but the popup edits the bare name. */
-function stripDefinitionPrefix(name: string, attrType: AttrType) {
+export function stripDefinitionPrefix(name: string, attrType: AttrType) {
     if (attrType === "label-definition") {
         return name.substring("label:".length);
     } else if (attrType === "relation-definition") {
@@ -813,7 +1042,7 @@ function stripDefinitionPrefix(name: string, attrType: AttrType) {
     return name;
 }
 
-function addDefinitionPrefix(name: string, attrType: AttrType) {
+export function addDefinitionPrefix(name: string, attrType: AttrType) {
     if (attrType === "label-definition") {
         return `label:${name}`;
     } else if (attrType === "relation-definition") {

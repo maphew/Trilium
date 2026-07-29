@@ -387,20 +387,17 @@
   },
   "attribute_detail": {
     "close_button_title": "Cealaigh athruithe agus dún",
-    "attr_name_title": "Ní féidir ach carachtair alfa-uimhriúla, colon agus fo-líne a úsáid in ainm na tréithe",
     "name": "Ainm",
     "value": "Luach",
     "target_note_title": "Is nasc ainmnithe idir nóta foinse agus nóta sprice é gaol.",
     "target_note": "Nóta sprice",
     "promoted_title": "Taispeántar an tréith chun cinn go feiceálach ar an nóta.",
     "promoted": "Curtha chun cinn",
-    "promoted_alias_title": "An t-ainm atá le taispeáint i gcomhéadan úsáideora na dtréithe cur chun cinn.",
     "promoted_alias": "Leasainm",
     "multiplicity_title": "Sainmhíníonn iolracht cé mhéad tréith den ainm céanna is féidir a chruthú - uasmhéid 1 nó níos mó ná 1.",
     "multiplicity": "Ilghnéitheacht",
     "single_value": "Luach aonair",
     "multi_value": "Illuach",
-    "label_type_title": "Cabhróidh cineál an lipéid le Trilium comhéadan oiriúnach a roghnú chun luach an lipéid a iontráil.",
     "label_type": "Cineál",
     "text": "Téacs",
     "number": "Uimhir",
@@ -420,9 +417,7 @@
     "related_notes_title": "Nótaí eile leis an lipéad seo",
     "more_notes": "Tuilleadh nótaí",
     "label": "Sonraí lipéid",
-    "label_definition": "Mionsonraí sainmhínithe lipéid",
     "relation": "Sonraí an chaidrimh",
-    "relation_definition": "Mionsonraí sainmhínithe caidrimh",
     "disable_versioning": "díchumasaíonn sé uathleaganú. Úsáideach le haghaidh nótaí móra ach neamhthábhachtacha mar shampla - mar shampla leabharlanna móra JS a úsáidtear le haghaidh scriptithe",
     "calendar_root": "nóta marcáilte ar cheart a úsáid mar fhréamh do nótaí lae. Níor cheart ach ceann amháin a mharcáil mar sin.",
     "archived": "Ní bheidh nótaí leis an lipéad seo le feiceáil de réir réamhshocraithe i dtorthaí cuardaigh (i ndialóga Léim Chuig, Cuir Nasc Leis srl. chomh maith).",
@@ -502,7 +497,6 @@
     "share_favicon": "Nóta favicon le socrú sa leathanach comhroinnte. De ghnáth ba mhaith leat é a shocrú mar fhréamh comhroinnte agus é a dhéanamh oidhreachtúil. Caithfidh nóta favicon a bheith sa fho-chrann comhroinnte chomh maith. Smaoinigh ar 'share_hidden_from_tree' a úsáid.",
     "is_owned_by_note": "is leis an nóta",
     "other_notes_with_name": "Nótaí eile leis an ainm \"{{attributeName}}\" ar {{attributeType}}",
-    "and_more": "... agus {{count}} eile.",
     "print_landscape": "Agus é á onnmhairiú go PDF, athraítear treoshuíomh an leathanaigh go tírdhreach seachas portráid.",
     "print_page_size": "Agus é á easpórtáil go PDF, athraítear méid an leathanaigh. Luachanna tacaithe: <code>A0</code>, <code>A1</code>, <code>A2</code>, <code>A3</code>, <code>A4</code>, <code>A5</code>, <code>A6</code>, <code>Legal</code>, <code>Letter</code>, <code>Tabloid</code>, <code>Ledger</code>.",
     "color_type": "Dath",
@@ -2855,9 +2849,6 @@
     "source_description_unknown": "Foinse gan fáil",
     "diff_identical": "Tá an t-athbhreithniú seo mar an gcéanna le hábhar an nóta reatha.",
     "back": "Ar ais"
-  },
-  "auto_link_attribute_list": {
-    "title": "Tréithe an Chórais"
   },
   "revisions_snapshot": {
     "title": "Athbhreithnithe Nótaí"

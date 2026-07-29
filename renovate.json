@@ -48,8 +48,7 @@
         {
             "matchPackageNames": [
                 "@ckeditor/**",
-                "ckeditor5",
-                "ckeditor5-premium-features"
+                "ckeditor5"
             ],
             "groupName": "ckeditor monorepo"
         },

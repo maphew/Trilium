@@ -131,8 +131,6 @@ function analyzePerf(entries: PerfEntry[]) {
             category = 'CKEditor Core';
         } else if (entry.file.startsWith('pkg:')) {
             category = entry.file.split('/')[0];
-        } else if (entry.file.startsWith('deps:ckeditor5-premium')) {
-            category = 'CKEditor Premium';
         } else if (entry.file.startsWith('deps:ckeditor5')) {
             category = 'CKEditor Core (deps)';
         } else if (entry.file.startsWith('deps:@codemirror')) {

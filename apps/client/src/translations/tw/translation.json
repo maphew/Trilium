@@ -352,20 +352,17 @@
   },
   "attribute_detail": {
     "close_button_title": "取消修改並關閉",
-    "attr_name_title": "屬性名稱只能由字母、數字、冒號和下劃線組成",
     "name": "名稱",
     "value": "值",
     "target_note_title": "關聯是來源筆記和目標筆記之間的命名連接。",
     "target_note": "目標筆記",
     "promoted_title": "升級屬性在筆記上突出顯示。",
     "promoted": "升級",
-    "promoted_alias_title": "在升級屬性界面中顯示的名稱。",
     "promoted_alias": "別名",
     "multiplicity_title": "多重性定義了可以新增的含有相同名稱的屬性的數量 - 最多為 1 或多於 1。",
     "multiplicity": "多重性",
     "single_value": "單值",
     "multi_value": "多重值",
-    "label_type_title": "標籤類型將幫助 Trilium 選擇適合的界面來輸入標籤值。",
     "label_type": "類型",
     "text": "文字",
     "number": "數字",
@@ -385,9 +382,7 @@
     "related_notes_title": "含有此標籤的其他筆記",
     "more_notes": "更多筆記",
     "label": "標籤內容",
-    "label_definition": "標籤定義內容",
     "relation": "關聯內容",
-    "relation_definition": "關聯定義內容",
     "disable_versioning": "禁用自動版本控制。適用於例如大型但不重要的筆記 - 例如用於腳本編寫的大型JS庫",
     "calendar_root": "標記應用作為每日筆記的根。只應標記一個筆記。",
     "archived": "含有此標籤的筆記預設在搜尋結果中不可見（也適用於跳轉至、新增連結對話方塊等）。",
@@ -466,7 +461,6 @@
     "share_favicon": "在分享頁面中設定的favicon筆記。一般需要將它設定為分享和可繼承。Favicon筆記也必須位於分享子階層中。可以考慮一並使用'share_hidden_from_tree'。",
     "is_owned_by_note": "由此筆記所有",
     "other_notes_with_name": "其他含有 {{attributeType}} 名為 \"{{attributeName}}\" 的的筆記",
-    "and_more": "…以及另外 {{count}} 個。",
     "app_theme_base": "設定為 \"next\"、\"next-light \" 或 \"next-dark\"，以使用相應的 TriliumNext 主題（自動、淺色或深色）作為自訂主題的基礎，而非傳統主題。",
     "print_landscape": "匯出為 PDF 時，將頁面方向更改為橫向而非縱向。",
     "print_page_size": "在匯出 PDF 時更改頁面大小。支援的值：<code>A0</code>、<code>A1</code>、<code>A2</code>、<code>A3</code>、<code>A4</code>、<code>A5</code>、<code>A6</code>、<code>Legal</code>、<code>Letter</code>、<code>Tabloid</code>、<code>Ledger</code>。",
@@ -2595,9 +2589,6 @@
     "source_description_unknown": "來源不可用",
     "back": "返回",
     "diff_identical": "此修訂內容與目前筆記內容相同。"
-  },
-  "auto_link_attribute_list": {
-    "title": "系統屬性"
   },
   "database": {
     "title": "資料庫"

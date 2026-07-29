@@ -64,7 +64,6 @@ function baseOpts(overrides: Partial<BuildEditorOptions> = {}): BuildEditorOptio
     return {
         uiLanguage: "en",
         contentLanguage: "en",
-        forceGplLicense: false,
         isClassicEditor: false,
         templates: [],
         ...overrides
@@ -130,7 +129,9 @@ describe("CK config", () => {
             if (locale.id !== "en" && locale.id !== "ga") {
                 expect((config.language as unknown as { ui: string }).ui).toMatch(new RegExp(`^${expectedLocale}`));
                 expect(config.translations, locale.id).toBeDefined();
-                expect(config.translations, locale.id).toHaveLength(2);
+                // Only CKEditor's GPL core translations: the premium bundle used to contribute a
+                // second entry, but no premium plugin is loaded any more.
+                expect(config.translations, locale.id).toHaveLength(1);
             }
         }
     }, 20_000);
@@ -158,32 +159,13 @@ describe("CK config", () => {
 });
 
 describe("CK config - licensing", () => {
-    it("forces the open-source license and omits premium plugins when GPL is requested", async () => {
-        const config = await buildConfig(baseOpts({ forceGplLicense: true }));
+    it("always runs under the open-source license, with no premium plugins", async () => {
+        // Every premium plugin Trilium used has an in-tree GPL replacement, so there is no
+        // commercial key to read and nothing to add on top of the built-in plugin list.
+        const config = await buildConfig(baseOpts());
 
         expect(config.licenseKey).toBe(OPEN_SOURCE_LICENSE_KEY);
         expect(config.extraPlugins).toBeUndefined();
-    });
-
-    it("falls back to the open-source license and logs when no premium key is configured", async () => {
-        vi.stubEnv("VITE_CKEDITOR_KEY", "");
-        const logError = vi.fn();
-        vi.stubGlobal("logError", logError);
-
-        const config = await buildConfig(baseOpts({ forceGplLicense: false }));
-
-        expect(config.licenseKey).toBe(OPEN_SOURCE_LICENSE_KEY);
-        expect(config.extraPlugins).toBeUndefined();
-        expect(logError).toHaveBeenCalledOnce();
-    });
-
-    it("enables premium plugins when a license key is available", async () => {
-        // The dev key from `.env` is present in tests, so premium features are unlocked.
-        const config = await buildConfig(baseOpts({ forceGplLicense: false }));
-
-        expect(config.licenseKey).not.toBe(OPEN_SOURCE_LICENSE_KEY);
-        expect(Array.isArray(config.extraPlugins)).toBe(true);
-        expect((config.extraPlugins ?? []).length).toBeGreaterThan(0);
     });
 });
 
@@ -286,13 +268,13 @@ describe("CK config - mention feed", () => {
 describe("CK config - disabled plugins", () => {
     it("removes the emoji and slash-command plugins based on their option toggles", async () => {
         const disabled = await buildConfig(baseOpts());
-        expect(disabled.removePlugins).toContain("EmojiMention");
-        expect(disabled.removePlugins).toContain("SlashCommand");
+        expect(disabled.removePlugins).toContain("TriliumEmojiMention");
+        expect(disabled.removePlugins).toContain("TriliumSlashCommands");
 
         optionsState.map["textNoteEmojiCompletionEnabled"] = "true";
         optionsState.map["textNoteSlashCommandsEnabled"] = "true";
         const enabled = await buildConfig(baseOpts());
-        expect(enabled.removePlugins).not.toContain("EmojiMention");
-        expect(enabled.removePlugins).not.toContain("SlashCommand");
+        expect(enabled.removePlugins).not.toContain("TriliumEmojiMention");
+        expect(enabled.removePlugins).not.toContain("TriliumSlashCommands");
     });
 });

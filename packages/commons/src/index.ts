@@ -12,11 +12,14 @@ export * from "./lib/shared_constants.js";
 export * from "./lib/shared_types.js";
 export * from "./lib/ws_api.js";
 export * from "./lib/attribute_names.js";
+export * from "./lib/promoted_attribute_definition_parser.js";
+export { default as promotedAttributeDefinitionParser } from "./lib/promoted_attribute_definition_parser.js";
 export * from "./lib/utils.js";
 export * from "./lib/dayjs.js";
 export * from "./lib/notes.js";
 export * from "./lib/onenote.js";
 export * from "./lib/week_utils.js";
+export * from "./lib/builtin_attributes.js";
 export { default as BUILTIN_ATTRIBUTES } from "./lib/builtin_attributes.js";
 // The spreadsheet modules are deliberately not re-exported here: they pull in numfmt, and the
 // barrel is imported by virtually every client module. Import them via their subpath instead,

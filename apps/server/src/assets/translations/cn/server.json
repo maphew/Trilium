@@ -205,7 +205,8 @@
     "security-title": "安全",
     "desktop-title": "桌面",
     "deleted-notes-title": "已删除的笔记",
-    "color-scheme-switcher-title": "配色方案切换"
+    "color-scheme-switcher-title": "配色方案切换",
+    "content-manager-title": "扩展管理"
   },
   "notes": {
     "new-note": "新建笔记",
@@ -395,9 +396,6 @@
   "sql_init": {
     "db_not_initialized_desktop": "数据库尚未初始化，请依照屏幕提示操作。",
     "db_not_initialized_server": "数据库尚未初始化，请访问设置页面 http://[your-server-host]:{{port}} 查看如何初始化 Trilium。"
-  },
-  "desktop": {
-    "instance_already_running": "已经有一个运行中的实例，正在将焦点切换到该实例。"
   },
   "search": {
     "error": {

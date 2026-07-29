@@ -232,6 +232,114 @@ export interface SubtreeSizeResponse {
     subTreeSize: number;
 }
 
+/**
+ * The size components of a single note. Revisions are always reported separately so a client can
+ * include or exclude them without another request.
+ */
+export interface SpaceUsageSizes {
+    /** Size of the note's own body. */
+    ownSize: number;
+    /** Combined size of the attachments owned by the note. */
+    attachmentsSize: number;
+    /** Combined size of the note's revisions, including attachments owned by those revisions. */
+    revisionsSize: number;
+}
+
+export interface SpaceUsageOverviewNote extends SpaceUsageSizes {
+    noteId: string;
+    /**
+     * Note IDs from a top-level note down to this note, following each note's canonical placement
+     * (see the space usage service); the root itself is omitted.
+     */
+    notePath: string[];
+}
+
+/** An aggregate over notes that are not listed individually. */
+export interface SpaceUsageBucket {
+    /** Note bodies plus attachments; revisions are in {@link revisionsSize}. */
+    size: number;
+    revisionsSize: number;
+    noteCount: number;
+}
+
+/** Space still held by deleted entities whose blobs have not been erased yet. */
+export interface SpaceUsageDeletedNotes {
+    size: number;
+    /** Deleted notes whose body blob still exists; erased notes no longer count. */
+    noteCount: number;
+}
+
+/**
+ * What the live content actually occupies — every blob referenced by a live note, attachment or
+ * revision, hidden subtree included, counted once however many entities share it through
+ * deduplication. The breakdown attributes each blob to exactly one tier — bodies first, then
+ * attachments, then revisions — so the parts sum to {@link size} and each reads as "the space only
+ * this category holds". The per-note numbers elsewhere intentionally count per entity instead, so
+ * a note's reported size never depends on duplicates elsewhere.
+ */
+export interface SpaceUsageContent {
+    /** The whole live content; the "database size" figure. */
+    size: number;
+    /** Live notes, hidden ones included. */
+    noteCount: number;
+    /** Space only note-owned attachments hold: their blobs minus those shared with note bodies. */
+    attachmentsSize: number;
+    /** Space only revisions hold (snapshot attachments included): their blobs minus those shared
+     *  with live bodies or live attachments. */
+    revisionsSize: number;
+}
+
+export interface SpaceUsageOverviewResponse {
+    content: SpaceUsageContent;
+    /** The largest notes first, ranked by body + attachments (+ revisions when requested). */
+    notes: SpaceUsageOverviewNote[];
+    /** The remaining notes of the visible tree, below the ranking cutoff. */
+    otherNotes: SpaceUsageBucket;
+    /** Notes reachable only through the hidden subtree, plus any note not reachable at all. */
+    hiddenNotes: SpaceUsageBucket;
+    deletedNotes: SpaceUsageDeletedNotes;
+    /** Every note of the visible tree: {@link notes} and {@link otherNotes} combined. */
+    total: SpaceUsageBucket;
+}
+
+export interface SpaceUsageChild {
+    noteId: string;
+    /** Bodies plus attachments of the child's whole canonical subtree; revisions are left out. */
+    subtreeSize: number;
+    subtreeNoteCount: number;
+}
+
+export interface SpaceUsageAttachment {
+    attachmentId: string;
+    title: string;
+    role: string;
+    size: number;
+}
+
+export interface SpaceUsageNoteResponse extends SpaceUsageSizes {
+    noteId: string;
+    /**
+     * What the note alone actually occupies — body, attachments and revisions, each shared blob
+     * counted once. Smaller than the per-entity components sum whenever revisions still share the
+     * note's blob or attachments repeat content.
+     */
+    noteContentSize: number;
+    /** Like {@link noteContentSize}, over the note's whole canonical subtree. */
+    subtreeContentSize: number;
+    /**
+     * What erasing the whole subtree's history would actually reclaim: blobs held only by the
+     * subtree's revisions, each counted once, and none that a live body or note attachment still
+     * shares. Tiered like the database-wide figure, so the two are comparable — unlike the
+     * per-entity {@link revisionsSize}, which counts a shared snapshot at every entity holding it.
+     */
+    subtreeRevisionsContentSize: number;
+    attachments: SpaceUsageAttachment[];
+    /** Canonical children only: a cloned child is listed under its canonical parent alone. */
+    children: SpaceUsageChild[];
+    /** Only present on the root, deleted notes having no place in the tree. */
+    deletedNotes?: SpaceUsageDeletedNotes;
+}
+
 export interface SimilarNote {
     score: number;
     notePath: string[];
@@ -367,18 +475,6 @@ export interface IconRegistry {
             terms: string[];
         }[]
     }[];
-}
-
-export type LabelType = "text" | "textarea" | "number" | "boolean" | "date" | "datetime" | "time" | "url" | "color";
-export type Multiplicity = "single" | "multi";
-
-export interface DefinitionObject {
-    isPromoted?: boolean;
-    labelType?: LabelType;
-    multiplicity?: Multiplicity;
-    numberPrecision?: number;
-    promotedAlias?: string;
-    inverseRelation?: string;
 }
 
 /**

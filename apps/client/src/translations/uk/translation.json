@@ -20,7 +20,9 @@
     "affected_branches": "Уражені гілки ({{count}}):"
   },
   "about": {
-    "data_directory": "Каталог даних:"
+    "data_directory": "Каталог даних:",
+    "version_label": "Версія:",
+    "version": "{{appVersion}} (база даних: {{dbVersion}}, протокол синхронізації: {{syncVersion}})"
   },
   "global_menu": {
     "about": "Про Trilium Notes",
@@ -185,7 +187,9 @@
     "notes_to_be_deleted": "Наступні нотатки будуть видалені ({{notesCount}})",
     "no_note_to_delete": "Жодну нотатку не буде видалено (лише клони).",
     "broken_relations_to_be_deleted": "Наступні зв'язки будуть розірвані та видалені ({{ relationCount}})",
-    "cancel": "Скасувати"
+    "cancel": "Скасувати",
+    "title": "Видалити нотатки",
+    "delete": "Видалити"
   },
   "export": {
     "export_note_title": "Експорт нотатки",
@@ -295,7 +299,8 @@
     "deleted_notes_message": "Видалені нотатки стерто.",
     "no_changes_message": "Поки що жодних змін...",
     "undelete_link": "відновити",
-    "confirm_undelete": "Ви хочете відновити цю нотатку та її піднотатки?"
+    "confirm_undelete": "Ви хочете відновити цю нотатку та її піднотатки?",
+    "deleted_notes_title": "Видалені нотатки"
   },
   "include_note": {
     "dialog_title": "Включити нотатку",
@@ -374,20 +379,17 @@
   },
   "attribute_detail": {
     "close_button_title": "Скасувати зміни та закрити",
-    "attr_name_title": "Ім'я атрибута може складатися лише з буквено-цифрових символів, двокрапки та символу підкреслення",
     "name": "Назва",
     "value": "Значення",
     "target_note_title": "Зв'язок — це іменований зв'язок між джерелом та цільовою нотаткою.",
     "target_note": "Цільова нотатка",
     "promoted_title": "Просунутий атрибут відображається на нотатці у помітному вигляді.",
     "promoted": "Просунуті",
-    "promoted_alias_title": "Назва, яка відображатиметься в інтерфейсі просунутих атрибутів.",
     "promoted_alias": "Псевдонім",
     "multiplicity_title": "Множинність визначає, скільки атрибутів з однаковою назвою можна створити — максимум 1 або більше 1.",
     "multiplicity": "Множинність",
     "single_value": "Одне значення",
     "multi_value": "Декілька значень",
-    "label_type_title": "Тип мітки допоможе Trilium вибрати відповідний інтерфейс для введення значення мітки.",
     "label_type": "Тип",
     "text": "Текст",
     "number": "Номер",
@@ -407,9 +409,7 @@
     "related_notes_title": "Інші нотатки з цією міткою",
     "more_notes": "Більше нотаток",
     "label": "Деталі мітки",
-    "label_definition": "Деталі визначення мітки",
     "relation": "Деталі зв'язку",
-    "relation_definition": "Деталі визначення зв'язку",
     "disable_versioning": "вимикає автоматичне керування версіями. Корисно, наприклад, для великих, але неважливих нотаток, наприклад, великих JS-бібліотек, що використовуються для написання скриптів",
     "calendar_root": "позначити нотатку, яка буде використовуватись для денних нотатків за замовчуванням. Тільки одна може бути такою.",
     "archived": "нотатки з цією міткою не будуть видимими за замовчуванням у результатах пошуку (також у діалогових вікнах Перейти до..., Додати посилання... тощо).",
@@ -489,7 +489,6 @@
     "share_favicon": "Нотатку до значка веб-сторінки, яку потрібно встановити на спільній сторінці. Зазвичай потрібно встановити її як спільний кореневий каталог і зробити успадковуваною. Нотатку до значка веб-сторінки також потрібно розмістити у спільному піддереві. Розгляньте можливість використання 'share_hidden_from_tree'.",
     "is_owned_by_note": "належить до нотатки",
     "other_notes_with_name": "Інші нотатки {{attributeType}} з назвою \"{{attributeName}}\"",
-    "and_more": "... та ще {{count}}.",
     "print_landscape": "Під час експорту в PDF змінює орієнтацію сторінки на альбомну замість портретної.",
     "print_page_size": "Під час експорту в PDF змінює розмір сторінки. Підтримувані значення: <code>A0</code>, <code>A1</code>, <code>A2</code>, <code>A3</code>, <code>A4</code>, <code>A5</code>, <code>A6</code>, <code>Legal</code>, <code>Letter</code>, <code>Tabloid</code>, <code>Ledger</code>.",
     "color_type": "Колір"
@@ -1041,7 +1040,7 @@
     "no_attachments": "Ця нотатка не має вкладень."
   },
   "book": {
-    "no_children_help": "Ця колекція не має дочірніх нотаток, тому нічого відображати. Див. <a href=\"https://triliumnext.github.io/Docs/Wiki/book-note.html\">вікі</a> для отримання детальної інформації.",
+    "no_children_help": "Ця колекція не має дочірніх нотаток, тому нічого відображати.",
     "drag_locked_title": "Заблоковано для редагування",
     "drag_locked_message": "Перетягування заборонено, оскільки колекцію заблоковано для редагування."
   },
@@ -1411,7 +1410,8 @@
     "toggle-sidebar": "Перемикання бічної панелі",
     "subtree-hidden-tooltip_one": "{{count}} дочірня нотатка, прихована від дерев",
     "subtree-hidden-tooltip_few": "{{count}} дочірніх нотатки, прихованих від дерев",
-    "subtree-hidden-tooltip_many": "{{count}} дочірніх нотаток, прихованих від дерев"
+    "subtree-hidden-tooltip_many": "{{count}} дочірніх нотаток, прихованих від дерев",
+    "subtree-hidden-moved-description-collection": "Ця колекція приховує свої дочірні нотатки в дереві."
   },
   "title_bar_buttons": {
     "window-on-top": "Тримати вікно зверху"
@@ -1423,7 +1423,10 @@
     "print_report_collection_content_many": "{{count}} нотаток з колекції не вдалося роздрукувати, тому що вони не підтримуються або захищені."
   },
   "note_title": {
-    "placeholder": "введіть тут заголовок нотатки..."
+    "placeholder": "введіть тут заголовок нотатки...",
+    "note_type_switcher_label": "Змінити з {{type}} на:",
+    "note_type_switcher_collection": "Колекція",
+    "note_type_switcher_others": "Інший тип нотатки"
   },
   "search_result": {
     "no_notes_found": "За заданими параметрами пошуку нотаток не знайдено.",
@@ -1902,5 +1905,17 @@
     "setup_create_sample_preact": "Створіть зразок нотатки за допомогою Preact",
     "setup_create_sample_html": "Створити зразок нотатки за допомогою HTML",
     "setup_sample_created": "Зразок нотатки було створено як дочірню нотатку."
+  },
+  "revisions": {
+    "delete_button": "Видалити"
+  },
+  "keyboard_shortcut_keys": {
+    "delete": "Видалити"
+  },
+  "sidebar_chat": {
+    "delete": "Видалити"
+  },
+  "llm": {
+    "delete_provider": "Видалити"
   }
 }

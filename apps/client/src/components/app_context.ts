@@ -27,6 +27,7 @@ import { ChooseNoteTypeCallback } from "../widgets/dialogs/note_type_chooser.jsx
 import type { PrintPreviewData } from "../widgets/dialogs/print_preview.jsx";
 import type { PromptDialogOptions } from "../widgets/dialogs/prompt.js";
 import type NoteTreeWidget from "../widgets/note_tree.js";
+import type { RightPaneTabId } from "../widgets/sidebar/RightPaneTabs.jsx";
 import Component from "./component.js";
 import Entrypoints from "./entrypoints.js";
 import MainTreeExecutors from "./main_tree_executors.js";
@@ -158,6 +159,7 @@ export type CommandMappings = {
     showCpuArchWarning: CommandData;
     showLeftPane: CommandData;
     showAttachments: CommandData;
+    showNoteAttributes: CommandData;
     showSearchHistory: CommandData;
     showShareSubtree: CommandData;
     hoistNote: CommandData & { noteId: string };
@@ -355,6 +357,8 @@ export type CommandMappings = {
     toggleRibbonTabSimilarNotes: CommandData;
     toggleRightPane: CommandData;
     peekRightPane: CommandData;
+    /** Shows the given tab of the right pane, opening the pane if it is closed. */
+    selectRightPaneTab: CommandData & { tabId: RightPaneTabId };
     printActiveNote: CommandData;
     exportAsPdf: CommandData;
     showPrintPreview: PrintPreviewData;

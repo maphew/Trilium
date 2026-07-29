@@ -1,4 +1,4 @@
-import { dayjs } from "@triliumnext/commons";
+import { dayjs, filterAttributeName, isValidAttributeName } from "@triliumnext/commons";
 
 import FNote from "../entities/fnote";
 import type { ViewMode, ViewScope } from "./link.js";
@@ -491,16 +491,6 @@ export async function openInReusableSplit(targetNoteId: string, targetViewMode: 
         // There is already a target split open, make sure it opens on the right note.
         existingSubcontext.setNote(targetNoteId, { viewScope });
     }
-}
-
-function filterAttributeName(name: string) {
-    return name.replace(/[^\p{L}\p{N}_:]/gu, "");
-}
-
-const ATTR_NAME_MATCHER = new RegExp("^[\\p{L}\\p{N}_:]+$", "u");
-
-function isValidAttributeName(name: string) {
-    return ATTR_NAME_MATCHER.test(name);
 }
 
 function sleep(time_ms: number) {

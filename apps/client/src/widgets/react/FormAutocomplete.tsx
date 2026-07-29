@@ -1,6 +1,6 @@
 import "./FormAutocomplete.css";
 
-import type { TargetedKeyboardEvent } from "preact";
+import type { ComponentChildren, TargetedKeyboardEvent } from "preact";
 import { createPortal, type CSSProperties } from "preact/compat";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
@@ -27,6 +27,12 @@ interface FormAutocompleteProps extends Omit<FormTextBoxProps, "onChange"> {
     source(query: string): Promise<string[]>;
     /** Opens the dropdown as soon as the field receives focus, not just on typing. */
     openOnFocus?: boolean;
+    /**
+     * Renders one suggestion, for lists where the bare text does not tell the whole story. Only the
+     * appearance of the row is affected: what a suggestion means and what selecting it commits stay
+     * the string the source returned. Defaults to showing that string.
+     */
+    renderItem?(item: string): ComponentChildren;
 }
 
 /**
@@ -35,7 +41,7 @@ interface FormAutocompleteProps extends Omit<FormTextBoxProps, "onChange"> {
  * The dropdown is portalled to the body and positioned over everything else, so it is not clipped
  * by scrolling ancestors. Selecting a suggestion reports it through `onChange`, exactly like typing.
  */
-export default function FormAutocomplete({ currentValue, onChange, source, openOnFocus, inputRef, onBlur, onKeyDown, ...restProps }: FormAutocompleteProps) {
+export default function FormAutocomplete({ currentValue, onChange, source, openOnFocus, renderItem, inputRef, onBlur, onKeyDown, ...restProps }: FormAutocompleteProps) {
     const ownInputRef = useRef<HTMLInputElement>(null);
     const inputEl = inputRef ?? ownInputRef;
     const dropdownRef = useRef<HTMLUListElement>(null);
@@ -187,7 +193,7 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
                             onMouseEnter={() => setActiveIndex(index)}
                             onClick={() => selectItem(item)}
                         >
-                            {item}
+                            {renderItem ? renderItem(item) : item}
                         </li>
                     ))}
                 </ul>,

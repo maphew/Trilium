@@ -126,10 +126,11 @@ side effects in `packages/ckeditor5/src/index.ts` (see the math/mermaid side-eff
 | `ClassicEditor` | `DecoupledEditor` | `COMMON_PLUGINS` | The main text-note editor; decoupled (fixed) toolbar. |
 | `PopupEditor` | `BalloonEditor` | `POPUP_EDITOR_PLUGINS` (+`BlockToolbar`) | Floating-toolbar text editor. |
 
-Premium plugins are **not** in the static arrays — they are loaded lazily via
-`loadPremiumPlugins()` (dynamic `import('ckeditor5-premium-features')` plus its CSS), which keeps
-~6s of premium code out of initial startup. `_setModelData`/inspector aside, all symbols come from
-the `ckeditor5` aggregate.
+There are no premium plugins any more: `SlashCommand`, `FormatPainter` and `Template` were each
+replaced by an in-tree GPL plugin (`TriliumSlashCommands`, `TriliumFormatPainter`,
+`TriliumSnippets`), so `ckeditor5-premium-features` is not a dependency and the editor config
+always carries `licenseKey: "GPL"`. `_setModelData`/inspector aside, all symbols come from the
+`ckeditor5` aggregate.
 
 ## Vite build
 
@@ -147,7 +148,6 @@ keep in sync. `src/index.ts` imports `ckeditor5/ckeditor5.css` and the Trilium t
 - `CKEditorWithWatchdog.tsx` wraps editor creation in the **custom `EditorWatchdog`**
   (`packages/ckeditor5/src/custom_watchdog.ts`, re-exported from `@triliumnext/ckeditor5`), which
   recreates the editor on a crash while preserving data.
-- Premium features are pulled in lazily through `loadPremiumPlugins()` only when needed.
 - The client picks `ClassicEditor` (fixed toolbar) or `PopupEditor` (floating) per the note's
   editing mode; `AttributeEditor` is used elsewhere for attribute/relation inputs.
 
@@ -185,5 +185,5 @@ For test setup, model/view assertions, and command/UI test patterns, use the sep
 
 Paths here (`packages/ckeditor5`, `packages/ckeditor5-<feature>`, `apps/client/...`) are **this
 Trilium repository**. The CKEditor 5 library mechanics referenced (editor bases `BalloonEditor`/
-`DecoupledEditor`, `EditorConfig`, the watchdog, premium features) come from the external `ckeditor5`
-/ `ckeditor5-premium-features` packages at `48.2.0`.
+`DecoupledEditor`, `EditorConfig`, the watchdog) come from the external `ckeditor5` package at
+`48.2.0`.

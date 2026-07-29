@@ -71,6 +71,7 @@ const ALLOWED_OPTIONS = new Set<OptionNames>([
     "leftPaneVisible",
     "rightPaneWidth",
     "rightPaneCollapsedItems",
+    "rightPaneSelectedTab",
     "rightPaneVisible",
     "nativeTitleBarVisible",
     "headingStyle",

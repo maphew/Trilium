@@ -1,8 +1,9 @@
 import "./PromotedAttributes.css";
 
-import { DefinitionObject, LabelType, UpdateAttributeResponse } from "@triliumnext/commons";
+import { DefinitionObject, extractAttributeDefinitionTypeAndName, UpdateAttributeResponse } from "@triliumnext/commons";
 import clsx from "clsx";
 import { ComponentChild, createElement, HTMLInputTypeAttribute, InputHTMLAttributes, MouseEventHandler, TargetedEvent } from "preact";
+import { ComponentChild, MouseEventHandler, TargetedEvent } from "preact";
 import { Dispatch, StateUpdater, useCallback, useEffect, useState } from "preact/hooks";
 
 import NoteContext from "../components/note_context";
@@ -12,10 +13,10 @@ import { ColorPicker } from "../menus/custom-items/NoteColorPicker";
 import { Attribute } from "../services/attribute_parser";
 import attributes from "../services/attributes";
 import { t } from "../services/i18n";
-import { extractAttributeDefinitionTypeAndName } from "../services/promoted_attribute_definition_parser";
 import server from "../services/server";
 import { randomString } from "../services/utils";
 import ws from "../services/ws";
+import LabelValueInput from "./attribute_widgets/label_value_input";
 import { useNoteContext, useNoteLabel, useTriliumEvent, useUniqueName } from "./react/hooks";
 import NoteAutocomplete from "./react/NoteAutocomplete";
 
@@ -172,35 +173,14 @@ function PromotedAttributeCell(props: CellProps) {
     );
 }
 
-const LABEL_MAPPINGS: Record<LabelType, HTMLInputTypeAttribute | undefined> = {
-    text: "text",
-    textarea: undefined,
-    number: "number",
-    boolean: "checkbox",
-    date: "date",
-    datetime: "datetime-local",
-    time: "time",
-    color: "hidden", // handled separately.
-    url: "url"
-};
-
 function LabelInput(props: CellProps & { inputId: string }) {
     const { inputId, note, cell, componentId, setCells } = props;
     const { valueName, valueAttr, definition, definitionAttr } = cell;
     const [ valueDraft, setDraft ] = useState(valueAttr.value);
-    const onChangeListener = useCallback(async (e: OnChangeEventData) => {
-        const inputEl = e.target as HTMLInputElement;
-        let value: string;
-
-        if (inputEl.type === "checkbox") {
-            value = inputEl.checked ? "true" : "false";
-        } else {
-            value = inputEl.value;
-        }
-
-        await updateAttribute(note, cell, componentId, value, setCells);
-    }, [ cell, componentId, note, setCells ]);
-    const extraInputProps: InputHTMLAttributes = {};
+    const labelType = definition.labelType ?? "text";
+    const commit = useCallback(
+        (value: string) => updateAttribute(note, cell, componentId, value, setCells),
+        [ cell, componentId, note, setCells ]);
 
     useTextLabelAutocomplete(inputId, valueAttr, definition, (e) => {
         if (e.currentTarget instanceof HTMLInputElement) {
@@ -213,41 +193,30 @@ function LabelInput(props: CellProps & { inputId: string }) {
         setDraft(valueAttr.value);
     }, [ valueAttr.value ]);
 
-    switch (definition.labelType) {
-        case "number": {
-            let step = 1;
-            for (let i = 0; i < (definition.numberPrecision || 0) && i < 10; i++) {
-                step /= 10;
-            }
-            extraInputProps.step = step;
-            break;
-        }
-        case "url": {
-            extraInputProps.placeholder = t("promoted_attributes.url_placeholder");
-            break;
-        }
-    }
+    const input = (
+        <LabelValueInput
+            labelType={labelType}
+            // The draft is what the field shows: the autocomplete writes into it as the user picks.
+            value={(labelType === "boolean" ? valueAttr.value : valueDraft) ?? ""}
+            onCommit={commit}
+            commitOn="blur"
+            numberPrecision={definition.numberPrecision}
+            inputProps={{
+                className: "form-control promoted-attribute-input",
+                tabIndex: 200 + definitionAttr.position,
+                id: inputId,
+                placeholder: t("promoted_attributes.unset-field-placeholder"),
+                "data-attribute-id": valueAttr.attributeId,
+                "data-attribute-type": valueAttr.type,
+                "data-attribute-name": valueAttr.name
+            }}
+        />
+    );
 
-
-    const inputNode = createElement(definition.labelType === "textarea" ? "textarea" : "input", {
-        className: "form-control promoted-attribute-input",
-        tabIndex: 200 + definitionAttr.position,
-        id: inputId,
-        type: LABEL_MAPPINGS[definition.labelType ?? "text"],
-        value: valueDraft,
-        checked: definition.labelType === "boolean" ? valueAttr.value === "true" : undefined,
-        placeholder: t("promoted_attributes.unset-field-placeholder"),
-        "data-attribute-id": valueAttr.attributeId,
-        "data-attribute-type": valueAttr.type,
-        "data-attribute-name": valueAttr.name,
-        onBlur: onChangeListener,
-        ...extraInputProps
-    });
-
-    if (definition.labelType === "boolean") {
+    if (labelType === "boolean") {
         return <>
             <div>
-                <label className="tn-checkbox">{inputNode}</label>
+                <label className="tn-checkbox">{input}</label>
             </div>
             <label for={inputId}>{definition.promotedAlias ?? valueName}</label>
         </>;
@@ -278,7 +247,9 @@ function LabelInput(props: CellProps & { inputId: string }) {
         </div>
     );
 
+    return <div className="input-group">{input}</div>;
 }
+
 
 function RelationInput({ inputId, ...props }: CellProps & { inputId: string }) {
     return (
@@ -366,27 +337,14 @@ function PromotedActionButton({ icon, title, onClick }: {
     );
 }
 
-function InputButton({ icon, className, title, onClick }: {
-    icon: string;
-    className?: string;
-    title: string;
-    onClick: MouseEventHandler<HTMLSpanElement>;
-}) {
-    return (
-        <span
-            className={clsx("input-group-text", className, icon)}
-            title={title}
-            onClick={onClick}
-        />
-    );
-}
-
 function useTextLabelAutocomplete(inputId: string, valueAttr: Attribute, definition: DefinitionObject, onChangeListener: OnChangeListener) {
     const [ attributeValues, setAttributeValues ] = useState<{ value: string }[] | null>(null);
 
     // Obtain data.
     useEffect(() => {
-        if (definition.labelType !== "text") {
+        // A nameless attribute has no values to suggest, and would request `attribute-values/`, which
+        // matches no route.
+        if (definition.labelType !== "text" || !valueAttr.name) {
             return;
         }
 
