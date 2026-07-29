@@ -13,8 +13,10 @@ import attributes, { isBuiltinAttribute } from "../../services/attributes";
 import dialog from "../../services/dialog";
 import { t } from "../../services/i18n";
 import server from "../../services/server";
+import { isMobile } from "../../services/utils";
 import { AttributeDetail, AttributeDetailOpts, AttrType, DEFINITION_TYPES, getAttrType, RELATION_DEFINITION_TYPE } from "../attribute_widgets/attribute_detail";
 import ActionButton from "../react/ActionButton";
+import { FormListItem } from "../react/FormList";
 import HelpButton from "../react/HelpButton";
 import { useActiveNoteContext, useTriliumEvent } from "../react/hooks";
 import Icon from "../react/Icon";
@@ -282,7 +284,11 @@ interface AttributeRowListProps {
 function AttributeRowList({ rows, activeAttribute, readOnly, onOpen, onDelete }: AttributeRowListProps) {
     function renderRows(group: AttributeEntry[]) {
         return (
-            <ul class="attribute-rows">
+            // The rows are menu items on a phone (see AttributeRow), and the theme dresses a menu item
+            // through the menu around it — so the list stands in as that menu, the way the other lists
+            // of menu items outside a dropdown do (`dropdown-menu static show`, as in the code-note
+            // switcher). Static: it opens nowhere and is positioned by nothing.
+            <ul class={clsx("attribute-rows", IS_MOBILE && "dropdown-menu tn-dropdown-menu static show")}>
                 {group.map(({ attribute, isOwned, isSystem }, index) => (
                     <AttributeRow
                         key={attribute.attributeId ?? `new-${index}`}
@@ -330,24 +336,17 @@ function AttributeRow({ attribute, active, isSystem, showOwner, onOpen, onDelete
     const rowRef = useRef<HTMLLIElement>(null);
     const attrType = getAttributeKind(attribute);
     const marker = getKindMarker(attribute, attrType, isSystem);
+    const kindIcon = getKindIcon(attribute, attrType);
+    const rowClass = clsx("attribute-row", active && "active");
 
-    return (
-        <li
-            ref={rowRef}
-            class={clsx("attribute-row", active && "active")}
-            title={KIND_TITLES[attrType]}
-            onClick={(e) => {
-                // Keep the container's closing handler from undoing this.
-                e.stopPropagation();
-                onOpen(rowRef.current, e);
-            }}
-        >
-            {/* The kind is the icon, and what is worth saying about it beyond that is a badge on its
-                corner: its own tooltip names it, the badge being the only thing that says so. */}
-            <span class={clsx("attribute-kind", marker?.class)} title={marker?.title}>
-                <Icon icon={getKindIcon(attribute, attrType)} />
-            </span>
+    function open(e: MouseEvent) {
+        // Keep the container's closing handler from undoing this.
+        e.stopPropagation();
+        onOpen(rowRef.current, e);
+    }
 
+    const contents = (
+        <>
             <span class="attribute-name">{getDisplayName(attribute, attrType)}</span>
 
             <AttributeValue attribute={attribute} attrType={attrType} />
@@ -375,9 +374,51 @@ function AttributeRow({ attribute, active, isSystem, showOwner, onOpen, onDelete
                     }}
                 />
             )}
+        </>
+    );
+
+    // On a phone the rows are menu items, drawn as everything else the note's menu leads to is: the
+    // panel is reached from that menu (see the note attributes modal), and a row there is something
+    // pressed with a thumb rather than pointed at.
+    if (IS_MOBILE) {
+        return (
+            <FormListItem
+                itemRef={rowRef}
+                className={rowClass}
+                icon={kindIcon}
+                // The badge hangs off the icon's own corner here, there being no wrapper to hang it on.
+                iconClassName={clsx("attribute-kind", marker?.class)}
+                title={[ KIND_TITLES[attrType], marker?.title ].filter(Boolean).join(" · ")}
+                onClick={open}
+            >
+                {contents}
+            </FormListItem>
+        );
+    }
+
+    return (
+        <li
+            ref={rowRef}
+            class={rowClass}
+            title={KIND_TITLES[attrType]}
+            onClick={open}
+        >
+            {/* The kind is the icon, and what is worth saying about it beyond that is a badge on its
+                corner: its own tooltip names it, the badge being the only thing that says so. */}
+            <span class={clsx("attribute-kind", marker?.class)} title={marker?.title}>
+                <Icon icon={kindIcon} />
+            </span>
+
+            {contents}
         </li>
     );
 }
+
+/**
+ * Whether a row is a menu item, read once: what the app is running on does not change under it, and
+ * the rows are redrawn on every keystroke the popup takes.
+ */
+const IS_MOBILE = isMobile();
 
 /**
  * What the attribute is, as an icon. A definition takes the icon of the field it sets up, the same one

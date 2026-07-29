@@ -67,4 +67,41 @@
     .card-body {
         padding: 0 0 8px;
     }
+
+}
+
+/*
+ * A page rather than a sheet: the sections are the whole of what there is to read here, and a sheet
+ * sized to them jumps between a hand's width and a screen's as they are put away and brought back.
+ *
+ * `isFullPageOnMobile` asks for the height, and being scrollable with it takes it away again — the two
+ * generic rules collide (`height: 100%` against `height: unset`, at equal weight, in that order in
+ * style.css), so the height is claimed here and passed down: the content fills the dialog, and the body
+ * takes what the header leaves and scrolls the sections within it.
+ */
+body.mobile .modal.note-attributes-modal {
+    /* The rows are menu items and their list stands in as the menu that dresses them (see
+       AttributeList.tsx), but it is not a menu that opens: it sits in a card, so it keeps the items and
+       none of the surface a floating menu would bring with it. */
+    .attribute-rows.dropdown-menu {
+        /* Overriding an `!important` of its own (style.css paints every menu), as the code-note
+           switcher does for the same reason: a list of menu items that is not a menu. */
+        background: none !important;
+        box-shadow: none;
+        min-width: 0;
+    }
+
+    .modal-dialog {
+        height: 100%;
+    }
+
+    .modal-content {
+        height: 100%;
+    }
+
+    .modal-body {
+        flex: 1 1 auto;
+        min-height: 0;
+        overflow-y: auto;
+    }
 }
