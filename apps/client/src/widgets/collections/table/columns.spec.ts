@@ -134,6 +134,27 @@ describe("restoreExistingData", () => {
     });
 });
 
+describe("buildColumnDefinitions — typed columns", () => {
+    it("edits every temporal type through its native picker, as the promoted field does", () => {
+        const columns = buildColumnDefinitions({
+            info: [
+                { name: "date", type: "date" },
+                { name: "datetime", type: "datetime" },
+                { name: "time", type: "time" }
+            ],
+            movableRows: false,
+            existingColumnData: undefined,
+            rowNumberHint: 1
+        });
+        const editorOf = (name: string) => columns.find((column) => column.field === `labels.${name}`)?.editor;
+
+        expect(editorOf("date")).toBe("date");
+        expect(editorOf("datetime")).toBe("datetime");
+        // A plain input here would be a text box to type "14:05" into by hand.
+        expect(editorOf("time")).toBe("time");
+    });
+});
+
 describe("buildColumnDefinitions — select columns", () => {
     /** Resolves the params a column hands its editor, which Tabulator asks for as a function. */
     function editorParamsOf(column: ColumnDefinition | undefined) {

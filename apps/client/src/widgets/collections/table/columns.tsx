@@ -66,7 +66,9 @@ const labelTypeMappings: Record<ColumnType, Partial<ColumnDefinition>> = {
         sorter: "number"
     },
     time: {
-        editor: "input"
+        // No `format` param, so the editor stays on the stored "HH:mm" and needs no luxon — the same
+        // value, through the same native field, as the promoted attribute of this type.
+        editor: "time"
     },
     url: {
         formatter: "link",
