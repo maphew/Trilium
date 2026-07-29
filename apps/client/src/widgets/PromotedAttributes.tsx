@@ -2,7 +2,6 @@ import "./PromotedAttributes.css";
 
 import { DefinitionObject, extractAttributeDefinitionTypeAndName, UpdateAttributeResponse } from "@triliumnext/commons";
 import clsx from "clsx";
-import { ComponentChild, createElement, HTMLInputTypeAttribute, InputHTMLAttributes, MouseEventHandler, TargetedEvent } from "preact";
 import { ComponentChild, MouseEventHandler, TargetedEvent } from "preact";
 import { Dispatch, StateUpdater, useCallback, useEffect, useState } from "preact/hooks";
 
@@ -223,31 +222,15 @@ function LabelInput(props: CellProps & { inputId: string }) {
     }
     return (
         <div className="input-group">
-            {inputNode}
+            {input}
             { definition.labelType === "color" && (
                 <ColorPicker
                     currentValue={valueAttr.value || null}
                     onChange={(color) => updateAttribute(note, cell, componentId, color ?? "", setCells)}
                 />
             )}
-            { definition.labelType === "url" && (
-                <InputButton
-                    className="open-external-link-button"
-                    icon="bx bx-window-open"
-                    title={t("promoted_attributes.open_external_link")}
-                    onClick={(e) => {
-                        const inputEl = document.getElementById(inputId) as HTMLInputElement | null;
-                        const url = inputEl?.value;
-                        if (url) {
-                            window.open(url, "_blank");
-                        }
-                    }}
-                />
-            )}
         </div>
     );
-
-    return <div className="input-group">{input}</div>;
 }
 
 

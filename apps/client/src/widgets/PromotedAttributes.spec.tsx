@@ -200,10 +200,12 @@ describe("PromotedAttributesContent", () => {
         ]);
         expect(twoDecimals.querySelector("input.promoted-attribute-input")?.getAttribute("step")).toBe("0.01");
 
+        // With no precision declared the field is left to the browser's default stepping rather
+        // than being pinned to a step of its own.
         const noPrecision = await renderCells(note, [
             buildCell(note, { definition: { labelType: "number" }, uniqueId: "no-precision" })
         ]);
-        expect(noPrecision.querySelector("input.promoted-attribute-input")?.getAttribute("step")).toBe("1");
+        expect(noPrecision.querySelector("input.promoted-attribute-input")?.getAttribute("step")).toBeNull();
     });
 
     it("moves the label after the checkbox for boolean attributes and reflects the checked state", async () => {
@@ -247,10 +249,16 @@ describe("PromotedAttributesContent", () => {
         openButton?.click();
         expect(windowOpen).toHaveBeenCalledWith("https://example.com", "_blank");
 
-        // An empty value must not open a blank tab.
-        windowOpen.mockClear();
-        if (input) input.value = "";
-        openButton?.click();
+        windowOpen.mockRestore();
+    });
+
+    it("does not open a blank tab for a url attribute with no value", async () => {
+        const container = await renderCells(note, [
+            buildCell(note, { definition: { labelType: "url" }, value: "", uniqueId: "empty-url" })
+        ]);
+
+        const windowOpen = vi.spyOn(window, "open").mockImplementation(() => null);
+        container.querySelector<HTMLElement>(".open-external-link-button")?.click();
         expect(windowOpen).not.toHaveBeenCalled();
         windowOpen.mockRestore();
     });

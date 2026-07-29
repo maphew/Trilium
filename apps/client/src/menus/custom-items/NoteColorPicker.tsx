@@ -38,7 +38,7 @@ export default function NoteColorPicker(props: NoteColorPickerProps) {
         } else {
             setNote(props.note);
         }
-    }, []);
+    }, [props.note]);
 
     useEffect(() => {
         setCurrentColor(note?.getLabel("color")?.value ?? null);

@@ -1,4 +1,4 @@
-import { ComponentChild } from "preact";
+import { ComponentChild, render } from "preact";
 import { act } from "preact/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -307,6 +307,31 @@ describe("NoteColorPicker", () => {
 
         expect(setLabelMock).toHaveBeenCalledWith(note.noteId, "color", DEFAULT_COLOR_PALETTE[4]);
         expect(removeOwnedLabelByNameMock).not.toHaveBeenCalled();
+    });
+
+    it("picks up a note that arrives after the first render", async () => {
+        // A parent that mounts with `note={null}` while it loads and supplies the note afterwards
+        // must end up with an enabled picker: the note-resolving effect has to re-run on the prop
+        // change rather than only on mount.
+        const note = buildNote({ title: "Late arrival", "#color": DEFAULT_COLOR_PALETTE[2] });
+        let container: HTMLElement | undefined;
+
+        await act(async () => {
+            container = renderInto(<NoteColorPicker note={null} />);
+        });
+        expect(container!.innerHTML).toBe("");
+
+        // Re-render into the same container so Preact updates the existing component instance
+        // (a fresh `renderInto` would mount a brand new one and hide the bug).
+        await act(async () => {
+            render(<NoteColorPicker note={note} />, container!);
+            await new Promise((resolve) => setTimeout(resolve, 0));
+        });
+
+        expect(cells(container!).some((cell) => cell.classList.contains("disabled-color-cell"))).toBe(false);
+        const selected = presetCells(container!).filter((cell) => cell.classList.contains("selected"));
+        expect(selected).toHaveLength(1);
+        expect(selected[0].getAttribute("style")).toContain(DEFAULT_COLOR_PALETTE[2]);
     });
 
     it("removes the colour label when the colour is cleared", async () => {
