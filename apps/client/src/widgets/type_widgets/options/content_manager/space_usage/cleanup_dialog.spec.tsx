@@ -1,4 +1,4 @@
-import type { ComponentChildren } from "preact";
+import { type ComponentChildren, render, type VNode } from "preact";
 import { useEffect } from "preact/hooks";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -36,7 +36,8 @@ const mocks = vi.hoisted(() => ({
     post: vi.fn(async (url: string, _body?: object) => (
         url === "database/vacuum-database" ? { sizeBefore: VACUUM_BEFORE, sizeAfter: VACUUM_AFTER } : undefined
     )),
-    confirm: vi.fn(async () => true),
+    /** Takes the confirmation element, which one test renders to read what it says. */
+    confirm: vi.fn(async (_message?: unknown) => true),
     showMessage: vi.fn(),
     showPersistent: vi.fn(),
     closePersistent: vi.fn()
@@ -296,6 +297,32 @@ describe("showCleanupDialog", () => {
         expect(raised[0].dismissible).toBe(false);
 
         expect(mocks.closePersistent).toHaveBeenCalledWith(CLEANUP_TOAST_ID);
+    });
+
+    it("warns what compacting costs, only when it is being asked for", async () => {
+        /** The confirmation is handed over as an element; rendering it is how its content is read. */
+        const confirmationHtml = async () => {
+            const [ message ] = mocks.confirm.mock.calls.at(-1) ?? [];
+            const host = document.createElement("div");
+            render(message as VNode, host);
+            await settle();
+            return host.innerHTML;
+        };
+
+        mocks.storedOption = JSON.stringify({ unusedAttachments: true });
+        await openDialog();
+        await click(cleanButton());
+
+        // An erasure-only run is over in seconds; there is nothing to warn about waiting for.
+        expect(await confirmationHtml()).not.toContain("admonition");
+
+        mocks.storedOption = JSON.stringify({ unusedAttachments: true, compactDatabase: true });
+        await openDialog();
+        await click(cleanButton());
+
+        const warned = await confirmationHtml();
+        expect(warned).toContain("admonition");
+        expect(warned).toContain("warning");
     });
 
     it("erases nothing when the confirmation is declined, and stays open to be reconsidered", async () => {

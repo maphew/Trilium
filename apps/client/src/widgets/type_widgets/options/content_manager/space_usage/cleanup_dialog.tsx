@@ -9,6 +9,7 @@ import dialogService from "../../../../../services/dialog";
 import { t } from "../../../../../services/i18n";
 import toast from "../../../../../services/toast";
 import { formatSize, isStandalone } from "../../../../../services/utils";
+import { ExtendedAdmonition } from "../../../../react/Admonition";
 import Button from "../../../../react/Button";
 import { Card, CardSection } from "../../../../react/Card";
 import DonutChart, { type DonutRing } from "../../../../react/charts/DonutChart";
@@ -130,7 +131,7 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
     const pending = useRef<{ options: CleanupToolOptions, reclaimed: number } | null>(null);
 
     async function confirmAndClose() {
-        if (!await dialogService.confirm(t("space_usage.cleanup_confirm"))) {
+        if (!await dialogService.confirm(<CleanupConfirmation compacting={options.compactDatabase} />)) {
             return;
         }
 
@@ -250,6 +251,34 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
                 )}
             </Card>
         </Modal>
+    );
+}
+
+/**
+ * What the user is agreeing to. The first line is the whole of it for an ordinary run; the rest
+ * qualifies rather than repeats — what compacting costs, when it is being asked for, and the one
+ * reassurance worth giving about an operation whose first sentence is that it deletes.
+ */
+function CleanupConfirmation({ compacting }: { compacting: boolean }) {
+    return (
+        <>
+            <p>{t("space_usage.cleanup_confirm")}</p>
+
+            {compacting && (
+                <ExtendedAdmonition
+                    type="warning"
+                    icon="bx bx-time-five"
+                    title={t("space_usage.cleanup_confirm_compacting_title")}
+                >
+                    {t("space_usage.cleanup_confirm_compacting")}
+                </ExtendedAdmonition>
+            )}
+
+            {/* After the warning, answering what it raises: what becomes of a database the machine
+                dies in the middle of rebuilding. Worded as something that happens *to* the run
+                rather than something to do about it — there is no way to call it off from here. */}
+            <p>{t("space_usage.cleanup_confirm_interrupted")}</p>
+        </>
     );
 }
 

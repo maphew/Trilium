@@ -102,10 +102,12 @@ async function info(message: MessageType, extraProps?: InfoExtraProps) {
 /**
  * Displays a confirmation dialog with the given message.
  *
- * @param message the message to display in the dialog.
+ * @param message the message to display in the dialog. A string is rendered as HTML; pass an element
+ *                where the wording needs structure the dialog should not have to parse — an
+ *                admonition warning about what the action costs, say.
  * @returns A promise that resolves to true if the user confirmed, false otherwise.
  */
-async function confirm(message: string) {
+async function confirm(message: MessageType) {
     return new Promise<boolean>((res) =>
         appContext.triggerCommand("showConfirmDialog", <ConfirmWithMessageOptions>{
             message,
