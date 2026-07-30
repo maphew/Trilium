@@ -194,18 +194,19 @@ export default class BoardApi {
             selectOptions: columns
         };
 
-        await server.put(`notes/${this.parentNote.noteId}/attribute`, {
-            // Only an attribute the board owns can be updated; anything else is copied into one of
-            // the board's own, which the route does when given no id.
-            attributeId: this.statusDefinition?.isOwned
-                ? this.statusDefinition.attribute.attributeId
-                : undefined,
-            type: "label",
-            name: `label:${this.statusAttribute}`,
-            value: promotedAttributeDefinitionParser.serialize(definition, "label"),
+        // Written by name rather than by attribute id, so that two syncs which overlap — a column
+        // edit landing mid-refresh, or one refresh starting before the previous write is back —
+        // converge on one row instead of each creating one. Addressing it by id cannot: both would
+        // have read the same "no definition yet" state and both would ask for a new attribute. Only
+        // the board's own attributes are matched, so a definition it merely inherits is still copied
+        // into one of its own rather than edited where it lives.
+        await attributes.setLabel(
+            this.parentNote.noteId,
+            `label:${this.statusAttribute}`,
+            promotedAttributeDefinitionParser.serialize(definition, "label"),
             // A definition that is not inheritable would not reach the notes on the board at all.
-            isInheritable: this.statusDefinition?.attribute.isInheritable ?? true
-        });
+            this.statusDefinition?.attribute.isInheritable ?? true
+        );
     }
 
     async insertRowAtPosition(

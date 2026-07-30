@@ -121,15 +121,38 @@ describe("BoardApi.syncColumnsToDefinition", () => {
         await api.syncColumnsToDefinition([ "To Do", "Done" ]);
 
         expect(definitionWritten()).toMatchObject({
-            url: "notes/boardNote/attribute",
-            // No id: the board owns nothing yet, so the route creates the attribute.
-            attributeId: undefined,
+            // The upsert endpoint, which matches the board's own attribute of this name.
+            url: "notes/boardNote/set-attribute",
             type: "label",
             name: "label:status",
             // Promoted, so the column a card sits in is a field the card actually shows.
             value: "promoted,alias=Status,single,select,options=To Do;Done",
             isInheritable: true
         });
+    });
+
+    /**
+     * Two syncs can be in flight at once — a column edit landing mid-refresh, or a refresh starting
+     * before the previous write is back — and both read the same "no definition yet" state. Asking
+     * for a new attribute by id would have each create one, leaving the board with two definitions
+     * of the same name and every lookup seeing only the first.
+     */
+    it("addresses the definition by name, so overlapping syncs cannot each create one", async () => {
+        const { api } = createApi({}, [], buildBoard({}));
+
+        await Promise.all([
+            api.syncColumnsToDefinition([ "To Do" ]),
+            api.syncColumnsToDefinition([ "To Do", "Done" ])
+        ]);
+
+        expect(put).toHaveBeenCalledTimes(2);
+        for (const [ url, body ] of put.mock.calls) {
+            expect(url).toBe("notes/boardNote/set-attribute");
+            // No id to create a second row under: the server matches the one owned attribute of this
+            // name, so whichever request arrives second updates what the first wrote.
+            expect(body).not.toHaveProperty("attributeId");
+            expect(body).toMatchObject({ name: "label:status" });
+        }
     });
 
     it("names a board grouping by its own label after that label rather than after status", async () => {
@@ -182,8 +205,10 @@ describe("BoardApi.syncColumnsToDefinition", () => {
 
         const written = definitionWritten();
         expect(written.value).toBe("promoted,single,select,options=To Do;Blocked");
-        // Reusing the id updates the board's own row rather than adding a second definition.
-        expect(written.attributeId).toBe(board.getOwnedAttributes()[1]?.attributeId);
+        // Matched by name on the board itself, so the row it already owns is updated rather than a
+        // second definition of the same name being added beside it.
+        expect(written.url).toBe(`notes/${board.noteId}/set-attribute`);
+        expect(written.name).toBe("label:status");
     });
 
     it("keeps a differently ordered list, since the order is the one the user arranged", async () => {
@@ -205,7 +230,9 @@ describe("BoardApi.syncColumnsToDefinition", () => {
         await api.syncColumnsToDefinition([ "To Do" ]);
 
         const written = definitionWritten();
-        expect(written.attributeId).toBeUndefined();
+        // The endpoint only ever matches attributes owned by this note, so the template's own row is
+        // left alone and the board gains one of its own.
+        expect(written.url).toBe(`notes/${board.noteId}/set-attribute`);
         // What the template said is kept, so a board whose field was promoted keeps a promoted field.
         expect(written.value).toBe("promoted,single,select,options=To Do");
     });
