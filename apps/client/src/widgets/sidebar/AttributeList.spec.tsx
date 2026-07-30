@@ -491,6 +491,20 @@ describe("AttributeList", () => {
         expect(archived?.querySelector(".attribute-value")?.textContent).toBe("");
     });
 
+    it("leaves the open-link button out of the in-place editor, which has no room to spare for it", () => {
+        renderPanel(buildNote({
+            id: "linked", title: "Linked",
+            "#site": "https://example.com",
+            "#label:site": "promoted,single,url"
+        }));
+
+        act(() => firstRow().querySelector<HTMLElement>(".attribute-value")?.click());
+
+        const editor = container.querySelector<HTMLElement>(".attribute-value-editor");
+        expect(editor?.querySelector("input")?.type).toBe("url");
+        expect(editor?.querySelector(".input-group-text")).toBeNull();
+    });
+
     it("shows a colour label as the colour itself, and edits it through the picker", () => {
         renderPanel(buildNote({ id: "tinted", title: "Tinted", "#color": "#8000ff" }));
 

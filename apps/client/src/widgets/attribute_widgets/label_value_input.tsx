@@ -96,6 +96,12 @@ interface LabelValueInputProps {
      * text on its own, so a typo cannot slip into the shared definition.
      */
     onCreateOption?: (option: string) => void | Promise<void>;
+    /**
+     * Leaves out the button opening a link-like value (a url as a page, an email or a phone number
+     * through its scheme), for a host whose editor has no room to spare beside the field. Only that
+     * button: a colour keeps its reset, without which an empty value could not be returned to.
+     */
+    hideOpenButton?: boolean;
     /** Merged onto the input, for the id, tab order and data attributes a host needs to attach. */
     inputProps?: InputHTMLAttributes<HTMLInputElement> & Record<`data-${string}`, string | undefined>;
 }
@@ -108,7 +114,7 @@ interface LabelValueInputProps {
  * checkbox, which a host wanting the label after the box has to arrange itself.
  */
 export default function LabelValueInput({
-    labelType, value, onCommit, commitOn = "input", numberPrecision, selectOptions, onCreateOption, inputProps
+    labelType, value, onCommit, commitOn = "input", numberPrecision, selectOptions, onCreateOption, hideOpenButton, inputProps
 }: LabelValueInputProps) {
     const colorInputRef = useRef<HTMLInputElement>(null);
     // What has been typed but not yet committed is still what the field shows, so anything acting on
@@ -138,7 +144,7 @@ export default function LabelValueInput({
         );
     }
 
-    const openButton = OPEN_BUTTONS[labelType];
+    const openButton = hideOpenButton ? undefined : OPEN_BUTTONS[labelType];
 
     const extraProps: InputHTMLAttributes<HTMLInputElement> = {};
     if (labelType === "number" && numberPrecision) {

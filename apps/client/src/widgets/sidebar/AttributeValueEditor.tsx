@@ -126,6 +126,9 @@ export default function AttributeValueEditor({ note, attribute, onEdit, onCommit
                     commitOn="input"
                     numberPrecision={typed.numberPrecision}
                     selectOptions={typed.selectOptions}
+                    // The row has no room to spare beside the field for the button opening a
+                    // link-like value; the detail form keeps it, having the room.
+                    hideOpenButton
                     inputProps={{
                         className: "form-control",
                         // Names the dropdown's empty entry, as the detail form does for the same field.
