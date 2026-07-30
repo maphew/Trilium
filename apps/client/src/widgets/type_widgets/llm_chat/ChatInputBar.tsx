@@ -366,14 +366,9 @@ export default function ChatInputBar({
                 <div className="llm-chat-options">
                     <div className="llm-chat-model-selector">
                         <Dropdown
-                            // The chip icon lives inside the toggle so it shares the pill's
-                            // hover surface instead of floating loose next to it.
-                            text={<>
-                                <span className="bx bx-chip llm-chat-model-select-icon" />
-                                {currentModel
-                                    ? <span className="llm-chat-model-select-name">{currentModel.name}</span>
-                                    : <span className="llm-chat-model-select-name llm-chat-model-placeholder">{t("llm_chat.no_model_selected")}</span>}
-                            </>}
+                            text={currentModel
+                                ? <span className="llm-chat-model-select-name">{currentModel.name}</span>
+                                : <span className="llm-chat-model-select-name llm-chat-model-placeholder">{t("llm_chat.no_model_selected")}</span>}
                             disabled={chat.isStreaming}
                             buttonClassName="llm-chat-model-select"
                             className="llm-chat-model-dropdown"

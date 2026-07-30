@@ -184,11 +184,6 @@
     min-width: 0;
 }
 
-.llm-chat-model-select-icon {
-    font-size: 1rem;
-    flex-shrink: 0;
-}
-
 .llm-chat-model-select-name {
     overflow: hidden;
     text-overflow: ellipsis;
@@ -214,22 +209,37 @@
 }
 
 /*
- * The model picker is left as the theme's own combo box (`.select-button.dropdown-toggle.btn`
+ * The model picker stays the theme's own combo box (`.select-button.dropdown-toggle.btn`
  * — its fill, its 6px radius, its caret, its focus outline), so it reads as the same
- * control as every other Trilium selector. Only what the theme can't know is set here:
- * the model name has to ellipsize rather than stretch the row, and the leading chip icon
- * needs the button to lay its content out as a flex row. Matching the theme's selector
- * verbatim keeps these at a specificity that actually wins.
+ * control as every other Trilium selector; it is only made compact, the way the theme
+ * itself compacts one.
+ *
+ * The default is sized for a form row: `padding-inline-end: calc(15px + 1.5rem)` alone
+ * reserves ~39px for the caret. Restating `--dropdown-arrow` — the custom property the
+ * theme's own `background` shorthand resolves — shrinks the glyph and pulls it in
+ * without reaching into the theme's rules, as the calendar month selector does with
+ * `--select-arrow-svg`. Matching the theme's selector verbatim keeps this at a
+ * specificity that actually wins.
  */
 .llm-chat-input-form .llm-chat-model-select.select-button.dropdown-toggle.btn {
+    --dropdown-arrow: var(--select-arrow-svg) right 0.4em center/10px 14px no-repeat;
+
     display: flex;
     align-items: center;
-    gap: 0.35rem;
     min-width: 0;
     max-width: 15rem;
+    padding: 0.15em 0.5em;
+    padding-inline-end: calc(10px + 0.8em);
     font-family: inherit;
     font-size: 0.85rem;
     text-align: start;
+}
+
+/* The theme flips the caret to the left edge for RTL with a `background-position`
+   longhand, which would otherwise override the compact offset carried in the
+   shorthand above and leave the caret sitting at the default 0.75rem. */
+body[dir=rtl] .llm-chat-input-form .llm-chat-model-select.select-button.dropdown-toggle.btn {
+    background-position: left 0.4em center;
 }
 
 .llm-chat-input-form .llm-chat-model-select.select-button.dropdown-toggle.btn:disabled {
