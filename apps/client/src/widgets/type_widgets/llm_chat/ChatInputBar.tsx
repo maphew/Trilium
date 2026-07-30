@@ -453,21 +453,24 @@ export default function ChatInputBar({
                                 disabled={chat.isStreaming}
                             />
                         </Dropdown>
-                        {activeNoteId && activeNoteTitle && (
-                            <Button
-                                text={activeNoteTitle}
-                                icon={isNoteContextEnabled ? "bx-file" : "bx-hide"}
-                                kind="lowProfile"
-                                size="micro"
-                                className={`llm-chat-note-context ${isNoteContextEnabled ? "active" : ""}`}
-                                onClick={handleNoteContextToggle}
-                                disabled={chat.isStreaming}
-                                title={isNoteContextEnabled
-                                    ? t("llm_chat.note_context_enabled", { title: activeNoteTitle })
-                                    : t("llm_chat.note_context_disabled")}
-                            />
-                        )}
                     </div>
+                    {/* Grouped with the paperclip rather than the model selector: both answer
+                        "what goes into this prompt", not "which model". Icon-only because the
+                        label named the note the user is already looking at, duplicating the
+                        title shown beside it instead of carrying information — it lives in the
+                        tooltip, which is the only place it says anything new. */}
+                    {activeNoteId && activeNoteTitle && (
+                        <ActionButton
+                            icon={isNoteContextEnabled ? "bx bx-file" : "bx bx-hide"}
+                            text={isNoteContextEnabled
+                                ? t("llm_chat.note_context_enabled", { title: activeNoteTitle })
+                                : t("llm_chat.note_context_disabled", { title: activeNoteTitle })}
+                            active={isNoteContextEnabled}
+                            onClick={handleNoteContextToggle}
+                            disabled={chat.isStreaming}
+                            className="llm-chat-note-context"
+                        />
+                    )}
                     <ActionButton
                         icon="bx bx-paperclip"
                         text={t("llm_chat.attach_file")}

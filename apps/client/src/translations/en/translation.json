@@ -2361,7 +2361,7 @@
     "context_tooltip": "{{used}} of {{total}} tokens used ({{percentage}}%)",
     "context_nearly_full": "Context nearly full. Consider starting a new chat.",
     "note_context_enabled": "Click to disable note context: {{title}}",
-    "note_context_disabled": "Click to include current note in context",
+    "note_context_disabled": "Click to include the current note in context: {{title}}",
     "no_provider_message": "No AI provider configured. Add one to start chatting.",
     "add_provider": "Add AI Provider",
     "free": "Free",

@@ -265,60 +265,31 @@ body[dir=rtl] .llm-chat-input-form .llm-chat-model-select.select-button.dropdown
 }
 
 /*
- * Note context toggle.
+ * Note context toggle. Icon-only and sized to match the paperclip it sits beside, since
+ * both are "what goes into this prompt" controls; the note title lives in the tooltip.
  *
- * Both states are spelled out in colour rather than in opacity. Dimming the whole
- * button was what made the label hard to read, and the "on" state was inheriting
- * `.btn:not(:disabled):not(.disabled).active` from style.css — a left-pane toggle
- * rule that paints `--active-item-text-color` on `--active-item-background-color`,
- * i.e. #aaa on #777 in the dark theme, under 2:1. These selectors carry `.btn` (as
- * the element does) purely to out-specify it, `:active` included so the pressed
- * state doesn't flash grey either.
+ * State is carried entirely by colour. The `--icon-button-hover-*` pair is set explicitly
+ * in both states because the theme's hover rule reads `--icon-button-hover-color`, which
+ * nothing defines by default — leaving it unset makes that declaration invalid at computed
+ * value time and drops the colour back to `inherit` mid-hover.
  */
-.llm-chat-note-context.tn-low-profile {
-    max-width: 150px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-    /* Matches the model selector beside it rather than `tn-low-profile`'s 8px. */
-    border-radius: 6px;
-    padding: 0.15em 0.5em;
-    font-size: 0.85rem;
-    line-height: 1.6;
+.llm-chat-input-form .llm-chat-note-context.icon-action {
+    --icon-button-size: 30px;
+    --icon-button-icon-ratio: 0.6;
+    --icon-button-color: var(--muted-text-color);
+    --icon-button-hover-color: var(--main-text-color);
+
+    flex-shrink: 0;
 }
 
-.llm-chat-note-context.tn-low-profile .tn-icon {
-    margin-inline-end: 0.3em;
-}
+/* On: the note really is in the prompt, so the accent says so — the same signal the
+   note context used when it still had a border to put it on. */
+.llm-chat-input-form .llm-chat-note-context.icon-action.active {
+    --icon-button-color: var(--link-color);
+    --icon-button-hover-color: var(--link-color);
+    --icon-button-hover-background: var(--hover-item-background-color, var(--accented-background-color));
 
-/* Off: a quiet outline, muted but legible — the affordance is the border, not a wash. */
-.llm-chat-input-form .llm-chat-note-context.btn.tn-low-profile {
-    border: 1px solid var(--main-border-color);
-    background: transparent;
-    color: var(--muted-text-color);
-    opacity: 1;
-}
-
-/* On: the note is actually in the prompt, so the label goes full-contrast and the
-   accent moves onto the border and the icon. */
-.llm-chat-input-form .llm-chat-note-context.btn.tn-low-profile.active,
-.llm-chat-input-form .llm-chat-note-context.btn.tn-low-profile:active {
-    border-color: var(--link-color);
     background: var(--hover-item-background-color, var(--accented-background-color));
-    color: var(--main-text-color);
-}
-
-.llm-chat-input-form .llm-chat-note-context.btn.tn-low-profile.active .tn-icon {
-    color: var(--link-color);
-}
-
-.llm-chat-input-form .llm-chat-note-context.btn.tn-low-profile:hover:not(:disabled) {
-    background: var(--hover-item-background-color, var(--accented-background-color));
-    color: var(--main-text-color);
-}
-
-.llm-chat-input-form .llm-chat-note-context.btn.tn-low-profile:disabled {
-    opacity: 0.5;
 }
 
 /*
