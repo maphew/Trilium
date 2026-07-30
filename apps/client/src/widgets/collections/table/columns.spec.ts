@@ -479,6 +479,34 @@ describe("buildColumnDefinitions — relation columns", () => {
         // A cell without a target sorts as nothing rather than by its absence crashing the grid.
         expect(compare(undefined, "Alpha")).toBe(-1);
     });
+
+    it("keeps the title sort for a column of several targets, whose cells hold noteId arrays", () => {
+        const column = buildColumnDefinitions({
+            info: [ { name: "crew", type: "relation", isMulti: true } ],
+            movableRows: false,
+            existingColumnData: undefined,
+            rowNumberHint: 1
+        }).find((candidate) => candidate.field === "relations.crew");
+
+        // The set is edited and shown as chips of notes, not as the text the ids are.
+        expect(typeof column?.editor).toBe("function");
+        expect(typeof column?.formatter).toBe("function");
+        const params = column?.editorParams;
+        if (typeof params !== "function") throw new Error("expected the params to be a function");
+        expect((params({} as CellComponent) as ValuesEditorParams).labelType).toBe("relation");
+
+        const sorter = column?.sorter;
+        if (typeof sorter !== "function") throw new Error("expected a sorter of its own");
+        const columnComponent = { getField: () => "relations.crew" } as ColumnComponent;
+        const row = (titles: string) =>
+            ({ getData: () => ({ relationTitles: { crew: titles } }) }) as unknown as RowComponent;
+
+        // Compared by the joined titles the row carries — the ids the cells hold would order
+        // "Beta, Gamma" before "Alpha, Zed" whenever their ids happened to.
+        expect(Math.sign((sorter as (...args: unknown[]) => number)(
+            [ "id1", "id2" ], [ "id3" ], row("Alpha, Zed"), row("Beta, Gamma"), columnComponent, "asc", {}
+        ))).toBe(-1);
+    });
 });
 
 describe("formatLabelDate", () => {

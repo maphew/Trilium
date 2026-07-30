@@ -9,11 +9,12 @@ export type TableData = {
     noteId: string;
     title: string;
     labels: Record<string, boolean | string | string[] | null>;
-    relations: Record<string, boolean | string | null>;
+    relations: Record<string, boolean | string | string[] | null>;
     /**
      * The relation targets' titles, keyed as `relations` is. A relation cell stores the target's
      * noteId but shows its title, and a sort compares synchronously — so the title a column sorts
-     * by has to be in the row data before the table is handed it.
+     * by has to be in the row data before the table is handed it. A cell holding several targets
+     * carries their titles joined, which is also the order the sort should read the set in.
      */
     relationTitles: Record<string, string>;
     branchId: string;
@@ -42,7 +43,10 @@ export async function buildRowDefinitions(parentNote: FNote, infos: AttributeDef
         const relations: typeof definitions[0]["relations"] = {};
         for (const { name, type, isMulti } of infos) {
             if (type === "relation") {
-                relations[name] = note.getRelationValue(name);
+                // Every target of the name for a set, blanks dropped as for a set of labels.
+                relations[name] = isMulti
+                    ? note.getRelations(name).map((relation) => relation.value).filter(Boolean)
+                    : note.getRelationValue(name);
             } else if (isMulti) {
                 // Every label of the name rather than the first, blanks dropped: the cell holds the
                 // set, and an empty one is a value the field never offered.
@@ -96,8 +100,8 @@ async function fillRelationTitles(definitions: TableData[]) {
     const targetIds = new Set<string>();
     visitRows(definitions, ({ relations }) => {
         for (const value of Object.values(relations)) {
-            if (typeof value === "string" && value) {
-                targetIds.add(value);
+            for (const targetId of asTargetIds(value)) {
+                targetIds.add(targetId);
             }
         }
     });
@@ -108,10 +112,17 @@ async function fillRelationTitles(definitions: TableData[]) {
     await froca.getNotes([ ...targetIds ], true);
     visitRows(definitions, (def) => {
         for (const [ name, value ] of Object.entries(def.relations)) {
-            const target = typeof value === "string" && value ? froca.getNoteFromCache(value) : undefined;
-            def.relationTitles[name] = target?.title ?? "";
+            def.relationTitles[name] = asTargetIds(value)
+                .map((targetId) => froca.getNoteFromCache(targetId)?.title ?? "")
+                .join(", ");
         }
     });
+}
+
+/** A relation cell's targets: the one it holds, the several a set holds, or none at all. */
+function asTargetIds(value: TableData["relations"][string]): string[] {
+    if (Array.isArray(value)) return value.filter(Boolean);
+    return typeof value === "string" && value ? [ value ] : [];
 }
 
 function visitRows(definitions: TableData[], visit: (def: TableData) => void) {
@@ -155,14 +166,11 @@ export default function getAttributeDefinitionInformation(parentNote: FNote) {
 }
 
 /**
- * The types a column can hold several values of, shown and edited as chips: every kind of label a
- * note can carry, since a note can carry any of them more than once and the table has no business
- * showing fewer than it holds.
- *
- * Only a relation is left out, its values being notes rather than text — a column of them is still
- * a column of one.
+ * The types a column can hold several values of, shown and edited as chips: every kind of attribute
+ * a note can carry, since a note can carry any of them more than once and the table has no business
+ * showing fewer than it holds. A relation's chips name the notes its values point at.
  */
 const MULTI_VALUE_TYPES = new Set<LabelType | "relation">([
     "text", "textarea", "number", "boolean", "select", "date", "datetime", "time", "url", "email",
-    "phone", "color"
+    "phone", "color", "relation"
 ]);

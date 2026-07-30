@@ -2,7 +2,7 @@ import "./PromotedAttributes.css";
 
 import { DefinitionObject, extractAttributeDefinitionTypeAndName, UpdateAttributeResponse } from "@triliumnext/commons";
 import clsx from "clsx";
-import { ComponentChild, MouseEventHandler, TargetedEvent } from "preact";
+import { ComponentChild, TargetedEvent } from "preact";
 import { Dispatch, StateUpdater, useCallback, useEffect, useState } from "preact/hooks";
 
 import NoteContext from "../components/note_context";
@@ -16,6 +16,7 @@ import { randomString } from "../services/utils";
 import ws from "../services/ws";
 import LabelValueInput from "./attribute_widgets/label_value_input";
 import MultiValueInput from "./attribute_widgets/multi_value_input";
+import RelationValuesInput from "./attribute_widgets/relation_values_input";
 import { useNoteContext, useNoteLabel, useTriliumEvent, useUniqueName } from "./react/hooks";
 import NoteAutocomplete from "./react/NoteAutocomplete";
 
@@ -26,11 +27,11 @@ interface Cell {
     valueAttr: Attribute;
     valueName: string;
     /**
-     * Every value the note holds under this name, for a label whose definition allows several — the
-     * whole set being edited as one field of chips rather than as a field per value.
+     * Every value the note holds under this name, for a definition that allows several — the whole
+     * set being edited as one field of chips rather than as a field per value. For a relation the
+     * values are the targets' noteIds, shown as the notes they name.
      *
-     * Absent for a definition holding one value, and for a relation, which is still a field per value:
-     * a relation's values are note ids, which the chips have no way of naming yet.
+     * Absent for a definition holding one value.
      */
     values?: string[];
 }
@@ -39,10 +40,7 @@ interface CellProps {
     note: FNote;
     componentId: string;
     cell: Cell,
-    cells: Cell[],
-    shouldFocus: boolean;
     setCells: Dispatch<StateUpdater<Cell[] | undefined>>;
-    setCellToFocus(cell: Cell): void;
 }
 
 type OnChangeEventData = TargetedEvent<HTMLInputElement | HTMLTextAreaElement, Event> | InputEvent | JQuery.TriggeredEvent<HTMLInputElement, undefined, HTMLInputElement, HTMLInputElement>;
@@ -60,16 +58,13 @@ export function PromotedAttributesContent({ note, componentId, cells, setCells }
     cells: Cell[] | undefined;
     setCells: Dispatch<StateUpdater<Cell[] | undefined>>;
 }) {
-    const [ cellToFocus, setCellToFocus ] = useState<Cell>();
-
     return (
         <div className="promoted-attributes-widget">
             {cells && cells.length > 0 && <div className="promoted-attributes-container">
                 {note && cells?.map(cell => <PromotedAttributeCell
                     key={cell.uniqueId}
                     cell={cell}
-                    cells={cells} setCells={setCells}
-                    shouldFocus={cell === cellToFocus} setCellToFocus={setCellToFocus}
+                    setCells={setCells}
                     componentId={componentId} note={note}
                 />)}
             </div>}
@@ -78,11 +73,11 @@ export function PromotedAttributesContent({ note, componentId, cells, setCells }
 }
 
 /**
- * Handles the individual cells (fields for promoted attributes, including empty ones). A label
- * allowing several values is one cell holding the whole set; a relation allowing several is still a
- * cell per value — see {@link buildPromotedCells}.
+ * Handles the individual cells (fields for promoted attributes, including empty ones). A definition
+ * allowing several values is one cell holding the whole set — see {@link buildPromotedCells}.
  *
- * The cells are returned as a state since they can also be altered internally if needed, for example to add a new empty cell.
+ * The cells are returned as a state since they can also be altered internally if needed, for example
+ * to patch a value the grid itself has just written.
  */
 export function usePromotedAttributeData(note: FNote | null | undefined, componentId: string, noteContext: NoteContext | undefined): [ Cell[] | undefined, Dispatch<StateUpdater<Cell[] | undefined>> ] {
     const [ viewType ] = useNoteLabel(note, "viewType");
@@ -109,9 +104,9 @@ export function usePromotedAttributeData(note: FNote | null | undefined, compone
 /**
  * The fields a note's promoted definitions ask for, in the order they are shown.
  *
- * One definition is usually one field. A label allowing several values is still one — the set is
- * edited as chips within it, so the note shows one field however many values it holds — while a
- * relation allowing several is a field per value, there being no chip yet that can name a note.
+ * One definition is one field, however many values it allows: a definition allowing several is a
+ * field of chips holding the whole set — a label's values as the text they are, a relation's as the
+ * notes they point at.
  *
  * A definition the note holds nothing under still gets its field, empty, so that a value can be
  * entered where there is none. For a set that is the field with no chips in it rather than a blank
@@ -140,7 +135,7 @@ export function buildPromotedCells(note: FNote): Cell[] {
             value: ""
         };
 
-        if (definition.multiplicity === "multi" && valueType === "label") {
+        if (definition.multiplicity === "multi") {
             cells.push({
                 definitionAttr,
                 definition,
@@ -177,14 +172,6 @@ function PromotedAttributeCell(props: CellProps) {
     const { valueName, valueAttr, definition } = props.cell;
     const inputId = useUniqueName(`value-${valueAttr.name}`);
 
-    useEffect(() => {
-        if (!props.shouldFocus) return;
-        const inputEl = document.getElementById(inputId);
-        if (inputEl) {
-            inputEl.focus();
-        }
-    }, [ props.shouldFocus ]);
-
     const holdsSet = !!props.cell.values;
 
     let correspondingInput: ComponentChild;
@@ -197,7 +184,9 @@ function PromotedAttributeCell(props: CellProps) {
             className = `promoted-attribute-label-${definition.labelType}`;
             break;
         case "relation":
-            correspondingInput = <RelationInput inputId={inputId} {...props} />;
+            correspondingInput = holdsSet
+                ? <MultiRelationInput inputId={inputId} {...props} />
+                : <RelationInput inputId={inputId} {...props} />;
             className = "promoted-attribute-relation";
             break;
         default:
@@ -213,7 +202,6 @@ function PromotedAttributeCell(props: CellProps) {
             {(definition.labelType !== "boolean" || holdsSet) &&
                 <label for={inputId}>{definition.promotedAlias ?? valueName}</label>}
             {correspondingInput}
-            <MultiplicityCell {...props} />
         </div>
     );
 }
@@ -344,82 +332,29 @@ function RelationInput({ inputId, ...props }: CellProps & { inputId: string }) {
 }
 
 /**
- * The buttons beside a field that is one value of several: one adding a field after it, one removing
- * the value it holds.
- *
- * Only for the kinds still shown a field per value — which is to say relations. A label holding
- * several is one field of chips, where a value is added by entering it and removed by pressing the
- * chip it is on, so a pair of buttons beside it would offer the same twice.
+ * The field a relation allowing several targets is edited through: one field holding the whole set
+ * as chips naming their notes, written back by name as {@link MultiLabelInput} writes a set of
+ * labels — every target under the name at once, through no one attribute in particular.
  */
-function MultiplicityCell({ cell, cells, setCells, setCellToFocus, note, componentId }: CellProps) {
-    return (cell.definition.multiplicity === "multi" && !cell.values &&
-        <td className="multiplicity">
-            <PromotedActionButton
-                icon="bx bx-plus"
-                title={t("promoted_attributes.add_new_attribute")}
-                onClick={() => {
-                    const index = cells.indexOf(cell);
-                    const newCell: Cell = {
-                        ...cell,
-                        uniqueId: randomString(),
-                        valueAttr: {
-                            attributeId: "",
-                            type: cell.valueAttr.type,
-                            name: cell.valueName,
-                            value: ""
-                        }
-                    };
-                    setCells([
-                        ...cells.slice(0, index + 1),
-                        newCell,
-                        ...cells.slice(index + 1)
-                    ]);
-                    setCellToFocus(newCell);
-                }}
-            />{' '}
-            <PromotedActionButton
-                icon="bx bx-trash"
-                title={t("promoted_attributes.remove_this_attribute")}
-                onClick={async () => {
-                    // Remove the attribute from the server if it exists.
-                    const { attributeId, type } = cell.valueAttr;
-                    const valueName = cell.valueName;
-                    if (attributeId) {
-                        await server.remove(`notes/${note.noteId}/attributes/${attributeId}`, componentId);
-                    }
+function MultiRelationInput({ inputId, note, cell, componentId, setCells }: CellProps & { inputId: string }) {
+    const { valueName, definitionAttr, values, uniqueId } = cell;
 
-                    const index = cells.indexOf(cell);
-                    const isLastOneOfType = cells.filter(c => c.valueAttr.type === type && c.valueAttr.name === valueName).length < 2;
-                    const newOnesToInsert: Cell[] = [];
-                    if (isLastOneOfType) {
-                        newOnesToInsert.push({
-                            ...cell,
-                            valueAttr: {
-                                attributeId: "",
-                                type: cell.valueAttr.type,
-                                name: cell.valueName,
-                                value: ""
-                            }
-                        });
-                    }
-                    setCells(cells.toSpliced(index, 1, ...newOnesToInsert));
-                }}
-            />
-        </td>
-    );
-}
+    const commit = useCallback(async (edited: string[]) => {
+        await attributes.setRelationValues(note, valueName, edited, componentId);
+        // The grid ignores reloads it is itself the source of (see usePromotedAttributeData), so the
+        // set it shows is patched in place — otherwise the chips would not follow the pick just made.
+        setCells(prev => prev?.map(c => c.uniqueId === uniqueId ? { ...c, values: edited } : c));
+    }, [ note, valueName, componentId, uniqueId, setCells ]);
 
-function PromotedActionButton({ icon, title, onClick }: {
-    icon: string,
-    title: string,
-    onClick: MouseEventHandler<HTMLSpanElement>
-}) {
     return (
-        <span
-            className={clsx("tn-tool-button pointer", icon)}
-            title={title}
-            onClick={onClick}
-        />
+        <div className="promoted-attribute-values">
+            <RelationValuesInput
+                values={values ?? []}
+                inputId={inputId}
+                tabIndex={200 + definitionAttr.position}
+                onCommit={commit}
+            />
+        </div>
     );
 }
 

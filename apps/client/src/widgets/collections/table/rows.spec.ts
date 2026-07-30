@@ -1,5 +1,10 @@
 import { describe, expect, it } from "vitest";
 
+import FAttribute from "../../../entities/fattribute";
+import type FNote from "../../../entities/fnote";
+import froca from "../../../services/froca";
+import noteAttributeCache from "../../../services/note_attribute_cache";
+import { randomString } from "../../../services/utils";
 import { buildNote } from "../../../test/easy-froca";
 import getAttributeDefinitionInformation, { buildRowDefinitions } from "./rows.js";
 
@@ -25,7 +30,7 @@ describe("getAttributeDefinitionInformation", () => {
         ]);
     });
 
-    it("holds several values of every kind of label, a relation excepted", async () => {
+    it("holds several values of every kind of attribute, relations included", async () => {
         const note = buildNote({
             title: "Note 1",
             "#label:tags(inheritable)": "promoted,multi,text",
@@ -34,6 +39,7 @@ describe("getAttributeDefinitionInformation", () => {
             "#label:status(inheritable)": "promoted,multi,select,options=Todo;Done",
             "#label:tint(inheritable)": "promoted,multi,color",
             "#label:done(inheritable)": "promoted,multi,boolean",
+            "#relation:crew(inheritable)": "promoted,multi",
             "#label:owner(inheritable)": "promoted,single,text"
         });
 
@@ -44,6 +50,7 @@ describe("getAttributeDefinitionInformation", () => {
             { name: "status", type: "select", isMulti: true },
             { name: "tint", type: "color", isMulti: true },
             { name: "done", type: "boolean", isMulti: true },
+            { name: "crew", type: "relation", isMulti: true },
             { name: "owner", type: "text", isMulti: false }
         ]);
     });
@@ -72,4 +79,51 @@ describe("buildRowDefinitions", () => {
             { title: "Task 3", relations: { assignee: null }, relationTitles: { assignee: "" } }
         ]);
     });
+
+    it("holds every target of a multi relation, titled as one string for the sort to read", async () => {
+        const alpha = buildNote({ title: "Alpha" });
+        const beta = buildNote({ title: "Beta" });
+        const parent = buildNote({
+            title: "Collection",
+            "#relation:crew(inheritable)": "promoted,multi",
+            children: [
+                { title: "Task 1", "~crew": alpha.noteId },
+                // A row without the relation holds an empty set rather than nothing at all.
+                { title: "Task 2" }
+            ]
+        });
+        const taskOne = await parent.getChildBranches()[0]?.getNote();
+        if (!taskOne) throw new Error("expected the child note to be built");
+        // A second target under the same name, which one object literal cannot spell.
+        holdRelation(taskOne, "crew", beta.noteId);
+
+        const info = getAttributeDefinitionInformation(parent);
+        const { definitions } = await buildRowDefinitions(parent, info, false);
+        expect(definitions).toMatchObject([
+            {
+                title: "Task 1",
+                relations: { crew: [ alpha.noteId, beta.noteId ] },
+                relationTitles: { crew: "Alpha, Beta" }
+            },
+            { title: "Task 2", relations: { crew: [] }, relationTitles: { crew: "" } }
+        ]);
+    });
 });
+
+/** Gives the note another relation under a name it already carries, which one literal cannot. */
+function holdRelation(note: FNote, name: string, value: string) {
+    const attributeId = randomString(12);
+    const attribute = new FAttribute(froca, {
+        noteId: note.noteId,
+        attributeId,
+        type: "relation",
+        name,
+        value,
+        position: 100,
+        isInheritable: false
+    });
+
+    froca.attributes[attributeId] = attribute;
+    note.attributes.push(attributeId);
+    noteAttributeCache.attributes[note.noteId]?.push(attribute);
+}

@@ -62,7 +62,7 @@ describe("buildPromotedCells", () => {
         expect(buildPromotedCells(note)[0].values).toEqual([ "alpha" ]);
     });
 
-    it("keeps a relation a field per value, its values being note ids no chip can name yet", () => {
+    it("gathers a relation's targets into one field, as it gathers a label's values", () => {
         const note = buildNote({
             title: "Task",
             "#relation:related": "promoted,multi",
@@ -72,9 +72,10 @@ describe("buildPromotedCells", () => {
 
         const cells = buildPromotedCells(note);
 
-        expect(cells.map((cell) => cell.valueAttr.value)).toEqual([ "aaaaaaaaaaaa", "bbbbbbbbbbbb" ]);
-        // Which is what keeps the buttons for adding and removing a field beside each of them.
-        expect(cells.map((cell) => cell.values)).toEqual([ undefined, undefined ]);
+        expect(cells).toHaveLength(1);
+        // The chips carry the targets' noteIds; naming the notes they point at is the field's affair.
+        expect(cells[0].values).toEqual([ "aaaaaaaaaaaa", "bbbbbbbbbbbb" ]);
+        expect(cells[0].valueAttr).toMatchObject({ attributeId: "", type: "relation", name: "related" });
     });
 });
 

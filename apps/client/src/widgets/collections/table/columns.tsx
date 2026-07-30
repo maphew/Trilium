@@ -11,6 +11,7 @@ import { safeUrlHref } from "../../../utils/url.js";
 import { applyLinkScheme, asLabelValues, formatLabelDate, LabelValueChips } from "../../attribute_widgets/label_value_display.jsx";
 import LabelValueInput from "../../attribute_widgets/label_value_input.jsx";
 import MultiValueInput from "../../attribute_widgets/multi_value_input.jsx";
+import RelationValuesInput, { RelationValueChips } from "../../attribute_widgets/relation_values_input.jsx";
 import Icon from "../../react/Icon.jsx";
 import NoteAutocomplete from "../../react/NoteAutocomplete.jsx";
 import { renderReactWidget } from "../../react/react_utils.jsx";
@@ -199,12 +200,17 @@ export function buildColumnDefinitions({ info, movableRows, existingColumnData, 
                 } satisfies ValuesEditorParams)
             }),
             // A set is shown as the chips it is edited as, whatever it holds — and sorted by those
-            // values rather than by the array Tabulator would otherwise compare as an object.
+            // values rather than by the array Tabulator would otherwise compare as an object. A set
+            // of relations keeps the relation sorter: its values are noteIds, and the titles the
+            // cell shows are what the rows should order by, carried in `relationTitles` for one
+            // target and several alike.
             ...(isMulti && {
                 editor: wrapEditor(ValuesEditor),
                 formatter: wrapFormatter(ValuesFormatter),
                 formatterParams: { type: type ?? "text" },
-                sorter: (a, b) => joinValues(a).localeCompare(joinValues(b))
+                ...(type !== "relation" && {
+                    sorter: ((a, b) => joinValues(a).localeCompare(joinValues(b))) as ColumnDefinition["sorter"]
+                })
             })
         });
         seenFields.add(field);
@@ -426,16 +432,19 @@ function ValuesEditor({ cell, success, editorParams }: EditorOpts) {
 
     return (
         <div ref={containerRef} className={clsx("table-values-editor", growsUpwards && "grows-upwards")}>
-            {/* The very field the note's own promoted grid offers, so that a definition is edited the
-                same way whichever way the note is opened. A relation is not yet gathered as a set, so
-                one arriving here is taken as the text it is stored as. */}
-            <MultiValueInput
-                labelType={labelType === "relation" ? "text" : labelType}
-                values={values}
-                options={options}
-                onCreateOption={onCreateOption}
-                onCommit={editValues}
-            />
+            {/* The very fields the note's own promoted grid offers, so that a definition is edited
+                the same way whichever way the note is opened. */}
+            {labelType === "relation" ? (
+                <RelationValuesInput values={values} onCommit={editValues} />
+            ) : (
+                <MultiValueInput
+                    labelType={labelType}
+                    values={values}
+                    options={options}
+                    onCreateOption={onCreateOption}
+                    onCommit={editValues}
+                />
+            )}
         </div>
     );
 }
@@ -443,9 +452,12 @@ function ValuesEditor({ cell, success, editorParams }: EditorOpts) {
 /** A multi-valued cell as the chips it is edited as, so reading and editing show the same set. */
 function ValuesFormatter({ cell, formatterParams }: FormatterOpts) {
     const { type } = formatterParams as { type?: ColumnType };
+    if (type === "relation") {
+        return <RelationValueChips values={asLabelValues(cell.getValue())} />;
+    }
     return <LabelValueChips
         values={asLabelValues(cell.getValue())}
-        labelType={type === "relation" ? undefined : type}
+        labelType={type}
     />;
 }
 

@@ -56,11 +56,21 @@
         }
     }
 
-    /* A chip standing for a value holds text rather than a box to type in, so it needs none of the
-       field styling the chip leaves to its contents — only room for the word itself. */
-    > .tn-chip > span {
-        padding-block: 2px;
-        white-space: nowrap;
+    /* Never wider than the field it lies in: a value long enough to outgrow the line — a note's
+       full title — is clipped to an ellipsis rather than carrying the chip past the field's edge.
+       The remove button keeps its place either way, having already refused to shrink. */
+    > .tn-chip {
+        max-width: 100%;
+
+        /* A chip standing for a value holds text rather than a box to type in, so it needs none of
+           the field styling the chip leaves to its contents — only room for the word itself. */
+        > span {
+            padding-block: 2px;
+            white-space: nowrap;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
     }
 }
 
