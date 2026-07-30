@@ -342,6 +342,15 @@ body.background-effects.theme-supports-background-effects .llm-chat-message-user
     transition: opacity 0.15s ease;
 }
 
+/* The footer is one line, always. It is positioned out of flow against a fixed reserve of
+   wrapper padding, so a second line has nowhere to go but up and over the last line of the
+   message. Entries therefore never wrap and never shrink; the model name below is the sole
+   exception and absorbs the whole squeeze. */
+.llm-chat-footer > * {
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
 /* Separators are generated on each item after the first rather than being elements of their
    own: a dot that belongs to the item it precedes can never be orphaned onto a line by
    itself, and it always shares that item's baseline. `gap` spaces the dot from the item
@@ -360,8 +369,17 @@ body.background-effects.theme-supports-background-effects .llm-chat-message-user
     cursor: help;
 }
 
+/* The one entry that gives way when the row runs out of room: the others are short, fixed
+   and each carries a whole fact, whereas a model name is long, open-ended and still legible
+   truncated. `min-width: 0` is what lets a flex item shrink past its content at all — the
+   ellipsis is inert without it. The generated separator sits inside this box, so it is
+   clipped last rather than being stranded when the name disappears entirely. */
 .llm-chat-usage-model {
     font-weight: 500;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .llm-chat-usage-tokens {

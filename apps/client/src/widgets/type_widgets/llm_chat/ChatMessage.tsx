@@ -205,7 +205,7 @@ function ChatMessage({ message, isStreaming, onRetry }: Props) {
                 {message.usage && typeof message.usage.promptTokens === "number" && (
                     <>
                         {message.usage.model && (
-                            <span className="llm-chat-usage-model">{message.usage.model}</span>
+                            <span className="llm-chat-usage-model" title={message.usage.model}>{message.usage.model}</span>
                         )}
                         <span
                             className="llm-chat-usage-tokens"
