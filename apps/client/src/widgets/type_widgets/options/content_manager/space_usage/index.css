@@ -27,7 +27,9 @@
     gap: 0.5em;
 }
 
-.space-usage-section:has(.space-usage-overview) .options-page-header {
+/* Second selector only to outweigh the dialog's own 2em (OptionsDialog.css). */
+.space-usage-section:has(.space-usage-overview) .options-page-header,
+.modal.options-dialog .space-usage-section:has(.space-usage-overview) .options-page-header {
     margin-bottom: 0;
 }
 
