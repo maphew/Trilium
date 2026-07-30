@@ -78,9 +78,10 @@ function renderFlag(value: string) {
 }
 
 /**
- * A colour as the square it is read as, wherever one is shown: a field of its own, or a chip in a
- * field holding several. Shown as a swatch rather than by flooding what holds it with the colour, so
- * that a table row keeps its own striping, hover and selection.
+ * A colour as the square it is read as where the colour cannot be the whole ground: a single-valued
+ * cell, whose surface is the row's — flooding it would hide striping, hover and selection — and a
+ * chip being edited, which also holds the button removing it, a mark no user-picked ground can be
+ * trusted to keep visible. A chip only being read holds neither, and wears the colour itself.
  *
  * The colour is the one thing about the swatch that cannot be told beforehand; its shape and size are
  * its class's. A value naming no colour is dropped by the browser, leaving the outline behind rather
@@ -103,7 +104,15 @@ export function LabelValueChips({ values, labelType, className }: {
     return (
         <span className={clsx("label-value-chips", className)}>
             {values.map((value) => (
-                <span key={value} className="tn-chip"><span>{renderLabelValue(value, labelType)}</span></span>
+                labelType === "color" ? (
+                    // Read-only, the chip holds nothing — no text, no button — so the colour can be
+                    // its whole ground, the stored text kept to the tooltip. Set as the property so
+                    // that text naming no colour is dropped by the browser, leaving the chip's own
+                    // ground rather than showing a colour it is not.
+                    <span key={value} className="tn-chip label-color-chip" title={value} style={{ backgroundColor: value }} />
+                ) : (
+                    <span key={value} className="tn-chip"><span>{renderLabelValue(value, labelType)}</span></span>
+                )
             ))}
         </span>
     );

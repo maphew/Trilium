@@ -121,15 +121,12 @@ describe("ValuesInput", () => {
 
     it("takes a colour when the pick is settled, not through the drag, and shows it as given", async () => {
         const onCommit = vi.fn();
-        const input = await mount({
-            labelType: "color",
-            values: [ "#ff0000" ],
-            onCommit,
-            renderValue: (value) => <i data-color={value} />
-        });
+        const input = await mount({ labelType: "color", values: [ "#ff0000" ], onCommit });
 
-        // Stored as text a picker cannot show, so the chip is whatever the host makes of it.
-        expect(container.querySelector(".tn-chip i")?.getAttribute("data-color")).toBe("#ff0000");
+        // Stored as text a picker cannot show, so the chip holds the value's own swatch — a swatch
+        // rather than the chip's whole ground, this chip also holding the button removing it.
+        expect(container.querySelector(".tn-chip .label-color-swatch")?.getAttribute("title"))
+            .toBe("#ff0000");
         expect(input?.type).toBe("color");
 
         // Nothing may be written into the picker while the pick is being made: the browser takes its

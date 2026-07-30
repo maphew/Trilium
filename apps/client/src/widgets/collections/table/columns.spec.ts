@@ -390,8 +390,9 @@ describe("buildColumnDefinitions — multi-valued columns", () => {
         expect(flags.querySelector(".label-flag-set")?.className).toContain("bx-check");
         expect(flags.querySelector(".label-flag-unset")?.className).toContain("bx-x");
 
-        // And a colour as the same swatch a single one is shown by.
-        expect(format("color", [ "#ff2e88" ]).querySelector(".label-color-swatch")?.getAttribute("title"))
+        // And a colour floods the chip itself — read-only, the chip holds nothing the colour could
+        // hide — with the stored text kept to the tooltip.
+        expect(format("color", [ "#ff2e88" ]).querySelector(".label-color-chip")?.getAttribute("title"))
             .toBe("#ff2e88");
     });
 

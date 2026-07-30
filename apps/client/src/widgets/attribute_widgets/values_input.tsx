@@ -9,6 +9,7 @@ import { t } from "../../services/i18n";
 import ActionButton from "../react/ActionButton";
 import Chip from "../react/Chip";
 import FormTextBox from "../react/FormTextBox";
+import { ColorSwatch } from "./label_value_display";
 import { DEFAULT_COLOR, LABEL_MAPPINGS } from "./label_value_input";
 
 interface ValuesInputProps {
@@ -18,11 +19,6 @@ interface ValuesInputProps {
     values: readonly string[];
     /** Receives the values as they now stand, whenever one is taken or dropped. */
     onCommit(values: string[]): void;
-    /**
-     * Shows a value as something other than the text it is stored as — a colour as its swatch. Left
-     * out, a chip reads as what is stored, which for most types is what is being edited anyway.
-     */
-    renderValue?(value: string): ComponentChildren;
     /** What removing a chip means, in the host's own words. Left out, a chip holds "a value". */
     removeButtonText?: string;
     /** What taking the box's content means, in the host's own words. Left out, it adds "a value". */
@@ -44,7 +40,7 @@ interface ValuesInputProps {
  * rather than quietly dropped. A value already held is not taken a second time: the chips are a set,
  * and two alike could not be told apart.
  */
-export default function ValuesInput({ labelType, values, onCommit, renderValue, removeButtonText, addButtonText, inputId, tabIndex, placeholder, disabled }: ValuesInputProps) {
+export default function ValuesInput({ labelType, values, onCommit, removeButtonText, addButtonText, inputId, tabIndex, placeholder, disabled }: ValuesInputProps) {
     const [ draft, setDraft ] = useState("");
     const inputRef = useRef<HTMLInputElement>(null);
     const isColor = labelType === "color";
@@ -123,7 +119,11 @@ export default function ValuesInput({ labelType, values, onCommit, renderValue, 
                     disabled={disabled}
                     onRemove={() => drop(value)}
                 >
-                    <span>{renderValue ? renderValue(value) : value}</span>
+                    {/* A colour reads as its swatch even while being edited, `#3d5a80` naming
+                        nothing to the eye. A swatch rather than the chip's own ground, as the
+                        read-only chips wear it: this chip also holds the button removing it,
+                        which no ground a user may pick can be trusted to keep visible. */}
+                    <span>{isColor ? <ColorSwatch color={value} /> : value}</span>
                 </Chip>
             ))}
             {/* The box and the button that asks for what it holds are one thing on the page, so they

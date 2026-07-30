@@ -1,7 +1,7 @@
 import { type LabelType } from "@triliumnext/commons";
 
 import { t } from "../../services/i18n";
-import { ColorSwatch, renderLabelValue } from "./label_value_display";
+import { renderLabelValue } from "./label_value_display";
 import { SelectValuesInput } from "./select_input";
 import ValuesInput from "./values_input";
 
@@ -60,9 +60,6 @@ export default function MultiValueInput({ labelType, values, onCommit, options, 
             labelType={labelType}
             values={values}
             placeholder={t("promoted_attributes.values_placeholder")}
-            // A colour reads as its swatch even while being edited, `#3d5a80` naming nothing to the
-            // eye. The rest show what is stored, which is what is being edited.
-            renderValue={labelType === "color" ? renderColorValue : undefined}
             inputId={inputId}
             tabIndex={tabIndex}
             disabled={disabled}
@@ -76,8 +73,4 @@ export const BOOLEAN_OPTIONS = [ "true", "false" ];
 
 function renderBooleanValue(value: string) {
     return renderLabelValue(value, "boolean");
-}
-
-function renderColorValue(value: string) {
-    return <ColorSwatch color={value} />;
 }
