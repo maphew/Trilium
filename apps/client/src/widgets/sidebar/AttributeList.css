@@ -10,6 +10,8 @@
 }
 
 .attribute-list-panel .attribute-row {
+    /* What the floating action buttons — and, while editing, the overlay — are anchored to. */
+    position: relative;
     display: flex;
     align-items: center;
     gap: 6px;
@@ -28,11 +30,10 @@
     background-color: var(--hover-item-background-color);
 }
 
-/* While its value is edited (or the attribute created), the row is what the editor stands over (see
-   AttributeEditorOverlay.css): it anchors the overlay, lets it spill past the one line the row keeps
-   to, and comes forward so the editor is drawn over the rows below rather than under them. */
+/* While its value is edited (or the attribute created), the row lets the editor standing over it
+   (see AttributeEditorOverlay.css) spill past the one line the row keeps to, and comes forward so
+   the editor is drawn over the rows below rather than under them. */
 .attribute-list-panel .attribute-row.editing {
-    position: relative;
     overflow: visible;
     z-index: 10;
 }
@@ -195,29 +196,42 @@
     text-overflow: ellipsis;
 }
 
-/* Deleting is destructive and one row deep, so the button only appears on the row being pointed at. */
-.attribute-list-panel .attribute-delete-button {
-    flex-shrink: 0;
-    visibility: hidden;
-    /* Always at the row's end, whether or not the attribute has a value to take up the room before it
-       (a bare label has none, and would otherwise leave the button up against its name). */
-    margin-inline-start: auto;
+/* The row's actions — delete, and for a relation the pencil — float over the row's trailing end
+   instead of reserving room in it; only the row being pointed at shows them. */
+.attribute-list-panel .attribute-row-actions {
+    position: absolute;
+    inset-inline-end: 1px;
+    inset-block-start: 50%;
+    transform: translateY(-50%);
+    display: none;
+    align-items: center;
+    padding-inline-start: 2px;
+    border-radius: var(--border-radius-size, 4px);
+
+    /* A solid stand-in for the hovered row's composite — its hover film is ~a tenth of ink over the
+       canvas (right-pane cards paint no ground), so the same tenth is mixed from the text colour:
+       opaque by construction, where the film's own alpha cannot be flattened in CSS. */
+    background-color: color-mix(in srgb, var(--main-text-color) 9%, var(--main-background-color));
 }
 
-/* Changing a relation's target is a press away too, so its pencil keeps the delete button's habits:
-   at the row's end beside it, shown only over the row being pointed at — and worn at the same size,
-   which the cross is given by the theme (see theme-next/forms.css, `.icon-action.bx-x`) and an icon
-   button is otherwise a fair bit bigger than. */
+/* Not while editing: the actions — later in the DOM — would paint over the very overlay that
+   replaces them. */
+.attribute-list-panel .attribute-row:not(.editing):is(:hover, .active) .attribute-row-actions {
+    display: flex;
+}
+
+/* A standing gutter one button wide wherever there are actions at all: the delete cross every such
+   row carries lands in reserved room, so the value never moves nor is covered. Only a relation's
+   second button, the pencil, overlays the value's tail — on the cluster's solid ground. */
+.attribute-list-panel .attribute-row:has(.attribute-row-actions) .attribute-value {
+    padding-inline-end: 27px;
+}
+
+/* The pencil at the compact size the theme gives the delete cross (`.icon-action.bx-x`). */
 .attribute-list-panel .attribute-edit-button {
     --icon-button-size: 24px;
     --icon-button-icon-ratio: 0.8;
 
     border-radius: 50%;
-    flex-shrink: 0;
-    visibility: hidden;
-}
-
-.attribute-list-panel .attribute-row:is(:hover, .active, .editing) :is(.attribute-delete-button, .attribute-edit-button) {
-    visibility: visible;
 }
 

@@ -632,30 +632,36 @@ function AttributeRow({ attribute, note, active, valueEditor, isSystem, showOwne
 
             {valueEditor ?? <AttributeValue attribute={attribute} note={note} attrType={attrType} onEdit={onEditValue} />}
 
-            {/* A relation's value is a link and stays one, so its edit has a way in of its own — put
-                away while the editor is open, whose field already is the edit. */}
-            {onEditValue && attrType === "relation" && !valueEditor && (
-                <ActionButton
-                    className="attribute-edit-button"
-                    icon="bx bx-pencil"
-                    text={t("attribute_list_panel.change_target")}
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onEditValue();
-                    }}
-                />
-            )}
+            {/* The row's actions float over its trailing end on hover rather than reserving room in
+                it (see the stylesheet), so the values keep the whole edge to themselves. Put away
+                while the row's editor is open, whose field already is the edit. */}
+            {(onDelete || (onEditValue && attrType === "relation")) && !valueEditor && (
+                <span class="attribute-row-actions">
+                    {/* A relation's value is a link and stays one, so its edit has a way in of its own. */}
+                    {onEditValue && attrType === "relation" && (
+                        <ActionButton
+                            className="attribute-edit-button"
+                            icon="bx bx-pencil"
+                            text={t("attribute_list_panel.change_target")}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onEditValue();
+                            }}
+                        />
+                    )}
 
-            {onDelete && (
-                <ActionButton
-                    className="attribute-delete-button"
-                    icon="bx bx-x"
-                    text={t("attribute_list_panel.delete")}
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete();
-                    }}
-                />
+                    {onDelete && (
+                        <ActionButton
+                            className="attribute-delete-button"
+                            icon="bx bx-x"
+                            text={t("attribute_list_panel.delete")}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete();
+                            }}
+                        />
+                    )}
+                </span>
             )}
         </>
     );
