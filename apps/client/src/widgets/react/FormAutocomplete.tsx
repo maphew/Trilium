@@ -5,6 +5,7 @@ import { createPortal, type CSSProperties } from "preact/compat";
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import FormTextBox from "./FormTextBox";
+import { useUniqueName } from "./hooks";
 
 /** Marks the dropdown, which is portalled to the body: popups checking for outside clicks must ignore it. */
 export const AUTOCOMPLETE_DROPDOWN_SELECTOR = ".form-autocomplete-dropdown";
@@ -28,11 +29,43 @@ interface FormAutocompleteProps extends Omit<FormTextBoxProps, "onChange"> {
     /** Opens the dropdown as soon as the field receives focus, not just on typing. */
     openOnFocus?: boolean;
     /**
+     * Receives a suggestion picked from the dropdown (click or Enter) instead of `onChange`, for a
+     * host that treats a made choice differently from typing — both otherwise arrive as the same
+     * string. Left out, picking reports through `onChange`, exactly like typing. (Not `onSelect`,
+     * which is the DOM's own text-selection event and reaches the input as such.)
+     */
+    onPick?(item: string): void;
+    /**
+     * Leaves the list open once an entry is picked, for a field collecting several — where picking
+     * one is rarely the end of it, and closing would ask for the list back each time.
+     *
+     * The entries are fetched afresh, so a list narrowing as it is picked from (one leaving out what
+     * has been taken already) is correct the moment its source says so.
+     */
+    keepOpenOnPick?: boolean;
+    /**
      * Renders one suggestion, for lists where the bare text does not tell the whole story. Only the
      * appearance of the row is affected: what a suggestion means and what selecting it commits stay
      * the string the source returned. Defaults to showing that string.
      */
     renderItem?(item: string): ComponentChildren;
+    /**
+     * Rendered inside the field, ahead of the box being typed into — the chips of a field holding
+     * several values, which belong within its frame rather than above it.
+     *
+     * The two are then wrapped together, and the list is measured against that wrapper, so it spans
+     * the whole field instead of only the stretch of it left over for typing.
+     */
+    leading?: ComponentChildren;
+    /**
+     * Opens the list with an entry already picked out — the one the field's text names, or failing
+     * that the first — so that Enter takes it without arrowing down to it first.
+     *
+     * For a box whose suggestions are the choices themselves: there the highlighted entry is where
+     * the field already stands, and Enter means "this one". Left out for a box that only helps with
+     * typing, where nothing is chosen until the user says so and Enter belongs to the form around it.
+     */
+    autoActivate?: boolean;
 }
 
 /**
@@ -41,9 +74,10 @@ interface FormAutocompleteProps extends Omit<FormTextBoxProps, "onChange"> {
  * The dropdown is portalled to the body and positioned over everything else, so it is not clipped
  * by scrolling ancestors. Selecting a suggestion reports it through `onChange`, exactly like typing.
  */
-export default function FormAutocomplete({ currentValue, onChange, source, openOnFocus, renderItem, inputRef, onBlur, onKeyDown, ...restProps }: FormAutocompleteProps) {
+export default function FormAutocomplete({ currentValue, onChange, source, openOnFocus, onPick, keepOpenOnPick, renderItem, leading, autoActivate, inputRef, onBlur, onKeyDown, ...restProps }: FormAutocompleteProps) {
     const ownInputRef = useRef<HTMLInputElement>(null);
     const inputEl = inputRef ?? ownInputRef;
+    const fieldRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLUListElement>(null);
     const [ isOpen, setIsOpen ] = useState(false);
     const [ items, setItems ] = useState<string[]>([]);
@@ -53,6 +87,10 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
     // Discards responses of queries that were superseded while in flight.
     const latestQuery = useRef(0);
     const isDisabled = !!(restProps.readOnly || restProps.disabled);
+    // Names the entries so the field can point at the highlighted one: focus stays in the box, so
+    // that pointer is all a screen reader has to go on.
+    const itemIdPrefix = useUniqueName("autocomplete-item");
+    const activeItemId = activeIndex >= 0 ? `${itemIdPrefix}-${activeIndex}` : undefined;
 
     const close = useCallback(() => {
         // Invalidates in-flight queries too, so a late response cannot repopulate a closed dropdown.
@@ -76,12 +114,21 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
             // A newer query (or a close) happened while awaiting.
             if (latestQuery.current === queryId) {
                 setItems(suggestions);
-                setActiveIndex(-1);
+                setActiveIndex(autoActivate ? bestMatchIndex(suggestions, currentValue) : -1);
             }
         }, DEBOUNCE_MS);
 
         return () => clearTimeout(timeout);
-    }, [ isOpen, currentValue, source ]);
+    }, [ isOpen, currentValue, source, autoActivate ]);
+
+    // Keep the highlighted entry in sight: it can be picked out on opening, or arrowed past the
+    // bottom of a list taller than the room the dropdown was given.
+    useEffect(() => {
+        if (activeIndex < 0) return;
+        // `nearest` scrolls the list by as little as it takes, and not at all while the entry is
+        // already in view — so hovering down a visible list never moves it under the pointer.
+        dropdownRef.current?.children[activeIndex]?.scrollIntoView({ block: "nearest" });
+    }, [ activeIndex, items ]);
 
     // Keep the dropdown glued to the input.
     useLayoutEffect(() => {
@@ -90,8 +137,10 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
         }
 
         const reposition = () => {
-            if (inputEl.current) {
-                setPosition(computeDropdownPosition(inputEl.current));
+            // The wrapper where there is one, so a field carrying chips is spanned whole.
+            const anchor = fieldRef.current ?? inputEl.current;
+            if (anchor) {
+                setPosition(computeDropdownPosition(anchor));
             }
         };
 
@@ -106,8 +155,14 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
     }, [ isOpen, items.length, inputEl ]);
 
     function selectItem(item: string) {
-        onChange(item);
-        close();
+        (onPick ?? onChange)(item);
+        if (keepOpenOnPick) {
+            // Nothing is highlighted until the refreshed entries arrive, so Enter cannot take twice
+            // what the list is about to stop offering.
+            setActiveIndex(-1);
+        } else {
+            close();
+        }
         inputEl.current?.focus();
     }
 
@@ -151,28 +206,39 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
         onKeyDown?.(e);
     }
 
+    const field = (
+        <FormTextBox
+            // Keyed for the sake of a field carrying chips, which are keyed themselves: keyed and
+            // unkeyed siblings together are matched up by position as the chips grow, which rebuilds
+            // the box rather than keeping it — and a rebuilt box is one the focus has left.
+            key="field"
+            {...restProps}
+            inputRef={inputEl}
+            currentValue={currentValue}
+            onChange={(newValue) => {
+                onChange(newValue);
+                if (!isDisabled) {
+                    setIsOpen(true);
+                }
+            }}
+            onFocus={openOnFocus && !isDisabled ? () => setIsOpen(true) : undefined}
+            onBlur={(newValue) => {
+                close();
+                onBlur?.(newValue);
+            }}
+            onKeyDown={handleKeyDown}
+            role="combobox"
+            aria-expanded={isOpen && items.length > 0}
+            aria-autocomplete="list"
+            aria-activedescendant={activeItemId}
+        />
+    );
+
     return (
         <>
-            <FormTextBox
-                {...restProps}
-                inputRef={inputEl}
-                currentValue={currentValue}
-                onChange={(newValue) => {
-                    onChange(newValue);
-                    if (!isDisabled) {
-                        setIsOpen(true);
-                    }
-                }}
-                onFocus={openOnFocus && !isDisabled ? () => setIsOpen(true) : undefined}
-                onBlur={(newValue) => {
-                    close();
-                    onBlur?.(newValue);
-                }}
-                onKeyDown={handleKeyDown}
-                role="combobox"
-                aria-expanded={isOpen && items.length > 0}
-                aria-autocomplete="list"
-            />
+            {leading !== undefined
+                ? <div ref={fieldRef} className="tn-field form-autocomplete-field">{leading}{field}</div>
+                : field}
 
             {isOpen && items.length > 0 && position && createPortal(
                 <ul
@@ -187,6 +253,7 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
                     {items.map((item, index) => (
                         <li
                             key={item}
+                            id={`${itemIdPrefix}-${index}`}
                             className={`form-autocomplete-item ${index === activeIndex ? "active" : ""}`}
                             role="option"
                             aria-selected={index === activeIndex}
@@ -200,6 +267,20 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
                 document.body)}
         </>
     );
+}
+
+/**
+ * Which entry a list opens on: the one the field's text names, or the first, so that a field whose
+ * text stands for a choice already made opens on it and one being typed into opens on its best
+ * candidate. Matched the way the sources filter — ignoring case and surrounding space.
+ */
+function bestMatchIndex(items: string[], text: string) {
+    if (!items.length) {
+        return -1;
+    }
+    const trimmed = text.trim().toLowerCase();
+    const exact = items.findIndex((item) => item.toLowerCase() === trimmed);
+    return exact >= 0 ? exact : 0;
 }
 
 /**

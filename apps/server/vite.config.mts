@@ -32,6 +32,21 @@ export default defineConfig(() => ({
     ],
     hookTimeout: 20_000,
     testTimeout: 40_000,
+    // Write worker console output straight to stdout instead of forwarding each call to the main
+    // process over the worker RPC. With the interception on, the suite intermittently failed with
+    // every test passing:
+    //
+    //   EnvironmentTeardownError: [vitest-worker]: Closing rpc while "onUserConsoleLog" was pending
+    //
+    // `buildApp()` — called by ~60 spec files — starts the server's background jobs, which schedule
+    // work for +4s (consistency checks), +5s (sync) and +10s (backendStartup scripts) and chain off
+    // `sqlInit.dbReady`. Each runs through `cls.wrap`, whose catch logs with a raw `console.log`, so
+    // a file whose tests end inside that window tears its worker down with log output still in
+    // flight and the run exits 1 regardless of the results. Suppressing individual log sources only
+    // narrows the window (see log_provider.ts); removing the RPC hop removes the failure mode.
+    // Cost: log lines are no longer prefixed with the originating test, nor captured by the HTML and
+    // JUnit reporters.
+    disableConsoleIntercept: true,
     reporters: [
       "verbose",
       ["html", { outputFile: "./test-output/vitest/html/index.html" }],

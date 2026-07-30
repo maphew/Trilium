@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 
 import type BNote from "../../becca/entities/bnote.js";
-import { buildPromotedDefinition, saveFileAttachment, toAttributeName } from "./collection_utils.js";
+import { buildPromotedDefinition, saveFileAttachment, stripUrlScheme, toAttributeName } from "./collection_utils.js";
 
 describe("toAttributeName", () => {
     it("camelCases a multi-word name, lower-casing the first word", () => {
@@ -66,6 +66,16 @@ describe("buildPromotedDefinition", () => {
 
     it("omits the value type for a relation column (no labelType)", () => {
         expect(buildPromotedDefinition({ alias: "Related", multiplicity: "multi" })).toBe("promoted,multi,alias=Related");
+    });
+});
+
+describe("stripUrlScheme", () => {
+    it("strips the given scheme and leaves a value without it untouched", () => {
+        expect(stripUrlScheme("mailto:a@b.com", "mailto:")).toBe("a@b.com");
+        expect(stripUrlScheme("tel:12345", "tel:")).toBe("12345");
+        expect(stripUrlScheme("a@b.com", "mailto:")).toBe("a@b.com");
+        // Only the scheme asked for is stripped — a mismatched one is somebody else's value.
+        expect(stripUrlScheme("tel:12345", "mailto:")).toBe("tel:12345");
     });
 });
 

@@ -72,7 +72,13 @@ function mockServer() {
                 if (url === "tree/load") {
                     throw new Error(`A module tried to load from the server the following notes: ${((data as any).noteIds || []).join(",")}\nThis is not supported, use Froca mocking instead and ensure the note exist in the mock.`);
                 }
-            }
+            },
+
+            // Widgets that persist as the user edits (attribute writes, view configs) reach for
+            // these; without them the write rejects and surfaces as an unhandled rejection rather
+            // than as whatever the test was actually asserting.
+            async put(_url: string, _data?: object) {},
+            async remove(_url: string) {}
         }
     };
 }

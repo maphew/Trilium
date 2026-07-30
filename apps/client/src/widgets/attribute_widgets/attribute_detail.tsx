@@ -2,13 +2,14 @@ import "./attribute_detail.css";
 import "./attribute_name_suggestion.css";
 
 import { type DefinitionObject, type LabelType, promotedAttributeDefinitionParser } from "@triliumnext/commons";
-import { ComponentProps } from "preact";
+import { ComponentChildren, ComponentProps } from "preact";
 import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import appContext from "../../components/app_context.js";
 import { isDefinitionName } from "../../entities/fattribute.js";
+import contextMenu, { MenuItem } from "../../menus/context_menu.js";
 import type { Attribute } from "../../services/attribute_parser.js";
-import { getBuiltinLabelValueType, isBuiltinAttribute } from "../../services/attributes.js";
+import { getBuiltinLabelSelectOptions, getBuiltinLabelValueType, isBuiltinAttribute } from "../../services/attributes.js";
 import { isExperimentalFeatureEnabled } from "../../services/experimental_features.js";
 import { focusSavedElement, saveFocusedElement } from "../../services/focus.js";
 import froca from "../../services/froca.js";
@@ -32,6 +33,7 @@ import { disposeReactWidget, ParentComponent, renderReactWidgetAtElement } from 
 import OptionsRow, { OptionsRowWithToggle } from "../type_widgets/options/components/OptionsRow.jsx";
 import { ATTR_HELP, AttrHelpEntry } from "./attr_help.js";
 import LabelValueInput, { getTypedInputForLabel } from "./label_value_input.js";
+import ValuesInput from "./values_input.jsx";
 
 export interface AttributeDetailOpts {
     allAttributes?: Attribute[];
@@ -197,12 +199,25 @@ export function AttributeDetail({ opts, currentNoteId, onDismiss, onCancel, ...f
     // Positioning needs the popup's rendered size, so it runs after the DOM is
     // built but before paint.
     useLayoutEffect(() => {
-        if (popupRef.current && opts) {
-            // Classic-layout coordinates are relative to the hosting widget, mirroring how the
-            // legacy widget resolved its own parent in the component tree.
-            const hostWidget = parentComponent instanceof BasicWidget ? parentComponent : null;
-            positionPopup(popupRef.current, opts, hostWidget?.$widget?.offset() ?? { top: 0, left: 0 });
+        const popup = popupRef.current;
+        if (!popup || !opts) {
+            return;
         }
+
+        // Classic-layout coordinates are relative to the hosting widget, mirroring how the
+        // legacy widget resolved its own parent in the component tree.
+        const hostWidget = parentComponent instanceof BasicWidget ? parentComponent : null;
+        const reposition = () =>
+            positionPopup(popup, opts, hostWidget?.$widget?.offset() ?? { top: 0, left: 0 });
+        reposition();
+
+        // The placement holds only for the size it measured, and editing changes that size — a
+        // select definition grows a row per option — so the popup is re-placed as it resizes,
+        // sliding back on screen instead of pushing its lower controls past the viewport edge.
+        // Settles because re-placing an unchanged size sets the very same styles.
+        const resizeObserver = new ResizeObserver(reposition);
+        resizeObserver.observe(popup);
+        return () => resizeObserver.disconnect();
     }, [ opts, parentComponent ]);
 
     // Dismiss on click outside the popup, except in floating UI logically belonging
@@ -223,8 +238,10 @@ export function AttributeDetail({ opts, currentNoteId, onDismiss, onCancel, ...f
                 || spawner?.contains(e.target)
                 // Modals count as belonging to the popup: creating a note straight from the target
                 // note field opens the note type chooser, and dismissing on its clicks would tear
-                // the popup down before the created note could be filled in.
-                || e.target.closest(`${AUTOCOMPLETE_DROPDOWN_SELECTOR}, .algolia-autocomplete, #context-menu-container, .modal, .modal-backdrop`)) {
+                // the popup down before the created note could be filled in. The type menu belongs
+                // to it too: it is portaled to the body (see the dropdown's `portalToBody`), so a
+                // press on one of its items lands outside the popup element.
+                || e.target.closest(`${AUTOCOMPLETE_DROPDOWN_SELECTOR}, .algolia-autocomplete, #context-menu-container, .modal, .modal-backdrop, .attr-input-label-type`)) {
                 return;
             }
             onDismiss();
@@ -358,12 +375,19 @@ export function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, 
     const nameRef = useRef<HTMLInputElement>(null);
     /**
      * A system label whose value has a kind of its own is typed into the field that fits it — a palette
-     * for `#color`, a date picker for `#startDate`. The rest keep the autocomplete, which is worth more
-     * to them than a plain box would be: it offers the values the name has been given before.
+     * for `#color`, a date picker for `#startDate`, a dropdown of the choices for `#sortDirection`. The
+     * rest keep the autocomplete, which is worth more to them than a plain box would be: it offers the
+     * values the name has been given before.
      */
-    const typedInput = useMemo(
-        () => attrType === "label" ? getTypedInputForLabel(getBuiltinLabelValueType(name)) : undefined,
-        [ attrType, name ]);
+    const typedInput = useMemo(() => {
+        if (attrType !== "label") {
+            return undefined;
+        }
+        const labelType = getTypedInputForLabel(getBuiltinLabelValueType(name));
+        // The options belong to the name, not to a definition the user wrote, so they are read from the
+        // same place the type came from rather than passed in.
+        return labelType && { labelType, selectOptions: getBuiltinLabelSelectOptions(name) };
+    }, [ attrType, name ]);
     // The values known for a label name never change while the popup is open, so they are fetched
     // once per name and filtered locally afterwards.
     const knownValues = useRef<{ name: string; values: string[] }>();
@@ -524,14 +548,25 @@ export function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, 
                 {attrType === "label" && (
                     <OptionsRow name="attr-value" label={t("attribute_detail.value")}>
                         {typedInput ? (
-                            <div className="input-group">
+                            <TypedValueField isSelect={typedInput.labelType === "select"}>
                                 <LabelValueInput
-                                    labelType={typedInput}
+                                    labelType={typedInput.labelType}
+                                    selectOptions={typedInput.selectOptions}
                                     value={value}
                                     onCommit={commitValue}
-                                    inputProps={{ className: "form-control attr-input-value", readOnly: !isOwned }}
+                                    inputProps={{
+                                        className: "form-control attr-input-value",
+                                        readOnly: !isOwned,
+                                        // Names the dropdown's empty entry, which would otherwise be a
+                                        // blank row one has to guess the meaning of. Only for a select:
+                                        // for the typed boxes it would override the placeholder the
+                                        // field sets for itself.
+                                        ...(typedInput.labelType === "select" && {
+                                            placeholder: t("promoted_attributes.unset-field-placeholder")
+                                        })
+                                    }}
                                 />
-                            </div>
+                            </TypedValueField>
                         ) : (
                             <FormAutocomplete
                                 className="attr-input-value"
@@ -556,6 +591,9 @@ export function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, 
                     <OptionsRow name="attr-label-type" label={t("attribute_detail.label_type")}>
                         <FormDropdownList
                             className="attr-input-label-type"
+                            // The popup is a scroll container, so an inline menu could only grow by
+                            // scrolling the form under itself — and the type list only gets longer.
+                            portalToBody
                             values={DEFINITION_TYPES}
                             keyProperty="value"
                             titleProperty="title"
@@ -586,6 +624,27 @@ export function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, 
                             onChange={(precision) => commitDefinition({
                                 numberPrecision: precision === "" ? undefined : parseInt(precision, 10)
                             })}
+                        />
+                    </OptionsRow>
+                )}
+
+                {attrType === "label-definition" && definition.labelType === "select" && (
+                    <OptionsRow
+                        name="attr-select-options"
+                        label={t("attribute_detail.select_options")}
+                        description={t("attribute_detail.select_options_title")}
+                    >
+                        {/* The same chips the values themselves are edited through elsewhere, only
+                            typed free: the options are being invented here, so there is nothing to
+                            offer or pick from. */}
+                        <ValuesInput
+                            labelType="text"
+                            values={definition.selectOptions ?? []}
+                            disabled={!isOwned}
+                            placeholder={t("attribute_detail.select_options_placeholder")}
+                            addButtonText={t("attribute_detail.add_option")}
+                            removeButtonText={t("attribute_detail.remove_option")}
+                            onCommit={(selectOptions) => commitDefinition({ selectOptions })}
                         />
                     </OptionsRow>
                 )}
@@ -686,6 +745,19 @@ export function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, 
 }
 
 /**
+ * Wraps the value field in the group that frames it together with the buttons beside it — a colour's
+ * picker and its reset, a link's open button — which is what an input group is for.
+ *
+ * A dropdown is handed straight through instead. It has no buttons to be grouped with, and the themes
+ * dress a bare one completely: the group would draw a second frame around it, and, since it blanks the
+ * background of the fields inside it so that its own shows through, would take with it the arrow the
+ * themes draw on that very background — leaving a dropdown that does not look like one.
+ */
+function TypedValueField({ isSelect, children }: { isSelect: boolean; children: ComponentChildren }) {
+    return isSelect ? <>{children}</> : <div className="input-group">{children}</div>;
+}
+
+/**
  * The name field and, for a name Trilium attaches a meaning to, the button explaining what it does. The
  * explanations run to several lines and most names have none, so they are not shown under the field.
  */
@@ -703,8 +775,11 @@ function AttributeNameField({ help, ...autocompleteProps }: { help?: AttrHelpEnt
  * One row of an attribute name completion, marking the names Trilium itself attaches a meaning to.
  * The mark answers what a list of bare names cannot: whether picking one buys behaviour, or is only
  * a name. The inline editor's `#`/`~` completion lists the same names and marks them the same way.
+ *
+ * Exported, with {@link fetchAttributeNames}, for whatever else completes an attribute name — the
+ * attribute panel's in-row creation — so every name box offers the same list the same way.
  */
-function AttributeNameSuggestion({ type, name }: { type: "label" | "relation"; name: string }) {
+export function AttributeNameSuggestion({ type, name }: { type: "label" | "relation"; name: string }) {
     return (
         <span class="attr-name-suggestion">
             <span class="attr-name-suggestion-name">{name}</span>
@@ -745,10 +820,13 @@ export const LABEL_TYPES = [
     { value: "textarea", title: t("attribute_detail.textarea"), icon: "bx bx-align-left" },
     { value: "number", title: t("attribute_detail.number"), icon: "bx bx-hash" },
     { value: "boolean", title: t("attribute_detail.boolean"), icon: "bx bx-toggle-left" },
+    { value: "select", title: t("attribute_detail.select_type"), icon: "bx bx-list-ul" },
     { value: "date", title: t("attribute_detail.date"), icon: "bx bx-calendar" },
     { value: "datetime", title: t("attribute_detail.date_time"), icon: "bx bx-calendar-event" },
     { value: "time", title: t("attribute_detail.time"), icon: "bx bx-time" },
     { value: "url", title: t("attribute_detail.url"), icon: "bx bx-link" },
+    { value: "email", title: t("attribute_detail.email"), icon: "bx bx-envelope" },
+    { value: "phone", title: t("attribute_detail.phone"), icon: "bx bx-phone" },
     { value: "color", title: t("attribute_detail.color_type"), icon: "bx bx-palette" }
 ];
 
@@ -769,7 +847,7 @@ export const DEFINITION_TYPES: { value: string; title: string; icon: string; sta
     }
 ];
 
-function fetchAttributeNames(type: "label" | "relation", query: string) {
+export function fetchAttributeNames(type: "label" | "relation", query: string) {
     return server.get<string[]>(`attribute-names/?type=${type}&query=${encodeURIComponent(query)}`);
 }
 
@@ -796,7 +874,7 @@ interface SearchRelatedResponse {
 
 interface RelatedNotesResult {
     /** The first {@link DISPLAYED_NOTES} other notes carrying the attribute, by best path. */
-    notes: { notePath: string; icon: string }[];
+    notes: { notePath: string; icon: string; title: string }[];
     /** How many notes other than the current one carry the attribute, however many of them are listed. */
     otherCount: number;
 }
@@ -831,7 +909,8 @@ function RelatedNotesBadge({ attribute, currentNoteId }: { attribute: Attribute;
             setRelated({
                 notes: notes.map((note) => ({
                     notePath: note.getBestNotePathString(hoistedNoteId),
-                    icon: note.getIcon()
+                    icon: note.getIcon(),
+                    title: note.title
                 })),
                 // The server counts every match, the current note included, but only returns the first
                 // twenty of them — so past twenty matches, a current note that did not make the cut leaves
@@ -869,6 +948,20 @@ function RelatedNotesBadge({ attribute, currentNoteId }: { attribute: Attribute;
         );
     }
 
+    // On a phone the list is a bottom-sheet menu, as everything a thumb presses opens one: the
+    // dropdown is nested in what is a sliding pane of the note attributes modal there, whose
+    // scroll containers and slide transforms clip and misplace it. No tooltip — nothing hovers.
+    if (IS_MOBILE) {
+        return (
+            <Badge
+                className="related-notes-badge"
+                icon="bx bx-file"
+                text={t("attribute_detail.other_notes_count", { count: related.otherCount })}
+                onClick={(e) => showRelatedNotesMenu(e, related, attribute)}
+            />
+        );
+    }
+
     return (
         <BadgeWithDropdown
             className="related-notes-badge"
@@ -895,6 +988,41 @@ function RelatedNotesBadge({ attribute, currentNoteId }: { attribute: Attribute;
             >{t("attribute_detail.show_all_in_search")}</FormListItem>
         </BadgeWithDropdown>
     );
+}
+
+/** Whether the badge opens a menu rather than a dropdown, read once: it does not change under the app. */
+const IS_MOBILE = utils.isMobile();
+
+/**
+ * The related notes as the bottom-sheet menu the phone presents its menus in (the context menu
+ * service puts it there itself, behind a cover). One entry per note, and the search entry after
+ * them, exactly as the desktop dropdown lists them. Navigating needs no closing of its own:
+ * setNote closes the active dialog, the note attributes modal included, and searchNotes
+ * navigates to the search note the same way.
+ */
+export function showRelatedNotesMenu(e: MouseEvent, related: RelatedNotesResult, attribute: Attribute) {
+    const items: MenuItem<string>[] = [
+        // The title is HTML to the menu, which the note's title is not.
+        ...related.notes.map(({ notePath, icon, title }) => ({
+            title: utils.escapeHtml(title),
+            uiIcon: icon,
+            handler: () => void appContext.tabManager.getActiveContext()?.setNote(notePath)
+        })),
+        { kind: "separator" as const },
+        {
+            title: t("attribute_detail.show_all_in_search"),
+            uiIcon: "bx bx-search-alt",
+            handler: () => void appContext.triggerCommand("searchNotes", { searchString: formatAttributeForSearch(attribute) })
+        }
+    ];
+
+    // The coordinates go unused at the bottom of the screen, where the menu is placed on a phone.
+    void contextMenu.show({
+        x: e.pageX,
+        y: e.pageY,
+        items,
+        selectMenuItemHandler: () => {}
+    });
 }
 
 /** The query for every note carrying the attribute, mirroring the name-only search behind the count. */
@@ -958,7 +1086,9 @@ export function positionPopup(popup: HTMLElement, { x, y, anchor }: AttributeDet
         popup.style.right = toCssPos(detPosition.right);
         popup.style.top = `${y - parentOffset.top + 70}px`;
         popup.style.bottom = "";
-        popup.style.maxHeight = outerHeight + y > windowHeight - 50 ? `${windowHeight - y - 50}px` : "10000px";
+        // `>=` so that re-placing a popup already at the cap keeps the cap: with `>` it would
+        // un-cap, grow, and be capped again by the resize-driven re-placement, ping-ponging forever.
+        popup.style.maxHeight = outerHeight + y >= windowHeight - 50 ? `${windowHeight - y - 50}px` : "10000px";
     }
 }
 

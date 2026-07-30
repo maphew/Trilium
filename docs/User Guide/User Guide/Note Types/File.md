@@ -12,7 +12,11 @@ Since these files come from an external source, it is not possible to create a _
 
 ### PDFs
 
-See <a class="reference-link" href="File/PDFs.md">PDFs</a>.
+PDFs can be uploaded to Trilium and they will display a live preview with full support for various features such as table of contents, annotations, as well as remembering the last page read. For more information, see the dedicated <a class="reference-link" href="File/PDFs.md">PDFs</a> page.
+
+## Office documents
+
+Trilium offers previews for Office documents such as Word (`.docx`), Excel (`.xlsx`) and PowerPoint (`.pptx`). For more information, see the dedicated <a class="reference-link" href="File/Office%20documents.md">Office documents</a>.
 
 ### Images
 
@@ -26,7 +30,7 @@ Interaction:
 
 ### Videos
 
-See <a class="reference-link" href="File/Audio%20%26%20Video.md">Videos</a>.
+See <a class="reference-link" href="File/Audio%20%26%20Video.md">Audio &amp; Video</a>.
 
 ### Audio
 

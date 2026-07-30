@@ -258,6 +258,13 @@ describe("CK config - mention feed", () => {
         expect((noteItem.firstChild as HTMLElement).className).toBe("bx bx-folder");
         expect(noteItem.querySelector("b")?.textContent).toBe("Hello");
 
+        // The row is exactly the icon and a wrapped title: the stylesheet lays the two out against
+        // each other, which it cannot do if the title is spread into the button as loose nodes.
+        expect(noteItem.className).toBe("note-mention-suggestion");
+        expect(noteItem.childNodes).toHaveLength(2);
+        const title = noteItem.querySelector(".note-mention-suggestion-title");
+        expect(title?.textContent).toBe("Hello");
+
         // A "create note" suggestion with no icon/title gets the plus icon and an empty title.
         const createItem = feedConfig.itemRenderer({ action: "create-note" });
         expect((createItem.firstChild as HTMLElement).className).toBe("bx bx-plus");

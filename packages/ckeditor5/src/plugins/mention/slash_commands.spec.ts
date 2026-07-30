@@ -13,6 +13,8 @@ import {
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
+import TriliumSnippets from "../snippets/snippets.js";
+import type { SnippetDefinition } from "../snippets/snippetsconfig.js";
 import TriliumSlashCommands, {
     buildDefaultSlashCommands,
     matchSlashCommands,
@@ -228,6 +230,89 @@ describe("TriliumSlashCommands", () => {
         });
     });
 
+    describe("snippets", () => {
+        const SNIPPETS: SnippetDefinition[] = [
+            {
+                title: "Greeting",
+                data: "<p>Hello there</p>",
+                description: "A friendly hello",
+                iconClass: "tn-icon bx bx-note",
+                iconColorClass: "use-note-color"
+            },
+            { title: "Signature", data: () => "<p>Sincerely, spec</p>" }
+        ];
+
+        async function createSnippetEditor(definitions: SnippetDefinition[] = SNIPPETS) {
+            editor = await createTestEditor(
+                [ Essentials, Paragraph, Heading, BlockQuote, MentionEditing, TriliumMentionUI, TriliumSlashCommands, TriliumSnippets ],
+                { heading: { options: HEADING_OPTIONS }, toolbar: [], slashCommand: {}, snippets: { definitions } }
+            );
+            setModelData(editor.model, "<paragraph>[]</paragraph>");
+        }
+
+        it("lists each snippet after the built-ins, found by its title or the generic aliases", async () => {
+            await createSnippetEditor();
+
+            const ids = (await queryPalette("")).map((item) => (item as { id: string }).id);
+            expect(ids.slice(-2)).toEqual([ "/snippet-0", "/snippet-1" ]);
+
+            expect((await queryPalette("greet")).map((item) => (item as { text: string }).text)).toEqual([ "Greeting" ]);
+
+            const byAlias = (await queryPalette("snippet")).map((item) => (item as { text: string }).text);
+            expect(byAlias).toContain("Greeting");
+            expect(byAlias).toContain("Signature");
+        });
+
+        it("offers no snippet entries in an editor without the snippets plugin", async () => {
+            const ids = (await queryPalette("")).map((item) => (item as { id: string }).id);
+            expect(ids.some((id) => id.startsWith("/snippet-"))).toBe(false);
+        });
+
+        it("inserts the snippet content on commit, for string and callback data alike", async () => {
+            await createSnippetEditor();
+
+            type("/greeting");
+            await settle();
+            pressKey(keyCodes.enter);
+
+            let data = getModelData(editor.model, { withoutSelection: true });
+            expect(data).toContain("Hello there");
+            expect(data).not.toContain("/greeting");
+
+            // A fresh empty paragraph: right after the inserted content the slash would be
+            // mid-word, and a mid-word `/` deliberately never opens the palette.
+            setModelData(editor.model, "<paragraph>[]</paragraph>");
+            type("/signature");
+            await settle();
+            pressKey(keyCodes.enter);
+
+            data = getModelData(editor.model, { withoutSelection: true });
+            expect(data).toContain("Sincerely, spec");
+        });
+
+        it("reflects updateDefinitions() on the next query, since the catalog is rebuilt per keystroke", async () => {
+            await createSnippetEditor();
+
+            editor.plugins.get(TriliumSnippets).updateDefinitions([ { title: "Renamed", data: "<p>x</p>" } ]);
+
+            const titles = (await queryPalette("")).map((item) => (item as { text: string }).text);
+            expect(titles).toContain("Renamed");
+            expect(titles).not.toContain("Greeting");
+        });
+
+        it("hides snippets while the insertTemplate command is disabled, like any command-gated entry", async () => {
+            await createSnippetEditor();
+            const insertTemplate = editor.commands.get("insertTemplate");
+
+            if (!insertTemplate) {
+                throw new Error("the snippets plugin should register the insertTemplate command");
+            }
+
+            insertTemplate.forceDisabled("spec");
+            expect((await queryPalette("")).map((item) => (item as { text: string }).text)).not.toContain("Greeting");
+        });
+    });
+
     describe("execution", () => {
         it("runs a commandName entry and removes the trigger text", async () => {
             type("/quo");
@@ -302,6 +387,8 @@ describe("TriliumSlashCommands", () => {
             // Without this the base button styles hide the label, leaving a title-less row.
             expect(row.classList.contains("ck-button_with-text")).toBe(true);
             expect(row.querySelector(".ck-icon")?.innerHTML).toContain("<svg");
+            // Opts into core's `fill: currentColor` rule; without it the glyphs stay black on dark themes.
+            expect(row.querySelector(".ck-icon")?.classList.contains("ck-icon_inherit-color")).toBe(true);
             expect(row.querySelector(".ck-button__label")?.textContent).toBe("Block quote");
             expect(row.querySelector(".ck-slash-command-button__description")?.textContent).toBeTruthy();
         });
@@ -317,6 +404,35 @@ describe("TriliumSlashCommands", () => {
             const row = renderer({ id: "/bare", text: "Bare", definition } as never) as HTMLElement;
 
             expect(row.querySelector(".ck-slash-command-button__description")).toBeNull();
+        });
+
+        it("renders a font-icon chip from iconClass, with and without a colour class", () => {
+            const renderer = slashFeed().itemRenderer;
+
+            if (!renderer) {
+                throw new Error("the `/` feed should provide an itemRenderer");
+            }
+
+            const coloured: SlashCommandDefinition = {
+                id: "snippet-0", title: "Greeting", iconClass: "tn-icon bx bx-note", iconColorClass: "use-note-color"
+            };
+            const colourless: SlashCommandDefinition = { id: "snippet-1", title: "Plain", iconClass: "bx bx-cube" };
+
+            for (const definition of [ coloured, colourless ]) {
+                const row = renderer({ id: `/${definition.id}`, text: definition.title, definition } as never) as HTMLElement;
+                const chip = row.querySelector(".ck-icon");
+
+                expect(chip?.classList.contains("ck-slash-command-button__note-icon")).toBe(true);
+                expect(chip?.querySelector("svg")).toBeNull();
+            }
+
+            const colouredRow = renderer({ id: "/snippet-0", text: "Greeting", definition: coloured } as never) as HTMLElement;
+            // The glyph classes go on an inner span, not the chip: the chip's box is sized in em of
+            // its own font-size, so carrying the enlarged glyph font itself would inflate the row.
+            const glyph = colouredRow.querySelector(".ck-icon > span");
+            for (const cls of [ "tn-icon", "bx", "bx-note", "use-note-color" ]) {
+                expect(glyph?.classList.contains(cls)).toBe(true);
+            }
         });
     });
 

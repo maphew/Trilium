@@ -1553,6 +1553,23 @@ div.promoted-attribute-cell div.input-group {
     padding: 1px 6px;
 }
 
+/*
+ * The field of a label holding several values, which in this theme sits inside a card of its own. The
+ * card is the frame — as it already is for the group around a single value's box, whose input gives up
+ * its border and background here — so the field brings none, a second rounded edge just within the
+ * first reading as two boxes where there is one.
+ *
+ * The border is kept and made invisible rather than dropped, so the chips sit where they would in a
+ * theme that does frame the field.
+ */
+div.promoted-attribute-cell div.promoted-attribute-values {
+    min-height: auto;
+
+    > .tn-field {
+        border-color: transparent;
+    }
+}
+
 div.promoted-attribute-cell input {
     padding: 2px 8px;
     font-weight: 500;

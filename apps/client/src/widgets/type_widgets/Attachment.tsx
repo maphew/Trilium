@@ -268,7 +268,7 @@ function AttachmentInfo({ attachment, isFullDetail, ownerNote, noteContext, view
                 </div>
 
                 {scheduledForErasureSince && <DeletionAlert utcDateScheduledForErasureSince={scheduledForErasureSince} />}
-                {textContent && <TextPreview content={textContent} />}
+                {textContent && <TextPreview content={textContent} mime={attachment.mime} />}
                 {isZoomableImage ? (
                     <div key="image-viewer" ref={imageViewerWrapper} className="attachment-content-wrapper attachment-image-viewer">
                         <ImageViewer key={`${attachment.attachmentId}-${modified}`} src={imageSrc} alt={attachment.title} />

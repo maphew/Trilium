@@ -49,6 +49,10 @@ async function get<T>(url: string, componentId?: string, raw?: boolean) {
     return await call<T>("GET", url, componentId, { raw });
 }
 
+async function getWithSilentUnauthorized<T>(url: string, componentId?: string) {
+    return await call<T>("GET", url, componentId, { silentUnauthorized: true });
+}
+
 async function post<T>(url: string, data?: unknown, componentId?: string) {
     return await call<T>("POST", url, componentId, { data });
 }
@@ -145,6 +149,9 @@ interface CallOptions {
     data?: unknown;
     silentNotFound?: boolean;
     silentInternalServerError?: boolean;
+    /** Suppresses the generic error toast for a 401, for callers that present the failure themselves
+     *  (e.g. the OneNote import dialog showing an expired connection inline, with the server's reason). */
+    silentUnauthorized?: boolean;
     // If `true`, the value will be returned as a string instead of a JavaScript object if JSON, XMLDocument if XML, etc.
     raw?: boolean;
     /** Used internally to prevent infinite retry loops on CSRF refresh. */
@@ -226,6 +233,8 @@ function ajax(url: string, method: string, data: unknown, headers: Headers, opts
                     // report nothing
                 } else if (opts.silentInternalServerError && jqXhr.status === 500) {
                     // report nothing
+                } else if (opts.silentUnauthorized && jqXhr.status === 401) {
+                    // report nothing
                 } else {
                     try {
                         await reportError(method, url, jqXhr.status, jqXhr.responseText);
@@ -299,6 +308,7 @@ async function reportError(method: string, url: string, statusCode: number, resp
 export default {
     get,
     getWithSilentNotFound,
+    getWithSilentUnauthorized,
     post,
     postWithSilentInternalServerError,
     put,

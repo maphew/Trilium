@@ -16,7 +16,8 @@
   "packageManager": "pnpm@11.17.0",
   "devDependencies": {
     "@wxt-dev/auto-icons": "1.1.1",
-    "wxt": "0.20.27"
+    "jszip": "3.10.1",
+    "wxt": "0.21.1"
   },
   "dependencies": {
     "cash-dom": "8.1.5"

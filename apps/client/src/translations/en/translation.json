@@ -243,6 +243,8 @@
     "in-progress-with-total": "Imported {{progress}} notes out of {{total}}",
     "extracting": "Extracted {{progress}} items out of {{total}}",
     "processing": "Processed {{progress}} notes out of {{total}}",
+    "throttled": "The service is rate limiting requests; the import is waiting for access to resume…",
+    "throttled-with-total": "Imported {{progress}} notes out of {{total}} — the service is rate limiting requests, waiting for access to resume…",
     "successful": "Import finished successfully."
   },
   "file_upload": {
@@ -268,8 +270,11 @@
     "device_cancel": "Cancel sign-in",
     "connected_as": "Connected as {{name}}",
     "disconnect": "Disconnect",
+    "refresh": "Refresh",
     "load_failed": "Could not load your OneNote notebooks.",
+    "load_retry": "Try again",
     "no_notebooks": "No notebooks were found in this account.",
+    "no_notebooks_hint": "Only notebooks stored in this account's own OneDrive are listed. Notebooks shared with you, or kept on a SharePoint or Teams site, cannot be imported.",
     "select_sections": "Select the sections to import",
     "select_sections_hint": "OneNote doesn't include the original ordering in the import data, so sections and groups are sorted by creation date and may not match how they appear in OneNote.",
     "import": "Import selected",
@@ -542,6 +547,14 @@
     "date_time": "Date & Time",
     "time": "Time",
     "url": "URL",
+    "email": "Email",
+    "phone": "Phone",
+    "select_type": "Select",
+    "select_options": "Options",
+    "select_options_title": "The options the field offers, in this order.",
+    "select_options_placeholder": "Type an option and press Enter",
+    "add_option": "Add this option",
+    "remove_option": "Remove this option",
     "precision_title": "Max number of decimal places.",
     "precision": "Precision",
     "digits": "digits",
@@ -804,11 +817,17 @@
     "delete_confirm": "Delete the attribute \"{{name}}\"?",
     "add_definition": "Add a new definition",
     "no_target": "No target note",
-    "inverse_of": "inverse of {{name}}",
+    "no_value": "No value",
+    "change_target": "Change the target note",
+    "inverse_hint": "Inverse of \"{{name}}\": the target note is automatically given a \"{{name}}\" relation pointing back",
     "type_label": "Label",
     "type_relation": "Relation",
     "type_label_definition": "Label definition",
-    "type_relation_definition": "Relation definition"
+    "type_relation_definition": "Relation definition",
+    "system_hint": "System: this name has a built-in meaning",
+    "add_attribute": "Add attribute",
+    "creation_kind_label": "Label: press here, or type ~, to make it a relation",
+    "creation_kind_relation": "Relation: press here, or type #, to make it a label"
   },
   "attribute_names": {
     "system": "System",
@@ -1319,11 +1338,18 @@
     "unset-field-placeholder": "not set",
     "url_placeholder": "http://website...",
     "open_external_link": "Open external link",
+    "send_email": "Send an email to this address",
+    "call_phone": "Call this number",
+    "create_option": "Create \"{{- option}}\"",
     "unknown_label_type": "Unknown label type '{{type}}'",
     "unknown_attribute_type": "Unknown attribute type '{{type}}'",
     "add_new_attribute": "Add new attribute",
     "remove_this_attribute": "Remove this attribute",
-    "remove_color": "Remove the color label"
+    "remove_color": "Remove the color label",
+    "remove_value": "Remove this value",
+    "select_values_placeholder": "Select an option or create one",
+    "values_placeholder": "Type a value and press Enter",
+    "add_value": "Add this value"
   },
   "script_executor": {
     "query": "Query",
@@ -2829,6 +2855,9 @@
     "hidden_notes_other": "{{count}} hidden notes",
     "deleted_notes_one": "1 deleted note",
     "deleted_notes_other": "{{count}} deleted notes",
+    "deleted_attachments_one": "1 deleted attachment",
+    "deleted_attachments_other": "{{count}} deleted attachments",
+    "deleted_entities": "{{notes}}, {{attachments}}",
     "note_body": "Note content",
     "revisions": "Revisions",
     "others_notes_one": "{{count}} more note ({{size}})",
@@ -2853,10 +2882,12 @@
     "status_content_one": "1 note occupying {{size}} (of which {{attachmentsSize}} are note attachments)",
     "status_content_other": "{{count}} notes occupying {{size}} (of which {{attachmentsSize}} are note attachments)",
     "status_content_hint": "Space held by all notes (hidden ones included), their attachments and their revisions, with duplicated content counted once",
-    "status_deleted_one": "Deleted notes: {{size}} in {{count}} note",
-    "status_deleted_other": "Deleted notes: {{size}} in {{count}} notes",
-    "status_deleted_hint": "Space still held by deleted notes; erasing them reclaims it",
-    "menu_show_details": "Show details"
+    "status_deleted": "{{size}} in deleted notes and attachments",
+    "status_deleted_hint": "Space still held by deleted notes and by deleted attachments (whose note may still exist); erasing them reclaims it",
+    "menu_show_details": "Show details",
+    "menu_erase_deleted": "Erase deleted data",
+    "erase_deleted_message": "Deleted data has been erased.",
+    "revisions_limit_required": "Excess snapshots can only be erased once a maximum number of revision snapshots per note is set. Without a limit, no snapshot counts as excess. Do you want to set the limit now?"
   },
   "note_language": {
     "not_set": "No language set",
@@ -2969,7 +3000,9 @@
     "add-column-placeholder": "Enter column name...",
     "edit-note-title": "Click to edit note title",
     "edit-column-title": "Click to edit column title",
-    "column-already-exists": "This column already exists on the board."
+    "column-already-exists": "This column already exists on the board.",
+    "column-definition-save-error": "The columns were saved on the board, but could not be saved to the status attribute.",
+    "status-alias": "Status"
   },
   "dashboard_view": {
     "refresh-widget": "Refresh",
@@ -3029,7 +3062,9 @@
   },
   "content_renderer": {
     "open_externally": "Open externally",
-    "mermaid_diagram_error": "Mermaid diagram failed to render: {{error}}"
+    "mermaid_diagram_error": "Mermaid diagram failed to render: {{error}}",
+    "office_rendering": "Rendering preview…",
+    "office_render_error": "This document could not be rendered as a preview. You can still download it or open it externally."
   },
   "modal": {
     "close": "Close",
@@ -3086,7 +3121,8 @@
     "set-custom-color": "Set custom note color"
   },
   "popup-editor": {
-    "maximize": "Switch to full editor"
+    "maximize": "Switch to full editor",
+    "attachment_title": "Attachment: {{title}}"
   },
   "server": {
     "unknown_http_error_title": "Communication error with the server",

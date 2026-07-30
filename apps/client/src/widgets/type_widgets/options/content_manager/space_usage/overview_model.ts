@@ -9,6 +9,11 @@ export interface OverviewCell {
     noteId?: string;
     /** Note IDs from the root (inclusive) down to the note, as the cell's actions need it. */
     notePath?: string[];
+    /**
+     * Which crowd a bucket cell stands for. Named here rather than read back from the cell's class,
+     * so a bucket's own actions — erasing, for the deleted one — key off what it is.
+     */
+    bucket?: "other" | "hidden" | "revisions" | "deleted";
 }
 
 interface OverviewModelOptions {
@@ -131,7 +136,7 @@ export function buildOverviewModel(
             className: "treemap-cell-other",
             icon: "bx bx-dots-horizontal-rounded",
             tooltip: otherNotesLabel,
-            data: {}
+            data: { bucket: "other" }
         },
         {
             id: "/hidden-notes",
@@ -139,7 +144,7 @@ export function buildOverviewModel(
             className: "treemap-cell-hidden",
             icon: "bx bx-hide",
             tooltip: hiddenNotesLabel,
-            data: {}
+            data: { bucket: "hidden" }
         },
         {
             // The deduplicated tier from the content totals, never a sum of the per-note figures:
@@ -150,7 +155,7 @@ export function buildOverviewModel(
             className: "treemap-cell-revisions",
             icon: "bx bx-history",
             tooltip: revisionsLabel,
-            data: {}
+            data: { bucket: "revisions" }
         },
         {
             id: "/deleted-notes",
@@ -158,7 +163,7 @@ export function buildOverviewModel(
             className: "treemap-cell-deleted",
             icon: "bx bx-trash-alt",
             tooltip: deletedNotesLabel,
-            data: {}
+            data: { bucket: "deleted" }
         }
     );
 

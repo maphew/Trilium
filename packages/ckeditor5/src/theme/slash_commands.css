@@ -44,6 +44,25 @@
             width: 100%;
             height: 100%;
         }
+
+        /* A snippet note's font icon: the same chip, with a glyph instead of an svg. */
+        &.ck-slash-command-button__note-icon {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+
+            /*
+             * The glyph is sized on the inner span, never on the chip: core's `.ck.ck-icon`
+             * width/height use the em-relative `--ck-icon-size`, so a bigger font on the chip
+             * itself would inflate the chip box (and the whole row) along with the glyph. On the
+             * child, the calc resolves against the chip's untouched font-size, which is also what
+             * `width: var(--ck-icon-size)` resolved against — so 0.85 means 85% of the content box.
+             */
+            & > span {
+                font-size: calc(var(--ck-icon-size) * 0.85);
+                line-height: 1;
+            }
+        }
     }
 
     & > .ck-slash-command-button__text-part {

@@ -1,34 +1,51 @@
 import { DefinitionObject } from "@triliumnext/commons";
+import { render } from "preact";
+import { useState } from "preact/hooks";
 import { act } from "preact/test-utils";
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// The relation cell renders a jQuery-autocomplete-backed widget that does not work under
-// happy-dom; stub it down to a plain input so the surrounding cell structure stays assertable.
+// A relation's target is picked in an Algolia autocomplete bound to jQuery, which is not loaded
+// here; a plain input in its place keeps the cell around it assertable.
 vi.mock("./react/NoteAutocomplete", () => ({
     default: ({ id, noteId }: { id?: string; noteId?: string }) =>
         <input id={id} className="note-autocomplete-stub" value={noteId} />
 }));
 
-// `vi.mock` factories are hoisted above these declarations, so the mocks themselves must be
-// created via `vi.hoisted` to exist by the time the factories run.
-const { serverGetMock, serverPutMock, serverRemoveMock, logErrorMock } = vi.hoisted(() => ({
-    // The text-label autocomplete effect calls out to the server for suggestion values.
-    serverGetMock: vi.fn(async () => [] as string[]),
-    serverPutMock: vi.fn(async () => ({ attributeId: "newAttributeId" })),
-    serverRemoveMock: vi.fn(async () => undefined),
-    logErrorMock: vi.fn()
+// The chip fields have specs of their own; here they hand over their props, which is where the
+// grid's behaviour lives — what the field is given, and what committing through it does.
+const multiInput = vi.hoisted(() => ({ current: null as Record<string, unknown> | null }));
+vi.mock("./attribute_widgets/multi_value_input", () => ({
+    default: (props: Record<string, unknown>) => {
+        multiInput.current = props;
+        return null;
+    },
+    BOOLEAN_OPTIONS: [ "true", "false" ]
+}));
+const relationInput = vi.hoisted(() => ({ current: null as Record<string, unknown> | null }));
+vi.mock("./attribute_widgets/relation_values_input", () => ({
+    default: (props: Record<string, unknown>) => {
+        relationInput.current = props;
+        return null;
+    },
+    RelationValueChips: () => null
 }));
 
-vi.mock("../services/server", () => ({
-    default: {
-        get: (...args: unknown[]) => serverGetMock(...(args as [])),
-        put: (...args: unknown[]) => serverPutMock(...(args as [])),
-        remove: (...args: unknown[]) => serverRemoveMock(...(args as []))
-    }
+// The grid follows the note the tab shows; the tests hand it one directly. The context object is
+// held stable: the grid rebuilds its cells when the context changes, told apart by identity.
+const shownNote = vi.hoisted(() => ({ current: null as FNote | null }));
+const noteContext = vi.hoisted(() => ({ viewScope: { viewMode: "default" } }));
+vi.mock("./react/hooks", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("./react/hooks")>()),
+    useNoteContext: () => ({
+        note: shownNote.current,
+        componentId: "cid",
+        noteContext
+    })
 }));
 
 // Keep the global setup.ts websocket mock (subscribeToMessages et al.) and only add logError,
 // which the unknown-attribute-type branch reports through.
+const logErrorMock = vi.hoisted(() => vi.fn());
 vi.mock("../services/ws", async (importOriginal) => {
     const original = await importOriginal<{ default: object }>();
     return {
@@ -39,86 +56,278 @@ vi.mock("../services/ws", async (importOriginal) => {
 
 import $ from "jquery";
 
+import type Component from "../components/component";
 import FAttribute from "../entities/fattribute";
-import FNote from "../entities/fnote";
+import type FNote from "../entities/fnote";
 import froca from "../services/froca";
+import type LoadResults from "../services/load_results";
 import noteAttributeCache from "../services/note_attribute_cache";
+import server from "../services/server";
 import { randomString } from "../services/utils";
 import { buildNote } from "../test/easy-froca";
 import { renderInto } from "../test/render";
-import { PromotedAttributesContent, usePromotedAttributeData } from "./PromotedAttributes";
+import { ParentComponent } from "./react/react_utils";
+import PromotedAttributes, { buildPromotedCells, PromotedAttributesContent, usePromotedAttributeData } from "./PromotedAttributes";
 
-interface CellLike {
-    uniqueId: string;
-    definitionAttr: FAttribute;
-    definition: DefinitionObject;
-    valueAttr: { attributeId: string; type: string; name: string; value: string; noteId?: string };
-    valueName: string;
-}
+// A text field offers the values other notes hold under its name through the Algolia plugin, which
+// is not loaded here; a stub that chains like jQuery does keeps the field's setup on its feet.
+type PluggedIn = { autocomplete(...args: unknown[]): PluggedIn };
+($.fn as unknown as PluggedIn).autocomplete = function (this: PluggedIn) { return this; };
 
-/** Builds a definition attribute + matching value cell, mirroring what `usePromotedAttributeData` produces. */
-function buildCell(note: FNote, {
-    name = "myLabel",
-    type = "label",
-    value = "",
-    definition = {},
-    attributeId = "valueAttrId",
-    uniqueId = "cell-1"
-}: {
-    name?: string;
-    type?: "label" | "relation";
-    value?: string;
-    definition?: DefinitionObject;
-    attributeId?: string;
-    uniqueId?: string;
-} = {}): CellLike {
-    const definitionAttr = new FAttribute(froca, {
-        noteId: note.noteId,
-        attributeId: `${uniqueId}-def`,
-        type: "label",
-        name: `${type}:${name}`,
-        value: "promoted",
-        position: 10,
-        isInheritable: false
+// The fields reach the server through these three; every suite stands them down, and the ones
+// asserting on what was written reach for these same handles.
+const serverGetMock = vi.fn(async () => [] as string[]);
+const serverPutMock = vi.fn(async () => ({ attributeId: "newAttributeId" }));
+const serverRemoveMock = vi.fn(async () => undefined);
+server.get = serverGetMock as unknown as typeof server.get;
+server.put = serverPutMock as unknown as typeof server.put;
+server.remove = serverRemoveMock as unknown as typeof server.remove;
+
+describe("buildPromotedCells", () => {
+    it("gathers a label allowing several values into one field, leaving a single-valued one its own", () => {
+        const note = buildNote({
+            title: "Task",
+            "#label:tags": "promoted,multi,text",
+            "#label:status": "promoted,single,text",
+            "#tags": "alpha",
+            "#status": "open"
+        });
+        hold(note, "label", "tags", "beta");
+
+        const cells = buildPromotedCells(note);
+
+        // One field per definition, in the order the definitions are declared.
+        expect(cells.map((cell) => cell.valueName)).toEqual([ "tags", "status" ]);
+        // The set as it will be shown: chips in the one field, not a field apiece.
+        expect(cells[0].values).toEqual([ "alpha", "beta" ]);
+        // A single value is still edited through the very attribute holding it, so that typing into
+        // the field updates that attribute rather than rewriting everything under the name.
+        expect(cells[1].values).toBeUndefined();
+        expect(cells[1].valueAttr.value).toBe("open");
     });
-    // `definition` drives every render branch, so inject it directly rather than round-tripping
-    // through the definition-string parser.
-    definitionAttr.getDefinition = () => ({ isPromoted: true, ...definition });
 
-    return {
-        uniqueId,
-        definitionAttr,
-        definition: { isPromoted: true, ...definition },
-        valueAttr: { attributeId, type, name, value, noteId: note.noteId },
-        valueName: name
-    };
-}
+    it("shows the values in the order the note holds them, whichever order they were loaded in", () => {
+        const note = buildNote({ title: "Task", "#label:tags": "promoted,multi,text" });
+        hold(note, "label", "tags", "second", 20);
+        hold(note, "label", "tags", "first", 10);
 
-async function renderCells(note: FNote, cells: CellLike[], setCells = vi.fn()) {
-    let container: HTMLElement | undefined;
-    await act(async () => {
-        container = renderInto(
-            <PromotedAttributesContent
-                note={note}
-                componentId="test-component"
-                cells={cells as never}
-                setCells={setCells}
-            />);
-        // Let the text-autocomplete server fetch settle.
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        expect(buildPromotedCells(note)[0].values).toEqual([ "first", "second" ]);
     });
-    if (!container) throw new Error("render produced no container");
-    return container;
-}
+
+    it("offers an empty field where the note holds nothing under the name", () => {
+        const note = buildNote({ title: "Task", "#label:tags": "promoted,multi,text" });
+
+        const [ cell ] = buildPromotedCells(note);
+
+        // A blank value among the chips would be a chip standing for nothing, whose remove button
+        // would remove nothing; the field simply opens with none.
+        expect(cell.values).toEqual([]);
+        expect(cell.valueAttr).toMatchObject({ attributeId: "", type: "label", name: "tags" });
+    });
+
+    it("leaves a value stored empty out of the chips", () => {
+        // A definition retyped from single to multi can leave one behind, as can an attribute created
+        // and never filled in.
+        const note = buildNote({ title: "Task", "#label:tags": "promoted,multi,text", "#tags": "" });
+        hold(note, "label", "tags", "alpha");
+
+        expect(buildPromotedCells(note)[0].values).toEqual([ "alpha" ]);
+    });
+
+    it("gathers a relation's targets into one field, as it gathers a label's values", () => {
+        const note = buildNote({
+            title: "Task",
+            "#relation:related": "promoted,multi",
+            "~related": "aaaaaaaaaaaa"
+        });
+        hold(note, "relation", "related", "bbbbbbbbbbbb");
+
+        const cells = buildPromotedCells(note);
+
+        expect(cells).toHaveLength(1);
+        // The chips carry the targets' noteIds; naming the notes they point at is the field's affair.
+        expect(cells[0].values).toEqual([ "aaaaaaaaaaaa", "bbbbbbbbbbbb" ]);
+        expect(cells[0].valueAttr).toMatchObject({ attributeId: "", type: "relation", name: "related" });
+    });
+
+    it("gives a single-valued definition its empty field too, and keeps it to the one value", () => {
+        const empty = buildNote({ title: "Task", "#label:status": "promoted,single,text" });
+        expect(buildPromotedCells(empty)).toHaveLength(1);
+        expect(buildPromotedCells(empty)[0].valueAttr).toMatchObject({ attributeId: "", value: "" });
+
+        // Holding two under a single-valued name — a definition retyped from multi — shows the first.
+        const twice = buildNote({ title: "Task", "#label:status": "promoted,single,text", "#status": "open" });
+        hold(twice, "label", "status", "closed");
+        const cells = buildPromotedCells(twice);
+        expect(cells).toHaveLength(1);
+        expect(cells[0].valueAttr.value).toBe("open");
+    });
+});
 
 describe("PromotedAttributesContent", () => {
-    let note: FNote;
+    let container: HTMLElement;
 
-    beforeAll(() => {
-        // The text-label suggestion effect initialises the jQuery autocomplete plugin, which is
-        // not loaded in the unit-test environment. Stub it so the effect can run to completion.
-        ($.fn as unknown as { autocomplete: unknown }).autocomplete = function () { return this; };
+    beforeEach(() => {
+        vi.clearAllMocks();
+        multiInput.current = null;
+        relationInput.current = null;
+        serverPutMock.mockResolvedValue({ attributeId: "newAttributeId" });
+        // The text fields ask for the values other notes hold under the name, to suggest them.
+        serverGetMock.mockResolvedValue([]);
+        container = document.createElement("div");
+        document.body.appendChild(container);
     });
+
+    afterEach(() => {
+        render(null, container);
+        container.remove();
+    });
+
+    /** The grid over cells of its own, holding them as the widget's hook does. */
+    function Host({ note }: { note: FNote }) {
+        const [ cells, setCells ] = useState<ReturnType<typeof buildPromotedCells> | undefined>(() => buildPromotedCells(note));
+        return <PromotedAttributesContent note={note} componentId="cid" cells={cells} setCells={setCells} />;
+    }
+
+    function mount(note: FNote) {
+        act(() => render(<Host note={note} />, container));
+    }
+
+    it("gives a single-valued label its own field, edited through the attribute holding the value", () => {
+        const note = buildNote({
+            title: "Task",
+            "#label:status": "promoted,single,text",
+            "#status": "open"
+        });
+        mount(note);
+
+        const input = container.querySelector<HTMLInputElement>(".promoted-attribute-input");
+        expect(input?.value).toBe("open");
+        expect(input?.dataset.attributeName).toBe("status");
+    });
+
+    it("writes a multi label's set back by name, and patches the field it shows in place", async () => {
+        const note = buildNote({ title: "Task", "#label:tags": "promoted,multi,text", "#tags": "alpha" });
+        mount(note);
+
+        expect(multiInput.current).toMatchObject({ labelType: "text", values: [ "alpha" ] });
+
+        await act(async () => (multiInput.current?.onCommit as (values: string[]) => Promise<void>)([ "alpha", "beta" ]));
+
+        // Only what the set gained is written — the attribute already there is left as it stands.
+        expect(serverPutMock).toHaveBeenCalledOnce();
+        expect(serverPutMock).toHaveBeenCalledWith(
+            `notes/${note.noteId}/attribute`,
+            { attributeId: undefined, type: "label", name: "tags", value: "beta" },
+            "cid"
+        );
+        // The grid ignores reloads of its own making, so the field is patched by hand.
+        expect(multiInput.current?.values).toEqual([ "alpha", "beta" ]);
+    });
+
+    it("adds a select option to the definition itself, the field offering it from then on", async () => {
+        const note = buildNote({ title: "Task", "#label:status": "promoted,multi,select,options=Todo;Done" });
+        mount(note);
+
+        expect(multiInput.current?.options).toEqual([ "Todo", "Done" ]);
+
+        await act(async () => (multiInput.current?.onCreateOption as (option: string) => Promise<void>)("Blocked"));
+
+        // Written back to the very attribute declaring the field, options and the rest of it intact.
+        expect(serverPutMock).toHaveBeenCalledWith(
+            `notes/${note.noteId}/attribute`,
+            expect.objectContaining({ name: "label:status", value: expect.stringContaining("Blocked") }),
+            "cid"
+        );
+        expect(multiInput.current?.options).toEqual([ "Todo", "Done", "Blocked" ]);
+    });
+
+    it("writes a multi relation's targets by name, as it writes a label's values", async () => {
+        const target = buildNote({ title: "Alpha" });
+        const other = buildNote({ title: "Beta" });
+        const note = buildNote({ title: "Task", "#relation:crew": "promoted,multi", "~crew": target.noteId });
+        mount(note);
+
+        expect(relationInput.current?.values).toEqual([ target.noteId ]);
+
+        await act(async () => (relationInput.current?.onCommit as (values: string[]) => Promise<void>)([ target.noteId, other.noteId ]));
+
+        expect(serverPutMock).toHaveBeenCalledWith(
+            `notes/${note.noteId}/attribute`,
+            { attributeId: undefined, type: "relation", name: "crew", value: other.noteId },
+            "cid"
+        );
+        expect(relationInput.current?.values).toEqual([ target.noteId, other.noteId ]);
+    });
+});
+
+describe("PromotedAttributes", () => {
+    let container: HTMLElement;
+    /** What the widget subscribed to, for handing it a reload as the real component tree would. */
+    let handlers: Map<string, (data: unknown) => void>;
+
+    beforeEach(() => {
+        vi.clearAllMocks();
+        multiInput.current = null;
+        serverGetMock.mockResolvedValue([]);
+        handlers = new Map();
+        container = document.createElement("div");
+        document.body.appendChild(container);
+    });
+
+    afterEach(() => {
+        render(null, container);
+        container.remove();
+    });
+
+    function mount(note: FNote) {
+        shownNote.current = note;
+        const parent = {
+            componentId: "cid",
+            registerHandler: (name: string, callback: (data: unknown) => void) => handlers.set(name, callback),
+            removeHandler: () => {}
+        } as unknown as Component;
+        act(() => render(
+            <ParentComponent.Provider value={parent}>
+                <PromotedAttributes />
+            </ParentComponent.Provider>,
+            container
+        ));
+    }
+
+    it("builds the fields the note's definitions ask for, and rebuilds on a change made elsewhere", () => {
+        const note = buildNote({ title: "Task", "#label:tags": "promoted,multi,text", "#tags": "alpha" });
+        mount(note);
+
+        expect(container.querySelectorAll(".promoted-attribute-cell")).toHaveLength(1);
+        expect(multiInput.current?.values).toEqual([ "alpha" ]);
+
+        // Another client fills a value in: the reload reaches the grid, which rereads the note.
+        hold(note, "label", "tags", "beta");
+        const loadResults = {
+            getAttributeRows: () => [ {
+                noteId: note.noteId, type: "label", name: "tags", value: "beta", isInheritable: false
+            } ]
+        } as unknown as LoadResults;
+        act(() => handlers.get("entitiesReloaded")?.({ loadResults }));
+
+        expect(multiInput.current?.values).toEqual([ "alpha", "beta" ]);
+    });
+
+    it("keeps the grid empty for a table view, whose cells already edit the same fields", () => {
+        const note = buildNote({
+            title: "Grid", "#viewType": "table",
+            "#label:tags": "promoted,multi,text", "#tags": "alpha"
+        });
+        mount(note);
+
+        expect(container.querySelectorAll(".promoted-attribute-cell")).toHaveLength(0);
+    });
+});
+
+
+describe("PromotedAttributesContent rendering", () => {
+    let note: FNote;
 
     beforeEach(() => {
         vi.clearAllMocks();
@@ -163,16 +372,16 @@ describe("PromotedAttributesContent", () => {
 
     it("maps each label type onto the matching input type", async () => {
         const cases: Array<[DefinitionObject["labelType"], string]> = [
-            ["text", "text"],
-            ["number", "number"],
-            ["boolean", "checkbox"],
-            ["date", "date"],
-            ["datetime", "datetime-local"],
-            ["time", "time"],
-            ["url", "url"]
+            [ "text", "text" ],
+            [ "number", "number" ],
+            [ "boolean", "checkbox" ],
+            [ "date", "date" ],
+            [ "datetime", "datetime-local" ],
+            [ "time", "time" ],
+            [ "url", "url" ]
         ];
 
-        for (const [labelType, expectedInputType] of cases) {
+        for (const [ labelType, expectedInputType ] of cases) {
             const container = await renderCells(note, [
                 buildCell(note, { definition: { labelType }, uniqueId: `cell-${labelType}` })
             ]);
@@ -282,87 +491,6 @@ describe("PromotedAttributesContent", () => {
         expect(container.querySelector(".promoted-attribute-input")).toBeNull();
     });
 
-    it("shows the multiplicity add/remove buttons only for multi-valued attributes", async () => {
-        const single = await renderCells(note, [
-            buildCell(note, { definition: { multiplicity: "single" } })
-        ]);
-        expect(single.querySelector(".multiplicity")).toBeNull();
-
-        const multi = await renderCells(note, [
-            buildCell(note, { definition: { multiplicity: "multi" }, uniqueId: "multi" })
-        ]);
-        expect(multi.querySelectorAll(".multiplicity .tn-tool-button")).toHaveLength(2);
-    });
-
-    it("inserts a new empty cell after the current one when adding", async () => {
-        const setCells = vi.fn();
-        const cell = buildCell(note, { definition: { multiplicity: "multi" }, value: "existing" });
-        const container = await renderCells(note, [cell], setCells);
-
-        const addButton = container.querySelector<HTMLElement>(".multiplicity .bx-plus");
-        await act(async () => { addButton?.click(); });
-
-        expect(setCells).toHaveBeenCalledOnce();
-        const inserted = setCells.mock.calls[0][0] as CellLike[];
-        expect(inserted).toHaveLength(2);
-        // Same definition and name, but a fresh identity and a blank value.
-        expect(inserted[1].valueName).toBe(cell.valueName);
-        expect(inserted[1].valueAttr.value).toBe("");
-        expect(inserted[1].valueAttr.attributeId).toBe("");
-        expect(inserted[1].uniqueId).not.toBe(cell.uniqueId);
-    });
-
-    it("deletes the attribute server-side and leaves a blank cell when removing the last value", async () => {
-        const setCells = vi.fn();
-        const cell = buildCell(note, {
-            definition: { multiplicity: "multi" },
-            value: "gone",
-            attributeId: "existingAttrId"
-        });
-        const container = await renderCells(note, [cell], setCells);
-
-        const removeButton = container.querySelector<HTMLElement>(".multiplicity .bx-trash");
-        await act(async () => { removeButton?.click(); });
-
-        expect(serverRemoveMock).toHaveBeenCalledWith(
-            `notes/${note.noteId}/attributes/existingAttrId`, "test-component");
-        // It was the only cell of its type, so an empty replacement keeps the field visible.
-        const remaining = setCells.mock.calls[0][0] as CellLike[];
-        expect(remaining).toHaveLength(1);
-        expect(remaining[0].valueAttr.value).toBe("");
-        expect(remaining[0].valueAttr.attributeId).toBe("");
-    });
-
-    it("removes the cell outright when other values of the same attribute remain", async () => {
-        const setCells = vi.fn();
-        const first = buildCell(note, {
-            definition: { multiplicity: "multi" }, value: "one", attributeId: "attr1", uniqueId: "one"
-        });
-        const second = buildCell(note, {
-            definition: { multiplicity: "multi" }, value: "two", attributeId: "attr2", uniqueId: "two"
-        });
-        const container = await renderCells(note, [first, second], setCells);
-
-        const removeButtons = container.querySelectorAll<HTMLElement>(".multiplicity .bx-trash");
-        await act(async () => { removeButtons[0]?.click(); });
-
-        const remaining = setCells.mock.calls[0][0] as CellLike[];
-        expect(remaining).toHaveLength(1);
-        expect(remaining[0].valueAttr.value).toBe("two");
-    });
-
-    it("does not call the server when removing a cell that was never persisted", async () => {
-        const setCells = vi.fn();
-        const container = await renderCells(note, [
-            buildCell(note, { definition: { multiplicity: "multi" }, attributeId: "" })
-        ], setCells);
-
-        await act(async () => { container.querySelector<HTMLElement>(".multiplicity .bx-trash")?.click(); });
-
-        expect(serverRemoveMock).not.toHaveBeenCalled();
-        expect(setCells).toHaveBeenCalledOnce();
-    });
-
     it("persists a changed value on blur and writes back the returned attribute id", async () => {
         const setCells = vi.fn();
         const container = await renderCells(note, [
@@ -387,7 +515,7 @@ describe("PromotedAttributesContent", () => {
 
         // The state updater merges the server-assigned id into the matching cell.
         const updater = setCells.mock.calls[0][0] as (prev: CellLike[]) => CellLike[];
-        const updated = updater([buildCell(note, { name: "myLabel", uniqueId: "cell-1" })]);
+        const updated = updater([ buildCell(note, { name: "myLabel", uniqueId: "cell-1" }) ]);
         expect(updated[0].valueAttr.attributeId).toBe("newAttributeId");
         expect(updated[0].valueAttr.value).toBe("after");
     });
@@ -426,38 +554,16 @@ describe("PromotedAttributesContent", () => {
     });
 
     it("fetches suggestion values only for text attributes", async () => {
-        await renderCells(note, [buildCell(note, { name: "tags", definition: { labelType: "text" } })]);
+        await renderCells(note, [ buildCell(note, { name: "tags", definition: { labelType: "text" } }) ]);
         expect(serverGetMock).toHaveBeenCalledWith("attribute-values/tags");
 
         serverGetMock.mockClear();
-        await renderCells(note, [buildCell(note, { definition: { labelType: "number" }, uniqueId: "num" })]);
+        await renderCells(note, [ buildCell(note, { definition: { labelType: "number" }, uniqueId: "num" }) ]);
         expect(serverGetMock).not.toHaveBeenCalled();
     });
 });
 
 describe("usePromotedAttributeData", () => {
-    /** Runs the hook against a real note and returns the cells it derived. */
-    async function collectCells(note: FNote | null | undefined, noteContext: unknown = defaultNoteContext()) {
-        let cells: CellLike[] | undefined;
-
-        function Probe() {
-            const [ derived ] = usePromotedAttributeData(note, "test-component", noteContext as never);
-            cells = derived as CellLike[] | undefined;
-            return null;
-        }
-
-        await act(async () => {
-            renderInto(<Probe />);
-            await new Promise((resolve) => setTimeout(resolve, 0));
-        });
-
-        return cells;
-    }
-
-    function defaultNoteContext() {
-        return { viewScope: { viewMode: "default" } };
-    }
-
     beforeEach(() => {
         vi.clearAllMocks();
     });
@@ -501,15 +607,18 @@ describe("usePromotedAttributeData", () => {
     });
 
     it("keeps every value for multi multiplicity but only the first for single", async () => {
+        // A multi definition is one field holding the whole set as chips, so the values land in
+        // `values` rather than in a cell apiece.
         const multiNote = buildNote({ title: "Multi", "#label:tag": "promoted,multi,text", "#tag": "first" });
-        addLabel(multiNote, "tag", "second");
+        hold(multiNote, "label", "tag", "second");
         const multiCells = await collectCells(multiNote);
-        expect(multiCells?.map((cell) => cell.valueAttr.value)).toEqual(["first", "second"]);
+        expect(multiCells).toHaveLength(1);
+        expect(multiCells?.[0].values).toEqual([ "first", "second" ]);
 
         const singleNote = buildNote({ title: "Single", "#label:tag": "promoted,single,text", "#tag": "first" });
-        addLabel(singleNote, "tag", "second");
+        hold(singleNote, "label", "tag", "second");
         const singleCells = await collectCells(singleNote);
-        expect(singleCells?.map((cell) => cell.valueAttr.value)).toEqual(["first"]);
+        expect(singleCells?.map((cell) => cell.valueAttr.value)).toEqual([ "first" ]);
     });
 
     it("builds relation cells from relation definitions", async () => {
@@ -538,19 +647,101 @@ describe("usePromotedAttributeData", () => {
     });
 });
 
-/** Adds an extra label to an existing note (buildNote's literal API allows one value per key). */
-function addLabel(note: FNote, name: string, value: string) {
+interface CellLike {
+    uniqueId: string;
+    definitionAttr: FAttribute;
+    definition: DefinitionObject;
+    valueAttr: { attributeId: string; type: string; name: string; value: string; noteId?: string };
+    valueName: string;
+    values?: string[];
+}
+
+/** Builds a definition attribute + matching value cell, mirroring what `usePromotedAttributeData` produces. */
+function buildCell(note: FNote, {
+    name = "myLabel",
+    type = "label",
+    value = "",
+    definition = {},
+    attributeId = "valueAttrId",
+    uniqueId = "cell-1"
+}: {
+    name?: string;
+    type?: "label" | "relation";
+    value?: string;
+    definition?: DefinitionObject;
+    attributeId?: string;
+    uniqueId?: string;
+} = {}): CellLike {
+    const definitionAttr = new FAttribute(froca, {
+        noteId: note.noteId,
+        attributeId: `${uniqueId}-def`,
+        type: "label",
+        name: `${type}:${name}`,
+        value: "promoted",
+        position: 10,
+        isInheritable: false
+    });
+    // `definition` drives every render branch, so inject it directly rather than round-tripping
+    // through the definition-string parser.
+    definitionAttr.getDefinition = () => ({ isPromoted: true, ...definition });
+
+    return {
+        uniqueId,
+        definitionAttr,
+        definition: { isPromoted: true, ...definition },
+        valueAttr: { attributeId, type, name, value, noteId: note.noteId },
+        valueName: name
+    };
+}
+
+async function renderCells(note: FNote, cells: CellLike[], setCells = vi.fn()) {
+    let container: HTMLElement | undefined;
+    await act(async () => {
+        container = renderInto(
+            <PromotedAttributesContent
+                note={note}
+                componentId="test-component"
+                cells={cells as never}
+                setCells={setCells}
+            />);
+        // Let the text-autocomplete server fetch settle.
+        await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+    if (!container) throw new Error("render produced no container");
+    return container;
+}
+
+/** Runs the hook against a real note and returns the cells it derived. */
+async function collectCells(note: FNote | null | undefined, context: unknown = { viewScope: { viewMode: "default" } }) {
+    let cells: CellLike[] | undefined;
+
+    function Probe() {
+        const [ derived ] = usePromotedAttributeData(note, "test-component", context as never);
+        cells = derived as CellLike[] | undefined;
+        return null;
+    }
+
+    await act(async () => {
+        renderInto(<Probe />);
+        await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    return cells;
+}
+/** Gives the note another attribute under a name it already carries, which one literal cannot. */
+function hold(note: FNote, type: "label" | "relation", name: string, value: string, position = 100) {
     const attributeId = randomString(12);
     const attribute = new FAttribute(froca, {
         noteId: note.noteId,
         attributeId,
-        type: "label",
+        type,
         name,
         value,
-        position: note.attributes.length,
+        position,
         isInheritable: false
     });
+
     froca.attributes[attributeId] = attribute;
     note.attributes.push(attributeId);
-    (noteAttributeCache.attributes[note.noteId] ??= []).push(attribute);
+    noteAttributeCache.attributes[note.noteId]?.push(attribute);
 }

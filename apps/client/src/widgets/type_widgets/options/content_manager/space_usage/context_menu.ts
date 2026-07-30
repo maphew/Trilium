@@ -5,9 +5,13 @@ import contextMenu, {
     type MenuItem
 } from "../../../../../menus/context_menu";
 import branches from "../../../../../services/branches";
+import dialog from "../../../../../services/dialog";
 import froca from "../../../../../services/froca";
 import { t } from "../../../../../services/i18n";
 import { downloadFileNote } from "../../../../../services/open";
+import options from "../../../../../services/options";
+import server from "../../../../../services/server";
+import toast from "../../../../../services/toast";
 
 const ROOT_NOTE_ID = "root";
 
@@ -132,11 +136,107 @@ export async function openSpaceUsageContextMenu(
 }
 
 /**
+ * The menu on the deleted-notes cell, which stands for space the tree has already let go of but the
+ * database still holds until the retention window runs out. Its one action is releasing that space
+ * now — the same erasure the Recent Changes dialog and the options page run, and confirmation-free
+ * as it is there.
+ *
+ * Only the wording is this tool's own: the erasure takes deleted attachments with it, whose owning
+ * notes may well be alive, and here the cell is measured in bytes rather than listed as notes — so
+ * it says "deleted data" where Recent Changes, which lists exactly the notes it will erase, says
+ * "deleted notes".
+ */
+export async function openDeletedNotesContextMenu(
+    event: ContextMenuEvent,
+    onContentChanged: ContentChangedHandler
+) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    await contextMenu.show({
+        x: event.pageX,
+        y: event.pageY,
+        items: [ {
+            title: t("space_usage.menu_erase_deleted"),
+            uiIcon: "bx bx-trash destructive-action-icon",
+            handler: () => {
+                void server.post("notes/erase-deleted-notes-now").then(() => {
+                    toast.showMessage(t("space_usage.erase_deleted_message"));
+                    // The cell just lost everything it stood for, so the section has to measure
+                    // again — the views take a reading when asked, never on their own.
+                    onContentChanged();
+                });
+            }
+        } ],
+        selectMenuItemHandler: () => {}
+    });
+}
+
+/**
+ * The menu on the revisions cell, offering the same trimming as the options page: dropping the
+ * snapshots each note keeps beyond its limit.
+ *
+ * Without a limit set, nothing is excess and the action would do nothing at all — so it says why and
+ * shows the setting instead, by taking the settings dialog it is already inside to the card that
+ * holds it, the way the deleted-notes view offers its own retention settings.
+ */
+export async function openRevisionsContextMenu(
+    event: ContextMenuEvent,
+    onContentChanged: ContentChangedHandler
+) {
+    event.preventDefault();
+    event.stopPropagation();
+
+    await contextMenu.show({
+        x: event.pageX,
+        y: event.pageY,
+        items: [ {
+            title: t("revisions_snapshot_limit.erase_excess_revision_snapshots"),
+            uiIcon: "bx bx-trash destructive-action-icon",
+            handler: () => {
+                // A negative limit is the one that keeps everything, so there is nothing to trim
+                // down to; 0 is a limit like any other, and erases every snapshot there is. An
+                // unreadable option is treated as no limit rather than as the harshest one.
+                if ((options.getInt("revisionSnapshotNumberLimit") ?? -1) < 0) {
+                    // Offered rather than done: the card lives on another settings page, and being
+                    // taken off the map is only worth it for someone who means to set the limit.
+                    void dialog.confirm(t("space_usage.revisions_limit_required"))
+                        .then(async (confirmed) => {
+                            if (confirmed) {
+                                await appContext.triggerCommand("showOptions", { section: "_optionsOther" });
+                                await revealRevisionLimitField();
+                            }
+                        });
+                    return;
+                }
+
+                void server.post("revisions/erase-all-excess-revisions").then(() => {
+                    toast.showMessage(t("revisions_snapshot_limit.erase_excess_revision_snapshots_prompt"));
+                    onContentChanged();
+                });
+            }
+        } ],
+        selectMenuItemHandler: () => {}
+    });
+}
+
+/**
  * The default action on a Space Usage note: the quick-edit popup, which stacks above the settings
  * dialog instead of replacing what the user was looking at.
  */
 export function quickEditNote(notePath: string[]) {
     void appContext.triggerCommand("openInPopup", { noteIdOrPath: notePath.join("/") });
+}
+
+/**
+ * The same popup, showing one of the note's attachments instead of the note itself — what the
+ * composition ring's attachment segments stand for.
+ */
+export function quickEditAttachment(notePath: string[], attachmentId: string) {
+    void appContext.triggerCommand("openInPopup", {
+        noteIdOrPath: notePath.join("/"),
+        viewScope: { viewMode: "attachments", attachmentId }
+    });
 }
 
 /** Opens the note in a new tab, leaving the settings page in place. */
@@ -150,4 +250,29 @@ export function openNoteInNewTab(noteId: string) {
 /** Note types whose content is a saveable file — the same ones the ribbon offers Download for. */
 function isDownloadable(note: FNote) {
     return note.type === "file" || note.type === "image";
+}
+
+/**
+ * Brings the snapshot limit field into view with the cursor in it, once the settings page holding it
+ * has rendered: someone who accepted being taken there should land on the field to fill in, not on a
+ * page to search through.
+ *
+ * The field is found by its name, which the settings row keeps as given (its `id` carries a random
+ * suffix, being unique per mount). Awaited in short steps because the page renders after the command
+ * that asks for it, and given up on quietly — a page that never came is not worth an error.
+ */
+async function revealRevisionLimitField() {
+    for (let attempt = 0; attempt < 20; attempt++) {
+        const field = document.querySelector<HTMLElement>('[name="revision-snapshot-number-limit"]');
+
+        if (field) {
+            // Focused first, without the jump it would cause on its own, so the smooth scroll is
+            // the only movement the eye has to follow.
+            field.focus({ preventScroll: true });
+            field.scrollIntoView({ block: "center", behavior: "smooth" });
+            return;
+        }
+
+        await new Promise((resolve) => setTimeout(resolve, 50));
+    }
 }

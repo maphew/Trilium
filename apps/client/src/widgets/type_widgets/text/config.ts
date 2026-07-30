@@ -235,6 +235,7 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
                     itemRenderer: (item) => {
                         const suggestion = item as Suggestion;
                         const itemElement = document.createElement("button");
+                        itemElement.className = "note-mention-suggestion";
 
                         const iconElement = document.createElement("span");
                         // Choose appropriate icon based on action
@@ -244,10 +245,13 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
                         }
                         iconElement.className = iconClass;
 
-                        itemElement.append(iconElement, document.createTextNode(" "));
+                        // The title keeps a wrapper of its own rather than being spread into the
+                        // button: the row lays the icon out against the title as a whole (see the
+                        // `note-mention-suggestion` rule), which it cannot do over loose text nodes.
                         const titleContainer = document.createElement("span");
+                        titleContainer.className = "note-mention-suggestion-title";
                         titleContainer.innerHTML = suggestion.highlightedNotePathTitle ?? "";
-                        itemElement.append(...titleContainer.childNodes, document.createTextNode(" "));
+                        itemElement.append(iconElement, titleContainer);
 
                         return itemElement;
                     },
