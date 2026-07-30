@@ -41,9 +41,14 @@ describe("Database API", () => {
         expect(sizeAfter).toBeGreaterThan(0);
         expect(sizeAfter).toBeLessThanOrEqual(sizeBefore);
 
+        // Announced on the way in as well as on the way out: a rebuild the process is killed partway
+        // through leaves only the first line behind, and that is the point of it.
+        expect(logged.mock.calls[0][0]).toBe(
+            `Compacting the database (${utils.formatSize(sizeBefore)}). This may take several minutes.`);
+
         // Recorded in the sizes a reader thinks in, not in bytes, and answering for how long it
         // held the database.
-        expect(logged).toHaveBeenCalledWith(
+        expect(logged).toHaveBeenLastCalledWith(
             expect.stringMatching(new RegExp(
                 `^Compacted the database from ${utils.formatSize(sizeBefore)}`
                 + ` to ${utils.formatSize(sizeAfter)} in \\d+ ms\\.$`)));

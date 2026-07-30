@@ -30,6 +30,12 @@ function vacuumDatabase() {
     // answering for is how long the whole thing held the database.
     const startedAt = Date.now();
     const sizeBefore = databaseBytes();
+
+    // Announced before the rebuild starts, not only once it ends: this holds the process for minutes
+    // on a large database, and if it is killed or the machine goes down in the meantime, this line
+    // is the only record that one was ever under way.
+    getLog().info(`Compacting the database (${utils.formatSize(sizeBefore)}). This may take several minutes.`);
+
     sql.execute("VACUUM");
     const sizeAfter = databaseBytes();
 
