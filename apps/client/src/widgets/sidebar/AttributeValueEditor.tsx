@@ -1,7 +1,8 @@
 import "./AttributeValueEditor.css";
 
 import type { LabelType } from "@triliumnext/commons";
-import { useEffect, useMemo, useRef } from "preact/hooks";
+import clsx from "clsx";
+import { useEffect, useLayoutEffect, useMemo, useRef } from "preact/hooks";
 
 import type FNote from "../../entities/fnote";
 import type { Attribute } from "../../services/attribute_parser";
@@ -9,6 +10,7 @@ import { getBuiltinLabelSelectOptions, getBuiltinLabelValueType, isBuiltinAttrib
 import { t } from "../../services/i18n";
 import LabelValueInput, { getTypedInputForLabel } from "../attribute_widgets/label_value_input";
 import { AUTOCOMPLETE_DROPDOWN_SELECTOR } from "../react/FormAutocomplete";
+import { useGrowsUpwards } from "../react/grows_upwards";
 import NoteAutocomplete from "../react/NoteAutocomplete";
 
 interface AttributeValueEditorProps {
@@ -35,7 +37,29 @@ interface AttributeValueEditorProps {
  */
 export default function AttributeValueEditor({ note, attribute, onEdit, onCommit, onRevert }: AttributeValueEditorProps) {
     const containerRef = useRef<HTMLSpanElement>(null);
+    // The editor stands over its row rather than in it (see the stylesheet), so near the foot of the
+    // pane it is anchored by its foot instead, what it outgrows the row by rising over what has been
+    // read already — the same turn the table's cell editor takes, through the same measure.
+    const growsUpwards = useGrowsUpwards(containerRef);
     const isRelation = attribute.type === "relation";
+
+    // The overlay is held off the row's leading edge so the name stays readable (see the stylesheet)
+    // — but only as far as the name actually reaches, told to the stylesheet here: a short name would
+    // otherwise sit apart from its editor, with an odd gap where the cap had room to spare. Measured
+    // once, before the paint that would show the gap: nothing here edits the name.
+    useLayoutEffect(() => {
+        const editor = containerRef.current;
+        const row = editor?.parentElement;
+        const name = row?.querySelector<HTMLElement>(".attribute-name");
+        if (!editor || !row || !name) return;
+
+        const rowRect = row.getBoundingClientRect();
+        const nameRect = name.getBoundingClientRect();
+        const nameEnd = getComputedStyle(row).direction === "rtl"
+            ? rowRect.right - nameRect.left
+            : nameRect.right - rowRect.left;
+        editor.style.setProperty("--value-editor-name-end", `${Math.ceil(nameEnd) + ROW_GAP}px`);
+    }, []);
     // What a label is typed as; a relation's field follows from being one.
     const typed = useMemo(
         () => isRelation ? undefined : resolveValueField(note, attribute.name),
@@ -94,7 +118,7 @@ export default function AttributeValueEditor({ note, attribute, onEdit, onCommit
     return (
         <span
             ref={containerRef}
-            className="attribute-value-editor"
+            className={clsx("attribute-value-editor", growsUpwards && "grows-upwards")}
             // Keep the press from reaching the row, which would open the popup over the edit.
             onClick={(e) => e.stopPropagation()}
             onMouseDown={(e) => {
@@ -155,6 +179,9 @@ const TARGET_NOTE_OPTS = { allowCreatingNotes: true, hideAllButtons: true };
 
 /** The input types whose content `select()` applies to; the pickers select nothing and mind nothing. */
 const SELECT_ALL_TYPES = new Set([ "text", "number", "url", "email", "tel" ]);
+
+/** The breath between the name and the overlay's edge: the gap the row lays its items out with. */
+const ROW_GAP = 6;
 
 /**
  * What kind of field the label's value is edited through: for a system label the same closed sets and

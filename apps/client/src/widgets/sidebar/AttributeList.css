@@ -28,6 +28,15 @@
     background-color: var(--hover-item-background-color);
 }
 
+/* While its value is edited, the row is what the editor stands over (see AttributeValueEditor.css):
+   it anchors the overlay, lets it spill past the one line the row keeps to, and comes forward so the
+   editor is drawn over the rows below rather than under them. */
+.attribute-list-panel .attribute-row.editing {
+    position: relative;
+    overflow: visible;
+    z-index: 10;
+}
+
 /*
  * The kind of the attribute, as the icon of what it is (a label or a relation). It is the only thing
  * saying so, the row carrying neither the `#`/`~` prefix nor the type as a word.

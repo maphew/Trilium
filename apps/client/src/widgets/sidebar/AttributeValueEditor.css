@@ -1,6 +1,30 @@
+/*
+ * The editor opens over its row rather than in it — the turn the table's cell editor takes (see
+ * columns.css): a row is one line of a hand-wide pane, which a field with room to type in outgrows
+ * at once. Laid out within, the field got only what was left after the name; standing over the row
+ * it takes all of it past the name — which keeps saying what is being edited, out from under the
+ * surface — though never more than the row's leading fifth is spared for one: past the cap a long
+ * name is cut at the overlay's edge rather than the field squeezed for its sake.
+ *
+ * The row it belongs to therefore stops clipping while it is edited (see AttributeList.css), and
+ * comes forward so the editor is drawn over the rows below rather than under them.
+ */
 .attribute-list-panel .attribute-value-editor {
-    flex: 1;
-    min-width: 0;
+    position: absolute;
+    /* A hair past the row block-wise and at its trailing edge, so the surface reads as standing
+       over the row rather than cut to its shape; held off the name's own reach (measured by the
+       editor, which hands it over in the variable), the cap catching where there is none to hold. */
+    inset-block-start: -2px;
+    inset-inline-start: min(var(--value-editor-name-end, 20%), 20%);
+    inset-inline-end: -2px;
+
+    /* The surface of its own it stands on: opaque, because a field's background is a translucent
+       film meant for the page behind it, through which the row would otherwise be read along. */
+    padding: 2px;
+    background-color: var(--main-background-color);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, var(--dropdown-shadow-opacity, 0.2));
+
     display: flex;
     align-items: center;
     gap: 4px;
@@ -40,4 +64,12 @@
         flex: 1;
         min-width: 0;
     }
+}
+
+/* Anchored by its foot instead, so that what it outgrows the row by rises over what has been read
+   already rather than pressing past the foot of the pane. Applied from the editor, which is what
+   can tell the room is short (see useGrowsUpwards). */
+.attribute-list-panel .attribute-value-editor.grows-upwards {
+    inset-block-start: auto;
+    inset-block-end: -2px;
 }

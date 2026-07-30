@@ -12,10 +12,10 @@ import { applyLinkScheme, asLabelValues, formatLabelDate, LabelValueChips } from
 import LabelValueInput from "../../attribute_widgets/label_value_input.jsx";
 import MultiValueInput from "../../attribute_widgets/multi_value_input.jsx";
 import RelationValuesInput, { RelationValueChips } from "../../attribute_widgets/relation_values_input.jsx";
+import { useGrowsUpwards } from "../../react/grows_upwards.js";
 import Icon from "../../react/Icon.jsx";
 import NoteAutocomplete from "../../react/NoteAutocomplete.jsx";
 import { renderReactWidget } from "../../react/react_utils.jsx";
-import { useGrowsUpwards } from "./grows_upwards.js";
 import type { TableData } from "./rows.js";
 
 type ColumnType = LabelType | "relation";
