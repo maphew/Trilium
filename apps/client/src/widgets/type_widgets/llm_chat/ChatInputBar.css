@@ -251,24 +251,61 @@ body[dir=rtl] .llm-chat-input-form .llm-chat-model-select.select-button.dropdown
     color: var(--muted-text-color);
 }
 
-/* Note context toggle */
+/*
+ * Note context toggle.
+ *
+ * Both states are spelled out in colour rather than in opacity. Dimming the whole
+ * button was what made the label hard to read, and the "on" state was inheriting
+ * `.btn:not(:disabled):not(.disabled).active` from style.css — a left-pane toggle
+ * rule that paints `--active-item-text-color` on `--active-item-background-color`,
+ * i.e. #aaa on #777 in the dark theme, under 2:1. These selectors carry `.btn` (as
+ * the element does) purely to out-specify it, `:active` included so the pressed
+ * state doesn't flash grey either.
+ */
 .llm-chat-note-context.tn-low-profile {
     max-width: 150px;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    opacity: 0.5;
-    background: none;
-    border: none;
+    /* Matches the model selector beside it rather than `tn-low-profile`'s 8px. */
+    border-radius: 6px;
+    padding: 0.15em 0.5em;
+    font-size: 0.85rem;
+    line-height: 1.6;
 }
 
-.llm-chat-note-context.tn-low-profile:hover:not(:disabled) {
-    opacity: 0.8;
-    background: var(--hover-item-background-color, var(--accented-background-color));
+.llm-chat-note-context.tn-low-profile .tn-icon {
+    margin-inline-end: 0.3em;
 }
 
-.llm-chat-note-context.tn-low-profile.active {
+/* Off: a quiet outline, muted but legible — the affordance is the border, not a wash. */
+.llm-chat-input-form .llm-chat-note-context.btn.tn-low-profile {
+    border: 1px solid var(--main-border-color);
+    background: transparent;
+    color: var(--muted-text-color);
     opacity: 1;
+}
+
+/* On: the note is actually in the prompt, so the label goes full-contrast and the
+   accent moves onto the border and the icon. */
+.llm-chat-input-form .llm-chat-note-context.btn.tn-low-profile.active,
+.llm-chat-input-form .llm-chat-note-context.btn.tn-low-profile:active {
+    border-color: var(--link-color);
+    background: var(--hover-item-background-color, var(--accented-background-color));
+    color: var(--main-text-color);
+}
+
+.llm-chat-input-form .llm-chat-note-context.btn.tn-low-profile.active .tn-icon {
+    color: var(--link-color);
+}
+
+.llm-chat-input-form .llm-chat-note-context.btn.tn-low-profile:hover:not(:disabled) {
+    background: var(--hover-item-background-color, var(--accented-background-color));
+    color: var(--main-text-color);
+}
+
+.llm-chat-input-form .llm-chat-note-context.btn.tn-low-profile:disabled {
+    opacity: 0.5;
 }
 
 /* Context window indicator */
