@@ -8,11 +8,12 @@
     overflow: hidden; /* Contain children within available space */
 }
 
-.sidebar-chat-container .llm-chat-input-form {
+/* The composer island carries its own padding; the gap to the sidebar edges is a margin. */
+.sidebar-chat-container .llm-chat-input-form,
+.sidebar-chat-container .llm-chat-no-provider {
     flex-shrink: 0;
-    padding: 8px;
+    margin: 0 8px 8px;
     font-size: 0.9em;
-    min-height: 40px;
 }
 
 /* Scroll-container essentials (flex/min-height/overflow) come from .chat-message-list. */

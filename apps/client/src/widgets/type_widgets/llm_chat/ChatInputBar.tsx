@@ -214,7 +214,10 @@ export default function ChatInputBar({
     const percentage = Math.min((chat.lastPromptTokens / contextWindow) * 100, 100);
     const isWarning = percentage > 75;
     const isCritical = percentage > 90;
-    const pieColor = isCritical ? "var(--danger-color, #d9534f)" : isWarning ? "var(--warning-color, #f0ad4e)" : "var(--main-selection-color, #007bff)";
+    // `--main-selection-color` is not defined by any Trilium theme, so the nominal
+    // colour here was always the hardcoded fallback; `--link-color` is the real
+    // theme-aware accent.
+    const pieColor = isCritical ? "var(--danger-color, #d9534f)" : isWarning ? "var(--warning-color, #f0ad4e)" : "var(--link-color, #007bff)";
 
     // Show setup prompt if no provider is configured
     if (!chat.isCheckingProvider && !chat.hasProvider) {
@@ -362,11 +365,15 @@ export default function ChatInputBar({
                 />
                 <div className="llm-chat-options">
                     <div className="llm-chat-model-selector">
-                        <span className="bx bx-chip" />
                         <Dropdown
-                            text={currentModel
-                                ? <>{currentModel.name}</>
-                                : <span className="llm-chat-model-placeholder">{t("llm_chat.no_model_selected")}</span>}
+                            // The chip icon lives inside the toggle so it shares the pill's
+                            // hover surface instead of floating loose next to it.
+                            text={<>
+                                <span className="bx bx-chip llm-chat-model-select-icon" />
+                                {currentModel
+                                    ? <span className="llm-chat-model-select-name">{currentModel.name}</span>
+                                    : <span className="llm-chat-model-select-name llm-chat-model-placeholder">{t("llm_chat.no_model_selected")}</span>}
+                            </>}
                             disabled={chat.isStreaming}
                             buttonClassName="llm-chat-model-select"
                             className="llm-chat-model-dropdown"
