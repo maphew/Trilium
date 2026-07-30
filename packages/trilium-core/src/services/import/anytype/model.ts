@@ -217,8 +217,8 @@ export interface FileObjectInfo {
     source: string;
 }
 
-/** The Trilium label types a supported Anytype property maps to (email/phone reuse `url`). */
-export type PropertyLabelType = "text" | "number" | "url" | "date" | "datetime" | "boolean";
+/** The Trilium label types a supported Anytype property maps to. */
+export type PropertyLabelType = "text" | "number" | "url" | "email" | "phone" | "date" | "datetime" | "boolean";
 
 /** Whether a property holds a single value or several (a multi-select). */
 export type Multiplicity = "single" | "multi";

@@ -1730,6 +1730,25 @@ body:not(.mobile) #launcher-pane.horizontal .dropdown-submenu > .dropdown-menu {
     white-space: normal !important;
 }
 
+/*
+ * A note suggestion is an icon beside a note path. Laid out as a row so the two are centred against
+ * each other: left inline, the icon aligns on the text baseline, and `vertical-align: middle` only
+ * gets it as far as the x-height — about a pixel below where the capitals it sits beside read as
+ * centred. The icon carries its own font, so no baseline rule can line the two up in general.
+ */
+.ck.ck-mentions .ck-button.note-mention-suggestion {
+    display: flex;
+    align-items: center;
+    gap: 0.4em;
+    text-align: start;
+}
+
+/* Its own box, so the row centres the glyph itself rather than the line box around it. */
+.ck.ck-mentions .ck-button.note-mention-suggestion > .bx {
+    line-height: 1;
+    flex-shrink: 0;
+}
+
 /* Slash commands */
 
 .ck.ck-slash-command-button {

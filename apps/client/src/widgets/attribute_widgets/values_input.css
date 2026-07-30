@@ -1,0 +1,15 @@
+/*
+ * The picker at the end of a field of colours. A colour is chosen rather than typed, so it asks for
+ * no room to type in: it sits at its own size beside the chips instead of taking the line a text box
+ * would, and keeps a frame of its own — a swatch with nothing around it would read as another chip.
+ */
+.values-input > input[type="color"].form-control {
+    flex: 0 0 auto;
+    /* Cleared as well as set: the field gives a box room to type in, which a picker would otherwise
+       hold on to — it is the wider of the two that decides. */
+    min-width: 0;
+    width: 1.75em;
+    height: 1.75em;
+    padding: 2px;
+    border: 1px solid var(--main-border-color);
+}

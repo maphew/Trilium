@@ -61,13 +61,16 @@ button.ck.ck-button:is(.ck-button-action, .ck-button-save, .ck-button-cancel, .c
     outline: 2px solid var(--input-focus-outline-color);
 }
 
-/* Button's icon */
+/* Button's icon. The text spacing is a margin rather than padding on purpose: transforms rotate the
+   padding-box, so with one-sided padding a spinning icon (`bx-spin`, e.g. a refresh button while
+   loading) orbits an off-center axis instead of rotating in place. Margin stays outside the
+   transformed box, keeping the spacing identical while the glyph spins about its own center. */
 button.btn.btn-primary span.tn-icon,
 button.btn.btn-secondary span.tn-icon,
 button.btn.btn-sm span.tn-icon,
 button.btn.btn-success span.tn-icon {
     color: var(--cmd-button-icon-color);
-    padding-inline-end: 0.35em;
+    margin-inline-end: 0.35em;
     font-size: 1.2em;
 }
 
@@ -376,11 +379,15 @@ input::selection,
 /* Input groups */
 
 .input-group {
+    /* Named rather than written into the padding alone, so that a field drawing an indicator of its
+       own can place it against the group's edge — which is this much further out than the field's. */
+    --input-group-padding-inline-end: 8px;
+
     outline: 3px solid transparent;
     outline-offset: 6px;
     background: var(--input-background-color);
     border-radius: 6px;
-    padding-inline-end: 8px;
+    padding-inline-end: var(--input-group-padding-inline-end);
     color: var(--quick-search-color);
     flex-wrap: nowrap;
 }

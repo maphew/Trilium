@@ -50,6 +50,18 @@ const MAX_GATEWAY_TIMEOUT_RETRIES = 5;
 // "don't send until" timestamp that ALL requests wait on, so the whole pool backs off together.
 let throttledUntilMs = 0;
 
+// Notified whenever the shared throttle gate is extended — i.e. Graph is actively throttling and every
+// request is now waiting. The importer uses this to flip its progress toast to a "waiting out rate
+// limiting" message: during a long throttle window no page completes, so the progress count sits still
+// for up to an hour and is otherwise indistinguishable from a hang (users have killed multi-hour
+// imports — losing all fetched work — over exactly that).
+let throttleListener: ((waitMs: number) => void) | null = null;
+
+/** Registers (or clears, with null) the single throttle-gate listener. */
+export function setThrottleListener(listener: ((waitMs: number) => void) | null): void {
+    throttleListener = listener;
+}
+
 // Aggregate throttle statistics for the current import, surfaced in the import report (they answer
 // "why did this take hours?"). `requestCount` counts throttled (429/503) responses; `waitMs`
 // accumulates net extensions of the shared gate — wall-clock time spent waiting out throttles —
@@ -126,6 +138,7 @@ async function graphFetch(getAccessToken: AccessTokenProvider, url: string): Pro
         throttledUntilMs = Math.max(throttledUntilMs, Date.now() + waitMs);
         throttleAttempt++;
         getLog().info(`OneNote import: Graph throttled (HTTP ${response.status}) on ${sanitizeGraphUrl(url)}; retry ${throttleAttempt} after ${waitMs}ms (${Math.round((giveUpAtMs - Date.now()) / 60_000)}min of wait budget left)`);
+        throttleListener?.(waitMs);
     }
 }
 
@@ -489,5 +502,6 @@ export default {
     getResource,
     getThrottleStats,
     resetThrottleStats,
+    setThrottleListener,
     isEncryptedSectionError
 };

@@ -24,10 +24,17 @@
 <p>The following features are preserved by Trilium during the import process:</p>
 <ul>
   <li>Basic formatting (bold, italic, underline, strikethrough, subscript, super
-    script, inline code, font sizes, headings, colors, highlights).
+    script, font sizes, headings, colors, highlights).
     <ul>
       <li>Black-colored text is intentionally stripped to allow it to work in dark
         themes.</li>
+    </ul>
+  </li>
+  <li>Inline code is automatically detected and formatted. Paragraphs that use
+    the Code style are also converted to&nbsp;<a class="reference-link" href="#root/pOsGYCXsbNQG/KSZ04uQ2D1St/iPIMuisry3hd/UYuUB1ZekNQU/_help_QxEyIjRBizuC">Code blocks</a>.
+    <ul>
+      <li>Unfortunately the indentation of the code might be lost because the information
+        is simply not present in the data from the Microsoft API.</li>
     </ul>
   </li>
   <li><a class="reference-link" href="#root/_help_S6Xx8QIWTV66">Lists</a>&nbsp;with
@@ -151,7 +158,7 @@
   <li>The order of the sections (and section groups) is not available, the sections
     are ordered by creation date instead.</li>
   <li>Revision history.</li>
-  <li>Paragraph indentation.</li>
+  <li>Paragraph indentation, as well as code block indentation.</li>
   <li>Section colors.</li>
   <li>Drawings inside titles, the title might appear incomplete or “Untitled”.</li>
 </ul>

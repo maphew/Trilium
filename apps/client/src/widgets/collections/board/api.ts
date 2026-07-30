@@ -1,4 +1,4 @@
-import { BulkAction } from "@triliumnext/commons";
+import { BulkAction, promotedAttributeDefinitionParser } from "@triliumnext/commons";
 
 import appContext from "../../../components/app_context";
 import FNote from "../../../entities/fnote";
@@ -9,7 +9,9 @@ import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import note_create from "../../../services/note_create";
 import server from "../../../services/server";
+import toast from "../../../services/toast";
 import { BoardColumnData, BoardViewData } from ".";
+import { type BoardStatusDefinition, canStoreColumnsInDefinition } from "./columns";
 import { ColumnMap } from "./data";
 
 export default class BoardApi {
@@ -24,7 +26,8 @@ export default class BoardApi {
         statusAttribute: string,
         private viewConfig: BoardViewData,
         private saveConfig: (newConfig: BoardViewData) => void,
-        private setBranchIdToEdit: (branchId: string | undefined) => void
+        private setBranchIdToEdit: (branchId: string | undefined) => void,
+        private statusDefinition?: BoardStatusDefinition
     ) {
         this.isRelationMode = statusAttribute.startsWith("~");
 
@@ -122,7 +125,8 @@ export default class BoardApi {
     }
 
     /**
-     * Persists a new column list.
+     * Persists a new column list, into the definition the board groups by as well as into the view
+     * config — every column change funnels through here, so the two cannot drift apart.
      *
      * The config is always replaced with a fresh object instead of being edited in place: the board
      * re-renders off the identity of the config it was handed, so an in-place edit would be written
@@ -131,6 +135,48 @@ export default class BoardApi {
     private storeColumns(columns: BoardColumnData[]) {
         this.viewConfig = { ...this.viewConfig, columns };
         this.saveConfig(this.viewConfig);
+        // Not awaited — every caller is the tail of a user gesture the board has already rendered —
+        // so the failure is caught here rather than left to reject unhandled. The columns are still
+        // in the view config, so the board is not wrong, only out of step with the definition.
+        this.storeColumnsInDefinition(columns.map(({ value }) => value))
+            .catch((e) => {
+                console.error("Failed to store the board columns in the attribute definition:", e);
+                toast.showError(t("board_view.column-definition-save-error"));
+            });
+    }
+
+    /**
+     * Writes the columns into the board's own definition, so that the same list is what the promoted
+     * field offers, what the table view's dropdown offers, and what the board shows.
+     *
+     * Where the board has no definition of its own the write creates one — a copy of the template's,
+     * which every board shares and which therefore cannot hold one board's columns. The copy keeps
+     * what the original said, so a board whose Status field was promoted keeps a promoted field and
+     * one that never had a field does not gain one.
+     */
+    private async storeColumnsInDefinition(options: string[]) {
+        if (this.isRelationMode || !canStoreColumnsInDefinition(this.statusDefinition)) {
+            return;
+        }
+
+        const definition = {
+            ...this.statusDefinition?.definition,
+            labelType: "select" as const,
+            selectOptions: options
+        };
+
+        await server.put(`notes/${this.parentNote.noteId}/attribute`, {
+            // Only an attribute the board owns can be updated; a definition reached through the
+            // template is copied instead, which the route does when given no id.
+            attributeId: this.statusDefinition?.isOwned
+                ? this.statusDefinition.attribute.attributeId
+                : undefined,
+            type: "label",
+            name: `label:${this.statusAttribute}`,
+            value: promotedAttributeDefinitionParser.serialize(definition, "label"),
+            // A definition that is not inheritable would not reach the notes on the board at all.
+            isInheritable: this.statusDefinition?.attribute.isInheritable ?? true
+        });
     }
 
     async insertRowAtPosition(

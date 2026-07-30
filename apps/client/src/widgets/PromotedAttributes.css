@@ -58,44 +58,10 @@ body.experimental-feature-new-layout .promoted-attributes-container {
     appearance: auto;
 }
 
-.promoted-attribute-cell input[type="color"] {
-    width: 24px;
-    height: 24px;
-    margin-top: 2px;
-    appearance: none;
-    padding: 0;
-    border: 0;
-    outline: none;
-    border-radius: 25% !important;
-}
-
-.promoted-attribute-cell input[type="color"]::-webkit-color-swatch-wrapper {
-    padding: 0;
-}
-
-.promoted-attribute-cell input[type="color"]::-webkit-color-swatch {
-    border: none;
-    border-radius: 25%;
-}
+/* The colour swatch, and how it shows an unset label, are dressed with the field itself — see
+   label_value_input.css — so that a promoted colour and one edited anywhere else look alike. */
 
 .promoted-attribute-label-number input {
     text-align: right;
     width: 120px;
-}
-
-.promoted-attribute-label-color input[type="hidden"][value=""] + input[type="color"] {
-    position: relative;
-    opacity: 0.5;
-}
-
-.promoted-attribute-label-color input[type="hidden"][value=""] + input[type="color"]:after {
-    content: "";
-    position: absolute;
-    top: 10px;
-    inset-inline-start: 0px;
-    inset-inline-end: 0;
-    height: 2px;
-    background: rgba(0, 0, 0, 0.5);
-    transform: rotate(45deg);
-    pointer-events: none;
 }

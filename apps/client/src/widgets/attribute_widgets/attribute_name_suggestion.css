@@ -28,9 +28,9 @@
 }
 
 /*
- * The badge is sized relative to the row it sits in, and the popup's dropdown carries a larger font
- * than the mention panel does — so the same rule leaves the marker noticeably heavier here. Nudged
- * down so that the two lists read alike.
+ * The badge is sized relative to the row it sits in, and the popup's dropdown still carries a
+ * slightly larger font than the mention panel does — so the same rule leaves the marker heavier
+ * here. Nudged down so that the two lists read alike.
  */
 .form-autocomplete-dropdown .attr-name-suggestion .ext-badge {
     font-size: 0.65em;

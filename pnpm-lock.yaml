@@ -302,8 +302,8 @@ importers:
         specifier: 1.51.4
         version: 1.51.4(preact-render-to-string@6.7.0)
       gridstack:
-        specifier: 12.6.0
-        version: 12.6.0
+        specifier: 13.0.2
+        version: 13.0.2
       htmldiff-js:
         specifier: 1.0.5
         version: 1.0.5
@@ -530,8 +530,8 @@ importers:
         specifier: 4.23.1
         version: 4.23.1
       yargs:
-        specifier: 18.0.0
-        version: 18.0.0
+        specifier: 18.1.0
+        version: 18.1.0
     devDependencies:
       '@types/better-sqlite3':
         specifier: 7.6.13
@@ -608,8 +608,8 @@ importers:
   apps/server:
     dependencies:
       '@ai-sdk/anthropic':
-        specifier: 4.0.20
-        version: 4.0.20(zod@4.4.3)
+        specifier: 4.0.21
+        version: 4.0.21(zod@4.4.3)
       '@ai-sdk/google':
         specifier: 4.0.24
         version: 4.0.24(zod@4.4.3)
@@ -719,6 +719,9 @@ importers:
       cls-hooked:
         specifier: 4.2.2
         version: 4.2.2
+      color:
+        specifier: 5.0.3
+        version: 5.0.3
       compression:
         specifier: 1.8.1
         version: 1.8.1(supports-color@10.2.2)
@@ -738,8 +741,8 @@ importers:
         specifier: 3.2.1
         version: 3.2.1(express@5.2.1(supports-color@10.2.2))(supports-color@10.2.2)
       express-rate-limit:
-        specifier: 8.6.0
-        version: 8.6.0(express@5.2.1(supports-color@10.2.2))(supports-color@10.2.2)
+        specifier: 8.6.1
+        version: 8.6.1(express@5.2.1(supports-color@10.2.2))(supports-color@10.2.2)
       express-session:
         specifier: 1.19.0
         version: 1.19.0(supports-color@10.2.2)
@@ -789,8 +792,8 @@ importers:
         specifier: 1.1.1
         version: 1.1.1
       officeparser:
-        specifier: 7.4.0
-        version: 7.4.0(encoding@0.1.13)(supports-color@10.2.2)
+        specifier: 7.5.0
+        version: 7.5.0(encoding@0.1.13)(supports-color@10.2.2)
       openid-client:
         specifier: 6.8.4
         version: 6.8.4
@@ -1662,6 +1665,9 @@ importers:
       chardet:
         specifier: 2.2.0
         version: 2.2.0
+      color:
+        specifier: 5.0.3
+        version: 5.0.3
       escape-html:
         specifier: 1.0.3
         version: 1.0.3
@@ -1762,8 +1768,8 @@ packages:
   '@adobe/css-tools@4.4.4':
     resolution: {integrity: sha512-Elp+iwUx5rN5+Y8xLt5/GRoG20WGoDCQ/1Fb+1LiGtvwbDavuSk0jhD/eZdckHAuzcDzccnkv+rEjyWfRx18gg==}
 
-  '@ai-sdk/anthropic@4.0.20':
-    resolution: {integrity: sha512-5QdZt6AkWIKIKuwRSjAQIBhN0JSSvthaIcAJKTHP7HPCvWMcNJFF6rz0uKfUlpI3h7nVbY+1Cy5dNl5zjzJ6qA==}
+  '@ai-sdk/anthropic@4.0.21':
+    resolution: {integrity: sha512-rvWzefSJiDLBswGFn0oWM7D8p8eo2tKey2anSM2IxaFd/4tLfolWAWP6Zp+82YUURZUoX6f01NI/txF6ekbC4Q==}
     engines: {node: '>=22'}
     peerDependencies:
       zod: '>=4.0.0'
@@ -8475,8 +8481,8 @@ packages:
     peerDependencies:
       express: '>= 4.17.0'
 
-  express-rate-limit@8.6.0:
-    resolution: {integrity: sha512-XKJXDsASUOo0LLtFwW5hCcQGH0N4WQc/Rn8/Pvoia+TJFOkkFPvrtW9lZOeeNcxQJspvOIERMwiRLsVFlhHEkA==}
+  express-rate-limit@8.6.1:
+    resolution: {integrity: sha512-0D493aP61w0TJ2A0wy27riRsO7FMQ7FK+KUHOKCSfPvYo0R55aiC6emCVgFUeShH0fq0ICPVzNcgoS+BsbXQCA==}
     engines: {node: '>= 16'}
     peerDependencies:
       express: '>= 4.11'
@@ -8980,8 +8986,8 @@ packages:
   grapheme-splitter@1.0.4:
     resolution: {integrity: sha512-bzh50DW9kTPM00T8y4o8vQg89Di9oLJVLW/KaOGIXJWP/iqCN6WKYkbNOF04vFLJhwcpYUh9ydh/+5vpOqV4YQ==}
 
-  gridstack@12.6.0:
-    resolution: {integrity: sha512-dUrqsormSybFn/2P4Dz8AgprftKD5e/IiV7UmC0XLQU+G+/WtkAeFiCSNLoAGhPDXoJ/O61Xtj3gljY/Ds83yQ==}
+  gridstack@13.0.2:
+    resolution: {integrity: sha512-7uw3HxGgwL9XTifga3AcaV46d5zPue+tNsg1xNtbh29hG/Z+y882EkVD2b1D9uI8cW5aoHwevJrDPqBzJHkapw==}
 
   growly@1.3.0:
     resolution: {integrity: sha512-+xGQY0YyAWCnqy7Cd++hc2JqMYzlm0dG30Jd0beaA64sROr8C4nt8Yc9V5Ro3avlSUDTN0ulqP/VBKi1/lLygw==}
@@ -10811,8 +10817,8 @@ packages:
   ofetch@1.5.1:
     resolution: {integrity: sha512-2W4oUZlVaqAPAil6FUg/difl6YhqhUR7x2eZY4bQCko22UXg3hptq9KLQdqFClV+Wu85UX7hNtdGTngi/1BxcA==}
 
-  officeparser@7.4.0:
-    resolution: {integrity: sha512-32l/wEJhnpCQ58qK6y79Fk6LxL2NE5/5HEJKEWTv/5J1D/edkMEsf/nkHVVNX+9ctbaeU/QPtQm/Mrr5zJ35Hw==}
+  officeparser@7.5.0:
+    resolution: {integrity: sha512-3OFFz4k3EhMWqz0sLVrerviQOTGl6qP3O9mNLW+N3CCiY4r7BtJWgDDrc8KmRJtsn/bDkMfhnYAoBNMpl1DC4w==}
     engines: {node: '>=18.0.0'}
     hasBin: true
     peerDependencies:
@@ -13391,16 +13397,12 @@ packages:
     resolution: {integrity: sha512-D1mvvtDG0L5ft/jGWkLpG1+m0eQxOfaBvTNELraWj22wSVUMWxZUvYgJYcKh6jGGIkJFhH4IZPQhR4TKpc8mBw==}
     engines: {node: '>=10'}
 
-  yargs@17.7.2:
-    resolution: {integrity: sha512-7dSzzRQ++CKnNI/krKnYRV7JKKPUXMEh61soaHKg9mrWEhzFWhFnxPxGl+69cD1Ou63C13NUPCnmIcrvqCuM6w==}
-    engines: {node: '>=12'}
-
   yargs@17.7.3:
     resolution: {integrity: sha512-GZtjxm/J/4TSxuL3FNYjCmLktBTnIw/rVmKSIyKeYAZpmJB2ig9VauCC5xsa82GNKVKDAqpOn3KVzNt0zmrU0g==}
     engines: {node: '>=12'}
 
-  yargs@18.0.0:
-    resolution: {integrity: sha512-4UEqdc2RYGHZc7Doyqkrqiln3p9X2DZVxaGbwhn2pi7MrRagKaOcIKe8L3OxYcbhXLgLFUS3zAYuQjKBQgmuNg==}
+  yargs@18.1.0:
+    resolution: {integrity: sha512-2rAgRKu54VsHkqI0/tYkmluGXHD4KW7yZoycuqDQ15QOTnc2VVfy0nN/1eMhnQLO00A+dwtK20xuCnc1YGeUyg==}
     engines: {node: ^20.19.0 || ^22.12.0 || >=23}
 
   yauzl@2.10.0:
@@ -13512,7 +13514,7 @@ snapshots:
 
   '@adobe/css-tools@4.4.4': {}
 
-  '@ai-sdk/anthropic@4.0.20(zod@4.4.3)':
+  '@ai-sdk/anthropic@4.0.21(zod@4.4.3)':
     dependencies:
       '@ai-sdk/provider': 4.0.3
       '@ai-sdk/provider-utils': 5.0.12(zod@4.4.3)
@@ -13554,7 +13556,7 @@ snapshots:
       open: 8.4.2
       picomatch: 4.0.5
       source-map: 0.7.6
-      yargs: 17.7.2
+      yargs: 17.7.3
 
   '@antfu/install-pkg@1.1.0':
     dependencies:
@@ -15130,7 +15132,7 @@ snapshots:
       read-binary-file-arch: 1.0.6(supports-color@10.2.2)
       semver: 7.8.5
       tar: 7.5.15
-      yargs: 17.7.2
+      yargs: 17.7.3
     transitivePeerDependencies:
       - bluebird
       - supports-color
@@ -16647,7 +16649,7 @@ snapshots:
       eventsource: 3.0.7
       eventsource-parser: 3.0.8
       express: 5.2.1(supports-color@10.2.2)
-      express-rate-limit: 8.6.0(express@5.2.1(supports-color@10.2.2))(supports-color@10.2.2)
+      express-rate-limit: 8.6.1(express@5.2.1(supports-color@10.2.2))(supports-color@10.2.2)
       hono: 4.12.21
       jose: 6.2.3
       json-schema-typed: 8.0.2
@@ -21623,7 +21625,7 @@ snapshots:
       ora: 9.4.0
       tslib: 2.8.1
       typescript: 5.9.3
-      yargs: 18.0.0
+      yargs: 18.1.0
 
   draggabilly@3.0.0:
     dependencies:
@@ -22328,7 +22330,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  express-rate-limit@8.6.0(express@5.2.1(supports-color@10.2.2))(supports-color@10.2.2):
+  express-rate-limit@8.6.1(express@5.2.1(supports-color@10.2.2))(supports-color@10.2.2):
     dependencies:
       debug: 4.4.3(supports-color@10.2.2)
       express: 5.2.1(supports-color@10.2.2)
@@ -22957,7 +22959,7 @@ snapshots:
 
   grapheme-splitter@1.0.4: {}
 
-  gridstack@12.6.0: {}
+  gridstack@13.0.2: {}
 
   growly@1.3.0: {}
 
@@ -25027,7 +25029,7 @@ snapshots:
       node-fetch-native: 1.6.7
       ufo: 1.6.4
 
-  officeparser@7.4.0(encoding@0.1.13)(supports-color@10.2.2):
+  officeparser@7.5.0(encoding@0.1.13)(supports-color@10.2.2):
     dependencies:
       '@xmldom/xmldom': 0.9.10
       fflate: 0.8.3
@@ -28026,16 +28028,6 @@ snapshots:
       yargs-parser: 20.2.9
     optional: true
 
-  yargs@17.7.2:
-    dependencies:
-      cliui: 8.0.1
-      escalade: 3.2.0
-      get-caller-file: 2.0.5
-      require-directory: 2.1.1
-      string-width: 4.2.3
-      y18n: 5.0.8
-      yargs-parser: 21.1.1
-
   yargs@17.7.3:
     dependencies:
       cliui: 8.0.1
@@ -28046,12 +28038,12 @@ snapshots:
       y18n: 5.0.8
       yargs-parser: 21.1.1
 
-  yargs@18.0.0:
+  yargs@18.1.0:
     dependencies:
       cliui: 9.0.1
       escalade: 3.2.0
       get-caller-file: 2.0.5
-      string-width: 7.2.0
+      string-width: 8.2.1
       y18n: 5.0.8
       yargs-parser: 22.0.0
 
