@@ -17,6 +17,7 @@ import {
 } from "@ckeditor/ckeditor5-icons";
 import { type Editor, type MentionFeedObjectItem, Plugin } from "ckeditor5";
 
+import SnippetsEditing from "../snippets/snippetsediting.js";
 import { registerMentionFeed } from "./register_feed.js";
 
 export const SLASH_MARKER = "/";
@@ -32,8 +33,15 @@ export interface SlashCommandDefinition {
     description?: string;
     /** Extra words the entry can be found by, beyond its title. */
     aliases?: string[];
-    /** Raw SVG markup. */
-    icon: string;
+    /** Raw SVG markup. Ignored when {@link iconClass} is set. */
+    icon?: string;
+    /**
+     * A font-icon class list (e.g. `"tn-icon bx bx-note"`) rendered as a `<span>` instead of
+     * {@link icon}'s SVG markup — the form snippet notes carry their icons in.
+     */
+    iconClass?: string;
+    /** Optional colour class applied alongside {@link iconClass} (from the note's `#color` label). */
+    iconColorClass?: string;
     /** The editor command to run. Entries naming a command that is not loaded are hidden. */
     commandName?: string;
     /** Runs instead of `commandName`, for entries that need arguments or open a UI. */
@@ -102,7 +110,7 @@ export default class TriliumSlashCommands extends Plugin {
         const config = (editor.config.get("slashCommand") ?? {}) as SlashCommandConfig;
         const removed = new Set(config.removeCommands ?? []);
 
-        return [ ...buildDefaultSlashCommands(editor), ...(config.extraCommands ?? []) ]
+        return [ ...buildDefaultSlashCommands(editor), ...(config.extraCommands ?? []), ...buildSnippetSlashCommands(editor) ]
             .filter((definition) => !removed.has(definition.id))
             .filter((definition) => isSlashCommandEnabled(editor, definition));
     }
@@ -261,6 +269,32 @@ export function buildDefaultSlashCommands(editor: Editor): SlashCommandDefinitio
     ];
 }
 
+/**
+ * One palette entry per text snippet, restoring premium behaviour: premium `SlashCommand` listed the
+ * premium `Template` plugin's definitions alongside the built-ins. Since `_catalog()` runs on every
+ * query, the definitions are read live from {@link SnippetsEditing} — snippet changes pushed via
+ * `TriliumSnippets.updateDefinitions()` appear in the palette without any re-registration.
+ */
+function buildSnippetSlashCommands(editor: Editor): SlashCommandDefinition[] {
+    if (!editor.plugins.has(SnippetsEditing)) {
+        return [];
+    }
+
+    return Array.from(editor.plugins.get(SnippetsEditing).definitions, (snippet, index) => ({
+        id: `snippet-${index}`,
+        title: snippet.title,
+        description: snippet.description,
+        // Beyond its own title, every snippet is findable under the feature's generic names.
+        aliases: [ "snippet", "template" ],
+        iconClass: snippet.iconClass,
+        iconColorClass: snippet.iconColorClass,
+        // Gates the entry on `insertTemplate` (read-only mode disables it); `execute` still wins at
+        // commit time, since the command needs the snippet's content as its argument.
+        commandName: "insertTemplate",
+        execute: (target: Editor) => target.execute("insertTemplate", snippet.data)
+    }));
+}
+
 function buildHeadingSlashCommands(editor: Editor): SlashCommandDefinition[] {
     const options = (editor.config.get("heading.options") ?? []) as Array<{ model: string; title: string }>;
     const icons: Record<string, string> = {
@@ -313,7 +347,26 @@ function renderRow(item: SlashCommandItem): HTMLElement {
 
     const icon = document.createElement("span");
     icon.classList.add("ck", "ck-icon");
-    icon.innerHTML = definition.icon;
+
+    if (definition.iconClass) {
+        // A snippet note's font icon: the same chip, painted by icon-font classes instead of SVG.
+        // The glyph lives on an inner span: core sizes the chip box in em against the chip's own
+        // font-size, so enlarging the glyph's font on the chip itself would inflate the chip too.
+        icon.classList.add("ck-slash-command-button__note-icon");
+        const glyph = document.createElement("span");
+        for (const classList of [ definition.iconClass, definition.iconColorClass ]) {
+            if (classList) {
+                glyph.classList.add(...classList.split(/\s+/).filter(Boolean));
+            }
+        }
+        icon.append(glyph);
+    } else if (definition.icon) {
+        // `ck-icon_inherit-color` opts into core's `*:not([fill]) { fill: currentColor }` rule, as
+        // `IconView` does — without it the glyphs keep SVG's default black fill on dark themes.
+        icon.classList.add("ck-icon_inherit-color");
+        icon.innerHTML = definition.icon;
+    }
+
     button.append(icon);
 
     const textPart = document.createElement("span");
