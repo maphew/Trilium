@@ -318,7 +318,7 @@ describe("AttributeList", () => {
         expect(namesIn(container)).not.toContain("author");
     });
 
-    it("adds an attribute of the kind picked from the card's menu, saving them once the popup is closed", async () => {
+    it("adds a definition through the popup, saving it once the popup is closed", async () => {
         renderPanel(noteWithAttributes());
 
         // The panel's own button offers every kind; the definitions card offers the two definitions.
@@ -330,27 +330,100 @@ describe("AttributeList", () => {
         // Four kinds and the rule setting the definitions apart, against the two definitions on their own.
         expect(offered).toEqual([ 5, 2 ]);
 
-        for (const item of showContextMenu.mock.calls[0][0].items) {
-            act(() => item.handler?.());
-        }
-
-        // The popup opens on whatever was added; nothing is saved until it is closed.
+        // A definition still goes through the form, its settings needing one; nothing is saved until
+        // it is closed, and a press beside it keeps the edits — which for a list of rows means saving.
+        act(() => showContextMenu.mock.calls[1][0].items[0].handler?.());
         expect(document.querySelector(".attr-detail")).not.toBeNull();
         expect(put).not.toHaveBeenCalled();
 
-        // A press beside the popup keeps the edits, which for a list of rows means saving them.
         await act(async () => {
             document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
         });
 
         expect(document.querySelector(".attr-detail")).toBeNull();
         const [ , saved ] = put.mock.calls[0] as [ string, { name: string; value: string }[] ];
-        expect(saved.slice(-4)).toEqual([
-            { type: "label", name: "myLabel", value: "", isInheritable: false },
-            { type: "relation", name: "myRelation", value: "", isInheritable: false },
-            { type: "label", name: "label:myLabel", value: "promoted,single,text", isInheritable: false },
-            { type: "label", name: "relation:myRelation", value: "promoted,single", isInheritable: false }
-        ]);
+        expect(saved.at(-1)).toEqual(
+            { type: "label", name: "label:myLabel", value: "promoted,single,text", isInheritable: false });
+    });
+
+    it("creates a label straight in its row, and a draft left nameless not at all", async () => {
+        renderPanel(noteWithAttributes());
+
+        const ownedMenu = container.querySelector<HTMLElement>(".card-header-buttons .bx-plus");
+        act(() => ownedMenu?.click());
+        act(() => showContextMenu.mock.calls[0][0].items[0].handler?.());
+
+        // The row is created in place — no popup — name box first, value beside it.
+        expect(document.querySelector(".attr-detail")).toBeNull();
+        const editor = container.querySelector<HTMLElement>(".attribute-creation-editor");
+        expect(editor).not.toBeNull();
+
+        const nameInput = editor?.querySelector<HTMLInputElement>(".attribute-creation-name input");
+        const valueInput = editor?.querySelector<HTMLInputElement>(".attribute-creation-value input");
+        act(() => {
+            if (nameInput) {
+                nameInput.value = "mood";
+                nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+        });
+        act(() => {
+            if (valueInput) {
+                valueInput.value = "great";
+                valueInput.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+        });
+        await act(async () => {
+            editor?.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: document.body }));
+        });
+
+        // Leaving the row keeps and saves the creation, and the row now stands for it.
+        expect(container.querySelector(".attribute-creation-editor")).toBeNull();
+        expect(put).toHaveBeenCalledOnce();
+        const [ , saved ] = put.mock.calls[0] as [ string, { name: string; value: string }[] ];
+        expect(saved.at(-1)).toMatchObject({ type: "label", name: "mood", value: "great" });
+
+        // Left nameless, the draft is nothing yet: closing it creates nothing and saves nothing.
+        act(() => ownedMenu?.click());
+        act(() => showContextMenu.mock.calls[1][0].items[0].handler?.());
+        await act(async () => {
+            container.querySelector(".attribute-creation-editor")
+                ?.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: document.body }));
+        });
+        expect(container.querySelector(".attribute-creation-editor")).toBeNull();
+        expect(put).toHaveBeenCalledOnce();
+        expect(namesIn(container)).not.toContain("");
+    });
+
+    it("creates a relation in its row, its target picked in the note search", async () => {
+        buildNote({ id: "target-note", title: "Target" });
+        renderPanel(noteWithAttributes());
+
+        act(() => container.querySelector<HTMLElement>(".card-header-buttons .bx-plus")?.click());
+        act(() => showContextMenu.mock.calls[0][0].items[1].handler?.());
+
+        const editor = container.querySelector<HTMLElement>(".attribute-creation-editor");
+        const nameInput = editor?.querySelector<HTMLInputElement>(".attribute-creation-name input");
+        // The target field is the note search, stubbed here (see the mock above).
+        const targetInput = editor?.querySelector<HTMLInputElement>(".attribute-creation-value .note-autocomplete-stub");
+        act(() => {
+            if (nameInput) {
+                nameInput.value = "depicts";
+                nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+        });
+        act(() => {
+            if (targetInput) {
+                targetInput.value = "target-note";
+                targetInput.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+        });
+        await act(async () => {
+            editor?.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: document.body }));
+        });
+
+        expect(put).toHaveBeenCalledOnce();
+        const [ , saved ] = put.mock.calls[0] as [ string, { name: string; value: string }[] ];
+        expect(saved.at(-1)).toMatchObject({ type: "relation", name: "depicts", value: "target-note" });
     });
 
     it("edits an owned label's value in place, saving it once the field is left", async () => {

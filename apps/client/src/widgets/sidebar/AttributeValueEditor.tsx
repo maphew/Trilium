@@ -1,7 +1,6 @@
 import "./AttributeValueEditor.css";
 
 import type { LabelType } from "@triliumnext/commons";
-import clsx from "clsx";
 import { useEffect, useLayoutEffect, useMemo, useRef } from "preact/hooks";
 
 import type FNote from "../../entities/fnote";
@@ -9,9 +8,8 @@ import type { Attribute } from "../../services/attribute_parser";
 import { getBuiltinLabelSelectOptions, getBuiltinLabelValueType, isBuiltinAttribute } from "../../services/attributes";
 import { t } from "../../services/i18n";
 import LabelValueInput, { getTypedInputForLabel } from "../attribute_widgets/label_value_input";
-import { AUTOCOMPLETE_DROPDOWN_SELECTOR } from "../react/FormAutocomplete";
-import { useGrowsUpwards } from "../react/grows_upwards";
 import NoteAutocomplete from "../react/NoteAutocomplete";
+import AttributeEditorOverlay from "./AttributeEditorOverlay";
 
 interface AttributeValueEditorProps {
     /** The note the label belongs to, read for the definition that says what kind of field to offer. */
@@ -29,18 +27,15 @@ interface AttributeValueEditorProps {
  * An attribute's value edited in the row that previews it, without opening the detail form: for a
  * label the same field its promoted counterpart offers — a date picker for a date, a palette for a
  * colour, a dropdown for a closed set, a plain box where nothing says more about the value than that
- * it is one — and for a relation the note search its target is picked in everywhere else.
+ * it is one — and for a relation the note search its target is picked in everywhere else. Only the
+ * value is edited here — the name, the flags and the definitions stay with the form the rest of the
+ * row opens.
  *
- * Leaving the field is what ends the edit and keeps it, matching the attributes editor's save-on-blur;
- * escape puts the value back instead. Only the value is edited here — the name, the flags and the
- * definitions stay with the form the rest of the row opens.
+ * The field stands on the {@link AttributeEditorOverlay} shell, which is what says when the edit is
+ * over: leaving keeps it, escape puts the value back.
  */
 export default function AttributeValueEditor({ note, attribute, onEdit, onCommit, onRevert }: AttributeValueEditorProps) {
     const containerRef = useRef<HTMLSpanElement>(null);
-    // The editor stands over its row rather than in it (see the stylesheet), so near the foot of the
-    // pane it is anchored by its foot instead, what it outgrows the row by rising over what has been
-    // read already — the same turn the table's cell editor takes, through the same measure.
-    const growsUpwards = useGrowsUpwards(containerRef);
     const isRelation = attribute.type === "relation";
 
     // The overlay is held off the row's leading edge so the name stays readable (see the stylesheet)
@@ -85,57 +80,16 @@ export default function AttributeValueEditor({ note, attribute, onEdit, onCommit
         }
     }, []);
 
-    useEffect(() => {
-        const editor = containerRef.current;
-        if (!editor) return;
-
-        const onFocusOut = (e: FocusEvent) => {
-            // Focus moving within the editor — the field to a button beside it — is not leaving it.
-            if (e.relatedTarget instanceof Node && editor.contains(e.relatedTarget)) return;
-
-            // Nor is it leaving for floating UI that belongs to the field: the note search's dropdown
-            // is appended to the body, and creating a note from it opens the note type chooser — the
-            // same company the detail popup keeps itself open over.
-            if (e.relatedTarget instanceof Element
-                && e.relatedTarget.closest(`${AUTOCOMPLETE_DROPDOWN_SELECTOR}, .algolia-autocomplete, .modal, .modal-backdrop`)) {
-                return;
-            }
-
-            // Nothing in the page took the focus over, and either the editor still holds it or the
-            // window itself has lost it — which is what opening a native picker's dialog does. The
-            // row has not been left, and committing here would close the editor under the dialog.
-            if (!e.relatedTarget && (!document.hasFocus() || editor.contains(document.activeElement))) {
-                return;
-            }
-
-            onCommit();
-        };
-
-        editor.addEventListener("focusout", onFocusOut);
-        return () => editor.removeEventListener("focusout", onFocusOut);
-    }, [ onCommit ]);
-
     return (
-        <span
-            ref={containerRef}
-            className={clsx("attribute-value-editor", growsUpwards && "grows-upwards")}
-            // Keep the press from reaching the row, which would open the popup over the edit.
-            onClick={(e) => e.stopPropagation()}
-            onMouseDown={(e) => {
-                // The buttons beside a field (a colour's reset, a link's open) take no focus of their
-                // own: letting the press blur the field would commit and unmount the editor before the
-                // click could land on them.
-                if (e.target instanceof Element && !e.target.closest("input, textarea, select")) {
-                    e.preventDefault();
-                }
-            }}
+        <AttributeEditorOverlay
+            overlayRef={containerRef}
+            className="attribute-value-editor"
+            onCommit={onCommit}
+            onRevert={onRevert}
+            // Enter is the note search's own key — it is what picks — so only a label commits on it;
+            // a textarea keeps it for its newlines unless it is held down with the modifier.
             onKeyDown={(e) => {
-                if (e.key === "Escape") {
-                    e.stopPropagation();
-                    onRevert();
-                // Enter is the note search's own key — it is what picks — so only a label commits on
-                // it; a textarea keeps it for its newlines unless it is held down with the modifier.
-                } else if (e.key === "Enter" && typed && (typed.labelType !== "textarea" || e.ctrlKey || e.metaKey)) {
+                if (e.key === "Enter" && typed && (typed.labelType !== "textarea" || e.ctrlKey || e.metaKey)) {
                     e.preventDefault();
                     e.stopPropagation();
                     onCommit();
@@ -168,20 +122,20 @@ export default function AttributeValueEditor({ note, attribute, onEdit, onCommit
                     noteIdChanged={(noteId) => onEdit(noteId ?? "")}
                 />
             )}
-        </span>
+        </AttributeEditorOverlay>
     );
 }
-
-/** Constant so it does not re-initialise the autocomplete on every render, as in the detail form —
- *  less the buttons beside the box (go to, search, recent), which are more furniture than a row has
- *  room for; the field a relation holding several targets offers leaves them out the same way. */
-const TARGET_NOTE_OPTS = { allowCreatingNotes: true, hideAllButtons: true };
 
 /** The input types whose content `select()` applies to; the pickers select nothing and mind nothing. */
 const SELECT_ALL_TYPES = new Set([ "text", "number", "url", "email", "tel" ]);
 
 /** The breath between the name and the overlay's edge: the gap the row lays its items out with. */
 const ROW_GAP = 6;
+
+/** Constant so it does not re-initialise the autocomplete on every render, as in the detail form —
+ *  less the buttons beside the box (go to, search, recent), which are more furniture than a row has
+ *  room for; the field a relation holding several targets offers leaves them out the same way. */
+export const TARGET_NOTE_OPTS = { allowCreatingNotes: true, hideAllButtons: true };
 
 /**
  * What kind of field the label's value is edited through: for a system label the same closed sets and

@@ -1,0 +1,25 @@
+/* The two fields a creation row is made of, on the overlay shell (AttributeEditorOverlay.css): the
+   name leading and the value taking the rest, weighted rather than measured — with only the two of
+   them, a fixed split would starve one side on a narrow pane and waste it on a wide one. */
+.attribute-list-panel .attribute-creation-editor {
+    & .attribute-creation-name,
+    & .attribute-creation-value {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        min-width: 0;
+    }
+
+    & .attribute-creation-name {
+        flex: 2 1 0;
+
+        & input {
+            flex: 1;
+            min-width: 0;
+        }
+    }
+
+    & .attribute-creation-value {
+        flex: 3 1 0;
+    }
+}

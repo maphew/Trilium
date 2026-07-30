@@ -28,6 +28,7 @@ import NoteLink from "../react/NoteLink";
 import { ParentComponent } from "../react/react_utils";
 import { ATTRIBUTE_HELP_PAGE } from "../ribbon/components/AttributeHelp";
 import OptionsSection from "../type_widgets/options/components/OptionsSection";
+import AttributeCreationEditor from "./AttributeCreationEditor";
 import AttributeValueEditor, { resolveValueField } from "./AttributeValueEditor";
 import RightPanelWidget, { CollapsibleWidgets } from "./RightPanelWidget";
 
@@ -53,6 +54,9 @@ export default function AttributeList() {
     // The row whose value is being typed straight into it — the in-place alternative to the popup for
     // a label — and the value to put back if the edit is thrown away rather than kept.
     const [ valueEdit, setValueEdit ] = useState<{ attribute: Attribute; original: string } | null>(null);
+    // The draft a label or relation is created through in a row of its own, already among the owned
+    // rows; un-creating it is taking it back out of them.
+    const [ creating, setCreating ] = useState<Attribute | null>(null);
     const componentId = parentComponent?.componentId;
 
     // The owned rows double as the detail popup's working copy: it edits the very objects it is handed,
@@ -74,9 +78,13 @@ export default function AttributeList() {
         // An attribute left open for editing — in the popup or in its own row — is closed by the
         // change of note, and closing keeps what was typed into it — as a press outside does — rather
         // than dropping it. Which the list cannot do itself once it holds another note's attributes,
-        // hence the hand-over.
-        if ((detail?.isOwned || valueEdit) && shownNoteId.current) {
-            draftToFlush.current = { noteId: shownNoteId.current, attributes: owned.current };
+        // hence the hand-over. A creation left without a name is the one thing not kept: nameless, it
+        // is nothing yet, and the endpoint would refuse it for the whole list's sake.
+        if ((detail?.isOwned || valueEdit || creating) && shownNoteId.current) {
+            draftToFlush.current = {
+                noteId: shownNoteId.current,
+                attributes: owned.current.filter((attribute) => attribute.name)
+            };
         }
 
         shownNoteId.current = note?.noteId ?? null;
@@ -85,10 +93,11 @@ export default function AttributeList() {
         internal.current = collectInternal(note);
     }
 
-    // Either editor works on one attribute of the note being left, so both close with the note.
+    // Every editor works on one attribute of the note being left, so all of them close with the note.
     useEffect(() => {
         setDetail(null);
         setValueEdit(null);
+        setCreating(null);
 
         const draft = draftToFlush.current;
         draftToFlush.current = null;
@@ -98,11 +107,11 @@ export default function AttributeList() {
     }, [ note ]);
 
     useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
-        // While either editor is open, the changes this widget itself made are skipped: its edits are
-        // the freshest state, and reloading over them would discard what is being typed. Once both are
+        // While any editor is open, the changes this widget itself made are skipped: its edits are
+        // the freshest state, and reloading over them would discard what is being typed. Once all are
         // closed our own saves count too, which is how the list drops a row the server refused to keep
         // (a relation left without a target note).
-        const changed = detail || valueEdit ? loadResults.getAttributeRows(componentId) : loadResults.getAttributeRows();
+        const changed = detail || valueEdit || creating ? loadResults.getAttributeRows(componentId) : loadResults.getAttributeRows();
         if (note && changed.some((attr) => attributes.isAffecting(attr, note))) {
             owned.current = collectOwned(note);
             inherited.current = collectInherited(note);
@@ -112,6 +121,9 @@ export default function AttributeList() {
             // nothing left to write to; it is dropped rather than left dangling over the fresher state.
             if (valueEdit && !owned.current.includes(valueEdit.attribute)) {
                 setValueEdit(null);
+            }
+            if (creating && !owned.current.includes(creating)) {
+                setCreating(null);
             }
 
             rerender();
@@ -154,6 +166,23 @@ export default function AttributeList() {
     }
 
     function addAttribute(attrType: AttributeKind, e: MouseEvent) {
+        // Whatever was being edited is wrapped up first, the new row taking over from it.
+        commit();
+        commitValueEdit();
+        commitCreation();
+
+        // A plain label or relation is two things — a name and a value — which its own row can take:
+        // it is created there, in a nameless draft the creation editor fills in. The popup stays for
+        // the definitions, whose settings need the form, and for a phone, which keeps the page flow
+        // for every kind.
+        if (!IS_MOBILE && (attrType === "label" || attrType === "relation")) {
+            const attribute: Attribute = { type: attrType, name: "", value: "", isInheritable: false };
+
+            owned.current = [ ...owned.current, attribute ];
+            setCreating(attribute);
+            return;
+        }
+
         const attribute = createAttribute(attrType);
 
         owned.current = [ ...owned.current, attribute ];
@@ -180,11 +209,12 @@ export default function AttributeList() {
         }
     }
 
-    /** Opens the in-place editor over a row's value, taking over from the popup if one is open. */
+    /** Opens the in-place editor over a row's value, taking over from whatever else was being edited. */
     function startValueEdit(attribute: Attribute) {
         if (detail) {
             commit();
         }
+        commitCreation();
         setValueEdit({ attribute, original: attribute.value ?? "" });
     }
 
@@ -204,6 +234,34 @@ export default function AttributeList() {
             valueEdit.attribute.value = valueEdit.original;
         }
         setValueEdit(null);
+    }
+
+    /**
+     * Closes the creation row keeping what it was given — which, still nameless, is nothing: an
+     * attribute is its name at the least, so a draft without one is quietly taken back out rather
+     * than sent to an endpoint that would refuse the whole list over it.
+     */
+    function commitCreation() {
+        if (!creating) {
+            return;
+        }
+
+        setCreating(null);
+        if (creating.name) {
+            void save();
+        } else {
+            owned.current = owned.current.filter((attribute) => attribute !== creating);
+            rerender();
+        }
+    }
+
+    /** Closes the creation row un-creating its draft, saving nothing. */
+    function revertCreation() {
+        if (creating) {
+            owned.current = owned.current.filter((attribute) => attribute !== creating);
+        }
+        setCreating(null);
+        rerender();
     }
 
     // A master-detail host heads the page it shows the form on with the attribute's name, and goes back
@@ -232,6 +290,9 @@ export default function AttributeList() {
     // Not built for an attribute the list no longer holds: a reload can rebuild the rows out from
     // under the editor within this very render, before the state has caught up (see above).
     const activeValueEdit = valueEdit && owned.current.includes(valueEdit.attribute) ? valueEdit : null;
+    const activeCreation = creating && owned.current.includes(creating) ? creating : null;
+    // At most one of the two is open — starting either commits the other — and both stand over their
+    // row the same way, so they share the one editor slot a row offers.
     const valueEditor = note && activeValueEdit ? {
         attribute: activeValueEdit.attribute,
         element: (
@@ -245,6 +306,16 @@ export default function AttributeList() {
                 }}
                 onCommit={commitValueEdit}
                 onRevert={revertValueEdit}
+            />
+        )
+    } : note && activeCreation ? {
+        attribute: activeCreation,
+        element: (
+            <AttributeCreationEditor
+                note={note}
+                attribute={activeCreation}
+                onCommit={commitCreation}
+                onRevert={revertCreation}
             />
         )
     } : undefined;

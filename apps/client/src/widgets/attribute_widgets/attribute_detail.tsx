@@ -775,8 +775,11 @@ function AttributeNameField({ help, ...autocompleteProps }: { help?: AttrHelpEnt
  * One row of an attribute name completion, marking the names Trilium itself attaches a meaning to.
  * The mark answers what a list of bare names cannot: whether picking one buys behaviour, or is only
  * a name. The inline editor's `#`/`~` completion lists the same names and marks them the same way.
+ *
+ * Exported, with {@link fetchAttributeNames}, for whatever else completes an attribute name — the
+ * attribute panel's in-row creation — so every name box offers the same list the same way.
  */
-function AttributeNameSuggestion({ type, name }: { type: "label" | "relation"; name: string }) {
+export function AttributeNameSuggestion({ type, name }: { type: "label" | "relation"; name: string }) {
     return (
         <span class="attr-name-suggestion">
             <span class="attr-name-suggestion-name">{name}</span>
@@ -844,7 +847,7 @@ export const DEFINITION_TYPES: { value: string; title: string; icon: string; sta
     }
 ];
 
-function fetchAttributeNames(type: "label" | "relation", query: string) {
+export function fetchAttributeNames(type: "label" | "relation", query: string) {
     return server.get<string[]>(`attribute-names/?type=${type}&query=${encodeURIComponent(query)}`);
 }
 
