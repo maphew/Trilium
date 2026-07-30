@@ -1,30 +1,51 @@
 import "./cleanup_dialog.css";
 
+import type { SpaceUsageNoteResponse } from "@triliumnext/commons";
 import clsx from "clsx";
-import { createPortal } from "preact/compat";
-import { useMemo, useState } from "preact/hooks";
+import { render } from "preact";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 
+import dialogService from "../../../../../services/dialog";
 import { t } from "../../../../../services/i18n";
-import optionService from "../../../../../services/options";
+import toast from "../../../../../services/toast";
 import { formatSize } from "../../../../../services/utils";
 import Button from "../../../../react/Button";
 import { Card, CardSection } from "../../../../react/Card";
 import DonutChart, { type DonutRing } from "../../../../react/charts/DonutChart";
 import FormTextBox from "../../../../react/FormTextBox";
 import FormToggle from "../../../../react/FormToggle";
+import { useTriliumOptionJson } from "../../../../react/hooks";
 import Modal from "../../../../react/Modal";
+import {
+    CLEANUP_ITEMS,
+    type CleanupToolOptions,
+    computeCleanupSizes,
+    readCleanupOptions,
+    runCleanup
+} from "./cleanup_operation";
+import { useSpaceUsageFetch } from "./use_space_usage_fetch";
 
-/** What each of the cleanup's items would reclaim, in bytes. */
-export interface CleanupEstimates {
-    deletedEntities: number;
-    unusedAttachments: number;
-    revisionSnapshots: number;
-}
+/**
+ * Opens the cleanup dialog, and resolves once it has finished with the database: the bytes the run
+ * was expected to reclaim, or `null` if the user backed out without running one. Callers await it to
+ * know when their own figures are stale.
+ *
+ * Mounted on demand into a host of its own rather than kept in the page: the dialog measures the
+ * whole database on open, which is not work to do for a page that merely *could* open it.
+ */
+export function showCleanupDialog(): Promise<number | null> {
+    return new Promise((resolve) => {
+        const host = document.body.appendChild(document.createElement("div"));
 
-export interface CleanupDialogProps {
-    show: boolean;
-    onHidden: () => void;
-    estimates: CleanupEstimates;
+        render(
+            <CleanupDialog onFinished={(reclaimed) => {
+                resolve(reclaimed);
+                render(null, host);
+                host.remove();
+            }} />,
+            host
+        );
+    });
 }
 
 /**
@@ -35,11 +56,32 @@ export interface CleanupDialogProps {
  * chart instead of re-laying it out — and the hole can read "this much of that much" against a whole
  * that holds still.
  */
-export default function CleanupDialog({ show, onHidden, estimates }: CleanupDialogProps) {
-    const [ picked, setPicked ] = useState<Record<CleanupItemId, boolean>>(
-        { deletedEntities: true, unusedAttachments: true, revisionSnapshots: true });
-    const [ snapshotsToKeep, setSnapshotsToKeep ] = useState(defaultSnapshotsToKeep);
-    const [ keepNamedSnapshots, setKeepNamedSnapshots ] = useState(true);
+function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) => void }) {
+    const [ shown, setShown ] = useState(true);
+    const [ stored, setStored ] = useTriliumOptionJson<Partial<CleanupToolOptions>>("cleanupToolOptions");
+    // The stored setting seeds the working copy; every change writes straight back to it, so the
+    // next run opens where this one left off whether or not it was carried through.
+    const [ options, setOptions ] = useState<CleanupToolOptions>(() => readCleanupOptions(stored));
+    const update = (patch: Partial<CleanupToolOptions>) => {
+        const next = { ...options, ...patch };
+        setOptions(next);
+        void setStored(next);
+    };
+
+    // Measured with the history erased outright: the whole the reading is "of", and fixed for as
+    // long as the dialog is open, since no setting here can reclaim more than that.
+    const everything = useSpaceUsageFetch<SpaceUsageNoteResponse>(`${ROOT_USAGE_URL}?snapshotsToKeep=0`);
+    // Measured as the settings would trim it. The retention trails the field being typed in, so a
+    // number entered digit by digit costs one measurement rather than one per keystroke.
+    const settledSnapshotsToKeep = useDebouncedValue(options.snapshotsToKeep, ESTIMATE_DEBOUNCE_MS);
+    const trimmed = useSpaceUsageFetch<SpaceUsageNoteResponse>(
+        `${ROOT_USAGE_URL}?snapshotsToKeep=${settledSnapshotsToKeep}&keepNamedSnapshots=${options.keepNamedSnapshots}`);
+
+    const sizes = computeCleanupSizes(everything.data, trimmed.data, options);
+    const measuring = everything.loading || trimmed.loading;
+    // Nothing picked, or nothing to gain from what is: either way the run would be a no-op, and a
+    // button that erases without recourse must not be offered for one.
+    const nothingToDo = measuring || sizes.selected <= 0;
 
     const ring: DonutRing = useMemo(() => ({
         id: "cleanup",
@@ -47,27 +89,62 @@ export default function CleanupDialog({ show, onHidden, estimates }: CleanupDial
         thickness: DONUT_THICKNESS,
         segments: CLEANUP_ITEMS.map((item) => ({
             id: item.id,
-            value: estimates[item.id],
-            className: clsx(`cleanup-segment-${item.id}`, !picked[item.id] && "cleanup-segment-unpicked"),
+            value: sizes.perItem[item.id],
+            className: clsx(`cleanup-segment-${item.id}`, !options[item.id] && "cleanup-segment-unpicked"),
             tooltip: t(item.labelKey)
         }))
-    }), [ estimates, picked ]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }), [ sizes.perItem.deletedEntities, sizes.perItem.unusedAttachments, sizes.perItem.revisionSnapshots,
+        options.deletedEntities, options.unusedAttachments, options.revisionSnapshots ]);
 
-    const total = CLEANUP_ITEMS.reduce((sum, item) => sum + estimates[item.id], 0);
-    const selected = CLEANUP_ITEMS.reduce(
-        (sum, item) => sum + (picked[item.id] ? estimates[item.id] : 0), 0);
+    // What the run was asked to do, held across the close: the operation starts once the dialog is
+    // out of the way, by which time the state it was configured from is on its way out too.
+    const pending = useRef<{ options: CleanupToolOptions, reclaimed: number } | null>(null);
 
-    return createPortal(
+    async function confirmAndClose() {
+        if (!await dialogService.confirm(t("space_usage.cleanup_confirm"))) {
+            return;
+        }
+
+        pending.current = { options, reclaimed: sizes.selected };
+        setShown(false);
+    }
+
+    async function runPendingCleanup() {
+        const work = pending.current;
+
+        if (!work) {
+            onFinished(null);
+            return;
+        }
+
+        try {
+            await runCleanup(work.options);
+            toast.showMessage(t("space_usage.cleanup_done", { size: formatSize(work.reclaimed) }));
+        } finally {
+            // Settled either way: a run that failed part-way still changed the database, so whatever
+            // was watching has to re-measure rather than keep the figures from before it. The
+            // failure itself is already reported by the request layer.
+            onFinished(work.reclaimed);
+        }
+    }
+
+    return (
         <Modal
             className="space-usage-cleanup-dialog"
             title={t("space_usage.cleanup_title")}
             size="sm"
             minWidth={CLEANUP_DIALOG_MIN_WIDTH}
-            show={show}
-            onHidden={onHidden}
+            show={shown}
+            onHidden={() => void runPendingCleanup()}
             footer={<>
-                <Button text={t("space_usage.cleanup_cancel")} onClick={onHidden} />
-                <Button text={t("space_usage.cleanup_clean")} kind="primary" />
+                <Button text={t("space_usage.cleanup_cancel")} onClick={() => setShown(false)} />
+                <Button
+                    text={t("space_usage.cleanup_clean")}
+                    kind="primary"
+                    disabled={nothingToDo}
+                    onClick={() => void confirmAndClose()}
+                />
             </>}
             stackable
         >
@@ -75,10 +152,10 @@ export default function CleanupDialog({ show, onHidden, estimates }: CleanupDial
                 <DonutChart rings={[ ring ]}>
                     <div className="cleanup-chart-center">
                         <span className="cleanup-chart-caption">{t("space_usage.cleanup_estimated")}</span>
-                        <span className="cleanup-chart-amount">{formatSize(selected)}</span>
+                        <span className="cleanup-chart-amount">{formatSize(sizes.selected)}</span>
                         <div className="cleanup-chart-rule" aria-hidden="true" />
                         <span className="cleanup-chart-total">
-                            {t("space_usage.cleanup_amount_of", { total: formatSize(total) })}
+                            {t("space_usage.cleanup_amount_of", { total: formatSize(sizes.total) })}
                         </span>
                     </div>
                 </DonutChart>
@@ -93,7 +170,7 @@ export default function CleanupDialog({ show, onHidden, estimates }: CleanupDial
                         className={`cleanup-item cleanup-item-${item.id}`}
                         // Only the revision item has any: they qualify how far its trimming goes, so
                         // they are beside the point until it is actually being run.
-                        subSectionsVisible={item.id === "revisionSnapshots" && picked.revisionSnapshots}
+                        subSectionsVisible={item.id === "revisionSnapshots" && options.revisionSnapshots}
                         subSections={item.id === "revisionSnapshots" ? [
                             <CardSection key="snapshots-to-keep" className="cleanup-item cleanup-item-nested">
                                 <span className="cleanup-item-title">{t("space_usage.cleanup_snapshots_to_keep")}</span>
@@ -101,39 +178,35 @@ export default function CleanupDialog({ show, onHidden, estimates }: CleanupDial
                                     className="cleanup-item-number"
                                     type="number"
                                     min={0}
-                                    currentValue={String(snapshotsToKeep)}
-                                    onChange={(value) => setSnapshotsToKeep(Math.max(parseInt(value, 10) || 0, 0))}
+                                    currentValue={String(options.snapshotsToKeep)}
+                                    onChange={(value) => update({ snapshotsToKeep: Math.max(parseInt(value, 10) || 0, 0) })}
                                 />
                             </CardSection>,
                             <CardSection key="keep-named" className="cleanup-item cleanup-item-nested">
                                 <span className="cleanup-item-title">{t("space_usage.cleanup_keep_named")}</span>
-                                <FormToggle currentValue={keepNamedSnapshots} onChange={setKeepNamedSnapshots} />
+                                <FormToggle
+                                    currentValue={options.keepNamedSnapshots}
+                                    onChange={(value) => update({ keepNamedSnapshots: value })}
+                                />
                             </CardSection>
                         ] : undefined}
                     >
                         <span className="cleanup-item-swatch" aria-hidden="true" />
                         <span className="cleanup-item-title">{t(item.labelKey)}</span>
-                        <span className="cleanup-item-size">{formatSize(estimates[item.id])}</span>
+                        <span className="cleanup-item-size">{formatSize(sizes.perItem[item.id])}</span>
                         <FormToggle
-                            currentValue={picked[item.id]}
-                            onChange={(value) => setPicked((current) => ({ ...current, [item.id]: value }))}
+                            currentValue={options[item.id]}
+                            onChange={(value) => update({ [item.id]: value })}
                         />
                     </CardSection>
                 ))}
             </Card>
-        </Modal>,
-        document.body
+        </Modal>
     );
 }
 
-/** The cleanup's items, in the order they are both listed and drawn. */
-const CLEANUP_ITEMS = [
-    { id: "deletedEntities", labelKey: "space_usage.cleanup_deleted_entities" },
-    { id: "unusedAttachments", labelKey: "space_usage.cleanup_unused_attachments" },
-    { id: "revisionSnapshots", labelKey: "space_usage.cleanup_revision_snapshots" }
-] as const;
-
-type CleanupItemId = (typeof CLEANUP_ITEMS)[number]["id"];
+/** Both figures come from the root, whose subtree is the whole visible database. */
+const ROOT_USAGE_URL = "space-usage/note/root";
 
 /**
  * The width the dialog starts at, narrow on purpose: a short list of choices, read top to bottom
@@ -149,18 +222,17 @@ const CLEANUP_DIALOG_MIN_WIDTH = "400px";
 const DONUT_RADIUS = 150;
 const DONUT_THICKNESS = 40;
 
+/** Long enough to type a two-digit retention through without measuring the database twice. */
+const ESTIMATE_DEBOUNCE_MS = 500;
 
-/** Where the field starts when no limit is configured — see {@link defaultSnapshotsToKeep}. */
-const FALLBACK_SNAPSHOTS_TO_KEEP = 4;
+/** Trails `value` by `delay`, so a field being typed in does not fire a measurement per keystroke. */
+function useDebouncedValue<T>(value: T, delay: number): T {
+    const [ settled, setSettled ] = useState(value);
 
-/**
- * How many snapshots the field offers to keep: whatever the note revision limit is set to, so the
- * cleanup starts out proposing the retention the user already chose. A limit of -1 keeps everything
- * and 0 keeps none — neither is a useful opening offer for a one-off trim, so both fall back to a
- * figure that plainly trims something without gutting the history.
- */
-function defaultSnapshotsToKeep(): number {
-    const configured = optionService.getInt("revisionSnapshotNumberLimit") ?? -1;
+    useEffect(() => {
+        const timer = setTimeout(() => setSettled(value), delay);
+        return () => clearTimeout(timer);
+    }, [ value, delay ]);
 
-    return configured > 0 ? configured : FALLBACK_SNAPSHOTS_TO_KEEP;
+    return settled;
 }

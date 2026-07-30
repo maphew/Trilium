@@ -2889,7 +2889,9 @@
     "cleanup_snapshots_to_keep": "Revision snapshots to keep",
     "cleanup_keep_named": "Keep named revisions",
     "cleanup_cancel": "Cancel",
-    "cleanup_clean": "Clean"
+    "cleanup_clean": "Clean",
+    "cleanup_confirm": "This permanently deletes the selected data. It cannot be undone.",
+    "cleanup_done": "Cleanup completed, reclaiming {{size}}."
   },
   "note_language": {
     "not_set": "No language set",

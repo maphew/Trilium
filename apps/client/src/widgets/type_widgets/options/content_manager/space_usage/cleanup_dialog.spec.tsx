@@ -1,48 +1,88 @@
-import { type ComponentChildren, render } from "preact";
+import type { ComponentChildren } from "preact";
+import { useEffect } from "preact/hooks";
 import { act } from "preact/test-utils";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { t } from "../../../../../services/i18n";
 import { formatSize } from "../../../../../services/utils";
 
+// Hoisted with the mocks that read them: a `vi.mock` factory runs before any plain module constant.
+const { REVISIONS_ALL, REVISIONS_TRIMMED, DELETED, UNUSED } = vi.hoisted(() => ({
+    REVISIONS_ALL: 900,
+    REVISIONS_TRIMMED: 300,
+    DELETED: 100,
+    UNUSED: 20
+}));
+
 const mocks = vi.hoisted(() => ({
-    getInt: vi.fn<(name: string) => number | null>(() => -1)
+    getInt: vi.fn<(name: string) => number | null>(() => -1),
+    storedOption: "{}",
+    save: vi.fn(async () => {}),
+    get: vi.fn(),
+    post: vi.fn(async (_url: string, _body?: object) => {}),
+    confirm: vi.fn(async () => true),
+    showMessage: vi.fn()
 }));
 
 vi.mock("../../../../../services/options", () => ({
-    default: { getInt: mocks.getInt }
+    default: {
+        get: () => mocks.storedOption,
+        getInt: mocks.getInt,
+        save: mocks.save
+    }
 }));
 
-// Bootstrap's modal machinery is not what any of this is about; the stub renders the body and the
-// footer inline so the dialog's own content can be read straight out of the DOM.
+vi.mock("../../../../../services/server", () => ({
+    default: {
+        // The aggressive reading and the trimmed one differ only in the retention they were asked
+        // for, which is what the URL carries. Everything else the client loads on the way past is
+        // answered emptily rather than with a usage payload it would choke on.
+        get: (url: string) => {
+            mocks.get(url);
+
+            if (!url.startsWith("space-usage/")) {
+                return Promise.resolve(url === "keyboard-actions" ? [] : {});
+            }
+
+            const keeping = /snapshotsToKeep=(\d+)/.exec(url)?.[1];
+            return Promise.resolve({
+                subtreeRevisionsContentSize: keeping === "0" ? REVISIONS_ALL : REVISIONS_TRIMMED,
+                deletedNotes: { size: DELETED, noteCount: 1, attachmentCount: 0 },
+                unusedAttachments: { size: UNUSED, attachmentCount: 1 }
+            });
+        },
+        post: mocks.post
+    }
+}));
+
+vi.mock("../../../../../services/dialog", () => ({ default: { confirm: mocks.confirm } }));
+vi.mock("../../../../../services/toast", () => ({ default: { showMessage: mocks.showMessage } }));
+
+// The real modal reports its close once the animation is done; the stub reports it as soon as it is
+// told to hide, which is the signal the dialog's own flow keys off.
 vi.mock("../../../../react/Modal", () => ({
-    default: ({ children, footer, show }: { children: ComponentChildren, footer: ComponentChildren, show: boolean }) => (
-        show ? <div className="modal-stub">{children}<div className="footer-stub">{footer}</div></div> : null
-    )
+    default: function ModalStub({ children, footer, show, onHidden }: {
+        children: ComponentChildren, footer: ComponentChildren, show: boolean, onHidden: () => void
+    }) {
+        useEffect(() => {
+            if (!show) {
+                onHidden();
+            }
+            // Keyed on the visibility alone: the dialog hands down a fresh closure each render, and
+            // following that identity would report the same close over and over.
+            // eslint-disable-next-line react-hooks/exhaustive-deps
+        }, [ show ]);
+
+        return show ? <div className="modal-stub">{children}<div className="footer-stub">{footer}</div></div> : null;
+    }
 }));
 
-import CleanupDialog, { type CleanupEstimates } from "./cleanup_dialog";
+import { showCleanupDialog } from "./cleanup_dialog";
 
-const ESTIMATES: CleanupEstimates = {
-    deletedEntities: 3000,
-    unusedAttachments: 2000,
-    revisionSnapshots: 5000
-};
-
-let container: HTMLDivElement | undefined;
-
-function renderDialog(estimates = ESTIMATES) {
-    container = document.body.appendChild(document.createElement("div"));
-    render(<CleanupDialog show onHidden={() => {}} estimates={estimates} />, container);
-    return container;
-}
-
-/** The dialog portals to `<body>`, so its content is looked up there rather than in the container. */
 function rows() {
     return Array.from(document.body.querySelectorAll<HTMLElement>(".cleanup-item:not(.cleanup-item-nested)"));
 }
 
-/** The qualifiers under the revision item, which are card sections of their own. */
 function nestedRows() {
     return Array.from(document.body.querySelectorAll<HTMLElement>(".cleanup-item-nested"));
 }
@@ -55,106 +95,126 @@ function textOf(selector: string) {
     return document.body.querySelector<HTMLElement>(selector)?.textContent ?? "";
 }
 
+function buttons() {
+    return Array.from(document.body.querySelectorAll<HTMLButtonElement>(".footer-stub button"));
+}
+
+const cancelButton = () => buttons()[0];
+const cleanButton = () => buttons()[1];
+
 /**
- * Flips the switch of the row at `index`, the way a click on it does. Translations are absent under
- * the test i18n, so rows are addressed by position rather than by their (empty) labels.
+ * Opens the dialog and lets its opening measurements land. The pending close is handed back wrapped:
+ * returned bare, awaiting this helper would adopt it and wait for the dialog to finish.
  */
-async function toggleRow(index: number) {
-    const toggle = rows()[index]?.querySelector<HTMLInputElement>(".switch-toggle");
+async function openDialog() {
+    const closed = showCleanupDialog();
+    // Two measurements land, each through its own effect and state update: a macrotask turn drains
+    // the microtasks between them, which flushing promises alone does not.
+    await settle();
+    await settle();
+    return { closed };
+}
+
+function settle() {
+    return act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
+}
+
+/** Flips the switch of a row, the way a click on it does. */
+async function toggle(row: HTMLElement | undefined) {
     await act(async () => {
-        toggle?.dispatchEvent(new Event("input", { bubbles: true }));
+        row?.querySelector<HTMLInputElement>(".switch-toggle")?.dispatchEvent(new Event("input", { bubbles: true }));
     });
 }
 
-describe("CleanupDialog", () => {
-    afterEach(() => {
-        if (container) {
-            render(null, container);
-            container.remove();
-            container = undefined;
-        }
-        mocks.getInt.mockReturnValue(-1);
+async function click(button: HTMLButtonElement | undefined) {
+    await act(async () => {
+        button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+}
+
+beforeEach(() => {
+    mocks.storedOption = "{}";
+    mocks.getInt.mockReturnValue(-1);
+    mocks.confirm.mockResolvedValue(true);
+    vi.clearAllMocks();
+});
+
+afterEach(() => {
+    document.body.innerHTML = "";
+});
+
+describe("showCleanupDialog", () => {
+    it("opens with nothing picked when the setting has never been written", async () => {
+        await openDialog();
+
+        expect(rows().every((row) => !row.querySelector<HTMLInputElement>(".switch-toggle")?.checked)).toBe(true);
+        // Nothing picked is nothing to gain, so the button that erases without recourse stays out.
+        expect(cleanButton()?.disabled).toBe(true);
+        // And the revision qualifiers are beside the point until that item is actually being run.
+        expect(nestedRows()).toEqual([]);
     });
 
-    it("lists every item with its own swatch, its estimate and a switch", () => {
-        renderDialog();
-
-        // Compared against the same t() calls, so the assertion holds with translations loaded and
-        // stays faithful under the uninitialized test i18n (t yields undefined → empty span).
-        expect(titlesOf(rows())).toEqual([
-            t("space_usage.cleanup_deleted_entities") ?? "",
-            t("space_usage.cleanup_unused_attachments") ?? "",
-            t("space_usage.cleanup_revision_snapshots") ?? ""
-        ]);
-
-        const sizes = rows().map((row) => row.querySelector(".cleanup-item-size")?.textContent);
-        expect(sizes).toEqual([ formatSize(3000), formatSize(2000), formatSize(5000) ]);
-
-        // Each row names its item, which is what carries the color its swatch and its amount are
-        // both painted from — so the list doubles as the ring's legend.
-        expect(rows().map((row) => row.className)).toEqual([
-            "tn-card-section cleanup-item cleanup-item-deletedEntities",
-            "tn-card-section cleanup-item cleanup-item-unusedAttachments",
-            "tn-card-section cleanup-item cleanup-item-revisionSnapshots"
-        ]);
-        expect(rows().every((row) => row.querySelector(".cleanup-item-swatch"))).toBe(true);
-        expect(rows().every((row) => row.querySelector(".switch-toggle"))).toBe(true);
-    });
-
-    it("reads the picked total against the whole, which unpicking an item does not move", async () => {
-        renderDialog();
-
-        expect(textOf(".cleanup-chart-caption")).toBe(t("space_usage.cleanup_estimated") ?? "");
-        expect(textOf(".cleanup-chart-amount")).toBe(formatSize(10000));
-        expect(textOf(".cleanup-chart-total")).toBe(
-            t("space_usage.cleanup_amount_of", { total: formatSize(10000) }) ?? "");
-
-        // Unpicking the deleted entities takes their 3000 off the offer, never off the whole below
-        // the rule: only the figure being read moves.
-        await toggleRow(0);
-        expect(textOf(".cleanup-chart-amount")).toBe(formatSize(7000));
-        expect(textOf(".cleanup-chart-total")).toBe(
-            t("space_usage.cleanup_amount_of", { total: formatSize(10000) }) ?? "");
-    });
-
-    it("keeps an unpicked item's arc on the ring, drawn muted rather than dropped", async () => {
-        renderDialog();
-
-        const arcs = () => Array.from(document.body.querySelectorAll(".donut-segment"))
-            .map((segment) => segment.getAttribute("class") ?? "");
-        expect(arcs().length).toBe(3);
-        expect(arcs().some((className) => className.includes("cleanup-segment-unpicked"))).toBe(false);
-
-        await toggleRow(1);
-        expect(arcs().length).toBe(3);
-        expect(arcs().filter((className) => className.includes("cleanup-segment-unpicked")).length).toBe(1);
-    });
-
-    it("qualifies the revision trimming only while it is actually being run", async () => {
-        renderDialog();
+    it("reads a stored answer back, qualifiers and all", async () => {
+        mocks.storedOption = JSON.stringify({ revisionSnapshots: true, snapshotsToKeep: 2, keepNamedSnapshots: true });
+        await openDialog();
 
         expect(titlesOf(nestedRows())).toEqual([
             t("space_usage.cleanup_snapshots_to_keep") ?? "",
             t("space_usage.cleanup_keep_named") ?? ""
         ]);
-
-        // The revisions row is the last of the three; unpicking it takes its qualifiers with it.
-        await toggleRow(2);
-        expect(nestedRows()).toEqual([]);
+        expect(document.body.querySelector<HTMLInputElement>(".cleanup-item-number")?.value).toBe("2");
+        expect(cleanButton()?.disabled).toBe(false);
     });
 
-    it("offers the configured revision limit to keep, falling back where it keeps all or none", () => {
-        const keptField = () => document.body.querySelector<HTMLInputElement>(".cleanup-item-number")?.value;
+    it("weighs the offer against everything reclaimable, and writes each pick back", async () => {
+        mocks.storedOption = JSON.stringify({ revisionSnapshots: true, snapshotsToKeep: 2 });
+        await openDialog();
 
-        // No limit configured: -1 keeps everything, which is no offer at all for a one-off trim.
-        renderDialog();
-        expect(keptField()).toBe("4");
+        // The whole is the history erased outright plus the rest; the offer, only what is picked.
+        expect(textOf(".cleanup-chart-total")).toBe(
+            t("space_usage.cleanup_amount_of", { total: formatSize(REVISIONS_ALL + DELETED + UNUSED) }) ?? "");
+        expect(textOf(".cleanup-chart-amount")).toBe(formatSize(REVISIONS_TRIMMED));
 
-        for (const [ configured, expected ] of [ [ 7, "7" ], [ 0, "4" ] ] as const) {
-            render(null, container ?? document.createElement("div"));
-            mocks.getInt.mockReturnValue(configured);
-            renderDialog();
-            expect(keptField()).toBe(expected);
-        }
+        await toggle(rows()[0]);
+        expect(textOf(".cleanup-chart-amount")).toBe(formatSize(REVISIONS_TRIMMED + DELETED));
+        expect(mocks.save).toHaveBeenCalledWith("cleanupToolOptions", expect.stringContaining('"deletedEntities":true'));
+    });
+
+    it("runs only once confirmed, after the dialog is out of the way, and reports what it freed", async () => {
+        mocks.storedOption = JSON.stringify({ unusedAttachments: true });
+        const { closed } = await openDialog();
+
+        await click(cleanButton());
+        // The confirmation is the last chance to back out of something with no recovery.
+        expect(mocks.confirm).toHaveBeenCalledOnce();
+
+        await expect(closed).resolves.toBe(UNUSED);
+        expect(mocks.post).toHaveBeenCalledWith("notes/erase-unused-attachments-now");
+        expect(mocks.showMessage).toHaveBeenCalledWith(
+            t("space_usage.cleanup_done", { size: formatSize(UNUSED) }));
+        // Gone from the page: it is mounted for the run and unmounted with it.
+        expect(document.body.querySelector(".modal-stub")).toBeNull();
+    });
+
+    it("erases nothing when the confirmation is declined, and stays open to be reconsidered", async () => {
+        mocks.storedOption = JSON.stringify({ unusedAttachments: true });
+        await openDialog();
+        mocks.confirm.mockResolvedValue(false);
+
+        await click(cleanButton());
+
+        expect(mocks.post).not.toHaveBeenCalled();
+        expect(document.body.querySelector(".modal-stub")).not.toBeNull();
+    });
+
+    it("resolves with nothing when the dialog is dismissed, having touched nothing", async () => {
+        mocks.storedOption = JSON.stringify({ unusedAttachments: true });
+        const { closed } = await openDialog();
+
+        await click(cancelButton());
+
+        await expect(closed).resolves.toBeNull();
+        expect(mocks.post).not.toHaveBeenCalled();
+        expect(mocks.showMessage).not.toHaveBeenCalled();
     });
 });

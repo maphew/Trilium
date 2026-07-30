@@ -296,6 +296,10 @@ const defaultOptions: DefaultOption[] = [
         isSynced: true
     },
 
+    // Empty rather than a set of defaults: nothing the cleanup tool erases is picked until the user
+    // picks it, so an uninitialized setting has to mean "nothing selected".
+    { name: "cleanupToolOptions", value: "{}", isSynced: true },
+
     // Share settings
     { name: "redirectBareDomain", value: "false", isSynced: true },
     { name: "showLoginInShareTheme", value: "false", isSynced: true },

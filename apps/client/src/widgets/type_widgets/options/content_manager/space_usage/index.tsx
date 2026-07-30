@@ -11,7 +11,7 @@ import SegmentedChoice from "../../../../react/SegmentedChoice";
 import OptionsPageHeader from "../../components/OptionsPageHeader";
 import type { ContentManagerSectionProps } from "../index";
 import Browse from "./browse";
-import CleanupDialog from "./cleanup_dialog";
+import { showCleanupDialog } from "./cleanup_dialog";
 import Overview from "./overview";
 import SpaceUsagePlaceholder from "./placeholder";
 import { useSpaceUsageFetch } from "./use_space_usage_fetch";
@@ -32,7 +32,6 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
     // Browse measures its own note through a separate request, which this component would not
     // otherwise know about; without it the button would free up while that reading was still running.
     const [ browseLoading, setBrowseLoading ] = useState(false);
-    const [ cleanupShown, setCleanupShown ] = useState(false);
     // Browse's position lives here so that "Show details", offered on any note either view draws,
     // can land the user on that note — switching the view along the way when it comes from Overview.
     const [ browsePath, setBrowsePath ] = useState([ "root" ]);
@@ -56,12 +55,17 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
                         currentValue={view}
                         onChange={setView}
                     />
-                    {/* Boxicons ships no broom; the eraser is what the dialog does anyway. */}
+                    {/* Boxicons ships no broom; the eraser is what the dialog does anyway. The
+                        charts re-measure once it is done, having just been made wrong by it. */}
                     <ActionButton
                         className="space-usage-cleanup"
                         icon="bx bx-eraser"
                         text={t("space_usage.cleanup_title")}
-                        onClick={() => setCleanupShown(true)}
+                        onClick={() => void showCleanupDialog().then((reclaimed) => {
+                            if (reclaimed !== null) {
+                                refresh();
+                            }
+                        })}
                     />
                     {/* Measuring is expensive, so a reading is taken when asked for rather than
                         kept live — and the button stays out while one is being taken. */}
@@ -74,21 +78,6 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
                     />
                 </div>
             } />
-
-            {/* Kept out of the DOM until asked for: it is a modal over this page, not part of it.
-                The revision figure is still a placeholder — estimating it takes a request carrying
-                the retention picked in the dialog, which is the step after this one. */}
-            {cleanupShown && (
-                <CleanupDialog
-                    show={cleanupShown}
-                    onHidden={() => setCleanupShown(false)}
-                    estimates={{
-                        deletedEntities: overview?.deletedNotes.size ?? 0,
-                        unusedAttachments: overview?.unusedAttachments.size ?? 0,
-                        revisionSnapshots: overview?.content.revisionsSize ?? 0
-                    }}
-                />
-            )}
 
             {view === "browse" && (
                 <Browse

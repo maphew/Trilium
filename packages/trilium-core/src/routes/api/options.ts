@@ -122,6 +122,7 @@ const ALLOWED_OPTIONS = new Set<OptionNames>([
     "layoutOrientation",
     "backgroundEffects",
     "allowedHtmlTags",
+    "cleanupToolOptions",
     "searchEnableFuzzyMatching",
     "searchAutocompleteFuzzy",
     "redirectBareDomain",
