@@ -28,8 +28,8 @@ Interaction:
 *   The value of the attributes can be edited in-place:
     *   The input box follows the type defined in a corresponding label definition (date, color, dropdown, numbers), as well as for system attributes that have a specific type (e.g. `color`).
     *   For labels, clicking on the value edits its in-place.
-        *   Press <kbd spellcheck="false">Enter</kbd> to confirm or click outside the input box, or <kbd spellcheck="false">Esc</kbd> to dismiss.
-        *   For multi-line text, <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">Enter</kbd> confirms whereas <kbd spellcheck="false">Enter</kbd> creates a newline.
+        *   Press <kbd>Enter</kbd> to confirm or click outside the input box, or <kbd>Esc</kbd> to dismiss.
+        *   For multi-line text, <kbd>Ctrl</kbd>+<kbd>Enter</kbd> confirms whereas <kbd>Enter</kbd> creates a newline.
     *   For boolean values, clicking on the checkbox will toggle its state.
     *   For labels without a value, a value can be added by clicking on the _No value_ text which appears while the mouse is hovered on the item.
     *   For relations, there is a dedicated pencil button instead.
@@ -39,8 +39,8 @@ Attributes can be added in two ways:
 
 *   A new label, relation or attribute definition can be added from the + button near the title of the section. This shows the full detail popup.
 *   To quickly add a label or a relation directly from the sidebar, click the _Add attribute_ item at the end of the list.
-    *   The name field will be focused first. By default, a label will be created instead but it can be toggled to a relation by typing <kbd spellcheck="false">~</kbd> or pressing the icon (similarly, typing `#` will switch back to a label instead of a relation).
-    *   Once the name is filled, press <kbd spellcheck="false">Enter</kbd> to continue to the value. Type in a value if desired and then press <kbd spellcheck="false">Enter</kbd> again to create the attribute.
+    *   The name field will be focused first. By default, a label will be created instead but it can be toggled to a relation by typing <kbd>~</kbd> or pressing the icon (similarly, typing `#` will switch back to a label instead of a relation).
+    *   Once the name is filled, press <kbd>Enter</kbd> to continue to the value. Type in a value if desired and then press <kbd>Enter</kbd> again to create the attribute.
     *   Clicking outside the editor will also create the attribute, but only if a name is specified.
 
 ## Inherited attributes
