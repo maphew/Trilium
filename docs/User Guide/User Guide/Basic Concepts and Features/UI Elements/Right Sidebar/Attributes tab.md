@@ -1,5 +1,5 @@
 # Attributes tab
-<figure class="image image-style-align-right image_resized" style="width:45.4%;"><img style="aspect-ratio:566/1625;" src="Attributes tab_image.png" width="566" height="1625"></figure>
+<figure class="image image-style-align-right image_resized" style="width:34.71%;"><img style="aspect-ratio:596/1688;" src="Attributes tab_image.png" width="596" height="1688"></figure>
 
 The attributes tab provides a more graphical way to view and edit [attributes](../../../Advanced%20Usage/Attributes.md).
 
@@ -27,8 +27,10 @@ Interaction:
 *   Clicking on the item (apart from the value and links) reveals a dedicated popup where the name, value and <a class="reference-link" href="../../../Advanced%20Usage/Attributes/Attribute%20Inheritance.md">Attribute Inheritance</a> can be defined.
 *   The value of the attributes can be edited in-place:
     *   The input box follows the type defined in a corresponding label definition (date, color, dropdown, numbers), as well as for system attributes that have a specific type (e.g. `color`).
-    *   For labels, clicking on the value edits its in-place. Press <kbd spellcheck="false">Enter</kbd> to confirm or click outside the input box, or <kbd spellcheck="false">Esc</kbd> to dismiss.
-    *   For multi-line text, <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">Enter</kbd> confirms whereas <kbd spellcheck="false">Enter</kbd> creates a newline.
+    *   For labels, clicking on the value edits its in-place.
+        *   Press <kbd spellcheck="false">Enter</kbd> to confirm or click outside the input box, or <kbd spellcheck="false">Esc</kbd> to dismiss.
+        *   For multi-line text, <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">Enter</kbd> confirms whereas <kbd spellcheck="false">Enter</kbd> creates a newline.
+    *   For boolean values, clicking on the checkbox will toggle its state.
     *   For labels without a value, a value can be added by clicking on the _No value_ text which appears while the mouse is hovered on the item.
     *   For relations, there is a dedicated pencil button instead.
 *   An attribute can be deleted by pressing the X button to its right, which only appears while hovered. A confirmation screen is displayed first to ensure the attribute is not accidentally deleted.
