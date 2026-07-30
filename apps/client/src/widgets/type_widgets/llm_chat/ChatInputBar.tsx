@@ -14,10 +14,13 @@ import CKEditor, { type CKEditorApi } from "../../react/CKEditor.js";
 import Dropdown from "../../react/Dropdown.js";
 import { FormListHeader, FormListItem } from "../../react/FormList.js";
 import { useLegacyImperativeHandlers } from "../../react/hooks.js";
+import MaskedIcon from "../../react/MaskedIcon.js";
 import AddProviderModal, { type LlmProviderConfig, type ProviderStep } from "../options/llm/AddProviderModal.js";
+import { providerIconUrl } from "../options/llm/provider_icons.js";
 import { computeContextUsage } from "./chat_context_usage.js";
 import { insertNewBlock as insertNewBlockCommand, isSelectionInCodeBlock, outdentListItemAtStart } from "./chat_input_editing.js";
 import { editorHtmlToMarkdown } from "./chat_input_markdown.js";
+import { shortModelName } from "./model_name.js";
 import { SafeImage } from "./retry_image.js";
 import { useChatAttachments } from "./useChatAttachments.js";
 import { type ModelOption, resolveSelectedModel, type UseLlmChatReturn } from "./useLlmChat.js";
@@ -387,8 +390,14 @@ export default function ChatInputBar({
                 <div className="llm-chat-options">
                     <div className="llm-chat-model-selector">
                         <Dropdown
+                            // The provider's mark stands in for the vendor word `shortModelName`
+                            // removes — the same information in a glyph's worth of width instead
+                            // of a word's, and the only provider signal the collapsed button has.
                             text={currentModel
-                                ? <span className="llm-chat-model-select-name">{currentModel.name}</span>
+                                ? <>
+                                    <MaskedIcon url={providerIconUrl(currentModel.provider)} className="llm-chat-model-icon" />
+                                    <span className="llm-chat-model-select-name">{shortModelName(currentModel.name, currentModel.provider)}</span>
+                                </>
                                 : <span className="llm-chat-model-select-name llm-chat-model-placeholder">{t("llm_chat.no_model_selected")}</span>}
                             disabled={chat.isStreaming}
                             // The selector is the only item in the row that shrinks, so a long
@@ -422,7 +431,8 @@ export default function ChatInputBar({
                                             onClick={() => handleModelSelect(model)}
                                             checked={isSelectedModel(model)}
                                         >
-                                            {model.name}{model.costDescription && <> <small>({model.costDescription})</small></>}
+                                            <MaskedIcon url={providerIconUrl(model.provider)} className="llm-chat-model-icon" />
+                                            {shortModelName(model.name, model.provider)}{model.costDescription && <> <small>({model.costDescription})</small></>}
                                         </FormListItem>
                                     )) : (
                                     // Provider configured before model selection existed (or with

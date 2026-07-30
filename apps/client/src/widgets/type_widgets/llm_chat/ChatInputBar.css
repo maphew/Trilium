@@ -248,6 +248,24 @@
     white-space: nowrap;
 }
 
+/*
+ * The provider's mark, standing in for the vendor word `shortModelName` drops — the same
+ * information in a glyph's width rather than a word's. Sized just under the label so it
+ * reads as a marker rather than competing with the name it qualifies.
+ */
+.llm-chat-model-icon {
+    --masked-icon-size: 1.05em;
+
+    opacity: 0.8;
+}
+
+/* In the menu the mark sits ahead of the name, which is plain text rather than a wrapped
+   element — so the gap is the icon's own margin. */
+.llm-chat-model-dropdown .llm-chat-model-icon {
+    margin-inline-end: 0.45em;
+    vertical-align: -0.15em;
+}
+
 /* Scoped to the dropdown wrapper (not `.llm-chat-model-selector`) so these menu styles
    survive `portalToBody`, which reparents the menu to <body> under this same class. */
 .llm-chat-model-dropdown small {
