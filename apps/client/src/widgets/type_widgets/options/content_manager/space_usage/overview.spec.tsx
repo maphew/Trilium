@@ -48,6 +48,7 @@ const OVERVIEW: SpaceUsageOverviewResponse = {
     otherNotes: { size: 50, revisionsSize: 0, noteCount: 2 },
     hiddenNotes: { size: 80, revisionsSize: 0, noteCount: 10 },
     deletedNotes: { size: 70, noteCount: 1, attachmentCount: 0 },
+    unusedAttachments: { size: 0, attachmentCount: 0 },
     total: { size: 250, revisionsSize: 0, noteCount: 3 }
 };
 

@@ -12,6 +12,12 @@
         height: 100%;
     }
 
+    /* The empty band the segments are laid on, in the color of any other divider — a ring with
+       nothing on it still has to read as a ring rather than as a blank square. */
+    .donut-track {
+        stroke: var(--donut-track-color, var(--main-border-color));
+    }
+
     /* Colored through a variable, not a competing rule: consumers set `--donut-segment-color` and
        never race this stylesheet's cascade position. */
     .donut-segment {

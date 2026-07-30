@@ -309,6 +309,14 @@ describe("openRevisionsContextMenu", () => {
     });
 
     it("offers the limit setting instead of an erasure that would drop nothing, when there is none", async () => {
+        // Present from the start, unlike the test above: accepting the offer sends the reveal off
+        // polling for this field, and with none to find it would keep going for a second after the
+        // test has ended — into a torn-down environment where `document` no longer exists.
+        const field = document.createElement("input");
+        field.name = "revision-snapshot-number-limit";
+        field.scrollIntoView = vi.fn();
+        document.body.appendChild(field);
+
         // A negative limit keeps everything, so there is no ceiling to trim down to and the erasure
         // would report success having changed nothing. An unreadable option counts as no limit
         // rather than as the harshest one, which would erase every snapshot in the database.
@@ -317,6 +325,9 @@ describe("openRevisionsContextMenu", () => {
             invoke(ERASE);
             await vi.waitFor(() => expect(mocks.confirm).toHaveBeenCalled());
         }
+
+        await vi.waitFor(() => expect(field.scrollIntoView).toHaveBeenCalled());
+        field.remove();
 
         expect(mocks.post).not.toHaveBeenCalled();
         expect(mocks.contentChanged).not.toHaveBeenCalled();
