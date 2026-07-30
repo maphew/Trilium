@@ -107,6 +107,25 @@ export interface DatabaseCheckIntegrityResponse {
     }[];
 }
 
+/**
+ * What rebuilding the database file gave back, measured either side of the vacuum. Erasing content
+ * does not shrink the file — the pages it frees stay allocated on the freelist — so this difference
+ * is the only figure that says what the disk actually got back.
+ */
+export interface VacuumDatabaseResponse {
+    /** The database's size in bytes before the rebuild, free pages included. */
+    sizeBefore: number;
+    sizeAfter: number;
+}
+
+export interface CompactionEstimateResponse {
+    /**
+     * Bytes a rebuild would return, from the pages already free inside the file. A floor rather than
+     * a promise: a rebuild also recovers the slack left inside pages still in use.
+     */
+    reclaimableBytes: number;
+}
+
 export interface DatabaseAnonymizeResponse {
     success: boolean;
     anonymizedFilePath: string;

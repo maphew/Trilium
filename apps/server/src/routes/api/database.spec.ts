@@ -32,8 +32,23 @@ describe("Database API", () => {
         expect(result.results[0].integrity_check).toBe("ok");
     });
 
-    it("vacuums the database without throwing", () => {
-        expect(() => databaseRoute.vacuumDatabase()).not.toThrow();
+    it("vacuums the database, reporting the file's size on either side of the rebuild", () => {
+        const { sizeBefore, sizeAfter } = databaseRoute.vacuumDatabase();
+
+        // Real byte counts, and a rebuild never leaves the file larger than it found it.
+        expect(sizeBefore).toBeGreaterThan(0);
+        expect(sizeAfter).toBeGreaterThan(0);
+        expect(sizeAfter).toBeLessThanOrEqual(sizeBefore);
+    });
+
+    it("estimates what a rebuild would return, which is nothing right after one", () => {
+        const before = databaseRoute.getCompactionEstimate();
+        expect(before.reclaimableBytes).toBeGreaterThanOrEqual(0);
+
+        // A vacuum leaves no free pages behind, so the estimate that follows one is zero — which is
+        // what ties this figure to the thing it claims to predict.
+        databaseRoute.vacuumDatabase();
+        expect(databaseRoute.getCompactionEstimate().reclaimableBytes).toBe(0);
     });
 
     it("kicks off on-demand consistency checks", () => {
