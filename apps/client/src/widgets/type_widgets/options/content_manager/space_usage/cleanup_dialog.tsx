@@ -8,7 +8,7 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import dialogService from "../../../../../services/dialog";
 import { t } from "../../../../../services/i18n";
 import toast from "../../../../../services/toast";
-import { formatSize } from "../../../../../services/utils";
+import { formatSize, isStandalone } from "../../../../../services/utils";
 import Button from "../../../../react/Button";
 import { Card, CardSection } from "../../../../react/Card";
 import DonutChart, { type DonutRing } from "../../../../react/charts/DonutChart";
@@ -20,6 +20,7 @@ import {
     CLEANUP_ITEMS,
     type CleanupToolOptions,
     computeCleanupSizes,
+    hasWorkToDo,
     readCleanupOptions,
     runCleanup
 } from "./cleanup_operation";
@@ -81,7 +82,10 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
     const measuring = everything.loading || trimmed.loading;
     // Nothing picked, or nothing to gain from what is: either way the run would be a no-op, and a
     // button that erases without recourse must not be offered for one.
-    const nothingToDo = measuring || sizes.selected <= 0;
+    const nothingToDo = measuring || !hasWorkToDo(options, sizes.selected);
+    // A run that only compacts frees nothing the content figures can see, so the reading has no
+    // number to give — stating "0" would be answering a question it cannot answer.
+    const unmeasurable = options.compactDatabase && sizes.selected <= 0;
 
     const ring: DonutRing = useMemo(() => ({
         id: "cleanup",
@@ -158,11 +162,18 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
                 <DonutChart rings={[ ring ]}>
                     <div className="cleanup-chart-center">
                         <span className="cleanup-chart-caption">{t("space_usage.cleanup_estimated")}</span>
-                        <span className="cleanup-chart-amount">{formatSize(sizes.selected)}</span>
-                        <div className="cleanup-chart-rule" aria-hidden="true" />
-                        <span className="cleanup-chart-total">
-                            {t("space_usage.cleanup_amount_of", { total: formatSize(sizes.total) })}
+                        <span className="cleanup-chart-amount">
+                            {unmeasurable ? t("space_usage.cleanup_amount_unknown") : formatSize(sizes.selected)}
                         </span>
+                        {/* Only compacting is picked, and how much a rebuild hands back is not
+                            something the content figures can answer — so there is no share of the
+                            whole to state, and nothing for the rule to divide. */}
+                        {!unmeasurable && <>
+                            <div className="cleanup-chart-rule" aria-hidden="true" />
+                            <span className="cleanup-chart-total">
+                                {t("space_usage.cleanup_amount_of", { total: formatSize(sizes.total) })}
+                            </span>
+                        </>}
                     </div>
                 </DonutChart>
             </div>
@@ -206,6 +217,21 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
                         />
                     </CardSection>
                 ))}
+
+                {/* Frees no content, so it carries no figure and no arc — its swatch is a blank
+                    holding the titles in line with the rows above. Absent where the endpoint is:
+                    vacuuming lives in the server build, not in the one that runs the database
+                    in-process. */}
+                {!isStandalone && (
+                    <CardSection className="cleanup-item cleanup-item-compact">
+                        <span className="cleanup-item-swatch" aria-hidden="true" />
+                        <span className="cleanup-item-title">{t("space_usage.cleanup_compact_database")}</span>
+                        <FormToggle
+                            currentValue={options.compactDatabase}
+                            onChange={(value) => update({ compactDatabase: value })}
+                        />
+                    </CardSection>
+                )}
             </Card>
         </Modal>
     );

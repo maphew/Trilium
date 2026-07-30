@@ -23,6 +23,11 @@ export interface CleanupToolOptions {
     /** Revision snapshots kept per note; 0 erases the history outright. */
     snapshotsToKeep: number;
     keepNamedSnapshots: boolean;
+    /**
+     * Rebuild the database file afterwards. Erasing hands pages back to the database, which reuses
+     * them but never shrinks the file; only this returns the space to the disk.
+     */
+    compactDatabase: boolean;
 }
 
 /** Where the snapshots field starts when no useful limit is configured. */
@@ -43,8 +48,18 @@ export function readCleanupOptions(stored: Partial<CleanupToolOptions> | null | 
         snapshotsToKeep: Number.isInteger(snapshotsToKeep) && Number(snapshotsToKeep) >= 0
             ? Number(snapshotsToKeep)
             : defaultSnapshotsToKeep(),
-        keepNamedSnapshots: stored?.keepNamedSnapshots === true
+        keepNamedSnapshots: stored?.keepNamedSnapshots === true,
+        compactDatabase: stored?.compactDatabase === true
     };
+}
+
+/**
+ * Whether the settings amount to anything worth running. Compacting counts on its own: it frees no
+ * *accounted* bytes — the figures are about content, and it moves none — but it is the only step
+ * that hands space back to the disk, so a run asking for nothing else is still a run.
+ */
+export function hasWorkToDo(options: CleanupToolOptions, selectedBytes: number): boolean {
+    return selectedBytes > 0 || options.compactDatabase;
 }
 
 /**
@@ -128,6 +143,12 @@ export async function runCleanup(options: CleanupToolOptions): Promise<number> {
 
     if (options.deletedEntities) {
         await server.post("notes/erase-deleted-notes-now");
+    }
+
+    if (options.compactDatabase) {
+        // Last, with everything already erased: this rebuilds the file around whatever is left, so
+        // anything erased afterwards would leave a hole it has just been rebuilt to close.
+        await server.post("database/vacuum-database");
     }
 
     const reclaimed = Math.max(before - await measureOccupiedBytes(), 0);

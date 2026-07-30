@@ -2891,7 +2891,9 @@
     "cleanup_cancel": "Cancel",
     "cleanup_clean": "Clean",
     "cleanup_confirm": "This permanently deletes the selected data. It cannot be undone.",
-    "cleanup_done": "Cleanup completed, reclaiming {{size}}."
+    "cleanup_done": "Cleanup completed, reclaiming {{size}}.",
+    "cleanup_compact_database": "Compact database",
+    "cleanup_amount_unknown": "??? B"
   },
   "note_language": {
     "not_set": "No language set",

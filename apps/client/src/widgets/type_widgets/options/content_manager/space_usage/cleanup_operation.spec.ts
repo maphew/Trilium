@@ -42,7 +42,8 @@ const ALL_PICKED: CleanupToolOptions = {
     unusedAttachments: true,
     revisionSnapshots: true,
     snapshotsToKeep: 3,
-    keepNamedSnapshots: true
+    keepNamedSnapshots: true,
+    compactDatabase: false
 };
 
 beforeEach(() => {
@@ -61,7 +62,8 @@ describe("readCleanupOptions", () => {
                 unusedAttachments: false,
                 revisionSnapshots: false,
                 snapshotsToKeep: 4,
-                keepNamedSnapshots: false
+                keepNamedSnapshots: false,
+                compactDatabase: false
             });
         }
     });
@@ -84,7 +86,8 @@ describe("readCleanupOptions", () => {
                 unusedAttachments: false,
                 revisionSnapshots: true,
                 snapshotsToKeep: 0,
-                keepNamedSnapshots: true
+                keepNamedSnapshots: true,
+                compactDatabase: false
             });
 
         // A retention that could not have been written by the dialog falls back rather than through.
@@ -144,6 +147,34 @@ describe("runCleanup", () => {
         // Another client saving a note mid-run must not read as the cleanup handing space back.
         mocks.occupied = [ 3000, 4000 ];
         await expect(runCleanup(ALL_PICKED)).resolves.toBe(0);
+    });
+
+    it("rebuilds the file last, once there is nothing further to erase out of it", async () => {
+        await runCleanup({ ...ALL_PICKED, compactDatabase: true });
+
+        expect(mocks.post.mock.calls.map(([ url ]) => url)).toEqual([
+            "revisions/erase-all-excess-revisions",
+            "notes/erase-unused-attachments-now",
+            "notes/erase-deleted-notes-now",
+            "database/vacuum-database",
+            "space-usage/cleanup-completed"
+        ]);
+    });
+
+    it("compacts on its own, for a run that erases nothing at all", async () => {
+        mocks.occupied = [ 5000, 5000 ];
+        const nothingErased = {
+            ...ALL_PICKED,
+            deletedEntities: false,
+            unusedAttachments: false,
+            revisionSnapshots: false,
+            compactDatabase: true
+        };
+
+        await runCleanup(nothingErased);
+
+        expect(mocks.post.mock.calls.map(([ url ]) => url))
+            .toEqual([ "database/vacuum-database", "space-usage/cleanup-completed" ]);
     });
 
     it("asks for nothing that was not picked", async () => {

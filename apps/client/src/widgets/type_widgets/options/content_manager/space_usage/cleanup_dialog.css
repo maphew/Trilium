@@ -110,6 +110,12 @@
         --cleanup-item-color: var(--cleanup-revisions-color);
     }
 
+    /* Nothing on the ring stands for this one, so its swatch names no color — kept rather than
+       dropped so the title starts where every title above it does. */
+    .cleanup-item-compact {
+        --cleanup-item-color: transparent;
+    }
+
     .cleanup-item-swatch {
         flex: 0 0 auto;
         width: 4px;

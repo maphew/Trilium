@@ -213,6 +213,34 @@ describe("showCleanupDialog", () => {
         expect(document.body.querySelector(".modal-stub")).toBeNull();
     });
 
+    it("offers compacting as a row of its own, with neither a figure nor a color", async () => {
+        await openDialog();
+
+        const compact = document.body.querySelector<HTMLElement>(".cleanup-item-compact");
+        expect(compact?.querySelector(".cleanup-item-title")?.textContent)
+            .toBe(t("space_usage.cleanup_compact_database") ?? "");
+        // It frees no content, so it states no amount and stands for nothing on the ring.
+        expect(compact?.querySelector(".cleanup-item-size")).toBeNull();
+        expect(document.body.querySelectorAll(".donut-segment").length).toBe(3);
+    });
+
+    it("gives no figure for a run that only compacts, rather than answering zero", async () => {
+        mocks.storedOption = JSON.stringify({ compactDatabase: true });
+        await openDialog();
+
+        // How much a rebuild hands back is not something the content figures can answer.
+        expect(textOf(".cleanup-chart-amount")).toBe(t("space_usage.cleanup_amount_unknown") ?? "");
+        expect(document.body.querySelector(".cleanup-chart-total")).toBeNull();
+        expect(document.body.querySelector(".cleanup-chart-rule")).toBeNull();
+        // Still worth running, though it erases nothing: the button has to allow it.
+        expect(cleanButton()?.disabled).toBe(false);
+
+        // Picking something with a size restores the reading it can now give.
+        await toggle(rows()[0]);
+        expect(textOf(".cleanup-chart-amount")).toBe(formatSize(DELETED));
+        expect(document.body.querySelector(".cleanup-chart-total")).not.toBeNull();
+    });
+
     it("erases nothing when the confirmation is declined, and stays open to be reconsidered", async () => {
         mocks.storedOption = JSON.stringify({ unusedAttachments: true });
         await openDialog();
