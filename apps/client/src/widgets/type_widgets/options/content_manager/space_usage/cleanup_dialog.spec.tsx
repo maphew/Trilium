@@ -7,16 +7,22 @@ import { t } from "../../../../../services/i18n";
 import { formatSize } from "../../../../../services/utils";
 
 // Hoisted with the mocks that read them: a `vi.mock` factory runs before any plain module constant.
-const { REVISIONS_ALL, REVISIONS_TRIMMED, DELETED, UNUSED } = vi.hoisted(() => ({
+const { REVISIONS_ALL, REVISIONS_TRIMMED, DELETED, UNUSED, MEASURED_BEFORE, MEASURED_AFTER } = vi.hoisted(() => ({
     REVISIONS_ALL: 900,
     REVISIONS_TRIMMED: 300,
     DELETED: 100,
-    UNUSED: 20
+    UNUSED: 20,
+    // Deliberately unlike any estimate above, so a toast quoting a prediction cannot pass for one
+    // quoting the measurement.
+    MEASURED_BEFORE: 7777,
+    MEASURED_AFTER: 1111
 }));
 
 const mocks = vi.hoisted(() => ({
     getInt: vi.fn<(name: string) => number | null>(() => -1),
     storedOption: "{}",
+    /** Occupied bytes handed to the run's before/after weighings, in that order. */
+    weighed: [] as number[],
     save: vi.fn(async () => {}),
     get: vi.fn(),
     post: vi.fn(async (_url: string, _body?: object) => {}),
@@ -42,6 +48,12 @@ vi.mock("../../../../../services/server", () => ({
 
             if (!url.startsWith("space-usage/")) {
                 return Promise.resolve(url === "keyboard-actions" ? [] : {});
+            }
+
+            // The overview is what the run weighs itself against, before and after.
+            if (url.startsWith("space-usage/overview")) {
+                const size = mocks.weighed.shift() ?? MEASURED_AFTER;
+                return Promise.resolve({ content: { size }, deletedNotes: { size: 0 } });
             }
 
             const keeping = /snapshotsToKeep=(\d+)/.exec(url)?.[1];
@@ -134,6 +146,7 @@ async function click(button: HTMLButtonElement | undefined) {
 
 beforeEach(() => {
     mocks.storedOption = "{}";
+    mocks.weighed = [ MEASURED_BEFORE, MEASURED_AFTER ];
     mocks.getInt.mockReturnValue(-1);
     mocks.confirm.mockResolvedValue(true);
     vi.clearAllMocks();
@@ -188,10 +201,14 @@ describe("showCleanupDialog", () => {
         // The confirmation is the last chance to back out of something with no recovery.
         expect(mocks.confirm).toHaveBeenCalledOnce();
 
-        await expect(closed).resolves.toBe(UNUSED);
+        // Weighed, not predicted: the estimate on screen was the attachments' own figure, while what
+        // is reported is what the database actually gave back.
+        const measured = MEASURED_BEFORE - MEASURED_AFTER;
+        expect(measured).not.toBe(UNUSED);
+        await expect(closed).resolves.toBe(measured);
         expect(mocks.post).toHaveBeenCalledWith("notes/erase-unused-attachments-now");
         expect(mocks.showMessage).toHaveBeenCalledWith(
-            t("space_usage.cleanup_done", { size: formatSize(UNUSED) }));
+            t("space_usage.cleanup_done", { size: formatSize(measured) }));
         // Gone from the page: it is mounted for the run and unmounted with it.
         expect(document.body.querySelector(".modal-stub")).toBeNull();
     });

@@ -1,6 +1,7 @@
 import { SpaceUsageNoteResponse, SpaceUsageOverviewResponse } from "@triliumnext/commons";
-import { beforeAll, describe, expect, it } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { getLog } from "../../services/log";
 import { getSql } from "../../services/sql/index";
 import { CoreApiTester } from "../../test/api_tester";
 import { createTextNote, type CreatedNote } from "../../test/api_fixtures";
@@ -429,6 +430,31 @@ describe("Space usage API (core)", () => {
         expect(ceiled.notes.length).toBeGreaterThan(0);
         const garbage = await getOverview({ limit: "abc" });
         expect(garbage.notes.length).toBeGreaterThan(0);
+    });
+
+    describe("recording a finished cleanup", () => {
+        afterEach(() => vi.restoreAllMocks());
+
+        it("logs what was reclaimed, in the log's own words", async () => {
+            const logged = vi.spyOn(getLog(), "info");
+
+            const res = await api.post("/api/space-usage/cleanup-completed", {
+                body: { reclaimedBytes: 2 * 1024 * 1024 }
+            });
+            expect([ 200, 204 ]).toContain(res.status);
+            expect(logged).toHaveBeenCalledWith("Clean Up Tool: reclaimed 2 MiB.");
+        });
+
+        it("400s on a figure it cannot have measured, writing nothing", async () => {
+            const logged = vi.spyOn(getLog(), "info");
+
+            for (const body of [ {}, { reclaimedBytes: -1 }, { reclaimedBytes: "lots" } ]) {
+                const res = await api.post("/api/space-usage/cleanup-completed", { body });
+                expect(res.status).toBe(400);
+            }
+
+            expect(logged).not.toHaveBeenCalled();
+        });
     });
 
     it("404s for a missing note", async () => {

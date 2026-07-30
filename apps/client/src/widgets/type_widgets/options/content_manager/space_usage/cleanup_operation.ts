@@ -1,4 +1,4 @@
-import type { SpaceUsageNoteResponse } from "@triliumnext/commons";
+import type { SpaceUsageNoteResponse, SpaceUsageOverviewResponse } from "@triliumnext/commons";
 
 import optionService from "../../../../../services/options";
 import server from "../../../../../services/server";
@@ -98,14 +98,24 @@ export function computeCleanupSizes(
 }
 
 /**
- * Erases what the settings ask for, one endpoint per item.
+ * Erases what the settings ask for, one endpoint per item, and reports what that actually freed.
  *
- * Ordered rather than issued at once, and deliberately: erasing revisions or attachments deletes the
- * rows but leaves the blobs they held, which only the deleted-entity sweep purges. Running that last
- * is therefore what actually hands the space back — and when it is not picked, the blobs the other
- * two orphan wait for the hourly cleanup instead.
+ * The figure is measured rather than estimated: the database is weighed on either side of the run
+ * and the difference reported, so what the user is told matches what happened rather than what was
+ * predicted. That costs two full measurements on top of the erasures, which is the price of quoting
+ * a number that is true.
+ *
+ * The erasures are ordered rather than issued at once, and deliberately: erasing revisions or
+ * attachments deletes the rows but leaves the blobs they held, which only the deleted-entity sweep
+ * purges. Running that last is therefore what actually hands the space back — and when it is not
+ * picked, the blobs the other two orphan wait for the hourly cleanup instead.
+ *
+ * @returns bytes reclaimed, never negative: a note saved by another client mid-run must not read as
+ *          the cleanup having given space back.
  */
-export async function runCleanup(options: CleanupToolOptions): Promise<void> {
+export async function runCleanup(options: CleanupToolOptions): Promise<number> {
+    const before = await measureOccupiedBytes();
+
     if (options.revisionSnapshots) {
         await server.post("revisions/erase-all-excess-revisions", {
             snapshotsToKeep: options.snapshotsToKeep,
@@ -120,4 +130,26 @@ export async function runCleanup(options: CleanupToolOptions): Promise<void> {
     if (options.deletedEntities) {
         await server.post("notes/erase-deleted-notes-now");
     }
+
+    const reclaimed = Math.max(before - await measureOccupiedBytes(), 0);
+
+    // Recorded on the server as well as shown here: this erased content past recovery, and the log
+    // is where that is answerable for afterwards.
+    await server.post("space-usage/cleanup-completed", { reclaimedBytes: reclaimed });
+
+    return reclaimed;
+}
+
+/**
+ * Every blob the space report accounts for: the live content plus what deleted entities still hold.
+ * Blobs referenced by nothing at all are outside both, which is what makes this the right thing to
+ * weigh — a snapshot erased but not yet purged has stopped being content and is on its way out, so
+ * the reading falls by its size exactly as the estimate said it would.
+ */
+async function measureOccupiedBytes(): Promise<number> {
+    // The smallest ranking the endpoint will do: the totals are whole-database figures either way,
+    // and the listing this would return is of no use here.
+    const overview = await server.get<SpaceUsageOverviewResponse>("space-usage/overview?limit=1");
+
+    return overview.content.size + overview.deletedNotes.size;
 }

@@ -1,6 +1,8 @@
 import type { EraseExcessRevisionsOptions } from "@triliumnext/commons";
 import type { Request } from "express";
 
+import { getLog } from "../../services/log.js";
+import { formatSize } from "../../services/utils/index.js";
 import {
     DEFAULT_OVERVIEW_LIMIT,
     getNoteUsage as getNoteUsageFromService,
@@ -62,7 +64,26 @@ function parseRevisionOptions(query: Request["query"]): EraseExcessRevisionsOpti
     return options;
 }
 
+/**
+ * Records a finished cleanup-tool run in the server log. The figure is measured by the client, which
+ * weighs the database on either side of erasures it drives one endpoint at a time — so this is the
+ * only place the whole of it is known, and erasing content past recovery is worth a line in the log.
+ *
+ * Only the number crosses over; the line itself is written here, so nothing a caller sends can shape
+ * what the log says.
+ */
+function logCleanupCompleted(req: Request) {
+    const reclaimedBytes = Number(req.body?.reclaimedBytes);
+
+    if (!Number.isFinite(reclaimedBytes) || reclaimedBytes < 0) {
+        return [ 400, "reclaimedBytes must be a non-negative number." ];
+    }
+
+    getLog().info(`Clean Up Tool: reclaimed ${formatSize(reclaimedBytes)}.`);
+}
+
 export default {
     getOverview,
-    getNoteUsage
+    getNoteUsage,
+    logCleanupCompleted
 };

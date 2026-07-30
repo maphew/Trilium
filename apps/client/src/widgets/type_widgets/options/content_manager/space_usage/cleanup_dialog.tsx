@@ -118,14 +118,17 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
             return;
         }
 
+        // What the estimate promised, standing in only if the run fails before it can be weighed.
+        let reclaimed = work.reclaimed;
+
         try {
-            await runCleanup(work.options);
-            toast.showMessage(t("space_usage.cleanup_done", { size: formatSize(work.reclaimed) }));
+            reclaimed = await runCleanup(work.options);
+            toast.showMessage(t("space_usage.cleanup_done", { size: formatSize(reclaimed) }));
         } finally {
             // Settled either way: a run that failed part-way still changed the database, so whatever
             // was watching has to re-measure rather than keep the figures from before it. The
             // failure itself is already reported by the request layer.
-            onFinished(work.reclaimed);
+            onFinished(reclaimed);
         }
     }
 

@@ -3,11 +3,23 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
     getInt: vi.fn<(name: string) => number | null>(() => -1),
-    post: vi.fn(async (_url: string, _body?: object) => {})
+    post: vi.fn(async (_url: string, _body?: object) => {}),
+    /** Occupied bytes, read once before the erasures and once after; shifted per test. */
+    occupied: [ 5000, 3000 ],
+    get: vi.fn()
 }));
 
 vi.mock("../../../../../services/options", () => ({ default: { getInt: mocks.getInt } }));
-vi.mock("../../../../../services/server", () => ({ default: { post: mocks.post } }));
+vi.mock("../../../../../services/server", () => ({
+    default: {
+        post: mocks.post,
+        get: (url: string) => {
+            mocks.get(url);
+            const size = mocks.occupied.shift() ?? 0;
+            return Promise.resolve({ content: { size }, deletedNotes: { size: 0 } });
+        }
+    }
+}));
 
 import {
     type CleanupToolOptions,
@@ -35,7 +47,9 @@ const ALL_PICKED: CleanupToolOptions = {
 
 beforeEach(() => {
     mocks.getInt.mockReturnValue(-1);
+    mocks.occupied = [ 5000, 3000 ];
     mocks.post.mockClear();
+    mocks.get.mockClear();
 });
 
 describe("readCleanupOptions", () => {
@@ -105,21 +119,41 @@ describe("runCleanup", () => {
         await runCleanup(ALL_PICKED);
 
         // Erasing revisions or attachments leaves the blobs they held; only the deleted-entity sweep
-        // purges those, so it has to run after the two that create the orphans.
+        // purges those, so it has to run after the two that create the orphans. The outcome is
+        // recorded last of all, once there is a measured figure to record.
         expect(mocks.post.mock.calls.map(([ url ]) => url)).toEqual([
             "revisions/erase-all-excess-revisions",
             "notes/erase-unused-attachments-now",
-            "notes/erase-deleted-notes-now"
+            "notes/erase-deleted-notes-now",
+            "space-usage/cleanup-completed"
         ]);
         expect(mocks.post.mock.calls[0][1]).toEqual({ snapshotsToKeep: 3, keepNamedSnapshots: true });
     });
 
+    it("reports what the database actually gave back, not what was predicted", async () => {
+        mocks.occupied = [ 5000, 1200 ];
+
+        // Weighed on either side of the erasures — the whole point of the two extra readings.
+        await expect(runCleanup(ALL_PICKED)).resolves.toBe(3800);
+        expect(mocks.get.mock.calls.map(([ url ]) => url))
+            .toEqual([ "space-usage/overview?limit=1", "space-usage/overview?limit=1" ]);
+        expect(mocks.post).toHaveBeenCalledWith("space-usage/cleanup-completed", { reclaimedBytes: 3800 });
+    });
+
+    it("never reports a gain when the database grew under it", async () => {
+        // Another client saving a note mid-run must not read as the cleanup handing space back.
+        mocks.occupied = [ 3000, 4000 ];
+        await expect(runCleanup(ALL_PICKED)).resolves.toBe(0);
+    });
+
     it("asks for nothing that was not picked", async () => {
         await runCleanup({ ...ALL_PICKED, revisionSnapshots: false, deletedEntities: false });
-        expect(mocks.post.mock.calls.map(([ url ]) => url)).toEqual([ "notes/erase-unused-attachments-now" ]);
+        expect(mocks.post.mock.calls.map(([ url ]) => url))
+            .toEqual([ "notes/erase-unused-attachments-now", "space-usage/cleanup-completed" ]);
 
         mocks.post.mockClear();
+        mocks.occupied = [ 5000, 5000 ];
         await runCleanup({ ...ALL_PICKED, deletedEntities: false, unusedAttachments: false, revisionSnapshots: false });
-        expect(mocks.post).not.toHaveBeenCalled();
+        expect(mocks.post.mock.calls.map(([ url ]) => url)).toEqual([ "space-usage/cleanup-completed" ]);
     });
 });
