@@ -214,7 +214,6 @@ function ChatMessage({ message, isStreaming, onRetry }: Props) {
                                 completion: message.usage.completionTokens.toLocaleString()
                             })}
                         >
-                            <span className="bx bx-chip" />{" "}
                             {t("llm_chat.total_tokens", { total: shortenNumber(message.usage.totalTokens) })}
                         </span>
                         {message.usage.cost != null && (
