@@ -244,6 +244,35 @@ describe("setLabelValues", () => {
     });
 });
 
+describe("setRelationValues", () => {
+    beforeEach(() => vi.clearAllMocks());
+
+    it("writes the targets as relations of the name, reused and trimmed as a label set is", async () => {
+        const note = buildNote({ title: "N" });
+        for (const [ index, value ] of [ "aaa", "bbb" ].entries()) {
+            note.attributes.push(`rel-${index}`);
+            froca.attributes[`rel-${index}`] = {
+                attributeId: `rel-${index}`, noteId: note.noteId, type: "relation",
+                name: "crew", value, position: index, isInheritable: false
+            } as never;
+        }
+
+        await attributeService.setRelationValues(note, "crew", [ "aaa", "ccc" ], "comp-1");
+
+        // Only the target that changed is written — as a relation, through the slot already there.
+        expect(server.put).toHaveBeenCalledTimes(1);
+        expect(server.put).toHaveBeenCalledWith(
+            `notes/${note.noteId}/attribute`,
+            { attributeId: "rel-1", type: "relation", name: "crew", value: "ccc" },
+            "comp-1"
+        );
+
+        vi.clearAllMocks();
+        await attributeService.setRelationValues(note, "crew", [ "aaa" ], "comp-1");
+        expect(server.remove).toHaveBeenCalledWith(`notes/${note.noteId}/attributes/rel-1`, "comp-1");
+    });
+});
+
 describe("addSelectOption", () => {
     beforeEach(() => vi.clearAllMocks());
 

@@ -645,6 +645,34 @@ describe("AttributeList", () => {
         expect(picker?.value).toBe("#8000ff");
     });
 
+    it("edits a select definition's options as chips in the popup, saved with the close", async () => {
+        renderPanel(buildNote({
+            id: "select-def", title: "Subject",
+            "#label:status": "promoted,single,select,options=Todo"
+        }));
+        act(() => firstRow().click());
+
+        // The options are entered as the values themselves are elsewhere: typed free, taken on enter.
+        const optionsInput = document.querySelector<HTMLInputElement>(".attr-detail .values-input input");
+        expect(optionsInput).not.toBeNull();
+        act(() => {
+            if (optionsInput) {
+                optionsInput.value = "Done";
+                optionsInput.dispatchEvent(new Event("input", { bubbles: true }));
+                optionsInput.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+            }
+        });
+
+        await act(async () => {
+            document.body.dispatchEvent(new MouseEvent("mousedown", { bubbles: true }));
+        });
+
+        expect(put).toHaveBeenCalledOnce();
+        const [ , saved ] = put.mock.calls[0] as [ string, { name: string; value: string }[] ];
+        expect(saved.find((attribute) => attribute.name === "label:status")?.value)
+            .toContain("options=Todo;Done");
+    });
+
     it("commits the in-place edit on enter for a label, a textarea keeping it for its lines", async () => {
         renderPanel(noteWithAttributes());
         act(() => firstRow().querySelector<HTMLElement>(".attribute-value")?.click());
@@ -740,6 +768,12 @@ describe("AttributeList", () => {
         act(() => fireEntitiesReloaded(() => affectingRows(note)));
         expect(container.querySelector(".attribute-value-editor")).toBeNull();
         expect(namesIn(container)).toContain("elsewhere");
+
+        // A creation draft is dropped the same way: the rebuilt rows have no place for it either.
+        act(() => container.querySelector<HTMLElement>(".attribute-add-row")?.click());
+        expect(container.querySelector(".attribute-creation-editor")).not.toBeNull();
+        act(() => fireEntitiesReloaded(() => affectingRows(note)));
+        expect(container.querySelector(".attribute-creation-editor")).toBeNull();
     });
 
     it("discards what the popup was told when it is closed rather than pressed away from", async () => {

@@ -4,6 +4,7 @@ import FAttribute from "../../../entities/fattribute";
 import type FNote from "../../../entities/fnote";
 import froca from "../../../services/froca";
 import noteAttributeCache from "../../../services/note_attribute_cache";
+import server from "../../../services/server";
 import { randomString } from "../../../services/utils";
 import { buildNote } from "../../../test/easy-froca";
 import getAttributeDefinitionInformation, { buildRowDefinitions } from "./rows.js";
@@ -107,6 +108,58 @@ describe("buildRowDefinitions", () => {
             },
             { title: "Task 2", relations: { crew: [] }, relationTitles: { crew: "" } }
         ]);
+    });
+
+    it("titles the whole subtree in the one visit, nested rows included", async () => {
+        const target = buildNote({ title: "Deep target" });
+        const parent = buildNote({
+            title: "Collection",
+            "#relation:assignee(inheritable)": "promoted,single",
+            children: [
+                { title: "Task", children: [ { title: "Subtask", "~assignee": target.noteId } ] }
+            ]
+        });
+
+        const info = getAttributeDefinitionInformation(parent);
+        const { definitions, hasSubtree } = await buildRowDefinitions(parent, info, false);
+
+        expect(hasSubtree).toBe(true);
+        expect(definitions[0]._children?.[0]).toMatchObject({
+            title: "Subtask",
+            relationTitles: { assignee: "Deep target" }
+        });
+    });
+
+    it("has no titles to fill where no row holds a target at all", async () => {
+        const parent = buildNote({
+            title: "Collection",
+            "#relation:assignee(inheritable)": "promoted,single",
+            children: [ { title: "Task" } ]
+        });
+
+        const info = getAttributeDefinitionInformation(parent);
+        const { definitions } = await buildRowDefinitions(parent, info, false);
+
+        // No batch is fetched and nothing is written: an empty map sorts as nothing, same as "".
+        expect(definitions[0].relationTitles).toEqual({});
+    });
+
+    it("titles a target since deleted as nothing, rather than as its id or a crash", async () => {
+        // The target is not in the cache, so the batch asks the server — which no longer has it.
+        server.post = (async () => ({ branches: [], notes: [], attributes: [] })) as unknown as typeof server.post;
+        const parent = buildNote({
+            title: "Collection",
+            "#relation:assignee(inheritable)": "promoted,single",
+            children: [ { title: "Task", "~assignee": "gonemissing12" } ]
+        });
+
+        const info = getAttributeDefinitionInformation(parent);
+        const { definitions } = await buildRowDefinitions(parent, info, false);
+
+        expect(definitions[0]).toMatchObject({
+            relations: { assignee: "gonemissing12" },
+            relationTitles: { assignee: "" }
+        });
     });
 });
 

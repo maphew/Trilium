@@ -2,7 +2,21 @@ import { act } from "preact/test-utils";
 import type { CellComponent, ColumnComponent, ColumnDefinition, RowComponent } from "tabulator-tables";
 import { describe, expect, it, vi } from "vitest";
 
+// A relation's target is picked in an Algolia autocomplete bound to jQuery, which is not loaded
+// here; the mock hands the test the props, `noteIdChanged` being what an editor's behaviour hangs off.
+const autocomplete = vi.hoisted(() => ({ current: null as Record<string, unknown> | null }));
+vi.mock("../../react/NoteAutocomplete", async () => {
+    const { h } = await import("preact");
+    return {
+        default: (props: Record<string, unknown>) => {
+            autocomplete.current = props;
+            return h("input", { className: "note-autocomplete-stub" });
+        }
+    };
+});
+
 import options from "../../../services/options";
+import { buildNote } from "../../../test/easy-froca";
 import { formatLabelDate } from "../../attribute_widgets/label_value_display";
 import { type AttributeDefinitionInformation, buildColumnDefinitions, restoreExistingData, type ValuesEditorParams } from "./columns";
 
@@ -199,9 +213,85 @@ describe("buildColumnDefinitions — typed columns", () => {
     });
 });
 
+describe("buildColumnDefinitions — relation columns", () => {
+    function relationColumn(isMulti: boolean) {
+        return buildColumnDefinitions({
+            info: [ { name: "assignee", type: "relation", isMulti } ],
+            movableRows: false,
+            existingColumnData: undefined,
+            rowNumberHint: 1
+        }).find((column) => column.field === "relations.assignee");
+    }
+
+    function rowTitled(title: string | undefined) {
+        return { getData: () => ({ relationTitles: title === undefined ? undefined : { assignee: title } }) } as unknown as RowComponent;
+    }
+
+    it("sorts by the title the cell shows, and by nothing where a row or the column carries none", () => {
+        const sorter = relationColumn(false)?.sorter;
+        if (typeof sorter !== "function") throw new Error("expected a sorter of its own");
+        const column = { getField: () => "relations.assignee" } as ColumnComponent;
+
+        expect(sorter("b-id", "a-id", rowTitled("Alpha"), rowTitled("Beta"), column, "asc", {})).toBeLessThan(0);
+        // A row without the relation sorts as nothing rather than by an id the user never sees.
+        expect(sorter("b-id", "", rowTitled("Alpha"), rowTitled(undefined), column, "asc", {})).toBeGreaterThan(0);
+        // A column that lost its field has no titles to read, which is not a reason to throw.
+        expect(sorter("a", "b", rowTitled("Alpha"), rowTitled("Beta"), { getField: () => undefined } as unknown as ColumnComponent, "asc", {})).toBe(0);
+    });
+
+    it("shows a set of targets as the chips naming their notes", async () => {
+        const alpha = buildNote({ title: "Alpha" });
+        const beta = buildNote({ title: "Beta" });
+        const formatter = relationColumn(true)?.formatter;
+        if (typeof formatter !== "function") throw new Error("expected a formatter of its own");
+
+        let element: HTMLElement | undefined;
+        await act(async () => {
+            element = formatter({ getValue: () => [ alpha.noteId, beta.noteId ] } as CellComponent, { type: "relation" }, () => {}) as HTMLElement;
+        });
+
+        const chips = [ ...(element?.querySelectorAll(".label-value-chips .tn-chip") ?? []) ];
+        expect(chips.map((chip) => chip.textContent?.trim())).toEqual([ "Alpha", "Beta" ]);
+        // Named as the links a relation cell offers for its one target, not as bare text.
+        expect(chips[0]?.querySelector(".reference-link")?.getAttribute("data-href")).toBe(`#root/${alpha.noteId}`);
+    });
+
+    it("edits a set of targets through the same field the note's own promoted grid offers", async () => {
+        const editor = relationColumn(true)?.editor;
+        if (typeof editor !== "function") throw new Error("expected an editor of its own");
+
+        let element: HTMLElement | false = false;
+        await act(async () => {
+            element = editor(
+                { getValue: () => [] } as unknown as CellComponent, () => {}, vi.fn(), () => {},
+                { labelType: "relation", options: [], isMulti: true } satisfies Partial<ValuesEditorParams>
+            );
+        });
+
+        expect((element as unknown as HTMLElement)?.querySelector(".relation-values-input")).not.toBeNull();
+    });
+
+    it("edits a single target through the note search, standing over the cell", async () => {
+        const editor = relationColumn(false)?.editor;
+        if (typeof editor !== "function") throw new Error("expected an editor of its own");
+
+        const success = vi.fn();
+        let element: HTMLElement | false = false;
+        await act(async () => {
+            element = editor({ getValue: () => "old-id" } as CellComponent, () => {}, success, () => {}, {});
+        });
+
+        expect((element as unknown as HTMLElement)?.querySelector(".note-autocomplete-stub")).not.toBeNull();
+        expect(autocomplete.current?.noteId).toBe("old-id");
+        // The pick is the whole of the edit, so reporting it ends the edit too.
+        (autocomplete.current?.noteIdChanged as (noteId: string) => void)("new-id");
+        expect(success).toHaveBeenCalledWith("new-id");
+    });
+});
+
 describe("buildColumnDefinitions — colour columns", () => {
     /** Opens a colour cell's editor, as Tabulator does, and hands back what it built. */
-    async function editColorCell(value: string) {
+    async function editColorCell(value: string | undefined) {
         const [ column ] = buildColumnDefinitions({
             info: [ { name: "tint", type: "color" } ],
             movableRows: false,
@@ -279,6 +369,10 @@ describe("buildColumnDefinitions — colour columns", () => {
         const { element, success } = await editColorCell("");
         expect(element.querySelector<HTMLInputElement>("input[type=hidden]")?.value).toBe("");
         expect(success).not.toHaveBeenCalled();
+
+        // A cell never written at all holds no value, which reads the same as one emptied.
+        const unset = await editColorCell(undefined);
+        expect(unset.element.querySelector<HTMLInputElement>("input[type=hidden]")?.value).toBe("");
     });
 });
 
