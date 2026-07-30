@@ -243,6 +243,8 @@
     "in-progress-with-total": "Imported {{progress}} notes out of {{total}}",
     "extracting": "Extracted {{progress}} items out of {{total}}",
     "processing": "Processed {{progress}} notes out of {{total}}",
+    "throttled": "The service is rate limiting requests; the import is waiting for access to resume…",
+    "throttled-with-total": "Imported {{progress}} notes out of {{total}} — the service is rate limiting requests, waiting for access to resume…",
     "successful": "Import finished successfully."
   },
   "file_upload": {

@@ -69,8 +69,12 @@ export type TaskResult<T extends TaskType> = TaskResultDefinitions[T];
  * Identifies which phase of a multi-phase task a progress message belongs to, so the client can label
  * the bar accordingly (e.g. zip import counts archive entries while "extracting", then notes while
  * "processing"). Single-phase tasks omit it and the client falls back to a generic message.
+ *
+ * "throttled" is a transient state rather than a pipeline stage: the task is alive but deliberately
+ * waiting out an external service's rate limiting (e.g. the OneNote importer under Graph throttling),
+ * so the count will not move for a while and the client should say why instead of looking hung.
  */
-export type ProgressPhase = "extracting" | "processing";
+export type ProgressPhase = "extracting" | "processing" | "throttled";
 
 type TaskDefinition<T extends TaskType> = {
     type: "taskProgressCount",
