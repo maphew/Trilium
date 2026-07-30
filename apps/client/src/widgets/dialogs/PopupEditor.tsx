@@ -33,7 +33,7 @@ export default function PopupEditor() {
     const [ shown, setShown ] = useState(false);
     const [ stacked, setStacked ] = useState(false);
     const parentComponent = useContext(ParentComponent);
-    const [ noteContext, setNoteContext ] = useState(new NoteContext("_popup-editor"));
+    const [ noteContext, setNoteContext ] = useState(() => new NoteContext("_popup-editor"));
     const modalRef = useRef<HTMLDivElement>(null);
     const isMobile = utils.isMobile();
     const items = useMemo(() => {
