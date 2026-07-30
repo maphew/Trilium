@@ -115,9 +115,14 @@ export default function ValuesInput({ labelType, values, onCommit, renderValue, 
                     <span>{renderValue ? renderValue(value) : value}</span>
                 </Chip>
             ))}
-            {/* Keyed, as the chips before them are: a field of keyed and unkeyed siblings together
-                is matched up by position as it grows, so taking a second value would rebuild the box
+            {/* The box and the button that asks for what it holds are one thing on the page, so where
+                the values are stacked they are wrapped as one — the alternative, laying the button
+                over the field, puts it on whatever the widget's own width happens to reach.
+
+                Keyed, as the chips before them are: a field of keyed and unkeyed siblings together is
+                matched up by position as it grows, so taking a second value would rebuild the box
                 rather than keep it — losing the focus in it, and with it the widget it had open. */}
+            <Entry stacked={PICKED_TYPES.has(labelType)}>
             {isColor ? (
                 <input
                     key="field"
@@ -156,6 +161,7 @@ export default function ValuesInput({ labelType, values, onCommit, renderValue, 
                     onClick={() => take(inputRef.current?.value ?? "")}
                 />
             )}
+            </Entry>
         </div>
     );
 }
@@ -165,3 +171,12 @@ export default function ValuesInput({ labelType, values, onCommit, renderValue, 
  * rather than by typing into a box.
  */
 const PICKED_TYPES = new Set<LabelType>([ "color", "date", "datetime", "time" ]);
+
+/**
+ * The box and the button beside it, held together where the values above them are stacked a line
+ * each — a column would otherwise put the button on a line of its own. Where they share the line with
+ * the values there is nothing to hold: they are already side by side.
+ */
+function Entry({ stacked, children }: { stacked: boolean; children: ComponentChildren }) {
+    return stacked ? <div className="values-input-entry">{children}</div> : <>{children}</>;
+}

@@ -3,7 +3,7 @@
  * no room to type in: it sits at its own size beside the chips instead of taking the line a text box
  * would, and keeps a frame of its own — a swatch with nothing around it would read as another chip.
  */
-.values-input > input[type="color"].form-control {
+.values-input input[type="color"].form-control {
     flex: 0 0 auto;
     /* Cleared as well as set: the field gives a box room to type in, which a picker would otherwise
        hold on to — it is the wider of the two that decides. */
@@ -16,19 +16,14 @@
 
 /*
  * A field whose values are entered through a widget the browser brings: a calendar, a clock, a colour
- * dialog. Each asks for about the width of the field itself, so a chip sharing the line with one
- * would be squeezed to nothing — the values stack above it instead, a line each, and the widget waits
- * at the foot of them.
+ * dialog. Each asks for about the width of the field itself, so a value sharing the line with one
+ * would be squeezed to nothing — the values take a line each instead, under the widget.
  */
 .values-input.stacked {
     flex-direction: column;
-    align-items: stretch;
-
-    /* Held to their content's height, a column stretching them to fill the field otherwise. */
-    > .tn-chip,
-    > .form-control {
-        flex: 0 0 auto;
-    }
+    /* Each value only as wide as the word on it: stretched to the field, one would read as a row of
+       the table rather than as one of several held in a cell. */
+    align-items: flex-start;
 
     /*
      * The widget leads and the values follow, rather than the other way about. Not for the reading of
@@ -37,21 +32,24 @@
      * the rows scroll in, and scrolling that hands the row being edited back to be rendered afresh,
      * editor and all. Kept at the head, it does not move, and nothing is scrolled.
      */
-    > .form-control {
+    > .values-input-entry {
         order: -1;
-        align-self: flex-start;
+        display: flex;
+        align-items: center;
+        gap: 4px;
     }
 
-    /* Beside the widget it belongs to, which is now the first line rather than the last. */
-    > .values-input-add {
-        position: absolute;
-        inset-block-start: 4px;
-        inset-inline-end: 4px;
+    /*
+     * The box a value is entered into, told apart from the values already taken. Those are chips lying
+     * on the field's own surface, so a box with neither edge nor ground of its own reads as a gap
+     * between them rather than as somewhere to type — the more so for a widget, which draws only its
+     * own placeholder until something is entered.
+     */
+    .form-control:not([type="color"]) {
+        flex: 0 1 auto;
+        background-color: var(--input-background-color);
+        border: 1px solid var(--main-border-color);
+        border-radius: var(--badge-radius, 12px);
+        padding-inline: 8px;
     }
-}
-
-/* Made room for, so that a wide widget does not run under the button that takes its value. */
-.values-input.stacked:has(> .values-input-add) {
-    position: relative;
-    padding-inline-end: 28px;
 }
