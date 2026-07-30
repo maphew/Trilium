@@ -213,9 +213,11 @@ describe("AttributeList", () => {
         // Only what the note may edit is deletable, whichever card it is in.
         expect(cards[2].querySelectorAll(".attribute-delete-button")).toHaveLength(1);
 
-        // An inheritable attribute is marked, and every definition previews what it sets up.
+        // An inheritable attribute is marked, and every definition previews what it sets up — a
+        // set-holding one (label:status, "multi") by a mark of its own rather than by words.
         expect(cards[1].querySelectorAll(".attribute-marker")).toHaveLength(2);
         expect(cards[2].querySelectorAll(".attribute-value.definition")).toHaveLength(2);
+        expect(cards[2].querySelectorAll(".definition-marker")).toHaveLength(1);
     });
 
     it("keeps to one card, collapsing and all, for a note with nothing but its own attributes", () => {

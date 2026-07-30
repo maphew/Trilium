@@ -171,16 +171,23 @@
     margin-inline-start: auto;
 }
 
-/* The settings of a definition, which are a summary and not a value — worn at the size every value
-   preview now shares. Lowercased, the settings being sentence-cased words of Trilium's own read as a
-   list where they read as a sentence otherwise. */
+/* A definition's summary: its marks at the leading end, and the alias — the one part the user
+   wrote — at the trailing edge, where the other cards keep their values. */
 .attribute-list-panel .attribute-value.definition {
-    text-transform: lowercase;
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
-/* The one part of the summary the user wrote, so it is shown as they capitalised it. */
+.attribute-list-panel .definition-marker {
+    flex-shrink: 0;
+}
+
 .attribute-list-panel .definition-display-name {
-    text-transform: none;
+    margin-inline-start: auto;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .attribute-list-panel .attribute-marker,
@@ -227,11 +234,19 @@
     padding-inline-end: 27px;
 }
 
-/* The pencil at the compact size the theme gives the delete cross (`.icon-action.bx-x`). */
-.attribute-list-panel .attribute-edit-button {
+/* Both at the compact size the theme reserves for close crosses (`.icon-action.bx-x`), which the
+   trash and the pencil do not get by name. */
+.attribute-list-panel .attribute-row-actions .icon-action {
     --icon-button-size: 24px;
     --icon-button-icon-ratio: 0.8;
 
     border-radius: 50%;
+}
+
+/* The red the menus give their trash: deleting is the one destructive press on the row. Stated
+   from `:root` and with the button's own class doubled on, so as to outweigh the theme's blanket
+   icon colour (`:root .icon-action:not(...)`) whichever way the stylesheets are ordered. */
+:root .attribute-list-panel .attribute-delete-button.icon-action {
+    color: var(--dropdown-item-icon-destructive-color);
 }
 

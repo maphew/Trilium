@@ -816,7 +816,7 @@
     "no_target": "No target note",
     "no_value": "No value",
     "change_target": "Change the target note",
-    "inverse_of": "inverse of {{name}}",
+    "inverse_hint": "Inverse of \"{{name}}\": the target note is automatically given a \"{{name}}\" relation pointing back",
     "type_label": "Label",
     "type_relation": "Relation",
     "type_label_definition": "Label definition",

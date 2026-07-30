@@ -653,7 +653,9 @@ function AttributeRow({ attribute, note, active, valueEditor, isSystem, showOwne
                     {onDelete && (
                         <ActionButton
                             className="attribute-delete-button"
-                            icon="bx bx-x"
+                            // The trash the menus mark deletion with, worn red as they wear it —
+                            // a cross beside an editor reads as "close", and this is not that.
+                            icon="bx bx-trash"
                             text={t("attribute_list_panel.delete")}
                             onClick={(e) => {
                                 e.stopPropagation();
@@ -850,34 +852,41 @@ function AttributeValue({ attribute, note, attrType, onEdit }: {
 
 /**
  * What a definition sets up, beyond the two things its icon and its badge already say — the type of
- * field it defines, and whether that field is promoted. First the name that field goes by, if it was
- * given one of its own; then its settings, which are quiet enough that a plain single-value definition
- * summarises to the display name alone, or to nothing at all.
+ * field it defines, and whether that field is promoted: a mark for a field holding a set, the inverse
+ * a relation declares, and at the trailing edge — as the other cards keep their values — the name the
+ * field was given of its own, the nearest thing a definition has to a value. A plain single-value
+ * definition summarises to that alone, or to nothing at all.
  */
 function DefinitionSummary({ attribute }: { attribute: Attribute }) {
     const definition = promotedAttributeDefinitionParser.parse(attribute.value ?? "");
     const displayName = definition.promotedAlias?.trim();
-    const settings: string[] = [];
-
-    if (definition.multiplicity === "multi") {
-        settings.push(t("attribute_detail.multi_value"));
-    }
-
-    if (definition.inverseRelation) {
-        settings.push(t("attribute_list_panel.inverse_of", { name: definition.inverseRelation }));
-    }
 
     return (
         <span class="attribute-value definition">
+            {definition.multiplicity === "multi" && (
+                <Icon
+                    className="definition-marker"
+                    icon="bx bx-layer"
+                    title={t("attribute_detail.multi_value")}
+                />
+            )}
+
+            {definition.inverseRelation && (
+                // A returning arrow rather than words; the tooltip names the inverse and what it does.
+                <Icon
+                    className="definition-marker"
+                    icon="bx bx-reply"
+                    title={t("attribute_list_panel.inverse_hint", { name: definition.inverseRelation })}
+                />
+            )}
+
             {displayName && (
-                // Written by hand and shown as written, unlike the settings beside it, which are words
-                // of Trilium's own (see AttributeList.css).
+                // Written by hand and shown as written, unlike the words of Trilium's own beside it
+                // (see AttributeList.css).
                 <span class="definition-display-name" title={t("attribute_detail.promoted_alias")}>
                     {displayName}
                 </span>
             )}
-            {displayName && settings.length > 0 && SUMMARY_SEPARATOR}
-            {settings.join(SUMMARY_SEPARATOR)}
         </span>
     );
 }
