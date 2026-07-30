@@ -90,12 +90,14 @@ describe("CleanupDialog", () => {
         const sizes = rows().map((row) => row.querySelector(".cleanup-item-size")?.textContent);
         expect(sizes).toEqual([ formatSize(3000), formatSize(2000), formatSize(5000) ]);
 
-        // A swatch per row, each its own color, so the list doubles as the ring's legend.
-        expect(rows().map((row) => row.querySelector(".cleanup-item-swatch")?.className)).toEqual([
-            "cleanup-item-swatch cleanup-swatch-deletedEntities",
-            "cleanup-item-swatch cleanup-swatch-unusedAttachments",
-            "cleanup-item-swatch cleanup-swatch-revisionSnapshots"
+        // Each row names its item, which is what carries the color its swatch and its amount are
+        // both painted from — so the list doubles as the ring's legend.
+        expect(rows().map((row) => row.className)).toEqual([
+            "tn-card-section cleanup-item cleanup-item-deletedEntities",
+            "tn-card-section cleanup-item cleanup-item-unusedAttachments",
+            "tn-card-section cleanup-item cleanup-item-revisionSnapshots"
         ]);
+        expect(rows().every((row) => row.querySelector(".cleanup-item-swatch"))).toBe(true);
         expect(rows().every((row) => row.querySelector(".switch-toggle"))).toBe(true);
     });
 

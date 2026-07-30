@@ -88,7 +88,9 @@ export default function CleanupDialog({ show, onHidden, estimates }: CleanupDial
                 {CLEANUP_ITEMS.map((item) => (
                     <CardSection
                         key={item.id}
-                        className="cleanup-item"
+                        // The item modifier carries its color, which the swatch and the amount
+                        // inside the row are both painted from.
+                        className={`cleanup-item cleanup-item-${item.id}`}
                         // Only the revision item has any: they qualify how far its trimming goes, so
                         // they are beside the point until it is actually being run.
                         subSectionsVisible={item.id === "revisionSnapshots" && picked.revisionSnapshots}
@@ -109,7 +111,7 @@ export default function CleanupDialog({ show, onHidden, estimates }: CleanupDial
                             </CardSection>
                         ] : undefined}
                     >
-                        <span className={`cleanup-item-swatch cleanup-swatch-${item.id}`} aria-hidden="true" />
+                        <span className="cleanup-item-swatch" aria-hidden="true" />
                         <span className="cleanup-item-title">{t(item.labelKey)}</span>
                         <span className="cleanup-item-size">{formatSize(estimates[item.id])}</span>
                         <FormToggle

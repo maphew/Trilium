@@ -1,8 +1,8 @@
 .modal.space-usage-cleanup-dialog {
-    /* One per item, shared by its ring segment and its legend swatch: a legend is only a legend
-       while the two are the same paint. Mixed into the theme surface like the browse donut's
-       semantic colors, but at a higher share — three colors have to be told apart here, and the
-       swatches are a few pixels wide. */
+    /* One color per item, worn by its ring segment and by the legend swatch naming it, so those two
+       are always the same paint. Softened into the theme surface like the browse donut's semantic
+       colors, which is why nothing else takes it: mostly-surface reads fine as an arc and has too
+       little contrast for text. */
     --cleanup-deleted-color: color-mix(in srgb, var(--accented-background-color) 55%, #d9645b 45%);
     --cleanup-attachments-color: color-mix(in srgb, var(--accented-background-color) 55%, #d9a93d 45%);
     --cleanup-revisions-color: color-mix(in srgb, var(--accented-background-color) 55%, #8f959c 45%);
@@ -96,24 +96,26 @@
         gap: 10px;
     }
 
+    /* Carried by the row, so that everything in it is painted from one declaration rather than each
+       part naming its own item. */
+    .cleanup-item-deletedEntities {
+        --cleanup-item-color: var(--cleanup-deleted-color);
+    }
+
+    .cleanup-item-unusedAttachments {
+        --cleanup-item-color: var(--cleanup-attachments-color);
+    }
+
+    .cleanup-item-revisionSnapshots {
+        --cleanup-item-color: var(--cleanup-revisions-color);
+    }
+
     .cleanup-item-swatch {
         flex: 0 0 auto;
         width: 4px;
         height: 1.2em;
         border-radius: 2px;
-        background: var(--cleanup-swatch-color);
-    }
-
-    .cleanup-swatch-deletedEntities {
-        --cleanup-swatch-color: var(--cleanup-deleted-color);
-    }
-
-    .cleanup-swatch-unusedAttachments {
-        --cleanup-swatch-color: var(--cleanup-attachments-color);
-    }
-
-    .cleanup-swatch-revisionSnapshots {
-        --cleanup-swatch-color: var(--cleanup-revisions-color);
+        background: var(--cleanup-item-color);
     }
 
     /* Takes the slack, so the size and the switch stay at the trailing edge whatever the title —
@@ -123,8 +125,12 @@
         white-space: nowrap;
     }
 
+    /* Muted rather than the item's color: the swatch beside it already says which item the figure
+       belongs to, and that color at chart strength is mostly surface — too little contrast to carry
+       text, as trying it showed. */
     .cleanup-item-size {
         flex: 0 0 auto;
+        margin-inline-start: 12px;
         color: var(--muted-text-color);
         font-weight: 600;
         white-space: nowrap;
