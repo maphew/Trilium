@@ -57,7 +57,6 @@ body.mobile .modal.popup-editor-dialog .modal-dialog {
     align-items: center;
 }
 
-/* An attachment has no editable title, so its header is plain text aligned like the note title. */
 .modal.popup-editor-dialog .modal-header .title-row.attachment-title-row {
     gap: 8px;
 
