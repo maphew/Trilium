@@ -476,7 +476,7 @@ export default function ChatInputBar({
                         className="llm-chat-attach-btn"
                     />
                     <ActionButton
-                        icon={chat.isStreaming ? "bx bx-stop" : "bx bx-send"}
+                        icon={chat.isStreaming ? "bx bx-stop" : "bx bx-up-arrow-alt"}
                         text={chat.isStreaming
                             ? t("llm_chat.stop")
                             : !currentModel ? t("llm_chat.no_model_selected") : t("llm_chat.send")}

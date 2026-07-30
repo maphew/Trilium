@@ -409,7 +409,16 @@ body[dir=rtl] .llm-chat-input-form .llm-chat-model-select.select-button.dropdown
 /*
  * Trailing actions. Both are sized through the theme's `--icon-button-*` knobs
  * rather than by overriding width/border, which the theme locks with `!important`.
+ *
+ * `flex-shrink: 0` because the theme's `width` is a basis a flex container is free to
+ * shrink below: a long model name or note title would otherwise squeeze these two into
+ * ovals. They are fixed-size targets — the model selector is the item that gives.
  */
+.llm-chat-input-form .llm-chat-attach-btn.icon-action,
+.llm-chat-input-form .llm-chat-send-btn.icon-action {
+    flex-shrink: 0;
+}
+
 .llm-chat-input-form .llm-chat-attach-btn.icon-action {
     --icon-button-size: 30px;
     --icon-button-icon-ratio: 0.6;
@@ -420,7 +429,9 @@ body[dir=rtl] .llm-chat-input-form .llm-chat-model-select.select-button.dropdown
    defines a brand accent variable. */
 .llm-chat-input-form .llm-chat-send-btn.icon-action {
     --icon-button-size: 32px;
-    --icon-button-icon-ratio: 0.55;
+    /* A touch larger than the paper plane it replaced: an arrow glyph carries less ink
+       and reads smaller at the same nominal size. */
+    --icon-button-icon-ratio: 0.65;
     --icon-button-color: var(--main-background-color);
     --icon-button-hover-color: var(--main-background-color);
     --icon-button-hover-background: var(--main-text-color);
