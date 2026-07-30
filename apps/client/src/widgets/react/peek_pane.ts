@@ -106,8 +106,11 @@ export function usePaneMode(visibleOption: OptionNames): PaneModeController {
 }
 
 // App-wide popup roots that render outside the pane (on document.body) but must NOT dismiss a peek:
-// resize gutters, Bootstrap dropdowns/tooltips/modals/popovers, CKEditor balloons, Flatpickr calendars.
-const DEFAULT_KEEP_OPEN_SELECTOR = ".gutter, .dropdown-menu, .tooltip, .modal, .popover, .ck-balloon-panel, .ck-body, .flatpickr-calendar";
+// resize gutters, Bootstrap dropdowns/tooltips/modals (and their backdrop)/popovers, CKEditor balloons,
+// Flatpickr calendars, the attribute detail popup, the context menu, and both autocomplete dropdowns
+// (Preact `FormAutocomplete` and the jQuery note autocomplete).
+const DEFAULT_KEEP_OPEN_SELECTOR = ".gutter, .dropdown-menu, .tooltip, .modal, .modal-backdrop, .popover, .ck-balloon-panel, .ck-body, .flatpickr-calendar, "
+    + ".attr-detail, #context-menu-container, .form-autocomplete-dropdown, .aa-dropdown-menu";
 
 /** Whether an event target lies within the peek pane or an allowlisted popup (i.e. should keep it open). */
 export function isWithinPeek(target: EventTarget | null, keepOpenSelector: string): boolean {
