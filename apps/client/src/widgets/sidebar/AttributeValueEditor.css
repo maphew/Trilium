@@ -1,0 +1,35 @@
+.attribute-list-panel .attribute-value-editor {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    /* Sized to sit in a row of text rather than in a form. */
+    & .form-control,
+    & .form-select {
+        min-width: 0;
+        height: auto;
+        padding: 0 6px;
+        font-size: inherit;
+        line-height: 1.5;
+    }
+
+    /* A checkbox is its own size; the field class would stretch it across the row. */
+    & input[type="checkbox"] {
+        flex: 0 0 auto;
+        width: auto;
+        height: auto;
+    }
+
+    /* The one field that grows, downwards only: sideways there is nothing to grow into. */
+    & textarea.form-control {
+        resize: vertical;
+    }
+
+    /* The buttons beside a field (a colour's reset, a link's open), trimmed to the row's height. */
+    & .input-group-text {
+        padding: 0 5px;
+        cursor: pointer;
+    }
+}

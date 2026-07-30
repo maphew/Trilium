@@ -23,7 +23,8 @@
 }
 
 .attribute-list-panel .attribute-row:hover,
-.attribute-list-panel .attribute-row.active {
+.attribute-list-panel .attribute-row.active,
+.attribute-list-panel .attribute-row.editing {
     background-color: var(--hover-item-background-color);
 }
 
@@ -101,6 +102,12 @@
     opacity: 0.7;
 }
 
+/* A label's value is edited in place, so the preview itself is a click target of its own: a text
+   cursor over it says as much, where the row around it — which opens the popup — points. */
+.attribute-list-panel .attribute-value.editable {
+    cursor: text;
+}
+
 /* The settings of a definition, which are a summary and not a value: quieter than one, and never the
    reason the row is as wide as it is. Lowercased, the settings being sentence-cased words of Trilium's
    own read as a list where they read as a sentence otherwise. */
@@ -137,7 +144,8 @@
 }
 
 .attribute-list-panel .attribute-row:hover .attribute-delete-button,
-.attribute-list-panel .attribute-row.active .attribute-delete-button {
+.attribute-list-panel .attribute-row.active .attribute-delete-button,
+.attribute-list-panel .attribute-row.editing .attribute-delete-button {
     visibility: visible;
 }
 

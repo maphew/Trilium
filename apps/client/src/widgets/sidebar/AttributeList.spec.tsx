@@ -336,6 +336,87 @@ describe("AttributeList", () => {
         ]);
     });
 
+    it("edits an owned label's value in place, saving it once the field is left", async () => {
+        renderPanel(noteWithAttributes());
+
+        // The values offered for editing in place are exactly the owned labels': not a relation's
+        // (whose value is a link), not a definition's (whose value is a summary), not an inherited row's.
+        expect([ ...container.querySelectorAll(".attribute-value.editable") ]).toHaveLength(2);
+
+        act(() => firstRow().querySelector<HTMLElement>(".attribute-value")?.click());
+
+        // The press edits in place rather than opening the popup, in the field the value calls for.
+        expect(document.querySelector(".attr-detail")).toBeNull();
+        const input = container.querySelector<HTMLInputElement>(".attribute-value-editor input");
+        expect(input?.value).toBe("Elian");
+
+        act(() => {
+            if (input) {
+                input.value = "Someone else";
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+        });
+        await act(async () => {
+            input?.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: document.body }));
+        });
+
+        // Leaving the field ends the edit and saves it; the row shows the value again, as typed.
+        expect(container.querySelector(".attribute-value-editor")).toBeNull();
+        expect(put).toHaveBeenCalledOnce();
+        const [ url, saved ] = put.mock.calls[0] as [ string, { name: string; value: string }[] ];
+        expect(url).toBe("notes/subject/attributes");
+        expect(saved.find((attribute) => attribute.name === "author")?.value).toBe("Someone else");
+        expect(firstRow().querySelector(".attribute-value")?.textContent).toBe("Someone else");
+    });
+
+    it("puts the value back on escape, and saves nothing for an edit that changed nothing", async () => {
+        renderPanel(noteWithAttributes());
+
+        act(() => firstRow().querySelector<HTMLElement>(".attribute-value")?.click());
+        const input = container.querySelector<HTMLInputElement>(".attribute-value-editor input");
+        act(() => {
+            if (input) {
+                input.value = "discarded";
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+        });
+        act(() => {
+            input?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        });
+
+        expect(container.querySelector(".attribute-value-editor")).toBeNull();
+        expect(firstRow().querySelector(".attribute-value")?.textContent).toBe("Elian");
+
+        // Entered and left alone: nothing changed, so nothing is put to the server either way.
+        act(() => firstRow().querySelector<HTMLElement>(".attribute-value")?.click());
+        await act(async () => {
+            container.querySelector<HTMLInputElement>(".attribute-value-editor input")
+                ?.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: document.body }));
+        });
+        expect(put).not.toHaveBeenCalled();
+    });
+
+    it("types the in-place field by what the label is: a closed set as a dropdown, a defined number by its definition", () => {
+        renderPanel(buildNote({ id: "sorted", title: "Sorted", "#sortDirection": "desc" }));
+        act(() => firstRow().querySelector<HTMLElement>(".attribute-value")?.click());
+
+        const select = container.querySelector<HTMLSelectElement>(".attribute-value-editor select");
+        expect(select?.value).toBe("desc");
+        expect([ ...(select?.options ?? []) ].map((option) => option.value)).toEqual([ "", "asc", "desc" ]);
+
+        render(null, container);
+        renderPanel(buildNote({
+            id: "scored", title: "Scored",
+            "#score": "3",
+            "#label:score": "promoted,single,number,precision=2"
+        }));
+        act(() => firstRow().querySelector<HTMLElement>(".attribute-value")?.click());
+
+        const input = container.querySelector<HTMLInputElement>(".attribute-value-editor input");
+        expect(input?.type).toBe("number");
+        expect(input?.step).toBe("0.01");
+    });
+
     it("discards what the popup was told when it is closed rather than pressed away from", async () => {
         renderPanel(noteWithAttributes());
 
