@@ -12,7 +12,7 @@ import ActionButton from "../../react/ActionButton.js";
 import Button from "../../react/Button.js";
 import CKEditor, { type CKEditorApi } from "../../react/CKEditor.js";
 import Dropdown from "../../react/Dropdown.js";
-import { FormDropdownDivider, FormListHeader, FormListItem, FormListToggleableItem } from "../../react/FormList.js";
+import { FormListHeader, FormListItem } from "../../react/FormList.js";
 import { useLegacyImperativeHandlers } from "../../react/hooks.js";
 import AddProviderModal, { type LlmProviderConfig, type ProviderStep } from "../options/llm/AddProviderModal.js";
 import { computeContextUsage } from "./chat_context_usage.js";
@@ -391,6 +391,10 @@ export default function ChatInputBar({
                                 ? <span className="llm-chat-model-select-name">{currentModel.name}</span>
                                 : <span className="llm-chat-model-select-name llm-chat-model-placeholder">{t("llm_chat.no_model_selected")}</span>}
                             disabled={chat.isStreaming}
+                            // The selector is the only item in the row that shrinks, so a long
+                            // model name may ellipsize to very little — keep the full one reachable.
+                            title={currentModel?.name}
+                            titlePosition="top"
                             buttonClassName="llm-chat-model-select"
                             className="llm-chat-model-dropdown"
                             // In the sidebar the menu lives inside `.sidebar-chat-container`'s
@@ -429,64 +433,74 @@ export default function ChatInputBar({
                                     )}
                                 </Fragment>
                             ))}
-                            <FormDropdownDivider />
-                            <FormListToggleableItem
-                                icon="bx bx-globe"
-                                title={t("llm_chat.web_search")}
-                                currentValue={chat.enableWebSearch && !webSearchUnavailable}
-                                onChange={handleWebSearchToggle}
-                                disabled={chat.isStreaming || webSearchUnavailable}
-                                disabledTooltip={webSearchUnavailable ? t("llm_chat.web_search_unavailable_gemini") : undefined}
-                            />
-                            <FormListToggleableItem
-                                icon="bx bx-note"
-                                title={t("llm_chat.note_tools")}
-                                currentValue={chat.enableNoteTools}
-                                onChange={handleNoteToolsToggle}
-                                disabled={chat.isStreaming}
-                            />
-                            <FormListToggleableItem
-                                icon="bx bx-brain"
-                                title={t("llm_chat.extended_thinking")}
-                                currentValue={chat.enableExtendedThinking}
-                                onChange={handleExtendedThinkingToggle}
-                                disabled={chat.isStreaming}
-                            />
                         </Dropdown>
                     </div>
-                    {/* Grouped with the paperclip rather than the model selector: both answer
-                        "what goes into this prompt", not "which model". Icon-only because the
-                        label named the note the user is already looking at, duplicating the
-                        title shown beside it instead of carrying information — it lives in the
-                        tooltip, which is the only place it says anything new. */}
-                    {activeNoteId && activeNoteTitle && (
-                        <ActionButton
-                            icon={isNoteContextEnabled ? "bx bx-file" : "bx bx-hide"}
-                            text={isNoteContextEnabled
-                                ? t("llm_chat.note_context_enabled", { title: activeNoteTitle })
-                                : t("llm_chat.note_context_disabled", { title: activeNoteTitle })}
-                            active={isNoteContextEnabled}
-                            onClick={handleNoteContextToggle}
+                    {/* What the model can reach this turn. Lifted out of the model dropdown so
+                        their state reads at a glance and flipping one is a single click — the
+                        system prompt currently has to tell the user where these live, which is
+                        a fair sign a menu was the wrong home. Grouped so they stay together. */}
+                    <div className="llm-chat-capabilities">
+                        <CapabilityToggle
+                            icon="bx bx-globe"
+                            label={t("llm_chat.web_search")}
+                            active={chat.enableWebSearch && !webSearchUnavailable}
+                            onToggle={handleWebSearchToggle}
                             disabled={chat.isStreaming}
-                            className="llm-chat-note-context"
+                            unavailableReason={webSearchUnavailable ? t("llm_chat.web_search_unavailable_gemini") : undefined}
                         />
-                    )}
-                    <ActionButton
-                        icon="bx bx-paperclip"
-                        text={t("llm_chat.attach_file")}
-                        onClick={attachments.openFilePicker}
-                        disabled={chat.isStreaming || !chat.chatNoteId}
-                        className="llm-chat-attach-btn"
-                    />
-                    <ActionButton
-                        icon={chat.isStreaming ? "bx bx-stop" : "bx bx-up-arrow-alt"}
-                        text={chat.isStreaming
-                            ? t("llm_chat.stop")
-                            : !currentModel ? t("llm_chat.no_model_selected") : t("llm_chat.send")}
-                        onClick={chat.isStreaming ? chat.stopStreaming : handleSubmit}
-                        disabled={!chat.isStreaming && (!currentModel || (!chat.hasInputText && chat.pendingAttachments.length === 0))}
-                        className={`llm-chat-send-btn ${chat.isStreaming ? "llm-chat-stop-btn" : ""}`}
-                    />
+                        <CapabilityToggle
+                            icon="bx bx-note"
+                            label={t("llm_chat.note_tools")}
+                            active={chat.enableNoteTools}
+                            onToggle={handleNoteToolsToggle}
+                            disabled={chat.isStreaming}
+                        />
+                        <CapabilityToggle
+                            icon="bx bx-brain"
+                            label={t("llm_chat.extended_thinking")}
+                            active={chat.enableExtendedThinking}
+                            onToggle={handleExtendedThinkingToggle}
+                            disabled={chat.isStreaming}
+                        />
+                    </div>
+                    {/* The actions, boxed so they keep a fixed gap from the capabilities. The
+                        row's `auto` spacer collapses to nothing once the row is full — which is
+                        the normal state in the sidebar — so grouping can't rest on it alone. */}
+                    <div className="llm-chat-actions">
+                        {/* With the paperclip rather than the model selector: both answer "what
+                            goes into this prompt", not "which model". Icon-only because the label
+                            named the note the user is already looking at, duplicating the title
+                            shown beside it instead of carrying information — it lives in the
+                            tooltip, which is the only place it says anything new. */}
+                        {activeNoteId && activeNoteTitle && (
+                            <ActionButton
+                                icon={isNoteContextEnabled ? "bx bx-file" : "bx bx-hide"}
+                                text={isNoteContextEnabled
+                                    ? t("llm_chat.note_context_enabled", { title: activeNoteTitle })
+                                    : t("llm_chat.note_context_disabled", { title: activeNoteTitle })}
+                                active={isNoteContextEnabled}
+                                onClick={handleNoteContextToggle}
+                                disabled={chat.isStreaming}
+                                className="llm-chat-note-context"
+                            />
+                        )}
+                        <ActionButton
+                            icon="bx bx-paperclip"
+                            text={t("llm_chat.attach_file")}
+                            onClick={attachments.openFilePicker}
+                            disabled={chat.isStreaming || !chat.chatNoteId}
+                            className="llm-chat-attach-btn"
+                        />
+                        <ActionButton
+                            icon={chat.isStreaming ? "bx bx-stop" : "bx bx-up-arrow-alt"}
+                            text={chat.isStreaming
+                                ? t("llm_chat.stop")
+                                : !currentModel ? t("llm_chat.no_model_selected") : t("llm_chat.send")}
+                            onClick={chat.isStreaming ? chat.stopStreaming : handleSubmit}
+                            disabled={!chat.isStreaming && (!currentModel || (!chat.hasInputText && chat.pendingAttachments.length === 0))}
+                            className={`llm-chat-send-btn ${chat.isStreaming ? "llm-chat-stop-btn" : ""}`}
+                        />
+                    </div>
                 </div>
                 {/* The hairline rides the island's bottom edge, edge to edge, rather than taking
                     a slot in the control row. The outer element only clips to the island's corners
@@ -522,5 +536,37 @@ export default function ChatInputBar({
             />
         </>
     );
+}
+
+/**
+ * One of the model's per-conversation capability switches, as an icon toggle whose state
+ * reads without opening anything. The label is the tooltip.
+ */
+function CapabilityToggle({ icon, label, active, onToggle, disabled, unavailableReason }: {
+    icon: string;
+    label: string;
+    active: boolean;
+    onToggle: (newValue: boolean) => void;
+    disabled?: boolean;
+    /** Why this capability can't be used with the current model, if it can't. */
+    unavailableReason?: string;
+}) {
+    const button = (
+        <ActionButton
+            icon={icon}
+            text={unavailableReason ?? label}
+            active={active}
+            disabled={disabled || !!unavailableReason}
+            onClick={() => onToggle(!active)}
+            className="llm-chat-capability"
+        />
+    );
+
+    // A disabled <button> receives no mouse events, so its own tooltip never fires — which is
+    // why the dropdown this replaced had to put the explanation on a separate info icon. The
+    // wrapper carries it instead, and only exists when there is something to explain.
+    return unavailableReason
+        ? <span className="llm-chat-capability-unavailable" title={unavailableReason}>{button}</span>
+        : button;
 }
 

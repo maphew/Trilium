@@ -184,12 +184,57 @@
     display: flex;
     align-items: center;
     gap: 0.25rem;
-    /* Owns the spacer, so the trailing action buttons flow right without either of
-       them needing an `auto` margin of its own. */
-    margin-inline-end: auto;
+    /* The only item allowed to give: everything else in the row is a fixed-size icon. */
     min-width: 0;
     font-size: 0.85rem;
     color: var(--muted-text-color);
+}
+
+/*
+ * Capability toggles — what the model can reach this turn. They sit with the model
+ * because that is what they qualify, and they are the lightest tier in the row: state
+ * you glance at far more often than you change. Deliberately the smallest targets, and
+ * carrying no resting fill even when on, so a row of them reads as indicators you can
+ * press rather than as a strip of buttons. The hover fill stays — it costs nothing when
+ * idle and keeps them obviously clickable.
+ */
+.llm-chat-capabilities {
+    display: flex;
+    align-items: center;
+    gap: 0.0625rem;
+    margin-inline-end: auto;
+    flex-shrink: 0;
+}
+
+.llm-chat-capability-unavailable {
+    display: inline-flex;
+}
+
+.llm-chat-input-form .llm-chat-capability.icon-action {
+    --icon-button-size: 24px;
+    --icon-button-icon-ratio: 0.65;
+    --icon-button-color: var(--muted-text-color);
+    --icon-button-hover-color: var(--main-text-color);
+}
+
+/* On: colour alone. `--icon-button-hover-color` is set because the theme's hover rule
+   reads it and nothing defines it by default. */
+.llm-chat-input-form .llm-chat-capability.icon-action.active {
+    --icon-button-color: var(--link-color);
+    --icon-button-hover-color: var(--link-color);
+}
+
+/*
+ * The actions. A fixed gap rather than relying on the capability group's `auto` margin,
+ * which resolves to zero the moment the row is full — the normal state in the sidebar,
+ * where the grouping is needed most.
+ */
+.llm-chat-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.125rem;
+    margin-inline-start: 0.5rem;
+    flex-shrink: 0;
 }
 
 .llm-chat-model-selector .dropdown {
