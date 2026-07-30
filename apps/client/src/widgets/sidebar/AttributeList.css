@@ -95,7 +95,7 @@
     max-width: 65%;
     overflow: hidden;
     text-overflow: ellipsis;
-    font-weight: bold;
+    font-weight: 500;
 }
 
 .attribute-list-panel .attribute-value {
