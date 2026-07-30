@@ -12,15 +12,19 @@ import { unwrapStringOrBuffer } from "../services/utils/binary";
  * Gives every board its own `select` definition for the label it groups by, seeded with the columns
  * the board already shows, so the column list stops living only in the `board.json` attachment.
  *
- * Boards created from the template inherit their `label:status` definition from `_template_board`,
- * which every board in the document shares — one option list there would be everyone's option list.
- * The copy this migration writes is owned by the board, so the options are the board's own; the
- * template's definition is then removed from the hidden subtree definition, which `enforceAttributes`
- * deletes from `_template_board` on the next startup. That ordering is automatic: the hidden subtree
- * is not checked until the migrations have finished.
+ * Boards reaching this migration were created from `_template_board` and inherit their `label:status`
+ * definition from it, which every board in the document shares — one option list there would be
+ * everyone's option list. The copy this migration writes is owned by the board, so the options are the
+ * board's own; the template no longer declares the definition at all, so `enforceAttributes` deletes
+ * the inherited one from `_template_board` on the next startup. That ordering is automatic: the hidden
+ * subtree is not checked until the migrations have finished, so the copies are taken first.
  *
  * A board is left exactly as it is whenever the copy would be wrong or unsafe — see
  * {@link SkipReason} — and the board view keeps reading `board.json` for those.
+ *
+ * This runs once, against the boards that exist when the document is upgraded. Boards created
+ * afterwards get their definition from the board view instead, which writes the columns it resolves
+ * into one (see `BoardApi#syncColumnsToDefinition`).
  */
 export default () => {
     getContext().init(() => {

@@ -3001,7 +3001,8 @@
     "edit-note-title": "Click to edit note title",
     "edit-column-title": "Click to edit column title",
     "column-already-exists": "This column already exists on the board.",
-    "column-definition-save-error": "The columns were saved on the board, but could not be saved to the status attribute."
+    "column-definition-save-error": "The columns were saved on the board, but could not be saved to the status attribute.",
+    "status-alias": "Status"
   },
   "dashboard_view": {
     "refresh-widget": "Refresh",
