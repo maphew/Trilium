@@ -47,6 +47,19 @@
     background: var(--accented-background-color);
 }
 
+/*
+ * Under background effects the panes turn glassy, and the bubble's fully opaque grey reads
+ * as a slab pasted over the material. Borderless like the theme's own bgfx surfaces —
+ * definition comes from the fill alone, so if it ever needs more presence the knob is the
+ * fill percentage, not an outline.
+ */
+body.background-effects.theme-supports-background-effects .llm-chat-message-user {
+    /* Mostly material, faintly tinted: the bubble is a whisper of the normal fill with the
+       Mica/vibrancy doing the actual surface work — the same weight class as the theme's
+       own bgfx tints (cards at ~7% alpha). */
+    background: color-mix(in srgb, var(--accented-background-color) 35%, transparent);
+}
+
 .llm-chat-message-content {
     word-wrap: break-word;
     line-height: 1.5;
@@ -341,10 +354,6 @@
 
 .llm-chat-footer-user {
     justify-content: flex-end;
-}
-
-.llm-chat-footer .bx {
-    font-size: 0.875rem;
 }
 
 .llm-chat-footer-time {
