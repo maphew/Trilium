@@ -16,12 +16,19 @@
     overflow: hidden;
 }
 
-.file-preview-content {
-    background-color: var(--accented-background-color);
+/* Rendered by CodeBlock, so the same <pre> also carries .code-block; the element selector keeps
+   these layout rules winning that equal-specificity fight regardless of bundle order. */
+pre.file-preview-content {
     padding: 15px;
     height: 100%;
     overflow: auto;
     margin: 10px;
+}
+
+/* Only when not highlighted: a highlighted block carries `hljs`, whose runtime-injected theme
+   stylesheet brings its own background (see CodeBlock.css). */
+pre.file-preview-content:not(.hljs) {
+    background-color: var(--accented-background-color);
 }
 
 .note-detail-file > .pdf-preview {

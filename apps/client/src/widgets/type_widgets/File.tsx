@@ -2,6 +2,7 @@ import "./File.css";
 
 import { t } from "../../services/i18n";
 import Alert from "../react/Alert";
+import CodeBlock from "../react/CodeBlock";
 import { useNoteBlob } from "../react/hooks";
 import MediaPreview from "./file/MediaPreview";
 import PdfPreview from "./file/Pdf";
@@ -13,7 +14,7 @@ export default function FileTypeWidget({ note, parentComponent, noteContext, isV
     const blob = useNoteBlob(note, parentComponent?.componentId);
 
     if (blob?.content) {
-        return <TextPreview content={blob.content} />;
+        return <TextPreview content={blob.content} mime={note.mime} />;
     } else if (note.mime === "application/pdf") {
         return noteContext && <PdfPreview blob={blob} note={note} componentId={parentComponent?.componentId} noteContext={noteContext} />;
     } else if (note.mime.startsWith("video/") || note.mime.startsWith("audio/")) {
@@ -23,7 +24,7 @@ export default function FileTypeWidget({ note, parentComponent, noteContext, isV
 
 }
 
-export function TextPreview({ content }: { content: string }) {
+export function TextPreview({ content, mime }: { content: string, mime?: string }) {
     const trimmedContent = content.substring(0, TEXT_MAX_NUM_CHARS);
     const isTooLarge = trimmedContent.length !== content.length;
 
@@ -34,7 +35,14 @@ export function TextPreview({ content }: { content: string }) {
                     {t("file.too_big", { maxNumChars: TEXT_MAX_NUM_CHARS })}
                 </Alert>
             )}
-            <pre class="file-preview-content">{trimmedContent}</pre>
+            {/* The copy button is dropped for a truncated preview — it could only copy the visible
+                5000 characters, which reads as copying the whole file. */}
+            <CodeBlock
+                className="file-preview-content"
+                code={trimmedContent}
+                mimeType={mime}
+                copyable={!isTooLarge}
+            />
         </>
     );
 }
