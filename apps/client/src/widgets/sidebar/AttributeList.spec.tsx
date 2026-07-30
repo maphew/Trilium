@@ -417,6 +417,20 @@ describe("AttributeList", () => {
         expect(input?.step).toBe("0.01");
     });
 
+    it("shows a colour label as the colour itself, and edits it through the picker", () => {
+        renderPanel(buildNote({ id: "tinted", title: "Tinted", "#color": "#8000ff" }));
+
+        // The preview is the colour, not its text — which is kept to the chip's tooltip.
+        const chip = firstRow().querySelector<HTMLElement>(".attribute-value .label-color-chip");
+        expect(chip?.title).toBe("#8000ff");
+        expect(chip?.style.backgroundColor).toBeTruthy();
+
+        act(() => firstRow().querySelector<HTMLElement>(".attribute-value")?.click());
+
+        const picker = container.querySelector<HTMLInputElement>(".attribute-value-editor input[type=color]");
+        expect(picker?.value).toBe("#8000ff");
+    });
+
     it("discards what the popup was told when it is closed rather than pressed away from", async () => {
         renderPanel(noteWithAttributes());
 

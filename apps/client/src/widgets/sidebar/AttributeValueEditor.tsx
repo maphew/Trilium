@@ -35,12 +35,22 @@ export default function AttributeValueEditor({ note, attribute, onEdit, onCommit
     const typed = useMemo(() => resolveValueField(note, attribute.name), [ note, attribute.name ]);
 
     // The editor exists because its row was pressed, so the field is ready to type into at once — and
-    // what is there is selected, a short value being more often replaced than appended to.
+    // what is there is selected, a short value being more often replaced than appended to. A colour
+    // goes further: picking is all there is to do to it, so the picker's dialog opens with the editor
+    // rather than waiting to be asked by a second press on the swatch.
     useEffect(() => {
         const field = containerRef.current?.querySelector<HTMLElement>("input:not([type=hidden]), textarea, select");
         field?.focus();
         if ((field instanceof HTMLInputElement && SELECT_ALL_TYPES.has(field.type)) || field instanceof HTMLTextAreaElement) {
             field.select();
+        } else if (field instanceof HTMLInputElement && field.type === "color") {
+            try {
+                // Optional because not every engine offers it, and guarded because it refuses to open
+                // without the user activation the press provides — which a test's render lacks.
+                field.showPicker?.();
+            } catch {
+                // The swatch is still there to be pressed, as it would be without the head start.
+            }
         }
     }, []);
 
@@ -118,8 +128,10 @@ const SELECT_ALL_TYPES = new Set([ "text", "number", "url", "email", "tel" ]);
  * kinds the detail form offers, exclusions included (a flag means what its presence means, so no
  * checkbox over it); for the rest whatever definition reaches the note for the name, promoted or not,
  * down to the plain text box a label defined by nothing is typed into.
+ *
+ * Exported for the row's preview, which reads the same answer to know a colour when it shows one.
  */
-function resolveValueField(note: FNote, name: string): {
+export function resolveValueField(note: FNote, name: string): {
     labelType: LabelType;
     selectOptions?: readonly string[];
     numberPrecision?: number;

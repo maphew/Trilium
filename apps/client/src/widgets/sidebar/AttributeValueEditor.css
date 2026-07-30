@@ -5,8 +5,10 @@
     align-items: center;
     gap: 4px;
 
-    /* Sized to sit in a row of text rather than in a form. */
-    & .form-control,
+    /* Sized to sit in a row of text rather than in a form. The colour swatch is left out: it has a
+       size of its own (see label_value_input.css), stated at the same weight as this rule — matching
+       it here would leave the winner to stylesheet order. */
+    & .form-control:not(.label-color-picker),
     & .form-select {
         min-width: 0;
         height: auto;

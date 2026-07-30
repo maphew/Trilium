@@ -92,6 +92,16 @@ export function ColorSwatch({ color }: { color: string }) {
 }
 
 /**
+ * A colour as a chip that is nothing but the colour: for wherever a colour is only read — a table
+ * cell, a chip among several, an attribute row — and so has no text or button needing a ground of
+ * their own. The stored text is kept to the tooltip, and one naming no colour is dropped by the
+ * browser, leaving the chip's own empty ring rather than showing a colour it is not.
+ */
+export function ColorChip({ color }: { color: string }) {
+    return <span className="tn-chip label-color-chip" title={color} style={{ backgroundColor: color }} />;
+}
+
+/**
  * The values a field holding several shows, read-only: the set as the very chips it is edited as, so
  * that reading and editing show the same thing.
  */
@@ -105,10 +115,8 @@ export function LabelValueChips({ values, labelType, className }: {
             {values.map((value) => (
                 labelType === "color" ? (
                     // Read-only, the chip holds nothing — no text, no button — so the colour can be
-                    // its whole ground, the stored text kept to the tooltip. Set as the property so
-                    // that text naming no colour is dropped by the browser, leaving the chip's own
-                    // ground rather than showing a colour it is not.
-                    <span key={value} className="tn-chip label-color-chip" title={value} style={{ backgroundColor: value }} />
+                    // its whole ground.
+                    <ColorChip key={value} color={value} />
                 ) : (
                     // A flag's chip takes a wash of the answer it carries, so a row of checks and
                     // crosses reads apart at a glance, before the marks themselves are.

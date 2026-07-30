@@ -108,6 +108,12 @@
     cursor: text;
 }
 
+/* A colour's chip keeps to its own size: a chip is laid out as a flex box, which alone in the value's
+   slot would run the width of it, a bar rather than a chip. */
+.attribute-list-panel .attribute-value > .label-color-chip {
+    width: fit-content;
+}
+
 /* The settings of a definition, which are a summary and not a value: quieter than one, and never the
    reason the row is as wide as it is. Lowercased, the settings being sentence-cased words of Trilium's
    own read as a list where they read as a sentence otherwise. */

@@ -16,6 +16,7 @@ import { t } from "../../services/i18n";
 import server from "../../services/server";
 import { isMobile } from "../../services/utils";
 import { AttributeDetail, AttributeDetailOpts, AttributeForm, AttrType, DEFINITION_TYPES, getAttrType, RELATION_DEFINITION_TYPE } from "../attribute_widgets/attribute_detail";
+import { ColorChip } from "../attribute_widgets/label_value_display";
 import ActionButton from "../react/ActionButton";
 import { FormListItem } from "../react/FormList";
 import HelpButton from "../react/HelpButton";
@@ -27,7 +28,7 @@ import NoteLink from "../react/NoteLink";
 import { ParentComponent } from "../react/react_utils";
 import { ATTRIBUTE_HELP_PAGE } from "../ribbon/components/AttributeHelp";
 import OptionsSection from "../type_widgets/options/components/OptionsSection";
-import AttributeValueEditor from "./AttributeValueEditor";
+import AttributeValueEditor, { resolveValueField } from "./AttributeValueEditor";
 import RightPanelWidget, { CollapsibleWidgets } from "./RightPanelWidget";
 
 /**
@@ -247,6 +248,7 @@ export default function AttributeList() {
         )
     } : undefined;
     const rowProps = {
+        note,
         activeAttribute: detail?.attribute,
         valueEditor,
         onOpen: openDetail,
@@ -424,6 +426,8 @@ function AttributeSection({ id, title, children, buttons, grow }: AttributeSecti
 
 interface AttributeRowListProps {
     rows: AttributeEntry[];
+    /** The note the rows belong to, read for the definitions that type their values. */
+    note?: FNote | null;
     /** The attribute the detail popup is showing, marked as such in the list. */
     activeAttribute?: Attribute;
     /** The in-place editor over one row's value, shown by that row in the value's place. */
@@ -446,7 +450,7 @@ interface AttributeRowListProps {
  * Trilium reads for itself. What a row offers follows from whether the note owns its attribute rather
  * than from the card it is in: the definitions card holds the note's own alongside a template's.
  */
-function AttributeRowList({ rows, activeAttribute, valueEditor, readOnly, onOpen, onEditValue, onDelete }: AttributeRowListProps) {
+function AttributeRowList({ rows, note, activeAttribute, valueEditor, readOnly, onOpen, onEditValue, onDelete }: AttributeRowListProps) {
     function renderRows(group: AttributeEntry[]) {
         return (
             // The rows are menu items on a phone (see AttributeRow), and the theme dresses a menu item
@@ -458,6 +462,7 @@ function AttributeRowList({ rows, activeAttribute, valueEditor, readOnly, onOpen
                     <AttributeRow
                         key={attribute.attributeId ?? `new-${index}`}
                         attribute={attribute}
+                        note={note}
                         active={activeAttribute === attribute}
                         valueEditor={valueEditor?.attribute === attribute ? valueEditor.element : undefined}
                         isSystem={isSystem && !readOnly}
@@ -494,6 +499,8 @@ function AttributeRowList({ rows, activeAttribute, valueEditor, readOnly, onOpen
 
 interface AttributeRowProps {
     attribute: Attribute;
+    /** The note the row belongs to, read for the definition that types its value. */
+    note?: FNote | null;
     /** Whether the detail popup is currently showing this attribute. */
     active: boolean;
     /** The in-place editor over this row's value, rendered in the value's place. */
@@ -508,7 +515,7 @@ interface AttributeRowProps {
     onDelete?: () => void;
 }
 
-function AttributeRow({ attribute, active, valueEditor, isSystem, showOwner, onOpen, onEditValue, onDelete }: AttributeRowProps) {
+function AttributeRow({ attribute, note, active, valueEditor, isSystem, showOwner, onOpen, onEditValue, onDelete }: AttributeRowProps) {
     const rowRef = useRef<HTMLLIElement>(null);
     const attrType = getAttributeKind(attribute);
     const marker = getKindMarker(attribute, attrType, isSystem);
@@ -525,7 +532,7 @@ function AttributeRow({ attribute, active, valueEditor, isSystem, showOwner, onO
         <>
             <span class="attribute-name">{getDisplayName(attribute, attrType)}</span>
 
-            {valueEditor ?? <AttributeValue attribute={attribute} attrType={attrType} onEdit={onEditValue} />}
+            {valueEditor ?? <AttributeValue attribute={attribute} note={note} attrType={attrType} onEdit={onEditValue} />}
 
             {attribute.isInheritable && (
                 <Icon
@@ -647,8 +654,10 @@ function getDefinitionType(attribute: Attribute, attrType: AttributeKind) {
  * full. A label's preview is also where its value is edited: pressing it swaps the text for the field
  * (see {@link AttributeValueEditor}), where the row around it opens the popup.
  */
-function AttributeValue({ attribute, attrType, onEdit }: {
+function AttributeValue({ attribute, note, attrType, onEdit }: {
     attribute: Attribute;
+    /** The note the attribute is shown on, read for the definition that types the value. */
+    note?: FNote | null;
     attrType: AttributeKind;
     /** Starts the in-place edit; only ever handed to a label's preview. */
     onEdit?: () => void;
@@ -664,19 +673,24 @@ function AttributeValue({ attribute, attrType, onEdit }: {
         return <DefinitionSummary attribute={attribute} />;
     }
 
+    // A colour is read by eye rather than by its text, so the preview is the colour itself — the same
+    // chip a table cell reads it as — with the stored text kept to the chip's tooltip. An empty value
+    // still shows the chip, as the empty ring it draws: unset is an answer a colour field can give.
+    const isColor = note && resolveValueField(note, attribute.name).labelType === "color";
+
     // A label with no value still gets its slot: it is what takes up the room between the name and what
     // the row ends with, so a bare label lines its markers and its delete button up with every other row's.
     return (
         <span
             class={clsx("attribute-value", onEdit && "editable")}
-            title={attribute.value}
+            title={isColor ? undefined : attribute.value}
             // Kept from the row, which would open the popup over the field this press asks for.
             onClick={onEdit ? (e) => {
                 e.stopPropagation();
                 onEdit();
             } : undefined}
         >
-            {attribute.value}
+            {isColor ? <ColorChip color={attribute.value ?? ""} /> : attribute.value}
         </span>
     );
 }
