@@ -494,14 +494,25 @@ function ColorEditor({ cell, success }: EditorOpts) {
     }, [ success ]);
 
     return (
-        <div ref={containerRef} className="input-group table-color-editor">
-            <LabelValueInput
-                labelType="color"
-                value={cell.getValue() ?? ""}
-                // Nothing is what the clear button hands back, and only it — a picker always names a
-                // colour. There being nothing to follow a clear with, it finishes the edit itself.
-                onCommit={(value) => !value && success("")}
-            />
+        // Standing over the cell as the multi-valued editor does, and by the same class — not for
+        // room, a swatch and a button asking for less than a cell has, but because a cell has
+        // however much its row does: in a row grown taller by another cell's wrapped lines, an
+        // editor laid within is stretched into the full editing frame, the pair afloat mid-panel.
+        <div ref={containerRef} className="table-values-editor table-color-editor">
+            {/* Framed as the editor's other fields are, so the pair reads as a field on the
+                editor's surface rather than adrift on it. */}
+            <div className="tn-field">
+                <div className="input-group">
+                    <LabelValueInput
+                        labelType="color"
+                        value={cell.getValue() ?? ""}
+                        // Nothing is what the clear button hands back, and only it — a picker always
+                        // names a colour. There being nothing to follow a clear with, it finishes
+                        // the edit itself.
+                        onCommit={(value) => !value && success("")}
+                    />
+                </div>
+            </div>
         </div>
     );
 }
