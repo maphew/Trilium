@@ -8,7 +8,7 @@ import type { CellComponent, ColumnComponent, ColumnDefinition, EmptyCallback, F
 
 import froca from "../../../services/froca.js";
 import { safeUrlHref } from "../../../utils/url.js";
-import { applyLinkScheme, asLabelValues, ColorSwatch, formatLabelDate, LabelValueChips } from "../../attribute_widgets/label_value_display.jsx";
+import { applyLinkScheme, asLabelValues, formatLabelDate, LabelValueChips } from "../../attribute_widgets/label_value_display.jsx";
 import LabelValueInput from "../../attribute_widgets/label_value_input.jsx";
 import MultiValueInput from "../../attribute_widgets/multi_value_input.jsx";
 import Icon from "../../react/Icon.jsx";
@@ -507,9 +507,10 @@ function ColorEditor({ cell, success }: EditorOpts) {
 }
 
 /**
- * A colour cell as the swatch its editor shows, so that reading and editing a colour look alike, and
- * so that the row keeps its own striping, hover and selection — all of which a cell flooded with the
- * colour, as Tabulator's own colour formatter fills it, hides.
+ * A colour cell as the chip a set of colours wears, one chip for the one value, so a colour column
+ * reads the same whether each note holds one or several. A chip rather than flooding the cell, as
+ * Tabulator's own colour formatter fills it: the chip is a surface of its own, leaving the row its
+ * striping, hover and selection.
  */
 function ColorFormatter({ cell }: FormatterOpts) {
     const value = cell.getValue();
@@ -517,7 +518,7 @@ function ColorFormatter({ cell }: FormatterOpts) {
     // A formatter hands back an element, so an unset cell is an empty one rather than nothing at all.
     if (!color) return <span />;
 
-    return <ColorSwatch color={color} />;
+    return <LabelValueChips values={[ color ]} labelType="color" />;
 }
 
 /** A flag cell as the chip a set of flags shows, with an unset cell holding no chip at all. */

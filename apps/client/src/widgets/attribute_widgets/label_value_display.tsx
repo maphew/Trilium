@@ -78,10 +78,9 @@ function renderFlag(value: string) {
 }
 
 /**
- * A colour as the square it is read as where the colour cannot be the whole ground: a single-valued
- * cell, whose surface is the row's — flooding it would hide striping, hover and selection — and a
- * chip being edited, which also holds the button removing it, a mark no user-picked ground can be
- * trusted to keep visible. A chip only being read holds neither, and wears the colour itself.
+ * A colour as the square it is read as where the colour cannot be the whole ground: a chip being
+ * edited, which also holds the button removing it, a mark no user-picked ground can be trusted to
+ * keep visible. A chip only being read holds nothing, and wears the colour itself.
  *
  * The colour is the one thing about the swatch that cannot be told beforehand; its shape and size are
  * its class's. A value naming no colour is dropped by the browser, leaving the outline behind rather

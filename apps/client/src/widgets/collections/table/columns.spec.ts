@@ -243,7 +243,7 @@ describe("buildColumnDefinitions — colour columns", () => {
         expect(success).toHaveBeenCalledWith("");
     });
 
-    it("shows a colour as a swatch, naming it in the tooltip, and an unset one as nothing", () => {
+    it("shows a colour as the chip a set of colours wears, and an unset one as nothing", () => {
         const [ column ] = buildColumnDefinitions({
             info: [ { name: "tint", type: "color" } ],
             movableRows: false,
@@ -253,21 +253,23 @@ describe("buildColumnDefinitions — colour columns", () => {
 
         const formatter = column?.formatter;
         if (typeof formatter !== "function") throw new Error("expected a formatter of its own");
-        const format = (value: unknown) =>
-            formatter({ getValue: () => value } as CellComponent, {}, () => {}) as HTMLElement;
+        const chipOf = (value: unknown) => (
+            formatter({ getValue: () => value } as CellComponent, {}, () => {}) as HTMLElement
+        ).querySelector<HTMLElement>(".label-color-chip");
 
-        // Filling the cell instead would paint over the row's own striping, hover and selection.
-        const swatch = format("#ff2e88");
-        expect(swatch.className).toBe("label-color-swatch");
-        expect(swatch.style.backgroundColor).toBe("#ff2e88");
-        expect(swatch.title).toBe("#ff2e88");
+        // A chip of the colour rather than a filled cell, which would paint over the row's own
+        // striping, hover and selection.
+        const chip = chipOf("#ff2e88");
+        expect(chip?.style.backgroundColor).toBe("#ff2e88");
+        expect(chip?.title).toBe("#ff2e88");
 
-        // A cell holds whatever the label does: text naming no colour keeps the swatch, which the
-        // browser leaves unpainted, and says what is stored where it can be read.
-        expect(format("nonsense").title).toBe("nonsense");
+        // A cell holds whatever the label does: text naming no colour keeps the chip, whose ground
+        // the browser refuses, and says what is stored where it can be read.
+        expect(chipOf("nonsense")?.title).toBe("nonsense");
 
+        // An unset cell holds no colour at all, so it wears no chip either.
         for (const empty of [ "", undefined, null ]) {
-            expect(format(empty).className).toBe("");
+            expect(chipOf(empty)).toBeNull();
         }
     });
 
