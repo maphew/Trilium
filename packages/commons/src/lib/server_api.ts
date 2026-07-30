@@ -59,6 +59,29 @@ export interface RevisionPojo {
     contentLength?: number;
 }
 
+/**
+ * How far "Erase excess revision snapshots" should go. Both fields are optional: left out, the
+ * operation behaves exactly as the automatic trimming that runs after every saved revision.
+ */
+export interface EraseExcessRevisionsOptions {
+    /**
+     * How many snapshots to keep per note, overriding both the `#versioningLimit` label and the
+     * `revisionSnapshotNumberLimit` option for this run. Negative keeps every snapshot (nothing is
+     * excess), zero keeps none; omitted falls back to the configured limits.
+     */
+    snapshotsToKeep?: number;
+    /**
+     * Spares named snapshots — those the user gave a description — from erasure, and leaves them
+     * out of the count as well, so the limit governs the automatic snapshots alone.
+     */
+    keepNamedSnapshots?: boolean;
+}
+
+export interface EraseExcessRevisionsResponse {
+    /** Snapshots actually erased, across every note the operation visited. */
+    erasedCount: number;
+}
+
 export interface RecentChangeRow {
     noteId: string;
     current_isDeleted: boolean;

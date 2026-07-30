@@ -1,4 +1,4 @@
-import type { AttachmentRow, AttributeType, CloneResponse, NoteRow, NoteType, RevisionRow, RevisionSource } from "@triliumnext/commons";
+import type { AttachmentRow, AttributeType, CloneResponse, EraseExcessRevisionsOptions, NoteRow, NoteType, RevisionRow, RevisionSource } from "@triliumnext/commons";
 import { dayjs, getNoteIcon } from "@triliumnext/commons";
 
 import cloningService from "../../services/cloning.js";
@@ -1601,24 +1601,47 @@ class BNote extends AbstractBeccaEntity<BNote> {
         });
     }
 
-    // Limit the number of Snapshots to revisionSnapshotNumberLimit
-    // Delete older Snapshots that exceed the limit
-    eraseExcessRevisionSnapshots() {
-        // lable has a higher priority
-        let revisionSnapshotNumberLimit = parseInt(this.getLabelValue("versioningLimit") ?? "");
-        if (!Number.isInteger(revisionSnapshotNumberLimit)) {
-            revisionSnapshotNumberLimit = parseInt(optionService.getOption("revisionSnapshotNumberLimit"));
+    /**
+     * Erases the oldest revision snapshots beyond the number to keep, newest kept first.
+     *
+     * How many are kept is normally configured: the note's own `#versioningLimit` label if it
+     * carries a valid one, else the `revisionSnapshotNumberLimit` option. A negative limit keeps
+     * every snapshot — nothing is ever excess — while zero keeps none of them.
+     *
+     * @returns how many snapshots were erased.
+     */
+    eraseExcessRevisionSnapshots({ snapshotsToKeep, keepNamedSnapshots }: EraseExcessRevisionsOptions = {}): number {
+        const limit = Number.isInteger(snapshotsToKeep) ? Number(snapshotsToKeep) : this.getConfiguredSnapshotLimit();
+
+        if (limit < 0) {
+            return 0;
         }
-        if (revisionSnapshotNumberLimit >= 0) {
-            const revisions = this.getRevisions();
-            if (revisions.length - revisionSnapshotNumberLimit > 0) {
-                const revisionIds = revisions
-                    .slice(0, revisions.length - revisionSnapshotNumberLimit)
-                    .map((revision) => revision.revisionId)
-                    .filter((id): id is string => id !== undefined);
-                eraseService.eraseRevisions(revisionIds);
-            }
+
+        // Named snapshots are the ones the user deliberately marked, so sparing them takes them out
+        // of the reckoning entirely: they are neither erased nor counted, and the limit then
+        // governs the automatic snapshots alone. Counting them would let a handful of named ones
+        // push every automatic snapshot out.
+        const candidates = keepNamedSnapshots
+            ? this.getRevisions().filter((revision) => !revision.description)
+            : this.getRevisions();
+
+        const revisionIds = candidates
+            .slice(0, Math.max(candidates.length - limit, 0))
+            .map((revision) => revision.revisionId)
+            .filter((id): id is string => id !== undefined);
+
+        if (revisionIds.length > 0) {
+            eraseService.eraseRevisions(revisionIds);
         }
+
+        return revisionIds.length;
+    }
+
+    /** The configured count to keep: the note's own label takes priority over the option. */
+    private getConfiguredSnapshotLimit(): number {
+        const labelled = parseInt(this.getLabelValue("versioningLimit") ?? "");
+
+        return Number.isInteger(labelled) ? labelled : parseInt(optionService.getOption("revisionSnapshotNumberLimit"));
     }
 
     /**
