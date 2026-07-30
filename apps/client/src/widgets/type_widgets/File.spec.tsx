@@ -51,6 +51,17 @@ describe("TextPreview", () => {
         expect(applySingleBlockSyntaxHighlight.mock.calls[0][1]).toBe("text-html");
     });
 
+    it("highlights structured-syntax suffixes (+xml, +json) as their base syntax", async () => {
+        render(<TextPreview content={"<ink/>"} mime="application/inkml+xml" />, container);
+        await vi.waitFor(() => expect(applySingleBlockSyntaxHighlight).toHaveBeenCalledTimes(1));
+        expect(applySingleBlockSyntaxHighlight.mock.calls[0][1]).toBe("text-xml");
+
+        render(null, container);
+        render(<TextPreview content={"{}"} mime="application/fhir+json" />, container);
+        await vi.waitFor(() => expect(applySingleBlockSyntaxHighlight).toHaveBeenCalledTimes(2));
+        expect(applySingleBlockSyntaxHighlight.mock.calls[1][1]).toBe("application-json");
+    });
+
     it("does not highlight without a MIME type, but still renders the content", () => {
         render(<TextPreview content={"plain"} />, container);
 

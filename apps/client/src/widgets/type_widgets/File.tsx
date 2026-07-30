@@ -40,7 +40,7 @@ export function TextPreview({ content, mime }: { content: string, mime?: string 
             <CodeBlock
                 className="file-preview-content"
                 code={trimmedContent}
-                mimeType={mime}
+                mimeType={resolveHighlightMime(mime)}
                 copyable={!isTooLarge}
             />
         </>
@@ -53,4 +53,19 @@ function NoPreview() {
             {t("file.file_preview_not_available")}
         </Alert>
     );
+}
+
+/**
+ * Resolves a MIME type to one the highlighter has a grammar for. Concrete types carrying an
+ * RFC 6839 structured-syntax suffix (e.g. `application/inkml+xml`, OneNote's ink debug source)
+ * are unknown to the registry as such, but highlight fine as their base syntax.
+ */
+function resolveHighlightMime(mime: string | undefined): string | undefined {
+    if (mime?.endsWith("+xml")) {
+        return "text/xml";
+    }
+    if (mime?.endsWith("+json")) {
+        return "application/json";
+    }
+    return mime;
 }
