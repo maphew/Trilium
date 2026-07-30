@@ -18,7 +18,6 @@ Every item is structured as such:
 *   The icon of each item indicates whether it's a [label](../../../Advanced%20Usage/Attributes/Labels.md) or a [relation](../../../Advanced%20Usage/Attributes/Relations.md) (link to another note).
 *   The first text is the name of the label.
 *   The value of the attribute is displayed after the name, if present.
-    
     *   The value is shown in a graphical way: a relation's value is a clickable note link; a color label shows a color chip.
 
 System attributes (that have a special meaning in Trilium) show a small cog near the icon and are grouped separately from the user-defined ones.
@@ -27,14 +26,20 @@ Interaction:
 
 *   Clicking on the item (apart from the value and links) reveals a dedicated popup where the name, value and <a class="reference-link" href="../../../Advanced%20Usage/Attributes/Attribute%20Inheritance.md">Attribute Inheritance</a> can be defined.
 *   The value of the attributes can be edited in-place:
-    
     *   The input box follows the type defined in a corresponding label definition (date, color, dropdown, numbers), as well as for system attributes that have a specific type (e.g. `color`).
     *   For labels, clicking on the value edits its in-place. Press <kbd spellcheck="false">Enter</kbd> to confirm or click outside the input box, or <kbd spellcheck="false">Esc</kbd> to dismiss.
     *   For multi-line text, <kbd spellcheck="false">Ctrl</kbd>+<kbd spellcheck="false">Enter</kbd> confirms whereas <kbd spellcheck="false">Enter</kbd> creates a newline.
     *   For labels without a value, a value can be added by clicking on the _No value_ text which appears while the mouse is hovered on the item.
     *   For relations, there is a dedicated pencil button instead.
 *   An attribute can be deleted by pressing the X button to its right, which only appears while hovered. A confirmation screen is displayed first to ensure the attribute is not accidentally deleted.
-*   A new label, relation or attribute definition can be added from the + button near the title of the section.
+
+Attributes can be added in two ways:
+
+*   A new label, relation or attribute definition can be added from the + button near the title of the section. This shows the full detail popup.
+*   To quickly add a label or a relation directly from the sidebar, click the _Add attribute_ item at the end of the list.
+    *   The name field will be focused first. By default, a label will be created instead but it can be toggled to a relation by typing <kbd spellcheck="false">~</kbd> or pressing the icon (similarly, typing `#` will switch back to a label instead of a relation).
+    *   Once the name is filled, press <kbd spellcheck="false">Enter</kbd> to continue to the value. Type in a value if desired and then press <kbd spellcheck="false">Enter</kbd> again to create the attribute.
+    *   Clicking outside the editor will also create the attribute, but only if a name is specified.
 
 ## Inherited attributes
 
@@ -50,7 +55,6 @@ The only differences are:
 For attribute definition (see <a class="reference-link" href="../../../Advanced%20Usage/Attributes/Promoted%20Attributes.md">Promoted Attributes</a>):
 
 *   The icon indicates the type of the attribute (text, number).
-    
     *   If an attribute is promoted, it has a small chevron icon overlaid on top of it.
 *   The name indicates the name of the attribute it defines (without the `label:` or `relation:` prefix).
 *   To the right of the name a short summary is displayed which indicates the display name (alias), whether it has multiple values or an inverse relation.
