@@ -18,6 +18,13 @@ export const CLEANUP_ITEMS = [
 export type CleanupItemId = (typeof CLEANUP_ITEMS)[number]["id"];
 
 /**
+ * What a run is doing, reported as it moves between the two. Erasing is over in seconds on an
+ * ordinary database; compacting is the one that can hold the server for minutes, so it says so
+ * rather than leaving the same message up throughout.
+ */
+export type CleanupPhase = "erasing" | "compacting";
+
+/**
  * What the cleanup tool is set to erase, persisted as JSON in the `cleanupToolOptions` option so the
  * next run opens on the last answer rather than on a fresh set of defaults.
  */
@@ -150,7 +157,16 @@ export function computeCleanupSizes(
  * @returns bytes reclaimed, never negative: a note saved by another client mid-run must not read as
  *          the cleanup having given space back.
  */
-export async function runCleanup(options: CleanupToolOptions): Promise<number> {
+export async function runCleanup(
+    options: CleanupToolOptions,
+    onPhase: (phase: CleanupPhase) => void = () => {}
+): Promise<number> {
+    const erasing = options.revisionSnapshots || options.unusedAttachments || options.deletedEntities;
+
+    if (erasing) {
+        onPhase("erasing");
+    }
+
     // Only weighed when the file is not being rebuilt afterwards; a rebuild reports its own figure,
     // which is the better one and makes these two readings of the whole database wasted work.
     const before = options.compactDatabase ? 0 : await measureOccupiedBytes();
@@ -168,6 +184,10 @@ export async function runCleanup(options: CleanupToolOptions): Promise<number> {
 
     if (options.deletedEntities) {
         await server.postWithTimeout("notes/erase-deleted-notes-now", CLEANUP_TIMEOUT_MS);
+    }
+
+    if (options.compactDatabase) {
+        onPhase("compacting");
     }
 
     const reclaimed = options.compactDatabase

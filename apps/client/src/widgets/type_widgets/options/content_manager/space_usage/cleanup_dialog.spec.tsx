@@ -8,7 +8,8 @@ import { formatSize } from "../../../../../services/utils";
 
 // Hoisted with the mocks that read them: a `vi.mock` factory runs before any plain module constant.
 const {
-    REVISIONS_ALL, REVISIONS_TRIMMED, DELETED, UNUSED, FREE_PAGES, MEASURED_BEFORE, MEASURED_AFTER
+    REVISIONS_ALL, REVISIONS_TRIMMED, DELETED, UNUSED, FREE_PAGES,
+    VACUUM_BEFORE, VACUUM_AFTER, MEASURED_BEFORE, MEASURED_AFTER
 } = vi.hoisted(() => ({
     REVISIONS_ALL: 900,
     REVISIONS_TRIMMED: 300,
@@ -16,6 +17,9 @@ const {
     UNUSED: 20,
     /** Pages already free in the file, which only a rebuild returns. */
     FREE_PAGES: 640,
+    /** What the rebuild reports for itself, which is the figure a compacting run goes by. */
+    VACUUM_BEFORE: 8000,
+    VACUUM_AFTER: 3000,
     // Deliberately unlike any estimate above, so a toast quoting a prediction cannot pass for one
     // quoting the measurement.
     MEASURED_BEFORE: 7777,
@@ -29,9 +33,13 @@ const mocks = vi.hoisted(() => ({
     weighed: [] as number[],
     save: vi.fn(async () => {}),
     get: vi.fn(),
-    post: vi.fn(async (_url: string, _body?: object) => {}),
+    post: vi.fn(async (url: string, _body?: object) => (
+        url === "database/vacuum-database" ? { sizeBefore: VACUUM_BEFORE, sizeAfter: VACUUM_AFTER } : undefined
+    )),
     confirm: vi.fn(async () => true),
-    showMessage: vi.fn()
+    showMessage: vi.fn(),
+    showPersistent: vi.fn(),
+    closePersistent: vi.fn()
 }));
 
 vi.mock("../../../../../services/options", () => ({
@@ -85,7 +93,13 @@ vi.mock("../../../../../services/server", () => {
 });
 
 vi.mock("../../../../../services/dialog", () => ({ default: { confirm: mocks.confirm } }));
-vi.mock("../../../../../services/toast", () => ({ default: { showMessage: mocks.showMessage } }));
+vi.mock("../../../../../services/toast", () => ({
+    default: {
+        showMessage: mocks.showMessage,
+        showPersistent: mocks.showPersistent,
+        closePersistent: mocks.closePersistent
+    }
+}));
 
 // The real modal reports its close once the animation is done; the stub reports it as soon as it is
 // told to hide, which is the signal the dialog's own flow keys off.
@@ -106,7 +120,7 @@ vi.mock("../../../../react/Modal", () => ({
     }
 }));
 
-import { showCleanupDialog } from "./cleanup_dialog";
+import { CLEANUP_TOAST_ID, showCleanupDialog } from "./cleanup_dialog";
 
 function rows() {
     return Array.from(document.body.querySelectorAll<HTMLElement>(".cleanup-item:not(.cleanup-item-nested)"));
@@ -257,6 +271,31 @@ describe("showCleanupDialog", () => {
         await toggle(document.body.querySelector<HTMLElement>(".cleanup-item-compact") ?? undefined);
         expect(textOf(".cleanup-chart-amount")).toBe(formatSize(FREE_PAGES));
         expect(cleanButton()?.disabled).toBe(false);
+    });
+
+    it("keeps a spinner up for the run, naming the rebuild while it holds the server", async () => {
+        mocks.storedOption = JSON.stringify({ unusedAttachments: true, compactDatabase: true });
+        const { closed } = await openDialog();
+
+        await click(cleanButton());
+        // The rebuild's own before/after is what a compacting run reports, not the content readings.
+        await expect(closed).resolves.toBe(VACUUM_BEFORE - VACUUM_AFTER);
+
+        const raised = mocks.showPersistent.mock.calls.map(([ options ]) => options);
+        // One toast, its message swapped as the run moves on — the id is what keeps it the same one.
+        expect(raised.map((options) => options.id)).toEqual([ CLEANUP_TOAST_ID, CLEANUP_TOAST_ID ]);
+        // Compared against the same t() calls; unlike DOM text these are the raw values, so no
+        // empty-string coercion to allow for.
+        expect(raised.map((options) => options.message)).toEqual([
+            t("space_usage.cleanup_running"),
+            t("space_usage.cleanup_compacting")
+        ]);
+        // A spinner rather than a bar: none of this can say how far along it is. And no close
+        // button, there being nothing here to cancel.
+        expect(raised[0].icon).toBe("bx bx-loader-circle bx-spin");
+        expect(raised[0].dismissible).toBe(false);
+
+        expect(mocks.closePersistent).toHaveBeenCalledWith(CLEANUP_TOAST_ID);
     });
 
     it("erases nothing when the confirmation is declined, and stays open to be reconsidered", async () => {

@@ -206,6 +206,29 @@ describe("runCleanup", () => {
             .toEqual([ "database/vacuum-database", "space-usage/cleanup-completed" ]);
     });
 
+    it("reports the phase it is in, naming the rebuild separately from the erasures", async () => {
+        const phases = vi.fn();
+        await runCleanup({ ...ALL_PICKED, compactDatabase: true }, phases);
+        expect(phases.mock.calls.flat()).toEqual([ "erasing", "compacting" ]);
+
+        // Only what actually happens is announced: a run that erases nothing never claims to.
+        phases.mockClear();
+        mocks.occupied = [ 5000, 5000 ];
+        await runCleanup({
+            ...ALL_PICKED,
+            deletedEntities: false,
+            unusedAttachments: false,
+            revisionSnapshots: false,
+            compactDatabase: true
+        }, phases);
+        expect(phases.mock.calls.flat()).toEqual([ "compacting" ]);
+
+        phases.mockClear();
+        mocks.occupied = [ 5000, 4000 ];
+        await runCleanup(ALL_PICKED, phases);
+        expect(phases.mock.calls.flat()).toEqual([ "erasing" ]);
+    });
+
     it("asks for nothing that was not picked", async () => {
         await runCleanup({ ...ALL_PICKED, revisionSnapshots: false, deletedEntities: false });
         expect(mocks.post.mock.calls.map(([ url ]) => url))

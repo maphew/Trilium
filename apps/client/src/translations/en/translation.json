@@ -2892,7 +2892,9 @@
     "cleanup_clean": "Clean",
     "cleanup_confirm": "This permanently deletes the selected data. It cannot be undone.",
     "cleanup_done": "Cleanup completed, reclaiming {{size}}.",
-    "cleanup_compact_database": "Compact database"
+    "cleanup_compact_database": "Compact database",
+    "cleanup_running": "Cleaning up…",
+    "cleanup_compacting": "Compacting the database. This may take several minutes."
   },
   "note_language": {
     "not_set": "No language set",

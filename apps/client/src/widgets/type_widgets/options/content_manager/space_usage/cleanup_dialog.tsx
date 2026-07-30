@@ -18,6 +18,7 @@ import { useTriliumOptionJson } from "../../../../react/hooks";
 import Modal from "../../../../react/Modal";
 import {
     CLEANUP_ITEMS,
+    type CleanupPhase,
     type CleanupToolOptions,
     computeCleanupSizes,
     hasWorkToDo,
@@ -149,9 +150,10 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
         let reclaimed = work.reclaimed;
 
         try {
-            reclaimed = await runCleanup(work.options);
+            reclaimed = await runCleanup(work.options, showCleanupProgress);
             toast.showMessage(t("space_usage.cleanup_done", { size: formatSize(reclaimed) }));
         } finally {
+            toast.closePersistent(CLEANUP_TOAST_ID);
             // Settled either way: a run that failed part-way still changed the database, so whatever
             // was watching has to re-measure rather than keep the figures from before it. The
             // failure itself is already reported by the request layer.
@@ -253,6 +255,28 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
 
 /** Both figures come from the root, whose subtree is the whole visible database. */
 const ROOT_USAGE_URL = "space-usage/note/root";
+
+/** Shared by every phase of a run, so the message is swapped in place rather than stacked. */
+export const CLEANUP_TOAST_ID = "content-manager-cleanup";
+
+/**
+ * The app's in-progress toast, the same one printing raises: a spinning icon rather than a bar,
+ * since none of this can say how far along it is. Compacting names itself, being the step that can
+ * hold the server for minutes with nothing at all to show meanwhile.
+ *
+ * Raised again per phase rather than replaced — the toast service updates the one already carrying
+ * this id, so the message changes in place instead of stacking a second toast beside the first.
+ */
+function showCleanupProgress(phase: CleanupPhase) {
+    toast.showPersistent({
+        id: CLEANUP_TOAST_ID,
+        icon: "bx bx-loader-circle bx-spin",
+        message: t(phase === "compacting" ? "space_usage.cleanup_compacting" : "space_usage.cleanup_running"),
+        // Nothing here to cancel: the server carries on whatever the client does, so a close button
+        // would read as a stop that stops nothing.
+        dismissible: false
+    });
+}
 
 /**
  * The width the dialog starts at, narrow on purpose: a short list of choices, read top to bottom
