@@ -28,30 +28,35 @@ export default function useData(note: FNote, noteIds: string[], viewConfig: Tabl
     const [ isSorted ] = useNoteLabelBoolean(note, "sorted");
     const [ movableRows, setMovableRows ] = useState(false);
 
-    async function refresh() {
+    // Rows change far more often than the columns do, and rebuilding the columns is not free: they
+    // are replaced wholesale in Tabulator, which resets the scroll — so a refresh only rebuilds
+    // them when asked, and a change that can only touch rows leaves them be.
+    async function refresh(rebuildColumns = true) {
         const info = getAttributeDefinitionInformation(note);
 
         // Ensure all note IDs are loaded.
         await froca.getNotes(noteIds);
 
         const { definitions: rowData, hasSubtree: hasChildren, rowNumber } = await buildRowDefinitions(note, info, includeArchived, maxDepth);
-        const columnDefs = buildColumnDefinitions({
-            info,
-            movableRows,
-            existingColumnData: viewConfig?.tableData?.columns,
-            rowNumberHint: rowNumber,
-            position: newAttributePosition?.current ?? undefined,
-            // Read from the note as a cell is opened rather than taken from `info`, which was read
-            // when the columns were last built: a definition can gain an option from the very editor
-            // that is open, and the table does not rebuild for a change of its own.
-            currentSelectOptions: (columnName) => getAttributeDefinitionInformation(note)
-                .find((definition) => definition.name === columnName)?.options,
-            onCreateSelectOption: (columnName, option) => addSelectOption(note, columnName, option, componentId)
-        });
-        setColumnDefs(columnDefs);
+        if (rebuildColumns) {
+            const columnDefs = buildColumnDefinitions({
+                info,
+                movableRows,
+                existingColumnData: viewConfig?.tableData?.columns,
+                rowNumberHint: rowNumber,
+                position: newAttributePosition?.current ?? undefined,
+                // Read from the note as a cell is opened rather than taken from `info`, which was read
+                // when the columns were last built: a definition can gain an option from the very editor
+                // that is open, and the table does not rebuild for a change of its own.
+                currentSelectOptions: (columnName) => getAttributeDefinitionInformation(note)
+                    .find((definition) => definition.name === columnName)?.options,
+                onCreateSelectOption: (columnName, option) => addSelectOption(note, columnName, option, componentId)
+            });
+            setColumnDefs(columnDefs);
+            resetNewAttributePosition();
+        }
         setRowData(rowData);
         setHasChildren(hasChildren);
-        resetNewAttributePosition();
     }
 
     useEffect(() => { refresh() }, [ note, noteIds, maxDepth, movableRows ]);
@@ -70,12 +75,13 @@ export default function useData(note: FNote, noteIds: string[], viewConfig: Tabl
             return;
         }
 
-        // React to external row updates.
+        // React to external row updates. Only the rows: rebuilding the columns replaces them
+        // wholesale in Tabulator, which would throw away the scroll position on every edit.
         if (loadResults.getBranchRows().some(branch => branch.parentNoteId === note.noteId || noteIds.includes(branch.parentNoteId ?? ""))
             || loadResults.getNoteIds().some(noteId => noteIds.includes(noteId))
             || loadResults.getAttributeRows().some(attr => noteIds.includes(attr.noteId!))
             || loadResults.getAttributeRows().some(attr => attr.name === "archived" && attr.noteId && noteIds.includes(attr.noteId))) {
-            refresh();
+            refresh(false);
             return;
         }
     });
