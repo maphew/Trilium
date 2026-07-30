@@ -7,6 +7,19 @@
  * island's own inner padding.
  */
 .llm-chat-input-form {
+    /*
+     * Trilium has no general-purpose warning/danger token — the only semantic error colours
+     * in the themes are domain-specific (`--log-*`, `--sync-status-*`) — so these are local,
+     * picked to read against both the light and dark card fills. Declared here rather than on
+     * the indicator itself so the bar and the alert beside it both inherit them; a theme-level
+     * token would override them here if one ever lands.
+     */
+    --llm-chat-context-neutral: var(--muted-text-color);
+    --llm-chat-context-warning: #d98c1f;
+    --llm-chat-context-critical: #d9534f;
+
+    /* Positioning context for the context hairline, which rides the bottom edge. */
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 0.375rem;
@@ -308,25 +321,89 @@ body[dir=rtl] .llm-chat-input-form .llm-chat-model-select.select-button.dropdown
     opacity: 0.5;
 }
 
-/* Context window indicator */
-.llm-chat-context-indicator {
+/*
+ * Context window indicator.
+ *
+ * A hairline riding the island's bottom edge rather than an element in the control row:
+ * it costs no width, and length is read far more accurately than the angle of the 14px
+ * pie it replaces. It only exists once the window is at least half gone (see
+ * chat_context_usage), so it is absent for most of most conversations.
+ */
+/*
+ * Full-bleed, so the outer element is a clipper rather than the line itself: `inset: -1px`
+ * resolves against the containing block's padding box, which expands it to exactly the
+ * island's border box, and `border-radius: inherit` then matches the island's curve exactly.
+ * Without that clip a 2px line running edge to edge would poke ~5px past each bottom corner,
+ * since the curve is still 5px inboard at that height.
+ */
+.llm-chat-context-bar {
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    overflow: hidden;
+    /* The clipper covers the whole island, so it must not intercept presses meant for the
+       editor. Only the strip at the bottom takes pointer events, for the tooltip. */
+    pointer-events: none;
     display: flex;
-    align-items: center;
-    gap: 0.375rem;
-    margin-left: 0.25rem;
+    align-items: flex-end;
+}
+
+.llm-chat-context-bar-track {
+    position: relative;
+    width: 100%;
+    height: 2px;
+    background: var(--main-border-color);
+    pointer-events: auto;
     cursor: help;
 }
 
-.llm-chat-context-pie {
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    flex-shrink: 0;
+/* A hairline is far too small to hover, and the tooltip is where the token counts live, so
+   the hit area is extended upward without drawing anything. Kept inside the island's 8px
+   bottom padding so it can't sit over the controls. */
+.llm-chat-context-bar-track::before {
+    content: "";
+    position: absolute;
+    inset-inline: 0;
+    bottom: 0;
+    height: 8px;
 }
 
-.llm-chat-context-text {
-    font-size: 0.75rem;
-    color: var(--muted-text-color);
+.llm-chat-context-bar-fill {
+    height: 100%;
+    border-radius: 1px;
+    background: var(--llm-chat-context-neutral);
+    transition: width 150ms linear, background-color 150ms linear;
+}
+
+.llm-chat-context-bar-warning .llm-chat-context-bar-fill {
+    background: var(--llm-chat-context-warning);
+}
+
+.llm-chat-context-bar-critical .llm-chat-context-bar-fill {
+    background: var(--llm-chat-context-critical);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .llm-chat-context-bar-fill {
+        transition: none;
+    }
+}
+
+/* At the critical threshold the bar is no longer enough — the consequence gets said. */
+.llm-chat-context-alert {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    margin: 0;
+    padding: 0 0.375rem;
+    color: var(--main-text-color);
+    font-size: 0.8rem;
+}
+
+.llm-chat-context-alert .bx {
+    color: var(--llm-chat-context-critical);
+    font-size: 1rem;
+    flex-shrink: 0;
 }
 
 /*

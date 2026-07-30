@@ -15,6 +15,7 @@ import Dropdown from "../../react/Dropdown.js";
 import { FormDropdownDivider, FormListHeader, FormListItem, FormListToggleableItem } from "../../react/FormList.js";
 import { useLegacyImperativeHandlers } from "../../react/hooks.js";
 import AddProviderModal, { type LlmProviderConfig, type ProviderStep } from "../options/llm/AddProviderModal.js";
+import { computeContextUsage } from "./chat_context_usage.js";
 import { insertNewBlock as insertNewBlockCommand, isSelectionInCodeBlock, outdentListItemAtStart } from "./chat_input_editing.js";
 import { editorHtmlToMarkdown } from "./chat_input_markdown.js";
 import { SafeImage } from "./retry_image.js";
@@ -210,14 +211,23 @@ export default function ChatInputBar({
     // web search server-side; reflect that here by disabling the toggle so the
     // user understands the trade-off instead of seeing it mysteriously ignored.
     const webSearchUnavailable = currentModel?.provider === "google" && chat.enableNoteTools;
-    const contextWindow = currentModel?.contextWindow || 200000;
-    const percentage = Math.min((chat.lastPromptTokens / contextWindow) * 100, 100);
-    const isWarning = percentage > 75;
-    const isCritical = percentage > 90;
-    // `--main-selection-color` is not defined by any Trilium theme, so the nominal
-    // colour here was always the hardcoded fallback; `--link-color` is the real
-    // theme-aware accent.
-    const pieColor = isCritical ? "var(--danger-color, #d9534f)" : isWarning ? "var(--warning-color, #f0ad4e)" : "var(--link-color, #007bff)";
+    // Null until the window is close enough to matter, and null (rather than a guess) when
+    // the model advertises no window at all. See chat_context_usage.
+    const contextUsage = computeContextUsage({
+        promptTokens: chat.lastPromptTokens,
+        completionTokens: chat.lastCompletionTokens,
+        draftTokens: chat.draftTokens,
+        contextWindow: currentModel?.contextWindow
+    });
+    // The bar itself carries no text, so the numbers live in its tooltip (and, for assistive
+    // tech, in `aria-valuetext`).
+    const contextTooltip = contextUsage
+        ? t("llm_chat.context_tooltip", {
+            used: formatTokenCount(contextUsage.usedTokens),
+            total: formatTokenCount(contextUsage.contextWindow),
+            percentage: Math.round(contextUsage.percentage)
+        })
+        : undefined;
 
     // Show setup prompt if no provider is configured
     if (!chat.isCheckingProvider && !chat.hasProvider) {
@@ -363,6 +373,17 @@ export default function ChatInputBar({
                     onChange={attachments.handleFilePickerChange}
                     style={{ display: "none" }}
                 />
+                {/* At the point the window is nearly gone, say so in words — a 2px bar is not
+                    enough warning for a hard failure. Nothing in the send path trims the
+                    conversation (BaseProvider.chat sends every message; `contextWindow` is
+                    metadata the server never reads), so overflow is not graceful degradation:
+                    the provider rejects the request and the error lands in the transcript. */}
+                {contextUsage?.level === "critical" && (
+                    <p className="llm-chat-context-alert">
+                        <span className="bx bx-error-circle" />
+                        {t("llm_chat.context_nearly_full")}
+                    </p>
+                )}
                 <div className="llm-chat-options">
                     <div className="llm-chat-model-selector">
                         <Dropdown
@@ -446,20 +467,6 @@ export default function ChatInputBar({
                                     : t("llm_chat.note_context_disabled")}
                             />
                         )}
-                        {chat.lastPromptTokens > 0 && (
-                            <div
-                                className="llm-chat-context-indicator"
-                                title={`${formatTokenCount(chat.lastPromptTokens)} / ${formatTokenCount(contextWindow)} ${t("llm_chat.tokens")}`}
-                            >
-                                <div
-                                    className="llm-chat-context-pie"
-                                    style={{
-                                        background: `conic-gradient(${pieColor} ${percentage}%, var(--accented-background-color) ${percentage}%)`
-                                    }}
-                                />
-                                <span className="llm-chat-context-text">{t("llm_chat.context_used", { percentage: percentage.toFixed(0) })}</span>
-                            </div>
-                        )}
                     </div>
                     <ActionButton
                         icon="bx bx-paperclip"
@@ -478,6 +485,29 @@ export default function ChatInputBar({
                         className={`llm-chat-send-btn ${chat.isStreaming ? "llm-chat-stop-btn" : ""}`}
                     />
                 </div>
+                {/* The hairline rides the island's bottom edge, edge to edge, rather than taking
+                    a slot in the control row. The outer element only clips to the island's corners
+                    and takes no pointer events; the track carries the tooltip and the ARIA, so
+                    assistive tech gets the same reading the length gives visually. */}
+                {contextUsage && (
+                    <div className={`llm-chat-context-bar llm-chat-context-bar-${contextUsage.level}`}>
+                        <div
+                            className="llm-chat-context-bar-track"
+                            role="progressbar"
+                            aria-label={t("llm_chat.context_usage_label")}
+                            aria-valuenow={Math.round(contextUsage.percentage)}
+                            aria-valuemin={0}
+                            aria-valuemax={100}
+                            aria-valuetext={contextTooltip}
+                            title={contextTooltip}
+                        >
+                            <div
+                                className="llm-chat-context-bar-fill"
+                                style={{ width: `${contextUsage.percentage}%` }}
+                            />
+                        </div>
+                    </div>
+                )}
             </form>
             <AddProviderModal
                 key={openToken}

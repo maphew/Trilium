@@ -7,6 +7,7 @@ import { formatModelCost } from "../../../services/llm_model_cost.js";
 import options from "../../../services/options.js";
 import { randomString } from "../../../services/utils.js";
 import { useTriliumEvent } from "../../react/hooks.js";
+import { estimateTokens, quantizeDraftTokens } from "./chat_context_usage.js";
 import { stripQuoteSources } from "./chat_quote.js";
 import { conversationForRegenerate } from "./chat_regenerate.js";
 import { type ContentBlock, type FileBlock, type ImageBlock, type LlmChatContent, type StoredMessage, type TextFileBlock, trimToFirstUserMessage } from "./llm_chat_types.js";
@@ -150,6 +151,10 @@ export interface UseLlmChatReturn {
     /** The chat note's ID — used as the upload target for attachments. */
     chatNoteId: string | undefined;
     lastPromptTokens: number;
+    /** Completion tokens of the last reply — part of the next prompt, so the context indicator counts them. */
+    lastCompletionTokens: number;
+    /** Coarse estimate of the unsent draft, quantized so typing rarely re-renders. */
+    draftTokens: number;
     messagesEndRef: RefObject<HTMLDivElement>;
     scrollContainerRef: RefObject<HTMLDivElement>;
     /** Trailing spacer below the last message; sized so the active turn can park near the top. */
@@ -216,7 +221,13 @@ export function useLlmChat(
     const setInput = useCallback((value: string) => {
         inputRef.current = value;
         setHasInputText(value.trim().length > 0);
+        // The context indicator has to account for the draft, or it can go from hidden
+        // straight to critical inside one send. Quantized so this only actually changes
+        // state about once per hundred characters typed, keeping the ref's whole point —
+        // that typing doesn't re-render the chat tree — very nearly intact.
+        setDraftTokens(quantizeDraftTokens(estimateTokens(value)));
     }, []);
+    const [draftTokens, setDraftTokens] = useState(0);
     const getInput = useCallback(() => inputRef.current, []);
     const [isStreaming, setIsStreaming] = useState(false);
     // The canonical "target" content received from the stream so far. The
@@ -238,6 +249,9 @@ export function useLlmChat(
     const [contextNoteId, setContextNoteId] = useState<string | undefined>(initialContextNoteId);
     const [chatNoteId, setChatNoteIdState] = useState<string | undefined>(initialChatNoteId);
     const [lastPromptTokens, setLastPromptTokens] = useState<number>(0);
+    // The reply to the last prompt is part of the *next* prompt, so the context indicator
+    // has to count it too — `lastPromptTokens` alone understates by a whole reply.
+    const [lastCompletionTokens, setLastCompletionTokens] = useState<number>(0);
     const [hasProvider, setHasProvider] = useState<boolean>(true); // Assume true initially
     const [isCheckingProvider, setIsCheckingProvider] = useState<boolean>(true);
     const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -533,6 +547,7 @@ export function useLlmChat(
         // Restore last prompt tokens from the most recent message with usage
         const lastUsage = [...(content.messages || [])].reverse().find(m => m.usage)?.usage;
         setLastPromptTokens(lastUsage?.promptTokens ?? 0);
+        setLastCompletionTokens(lastUsage?.completionTokens ?? 0);
     }, [supportsExtendedThinking, selectModel]);
 
     // Get current state as content object (uses refs to avoid stale closures)
@@ -555,6 +570,7 @@ export function useLlmChat(
     const clearMessages = useCallback(() => {
         setMessages([]);
         setLastPromptTokens(0);
+        setLastCompletionTokens(0);
     }, [setMessages]);
 
     /**
@@ -780,6 +796,7 @@ export function useLlmChat(
                 onUsage: (u) => {
                     usage = u;
                     setLastPromptTokens(u.promptTokens);
+                    setLastCompletionTokens(u.completionTokens);
                 },
                 onError: (errorMsg) => {
                     console.error("Chat error:", errorMsg);
@@ -941,6 +958,8 @@ export function useLlmChat(
         contextNoteId,
         chatNoteId,
         lastPromptTokens,
+        lastCompletionTokens,
+        draftTokens,
         messagesEndRef,
         scrollContainerRef,
         bottomSpacerRef,
