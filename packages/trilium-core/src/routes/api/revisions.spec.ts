@@ -34,6 +34,10 @@ async function createNoteWithRevision(
     return { noteId, revisionId: res.body.revisionId };
 }
 
+function blobExists(blobId: string): boolean {
+    return getSql().getRowOrNull("SELECT blobId FROM blobs WHERE blobId = ?", [ blobId ]) !== null;
+}
+
 function revisionExists(revisionId: string): boolean {
     const row = getSql().getRowOrNull<{ revisionId: string }>(
         "SELECT revisionId FROM revisions WHERE revisionId = ?",
@@ -360,6 +364,26 @@ describe("Revisions API (core)", () => {
             // no-op — the case the button guards against, answered rather than refused.
             expect(await eraseExcess()).toBe(0);
             expect(revisionIdsOf(noteId).length).toBe(1);
+        });
+
+        it("purges the content the erased snapshots held, rather than leaving it for later", async () => {
+            const { noteId } = await createTextNote(api, { title: "Excess orphan" });
+            const content = `<p>${"excess-orphan-".repeat(80)}</p>`;
+
+            // Snapshot content the live note no longer holds, so the blob is the snapshot's alone.
+            expect((await api.put(`/api/notes/${noteId}/data`, { body: { content } })).status).toBe(204);
+            const saved = await api.post<ForceSaveResponse>(`/api/notes/${noteId}/revision`, { body: {} });
+            expect(saved.status).toBe(200);
+            expect((await api.put(`/api/notes/${noteId}/data`, { body: { content: "<p>moved on</p>" } })).status).toBe(204);
+
+            const blobId = getSql().getValue<string>(
+                "SELECT blobId FROM revisions WHERE revisionId = ?", [ saved.body.revisionId ]);
+            expect(blobExists(blobId)).toBe(true);
+
+            await eraseExcess({ snapshotsToKeep: 0 });
+
+            expect(revisionIdsOf(noteId)).toEqual([]);
+            expect(blobExists(blobId)).toBe(false);
         });
 
         it("keeps only the newest snapshots the override asks for", async () => {

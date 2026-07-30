@@ -105,10 +105,9 @@ export function computeCleanupSizes(
  * predicted. That costs two full measurements on top of the erasures, which is the price of quoting
  * a number that is true.
  *
- * The erasures are ordered rather than issued at once, and deliberately: erasing revisions or
- * attachments deletes the rows but leaves the blobs they held, which only the deleted-entity sweep
- * purges. Running that last is therefore what actually hands the space back — and when it is not
- * picked, the blobs the other two orphan wait for the hourly cleanup instead.
+ * The erasures run one after another rather than at once: each ends by purging the content it
+ * orphaned, and there is nothing to be gained by having two of those scan the blobs at the same
+ * time. Their order carries no weight beyond that — every one of them hands its own space back.
  *
  * @returns bytes reclaimed, never negative: a note saved by another client mid-run must not read as
  *          the cleanup having given space back.

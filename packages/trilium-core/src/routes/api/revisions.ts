@@ -141,6 +141,13 @@ function eraseAllExcessRevisions(req: Request) {
         erasedCount += becca.getNote(row.noteId)?.eraseExcessRevisionSnapshots(options) ?? 0;
     }
 
+    if (erasedCount > 0) {
+        // Dropping the snapshots leaves their content behind, held by nothing. Purged here rather
+        // than in the entity method, which also runs after every saved revision — a blob scan per
+        // note save would be far too expensive for what it collects.
+        eraseService.eraseUnusedBlobs();
+    }
+
     return { erasedCount } satisfies EraseExcessRevisionsResponse;
 }
 
