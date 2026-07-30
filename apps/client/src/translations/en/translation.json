@@ -3087,7 +3087,8 @@
     "set-custom-color": "Set custom note color"
   },
   "popup-editor": {
-    "maximize": "Switch to full editor"
+    "maximize": "Switch to full editor",
+    "attachment_title": "Attachment: {{title}}"
   },
   "server": {
     "unknown_http_error_title": "Communication error with the server",

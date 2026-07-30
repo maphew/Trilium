@@ -71,7 +71,7 @@ export default function TreePopupEditor() {
         if (notePath.split("/").includes(noteContext.hoistedNoteId)) {
             void noteContext.setNote(notePath, { viewScope, keepActiveDialog: true });
         } else {
-            void appContext.triggerCommand("openInPopup", { noteIdOrPath: notePath });
+            void appContext.triggerCommand("openInPopup", { noteIdOrPath: notePath, viewScope });
         }
     }, [ noteContext ]));
 
