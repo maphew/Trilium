@@ -2359,7 +2359,7 @@
     "tokens": "tokens",
     "context_usage_label": "Context window usage",
     "context_tooltip": "{{used}} of {{total}} tokens used ({{percentage}}%)",
-    "context_nearly_full": "Context nearly full. Sending may fail, so start a new chat to continue.",
+    "context_nearly_full": "Context nearly full. Consider starting a new chat.",
     "note_context_enabled": "Click to disable note context: {{title}}",
     "note_context_disabled": "Click to include current note in context",
     "no_provider_message": "No AI provider configured. Add one to start chatting.",
