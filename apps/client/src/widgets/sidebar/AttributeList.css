@@ -108,6 +108,17 @@
     cursor: text;
 }
 
+/* The placeholder holding an empty label's slot open. Hidden rather than left out, so the slot keeps
+   the height the text gives it, and shown as the row's buttons are: over the row being pointed at,
+   which is also the only row whose slot could be pressed. */
+.attribute-list-panel .attribute-value.value-placeholder {
+    visibility: hidden;
+}
+
+.attribute-list-panel .attribute-row:is(:hover, .active, .editing) .attribute-value.value-placeholder {
+    visibility: visible;
+}
+
 /* A colour's chip keeps to its own size: a chip is laid out as a flex box, which alone in the value's
    slot would run the width of it, a bar rather than a chip. */
 .attribute-list-panel .attribute-value > .label-color-chip {

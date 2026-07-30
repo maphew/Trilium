@@ -468,6 +468,29 @@ describe("AttributeList", () => {
         expect(container.querySelector(".attribute-value-editor .note-autocomplete-stub")).not.toBeNull();
     });
 
+    it("holds an empty label's slot open with a placeholder, which is the way into typing a value", () => {
+        renderPanel(buildNote({ id: "bare-label", title: "Bare", "#todo": "" }));
+
+        // The placeholder is what keeps the slot pressable at all: without text the row's centring
+        // collapses the empty span to no height, and a press could never land on it. Its wording is
+        // not asserted — translations stay unloaded here, as in every test of this file.
+        const slot = firstRow().querySelector<HTMLElement>(".attribute-value");
+        expect(slot?.className).toContain("value-placeholder");
+
+        act(() => slot?.click());
+        expect(container.querySelector<HTMLInputElement>(".attribute-value-editor input")).not.toBeNull();
+
+        // A row the note cannot edit keeps its blank: its slot leads nowhere, so there is nothing to
+        // hold open — and an inherited flag with no value is not something the note lacks.
+        render(null, container);
+        renderPanel(noteWithAttributes());
+        const inherited = container.querySelector("#attributes-inherited");
+        const archived = [ ...(inherited?.querySelectorAll(".attribute-row") ?? []) ]
+            .find((row) => row.querySelector(".attribute-name")?.textContent === "archived");
+        expect(archived?.querySelector(".attribute-value")?.className).not.toContain("value-placeholder");
+        expect(archived?.querySelector(".attribute-value")?.textContent).toBe("");
+    });
+
     it("shows a colour label as the colour itself, and edits it through the picker", () => {
         renderPanel(buildNote({ id: "tinted", title: "Tinted", "#color": "#8000ff" }));
 
