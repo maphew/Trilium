@@ -111,7 +111,15 @@ export function LabelValueChips({ values, labelType, className }: {
                     // ground rather than showing a colour it is not.
                     <span key={value} className="tn-chip label-color-chip" title={value} style={{ backgroundColor: value }} />
                 ) : (
-                    <span key={value} className="tn-chip"><span>{renderLabelValue(value, labelType)}</span></span>
+                    // A flag's chip takes a wash of the answer it carries, so a row of checks and
+                    // crosses reads apart at a glance, before the marks themselves are.
+                    <span
+                        key={value}
+                        className={clsx("tn-chip", labelType === "boolean" &&
+                            (value === "true" ? "label-flag-chip-set" : "label-flag-chip-unset"))}
+                    >
+                        <span>{renderLabelValue(value, labelType)}</span>
+                    </span>
                 )
             ))}
         </span>

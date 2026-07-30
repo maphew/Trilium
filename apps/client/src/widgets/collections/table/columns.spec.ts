@@ -170,6 +170,33 @@ describe("buildColumnDefinitions — typed columns", () => {
         expect(url({ getValue: () => "javascript:alert(1)" } as CellComponent)).toBe("about:blank");
         expect(url({ getValue: () => "https://example.com" } as CellComponent)).toBe("https://example.com");
     });
+
+    it("shows a single flag as the chip a set of flags wears, and an unset cell as nothing", () => {
+        const [ column ] = buildColumnDefinitions({
+            info: [ { name: "done", type: "boolean" } ],
+            movableRows: false,
+            existingColumnData: undefined,
+            rowNumberHint: 1
+        }).filter((candidate) => candidate.field === "labels.done");
+
+        const formatter = column?.formatter;
+        if (typeof formatter !== "function") throw new Error("expected a formatter of its own");
+        const format = (value: unknown) =>
+            formatter({ getValue: () => value } as CellComponent, {}, () => {}) as HTMLElement;
+
+        // A stored label holds the text "true", a value fresh from the tickCross editor a real
+        // boolean; either reads as the one chip, washed with its answer.
+        for (const set of [ "true", true ]) {
+            expect(format(set).querySelector(".tn-chip")?.className).toContain("label-flag-chip-set");
+            expect(format(set).querySelector(".tn-icon")?.getAttribute("title")).toBe("true");
+        }
+        expect(format(false).querySelector(".tn-chip")?.className).toContain("label-flag-chip-unset");
+
+        // An unset cell holds no flag at all, so it wears no chip either.
+        for (const empty of [ "", undefined, null ]) {
+            expect(format(empty).querySelector(".tn-chip")).toBeNull();
+        }
+    });
 });
 
 describe("buildColumnDefinitions — colour columns", () => {
@@ -383,12 +410,16 @@ describe("buildColumnDefinitions — multi-valued columns", () => {
             ) as HTMLElement;
         };
 
-        // A flag reads as the mark a column of single flags shows, not as the word "true".
+        // A flag reads as the mark a column of single flags shows, not as the word "true" — and its
+        // chip takes a wash of the answer, telling checks from crosses across the table.
         const flags = format("boolean", [ "true", "false" ]);
         expect([ ...flags.querySelectorAll(".tn-icon") ].map((mark) => mark.getAttribute("title")))
             .toEqual([ "true", "false" ]);
         expect(flags.querySelector(".label-flag-set")?.className).toContain("bx-check");
         expect(flags.querySelector(".label-flag-unset")?.className).toContain("bx-x");
+        const chips = [ ...flags.querySelectorAll(".tn-chip") ];
+        expect(chips[0]?.className).toContain("label-flag-chip-set");
+        expect(chips[1]?.className).toContain("label-flag-chip-unset");
 
         // And a colour floods the chip itself — read-only, the chip holds nothing the colour could
         // hide — with the stored text kept to the tooltip.

@@ -46,7 +46,9 @@ const labelTypeMappings: Record<ColumnType, Partial<ColumnDefinition>> = {
         editor: wrapEditor(SelectEditor)
     },
     boolean: {
-        formatter: "tickCross",
+        // The same chip a set of flags wears, one chip for the one value, so a column of flags
+        // reads the same whether each note holds one or several. Toggling stays Tabulator's own.
+        formatter: wrapFormatter(FlagFormatter),
         editor: "tickCross",
         // Values arrive as strings ("true"/"false") from stored labels but as real booleans
         // once toggled via the editor; the boolean sorter normalizes both, whereas the default
@@ -518,17 +520,44 @@ function ColorFormatter({ cell }: FormatterOpts) {
     return <ColorSwatch color={color} />;
 }
 
+/** A flag cell as the chip a set of flags shows, with an unset cell holding no chip at all. */
+function FlagFormatter({ cell }: FormatterOpts) {
+    const value = cell.getValue();
+    // A stored label arrives as the text "true"/"false", but one just toggled through the tickCross
+    // editor is a real boolean; the chip reads the stored spelling of either.
+    const flag = typeof value === "boolean" ? String(value) : value;
+    if (typeof flag !== "string" || !flag) return <span />;
+
+    return <LabelValueChips values={[ flag ]} labelType="boolean" />;
+}
+
+/**
+ * A relation cell's editor stands over its cell as the multi-valued editor does, and by the same
+ * class: what is typed into it is a note's title, which a column sized for the title it *shows* is
+ * rarely wide enough to search by — the box takes at least the cell's width, and grows past it up to
+ * the editor's usual ceiling. The list of matches is appended to the body, so it outgrows the cell
+ * either way; it is the box being typed into that needs the room.
+ */
 function RelationEditor({ cell, success }: EditorOpts) {
     const inputRef = useRef<HTMLInputElement>(null);
     useEffect(() => inputRef.current?.focus());
 
-    return <NoteAutocomplete
-        inputRef={inputRef}
-        noteId={cell.getValue()}
-        opts={{
-            allowCreatingNotes: true,
-            hideAllButtons: true
-        }}
-        noteIdChanged={success}
-    />;
+    return (
+        <div className="table-values-editor">
+            {/* Framed as the editor's other fields are: an editing cell strips the border and
+                background from the boxes within, which leaves an unwrapped one adrift on the
+                editor's own surface. */}
+            <div className="tn-field">
+                <NoteAutocomplete
+                    inputRef={inputRef}
+                    noteId={cell.getValue()}
+                    opts={{
+                        allowCreatingNotes: true,
+                        hideAllButtons: true
+                    }}
+                    noteIdChanged={success}
+                />
+            </div>
+        </div>
+    );
 }

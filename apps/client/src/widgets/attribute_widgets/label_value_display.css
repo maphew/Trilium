@@ -23,6 +23,31 @@
     opacity: 0.55;
 }
 
+/* A flag's chip takes a wash of the answer it carries — a wash rather than the colour outright, so
+   the mark stays the thing that says it and the wash only lets it be told from across the table.
+   Doubled with .tn-chip to outweigh the chip's own ground whichever stylesheet loads last.
+
+   The mark itself keeps to the muted grey only on the chip's own neutral ground; on a wash it takes
+   its answer's colour instead, leaned well toward the theme's text colour — deepened on a light
+   theme, lifted on a dark one — so it stands on the tint rather than sinking into it. */
+.tn-chip.label-flag-chip-set {
+    background-color: color-mix(in srgb, var(--bs-success) 25%, transparent);
+
+    .label-flag-set {
+        color: color-mix(in srgb, var(--bs-success) 40%, var(--main-text-color));
+    }
+}
+
+.tn-chip.label-flag-chip-unset {
+    background-color: color-mix(in srgb, var(--bs-danger) 25%, transparent);
+
+    .label-flag-unset {
+        color: color-mix(in srgb, var(--bs-danger) 40%, var(--main-text-color));
+        /* The wash already sets an unset flag apart; a mark also drawn back would fade into it. */
+        opacity: 1;
+    }
+}
+
 /*
  * A read-only chip that is the colour it stands for. Holding nothing — no text, no button — it has
  * nothing to hold it open, so it is sized to show a stretch of the colour at the height the swatch

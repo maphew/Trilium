@@ -21,7 +21,11 @@
         outline: 2px solid var(--input-focus-outline-color);
     }
 
-    > input.form-control {
+    /* Also reaching a box one step down: some boxes come wrapped in a group of their own — the note
+       autocomplete brings one — and left there the box would keep its frame, drawing a second border
+       just within the field's. */
+    > input.form-control,
+    > .input-group > input.form-control {
         flex: 1;
         min-width: 6ch;
         width: auto;
@@ -32,6 +36,22 @@
         &,
         &:hover,
         &:focus {
+            background: transparent;
+        }
+    }
+
+    /* The group is only the box's wrapping, so it takes the room the box would and adds nothing of
+       its own to the eye — in any state: a group is elsewhere a field in its own right, wearing a
+       focus ring and a ground of its own, which here would draw a second frame just within the
+       field's whenever the box in it is hovered or focused. */
+    > .input-group {
+        flex: 1;
+        border: none;
+
+        &,
+        &:hover,
+        &:focus-within {
+            outline: none;
             background: transparent;
         }
     }
