@@ -640,6 +640,8 @@ export function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, 
                             labelType="text"
                             values={definition.selectOptions ?? []}
                             disabled={!isOwned}
+                            placeholder={t("attribute_detail.select_options_placeholder")}
+                            addButtonText={t("attribute_detail.add_option")}
                             removeButtonText={t("attribute_detail.remove_option")}
                             onCommit={(selectOptions) => commitDefinition({ selectOptions })}
                         />

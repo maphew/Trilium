@@ -549,6 +549,8 @@
     "select_type": "Select",
     "select_options": "Options",
     "select_options_title": "The options the field offers, in this order.",
+    "select_options_placeholder": "Type an option and press Enter",
+    "add_option": "Add this option",
     "remove_option": "Remove this option",
     "precision_title": "Max number of decimal places.",
     "precision": "Precision",

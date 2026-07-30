@@ -85,10 +85,18 @@ describe("ValuesInput", () => {
         expect(input?.value).toBe("");
     });
 
-    it("offers that button only where a value is entered through a widget of the browser's own", async () => {
-        // Text is confirmed by the Enter it is already typed with; a button beside it would be a
-        // second way of saying the same thing.
-        await mount({ labelType: "text", values: [], onCommit: vi.fn() });
+    it("offers the button for a typed box only once it holds something to take", async () => {
+        // Text is confirmed by the Enter it is already typed with — but nothing on the page says
+        // so, so once there is something to take, the button shows the confirming instead of
+        // standing empty-handed from the start.
+        const onCommit = vi.fn();
+        const input = await mount({ labelType: "text", values: [], onCommit });
+        expect(container.querySelector(".values-input-add")).toBeNull();
+
+        await typeInto(input, "one");
+        await act(async () => container.querySelector<HTMLElement>(".values-input-add")?.click());
+        expect(onCommit).toHaveBeenCalledWith([ "one" ]);
+        // Taken and emptied, the box has nothing left to offer, and the button goes with it.
         expect(container.querySelector(".values-input-add")).toBeNull();
 
         // A colour settles in one gesture — a dialog opened, a colour chosen, the dialog gone — so

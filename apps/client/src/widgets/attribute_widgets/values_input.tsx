@@ -25,8 +25,12 @@ interface ValuesInputProps {
     renderValue?(value: string): ComponentChildren;
     /** What removing a chip means, in the host's own words. Left out, a chip holds "a value". */
     removeButtonText?: string;
+    /** What taking the box's content means, in the host's own words. Left out, it adds "a value". */
+    addButtonText?: string;
     /** Set onto the box, so that a host's own label points at the field. */
     inputId?: string;
+    /** Set onto the box, for a host placing its fields in a tab order of its own. */
+    tabIndex?: number;
     placeholder?: string;
     disabled?: boolean;
 }
@@ -40,13 +44,17 @@ interface ValuesInputProps {
  * rather than quietly dropped. A value already held is not taken a second time: the chips are a set,
  * and two alike could not be told apart.
  */
-export default function ValuesInput({ labelType, values, onCommit, renderValue, removeButtonText, inputId, placeholder, disabled }: ValuesInputProps) {
+export default function ValuesInput({ labelType, values, onCommit, renderValue, removeButtonText, addButtonText, inputId, tabIndex, placeholder, disabled }: ValuesInputProps) {
     const [ draft, setDraft ] = useState("");
     const inputRef = useRef<HTMLInputElement>(null);
     const isColor = labelType === "color";
     // Every widget but the colour dialog has to be asked for its value, having no plain way of
     // saying it is done with.
     const needsAsking = PICKED_TYPES.has(labelType) && !isColor;
+    // A typed box is settled by Enter, but nothing on the page says so — so once it holds something
+    // to take, the same button offers the confirming where it can be seen. Not before: empty, it
+    // would have nothing to add, and sit there asking to be explained.
+    const showAdd = needsAsking || (!isColor && draft.trim().length > 0);
 
     // A colour picker holds its own value and is never told one: it is set at birth and only read
     // from after that. Anything written into it can reach a dialog that is still open — it reports
@@ -132,6 +140,7 @@ export default function ValuesInput({ labelType, values, onCommit, renderValue, 
                     key="field"
                     ref={inputRef}
                     id={inputId}
+                    tabIndex={tabIndex}
                     className="form-control"
                     type="color"
                     disabled={disabled}
@@ -141,6 +150,7 @@ export default function ValuesInput({ labelType, values, onCommit, renderValue, 
                     key="field"
                     inputRef={inputRef}
                     id={inputId}
+                    tabIndex={tabIndex}
                     type={LABEL_MAPPINGS[labelType] ?? "text"}
                     currentValue={draft}
                     // Only while the field is empty: beside chips it would read as one of them.
@@ -155,15 +165,17 @@ export default function ValuesInput({ labelType, values, onCommit, renderValue, 
             {/* A widget says nothing useful about when it is done — a date reports a change per part
                 of it — so a field entered through one is asked rather than watched. Enter does as
                 much for the keyboard; this is the same thing where it can be seen. */}
-            {needsAsking && (
+            {showAdd && (
                 <ActionButton
                     key="add"
                     className="values-input-add"
                     icon="bx bx-plus"
-                    text={t("promoted_attributes.add_value")}
+                    text={addButtonText ?? t("promoted_attributes.add_value")}
                     disabled={disabled}
                     // The value is read from the field rather than from the draft: leaving the field
                     // to press this takes it already, and the draft is empty by the time this runs.
+                    // For a typed box that leaving is also the whole of the press — the take empties
+                    // the box and the button goes with it, before the click lands on anything.
                     onClick={() => take(inputRef.current?.value ?? "")}
                 />
             )}
