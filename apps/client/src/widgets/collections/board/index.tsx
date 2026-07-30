@@ -17,7 +17,7 @@ import { onWheelHorizontalScroll } from "../../widget_utils";
 import { ViewModeProps } from "../interface";
 import Api from "./api";
 import BoardApi from "./api";
-import { getStatusDefinition } from "./columns";
+import { DEFAULT_GROUP_BY, getStatusDefinition } from "./columns";
 import Column from "./column";
 import { ColumnMap, getBoardData } from "./data";
 
@@ -49,7 +49,7 @@ interface BoardViewContextData {
 export const BoardViewContext = createContext<BoardViewContextData | undefined>(undefined);
 
 export default function BoardView({ note: parentNote, noteIds, viewConfig, saveConfig }: ViewModeProps<BoardViewData>) {
-    const [ statusAttributeWithPrefix ] = useNoteLabelWithDefault(parentNote, "board:groupBy", "status");
+    const [ statusAttributeWithPrefix ] = useNoteLabelWithDefault(parentNote, "board:groupBy", DEFAULT_GROUP_BY);
     const [ includeArchived ] = useNoteLabelBoolean(parentNote, "includeArchived");
     const [ byColumn, setByColumn ] = useState<ColumnMap>();
     const [ columns, setColumns ] = useState<string[]>();
@@ -101,6 +101,15 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
                     viewConfig = { ...newPersistedData };
                     saveConfig(newPersistedData);
                 }
+
+                // The columns the board settled on are the options its definition should offer. This
+                // is what gives a board created after migration 0240 ran a definition at all, and what
+                // keeps one that gained a column from outside the board's own UI up to date. It writes
+                // only when the two actually differ, so the re-render its own write causes stops here.
+                // Reported rather than surfaced: nothing the user did is failing, and a board that
+                // cannot write it re-tries on the next render, which would toast on each one.
+                api.syncColumnsToDefinition(columns)
+                    .catch((e) => console.error("Failed to sync the board columns to the attribute definition:", e));
             });
     }
 

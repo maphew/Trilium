@@ -4,11 +4,15 @@ import type FAttribute from "../../../entities/fattribute";
 import type FNote from "../../../entities/fnote";
 
 /**
- * The definition every template-created board inherits. It is shared by every board in the document,
- * so its options would be everyone's options — a board writes columns only into a definition of its
- * own, taking a copy from this one when it has none.
+ * The template every board is created from. It no longer defines the status label — it is shared by
+ * every board in the document, so its options would be everyone's options — but documents that have
+ * not yet had the hidden subtree re-checked, and peers syncing from an older instance, can still be
+ * carrying the definition it used to hold. A board is allowed to copy that one into its own.
  */
 export const BOARD_TEMPLATE_ID = "_template_board";
+
+/** The label a board groups by when `#board:groupBy` does not name one. */
+export const DEFAULT_GROUP_BY = "status";
 
 export interface BoardStatusDefinition {
     /** The definition attribute, wherever it is owned. */
@@ -62,6 +66,9 @@ export function getStatusDefinition(parentNote: FNote, groupBy: string): BoardSt
  * than this board: a copy here would quietly change the field for everything under the board. One
  * that says its values are dates, or that a note may hold several at once, is not describing
  * something a column list can stand in for. Those boards keep their columns in the attachment alone.
+ *
+ * Having none at all is the ordinary case for a board created now, and the answer is yes: the
+ * definition the board writes is its own from the start.
  */
 export function canStoreColumnsInDefinition(statusDefinition: BoardStatusDefinition | undefined): boolean {
     if (!statusDefinition) {

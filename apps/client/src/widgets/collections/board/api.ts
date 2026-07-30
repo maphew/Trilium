@@ -1,4 +1,4 @@
-import { BulkAction, promotedAttributeDefinitionParser } from "@triliumnext/commons";
+import { BulkAction, type DefinitionObject, promotedAttributeDefinitionParser } from "@triliumnext/commons";
 
 import appContext from "../../../components/app_context";
 import FNote from "../../../entities/fnote";
@@ -11,7 +11,7 @@ import note_create from "../../../services/note_create";
 import server from "../../../services/server";
 import toast from "../../../services/toast";
 import { BoardColumnData, BoardViewData } from ".";
-import { type BoardStatusDefinition, canStoreColumnsInDefinition } from "./columns";
+import { type BoardStatusDefinition, canStoreColumnsInDefinition, DEFAULT_GROUP_BY } from "./columns";
 import { ColumnMap } from "./data";
 
 export default class BoardApi {
@@ -138,7 +138,7 @@ export default class BoardApi {
         // Not awaited — every caller is the tail of a user gesture the board has already rendered —
         // so the failure is caught here rather than left to reject unhandled. The columns are still
         // in the view config, so the board is not wrong, only out of step with the definition.
-        this.storeColumnsInDefinition(columns.map(({ value }) => value))
+        this.syncColumnsToDefinition(columns.map(({ value }) => value))
             .catch((e) => {
                 console.error("Failed to store the board columns in the attribute definition:", e);
                 toast.showError(t("board_view.column-definition-save-error"));
@@ -146,28 +146,57 @@ export default class BoardApi {
     }
 
     /**
-     * Writes the columns into the board's own definition, so that the same list is what the promoted
-     * field offers, what the table view's dropdown offers, and what the board shows.
+     * Brings the board's own definition in line with the columns it shows, so that the same list is
+     * what the promoted field offers, what the table view's dropdown offers, and what the board shows.
      *
-     * Where the board has no definition of its own the write creates one — a copy of the template's,
-     * which every board shares and which therefore cannot hold one board's columns. The copy keeps
-     * what the original said, so a board whose Status field was promoted keeps a promoted field and
-     * one that never had a field does not gain one.
+     * Called both when the user changes a column and on every render, because a column can appear
+     * without the board's column UI ever being used: a note given a new value from the table view, a
+     * script or a synced instance shows up as a column here, and the definition has to learn about it
+     * too. The render call is also what gives a newly created board its definition — nothing else
+     * would, since migration 0240 only ever saw the boards that existed when it ran.
+     *
+     * Writing only on a real difference is what makes that safe to call every time: the write lands as
+     * an entity change, which re-renders the board, which would write again.
      */
-    private async storeColumnsInDefinition(options: string[]) {
+    async syncColumnsToDefinition(columns: string[]) {
         if (this.isRelationMode || !canStoreColumnsInDefinition(this.statusDefinition)) {
             return;
         }
 
+        // A board showing nothing has no column list to describe and must not gain an empty
+        // definition; one that already owns one is still emptied, since that is its last column going.
+        if (!columns.length && !this.statusDefinition?.isOwned) {
+            return;
+        }
+
+        const current = this.statusDefinition?.options ?? [];
+        const isUpToDate = this.statusDefinition?.definition.labelType === "select"
+            && current.length === columns.length
+            && current.every((option, index) => option === columns[index]);
+        if (isUpToDate) {
+            return;
+        }
+
+        // What a board with no definition of its own is given. Promoted, because the column a card
+        // sits in is the point of the board, and a field that is not promoted is one the card never
+        // shows — the status would be reachable only by dragging the card. Named only where the name
+        // is ours to give: a board grouping by anything else is named by its own label.
+        const created: DefinitionObject = {
+            isPromoted: true,
+            promotedAlias: this.statusAttribute === DEFAULT_GROUP_BY ? t("board_view.status-alias") : undefined
+        };
+
+        // An existing definition is updated as it stands, so a board deliberately left unpromoted —
+        // by the user, or by migration 0240 where it had no field to begin with — does not gain one.
         const definition = {
-            ...this.statusDefinition?.definition,
+            ...(this.statusDefinition?.definition ?? created),
             labelType: "select" as const,
-            selectOptions: options
+            selectOptions: columns
         };
 
         await server.put(`notes/${this.parentNote.noteId}/attribute`, {
-            // Only an attribute the board owns can be updated; a definition reached through the
-            // template is copied instead, which the route does when given no id.
+            // Only an attribute the board owns can be updated; anything else is copied into one of
+            // the board's own, which the route does when given no id.
             attributeId: this.statusDefinition?.isOwned
                 ? this.statusDefinition.attribute.attributeId
                 : undefined,
