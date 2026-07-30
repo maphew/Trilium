@@ -1,6 +1,10 @@
+import ExcelJS from "exceljs";
 import { beforeAll, describe, expect, it } from "vitest";
 
+import becca from "../../becca/becca.js";
+import * as cls from "../../services/context.js";
 import protectedSessionService from "../../services/protected_session";
+import { getSql } from "../../services/sql/index.js";
 import { encodeUtf8 } from "../../services/utils/binary";
 import { createTextNote } from "../../test/api_fixtures";
 import { CoreApiTester } from "../../test/api_tester";
@@ -119,4 +123,106 @@ describe("Files API (core)", () => {
             expect(res.status).toBe(404);
         });
     });
+
+    describe("office preview", () => {
+        // RTF is the only office format that can be created inline as plain text, which makes
+        // it ideal to exercise the real officeparser conversion in both runtimes. It also
+        // covers the explicit fileType hint path (RTF auto-detection is unreliable).
+        const RTF_CONTENT = String.raw`{\rtf1\ansi Hello {\b World}}`;
+
+        async function createRtfNote(): Promise<string> {
+            const res = await api.post<{ note: { noteId: string } }>("/api/notes/root/children?target=into", {
+                body: { title: "document.rtf", type: "file", mime: "application/rtf", content: RTF_CONTENT }
+            });
+            expect(res.status).toBe(200);
+            return res.body.note.noteId;
+        }
+
+        it("converts an RTF file note to an embeddable HTML fragment", async () => {
+            const noteId = await createRtfNote();
+
+            const res = await api.get<{ html: string }>(`/api/notes/${noteId}/office-preview`);
+            expect(res.status).toBe(200);
+            expect(res.body.html).toContain("Hello");
+            expect(res.body.html).toContain("World");
+            // fragment mode — no full standalone document wrapper
+            expect(res.body.html).not.toContain("<html");
+        });
+
+        it("converts an RTF attachment to an embeddable HTML fragment", async () => {
+            const { noteId } = await createTextNote(api, { title: "Has office attachment" });
+            const save = await api.post(`/api/notes/${noteId}/attachments`, {
+                body: { role: "file", mime: "application/rtf", title: "attachment.rtf", content: RTF_CONTENT }
+            });
+            expect(save.status).toBe(204);
+            const list = await api.get<AttachmentPojo[]>(`/api/notes/${noteId}/attachments`);
+
+            const res = await api.get<{ html: string }>(`/api/attachments/${list.body[0].attachmentId}/office-preview`);
+            expect(res.status).toBe(200);
+            expect(res.body.html).toContain("Hello");
+        });
+
+        it("rejects an unsupported MIME type with 400", async () => {
+            const { noteId } = await createTextNote(api, { content: "<p>not office</p>" });
+
+            const res = await api.get(`/api/notes/${noteId}/office-preview`);
+            expect(res.status).toBe(400);
+        });
+
+        it("404s for a missing note", async () => {
+            const res = await api.get("/api/notes/missingNote123/office-preview");
+            expect(res.status).toBe(404);
+        });
+
+        it("renders an XLSX note through the native spreadsheet pipeline", async () => {
+            const wb = new ExcelJS.Workbook();
+            const sheet = wb.addWorksheet("Data");
+            sheet.getCell("A1").value = "Merged header";
+            sheet.mergeCells("A1:B1");
+            const amount = sheet.getCell("A2");
+            amount.value = 1234.5;
+            amount.numFmt = "#,##0.00";
+            amount.border = { top: { style: "thin" }, bottom: { style: "thin" } };
+            const xlsxBuffer = Buffer.from(await wb.xlsx.writeBuffer());
+
+            const noteId = await createXlsxNote(xlsxBuffer);
+
+            const res = await api.get<{ html: string }>(`/api/notes/${noteId}/office-preview`);
+            expect(res.status).toBe(200);
+            expect(res.body.html).toContain("Merged header");
+            // Native-renderer features officeparser's grid lacks: merged cells,
+            // number formatting (numfmt) and inline borders...
+            expect(res.body.html).toContain('colspan="2"');
+            expect(res.body.html).toContain("1,234.50");
+            expect(res.body.html).toContain("border");
+            // ...and none of officeparser's class-styled A/B/C header chrome.
+            expect(res.body.html).not.toContain("excel-col-header");
+        });
+    });
 });
+
+/**
+ * Creates a file note holding a binary `.xlsx` workbook. The JSON note-creation API cannot
+ * carry binary content, so the note is created empty through the API and the buffer is
+ * written through becca (same pattern as the image route spec).
+ */
+async function createXlsxNote(xlsxBuffer: Buffer): Promise<string> {
+    const res = await api.post<{ note: { noteId: string } }>("/api/notes/root/children?target=into", {
+        body: {
+            title: "workbook.xlsx",
+            type: "file",
+            mime: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            content: ""
+        }
+    });
+    expect(res.status).toBe(200);
+    const noteId = res.body.note.noteId;
+
+    cls.init(() =>
+        getSql().transactional(() => {
+            becca.getNoteOrThrow(noteId).setContent(xlsxBuffer, { forceSave: true });
+        })
+    );
+
+    return noteId;
+}

@@ -18,6 +18,7 @@ vi.mock("../react/ActionButton", () => ({ default: () => <button class="code-blo
 // the module graph; the markers let FileTypeWidget's mime routing be asserted without rendering them.
 vi.mock("../react/hooks", () => ({ useNoteBlob: vi.fn(() => null) }));
 vi.mock("./file/MediaPreview", () => ({ default: () => <div class="media-preview-stub" /> }));
+vi.mock("./file/Office", () => ({ default: () => <div class="office-preview-stub" /> }));
 vi.mock("./file/Pdf", () => ({ default: () => <div class="pdf-preview-stub" /> }));
 
 const { useNoteBlob } = await import("../react/hooks");
@@ -71,6 +72,25 @@ describe("FileTypeWidget", () => {
         mount("application/octet-stream");
         expect(container.querySelector(".media-preview-stub")).toBeNull();
         expect(container.querySelector(".alert")).not.toBeNull();
+    });
+
+    it("routes office documents to OfficePreview without fetching the blob", () => {
+        vi.mocked(useNoteBlob).mockReturnValue(null);
+
+        mount("application/vnd.openxmlformats-officedocument.wordprocessingml.document");
+        expect(container.querySelector(".office-preview-stub")).not.toBeNull();
+        // The preview is server-rendered — fetching the blob would download the file twice.
+        expect(vi.mocked(useNoteBlob).mock.calls[0][0]).toBeNull();
+    });
+
+    it("prefers OfficePreview over the text branch for RTF, whose blob content is a string", () => {
+        // text/rtf arrives as string content; without the office check running first it
+        // would fall into the blob.content branch and render as raw markup.
+        vi.mocked(useNoteBlob).mockReturnValue({ content: "{\\rtf1 raw}" } as ReturnType<typeof useNoteBlob>);
+
+        mount("text/rtf");
+        expect(container.querySelector(".office-preview-stub")).not.toBeNull();
+        expect(container.querySelector("pre.file-preview-content")).toBeNull();
     });
 });
 

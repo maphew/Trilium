@@ -34,7 +34,7 @@ The following note types are supported:
 
 ## Highlights
 
-<figure class="image image-style-align-right"><img style="aspect-ratio:403/139;" src="api/attachments/OoShw6Wkktbl/image/image.png" width="403" height="139"></figure>
+<figure class="image image-style-align-right"><img style="aspect-ratio:403/139;" src="api/images/6Cri7DB88vbN/image.png" width="403" height="139"></figure>
 
 Similar to the table of contents, but instead of headings this feature will list highlighted text from a text note and allow easy navigation to them.
 
