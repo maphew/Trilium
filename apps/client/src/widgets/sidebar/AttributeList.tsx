@@ -520,8 +520,9 @@ interface AttributeRowProps {
 function AttributeRow({ attribute, note, active, valueEditor, isSystem, showOwner, onOpen, onEditValue, onDelete }: AttributeRowProps) {
     const rowRef = useRef<HTMLLIElement>(null);
     const attrType = getAttributeKind(attribute);
-    const marker = getKindMarker(attribute, attrType, isSystem);
+    const markerClass = getKindMarkerClass(attribute, attrType, isSystem);
     const kindIcon = getKindIcon(attribute, attrType);
+    const kindTooltip = getKindTooltip(attribute, attrType, isSystem);
     const rowClass = clsx("attribute-row", active && "active", valueEditor && "editing");
 
     function open(e: MouseEvent) {
@@ -586,8 +587,8 @@ function AttributeRow({ attribute, note, active, valueEditor, isSystem, showOwne
                 className={rowClass}
                 icon={kindIcon}
                 // The badge hangs off the icon's own corner here, there being no wrapper to hang it on.
-                iconClassName={clsx("attribute-kind", marker?.class)}
-                title={[ KIND_TITLES[attrType], marker?.title ].filter(Boolean).join(" · ")}
+                iconClassName={clsx("attribute-kind", markerClass)}
+                title={kindTooltip}
                 onClick={open}
             >
                 {contents}
@@ -596,15 +597,10 @@ function AttributeRow({ attribute, note, active, valueEditor, isSystem, showOwne
     }
 
     return (
-        <li
-            ref={rowRef}
-            class={rowClass}
-            title={KIND_TITLES[attrType]}
-            onClick={open}
-        >
-            {/* The kind is the icon, and what is worth saying about it beyond that is a badge on its
-                corner: its own tooltip names it, the badge being the only thing that says so. */}
-            <span class={clsx("attribute-kind", marker?.class)} title={marker?.title}>
+        <li ref={rowRef} class={rowClass} onClick={open}>
+            {/* The icon is what carries the row's one tooltip: everything else about a row is already
+                written on it, and what the icon (badge and all) stands for is exactly what is not. */}
+            <span class={clsx("attribute-kind", markerClass)} title={kindTooltip}>
                 <Icon icon={kindIcon} />
             </span>
 
@@ -638,21 +634,53 @@ function getKindIcon(attribute: Attribute, attrType: AttributeKind) {
  * The badge the kind icon carries on its corner, where there is one to carry: a cog for the names
  * Trilium reads for itself, and a chevron for a definition whose field is promoted — lifted, that is,
  * out of the attributes and into the note's own ribbon. At most one of the two, which no attribute is
- * ever both of: no built-in name is a definition.
+ * ever both of: no built-in name is a definition. The class alone: what either badge means is a line
+ * of the icon's own tooltip (see {@link getKindTooltip}), the two being read as one mark.
  */
-function getKindMarker(attribute: Attribute, attrType: AttributeKind, isSystem?: boolean) {
+function getKindMarkerClass(attribute: Attribute, attrType: AttributeKind, isSystem?: boolean) {
     if (isSystem) {
-        // The hint the detail popup's badge carries, rather than the word the badge shows beside it:
-        // there is no text against the cog to be named, so what a reader hovering it wants is what
-        // being a system attribute means.
-        return { class: "marker-system", title: t("attribute_names.system_description") };
+        return "marker-system";
     }
 
-    if (isDefinition(attrType) && promotedAttributeDefinitionParser.parse(attribute.value ?? "").isPromoted) {
-        return { class: "marker-promoted", title: t("attribute_detail.promoted") };
+    if (isDefinition(attrType) && isPromotedDefinition(attribute, attrType)) {
+        return "marker-promoted";
     }
 
     return undefined;
+}
+
+/**
+ * What the kind icon answers on hover — the row's one tooltip, saying exactly what is drawn rather
+ * than written: what the attribute is (a definition alongside the type of field it sets up), whether
+ * that field is promoted, and, for a name Trilium reads for itself, a word on what that means. Each
+ * on a line of its own, the native tooltip being plain text with only the line break to shape it.
+ */
+function getKindTooltip(attribute: Attribute, attrType: AttributeKind, isSystem?: boolean) {
+    const lines: string[] = [];
+
+    if (attrType === "label-definition") {
+        // A relation definition is left as its kind names it: the field it sets up points at a note,
+        // which "relation definition" already says.
+        const type = getDefinitionType(attribute, attrType)?.title;
+        lines.push(type ? `${KIND_TITLES[attrType]}${SUMMARY_SEPARATOR}${type}` : KIND_TITLES[attrType]);
+    } else {
+        lines.push(KIND_TITLES[attrType]);
+    }
+
+    if (isDefinition(attrType) && isPromotedDefinition(attribute, attrType)) {
+        lines.push(t("attribute_detail.promoted"));
+    }
+
+    if (isSystem) {
+        lines.push(t("attribute_list_panel.system_hint"));
+    }
+
+    return lines.join("\n");
+}
+
+/** Whether the definition sets its field up as promoted, which is what the chevron badge marks. */
+function isPromotedDefinition(attribute: Attribute, attrType: AttributeKind) {
+    return isDefinition(attrType) && promotedAttributeDefinitionParser.parse(attribute.value ?? "").isPromoted;
 }
 
 /** The entry of the popup's definition-type list that the definition is currently set to. */

@@ -820,7 +820,8 @@
     "type_label": "Label",
     "type_relation": "Relation",
     "type_label_definition": "Label definition",
-    "type_relation_definition": "Relation definition"
+    "type_relation_definition": "Relation definition",
+    "system_hint": "System — this name has a built-in meaning"
   },
   "attribute_names": {
     "system": "System",

@@ -189,6 +189,11 @@ describe("AttributeList", () => {
 
         // The kind is carried by the icon; a definition takes the icon of the field it sets up.
         expect(iconsIn(cards[0])).toEqual([ "bx bx-hash", "bx bx-hash", "bx bx-transfer" ]);
+
+        // The icon also carries the row's one tooltip — the row itself has none to compete with it.
+        // Only its presence: the wording is translated, and translations stay unloaded here.
+        expect(cards[0].querySelector(".attribute-row")?.hasAttribute("title")).toBe(false);
+        expect(cards[0].querySelector(".attribute-kind")?.hasAttribute("title")).toBe(true);
         // A definition that names no type sets up a text field, and takes that field's icon.
         expect(iconsIn(cards[2])).toEqual([ "bx bx-calendar", "bx bx-text" ]);
 
