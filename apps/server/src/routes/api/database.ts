@@ -5,7 +5,7 @@ import {
     ExistingAnonymizedDatabasesResponse,
     VacuumDatabaseResponse
 } from "@triliumnext/commons";
-import { becca_loader, consistency_checks as consistencyChecksService, getBackup, getLog, ValidationError } from "@triliumnext/core";
+import { becca_loader, consistency_checks as consistencyChecksService, getBackup, getLog, utils, ValidationError } from "@triliumnext/core";
 import type { Request, Response } from "express";
 import fs, { readFileSync } from "fs";
 import path from "path";
@@ -26,11 +26,15 @@ async function backupDatabase() {
 }
 
 function vacuumDatabase() {
+    // Timed from here, the two readings included: they are a pragma query each, and what the log is
+    // answering for is how long the whole thing held the database.
+    const startedAt = Date.now();
     const sizeBefore = databaseBytes();
     sql.execute("VACUUM");
     const sizeAfter = databaseBytes();
 
-    getLog().info(`Database has been vacuumed, from ${sizeBefore} to ${sizeAfter} bytes.`);
+    getLog().info(`Compacted the database from ${utils.formatSize(sizeBefore)}`
+        + ` to ${utils.formatSize(sizeAfter)} in ${Date.now() - startedAt} ms.`);
 
     return { sizeBefore, sizeAfter } satisfies VacuumDatabaseResponse;
 }

@@ -1,4 +1,4 @@
-import { getBackup, ValidationError } from "@triliumnext/core";
+import { getBackup, getLog, utils, ValidationError } from "@triliumnext/core";
 import type { Request, Response } from "express";
 import fs from "fs";
 import path from "path";
@@ -33,12 +33,21 @@ describe("Database API", () => {
     });
 
     it("vacuums the database, reporting the file's size on either side of the rebuild", () => {
+        const logged = vi.spyOn(getLog(), "info");
         const { sizeBefore, sizeAfter } = databaseRoute.vacuumDatabase();
 
         // Real byte counts, and a rebuild never leaves the file larger than it found it.
         expect(sizeBefore).toBeGreaterThan(0);
         expect(sizeAfter).toBeGreaterThan(0);
         expect(sizeAfter).toBeLessThanOrEqual(sizeBefore);
+
+        // Recorded in the sizes a reader thinks in, not in bytes, and answering for how long it
+        // held the database.
+        expect(logged).toHaveBeenCalledWith(
+            expect.stringMatching(new RegExp(
+                `^Compacted the database from ${utils.formatSize(sizeBefore)}`
+                + ` to ${utils.formatSize(sizeAfter)} in \\d+ ms\\.$`)));
+        logged.mockRestore();
     });
 
     it("estimates what a rebuild would return, which is nothing right after one", () => {
