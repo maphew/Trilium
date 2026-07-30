@@ -39,6 +39,14 @@ export interface CleanupToolOptions {
 export const FALLBACK_SNAPSHOTS_TO_KEEP = 4;
 
 /**
+ * Every request a run makes is a whole-database operation, and the default minute is nowhere near
+ * enough for any of them on a large database: a rebuild alone has been measured at half an hour on
+ * 36 GiB. Giving up early would not stop the server working — it would only lose the answer and
+ * report a failure for something that went on to succeed.
+ */
+const CLEANUP_TIMEOUT_MS = 60 * 60 * 1000;
+
+/**
  * Fills a stored setting out into the full set the dialog works with. Nothing is picked unless it
  * was picked before — an uninitialized setting erases nothing, which is the only safe reading of an
  * absent answer for an operation that deletes without recourse.
@@ -148,18 +156,18 @@ export async function runCleanup(options: CleanupToolOptions): Promise<number> {
     const before = options.compactDatabase ? 0 : await measureOccupiedBytes();
 
     if (options.revisionSnapshots) {
-        await server.post("revisions/erase-all-excess-revisions", {
+        await server.postWithTimeout("revisions/erase-all-excess-revisions", CLEANUP_TIMEOUT_MS, {
             snapshotsToKeep: options.snapshotsToKeep,
             keepNamedSnapshots: options.keepNamedSnapshots
         });
     }
 
     if (options.unusedAttachments) {
-        await server.post("notes/erase-unused-attachments-now");
+        await server.postWithTimeout("notes/erase-unused-attachments-now", CLEANUP_TIMEOUT_MS);
     }
 
     if (options.deletedEntities) {
-        await server.post("notes/erase-deleted-notes-now");
+        await server.postWithTimeout("notes/erase-deleted-notes-now", CLEANUP_TIMEOUT_MS);
     }
 
     const reclaimed = options.compactDatabase
@@ -178,7 +186,8 @@ export async function runCleanup(options: CleanupToolOptions): Promise<number> {
 
 /** Rebuilds the database file, reporting what it handed back to the disk. */
 async function compactDatabase(): Promise<number> {
-    const { sizeBefore, sizeAfter } = await server.post<VacuumDatabaseResponse>("database/vacuum-database");
+    const { sizeBefore, sizeAfter } = await server.postWithTimeout<VacuumDatabaseResponse>(
+        "database/vacuum-database", CLEANUP_TIMEOUT_MS);
 
     return Math.max(sizeBefore - sizeAfter, 0);
 }
@@ -203,7 +212,8 @@ export async function measureCompactionEstimate(): Promise<number> {
 async function measureOccupiedBytes(): Promise<number> {
     // The smallest ranking the endpoint will do: the totals are whole-database figures either way,
     // and the listing this would return is of no use here.
-    const overview = await server.get<SpaceUsageOverviewResponse>("space-usage/overview?limit=1");
+    const overview = await server.getWithTimeout<SpaceUsageOverviewResponse>(
+        "space-usage/overview?limit=1", CLEANUP_TIMEOUT_MS);
 
     return overview.content.size + overview.deletedNotes.size;
 }

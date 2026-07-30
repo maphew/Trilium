@@ -42,38 +42,47 @@ vi.mock("../../../../../services/options", () => ({
     }
 }));
 
-vi.mock("../../../../../services/server", () => ({
-    default: {
-        // The aggressive reading and the trimmed one differ only in the retention they were asked
-        // for, which is what the URL carries. Everything else the client loads on the way past is
-        // answered emptily rather than with a usage payload it would choke on.
-        get: (url: string) => {
-            mocks.get(url);
+vi.mock("../../../../../services/server", () => {
+    // The aggressive reading and the trimmed one differ only in the retention they were asked for,
+    // which is what the URL carries. Everything else the client loads on the way past is answered
+    // emptily rather than with a usage payload it would choke on.
+    const get = (url: string) => {
+        mocks.get(url);
 
-            if (url === "database/compaction-estimate") {
-                return Promise.resolve({ reclaimableBytes: FREE_PAGES });
-            }
+        if (url === "database/compaction-estimate") {
+            return Promise.resolve({ reclaimableBytes: FREE_PAGES });
+        }
 
-            if (!url.startsWith("space-usage/")) {
-                return Promise.resolve(url === "keyboard-actions" ? [] : {});
-            }
+        if (!url.startsWith("space-usage/")) {
+            return Promise.resolve(url === "keyboard-actions" ? [] : {});
+        }
 
-            // The overview is what the run weighs itself against, before and after.
-            if (url.startsWith("space-usage/overview")) {
-                const size = mocks.weighed.shift() ?? MEASURED_AFTER;
-                return Promise.resolve({ content: { size }, deletedNotes: { size: 0 } });
-            }
+        // The overview is what the run weighs itself against, before and after.
+        if (url.startsWith("space-usage/overview")) {
+            const size = mocks.weighed.shift() ?? MEASURED_AFTER;
+            return Promise.resolve({ content: { size }, deletedNotes: { size: 0 } });
+        }
 
-            const keeping = /snapshotsToKeep=(\d+)/.exec(url)?.[1];
-            return Promise.resolve({
-                subtreeRevisionsContentSize: keeping === "0" ? REVISIONS_ALL : REVISIONS_TRIMMED,
-                deletedNotes: { size: DELETED, noteCount: 1, attachmentCount: 0 },
-                unusedAttachments: { size: UNUSED, attachmentCount: 1 }
-            });
-        },
-        post: mocks.post
-    }
-}));
+        const keeping = /snapshotsToKeep=(\d+)/.exec(url)?.[1];
+        return Promise.resolve({
+            subtreeRevisionsContentSize: keeping === "0" ? REVISIONS_ALL : REVISIONS_TRIMMED,
+            deletedNotes: { size: DELETED, noteCount: 1, attachmentCount: 0 },
+            unusedAttachments: { size: UNUSED, attachmentCount: 1 }
+        });
+    };
+
+    // The run's whole-database calls go through the long-timeout variants, which answer exactly as
+    // their plain counterparts do here — the timeout is dropped, leaving the (url, data) the
+    // assertions read.
+    return {
+        default: {
+            get,
+            getWithTimeout: get,
+            post: mocks.post,
+            postWithTimeout: (url: string, _timeoutMs: number, data?: object) => mocks.post(url, data)
+        }
+    };
+});
 
 vi.mock("../../../../../services/dialog", () => ({ default: { confirm: mocks.confirm } }));
 vi.mock("../../../../../services/toast", () => ({ default: { showMessage: mocks.showMessage } }));
@@ -214,7 +223,7 @@ describe("showCleanupDialog", () => {
         const measured = MEASURED_BEFORE - MEASURED_AFTER;
         expect(measured).not.toBe(UNUSED);
         await expect(closed).resolves.toBe(measured);
-        expect(mocks.post).toHaveBeenCalledWith("notes/erase-unused-attachments-now");
+        expect(mocks.post.mock.calls.map(([ url ]) => url)).toContain("notes/erase-unused-attachments-now");
         expect(mocks.showMessage).toHaveBeenCalledWith(
             t("space_usage.cleanup_done", { size: formatSize(measured) }));
         // Gone from the page: it is mounted for the run and unmounted with it.

@@ -12,10 +12,17 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../../../../services/options", () => ({ default: { getInt: mocks.getInt } }));
+// The run reaches for the long-timeout variants throughout: every request it makes is a
+// whole-database operation. The timeout itself is dropped here, leaving (url, data) as the calls
+// under test.
 vi.mock("../../../../../services/server", () => ({
     default: {
+        // The whole-database operations reach for the long-timeout variants; recording the outcome
+        // is an ordinary write and keeps the default. Both funnel here, so the assertions below read
+        // the run's calls in order regardless of which variant made them.
         post: mocks.post,
-        get: (url: string) => {
+        postWithTimeout: (url: string, _timeoutMs: number, data?: object) => mocks.post(url, data),
+        getWithTimeout: (url: string) => {
             mocks.get(url);
             const size = mocks.occupied.shift() ?? 0;
             return Promise.resolve({ content: { size }, deletedNotes: { size: 0 } });
