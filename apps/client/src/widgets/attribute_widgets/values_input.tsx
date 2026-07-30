@@ -1,10 +1,12 @@
 import "./values_input.css";
 
 import { type LabelType } from "@triliumnext/commons";
+import clsx from "clsx";
 import type { ComponentChildren, TargetedKeyboardEvent } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 
 import { t } from "../../services/i18n";
+import ActionButton from "../react/ActionButton";
 import Chip from "../react/Chip";
 import FormTextBox from "../react/FormTextBox";
 import { DEFAULT_COLOR, LABEL_MAPPINGS } from "./label_value_input";
@@ -36,26 +38,34 @@ interface ValuesInputProps {
  */
 export default function ValuesInput({ labelType, values, onCommit, renderValue, placeholder, disabled }: ValuesInputProps) {
     const [ draft, setDraft ] = useState("");
-    const pickerRef = useRef<HTMLInputElement>(null);
-    // A colour is picked rather than typed, so there is no Enter to end it and nothing worth keeping
-    // half-entered: the pick itself is the whole gesture, and `change` is when it is settled.
-    const isPicked = labelType === "color";
+    const inputRef = useRef<HTMLInputElement>(null);
+    const isColor = labelType === "color";
+    // Every widget but the colour dialog has to be asked for its value, having no plain way of
+    // saying it is done with.
+    const needsAsking = PICKED_TYPES.has(labelType) && !isColor;
 
-    // The picker holds its own value and is never told one: it is set at birth and only read from
-    // after that. Anything written into it can reach a dialog that is still open — a colour input
-    // reports its pick before the dialog is dismissed — and the browser takes its value changing
-    // underneath as reason to close, dropping the pick. So it keeps showing the colour last taken,
-    // which is also the truer thing for it to show.
+    // A colour picker holds its own value and is never told one: it is set at birth and only read
+    // from after that. Anything written into it can reach a dialog that is still open — it reports
+    // its pick before the dialog is dismissed — and the browser takes its value changing underneath
+    // as reason to close, dropping the pick. So it keeps showing the colour last taken, which is
+    // also the truer thing for it to show.
     useEffect(() => {
-        if (pickerRef.current) {
-            pickerRef.current.value = DEFAULT_COLOR;
+        if (isColor && inputRef.current) {
+            inputRef.current.value = DEFAULT_COLOR;
         }
-    }, []);
+    }, [ isColor ]);
 
     useEffect(() => {
-        const picker = pickerRef.current;
-        if (!picker) return;
+        const picker = inputRef.current;
+        if (!isColor || !picker) return;
 
+        // A colour is settled in one gesture — a dialog opened, a colour chosen, the dialog gone —
+        // so its `change` marks the end of the whole thing and can be taken as the value.
+        //
+        // No other widget reports so plainly. A date and a time report a change per part of them,
+        // so a wheel spun through the minutes says "settled" at every minute passed; those are taken
+        // by asking instead, through Enter or the button beside the field.
+        //
         // Bound by hand rather than through the JSX: preact/compat — loaded module-graph-wide by any
         // compat-using import — remaps `onChange` onto the input event, which a colour picker fires
         // at every step of a drag through it, taking a chip for each shade passed over.
@@ -91,7 +101,10 @@ export default function ValuesInput({ labelType, values, onCommit, renderValue, 
     }
 
     return (
-        <div className="tn-field values-input">
+        // A widget of the browser's own asks for the width of a calendar or a clock, which leaves a
+        // chip beside it too little to be read — so where the field is one of those, the chips stack
+        // above it instead of sharing its line.
+        <div className={clsx("tn-field values-input", PICKED_TYPES.has(labelType) && "stacked")}>
             {values.map((value) => (
                 <Chip
                     key={value}
@@ -102,15 +115,21 @@ export default function ValuesInput({ labelType, values, onCommit, renderValue, 
                     <span>{renderValue ? renderValue(value) : value}</span>
                 </Chip>
             ))}
-            {isPicked ? (
+            {/* Keyed, as the chips before them are: a field of keyed and unkeyed siblings together
+                is matched up by position as it grows, so taking a second value would rebuild the box
+                rather than keep it — losing the focus in it, and with it the widget it had open. */}
+            {isColor ? (
                 <input
-                    ref={pickerRef}
+                    key="field"
+                    ref={inputRef}
                     className="form-control"
                     type="color"
                     disabled={disabled}
                 />
             ) : (
                 <FormTextBox
+                    key="field"
+                    inputRef={inputRef}
                     type={LABEL_MAPPINGS[labelType] ?? "text"}
                     currentValue={draft}
                     // Only while the field is empty: beside chips it would read as one of them.
@@ -121,6 +140,28 @@ export default function ValuesInput({ labelType, values, onCommit, renderValue, 
                     onKeyDown={handleKeyDown}
                 />
             )}
+
+            {/* A widget says nothing useful about when it is done — a date reports a change per part
+                of it — so a field entered through one is asked rather than watched. Enter does as
+                much for the keyboard; this is the same thing where it can be seen. */}
+            {needsAsking && (
+                <ActionButton
+                    key="add"
+                    className="values-input-add"
+                    icon="bx bx-plus"
+                    text={t("promoted_attributes.add_value")}
+                    disabled={disabled}
+                    // The value is read from the field rather than from the draft: leaving the field
+                    // to press this takes it already, and the draft is empty by the time this runs.
+                    onClick={() => take(inputRef.current?.value ?? "")}
+                />
+            )}
         </div>
     );
 }
+
+/**
+ * The types entered through a widget the browser brings — a calendar, a clock, a colour dialog —
+ * rather than by typing into a box.
+ */
+const PICKED_TYPES = new Set<LabelType>([ "color", "date", "datetime", "time" ]);

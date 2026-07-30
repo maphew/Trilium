@@ -66,6 +66,37 @@ describe("ValuesInput", () => {
         expect(input?.value).toBe("");
     });
 
+    it("asks for a date rather than taking it as the field reports one", async () => {
+        const onCommit = vi.fn();
+        const input = await mount({ labelType: "date", values: [], onCommit });
+
+        // A date and a time report a change per part of them, so a wheel spun through the minutes
+        // says "settled" at every minute passed — a chip for each of them.
+        await typeInto(input, "2026-07-29");
+        await act(async () => {
+            input?.dispatchEvent(new Event("change", { bubbles: true }));
+        });
+        expect(onCommit).not.toHaveBeenCalled();
+
+        // The button beside the field is what asks for it, Enter doing as much from the keyboard.
+        await act(async () => container.querySelector<HTMLElement>(".values-input-add")?.click());
+        expect(onCommit).toHaveBeenCalledWith([ "2026-07-29" ]);
+        // Emptied rather than left showing what is now a chip, so the next one can be entered.
+        expect(input?.value).toBe("");
+    });
+
+    it("offers that button only where a value is entered through a widget of the browser's own", async () => {
+        // Text is confirmed by the Enter it is already typed with; a button beside it would be a
+        // second way of saying the same thing.
+        await mount({ labelType: "text", values: [], onCommit: vi.fn() });
+        expect(container.querySelector(".values-input-add")).toBeNull();
+
+        // A colour settles in one gesture — a dialog opened, a colour chosen, the dialog gone — so
+        // it is taken as it is reported and needs no asking either.
+        await mount({ labelType: "color", values: [], onCommit: vi.fn() });
+        expect(container.querySelector(".values-input-add")).toBeNull();
+    });
+
     it("takes what was typed when the field is left, rather than throwing it away", async () => {
         // What is typed here is the value itself, so leaving with something in the box would lose it
         // — and a date is picked rather than typed, with no Enter to end it.
