@@ -138,8 +138,13 @@ export async function openSpaceUsageContextMenu(
 /**
  * The menu on the deleted-notes cell, which stands for space the tree has already let go of but the
  * database still holds until the retention window runs out. Its one action is releasing that space
- * now — the same erasure the Recent Changes dialog and the options page run, so the wording and the
- * confirmation-free behaviour are theirs.
+ * now — the same erasure the Recent Changes dialog and the options page run, and confirmation-free
+ * as it is there.
+ *
+ * Only the wording is this tool's own: the erasure takes deleted attachments with it, whose owning
+ * notes may well be alive, and here the cell is measured in bytes rather than listed as notes — so
+ * it says "deleted data" where Recent Changes, which lists exactly the notes it will erase, says
+ * "deleted notes".
  */
 export async function openDeletedNotesContextMenu(
     event: ContextMenuEvent,
@@ -152,11 +157,11 @@ export async function openDeletedNotesContextMenu(
         x: event.pageX,
         y: event.pageY,
         items: [ {
-            title: t("recent_changes.erase_notes_button"),
+            title: t("space_usage.menu_erase_deleted"),
             uiIcon: "bx bx-trash destructive-action-icon",
             handler: () => {
                 void server.post("notes/erase-deleted-notes-now").then(() => {
-                    toast.showMessage(t("recent_changes.deleted_notes_message"));
+                    toast.showMessage(t("space_usage.erase_deleted_message"));
                     // The cell just lost everything it stood for, so the section has to measure
                     // again — the views take a reading when asked, never on their own.
                     onContentChanged();

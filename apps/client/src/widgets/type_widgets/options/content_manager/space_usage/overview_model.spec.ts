@@ -14,7 +14,7 @@ function response(notes: SpaceUsageOverviewNote[], overrides: Partial<SpaceUsage
         notes,
         otherNotes: { size: 0, revisionsSize: 0, noteCount: 0 },
         hiddenNotes: { size: 0, revisionsSize: 0, noteCount: 0 },
-        deletedNotes: { size: 0, noteCount: 0 },
+        deletedNotes: { size: 0, noteCount: 0, attachmentCount: 0 },
         total: { size: 0, revisionsSize: 0, noteCount: 0 },
         ...overrides
     };
@@ -156,7 +156,7 @@ describe("buildOverviewModel", () => {
         const model = build(response([], {
             otherNotes: { size: 11, revisionsSize: 0, noteCount: 3 },
             hiddenNotes: { size: 7, revisionsSize: 5, noteCount: 40 },
-            deletedNotes: { size: 22, noteCount: 2 }
+            deletedNotes: { size: 22, noteCount: 2, attachmentCount: 0 }
         }));
 
         const other = childById(model, "/other-notes");

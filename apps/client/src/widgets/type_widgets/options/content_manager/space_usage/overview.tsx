@@ -13,6 +13,7 @@ import {
     quickEditNote,
     type ShowDetailsHandler
 } from "./context_menu";
+import { deletedEntitiesLabel } from "./labels";
 import { bucketWeight, buildOverviewModel, type OverviewCell } from "./overview_model";
 
 /**
@@ -48,10 +49,7 @@ export default function Overview({ overview, onShowDetails, onContentChanged }: 
         // Not a crowd of notes but a tier of content, so it names itself rather than a count — and
         // the figure is the deduplicated one the status line quotes, which is what its cell draws.
         revisionsLabel: withSize(t("space_usage.revisions"), overview.content.revisionsSize),
-        deletedNotesLabel: withSize(
-            t("space_usage.deleted_notes", { count: overview.deletedNotes.noteCount }),
-            overview.deletedNotes.size
-        ),
+        deletedNotesLabel: withSize(deletedEntitiesLabel(overview.deletedNotes), overview.deletedNotes.size),
         includeRevisions: INCLUDE_REVISIONS,
         getIcon: (noteId) => icons.get(noteId),
         // A cell's area covers the note's body and its attachments together; where attachments are

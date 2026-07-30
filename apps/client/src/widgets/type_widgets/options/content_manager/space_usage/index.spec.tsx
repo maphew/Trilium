@@ -57,7 +57,7 @@ const OVERVIEW: SpaceUsageOverviewResponse = {
     notes: [],
     otherNotes: { size: 0, revisionsSize: 0, noteCount: 0 },
     hiddenNotes: { size: 0, revisionsSize: 0, noteCount: 0 },
-    deletedNotes: { size: 900, noteCount: 3 },
+    deletedNotes: { size: 900, noteCount: 3, attachmentCount: 2 },
     total: { size: 3500, revisionsSize: 0, noteCount: 12 }
 };
 
@@ -121,8 +121,8 @@ describe("SpaceUsage section", () => {
             size: formatSize(4000),
             attachmentsSize: formatSize(300)
         }) ?? "");
+        // The size alone: the counts belong to the map's deleted cell, not to this line.
         expect(deletedSpan.textContent?.trim()).toBe(t("space_usage.status_deleted", {
-            count: 3,
             size: formatSize(900)
         }) ?? "");
     });
