@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildSectionSelections, extractServerMessage, type OneNoteNotebook, orderedChildren } from "./onenote_import.js";
+import { buildSectionSelections, collectSectionIds, extractServerMessage, type OneNoteNotebook, orderedChildren } from "./onenote_import.js";
 
 const NOTEBOOKS: OneNoteNotebook[] = [
     {
@@ -109,5 +109,14 @@ describe("extractServerMessage", () => {
         expect(extractServerMessage('{"status":500}')).toBeNull();
         expect(extractServerMessage("   ")).toBeNull();
         expect(extractServerMessage(undefined)).toBeNull();
+    });
+});
+
+describe("collectSectionIds", () => {
+    it("collects every section id across all notebooks, including those nested in section groups", () => {
+        // s1 is a direct section, s2 lives in a group, s3 in a nested subgroup — all must be found;
+        // group ids themselves must not be (groups are structure, never selectable).
+        expect(collectSectionIds(NOTEBOOKS)).toEqual(new Set(["s1", "s2", "s3"]));
+        expect(collectSectionIds([])).toEqual(new Set());
     });
 });

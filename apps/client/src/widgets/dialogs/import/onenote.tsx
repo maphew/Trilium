@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import { t } from "../../../services/i18n.js";
-import onenoteImport, { buildSectionSelections, type OneNoteAccount, type OneNoteContainer, type OneNoteDeviceLogin, type OneNoteNotebook, orderedChildren } from "../../../services/onenote_import.js";
+import onenoteImport, { buildSectionSelections, collectSectionIds, type OneNoteAccount, type OneNoteContainer, type OneNoteDeviceLogin, type OneNoteNotebook, orderedChildren } from "../../../services/onenote_import.js";
 import toast from "../../../services/toast.js";
 import { isElectron, randomString } from "../../../services/utils.js";
 import Button from "../../react/Button.js";
@@ -21,6 +21,8 @@ function OneNotePanel({ parentNoteId, closeDialog, setFooter }: ImportProviderPa
     const [account, setAccount] = useState<OneNoteAccount | null>(null);
     const [notebooks, setNotebooks] = useState<OneNoteNotebook[]>([]);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    // Set while a user-triggered notebook reload is in flight, to spin and disable the refresh button.
+    const [refreshing, setRefreshing] = useState(false);
     const [debug, setDebug] = useState(false);
     const [compressImages] = useTriliumOptionBool("compressImages");
     const [shrinkImages, setShrinkImages] = useState(compressImages);
@@ -43,10 +45,25 @@ function OneNotePanel({ parentNoteId, closeDialog, setFooter }: ImportProviderPa
         try {
             const { notebooks } = await onenoteImport.getNotebooks();
             setNotebooks(notebooks);
+            // Drop selected ids whose section no longer exists (deleted/moved in OneNote since the
+            // last load), so a refresh can't leave the import button counting phantom sections.
+            const validIds = collectSectionIds(notebooks);
+            setSelectedIds((prev) => new Set([...prev].filter((id) => validIds.has(id))));
         } catch {
             toast.showError(t("onenote_import.load_failed"));
         }
     }, []);
+
+    // User-triggered reload of the notebook list, e.g. after creating a section in OneNote while the
+    // dialog is open. Wraps loadNotebooks purely to drive the refresh button's spinner/disabled state.
+    const refresh = useCallback(async () => {
+        setRefreshing(true);
+        try {
+            await loadNotebooks();
+        } finally {
+            setRefreshing(false);
+        }
+    }, [loadNotebooks]);
 
     // On mount, see whether this session is already connected.
     useEffect(() => {
@@ -246,7 +263,17 @@ function OneNotePanel({ parentNoteId, closeDialog, setFooter }: ImportProviderPa
             <CardSection className="onenote-panel">
                 <div className="onenote-account">
                     <span>{t("onenote_import.connected_as", { name: account?.name ?? "" })}</span>
-                    <Button text={t("onenote_import.disconnect")} kind="lowProfile" size="small" onClick={disconnect} />
+                    <div className="onenote-account-actions">
+                        <Button
+                            text={t("onenote_import.refresh")}
+                            kind="lowProfile"
+                            size="small"
+                            icon={refreshing ? "bx-refresh bx-spin" : "bx-refresh"}
+                            disabled={refreshing}
+                            onClick={() => void refresh()}
+                        />
+                        <Button text={t("onenote_import.disconnect")} kind="lowProfile" size="small" onClick={disconnect} />
+                    </div>
                 </div>
 
                 {notebooks.length === 0

@@ -270,6 +270,7 @@
     "device_cancel": "Cancel sign-in",
     "connected_as": "Connected as {{name}}",
     "disconnect": "Disconnect",
+    "refresh": "Refresh",
     "load_failed": "Could not load your OneNote notebooks.",
     "load_retry": "Try again",
     "no_notebooks": "No notebooks were found in this account.",

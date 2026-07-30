@@ -128,6 +128,21 @@ export function buildSectionSelections(notebooks: OneNoteNotebook[], selectedIds
 }
 
 /**
+ * Collects the ids of every section anywhere in the given notebooks, including those nested inside
+ * section groups. Used to prune a selection after the notebook list is refreshed, so ids of sections
+ * that no longer exist can't linger in the selection (and inflate the import button's count).
+ */
+export function collectSectionIds(containers: OneNoteContainer[], into = new Set<string>()): Set<string> {
+    for (const container of containers) {
+        for (const section of container.sections) {
+            into.add(section.id);
+        }
+        collectSectionIds(container.sectionGroups, into);
+    }
+    return into;
+}
+
+/**
  * Returns a container's direct children — its sections and section groups — interleaved into a single
  * list ordered by creation date. OneNote shows sections and groups intermixed in one ordered rail but
  * the Graph API exposes no ordering field for them, so creation date is a best-effort approximation

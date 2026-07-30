@@ -56,6 +56,13 @@
         border-bottom: 1px solid var(--main-border-color);
     }
 
+    /* Refresh + Disconnect stay grouped on the row's right edge. */
+    .onenote-account-actions {
+        display: flex;
+        align-items: center;
+        gap: 0.5em;
+    }
+
     .onenote-status {
         display: flex;
         align-items: center;
