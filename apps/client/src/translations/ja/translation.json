@@ -3311,7 +3311,6 @@
     "delete_confirm": "属性 \"{{name}}\" を削除しますか？",
     "add_definition": "新しい定義を追加",
     "no_target": "対象のノートなし",
-    "inverse_of": "{{name}} の逆",
     "type_label": "ラベル",
     "type_relation": "リレーション",
     "type_label_definition": "ラベルの定義",

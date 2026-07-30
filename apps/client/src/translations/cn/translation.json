@@ -3460,7 +3460,6 @@
     "delete_confirm": "删除属性 \"{{name}}\"?",
     "add_definition": "添加新定义",
     "no_target": "无目标笔记",
-    "inverse_of": "{{name}} 的反向关系",
     "type_label": "标签",
     "type_relation": "关系",
     "type_label_definition": "标签定义",
