@@ -1,5 +1,6 @@
 import "./AttributeCreationEditor.css";
 
+import type { ComponentChildren } from "preact";
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import type FNote from "../../entities/fnote";
@@ -162,27 +163,37 @@ export default function AttributeCreationEditor({ note, attribute, onCommit, onR
                         }}
                     />
                 ) : typed && (
-                    <LabelValueInput
-                        // Remounted when the name resolves to another kind of field, reseeded from
-                        // whatever the draft holds by then.
-                        labelType={typed.labelType}
-                        value={attribute.value ?? ""}
-                        onCommit={(value) => {
-                            attribute.value = value;
-                        }}
-                        commitOn="input"
-                        numberPrecision={typed.numberPrecision}
-                        selectOptions={typed.selectOptions}
-                        hideOpenButton
-                        inputProps={{
-                            className: "form-control",
-                            ...(typed.labelType === "select" && {
-                                placeholder: t("promoted_attributes.unset-field-placeholder")
-                            })
-                        }}
-                    />
+                    // A flag's switch inside the label the theme dresses a checkbox through; bare, it
+                    // comes out a broken sliver. No commit per toggle here, unlike the value editor's
+                    // (see LabelField there): the name may still be waiting to be typed.
+                    <FlagWrapper isFlag={typed.labelType === "boolean"}>
+                        <LabelValueInput
+                            // Remounted when the name resolves to another kind of field, reseeded from
+                            // whatever the draft holds by then.
+                            labelType={typed.labelType}
+                            value={attribute.value ?? ""}
+                            onCommit={(value) => {
+                                attribute.value = value;
+                            }}
+                            commitOn="input"
+                            numberPrecision={typed.numberPrecision}
+                            selectOptions={typed.selectOptions}
+                            hideOpenButton
+                            inputProps={{
+                                className: "form-control",
+                                ...(typed.labelType === "select" && {
+                                    placeholder: t("promoted_attributes.unset-field-placeholder")
+                                })
+                            }}
+                        />
+                    </FlagWrapper>
                 )}
             </span>
         </AttributeEditorOverlay>
     );
+}
+
+/** The `tn-checkbox` label a flag's switch is dressed through; everything else passes bare. */
+function FlagWrapper({ isFlag, children }: { isFlag: boolean; children: ComponentChildren }) {
+    return isFlag ? <label className="tn-checkbox">{children}</label> : <>{children}</>;
 }

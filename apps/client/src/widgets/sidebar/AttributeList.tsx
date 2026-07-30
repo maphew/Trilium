@@ -16,7 +16,7 @@ import { t } from "../../services/i18n";
 import server from "../../services/server";
 import { isMobile } from "../../services/utils";
 import { AttributeDetail, AttributeDetailOpts, AttributeForm, AttrType, DEFINITION_TYPES, getAttrType, RELATION_DEFINITION_TYPE } from "../attribute_widgets/attribute_detail";
-import { ColorChip } from "../attribute_widgets/label_value_display";
+import { ColorChip, renderLabelValue } from "../attribute_widgets/label_value_display";
 import ActionButton from "../react/ActionButton";
 import { FormListItem } from "../react/FormList";
 import HelpButton from "../react/HelpButton";
@@ -215,6 +215,16 @@ export default function AttributeList() {
             commit();
         }
         commitCreation();
+
+        // A flag has nothing to type: the press that would open an editor just turns it over, saved
+        // at once — the one-toggle edit an editor could only have added a second press to.
+        if (note && attribute.type === "label" && resolveValueField(note, attribute.name).labelType === "boolean") {
+            attribute.value = attribute.value === "true" ? "false" : "true";
+            rerender();
+            void save();
+            return;
+        }
+
         setValueEdit({ attribute, original: attribute.value ?? "" });
     }
 
@@ -822,21 +832,25 @@ function AttributeValue({ attribute, note, attrType, onEdit }: {
     // A colour is read by eye rather than by its text, so the preview is the colour itself — the same
     // chip a table cell reads it as — with the stored text kept to the chip's tooltip. An empty value
     // still shows the chip, as the empty ring it draws: unset is an answer a colour field can give.
-    const isColor = note && resolveValueField(note, attribute.name).labelType === "color";
+    // A flag likewise previews as the mark a table cell reads it as, and the press that would edit
+    // any other value just turns it over (see startValueEdit) — hence the pointer, not the text beam.
+    const labelType = note ? resolveValueField(note, attribute.name).labelType : undefined;
+    const isColor = labelType === "color";
+    const isFlag = labelType === "boolean";
 
     // An editable slot holding nothing gets a placeholder instead of the blank: the row centres its
     // items, which collapses an empty span to a height of nothing — width but no height, a click
     // target that cannot be hit. The placeholder holds the slot open and names the way in, though only
     // over the row being pointed at (see the stylesheet): many a bare label is a flag meaning what its
     // presence means, and a standing "no value" against every one of them would read as a lack.
-    const placeholder = !isColor && !attribute.value && onEdit;
+    const placeholder = !isColor && !isFlag && !attribute.value && onEdit;
 
     // A label with no value still gets its slot: it is what takes up the room between the name and what
     // the row ends with, so a bare label lines its markers and its delete button up with every other row's.
     return (
         <span
-            class={clsx("attribute-value", onEdit && "editable", placeholder && "empty value-placeholder")}
-            title={isColor || placeholder ? undefined : attribute.value}
+            class={clsx("attribute-value", onEdit && "editable", isFlag && "flag", placeholder && "empty value-placeholder")}
+            title={isColor || isFlag || placeholder ? undefined : attribute.value}
             // Kept from the row, which would open the popup over the field this press asks for.
             onClick={onEdit ? (e) => {
                 e.stopPropagation();
@@ -844,8 +858,9 @@ function AttributeValue({ attribute, note, attrType, onEdit }: {
             } : undefined}
         >
             {isColor ? <ColorChip color={attribute.value ?? ""} />
-                : placeholder ? t("attribute_list_panel.no_value")
-                    : attribute.value}
+                : isFlag ? renderLabelValue(attribute.value ?? "", "boolean")
+                    : placeholder ? t("attribute_list_panel.no_value")
+                        : attribute.value}
         </span>
     );
 }

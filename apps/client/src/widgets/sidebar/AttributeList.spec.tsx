@@ -633,6 +633,26 @@ describe("AttributeList", () => {
         expect(editor?.querySelector(".input-group-text")).toBeNull();
     });
 
+    it("previews a flag as its mark and turns it over on the press itself, no editor between", async () => {
+        renderPanel(buildNote({
+            id: "flagged", title: "Flagged",
+            "#done": "false",
+            "#label:done": "promoted,single,boolean"
+        }));
+
+        // The mark a table cell reads a flag as, in place of the stored word.
+        expect(firstRow().querySelector(".attribute-value .label-flag-unset")).not.toBeNull();
+
+        await act(async () => firstRow().querySelector<HTMLElement>(".attribute-value")?.click());
+
+        // The press toggled and saved; nothing opened, and the mark turned with it.
+        expect(container.querySelector(".attribute-value-editor")).toBeNull();
+        expect(put).toHaveBeenCalledOnce();
+        const [ , saved ] = put.mock.calls[0] as [ string, { name: string; value: string }[] ];
+        expect(saved.find((attribute) => attribute.name === "done")?.value).toBe("true");
+        expect(firstRow().querySelector(".attribute-value .label-flag-set")).not.toBeNull();
+    });
+
     it("shows a colour label as the colour itself, and edits it through the picker", () => {
         renderPanel(buildNote({ id: "tinted", title: "Tinted", "#color": "#8000ff" }));
 

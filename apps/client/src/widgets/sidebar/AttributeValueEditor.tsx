@@ -97,24 +97,7 @@ export default function AttributeValueEditor({ note, attribute, onEdit, onCommit
             }}
         >
             {typed ? (
-                <LabelValueInput
-                    labelType={typed.labelType}
-                    value={attribute.value ?? ""}
-                    onCommit={onEdit}
-                    commitOn="input"
-                    numberPrecision={typed.numberPrecision}
-                    selectOptions={typed.selectOptions}
-                    // The row has no room to spare beside the field for the button opening a
-                    // link-like value; the detail form keeps it, having the room.
-                    hideOpenButton
-                    inputProps={{
-                        className: "form-control",
-                        // Names the dropdown's empty entry, as the detail form does for the same field.
-                        ...(typed.labelType === "select" && {
-                            placeholder: t("promoted_attributes.unset-field-placeholder")
-                        })
-                    }}
-                />
+                <LabelField typed={typed} attribute={attribute} onEdit={onEdit} onCommit={onCommit} />
             ) : (
                 <NoteAutocomplete
                     noteId={attribute.value || undefined}
@@ -124,6 +107,48 @@ export default function AttributeValueEditor({ note, attribute, onEdit, onCommit
             )}
         </AttributeEditorOverlay>
     );
+}
+
+/**
+ * The field a label's value is typed into, dressed by its kind. A flag gets two things of its own:
+ * the `tn-checkbox` label the theme dresses a checkbox through — bare, the switch comes out a broken
+ * sliver — and a commit per toggle, the toggle being the whole of a flag's edit: nothing further to
+ * type, so the switch both writes and closes.
+ */
+function LabelField({ typed, attribute, onEdit, onCommit }: {
+    typed: ReturnType<typeof resolveValueField>;
+    attribute: Attribute;
+    onEdit(value: string): void;
+    onCommit(): void;
+}) {
+    const isBoolean = typed.labelType === "boolean";
+    const input = (
+        <LabelValueInput
+            labelType={typed.labelType}
+            value={attribute.value ?? ""}
+            onCommit={(value) => {
+                onEdit(value);
+                if (isBoolean) {
+                    onCommit();
+                }
+            }}
+            commitOn="input"
+            numberPrecision={typed.numberPrecision}
+            selectOptions={typed.selectOptions}
+            // The row has no room to spare beside the field for the button opening a
+            // link-like value; the detail form keeps it, having the room.
+            hideOpenButton
+            inputProps={{
+                className: "form-control",
+                // Names the dropdown's empty entry, as the detail form does for the same field.
+                ...(typed.labelType === "select" && {
+                    placeholder: t("promoted_attributes.unset-field-placeholder")
+                })
+            }}
+        />
+    );
+
+    return isBoolean ? <label className="tn-checkbox">{input}</label> : input;
 }
 
 /** The input types whose content `select()` applies to; the pickers select nothing and mind nothing. */
