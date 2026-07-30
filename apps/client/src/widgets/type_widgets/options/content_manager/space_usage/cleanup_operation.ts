@@ -24,6 +24,7 @@ export type CleanupItemId = (typeof CLEANUP_ITEMS)[number]["id"];
  */
 export type CleanupPhase = "erasing" | "compacting";
 
+
 /**
  * What the cleanup tool is set to erase, persisted as JSON in the `cleanupToolOptions` option so the
  * next run opens on the last answer rather than on a fresh set of defaults.
@@ -154,8 +155,8 @@ export function computeCleanupSizes(
  * orphaned, and there is nothing to be gained by having two of those scan the blobs at the same
  * time. Their order carries no weight beyond that — every one of them hands its own space back.
  *
- * @returns bytes reclaimed, never negative: a note saved by another client mid-run must not read as
- *          the cleanup having given space back.
+ * @returns what the run reclaimed, never negative: a note saved by another client mid-run must not
+ *          read as the cleanup having given space back.
  */
 export async function runCleanup(
     options: CleanupToolOptions,
@@ -186,30 +187,27 @@ export async function runCleanup(
         await server.postWithTimeout("notes/erase-deleted-notes-now", CLEANUP_TIMEOUT_MS);
     }
 
+    let compaction: VacuumDatabaseResponse | undefined;
+
     if (options.compactDatabase) {
         onPhase("compacting");
-    }
-
-    const reclaimed = options.compactDatabase
         // Last, with everything already erased: the rebuild closes around whatever is left, and its
         // own before/after is the truest figure there is — the file itself, rather than an account
-        // of what the file holds. It subsumes the erasures above, whose pages it is what returns.
-        ? await compactDatabase()
+        // of what the file holds. It subsumes the erasures above, whose pages it is what returns,
+        // which is why it stands as the whole answer rather than as a figure beside theirs.
+        compaction = await server.postWithTimeout<VacuumDatabaseResponse>(
+            "database/vacuum-database", CLEANUP_TIMEOUT_MS);
+    }
+
+    const reclaimedBytes = compaction
+        ? Math.max(compaction.sizeBefore - compaction.sizeAfter, 0)
         : Math.max(before - await measureOccupiedBytes(), 0);
 
     // Recorded on the server as well as shown here: this erased content past recovery, and the log
     // is where that is answerable for afterwards.
-    await server.post("space-usage/cleanup-completed", { reclaimedBytes: reclaimed });
+    await server.post("space-usage/cleanup-completed", { reclaimedBytes });
 
-    return reclaimed;
-}
-
-/** Rebuilds the database file, reporting what it handed back to the disk. */
-async function compactDatabase(): Promise<number> {
-    const { sizeBefore, sizeAfter } = await server.postWithTimeout<VacuumDatabaseResponse>(
-        "database/vacuum-database", CLEANUP_TIMEOUT_MS);
-
-    return Math.max(sizeBefore - sizeAfter, 0);
+    return reclaimedBytes;
 }
 
 /**

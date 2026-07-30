@@ -38,7 +38,7 @@ const mocks = vi.hoisted(() => ({
     )),
     /** Takes the confirmation element, which one test renders to read what it says. */
     confirm: vi.fn(async (_message?: unknown) => true),
-    showMessage: vi.fn(),
+    showMessage: vi.fn<(message: string, timeout?: number) => void>(),
     showPersistent: vi.fn(),
     closePersistent: vi.fn()
 }));
@@ -239,8 +239,11 @@ describe("showCleanupDialog", () => {
         expect(measured).not.toBe(UNUSED);
         await expect(closed).resolves.toBe(measured);
         expect(mocks.post.mock.calls.map(([ url ]) => url)).toContain("notes/erase-unused-attachments-now");
+        // Given longer than the couple of seconds an ordinary message gets: this is the only account
+        // of the run the user will see.
         expect(mocks.showMessage).toHaveBeenCalledWith(
-            t("space_usage.cleanup_done", { size: formatSize(measured) }));
+            t("space_usage.cleanup_done", { size: formatSize(measured) }), expect.any(Number));
+        expect(mocks.showMessage.mock.calls[0][1]).toBeGreaterThan(2000);
         // Gone from the page: it is mounted for the run and unmounted with it.
         expect(document.body.querySelector(".modal-stub")).toBeNull();
     });
@@ -297,6 +300,20 @@ describe("showCleanupDialog", () => {
         expect(raised[0].dismissible).toBe(false);
 
         expect(mocks.closePersistent).toHaveBeenCalledWith(CLEANUP_TOAST_ID);
+    });
+
+    it("reports the file's own reduction as the whole of what a compacting run reclaimed", async () => {
+        mocks.storedOption = JSON.stringify({ unusedAttachments: true, compactDatabase: true });
+        const { closed } = await openDialog();
+
+        await click(cleanButton());
+
+        // The rebuild returns the pages the erasures freed along with everything else, so its own
+        // reduction already covers them — one figure, not one per step.
+        await expect(closed).resolves.toBe(VACUUM_BEFORE - VACUUM_AFTER);
+        expect(mocks.showMessage).toHaveBeenLastCalledWith(
+            t("space_usage.cleanup_done", { size: formatSize(VACUUM_BEFORE - VACUUM_AFTER) }),
+            expect.any(Number));
     });
 
     it("warns what compacting costs, only when it is being asked for", async () => {

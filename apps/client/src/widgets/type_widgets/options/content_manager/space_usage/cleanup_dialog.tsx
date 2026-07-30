@@ -152,7 +152,8 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
 
         try {
             reclaimed = await runCleanup(work.options, showCleanupProgress);
-            toast.showMessage(t("space_usage.cleanup_done", { size: formatSize(reclaimed) }));
+            toast.showMessage(
+                t("space_usage.cleanup_done", { size: formatSize(reclaimed) }), CLEANUP_DONE_TIMEOUT_MS);
         } finally {
             toast.closePersistent(CLEANUP_TOAST_ID);
             // Settled either way: a run that failed part-way still changed the database, so whatever
@@ -287,6 +288,13 @@ const ROOT_USAGE_URL = "space-usage/note/root";
 
 /** Shared by every phase of a run, so the message is swapped in place rather than stacked. */
 export const CLEANUP_TOAST_ID = "content-manager-cleanup";
+
+/**
+ * Longer than the default couple of seconds: this reports on something that ran for minutes and has
+ * two figures worth reading, and it is the only account of a run the user will get. The toast takes
+ * the timeout as an argument, so nothing about the component itself changes.
+ */
+const CLEANUP_DONE_TIMEOUT_MS = 15000;
 
 /**
  * The app's in-progress toast, the same one printing raises: a spinning icon rather than a bar,
