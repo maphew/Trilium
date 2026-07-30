@@ -63,6 +63,12 @@
         gap: 0.5em;
     }
 
+    /* Secondary explanation under a message (e.g. why an account can look notebook-less). */
+    .onenote-hint {
+        color: var(--muted-text-color);
+        font-size: 0.9em;
+    }
+
     .onenote-status {
         display: flex;
         align-items: center;

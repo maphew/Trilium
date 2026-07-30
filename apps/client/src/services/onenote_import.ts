@@ -43,7 +43,9 @@ function disconnect() {
 }
 
 function getNotebooks() {
-    return server.get<{ notebooks: OneNoteNotebook[] }>("onenote-import/notebooks");
+    // silent: a 401 here (expired/lost connection) is presented inline by the import dialog with the
+    // server's reason and a retry button — the generic "unknown HTTP error" toast would double-report.
+    return server.getWithSilentUnauthorized<{ notebooks: OneNoteNotebook[] }>("onenote-import/notebooks");
 }
 
 // Kicks off the import and returns as soon as the server has accepted it. The import itself runs in the

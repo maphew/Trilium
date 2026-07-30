@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import { t } from "../../../services/i18n.js";
-import onenoteImport, { buildSectionSelections, collectSectionIds, type OneNoteAccount, type OneNoteContainer, type OneNoteDeviceLogin, type OneNoteNotebook, orderedChildren } from "../../../services/onenote_import.js";
+import onenoteImport, { buildSectionSelections, collectSectionIds, extractServerMessage, type OneNoteAccount, type OneNoteContainer, type OneNoteDeviceLogin, type OneNoteNotebook, orderedChildren } from "../../../services/onenote_import.js";
 import toast from "../../../services/toast.js";
 import { isElectron, randomString } from "../../../services/utils.js";
 import Button from "../../react/Button.js";
@@ -20,6 +20,9 @@ function OneNotePanel({ parentNoteId, closeDialog, setFooter }: ImportProviderPa
     const [phase, setPhase] = useState<Phase>("checking");
     const [account, setAccount] = useState<OneNoteAccount | null>(null);
     const [notebooks, setNotebooks] = useState<OneNoteNotebook[]>([]);
+    // Set when listing the notebooks failed, so the panel can say so instead of reporting an empty
+    // account — an expired connection or a Graph error is not "you have no notebooks".
+    const [loadError, setLoadError] = useState<string | null>(null);
     const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
     // Set while a user-triggered notebook reload is in flight, to spin and disable the refresh button.
     const [refreshing, setRefreshing] = useState(false);
@@ -42,6 +45,7 @@ function OneNotePanel({ parentNoteId, closeDialog, setFooter }: ImportProviderPa
     }, []);
 
     const loadNotebooks = useCallback(async () => {
+        setLoadError(null);
         try {
             const { notebooks } = await onenoteImport.getNotebooks();
             setNotebooks(notebooks);
@@ -49,8 +53,13 @@ function OneNotePanel({ parentNoteId, closeDialog, setFooter }: ImportProviderPa
             // last load), so a refresh can't leave the import button counting phantom sections.
             const validIds = collectSectionIds(notebooks);
             setSelectedIds((prev) => new Set([...prev].filter((id) => validIds.has(id))));
-        } catch {
-            toast.showError(t("onenote_import.load_failed"));
+        } catch (e) {
+            // The server's wording is the useful part (an expired sign-in says to sign in again, a
+            // Graph failure names the Graph error); fall back to the generic message only when the
+            // response carried none. The stale list is cleared: a tree that can't import (the same
+            // dead connection would fail the import too) is worse than the explanation.
+            setNotebooks([]);
+            setLoadError(extractServerMessage(e) ?? t("onenote_import.load_failed"));
         }
     }, []);
 
@@ -76,7 +85,7 @@ function OneNotePanel({ parentNoteId, closeDialog, setFooter }: ImportProviderPa
                 setPhase("disconnected");
             }
         }).catch((e) => {
-            toast.showError(e instanceof Error ? e.message : String(e));
+            toast.showError(extractServerMessage(e) ?? t("onenote_import.load_failed"));
             setPhase("disconnected");
         });
         return stopPolling;
@@ -153,7 +162,7 @@ function OneNotePanel({ parentNoteId, closeDialog, setFooter }: ImportProviderPa
             };
             pollRef.current = setTimeout(() => void poll(), intervalMs);
         } catch (e) {
-            toast.showError(e instanceof Error ? e.message : String(e));
+            toast.showError(extractServerMessage(e) ?? String(e));
             setPhase("disconnected");
         }
     }, [loadNotebooks, stopPolling]);
@@ -169,6 +178,7 @@ function OneNotePanel({ parentNoteId, closeDialog, setFooter }: ImportProviderPa
         await onenoteImport.disconnect();
         setAccount(null);
         setNotebooks([]);
+        setLoadError(null);
         setSelectedIds(new Set());
         setPhase("disconnected");
     }, [stopPolling]);
@@ -192,7 +202,7 @@ function OneNotePanel({ parentNoteId, closeDialog, setFooter }: ImportProviderPa
         try {
             await onenoteImport.runImport({ parentNoteId, sections, taskId: randomString(10), debug, shrinkImages: compressImages && shrinkImages });
         } catch (e) {
-            toast.showError(e instanceof Error ? e.message : String(e));
+            toast.showError(extractServerMessage(e) ?? String(e));
         }
     }, [notebooks, selectedIds, parentNoteId, debug, compressImages, shrinkImages, closeDialog]);
 
@@ -276,32 +286,48 @@ function OneNotePanel({ parentNoteId, closeDialog, setFooter }: ImportProviderPa
                     </div>
                 </div>
 
-                {notebooks.length === 0
-                    ? <p>{t("onenote_import.no_notebooks")}</p>
-                    : (
-                        <>
-                            <OptionsRow name="onenote-sections" label={t("onenote_import.select_sections")} description={t("onenote_import.select_sections_hint")} stacked>
-                                <div className="onenote-notebooks">
-                                    <CheckboxTree nodes={treeNodes} selectedIds={selectedIds} onChange={setSelectedIds} />
-                                </div>
-                            </OptionsRow>
-                            <OptionsRowWithToggle
-                                name="onenote-shrink-images"
-                                label={t("import.shrinkImages")}
-                                description={t("import.shrinkImagesProviderTooltip")}
-                                currentValue={compressImages && shrinkImages}
-                                onChange={setShrinkImages}
-                                disabled={!compressImages}
-                            />
-                            <OptionsRowWithToggle
-                                name="onenote-debug"
-                                label={t("onenote_import.attach_source")}
-                                description={t("onenote_import.attach_source_hint")}
-                                currentValue={debug}
-                                onChange={setDebug}
-                            />
-                        </>
-                    )}
+                {loadError && (
+                    <NoItems icon="bx bx-error-circle" text={loadError}>
+                        <Button
+                            text={t("onenote_import.load_retry")}
+                            kind="primary"
+                            disabled={refreshing}
+                            onClick={() => void refresh()}
+                        />
+                    </NoItems>
+                )}
+
+                {!loadError && notebooks.length === 0 && (
+                    <>
+                        <p>{t("onenote_import.no_notebooks")}</p>
+                        <p className="onenote-hint">{t("onenote_import.no_notebooks_hint")}</p>
+                    </>
+                )}
+
+                {!loadError && notebooks.length > 0 && (
+                    <>
+                        <OptionsRow name="onenote-sections" label={t("onenote_import.select_sections")} description={t("onenote_import.select_sections_hint")} stacked>
+                            <div className="onenote-notebooks">
+                                <CheckboxTree nodes={treeNodes} selectedIds={selectedIds} onChange={setSelectedIds} />
+                            </div>
+                        </OptionsRow>
+                        <OptionsRowWithToggle
+                            name="onenote-shrink-images"
+                            label={t("import.shrinkImages")}
+                            description={t("import.shrinkImagesProviderTooltip")}
+                            currentValue={compressImages && shrinkImages}
+                            onChange={setShrinkImages}
+                            disabled={!compressImages}
+                        />
+                        <OptionsRowWithToggle
+                            name="onenote-debug"
+                            label={t("onenote_import.attach_source")}
+                            description={t("onenote_import.attach_source_hint")}
+                            currentValue={debug}
+                            onChange={setDebug}
+                        />
+                    </>
+                )}
             </CardSection>
         </Card>
     );
