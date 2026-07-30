@@ -16,19 +16,12 @@
 
 /*
  * A field whose values are entered through a widget the browser brings: a calendar, a clock, a colour
- * dialog. The values share the field's line with the box they are entered in, and wrap onto the next
- * once it is full, as they do for any other type — all that differs is which end the box sits at.
+ * dialog. The values share the field's line with the box they are entered in, wrapping onto the next
+ * once it is full, and the box follows them — where the next value is entered is after the ones
+ * already taken, as in a field typed into.
  */
-.values-input.entry-leads {
-    /*
-     * The box leads and the values follow, rather than the other way about. Not for the reading of it:
-     * a box after a growing set of values moves along with every one taken, and a browser keeps the
-     * box being typed in in view by scrolling whatever it sits in — which in a table is the pane the
-     * rows scroll in, and scrolling that hands the row being edited back to be rendered afresh, editor
-     * and all. Kept at the head, it does not move, and nothing is scrolled.
-     */
+.values-input.widget-entry {
     > .values-input-entry {
-        order: -1;
         display: flex;
         align-items: center;
         gap: 4px;

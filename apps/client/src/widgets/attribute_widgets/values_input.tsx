@@ -113,10 +113,9 @@ export default function ValuesInput({ labelType, values, onCommit, renderValue, 
     }
 
     return (
-        // Values and the box they are entered in share the one wrapping line, however they are
-        // entered. Where a widget of the browser's own is what enters them, the box leads rather than
-        // follows — see below.
-        <div className={clsx("tn-field values-input", PICKED_TYPES.has(labelType) && "entry-leads")}>
+        // Values and the box they are entered in share the one wrapping line, the box after them,
+        // however they are entered — a widget of the browser's own only dresses the box differently.
+        <div className={clsx("tn-field values-input", PICKED_TYPES.has(labelType) && "widget-entry")}>
             {values.map((value) => (
                 <Chip
                     key={value}
