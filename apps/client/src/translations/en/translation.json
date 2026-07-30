@@ -814,6 +814,7 @@
     "delete_confirm": "Delete the attribute \"{{name}}\"?",
     "add_definition": "Add a new definition",
     "no_target": "No target note",
+    "change_target": "Change the target note",
     "inverse_of": "inverse of {{name}}",
     "type_label": "Label",
     "type_relation": "Relation",

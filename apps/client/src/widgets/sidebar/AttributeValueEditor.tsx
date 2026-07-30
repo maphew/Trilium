@@ -8,6 +8,8 @@ import type { Attribute } from "../../services/attribute_parser";
 import { getBuiltinLabelSelectOptions, getBuiltinLabelValueType, isBuiltinAttribute } from "../../services/attributes";
 import { t } from "../../services/i18n";
 import LabelValueInput, { getTypedInputForLabel } from "../attribute_widgets/label_value_input";
+import { AUTOCOMPLETE_DROPDOWN_SELECTOR } from "../react/FormAutocomplete";
+import NoteAutocomplete from "../react/NoteAutocomplete";
 
 interface AttributeValueEditorProps {
     /** The note the label belongs to, read for the definition that says what kind of field to offer. */
@@ -22,9 +24,10 @@ interface AttributeValueEditorProps {
 }
 
 /**
- * A label's value edited in the row that previews it, without opening the detail form: the same field
- * its promoted counterpart offers — a date picker for a date, a palette for a colour, a dropdown for a
- * closed set — or a plain box where nothing says more about the value than that it is one.
+ * An attribute's value edited in the row that previews it, without opening the detail form: for a
+ * label the same field its promoted counterpart offers — a date picker for a date, a palette for a
+ * colour, a dropdown for a closed set, a plain box where nothing says more about the value than that
+ * it is one — and for a relation the note search its target is picked in everywhere else.
  *
  * Leaving the field is what ends the edit and keeps it, matching the attributes editor's save-on-blur;
  * escape puts the value back instead. Only the value is edited here — the name, the flags and the
@@ -32,7 +35,11 @@ interface AttributeValueEditorProps {
  */
 export default function AttributeValueEditor({ note, attribute, onEdit, onCommit, onRevert }: AttributeValueEditorProps) {
     const containerRef = useRef<HTMLSpanElement>(null);
-    const typed = useMemo(() => resolveValueField(note, attribute.name), [ note, attribute.name ]);
+    const isRelation = attribute.type === "relation";
+    // What a label is typed as; a relation's field follows from being one.
+    const typed = useMemo(
+        () => isRelation ? undefined : resolveValueField(note, attribute.name),
+        [ isRelation, note, attribute.name ]);
 
     // The editor exists because its row was pressed, so the field is ready to type into at once — and
     // what is there is selected, a short value being more often replaced than appended to. A colour
@@ -61,6 +68,14 @@ export default function AttributeValueEditor({ note, attribute, onEdit, onCommit
         const onFocusOut = (e: FocusEvent) => {
             // Focus moving within the editor — the field to a button beside it — is not leaving it.
             if (e.relatedTarget instanceof Node && editor.contains(e.relatedTarget)) return;
+
+            // Nor is it leaving for floating UI that belongs to the field: the note search's dropdown
+            // is appended to the body, and creating a note from it opens the note type chooser — the
+            // same company the detail popup keeps itself open over.
+            if (e.relatedTarget instanceof Element
+                && e.relatedTarget.closest(`${AUTOCOMPLETE_DROPDOWN_SELECTOR}, .algolia-autocomplete, .modal, .modal-backdrop`)) {
+                return;
+            }
 
             // Nothing in the page took the focus over, and either the editor still holds it or the
             // window itself has lost it — which is what opening a native picker's dialog does. The
@@ -94,31 +109,44 @@ export default function AttributeValueEditor({ note, attribute, onEdit, onCommit
                 if (e.key === "Escape") {
                     e.stopPropagation();
                     onRevert();
-                } else if (e.key === "Enter" && (typed.labelType !== "textarea" || e.ctrlKey || e.metaKey)) {
+                // Enter is the note search's own key — it is what picks — so only a label commits on
+                // it; a textarea keeps it for its newlines unless it is held down with the modifier.
+                } else if (e.key === "Enter" && typed && (typed.labelType !== "textarea" || e.ctrlKey || e.metaKey)) {
                     e.preventDefault();
                     e.stopPropagation();
                     onCommit();
                 }
             }}
         >
-            <LabelValueInput
-                labelType={typed.labelType}
-                value={attribute.value ?? ""}
-                onCommit={onEdit}
-                commitOn="input"
-                numberPrecision={typed.numberPrecision}
-                selectOptions={typed.selectOptions}
-                inputProps={{
-                    className: "form-control",
-                    // Names the dropdown's empty entry, as the detail form does for the same field.
-                    ...(typed.labelType === "select" && {
-                        placeholder: t("promoted_attributes.unset-field-placeholder")
-                    })
-                }}
-            />
+            {typed ? (
+                <LabelValueInput
+                    labelType={typed.labelType}
+                    value={attribute.value ?? ""}
+                    onCommit={onEdit}
+                    commitOn="input"
+                    numberPrecision={typed.numberPrecision}
+                    selectOptions={typed.selectOptions}
+                    inputProps={{
+                        className: "form-control",
+                        // Names the dropdown's empty entry, as the detail form does for the same field.
+                        ...(typed.labelType === "select" && {
+                            placeholder: t("promoted_attributes.unset-field-placeholder")
+                        })
+                    }}
+                />
+            ) : (
+                <NoteAutocomplete
+                    noteId={attribute.value || undefined}
+                    opts={TARGET_NOTE_OPTS}
+                    noteIdChanged={(noteId) => onEdit(noteId ?? "")}
+                />
+            )}
         </span>
     );
 }
+
+/** Constant so it does not re-initialise the autocomplete on every render, as in the detail form. */
+const TARGET_NOTE_OPTS = { allowCreatingNotes: true };
 
 /** The input types whose content `select()` applies to; the pickers select nothing and mind nothing. */
 const SELECT_ALL_TYPES = new Set([ "text", "number", "url", "email", "tel" ]);

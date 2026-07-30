@@ -149,9 +149,14 @@
     margin-inline-start: auto;
 }
 
-.attribute-list-panel .attribute-row:hover .attribute-delete-button,
-.attribute-list-panel .attribute-row.active .attribute-delete-button,
-.attribute-list-panel .attribute-row.editing .attribute-delete-button {
+/* Changing a relation's target is a press away too, so its pencil keeps the delete button's habits:
+   at the row's end beside it, and shown only over the row being pointed at. */
+.attribute-list-panel .attribute-edit-button {
+    flex-shrink: 0;
+    visibility: hidden;
+}
+
+.attribute-list-panel .attribute-row:is(:hover, .active, .editing) :is(.attribute-delete-button, .attribute-edit-button) {
     visibility: visible;
 }
 

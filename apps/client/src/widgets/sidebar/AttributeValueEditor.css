@@ -34,4 +34,10 @@
         padding: 0 5px;
         cursor: pointer;
     }
+
+    /* The group the note search wraps its box in takes the room the box is owed. */
+    & .input-group {
+        flex: 1;
+        min-width: 0;
+    }
 }

@@ -37,8 +37,20 @@ interface AddMenuCall {
     items: { kind?: string; handler?: () => void }[];
 }
 
-// A relation's target is picked in an Algolia autocomplete bound to jQuery, which is not loaded here.
-vi.mock("../react/NoteAutocomplete", () => ({ default: () => null }));
+// A relation's target is picked in an Algolia autocomplete bound to jQuery, which is not loaded here:
+// a bare box stands in, reporting whatever is typed into it as the noteId picked.
+vi.mock("../react/NoteAutocomplete", async () => {
+    const { h } = await import("preact");
+
+    return {
+        default: ({ noteId, noteIdChanged }: { noteId?: string; noteIdChanged?: (noteId: string) => void }) =>
+            h("input", {
+                className: "note-autocomplete-stub",
+                value: noteId ?? "",
+                onInput: (e: Event) => noteIdChanged?.((e.target as HTMLInputElement).value)
+            })
+    };
+});
 
 import appContext from "../../components/app_context";
 import FAttribute, { FAttributeRow } from "../../entities/fattribute";
@@ -415,6 +427,45 @@ describe("AttributeList", () => {
         const input = container.querySelector<HTMLInputElement>(".attribute-value-editor input");
         expect(input?.type).toBe("number");
         expect(input?.step).toBe("0.01");
+    });
+
+    it("repicks a relation's target from its pencil, the value itself staying the link it is", async () => {
+        buildNote({ id: "tpl2", title: "Other template" });
+        renderPanel(noteWithAttributes());
+
+        // Only the relation row offers the pencil — a label's value is its own way in — and the
+        // relation's value stays a link rather than becoming a click target of the edit.
+        const pencils = container.querySelectorAll<HTMLElement>(".attribute-edit-button");
+        expect(pencils).toHaveLength(1);
+        expect(pencils[0].closest(".attribute-row")?.querySelector(".attribute-value.editable")).toBeNull();
+
+        act(() => pencils[0].click());
+        const stub = container.querySelector<HTMLInputElement>(".attribute-value-editor .note-autocomplete-stub");
+        expect(stub?.value).toBe("tpl");
+
+        act(() => {
+            if (stub) {
+                stub.value = "tpl2";
+                stub.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+        });
+        await act(async () => {
+            stub?.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: document.body }));
+        });
+
+        expect(put).toHaveBeenCalledOnce();
+        const [ , saved ] = put.mock.calls[0] as [ string, { name: string; value: string }[] ];
+        expect(saved.find((attribute) => attribute.name === "template")?.value).toBe("tpl2");
+    });
+
+    it("offers an empty relation's own slot for picking, there being no link in it to follow", () => {
+        renderPanel(buildNote({ id: "bare-rel", title: "Bare", "~depicts": "" }));
+
+        const placeholder = container.querySelector<HTMLElement>(".attribute-value.empty");
+        expect(placeholder?.className).toContain("editable");
+
+        act(() => placeholder?.click());
+        expect(container.querySelector(".attribute-value-editor .note-autocomplete-stub")).not.toBeNull();
     });
 
     it("shows a colour label as the colour itself, and edits it through the picker", () => {

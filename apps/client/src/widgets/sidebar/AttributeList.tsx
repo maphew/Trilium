@@ -35,9 +35,10 @@ import RightPanelWidget, { CollapsibleWidgets } from "./RightPanelWidget";
  * The note's attributes as a list, one row per attribute: the kind (label, relation, or either's
  * definition) is carried by an icon instead of by the `#`/`~`/`label:` syntax the attributes editor
  * spells out, and the value is shown as a preview rather than in full. Rows open the same detail
- * form the editor uses, which is where an attribute is actually edited — except an owned label's
- * value, the edit that is made again and again: pressing the preview itself edits it in place,
- * through the field its definition calls for (see {@link AttributeValueEditor}).
+ * form the editor uses, which is where an attribute is actually edited — except an owned attribute's
+ * value, the edit that is made again and again: a label's is edited in place by pressing the preview
+ * itself, through the field its definition calls for, and a relation's target is repicked from the
+ * pencil on its row, the value staying the link it is (see {@link AttributeValueEditor}).
  *
  * The form floats beside its row where there is room for it — a panel with a note's width beside it —
  * and is a page of its own inside a master-detail host (a modal on a phone), which slides it in over
@@ -470,10 +471,11 @@ function AttributeRowList({ rows, note, activeAttribute, valueEditor, readOnly, 
                         showOwner={!isOwned && !readOnly}
                         // A read-only row opens the popup as an inherited one does: to be read, not edited.
                         onOpen={(anchor, e) => onOpen(attribute, isOwned && !readOnly, anchor, e)}
-                        // A label's value is typed straight into its row; everything else — relations,
-                        // whose value press follows the link, definitions, whose value is a summary —
-                        // keeps the popup. On a phone the row is a menu item and opens its page whole.
-                        onEditValue={isOwned && !readOnly && !IS_MOBILE && getAttributeKind(attribute) === "label"
+                        // A label's value is typed straight into its row, and a relation's target is
+                        // repicked in it (from the pencil — the value itself is a link, and stays
+                        // one). Definitions, whose value is a summary of settings, keep the popup. On
+                        // a phone the row is a menu item and opens its page whole.
+                        onEditValue={isOwned && !readOnly && !IS_MOBILE && !isDefinition(getAttributeKind(attribute))
                             ? () => onEditValue(attribute)
                             : undefined}
                         onDelete={isOwned && !readOnly ? () => onDelete(attribute) : undefined}
@@ -544,6 +546,20 @@ function AttributeRow({ attribute, note, active, valueEditor, isSystem, showOwne
 
             {showOwner && attribute.noteId && (
                 <NoteLink containerClassName="attribute-owner" notePath={attribute.noteId} noPreview />
+            )}
+
+            {/* A relation's value is a link and stays one, so its edit has a way in of its own — put
+                away while the editor is open, whose field already is the edit. */}
+            {onEditValue && attrType === "relation" && !valueEditor && (
+                <ActionButton
+                    className="attribute-edit-button"
+                    icon="bx bx-pencil"
+                    text={t("attribute_list_panel.change_target")}
+                    onClick={(e) => {
+                        e.stopPropagation();
+                        onEditValue();
+                    }}
+                />
             )}
 
             {onDelete && (
@@ -663,10 +679,21 @@ function AttributeValue({ attribute, note, attrType, onEdit }: {
     onEdit?: () => void;
 }) {
     if (attrType === "relation") {
-        // A relation just created from the add menu has no target yet.
+        // A relation just created from the add menu has no target yet — and with no link to follow,
+        // its slot is free to be the way into picking one, as a label's value is into typing.
         return attribute.value
             ? <NoteLink containerClassName="attribute-value" notePath={attribute.value} showNoteIcon noPreview />
-            : <span class="attribute-value empty">{t("attribute_list_panel.no_target")}</span>;
+            : (
+                <span
+                    class={clsx("attribute-value", "empty", onEdit && "editable")}
+                    onClick={onEdit ? (e) => {
+                        e.stopPropagation();
+                        onEdit();
+                    } : undefined}
+                >
+                    {t("attribute_list_panel.no_target")}
+                </span>
+            );
     }
 
     if (isDefinition(attrType)) {
