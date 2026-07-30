@@ -329,6 +329,16 @@
     transition: opacity 0.15s ease;
 }
 
+/* Separators are generated on each item after the first rather than being elements of their
+   own: a dot that belongs to the item it precedes can never be orphaned onto a line by
+   itself, and it always shares that item's baseline. `gap` spaces the dot from the item
+   before it, the margin from the item it introduces. */
+.llm-chat-footer > * + *::before {
+    content: "·";
+    margin-inline-end: 0.375rem;
+    opacity: 0.5;
+}
+
 .llm-chat-footer-user {
     justify-content: flex-end;
 }
@@ -343,10 +353,6 @@
 
 .llm-chat-usage-model {
     font-weight: 500;
-}
-
-.llm-chat-usage-separator {
-    opacity: 0.5;
 }
 
 .llm-chat-usage-tokens {

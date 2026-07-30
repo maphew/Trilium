@@ -205,12 +205,8 @@ function ChatMessage({ message, isStreaming, onRetry }: Props) {
                 {message.usage && typeof message.usage.promptTokens === "number" && (
                     <>
                         {message.usage.model && (
-                            <>
-                                <span className="llm-chat-usage-separator">·</span>
-                                <span className="llm-chat-usage-model">{message.usage.model}</span>
-                            </>
+                            <span className="llm-chat-usage-model">{message.usage.model}</span>
                         )}
-                        <span className="llm-chat-usage-separator">·</span>
                         <span
                             className="llm-chat-usage-tokens"
                             title={t("llm_chat.tokens_detail", {
@@ -222,10 +218,7 @@ function ChatMessage({ message, isStreaming, onRetry }: Props) {
                             {t("llm_chat.total_tokens", { total: shortenNumber(message.usage.totalTokens) })}
                         </span>
                         {message.usage.cost != null && (
-                            <>
-                                <span className="llm-chat-usage-separator">·</span>
-                                <span className="llm-chat-usage-cost">~${message.usage.cost.toFixed(2)}</span>
-                            </>
+                            <span className="llm-chat-usage-cost">~${message.usage.cost.toFixed(2)}</span>
                         )}
                     </>
                 )}
