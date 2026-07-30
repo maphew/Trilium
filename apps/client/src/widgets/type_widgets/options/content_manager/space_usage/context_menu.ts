@@ -223,6 +223,17 @@ export function quickEditNote(notePath: string[]) {
     void appContext.triggerCommand("openInPopup", { noteIdOrPath: notePath.join("/") });
 }
 
+/**
+ * The same popup, showing one of the note's attachments instead of the note itself — what the
+ * composition ring's attachment segments stand for.
+ */
+export function quickEditAttachment(notePath: string[], attachmentId: string) {
+    void appContext.triggerCommand("openInPopup", {
+        noteIdOrPath: notePath.join("/"),
+        viewScope: { viewMode: "attachments", attachmentId }
+    });
+}
+
 /** Opens the note in a new tab, leaving the settings page in place. */
 export function openNoteInNewTab(noteId: string) {
     void appContext.tabManager.openContextWithNote(noteId, {
