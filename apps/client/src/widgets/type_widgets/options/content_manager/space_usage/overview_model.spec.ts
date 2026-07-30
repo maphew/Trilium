@@ -15,6 +15,7 @@ function response(notes: SpaceUsageOverviewNote[], overrides: Partial<SpaceUsage
         otherNotes: { size: 0, revisionsSize: 0, noteCount: 0 },
         hiddenNotes: { size: 0, revisionsSize: 0, noteCount: 0 },
         deletedNotes: { size: 0, noteCount: 0, attachmentCount: 0 },
+        unusedAttachments: { size: 0, attachmentCount: 0 },
         total: { size: 0, revisionsSize: 0, noteCount: 0 },
         ...overrides
     };

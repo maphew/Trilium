@@ -278,6 +278,24 @@ export interface SpaceUsageDeletedNotes {
 }
 
 /**
+ * Space held by attachments a live note still owns but no longer references from its content —
+ * an image or file inserted and then removed. Saving the note schedules those for erasure, and the
+ * scheduled cleanup erases them once `eraseUnusedAttachmentsAfterSeconds` has passed.
+ *
+ * Every scheduled attachment counts, not only those already past that delay, so the figure is what
+ * erasing unused attachments *now* would remove.
+ */
+export interface SpaceUsageUnusedAttachments {
+    /**
+     * What erasing them would actually reclaim: their blobs, counted once, minus any still held by
+     * a live note body, a still-referenced attachment or a revision.
+     */
+    size: number;
+    /** Attachments scheduled for erasure, whether or not something else shares their content. */
+    attachmentCount: number;
+}
+
+/**
  * What the live content actually occupies — every blob referenced by a live note, attachment or
  * revision, hidden subtree included, counted once however many entities share it through
  * deduplication. The breakdown attributes each blob to exactly one tier — bodies first, then
@@ -306,6 +324,7 @@ export interface SpaceUsageOverviewResponse {
     /** Notes reachable only through the hidden subtree, plus any note not reachable at all. */
     hiddenNotes: SpaceUsageBucket;
     deletedNotes: SpaceUsageDeletedNotes;
+    unusedAttachments: SpaceUsageUnusedAttachments;
     /** Every note of the visible tree: {@link notes} and {@link otherNotes} combined. */
     total: SpaceUsageBucket;
 }
@@ -346,6 +365,8 @@ export interface SpaceUsageNoteResponse extends SpaceUsageSizes {
     children: SpaceUsageChild[];
     /** Only present on the root, deleted notes having no place in the tree. */
     deletedNotes?: SpaceUsageDeletedNotes;
+    /** Only present on the root: a database-wide figure, like the deleted one beside it. */
+    unusedAttachments?: SpaceUsageUnusedAttachments;
 }
 
 export interface SimilarNote {

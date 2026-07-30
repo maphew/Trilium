@@ -247,6 +247,62 @@ describe("Space usage API (core)", () => {
         expect(after.deletedNotes.size - before.deletedNotes.size).toBeGreaterThanOrEqual(content.length);
     });
 
+    it("reports attachments a live note no longer references, and what erasing them would free", async () => {
+        const content = "space-usage-unused-attachment-".repeat(100);
+        const host = await createTextNote(api, { title: "Space usage unused host", content: "<p>host</p>" });
+
+        const createRes = await api.post(`/api/notes/${host.noteId}/attachments`, {
+            body: { role: "file", mime: "text/plain", title: "Space usage unused attachment", content }
+        });
+        expect(createRes.status).toBe(204);
+
+        const before = await getOverview({ limit: 1 });
+
+        // Nothing in the body links to it, so saving the note schedules the attachment for erasure.
+        const saveRes = await api.put(`/api/notes/${host.noteId}/data`, {
+            body: { content: "<p>host, edited</p>" }
+        });
+        expect(saveRes.status).toBe(204);
+
+        const after = await getOverview({ limit: 1 });
+        const { unusedAttachments } = after;
+        expect(unusedAttachments.attachmentCount).toBe(before.unusedAttachments.attachmentCount + 1);
+        expect(unusedAttachments.size - before.unusedAttachments.size)
+            .toBeGreaterThanOrEqual(content.length);
+        // Awaiting cleanup is not being deleted: the attachment is still live content, and the
+        // deleted figure beside it must not move.
+        expect(after.deletedNotes.attachmentCount).toBe(before.deletedNotes.attachmentCount);
+
+        // Database-wide, like the deleted figure, so it surfaces at the root and nowhere else.
+        const rootUsage = await getNoteUsage("root");
+        expect(rootUsage.unusedAttachments?.size).toBeGreaterThanOrEqual(content.length);
+        expect((await getNoteUsage(host.noteId)).unusedAttachments).toBeUndefined();
+    });
+
+    it("counts an unused attachment's space only where nothing live still holds it", async () => {
+        const shared = "space-usage-shared-attachment-".repeat(100);
+        // A live note whose body is that very content, so both end up on one deduplicated blob.
+        await createTextNote(api, { title: "Space usage shared body", content: shared });
+        const host = await createTextNote(api, { title: "Space usage shared host", content: "<p>host</p>" });
+
+        const createRes = await api.post(`/api/notes/${host.noteId}/attachments`, {
+            body: { role: "file", mime: "text/plain", title: "Space usage shared attachment", content: shared }
+        });
+        expect(createRes.status).toBe(204);
+
+        const before = await getOverview({ limit: 1 });
+        const saveRes = await api.put(`/api/notes/${host.noteId}/data`, {
+            body: { content: "<p>host, edited</p>" }
+        });
+        expect(saveRes.status).toBe(204);
+
+        const { unusedAttachments } = await getOverview({ limit: 1 });
+        // One more attachment to erase, yet erasing it would free nothing at all: the blob it holds
+        // is the live note's body too.
+        expect(unusedAttachments.attachmentCount).toBe(before.unusedAttachments.attachmentCount + 1);
+        expect(unusedAttachments.size).toBe(before.unusedAttachments.size);
+    });
+
     it("defaults and clamps the overview limit", async () => {
         // No limit → the server default applies and the request just works.
         const defaulted = await getOverview();
