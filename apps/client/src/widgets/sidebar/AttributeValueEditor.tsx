@@ -145,8 +145,10 @@ export default function AttributeValueEditor({ note, attribute, onEdit, onCommit
     );
 }
 
-/** Constant so it does not re-initialise the autocomplete on every render, as in the detail form. */
-const TARGET_NOTE_OPTS = { allowCreatingNotes: true };
+/** Constant so it does not re-initialise the autocomplete on every render, as in the detail form —
+ *  less the buttons beside the box (go to, search, recent), which are more furniture than a row has
+ *  room for; the field a relation holding several targets offers leaves them out the same way. */
+const TARGET_NOTE_OPTS = { allowCreatingNotes: true, hideAllButtons: true };
 
 /** The input types whose content `select()` applies to; the pickers select nothing and mind nothing. */
 const SELECT_ALL_TYPES = new Set([ "text", "number", "url", "email", "tel" ]);

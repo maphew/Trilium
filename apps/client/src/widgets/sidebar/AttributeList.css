@@ -150,8 +150,14 @@
 }
 
 /* Changing a relation's target is a press away too, so its pencil keeps the delete button's habits:
-   at the row's end beside it, and shown only over the row being pointed at. */
+   at the row's end beside it, shown only over the row being pointed at — and worn at the same size,
+   which the cross is given by the theme (see theme-next/forms.css, `.icon-action.bx-x`) and an icon
+   button is otherwise a fair bit bigger than. */
 .attribute-list-panel .attribute-edit-button {
+    --icon-button-size: 24px;
+    --icon-button-icon-ratio: 0.8;
+
+    border-radius: 50%;
     flex-shrink: 0;
     visibility: hidden;
 }
