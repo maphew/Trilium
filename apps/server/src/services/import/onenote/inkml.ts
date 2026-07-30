@@ -18,7 +18,7 @@
 
 import { HTMLElement, parse } from "node-html-parser";
 
-import { hslToHex, parseHexColor, rgbToHsl } from "./color.js";
+import { parseColor, reflectLightness } from "./color.js";
 
 /** Padding around the rendered strokes, in coordinate units. */
 const PADDING = 10;
@@ -41,11 +41,11 @@ interface Trace {
 const DEFAULT_BRUSH: Brush = { color: "#000000", width: 70, height: 70, transparency: 0 };
 
 /**
- * Ink darker than this HSL lightness is unreadable against a dark canvas, so it gets a
+ * Ink darker than this HSL lightness (0-100) is unreadable against a dark canvas, so it gets a
  * lightness-reflected dark-mode variant. Matches the threshold correctTableShadingColors
  * (converter.ts) uses for the same judgement on cell backgrounds.
  */
-const DARK_INK_MAX_LIGHTNESS = 0.5;
+const DARK_INK_MAX_LIGHTNESS = 50;
 
 /**
  * Ink at least this light is unreadable against a light canvas (it's near-white ink laid down on
@@ -53,13 +53,7 @@ const DARK_INK_MAX_LIGHTNESS = 0.5;
  * light-mode variant. Deliberately high: mid-light colors like highlighter yellows and pastels are
  * chosen for a light canvas and read fine there, so only the near-white band is adapted.
  */
-const LIGHT_INK_MIN_LIGHTNESS = 0.9;
-
-/** The named colors ink brushes can carry, mapped to the hex used inside `light-dark()`. */
-const NAMED_INK_COLORS = new Map([
-    ["black", "#000000"],
-    ["white", "#ffffff"]
-]);
+const LIGHT_INK_MIN_LIGHTNESS = 90;
 
 /**
  * Enables the `light-dark()` function used by adapted strokes. The used scheme is inherited from the
@@ -94,17 +88,17 @@ function strokeWidth(brush: Brush): number {
  * dark color becomes a readable same-hue light one in dark mode instead of an invisible one.
  */
 function adaptInkColor(color: string): string | null {
-    const hex = NAMED_INK_COLORS.get(color.trim().toLowerCase()) ?? color;
-    const rgb = parseHexColor(hex);
-    if (!rgb) {
+    const literal = color.trim();
+    const parsed = parseColor(literal);
+    if (!parsed) {
         return null;
     }
-    const [hue, saturation, lightness] = rgbToHsl(rgb);
+    const lightness = parsed.lightness();
     if (lightness < DARK_INK_MAX_LIGHTNESS) {
-        return `light-dark(${hex}, ${hslToHex(hue, saturation, 1 - lightness)})`;
+        return `light-dark(${literal}, ${reflectLightness(parsed)})`;
     }
     if (lightness >= LIGHT_INK_MIN_LIGHTNESS) {
-        return `light-dark(${hslToHex(hue, saturation, 1 - lightness)}, ${hex})`;
+        return `light-dark(${reflectLightness(parsed)}, ${literal})`;
     }
     return null;
 }

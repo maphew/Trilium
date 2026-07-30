@@ -24,7 +24,7 @@
 import { sanitize, utils } from "@triliumnext/core";
 import { HTMLElement, parse } from "node-html-parser";
 
-import { hslToHex, parseHexColor, rgbToHsl } from "./color.js";
+import { parseColor, reflectLightness } from "./color.js";
 
 /**
  * The marker class the importer keys on to find OneNote file attachments (see importer.ts). The href
@@ -629,23 +629,18 @@ function columnPercentages(widths: number[]): number[] {
  * OneNote's Graph API exports table cell shading as a dark *shade* of the colour OneNote actually
  * displays: it keeps the hue and saturation but inverts the lightness (e.g. a cell shown as #b6d9a1
  * comes back as #375623). Left as-is the cell imports far too dark — commonly dark-on-dark and
- * unreadable. So for a cell whose background is dark, reflect its lightness (L → 1 − L, hue/saturation
- * untouched) to recover the displayed light tint; light backgrounds (plausible shading as-is, and the
- * form correctly-exported colours arrive in) are left alone. Runs after normalizeNamedColors, so a
- * named background has already become the hex this keys on.
+ * unreadable. So for a cell whose background is dark, reflect its lightness (L → 100 − L,
+ * hue/saturation untouched) to recover the displayed light tint; light backgrounds (plausible shading
+ * as-is, and the form correctly-exported colours arrive in) are left alone.
  */
 function correctTableShadingColors(scope: HTMLElement) {
     for (const cell of scope.querySelectorAll("td, th")) {
         const style = parseStyle(cell.getAttribute("style") ?? "");
-        const rgb = parseHexColor(style.get("background-color") ?? "");
-        if (!rgb) {
+        const background = parseColor(style.get("background-color") ?? "");
+        if (!background || background.lightness() >= 50) {
             continue;
         }
-        const [hue, saturation, lightness] = rgbToHsl(rgb);
-        if (lightness >= 0.5) {
-            continue;
-        }
-        style.set("background-color", hslToHex(hue, saturation, 1 - lightness));
+        style.set("background-color", reflectLightness(background));
         cell.setAttribute("style", serializeStyle(style));
     }
 }

@@ -1,56 +1,43 @@
 import { describe, expect, it } from "vitest";
 
-import { hslToHex, parseHexColor, rgbToHsl } from "./color.js";
+import { parseColor, reflectLightness } from "./color.js";
 
-describe("parseHexColor", () => {
-    it("parses #rrggbb and expands #rgb, tolerating case and whitespace", () => {
-        expect(parseHexColor("#1353BA")).toEqual([0x13, 0x53, 0xba]);
-        expect(parseHexColor("#333")).toEqual([0x33, 0x33, 0x33]);
-        expect(parseHexColor("  #ffffff  ")).toEqual([255, 255, 255]);
+/** reflectLightness on a raw CSS color string, for terser cases below. */
+function reflect(value: string): string | null {
+    const parsed = parseColor(value);
+    return parsed ? reflectLightness(parsed) : null;
+}
+
+describe("parseColor", () => {
+    it("parses the color forms OneNote emits: #rrggbb, #rgb, named and rgb()", () => {
+        expect(parseColor("#1353BA")?.hex()).toBe("#1353BA");
+        expect(parseColor("#333")?.hex()).toBe("#333333");
+        expect(parseColor("black")?.hex()).toBe("#000000");
+        expect(parseColor("rgb(54, 86, 35)")?.hex()).toBe("#365623");
     });
 
-    it("rejects anything that isn't a 3- or 6-digit hex color", () => {
-        for (const value of ["", "black", "333333", "#33", "#33333", "#3333333", "#33g333", "rgb(0,0,0)"]) {
-            expect(parseHexColor(value)).toBeNull();
+    it("returns null for anything that isn't a CSS color", () => {
+        for (const value of ["", "not-a-color", "#33", "#33g333", "url(x)"]) {
+            expect(parseColor(value)).toBeNull();
         }
     });
 });
 
-describe("rgbToHsl / hslToHex", () => {
+describe("reflectLightness", () => {
     it("lightness-reflects grays exactly (the near-black ink correction)", () => {
         // #333333 -> #cccccc is the OneNote near-black case; pure black reflects to pure white.
-        for (const [input, reflected] of [["#333333", "#cccccc"], ["#404040", "#bfbfbf"], ["#000000", "#ffffff"], ["#ffffff", "#000000"]]) {
-            const rgb = parseHexColor(input);
-            expect(rgb).not.toBeNull();
-            const [hue, saturation, lightness] = rgbToHsl(rgb ?? [0, 0, 0]);
-            expect(saturation).toBe(0);
-            expect(hslToHex(hue, saturation, 1 - lightness)).toBe(reflected);
-        }
+        expect(reflect("#333333")).toBe("#cccccc");
+        expect(reflect("#404040")).toBe("#bfbfbf");
+        expect(reflect("#000000")).toBe("#ffffff");
+        expect(reflect("#ffffff")).toBe("#000000");
     });
 
     it("preserves hue and saturation when reflecting chromatic colors", () => {
-        // One color per hue sector of rgbToHsl, both lightness directions for hslToHex.
-        const cases: [string, string][] = [
-            ["#800000", "#ff7f7f"], // dark red (red-dominant sector)
-            ["#008000", "#7fff7f"], // dark green (green-dominant sector)
-            ["#000080", "#7f7fff"], // navy (blue-dominant sector)
-            ["#800080", "#ff7fff"], // dark magenta (hue wraps past the top of the wheel)
-            ["#ffe6e6", "#190000"] // near-white pink -> dark red (reflected lightness below 0.5)
-        ];
-        for (const [input, reflected] of cases) {
-            const rgb = parseHexColor(input);
-            expect(rgb).not.toBeNull();
-            const [hue, saturation, lightness] = rgbToHsl(rgb ?? [0, 0, 0]);
-            expect(hslToHex(hue, saturation, 1 - lightness)).toBe(reflected);
-        }
-    });
-
-    it("round-trips a color through rgbToHsl and hslToHex unchanged", () => {
-        for (const input of ["#1353ba", "#faf320", "#c62938", "#808080", "#000000"]) {
-            const rgb = parseHexColor(input);
-            expect(rgb).not.toBeNull();
-            const [hue, saturation, lightness] = rgbToHsl(rgb ?? [0, 0, 0]);
-            expect(hslToHex(hue, saturation, lightness)).toBe(input);
-        }
+        // One color per hue region, both lightness directions.
+        expect(reflect("#800000")).toBe("#ff7f7f"); // dark red
+        expect(reflect("#008000")).toBe("#7fff7f"); // dark green
+        expect(reflect("#000080")).toBe("#7f7fff"); // navy
+        expect(reflect("#800080")).toBe("#ff7fff"); // dark magenta (hue wraps past the top of the wheel)
+        expect(reflect("#ffe6e6")).toBe("#190000"); // near-white pink -> dark red
     });
 });

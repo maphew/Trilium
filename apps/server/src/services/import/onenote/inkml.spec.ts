@@ -136,7 +136,7 @@ describe("inkmlToSvg", () => {
         expect(svg).toContain(`style="stroke:light-dark(#190000, #ffe6e6)"`);
     });
 
-    it("adapts the named colors black and white through their hex equivalents", () => {
+    it("adapts named colors, keeping the original token on the as-sent side", () => {
         const named = `<inkml:ink xmlns:inkml="http://www.w3.org/2003/InkML">
             <inkml:definitions>
                 <inkml:brush xml:id="b0"><inkml:brushProperty name="color" value="Black"/></inkml:brush>
@@ -147,7 +147,8 @@ describe("inkmlToSvg", () => {
         </inkml:ink>`;
         const svg = inkmlToSvg(named) ?? "";
 
-        expect((svg.match(/style="stroke:light-dark\(#000000, #ffffff\)"/g) ?? [])).toHaveLength(2);
+        expect(svg).toContain(`style="stroke:light-dark(Black, #ffffff)"`);
+        expect(svg).toContain(`style="stroke:light-dark(#000000, white)"`);
     });
 
     it("leaves ink readable under both themes literal and omits the adaptive style", () => {
