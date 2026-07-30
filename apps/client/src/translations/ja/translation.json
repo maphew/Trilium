@@ -3349,7 +3349,7 @@
     "current_note": "現在のノート:",
     "status_content_other": "{{count}} 件のノートが {{size}} を占めています（そのうち {{attachmentsSize}} はノートの添付ファイル）",
     "status_content_hint": "すべてのノート（非表示のものを含む）、その添付ファイル、および変更履歴が占める容量（重複するコンテンツは1回分として計算）",
-    "status_deleted_other": "削除されたノート: {{count}} 件のノート {{size}}",
+    "status_deleted": "削除されたノート: {{count}} 件のノート {{size}}",
     "status_deleted_hint": "削除されたノートが依然として容量を占有しています。それらを完全に削除することで、その容量を解放できます",
     "menu_show_details": "詳細を表示"
   }
