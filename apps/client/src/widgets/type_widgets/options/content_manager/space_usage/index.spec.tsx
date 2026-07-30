@@ -23,18 +23,22 @@ vi.mock("./use_space_usage_fetch", () => ({
 }));
 
 vi.mock("./browse", () => ({
-    default: ({ refreshToken, onLoadingChange }: {
+    default: ({ path, refreshToken, onLoadingChange }: {
+        path: string[],
         refreshToken: number,
         onLoadingChange: (loading: boolean) => void
     }) => {
         mocks.browseToken = refreshToken;
         mocks.reportBrowseLoading = onLoadingChange;
-        return <div className="browse-stub" />;
+        return <div className="browse-stub" data-path={path.join("/")} />;
     }
 }));
 
 vi.mock("./overview", () => ({
-    default: () => <div className="overview-stub" />
+    default: ({ onShowDetails }: { onShowDetails: (notePath: string[]) => void }) => (
+        // Stands in for the menu's "Show details" on one of the map's cells.
+        <div className="overview-stub" onClick={() => onShowDetails([ "root", "p1", "n1" ])} />
+    )
 }));
 
 vi.mock("../../components/OptionsPageHeader", () => ({
@@ -149,6 +153,18 @@ describe("SpaceUsage section", () => {
         expect(probe.querySelector(".overview-stub")).not.toBeNull();
         expect(probe.querySelector(".browse-stub")).toBeNull();
         expect(probe.querySelector(".space-usage-status")).not.toBeNull();
+    });
+
+    it("lands Browse on the note the map asked details for, rather than back at the root", async () => {
+        mocks.overview = OVERVIEW;
+        const probe = renderSection();
+
+        probe.querySelector(".overview-stub")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        await flushRender();
+
+        const browse = probe.querySelector<HTMLElement>(".browse-stub");
+        expect(browse).not.toBeNull();
+        expect(browse?.dataset.path).toBe("root/p1/n1");
     });
 
     it("asks both views for a fresh reading when refresh is pressed, and only then", async () => {

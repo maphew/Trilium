@@ -168,6 +168,22 @@ describe("Browse", () => {
         expect(probe.querySelector<HTMLButtonElement>(".back-stub")?.disabled).toBe(true);
     });
 
+    it("consolidates the children too small to see into one counted segment", async () => {
+        mocks.usage = {
+            ...usageOf("root", []),
+            children: [
+                { noteId: "big", subtreeSize: 100000, subtreeNoteCount: 1 },
+                { noteId: "sliver", subtreeSize: 1, subtreeNoteCount: 1 }
+            ]
+        };
+        renderBrowse();
+
+        await vi.waitFor(() => expect(donutProps().outerRings[0].segments).toHaveLength(2));
+        // The sliver is folded away rather than drawn as an invisible arc, and the bucket that
+        // replaces it stands for a crowd, so it navigates nowhere.
+        expect(donutProps().outerRings[0].segments[1]).toMatchObject({ id: "others", data: {} });
+    });
+
     it("descends into a clicked child, then navigates back via button and breadcrumb", async () => {
         mocks.usage = usageOf("root", [ "child1" ]);
         const probe = renderBrowse();

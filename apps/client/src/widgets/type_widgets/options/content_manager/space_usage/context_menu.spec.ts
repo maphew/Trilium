@@ -222,10 +222,25 @@ describe("openSpaceUsageContextMenu", () => {
         expect(itemByIcon(DELETE)).toBeUndefined();
     });
 
-    it("shows no menu at all for a note deleted since the usage was measured", async () => {
+    it("shows no menu at all for a note deleted since the usage was measured, or for no note", async () => {
         await openFor([ "root", "gone" ]);
-
         expect(mocks.shown).toBeUndefined();
+
+        // A cell that names no note at all: nothing to look up, so nothing to offer.
+        await openFor([]);
+        expect(mocks.shown).toBeUndefined();
+    });
+
+    it("deletes nothing when the branch it would remove is gone by the time the item is invoked", async () => {
+        givenNote("n1");
+        // No branch id registered: the item is offered struck through, and refuses to act even if
+        // something invokes it anyway.
+        await openFor([ "root", "p", "n1" ]);
+
+        expect(itemByIcon(DELETE)?.enabled).toBe(false);
+        invoke(DELETE);
+        expect(mocks.deleteNotes).not.toHaveBeenCalled();
+        expect(mocks.contentChanged).not.toHaveBeenCalled();
     });
 });
 

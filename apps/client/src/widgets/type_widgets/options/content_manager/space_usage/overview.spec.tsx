@@ -90,6 +90,29 @@ describe("Overview", () => {
         expect(probe.querySelector(".treemap-cell-deleted")).not.toBeNull();
     });
 
+    it("draws a cell for a note whose weight is partly attachments, beside one with none", () => {
+        container = document.body.appendChild(document.createElement("div"));
+        render(
+            <Overview
+                overview={{
+                    ...OVERVIEW,
+                    notes: [
+                        ...OVERVIEW.notes,
+                        { noteId: "n2", notePath: [ "n2" ], ownSize: 100, attachmentsSize: 120, revisionsSize: 0 }
+                    ]
+                }}
+                onShowDetails={mocks.showDetails}
+                onContentChanged={mocks.contentChanged}
+            />,
+            container
+        );
+
+        // Both are drawn the same way; only the size line beneath them differs, and it is the model's
+        // spec that pins its wording.
+        expect(container.querySelector('[data-href="#root/n1"]')).not.toBeNull();
+        expect(container.querySelector('[data-href="#root/n2"]')).not.toBeNull();
+    });
+
     it("dresses note cells in their froca icons and the buckets in what they stand for", async () => {
         const probe = renderOverview();
         const iconIn = (selector: string) =>
