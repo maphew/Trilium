@@ -790,6 +790,61 @@ describe("convertPageHtml", () => {
         expect(out).toContain(`<span class="text-big">Title</span>`);
         expect(out).toContain("<code>Code</code>");
     });
+
+    it("merges a run of all-Consolas paragraphs into a code block, keeping true inline code", () => {
+        // Mirrors a real OneNote export: an inline Consolas span, a three-line code passage, and a
+        // trailing paragraph whose Consolas paragraph mark is dead styling (every text run
+        // overrides it back to Calibri) — the latter must not become code at all.
+        const sample = `<body data-absolute-enabled="true" style="font-family:Calibri;font-size:11pt">
+            <div style="position:absolute;left:48px;top:115px;width:720px">
+                <p style="margin-top:0pt;margin-bottom:0pt">This is normal text, with <span style="font-family:Consolas">monospace text</span>.</p>
+                <br />
+                <p style="font-family:Consolas;margin-top:0pt;margin-bottom:0pt">void main() {</p>
+                <p style="font-family:Consolas;margin-top:0pt;margin-bottom:0pt">printf(&quot;Hello world.&quot;);</p>
+                <p style="font-family:Consolas;margin-top:0pt;margin-bottom:0pt">}</p>
+                <br />
+                <p style="font-family:Consolas;margin-top:0pt;margin-bottom:0pt"><span style="font-family:Calibri">Back to normal text.</span></p>
+            </div></body>`;
+        const out = converter.convertPageHtml(sample);
+
+        // The &quot; entities come out as literal quotes: decoded when the line text is extracted,
+        // and the sanitizer only re-escapes &<> in text content.
+        expect(out).toContain(`<pre><code class="language-text-x-trilium-auto">void main() {\nprintf("Hello world.");\n}</code></pre>`);
+        expect(out).toContain("<code>monospace text</code>");
+        // The dead-font paragraph stays plain text: exactly one block + one inline <code> overall.
+        expect(out).toContain("Back to normal text.");
+        expect(out.match(/<code/g) ?? []).toHaveLength(2);
+    });
+
+    it("bridges block-level <br> gaps inside a code run as blank lines, flattening formatting", () => {
+        // The bold span's formatting is dropped (code blocks are plain text), the <br> between the
+        // code lines becomes an empty line, and a paragraph that is all-Consolas only through its
+        // spans still joins the run.
+        const sample = `<body><div>
+            <p style="font-family:Consolas"><span style="font-weight:bold">let x</span> = 1;</p>
+            <br />
+            <p><span style="font-family:Consolas">return x;</span></p>
+        </div></body>`;
+        const out = converter.convertPageHtml(sample);
+
+        expect(out).toContain(`<pre><code class="language-text-x-trilium-auto">let x = 1;\n\nreturn x;</code></pre>`);
+        expect(out).not.toContain("<strong>");
+    });
+
+    it("leaves a lone all-Consolas paragraph as inline code and breaks runs on normal text", () => {
+        // A single code-styled line reads fine inline; the intervening normal paragraph keeps the
+        // two Consolas lines from merging across it.
+        const sample = `<body><div>
+            <p style="font-family:Consolas">npm install</p>
+            <p>Then run it:</p>
+            <p style="font-family:Consolas">npm start</p>
+        </div></body>`;
+        const out = converter.convertPageHtml(sample);
+
+        expect(out).not.toContain("<pre>");
+        expect(out).toContain("<code>npm install</code>");
+        expect(out).toContain("<code>npm start</code>");
+    });
 });
 
 describe("extractPageCreatedDate", () => {

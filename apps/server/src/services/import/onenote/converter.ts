@@ -22,7 +22,7 @@
  */
 
 import { sanitize, utils } from "@triliumnext/core";
-import { HTMLElement, parse } from "node-html-parser";
+import { HTMLElement, NodeType, parse } from "node-html-parser";
 
 import { parseColor, reflectLightness } from "./color.js";
 
@@ -111,6 +111,7 @@ export function convertPageHtml(rawHtml: string): string {
     convertResourceReferences(scope);
     wrapFloatingImages(scope);
     convertTags(scope);
+    convertCodeBlocks(scope);
     convertInlineFormatting(scope);
     normalizeNamedColors(scope);
     removeDefaultTextColor(scope);
@@ -353,8 +354,11 @@ function convertInlineFormatting(scope: HTMLElement) {
         if (decorations.includes("line-through")) {
             wrap("del");
         }
-        // OneNote's "Code" style is just a Consolas font; map it to an inline <code> element.
-        if ((style.get("font-family") ?? "").includes("consolas")) {
+        // OneNote's "Code" style is just a Consolas font; map it to an inline <code> element — but
+        // only when some of the element's own text actually renders in it. After leaving the code
+        // style, OneNote keeps Consolas on the paragraph mark while every text run overrides it
+        // back to the body font, and that dead paragraph-level Consolas must not become <code>.
+        if ((style.get("font-family") ?? "").includes(MONOSPACE_FONT) && hasUnoverriddenText(el)) {
             wrap("code");
         }
         // OneNote carries explicit point sizes; map them onto CKEditor's tiny/small/big/huge scale.
@@ -368,6 +372,117 @@ function convertInlineFormatting(scope: HTMLElement) {
             el.set_content(`${open.join("")}${el.innerHTML}${close.join("")}`);
         }
     }
+}
+
+/** The font-family OneNote's community "Code" style applies; its only marker for code-styled text. */
+const MONOSPACE_FONT = "consolas";
+
+/**
+ * Whether any of the element's text actually renders in the element's own font — i.e. some
+ * non-empty text node is not inside a descendant that declares a font-family of its own. A
+ * descendant that declares one either overrides the font away (its text doesn't count) or restates
+ * a monospace font (and then gets its own <code> wrap on its own visit), so either way its subtree
+ * is skipped.
+ */
+function hasUnoverriddenText(el: HTMLElement): boolean {
+    for (const child of el.childNodes) {
+        if (child instanceof HTMLElement) {
+            if (!declaredFontFamily(child) && hasUnoverriddenText(child)) {
+                return true;
+            }
+        } else if (child.nodeType === NodeType.TEXT_NODE && child.text.trim().length > 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+/**
+ * OneNote has no code-block construct: its community "Code" style is just Consolas-styled ordinary
+ * paragraphs. A run of two or more consecutive paragraphs whose entire text renders in Consolas is
+ * a code block in all but markup, so merge it into one <pre><code> (with the language-autodetect
+ * class the Markdown and ENEX importers use). Blank lines survive as OneNote's block-level <br>
+ * spacing between code paragraphs; lines are flattened to plain text, matching CKEditor's code
+ * blocks, so any inline formatting within them is dropped. A lone all-Consolas paragraph is left to
+ * convertInlineFormatting's inline <code> treatment — one line reads fine inline, and eagerly
+ * promoting every such paragraph to a block would catch code-styled asides like filenames. Runs
+ * before convertInlineFormatting so the merged lines aren't first wrapped as inline <code>.
+ */
+function convertCodeBlocks(scope: HTMLElement) {
+    const consumed = new Set<HTMLElement>();
+    for (const paragraph of scope.querySelectorAll("p")) {
+        if (consumed.has(paragraph) || !isCodeParagraph(paragraph)) {
+            continue;
+        }
+
+        // Gather the run: consecutive code paragraphs, bridging bare <br> gaps as blank lines.
+        // A trailing gap with no code paragraph after it is left in place, not consumed.
+        const members: HTMLElement[] = [paragraph];
+        const lines: string[] = [paragraph.text];
+        let paragraphCount = 1;
+        let cursor = paragraph.nextElementSibling;
+        while (cursor) {
+            const gap: HTMLElement[] = [];
+            while (cursor && cursor.tagName?.toLowerCase() === "br") {
+                gap.push(cursor);
+                cursor = cursor.nextElementSibling;
+            }
+            if (!cursor || cursor.tagName?.toLowerCase() !== "p" || !isCodeParagraph(cursor)) {
+                break;
+            }
+            members.push(...gap, cursor);
+            lines.push(...gap.map(() => ""), cursor.text);
+            paragraphCount++;
+            cursor = cursor.nextElementSibling;
+        }
+        if (paragraphCount < 2) {
+            continue;
+        }
+
+        for (const member of members) {
+            consumed.add(member);
+        }
+        const code = lines.map((line) => utils.escapeHtml(line)).join("\n");
+        paragraph.insertAdjacentHTML("beforebegin", `<pre><code class="language-text-x-trilium-auto">${code}</code></pre>`);
+        for (const member of members) {
+            member.remove();
+        }
+    }
+}
+
+/**
+ * Whether a paragraph is one line of code-styled text: every non-empty text node in it renders in
+ * Consolas — via the paragraph's own font or a wrapping span's — with descendant font-family
+ * declarations overriding the inherited state either way. A paragraph with no text at all only
+ * qualifies through its own Consolas paragraph mark (a blank line inside a code passage).
+ */
+function isCodeParagraph(paragraph: HTMLElement): boolean {
+    const base = (declaredFontFamily(paragraph) ?? "").includes(MONOSPACE_FONT);
+    if (paragraph.text.trim().length === 0) {
+        return base;
+    }
+    return allTextMonospace(paragraph, base);
+}
+
+/** Whether every non-empty text node under `el` renders in Consolas, given the inherited state. */
+function allTextMonospace(el: HTMLElement, inherited: boolean): boolean {
+    for (const child of el.childNodes) {
+        if (child instanceof HTMLElement) {
+            const family = declaredFontFamily(child);
+            const monospace = family ? family.includes(MONOSPACE_FONT) : inherited;
+            if (!allTextMonospace(child, monospace)) {
+                return false;
+            }
+        } else if (child.nodeType === NodeType.TEXT_NODE && child.text.trim().length > 0 && !inherited) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/** The element's own font-family declaration, if any. */
+function declaredFontFamily(el: HTMLElement): string | undefined {
+    return parseStyle(el.getAttribute("style") ?? "").get("font-family");
 }
 
 /**
