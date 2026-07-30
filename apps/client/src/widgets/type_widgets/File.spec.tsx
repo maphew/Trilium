@@ -14,13 +14,14 @@ vi.mock("../../services/clipboard_ext", () => ({ copyTextWithToast: vi.fn() }));
 // ActionButton drags in tooltips and command wiring that are irrelevant here.
 vi.mock("../react/ActionButton", () => ({ default: () => <button class="code-block-copy" /> }));
 
-// Only TextPreview is under test; stub the sibling previews (and the blob hook they feed on)
-// so their service imports stay out of the module graph.
+// Stub the sibling previews (and the blob hook they feed on) so their service imports stay out of
+// the module graph; the markers let FileTypeWidget's mime routing be asserted without rendering them.
 vi.mock("../react/hooks", () => ({ useNoteBlob: vi.fn(() => null) }));
-vi.mock("./file/MediaPreview", () => ({ default: () => null }));
-vi.mock("./file/Pdf", () => ({ default: () => null }));
+vi.mock("./file/MediaPreview", () => ({ default: () => <div class="media-preview-stub" /> }));
+vi.mock("./file/Pdf", () => ({ default: () => <div class="pdf-preview-stub" /> }));
 
-const { TextPreview } = await import("./File");
+const { useNoteBlob } = await import("../react/hooks");
+const { default: FileTypeWidget, TextPreview } = await import("./File");
 
 let container: HTMLDivElement;
 
@@ -36,6 +37,41 @@ afterEach(() => {
     render(null, container);
     container.remove();
     vi.clearAllMocks();
+});
+
+describe("FileTypeWidget", () => {
+    const mount = (mime: string, noteContext?: unknown) => {
+        const props = { note: { mime }, noteContext } as unknown as Parameters<typeof FileTypeWidget>[0];
+        render(<FileTypeWidget {...props} />, container);
+    };
+
+    it("previews text content through TextPreview, forwarding the note's mime to the highlighter", async () => {
+        vi.mocked(useNoteBlob).mockReturnValue({ content: "<ink/>" } as ReturnType<typeof useNoteBlob>);
+        mount("application/inkml+xml");
+
+        expect(container.querySelector("pre.file-preview-content > code")?.textContent).toBe("<ink/>");
+        // The mime reached TextPreview: the +xml suffix resolves to the base XML syntax.
+        await vi.waitFor(() => expect(applySingleBlockSyntaxHighlight).toHaveBeenCalledTimes(1));
+        expect(applySingleBlockSyntaxHighlight.mock.calls[0][1]).toBe("text-xml");
+    });
+
+    it("routes non-text blobs by mime: PDF, media, and a no-preview fallback", () => {
+        // mockReturnValue outlives clearAllMocks, so drop the previous test's text blob explicitly.
+        vi.mocked(useNoteBlob).mockReturnValue(null);
+
+        // PDF renders only when a note context is available to hand down.
+        mount("application/pdf", {});
+        expect(container.querySelector(".pdf-preview-stub")).not.toBeNull();
+
+        mount("video/mp4");
+        expect(container.querySelector(".media-preview-stub")).not.toBeNull();
+        mount("audio/mpeg");
+        expect(container.querySelector(".media-preview-stub")).not.toBeNull();
+
+        mount("application/octet-stream");
+        expect(container.querySelector(".media-preview-stub")).toBeNull();
+        expect(container.querySelector(".alert")).not.toBeNull();
+    });
 });
 
 describe("TextPreview", () => {

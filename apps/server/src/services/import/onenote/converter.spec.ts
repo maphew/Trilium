@@ -845,6 +845,36 @@ describe("convertPageHtml", () => {
         expect(out).toContain("<code>npm install</code>");
         expect(out).toContain("<code>npm start</code>");
     });
+
+    it("sees through formatting wrappers and whitespace when judging what renders in Consolas", () => {
+        // Text inside a formatting child with no font-family of its own still renders in the
+        // paragraph's Consolas, so the lone paragraph becomes inline code with the wrapper kept.
+        const wrapped = converter.convertPageHtml(
+            `<body><div><p style="font-family:Consolas"><strong>ls -la</strong></p></div></body>`
+        );
+        expect(wrapped).toContain("<code><strong>ls -la</strong></code>");
+
+        // Whitespace-only direct text is not "text rendering in Consolas": with the only real text
+        // overridden to Calibri, the paragraph is not code at all — neither block nor inline.
+        const whitespace = converter.convertPageHtml(
+            `<body><div><p style="font-family:Consolas"> <span style="font-family:Calibri">plain</span></p></div></body>`
+        );
+        expect(whitespace).toContain("plain");
+        expect(whitespace).not.toContain("<code>");
+    });
+
+    it("treats an empty Consolas paragraph inside a run as a blank code line", () => {
+        // The empty paragraph has no text to judge, so only its own Consolas paragraph mark lets it
+        // join the run — as an empty line between the two code lines.
+        const sample = `<body><div>
+            <p style="font-family:Consolas">a</p>
+            <p style="font-family:Consolas"></p>
+            <p style="font-family:Consolas">b</p>
+        </div></body>`;
+        const out = converter.convertPageHtml(sample);
+
+        expect(out).toContain(`<pre><code class="language-text-x-trilium-auto">a\n\nb</code></pre>`);
+    });
 });
 
 describe("extractPageCreatedDate", () => {

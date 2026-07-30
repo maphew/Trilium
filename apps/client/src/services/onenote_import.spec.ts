@@ -1,6 +1,17 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { buildSectionSelections, collectSectionIds, extractServerMessage, type OneNoteNotebook, orderedChildren } from "./onenote_import.js";
+vi.mock("./server.js", () => ({
+    default: {
+        // Resolves to an array: onenote_import's module graph eagerly loads services (e.g.
+        // keyboard_actions) that fetch on load and iterate the response.
+        get: vi.fn(async () => []),
+        getWithSilentUnauthorized: vi.fn(async () => ({ notebooks: [] })),
+        post: vi.fn(async () => ({}))
+    }
+}));
+
+import onenoteImport, { buildSectionSelections, collectSectionIds, extractServerMessage, type OneNoteNotebook, orderedChildren } from "./onenote_import.js";
+import server from "./server.js";
 
 const NOTEBOOKS: OneNoteNotebook[] = [
     {
@@ -59,6 +70,44 @@ describe("orderedChildren", () => {
         // sections[] is [late, early] and the group is dated between them; the group's own date (not its
         // contents') decides its slot, so the rail order is early, group, late.
         expect(describeChild(INTERLEAVE)).toEqual(["section:early", "group:grp", "section:late"]);
+    });
+
+    it("sorts a child with no creation date first (empty key), keeping the rest ordered", () => {
+        const undated: OneNoteNotebook[] = [{
+            id: "nb",
+            title: "NB",
+            sections: [
+                { id: "dated", title: "Dated", createdDateTime: "2020-01-01T00:00:00Z" },
+                { id: "undated", title: "Undated" }
+            ],
+            sectionGroups: []
+        }];
+        expect(describeChild(undated)).toEqual(["section:undated", "section:dated"]);
+    });
+});
+
+describe("service endpoints", () => {
+    it("routes each operation to its endpoint, listing notebooks without the generic 401 toast", async () => {
+        await onenoteImport.deviceLogin();
+        expect(server.post).toHaveBeenCalledWith("onenote-import/device-login");
+
+        await onenoteImport.devicePoll();
+        expect(server.post).toHaveBeenCalledWith("onenote-import/device-poll");
+
+        await onenoteImport.getStatus();
+        expect(server.get).toHaveBeenCalledWith("onenote-import/status");
+
+        await onenoteImport.disconnect();
+        expect(server.post).toHaveBeenCalledWith("onenote-import/disconnect");
+
+        // A 401 (expired connection) is shown inline by the dialog, so the silent variant is used —
+        // the plain get() would double-report through the generic error toast.
+        await onenoteImport.getNotebooks();
+        expect(server.getWithSilentUnauthorized).toHaveBeenCalledWith("onenote-import/notebooks");
+
+        const payload = { parentNoteId: "p1", sections: [], taskId: "t1" };
+        await onenoteImport.runImport(payload);
+        expect(server.post).toHaveBeenCalledWith("onenote-import/import", payload);
     });
 });
 
