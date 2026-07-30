@@ -137,6 +137,9 @@ function RevisionSettings() {
                 label={t("revisions_snapshot_limit.erase_excess_revision_snapshots")}
                 description={t("revisions_snapshot_limit.erase_excess_revision_snapshots_description")}
                 buttonText={t("revisions_snapshot_limit.erase_now_button")}
+                // A negative limit keeps every snapshot, so nothing is excess and the erasure would
+                // report success having dropped nothing. Offered again as soon as a limit is set.
+                disabled={parseInt(revisionSnapshotNumberLimit, 10) < 0}
                 onClick={async () => {
                     await server.post("revisions/erase-all-excess-revisions");
                     toast.showMessage(t("revisions_snapshot_limit.erase_excess_revision_snapshots_prompt"));

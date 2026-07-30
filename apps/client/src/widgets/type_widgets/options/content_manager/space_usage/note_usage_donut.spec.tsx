@@ -133,6 +133,27 @@ describe("NoteUsageDonut", () => {
         expect(mocks.triggerCommand).toHaveBeenCalledWith("openInPopup", { noteIdOrPath: "root/n1" });
     });
 
+    it("opens what each composition segment stands for in the quick-edit popup", () => {
+        const probe = renderDonut();
+        const click = (selector: string) => probe.querySelector(selector)
+            ?.dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
+
+        click("circle.space-usage-segment-attachment");
+        expect(mocks.triggerCommand).toHaveBeenLastCalledWith("openInPopup", {
+            noteIdOrPath: "root/n1",
+            viewScope: { viewMode: "attachments", attachmentId: "a1" }
+        });
+
+        // The body stands for the note itself, so it opens what the center title does.
+        click("circle.space-usage-segment-body");
+        expect(mocks.triggerCommand).toHaveBeenLastCalledWith("openInPopup", { noteIdOrPath: "root/n1" });
+
+        // The bucket stands for several attachments at once, so there is nothing to open.
+        mocks.triggerCommand.mockClear();
+        click("circle.space-usage-segment-others");
+        expect(mocks.triggerCommand).not.toHaveBeenCalled();
+    });
+
     it("totals each ring in the hole, with the actions above the title", () => {
         const probe = renderDonut();
         const center = probe.querySelector<HTMLElement>(".donut-chart-center");

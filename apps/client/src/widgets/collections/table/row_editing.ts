@@ -3,7 +3,7 @@ import { EventCallBackMethods, RowComponent, Tabulator } from "tabulator-tables"
 
 import { CommandListenerData } from "../../../components/app_context";
 import FNote from "../../../entities/fnote";
-import { setAttribute, setLabel, setLabelValues } from "../../../services/attributes";
+import { setAttribute, setLabel, setLabelValues, setRelationValues } from "../../../services/attributes";
 import branches from "../../../services/branches";
 import froca from "../../../services/froca";
 import note_create, { CreateNoteOpts } from "../../../services/note_create";
@@ -68,7 +68,13 @@ export default function useRowTableEditing(api: RefObject<Tabulator>, attributeD
                 } else if (type === "relations") {
                     const note = await froca.getNote(noteId);
                     if (note) {
-                        setAttribute(note, "relation", name, newValue);
+                        // A set of targets is written as the several relations it is, as a set of
+                        // label values is.
+                        if (Array.isArray(newValue)) {
+                            await setRelationValues(note, name, newValue as string[]);
+                        } else {
+                            setAttribute(note, "relation", name, newValue);
+                        }
                     }
                 }
             }

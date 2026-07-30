@@ -11,7 +11,7 @@ import { t } from "../../../../../services/i18n";
 import { formatSize } from "../../../../../services/utils";
 import DonutChart, { type DonutRing } from "../../../../react/charts/DonutChart";
 import { useStaticTooltip } from "../../../../react/hooks";
-import { quickEditNote } from "./context_menu";
+import { quickEditAttachment, quickEditNote } from "./context_menu";
 import {
     buildCompositionSegments,
     noteWeight,
@@ -63,8 +63,18 @@ export default function NoteUsageDonut({ usage, title, notePath, outerRings = []
             makeTooltip: segmentTooltip,
             makeOthersTooltip: (count, size) =>
                 t("space_usage.others_attachments", { count, size: formatSize(size) })
-        })
-    }), [ usage ]);
+        }),
+        // Every segment here stands for something the popup can show: the body is the note itself,
+        // each other segment one of its attachments. The consolidated "Others" bucket stands for
+        // several at once, so it opens nothing.
+        onSegmentClick: (segment) => {
+            if (segment.data?.attachmentId) {
+                quickEditAttachment(notePath, segment.data.attachmentId);
+            } else if (segment.data?.noteId) {
+                quickEditNote(notePath);
+            }
+        }
+    }), [ usage, notePath ]);
 
 
     return (

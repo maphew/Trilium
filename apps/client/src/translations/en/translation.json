@@ -552,7 +552,8 @@
     "select_type": "Select",
     "select_options": "Options",
     "select_options_title": "The options the field offers, in this order.",
-    "add_option": "Add option",
+    "select_options_placeholder": "Type an option and press Enter",
+    "add_option": "Add this option",
     "remove_option": "Remove this option",
     "precision_title": "Max number of decimal places.",
     "precision": "Precision",
@@ -816,11 +817,17 @@
     "delete_confirm": "Delete the attribute \"{{name}}\"?",
     "add_definition": "Add a new definition",
     "no_target": "No target note",
-    "inverse_of": "inverse of {{name}}",
+    "no_value": "No value",
+    "change_target": "Change the target note",
+    "inverse_hint": "Inverse of \"{{name}}\": the target note is automatically given a \"{{name}}\" relation pointing back",
     "type_label": "Label",
     "type_relation": "Relation",
     "type_label_definition": "Label definition",
-    "type_relation_definition": "Relation definition"
+    "type_relation_definition": "Relation definition",
+    "system_hint": "System: this name has a built-in meaning",
+    "add_attribute": "Add attribute",
+    "creation_kind_label": "Label: press here, or type ~, to make it a relation",
+    "creation_kind_relation": "Relation: press here, or type #, to make it a label"
   },
   "attribute_names": {
     "system": "System",
@@ -1341,7 +1348,8 @@
     "remove_color": "Remove the color label",
     "remove_value": "Remove this value",
     "select_values_placeholder": "Select an option or create one",
-    "values_placeholder": "Type a value and press Enter"
+    "values_placeholder": "Type a value and press Enter",
+    "add_value": "Add this value"
   },
   "script_executor": {
     "query": "Query",
@@ -2847,6 +2855,9 @@
     "hidden_notes_other": "{{count}} hidden notes",
     "deleted_notes_one": "1 deleted note",
     "deleted_notes_other": "{{count}} deleted notes",
+    "deleted_attachments_one": "1 deleted attachment",
+    "deleted_attachments_other": "{{count}} deleted attachments",
+    "deleted_entities": "{{notes}}, {{attachments}}",
     "note_body": "Note content",
     "revisions": "Revisions",
     "others_notes_one": "{{count}} more note ({{size}})",
@@ -2871,10 +2882,12 @@
     "status_content_one": "1 note occupying {{size}} (of which {{attachmentsSize}} are note attachments)",
     "status_content_other": "{{count}} notes occupying {{size}} (of which {{attachmentsSize}} are note attachments)",
     "status_content_hint": "Space held by all notes (hidden ones included), their attachments and their revisions, with duplicated content counted once",
-    "status_deleted_one": "Deleted notes: {{size}} in {{count}} note",
-    "status_deleted_other": "Deleted notes: {{size}} in {{count}} notes",
-    "status_deleted_hint": "Space still held by deleted notes; erasing them reclaims it",
-    "menu_show_details": "Show details"
+    "status_deleted": "{{size}} in deleted notes and attachments",
+    "status_deleted_hint": "Space still held by deleted notes and by deleted attachments (whose note may still exist); erasing them reclaims it",
+    "menu_show_details": "Show details",
+    "menu_erase_deleted": "Erase deleted data",
+    "erase_deleted_message": "Deleted data has been erased.",
+    "revisions_limit_required": "Excess snapshots can only be erased once a maximum number of revision snapshots per note is set. Without a limit, no snapshot counts as excess. Do you want to set the limit now?"
   },
   "note_language": {
     "not_set": "No language set",
@@ -3107,7 +3120,8 @@
     "set-custom-color": "Set custom note color"
   },
   "popup-editor": {
-    "maximize": "Switch to full editor"
+    "maximize": "Switch to full editor",
+    "attachment_title": "Attachment: {{title}}"
   },
   "server": {
     "unknown_http_error_title": "Communication error with the server",

@@ -19,6 +19,7 @@ import NoteTitleWidget from "../note_title";
 import NoteDetail from "../NoteDetail";
 import PromotedAttributes from "../PromotedAttributes";
 import { useContainedLinkNavigation, useNoteContext, useNoteLabel, useTriliumEvent } from "../react/hooks";
+import Icon from "../react/Icon";
 import Modal from "../react/Modal";
 import { NoteContextContext, ParentComponent } from "../react/react_utils";
 import ReadOnlyNoteInfoBar from "../ReadOnlyNoteInfoBar";
@@ -32,7 +33,7 @@ export default function PopupEditor() {
     const [ shown, setShown ] = useState(false);
     const [ stacked, setStacked ] = useState(false);
     const parentComponent = useContext(ParentComponent);
-    const [ noteContext, setNoteContext ] = useState(new NoteContext("_popup-editor"));
+    const [ noteContext, setNoteContext ] = useState(() => new NoteContext("_popup-editor"));
     const modalRef = useRef<HTMLDivElement>(null);
     const isMobile = utils.isMobile();
     const items = useMemo(() => {
@@ -40,7 +41,7 @@ export default function PopupEditor() {
         return baseItems.filter(item => !POPUP_HIDDEN_FLOATING_BUTTONS.includes(item));
     }, [ isMobile ]);
 
-    useTriliumEvent("openInPopup", async ({ noteIdOrPath }) => {
+    useTriliumEvent("openInPopup", async ({ noteIdOrPath, viewScope }) => {
         const noteId = tree.getNoteIdAndParentIdFromUrl(noteIdOrPath);
         if (!noteId.noteId) return;
         const note = await froca.getNote(noteId.noteId);
@@ -59,7 +60,9 @@ export default function PopupEditor() {
         await noteContext.setNote(noteIdOrPath, {
             viewScope: {
                 // Override auto-readonly notes to be editable, but respect user's choice to have a read-only note.
-                readOnlyTemporarilyDisabled: !hasUserSetNoteReadOnly
+                readOnlyTemporarilyDisabled: !hasUserSetNoteReadOnly,
+                // A view scope from the caller (e.g. an attachment link) decides what is actually displayed.
+                ...viewScope
             },
             keepActiveDialog: true
         });
@@ -110,8 +113,13 @@ export default function PopupEditor() {
                         title: t("popup-editor.maximize"),
                         onClick: async () => {
                             if (!noteContext.noteId) return;
-                            const { noteId, hoistedNoteId } = noteContext;
-                            await appContext.tabManager.openInNewTab(noteId, hoistedNoteId, true);
+                            const { noteId, hoistedNoteId, viewScope } = noteContext;
+                            if (viewScope?.attachmentId) {
+                                // Keep showing the attachment rather than falling back to its owning note.
+                                await appContext.tabManager.openContextWithNote(noteId, { hoistedNoteId, viewScope, activate: true });
+                            } else {
+                                await appContext.tabManager.openInNewTab(noteId, hoistedNoteId, true);
+                            }
                             setShown(false);
                         }
                     }]}
@@ -153,11 +161,44 @@ export function DialogWrapper({ children }: { children: ComponentChildren }) {
 }
 
 export function TitleRow() {
+    const { viewScope } = useNoteContext();
+
+    if (viewScope?.attachmentId) {
+        return <AttachmentTitleRow attachmentId={viewScope.attachmentId} />;
+    }
+
     return (
         <div className="title-row">
             <NoteIcon />
             <NoteTitleWidget />
             {isNewLayout && <NoteBadges />}
+        </div>
+    );
+}
+
+/**
+ * The header shown when the popup displays an attachment instead of a note. Attachments are not
+ * editable in place, so the title is plain read-only text, prefixed to make clear that what is
+ * displayed is an attachment of the note and not the note itself.
+ */
+function AttachmentTitleRow({ attachmentId }: { attachmentId: string }) {
+    const [ title, setTitle ] = useState<string>();
+
+    function refresh() {
+        froca.getAttachment(attachmentId).then(attachment => setTitle(attachment?.title));
+    }
+
+    useEffect(refresh, [ attachmentId ]);
+    useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
+        if (loadResults.getAttachmentRows().some(row => row.attachmentId === attachmentId)) {
+            refresh();
+        }
+    });
+
+    return (
+        <div className="title-row attachment-title-row">
+            <Icon icon="bx bx-paperclip" />
+            <span className="attachment-title">{t("popup-editor.attachment_title", { title })}</span>
         </div>
     );
 }

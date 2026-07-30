@@ -7,10 +7,13 @@ import { formatSize } from "../../../../../services/utils";
 import Treemap, { type TreemapItem } from "../../../../react/charts/Treemap";
 import {
     type ContentChangedHandler,
+    openDeletedNotesContextMenu,
+    openRevisionsContextMenu,
     openSpaceUsageContextMenu,
     quickEditNote,
     type ShowDetailsHandler
 } from "./context_menu";
+import { deletedEntitiesLabel } from "./labels";
 import { bucketWeight, buildOverviewModel, type OverviewCell } from "./overview_model";
 
 /**
@@ -46,10 +49,7 @@ export default function Overview({ overview, onShowDetails, onContentChanged }: 
         // Not a crowd of notes but a tier of content, so it names itself rather than a count — and
         // the figure is the deduplicated one the status line quotes, which is what its cell draws.
         revisionsLabel: withSize(t("space_usage.revisions"), overview.content.revisionsSize),
-        deletedNotesLabel: withSize(
-            t("space_usage.deleted_notes", { count: overview.deletedNotes.noteCount }),
-            overview.deletedNotes.size
-        ),
+        deletedNotesLabel: withSize(deletedEntitiesLabel(overview.deletedNotes), overview.deletedNotes.size),
         includeRevisions: INCLUDE_REVISIONS,
         getIcon: (noteId) => icons.get(noteId),
         // A cell's area covers the note's body and its attachments together; where attachments are
@@ -67,8 +67,22 @@ export default function Overview({ overview, onShowDetails, onContentChanged }: 
             <Treemap<OverviewCell>
                 root={model}
                 onItemClick={(item) => withCellPath(item, quickEditNote)}
-                onItemContextMenu={(item, event) => withCellPath(item, (notePath) =>
-                    void openSpaceUsageContextMenu(event, notePath, onShowDetails, onContentChanged))}
+                onItemContextMenu={(item, event) => {
+                    // The buckets name no note, so those with something to offer answer with what
+                    // can be done to the crowd they stand for rather than with the note menu.
+                    if (item.data?.bucket === "deleted") {
+                        void openDeletedNotesContextMenu(event, onContentChanged);
+                        return;
+                    }
+
+                    if (item.data?.bucket === "revisions") {
+                        void openRevisionsContextMenu(event, onContentChanged);
+                        return;
+                    }
+
+                    withCellPath(item, (notePath) =>
+                        void openSpaceUsageContextMenu(event, notePath, onShowDetails, onContentChanged));
+                }}
             />
         </div>
     );

@@ -118,7 +118,19 @@ function removeOwnedRelationByName(note: FNote, relationName: string) {
  * the note it is written on.
  */
 export async function setLabelValues(note: FNote, name: string, values: string[], componentId?: string) {
-    const existing = note.getOwnedLabels(name);
+    await setAttributeValues(note, "label", name, values, componentId);
+}
+
+/**
+ * Sets the relations of one name on a note to exactly `values` — the targets' noteIds — as
+ * {@link setLabelValues} sets a set of labels.
+ */
+export async function setRelationValues(note: FNote, name: string, values: string[], componentId?: string) {
+    await setAttributeValues(note, "relation", name, values, componentId);
+}
+
+async function setAttributeValues(note: FNote, type: "label" | "relation", name: string, values: string[], componentId?: string) {
+    const existing = type === "label" ? note.getOwnedLabels(name) : note.getOwnedRelations(name);
 
     for (const [ index, value ] of values.entries()) {
         const attributeId = existing[index]?.attributeId;
@@ -127,7 +139,7 @@ export async function setLabelValues(note: FNote, name: string, values: string[]
         }
         await server.put(
             `notes/${note.noteId}/attribute`,
-            { attributeId, type: "label", name, value },
+            { attributeId, type, name, value },
             componentId
         );
     }
@@ -322,6 +334,7 @@ export default {
     setRelation,
     setAttribute,
     setLabelValues,
+    setRelationValues,
     addSelectOption,
     setBooleanWithInheritance,
     removeAttributeById,

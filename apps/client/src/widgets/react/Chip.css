@@ -21,7 +21,11 @@
         outline: 2px solid var(--input-focus-outline-color);
     }
 
-    > input.form-control {
+    /* Also reaching a box one step down: some boxes come wrapped in a group of their own — the note
+       autocomplete brings one — and left there the box would keep its frame, drawing a second border
+       just within the field's. */
+    > input.form-control,
+    > .input-group > input.form-control {
         flex: 1;
         min-width: 6ch;
         width: auto;
@@ -36,11 +40,37 @@
         }
     }
 
-    /* A chip standing for a value holds text rather than a box to type in, so it needs none of the
-       field styling the chip leaves to its contents — only room for the word itself. */
-    > .tn-chip > span {
-        padding-block: 2px;
-        white-space: nowrap;
+    /* The group is only the box's wrapping, so it takes the room the box would and adds nothing of
+       its own to the eye — in any state: a group is elsewhere a field in its own right, wearing a
+       focus ring and a ground of its own, which here would draw a second frame just within the
+       field's whenever the box in it is hovered or focused. */
+    > .input-group {
+        flex: 1;
+        border: none;
+
+        &,
+        &:hover,
+        &:focus-within {
+            outline: none;
+            background: transparent;
+        }
+    }
+
+    /* Never wider than the field it lies in: a value long enough to outgrow the line — a note's
+       full title — is clipped to an ellipsis rather than carrying the chip past the field's edge.
+       The remove button keeps its place either way, having already refused to shrink. */
+    > .tn-chip {
+        max-width: 100%;
+
+        /* A chip standing for a value holds text rather than a box to type in, so it needs none of
+           the field styling the chip leaves to its contents — only room for the word itself. */
+        > span {
+            padding-block: 2px;
+            white-space: nowrap;
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
     }
 }
 

@@ -591,7 +591,16 @@ function collectDeletedNotes(): SpaceUsageDeletedNotes {
             SELECT COUNT(*)
             FROM notes
             JOIN blob_usage ON blob_usage.blobId = notes.blobId
-            WHERE notes.isDeleted = 1`)
+            WHERE notes.isDeleted = 1`),
+        // Counted beside the notes because most of the reported space is usually theirs: an
+        // attachment is deleted on its own whenever one is replaced (a canvas re-render, a
+        // re-uploaded image), which leaves content awaiting erasure without a single note being
+        // deleted. Reported as "in 0 notes", that space looked like it came from nowhere.
+        attachmentCount: sql.getValue<number>(`
+            SELECT COUNT(*)
+            FROM attachments
+            JOIN blob_usage ON blob_usage.blobId = attachments.blobId
+            WHERE attachments.isDeleted = 1`)
     };
 }
 

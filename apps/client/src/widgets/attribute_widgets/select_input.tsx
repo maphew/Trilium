@@ -128,6 +128,10 @@ interface SelectValuesInputProps {
      * a chip reads as the option it stands for, which is what a list of options names it.
      */
     renderValue?(value: string): ComponentChildren;
+    /** Set onto the box, so that a host's own label points at the field. */
+    inputId?: string;
+    /** Set onto the box, for a host placing its fields in a tab order of its own. */
+    tabIndex?: number;
     placeholder?: string;
     disabled?: boolean;
 }
@@ -140,7 +144,7 @@ interface SelectValuesInputProps {
  * is ever kept: an entry has to be picked, and what is left behind is dropped when the field is. The
  * list stays open across picks, since taking one value is rarely the end of it.
  */
-export function SelectValuesInput({ options, values, onCommit, onCreateOption, renderValue, placeholder, disabled }: SelectValuesInputProps) {
+export function SelectValuesInput({ options, values, onCommit, onCreateOption, renderValue, inputId, tabIndex, placeholder, disabled }: SelectValuesInputProps) {
     const [ filter, setFilter ] = useState("");
 
     // Taken values leave the list: what is held is shown as a chip, so offering it again would only
@@ -171,6 +175,8 @@ export function SelectValuesInput({ options, values, onCommit, onCreateOption, r
 
     return (
         <FormAutocomplete
+            id={inputId}
+            tabIndex={tabIndex}
             className="select-values-input"
             currentValue={filter}
             placeholder={values.length ? undefined : placeholder}

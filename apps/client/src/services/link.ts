@@ -348,7 +348,7 @@ export function goToLinkExt(evt: MouseEvent | JQuery.ClickEvent | JQuery.MouseDo
 
     if (notePath) {
         if (isLeftClick && openInPopup) {
-            appContext.triggerCommand("openInPopup", { noteIdOrPath: notePath });
+            appContext.triggerCommand("openInPopup", { noteIdOrPath: notePath, viewScope });
         } else if (openInNewWindow) {
             appContext.triggerCommand("openInWindow", { notePath, viewScope });
         } else if (openInNewTab) {
@@ -426,7 +426,7 @@ function linkContextMenu(e: PointerEvent) {
     }
 
     if (utils.isCtrlKey(e) && e.button === 2) {
-        appContext.triggerCommand("openInPopup", { noteIdOrPath: notePath });
+        appContext.triggerCommand("openInPopup", { noteIdOrPath: notePath, viewScope });
         e.preventDefault();
         return;
     }
