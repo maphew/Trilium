@@ -104,6 +104,9 @@
     overflow: hidden;
     text-overflow: ellipsis;
     color: var(--muted-text-color);
+    /* A step below the name it follows: the value is the preview, not the point, and drawn smaller
+       it fits more of itself into the room the row spares it. */
+    font-size: 0.85em;
 }
 
 .attribute-list-panel .attribute-value.empty {
@@ -134,11 +137,10 @@
     width: fit-content;
 }
 
-/* The settings of a definition, which are a summary and not a value: quieter than one, and never the
-   reason the row is as wide as it is. Lowercased, the settings being sentence-cased words of Trilium's
-   own read as a list where they read as a sentence otherwise. */
+/* The settings of a definition, which are a summary and not a value — worn at the size every value
+   preview now shares. Lowercased, the settings being sentence-cased words of Trilium's own read as a
+   list where they read as a sentence otherwise. */
 .attribute-list-panel .attribute-value.definition {
-    font-size: 0.85em;
     text-transform: lowercase;
 }
 
