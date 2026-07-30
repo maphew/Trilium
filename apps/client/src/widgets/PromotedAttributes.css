@@ -70,16 +70,12 @@ body.experimental-feature-new-layout .promoted-attributes-container {
  * A label holding several values: one field carrying the whole set as chips, where the other kinds
  * carry a single box. Laid out as the group around a single field is — the same gap after the name,
  * the same height to sit against — so a note mixing the two reads as one grid rather than two.
- *
- * It is given room to grow across as well: chips take the width of the words on them, and a field
- * clamped to a box's width would wrap after the first of them.
  */
 .promoted-attribute-cell > .promoted-attribute-values {
     display: flex;
     flex: 1;
     align-items: center;
     min-height: 40px;
-    min-width: 250px;
     margin-inline-start: 10px;
     padding: 1px 0;
 

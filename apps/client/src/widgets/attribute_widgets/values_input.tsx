@@ -113,10 +113,10 @@ export default function ValuesInput({ labelType, values, onCommit, renderValue, 
     }
 
     return (
-        // A widget of the browser's own asks for the width of a calendar or a clock, which leaves a
-        // chip beside it too little to be read — so where the field is one of those, the chips stack
-        // above it instead of sharing its line.
-        <div className={clsx("tn-field values-input", PICKED_TYPES.has(labelType) && "stacked")}>
+        // Values and the box they are entered in share the one wrapping line, however they are
+        // entered. Where a widget of the browser's own is what enters them, the box leads rather than
+        // follows — see below.
+        <div className={clsx("tn-field values-input", PICKED_TYPES.has(labelType) && "entry-leads")}>
             {values.map((value) => (
                 <Chip
                     key={value}
@@ -127,14 +127,14 @@ export default function ValuesInput({ labelType, values, onCommit, renderValue, 
                     <span>{renderValue ? renderValue(value) : value}</span>
                 </Chip>
             ))}
-            {/* The box and the button that asks for what it holds are one thing on the page, so where
-                the values are stacked they are wrapped as one — the alternative, laying the button
-                over the field, puts it on whatever the widget's own width happens to reach.
+            {/* The box and the button that asks for what it holds are one thing on the page, so they
+                are wrapped as one: whatever wraps or is ordered, they go together, and the button
+                never ends up on a line without the box it belongs to.
 
                 Keyed, as the chips before them are: a field of keyed and unkeyed siblings together is
                 matched up by position as it grows, so taking a second value would rebuild the box
                 rather than keep it — losing the focus in it, and with it the widget it had open. */}
-            <Entry stacked={PICKED_TYPES.has(labelType)}>
+            <Entry grouped={PICKED_TYPES.has(labelType)}>
             {isColor ? (
                 <input
                     key="field"
@@ -191,10 +191,9 @@ export default function ValuesInput({ labelType, values, onCommit, renderValue, 
 const PICKED_TYPES = new Set<LabelType>([ "color", "date", "datetime", "time" ]);
 
 /**
- * The box and the button beside it, held together where the values above them are stacked a line
- * each — a column would otherwise put the button on a line of its own. Where they share the line with
- * the values there is nothing to hold: they are already side by side.
+ * The box and the button beside it, held together as the one thing they are, so that the pair moves
+ * and wraps as a pair. Where there is no button there is nothing to hold: the box is the whole of it.
  */
-function Entry({ stacked, children }: { stacked: boolean; children: ComponentChildren }) {
-    return stacked ? <div className="values-input-entry">{children}</div> : <>{children}</>;
+function Entry({ grouped, children }: { grouped: boolean; children: ComponentChildren }) {
+    return grouped ? <div className="values-input-entry">{children}</div> : <>{children}</>;
 }
