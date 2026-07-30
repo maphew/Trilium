@@ -51,7 +51,10 @@ function vacuumDatabase() {
  * until a vacuum returns it.
  */
 function getCompactionEstimate() {
-    return { reclaimableBytes: reclaimableBytes() } satisfies CompactionEstimateResponse;
+    return {
+        reclaimableBytes: reclaimableBytes(),
+        databaseBytes: databaseBytes()
+    } satisfies CompactionEstimateResponse;
 }
 
 /**

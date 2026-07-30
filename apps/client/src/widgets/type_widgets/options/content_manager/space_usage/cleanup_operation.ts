@@ -211,14 +211,15 @@ export async function runCleanup(
 }
 
 /**
- * Bytes a rebuild would return: the pages already free inside the file, which erasing content puts
- * there and only a rebuild takes back. Disjoint from the content figures — those weigh live content
- * that is *about* to be freed, this weighs what already has been.
+ * What a rebuild would return, and what the database occupies now.
+ *
+ * The first is the pages already free inside the file, which erasing content puts there and only a
+ * rebuild takes back — disjoint from the content figures, since those weigh live content that is
+ * *about* to be freed and this weighs what already has been. The second is what the operation wants
+ * as headroom while it runs, a rebuild being a fresh copy written before the original is replaced.
  */
-export async function measureCompactionEstimate(): Promise<number> {
-    const { reclaimableBytes } = await server.get<CompactionEstimateResponse>("database/compaction-estimate");
-
-    return reclaimableBytes;
+export async function measureCompactionEstimate(): Promise<CompactionEstimateResponse> {
+    return await server.get<CompactionEstimateResponse>("database/compaction-estimate");
 }
 
 /**

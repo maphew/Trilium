@@ -153,6 +153,17 @@
         color: var(--muted-text-color);
     }
 
+    /* Prose rather than a row of controls, so none of the item layout applies to it.
+       A fit-content dialog takes its width from the longest unbroken line in it, and this sentence
+       would otherwise be that line. Containment says the part that is actually true — this row's
+       width does not depend on what is written in it — so the dialog is sized by the rows that
+       should size it, and the sentence wraps to whatever width that leaves. The row still stretches
+       to the card, and still grows downwards for as many lines as it takes. */
+    .cleanup-compact-notice {
+        contain: inline-size;
+        font-size: 0.85em;
+    }
+
     .cleanup-item-number {
         flex: 0 0 auto;
         width: 5em;

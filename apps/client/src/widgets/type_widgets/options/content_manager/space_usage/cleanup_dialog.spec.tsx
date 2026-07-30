@@ -8,7 +8,7 @@ import { formatSize } from "../../../../../services/utils";
 
 // Hoisted with the mocks that read them: a `vi.mock` factory runs before any plain module constant.
 const {
-    REVISIONS_ALL, REVISIONS_TRIMMED, DELETED, UNUSED, FREE_PAGES,
+    REVISIONS_ALL, REVISIONS_TRIMMED, DELETED, UNUSED, FREE_PAGES, DATABASE_BYTES,
     VACUUM_BEFORE, VACUUM_AFTER, MEASURED_BEFORE, MEASURED_AFTER
 } = vi.hoisted(() => ({
     REVISIONS_ALL: 900,
@@ -17,6 +17,8 @@ const {
     UNUSED: 20,
     /** Pages already free in the file, which only a rebuild returns. */
     FREE_PAGES: 640,
+    /** What the file occupies now — the headroom a rebuild wants, quoted in the confirmation. */
+    DATABASE_BYTES: 52000,
     /** What the rebuild reports for itself, which is the figure a compacting run goes by. */
     VACUUM_BEFORE: 8000,
     VACUUM_AFTER: 3000,
@@ -59,7 +61,7 @@ vi.mock("../../../../../services/server", () => {
         mocks.get(url);
 
         if (url === "database/compaction-estimate") {
-            return Promise.resolve({ reclaimableBytes: FREE_PAGES });
+            return Promise.resolve({ reclaimableBytes: FREE_PAGES, databaseBytes: DATABASE_BYTES });
         }
 
         if (!url.startsWith("space-usage/")) {
@@ -261,6 +263,17 @@ describe("showCleanupDialog", () => {
         expect(document.body.querySelector(".cleanup-segment-compactDatabase")).not.toBeNull();
     });
 
+    it("says what compacting costs beneath its switch, once it is switched on", async () => {
+        await openDialog();
+
+        // Unpicked, the cost is beside the point, exactly as the revision qualifiers are.
+        expect(document.body.querySelector(".cleanup-compact-notice")).toBeNull();
+
+        await toggle(document.body.querySelector<HTMLElement>(".cleanup-item-compact") ?? undefined);
+        expect(document.body.querySelector(".cleanup-compact-notice")?.textContent)
+            .toBe(t("space_usage.cleanup_compact_notice") ?? "");
+    });
+
     it("counts a rebuild into the whole, and into the offer once it is picked", async () => {
         await openDialog();
 
@@ -340,6 +353,12 @@ describe("showCleanupDialog", () => {
         const warned = await confirmationHtml();
         expect(warned).toContain("admonition");
         expect(warned).toContain("warning");
+
+        // The headroom quoted is twice the database, which is SQLite's own ceiling for a rebuild.
+        // Read off the element rather than the rendered text: the wording is interpolated inside
+        // t(), which the test i18n answers with nothing at all.
+        const [ message ] = mocks.confirm.mock.calls.at(-1) ?? [];
+        expect((message as VNode<{ headroomBytes: number }>)?.props.headroomBytes).toBe(DATABASE_BYTES * 2);
     });
 
     it("erases nothing when the confirmation is declined, and stays open to be reconsidered", async () => {

@@ -124,6 +124,11 @@ export interface CompactionEstimateResponse {
      * a promise: a rebuild also recovers the slack left inside pages still in use.
      */
     reclaimableBytes: number;
+    /**
+     * What the database occupies now, free pages included. Rebuilding writes a fresh copy of it
+     * before replacing the original, so this is also the headroom the operation wants while it runs.
+     */
+    databaseBytes: number;
 }
 
 export interface DatabaseAnonymizeResponse {

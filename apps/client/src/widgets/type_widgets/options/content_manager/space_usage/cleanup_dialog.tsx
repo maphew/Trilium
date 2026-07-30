@@ -1,6 +1,6 @@
 import "./cleanup_dialog.css";
 
-import type { SpaceUsageNoteResponse } from "@triliumnext/commons";
+import type { CompactionEstimateResponse, SpaceUsageNoteResponse } from "@triliumnext/commons";
 import clsx from "clsx";
 import { render } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
@@ -81,16 +81,16 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
     const trimmed = useSpaceUsageFetch<SpaceUsageNoteResponse>(
         `${ROOT_USAGE_URL}?snapshotsToKeep=${settledSnapshotsToKeep}&keepNamedSnapshots=${options.keepNamedSnapshots}`);
 
-    // What a rebuild would return, read once on open: only erasures move it, and none run while the
-    // dialog is up. Absent in the build that cannot rebuild at all.
-    const [ compaction, setCompaction ] = useState(0);
+    // What a rebuild would return, and what the file occupies now — read once on open: only erasures
+    // move either, and none run while the dialog is up. Absent in the build that cannot rebuild.
+    const [ compaction, setCompaction ] = useState(NO_COMPACTION);
     useEffect(() => {
         if (!isStandalone) {
-            void measureCompactionEstimate().then(setCompaction).catch(() => setCompaction(0));
+            void measureCompactionEstimate().then(setCompaction).catch(() => setCompaction(NO_COMPACTION));
         }
     }, []);
 
-    const sizes = computeCleanupSizes(everything.data, trimmed.data, options, compaction);
+    const sizes = computeCleanupSizes(everything.data, trimmed.data, options, compaction.reclaimableBytes);
     const measuring = everything.loading || trimmed.loading;
     // Nothing picked, or nothing to gain from what is: either way the run would be a no-op, and a
     // button that erases without recourse must not be offered for one.
@@ -131,7 +131,14 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
     const pending = useRef<{ options: CleanupToolOptions, reclaimed: number } | null>(null);
 
     async function confirmAndClose() {
-        if (!await dialogService.confirm(<CleanupConfirmation compacting={options.compactDatabase} />)) {
+        const confirmation = (
+            <CleanupConfirmation
+                compacting={options.compactDatabase}
+                headroomBytes={compaction.databaseBytes * VACUUM_HEADROOM_FACTOR}
+            />
+        );
+
+        if (!await dialogService.confirm(confirmation)) {
             return;
         }
 
@@ -240,7 +247,17 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
                     Absent where the endpoint is: vacuuming lives in the server build, not in the
                     one that runs the database in-process. */}
                 {!isStandalone && (
-                    <CardSection className="cleanup-item cleanup-item-compact">
+                    <CardSection
+                        className="cleanup-item cleanup-item-compact"
+                        // Said here as well as in the confirmation: this is where the choice is
+                        // actually made, and the cost belongs beside the switch that incurs it.
+                        subSectionsVisible={options.compactDatabase}
+                        subSections={[
+                            <CardSection key="compact-notice" className="cleanup-compact-notice">
+                                {t("space_usage.cleanup_compact_notice")}
+                            </CardSection>
+                        ]}
+                    >
                         <span className="cleanup-item-swatch" aria-hidden="true" />
                         <span className="cleanup-item-title">{t("space_usage.cleanup_compact_database")}</span>
                         <span className="cleanup-item-size">{formatSize(sizes.compaction)}</span>
@@ -260,7 +277,7 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
  * qualifies rather than repeats — what compacting costs, when it is being asked for, and the one
  * reassurance worth giving about an operation whose first sentence is that it deletes.
  */
-function CleanupConfirmation({ compacting }: { compacting: boolean }) {
+function CleanupConfirmation({ compacting, headroomBytes }: { compacting: boolean, headroomBytes: number }) {
     return (
         <>
             <p>{t("space_usage.cleanup_confirm")}</p>
@@ -271,7 +288,9 @@ function CleanupConfirmation({ compacting }: { compacting: boolean }) {
                     icon="bx bx-time-five"
                     title={t("space_usage.cleanup_confirm_compacting_title")}
                 >
-                    {t("space_usage.cleanup_confirm_compacting")}
+                    {/* The headroom is the database's own size: a rebuild writes a fresh copy of it
+                        before the original is replaced, so that much has to be free meanwhile. */}
+                    {t("space_usage.cleanup_confirm_compacting", { space: formatSize(headroomBytes) })}
                 </ExtendedAdmonition>
             )}
 
@@ -285,6 +304,18 @@ function CleanupConfirmation({ compacting }: { compacting: boolean }) {
 
 /** Both figures come from the root, whose subtree is the whole visible database. */
 const ROOT_USAGE_URL = "space-usage/note/root";
+
+/** Stands in until the reading lands, and where there is no rebuilding to be had at all. */
+const NO_COMPACTION: CompactionEstimateResponse = { reclaimableBytes: 0, databaseBytes: 0 };
+
+/**
+ * How much room a rebuild wants beside the database, as a multiple of it. SQLite's own guidance for
+ * VACUUM is "as much as twice the size of the original database file … in free disk space": it writes
+ * a fresh copy while the original is still there, and in WAL mode the copy-back goes through a log
+ * that grows to match. Quoted as a ceiling on purpose — a disk filling up mid-rebuild is a far worse
+ * outcome than a warning that asked for more than it took.
+ */
+const VACUUM_HEADROOM_FACTOR = 2;
 
 /** Shared by every phase of a run, so the message is swapped in place rather than stacked. */
 export const CLEANUP_TOAST_ID = "content-manager-cleanup";

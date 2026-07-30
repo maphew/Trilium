@@ -58,6 +58,9 @@ describe("Database API", () => {
     it("estimates what a rebuild would return, which is nothing right after one", () => {
         const before = databaseRoute.getCompactionEstimate();
         expect(before.reclaimableBytes).toBeGreaterThanOrEqual(0);
+        // The database's own size comes back alongside: it is the headroom a rebuild wants while it
+        // runs, and free pages are part of what it currently occupies.
+        expect(before.databaseBytes).toBeGreaterThan(before.reclaimableBytes);
 
         // A vacuum leaves no free pages behind, so the estimate that follows one is zero — which is
         // what ties this figure to the thing it claims to predict.
