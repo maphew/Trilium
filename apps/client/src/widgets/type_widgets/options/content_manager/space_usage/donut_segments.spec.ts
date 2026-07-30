@@ -134,7 +134,7 @@ describe("buildChildrenSegments", () => {
         const segments = buildChildrenSegments(usage({
             // The deleted bucket is far below 0.5% of the ring, yet must stay its own segment.
             children: [ child("big", 100000) ],
-            deletedNotes: { size: 25, noteCount: 3 }
+            deletedNotes: { size: 25, noteCount: 3, attachmentCount: 1 }
         }), options);
 
         expect(segments.map((segment) => segment.id)).toEqual([ "child/big", "/deleted-notes" ]);
@@ -148,7 +148,7 @@ describe("buildChildrenSegments", () => {
 
     it("omits the deleted-notes segment off the root or when nothing is deleted", () => {
         expect(buildChildrenSegments(usage(), options)).toEqual([]);
-        expect(buildChildrenSegments(usage({ deletedNotes: { size: 0, noteCount: 0 } }), options)).toEqual([]);
+        expect(buildChildrenSegments(usage({ deletedNotes: { size: 0, noteCount: 0, attachmentCount: 0 } }), options)).toEqual([]);
     });
 
     it("carries the subtree's reclaimable history in one segment, ahead of the deleted bucket", () => {
@@ -159,7 +159,7 @@ describe("buildChildrenSegments", () => {
             subtreeRevisionsContentSize: 24,
             // Far below 0.5% of the ring, yet history must stay its own segment rather than fold in.
             children: [ child("big", 100000), child("small", 50) ],
-            deletedNotes: { size: 25, noteCount: 3 }
+            deletedNotes: { size: 25, noteCount: 3, attachmentCount: 1 }
         }), options);
 
         expect(segments.map((segment) => segment.id))

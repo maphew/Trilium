@@ -11,6 +11,7 @@ import ActionButton from "../../../../react/ActionButton";
 import type { DonutRing } from "../../../../react/charts/DonutChart";
 import { type ContentChangedHandler, openSpaceUsageContextMenu } from "./context_menu";
 import { buildChildrenSegments, type UsageSegmentData } from "./donut_segments";
+import { deletedEntitiesLabel } from "./labels";
 import NoteUsageDonut, { segmentTooltip } from "./note_usage_donut";
 import SpaceUsagePlaceholder from "./placeholder";
 import { useSpaceUsageFetch } from "./use_space_usage_fetch";
@@ -62,7 +63,7 @@ export default function Browse({
         segments: usage ? buildChildrenSegments(usage, {
             getTitle,
             revisionsLabel: t("space_usage.revisions_subtree"),
-            deletedNotesLabel: t("space_usage.deleted_notes", { count: usage.deletedNotes?.noteCount ?? 0 }),
+            deletedNotesLabel: deletedEntitiesLabel(usage.deletedNotes),
             makeTooltip: segmentTooltip,
             makeOthersTooltip: (count, size) =>
                 t("space_usage.others_notes", { count, size: formatSize(size) })

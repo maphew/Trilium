@@ -95,8 +95,9 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
                     />
                     <span className="space-usage-status-separator" aria-hidden="true">•</span>
                     <StatusEntry
+                        // Named rather than counted: the counts belong to the map's own cell, whose
+                        // label carries them, and spelling them out here made the line unreadable.
                         text={t("space_usage.status_deleted", {
-                            count: overview.deletedNotes.noteCount,
                             size: formatSize(overview.deletedNotes.size)
                         })}
                         hint={t("space_usage.status_deleted_hint")}

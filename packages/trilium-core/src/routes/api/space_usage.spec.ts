@@ -223,6 +223,30 @@ describe("Space usage API (core)", () => {
         expect(rootUsage.deletedNotes?.size).toBeGreaterThanOrEqual(doomedSize);
     });
 
+    it("counts a deleted attachment, which holds space with no note being deleted at all", async () => {
+        const content = "space-usage-doomed-attachment-".repeat(100);
+        const createRes = await api.post(`/api/notes/${parent.noteId}/attachments`, {
+            body: { role: "file", mime: "text/plain", title: "Space usage doomed attachment", content }
+        });
+        expect(createRes.status).toBe(204);
+
+        const usage = await getNoteUsage(parent.noteId);
+        const attachmentId = usage.attachments
+            .find((entry) => entry.title === "Space usage doomed attachment")?.attachmentId ?? "";
+        expect(attachmentId).not.toBe("");
+
+        const before = await getOverview({ limit: 1 });
+        const deleteRes = await api.delete(`/api/attachments/${attachmentId}`);
+        expect([ 200, 204 ]).toContain(deleteRes.status);
+        const after = await getOverview({ limit: 1 });
+
+        // The owning note is untouched, so the count that used to stand alone cannot describe this
+        // at all: only the attachment count moves, and the space is real.
+        expect(after.deletedNotes.attachmentCount).toBe(before.deletedNotes.attachmentCount + 1);
+        expect(after.deletedNotes.noteCount).toBe(before.deletedNotes.noteCount);
+        expect(after.deletedNotes.size - before.deletedNotes.size).toBeGreaterThanOrEqual(content.length);
+    });
+
     it("defaults and clamps the overview limit", async () => {
         // No limit → the server default applies and the request just works.
         const defaulted = await getOverview();

@@ -98,6 +98,20 @@ describe("useSpaceUsageFetch", () => {
         expect(probe.textContent).toBe("fast");
     });
 
+    it("drops a stale failure too, so an abandoned request cannot report over a newer reading", async () => {
+        let rejectSlow: ((reason?: unknown) => void) | undefined;
+        serverGet.mockReturnValueOnce(new Promise((_resolve, reject) => { rejectSlow = reject; }));
+        const probe = renderProbe("space-usage/note/slow");
+
+        serverGet.mockResolvedValueOnce({ label: "fast" });
+        renderProbe("space-usage/note/fast");
+        await vi.waitFor(() => expect(probe.textContent).toBe("fast"));
+
+        rejectSlow?.(new Error("network down"));
+        await Promise.resolve();
+        expect(probe.textContent).toBe("fast");
+    });
+
     it("never re-measures on its own when notes change", async () => {
         serverGet.mockResolvedValue({ label: "data" });
         const probe = renderProbe("space-usage/overview");

@@ -27,6 +27,12 @@
     gap: 0.5em;
 }
 
+/* Second selector only to outweigh the dialog's own 2em (OptionsDialog.css). */
+.space-usage-section:has(.space-usage-overview) .options-page-header,
+.modal.options-dialog .space-usage-section:has(.space-usage-overview) .options-page-header {
+    margin-bottom: 0;
+}
+
 .space-usage-section {
     display: flex;
     flex: 1 1 auto;
@@ -48,7 +54,7 @@
         justify-content: center;
         gap: 0.6em;
         color: var(--muted-text-color);
-        font-size: 0.85em;
+        font-size: 0.75em;
     }
 
     .space-usage-status-separator {

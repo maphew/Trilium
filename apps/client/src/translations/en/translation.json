@@ -2847,6 +2847,9 @@
     "hidden_notes_other": "{{count}} hidden notes",
     "deleted_notes_one": "1 deleted note",
     "deleted_notes_other": "{{count}} deleted notes",
+    "deleted_attachments_one": "1 deleted attachment",
+    "deleted_attachments_other": "{{count}} deleted attachments",
+    "deleted_entities": "{{notes}}, {{attachments}}",
     "note_body": "Note content",
     "revisions": "Revisions",
     "others_notes_one": "{{count}} more note ({{size}})",
@@ -2871,10 +2874,12 @@
     "status_content_one": "1 note occupying {{size}} (of which {{attachmentsSize}} are note attachments)",
     "status_content_other": "{{count}} notes occupying {{size}} (of which {{attachmentsSize}} are note attachments)",
     "status_content_hint": "Space held by all notes (hidden ones included), their attachments and their revisions, with duplicated content counted once",
-    "status_deleted_one": "Deleted notes: {{size}} in {{count}} note",
-    "status_deleted_other": "Deleted notes: {{size}} in {{count}} notes",
-    "status_deleted_hint": "Space still held by deleted notes; erasing them reclaims it",
-    "menu_show_details": "Show details"
+    "status_deleted": "{{size}} in deleted notes and attachments",
+    "status_deleted_hint": "Space still held by deleted notes and by deleted attachments (whose note may still exist); erasing them reclaims it",
+    "menu_show_details": "Show details",
+    "menu_erase_deleted": "Erase deleted data",
+    "erase_deleted_message": "Deleted data has been erased.",
+    "revisions_limit_required": "Excess snapshots can only be erased once a maximum number of revision snapshots per note is set. Without a limit, no snapshot counts as excess. Do you want to set the limit now?"
   },
   "note_language": {
     "not_set": "No language set",
@@ -3105,7 +3110,8 @@
     "set-custom-color": "Set custom note color"
   },
   "popup-editor": {
-    "maximize": "Switch to full editor"
+    "maximize": "Switch to full editor",
+    "attachment_title": "Attachment: {{title}}"
   },
   "server": {
     "unknown_http_error_title": "Communication error with the server",

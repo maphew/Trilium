@@ -57,6 +57,17 @@ body.mobile .modal.popup-editor-dialog .modal-dialog {
     align-items: center;
 }
 
+.modal.popup-editor-dialog .modal-header .title-row.attachment-title-row {
+    gap: 8px;
+
+    .attachment-title {
+        overflow: hidden;
+        font-size: 1em;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+}
+
 .modal.popup-editor-dialog .modal-body {
     padding: 0;
     height: 75vh;

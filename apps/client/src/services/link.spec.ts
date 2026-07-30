@@ -382,7 +382,15 @@ describe("goToLinkExt", () => {
 
     it("opens in a popup when the url requests it", () => {
         goToLinkExt(leftClick(), "#root/aaaaaaaaaaaa?popup=1");
-        expect(triggerCommand).toHaveBeenCalledWith("openInPopup", { noteIdOrPath: "root/aaaaaaaaaaaa" });
+        expect(triggerCommand).toHaveBeenCalledWith("openInPopup", { noteIdOrPath: "root/aaaaaaaaaaaa", viewScope: { viewMode: "default" } });
+    });
+
+    it("passes the attachment view scope along when opening in a popup", () => {
+        goToLinkExt(leftClick(), "#root/aaaaaaaaaaaa?popup=1&viewMode=attachments&attachmentId=bbbbbbbbbbbb");
+        expect(triggerCommand).toHaveBeenCalledWith("openInPopup", {
+            noteIdOrPath: "root/aaaaaaaaaaaa",
+            viewScope: { viewMode: "attachments", attachmentId: "bbbbbbbbbbbb" }
+        });
     });
 
     it("opens in a new window on shift+left-click", () => {
@@ -731,7 +739,7 @@ describe("module-level click handlers", () => {
         const $a = $("<a href='#root/aaaaaaaaaaaa'>link</a>");
         $("body").append($a);
         $a.trigger($.Event("contextmenu", { button: 2 }));
-        expect(triggerCommand).toHaveBeenCalledWith("openInPopup", { noteIdOrPath: "root/aaaaaaaaaaaa" });
+        expect(triggerCommand).toHaveBeenCalledWith("openInPopup", { noteIdOrPath: "root/aaaaaaaaaaaa", viewScope: { viewMode: "default" } });
         spy.mockRestore();
         $a.remove();
     });

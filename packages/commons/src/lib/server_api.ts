@@ -262,11 +262,19 @@ export interface SpaceUsageBucket {
     noteCount: number;
 }
 
-/** Space still held by deleted entities whose blobs have not been erased yet. */
+/**
+ * Space still held by deleted entities whose blobs have not been erased yet.
+ *
+ * {@link size} covers all of them at once — deleted notes, deleted attachments (whose owning note
+ * may well be alive) and the history of deleted notes — so it is reported alongside both counts:
+ * either one on its own reads as the whole story, and neither is.
+ */
 export interface SpaceUsageDeletedNotes {
     size: number;
     /** Deleted notes whose body blob still exists; erased notes no longer count. */
     noteCount: number;
+    /** Deleted attachments whose blob still exists, however their owning note is doing. */
+    attachmentCount: number;
 }
 
 /**

@@ -45,7 +45,7 @@ function handleLinkContextMenuItem(command: string | undefined, e: ContextMenuEv
         appContext.triggerCommand("openInWindow", { notePath, hoistedNoteId, viewScope });
         return true;
     } else if (command === "openNoteInPopup") {
-        appContext.triggerCommand("openInPopup", { noteIdOrPath: notePath });
+        appContext.triggerCommand("openInPopup", { noteIdOrPath: notePath, viewScope });
         return true;
     }
 
