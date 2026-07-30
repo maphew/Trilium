@@ -4,7 +4,7 @@ import { LabelType } from "@triliumnext/commons";
 import clsx from "clsx";
 import { JSX } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { CellComponent, ColumnDefinition, EmptyCallback, FormatterParams, RowComponent, ValueBooleanCallback, ValueVoidCallback } from "tabulator-tables";
+import type { CellComponent, ColumnComponent, ColumnDefinition, EmptyCallback, FormatterParams, RowComponent, ValueBooleanCallback, ValueVoidCallback } from "tabulator-tables";
 
 import froca from "../../../services/froca.js";
 import { safeUrlHref } from "../../../utils/url.js";
@@ -15,6 +15,7 @@ import Icon from "../../react/Icon.jsx";
 import NoteAutocomplete from "../../react/NoteAutocomplete.jsx";
 import { renderReactWidget } from "../../react/react_utils.jsx";
 import { useGrowsUpwards } from "./grows_upwards.js";
+import type { TableData } from "./rows.js";
 
 type ColumnType = LabelType | "relation";
 
@@ -99,9 +100,22 @@ const labelTypeMappings: Record<ColumnType, Partial<ColumnDefinition>> = {
     },
     relation: {
         editor: wrapEditor(RelationEditor),
-        formatter: wrapFormatter(NoteFormatter)
+        formatter: wrapFormatter(NoteFormatter),
+        // The cell's value is the target's noteId while what it shows is the target's title, so the
+        // default string sorter would order the rows by an id the user never sees. The titles are
+        // read from the row data, where they were resolved as the rows were built — a sort compares
+        // synchronously, so they could not be fetched from here.
+        sorter: (a, b, aRow, bRow, column) =>
+            relationTitle(aRow, column).localeCompare(relationTitle(bRow, column))
     }
 };
+
+/** The title a relation cell shows, carried in the row's data under the relation's own name. */
+function relationTitle(row: RowComponent, column: ColumnComponent): string {
+    const name = (column.getField() ?? "").slice("relations.".length);
+    const { relationTitles } = row.getData() as Partial<TableData>;
+    return relationTitles?.[name] ?? "";
+}
 
 interface BuildColumnArgs {
     info: AttributeDefinitionInformation[];

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
+
 import { buildNote } from "../../../test/easy-froca";
-import getAttributeDefinitionInformation from "./rows.js";
+import getAttributeDefinitionInformation, { buildRowDefinitions } from "./rows.js";
 
 describe("getAttributeDefinitionInformation", () => {
     it("handles attributes with colons in their names", async () => {
@@ -44,6 +45,31 @@ describe("getAttributeDefinitionInformation", () => {
             { name: "tint", type: "color", isMulti: true },
             { name: "done", type: "boolean", isMulti: true },
             { name: "owner", type: "text", isMulti: false }
+        ]);
+    });
+});
+
+describe("buildRowDefinitions", () => {
+    it("carries each relation target's title, so a relation column can sort by what it shows", async () => {
+        const alpha = buildNote({ title: "Alpha" });
+        const beta = buildNote({ title: "Beta" });
+        const parent = buildNote({
+            title: "Collection",
+            "#relation:assignee(inheritable)": "promoted,alias=Assignee,single",
+            children: [
+                { title: "Task 1", "~assignee": beta.noteId },
+                { title: "Task 2", "~assignee": alpha.noteId },
+                // A row without the relation sorts as nothing rather than as an id or a crash.
+                { title: "Task 3" }
+            ]
+        });
+
+        const info = getAttributeDefinitionInformation(parent);
+        const { definitions } = await buildRowDefinitions(parent, info, false);
+        expect(definitions).toMatchObject([
+            { title: "Task 1", relations: { assignee: beta.noteId }, relationTitles: { assignee: "Beta" } },
+            { title: "Task 2", relations: { assignee: alpha.noteId }, relationTitles: { assignee: "Alpha" } },
+            { title: "Task 3", relations: { assignee: null }, relationTitles: { assignee: "" } }
         ]);
     });
 });

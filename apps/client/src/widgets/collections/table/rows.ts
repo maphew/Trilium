@@ -1,6 +1,7 @@
 import { extractAttributeDefinitionTypeAndName, LabelType } from "@triliumnext/commons";
 
 import FNote from "../../../entities/fnote.js";
+import froca from "../../../services/froca.js";
 import type { AttributeDefinitionInformation } from "./columns.js";
 
 export type TableData = {
@@ -9,6 +10,12 @@ export type TableData = {
     title: string;
     labels: Record<string, boolean | string | string[] | null>;
     relations: Record<string, boolean | string | null>;
+    /**
+     * The relation targets' titles, keyed as `relations` is. A relation cell stores the target's
+     * noteId but shows its title, and a sort compares synchronously — so the title a column sorts
+     * by has to be in the row data before the table is handed it.
+     */
+    relationTitles: Record<string, string>;
     branchId: string;
     colorClass: string | undefined;
     isArchived: boolean;
@@ -51,6 +58,7 @@ export async function buildRowDefinitions(parentNote: FNote, infos: AttributeDef
             title: note.title,
             labels,
             relations,
+            relationTitles: {},
             isArchived: note.isArchived,
             branchId: branch.branchId,
             colorClass: note.getColorClass()
@@ -66,11 +74,53 @@ export async function buildRowDefinitions(parentNote: FNote, infos: AttributeDef
         definitions.push(def);
     }
 
+    // Filled over the whole tree at once, from the outermost call, so the targets are fetched as
+    // one batch rather than a request per row.
+    if (currentDepth === 0) {
+        await fillRelationTitles(definitions);
+    }
+
     return {
         definitions,
         hasSubtree,
         rowNumber
     };
+}
+
+/**
+ * Fills each row's `relationTitles` with the titles its relation cells show, loading the targets
+ * as one batch. A relation can point at a note since deleted, or one the user may not see — such
+ * a cell shows nothing, and sorts as nothing.
+ */
+async function fillRelationTitles(definitions: TableData[]) {
+    const targetIds = new Set<string>();
+    visitRows(definitions, ({ relations }) => {
+        for (const value of Object.values(relations)) {
+            if (typeof value === "string" && value) {
+                targetIds.add(value);
+            }
+        }
+    });
+    if (targetIds.size === 0) {
+        return;
+    }
+
+    await froca.getNotes([ ...targetIds ], true);
+    visitRows(definitions, (def) => {
+        for (const [ name, value ] of Object.entries(def.relations)) {
+            const target = typeof value === "string" && value ? froca.getNoteFromCache(value) : undefined;
+            def.relationTitles[name] = target?.title ?? "";
+        }
+    });
+}
+
+function visitRows(definitions: TableData[], visit: (def: TableData) => void) {
+    for (const def of definitions) {
+        visit(def);
+        if (def._children) {
+            visitRows(def._children, visit);
+        }
+    }
 }
 
 export default function getAttributeDefinitionInformation(parentNote: FNote) {

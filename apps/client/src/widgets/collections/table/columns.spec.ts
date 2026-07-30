@@ -1,5 +1,5 @@
 import { act } from "preact/test-utils";
-import type { CellComponent, ColumnDefinition } from "tabulator-tables";
+import type { CellComponent, ColumnComponent, ColumnDefinition, RowComponent } from "tabulator-tables";
 import { describe, expect, it, vi } from "vitest";
 
 import options from "../../../services/options";
@@ -418,6 +418,32 @@ describe("buildColumnDefinitions — multi-valued columns", () => {
         expect(compare([ "alpha", "beta" ], [ "alpha", "gamma" ])).toBe(-1);
         expect(compare([ "beta" ], [ "alpha", "beta" ])).toBe(1);
         expect(compare([ "alpha" ], [ "alpha" ])).toBe(0);
+    });
+});
+
+describe("buildColumnDefinitions — relation columns", () => {
+    it("sorts by the target's title carried in the row, not by the noteId the cell stores", () => {
+        const sorter = buildColumnDefinitions({
+            info: [ { name: "assignee", type: "relation" } ],
+            movableRows: false,
+            existingColumnData: undefined,
+            rowNumberHint: 1
+        }).find((column) => column.field === "relations.assignee")?.sorter;
+        if (typeof sorter !== "function") throw new Error("expected a sorter of its own");
+
+        const column = { getField: () => "relations.assignee" } as ColumnComponent;
+        const row = (title: string | undefined) =>
+            ({ getData: () => ({ relationTitles: title === undefined ? {} : { assignee: title } }) }) as unknown as RowComponent;
+        const compare = (a: string | undefined, b: string | undefined) => Math.sign(
+            (sorter as (...args: unknown[]) => number)("idA", "idB", row(a), row(b), column, "asc", {})
+        );
+
+        // "Alpha" would come after "Beta" if the ids were what was compared.
+        expect(compare("Alpha", "Beta")).toBe(-1);
+        expect(compare("Beta", "Alpha")).toBe(1);
+        expect(compare("Alpha", "Alpha")).toBe(0);
+        // A cell without a target sorts as nothing rather than by its absence crashing the grid.
+        expect(compare(undefined, "Alpha")).toBe(-1);
     });
 });
 
