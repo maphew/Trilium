@@ -65,9 +65,12 @@ export interface RevisionPojo {
  */
 export interface EraseExcessRevisionsOptions {
     /**
-     * How many snapshots to keep per note, overriding both the `#versioningLimit` label and the
-     * `revisionSnapshotNumberLimit` option for this run. Negative keeps every snapshot (nothing is
-     * excess), zero keeps none; omitted falls back to the configured limits.
+     * How many snapshots to keep per note, standing in for the `revisionSnapshotNumberLimit` option
+     * for this run. Negative keeps every snapshot (nothing is excess), zero keeps none; omitted
+     * falls back to the option itself.
+     *
+     * A note carrying a valid `#versioningLimit` follows its own label instead: that is a policy set
+     * on the note deliberately, and a one-off answer to the global setting does not overrule it.
      */
     snapshotsToKeep?: number;
     /**

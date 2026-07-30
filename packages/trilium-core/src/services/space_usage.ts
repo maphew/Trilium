@@ -587,10 +587,10 @@ function collectContentSizeOf(noteIds: string[]): number {
  * nothing narrower was asked for.
  *
  * An estimate rather than a promise, because the limit it answers for is one number across every
- * note, while the operation left to itself follows each note's own `#versioningLimit`. A note
- * labelled to keep more than the stated limit frees less than its share of this figure, so the
- * estimate reads high — the direction an estimate of reclaimable space should err in anyway. Run
- * the operation with the same options and the two agree exactly, the override outranking the label.
+ * note, while the operation follows each note's own `#versioningLimit` wherever one is set — a label
+ * outranks the limit asked for here, being a policy set on that note deliberately. A note labelled
+ * to keep more than the stated limit therefore frees less than its share of this figure, so the
+ * estimate reads high, which is the direction an estimate of reclaimable space should err in.
  *
  * @param revisionOptions how far the trimming being estimated would go; `snapshotsToKeep` defaults
  *                        to 0, which dooms the lot.

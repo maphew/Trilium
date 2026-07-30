@@ -1866,9 +1866,9 @@ paths:
                   type: integer
                   minimum: -1
                   description: >
-                    Snapshots to keep per note, overriding the #versioningLimit label and the
-                    revisionSnapshotNumberLimit option. -1 keeps every snapshot, 0 keeps none.
-                    Omitted, the configured limits apply.
+                    Snapshots to keep per note, standing in for the revisionSnapshotNumberLimit
+                    option. -1 keeps every snapshot, 0 keeps none. Omitted, the option applies.
+                    A note carrying a valid #versioningLimit follows its own label instead.
                 keepNamedSnapshots:
                   type: boolean
                   description: >

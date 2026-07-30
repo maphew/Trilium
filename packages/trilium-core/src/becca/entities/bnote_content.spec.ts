@@ -528,14 +528,30 @@ describe("BNote content / misc getters", () => {
         const eraseExcess = (note: BNote, options: EraseExcessRevisionsOptions) =>
             getContext().init(() => note.eraseExcessRevisionSnapshots(options));
 
-        it("keeps the newest snapshots the override asks for, whatever the configured limit says", () => {
+        it("keeps the newest snapshots the override asks for, in place of the global setting", () => {
             const note = createNote();
-            // Both configured limits are wider than the override, which still has the last word.
-            getContext().init(() => note.setLabel("versioningLimit", "10"));
             const [ , , newer, newest ] = createRevisions(note, [ undefined, undefined, undefined, undefined ]);
 
             expect(eraseExcess(note, { snapshotsToKeep: 2 })).toBe(2);
             expect(revisionIdsOf(note)).toEqual([ newer, newest ]);
+        });
+
+        it("leaves a note carrying its own #versioningLimit to that label, override or not", () => {
+            const note = createNote();
+            const ids = createRevisions(note, [ undefined, undefined, undefined ]);
+            // Labelled only now: saving a revision trims as it goes, so a limit set up front would
+            // have left nothing here to keep.
+            getContext().init(() => note.setLabel("versioningLimit", "3"));
+
+            // The label is a policy set on this note; an override stands in for the global setting
+            // and does not overrule it, so the harsher figure asked for is simply not applied here.
+            expect(eraseExcess(note, { snapshotsToKeep: 1 })).toBe(0);
+            expect(revisionIdsOf(note)).toEqual(ids);
+
+            // And the label governs just as firmly when it is the harsher of the two.
+            getContext().init(() => note.setLabel("versioningLimit", "1"));
+            expect(eraseExcess(note, { snapshotsToKeep: 10 })).toBe(2);
+            expect(revisionIdsOf(note)).toEqual([ ids[2] ]);
         });
 
         it("keeps everything at a negative override and nothing at zero", () => {

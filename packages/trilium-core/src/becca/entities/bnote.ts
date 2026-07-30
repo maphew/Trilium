@@ -1604,14 +1604,12 @@ class BNote extends AbstractBeccaEntity<BNote> {
     /**
      * Erases the oldest revision snapshots beyond the number to keep, newest kept first.
      *
-     * How many are kept is normally configured: the note's own `#versioningLimit` label if it
-     * carries a valid one, else the `revisionSnapshotNumberLimit` option. A negative limit keeps
-     * every snapshot — nothing is ever excess — while zero keeps none of them.
+     * A negative limit keeps every snapshot — nothing is ever excess — while zero keeps none.
      *
      * @returns how many snapshots were erased.
      */
     eraseExcessRevisionSnapshots({ snapshotsToKeep, keepNamedSnapshots }: EraseExcessRevisionsOptions = {}): number {
-        const limit = Number.isInteger(snapshotsToKeep) ? Number(snapshotsToKeep) : this.getConfiguredSnapshotLimit();
+        const limit = this.resolveSnapshotLimit(snapshotsToKeep);
 
         if (limit < 0) {
             return 0;
@@ -1637,11 +1635,24 @@ class BNote extends AbstractBeccaEntity<BNote> {
         return revisionIds.length;
     }
 
-    /** The configured count to keep: the note's own label takes priority over the option. */
-    private getConfiguredSnapshotLimit(): number {
+    /**
+     * How many snapshots this note keeps, most specific answer first: its own `#versioningLimit`,
+     * then the caller's override, then the `revisionSnapshotNumberLimit` option.
+     *
+     * The label outranks the override rather than the other way round. A label is a policy set on
+     * this note deliberately, while an override is a one-off answer standing in for the global
+     * setting — so it replaces that setting, and leaves a note that was given its own limit alone.
+     */
+    private resolveSnapshotLimit(override: number | undefined): number {
         const labelled = parseInt(this.getLabelValue("versioningLimit") ?? "");
 
-        return Number.isInteger(labelled) ? labelled : parseInt(optionService.getOption("revisionSnapshotNumberLimit"));
+        if (Number.isInteger(labelled)) {
+            return labelled;
+        }
+
+        return Number.isInteger(override)
+            ? Number(override)
+            : parseInt(optionService.getOption("revisionSnapshotNumberLimit"));
     }
 
     /**
