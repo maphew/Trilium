@@ -29,6 +29,11 @@ export interface DonutRing<T = unknown> {
     radius: number;
     thickness: number;
     segments: DonutSegment<T>[];
+    /**
+     * Draws a full circle under the segments, so the band reads as a ring whatever is on it — and
+     * still reads as one when every value is zero and no segment is drawn at all.
+     */
+    track?: boolean;
     onSegmentClick?: (segment: DonutSegment<T>) => void;
     onSegmentContextMenu?: (segment: DonutSegment<T>, event: MouseEvent) => void;
 }
@@ -100,6 +105,10 @@ function Ring<T>({ ring, onSegmentHover }: {
 
     return (
         <g>
+            {/* First, so every segment paints over it. */}
+            {ring.track && (
+                <circle className="donut-track" r={ring.radius} fill="none" style={{ strokeWidth: ring.thickness }} />
+            )}
             {ring.segments.map((segment, index) => {
                 const arc = layout[index];
 

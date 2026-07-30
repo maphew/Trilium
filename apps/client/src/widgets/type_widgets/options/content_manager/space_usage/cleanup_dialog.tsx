@@ -87,6 +87,9 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
         id: "cleanup",
         radius: DONUT_RADIUS,
         thickness: DONUT_THICKNESS,
+        // A database with nothing to reclaim draws no segment at all; the track is what keeps the
+        // reading in its hole from floating in an empty square.
+        track: true,
         segments: CLEANUP_ITEMS.map((item) => ({
             id: item.id,
             value: sizes.perItem[item.id],

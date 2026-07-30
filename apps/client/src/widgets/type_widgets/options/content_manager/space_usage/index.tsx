@@ -55,11 +55,11 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
                         currentValue={view}
                         onChange={setView}
                     />
-                    {/* Boxicons ships no broom; the eraser is what the dialog does anyway. The
-                        charts re-measure once it is done, having just been made wrong by it. */}
+                    {/* Boxicons ships no broom; the brush is the nearest thing it has. The charts
+                        re-measure once the dialog is done, having just been made wrong by it. */}
                     <ActionButton
                         className="space-usage-cleanup"
-                        icon="bx bx-eraser"
+                        icon="bx bx-brush-alt"
                         text={t("space_usage.cleanup_title")}
                         onClick={() => void showCleanupDialog().then((reclaimed) => {
                             if (reclaimed !== null) {
