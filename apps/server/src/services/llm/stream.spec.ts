@@ -243,13 +243,15 @@ describe("streamToChunks", () => {
                     noCacheTokens: 700_000
                 }
             })
-        ), { model: "m", pricing });
+        ), { model: "m", provider: "anthropic", pricing });
 
         // 0.7*4 (no-cache) + 0.2*4*0.1 (read) + 0.1*4*1.25 (write) + 1*8 (output)
         const expected = 0.7 * 4 + 0.2 * 4 * 0.1 + 0.1 * 4 * 1.25 + 1 * 8;
         const usage = usageOf(chunks);
         expect(usage.usage.cost).toBeCloseTo(expected, 6);
+        // Both display fields reach the client: the name, and the provider that lets it be abbreviated.
         expect(usage.usage.model).toBe("m");
+        expect(usage.usage.provider).toBe("anthropic");
     });
 
     it("treats all input as no-cache when token details are absent", async () => {

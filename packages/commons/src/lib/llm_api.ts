@@ -150,6 +150,13 @@ export interface LlmUsage {
     cost?: number;
     /** Model identifier used for this response */
     model?: string;
+    /**
+     * Provider *type* that served the response ("anthropic", "deepseek", …), not the id of a
+     * particular configuration. Recorded alongside the model so the client can abbreviate the
+     * name for display: which vendor word is safe to drop depends on the vendor. The full
+     * name is what gets stored — shortening is applied at render time only.
+     */
+    provider?: string;
 }
 
 /**

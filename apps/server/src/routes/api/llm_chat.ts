@@ -82,7 +82,7 @@ async function streamChat(req: Request, res: Response) {
             res.on("close", () => abortController.abort());
             chunks = provider.chatChunks(messages, config, abortController.signal);
         } else {
-            chunks = streamToChunks(provider.chat(messages, config), { model: modelDisplayName, pricing });
+            chunks = streamToChunks(provider.chat(messages, config), { model: modelDisplayName, provider: provider.name, pricing });
         }
 
         for await (const chunk of chunks) {

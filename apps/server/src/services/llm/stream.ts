@@ -46,6 +46,8 @@ function calculateCost(usage: LanguageModelUsage, pricing?: ModelPricing): numbe
 export interface StreamOptions {
     /** Model identifier for display */
     model?: string;
+    /** Provider type that served the response, reported with usage so the client can abbreviate the model name */
+    provider?: string;
     /** Model pricing for cost calculation (from provider) */
     pricing?: ModelPricing;
 }
@@ -186,7 +188,8 @@ export async function* streamToChunks(result: StreamResult, options: StreamOptio
                     completionTokens: usage.outputTokens,
                     totalTokens: usage.inputTokens + usage.outputTokens,
                     cost,
-                    model: options.model
+                    model: options.model,
+                    provider: options.provider
                 }
             };
         }

@@ -13,6 +13,7 @@ import { renderMarkdown } from "./chat_markdown.js";
 import { renderQuoteSourceLinks } from "./chat_quote.js";
 import { ExpandableCard, ExpandableSection } from "./ExpandableCard.js";
 import { type ContentBlock, type FileBlock, getMessageText, type ImageBlock, type StoredMessage, type TextBlock, type TextFileBlock, type ToolCallBlock } from "./llm_chat_types.js";
+import { shortModelName } from "./model_name.js";
 import { SafeImage } from "./retry_image.js";
 import ToolCallCard from "./ToolCallCard.js";
 
@@ -205,7 +206,9 @@ function ChatMessage({ message, isStreaming, onRetry }: Props) {
                 {message.usage && typeof message.usage.promptTokens === "number" && (
                     <>
                         {message.usage.model && (
-                            <span className="llm-chat-usage-model" title={message.usage.model}>{message.usage.model}</span>
+                            <span className="llm-chat-usage-model" title={message.usage.model}>
+                                {shortModelName(message.usage.model, message.usage.provider)}
+                            </span>
                         )}
                         <span
                             className="llm-chat-usage-tokens"
