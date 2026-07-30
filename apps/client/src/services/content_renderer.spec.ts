@@ -395,7 +395,8 @@ describe("getRenderedContent office rendering", () => {
         const { type, $renderedContent } = await getRenderedContent(note);
         expect(type).toBe("office");
         expect(renderOfficeToHtml).toHaveBeenCalledWith("notes", note.noteId);
-        expect($renderedContent.find(".office-preview-body").html()).toContain("converted");
+        // the padded body sits inside a dedicated, unpadded scroll host
+        expect($renderedContent.find(".office-preview-scroll > .office-preview-body").html()).toContain("converted");
         // the file remains downloadable / openable
         expect($renderedContent.find(".file-download").length).toBe(1);
         expect($renderedContent.find(".file-open").length).toBe(1);
@@ -408,7 +409,7 @@ describe("getRenderedContent office rendering", () => {
         const { type, $renderedContent } = await getRenderedContent(note);
         expect(type).toBe("office");
         expect($renderedContent.find(".admonition.caution").length).toBe(1);
-        expect($renderedContent.find(".office-preview-body").length).toBe(0);
+        expect($renderedContent.find(".office-preview-scroll, .office-preview-body").length).toBe(0);
     });
 
     it("does not run the heavy conversion in tooltip mode", async () => {

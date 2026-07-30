@@ -11,11 +11,6 @@
     padding: 0;
 }
 
-.note-detail.full-height .note-detail-file[data-preview-type="pdf"],
-.note-detail.full-height .note-detail-file[data-preview-type="video"] {
-    overflow: hidden;
-}
-
 /* Rendered by CodeBlock, so the same <pre> also carries .code-block; the element selector keeps
    these layout rules winning that equal-specificity fight regardless of bundle order. */
 pre.file-preview-content {
@@ -46,7 +41,10 @@ pre.file-preview-content:not(.hljs) {
     transform: translateY(-50%);
 }
 
-/* base .office-preview-body / .office-preview-loading styles live in content_renderer.css */
-.note-detail-file > .office-preview-body {
-    height: 100%;
+/* base .office-preview-body / .office-preview-loading styles live in content_renderer.css.
+   The unpadded wrapper is the scroll host (like .scrolling-container for text notes):
+   the scrollbar hugs the split edge and the body's padding scrolls with the document. */
+.note-detail-file:has(> .office-preview-body) {
+    overflow: auto;
+    padding: 0;
 }

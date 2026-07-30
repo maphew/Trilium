@@ -353,17 +353,21 @@ async function renderFile(entity: FNote | FAttachment, type: string, $renderedCo
 async function renderOffice(entity: FNote | FAttachment, $renderedContent: JQuery<HTMLElement>) {
     const { entityType, entityId } = getEntityTypeAndId(entity);
 
+    // The scroll host is a separate, unpadded element (like the note view's .scrolling-container)
+    // so the body's padding scrolls with the document instead of sitting on the scroller itself.
     const $content = $('<div class="office-preview">');
+    const $scroll = $('<div class="office-preview-scroll">');
     const $body = $('<div class="ck-content office-preview-body">');
     $body.append($('<div class="office-preview-loading">').append($('<span class="bx bx-loader bx-spin">')).append(document.createTextNode(t("content_renderer.office_rendering"))));
-    $content.append($body);
+    $scroll.append($body);
+    $content.append($scroll);
     $renderedContent.append($content);
 
     try {
         $body.html(await renderOfficeToHtml(entityType, entityId));
     } catch (e) {
         console.warn("Failed to render office document preview:", getErrorMessage(e));
-        $body.remove();
+        $scroll.remove();
         $content.prepend($("<div>").addClass("admonition caution").text(t("content_renderer.office_render_error")));
     }
 

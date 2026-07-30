@@ -45,10 +45,17 @@
 }
 
 /* Office document preview — shared by this rendered-content path and the file type
-   widget (Office.tsx); this stylesheet is part of the startup bundle. */
+   widget (Office.tsx); this stylesheet is part of the startup bundle.
+   Mirroring the read-only text structure, the body is plain padded content while
+   scrolling happens on an unpadded ancestor (.office-preview-scroll here,
+   .note-detail-file in the type widget) — a scroller's own bottom padding is not
+   reliably part of the scrollable area across browsers. */
 .office-preview-body {
-    overflow: auto;
     padding: 15px;
+}
+
+.office-preview-scroll {
+    overflow: auto;
 }
 
 .office-preview-loading {
@@ -64,7 +71,7 @@
     flex-direction: column;
     height: 100%;
 
-    .office-preview-body {
+    .office-preview-scroll {
         flex-grow: 1;
     }
 }
