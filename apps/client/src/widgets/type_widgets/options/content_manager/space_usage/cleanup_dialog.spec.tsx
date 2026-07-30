@@ -7,11 +7,15 @@ import { t } from "../../../../../services/i18n";
 import { formatSize } from "../../../../../services/utils";
 
 // Hoisted with the mocks that read them: a `vi.mock` factory runs before any plain module constant.
-const { REVISIONS_ALL, REVISIONS_TRIMMED, DELETED, UNUSED, MEASURED_BEFORE, MEASURED_AFTER } = vi.hoisted(() => ({
+const {
+    REVISIONS_ALL, REVISIONS_TRIMMED, DELETED, UNUSED, FREE_PAGES, MEASURED_BEFORE, MEASURED_AFTER
+} = vi.hoisted(() => ({
     REVISIONS_ALL: 900,
     REVISIONS_TRIMMED: 300,
     DELETED: 100,
     UNUSED: 20,
+    /** Pages already free in the file, which only a rebuild returns. */
+    FREE_PAGES: 640,
     // Deliberately unlike any estimate above, so a toast quoting a prediction cannot pass for one
     // quoting the measurement.
     MEASURED_BEFORE: 7777,
@@ -45,6 +49,10 @@ vi.mock("../../../../../services/server", () => ({
         // answered emptily rather than with a usage payload it would choke on.
         get: (url: string) => {
             mocks.get(url);
+
+            if (url === "database/compaction-estimate") {
+                return Promise.resolve({ reclaimableBytes: FREE_PAGES });
+            }
 
             if (!url.startsWith("space-usage/")) {
                 return Promise.resolve(url === "keyboard-actions" ? [] : {});
@@ -213,32 +221,33 @@ describe("showCleanupDialog", () => {
         expect(document.body.querySelector(".modal-stub")).toBeNull();
     });
 
-    it("offers compacting as a row of its own, with neither a figure nor a color", async () => {
+    it("offers compacting as a row of its own, with a figure and an arc to match", async () => {
         await openDialog();
 
         const compact = document.body.querySelector<HTMLElement>(".cleanup-item-compact");
         expect(compact?.querySelector(".cleanup-item-title")?.textContent)
             .toBe(t("space_usage.cleanup_compact_database") ?? "");
-        // It frees no content, so it states no amount and stands for nothing on the ring.
-        expect(compact?.querySelector(".cleanup-item-size")).toBeNull();
-        expect(document.body.querySelectorAll(".donut-segment").length).toBe(3);
+        // The pages already free inside the file, standing for space as surely as the content
+        // above — so it takes an arc, which is what its swatch beside it names.
+        expect(compact?.querySelector(".cleanup-item-size")?.textContent).toBe(formatSize(FREE_PAGES));
+        expect(document.body.querySelectorAll(".donut-segment").length).toBe(4);
+        expect(document.body.querySelector(".cleanup-segment-compactDatabase")).not.toBeNull();
     });
 
-    it("gives no figure for a run that only compacts, rather than answering zero", async () => {
-        mocks.storedOption = JSON.stringify({ compactDatabase: true });
+    it("counts a rebuild into the whole, and into the offer once it is picked", async () => {
         await openDialog();
 
-        // How much a rebuild hands back is not something the content figures can answer.
-        expect(textOf(".cleanup-chart-amount")).toBe(t("space_usage.cleanup_amount_unknown") ?? "");
-        expect(document.body.querySelector(".cleanup-chart-total")).toBeNull();
-        expect(document.body.querySelector(".cleanup-chart-rule")).toBeNull();
-        // Still worth running, though it erases nothing: the button has to allow it.
-        expect(cleanButton()?.disabled).toBe(false);
+        // Present in the whole from the start: it is reclaimable whether or not it is asked for.
+        expect(textOf(".cleanup-chart-total")).toBe(t("space_usage.cleanup_amount_of", {
+            total: formatSize(REVISIONS_ALL + DELETED + UNUSED + FREE_PAGES)
+        }) ?? "");
+        expect(textOf(".cleanup-chart-amount")).toBe(formatSize(0));
 
-        // Picking something with a size restores the reading it can now give.
-        await toggle(rows()[0]);
-        expect(textOf(".cleanup-chart-amount")).toBe(formatSize(DELETED));
-        expect(document.body.querySelector(".cleanup-chart-total")).not.toBeNull();
+        // Picked on its own, it is the whole of the offer — and worth running, though it erases
+        // nothing, so the button has to allow it.
+        await toggle(document.body.querySelector<HTMLElement>(".cleanup-item-compact") ?? undefined);
+        expect(textOf(".cleanup-chart-amount")).toBe(formatSize(FREE_PAGES));
+        expect(cleanButton()?.disabled).toBe(false);
     });
 
     it("erases nothing when the confirmation is declined, and stays open to be reconsidered", async () => {

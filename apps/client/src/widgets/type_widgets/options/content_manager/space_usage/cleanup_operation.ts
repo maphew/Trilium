@@ -1,4 +1,9 @@
-import type { SpaceUsageNoteResponse, SpaceUsageOverviewResponse } from "@triliumnext/commons";
+import type {
+    CompactionEstimateResponse,
+    SpaceUsageNoteResponse,
+    SpaceUsageOverviewResponse,
+    VacuumDatabaseResponse
+} from "@triliumnext/commons";
 
 import optionService from "../../../../../services/options";
 import server from "../../../../../services/server";
@@ -77,6 +82,8 @@ export function defaultSnapshotsToKeep(): number {
 export interface CleanupSizes {
     /** What erasing each item would free, the revisions measured as the settings would trim them. */
     perItem: Record<CleanupItemId, number>;
+    /** What a rebuild would return on top: the pages already free inside the file. */
+    compaction: number;
     /** Everything reclaimable, the revisions measured at their most aggressive — see below. */
     total: number;
     /** What the picked items would free. */
@@ -97,18 +104,26 @@ export interface CleanupSizes {
 export function computeCleanupSizes(
     everything: SpaceUsageNoteResponse | null,
     trimmed: SpaceUsageNoteResponse | null,
-    options: CleanupToolOptions
+    options: CleanupToolOptions,
+    compaction = 0
 ): CleanupSizes {
     const perItem: Record<CleanupItemId, number> = {
         deletedEntities: everything?.deletedNotes?.size ?? 0,
         unusedAttachments: everything?.unusedAttachments?.size ?? 0,
         revisionSnapshots: trimmed?.subtreeRevisionsContentSize ?? 0
     };
+    const contentTotal = perItem.deletedEntities + perItem.unusedAttachments
+        + (everything?.subtreeRevisionsContentSize ?? 0);
 
     return {
         perItem,
-        total: perItem.deletedEntities + perItem.unusedAttachments + (everything?.subtreeRevisionsContentSize ?? 0),
+        compaction,
+        // Added rather than folded in: the free pages a rebuild returns are ones erasing already
+        // finished with, while the figures above weigh content still to be erased. The two never
+        // describe the same byte.
+        total: contentTotal + compaction,
         selected: CLEANUP_ITEMS.reduce((sum, item) => sum + (options[item.id] ? perItem[item.id] : 0), 0)
+            + (options.compactDatabase ? compaction : 0)
     };
 }
 
@@ -128,7 +143,9 @@ export function computeCleanupSizes(
  *          the cleanup having given space back.
  */
 export async function runCleanup(options: CleanupToolOptions): Promise<number> {
-    const before = await measureOccupiedBytes();
+    // Only weighed when the file is not being rebuilt afterwards; a rebuild reports its own figure,
+    // which is the better one and makes these two readings of the whole database wasted work.
+    const before = options.compactDatabase ? 0 : await measureOccupiedBytes();
 
     if (options.revisionSnapshots) {
         await server.post("revisions/erase-all-excess-revisions", {
@@ -145,19 +162,36 @@ export async function runCleanup(options: CleanupToolOptions): Promise<number> {
         await server.post("notes/erase-deleted-notes-now");
     }
 
-    if (options.compactDatabase) {
-        // Last, with everything already erased: this rebuilds the file around whatever is left, so
-        // anything erased afterwards would leave a hole it has just been rebuilt to close.
-        await server.post("database/vacuum-database");
-    }
-
-    const reclaimed = Math.max(before - await measureOccupiedBytes(), 0);
+    const reclaimed = options.compactDatabase
+        // Last, with everything already erased: the rebuild closes around whatever is left, and its
+        // own before/after is the truest figure there is — the file itself, rather than an account
+        // of what the file holds. It subsumes the erasures above, whose pages it is what returns.
+        ? await compactDatabase()
+        : Math.max(before - await measureOccupiedBytes(), 0);
 
     // Recorded on the server as well as shown here: this erased content past recovery, and the log
     // is where that is answerable for afterwards.
     await server.post("space-usage/cleanup-completed", { reclaimedBytes: reclaimed });
 
     return reclaimed;
+}
+
+/** Rebuilds the database file, reporting what it handed back to the disk. */
+async function compactDatabase(): Promise<number> {
+    const { sizeBefore, sizeAfter } = await server.post<VacuumDatabaseResponse>("database/vacuum-database");
+
+    return Math.max(sizeBefore - sizeAfter, 0);
+}
+
+/**
+ * Bytes a rebuild would return: the pages already free inside the file, which erasing content puts
+ * there and only a rebuild takes back. Disjoint from the content figures — those weigh live content
+ * that is *about* to be freed, this weighs what already has been.
+ */
+export async function measureCompactionEstimate(): Promise<number> {
+    const { reclaimableBytes } = await server.get<CompactionEstimateResponse>("database/compaction-estimate");
+
+    return reclaimableBytes;
 }
 
 /**

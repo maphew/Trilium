@@ -6,6 +6,9 @@
     --cleanup-deleted-color: color-mix(in srgb, var(--accented-background-color) 55%, #d9645b 45%);
     --cleanup-attachments-color: color-mix(in srgb, var(--accented-background-color) 55%, #d9a93d 45%);
     --cleanup-revisions-color: color-mix(in srgb, var(--accented-background-color) 55%, #8f959c 45%);
+    /* Blue, as the browse donut paints a note's own body: this segment is the file itself rather
+       than any of the content in it. */
+    --cleanup-compact-color: color-mix(in srgb, var(--accented-background-color) 55%, #5b8dd9 45%);
 
     /* Sized by its content rather than to the floor the component sets: no item title wraps, so a
        long one has to widen the dialog. Capped at the viewport, past which there is nowhere to grow. */
@@ -84,6 +87,10 @@
         --donut-segment-color: var(--cleanup-revisions-color);
     }
 
+    .cleanup-segment-compactDatabase {
+        --donut-segment-color: var(--cleanup-compact-color);
+    }
+
     /* Left in place rather than removed: the ring stands for everything reclaimable, so an unpicked
        item keeps its share of it and only stops being claimed. */
     .cleanup-segment-unpicked {
@@ -110,10 +117,8 @@
         --cleanup-item-color: var(--cleanup-revisions-color);
     }
 
-    /* Nothing on the ring stands for this one, so its swatch names no color — kept rather than
-       dropped so the title starts where every title above it does. */
     .cleanup-item-compact {
-        --cleanup-item-color: transparent;
+        --cleanup-item-color: var(--cleanup-compact-color);
     }
 
     .cleanup-item-swatch {

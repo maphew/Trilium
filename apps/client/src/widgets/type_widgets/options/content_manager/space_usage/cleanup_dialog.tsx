@@ -21,6 +21,7 @@ import {
     type CleanupToolOptions,
     computeCleanupSizes,
     hasWorkToDo,
+    measureCompactionEstimate,
     readCleanupOptions,
     runCleanup
 } from "./cleanup_operation";
@@ -78,14 +79,20 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
     const trimmed = useSpaceUsageFetch<SpaceUsageNoteResponse>(
         `${ROOT_USAGE_URL}?snapshotsToKeep=${settledSnapshotsToKeep}&keepNamedSnapshots=${options.keepNamedSnapshots}`);
 
-    const sizes = computeCleanupSizes(everything.data, trimmed.data, options);
+    // What a rebuild would return, read once on open: only erasures move it, and none run while the
+    // dialog is up. Absent in the build that cannot rebuild at all.
+    const [ compaction, setCompaction ] = useState(0);
+    useEffect(() => {
+        if (!isStandalone) {
+            void measureCompactionEstimate().then(setCompaction).catch(() => setCompaction(0));
+        }
+    }, []);
+
+    const sizes = computeCleanupSizes(everything.data, trimmed.data, options, compaction);
     const measuring = everything.loading || trimmed.loading;
     // Nothing picked, or nothing to gain from what is: either way the run would be a no-op, and a
     // button that erases without recourse must not be offered for one.
     const nothingToDo = measuring || !hasWorkToDo(options, sizes.selected);
-    // A run that only compacts frees nothing the content figures can see, so the reading has no
-    // number to give — stating "0" would be answering a question it cannot answer.
-    const unmeasurable = options.compactDatabase && sizes.selected <= 0;
 
     const ring: DonutRing = useMemo(() => ({
         id: "cleanup",
@@ -94,15 +101,28 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
         // A database with nothing to reclaim draws no segment at all; the track is what keeps the
         // reading in its hole from floating in an empty square.
         track: true,
-        segments: CLEANUP_ITEMS.map((item) => ({
-            id: item.id,
-            value: sizes.perItem[item.id],
-            className: clsx(`cleanup-segment-${item.id}`, !options[item.id] && "cleanup-segment-unpicked"),
-            tooltip: t(item.labelKey)
-        }))
+        segments: [
+            ...CLEANUP_ITEMS.map((item) => ({
+                id: item.id,
+                value: sizes.perItem[item.id],
+                className: clsx(`cleanup-segment-${item.id}`, !options[item.id] && "cleanup-segment-unpicked"),
+                tooltip: t(item.labelKey)
+            })),
+            // The free pages a rebuild would return stand for space as surely as the content above
+            // does, so they take an arc of their own — which is what lets the row's swatch beside
+            // them be read as naming one.
+            ...(isStandalone ? [] : [ {
+                id: "compactDatabase",
+                value: sizes.compaction,
+                className: clsx("cleanup-segment-compactDatabase",
+                    !options.compactDatabase && "cleanup-segment-unpicked"),
+                tooltip: t("space_usage.cleanup_compact_database")
+            } ])
+        ]
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }), [ sizes.perItem.deletedEntities, sizes.perItem.unusedAttachments, sizes.perItem.revisionSnapshots,
-        options.deletedEntities, options.unusedAttachments, options.revisionSnapshots ]);
+        sizes.compaction, options.deletedEntities, options.unusedAttachments, options.revisionSnapshots,
+        options.compactDatabase ]);
 
     // What the run was asked to do, held across the close: the operation starts once the dialog is
     // out of the way, by which time the state it was configured from is on its way out too.
@@ -162,18 +182,11 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
                 <DonutChart rings={[ ring ]}>
                     <div className="cleanup-chart-center">
                         <span className="cleanup-chart-caption">{t("space_usage.cleanup_estimated")}</span>
-                        <span className="cleanup-chart-amount">
-                            {unmeasurable ? t("space_usage.cleanup_amount_unknown") : formatSize(sizes.selected)}
+                        <span className="cleanup-chart-amount">{formatSize(sizes.selected)}</span>
+                        <div className="cleanup-chart-rule" aria-hidden="true" />
+                        <span className="cleanup-chart-total">
+                            {t("space_usage.cleanup_amount_of", { total: formatSize(sizes.total) })}
                         </span>
-                        {/* Only compacting is picked, and how much a rebuild hands back is not
-                            something the content figures can answer — so there is no share of the
-                            whole to state, and nothing for the rule to divide. */}
-                        {!unmeasurable && <>
-                            <div className="cleanup-chart-rule" aria-hidden="true" />
-                            <span className="cleanup-chart-total">
-                                {t("space_usage.cleanup_amount_of", { total: formatSize(sizes.total) })}
-                            </span>
-                        </>}
                     </div>
                 </DonutChart>
             </div>
@@ -218,14 +231,15 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
                     </CardSection>
                 ))}
 
-                {/* Frees no content, so it carries no figure and no arc — its swatch is a blank
-                    holding the titles in line with the rows above. Absent where the endpoint is:
-                    vacuuming lives in the server build, not in the one that runs the database
-                    in-process. */}
+                {/* Its figure is the pages already free inside the file, which only a rebuild
+                    returns — no part of any content figure, and so an arc and a color of its own.
+                    Absent where the endpoint is: vacuuming lives in the server build, not in the
+                    one that runs the database in-process. */}
                 {!isStandalone && (
                     <CardSection className="cleanup-item cleanup-item-compact">
                         <span className="cleanup-item-swatch" aria-hidden="true" />
                         <span className="cleanup-item-title">{t("space_usage.cleanup_compact_database")}</span>
+                        <span className="cleanup-item-size">{formatSize(sizes.compaction)}</span>
                         <FormToggle
                             currentValue={options.compactDatabase}
                             onChange={(value) => update({ compactDatabase: value })}

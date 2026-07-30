@@ -3,7 +3,9 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
     getInt: vi.fn<(name: string) => number | null>(() => -1),
-    post: vi.fn(async (_url: string, _body?: object) => {}),
+    post: vi.fn(async (url: string, _body?: object) => (
+        url === "database/vacuum-database" ? { sizeBefore: 9000, sizeAfter: 2000 } : undefined
+    )),
     /** Occupied bytes, read once before the erasures and once after; shifted per test. */
     occupied: [ 5000, 3000 ],
     get: vi.fn()
@@ -102,8 +104,22 @@ describe("computeCleanupSizes", () => {
         // Keeping snapshots can only take away from what erasing the history outright would free,
         // so the whole stays put while the item's own figure follows the settings.
         expect(sizes.total).toBe(900 + 100 + 20);
+        expect(sizes.compaction).toBe(0);
         expect(sizes.perItem).toEqual({ deletedEntities: 100, unusedAttachments: 20, revisionSnapshots: 300 });
         expect(sizes.selected).toBe(300 + 100 + 20);
+    });
+
+    it("adds what a rebuild would return, which no content figure describes", () => {
+        const withCompaction = computeCleanupSizes(usage(900, 100, 20), usage(300), ALL_PICKED, 500);
+
+        // Free pages are what erasing already finished with; the figures above weigh content still
+        // to be erased. Neither ever describes the same byte, so the whole is their sum.
+        expect(withCompaction.compaction).toBe(500);
+        expect(withCompaction.total).toBe(900 + 100 + 20 + 500);
+        // Not on offer until compacting is picked, though.
+        expect(withCompaction.selected).toBe(300 + 100 + 20);
+        expect(computeCleanupSizes(usage(900, 100, 20), usage(300),
+            { ...ALL_PICKED, compactDatabase: true }, 500).selected).toBe(300 + 100 + 20 + 500);
     });
 
     it("counts only what is picked, and nothing at all before the measurements arrive", () => {
@@ -149,8 +165,10 @@ describe("runCleanup", () => {
         await expect(runCleanup(ALL_PICKED)).resolves.toBe(0);
     });
 
-    it("rebuilds the file last, once there is nothing further to erase out of it", async () => {
-        await runCleanup({ ...ALL_PICKED, compactDatabase: true });
+    it("rebuilds the file last, and reports the file's own before and after", async () => {
+        // The rebuild returns 9000 → 2000; the content readings would have said 2000. The file is
+        // the truer figure and subsumes the erasures, whose pages the rebuild is what hands back.
+        await expect(runCleanup({ ...ALL_PICKED, compactDatabase: true })).resolves.toBe(7000);
 
         expect(mocks.post.mock.calls.map(([ url ]) => url)).toEqual([
             "revisions/erase-all-excess-revisions",
@@ -159,6 +177,10 @@ describe("runCleanup", () => {
             "database/vacuum-database",
             "space-usage/cleanup-completed"
         ]);
+        expect(mocks.post).toHaveBeenCalledWith("space-usage/cleanup-completed", { reclaimedBytes: 7000 });
+        // And the content weighings are skipped entirely, being two readings of the whole database
+        // for a figure that is not going to be used.
+        expect(mocks.get).not.toHaveBeenCalled();
     });
 
     it("compacts on its own, for a run that erases nothing at all", async () => {
