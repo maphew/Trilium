@@ -377,10 +377,16 @@ export interface SpaceUsageNoteResponse extends SpaceUsageSizes {
     /** Like {@link noteContentSize}, over the note's whole canonical subtree. */
     subtreeContentSize: number;
     /**
-     * What erasing the whole subtree's history would actually reclaim: blobs held only by the
-     * subtree's revisions, each counted once, and none that a live body or note attachment still
-     * shares. Tiered like the database-wide figure, so the two are comparable — unlike the
-     * per-entity {@link revisionsSize}, which counts a shared snapshot at every entity holding it.
+     * An estimate of what trimming the subtree's history would reclaim: blobs held only by the
+     * snapshots that would go, each counted once, and none that a live body, a note attachment or a
+     * surviving snapshot still shares. Tiered like the database-wide figure, so the two are
+     * comparable — unlike the per-entity {@link revisionsSize}, which counts a shared snapshot at
+     * every entity holding it.
+     *
+     * How far that trimming goes is the request's own {@link EraseExcessRevisionsOptions}: by
+     * default every snapshot goes, which is the whole history. The limit asked for stands for every
+     * note at once, so a note whose `#versioningLimit` keeps more than that frees less than this
+     * figure allows for — an estimate reading high, not a promise.
      */
     subtreeRevisionsContentSize: number;
     attachments: SpaceUsageAttachment[];

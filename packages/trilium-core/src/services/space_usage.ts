@@ -1,4 +1,5 @@
 import {
+    EraseExcessRevisionsOptions,
     SpaceUsageBucket,
     SpaceUsageContent,
     SpaceUsageDeletedNotes,
@@ -106,16 +107,19 @@ function buildOverview({ includeRevisions, limit }: { includeRevisions: boolean,
     };
 }
 
-export function getNoteUsage(noteId: string): SpaceUsageNoteResponse {
+export function getNoteUsage(
+    noteId: string,
+    revisionOptions: EraseExcessRevisionsOptions = {}
+): SpaceUsageNoteResponse {
     // Resolved before the measuring pass, so a bad note ID costs nothing.
     const note = becca.getNoteOrThrow(noteId);
 
     log(`measuring note ${note.noteId} and its subtree...`);
 
-    return timed(`note ${note.noteId}`, () => withBlobUsage(() => buildNoteUsage(note.noteId)));
+    return timed(`note ${note.noteId}`, () => withBlobUsage(() => buildNoteUsage(note.noteId, revisionOptions)));
 }
 
-function buildNoteUsage(noteId: string): SpaceUsageNoteResponse {
+function buildNoteUsage(noteId: string, revisionOptions: EraseExcessRevisionsOptions): SpaceUsageNoteResponse {
     const note = becca.getNoteOrThrow(noteId);
     const sizes = timed("adding the sizes up per note", collectSizes);
     const forest = timed("placing the notes in the tree", buildForestFromBecca);
@@ -163,7 +167,7 @@ function buildNoteUsage(noteId: string): SpaceUsageNoteResponse {
         ...sizesOf(noteId, sizes),
         noteContentSize: collectContentSizeOf([ noteId ]),
         subtreeContentSize: collectContentSizeOf(subtreeNoteIds),
-        subtreeRevisionsContentSize: collectRevisionsSizeOf(subtreeNoteIds),
+        subtreeRevisionsContentSize: collectRevisionsSizeOf(subtreeNoteIds, revisionOptions),
         attachments,
         children,
         // Deleted notes have no place in the tree, so they surface once, at its root. Unused
@@ -570,33 +574,93 @@ function collectContentSizeOf(noteIds: string[]): number {
 }
 
 /**
- * The revision tier of {@link collectContentSizeOf}: what erasing the given notes' history would
- * actually reclaim. Deduplicated, and subtracted against the *database-wide* live bodies and note
- * attachments exactly as {@link collectContent} does — a snapshot still sharing its blob with any
- * live note frees nothing, so it counts for zero here. That tiering is what makes a subtree's figure
- * comparable to the database-wide one, and what separates this from the per-entity `revisionsSize`,
- * which counts a shared snapshot again at every entity holding it.
+ * The revision tier of {@link collectContentSizeOf}: an estimate of what trimming the given notes'
+ * history would reclaim. Deduplicated, and subtracted against the *database-wide* live bodies and
+ * note attachments exactly as {@link collectContent} does — a snapshot still sharing its blob with
+ * any live note frees nothing, so it counts for zero here. That tiering is what makes a subtree's
+ * figure comparable to the database-wide one, and what separates this from the per-entity
+ * `revisionsSize`, which counts a shared snapshot again at every entity holding it.
+ *
+ * The options are the ones "Erase excess revision snapshots" itself takes, so the figure answers
+ * what *that* operation would free rather than a number the action never delivers. Their absence
+ * keeps every snapshot doomed — the same figure as before they existed, and the one to report when
+ * nothing narrower was asked for.
+ *
+ * An estimate rather than a promise, because the limit it answers for is one number across every
+ * note, while the operation left to itself follows each note's own `#versioningLimit`. A note
+ * labelled to keep more than the stated limit frees less than its share of this figure, so the
+ * estimate reads high — the direction an estimate of reclaimable space should err in anyway. Run
+ * the operation with the same options and the two agree exactly, the override outranking the label.
+ *
+ * @param revisionOptions how far the trimming being estimated would go; `snapshotsToKeep` defaults
+ *                        to 0, which dooms the lot.
  */
-function collectRevisionsSizeOf(noteIds: string[]): number {
+function collectRevisionsSizeOf(
+    noteIds: string[],
+    { snapshotsToKeep, keepNamedSnapshots }: EraseExcessRevisionsOptions
+): number {
+    const snapshotsKept = Number.isInteger(snapshotsToKeep) ? Number(snapshotsToKeep) : 0;
+
+    // Nothing is ever excess once every snapshot is kept, so there is no query to run.
+    if (snapshotsKept < 0) {
+        return 0;
+    }
+
     const sql = getSql();
     sql.fillParamList(noteIds);
 
+    // The snapshots the trimming would take: per note the oldest ones past the allowance, ranked
+    // newest-first, sparing the named ones from the ranking altogether when they are to be kept —
+    // the same reckoning `BNote.eraseExcessRevisionSnapshots` makes. The revisionId tie-break only
+    // settles snapshots saved within the same millisecond, which the ordering alone cannot.
+    const doomed = `
+        SELECT revisionId, blobId FROM (
+            SELECT revisions.revisionId, revisions.blobId,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY revisions.noteId
+                       ORDER BY revisions.utcDateCreated DESC, revisions.revisionId DESC
+                   ) AS age
+            FROM revisions
+            JOIN param_list ON param_list.paramId = revisions.noteId
+            ${keepNamedSnapshots ? "WHERE revisions.description IS NULL OR revisions.description = ''" : ""}
+        )
+        WHERE age > ${snapshotsKept}`;
+
     return sql.getValue<number | null>(`
+        WITH doomed AS (${doomed})
         SELECT SUM(blob_usage.size)
         FROM blob_usage
         WHERE blob_usage.blobId IN (
-            SELECT revisions.blobId FROM revisions
-                JOIN param_list ON param_list.paramId = revisions.noteId
-                WHERE revisions.blobId IS NOT NULL
+            SELECT blobId FROM doomed WHERE blobId IS NOT NULL
             UNION SELECT attachments.blobId FROM attachments
-                JOIN revisions ON revisions.revisionId = attachments.ownerId
-                JOIN param_list ON param_list.paramId = revisions.noteId
+                JOIN doomed ON doomed.revisionId = attachments.ownerId
                 WHERE attachments.isDeleted = 0 AND attachments.blobId IS NOT NULL
         )
         -- The same subtraction the database-wide tiers make, read off the tag each blob already
         -- carries: one still held by a live body or note attachment frees nothing.
-        AND blob_usage.kind NOT IN (${BLOB_BODY}, ${BLOB_ATTACHMENT})`) ?? 0;
+        AND blob_usage.kind NOT IN (${BLOB_BODY}, ${BLOB_ATTACHMENT})
+        -- And neither does one a snapshot that survives the trimming still holds — the spared named
+        -- ones, the newest kept per note, and every snapshot of every note outside this subtree.
+        -- Unchanged content is snapshotted onto the same blob over and over, so without this the
+        -- estimate would promise the same bytes back once per doomed snapshot sharing them.
+        AND blob_usage.blobId NOT IN (${SURVIVING_REVISION_BLOBS})`) ?? 0;
 }
+
+/**
+ * Live-note revision blobs that a trimming would leave behind: {@link LIVE_REVISION_BLOBS} minus
+ * the snapshots being erased. Only valid inside a query defining the `doomed` set.
+ */
+const SURVIVING_REVISION_BLOBS = `
+    SELECT revisions.blobId FROM revisions
+    JOIN notes ON notes.noteId = revisions.noteId
+    WHERE notes.isDeleted = 0 AND revisions.blobId IS NOT NULL
+    AND revisions.revisionId NOT IN (SELECT revisionId FROM doomed)
+    UNION
+    SELECT attachments.blobId FROM attachments
+    JOIN revisions ON revisions.revisionId = attachments.ownerId
+    JOIN notes ON notes.noteId = revisions.noteId
+    WHERE attachments.isDeleted = 0 AND notes.isDeleted = 0 AND attachments.blobId IS NOT NULL
+    AND revisions.revisionId NOT IN (SELECT revisionId FROM doomed)`;
 
 /**
  * What erasing would actually reclaim: blobs referenced by deleted entities and by no live one.
