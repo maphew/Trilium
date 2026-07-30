@@ -15,6 +15,7 @@ import server from "../services/server";
 import { randomString } from "../services/utils";
 import ws from "../services/ws";
 import LabelValueInput from "./attribute_widgets/label_value_input";
+import MultiValueInput from "./attribute_widgets/multi_value_input";
 import { useNoteContext, useNoteLabel, useTriliumEvent, useUniqueName } from "./react/hooks";
 import NoteAutocomplete from "./react/NoteAutocomplete";
 
@@ -24,6 +25,14 @@ interface Cell {
     definition: DefinitionObject;
     valueAttr: Attribute;
     valueName: string;
+    /**
+     * Every value the note holds under this name, for a label whose definition allows several — the
+     * whole set being edited as one field of chips rather than as a field per value.
+     *
+     * Absent for a definition holding one value, and for a relation, which is still a field per value:
+     * a relation's values are note ids, which the chips have no way of naming yet.
+     */
+    values?: string[];
 }
 
 interface CellProps {
@@ -69,8 +78,9 @@ export function PromotedAttributesContent({ note, componentId, cells, setCells }
 }
 
 /**
- * Handles the individual cells (instances for promoted attributes including empty attributes). Promoted attributes with "multiple" multiplicity will have
- * each value represented as a separate cell.
+ * Handles the individual cells (fields for promoted attributes, including empty ones). A label
+ * allowing several values is one cell holding the whole set; a relation allowing several is still a
+ * cell per value — see {@link buildPromotedCells}.
  *
  * The cells are returned as a state since they can also be altered internally if needed, for example to add a new empty cell.
  */
@@ -83,45 +93,7 @@ export function usePromotedAttributeData(note: FNote | null | undefined, compone
             setCells([]);
             return;
         }
-        const promotedDefAttrs = note.getPromotedDefinitionAttributes();
-        const ownedAttributes = note.getOwnedAttributes();
-        // attrs are not resorted if position changes after the initial load
-        // promoted attrs are sorted primarily by order of definitions, but with multi-valued promoted attrs
-        // the order of attributes is important as well
-        ownedAttributes.sort((a, b) => a.position - b.position);
-
-        const cells: Cell[] = [];
-        for (const definitionAttr of promotedDefAttrs) {
-            const [ valueType, valueName ] = extractAttributeDefinitionTypeAndName(definitionAttr.name);
-
-            let valueAttrs = ownedAttributes.filter((el) => el.name === valueName && el.type === valueType) as Attribute[];
-
-            if (valueAttrs.length === 0) {
-                valueAttrs.push({
-                    attributeId: "",
-                    type: valueType,
-                    name: valueName,
-                    value: ""
-                });
-            }
-
-            if (definitionAttr.getDefinition().multiplicity === "single") {
-                valueAttrs = valueAttrs.slice(0, 1);
-            }
-
-            for (const valueAttr of valueAttrs) {
-                const definition = definitionAttr.getDefinition();
-
-                // if not owned, we'll force creation of a new attribute instead of updating the inherited one
-                if (valueAttr.noteId !== note.noteId) {
-                    valueAttr.attributeId = "";
-                }
-
-                const uniqueId = randomString();
-                cells.push({  definitionAttr, definition, valueAttr, valueName, uniqueId });
-            }
-        }
-        setCells(cells);
+        setCells(buildPromotedCells(note));
     }
 
     useEffect(refresh, [ note, viewType, noteContext ]);
@@ -132,6 +104,73 @@ export function usePromotedAttributeData(note: FNote | null | undefined, compone
     });
 
     return [ cells, setCells ];
+}
+
+/**
+ * The fields a note's promoted definitions ask for, in the order they are shown.
+ *
+ * One definition is usually one field. A label allowing several values is still one — the set is
+ * edited as chips within it, so the note shows one field however many values it holds — while a
+ * relation allowing several is a field per value, there being no chip yet that can name a note.
+ *
+ * A definition the note holds nothing under still gets its field, empty, so that a value can be
+ * entered where there is none. For a set that is the field with no chips in it rather than a blank
+ * value among them: an empty chip would stand for nothing, and pressing its remove button would
+ * remove nothing.
+ *
+ * Exported for its own tests.
+ */
+export function buildPromotedCells(note: FNote): Cell[] {
+    const promotedDefAttrs = note.getPromotedDefinitionAttributes();
+    const ownedAttributes = note.getOwnedAttributes();
+    // attrs are not resorted if position changes after the initial load
+    // promoted attrs are sorted primarily by order of definitions, but with multi-valued promoted attrs
+    // the order of attributes is important as well
+    ownedAttributes.sort((a, b) => a.position - b.position);
+
+    const cells: Cell[] = [];
+    for (const definitionAttr of promotedDefAttrs) {
+        const [ valueType, valueName ] = extractAttributeDefinitionTypeAndName(definitionAttr.name);
+        const definition = definitionAttr.getDefinition();
+        const held = ownedAttributes.filter((el) => el.name === valueName && el.type === valueType) as Attribute[];
+        const blank: Attribute = {
+            attributeId: "",
+            type: valueType,
+            name: valueName,
+            value: ""
+        };
+
+        if (definition.multiplicity === "multi" && valueType === "label") {
+            cells.push({
+                definitionAttr,
+                definition,
+                valueName,
+                // The set is written back by name rather than through any one attribute, so the field
+                // carries the definition's own blank: what it needs from an attribute is the type and
+                // the name, which every value under it shares.
+                valueAttr: blank,
+                values: held.map((attr) => attr.value).filter((value): value is string => !!value),
+                uniqueId: randomString()
+            });
+            continue;
+        }
+
+        let valueAttrs = held.length ? held : [ blank ];
+        if (definition.multiplicity === "single") {
+            valueAttrs = valueAttrs.slice(0, 1);
+        }
+
+        for (const valueAttr of valueAttrs) {
+            // if not owned, we'll force creation of a new attribute instead of updating the inherited one
+            if (valueAttr.noteId !== note.noteId) {
+                valueAttr.attributeId = "";
+            }
+
+            cells.push({ definitionAttr, definition, valueAttr, valueName, uniqueId: randomString() });
+        }
+    }
+
+    return cells;
 }
 
 function PromotedAttributeCell(props: CellProps) {
@@ -146,11 +185,15 @@ function PromotedAttributeCell(props: CellProps) {
         }
     }, [ props.shouldFocus ]);
 
+    const holdsSet = !!props.cell.values;
+
     let correspondingInput: ComponentChild;
     let className: string | undefined;
     switch (valueAttr.type) {
         case "label":
-            correspondingInput = <LabelInput inputId={inputId} {...props} />;
+            correspondingInput = holdsSet
+                ? <MultiLabelInput inputId={inputId} {...props} />
+                : <LabelInput inputId={inputId} {...props} />;
             className = `promoted-attribute-label-${definition.labelType}`;
             break;
         case "relation":
@@ -164,7 +207,11 @@ function PromotedAttributeCell(props: CellProps) {
 
     return (
         <div className={clsx("promoted-attribute-cell", className)}>
-            {definition.labelType !== "boolean" && <label for={inputId}>{definition.promotedAlias ?? valueName}</label>}
+            {/* A single flag names itself after its own box, a checkbox before its name reading as the
+                sentence it is. A field of flags is a field like any other: the chips in it stand for
+                values, not for the field being on, so the name goes ahead of it as elsewhere. */}
+            {(definition.labelType !== "boolean" || holdsSet) &&
+                <label for={inputId}>{definition.promotedAlias ?? valueName}</label>}
             {correspondingInput}
             <MultiplicityCell {...props} />
         </div>
@@ -180,19 +227,7 @@ function LabelInput(props: CellProps & { inputId: string }) {
         (value: string) => updateAttribute(note, cell, componentId, value, setCells),
         [ cell, componentId, note, setCells ]);
 
-    // An option created straight from the field is added to the definition — on whichever note owns
-    // it, typically a parent or template — so every note sharing the field offers it from now on.
-    const createOption = useCallback(async (option: string) => {
-        const newDefinition = await attributes.addSelectOption(definitionAttr, option, componentId);
-        // The grid ignores reloads it is itself the source of (see usePromotedAttributeData), so the
-        // cells sharing the definition are patched in place, as updateAttribute does for a value —
-        // otherwise the list keeps offering the old options until something else changes.
-        setCells(prev => prev?.map(c =>
-            c.definitionAttr.attributeId === definitionAttr.attributeId
-                ? { ...c, definition: newDefinition }
-                : c
-        ));
-    }, [ definitionAttr, componentId, setCells ]);
+    const createOption = useCreateSelectOption(definitionAttr, componentId, setCells);
 
     useTextLabelAutocomplete(inputId, valueAttr, definition, (e) => {
         if (e.currentTarget instanceof HTMLInputElement) {
@@ -239,6 +274,60 @@ function LabelInput(props: CellProps & { inputId: string }) {
     return <div className="input-group">{input}</div>;
 }
 
+/**
+ * The field a label allowing several values is edited through: one field holding the whole set as
+ * chips, rather than a field per value with buttons beside each for adding and removing one.
+ *
+ * The set is written back by name — every value under it at once — so nothing here holds an attribute
+ * of its own: which attribute ends up carrying which value is neither knowable from here nor worth
+ * knowing, the note holding a set rather than an ordered list of rows.
+ */
+function MultiLabelInput({ inputId, note, cell, componentId, setCells }: CellProps & { inputId: string }) {
+    const { valueName, definition, definitionAttr, values, uniqueId } = cell;
+    const labelType = definition.labelType ?? "text";
+    const createOption = useCreateSelectOption(definitionAttr, componentId, setCells);
+
+    const commit = useCallback(async (edited: string[]) => {
+        await attributes.setLabelValues(note, valueName, edited, componentId);
+        // The grid ignores reloads it is itself the source of (see usePromotedAttributeData), so the
+        // set it shows is patched in place, as updateAttribute does for a single value — otherwise
+        // the chips would not follow the value just taken.
+        setCells(prev => prev?.map(c => c.uniqueId === uniqueId ? { ...c, values: edited } : c));
+    }, [ note, valueName, componentId, uniqueId, setCells ]);
+
+    return (
+        <div className="promoted-attribute-values">
+            <MultiValueInput
+                labelType={labelType}
+                values={values ?? []}
+                options={definition.selectOptions}
+                onCreateOption={labelType === "select" ? createOption : undefined}
+                inputId={inputId}
+                tabIndex={200 + definitionAttr.position}
+                onCommit={commit}
+            />
+        </div>
+    );
+}
+
+/**
+ * Adds an option to a `select` definition from the very field being typed into. Written to whichever
+ * note owns the definition — typically a parent or a template — so every note sharing the field
+ * offers the new option from now on.
+ */
+function useCreateSelectOption(definitionAttr: FAttribute, componentId: string, setCells: Dispatch<StateUpdater<Cell[] | undefined>>) {
+    return useCallback(async (option: string) => {
+        const newDefinition = await attributes.addSelectOption(definitionAttr, option, componentId);
+        // The grid ignores reloads it is itself the source of (see usePromotedAttributeData), so the
+        // cells sharing the definition are patched in place, as updateAttribute does for a value —
+        // otherwise the list keeps offering the old options until something else changes.
+        setCells(prev => prev?.map(c =>
+            c.definitionAttr.attributeId === definitionAttr.attributeId
+                ? { ...c, definition: newDefinition }
+                : c
+        ));
+    }, [ definitionAttr, componentId, setCells ]);
+}
 
 function RelationInput({ inputId, ...props }: CellProps & { inputId: string }) {
     return (
@@ -254,8 +343,16 @@ function RelationInput({ inputId, ...props }: CellProps & { inputId: string }) {
     );
 }
 
+/**
+ * The buttons beside a field that is one value of several: one adding a field after it, one removing
+ * the value it holds.
+ *
+ * Only for the kinds still shown a field per value — which is to say relations. A label holding
+ * several is one field of chips, where a value is added by entering it and removed by pressing the
+ * chip it is on, so a pair of buttons beside it would offer the same twice.
+ */
 function MultiplicityCell({ cell, cells, setCells, setCellToFocus, note, componentId }: CellProps) {
-    return (cell.definition.multiplicity === "multi" &&
+    return (cell.definition.multiplicity === "multi" && !cell.values &&
         <td className="multiplicity">
             <PromotedActionButton
                 icon="bx bx-plus"

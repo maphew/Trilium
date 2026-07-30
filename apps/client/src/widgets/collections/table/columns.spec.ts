@@ -1,9 +1,10 @@
 import { act } from "preact/test-utils";
-import { describe, expect, it, vi } from "vitest";
-import { type AttributeDefinitionInformation, buildColumnDefinitions, formatLabelDate, restoreExistingData, type ValuesEditorParams } from "./columns";
 import type { CellComponent, ColumnDefinition } from "tabulator-tables";
+import { describe, expect, it, vi } from "vitest";
 
 import options from "../../../services/options";
+import { formatLabelDate } from "../../attribute_widgets/label_value_display";
+import { type AttributeDefinitionInformation, buildColumnDefinitions, restoreExistingData, type ValuesEditorParams } from "./columns";
 
 describe("restoreExistingData", () => {
     it("maintains important columns properties", () => {
@@ -102,7 +103,7 @@ describe("restoreExistingData", () => {
             { title: "#", headerSort: false, hozAlign: "center", resizable: false, frozen: true, rowHandle: false },
             { field: "noteId", title: "Note ID", visible: false },
             { field: "title", title: "Title", editor: "input", width: 400 }
-        ]
+        ];
         const oldDefs: ColumnDefinition[] = [
             { title: "#", headerSort: false, hozAlign: "center", resizable: false, rowHandle: false },
             { field: "noteId", title: "Note ID", visible: false },
@@ -115,7 +116,7 @@ describe("restoreExistingData", () => {
     it("allows hiding the row number column", () => {
         const newDefs: ColumnDefinition[] = [
             { title: "#", headerSort: false, hozAlign: "center", resizable: false, frozen: true, rowHandle: false },
-        ]
+        ];
         const oldDefs: ColumnDefinition[] = [
             { title: "#", headerSort: false, hozAlign: "center", resizable: false, rowHandle: false, visible: false },
         ];
@@ -126,7 +127,7 @@ describe("restoreExistingData", () => {
     it("enforces size for non-resizable columns", () => {
         const newDefs: ColumnDefinition[] = [
             { title: "#", resizable: false, width: "100px" },
-        ]
+        ];
         const oldDefs: ColumnDefinition[] = [
             { title: "#", resizable: false, width: "120px" },
         ];
@@ -230,7 +231,7 @@ describe("buildColumnDefinitions — colour columns", () => {
 
         // Filling the cell instead would paint over the row's own striping, hover and selection.
         const swatch = format("#ff2e88");
-        expect(swatch.className).toBe("table-color-swatch");
+        expect(swatch.className).toBe("label-color-swatch");
         expect(swatch.style.backgroundColor).toBe("#ff2e88");
         expect(swatch.title).toBe("#ff2e88");
 
@@ -386,11 +387,11 @@ describe("buildColumnDefinitions — multi-valued columns", () => {
         const flags = format("boolean", [ "true", "false" ]);
         expect([ ...flags.querySelectorAll(".tn-icon") ].map((mark) => mark.getAttribute("title")))
             .toEqual([ "true", "false" ]);
-        expect(flags.querySelector(".table-flag-set")?.className).toContain("bx-check");
-        expect(flags.querySelector(".table-flag-unset")?.className).toContain("bx-x");
+        expect(flags.querySelector(".label-flag-set")?.className).toContain("bx-check");
+        expect(flags.querySelector(".label-flag-unset")?.className).toContain("bx-x");
 
         // And a colour as the same swatch a single one is shown by.
-        expect(format("color", [ "#ff2e88" ]).querySelector(".table-color-swatch")?.getAttribute("title"))
+        expect(format("color", [ "#ff2e88" ]).querySelector(".label-color-swatch")?.getAttribute("title"))
             .toBe("#ff2e88");
     });
 

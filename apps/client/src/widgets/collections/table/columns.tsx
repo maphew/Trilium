@@ -7,12 +7,10 @@ import { useEffect, useRef, useState } from "preact/hooks";
 import type { CellComponent, ColumnDefinition, EmptyCallback, FormatterParams, RowComponent, ValueBooleanCallback, ValueVoidCallback } from "tabulator-tables";
 
 import froca from "../../../services/froca.js";
-import { t } from "../../../services/i18n.js";
-import { formatDateNumeric } from "../../../utils/formatters.js";
 import { safeUrlHref } from "../../../utils/url.js";
+import { applyLinkScheme, asLabelValues, ColorSwatch, formatLabelDate, LabelValueChips } from "../../attribute_widgets/label_value_display.jsx";
 import LabelValueInput from "../../attribute_widgets/label_value_input.jsx";
-import { SelectValuesInput } from "../../attribute_widgets/select_input.jsx";
-import ValuesInput from "../../attribute_widgets/values_input.jsx";
+import MultiValueInput from "../../attribute_widgets/multi_value_input.jsx";
 import Icon from "../../react/Icon.jsx";
 import NoteAutocomplete from "../../react/NoteAutocomplete.jsx";
 import { renderReactWidget } from "../../react/react_utils.jsx";
@@ -104,29 +102,6 @@ const labelTypeMappings: Record<ColumnType, Partial<ColumnDefinition>> = {
         formatter: wrapFormatter(NoteFormatter)
     }
 };
-
-/** Gives an email/phone value its clickable scheme unless it (an older value, stored as a url) already carries it. */
-function applyLinkScheme(value: unknown, scheme: string): string {
-    if (typeof value !== "string" || !value) return "";
-    return value.startsWith(scheme) ? value : `${scheme}${value}`;
-}
-
-/**
- * Renders a stored date label through the user's formatting locale, all-numeric so that columns stay
- * narrow and every locale shows a four-digit year.
- *
- * Unparseable values are echoed back rather than formatted: label values are free text, so a
- * date-typed column can hold anything a user typed, imported, or left behind by retyping a text
- * label as a date. `Intl.DateTimeFormat` throws a `RangeError` on an invalid date, and since this
- * runs inside a Tabulator formatter, that would take down the whole grid rather than one cell.
- */
-export function formatLabelDate(value: unknown, withTime: boolean) {
-    if (typeof value !== "string" || !value) return "";
-    // Passed as a string so that formatDateNumeric() keeps its date-only ("YYYY-MM-DD") handling,
-    // which pins the value to the local calendar day instead of shifting it across timezones.
-    if (Number.isNaN(new Date(value).getTime())) return value;
-    return formatDateNumeric(value, withTime);
-}
 
 interface BuildColumnArgs {
     info: AttributeDefinitionInformation[];
@@ -382,9 +357,9 @@ function SelectEditor({ cell, success, editorParams }: EditorOpts) {
 }
 
 /**
- * A cell holding several values is edited as the chips it shows: a select picks them from its
- * options, anything else takes what is typed. Either way the set is what is being edited, so the two
- * share everything around the field — how the set is gathered, and when it is handed over.
+ * A cell holding several values is edited as the chips it shows, through the very field the note's own
+ * promoted grid offers. All this adds is what a cell needs and a note does not: standing over the row
+ * rather than in it, and saying when the edit is over.
  *
  * Reporting a value as it is taken would close the editor on the first one — reporting is Tabulator's
  * "the edit is done" — so the set is held here and handed over once, when the cell is left.
@@ -394,7 +369,7 @@ function ValuesEditor({ cell, success, editorParams }: EditorOpts) {
     const containerRef = useRef<HTMLDivElement>(null);
     useEffect(() => containerRef.current?.querySelector("input")?.focus(), []);
 
-    const [ values, setValues ] = useState<string[]>(() => asValues(cell.getValue()));
+    const [ values, setValues ] = useState<string[]>(() => asLabelValues(cell.getValue()));
     // The set as the handler below will read it. Written as the edit is made rather than left to the
     // next render, because leaving the field both takes what was typed and ends the edit — in that
     // order, and within the one event, which a value only reachable through a render would miss.
@@ -435,28 +410,16 @@ function ValuesEditor({ cell, success, editorParams }: EditorOpts) {
 
     return (
         <div ref={containerRef} className={clsx("table-values-editor", growsUpwards && "grows-upwards")}>
-            {/* A flag is picked from a closed set as a select is — its set is simply the two values
-                a flag has — so the two are gathered through the same field. */}
-            {labelType === "select" || labelType === "boolean" ? (
-                <SelectValuesInput
-                    options={labelType === "boolean" ? BOOLEAN_OPTIONS : options}
-                    values={values}
-                    placeholder={t("promoted_attributes.select_values_placeholder")}
-                    onCreateOption={labelType === "boolean" ? undefined : onCreateOption}
-                    renderValue={labelType === "boolean" ? renderFlag : undefined}
-                    onCommit={editValues}
-                />
-            ) : (
-                <ValuesInput
-                    labelType={labelType === "relation" ? "text" : labelType}
-                    values={values}
-                    placeholder={t("promoted_attributes.values_placeholder")}
-                    // A colour reads as its swatch even while being edited, `#3d5a80` naming nothing
-                    // to the eye. The rest show what is stored, which is what is being edited.
-                    renderValue={labelType === "color" ? (value) => <ColorSwatch color={value} /> : undefined}
-                    onCommit={editValues}
-                />
-            )}
+            {/* The very field the note's own promoted grid offers, so that a definition is edited the
+                same way whichever way the note is opened. A relation is not yet gathered as a set, so
+                one arriving here is taken as the text it is stored as. */}
+            <MultiValueInput
+                labelType={labelType === "relation" ? "text" : labelType}
+                values={values}
+                options={options}
+                onCreateOption={onCreateOption}
+                onCommit={editValues}
+            />
         </div>
     );
 }
@@ -464,73 +427,15 @@ function ValuesEditor({ cell, success, editorParams }: EditorOpts) {
 /** A multi-valued cell as the chips it is edited as, so reading and editing show the same set. */
 function ValuesFormatter({ cell, formatterParams }: FormatterOpts) {
     const { type } = formatterParams as { type?: ColumnType };
-    return (
-        <span className="table-values">
-            {asValues(cell.getValue()).map((value) => (
-                <span key={value} className="tn-chip"><span>{renderValue(value, type)}</span></span>
-            ))}
-        </span>
-    );
-}
-
-/** The schemes that make a value of a link-like type clickable; a url is linked by {@link safeUrlHref}. */
-const LINK_SCHEMES: Partial<Record<ColumnType, string>> = { email: "mailto:", phone: "tel:" };
-
-/** The whole of what a flag can be, which is what a column of flags picks its values from. */
-const BOOLEAN_OPTIONS = [ "true", "false" ];
-
-/**
- * One value of a set, read as its type reads it — so that a set of dates is as legible as a single
- * one, and a set of addresses is as clickable. Anything else is the value as stored.
- */
-function renderValue(value: string, type: ColumnType | undefined) {
-    if (type === "date" || type === "datetime") {
-        return formatLabelDate(value, type === "datetime");
-    }
-
-    if (type === "color") {
-        return <ColorSwatch color={value} />;
-    }
-
-    if (type === "boolean") {
-        return renderFlag(value);
-    }
-
-    if (type === "url") {
-        return <a href={safeUrlHref(value)}>{value}</a>;
-    }
-
-    const scheme = type && LINK_SCHEMES[type];
-    return scheme !== undefined
-        ? <a href={applyLinkScheme(value, scheme)}>{value}</a>
-        : value;
-}
-
-/**
- * A flag as the mark a column of single flags shows, so that a cell holding several reads the same
- * way as one holding the one. The stored text is kept in the tooltip, a value that is neither of the
- * two being a thing worth being able to see.
- */
-function renderFlag(value: string) {
-    return <Icon
-        className={value === "true" ? "table-flag-set" : "table-flag-unset"}
-        icon={value === "true" ? "bx bx-check" : "bx bx-x"}
-        title={value}
+    return <LabelValueChips
+        values={asLabelValues(cell.getValue())}
+        labelType={type === "relation" ? undefined : type}
     />;
-}
-
-/**
- * A multi-valued cell's values. Stored as an array, but a cell can hold what an older single-valued
- * definition left behind, or nothing at all, so anything else is read as the set it stands for.
- */
-function asValues(value: unknown): string[] {
-    if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string");
-    return typeof value === "string" && value ? [ value ] : [];
 }
 
 /** The values as one string, for comparing two sets in a sort. */
 function joinValues(value: unknown) {
-    return asValues(value).join(", ");
+    return asLabelValues(value).join(", ");
 }
 
 /**
@@ -589,10 +494,6 @@ function ColorEditor({ cell, success }: EditorOpts) {
  * A colour cell as the swatch its editor shows, so that reading and editing a colour look alike, and
  * so that the row keeps its own striping, hover and selection — all of which a cell flooded with the
  * colour, as Tabulator's own colour formatter fills it, hides.
- *
- * The value itself is carried in the tooltip rather than set beside the swatch: a column of colours is
- * read by eye, and the text behind one is wanted only now and then — including where it names no
- * colour at all, a cell holding whatever the label does, which the swatch alone could not say.
  */
 function ColorFormatter({ cell }: FormatterOpts) {
     const value = cell.getValue();
@@ -601,19 +502,6 @@ function ColorFormatter({ cell }: FormatterOpts) {
     if (!color) return <span />;
 
     return <ColorSwatch color={color} />;
-}
-
-/**
- * A colour as the square it is read as, wherever one is shown: a cell of its own, or a chip in a cell
- * holding several.
- *
- * The colour is the one thing about the swatch that cannot be told beforehand; its shape and size are
- * its class's. A value naming no colour is dropped by the browser, leaving the outline behind rather
- * than showing it as a colour it is not — and the text behind it is carried in the tooltip, a column
- * of colours being read by eye and its values wanted only now and then.
- */
-export function ColorSwatch({ color }: { color: string }) {
-    return <span className="table-color-swatch" title={color} style={{ backgroundColor: color }} />;
 }
 
 function RelationEditor({ cell, success }: EditorOpts) {

@@ -1,27 +1,8 @@
-/* The chips of a multi-valued cell, read-only here: the cell shows the set, the editor edits it.
-   They wrap rather than being clipped one word in, a row growing to the tallest cell in it. */
-.table-values {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 4px;
-
-    > .tn-chip {
-        padding-inline: 8px;
-        padding-block: 1px;
-    }
-}
-
-/* A flag among several, marked as the cell of a single flag marks it: set is told from unset by the
-   mark itself, so an unset one is drawn back rather than in a colour of its own. */
-.table-flag-set {
-    color: var(--muted-text-color);
-}
-
-.table-flag-unset {
-    color: var(--muted-text-color);
-    opacity: 0.55;
-}
+/*
+ * How a cell's values read — the chips, the swatch of a colour, the mark of a flag — is dressed with
+ * the values themselves, in label_value_display.css, so that a set reads the same in a cell as in the
+ * note's own promoted field. Only what is the table's own is here.
+ */
 
 /*
  * The editor opens over its cell rather than inside it. A cell is as tall as one line and as wide as
@@ -102,24 +83,4 @@
     > .label-color-picker {
         max-height: 100%;
     }
-}
-
-/*
- * A colour cell says its colour with a swatch of its own, as its editor does, rather than by being
- * filled with it: a row keeps the striping, hover and selection that a flood of colour covers over,
- * and a cell reads the same whether it is being looked at or edited.
- *
- * Sized to the line rather than to the editor's field, a swatch as tall as that one would make every
- * row in the table taller — rows being of one height, colours in them or not.
- */
-.table-color-swatch {
-    display: inline-block;
-    width: 1.25em;
-    height: 1.25em;
-    vertical-align: middle;
-    border-radius: 25%;
-
-    /* Drawn within, so that a colour close to the row's own still reads as a swatch rather than as a
-       gap — and so that a value naming no colour at all is an empty swatch rather than nothing. */
-    box-shadow: inset 0 0 0 1px var(--main-border-color);
 }
