@@ -2879,7 +2879,17 @@
     "menu_show_details": "Show details",
     "menu_erase_deleted": "Erase deleted data",
     "erase_deleted_message": "Deleted data has been erased.",
-    "revisions_limit_required": "Excess snapshots can only be erased once a maximum number of revision snapshots per note is set. Without a limit, no snapshot counts as excess. Do you want to set the limit now?"
+    "revisions_limit_required": "Excess snapshots can only be erased once a maximum number of revision snapshots per note is set. Without a limit, no snapshot counts as excess. Do you want to set the limit now?",
+    "cleanup_title": "Clean up",
+    "cleanup_estimated": "Estimated saving",
+    "cleanup_amount_of": "of {{total}}",
+    "cleanup_deleted_entities": "Erase deleted notes and attachments",
+    "cleanup_unused_attachments": "Erase unused attachments",
+    "cleanup_revision_snapshots": "Erase revision snapshots",
+    "cleanup_snapshots_to_keep": "Revision snapshots to keep",
+    "cleanup_keep_named": "Keep named revisions",
+    "cleanup_cancel": "Cancel",
+    "cleanup_clean": "Clean"
   },
   "note_language": {
     "not_set": "No language set",
