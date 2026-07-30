@@ -53,13 +53,16 @@ vi.mock("../react/NoteAutocomplete", async () => {
 });
 
 import appContext from "../../components/app_context";
+import type Component from "../../components/component";
 import FAttribute, { FAttributeRow } from "../../entities/fattribute";
 import type { Attribute } from "../../services/attribute_parser";
 import froca from "../../services/froca";
+import type LoadResults from "../../services/load_results";
 import noteAttributeCache from "../../services/note_attribute_cache";
 import options from "../../services/options";
 import server from "../../services/server";
 import { buildNote } from "../../test/easy-froca";
+import { ParentComponent } from "../react/react_utils";
 import AttributeList, { getAttributeKind, getDisplayName, listInherited, listInternal, listOwned, splitIntoSections } from "./AttributeList";
 
 describe("listOwned", () => {
@@ -642,6 +645,103 @@ describe("AttributeList", () => {
         expect(picker?.value).toBe("#8000ff");
     });
 
+    it("commits the in-place edit on enter for a label, a textarea keeping it for its lines", async () => {
+        renderPanel(noteWithAttributes());
+        act(() => firstRow().querySelector<HTMLElement>(".attribute-value")?.click());
+
+        const input = container.querySelector<HTMLInputElement>(".attribute-value-editor input");
+        act(() => {
+            if (input) {
+                input.value = "typed";
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+        });
+        await act(async () => {
+            input?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+        });
+
+        expect(container.querySelector(".attribute-value-editor")).toBeNull();
+        expect(put).toHaveBeenCalledOnce();
+        const [ , saved ] = put.mock.calls[0] as [ string, { name: string; value: string }[] ];
+        expect(saved.find((attribute) => attribute.name === "author")?.value).toBe("typed");
+
+        // A textarea's enter is its own — it makes lines — so only held down with the modifier
+        // does it stand for "done here".
+        render(null, container);
+        renderPanel(buildNote({
+            id: "noted", title: "Noted",
+            "#memo": "line one",
+            "#label:memo": "promoted,single,textarea"
+        }));
+        act(() => firstRow().querySelector<HTMLElement>(".attribute-value")?.click());
+
+        const textarea = container.querySelector<HTMLTextAreaElement>(".attribute-value-editor textarea");
+        expect(textarea).not.toBeNull();
+        act(() => {
+            textarea?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+        });
+        expect(container.querySelector(".attribute-value-editor")).not.toBeNull();
+
+        await act(async () => {
+            textarea?.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", ctrlKey: true, bubbles: true }));
+        });
+        expect(container.querySelector(".attribute-value-editor")).toBeNull();
+    });
+
+    it("wraps up the popup when an in-place edit starts, the new editor taking over from it", () => {
+        renderPanel(noteWithAttributes());
+
+        act(() => firstRow().click());
+        expect(document.querySelector(".attr-detail")).not.toBeNull();
+
+        act(() => firstRow().querySelector<HTMLElement>(".attribute-value")?.click());
+
+        // The popup is committed — for a list of rows, saved — rather than left standing behind.
+        expect(document.querySelector(".attr-detail")).toBeNull();
+        expect(container.querySelector(".attribute-value-editor")).not.toBeNull();
+        expect(put).toHaveBeenCalledOnce();
+    });
+
+    it("un-creates the creation row on escape, saving nothing", async () => {
+        renderPanel(noteWithAttributes());
+        act(() => container.querySelector<HTMLElement>(".attribute-add-row")?.click());
+
+        const editor = container.querySelector<HTMLElement>(".attribute-creation-editor");
+        const nameInput = editor?.querySelector<HTMLInputElement>(".attribute-creation-name input");
+        act(() => {
+            if (nameInput) {
+                nameInput.value = "discarded";
+                nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+        });
+        act(() => {
+            nameInput?.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+        });
+
+        expect(container.querySelector(".attribute-creation-editor")).toBeNull();
+        expect(put).not.toHaveBeenCalled();
+        expect(namesIn(container)).not.toContain("discarded");
+    });
+
+    it("skips the reloads it caused itself while an editor is open, and follows a foreign one", () => {
+        const note = noteWithAttributes();
+        renderPanel(note, true);
+
+        act(() => firstRow().querySelector<HTMLElement>(".attribute-value")?.click());
+        expect(container.querySelector(".attribute-value-editor")).not.toBeNull();
+
+        // The widget's own save coming back: nothing to reload over, the edits being the freshest.
+        act(() => fireEntitiesReloaded((componentId) => componentId === panelComponentId() ? [] : affectingRows(note)));
+        expect(container.querySelector(".attribute-value-editor")).not.toBeNull();
+
+        // A change made elsewhere rebuilds the rows; the editor's row is gone with them, so the
+        // edit is dropped rather than left dangling over the fresher state.
+        holdLabel(note, "elsewhere", "x");
+        act(() => fireEntitiesReloaded(() => affectingRows(note)));
+        expect(container.querySelector(".attribute-value-editor")).toBeNull();
+        expect(namesIn(container)).toContain("elsewhere");
+    });
+
     it("discards what the popup was told when it is closed rather than pressed away from", async () => {
         renderPanel(noteWithAttributes());
 
@@ -665,9 +765,49 @@ describe("AttributeList", () => {
         expect(namesIn(container)).not.toContain("author");
     });
 
-    function renderPanel(note: FNote) {
+    /** What the panel subscribed to, when rendered under a parent component that can tell it. */
+    let eventHandlers: Map<string, (data: unknown) => void>;
+
+    function renderPanel(note: FNote, withEvents = false) {
         shownNote.current = note;
-        act(() => render(<AttributeList />, container));
+        if (!withEvents) {
+            act(() => render(<AttributeList />, container));
+            return;
+        }
+
+        eventHandlers = new Map();
+        const parent = {
+            componentId: panelComponentId(),
+            registerHandler: (name: string, callback: (data: unknown) => void) => eventHandlers.set(name, callback),
+            removeHandler: () => {}
+        } as unknown as Component;
+        act(() => render(
+            <ParentComponent.Provider value={parent}>
+                <AttributeList />
+            </ParentComponent.Provider>,
+            container
+        ));
+    }
+
+    function panelComponentId() {
+        return "panel-cid";
+    }
+
+    /** Hands the panel a reload, answering the row lookup as the given function does. */
+    function fireEntitiesReloaded(getAttributeRows: (componentId?: string) => Partial<FAttributeRow>[]) {
+        eventHandlers.get("entitiesReloaded")?.({ loadResults: { getAttributeRows } as unknown as LoadResults });
+    }
+
+    /** The reload's rows for a change touching the note, whoever made it. */
+    function affectingRows(note: FNote) {
+        return [ { noteId: note.noteId, type: "label", name: "changed", value: "", isInheritable: false } as Partial<FAttributeRow> ];
+    }
+
+    /** Writes another label onto the note behind the panel's back, as a foreign change would. */
+    function holdLabel(note: FNote, name: string, value: string) {
+        const added = attribute({ noteId: note.noteId, name, value, position: 50 });
+        froca.attributes[added.attributeId] = added;
+        note.attributes.push(added.attributeId);
     }
 
     /** Reads another note in the panel already rendered, as navigating to one does. */

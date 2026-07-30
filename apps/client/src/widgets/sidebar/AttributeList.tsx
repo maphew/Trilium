@@ -376,7 +376,10 @@ export default function AttributeList() {
                 >
                     {/* Presses inside the sections do not dismiss the popup (see `parent` above), which
                         leaves closing on a press next to a row up to this handler. */}
-                    <div class="attribute-list-panel" ref={containerRef} onClick={commit}>
+                    {/* The values read from the trailing edge here and in the inherited card below,
+                        the two lists of plain attributes reading as one ledger. The definitions keep
+                        prose order: their "value" is a summary of settings, not a value. */}
+                    <div class="attribute-list-panel align-values-end" ref={containerRef} onClick={commit}>
                         {sections.owned.length > 0 ? (
                             <AttributeRowList rows={sections.owned} {...rowProps} />
                         ) : (
@@ -395,7 +398,7 @@ export default function AttributeList() {
                         id="attributes-inherited"
                         title={t("attribute_list_panel.inherited", { count: sections.inherited.length })}
                     >
-                        <div class="attribute-list-panel" onClick={commit}>
+                        <div class="attribute-list-panel align-values-end" onClick={commit}>
                             <AttributeRowList rows={sections.inherited} {...rowProps} />
                         </div>
                     </AttributeSection>
@@ -611,8 +614,8 @@ function AttributeRow({ attribute, note, active, valueEditor, isSystem, showOwne
         <>
             <span class="attribute-name">{getDisplayName(attribute, attrType)}</span>
 
-            {valueEditor ?? <AttributeValue attribute={attribute} note={note} attrType={attrType} onEdit={onEditValue} />}
-
+            {/* Beside the name it qualifies — being inheritable is the attribute's standing, not part
+                of its value — which also leaves the values' trailing edge to the values alone. */}
             {attribute.isInheritable && (
                 <Icon
                     className="attribute-marker"
@@ -621,9 +624,13 @@ function AttributeRow({ attribute, note, active, valueEditor, isSystem, showOwne
                 />
             )}
 
+            {/* Where the attribute reaches the note from, and so beside the marker of its being able
+                to: the source is part of its standing too, and the trailing edge stays the values'. */}
             {showOwner && attribute.noteId && (
                 <NoteLink containerClassName="attribute-owner" notePath={attribute.noteId} noPreview />
             )}
+
+            {valueEditor ?? <AttributeValue attribute={attribute} note={note} attrType={attrType} onEdit={onEditValue} />}
 
             {/* A relation's value is a link and stays one, so its edit has a way in of its own — put
                 away while the editor is open, whose field already is the edit. */}

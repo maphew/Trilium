@@ -109,6 +109,15 @@
     font-size: 0.85em;
 }
 
+/* Set against the row's trailing edge rather than trailing the name, so the values line up in a
+   column of their own: name reads from the one edge, value from the other, and the gap between them
+   says how much room is left rather than being dead space after every short value. Where the card
+   asks for it — the two lists of plain attributes, owned and inherited (see AttributeList.tsx);
+   the definitions' summaries keep prose order. */
+.attribute-list-panel.align-values-end .attribute-value {
+    text-align: end;
+}
+
 .attribute-list-panel .attribute-value.empty {
     font-style: italic;
     opacity: 0.7;
@@ -154,6 +163,11 @@
    slot would run the width of it, a bar rather than a chip. */
 .attribute-list-panel .attribute-value > .label-color-chip {
     width: fit-content;
+}
+
+/* Being a box rather than text, the chip follows the card's alignment by margin instead. */
+.attribute-list-panel.align-values-end .attribute-value > .label-color-chip {
+    margin-inline-start: auto;
 }
 
 /* The settings of a definition, which are a summary and not a value — worn at the size every value
