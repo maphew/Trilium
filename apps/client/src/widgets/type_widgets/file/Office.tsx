@@ -52,5 +52,5 @@ export default function OfficePreview({ note }: { note: FNote }) {
         );
     }
 
-    return <div class="ck-content office-preview-body" dangerouslySetInnerHTML={{ __html: html }} />;
+    return <div class="ck-content office-preview-body selectable-text" dangerouslySetInnerHTML={{ __html: html }} />;
 }
