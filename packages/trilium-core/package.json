@@ -12,6 +12,7 @@
     "@triliumnext/turndown-plugin-gfm": "workspace:*",
     "async-mutex": "0.5.0",
     "chardet": "2.2.0",
+    "color": "5.0.3",
     "escape-html": "1.0.3",
     "i18next": "26.3.6",
     "js-yaml": "5.2.2",

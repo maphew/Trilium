@@ -1665,6 +1665,9 @@ importers:
       chardet:
         specifier: 2.2.0
         version: 2.2.0
+      color:
+        specifier: 5.0.3
+        version: 5.0.3
       escape-html:
         specifier: 1.0.3
         version: 1.0.3
