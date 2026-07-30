@@ -244,6 +244,32 @@ export default defineConfig(() => ({
             {
                 find: "@client",
                 replacement: join(__dirname, "../client/src")
+            },
+            // Bypass officeparser's `browser` entry — a prebuilt ~2.7 MB monolith that
+            // inlines pdfjs-dist for its PDF-parsing feature. The wrapper bundles the
+            // package's Node ESM entry instead (plus the Buffer polyfill it needs),
+            // keeping only the office-format parsers and the HTML generator (~0.4 MB).
+            // Guarded against upstream layout changes by office_preview.spec.ts.
+            {
+                find: /^officeparser$/,
+                replacement: join(__dirname, "src/stubs/officeparser_entry.ts")
+            },
+            // Heavy optional officeparser dependencies, only reachable via dynamic import
+            // on code paths office-format conversion never executes (PDF parsing, OCR,
+            // PDF generation via puppeteer). Without the stubs, Vite would either emit
+            // their multi-megabyte chunks or fail dev import-analysis on unresolvable
+            // specifiers.
+            {
+                find: /^pdfjs-dist(\/.*)?$/,
+                replacement: join(__dirname, "src/stubs/empty.ts")
+            },
+            {
+                find: /^tesseract\.js$/,
+                replacement: join(__dirname, "src/stubs/empty.ts")
+            },
+            {
+                find: /^puppeteer$/,
+                replacement: join(__dirname, "src/stubs/empty.ts")
             }
         ],
         dedupe: [
@@ -286,7 +312,13 @@ export default defineConfig(() => ({
         }
     },
     optimizeDeps: {
-        exclude: ['@sqlite.org/sqlite-wasm', '@triliumnext/core']
+        exclude: ['@sqlite.org/sqlite-wasm', '@triliumnext/core'],
+        // Dynamically imported from the excluded @triliumnext/core, so the dep scanner
+        // never discovers it on its own. Pre-bundling matters beyond warm-up here: the
+        // officeparser alias resolves to CJS internals that only the dep optimizer
+        // converts to ESM in dev — without it, the dev server serves raw CJS and the
+        // import fails in the browser.
+        include: ['officeparser']
     },
     worker: {
         format: "es" as const

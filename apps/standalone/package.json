@@ -36,6 +36,7 @@
     "@triliumnext/split.js": "workspace:*",
     "autocomplete.js": "0.38.1",
     "bootstrap": "5.3.8",
+    "buffer": "6.0.3",
     "boxicons": "2.1.4",
     "clsx": "2.1.1",
     "color": "5.0.3",
