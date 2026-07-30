@@ -74,7 +74,7 @@
   "login": {
     "title": "登录",
     "heading": "Trilium 登录",
-    "incorrect-totp": "TOTP（一次性密码）不正确，请再试一次。",
+    "incorrect-totp": "TOTP不正确，请再试一次。",
     "incorrect-password": "密码不正确，请再试一次。",
     "password": "密码",
     "remember-me": "记住我",
