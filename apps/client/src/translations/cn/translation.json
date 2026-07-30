@@ -3501,7 +3501,7 @@
     "current_note": "当前笔记：",
     "status_content_other": "{{count}} 篇笔记占用 {{size}}（其中附件占 {{attachmentsSize}}）",
     "status_content_hint": "所有笔记（含隐藏笔记）、其附件和版本历史占用的空间，重复内容只计一次",
-    "status_deleted_other": "已删除笔记：{{count}} 篇，共 {{size}}",
+    "status_deleted": "已删除笔记：{{count}} 篇，共 {{size}}",
     "status_deleted_hint": "已删除笔记仍占用的空间，彻底擦除后可回收",
     "menu_show_details": "显示详情",
     "refresh": "刷新"
