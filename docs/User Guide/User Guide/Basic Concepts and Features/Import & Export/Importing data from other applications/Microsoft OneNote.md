@@ -15,8 +15,10 @@ Trilium allows importing from OneNote. Currently the only mechanism supported is
 
 The following features are preserved by Trilium during the import process:
 
-*   Basic formatting (bold, italic, underline, strikethrough, subscript, super script, inline code, font sizes, headings, colors, highlights).
+*   Basic formatting (bold, italic, underline, strikethrough, subscript, super script, font sizes, headings, colors, highlights).
     *   Black-colored text is intentionally stripped to allow it to work in dark themes.
+*   Inline code is automatically detected and formatted. Paragraphs that use the Code style are also converted to <a class="reference-link" href="../../../Note%20Types/Text/Developer-specific%20formatting/Code%20blocks.md">Code blocks</a>.
+    *   Unfortunately the indentation of the code might be lost because the information is simply not present in the data from the Microsoft API.
 *   <a class="reference-link" href="../../../Note%20Types/Text/Lists.md">Lists</a> with different bullet types.
 *   <a class="reference-link" href="../../../Note%20Types/Text/Tables.md">Tables</a>
     *   Cell backgrounds are preserved, including a best-effort hue correction because the colors returned by the Graph API are sometimes incorrect.
@@ -87,7 +89,7 @@ The following are known limitations due to how the information comes from the im
 
 *   The order of the sections (and section groups) is not available, the sections are ordered by creation date instead.
 *   Revision history.
-*   Paragraph indentation.
+*   Paragraph indentation, as well as code block indentation.
 *   Section colors.
 *   Drawings inside titles, the title might appear incomplete or “Untitled”.
 

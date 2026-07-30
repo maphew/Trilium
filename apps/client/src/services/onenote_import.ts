@@ -43,7 +43,9 @@ function disconnect() {
 }
 
 function getNotebooks() {
-    return server.get<{ notebooks: OneNoteNotebook[] }>("onenote-import/notebooks");
+    // silent: a 401 here (expired/lost connection) is presented inline by the import dialog with the
+    // server's reason and a retry button — the generic "unknown HTTP error" toast would double-report.
+    return server.getWithSilentUnauthorized<{ notebooks: OneNoteNotebook[] }>("onenote-import/notebooks");
 }
 
 // Kicks off the import and returns as soon as the server has accepted it. The import itself runs in the
@@ -125,6 +127,21 @@ export function buildSectionSelections(notebooks: OneNoteNotebook[], selectedIds
     }
 
     return selections;
+}
+
+/**
+ * Collects the ids of every section anywhere in the given notebooks, including those nested inside
+ * section groups. Used to prune a selection after the notebook list is refreshed, so ids of sections
+ * that no longer exist can't linger in the selection (and inflate the import button's count).
+ */
+export function collectSectionIds(containers: OneNoteContainer[], into = new Set<string>()): Set<string> {
+    for (const container of containers) {
+        for (const section of container.sections) {
+            into.add(section.id);
+        }
+        collectSectionIds(container.sectionGroups, into);
+    }
+    return into;
 }
 
 /**
