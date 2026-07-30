@@ -202,6 +202,54 @@ describe("attribute detail popup naming", () => {
     });
 });
 
+describe("related notes menu", () => {
+    it("lists the notes and the search entry as the dropdown does, titles escaped for the menu", async () => {
+        const { showRelatedNotesMenu } = await import("./attribute_detail");
+        const { default: contextMenu } = await import("../../menus/context_menu");
+        const { default: appContext } = await import("../../components/app_context");
+
+        const show = vi.spyOn(contextMenu, "show").mockResolvedValue();
+        const triggerCommand = vi.spyOn(appContext, "triggerCommand").mockResolvedValue(undefined);
+        // The tab manager only exists once the app has started, so the stub stands it in whole.
+        const setNote = vi.fn();
+        const previousTabManager = appContext.tabManager;
+        appContext.tabManager = { getActiveContext: () => ({ setNote }) } as unknown as typeof appContext.tabManager;
+
+        showRelatedNotesMenu({ pageX: 12, pageY: 34 } as MouseEvent, {
+            notes: [{ notePath: "root/abc", icon: "tn-icon bx bx-file", title: "Tolkien & <sons>" }],
+            otherCount: 5
+        }, { type: "label", name: "author", value: "" });
+
+        expect(show).toHaveBeenCalledOnce();
+        const options = show.mock.calls[0][0];
+        expect(options).toMatchObject({ x: 12, y: 34 });
+
+        const [ noteItem, separator, searchItem ] = options.items;
+        // The menu reads a title as HTML, which the note's own is not.
+        expect(noteItem).toMatchObject({
+            title: "Tolkien &amp; &lt;sons&gt;",
+            uiIcon: "tn-icon bx bx-file"
+        });
+        expect(separator).toEqual({ kind: "separator" });
+        expect(searchItem).toMatchObject({ uiIcon: "bx bx-search-alt" });
+
+        // A note entry navigates to it; the search entry searches for every carrier of the name.
+        const pressEvent = {} as JQuery.MouseDownEvent<HTMLElement, undefined, HTMLElement, HTMLElement>;
+        if ("handler" in noteItem) {
+            noteItem.handler?.(noteItem, pressEvent);
+        }
+        expect(setNote).toHaveBeenCalledWith("root/abc");
+
+        if ("handler" in searchItem) {
+            searchItem.handler?.(searchItem, pressEvent);
+        }
+        expect(triggerCommand).toHaveBeenCalledWith("searchNotes", { searchString: "#author" });
+
+        appContext.tabManager = previousTabManager;
+        vi.restoreAllMocks();
+    });
+});
+
 const NO_OFFSET = { top: 0, left: 0 };
 
 function opts(overrides: Partial<AttributeDetailOpts>): AttributeDetailOpts {

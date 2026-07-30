@@ -7,6 +7,7 @@ import { useCallback, useContext, useEffect, useLayoutEffect, useMemo, useRef, u
 
 import appContext from "../../components/app_context.js";
 import { isDefinitionName } from "../../entities/fattribute.js";
+import contextMenu, { MenuItem } from "../../menus/context_menu.js";
 import type { Attribute } from "../../services/attribute_parser.js";
 import { getBuiltinLabelSelectOptions, getBuiltinLabelValueType, isBuiltinAttribute } from "../../services/attributes.js";
 import { isExperimentalFeatureEnabled } from "../../services/experimental_features.js";
@@ -24,7 +25,6 @@ import FormAutocomplete, { AUTOCOMPLETE_DROPDOWN_SELECTOR } from "../react/FormA
 import FormDropdownList from "../react/FormDropdownList.jsx";
 import { FormDropdownDivider, FormListItem } from "../react/FormList.jsx";
 import FormTextBox, { FormTextBoxWithUnit } from "../react/FormTextBox.jsx";
-import FormTextBoxList from "../react/FormTextBoxList.jsx";
 import HelpTooltipButton from "../react/HelpTooltipButton.jsx";
 import { suspendModalFocusTraps } from "../react/modal_focustrap.js";
 import NoteAutocomplete from "../react/NoteAutocomplete.jsx";
@@ -33,6 +33,7 @@ import { disposeReactWidget, ParentComponent, renderReactWidgetAtElement } from 
 import OptionsRow, { OptionsRowWithToggle } from "../type_widgets/options/components/OptionsRow.jsx";
 import { ATTR_HELP, AttrHelpEntry } from "./attr_help.js";
 import LabelValueInput, { getTypedInputForLabel } from "./label_value_input.js";
+import ValuesInput from "./values_input.jsx";
 
 export interface AttributeDetailOpts {
     allAttributes?: Attribute[];
@@ -633,15 +634,17 @@ export function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, 
                         label={t("attribute_detail.select_options")}
                         description={t("attribute_detail.select_options_title")}
                     >
-                        {/* The draft rows need no synchronizing back from the definition: the form
-                            remounts per show (see above), so they are seeded once, like the fields
-                            around them. */}
-                        <FormTextBoxList
-                            initialValues={definition.selectOptions ?? []}
+                        {/* The same chips the values themselves are edited through elsewhere, only
+                            typed free: the options are being invented here, so there is nothing to
+                            offer or pick from. */}
+                        <ValuesInput
+                            labelType="text"
+                            values={definition.selectOptions ?? []}
                             disabled={!isOwned}
+                            placeholder={t("attribute_detail.select_options_placeholder")}
                             addButtonText={t("attribute_detail.add_option")}
                             removeButtonText={t("attribute_detail.remove_option")}
-                            onChange={(selectOptions) => commitDefinition({ selectOptions })}
+                            onCommit={(selectOptions) => commitDefinition({ selectOptions })}
                         />
                     </OptionsRow>
                 )}
@@ -772,8 +775,11 @@ function AttributeNameField({ help, ...autocompleteProps }: { help?: AttrHelpEnt
  * One row of an attribute name completion, marking the names Trilium itself attaches a meaning to.
  * The mark answers what a list of bare names cannot: whether picking one buys behaviour, or is only
  * a name. The inline editor's `#`/`~` completion lists the same names and marks them the same way.
+ *
+ * Exported, with {@link fetchAttributeNames}, for whatever else completes an attribute name — the
+ * attribute panel's in-row creation — so every name box offers the same list the same way.
  */
-function AttributeNameSuggestion({ type, name }: { type: "label" | "relation"; name: string }) {
+export function AttributeNameSuggestion({ type, name }: { type: "label" | "relation"; name: string }) {
     return (
         <span class="attr-name-suggestion">
             <span class="attr-name-suggestion-name">{name}</span>
@@ -841,7 +847,7 @@ export const DEFINITION_TYPES: { value: string; title: string; icon: string; sta
     }
 ];
 
-function fetchAttributeNames(type: "label" | "relation", query: string) {
+export function fetchAttributeNames(type: "label" | "relation", query: string) {
     return server.get<string[]>(`attribute-names/?type=${type}&query=${encodeURIComponent(query)}`);
 }
 
@@ -868,7 +874,7 @@ interface SearchRelatedResponse {
 
 interface RelatedNotesResult {
     /** The first {@link DISPLAYED_NOTES} other notes carrying the attribute, by best path. */
-    notes: { notePath: string; icon: string }[];
+    notes: { notePath: string; icon: string; title: string }[];
     /** How many notes other than the current one carry the attribute, however many of them are listed. */
     otherCount: number;
 }
@@ -903,7 +909,8 @@ function RelatedNotesBadge({ attribute, currentNoteId }: { attribute: Attribute;
             setRelated({
                 notes: notes.map((note) => ({
                     notePath: note.getBestNotePathString(hoistedNoteId),
-                    icon: note.getIcon()
+                    icon: note.getIcon(),
+                    title: note.title
                 })),
                 // The server counts every match, the current note included, but only returns the first
                 // twenty of them — so past twenty matches, a current note that did not make the cut leaves
@@ -941,6 +948,20 @@ function RelatedNotesBadge({ attribute, currentNoteId }: { attribute: Attribute;
         );
     }
 
+    // On a phone the list is a bottom-sheet menu, as everything a thumb presses opens one: the
+    // dropdown is nested in what is a sliding pane of the note attributes modal there, whose
+    // scroll containers and slide transforms clip and misplace it. No tooltip — nothing hovers.
+    if (IS_MOBILE) {
+        return (
+            <Badge
+                className="related-notes-badge"
+                icon="bx bx-file"
+                text={t("attribute_detail.other_notes_count", { count: related.otherCount })}
+                onClick={(e) => showRelatedNotesMenu(e, related, attribute)}
+            />
+        );
+    }
+
     return (
         <BadgeWithDropdown
             className="related-notes-badge"
@@ -967,6 +988,41 @@ function RelatedNotesBadge({ attribute, currentNoteId }: { attribute: Attribute;
             >{t("attribute_detail.show_all_in_search")}</FormListItem>
         </BadgeWithDropdown>
     );
+}
+
+/** Whether the badge opens a menu rather than a dropdown, read once: it does not change under the app. */
+const IS_MOBILE = utils.isMobile();
+
+/**
+ * The related notes as the bottom-sheet menu the phone presents its menus in (the context menu
+ * service puts it there itself, behind a cover). One entry per note, and the search entry after
+ * them, exactly as the desktop dropdown lists them. Navigating needs no closing of its own:
+ * setNote closes the active dialog, the note attributes modal included, and searchNotes
+ * navigates to the search note the same way.
+ */
+export function showRelatedNotesMenu(e: MouseEvent, related: RelatedNotesResult, attribute: Attribute) {
+    const items: MenuItem<string>[] = [
+        // The title is HTML to the menu, which the note's title is not.
+        ...related.notes.map(({ notePath, icon, title }) => ({
+            title: utils.escapeHtml(title),
+            uiIcon: icon,
+            handler: () => void appContext.tabManager.getActiveContext()?.setNote(notePath)
+        })),
+        { kind: "separator" as const },
+        {
+            title: t("attribute_detail.show_all_in_search"),
+            uiIcon: "bx bx-search-alt",
+            handler: () => void appContext.triggerCommand("searchNotes", { searchString: formatAttributeForSearch(attribute) })
+        }
+    ];
+
+    // The coordinates go unused at the bottom of the screen, where the menu is placed on a phone.
+    void contextMenu.show({
+        x: e.pageX,
+        y: e.pageY,
+        items,
+        selectMenuItemHandler: () => {}
+    });
 }
 
 /** The query for every note carrying the attribute, mirroring the name-only search behind the count. */

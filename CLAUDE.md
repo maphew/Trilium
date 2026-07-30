@@ -125,7 +125,6 @@ Common UI components are available in `apps/client/src/widgets/react/` — **alw
 - `NoItems` - Empty state placeholder with icon and message (use for "no results", "too many items", error states)
 - `ActionButton` - Consistent button styling with icon support
 - `FormTextBox` - Text input with validation and controlled input handling; `FormTextBoxWithUnit` for inputs with a unit suffix (e.g. "mm", "px")
-- `FormTextBoxList` - Ordered list of short texts edited as one box per entry with add/remove buttons (e.g. a select definition's options); seeds from `initialValues` (remount to reseed) and reports only filled rows
 - `FormSelect` - Dropdown/combobox taking an object array as data
 - `Slider` - Range slider with label
 - `Checkbox`, `RadioButton` - Form controls

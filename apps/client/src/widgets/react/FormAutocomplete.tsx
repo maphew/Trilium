@@ -208,6 +208,10 @@ export default function FormAutocomplete({ currentValue, onChange, source, openO
 
     const field = (
         <FormTextBox
+            // Keyed for the sake of a field carrying chips, which are keyed themselves: keyed and
+            // unkeyed siblings together are matched up by position as the chips grow, which rebuilds
+            // the box rather than keeping it — and a rebuilt box is one the focus has left.
+            key="field"
             {...restProps}
             inputRef={inputEl}
             currentValue={currentValue}

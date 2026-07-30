@@ -552,7 +552,8 @@
     "select_type": "Select",
     "select_options": "Options",
     "select_options_title": "The options the field offers, in this order.",
-    "add_option": "Add option",
+    "select_options_placeholder": "Type an option and press Enter",
+    "add_option": "Add this option",
     "remove_option": "Remove this option",
     "precision_title": "Max number of decimal places.",
     "precision": "Precision",
@@ -816,11 +817,17 @@
     "delete_confirm": "Delete the attribute \"{{name}}\"?",
     "add_definition": "Add a new definition",
     "no_target": "No target note",
-    "inverse_of": "inverse of {{name}}",
+    "no_value": "No value",
+    "change_target": "Change the target note",
+    "inverse_hint": "Inverse of \"{{name}}\": the target note is automatically given a \"{{name}}\" relation pointing back",
     "type_label": "Label",
     "type_relation": "Relation",
     "type_label_definition": "Label definition",
-    "type_relation_definition": "Relation definition"
+    "type_relation_definition": "Relation definition",
+    "system_hint": "System: this name has a built-in meaning",
+    "add_attribute": "Add attribute",
+    "creation_kind_label": "Label: press here, or type ~, to make it a relation",
+    "creation_kind_relation": "Relation: press here, or type #, to make it a label"
   },
   "attribute_names": {
     "system": "System",
@@ -1341,7 +1348,8 @@
     "remove_color": "Remove the color label",
     "remove_value": "Remove this value",
     "select_values_placeholder": "Select an option or create one",
-    "values_placeholder": "Type a value and press Enter"
+    "values_placeholder": "Type a value and press Enter",
+    "add_value": "Add this value"
   },
   "script_executor": {
     "query": "Query",

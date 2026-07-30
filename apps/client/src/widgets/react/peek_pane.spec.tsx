@@ -127,6 +127,10 @@ describe("usePeekDismiss", () => {
         document.body.innerHTML = `
             <div id="right-pane"></div>
             <ul class="dropdown-menu"></ul>
+            <div class="attr-detail"><input class="attr-input" /></div>
+            <div class="form-autocomplete-dropdown"><li class="suggestion"></li></div>
+            <div class="aa-dropdown-menu"><div class="aa-suggestion"></div></div>
+            <div id="context-menu-container"><li class="menu-item"></li></div>
             <div id="center-pane"></div>
         `;
         const onDismiss = vi.fn();
@@ -136,6 +140,12 @@ describe("usePeekDismiss", () => {
         document.querySelector("#right-pane")?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
         // ...as does a default popup root (not in keepOpenSelector, but in the built-in allowlist).
         document.querySelector(".dropdown-menu")?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+        // Body-portalled popups spawned from within the pane keep it open too: the attribute
+        // detail popup and its fields, both autocomplete dropdowns, and the context menu.
+        document.querySelector(".attr-input")?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+        document.querySelector(".suggestion")?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+        document.querySelector(".aa-suggestion")?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
+        document.querySelector(".menu-item")?.dispatchEvent(new MouseEvent("pointerdown", { bubbles: true }));
         expect(onDismiss).not.toHaveBeenCalled();
 
         // A press anywhere else dismisses.

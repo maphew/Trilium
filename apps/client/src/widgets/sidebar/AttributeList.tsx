@@ -16,6 +16,7 @@ import { t } from "../../services/i18n";
 import server from "../../services/server";
 import { isMobile } from "../../services/utils";
 import { AttributeDetail, AttributeDetailOpts, AttributeForm, AttrType, DEFINITION_TYPES, getAttrType, RELATION_DEFINITION_TYPE } from "../attribute_widgets/attribute_detail";
+import { ColorChip, renderLabelValue } from "../attribute_widgets/label_value_display";
 import ActionButton from "../react/ActionButton";
 import { FormListItem } from "../react/FormList";
 import HelpButton from "../react/HelpButton";
@@ -27,13 +28,18 @@ import NoteLink from "../react/NoteLink";
 import { ParentComponent } from "../react/react_utils";
 import { ATTRIBUTE_HELP_PAGE } from "../ribbon/components/AttributeHelp";
 import OptionsSection from "../type_widgets/options/components/OptionsSection";
+import AttributeCreationEditor from "./AttributeCreationEditor";
+import AttributeValueEditor, { resolveValueField } from "./AttributeValueEditor";
 import RightPanelWidget, { CollapsibleWidgets } from "./RightPanelWidget";
 
 /**
  * The note's attributes as a list, one row per attribute: the kind (label, relation, or either's
  * definition) is carried by an icon instead of by the `#`/`~`/`label:` syntax the attributes editor
  * spells out, and the value is shown as a preview rather than in full. Rows open the same detail
- * form the editor uses, which is where an attribute is actually edited.
+ * form the editor uses, which is where an attribute is actually edited — except an owned attribute's
+ * value, the edit that is made again and again: a label's is edited in place by pressing the preview
+ * itself, through the field its definition calls for, and a relation's target is repicked from the
+ * pencil on its row, the value staying the link it is (see {@link AttributeValueEditor}).
  *
  * The form floats beside its row where there is room for it — a panel with a note's width beside it —
  * and is a page of its own inside a master-detail host (a modal on a phone), which slides it in over
@@ -45,6 +51,12 @@ export default function AttributeList() {
     const parentComponent = useContext(ParentComponent);
     const containerRef = useRef<HTMLDivElement>(null);
     const [ detail, setDetail ] = useState<AttributeDetailOpts | null>(null);
+    // The row whose value is being typed straight into it — the in-place alternative to the popup for
+    // a label — and the value to put back if the edit is thrown away rather than kept.
+    const [ valueEdit, setValueEdit ] = useState<{ attribute: Attribute; original: string } | null>(null);
+    // The draft a label or relation is created through in a row of its own, already among the owned
+    // rows; un-creating it is taking it back out of them.
+    const [ creating, setCreating ] = useState<Attribute | null>(null);
     const componentId = parentComponent?.componentId;
 
     // The owned rows double as the detail popup's working copy: it edits the very objects it is handed,
@@ -63,11 +75,16 @@ export default function AttributeList() {
     // attributes of the note navigated away from. The initial `undefined` is what collects the first.
     const shownNoteId = useRef<string | null>();
     if (shownNoteId.current !== (note?.noteId ?? null)) {
-        // An attribute left open for editing is closed by the change of note, and closing keeps what
-        // was typed into it — as a press outside does — rather than dropping it. Which the list cannot
-        // do itself once it holds another note's attributes, hence the hand-over.
-        if (detail?.isOwned && shownNoteId.current) {
-            draftToFlush.current = { noteId: shownNoteId.current, attributes: owned.current };
+        // An attribute left open for editing — in the popup or in its own row — is closed by the
+        // change of note, and closing keeps what was typed into it — as a press outside does — rather
+        // than dropping it. Which the list cannot do itself once it holds another note's attributes,
+        // hence the hand-over. A creation left without a name is the one thing not kept: nameless, it
+        // is nothing yet, and the endpoint would refuse it for the whole list's sake.
+        if ((detail?.isOwned || valueEdit || creating) && shownNoteId.current) {
+            draftToFlush.current = {
+                noteId: shownNoteId.current,
+                attributes: owned.current.filter((attribute) => attribute.name)
+            };
         }
 
         shownNoteId.current = note?.noteId ?? null;
@@ -76,9 +93,11 @@ export default function AttributeList() {
         internal.current = collectInternal(note);
     }
 
-    // The form edits one attribute of the note being left, so it closes with the note.
+    // Every editor works on one attribute of the note being left, so all of them close with the note.
     useEffect(() => {
         setDetail(null);
+        setValueEdit(null);
+        setCreating(null);
 
         const draft = draftToFlush.current;
         draftToFlush.current = null;
@@ -88,15 +107,25 @@ export default function AttributeList() {
     }, [ note ]);
 
     useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
-        // While the popup is open, the changes this widget itself made are skipped: its edits are the
-        // freshest state, and reloading over them would discard what is being typed. Once it is closed
-        // our own saves count too, which is how the list drops a row the server refused to keep (a
-        // relation left without a target note).
-        const changed = detail ? loadResults.getAttributeRows(componentId) : loadResults.getAttributeRows();
+        // While any editor is open, the changes this widget itself made are skipped: its edits are
+        // the freshest state, and reloading over them would discard what is being typed. Once all are
+        // closed our own saves count too, which is how the list drops a row the server refused to keep
+        // (a relation left without a target note).
+        const changed = detail || valueEdit || creating ? loadResults.getAttributeRows(componentId) : loadResults.getAttributeRows();
         if (note && changed.some((attr) => attributes.isAffecting(attr, note))) {
             owned.current = collectOwned(note);
             inherited.current = collectInherited(note);
             internal.current = collectInternal(note);
+
+            // The rebuild replaced the row objects, so an in-place edit over one of the old ones has
+            // nothing left to write to; it is dropped rather than left dangling over the fresher state.
+            if (valueEdit && !owned.current.includes(valueEdit.attribute)) {
+                setValueEdit(null);
+            }
+            if (creating && !owned.current.includes(creating)) {
+                setCreating(null);
+            }
+
             rerender();
         }
     });
@@ -137,6 +166,23 @@ export default function AttributeList() {
     }
 
     function addAttribute(attrType: AttributeKind, e: MouseEvent) {
+        // Whatever was being edited is wrapped up first, the new row taking over from it.
+        commit();
+        commitValueEdit();
+        commitCreation();
+
+        // A plain label or relation is two things — a name and a value — which its own row can take:
+        // it is created there, in a nameless draft the creation editor fills in. The popup stays for
+        // the definitions, whose settings need the form, and for a phone, which keeps the page flow
+        // for every kind.
+        if (!IS_MOBILE && (attrType === "label" || attrType === "relation")) {
+            const attribute: Attribute = { type: attrType, name: "", value: "", isInheritable: false };
+
+            owned.current = [ ...owned.current, attribute ];
+            setCreating(attribute);
+            return;
+        }
+
         const attribute = createAttribute(attrType);
 
         owned.current = [ ...owned.current, attribute ];
@@ -163,6 +209,71 @@ export default function AttributeList() {
         }
     }
 
+    /** Opens the in-place editor over a row's value, taking over from whatever else was being edited. */
+    function startValueEdit(attribute: Attribute) {
+        if (detail) {
+            commit();
+        }
+        commitCreation();
+
+        // A flag has nothing to type: the press that would open an editor just turns it over, saved
+        // at once — the one-toggle edit an editor could only have added a second press to.
+        if (note && attribute.type === "label" && resolveValueField(note, attribute.name).labelType === "boolean") {
+            attribute.value = attribute.value === "true" ? "false" : "true";
+            rerender();
+            void save();
+            return;
+        }
+
+        setValueEdit({ attribute, original: attribute.value ?? "" });
+    }
+
+    /** Closes the in-place editor keeping what was typed, saved only where it changed anything. */
+    function commitValueEdit() {
+        const changed = valueEdit && valueEdit.attribute.value !== valueEdit.original;
+
+        setValueEdit(null);
+        if (changed) {
+            void save();
+        }
+    }
+
+    /** Closes the in-place editor putting the value back as it was, saving nothing. */
+    function revertValueEdit() {
+        if (valueEdit) {
+            valueEdit.attribute.value = valueEdit.original;
+        }
+        setValueEdit(null);
+    }
+
+    /**
+     * Closes the creation row keeping what it was given — which, still nameless, is nothing: an
+     * attribute is its name at the least, so a draft without one is quietly taken back out rather
+     * than sent to an endpoint that would refuse the whole list over it.
+     */
+    function commitCreation() {
+        if (!creating) {
+            return;
+        }
+
+        setCreating(null);
+        if (creating.name) {
+            void save();
+        } else {
+            owned.current = owned.current.filter((attribute) => attribute !== creating);
+            rerender();
+        }
+    }
+
+    /** Closes the creation row un-creating its draft, saving nothing. */
+    function revertCreation() {
+        if (creating) {
+            owned.current = owned.current.filter((attribute) => attribute !== creating);
+        }
+        setCreating(null);
+        rerender();
+    }
+
     // A master-detail host heads the page it shows the form on with the attribute's name, and goes back
     // to the list by closing it. Nothing happens outside such a host, where the form is a popup.
     useMasterDetailPage(detail ? getDisplayName(detail.attribute, getAttributeKind(detail.attribute)) : null, commit);
@@ -186,9 +297,44 @@ export default function AttributeList() {
 
     const sections = splitIntoSections(owned.current, inherited.current);
     const internalRows = internal.current.map((attribute) => toEntry(attribute, true));
+    // Not built for an attribute the list no longer holds: a reload can rebuild the rows out from
+    // under the editor within this very render, before the state has caught up (see above).
+    const activeValueEdit = valueEdit && owned.current.includes(valueEdit.attribute) ? valueEdit : null;
+    const activeCreation = creating && owned.current.includes(creating) ? creating : null;
+    // At most one of the two is open — starting either commits the other — and both stand over their
+    // row the same way, so they share the one editor slot a row offers.
+    const valueEditor = note && activeValueEdit ? {
+        attribute: activeValueEdit.attribute,
+        element: (
+            <AttributeValueEditor
+                note={note}
+                attribute={activeValueEdit.attribute}
+                // Written straight into the row's attribute, as the popup writes its edits; the rows
+                // are not redrawn for it, the field itself being the only thing showing the value.
+                onEdit={(value) => {
+                    activeValueEdit.attribute.value = value;
+                }}
+                onCommit={commitValueEdit}
+                onRevert={revertValueEdit}
+            />
+        )
+    } : note && activeCreation ? {
+        attribute: activeCreation,
+        element: (
+            <AttributeCreationEditor
+                note={note}
+                attribute={activeCreation}
+                onCommit={commitCreation}
+                onRevert={revertCreation}
+            />
+        )
+    } : undefined;
     const rowProps = {
+        note,
         activeAttribute: detail?.attribute,
+        valueEditor,
         onOpen: openDetail,
+        onEditValue: startValueEdit,
         onDelete: (attribute: Attribute) => void deleteAttribute(attribute)
     };
     // The cards a section has nothing for are left out, so an ordinary note sees one or two of the four.
@@ -240,11 +386,19 @@ export default function AttributeList() {
                 >
                     {/* Presses inside the sections do not dismiss the popup (see `parent` above), which
                         leaves closing on a press next to a row up to this handler. */}
-                    <div class="attribute-list-panel" ref={containerRef} onClick={commit}>
+                    {/* The values read from the trailing edge here and in the inherited card below,
+                        the two lists of plain attributes reading as one ledger. The definitions keep
+                        prose order: their "value" is a summary of settings, not a value. */}
+                    <div class="attribute-list-panel align-values-end" ref={containerRef} onClick={commit}>
                         {sections.owned.length > 0 ? (
                             <AttributeRowList rows={sections.owned} {...rowProps} />
                         ) : (
                             <NoItems icon="bx bx-hash" text={t("attribute_list_panel.no_attributes")} />
+                        )}
+
+                        {/* Only on a desktop: a phone adds from the header, page flow and all. */}
+                        {!IS_MOBILE && note && (
+                            <AddAttributeRow onAdd={(e) => addAttribute("label", e)} />
                         )}
                     </div>
                 </AttributeSection>
@@ -254,7 +408,7 @@ export default function AttributeList() {
                         id="attributes-inherited"
                         title={t("attribute_list_panel.inherited", { count: sections.inherited.length })}
                     >
-                        <div class="attribute-list-panel" onClick={commit}>
+                        <div class="attribute-list-panel align-values-end" onClick={commit}>
                             <AttributeRowList rows={sections.inherited} {...rowProps} />
                         </div>
                     </AttributeSection>
@@ -362,8 +516,12 @@ function AttributeSection({ id, title, children, buttons, grow }: AttributeSecti
 
 interface AttributeRowListProps {
     rows: AttributeEntry[];
+    /** The note the rows belong to, read for the definitions that type their values. */
+    note?: FNote | null;
     /** The attribute the detail popup is showing, marked as such in the list. */
     activeAttribute?: Attribute;
+    /** The in-place editor over one row's value, shown by that row in the value's place. */
+    valueEditor?: { attribute: Attribute; element: ComponentChildren };
     /**
      * The rows stand for attributes Trilium writes and keeps up to date itself, which leaves them
      * nothing to offer: nothing to edit, nothing to delete, no note to name as their source (they are
@@ -372,6 +530,8 @@ interface AttributeRowListProps {
      */
     readOnly?: boolean;
     onOpen: (attribute: Attribute, isOwned: boolean, anchor: HTMLElement | null, e: MouseEvent) => void;
+    /** Asks for the in-place editor over the attribute's value; wired to editable labels alone. */
+    onEditValue: (attribute: Attribute) => void;
     onDelete: (attribute: Attribute) => void;
 }
 
@@ -380,7 +540,7 @@ interface AttributeRowListProps {
  * Trilium reads for itself. What a row offers follows from whether the note owns its attribute rather
  * than from the card it is in: the definitions card holds the note's own alongside a template's.
  */
-function AttributeRowList({ rows, activeAttribute, readOnly, onOpen, onDelete }: AttributeRowListProps) {
+function AttributeRowList({ rows, note, activeAttribute, valueEditor, readOnly, onOpen, onEditValue, onDelete }: AttributeRowListProps) {
     function renderRows(group: AttributeEntry[]) {
         return (
             // The rows are menu items on a phone (see AttributeRow), and the theme dresses a menu item
@@ -392,12 +552,21 @@ function AttributeRowList({ rows, activeAttribute, readOnly, onOpen, onDelete }:
                     <AttributeRow
                         key={attribute.attributeId ?? `new-${index}`}
                         attribute={attribute}
+                        note={note}
                         active={activeAttribute === attribute}
+                        valueEditor={valueEditor?.attribute === attribute ? valueEditor.element : undefined}
                         isSystem={isSystem && !readOnly}
                         // An attribute of another note names it; the current note's own would name itself.
                         showOwner={!isOwned && !readOnly}
                         // A read-only row opens the popup as an inherited one does: to be read, not edited.
                         onOpen={(anchor, e) => onOpen(attribute, isOwned && !readOnly, anchor, e)}
+                        // A label's value is typed straight into its row, and a relation's target is
+                        // repicked in it (from the pencil — the value itself is a link, and stays
+                        // one). Definitions, whose value is a summary of settings, keep the popup. On
+                        // a phone the row is a menu item and opens its page whole.
+                        onEditValue={isOwned && !readOnly && !IS_MOBILE && !isDefinition(getAttributeKind(attribute))
+                            ? () => onEditValue(attribute)
+                            : undefined}
                         onDelete={isOwned && !readOnly ? () => onDelete(attribute) : undefined}
                     />
                 ))}
@@ -421,22 +590,29 @@ function AttributeRowList({ rows, activeAttribute, readOnly, onOpen, onDelete }:
 
 interface AttributeRowProps {
     attribute: Attribute;
+    /** The note the row belongs to, read for the definition that types its value. */
+    note?: FNote | null;
     /** Whether the detail popup is currently showing this attribute. */
     active: boolean;
+    /** The in-place editor over this row's value, rendered in the value's place. */
+    valueEditor?: ComponentChildren;
     /** Whether the name is one Trilium reads for itself rather than one the note was given. */
     isSystem?: boolean;
     /** Names the note the attribute is inherited from, for attributes not owned by the current note. */
     showOwner?: boolean;
     onOpen: (anchor: HTMLElement | null, e: MouseEvent) => void;
+    /** Starts the in-place edit of the value; absent for rows whose value is not edited in place. */
+    onEditValue?: () => void;
     onDelete?: () => void;
 }
 
-function AttributeRow({ attribute, active, isSystem, showOwner, onOpen, onDelete }: AttributeRowProps) {
+function AttributeRow({ attribute, note, active, valueEditor, isSystem, showOwner, onOpen, onEditValue, onDelete }: AttributeRowProps) {
     const rowRef = useRef<HTMLLIElement>(null);
     const attrType = getAttributeKind(attribute);
-    const marker = getKindMarker(attribute, attrType, isSystem);
+    const markerClass = getKindMarkerClass(attribute, attrType, isSystem);
     const kindIcon = getKindIcon(attribute, attrType);
-    const rowClass = clsx("attribute-row", active && "active");
+    const kindTooltip = getKindTooltip(attribute, attrType, isSystem);
+    const rowClass = clsx("attribute-row", active && "active", valueEditor && "editing");
 
     function open(e: MouseEvent) {
         // Keep the container's closing handler from undoing this.
@@ -448,8 +624,8 @@ function AttributeRow({ attribute, active, isSystem, showOwner, onOpen, onDelete
         <>
             <span class="attribute-name">{getDisplayName(attribute, attrType)}</span>
 
-            <AttributeValue attribute={attribute} attrType={attrType} />
-
+            {/* Beside the name it qualifies — being inheritable is the attribute's standing, not part
+                of its value — which also leaves the values' trailing edge to the values alone. */}
             {attribute.isInheritable && (
                 <Icon
                     className="attribute-marker"
@@ -458,20 +634,46 @@ function AttributeRow({ attribute, active, isSystem, showOwner, onOpen, onDelete
                 />
             )}
 
+            {/* Where the attribute reaches the note from, and so beside the marker of its being able
+                to: the source is part of its standing too, and the trailing edge stays the values'. */}
             {showOwner && attribute.noteId && (
                 <NoteLink containerClassName="attribute-owner" notePath={attribute.noteId} noPreview />
             )}
 
-            {onDelete && (
-                <ActionButton
-                    className="attribute-delete-button"
-                    icon="bx bx-x"
-                    text={t("attribute_list_panel.delete")}
-                    onClick={(e) => {
-                        e.stopPropagation();
-                        onDelete();
-                    }}
-                />
+            {valueEditor ?? <AttributeValue attribute={attribute} note={note} attrType={attrType} onEdit={onEditValue} />}
+
+            {/* The row's actions float over its trailing end on hover rather than reserving room in
+                it (see the stylesheet), so the values keep the whole edge to themselves. Put away
+                while the row's editor is open, whose field already is the edit. */}
+            {(onDelete || (onEditValue && attrType === "relation")) && !valueEditor && (
+                <span class="attribute-row-actions">
+                    {/* A relation's value is a link and stays one, so its edit has a way in of its own. */}
+                    {onEditValue && attrType === "relation" && (
+                        <ActionButton
+                            className="attribute-edit-button"
+                            icon="bx bx-pencil"
+                            text={t("attribute_list_panel.change_target")}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onEditValue();
+                            }}
+                        />
+                    )}
+
+                    {onDelete && (
+                        <ActionButton
+                            className="attribute-delete-button"
+                            // The trash the menus mark deletion with, worn red as they wear it —
+                            // a cross beside an editor reads as "close", and this is not that.
+                            icon="bx bx-trash"
+                            text={t("attribute_list_panel.delete")}
+                            onClick={(e) => {
+                                e.stopPropagation();
+                                onDelete();
+                            }}
+                        />
+                    )}
+                </span>
             )}
         </>
     );
@@ -486,8 +688,8 @@ function AttributeRow({ attribute, active, isSystem, showOwner, onOpen, onDelete
                 className={rowClass}
                 icon={kindIcon}
                 // The badge hangs off the icon's own corner here, there being no wrapper to hang it on.
-                iconClassName={clsx("attribute-kind", marker?.class)}
-                title={[ KIND_TITLES[attrType], marker?.title ].filter(Boolean).join(" · ")}
+                iconClassName={clsx("attribute-kind", markerClass)}
+                title={kindTooltip}
                 onClick={open}
             >
                 {contents}
@@ -496,15 +698,10 @@ function AttributeRow({ attribute, active, isSystem, showOwner, onOpen, onDelete
     }
 
     return (
-        <li
-            ref={rowRef}
-            class={rowClass}
-            title={KIND_TITLES[attrType]}
-            onClick={open}
-        >
-            {/* The kind is the icon, and what is worth saying about it beyond that is a badge on its
-                corner: its own tooltip names it, the badge being the only thing that says so. */}
-            <span class={clsx("attribute-kind", marker?.class)} title={marker?.title}>
+        <li ref={rowRef} class={rowClass} onClick={open}>
+            {/* The icon is what carries the row's one tooltip: everything else about a row is already
+                written on it, and what the icon (badge and all) stands for is exactly what is not. */}
+            <span class={clsx("attribute-kind", markerClass)} title={kindTooltip}>
                 <Icon icon={kindIcon} />
             </span>
 
@@ -538,21 +735,53 @@ function getKindIcon(attribute: Attribute, attrType: AttributeKind) {
  * The badge the kind icon carries on its corner, where there is one to carry: a cog for the names
  * Trilium reads for itself, and a chevron for a definition whose field is promoted — lifted, that is,
  * out of the attributes and into the note's own ribbon. At most one of the two, which no attribute is
- * ever both of: no built-in name is a definition.
+ * ever both of: no built-in name is a definition. The class alone: what either badge means is a line
+ * of the icon's own tooltip (see {@link getKindTooltip}), the two being read as one mark.
  */
-function getKindMarker(attribute: Attribute, attrType: AttributeKind, isSystem?: boolean) {
+function getKindMarkerClass(attribute: Attribute, attrType: AttributeKind, isSystem?: boolean) {
     if (isSystem) {
-        // The hint the detail popup's badge carries, rather than the word the badge shows beside it:
-        // there is no text against the cog to be named, so what a reader hovering it wants is what
-        // being a system attribute means.
-        return { class: "marker-system", title: t("attribute_names.system_description") };
+        return "marker-system";
     }
 
-    if (isDefinition(attrType) && promotedAttributeDefinitionParser.parse(attribute.value ?? "").isPromoted) {
-        return { class: "marker-promoted", title: t("attribute_detail.promoted") };
+    if (isDefinition(attrType) && isPromotedDefinition(attribute, attrType)) {
+        return "marker-promoted";
     }
 
     return undefined;
+}
+
+/**
+ * What the kind icon answers on hover — the row's one tooltip, saying exactly what is drawn rather
+ * than written: what the attribute is (a definition alongside the type of field it sets up), whether
+ * that field is promoted, and, for a name Trilium reads for itself, a word on what that means. Each
+ * on a line of its own, the native tooltip being plain text with only the line break to shape it.
+ */
+function getKindTooltip(attribute: Attribute, attrType: AttributeKind, isSystem?: boolean) {
+    const lines: string[] = [];
+
+    if (attrType === "label-definition") {
+        // A relation definition is left as its kind names it: the field it sets up points at a note,
+        // which "relation definition" already says.
+        const type = getDefinitionType(attribute, attrType)?.title;
+        lines.push(type ? `${KIND_TITLES[attrType]}${SUMMARY_SEPARATOR}${type}` : KIND_TITLES[attrType]);
+    } else {
+        lines.push(KIND_TITLES[attrType]);
+    }
+
+    if (isDefinition(attrType) && isPromotedDefinition(attribute, attrType)) {
+        lines.push(t("attribute_detail.promoted"));
+    }
+
+    if (isSystem) {
+        lines.push(t("attribute_list_panel.system_hint"));
+    }
+
+    return lines.join("\n");
+}
+
+/** Whether the definition sets its field up as promoted, which is what the chevron badge marks. */
+function isPromotedDefinition(attribute: Attribute, attrType: AttributeKind) {
+    return isDefinition(attrType) && promotedAttributeDefinitionParser.parse(attribute.value ?? "").isPromoted;
 }
 
 /** The entry of the popup's definition-type list that the definition is currently set to. */
@@ -565,54 +794,114 @@ function getDefinitionType(attribute: Attribute, attrType: AttributeKind) {
     return DEFINITION_TYPES.find((definitionType) => definitionType.value === value);
 }
 
-/** A preview of what the attribute holds — the row stands for the attribute, the popup shows it in full. */
-function AttributeValue({ attribute, attrType }: { attribute: Attribute; attrType: AttributeKind }) {
+/**
+ * A preview of what the attribute holds — the row stands for the attribute, the popup shows it in
+ * full. A label's preview is also where its value is edited: pressing it swaps the text for the field
+ * (see {@link AttributeValueEditor}), where the row around it opens the popup.
+ */
+function AttributeValue({ attribute, note, attrType, onEdit }: {
+    attribute: Attribute;
+    /** The note the attribute is shown on, read for the definition that types the value. */
+    note?: FNote | null;
+    attrType: AttributeKind;
+    /** Starts the in-place edit; only ever handed to a label's preview. */
+    onEdit?: () => void;
+}) {
     if (attrType === "relation") {
-        // A relation just created from the add menu has no target yet.
+        // A relation just created from the add menu has no target yet — and with no link to follow,
+        // its slot is free to be the way into picking one, as a label's value is into typing.
         return attribute.value
             ? <NoteLink containerClassName="attribute-value" notePath={attribute.value} showNoteIcon noPreview />
-            : <span class="attribute-value empty">{t("attribute_list_panel.no_target")}</span>;
+            : (
+                <span
+                    class={clsx("attribute-value", "empty", onEdit && "editable")}
+                    onClick={onEdit ? (e) => {
+                        e.stopPropagation();
+                        onEdit();
+                    } : undefined}
+                >
+                    {t("attribute_list_panel.no_target")}
+                </span>
+            );
     }
 
     if (isDefinition(attrType)) {
         return <DefinitionSummary attribute={attribute} />;
     }
 
+    // A colour is read by eye rather than by its text, so the preview is the colour itself — the same
+    // chip a table cell reads it as — with the stored text kept to the chip's tooltip. An empty value
+    // still shows the chip, as the empty ring it draws: unset is an answer a colour field can give.
+    // A flag likewise previews as the mark a table cell reads it as, and the press that would edit
+    // any other value just turns it over (see startValueEdit) — hence the pointer, not the text beam.
+    const labelType = note ? resolveValueField(note, attribute.name).labelType : undefined;
+    const isColor = labelType === "color";
+    const isFlag = labelType === "boolean";
+
+    // An editable slot holding nothing gets a placeholder instead of the blank: the row centres its
+    // items, which collapses an empty span to a height of nothing — width but no height, a click
+    // target that cannot be hit. The placeholder holds the slot open and names the way in, though only
+    // over the row being pointed at (see the stylesheet): many a bare label is a flag meaning what its
+    // presence means, and a standing "no value" against every one of them would read as a lack.
+    const placeholder = !isColor && !isFlag && !attribute.value && onEdit;
+
     // A label with no value still gets its slot: it is what takes up the room between the name and what
     // the row ends with, so a bare label lines its markers and its delete button up with every other row's.
-    return <span class="attribute-value" title={attribute.value}>{attribute.value}</span>;
+    return (
+        <span
+            class={clsx("attribute-value", onEdit && "editable", isFlag && "flag", placeholder && "empty value-placeholder")}
+            title={isColor || isFlag || placeholder ? undefined : attribute.value}
+            // Kept from the row, which would open the popup over the field this press asks for.
+            onClick={onEdit ? (e) => {
+                e.stopPropagation();
+                onEdit();
+            } : undefined}
+        >
+            {isColor ? <ColorChip color={attribute.value ?? ""} />
+                : isFlag ? renderLabelValue(attribute.value ?? "", "boolean")
+                    : placeholder ? t("attribute_list_panel.no_value")
+                        : attribute.value}
+        </span>
+    );
 }
 
 /**
  * What a definition sets up, beyond the two things its icon and its badge already say — the type of
- * field it defines, and whether that field is promoted. First the name that field goes by, if it was
- * given one of its own; then its settings, which are quiet enough that a plain single-value definition
- * summarises to the display name alone, or to nothing at all.
+ * field it defines, and whether that field is promoted: a mark for a field holding a set, the inverse
+ * a relation declares, and at the trailing edge — as the other cards keep their values — the name the
+ * field was given of its own, the nearest thing a definition has to a value. A plain single-value
+ * definition summarises to that alone, or to nothing at all.
  */
 function DefinitionSummary({ attribute }: { attribute: Attribute }) {
     const definition = promotedAttributeDefinitionParser.parse(attribute.value ?? "");
     const displayName = definition.promotedAlias?.trim();
-    const settings: string[] = [];
-
-    if (definition.multiplicity === "multi") {
-        settings.push(t("attribute_detail.multi_value"));
-    }
-
-    if (definition.inverseRelation) {
-        settings.push(t("attribute_list_panel.inverse_of", { name: definition.inverseRelation }));
-    }
 
     return (
         <span class="attribute-value definition">
+            {definition.multiplicity === "multi" && (
+                <Icon
+                    className="definition-marker"
+                    icon="bx bx-layer"
+                    title={t("attribute_detail.multi_value")}
+                />
+            )}
+
+            {definition.inverseRelation && (
+                // A returning arrow rather than words; the tooltip names the inverse and what it does.
+                <Icon
+                    className="definition-marker"
+                    icon="bx bx-reply"
+                    title={t("attribute_list_panel.inverse_hint", { name: definition.inverseRelation })}
+                />
+            )}
+
             {displayName && (
-                // Written by hand and shown as written, unlike the settings beside it, which are words
-                // of Trilium's own (see AttributeList.css).
+                // Written by hand and shown as written, unlike the words of Trilium's own beside it
+                // (see AttributeList.css).
                 <span class="definition-display-name" title={t("attribute_detail.promoted_alias")}>
                     {displayName}
                 </span>
             )}
-            {displayName && settings.length > 0 && SUMMARY_SEPARATOR}
-            {settings.join(SUMMARY_SEPARATOR)}
         </span>
     );
 }
@@ -665,6 +954,28 @@ function AddAttributeButton({ text, attrTypes, onSelect }: {
                 showAddMenu(e, attrTypes, (attrType) => onSelect(attrType, e));
             }}
         />
+    );
+}
+
+/**
+ * The way in at the foot of the list: a ghost of a row that creates a label in place when pressed —
+ * a label because that is nearly always the kind being added, and the creation editor it opens can
+ * be switched to a relation from its own name box or kind icon (see AttributeCreationEditor). The
+ * card header's menu stays the way to every kind, definitions included.
+ */
+function AddAttributeRow({ onAdd }: { onAdd: (e: MouseEvent) => void }) {
+    return (
+        <div
+            class="attribute-add-row"
+            onClick={(e) => {
+                // The container's click handler would close the very editor this opens.
+                e.stopPropagation();
+                onAdd(e);
+            }}
+        >
+            <Icon icon="bx bx-plus" />
+            {t("attribute_list_panel.add_attribute")}
+        </div>
     );
 }
 
