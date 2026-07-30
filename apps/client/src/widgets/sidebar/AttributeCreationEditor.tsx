@@ -9,6 +9,7 @@ import utils from "../../services/utils";
 import { AttributeNameSuggestion, fetchAttributeNames } from "../attribute_widgets/attribute_detail";
 import LabelValueInput from "../attribute_widgets/label_value_input";
 import FormAutocomplete from "../react/FormAutocomplete";
+import Icon from "../react/Icon";
 import NoteAutocomplete from "../react/NoteAutocomplete";
 import AttributeEditorOverlay from "./AttributeEditorOverlay";
 import { resolveValueField, TARGET_NOTE_OPTS } from "./AttributeValueEditor";
@@ -33,22 +34,31 @@ interface AttributeCreationEditorProps {
  *
  * Stands on the {@link AttributeEditorOverlay} shell: leaving keeps the draft, escape drops it. In
  * the name box, enter walks on to the value field once the completion has had its say.
+ *
+ * Which of the two kinds is being created is the draft's to start with, but not fixed: the `#`/`~`
+ * the attributes editor opens its syntax with switch it from the head of the name box, and the kind
+ * icon leading the row switches it by mouse — so one way in (the add row at the list's foot, which
+ * always opens a label) serves both kinds.
  */
 export default function AttributeCreationEditor({ note, attribute, onCommit, onRevert }: AttributeCreationEditorProps) {
     const containerRef = useRef<HTMLSpanElement>(null);
     const nameRef = useRef<HTMLInputElement>(null);
-    const isRelation = attribute.type === "relation";
-    const nameType = isRelation ? "relation" : "label";
-    // The one field state here: the value lives in the draft alone, but the name is what the value
-    // field's kind hangs off, so typing it has to re-render.
+    // Held as state rather than read off the draft, because the draft can change kinds under the
+    // editor's hands: the attributes editor spells a kind as the `#`/`~` its syntax opens with, and
+    // typing either at the head of the name here switches the draft the same way (see commitName) —
+    // as does the kind icon leading the row, for the mouse.
+    const [ kind, setKind ] = useState<"label" | "relation">(attribute.type === "relation" ? "relation" : "label");
+    const isRelation = kind === "relation";
+    // The one other field state here: the value lives in the draft alone, but the name is what the
+    // value field's kind hangs off, so typing it has to re-render.
     const [ name, setName ] = useState(attribute.name);
     // Committing mid-composition would filter the characters being composed out from under the IME;
     // the same guard the detail form keeps (https://github.com/zadam/trilium/pull/3812).
     const isComposing = useRef(false);
 
-    const suggestNames = useCallback((query: string) => fetchAttributeNames(nameType, query), [ nameType ]);
+    const suggestNames = useCallback((query: string) => fetchAttributeNames(kind, query), [ kind ]);
     const renderNameSuggestion = useCallback(
-        (suggestion: string) => <AttributeNameSuggestion type={nameType} name={suggestion} />, [ nameType ]);
+        (suggestion: string) => <AttributeNameSuggestion type={kind} name={suggestion} />, [ kind ]);
 
     // What the name as it stands would be typed as, so a name with a definition behind it gets its
     // field the moment the name settles — type `due`, and the value side becomes its date picker.
@@ -58,7 +68,28 @@ export default function AttributeCreationEditor({ note, attribute, onCommit, onR
 
     useEffect(() => nameRef.current?.focus(), []);
 
+    function switchKind(newKind: "label" | "relation") {
+        if (newKind === kind) {
+            return;
+        }
+
+        setKind(newKind);
+        attribute.type = newKind;
+        // A value typed for the one kind means nothing to the other: a note is not named by the text
+        // a label held, nor a label by a noteId. The field is remounted empty by the kind switch.
+        attribute.value = "";
+    }
+
     function commitName(newName: string) {
+        // The `#`/`~` the attributes editor opens its syntax with act as kind switches here, at the
+        // head of the name where the syntax puts them; the filter below then strips them, as it
+        // strips both characters wherever they turn up.
+        if (newName.startsWith("#")) {
+            switchKind("label");
+        } else if (newName.startsWith("~")) {
+            switchKind("relation");
+        }
+
         // Invalid characters are simply ignored, as the detail form ignores them.
         const filtered = utils.filterAttributeName(newName);
         setName(filtered);
@@ -94,6 +125,17 @@ export default function AttributeCreationEditor({ note, attribute, onCommit, onR
                 }
             }}
         >
+            {/* The kind, where the row would carry its icon — and the mouse's way of switching it,
+                the mousedown guard above keeping the press from blurring the name box meanwhile. */}
+            <span
+                className="attribute-creation-kind"
+                title={isRelation
+                    ? t("attribute_list_panel.creation_kind_relation")
+                    : t("attribute_list_panel.creation_kind_label")}
+                onClick={() => switchKind(isRelation ? "label" : "relation")}
+            >
+                <Icon icon={isRelation ? "bx bx-transfer" : "bx bx-hash"} />
+            </span>
             <span className="attribute-creation-name">
                 <FormAutocomplete
                     inputRef={nameRef}

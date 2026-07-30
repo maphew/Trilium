@@ -382,6 +382,11 @@ export default function AttributeList() {
                         ) : (
                             <NoItems icon="bx bx-hash" text={t("attribute_list_panel.no_attributes")} />
                         )}
+
+                        {/* Only on a desktop: a phone adds from the header, page flow and all. */}
+                        {!IS_MOBILE && note && (
+                            <AddAttributeRow onAdd={(e) => addAttribute("label", e)} />
+                        )}
                     </div>
                 </AttributeSection>
 
@@ -912,6 +917,28 @@ function AddAttributeButton({ text, attrTypes, onSelect }: {
                 showAddMenu(e, attrTypes, (attrType) => onSelect(attrType, e));
             }}
         />
+    );
+}
+
+/**
+ * The way in at the foot of the list: a ghost of a row that creates a label in place when pressed —
+ * a label because that is nearly always the kind being added, and the creation editor it opens can
+ * be switched to a relation from its own name box or kind icon (see AttributeCreationEditor). The
+ * card header's menu stays the way to every kind, definitions included.
+ */
+function AddAttributeRow({ onAdd }: { onAdd: (e: MouseEvent) => void }) {
+    return (
+        <div
+            class="attribute-add-row"
+            onClick={(e) => {
+                // The container's click handler would close the very editor this opens.
+                e.stopPropagation();
+                onAdd(e);
+            }}
+        >
+            <Icon icon="bx bx-plus" />
+            {t("attribute_list_panel.add_attribute")}
+        </div>
     );
 }
 

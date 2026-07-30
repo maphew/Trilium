@@ -394,6 +394,51 @@ describe("AttributeList", () => {
         expect(namesIn(container)).not.toContain("");
     });
 
+    it("creates from the add row at the list's foot, the kind switched by prefix or by its icon", async () => {
+        renderPanel(noteWithAttributes());
+
+        const addRow = container.querySelector<HTMLElement>(".attribute-add-row");
+        expect(addRow).not.toBeNull();
+        act(() => addRow?.click());
+
+        // Opens as a label — the kind nearly always being added...
+        const editor = container.querySelector<HTMLElement>(".attribute-creation-editor");
+        expect(editor?.querySelector(".attribute-creation-value input")).not.toBeNull();
+        expect(editor?.querySelector(".note-autocomplete-stub")).toBeNull();
+
+        // ...until the `~` the attributes editor spells relations with is typed at the name's head:
+        // the prefix is spent on the switch, the name keeping only what follows it.
+        const nameInput = editor?.querySelector<HTMLInputElement>(".attribute-creation-name input");
+        act(() => {
+            if (nameInput) {
+                nameInput.value = "~depicts";
+                nameInput.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+        });
+        expect(nameInput?.value).toBe("depicts");
+        expect(editor?.querySelector(".note-autocomplete-stub")).not.toBeNull();
+
+        // The kind icon presses it back to a label, and again to a relation.
+        act(() => editor?.querySelector<HTMLElement>(".attribute-creation-kind")?.click());
+        expect(editor?.querySelector(".note-autocomplete-stub")).toBeNull();
+        act(() => editor?.querySelector<HTMLElement>(".attribute-creation-kind")?.click());
+
+        const target = editor?.querySelector<HTMLInputElement>(".note-autocomplete-stub");
+        act(() => {
+            if (target) {
+                target.value = "tpl";
+                target.dispatchEvent(new Event("input", { bubbles: true }));
+            }
+        });
+        await act(async () => {
+            editor?.dispatchEvent(new FocusEvent("focusout", { bubbles: true, relatedTarget: document.body }));
+        });
+
+        expect(put).toHaveBeenCalledOnce();
+        const [ , saved ] = put.mock.calls[0] as [ string, { name: string; value: string }[] ];
+        expect(saved.at(-1)).toMatchObject({ type: "relation", name: "depicts", value: "tpl" });
+    });
+
     it("creates a relation in its row, its target picked in the note search", async () => {
         buildNote({ id: "target-note", title: "Target" });
         renderPanel(noteWithAttributes());

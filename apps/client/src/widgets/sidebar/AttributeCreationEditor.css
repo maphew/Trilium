@@ -2,6 +2,20 @@
    name leading and the value taking the rest, weighted rather than measured — with only the two of
    them, a fixed split would starve one side on a narrow pane and waste it on a wide one. */
 .attribute-list-panel .attribute-creation-editor {
+    /* The kind, worn where a row wears its icon — and pressed to switch, so it says it can be. */
+    & .attribute-creation-kind {
+        flex: 0 0 auto;
+        display: flex;
+        align-items: center;
+        padding-inline: 2px;
+        color: var(--muted-text-color);
+        cursor: pointer;
+    }
+
+    & .attribute-creation-kind:hover {
+        color: var(--main-text-color);
+    }
+
     & .attribute-creation-name,
     & .attribute-creation-value {
         display: flex;

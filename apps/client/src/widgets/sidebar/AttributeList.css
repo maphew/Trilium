@@ -131,6 +131,25 @@
     visibility: visible;
 }
 
+/* The way in at the foot of the list: a ghost of a row, quiet until pointed at — the standing the
+   table's own add-row keeps. Sized as the values are: an invitation, not an entry. */
+.attribute-list-panel .attribute-add-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 3px 4px;
+    border-radius: var(--border-radius-size, 4px);
+    cursor: pointer;
+    color: var(--muted-text-color);
+    font-size: 0.85em;
+    opacity: 0.75;
+}
+
+.attribute-list-panel .attribute-add-row:hover {
+    background-color: var(--hover-item-background-color);
+    opacity: 1;
+}
+
 /* A colour's chip keeps to its own size: a chip is laid out as a flex box, which alone in the value's
    slot would run the width of it, a bar rather than a chip. */
 .attribute-list-panel .attribute-value > .label-color-chip {
