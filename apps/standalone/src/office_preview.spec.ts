@@ -29,11 +29,43 @@ describe("office preview with aliased officeparser", () => {
     });
 });
 
+describe("convertOfficeToHtml guards", () => {
+    it("rejects a non-office MIME type", async () => {
+        await expect(convertOfficeToHtml(new Uint8Array([1]), "application/pdf"))
+            .rejects.toThrow(/not a supported office format/);
+    });
+
+    it("refuses a document above the preview size cap", async () => {
+        const oversized = new Uint8Array(20 * 1024 * 1024 + 1);
+
+        await expect(convertOfficeToHtml(oversized, "application/vnd.openxmlformats-officedocument.wordprocessingml.document"))
+            .rejects.toThrow(/too large/);
+    });
+
+    it("rejects a buffer that neither the spreadsheet pipeline nor officeparser can read", async () => {
+        // Garbage with an XLSX MIME exercises the exceljs -> officeparser fallback; since the
+        // bytes are not any known format, the officeparser attempt then fails too.
+        const garbage = new Uint8Array([0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07]);
+
+        await expect(convertOfficeToHtml(garbage, "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+            .rejects.toThrow();
+    });
+});
+
 function readFixture(name: string): Uint8Array {
-    // Vitest serves transformed modules from Vite's virtual /@fs/ root — strip it
-    // to get a real filesystem path (no-op when the prefix is absent).
-    const path = fileURLToPath(new URL(`../../server/src/services/ocr/processors/samples/${name}`, import.meta.url))
-        .replace(/^[/\\]@fs/, "");
+    // Vitest serves transformed modules from Vite's virtual /@fs/ root — strip it to get
+    // a real filesystem path (no-op when the marker is absent). On Windows the marker
+    // lands mid-path (`C:\@fs\C:\Users\…`) rather than at the start, so everything up to
+    // and including it is dropped; POSIX paths lose their leading slash in that cut and
+    // get it restored.
+    let path = fileURLToPath(new URL(`../../server/src/services/ocr/processors/samples/${name}`, import.meta.url));
+    const marker = path.match(/[/\\]@fs[/\\]/);
+    if (marker?.index !== undefined) {
+        path = path.slice(marker.index + marker[0].length);
+        if (!/^[A-Za-z]:/.test(path)) {
+            path = `/${path}`;
+        }
+    }
 
     return new Uint8Array(readFileSync(path));
 }

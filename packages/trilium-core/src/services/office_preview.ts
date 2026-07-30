@@ -60,7 +60,9 @@ export async function convertOfficeToHtml(content: string | Uint8Array, mime: st
         }
     });
 
-    // value is a string for the 'html' destination.
+    // Defensive: officeparser types `value` as string for the 'html' destination, so the
+    // fallback arm is unreachable unless the library breaks its own contract.
+    /* v8 ignore next */
     return typeof value === "string" ? value : "";
 }
 
