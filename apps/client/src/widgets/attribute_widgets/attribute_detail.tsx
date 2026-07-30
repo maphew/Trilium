@@ -24,7 +24,6 @@ import FormAutocomplete, { AUTOCOMPLETE_DROPDOWN_SELECTOR } from "../react/FormA
 import FormDropdownList from "../react/FormDropdownList.jsx";
 import { FormDropdownDivider, FormListItem } from "../react/FormList.jsx";
 import FormTextBox, { FormTextBoxWithUnit } from "../react/FormTextBox.jsx";
-import FormTextBoxList from "../react/FormTextBoxList.jsx";
 import HelpTooltipButton from "../react/HelpTooltipButton.jsx";
 import { suspendModalFocusTraps } from "../react/modal_focustrap.js";
 import NoteAutocomplete from "../react/NoteAutocomplete.jsx";
@@ -33,6 +32,7 @@ import { disposeReactWidget, ParentComponent, renderReactWidgetAtElement } from 
 import OptionsRow, { OptionsRowWithToggle } from "../type_widgets/options/components/OptionsRow.jsx";
 import { ATTR_HELP, AttrHelpEntry } from "./attr_help.js";
 import LabelValueInput, { getTypedInputForLabel } from "./label_value_input.js";
+import ValuesInput from "./values_input.jsx";
 
 export interface AttributeDetailOpts {
     allAttributes?: Attribute[];
@@ -633,15 +633,15 @@ export function AttributeForm({ opts, attrType: initialAttrType, currentNoteId, 
                         label={t("attribute_detail.select_options")}
                         description={t("attribute_detail.select_options_title")}
                     >
-                        {/* The draft rows need no synchronizing back from the definition: the form
-                            remounts per show (see above), so they are seeded once, like the fields
-                            around them. */}
-                        <FormTextBoxList
-                            initialValues={definition.selectOptions ?? []}
+                        {/* The same chips the values themselves are edited through elsewhere, only
+                            typed free: the options are being invented here, so there is nothing to
+                            offer or pick from. */}
+                        <ValuesInput
+                            labelType="text"
+                            values={definition.selectOptions ?? []}
                             disabled={!isOwned}
-                            addButtonText={t("attribute_detail.add_option")}
                             removeButtonText={t("attribute_detail.remove_option")}
-                            onChange={(selectOptions) => commitDefinition({ selectOptions })}
+                            onCommit={(selectOptions) => commitDefinition({ selectOptions })}
                         />
                     </OptionsRow>
                 )}

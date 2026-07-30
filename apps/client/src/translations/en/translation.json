@@ -549,7 +549,6 @@
     "select_type": "Select",
     "select_options": "Options",
     "select_options_title": "The options the field offers, in this order.",
-    "add_option": "Add option",
     "remove_option": "Remove this option",
     "precision_title": "Max number of decimal places.",
     "precision": "Precision",

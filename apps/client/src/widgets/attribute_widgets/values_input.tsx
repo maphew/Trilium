@@ -23,6 +23,10 @@ interface ValuesInputProps {
      * out, a chip reads as what is stored, which for most types is what is being edited anyway.
      */
     renderValue?(value: string): ComponentChildren;
+    /** What removing a chip means, in the host's own words. Left out, a chip holds "a value". */
+    removeButtonText?: string;
+    /** Set onto the box, so that a host's own label points at the field. */
+    inputId?: string;
     placeholder?: string;
     disabled?: boolean;
 }
@@ -36,7 +40,7 @@ interface ValuesInputProps {
  * rather than quietly dropped. A value already held is not taken a second time: the chips are a set,
  * and two alike could not be told apart.
  */
-export default function ValuesInput({ labelType, values, onCommit, renderValue, placeholder, disabled }: ValuesInputProps) {
+export default function ValuesInput({ labelType, values, onCommit, renderValue, removeButtonText, inputId, placeholder, disabled }: ValuesInputProps) {
     const [ draft, setDraft ] = useState("");
     const inputRef = useRef<HTMLInputElement>(null);
     const isColor = labelType === "color";
@@ -108,7 +112,7 @@ export default function ValuesInput({ labelType, values, onCommit, renderValue, 
             {values.map((value) => (
                 <Chip
                     key={value}
-                    removeButtonText={t("promoted_attributes.remove_value")}
+                    removeButtonText={removeButtonText ?? t("promoted_attributes.remove_value")}
                     disabled={disabled}
                     onRemove={() => drop(value)}
                 >
@@ -127,6 +131,7 @@ export default function ValuesInput({ labelType, values, onCommit, renderValue, 
                 <input
                     key="field"
                     ref={inputRef}
+                    id={inputId}
                     className="form-control"
                     type="color"
                     disabled={disabled}
@@ -135,6 +140,7 @@ export default function ValuesInput({ labelType, values, onCommit, renderValue, 
                 <FormTextBox
                     key="field"
                     inputRef={inputRef}
+                    id={inputId}
                     type={LABEL_MAPPINGS[labelType] ?? "text"}
                     currentValue={draft}
                     // Only while the field is empty: beside chips it would read as one of them.
