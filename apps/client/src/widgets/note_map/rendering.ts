@@ -15,6 +15,12 @@ const LONE_NOTE_ZOOM = 4;
 /** How large a note's dot has to come out on screen, in pixels, before its icon is drawn inside it. */
 const MIN_ICON_RADIUS = 7;
 
+/** How large a note's label is drawn on screen, whatever the map is zoomed to. */
+const LABEL_FONT_PX = 11;
+
+/** How wide a label may be, in multiples of its own font size, before what is left of the title is cut. */
+const MAX_LABEL_WIDTH_EMS = 12;
+
 export interface CssData {
     fontFamily: string;
     textColor: string;
@@ -43,6 +49,8 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
     const highlightLinks = new Set();
     let hoverNode: NodeObject | null = null;
     let zoomLevel: number;
+    /** Titles as they are drawn, cut to the width a label is allowed — see {@link getLabel}. */
+    const labelsByNoteId = new Map<string, string>();
 
     function getColorForNode(node: NoteMapNodeObject) {
         if (node.color) {
@@ -80,18 +88,44 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
             return;
         }
 
+        // Drawn at a size of its own rather than at the note's: the canvas is scaled by the zoom, so
+        // a label measured in the graph's own units is drawn as large as the map is zoomed in — which
+        // on a map of a couple of notes left the titles standing taller than the notes themselves.
+        const fontSize = LABEL_FONT_PX / zoomLevel;
+
         ctx.fillStyle = cssData.textColor;
-        ctx.font = `${size}px ${cssData.fontFamily}`;
+        ctx.font = `${fontSize}px ${cssData.fontFamily}`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
+        ctx.fillText(getLabel(node, ctx, fontSize), x, y + size * 0.8 + fontSize);
+    }
 
-        let title = node.name;
-
-        if (title.length > 15) {
-            title = `${title.substr(0, 15)}...`;
+    /**
+     * The note's title, cut down to what a label is allowed to be wide.
+     *
+     * Measured rather than counted: a count of characters cuts a title of wide ones halfway across the
+     * map and one of narrow ones long before it had to. The width allowed is in multiples of the font
+     * size and the measuring is in the graph's units, so the zoom is on both sides of the comparison
+     * and cancels out — what fits at one zoom fits at every other, and is worked out once per note.
+     */
+    function getLabel(node: NoteMapNodeObject, ctx: CanvasRenderingContext2D, fontSize: number) {
+        const cached = labelsByNoteId.get(node.id);
+        if (cached !== undefined) {
+            return cached;
         }
 
-        ctx.fillText(title, x, y + Math.round(size * 1.5));
+        const maxWidth = MAX_LABEL_WIDTH_EMS * fontSize;
+        let label = node.name;
+
+        if (ctx.measureText(label).width > maxWidth) {
+            while (label.length > 1 && ctx.measureText(`${label}…`).width > maxWidth) {
+                label = label.slice(0, -1);
+            }
+            label = `${label}…`;
+        }
+
+        labelsByNoteId.set(node.id, label);
+        return label;
     }
 
 
