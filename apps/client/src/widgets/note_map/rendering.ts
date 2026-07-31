@@ -1,6 +1,6 @@
 import type ForceGraph from "force-graph";
 
-import FNote from "../../entities/fnote";
+import type FNote from "../../entities/fnote";
 import { escapeHtml } from "../../services/utils";
 import { NoteMapLinkObject, NoteMapNodeObject, NotesAndRelationsData } from "./data";
 import { ICON_FONT_FAMILY } from "./icons";
@@ -14,6 +14,16 @@ const LONE_NOTE_ZOOM = 4;
 
 /** How large a note's dot has to come out on screen, in pixels, before its icon is drawn inside it. */
 const MIN_ICON_RADIUS = 7;
+
+/**
+ * How wide a note's dot is drawn, as a part of the size the graph holds it at. The graph measures the
+ * room a note takes up by that size, and the dot is drawn a little inside it so that the notes of a
+ * crowded map are not laid edge to edge.
+ */
+const NODE_RADIUS_RATIO = 0.8;
+
+/** Above how many framed notes a map is left to settle at its own pace — see {@link setupFraming}. */
+const DAMPING_MAX_NOTES = 30;
 
 /** How thick the ring around the note the map is drawn around is on screen. */
 const ANCHOR_RING_PX = 2;
@@ -113,8 +123,8 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
     // runs between it and, and those relations. Worked out once when the hover changes rather than
     // while painting, so that every note of a frame is painted knowing the same thing.
     let hoverNode: NoteMapNodeObject | null = null;
-    const neighbours = new Set<NoteMapNodeObject>();
-    const highlightLinks = new Set<NoteMapLinkObject>();
+    let neighbours = new Set<NoteMapNodeObject>();
+    let highlightLinks = new Set<NoteMapLinkObject>();
     let zoomLevel: number;
     /** Titles as they are drawn, cut to the width a label is allowed — see {@link getLabel}. */
     const labelsByNoteId = new Map<string, string>();
@@ -152,31 +162,15 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
         keepPaintingThroughFade();
 
         hoverNode = node;
-        neighbours.clear();
-        highlightLinks.clear();
 
         if (!hoverNode) {
+            neighbours = new Set();
+            highlightLinks = new Set();
             return;
         }
 
-        highlightColor = normalizeColor(getColorForNode(hoverNode));
-
-        for (const link of notesAndRelations.links) {
-            const { source, target } = link;
-            // Both ends are notes of the map by the time it is drawn, the graph having looked up what
-            // the data carries as ids.
-            if (typeof source !== "object" || typeof target !== "object") {
-                continue;
-            }
-
-            if (source.id === hoverNode.id) {
-                neighbours.add(target);
-                highlightLinks.add(link);
-            } else if (target.id === hoverNode.id) {
-                neighbours.add(source);
-                highlightLinks.add(link);
-            }
-        }
+        highlightColor = normalizeColor(getNodeColors(hoverNode, cssData).fill);
+        ({ neighbours, highlightLinks } = getHoveredNeighbourhood(hoverNode, notesAndRelations.links));
     }
 
     /** Whether the note is the hovered one or one a relation runs between it and — all of them, while nothing is hovered. */
@@ -201,11 +195,6 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
                 : mixColors(cssData.mutedTextColor, highlightColor, lit);
 
         return withAlpha(color, getFadedAlpha(focus));
-    }
-
-    /** How much of a note or a relation is drawn, from all of it to {@link DIMMED_ALPHA} faded back. */
-    function getFadedAlpha(focus: number) {
-        return DIMMED_ALPHA + (1 - DIMMED_ALPHA) * Math.min(1, 1 + focus);
     }
 
     /**
@@ -233,38 +222,6 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
     }
 
     /**
-     * What a note is drawn in: the badge its icon is shown in beside a title, wherever a note is shown
-     * at a size. Every note of the map wears it, whole — which of them the map is drawn around is said
-     * by the ring, and what kind of note each is by the icon within it.
-     *
-     * A note that asks for a colour of its own is given it — that is the reader's own doing, and it
-     * says something no map should talk over.
-     */
-    function getColorForNode(node: NoteMapNodeObject) {
-        return node.color || cssData.anchorColor;
-    }
-
-    /**
-     * The size to draw text at in the graph's own units, for a size on screen.
-     *
-     * The canvas is scaled by the zoom, so text measured in the graph's units is drawn as large as
-     * the map is zoomed in — which is how a title once came to stand taller than the note it belonged
-     * to. Dividing the size on screen back out by the zoom holds it to a size of its own, and the
-     * share of the zoom it is given back (see {@link LABEL_ZOOM_SHARE}) is what still lets it grow.
-     */
-    function getFontSize(screenPx: number) {
-        return screenPx * zoomLevel ** LABEL_ZOOM_SHARE / zoomLevel;
-    }
-
-    /**
-     * Whether a note of the given size has its label drawn under it as the map stands: the smaller the
-     * note, the further in the map has to be zoomed before its name is worth the clutter.
-     */
-    function isLabelDrawn(size: number) {
-        return zoomLevel > 2 || (zoomLevel > 1 && size > 6) || (zoomLevel > 0.3 && size > 10);
-    }
-
-    /**
      * The note's title, for the tooltip that stands over it while it is hovered — or nothing at all
      * where the map is already showing the title in full under the note, the tooltip then being a
      * second copy of what the pointer is resting on.
@@ -274,7 +231,7 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
      * entry in the map has never had its label drawn, and cannot have it in full.
      */
     function getTooltip(node: NoteMapNodeObject) {
-        const shownInFull = isLabelDrawn(noteIdToSizeMap[node.id]) && labelsByNoteId.get(node.id) === node.name;
+        const shownInFull = isLabelDrawn(noteIdToSizeMap[node.id], zoomLevel) && labelsByNoteId.get(node.id) === node.name;
 
         return shownInFull ? "" : escapeHtml(node.name);
     }
@@ -289,7 +246,7 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
         }
         const size = noteIdToSizeMap[node.id];
 
-        const radius = size * 0.8;
+        const radius = size * NODE_RADIUS_RATIO;
 
         ctx.fillStyle = color;
         ctx.beginPath();
@@ -312,11 +269,11 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
 
         paintNodeIcon(node, size, x, y, ctx);
 
-        if (!isLabelDrawn(size)) {
+        if (!isLabelDrawn(size, zoomLevel)) {
             return;
         }
 
-        const fontSize = getFontSize(LABEL_FONT_PX);
+        const fontSize = getLabelFontSize(LABEL_FONT_PX, zoomLevel);
 
         ctx.save();
         castLabelShadow(ctx);
@@ -324,7 +281,7 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
         ctx.font = `${fontSize}px ${cssData.fontFamily}`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
-        ctx.fillText(getLabel(node, ctx, fontSize), x, y + size * 0.8 + fontSize);
+        ctx.fillText(getLabel(node, ctx, fontSize), x, y + radius + fontSize);
         ctx.restore();
     }
 
@@ -355,20 +312,11 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
             return cached;
         }
 
-        const maxWidth = MAX_LABEL_WIDTH_EMS * fontSize;
-        let label = node.name;
-
-        if (ctx.measureText(label).width > maxWidth) {
-            while (label.length > 1 && ctx.measureText(`${label}…`).width > maxWidth) {
-                label = label.slice(0, -1);
-            }
-            label = `${label}…`;
-        }
+        const label = truncateLabel(node.name, fontSize, (text) => ctx.measureText(text).width);
 
         labelsByNoteId.set(node.id, label);
         return label;
     }
-
 
     /**
      * The note's own icon, cut out of the dot standing for it — the same one the tree and the tabs
@@ -386,11 +334,11 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
     function paintNodeIcon(node: NoteMapNodeObject, size: number, x: number, y: number, ctx: CanvasRenderingContext2D) {
         const glyph = iconGlyphs.get(node.icon);
 
-        if (!glyph || !(size * 0.8 * zoomLevel >= MIN_ICON_RADIUS)) {
+        if (!glyph || !isIconDrawn(size, zoomLevel)) {
             return;
         }
 
-        ctx.fillStyle = node.color ? cssData.backgroundColor : cssData.anchorIconColor;
+        ctx.fillStyle = getNodeColors(node, cssData).icon;
         ctx.font = `${size}px ${ICON_FONT_FAMILY}`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -408,40 +356,23 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
      * inside the larger ones.
      */
     function paintArrow(link: NoteMapLinkObject, source: NoteMapNodeObject, target: NoteMapNodeObject, ctx: CanvasRenderingContext2D) {
-        const { x: sourceX = 0, y: sourceY = 0 } = source;
-        const { x: targetX = 0, y: targetY = 0 } = target;
-        const length = getFontSize(ARROW_LENGTH_PX);
-        const lineLength = Math.hypot(targetX - sourceX, targetY - sourceY);
-        const targetRadius = noteIdToSizeMap[target.id] * 0.8;
+        const length = getLabelFontSize(ARROW_LENGTH_PX, zoomLevel);
+        const outline = getArrowOutline(
+            { x: source.x ?? 0, y: source.y ?? 0 },
+            { x: target.x ?? 0, y: target.y ?? 0 },
+            noteIdToSizeMap[target.id] * NODE_RADIUS_RATIO,
+            length
+        );
 
-        // Two notes all but on top of one another leave nowhere to put it that is not inside one of
-        // them, where it would be drawn pointing back the way it came.
-        if (lineLength < targetRadius + length) {
+        if (!outline) {
             return;
         }
-
-        const alongX = (targetX - sourceX) / lineLength;
-        const alongY = (targetY - sourceY) / lineLength;
-        const tipX = targetX - alongX * targetRadius;
-        const tipY = targetY - alongY * targetRadius;
-        const baseX = tipX - alongX * length;
-        const baseY = tipY - alongY * length;
-        const halfWidth = length * ARROW_WIDTH_RATIO / 2;
-        // The notch the tail is swept back to, which is what keeps it an arrowhead rather than a
-        // triangle sitting on the line.
-        const notchX = baseX + alongX * length * ARROW_SWEEP;
-        const notchY = baseY + alongY * length * ARROW_SWEEP;
 
         ctx.save();
         // The corners are rounded into the outline itself rather than stroked round afterwards: a
         // stroke over a fill is drawn twice where the two meet, which tells on an arrowhead faded
         // back behind a hover as a rim darker than the rest of it.
-        traceRoundedPath(ctx, [
-            [ tipX, tipY ],
-            [ baseX - alongY * halfWidth, baseY + alongX * halfWidth ],
-            [ notchX, notchY ],
-            [ baseX + alongY * halfWidth, baseY - alongX * halfWidth ]
-        ], length * ARROW_ROUNDING);
+        traceRoundedPath(ctx, outline, length * ARROW_ROUNDING);
 
         ctx.fillStyle = getLinkColor(link);
         ctx.fill();
@@ -465,7 +396,7 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
         // Held to a size the same way a note's label is, from a smaller one: the name of a relation
         // is there to be read of a map already zoomed into, not to stand alongside the names of the
         // notes it runs between.
-        const fontSize = getFontSize(LINK_LABEL_FONT_PX);
+        const fontSize = getLabelFontSize(LINK_LABEL_FONT_PX, zoomLevel);
 
         ctx.font = `${fontSize}px ${cssData.fontFamily}`;
         ctx.textAlign = "center";
@@ -513,7 +444,7 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
             // Every note is drawn whole; the only thing that steps one back is the pointer resting on
             // another note than it.
             ctx.globalAlpha = getFadedAlpha(nodeFocus.get(node));
-            paintNode(node, getColorForNode(node), ctx);
+            paintNode(node, getNodeColors(node, cssData).fill, ctx);
             ctx.restore();
         })
         .onNodeHover((node) => setHoveredNode(node ?? null))
@@ -568,6 +499,155 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
 }
 
 /**
+ * What the map is to show of the note under the pointer: the notes a relation runs between it and,
+ * and the relations themselves. Which way round a relation runs is not what this asks — a note is as
+ * much a neighbour for being pointed at as for pointing.
+ *
+ * Worked out once when the hover changes rather than while painting, so that every note of a frame is
+ * painted knowing the same thing.
+ */
+export function getHoveredNeighbourhood(hoverNode: NoteMapNodeObject, links: NoteMapLinkObject[]) {
+    const neighbours = new Set<NoteMapNodeObject>();
+    const highlightLinks = new Set<NoteMapLinkObject>();
+
+    for (const link of links) {
+        const { source, target } = link;
+        // Both ends are notes of the map by the time it is drawn, the graph having looked up what the
+        // data carries as ids.
+        if (typeof source !== "object" || typeof target !== "object") {
+            continue;
+        }
+
+        if (source.id === hoverNode.id) {
+            neighbours.add(target);
+            highlightLinks.add(link);
+        } else if (target.id === hoverNode.id) {
+            neighbours.add(source);
+            highlightLinks.add(link);
+        }
+    }
+
+    return { neighbours, highlightLinks };
+}
+
+/** How much of a note or a relation is drawn, from all of it to {@link DIMMED_ALPHA} faded back. */
+export function getFadedAlpha(focus: number) {
+    return DIMMED_ALPHA + (1 - DIMMED_ALPHA) * Math.min(1, 1 + focus);
+}
+
+/**
+ * What a note is drawn in, and what its icon is cut out of it in.
+ *
+ * The badge its icon is shown in beside a title, wherever a note is shown at a size. Every note of the
+ * map wears it, whole — which of them the map is drawn around is said by the ring, and what kind of
+ * note each is by the icon within it.
+ *
+ * A note that asks for a colour of its own is given it: that is the reader's own doing, and it says
+ * something no map should talk over. It has no badge pairing to draw its icon in, though, so the icon
+ * is cut out of it in the colour of what the map is laid on — whatever the note asks to be drawn in,
+ * the page behind it is something else.
+ */
+export function getNodeColors(node: Pick<NoteMapNodeObject, "color">, cssData: CssData) {
+    return {
+        fill: node.color || cssData.anchorColor,
+        icon: node.color ? cssData.backgroundColor : cssData.anchorIconColor
+    };
+}
+
+/**
+ * The size to draw text at in the graph's own units, for a size on screen.
+ *
+ * The canvas is scaled by the zoom, so text measured in the graph's units is drawn as large as the map
+ * is zoomed in — which is how a title once came to stand taller than the note it belonged to. Dividing
+ * the size on screen back out by the zoom holds it to a size of its own, and the share of the zoom it
+ * is given back (see {@link LABEL_ZOOM_SHARE}) is what still lets it grow.
+ */
+export function getLabelFontSize(screenPx: number, zoomLevel: number) {
+    return screenPx * zoomLevel ** LABEL_ZOOM_SHARE / zoomLevel;
+}
+
+/**
+ * Whether a note of the given size has its label drawn under it as the map stands: the smaller the
+ * note, the further in the map has to be zoomed before its name is worth the clutter.
+ */
+export function isLabelDrawn(size: number, zoomLevel: number) {
+    return zoomLevel > 2 || (zoomLevel > 1 && size > 6) || (zoomLevel > 0.3 && size > 10);
+}
+
+/**
+ * Whether the note's dot comes out large enough on screen to hold its icon. Below that the glyph is a
+ * smudge over the colour, and the colour alone says more.
+ */
+export function isIconDrawn(size: number, zoomLevel: number) {
+    return size * NODE_RADIUS_RATIO * zoomLevel >= MIN_ICON_RADIUS;
+}
+
+/**
+ * The title cut down to what a label is allowed to be wide, with an ellipsis for what is left off.
+ *
+ * Measured rather than counted: a count of characters cuts a title of wide ones halfway across the map
+ * and one of narrow ones long before it had to. The width allowed is in multiples of the font size and
+ * the measuring is in the graph's units, so the zoom is on both sides of the comparison and cancels
+ * out — what fits at one zoom fits at every other.
+ *
+ * @param measureWidth how wide the text comes out, as the canvas it is to be drawn on measures it.
+ */
+export function truncateLabel(title: string, fontSize: number, measureWidth: (text: string) => number) {
+    const maxWidth = MAX_LABEL_WIDTH_EMS * fontSize;
+
+    if (measureWidth(title) <= maxWidth) {
+        return title;
+    }
+
+    let label = title;
+    // The ellipsis is part of what has to fit, so it is measured along with what is left of the title.
+    while (label.length > 1 && measureWidth(`${label}…`) > maxWidth) {
+        label = label.slice(0, -1);
+    }
+
+    return `${label}…`;
+}
+
+/**
+ * The corners of the arrowhead that says which way a relation runs — a swept chevron, drawn where the
+ * line meets the note it points at, rather than the hard little wedge the graph draws of its own
+ * accord. Rounded off by whoever traces it (see {@link traceRoundedPath}).
+ *
+ * Nothing at all where the two notes are so close together that there is nowhere to put it that is not
+ * inside one of them, where it would be drawn pointing back the way it came.
+ *
+ * @param targetRadius the dot the arrowhead stops at, as the map actually draws it: the graph sizes
+ *                     every note the same for this, which buries the arrowhead inside the larger ones.
+ * @param length how long the arrowhead is, in the graph's units.
+ */
+export function getArrowOutline(source: { x: number, y: number }, target: { x: number, y: number }, targetRadius: number, length: number) {
+    const lineLength = Math.hypot(target.x - source.x, target.y - source.y);
+
+    if (lineLength < targetRadius + length) {
+        return null;
+    }
+
+    const alongX = (target.x - source.x) / lineLength;
+    const alongY = (target.y - source.y) / lineLength;
+    const tipX = target.x - alongX * targetRadius;
+    const tipY = target.y - alongY * targetRadius;
+    const baseX = tipX - alongX * length;
+    const baseY = tipY - alongY * length;
+    const halfWidth = length * ARROW_WIDTH_RATIO / 2;
+    // The notch the tail is swept back to, which is what keeps it an arrowhead rather than a triangle
+    // sitting on the line.
+    const notchX = baseX + alongX * length * ARROW_SWEEP;
+    const notchY = baseY + alongY * length * ARROW_SWEEP;
+
+    return [
+        [ tipX, tipY ],
+        [ baseX - alongY * halfWidth, baseY + alongX * halfWidth ],
+        [ notchX, notchY ],
+        [ baseX + alongY * halfWidth, baseY - alongX * halfWidth ]
+    ] satisfies [ number, number ][];
+}
+
+/**
  * Lays out a shape whose every corner is rounded off, ready to be filled.
  *
  * Each corner is drawn as an arc between the middles of the two edges that meet at it, which is what
@@ -576,7 +656,7 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
  *
  * @param radius how much of each corner to round off, in the units the points are given in.
  */
-function traceRoundedPath(ctx: CanvasRenderingContext2D, points: [ number, number ][], radius: number) {
+export function traceRoundedPath(ctx: CanvasRenderingContext2D, points: [ number, number ][], radius: number) {
     const middleOf = (from: [ number, number ], to: [ number, number ]) => [ (from[0] + to[0]) / 2, (from[1] + to[1]) / 2 ] as const;
     const [ startX, startY ] = middleOf(points[points.length - 1], points[0]);
 
@@ -602,7 +682,7 @@ function traceRoundedPath(ctx: CanvasRenderingContext2D, points: [ number, numbe
  *
  * @param getTarget where the value should end up, as things stand now.
  */
-function createFade<T>(elements: T[], getTarget: (element: T) => number) {
+export function createFade<T>(elements: T[], getTarget: (element: T) => number) {
     const startingPoints = new Map<T, number>();
     let startedAt = 0;
 
@@ -639,23 +719,10 @@ function createFade<T>(elements: T[], getTarget: (element: T) => number) {
  * @returns a teardown function to call when the graph is discarded.
  */
 function setupFraming(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkObject>, container: HTMLElement, { note, widgetMode, notesAndRelations, hopDistances }: Pick<RenderData, "note" | "widgetMode" | "notesAndRelations"> & { hopDistances: Map<string, number> }) {
-    // The notes that can be reached from the one the map is rooted at, which is what the distances
-    // drawn on are a walk of already.
-    const framedNoteIds = (isRootedAtCurrentNote(widgetMode) && note?.type !== "search")
-        ? new Set(hopDistances.keys())
-        : getNoteIdsWithLinks(notesAndRelations);
-
-    // A lone note has no extent to fit and would just be blown up to the maximum zoom, hiding the
-    // rest of the map; the whole graph is the more useful thing to look at then.
-    const nodeFilter = framedNoteIds.size > 1
+    const { framedNoteIds, framesSubset, padding, fittedNoteCount } = planFraming({ widgetMode, noteType: note?.type, notesAndRelations, hopDistances });
+    const nodeFilter = framesSubset
         ? (node: NoteMapNodeObject) => framedNoteIds.has(node.id)
         : undefined;
-    const padding = getFitPadding(widgetMode, framedNoteIds.size);
-    // What the fit is measured on: the framed notes, or the whole graph where those are no more than
-    // the one note. A note whose map is only itself has no extent to fit at all — the fit then asks
-    // for a zoom of hundreds and gets the highest allowed, which fills the card with a single circle
-    // and the beginning of a title. It is shown at a size it can be read at instead.
-    const fittedNoteCount = nodeFilter ? framedNoteIds.size : notesAndRelations.nodes.length;
 
     // Panning or zooming hands the view over to the user for good — re-fitting under their fingers
     // would make the map impossible to explore while it is still settling.
@@ -684,7 +751,7 @@ function setupFraming(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkObject>, c
 
         // Damping, once the graph has had the room to spread out, so that a small map comes to rest
         // instead of drifting for the whole cooldown.
-        if (++ticks === TICKS_UNTIL_DAMPED && framedNoteIds.size < 30) {
+        if (++ticks === TICKS_UNTIL_DAMPED && framedNoteIds.size < DAMPING_MAX_NOTES) {
             graph.d3VelocityDecay(0.4);
         }
     });
@@ -692,6 +759,41 @@ function setupFraming(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkObject>, c
     return () => {
         container.removeEventListener("wheel", releaseFraming, listenerOptions);
         container.removeEventListener("pointerdown", releaseFraming, listenerOptions);
+    };
+}
+
+/**
+ * What the view is to be framed on, worked out once from the map's data — see {@link setupFraming} for
+ * what is done with it.
+ */
+export function planFraming({ widgetMode, noteType, notesAndRelations, hopDistances }: {
+    widgetMode: NoteMapWidgetMode;
+    /** Of the note the map is drawn for, a search note being no part of its own results. */
+    noteType: string | undefined;
+    notesAndRelations: NotesAndRelationsData;
+    hopDistances: Map<string, number>;
+}) {
+    // The notes that can be reached from the one the map is rooted at, which is what the distances
+    // drawn on are a walk of already.
+    const framedNoteIds: Set<string | number> = (isRootedAtCurrentNote(widgetMode) && noteType !== "search")
+        ? new Set(hopDistances.keys())
+        : getNoteIdsWithLinks(notesAndRelations);
+
+    // A lone note has no extent to fit and would just be blown up to the maximum zoom, hiding the
+    // rest of the map; the whole graph is the more useful thing to look at then.
+    const framesSubset = framedNoteIds.size > 1;
+
+    return {
+        framedNoteIds,
+        framesSubset,
+        padding: getFitPadding(widgetMode, framedNoteIds.size),
+        /**
+         * What the fit is measured on: the framed notes, or the whole graph where those are no more
+         * than the one note. A note whose map is only itself has no extent to fit at all — the fit
+         * then asks for a zoom of hundreds and gets the highest allowed, which fills the card with a
+         * single circle and the beginning of a title. It is shown at a size it can be read at instead.
+         */
+        fittedNoteCount: framesSubset ? framedNoteIds.size : notesAndRelations.nodes.length
     };
 }
 

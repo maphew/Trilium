@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getFitPadding, getHopDistances, mixColors, toMapType, withAlpha } from "./utils";
+import { getFitPadding, getHopDistances, mixColors, rgb2hex, toMapType, withAlpha } from "./utils";
 
 describe("getHopDistances", () => {
     const link = (source: string, target: string) => ({ source, target });
@@ -27,12 +27,27 @@ describe("getHopDistances", () => {
     it("has nothing to measure where the map is not rooted at one of its own notes", () => {
         // A search note is not among its own results, so its map has no note to be rooted at.
         expect(getHopDistances("search", [ link("result", "other") ]).size).toBe(0);
+
+        // A relation with an end the graph has looked up and found nothing for is no way anywhere.
+        expect(getHopDistances("root", [ link("root", "near"), { source: {}, target: "root" } ]).get("near")).toBe(1);
     });
 
     it("reads the ends of a relation once the graph has looked them up", () => {
         // The graph swaps each end for the note it stands for, in place, once it has the data.
         const distances = getHopDistances("root", [ { source: { id: "root" }, target: { id: "near" } } ]);
         expect(distances.get("near")).toBe(1);
+    });
+});
+
+describe("rgb2hex", () => {
+    it("takes the colour a browser hands back and gives it as a canvas takes it", () => {
+        // Which is the form every colour is asked of the theme in — see getCssData.
+        expect(rgb2hex("rgb(0, 0, 0)")).toBe("#000000");
+        expect(rgb2hex("rgb(255, 128, 7)")).toBe("#ff8007");
+        expect(rgb2hex("rgb(1,2,3)")).toBe("#010203");
+
+        // Anything else — a colour with an opacity, above all — is past reading.
+        expect(rgb2hex("rgba(0, 0, 0, 0.5)")).toBe("#");
     });
 });
 
