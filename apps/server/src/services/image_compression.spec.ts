@@ -22,6 +22,8 @@ let noisyPng: Uint8Array;
 let smallPng: Uint8Array;
 /** A PNG signature followed by garbage: passes format detection, fails to decode. */
 let corruptPng: Uint8Array;
+/** The same picture stored lossily, for telling the two re-encoding switches apart. */
+let noisyJpeg: Uint8Array;
 
 beforeAll(async () => {
     api = CoreApiTester.build();
@@ -34,6 +36,7 @@ beforeAll(async () => {
         }
     }
     noisyPng = new Uint8Array(await noisy.getBuffer("image/png"));
+    noisyJpeg = new Uint8Array(await noisy.getBuffer("image/jpeg", { quality: 100 }));
 
     const small = new Jimp({ width: 8, height: 8, color: 0x3366ccff });
     smallPng = new Uint8Array(await small.getBuffer("image/png"));
@@ -80,10 +83,14 @@ describe("compress note images (POST /api/notes/:noteId/compress-images)", () =>
         expect(stored.size).toBeLessThan(noisyPng.byteLength);
     });
 
-    it("leaves a lossless image note untouched unless conversion is asked for", async () => {
+    it("leaves a PNG within the bound untouched once converting is switched off", async () => {
         const noteId = await createImageNote(noisyPng);
 
-        const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`);
+        // Scaling is then the only step that can reach a PNG, and there is nothing oversized to
+        // scale. Recompressing lossy images stays on, and has no business with a PNG.
+        const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
+            body: { convertLossless: false }
+        });
 
         expect(res.body.compressedCount).toBe(0);
         expect(res.body.items[0]).toMatchObject({ compressed: false, skipReason: "no-gain", mime: "image/png" });
@@ -267,6 +274,8 @@ describe("compression parameters", () => {
         [ "a quality below the minimum", { quality: 5 } ],
         [ "a quality above the maximum", { quality: 101 } ],
         [ "a non-integer quality", { quality: 75.5 } ],
+        [ "a non-boolean resize", { resize: "yes" } ],
+        [ "a non-boolean reencode", { reencode: "yes" } ],
         [ "a non-boolean convertLossless", { convertLossless: "yes" } ]
     ])("400s on %s", async (_label, body) => {
         const noteId = await createImageNote(smallPng);
@@ -280,17 +289,58 @@ describe("compression parameters", () => {
         const noteId = await createImageNote(smallPng);
 
         expect((await api.post(`/api/notes/${noteId}/compress-images`, { body: [ 1, 2 ] })).status).toBe(400);
-        expect((await api.post(`/api/notes/${noteId}/compress-images`, { body: "convertLossless" })).status).toBe(400);
+        expect((await api.post(`/api/notes/${noteId}/compress-images`, { body: "reencode" })).status).toBe(400);
     });
 
-    it("treats a missing body as a request for the defaults", async () => {
+    it("treats a missing body as a request for both steps", async () => {
         const noteId = await createImageNote(noisyPng);
 
         const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`);
 
         expect(res.status).toBe(200);
-        // Defaults: no conversion, so a PNG within the bound is left exactly as it was.
-        expect(res.body.items[0]).toMatchObject({ compressed: false, mime: "image/png" });
+        // A request that named nothing asked for the images to be compressed; answering it with a
+        // no-op because a PNG happened to fit the bound would be the surprising reading.
+        expect(res.body.items[0]).toMatchObject({ compressed: true, mime: "image/jpeg" });
+    });
+
+    it("changes nothing at all when every step is switched off", async () => {
+        const noteId = await createImageNote(noisyPng);
+
+        const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
+            body: { resize: false, reencode: false, convertLossless: false, maxWidthHeight: 10 }
+        });
+
+        // Oversized by a long way, and still untouched: with nothing switched on, the bound is
+        // never measured against.
+        expect(res.body.items[0]).toMatchObject({ compressed: false, skipReason: "no-gain" });
+        expect(readNote(noteId).size).toBe(noisyPng.byteLength);
+    });
+
+    it.each([
+        [ "the lossy one", { reencode: true, convertLossless: false }, "jpeg.jpg" ],
+        [ "the lossless one", { reencode: false, convertLossless: true }, "png.png" ]
+    ])("reaches only its own kind of image with %s switched on", async (_label, body, expected) => {
+        const { noteId } = await createTextNote(api);
+        await addAttachment(noteId, "png.png", noisyPng);
+        await addAttachment(noteId, "jpeg.jpg", noisyJpeg, { mime: "image/jpeg" });
+
+        const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, { body });
+
+        // Squeezing the JPEGs harder is no reason to stop a PNG being a PNG, and vice versa: each
+        // switch answers for its own kind and leaves the other exactly as it was.
+        expect(res.body.items.filter((item) => item.compressed).map((item) => item.title)).toEqual([ expected ]);
+    });
+
+    it("re-encodes without scaling when only scaling is switched off", async () => {
+        const noteId = await createImageNote(noisyPng);
+
+        const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
+            body: { resize: false, maxWidthHeight: 100 }
+        });
+
+        expect(res.body.items[0]).toMatchObject({ compressed: true, mime: "image/jpeg" });
+        // The bound is quoted and ignored: nothing was asked to be measured against it.
+        expect(await decodedSize(noteId)).toEqual([ 600, 400 ]);
     });
 });
 

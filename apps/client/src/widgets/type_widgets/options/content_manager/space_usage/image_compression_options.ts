@@ -8,14 +8,26 @@ import optionService from "../../../../../services/options";
  * tool's own, the endpoint acting on one note at a time.
  */
 export interface ImageCompressionToolOptions {
-    /** Longest edge in pixels: a larger image is scaled down to fit, a smaller one left alone. */
+    /** Whether an image larger than {@link maxWidthHeight} is scaled down to fit. */
+    resize: boolean;
+    /** Longest edge in pixels. Only consulted when {@link resize} is on. */
     maxWidthHeight: number;
-    /** JPEG quality, {@link MIN_QUALITY} to {@link MAX_QUALITY}. */
-    quality: number;
-    /** Whether a lossless source (PNG) may be re-encoded as JPEG. */
+    /** Whether an already-lossy image (JPEG) is recompressed even when nothing needs scaling. */
+    reencode: boolean;
+    /** Whether a lossless image (PNG) may be re-encoded as JPEG. */
     convertLossless: boolean;
+    /** JPEG quality, {@link MIN_QUALITY} to {@link MAX_QUALITY}, whenever the output is a JPEG. */
+    quality: number;
     /** Whether the note's whole subtree is compressed, rather than the note on its own. */
     processChildNotes: boolean;
+}
+
+/**
+ * Whether the settings amount to anything at all. With none of the three steps switched on, every
+ * image would be visited and left exactly as it was, so the run is not one worth offering.
+ */
+export function hasWorkToDo(options: ImageCompressionToolOptions): boolean {
+    return options.resize || options.reencode || options.convertLossless;
 }
 
 /** The bounds the server validates against; the controls here never offer a value it would reject. */
@@ -32,21 +44,23 @@ export const MIN_MAX_WIDTH_HEIGHT = 1;
  * that has never been run opens on what automatic compression is already configured to do — the same
  * fallbacks the server applies to a request that omits them.
  *
- * Converting starts on: someone reaching for this tool has a note that has grown too heavy and is
- * already accepting a loss of quality to shrink it, and converting is where nearly all the saving
- * comes from — offering it off by default would mean most first runs reporting almost nothing.
- * Reaching into the subtree does not: that widens what the run touches rather than how hard it
- * compresses, and a descendant may be a clone shared with notes the user did not have in mind.
+ * All three steps start on, matching the server's own defaults. Converting in particular has to: it
+ * is where nearly all the saving comes from, and with it off a note full of PNGs already inside the
+ * bound would report almost nothing. Reaching into the subtree does not start on: that widens what
+ * the run touches rather than how hard it compresses, and a descendant may be a clone shared with
+ * notes the user did not have in mind.
  */
 export function readImageCompressionOptions(
     stored: Partial<ImageCompressionToolOptions> | null | undefined
 ): ImageCompressionToolOptions {
     return {
+        resize: stored?.resize ?? true,
         maxWidthHeight: isPositiveInteger(stored?.maxWidthHeight)
             ? Number(stored?.maxWidthHeight)
             : defaultMaxWidthHeight(),
-        quality: isQuality(stored?.quality) ? Number(stored?.quality) : defaultQuality(),
+        reencode: stored?.reencode ?? true,
         convertLossless: stored?.convertLossless ?? true,
+        quality: isQuality(stored?.quality) ? Number(stored?.quality) : defaultQuality(),
         processChildNotes: stored?.processChildNotes === true
     };
 }

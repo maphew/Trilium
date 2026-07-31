@@ -43,3 +43,9 @@
         flex: 0 0 auto;
     }
 }
+
+/* Indented by the card itself; quieting the title is what marks it as qualifying the row above
+   rather than standing beside it. */
+.image-compression-section-nested .image-compression-section-title {
+    color: var(--muted-text-color);
+}

@@ -62,7 +62,7 @@ export async function compressAttachmentImage(attachmentId: string, options?: Im
  * failing the request — the caller did not choose that value and cannot fix it from here.
  */
 export function resolveCompressionRequest(options: ImageCompressionOptions = {}): ImageCompressionRequest {
-    const { maxWidthHeight, quality, convertLossless } = options;
+    const { resize, maxWidthHeight, reencode, convertLossless, quality } = options;
 
     if (maxWidthHeight !== undefined && (!Number.isInteger(maxWidthHeight) || maxWidthHeight < MIN_MAX_WIDTH_HEIGHT)) {
         throw new ValidationError(`maxWidthHeight must be an integer of ${MIN_MAX_WIDTH_HEIGHT} or above.`);
@@ -72,15 +72,25 @@ export function resolveCompressionRequest(options: ImageCompressionOptions = {})
         throw new ValidationError(`quality must be an integer between ${MIN_QUALITY} and ${MAX_QUALITY}.`);
     }
 
-    if (convertLossless !== undefined && typeof convertLossless !== "boolean") {
-        throw new ValidationError("convertLossless must be a boolean.");
-    }
+    requireBoolean(resize, "resize");
+    requireBoolean(reencode, "reencode");
+    requireBoolean(convertLossless, "convertLossless");
 
     return {
+        // All three default on: a request that named none of them asked for the images to be
+        // compressed, and switching one off is what narrows that down.
+        resize: resize ?? true,
         maxWidthHeight: maxWidthHeight ?? optionService.getOptionInt("imageMaxWidthHeight"),
-        quality: quality ?? defaultQuality(),
-        convertLossless: convertLossless ?? false
+        reencode: reencode ?? true,
+        convertLossless: convertLossless ?? true,
+        quality: quality ?? defaultQuality()
     };
+}
+
+function requireBoolean(value: unknown, name: string) {
+    if (value !== undefined && typeof value !== "boolean") {
+        throw new ValidationError(`${name} must be a boolean.`);
+    }
 }
 
 /**
@@ -89,9 +99,7 @@ export function resolveCompressionRequest(options: ImageCompressionOptions = {})
  * so the provider never sees it. The attachment endpoint has no use for it and does not read it.
  */
 export function resolveRecursive(options: ImageCompressionOptions = {}): boolean {
-    if (options.recursive !== undefined && typeof options.recursive !== "boolean") {
-        throw new ValidationError("recursive must be a boolean.");
-    }
+    requireBoolean(options.recursive, "recursive");
 
     return options.recursive === true;
 }

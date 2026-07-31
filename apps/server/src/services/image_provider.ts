@@ -143,17 +143,29 @@ export const serverImageProvider: ImageProvider = {
         const start = Date.now();
         const image = await Jimp.read(Buffer.from(buffer));
         const { width, height } = image.bitmap;
-        const needsResize = Math.max(width, height) > request.maxWidthHeight;
+        const needsResize = request.resize && Math.max(width, height) > request.maxWidthHeight;
         const isLossless = format.ext === "png";
 
-        // JPEG has no alpha channel, so a transparent PNG would come back with its transparency
-        // filled in — the one conversion that visibly damages an image rather than degrading it.
-        // The check reads the decoded pixels, so it is exact rather than a guess from the header.
+        // What the image will be written back as. A JPEG can only be written back as one; a PNG
+        // becomes one only if converting was asked for and there is no transparency to lose — JPEG
+        // has no alpha channel, so converting is the one step that visibly damages an image rather
+        // than degrading it. The check reads the decoded pixels, so it is exact rather than a guess
+        // from the header.
         const toJpeg = !isLossless || (request.convertLossless && !hasTransparency(image));
 
-        if (!toJpeg && !needsResize) {
-            // Nothing left to do: re-encoding a PNG at its own size is lossless and pointless.
-            return { compressed: false, reason: isLossless && request.convertLossless ? "transparent" : "no-gain" };
+        // Whether re-encoding alone is worth doing to *this* image, which the two switches answer
+        // for their own kind: a lossy source is recompressed if `reencode` says so, a lossless one
+        // is worth rewriting only when it is becoming a JPEG — rewriting a PNG as a PNG at its own
+        // size is lossless and gains nothing.
+        const worthReencoding = isLossless ? toJpeg : request.reencode;
+
+        if (!needsResize && !worthReencoding) {
+            return {
+                compressed: false,
+                // Transparency is the reason only when converting was actually asked for;
+                // otherwise there was simply nothing this run wanted to do to the image.
+                reason: isLossless && request.convertLossless ? "transparent" : "no-gain"
+            };
         }
 
         if (needsResize) {
@@ -167,7 +179,8 @@ export const serverImageProvider: ImageProvider = {
         let result: Uint8Array;
 
         if (toJpeg) {
-            // Whatever transparency survives here is known to be absent or deliberately discarded.
+            // Reached either by conversion, which has already established there is no transparency
+            // to lose, or by a JPEG source, which never had any to begin with.
             image.background = 0xffffffff;
             result = await image.getBuffer("image/jpeg", { quality: request.quality });
         } else {

@@ -84,7 +84,9 @@ describe("standaloneImageProvider.compressImage", () => {
         const buffer = withMagic([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 
         await expect(
-            standaloneImageProvider.compressImage(buffer, { maxWidthHeight: 100, quality: 75, convertLossless: true })
+            standaloneImageProvider.compressImage(buffer, {
+                resize: true, maxWidthHeight: 100, reencode: true, convertLossless: true, quality: 75
+            })
         ).resolves.toEqual({ compressed: false, reason: "unsupported-platform" });
     });
 });

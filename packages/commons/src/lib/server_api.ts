@@ -293,20 +293,42 @@ export interface SubtreeSizeResponse {
  */
 export interface ImageCompressionOptions {
     /**
-     * Longest edge, in pixels: an image larger than this is scaled down to fit, one smaller is left
-     * at its size. Omitted, it falls back to the `imageMaxWidthHeight` option.
+     * Whether an image larger than {@link maxWidthHeight} is scaled down to fit. On its own this
+     * reaches only oversized images; one already within the bound is left exactly as it is.
+     *
+     * Defaults to on, as does {@link reencode}: the endpoint is only ever invoked deliberately, and
+     * a request that asked for compression and got a no-op would be the surprising answer.
      */
+    resize?: boolean;
+    /** Longest edge in pixels. Omitted, it falls back to the `imageMaxWidthHeight` option. */
     maxWidthHeight?: number;
     /**
-     * JPEG quality, 10 to 100. Omitted, it falls back to the `imageJpegQuality` option (75 by
-     * default). Only reaches images actually encoded as JPEG — see {@link convertLossless}.
+     * Whether an image that is *already* lossy — a JPEG — is recompressed at {@link quality} even
+     * when nothing needs scaling. It costs quality every time it runs, on an image that has already
+     * paid that cost once.
+     *
+     * Says nothing about lossless sources, which is {@link convertLossless}'s to answer: the two
+     * are separate choices, and squeezing the JPEGs harder is no reason to stop a PNG being a PNG.
      */
-    quality?: number;
+    reencode?: boolean;
     /**
-     * Whether a lossless source (PNG) may be re-encoded as JPEG. Off by default, since that trades
-     * away quality permanently; with it off a PNG is only ever scaled down, never re-encoded.
+     * Whether a lossless source — a PNG — may be re-encoded as JPEG at {@link quality}. This is
+     * where most of the saving comes from, and it is also the one step that changes what kind of
+     * image the file is, permanently.
+     *
+     * A PNG carrying transparency is never converted whatever this says, JPEG having no alpha
+     * channel to keep it in. With it off, a lossless image stays lossless, so scaling is the only
+     * thing that can happen to it at all.
      */
     convertLossless?: boolean;
+    /**
+     * JPEG quality, 10 to 100. Omitted, it falls back to the `imageJpegQuality` option (75 by
+     * default).
+     *
+     * Applies whenever the output is a JPEG, which is not only when {@link reencode} is on: scaling
+     * a JPEG has to write one back, so the quality governs that too.
+     */
+    quality?: number;
     /**
      * Whether the run visits the note's whole subtree rather than the note alone. Off by default,
      * and opt-in for a reason: a descendant may be a clone, so compressing it degrades an image
@@ -330,13 +352,16 @@ export type ImageCompressionSkipReason =
     | "unsupported-format"
     /** Animated (APNG, animated GIF/WebP): recompressing would flatten it to a single frame. */
     | "animated"
-    /** A PNG carrying transparency, which JPEG cannot represent, and no resizing to do besides. */
+    /** A PNG carrying transparency, which JPEG cannot represent, and nothing to scale besides. */
     | "transparent"
     /** The rendered picture of a canvas/mermaid/mind map/spreadsheet note, regenerated on save. */
     | "generated"
     /** Protected, with no protected session open to decrypt it. */
     | "protected"
-    /** Compressing produced nothing smaller, so the original was kept. */
+    /**
+     * Nothing was asked of this image that would change it — an image within the bound with
+     * re-encoding off, or both switched off — or compressing it produced nothing smaller.
+     */
     | "no-gain"
     /** This build has no image compression at all (the standalone/WASM runtime). */
     | "unsupported-platform"

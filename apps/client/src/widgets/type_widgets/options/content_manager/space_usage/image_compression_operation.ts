@@ -33,9 +33,11 @@ export function runImageCompression(
         : `attachments/${target.attachmentId}/compress-image`;
 
     return server.postWithTimeout<ImageCompressionResponse>(url, COMPRESSION_TIMEOUT_MS, {
+        resize: options.resize,
         maxWidthHeight: options.maxWidthHeight,
-        quality: options.quality,
+        reencode: options.reencode,
         convertLossless: options.convertLossless,
+        quality: options.quality,
         // Left out entirely for an attachment, which has no subtree to descend into — the endpoint
         // does not read it, and sending it would suggest it does.
         ...(target.type === "note" ? { recursive: options.processChildNotes } : {})

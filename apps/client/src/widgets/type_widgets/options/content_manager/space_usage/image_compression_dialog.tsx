@@ -17,14 +17,16 @@ import {
     runImageCompression
 } from "./image_compression_operation";
 import {
+    hasWorkToDo,
     type ImageCompressionToolOptions,
     readImageCompressionOptions
 } from "./image_compression_options";
 import {
     ConvertLosslessSection,
     JpegQualitySection,
-    MaxImageDimensionsSection,
-    ProcessChildNotesSection
+    ProcessChildNotesSection,
+    ReduceResolutionSection,
+    ReencodeImagesSection
 } from "./image_compression_sections";
 
 /**
@@ -118,6 +120,9 @@ function ImageCompressionDialog({ target, onFinished }: {
                 <Button
                     text={t("space_usage.compress_run")}
                     kind="primary"
+                    // Neither step switched on would visit every image and change none of them:
+                    // a run that provably does nothing is not one to offer.
+                    disabled={!hasWorkToDo(options)}
                     onClick={() => {
                         pending.current = options;
                         setShown(false);
@@ -127,9 +132,12 @@ function ImageCompressionDialog({ target, onFinished }: {
             stackable
         >
             <Card className="image-compression-settings">
-                <MaxImageDimensionsSection {...sectionProps} />
-                <JpegQualitySection {...sectionProps} />
+                <ReduceResolutionSection {...sectionProps} />
+                <ReencodeImagesSection {...sectionProps} />
                 <ConvertLosslessSection {...sectionProps} />
+                {/* Not nested under either: every step above writes a JPEG on some image or other,
+                    so the quality is in force whichever of them is on. */}
+                <JpegQualitySection {...sectionProps} />
                 {/* An attachment is one image; there is no subtree under it to reach into. */}
                 {target.type === "note" && <ProcessChildNotesSection {...sectionProps} />}
             </Card>

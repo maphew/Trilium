@@ -21,12 +21,16 @@ export interface ProcessedImage {
  * never has to reach for an option itself.
  */
 export interface ImageCompressionRequest {
-    /** Longest edge in pixels; a larger image is scaled down to fit. */
+    /** Whether an image larger than {@link maxWidthHeight} is scaled down to fit. */
+    resize: boolean;
+    /** Longest edge in pixels. Only consulted when {@link resize} is on. */
     maxWidthHeight: number;
-    /** JPEG quality, 10 to 100. */
-    quality: number;
-    /** Whether a lossless source (PNG) may be re-encoded as JPEG. */
+    /** Whether an already-lossy image (JPEG) is recompressed even when nothing needs scaling. */
+    reencode: boolean;
+    /** Whether a lossless image (PNG) may be re-encoded as JPEG. */
     convertLossless: boolean;
+    /** JPEG quality, 10 to 100, applied whenever the output is a JPEG. */
+    quality: number;
 }
 
 export type ImageCompressionOutcome =
