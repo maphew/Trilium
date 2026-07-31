@@ -15,7 +15,10 @@ export interface NoteMapNodeObject extends NodeObject {
     id: string;
     name: string;
     type: string;
-    color: string;
+    /** What the note asks to be drawn in through its `color` label, if it asks at all. */
+    color: string | null;
+    /** The note's icon, as the classes it is drawn with everywhere else (e.g. `tn-icon bx bx-file`). */
+    icon: string;
 }
 
 export interface NoteMapLinkObject extends LinkObject<NoteMapNodeObject> {
@@ -51,11 +54,12 @@ export async function loadNotesAndRelations(mapRootNoteId: string, excludeRelati
 
     const noteIdToSizeMap = calculateNodeSizes(resp, mapType);
     const links = getGroupedLinks(resp.links);
-    let nodes = resp.notes.map(([noteId, title, type, color]) => ({
+    let nodes = resp.notes.map(([noteId, title, type, color, icon]) => ({
         id: noteId,
         name: title,
-        type: type,
-        color: color
+        type,
+        color,
+        icon
     }));
 
     // A tree map links every node to its parent, so it has no unlinked notes to speak of.

@@ -16,6 +16,7 @@ import { useElementSize, useNoteLabel } from "../react/hooks";
 import NoItems from "../react/NoItems";
 import Slider from "../react/Slider";
 import { loadNotesAndRelations, NoteMapLinkObject, NoteMapNodeObject, NotesAndRelationsData } from "./data";
+import { loadIconFont, resolveIconGlyphs } from "./icons";
 import MapTypeSwitcher from "./MapTypeSwitcher";
 import { CssData, setupRendering } from "./rendering";
 import { isRootedAtCurrentNote, NoteMapWidgetMode, rgb2hex, toMapType } from "./utils";
@@ -79,7 +80,13 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
         const labelValues = (name: string) => note.getLabels(name).map(l => l.value) ?? [];
         const excludeRelations = labelValues("mapExcludeRelation");
         const includeRelations = labelValues("mapIncludeRelation");
-        loadNotesAndRelations(mapRootId, excludeRelations, includeRelations, mapType, widgetMode === "sidebar").then((notesAndRelations) => {
+        Promise.all([
+            loadNotesAndRelations(mapRootId, excludeRelations, includeRelations, mapType, widgetMode === "sidebar"),
+            // Awaited alongside the notes rather than after them: a canvas asked to draw from a font
+            // it does not have yet says nothing and draws tofu, and the map is painted the moment its
+            // data lands.
+            loadIconFont()
+        ]).then(([ notesAndRelations ]) => {
             if (disposed || !containerRef.current || !styleResolverRef.current) return;
 
             // Guard against rendering too many notes which would freeze the browser.
@@ -90,6 +97,7 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
             setTooManyNotes(null);
 
             const cssData = getCssData(containerRef.current, styleResolverRef.current);
+            const iconGlyphs = resolveIconGlyphs(notesAndRelations.nodes.map((node) => node.icon), containerRef.current);
 
             // Configure rendering properties.
             teardownRendering = setupRendering(graph, {
@@ -101,7 +109,8 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
                 themeStyle: getEffectiveThemeStyle(),
                 widgetMode,
                 mapType,
-                container
+                container,
+                iconGlyphs
             });
 
             // Interaction

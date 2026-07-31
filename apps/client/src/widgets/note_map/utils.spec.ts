@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getFitPadding, toMapType } from "./utils";
+import { getFitPadding, isLightColor, toMapType } from "./utils";
 
 describe("toMapType", () => {
     it("only reads the tree map out of the label, the link map standing for anything else", () => {
@@ -9,6 +9,26 @@ describe("toMapType", () => {
         expect(toMapType("nonsense")).toBe("link");
         expect(toMapType(null)).toBe("link");
         expect(toMapType(undefined)).toBe("link");
+    });
+});
+
+describe("isLightColor", () => {
+    it("tells the colours a note's icon wants drawing dark over from the ones it wants light", () => {
+        expect(isLightColor("#ffffff")).toBe(true);
+        expect(isLightColor("#ffff00")).toBe(true);
+        expect(isLightColor("#fff")).toBe(true);
+        expect(isLightColor("rgb(255, 255, 255)")).toBe(true);
+
+        expect(isLightColor("#000000")).toBe(false);
+        // Red reads as dark despite being a bright colour: the eye takes little of its brightness
+        // from the red channel, which is what the icon over it has to stand out against.
+        expect(isLightColor("#ff0000")).toBe(false);
+        expect(isLightColor("#2c4f3d")).toBe(false);
+        expect(isLightColor("rgba(0, 0, 0, 0.5)")).toBe(false);
+
+        // Nothing to go on falls back to the light icon drawn over the darker half of the colours.
+        expect(isLightColor("nonsense")).toBe(false);
+        expect(isLightColor("")).toBe(false);
     });
 });
 

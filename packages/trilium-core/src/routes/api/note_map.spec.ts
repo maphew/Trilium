@@ -1,4 +1,4 @@
-import { trimIndentation } from "@triliumnext/commons";
+import { NoteMapNote, trimIndentation } from "@triliumnext/commons";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import becca from "../../becca/becca";
@@ -8,13 +8,13 @@ import { buildNote, buildNotes } from "../../test/becca_easy_mocking";
 import note_map from "./note_map";
 
 interface LinkMapResponse {
-    notes: [string, string, string, string | null][];
+    notes: NoteMapNote[];
     noteIdToDescendantCountMap: Record<string, number>;
     links: { id: string; sourceNoteId: string; targetNoteId: string; name: string }[];
 }
 
 interface TreeMapResponse {
-    notes: [string, string, string, string | null][];
+    notes: NoteMapNote[];
     noteIdToDescendantCountMap: Record<string, number>;
     links: { sourceNoteId: string; targetNoteId: string }[];
 }

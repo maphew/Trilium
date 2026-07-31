@@ -1,7 +1,7 @@
 import BAttribute from "../../becca/entities/battribute";
 import BNote from "../../becca/entities/bnote";
 import becca from "../../becca/becca";
-import type { BacklinkCountResponse, BacklinksResponse } from "@triliumnext/commons";
+import type { BacklinkCountResponse, BacklinksResponse, NoteMapNote } from "@triliumnext/commons";
 import type { Request } from "express";
 
 import { findExcerpts, findLlmChatExcerpts } from "../../services/backlink_excerpts";
@@ -139,10 +139,10 @@ function getLinkMap(req: Request<{ noteId: string }>) {
 
     const noteIdsArray = Array.from(noteIds);
 
-    const notes = noteIdsArray.map((noteId) => {
+    const notes: NoteMapNote[] = noteIdsArray.map((noteId) => {
         const note = becca.getNoteOrThrow(noteId);
 
-        return [note.noteId, note.getTitleOrProtected(), note.type, note.getLabelValue("color")];
+        return [ note.noteId, note.getTitleOrProtected(), note.type, note.getLabelValue("color"), note.getIcon() ];
     });
 
     const links = Object.values(becca.attributes)
@@ -208,7 +208,7 @@ function getTreeMap(req: Request<{ noteId: string }>) {
 
             return !note.getParentNotes().find((parentNote) => parentNote.noteId === imageLinkRelation.noteId);
         })
-        .map((note) => [note.noteId, note.getTitleOrProtected(), note.type, note.getLabelValue("color")]);
+        .map((note): NoteMapNote => [ note.noteId, note.getTitleOrProtected(), note.type, note.getLabelValue("color"), note.getIcon() ]);
 
     const noteIds = new Set<string>();
     notes.forEach(([noteId]) => noteId && noteIds.add(noteId));

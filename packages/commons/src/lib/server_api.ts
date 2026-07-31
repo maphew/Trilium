@@ -509,8 +509,11 @@ export interface NoteMapLink {
     name: string;
 }
 
+/** A note of a map, kept as a tuple rather than an object: a map carries thousands of them. */
+export type NoteMapNote = [ noteId: string, title: string, type: string, color: string | null, icon: string ];
+
 export interface NoteMapPostResponse {
-    notes: string[];
+    notes: NoteMapNote[];
     links: NoteMapLink[];
     noteIdToDescendantCountMap: Record<string, number>;
 }

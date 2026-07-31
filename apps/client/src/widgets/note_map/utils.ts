@@ -56,6 +56,30 @@ export function rgb2hex(rgb: string) {
         .join("")}`;
 }
 
+/**
+ * Whether the given colour is light enough to want something dark drawn over it — a note's icon, over
+ * the dot standing for it. The dots are coloured by the note itself, by its type, or by what the map
+ * makes of it, so nothing but the colour at hand says which way round it should be.
+ *
+ * @param color as a canvas hands it back once assigned, which is to say `#rrggbb` or `rgb(…)`.
+ */
+export function isLightColor(color: string) {
+    const hex = color.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i)?.[1];
+    const channels = hex
+        ? (hex.length === 3 ? [ ...hex ].map((c) => c + c) : hex.match(/../g) ?? []).map((c) => parseInt(c, 16))
+        : (color.match(/\d+(\.\d+)?/g) ?? []).slice(0, 3).map(Number);
+
+    if (channels.length < 3) {
+        // Nothing to go on: what is drawn over the dots elsewhere is light, so light it stays.
+        return false;
+    }
+
+    // Perceived brightness rather than the plain average, green counting for most of it and blue for
+    // least, as the eye has it.
+    const [ red, green, blue ] = channels;
+    return (red * 0.299 + green * 0.587 + blue * 0.114) > 150;
+}
+
 export function generateColorFromString(str: string, themeStyle: "light" | "dark") {
     if (themeStyle === "dark") {
         str = `0${str}`; // magic lightning modifier

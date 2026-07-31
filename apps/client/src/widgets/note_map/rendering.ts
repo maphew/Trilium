@@ -1,7 +1,8 @@
 import type ForceGraph from "force-graph";
 import { NoteMapLinkObject, NoteMapNodeObject, NotesAndRelationsData } from "./data";
 import { LinkObject, NodeObject } from "force-graph";
-import { generateColorFromString, getFitPadding, isRootedAtCurrentNote, MapType, NoteMapWidgetMode } from "./utils";
+import { ICON_FONT_FAMILY } from "./icons";
+import { generateColorFromString, getFitPadding, isLightColor, isRootedAtCurrentNote, MapType, NoteMapWidgetMode } from "./utils";
 import { escapeHtml } from "../../services/utils";
 import FNote from "../../entities/fnote";
 
@@ -10,6 +11,9 @@ const TICKS_UNTIL_DAMPED = 60;
 
 /** What a map of a single note is shown at, there being no extent to fit — see {@link setupFraming}. */
 const LONE_NOTE_ZOOM = 4;
+
+/** How large a note's dot has to come out on screen, in pixels, before its icon is drawn inside it. */
+const MIN_ICON_RADIUS = 7;
 
 export interface CssData {
     fontFamily: string;
@@ -28,10 +32,12 @@ interface RenderData {
     mapType: MapType;
     /** The element the graph's canvas lives in, watched for the user taking the view over. */
     container: HTMLElement;
+    /** What each note's icon classes resolve to as a character of the icon font — see icons.ts. */
+    iconGlyphs: Map<string, string>;
 }
 
 /** @returns a teardown function to call when the graph is discarded. */
-export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkObject>, { note, noteId, themeStyle, widgetMode, noteIdToSizeMap, notesAndRelations, cssData, mapType, container }: RenderData) {
+export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkObject>, { note, noteId, themeStyle, widgetMode, noteIdToSizeMap, notesAndRelations, cssData, mapType, container, iconGlyphs }: RenderData) {
     // variables for the hover effect. We have to save the neighbours of a hovered node in a set. Also we need to save the links as well as the hovered node itself
     const neighbours = new Set();
     const highlightLinks = new Set();
@@ -59,9 +65,14 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
         const size = noteIdToSizeMap[node.id];
 
         ctx.fillStyle = color;
+        // Read back rather than kept: a canvas resolves whatever colour it is given — a name, a
+        // function, a shorthand — to one form, which is the one worth asking anything about.
+        const dotColor = typeof ctx.fillStyle === "string" ? ctx.fillStyle : color;
         ctx.beginPath();
         ctx.arc(x, y, size * 0.8, 0, 2 * Math.PI, false);
         ctx.fill();
+
+        paintNodeIcon(node, size, dotColor, x, y, ctx);
 
         const toRender = zoomLevel > 2 || (zoomLevel > 1 && size > 6) || (zoomLevel > 0.3 && size > 10);
 
@@ -83,6 +94,27 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
         ctx.fillText(title, x, y + Math.round(size * 1.5));
     }
 
+
+    /**
+     * The note's own icon, over the dot standing for it — the same one the tree and the tabs draw it
+     * with, so a note is recognised in the map by what it is recognised by everywhere else.
+     *
+     * Only where the dot is drawn large enough on screen to hold it: below that the glyph is a smudge
+     * over the colour, and the colour alone says more.
+     */
+    function paintNodeIcon(node: NoteMapNodeObject, size: number, dotColor: string, x: number, y: number, ctx: CanvasRenderingContext2D) {
+        const glyph = iconGlyphs.get(node.icon);
+
+        if (!glyph || !(size * 0.8 * zoomLevel >= MIN_ICON_RADIUS)) {
+            return;
+        }
+
+        ctx.fillStyle = isLightColor(dotColor) ? "#000" : "#fff";
+        ctx.font = `${size}px ${ICON_FONT_FAMILY}`;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(glyph, x, y);
+    }
 
     function paintLink(link: NoteMapLinkObject, ctx: CanvasRenderingContext2D) {
         if (zoomLevel < 5) {
