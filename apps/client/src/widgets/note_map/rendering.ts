@@ -15,6 +15,12 @@ const LONE_NOTE_ZOOM = 4;
 /** How large a note's dot has to come out on screen, in pixels, before its icon is drawn inside it. */
 const MIN_ICON_RADIUS = 7;
 
+/** How much is left of what the pointer is not resting on, while it rests on a note of the map. */
+const DIMMED_ALPHA = 0.15;
+
+/** The same, for a colour that can only be dimmed by being asked for with it (see {@link getLinkColor}). */
+const DIMMED_ALPHA_HEX = Math.round(DIMMED_ALPHA * 255).toString(16).padStart(2, "0");
+
 /** How large a note's label is drawn on screen where the map is neither zoomed in nor out. */
 const LABEL_FONT_PX = 11;
 
@@ -55,13 +61,72 @@ interface RenderData {
 
 /** @returns a teardown function to call when the graph is discarded. */
 export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkObject>, { note, noteId, themeStyle, widgetMode, noteIdToSizeMap, notesAndRelations, cssData, mapType, container, iconGlyphs }: RenderData) {
-    // variables for the hover effect. We have to save the neighbours of a hovered node in a set. Also we need to save the links as well as the hovered node itself
-    const neighbours = new Set();
-    const highlightLinks = new Set();
-    let hoverNode: NodeObject | null = null;
+    // What the map is showing of the note under the pointer: the note itself, the notes a relation
+    // runs between it and, and those relations. Worked out once when the hover changes rather than
+    // while painting, so that every note of a frame is painted knowing the same thing.
+    let hoverNode: NoteMapNodeObject | null = null;
+    const neighbours = new Set<NoteMapNodeObject>();
+    const highlightLinks = new Set<NoteMapLinkObject>();
     let zoomLevel: number;
     /** Titles as they are drawn, cut to the width a label is allowed — see {@link getLabel}. */
     const labelsByNoteId = new Map<string, string>();
+    // A relation cannot be faded back the way a note is (the graph is given its colour rather than
+    // drawing it), so it is asked for in a colour that is already faint. Only a plain `#rrggbb` takes
+    // the two digits that say by how much; a theme whose muted colour resolves to anything else keeps
+    // what it has rather than being handed something a canvas cannot read.
+    const dimmedLinkColor = /^#[0-9a-f]{6}$/i.test(cssData.mutedTextColor)
+        ? `${cssData.mutedTextColor}${DIMMED_ALPHA_HEX}`
+        : cssData.mutedTextColor;
+
+    /**
+     * Takes note of what is hovered and of what the map is to show of it: the notes a relation runs
+     * between it and, and the relations themselves.
+     */
+    function setHoveredNode(node: NoteMapNodeObject | null) {
+        hoverNode = node;
+        neighbours.clear();
+        highlightLinks.clear();
+
+        if (!hoverNode) {
+            return;
+        }
+
+        for (const link of notesAndRelations.links) {
+            const { source, target } = link;
+            // Both ends are notes of the map by the time it is drawn, the graph having looked up what
+            // the data carries as ids.
+            if (typeof source !== "object" || typeof target !== "object") {
+                continue;
+            }
+
+            if (source.id === hoverNode.id) {
+                neighbours.add(target);
+                highlightLinks.add(link);
+            } else if (target.id === hoverNode.id) {
+                neighbours.add(source);
+                highlightLinks.add(link);
+            }
+        }
+    }
+
+    /** Whether the note is the hovered one or one a relation runs between it and — all of them, while nothing is hovered. */
+    function isInHoveredNeighbourhood(node: NoteMapNodeObject) {
+        return !hoverNode || node === hoverNode || neighbours.has(node);
+    }
+
+    /**
+     * What a relation is drawn in: the colour of the note being hovered where it is one of that
+     * note's own, so that what leads to and from it is read as belonging to it — arrowheads included,
+     * which take the colour of the line they end. The rest of the map's relations fade back with the
+     * notes they run between.
+     */
+    function getLinkColor(link: NoteMapLinkObject) {
+        if (highlightLinks.has(link)) {
+            return hoverNode ? getColorForNode(hoverNode) : cssData.textColor;
+        }
+
+        return hoverNode ? dimmedLinkColor : cssData.mutedTextColor;
+    }
 
     function getColorForNode(node: NoteMapNodeObject) {
         if (node.color) {
@@ -237,42 +302,23 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
         ctx.restore();
     }
 
-    // main code for highlighting hovered nodes and neighbours. here we "style" the nodes. the nodes are rendered several hundred times per second.
     graph
         .d3AlphaDecay(0.01)
         .d3VelocityDecay(0.08)
         .maxZoom(7)
         .warmupTicks(30)
         .nodeCanvasObject((node, ctx) => {
-            if (hoverNode == node) {
-                //paint only hovered node
-                paintNode(node, "#661822", ctx);
-                neighbours.clear(); //clearing neighbours or the effect would be maintained after hovering is over
-                for (const link of notesAndRelations.links) {
-                    const { source, target } = link;
-                    if (typeof source !== "object" || typeof target !== "object") continue;
-
-                    //check if node is part of a link in the canvas, if so add it´s neighbours and related links to the previous defined variables to paint the nodes
-                    if (source.id == node.id || target.id == node.id) {
-                        neighbours.add(link.source);
-                        neighbours.add(link.target);
-                        highlightLinks.add(link);
-                        neighbours.delete(node);
-                    }
-                }
-            } else if (neighbours.has(node) && hoverNode != null) {
-                //paint neighbours
-                paintNode(node, "#9d6363", ctx);
-            } else {
-                paintNode(node, getColorForNode(node), ctx); //paint rest of nodes in canvas
+            // Every note keeps its own colour while one of them is hovered; what tells the note's
+            // own from the rest of the map is that the rest of it is faded back behind them.
+            ctx.save();
+            if (!isInHoveredNeighbourhood(node)) {
+                ctx.globalAlpha = DIMMED_ALPHA;
             }
+
+            paintNode(node, getColorForNode(node), ctx);
+            ctx.restore();
         })
-        //check if hovered and set the hovernode variable, saving the hovered node object into it. Clear links variable everytime you hover. Without clearing links will stay highlighted
-        .onNodeHover((node) => {
-            hoverNode = node || null;
-            highlightLinks.clear();
-        })
-        .nodePointerAreaPaint((node, _, ctx) => paintNode(node, getColorForNode(node), ctx))
+        .onNodeHover((node) => setHoveredNode(node ?? null))
         .nodePointerAreaPaint((node, color, ctx) => {
             if (!node.id) {
                 return;
@@ -288,10 +334,9 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
         .nodeLabel((node) => getTooltip(node))
         .onZoom((zoom) => zoomLevel = zoom.k);
 
-    // set link width to immitate a highlight effect. Checking the condition if any links are saved in the previous defined set highlightlinks
     graph
         .linkWidth((link) => (highlightLinks.has(link) ? 3 : 0.4))
-        .linkColor((link) => (highlightLinks.has(link) ? cssData.textColor : cssData.mutedTextColor))
+        .linkColor((link) => getLinkColor(link))
         .linkDirectionalArrowLength(4)
         .linkDirectionalArrowRelPos(0.95);
 
