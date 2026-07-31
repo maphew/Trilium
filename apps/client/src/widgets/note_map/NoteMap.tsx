@@ -63,11 +63,22 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
 
         graphRef.current = graph;
 
+        // A fresh graph sizes its canvas to the browser window, and the resize effect below only
+        // fires when the container actually changes size — which navigating to another note isn't.
+        // Left at the default, the graph centres its content far outside the (much smaller)
+        // container's visible area and the map looks empty until something forces a resize.
+        const size = parentRef.current?.getBoundingClientRect();
+        if (size?.width && size.height) {
+            graph.width(size.width).height(size.height);
+        }
+
+        // Navigating away mid-load must not let the outgoing note's data land on the new graph.
+        let disposed = false;
         const labelValues = (name: string) => note.getLabels(name).map(l => l.value) ?? [];
         const excludeRelations = labelValues("mapExcludeRelation");
         const includeRelations = labelValues("mapIncludeRelation");
         loadNotesAndRelations(mapRootId, excludeRelations, includeRelations, mapType).then((notesAndRelations) => {
-            if (!containerRef.current || !styleResolverRef.current) return;
+            if (disposed || !containerRef.current || !styleResolverRef.current) return;
 
             // Guard against rendering too many notes which would freeze the browser.
             if (notesAndRelations.nodes.length > MAX_NOTES_THRESHOLD && !bypassLimit) {
@@ -106,7 +117,13 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
             notesAndRelationsRef.current = notesAndRelations;
         });
 
-        return () => container.replaceChildren();
+        return () => {
+            disposed = true;
+            // Stops the render loop; without it the discarded graph keeps animating against a
+            // detached canvas for the rest of the session.
+            graph._destructor();
+            container.replaceChildren();
+        };
     }, [ note, mapType, bypassLimit ]);
 
     useEffect(() => {
