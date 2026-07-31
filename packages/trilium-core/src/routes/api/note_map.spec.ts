@@ -402,61 +402,29 @@ describe("Note map service (branch coverage)", () => {
         return res.find((b) => b.noteId === sourceId) as any;
     }
 
-    it("llmChat backlinks: quotes the assistant prose around the wiki-link, links titled and escaped", () => {
-        buildNote({ id: "chatOther", title: "Other <note>" });
+    // The excerpt HTML itself is covered by services/llm_chat_excerpts.spec.ts;
+    // these only pin how getBacklinks routes llmChat sources.
+    it("llmChat backlinks: a quotable mention yields excerpts instead of the relation name", () => {
         const backlink = chatBacklink("chatWiki", [
-            { role: "user", content: "where is [[chatWiki_t]] mentioned?" },
             {
                 role: "assistant",
-                content: [
-                    { type: "text", content: "I found 1 < 2 results in [[chatWiki_t]] next to [[chatOther]]." }
-                ]
+                content: [ { type: "text", content: "I found it in [[chatWiki_t]]." } ]
             }
         ]);
 
         expect(backlink.relationName).toBeUndefined();
-        expect(backlink.excerpts).toEqual([
-            `<div class="ck-content backlink-excerpt"><p>I found 1 &lt; 2 results in ` +
-            `<a class="reference-link backlink-link" href="#root/chatWiki_t">Chat target</a> next to ` +
-            `<a class="reference-link" href="#root/chatOther">Other &lt;note&gt;</a>.</p></div>`
-        ]);
+        expect(backlink.excerpts).toHaveLength(1);
+        expect(backlink.excerpts[0]).toContain(`<a class="reference-link backlink-link" href="#root/chatWiki_t">`);
     });
 
-    it("llmChat backlinks: truncates long surrounding prose with ellipses, one excerpt per mention", () => {
-        const backlink = chatBacklink("chatLong", [
-            {
-                role: "assistant",
-                content: [
-                    { type: "text", content: `${"a".repeat(260)} [[chatLong_t]] ${"b".repeat(260)}` },
-                    { type: "text", content: "Also see [[chatLong_t]]." }
-                ]
-            }
-        ]);
-
-        expect(backlink.excerpts).toHaveLength(2);
-        // Like findExcerpts, expansion stops at the first truncated run, so the whole budget
-        // goes to the text preceding the link and none is left for the text after it.
-        expect(backlink.excerpts[0]).toMatch(/…a+ <a class="reference-link backlink-link"/);
-        expect(backlink.excerpts[0]).not.toMatch(/b{3}/);
-        expect(backlink.excerpts[1]).toContain("Also see <a");
-    });
-
-    it("llmChat backlinks: tool-call-only references and unparseable content fall back to the relation name", () => {
+    it("llmChat backlinks: an excerpt-less chat falls back to the relation name", () => {
         const toolCallOnly = chatBacklink("chatTool", [
             {
                 role: "assistant",
-                content: [
-                    { type: "tool_call", toolCall: { input: { noteId: "chatTool_t" } } },
-                    // A user-role block and a non-text assistant block must not be quoted either.
-                    { type: "thinking", content: "peeking at [[chatTool_t]]" }
-                ]
-            },
-            { role: "user", content: "the [[chatTool_t]] wiki-link in user prose creates no relation" }
+                content: [ { type: "tool_call", toolCall: { input: { noteId: "chatTool_t" } } } ]
+            }
         ]);
         expect(toolCallOnly).toEqual({ noteId: "chatTool", relationName: "internalLink" });
-
-        const invalid = chatBacklink("chatBroken", "not JSON at all");
-        expect(invalid).toEqual({ noteId: "chatBroken", relationName: "internalLink" });
     });
 });
 
