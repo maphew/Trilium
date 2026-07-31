@@ -3,14 +3,14 @@ import "./note_usage_donut.css";
 import type { SpaceUsageNoteResponse } from "@triliumnext/commons";
 import clsx from "clsx";
 import type { ComponentChildren } from "preact";
-import { useMemo, useRef } from "preact/hooks";
+import { useMemo } from "preact/hooks";
 import type React from "react";
 import { Trans } from "react-i18next";
 
 import { t } from "../../../../../services/i18n";
 import { formatSize } from "../../../../../services/utils";
 import DonutChart, { type DonutRing } from "../../../../react/charts/DonutChart";
-import { useStaticTooltip } from "../../../../react/hooks";
+import ContextualHelp from "../../../../react/ContextualHelp";
 import { quickEditAttachment, quickEditNote } from "./context_menu";
 import {
     buildCompositionSegments,
@@ -19,13 +19,6 @@ import {
     type UsageSegmentData,
     type UsageTooltipKind
 } from "./donut_segments";
-
-/**
- * The app's "raise above everything" tooltip class. Bootstrap appends tooltips to `<body>`, where
- * the base `.tooltip` z-index sits below a modal — and this section is usually shown inside the
- * settings dialog, so without it every hint here opens behind the dialog that triggered it.
- */
-const RAISED_TOOLTIP = "tooltip-top";
 
 export const COMPOSITION_RING_RADIUS = 133;
 /** Half the children ring's: the note's own breakdown reads as the quieter, supporting ring. */
@@ -160,24 +153,9 @@ function SizeLine({ i18nKey, help, size }: { i18nKey: string, help: string, size
                     Size: <span className="note-usage-donut-size-value">{formatSize(size)}</span> as React.ReactElement
                 }}
             />
-            <ContextualHelp title={help} />
+            <ContextualHelp helpMessage={help} />
         </span>
     );
-}
-
-/**
- * The info affordance the option lists already use, on the app's tooltip rather than the browser's:
- * a native one would appear somewhere else, after its own delay, and in its own styling — while the
- * line's own hint is already the app's. Showing one dismisses the other, so the two never overlap.
- */
-function ContextualHelp({ title }: { title: string }) {
-    const ref = useRef<HTMLSpanElement>(null);
-    useStaticTooltip(ref, useMemo(
-        () => ({ title, placement: "bottom", customClass: RAISED_TOOLTIP }),
-        [ title ]
-    ));
-
-    return <span ref={ref} className="bx bx-info-circle contextual-help" />;
 }
 
 /** "Title (1.2 MiB)", prefixed with its case ("Attachment: ", "Child note: ") where one applies. */

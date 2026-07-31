@@ -1,0 +1,12 @@
+/* Small, dimmed and asking to be hovered: present without competing with what it explains. */
+.contextual-help {
+    margin-inline-start: 0.25em;
+    color: var(--contextual-help-icon-color);
+    font-size: 0.75rem;
+    opacity: 0.75;
+    cursor: help;
+}
+
+.contextual-help:hover {
+    opacity: 1;
+}
