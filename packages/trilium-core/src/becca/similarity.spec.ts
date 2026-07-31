@@ -208,8 +208,8 @@ describe("buildRewardMap", () => {
         expect(xMap.get("xcustom")).toBeUndefined();
     });
 
-    it("stems english plurals ending in 'es' instead of discarding the word", () => {
-        const note = buildNote({ title: "Foxes churches", content: "<p>b</p>" });
+    it("stems english plurals instead of discarding the word, both the 'es' and the plain 's' form", () => {
+        const note = buildNote({ title: "Foxes churches docs links", content: "<p>b</p>" });
         const map = buildRewardMap(note);
 
         // "foxes" -> "fox", "churches" -> "church"; the stemmed forms carry the
@@ -218,6 +218,13 @@ describe("buildRewardMap", () => {
         expect(typeof map.get("church")).toStrictEqual("number");
         expect(map.get("foxes")).toBeUndefined();
         expect(map.get("churches")).toBeUndefined();
+
+        // Same for a plural that is a bare trailing "s": these used to be blanked
+        // altogether, so a note about "docs" shared no word with another one.
+        expect(typeof map.get("doc")).toStrictEqual("number");
+        expect(typeof map.get("link")).toStrictEqual("number");
+        expect(map.get("docs")).toBeUndefined();
+        expect(map.get("links")).toBeUndefined();
     });
 
     it("returns early for text notes whose content is not a string", () => {

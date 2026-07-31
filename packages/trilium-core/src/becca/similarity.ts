@@ -234,7 +234,7 @@ function splitToWords(text: string) {
             else if (words[idx].length > 2 && words[idx].endsWith("es")) {
                 words[idx] = words[idx].substr(0, words[idx].length - 2);
             } else if (words[idx].length > 1 && words[idx].endsWith("s")) {
-                words[idx] = words[idx].substr(0, words[idx] - 1);
+                words[idx] = words[idx].substr(0, words[idx].length - 1);
             }
         }
     }
