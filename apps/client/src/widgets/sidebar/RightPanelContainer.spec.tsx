@@ -33,10 +33,11 @@ describe("groupIntoTabs", () => {
         const attributes = widget("attributes");
         const tabs = groupIntoTabs([ attributes, widget("outline", { enabled: false }) ], true);
 
-        // The outline is the tab that asks; the chat and the widgets go as they did.
-        expect(tabs.map((tab) => tab.id)).toEqual([ "outline", "attributes" ]);
+        // The outline and the connections are the tabs that ask; the chat and the widgets go as they did.
+        expect(tabs.map((tab) => tab.id)).toEqual([ "outline", "attributes", "connections" ]);
         expect(tabs[0].items).toEqual([]);
         expect(tabs[1].items).toEqual([ attributes.el ]);
+        expect(tabs[2].items).toEqual([]);
     });
 });
 

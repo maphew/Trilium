@@ -3238,6 +3238,7 @@
     "custom_widget_go_to_source": "Go to source code",
     "tab_outline": "Outline",
     "tab_attributes": "Attributes",
+    "tab_connections": "Connections",
     "tab_chat": "AI chat",
     "tab_widgets": "Widgets"
   },
