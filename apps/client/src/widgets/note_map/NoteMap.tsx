@@ -9,10 +9,9 @@ import FNote from "../../entities/fnote";
 import link_context_menu from "../../menus/link_context_menu";
 import hoisted_note from "../../services/hoisted_note";
 import { t } from "../../services/i18n";
-import { getEffectiveThemeStyle } from "../../services/theme";
 import ActionButton from "../react/ActionButton";
 import Button from "../react/Button";
-import { useElementSize, useNoteLabel } from "../react/hooks";
+import { useColorScheme, useElementSize, useNoteLabel } from "../react/hooks";
 import NoItems from "../react/NoItems";
 import Slider from "../react/Slider";
 import { loadNotesAndRelations, NoteMapLinkObject, NoteMapNodeObject, NotesAndRelationsData } from "./data";
@@ -38,6 +37,11 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
     const mapType = toMapType(mapTypeRaw);
 
     const graphRef = useRef<ForceGraph<NoteMapNodeObject, NoteMapLinkObject>>();
+    // Everything the map is drawn in is settled when it is built — the colour of a note of each type,
+    // the colour its title is written in, the shadow under it — so a change of theme calls for it to
+    // be built again. The hook answers a theme being chosen and, for the themes that follow the
+    // system, the system turning the lights off.
+    const themeStyle = useColorScheme();
     const containerSize = useElementSize(parentRef);
     const [ fixNodes, setFixNodes ] = useState(false);
     const [ linkDistance, setLinkDistance ] = useState(40);
@@ -106,7 +110,7 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
                 noteIdToSizeMap: notesAndRelations.noteIdToSizeMap,
                 cssData,
                 notesAndRelations,
-                themeStyle: getEffectiveThemeStyle(),
+                themeStyle,
                 widgetMode,
                 mapType,
                 container,
@@ -118,6 +122,11 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
                 .onNodeClick((node) => {
                     if (!node.id) return;
                     appContext.tabManager.getActiveContext()?.setNote(node.id);
+                    // The map always sends the reader to the pane behind it, never to its own host — so a
+                    // map shown in the quick-edit popup has to dismiss it, or it would be left covering the
+                    // note it has just gone to. Raised whatever the host: a map anywhere else is behind the
+                    // popup's backdrop while that is open, and so cannot be the one being pressed.
+                    void appContext.triggerCommand("closePopupEditor");
                 })
                 .onNodeRightClick((node, e) => {
                     if (!node.id) return;
@@ -137,7 +146,7 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
             graph._destructor();
             container.replaceChildren();
         };
-    }, [ note, mapType, bypassLimit ]);
+    }, [ note, mapType, bypassLimit, themeStyle ]);
 
     useEffect(() => {
         if (!graphRef.current || !notesAndRelationsRef.current) return;
