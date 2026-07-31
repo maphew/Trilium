@@ -58,11 +58,11 @@ function html() {
         json: async () => {
             throw new SyntaxError(`Unexpected token '<', "<!doctype "... is not valid JSON`);
         }
-    } as Response;
+    } as Partial<Response>;
 }
 
 /** Route each probe URL to a response, so the fallback chain can be driven precisely. */
-function routes(map: Record<string, Response>) {
+function routes(map: Record<string, Partial<Response>>) {
     return (url: string) => {
         const response = Object.entries(map).find(([suffix]) => url.endsWith(suffix))?.[1];
         return Promise.resolve(response ?? status(404));
