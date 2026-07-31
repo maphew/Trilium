@@ -22,6 +22,7 @@ import { ViewTypeOptions } from "./collections/interface";
 import ActionButton, { ActionButtonProps } from "./react/ActionButton";
 import { ButtonGroup } from "./react/Button";
 import { useEffectiveReadOnly, useIsNoteReadOnly, useNoteLabel, useNoteLabelBoolean, useTriliumEvent, useTriliumOption, useWindowSize } from "./react/hooks";
+import NoItems from "./react/NoItems";
 import NoteLink from "./react/NoteLink";
 import RawHtml from "./react/RawHtml";
 import { isSplitEditorForcedReadOnly, resolveDisplayMode } from "./type_widgets/helpers/split_editor_mode";
@@ -418,7 +419,7 @@ export function useBacklinkCount(note: FNote | null | undefined, isDefaultViewMo
 }
 
 export function BacklinksList({ note }: { note: FNote }) {
-    const [ backlinks, setBacklinks ] = useState<BacklinksResponse>([]);
+    const [ backlinks, setBacklinks ] = useState<BacklinksResponse>();
 
     function refresh() {
         server.get<BacklinksResponse>(`note-map/${note.noteId}/backlinks`).then(async (backlinks) => {
@@ -435,6 +436,20 @@ export function BacklinksList({ note }: { note: FNote }) {
     useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
         if (needsRefresh(note, loadResults)) refresh();
     });
+
+    // Nothing at all until the request has answered, so that the placeholder below doesn't show for
+    // as long as it takes — the note usually has backlinks, this list being what says it has.
+    if (!backlinks) return null;
+
+    if (!backlinks.length) {
+        return (
+            // An item of the list it stands in for: what holds it is a <ul> everywhere but the
+            // floating button's dropdown, which only opens once there is something to list anyway.
+            <li className="backlinks-empty">
+                <NoItems size="small" icon="bx bx-link" text={t("zpetne_odkazy.no_backlinks")} />
+            </li>
+        );
+    }
 
     // Keyed by position: one source note takes a row per relation it points with, so a note ID names
     // no single row, and the whole list is rebuilt at once anyway.
