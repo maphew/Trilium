@@ -9,6 +9,7 @@ import Modal from "../react/Modal";
 import RawHtml from "../react/RawHtml";
 import { HighlightsListOptions } from "../type_widgets/options/highlights_list_options";
 import RightPanelWidget from "./RightPanelWidget";
+import SidebarHelp from "./SidebarHelp";
 
 interface RawHighlight {
     id: string;
@@ -72,6 +73,7 @@ function AbstractHighlightsList<T extends RawHighlight>({ highlights, scrollToHi
             <RightPanelWidget
                 id="highlights"
                 title={t("highlights_list_2.title_with_count", { count: filteredHighlights.length })}
+                buttons={<SidebarHelp section="highlights" />}
                 contextMenuItems={[
                     {
                         title: t("highlights_list_2.menu_configure"),

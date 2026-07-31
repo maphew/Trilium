@@ -69,6 +69,12 @@ export const bySidebarSection = {
         helpPage: "OFXdgB2nNk1F",
         paragraphs: [ "sidebar_help.attributes_definitions_what", "sidebar_help.attributes_definitions_promoted" ]
     },
+    highlights: {
+        // Outline tab, which is where the highlights list is written up — its own page is a redirect
+        // to that one.
+        helpPage: "2dcGDhp9WFKb",
+        paragraphs: [ "sidebar_help.highlights_what", "sidebar_help.highlights_configure" ]
+    },
     noteMap: {
         // Note Map (Link map, Tree map).
         helpPage: "BCkXAVs63Ttv",
