@@ -23,6 +23,7 @@ import AttributeList from "./AttributeList";
 import Backlinks from "./Backlinks";
 import ChatHighlightsList from "./ChatHighlightsList";
 import HighlightsList from "./HighlightsList";
+import NotePaths from "./NotePaths";
 import PdfAnnotations from "./pdf/PdfAnnotations";
 import PdfAttachments from "./pdf/PdfAttachments";
 import PdfLayers from "./pdf/PdfLayers";
@@ -184,6 +185,13 @@ function useItems(rightPaneVisible: boolean, widgetsByParent: WidgetsByParent): 
             el: <AttributeList />,
             enabled: !!note,
             tab: "attributes"
+        },
+        {
+            // Where the note sits in the tree, above what points at it: placements first, then the
+            // backlinks below take whatever height is left.
+            el: <NotePaths />,
+            enabled: !!note,
+            tab: "connections"
         },
         {
             el: <Backlinks />,
