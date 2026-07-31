@@ -85,6 +85,29 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
         return screenPx * zoomLevel ** LABEL_ZOOM_SHARE / zoomLevel;
     }
 
+    /**
+     * Whether a note of the given size has its label drawn under it as the map stands: the smaller the
+     * note, the further in the map has to be zoomed before its name is worth the clutter.
+     */
+    function isLabelDrawn(size: number) {
+        return zoomLevel > 2 || (zoomLevel > 1 && size > 6) || (zoomLevel > 0.3 && size > 10);
+    }
+
+    /**
+     * The note's title, for the tooltip that stands over it while it is hovered — or nothing at all
+     * where the map is already showing the title in full under the note, the tooltip then being a
+     * second copy of what the pointer is resting on.
+     *
+     * A title cut down to the width a label is allowed still earns one, since the rest of it is what
+     * the reader is missing. So does one whose label the map is not drawing at all — a note with no
+     * entry in the map has never had its label drawn, and cannot have it in full.
+     */
+    function getTooltip(node: NoteMapNodeObject) {
+        const shownInFull = isLabelDrawn(noteIdToSizeMap[node.id]) && labelsByNoteId.get(node.id) === node.name;
+
+        return shownInFull ? "" : escapeHtml(node.name);
+    }
+
     function paintNode(node: NoteMapNodeObject, color: string, ctx: CanvasRenderingContext2D) {
         const { x, y } = node;
         // A coordinate of exactly 0 is a position like any other, and a common one: d3 lays the
@@ -105,9 +128,7 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
 
         paintNodeIcon(node, size, dotColor, x, y, ctx);
 
-        const toRender = zoomLevel > 2 || (zoomLevel > 1 && size > 6) || (zoomLevel > 0.3 && size > 10);
-
-        if (!toRender) {
+        if (!isLabelDrawn(size)) {
             return;
         }
 
@@ -264,7 +285,7 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
             }
             ctx.fill();
         })
-        .nodeLabel((node) => escapeHtml(node.name))
+        .nodeLabel((node) => getTooltip(node))
         .onZoom((zoom) => zoomLevel = zoom.k);
 
     // set link width to immitate a highlight effect. Checking the condition if any links are saved in the previous defined set highlightlinks
