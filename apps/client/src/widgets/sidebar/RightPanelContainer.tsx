@@ -20,6 +20,7 @@ import NoItems from "../react/NoItems";
 import { PaneMode, usePaneMode, usePeekDismiss } from "../react/peek_pane";
 import LegacyRightPanelWidget from "../right_panel_widget";
 import AttributeList from "./AttributeList";
+import Backlinks from "./Backlinks";
 import ChatHighlightsList from "./ChatHighlightsList";
 import HighlightsList from "./HighlightsList";
 import PdfAnnotations from "./pdf/PdfAnnotations";
@@ -183,6 +184,11 @@ function useItems(rightPaneVisible: boolean, widgetsByParent: WidgetsByParent): 
             el: <AttributeList />,
             enabled: !!note,
             tab: "attributes"
+        },
+        {
+            el: <Backlinks />,
+            enabled: !!note,
+            tab: "connections"
         },
         {
             el: <TableOfContents />,
