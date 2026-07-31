@@ -431,7 +431,7 @@ export interface SimilarNote {
     noteId: string;
 }
 
-export type SimilarNoteResponse = (SimilarNote[] | undefined);
+export type SimilarNoteResponse = SimilarNote[];
 
 export type SaveSearchNoteResponse = CloneResponse;
 
