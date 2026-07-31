@@ -14,6 +14,10 @@ body.experimental-feature-new-layout .note-paths-widget {
         li {
             position: relative;
             padding: 5px 0 5px 17px;
+            /* A path is read for where the note sits, not for the words themselves, so it is set a
+               step below the text around it — the separators and the marks with it, hence the size
+               on the path rather than on its links. */
+            font-size: .9em;
 
             /* Current path arrow, in the gutter the paths are indented for. */
             &.path-current::before {
