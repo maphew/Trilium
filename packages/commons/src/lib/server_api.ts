@@ -307,6 +307,18 @@ export interface ImageCompressionOptions {
      * away quality permanently; with it off a PNG is only ever scaled down, never re-encoded.
      */
     convertLossless?: boolean;
+    /**
+     * Whether the run visits the note's whole subtree rather than the note alone. Off by default,
+     * and opt-in for a reason: a descendant may be a clone, so compressing it degrades an image
+     * that other notes show too.
+     *
+     * Each note is visited once however many placements it has. Archived notes are included, the
+     * hidden subtree is not, and a search note's results are left to whatever holds them — the run
+     * follows the tree, not what a query happens to match.
+     *
+     * Only the note endpoint reads this; an attachment has no subtree to descend into.
+     */
+    recursive?: boolean;
 }
 
 /**

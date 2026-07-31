@@ -127,7 +127,7 @@ describe("compress note images (POST /api/notes/:noteId/compress-images)", () =>
         expect(res.body).toMatchObject({ items: [], compressedCount: 0, skippedCount: 0, savedSize: 0 });
     });
 
-    it("does not follow child notes, which may be clones shared with other notes", async () => {
+    it("does not follow child notes unless asked to, they may be clones shared elsewhere", async () => {
         const { noteId } = await createTextNote(api);
         const childId = await createImageNote(noisyPng, noteId);
 
@@ -137,6 +137,34 @@ describe("compress note images (POST /api/notes/:noteId/compress-images)", () =>
 
         expect(res.body.items).toHaveLength(0);
         expect(readNote(childId).size).toBe(noisyPng.byteLength);
+    });
+
+    it("descends the whole subtree when asked, visiting a clone once however often it is placed", async () => {
+        const { noteId } = await createTextNote(api);
+        const ownAttachment = await addAttachment(noteId, "own.png", noisyPng);
+        const childId = await createImageNote(noisyPng, noteId);
+        const grandchildId = await createImageNote(noisyPng, childId);
+        // The same note placed a second time inside the subtree: it holds one image, and the run
+        // must not compress it twice (nor report it twice).
+        await api.put(`/api/notes/${grandchildId}/clone-to-note/${noteId}`);
+
+        const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
+            body: { convertLossless: true, recursive: true }
+        });
+
+        expect(res.body.items.map((item) => item.entityId).sort())
+            .toEqual([ ownAttachment, childId, grandchildId ].sort());
+        expect(res.body.compressedCount).toBe(3);
+        expect(readNote(childId).mime).toBe("image/jpeg");
+        expect(readNote(grandchildId).mime).toBe("image/jpeg");
+    });
+
+    it("400s on a non-boolean recursive", async () => {
+        const { noteId } = await createTextNote(api);
+
+        const res = await api.post(`/api/notes/${noteId}/compress-images`, { body: { recursive: "deep" } });
+
+        expect(res.status).toBe(400);
     });
 
     it("skips the generated picture of a spreadsheet note, which is rebuilt on every save", async () => {

@@ -12,10 +12,7 @@ export interface ImageCompressionToolOptions {
     maxWidthHeight: number;
     /** JPEG quality, {@link MIN_QUALITY} to {@link MAX_QUALITY}. */
     quality: number;
-    /**
-     * Whether a lossless source (PNG) may be re-encoded as JPEG. Off unless asked for: it trades
-     * away quality permanently, where scaling down alone does not.
-     */
+    /** Whether a lossless source (PNG) may be re-encoded as JPEG. */
     convertLossless: boolean;
     /** Whether the note's whole subtree is compressed, rather than the note on its own. */
     processChildNotes: boolean;
@@ -33,9 +30,13 @@ export const MIN_MAX_WIDTH_HEIGHT = 1;
  *
  * The two numbers fall back to the image options rather than to constants of their own, so a tool
  * that has never been run opens on what automatic compression is already configured to do — the same
- * fallbacks the server applies to a request that omits them. Neither toggle is ever assumed: a
- * conversion that costs quality, and a run that reaches beyond the note it was invoked on, are both
- * things to be asked for.
+ * fallbacks the server applies to a request that omits them.
+ *
+ * Converting starts on: someone reaching for this tool has a note that has grown too heavy and is
+ * already accepting a loss of quality to shrink it, and converting is where nearly all the saving
+ * comes from — offering it off by default would mean most first runs reporting almost nothing.
+ * Reaching into the subtree does not: that widens what the run touches rather than how hard it
+ * compresses, and a descendant may be a clone shared with notes the user did not have in mind.
  */
 export function readImageCompressionOptions(
     stored: Partial<ImageCompressionToolOptions> | null | undefined
@@ -45,7 +46,7 @@ export function readImageCompressionOptions(
             ? Number(stored?.maxWidthHeight)
             : defaultMaxWidthHeight(),
         quality: isQuality(stored?.quality) ? Number(stored?.quality) : defaultQuality(),
-        convertLossless: stored?.convertLossless === true,
+        convertLossless: stored?.convertLossless ?? true,
         processChildNotes: stored?.processChildNotes === true
     };
 }

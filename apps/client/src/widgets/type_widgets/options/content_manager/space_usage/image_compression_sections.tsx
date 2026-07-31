@@ -15,9 +15,9 @@ import {
 } from "./image_compression_options";
 
 /**
- * The rows that configure an image compression run, each a `CardSection` of its own so they can be
- * dropped into any card — the compression dialog lists all four, and the cleanup tool will nest them
- * under an item of its own.
+ * The rows that configure an image compression run, each a `CardSection` of its own so a host picks
+ * the ones that mean anything where it stands: the compression dialog drops the subtree row for an
+ * attachment, which has no subtree, and the cleanup tool will drop it too, being database-wide.
  *
  * Every row takes the whole settings object and reports a patch, rather than a value and a setter,
  * so a host wires the group once and adding a row later costs it nothing.
@@ -27,18 +27,6 @@ export interface ImageCompressionSectionProps {
     onChange(patch: Partial<ImageCompressionToolOptions>): void;
     /** Greys the controls out, for a host that hangs the whole group off a switch of its own. */
     disabled?: boolean;
-}
-
-/** All four rows in their reading order, for the common case of wanting the lot. */
-export function ImageCompressionSections(props: ImageCompressionSectionProps) {
-    return (
-        <>
-            <MaxImageDimensionsSection {...props} />
-            <JpegQualitySection {...props} />
-            <ConvertLosslessSection {...props} />
-            <ProcessChildNotesSection {...props} />
-        </>
-    );
 }
 
 /** The bound images are scaled down to fit. Labelled as the image settings label it. */

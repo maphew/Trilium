@@ -2923,7 +2923,13 @@
     "compress_process_child_notes": "Process child notes as well",
     "compress_process_child_notes_help": "Compresses the images of every note in the subtree, not just the selected one. Beware that a child note may be a clone, in which case its images are shared with the other notes it appears in.",
     "compress_cancel": "Cancel",
-    "compress_run": "Compress images"
+    "compress_run": "Compress images",
+    "compress_running": "Compressing images…",
+    "compress_result_one": "{{count}} image processed, reducing the size from {{before}} to {{after}}.",
+    "compress_result_other": "{{count}} images processed, reducing the size from {{before}} to {{after}}.",
+    "compress_result_no_gain_one": "{{count}} image processed, but it could not be made any smaller.",
+    "compress_result_no_gain_other": "{{count}} images processed, but none of them could be made any smaller.",
+    "compress_result_none": "There are no images to compress."
   },
   "note_language": {
     "not_set": "No language set",

@@ -3,17 +3,37 @@ import { useEffect } from "preact/hooks";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { CONFIGURED_MAX_DIMENSIONS, CONFIGURED_QUALITY } = vi.hoisted(() => ({
+const { CONFIGURED_MAX_DIMENSIONS, CONFIGURED_QUALITY, EMPTY_RESULT } = vi.hoisted(() => ({
     // Deliberately unlike the shipped defaults, so a field falling back to the image option cannot
     // pass for one falling back to a constant of its own.
     CONFIGURED_MAX_DIMENSIONS: 1600,
-    CONFIGURED_QUALITY: 60
+    CONFIGURED_QUALITY: 60,
+    /** What a run reports when it found nothing; tests that care override it. */
+    EMPTY_RESULT: {
+        items: [], compressedCount: 0, skippedCount: 0, originalSize: 0, newSize: 0, savedSize: 0
+    }
 }));
+
+/** A report of `count` images compressed, weighing `originalSize` before and `newSize` after. */
+function resultOf(count: number, originalSize: number, newSize: number) {
+    return {
+        items: Array.from({ length: count }, (_, index) => ({ entityId: `img${index}` })),
+        compressedCount: count,
+        skippedCount: 0,
+        originalSize,
+        newSize,
+        savedSize: originalSize - newSize
+    };
+}
 
 const mocks = vi.hoisted(() => ({
     getInt: vi.fn<(name: string) => number | null>(),
     storedOption: "{}",
-    save: vi.fn(async () => {})
+    save: vi.fn(async () => {}),
+    postWithTimeout: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => EMPTY_RESULT),
+    showMessage: vi.fn<(message: string, timeout?: number) => void>(),
+    showPersistent: vi.fn<(options: { id: string, message: string }) => void>(),
+    closePersistent: vi.fn<(id: string) => void>()
 }));
 
 vi.mock("../../../../../services/options", () => ({
@@ -21,6 +41,21 @@ vi.mock("../../../../../services/options", () => ({
         get: () => mocks.storedOption,
         getInt: mocks.getInt,
         save: mocks.save
+    }
+}));
+
+vi.mock("../../../../../services/server", () => ({
+    default: {
+        get: async () => [],
+        postWithTimeout: (url: string, _timeoutMs: number, body?: object) => mocks.postWithTimeout(url, body)
+    }
+}));
+
+vi.mock("../../../../../services/toast", () => ({
+    default: {
+        showMessage: mocks.showMessage,
+        showPersistent: mocks.showPersistent,
+        closePersistent: mocks.closePersistent
     }
 }));
 
@@ -56,6 +91,10 @@ vi.mock("../../../../react/Modal", () => ({
 }));
 
 import { showImageCompressionDialog } from "./image_compression_dialog";
+import { IMAGE_COMPRESSION_TOAST_ID, type ImageCompressionTarget } from "./image_compression_operation";
+
+const NOTE_TARGET: ImageCompressionTarget = { type: "note", noteId: "n1" };
+const ATTACHMENT_TARGET: ImageCompressionTarget = { type: "attachment", attachmentId: "a1" };
 
 function rows() {
     return Array.from(document.body.querySelectorAll<HTMLElement>(".image-compression-section"));
@@ -77,11 +116,19 @@ const compressButton = () => buttons()[1];
  * Opens the dialog. The pending close is handed back wrapped: returned bare, awaiting this helper
  * would adopt it and wait for the dialog to be dismissed.
  */
-async function openDialog() {
-    const closed = showImageCompressionDialog();
+async function openDialog(target: ImageCompressionTarget = NOTE_TARGET) {
+    const closed = showImageCompressionDialog(target);
     await settle();
     return { closed };
 }
+
+/** The body of the one request a run made, or `undefined` if it made none. */
+function postedBody() {
+    return mocks.postWithTimeout.mock.calls[0]?.[1] as Record<string, unknown> | undefined;
+}
+
+const postedUrl = () => mocks.postWithTimeout.mock.calls[0]?.[0];
+const reportedMessage = () => mocks.showMessage.mock.calls[0]?.[0] ?? "";
 
 function settle() {
     return act(async () => { await new Promise((resolve) => setTimeout(resolve, 0)); });
@@ -124,6 +171,7 @@ async function setAndDispatch(field: HTMLInputElement | null | undefined, value:
 beforeEach(() => {
     mocks.storedOption = "{}";
     vi.clearAllMocks();
+    mocks.postWithTimeout.mockResolvedValue(EMPTY_RESULT);
     mocks.getInt.mockImplementation((name) => (
         name === "imageMaxWidthHeight" ? CONFIGURED_MAX_DIMENSIONS
             : name === "imageJpegQuality" ? CONFIGURED_QUALITY
@@ -154,6 +202,16 @@ describe("showImageCompressionDialog", () => {
             .toEqual([ false, false, true, true ]);
     });
 
+    it("drops the subtree row for an attachment, which has no subtree to reach into", async () => {
+        await openDialog(ATTACHMENT_TARGET);
+
+        expect(titles()).toEqual([
+            "images.max_image_dimensions",
+            "images.jpeg_quality",
+            "space_usage.compress_convert_lossless"
+        ]);
+    });
+
     it("reads the quality out between its title and the slider", async () => {
         await openDialog();
 
@@ -179,9 +237,18 @@ describe("showImageCompressionDialog", () => {
         expect(numberField()?.value).toBe(String(CONFIGURED_MAX_DIMENSIONS));
         expect(slider()?.value).toBe(String(CONFIGURED_QUALITY));
 
-        // Both toggles start off: a conversion that costs quality and a run that reaches beyond the
-        // note it was invoked on are things to be asked for, never assumed.
-        expect(toggles().map((input) => input.checked)).toEqual([ false, false ]);
+        // Converting starts on — it is where nearly all the saving comes from, and someone reaching
+        // for this tool is already accepting a loss of quality. Reaching into the subtree does not:
+        // that widens what the run touches, and a descendant may be a clone.
+        expect(toggles().map((input) => input.checked)).toEqual([ true, false ]);
+    });
+
+    it("keeps a stored answer of off for converting, rather than reasserting the default", async () => {
+        mocks.storedOption = JSON.stringify({ convertLossless: false });
+
+        await openDialog();
+
+        expect(toggles()[0].checked).toBe(false);
     });
 
     it("reads a stored answer back, and lets it override the image options", async () => {
@@ -228,7 +295,7 @@ describe("showImageCompressionDialog", () => {
         expect(mocks.save).toHaveBeenLastCalledWith("imageCompressionToolOptions", JSON.stringify({
             maxWidthHeight: 900,
             quality: 45,
-            convertLossless: true,
+            convertLossless: false,
             processChildNotes: true
         }));
     });
@@ -241,33 +308,111 @@ describe("showImageCompressionDialog", () => {
         expect(numberField()?.value).toBe("1");
     });
 
-    it("hands back what was asked for once it has closed", async () => {
-        const { closed } = await openDialog();
-
-        await toggle(toggles()[0]);
-        await click(compressButton());
-
-        await expect(closed).resolves.toEqual({
-            maxWidthHeight: CONFIGURED_MAX_DIMENSIONS,
-            quality: CONFIGURED_QUALITY,
-            convertLossless: true,
-            processChildNotes: false
-        });
-        // Mounted on demand, and gone again with it: nothing is left in the page behind the dialog.
-        expect(rows()).toEqual([]);
-    });
-
     it("hands back nothing when the user backs out, settings remembered all the same", async () => {
         const { closed } = await openDialog();
 
         await toggle(toggles()[1]);
         await click(cancelButton());
 
-        // The answer is "no run", but the settings are kept either way — the next run opens where
-        // this one left off whether or not it was carried through.
+        // The answer is "no run", and nothing was asked of the server — but the settings are kept
+        // either way, so the next run opens where this one left off.
         await expect(closed).resolves.toBeNull();
+        expect(mocks.postWithTimeout).not.toHaveBeenCalled();
         expect(mocks.save).toHaveBeenCalledWith(
             "imageCompressionToolOptions", expect.stringContaining('"processChildNotes":true'));
+    });
+});
+
+describe("running the compression", () => {
+    it("sends the settings to the note endpoint, the subtree choice among them", async () => {
+        const { closed } = await openDialog();
+
+        await toggle(toggles()[1]);
+        await click(compressButton());
+        await closed;
+
+        expect(postedUrl()).toBe("notes/n1/compress-images");
+        expect(postedBody()).toEqual({
+            maxWidthHeight: CONFIGURED_MAX_DIMENSIONS,
+            quality: CONFIGURED_QUALITY,
+            convertLossless: true,
+            recursive: true
+        });
+    });
+
+    it("sends nothing about subtrees to the attachment endpoint, which has no use for it", async () => {
+        const { closed } = await openDialog(ATTACHMENT_TARGET);
+
+        await click(compressButton());
+        await closed;
+
+        expect(postedUrl()).toBe("attachments/a1/compress-image");
+        expect(postedBody()).not.toHaveProperty("recursive");
+    });
+
+    it("holds a spinner up for the length of the run, and takes it down once it is over", async () => {
+        let finish: (result: unknown) => void = () => {};
+        mocks.postWithTimeout.mockReturnValueOnce(new Promise<unknown>((resolve) => { finish = resolve; }));
+
+        const { closed } = await openDialog();
+        await click(compressButton());
+
+        // The dialog is out of the way and the run is under way: nothing here can say how far along
+        // it is, so the toast stays up rather than counting anything down.
+        expect(mocks.showPersistent).toHaveBeenCalledWith(expect.objectContaining({
+            id: IMAGE_COMPRESSION_TOAST_ID,
+            message: "space_usage.compress_running",
+            dismissible: false
+        }));
+        expect(mocks.closePersistent).not.toHaveBeenCalled();
+
+        finish(resultOf(3, 100, 40));
+        await closed;
+
+        expect(mocks.closePersistent).toHaveBeenCalledWith(IMAGE_COMPRESSION_TOAST_ID);
+    });
+
+    it("reports what the run did, in real sizes", async () => {
+        mocks.postWithTimeout.mockResolvedValueOnce(resultOf(10, 45 * 1024 * 1024, 7 * 1024 * 1024));
+
+        const { closed } = await openDialog();
+        await click(compressButton());
+        const result = await closed;
+
+        expect(reportedMessage()).toBe(
+            'space_usage.compress_result {"count":10,"before":"45 MiB","after":"7 MiB"}');
+        // Handed back as well as reported, so a caller knows its own figures are now stale.
+        expect(result?.compressedCount).toBe(10);
+    });
+
+    it.each([
+        [ "found no images at all", EMPTY_RESULT, "space_usage.compress_result_none" ],
+        // Quoting "from 45 MiB to 45 MiB" would read as a failure to report, where it is in fact a
+        // complete answer: the images were already as small as these settings can make them.
+        [ "made nothing smaller", resultOf(4, 900, 900), 'space_usage.compress_result_no_gain {"count":4}' ]
+    ])("says so plainly when the run %s", async (_label, response, expected) => {
+        mocks.postWithTimeout.mockResolvedValueOnce(response);
+
+        const { closed } = await openDialog();
+        await click(compressButton());
+        await closed;
+
+        expect(reportedMessage()).toBe(expected);
+    });
+
+    it("takes the spinner down and claims nothing when the run fails", async () => {
+        mocks.postWithTimeout.mockRejectedValueOnce(new Error("boom"));
+
+        const { closed } = await openDialog();
+        await click(compressButton());
+
+        // Answered as no run: the request layer already reported the failure, and nothing here can
+        // say what it managed to change before it failed.
+        await expect(closed).resolves.toBeNull();
+        expect(mocks.closePersistent).toHaveBeenCalledWith(IMAGE_COMPRESSION_TOAST_ID);
+        expect(mocks.showMessage).not.toHaveBeenCalled();
+        // Mounted on demand, and gone again with it, however the run ended.
+        expect(rows()).toEqual([]);
     });
 });
 

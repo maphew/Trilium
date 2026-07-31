@@ -18,7 +18,8 @@ const mocks = vi.hoisted(() => ({
     deleteNotes: vi.fn(async (..._args: unknown[]) => true),
     downloadFileNote: vi.fn(),
     showDetails: vi.fn(),
-    showCompressionDialog: vi.fn(async () => null),
+    // Answers like the real one: the run's report, or null when the user backed out or it failed.
+    showCompressionDialog: vi.fn<(...args: unknown[]) => Promise<{ compressedCount: number } | null>>(async () => null),
     contentChanged: vi.fn(),
     post: vi.fn(async (..._args: unknown[]) => undefined),
     showMessage: vi.fn(),
@@ -58,7 +59,7 @@ vi.mock("../../../../../services/server", () => ({
 // Stubbed rather than rendered: what belongs here is that the menu opens it, and the dialog's own
 // spec covers what it then does.
 vi.mock("./image_compression_dialog", () => ({
-    showImageCompressionDialog: () => mocks.showCompressionDialog()
+    showImageCompressionDialog: (...args: unknown[]) => mocks.showCompressionDialog(...args)
 }));
 
 vi.mock("../../../../../services/toast", () => ({
@@ -168,10 +169,8 @@ describe("openSpaceUsageContextMenu", () => {
         invoke(SHOW_DETAILS);
         expect(mocks.showDetails).toHaveBeenCalledWith([ "root", "p", "n1" ]);
 
-        // Only opens the dialog: nothing is compressed and nothing re-measured until the run itself
-        // is wired up, so there is no reading to invalidate either.
         invoke(COMPRESS_IMAGES);
-        expect(mocks.showCompressionDialog).toHaveBeenCalled();
+        expect(mocks.showCompressionDialog).toHaveBeenCalledWith({ type: "note", noteId: "n1" });
 
         invoke(EXPORT);
         expect(mocks.triggerCommand).toHaveBeenLastCalledWith("showExportDialog", {
@@ -199,6 +198,26 @@ describe("openSpaceUsageContextMenu", () => {
         mocks.deleteNotes.mockResolvedValueOnce(false);
         invoke(DELETE);
         await vi.waitFor(() => expect(mocks.deleteNotes).toHaveBeenCalledTimes(2));
+        expect(mocks.contentChanged).toHaveBeenCalledTimes(1);
+    });
+
+    it("asks for a fresh reading once images were actually replaced, and not otherwise", async () => {
+        givenNote("n1");
+        await openFor([ "root", "p", "n1" ]);
+
+        // Compressing changes the size of the notes holding the images, which is what the views are
+        // drawn from — so a run that replaced any of them has to say so.
+        mocks.showCompressionDialog.mockResolvedValueOnce({ compressedCount: 2 });
+        invoke(COMPRESS_IMAGES);
+        await vi.waitFor(() => expect(mocks.contentChanged).toHaveBeenCalledTimes(1));
+
+        // A run that compressed nothing, and a dialog backed out of or failed, all leave the
+        // figures exactly as they were — so none of them is worth re-measuring the database for.
+        mocks.showCompressionDialog.mockResolvedValueOnce({ compressedCount: 0 });
+        invoke(COMPRESS_IMAGES);
+        mocks.showCompressionDialog.mockResolvedValueOnce(null);
+        invoke(COMPRESS_IMAGES);
+        await vi.waitFor(() => expect(mocks.showCompressionDialog).toHaveBeenCalledTimes(3));
         expect(mocks.contentChanged).toHaveBeenCalledTimes(1);
     });
 

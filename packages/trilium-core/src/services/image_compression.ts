@@ -38,7 +38,7 @@ export async function compressNoteImages(noteId: string, options?: ImageCompress
         throw new NotFoundError(`Note '${noteId}' was not found.`);
     }
 
-    return compressTargets(collectNoteTargets(note), resolveCompressionRequest(options));
+    return compressTargets(collectNoteTargets(note, resolveRecursive(options)), resolveCompressionRequest(options));
 }
 
 /** Compresses one image attachment, under exactly the rules a whole-note run would apply to it. */
@@ -83,6 +83,19 @@ export function resolveCompressionRequest(options: ImageCompressionOptions = {})
     };
 }
 
+/**
+ * Whether the run descends into the note's subtree. Read apart from {@link resolveCompressionRequest}
+ * because it says nothing about how an image is compressed, only about which images are visited —
+ * so the provider never sees it. The attachment endpoint has no use for it and does not read it.
+ */
+export function resolveRecursive(options: ImageCompressionOptions = {}): boolean {
+    if (options.recursive !== undefined && typeof options.recursive !== "boolean") {
+        throw new ValidationError("recursive must be a boolean.");
+    }
+
+    return options.recursive === true;
+}
+
 function defaultQuality(): number {
     const configured = optionService.getOptionInt("imageJpegQuality", 0);
 
@@ -108,14 +121,27 @@ interface CompressionTarget {
 }
 
 /**
- * The images a note holds. An image note *is* its image, so it stands alone; for anything else the
- * images are the attachments it owns — which is where a text note's pictures live, and where the
- * weight the user is trying to shed actually sits.
+ * The images the run will visit, in the order it visits them.
  *
- * Child notes are deliberately not followed: a child can be a clone shared with other notes, and
- * shrinking a note should not silently degrade an image somewhere else.
+ * Child notes are followed only when asked for: a descendant can be a clone shared with other
+ * notes, so reaching into the subtree degrades images the caller may not have had in mind.
+ * `getSubtree` visits each note once however many placements it has, leaves the hidden subtree out
+ * and does not resolve search notes — the run follows the tree, not what a query happens to match.
  */
-function collectNoteTargets(note: BNote): CompressionTarget[] {
+function collectNoteTargets(note: BNote, recursive: boolean): CompressionTarget[] {
+    if (!recursive) {
+        return ownTargetsOf(note);
+    }
+
+    return note.getSubtree().notes.flatMap(ownTargetsOf);
+}
+
+/**
+ * The images one note holds. An image note *is* its image, so it stands alone; for anything else
+ * the images are the attachments it owns — which is where a text note's pictures live, and where
+ * the weight the user is trying to shed actually sits.
+ */
+function ownTargetsOf(note: BNote): CompressionTarget[] {
     if (note.type === "image") {
         return [ noteTarget(note) ];
     }
@@ -265,5 +291,6 @@ function summarize(items: ImageCompressionItem[]): ImageCompressionResponse {
 export default {
     compressNoteImages,
     compressAttachmentImage,
-    resolveCompressionRequest
+    resolveCompressionRequest,
+    resolveRecursive
 };
