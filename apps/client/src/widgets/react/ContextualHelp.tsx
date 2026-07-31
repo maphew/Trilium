@@ -53,8 +53,8 @@ function HoveredHelp({ helpMessage }: ContextualHelpProps) {
             // Reaching the icon reveals the explanation by itself — Bootstrap's default trigger is
             // "hover focus" — so what the key press adds is the other half: dismissing it again
             // without tabbing away, and answering a screen reader's activation of the control.
-            onActivate={() => withTooltip(ref, (tooltip) => tooltip.toggle())}
-            onDismiss={() => withTooltip(ref, (tooltip) => tooltip.hide())}
+            onActivate={() => toggleTooltip(ref)}
+            onDismiss={() => dismissTooltip(ref)}
         />
     );
 }
@@ -105,7 +105,8 @@ interface HelpIconProps {
     /** What activating the icon opens, for anything that is not simply revealed in place. */
     popup?: "dialog";
     onActivate: () => void;
-    onDismiss?: () => void;
+    /** Closes whatever the icon has open, answering whether there was anything to close. */
+    onDismiss?: () => boolean;
 }
 
 /**
@@ -134,23 +135,41 @@ function HelpIcon({ iconRef, helpMessage, popup, onActivate, onDismiss }: HelpIc
                     // the explanation was meant to be read against.
                     e.preventDefault();
                     onActivate();
-                } else if (e.key === "Escape") {
-                    onDismiss?.();
+                } else if (e.key === "Escape" && onDismiss?.()) {
+                    // Held back only when it actually dismissed something. These icons usually sit
+                    // inside a dialog, which closes on an Escape that reaches it — discarding
+                    // whatever was being filled in there to put away a tooltip. With nothing open
+                    // the key is not ours, and the dialog is welcome to it.
+                    e.stopPropagation();
                 }
             }}
         />
     );
 }
 
-/** Runs something on the icon's tooltip, if one has been built for it yet. */
-function withTooltip(iconRef: RefObject<HTMLSpanElement>, action: (tooltip: Tooltip) => void) {
+/** Shows the icon's explanation, or puts it away again if it is already up. */
+function toggleTooltip(iconRef: RefObject<HTMLSpanElement>) {
     const element = iconRef.current;
 
     if (element) {
-        const tooltip = Tooltip.getInstance(element);
-
-        if (tooltip) {
-            action(tooltip);
-        }
+        Tooltip.getInstance(element)?.toggle();
     }
+}
+
+/**
+ * Puts the explanation away if it is up, answering whether there was one to put away.
+ *
+ * Bootstrap stamps `aria-describedby` on the trigger for as long as its tooltip is on screen and
+ * takes it off again on hide, which is the only public sign of whether one is open — and asking
+ * matters, because the answer decides whether the key press is ours to keep.
+ */
+function dismissTooltip(iconRef: RefObject<HTMLSpanElement>) {
+    const element = iconRef.current;
+
+    if (!element?.hasAttribute("aria-describedby")) {
+        return false;
+    }
+
+    Tooltip.getInstance(element)?.hide();
+    return true;
 }

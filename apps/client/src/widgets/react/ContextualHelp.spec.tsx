@@ -94,9 +94,23 @@ describe("ContextualHelp", () => {
         expect(press(span, " ")).toBe(true);
         expect(tooltip.toggle).toHaveBeenCalledTimes(2);
 
-        // Dismissed from the keyboard too, without having to tab away.
-        expect(press(span, "Escape")).toBe(false);
+        // Dismissed from the keyboard too, without having to tab away. Bootstrap stamps
+        // `aria-describedby` on the trigger for as long as its tooltip is on screen.
+        const escaped = vi.fn();
+        container.addEventListener("keydown", escaped);
+        span?.setAttribute("aria-describedby", "tooltip-1");
+
+        press(span, "Escape");
         expect(tooltip.hide).toHaveBeenCalledTimes(1);
+        // And the key goes no further: these icons sit inside dialogs that close on Escape, and
+        // putting a tooltip away must not throw away what the dialog was being told.
+        expect(escaped).not.toHaveBeenCalled();
+
+        // With nothing up, the key was never ours — the dialog around it is welcome to it.
+        span?.removeAttribute("aria-describedby");
+        press(span, "Escape");
+        expect(tooltip.hide).toHaveBeenCalledTimes(1);
+        expect(escaped).toHaveBeenCalledTimes(1);
     });
 
     it("hands the tooltip the same configuration until the message itself changes", () => {
