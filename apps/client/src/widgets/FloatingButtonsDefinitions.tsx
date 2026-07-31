@@ -436,19 +436,24 @@ export function BacklinksList({ note }: { note: FNote }) {
         if (needsRefresh(note, loadResults)) refresh();
     });
 
-    return backlinks.map(backlink => (
-        <li>
+    // Keyed by position: one source note takes a row per relation it points with, so a note ID names
+    // no single row, and the whole list is rebuilt at once anyway.
+    return backlinks.map((backlink, index) => (
+        <li key={index}>
+            {/* Named so that the styling has something to hang off other than the position of the
+                link within the item (see Backlinks.css). */}
             <NoteLink
                 notePath={backlink.noteId}
+                containerClassName="backlink-header"
                 showNotePath showNoteIcon
                 noPreview
             />
 
             {"relationName" in backlink ? (
-                <p>{backlink.relationName}</p>
+                <p className="backlink-relation">{backlink.relationName}</p>
             ) : (
-                backlink.excerpts.map(excerpt => (
-                    <RawHtml html={excerpt} />
+                backlink.excerpts.map((excerpt, excerptIndex) => (
+                    <RawHtml key={excerptIndex} html={excerpt} />
                 ))
             )}
         </li>
