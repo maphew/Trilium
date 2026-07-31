@@ -5,7 +5,7 @@ import options from "../services/options.js";
 import protectedSessionService from "../services/protected_session.js";
 import { collectShortcutHints } from "../services/shortcut_hints.js";
 import treeService from "../services/tree.js";
-import utils, { openInReusableSplit } from "../services/utils.js";
+import utils from "../services/utils.js";
 import appContext, { type CommandListenerData } from "./app_context.js";
 import Component from "./component.js";
 
@@ -203,9 +203,16 @@ export default class RootCommandExecutor extends Component {
             return;
         }
 
-        const activeContext = appContext.tabManager.getActiveContext();
-        if (!activeContext?.notePath) return;
-        openInReusableSplit(activeContext.notePath, "note-map");
+        // The sidebar's map is the note map of the new layout: it is the one that follows the note being
+        // read, so the menu points at it rather than opening a second copy beside it that would then go
+        // stale. Peeked rather than docked, as the connection badges of the status bar are: a press for
+        // the tab already docked would otherwise close the pane out from under the card it is meant to
+        // expand (see reduceTabSelection).
+        void appContext.triggerEvent("selectRightPaneTab", {
+            tabId: "connections",
+            peek: true,
+            expandWidgetId: "noteMap"
+        });
     }
 
     firstTabCommand() {

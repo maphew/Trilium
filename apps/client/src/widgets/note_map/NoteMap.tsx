@@ -125,7 +125,7 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
                     // map shown in the quick-edit popup has to dismiss it, or it would be left covering the
                     // note it has just gone to. Raised whatever the host: a map anywhere else is behind the
                     // popup's backdrop while that is open, and so cannot be the one being pressed.
-                    void appContext.triggerCommand("closePopupEditor");
+                    void appContext.triggerEvent("closePopupEditor", {});
                 })
                 .onNodeRightClick((node, e) => {
                     if (!node.id) return;

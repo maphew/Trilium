@@ -150,6 +150,8 @@ export type CommandMappings = {
     openInWindow: NoteCommandData;
     /** Opens a note in the quick-edit popup. A `viewScope` carrying an `attachmentId` opens that attachment instead of the note itself. */
     openInPopup: CommandData & { noteIdOrPath: string; viewScope?: ViewScope; };
+    /** Dismisses the quick-edit popup, for something within it that has sent the reader elsewhere. Does nothing if it isn't open. */
+    closePopupEditor: CommandData;
     openInTreePopup: CommandData & { noteIdOrPath: string; hoistedNoteId: string; };
     openNoteInNewTab: CommandData;
     openNoteInNewSplit: CommandData;
