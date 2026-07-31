@@ -2691,7 +2691,7 @@
     "tokens_used_with_model_and_cost": "{{model}}: {{prompt}} 提示词 + {{completion}} 补全 = {{total}} 个词元（约 ${{cost}}）",
     "tokens": "词元",
     "note_context_enabled": "点击即可禁用笔记上下文：{{title}}",
-    "note_context_disabled": "点击即可将当前注释添加到上下文中",
+    "note_context_disabled": "点击把当前笔记加入上下文：{{title}}",
     "no_provider_message": "未配置AI提供商。添加一个即可开始对话。",
     "add_provider": "添加AI提供商",
     "note_tools": "笔记访问",
@@ -2728,7 +2728,12 @@
     "no_models_selected": "未选择模型 — 点击铅笔图标进行选择",
     "no_model_selected": "选择一个模型",
     "edit_models": "编辑模型",
-    "free": "免费"
+    "free": "免费",
+    "error_api": "API 错误（HTTP {{status}}）",
+    "error_show_details": "显示详情",
+    "context_usage_label": "上下文窗口使用量",
+    "context_tooltip": "已使用 {{used}} / {{total}} 个 token（{{percentage}}%）",
+    "context_nearly_full": "上下文即将用尽。建议开启新对话。"
   },
   "sidebar_chat": {
     "title": "AI对话",
