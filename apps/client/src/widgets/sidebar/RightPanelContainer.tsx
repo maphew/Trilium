@@ -31,6 +31,7 @@ import PdfPages from "./pdf/PdfPages";
 import RightPanelWidget, { CollapsibleWidgets } from "./RightPanelWidget";
 import RightPanePeekButton from "./RightPanePeekButton";
 import RightPaneTabs, { RIGHT_PANE_TABS, RightPaneTabDefinition, RightPaneTabId } from "./RightPaneTabs";
+import SimilarNotes from "./SimilarNotes";
 import TableOfContents from "./TableOfContents";
 
 const MIN_WIDTH_PERCENT = 5;
@@ -195,6 +196,11 @@ function useItems(rightPaneVisible: boolean, widgetsByParent: WidgetsByParent): 
         },
         {
             el: <Backlinks />,
+            enabled: !!note,
+            tab: "connections"
+        },
+        {
+            el: <SimilarNotes />,
             enabled: !!note,
             tab: "connections"
         },
