@@ -2620,7 +2620,6 @@
     "tokens_used_with_model": "{{model}}: {{prompt}} प्रॉम्प्ट + {{completion}} कम्प्लीशन = {{total}} टोकन",
     "tokens_used_with_model_and_cost": "{{model}}: {{prompt}} प्रॉम्प्ट + {{completion}} कम्प्लीशन = {{total}} टोकन (~${{cost}})",
     "tokens": "टोकन",
-    "context_used": "{{percentage}}% उपयोग किया गया",
     "note_context_enabled": "नोट संदर्भ (context) अक्षम करने के लिए क्लिक करें: {{title}}",
     "note_context_disabled": "संदर्भ में वर्तमान नोट शामिल करने के लिए क्लिक करें",
     "no_provider_message": "कोई एआई प्रोवाइडर कॉन्फ़िगर नहीं है। चैट शुरू करने के लिए एक जोड़ें।",

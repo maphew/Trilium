@@ -2539,7 +2539,6 @@
     "tokens_used_with_model": "{{model}}: {{prompt}} プロンプト + {{completion}} コンプリーション = {{total}} トークン",
     "tokens_used_with_model_and_cost": "{{model}}: {{prompt}} プロンプト + {{completion}} コンプリーション = {{total}} トークン (~${{cost}})",
     "tokens": "トークン",
-    "context_used": "{{percentage}} % 使用済み",
     "note_context_enabled": "クリックしてノートのコンテキストを無効にする: {{title}}",
     "note_context_disabled": "クリックして現在のノートをコンテキストに含める",
     "no_provider_message": "AI プロバイダーが設定されていません。チャットを開始するには、プロバイダーを追加してください。",

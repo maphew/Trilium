@@ -1922,7 +1922,6 @@
     "tokens_used_with_model": "{{model}}: {{prompt}} prompt + {{completion}} completion = {{total}} token",
     "tokens_used_with_model_and_cost": "{{model}}: {{prompt}} prompt + {{completion}} completion = {{total}} token (~${{cost}})",
     "tokens": "token",
-    "context_used": "{{percentage}}% digunakan",
     "note_context_enabled": "Klik untuk menonaktifkan konteks catatan: {{title}}",
     "note_context_disabled": "Klik untuk menyertakan catatan saat ini ke dalam konteks",
     "no_provider_message": "Belum ada provider AI yang dikonfigurasi. Tambahkan satu untuk mulai chat.",

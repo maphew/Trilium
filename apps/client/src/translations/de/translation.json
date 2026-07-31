@@ -2561,7 +2561,6 @@
     "tool_error": "Fehlgeschlagen",
     "total_tokens": "{{total}} Token",
     "tokens": "Token",
-    "context_used": "{{percentage}}% verwendet",
     "no_provider_message": "Kein KI-Anbieter konfiguriert. Fügen Sie einen hinzu, um zu chatten.",
     "add_provider": "KI-Anbieter hinzufügen",
     "stop": "Stopp",

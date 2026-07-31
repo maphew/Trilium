@@ -2443,7 +2443,6 @@
     "tokens_used_with_model": "{{model}}：{{prompt}} 提示詞 + {{completion}} 補全 = {{total}} 個詞元",
     "tokens_used_with_model_and_cost": "{{model}}：{{prompt}} 提示詞 + {{completion}} 補全 = {{total}} 個詞元（約 ${{cost}}）",
     "tokens": "詞元",
-    "context_used": "已使用 {{percentage}}%",
     "note_context_enabled": "點擊以禁用筆記上下文：{{title}}",
     "note_context_disabled": "點擊將當前筆記納入上下文",
     "no_provider_message": "尚未設定任何 AI 服務提供者。請新增一個以開始聊天。",
