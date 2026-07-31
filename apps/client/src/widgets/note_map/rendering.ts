@@ -227,10 +227,17 @@ function setupFraming(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkObject>, c
 
     // Panning or zooming hands the view over to the user for good — re-fitting under their fingers
     // would make the map impossible to explore while it is still settling.
+    //
+    // Listened for while the event is still on its way down: d3-zoom, which force-graph binds to the
+    // canvas within this element, calls stopImmediatePropagation() on the wheel events it acts on, so
+    // a listener waiting for them to come back up is never told about a zoom at all. It would then
+    // re-fit over every notch of the wheel until the simulation came to rest — the map answering the
+    // wheel by snapping back for as long as a quarter of a minute.
+    const listenerOptions = { capture: true, passive: true };
     let framing = true;
     const releaseFraming = () => framing = false;
-    container.addEventListener("wheel", releaseFraming, { passive: true });
-    container.addEventListener("pointerdown", releaseFraming);
+    container.addEventListener("wheel", releaseFraming, listenerOptions);
+    container.addEventListener("pointerdown", releaseFraming, listenerOptions);
 
     let ticks = 0;
     graph.onEngineTick(() => {
@@ -246,8 +253,8 @@ function setupFraming(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkObject>, c
     });
 
     return () => {
-        container.removeEventListener("wheel", releaseFraming);
-        container.removeEventListener("pointerdown", releaseFraming);
+        container.removeEventListener("wheel", releaseFraming, listenerOptions);
+        container.removeEventListener("pointerdown", releaseFraming, listenerOptions);
     };
 }
 
