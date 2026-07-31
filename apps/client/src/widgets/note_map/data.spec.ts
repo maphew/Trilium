@@ -12,7 +12,9 @@ describe("dropUnlinkedNotes", () => {
         // Nothing linked at all: the root still stands on its own rather than leaving an empty map.
         expect(dropUnlinkedNotes(nodes, [], "root")).toEqual([ { id: "root" } ]);
 
-        // A root that isn't among the nodes (a search note removes itself) doesn't conjure one up.
-        expect(dropUnlinkedNotes(nodes, [], "missing")).toEqual([]);
+        // A root that isn't among the nodes (a search note is not part of its own results) would
+        // leave nothing to keep, so the map is left as it was rather than emptied.
+        expect(dropUnlinkedNotes(nodes, [], "missing")).toEqual(nodes);
+        expect(dropUnlinkedNotes(nodes, links, "missing")).toEqual([ { id: "source" }, { id: "target" } ]);
     });
 });

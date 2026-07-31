@@ -47,7 +47,10 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
 
     function paintNode(node: NoteMapNodeObject, color: string, ctx: CanvasRenderingContext2D) {
         const { x, y } = node;
-        if (!x || !y) {
+        // A coordinate of exactly 0 is a position like any other, and a common one: d3 lays the
+        // first node out at an angle of 0, so its y is 0 — and in a one-node map nothing ever moves
+        // it off that axis, which used to leave the map permanently blank.
+        if (x === undefined || y === undefined) {
             return;
         }
         const size = noteIdToSizeMap[node.id];
@@ -93,7 +96,7 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
             return;
         }
 
-        if (source.x && source.y && target.x && target.y) {
+        if (source.x !== undefined && source.y !== undefined && target.x !== undefined && target.y !== undefined) {
             const x = (source.x + target.x) / 2;
             const y = (source.y + target.y) / 2;
             ctx.save();
@@ -160,7 +163,7 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
 
             ctx.fillStyle = color;
             ctx.beginPath();
-            if (node.x && node.y) {
+            if (node.x !== undefined && node.y !== undefined) {
                 ctx.arc(node.x, node.y, noteIdToSizeMap[node.id], 0, 2 * Math.PI, false);
             }
             ctx.fill();

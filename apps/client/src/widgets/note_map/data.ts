@@ -78,11 +78,15 @@ export async function loadNotesAndRelations(mapRootNoteId: string, excludeRelati
 /**
  * Keeps only the notes some relation touches, plus the map root itself — a note with no relations at
  * all is still worth showing as itself, rather than as an empty map.
+ *
+ * Filtering never empties the map: a search note is not part of its own results, so a search whose
+ * results link to nothing would otherwise be left with no node to keep at all.
  */
 export function dropUnlinkedNotes<T extends { id: string }>(nodes: T[], links: GroupedLink[], mapRootNoteId: string) {
     const linkedNoteIds = new Set(links.flatMap((link) => [ link.sourceNoteId, link.targetNoteId ]));
+    const kept = nodes.filter((node) => node.id === mapRootNoteId || linkedNoteIds.has(node.id));
 
-    return nodes.filter((node) => node.id === mapRootNoteId || linkedNoteIds.has(node.id));
+    return kept.length > 0 ? kept : nodes;
 }
 
 function calculateNodeSizes(resp: NoteMapPostResponse, mapType: MapType) {
