@@ -109,6 +109,7 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     revisionSnapshotTimeInterval: number;
     revisionSnapshotTimeIntervalTimeScale: number;
     revisionSnapshotNumberLimit: number;
+    revisionIgnoreNamedSnapshots: boolean;
     protectedSessionTimeout: number;
     protectedSessionTimeoutTimeScale: number;
     zoomFactor: number;

@@ -77,16 +77,4 @@
         font-weight: 600;
     }
 
-    /* The same affordance the option lists carry: small, dimmed, and asking to be hovered. */
-    .contextual-help {
-        margin-inline-start: 0.25em;
-        color: var(--contextual-help-icon-color);
-        font-size: 0.75rem;
-        opacity: 0.75;
-        cursor: help;
-    }
-
-    .contextual-help:hover {
-        opacity: 1;
-    }
 }

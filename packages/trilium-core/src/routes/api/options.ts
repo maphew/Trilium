@@ -29,6 +29,7 @@ const ALLOWED_OPTIONS = new Set<OptionNames>([
     "revisionSnapshotTimeInterval",
     "revisionSnapshotTimeIntervalTimeScale",
     "revisionSnapshotNumberLimit",
+    "revisionIgnoreNamedSnapshots",
     "zoomFactor",
     "theme",
     "codeBlockTheme",

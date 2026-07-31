@@ -8,11 +8,13 @@ import toast from "../../../services/toast";
 import Button from "../../react/Button";
 import FormText from "../../react/FormText";
 import { FormTextBoxWithUnit } from "../../react/FormTextBox";
-import { useTriliumOption, useTriliumOptionBool, useTriliumOptionJson } from "../../react/hooks";
+import { useNoteContext, useTriliumOption, useTriliumOptionBool, useTriliumOptionJson } from "../../react/hooks";
 import OptionsPageHeader from "./components/OptionsPageHeader";
 import OptionsRow, { OptionsRowWithButton, OptionsRowWithToggle } from "./components/OptionsRow";
 import OptionsSection from "./components/OptionsSection";
+import RelatedSettings from "./components/RelatedSettings";
 import TimeSelector from "./components/TimeSelector";
+import { requestContentManagerSection } from "./content_manager";
 
 export default function OtherSettings() {
     return (
@@ -25,7 +27,35 @@ export default function OtherSettings() {
             <HtmlImportTags />
             <ShareSettings />
             <NetworkSettings />
+            <RelatedActions />
         </>
+    );
+}
+
+function RelatedActions() {
+    const { noteContext } = useNoteContext();
+
+    return (
+        <RelatedSettings
+            title={t("settings.related_actions")}
+            items={[
+                {
+                    title: t("settings_other.related_space_usage"),
+                    description: t("settings_other.related_space_usage_description"),
+                    targetPage: "_optionsContentManager",
+                    onClick: (e) => {
+                        // The Content Manager opens on Active Content unless asked otherwise, and
+                        // navigating here rather than by the href is what lets us ask first.
+                        e.preventDefault();
+                        e.stopPropagation();
+                        requestContentManagerSection("spaceUsage");
+                        // Kept in whichever context this page is shown in — the settings dialog
+                        // holds a note context of its own, outside the tab manager.
+                        void noteContext?.setNote("_optionsContentManager", { keepActiveDialog: true });
+                    }
+                }
+            ]}
+        />
     );
 }
 
@@ -108,6 +138,7 @@ function AttachmentErasureTimeout() {
 
 function RevisionSettings() {
     const [ revisionSnapshotNumberLimit, setRevisionSnapshotNumberLimit ] = useTriliumOption("revisionSnapshotNumberLimit");
+    const [ revisionIgnoreNamedSnapshots, setRevisionIgnoreNamedSnapshots ] = useTriliumOptionBool("revisionIgnoreNamedSnapshots");
 
     return (
         <OptionsSection title={t("revisions_snapshot.title")}>
@@ -132,6 +163,14 @@ function RevisionSettings() {
                     }}
                 />
             </OptionsRow>
+
+            <OptionsRowWithToggle
+                name="revision-keep-named-snapshots"
+                label={t("revisions_snapshot_limit.keep_named_revisions_label")}
+                description={t("revisions_snapshot_limit.keep_named_revisions_description")}
+                currentValue={revisionIgnoreNamedSnapshots}
+                onChange={setRevisionIgnoreNamedSnapshots}
+            />
 
             <OptionsRowWithButton
                 label={t("revisions_snapshot_limit.erase_excess_revision_snapshots")}

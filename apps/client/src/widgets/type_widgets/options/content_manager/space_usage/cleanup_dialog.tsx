@@ -13,6 +13,7 @@ import { ExtendedAdmonition } from "../../../../react/Admonition";
 import Button from "../../../../react/Button";
 import { Card, CardSection } from "../../../../react/Card";
 import DonutChart, { type DonutRing } from "../../../../react/charts/DonutChart";
+import ContextualHelp from "../../../../react/ContextualHelp";
 import FormTextBox from "../../../../react/FormTextBox";
 import FormToggle from "../../../../react/FormToggle";
 import { useTriliumOptionJson } from "../../../../react/hooks";
@@ -25,7 +26,8 @@ import {
     hasWorkToDo,
     measureCompactionEstimate,
     readCleanupOptions,
-    runCleanup
+    runCleanup,
+    storedCleanupOptions
 } from "./cleanup_operation";
 import { useSpaceUsageFetch } from "./use_space_usage_fetch";
 
@@ -69,7 +71,7 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
     const update = (patch: Partial<CleanupToolOptions>) => {
         const next = { ...options, ...patch };
         setOptions(next);
-        void setStored(next);
+        void setStored(storedCleanupOptions(next));
     };
 
     // Measured with the history erased outright: the whole the reading is "of", and fixed for as
@@ -214,7 +216,12 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
                         subSectionsVisible={item.id === "revisionSnapshots" && options.revisionSnapshots}
                         subSections={item.id === "revisionSnapshots" ? [
                             <CardSection key="snapshots-to-keep" className="cleanup-item cleanup-item-nested">
-                                <span className="cleanup-item-title">{t("space_usage.cleanup_snapshots_to_keep")}</span>
+                                {/* Inside the title rather than beside it: the title takes the row's
+                                    slack, so an icon of its own would be carried off to the control. */}
+                                <span className="cleanup-item-title">
+                                    {t("space_usage.cleanup_snapshots_to_keep")}
+                                    <ContextualHelp helpMessage={t("space_usage.cleanup_snapshots_to_keep_help")} />
+                                </span>
                                 <FormTextBox
                                     className="cleanup-item-number"
                                     type="number"
@@ -224,7 +231,10 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
                                 />
                             </CardSection>,
                             <CardSection key="keep-named" className="cleanup-item cleanup-item-nested">
-                                <span className="cleanup-item-title">{t("space_usage.cleanup_keep_named")}</span>
+                                <span className="cleanup-item-title">
+                                    {t("space_usage.cleanup_keep_named")}
+                                    <ContextualHelp helpMessage={t("space_usage.cleanup_keep_named_help")} />
+                                </span>
                                 <FormToggle
                                     currentValue={options.keepNamedSnapshots}
                                     onChange={(value) => update({ keepNamedSnapshots: value })}

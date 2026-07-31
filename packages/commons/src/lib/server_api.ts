@@ -75,7 +75,8 @@ export interface EraseExcessRevisionsOptions {
     snapshotsToKeep?: number;
     /**
      * Spares named snapshots — those the user gave a description — from erasure, and leaves them
-     * out of the count as well, so the limit governs the automatic snapshots alone.
+     * out of the count as well, so the limit governs the automatic snapshots alone. Omitted, it
+     * falls back to the `revisionIgnoreNamedSnapshots` option.
      */
     keepNamedSnapshots?: boolean;
 }

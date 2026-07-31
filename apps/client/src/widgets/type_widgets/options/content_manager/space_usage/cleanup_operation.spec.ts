@@ -3,6 +3,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
     getInt: vi.fn<(name: string) => number | null>(() => -1),
+    /** Reads the `revisionIgnoreNamedSnapshots` option, which the named-revisions field follows. */
+    is: vi.fn<(name: string) => boolean>(() => true),
     post: vi.fn(async (url: string, _body?: object) => (
         url === "database/vacuum-database" ? { sizeBefore: 9000, sizeAfter: 2000 } : undefined
     )),
@@ -11,7 +13,7 @@ const mocks = vi.hoisted(() => ({
     get: vi.fn()
 }));
 
-vi.mock("../../../../../services/options", () => ({ default: { getInt: mocks.getInt } }));
+vi.mock("../../../../../services/options", () => ({ default: { getInt: mocks.getInt, is: mocks.is } }));
 // The run reaches for the long-timeout variants throughout: every request it makes is a
 // whole-database operation. The timeout itself is dropped here, leaving (url, data) as the calls
 // under test.
@@ -34,7 +36,8 @@ import {
     type CleanupToolOptions,
     computeCleanupSizes,
     readCleanupOptions,
-    runCleanup
+    runCleanup,
+    storedCleanupOptions
 } from "./cleanup_operation";
 
 /** Only the fields the sizes are read from; the rest of the response is beside the point here. */
@@ -57,6 +60,7 @@ const ALL_PICKED: CleanupToolOptions = {
 
 beforeEach(() => {
     mocks.getInt.mockReturnValue(-1);
+    mocks.is.mockReturnValue(true);
     mocks.occupied = [ 5000, 3000 ];
     mocks.post.mockClear();
     mocks.get.mockClear();
@@ -64,6 +68,8 @@ beforeEach(() => {
 
 describe("readCleanupOptions", () => {
     it("picks nothing at all when the setting has never been written", () => {
+        mocks.is.mockReturnValue(false);
+
         // The only safe reading of an absent answer, for an operation that deletes without recourse.
         for (const stored of [ undefined, null, {} ]) {
             expect(readCleanupOptions(stored)).toEqual({
@@ -75,6 +81,22 @@ describe("readCleanupOptions", () => {
                 compactDatabase: false
             });
         }
+    });
+
+    it("follows the note revision setting on named revisions until it is answered here", () => {
+        expect(readCleanupOptions({}).keepNamedSnapshots).toBe(true);
+
+        // Once answered, the stored answer stands — including the one that matches no setting.
+        expect(readCleanupOptions({ keepNamedSnapshots: false }).keepNamedSnapshots).toBe(false);
+
+        mocks.is.mockReturnValue(false);
+        expect(readCleanupOptions({}).keepNamedSnapshots).toBe(false);
+        expect(readCleanupOptions({ keepNamedSnapshots: true }).keepNamedSnapshots).toBe(true);
+    });
+
+    it("never opens on compacting, however the last run left it", () => {
+        // The most expensive step by far, and not one to run because a tick was left behind.
+        expect(readCleanupOptions({ compactDatabase: true }).compactDatabase).toBe(false);
     });
 
     it("opens on the configured revision limit, where that limit trims anything", () => {
@@ -101,6 +123,18 @@ describe("readCleanupOptions", () => {
 
         // A retention that could not have been written by the dialog falls back rather than through.
         expect(readCleanupOptions({ snapshotsToKeep: -5 }).snapshotsToKeep).toBe(4);
+    });
+});
+
+describe("storedCleanupOptions", () => {
+    it("remembers every answer but the compacting step", () => {
+        expect(storedCleanupOptions({ ...ALL_PICKED, compactDatabase: true })).toEqual({
+            deletedEntities: true,
+            unusedAttachments: true,
+            revisionSnapshots: true,
+            snapshotsToKeep: 3,
+            keepNamedSnapshots: true
+        });
     });
 });
 
