@@ -8,6 +8,9 @@ import FNote from "../../entities/fnote";
 /** Roughly a second of simulation at 60 fps — see {@link setupFraming}. */
 const TICKS_UNTIL_DAMPED = 60;
 
+/** What a map of a single note is shown at, there being no extent to fit — see {@link setupFraming}. */
+const LONE_NOTE_ZOOM = 4;
+
 export interface CssData {
     fontFamily: string;
     textColor: string;
@@ -224,6 +227,11 @@ function setupFraming(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkObject>, c
         ? (node: NoteMapNodeObject) => framedNoteIds.has(node.id)
         : undefined;
     const padding = getFitPadding(widgetMode, framedNoteIds.size);
+    // What the fit is measured on: the framed notes, or the whole graph where those are no more than
+    // the one note. A note whose map is only itself has no extent to fit at all — the fit then asks
+    // for a zoom of hundreds and gets the highest allowed, which fills the card with a single circle
+    // and the beginning of a title. It is shown at a size it can be read at instead.
+    const fittedNoteCount = nodeFilter ? framedNoteIds.size : notesAndRelations.nodes.length;
 
     // Panning or zooming hands the view over to the user for good — re-fitting under their fingers
     // would make the map impossible to explore while it is still settling.
@@ -242,7 +250,12 @@ function setupFraming(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkObject>, c
     let ticks = 0;
     graph.onEngineTick(() => {
         if (framing) {
+            // Fitting is what centres the view on the note, whether or not its zoom is kept.
             graph.zoomToFit(0, padding, nodeFilter);
+
+            if (fittedNoteCount <= 1) {
+                graph.zoom(LONE_NOTE_ZOOM, 0);
+            }
         }
 
         // Damping, once the graph has had the room to spread out, so that a small map comes to rest
