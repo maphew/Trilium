@@ -35,7 +35,7 @@ export default function HelpDropdown({ children, helpPage, openInPopup, classNam
         <Dropdown
             onShown={onShown}
             className={`help-dropdown ${className ?? ""}`}
-            buttonClassName="bx bx-question-mark"
+            buttonClassName="bx bx-help-circle"
             dropdownContainerClassName="help-dropdown-content"
             title={t("show-help")}
             iconAction

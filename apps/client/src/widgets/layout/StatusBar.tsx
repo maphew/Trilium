@@ -597,7 +597,7 @@ function BottomPanel({ children, title, visible, setVisible, className, helpPage
             <span className="bottom-panel-title-bar-caption">{title}</span>
             {helpContent
                 ? <HelpDropdown helpPage={helpPage}>{helpContent}</HelpDropdown>
-                : helpPage && <button class="icon-action bx bx-question-mark" onClick={() => openInAppHelpFromUrl(helpPage)} title={t("open-help-page")} />}
+                : helpPage && <button class="icon-action bx bx-help-circle" onClick={() => openInAppHelpFromUrl(helpPage)} title={t("open-help-page")} />}
             <button class="icon-action bx bx-x" onClick={() => setVisible?.(false)} />
         </div>
         <div class={clsx("bottom-panel-content")}>
