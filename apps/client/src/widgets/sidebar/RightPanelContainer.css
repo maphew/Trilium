@@ -165,6 +165,28 @@ body.experimental-feature-new-layout #right-pane {
             transform: rotate(-90deg);
         }
 
+        /* Where a press from outside the pane (the status bar's connection badges) landed: the card
+           is named by a flash that fades out, since the sections of a tab look much alike and the
+           scroll that brings one into view can be a few pixels or none at all. A layer over the card
+           rather than its own background, which is left to whatever the theme makes it — the card is
+           `overflow: hidden` (above), so the layer keeps to it. */
+        &.highlighted {
+            position: relative;
+
+            &::after {
+                content: "";
+                position: absolute;
+                inset: 0;
+                z-index: 1;
+                pointer-events: none;
+                background: var(--active-item-background-color);
+                /* Where the animation leaves it, and where it stands should there be none at all
+                   (the layer is otherwise a cover rather than a flash). */
+                opacity: 0;
+                animation: right-pane-widget-highlight 1s ease-out;
+            }
+        }
+
         /* The only widget of a tab has no chevron (see RightPanelWidget.tsx): its header is not
            something to press, and its title takes over where the chevron would have started. */
         &.not-collapsible .card-header {
@@ -281,6 +303,12 @@ body.experimental-feature-new-layout #right-pane {
     .gutter-vertical + .card .card-header {
         padding-top: 0;
     }
+}
+
+/* A wash rather than a cover: what is in the card stays readable throughout the flash. */
+@keyframes right-pane-widget-highlight {
+    from { opacity: 0.4; }
+    to { opacity: 0; }
 }
 
 /* Backdrop effects are disabled, so peek mode needs a solid background. */

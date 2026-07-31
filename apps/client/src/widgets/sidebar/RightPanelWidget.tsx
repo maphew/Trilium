@@ -55,6 +55,7 @@ export default function RightPanelWidget({ id, title, buttons, children, contain
     const [ rightPaneCollapsedItems, setRightPaneCollapsedItems ] = useTriliumOptionJson<string[]>("rightPaneCollapsedItems");
     const [ collapsedByUser, setCollapsedByUser ] = useState(rightPaneCollapsedItems.includes(id));
     const [ scrollPending, setScrollPending ] = useState(false);
+    const [ highlighted, setHighlighted ] = useState(false);
     const containerRef = useSyncedRef<HTMLDivElement>(externalContainerRef, null);
     const parentComponent = useContext(ParentComponent);
     const collapsible = useContext(CollapsibleWidgets);
@@ -77,11 +78,13 @@ export default function RightPanelWidget({ id, title, buttons, children, contain
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ expandRequest, id ]);
 
-    // Scrolled to only once the body it opened is laid out, hence the pass of its own — which is also
-    // all such a press amounts to for a widget that was open all along but out of sight below the rest.
+    // Scrolled to and flashed once the body it opened is laid out, hence the pass of its own. The flash
+    // is what says which section answered: a tab holds several, one much like the next, and a press
+    // that lands on a widget already open and in view would otherwise pass unnoticed.
     useEffect(() => {
         if (!scrollPending || !expanded) return;
         containerRef.current?.scrollIntoView({ block: "nearest" });
+        setHighlighted(true);
         setScrollPending(false);
     }, [ scrollPending, expanded, containerRef ]);
 
@@ -96,8 +99,14 @@ export default function RightPanelWidget({ id, title, buttons, children, contain
             class={clsx("card widget", {
                 collapsed: !expanded,
                 "not-collapsible": !collapsible,
-                grow
+                grow,
+                highlighted
             })}
+            // The flash lasts as long as its animation (see RightPanelContainer.css) rather than a
+            // duration kept in step here; a bubbled one from something within the widget is not it.
+            onAnimationEnd={(e) => {
+                if (e.target === containerRef.current) setHighlighted(false);
+            }}
         >
             <div
                 class="card-header"

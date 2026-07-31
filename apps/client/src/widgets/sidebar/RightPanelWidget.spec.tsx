@@ -78,15 +78,28 @@ describe("RightPanelWidget", () => {
         await renderWith({ id: "shared", counter: 2 });
         expect(card("shared")?.className).not.toContain("collapsed");
 
-        // A widget the request opens is scrolled to once the body it opened is laid out; one that was
-        // open all along is scrolled to on the spot, which is all such a press amounts to.
+        // A widget the request opens is scrolled to and flashed once the body it opened is laid out;
+        // one that was open all along gets both on the spot, which is all such a press amounts to.
         const scrollIntoView = vi.fn();
         const solitary = card("solitary");
         if (solitary) solitary.scrollIntoView = scrollIntoView;
         await renderWith({ id: "solitary", counter: 3 });
         expect(card("solitary")?.className).not.toContain("collapsed");
         expect(scrollIntoView).toHaveBeenCalledTimes(1);
+        expect(card("solitary")?.className).toContain("highlighted");
+
+        // The flash lasts as long as its animation, and the card's own — not one from within it.
+        await act(async () => { card("solitary")?.querySelector(".card-body")?.dispatchEvent(animationEnd()); });
+        expect(card("solitary")?.className).toContain("highlighted");
+        await act(async () => { card("solitary")?.dispatchEvent(animationEnd()); });
+        expect(card("solitary")?.className).not.toContain("highlighted");
+
         await renderWith({ id: "solitary", counter: 4 });
         expect(scrollIntoView).toHaveBeenCalledTimes(2);
+        expect(card("solitary")?.className).toContain("highlighted");
     });
 });
+
+function animationEnd() {
+    return new Event("animationend", { bubbles: true });
+}
