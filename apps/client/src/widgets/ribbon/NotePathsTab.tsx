@@ -18,9 +18,14 @@ export default function NotePathsTab({ note, hoistedNoteId, notePath }: TabConte
     return <NotePathsWidget sortedNotePaths={sortedNotePaths} currentNotePath={notePath} />;
 }
 
-export function NotePathsWidget({ sortedNotePaths, currentNotePath }: {
+export function NotePathsWidget({ sortedNotePaths, currentNotePath, cloneButton = true }: {
     sortedNotePaths: NotePathRecord[] | undefined;
     currentNotePath?: string | null | undefined;
+    /**
+     * Offer cloning the note below the list. Turned off by whoever offers it elsewhere — the sidebar's
+     * card puts the action in its header, where the widget's own buttons go.
+     */
+    cloneButton?: boolean;
 }) {
     const parentComponent = useContext(ParentComponent);
     // What holds the list in the new layout — the sidebar's card, the mobile note menu's modal — is
@@ -46,10 +51,12 @@ export function NotePathsWidget({ sortedNotePaths, currentNotePath }: {
                     )) : undefined}
                 </ul>
 
-                <LinkButton
-                    text={t("note_paths.clone_button")}
-                    onClick={() => parentComponent?.triggerCommand("cloneNoteIdsTo")}
-                />
+                {cloneButton && (
+                    <LinkButton
+                        text={t("note_paths.clone_button")}
+                        onClick={() => void parentComponent?.triggerCommand("cloneNoteIdsTo")}
+                    />
+                )}
             </>
         </div>
     );
