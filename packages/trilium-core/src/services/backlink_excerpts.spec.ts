@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { buildNote } from "../test/becca_easy_mocking";
-import { findLlmChatExcerpts } from "./llm_chat_excerpts";
+import { findLlmChatExcerpts } from "./backlink_excerpts";
 
 function chatContent(messages: unknown[]) {
     return JSON.stringify({ messages });
@@ -22,39 +22,63 @@ describe("findLlmChatExcerpts", () => {
             }
         ]), "excTarget");
 
-        expect(excerpts).toEqual([
-            `<div class="ck-content backlink-excerpt"><p>I found 1 &lt; 2 results in ` +
-            `<a class="reference-link backlink-link" href="#root/excTarget">Chat target</a> next to ` +
-            `<a class="reference-link" href="#root/excOther">Other &lt;note&gt;</a>.</p></div>`
-        ]);
+        expect(excerpts).toHaveLength(1);
+        expect(excerpts[0]).toMatch(/^<div class="ck-content backlink-excerpt">/);
+        expect(excerpts[0]).toContain("I found 1 &lt; 2 results in");
+        expect(excerpts[0]).toContain(`<a class="reference-link backlink-link" href="#root/excTarget">Chat target</a>`);
+        expect(excerpts[0]).toContain(`<a class="reference-link" href="#root/excOther">Other &lt;note&gt;</a>`);
     });
 
-    it("titles a link to an unknown note with the raw ID", () => {
+    it("renders the markdown instead of quoting it verbatim", () => {
+        buildNote({ id: "excMd", title: "Md target" });
+
         const excerpts = findLlmChatExcerpts(chatContent([
-            { role: "assistant", content: [ { type: "text", content: "See [[excMissing]]." } ] }
+            {
+                role: "assistant",
+                content: [
+                    { type: "text", content: "It is **very** relevant to [[excMd]]:\n\n- one\n- two" }
+                ]
+            }
+        ]), "excMd");
+
+        expect(excerpts[0]).toContain("<strong>very</strong>");
+        expect(excerpts[0]).toContain("<li>one</li>");
+        expect(excerpts[0]).not.toContain("**");
+    });
+
+    it("keeps a regular markdown link's own text and titles a link to an unknown note with the raw ID", () => {
+        const excerpts = findLlmChatExcerpts(chatContent([
+            {
+                role: "assistant",
+                content: [
+                    { type: "text", content: "See [my name](#root/excMissing) and [[excMissing]]." }
+                ]
+            }
         ]), "excMissing");
 
-        expect(excerpts[0]).toContain(`>excMissing</a>`);
+        expect(excerpts).toHaveLength(2);
+        expect(excerpts[0]).toContain(">my name</a>");
+        expect(excerpts[1]).toContain(">excMissing</a>");
     });
 
-    it("truncates long text runs with ellipses, one excerpt per mention", () => {
+    it("truncates long neighboring paragraphs with ellipses, one excerpt per mention", () => {
         buildNote({ id: "excLong", title: "Long target" });
 
         const excerpts = findLlmChatExcerpts(chatContent([
             {
                 role: "assistant",
                 content: [
-                    { type: "text", content: `${"a".repeat(260)} [[excLong]] ${"b".repeat(260)}` },
+                    { type: "text", content: `${"a".repeat(260)}\n\nHere: [[excLong]]\n\n${"b".repeat(260)}` },
                     { type: "text", content: "Also see [[excLong]]." }
                 ]
             }
         ]), "excLong");
 
         expect(excerpts).toHaveLength(2);
-        // Like findExcerpts for text notes, expansion stops at the first truncated run, so the
-        // whole budget goes to the text preceding the link and none is left for the text after.
-        expect(excerpts[0]).toMatch(/…a+ <a class="reference-link backlink-link"/);
-        expect(excerpts[0]).not.toMatch(/b{3}/);
+        // Like text-note excerpts, expansion stops at the first truncated paragraph, so the
+        // budget goes to the text preceding the link.
+        expect(excerpts[0]).toMatch(/…a+/);
+        expect(excerpts[0]).toContain(`<a class="reference-link backlink-link" href="#root/excLong">Long target</a>`);
         expect(excerpts[1]).toContain("Also see <a");
     });
 

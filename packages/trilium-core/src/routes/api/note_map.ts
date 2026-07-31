@@ -3,9 +3,8 @@ import BNote from "../../becca/entities/bnote";
 import becca from "../../becca/becca";
 import type { BacklinkCountResponse, BacklinksResponse } from "@triliumnext/commons";
 import type { Request } from "express";
-import { HTMLElement, parse, TextNode } from "node-html-parser";
 
-import { EXCERPT_CHAR_LIMIT, findLlmChatExcerpts } from "../../services/llm_chat_excerpts";
+import { findExcerpts, findLlmChatExcerpts } from "../../services/backlink_excerpts";
 
 interface TreeLink {
     sourceNoteId: string;
@@ -244,104 +243,6 @@ function updateDescendantCountMapForSearch(noteIdToDescendantCountMap: Record<st
     }
 }
 
-function removeImages(document: HTMLElement) {
-    const images = document.getElementsByTagName("img");
-    for (const image of images) {
-        image.remove();
-    }
-}
-
-type ElementOrText = HTMLElement | TextNode;
-
-export function findExcerpts(sourceNote: BNote, referencedNoteId: string) {
-    const html = sourceNote.getContent();
-    const document = parse(html.toString());
-
-    const excerpts: string[] = [];
-
-    removeImages(document);
-
-    for (const linkEl of document.querySelectorAll("a")) {
-        const href = linkEl.getAttribute("href");
-
-        if (!href || !href.endsWith(referencedNoteId)) {
-            continue;
-        }
-
-        linkEl.classList.add("backlink-link");
-
-        let centerEl: HTMLElement = linkEl;
-
-        while (centerEl.tagName !== "BODY" && centerEl.parentNode && (centerEl.parentNode?.textContent?.length || 0) <= EXCERPT_CHAR_LIMIT) {
-            centerEl = centerEl.parentNode;
-        }
-
-        const excerptEls: ElementOrText[] = [centerEl];
-        let excerptLength = centerEl.textContent?.length || 0;
-        let left: ElementOrText = centerEl;
-        let right: ElementOrText = centerEl;
-
-        while (excerptLength < EXCERPT_CHAR_LIMIT) {
-            let added = false;
-
-            const prev: HTMLElement | null = left.previousElementSibling;
-
-            if (prev) {
-                const prevText = prev.textContent || "";
-
-                if (prevText.length + excerptLength > EXCERPT_CHAR_LIMIT) {
-                    const prefix = prevText.substr(prevText.length - (EXCERPT_CHAR_LIMIT - excerptLength));
-
-                    const textNode = new TextNode(`…${prefix}`);
-                    excerptEls.unshift(textNode);
-
-                    break;
-                }
-
-                left = prev;
-                excerptEls.unshift(left);
-                excerptLength += prevText.length;
-                added = true;
-            }
-
-            const next: HTMLElement | null = right.nextElementSibling;
-
-            if (next) {
-                const nextText = next.textContent;
-
-                if (nextText && nextText.length + excerptLength > EXCERPT_CHAR_LIMIT) {
-                    const suffix = nextText.substr(nextText.length - (EXCERPT_CHAR_LIMIT - excerptLength));
-
-                    const textNode = new TextNode(`${suffix}…`);
-                    excerptEls.push(textNode);
-
-                    break;
-                }
-
-                right = next;
-                excerptEls.push(right);
-                excerptLength += nextText?.length || 0;
-                added = true;
-            }
-
-            if (!added) {
-                break;
-            }
-        }
-
-        const excerptWrapper = new HTMLElement("div", {});
-        excerptWrapper.classList.add("ck-content");
-        excerptWrapper.classList.add("backlink-excerpt");
-
-        for (const childEl of excerptEls) {
-            excerptWrapper.appendChild(childEl);
-        }
-
-        excerpts.push(excerptWrapper.outerHTML);
-    }
-    return excerpts;
-}
-
 function getFilteredBacklinks(note: BNote): BAttribute[] {
     return (
         note
@@ -372,7 +273,7 @@ function getBacklinks(req: Request<{ noteId: string }>): BacklinksResponse {
 
         const excerpts = sourceNote.type === "llmChat"
             ? findLlmChatExcerpts(sourceNote.getContent().toString(), noteId)
-            : findExcerpts(sourceNote, noteId);
+            : findExcerpts(sourceNote.getContent().toString(), noteId);
 
         // A chat that references the note only through tool calls has no quotable prose;
         // name the relation instead, as for other excerpt-less sources.
