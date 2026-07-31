@@ -242,6 +242,35 @@ describe("Note map service (branch coverage)", () => {
         expect(exNames).not.toContain("friend");
     });
 
+    it("keeps archived notes only for a map rooted at an archived note", () => {
+        const archivedRoot = buildNote({
+            id: "arcRoot",
+            title: "Archived root",
+            "#archived": "true",
+            children: [
+                { id: "arcChild", title: "Archived child", "#archived": "true", "~friend": "arcRoot" }
+            ]
+        });
+
+        // Without this, the walk skips the root as archived and the map comes out empty: the root is
+        // missing from its own map, and the relation goes with it since a link needs both of its ends.
+        const linkMap = note_map.getLinkMap(req(archivedRoot.noteId)) as LinkMapResponse;
+        expect(linkMap.notes.map((n) => n[0])).toEqual(expect.arrayContaining([ "arcRoot", "arcChild" ]));
+        expect(linkMap.links.map((l) => l.name)).toContain("friend");
+
+        const treeMap = note_map.getTreeMap(req(archivedRoot.noteId)) as TreeMapResponse;
+        expect(treeMap.notes.map((n) => n[0])).toEqual(expect.arrayContaining([ "arcRoot", "arcChild" ]));
+
+        // A map rooted at a note that isn't archived keeps hiding the archived notes under it.
+        const liveRoot = buildNote({
+            id: "arcLiveRoot",
+            title: "Live root",
+            children: [ { id: "arcHidden", title: "Archived child", "#archived": "true" } ]
+        });
+        const liveMap = note_map.getLinkMap(req(liveRoot.noteId)) as LinkMapResponse;
+        expect(liveMap.notes.map((n) => n[0])).not.toContain("arcHidden");
+    });
+
     it("getLinkMap: imageLink retained only when target is not a child of the source", () => {
         // source -> imageLink -> external image note (not a child) => retained as a link
         const mapRoot = buildNote({

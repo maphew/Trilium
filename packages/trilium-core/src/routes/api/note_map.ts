@@ -104,6 +104,11 @@ function getLinkMap(req: Request<{ noteId: string }>) {
     // if the map root itself has "excludeFromNoteMap" attribute (journal typically) then there wouldn't be anything
     // to display, so we'll just ignore it
     const ignoreExcludeFromNoteMap = mapRootNote.isLabelTruthy("excludeFromNoteMap");
+    // a subtree walk skips an archived note along with everything below it — the map root included,
+    // which left an archived note out of its own map, and its relations dropped with it (a link needs
+    // both of its ends in the map). Someone reading an archived note is already looking at the
+    // archive, so there we keep the archived notes instead of hiding them.
+    const includeArchived = mapRootNote.isArchived;
     let unfilteredNotes;
 
     const toSet = (data: unknown) => new Set<string>(data instanceof Array ? data : []);
@@ -116,7 +121,7 @@ function getLinkMap(req: Request<{ noteId: string }>) {
         unfilteredNotes = mapRootNote.getSearchResultNotes();
     } else {
         unfilteredNotes = mapRootNote.getSubtree({
-            includeArchived: false,
+            includeArchived,
             resolveSearch: true,
             includeHidden: mapRootNote.isInHiddenSubtree()
         }).notes;
@@ -181,8 +186,9 @@ function getTreeMap(req: Request<{ noteId: string }>) {
     // if the map root itself has "excludeFromNoteMap" (journal typically) then there wouldn't be anything to display,
     // so we'll just ignore it
     const ignoreExcludeFromNoteMap = mapRootNote.isLabelTruthy("excludeFromNoteMap");
+    // the map of an archived note keeps the archived notes — see getLinkMap
     const subtree = mapRootNote.getSubtree({
-        includeArchived: false,
+        includeArchived: mapRootNote.isArchived,
         resolveSearch: true,
         includeHidden: mapRootNote.isInHiddenSubtree()
     });
