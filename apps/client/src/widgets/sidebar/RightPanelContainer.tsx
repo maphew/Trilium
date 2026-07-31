@@ -205,6 +205,13 @@ function useItems(rightPaneVisible: boolean, widgetsByParent: WidgetsByParent): 
             tab: "connections"
         },
         {
+            // Loaded lazily because the map pulls in force-graph, which is deliberately
+            // kept out of the boot bundle.
+            el: <LazyComponent loader={() => import("./NoteMap.jsx")} />,
+            enabled: !!note,
+            tab: "connections"
+        },
+        {
             el: <TableOfContents />,
             enabled: (noteType === "text" || noteType === "doc" || isPdf || noteType === "llmChat" || !!note?.isMarkdown()),
             tab: "outline"

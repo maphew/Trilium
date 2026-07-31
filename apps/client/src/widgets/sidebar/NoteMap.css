@@ -1,0 +1,10 @@
+.sidebar-note-map {
+    /* Anchors the map's floating buttons (map type, fix nodes), same as the ribbon wrapper. */
+    position: relative;
+    height: 300px;
+    overflow: hidden;
+
+    .note-map-container {
+        height: 100%;
+    }
+}
