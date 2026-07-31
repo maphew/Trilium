@@ -85,6 +85,8 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     allowedHtmlTags: string;
     /** JSON: what the Content Manager's cleanup tool was last set to erase — see `CleanupToolOptions`. */
     cleanupToolOptions: string;
+    /** JSON: how the image compression tool was last set to compress — see `ImageCompressionToolOptions`. */
+    imageCompressionToolOptions: string;
     documentId: string;
     documentSecret: string;
     passwordVerificationHash: string;

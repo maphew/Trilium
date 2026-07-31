@@ -1,0 +1,8 @@
+.modal.image-compression-dialog {
+    /* Sized by its content rather than to the floor the component sets: no row title wraps, so a
+       long one has to widen the dialog. Capped at the viewport, past which there is nowhere to grow. */
+    .modal-dialog {
+        width: fit-content;
+        max-width: 100%;
+    }
+}

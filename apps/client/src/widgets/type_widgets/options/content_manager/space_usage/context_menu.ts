@@ -12,6 +12,7 @@ import { downloadFileNote } from "../../../../../services/open";
 import options from "../../../../../services/options";
 import server from "../../../../../services/server";
 import toast from "../../../../../services/toast";
+import { showImageCompressionDialog } from "./image_compression_dialog";
 
 const ROOT_NOTE_ID = "root";
 
@@ -81,6 +82,12 @@ export async function openSpaceUsageContextMenu(
             title: t("space_usage.menu_show_details"),
             uiIcon: "bx bx-detail",
             handler: () => onShowDetails(notePath)
+        },
+        {
+            title: t("space_usage.menu_compress_images"),
+            uiIcon: "bx bx-image",
+            // The dialog only collects the settings for now; nothing runs, and nothing re-measures.
+            handler: () => void showImageCompressionDialog()
         },
 
         { kind: "separator" },

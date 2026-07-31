@@ -124,6 +124,7 @@ const ALLOWED_OPTIONS = new Set<OptionNames>([
     "backgroundEffects",
     "allowedHtmlTags",
     "cleanupToolOptions",
+    "imageCompressionToolOptions",
     "searchEnableFuzzyMatching",
     "searchAutocompleteFuzzy",
     "redirectBareDomain",

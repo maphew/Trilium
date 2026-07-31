@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
     deleteNotes: vi.fn(async (..._args: unknown[]) => true),
     downloadFileNote: vi.fn(),
     showDetails: vi.fn(),
+    showCompressionDialog: vi.fn(async () => null),
     contentChanged: vi.fn(),
     post: vi.fn(async (..._args: unknown[]) => undefined),
     showMessage: vi.fn(),
@@ -54,6 +55,12 @@ vi.mock("../../../../../services/server", () => ({
     default: { post: (...args: unknown[]) => mocks.post(...args) }
 }));
 
+// Stubbed rather than rendered: what belongs here is that the menu opens it, and the dialog's own
+// spec covers what it then does.
+vi.mock("./image_compression_dialog", () => ({
+    showImageCompressionDialog: () => mocks.showCompressionDialog()
+}));
+
 vi.mock("../../../../../services/toast", () => ({
     default: { showMessage: (...args: unknown[]) => mocks.showMessage(...args) }
 }));
@@ -87,6 +94,7 @@ import {
 const QUICK_EDIT = "bx bx-edit";
 const NEW_TAB = "bx bx-link-external";
 const SHOW_DETAILS = "bx bx-detail";
+const COMPRESS_IMAGES = "bx bx-image";
 const DOWNLOAD = "bx bx-download";
 const EXPORT = "bx bx-export";
 const DELETE = "bx bx-trash destructive-action-icon";
@@ -147,7 +155,7 @@ describe("openSpaceUsageContextMenu", () => {
         expect(event.preventDefault).toHaveBeenCalled();
         expect(event.stopPropagation).toHaveBeenCalled();
         // No Download: a text note has no file to save.
-        expect(icons()).toEqual([ QUICK_EDIT, NEW_TAB, SHOW_DETAILS, EXPORT, DELETE ]);
+        expect(icons()).toEqual([ QUICK_EDIT, NEW_TAB, SHOW_DETAILS, COMPRESS_IMAGES, EXPORT, DELETE ]);
 
         invoke(QUICK_EDIT);
         expect(mocks.triggerCommand)
@@ -159,6 +167,11 @@ describe("openSpaceUsageContextMenu", () => {
 
         invoke(SHOW_DETAILS);
         expect(mocks.showDetails).toHaveBeenCalledWith([ "root", "p", "n1" ]);
+
+        // Only opens the dialog: nothing is compressed and nothing re-measured until the run itself
+        // is wired up, so there is no reading to invalidate either.
+        invoke(COMPRESS_IMAGES);
+        expect(mocks.showCompressionDialog).toHaveBeenCalled();
 
         invoke(EXPORT);
         expect(mocks.triggerCommand).toHaveBeenLastCalledWith("showExportDialog", {
@@ -210,7 +223,7 @@ describe("openSpaceUsageContextMenu", () => {
         await openFor([ "root" ]);
 
         // Not merely struck through: the root can never be deleted, so it is not offered.
-        expect(icons()).toEqual([ QUICK_EDIT, NEW_TAB, SHOW_DETAILS, EXPORT ]);
+        expect(icons()).toEqual([ QUICK_EDIT, NEW_TAB, SHOW_DETAILS, COMPRESS_IMAGES, EXPORT ]);
         expect(itemByIcon(EXPORT)?.enabled).toBe(false);
         // Opening it is still fine.
         expect(itemByIcon(QUICK_EDIT)?.enabled).toBeUndefined();

@@ -2891,6 +2891,7 @@
     "status_deleted": "{{size}} in deleted notes and attachments",
     "status_deleted_hint": "Space still held by deleted notes and by deleted attachments (whose note may still exist); erasing them reclaims it",
     "menu_show_details": "Show details",
+    "menu_compress_images": "Compress images",
     "menu_erase_deleted": "Erase deleted data",
     "erase_deleted_message": "Deleted data has been erased.",
     "revisions_limit_required": "Excess snapshots can only be erased once a maximum number of revision snapshots per note is set. Without a limit, no snapshot counts as excess. Do you want to set the limit now?",
@@ -2914,7 +2915,15 @@
     "cleanup_confirm_interrupted": "If something interrupts it, such as a crash, a restart or a power cut, nothing beyond the selected items is lost.",
     "cleanup_confirm_compacting_title": "Compacting database is a slow operation",
     "cleanup_confirm_compacting": "Compacting the database can take several minutes, depending on its size and on the performance of the machine running Trilium. Also, up to {{space}} of free disk space on the machine is temporarily needed (in the data directory and the system's temporary directory).",
-    "cleanup_compact_notice": "This operation may take several minutes and Trilium will not respond until it completes."
+    "cleanup_compact_notice": "This operation may take several minutes and Trilium will not respond until it completes.",
+    "compress_title": "Compress images",
+    "compress_quality_value": "{{quality}}%",
+    "compress_convert_lossless": "Convert lossless images to lossy",
+    "compress_convert_lossless_help": "Re-encodes lossless images, such as PNG, as JPEG. This usually saves the most space, but the quality loss is permanent. Images with transparency are left as they are, since JPEG cannot store it.",
+    "compress_process_child_notes": "Process child notes as well",
+    "compress_process_child_notes_help": "Compresses the images of every note in the subtree, not just the selected one. Beware that a child note may be a clone, in which case its images are shared with the other notes it appears in.",
+    "compress_cancel": "Cancel",
+    "compress_run": "Compress images"
   },
   "note_language": {
     "not_set": "No language set",

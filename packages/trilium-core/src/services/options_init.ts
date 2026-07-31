@@ -301,6 +301,11 @@ const defaultOptions: DefaultOption[] = [
     // picks it, so an uninitialized setting has to mean "nothing selected".
     { name: "cleanupToolOptions", value: "{}", isSynced: true },
 
+    // Likewise empty: the compression tool fills its dimensions and quality in from the image
+    // options, so an uninitialized setting opens on those rather than on a second set of defaults
+    // that could disagree with them.
+    { name: "imageCompressionToolOptions", value: "{}", isSynced: true },
+
     // Share settings
     { name: "redirectBareDomain", value: "false", isSynced: true },
     { name: "showLoginInShareTheme", value: "false", isSynced: true },
