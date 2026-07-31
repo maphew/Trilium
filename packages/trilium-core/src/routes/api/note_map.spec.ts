@@ -388,6 +388,76 @@ describe("Note map service (branch coverage)", () => {
         );
         expect(excerpts[0]).toContain("…");
     });
+
+    function chatBacklink(sourceId: string, messages: unknown[] | string) {
+        const target = buildNote({ id: `${sourceId}_t`, title: "Chat target" });
+        buildNote({
+            id: sourceId,
+            title: "Chat",
+            type: "llmChat",
+            "~internalLink": target.noteId,
+            content: typeof messages === "string" ? messages : JSON.stringify({ messages })
+        });
+        const res = note_map.getBacklinks(req(target.noteId));
+        return res.find((b) => b.noteId === sourceId) as any;
+    }
+
+    it("llmChat backlinks: quotes the assistant prose around the wiki-link, links titled and escaped", () => {
+        buildNote({ id: "chatOther", title: "Other <note>" });
+        const backlink = chatBacklink("chatWiki", [
+            { role: "user", content: "where is [[chatWiki_t]] mentioned?" },
+            {
+                role: "assistant",
+                content: [
+                    { type: "text", content: "I found 1 < 2 results in [[chatWiki_t]] next to [[chatOther]]." }
+                ]
+            }
+        ]);
+
+        expect(backlink.relationName).toBeUndefined();
+        expect(backlink.excerpts).toEqual([
+            `<div class="ck-content backlink-excerpt"><p>I found 1 &lt; 2 results in ` +
+            `<a class="reference-link backlink-link" href="#root/chatWiki_t">Chat target</a> next to ` +
+            `<a class="reference-link" href="#root/chatOther">Other &lt;note&gt;</a>.</p></div>`
+        ]);
+    });
+
+    it("llmChat backlinks: truncates long surrounding prose with ellipses, one excerpt per mention", () => {
+        const backlink = chatBacklink("chatLong", [
+            {
+                role: "assistant",
+                content: [
+                    { type: "text", content: `${"a".repeat(260)} [[chatLong_t]] ${"b".repeat(260)}` },
+                    { type: "text", content: "Also see [[chatLong_t]]." }
+                ]
+            }
+        ]);
+
+        expect(backlink.excerpts).toHaveLength(2);
+        // Like findExcerpts, expansion stops at the first truncated run, so the whole budget
+        // goes to the text preceding the link and none is left for the text after it.
+        expect(backlink.excerpts[0]).toMatch(/…a+ <a class="reference-link backlink-link"/);
+        expect(backlink.excerpts[0]).not.toMatch(/b{3}/);
+        expect(backlink.excerpts[1]).toContain("Also see <a");
+    });
+
+    it("llmChat backlinks: tool-call-only references and unparseable content fall back to the relation name", () => {
+        const toolCallOnly = chatBacklink("chatTool", [
+            {
+                role: "assistant",
+                content: [
+                    { type: "tool_call", toolCall: { input: { noteId: "chatTool_t" } } },
+                    // A user-role block and a non-text assistant block must not be quoted either.
+                    { type: "thinking", content: "peeking at [[chatTool_t]]" }
+                ]
+            },
+            { role: "user", content: "the [[chatTool_t]] wiki-link in user prose creates no relation" }
+        ]);
+        expect(toolCallOnly).toEqual({ noteId: "chatTool", relationName: "internalLink" });
+
+        const invalid = chatBacklink("chatBroken", "not JSON at all");
+        expect(invalid).toEqual({ noteId: "chatBroken", relationName: "internalLink" });
+    });
 });
 
 let api: CoreApiTester;
