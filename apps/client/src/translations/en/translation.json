@@ -1666,12 +1666,12 @@
   },
   "vacuum_database": {
     "title": "Vacuum Database",
-    "vacuum_label": "Vacuum database",
+    "vacuum_label": "Compact (vacuum) database",
     "vacuum_description": "Rebuild the database to reduce file size. No data will be changed.",
     "description": "This will rebuild the database which will typically result in a smaller database file. No data will be actually changed.",
-    "button_text": "Vacuum now",
-    "vacuuming_database": "Vacuuming database...",
-    "database_vacuumed": "Database has been vacuumed"
+    "button_text": "Compact now",
+    "vacuuming_database": "Compacting the database...",
+    "database_vacuumed": "The database has been compacted"
   },
   "experimental_features": {
     "title": "Experimental Options",
