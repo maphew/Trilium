@@ -7,7 +7,7 @@ import { type ComponentChildren, RefObject } from "preact";
 import { createPortal } from "preact/compat";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
-import { CommandNames } from "../../components/app_context";
+import appContext, { CommandNames } from "../../components/app_context";
 import NoteContext from "../../components/note_context";
 import FNote from "../../entities/fnote";
 import attributes from "../../services/attributes";
@@ -30,7 +30,7 @@ import AttributeEditor, { AttributeEditorImperativeHandlers } from "../ribbon/co
 import AttributeHelp, { ATTRIBUTE_HELP_PAGE } from "../ribbon/components/AttributeHelp";
 import InheritedAttributesTab from "../ribbon/InheritedAttributesTab";
 import { NoteSizeWidget, useNoteMetadata } from "../ribbon/NoteInfoTab";
-import { NotePathsWidget, useSortedNotePaths } from "../ribbon/NotePathsTab";
+import { useSortedNotePaths } from "../ribbon/NotePathsTab";
 import SimilarNotesTab from "../ribbon/SimilarNotesTab";
 import { useAttachments } from "../type_widgets/Attachment";
 import { useProcessedLocales } from "../type_widgets/options/components/LocaleSelector";
@@ -428,28 +428,35 @@ function AttributesPane({ note, noteContext, attributesShown, setAttributesShown
 //#endregion
 
 //#region Note paths
-function NotePaths({ note, hoistedNoteId, notePath }: StatusBarContext) {
-    const dropdownRef = useRef<BootstrapDropdown>(null);
+/**
+ * The paths themselves live in the sidebar's connections tab, so the badge is only the way in (and, on
+ * a second press, out) rather than a second copy of the list in a popup of its own.
+ */
+function NotePaths({ note, hoistedNoteId }: StatusBarContext) {
     const sortedNotePaths = useSortedNotePaths(note, hoistedNoteId);
     const count = sortedNotePaths?.length ?? 0;
-    const enabled = true;
+
+    const toggleNotePaths = useCallback(() => {
+        void appContext.triggerEvent("selectRightPaneTab", {
+            tabId: "connections",
+            // A glance at the paths from the status bar shouldn't reflow the content around a pane the
+            // user has closed; one they keep docked stays docked.
+            peek: true,
+            expandWidgetId: "notePaths"
+        });
+    }, []);
 
     // Keyboard shortcut.
-    useTriliumEvent("toggleRibbonTabNotePaths", () => enabled && dropdownRef.current?.show());
+    useTriliumEvent("toggleRibbonTabNotePaths", toggleNotePaths);
 
-    return (enabled &&
-        <StatusBarDropdown
-            title={t("status_bar.note_paths_title")}
-            dropdownRef={dropdownRef}
-            dropdownContainerClassName="dropdown-note-paths"
+    return (
+        <StatusBarButton
+            className="note-paths-button"
             icon="bx bx-directions"
+            title={t("status_bar.note_paths_title")}
             text={t("status_bar.note_paths", { count })}
-        >
-            <NotePathsWidget
-                sortedNotePaths={sortedNotePaths}
-                currentNotePath={notePath}
-            />
-        </StatusBarDropdown>
+            onClick={toggleNotePaths}
+        />
     );
 }
 //#endregion

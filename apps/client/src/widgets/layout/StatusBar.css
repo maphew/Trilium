@@ -67,12 +67,6 @@
             padding: 1em !important;
         }
 
-        .dropdown-note-paths {
-            .note-paths-widget {
-                padding: 0.5em;
-            }
-        }
-
         .backlinks-widget > .dropdown-menu {
             --menu-padding-size: .9em;
 

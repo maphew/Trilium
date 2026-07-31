@@ -4,7 +4,7 @@ import "./RightPanelContainer.css";
 import Split from "@triliumnext/split.js";
 import clsx from "clsx";
 import { VNode } from "preact";
-import { useLayoutEffect, useRef } from "preact/hooks";
+import { useEffect, useLayoutEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../../components/app_context";
 import { WidgetsByParent } from "../../services/bundle";
@@ -28,7 +28,7 @@ import PdfAnnotations from "./pdf/PdfAnnotations";
 import PdfAttachments from "./pdf/PdfAttachments";
 import PdfLayers from "./pdf/PdfLayers";
 import PdfPages from "./pdf/PdfPages";
-import RightPanelWidget, { CollapsibleWidgets } from "./RightPanelWidget";
+import RightPanelWidget, { CollapsibleWidgets, ExpandWidgetRequest, ExpandWidgetRequests } from "./RightPanelWidget";
 import RightPanePeekButton from "./RightPanePeekButton";
 import RightPaneTabs, { RIGHT_PANE_TABS, RightPaneTabDefinition, RightPaneTabId } from "./RightPaneTabs";
 import SimilarNotes from "./SimilarNotes";
@@ -54,6 +54,7 @@ export default function RightPanelContainer({ widgetsByParent }: { widgetsByPare
     const { mode, visible, mounted, togglePeek, toggleDocked, dock, close, dismiss } = usePaneMode("rightPaneVisible");
     const tabs = useItems(mounted, widgetsByParent);
     const [ selectedTabId, setSelectedTabId ] = useTriliumOption("rightPaneSelectedTab");
+    const [ expandRequest, setExpandRequest ] = useState<ExpandWidgetRequest | null>(null);
     useSplit(mode);
 
     // The chosen tab may have nothing to show for this note (or may have gone away entirely, e.g. the
@@ -74,25 +75,43 @@ export default function RightPanelContainer({ widgetsByParent }: { widgetsByPare
     useTriliumEvent("toggleRightPane", toggleDocked);
     useTriliumEvent("peekRightPane", togglePeek);
 
-    // An entry point aimed at one tab (the chat launcher): it opens the pane on that tab, brings it to
-    // the front if the pane is already open on another one, and closes it if it is the tab on show —
-    // so the button it comes from keeps behaving like a toggle for its own tab.
-    useTriliumEvent("selectRightPaneTab", ({ tabId }) => {
+    // An entry point aimed at one tab (the chat launcher, the status bar's note paths badge): it opens
+    // the pane on that tab, brings it to the front if the pane is already open on another one, and
+    // closes it if it is the tab on show — so the button it comes from keeps behaving like a toggle for
+    // its own tab. `peek` opens it as a glance instead of a dock; `expandWidgetId` opens the one widget
+    // the entry point is really about, in case the user has it collapsed.
+    useTriliumEvent("selectRightPaneTab", ({ tabId, peek, expandWidgetId }) => {
         if (visible && activeTab?.id === tabId) {
             close();
             return;
         }
 
         void setSelectedTabId(tabId);
+        // Raised before the pane opens, so a widget mounted for the first time already reads it.
+        if (expandWidgetId) {
+            setExpandRequest((prev) => ({ id: expandWidgetId, counter: (prev?.counter ?? 0) + 1 }));
+        }
         if (!visible) {
-            toggleDocked();
+            if (peek) {
+                togglePeek();
+            } else {
+                toggleDocked();
+            }
         }
     });
 
+    // A request doesn't outlive the pane's content: it would otherwise be honoured all over again by
+    // the widget that remounts on the next opening, long after the press that asked for it.
+    useEffect(() => {
+        if (!mounted) setExpandRequest(null);
+    }, [ mounted ]);
+
     // Outside-press / Esc *soft*-dismisses the peek: it hides but stays mounted, so re-peeking is
     // instant and preserves widget state. The × button and the docked toggle hard-close (unmount).
+    // The status bar's note paths badge peeks the pane itself (see selectRightPaneTab above), so
+    // dismissing on its press would only close the pane for the click that follows to reopen it.
     usePeekDismiss(mode === "peek", dismiss, {
-        keepOpenSelector: "#right-pane, .right-pane-peek-button",
+        keepOpenSelector: "#right-pane, .right-pane-peek-button, .status-bar .note-paths-button",
         focusSelector: ".right-pane-peek-button"
     });
 
@@ -138,11 +157,13 @@ export default function RightPanelContainer({ widgetsByParent }: { widgetsByPare
                                         {/* Collapsing the only widget of a tab would leave the tab empty,
                                             so a tab of one offers no collapsing at all. */}
                                         <CollapsibleWidgets.Provider value={tab.items.length > 1}>
-                                            {tab.items.length > 0 ? tab.items : (
-                                                // A tab that stays for a note it has nothing to show
-                                                // (see RightPaneTabDefinition.alwaysShown) says so.
-                                                <NoItems icon={tab.icon} text={t("right_pane.empty_message")} />
-                                            )}
+                                            <ExpandWidgetRequests.Provider value={expandRequest}>
+                                                {tab.items.length > 0 ? tab.items : (
+                                                    // A tab that stays for a note it has nothing to show
+                                                    // (see RightPaneTabDefinition.alwaysShown) says so.
+                                                    <NoItems icon={tab.icon} text={t("right_pane.empty_message")} />
+                                                )}
+                                            </ExpandWidgetRequests.Provider>
                                         </CollapsibleWidgets.Provider>
                                     </div>
                                 ))}

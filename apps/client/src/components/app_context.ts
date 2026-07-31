@@ -359,7 +359,19 @@ export type CommandMappings = {
     toggleRightPane: CommandData;
     peekRightPane: CommandData;
     /** Shows the given tab of the right pane, opening the pane if it is closed. */
-    selectRightPaneTab: CommandData & { tabId: RightPaneTabId };
+    selectRightPaneTab: CommandData & {
+        tabId: RightPaneTabId;
+        /**
+         * Peek the pane rather than dock it when it is closed, for an entry point that is only a glance
+         * at the tab and shouldn't reflow the content around it. An already docked pane stays docked.
+         */
+        peek?: boolean;
+        /**
+         * The id of a widget of that tab (see `RightPanelWidget`) to expand, so that an entry point
+         * aimed at one widget doesn't land on it collapsed.
+         */
+        expandWidgetId?: string;
+    };
     printActiveNote: CommandData;
     exportAsPdf: CommandData;
     showPrintPreview: PrintPreviewData;

@@ -1,6 +1,6 @@
 import clsx from "clsx";
 import { ComponentChildren, createContext, RefObject } from "preact";
-import { useContext, useState } from "preact/hooks";
+import { useContext, useEffect, useState } from "preact/hooks";
 
 import contextMenu, { MenuItem } from "../../menus/context_menu";
 import ActionButton from "../react/ActionButton";
@@ -12,6 +12,19 @@ import { ParentComponent } from "../react/react_utils";
  * of a right pane tab would leave the tab empty, so the tab says so and the widget drops its chevron.
  */
 export const CollapsibleWidgets = createContext(true);
+
+/**
+ * A request to expand one widget of the pane, raised by an entry point aimed at it (the status bar's
+ * note paths badge) so that it doesn't land on a widget the user has collapsed. The counter tells
+ * repeated requests apart, so the widget opens again after having been collapsed in between.
+ */
+export interface ExpandWidgetRequest {
+    id: string;
+    counter: number;
+}
+
+/** The pending {@link ExpandWidgetRequest}, set by whoever lays the widgets out. */
+export const ExpandWidgetRequests = createContext<ExpandWidgetRequest | null>(null);
 
 interface RightPanelWidgetProps {
     id: string;
@@ -44,9 +57,22 @@ export default function RightPanelWidget({ id, title, buttons, children, contain
     const containerRef = useSyncedRef<HTMLDivElement>(externalContainerRef, null);
     const parentComponent = useContext(ParentComponent);
     const collapsible = useContext(CollapsibleWidgets);
+    const expandRequest = useContext(ExpandWidgetRequests);
     // Whatever an earlier layout collapsed stays remembered but is disregarded here: the widget is all
     // its tab has, so a collapsed one would leave nothing behind, chevron included, to expand it again.
     const expanded = collapsible ? !collapsedByUser : true;
+
+    // Being asked for by name (see ExpandWidgetRequests) opens the widget, and is remembered as if the
+    // user had opened it themselves — so it is still open the next time its tab is built.
+    useEffect(() => {
+        if (expandRequest?.id !== id) return;
+        setCollapsedByUser(false);
+        if (rightPaneCollapsedItems.includes(id)) {
+            void setRightPaneCollapsedItems(rightPaneCollapsedItems.filter((item) => item !== id));
+        }
+        // The request alone triggers this; the remembered list is read as it stands at that moment.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [ expandRequest, id ]);
 
     if (parentComponent) {
         parentComponent.initialized = Promise.resolve();
