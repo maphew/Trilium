@@ -34,6 +34,48 @@ export const byBookType: Record<ViewTypeOptions, string | null> = {
     dashboard: "IF7Q6I9x7zuw"
 };
 
+/** What one card of the right sidebar offers when its `?` is pressed. */
+export interface SidebarSectionHelp {
+    /** In-app help note the "Open help page" link at the foot of the popup goes to. */
+    helpPage: string;
+    /** Translation keys of the explanation shown in place, a paragraph each. */
+    paragraphs: string[];
+}
+
+/**
+ * The help each card of the right sidebar carries, keyed by the card's widget id: a section gains a
+ * `?` in its header by being named here and rendering a `SidebarHelp` beside its other buttons.
+ *
+ * The help belongs to the card rather than to the pane or the tab, because the cards answer unrelated
+ * questions — what is drawn on the map, why a note has two paths, what counts as a backlink — and each
+ * has an in-app help page of its own. A single `?` beside the pane's close button would have to stand
+ * for whichever tab happens to be on show, and then pick one of those pages out of several.
+ */
+export const bySidebarSection = {
+    noteMap: {
+        // Note Map (Link map, Tree map).
+        helpPage: "BCkXAVs63Ttv",
+        paragraphs: [ "sidebar_help.note_map_what", "sidebar_help.note_map_interaction" ]
+    },
+    notePaths: {
+        // Cloning Notes, which is what a second path amounts to.
+        helpPage: "IakOLONlIfGI",
+        paragraphs: [ "sidebar_help.note_paths_what", "sidebar_help.note_paths_cloning" ]
+    },
+    backlinks: {
+        // Links, covering both kinds a backlink can come from.
+        helpPage: "QEAPj01N5f7w",
+        paragraphs: [ "sidebar_help.backlinks_what", "sidebar_help.backlinks_listing" ]
+    },
+    similarNotes: {
+        // Similar Notes.
+        helpPage: "xWtq5NUHOwql",
+        paragraphs: [ "sidebar_help.similar_notes_what", "sidebar_help.similar_notes_how" ]
+    }
+} satisfies Record<string, SidebarSectionHelp>;
+
+export type SidebarSectionId = keyof typeof bySidebarSection;
+
 export function getHelpUrlForNote(note: FNote | null | undefined) {
     if (note?.isMarkdown()) {
         return "6RM1Q7ppFVoj";

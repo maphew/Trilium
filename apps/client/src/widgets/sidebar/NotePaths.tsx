@@ -10,6 +10,7 @@ import { ParentComponent } from "../react/react_utils";
 // bar's badge has no list of its own — it opens this one.
 import { NotePathsWidget, useSortedNotePaths } from "../ribbon/NotePathsTab";
 import RightPanelWidget from "./RightPanelWidget";
+import SidebarHelp from "./SidebarHelp";
 
 export default function NotePaths() {
     const { note, notePath, hoistedNoteId } = useActiveNoteContext();
@@ -23,13 +24,14 @@ export default function NotePaths() {
             // Cloning the note is what one does about its paths, so it sits where the card keeps what
             // one does — its header — rather than as a line of its own below the list. The icon is the
             // tree context menu's for the same action.
-            buttons={
+            buttons={<>
+                <SidebarHelp section="notePaths" />
                 <ActionButton
                     icon="bx bx-duplicate"
                     text={t("note_paths.clone_button")}
                     onClick={() => void parentComponent?.triggerCommand("cloneNoteIdsTo")}
                 />
-            }
+            </>}
         >
             <NotePathsWidget sortedNotePaths={sortedNotePaths} currentNotePath={notePath} cloneButton={false} />
         </RightPanelWidget>

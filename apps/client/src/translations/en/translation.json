@@ -1310,6 +1310,7 @@
   },
   "note_map": {
     "open_full": "Expand to full",
+    "expand": "Expand map",
     "collapse": "Collapse to normal size",
     "title": "Note Map",
     "fix-nodes": "Fix nodes",
@@ -1386,6 +1387,16 @@
   "similar_notes": {
     "title": "Similar Notes",
     "no_similar_notes_found": "No similar notes found."
+  },
+  "sidebar_help": {
+    "note_map_what": "A map of what this note connects to. The link map draws the internal links and relations going in and out of it; the tree map draws where it sits in the note tree. The switcher in this header chooses between the two.",
+    "note_map_interaction": "Hovering a note brings its own connections forward and fades the rest. The expand button opens the same map at the size of the window.",
+    "note_paths_what": "A note can sit in more than one place in the note tree at once, and each of those places is listed here as a path.",
+    "note_paths_cloning": "Adding a place is called cloning: nothing is copied, so an edit made under one path shows under all of them, and removing one path leaves the note under the others.",
+    "backlinks_what": "The notes pointing at this one, either through a link in their text or through a relation naming it.",
+    "backlinks_listing": "A text link is listed with the passage around it, a relation with the name it points by. This side of a link is not editable: it goes away when the note that made it drops the link.",
+    "similar_notes_what": "Notes that look related to this one even where nothing links them.",
+    "similar_notes_how": "The likeness is worked out from the content of the notes, the attributes and relations they carry, and how close together they were created."
   },
   "abstract_search_option": {
     "remove_this_search_option": "Remove this search option",

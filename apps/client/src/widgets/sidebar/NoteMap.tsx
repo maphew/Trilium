@@ -2,12 +2,15 @@
 // wanted before it has finished loading, so they cannot wait for that module to arrive.
 import "./NoteMap.css";
 
+import appContext from "../../components/app_context";
 import { t } from "../../services/i18n";
 import MapTypeSwitcher from "../note_map/MapTypeSwitcher";
 import { toMapType } from "../note_map/utils";
+import ActionButton from "../react/ActionButton";
 import { useActiveNoteContext, useNoteLabel } from "../react/hooks";
 import LazyComponent from "../react/LazyComponent";
 import RightPanelWidget from "./RightPanelWidget";
+import SidebarHelp from "./SidebarHelp";
 
 /**
  * The card is rendered here and the map itself loaded on demand from within it, rather than the whole
@@ -21,14 +24,32 @@ import RightPanelWidget from "./RightPanelWidget";
  * The map reads the same label, so the two stay of one mind without being told.
  */
 export default function NoteMap() {
-    const { note } = useActiveNoteContext();
+    const { note, notePath } = useActiveNoteContext();
     const [ mapTypeLabel, setMapType ] = useNoteLabel(note, "mapType");
 
     return (
         <RightPanelWidget
             id="noteMap"
             title={t("note_map.title")}
-            buttons={<MapTypeSwitcher mapType={toMapType(mapTypeLabel)} setMapType={setMapType} />}
+            buttons={<>
+                <SidebarHelp section="noteMap" />
+                <MapTypeSwitcher mapType={toMapType(mapTypeLabel)} setMapType={setMapType} />
+                {/* One rung of the same ladder the quick-edit popup already offers: a press here takes the
+                    map from a card to the greater part of the window, and the popup's own expand takes it
+                    on to a tab. The popup rather than a split, because a map that sits beside the note
+                    being read looks as though it follows it and doesn't; a glance that goes away when it
+                    has sent the reader somewhere makes no such promise. */}
+                {notePath && (
+                    <ActionButton
+                        icon="bx bx-expand-alt"
+                        text={t("note_map.expand")}
+                        onClick={() => void appContext.triggerCommand("openInPopup", {
+                            noteIdOrPath: notePath,
+                            viewScope: { viewMode: "note-map" }
+                        })}
+                    />
+                )}
+            </>}
             noPadding
         >
             <LazyComponent loader={() => import("./NoteMapGraph.jsx")} />
