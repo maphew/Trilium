@@ -212,11 +212,16 @@ export class LocalProvider extends BaseProvider {
         }
         try {
             return await response.json();
-        } catch {
+        } catch (error) {
             // An auth proxy or captive portal can answer a probe with a 200 HTML
             // login page (after a redirect fetch follows transparently). A body
-            // that isn't JSON means the endpoint isn't served here.
-            return undefined;
+            // that isn't JSON means the endpoint isn't served here. Anything
+            // other than a parse failure (timeout or connection loss while the
+            // body streams) is a real transport problem and must surface.
+            if (error instanceof SyntaxError) {
+                return undefined;
+            }
+            throw error;
         }
     }
 

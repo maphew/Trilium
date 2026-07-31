@@ -306,6 +306,23 @@ describe("LocalProvider", () => {
             expect(models.map(m => m.id)).toEqual(["m1"]);
         });
 
+        it("surfaces a body-read failure instead of treating it as an absent endpoint", async () => {
+            // A timeout or connection loss while the body streams rejects
+            // json() with a non-SyntaxError; that is a transport problem to
+            // report, not a reason to skip to the next probe.
+            fetchMock.mockImplementation(routes({
+                "/v1/models": {
+                    ok: true,
+                    status: 200,
+                    json: async () => {
+                        throw new DOMException("The operation was aborted.", "AbortError");
+                    }
+                } as unknown as Response
+            }));
+            await expect(new LocalProvider("openai-compatible", "", "http://box:8080").listModels())
+                .rejects.toThrow("aborted");
+        });
+
         it("treats a foreign native payload as 'not that runtime' for the generic card", async () => {
             // Something answers /api/tags with unrelated JSON; the generic card
             // keeps probing rather than failing on a guess it made itself.
