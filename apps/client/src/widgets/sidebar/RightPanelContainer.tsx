@@ -23,6 +23,7 @@ import AttributeList from "./AttributeList";
 import Backlinks from "./Backlinks";
 import ChatHighlightsList from "./ChatHighlightsList";
 import HighlightsList from "./HighlightsList";
+import NoteMap from "./NoteMap";
 import NotePaths from "./NotePaths";
 import PdfAnnotations from "./pdf/PdfAnnotations";
 import PdfAttachments from "./pdf/PdfAttachments";
@@ -215,6 +216,18 @@ function useItems(rightPaneVisible: boolean, widgetsByParent: WidgetsByParent): 
             tab: "attributes"
         },
         {
+            // The map goes above the lists rather than under them: it is the one card of the tab
+            // held to a height of its own, so the room the rest are measured for is what it leaves
+            // over — which reads as a heading over them rather than as a block wedged below.
+            //
+            // The card is rendered here and only the map within it loaded on demand (force-graph is
+            // kept out of the boot bundle), so that the card stays a child of the tab body — see
+            // NoteMap.tsx.
+            el: <NoteMap />,
+            enabled: !!note,
+            tab: "connections"
+        },
+        {
             // Where the note sits in the tree, above what points at it: placements first, then the
             // backlinks below take whatever height is left.
             el: <NotePaths />,
@@ -228,13 +241,6 @@ function useItems(rightPaneVisible: boolean, widgetsByParent: WidgetsByParent): 
         },
         {
             el: <SimilarNotes />,
-            enabled: !!note,
-            tab: "connections"
-        },
-        {
-            // Loaded lazily because the map pulls in force-graph, which is deliberately
-            // kept out of the boot bundle.
-            el: <LazyComponent loader={() => import("./NoteMap.jsx")} />,
             enabled: !!note,
             tab: "connections"
         },

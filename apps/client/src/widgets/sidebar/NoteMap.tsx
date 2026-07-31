@@ -1,29 +1,18 @@
-import "./NoteMap.css";
-
-import { useRef } from "preact/hooks";
-
 import { t } from "../../services/i18n";
-// The map itself is shared with the ribbon's note map tab and the note map note type;
-// only the framing differs here.
-import NoteMapEl from "../note_map/NoteMap";
-import { useActiveNoteContext } from "../react/hooks";
+import LazyComponent from "../react/LazyComponent";
 import RightPanelWidget from "./RightPanelWidget";
 
+/**
+ * The card is rendered here and the map itself loaded on demand from within it, rather than the whole
+ * widget being loaded on demand from the pane: the lazy wrapper is a `display: contents` element, which
+ * leaves no box but is still an element as far as selectors are concerned, so a card behind it is no
+ * longer a child of the tab body and misses everything the pane styles by that relation — its dividing
+ * border, the first card's header padding, the sharing out of the tab's height.
+ */
 export default function NoteMap() {
-    const { note } = useActiveNoteContext();
-    const containerRef = useRef<HTMLDivElement>(null);
-
     return (
         <RightPanelWidget id="noteMap" title={t("note_map.title")}>
-            {note && (
-                <div class="sidebar-note-map" ref={containerRef}>
-                    {/* "sidebar" mode roots the map at the note being read, which is what a
-                        connections panel is about (the other modes root it at a configured
-                        or hoisted note), and drops the notes nothing links to — see
-                        loadNotesAndRelations. */}
-                    <NoteMapEl note={note} widgetMode="sidebar" parentRef={containerRef} />
-                </div>
-            )}
+            <LazyComponent loader={() => import("./NoteMapGraph.jsx")} />
         </RightPanelWidget>
     );
 }
