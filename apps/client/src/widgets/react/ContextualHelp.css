@@ -10,3 +10,21 @@
 .contextual-help:hover {
     opacity: 1;
 }
+
+/*
+ * The sheet the explanation rises in on a phone. Every modal is already a bottom sheet there
+ * (see `body.mobile .modal-dialog` in style.css), so all this does is take away the chrome a single
+ * remark has no use for: the header is left holding nothing but the button that dismisses it.
+ */
+.modal.contextual-help-sheet {
+    .modal-header {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+
+    .modal-body {
+        padding-top: 0.5em;
+        /* The sheet sits on the bottom edge, where a gesture bar would otherwise cross the text. */
+        padding-bottom: max(env(safe-area-inset-bottom), 1rem);
+    }
+}

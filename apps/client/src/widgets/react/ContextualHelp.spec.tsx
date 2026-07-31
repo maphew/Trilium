@@ -1,13 +1,31 @@
-import { render } from "preact";
+import { type ComponentChildren, render } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 // The tooltip itself is Bootstrap's; what this component decides is the configuration it hands over,
 // so the hook is stubbed and the configuration asserted on.
-const useStaticTooltip = vi.hoisted(() => vi.fn());
+const mocks = vi.hoisted(() => ({
+    useStaticTooltip: vi.fn(),
+    /** Which affordance the component is built for; read once, when its module is first evaluated. */
+    isMobile: vi.fn(() => false)
+}));
+
 vi.mock("./hooks", async (importOriginal) => ({
     ...(await importOriginal<typeof import("./hooks")>()),
-    useStaticTooltip
+    useStaticTooltip: mocks.useStaticTooltip
+}));
+
+vi.mock("../../services/utils", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../../services/utils")>()),
+    isMobile: mocks.isMobile
+}));
+
+// The sheet is the app's own modal, which on a phone every dialog already is; what matters here is
+// that the message is handed to one, and only once the icon has been tapped.
+vi.mock("./Modal", () => ({
+    default: ({ children, show }: { children: ComponentChildren, show: boolean }) => (
+        show ? <div className="sheet-stub">{children}</div> : null
+    )
 }));
 
 import ContextualHelp from "./ContextualHelp";
@@ -34,7 +52,7 @@ describe("ContextualHelp", () => {
         // No title of its own: a native tooltip would open somewhere else, in its own styling.
         expect(span?.getAttribute("title")).toBeNull();
 
-        expect(useStaticTooltip).toHaveBeenLastCalledWith(expect.anything(), {
+        expect(mocks.useStaticTooltip).toHaveBeenLastCalledWith(expect.anything(), {
             title: "What this figure covers.",
             placement: "bottom",
             customClass: "tooltip-top"
@@ -43,15 +61,41 @@ describe("ContextualHelp", () => {
 
     it("hands the tooltip the same configuration until the message itself changes", () => {
         act(() => render(<ContextualHelp helpMessage="First." />, container));
-        const [ , first ] = useStaticTooltip.mock.calls.at(-1) ?? [];
+        const [ , first ] = mocks.useStaticTooltip.mock.calls.at(-1) ?? [];
 
         // A re-render with the same message must not tear the tooltip down and build it again:
         // the hook rebuilds on any new configuration object.
         act(() => render(<ContextualHelp helpMessage="First." />, container));
-        expect(useStaticTooltip.mock.calls.at(-1)?.[1]).toBe(first);
+        expect(mocks.useStaticTooltip.mock.calls.at(-1)?.[1]).toBe(first);
 
         act(() => render(<ContextualHelp helpMessage="Second." />, container));
-        expect(useStaticTooltip.mock.calls.at(-1)?.[1]).not.toBe(first);
-        expect(useStaticTooltip.mock.calls.at(-1)?.[1]).toMatchObject({ title: "Second." });
+        expect(mocks.useStaticTooltip.mock.calls.at(-1)?.[1]).not.toBe(first);
+        expect(mocks.useStaticTooltip.mock.calls.at(-1)?.[1]).toMatchObject({ title: "Second." });
+    });
+
+    it("opens the message in a sheet on tap instead, where nothing hovers", async () => {
+        const OnMobile = await loadOnMobile();
+        act(() => render(<OnMobile helpMessage="What this figure covers." />, container));
+
+        // The same affordance, and no tooltip behind it: a phone would never show one.
+        const span = container.querySelector("span");
+        expect(span?.className).toBe("bx bx-info-circle contextual-help");
+        expect(mocks.useStaticTooltip).not.toHaveBeenCalled();
+        expect(document.body.querySelector(".sheet-stub")).toBeNull();
+
+        act(() => { span?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+        // Out at the body rather than beside the icon: where the icon sits — a chart, a cell, a
+        // scroll container — is exactly what must not lay the sheet out or clip it.
+        const sheet = document.body.querySelector(".sheet-stub");
+        expect(sheet?.textContent).toBe("What this figure covers.");
+        expect(container.contains(sheet)).toBe(false);
     });
 });
+
+/** The component as a phone loads it — the layout is read as its module is evaluated, once. */
+async function loadOnMobile() {
+    mocks.isMobile.mockReturnValue(true);
+    vi.resetModules();
+
+    return (await import("./ContextualHelp")).default;
+}
