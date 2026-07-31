@@ -2,7 +2,7 @@ import type ForceGraph from "force-graph";
 import { NoteMapLinkObject, NoteMapNodeObject, NotesAndRelationsData } from "./data";
 import { LinkObject, NodeObject } from "force-graph";
 import { ICON_FONT_FAMILY } from "./icons";
-import { generateColorFromString, getFitPadding, isLightColor, isRootedAtCurrentNote, MapType, NoteMapWidgetMode } from "./utils";
+import { generateColorFromString, getFitPadding, isLightColor, isRootedAtCurrentNote, MapType, mixColors, NoteMapWidgetMode, withAlpha } from "./utils";
 import { escapeHtml } from "../../services/utils";
 import FNote from "../../entities/fnote";
 
@@ -18,8 +18,12 @@ const MIN_ICON_RADIUS = 7;
 /** How much is left of what the pointer is not resting on, while it rests on a note of the map. */
 const DIMMED_ALPHA = 0.15;
 
-/** The same, for a colour that can only be dimmed by being asked for with it (see {@link getLinkColor}). */
-const DIMMED_ALPHA_HEX = Math.round(DIMMED_ALPHA * 255).toString(16).padStart(2, "0");
+/** How long the map takes to answer the pointer coming to rest on a note, or leaving one. */
+const HOVER_FADE_MS = 160;
+
+/** What a relation is drawn with, and what one of the hovered note's own grows to. */
+const LINK_WIDTH = 0.4;
+const HIGHLIGHT_LINK_WIDTH = 3;
 
 /** How large a note's label is drawn on screen where the map is neither zoomed in nor out. */
 const LABEL_FONT_PX = 11;
@@ -70,19 +74,37 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
     let zoomLevel: number;
     /** Titles as they are drawn, cut to the width a label is allowed — see {@link getLabel}. */
     const labelsByNoteId = new Map<string, string>();
-    // A relation cannot be faded back the way a note is (the graph is given its colour rather than
-    // drawing it), so it is asked for in a colour that is already faint. Only a plain `#rrggbb` takes
-    // the two digits that say by how much; a theme whose muted colour resolves to anything else keeps
-    // what it has rather than being handed something a canvas cannot read.
-    const dimmedLinkColor = /^#[0-9a-f]{6}$/i.test(cssData.mutedTextColor)
-        ? `${cssData.mutedTextColor}${DIMMED_ALPHA_HEX}`
-        : cssData.mutedTextColor;
+    /**
+     * What the hovered note's own relations are drawn in. Remembered rather than asked of the hovered
+     * note as it is drawn, so that they have a colour to fade back from once the pointer has left.
+     */
+    let highlightColor = cssData.textColor;
+    /**
+     * Where each note and each relation stands between the two things a hover asks of it: -1 faded
+     * back behind what is hovered, 0 as the map stands with nothing hovered, 1 lit as one of its own.
+     */
+    const nodeFocus = createFade(notesAndRelations.nodes, (node) => (hoverNode && !isInHoveredNeighbourhood(node) ? -1 : 0));
+    const linkFocus = createFade<NoteMapLinkObject>(notesAndRelations.links, (link) => {
+        if (!hoverNode) {
+            return 0;
+        }
+        return highlightLinks.has(link) ? 1 : -1;
+    });
+    let fadeTimer: ReturnType<typeof setTimeout> | undefined;
+    /** A canvas of no consequence, kept for what it makes of a colour — see {@link normalizeColor}. */
+    const colorResolver = document.createElement("canvas").getContext("2d");
 
     /**
      * Takes note of what is hovered and of what the map is to show of it: the notes a relation runs
      * between it and, and the relations themselves.
      */
     function setHoveredNode(node: NoteMapNodeObject | null) {
+        // Where everything stands is taken down before any of it changes, that being what the fade
+        // about to start reads from.
+        nodeFocus.restart();
+        linkFocus.restart();
+        keepPaintingThroughFade();
+
         hoverNode = node;
         neighbours.clear();
         highlightLinks.clear();
@@ -90,6 +112,8 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
         if (!hoverNode) {
             return;
         }
+
+        highlightColor = normalizeColor(getColorForNode(hoverNode));
 
         for (const link of notesAndRelations.links) {
             const { source, target } = link;
@@ -115,17 +139,51 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
     }
 
     /**
-     * What a relation is drawn in: the colour of the note being hovered where it is one of that
-     * note's own, so that what leads to and from it is read as belonging to it — arrowheads included,
-     * which take the colour of the line they end. The rest of the map's relations fade back with the
-     * notes they run between.
+     * What a relation is drawn in, where it stands between the map's own muted colour and the colour
+     * of the note being hovered — so that what leads to and from that note is read as belonging to it,
+     * arrowheads included, which take the colour of the line they end. The rest of the map's relations
+     * fade back with the notes they run between.
+     *
+     * A relation cannot be faded the way a note is, the graph being handed its colour rather than
+     * drawing it, so what it is faded by is asked for as part of the colour.
      */
     function getLinkColor(link: NoteMapLinkObject) {
-        if (highlightLinks.has(link)) {
-            return hoverNode ? getColorForNode(hoverNode) : cssData.textColor;
+        const focus = linkFocus.get(link);
+        const lit = Math.max(0, focus);
+        const color = lit <= 0 ? cssData.mutedTextColor
+            : lit >= 1 ? highlightColor
+                : mixColors(cssData.mutedTextColor, highlightColor, lit);
+
+        return withAlpha(color, getFadedAlpha(focus));
+    }
+
+    /** How much of a note or a relation is drawn, from all of it to {@link DIMMED_ALPHA} faded back. */
+    function getFadedAlpha(focus: number) {
+        return DIMMED_ALPHA + (1 - DIMMED_ALPHA) * Math.min(1, 1 + focus);
+    }
+
+    /**
+     * The colour as a canvas keeps it — `#rrggbb` — whatever it was written as, a note being free to
+     * ask for any colour CSS knows by name. Only that form can be faded or mixed with another.
+     */
+    function normalizeColor(color: string) {
+        if (!colorResolver) {
+            return color;
         }
 
-        return hoverNode ? dimmedLinkColor : cssData.mutedTextColor;
+        colorResolver.fillStyle = "#000000";
+        colorResolver.fillStyle = color;
+        return typeof colorResolver.fillStyle === "string" ? colorResolver.fillStyle : color;
+    }
+
+    /**
+     * Keeps the canvas painting for as long as a fade runs. It is otherwise only repainted once
+     * something has changed — and a fade is not a change, it is what follows one.
+     */
+    function keepPaintingThroughFade() {
+        graph.autoPauseRedraw(false);
+        clearTimeout(fadeTimer);
+        fadeTimer = setTimeout(() => graph.autoPauseRedraw(true), HOVER_FADE_MS + 100);
     }
 
     function getColorForNode(node: NoteMapNodeObject) {
@@ -311,10 +369,7 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
             // Every note keeps its own colour while one of them is hovered; what tells the note's
             // own from the rest of the map is that the rest of it is faded back behind them.
             ctx.save();
-            if (!isInHoveredNeighbourhood(node)) {
-                ctx.globalAlpha = DIMMED_ALPHA;
-            }
-
+            ctx.globalAlpha = getFadedAlpha(nodeFocus.get(node));
             paintNode(node, getColorForNode(node), ctx);
             ctx.restore();
         })
@@ -335,7 +390,7 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
         .onZoom((zoom) => zoomLevel = zoom.k);
 
     graph
-        .linkWidth((link) => (highlightLinks.has(link) ? 3 : 0.4))
+        .linkWidth((link) => LINK_WIDTH + (HIGHLIGHT_LINK_WIDTH - LINK_WIDTH) * Math.max(0, linkFocus.get(link)))
         .linkColor((link) => getLinkColor(link))
         .linkDirectionalArrowLength(4)
         .linkDirectionalArrowRelPos(0.95);
@@ -361,7 +416,47 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
     graph.d3Force("charge")?.strength(boundedCharge);
     graph.d3Force("charge")?.distanceMax(1000);
 
-    return setupFraming(graph, container, { note, noteId, widgetMode, notesAndRelations });
+    const stopFraming = setupFraming(graph, container, { note, noteId, widgetMode, notesAndRelations });
+
+    return () => {
+        clearTimeout(fadeTimer);
+        stopFraming();
+    };
+}
+
+/**
+ * Values that make their way to where a change puts them over {@link HOVER_FADE_MS}, rather than
+ * being there the moment it is made.
+ *
+ * Each is read from where it stood when the change was made and where it is to end up, so a pointer
+ * carried straight from one note to another takes each of them from wherever the last change had left
+ * it — rather than from where a fade of the whole map would have them all start together.
+ *
+ * @param getTarget where the value should end up, as things stand now.
+ */
+function createFade<T>(elements: T[], getTarget: (element: T) => number) {
+    const startingPoints = new Map<T, number>();
+    let startedAt = 0;
+
+    function get(element: T) {
+        const target = getTarget(element);
+        const from = startingPoints.get(element) ?? target;
+        const progress = Math.min(1, (performance.now() - startedAt) / HOVER_FADE_MS);
+
+        return from + (target - from) * progress;
+    }
+
+    return {
+        get,
+        /** Takes down where every value stands, for the fade the caller is about to bring about to start from. */
+        restart() {
+            for (const element of elements) {
+                startingPoints.set(element, get(element));
+            }
+
+            startedAt = performance.now();
+        }
+    };
 }
 
 /**

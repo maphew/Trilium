@@ -1,6 +1,33 @@
 import { describe, expect, it } from "vitest";
 
-import { getFitPadding, isLightColor, toMapType } from "./utils";
+import { getFitPadding, isLightColor, mixColors, toMapType, withAlpha } from "./utils";
+
+describe("mixColors", () => {
+    it("takes a colour the given part of the way to another, and gives up on what it cannot read", () => {
+        expect(mixColors("#000000", "#ffffff", 0)).toBe("#000000");
+        expect(mixColors("#000000", "#ffffff", 1)).toBe("#ffffff");
+        expect(mixColors("#000000", "#ffffff", 0.5)).toBe("#808080");
+        expect(mixColors("#ff0000", "#0000ff", 0.5)).toBe("#800080");
+
+        // Anything but a plain `#rrggbb` is past mixing: the colour being headed for is answered outright.
+        expect(mixColors("red", "#0000ff", 0.5)).toBe("#0000ff");
+        expect(mixColors("#000000", "rgb(0, 0, 255)", 0.5)).toBe("rgb(0, 0, 255)");
+    });
+});
+
+describe("withAlpha", () => {
+    it("asks for a colour at an opacity, and leaves alone what cannot carry one", () => {
+        expect(withAlpha("#123456", 1)).toBe("#123456ff");
+        expect(withAlpha("#123456", 0)).toBe("#12345600");
+        expect(withAlpha("#123456", 0.15)).toBe("#12345626");
+
+        // Beyond either end is still one end or the other, rather than a colour a canvas cannot read.
+        expect(withAlpha("#123456", 2)).toBe("#123456ff");
+        expect(withAlpha("#123456", -1)).toBe("#12345600");
+
+        expect(withAlpha("red", 0.5)).toBe("red");
+    });
+});
 
 describe("toMapType", () => {
     it("only reads the tree map out of the label, the link map standing for anything else", () => {

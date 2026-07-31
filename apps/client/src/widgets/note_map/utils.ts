@@ -80,6 +80,46 @@ export function isLightColor(color: string) {
     return (red * 0.299 + green * 0.587 + blue * 0.114) > 150;
 }
 
+/**
+ * The colour a given part of the way from one to the other, for fading between two of them.
+ *
+ * @param ratio 0 for the first colour, 1 for the second. Both are expected as `#rrggbb`, and anything
+ *              else is taken to be past fading — the colour being headed for is answered outright.
+ */
+export function mixColors(from: string, to: string, ratio: number) {
+    const fromChannels = toChannels(from);
+    const toChannels_ = toChannels(to);
+
+    if (!fromChannels || !toChannels_) {
+        return to;
+    }
+
+    const mixed = fromChannels.map((channel, i) => Math.round(channel + (toChannels_[i] - channel) * ratio));
+    return `#${mixed.map((channel) => channel.toString(16).padStart(2, "0")).join("")}`;
+}
+
+/**
+ * The colour asked for at the given opacity, as a canvas takes it.
+ *
+ * @param alpha 0 for nothing at all, 1 for the colour as it stands.
+ */
+export function withAlpha(color: string, alpha: number) {
+    if (!/^#[0-9a-f]{6}$/i.test(color)) {
+        // Only a plain `#rrggbb` takes the two digits that say by how much; anything else keeps what
+        // it has rather than being handed something a canvas cannot read.
+        return color;
+    }
+
+    return `${color}${Math.round(Math.max(0, Math.min(1, alpha)) * 255).toString(16).padStart(2, "0")}`;
+}
+
+/** The red, green and blue of a `#rrggbb`, or nothing where it is not one. */
+function toChannels(color: string) {
+    const channels = color.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+
+    return channels ? channels.slice(1, 4).map((channel) => parseInt(channel, 16)) : null;
+}
+
 export function generateColorFromString(str: string, themeStyle: "light" | "dark") {
     if (themeStyle === "dark") {
         str = `0${str}`; // magic lightning modifier
