@@ -1419,7 +1419,8 @@
     "subtree-hidden-tooltip_one": "{{count}} дочірня нотатка, прихована від дерев",
     "subtree-hidden-tooltip_few": "{{count}} дочірніх нотатки, прихованих від дерев",
     "subtree-hidden-tooltip_many": "{{count}} дочірніх нотаток, прихованих від дерев",
-    "subtree-hidden-moved-description-collection": "Ця колекція приховує свої дочірні нотатки в дереві."
+    "subtree-hidden-moved-description-collection": "Ця колекція приховує свої дочірні нотатки в дереві.",
+    "subtree-hidden-moved-title": "Додано до {{title}}"
   },
   "title_bar_buttons": {
     "window-on-top": "Тримати вікно зверху"
@@ -1741,7 +1742,10 @@
     "convert-to-attachment-confirm": "Ви впевнені, що хочете конвертувати вибрані нотатки у вкладення до їхніх батьківських нотаток? Ця операція застосовується лише до нотаток із зображеннями, інші нотатки будуть пропущені.",
     "open-in-popup": "Швидке редагування",
     "archive": "Архівувати",
-    "unarchive": "Розархівувати"
+    "unarchive": "Розархівувати",
+    "hide-subtree": "Сховати піддерево",
+    "open-in-a-new-window": "Відкрити у новому вікні",
+    "show-subtree": "Показати піддерево"
   },
   "shared_info": {
     "shared_publicly": "Ця нотатка опублікована на {{- link}}.",
@@ -1908,7 +1912,8 @@
     "layers_many": "{{count}} шарів",
     "pages_one": "{{count}} сторінка",
     "pages_few": "{{count}} сторінки",
-    "pages_many": "{{count}} сторінок"
+    "pages_many": "{{count}} сторінок",
+    "pages_loading": "Завантаження..."
   },
   "render": {
     "setup_title": "Відображати власний HTML або Preact JSX у цій нотатці",
@@ -1930,5 +1935,17 @@
   },
   "dashboard_view": {
     "refresh-widget": "Оновити"
+  },
+  "breadcrumb_badges": {
+    "save_status_saved": "Збережено",
+    "save_status_saving": "Збереження...",
+    "save_status_unsaved": "Не збережено",
+    "save_status_error": "Помилка збереження",
+    "save_status_saving_tooltip": "Збереження змін.",
+    "execute_sql": "Виконати SQL",
+    "execute_sql_description": "Ця нотатка містить SQL. Натисніть, щоб виконати SQL запит.",
+    "execute_script_description": "Ця нотатка містить скрипт. Натисніть, щоб виконати скрипт.",
+    "save_status_unsaved_tooltip": "Є незбережені зміни. Вони будуть збережені автоматично за мить.",
+    "save_status_error_tooltip": "Під час збереження нотатки сталася помилка. Якщо можливо, спробуйте скопіювати вміст нотатки в інше місце та перезавантажити програму."
   }
 }

@@ -481,7 +481,7 @@
     "select_type": "选择",
     "select_options": "选项",
     "select_options_title": "字段的可选值（顺序以此为准）。",
-    "add_option": "添加选项",
+    "add_option": "添加此选项",
     "remove_option": "移除此选项",
     "versioning_limit": "限制此笔记保留的版本数量，覆盖全局设置。",
     "similar_notes_widget_disabled": "禁用此笔记的「相似笔记」功能区选项卡。仅限旧版布局。",
@@ -611,7 +611,8 @@
     "hoisted_note": "启动器打开目标时聚焦到的笔记。",
     "share_logo": "用作共享页面 Logo 的图片笔记。必须位于共享子树内。",
     "share_open_graph_image_relation": "作为共享页面 <code>og:image</code> 的图片笔记。改为设置同名标签指向一个地址。",
-    "share_html": "注入到共享页面的 HTML 笔记，位置由该笔记上的 <code>#shareHtmlLocation</code> 指定。该笔记必须位于共享子树内。"
+    "share_html": "注入到共享页面的 HTML 笔记，位置由该笔记上的 <code>#shareHtmlLocation</code> 指定。该笔记必须位于共享子树内。",
+    "select_options_placeholder": "输入一个选项并按 Enter"
   },
   "attribute_editor": {
     "help_text_body1": "要添加标签，只需输入例如 <code>#rock</code> ；或者如果你还想同时添加数值，则可输入例如 <code>#year = 2020</code>",
@@ -1082,7 +1083,8 @@
     "create_option": "创建「{{- option}}」",
     "remove_value": "移除此值",
     "select_values_placeholder": "选择一个选项或创建一个",
-    "values_placeholder": "输入一个值并按回车"
+    "values_placeholder": "输入一个值并按回车",
+    "add_value": "添加此值"
   },
   "script_executor": {
     "query": "查询",
@@ -2321,7 +2323,8 @@
     "edit-column-title": "点击编辑列标题",
     "remove-from-board": "从看板上移除",
     "column-already-exists": "此列已在看板上。",
-    "column-definition-save-error": "列已保存在看板上，但无法保存到状态属性。"
+    "column-definition-save-error": "列已保存在看板上，但无法保存到状态属性。",
+    "status-alias": "状态"
   },
   "command_palette": {
     "tree-action-name": "树形：{{name}}",
@@ -2344,7 +2347,9 @@
   },
   "content_renderer": {
     "open_externally": "用外部程序打开",
-    "mermaid_diagram_error": "Mermaid 图表渲染失败：{{error}}"
+    "mermaid_diagram_error": "Mermaid 图表渲染失败：{{error}}",
+    "office_rendering": "正在渲染预览…",
+    "office_render_error": "此文档无法渲染为预览。您仍可下载它或从外部打开。"
   },
   "modal": {
     "close": "关闭",
@@ -2423,7 +2428,8 @@
     "set-custom-color": "设置自定义笔记颜色"
   },
   "popup-editor": {
-    "maximize": "切换至完整编辑器"
+    "maximize": "切换至完整编辑器",
+    "attachment_title": "附件：{{title}}"
   },
   "server": {
     "unknown_http_error_title": "与服务器通讯错误",
@@ -3460,13 +3466,19 @@
     "delete_confirm": "删除属性 \"{{name}}\"?",
     "add_definition": "添加新定义",
     "no_target": "无目标笔记",
-    "inverse_of": "{{name}} 的反向关系",
     "type_label": "标签",
     "type_relation": "关系",
     "type_label_definition": "标签定义",
     "type_relation_definition": "关系定义",
     "internal_other": "{{count}} 个内部系统属性",
-    "back": "返回属性"
+    "back": "返回属性",
+    "no_value": "无值",
+    "change_target": "更改目标笔记",
+    "inverse_hint": "「{{name}}」的反向关系：目标笔记将自动获得一个指向来源的「{{name}}」关系",
+    "system_hint": "系统：此名称具有内置含义",
+    "add_attribute": "添加属性",
+    "creation_kind_label": "标签：点击此处，或输入 ~，将其改为关系",
+    "creation_kind_relation": "关系：点击此处，或输入 #，将其改为标签"
   },
   "attribute_names": {
     "system": "系统",
@@ -3501,9 +3513,33 @@
     "current_note": "当前笔记：",
     "status_content_other": "{{count}} 篇笔记占用 {{size}}（其中附件占 {{attachmentsSize}}）",
     "status_content_hint": "所有笔记（含隐藏笔记）、其附件和版本历史占用的空间，重复内容只计一次",
-    "status_deleted_other": "已删除笔记：{{count}} 篇，共 {{size}}",
-    "status_deleted_hint": "已删除笔记仍占用的空间，彻底擦除后可回收",
+    "status_deleted": "已删除笔记与附件：{{size}}",
+    "status_deleted_hint": "已删除笔记及已删除附件（其所属笔记可能仍存在）仍占用的空间，彻底擦除后可回收",
     "menu_show_details": "显示详情",
-    "refresh": "刷新"
+    "refresh": "刷新",
+    "deleted_attachments_other": "{{count}} 个已删除附件",
+    "deleted_entities": "{{notes}}, {{attachments}}",
+    "menu_erase_deleted": "擦除已删除数据",
+    "erase_deleted_message": "已删除数据已被擦除。",
+    "revisions_limit_required": "多余的快照只有在设置了每篇笔记的最大修订快照数后才能被擦除。没有限制时，没有快照会被视为多余。是否立即设置限制？",
+    "cleanup_title": "清理",
+    "cleanup_estimated": "预计节省",
+    "cleanup_amount_of": "共 {{total}}",
+    "cleanup_deleted_entities": "擦除已删除的笔记和附件",
+    "cleanup_unused_attachments": "擦除未使用的附件",
+    "cleanup_revision_snapshots": "擦除修订快照",
+    "cleanup_snapshots_to_keep": "保留的修订快照数",
+    "cleanup_keep_named": "保留带名称的修订",
+    "cleanup_cancel": "取消",
+    "cleanup_clean": "清理",
+    "cleanup_confirm": "此操作将永久删除所选数据，无法撤销。",
+    "cleanup_done": "清理操作已完成。已回收 {{size}}。",
+    "cleanup_compact_database": "压缩数据库",
+    "cleanup_running": "正在清理…",
+    "cleanup_compacting": "正在压缩数据库。这可能需要几分钟时间。",
+    "cleanup_confirm_interrupted": "如果过程中发生中断（如崩溃、重启或断电），除已选项目外不会丢失任何内容。",
+    "cleanup_confirm_compacting_title": "压缩数据库是一项较慢的操作",
+    "cleanup_confirm_compacting": "压缩数据库可能需要几分钟时间，具体取决于数据库大小和运行 Trilium 的机器性能。另外，机器上最多需要 {{space}} 的可用磁盘空间（在数据目录和系统临时目录中）。",
+    "cleanup_compact_notice": "此操作可能需要几分钟时间，Trilium 在完成前将无响应。"
   }
 }
