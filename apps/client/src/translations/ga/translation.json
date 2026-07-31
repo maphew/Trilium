@@ -2610,7 +2610,6 @@
     "tokens_used_with_model": "{{model}}: {{prompt}} leid + {{completion}} críochnú = {{total}} comharthaí",
     "tokens_used_with_model_and_cost": "{{model}}: leid {{prompt}} + críochnú {{completion}} = {{total}} comharthaí (~${{cost}})",
     "tokens": "comharthaí",
-    "context_used": "Úsáideadh {{percentage}}%",
     "note_context_enabled": "Cliceáil chun comhthéacs nótaí a dhíchumasú: {{title}}",
     "note_context_disabled": "Cliceáil chun an nóta reatha a chur san áireamh i gcomhthéacs",
     "no_provider_message": "Níl aon soláthraí AI cumraithe. Cuir ceann leis chun comhrá a thosú.",

@@ -1554,7 +1554,6 @@
     "tokens_used_with_model": "{{model}}: {{prompt}} prompt + {{completion}} completion = {{total}} tokenů",
     "tokens_used_with_model_and_cost": "{{model}}: {{prompt}} prompt + {{completion}} completion = {{total}} tokenů (~${{cost}})",
     "tokens": "tokenů",
-    "context_used": "{{percentage}}% použito",
     "note_context_enabled": "Kliknutím zakažte kontext poznámky: {{title}}",
     "note_context_disabled": "Kliknutím zahrňte aktuální Poznámku do kontextu",
     "no_provider_message": "Nebyl nakonfigurován žádný AI poskytovatel. Přidejte jeden pro zahájení chatu.",

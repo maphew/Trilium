@@ -2467,7 +2467,6 @@
     "tokens_used_with_model": "{{model}}: {{prompt}} prompt + {{completion}} completare = {{total}} tokenuri",
     "tokens_used_with_model_and_cost": "{{model}}: {{prompt}} prompt + {{completion}} completare = {{total}} tokenuri (~${{cost}})",
     "tokens": "tokenuri",
-    "context_used": "{{percentage}}% utilizat",
     "note_context_enabled": "Clic pentru a dezactiva contextul notiței: {{title}}",
     "note_context_disabled": "Clic pentru a include notița curentă în context",
     "no_provider_message": "Niciun furnizor AI configurat. Adăugați unul pentru a începe conversația.",

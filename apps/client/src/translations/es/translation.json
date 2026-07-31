@@ -2657,7 +2657,6 @@
     "tool_error": "fallido",
     "total_tokens": "{{total}} tokens",
     "tokens": "tokens",
-    "context_used": "{{percentage}}% utilizado",
     "note_context_enabled": "Haga clic para desactivar el contexto de la nota: {{title}}",
     "note_context_disabled": "Haga clic para incluir la nota actual en contexto",
     "no_provider_message": "Ningún proveedor de IA configurado. Añada uno para empezar a charlar.",

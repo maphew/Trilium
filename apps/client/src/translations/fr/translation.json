@@ -2311,7 +2311,6 @@
     "tokens_used_with_model": "{{model}}: {{prompt}} prompt + {{completion}} achèvement = {{total}} jetons",
     "tokens_used_with_model_and_cost": "{{model}}: {{prompt}} prompt + {{completion}} achèvement = {{total}} jetons (~${{cost}})",
     "tokens": "jetons",
-    "context_used": "{{percentage}}% utilisé",
     "note_context_enabled": "Cliquez pour désactiver le contexte de la note : {{title}}",
     "note_context_disabled": "Cliquez pour inclure la note actuelle dans le contexte",
     "no_provider_message": "Aucun fournisseur d'IA configuré. Ajoutez en un pour commencer à discuter.",

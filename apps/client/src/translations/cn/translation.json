@@ -2690,7 +2690,6 @@
     "tokens_used_with_model": "{{model}}: {{prompt}} 提示词 + {{completion}} 补全 = {{total}} 个词元",
     "tokens_used_with_model_and_cost": "{{model}}: {{prompt}} 提示词 + {{completion}} 补全 = {{total}} 个词元（约 ${{cost}}）",
     "tokens": "词元",
-    "context_used": "{{percentage}}% 使用率",
     "note_context_enabled": "点击即可禁用笔记上下文：{{title}}",
     "note_context_disabled": "点击即可将当前注释添加到上下文中",
     "no_provider_message": "未配置AI提供商。添加一个即可开始对话。",

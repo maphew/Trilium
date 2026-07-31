@@ -2549,7 +2549,6 @@
     "tokens_used_with_model": "{{model}}: {{prompt}} prompt + {{completion}} completamento = {{total}} token",
     "tokens_used_with_model_and_cost": "{{model}}: {{prompt}} prompt + {{completion}} completamento = {{total}} token (~${{cost}})",
     "tokens": "tokens",
-    "context_used": "{{percentage}}% utilizzato",
     "note_context_enabled": "Clicca qui per disattivare il contesto della nota: {{title}}",
     "note_context_disabled": "Clicca per includere la nota corrente nel contesto",
     "no_provider_message": "Non è stato configurato alcun fornitore di IA. Aggiungine uno per iniziare a chattare.",
