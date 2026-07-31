@@ -54,6 +54,7 @@ interface RightPanelWidgetProps {
 export default function RightPanelWidget({ id, title, buttons, children, containerRef: externalContainerRef, contextMenuItems, grow, keepMounted }: RightPanelWidgetProps) {
     const [ rightPaneCollapsedItems, setRightPaneCollapsedItems ] = useTriliumOptionJson<string[]>("rightPaneCollapsedItems");
     const [ collapsedByUser, setCollapsedByUser ] = useState(rightPaneCollapsedItems.includes(id));
+    const [ scrollPending, setScrollPending ] = useState(false);
     const containerRef = useSyncedRef<HTMLDivElement>(externalContainerRef, null);
     const parentComponent = useContext(ParentComponent);
     const collapsible = useContext(CollapsibleWidgets);
@@ -63,16 +64,26 @@ export default function RightPanelWidget({ id, title, buttons, children, contain
     const expanded = collapsible ? !collapsedByUser : true;
 
     // Being asked for by name (see ExpandWidgetRequests) opens the widget, and is remembered as if the
-    // user had opened it themselves — so it is still open the next time its tab is built.
+    // user had opened it themselves — so it is still open the next time its tab is built. Strictly
+    // once per request: a collapse of the widget afterwards is the user's and stands.
     useEffect(() => {
         if (expandRequest?.id !== id) return;
         setCollapsedByUser(false);
         if (rightPaneCollapsedItems.includes(id)) {
             void setRightPaneCollapsedItems(rightPaneCollapsedItems.filter((item) => item !== id));
         }
+        setScrollPending(true);
         // The request alone triggers this; the remembered list is read as it stands at that moment.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [ expandRequest, id ]);
+
+    // Scrolled to only once the body it opened is laid out, hence the pass of its own — which is also
+    // all such a press amounts to for a widget that was open all along but out of sight below the rest.
+    useEffect(() => {
+        if (!scrollPending || !expanded) return;
+        containerRef.current?.scrollIntoView({ block: "nearest" });
+        setScrollPending(false);
+    }, [ scrollPending, expanded, containerRef ]);
 
     if (parentComponent) {
         parentComponent.initialized = Promise.resolve();

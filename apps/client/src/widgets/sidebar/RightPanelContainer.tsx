@@ -75,13 +75,18 @@ export default function RightPanelContainer({ widgetsByParent }: { widgetsByPare
     useTriliumEvent("toggleRightPane", toggleDocked);
     useTriliumEvent("peekRightPane", togglePeek);
 
-    // An entry point aimed at one tab (the chat launcher, the status bar's note paths badge): it opens
-    // the pane on that tab, brings it to the front if the pane is already open on another one, and
-    // closes it if it is the tab on show — so the button it comes from keeps behaving like a toggle for
-    // its own tab. `peek` opens it as a glance instead of a dock; `expandWidgetId` opens the one widget
-    // the entry point is really about, in case the user has it collapsed.
+    // An entry point aimed at one tab (the chat launcher, the status bar's connection badges): it opens
+    // the pane on that tab, brings it to the front if the pane is already open on another one, and puts
+    // it away again when it is the tab on show — see reduceTabSelection for what that amounts to.
+    // `peek` opens it as a glance instead of a dock; `expandWidgetId` opens the one widget the entry
+    // point is really about, in case the user has it collapsed.
     useTriliumEvent("selectRightPaneTab", ({ tabId, peek, expandWidgetId }) => {
-        if (visible && activeTab?.id === tabId) {
+        const action = reduceTabSelection(mode, activeTab?.id, { tabId, peek });
+        if (action === "dismiss") {
+            dismiss();
+            return;
+        }
+        if (action === "close") {
             close();
             return;
         }
@@ -91,7 +96,7 @@ export default function RightPanelContainer({ widgetsByParent }: { widgetsByPare
         if (expandWidgetId) {
             setExpandRequest((prev) => ({ id: expandWidgetId, counter: (prev?.counter ?? 0) + 1 }));
         }
-        if (!visible) {
+        if (action === "open") {
             if (peek) {
                 togglePeek();
             } else {
@@ -296,6 +301,28 @@ function useItems(rightPaneVisible: boolean, widgetsByParent: WidgetsByParent): 
     // A note-less pane (an empty tab) keeps its own empty state rather than an outline with nothing in
     // it: there is no navigating between notes to keep the strip still for.
     return groupIntoTabs(definitions, !!note);
+}
+
+export type TabSelection = "open" | "select" | "dismiss" | "close";
+
+/**
+ * What a `selectRightPaneTab` press amounts to, given how the pane stands (pure):
+ *
+ * - `open`: the pane is closed, so open it — peeked or docked, as the entry point asks.
+ * - `select`: bring the tab to the front of an open pane.
+ * - `dismiss`: put away the peek the press is toggling, softly so that the next one is instant.
+ * - `close`: an entry point that opens the pane docked closes it again, so its button stays a toggle
+ *   for its own tab.
+ *
+ * A `peek` entry point is only a glance, so pressing it for the tab already on show in a *docked* pane
+ * selects rather than closes: the dock is the user's layout, not the badge's to undo — the press is
+ * left to expand the widget it is about.
+ */
+export function reduceTabSelection(mode: PaneMode, activeTabId: RightPaneTabId | undefined, { tabId, peek }: { tabId: RightPaneTabId; peek?: boolean }): TabSelection {
+    if (mode === "closed") return "open";
+    if (activeTabId !== tabId) return "select";
+    if (mode === "peek") return "dismiss";
+    return peek ? "select" : "close";
 }
 
 /**
