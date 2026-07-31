@@ -36,19 +36,32 @@ export interface NotesAndRelationsData {
     noteIdToSizeMap: Record<string, number>;
 }
 
-export async function loadNotesAndRelations(mapRootNoteId: string, excludeRelations: string[], includeRelations: string[], mapType: MapType): Promise<NotesAndRelationsData> {
+/**
+ * @param hideUnlinkedNotes drops the notes that no relation touches from a link map, keeping only
+ *                          the map root itself. The link map's nodes are the root's whole subtree
+ *                          while its edges are relations only, so every descendant without a
+ *                          relation is drawn as a loose dot — and still pushes the rest of the graph
+ *                          around through the charge force. Worth hiding in a small local view of
+ *                          one note; the full-size maps keep the subtree their users expect of them.
+ */
+export async function loadNotesAndRelations(mapRootNoteId: string, excludeRelations: string[], includeRelations: string[], mapType: MapType, hideUnlinkedNotes = false): Promise<NotesAndRelationsData> {
     const resp = await server.post<NoteMapPostResponse>(`note-map/${mapRootNoteId}/${mapType}`, {
         excludeRelations, includeRelations
     });
 
     const noteIdToSizeMap = calculateNodeSizes(resp, mapType);
     const links = getGroupedLinks(resp.links);
-    const nodes = resp.notes.map(([noteId, title, type, color]) => ({
+    let nodes = resp.notes.map(([noteId, title, type, color]) => ({
         id: noteId,
         name: title,
         type: type,
         color: color
     }));
+
+    // A tree map links every node to its parent, so it has no unlinked notes to speak of.
+    if (hideUnlinkedNotes && mapType === "link") {
+        nodes = dropUnlinkedNotes(nodes, links, mapRootNoteId);
+    }
 
     return {
         noteIdToSizeMap,
@@ -60,6 +73,16 @@ export async function loadNotesAndRelations(mapRootNoteId: string, excludeRelati
             name: link.names.join(", ")
         }))
     };
+}
+
+/**
+ * Keeps only the notes some relation touches, plus the map root itself — a note with no relations at
+ * all is still worth showing as itself, rather than as an empty map.
+ */
+export function dropUnlinkedNotes<T extends { id: string }>(nodes: T[], links: GroupedLink[], mapRootNoteId: string) {
+    const linkedNoteIds = new Set(links.flatMap((link) => [ link.sourceNoteId, link.targetNoteId ]));
+
+    return nodes.filter((node) => node.id === mapRootNoteId || linkedNoteIds.has(node.id));
 }
 
 function calculateNodeSizes(resp: NoteMapPostResponse, mapType: MapType) {

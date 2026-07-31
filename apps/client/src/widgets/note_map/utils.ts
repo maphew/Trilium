@@ -1,5 +1,10 @@
-export type NoteMapWidgetMode = "ribbon" | "hoisted" | "type";
+export type NoteMapWidgetMode = "ribbon" | "sidebar" | "hoisted" | "type";
 export type MapType = "tree" | "link";
+
+/** Whether the map is rooted at the note being read, rather than at a configured or hoisted note. */
+export function isRootedAtCurrentNote(widgetMode: NoteMapWidgetMode) {
+    return widgetMode === "ribbon" || widgetMode === "sidebar";
+}
 
 export function rgb2hex(rgb: string) {
     return `#${(rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/) || [])

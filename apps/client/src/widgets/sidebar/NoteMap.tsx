@@ -17,10 +17,11 @@ export default function NoteMap() {
         <RightPanelWidget id="noteMap" title={t("note_map.title")}>
             {note && (
                 <div class="sidebar-note-map" ref={containerRef}>
-                    {/* "ribbon" mode roots the map at the note being read, which is what a
+                    {/* "sidebar" mode roots the map at the note being read, which is what a
                         connections panel is about (the other modes root it at a configured
-                        or hoisted note). */}
-                    <NoteMapEl note={note} widgetMode="ribbon" parentRef={containerRef} />
+                        or hoisted note), and drops the notes nothing links to — see
+                        loadNotesAndRelations. */}
+                    <NoteMapEl note={note} widgetMode="sidebar" parentRef={containerRef} />
                 </div>
             )}
         </RightPanelWidget>

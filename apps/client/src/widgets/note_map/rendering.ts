@@ -1,7 +1,7 @@
 import type ForceGraph from "force-graph";
 import { NoteMapLinkObject, NoteMapNodeObject, NotesAndRelationsData } from "./data";
 import { LinkObject, NodeObject } from "force-graph";
-import { generateColorFromString, MapType, NoteMapWidgetMode } from "./utils";
+import { generateColorFromString, isRootedAtCurrentNote, MapType, NoteMapWidgetMode } from "./utils";
 import { escapeHtml } from "../../services/utils";
 import FNote from "../../entities/fnote";
 
@@ -38,7 +38,7 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
     function getColorForNode(node: NoteMapNodeObject) {
         if (node.color) {
             return node.color;
-        } else if (widgetMode === "ribbon" && node.id === noteId) {
+        } else if (isRootedAtCurrentNote(widgetMode) && node.id === noteId) {
             return "red"; // subtree root mark as red
         } else {
             return generateColorFromString(node.type, themeStyle);
@@ -211,7 +211,7 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
  * @returns a teardown function to call when the graph is discarded.
  */
 function setupFraming(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkObject>, container: HTMLElement, { note, noteId, widgetMode, notesAndRelations }: Pick<RenderData, "note" | "noteId" | "widgetMode" | "notesAndRelations">) {
-    const framedNoteIds = (widgetMode === "ribbon" && note?.type !== "search")
+    const framedNoteIds = (isRootedAtCurrentNote(widgetMode) && note?.type !== "search")
         ? getSubGraphConnectedToCurrentNote(noteId, notesAndRelations)
         : getNoteIdsWithLinks(notesAndRelations);
 
@@ -220,7 +220,7 @@ function setupFraming(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkObject>, c
     const nodeFilter = framedNoteIds.size > 1
         ? (node: NoteMapNodeObject) => framedNoteIds.has(node.id)
         : undefined;
-    const padding = widgetMode === "ribbon" ? 50 : 30;
+    const padding = isRootedAtCurrentNote(widgetMode) ? 50 : 30;
 
     // Panning or zooming hands the view over to the user for good — re-fitting under their fingers
     // would make the map impossible to explore while it is still settling.

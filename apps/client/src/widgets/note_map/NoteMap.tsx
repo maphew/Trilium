@@ -17,7 +17,7 @@ import NoItems from "../react/NoItems";
 import Slider from "../react/Slider";
 import { loadNotesAndRelations, NoteMapLinkObject, NoteMapNodeObject, NotesAndRelationsData } from "./data";
 import { CssData, setupRendering } from "./rendering";
-import { MapType, NoteMapWidgetMode, rgb2hex } from "./utils";
+import { isRootedAtCurrentNote, MapType, NoteMapWidgetMode, rgb2hex } from "./utils";
 
 /** Maximum number of notes to render in the note map before showing a warning. */
 const MAX_NOTES_THRESHOLD = 1_000;
@@ -44,7 +44,7 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
     const notesAndRelationsRef = useRef<NotesAndRelationsData>();
 
     const mapRootId = useMemo(() => {
-        if (note.noteId && widgetMode === "ribbon") {
+        if (note.noteId && isRootedAtCurrentNote(widgetMode)) {
             return note.noteId;
         } else if (mapRootIdLabel === "hoisted") {
             return hoisted_note.getHoistedNoteId();
@@ -78,7 +78,7 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
         const labelValues = (name: string) => note.getLabels(name).map(l => l.value) ?? [];
         const excludeRelations = labelValues("mapExcludeRelation");
         const includeRelations = labelValues("mapIncludeRelation");
-        loadNotesAndRelations(mapRootId, excludeRelations, includeRelations, mapType).then((notesAndRelations) => {
+        loadNotesAndRelations(mapRootId, excludeRelations, includeRelations, mapType, widgetMode === "sidebar").then((notesAndRelations) => {
             if (disposed || !containerRef.current || !styleResolverRef.current) return;
 
             // Guard against rendering too many notes which would freeze the browser.
