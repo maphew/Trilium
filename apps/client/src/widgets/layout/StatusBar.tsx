@@ -38,18 +38,17 @@ import { convertIndentation } from "./reindentation";
 
 interface StatusBarContext {
     note: FNote;
-    notePath: string | null | undefined;
     noteContext: NoteContext;
     viewScope?: ViewScope;
     hoistedNoteId?: string;
 }
 
 export default function StatusBar() {
-    const { note, notePath, noteContext, viewScope, hoistedNoteId } = useActiveNoteContext();
+    const { note, noteContext, viewScope, hoistedNoteId } = useActiveNoteContext();
     // The attributes are the one thing the status bar still shows in a panel of its own; the rest of
     // what it stands for is shown in the sidebar (see useConnectionsToggle).
     const [ attributesShown, setAttributesShown ] = useState(false);
-    const context: StatusBarContext | undefined | null = note && noteContext && { note, notePath, noteContext, viewScope, hoistedNoteId };
+    const context: StatusBarContext | undefined | null = note && noteContext && { note, noteContext, viewScope, hoistedNoteId };
     const attributesContext: AttributesProps | undefined | null = context && { ...context, attributesShown, setAttributesShown };
     const isHiddenNote = note?.isHiddenCompletely();
 

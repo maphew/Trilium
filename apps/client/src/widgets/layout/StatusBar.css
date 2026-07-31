@@ -146,15 +146,6 @@ body.experimental-feature-new-layout .note-info-content {
             }
 }
 
-body.experimental-feature-new-layout div.similar-notes-widget div.similar-notes-wrapper {
-    max-height: unset;
-}
-
-body.experimental-feature-new-layout.mobile div.similar-notes-widget div.similar-notes-wrapper {
-    max-height: unset;
-    padding: 0;
-}
-
 .bottom-panel {
     margin: 0 !important;
     padding: 0;

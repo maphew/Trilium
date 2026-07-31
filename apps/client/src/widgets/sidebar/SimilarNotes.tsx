@@ -1,3 +1,5 @@
+import "./SimilarNotes.css";
+
 import { t } from "../../services/i18n";
 import { useActiveNoteContext } from "../react/hooks";
 // The list itself is shared with the ribbon's similar notes tab and the mobile note menu; only the
