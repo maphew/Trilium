@@ -5,6 +5,9 @@ import { generateColorFromString, MapType, NoteMapWidgetMode } from "./utils";
 import { escapeHtml } from "../../services/utils";
 import FNote from "../../entities/fnote";
 
+/** Roughly a second of simulation at 60 fps — see {@link setupFraming}. */
+const TICKS_UNTIL_DAMPED = 60;
+
 export interface CssData {
     fontFamily: string;
     textColor: string;
@@ -20,9 +23,12 @@ interface RenderData {
     widgetMode: NoteMapWidgetMode;
     notesAndRelations: NotesAndRelationsData;
     mapType: MapType;
+    /** The element the graph's canvas lives in, watched for the user taking the view over. */
+    container: HTMLElement;
 }
 
-export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkObject>, { note, noteId, themeStyle, widgetMode, noteIdToSizeMap, notesAndRelations, cssData, mapType }: RenderData) {
+/** @returns a teardown function to call when the graph is discarded. */
+export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkObject>, { note, noteId, themeStyle, widgetMode, noteIdToSizeMap, notesAndRelations, cssData, mapType, container }: RenderData) {
     // variables for the hover effect. We have to save the neighbours of a hovered node in a set. Also we need to save the links as well as the hovered node itself
     const neighbours = new Set();
     const highlightLinks = new Set();
@@ -190,32 +196,56 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
     graph.d3Force("charge")?.strength(boundedCharge);
     graph.d3Force("charge")?.distanceMax(1000);
 
-    // Zoom to notes
-    if (widgetMode === "ribbon" && note?.type !== "search") {
-        setTimeout(() => {
-            const subGraphNoteIds = getSubGraphConnectedToCurrentNote(noteId, notesAndRelations);
+    return setupFraming(graph, container, { note, noteId, widgetMode, notesAndRelations });
+}
 
-            graph.zoomToFit(400, 50, (node) => subGraphNoteIds.has(node.id));
+/**
+ * Keeps the view framed on the interesting part of the graph — the subtree the current note belongs
+ * to in the ribbon, the linked notes elsewhere — while the layout settles.
+ *
+ * The fit runs on every tick of the simulation rather than once after a fixed delay: the layout
+ * keeps expanding for seconds after the data lands, so a single delayed fit leaves the map at
+ * force-graph's default zoom meanwhile (a few nodes around the origin, the rest already spread out
+ * of sight) and then jumps to the real framing when it finally fires.
+ *
+ * @returns a teardown function to call when the graph is discarded.
+ */
+function setupFraming(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkObject>, container: HTMLElement, { note, noteId, widgetMode, notesAndRelations }: Pick<RenderData, "note" | "noteId" | "widgetMode" | "notesAndRelations">) {
+    const framedNoteIds = (widgetMode === "ribbon" && note?.type !== "search")
+        ? getSubGraphConnectedToCurrentNote(noteId, notesAndRelations)
+        : getNoteIdsWithLinks(notesAndRelations);
 
-            if (subGraphNoteIds.size < 30) {
-                graph.d3VelocityDecay(0.4);
-            }
-        }, 1000);
-    } else {
-        if (notesAndRelations.nodes.length > 1) {
-            setTimeout(() => {
-                const noteIdsWithLinks = getNoteIdsWithLinks(notesAndRelations);
+    // A lone note has no extent to fit and would just be blown up to the maximum zoom, hiding the
+    // rest of the map; the whole graph is the more useful thing to look at then.
+    const nodeFilter = framedNoteIds.size > 1
+        ? (node: NoteMapNodeObject) => framedNoteIds.has(node.id)
+        : undefined;
+    const padding = widgetMode === "ribbon" ? 50 : 30;
 
-                if (noteIdsWithLinks.size > 0) {
-                    graph.zoomToFit(400, 30, (node) => noteIdsWithLinks.has(node.id ?? ""));
-                }
+    // Panning or zooming hands the view over to the user for good — re-fitting under their fingers
+    // would make the map impossible to explore while it is still settling.
+    let framing = true;
+    const releaseFraming = () => framing = false;
+    container.addEventListener("wheel", releaseFraming, { passive: true });
+    container.addEventListener("pointerdown", releaseFraming);
 
-                if (noteIdsWithLinks.size < 30) {
-                    graph.d3VelocityDecay(0.4);
-                }
-            }, 1000);
+    let ticks = 0;
+    graph.onEngineTick(() => {
+        if (framing) {
+            graph.zoomToFit(0, padding, nodeFilter);
         }
-    }
+
+        // Damping, once the graph has had the room to spread out, so that a small map comes to rest
+        // instead of drifting for the whole cooldown.
+        if (++ticks === TICKS_UNTIL_DAMPED && framedNoteIds.size < 30) {
+            graph.d3VelocityDecay(0.4);
+        }
+    });
+
+    return () => {
+        container.removeEventListener("wheel", releaseFraming);
+        container.removeEventListener("pointerdown", releaseFraming);
+    };
 }
 
 function getNoteIdsWithLinks(data: NotesAndRelationsData) {
@@ -255,7 +285,7 @@ function getSubGraphConnectedToCurrentNote(noteId: string, data: NotesAndRelatio
     const linksBySource = getGroupedLinks(data.links, "source");
     const linksByTarget = getGroupedLinks(data.links, "target");
 
-    const subGraphNoteIds = new Set();
+    const subGraphNoteIds = new Set<string | number>();
 
     function traverseGraph(noteId?: string | number) {
         if (!noteId || subGraphNoteIds.has(noteId)) {

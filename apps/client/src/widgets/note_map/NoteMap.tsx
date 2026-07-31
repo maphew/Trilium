@@ -74,6 +74,7 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
 
         // Navigating away mid-load must not let the outgoing note's data land on the new graph.
         let disposed = false;
+        let teardownRendering: (() => void) | undefined;
         const labelValues = (name: string) => note.getLabels(name).map(l => l.value) ?? [];
         const excludeRelations = labelValues("mapExcludeRelation");
         const includeRelations = labelValues("mapIncludeRelation");
@@ -90,7 +91,7 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
             const cssData = getCssData(containerRef.current, styleResolverRef.current);
 
             // Configure rendering properties.
-            setupRendering(graph, {
+            teardownRendering = setupRendering(graph, {
                 note,
                 noteId: note.noteId,
                 noteIdToSizeMap: notesAndRelations.noteIdToSizeMap,
@@ -98,7 +99,8 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
                 notesAndRelations,
                 themeStyle: getEffectiveThemeStyle(),
                 widgetMode,
-                mapType
+                mapType,
+                container
             });
 
             // Interaction
@@ -119,6 +121,7 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
 
         return () => {
             disposed = true;
+            teardownRendering?.();
             // Stops the render loop; without it the discarded graph keeps animating against a
             // detached canvas for the rest of the session.
             graph._destructor();
