@@ -595,6 +595,19 @@ describe("BNote content / misc getters", () => {
             expect(eraseExcess(note, { snapshotsToKeep: 1 })).toBe(4);
             expect(revisionIdsOf(note)).toEqual([ newest ]);
         });
+
+        it("spares named snapshots by the configured option when the caller says nothing", () => {
+            const note = createNote();
+            const [ , named, newest ] = createRevisions(note, [ undefined, "release", undefined ]);
+            getContext().init(() => optionService.setOption("revisionIgnoreNamedSnapshots", "true"));
+
+            try {
+                expect(eraseExcess(note, { snapshotsToKeep: 1 })).toBe(1);
+                expect(revisionIdsOf(note)).toEqual([ named, newest ]);
+            } finally {
+                getContext().init(() => optionService.setOption("revisionIgnoreNamedSnapshots", "false"));
+            }
+        });
     });
 
     describe("saveAttachment matchBy (lines 1628-1655)", () => {

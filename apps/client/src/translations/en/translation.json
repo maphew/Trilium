@@ -1857,6 +1857,8 @@
     "note_revisions_snapshot_limit_description_short": "Max revisions per note. Use -1 for unlimited, 0 to disable.",
     "snapshot_number_limit_label": "Maximum revisions",
     "snapshot_number_limit_unit": "snapshots",
+    "keep_named_revisions_label": "Keep named revisions",
+    "keep_named_revisions_description": "Revisions you have named are never erased and don't count towards the maximum.",
     "erase_excess_revision_snapshots": "Erase excess revision snapshots",
     "erase_excess_revision_snapshots_description": "Delete revisions exceeding the limit for all notes.",
     "erase_now_button": "Erase now",

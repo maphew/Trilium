@@ -1619,7 +1619,8 @@ class BNote extends AbstractBeccaEntity<BNote> {
         // of the reckoning entirely: they are neither erased nor counted, and the limit then
         // governs the automatic snapshots alone. Counting them would let a handful of named ones
         // push every automatic snapshot out.
-        const candidates = keepNamedSnapshots
+        const keepNamed = keepNamedSnapshots ?? optionService.getOptionBool("revisionIgnoreNamedSnapshots");
+        const candidates = keepNamed
             ? this.getRevisions().filter((revision) => !revision.description)
             : this.getRevisions();
 

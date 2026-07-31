@@ -108,6 +108,7 @@ function AttachmentErasureTimeout() {
 
 function RevisionSettings() {
     const [ revisionSnapshotNumberLimit, setRevisionSnapshotNumberLimit ] = useTriliumOption("revisionSnapshotNumberLimit");
+    const [ revisionIgnoreNamedSnapshots, setRevisionIgnoreNamedSnapshots ] = useTriliumOptionBool("revisionIgnoreNamedSnapshots");
 
     return (
         <OptionsSection title={t("revisions_snapshot.title")}>
@@ -132,6 +133,14 @@ function RevisionSettings() {
                     }}
                 />
             </OptionsRow>
+
+            <OptionsRowWithToggle
+                name="revision-keep-named-snapshots"
+                label={t("revisions_snapshot_limit.keep_named_revisions_label")}
+                description={t("revisions_snapshot_limit.keep_named_revisions_description")}
+                currentValue={revisionIgnoreNamedSnapshots}
+                onChange={setRevisionIgnoreNamedSnapshots}
+            />
 
             <OptionsRowWithButton
                 label={t("revisions_snapshot_limit.erase_excess_revision_snapshots")}
