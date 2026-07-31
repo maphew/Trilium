@@ -49,9 +49,11 @@ interface RightPanelWidgetProps {
      * and (because its hooks live in the always-mounted parent) not re-wired on expand.
      */
     keepMounted?: boolean;
+    /** Add no padding to the widget body. */
+    noPadding?: true;
 }
 
-export default function RightPanelWidget({ id, title, buttons, children, containerRef: externalContainerRef, contextMenuItems, grow, keepMounted }: RightPanelWidgetProps) {
+export default function RightPanelWidget({ id, title, buttons, children, containerRef: externalContainerRef, contextMenuItems, grow, keepMounted, noPadding }: RightPanelWidgetProps) {
     const [ rightPaneCollapsedItems, setRightPaneCollapsedItems ] = useTriliumOptionJson<string[]>("rightPaneCollapsedItems");
     const [ collapsedByUser, setCollapsedByUser ] = useState(rightPaneCollapsedItems.includes(id));
     const [ scrollPending, setScrollPending ] = useState(false);
@@ -96,7 +98,7 @@ export default function RightPanelWidget({ id, title, buttons, children, contain
         <div
             ref={containerRef}
             id={id}
-            class={clsx("card widget", {
+            className={clsx("card widget", {
                 collapsed: !expanded,
                 "not-collapsible": !collapsible,
                 grow,
@@ -147,7 +149,7 @@ export default function RightPanelWidget({ id, title, buttons, children, contain
                 {/* keepMounted widgets stay in the DOM when collapsed and hide via an inline display:none
                     (which beats any stylesheet `.card-body` display rule, unlike the `hidden` attribute), so
                     their state and DOM-attached listeners survive a collapse; others unmount as before. */}
-                {(expanded || keepMounted) && <div class="card-body" style={!expanded ? { display: "none" } : undefined}>
+                {(expanded || keepMounted) && <div class={clsx("card-body", { "no-padding": noPadding })} style={!expanded ? { display: "none" } : undefined}>
                     {children}
                 </div>}
             </div>

@@ -11,7 +11,11 @@ import RightPanelWidget from "./RightPanelWidget";
  */
 export default function NoteMap() {
     return (
-        <RightPanelWidget id="noteMap" title={t("note_map.title")}>
+        <RightPanelWidget
+            id="noteMap"
+            title={t("note_map.title")}
+            noPadding
+        >
             <LazyComponent loader={() => import("./NoteMapGraph.jsx")} />
         </RightPanelWidget>
     );

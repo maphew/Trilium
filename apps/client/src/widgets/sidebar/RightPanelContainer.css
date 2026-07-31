@@ -95,7 +95,7 @@ body.experimental-feature-new-layout #right-pane-host.peek > .right-pane-peek-sp
 /* Pin/close controls, shown whenever the pane is open (pin only in peek mode). */
 body.experimental-feature-new-layout #right-pane .right-pane-actions {
     --icon-button-size: 24px;
-    
+
     position: absolute;
     top: 0;
     right: 0;
@@ -302,6 +302,10 @@ body.experimental-feature-new-layout #right-pane {
 
     .gutter-vertical + .card .card-header {
         padding-top: 0;
+    }
+
+    .card-body.no-padding {
+        padding: 0;
     }
 }
 
