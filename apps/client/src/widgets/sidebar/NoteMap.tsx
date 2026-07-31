@@ -22,6 +22,10 @@ import SidebarHelp from "./SidebarHelp";
  * Which map to draw is asked here too, rather than in the map's own floating overlay: a card of the
  * pane keeps its controls in its header, and a map this small has little room to stand buttons over.
  * The map reads the same label, so the two stay of one mind without being told.
+ *
+ * It grows, sharing the room the tab's lists leave over with the backlinks below them and taking all
+ * of it where they are collapsed — a map is worth whatever height it is given, and there is no height
+ * at which it is finished being read. Where it stops is in NoteMap.css.
  */
 export default function NoteMap() {
     const { note, notePath } = useActiveNoteContext();
@@ -50,6 +54,7 @@ export default function NoteMap() {
                     />
                 )}
             </>}
+            grow
             noPadding
         >
             <LazyComponent loader={() => import("./NoteMapGraph.jsx")} />

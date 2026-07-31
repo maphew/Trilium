@@ -38,8 +38,10 @@ interface RightPanelWidgetProps {
      * keeping to the height of the content. Use for the one widget a tab is really about — a note's own
      * attributes, its table of contents, the chat — so that the rest keep to their content around it.
      *
-     * At most one widget per tab should ask for it: they would otherwise share the leftover height
-     * between them. It lapses while the widget is collapsed, so the others move up to fill the room.
+     * Two of them in a tab share the leftover height between them, each keeping its own floor — the
+     * connections tab's map and backlinks, a PDF's outline and its pages. Ask for it once more than
+     * that and none of them is left with room worth having. It lapses while the widget is collapsed,
+     * so the others move up to fill the room.
      */
     grow?: boolean;
     /**

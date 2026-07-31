@@ -217,8 +217,8 @@ function useItems(rightPaneVisible: boolean, widgetsByParent: WidgetsByParent): 
         },
         {
             // The map goes above the lists rather than under them: it is the one card of the tab
-            // held to a height of its own, so the room the rest are measured for is what it leaves
-            // over — which reads as a heading over them rather than as a block wedged below.
+            // that is a picture of the whole rather than a list of a part of it, which reads as a
+            // heading over them rather than as a block wedged below.
             //
             // The card is rendered here and only the map within it loaded on demand (force-graph is
             // kept out of the boot bundle), so that the card stays a child of the tab body — see
