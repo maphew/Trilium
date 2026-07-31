@@ -181,21 +181,27 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
                 <MapTypeSwitcher type="tree" icon="bx bx-sitemap" text={t("note-map.button-tree-map")} currentMapType={mapType} setMapType={setMapType} />
             </div>
 
-            <div class="btn-group-sm fixnodes-type-switcher content-floating-buttons bottom-left" role="group">
-                <ActionButton
-                    icon="bx bx-lock-alt"
-                    text={t("note_map.fix-nodes")}
-                    className={fixNodes ? "active" : ""}
-                    onClick={() => setFixNodes(!fixNodes)}
-                    frame
-                />
+            {/* Not in the sidebar, where neither has anything to hold on to: a map that small is not
+                one to arrange by hand, and it is rebuilt from scratch on every note it is read for,
+                which is what a connections panel is for — so a pinned node and a chosen link distance
+                are both gone by the next note. */}
+            {widgetMode !== "sidebar" && (
+                <div class="btn-group-sm fixnodes-type-switcher content-floating-buttons bottom-left" role="group">
+                    <ActionButton
+                        icon="bx bx-lock-alt"
+                        text={t("note_map.fix-nodes")}
+                        className={fixNodes ? "active" : ""}
+                        onClick={() => setFixNodes(!fixNodes)}
+                        frame
+                    />
 
-                <Slider
-                    min={1} max={100}
-                    value={linkDistance} onChange={setLinkDistance}
-                    title={t("note_map.link-distance")}
-                />
-            </div>
+                    <Slider
+                        min={1} max={100}
+                        value={linkDistance} onChange={setLinkDistance}
+                        title={t("note_map.link-distance")}
+                    />
+                </div>
+            )}
 
             <div ref={styleResolverRef} class="style-resolver" />
             <div ref={containerRef} className="note-map-container" />
