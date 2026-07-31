@@ -7,6 +7,7 @@ import { useMemo } from "preact/hooks";
 
 import { t } from "../../../services/i18n.js";
 import utils from "../../../services/utils.js";
+import { ExtendedAdmonition } from "../../react/Admonition.js";
 import Button from "../../react/Button.js";
 import { ReadOnlyTextContent } from "../text/ReadOnlyText.js";
 import { renderMarkdown } from "./chat_markdown.js";
@@ -158,13 +159,19 @@ function ChatMessage({ message, isStreaming, onRetry }: Props) {
         );
     }
 
-    // Render error messages as a "caution" admonition, matching the callouts the
-    // model itself can emit in its responses.
+    // Render error messages as a "caution" extended admonition: the header names the
+    // failure so the (often long and technical) provider message reads as the detail
+    // rather than as the assistant's own prose.
     if (isError) {
         return (
             <div className="llm-chat-message-wrapper llm-chat-message-wrapper-assistant">
-                <div className="admonition caution llm-chat-error">
-                    {textContent}
+                <ExtendedAdmonition
+                    type="caution"
+                    icon="bx bx-error-circle"
+                    title={t("llm_chat.error")}
+                    className="llm-chat-error"
+                >
+                    <div className="llm-chat-error-text">{textContent}</div>
                     {onRetry && (
                         <div className="llm-chat-error-actions">
                             <Button
@@ -175,7 +182,7 @@ function ChatMessage({ message, isStreaming, onRetry }: Props) {
                             />
                         </div>
                     )}
-                </div>
+                </ExtendedAdmonition>
             </div>
         );
     }

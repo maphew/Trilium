@@ -167,12 +167,22 @@ body.background-effects.theme-supports-background-effects .llm-chat-message-user
     text-align: right;
 }
 
-/* Error message — rendered as a real "caution" admonition (styled by
-   packages/ckeditor5/src/theme/ck-content.css) so it stays visually identical to
-   admonitions the model itself emits. Only chat-specific tweaks live here. */
+/* Error message — rendered as a "caution" extended admonition (see
+   widgets/react/Admonition.css, layered on the base admonition styling from
+   packages/ckeditor5/src/theme/ck-content.css). Only chat-specific tweaks live here. */
 .admonition.llm-chat-error {
     margin: 0;
     user-select: text;
+}
+
+/* The body is the provider's raw error text: monospace, with newlines kept and
+   long unbroken tokens (URLs, JSON payloads) allowed to break mid-word so they
+   can't push the card wider than the chat column. */
+.llm-chat-error-text {
+    font-family: var(--monospace-font-family, monospace);
+    font-size: 0.9em;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
 }
 
 .llm-chat-error-actions {
