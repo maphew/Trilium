@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { useContext, useEffect, useMemo, useState } from "preact/hooks";
 
 import FNote, { NotePathRecord } from "../../entities/fnote";
+import { isExperimentalFeatureEnabled } from "../../services/experimental_features";
 import { t } from "../../services/i18n";
 import { NOTE_PATH_TITLE_SEPARATOR } from "../../services/tree";
 import { useTriliumEvent } from "../react/hooks";
@@ -22,12 +23,18 @@ export function NotePathsWidget({ sortedNotePaths, currentNotePath }: {
     currentNotePath?: string | null | undefined;
 }) {
     const parentComponent = useContext(ParentComponent);
+    // What holds the list in the new layout — the sidebar's card, the mobile note menu's modal — is
+    // titled for the paths already, so the line saying the note is placed in them is left to the
+    // ribbon's tab, which carries no title of its own. A note placed nowhere still says so wherever
+    // it is shown: the list is then empty, and nothing else would account for it.
+    const intro = sortedNotePaths?.length
+        ? (isExperimentalFeatureEnabled("new-layout") ? null : t("note_paths.intro_placed"))
+        : t("note_paths.intro_not_placed");
+
     return (
         <div class="note-paths-widget">
             <>
-                <div className="note-path-intro">
-                    {sortedNotePaths?.length ? t("note_paths.intro_placed") : t("note_paths.intro_not_placed")}
-                </div>
+                {intro && <div className="note-path-intro">{intro}</div>}
 
                 <ul className="note-path-list">
                     {sortedNotePaths?.length ? sortedNotePaths.map(sortedNotePath => (
