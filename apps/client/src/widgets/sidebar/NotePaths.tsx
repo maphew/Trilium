@@ -1,3 +1,5 @@
+import "./NotePaths.css";
+
 import { t } from "../../services/i18n";
 import { useActiveNoteContext } from "../react/hooks";
 // The paths list is shared with the ribbon's note paths tab; only the framing differs here. The status
