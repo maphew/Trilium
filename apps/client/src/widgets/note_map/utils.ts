@@ -6,6 +6,11 @@ export function isRootedAtCurrentNote(widgetMode: NoteMapWidgetMode) {
     return widgetMode === "ribbon" || widgetMode === "sidebar";
 }
 
+/** The map a note asks to be drawn as through its `mapType` label, the link map standing for anything else. */
+export function toMapType(labelValue: string | null | undefined): MapType {
+    return labelValue === "tree" ? "tree" : "link";
+}
+
 export function rgb2hex(rgb: string) {
     return `#${(rgb.match(/^rgb\((\d+),\s*(\d+),\s*(\d+)\)$/) || [])
         .slice(1)

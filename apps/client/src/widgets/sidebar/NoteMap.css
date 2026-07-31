@@ -1,3 +1,20 @@
+/*
+ * The choice of map, offered in the card's header rather than over the map itself. The group is the
+ * theme's (recessed track, raised segment on show), as the pane's tab strip is; only its size is this
+ * card's own business, the theme building it for a toolbar, where it stands taller than a header row.
+ */
+#noteMap .card-header-buttons .map-type-switcher {
+    gap: 2px;
+    padding: 2px;
+
+    .icon-action {
+        --icon-button-size: 22px;
+        /* Kept well inside the segment: the theme's own ratio is meant for a segment half again as
+           tall, where the same glyph has room to breathe. */
+        --icon-button-icon-ratio: 0.62;
+    }
+}
+
 .sidebar-note-map {
     /* Anchors the map's floating buttons (map type, fix nodes), same as the ribbon wrapper. */
     position: relative;

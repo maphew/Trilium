@@ -16,8 +16,9 @@ import { useElementSize, useNoteLabel } from "../react/hooks";
 import NoItems from "../react/NoItems";
 import Slider from "../react/Slider";
 import { loadNotesAndRelations, NoteMapLinkObject, NoteMapNodeObject, NotesAndRelationsData } from "./data";
+import MapTypeSwitcher from "./MapTypeSwitcher";
 import { CssData, setupRendering } from "./rendering";
-import { isRootedAtCurrentNote, MapType, NoteMapWidgetMode, rgb2hex } from "./utils";
+import { isRootedAtCurrentNote, NoteMapWidgetMode, rgb2hex, toMapType } from "./utils";
 
 /** Maximum number of notes to render in the note map before showing a warning. */
 const MAX_NOTES_THRESHOLD = 1_000;
@@ -33,7 +34,7 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
     const styleResolverRef = useRef<HTMLDivElement>(null);
     const [ mapTypeRaw, setMapType ] = useNoteLabel(note, "mapType");
     const [ mapRootIdLabel ] = useNoteLabel(note, "mapRootNoteId");
-    const mapType: MapType = mapTypeRaw === "tree" ? "tree" : "link";
+    const mapType = toMapType(mapTypeRaw);
 
     const graphRef = useRef<ForceGraph<NoteMapNodeObject, NoteMapLinkObject>>();
     const containerSize = useElementSize(parentRef);
@@ -176,10 +177,14 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
 
     return (
         <div className="note-map-widget">
-            <div className="btn-group btn-group-sm map-type-switcher content-floating-buttons top-left" role="group">
-                <MapTypeSwitcher type="link" icon="bx bx-network-chart" text={t("note-map.button-link-map")} currentMapType={mapType} setMapType={setMapType} />
-                <MapTypeSwitcher type="tree" icon="bx bx-sitemap" text={t("note-map.button-tree-map")} currentMapType={mapType} setMapType={setMapType} />
-            </div>
+            {/* The sidebar offers the choice in its card's header instead, where the pane keeps the
+                controls of a widget — see sidebar/NoteMap.tsx. */}
+            {widgetMode !== "sidebar" && (
+                <MapTypeSwitcher
+                    mapType={mapType} setMapType={setMapType}
+                    className="btn-group-sm content-floating-buttons top-left" frame
+                />
+            )}
 
             {/* Not in the sidebar, where neither has anything to hold on to: a map that small is not
                 one to arrange by hand, and it is rebuilt from scratch on every note it is read for,
@@ -206,23 +211,6 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
             <div ref={styleResolverRef} class="style-resolver" />
             <div ref={containerRef} className="note-map-container" />
         </div>
-    );
-}
-
-function MapTypeSwitcher({ icon, text, type, currentMapType, setMapType }: {
-    icon: string;
-    text: string;
-    type: MapType;
-    currentMapType: MapType;
-    setMapType: (type: MapType) => void;
-}) {
-    return (
-        <ActionButton
-            icon={icon} text={text}
-            active={currentMapType === type}
-            onClick={() => setMapType(type)}
-            frame
-        />
     );
 }
 
