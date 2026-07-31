@@ -244,7 +244,9 @@
     "starting": "Importando…",
     "in-progress-with-total": "Se han importado {{progress}} notas de {{total}}",
     "extracting": "Se han extraído {{progress}} elementos de {{total}}",
-    "processing": "Se han procesado {{progress}} notas de {{total}}"
+    "processing": "Se han procesado {{progress}} notas de {{total}}",
+    "throttled": "El servicio está limitando la frecuencia de las solicitudes; la importación está esperando a que se reanude el acceso…",
+    "throttled-with-total": "Se han importado {{progress}} de {{total}} notas; el servicio está limitando la frecuencia de las solicitudes. Esperando a que se reanude el acceso…"
   },
   "include_note": {
     "dialog_title": "Incluir nota",
@@ -469,7 +471,30 @@
     "textarea": "Texto multilínea",
     "print_scale": "Al exportar a PDF, cambia la escala del contenido renderizado. Los valores varían de 0.1 (10%) a 2 (200%), por defecto es 1 (100%).",
     "print_margins": "Al exportar a PDF, establece márgenes de página. Use <code>default</code>, <code>none</code>, <code>minimum</code>, o valores personalizados como <code>top,right,bottom,left</code> en milímetros.",
-    "save_and_close_button": "Guardar y cerrar"
+    "save_and_close_button": "Guardar y cerrar",
+    "email": "Email",
+    "phone": "Teléfono",
+    "select_type": "Seleccionar",
+    "select_options": "Opciones",
+    "select_options_title": "Las opciones que ofrece el campo, en este orden.",
+    "select_options_placeholder": "Escriba una opción y pulse Intro",
+    "add_option": "Añadir esta opción",
+    "remove_option": "Eliminar esta opción",
+    "definition": "Definición del atributo",
+    "other_notes_count_one": "{{count}} otra nota",
+    "other_notes_count_many": "{{count}} otras notas",
+    "other_notes_count_other": "(n == 1) ? 0 : ((n != 0 && n % 1000000 == 0) ? 1 : 2)",
+    "no_other_notes": "Solo esta nota",
+    "no_other_notes_title": "Ninguna otra nota tiene el {{attributeType}} \"{{attributeName}}\".",
+    "show_all_in_search": "Mostrar todo en la búsqueda",
+    "relation_type": "Relación",
+    "versioning_limit": "Limita el número de revisiones que conserva esta nota, sustituyendo la configuración global.",
+    "similar_notes_widget_disabled": "Desactiva la pestaña de la cinta «Notas similares» para esta nota. Solo en el diseño antiguo.",
+    "llm_chat_home": "Los nuevos chats de IA se crean como notas hijas de esta nota.",
+    "workspace_llm_chat_home": "Los nuevos chats de IA se crean como notas hijas de esta nota cuando se eleva la vista a una nota antecesora de este espacio de trabajo.",
+    "date_pattern": "Patrón para los títulos de las notas diarias generadas bajo esta raíz del calendario; por ejemplo, <code>{dateNumberPadded} - {weekDay}</code>.",
+    "week_pattern": "Patrón para los títulos de las notas semanales generadas bajo esta raíz del calendario. Requiere <code>#enableWeekNote</code>.",
+    "month_pattern": "Patrón para los títulos de las notas mensuales generadas bajo esta raíz del calendario; por ejemplo, <code>{monthNumberPadded} - {month}</code>."
   },
   "attribute_editor": {
     "help_text_body1": "Para agregar una etiqueta, simplemente escriba, por ejemplo. <code>#rock</code> o si desea agregar también valor, p.e. <code>#año = 2020</code>",
@@ -2949,7 +2974,10 @@
     "import_count_many": "Importar {{count}} secciones",
     "import_count_other": "Importar {{count}} secciones",
     "attach_source": "Adjuntar HTML original (depuración)",
-    "attach_source_hint": "Guarda el HTML original sin modificar de cada página de OneNote como adjunto de la nota importada, para compararlo con el resultado convertido."
+    "attach_source_hint": "Guarda el HTML original sin modificar de cada página de OneNote como adjunto de la nota importada, para compararlo con el resultado convertido.",
+    "refresh": "Actualizar",
+    "load_retry": "Intentar de nuevo",
+    "no_notebooks_hint": "Solo se muestran los blocs de notas almacenados en el OneDrive de esta cuenta. Los blocs de notas compartidos con usted o almacenados en un sitio de SharePoint o Teams no pueden importarse."
   },
   "notion_import": {
     "name": "Notion",
