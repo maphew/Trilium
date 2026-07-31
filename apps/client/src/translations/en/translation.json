@@ -1389,6 +1389,12 @@
     "no_similar_notes_found": "No similar notes found."
   },
   "sidebar_help": {
+    "attributes_what": "The labels and relations set on this note itself. A label tags the note with a name and, if you like, a value; a relation points it at another note.",
+    "attributes_inheritable": "Marking one inheritable passes it down the whole subtree under the note, where it is listed as inherited rather than owned.",
+    "attributes_inherited_what": "Labels and relations reaching this note from elsewhere: an inheritable one set on a note above it, or one carried in by a template.",
+    "attributes_inherited_source": "They are read-only here. Each row names the note it comes from, which is where it can be changed or removed.",
+    "attributes_definitions_what": "A definition is the schema behind an attribute name: what kind of value it takes, whether it may be given more than once, and whether it is promoted.",
+    "attributes_definitions_promoted": "A promoted attribute is shown on the note itself as a form field rather than being left to this panel. Definitions usually arrive from a template, and each row names the note it lives on.",
     "note_map_what": "A map of what this note connects to. The link map draws the internal links and relations going in and out of it; the tree map draws where it sits in the note tree. The switcher in this header chooses between the two.",
     "note_map_interaction": "Hovering a note brings its own connections forward and fades the rest. The expand button opens the same map at the size of the window.",
     "note_paths_what": "A note can sit in more than one place in the note tree at once, and each of those places is listed here as a path.",

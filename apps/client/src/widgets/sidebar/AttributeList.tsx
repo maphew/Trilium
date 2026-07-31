@@ -19,18 +19,17 @@ import { AttributeDetail, AttributeDetailOpts, AttributeForm, AttrType, DEFINITI
 import { ColorChip, renderLabelValue } from "../attribute_widgets/label_value_display";
 import ActionButton from "../react/ActionButton";
 import { FormListItem } from "../react/FormList";
-import HelpButton from "../react/HelpButton";
 import { useActiveNoteContext, useTriliumEvent } from "../react/hooks";
 import Icon from "../react/Icon";
 import { DetailPane, MasterPane, useMasterDetail, useMasterDetailPage } from "../react/master_detail";
 import NoItems from "../react/NoItems";
 import NoteLink from "../react/NoteLink";
 import { ParentComponent } from "../react/react_utils";
-import { ATTRIBUTE_HELP_PAGE } from "../ribbon/components/AttributeHelp";
 import OptionsSection from "../type_widgets/options/components/OptionsSection";
 import AttributeCreationEditor from "./AttributeCreationEditor";
 import AttributeValueEditor, { resolveValueField } from "./AttributeValueEditor";
 import RightPanelWidget, { CollapsibleWidgets } from "./RightPanelWidget";
+import SidebarHelp from "./SidebarHelp";
 
 /**
  * The note's attributes as a list, one row per attribute: the kind (label, relation, or either's
@@ -375,7 +374,7 @@ export default function AttributeList() {
                     grow
                     buttons={note && (
                         <>
-                            <HelpButton helpPage={ATTRIBUTE_HELP_PAGE} />
+                            <SidebarHelp section="attributes" />
                             <AddAttributeButton
                                 text={t("attribute_editor.add_a_new_attribute")}
                                 attrTypes={ALL_ATTRIBUTE_KINDS}
@@ -407,6 +406,7 @@ export default function AttributeList() {
                     <AttributeSection
                         id="attributes-inherited"
                         title={t("attribute_list_panel.inherited", { count: sections.inherited.length })}
+                        buttons={<SidebarHelp section="attributes-inherited" />}
                     >
                         <div class="attribute-list-panel align-values-end" onClick={commit}>
                             <AttributeRowList rows={sections.inherited} {...rowProps} />
@@ -418,13 +418,16 @@ export default function AttributeList() {
                     <AttributeSection
                         id="attributes-definitions"
                         title={t("attribute_list_panel.definitions", { count: sections.definitions.length })}
-                        buttons={note && (
-                            <AddAttributeButton
-                                text={t("attribute_list_panel.add_definition")}
-                                attrTypes={DEFINITION_KINDS}
-                                onSelect={addAttribute}
-                            />
-                        )}
+                        buttons={<>
+                            <SidebarHelp section="attributes-definitions" />
+                            {note && (
+                                <AddAttributeButton
+                                    text={t("attribute_list_panel.add_definition")}
+                                    attrTypes={DEFINITION_KINDS}
+                                    onSelect={addAttribute}
+                                />
+                            )}
+                        </>}
                     >
                         <div class="attribute-list-panel" onClick={commit}>
                             <AttributeRowList rows={sections.definitions} {...rowProps} />

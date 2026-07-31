@@ -34,6 +34,9 @@ export const byBookType: Record<ViewTypeOptions, string | null> = {
     dashboard: "IF7Q6I9x7zuw"
 };
 
+/** In-app help note describing labels and relations. */
+export const ATTRIBUTE_HELP_PAGE = "zEY4DaJG4YT5";
+
 /** What one card of the right sidebar offers when its `?` is pressed. */
 export interface SidebarSectionHelp {
     /** In-app help note the "Open help page" link at the foot of the popup goes to. */
@@ -52,6 +55,20 @@ export interface SidebarSectionHelp {
  * for whichever tab happens to be on show, and then pick one of those pages out of several.
  */
 export const bySidebarSection = {
+    attributes: {
+        helpPage: ATTRIBUTE_HELP_PAGE,
+        paragraphs: [ "sidebar_help.attributes_what", "sidebar_help.attributes_inheritable" ]
+    },
+    "attributes-inherited": {
+        // Attribute Inheritance, covering both ways one reaches a note it isn't set on.
+        helpPage: "bwZpz2ajCEwO",
+        paragraphs: [ "sidebar_help.attributes_inherited_what", "sidebar_help.attributes_inherited_source" ]
+    },
+    "attributes-definitions": {
+        // Promoted Attributes, where a definition is set out and what promoting it does.
+        helpPage: "OFXdgB2nNk1F",
+        paragraphs: [ "sidebar_help.attributes_definitions_what", "sidebar_help.attributes_definitions_promoted" ]
+    },
     noteMap: {
         // Note Map (Link map, Tree map).
         helpPage: "BCkXAVs63Ttv",

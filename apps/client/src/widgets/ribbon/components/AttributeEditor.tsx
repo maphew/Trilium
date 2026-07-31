@@ -16,6 +16,7 @@ import attribute_renderer from "../../../services/attribute_renderer";
 import attributes, { isBuiltinAttribute } from "../../../services/attributes";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
+import { ATTRIBUTE_HELP_PAGE } from "../../../services/in_app_help";
 import link from "../../../services/link";
 import note_autocomplete, { Suggestion } from "../../../services/note_autocomplete";
 import note_create from "../../../services/note_create";
@@ -27,7 +28,7 @@ import ActionButton from "../../react/ActionButton";
 import CKEditor, { CKEditorApi } from "../../react/CKEditor";
 import HelpDropdown from "../../react/HelpDropdown";
 import { useLegacyImperativeHandlers, useLegacyWidget, useTriliumEvent } from "../../react/hooks";
-import AttributeHelp, { ATTRIBUTE_HELP_PAGE } from "./AttributeHelp";
+import AttributeHelp from "./AttributeHelp";
 
 type AttributeCommandNames = FilteredCommandNames<CommandData>;
 
