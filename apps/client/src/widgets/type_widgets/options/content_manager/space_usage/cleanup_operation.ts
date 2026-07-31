@@ -26,8 +26,9 @@ export type CleanupPhase = "erasing" | "compacting";
 
 
 /**
- * What the cleanup tool is set to erase, persisted as JSON in the `cleanupToolOptions` option so the
- * next run opens on the last answer rather than on a fresh set of defaults.
+ * What the cleanup tool is set to erase. Persisted as JSON in the `cleanupToolOptions` option — all
+ * but the compacting step, see {@link storedCleanupOptions} — so the next run opens on the last
+ * answer rather than on a fresh set of defaults.
  */
 export interface CleanupToolOptions {
     deletedEntities: boolean;
@@ -69,9 +70,23 @@ export function readCleanupOptions(stored: Partial<CleanupToolOptions> | null | 
         snapshotsToKeep: Number.isInteger(snapshotsToKeep) && Number(snapshotsToKeep) >= 0
             ? Number(snapshotsToKeep)
             : defaultSnapshotsToKeep(),
-        keepNamedSnapshots: stored?.keepNamedSnapshots === true,
-        compactDatabase: stored?.compactDatabase === true
+        // Never answered here, the tool follows what the note revision settings say about named
+        // revisions, rather than proposing a harsher trim than the one already configured.
+        keepNamedSnapshots: stored?.keepNamedSnapshots ?? optionService.is("revisionIgnoreNamedSnapshots"),
+        // Always starts unpicked, whatever the last run asked for: it is by far the most expensive
+        // step, and one nobody should find themselves running because they forgot it was ticked.
+        compactDatabase: false
     };
+}
+
+/**
+ * What is worth remembering from a run: everything but the compacting step, which is deliberately
+ * asked for afresh each time (see {@link readCleanupOptions}) and so is never written back.
+ */
+export function storedCleanupOptions(options: CleanupToolOptions): Partial<CleanupToolOptions> {
+    const { compactDatabase: _unremembered, ...remembered } = options;
+
+    return remembered;
 }
 
 /**

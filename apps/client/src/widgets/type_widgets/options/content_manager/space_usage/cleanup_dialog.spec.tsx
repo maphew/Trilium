@@ -30,6 +30,8 @@ const {
 
 const mocks = vi.hoisted(() => ({
     getInt: vi.fn<(name: string) => number | null>(() => -1),
+    /** Reads the `revisionIgnoreNamedSnapshots` option, which the named-revisions field follows. */
+    is: vi.fn<(name: string) => boolean>(() => false),
     storedOption: "{}",
     /** Occupied bytes handed to the run's before/after weighings, in that order. */
     weighed: [] as number[],
@@ -49,6 +51,7 @@ vi.mock("../../../../../services/options", () => ({
     default: {
         get: () => mocks.storedOption,
         getInt: mocks.getInt,
+        is: mocks.is,
         save: mocks.save
     }
 }));
@@ -172,6 +175,11 @@ async function toggle(row: HTMLElement | undefined) {
     });
 }
 
+/** Picks the rebuild, which never carries over from a previous run and so is always picked by hand. */
+async function toggleCompacting() {
+    await toggle(document.body.querySelector<HTMLElement>(".cleanup-item-compact") ?? undefined);
+}
+
 async function click(button: HTMLButtonElement | undefined) {
     await act(async () => {
         button?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
@@ -285,15 +293,16 @@ describe("showCleanupDialog", () => {
 
         // Picked on its own, it is the whole of the offer — and worth running, though it erases
         // nothing, so the button has to allow it.
-        await toggle(document.body.querySelector<HTMLElement>(".cleanup-item-compact") ?? undefined);
+        await toggleCompacting();
         expect(textOf(".cleanup-chart-amount")).toBe(formatSize(FREE_PAGES));
         expect(cleanButton()?.disabled).toBe(false);
     });
 
     it("keeps a spinner up for the run, naming the rebuild while it holds the server", async () => {
-        mocks.storedOption = JSON.stringify({ unusedAttachments: true, compactDatabase: true });
+        mocks.storedOption = JSON.stringify({ unusedAttachments: true });
         const { closed } = await openDialog();
 
+        await toggleCompacting();
         await click(cleanButton());
         // The rebuild's own before/after is what a compacting run reports, not the content readings.
         await expect(closed).resolves.toBe(VACUUM_BEFORE - VACUUM_AFTER);
@@ -316,9 +325,10 @@ describe("showCleanupDialog", () => {
     });
 
     it("reports the file's own reduction as the whole of what a compacting run reclaimed", async () => {
-        mocks.storedOption = JSON.stringify({ unusedAttachments: true, compactDatabase: true });
+        mocks.storedOption = JSON.stringify({ unusedAttachments: true });
         const { closed } = await openDialog();
 
+        await toggleCompacting();
         await click(cleanButton());
 
         // The rebuild returns the pages the erasures freed along with everything else, so its own
@@ -346,8 +356,8 @@ describe("showCleanupDialog", () => {
         // An erasure-only run is over in seconds; there is nothing to warn about waiting for.
         expect(await confirmationHtml()).not.toContain("admonition");
 
-        mocks.storedOption = JSON.stringify({ unusedAttachments: true, compactDatabase: true });
         await openDialog();
+        await toggleCompacting();
         await click(cleanButton());
 
         const warned = await confirmationHtml();

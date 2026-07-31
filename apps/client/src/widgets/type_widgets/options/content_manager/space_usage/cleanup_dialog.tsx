@@ -25,7 +25,8 @@ import {
     hasWorkToDo,
     measureCompactionEstimate,
     readCleanupOptions,
-    runCleanup
+    runCleanup,
+    storedCleanupOptions
 } from "./cleanup_operation";
 import { useSpaceUsageFetch } from "./use_space_usage_fetch";
 
@@ -69,7 +70,7 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
     const update = (patch: Partial<CleanupToolOptions>) => {
         const next = { ...options, ...patch };
         setOptions(next);
-        void setStored(next);
+        void setStored(storedCleanupOptions(next));
     };
 
     // Measured with the history erased outright: the whole the reading is "of", and fixed for as
