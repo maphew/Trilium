@@ -2349,6 +2349,8 @@
     "edit_index": "Edit {{index}} of {{total}}",
     "result": "Result",
     "error": "Error",
+    "error_api": "API error (HTTP {{status}})",
+    "error_show_details": "Show details",
     "tool_error": "failed",
     "total_tokens": "{{total}} tokens",
     "tokens_detail": "{{prompt}} prompt + {{completion}} completion",

@@ -10,6 +10,7 @@ import utils from "../../../services/utils.js";
 import { ExtendedAdmonition } from "../../react/Admonition.js";
 import Button from "../../react/Button.js";
 import { ReadOnlyTextContent } from "../text/ReadOnlyText.js";
+import { formatErrorDetails } from "./chat_error.js";
 import { renderMarkdown } from "./chat_markdown.js";
 import { renderQuoteSourceLinks } from "./chat_quote.js";
 import { ExpandableCard, ExpandableSection } from "./ExpandableCard.js";
@@ -159,17 +160,21 @@ function ChatMessage({ message, isStreaming, onRetry }: Props) {
         );
     }
 
-    // Render error messages as a "caution" extended admonition: the header names the
-    // failure so the (often long and technical) provider message reads as the detail
-    // rather than as the assistant's own prose.
+    // Render error messages as a "caution" extended admonition: the header classifies the
+    // failure (an HTTP status when the provider answered) so the message below it can be
+    // just what went wrong, with the endpoint and raw response body folded into "details".
     if (isError) {
+        const status = message.errorDetails?.statusCode;
+        const details = formatErrorDetails(textContent, message.errorDetails);
         return (
             <div className="llm-chat-message-wrapper llm-chat-message-wrapper-assistant">
                 <ExtendedAdmonition
                     type="caution"
                     icon="bx bx-error-circle"
-                    title={t("llm_chat.error")}
+                    title={status ? t("llm_chat.error_api", { status }) : t("llm_chat.error")}
                     className="llm-chat-error"
+                    detailsLabel={t("llm_chat.error_show_details")}
+                    details={details && <pre className="llm-chat-error-details">{details}</pre>}
                 >
                     <div className="llm-chat-error-text">{textContent}</div>
                     {onRetry && (

@@ -45,7 +45,10 @@ vi.mock("../../services/llm/index.js", () => {
     };
 });
 
-vi.mock("../../services/llm/stream.js", () => ({
+// Only the stream itself is faked; `formatStreamError` (used for the log line) is a pure
+// function and stays real, so the logged text is asserted against the production format.
+vi.mock("../../services/llm/stream.js", async (importOriginal) => ({
+    ...await importOriginal<typeof import("../../services/llm/stream.js")>(),
     async *streamToChunks () { for (const c of state.chunks) yield c; }
 }));
 

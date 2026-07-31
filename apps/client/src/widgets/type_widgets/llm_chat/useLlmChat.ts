@@ -798,14 +798,15 @@ export function useLlmChat(
                     setLastPromptTokens(u.promptTokens);
                     setLastCompletionTokens(u.completionTokens);
                 },
-                onError: (errorMsg) => {
-                    console.error("Chat error:", errorMsg);
+                onError: (errorMsg, errorDetails) => {
+                    console.error("Chat error:", errorMsg, errorDetails);
                     const errorMessage: StoredMessage = {
                         id: randomString(),
                         role: "assistant",
                         content: errorMsg,
                         createdAt: new Date().toISOString(),
-                        type: "error"
+                        type: "error",
+                        ...(errorDetails ? { errorDetails } : {})
                     };
                     const finalMessages = [...conversation, errorMessage];
                     setMessages(finalMessages);

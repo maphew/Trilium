@@ -185,6 +185,17 @@ body.background-effects.theme-supports-background-effects .llm-chat-message-user
     overflow-wrap: anywhere;
 }
 
+/* Endpoint + raw response body, revealed by the details toggle. Same treatment as the
+   message above, minus the `<pre>` default margin. */
+.llm-chat-error-details {
+    margin: 0;
+    font-family: var(--monospace-font-family, monospace);
+    font-size: 0.85em;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    color: var(--muted-text-color);
+}
+
 .llm-chat-error-actions {
     margin-top: 0.75rem;
 }

@@ -4,7 +4,7 @@ import type { Request, Response } from "express";
 
 import { generateChatTitle } from "../../services/llm/chat_title.js";
 import { getProvider, getProviderByType, getSelectedModel, hasConfiguredProviders, listProviderModels, type LlmProviderConfig } from "../../services/llm/index.js";
-import { streamToChunks } from "../../services/llm/stream.js";
+import { formatStreamError, streamToChunks } from "../../services/llm/stream.js";
 import { safeExtractMessageAndStackFromError } from "../../services/utils.js";
 
 interface ChatRequest {
@@ -87,7 +87,10 @@ async function streamChat(req: Request, res: Response) {
 
         for await (const chunk of chunks) {
             if (chunk.type === "error") {
-                getLog().error(`LLM chat stream error (model ${modelDisplayName}): ${chunk.error}`);
+                // The status/URL/response body travel beside the message for the UI's
+                // benefit; the log gets them rejoined onto the one line it can show.
+                const described = formatStreamError({ message: chunk.error, details: chunk.errorDetails });
+                getLog().error(`LLM chat stream error (model ${modelDisplayName}): ${described}`);
             }
             res.write(`data: ${JSON.stringify(chunk)}\n\n`);
             // Flush immediately to ensure real-time streaming
