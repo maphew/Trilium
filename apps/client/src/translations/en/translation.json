@@ -3118,6 +3118,9 @@
     "scripting_disabled_button": "Open security settings",
     "dismiss": "Dismiss"
   },
+  "contextual_help": {
+    "label": "Help: {{- message}}"
+  },
   "settings": {
     "related_settings": "Related settings",
     "related_actions": "Related actions"

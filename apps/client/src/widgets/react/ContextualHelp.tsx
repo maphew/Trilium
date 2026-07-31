@@ -1,8 +1,11 @@
 import "./ContextualHelp.css";
 
+import { Tooltip } from "bootstrap";
+import type { RefObject } from "preact";
 import { createPortal } from "preact/compat";
 import { useMemo, useRef, useState } from "preact/hooks";
 
+import { t } from "../../services/i18n";
 import { isMobile } from "../../services/utils";
 import { useStaticTooltip } from "./hooks";
 import Modal from "./Modal";
@@ -30,7 +33,7 @@ export default function ContextualHelp({ helpMessage }: ContextualHelpProps) {
 /** Which affordance the icon carries, read once: the layout it answers to holds for the session. */
 const IS_MOBILE = isMobile();
 
-/** The pointer's: the explanation is a hover away, and the icon itself does nothing. */
+/** The pointer's: the explanation is a hover — or a focus, or a key press — away. */
 function HoveredHelp({ helpMessage }: ContextualHelpProps) {
     const ref = useRef<HTMLSpanElement>(null);
 
@@ -43,7 +46,17 @@ function HoveredHelp({ helpMessage }: ContextualHelpProps) {
         customClass: "tooltip-top"
     }), [ helpMessage ]));
 
-    return <span ref={ref} className="bx bx-info-circle contextual-help" />;
+    return (
+        <HelpIcon
+            iconRef={ref}
+            helpMessage={helpMessage}
+            // Reaching the icon reveals the explanation by itself — Bootstrap's default trigger is
+            // "hover focus" — so what the key press adds is the other half: dismissing it again
+            // without tabbing away, and answering a screen reader's activation of the control.
+            onActivate={() => withTooltip(ref, (tooltip) => tooltip.toggle())}
+            onDismiss={() => withTooltip(ref, (tooltip) => tooltip.hide())}
+        />
+    );
 }
 
 /**
@@ -61,9 +74,10 @@ function TappedHelp({ helpMessage }: ContextualHelpProps) {
 
     return (
         <>
-            <span
-                className="bx bx-info-circle contextual-help"
-                onClick={() => setShown(true)}
+            <HelpIcon
+                helpMessage={helpMessage}
+                popup="dialog"
+                onActivate={() => setShown(true)}
             />
 
             {createPortal((
@@ -79,4 +93,60 @@ function TappedHelp({ helpMessage }: ContextualHelpProps) {
             ), document.body)}
         </>
     );
+}
+
+interface HelpIconProps {
+    iconRef?: RefObject<HTMLSpanElement>;
+    helpMessage: string;
+    /** What activating the icon opens, for anything that is not simply revealed in place. */
+    popup?: "dialog";
+    onActivate: () => void;
+    onDismiss?: () => void;
+}
+
+/**
+ * The icon both affordances are drawn as: a control rather than a decoration, so it is reachable by
+ * keyboard, announced as something that can be activated, and answers `Enter`/`Space` with whatever
+ * a pointer would have done.
+ *
+ * Its accessible name carries the explanation itself. Bootstrap points `aria-describedby` at the
+ * tooltip while one is shown and takes the attribute away again on hide, so leaning on that would
+ * leave the message reachable only during the moments it happens to be on screen — and on a phone
+ * there is no tooltip at all.
+ */
+function HelpIcon({ iconRef, helpMessage, popup, onActivate, onDismiss }: HelpIconProps) {
+    return (
+        <span
+            ref={iconRef}
+            className="bx bx-info-circle contextual-help"
+            role="button"
+            tabIndex={0}
+            aria-label={t("contextual_help.label", { message: helpMessage })}
+            aria-haspopup={popup}
+            onClick={onActivate}
+            onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                    // Space scrolls the page under the icon otherwise, which is exactly the thing
+                    // the explanation was meant to be read against.
+                    e.preventDefault();
+                    onActivate();
+                } else if (e.key === "Escape") {
+                    onDismiss?.();
+                }
+            }}
+        />
+    );
+}
+
+/** Runs something on the icon's tooltip, if one has been built for it yet. */
+function withTooltip(iconRef: RefObject<HTMLSpanElement>, action: (tooltip: Tooltip) => void) {
+    const element = iconRef.current;
+
+    if (element) {
+        const tooltip = Tooltip.getInstance(element);
+
+        if (tooltip) {
+            action(tooltip);
+        }
+    }
 }

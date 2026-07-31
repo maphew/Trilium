@@ -7,8 +7,16 @@
     cursor: help;
 }
 
-.contextual-help:hover {
+.contextual-help:hover,
+.contextual-help:focus-visible {
     opacity: 1;
+}
+
+/* Reached by keyboard it is the only thing being pointed at, so it says where the focus is. */
+.contextual-help:focus-visible {
+    outline: 2px solid var(--input-focus-outline-color);
+    outline-offset: 2px;
+    border-radius: 2px;
 }
 
 /*

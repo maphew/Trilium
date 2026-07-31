@@ -28,7 +28,23 @@ vi.mock("./Modal", () => ({
     )
 }));
 
+// Nothing initializes i18next for the tests, so the wording is stood in for by the key and the
+// values interpolated into it — which is what the assertions here are actually about.
+vi.mock("../../services/i18n", () => ({
+    t: (key: string, opts?: Record<string, string>) => `${key}(${opts?.message ?? ""})`
+}));
+
+import { Tooltip } from "bootstrap";
+
 import ContextualHelp from "./ContextualHelp";
+
+/** Presses a key on the icon the way a keyboard user would, and answers whether it was handled. */
+function press(element: Element | null | undefined, key: string) {
+    const event = new KeyboardEvent("keydown", { key, bubbles: true, cancelable: true });
+
+    act(() => { element?.dispatchEvent(event); });
+    return event.defaultPrevented;
+}
 
 describe("ContextualHelp", () => {
     let container: HTMLElement;
@@ -57,6 +73,30 @@ describe("ContextualHelp", () => {
             placement: "bottom",
             customClass: "tooltip-top"
         });
+    });
+
+    it("is a control in its own right: reachable, named by its explanation, and worked by key", () => {
+        const tooltip = { toggle: vi.fn(), hide: vi.fn() };
+        vi.spyOn(Tooltip, "getInstance").mockReturnValue(tooltip as unknown as Tooltip);
+
+        act(() => render(<ContextualHelp helpMessage="What this figure covers." />, container));
+        const span = container.querySelector("span");
+
+        expect(span?.getAttribute("role")).toBe("button");
+        expect(span?.getAttribute("tabindex")).toBe("0");
+        // The explanation is the accessible name, so it is there to be read whether or not a
+        // tooltip happens to be on screen at the time.
+        expect(span?.getAttribute("aria-label")).toBe("contextual_help.label(What this figure covers.)");
+
+        // Both activation keys reveal it, and both are swallowed — Space would otherwise scroll the
+        // page out from under what is being explained.
+        expect(press(span, "Enter")).toBe(true);
+        expect(press(span, " ")).toBe(true);
+        expect(tooltip.toggle).toHaveBeenCalledTimes(2);
+
+        // Dismissed from the keyboard too, without having to tab away.
+        expect(press(span, "Escape")).toBe(false);
+        expect(tooltip.hide).toHaveBeenCalledTimes(1);
     });
 
     it("hands the tooltip the same configuration until the message itself changes", () => {
@@ -89,6 +129,18 @@ describe("ContextualHelp", () => {
         const sheet = document.body.querySelector(".sheet-stub");
         expect(sheet?.textContent).toBe("What this figure covers.");
         expect(container.contains(sheet)).toBe(false);
+    });
+
+    it("opens that sheet from the keyboard as well, and says that it opens one", async () => {
+        const OnMobile = await loadOnMobile();
+        act(() => render(<OnMobile helpMessage="What this figure covers." />, container));
+
+        const span = container.querySelector("span");
+        expect(span?.getAttribute("role")).toBe("button");
+        expect(span?.getAttribute("aria-haspopup")).toBe("dialog");
+
+        expect(press(span, "Enter")).toBe(true);
+        expect(document.body.querySelector(".sheet-stub")?.textContent).toBe("What this figure covers.");
     });
 });
 
