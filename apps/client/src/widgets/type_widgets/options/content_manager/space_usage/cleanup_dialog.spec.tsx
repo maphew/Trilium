@@ -219,6 +219,11 @@ describe("showCleanupDialog", () => {
         ]);
         expect(document.body.querySelector<HTMLInputElement>(".cleanup-item-number")?.value).toBe("2");
         expect(cleanButton()?.disabled).toBe(false);
+
+        // Both qualifiers leave something open that their label cannot answer — how the count is
+        // reckoned, and against what — so each carries the explanation beside its title.
+        expect(nestedRows().map((row) => !!row.querySelector(".cleanup-item-title .contextual-help")))
+            .toEqual([ true, true ]);
     });
 
     it("weighs the offer against everything reclaimable, and writes each pick back", async () => {
