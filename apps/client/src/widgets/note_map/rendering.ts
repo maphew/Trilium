@@ -1,7 +1,7 @@
 import type ForceGraph from "force-graph";
 import { NoteMapLinkObject, NoteMapNodeObject, NotesAndRelationsData } from "./data";
 import { LinkObject, NodeObject } from "force-graph";
-import { generateColorFromString, isRootedAtCurrentNote, MapType, NoteMapWidgetMode } from "./utils";
+import { generateColorFromString, getFitPadding, isRootedAtCurrentNote, MapType, NoteMapWidgetMode } from "./utils";
 import { escapeHtml } from "../../services/utils";
 import FNote from "../../entities/fnote";
 
@@ -223,7 +223,7 @@ function setupFraming(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkObject>, c
     const nodeFilter = framedNoteIds.size > 1
         ? (node: NoteMapNodeObject) => framedNoteIds.has(node.id)
         : undefined;
-    const padding = isRootedAtCurrentNote(widgetMode) ? 50 : 30;
+    const padding = getFitPadding(widgetMode, framedNoteIds.size);
 
     // Panning or zooming hands the view over to the user for good — re-fitting under their fingers
     // would make the map impossible to explore while it is still settling.
