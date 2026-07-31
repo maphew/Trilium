@@ -42,6 +42,15 @@ const LABEL_ZOOM_SHARE = 0.25;
 /** How wide a label may be, in multiples of its own font size, before what is left of the title is cut. */
 const MAX_LABEL_WIDTH_EMS = 12;
 
+/**
+ * What is laid under a label so that it is read off whatever it crosses — a relation, another note,
+ * another label — rather than out of it, the way a subtitle is read off the picture behind it.
+ *
+ * Neither the spread nor the drop is in the graph's units: a canvas draws a shadow the same whatever
+ * it has been scaled to, so these hold as the map is zoomed rather than growing with it.
+ */
+const LABEL_SHADOW = { blur: 4, drop: 1 };
+
 export interface CssData {
     fontFamily: string;
     textColor: string;
@@ -257,11 +266,27 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
 
         const fontSize = getFontSize(LABEL_FONT_PX);
 
+        ctx.save();
+        castLabelShadow(ctx);
         ctx.fillStyle = cssData.textColor;
         ctx.font = `${fontSize}px ${cssData.fontFamily}`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillText(getLabel(node, ctx, fontSize), x, y + size * 0.8 + fontSize);
+        ctx.restore();
+    }
+
+    /**
+     * Lays a shadow of the map's own background under the text drawn next, so that it is read off
+     * whatever it crosses rather than out of it — a note's title has the whole map to cross.
+     *
+     * The background is taken from the theme rather than read off the map: the map's own element is
+     * see-through, so what is behind a label is whatever is behind the map.
+     */
+    function castLabelShadow(ctx: CanvasRenderingContext2D) {
+        ctx.shadowColor = themeStyle === "dark" ? "rgba(0, 0, 0, 0.85)" : "rgba(255, 255, 255, 0.9)";
+        ctx.shadowBlur = LABEL_SHADOW.blur;
+        ctx.shadowOffsetY = LABEL_SHADOW.drop;
     }
 
     /**
@@ -353,11 +378,14 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
                 moveY = -moveY;
             }
 
+            castLabelShadow(ctx);
             ctx.rotate(angle);
             ctx.fillText(link.name, 0, moveY);
+            // Restored within the turn that saved it: the canvas is left as it was found either way,
+            // rather than being handed back a state that was never put on for a relation drawn with
+            // an end still to be placed.
+            ctx.restore();
         }
-
-        ctx.restore();
     }
 
     graph
