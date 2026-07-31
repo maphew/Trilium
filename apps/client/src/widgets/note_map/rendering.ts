@@ -18,6 +18,9 @@ const MIN_ICON_RADIUS = 7;
 /** How large a note's label is drawn on screen where the map is neither zoomed in nor out. */
 const LABEL_FONT_PX = 11;
 
+/** The same, for the name of a relation, which is read of a map already zoomed into. */
+const LINK_LABEL_FONT_PX = 8;
+
 /**
  * How much of the zoom a label takes on. None of it holds every label to the same size on screen; all
  * of it is the graph's own units, where a title grows without bound as the map is zoomed into. A
@@ -70,6 +73,18 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
         }
     }
 
+    /**
+     * The size to draw text at in the graph's own units, for a size on screen.
+     *
+     * The canvas is scaled by the zoom, so text measured in the graph's units is drawn as large as
+     * the map is zoomed in — which is how a title once came to stand taller than the note it belonged
+     * to. Dividing the size on screen back out by the zoom holds it to a size of its own, and the
+     * share of the zoom it is given back (see {@link LABEL_ZOOM_SHARE}) is what still lets it grow.
+     */
+    function getFontSize(screenPx: number) {
+        return screenPx * zoomLevel ** LABEL_ZOOM_SHARE / zoomLevel;
+    }
+
     function paintNode(node: NoteMapNodeObject, color: string, ctx: CanvasRenderingContext2D) {
         const { x, y } = node;
         // A coordinate of exactly 0 is a position like any other, and a common one: d3 lays the
@@ -96,11 +111,7 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
             return;
         }
 
-        // Drawn at a size mostly of its own rather than at the note's: the canvas is scaled by the
-        // zoom, so a label measured in the graph's own units is drawn as large as the map is zoomed
-        // in — which on a map of a couple of notes left the titles standing taller than the notes
-        // themselves. Dividing the size on screen back out by the zoom is what holds it to its own.
-        const fontSize = LABEL_FONT_PX * zoomLevel ** LABEL_ZOOM_SHARE / zoomLevel;
+        const fontSize = getFontSize(LABEL_FONT_PX);
 
         ctx.fillStyle = cssData.textColor;
         ctx.font = `${fontSize}px ${cssData.fontFamily}`;
@@ -164,7 +175,12 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
             return;
         }
 
-        ctx.font = `3px ${cssData.fontFamily}`;
+        // Held to a size the same way a note's label is, from a smaller one: the name of a relation
+        // is there to be read of a map already zoomed into, not to stand alongside the names of the
+        // notes it runs between.
+        const fontSize = getFontSize(LINK_LABEL_FONT_PX);
+
+        ctx.font = `${fontSize}px ${cssData.fontFamily}`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillStyle = cssData.mutedTextColor;
@@ -184,11 +200,13 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
             const deltaX = source.x - target.x;
 
             let angle = Math.atan2(deltaY, deltaX);
-            let moveY = 2;
+            // Riding just off the line rather than sitting across it, by a distance of its own text's
+            // making — a fixed one would ride further off it the smaller the text is drawn.
+            let moveY = fontSize * 0.7;
 
             if (angle < -Math.PI / 2 || angle > Math.PI / 2) {
                 angle += Math.PI;
-                moveY = -2;
+                moveY = -moveY;
             }
 
             ctx.rotate(angle);
