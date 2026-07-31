@@ -3119,7 +3119,8 @@
     "dismiss": "Dismiss"
   },
   "contextual_help": {
-    "label": "Help: {{- message}}"
+    "label": "Help: {{- message}}",
+    "sheet_label": "Help"
   },
   "settings": {
     "related_settings": "Related settings",

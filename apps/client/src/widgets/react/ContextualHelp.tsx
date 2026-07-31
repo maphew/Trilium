@@ -87,6 +87,10 @@ function TappedHelp({ helpMessage }: ContextualHelpProps) {
                     show={shown}
                     onHidden={() => setShown(false)}
                     stackable
+                    // It carries no title — one sentence needs no heading over it — so without this
+                    // a screen reader would announce it as an unnamed dialog and leave the reader
+                    // to work out what had just opened.
+                    ariaLabel={t("contextual_help.sheet_label")}
                 >
                     {helpMessage}
                 </Modal>

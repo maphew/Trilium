@@ -23,8 +23,8 @@ vi.mock("../../services/utils", async (importOriginal) => ({
 // The sheet is the app's own modal, which on a phone every dialog already is; what matters here is
 // that the message is handed to one, and only once the icon has been tapped.
 vi.mock("./Modal", () => ({
-    default: ({ children, show }: { children: ComponentChildren, show: boolean }) => (
-        show ? <div className="sheet-stub">{children}</div> : null
+    default: ({ children, show, ariaLabel }: { children: ComponentChildren, show: boolean, ariaLabel?: string }) => (
+        show ? <div className="sheet-stub" role="dialog" aria-label={ariaLabel}>{children}</div> : null
     )
 }));
 
@@ -140,7 +140,12 @@ describe("ContextualHelp", () => {
         expect(span?.getAttribute("aria-haspopup")).toBe("dialog");
 
         expect(press(span, "Enter")).toBe(true);
-        expect(document.body.querySelector(".sheet-stub")?.textContent).toBe("What this figure covers.");
+
+        const sheet = document.body.querySelector(".sheet-stub");
+        expect(sheet?.textContent).toBe("What this figure covers.");
+        // Named, since it carries no title of its own: an unnamed dialog is announced as nothing
+        // more than "dialog", leaving the reader to work out what has just opened.
+        expect(sheet?.getAttribute("aria-label")).toBe("contextual_help.sheet_label()");
     });
 });
 
