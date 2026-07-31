@@ -57,30 +57,6 @@ export function rgb2hex(rgb: string) {
 }
 
 /**
- * Whether the given colour is light enough to want something dark drawn over it — a note's icon, over
- * the dot standing for it. The dots are coloured by the note itself, by its type, or by what the map
- * makes of it, so nothing but the colour at hand says which way round it should be.
- *
- * @param color as a canvas hands it back once assigned, which is to say `#rrggbb` or `rgb(…)`.
- */
-export function isLightColor(color: string) {
-    const hex = color.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i)?.[1];
-    const channels = hex
-        ? (hex.length === 3 ? [ ...hex ].map((c) => c + c) : hex.match(/../g) ?? []).map((c) => parseInt(c, 16))
-        : (color.match(/\d+(\.\d+)?/g) ?? []).slice(0, 3).map(Number);
-
-    if (channels.length < 3) {
-        // Nothing to go on: what is drawn over the dots elsewhere is light, so light it stays.
-        return false;
-    }
-
-    // Perceived brightness rather than the plain average, green counting for most of it and blue for
-    // least, as the eye has it.
-    const [ red, green, blue ] = channels;
-    return (red * 0.299 + green * 0.587 + blue * 0.114) > 150;
-}
-
-/**
  * The colour a given part of the way from one to the other, for fading between two of them.
  *
  * @param ratio 0 for the first colour, 1 for the second. Both are expected as `#rrggbb`, and anything
@@ -120,22 +96,61 @@ function toChannels(color: string) {
     return channels ? channels.slice(1, 4).map((channel) => parseInt(channel, 16)) : null;
 }
 
-export function generateColorFromString(str: string, themeStyle: "light" | "dark") {
-    if (themeStyle === "dark") {
-        str = `0${str}`; // magic lightning modifier
+/** A relation as the map holds it, its ends being note ids until the graph has looked them up. */
+interface TraversableLink {
+    source: string | { id?: string | number };
+    target: string | { id?: string | number };
+}
+
+/**
+ * How many relations away from the given note each note of the map is, the note itself being none at
+ * all. Notes it cannot be reached from are left out, as is every note where it is not in the map to
+ * be reached from — a search note is not part of its own results.
+ *
+ * Which way round a relation runs is not what this asks: a note reached only by being pointed at is
+ * as near as one pointed to.
+ */
+export function getHopDistances(anchorNoteId: string, links: TraversableLink[]) {
+    const neighbours = new Map<string, string[]>();
+
+    const endOf = (end: TraversableLink["source"]) => (typeof end === "object" ? end.id : end);
+    const join = (from?: string | number, to?: string | number) => {
+        if (typeof from !== "string" || typeof to !== "string") {
+            return;
+        }
+
+        neighbours.set(from, [ ...(neighbours.get(from) ?? []), to ]);
+    };
+
+    for (const link of links) {
+        const source = endOf(link.source);
+        const target = endOf(link.target);
+        join(source, target);
+        join(target, source);
     }
 
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        hash = str.charCodeAt(i) + ((hash << 5) - hash);
+    const distances = new Map<string, number>();
+    if (!neighbours.has(anchorNoteId)) {
+        return distances;
     }
 
-    let color = "#";
-    for (let i = 0; i < 3; i++) {
-        const value = (hash >> (i * 8)) & 0xff;
+    // Breadth first, so that a note is reached by the shortest way to it before any longer one.
+    distances.set(anchorNoteId, 0);
+    for (let frontier = [ anchorNoteId ], distance = 1; frontier.length > 0; distance++) {
+        const next: string[] = [];
 
-        color += `00${value.toString(16)}`.substr(-2);
+        for (const noteId of frontier) {
+            for (const neighbour of neighbours.get(noteId) ?? []) {
+                if (!distances.has(neighbour)) {
+                    distances.set(neighbour, distance);
+                    next.push(neighbour);
+                }
+            }
+        }
+
+        frontier = next;
     }
-    return color;
+
+    return distances;
 }
 

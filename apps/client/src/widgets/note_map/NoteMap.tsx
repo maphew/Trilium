@@ -106,7 +106,7 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
             // Configure rendering properties.
             teardownRendering = setupRendering(graph, {
                 note,
-                noteId: note.noteId,
+                mapRootId,
                 noteIdToSizeMap: notesAndRelations.noteIdToSizeMap,
                 cssData,
                 notesAndRelations,
@@ -225,19 +225,34 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
                 </div>
             )}
 
-            <div ref={styleResolverRef} class="style-resolver" />
+            {/* What the map is drawn in, asked of the theme — see getCssData. */}
+            <div ref={styleResolverRef} class="style-resolver">
+                <span class="style-resolver-background" />
+                <span class="style-resolver-anchor" />
+                <span class="style-resolver-anchor-icon" />
+            </div>
             <div ref={containerRef} className="note-map-container" />
         </div>
     );
 }
 
+/**
+ * What the map is drawn in, asked of the theme through elements wearing the colours it is after: a
+ * canvas knows nothing of a stylesheet, and a theme is free to have its own idea of any of them.
+ */
 function getCssData(container: HTMLElement, styleResolver: HTMLElement): CssData {
     const containerStyle = window.getComputedStyle(container);
-    const styleResolverStyle = window.getComputedStyle(styleResolver);
+    const colorOf = (selector: string) => {
+        const element = styleResolver.querySelector(selector);
+        return element ? rgb2hex(window.getComputedStyle(element).color) : "";
+    };
 
     return {
         fontFamily: containerStyle.fontFamily,
         textColor: rgb2hex(containerStyle.color),
-        mutedTextColor: rgb2hex(styleResolverStyle.color)
+        mutedTextColor: rgb2hex(window.getComputedStyle(styleResolver).color),
+        backgroundColor: colorOf(".style-resolver-background"),
+        anchorColor: colorOf(".style-resolver-anchor"),
+        anchorIconColor: colorOf(".style-resolver-anchor-icon")
     };
 }

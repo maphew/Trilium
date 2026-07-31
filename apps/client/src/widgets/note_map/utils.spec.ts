@@ -1,6 +1,40 @@
 import { describe, expect, it } from "vitest";
 
-import { getFitPadding, isLightColor, mixColors, toMapType, withAlpha } from "./utils";
+import { getFitPadding, getHopDistances, mixColors, toMapType, withAlpha } from "./utils";
+
+describe("getHopDistances", () => {
+    const link = (source: string, target: string) => ({ source, target });
+
+    it("counts the relations between each note and the one the map is rooted at, whichever way they run", () => {
+        // root → near → far, and a relation pointing back at the root rather than away from it.
+        const distances = getHopDistances("root", [ link("root", "near"), link("near", "far"), link("pointsAtRoot", "root") ]);
+
+        expect(distances.get("root")).toBe(0);
+        expect(distances.get("near")).toBe(1);
+        expect(distances.get("far")).toBe(2);
+        // Being pointed at is as near as pointing to.
+        expect(distances.get("pointsAtRoot")).toBe(1);
+    });
+
+    it("keeps the shortest way to a note, and leaves out what cannot be reached at all", () => {
+        // "far" is two hops one way round and one the other.
+        const distances = getHopDistances("root", [ link("root", "near"), link("near", "far"), link("root", "far") ]);
+        expect(distances.get("far")).toBe(1);
+
+        expect(getHopDistances("root", [ link("root", "near"), link("alone", "elsewhere") ]).has("alone")).toBe(false);
+    });
+
+    it("has nothing to measure where the map is not rooted at one of its own notes", () => {
+        // A search note is not among its own results, so its map has no note to be rooted at.
+        expect(getHopDistances("search", [ link("result", "other") ]).size).toBe(0);
+    });
+
+    it("reads the ends of a relation once the graph has looked them up", () => {
+        // The graph swaps each end for the note it stands for, in place, once it has the data.
+        const distances = getHopDistances("root", [ { source: { id: "root" }, target: { id: "near" } } ]);
+        expect(distances.get("near")).toBe(1);
+    });
+});
 
 describe("mixColors", () => {
     it("takes a colour the given part of the way to another, and gives up on what it cannot read", () => {
@@ -36,26 +70,6 @@ describe("toMapType", () => {
         expect(toMapType("nonsense")).toBe("link");
         expect(toMapType(null)).toBe("link");
         expect(toMapType(undefined)).toBe("link");
-    });
-});
-
-describe("isLightColor", () => {
-    it("tells the colours a note's icon wants drawing dark over from the ones it wants light", () => {
-        expect(isLightColor("#ffffff")).toBe(true);
-        expect(isLightColor("#ffff00")).toBe(true);
-        expect(isLightColor("#fff")).toBe(true);
-        expect(isLightColor("rgb(255, 255, 255)")).toBe(true);
-
-        expect(isLightColor("#000000")).toBe(false);
-        // Red reads as dark despite being a bright colour: the eye takes little of its brightness
-        // from the red channel, which is what the icon over it has to stand out against.
-        expect(isLightColor("#ff0000")).toBe(false);
-        expect(isLightColor("#2c4f3d")).toBe(false);
-        expect(isLightColor("rgba(0, 0, 0, 0.5)")).toBe(false);
-
-        // Nothing to go on falls back to the light icon drawn over the darker half of the colours.
-        expect(isLightColor("nonsense")).toBe(false);
-        expect(isLightColor("")).toBe(false);
     });
 });
 

@@ -56,9 +56,28 @@
 
 /* End of styling the slider */
 
+/*
+ * What the map asks the theme for what it is drawn in, each one wearing the colour it stands for so
+ * that it can be read back off it. The map draws on a canvas, which knows nothing of a stylesheet.
+ */
 .style-resolver {
     color: var(--muted-text-color);
     display: none;
+
+    .style-resolver-background {
+        color: var(--main-background-color);
+    }
+
+    /* What a note's icon is drawn on and in wherever else it is shown at a size — beside the title of
+       the note being read, above all, which is the very note the map is drawn around. The themes that
+       do not name them are answered with what the map drew that note in before they existed. */
+    .style-resolver-anchor {
+        color: var(--note-icon-background-color, var(--link-color));
+    }
+
+    .style-resolver-anchor-icon {
+        color: var(--note-icon-color, var(--main-background-color));
+    }
 }
 
 /* What an icon class is asked to resolve to before the map is drawn (see icons.ts). Out of sight and

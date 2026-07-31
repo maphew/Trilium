@@ -1,10 +1,10 @@
 import type ForceGraph from "force-graph";
-import { NoteMapLinkObject, NoteMapNodeObject, NotesAndRelationsData } from "./data";
-import { LinkObject, NodeObject } from "force-graph";
-import { ICON_FONT_FAMILY } from "./icons";
-import { generateColorFromString, getFitPadding, isLightColor, isRootedAtCurrentNote, mixColors, NoteMapWidgetMode, withAlpha } from "./utils";
-import { escapeHtml } from "../../services/utils";
+
 import FNote from "../../entities/fnote";
+import { escapeHtml } from "../../services/utils";
+import { NoteMapLinkObject, NoteMapNodeObject, NotesAndRelationsData } from "./data";
+import { ICON_FONT_FAMILY } from "./icons";
+import { getFitPadding, getHopDistances, isRootedAtCurrentNote, mixColors, NoteMapWidgetMode, withAlpha } from "./utils";
 
 /** Roughly a second of simulation at 60 fps — see {@link setupFraming}. */
 const TICKS_UNTIL_DAMPED = 60;
@@ -14,6 +14,9 @@ const LONE_NOTE_ZOOM = 4;
 
 /** How large a note's dot has to come out on screen, in pixels, before its icon is drawn inside it. */
 const MIN_ICON_RADIUS = 7;
+
+/** How thick the ring around the note the map is drawn around is on screen. */
+const ANCHOR_RING_PX = 2;
 
 /** How much is left of what the pointer is not resting on, while it rests on a note of the map. */
 const DIMMED_ALPHA = 0.15;
@@ -71,13 +74,30 @@ export interface CssData {
     fontFamily: string;
     textColor: string;
     mutedTextColor: string;
+    /**
+     * What the map is drawn on: the notes are faded towards it the further they are from the one the
+     * map is rooted at, and their icons are cut out of them in it.
+     */
+    backgroundColor: string;
+    /**
+     * What a note's icon is drawn on and in beside the title of the note being read, which the map
+     * draws the very same note in — so that the middle of the map and the note it is about are
+     * plainly one thing. The second doubles as the ring that picks it out: on a dark theme the badge
+     * is a dark circle, which a map of light notes would otherwise swallow.
+     */
+    anchorColor: string;
+    anchorIconColor: string;
 }
 
 interface RenderData {
     note: FNote;
     noteIdToSizeMap: Record<string, number>;
     cssData: CssData;
-    noteId: string;
+    /**
+     * The note the map is drawn around — the one being read, where the map follows it, and otherwise
+     * the one it has been pointed at. Everything else is coloured by how far it is from this one.
+     */
+    mapRootId: string;
     themeStyle: "light" | "dark";
     widgetMode: NoteMapWidgetMode;
     notesAndRelations: NotesAndRelationsData;
@@ -88,7 +108,7 @@ interface RenderData {
 }
 
 /** @returns a teardown function to call when the graph is discarded. */
-export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkObject>, { note, noteId, themeStyle, widgetMode, noteIdToSizeMap, notesAndRelations, cssData, container, iconGlyphs }: RenderData) {
+export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkObject>, { note, mapRootId, themeStyle, widgetMode, noteIdToSizeMap, notesAndRelations, cssData, container, iconGlyphs }: RenderData) {
     // What the map is showing of the note under the pointer: the note itself, the notes a relation
     // runs between it and, and those relations. Worked out once when the hover changes rather than
     // while painting, so that every note of a frame is painted knowing the same thing.
@@ -98,6 +118,8 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
     let zoomLevel: number;
     /** Titles as they are drawn, cut to the width a label is allowed — see {@link getLabel}. */
     const labelsByNoteId = new Map<string, string>();
+    /** How many relations lie between each note and the one the map is rooted at — see {@link setupFraming}. */
+    const hopDistances = getHopDistances(mapRootId, notesAndRelations.links);
     /**
      * What the hovered note's own relations are drawn in. Remembered rather than asked of the hovered
      * note as it is drawn, so that they have a colour to fade back from once the pointer has left.
@@ -210,14 +232,16 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
         fadeTimer = setTimeout(() => graph.autoPauseRedraw(true), HOVER_FADE_MS + 100);
     }
 
+    /**
+     * What a note is drawn in: the badge its icon is shown in beside a title, wherever a note is shown
+     * at a size. Every note of the map wears it, whole — which of them the map is drawn around is said
+     * by the ring, and what kind of note each is by the icon within it.
+     *
+     * A note that asks for a colour of its own is given it — that is the reader's own doing, and it
+     * says something no map should talk over.
+     */
     function getColorForNode(node: NoteMapNodeObject) {
-        if (node.color) {
-            return node.color;
-        } else if (isRootedAtCurrentNote(widgetMode) && node.id === noteId) {
-            return "red"; // subtree root mark as red
-        } else {
-            return generateColorFromString(node.type, themeStyle);
-        }
+        return node.color || cssData.anchorColor;
     }
 
     /**
@@ -265,15 +289,28 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
         }
         const size = noteIdToSizeMap[node.id];
 
+        const radius = size * 0.8;
+
         ctx.fillStyle = color;
-        // Read back rather than kept: a canvas resolves whatever colour it is given — a name, a
-        // function, a shorthand — to one form, which is the one worth asking anything about.
-        const dotColor = typeof ctx.fillStyle === "string" ? ctx.fillStyle : color;
         ctx.beginPath();
-        ctx.arc(x, y, size * 0.8, 0, 2 * Math.PI, false);
+        ctx.arc(x, y, radius, 0, 2 * Math.PI, false);
         ctx.fill();
 
-        paintNodeIcon(node, size, dotColor, x, y, ctx);
+        // The note the map is drawn around wears a ring, which is what picks it out of the notes
+        // around it: it is drawn as its icon is drawn beside its title, and on a dark theme that is a
+        // dark circle — the quietest thing on a map whose notes are the light ones. The ring is in
+        // the colour of the icon within it, so it is of the badge rather than something laid over it.
+        if (node.id === mapRootId) {
+            const width = ANCHOR_RING_PX / zoomLevel;
+
+            ctx.strokeStyle = cssData.anchorIconColor;
+            ctx.lineWidth = width;
+            ctx.beginPath();
+            ctx.arc(x, y, radius + width / 2, 0, 2 * Math.PI, false);
+            ctx.stroke();
+        }
+
+        paintNodeIcon(node, size, x, y, ctx);
 
         if (!isLabelDrawn(size)) {
             return;
@@ -334,20 +371,26 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
 
 
     /**
-     * The note's own icon, over the dot standing for it — the same one the tree and the tabs draw it
-     * with, so a note is recognised in the map by what it is recognised by everywhere else.
+     * The note's own icon, cut out of the dot standing for it — the same one the tree and the tabs
+     * draw it with, so a note is recognised in the map by what it is recognised by everywhere else.
+     *
+     * Drawn as it is drawn beside a title, in the colour that goes with the badge under it.
+     *
+     * A note that asks for a colour of its own has no such pairing to draw on, so its icon is cut out
+     * of it in the colour of what the map is laid on: whatever the note asks to be drawn in, the page
+     * behind it is something else.
      *
      * Only where the dot is drawn large enough on screen to hold it: below that the glyph is a smudge
      * over the colour, and the colour alone says more.
      */
-    function paintNodeIcon(node: NoteMapNodeObject, size: number, dotColor: string, x: number, y: number, ctx: CanvasRenderingContext2D) {
+    function paintNodeIcon(node: NoteMapNodeObject, size: number, x: number, y: number, ctx: CanvasRenderingContext2D) {
         const glyph = iconGlyphs.get(node.icon);
 
         if (!glyph || !(size * 0.8 * zoomLevel >= MIN_ICON_RADIUS)) {
             return;
         }
 
-        ctx.fillStyle = isLightColor(dotColor) ? "#000" : "#fff";
+        ctx.fillStyle = node.color ? cssData.backgroundColor : cssData.anchorIconColor;
         ctx.font = `${size}px ${ICON_FONT_FAMILY}`;
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
@@ -467,6 +510,8 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
             // Every note keeps its own colour while one of them is hovered; what tells the note's
             // own from the rest of the map is that the rest of it is faded back behind them.
             ctx.save();
+            // Every note is drawn whole; the only thing that steps one back is the pointer resting on
+            // another note than it.
             ctx.globalAlpha = getFadedAlpha(nodeFocus.get(node));
             paintNode(node, getColorForNode(node), ctx);
             ctx.restore();
@@ -514,7 +559,7 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
     graph.d3Force("charge")?.strength(boundedCharge);
     graph.d3Force("charge")?.distanceMax(1000);
 
-    const stopFraming = setupFraming(graph, container, { note, noteId, widgetMode, notesAndRelations });
+    const stopFraming = setupFraming(graph, container, { note, widgetMode, notesAndRelations, hopDistances });
 
     return () => {
         clearTimeout(fadeTimer);
@@ -593,9 +638,11 @@ function createFade<T>(elements: T[], getTarget: (element: T) => number) {
  *
  * @returns a teardown function to call when the graph is discarded.
  */
-function setupFraming(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkObject>, container: HTMLElement, { note, noteId, widgetMode, notesAndRelations }: Pick<RenderData, "note" | "noteId" | "widgetMode" | "notesAndRelations">) {
+function setupFraming(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkObject>, container: HTMLElement, { note, widgetMode, notesAndRelations, hopDistances }: Pick<RenderData, "note" | "widgetMode" | "notesAndRelations"> & { hopDistances: Map<string, number> }) {
+    // The notes that can be reached from the one the map is rooted at, which is what the distances
+    // drawn on are a walk of already.
     const framedNoteIds = (isRootedAtCurrentNote(widgetMode) && note?.type !== "search")
-        ? getSubGraphConnectedToCurrentNote(noteId, notesAndRelations)
+        ? new Set(hopDistances.keys())
         : getNoteIdsWithLinks(notesAndRelations);
 
     // A lone note has no extent to fit and would just be blown up to the maximum zoom, hiding the
@@ -661,52 +708,4 @@ function getNoteIdsWithLinks(data: NotesAndRelationsData) {
     }
 
     return noteIds;
-}
-
-function getSubGraphConnectedToCurrentNote(noteId: string, data: NotesAndRelationsData) {
-    function getGroupedLinks(links: LinkObject<NodeObject>[], type: "source" | "target") {
-        const map: Record<string | number, LinkObject<NodeObject>[]> = {};
-
-        for (const link of links) {
-            if (typeof link[type] !== "object") {
-                continue;
-            }
-
-            const key = link[type].id;
-            if (key) {
-                map[key] = map[key] || [];
-                map[key].push(link);
-            }
-        }
-
-        return map;
-    }
-
-    const linksBySource = getGroupedLinks(data.links, "source");
-    const linksByTarget = getGroupedLinks(data.links, "target");
-
-    const subGraphNoteIds = new Set<string | number>();
-
-    function traverseGraph(noteId?: string | number) {
-        if (!noteId || subGraphNoteIds.has(noteId)) {
-            return;
-        }
-
-        subGraphNoteIds.add(noteId);
-
-        for (const link of linksBySource[noteId] || []) {
-            if (typeof link.target === "object") {
-                traverseGraph(link.target?.id);
-            }
-        }
-
-        for (const link of linksByTarget[noteId] || []) {
-            if (typeof link.source === "object") {
-                traverseGraph(link.source?.id);
-            }
-        }
-    }
-
-    traverseGraph(noteId);
-    return subGraphNoteIds;
 }
