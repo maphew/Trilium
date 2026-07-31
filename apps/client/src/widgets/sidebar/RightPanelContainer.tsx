@@ -108,10 +108,11 @@ export default function RightPanelContainer({ widgetsByParent }: { widgetsByPare
 
     // Outside-press / Esc *soft*-dismisses the peek: it hides but stays mounted, so re-peeking is
     // instant and preserves widget state. The × button and the docked toggle hard-close (unmount).
-    // The status bar's note paths badge peeks the pane itself (see selectRightPaneTab above), so
-    // dismissing on its press would only close the pane for the click that follows to reopen it.
+    // A `right-pane-peek-source` control (the status bar's connection badges) peeks the pane itself
+    // (see selectRightPaneTab above), so dismissing on its press would only close the pane for the
+    // click that follows to reopen it.
     usePeekDismiss(mode === "peek", dismiss, {
-        keepOpenSelector: "#right-pane, .right-pane-peek-button, .status-bar .note-paths-button",
+        keepOpenSelector: "#right-pane, .right-pane-peek-button, .right-pane-peek-source",
         focusSelector: ".right-pane-peek-button"
     });
 

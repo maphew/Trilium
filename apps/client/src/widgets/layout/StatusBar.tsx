@@ -17,7 +17,7 @@ import { NOTE_TYPES } from "../../services/note_types";
 import server from "../../services/server";
 import { openInAppHelpFromUrl } from "../../services/utils";
 import { formatDateTime } from "../../utils/formatters";
-import { BacklinksList, useBacklinkCount } from "../FloatingButtonsDefinitions";
+import { useBacklinkCount } from "../FloatingButtonsDefinitions";
 import Dropdown, { DropdownProps } from "../react/Dropdown";
 import { FormDropdownDivider, FormListHeader, FormListItem } from "../react/FormList";
 import HelpDropdown from "../react/HelpDropdown";
@@ -161,6 +161,24 @@ function StatusBarButton({ className, icon, text, title, active, ...restProps }:
     );
 }
 
+/**
+ * Opens the sidebar's connections tab at one of its widgets, and closes it again on a second press —
+ * what the badges standing for a connection of the note offer instead of a popup copy of the list.
+ *
+ * A pane the user keeps closed is peeked rather than docked: the status bar is no place to reflow the
+ * content from. Buttons wired to this carry `right-pane-peek-source`, which is what keeps their press
+ * from dismissing the very peek it is toggling (see RightPanelContainer's peek dismissal).
+ */
+function useConnectionsToggle(expandWidgetId: string) {
+    return useCallback(() => {
+        void appContext.triggerEvent("selectRightPaneTab", {
+            tabId: "connections",
+            peek: true,
+            expandWidgetId
+        });
+    }, [ expandWidgetId ]);
+}
+
 //#region Language Switcher
 function LanguageSwitcher({ note }: StatusBarContext) {
     const [ modalShown, setModalShown ] = useState(false);
@@ -301,18 +319,19 @@ function SimilarNotesPane({ note, similarNotesShown, setSimilarNotesShown }: Not
 //#endregion
 
 //#region Backlinks
+/** What points at the note is listed in the sidebar's connections tab, which the badge is the way to. */
 function BacklinksBadge({ note, viewScope }: StatusBarContext) {
     const count = useBacklinkCount(note, viewScope?.viewMode === "default");
+    const toggleBacklinks = useConnectionsToggle("backlinks");
+
     return (note && count > 0 &&
-        <StatusBarDropdown
-            className="backlinks-badge backlinks-widget tn-backlinks-widget"
+        <StatusBarButton
+            className="backlinks-badge right-pane-peek-source"
             icon="bx bx-link"
             text={t("status_bar.backlinks", { count })}
             title={t("status_bar.backlinks_title", { count })}
-            dropdownContainerClassName="backlinks-items"
-        >
-            <BacklinksList note={note} />
-        </StatusBarDropdown>
+            onClick={toggleBacklinks}
+        />
     );
 }
 //#endregion
@@ -428,30 +447,18 @@ function AttributesPane({ note, noteContext, attributesShown, setAttributesShown
 //#endregion
 
 //#region Note paths
-/**
- * The paths themselves live in the sidebar's connections tab, so the badge is only the way in (and, on
- * a second press, out) rather than a second copy of the list in a popup of its own.
- */
+/** Where the note sits in the tree is listed in the sidebar's connections tab, which the badge is the way to. */
 function NotePaths({ note, hoistedNoteId }: StatusBarContext) {
     const sortedNotePaths = useSortedNotePaths(note, hoistedNoteId);
     const count = sortedNotePaths?.length ?? 0;
-
-    const toggleNotePaths = useCallback(() => {
-        void appContext.triggerEvent("selectRightPaneTab", {
-            tabId: "connections",
-            // A glance at the paths from the status bar shouldn't reflow the content around a pane the
-            // user has closed; one they keep docked stays docked.
-            peek: true,
-            expandWidgetId: "notePaths"
-        });
-    }, []);
+    const toggleNotePaths = useConnectionsToggle("notePaths");
 
     // Keyboard shortcut.
     useTriliumEvent("toggleRibbonTabNotePaths", toggleNotePaths);
 
     return (
         <StatusBarButton
-            className="note-paths-button"
+            className="note-paths-button right-pane-peek-source"
             icon="bx bx-directions"
             title={t("status_bar.note_paths_title")}
             text={t("status_bar.note_paths", { count })}

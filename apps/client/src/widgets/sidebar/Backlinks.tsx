@@ -1,5 +1,6 @@
 import { t } from "../../services/i18n";
-// The list itself is shared with the status bar's backlinks badge; only the framing differs here.
+// The list itself is shared with the floating backlinks button and the mobile menu; only the framing
+// differs here. The status bar's badge has no list of its own — it opens this one.
 import { BacklinksList } from "../FloatingButtonsDefinitions";
 import { useActiveNoteContext } from "../react/hooks";
 import RightPanelWidget from "./RightPanelWidget";

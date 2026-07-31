@@ -66,13 +66,6 @@
         .dropdown-note-info {
             padding: 1em !important;
         }
-
-        .backlinks-widget > .dropdown-menu {
-            --menu-padding-size: .9em;
-
-            max-height: 60vh;
-            overflow-y: scroll;
-        }
     }
 
     > .attribute-list {

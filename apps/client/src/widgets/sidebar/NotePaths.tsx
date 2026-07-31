@@ -1,7 +1,7 @@
 import { t } from "../../services/i18n";
 import { useActiveNoteContext } from "../react/hooks";
-// The paths list is shared with the ribbon's note paths tab and the status bar's badge;
-// only the framing differs here.
+// The paths list is shared with the ribbon's note paths tab; only the framing differs here. The status
+// bar's badge has no list of its own — it opens this one.
 import { NotePathsWidget, useSortedNotePaths } from "../ribbon/NotePathsTab";
 import RightPanelWidget from "./RightPanelWidget";
 
