@@ -2,7 +2,7 @@ import type ForceGraph from "force-graph";
 import { NoteMapLinkObject, NoteMapNodeObject, NotesAndRelationsData } from "./data";
 import { LinkObject, NodeObject } from "force-graph";
 import { ICON_FONT_FAMILY } from "./icons";
-import { generateColorFromString, getFitPadding, isLightColor, isRootedAtCurrentNote, MapType, mixColors, NoteMapWidgetMode, withAlpha } from "./utils";
+import { generateColorFromString, getFitPadding, isLightColor, isRootedAtCurrentNote, mixColors, NoteMapWidgetMode, withAlpha } from "./utils";
 import { escapeHtml } from "../../services/utils";
 import FNote from "../../entities/fnote";
 
@@ -24,6 +24,22 @@ const HOVER_FADE_MS = 160;
 /** What a relation is drawn with, and what one of the hovered note's own grows to. */
 const LINK_WIDTH = 0.4;
 const HIGHLIGHT_LINK_WIDTH = 3;
+
+/** How long a relation's arrowhead is drawn on screen — see {@link paintArrow} for the shape of it. */
+const ARROW_LENGTH_PX = 10;
+
+/** How wide it is across the tail, as a part of that length. */
+const ARROW_WIDTH_RATIO = 0.72;
+
+/** How far the middle of its tail is swept back in, as a part of that length. */
+const ARROW_SWEEP = 0.28;
+
+/**
+ * How much of that length each of its corners is rounded off by. Kept well under a quarter: a corner
+ * as sharp as the tip reaches back along both its edges by several times this, and rounding one by
+ * more than the edges leading to it can give takes the shape apart.
+ */
+const ARROW_ROUNDING = 0.12;
 
 /** How large a note's label is drawn on screen where the map is neither zoomed in nor out. */
 const LABEL_FONT_PX = 11;
@@ -65,7 +81,6 @@ interface RenderData {
     themeStyle: "light" | "dark";
     widgetMode: NoteMapWidgetMode;
     notesAndRelations: NotesAndRelationsData;
-    mapType: MapType;
     /** The element the graph's canvas lives in, watched for the user taking the view over. */
     container: HTMLElement;
     /** What each note's icon classes resolve to as a character of the icon font — see icons.ts. */
@@ -73,7 +88,7 @@ interface RenderData {
 }
 
 /** @returns a teardown function to call when the graph is discarded. */
-export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkObject>, { note, noteId, themeStyle, widgetMode, noteIdToSizeMap, notesAndRelations, cssData, mapType, container, iconGlyphs }: RenderData) {
+export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkObject>, { note, noteId, themeStyle, widgetMode, noteIdToSizeMap, notesAndRelations, cssData, container, iconGlyphs }: RenderData) {
     // What the map is showing of the note under the pointer: the note itself, the notes a relation
     // runs between it and, and those relations. Worked out once when the hover changes rather than
     // while painting, so that every note of a frame is painted knowing the same thing.
@@ -339,7 +354,67 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
         ctx.fillText(glyph, x, y);
     }
 
+    /**
+     * The arrowhead that says which way a relation runs, drawn where the line meets the note it points
+     * at — a swept chevron with every corner rounded off, rather than the hard little wedge the graph
+     * draws of its own accord.
+     *
+     * Held to a size on screen the way the labels are, so that it neither disappears on a map zoomed
+     * out nor grows into a spearhead on one zoomed in. It is also placed against the dot as the map
+     * actually draws it: the graph sizes every note the same for this, which buries the arrowhead
+     * inside the larger ones.
+     */
+    function paintArrow(link: NoteMapLinkObject, source: NoteMapNodeObject, target: NoteMapNodeObject, ctx: CanvasRenderingContext2D) {
+        const { x: sourceX = 0, y: sourceY = 0 } = source;
+        const { x: targetX = 0, y: targetY = 0 } = target;
+        const length = getFontSize(ARROW_LENGTH_PX);
+        const lineLength = Math.hypot(targetX - sourceX, targetY - sourceY);
+        const targetRadius = noteIdToSizeMap[target.id] * 0.8;
+
+        // Two notes all but on top of one another leave nowhere to put it that is not inside one of
+        // them, where it would be drawn pointing back the way it came.
+        if (lineLength < targetRadius + length) {
+            return;
+        }
+
+        const alongX = (targetX - sourceX) / lineLength;
+        const alongY = (targetY - sourceY) / lineLength;
+        const tipX = targetX - alongX * targetRadius;
+        const tipY = targetY - alongY * targetRadius;
+        const baseX = tipX - alongX * length;
+        const baseY = tipY - alongY * length;
+        const halfWidth = length * ARROW_WIDTH_RATIO / 2;
+        // The notch the tail is swept back to, which is what keeps it an arrowhead rather than a
+        // triangle sitting on the line.
+        const notchX = baseX + alongX * length * ARROW_SWEEP;
+        const notchY = baseY + alongY * length * ARROW_SWEEP;
+
+        ctx.save();
+        // The corners are rounded into the outline itself rather than stroked round afterwards: a
+        // stroke over a fill is drawn twice where the two meet, which tells on an arrowhead faded
+        // back behind a hover as a rim darker than the rest of it.
+        traceRoundedPath(ctx, [
+            [ tipX, tipY ],
+            [ baseX - alongY * halfWidth, baseY + alongX * halfWidth ],
+            [ notchX, notchY ],
+            [ baseX + alongY * halfWidth, baseY - alongX * halfWidth ]
+        ], length * ARROW_ROUNDING);
+
+        ctx.fillStyle = getLinkColor(link);
+        ctx.fill();
+        ctx.restore();
+    }
+
     function paintLink(link: NoteMapLinkObject, ctx: CanvasRenderingContext2D) {
+        const { source, target } = link;
+        if (typeof source !== "object" || typeof target !== "object") {
+            return;
+        }
+
+        if (source.x !== undefined && source.y !== undefined && target.x !== undefined && target.y !== undefined) {
+            paintArrow(link, source, target, ctx);
+        }
+
         if (zoomLevel < 5) {
             return;
         }
@@ -353,11 +428,6 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
         ctx.textAlign = "center";
         ctx.textBaseline = "middle";
         ctx.fillStyle = cssData.mutedTextColor;
-
-        const { source, target } = link;
-        if (typeof source !== "object" || typeof target !== "object") {
-            return;
-        }
 
         if (source.x !== undefined && source.y !== undefined && target.x !== undefined && target.y !== undefined) {
             const x = (source.x + target.x) / 2;
@@ -420,20 +490,20 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
     graph
         .linkWidth((link) => LINK_WIDTH + (HIGHLIGHT_LINK_WIDTH - LINK_WIDTH) * Math.max(0, linkFocus.get(link)))
         .linkColor((link) => getLinkColor(link))
-        .linkDirectionalArrowLength(4)
-        .linkDirectionalArrowRelPos(0.95);
+        // The arrowheads are drawn along with the relations themselves (see paintArrow); the graph's
+        // own are left off entirely rather than drawn under them.
+        .linkDirectionalArrowLength(0);
 
-    // Link-specific config
-    if (mapType) {
-        graph
-            .linkLabel((link) => {
-                const { source, target } = link;
-                if (typeof source !== "object" || typeof target !== "object") return escapeHtml(link.name);
-                return `${escapeHtml(source.name)} - <strong>${escapeHtml(link.name)}</strong> - ${escapeHtml(target.name)}`;
-            })
-            .linkCanvasObject((link, ctx) => paintLink(link, ctx))
-            .linkCanvasObjectMode(() => "after");
-    }
+    graph
+        .linkLabel((link) => {
+            const { source, target } = link;
+            if (typeof source !== "object" || typeof target !== "object") return escapeHtml(link.name);
+            return `${escapeHtml(source.name)} - <strong>${escapeHtml(link.name)}</strong> - ${escapeHtml(target.name)}`;
+        })
+        // Drawn after the relation itself rather than in place of it: the line is the graph's to draw,
+        // the arrowhead at the end of it and the name along it are this map's.
+        .linkCanvasObject((link, ctx) => paintLink(link, ctx))
+        .linkCanvasObjectMode(() => "after");
 
     // Forces
     const nodeLinkRatio = notesAndRelations.nodes.length / notesAndRelations.links.length;
@@ -450,6 +520,31 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
         clearTimeout(fadeTimer);
         stopFraming();
     };
+}
+
+/**
+ * Lays out a shape whose every corner is rounded off, ready to be filled.
+ *
+ * Each corner is drawn as an arc between the middles of the two edges that meet at it, which is what
+ * lets one call round all of them however sharp each turns out to be — the tip of an arrowhead being
+ * a good deal sharper than its tail.
+ *
+ * @param radius how much of each corner to round off, in the units the points are given in.
+ */
+function traceRoundedPath(ctx: CanvasRenderingContext2D, points: [ number, number ][], radius: number) {
+    const middleOf = (from: [ number, number ], to: [ number, number ]) => [ (from[0] + to[0]) / 2, (from[1] + to[1]) / 2 ] as const;
+    const [ startX, startY ] = middleOf(points[points.length - 1], points[0]);
+
+    ctx.beginPath();
+    ctx.moveTo(startX, startY);
+
+    for (let i = 0; i < points.length; i++) {
+        const corner = points[i];
+        const [ towardsX, towardsY ] = middleOf(corner, points[(i + 1) % points.length]);
+        ctx.arcTo(corner[0], corner[1], towardsX, towardsY, radius);
+    }
+
+    ctx.closePath();
 }
 
 /**

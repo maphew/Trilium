@@ -112,7 +112,6 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
                 notesAndRelations,
                 themeStyle,
                 widgetMode,
-                mapType,
                 container,
                 iconGlyphs
             });
