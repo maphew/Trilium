@@ -31,7 +31,6 @@ import AttributeHelp, { ATTRIBUTE_HELP_PAGE } from "../ribbon/components/Attribu
 import InheritedAttributesTab from "../ribbon/InheritedAttributesTab";
 import { NoteSizeWidget, useNoteMetadata } from "../ribbon/NoteInfoTab";
 import { useSortedNotePaths } from "../ribbon/NotePathsTab";
-import SimilarNotesTab from "../ribbon/SimilarNotesTab";
 import { useAttachments } from "../type_widgets/Attachment";
 import { useProcessedLocales } from "../type_widgets/options/components/LocaleSelector";
 import Breadcrumb from "./Breadcrumb";
@@ -47,27 +46,19 @@ interface StatusBarContext {
 
 export default function StatusBar() {
     const { note, notePath, noteContext, viewScope, hoistedNoteId } = useActiveNoteContext();
-    const [ activePane, setActivePane ] = useState<"attributes" | "similar-notes" | false>(false);
+    // The attributes are the one thing the status bar still shows in a panel of its own; the rest of
+    // what it stands for is shown in the sidebar (see useConnectionsToggle).
+    const [ attributesShown, setAttributesShown ] = useState(false);
     const context: StatusBarContext | undefined | null = note && noteContext && { note, notePath, noteContext, viewScope, hoistedNoteId };
-    const attributesContext: AttributesProps | undefined | null = context && {
-        ...context,
-        attributesShown: activePane === "attributes",
-        setAttributesShown: (shown) => setActivePane(shown && "attributes")
-    };
-    const noteInfoContext: NoteInfoContext | undefined | null = context && {
-        ...context,
-        similarNotesShown: activePane === "similar-notes",
-        setSimilarNotesShown: (shown) => setActivePane(shown && "similar-notes")
-    };
+    const attributesContext: AttributesProps | undefined | null = context && { ...context, attributesShown, setAttributesShown };
     const isHiddenNote = note?.isHiddenCompletely();
 
     return (
-        <div className={clsx("status-bar", {"status-bar-panel-open": !!activePane})}>
+        <div className={clsx("status-bar", {"status-bar-panel-open": attributesShown})}>
             {attributesContext && <AttributesPane {...attributesContext} />}
-            {noteInfoContext && <SimilarNotesPane {...noteInfoContext} />}
 
             <div className="status-bar-main-row">
-                {context && attributesContext && noteInfoContext && <>
+                {context && attributesContext && <>
                     <Breadcrumb />
 
                     <div className="actions-row">
@@ -78,7 +69,7 @@ export default function StatusBar() {
                         <AttributesButton {...attributesContext} />
                         <AttachmentCount {...context} />
                         <BacklinksBadge {...context} />
-                        <NoteInfoBadge {...noteInfoContext} />
+                        <NoteInfoBadge {...context} />
                     </div>
                 </>}
             </div>
@@ -233,22 +224,20 @@ export function getLocaleName(locale: Locale | null | undefined) {
 }
 //#endregion
 
-//#region Note info & Similar
-interface NoteInfoContext extends StatusBarContext {
-    similarNotesShown?: boolean;
-    setSimilarNotesShown?: (value: boolean) => void;
-}
-
-export function NoteInfoBadge(context: NoteInfoContext) {
+//#region Note info
+export function NoteInfoBadge(context: StatusBarContext) {
     const dropdownRef = useRef<BootstrapDropdown>(null);
     const [ dropdownShown, setDropdownShown ] = useState(false);
-    const { note, similarNotesShown, setSimilarNotesShown } = context;
+    const { note } = context;
     const noteType = useNoteProperty(note, "type");
     const enabled = note && noteType;
+    // What the note resembles is listed in the sidebar's connections tab, alongside the rest of what
+    // ties it to other notes, rather than in a panel of the status bar's own.
+    const showSimilarNotes = useConnectionsToggle("similarNotes");
 
-    // Keyboard shortcut.
+    // Keyboard shortcuts.
     useTriliumEvent("toggleRibbonTabNoteInfo", () => enabled && dropdownRef.current?.show());
-    useTriliumEvent("toggleRibbonTabSimilarNotes", () => setSimilarNotesShown && setSimilarNotesShown(!similarNotesShown));
+    useTriliumEvent("toggleRibbonTabSimilarNotes", showSimilarNotes);
 
     return (enabled &&
         <StatusBarDropdown
@@ -260,14 +249,16 @@ export function NoteInfoBadge(context: NoteInfoContext) {
             onShown={() => setDropdownShown(true)}
             onHidden={() => setDropdownShown(false)}
         >
-            {dropdownShown && <NoteInfoContent {...context} dropdownRef={dropdownRef} noteType={noteType} />}
+            {dropdownShown && <NoteInfoContent {...context} dropdownRef={dropdownRef} noteType={noteType} showSimilarNotes={showSimilarNotes} />}
         </StatusBarDropdown>
     );
 }
 
-export function NoteInfoContent({ note, setSimilarNotesShown, noteType, dropdownRef }: Pick<NoteInfoContext, "note" | "setSimilarNotesShown"> & {
+export function NoteInfoContent({ note, noteType, dropdownRef, showSimilarNotes }: Pick<StatusBarContext, "note"> & {
     dropdownRef?: RefObject<BootstrapDropdown>;
     noteType: NoteType;
+    /** Left out where there is no sidebar to show them in — the mobile note menu carries its own list. */
+    showSimilarNotes?: () => void;
 }) {
     const { metadata, ...sizeProps } = useNoteMetadata(note);
     const [ originalFileName ] = useNoteLabel(note, "originalFileName");
@@ -285,11 +276,11 @@ export function NoteInfoContent({ note, setSimilarNotesShown, noteType, dropdown
                 <NoteInfoValue text={t("note_info_widget.note_size")} title={t("note_info_widget.note_size_info")} value={<NoteSizeWidget {...sizeProps} />} />
             </ul>
 
-            {setSimilarNotesShown && <LinkButton
+            {showSimilarNotes && <LinkButton
                 text={t("note_info_widget.show_similar_notes")}
                 onClick={() => {
                     dropdownRef?.current?.hide();
-                    setSimilarNotesShown(true);
+                    showSimilarNotes();
                 }}
             />}
         </div>
@@ -302,18 +293,6 @@ function NoteInfoValue({ text, title, value }: { text: string; title?: string, v
             <strong title={title}>{text}{": "}</strong>
             <span>{value}</span>
         </li>
-    );
-}
-
-function SimilarNotesPane({ note, similarNotesShown, setSimilarNotesShown }: NoteInfoContext) {
-    return (similarNotesShown &&
-        <BottomPanel title={t("similar_notes.title")}
-            className="similar-notes-pane"
-            visible={similarNotesShown}
-            setVisible={setSimilarNotesShown}
-        >
-            <SimilarNotesTab note={note} />
-        </BottomPanel>
     );
 }
 //#endregion
