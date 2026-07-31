@@ -15,8 +15,16 @@ const LONE_NOTE_ZOOM = 4;
 /** How large a note's dot has to come out on screen, in pixels, before its icon is drawn inside it. */
 const MIN_ICON_RADIUS = 7;
 
-/** How large a note's label is drawn on screen, whatever the map is zoomed to. */
+/** How large a note's label is drawn on screen where the map is neither zoomed in nor out. */
 const LABEL_FONT_PX = 11;
+
+/**
+ * How much of the zoom a label takes on. None of it holds every label to the same size on screen; all
+ * of it is the graph's own units, where a title grows without bound as the map is zoomed into. A
+ * quarter of it carries a label from 11px to about 18px across the whole range of zooms the map
+ * allows, so that zooming in brings the titles closer without letting them take the map over.
+ */
+const LABEL_ZOOM_SHARE = 0.25;
 
 /** How wide a label may be, in multiples of its own font size, before what is left of the title is cut. */
 const MAX_LABEL_WIDTH_EMS = 12;
@@ -88,10 +96,11 @@ export function setupRendering(graph: ForceGraph<NoteMapNodeObject, NoteMapLinkO
             return;
         }
 
-        // Drawn at a size of its own rather than at the note's: the canvas is scaled by the zoom, so
-        // a label measured in the graph's own units is drawn as large as the map is zoomed in — which
-        // on a map of a couple of notes left the titles standing taller than the notes themselves.
-        const fontSize = LABEL_FONT_PX / zoomLevel;
+        // Drawn at a size mostly of its own rather than at the note's: the canvas is scaled by the
+        // zoom, so a label measured in the graph's own units is drawn as large as the map is zoomed
+        // in — which on a map of a couple of notes left the titles standing taller than the notes
+        // themselves. Dividing the size on screen back out by the zoom is what holds it to its own.
+        const fontSize = LABEL_FONT_PX * zoomLevel ** LABEL_ZOOM_SHARE / zoomLevel;
 
         ctx.fillStyle = cssData.textColor;
         ctx.font = `${fontSize}px ${cssData.fontFamily}`;
