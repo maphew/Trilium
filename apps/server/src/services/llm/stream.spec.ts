@@ -2,7 +2,7 @@ import type { LlmStreamChunk } from "@triliumnext/commons";
 import { APICallError } from "ai";
 import { describe, expect, it } from "vitest";
 
-import { describeStreamError, type StreamOptions, streamToChunks } from "./stream.js";
+import { describeStreamError, formatStreamError, type StreamOptions, streamToChunks } from "./stream.js";
 import type { ModelPricing, StreamResult } from "./types.js";
 
 type ErrorChunk = Extract<LlmStreamChunk, { type: "error" }>;
@@ -92,17 +92,21 @@ describe("streamToChunks", () => {
         expect(chunks.some(c => c.type === "done")).toBe(false);
     });
 
-    it("includes HTTP status, URL and response body in the surfaced error", async () => {
+    it("carries HTTP status, URL and response body beside the surfaced error", async () => {
         const chunks = await collect(fakeResult(
             [{ type: "error", error: apiCallError() }],
             noOutputUsage()
         ));
 
         const [error] = errorsOf(chunks);
-        // The previous implementation used String(error), losing all of this detail.
-        expect(error.error).toContain("HTTP 404");
-        expect(error.error).toContain("http://localhost:8080/messages");
-        expect(error.error).toContain("Router not found");
+        // The message stays the failure alone — the context travels as data so the client
+        // can title the card and collapse the noise instead of printing one long line.
+        expect(error.error).toBe("Not Found");
+        expect(error.errorDetails).toEqual({
+            statusCode: 404,
+            url: "http://localhost:8080/messages",
+            responseBody: '{"message":"Router not found for request POST /messages"}'
+        });
     });
 
     it("surfaces a usage rejection when no error part preceded it", async () => {
@@ -243,13 +247,15 @@ describe("streamToChunks", () => {
                     noCacheTokens: 700_000
                 }
             })
-        ), { model: "m", pricing });
+        ), { model: "m", provider: "anthropic", pricing });
 
         // 0.7*4 (no-cache) + 0.2*4*0.1 (read) + 0.1*4*1.25 (write) + 1*8 (output)
         const expected = 0.7 * 4 + 0.2 * 4 * 0.1 + 0.1 * 4 * 1.25 + 1 * 8;
         const usage = usageOf(chunks);
         expect(usage.usage.cost).toBeCloseTo(expected, 6);
+        // Both display fields reach the client: the name, and the provider that lets it be abbreviated.
         expect(usage.usage.model).toBe("m");
+        expect(usage.usage.provider).toBe("anthropic");
     });
 
     it("treats all input as no-cache when token details are absent", async () => {
@@ -324,12 +330,17 @@ describe("streamToChunks", () => {
 });
 
 describe("describeStreamError", () => {
-    it("expands an APICallError into status, URL and response body", () => {
-        const msg = describeStreamError(apiCallError());
-        expect(msg).toContain("AI_APICallError: Not Found");
-        expect(msg).toContain("HTTP 404");
-        expect(msg).toContain("URL http://localhost:8080/messages");
-        expect(msg).toContain('{"message":"Router not found for request POST /messages"}');
+    it("splits an APICallError into its message and the call's context", () => {
+        // The SDK's class name (AI_APICallError) is dropped: it names an internal, and the
+        // status it stands for is reported as data instead.
+        expect(describeStreamError(apiCallError())).toEqual({
+            message: "Not Found",
+            details: {
+                statusCode: 404,
+                url: "http://localhost:8080/messages",
+                responseBody: '{"message":"Router not found for request POST /messages"}'
+            }
+        });
     });
 
     it("truncates an oversized response body", () => {
@@ -340,12 +351,12 @@ describe("describeStreamError", () => {
             statusCode: 500,
             responseBody: "x".repeat(900)
         });
-        const msg = describeStreamError(err);
-        expect(msg).toContain("…");
-        expect(msg.length).toBeLessThan(900);
+        const responseBody = describeStreamError(err).details?.responseBody ?? "";
+        expect(responseBody.endsWith("…")).toBe(true);
+        expect(responseBody.length).toBeLessThan(900);
     });
 
-    it("omits the detail suffix for an APICallError lacking status, url and body", () => {
+    it("omits details entirely for an APICallError lacking status, url and body", () => {
         const err = new APICallError({
             message: "Opaque failure",
             url: "",
@@ -353,15 +364,25 @@ describe("describeStreamError", () => {
             statusCode: undefined,
             responseBody: undefined
         });
-        // No status/url/body → no parenthesised detail, just name + message.
-        expect(describeStreamError(err)).toBe(`${err.name}: Opaque failure`);
+        expect(describeStreamError(err)).toEqual({ message: "Opaque failure" });
     });
 
-    it("falls back to name and message for a plain Error", () => {
-        expect(describeStreamError(new TypeError("bad input"))).toBe("TypeError: bad input");
+    it("falls back to name and message for a plain Error, and stringifies a non-Error", () => {
+        expect(describeStreamError(new TypeError("bad input"))).toEqual({ message: "TypeError: bad input" });
+        expect(describeStreamError("just a string")).toEqual({ message: "just a string" });
+    });
+});
+
+describe("formatStreamError", () => {
+    it("rejoins message and context onto the single line the log can show", () => {
+        expect(formatStreamError(describeStreamError(apiCallError()))).toBe(
+            "Not Found (HTTP 404, URL http://localhost:8080/messages, "
+            + 'response: {"message":"Router not found for request POST /messages"})'
+        );
     });
 
-    it("stringifies a non-Error value", () => {
-        expect(describeStreamError("just a string")).toBe("just a string");
+    it("returns the bare message when there is no context to append", () => {
+        expect(formatStreamError({ message: "TypeError: bad input" })).toBe("TypeError: bad input");
+        expect(formatStreamError({ message: "Timed out", details: {} })).toBe("Timed out");
     });
 });

@@ -202,6 +202,23 @@ body.desktop .dropdown-submenu .dropdown-menu {
     background: transparent;
 }
 
+/*
+ * With background effects on, the Electron window is transparent, and that breaks the
+ * list-style menus specifically: they carry `backdrop-filter` on the menu element itself
+ * (a scrollable menu can't use the `::before` layer — the pseudo scrolls away with the
+ * content), and an element that both filters and paints a translucent background gets
+ * flattened into one render surface, which composites wrongly over window-transparent
+ * regions — the background is lost with the filter and the menu renders see-through.
+ * Regular menus survive because their filter is isolated on the background-less pseudo.
+ * The blur also has nothing to sample there anyway: CSS can only blur web-painted pixels,
+ * never the OS-composited material behind the window. So list menus fall back to the
+ * opaque menu color, the same one used when backdrop effects are disabled.
+ */
+body.background-effects .dropdown-menu.tn-dropdown-list {
+    --menu-background-color: var(--menu-background-color-no-backdrop);
+    backdrop-filter: none;
+}
+
 .dropdown-item,
 .excalidraw .context-menu .context-menu-item {
     --menu-item-start-padding: 8px;

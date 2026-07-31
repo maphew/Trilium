@@ -170,7 +170,7 @@ describe("ClaudeAgentProvider.chatChunks", () => {
                 type: "usage",
                 // No cost even though the SDK result carries total_cost_usd: usage is
                 // covered by the subscription, so a per-turn dollar figure isn't shown.
-                usage: { promptTokens: 100, completionTokens: 40, totalTokens: 140, model: "Claude Sonnet 5" }
+                usage: { promptTokens: 100, completionTokens: 40, totalTokens: 140, model: "Claude Sonnet 5", provider: "claude-agent" }
             },
             { type: "done" }
         ]);

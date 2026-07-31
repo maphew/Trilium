@@ -1,4 +1,4 @@
-import type { LlmChatConfig, LlmCitation, LlmMessage, LlmModelInfo,LlmUsage } from "@triliumnext/commons";
+import type { LlmChatConfig, LlmCitation, LlmErrorDetails, LlmMessage, LlmModelInfo,LlmUsage } from "@triliumnext/commons";
 
 import server from "./server.js";
 
@@ -52,7 +52,12 @@ export interface StreamCallbacks {
     onToolResult?: (toolCallId: string, toolName: string, result: string, isError?: boolean) => void;
     onCitation?: (citation: LlmCitation) => void;
     onUsage?: (usage: LlmUsage) => void;
-    onError: (error: string) => void;
+    /**
+     * @param error human-readable message.
+     * @param details provider-call context (status, URL, response body), present only
+     *   for failures that reached a provider — never for connection/transport errors raised here.
+     */
+    onError: (error: string, details?: LlmErrorDetails) => void;
     onDone: () => void;
 }
 
@@ -154,7 +159,7 @@ export async function streamChatCompletion(
                                 }
                                 break;
                             case "error":
-                                callbacks.onError(data.error);
+                                callbacks.onError(data.error, data.errorDetails);
                                 break;
                             case "done":
                                 callbacks.onDone();

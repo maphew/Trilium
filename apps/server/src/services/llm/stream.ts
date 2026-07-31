@@ -2,7 +2,7 @@
  * Shared streaming utilities for converting AI SDK streams to SSE chunks.
  */
 
-import type { LlmStreamChunk } from "@triliumnext/commons";
+import type { LlmErrorDetails, LlmStreamChunk } from "@triliumnext/commons";
 import { APICallError, type LanguageModelUsage } from "ai";
 
 import type { ModelPricing, StreamResult } from "./types.js";
@@ -46,41 +46,77 @@ function calculateCost(usage: LanguageModelUsage, pricing?: ModelPricing): numbe
 export interface StreamOptions {
     /** Model identifier for display */
     model?: string;
+    /** Provider type that served the response, reported with usage so the client can abbreviate the model name */
+    provider?: string;
     /** Model pricing for cost calculation (from provider) */
     pricing?: ModelPricing;
 }
 
+/** Longest response body forwarded to the client; error bodies are normally tiny JSON payloads. */
+const MAX_RESPONSE_BODY_LENGTH = 500;
+
 /**
- * Build a detailed, single-line description of an error coming out of the AI SDK.
+ * Describe an error coming out of the AI SDK as a message plus its machine-readable
+ * context.
  *
  * AI SDK `APICallError`s carry the HTTP status, the URL that was called and the raw
  * response body. Surfacing those turns an opaque "Not Found" into something
  * actionable — e.g. a `404` against `http://localhost:8080/messages` immediately
- * reveals a misconfigured provider base URL. Plain errors fall back to name + message.
+ * reveals a misconfigured provider base URL. They are kept *beside* the message
+ * rather than appended to it so the chat UI can title the failure and hide the noise
+ * behind a details toggle; {@link formatStreamError} rejoins them for the log.
+ *
+ * The error's class name (`AI_APICallError`) is deliberately dropped: it names an SDK
+ * internal, and the status it stands for is reported as `statusCode`. Plain errors keep
+ * their name, which is the only classification they carry.
  */
-export function describeStreamError(error: unknown): string {
+export function describeStreamError(error: unknown): { message: string; details?: LlmErrorDetails } {
     if (APICallError.isInstance(error)) {
-        const detail: string[] = [];
+        const details: LlmErrorDetails = {};
         if (typeof error.statusCode === "number") {
-            detail.push(`HTTP ${error.statusCode}`);
+            details.statusCode = error.statusCode;
         }
         if (error.url) {
-            detail.push(`URL ${error.url}`);
+            details.url = error.url;
         }
         if (error.responseBody) {
-            // Response bodies for errors are normally tiny JSON payloads; cap defensively.
-            const body = error.responseBody.length > 500
-                ? `${error.responseBody.slice(0, 500)}…`
+            details.responseBody = error.responseBody.length > MAX_RESPONSE_BODY_LENGTH
+                ? `${error.responseBody.slice(0, MAX_RESPONSE_BODY_LENGTH)}…`
                 : error.responseBody;
-            detail.push(`response: ${body}`);
         }
-        const suffix = detail.length > 0 ? ` (${detail.join(", ")})` : "";
-        return `${error.name}: ${error.message}${suffix}`;
+        return {
+            message: error.message,
+            ...(Object.keys(details).length > 0 ? { details } : {})
+        };
     }
     if (error instanceof Error) {
-        return `${error.name}: ${error.message}`;
+        return { message: `${error.name}: ${error.message}` };
     }
-    return String(error);
+    return { message: String(error) };
+}
+
+/**
+ * Rejoin a described error into one line, for the server log — where a collapsible
+ * details section isn't an option and the full context has to travel with the message.
+ */
+export function formatStreamError({ message, details }: { message: string; details?: LlmErrorDetails }): string {
+    const parts: string[] = [];
+    if (typeof details?.statusCode === "number") {
+        parts.push(`HTTP ${details.statusCode}`);
+    }
+    if (details?.url) {
+        parts.push(`URL ${details.url}`);
+    }
+    if (details?.responseBody) {
+        parts.push(`response: ${details.responseBody}`);
+    }
+    return parts.length > 0 ? `${message} (${parts.join(", ")})` : message;
+}
+
+/** Package an error for the wire: the message on `error`, its context on `errorDetails`. */
+function errorChunk(error: unknown): Extract<LlmStreamChunk, { type: "error" }> {
+    const { message, details } = describeStreamError(error);
+    return { type: "error", error: message, ...(details ? { errorDetails: details } : {}) };
 }
 
 /**
@@ -155,7 +191,7 @@ export async function* streamToChunks(result: StreamResult, options: StreamOptio
 
                 case "error":
                     errorEmitted = true;
-                    yield { type: "error", error: describeStreamError(part.error) };
+                    yield errorChunk(part.error);
                     break;
             }
         }
@@ -172,7 +208,7 @@ export async function* streamToChunks(result: StreamResult, options: StreamOptio
             usage = await result.totalUsage;
         } catch (error) {
             if (!errorEmitted) {
-                yield { type: "error", error: describeStreamError(error) };
+                yield errorChunk(error);
             }
             return;
         }
@@ -186,7 +222,8 @@ export async function* streamToChunks(result: StreamResult, options: StreamOptio
                     completionTokens: usage.outputTokens,
                     totalTokens: usage.inputTokens + usage.outputTokens,
                     cost,
-                    model: options.model
+                    model: options.model,
+                    provider: options.provider
                 }
             };
         }
@@ -194,7 +231,7 @@ export async function* streamToChunks(result: StreamResult, options: StreamOptio
         yield { type: "done" };
     } catch (error) {
         if (!errorEmitted) {
-            yield { type: "error", error: describeStreamError(error) };
+            yield errorChunk(error);
         }
     }
 }

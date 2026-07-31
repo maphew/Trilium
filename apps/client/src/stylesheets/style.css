@@ -1711,6 +1711,28 @@ body:not(.mobile) #launcher-pane.horizontal .dropdown-submenu > .dropdown-menu {
     background-color: var(--selection-background-color);
 }
 
+/*
+ * Fades a scroll container's content out at its edges instead of hard-clipping it, so text
+ * dissolves toward whatever chrome sits past the edge (a section title bar, a composer).
+ * A mask rather than an overlay gradient because the content becomes genuinely transparent:
+ * this holds up when the pane background is a semi-transparent tint over a window material
+ * (Mica/vibrancy), which no painted gradient color could match. Opt in per edge by setting
+ * `--scroll-fade-top` / `--scroll-fade-bottom` on the scroll container (or an ancestor);
+ * each edge defaults to a hard clip. The defaults are `var()` fallbacks rather than custom
+ * property declarations here, so a widget's knobs win regardless of stylesheet bundling
+ * order. The overlay scrollbar fades over the same distance — the cost of masking the
+ * scroll container itself, accepted wherever this is used.
+ */
+.scroll-edge-fade {
+    mask-image: linear-gradient(
+        to bottom,
+        transparent,
+        black var(--scroll-fade-top, 0px),
+        black calc(100% - var(--scroll-fade-bottom, 0px)),
+        transparent
+    );
+}
+
 [data-bs-toggle="tooltip"]:not(.button-widget) span {
     padding-bottom: 0;
     border-bottom: 1px dotted;
