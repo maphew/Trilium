@@ -284,6 +284,82 @@ export interface SubtreeSizeResponse {
 }
 
 /**
+ * How far an on-demand image compression run should go. Every field is optional, and what is left
+ * out falls back to the corresponding option — so an empty request compresses exactly the way the
+ * automatic import-time shrinking would, only without needing that shrinking to be enabled.
+ *
+ * Unlike the `compressImages` option, this is always a deliberate act by the user on one note or
+ * one image, so it runs whether or not automatic compression is switched on.
+ */
+export interface ImageCompressionOptions {
+    /**
+     * Longest edge, in pixels: an image larger than this is scaled down to fit, one smaller is left
+     * at its size. Omitted, it falls back to the `imageMaxWidthHeight` option.
+     */
+    maxWidthHeight?: number;
+    /**
+     * JPEG quality, 10 to 100. Omitted, it falls back to the `imageJpegQuality` option (75 by
+     * default). Only reaches images actually encoded as JPEG — see {@link convertLossless}.
+     */
+    quality?: number;
+    /**
+     * Whether a lossless source (PNG) may be re-encoded as JPEG. Off by default, since that trades
+     * away quality permanently; with it off a PNG is only ever scaled down, never re-encoded.
+     */
+    convertLossless?: boolean;
+}
+
+/**
+ * Why a particular image was left exactly as it was. Every image the run visited is reported, so
+ * "nothing happened" always comes with the reason it didn't.
+ */
+export type ImageCompressionSkipReason =
+    /** Not a format that can be recompressed — SVG, an unrecognised buffer, GIF, WebP, BMP … */
+    | "unsupported-format"
+    /** Animated (APNG, animated GIF/WebP): recompressing would flatten it to a single frame. */
+    | "animated"
+    /** A PNG carrying transparency, which JPEG cannot represent, and no resizing to do besides. */
+    | "transparent"
+    /** The rendered picture of a canvas/mermaid/mind map/spreadsheet note, regenerated on save. */
+    | "generated"
+    /** Protected, with no protected session open to decrypt it. */
+    | "protected"
+    /** Compressing produced nothing smaller, so the original was kept. */
+    | "no-gain"
+    /** This build has no image compression at all (the standalone/WASM runtime). */
+    | "unsupported-platform"
+    /** Compression failed; the original was kept and the failure logged. */
+    | "error";
+
+/** One image visited by a compression run, whether or not it ended up compressed. */
+export interface ImageCompressionItem {
+    entityType: "note" | "attachment";
+    /** The `noteId` of an image note, or the `attachmentId` of an image attachment. */
+    entityId: string;
+    title: string;
+    /** The mime after the run: the new one when compressed, the untouched one otherwise. */
+    mime: string;
+    originalSize: number;
+    /** Equal to {@link originalSize} whenever the image was left alone. */
+    newSize: number;
+    compressed: boolean;
+    /** Present exactly when {@link compressed} is false. */
+    skipReason?: ImageCompressionSkipReason;
+}
+
+export interface ImageCompressionResponse {
+    /** Every image the run visited, skipped ones included, in the order they were visited. */
+    items: ImageCompressionItem[];
+    compressedCount: number;
+    skippedCount: number;
+    /** Summed over {@link items}, so skipped images weigh the same on both sides. */
+    originalSize: number;
+    newSize: number;
+    /** `originalSize - newSize`; never negative, an image is only replaced when it got smaller. */
+    savedSize: number;
+}
+
+/**
  * The size components of a single note. Revisions are always reported separately so a client can
  * include or exclude them without another request.
  */

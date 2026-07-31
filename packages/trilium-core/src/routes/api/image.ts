@@ -1,4 +1,4 @@
-import { NOTE_TYPE_IMAGE_ATTACHMENTS } from "@triliumnext/commons";
+import { type ImageCompressionOptions, NOTE_TYPE_IMAGE_ATTACHMENTS } from "@triliumnext/commons";
 import type { Request, Response } from "express";
 import type { File } from "../../services/import/common.js";
 
@@ -7,7 +7,9 @@ type FileRequest<P> = Omit<Request<P>, "file"> & { file?: File };
 import becca from "../../becca/becca.js";
 import type BNote from "../../becca/entities/bnote.js";
 import type BRevision from "../../becca/entities/brevision.js";
+import { ValidationError } from "../../errors.js";
 import imageService from "../../services/image.js";
+import imageCompressionService from "../../services/image_compression.js";
 import { sanitizeSvg, SVG_CONTENT_SECURITY_POLICY } from "../../services/utils/index.js";
 import { unwrapStringOrBuffer } from "../../services/utils/binary.js";
 
@@ -139,12 +141,41 @@ function updateImage(req: FileRequest<{ noteId: string }>) {
     return { uploaded: true };
 }
 
+function compressNoteImages(req: Request<{ noteId: string }>) {
+    return imageCompressionService.compressNoteImages(req.params.noteId, readCompressionOptions(req));
+}
+
+function compressAttachmentImage(req: Request<{ attachmentId: string }>) {
+    return imageCompressionService.compressAttachmentImage(req.params.attachmentId, readCompressionOptions(req));
+}
+
 export default {
     returnImageFromNote,
     returnImageFromRevision,
     returnAttachedImage,
-    updateImage
+    updateImage,
+    compressNoteImages,
+    compressAttachmentImage
 };
+
+/**
+ * The body is optional — sending none asks for the defaults — but anything that is sent has to be
+ * an object, so a stray array or string fails here rather than being silently read as "defaults".
+ * The individual fields are validated by the service, which owns their bounds and fallbacks.
+ */
+function readCompressionOptions(req: Request): ImageCompressionOptions {
+    const { body } = req;
+
+    if (body === undefined || body === null) {
+        return {};
+    }
+
+    if (typeof body !== "object" || Array.isArray(body)) {
+        throw new ValidationError("The request body must be an object of compression options.");
+    }
+
+    return body as ImageCompressionOptions;
+}
 
 function sendSanitizedSvg(res: Response, content: string | Uint8Array) {
     const svgString = unwrapStringOrBuffer(content);

@@ -3,14 +3,18 @@
  * Uses JIMP for image processing with full compression support.
  */
 
+import { getLog, options as optionService } from "@triliumnext/core";
+import type { ImageCompressionOutcome, ImageCompressionRequest, ImageFormat, ImageProvider, ProcessedImage } from "@triliumnext/core/src/services/image_provider.js";
 import imageType from "image-type";
 import isAnimated from "is-animated";
 import isSvg from "is-svg";
 import { Jimp } from "jimp";
 
-import { options as optionService } from "@triliumnext/core";
-import type { ImageProvider, ImageFormat, ProcessedImage } from "@triliumnext/core/src/services/image_provider.js";
-import { getLog } from "@triliumnext/core";
+const JPEG_FORMAT: ImageFormat = { ext: "jpg", mime: "image/jpeg" };
+const PNG_FORMAT: ImageFormat = { ext: "png", mime: "image/png" };
+
+/** The only formats JIMP can both decode and re-encode here; everything else is left untouched. */
+const COMPRESSIBLE_EXTENSIONS = new Set([ "jpg", "png" ]);
 
 async function getImageTypeFromBuffer(buffer: Uint8Array): Promise<ImageFormat | null> {
     // Check for SVG first (text-based)
@@ -118,5 +122,78 @@ export const serverImageProvider: ImageProvider = {
         }
 
         return { buffer: finalBuffer, format };
+    },
+
+    async compressImage(buffer: Uint8Array, request: ImageCompressionRequest): Promise<ImageCompressionOutcome> {
+        const format = await getImageTypeFromBuffer(buffer);
+
+        if (!format || !COMPRESSIBLE_EXTENSIONS.has(format.ext)) {
+            return { compressed: false, reason: "unsupported-format" };
+        }
+
+        /* v8 ignore start -- the same rare defensive guard as in processImage above: spec-compliant
+           animated images already fail the format gate (file-type reports animated PNG as "apng"
+           and animated GIF/WebP as gif/webp). Only a pathological PNG with 512+ chunks before its
+           acTL chunk reaches here, and recompressing it would keep the first frame alone. */
+        if (isAnimated(Buffer.from(buffer))) {
+            return { compressed: false, reason: "animated" };
+        }
+        /* v8 ignore stop */
+
+        const start = Date.now();
+        const image = await Jimp.read(Buffer.from(buffer));
+        const { width, height } = image.bitmap;
+        const needsResize = Math.max(width, height) > request.maxWidthHeight;
+        const isLossless = format.ext === "png";
+
+        // JPEG has no alpha channel, so a transparent PNG would come back with its transparency
+        // filled in — the one conversion that visibly damages an image rather than degrading it.
+        // The check reads the decoded pixels, so it is exact rather than a guess from the header.
+        const toJpeg = !isLossless || (request.convertLossless && !hasTransparency(image));
+
+        if (!toJpeg && !needsResize) {
+            // Nothing left to do: re-encoding a PNG at its own size is lossless and pointless.
+            return { compressed: false, reason: isLossless && request.convertLossless ? "transparent" : "no-gain" };
+        }
+
+        if (needsResize) {
+            if (width >= height) {
+                image.resize({ w: request.maxWidthHeight });
+            } else {
+                image.resize({ h: request.maxWidthHeight });
+            }
+        }
+
+        let result: Uint8Array;
+
+        if (toJpeg) {
+            // Whatever transparency survives here is known to be absent or deliberately discarded.
+            image.background = 0xffffffff;
+            result = await image.getBuffer("image/jpeg", { quality: request.quality });
+        } else {
+            result = await image.getBuffer("image/png");
+        }
+
+        getLog().info(`Compressing image of ${buffer.byteLength} bytes took ${Date.now() - start}ms`);
+
+        if (result.byteLength >= buffer.byteLength) {
+            // A small or already well-compressed image can grow; the original stays.
+            return { compressed: false, reason: "no-gain" };
+        }
+
+        return { compressed: true, buffer: result, format: toJpeg ? JPEG_FORMAT : PNG_FORMAT };
     }
 };
+
+/** True when any pixel is less than fully opaque, read off the decoded RGBA bitmap. */
+function hasTransparency(image: Awaited<ReturnType<typeof Jimp.read>>): boolean {
+    const { data } = image.bitmap;
+
+    for (let i = 3; i < data.length; i += 4) {
+        if (data[i] !== 255) {
+            return true;
+        }
+    }
+
+    return false;
+}

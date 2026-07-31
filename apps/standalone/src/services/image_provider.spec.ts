@@ -76,3 +76,15 @@ describe("standaloneImageProvider.processImage", () => {
         expect(result.format).toEqual({ ext: "dat", mime: "application/octet-stream" });
     });
 });
+
+describe("standaloneImageProvider.compressImage", () => {
+    it("answers that this runtime cannot compress, rather than failing the request", async () => {
+        // There is no decoder here, so every image an on-demand compression run visits comes back
+        // untouched with the reason attached — the caller reports it instead of erroring out.
+        const buffer = withMagic([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+
+        await expect(
+            standaloneImageProvider.compressImage(buffer, { maxWidthHeight: 100, quality: 75, convertLossless: true })
+        ).resolves.toEqual({ compressed: false, reason: "unsupported-platform" });
+    });
+});

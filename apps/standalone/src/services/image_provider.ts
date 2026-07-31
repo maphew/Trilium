@@ -4,7 +4,7 @@
  * Images are saved as-is without resizing.
  */
 
-import type { ImageProvider, ImageFormat, ProcessedImage } from "@triliumnext/core";
+import type { ImageCompressionOutcome, ImageFormat, ImageProvider, ProcessedImage } from "@triliumnext/core";
 
 /**
  * Detect image type from buffer using magic bytes.
@@ -92,5 +92,11 @@ export const standaloneImageProvider: ImageProvider = {
             buffer,
             format
         };
+    },
+
+    async compressImage(): Promise<ImageCompressionOutcome> {
+        // No decoder here, so there is nothing to recompress with — the request is answered rather
+        // than refused, and the caller reports the images as untouched along with the reason.
+        return { compressed: false, reason: "unsupported-platform" };
     }
 };

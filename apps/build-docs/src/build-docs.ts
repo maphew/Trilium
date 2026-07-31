@@ -40,7 +40,8 @@ const stubImageProvider: ImageProvider = {
     getImageType: () => null,
     processImage: async () => {
         throw new Error("Image processing not supported in build-docs");
-    }
+    },
+    compressImage: async () => ({ compressed: false, reason: "unsupported-platform" })
 };
 import { ZipArchive } from "archiver";
 import { execSync } from "child_process";

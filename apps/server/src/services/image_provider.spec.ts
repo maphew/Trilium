@@ -1,4 +1,4 @@
-import { cls, options } from '@triliumnext/core';
+import { cls, type ImageCompressionRequest, options } from '@triliumnext/core';
 import { Jimp } from 'jimp';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
@@ -22,6 +22,9 @@ let tallPng: Uint8Array; // 200x600 -> resized by height
 let smallPng: Uint8Array; // 8x8 -> within bounds, jpeg ends up larger
 let noisyPng: Uint8Array; // large noisy image where jpeg compression helps
 let corruptPng: Uint8Array; // valid PNG signature but unreadable by jimp
+let transparentPng: Uint8Array; // 600x400 noisy, every pixel half-transparent
+let noisyJpeg: Uint8Array; // 600x400 noisy jpeg stored at high quality
+let tinyJpeg: Uint8Array; // 8x8 jpeg that cannot get any smaller
 const svgBuffer = new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"></svg>');
 const garbageBuffer = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
 const staticGif = Uint8Array.from(
@@ -35,20 +38,24 @@ const animatedGif = Uint8Array.from(
     )
 );
 
-async function makePng(width: number, height: number, noisy = false): Promise<Uint8Array> {
-    const image = new Jimp({ width, height, color: 0x3366ccff });
+function makeImage(width: number, height: number, { noisy = false, alpha = 0xff } = {}): InstanceType<typeof Jimp> {
+    const image = new Jimp({ width, height, color: (0x3366cc00 | alpha) >>> 0 });
     if (noisy) {
         for (let x = 0; x < width; x++) {
             for (let y = 0; y < height; y++) {
                 const r = (x * 31 + y * 17) % 256;
                 const g = (x * 13 + y * 7) % 256;
                 const b = (x * 5 + y * 23) % 256;
-                const color = (((r << 24) | (g << 16) | (b << 8) | 0xff) >>> 0);
+                const color = (((r << 24) | (g << 16) | (b << 8) | alpha) >>> 0);
                 image.setPixelColor(color, x, y);
             }
         }
     }
-    return new Uint8Array(await image.getBuffer('image/png'));
+    return image;
+}
+
+async function makePng(width: number, height: number, noisy = false): Promise<Uint8Array> {
+    return new Uint8Array(await makeImage(width, height, { noisy }).getBuffer('image/png'));
 }
 
 beforeAll(async () => {
@@ -59,6 +66,13 @@ beforeAll(async () => {
     corruptPng = new Uint8Array(
         Buffer.concat([Buffer.from(valid.slice(0, 50)), Buffer.alloc(valid.length, 0xab)])
     );
+    transparentPng = new Uint8Array(
+        await makeImage(600, 400, { noisy: true, alpha: 0x80 }).getBuffer('image/png')
+    );
+    noisyJpeg = new Uint8Array(
+        await makeImage(600, 400, { noisy: true }).getBuffer('image/jpeg', { quality: 100 })
+    );
+    tinyJpeg = new Uint8Array(await makeImage(8, 8).getBuffer('image/jpeg', { quality: 10 }));
 }, 30000);
 
 afterEach(() => {
@@ -218,6 +232,156 @@ describe('serverImageProvider.processImage', () => {
 
         const decoded = await Jimp.read(Buffer.from(result.buffer));
         expect(decoded.bitmap.width).toBeGreaterThan(decoded.bitmap.height);
+    });
+});
+
+describe('serverImageProvider.compressImage', () => {
+    /** Every parameter is explicit, so nothing here depends on the stored options. */
+    function request(overrides: Partial<ImageCompressionRequest> = {}): ImageCompressionRequest {
+        return { maxWidthHeight: 2000, quality: 75, convertLossless: false, ...overrides };
+    }
+
+    it.each([
+        ['an SVG', () => svgBuffer],
+        ['a GIF', () => staticGif],
+        ['an animated GIF', () => animatedGif],
+        ['an unrecognisable buffer', () => garbageBuffer]
+    ])('leaves %s alone as an unsupported format', async (_label, getBuffer) => {
+        const outcome = await serverImageProvider.compressImage(getBuffer(), request());
+
+        expect(outcome).toEqual({ compressed: false, reason: 'unsupported-format' });
+    });
+
+    it('ignores the compressImages option, which only governs automatic shrinking', async () => {
+        setOptions({ compressImages: 'false' });
+
+        const outcome = await serverImageProvider.compressImage(noisyPng, request({ maxWidthHeight: 100 }));
+
+        expect(outcome.compressed).toBe(true);
+    });
+
+    describe('lossless sources', () => {
+        it('re-encodes an opaque PNG as JPEG once conversion is allowed', async () => {
+            const outcome = await serverImageProvider.compressImage(noisyPng, request({ convertLossless: true }));
+
+            expect(outcome).toMatchObject({ compressed: true, format: { ext: 'jpg', mime: 'image/jpeg' } });
+            if (!outcome.compressed) return;
+            expect(outcome.buffer.byteLength).toBeLessThan(noisyPng.byteLength);
+
+            // Still 600x400: converting is worthwhile on its own, without any resizing.
+            const decoded = await Jimp.read(Buffer.from(outcome.buffer));
+            expect([decoded.bitmap.width, decoded.bitmap.height]).toEqual([600, 400]);
+        });
+
+        it('never re-encodes a PNG that is already within bounds when conversion is off', async () => {
+            const outcome = await serverImageProvider.compressImage(noisyPng, request());
+
+            expect(outcome).toEqual({ compressed: false, reason: 'no-gain' });
+        });
+
+        it('scales an oversized PNG down but keeps it a PNG when conversion is off', async () => {
+            const outcome = await serverImageProvider.compressImage(noisyPng, request({ maxWidthHeight: 100 }));
+
+            expect(outcome).toMatchObject({ compressed: true, format: { ext: 'png', mime: 'image/png' } });
+            if (!outcome.compressed) return;
+
+            const decoded = await Jimp.read(Buffer.from(outcome.buffer));
+            expect([decoded.bitmap.width, decoded.bitmap.height]).toEqual([100, 67]);
+        });
+    });
+
+    describe('transparency', () => {
+        it('refuses to convert a transparent PNG, which JPEG cannot represent', async () => {
+            const outcome = await serverImageProvider.compressImage(transparentPng, request({ convertLossless: true }));
+
+            expect(outcome).toEqual({ compressed: false, reason: 'transparent' });
+        });
+
+        it('still scales a transparent PNG down, keeping both the format and the alpha channel', async () => {
+            const outcome = await serverImageProvider.compressImage(
+                transparentPng,
+                request({ maxWidthHeight: 100, convertLossless: true })
+            );
+
+            expect(outcome).toMatchObject({ compressed: true, format: { ext: 'png', mime: 'image/png' } });
+            if (!outcome.compressed) return;
+
+            // The point of the refusal above: the transparency has to survive the resize intact.
+            const decoded = await Jimp.read(Buffer.from(outcome.buffer));
+            expect(decoded.bitmap.width).toBe(100);
+            expect(decoded.bitmap.data.some((byte, i) => i % 4 === 3 && byte !== 255)).toBe(true);
+        });
+
+        it('converts a PNG whose alpha channel is fully opaque', async () => {
+            // Detection reads the decoded pixels, so an alpha channel that happens to be all-255
+            // is correctly treated as no transparency at all rather than assumed dangerous.
+            const opaqueWithAlpha = new Uint8Array(
+                await makeImage(600, 400, { noisy: true, alpha: 0xff }).getBuffer('image/png')
+            );
+
+            const outcome = await serverImageProvider.compressImage(opaqueWithAlpha, request({ convertLossless: true }));
+
+            expect(outcome).toMatchObject({ compressed: true, format: { ext: 'jpg', mime: 'image/jpeg' } });
+        });
+    });
+
+    describe('lossy sources', () => {
+        it('recompresses a JPEG at the requested quality without resizing it', async () => {
+            const outcome = await serverImageProvider.compressImage(noisyJpeg, request({ quality: 40 }));
+
+            expect(outcome).toMatchObject({ compressed: true, format: { ext: 'jpg', mime: 'image/jpeg' } });
+            if (!outcome.compressed) return;
+            expect(outcome.buffer.byteLength).toBeLessThan(noisyJpeg.byteLength);
+        });
+
+        it('produces a smaller file at a lower quality', async () => {
+            const at80 = await serverImageProvider.compressImage(noisyJpeg, request({ quality: 80 }));
+            const at20 = await serverImageProvider.compressImage(noisyJpeg, request({ quality: 20 }));
+
+            if (!at80.compressed || !at20.compressed) throw new Error('expected both to compress');
+            expect(at20.buffer.byteLength).toBeLessThan(at80.buffer.byteLength);
+        });
+
+        it('keeps the original when recompressing would not save anything', async () => {
+            const outcome = await serverImageProvider.compressImage(tinyJpeg, request());
+
+            expect(outcome).toEqual({ compressed: false, reason: 'no-gain' });
+        });
+    });
+
+    describe('resizing', () => {
+        it('scales a wide image by its width', async () => {
+            const outcome = await serverImageProvider.compressImage(noisyJpeg, request({ maxWidthHeight: 120 }));
+
+            if (!outcome.compressed) throw new Error('expected compression');
+            const decoded = await Jimp.read(Buffer.from(outcome.buffer));
+            expect([decoded.bitmap.width, decoded.bitmap.height]).toEqual([120, 80]);
+        });
+
+        it('scales a tall image by its height', async () => {
+            const outcome = await serverImageProvider.compressImage(
+                tallPng,
+                request({ maxWidthHeight: 120, convertLossless: true })
+            );
+
+            if (!outcome.compressed) throw new Error('expected compression');
+            const decoded = await Jimp.read(Buffer.from(outcome.buffer));
+            expect([decoded.bitmap.width, decoded.bitmap.height]).toEqual([40, 120]);
+        });
+
+        it('leaves an image already within bounds at its size', async () => {
+            const outcome = await serverImageProvider.compressImage(noisyJpeg, request({ maxWidthHeight: 600 }));
+
+            if (!outcome.compressed) throw new Error('expected compression');
+            const decoded = await Jimp.read(Buffer.from(outcome.buffer));
+            expect([decoded.bitmap.width, decoded.bitmap.height]).toEqual([600, 400]);
+        });
+    });
+
+    it('propagates a decode failure rather than reporting a bogus result', async () => {
+        // corruptPng passes format detection as PNG but Jimp cannot read it. The caller turns this
+        // into a logged, per-image "error" skip; swallowing it here would hide the failure instead.
+        await expect(serverImageProvider.compressImage(corruptPng, request({ maxWidthHeight: 100 }))).rejects.toThrow();
     });
 });
 
