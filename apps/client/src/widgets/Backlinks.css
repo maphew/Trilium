@@ -78,6 +78,24 @@
             p {
                 margin: 0;
             }
+
+            /* An excerpt is a slice of a note, headings and all, and a heading is sized for a page it
+               titles — in `rem` at that (Bootstrap's), so it ignores the size of the excerpt around it
+               entirely. Brought back to that size, with a step between the levels and the weight the
+               theme takes off a page's headings, so they still read as headings at nearly the text's size. */
+            h1, h2, h3, h4, h5, h6 {
+                margin: .4em 0 .15em;
+                font-weight: 600;
+
+                &:first-child {
+                    margin-top: 0;
+                }
+            }
+
+            h1 { font-size: 1.15em; }
+            h2 { font-size: 1.1em; }
+            h3 { font-size: 1.05em; }
+            h4, h5, h6 { font-size: 1em; }
         }
     }
 }
