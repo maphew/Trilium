@@ -185,10 +185,11 @@ export class LocalProvider extends BaseProvider {
     /**
      * GET a JSON document from a listing endpoint.
      *
-     * Returns undefined when the endpoint isn't served here (404/405), which is
-     * how the probe chain advances. Everything else throws: an unreachable host
-     * or a rejected credential is a real problem the add/edit-provider screen
-     * must report, not a reason to keep trying other URLs.
+     * Returns undefined when the endpoint isn't served here (404/405, or a 2xx
+     * whose body isn't JSON), which is how the probe chain advances. Everything
+     * else throws: an unreachable host or a rejected credential is a real
+     * problem the add/edit-provider screen must report, not a reason to keep
+     * trying other URLs.
      */
     private async probeJson(url: string): Promise<unknown | undefined> {
         let response: Response;
@@ -209,7 +210,14 @@ export class LocalProvider extends BaseProvider {
             }
             throw new Error(`HTTP ${response.status} from ${url}`);
         }
-        return await response.json();
+        try {
+            return await response.json();
+        } catch {
+            // An auth proxy or captive portal can answer a probe with a 200 HTML
+            // login page (after a redirect fetch follows transparently). A body
+            // that isn't JSON means the endpoint isn't served here.
+            return undefined;
+        }
     }
 
     /**

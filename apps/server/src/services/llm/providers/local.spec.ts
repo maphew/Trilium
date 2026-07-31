@@ -50,6 +50,17 @@ function status(code: number) {
     return { ok: false, status: code } as Response;
 }
 
+/** A 200 HTML page, as an auth proxy or captive portal serves for unknown paths. */
+function html() {
+    return {
+        ok: true,
+        status: 200,
+        json: async () => {
+            throw new SyntaxError(`Unexpected token '<', "<!doctype "... is not valid JSON`);
+        }
+    } as Response;
+}
+
 /** Route each probe URL to a response, so the fallback chain can be driven precisely. */
 function routes(map: Record<string, Response>) {
     return (url: string) => {
@@ -280,6 +291,19 @@ describe("LocalProvider", () => {
             const models = await new LocalProvider("ollama").listModels();
             expect(models.map(m => m.id)).toEqual(["llama3"]);
             expect(fetchMock.mock.calls.every(([url]) => !String(url).includes("/api/v0/models"))).toBe(true);
+        });
+
+        it("advances past an auth proxy's HTML login page on a native probe", async () => {
+            // A forward-auth proxy that exempts /v1/* but not /api/tags answers
+            // the probe with a 200 HTML login page; the chain must advance to
+            // /v1/models rather than choke on the non-JSON body.
+            fetchMock.mockImplementation(routes({
+                "/api/tags": html(),
+                "/api/v0/models": html(),
+                "/v1/models": openAiModels(["m1"])
+            }));
+            const models = await new LocalProvider("openai-compatible", "", "http://box:8080").listModels();
+            expect(models.map(m => m.id)).toEqual(["m1"]);
         });
 
         it("treats a foreign native payload as 'not that runtime' for the generic card", async () => {
