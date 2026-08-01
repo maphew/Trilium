@@ -96,7 +96,11 @@ export default class FNote {
         this.isProtected = !!row.isProtected;
         this.type = row.type;
 
-        this.mime = row.mime;
+        // The server can send a row without a mime: becca materialises "skeleton" notes for
+        // entities that arrive out of order during sync, and their undefined mime/title are dropped
+        // outright by JSON serialisation. Defaulting keeps the mime predicates (isTriliumScript(),
+        // isJavaScript(), ...) from throwing until the real row syncs in.
+        this.mime = row.mime ?? "";
 
         this.blobId = row.blobId;
     }
