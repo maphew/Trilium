@@ -5,9 +5,13 @@ const mocks = vi.hoisted(() => ({
     getInt: vi.fn<(name: string) => number | null>(() => -1),
     /** Reads the `revisionIgnoreNamedSnapshots` option, which the named-revisions field follows. */
     is: vi.fn<(name: string) => boolean>(() => true),
-    post: vi.fn(async (url: string, _body?: object) => (
-        url === "database/vacuum-database" ? { sizeBefore: 9000, sizeAfter: 2000 } : undefined
-    )),
+    post: vi.fn(async (url: string, _body?: object) => {
+        if (url === "database/vacuum-database") return { sizeBefore: 9000, sizeAfter: 2000 };
+        // A saving far larger than any reading here, so a test can prove it is never added on top:
+        // the compression step runs between the two readings and is already counted in them.
+        if (url === "notes/root/compress-images") return { savedSize: 999999 };
+        return undefined;
+    }),
     /** Occupied bytes, read once before the erasures and once after; shifted per test. */
     occupied: [ 5000, 3000 ],
     get: vi.fn()
@@ -32,9 +36,11 @@ vi.mock("../../../../../services/server", () => ({
     }
 }));
 
+import type { ImageCompressionToolOptions } from "../../../../dialogs/image_compression/image_compression_options";
 import {
     type CleanupToolOptions,
     computeCleanupSizes,
+    hasWorkToDo,
     readCleanupOptions,
     runCleanup,
     storedCleanupOptions
@@ -49,12 +55,28 @@ function usage(revisions: number, deleted = 0, unused = 0) {
     } as SpaceUsageNoteResponse;
 }
 
+/**
+ * What the compression rows open on here: scaling alone, both formats left exactly as encoded.
+ * Deliberately not the image dialog's own defaults — this runs over every image there is.
+ */
+const CONSERVATIVE_COMPRESSION: ImageCompressionToolOptions = {
+    resize: true,
+    maxWidthHeight: 1920,
+    jpegHandling: "keep",
+    pngHandling: "keep",
+    quality: 75,
+    conversionQuality: 85,
+    processChildNotes: false
+};
+
 const ALL_PICKED: CleanupToolOptions = {
     deletedEntities: true,
     unusedAttachments: true,
     revisionSnapshots: true,
     snapshotsToKeep: 3,
     keepNamedSnapshots: true,
+    compressImages: false,
+    imageCompression: CONSERVATIVE_COMPRESSION,
     compactDatabase: false
 };
 
@@ -78,9 +100,24 @@ describe("readCleanupOptions", () => {
                 revisionSnapshots: false,
                 snapshotsToKeep: 4,
                 keepNamedSnapshots: false,
+                compressImages: false,
+                imageCompression: CONSERVATIVE_COMPRESSION,
                 compactDatabase: false
             });
         }
+    });
+
+    it("opens compression on scaling alone, not on the image tool's own defaults", () => {
+        // The dialog's defaults re-encode both formats, which is a far larger bet made across every
+        // image in the database than across the one note the user was looking at.
+        const { imageCompression } = readCleanupOptions({});
+        expect(imageCompression).toMatchObject({
+            resize: true, maxWidthHeight: 1920, jpegHandling: "keep", pngHandling: "keep"
+        });
+
+        // Answered here, the answer stands — including one that turns scaling off entirely.
+        expect(readCleanupOptions({ imageCompression: { ...CONSERVATIVE_COMPRESSION, resize: false, pngHandling: "jpeg" } })
+            .imageCompression).toMatchObject({ resize: false, pngHandling: "jpeg" });
     });
 
     it("follows the note revision setting on named revisions until it is answered here", () => {
@@ -118,6 +155,8 @@ describe("readCleanupOptions", () => {
                 revisionSnapshots: true,
                 snapshotsToKeep: 0,
                 keepNamedSnapshots: true,
+                compressImages: false,
+                imageCompression: CONSERVATIVE_COMPRESSION,
                 compactDatabase: false
             });
 
@@ -127,14 +166,29 @@ describe("readCleanupOptions", () => {
 });
 
 describe("storedCleanupOptions", () => {
-    it("remembers every answer but the compacting step", () => {
-        expect(storedCleanupOptions({ ...ALL_PICKED, compactDatabase: true })).toEqual({
+    it("remembers every answer but the compacting step, compression settings included", () => {
+        expect(storedCleanupOptions({ ...ALL_PICKED, compressImages: true, compactDatabase: true })).toEqual({
             deletedEntities: true,
             unusedAttachments: true,
             revisionSnapshots: true,
             snapshotsToKeep: 3,
-            keepNamedSnapshots: true
+            keepNamedSnapshots: true,
+            compressImages: true,
+            imageCompression: CONSERVATIVE_COMPRESSION
         });
+    });
+});
+
+describe("hasWorkToDo", () => {
+    const nothingPicked = { ...ALL_PICKED, deletedEntities: false, unusedAttachments: false, revisionSnapshots: false };
+
+    it("counts compressing on its own, which no estimate can speak for", () => {
+        // Nothing selected weighs anything, and compressing is not in the estimate at all — so
+        // without this the button would be disabled for a run that has plenty to do.
+        expect(hasWorkToDo(nothingPicked, 0)).toBe(false);
+        expect(hasWorkToDo({ ...nothingPicked, compressImages: true }, 0)).toBe(true);
+        expect(hasWorkToDo({ ...nothingPicked, compactDatabase: true }, 0)).toBe(true);
+        expect(hasWorkToDo(nothingPicked, 500)).toBe(true);
     });
 });
 
@@ -188,6 +242,47 @@ describe("runCleanup", () => {
             "space-usage/cleanup-completed"
         ]);
         expect(mocks.post.mock.calls[0][1]).toEqual({ snapshotsToKeep: 3, keepNamedSnapshots: true });
+    });
+
+    it("recompresses the whole tree after the erasures, and only when asked", async () => {
+        await runCleanup(ALL_PICKED);
+        expect(mocks.post.mock.calls.map(([ url ]) => url)).not.toContain("notes/root/compress-images");
+
+        mocks.post.mockClear();
+        await runCleanup({
+            ...ALL_PICKED,
+            compressImages: true,
+            imageCompression: { ...CONSERVATIVE_COMPRESSION, jpegHandling: "compress", quality: 60 }
+        });
+
+        // After the erasures: an original a revision still points at survives being replaced, so
+        // erasing the snapshots first is what lets the originals go with them.
+        expect(mocks.post.mock.calls.map(([ url ]) => url)).toEqual([
+            "revisions/erase-all-excess-revisions",
+            "notes/erase-unused-attachments-now",
+            "notes/erase-deleted-notes-now",
+            "notes/root/compress-images",
+            "space-usage/cleanup-completed"
+        ]);
+        // The whole tree, and none of the tool's own scope switch — a cleanup has no scope to choose.
+        expect(mocks.post.mock.calls[3][1]).toEqual({
+            resize: true,
+            maxWidthHeight: 1920,
+            jpegHandling: "compress",
+            pngHandling: "keep",
+            quality: 60,
+            conversionQuality: 85,
+            recursive: true
+        });
+    });
+
+    it("counts what compressing freed once, through the readings rather than the endpoint", async () => {
+        mocks.occupied = [ 5000, 1200 ];
+
+        // The endpoint answers with a saving of its own; the run must report the 3800 the database
+        // actually gave back rather than that figure, or the sum of the two.
+        await expect(runCleanup({ ...ALL_PICKED, deletedEntities: false, unusedAttachments: false,
+            revisionSnapshots: false, compressImages: true })).resolves.toBe(3800);
     });
 
     it("reports what the database actually gave back, not what was predicted", async () => {

@@ -9,6 +9,12 @@ import dialogService from "../../../../../services/dialog";
 import { t } from "../../../../../services/i18n";
 import toast from "../../../../../services/toast";
 import { formatSize, isStandalone } from "../../../../../services/utils";
+import type { ImageCompressionToolOptions } from "../../../../dialogs/image_compression/image_compression_options";
+import {
+    JpegHandlingSection,
+    PngHandlingSection,
+    ResizeImageSection
+} from "../../../../dialogs/image_compression/image_compression_sections";
 import { ExtendedAdmonition } from "../../../../react/Admonition";
 import Button from "../../../../react/Button";
 import { Card, CardSection } from "../../../../react/Card";
@@ -72,6 +78,12 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
         const next = { ...options, ...patch };
         setOptions(next);
         void setStored(storedCleanupOptions(next));
+    };
+    // The compression rows report patches against their own settings, which are one field of these.
+    const compressionProps = {
+        options: options.imageCompression,
+        onChange: (patch: Partial<ImageCompressionToolOptions>) =>
+            update({ imageCompression: { ...options.imageCompression, ...patch } })
     };
 
     // Measured with the history erased outright: the whole the reading is "of", and fixed for as
@@ -252,6 +264,32 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
                     </CardSection>
                 ))}
 
+                {/* No swatch and no figure, unlike every row above it: what recompressing will save
+                    cannot be known without doing it, so there is no arc for it in the chart and
+                    nothing honest to print here. The settings hang beneath the switch, the same
+                    rows the image compression dialog is built from. */}
+                <CardSection
+                    className="cleanup-item cleanup-item-compress"
+                    subSectionsVisible={options.compressImages}
+                    subSections={[
+                        <ResizeImageSection key="resize" {...compressionProps} />,
+                        <JpegHandlingSection key="jpeg" {...compressionProps} />,
+                        <PngHandlingSection key="png" {...compressionProps} />
+                    ]}
+                >
+                    {/* Carries no color, having no arc to name — it is here so the title starts
+                        where every other row's does, rather than half a swatch to its left. */}
+                    <span className="cleanup-item-swatch" aria-hidden="true" />
+                    <span className="cleanup-item-title">
+                        {t("compress-images")}
+                        <ContextualHelp helpMessage={t("space_usage.cleanup_compress_images_help")} />
+                    </span>
+                    <FormToggle
+                        currentValue={options.compressImages}
+                        onChange={(value) => update({ compressImages: value })}
+                    />
+                </CardSection>
+
                 {/* Its figure is the pages already free inside the file, which only a rebuild
                     returns — no part of any content figure, and so an arc and a color of its own.
                     Absent where the endpoint is: vacuuming lives in the server build, not in the
@@ -339,8 +377,8 @@ const CLEANUP_DONE_TIMEOUT_MS = 15000;
 
 /**
  * The app's in-progress toast, the same one printing raises: a spinning icon rather than a bar,
- * since none of this can say how far along it is. Compacting names itself, being the step that can
- * hold the server for minutes with nothing at all to show meanwhile.
+ * since none of this can say how far along it is. Compressing and compacting each name themselves,
+ * being the steps that can hold the server for minutes with nothing at all to show meanwhile.
  *
  * Raised again per phase rather than replaced — the toast service updates the one already carrying
  * this id, so the message changes in place instead of stacking a second toast beside the first.
@@ -349,12 +387,22 @@ function showCleanupProgress(phase: CleanupPhase) {
     toast.showPersistent({
         id: CLEANUP_TOAST_ID,
         icon: "bx bx-loader-circle bx-spin",
-        message: t(phase === "compacting" ? "space_usage.cleanup_compacting" : "space_usage.cleanup_running"),
+        message: t(CLEANUP_PHASE_MESSAGES[phase]),
         // Nothing here to cancel: the server carries on whatever the client does, so a close button
         // would read as a stop that stops nothing.
         dismissible: false
     });
 }
+
+/**
+ * Compressing borrows the image tool's own wording rather than keeping a second copy of it: the
+ * step is that tool, run from here, and the two would only ever be corrected together.
+ */
+const CLEANUP_PHASE_MESSAGES: Record<CleanupPhase, Parameters<typeof t>[0]> = {
+    erasing: "space_usage.cleanup_running",
+    compressing: "space_usage.compress_running",
+    compacting: "space_usage.cleanup_compacting"
+};
 
 /**
  * The width the dialog starts at, narrow on purpose: a short list of choices, read top to bottom

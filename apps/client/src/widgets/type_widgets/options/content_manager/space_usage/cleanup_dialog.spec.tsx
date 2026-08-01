@@ -287,6 +287,34 @@ describe("showCleanupDialog", () => {
             .toBe(t("space_usage.cleanup_compact_notice") ?? "");
     });
 
+    it("hangs the compression settings off its switch, and offers a run that only compresses", async () => {
+        await openDialog();
+
+        // No arc and no figure of its own: what recompressing will save is not knowable without
+        // doing it, so it stays out of both the chart and the estimate.
+        const compressRow = document.body.querySelector<HTMLElement>(".cleanup-item-compress");
+        expect(compressRow?.querySelector(".cleanup-item-size")).toBeNull();
+        // The swatch is still there, transparent, so the title lines up with every row above it.
+        expect(compressRow?.querySelector(".cleanup-item-swatch")).not.toBeNull();
+        expect(document.body.querySelector(".image-compression-section")).toBeNull();
+        // Nothing picked weighs anything, so the button rests on compressing alone being asked for.
+        expect(cleanButton()?.disabled).toBe(true);
+
+        await toggle(compressRow ?? undefined);
+
+        // The image dialog's own rows, dropped in beneath the switch: scaling with its bound, then
+        // one exclusive choice per format. Both formats open on "keep", so neither brings a quality
+        // row with it — the single nested row is the bound belonging to scaling.
+        const sections = document.body.querySelectorAll(".image-compression-section");
+        expect(sections).toHaveLength(4);
+        expect(document.body.querySelectorAll(".image-compression-section-nested")).toHaveLength(1);
+        expect(document.body.querySelectorAll(".image-compression-section-choice")).toHaveLength(2);
+        // The subtree switch is the one row that never comes: a cleanup has no scope to choose.
+        expect(document.body.querySelector(".image-compression-scope")).toBeNull();
+
+        expect(cleanButton()?.disabled).toBe(false);
+    });
+
     it("counts a rebuild into the whole, and into the offer once it is picked", async () => {
         await openDialog();
 

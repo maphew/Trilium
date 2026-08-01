@@ -58,15 +58,16 @@ export const MIN_MAX_WIDTH_HEIGHT = 1;
  * user did not have in mind.
  */
 export function readImageCompressionOptions(
-    stored: Partial<ImageCompressionToolOptions> | null | undefined
+    stored: Partial<ImageCompressionToolOptions> | null | undefined,
+    defaults: ImageCompressionDefaults = IMAGE_COMPRESSION_DEFAULTS
 ): ImageCompressionToolOptions {
     return {
         resize: stored?.resize ?? true,
         maxWidthHeight: isPositiveInteger(stored?.maxWidthHeight)
             ? Number(stored?.maxWidthHeight)
             : DEFAULT_MAX_WIDTH_HEIGHT,
-        jpegHandling: readHandling(stored?.jpegHandling, IMAGE_JPEG_HANDLINGS, "compress"),
-        pngHandling: readHandling(stored?.pngHandling, IMAGE_PNG_HANDLINGS, "optimize"),
+        jpegHandling: readHandling(stored?.jpegHandling, IMAGE_JPEG_HANDLINGS, defaults.jpegHandling),
+        pngHandling: readHandling(stored?.pngHandling, IMAGE_PNG_HANDLINGS, defaults.pngHandling),
         quality: isQuality(stored?.quality) ? Number(stored?.quality) : DEFAULT_QUALITY,
         conversionQuality: isQuality(stored?.conversionQuality)
             ? Number(stored?.conversionQuality)
@@ -74,6 +75,36 @@ export function readImageCompressionOptions(
         processChildNotes: stored?.processChildNotes === true
     };
 }
+
+/**
+ * What a host's first run opens on, for the two choices hosts genuinely differ on. Everything else
+ * — the bound, the qualities — means the same wherever the rows are shown.
+ */
+export interface ImageCompressionDefaults {
+    jpegHandling: ImageJpegHandling;
+    pngHandling: ImagePngHandling;
+}
+
+/** The image compression dialog's own: act on both formats, since acting is what it was opened for. */
+export const IMAGE_COMPRESSION_DEFAULTS: ImageCompressionDefaults = {
+    jpegHandling: "compress",
+    pngHandling: "optimize"
+};
+
+/**
+ * Where the cleanup tool starts instead: scaling only, neither format re-encoded.
+ *
+ * It runs over every image in the database in one unattended pass, where the dialog is aimed at
+ * images the user has just been looking at — so the same setting is a much larger bet here. Scaling
+ * is the one step that is bounded by what it finds: an image already within the bound is left
+ * exactly as it was, so a database of screenshots and diagrams comes through untouched. Re-encoding
+ * is not bounded by anything and costs quality on every image it reaches, which is a choice to make
+ * deliberately rather than one to find already ticked.
+ */
+export const CONSERVATIVE_IMAGE_COMPRESSION_DEFAULTS: ImageCompressionDefaults = {
+    jpegHandling: "keep",
+    pngHandling: "keep"
+};
 
 /** The longest edge the first run offers to scale down to: the width of a Full HD screen. */
 export const DEFAULT_MAX_WIDTH_HEIGHT = 1920;
