@@ -49,9 +49,6 @@
       "path": "./packages/ckeditor5-mermaid"
     },
     {
-      "path": "./packages/ckeditor5-footnotes"
-    },
-    {
       "path": "./packages/ckeditor5-math"
     },
     {

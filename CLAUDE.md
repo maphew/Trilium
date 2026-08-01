@@ -75,7 +75,7 @@ packages/
   codemirror/           # Code editor integration
   highlightjs/          # Syntax highlighting
   share-theme/          # Theme for shared/published notes
-  ckeditor5-footnotes/, ckeditor5-math/, ckeditor5-mermaid/
+  ckeditor5-math/, ckeditor5-mermaid/
   express-partial-content/, pdfjs-viewer/, splitjs/
   turndown-plugin-gfm/
 ```

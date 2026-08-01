@@ -22,9 +22,6 @@
   ],
   "references": [
     {
-      "path": "../ckeditor5-footnotes"
-    },
-    {
       "path": "../ckeditor5-math"
     },
     {

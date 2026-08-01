@@ -1,5 +1,5 @@
 import type { Editor } from 'ckeditor5';
-import { icons as footnoteIcons } from '@triliumnext/ckeditor5-footnotes';
+import insertFootnoteIcon from './icons/insert-footnote.svg?raw';
 import { IconPageBreak, IconAlignLeft, IconAlignCenter, IconAlignRight, IconAlignJustify, IconBulletedList, IconNumberedList, IconTodoList } from "@ckeditor/ckeditor5-icons";
 import bxInfoCircle from "boxicons/svg/regular/bx-info-circle.svg?raw";
 import bxBulb from "boxicons/svg/regular/bx-bulb.svg?raw";
@@ -52,7 +52,7 @@ export default function buildExtraCommands(
             id: 'footnote',
             title: 'Footnote',
             description: t("slash_commands.footnote_description"),
-            icon: footnoteIcons.insertFootnoteIcon,
+            icon: insertFootnoteIcon,
             commandName: "InsertFootnote"
         },
         {

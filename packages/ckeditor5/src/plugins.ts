@@ -27,7 +27,7 @@ import Kbd from "./plugins/keyboard_marker/keyboard_marker.js";
 import { Mermaid } from "@triliumnext/ckeditor5-mermaid";
 import Admonition from "./plugins/admonition/admonition.js";
 import Collapsible from "./plugins/collapsible/collapsible.js";
-import { Footnotes } from "@triliumnext/ckeditor5-footnotes";
+import Footnotes from "./plugins/footnotes/footnotes.js";
 import { Math, AutoformatMath } from "@triliumnext/ckeditor5-math";
 import CopyAnchorLinkButton from "./plugins/copy_anchor_link.js";
 import CopyLinkUrlButton from "./plugins/copy_link_url.js";
@@ -35,7 +35,6 @@ import ImageActions from "./plugins/image_actions.js";
 import TriliumSnippets from "./plugins/snippets/snippets.js";
 
 // import "@triliumnext/ckeditor5-mermaid/index.css";
-// import "@triliumnext/ckeditor5-footnotes/index.css";
 // import "@triliumnext/ckeditor5-math/index.css";
 import CodeBlockToolbar from "./plugins/code_block_toolbar.js";
 import CodeBlockLanguageDropdown from "./plugins/code_block_language_dropdown.js";
