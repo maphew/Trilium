@@ -38,8 +38,6 @@ export function applyModals(rootContainer: RootContainer) {
         .child(<LazyDialog triggerEvents={["showOptions"]} loader={() => import("../widgets/dialogs/OptionsDialog.jsx")} />)
         .child(<LazyDialog triggerEvents={["showOcrTextDialog"]} loader={() => import("../widgets/dialogs/ocr_text.js")} />)
         .child(<LazyDialog triggerEvents={["showNoteAttributes"]} loader={() => import("../widgets/dialogs/note_attributes.jsx")} />)
-        // Lazily loaded above all: the map is drawn by force-graph, kept out of the boot bundle.
-        .child(<LazyDialog triggerEvents={["showNoteMap"]} loader={() => import("../widgets/dialogs/note_map.jsx")} />)
         .child(<LazyDialog triggerEvents={["showUploadAttachmentsDialog"]} loader={() => import("../widgets/dialogs/upload_attachments.js")} />)
         .child(<LazyDialog triggerEvents={["openInTreePopup"]} loader={() => import("../widgets/dialogs/TreePopupEditor.jsx")} />)
         // The following three are deliberately eager (not wrapped in LazyDialog):

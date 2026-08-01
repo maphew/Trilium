@@ -196,11 +196,15 @@ export default class RootCommandExecutor extends Component {
     }
 
     async toggleRibbonTabNoteMapCommand(data: CommandListenerData<"toggleRibbonTabNoteMap">) {
-        // A phone has neither the ribbon the map was a tab of nor the pane it is a card of, so the menu
-        // it is asked from is where it is asked from and a modal is where it is shown — as the note's
-        // attributes, its backlinks and its paths already are.
+        // A phone has neither the ribbon the map was a tab of nor the pane it is a card of, so it is
+        // shown the way the pane's card shows it expanded: as the quick-edit popup, which is the map at
+        // the size of the window wherever there is no card to expand from. The popup carries the note's
+        // title, steps aside when a note of the map is pressed, and can be taken on to a tab.
         if (utils.isMobile()) {
-            this.triggerEvent("showNoteMap", data);
+            const notePath = appContext.tabManager.getActiveContext()?.notePath;
+            if (notePath) {
+                void appContext.triggerCommand("openInPopup", { noteIdOrPath: notePath, viewScope: { viewMode: "note-map" } });
+            }
             return;
         }
 
