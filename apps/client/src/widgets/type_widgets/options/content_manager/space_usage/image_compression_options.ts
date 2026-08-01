@@ -1,6 +1,4 @@
-import { IMAGE_JPEG_HANDLINGS, IMAGE_PNG_HANDLINGS, type ImageJpegHandling, type ImagePngHandling } from "@triliumnext/commons";
-
-import { compressibleFormatsOf, type ImageCompressionTarget } from "./image_compression_operation";
+import { IMAGE_JPEG_HANDLINGS, IMAGE_PNG_HANDLINGS, type ImageCompressibleFormat, type ImageJpegHandling, type ImagePngHandling } from "@triliumnext/commons";
 
 /**
  * What the image compression tool is set to do. Persisted as JSON in the `imageCompressionToolOptions`
@@ -27,17 +25,16 @@ export interface ImageCompressionToolOptions {
 }
 
 /**
- * Whether the settings amount to anything at all. Only what the target can actually be reached by
- * counts: asking for PNGs to be optimized says nothing about a lone JPEG, and a format the run
- * cannot touch at all is not made reachable by any setting.
+ * Whether the settings amount to anything, given the formats actually there to be acted on. Asking
+ * for PNGs to be optimized says nothing about a note holding only JPEGs, and nothing asked of a
+ * format that is not present is work.
  *
- * Without this, a run would be offered that visits every image and changes none of them.
+ * An empty list is therefore never work — which covers a reading still in flight as well as one
+ * that found nothing, and in neither case is there a run worth offering yet.
  */
-export function hasWorkToDo(options: ImageCompressionToolOptions, target: ImageCompressionTarget): boolean {
-    const formats = compressibleFormatsOf(target);
-
+export function hasWorkToDo(options: ImageCompressionToolOptions, formats: ImageCompressibleFormat[]): boolean {
     return (options.resize && formats.length > 0)
-        || (formats.includes("jpeg") && options.jpegHandling !== "keep")
+        || (formats.includes("jpg") && options.jpegHandling !== "keep")
         || (formats.includes("png") && options.pngHandling !== "keep");
 }
 

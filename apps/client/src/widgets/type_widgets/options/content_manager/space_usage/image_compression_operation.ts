@@ -17,30 +17,13 @@ export type ImageCompressionTarget =
     | { type: "note"; noteId: string; mime?: string }
     | { type: "attachment"; attachmentId: string; mime: string };
 
-/** The formats a run can act on at all, which is what the settings are ultimately about. */
-export type CompressibleFormat = "jpeg" | "png";
-
 /**
- * Which formats the settings could reach on this target: the one format of a single image, both for
- * a note holding a collection, and neither for a single image of a type nothing here can compress —
- * a GIF, a WebP, an SVG.
+ * Whether the dialog is configuring one named image rather than whatever a note happens to hold.
  *
- * A collection is answered with both without looking: what a note actually holds is not known until
- * the run visits it, and offering only what is there would mean measuring the note to open a dialog.
+ * The mime is read only for this — as a marker that the target *is* one image. What format that
+ * image actually is comes from its content, never from here: an image note Trilium saved itself
+ * carries `image/jpg`, which is not a real mime type at all.
  */
-export function compressibleFormatsOf(target: ImageCompressionTarget): CompressibleFormat[] {
-    if (target.mime === undefined) {
-        return [ "jpeg", "png" ];
-    }
-
-    if (target.mime === "image/jpeg") {
-        return [ "jpeg" ];
-    }
-
-    return target.mime === "image/png" ? [ "png" ] : [];
-}
-
-/** Whether the dialog is configuring one named image rather than whatever a note happens to hold. */
 export function isSingleImage(target: ImageCompressionTarget): boolean {
     return target.mime !== undefined;
 }

@@ -24,6 +24,10 @@ function resultOf(count: number, originalSize: number, newSize: number) {
 
 const mocks = vi.hoisted(() => ({
     storedOption: "{}",
+    /** URLs the summary asked for, in order, so a re-reading can be told from a first reading. */
+    read: [] as string[],
+    inventory: {} as Record<string, unknown>,
+    info: {} as Record<string, unknown>,
     save: vi.fn(async () => {}),
     postWithTimeout: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => EMPTY_RESULT),
     showMessage: vi.fn<(message: string, timeout?: number) => void>(),
@@ -40,7 +44,17 @@ vi.mock("../../../../../services/options", () => ({
 
 vi.mock("../../../../../services/server", () => ({
     default: {
-        get: async () => [],
+        // The summary reads one of these before the dialog can draw anything. Everything else the
+        // app loads on the way past — the keyboard actions among them — expects a list.
+        get: async (url: string) => {
+            if (!url.includes("image-info") && !url.includes("image-inventory")) {
+                return [];
+            }
+
+            mocks.read.push(url);
+
+            return url.includes("image-info") ? mocks.info : mocks.inventory;
+        },
         postWithTimeout: (url: string, _timeoutMs: number, body?: object) => mocks.postWithTimeout(url, body)
     }
 }));
@@ -94,9 +108,20 @@ import {
 
 /** A note holding whatever it holds; the collection case, where every setting is in play. */
 const NOTE_TARGET: ImageCompressionTarget = { type: "note", noteId: "n1" };
-/** One image apiece, which is what carrying a mime means. */
-const JPEG_IMAGE_TARGET: ImageCompressionTarget = { type: "attachment", attachmentId: "a1", mime: "image/jpeg" };
+/**
+ * One image apiece. Carrying a mime is what marks a target as a single image; which format it is
+ * comes from the reading, so these deliberately carry the non-standard mime Trilium itself writes
+ * for a JPEG — nothing may depend on it being a real one.
+ */
+const JPEG_IMAGE_TARGET: ImageCompressionTarget = { type: "attachment", attachmentId: "a1", mime: "image/jpg" };
 const PNG_IMAGE_TARGET: ImageCompressionTarget = { type: "attachment", attachmentId: "a1", mime: "image/png" };
+
+/** Opens a single-image dialog on an image the reading will report as the given format. */
+async function openImageDialog(format: string, compressible = true) {
+    mocks.info = { ...mocks.info, format, compressible };
+
+    return openDialog(format === "jpg" ? JPEG_IMAGE_TARGET : PNG_IMAGE_TARGET);
+}
 
 function rows(within: ParentNode = document.body) {
     return Array.from(within.querySelectorAll<HTMLElement>(".image-compression-section"));
@@ -144,6 +169,9 @@ const compressButton = () => buttons()[1];
  */
 async function openDialog(target: ImageCompressionTarget = NOTE_TARGET) {
     const closed = showImageCompressionDialog(target);
+    // Two turns: the summary's reading is requested by an effect on mount and applied when it
+    // resolves, and a macrotask turn drains the microtasks between them.
+    await settle();
     await settle();
     return { closed };
 }
@@ -196,6 +224,28 @@ async function setAndDispatch(field: HTMLInputElement | null | undefined, value:
 
 beforeEach(() => {
     mocks.storedOption = "{}";
+    mocks.read = [];
+    mocks.inventory = {
+        title: "Holiday", noteCount: 1,
+        total: { count: 4, size: 4000 },
+        compressible: { count: 3, size: 3000 },
+        oversized: { count: 1, size: 1000 },
+        formats: [
+            { format: "jpg", count: 2, size: 2000 },
+            { format: "png", count: 1, size: 1000 },
+            // Counted and listed, but nothing here can act on it — so it earns no setting.
+            { format: "webp", count: 1, size: 1000 }
+        ],
+        compressibleFormats: [ "jpg", "png" ],
+        maxWidthHeight: DEFAULT_MAX_WIDTH_HEIGHT,
+        unreadable: 0
+    };
+    mocks.info = {
+        entityType: "attachment", entityId: "a1", title: "shot.png",
+        mime: "image/png", format: "png", detectedMime: "image/png",
+        size: 2048, width: 1920, height: 1080,
+        bitDepth: 8, channels: 4, hasAlpha: true, indexed: false, quality: null, compressible: true
+    };
     vi.clearAllMocks();
     mocks.postWithTimeout.mockResolvedValue(EMPTY_RESULT);
 });
@@ -401,9 +451,183 @@ describe("showImageCompressionDialog", () => {
     });
 });
 
+describe("offering only what there are images for", () => {
+    it("drops the JPEG choice for a note holding none", async () => {
+        mocks.inventory = { ...mocks.inventory, compressibleFormats: [ "png" ] };
+
+        await openDialog();
+
+        expect(titles()).not.toContain("space_usage.compress_jpeg_handling");
+        expect(titles()).toContain("space_usage.compress_png_handling");
+    });
+
+    it("drops the PNG choice for a note holding none", async () => {
+        mocks.inventory = { ...mocks.inventory, compressibleFormats: [ "jpg" ] };
+
+        await openDialog();
+
+        expect(titles()).toContain("space_usage.compress_jpeg_handling");
+        expect(titles()).not.toContain("space_usage.compress_png_handling");
+    });
+
+    it("drops every setting, resizing included, when nothing there can be compressed", async () => {
+        // Four images, none of them a format a run could act on.
+        mocks.inventory = { ...mocks.inventory, compressibleFormats: [] };
+
+        await openDialog();
+
+        expect(titles()).toEqual([ "space_usage.compress_process_child_notes" ]);
+        expect(compressButton()?.disabled).toBe(true);
+    });
+
+    it("keeps the reach on offer, so a note can still be looked into", async () => {
+        mocks.inventory = { ...mocks.inventory, compressibleFormats: [] };
+
+        await openDialog();
+
+        // The one setting that can change the answer: what is not here may be below.
+        expect(cards()).toHaveLength(1);
+        expect(titlesOf(cards()[0])).toEqual([ "space_usage.compress_process_child_notes" ]);
+    });
+
+    it("brings the settings back once descending finds something", async () => {
+        mocks.inventory = { ...mocks.inventory, compressibleFormats: [] };
+        await openDialog();
+        expect(compressButton()?.disabled).toBe(true);
+
+        mocks.inventory = { ...mocks.inventory, compressibleFormats: [ "jpg" ] };
+        // With nothing on offer, the reach is the only switch there is.
+        await toggle(toggles()[0]);
+        await settle();
+        await settle();
+
+        expect(titles()).toContain("space_usage.compress_jpeg_handling");
+        expect(compressButton()?.disabled).toBe(false);
+    });
+
+});
+
+describe("the reading above the settings", () => {
+    const summaryLines = () => Array.from(
+        document.body.querySelectorAll<HTMLElement>(".image-compression-summary > *")
+    ).map((line) => line.textContent);
+
+    it("names the note and says what its images amount to", async () => {
+        await openDialog();
+
+        expect(summaryLines()).toEqual([
+            "Holiday",
+            'space_usage.compress_summary_total {"count":4,"size":"3.91 KiB"}',
+            // One clause per format, then the two figures the settings above are about.
+            'space_usage.compress_summary_format {"count":2,"format":"JPEG","size":"1.95 KiB"}, '
+            + 'space_usage.compress_summary_format {"count":1,"format":"PNG","size":"1000 B"}, '
+            + 'space_usage.compress_summary_format {"count":1,"format":"WEBP","size":"1000 B"}, '
+            + 'space_usage.compress_summary_oversized {"count":1,"bound":1920}, '
+            + 'space_usage.compress_summary_compressible {"count":3}.'
+        ]);
+    });
+
+    it("says how far past the note it reached, once it reached anywhere", async () => {
+        mocks.inventory = { ...mocks.inventory, noteCount: 21 };
+        mocks.storedOption = JSON.stringify({ processChildNotes: true });
+
+        await openDialog();
+
+        // Twenty-one notes visited is the note itself plus twenty below it.
+        expect(summaryLines()[0]).toBe('space_usage.compress_summary_scope {"title":"Holiday","count":20}');
+    });
+
+    it("names the note alone when descending reached no further", async () => {
+        mocks.storedOption = JSON.stringify({ processChildNotes: true });
+
+        await openDialog();
+
+        expect(summaryLines()[0]).toBe("Holiday");
+    });
+
+    it("says so plainly when there is nothing to compress", async () => {
+        mocks.inventory = {
+            ...mocks.inventory,
+            total: { count: 0, size: 0 }, compressible: { count: 0, size: 0 },
+            oversized: { count: 0, size: 0 }, formats: [], compressibleFormats: []
+        };
+
+        await openDialog();
+
+        // A breakdown of nothing would be a row of zeroes rather than an answer.
+        expect(summaryLines()).toEqual([ "Holiday", "space_usage.compress_summary_none" ]);
+    });
+
+    it("mentions what it could not read, and only then", async () => {
+        mocks.inventory = { ...mocks.inventory, unreadable: 2 };
+
+        await openDialog();
+
+        expect(summaryLines()[2]).toContain('space_usage.compress_summary_unreadable {"count":2}');
+    });
+
+    it("re-reads when the reach changes, since that is part of what the figures mean", async () => {
+        await openDialog();
+        expect(mocks.read).toEqual([ `notes/n1/image-inventory?recursive=false&maxWidthHeight=${DEFAULT_MAX_WIDTH_HEIGHT}` ]);
+
+        await toggle(toggles()[1]);
+        await settle();
+
+        expect(mocks.read).toContain(`notes/n1/image-inventory?recursive=true&maxWidthHeight=${DEFAULT_MAX_WIDTH_HEIGHT}`);
+    });
+
+    it("re-reads when the bound changes, but only once the typing has stopped", async () => {
+        await openDialog();
+        await type(numberField(), "800");
+
+        // The keystroke itself asks for nothing: a four-digit bound would otherwise cost four
+        // readings of the note on its way to the one the user meant.
+        expect(mocks.read).toHaveLength(1);
+
+        await vi.waitFor(
+            () => expect(mocks.read).toContain("notes/n1/image-inventory?recursive=false&maxWidthHeight=800"),
+            { timeout: 3000 }
+        );
+    });
+
+    it("reads nothing about a subtree for a single image, and describes the image instead", async () => {
+        await openDialog(PNG_IMAGE_TARGET);
+
+        expect(mocks.read).toEqual([ "attachments/a1/image-info" ]);
+        expect(summaryLines()).toEqual([
+            "shot.png",
+            // Type and size read as one line rather than two.
+            'space_usage.compress_info_file {"format":"PNG","size":"2 KiB"}',
+            'space_usage.compress_info_pixels {"width":1920,"height":1080}, '
+            + 'space_usage.compress_info_bits {"bits":32}, '
+            + "space_usage.compress_info_transparency"
+        ]);
+    });
+
+    it("leaves out what the header did not state", async () => {
+        mocks.info = {
+            ...mocks.info, format: "gif", width: 100, height: 50,
+            bitDepth: null, channels: null, hasAlpha: null, quality: null
+        };
+
+        await openDialog({ type: "attachment", attachmentId: "a1", mime: "image/gif" });
+
+        // A size it could read, and nothing guessed at for the rest.
+        expect(summaryLines()[2]).toBe('space_usage.compress_info_pixels {"width":100,"height":50}');
+    });
+
+    it("says a JPEG has been squeezed already, which is what decides whether to squeeze it more", async () => {
+        mocks.info = { ...mocks.info, format: "jpg", channels: 3, hasAlpha: false, quality: 62 };
+
+        await openDialog(JPEG_IMAGE_TARGET);
+
+        expect(summaryLines()[2]).toContain('space_usage.compress_info_quality {"quality":62}');
+    });
+});
+
 describe("a single image rather than a note's collection", () => {
     it("offers only the choice for its own format, and nothing about a subtree", async () => {
-        await openDialog(JPEG_IMAGE_TARGET);
+        await openImageDialog("jpg");
 
         // A lone JPEG can never be reached by anything the PNG choice says, so offering it would
         // be offering a setting that cannot apply. And one image has no subtree to descend into.
@@ -417,7 +641,7 @@ describe("a single image rather than a note's collection", () => {
     });
 
     it("offers the PNG choice for a PNG, and its conversion quality when converting", async () => {
-        await openDialog(PNG_IMAGE_TARGET);
+        await openImageDialog("png");
 
         expect(titles()).toEqual([
             "space_usage.compress_resize",
@@ -430,6 +654,7 @@ describe("a single image rather than a note's collection", () => {
     });
 
     it("treats an image note as one image, the same as an attachment", async () => {
+        mocks.info = { ...mocks.info, format: "png", compressible: true };
         await openDialog({ type: "note", noteId: "n1", mime: "image/png" });
 
         expect(titles()).not.toContain("space_usage.compress_jpeg_handling");
@@ -437,21 +662,19 @@ describe("a single image rather than a note's collection", () => {
     });
 
     it("says why it has nothing to offer for a format it cannot compress", async () => {
+        mocks.info = { ...mocks.info, format: "gif", compressible: false };
         await openDialog({ type: "attachment", attachmentId: "a1", mime: "image/gif" });
 
-        expect(titles()).toEqual([
-            "space_usage.compress_resize",
-            "space_usage.compress_max_dimensions"
-        ]);
+        // Not even resizing: it acts on the same two formats as everything else, so a GIF is out
+        // of its reach too and a row offering it would be a control that does nothing.
+        expect(titles()).toEqual([]);
         expect(document.body.querySelector(".image-compression-notice")?.textContent)
             .toBe("space_usage.compress_unsupported_format");
-
-        // And nothing on offer could reach it, so there is no run to offer either.
         expect(compressButton()?.disabled).toBe(true);
     });
 
     it("offers no run for a lone JPEG once its own choice is the only one left off", async () => {
-        await openDialog(JPEG_IMAGE_TARGET);
+        await openImageDialog("jpg");
 
         await toggle(toggles()[0]);
         await chooseJpeg("keep");
@@ -495,6 +718,7 @@ describe("running the compression", () => {
     });
 
     it("sends nothing about subtrees to the attachment endpoint, which has no use for it", async () => {
+        mocks.info = { ...mocks.info, format: "jpg" };
         const { closed } = await openDialog(JPEG_IMAGE_TARGET);
 
         await click(compressButton());

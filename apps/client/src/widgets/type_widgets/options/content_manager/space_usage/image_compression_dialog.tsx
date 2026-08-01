@@ -11,7 +11,6 @@ import { Card } from "../../../../react/Card";
 import { useTriliumOptionJson } from "../../../../react/hooks";
 import Modal from "../../../../react/Modal";
 import {
-    compressibleFormatsOf,
     compressionResultMessage,
     IMAGE_COMPRESSION_TOAST_ID,
     type ImageCompressionTarget,
@@ -30,6 +29,11 @@ import {
     ResizeImageSection,
     UnsupportedFormatNotice
 } from "./image_compression_sections";
+import {
+    ImageCompressionSummary,
+    readableFormats,
+    useCompressionReading
+} from "./image_compression_summary";
 
 /**
  * Opens the image compression dialog for one note or one attachment, and resolves once the run it
@@ -77,10 +81,11 @@ function ImageCompressionDialog({ target, onFinished }: {
     const pending = useRef<ImageCompressionToolOptions | null>(null);
     const sectionProps = { options, onChange: update };
 
-    // A single image is offered only the settings that could reach it: the choice for its own
-    // format and nothing about the other, since neither could ever act on it. A note is offered
-    // both, holding whatever it holds.
-    const formats = compressibleFormatsOf(target);
+    // Nothing is offered until the reading says there is something for it to act on: a format with
+    // no images of it behind it is a setting with nothing to apply it to, and a run configured
+    // entirely out of such settings would visit every image and change none of them.
+    const reading = useCompressionReading(target, options);
+    const formats = readableFormats(target, reading);
 
     async function runPendingCompression() {
         const settings = pending.current;
@@ -127,9 +132,10 @@ function ImageCompressionDialog({ target, onFinished }: {
                 <Button
                     text={t("space_usage.compress_run")}
                     kind="primary"
-                    // Nothing asked of anything this target holds would visit every image and
-                    // change none of them: a run that provably does nothing is not one to offer.
-                    disabled={!hasWorkToDo(options, target)}
+                    // Nothing asked of anything actually here would visit every image and change
+                    // none of them: a run that provably does nothing is not one to offer. Also
+                    // covers the reading still being in flight, when nothing is yet known.
+                    disabled={!hasWorkToDo(options, formats)}
                     onClick={() => {
                         pending.current = options;
                         setShown(false);
@@ -138,14 +144,25 @@ function ImageCompressionDialog({ target, onFinished }: {
             </>}
             stackable
         >
-            <Card className="image-compression-settings">
-                <ResizeImageSection {...sectionProps} />
-                {formats.includes("jpeg") && <JpegHandlingSection {...sectionProps} />}
-                {formats.includes("png") && <PngHandlingSection {...sectionProps} />}
-                {/* A single image of a format nothing here can act on: the dialog is open, and why
-                    it has nothing to offer is the one thing worth saying. */}
-                {formats.length === 0 && <UnsupportedFormatNotice />}
-            </Card>
+            <ImageCompressionSummary reading={reading} recursive={options.processChildNotes} />
+
+            {/* Only what there are images for. Scaling goes with them: it acts on the same formats
+                and nothing else, so with none of them present it has nothing to scale either. */}
+            {formats.length > 0 && (
+                <Card className="image-compression-settings">
+                    <ResizeImageSection {...sectionProps} />
+                    {formats.includes("jpg") && <JpegHandlingSection {...sectionProps} />}
+                    {formats.includes("png") && <PngHandlingSection {...sectionProps} />}
+                </Card>
+            )}
+
+            {/* Said only of one named image, whose format is the whole reason there is nothing to
+                offer. For a note the reading above has already listed what it holds. */}
+            {isSingleImage(target) && reading.info && formats.length === 0 && (
+                <Card className="image-compression-settings">
+                    <UnsupportedFormatNotice />
+                </Card>
+            )}
 
             {/* A card of its own: everything above says *how* to compress, this says how far the
                 run reaches. Absent for a single image, which has no subtree to reach into. */}

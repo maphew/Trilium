@@ -1943,3 +1943,20 @@ export function useDelayedVisibility(active: boolean, { graceMs = 150, minVisibl
 
     return phase;
 }
+
+/**
+ * Trails `value` by `delay`, so a field being typed in does not fire a request per keystroke.
+ *
+ * For a reading that costs the server real work and is only worth taking once the user has stopped
+ * changing what it is a reading of.
+ */
+export function useDebouncedValue<T>(value: T, delay: number): T {
+    const [ settled, setSettled ] = useState(value);
+
+    useEffect(() => {
+        const timer = setTimeout(() => setSettled(value), delay);
+        return () => clearTimeout(timer);
+    }, [ value, delay ]);
+
+    return settled;
+}

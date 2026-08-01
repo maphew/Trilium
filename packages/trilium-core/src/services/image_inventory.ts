@@ -12,6 +12,7 @@
 
 import {
     IMAGE_COMPRESSIBLE_FORMATS,
+    type ImageCompressibleFormat,
     type ImageInventoryFormat,
     type ImageInventoryResponse,
     type ImageInventoryTally
@@ -20,7 +21,7 @@ import {
 import becca from "../becca/becca.js";
 import { NotFoundError } from "../errors.js";
 import {
-    collectNoteTargets,
+    collectNoteImages,
     type CompressionTarget,
     resolveMaxWidthHeight,
     resolveRecursive
@@ -42,12 +43,13 @@ export function getNoteImageInventory(noteId: string, options: ImageInventoryOpt
     }
 
     const maxWidthHeight = resolveMaxWidthHeight(options.maxWidthHeight);
-    const targets = collectNoteTargets(note, resolveRecursive(options));
+    const { notes, targets } = collectNoteImages(note, resolveRecursive(options));
 
     const total = emptyTally();
     const compressible = emptyTally();
     const oversized = emptyTally();
     const formats = new Map<string, ImageInventoryFormat>();
+    const reachable = new Set<string>();
     let unreadable = 0;
 
     for (const target of targets) {
@@ -71,18 +73,26 @@ export function getNoteImageInventory(noteId: string, options: ImageInventoryOpt
         }
 
         add(compressible, size);
+        reachable.add(format);
 
         if (width !== null && height !== null && Math.max(width, height) > maxWidthHeight) {
             add(oversized, size);
         }
     }
 
+    // Heaviest first: what a note's images weigh is the reason to be looking at all.
+    const ordered = [ ...formats.values() ].sort((a, b) => b.size - a.size);
+
     return {
+        title: note.title,
+        noteCount: notes.length,
         total,
         compressible,
         oversized,
-        // Heaviest first: what a note's images weigh is the reason to be looking at all.
-        formats: [ ...formats.values() ].sort((a, b) => b.size - a.size),
+        formats: ordered,
+        compressibleFormats: ordered
+            .map((entry) => entry.format)
+            .filter((format): format is ImageCompressibleFormat => reachable.has(format)),
         maxWidthHeight,
         unreadable
     };

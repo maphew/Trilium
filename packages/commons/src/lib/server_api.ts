@@ -308,6 +308,8 @@ export type ImageJpegHandling = (typeof IMAGE_JPEG_HANDLINGS)[number];
  */
 export const IMAGE_COMPRESSIBLE_FORMATS = [ "jpg", "png" ] as const;
 
+export type ImageCompressibleFormat = (typeof IMAGE_COMPRESSIBLE_FORMATS)[number];
+
 /**
  * What one image is, read from its own bytes.
  *
@@ -361,6 +363,10 @@ export interface ImageInventoryFormat extends ImageInventoryTally {
  * so the two never describe different sets — see `getNoteImageInventory`.
  */
 export interface ImageInventoryResponse {
+    /** The note the reading was taken on, so a caller need not look it up to name it. */
+    title: string;
+    /** How many notes it covered: the note alone, or it and its descendants when descending. */
+    noteCount: number;
     /** Every image found, whatever its format. */
     total: ImageInventoryTally;
     /**
@@ -372,6 +378,14 @@ export interface ImageInventoryResponse {
     oversized: ImageInventoryTally;
     /** Every format found, heaviest first. */
     formats: ImageInventoryFormat[];
+    /**
+     * The formats among which at least one image could actually be compressed, in the same order.
+     *
+     * Narrower than filtering {@link formats} by what the encoder supports: a note whose only PNG is
+     * the picture it regenerates on save holds a PNG that nothing will act on, and offering to
+     * configure one would be offering a setting with nothing to apply it to.
+     */
+    compressibleFormats: ImageCompressibleFormat[];
     /** What {@link oversized} was measured against. */
     maxWidthHeight: number;
     /** Images whose content could not be read — protected, with no session open. Counted nowhere else. */

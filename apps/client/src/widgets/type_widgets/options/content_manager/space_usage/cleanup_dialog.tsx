@@ -16,7 +16,7 @@ import DonutChart, { type DonutRing } from "../../../../react/charts/DonutChart"
 import ContextualHelp from "../../../../react/ContextualHelp";
 import FormTextBox from "../../../../react/FormTextBox";
 import FormToggle from "../../../../react/FormToggle";
-import { useTriliumOptionJson } from "../../../../react/hooks";
+import { useDebouncedValue, useTriliumOptionJson } from "../../../../react/hooks";
 import Modal from "../../../../react/Modal";
 import {
     CLEANUP_ITEMS,
@@ -372,15 +372,3 @@ const DONUT_THICKNESS = 40;
 
 /** Long enough to type a two-digit retention through without measuring the database twice. */
 const ESTIMATE_DEBOUNCE_MS = 500;
-
-/** Trails `value` by `delay`, so a field being typed in does not fire a measurement per keystroke. */
-function useDebouncedValue<T>(value: T, delay: number): T {
-    const [ settled, setSettled ] = useState(value);
-
-    useEffect(() => {
-        const timer = setTimeout(() => setSettled(value), delay);
-        return () => clearTimeout(timer);
-    }, [ value, delay ]);
-
-    return settled;
-}

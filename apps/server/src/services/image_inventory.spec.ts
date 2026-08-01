@@ -119,6 +119,30 @@ describe("image inventory (GET /api/notes/:noteId/image-inventory)", () => {
         expect(res.body.total.count).toBe(3);
         expect(res.body.compressible).toEqual({ count: 1, size: widePng.byteLength });
         expect(res.body.formats.map((entry) => entry.format).sort()).toEqual([ "gif", "png", "svg" ]);
+        // What a caller offers settings for: only formats it could actually apply them to.
+        expect(res.body.compressibleFormats).toEqual([ "png" ]);
+    });
+
+    it("names a format as compressible only where an image of it could actually be acted on", async () => {
+        const { noteId } = await createTextNote(api);
+        await addAttachment(noteId, "a.jpg", wideJpeg, "image/jpeg");
+        // The one PNG here is the picture the note regenerates on save, which a run leaves alone —
+        // so a PNG is present, and yet there is nothing a PNG setting could be applied to.
+        await addAttachment(noteId, "spreadsheet-export.png", widePng);
+        setNoteType(noteId, "spreadsheet");
+
+        const res = await inventoryOf(noteId);
+
+        expect(res.body.formats.map((entry) => entry.format).sort()).toEqual([ "jpg", "png" ]);
+        expect(res.body.compressibleFormats).toEqual([ "jpg" ]);
+    });
+
+    it("orders the compressible formats as it orders the rest, heaviest first", async () => {
+        const { noteId } = await createTextNote(api);
+        await addAttachment(noteId, "small.png", smallPng);
+        await addAttachment(noteId, "big.jpg", wideJpeg, "image/jpeg");
+
+        expect((await inventoryOf(noteId)).body.compressibleFormats).toEqual([ "jpg", "png" ]);
     });
 
     describe("what counts as oversized", () => {

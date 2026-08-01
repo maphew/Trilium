@@ -169,11 +169,17 @@ export interface CompressionTarget {
  * and does not resolve search notes — the run follows the tree, not what a query happens to match.
  */
 export function collectNoteTargets(note: BNote, recursive: boolean): CompressionTarget[] {
-    if (!recursive) {
-        return ownTargetsOf(note);
-    }
+    return collectNoteImages(note, recursive).targets;
+}
 
-    return note.getSubtree().notes.flatMap(ownTargetsOf);
+/**
+ * The same images, with the notes they were gathered from — for a caller that has to say how far
+ * the reading reached. One walk answers both; asking the subtree twice would not.
+ */
+export function collectNoteImages(note: BNote, recursive: boolean): { notes: BNote[]; targets: CompressionTarget[] } {
+    const notes = recursive ? note.getSubtree().notes : [ note ];
+
+    return { notes, targets: notes.flatMap(ownTargetsOf) };
 }
 
 /**
