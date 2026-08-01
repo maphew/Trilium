@@ -3,6 +3,7 @@
  * Uses JIMP for image processing with full compression support.
  */
 
+import { IMAGE_COMPRESSIBLE_FORMATS } from "@triliumnext/commons";
 import { getLog, options as optionService } from "@triliumnext/core";
 import type { ImageCompressionOutcome, ImageCompressionRequest, ImageFormat, ImageProvider, ProcessedImage } from "@triliumnext/core/src/services/image_provider.js";
 import imageType from "image-type";
@@ -17,7 +18,7 @@ const JPEG_FORMAT: ImageFormat = { ext: "jpg", mime: "image/jpeg" };
 const PNG_FORMAT: ImageFormat = { ext: "png", mime: "image/png" };
 
 /** The only formats JIMP can both decode and re-encode here; everything else is left untouched. */
-const COMPRESSIBLE_EXTENSIONS = new Set([ "jpg", "png" ]);
+const COMPRESSIBLE_EXTENSIONS = new Set<string>(IMAGE_COMPRESSIBLE_FORMATS);
 
 /**
  * How large a palette the PNG quantizer may keep — deliberately the largest an indexed PNG can

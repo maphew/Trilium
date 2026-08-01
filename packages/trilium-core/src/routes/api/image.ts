@@ -10,6 +10,7 @@ import type BRevision from "../../becca/entities/brevision.js";
 import { ValidationError } from "../../errors.js";
 import imageService from "../../services/image.js";
 import imageCompressionService from "../../services/image_compression.js";
+import imageInventoryService from "../../services/image_inventory.js";
 import { sanitizeSvg, SVG_CONTENT_SECURITY_POLICY } from "../../services/utils/index.js";
 import { unwrapStringOrBuffer } from "../../services/utils/binary.js";
 
@@ -141,6 +142,25 @@ function updateImage(req: FileRequest<{ noteId: string }>) {
     return { uploaded: true };
 }
 
+/**
+ * What images the note holds and how much of that compressing could reach — the reading the
+ * compression dialog opens on, so that it can say whether a run is worth making.
+ */
+function getImageInventory(req: Request<{ noteId: string }>) {
+    const { recursive, maxWidthHeight } = req.query;
+
+    if (recursive !== undefined && recursive !== "true" && recursive !== "false") {
+        return [ 400, "recursive must be 'true' or 'false'." ];
+    }
+
+    // `Number` of anything unparseable is NaN, which the service rejects along with every other
+    // value that is not a whole number of pixels — so a bad query fails rather than falling back.
+    return imageInventoryService.getNoteImageInventory(req.params.noteId, {
+        recursive: recursive === "true",
+        maxWidthHeight: maxWidthHeight === undefined ? undefined : Number(maxWidthHeight)
+    });
+}
+
 function compressNoteImages(req: Request<{ noteId: string }>) {
     return imageCompressionService.compressNoteImages(req.params.noteId, readCompressionOptions(req));
 }
@@ -154,6 +174,7 @@ export default {
     returnImageFromRevision,
     returnAttachedImage,
     updateImage,
+    getImageInventory,
     compressNoteImages,
     compressAttachmentImage
 };

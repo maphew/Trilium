@@ -131,6 +131,8 @@ export function buildSharedApiRoutes({ route, asyncRoute, apiRoute, asyncApiRout
     route(GET, "/api/attachments/:attachmentId/image/:filename", [checkApiAuthOrElectron], imageRoute.returnAttachedImage);
     route(GET, "/api/images/:noteId/:filename", [checkApiAuthOrElectron], imageRoute.returnImageFromNote);
     route(PUT, "/api/images/:noteId", [checkApiAuthOrElectron, uploadMiddlewareWithErrorHandling, csrfMiddleware], imageRoute.updateImage, apiResultHandler);
+    // A reading rather than a run: headers only, so it is cheap enough to open a dialog with.
+    apiRoute(GET, "/api/notes/:noteId/image-inventory", imageRoute.getImageInventory);
     // Recompressing decodes and re-encodes each image, so these run outside a transaction and open
     // one per image written instead of holding a single one across the whole (asynchronous) run.
     asyncApiRoute(PST, "/api/notes/:noteId/compress-images", imageRoute.compressNoteImages);

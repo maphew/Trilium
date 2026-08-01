@@ -72,10 +72,6 @@ export async function compressAttachmentImage(attachmentId: string, options?: Im
 export function resolveCompressionRequest(options: ImageCompressionOptions = {}): ImageCompressionRequest {
     const { resize, maxWidthHeight, jpegHandling, pngHandling, quality, conversionQuality } = options;
 
-    if (maxWidthHeight !== undefined && (!Number.isInteger(maxWidthHeight) || maxWidthHeight < MIN_MAX_WIDTH_HEIGHT)) {
-        throw new ValidationError(`maxWidthHeight must be an integer of ${MIN_MAX_WIDTH_HEIGHT} or above.`);
-    }
-
     requireQuality(quality, "quality");
     requireQuality(conversionQuality, "conversionQuality");
     requireBoolean(resize, "resize");
@@ -87,12 +83,28 @@ export function resolveCompressionRequest(options: ImageCompressionOptions = {})
         // be compressed, and narrowing that down is what the fields are for. For a PNG that means
         // being made smaller without ceasing to be one.
         resize: resize ?? true,
-        maxWidthHeight: maxWidthHeight ?? optionService.getOptionInt("imageMaxWidthHeight"),
+        maxWidthHeight: resolveMaxWidthHeight(maxWidthHeight),
         jpegHandling: jpegHandling ?? "compress",
         pngHandling: pngHandling ?? "optimize",
         quality: quality ?? defaultQuality(),
         conversionQuality: conversionQuality ?? DEFAULT_CONVERSION_QUALITY
     };
+}
+
+/**
+ * The bound to measure images against, validated and filled in. Shared with the inventory, so what
+ * it reports as oversized is oversized by exactly the rule a run would apply.
+ */
+export function resolveMaxWidthHeight(maxWidthHeight: number | undefined): number {
+    if (maxWidthHeight === undefined) {
+        return optionService.getOptionInt("imageMaxWidthHeight");
+    }
+
+    if (!Number.isInteger(maxWidthHeight) || maxWidthHeight < MIN_MAX_WIDTH_HEIGHT) {
+        throw new ValidationError(`maxWidthHeight must be an integer of ${MIN_MAX_WIDTH_HEIGHT} or above.`);
+    }
+
+    return maxWidthHeight;
 }
 
 function requireBoolean(value: unknown, name: string) {
@@ -137,7 +149,7 @@ function defaultQuality(): number {
  * (a canvas addresses its images by the Excalidraw file id stored as the title), and download and
  * export filenames already derive their extension from the mime when the title disagrees.
  */
-interface CompressionTarget {
+export interface CompressionTarget {
     entityType: "note" | "attachment";
     entityId: string;
     title: string;
@@ -156,7 +168,7 @@ interface CompressionTarget {
  * `getSubtree` visits each note once however many placements it has, leaves the hidden subtree out
  * and does not resolve search notes — the run follows the tree, not what a query happens to match.
  */
-function collectNoteTargets(note: BNote, recursive: boolean): CompressionTarget[] {
+export function collectNoteTargets(note: BNote, recursive: boolean): CompressionTarget[] {
     if (!recursive) {
         return ownTargetsOf(note);
     }

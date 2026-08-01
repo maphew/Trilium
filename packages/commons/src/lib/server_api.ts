@@ -301,6 +301,49 @@ export const IMAGE_JPEG_HANDLINGS = [ "keep", "compress" ] as const;
 
 export type ImageJpegHandling = (typeof IMAGE_JPEG_HANDLINGS)[number];
 
+/**
+ * The formats a compression run can act on at all. Named once and read by both the encoder that
+ * enforces it and the inventory that reports against it, so the two cannot come to disagree about
+ * which images are worth offering to compress.
+ */
+export const IMAGE_COMPRESSIBLE_FORMATS = [ "jpg", "png" ] as const;
+
+/** A count of images and what they weigh between them. */
+export interface ImageInventoryTally {
+    count: number;
+    /** Bytes, summed over the images counted. */
+    size: number;
+}
+
+export interface ImageInventoryFormat extends ImageInventoryTally {
+    /** Read from the content rather than the mime: "jpg", "png", "gif", "webp", "bmp", "svg". */
+    format: string;
+}
+
+/**
+ * What images a note holds, and what compressing them could reach.
+ *
+ * Measured over exactly the images a compression run with the same `recursive` setting would visit,
+ * so the two never describe different sets — see `getNoteImageInventory`.
+ */
+export interface ImageInventoryResponse {
+    /** Every image found, whatever its format. */
+    total: ImageInventoryTally;
+    /**
+     * Those a run could actually act on: a supported format, and not one of the generated pictures
+     * a canvas or spreadsheet note keeps, which are rebuilt on save and so left alone.
+     */
+    compressible: ImageInventoryTally;
+    /** Compressible images whose longest edge exceeds {@link maxWidthHeight}. */
+    oversized: ImageInventoryTally;
+    /** Every format found, heaviest first. */
+    formats: ImageInventoryFormat[];
+    /** What {@link oversized} was measured against. */
+    maxWidthHeight: number;
+    /** Images whose content could not be read — protected, with no session open. Counted nowhere else. */
+    unreadable: number;
+}
+
 export interface ImageCompressionOptions {
     /**
      * Whether an image larger than {@link maxWidthHeight} is scaled down to fit. On its own this
