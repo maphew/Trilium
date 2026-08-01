@@ -8,13 +8,13 @@ import { inspectImage, UNKNOWN_FORMAT } from "./image_inspect.js";
  * runnable on every runtime, having no image library behind it.
  */
 
-/** A PNG signature followed by an IHDR chunk stating the given size. */
-function png(width: number, height: number): Uint8Array {
+/** A PNG signature followed by an IHDR chunk stating the given size, depth and colour type. */
+function png(width: number, height: number, { depth = 8, colorType = 6 } = {}): Uint8Array {
     return Uint8Array.from([
         0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a,
         0x00, 0x00, 0x00, 0x0d, 0x49, 0x48, 0x44, 0x52,
         ...uint32(width), ...uint32(height),
-        0x08, 0x06, 0x00, 0x00, 0x00
+        depth, colorType, 0x00, 0x00, 0x00
     ]);
 }
 
@@ -110,10 +110,48 @@ describe("inspectImage", () => {
             expect(inspectImage(withTable)).toMatchObject({ width: 320, height: 240 });
         });
 
-        it("measures nothing for formats no bound is ever applied to", () => {
-            // Identified but not measured: only the compressible formats are checked against a size.
-            expect(inspectImage(bytes(0x47, 0x49, 0x46, 0x38, 0x39, 0x61)))
-                .toMatchObject({ format: "gif", width: null, height: null });
+        it("reads a GIF from its screen descriptor, little-endian", () => {
+            const gif = bytes(0x47, 0x49, 0x46, 0x38, 0x39, 0x61, 0x20, 0x03, 0xc0, 0x02);
+
+            expect(inspectImage(gif)).toMatchObject({ format: "gif", width: 800, height: 704 });
+        });
+
+        it("reads a BMP from its DIB header, an upside-down one included", () => {
+            const bmp = new Uint8Array(30);
+            bmp.set([ 0x42, 0x4d ]);
+            // Width 640, then a negative height, which is how a top-down bitmap states 480.
+            bmp.set([ 0x80, 0x02, 0x00, 0x00 ], 18);
+            bmp.set([ 0x20, 0xfe, 0xff, 0xff ], 22);
+
+            expect(inspectImage(bmp)).toMatchObject({ format: "bmp", width: 640, height: 480 });
+        });
+
+        it("measures nothing for a format whose header it does not read", () => {
+            const webp = bytes(0x52, 0x49, 0x46, 0x46, 0, 0, 0, 0, 0x57, 0x45, 0x42, 0x50);
+
+            expect(inspectImage(webp)).toMatchObject({ format: "webp", width: null, height: null });
+        });
+
+        it.each([
+            [ "greyscale", 0, { channels: 1, hasAlpha: false, indexed: false } ],
+            [ "colour", 2, { channels: 3, hasAlpha: false, indexed: false } ],
+            // Already quantized, which is the thing worth knowing before offering to quantize it.
+            [ "a palette", 3, { channels: 1, hasAlpha: false, indexed: true } ],
+            [ "greyscale with alpha", 4, { channels: 2, hasAlpha: true, indexed: false } ],
+            [ "colour with alpha", 6, { channels: 4, hasAlpha: true, indexed: false } ]
+        ])("reads a PNG storing %s", (_label, colorType, expected) => {
+            expect(inspectImage(png(8, 8, { colorType }))).toMatchObject(expected);
+        });
+
+        it("reads how many bits a channel is given, a deep PNG included", () => {
+            expect(inspectImage(png(8, 8, { depth: 8 })).bitDepth).toBe(8);
+            expect(inspectImage(png(8, 8, { depth: 16 })).bitDepth).toBe(16);
+        });
+
+        it("reads a JPEG's precision and components, which never carry an alpha channel", () => {
+            expect(inspectImage(jpeg(8, 8))).toMatchObject({
+                bitDepth: 8, channels: 3, hasAlpha: false, indexed: false
+            });
         });
 
         it.each([

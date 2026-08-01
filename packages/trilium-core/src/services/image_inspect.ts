@@ -6,35 +6,58 @@
  * on every runtime, including the one with no image library at all.
  */
 
+/**
+ * Everything a header states. Every field past the format is nullable, and null means the same
+ * thing throughout: this format does not say, or this file is too damaged to say — never a default
+ * standing in for a measurement that was not taken.
+ */
 export interface InspectedImage {
     /** "jpg", "png", "gif", "webp", "bmp", "svg", or {@link UNKNOWN_FORMAT}. */
     format: string;
     mime: string;
-    /**
-     * Pixel dimensions, or `null` where they were not read.
-     *
-     * Only read for the formats a compression run can act on, those being the only ones a size
-     * bound is ever measured against. Everything else is identified but not measured.
-     */
     width: number | null;
     height: number | null;
+    /** Bits per channel, as the format stores them — 8 for almost everything, 16 for a deep PNG. */
+    bitDepth: number | null;
+    /** Channels per pixel: 1 greyscale or indexed, 3 colour, 4 colour with alpha or CMYK. */
+    channels: number | null;
+    /** Whether the format is storing an alpha channel; not whether any pixel actually uses it. */
+    hasAlpha: boolean | null;
+    /** Stored as a palette rather than as colour per pixel — already quantized, in other words. */
+    indexed: boolean | null;
 }
 
 export const UNKNOWN_FORMAT = "unknown";
 
-/** Identifies `buffer`, and measures it where that is worth doing. */
+/** Identifies `buffer` and reads back whatever its header states about it. */
 export function inspectImage(buffer: Uint8Array): InspectedImage {
     const format = detectFormat(buffer);
-    const dimensions = format === "png" ? readPngDimensions(buffer)
-        : format === "jpg" ? readJpegDimensions(buffer)
-            : null;
 
     return {
         format,
         mime: FORMAT_MIMES[format] ?? FORMAT_MIMES[UNKNOWN_FORMAT],
-        width: dimensions?.width ?? null,
-        height: dimensions?.height ?? null
+        ...UNMEASURED,
+        ...readHeader(format, buffer)
     };
+}
+
+type ImageMeasurements = Omit<InspectedImage, "format" | "mime">;
+
+/** What every field says before anything has been read: nothing measured, nothing assumed. */
+const UNMEASURED: ImageMeasurements = {
+    width: null, height: null, bitDepth: null, channels: null, hasAlpha: null, indexed: null
+};
+
+function readHeader(format: string, buffer: Uint8Array): Partial<ImageMeasurements> {
+    switch (format) {
+        case "png": return readPngHeader(buffer);
+        case "jpg": return readJpegHeader(buffer);
+        // Their dimensions sit at a fixed offset and are worth having; what they say about depth
+        // needs a walk through palette and header variants that nothing here has a use for.
+        case "gif": return readUint16LePair(buffer, 6, 8);
+        case "bmp": return buffer.length >= 26 ? readUint32LePair(buffer, 18, 22) : {};
+        default: return {};
+    }
 }
 
 /** The magic bytes each format opens with; SVG being text, it is recognised by its markup instead. */
@@ -69,13 +92,28 @@ function detectFormat(buffer: Uint8Array): string {
     return startsWith(buffer, [ 0x42, 0x4d ]) ? "bmp" : UNKNOWN_FORMAT;
 }
 
-/** The IHDR chunk is required to come first, so both figures sit at a fixed offset. */
-function readPngDimensions(buffer: Uint8Array): { width: number; height: number } | null {
-    if (buffer.length < 24) {
-        return null;
+/**
+ * The IHDR chunk is required to come first, so everything a PNG states about itself sits at a fixed
+ * offset: size, then bits per channel, then the colour type the channels follow from.
+ */
+function readPngHeader(buffer: Uint8Array): Partial<ImageMeasurements> {
+    if (buffer.length < 26) {
+        return {};
     }
 
-    return { width: readUint32(buffer, 16), height: readUint32(buffer, 20) };
+    const colorType = buffer[25];
+
+    return {
+        width: readUint32(buffer, 16),
+        height: readUint32(buffer, 20),
+        bitDepth: buffer[24],
+        channels: PNG_CHANNELS[colorType] ?? null,
+        // 4 is greyscale with alpha and 6 is colour with alpha; the rest carry none. A palette can
+        // still hold transparency in a tRNS chunk, which this deliberately does not go looking for
+        // — what matters to a caller is the channel the pixels are stored with.
+        hasAlpha: colorType === 4 || colorType === 6,
+        indexed: colorType === 3
+    };
 }
 
 /**
@@ -83,13 +121,13 @@ function readPngDimensions(buffer: Uint8Array): { width: number; height: number 
  * which sits after any EXIF or thumbnail the file happens to carry, so it has to be walked to
  * rather than searched for.
  */
-function readJpegDimensions(buffer: Uint8Array): { width: number; height: number } | null {
+function readJpegHeader(buffer: Uint8Array): Partial<ImageMeasurements> {
     let offset = 2;
 
     while (offset + 3 < buffer.length) {
         if (buffer[offset] !== 0xff) {
             // Out of step with the segments; nothing further can be read with any confidence.
-            return null;
+            return {};
         }
 
         const marker = buffer[offset + 1];
@@ -109,21 +147,58 @@ function readJpegDimensions(buffer: Uint8Array): { width: number; height: number
         const length = (buffer[offset + 2] << 8) | buffer[offset + 3];
 
         if (length < 2 || offset + 2 + length > buffer.length) {
-            return null;
+            return {};
         }
 
         if (isFrameHeader(marker)) {
-            // Precision, then height, then width.
-            return offset + 9 <= buffer.length
-                ? { width: (buffer[offset + 7] << 8) | buffer[offset + 8], height: (buffer[offset + 5] << 8) | buffer[offset + 6] }
-                : null;
+            return readFrameHeader(buffer, offset);
         }
 
         offset += 2 + length;
     }
 
-    return null;
+    return {};
 }
+
+/**
+ * The frame header states, in order: bits per sample, height, width, and how many components the
+ * image is made of — one for greyscale, three for colour, four for CMYK. A JPEG never carries an
+ * alpha channel, whatever else it says.
+ */
+function readFrameHeader(buffer: Uint8Array, offset: number): Partial<ImageMeasurements> {
+    if (offset + 10 > buffer.length) {
+        return {};
+    }
+
+    return {
+        width: (buffer[offset + 7] << 8) | buffer[offset + 8],
+        height: (buffer[offset + 5] << 8) | buffer[offset + 6],
+        bitDepth: buffer[offset + 4],
+        channels: buffer[offset + 9],
+        hasAlpha: false,
+        indexed: false
+    };
+}
+
+/** Reads two little-endian 16-bit figures as a size, which is how GIF states its own. */
+function readUint16LePair(buffer: Uint8Array, widthOffset: number, heightOffset: number): Partial<ImageMeasurements> {
+    return {
+        width: buffer[widthOffset] | (buffer[widthOffset + 1] << 8),
+        height: buffer[heightOffset] | (buffer[heightOffset + 1] << 8)
+    };
+}
+
+/** The same in 32 bits, which is how BMP states its own — negative height meaning top-down. */
+function readUint32LePair(buffer: Uint8Array, widthOffset: number, heightOffset: number): Partial<ImageMeasurements> {
+    const read = (offset: number) => (
+        buffer[offset] | (buffer[offset + 1] << 8) | (buffer[offset + 2] << 16) | (buffer[offset + 3] << 24)
+    );
+
+    return { width: Math.abs(read(widthOffset)), height: Math.abs(read(heightOffset)) };
+}
+
+/** How many channels each PNG colour type stores; a palette index counts as one. */
+const PNG_CHANNELS: Record<number, number> = { 0: 1, 2: 3, 3: 1, 4: 2, 6: 4 };
 
 /**
  * Every SOFn marker states the frame's size, whichever coding it introduces — so all of C0..CF

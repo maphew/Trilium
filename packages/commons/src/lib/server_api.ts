@@ -308,6 +308,40 @@ export type ImageJpegHandling = (typeof IMAGE_JPEG_HANDLINGS)[number];
  */
 export const IMAGE_COMPRESSIBLE_FORMATS = [ "jpg", "png" ] as const;
 
+/**
+ * What one image is, read from its own bytes.
+ *
+ * Every measurement is nullable and null means one thing throughout: the format does not state it,
+ * or the file is too damaged to. Nothing here is a default standing in for something unread.
+ */
+export interface ImageInfoResponse {
+    entityType: "note" | "attachment";
+    entityId: string;
+    title: string;
+    /** The mime it is stored under, which is not always what the bytes turn out to say. */
+    mime: string;
+    /** What the bytes say it is: "jpg", "png", "gif", "webp", "bmp", "svg", "unknown". */
+    format: string;
+    /** The mime that format implies, for comparing against {@link mime}. */
+    detectedMime: string;
+    /** Bytes on disk. */
+    size: number;
+    width: number | null;
+    height: number | null;
+    /** Bits per channel — 8 for almost everything, 16 for a deep PNG. */
+    bitDepth: number | null;
+    /** Channels per pixel: 1 greyscale or indexed, 3 colour, 4 colour with alpha or CMYK. */
+    channels: number | null;
+    /** Whether the format stores an alpha channel; not whether any pixel actually uses it. */
+    hasAlpha: boolean | null;
+    /** Stored as a palette rather than colour per pixel — already quantized, in other words. */
+    indexed: boolean | null;
+    /** For a JPEG, the quality it appears to have been written at; null for anything else. */
+    quality: number | null;
+    /** Whether a compression run could act on it at all. */
+    compressible: boolean;
+}
+
 /** A count of images and what they weigh between them. */
 export interface ImageInventoryTally {
     count: number;

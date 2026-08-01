@@ -1,9 +1,8 @@
-import { cls, type ImageCompressionRequest, options } from '@triliumnext/core';
+import { cls, estimateJpegQuality, type ImageCompressionRequest, options } from '@triliumnext/core';
 import { Jimp } from 'jimp';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { serverImageProvider } from './image_provider.js';
-import { estimateJpegQuality } from './jpeg_quality.js';
 
 // is-svg / image-type / is-animated / jimp are all loaded by spec/setup.ts (which
 // imports serverImageProvider to initialise core), so they cannot be re-mocked

@@ -10,6 +10,7 @@ import type BRevision from "../../becca/entities/brevision.js";
 import { ValidationError } from "../../errors.js";
 import imageService from "../../services/image.js";
 import imageCompressionService from "../../services/image_compression.js";
+import imageInfoService from "../../services/image_info.js";
 import imageInventoryService from "../../services/image_inventory.js";
 import { sanitizeSvg, SVG_CONTENT_SECURITY_POLICY } from "../../services/utils/index.js";
 import { unwrapStringOrBuffer } from "../../services/utils/binary.js";
@@ -142,6 +143,16 @@ function updateImage(req: FileRequest<{ noteId: string }>) {
     return { uploaded: true };
 }
 
+/** What one image note's own image is: format, size, and how it is stored. */
+function getNoteImageInfo(req: Request<{ noteId: string }>) {
+    return imageInfoService.getNoteImageInfo(req.params.noteId);
+}
+
+/** The same for one image attachment. */
+function getAttachmentImageInfo(req: Request<{ attachmentId: string }>) {
+    return imageInfoService.getAttachmentImageInfo(req.params.attachmentId);
+}
+
 /**
  * What images the note holds and how much of that compressing could reach — the reading the
  * compression dialog opens on, so that it can say whether a run is worth making.
@@ -174,6 +185,8 @@ export default {
     returnImageFromRevision,
     returnAttachedImage,
     updateImage,
+    getNoteImageInfo,
+    getAttachmentImageInfo,
     getImageInventory,
     compressNoteImages,
     compressAttachmentImage

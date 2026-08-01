@@ -4,15 +4,13 @@
  */
 
 import { IMAGE_COMPRESSIBLE_FORMATS } from "@triliumnext/commons";
-import { getLog, options as optionService } from "@triliumnext/core";
+import { estimateJpegQuality, getLog, options as optionService } from "@triliumnext/core";
 import type { ImageCompressionOutcome, ImageCompressionRequest, ImageFormat, ImageProvider, ProcessedImage } from "@triliumnext/core/src/services/image_provider.js";
 import imageType from "image-type";
 import isAnimated from "is-animated";
 import isSvg from "is-svg";
 import { Jimp } from "jimp";
 import * as UPNG from "upng-js";
-
-import { estimateJpegQuality } from "./jpeg_quality.js";
 
 const JPEG_FORMAT: ImageFormat = { ext: "jpg", mime: "image/jpeg" };
 const PNG_FORMAT: ImageFormat = { ext: "png", mime: "image/png" };

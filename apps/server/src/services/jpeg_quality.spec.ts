@@ -1,7 +1,6 @@
+import { estimateJpegQuality } from "@triliumnext/core";
 import { Jimp } from "jimp";
 import { beforeAll, describe, expect, it } from "vitest";
-
-import { estimateJpegQuality } from "./jpeg_quality.js";
 
 /**
  * Round-trips real JPEGs through the estimator: encode at a known quality, read it back off the
