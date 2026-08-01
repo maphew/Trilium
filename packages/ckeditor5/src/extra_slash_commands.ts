@@ -17,7 +17,8 @@ import dateTimeIcon from './icons/date-time.svg?raw';
 import internalLinkIcon from './icons/trilium.svg?raw';
 import noteIcon from './icons/note.svg?raw';
 import importMarkdownIcon from './icons/markdown-mark.svg?raw';
-import { icons as mathIcons, MathUI } from '@triliumnext/ckeditor5-math';
+import mathIcon from './icons/math.svg?raw';
+import MathUI from './plugins/math/math_ui.js';
 import { INSERT_MERMAID_COMMAND } from './plugins/mermaid/insert_mermaid_command.js';
 import type { MermaidSample } from './plugins/mermaid/mermaid_ui.js';
 import { BookmarkUI } from "ckeditor5";
@@ -76,7 +77,7 @@ export default function buildExtraCommands(
             title: "Math equation",
             description: t("slash_commands.math_description"),
             aliases: [ "latex", "equation" ],
-            icon: mathIcons.ckeditor,
+            icon: mathIcon,
             execute: (editor: Editor) => editor.plugins.get(MathUI)._showUI()
         },
         {

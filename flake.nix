@@ -238,7 +238,6 @@ nodejs.python
 
             components = [
               "packages/ckeditor5"
-              "packages/ckeditor5-math"
               "packages/codemirror"
               "packages/commons"
               "packages/express-partial-content"

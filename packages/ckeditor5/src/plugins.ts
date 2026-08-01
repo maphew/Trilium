@@ -28,13 +28,13 @@ import Mermaid from "./plugins/mermaid/mermaid.js";
 import Admonition from "./plugins/admonition/admonition.js";
 import Collapsible from "./plugins/collapsible/collapsible.js";
 import Footnotes from "./plugins/footnotes/footnotes.js";
-import { Math, AutoformatMath } from "@triliumnext/ckeditor5-math";
+import Math from "./plugins/math/math.js";
+import AutoformatMath from "./plugins/math/autoformat_math.js";
 import CopyAnchorLinkButton from "./plugins/copy_anchor_link.js";
 import CopyLinkUrlButton from "./plugins/copy_link_url.js";
 import ImageActions from "./plugins/image_actions.js";
 import TriliumSnippets from "./plugins/snippets/snippets.js";
 
-// import "@triliumnext/ckeditor5-math/index.css";
 import CodeBlockToolbar from "./plugins/code_block_toolbar.js";
 import CodeBlockLanguageDropdown from "./plugins/code_block_language_dropdown.js";
 import CodeBlockInsertParagraph from "./plugins/code_block_insert_paragraph.js";

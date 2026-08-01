@@ -132,12 +132,6 @@ jobs:
           disable_search: true
           fail_ci_if_error: false
 
-      - name: Run CKEditor e2e tests
-        run: |
-          export CHROMEDRIVER_PATH=$(which chromedriver || find /usr/local/share -name chromedriver -type f 2>/dev/null | head -1)
-          echo "Using chromedriver at: $CHROMEDRIVER_PATH"
-          pnpm run --filter=ckeditor5-math test
-
       - name: Run the CKEditor 5 aggregate tests
         id: test-ckeditor5
         run: |
@@ -303,7 +297,7 @@ jobs:
           fail_ci_if_error: false
 
       - name: Run the rest of the tests
-        run: pnpm run --filter=\!client --filter=\!standalone --filter=\!server --filter=\!desktop --filter=\!commons --filter=\!ckeditor5-math --filter=\!ckeditor5 --filter=\!codemirror --filter=\!express-partial-content --filter=\!highlightjs --filter=\!pdfjs-viewer test
+        run: pnpm run --filter=\!client --filter=\!standalone --filter=\!server --filter=\!desktop --filter=\!commons --filter=\!ckeditor5 --filter=\!codemirror --filter=\!express-partial-content --filter=\!highlightjs --filter=\!pdfjs-viewer test
 
   build_docker:
     name: Build Docker image

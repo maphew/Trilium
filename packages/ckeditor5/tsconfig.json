@@ -4,9 +4,6 @@
   "include": [],
   "references": [
     {
-      "path": "../ckeditor5-math"
-    },
-    {
       "path": "./tsconfig.lib.json"
     }
   ]

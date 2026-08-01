@@ -142,7 +142,7 @@ describe("buildExtraCommands", () => {
             const commands = buildExtraCommands(t);
             const cmd = commands.find((c) => c.id === "math");
 
-            const { MathUI } = await import("@triliumnext/ckeditor5-math");
+            const { default: MathUI } = await import("./plugins/math/math_ui.js");
             const showUI = vi.fn();
             const { editor, pluginInstances } = makeFakeEditor();
             pluginInstances.set(MathUI, { _showUI: showUI });
