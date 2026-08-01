@@ -137,7 +137,6 @@
     "delete_all_clones_description": "모든 복제본 삭제(최근 변경 사항에서 되돌릴 수 있습니다)",
     "title": "노트 삭제",
     "clones_label": "복제",
-    "delete_clones_description_one": "다른 복제본 {{count}}개도 함께 삭제합니다. 최근 변경사항에서 되돌릴 수 있습니다.",
     "delete_clones_description_other": "다른 복제본 {{count}}개도 함께 삭제합니다. 최근 변경사항에서 되돌릴 수 있습니다.",
     "erase_notes_label": "영구적으로 삭제",
     "table_note_with_relation": "관계가 설정된 노트",
@@ -298,7 +297,6 @@
     "select_sections": "가져올 섹션 선택",
     "select_sections_hint": "OneNote는 가져오기 데이터의 원래 순서를 포함하지 않으므로 섹션과 그룹은 생성 날짜별로 정렬되며 OneNote에 표시되는 방식과 일치하지 않을 수 있습니다.",
     "import": "선택 항목 가져오기",
-    "import_count_one": "섹션 {{count}}개 가져오기",
     "import_count_other": "섹션 {{count}}개 가져오기",
     "attach_source": "원본 HTML 첨부(디버그)",
     "attach_source_hint": "각 페이지의 수정되지 않은 OneNote HTML을 가져온 노트에 첨부 파일로 저장하여 변환된 결과와 비교합니다."
@@ -668,7 +666,6 @@
     "share_favicon": "공유 페이지에 설정할 파비콘 노트입니다. 일반적으로 공유 루트에 설정하고 상속 가능하게 만듭니다. 파비콘 노트도 공유 하위 트리 안에 있어야 합니다. 'share_hidden_from_tree' 사용을 고려합니다.",
     "is_owned_by_note": "노트 소유",
     "other_notes_with_name": "이름이 \"{{attributeName}}\"인 다른 {{attributeType}} 노트",
-    "other_notes_count_one": "다른 노트 {{count}}개",
     "other_notes_count_other": "다른 노트 {{count}}개",
     "no_other_notes": "이 노트만 (하위 노트 제외)",
     "no_other_notes_title": "{{attributeType}} \"{{attributeName}}\" 항목이 있는 다른 노트가 없습니다.",
@@ -823,13 +820,9 @@
   },
   "attribute_list_panel": {
     "no_attributes": "속성 없음",
-    "owned_one": "{{count}} 소유 속성",
     "owned_other": "{{count}} 소유 속성",
-    "inherited_one": "{{count}} 유전된 속성",
     "inherited_other": "{{count}} 유전된 속성",
-    "definitions_one": "{{count}} 정의",
     "definitions_other": "{{count}} 정의",
-    "internal_one": "{{count}} 내부 시스템 속성",
     "internal_other": "{{count}} 내부 시스템 속성",
     "back": "속성으로 돌아가서",
     "inheritable": "상속: 이 노트와 그 전체 서브트리에 적용됩니다",
@@ -1219,7 +1212,6 @@
     "esc_hint": "마무리"
   },
   "zpetne_odkazy": {
-    "backlink_one": "{{count}} 백링크",
     "backlink_other": "{{count}} 백링크",
     "relation": "관계"
   },
@@ -1235,7 +1227,6 @@
   "note_icon": {
     "change_note_icon": "노트 변경 아이콘",
     "search": "검색:",
-    "search_placeholder_one": "{{count}} 팩 {{number}} 아이콘을 검색하세요",
     "search_placeholder_other": "{{count}} 팩 {{number}} 아이콘을 검색하세요",
     "search_placeholder_filtered": "{{number}} 아이콘 검색{{name}}",
     "reset-default": "기본 아이콘으로 리셋하기",
@@ -1275,7 +1266,6 @@
     "hide_child_notes": "트리에서 하위 노트 숨기기",
     "open_all_in_tabs": "모두 열어",
     "open_all_in_tabs_tooltip": "새 탭에서 모든 결과를 열기",
-    "open_all_confirm_one": "노트 {{count}}개를 새 탭에서 엽니다. 계속하시겠습니까?",
     "open_all_confirm_other": "노트 {{count}}개를 새 탭에서 엽니다. 계속하시겠습니까?"
   },
   "edited_notes": {
@@ -1321,7 +1311,6 @@
     "note_size": "노트 크기",
     "note_size_info": "노트 크기는 이 노트에 필요한 저장 공간의 대략적인 추정치입니다. 노트 콘텐츠와 노트 수정본의 콘텐츠를 함께 계산합니다.",
     "calculate": "계산",
-    "subtree_size_one": "(서브트리 크기: {{count}} 노트의 {{size}})",
     "subtree_size_other": "(서브트리 크기: {{count}} 노트의 {{size}})",
     "title": "노트 정보",
     "show_similar_notes": "유사한 노트 표시"
@@ -1332,7 +1321,6 @@
     "title": "노트 지도",
     "fix-nodes": "고정 노드",
     "link-distance": "링크 거리",
-    "too-many-notes_one": "여기에 노트가 {{count}}개 있습니다. 표시하면 속도가 느려질 수 있습니다.",
     "too-many-notes_other": "여기에 노트가 {{count}}개 있습니다. 표시하면 속도가 느려질 수 있습니다.",
     "show-anyway": "지도 표시"
   },
@@ -1495,8 +1483,7 @@
   "book": {
     "no_children_help": "이 컬렉션에는 하위 노트가 없어 표시할 내용이 없습니다.",
     "drag_locked_title": "편집 금지",
-    "drag_locked_message": "컬렉션이 편집 금지 상태라 드래그는 허용되지 않습니다.",
-    "archived_notes_hidden_one": "여기에 보관된 노트가 복사되었지만, \"보관된 노트 표시\"를 활성화할 때까지 숨겨져 있습니다."
+    "drag_locked_message": "컬렉션이 편집 금지 상태라 드래그는 허용되지 않습니다."
   },
   "editable_code": {
     "placeholder": "코드 노트 내용을 여기에 입력하세요..."
@@ -1511,7 +1498,6 @@
     "invalid_manifest": "아이콘 팩 매니페스트를 파싱하지 못했습니다. 올바른 JSON인지 확인하세요.",
     "no_icons": "이 아이콘 팩에는 아이콘이 포함되어 있지 않습니다.",
     "tooltip": "클래스: {{- class}}\n글리프 코드: {{- code}}\n검색어: {{- terms}}",
-    "count_one": "{{count}} 아이콘",
     "count_other": "{{count}} 아이콘"
   },
   "editable_text": {
@@ -2163,7 +2149,6 @@
     "filter_conflicts": "갈등 ({{count}})",
     "filter_global": "글로벌 지름길 ({{count}})",
     "filter_modified": "기본값에서 변경됨 ({{count}})",
-    "conflicts_badge_one": "{{count}} 갈등",
     "conflicts_badge_other": "{{count}} 갈등",
     "conflicts_badge_tooltip": "일부 단축키가 둘 이상의 동작에 지정되어 있습니다. 충돌하는 단축키만 보려면 클릭하세요."
   },
@@ -2274,7 +2259,6 @@
     "export": "내보내기",
     "import-into-note": "노트로 가져오기",
     "apply-bulk-actions": "대량 행동 적용",
-    "converted-to-attachments_one": "{{count}} 노트는 첨부 파일로 전환되었습니다.",
     "converted-to-attachments_other": "{{count}} 노트는 첨부 파일로 전환되었습니다.",
     "convert-to-attachment-confirm": "선택한 노트를 각 상위 노트의 첨부 파일로 변환하시겠습니까? 이미지 노트에만 적용하며 다른 노트는 건너뜁니다.",
     "open-in-popup": "빠른 편집"
@@ -2436,7 +2420,6 @@
   },
   "highlights_list_2": {
     "title": "하이라이트 목록",
-    "title_with_count_one": "{{count}} 하이라이트",
     "title_with_count_other": "{{count}} 하이라이트",
     "options": "옵션",
     "modal_title": "하이라이트 목록 구성",
@@ -2472,7 +2455,6 @@
     "clone-indicator-tooltip-single": "이 노트는 복제된 것입니다 (추가 부모 1명: {{- parent}})",
     "shared-indicator-tooltip": "이 노트는 공개적으로 공유됩니다",
     "shared-indicator-tooltip-with-url": "이 노트는 다음 주소에서 공개됩니다: {{- url}}",
-    "subtree-hidden-tooltip_one": "트리에서 숨겨진 하위 노트{{count}}",
     "subtree-hidden-tooltip_other": "트리에서 숨겨진 하위 노트{{count}}",
     "subtree-hidden-moved-title": "추가{{title}}",
     "subtree-hidden-moved-description-collection": "이 컬렉션은 트리에 하위 노트를 숨깁니다.",
@@ -2482,7 +2464,6 @@
     "back": "한 층 올라가세요",
     "loading": "로딩 중...",
     "empty": "이 노트에는 하위 노트가 없습니다.",
-    "children_count_one": "{{count}} 노트",
     "children_count_other": "{{count}} 노트",
     "add_child": "하위 노트 추가",
     "more_actions": "더 많은 행동"
@@ -2500,7 +2481,6 @@
     "print_report_title": "인쇄 보고서",
     "print_report_error_title": "인쇄 실패",
     "print_report_stack_trace": "스택 트레이스",
-    "print_report_collection_content_one": "컬렉션의 노트 {{count}}개는 지원되지 않는 형식이거나 보호된 노트이므로 인쇄하지 못했습니다.",
     "print_report_collection_content_other": "컬렉션의 노트 {{count}}개는 지원되지 않는 형식이거나 보호된 노트이므로 인쇄하지 못했습니다.",
     "print_report_collection_details_button": "자세한 내용 보기",
     "print_report_collection_details_ignored_notes": "무시된 노트"
@@ -2747,13 +2727,9 @@
     "days": "요일"
   },
   "time_interval": {
-    "seconds_one": "{{count}} 초",
     "seconds_other": "{{count}} 초",
-    "minutes_one": "{{count}}분",
     "minutes_other": "{{count}}분",
-    "hours_one": "{{count}} 시간",
     "hours_other": "{{count}} 시간",
-    "days_one": "{{count}} 날",
     "days_other": "{{count}} 날"
   },
   "share": {
@@ -2803,7 +2779,6 @@
     "toggle_enable": "이노이브",
     "toggle_disable": "비활성화",
     "property_category": "카테고리",
-    "item_count_one": "{{count}} 항목",
     "item_count_other": "{{count}} 항목",
     "property_trigger": "트리거",
     "property_instance": "예시",
@@ -2851,20 +2826,14 @@
     "view_overview": "개요",
     "view_browse": "둘러보기",
     "refresh": "새로 고침",
-    "other_notes_one": "기타 1가지",
     "other_notes_other": "기타 {{count}}가지",
-    "hidden_notes_one": "1개의 숨겨진 노트",
     "hidden_notes_other": "{{count}}개의 숨겨진 노트",
-    "deleted_notes_one": "삭제된 1개의 노트",
     "deleted_notes_other": "삭제된 {{count}}개의 노트",
-    "deleted_attachments_one": "첨부 파일 삭제 1개",
     "deleted_attachments_other": "첨부 파일 삭제 {{count}}개",
     "deleted_entities": "{{notes}}, {{attachments}}",
     "note_body": "노트 내용",
     "revisions": "개정",
-    "others_notes_one": "{{count}} 더 많은 노트 ({{size}})",
     "others_notes_other": "{{count}} 더 많은 노트 ({{size}})",
-    "others_attachments_one": "{{count}} 더 많은 첨부 파일 ({{size}})",
     "others_attachments_other": "{{count}} 더 많은 첨부 파일 ({{size}})",
     "cell_size": "크기: {{size}}",
     "cell_size_with_attachments": "크기: {{size}}(이 중 첨부 파일 {{attachmentsSize}})",
@@ -2881,7 +2850,6 @@
     "center_subtree_size_help": "서브트리 크기에는 하위 노트가 포함되지만, 그 수정본(디스크 {{size}})은 포함되지 않습니다.",
     "back": "뒤로",
     "current_note": "현재 노트:",
-    "status_content_one": "노트 1개가 {{size}} 사용 중(이 중 노트 첨부 파일 {{attachmentsSize}})",
     "status_content_other": "노트 {{count}}개가 {{size}} 사용 중(이 중 노트 첨부 파일 {{attachmentsSize}})",
     "status_content_hint": "모든 노트(숨겨진 노트 포함), 첨부 파일 및 수정본이 사용하는 공간입니다. 중복 콘텐츠는 한 번만 계산합니다.",
     "status_deleted": "삭제된 노트 및 첨부 파일에 {{size}}",
@@ -3040,9 +3008,7 @@
     "time_slots": "시간대",
     "slot_duration": "지속 기간",
     "slot_label_interval": "라벨 간격",
-    "minutes_one": "{{count}}분",
     "minutes_other": "{{count}}분",
-    "hours_one": "{{count}} 시간",
     "hours_other": "{{count}} 시간"
   },
   "ocr": {
@@ -3128,7 +3094,6 @@
     "percentage": "%"
   },
   "pagination": {
-    "total_notes_one": "{{count}} 노트",
     "total_notes_other": "{{count}} 노트",
     "prev_page": "이전 페이지",
     "next_page": "다음 페이지"
@@ -3193,24 +3158,17 @@
   "status_bar": {
     "language_title": "콘텐츠 언어 변경",
     "note_info_title": "노트 정보 보기(예: 날짜, 노트 크기 등)",
-    "backlinks_one": "{{count}} 백링크",
     "backlinks_other": "{{count}} 백링크",
-    "backlinks_title_one": "백링크 보기",
     "backlinks_title_other": "백링크 보기",
-    "attachments_one": "{{count}} 첨부 파일",
     "attachments_other": "{{count}} 첨부 파일",
-    "attachments_title_one": "새 탭에서 첨부 파일 보기",
     "attachments_title_other": "새 탭에서 첨부 파일 보기",
-    "attributes_one": "{{count}} 속성",
     "attributes_other": "{{count}} 속성",
     "attributes_title": "직접 속성과 상속 속성",
-    "note_paths_one": "{{count}} 경로",
     "note_paths_other": "{{count}} 경로",
     "note_paths_title": "노트 경로",
     "code_note_switcher": "언어 모드 변경",
     "tab_width": "탭 폭: {{width}}",
     "tab_width_title": "탭 너비 변경",
-    "tab_width_spaces_one": "{{count}} 공간",
     "tab_width_spaces_other": "{{count}} 공간",
     "tab_width_spaces_short": "공간: {{width}}",
     "tab_width_tabs": "탭: {{width}}",
@@ -3271,22 +3229,17 @@
     "page_ranges_placeholder": "예를 들어 1-5, 8, 11-13"
   },
   "pdf": {
-    "attachments_one": "{{count}} 첨부 파일",
     "attachments_other": "{{count}} 첨부 파일",
-    "layers_one": "{{count}} 층",
     "layers_other": "{{count}} 층",
-    "pages_one": "{{count}} 페이지",
     "pages_other": "{{count}} 페이지",
     "pages_alt": "페이지 {{pageNumber}}",
     "pages_loading": "로딩 중...",
-    "annotations_one": "{{count}} 주석",
     "annotations_other": "{{count}} 주석"
   },
   "platform_indicator": {
     "available_on": "{{platform}}에서 이용 가능"
   },
   "mobile_tab_switcher": {
-    "title_one": "{{count}} 탭",
     "title_other": "{{count}} 탭",
     "more_options": "더 많은 선택지"
   },
@@ -3479,7 +3432,6 @@
     "models_select_all": "모두 선택",
     "models_select_none": "선택 해제",
     "models_reset_defaults": "기본값으로 초기화하기",
-    "provider_model_count_one": "{{count}} 모델",
     "provider_model_count_other": "{{count}} 모델",
     "configured_providers": "구성 제공자",
     "no_providers_configured": "아직 설정된 제공자가 없습니다.",
@@ -3580,7 +3532,6 @@
     "edit-states-tooltip": "작업 상태 편집",
     "unknown-task-state": "정의되지 않은 맞춤 작업 상태",
     "task-state-dropped-title": "무효 작업 상태",
-    "task-state-dropped-message_one": "사용자 지정 작업 상태 정의는 유효하지 않으며 무시되었습니다.",
     "task-state-dropped-heading": "무시된 정의:",
     "task-state-dropped-configure": "작업 상태 구성",
     "validation-errors": {
