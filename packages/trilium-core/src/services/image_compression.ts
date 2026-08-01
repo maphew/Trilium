@@ -98,7 +98,7 @@ export function resolveCompressionRequest(options: ImageCompressionOptions = {})
  */
 export function resolveMaxWidthHeight(maxWidthHeight: number | undefined): number {
     if (maxWidthHeight === undefined) {
-        return optionService.getOptionInt("imageMaxWidthHeight");
+        return defaultMaxWidthHeight();
     }
 
     if (!Number.isInteger(maxWidthHeight) || maxWidthHeight < MIN_MAX_WIDTH_HEIGHT) {
@@ -136,6 +136,25 @@ export function resolveRecursive(options: ImageCompressionOptions = {}): boolean
 
     return options.recursive === true;
 }
+
+/**
+ * The bound a request that named none opens on: whatever the automatic shrinking is set to, so an
+ * unqualified request compresses the way an import would.
+ *
+ * Read defensively, exactly as {@link defaultQuality} reads its own option. A stored setting is not
+ * a validated one — it arrives by synchronisation from another instance, or from a database edited
+ * by hand — and neither a value that is not a number nor one at or below zero can be resized to.
+ * The first would abort the request where it was read; the second would reach the encoder as an
+ * instruction to scale every image to nothing.
+ */
+function defaultMaxWidthHeight(): number {
+    const configured = optionService.getOptionInt("imageMaxWidthHeight", 0);
+
+    return configured >= MIN_MAX_WIDTH_HEIGHT ? configured : FALLBACK_MAX_WIDTH_HEIGHT;
+}
+
+/** What the option ships as, and so what an unusable stored value falls back to. */
+const FALLBACK_MAX_WIDTH_HEIGHT = 2000;
 
 function defaultQuality(): number {
     const configured = optionService.getOptionInt("imageJpegQuality", 0);
@@ -286,9 +305,7 @@ function noteTarget(note: BNote): CompressionTarget {
                 return false;
             }
 
-            current.mime = mime;
-            current.save();
-            current.setContent(buffer, { forceSave: true });
+            writeImage(current, buffer, mime);
 
             return true;
         }
@@ -317,12 +334,43 @@ function attachmentTarget(attachment: BAttachment): CompressionTarget {
                 return false;
             }
 
-            current.mime = mime;
-            current.setContent(buffer, { forceSave: true });
+            writeImage(current, buffer, mime);
 
             return true;
         }
     };
+}
+
+/**
+ * Writes the compressed image and the format it is now in, as one act.
+ *
+ * The format is set on the entity before the content because writing the content is what persists
+ * the row — mime included — so there is nothing to save separately, and nothing at all reaches the
+ * database until the new blob is in it.
+ *
+ * The failure is the reason this is a function rather than two lines. A write that throws is taken
+ * back by the transaction around it, but the entity is a cached object that no rollback touches: it
+ * would go on advertising a format whose bytes were never written, and hand that mime to whatever
+ * saved the note next. So the field is put back by hand, the cache and the database ending up
+ * agreeing either way.
+ */
+export interface WritableImage {
+    mime: string;
+    setContent(content: Uint8Array, opts: { forceSave: boolean }): void;
+}
+
+export function writeImage(entity: WritableImage, buffer: Uint8Array, mime: string) {
+    const previousMime = entity.mime;
+
+    entity.mime = mime;
+
+    try {
+        entity.setContent(buffer, { forceSave: true });
+    } catch (e: unknown) {
+        entity.mime = previousMime;
+
+        throw e;
+    }
 }
 
 /**

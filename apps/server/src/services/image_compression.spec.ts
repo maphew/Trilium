@@ -1,6 +1,6 @@
 import type { ImageCompressionResponse } from "@triliumnext/commons";
 import { becca, cls, getSql, options } from "@triliumnext/core";
-import { collectNoteTargets, HEADER_BYTES } from "@triliumnext/core/src/services/image_compression.js";
+import { collectNoteTargets, HEADER_BYTES, writeImage } from "@triliumnext/core/src/services/image_compression.js";
 import { getImageProvider, initImageProvider } from "@triliumnext/core/src/services/image_provider.js";
 import { createTextNote } from "@triliumnext/core/src/test/api_fixtures.js";
 import { CoreApiTester } from "@triliumnext/core/src/test/api_tester.js";
@@ -290,6 +290,44 @@ describe("compression parameters", () => {
 
         cls.init(() => options.setOption("imageJpegQuality", "20"));
         expect(await compressedSize({}, noisyJpeg)).toBe(explicitLow);
+    });
+
+    it("leaves the cached format alone when the image behind it could not be written", () => {
+        // The write is wrapped in a transaction, so a failure takes the database back — but the
+        // entity is a cached object no rollback touches. Left changed, it would advertise a format
+        // whose bytes were never written, and hand that mime to whatever saved the note next.
+        const entity = {
+            mime: "image/png",
+            setContent() {
+                throw new Error("content is too large to store");
+            }
+        };
+
+        expect(() => writeImage(entity, smallPng, "image/jpeg")).toThrow(/too large/);
+        expect(entity.mime).toBe("image/png");
+    });
+
+    it("falls back to a usable bound when the stored one could not be resized to", async () => {
+        const noteId = await createImageNote(noisyPng);
+
+        // A stored option is not a validated one — it arrives by synchronisation from another
+        // instance, or from a database edited by hand. Zero would reach the encoder as "scale every
+        // image to nothing", and a value that is not a number would abort the request where it was
+        // read, so neither is allowed to stand in for a bound the request did not name.
+        for (const stored of [ "0", "-100", "not a number" ]) {
+            cls.init(() => options.setOption("imageMaxWidthHeight", stored));
+
+            const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
+                body: { resize: true, pngHandling: "keep", jpegHandling: "keep" }
+            });
+
+            // 600x400 sits inside the 2000 fallback, so nothing is resized and the image is left be
+            // — where a bound of zero would have made every image oversized.
+            expect(res.status, stored).toBe(200);
+            expect(res.body.items[0], stored).toMatchObject({ compressed: false, skipReason: "no-gain" });
+        }
+
+        expect(readNote(noteId).size).toBe(noisyPng.byteLength);
     });
 
     it("falls back to the default recompression quality when the stored option is out of range", async () => {
