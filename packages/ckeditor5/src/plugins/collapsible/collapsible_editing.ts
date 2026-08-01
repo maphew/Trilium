@@ -1,6 +1,6 @@
 import { Plugin, Enter, Delete, enableViewPlaceholder, env, type ViewDocumentEnterEvent, type ViewDocumentDeleteEvent, type ViewDocumentArrowKeyEvent } from "ckeditor5";
 import { formatShortcut, joinShortcut } from "@triliumnext/commons";
-import { ContentHintManager, type HintHandle } from "@triliumnext/ckeditor5-utils";
+import { ContentHintManager, type HintHandle } from "../../content_hint_manager.js";
 import BlockDragHandle from "./block_drag_handle.js";
 import CollapsibleCommand from "./collapsible_command.js";
 import { OPEN_ATTRIBUTE, TRANSIENT_OPEN_ATTRIBUTE } from "./constants.js";

@@ -13,9 +13,6 @@
       "path": "../ckeditor5-mermaid"
     },
     {
-      "path": "../ckeditor5-utils"
-    },
-    {
       "path": "./tsconfig.lib.json"
     }
   ]

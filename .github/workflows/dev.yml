@@ -165,32 +165,6 @@ jobs:
           disable_search: true
           fail_ci_if_error: false
 
-      - name: Run the CKEditor 5 utils tests
-        id: test-ckeditor5-utils
-        run: |
-          export CHROMEDRIVER_PATH=$(which chromedriver || find /usr/local/share -name chromedriver -type f 2>/dev/null | head -1)
-          echo "Using chromedriver at: $CHROMEDRIVER_PATH"
-          pnpm run --filter=ckeditor5-utils test --coverage
-
-      - name: Upload ckeditor5-utils coverage to Codecov
-        uses: codecov/codecov-action@v7
-        if: ${{ !cancelled() && steps.test-ckeditor5-utils.outcome == 'success' }}
-        with:
-          files: packages/ckeditor5-utils/test-output/vitest/coverage/lcov.info
-          flags: ckeditor5-utils
-          disable_search: true
-          fail_ci_if_error: false
-
-      - name: Upload ckeditor5-utils test results to Codecov
-        uses: codecov/test-results-action@v1
-        if: ${{ !cancelled() && steps.test-ckeditor5-utils.outcome != 'skipped' }}
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: packages/ckeditor5-utils/test-output/vitest/junit.xml
-          flags: ckeditor5-utils
-          disable_search: true
-          fail_ci_if_error: false
-
       - name: Run the desktop tests
         id: test-desktop
         run: pnpm run --filter=desktop test --coverage
@@ -330,7 +304,7 @@ jobs:
           fail_ci_if_error: false
 
       - name: Run the rest of the tests
-        run: pnpm run --filter=\!client --filter=\!standalone --filter=\!server --filter=\!desktop --filter=\!commons --filter=\!ckeditor5-mermaid --filter=\!ckeditor5-math --filter=\!ckeditor5 --filter=\!ckeditor5-utils --filter=\!codemirror --filter=\!express-partial-content --filter=\!highlightjs --filter=\!pdfjs-viewer test
+        run: pnpm run --filter=\!client --filter=\!standalone --filter=\!server --filter=\!desktop --filter=\!commons --filter=\!ckeditor5-mermaid --filter=\!ckeditor5-math --filter=\!ckeditor5 --filter=\!codemirror --filter=\!express-partial-content --filter=\!highlightjs --filter=\!pdfjs-viewer test
 
   build_docker:
     name: Build Docker image
