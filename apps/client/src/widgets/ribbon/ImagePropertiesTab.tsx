@@ -6,11 +6,11 @@ import { downloadFileNote, openNoteExternally } from "../../services/open";
 import server from "../../services/server";
 import toast from "../../services/toast";
 import { clearBrowserCache, formatSize } from "../../services/utils";
+import { showImageCompressionDialog } from "../dialogs/image_compression/image_compression_dialog";
 import Button from "../react/Button";
 import { FormFileUploadButton } from "../react/FormFileUpload";
 import { useNoteBlob, useNoteLabel } from "../react/hooks";
 import { ParentComponent } from "../react/react_utils";
-import { showImageCompressionDialog } from "../type_widgets/options/content_manager/space_usage/image_compression_dialog";
 import { TabContext } from "./ribbon-interface";
 
 export default function ImagePropertiesTab({ note, ntxId }: TabContext) {

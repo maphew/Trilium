@@ -12,7 +12,7 @@ import { downloadFileNote } from "../../../../../services/open";
 import options from "../../../../../services/options";
 import server from "../../../../../services/server";
 import toast from "../../../../../services/toast";
-import { showImageCompressionDialog } from "./image_compression_dialog";
+import { showImageCompressionDialog } from "../../../../dialogs/image_compression/image_compression_dialog";
 
 const ROOT_NOTE_ID = "root";
 

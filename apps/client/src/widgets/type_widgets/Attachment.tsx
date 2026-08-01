@@ -20,6 +20,7 @@ import server from "../../services/server";
 import toast from "../../services/toast";
 import utils from "../../services/utils";
 import ws from "../../services/ws";
+import { showImageCompressionDialog } from "../dialogs/image_compression/image_compression_dialog";
 import ActionButton from "../react/ActionButton";
 import Admonition from "../react/Admonition";
 import Button from "../react/Button";
@@ -36,7 +37,6 @@ import { ParentComponent, refToJQuerySelector } from "../react/react_utils";
 import SiblingNavigator from "../react/SiblingNavigator";
 import { TextPreview } from "./File";
 import MediaPreview from "./file/MediaPreview";
-import { showImageCompressionDialog } from "./options/content_manager/space_usage/image_compression_dialog";
 import { TypeWidgetProps } from "./type_widget";
 
 /**

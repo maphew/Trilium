@@ -1,8 +1,8 @@
 import type { ImageCompressionResponse } from "@triliumnext/commons";
 
-import { t } from "../../../../../services/i18n";
-import server from "../../../../../services/server";
-import { formatSize } from "../../../../../services/utils";
+import { t } from "../../../services/i18n";
+import server from "../../../services/server";
+import { formatSize } from "../../../services/utils";
 import type { ImageCompressionToolOptions } from "./image_compression_options";
 
 /**

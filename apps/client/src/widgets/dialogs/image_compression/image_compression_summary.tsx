@@ -7,12 +7,12 @@ import {
     type ImageInventoryResponse
 } from "@triliumnext/commons";
 
-import { t } from "../../../../../services/i18n";
-import { formatSize } from "../../../../../services/utils";
-import { useDebouncedValue } from "../../../../react/hooks";
+import { t } from "../../../services/i18n";
+import { formatSize } from "../../../services/utils";
+import { useDebouncedValue } from "../../react/hooks";
+import { useFetch } from "../../react/use_fetch";
 import { type ImageCompressionTarget, isSingleImage } from "./image_compression_operation";
 import type { ImageCompressionToolOptions } from "./image_compression_options";
-import { useSpaceUsageFetch } from "./use_space_usage_fetch";
 
 /**
  * What the dialog is about to act on, read before it acts and before it offers anything: the note
@@ -45,7 +45,7 @@ export function useCompressionReading(
 ): CompressionReading {
     const settledBound = useDebouncedValue(options.maxWidthHeight, READING_DEBOUNCE_MS);
     const single = isSingleImage(target);
-    const { data, failed } = useSpaceUsageFetch<ImageInfoResponse | ImageInventoryResponse>(
+    const { data, failed } = useFetch<ImageInfoResponse | ImageInventoryResponse>(
         single ? imageInfoUrl(target) : inventoryUrl(target, options.processChildNotes, settledBound)
     );
 

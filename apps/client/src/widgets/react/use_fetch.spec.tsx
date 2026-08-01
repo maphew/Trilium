@@ -9,24 +9,24 @@ const mocks = vi.hoisted(() => ({
 const serverGet = vi.fn<(url: string) => Promise<unknown>>();
 mocks.serverGet = serverGet;
 
-vi.mock("../../../../../services/server", () => ({
+vi.mock("../../services/server", () => ({
     default: { get: (url: string) => mocks.serverGet(url) }
 }));
 
 // A full mock, not a partial one: the real hooks module transitively imports half the app at module
 // scope (app_context, keyboard actions). Any subscription the hook made would land here, which is
 // how the "measures only when asked" test can prove it makes none.
-vi.mock("../../../../react/hooks", () => ({
+vi.mock("./hooks", () => ({
     useTriliumEvent: (_name: string, handler: (data: { loadResults: unknown }) => void) => {
         mocks.entitiesReloadedHandler = handler;
     }
 }));
 
 // Import AFTER the mocks (vi.mock is hoisted, but the hook import must resolve the mocked deps).
-import { useSpaceUsageFetch } from "./use_space_usage_fetch";
+import { useFetch } from "./use_fetch";
 
 function Probe({ url }: { url: string }) {
-    const { data, failed } = useSpaceUsageFetch<{ label: string }>(url);
+    const { data, failed } = useFetch<{ label: string }>(url);
     return <div>{data ? data.label : (failed ? "failed" : "loading")}</div>;
 }
 
@@ -49,7 +49,7 @@ afterEach(() => {
     vi.useRealTimers();
 });
 
-describe("useSpaceUsageFetch", () => {
+describe("useFetch", () => {
     it("fetches the url and renders the payload once it arrives", async () => {
         serverGet.mockResolvedValueOnce({ label: "first" });
         const probe = renderProbe("space-usage/overview");

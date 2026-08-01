@@ -18,6 +18,7 @@ import FormTextBox from "../../../../react/FormTextBox";
 import FormToggle from "../../../../react/FormToggle";
 import { useDebouncedValue, useTriliumOptionJson } from "../../../../react/hooks";
 import Modal from "../../../../react/Modal";
+import { useFetch } from "../../../../react/use_fetch";
 import {
     CLEANUP_ITEMS,
     type CleanupPhase,
@@ -29,7 +30,6 @@ import {
     runCleanup,
     storedCleanupOptions
 } from "./cleanup_operation";
-import { useSpaceUsageFetch } from "./use_space_usage_fetch";
 
 /**
  * Opens the cleanup dialog, and resolves once it has finished with the database: the bytes the run
@@ -76,11 +76,11 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
 
     // Measured with the history erased outright: the whole the reading is "of", and fixed for as
     // long as the dialog is open, since no setting here can reclaim more than that.
-    const everything = useSpaceUsageFetch<SpaceUsageNoteResponse>(`${ROOT_USAGE_URL}?snapshotsToKeep=0`);
+    const everything = useFetch<SpaceUsageNoteResponse>(`${ROOT_USAGE_URL}?snapshotsToKeep=0`);
     // Measured as the settings would trim it. The retention trails the field being typed in, so a
     // number entered digit by digit costs one measurement rather than one per keystroke.
     const settledSnapshotsToKeep = useDebouncedValue(options.snapshotsToKeep, ESTIMATE_DEBOUNCE_MS);
-    const trimmed = useSpaceUsageFetch<SpaceUsageNoteResponse>(
+    const trimmed = useFetch<SpaceUsageNoteResponse>(
         `${ROOT_USAGE_URL}?snapshotsToKeep=${settledSnapshotsToKeep}&keepNamedSnapshots=${options.keepNamedSnapshots}`);
 
     // What a rebuild would return, and what the file occupies now — read once on open: only erasures

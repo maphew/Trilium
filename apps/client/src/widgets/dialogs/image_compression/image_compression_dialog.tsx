@@ -4,12 +4,12 @@ import type { ImageCompressionResponse } from "@triliumnext/commons";
 import { render } from "preact";
 import { useRef, useState } from "preact/hooks";
 
-import { t } from "../../../../../services/i18n";
-import toast from "../../../../../services/toast";
-import Button from "../../../../react/Button";
-import { Card } from "../../../../react/Card";
-import { useTriliumOptionJson } from "../../../../react/hooks";
-import Modal from "../../../../react/Modal";
+import { t } from "../../../services/i18n";
+import toast from "../../../services/toast";
+import Button from "../../react/Button";
+import { Card } from "../../react/Card";
+import { useTriliumOptionJson } from "../../react/hooks";
+import Modal from "../../react/Modal";
 import {
     compressionResultMessage,
     IMAGE_COMPRESSION_TOAST_ID,

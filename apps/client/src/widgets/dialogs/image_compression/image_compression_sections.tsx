@@ -3,13 +3,13 @@ import "./image_compression_sections.css";
 import { IMAGE_JPEG_HANDLINGS, IMAGE_PNG_HANDLINGS } from "@triliumnext/commons";
 import clsx from "clsx";
 
-import { t } from "../../../../../services/i18n";
-import { CardSection } from "../../../../react/Card";
-import ContextualHelp from "../../../../react/ContextualHelp";
-import { FormTextBoxWithUnit } from "../../../../react/FormTextBox";
-import FormToggle from "../../../../react/FormToggle";
-import SegmentedChoice from "../../../../react/SegmentedChoice";
-import Slider from "../../../../react/Slider";
+import { t } from "../../../services/i18n";
+import { CardSection } from "../../react/Card";
+import ContextualHelp from "../../react/ContextualHelp";
+import { FormTextBoxWithUnit } from "../../react/FormTextBox";
+import FormToggle from "../../react/FormToggle";
+import SegmentedChoice from "../../react/SegmentedChoice";
+import Slider from "../../react/Slider";
 import {
     type ImageCompressionToolOptions,
     MAX_QUALITY,

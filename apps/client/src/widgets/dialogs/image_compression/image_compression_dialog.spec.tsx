@@ -35,14 +35,14 @@ const mocks = vi.hoisted(() => ({
     closePersistent: vi.fn<(id: string) => void>()
 }));
 
-vi.mock("../../../../../services/options", () => ({
+vi.mock("../../../services/options", () => ({
     default: {
         get: () => mocks.storedOption,
         save: mocks.save
     }
 }));
 
-vi.mock("../../../../../services/server", () => ({
+vi.mock("../../../services/server", () => ({
     default: {
         // The summary reads one of these before the dialog can draw anything. Everything else the
         // app loads on the way past — the keyboard actions among them — expects a list.
@@ -59,7 +59,7 @@ vi.mock("../../../../../services/server", () => ({
     }
 }));
 
-vi.mock("../../../../../services/toast", () => ({
+vi.mock("../../../services/toast", () => ({
     default: {
         showMessage: mocks.showMessage,
         showPersistent: mocks.showPersistent,
@@ -70,7 +70,7 @@ vi.mock("../../../../../services/toast", () => ({
 // The harness loads no translations, so the real `t` answers undefined for every key. Echoing the
 // key back instead lets each row be identified by the string it actually asked for, and lets the
 // quality reading be read as the value it interpolates.
-vi.mock("../../../../../services/i18n", () => ({
+vi.mock("../../../services/i18n", () => ({
     t: (key: string, params?: Record<string, unknown>) => (params ? `${key} ${JSON.stringify(params)}` : key),
     translationsInitializedPromise: Promise.resolve(),
     initLocale: async () => {},
@@ -81,7 +81,7 @@ vi.mock("../../../../../services/i18n", () => ({
 
 // The real modal reports its close once the animation is done; the stub reports it as soon as it is
 // told to hide, which is the signal the dialog's own flow keys off.
-vi.mock("../../../../react/Modal", () => ({
+vi.mock("../../react/Modal", () => ({
     default: function ModalStub({ children, footer, show, onHidden }: {
         children: ComponentChildren, footer: ComponentChildren, show: boolean, onHidden: () => void
     }) {

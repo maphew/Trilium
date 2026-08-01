@@ -58,7 +58,7 @@ vi.mock("../../../../../services/server", () => ({
 
 // Stubbed rather than rendered: what belongs here is that the menu opens it, and the dialog's own
 // spec covers what it then does.
-vi.mock("./image_compression_dialog", () => ({
+vi.mock("../../../../dialogs/image_compression/image_compression_dialog", () => ({
     showImageCompressionDialog: (...args: unknown[]) => mocks.showCompressionDialog(...args)
 }));
 

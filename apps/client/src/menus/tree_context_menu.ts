@@ -17,8 +17,8 @@ import server from "../services/server.js";
 import toastService from "../services/toast.js";
 import treeService from "../services/tree.js";
 import utils from "../services/utils.js";
+import { showImageCompressionDialog } from "../widgets/dialogs/image_compression/image_compression_dialog.jsx";
 import type NoteTreeWidget from "../widgets/note_tree.js";
-import { showImageCompressionDialog } from "../widgets/type_widgets/options/content_manager/space_usage/image_compression_dialog.jsx";
 import contextMenu, { type MenuCommandItem, type MenuItem } from "./context_menu.js";
 import NoteColorPicker from "./custom-items/NoteColorPicker.jsx";
 
