@@ -76,7 +76,7 @@ packages/
   highlightjs/          # Syntax highlighting
   share-theme/          # Theme for shared/published notes
   ckeditor5-admonition/, ckeditor5-footnotes/, ckeditor5-math/, ckeditor5-mermaid/
-  ckeditor5-keyboard-marker/, express-partial-content/, pdfjs-viewer/, splitjs/
+  express-partial-content/, pdfjs-viewer/, splitjs/
   turndown-plugin-gfm/
 ```
 

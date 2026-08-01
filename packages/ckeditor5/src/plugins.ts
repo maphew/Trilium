@@ -23,7 +23,7 @@ import IncludeNote from "./plugins/includenote.js";
 import LinkEmbed from "./plugins/link_embed/link_embed.js";
 import Uploadfileplugin from "./plugins/file_upload/uploadfileplugin.js";
 import SyntaxHighlighting from "./plugins/syntax_highlighting/index.js";
-import { Kbd } from "@triliumnext/ckeditor5-keyboard-marker";
+import Kbd from "./plugins/keyboard_marker/keyboard_marker.js";
 import { Mermaid } from "@triliumnext/ckeditor5-mermaid";
 import { Admonition } from "@triliumnext/ckeditor5-admonition";
 import { Collapsible } from "@triliumnext/ckeditor5-collapsible";

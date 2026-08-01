@@ -96,7 +96,6 @@ trilium/
 │   ├── highlightjs/       # Syntax highlighting
 │   ├── ckeditor5-admonition/     # CKEditor plugin: admonitions
 │   ├── ckeditor5-footnotes/      # CKEditor plugin: footnotes
-│   ├── ckeditor5-keyboard-marker/# CKEditor plugin: keyboard shortcuts
 │   ├── ckeditor5-math/           # CKEditor plugin: math equations
 │   ├── ckeditor5-mermaid/        # CKEditor plugin: diagrams
 │   ├── express-partial-content/  # HTTP partial content middleware

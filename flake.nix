@@ -240,7 +240,6 @@ nodejs.python
               "packages/ckeditor5"
               "packages/ckeditor5-admonition"
               "packages/ckeditor5-footnotes"
-              "packages/ckeditor5-keyboard-marker"
               "packages/ckeditor5-math"
               "packages/ckeditor5-mermaid"
               "packages/codemirror"
