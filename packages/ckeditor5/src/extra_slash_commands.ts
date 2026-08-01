@@ -12,6 +12,7 @@ import { COMMAND_NAME as INCLUDE_NOTE_COMMAND } from './plugins/includenote.js';
 import { COMMAND_NAME as MARKDOWN_IMPORT_COMMAND } from './plugins/markdownimport.js';
 import { ADMONITION_TYPES } from "./plugins/admonition/admonition_ui.js";
 import type { AdmonitionType } from "./plugins/admonition/admonition_command.js";
+import { translateMessage } from "./messages.js";
 import collapsibleIcon from './icons/collapsible.svg?raw';
 import dateTimeIcon from './icons/date-time.svg?raw';
 import internalLinkIcon from './icons/trilium.svg?raw';
@@ -217,7 +218,9 @@ function buildAdmonitionExtraCommands(t: SlashTranslateFn): SlashCommandDefiniti
     for (const [ keyword, definition ] of Object.entries(ADMONITION_TYPES)) {
         commands.push({
             id: keyword,
-            title: definition.title,
+            // Built before any editor exists, so the message goes through the host translator
+            // directly rather than `editor.t()` — same message ids, same fallback to English.
+            title: translateMessage(t, definition.title),
             description: t("slash_commands.admonition_description"),
             icon: admonitionIcons[keyword as AdmonitionType],
             execute: (editor: Editor) => editor.execute("admonition", { forceValue: keyword as AdmonitionType }),

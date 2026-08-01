@@ -3605,7 +3605,12 @@
     "checkbox-tooltip-state-label": "Task state:",
     "checkbox-tooltip-state-unknown-suffix": "(missing definition)",
     "ck": {
-      "admonition": "Admonition"
+      "admonition": "Admonition",
+      "caution": "Caution",
+      "important": "Important",
+      "note": "Note",
+      "tip": "Tip",
+      "warning": "Warning"
     },
     "collapsible-body-placeholder": "Type the content here...",
     "collapsible-button-label": "Collapsible block",

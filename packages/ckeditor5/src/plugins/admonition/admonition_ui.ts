@@ -109,12 +109,16 @@ export default class AdmonitionUI extends Plugin {
             return itemDefinitions;
         }
 
+        // The titles are English message ids; `t()` translates them where a dictionary is
+        // configured and returns them unchanged otherwise.
+        const t = this.editor.t;
+
         for (const [type, admonition] of Object.entries(ADMONITION_TYPES)) {
             const definition: ListDropdownItemDefinition = {
                 type: "button",
                 model: new ViewModel({
                     commandParam: type,
-                    label: admonition.title,
+                    label: t(admonition.title),
                     class: `ck-tn-admonition-option ck-tn-admonition-${type}`,
                     role: "menuitemradio",
                     withText: true

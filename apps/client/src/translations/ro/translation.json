@@ -2690,7 +2690,12 @@
   "text-editor": {
     "checkbox-tooltip": "Clic dreapta pentru mai multe stări ale sarcinii.\nApăsați {{shortcut}} pentru a comuta între stări.",
     "ck": {
-      "admonition": "Casetă de avertizare"
+      "admonition": "Casetă de avertizare",
+      "caution": "Atenție",
+      "important": "Important",
+      "note": "Notă",
+      "tip": "Sfat",
+      "warning": "Avertisment"
     },
     "collapsible-body-placeholder": "Scrieți conținutul aici...",
     "collapsible-button-label": "Bloc pliabil",

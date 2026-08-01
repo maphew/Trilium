@@ -30,7 +30,9 @@ export default class AdmonitionTypeDropdown extends Plugin {
             dropdownView.buttonView.bind("label").to(command, "value", (value) => {
                 if (!value) return "";
                 const typeDef = ADMONITION_TYPES[value as AdmonitionType];
-                return typeDef?.title ?? value;
+                // The title is an English message id; an unknown type has none, so its raw value
+                // is shown as-is rather than run through `t()`.
+                return typeDef ? editor.t(typeDef.title) : value;
             });
             dropdownView.on("execute", evt => {
                 const source = evt.source as any;
@@ -54,7 +56,7 @@ export default class AdmonitionTypeDropdown extends Plugin {
                 type: "button",
                 model: new ViewModel({
                     commandParam: type,
-                    label: typeDef.title,
+                    label: editor.t(typeDef.title),
                     class: `ck-tn-admonition-option ck-tn-admonition-${type}`,
                     role: "menuitemradio",
                     withText: true

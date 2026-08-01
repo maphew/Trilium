@@ -24,11 +24,19 @@ export const MESSAGE_KEY_PREFIX = "text-editor.ck.";
  * Every English message id the editor package owns, i.e. each distinct string passed to
  * `editor.t()` by a Trilium plugin (plus any upstream string we deliberately reword).
  *
- * Draft scope: only the admonition button. The remaining plugins still localize through the older
+ * Current scope: the admonition feature. The remaining plugins still localize through the older
  * `config.translate` bridge and are migrated separately.
  */
 export const MESSAGES = [
-    "Admonition"
+    "Admonition",
+    // The admonition types, declared as titles in `ADMONITION_TYPES` and rendered by the toolbar
+    // dropdown, the type dropdown and the slash commands. `admonition_messages.spec.ts` keeps this
+    // list and that map in sync.
+    "Note",
+    "Tip",
+    "Important",
+    "Caution",
+    "Warning"
 ] as const;
 
 /**
@@ -44,6 +52,20 @@ export function slugify(message: string): string {
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "");
+}
+
+/**
+ * Translate a single message id outside an editor, for code that builds editor content before an
+ * editor exists — the slash-command definitions, for instance. Inside a plugin use `editor.t()`
+ * instead; this is the same lookup, minus the editor.
+ *
+ * Falls back to the message id, which is the English text, so a missing entry renders English
+ * rather than a raw key.
+ */
+export function translateMessage(translate: (key: string) => string, message: string): string {
+    const key = MESSAGE_KEY_PREFIX + slugify(message);
+    const translated = translate(key);
+    return translated && translated !== key ? translated : message;
 }
 
 /**

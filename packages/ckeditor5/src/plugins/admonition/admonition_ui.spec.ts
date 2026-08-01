@@ -2,6 +2,7 @@ import { _setModelData as setModelData, ClassicEditor, Essentials, Paragraph, Sp
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
+import { MESSAGES } from "../../messages.js";
 import Admonition from "./admonition.js";
 import type AdmonitionCommand from "./admonition_command.js";
 import AdmonitionUI, { ADMONITION_TYPES } from "./admonition_ui.js";
@@ -113,8 +114,22 @@ describe("AdmonitionUI", () => {
 
                 expect(types).toContain(button.commandParam);
                 if (type) {
+                    // No dictionary is configured here, so `t()` renders the message id, which is
+                    // the English title.
                     expect(button.label).toBe(ADMONITION_TYPES[type].title);
                 }
+            }
+        });
+
+        // The titles are localized by passing them to `t()` as message ids, which only resolves if
+        // each is declared in `MESSAGES` — that list is what builds the dictionary. A type added to
+        // `ADMONITION_TYPES` alone would silently stay English in every locale.
+        it("declares every type title as a message id", () => {
+            const titles = Object.values(ADMONITION_TYPES).map((definition) => definition.title);
+
+            expect(titles).not.toHaveLength(0);
+            for (const title of titles) {
+                expect(MESSAGES, `"${title}" is missing from MESSAGES`).toContain(title);
             }
         });
 

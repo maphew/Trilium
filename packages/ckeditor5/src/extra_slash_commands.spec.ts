@@ -259,7 +259,19 @@ describe("buildExtraCommands", () => {
                 expect(cmd?.icon).toBeTruthy();
                 expect(cmd?.description).toBe("slash_commands.admonition_description");
                 expect(cmd?.aliases).toContain("box");
+                // `t` echoes the key here, so the title falls back to the English message id.
+                expect(cmd?.title).toBe(ADMONITION_TYPES[keyword as keyof typeof ADMONITION_TYPES].title);
             }
+        });
+
+        // Built before any editor exists, so the titles go through `translateMessage()` rather than
+        // `editor.t()` — same message ids, same derived keys.
+        it("translates the titles through the host translator", async () => {
+            const { ADMONITION_TYPES } = await import("./plugins/admonition/admonition_ui.js");
+            const commands = buildExtraCommands((key) => (key === "text-editor.ck.warning" ? "Avertisment" : key));
+
+            expect(commands.find((c) => c.id === "warning")?.title).toBe("Avertisment");
+            expect(commands.find((c) => c.id === "note")?.title).toBe(ADMONITION_TYPES.note.title);
         });
 
         it("admonition execute calls editor.execute('admonition') with the keyword", async () => {
