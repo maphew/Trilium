@@ -51,7 +51,7 @@
     "copy-without-formatting": "選択したテキストを書式なしでコピーする",
     "quick-search": "クイック検索バーを有効にする",
     "sort-child-notes": "子ノートを並べ替える",
-    "create-note-into-inbox": "inbox（定義されている場合）またはデイノートにノートを作成する",
+    "create-note-into-inbox": "inbox（定義されている場合）または日ノートにノートを作成する",
     "note-clipboard": "ノートクリップボード",
     "edit-branch-prefix": "「ブランチ接頭辞の編集」ダイアログを表示",
     "show-revisions": "「ノートの変更履歴」ダイアログを表示",

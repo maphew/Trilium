@@ -1547,7 +1547,6 @@
     "title_with_count_one": "{{count}} evidențiere",
     "title_with_count_few": "{{count}} evidențieri",
     "title_with_count_other": "{{count}} de evidențieri",
-    "modal_title": "Configurează lista de evidențieri",
     "menu_configure": "Configurează lista de evidențieri...",
     "no_highlights": "Nu există nicio evidențiere."
   },

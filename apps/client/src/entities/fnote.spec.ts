@@ -1060,6 +1060,24 @@ describe("FNote system-note predicates", () => {
         expect(makeNote({ mime: "text/plain" }).isTriliumScript()).toBe(false);
     });
 
+    it("mime predicates survive a note row that arrives without a mime", () => {
+        const note = makeNote({ type: "code", mime: "application/javascript;env=backend" });
+        expect(note.isTriliumScript()).toBe(true);
+
+        // What froca_updater does with a ws payload: `note.update(ec.entity as FNoteRow)`. A server
+        // that builds that payload from a becca skeleton note (a note referenced by a branch that
+        // synced ahead of it) has `mime`/`title` undefined, and JSON.stringify drops the keys
+        // entirely - so the cast hides a row that is missing them. froca is the last line of
+        // defence here since it cannot tell such a row apart from a complete one.
+        note.update({ noteId: note.noteId, blobId: "blob1", isProtected: false } as unknown as FNoteRow);
+
+        expect(() => note.isTriliumScript()).not.toThrow();
+        expect(note.isTriliumScript()).toBe(false);
+        expect(note.isJavaScript()).toBe(false);
+        expect(note.isTriliumSqlite()).toBe(false);
+        expect(note.getScriptEnv()).toBeNull();
+    });
+
     it("getScriptEnv returns frontend / backend / null", () => {
         expect(makeNote({ type: "code", mime: "text/html" }).getScriptEnv()).toBe("frontend");
         expect(makeNote({ type: "code", mime: "application/javascript;env=frontend" }).getScriptEnv()).toBe("frontend");

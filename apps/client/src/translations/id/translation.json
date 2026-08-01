@@ -1969,7 +1969,6 @@
     "title": "Daftar Sorotan",
     "title_with_count_other": "{{count}} sorotan",
     "options": "Opsi",
-    "modal_title": "Konfigurasikan Daftar Sorotan",
     "menu_configure": "Konfigurasikan daftar sorotan...",
     "no_highlights": "Tidak ada sorotan yang ditemukan."
   },

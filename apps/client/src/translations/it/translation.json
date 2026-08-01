@@ -632,7 +632,6 @@
     "title_with_count_one": "{{count}} evidenza",
     "title_with_count_many": "{{count}} evidenze",
     "title_with_count_other": "{{count}} evidenze",
-    "modal_title": "Configura elenco dei punti salienti",
     "menu_configure": "Configura elenco dei punti salienti...",
     "no_highlights": "Nessun punto saliente trovato."
   },

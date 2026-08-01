@@ -1201,7 +1201,8 @@
   "zpetne_odkazy": {
     "backlink_one": "{{count}} Backlink",
     "backlink_other": "{{count}} Backlinks",
-    "relation": "relation"
+    "relation": "relation",
+    "no_backlinks": "No notes link to this one."
   },
   "mobile_detail_menu": {
     "insert_child_note": "Insert child note",
@@ -1309,6 +1310,7 @@
   },
   "note_map": {
     "open_full": "Expand to full",
+    "expand": "Expand map",
     "collapse": "Collapse to normal size",
     "title": "Note Map",
     "fix-nodes": "Fix nodes",
@@ -1385,6 +1387,24 @@
   "similar_notes": {
     "title": "Similar Notes",
     "no_similar_notes_found": "No similar notes found."
+  },
+  "sidebar_help": {
+    "attributes_what": "The labels and relations set on this note itself. A label tags the note with a name and, if you like, a value; a relation points it at another note.",
+    "attributes_inheritable": "Marking one inheritable passes it down the whole subtree under the note, where it is listed as inherited rather than owned.",
+    "attributes_inherited_what": "Labels and relations reaching this note from elsewhere: an inheritable one set on a note above it, or one carried in by a template.",
+    "attributes_inherited_source": "They are read-only here. Each row names the note it comes from, which is where it can be changed or removed.",
+    "attributes_definitions_what": "A definition is the schema behind an attribute name: what kind of value it takes, whether it may be given more than once, and whether it is promoted.",
+    "attributes_definitions_promoted": "A promoted attribute is shown on the note itself as a form field rather than being left to this panel. Definitions usually arrive from a template, and each row names the note it lives on.",
+    "highlights_what": "The passages this note picks out by their formatting. That is a wider net than it sounds: an ordinary bold or italic sentence counts, not only text you have highlighted.",
+    "highlights_configure": "Which formats count is yours to set: bold, italic, underlined, coloured text and text on a background colour can each be listed or left out, from the gear in this card's header. Pressing an entry scrolls the note to it.",
+    "note_map_what": "A map of what this note connects to. The link map draws the internal links and relations going in and out of it; the tree map draws where it sits in the note tree. The switcher in this header chooses between the two.",
+    "note_map_interaction": "Hovering a note brings its own connections forward and fades the rest. The expand button opens the same map at the size of the window.",
+    "note_paths_what": "A note can sit in more than one place in the note tree at once, and each of those places is listed here as a path.",
+    "note_paths_cloning": "Adding a place is called cloning: nothing is copied, so an edit made under one path shows under all of them, and removing one path leaves the note under the others.",
+    "backlinks_what": "The notes pointing at this one, either through a link in their text or through a relation naming it.",
+    "backlinks_listing": "A text link is listed with the passage around it, a relation with the name it points by. This side of a link is not editable: it goes away when the note that made it drops the link.",
+    "similar_notes_what": "Notes that look related to this one even where nothing links them.",
+    "similar_notes_how": "The likeness is worked out from the content of the notes, the attributes and relations they carry, and how close together they were created."
   },
   "abstract_search_option": {
     "remove_this_search_option": "Remove this search option",
@@ -2443,7 +2463,6 @@
     "title_with_count_one": "{{count}} highlight",
     "title_with_count_other": "{{count}} highlights",
     "options": "Options",
-    "modal_title": "Configure Highlights List",
     "menu_configure": "Configure highlights list...",
     "no_highlights": "No highlights found."
   },
@@ -3172,9 +3191,7 @@
   },
   "settings": {
     "related_settings": "Related settings",
-    "related_actions": "Related actions"
-  },
-  "settings_other": {
+    "related_actions": "Related actions",
     "related_space_usage": "Analyze the space usage within the database",
     "related_space_usage_description": "See which notes, revisions and attachments take up the most space, and reclaim it."
   },
@@ -3297,8 +3314,10 @@
     "dock": "Dock panel",
     "close": "Close panel",
     "custom_widget_go_to_source": "Go to source code",
+    "backlinks": "Backlinks",
     "tab_outline": "Outline",
     "tab_attributes": "Attributes",
+    "tab_connections": "Connections",
     "tab_chat": "AI chat",
     "tab_widgets": "Widgets"
   },
