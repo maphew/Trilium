@@ -87,6 +87,10 @@ function ImageCompressionDialog({ target, onFinished }: {
     const reading = useCompressionReading(target, options);
     const formats = readableFormats(target, reading);
 
+    // Named for what the run will actually reach. The dialog names its own action twice — once as
+    // the heading, once on the button that carries it out — and both say the same thing.
+    const action = isSingleImage(target) ? t("compress-image") : t("compress-images");
+
     async function runPendingCompression() {
         const settings = pending.current;
 
@@ -122,7 +126,7 @@ function ImageCompressionDialog({ target, onFinished }: {
     return (
         <Modal
             className="image-compression-dialog"
-            title={t("space_usage.compress_title")}
+            title={action}
             size="sm"
             minWidth={COMPRESSION_DIALOG_MIN_WIDTH}
             show={shown}
@@ -130,7 +134,7 @@ function ImageCompressionDialog({ target, onFinished }: {
             footer={<>
                 <Button text={t("space_usage.compress_cancel")} onClick={() => setShown(false)} />
                 <Button
-                    text={t("space_usage.compress_run")}
+                    text={action}
                     kind="primary"
                     // Nothing asked of anything actually here would visit every image and change
                     // none of them: a run that provably does nothing is not one to offer. Also
