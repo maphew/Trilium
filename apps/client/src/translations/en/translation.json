@@ -3124,9 +3124,7 @@
   },
   "settings": {
     "related_settings": "Related settings",
-    "related_actions": "Related actions"
-  },
-  "settings_other": {
+    "related_actions": "Related actions",
     "related_space_usage": "Analyze the space usage within the database",
     "related_space_usage_description": "See which notes, revisions and attachments take up the most space, and reclaim it."
   },

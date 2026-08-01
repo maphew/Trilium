@@ -40,8 +40,8 @@ function RelatedActions() {
             title={t("settings.related_actions")}
             items={[
                 {
-                    title: t("settings_other.related_space_usage"),
-                    description: t("settings_other.related_space_usage_description"),
+                    title: t("settings.related_space_usage"),
+                    description: t("settings.related_space_usage_description"),
                     targetPage: "_optionsContentManager",
                     onClick: (e) => {
                         // The Content Manager opens on Active Content unless asked otherwise, and
