@@ -24,6 +24,7 @@ describe("getCkLocale", () => {
         [ "it", "it" ],
         [ "hi", "hi" ],
         [ "ja", "ja" ],
+        [ "ko", "ko" ],
         [ "pl", "pl" ],
         [ "pt", "pt" ],
         [ "pt_br", "pt-br" ],
