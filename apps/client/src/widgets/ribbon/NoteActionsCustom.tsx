@@ -19,6 +19,7 @@ import { FormFileUploadActionButton, FormFileUploadFormListItem, FormFileUploadP
 import { FormListItem } from "../react/FormList";
 import { useEffectiveReadOnly, useNoteLabel, useNoteLabelBoolean, useNoteProperty, useTriliumEvent, useTriliumEvents, useTriliumOption } from "../react/hooks";
 import { isSplitEditorForcedReadOnly, resolveDisplayMode } from "../type_widgets/helpers/split_editor_mode";
+import { showImageCompressionDialog } from "../type_widgets/options/content_manager/space_usage/image_compression_dialog";
 import { ParentComponent } from "../react/react_utils";
 import { buildUploadNewFileRevisionListener } from "./FilePropertiesTab";
 import { buildUploadNewImageRevisionListener } from "./ImagePropertiesTab";
@@ -113,6 +114,7 @@ function ImageActions(props: NoteActionsCustomInnerProps) {
             <UploadNewRevisionButton {...props} onChange={buildUploadNewImageRevisionListener(props.note)} />
             <OpenExternallyButton {...props} />
             <DownloadFileButton {...props} />
+            <CompressImageButton {...props} />
         </>
     );
 }
@@ -139,6 +141,21 @@ function OpenExternallyButton({ note, noteMime }: NoteActionsCustomInnerProps) {
             text={t("file_properties.open")}
             disabled={note.isProtected}
             onClick={() => openNoteExternally(note.noteId, noteMime)}
+        />
+    );
+}
+
+/**
+ * Shrinks the picture being looked at, and only it — the mime is what tells the dialog it is aimed
+ * at one image rather than at everything a note holds.
+ */
+function CompressImageButton({ note, noteMime }: NoteActionsCustomInnerProps) {
+    return (
+        <NoteAction
+            icon="bx bx-collapse-alt"
+            text={t("compress-image")}
+            disabled={!note.isContentAvailable()}
+            onClick={() => void showImageCompressionDialog({ type: "note", noteId: note.noteId, mime: noteMime })}
         />
     );
 }

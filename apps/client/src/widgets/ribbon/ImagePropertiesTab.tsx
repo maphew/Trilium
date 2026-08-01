@@ -10,6 +10,7 @@ import Button from "../react/Button";
 import { FormFileUploadButton } from "../react/FormFileUpload";
 import { useNoteBlob, useNoteLabel } from "../react/hooks";
 import { ParentComponent } from "../react/react_utils";
+import { showImageCompressionDialog } from "../type_widgets/options/content_manager/space_usage/image_compression_dialog";
 import { TabContext } from "./ribbon-interface";
 
 export default function ImagePropertiesTab({ note, ntxId }: TabContext) {
@@ -51,6 +52,12 @@ export default function ImagePropertiesTab({ note, ntxId }: TabContext) {
                             text={t("image_properties.open")}
                             icon="bx bx-link-external"
                             onClick={() => openNoteExternally(note.noteId, note.mime)}
+                        />
+
+                        <Button
+                            text={t("compress-image")}
+                            icon="bx bx-collapse-alt"
+                            onClick={() => void showImageCompressionDialog({ type: "note", noteId: note.noteId, mime: note.mime })}
                         />
 
                         <Button
