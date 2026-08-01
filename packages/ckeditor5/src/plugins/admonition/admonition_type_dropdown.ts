@@ -1,5 +1,8 @@
 import { Plugin, type ListDropdownButtonDefinition, Collection, ViewModel, createDropdown, addListToDropdown, DropdownButtonView } from "ckeditor5";
-import { Admonition, ADMONITION_TYPES, type AdmonitionCommand, type AdmonitionType } from "@triliumnext/ckeditor5-admonition";
+import Admonition from "./admonition.js";
+import type AdmonitionCommand from "./admonition_command.js";
+import type { AdmonitionType } from "./admonition_command.js";
+import { ADMONITION_TYPES } from "./admonition_ui.js";
 
 /**
  * Toolbar item which displays the list of admonition types in a dropdown.

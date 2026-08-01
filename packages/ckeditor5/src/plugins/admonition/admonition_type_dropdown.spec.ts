@@ -1,8 +1,9 @@
 import { ClassicEditor, Essentials, Paragraph, _setModelData as setModelData } from "ckeditor5";
-import { Admonition, ADMONITION_TYPES } from "@triliumnext/ckeditor5-admonition";
+import Admonition from "./admonition.js";
+import { ADMONITION_TYPES } from "./admonition_ui.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createTestEditor } from "../../test/editor-kit.js";
+import { createTestEditor } from "../../../test/editor-kit.js";
 import AdmonitionTypeDropdown from "./admonition_type_dropdown.js";
 
 // ---- Typed interfaces for the dropdown internals ----

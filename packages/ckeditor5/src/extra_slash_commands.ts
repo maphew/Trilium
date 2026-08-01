@@ -10,7 +10,8 @@ import { COMMAND_NAME as INSERT_DATE_TIME_COMMAND } from './plugins/insert_date_
 import { COMMAND_NAME as INTERNAL_LINK_COMMAND } from './plugins/internallink.js';
 import { COMMAND_NAME as INCLUDE_NOTE_COMMAND } from './plugins/includenote.js';
 import { COMMAND_NAME as MARKDOWN_IMPORT_COMMAND } from './plugins/markdownimport.js';
-import { ADMONITION_TYPES, type AdmonitionType } from '@triliumnext/ckeditor5-admonition';
+import { ADMONITION_TYPES } from "./plugins/admonition/admonition_ui.js";
+import type { AdmonitionType } from "./plugins/admonition/admonition_command.js";
 import { icons as collapsibleIcons } from '@triliumnext/ckeditor5-collapsible';
 import dateTimeIcon from './icons/date-time.svg?raw';
 import internalLinkIcon from './icons/trilium.svg?raw';

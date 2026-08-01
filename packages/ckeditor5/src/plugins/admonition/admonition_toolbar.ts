@@ -1,5 +1,5 @@
 import { Plugin, ViewDocumentFragment, WidgetToolbarRepository, type ViewNode } from "ckeditor5";
-import { Admonition } from "@triliumnext/ckeditor5-admonition";
+import Admonition from "./admonition.js";
 import AdmonitionTypeDropdown from "./admonition_type_dropdown";
 
 export default class AdmonitionToolbar extends Plugin {

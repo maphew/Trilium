@@ -94,7 +94,6 @@ trilium/
 │   ├── ckeditor5/         # Custom rich text editor
 │   ├── codemirror/        # Code editor customizations
 │   ├── highlightjs/       # Syntax highlighting
-│   ├── ckeditor5-admonition/     # CKEditor plugin: admonitions
 │   ├── ckeditor5-footnotes/      # CKEditor plugin: footnotes
 │   ├── ckeditor5-math/           # CKEditor plugin: math equations
 │   ├── ckeditor5-mermaid/        # CKEditor plugin: diagrams

@@ -15,7 +15,6 @@
   },
   "dependencies": {
     "@triliumnext/commons": "workspace:*",
-    "@triliumnext/ckeditor5-admonition": "workspace:*",
     "@triliumnext/ckeditor5-collapsible": "workspace:*",
     "@triliumnext/ckeditor5-utils": "workspace:*",
     "@triliumnext/ckeditor5-footnotes": "workspace:*",

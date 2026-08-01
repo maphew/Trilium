@@ -25,7 +25,7 @@ import Uploadfileplugin from "./plugins/file_upload/uploadfileplugin.js";
 import SyntaxHighlighting from "./plugins/syntax_highlighting/index.js";
 import Kbd from "./plugins/keyboard_marker/keyboard_marker.js";
 import { Mermaid } from "@triliumnext/ckeditor5-mermaid";
-import { Admonition } from "@triliumnext/ckeditor5-admonition";
+import Admonition from "./plugins/admonition/admonition.js";
 import { Collapsible } from "@triliumnext/ckeditor5-collapsible";
 import { Footnotes } from "@triliumnext/ckeditor5-footnotes";
 import { Math, AutoformatMath } from "@triliumnext/ckeditor5-math";
@@ -35,7 +35,6 @@ import ImageActions from "./plugins/image_actions.js";
 import TriliumSnippets from "./plugins/snippets/snippets.js";
 
 // import "@triliumnext/ckeditor5-mermaid/index.css";
-// import "@triliumnext/ckeditor5-admonition/index.css";
 // import "@triliumnext/ckeditor5-footnotes/index.css";
 // import "@triliumnext/ckeditor5-math/index.css";
 import CodeBlockToolbar from "./plugins/code_block_toolbar.js";
@@ -46,8 +45,8 @@ import MoveBlockUpDownPlugin from "./plugins/move_block_updown.js";
 import ScrollOnUndoRedoPlugin from "./plugins/scroll_on_undo_redo.js"
 import InlineCodeNoSpellcheck from "./plugins/inline_code_no_spellcheck.js";
 import InlineCodeToolbar from "./plugins/inline_code_toolbar.js";
-import AdmonitionTypeDropdown from "./plugins/admonition_type_dropdown.js";
-import AdmonitionToolbar from "./plugins/admonition_toolbar.js";
+import AdmonitionTypeDropdown from "./plugins/admonition/admonition_type_dropdown.js";
+import AdmonitionToolbar from "./plugins/admonition/admonition_toolbar.js";
 import IncludeNoteBoxSizeDropdown from "./plugins/include_note_box_size_dropdown.js";
 import IncludeNoteToolbar from "./plugins/include_note_toolbar.js";
 import LinkEmbedToolbar from "./plugins/link_embed/link_embed_toolbar.js";

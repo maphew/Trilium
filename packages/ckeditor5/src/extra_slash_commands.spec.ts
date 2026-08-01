@@ -250,7 +250,7 @@ describe("buildExtraCommands", () => {
 
     describe("admonition commands", () => {
         it("includes one command per ADMONITION_TYPE with execute function", async () => {
-            const { ADMONITION_TYPES } = await import("@triliumnext/ckeditor5-admonition");
+            const { ADMONITION_TYPES } = await import("./plugins/admonition/admonition_ui.js");
             const commands = buildExtraCommands(t);
             for (const keyword of Object.keys(ADMONITION_TYPES)) {
                 const cmd = commands.find((c) => c.id === keyword);
@@ -263,7 +263,7 @@ describe("buildExtraCommands", () => {
         });
 
         it("admonition execute calls editor.execute('admonition') with the keyword", async () => {
-            const { ADMONITION_TYPES } = await import("@triliumnext/ckeditor5-admonition");
+            const { ADMONITION_TYPES } = await import("./plugins/admonition/admonition_ui.js");
             const commands = buildExtraCommands(t);
 
             for (const keyword of Object.keys(ADMONITION_TYPES)) {

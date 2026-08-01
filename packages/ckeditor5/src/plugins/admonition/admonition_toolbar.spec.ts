@@ -1,8 +1,8 @@
 import { ClassicEditor, Essentials, Paragraph, _setModelData as setModelData, WidgetToolbarRepository } from "ckeditor5";
-import { Admonition } from "@triliumnext/ckeditor5-admonition";
+import Admonition from "./admonition.js";
 import { beforeEach, describe, expect, it } from "vitest";
 
-import { createTestEditor } from "../../test/editor-kit.js";
+import { createTestEditor } from "../../../test/editor-kit.js";
 import AdmonitionToolbar from "./admonition_toolbar.js";
 import AdmonitionTypeDropdown from "./admonition_type_dropdown.js";
 
