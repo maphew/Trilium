@@ -117,6 +117,24 @@ describe('serverImageProvider.getImageType', () => {
     it('returns null for non-SVG buffers (async detection handled elsewhere)', () => {
         expect(serverImageProvider.getImageType(smallPng)).toBeNull();
     });
+
+    // Recognising an SVG means reading the whole file as a string, which is only worth doing for a
+    // buffer that opens like a document — so what counts as "opens like one" has to cover every way
+    // a real file starts, not just the bare root element the case above uses.
+    it('still recognises an SVG behind a declaration, leading whitespace or a byte-order mark', () => {
+        const svg = '<svg xmlns="http://www.w3.org/2000/svg"></svg>';
+        const variants = {
+            declaration: new TextEncoder().encode(`<?xml version="1.0" encoding="UTF-8"?>\n${svg}`),
+            whitespace: new TextEncoder().encode(`\n\n  \t${svg}`),
+            comment: new TextEncoder().encode(`<!-- drawn by hand -->\n${svg}`),
+            byteOrderMark: Uint8Array.from([ 0xef, 0xbb, 0xbf, ...new TextEncoder().encode(svg) ])
+        };
+
+        for (const [ name, buffer ] of Object.entries(variants)) {
+            expect(serverImageProvider.getImageType(buffer), name)
+                .toEqual({ ext: 'svg', mime: 'image/svg+xml' });
+        }
+    });
 });
 
 describe('serverImageProvider.processImage', () => {

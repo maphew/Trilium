@@ -484,6 +484,11 @@ export type ImageCompressionSkipReason =
     /** This build has no image compression at all (the standalone/WASM runtime). */
     | "unsupported-platform"
     /**
+     * Too many pixels to decode within the memory a single image is allowed. Read off the header,
+     * so the image is refused before the attempt rather than after it has failed part-way.
+     */
+    | "too-large"
+    /**
      * The image was replaced while it was being re-encoded — by another request, or by a
      * synchronisation update — so the result was derived from content that no longer exists. Writing
      * it would have put the superseded picture back; the newer one is kept instead.

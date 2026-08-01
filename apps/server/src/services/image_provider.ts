@@ -4,7 +4,7 @@
  */
 
 import { IMAGE_COMPRESSIBLE_FORMATS } from "@triliumnext/commons";
-import { estimateJpegQuality, getLog, options as optionService } from "@triliumnext/core";
+import { estimateJpegQuality, getLog, type InspectedImage, inspectImage, options as optionService } from "@triliumnext/core";
 import type { ImageCompressionOutcome, ImageCompressionRequest, ImageFormat, ImageProvider, ProcessedImage } from "@triliumnext/core/src/services/image_provider.js";
 import imageType from "image-type";
 import isAnimated from "is-animated";
@@ -30,7 +30,43 @@ const COMPRESSIBLE_EXTENSIONS = new Set<string>(IMAGE_COMPRESSIBLE_FORMATS);
  * Raised rather than lifted: it is still what stops a malformed header claiming a size no machine
  * has, and images are decoded one at a time, so this is the peak rather than a budget shared out.
  */
-const DECODE_OPTIONS = { "image/jpeg": { maxMemoryUsageInMB: 1024 } };
+const DECODE_MEMORY_MB = 1024;
+const DECODE_OPTIONS = { "image/jpeg": { maxMemoryUsageInMB: DECODE_MEMORY_MB } };
+
+/**
+ * What a decode is taken to want, per pixel of the image.
+ *
+ * jpeg-js counts every allocation it makes and credits none of them back, so what it weighs against
+ * its budget is the sum of all of them: the coefficient blocks it holds per component (4 bytes a
+ * pixel each), the per-component planes (1 each), the interleaved component data (1 a component)
+ * and the RGBA bitmap at the end (4). For an ordinary photograph, whose chroma planes are stored at
+ * a quarter resolution, that comes to about 15.
+ *
+ * Rounded up from there, so the ceiling below sits inside the budget rather than exactly on it. An
+ * image stored without chroma subsampling wants nearer 22 and can still exceed the budget while
+ * under this ceiling; that decode fails as it always did, reported against the one image.
+ */
+const DECODE_BYTES_PER_PIXEL = 16;
+
+/**
+ * The most pixels an image may have and still be worth attempting.
+ *
+ * Derived from the budget rather than chosen beside it, so raising one raises the other. Applied to
+ * PNG as well, which has no budget of its own at all: pngjs decodes whatever it is given until the
+ * process runs out of memory, and a ceiling refused here is the only guard it gets.
+ */
+const MAX_DECODE_PIXELS = Math.floor((DECODE_MEMORY_MB * 1024 * 1024) / DECODE_BYTES_PER_PIXEL);
+
+/**
+ * Whether the header claims more pixels than {@link MAX_DECODE_PIXELS} allows.
+ *
+ * A header that says nothing about its dimensions is not evidence of anything, so it is allowed
+ * through: the decoder's own budget is still there to stop it, and refusing on a reading that was
+ * never taken would withhold the feature from images that are perfectly ordinary.
+ */
+function exceedsDecodeCeiling({ width, height }: InspectedImage): boolean {
+    return width !== null && height !== null && width * height > MAX_DECODE_PIXELS;
+}
 
 /**
  * Decodes an image with {@link DECODE_OPTIONS} applied.
@@ -57,18 +93,64 @@ type DecodedImage = Awaited<ReturnType<typeof decodeImage>>;
  */
 const PNG_PALETTE_COLORS = 256;
 
+/**
+ * What the buffer holds, read from its bytes.
+ *
+ * The binary formats are asked first, being identifiable from the few bytes of a magic number. SVG
+ * has none — it is text, and the only way to recognise it is to read it — so it is asked last, of
+ * whatever nothing else claimed, and only once the opening bytes suggest markup at all.
+ *
+ * That order is the whole point. `isSvg` validates the document it is given, so it needs the file
+ * as a string in full; building one out of a photograph costs hundreds of milliseconds an image and
+ * answers "no" every time. Asked in this order, no image ever pays for it.
+ */
 async function getImageTypeFromBuffer(buffer: Uint8Array): Promise<ImageFormat | null> {
-    // Check for SVG first (text-based)
-    if (isSvg(Buffer.from(buffer).toString())) {
-        return { ext: "svg", mime: "image/svg+xml" };
-    }
-
     const detected = await imageType(buffer);
+
     if (detected) {
         return { ext: detected.ext, mime: detected.mime };
     }
 
-    return null;
+    return detectSvg(buffer);
+}
+
+/**
+ * SVG, or nothing. Guarded by a look at the opening bytes: `isSvg` takes a string, and turning a
+ * buffer into one is the expensive part, so it is only worth doing for a buffer that begins the way
+ * a document does.
+ *
+ * The guard is deliberately about the bytes rather than the content — anything opening with `<`,
+ * declaration or comment or root element alike, goes through to `isSvg` and is judged there exactly
+ * as it always was.
+ */
+function detectSvg(buffer: Uint8Array): ImageFormat | null {
+    if (!opensLikeMarkup(buffer) || !isSvg(Buffer.from(buffer).toString())) {
+        return null;
+    }
+
+    return { ext: "svg", mime: "image/svg+xml" };
+}
+
+/** How far in to look for the first meaningful character; a document declares itself well inside this. */
+const MARKUP_PROBE_BYTES = 64;
+
+function opensLikeMarkup(buffer: Uint8Array): boolean {
+    // A byte-order mark, which an editor may have written ahead of the declaration.
+    let index = buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf ? 3 : 0;
+    const limit = Math.min(buffer.byteLength, MARKUP_PROBE_BYTES);
+
+    for (; index < limit; index++) {
+        const byte = buffer[index];
+
+        // Space, tab, line feed, carriage return: leading whitespace `isSvg` would trim anyway.
+        if (byte === 0x20 || byte === 0x09 || byte === 0x0a || byte === 0x0d) {
+            continue;
+        }
+
+        return byte === 0x3c;
+    }
+
+    return false;
 }
 
 async function shrinkImage(buffer: Uint8Array, originalName: string): Promise<Uint8Array> {
@@ -120,14 +202,10 @@ async function resize(buffer: Uint8Array, quality: number): Promise<Uint8Array> 
 
 export const serverImageProvider: ImageProvider = {
     getImageType(buffer: Uint8Array): ImageFormat | null {
-        // Synchronous check for SVG
-        if (isSvg(Buffer.from(buffer).toString())) {
-            return { ext: "svg", mime: "image/svg+xml" };
-        }
-
-        // For other formats, we need async detection but interface is sync
-        // Return null and let processImage handle the async detection
-        return null;
+        // SVG is the only format identifiable without reading a magic number asynchronously; the
+        // rest are left to processImage. Guarded like the async path, so a buffer that cannot be a
+        // document is answered from its first byte rather than from a string built out of all of it.
+        return detectSvg(buffer);
     },
 
     async processImage(buffer: Uint8Array, originalName: string, shrink: boolean): Promise<ProcessedImage> {
@@ -181,11 +259,39 @@ export const serverImageProvider: ImageProvider = {
         }
         /* v8 ignore stop */
 
+        const isLossless = format.ext === "png";
+
+        // Whether re-encoding alone is worth doing to *this* image, each kind answering for itself:
+        // a lossy source when its handling asks for it, a lossless one when its handling asks for
+        // anything at all — rewriting a PNG as the same PNG at its own size gains nothing.
+        //
+        // A PNG's transparency does not enter into it, though it decides *which* re-encoding
+        // happens: an image `jpeg` cannot take is quantized instead, so either way there is one to
+        // do. That is what lets this be answered before the image is decoded.
+        const worthReencoding = isLossless ? request.pngHandling !== "keep" : request.jpegHandling === "compress";
+
+        // Read off the header rather than from the pixels: deciding whether anything is going to
+        // happen to an image should not cost more than doing it. Dimensions the header does not
+        // give up leave this open, and the exact answer is taken from the decode below.
+        const declared = inspectImage(buffer);
+        const declaredEdge = Math.max(declared.width ?? 0, declared.height ?? 0);
+        const mayNeedResize = request.resize && (declaredEdge === 0 || declaredEdge > request.maxWidthHeight);
+
+        if (!mayNeedResize && !worthReencoding) {
+            return { compressed: false, reason: "no-gain" };
+        }
+
+        if (exceedsDecodeCeiling(declared)) {
+            getLog().info(
+                `Image of ${declared.width}x${declared.height} is too large to decode; leaving it alone.`);
+
+            return { compressed: false, reason: "too-large" };
+        }
+
         const start = Date.now();
         const image = await decodeImage(buffer);
         const { width, height } = image.bitmap;
         const needsResize = request.resize && Math.max(width, height) > request.maxWidthHeight;
-        const isLossless = format.ext === "png";
 
         // Only consulted where it changes the answer. JPEG has no alpha channel, so a transparent
         // image cannot be converted — it is optimized instead, that being the best still available
@@ -199,11 +305,8 @@ export const serverImageProvider: ImageProvider = {
         // covers both `optimize` and a transparent image that `jpeg` could not take.
         const quantize = isLossless && !toJpeg && request.pngHandling !== "keep";
 
-        // Whether re-encoding alone is worth doing to *this* image, each kind answering for itself:
-        // a lossy source when its handling asks for it, a lossless one when its handling asks for
-        // anything at all — rewriting a PNG as the same PNG at its own size gains nothing.
-        const worthReencoding = isLossless ? (toJpeg || quantize) : request.jpegHandling === "compress";
-
+        // Reached only where the header would not say how large the image was: everything else was
+        // settled above without decoding.
         if (!needsResize && !worthReencoding) {
             return { compressed: false, reason: "no-gain" };
         }

@@ -355,6 +355,35 @@ describe("compression parameters", () => {
         expect(res.body.items.filter((item) => item.compressed).map((item) => item.title)).toEqual([ expected ]);
     });
 
+    it("settles an image it has nothing to do to without ever decoding it", async () => {
+        const { noteId } = await createTextNote(api);
+        // Undecodable on purpose: reaching the decoder at all would report this as an error, so
+        // "no-gain" is proof that the run answered from the header alone. That matters for what a
+        // decode costs — a large photograph wants most of a gigabyte to say it needed nothing.
+        const attachmentId = await addAttachment(noteId, "corrupt.png", corruptPng);
+
+        const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
+            body: { resize: true, maxWidthHeight: 1920, jpegHandling: "keep", pngHandling: "keep" }
+        });
+
+        expect(res.body.items[0]).toMatchObject({ compressed: false, skipReason: "no-gain" });
+        expect(readAttachment(attachmentId).size).toBe(corruptPng.byteLength);
+    });
+
+    it("refuses an image too large to decode rather than failing part-way through one", async () => {
+        const { noteId } = await createTextNote(api);
+        // 400 megapixels by its own header — well past what one decode is allowed. The bytes behind
+        // it are an 8x8 image, so anything that did attempt the decode would answer "error".
+        const attachmentId = await addAttachment(noteId, "huge.png", withDeclaredSize(smallPng, 20000, 20000));
+
+        const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
+            body: { resize: true, maxWidthHeight: 1920, pngHandling: "jpeg" }
+        });
+
+        expect(res.body.items[0]).toMatchObject({ compressed: false, skipReason: "too-large" });
+        expect(readAttachment(attachmentId).mime).toBe("image/png");
+    });
+
     it("shrinks a transparent image, which nothing else in the run can reach", async () => {
         const noteId = await createImageNote(transparentPng);
 
@@ -495,6 +524,20 @@ function paintPhoto(image: InstanceType<typeof Jimp>, alpha: number) {
             image.setPixelColor((((r << 24) | (g << 16) | (b << 8) | alpha) >>> 0), x, y);
         }
     }
+}
+
+/**
+ * The same PNG, its IHDR rewritten to claim the given dimensions — width and height sit at fixed
+ * offsets, and nothing on this path verifies the chunk's checksum. A header that lies about how
+ * large the image is, which is exactly what the ceiling has to answer for.
+ */
+function withDeclaredSize(png: Uint8Array, width: number, height: number): Uint8Array {
+    const patched = new Uint8Array(png);
+    const header = new DataView(patched.buffer);
+    header.setUint32(16, width);
+    header.setUint32(20, height);
+
+    return patched;
 }
 
 /** Creates a real image note holding the given bytes and returns its noteId. */
