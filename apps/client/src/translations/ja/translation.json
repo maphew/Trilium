@@ -2036,10 +2036,10 @@
   "vacuum_database": {
     "title": "データベースのバキューム",
     "description": "これによりデータベースが再構築され、通常はデータベースファイルのサイズが小さくなります。実際のデータは変更されません。",
-    "button_text": "今すぐバキューム",
-    "vacuuming_database": "データベースのバキュームを実行中...",
-    "database_vacuumed": "データベースのバキューム処理が完了しました",
-    "vacuum_label": "データベースのバキューム",
+    "button_text": "今すぐ最適化",
+    "vacuuming_database": "データベースを最適化中...",
+    "database_vacuumed": "データベースの最適化が完了しました",
+    "vacuum_label": "データベースの最適化（Vacuum）",
     "vacuum_description": "データベースを再構築してファイルサイズを削減します。データは変更されません。"
   },
   "ribbon": {
@@ -2102,7 +2102,9 @@
     "erase_excess_revision_snapshots_prompt": "余分な変更履歴が消去されました。",
     "note_revisions_snapshot_limit_description_short": "ノートごとの最大変更履歴数。無制限の場合は -1、無効にする場合は 0 を指定してください。",
     "erase_excess_revision_snapshots_description": "すべてのノートで、制限を超えた変更履歴を削除します。",
-    "erase_now_button": "今すぐ削除"
+    "erase_now_button": "今すぐ削除",
+    "keep_named_revisions_label": "名前付き変更履歴を保持",
+    "keep_named_revisions_description": "名前を付けた変更履歴は削除されず、最大保持数のカウントにも含まれません。"
   },
   "editability_select": {
     "note_is_read_only": "ノートは読み取り専用ですが、ボタンをクリックすると編集できます。",
@@ -2249,7 +2251,10 @@
     "scripting_disabled_button": "セキュリティ設定を開く"
   },
   "settings": {
-    "related_settings": "関連設定"
+    "related_settings": "関連設定",
+    "related_actions": "関連アクション",
+    "related_space_usage": "データベース内の容量使用状況を分析",
+    "related_space_usage_description": "容量を最も多く消費しているノート、変更履歴、添付ファイルを確認し、容量を解放します。"
   },
   "settings_appearance": {
     "related_code_blocks": "テキストノート内のコードブロックの配色",
@@ -3544,6 +3549,12 @@
     "cleanup_confirm_interrupted": "クラッシュ、再起動、停電などで処理が中断された場合でも、選択した項目以外のデータが失われることはありません。",
     "cleanup_confirm_compacting_title": "データベースの最適化には時間がかかります",
     "cleanup_confirm_compacting": "データベースの最適化には、そのサイズや Trilium を実行しているマシンの性能に応じて、数分かかる場合があります。また、マシン上に最大 {{space}} の空きディスク容量が一時的に必要となります（データディレクトリおよびシステムの一時ディレクトリ内）。",
-    "cleanup_compact_notice": "この処理には数分かかる場合があり、完了するまで Trilium は応答しなくなります。"
+    "cleanup_compact_notice": "この処理には数分かかる場合があり、完了するまで Trilium は応答しなくなります。",
+    "cleanup_snapshots_to_keep_help": "最新のものから遡って、各ノートにつき何個の変更履歴のスナップショットを保持するかを指定します。「0」にすると、変更履歴がすべて削除されます。",
+    "cleanup_keep_named_help": "名前を付けた変更履歴は、各ノート用に保持されるスナップショット数とは別に、その数にかかわらず常に保存されます。"
+  },
+  "contextual_help": {
+    "label": "ヘルプ: {{- message}}",
+    "sheet_label": "ヘルプ"
   }
 }
