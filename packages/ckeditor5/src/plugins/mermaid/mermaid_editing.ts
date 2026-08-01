@@ -130,7 +130,7 @@ export default class MermaidEditing extends Plugin {
 		};
 		const textareaAttributes = {
 			class: [ 'ck-mermaid__editing-view' ],
-			placeholder: t( 'Insert mermaid source code' ),
+			placeholder: t( 'Insert Mermaid source code' ),
 			'data-cke-ignore-events': true
 		};
 
