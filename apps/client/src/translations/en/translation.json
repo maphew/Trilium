@@ -3604,6 +3604,9 @@
     "checkbox-tooltip": "Right-click or press {{- shortcut}} to change state.",
     "checkbox-tooltip-state-label": "Task state:",
     "checkbox-tooltip-state-unknown-suffix": "(missing definition)",
+    "ck": {
+      "admonition": "Admonition"
+    },
     "collapsible-body-placeholder": "Type the content here...",
     "collapsible-button-label": "Collapsible block",
     "collapsible-handle-tooltip": "Drag to reposition the collapsible block",

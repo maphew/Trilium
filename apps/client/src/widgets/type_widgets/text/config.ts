@@ -184,7 +184,9 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
             allow: JSON.parse(options.get("allowedHtmlTags"))
         },
         removePlugins: getDisabledPlugins(),
-        ...await getCkLocale(opts.uiLanguage)
+        // The locale's CKEditor translations, plus the dictionary of Trilium-authored editor
+        // strings resolved through the app's i18n (see `messages.ts` in the ckeditor5 package).
+        ...await getCkLocale(opts.uiLanguage, (key) => t(key))
     };
 
     // User-configurable todo task states (from the `_taskStates` hidden subtree).

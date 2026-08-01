@@ -129,9 +129,11 @@ describe("CK config", () => {
             if (locale.id !== "en" && locale.id !== "ga") {
                 expect((config.language as unknown as { ui: string }).ui).toMatch(new RegExp(`^${expectedLocale}`));
                 expect(config.translations, locale.id).toBeDefined();
-                // Only CKEditor's GPL core translations: the premium bundle used to contribute a
-                // second entry, but no premium plugin is loaded any more.
-                expect(config.translations, locale.id).toHaveLength(1);
+                // The merge seed and CKEditor's GPL core translations. The premium bundle used to
+                // contribute another entry, but no premium plugin is loaded any more; the Trilium
+                // message dictionary is absent because i18next is not initialized here, so every
+                // editor string falls back to the English message id.
+                expect(config.translations, locale.id).toHaveLength(2);
             }
         }
     }, 20_000);

@@ -1,6 +1,8 @@
 import { DISPLAYABLE_LOCALE_IDS } from "@triliumnext/commons";
 import { EditorConfig, Translations } from "ckeditor5";
 
+import { buildMessageDictionary } from "./messages.js";
+
 interface LocaleMapping {
     languageCode: string;
     coreTranslation: () => Promise<{ default: Translations }>;
@@ -88,13 +90,48 @@ const LOCALE_MAPPINGS: Record<DISPLAYABLE_LOCALE_IDS, LocaleMapping | null> = {
     },
 };
 
-export default async function getCkLocale(locale: DISPLAYABLE_LOCALE_IDS): Promise<Pick<EditorConfig, "language" | "translations">> {
+/**
+ * Build the editor's language configuration: CKEditor's own translations for the locale, plus the
+ * dictionary of Trilium-authored strings (see `messages.ts`).
+ *
+ * The two are separate entries in the `translations` array, and CKEditor merges them in order, so
+ * ours wins where both define a message id — which is how an upstream string can be reworded per
+ * locale.
+ *
+ * @param locale the Trilium locale to configure the editor for.
+ * @param translate the host's translator, resolving an i18next key to the localized string. Omit it
+ *                  (a test, a standalone editor) and every Trilium string falls back to the English
+ *                  message id passed to `editor.t()`.
+ */
+export default async function getCkLocale(
+    locale: DISPLAYABLE_LOCALE_IDS,
+    translate?: (key: string) => string
+): Promise<Pick<EditorConfig, "language" | "translations">> {
     const mapping = LOCALE_MAPPINGS[locale];
-    if (!mapping) return {};
+    const translations: Translations[] = [];
 
-    const coreTranslation = (await (mapping.coreTranslation())).default;
+    // `en`, the `en_rtl` pseudo-locale and `ga` have no CKEditor translation to load; they still get
+    // our dictionary, since it also carries any rewording of CKEditor's built-in English strings.
+    if (mapping) {
+        translations.push((await mapping.coreTranslation()).default);
+    }
+
+    if (translate) {
+        const dictionary = buildMessageDictionary(translate);
+        if (Object.keys(dictionary).length > 0) {
+            // Keyed by the language CKEditor will resolve messages under, which is the editor's
+            // default (`en`) whenever we pass no `language` below.
+            translations.push({ [mapping?.languageCode ?? "en"]: { dictionary } });
+        }
+    }
+
     return {
-        language: mapping.languageCode,
-        translations: [ coreTranslation ]
+        ...(mapping ? { language: mapping.languageCode } : {}),
+        // The empty leading entry is load-bearing. CKEditor merges `translations` with
+        // `array.reduce(merge)` and no initial value, so the *first* entry is mutated in place —
+        // without the seed our dictionary would be written into the imported
+        // `ckeditor5/translations/<lang>.js` module object, which is shared by every editor on the
+        // page and would keep applying to editors built with no dictionary at all.
+        ...(translations.length > 0 ? { translations: [ {}, ...translations ] } : {})
     };
 }
