@@ -19,6 +19,33 @@ const PNG_FORMAT: ImageFormat = { ext: "png", mime: "image/png" };
 const COMPRESSIBLE_EXTENSIONS = new Set<string>(IMAGE_COMPRESSIBLE_FORMATS);
 
 /**
+ * What one JPEG decode may allocate.
+ *
+ * jpeg-js budgets 512 MB and refuses outright to decode anything needing more, which a photograph
+ * off a modern camera or a flatbed scan exceeds on its own — and those are exactly the images worth
+ * compressing, so the default withholds the feature precisely where it was wanted. A decode holds
+ * the coefficient blocks, the per-component planes and the RGBA bitmap at once, on the order of a
+ * dozen bytes per pixel, so this reaches into the tens of megapixels.
+ *
+ * Raised rather than lifted: it is still what stops a malformed header claiming a size no machine
+ * has, and images are decoded one at a time, so this is the peak rather than a budget shared out.
+ */
+const DECODE_OPTIONS = { "image/jpeg": { maxMemoryUsageInMB: 1024 } };
+
+/**
+ * Decodes an image with {@link DECODE_OPTIONS} applied.
+ *
+ * Not `Jimp.read`: it takes decode options in its signature and then calls `fromBuffer` without
+ * them, so passing a memory budget there reads as correct and does nothing at all.
+ */
+function decodeImage(buffer: Uint8Array) {
+    return Jimp.fromBuffer(Buffer.from(buffer), DECODE_OPTIONS);
+}
+
+/** What {@link decodeImage} hands back, for the helpers that work on a decoded image. */
+type DecodedImage = Awaited<ReturnType<typeof decodeImage>>;
+
+/**
  * How large a palette the PNG quantizer may keep — deliberately the largest an indexed PNG can
  * hold, which makes this the gentlest lossy setting there is while still doing the work.
  *
@@ -73,7 +100,7 @@ async function resize(buffer: Uint8Array, quality: number): Promise<Uint8Array> 
 
     const start = Date.now();
 
-    const image = await Jimp.read(Buffer.from(buffer));
+    const image = await decodeImage(buffer);
 
     if (image.bitmap.width > image.bitmap.height && image.bitmap.width > imageMaxWidthHeight) {
         image.resize({ w: imageMaxWidthHeight });
@@ -155,7 +182,7 @@ export const serverImageProvider: ImageProvider = {
         /* v8 ignore stop */
 
         const start = Date.now();
-        const image = await Jimp.read(Buffer.from(buffer));
+        const image = await decodeImage(buffer);
         const { width, height } = image.bitmap;
         const needsResize = request.resize && Math.max(width, height) > request.maxWidthHeight;
         const isLossless = format.ext === "png";
@@ -252,7 +279,7 @@ const FALLBACK_RESIZE_QUALITY = 92;
  *                           are not measuring the same picture, which is the reading that matters
  *                           anyway — how much smaller the stored image ends up.
  */
-function quantizePng(image: Awaited<ReturnType<typeof Jimp.read>>, originalByteLength: number): Uint8Array {
+function quantizePng(image: DecodedImage, originalByteLength: number): Uint8Array {
     const start = Date.now();
     const { width, height, data } = image.bitmap;
     // A tightly packed copy: UPNG reads the whole ArrayBuffer, so a view carrying a byte offset or
@@ -270,7 +297,7 @@ function quantizePng(image: Awaited<ReturnType<typeof Jimp.read>>, originalByteL
 }
 
 /** True when any pixel is less than fully opaque, read off the decoded RGBA bitmap. */
-function hasTransparency(image: Awaited<ReturnType<typeof Jimp.read>>): boolean {
+function hasTransparency(image: DecodedImage): boolean {
     const { data } = image.bitmap;
 
     for (let i = 3; i < data.length; i += 4) {
