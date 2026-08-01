@@ -1167,7 +1167,11 @@ export default class CollapsibleEditing extends Plugin {
         document.registerPostFixer(writer => this.structuralPostFixer(writer));
         document.registerPostFixer(writer => this.summaryInvariantPostFixer(writer));
         document.registerPostFixer(writer => this.bodyExistsPostFixer(writer));
-        document.registerPostFixer(writer => this.gapPostFixer(writer));
+        // No post-fixer for a caret parked directly inside a <details> (in the "gap" between
+        // its children): CKEditor's own selection post-fixer runs before every plugin
+        // post-fixer and already moves it to the nearest valid text position, and the
+        // post-fixer loop restarts from the top after any fix — so a gap position never
+        // survives to be observed here. See the note on hiddenBodyPostFixer.
         document.registerPostFixer(writer => this.hiddenBodyPostFixer(writer));
     }
 
@@ -1314,41 +1318,6 @@ export default class CollapsibleEditing extends Plugin {
                 const parent = (entry as any).position?.parent;
                 if (parent?.is("element", "details") && ensureValid(parent)) return true;
             }
-        }
-        return false;
-    }
-
-    /**
-     * Prevent the caret from sitting in the "gap" position directly inside a
-     * <details> (between summary and a body block). Prefer the previous sibling
-     * so the caret stays on the summary line when the block is collapsed.
-     */
-    private gapPostFixer(writer: any): boolean {
-        const selection = this.editor.model.document.selection;
-        // Only re-pin the caret — never collapse a user's multi-block selection.
-        if (!selection.isCollapsed) return false;
-        const position = selection.getFirstPosition();
-        if (!position || !position.parent.is("element", "details")) return false;
-        const details = position.parent;
-        const before = position.offset > 0 ? details.getChild(position.offset - 1) : null;
-        const after = details.getChild(position.offset);
-
-        // If `before` is a nested <details>, landing at its "end" would just put us
-        // in another gap (childCount). Dig one level deeper to its last child block.
-        if (before?.is("element", "details") && before.childCount > 0) {
-            const last = before.getChild(before.childCount - 1);
-            if (last?.is("element")) {
-                writer.setSelection(last, "end");
-                return true;
-            }
-        }
-        if (before?.is("element")) {
-            writer.setSelection(before, "end");
-            return true;
-        }
-        if (after?.is("element")) {
-            writer.setSelection(after, 0);
-            return true;
         }
         return false;
     }

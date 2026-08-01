@@ -2,7 +2,7 @@ import { ClassicEditor, Essentials, Paragraph, _setModelData as setModelData, _g
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import CollapsibleEditing from "./collapsible_editing.js";
 
-describe("gapPostFixer + onEnterInBody", () => {
+describe("caret pinning inside a collapsible + onEnterInBody", () => {
     let domElement: HTMLDivElement;
     let editor: ClassicEditor;
     let model: ClassicEditor["model"];
@@ -22,8 +22,14 @@ describe("gapPostFixer + onEnterInBody", () => {
         return editor.destroy();
     });
 
-    describe("gapPostFixer", () => {
-        it("re-pins a caret that lands directly between <summary> and the body to the end of <summary>", () => {
+    /**
+     * These guard the outcome, not an implementation of ours: the plugin used to carry a
+     * `gapPostFixer` for this, but CKEditor's own selection post-fixer runs before every plugin
+     * post-fixer and already moves a caret out of a container position, so ours never ran. The
+     * assertions below are kept as regression cover for the behaviour users actually get.
+     */
+    describe("a caret never rests between a collapsible's children", () => {
+        it("moves a caret dropped between <summary> and the body to the end of <summary>", () => {
             setModelData(model,
                 "<details><summary>Title</summary><paragraph>body</paragraph></details>"
             );
@@ -39,9 +45,11 @@ describe("gapPostFixer + onEnterInBody", () => {
             );
         });
 
-        it("dives into a nested <details>'s last block when the gap before the caret is a nested <details>", () => {
-            // Both details are open so hiddenBodyPostFixer doesn't rescue the caret
-            // away from the nested body — we're isolating gapPostFixer here.
+        it("descends into a nested collapsible's last block when that is the nearest text position", () => {
+            // Both details are open so hiddenBodyPostFixer doesn't rescue the caret away from the
+            // nested body. The nested collapsible is the outer one's last child, so the nearest
+            // valid position is backwards, inside it. (With a sibling after the gap the caret goes
+            // forward to that sibling instead.)
             setModelData(model,
                 "<details open=\"true\">" +
                     "<summary>Outer</summary>" +
