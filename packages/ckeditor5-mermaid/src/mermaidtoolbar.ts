@@ -22,13 +22,11 @@ export default class MermaidToolbar extends Plugin {
 		const widgetToolbarRepository = editor.plugins.get( WidgetToolbarRepository );
 		const mermaidToolbarItems = [ 'mermaidSourceView', 'mermaidSplitView', 'mermaidPreview', '|', 'mermaidInfo' ];
 
-		if ( mermaidToolbarItems ) {
-			widgetToolbarRepository.register( 'mermaidToolbar', {
-				ariaLabel: t( 'Mermaid toolbar' ),
-				items: mermaidToolbarItems,
-				getRelatedElement: selection => getSelectedElement( selection )
-			} );
-		}
+		widgetToolbarRepository.register( 'mermaidToolbar', {
+			ariaLabel: t( 'Mermaid toolbar' ),
+			items: mermaidToolbarItems,
+			getRelatedElement: selection => getSelectedElement( selection )
+		} );
 	}
 }
 

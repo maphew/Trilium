@@ -27,7 +27,8 @@ export default class MermaidPreviewCommand extends Command {
 		const editor = this.editor;
 		const model = editor.model;
 		const documentSelection = this.editor.model.document.selection;
-		const mermaidItem = (documentSelection.getSelectedElement() || documentSelection.getLastPosition()?.parent) as ModelElement;
+		// `mermaid` is an object element, so the selection is always *on* it — never inside.
+		const mermaidItem = documentSelection.getSelectedElement() as ModelElement | null;
 
 		if (mermaidItem) {
 			model.change( writer => {

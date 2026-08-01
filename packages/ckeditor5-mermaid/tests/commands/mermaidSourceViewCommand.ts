@@ -108,4 +108,36 @@ describe( 'MermaidSourceViewCommand', () => {
 			);
 		} );
 	} );
+
+	describe( "#execute() edge cases", () => {
+		it( "resolves the mermaid from the caret when nothing is selected", () => {
+			setModelData( model, '<mermaid displayMode="split" source="foo">[]</mermaid>' );
+
+			command.execute();
+
+			expect( getModelData( model, { withoutSelection: true } ) )
+				.to.equal( `<mermaid displayMode="source" source="foo"></mermaid>` );
+		} );
+
+		it( "leaves a mermaid already in source mode untouched", () => {
+			setModelData( model, `[<mermaid displayMode="source" source="foo"></mermaid>]` );
+			const before = getModelData( model, { withoutSelection: true } );
+
+			command.execute();
+
+			expect( getModelData( model, { withoutSelection: true } ) ).to.equal( before );
+		} );
+
+		it( "does nothing when no mermaid is selected", () => {
+			setModelData( model, "<paragraph>foo[]</paragraph>" );
+			const before = getModelData( model, { withoutSelection: true } );
+
+			// CKEditor blocks execute() on a disabled command, and this command disables itself
+			// when nothing is selected — so force it through to exercise the guard itself.
+			command.isEnabled = true;
+			command.execute();
+
+			expect( getModelData( model, { withoutSelection: true } ) ).to.equal( before );
+		} );
+	} );
 } );

@@ -50,6 +50,29 @@ describe( 'MermaidEditing', () => {
 					);
 				} );
 
+				it( 'ignores a language-mermaid code element that is not inside a pre', () => {
+					editor.setData( '<code class="language-mermaid">flowchart TB</code>' );
+
+					// Left to the code-block/paragraph converters — no mermaid widget.
+					expect( getModelData( model, { withoutSelection: true } ) ).to.not.contain( '<mermaid' );
+				} );
+
+				it( 'ignores a code element without the language-mermaid class', () => {
+					editor.setData( '<pre spellcheck="false"><code class="language-plaintext">plain</code></pre>' );
+
+					expect( getModelData( model, { withoutSelection: true } ) ).to.not.contain( '<mermaid' );
+				} );
+
+				it( 'ignores a mermaid block nested inside another code element', () => {
+					editor.setData(
+						'<pre spellcheck="false"><code class="language-plaintext">' +
+							'<pre spellcheck="false"><code class="language-mermaid">flowchart TB</code></pre>' +
+						'</code></pre>'
+					);
+
+					expect( getModelData( model, { withoutSelection: true } ) ).to.not.contain( '<mermaid' );
+				} );
+
 				it( 'works correctly when empty', () => {
 					editor.setData(
 						'<pre spellcheck="false">' +

@@ -117,11 +117,11 @@ export default class MermaidUI extends Plugin {
 		view.focus();
 
 		if ( mermaidItemViewElement ) {
-			const mermaidItemDomElement = view.domConverter.viewToDom( mermaidItemViewElement );
+			// A view element that is attached always has a DOM counterpart — the editor could not
+			// have rendered the widget otherwise — so this lookup is not guarded separately.
+			const mermaidItemDomElement = view.domConverter.viewToDom( mermaidItemViewElement ) as HTMLElement;
 
-			if ( mermaidItemDomElement ) {
-				(mermaidItemDomElement.querySelector( '.ck-mermaid__editing-view' ) as HTMLElement)?.focus();
-			}
+			mermaidItemDomElement.querySelector<HTMLElement>( '.ck-mermaid__editing-view' )?.focus();
 		}
 	}
 

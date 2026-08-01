@@ -3,7 +3,7 @@ import { ClassicEditor, Paragraph, _getModelData as getModelData, _setModelData 
 import '../src/augmentation.js';
 import Mermaid from '../src/mermaid.js';
 import MermaidUI from '../src/mermaidui.js';
-import { afterEach, beforeEach, describe, it } from 'vitest';
+import { afterEach, beforeEach, describe, it, vi } from 'vitest';
 import { expect } from 'vitest';
 
 /* global document */
@@ -158,3 +158,101 @@ describe( 'MermaidUI', () => {
 	} );
 } );
 
+
+describe( 'MermaidUI without its commands', () => {
+	let domElement: HTMLDivElement;
+
+	beforeEach( () => {
+		domElement = document.createElement( 'div' );
+		document.body.appendChild( domElement );
+	} );
+
+	afterEach( () => {
+		domElement.remove();
+	} );
+
+	it( 'refuses to initialise without the insert command', async () => {
+		// MermaidUI alone: MermaidEditing never registered insertMermaid, and the
+		// insert button is built during init(), so the whole editor fails to start.
+		await expect( ClassicEditor.create( domElement, {
+			licenseKey: 'GPL',
+			plugins: [ Paragraph, MermaidUI ]
+		} ) ).rejects.toThrow( 'Missing command.' );
+	} );
+
+	it( 'refuses to build a toolbar button whose command is missing', async () => {
+		const editor = await ClassicEditor.create( domElement, {
+			licenseKey: 'GPL',
+			plugins: [ Paragraph, Mermaid ]
+		} );
+		const ui = editor.plugins.get( MermaidUI ) as unknown as {
+			_createToolbarButton( editor: ClassicEditor, name: string, label: string, icon: string ): void;
+		};
+
+		// Toolbar buttons resolve their command lazily, inside the factory callback.
+		ui._createToolbarButton( editor, 'mermaidNoSuch', 'No such', '<svg></svg>' );
+
+		expect( () => editor.ui.componentFactory.create( 'mermaidNoSuch' ) ).to.throw( 'Missing command.' );
+
+		await editor.destroy();
+	} );
+} );
+
+describe( 'MermaidUI buttons', () => {
+	let domElement: HTMLDivElement, editor: ClassicEditor;
+
+	beforeEach( async () => {
+		domElement = document.createElement( 'div' );
+		document.body.appendChild( domElement );
+
+		editor = await ClassicEditor.create( domElement, {
+			licenseKey: 'GPL',
+			plugins: [ Paragraph, Mermaid ]
+		} );
+	} );
+
+	afterEach( () => {
+		domElement.remove();
+		return editor.destroy();
+	} );
+
+	it( 'opens the syntax documentation in a new tab', () => {
+		const open = vi.spyOn( window, 'open' ).mockReturnValue( null );
+		const button = editor.ui.componentFactory.create( 'mermaidInfo' );
+
+		button.fire( 'execute' );
+
+		expect( open ).toHaveBeenCalledWith(
+			'https://ckeditor.com/blog/basic-overview-of-creating-flowcharts-using-mermaid/',
+			'_blank',
+			'noopener'
+		);
+
+		open.mockRestore();
+	} );
+
+	it( 'runs the matching command and returns focus when a toolbar button executes', () => {
+		setModelData( editor.model, '[<mermaid displayMode="split" source="foo"></mermaid>]' );
+
+		const execute = vi.spyOn( editor, 'execute' );
+		const focus = vi.spyOn( editor.editing.view, 'focus' );
+		const scroll = vi.spyOn( editor.editing.view, 'scrollToTheSelection' );
+
+		editor.ui.componentFactory.create( 'mermaidPreview' ).fire( 'execute' );
+
+		expect( execute ).toHaveBeenCalledWith( 'mermaidPreviewCommand' );
+		expect( scroll ).toHaveBeenCalled();
+		expect( focus ).toHaveBeenCalled();
+	} );
+
+	it( 'tracks its command through isOn and isEnabled', () => {
+		setModelData( editor.model, '[<mermaid displayMode="preview" source="foo"></mermaid>]' );
+
+		const button = editor.ui.componentFactory.create( 'mermaidPreview' ) as unknown as {
+			isOn: boolean; isEnabled: boolean;
+		};
+
+		expect( button.isOn ).to.equal( true );
+		expect( button.isEnabled ).to.equal( true );
+	} );
+} );
