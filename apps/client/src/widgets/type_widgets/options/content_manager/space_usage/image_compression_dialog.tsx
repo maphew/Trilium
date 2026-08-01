@@ -22,9 +22,8 @@ import {
     readImageCompressionOptions
 } from "./image_compression_options";
 import {
-    ConvertLosslessSection,
     JpegQualitySection,
-    OptimizePngSection,
+    PngHandlingSection,
     ProcessChildNotesSection,
     ReduceResolutionSection,
     ReencodeImagesSection
@@ -135,11 +134,11 @@ function ImageCompressionDialog({ target, onFinished }: {
             <Card className="image-compression-settings">
                 <ReduceResolutionSection {...sectionProps} />
                 <ReencodeImagesSection {...sectionProps} />
-                <ConvertLosslessSection {...sectionProps} />
-                <OptimizePngSection {...sectionProps} />
-                {/* Not nested under any of them: the quality governs every step that writes a
-                    JPEG, and none of the step that writes a PNG. */}
+                {/* Straight after the step it governs, rather than under it: scaling a JPEG has to
+                    write one back too, so it is in force for either. */}
                 <JpegQualitySection {...sectionProps} />
+                {/* Last of the three, since converting brings a quality of its own nested beneath. */}
+                <PngHandlingSection {...sectionProps} />
                 {/* An attachment is one image; there is no subtree under it to reach into. */}
                 {target.type === "note" && <ProcessChildNotesSection {...sectionProps} />}
             </Card>

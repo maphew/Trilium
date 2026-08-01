@@ -36,9 +36,9 @@ export function runImageCompression(
         resize: options.resize,
         maxWidthHeight: options.maxWidthHeight,
         reencode: options.reencode,
-        convertLossless: options.convertLossless,
-        optimizePNG: options.optimizePNG,
+        pngHandling: options.pngHandling,
         quality: options.quality,
+        conversionQuality: options.conversionQuality,
         // Left out entirely for an attachment, which has no subtree to descend into — the endpoint
         // does not read it, and sending it would suggest it does.
         ...(target.type === "note" ? { recursive: options.processChildNotes } : {})

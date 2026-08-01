@@ -11,7 +11,7 @@
  * recompressed belongs to the platform's {@link ImageProvider}.
  */
 
-import { getImageAttachmentTitle, type ImageCompressionItem, type ImageCompressionOptions, type ImageCompressionResponse, type ImageCompressionSkipReason } from "@triliumnext/commons";
+import { getImageAttachmentTitle, IMAGE_PNG_HANDLINGS, type ImageCompressionItem, type ImageCompressionOptions, type ImageCompressionResponse, type ImageCompressionSkipReason } from "@triliumnext/commons";
 
 import becca from "../becca/becca.js";
 import type BAttachment from "../becca/entities/battachment.js";
@@ -27,6 +27,14 @@ import { wrapStringOrBuffer } from "./utils/binary.js";
 const MIN_QUALITY = 10;
 const MAX_QUALITY = 100;
 const DEFAULT_QUALITY = 75;
+
+/**
+ * Where converting a lossless image starts, deliberately above {@link DEFAULT_QUALITY}: this is a
+ * one-time transition away from a pristine original, so quality given up here is detail that was
+ * genuinely there. Recompressing an image that has already been through an encoder is the opposite
+ * trade — the loss is baked in, and spending quality on it buys back little.
+ */
+const DEFAULT_CONVERSION_QUALITY = 85;
 /** A one-pixel bound is pointless but harmless; anything below it cannot be resized to. */
 const MIN_MAX_WIDTH_HEIGHT = 1;
 
@@ -62,36 +70,43 @@ export async function compressAttachmentImage(attachmentId: string, options?: Im
  * failing the request — the caller did not choose that value and cannot fix it from here.
  */
 export function resolveCompressionRequest(options: ImageCompressionOptions = {}): ImageCompressionRequest {
-    const { resize, maxWidthHeight, reencode, convertLossless, optimizePNG, quality } = options;
+    const { resize, maxWidthHeight, reencode, pngHandling, quality, conversionQuality } = options;
 
     if (maxWidthHeight !== undefined && (!Number.isInteger(maxWidthHeight) || maxWidthHeight < MIN_MAX_WIDTH_HEIGHT)) {
         throw new ValidationError(`maxWidthHeight must be an integer of ${MIN_MAX_WIDTH_HEIGHT} or above.`);
     }
 
-    if (quality !== undefined && (!Number.isInteger(quality) || quality < MIN_QUALITY || quality > MAX_QUALITY)) {
-        throw new ValidationError(`quality must be an integer between ${MIN_QUALITY} and ${MAX_QUALITY}.`);
-    }
-
+    requireQuality(quality, "quality");
+    requireQuality(conversionQuality, "conversionQuality");
     requireBoolean(resize, "resize");
     requireBoolean(reencode, "reencode");
-    requireBoolean(convertLossless, "convertLossless");
-    requireBoolean(optimizePNG, "optimizePNG");
+
+    if (pngHandling !== undefined && !IMAGE_PNG_HANDLINGS.includes(pngHandling)) {
+        throw new ValidationError(`pngHandling must be one of: ${IMAGE_PNG_HANDLINGS.join(", ")}.`);
+    }
 
     return {
-        // Every step defaults on: a request that named none of them asked for the images to be
-        // compressed, and switching one off is what narrows that down.
+        // Every step defaults to acting: a request that named none of them asked for the images to
+        // be compressed, and narrowing that down is what the fields are for. For a PNG that means
+        // being made smaller without ceasing to be one.
         resize: resize ?? true,
         maxWidthHeight: maxWidthHeight ?? optionService.getOptionInt("imageMaxWidthHeight"),
         reencode: reencode ?? true,
-        convertLossless: convertLossless ?? true,
-        optimizePNG: optimizePNG ?? true,
-        quality: quality ?? defaultQuality()
+        pngHandling: pngHandling ?? "optimize",
+        quality: quality ?? defaultQuality(),
+        conversionQuality: conversionQuality ?? DEFAULT_CONVERSION_QUALITY
     };
 }
 
 function requireBoolean(value: unknown, name: string) {
     if (value !== undefined && typeof value !== "boolean") {
         throw new ValidationError(`${name} must be a boolean.`);
+    }
+}
+
+function requireQuality(value: number | undefined, name: string) {
+    if (value !== undefined && (!Number.isInteger(value) || value < MIN_QUALITY || value > MAX_QUALITY)) {
+        throw new ValidationError(`${name} must be an integer between ${MIN_QUALITY} and ${MAX_QUALITY}.`);
     }
 }
 

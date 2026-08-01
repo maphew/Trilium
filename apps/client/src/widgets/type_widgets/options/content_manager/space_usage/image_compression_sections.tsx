@@ -1,10 +1,14 @@
 import "./image_compression_sections.css";
 
+import { IMAGE_PNG_HANDLINGS } from "@triliumnext/commons";
+import clsx from "clsx";
+
 import { t } from "../../../../../services/i18n";
 import { CardSection } from "../../../../react/Card";
 import ContextualHelp from "../../../../react/ContextualHelp";
 import { FormTextBoxWithUnit } from "../../../../react/FormTextBox";
 import FormToggle from "../../../../react/FormToggle";
+import SegmentedChoice from "../../../../react/SegmentedChoice";
 import Slider from "../../../../react/Slider";
 import {
     type ImageCompressionToolOptions,
@@ -101,45 +105,50 @@ export function ReencodeImagesSection({ options, onChange, disabled }: ImageComp
 }
 
 /**
- * Letting lossless images be re-encoded as lossy ones. A choice of its own rather than part of the
- * row above: squeezing the JPEGs harder is no reason to stop a PNG being a PNG, and this is the one
- * step that changes what kind of image a file is.
+ * What becomes of a PNG — one exclusive choice rather than a set of switches, because only one of
+ * the three can ever happen to a given image: it survives as it is, survives smaller, or stops
+ * being a PNG. Two toggles would claim they combine, and they do not.
+ *
+ * Converting brings its own quality with it, nested underneath: it is the only setting that
+ * qualifies this choice alone, and someone converting a pristine original may well want more
+ * quality here than they would spend recompressing an image that is already lossy.
  */
-export function ConvertLosslessSection({ options, onChange, disabled }: ImageCompressionSectionProps) {
+export function PngHandlingSection(props: ImageCompressionSectionProps) {
+    const { options, onChange, disabled } = props;
+
     return (
-        <CardSection className="image-compression-section">
+        <CardSection
+            className="image-compression-section"
+            subSectionsVisible={options.pngHandling === "jpeg"}
+            subSections={[ <ConversionQualitySection key="conversion-quality" {...props} /> ]}
+        >
             <span className="image-compression-section-title">
-                {t("space_usage.compress_convert_lossless")}
-                <ContextualHelp helpMessage={t("space_usage.compress_convert_lossless_help")} />
+                {t("space_usage.compress_png_handling")}
+                <ContextualHelp helpMessage={t("space_usage.compress_png_handling_help")} />
             </span>
-            <FormToggle
-                disabled={disabled}
-                currentValue={options.convertLossless}
-                onChange={(value) => onChange({ convertLossless: value })}
+            <SegmentedChoice
+                className="image-compression-section-choice"
+                currentValue={disabled ? "" : options.pngHandling}
+                options={IMAGE_PNG_HANDLINGS.map((value) => ({
+                    value,
+                    label: t(`space_usage.compress_png_${value}`)
+                }))}
+                onChange={(value) => !disabled && onChange({ pngHandling: value })}
             />
         </CardSection>
     );
 }
 
-/**
- * Shrinking a PNG in place, by reducing it to a palette rather than by changing what it is.
- *
- * Sits after converting because it is what picks up what converting cannot: transparent images,
- * which are never converted, and every PNG at all when converting is off.
- */
-export function OptimizePngSection({ options, onChange, disabled }: ImageCompressionSectionProps) {
+/** The quality a converted PNG is written at, kept apart from the recompression quality above. */
+export function ConversionQualitySection({ options, onChange, disabled }: ImageCompressionSectionProps) {
     return (
-        <CardSection className="image-compression-section">
-            <span className="image-compression-section-title">
-                {t("space_usage.compress_optimize_png")}
-                <ContextualHelp helpMessage={t("space_usage.compress_optimize_png_help")} />
-            </span>
-            <FormToggle
-                disabled={disabled}
-                currentValue={options.optimizePNG}
-                onChange={(value) => onChange({ optimizePNG: value })}
-            />
-        </CardSection>
+        <QualitySlider
+            label={t("space_usage.compress_quality")}
+            value={options.conversionQuality}
+            disabled={disabled}
+            onChange={(value) => onChange({ conversionQuality: value })}
+            nested
+        />
     );
 }
 
@@ -153,18 +162,12 @@ export function OptimizePngSection({ options, onChange, disabled }: ImageCompres
  */
 export function JpegQualitySection({ options, onChange, disabled }: ImageCompressionSectionProps) {
     return (
-        <CardSection className="image-compression-section">
-            <span className="image-compression-section-title">{t("images.jpeg_quality")}</span>
-            <span className="image-compression-section-value">{t("space_usage.compress_quality_value", { quality: options.quality })}</span>
-            <Slider
-                min={MIN_QUALITY}
-                max={MAX_QUALITY}
-                step={QUALITY_STEP}
-                disabled={disabled}
-                value={options.quality}
-                onChange={(value) => onChange({ quality: value })}
-            />
-        </CardSection>
+        <QualitySlider
+            label={t("images.jpeg_quality")}
+            value={options.quality}
+            disabled={disabled}
+            onChange={(value) => onChange({ quality: value })}
+        />
     );
 }
 
@@ -180,6 +183,37 @@ export function ProcessChildNotesSection({ options, onChange, disabled }: ImageC
                 disabled={disabled}
                 currentValue={options.processChildNotes}
                 onChange={(value) => onChange({ processChildNotes: value })}
+            />
+        </CardSection>
+    );
+}
+
+/**
+ * The row shared by both qualities: a title, the current figure, and the slider it reads.
+ *
+ * The figure sits between the two rather than inside the title — a slider says which way it is
+ * going but never where it is, and the reading belongs beside the control it reads.
+ */
+function QualitySlider({ label, value, onChange, disabled, nested }: {
+    label: string;
+    value: number;
+    onChange: (value: number) => void;
+    disabled?: boolean;
+    nested?: boolean;
+}) {
+    return (
+        <CardSection className={clsx("image-compression-section", nested && "image-compression-section-nested")}>
+            <span className="image-compression-section-title">{label}</span>
+            <span className="image-compression-section-value">
+                {t("space_usage.compress_quality_value", { quality: value })}
+            </span>
+            <Slider
+                min={MIN_QUALITY}
+                max={MAX_QUALITY}
+                step={QUALITY_STEP}
+                disabled={disabled}
+                value={value}
+                onChange={onChange}
             />
         </CardSection>
     );

@@ -159,31 +159,25 @@ export const serverImageProvider: ImageProvider = {
         const needsResize = request.resize && Math.max(width, height) > request.maxWidthHeight;
         const isLossless = format.ext === "png";
 
-        // What the image will be written back as. A JPEG can only be written back as one; a PNG
-        // becomes one only if converting was asked for and there is no transparency to lose — JPEG
-        // has no alpha channel, so converting is the one step that visibly damages an image rather
-        // than degrading it. The check reads the decoded pixels, so it is exact rather than a guess
-        // from the header.
-        const toJpeg = !isLossless || (request.convertLossless && !hasTransparency(image));
+        // Only consulted where it changes the answer. JPEG has no alpha channel, so a transparent
+        // image cannot be converted — it is optimized instead, that being the best still available
+        // to it. The check reads the decoded pixels, so it is exact rather than a guess from the
+        // header, and it is skipped entirely where nothing is going to be converted anyway.
+        const convertible = isLossless && request.pngHandling === "jpeg" && !hasTransparency(image);
 
-        // Quantizing applies to a PNG that is staying one — a transparent image, or any of them
-        // when converting is off. An opaque PNG being converted goes to JPEG instead, that being
-        // the larger saving of the two, so the two steps never compete over the same image.
-        const quantize = isLossless && !toJpeg && request.optimizePNG;
+        // What the image will be written back as. A JPEG can only ever be written back as one.
+        const toJpeg = !isLossless || convertible;
+        // A PNG that is staying a PNG is quantized unless it was to be left alone outright — which
+        // covers both `optimize` and a transparent image that `jpeg` could not take.
+        const quantize = isLossless && !toJpeg && request.pngHandling !== "keep";
 
-        // Whether re-encoding alone is worth doing to *this* image, which each switch answers for
-        // its own kind: a lossy source is recompressed if `reencode` says so, a lossless one when
-        // it is either becoming a JPEG or being quantized — rewriting a PNG as the same PNG at its
-        // own size is lossless and gains nothing.
+        // Whether re-encoding alone is worth doing to *this* image: a lossy source is recompressed
+        // if `reencode` says so, a lossless one when its handling asks for anything at all —
+        // rewriting a PNG as the same PNG at its own size gains nothing.
         const worthReencoding = isLossless ? (toJpeg || quantize) : request.reencode;
 
         if (!needsResize && !worthReencoding) {
-            return {
-                compressed: false,
-                // Transparency is the reason only when converting was asked for and quantizing was
-                // not; otherwise there was simply nothing this run wanted to do to the image.
-                reason: isLossless && request.convertLossless ? "transparent" : "no-gain"
-            };
+            return { compressed: false, reason: "no-gain" };
         }
 
         if (needsResize) {
@@ -200,7 +194,10 @@ export const serverImageProvider: ImageProvider = {
             // Reached either by conversion, which has already established there is no transparency
             // to lose, or by a JPEG source, which never had any to begin with.
             image.background = 0xffffffff;
-            result = await image.getBuffer("image/jpeg", { quality: request.quality });
+            // Converting a pristine original and recompressing an already-lossy one are different
+            // trades, so each is written at its own quality.
+            const quality = isLossless ? request.conversionQuality : request.quality;
+            result = await image.getBuffer("image/jpeg", { quality });
         } else if (quantize) {
             result = quantizePng(image, buffer.byteLength);
         } else {

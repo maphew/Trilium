@@ -291,6 +291,11 @@ export interface SubtreeSizeResponse {
  * Unlike the `compressImages` option, this is always a deliberate act by the user on one note or
  * one image, so it runs whether or not automatic compression is switched on.
  */
+/** The three things that can become of a lossless image; see {@link ImageCompressionOptions}. */
+export const IMAGE_PNG_HANDLINGS = [ "keep", "optimize", "jpeg" ] as const;
+
+export type ImagePngHandling = (typeof IMAGE_PNG_HANDLINGS)[number];
+
 export interface ImageCompressionOptions {
     /**
      * Whether an image larger than {@link maxWidthHeight} is scaled down to fit. On its own this
@@ -312,36 +317,38 @@ export interface ImageCompressionOptions {
      */
     reencode?: boolean;
     /**
-     * Whether a lossless source — a PNG — may be re-encoded as JPEG at {@link quality}. This is
-     * where most of the saving comes from, and it is also the one step that changes what kind of
-     * image the file is, permanently.
+     * What is done with a lossless image — a PNG. Only ever one of the three, since a PNG either
+     * survives as it is, survives smaller, or stops being a PNG:
      *
-     * A PNG carrying transparency is never converted whatever this says, JPEG having no alpha
-     * channel to keep it in — {@link optimizePNG} is what reaches those.
+     * - `keep` leaves it entirely alone; scaling is then the only thing that can reach it.
+     * - `optimize` reduces it to a palette and writes it back as a PNG. Lossy, but gently so — the
+     *   saving comes from storing an index per pixel rather than 24-bit colour — and it keeps the
+     *   alpha channel, so it reaches transparent images too.
+     * - `jpeg` re-encodes it as a JPEG at {@link conversionQuality}, which usually saves the most
+     *   but costs the format. A transparent image cannot be converted, JPEG having no alpha channel
+     *   to keep it in, so it is optimized instead: the best that can be done for it.
+     *
+     * Defaults to `optimize`, the choice that shrinks an image without changing what it is.
      */
-    convertLossless?: boolean;
+    pngHandling?: ImagePngHandling;
     /**
-     * Whether a PNG that is staying a PNG may be shrunk in place, by reducing it to a palette
-     * rather than by changing what it is. It keeps the alpha channel, so it is the only step that
-     * reaches a transparent image at all, and the only one that helps a PNG when
-     * {@link convertLossless} is off.
+     * JPEG quality, 10 to 100, used when recompressing an image that is *already* lossy — and when
+     * scaling one, which has to write a JPEG back whatever {@link reencode} says.
      *
-     * Lossy, but gently so: the saving comes from dropping 24-bit colour for an index rather than
-     * from throwing detail away, which is why it is not governed by {@link quality} — that is the
-     * JPEG encoder's knob, and this never produces a JPEG.
-     *
-     * Applies only where the image is not being converted: an opaque PNG with converting on
-     * becomes a JPEG instead, that being the larger saving of the two.
-     */
-    optimizePNG?: boolean;
-    /**
-     * JPEG quality, 10 to 100. Omitted, it falls back to the `imageJpegQuality` option (75 by
-     * default).
-     *
-     * Applies whenever the output is a JPEG, which is not only when {@link reencode} is on: scaling
-     * a JPEG has to write one back, so the quality governs that too.
+     * Omitted, it falls back to the `imageJpegQuality` option (75 by default).
      */
     quality?: number;
+    /**
+     * JPEG quality, 10 to 100, used when converting a lossless image — {@link pngHandling} of
+     * `jpeg` — rather than when recompressing one that was lossy already.
+     *
+     * Its own setting because the two are not the same trade. Converting is a one-time transition
+     * away from a pristine original, where every byte of quality given up is detail that genuinely
+     * was there; recompressing works on an image that has already been through an encoder once, so
+     * spending quality on it largely buys back nothing. Defaults higher than {@link quality}
+     * accordingly.
+     */
+    conversionQuality?: number;
     /**
      * Whether the run visits the note's whole subtree rather than the note alone. Off by default,
      * and opt-in for a reason: a descendant may be a clone, so compressing it degrades an image
@@ -365,11 +372,6 @@ export type ImageCompressionSkipReason =
     | "unsupported-format"
     /** Animated (APNG, animated GIF/WebP): recompressing would flatten it to a single frame. */
     | "animated"
-    /**
-     * A PNG carrying transparency, which JPEG cannot represent, with neither PNG optimization
-     * asked for nor anything to scale — so nothing was left that could reach it.
-     */
-    | "transparent"
     /** The rendered picture of a canvas/mermaid/mind map/spreadsheet note, regenerated on save. */
     | "generated"
     /** Protected, with no protected session open to decrypt it. */

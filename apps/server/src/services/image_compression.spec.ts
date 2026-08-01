@@ -16,7 +16,12 @@ import { afterEach, beforeAll, describe, expect, it } from "vitest";
  */
 let api: CoreApiTester;
 
-/** A large noisy PNG: big enough that both converting and resizing it save real bytes. */
+/**
+ * A large photograph-shaped PNG: smooth, spatially correlated colour over thousands of distinct
+ * values, which is what makes every step worth doing to it — PNG stores it poorly, JPEG stores it
+ * well, and a palette of 256 is a real reduction. Uncorrelated noise would be the opposite on all
+ * three counts and could not show any of them working.
+ */
 let noisyPng: Uint8Array;
 /** An 8x8 solid PNG, which nothing can make smaller. */
 let smallPng: Uint8Array;
@@ -31,22 +36,12 @@ beforeAll(async () => {
     api = CoreApiTester.build();
 
     const noisy = new Jimp({ width: 600, height: 400, color: 0x3366ccff });
-    for (let x = 0; x < 600; x++) {
-        for (let y = 0; y < 400; y++) {
-            const color = ((((x * 31 + y * 17) % 256) << 24) | (((x * 13 + y * 7) % 256) << 16) | (((x * 5 + y * 23) % 256) << 8) | 0xff) >>> 0;
-            noisy.setPixelColor(color, x, y);
-        }
-    }
+    paintPhoto(noisy, 0xff);
     noisyPng = new Uint8Array(await noisy.getBuffer("image/png"));
     noisyJpeg = new Uint8Array(await noisy.getBuffer("image/jpeg", { quality: 100 }));
 
     const translucent = new Jimp({ width: 600, height: 400, color: 0x3366cc80 });
-    for (let x = 0; x < 600; x++) {
-        for (let y = 0; y < 400; y++) {
-            const color = ((((x * 31 + y * 17) % 256) << 24) | (((x * 13 + y * 7) % 256) << 16) | (((x * 5 + y * 23) % 256) << 8) | 0x80) >>> 0;
-            translucent.setPixelColor(color, x, y);
-        }
-    }
+    paintPhoto(translucent, 0x80);
     transparentPng = new Uint8Array(await translucent.getBuffer("image/png"));
 
     const small = new Jimp({ width: 8, height: 8, color: 0x3366ccff });
@@ -73,7 +68,7 @@ describe("compress note images (POST /api/notes/:noteId/compress-images)", () =>
         const noteId = await createImageNote(noisyPng);
 
         const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
-            body: { convertLossless: true }
+            body: { pngHandling: "jpeg" }
         });
 
         expect(res.status).toBe(200);
@@ -100,7 +95,7 @@ describe("compress note images (POST /api/notes/:noteId/compress-images)", () =>
         // Scaling is then the only step that can reach a PNG, and there is nothing oversized to
         // scale. Recompressing lossy images stays on, and has no business with a PNG.
         const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
-            body: { convertLossless: false, optimizePNG: false }
+            body: { pngHandling: "keep" }
         });
 
         expect(res.body.compressedCount).toBe(0);
@@ -120,7 +115,7 @@ describe("compress note images (POST /api/notes/:noteId/compress-images)", () =>
         await addAttachment(noteId, "notes.txt", new Uint8Array([ 1, 2, 3 ]), { role: "file", mime: "text/plain" });
 
         const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
-            body: { convertLossless: true }
+            body: { pngHandling: "jpeg" }
         });
 
         expect(res.body.items.map((item) => item.entityId).sort()).toEqual([ big, small ].sort());
@@ -150,7 +145,7 @@ describe("compress note images (POST /api/notes/:noteId/compress-images)", () =>
         const childId = await createImageNote(noisyPng, noteId);
 
         const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
-            body: { convertLossless: true }
+            body: { pngHandling: "jpeg" }
         });
 
         expect(res.body.items).toHaveLength(0);
@@ -167,7 +162,7 @@ describe("compress note images (POST /api/notes/:noteId/compress-images)", () =>
         await api.put(`/api/notes/${grandchildId}/clone-to-note/${noteId}`);
 
         const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
-            body: { convertLossless: true, recursive: true }
+            body: { pngHandling: "jpeg", recursive: true }
         });
 
         expect(res.body.items.map((item) => item.entityId).sort())
@@ -191,7 +186,7 @@ describe("compress note images (POST /api/notes/:noteId/compress-images)", () =>
         setNoteType(noteId, "spreadsheet", "application/json");
 
         const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
-            body: { convertLossless: true }
+            body: { pngHandling: "jpeg" }
         });
 
         expect(res.body.items[0]).toMatchObject({
@@ -209,7 +204,7 @@ describe("compress note images (POST /api/notes/:noteId/compress-images)", () =>
         cls.init(() => { becca.getNoteOrThrow(noteId).isProtected = true; });
 
         const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
-            body: { convertLossless: true }
+            body: { pngHandling: "jpeg" }
         });
 
         expect(res.body.items[0]).toMatchObject({ compressed: false, skipReason: "protected", originalSize: 0 });
@@ -221,7 +216,7 @@ describe("compress note images (POST /api/notes/:noteId/compress-images)", () =>
         const noteId = await createImageNote(corruptPng);
 
         const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
-            body: { convertLossless: true, maxWidthHeight: 100 }
+            body: { pngHandling: "jpeg", maxWidthHeight: 100 }
         });
 
         expect(res.status).toBe(200);
@@ -235,7 +230,7 @@ describe("compress note images (POST /api/notes/:noteId/compress-images)", () =>
         const good = await addAttachment(noteId, "good.png", noisyPng);
 
         const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
-            body: { convertLossless: true }
+            body: { pngHandling: "jpeg" }
         });
 
         expect(itemFor(res.body, broken).skipReason).toBe("error");
@@ -256,27 +251,41 @@ describe("compression parameters", () => {
         cls.init(() => options.setOption("imageMaxWidthHeight", "150"));
         const noteId = await createImageNote(noisyPng);
 
-        await api.post(`/api/notes/${noteId}/compress-images`, { body: { convertLossless: true } });
+        await api.post(`/api/notes/${noteId}/compress-images`, { body: { pngHandling: "jpeg" } });
 
         expect(await decodedSize(noteId)).toEqual([ 150, 100 ]);
     });
 
-    it("honours the requested quality, and falls back to the imageJpegQuality option without one", async () => {
-        const explicitLow = await compressedSize({ convertLossless: true, quality: 20 });
-        const explicitHigh = await compressedSize({ convertLossless: true, quality: 70 });
+    it("honours the recompression quality, falling back to the imageJpegQuality option", async () => {
+        const explicitLow = await compressedSize({ quality: 20 }, noisyJpeg);
+        const explicitHigh = await compressedSize({ quality: 70 }, noisyJpeg);
         expect(explicitLow).toBeLessThan(explicitHigh);
 
         cls.init(() => options.setOption("imageJpegQuality", "20"));
-        expect(await compressedSize({ convertLossless: true })).toBe(explicitLow);
+        expect(await compressedSize({}, noisyJpeg)).toBe(explicitLow);
     });
 
-    it("falls back to the default quality when the stored option is out of range", async () => {
+    it("falls back to the default recompression quality when the stored option is out of range", async () => {
         cls.init(() => options.setOption("imageJpegQuality", "75"));
-        const at75 = await compressedSize({ convertLossless: true });
+        const at75 = await compressedSize({}, noisyJpeg);
 
         // An option the caller did not choose and cannot fix from here must not fail the request.
         cls.init(() => options.setOption("imageJpegQuality", "500"));
-        expect(await compressedSize({ convertLossless: true })).toBe(at75);
+        expect(await compressedSize({}, noisyJpeg)).toBe(at75);
+    });
+
+    it("honours the conversion quality, which follows no option and no other quality", async () => {
+        const converting = { pngHandling: "jpeg" };
+        const low = await compressedSize({ ...converting, conversionQuality: 20 });
+        const high = await compressedSize({ ...converting, conversionQuality: 70 });
+        expect(low).toBeLessThan(high);
+
+        // The image option governs recompressing, not converting: a lossless original is a
+        // different trade, so its quality keeps a default of its own and is unmoved by either.
+        cls.init(() => options.setOption("imageJpegQuality", "20"));
+        const atDefault = await compressedSize(converting);
+        expect(await compressedSize({ ...converting, quality: 20 })).toBe(atDefault);
+        expect(atDefault).toBeGreaterThan(high);
     });
 
     it.each([
@@ -287,8 +296,8 @@ describe("compression parameters", () => {
         [ "a non-integer quality", { quality: 75.5 } ],
         [ "a non-boolean resize", { resize: "yes" } ],
         [ "a non-boolean reencode", { reencode: "yes" } ],
-        [ "a non-boolean convertLossless", { convertLossless: "yes" } ],
-        [ "a non-boolean optimizePNG", { optimizePNG: "yes" } ]
+        [ "an unknown pngHandling", { pngHandling: "shrink" } ],
+        [ "a conversion quality out of range", { conversionQuality: 5 } ]
     ])("400s on %s", async (_label, body) => {
         const noteId = await createImageNote(smallPng);
 
@@ -304,15 +313,15 @@ describe("compression parameters", () => {
         expect((await api.post(`/api/notes/${noteId}/compress-images`, { body: "reencode" })).status).toBe(400);
     });
 
-    it("treats a missing body as a request for both steps", async () => {
+    it("treats a missing body as a request to compress without changing formats", async () => {
         const noteId = await createImageNote(noisyPng);
 
         const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`);
 
         expect(res.status).toBe(200);
-        // A request that named nothing asked for the images to be compressed; answering it with a
-        // no-op because a PNG happened to fit the bound would be the surprising reading.
-        expect(res.body.items[0]).toMatchObject({ compressed: true, mime: "image/jpeg" });
+        // A request that named nothing asked for the images to be compressed, so answering with a
+        // no-op would be the surprising reading — but it did not ask for the format to change.
+        expect(res.body.items[0]).toMatchObject({ compressed: true, mime: "image/png" });
     });
 
     it("changes nothing at all when every step is switched off", async () => {
@@ -320,8 +329,7 @@ describe("compression parameters", () => {
 
         const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
             body: {
-                resize: false, reencode: false, convertLossless: false, optimizePNG: false,
-                maxWidthHeight: 10
+                resize: false, reencode: false, pngHandling: "keep", maxWidthHeight: 10
             }
         });
 
@@ -332,8 +340,8 @@ describe("compression parameters", () => {
     });
 
     it.each([
-        [ "the lossy one", { reencode: true, convertLossless: false, optimizePNG: false }, "jpeg.jpg" ],
-        [ "the lossless one", { reencode: false, convertLossless: true, optimizePNG: false }, "png.png" ]
+        [ "the lossy one", { reencode: true, pngHandling: "keep" }, "jpeg.jpg" ],
+        [ "the lossless one", { reencode: false, pngHandling: "jpeg" }, "png.png" ]
     ])("reaches only its own kind of image with %s switched on", async (_label, body, expected) => {
         const { noteId } = await createTextNote(api);
         await addAttachment(noteId, "png.png", noisyPng);
@@ -365,7 +373,7 @@ describe("compression parameters", () => {
         const noteId = await createImageNote(noisyPng);
 
         const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
-            body: { resize: false, maxWidthHeight: 100 }
+            body: { resize: false, maxWidthHeight: 100, pngHandling: "jpeg" }
         });
 
         expect(res.body.items[0]).toMatchObject({ compressed: true, mime: "image/jpeg" });
@@ -396,7 +404,7 @@ describe("compress one attachment (POST /api/attachments/:attachmentId/compress-
         const sibling = await addAttachment(noteId, "sibling.png", noisyPng);
 
         const res = await api.post<ImageCompressionResponse>(`/api/attachments/${target}/compress-image`, {
-            body: { convertLossless: true }
+            body: { pngHandling: "jpeg" }
         });
 
         expect(res.body.items).toHaveLength(1);
@@ -411,21 +419,36 @@ describe("compress one attachment (POST /api/attachments/:attachmentId/compress-
         setNoteType(noteId, "spreadsheet", "application/json");
 
         const res = await api.post<ImageCompressionResponse>(`/api/attachments/${attachmentId}/compress-image`, {
-            body: { convertLossless: true }
+            body: { pngHandling: "jpeg" }
         });
 
         expect(res.body.items[0]).toMatchObject({ compressed: false, skipReason: "generated" });
     });
 });
 
+/**
+ * Paints the fixture: smooth sine gradients across all three channels, giving a picture with the
+ * statistics of a photograph — many distinct colours, strongly correlated between neighbours.
+ */
+function paintPhoto(image: InstanceType<typeof Jimp>, alpha: number) {
+    for (let x = 0; x < 600; x++) {
+        for (let y = 0; y < 400; y++) {
+            const r = Math.round(128 + 127 * Math.sin(x / 40));
+            const g = Math.round(128 + 127 * Math.sin(y / 30));
+            const b = Math.round(128 + 127 * Math.sin((x + y) / 50));
+            image.setPixelColor((((r << 24) | (g << 16) | (b << 8) | alpha) >>> 0), x, y);
+        }
+    }
+}
+
 /** Creates a real image note holding the given bytes and returns its noteId. */
-async function createImageNote(content: Uint8Array, parentNoteId = "root"): Promise<string> {
+async function createImageNote(content: Uint8Array, parentNoteId = "root", mime = "image/png"): Promise<string> {
     const { noteId } = await createTextNote(api, { parentNoteId });
 
     cls.init(() => getSql().transactional(() => {
         const note = becca.getNoteOrThrow(noteId);
         note.type = "image";
-        note.mime = "image/png";
+        note.mime = mime;
         note.save();
         note.setContent(content, { forceSave: true });
     }));
@@ -479,8 +502,8 @@ function itemFor(response: ImageCompressionResponse, entityId: string) {
 }
 
 /** Compresses a fresh copy of the noisy PNG and returns how many bytes it ended up at. */
-async function compressedSize(body: Record<string, unknown>): Promise<number> {
-    const noteId = await createImageNote(noisyPng);
+async function compressedSize(body: Record<string, unknown>, source = noisyPng): Promise<number> {
+    const noteId = await createImageNote(source, "root", source === noisyJpeg ? "image/jpeg" : "image/png");
     const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, { body });
 
     if (res.body.compressedCount !== 1) {

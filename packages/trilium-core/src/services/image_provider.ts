@@ -4,7 +4,7 @@
  * Standalone uses simple format detection without compression.
  */
 
-import type { ImageCompressionSkipReason } from "@triliumnext/commons";
+import type { ImageCompressionSkipReason, ImagePngHandling } from "@triliumnext/commons";
 
 export interface ImageFormat {
     ext: string;
@@ -27,12 +27,12 @@ export interface ImageCompressionRequest {
     maxWidthHeight: number;
     /** Whether an already-lossy image (JPEG) is recompressed even when nothing needs scaling. */
     reencode: boolean;
-    /** Whether a lossless image (PNG) may be re-encoded as JPEG. */
-    convertLossless: boolean;
-    /** Whether a PNG staying a PNG may be reduced to a palette, transparency and all. */
-    optimizePNG: boolean;
-    /** JPEG quality, 10 to 100, applied whenever the output is a JPEG. */
+    /** What becomes of a lossless image (PNG): left alone, quantized in place, or converted. */
+    pngHandling: ImagePngHandling;
+    /** JPEG quality, 10 to 100, for recompressing or scaling an already-lossy image. */
     quality: number;
+    /** JPEG quality, 10 to 100, for converting a lossless image. */
+    conversionQuality: number;
 }
 
 export type ImageCompressionOutcome =

@@ -42,6 +42,13 @@
     .switch-widget {
         flex: 0 0 auto;
     }
+
+    /* Never wraps: the choices are read across, and a button folding onto a second line would
+       break the row into two heights. A long translation widens the dialog instead. */
+    .image-compression-section-choice {
+        flex: 0 0 auto;
+        white-space: nowrap;
+    }
 }
 
 /* Indented by the card itself; quieting the title is what marks it as qualifying the row above

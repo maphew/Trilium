@@ -25,6 +25,15 @@ let corruptPng: Uint8Array; // valid PNG signature but unreadable by jimp
 let transparentPng: Uint8Array; // 600x400 noisy, every pixel half-transparent
 let noisyJpeg: Uint8Array; // 600x400 noisy jpeg stored at high quality
 let tinyJpeg: Uint8Array; // 8x8 jpeg that cannot get any smaller
+/**
+ * A photograph's shape rather than a photograph: smooth, spatially correlated colour over
+ * thousands of distinct values. PNG stores that poorly and JPEG stores it well, which is the
+ * relationship that makes converting worth doing at all.
+ *
+ * The `noisy` fixtures above are the opposite — pixel-level uncorrelated noise, which JPEG is bad
+ * at and which therefore cannot show conversion in a favourable light however high the quality.
+ */
+let photoPng: Uint8Array;
 const svgBuffer = new TextEncoder().encode('<svg xmlns="http://www.w3.org/2000/svg"></svg>');
 const garbageBuffer = new Uint8Array([1, 2, 3, 4, 5, 6, 7, 8]);
 const staticGif = Uint8Array.from(
@@ -73,6 +82,17 @@ beforeAll(async () => {
         await makeImage(600, 400, { noisy: true }).getBuffer('image/jpeg', { quality: 100 })
     );
     tinyJpeg = new Uint8Array(await makeImage(8, 8).getBuffer('image/jpeg', { quality: 10 }));
+
+    const photo = new Jimp({ width: 600, height: 400, color: 0x000000ff });
+    for (let x = 0; x < 600; x++) {
+        for (let y = 0; y < 400; y++) {
+            const r = Math.round(128 + 127 * Math.sin(x / 40));
+            const g = Math.round(128 + 127 * Math.sin(y / 30));
+            const b = Math.round(128 + 127 * Math.sin((x + y) / 50));
+            photo.setPixelColor((((r << 24) | (g << 16) | (b << 8) | 0xff) >>> 0), x, y);
+        }
+    }
+    photoPng = new Uint8Array(await photo.getBuffer('image/png'));
 }, 30000);
 
 afterEach(() => {
@@ -239,8 +259,8 @@ describe('serverImageProvider.compressImage', () => {
     /** Every parameter is explicit, so nothing here depends on the stored options. */
     function request(overrides: Partial<ImageCompressionRequest> = {}): ImageCompressionRequest {
         return {
-            resize: true, maxWidthHeight: 2000, reencode: true, convertLossless: true,
-            optimizePNG: true, quality: 75, ...overrides
+            resize: true, maxWidthHeight: 2000, reencode: true, pngHandling: "optimize",
+            quality: 75, conversionQuality: 85, ...overrides
         };
     }
 
@@ -263,47 +283,17 @@ describe('serverImageProvider.compressImage', () => {
         expect(outcome.compressed).toBe(true);
     });
 
-    describe('the re-encoding switches, each answering for its own kind', () => {
-        it('converts an opaque PNG without needing anything to scale', async () => {
-            const outcome = await serverImageProvider.compressImage(noisyPng, request());
-
-            expect(outcome).toMatchObject({ compressed: true, format: { ext: 'jpg', mime: 'image/jpeg' } });
-            if (!outcome.compressed) return;
-            expect(outcome.buffer.byteLength).toBeLessThan(noisyPng.byteLength);
-
-            // Still 600x400: converting is the step that reaches an image already within bounds.
-            const decoded = await Jimp.read(Buffer.from(outcome.buffer));
-            expect([decoded.bitmap.width, decoded.bitmap.height]).toEqual([600, 400]);
-        });
-
-        it('recompresses a JPEG on the lossy switch alone, converting switched off', async () => {
+    describe('what becomes of a PNG, one handling at a time', () => {
+        it('leaves it entirely alone on "keep", so only scaling can reach it', async () => {
             const outcome = await serverImageProvider.compressImage(
-                noisyJpeg, request({ convertLossless: false, quality: 40 }));
-
-            expect(outcome).toMatchObject({ compressed: true, format: { ext: 'jpg', mime: 'image/jpeg' } });
-        });
-
-        it('leaves a PNG alone on the lossy switch, which is not about lossless images', async () => {
-            // The switch above recompresses JPEGs; a PNG within the bound is none of its business,
-            // and rewriting one as the same PNG at its own size gains nothing besides.
-            const outcome = await serverImageProvider.compressImage(
-                noisyPng, request({ convertLossless: false, optimizePNG: false }));
+                noisyPng, request({ pngHandling: 'keep' }));
 
             expect(outcome).toEqual({ compressed: false, reason: 'no-gain' });
         });
 
-        it('leaves a JPEG alone on the converting switch, which is not about lossy images', async () => {
+        it('scales it on "keep" but writes it back as the same kind of image', async () => {
             const outcome = await serverImageProvider.compressImage(
-                noisyJpeg, request({ reencode: false }));
-
-            expect(outcome).toEqual({ compressed: false, reason: 'no-gain' });
-        });
-
-        it('scales an oversized PNG down but keeps it a PNG once converting is off', async () => {
-            const outcome = await serverImageProvider.compressImage(
-                noisyPng,
-                request({ maxWidthHeight: 100, convertLossless: false })
-            );
+                noisyPng, request({ maxWidthHeight: 100, pngHandling: 'keep' }));
 
             expect(outcome).toMatchObject({ compressed: true, format: { ext: 'png', mime: 'image/png' } });
             if (!outcome.compressed) return;
@@ -312,87 +302,58 @@ describe('serverImageProvider.compressImage', () => {
             expect([decoded.bitmap.width, decoded.bitmap.height]).toEqual([100, 67]);
         });
 
-        it('re-encodes an oversized image at its own size once scaling is off', async () => {
+        it('quantizes it on "optimize", staying a PNG and needing nothing to scale', async () => {
             const outcome = await serverImageProvider.compressImage(
-                noisyPng,
-                request({ resize: false, maxWidthHeight: 100 })
-            );
+                noisyPng, request({ pngHandling: 'optimize' }));
 
-            expect(outcome).toMatchObject({ compressed: true, format: { ext: 'jpg', mime: 'image/jpeg' } });
+            expect(outcome).toMatchObject({ compressed: true, format: { ext: 'png', mime: 'image/png' } });
             if (!outcome.compressed) return;
+            expect(outcome.buffer.byteLength).toBeLessThan(noisyPng.byteLength);
 
-            // The bound is quoted and never measured against: nothing asked for it to be.
+            // Still 600x400: optimizing reaches an image already inside the bound.
             const decoded = await Jimp.read(Buffer.from(outcome.buffer));
             expect([decoded.bitmap.width, decoded.bitmap.height]).toEqual([600, 400]);
         });
 
-        it('writes a scaled JPEG at the requested quality with every re-encoding switch off', async () => {
-            // Scaling has to write a JPEG back whatever the switches say, so the quality governs
-            // this too — which is why it qualifies neither switch on its own.
-            const off = { reencode: false, convertLossless: false, maxWidthHeight: 300 };
-            const coarse = await serverImageProvider.compressImage(noisyJpeg, request({ ...off, quality: 20 }));
-            const fine = await serverImageProvider.compressImage(noisyJpeg, request({ ...off, quality: 80 }));
-
-            if (!coarse.compressed || !fine.compressed) throw new Error('expected both to compress');
-            expect(coarse.buffer.byteLength).toBeLessThan(fine.buffer.byteLength);
-        });
-
-        it.each([
-            [ 'a PNG', () => noisyPng ],
-            [ 'a JPEG', () => noisyJpeg ]
-        ])('changes nothing about %s when every step is off', async (_label, getBuffer) => {
+        it('converts it on "jpeg", needing nothing to scale either', async () => {
             const outcome = await serverImageProvider.compressImage(
-                getBuffer(),
-                request({
-                    resize: false, reencode: false, convertLossless: false, optimizePNG: false,
-                    maxWidthHeight: 10
-                })
-            );
+                photoPng, request({ pngHandling: 'jpeg' }));
 
-            expect(outcome).toEqual({ compressed: false, reason: 'no-gain' });
+            expect(outcome).toMatchObject({ compressed: true, format: { ext: 'jpg', mime: 'image/jpeg' } });
+            if (!outcome.compressed) return;
+
+            const decoded = await Jimp.read(Buffer.from(outcome.buffer));
+            expect([decoded.bitmap.width, decoded.bitmap.height]).toEqual([600, 400]);
         });
-    });
 
-    describe('PNG optimization', () => {
-        it('shrinks a transparent PNG in place, keeping both the format and the alpha channel', async () => {
-            // The whole point of the step: before it, a transparent image inside the bound could
-            // not be reached at all — converting is refused and there is nothing to scale.
-            const outcome = await serverImageProvider.compressImage(transparentPng, request());
+        it('quantizes rather than converting a transparent image, JPEG having no alpha to keep', async () => {
+            // The fallback that makes "convert to JPEG" mean "make these as small as you can":
+            // answering a transparent image with nothing at all would be the perverse reading.
+            const outcome = await serverImageProvider.compressImage(
+                transparentPng, request({ pngHandling: 'jpeg' }));
 
             expect(outcome).toMatchObject({ compressed: true, format: { ext: 'png', mime: 'image/png' } });
             if (!outcome.compressed) return;
             expect(outcome.buffer.byteLength).toBeLessThan(transparentPng.byteLength);
 
             const decoded = await Jimp.read(Buffer.from(outcome.buffer));
-            expect([decoded.bitmap.width, decoded.bitmap.height]).toEqual([600, 400]);
             expect(decoded.bitmap.data.some((byte, i) => i % 4 === 3 && byte !== 255)).toBe(true);
         });
 
-        it('shrinks an opaque PNG in place when converting is off', async () => {
+        it('converts one whose alpha channel is merely all-opaque', async () => {
+            // Detection reads the decoded pixels, so an alpha channel that happens to be all-255
+            // is correctly treated as no transparency at all rather than assumed dangerous.
+            const opaqueWithAlpha = new Uint8Array(
+                await Jimp.read(Buffer.from(photoPng)).then((image) => image.getBuffer('image/png'))
+            );
+
             const outcome = await serverImageProvider.compressImage(
-                noisyPng, request({ convertLossless: false }));
-
-            expect(outcome).toMatchObject({ compressed: true, format: { ext: 'png', mime: 'image/png' } });
-            if (!outcome.compressed) return;
-            expect(outcome.buffer.byteLength).toBeLessThan(noisyPng.byteLength);
-        });
-
-        it('leaves converting to do an opaque PNG, the two never competing over one image', async () => {
-            // Both switched on: converting wins for an opaque image, being the larger saving, so
-            // quantizing never runs on something that is on its way to being a JPEG.
-            const outcome = await serverImageProvider.compressImage(noisyPng, request());
+                opaqueWithAlpha, request({ pngHandling: 'jpeg' }));
 
             expect(outcome).toMatchObject({ compressed: true, format: { ext: 'jpg', mime: 'image/jpeg' } });
         });
 
-        it('does not reach a JPEG, which is not a PNG to optimize', async () => {
-            const outcome = await serverImageProvider.compressImage(
-                noisyJpeg, request({ reencode: false, convertLossless: false }));
-
-            expect(outcome).toEqual({ compressed: false, reason: 'no-gain' });
-        });
-
-        it('scales and then quantizes, so both steps land on the stored image', async () => {
+        it('scales first and then quantizes, so both land on the stored image', async () => {
             const outcome = await serverImageProvider.compressImage(
                 transparentPng, request({ maxWidthHeight: 100 }));
 
@@ -403,42 +364,64 @@ describe('serverImageProvider.compressImage', () => {
             expect([decoded.bitmap.width, decoded.bitmap.height]).toEqual([100, 67]);
             expect(decoded.bitmap.data.some((byte, i) => i % 4 === 3 && byte !== 255)).toBe(true);
         });
+
+        it('never touches a JPEG, whichever handling is chosen', async () => {
+            for (const pngHandling of [ 'keep', 'optimize', 'jpeg' ] as const) {
+                const outcome = await serverImageProvider.compressImage(
+                    noisyJpeg, request({ reencode: false, pngHandling }));
+
+                expect(outcome).toEqual({ compressed: false, reason: 'no-gain' });
+            }
+        });
     });
 
-    describe('transparency', () => {
-        it('refuses to convert a transparent PNG, and says so when nothing else can reach it', async () => {
-            const outcome = await serverImageProvider.compressImage(
-                transparentPng, request({ optimizePNG: false }));
+    describe('the two qualities', () => {
+        it('writes a converted PNG at the conversion quality, not the recompression one', async () => {
+            // The point of their being separate: converting a pristine original is a different
+            // trade from recompressing something already lossy, so one knob must not move both.
+            const converting = { pngHandling: 'jpeg' as const, quality: 20 };
+            const coarse = await serverImageProvider.compressImage(
+                photoPng, request({ ...converting, conversionQuality: 20 }));
+            const fine = await serverImageProvider.compressImage(
+                photoPng, request({ ...converting, conversionQuality: 90 }));
 
-            expect(outcome).toEqual({ compressed: false, reason: 'transparent' });
+            if (!coarse.compressed || !fine.compressed) throw new Error('expected both to compress');
+            expect(coarse.buffer.byteLength).toBeLessThan(fine.buffer.byteLength);
         });
 
-        it('still scales a transparent PNG down with nothing else switched on', async () => {
-            const outcome = await serverImageProvider.compressImage(
-                transparentPng,
-                request({ maxWidthHeight: 100, optimizePNG: false })
-            );
+        it('writes a recompressed JPEG at the recompression quality, not the conversion one', async () => {
+            const recompressing = { conversionQuality: 20 };
+            const coarse = await serverImageProvider.compressImage(
+                noisyJpeg, request({ ...recompressing, quality: 20 }));
+            const fine = await serverImageProvider.compressImage(
+                noisyJpeg, request({ ...recompressing, quality: 80 }));
 
-            expect(outcome).toMatchObject({ compressed: true, format: { ext: 'png', mime: 'image/png' } });
-            if (!outcome.compressed) return;
-
-            // The point of the refusal above: the transparency has to survive the resize intact.
-            const decoded = await Jimp.read(Buffer.from(outcome.buffer));
-            expect(decoded.bitmap.width).toBe(100);
-            expect(decoded.bitmap.data.some((byte, i) => i % 4 === 3 && byte !== 255)).toBe(true);
+            if (!coarse.compressed || !fine.compressed) throw new Error('expected both to compress');
+            expect(coarse.buffer.byteLength).toBeLessThan(fine.buffer.byteLength);
         });
 
-        it('converts a PNG whose alpha channel is fully opaque', async () => {
-            // Detection reads the decoded pixels, so an alpha channel that happens to be all-255
-            // is correctly treated as no transparency at all rather than assumed dangerous.
-            const opaqueWithAlpha = new Uint8Array(
-                await makeImage(600, 400, { noisy: true, alpha: 0xff }).getBuffer('image/png')
-            );
+        it('writes a scaled JPEG at the recompression quality with every re-encoding step off', async () => {
+            // Scaling has to write a JPEG back whatever the settings say, so that quality governs
+            // this too — which is why it is not nested under the recompression step.
+            const off = { reencode: false, pngHandling: 'keep' as const, maxWidthHeight: 300 };
+            const coarse = await serverImageProvider.compressImage(noisyJpeg, request({ ...off, quality: 20 }));
+            const fine = await serverImageProvider.compressImage(noisyJpeg, request({ ...off, quality: 80 }));
 
-            const outcome = await serverImageProvider.compressImage(opaqueWithAlpha, request());
-
-            expect(outcome).toMatchObject({ compressed: true, format: { ext: 'jpg', mime: 'image/jpeg' } });
+            if (!coarse.compressed || !fine.compressed) throw new Error('expected both to compress');
+            expect(coarse.buffer.byteLength).toBeLessThan(fine.buffer.byteLength);
         });
+    });
+
+    it.each([
+        [ 'a PNG', () => noisyPng ],
+        [ 'a JPEG', () => noisyJpeg ]
+    ])('changes nothing about %s when every step is off', async (_label, getBuffer) => {
+        const outcome = await serverImageProvider.compressImage(
+            getBuffer(),
+            request({ resize: false, reencode: false, pngHandling: 'keep', maxWidthHeight: 10 })
+        );
+
+        expect(outcome).toEqual({ compressed: false, reason: 'no-gain' });
     });
 
     describe('lossy sources', () => {

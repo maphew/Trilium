@@ -1,10 +1,12 @@
+import { IMAGE_PNG_HANDLINGS, type ImagePngHandling } from "@triliumnext/commons";
+
 import optionService from "../../../../../services/options";
 
 /**
  * What the image compression tool is set to do. Persisted as JSON in the `imageCompressionToolOptions`
  * option, so the next run opens on the last answer rather than on a fresh set of defaults.
  *
- * The first three mirror the server's `ImageCompressionOptions`; {@link processChildNotes} is the
+ * All but the last mirror the server's `ImageCompressionOptions`; {@link processChildNotes} is the
  * tool's own, the endpoint acting on one note at a time.
  */
 export interface ImageCompressionToolOptions {
@@ -14,22 +16,22 @@ export interface ImageCompressionToolOptions {
     maxWidthHeight: number;
     /** Whether an already-lossy image (JPEG) is recompressed even when nothing needs scaling. */
     reencode: boolean;
-    /** Whether a lossless image (PNG) may be re-encoded as JPEG. */
-    convertLossless: boolean;
-    /** Whether a PNG staying a PNG may be reduced to a palette, transparency and all. */
-    optimizePNG: boolean;
-    /** JPEG quality, {@link MIN_QUALITY} to {@link MAX_QUALITY}, whenever the output is a JPEG. */
+    /** What becomes of a lossless image (PNG): left alone, quantized in place, or converted. */
+    pngHandling: ImagePngHandling;
+    /** JPEG quality, {@link MIN_QUALITY} to {@link MAX_QUALITY}, for an already-lossy image. */
     quality: number;
+    /** JPEG quality, {@link MIN_QUALITY} to {@link MAX_QUALITY}, for converting a lossless one. */
+    conversionQuality: number;
     /** Whether the note's whole subtree is compressed, rather than the note on its own. */
     processChildNotes: boolean;
 }
 
 /**
- * Whether the settings amount to anything at all. With none of the three steps switched on, every
- * image would be visited and left exactly as it was, so the run is not one worth offering.
+ * Whether the settings amount to anything at all. With nothing asked of either kind of image, every
+ * one of them would be visited and left exactly as it was, so the run is not one worth offering.
  */
 export function hasWorkToDo(options: ImageCompressionToolOptions): boolean {
-    return options.resize || options.reencode || options.convertLossless || options.optimizePNG;
+    return options.resize || options.reencode || options.pngHandling !== "keep";
 }
 
 /** The bounds the server validates against; the controls here never offer a value it would reject. */
@@ -42,15 +44,14 @@ export const MIN_MAX_WIDTH_HEIGHT = 1;
 /**
  * Fills a stored setting out into the full set the dialog works with.
  *
- * The two numbers fall back to the image options rather than to constants of their own, so a tool
- * that has never been run opens on what automatic compression is already configured to do — the same
- * fallbacks the server applies to a request that omits them.
+ * The dimension bound and the recompression quality fall back to the image options rather than to
+ * constants of their own, so a tool that has never been run opens on what automatic compression is
+ * already configured to do — the same fallbacks the server applies to a request that omits them.
  *
- * All three steps start on, matching the server's own defaults. Converting in particular has to: it
- * is where nearly all the saving comes from, and with it off a note full of PNGs already inside the
- * bound would report almost nothing. Reaching into the subtree does not start on: that widens what
- * the run touches rather than how hard it compresses, and a descendant may be a clone shared with
- * notes the user did not have in mind.
+ * PNGs start on optimizing, matching the server: it makes an image smaller without changing what it
+ * is, which is the least surprising thing to do by default. Reaching into the subtree does not start
+ * on: that widens what the run touches rather than how hard it compresses, and a descendant may be a
+ * clone shared with notes the user did not have in mind.
  */
 export function readImageCompressionOptions(
     stored: Partial<ImageCompressionToolOptions> | null | undefined
@@ -61,9 +62,11 @@ export function readImageCompressionOptions(
             ? Number(stored?.maxWidthHeight)
             : defaultMaxWidthHeight(),
         reencode: stored?.reencode ?? true,
-        convertLossless: stored?.convertLossless ?? true,
-        optimizePNG: stored?.optimizePNG ?? true,
+        pngHandling: readPngHandling(stored?.pngHandling),
         quality: isQuality(stored?.quality) ? Number(stored?.quality) : defaultQuality(),
+        conversionQuality: isQuality(stored?.conversionQuality)
+            ? Number(stored?.conversionQuality)
+            : DEFAULT_CONVERSION_QUALITY,
         processChildNotes: stored?.processChildNotes === true
     };
 }
@@ -87,6 +90,18 @@ export function defaultQuality(): number {
  * with, so the field opens on a bound that resizes something rather than on one that resizes nothing.
  */
 const FALLBACK_MAX_WIDTH_HEIGHT = 2000;
+
+/**
+ * Where converting starts, above {@link DEFAULT_QUALITY} and matching the server's own default:
+ * converting a lossless original gives up detail that was genuinely there, where recompressing an
+ * already-lossy image works on detail that is long gone.
+ */
+export const DEFAULT_CONVERSION_QUALITY = 85;
+
+/** Anything unrecognised falls back to optimizing, the choice that changes an image least. */
+function readPngHandling(value: unknown): ImagePngHandling {
+    return IMAGE_PNG_HANDLINGS.includes(value as ImagePngHandling) ? value as ImagePngHandling : "optimize";
+}
 
 function isPositiveInteger(value: unknown): boolean {
     return Number.isInteger(value) && Number(value) >= MIN_MAX_WIDTH_HEIGHT;
