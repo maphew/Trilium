@@ -1,4 +1,9 @@
-export type NoteMapWidgetMode = "ribbon" | "sidebar" | "hoisted" | "type";
+/**
+ * Where a map is being drawn. `expanded` is the connections tab's own map at the size of the window,
+ * which the card's expand button opens — the only thing that opens it — so it is that card's map
+ * rather than a surface of its own, and reads what the card reads.
+ */
+export type NoteMapWidgetMode = "ribbon" | "sidebar" | "expanded" | "hoisted" | "type";
 export type MapType = "tree" | "link";
 
 /**
@@ -11,9 +16,18 @@ export type MapType = "tree" | "link";
  */
 export const NOTE_MAP_TYPE_OPTION = "rightPaneNoteMapType";
 
+/**
+ * Whether the map takes the reader's own preference of the two ({@link NOTE_MAP_TYPE_OPTION}) rather
+ * than what the note it is drawn for asks for. The connections tab and what its expand button opens,
+ * which is the same map at the size of the window and is left showing the same one.
+ */
+export function usesReaderPreference(widgetMode: NoteMapWidgetMode) {
+    return widgetMode === "sidebar" || widgetMode === "expanded";
+}
+
 /** Whether the map is rooted at the note being read, rather than at a configured or hoisted note. */
 export function isRootedAtCurrentNote(widgetMode: NoteMapWidgetMode) {
-    return widgetMode === "ribbon" || widgetMode === "sidebar";
+    return widgetMode === "ribbon" || widgetMode === "sidebar" || widgetMode === "expanded";
 }
 
 /** The map a note asks to be drawn as through its `mapType` label, the link map standing for anything else. */
@@ -26,6 +40,9 @@ const FIT_PADDING: Record<NoteMapWidgetMode, number> = {
     // The sidebar's is not a fixed one — see getFitPadding.
     sidebar: 0,
     ribbon: 50,
+    // Not the sidebar's own, small enough that a graph fitted with room to spare is a thumbnail: what
+    // the card is short of, a map given the greater part of the window has plenty of.
+    expanded: 50,
     hoisted: 30,
     type: 30
 };

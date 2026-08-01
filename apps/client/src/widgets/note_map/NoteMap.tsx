@@ -18,7 +18,7 @@ import { loadNotesAndRelations, NoteMapLinkObject, NoteMapNodeObject, NotesAndRe
 import { loadIconFont, resolveIconGlyphs } from "./icons";
 import MapTypeSwitcher from "./MapTypeSwitcher";
 import { CssData, setupRendering } from "./rendering";
-import { isRootedAtCurrentNote, MapType, NOTE_MAP_TYPE_OPTION, NoteMapWidgetMode, rgb2hex, toMapType } from "./utils";
+import { isRootedAtCurrentNote, MapType, NOTE_MAP_TYPE_OPTION, NoteMapWidgetMode, rgb2hex, toMapType, usesReaderPreference } from "./utils";
 
 /** Maximum number of notes to render in the note map before showing a warning. */
 const MAX_NOTES_THRESHOLD = 1_000;
@@ -239,7 +239,7 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
  * Which of the two maps to draw, and how to ask for the other one.
  *
  * The connections tab's map is a lens on whatever note is being read, so which map it draws is the
- * reader's own preference and is kept as an option (see {@link NOTE_MAP_TYPE_OPTION}). Everywhere
+ * reader's own preference and is kept as an option (see {@link usesReaderPreference}). Everywhere
  * else the map is a note's own thing — a note map note, a hoisted map, the ribbon's tab — and the
  * note it belongs to says which to draw through its `mapType` label.
  */
@@ -247,7 +247,7 @@ function useMapType(note: FNote, widgetMode: NoteMapWidgetMode): [ MapType, (map
     const [ label, setLabel ] = useNoteLabel(note, "mapType");
     const [ option, setOption ] = useTriliumOption(NOTE_MAP_TYPE_OPTION);
 
-    return widgetMode === "sidebar"
+    return usesReaderPreference(widgetMode)
         ? [ toMapType(option), (mapType) => void setOption(mapType) ]
         : [ toMapType(label), setLabel ];
 }

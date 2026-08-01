@@ -41,9 +41,9 @@ export default function NoteMap() {
                 <MapTypeSwitcher mapType={toMapType(mapType)} setMapType={(type) => void setMapType(type)} />
                 {/* One rung of the same ladder the quick-edit popup already offers: a press here takes the
                     map from a card to the greater part of the window, and the popup's own expand takes it
-                    on to a tab. What it opens is the note's own map, drawn as that note's `mapType` label
-                    asks for — which is not this card's option, and so need not be the map being expanded.
-                    The popup is reached from the ribbon's tab as well, and belongs to neither of them.
+                    on to a tab. What it opens is this card's own map — nothing else opens that view, so it
+                    is drawn in `expanded` mode and left showing the map being expanded, rather than
+                    whichever one the note itself asks for.
 
                     The popup rather than a split, because a map that sits beside the note
                     being read looks as though it follows it and doesn't; a glance that goes away when it

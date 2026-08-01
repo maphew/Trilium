@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getFitPadding, getHopDistances, mixColors, rgb2hex, toMapType, withAlpha } from "./utils";
+import { getFitPadding, getHopDistances, mixColors, rgb2hex, toMapType, usesReaderPreference, withAlpha } from "./utils";
 
 describe("getHopDistances", () => {
     const link = (source: string, target: string) => ({ source, target });
@@ -88,6 +88,19 @@ describe("toMapType", () => {
     });
 });
 
+describe("usesReaderPreference", () => {
+    it("is the connections tab's map and the same map expanded, and no other", () => {
+        // Which of the two maps those draw is the reader's own preference; everywhere else it is the
+        // note's, asked for through its `mapType` label.
+        expect(usesReaderPreference("sidebar")).toBe(true);
+        expect(usesReaderPreference("expanded")).toBe(true);
+
+        expect(usesReaderPreference("ribbon")).toBe(false);
+        expect(usesReaderPreference("type")).toBe(false);
+        expect(usesReaderPreference("hoisted")).toBe(false);
+    });
+});
+
 describe("getFitPadding", () => {
     it("crops the sidebar's map the more of it there is to crop, and leaves the others alone", () => {
         // A handful of notes is mostly its labels, which the fit does not measure: given a margin.
@@ -101,9 +114,11 @@ describe("getFitPadding", () => {
         // Between the two, evenly.
         expect(getFitPadding("sidebar", 15)).toBe(-2.5);
 
-        // The maps with room of their own keep their fixed margins whatever is in them.
+        // The maps with room of their own keep their fixed margins whatever is in them — the same map
+        // expanded to the window included, which has the room the card was short of.
         expect(getFitPadding("ribbon", 1)).toBe(50);
         expect(getFitPadding("ribbon", 500)).toBe(50);
+        expect(getFitPadding("expanded", 500)).toBe(50);
         expect(getFitPadding("type", 500)).toBe(30);
         expect(getFitPadding("hoisted", 500)).toBe(30);
     });
