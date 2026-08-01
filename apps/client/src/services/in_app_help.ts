@@ -86,8 +86,8 @@ export const bySidebarSection = {
         paragraphs: [ "sidebar_help.note_paths_what", "sidebar_help.note_paths_cloning" ]
     },
     backlinks: {
-        // Links, covering both kinds a backlink can come from.
-        helpPage: "QEAPj01N5f7w",
+        // Backlinks, covering both kinds one can come from.
+        helpPage: "wfGXLmm7x27z",
         paragraphs: [ "sidebar_help.backlinks_what", "sidebar_help.backlinks_listing" ]
     },
     similarNotes: {
