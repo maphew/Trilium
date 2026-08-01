@@ -104,6 +104,14 @@ describe( 'MathUI interactions', () => {
 
 			expect( hideSpy ).toHaveBeenCalled();
 		} );
+
+		it( 'does nothing when the form was never shown', () => {
+			setModelData( editor.model, `<paragraph>[<${ INLINE } equation="x^2" type="script" display="false"></${ INLINE }>]</paragraph>` );
+
+			// The command holds a value, so cancelling routes to _removeFormView — which has to
+			// cope with the form not being in the balloon at all.
+			expect( () => formView().fire( 'cancel' ) ).not.toThrow();
+		} );
 	} );
 
 	describe( 'clicking an existing equation', () => {

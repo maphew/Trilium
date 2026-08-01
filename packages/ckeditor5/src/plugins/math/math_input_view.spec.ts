@@ -109,6 +109,60 @@ describe( 'MathInputView', () => {
 			expect( view.value ).toBeNull();
 		} );
 
+		it( 'accepts a textarea edit while no math field is mounted', async () => {
+			await renderAndWait();
+			view.mathfield?.remove();
+			view.mathfield = null;
+
+			textarea().value = 'y^2';
+			textarea().dispatchEvent( new Event( 'input' ) );
+
+			expect( view.value ).toBe( 'y^2' );
+		} );
+
+		it( 'leaves the math field alone when the textarea already agrees with it', async () => {
+			const mathfield = await renderAndWait();
+			view.value = 'x^2';
+			await vi.waitFor( () => expect( mathfield.value.trim() ).toBe( 'x^2' ) );
+			const setValue = vi.spyOn( mathfield, 'setValue' );
+
+			textarea().value = 'x^2';
+			textarea().dispatchEvent( new Event( 'input' ) );
+
+			expect( setValue ).not.toHaveBeenCalled();
+		} );
+
+		it( 'leaves the textarea alone when the math field already agrees with it', async () => {
+			const mathfield = await renderAndWait();
+			textarea().value = 'x^2';
+			mathfield.value = 'x^2';
+
+			mathfield.dispatchEvent( new Event( 'input' ) );
+
+			expect( textarea().value ).toBe( 'x^2' );
+		} );
+
+		it( 'does not touch the math field when the model value already matches', async () => {
+			const mathfield = await renderAndWait();
+			view.value = 'x^2';
+			await vi.waitFor( () => expect( mathfield.value.trim() ).toBe( 'x^2' ) );
+			const setValue = vi.spyOn( mathfield, 'setValue' );
+
+			// Re-assigning the same value must not push it into the field again.
+			view.value = 'x^2 ';
+
+			expect( setValue ).not.toHaveBeenCalled();
+		} );
+
+		it( 'reuses an existing math field rather than building a second one', async () => {
+			const first = await renderAndWait();
+
+			// A second init with the field already present just syncs its value.
+			( view as unknown as { _initMathField( focus: boolean ): void } )._initMathField( false );
+
+			expect( view.mathfield ).toBe( first );
+		} );
+
 		it( 'falls back to assigning value when setValue is unavailable', async () => {
 			const mathfield = await renderAndWait();
 			// Older MathLive builds expose no setValue; the view must still update the field.

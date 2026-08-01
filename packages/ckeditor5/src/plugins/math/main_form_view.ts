@@ -117,6 +117,8 @@ export default class MainFormView extends View {
 
 		focusableViews.forEach( v => {
 			this._focusables.add( v );
+			/* v8 ignore next -- every focusable above is a child of this view's template, so
+			   super.render() has already given it an element */
 			if ( v.element ) {
 				this.focusTracker.add( v.element );
 			}
@@ -135,6 +137,7 @@ export default class MainFormView extends View {
 			}
 		} );
 
+		/* v8 ignore next -- super.render() assigns the element before this runs */
 		if ( this.element ) {
 			this.keystrokes.listenTo( this.element );
 		}
@@ -165,6 +168,8 @@ export default class MainFormView extends View {
 				eq = params.equation;
 				this.displayButtonView.isOn = params.display;
 
+				/* v8 ignore next -- only reached when the value carried delimiters, and stripping
+				   them always shortens it, so the two can never be equal here */
 				if ( this.mathInputView.value !== eq ) {
 					this.mathInputView.value = eq.length ? eq : null;
 				}

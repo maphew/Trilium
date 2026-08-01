@@ -126,6 +126,8 @@ export default class MathUI extends Plugin {
 
 		// Allow pressing Enter to submit changes, and use Shift+Enter to insert a new line
 		formView.keystrokes.set( 'enter', ( data, cancel ) => {
+			/* v8 ignore next -- Shift+Enter is a distinct keystroke that never routes to the
+			   'enter' handler, so shiftKey is always false by the time this runs */
 			if ( !data.shiftKey ) {
 				formView.fire( 'submit' );
 				cancel();

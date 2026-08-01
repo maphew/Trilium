@@ -82,6 +82,27 @@ describe( 'MainFormView', () => {
 		it( 'focuses its first focusable on focus()', () => {
 			expect( () => view.focus() ).not.toThrow();
 		} );
+
+		it( 'reports an empty equation when the input holds nothing', () => {
+			view.mathInputView.value = null;
+
+			expect( view.equation ).toBe( '' );
+		} );
+
+		it( 'clears the input when the delimiters wrap nothing', () => {
+			view.mathInputView.value = '\\[\\]';
+
+			expect( view.mathInputView.value ).toBeNull();
+			expect( view.displayButtonView.isOn ).toBe( true );
+		} );
+
+		it( 'handles the input being cleared', () => {
+			view.mathInputView.value = 'x^2';
+
+			view.mathInputView.value = null;
+
+			expect( view.mathView?.value ).toBe( '' );
+		} );
 	} );
 
 	describe( 'with the preview disabled', () => {
@@ -94,6 +115,10 @@ describe( 'MainFormView', () => {
 
 			view.mathInputView.value = 'x^2';
 			expect( view.equation ).toBe( 'x^2' );
+
+			// The equation setter has to cope with there being no preview to update.
+			view.equation = 'y^2';
+			expect( view.mathInputView.value ).toBe( 'y^2' );
 
 			view.element?.remove();
 			view.destroy();
