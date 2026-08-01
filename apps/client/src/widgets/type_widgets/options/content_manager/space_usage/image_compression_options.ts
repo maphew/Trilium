@@ -1,6 +1,5 @@
 import { IMAGE_JPEG_HANDLINGS, IMAGE_PNG_HANDLINGS, type ImageJpegHandling, type ImagePngHandling } from "@triliumnext/commons";
 
-import optionService from "../../../../../services/options";
 import { compressibleFormatsOf, type ImageCompressionTarget } from "./image_compression_operation";
 
 /**
@@ -46,20 +45,20 @@ export function hasWorkToDo(options: ImageCompressionToolOptions, target: ImageC
 export const MIN_QUALITY = 10;
 export const MAX_QUALITY = 100;
 export const QUALITY_STEP = 5;
-export const DEFAULT_QUALITY = 75;
 export const MIN_MAX_WIDTH_HEIGHT = 1;
 
 /**
  * Fills a stored setting out into the full set the dialog works with.
  *
- * The dimension bound and the recompression quality fall back to the image options rather than to
- * constants of their own, so a tool that has never been run opens on what automatic compression is
- * already configured to do — the same fallbacks the server applies to a request that omits them.
+ * The tool keeps defaults of its own rather than deriving them from the image options: those govern
+ * what happens to every image on the way in, where this is a deliberate one-off on an image that has
+ * already grown too heavy, and the two are not the same judgement. What is stored always wins, so
+ * these are only ever what the very first run opens on.
  *
- * PNGs start on optimizing, matching the server: it makes an image smaller without changing what it
- * is, which is the least surprising thing to do by default. Reaching into the subtree does not start
- * on: that widens what the run touches rather than how hard it compresses, and a descendant may be a
- * clone shared with notes the user did not have in mind.
+ * Resizing and compressing start on, PNGs on being made smaller without ceasing to be PNGs — the
+ * least surprising thing to do to each. Reaching into the subtree does not: that widens what the run
+ * touches rather than how hard it compresses, and a descendant may be a clone shared with notes the
+ * user did not have in mind.
  */
 export function readImageCompressionOptions(
     stored: Partial<ImageCompressionToolOptions> | null | undefined
@@ -68,10 +67,10 @@ export function readImageCompressionOptions(
         resize: stored?.resize ?? true,
         maxWidthHeight: isPositiveInteger(stored?.maxWidthHeight)
             ? Number(stored?.maxWidthHeight)
-            : defaultMaxWidthHeight(),
+            : DEFAULT_MAX_WIDTH_HEIGHT,
         jpegHandling: readHandling(stored?.jpegHandling, IMAGE_JPEG_HANDLINGS, "compress"),
         pngHandling: readHandling(stored?.pngHandling, IMAGE_PNG_HANDLINGS, "optimize"),
-        quality: isQuality(stored?.quality) ? Number(stored?.quality) : defaultQuality(),
+        quality: isQuality(stored?.quality) ? Number(stored?.quality) : DEFAULT_QUALITY,
         conversionQuality: isQuality(stored?.conversionQuality)
             ? Number(stored?.conversionQuality)
             : DEFAULT_CONVERSION_QUALITY,
@@ -79,30 +78,16 @@ export function readImageCompressionOptions(
     };
 }
 
-/** Where the dimension field starts: whatever automatic compression resizes to. */
-export function defaultMaxWidthHeight(): number {
-    const configured = optionService.getInt("imageMaxWidthHeight");
+/** The longest edge the first run offers to scale down to: the width of a Full HD screen. */
+export const DEFAULT_MAX_WIDTH_HEIGHT = 1920;
 
-    return isPositiveInteger(configured) ? Number(configured) : FALLBACK_MAX_WIDTH_HEIGHT;
-}
-
-/** Where the quality slider starts: whatever automatic compression encodes at. */
-export function defaultQuality(): number {
-    const configured = optionService.getInt("imageJpegQuality");
-
-    return isQuality(configured) ? Number(configured) : DEFAULT_QUALITY;
-}
+/** Where recompressing an already-lossy image starts. */
+export const DEFAULT_QUALITY = 75;
 
 /**
- * Stands in when the image option itself is unreadable or nonsensical — the same figure it ships
- * with, so the field opens on a bound that resizes something rather than on one that resizes nothing.
- */
-const FALLBACK_MAX_WIDTH_HEIGHT = 2000;
-
-/**
- * Where converting starts, above {@link DEFAULT_QUALITY} and matching the server's own default:
- * converting a lossless original gives up detail that was genuinely there, where recompressing an
- * already-lossy image works on detail that is long gone.
+ * Where converting starts, above {@link DEFAULT_QUALITY}: converting a lossless original gives up
+ * detail that was genuinely there, where recompressing an already-lossy image works on detail that
+ * is long gone.
  */
 export const DEFAULT_CONVERSION_QUALITY = 85;
 

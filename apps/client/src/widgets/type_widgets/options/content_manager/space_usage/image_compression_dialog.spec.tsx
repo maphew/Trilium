@@ -3,11 +3,7 @@ import { useEffect } from "preact/hooks";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { CONFIGURED_MAX_DIMENSIONS, CONFIGURED_QUALITY, EMPTY_RESULT } = vi.hoisted(() => ({
-    // Deliberately unlike the shipped defaults, so a field falling back to the image option cannot
-    // pass for one falling back to a constant of its own.
-    CONFIGURED_MAX_DIMENSIONS: 1600,
-    CONFIGURED_QUALITY: 60,
+const { EMPTY_RESULT } = vi.hoisted(() => ({
     /** What a run reports when it found nothing; tests that care override it. */
     EMPTY_RESULT: {
         items: [], compressedCount: 0, skippedCount: 0, originalSize: 0, newSize: 0, savedSize: 0
@@ -27,7 +23,6 @@ function resultOf(count: number, originalSize: number, newSize: number) {
 }
 
 const mocks = vi.hoisted(() => ({
-    getInt: vi.fn<(name: string) => number | null>(),
     storedOption: "{}",
     save: vi.fn(async () => {}),
     postWithTimeout: vi.fn<(...args: unknown[]) => Promise<unknown>>(async () => EMPTY_RESULT),
@@ -39,7 +34,6 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../../../../../services/options", () => ({
     default: {
         get: () => mocks.storedOption,
-        getInt: mocks.getInt,
         save: mocks.save
     }
 }));
@@ -92,6 +86,11 @@ vi.mock("../../../../react/Modal", () => ({
 
 import { showImageCompressionDialog } from "./image_compression_dialog";
 import { IMAGE_COMPRESSION_TOAST_ID, type ImageCompressionTarget } from "./image_compression_operation";
+import {
+    DEFAULT_CONVERSION_QUALITY,
+    DEFAULT_MAX_WIDTH_HEIGHT,
+    DEFAULT_QUALITY
+} from "./image_compression_options";
 
 /** A note holding whatever it holds; the collection case, where every setting is in play. */
 const NOTE_TARGET: ImageCompressionTarget = { type: "note", noteId: "n1" };
@@ -199,11 +198,6 @@ beforeEach(() => {
     mocks.storedOption = "{}";
     vi.clearAllMocks();
     mocks.postWithTimeout.mockResolvedValue(EMPTY_RESULT);
-    mocks.getInt.mockImplementation((name) => (
-        name === "imageMaxWidthHeight" ? CONFIGURED_MAX_DIMENSIONS
-            : name === "imageJpegQuality" ? CONFIGURED_QUALITY
-                : null
-    ));
 });
 
 afterEach(() => {
@@ -250,7 +244,7 @@ describe("showImageCompressionDialog", () => {
         expect(numberField()).toBeNull();
 
         await toggle(toggles()[0]);
-        expect(numberField()?.value).toBe(String(CONFIGURED_MAX_DIMENSIONS));
+        expect(numberField()?.value).toBe(String(DEFAULT_MAX_WIDTH_HEIGHT));
     });
 
     it("shows each quality only while the choice it qualifies is the one taken", async () => {
@@ -279,20 +273,20 @@ describe("showImageCompressionDialog", () => {
             "image-compression-section-value",
             "slider"
         ]);
-        expect(qualityReading()).toContain(String(CONFIGURED_QUALITY));
+        expect(qualityReading()).toContain(String(DEFAULT_QUALITY));
 
         await drag(slider(), "45");
 
         expect(qualityReading()).toContain("45");
     });
 
-    it("opens on the image options when the setting has never been written", async () => {
+    it("opens on its own defaults when the setting has never been written", async () => {
         await openDialog();
 
-        // Neither number has a default of its own: an unconfigured tool compresses the way
-        // automatic compression is already set to.
-        expect(numberField()?.value).toBe(String(CONFIGURED_MAX_DIMENSIONS));
-        expect(slider()?.value).toBe(String(CONFIGURED_QUALITY));
+        // Defaults of the tool's own rather than the image options': those govern every image on
+        // the way in, where this is a deliberate one-off on one that has already grown too heavy.
+        expect(numberField()?.value).toBe(String(DEFAULT_MAX_WIDTH_HEIGHT));
+        expect(slider()?.value).toBe(String(DEFAULT_QUALITY));
 
         // A JPEG is compressed and a PNG is made smaller without ceasing to be one — the least
         // surprising thing to do to each. Reaching into the subtree is not assumed: that widens
@@ -331,20 +325,20 @@ describe("showImageCompressionDialog", () => {
         [ "out of range", { quality: 500 } ],
         [ "fractional", { quality: 62.5 } ],
         [ "of the wrong type", { quality: "high" } ]
-    ])("ignores a stored quality that is %s and falls back to the option", async (_label, stored) => {
+    ])("ignores a stored quality that is %s and falls back to the default", async (_label, stored) => {
         mocks.storedOption = JSON.stringify(stored);
 
         await openDialog();
 
-        expect(slider()?.value).toBe(String(CONFIGURED_QUALITY));
+        expect(slider()?.value).toBe(String(DEFAULT_QUALITY));
     });
 
-    it("ignores a nonsensical stored dimension and falls back to the option", async () => {
+    it("ignores a nonsensical stored dimension and falls back to the default", async () => {
         mocks.storedOption = JSON.stringify({ maxWidthHeight: 0 });
 
         await openDialog();
 
-        expect(numberField()?.value).toBe(String(CONFIGURED_MAX_DIMENSIONS));
+        expect(numberField()?.value).toBe(String(DEFAULT_MAX_WIDTH_HEIGHT));
     });
 
     it("writes every change straight back, so the next run opens where this one left off", async () => {
@@ -363,7 +357,7 @@ describe("showImageCompressionDialog", () => {
             jpegHandling: "keep",
             pngHandling: "jpeg",
             quality: 45,
-            conversionQuality: 85,
+            conversionQuality: DEFAULT_CONVERSION_QUALITY,
             processChildNotes: true
         }));
     });
@@ -479,11 +473,11 @@ describe("running the compression", () => {
         expect(postedUrl()).toBe("notes/n1/compress-images");
         expect(postedBody()).toEqual({
             resize: true,
-            maxWidthHeight: CONFIGURED_MAX_DIMENSIONS,
+            maxWidthHeight: DEFAULT_MAX_WIDTH_HEIGHT,
             jpegHandling: "compress",
             pngHandling: "optimize",
-            quality: CONFIGURED_QUALITY,
-            conversionQuality: 85,
+            quality: DEFAULT_QUALITY,
+            conversionQuality: DEFAULT_CONVERSION_QUALITY,
             recursive: true
         });
     });
