@@ -1,6 +1,18 @@
 {
   "about": {
-    "data_directory": "데이터 경로:"
+    "data_directory": "데이터 경로:",
+    "version_label": "버전:",
+    "version": "{{appVersion}} (데이터베이스: {{dbVersion}}, 동기화 프로토콜: {{syncVersion}})",
+    "build_info": "빌드: {{buildDate}}, 리비전: <buildRevision />",
+    "contributors_label": "기여자:",
+    "contributor_roles": {
+      "lead-dev": "수석 개발자",
+      "original-dev": "초대 개발자"
+    },
+    "role_brief_history": {
+      "lead-dev": "Elian Doran은 2024년 Zadam이 프로젝트에서 물러난 뒤 만들어진 커뮤니티 포크인 TriliumNext를 창립했습니다. 이후 Zadam이 기존 저장소를 TriliumNext 팀에 이전하면서 두 프로젝트는 다시 하나로 통합되었습니다.",
+      "original-dev": "2017년 12월 25일, Zadam은 Trilium의 첫 번째 베타 버전을 공개했습니다. 이름은 꽃 이름과 달리 ‘l’을 하나만 사용합니다. 기존 노트 관리 도구에 만족하지 못했던 그는 강력한 자체 호스팅형 계층식 지식 베이스를 만들었고, 이 프로젝트는 GitHub에서 22,000개가 넘는 스타를 받았습니다. 2024년에는 개인 일정이 바빠지면서 프로젝트를 유지보수 모드로 전환했습니다."
+    }
   },
   "toast": {
     "critical-error": {
