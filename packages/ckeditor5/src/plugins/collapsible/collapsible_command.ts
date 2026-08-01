@@ -111,6 +111,9 @@ export default class CollapsibleCommand extends Command {
     private checkEnabled(): boolean {
         const model = this.editor.model;
         const firstPosition = model.document.selection.getFirstPosition();
+        // A DocumentSelection always has at least one range, so this never fires — it is here to
+        // narrow the nullable return type without a non-null assertion.
+        /* v8 ignore next 3 -- unreachable, see above */
         if (!firstPosition) {
             return false;
         }

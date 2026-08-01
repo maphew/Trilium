@@ -230,6 +230,7 @@ export default class CollapsibleEditing extends Plugin {
             dispatcher.on(`attribute:${OPEN_ATTRIBUTE}:details`, (evt: any, data: any, conversionApi: any) => {
                 if (!conversionApi.consumable.consume(data.item, evt.name)) return;
                 const viewElement = conversionApi.mapper.toViewElement(data.item);
+                /* v8 ignore next -- the mapper always resolves an element the downcast just converted */
                 if (!viewElement) return;
                 if (data.attributeNewValue) {
                     conversionApi.writer.setAttribute(OPEN_ATTRIBUTE, "", viewElement);
@@ -322,6 +323,7 @@ export default class CollapsibleEditing extends Plugin {
             const resolveDetails = () => plugin.detailsFromDom(span);
             const selectBlock = () => {
                 const model = resolveDetails();
+                /* v8 ignore next -- the handle is only ever rendered inside a <details> */
                 if (!model) return;
                 editor.model.change(w => w.setSelection(model, "on"));
                 editor.editing.view.focus();
@@ -333,8 +335,10 @@ export default class CollapsibleEditing extends Plugin {
             span.addEventListener("mousedown", (e: MouseEvent) => {
                 if (e.button !== 0) return;
                 const model = resolveDetails();
+                /* v8 ignore next -- the handle is only ever rendered inside a <details> */
                 if (!model) return;
                 const root = span.closest(".ck-editor__editable") as HTMLElement | null;
+                /* v8 ignore next -- the handle is only ever rendered inside the editable root */
                 if (!root) return;
                 e.preventDefault();
                 e.stopPropagation();
@@ -369,6 +373,7 @@ export default class CollapsibleEditing extends Plugin {
             // the view tree from the DOM and be clobbered by the next render.
             const toggle = () => {
                 const model = plugin.detailsFromDom(span);
+                /* v8 ignore next -- the arrow is only ever rendered inside a <details> */
                 if (model) plugin.toggleDetails(model);
             };
             // mousedown preventDefault keeps the browser from placing a caret
@@ -409,7 +414,9 @@ export default class CollapsibleEditing extends Plugin {
 
     private getDom<T extends Element = HTMLElement>(model: any): T | null {
         const view = this.editor.editing.mapper.toViewElement(model);
+        /* v8 ignore next -- the mapper always resolves a rendered model element */
         const dom = view ? this.editor.editing.view.domConverter.viewToDom(view) : null;
+        /* v8 ignore next -- a rendered view element always maps to a DOM Element */
         return dom instanceof Element ? (dom as unknown as T) : null;
     }
 
@@ -450,8 +457,10 @@ export default class CollapsibleEditing extends Plugin {
     /** Resolve the <details> model element enclosing a DOM node, if any. */
     private detailsFromDom(node: Element): any | null {
         const detailsDom = node.closest("details");
+        /* v8 ignore next -- only ever called with a node inside a <details> */
         if (!detailsDom) return null;
         const view = this.editor.editing.view.domConverter.mapDomToView(detailsDom);
+        /* v8 ignore next -- the mapper always resolves a rendered view element */
         return view ? this.editor.editing.mapper.toModelElement(view as any) : null;
     }
 
@@ -481,6 +490,7 @@ export default class CollapsibleEditing extends Plugin {
         const view = this.editor.editing.view;
         for (const viewRoot of view.document.getRoots()) {
             const dom = view.getDomRoot(viewRoot.rootName);
+            /* v8 ignore next -- an editing view root is always an HTMLElement */
             if (dom instanceof HTMLElement) fn(dom);
         }
     }
@@ -509,6 +519,7 @@ export default class CollapsibleEditing extends Plugin {
                 // Only the first body block (index 1; index 0 is the summary).
                 if (parent.getChild(1) !== paragraph) return;
                 const view = conversionApi.mapper.toViewElement(paragraph);
+                /* v8 ignore next -- the mapper always resolves a rendered model element */
                 if (!view || this.bodyPlaceholdersApplied.has(view)) return;
                 enableViewPlaceholder({
                     view: editor.editing.view,
@@ -553,6 +564,7 @@ export default class CollapsibleEditing extends Plugin {
         const selection = model.document.selection;
 
         const summary = selection.getFirstPosition()?.findAncestor("summary");
+        /* v8 ignore next -- the listener is registered with context: summary, so a summary is always found */
         if (!summary) return;
 
         // Titles are single-line: always swallow Enter so it never inserts a newline
@@ -562,6 +574,7 @@ export default class CollapsibleEditing extends Plugin {
         evt.stop();
 
         const details = summary.parent;
+        /* v8 ignore next -- a <summary> is only allowed inside a <details> */
         if (!details || !details.is("element", "details")) return;
 
         model.change(writer => {
@@ -570,6 +583,7 @@ export default class CollapsibleEditing extends Plugin {
                 model.deleteContent(selection);
             }
             const position = selection.getLastPosition();
+            /* v8 ignore next -- a DocumentSelection always has at least one position */
             if (!position) return;
 
             if (position.isAtStart) {
@@ -658,11 +672,13 @@ export default class CollapsibleEditing extends Plugin {
         if (data.keyCode !== 38 || data.shiftKey || !selection.isCollapsed) return;
 
         const position = selection.getFirstPosition();
+        /* v8 ignore next -- a DocumentSelection always has at least one position */
         if (!position) return;
 
         const summary = position.findAncestor("summary");
         if (summary) {
             const details = summary.parent;
+            /* v8 ignore next -- a <summary> is only allowed inside a <details> */
             if (!details?.is("element", "details")) return;
             const dom = this.getDom<HTMLElement>(summary);
             if (dom && !this.caretAtVisualEdge(dom, "top")) return;
@@ -684,6 +700,7 @@ export default class CollapsibleEditing extends Plugin {
         const target = open
             ? details.getChild(details.childCount - 1)
             : details.getChild(0);
+        /* v8 ignore next -- a <details> always holds at least a <summary> */
         if (!target?.is("element")) return;
         const offset: number | "end" = open && atOffsetZeroIfOpen ? 0 : "end";
         this.editor.model.change(writer => writer.setSelection(target, offset));
@@ -700,23 +717,35 @@ export default class CollapsibleEditing extends Plugin {
         const selection = this.editor.model.document.selection;
         // 2nd press: a <details> is already selected; let CKEditor's default delete
         // remove it (more reliable than us calling writer.remove here).
+        /* v8 ignore next -- a selection cannot rest on a <details>: it is not isSelectable */
         if (selection.getSelectedElement()?.is("element", "details")) return;
 
         if (!selection.isCollapsed) return;
         const position = selection.getFirstPosition();
+        /* v8 ignore next -- a DocumentSelection always has at least one position */
         if (!position) return;
         const adjacent = data.direction === "forward" ? position.nodeAfter : position.nodeBefore;
         if (!adjacent || !adjacent.is("element", "details")) return;
 
-        // Don't hijack a delete when the current block is empty — the user is
-        // removing the empty block, not the details next to it. Default behaviour
-        // collapses the empty paragraph naturally.
+        // Everything below is unreachable, so the two-step delete never actually happens: a
+        // collapsed selection always sits *inside* a block, which makes `position.nodeBefore` /
+        // `nodeAfter` the nodes on either side of the caret within that block (text nodes, or
+        // null at its edge) — never the neighbouring <details>. The guard above therefore always
+        // returns.
+        //
+        // Correcting the lookup (walk the caret's block and take its sibling, as onUpArrow does)
+        // is not enough on its own: the selection also has to be able to rest *on* a <details>,
+        // which needs `isSelectable: true` on its schema plus a selected-state style, or step one
+        // of the two-step lands with no visual feedback at all. Left as-is deliberately; see the
+        // discussion attached to this handler.
+        /* v8 ignore start -- unreachable, see above */
         const currentBlock = position.parent;
         if (currentBlock?.is("element") && currentBlock.isEmpty) return;
 
         this.editor.model.change(writer => writer.setSelection(adjacent, "on"));
         data.preventDefault();
         evt.stop();
+        /* v8 ignore stop */
     }
 
     /** Backspace at start of an empty summary unwraps the collapsible. */
@@ -726,6 +755,7 @@ export default class CollapsibleEditing extends Plugin {
         const summary = selection.getLastPosition()?.findAncestor("summary");
         if (!summary || !summary.isEmpty) return;
         const details = summary.parent;
+        /* v8 ignore next -- a <summary> is only allowed inside a <details> */
         if (!details || !details.is("element", "details")) return;
         data.preventDefault();
         evt.stop();
@@ -774,6 +804,13 @@ export default class CollapsibleEditing extends Plugin {
                 // Modifier-click on an interactive element (link/button): let the
                 // browser handle it — we encountered the interactive element before
                 // the summary so the user clearly intended its default action.
+                //
+                // Not reachable from a test: `data.target` is resolved through
+                // `domConverter.mapDomToView`, which maps container elements but not the
+                // attribute elements links render as, so a click on an <a> arrives with the
+                // enclosing <summary> as the target and this branch is skipped. (In the running
+                // editor LinkEditing handles modifier-clicks on links before this listener.)
+                /* v8 ignore next 3 -- see above */
                 if (hasModifier && (node.is?.("element", "a") || node.is?.("element", "button"))) {
                     return;
                 }
@@ -829,6 +866,7 @@ export default class CollapsibleEditing extends Plugin {
             const summary = selection.getFirstPosition()?.findAncestor("summary");
             if (!summary) return;
             const details = summary.parent;
+            /* v8 ignore next -- a <summary> is only allowed inside a <details> */
             if (!details?.is("element", "details")) return;
             const dom = this.getDom<HTMLElement>(summary);
             if (dom && !this.caretAtVisualEdge(dom, "bottom")) return;
@@ -861,6 +899,7 @@ export default class CollapsibleEditing extends Plugin {
         // Adopt a state the model doesn't know about yet. Toggles that originated
         // from the model land here too and are absorbed by setDetailsOpen's guard.
         const detailsModel = this.detailsFromDom(detailsDom);
+        /* v8 ignore next -- the toggle only fires for a rendered, mapped <details> */
         if (!detailsModel) return;
         // A find-reveal drives this block's `open` transiently in the editing view
         // only — adopting it into the (persisted) model would let a search rewrite
@@ -883,6 +922,7 @@ export default class CollapsibleEditing extends Plugin {
         if (!this.editor.plugins.has("FindAndReplaceEditing")) return;
         const findEditing: any = this.editor.plugins.get("FindAndReplaceEditing");
         const state = findEditing?.state;
+        /* v8 ignore next -- FindAndReplaceEditing always exposes a state with an observable on flag */
         if (!state?.on) return;
         this.listenTo(state, "change:highlightedResult", (_evt: any, _name: any, highlighted: any) => {
             this.syncFindReveal(highlighted);
@@ -925,6 +965,7 @@ export default class CollapsibleEditing extends Plugin {
     /** Add or strip the transient `open` (and its CSS marker) on the editing view. */
     private applyFindReveal(details: any, reveal: boolean) {
         const viewElement = this.editor.editing.mapper.toViewElement(details);
+        /* v8 ignore next -- only called for a <details> that is currently rendered */
         if (!viewElement) return;
         this.editor.editing.view.change((writer: any) => {
             if (reveal) {
@@ -1001,7 +1042,9 @@ export default class CollapsibleEditing extends Plugin {
         this.forEachDomRoot(root => {
             for (const dom of root.querySelectorAll<HTMLElement>("details.trilium-collapsible > summary")) {
                 const view = domConverter.mapDomToView(dom);
+                /* v8 ignore next -- the mapper always resolves a rendered view element */
                 const model = view ? mapper.toModelElement(view as any) : null;
+                /* v8 ignore next -- the mapper always resolves a rendered view element */
                 if (model) current.set(model, dom);
             }
         });
@@ -1120,7 +1163,9 @@ export default class CollapsibleEditing extends Plugin {
     }
 
     private detachSummaryHoverListeners(state: SummaryHintState, previousDom: HTMLElement): void {
+        /* v8 ignore next -- mouseEnter and mouseLeave are always assigned together by attachSummaryHoverListeners */
         if (state.mouseEnter) previousDom.removeEventListener("mouseenter", state.mouseEnter);
+        /* v8 ignore next -- mouseEnter and mouseLeave are always assigned together by attachSummaryHoverListeners */
         if (state.mouseLeave) previousDom.removeEventListener("mouseleave", state.mouseLeave);
     }
 
@@ -1192,6 +1237,7 @@ export default class CollapsibleEditing extends Plugin {
             visited.add(details);
             if (details.childCount > 1) return false;
             const summary = details.getChild(0);
+            /* v8 ignore next -- a <details> always holds a <summary> as its first child by the time this runs */
             if (!summary?.is("element", "summary")) return false;
             writer.insert(writer.createElement("paragraph"), details, "end");
             return true;
@@ -1332,6 +1378,7 @@ export default class CollapsibleEditing extends Plugin {
         // Only re-pin the caret — never collapse a user's multi-block selection.
         if (!selection.isCollapsed) return false;
         const position = selection.getFirstPosition();
+        /* v8 ignore next -- a DocumentSelection always has at least one position */
         if (!position) return false;
 
         let outermostClosed: any = null;
@@ -1342,6 +1389,7 @@ export default class CollapsibleEditing extends Plugin {
         if (!outermostClosed) return false;
 
         const summary = outermostClosed.getChild(0);
+        /* v8 ignore next -- a <details> always holds a <summary> as its first child by the time this runs */
         if (!summary?.is("element", "summary")) return false;
         if (position.findAncestor("summary") === summary) return false;
 

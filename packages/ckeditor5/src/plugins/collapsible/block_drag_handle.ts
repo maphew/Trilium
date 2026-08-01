@@ -72,6 +72,7 @@ export default class BlockDragHandle {
 
     private onMove(e: MouseEvent): void {
         const state = this.dragState;
+        /* v8 ignore next -- the mousemove listener is removed by cancel(), so a drag is always in progress here */
         if (!state) return;
         if (!state.started) {
             const dx = e.clientX - state.startX;
@@ -87,6 +88,7 @@ export default class BlockDragHandle {
         const target = this.findDropTarget(e.clientX, e.clientY, state.root);
         const dom = target ? this.getDom(target.model) : null;
         if (!target || !dom || !state.indicator) {
+            /* v8 ignore next -- past the movement threshold the indicator has always been created */
             if (state.indicator) state.indicator.style.display = "none";
             return;
         }
@@ -100,6 +102,7 @@ export default class BlockDragHandle {
 
     private onUp(e: MouseEvent): void {
         const state = this.dragState;
+        /* v8 ignore next -- the mouseup listener is removed by cancel(), so a drag is always in progress here */
         if (!state) return;
         this.cancel();
         if (!state.started) {

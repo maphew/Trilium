@@ -1,4 +1,4 @@
-import { _getModelData as getModelData, _setModelData as setModelData, ClassicEditor, Essentials, FindAndReplace, Paragraph } from "ckeditor5";
+import { _getModelData as getModelData, _setModelData as setModelData, ClassicEditor, ClickObserver, Essentials, FindAndReplace, Heading, Paragraph } from "ckeditor5";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor, getEditorElement } from "../../../test/editor-kit.js";
@@ -71,6 +71,44 @@ describe("collapsible edge cases", () => {
             editor.editing.view.document.fire("enter", { preventDefault: vi.fn(), isSoft: false });
 
             expect(getModelData(editor.model, { withoutSelection: true })).not.toContain("<details");
+        });
+
+        it("leaves a non-paragraph block to its own Enter behaviour", async () => {
+            // Headings, list items and the like have their own Enter semantics — the escape-out
+            // handler only claims empty trailing <paragraph>s.
+            await editor.destroy();
+            await createEditor([Essentials, Paragraph, Heading, CollapsibleEditing]);
+            setModelData(
+                editor.model,
+                "<details open=\"true\"><summary>T</summary><heading1>[]</heading1></details>"
+            );
+
+            editor.editing.view.document.fire("enter", { preventDefault: vi.fn(), isSoft: false });
+
+            // Still inside the collapsible: the handler bailed on the non-paragraph block.
+            expect(editor.model.document.getRoot()?.childCount).toBe(1);
+        });
+    });
+
+    describe("clicking outside a title", () => {
+        it("leaves a click on ordinary content alone", () => {
+            editor.editing.view.addObserver(ClickObserver);
+            setModelData(
+                editor.model,
+                "<paragraph>plain[]</paragraph>" +
+                "<details><summary>T</summary><paragraph>body</paragraph></details>"
+            );
+            editor.editing.view.forceRender();
+            const paragraph = root.querySelector("p");
+            if (!(paragraph instanceof HTMLElement)) {
+                throw new Error("Expected a rendered paragraph.");
+            }
+
+            const click = new MouseEvent("click", { bubbles: true, cancelable: true });
+            paragraph.dispatchEvent(click);
+
+            // Nothing on the ancestor chain is a summary, so the toggle-suppression never applies.
+            expect(click.defaultPrevented).toBe(false);
         });
     });
 
@@ -158,6 +196,21 @@ describe("collapsible edge cases", () => {
             expect(root.querySelector("details")?.open).toBe(true);
             // Persisted open, so the model keeps the attribute and no transient marker appears.
             expect(getModelData(editor.model, { withoutSelection: true })).toContain("open=\"true\"");
+        });
+
+        it("does not write a find-driven toggle back into the model", () => {
+            editor.setData(
+                "<details class=\"trilium-collapsible\"><summary>T</summary><p>needle here</p></details>"
+            );
+            editor.execute("find", "needle");
+            const details = root.querySelector("details");
+            expect(details?.open).toBe(true);
+
+            // The browser fires `toggle` for the transient open. Adopting it would let a search
+            // rewrite the saved open/closed layout, so the reveal guard has to swallow it.
+            details?.dispatchEvent(new Event("toggle"));
+
+            expect(getModelData(editor.model, { withoutSelection: true })).not.toContain("open=");
         });
 
         it("keeps the reveal while the highlight moves between matches in the same block", () => {
