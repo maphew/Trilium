@@ -3607,7 +3607,11 @@
     "ck": {
       "admonition": "Admonition",
       "caution": "Caution",
+      "copy-formatting": "Copy formatting",
       "important": "Important",
+      "include-note": "Include note",
+      "keyboard-shortcut": "Keyboard shortcut",
+      "link-preview": "Link preview",
       "note": "Note",
       "tip": "Tip",
       "warning": "Warning"

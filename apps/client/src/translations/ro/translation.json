@@ -2692,7 +2692,11 @@
     "ck": {
       "admonition": "Casetă de avertizare",
       "caution": "Atenție",
+      "copy-formatting": "Copiază formatarea",
       "important": "Important",
+      "include-note": "Include notița",
+      "keyboard-shortcut": "Scurtătură de la tastatură",
+      "link-preview": "Previzualizare link",
       "note": "Notă",
       "tip": "Sfat",
       "warning": "Avertisment"
