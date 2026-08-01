@@ -12,7 +12,7 @@ import { COMMAND_NAME as INCLUDE_NOTE_COMMAND } from './plugins/includenote.js';
 import { COMMAND_NAME as MARKDOWN_IMPORT_COMMAND } from './plugins/markdownimport.js';
 import { ADMONITION_TYPES } from "./plugins/admonition/admonition_ui.js";
 import type { AdmonitionType } from "./plugins/admonition/admonition_command.js";
-import { icons as collapsibleIcons } from '@triliumnext/ckeditor5-collapsible';
+import collapsibleIcon from './icons/collapsible.svg?raw';
 import dateTimeIcon from './icons/date-time.svg?raw';
 import internalLinkIcon from './icons/trilium.svg?raw';
 import noteIcon from './icons/note.svg?raw';
@@ -45,7 +45,7 @@ export default function buildExtraCommands(
             title: "Collapsible block",
             description: t("slash_commands.collapsible_description"),
             aliases: [ "details", "fold", "toggle" ],
-            icon: collapsibleIcons.collapsibleIcon,
+            icon: collapsibleIcon,
             commandName: "collapsible"
         },
         {

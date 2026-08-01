@@ -73,9 +73,15 @@ export default class CollapsibleCommand extends Command {
                 for (const child of [...fragment.getChildren()]) {
                     // `child.is("element")` is true for inline elements too (soft breaks,
                     // inline widgets, …), and dropping those directly under <details>
-                    // violates its block-only schema. Gate on isBlock so they fall through
-                    // to `pending` and get wrapped in the next flushed paragraph.
-                    if (child.is("element") && model.schema.isBlock(child)) {
+                    // violates its block-only schema, so they must fall through to `pending`
+                    // and get wrapped in the next flushed paragraph.
+                    //
+                    // Ask the schema what may sit directly inside <details> rather than testing
+                    // `isBlock`: a container — a nested <details> among them — reports
+                    // `isBlock: false`, so an isBlock gate sent whole collapsibles down the
+                    // inline path, where their summary and body text were flattened together
+                    // into one paragraph instead of being unwrapped by `appendToBody`.
+                    if (child.is("element") && model.schema.checkChild(details, child)) {
                         flushPending();
                         appendToBody(child);
                     } else {

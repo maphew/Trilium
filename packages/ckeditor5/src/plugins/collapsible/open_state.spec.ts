@@ -1,6 +1,6 @@
 import { ClassicEditor, Essentials, Paragraph, _setModelData as setModelData, _getModelData as getModelData } from "ckeditor5";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import CollapsibleEditing from "../src/collapsible-editing.js";
+import CollapsibleEditing from "./collapsible_editing.js";
 
 /**
  * The expanded state is persisted as the `open` model attribute, which round-trips
@@ -33,7 +33,7 @@ describe("collapsible open state", () => {
     const clickArrow = (index = 0) =>
         domRoot()
             .querySelectorAll<HTMLElement>(".trilium-collapsible-arrow")[index]
-            .dispatchEvent(new MouseEvent("click", { bubbles: true }));
+            .dispatchEvent(new MouseEvent("click", { bubbles: true, cancelable: true }));
 
     describe("persistence", () => {
         it("round-trips the state a user leaves behind: collapsed content loads collapsed, expanding writes `open` into the saved HTML, and reloading that HTML comes back expanded", () => {
@@ -165,12 +165,20 @@ describe("collapsible open state", () => {
             expect(getModelData(model, { withoutSelection: true })).toContain("<details open=\"true\">");
         });
 
-        it("keeps the arrow's aria-expanded in sync", () => {
+        it("keeps the arrow's aria-expanded in sync", async () => {
             setModelData(model, "<details><summary>T</summary><paragraph>body</paragraph></details>");
             const arrow = domRoot().querySelector(".trilium-collapsible-arrow");
             expect(arrow?.getAttribute("aria-expanded")).toBe("false");
 
+            // `aria-expanded` is written by the `toggle` DOM listener, and the browser fires
+            // `toggle` asynchronously after `open` changes — so wait for the event rather than
+            // asserting straight after the click.
+            const toggled = new Promise<void>((resolve) => {
+                detailsDom().addEventListener("toggle", () => resolve(), { once: true });
+            });
+
             clickArrow();
+            await toggled;
 
             expect(arrow?.getAttribute("aria-expanded")).toBe("true");
         });

@@ -1,5 +1,5 @@
 import { ButtonView, Plugin } from "ckeditor5";
-import collapsibleIcon from "../theme/icons/collapsible.svg?raw";
+import collapsibleIcon from "../../icons/collapsible.svg?raw";
 
 export default class CollapsibleUI extends Plugin {
 
@@ -13,7 +13,7 @@ export default class CollapsibleUI extends Plugin {
             ?? ((key: string) => key);
 
         editor.ui.componentFactory.add("collapsible", locale => {
-            const command = editor.commands.get("collapsible")!;
+            const command = editor.commands.get("collapsible");
             const button = new ButtonView(locale);
 
             button.set({
@@ -22,7 +22,9 @@ export default class CollapsibleUI extends Plugin {
                 tooltip: true
             });
 
-            button.bind("isEnabled").to(command, "isEnabled");
+            if (command) {
+                button.bind("isEnabled").to(command, "isEnabled");
+            }
 
             this.listenTo(button, "execute", () => {
                 editor.execute("collapsible");

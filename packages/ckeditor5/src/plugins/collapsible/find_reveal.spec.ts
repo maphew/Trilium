@@ -1,7 +1,7 @@
 import { ClassicEditor, Essentials, FindAndReplace, Paragraph, _getModelData as getModelData } from "ckeditor5";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import CollapsibleEditing from "../src/collapsible-editing.js";
-import { TRANSIENT_OPEN_ATTRIBUTE } from "../src/constants.js";
+import CollapsibleEditing from "./collapsible_editing.js";
+import { TRANSIENT_OPEN_ATTRIBUTE } from "./constants.js";
 
 /**
  * Find-in-note reveal: when the find highlight lands inside a collapsed block the
@@ -115,7 +115,7 @@ describe("collapsible find-in-note reveal", () => {
 
         // User genuinely opens it via the arrow while the match is highlighted.
         domRoot().querySelector<HTMLElement>(".trilium-collapsible-arrow")?.dispatchEvent(
-            new MouseEvent("click", { bubbles: true })
+            new MouseEvent("click", { bubbles: true, cancelable: true })
         );
         // Highlight moves away (search cleared).
         editor.plugins.get("FindAndReplaceEditing").state?.clear(model);

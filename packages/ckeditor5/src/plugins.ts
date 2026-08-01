@@ -26,7 +26,7 @@ import SyntaxHighlighting from "./plugins/syntax_highlighting/index.js";
 import Kbd from "./plugins/keyboard_marker/keyboard_marker.js";
 import { Mermaid } from "@triliumnext/ckeditor5-mermaid";
 import Admonition from "./plugins/admonition/admonition.js";
-import { Collapsible } from "@triliumnext/ckeditor5-collapsible";
+import Collapsible from "./plugins/collapsible/collapsible.js";
 import { Footnotes } from "@triliumnext/ckeditor5-footnotes";
 import { Math, AutoformatMath } from "@triliumnext/ckeditor5-math";
 import CopyAnchorLinkButton from "./plugins/copy_anchor_link.js";

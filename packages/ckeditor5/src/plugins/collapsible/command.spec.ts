@@ -1,6 +1,6 @@
 import { ClassicEditor, Essentials, Paragraph, _setModelData as setModelData, _getModelData as getModelData } from "ckeditor5";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import CollapsibleEditing from "../src/collapsible-editing.js";
+import CollapsibleEditing from "./collapsible_editing.js";
 
 describe("CollapsibleCommand", () => {
     let domElement: HTMLDivElement;
@@ -70,6 +70,36 @@ describe("CollapsibleCommand", () => {
             // The inner summary's text isn't pulled into the new summary (the
             // new summary is the editable title for the user to fill in).
             expect(data).not.toContain("<summary>Inner");
+        });
+
+        it("unwraps a whole <details> caught in a wider selection, keeping only its body", () => {
+            // Unlike the case above, the selection spans several top-level blocks, so the
+            // <details> survives into the copied fragment as a block child and is unwrapped there.
+            setModelData(model,
+                "<paragraph>[before</paragraph>" +
+                "<details><summary>Inner</summary><paragraph>Inner body</paragraph></details>" +
+                "<paragraph>after]</paragraph>"
+            );
+
+            editor.execute("collapsible");
+
+            const data = getModelData(model, { withoutSelection: true });
+            expect((data.match(/<details[ >]/g) ?? []).length).toBe(1);
+            expect(data).toContain("<paragraph>before</paragraph>");
+            expect(data).toContain("<paragraph>Inner body</paragraph>");
+            expect(data).toContain("<paragraph>after</paragraph>");
+            expect(data).not.toContain("<summary>Inner");
+        });
+
+        it("drops a whitespace-only run rather than wrapping it in an empty paragraph", () => {
+            setModelData(model, "<paragraph>[ ]</paragraph><paragraph>keep</paragraph>");
+
+            editor.execute("collapsible");
+
+            const data = getModelData(model, { withoutSelection: true });
+            // Body holds the single empty paragraph the command guarantees, not a
+            // paragraph wrapping the stray space.
+            expect(data).toContain("<details open=\"true\"><summary></summary><paragraph></paragraph></details>");
         });
     });
 

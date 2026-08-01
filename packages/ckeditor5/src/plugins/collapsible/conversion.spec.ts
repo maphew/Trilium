@@ -1,6 +1,6 @@
 import { ClassicEditor, Essentials, Paragraph, _getModelData as getModelData } from "ckeditor5";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import CollapsibleEditing from "../src/collapsible-editing.js";
+import CollapsibleEditing from "./collapsible_editing.js";
 
 describe("CollapsibleEditing conversion", () => {
     let domElement: HTMLDivElement;
