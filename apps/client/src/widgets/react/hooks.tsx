@@ -990,46 +990,64 @@ TooltipProto.dispose = function () {
     this._element = disposedTooltipPlaceholder.element;
 };
 
-export function useTooltip(elRef: RefObject<HTMLElement>, config: Partial<Tooltip.Options>) {
+/**
+ * A Bootstrap tooltip whose lifetime follows the element it hangs off.
+ *
+ * @param enabled while false the tooltip is put away and kept away, for a host with something of its own
+ *                to put in front of the user — see {@link Dropdown}, which silences its toggle's title
+ *                for as long as the menu that title opened is on screen.
+ */
+export function useTooltip(elRef: RefObject<HTMLElement>, config: Partial<Tooltip.Options>, enabled = true) {
+    const tooltipRef = useRef<Tooltip | null>(null);
+
     useEffect(() => {
         if (!elRef?.current) return;
 
         const element = elRef.current;
-        const $el = $(element);
 
-        // Dispose any existing tooltip before creating a new one
+        // Held on to rather than looked up again through `Tooltip.getInstance`: Bootstrap keeps one
+        // component instance per element and refuses to register a second (it logs and returns), so on
+        // an element another Bootstrap component has already claimed — a dropdown's toggle, say — the
+        // lookup comes back empty. The tooltip works all the same, being a live object with its own
+        // listeners, but nothing can reach it to dispose it, and whatever it has shown is left on
+        // screen for good.
         Tooltip.getInstance(element)?.dispose();
-        $el.tooltip(config);
-
-        // Capture the tooltip instance now, since elRef.current may be null during cleanup.
-        const tooltip = Tooltip.getInstance(element);
+        const tooltip = new Tooltip(element, config);
+        tooltipRef.current = tooltip;
 
         return () => {
+            tooltipRef.current = null;
             // Dispose even when the trigger element is already detached (e.g. a keyed remount
             // replaced it before this cleanup ran) — dispose() also removes a currently-shown
             // popup from the DOM, and with the trigger gone nothing else ever would (#10567).
             // The pending-callback crash of bootstrap#37474 is handled by the dispose() patch above.
-            tooltip?.dispose();
+            tooltip.dispose();
         };
     }, [ elRef, config ]);
 
-    const showTooltip = useCallback(() => {
-        if (!elRef?.current) return;
+    // Runs after the effect above, so a tooltip just recreated for a new config is caught by it too —
+    // hence the same dependencies alongside `enabled`.
+    useEffect(() => {
+        const tooltip = tooltipRef.current;
+        if (!tooltip) return;
 
-        const element = elRef.current;
-        const tooltip = Tooltip.getInstance(element);
-        if (tooltip) {
-            clearStaleHoverState(tooltip);
+        if (enabled) {
+            tooltip.enable();
+        } else {
+            tooltip.hide();
+            tooltip.disable();
         }
-        $(element).tooltip("show");
-    }, [ elRef, config ]);
+    }, [ enabled, elRef, config ]);
 
-    const hideTooltip = useCallback(() => {
-        if (!elRef?.current) return;
+    const showTooltip = useCallback(() => {
+        const tooltip = tooltipRef.current;
+        if (!tooltip) return;
 
-        const $el = $(elRef.current);
-        $el.tooltip("hide");
-    }, [ elRef ]);
+        clearStaleHoverState(tooltip);
+        tooltip.show();
+    }, []);
+
+    const hideTooltip = useCallback(() => tooltipRef.current?.hide(), []);
 
     useDebugValue(config.title);
 
