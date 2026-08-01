@@ -12580,13 +12580,6 @@
                                 {
                                     "type": "relation",
                                     "name": "internalLink",
-                                    "value": "BCkXAVs63Ttv",
-                                    "isInheritable": false,
-                                    "position": 10
-                                },
-                                {
-                                    "type": "relation",
-                                    "name": "internalLink",
                                     "value": "HI6GBBIduIgv",
                                     "isInheritable": false,
                                     "position": 20
@@ -12604,13 +12597,34 @@
                                     "value": "note-map",
                                     "isInheritable": false,
                                     "position": 20
+                                },
+                                {
+                                    "type": "relation",
+                                    "name": "internalLink",
+                                    "value": "BCkXAVs63Ttv",
+                                    "isInheritable": false,
+                                    "position": 30
+                                },
+                                {
+                                    "type": "relation",
+                                    "name": "internalLink",
+                                    "value": "OR8WJ7Iz9K4U",
+                                    "isInheritable": false,
+                                    "position": 40
+                                },
+                                {
+                                    "type": "relation",
+                                    "name": "internalLink",
+                                    "value": "m1lbrzyKDaRB",
+                                    "isInheritable": false,
+                                    "position": 50
                                 }
                             ],
                             "format": "markdown",
                             "dataFileName": "Note Map.md",
                             "attachments": [
                                 {
-                                    "attachmentId": "iSjacTLiMjyr",
+                                    "attachmentId": "X5AA9t2RCo0l",
                                     "title": "image.png",
                                     "role": "image",
                                     "mime": "image/png",
@@ -17168,13 +17182,6 @@
                                 {
                                     "type": "relation",
                                     "name": "internalLink",
-                                    "value": "bdUJEHsAPYQR",
-                                    "isInheritable": false,
-                                    "position": 70
-                                },
-                                {
-                                    "type": "relation",
-                                    "name": "internalLink",
                                     "value": "iRwzGnHPzonm",
                                     "isInheritable": false,
                                     "position": 80
@@ -17192,6 +17199,41 @@
                                     "value": "bx bxs-network-chart",
                                     "isInheritable": false,
                                     "position": 40
+                                },
+                                {
+                                    "type": "relation",
+                                    "name": "internalLink",
+                                    "value": "bdUJEHsAPYQR",
+                                    "isInheritable": false,
+                                    "position": 90
+                                },
+                                {
+                                    "type": "relation",
+                                    "name": "internalLink",
+                                    "value": "MKmLg5x6xkor",
+                                    "isInheritable": false,
+                                    "position": 100
+                                },
+                                {
+                                    "type": "relation",
+                                    "name": "internalLink",
+                                    "value": "p9kXRFAkwN4o",
+                                    "isInheritable": false,
+                                    "position": 110
+                                },
+                                {
+                                    "type": "relation",
+                                    "name": "internalLink",
+                                    "value": "xYmIYSP6wE3F",
+                                    "isInheritable": false,
+                                    "position": 120
+                                },
+                                {
+                                    "type": "relation",
+                                    "name": "internalLink",
+                                    "value": "OR8WJ7Iz9K4U",
+                                    "isInheritable": false,
+                                    "position": 130
                                 }
                             ],
                             "format": "markdown",
