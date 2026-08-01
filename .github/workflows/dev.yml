@@ -134,9 +134,19 @@ jobs:
 
       - name: Run the CKEditor 5 aggregate tests
         id: test-ckeditor5
+        # The suite drives a real headless Chrome through webdriverio. When the browser session
+        # fails to start, vitest waits on it rather than erroring, so cap the step instead of
+        # letting it sit until the job's default timeout.
+        timeout-minutes: 15
         run: |
           export CHROMEDRIVER_PATH=$(which chromedriver || find /usr/local/share -name chromedriver -type f 2>/dev/null | head -1)
           echo "Using chromedriver at: $CHROMEDRIVER_PATH"
+          # A chromedriver whose major version does not match the installed Chrome fails the
+          # session handshake, which surfaces as a hang or a mid-run disconnect rather than a
+          # clear error — so record both up front.
+          "$CHROMEDRIVER_PATH" --version || echo "could not read the chromedriver version"
+          (google-chrome --version || chromium --version || chromium-browser --version) 2>/dev/null \
+            || echo "could not read the Chrome version"
           pnpm run --filter=ckeditor5 test --coverage
 
       - name: Upload ckeditor5 coverage to Codecov
