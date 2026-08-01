@@ -50,4 +50,19 @@ describe("translateMessage", () => {
         expect(translateMessage((key) => key, "Warning")).toBe("Warning");
         expect(translateMessage(() => "", "Warning")).toBe("Warning");
     });
+
+    // `%0`-style placeholders are what CKEditor's own translation function substitutes, so a message
+    // reads the same either way — including when it falls back to English.
+    it("substitutes %0-style placeholders, in the translation and in the fallback alike", () => {
+        expect(translateMessage(() => "Șablon „%0” (%1)", "Template \"%0\" (%1)", [ "Flowchart", "2" ]))
+            .toBe("Șablon „Flowchart” (2)");
+        expect(translateMessage((key) => key, "Insert %0", [ "Flowchart" ])).toBe("Insert Flowchart");
+    });
+
+    // A placeholder with no value is left alone rather than blanked, so a mismatched translation
+    // shows the gap instead of silently dropping text.
+    it("leaves a placeholder with no corresponding value untouched", () => {
+        expect(translateMessage((key) => key, "Insert %0 into %1", [ "Flowchart" ]))
+            .toBe("Insert Flowchart into %1");
+    });
 });

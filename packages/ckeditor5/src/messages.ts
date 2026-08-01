@@ -72,9 +72,26 @@ export function buildMessageDictionary(
  *
  * Falls back to the message id, which is the English text, so a missing entry renders English
  * rather than a raw key.
+ *
+ * @param values substituted for the `%0`, `%1`, … placeholders, as {@link interpolate} describes.
  */
-export function translateMessage(translate: (key: string) => string, message: string): string {
+export function translateMessage(
+    translate: (key: string) => string,
+    message: string,
+    values: readonly string[] = []
+): string {
     const key = MESSAGE_KEY_PREFIX + slugify(message);
     const translated = translate(key);
-    return translated && translated !== key ? translated : message;
+    return interpolate(translated && translated !== key ? translated : message, values);
+}
+
+/**
+ * Substitute `%0`, `%1`, … in a translated message, which is how CKEditor's own translation function
+ * interpolates. A message therefore reads the same whether it was translated by the editor or by
+ * {@link translateMessage}, and translators see one placeholder convention.
+ *
+ * A placeholder with no corresponding value is left as written, rather than blanked.
+ */
+function interpolate(message: string, values: readonly string[]): string {
+    return message.replace(/%(\d+)/g, (placeholder, index) => values[Number(index)] ?? placeholder);
 }

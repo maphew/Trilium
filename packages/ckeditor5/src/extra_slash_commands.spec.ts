@@ -19,12 +19,9 @@ function makeFakeEditor() {
 }
 
 describe("buildExtraCommands", () => {
-    const t = (key: string, params?: Record<string, unknown>) => {
-        if (params) {
-            return `${key}(${JSON.stringify(params)})`;
-        }
-        return key;
-    };
+    // The host translator, which i18next-style echoes back a key it has no entry for. Every message
+    // therefore falls back to its English id, which is what these assertions pin.
+    const t = (key: string) => key;
 
     it("returns an array", () => {
         const commands = buildExtraCommands(t);
@@ -38,7 +35,7 @@ describe("buildExtraCommands", () => {
         expect(cmd).toBeDefined();
         expect(cmd?.title).toBe("Collapsible block");
         expect(cmd?.commandName).toBe("collapsible");
-        expect(cmd?.description).toBe("slash_commands.collapsible_description");
+        expect(cmd?.description).toBe("Insert a toggleable section that hides/shows content on click.");
         expect(Array.isArray(cmd?.aliases)).toBe(true);
         expect(cmd?.icon).toBeTruthy();
     });
@@ -260,7 +257,7 @@ describe("buildExtraCommands", () => {
                 expect(cmd, `admonition command for ${keyword}`).toBeDefined();
                 expect(typeof cmd?.execute).toBe("function");
                 expect(cmd?.icon).toBeTruthy();
-                expect(cmd?.description).toBe("slash_commands.admonition_description");
+                expect(cmd?.description).toBe("Inserts a new admonition");
                 expect(cmd?.aliases).toContain("box");
                 expect(cmd?.title).toBe(ENGLISH_TITLES[keyword]);
             }
@@ -296,7 +293,7 @@ describe("buildExtraCommands", () => {
             expect(cmd?.title).toBe("Mermaid diagram");
             expect(cmd?.commandName).toBeTruthy();
             expect(cmd?.icon).toBeTruthy();
-            expect(cmd?.description).toBe("mermaid.slash_command_blank_description");
+            expect(cmd?.description).toBe("Insert an empty Mermaid diagram");
         });
 
         it("includes no sample commands when mermaidSamples is empty", () => {
@@ -315,7 +312,7 @@ describe("buildExtraCommands", () => {
             const cmd0 = commands.find((c) => c.id === "mermaid-sample-0");
             expect(cmd0).toBeDefined();
             expect(cmd0?.title).toBe("Mermaid diagram: Flowchart");
-            expect(cmd0?.description).toBe("mermaid.slash_command_description({\"name\":\"Flowchart\"})");
+            expect(cmd0?.description).toBe("Insert a \"Flowchart\" Mermaid diagram template");
             expect(cmd0?.aliases).toContain("Flowchart");
             expect(cmd0?.icon).toBeTruthy();
 
@@ -338,32 +335,33 @@ describe("buildExtraCommands", () => {
             expect(executeSpy).toHaveBeenCalledWith(INSERT_MERMAID_COMMAND, { source: "flowchart LR\n  A --> B" });
         });
 
-        it("translate function is called with sample name for sample commands", () => {
-            const tSpy = vi.fn((key: string, params?: Record<string, unknown>) => {
-                if (params) {
-                    return `${key}(${JSON.stringify(params)})`;
-                }
-                return key;
-            });
+        // The sample name is interpolated into the translation, not concatenated onto it, so a
+        // locale that has an entry decides where the name goes.
+        it("substitutes the sample name into the localized title and description", () => {
             const samples = [{ name: "MyDiagram", content: "graph TD\n  A" }];
-            buildExtraCommands(tSpy, samples);
-            expect(tSpy).toHaveBeenCalledWith("mermaid.slash_command_description", { name: "MyDiagram" });
+            const translations: Record<string, string> = {
+                "text-editor.ck.mermaid-diagram-0": "Diagramă %0",
+                "text-editor.ck.insert-a-0-mermaid-diagram-template": "Șablon Mermaid „%0”"
+            };
+            const commands = buildExtraCommands((key) => translations[key] ?? key, samples);
+            const cmd = commands.find((c) => c.id === "mermaid-sample-0");
+
+            expect(cmd?.title).toBe("Diagramă MyDiagram");
+            expect(cmd?.description).toBe("Șablon Mermaid „MyDiagram”");
         });
     });
 
-    it("passes the translation key to t() for every command description", () => {
+    // Every string these definitions show is looked up, and each lookup lands under the prefix the
+    // English catalog is keyed by — a definition that hardcoded its text would ask for nothing.
+    it("resolves every title and description to a text-editor.ck key", () => {
         const keys: string[] = [];
-        const tRecording = (key: string, params?: Record<string, unknown>) => {
+
+        buildExtraCommands((key) => {
             keys.push(key);
             return key;
-        };
+        }, [ { name: "Flowchart", content: "graph TD\n  A" } ]);
 
-        buildExtraCommands(tRecording);
         expect(keys.length).toBeGreaterThan(0);
-        // All translation keys should be non-empty strings.
-        for (const key of keys) {
-            expect(typeof key).toBe("string");
-            expect(key.length).toBeGreaterThan(0);
-        }
+        expect(keys.filter((key) => !key.startsWith("text-editor.ck."))).toEqual([]);
     });
 });

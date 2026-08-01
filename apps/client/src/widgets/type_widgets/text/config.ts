@@ -176,7 +176,7 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
             // (Title Case titles, normalized to sentence case).
             removeCommands: ["insertMermaidCommand", "bulletedList", "numberedList", "todoList"],
             dropdownLimit: Number.MAX_SAFE_INTEGER,
-            extraCommands: buildExtraCommands((key, params) => t(key, params), SAMPLE_DIAGRAMS)
+            extraCommands: buildExtraCommands((key) => t(key), SAMPLE_DIAGRAMS)
         },
         snippets: {
             definitions: opts.templates
