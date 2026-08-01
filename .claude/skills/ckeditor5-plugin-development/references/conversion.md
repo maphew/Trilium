@@ -5,7 +5,7 @@ of truth**; HTML/data is just I/O. That is why helper names look "reversed": con
 `<mark>` element ↔ `highlight` model attribute uses `attributeToElement` (you name the
 **model** side first).
 
-> All helpers and writers here come from the **`ckeditor5` library** (`48.3.1`); import as
+> All helpers and writers here come from the **`ckeditor5` library** (**48 or later**); import as
 > `from 'ckeditor5'` with file extensions. Trilium's own plugins under `packages/ckeditor5-*`
 > register converters via `editor.conversion`; real examples cited below are
 > `ckeditor5-math` and `mermaid` (external/async-rendered widgets built with

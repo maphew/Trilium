@@ -3,7 +3,7 @@
 > **The source paths below (`packages/ckeditor5-basic-styles`, `-link`, `-image`, `-ui`, etc.)
 > point into the CKEditor 5 *library* source
 > ([github.com/ckeditor/ckeditor5](https://github.com/ckeditor/ckeditor5)) — the external
-> dependency Trilium pins at `48.3.1` — NOT into Trilium's monorepo.** They show where each idiom
+> dependency Trilium tracks at **48 or later** — NOT into Trilium's monorepo.** They show where each idiom
 > lives in the library's own source. These are the upstream library packages (basic-styles, link,
 > image, engine, ui, core, widget, typing); do **not** confuse them with Trilium's own
 > `packages/ckeditor5-*` plugins (admonition, collapsible, footnotes, keyboard-marker, math,
@@ -11,7 +11,7 @@
 > Trilium files — the symbols ship inside the `ckeditor5` npm package.
 
 Real-world idioms mined from the actual library `packages/*/src` source (verified against
-`ckeditor5@48.3.1`). These go beyond the tutorials and are the patterns the official plugins
+`ckeditor5` 48 or later). These go beyond the tutorials and are the patterns the official plugins
 actually use — and the patterns Trilium's plugins follow. Each item cites its source file in the
 CKEditor library repository.
 

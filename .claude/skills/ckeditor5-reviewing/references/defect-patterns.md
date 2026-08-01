@@ -145,12 +145,12 @@ group covers the monorepo wiring/convention defects. For the idiomatic "how it s
 - Why: breaks headless/server-side use and reuse of the editing layer.
 - Fix: editing logic in `*Editing`, UI in `*UI`, glue plugin requiring both.
 
-**Outdated / mixed imports (Trilium pins ckeditor5 48.3.1).**
+**Outdated / mixed imports (Trilium tracks ckeditor5 48 or later).**
 - Spot: deep imports `@ckeditor/ckeditor5-*/src/...`; any `@ckeditor/*` package import instead of the
   `ckeditor5` aggregate; a `ckeditor5`/`@triliumnext/...` import *missing the file extension*;
   removed/renamed symbols (the UI model class is `ViewModel` — what Trilium's plugins use — not the
   old `Model`; `icons.check` → `IconCheck`).
-- Why: Trilium always imports from the `ckeditor5` aggregate (pinned 48.3.1), or by relative path
+- Why: Trilium always imports from the `ckeditor5` aggregate (48 or later), or by relative path
   within `packages/ckeditor5`, **with explicit file extensions** — `eslint-config-ckeditor5`
   (`require-file-extensions-in-imports`, `allow-imports-only-from-main-package-entry-point`,
   `no-legacy-imports`) fails the build otherwise; deep `@ckeditor/*` paths also risk duplicate

@@ -24,8 +24,12 @@ metrics, so every code change must ship with a test.
 ## Scope & sources
 
 This skill covers testing CKEditor 5 plugins in the **Trilium (TriliumNext Notes) monorepo**
-(`packages/ckeditor5` and `packages/ckeditor5-math`). The CKEditor 5 library is pinned to 48.3.1.
+(`packages/ckeditor5` and `packages/ckeditor5-math`). The CKEditor 5 library is 48 or later.
 For general (non-CKEditor) Trilium testing, see the `writing-unit-tests` skill.
+
+**On versions:** these skills name **major versions only** ("48 or later"). Trilium tracks CKEditor
+5 closely, so an exact pin written here would be stale within weeks — read the current one from
+`packages/ckeditor5/package.json`.
 
 ## When to use this skill
 
@@ -35,7 +39,7 @@ Trilium testing (Preact components, jQuery widgets, server routes), use `writing
 
 ## The current setup at a glance
 
-- **Runner:** Vitest (`vitest@4.1.10`). **No shared factory** — each package has its own
+- **Runner:** Vitest 4 or later. **No shared factory** — each package has its own
   `vitest.config.ts` built with `defineConfig` directly.
 - **One environment: WebdriverIO browser mode** (`@vitest/browser-webdriverio`, headless Chrome),
   used by both `ckeditor5` and `ckeditor5-math`. Real DOM and real layout, so

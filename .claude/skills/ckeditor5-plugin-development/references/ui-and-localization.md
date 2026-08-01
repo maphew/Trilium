@@ -1,7 +1,7 @@
 # UI library & localization (Trilium)
 
 In the Trilium monorepo every CKEditor plugin (`packages/ckeditor5-*`) builds its UI with the
-library's UI layer, imported from `ckeditor5` (pinned 48.3.1). It is a small MVC: **Views**
+library's UI layer, imported from `ckeditor5` (48 or later). It is a small MVC: **Views**
 render DOM via **Templates**, expose **observable** properties, and are organized into
 **collections** that form the UI tree. Features talk to views through observables — never the
 native DOM directly. Trilium's text editor runs as one of three classes — `AttributeEditor`

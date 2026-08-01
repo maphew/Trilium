@@ -9,8 +9,7 @@ description: >-
   position mapping, command refresh/isEnabled bugs, memory leaks, t() gaps,
   editing/UI split violations), and Trilium integration defects (plugin not
   registered in plugins.ts, button missing from toolbar.ts, import/file-extension
-  lint failures, wrong augmentation module, .po localization gaps, wrong test
-  environment). Pairs with the ckeditor5-plugin-development and
+  lint failures, wrong augmentation module, wrong DOM assumptions in tests). Pairs with the ckeditor5-plugin-development and
   ckeditor5-testing skills and delegates their checklists.
 ---
 
@@ -32,13 +31,17 @@ and **what subtle things tend to be wrong**.
 ## Scope & sources
 
 This skill reviews **CKEditor 5 plugin code in the Trilium monorepo** (scope `@triliumnext/`). The
-CKEditor 5 library itself is the **external `ckeditor5` dependency pinned at 48.3.1** — its docs
+CKEditor 5 library itself is the **external `ckeditor5` dependency, 48 or later** — its docs
 ([ckeditor.com/docs](https://ckeditor.com/docs)) and source
 ([github.com/ckeditor/ckeditor5](https://github.com/ckeditor/ckeditor5)) are *external references*,
 not the code under review. Nearly all Trilium plugins live **inside** `packages/ckeditor5`, under
 `src/plugins/<name>/` — admonition, collapsible, footnotes, keyboard_marker, mermaid and the
 in-tree plugins alongside them. `packages/ckeditor5-math` is the only remaining separate package.
 The aggregate assembles them all and is wired into the editor UI from `apps/client`.
+
+**On versions:** these skills name **major versions only** ("48 or later"). Trilium tracks CKEditor
+5 closely, so an exact pin written here would be stale within weeks — read the current one from
+`packages/ckeditor5/package.json`.
 
 ## When to use
 
@@ -67,11 +70,11 @@ plugin; sanity-checking your own feature before opening a PR. For *writing* the 
      ClassicEditor[Decoupled], PopupEditor[Balloon]);
    - any new toolbar component is added to `apps/client/src/widgets/type_widgets/text/toolbar.ts`,
      otherwise the button never appears even though the plugin loaded.
-4. **Check conventions (Trilium-specific).** Imports come from the `ckeditor5` aggregate (or
-   cross-plugin `@triliumnext/ckeditor5-<x>`) **with explicit file extensions**; augmentation uses
-   `declare module 'ckeditor5'` (never `@ckeditor/ckeditor5-core`); any license header matches the
-   package's existing convention (it's not uniform across packages); new UI strings are in
-   `lang/en.po` + `lang/contexts.json`. These are enforced by `eslint-config-ckeditor5`
+4. **Check conventions (Trilium-specific).** Imports come from the `ckeditor5` aggregate (or a
+   relative path inside `packages/ckeditor5`) **with explicit file extensions**; augmentation uses
+   `declare module 'ckeditor5'` (never `@ckeditor/ckeditor5-core`), normally at the bottom of the
+   plugin's glue file; any license header matches the sibling files in that plugin folder and the
+   provenance recorded in its `README.md`. These are enforced by `eslint-config-ckeditor5`
    (`require-file-extensions-in-imports`, `allow-imports-only-from-main-package-entry-point`,
    `no-legacy-imports`) and `stylelint-config-ckeditor5` — a diff that breaks them fails lint.
 5. **Run the tests for the affected package.** Use Vitest via
@@ -100,8 +103,8 @@ plugin; sanity-checking your own feature before opening a PR. For *writing* the 
   labels/`addKeystrokeInfos`), memory leaks, command enabled where the schema disallows it; **button
   missing from `toolbar.ts`**; **lint-failing imports** (missing file extension / wrong package /
   legacy `@ckeditor/*`) that block the build.
-- **Minor** — convention/naming issues, missing `t()`, missing `lang/en.po` entries, redundant
-  converters, non-idiomatic but working code.
+- **Minor** — convention/naming issues, missing `t()`, redundant converters, non-idiomatic but
+  working code.
 - **Nit** — style preferences with no behavioral impact; mark them as optional.
 
 Lead with blockers/majors; don't bury them under nits.
@@ -137,7 +140,7 @@ I don't see a `dataDowncast`.") rather than a false assertion.
 ## Provenance & source references
 
 The CKEditor-general defect patterns are distilled from the companion skills and the CKEditor 5
-library at the pinned **48.3.1**; `docs/…` / `packages/…` paths in those patterns point into the
+library at **48 or later**; `docs/…` / `packages/…` paths in those patterns point into the
 **external CKEditor 5 repository** ([github.com/ckeditor/ckeditor5](https://github.com/ckeditor/ckeditor5)),
 not the Trilium code under review. The Trilium-specific paths
 (`packages/ckeditor5/src/plugins/<name>/`, `packages/ckeditor5-math`,

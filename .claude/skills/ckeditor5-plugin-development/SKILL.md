@@ -20,7 +20,7 @@ description: >-
 CKEditor 5 is **plugin-based**: every feature — even typing and `<p>` support — is a
 plugin. Without plugins the editor is an empty API. This skill is specific to **Trilium
 (TriliumNext Notes)**, whose rich-text note editor is built from the CKEditor 5 library
-(external dep, pinned `48.3.1`) plus Trilium's own plugins. Both the editor build and the
+(external dep, **CKEditor 5 48 or later**) plus Trilium's own plugins. Both the editor build and the
 plugins live in `packages/ckeditor5` (`@triliumnext/ckeditor5`): each feature is a folder under
 `src/plugins/` — admonition, collapsible, footnotes, keyboard_marker, mermaid, mention, snippets
 and the rest — with its tests co-located beside it. `@triliumnext/ckeditor5-math` is the only
@@ -65,7 +65,7 @@ data (HTML) ──upcast──▶ MODEL ──editing downcast──▶ editing 
 
 ## Importing CKEditor in Trilium
 
-Import everything from the single **`ckeditor5`** aggregate package (pinned `48.3.1`; it is a
+Import everything from the single **`ckeditor5`** aggregate package (**48 or later**; it is a
 `peerDependency` + `devDependency` of every plugin package). There is no premium package: every
 premium plugin Trilium used has an in-tree GPL replacement, and the editor always runs under the
 `GPL` license key:
@@ -285,8 +285,12 @@ review (workflow, CKEditor-specific defect patterns, contribution process), use 
 This skill is specific to the **Trilium (TriliumNext Notes) monorepo's** CKEditor 5 integration.
 Repository paths it cites — `packages/ckeditor5`, `packages/ckeditor5/src/plugins/<name>/`,
 `packages/ckeditor5-math`, `apps/client/...` — are **this repository**, and examples come from
-Trilium's own plugins (admonition, collapsible, footnotes, keyboard_marker, math, mermaid). The CKEditor 5 **library** is an external dependency
-pinned to **48.3.1**; its mechanics were distilled from the upstream docs (ckeditor.com/docs) and
-source (github.com/ckeditor/ckeditor5, commit 9ecca53627). Where a snippet cites an upstream library
-package (e.g. ckeditor5-basic-styles, -link, -image), that is the library's own source — not a
-Trilium package.
+Trilium's own plugins (admonition, collapsible, footnotes, keyboard_marker, math, mermaid). The
+CKEditor 5 **library** is an external dependency tracked at **48 or later**; its mechanics were
+distilled from the upstream docs (ckeditor.com/docs) and source (github.com/ckeditor/ckeditor5,
+commit 9ecca53627). Where a snippet cites an upstream library package (e.g. ckeditor5-basic-styles,
+-link, -image), that is the library's own source — not a Trilium package.
+
+**On versions:** these skills name **major versions only** ("48 or later"). Trilium tracks CKEditor
+5 closely, so an exact pin written here would be stale within weeks — read the current one from
+`packages/ckeditor5/package.json`.

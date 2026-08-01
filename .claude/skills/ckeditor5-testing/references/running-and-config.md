@@ -2,8 +2,8 @@
 
 Two packages carry CKEditor 5 tests: `packages/ckeditor5` (the aggregate, which holds every
 in-tree plugin under `src/plugins/`) and `packages/ckeditor5-math`. Each has its own
-`vitest.config.ts` built with `defineConfig` directly — there is no shared factory. Vitest is
-`4.1.10`.
+`vitest.config.ts` built with `defineConfig` directly — there is no shared factory. Vitest is 4 or
+later.
 
 ## Per-package scripts
 

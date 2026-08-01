@@ -3,7 +3,7 @@
 The conceptual foundation. Read this before working on editing behavior.
 
 > **Scope.** Everything here is engine mechanics from the **`ckeditor5` library** (the npm
-> aggregate, pinned to `48.3.1` in the Trilium monorepo). The APIs (`editor.model`,
+> aggregate, **48 or later** in the Trilium monorepo). The APIs (`editor.model`,
 > `editor.editing`, `Plugin`, the writer, schema, conversion) are the library's, imported as
 > `import { Plugin } from 'ckeditor5'` (with file extensions). Paths under
 > `packages/ckeditor5/src/plugins/` (admonition, collapsible, footnotes, keyboard_marker, mermaid,

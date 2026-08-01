@@ -100,7 +100,7 @@ declare module 'ckeditor5' {
   `references/tooling-and-packaging.md` for the registration flow.
 - The one surviving plugin package, `@triliumnext/ckeditor5-math`, shows the older shape:
   scope `@triliumnext/`, `"type": "module"`, `"main": "src/index.ts"` (ships TS source — no
-  per-package dist), `peerDependencies: { "ckeditor5": "48.3.1" }`, pulled in with
+  per-package dist), a `peerDependencies` entry for `ckeditor5` matching the repo's pin, pulled in with
   `workspace:*`. Don't copy it for new work.
 
 ## TypeScript config

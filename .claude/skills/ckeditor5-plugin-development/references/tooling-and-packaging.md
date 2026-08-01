@@ -1,9 +1,9 @@
 # Tooling & packaging (Trilium)
 
 How CKEditor 5 plugins are packaged, registered, built, and debugged in the **Trilium
-(TriliumNext Notes)** monorepo. This is a pnpm workspace (`pnpm@11.5.2`, `nodeLinker: hoisted`,
+(TriliumNext Notes)** monorepo. This is a pnpm workspace (pnpm 11 or later, `nodeLinker: hoisted`,
 no nx/turbo) with packages under `packages/*` and apps under `apps/*`, org scope `@triliumnext/`.
-The CKEditor 5 **library** is an external dependency pinned to `48.3.1`; there is no package
+The CKEditor 5 **library** is an external dependency on **48 or later**; there is no package
 generator here — you add a plugin by hand, as a folder under `packages/ckeditor5/src/plugins/`.
 Separate workspace packages are no longer the pattern (see "Where a new plugin goes" below).
 
@@ -52,7 +52,7 @@ The package layout below is documented **only** for reading `ckeditor5-math`. Do
   "type": "module",
   "main": "src/index.ts",            // ships TS SOURCE — no per-package dist for consumers
   "license": "GPL-2.0-or-later",
-  "peerDependencies": { "ckeditor5": "48.3.1" },
+  "peerDependencies": { "ckeditor5": "<exact pin from packages/ckeditor5/package.json>" },
   "scripts": {
     "lint": "eslint \"**/*.{js,ts}\" --quiet",
     "stylelint": "stylelint --quiet --allow-empty-input 'theme/**/*.css'",
@@ -195,5 +195,5 @@ For test setup, model/view assertions, and command/UI test patterns, use the sep
 
 Paths here (`packages/ckeditor5`, `packages/ckeditor5/src/plugins/<name>/`, `packages/ckeditor5-math`, `apps/client/...`) are **this
 Trilium repository**. The CKEditor 5 library mechanics referenced (editor bases `BalloonEditor`/
-`DecoupledEditor`, `EditorConfig`, the watchdog) come from the external `ckeditor5` package at
-`48.3.1`.
+`DecoupledEditor`, `EditorConfig`, the watchdog) come from the external `ckeditor5` package,
+**48 or later**.
