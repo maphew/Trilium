@@ -166,7 +166,61 @@ describe("BlockDragHandle", () => {
         });
     });
 
+    describe("finding a target", () => {
+        it("falls back to the nearest top-level block when the pointer is in the margin", () => {
+            setModelData(editor.model, "<paragraph>one</paragraph><paragraph>two[]</paragraph>");
+            const rect = topLevelDom(0).getBoundingClientRect();
+            // To the left of the editable, level with the first block: no element under the
+            // cursor, so the nearest-child fallback picks it by vertical distance.
+            const margin = { x: rect.left - 40, y: rect.top + 2 };
+
+            handle.start(0, 0, modelBlock(1), root);
+            mouse("mousemove", margin.x, margin.y);
+            mouse("mouseup", margin.x, margin.y);
+
+            expect(getModelData(editor.model, { withoutSelection: true })).toBe(
+                "<paragraph>two</paragraph><paragraph>one</paragraph>"
+            );
+        });
+    });
+
     describe("target refinement", () => {
+        it("keeps the original target when refineTarget returns it unchanged", () => {
+            setModelData(editor.model, "<paragraph>one[]</paragraph><paragraph>two</paragraph>");
+            const refineTarget = vi.fn((model) => model);
+            const refining = new BlockDragHandle({ editor, indicatorClass: INDICATOR_CLASS, refineTarget });
+            const rect = topLevelDom(1).getBoundingClientRect();
+            const lowerHalf = { x: rect.left + 5, y: rect.bottom - 2 };
+
+            refining.start(0, 0, modelBlock(0), root);
+            mouse("mousemove", lowerHalf.x, lowerHalf.y);
+            mouse("mouseup", lowerHalf.x, lowerHalf.y);
+
+            expect(refineTarget).toHaveBeenCalled();
+            expect(getModelData(editor.model, { withoutSelection: true })).toBe(
+                "<paragraph>two</paragraph><paragraph>one</paragraph>"
+            );
+        });
+
+        it("tolerates a refineTarget that returns something with no rendered DOM", () => {
+            setModelData(editor.model, "<paragraph>one[]</paragraph><paragraph>two</paragraph>");
+            // A detached element maps to no DOM, so the original element's rect is kept.
+            const detached = editor.model.change((writer) => writer.createElement("paragraph"));
+            const refining = new BlockDragHandle({
+                editor,
+                indicatorClass: INDICATOR_CLASS,
+                refineTarget: () => detached
+            });
+            const target = blockCentre(1);
+
+            refining.start(0, 0, modelBlock(0), root);
+
+            expect(() => {
+                mouse("mousemove", target.x, target.y);
+                mouse("mouseup", target.x, target.y);
+            }).not.toThrow();
+        });
+
         it("re-routes the target through refineTarget", () => {
             setModelData(
                 editor.model,

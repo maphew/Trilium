@@ -124,6 +124,37 @@ describe("collapsible summary affordances", () => {
             expect(editor.model.document.selection.getSelectedElement()).toBeNull();
         });
 
+        it("drops onto a plain paragraph as-is, with no retargeting", () => {
+            setModelData(
+                editor.model,
+                "<paragraph>first</paragraph>" +
+                "<details open=\"true\"><summary>T</summary><paragraph>body[]</paragraph></details>"
+            );
+
+            const source = handleDom();
+            const start = source.getBoundingClientRect();
+            const firstBlock = root.children[0];
+            if (!(firstBlock instanceof HTMLElement)) {
+                throw new Error("Expected a rendered first block.");
+            }
+            const targetRect = firstBlock.getBoundingClientRect();
+
+            source.dispatchEvent(new MouseEvent("mousedown", {
+                button: 0, clientX: start.left, clientY: start.top, bubbles: true, cancelable: true
+            }));
+            document.dispatchEvent(new MouseEvent("mousemove", {
+                clientX: targetRect.left + 20, clientY: targetRect.top + 1, bubbles: true
+            }));
+            document.dispatchEvent(new MouseEvent("mouseup", {
+                clientX: targetRect.left + 20, clientY: targetRect.top + 1, bubbles: true
+            }));
+
+            // The paragraph is not a summary, so refineTarget hands it back untouched and the
+            // collapsible lands before it.
+            const data = getModelData(editor.model, { withoutSelection: true });
+            expect(data.indexOf("<details")).toBeLessThan(data.indexOf("first"));
+        });
+
         it("reorders relative to the whole collapsible when dropped on another one's summary", () => {
             setModelData(
                 editor.model,

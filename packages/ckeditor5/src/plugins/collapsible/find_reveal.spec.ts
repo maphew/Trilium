@@ -38,6 +38,29 @@ describe("collapsible find-in-note reveal", () => {
         "<details class=\"trilium-collapsible\"><summary>A</summary><p>needle one</p></details>" +
         "<details class=\"trilium-collapsible\"><summary>B</summary><p>needle two</p></details>";
 
+    it("stays force-open through a reconversion while the match is still revealed", () => {
+        editor.setData("<details class=\"trilium-collapsible\"><summary>T</summary><p>needle in body</p></details>");
+        editor.execute("find", "needle");
+        expect(detailsDom().open).toBe(true);
+        expect(isTransient()).toBe(true);
+
+        // Adding a body block changes the <details>'s children, which reconverts the whole
+        // structure in the editing view. The structure callback has to re-apply the transient
+        // open, or the block would snap shut under the highlight.
+        model.change((writer) => {
+            const details = model.document.getRoot()?.getChild(0);
+            if (details?.is("element")) {
+                writer.insertElement("paragraph", writer.createPositionAt(details, "end"));
+            }
+        });
+        editor.editing.view.forceRender();
+
+        expect(detailsDom().open).toBe(true);
+        expect(isTransient()).toBe(true);
+        // Still nothing persisted.
+        expect(getModelData(model, { withoutSelection: true })).not.toContain("open=");
+    });
+
     it("opens a collapsed block to reveal a match, marks it transient, and leaves the saved HTML untouched", () => {
         editor.setData("<details class=\"trilium-collapsible\"><summary>T</summary><p>needle in body</p></details>");
         expect(detailsDom().open).toBe(false);
