@@ -483,6 +483,12 @@ export type ImageCompressionSkipReason =
     | "no-gain"
     /** This build has no image compression at all (the standalone/WASM runtime). */
     | "unsupported-platform"
+    /**
+     * The image was replaced while it was being re-encoded — by another request, or by a
+     * synchronisation update — so the result was derived from content that no longer exists. Writing
+     * it would have put the superseded picture back; the newer one is kept instead.
+     */
+    | "changed"
     /** Compression failed; the original was kept and the failure logged. */
     | "error";
 

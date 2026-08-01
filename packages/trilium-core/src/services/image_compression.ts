@@ -157,7 +157,14 @@ export interface CompressionTarget {
     /** Set when the target must be left alone for a reason known before reading its content. */
     skip?: ImageCompressionSkipReason;
     getContent(): Uint8Array;
-    save(buffer: Uint8Array, mime: string): void;
+    /** Names the content {@link getContent} returns — a hash of those exact bytes. */
+    blobId(): string | undefined;
+    /**
+     * Writes the compressed image back, but only over the content it was derived from: re-encoding
+     * is slow enough for the image to be replaced meanwhile, and this result describes the picture
+     * that was there before. Answers whether the write happened.
+     */
+    save(buffer: Uint8Array, mime: string, sourceBlobId: string | undefined): boolean;
 }
 
 /**
@@ -203,25 +210,48 @@ function noteTarget(note: BNote): CompressionTarget {
         mime: note.mime,
         skip: note.isContentAvailable() ? undefined : "protected",
         getContent: () => wrapStringOrBuffer(note.getContent()),
-        save(buffer, mime) {
-            note.mime = mime;
-            note.save();
-            note.setContent(buffer, { forceSave: true });
+        blobId: () => note.blobId,
+        save(buffer, mime, sourceBlobId) {
+            const current = becca.getNote(note.noteId);
+
+            if (!current || current.blobId !== sourceBlobId) {
+                return false;
+            }
+
+            current.mime = mime;
+            current.save();
+            current.setContent(buffer, { forceSave: true });
+
+            return true;
         }
     };
 }
 
 function attachmentTarget(attachment: BAttachment): CompressionTarget {
+    const attachmentId = attachment.attachmentId ?? "";
+
     return {
         entityType: "attachment",
-        entityId: attachment.attachmentId ?? "",
+        entityId: attachmentId,
         title: attachment.title,
         mime: attachment.mime,
         skip: resolveAttachmentSkip(attachment),
         getContent: () => wrapStringOrBuffer(attachment.getContent()),
-        save(buffer, mime) {
-            attachment.mime = mime;
-            attachment.setContent(buffer, { forceSave: true });
+        blobId: () => attachment.blobId,
+        // Written through a freshly read attachment rather than the one collected at the start of
+        // the run: that one is a detached copy of its row, and `forceSave` writes the whole row
+        // back, which would undo a title or position changed since — a subtree run is long.
+        save(buffer, mime, sourceBlobId) {
+            const current = becca.getAttachment(attachmentId);
+
+            if (!current || current.blobId !== sourceBlobId) {
+                return false;
+            }
+
+            current.mime = mime;
+            current.setContent(buffer, { forceSave: true });
+
+            return true;
         }
     };
 }
@@ -280,6 +310,8 @@ async function compressTarget(target: CompressionTarget, request: ImageCompressi
 
     try {
         content = target.getContent();
+        // Read in the same turn as the content itself, so it names exactly the bytes just read.
+        const sourceBlobId = target.blobId();
 
         if (target.skip) {
             return skipped(content.byteLength, target.skip);
@@ -292,8 +324,19 @@ async function compressTarget(target: CompressionTarget, request: ImageCompressi
         }
 
         // The compression itself is asynchronous, so the write is a separate transaction of its
-        // own rather than one held open across it.
-        getSql().transactional(() => target.save(outcome.buffer, outcome.format.mime));
+        // own rather than one held open across it. Long enough, in fact, for the image to have been
+        // replaced meanwhile — by another request, or by an incoming synchronisation update — and
+        // these bytes are a smaller copy of the picture that replacement got rid of. Nothing here
+        // is worth putting that back, so the newer image wins and this one is reported as skipped.
+        const saved = getSql().transactional(() => target.save(outcome.buffer, outcome.format.mime, sourceBlobId));
+
+        if (!saved) {
+            getLog().info(
+                `Left ${target.entityType} '${target.entityId}' alone: its content changed while it was being compressed.`
+            );
+
+            return skipped(content.byteLength, "changed");
+        }
 
         getLog().info(
             `Compressed ${target.entityType} '${target.entityId}' from ${content.byteLength} to ${outcome.buffer.byteLength} bytes.`

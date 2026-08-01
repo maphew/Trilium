@@ -1,5 +1,6 @@
 import type { ImageCompressionResponse } from "@triliumnext/commons";
 import { becca, cls, getSql, options } from "@triliumnext/core";
+import { getImageProvider, initImageProvider } from "@triliumnext/core/src/services/image_provider.js";
 import { createTextNote } from "@triliumnext/core/src/test/api_fixtures.js";
 import { CoreApiTester } from "@triliumnext/core/src/test/api_tester.js";
 import { Jimp } from "jimp";
@@ -427,6 +428,61 @@ describe("compress one attachment (POST /api/attachments/:attachmentId/compress-
 });
 
 /**
+ * Re-encoding an image takes long enough — seconds, for a large one — that the image can be
+ * replaced while it is happening, by another request or by an incoming synchronisation update. What
+ * comes out of the encoder is then a smaller copy of a picture that no longer exists, and writing
+ * it would silently put the replaced image back with no revision to recover the newer one from.
+ */
+describe("an image changed mid-run", () => {
+    it("keeps a replaced attachment instead of overwriting it with the older picture", async () => {
+        const { noteId } = await createTextNote(api);
+        const attachmentId = await addAttachment(noteId, "target.png", noisyPng);
+
+        const res = await whileCompressing(
+            () => replaceAttachmentContent(attachmentId, smallPng),
+            () => api.post<ImageCompressionResponse>(`/api/attachments/${attachmentId}/compress-image`, {
+                body: { pngHandling: "jpeg" }
+            })
+        );
+
+        expect(res.body.items[0]).toMatchObject({ compressed: false, skipReason: "changed" });
+        // Still the replacement, and still a PNG: a write would have made it the JPEG it converts to.
+        expect(readAttachment(attachmentId)).toMatchObject({ size: smallPng.byteLength, mime: "image/png" });
+    });
+
+    it("keeps a replaced image note instead of overwriting it with the older picture", async () => {
+        const noteId = await createImageNote(noisyPng);
+
+        const res = await whileCompressing(
+            () => replaceNoteContent(noteId, smallPng),
+            () => api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
+                body: { pngHandling: "jpeg" }
+            })
+        );
+
+        expect(res.body.items[0]).toMatchObject({ compressed: false, skipReason: "changed" });
+        expect(readNote(noteId)).toMatchObject({ size: smallPng.byteLength, mime: "image/png" });
+    });
+
+    it("compresses over a change that left the image alone, without reverting it", async () => {
+        const { noteId } = await createTextNote(api);
+        const attachmentId = await addAttachment(noteId, "before.png", noisyPng);
+
+        const res = await whileCompressing(
+            () => renameAttachment(attachmentId, "after.png"),
+            () => api.post<ImageCompressionResponse>(`/api/attachments/${attachmentId}/compress-image`, {
+                body: { pngHandling: "jpeg" }
+            })
+        );
+
+        // The picture itself never moved, so there is nothing to refuse — but the run must write
+        // through the attachment as it is now, not the copy of the row it started from.
+        expect(res.body.items[0]).toMatchObject({ compressed: true });
+        expect(readAttachment(attachmentId).title).toBe("after.png");
+    });
+});
+
+/**
  * Paints the fixture: smooth sine gradients across all three channels, giving a picture with the
  * statistics of a photograph — many distinct colours, strongly correlated between neighbours.
  */
@@ -489,6 +545,54 @@ function readAttachment(attachmentId: string): { mime: string; title: string; si
         const attachment = becca.getAttachmentOrThrow(attachmentId);
         return { mime: attachment.mime, title: attachment.title, size: attachment.getContent().length };
     });
+}
+
+/**
+ * Runs `interfere` at the one moment that matters — after the run has read an image, before it
+ * writes the result back — and runs `request` inside that arrangement.
+ *
+ * Standing in for the real provider is what makes the moment reachable at all: the window is real,
+ * but it is only as wide as an encoder is slow, and a test that raced it would pass by luck.
+ */
+async function whileCompressing<T>(interfere: () => void, request: () => Promise<T>): Promise<T> {
+    const real = getImageProvider();
+
+    initImageProvider({
+        getImageType: (buffer) => real.getImageType(buffer),
+        processImage: (buffer, originalName, shrink) => real.processImage(buffer, originalName, shrink),
+        compressImage: (buffer, compressionRequest) => {
+            interfere();
+            return real.compressImage(buffer, compressionRequest);
+        }
+    });
+
+    try {
+        return await request();
+    } finally {
+        initImageProvider(real);
+    }
+}
+
+/** Someone else replacing the picture — a re-upload, or a synchronisation update landing. */
+function replaceAttachmentContent(attachmentId: string, content: Uint8Array) {
+    cls.init(() => getSql().transactional(() => {
+        becca.getAttachmentOrThrow(attachmentId).setContent(content, { forceSave: true });
+    }));
+}
+
+function replaceNoteContent(noteId: string, content: Uint8Array) {
+    cls.init(() => getSql().transactional(() => {
+        becca.getNoteOrThrow(noteId).setContent(content, { forceSave: true });
+    }));
+}
+
+/** A change to the attachment that leaves its content alone, which compression must not undo. */
+function renameAttachment(attachmentId: string, title: string) {
+    cls.init(() => getSql().transactional(() => {
+        const attachment = becca.getAttachmentOrThrow(attachmentId);
+        attachment.title = title;
+        attachment.save();
+    }));
 }
 
 function itemFor(response: ImageCompressionResponse, entityId: string) {
