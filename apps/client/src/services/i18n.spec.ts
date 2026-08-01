@@ -1,5 +1,4 @@
 import { MESSAGE_KEY_PREFIX, slugify } from "@triliumnext/ckeditor5";
-import { ADMONITION_TYPES } from "@triliumnext/ckeditor5/src/plugins/admonition/admonition_ui.js";
 import { dayjs, findDuplicateJsonKeys, findPluralKeyConflicts, LOCALES } from "@triliumnext/commons";
 import { readdirSync, readFileSync } from "fs";
 import { join } from "path";
@@ -102,12 +101,6 @@ describe("i18n", () => {
                         messages.add(message);
                     }
                 }
-            }
-
-            // The admonition type titles are passed as a variable rather than a literal, so they
-            // are invisible to the scan and are read from their own declaration.
-            for (const definition of Object.values(ADMONITION_TYPES)) {
-                messages.add(definition.title);
             }
 
             return [ ...messages ];

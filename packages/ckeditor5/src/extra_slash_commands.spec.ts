@@ -249,36 +249,37 @@ describe("buildExtraCommands", () => {
     });
 
     describe("admonition commands", () => {
-        it("includes one command per ADMONITION_TYPE with execute function", async () => {
-            const { ADMONITION_TYPES } = await import("./plugins/admonition/admonition_ui.js");
+        // `t` echoes the key back here, so every title falls back to its English message id.
+        const ENGLISH_TITLES = { note: "Note", tip: "Tip", important: "Important", caution: "Caution", warning: "Warning" };
+
+        it("includes one command per admonition type with execute function", async () => {
+            const { ADMONITION_TYPE_NAMES } = await import("./plugins/admonition/admonition_command.js");
             const commands = buildExtraCommands(t);
-            for (const keyword of Object.keys(ADMONITION_TYPES)) {
+            for (const keyword of ADMONITION_TYPE_NAMES) {
                 const cmd = commands.find((c) => c.id === keyword);
                 expect(cmd, `admonition command for ${keyword}`).toBeDefined();
                 expect(typeof cmd?.execute).toBe("function");
                 expect(cmd?.icon).toBeTruthy();
                 expect(cmd?.description).toBe("slash_commands.admonition_description");
                 expect(cmd?.aliases).toContain("box");
-                // `t` echoes the key here, so the title falls back to the English message id.
-                expect(cmd?.title).toBe(ADMONITION_TYPES[keyword as keyof typeof ADMONITION_TYPES].title);
+                expect(cmd?.title).toBe(ENGLISH_TITLES[keyword]);
             }
         });
 
         // Built before any editor exists, so the titles go through `translateMessage()` rather than
         // `editor.t()` — same message ids, same derived keys.
-        it("translates the titles through the host translator", async () => {
-            const { ADMONITION_TYPES } = await import("./plugins/admonition/admonition_ui.js");
+        it("translates the titles through the host translator", () => {
             const commands = buildExtraCommands((key) => (key === "text-editor.ck.warning" ? "Avertisment" : key));
 
             expect(commands.find((c) => c.id === "warning")?.title).toBe("Avertisment");
-            expect(commands.find((c) => c.id === "note")?.title).toBe(ADMONITION_TYPES.note.title);
+            expect(commands.find((c) => c.id === "note")?.title).toBe(ENGLISH_TITLES.note);
         });
 
         it("admonition execute calls editor.execute('admonition') with the keyword", async () => {
-            const { ADMONITION_TYPES } = await import("./plugins/admonition/admonition_ui.js");
+            const { ADMONITION_TYPE_NAMES } = await import("./plugins/admonition/admonition_command.js");
             const commands = buildExtraCommands(t);
 
-            for (const keyword of Object.keys(ADMONITION_TYPES)) {
+            for (const keyword of ADMONITION_TYPE_NAMES) {
                 const cmd = commands.find((c) => c.id === keyword);
                 const { editor, executeSpy } = makeFakeEditor();
                 cmd?.execute?.(editor as unknown as import("ckeditor5").Editor);
