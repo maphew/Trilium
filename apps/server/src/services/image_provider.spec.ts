@@ -3,6 +3,7 @@ import { Jimp } from 'jimp';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 
 import { serverImageProvider } from './image_provider.js';
+import { estimateJpegQuality } from './jpeg_quality.js';
 
 // is-svg / image-type / is-animated / jimp are all loaded by spec/setup.ts (which
 // imports serverImageProvider to initialise core), so they cannot be re-mocked
@@ -25,6 +26,12 @@ let corruptPng: Uint8Array; // valid PNG signature but unreadable by jimp
 let transparentPng: Uint8Array; // 600x400 noisy, every pixel half-transparent
 let noisyJpeg: Uint8Array; // 600x400 noisy jpeg stored at high quality
 let tinyJpeg: Uint8Array; // 8x8 jpeg that cannot get any smaller
+/**
+ * A photograph already saved cheaply, which is what most JPEGs in a note are. Re-encoding one of
+ * these at a fixed high quality costs more bytes per pixel than a modest resize removes, so it is
+ * the case that catches a "keep" path which does not honour the source's own quality.
+ */
+let lowQualityJpeg: Uint8Array;
 /**
  * A photograph's shape rather than a photograph: smooth, spatially correlated colour over
  * thousands of distinct values. PNG stores that poorly and JPEG stores it well, which is the
@@ -93,6 +100,7 @@ beforeAll(async () => {
         }
     }
     photoPng = new Uint8Array(await photo.getBuffer('image/png'));
+    lowQualityJpeg = new Uint8Array(await photo.getBuffer('image/jpeg', { quality: 40 }));
 }, 30000);
 
 afterEach(() => {
@@ -418,6 +426,33 @@ describe('serverImageProvider.compressImage', () => {
 
             if (!compressed.compressed) throw new Error('expected it to compress');
             expect(atLow.buffer.byteLength).toBeGreaterThan(compressed.buffer.byteLength);
+        });
+
+        it('re-encodes a scaled "keep" JPEG at the quality it already had', async () => {
+            const outcome = await serverImageProvider.compressImage(
+                lowQualityJpeg, request({ jpegHandling: 'keep', maxWidthHeight: 400 }));
+
+            if (!outcome.compressed) throw new Error('expected it to compress');
+
+            // Read back off the result's own quantization table: "keep" means the image comes out
+            // encoded as it went in, the scaling being the only thing given up.
+            const estimate = estimateJpegQuality(outcome.buffer) ?? 0;
+            expect(Math.abs(estimate - 40)).toBeLessThanOrEqual(8);
+        });
+
+        it('actually shrinks a modest resize of a cheaply saved JPEG', async () => {
+            // The regression this is all for. Re-encoding at a fixed high quality costs more bytes
+            // per pixel than a 16% reduction removes, so the result grows, the size guard rejects
+            // it, and the resize the user asked for silently does not happen.
+            const outcome = await serverImageProvider.compressImage(
+                lowQualityJpeg, request({ jpegHandling: 'keep', maxWidthHeight: 550 }));
+
+            expect(outcome.compressed).toBe(true);
+            if (!outcome.compressed) return;
+            expect(outcome.buffer.byteLength).toBeLessThan(lowQualityJpeg.byteLength);
+
+            const decoded = await Jimp.read(Buffer.from(outcome.buffer));
+            expect([ decoded.bitmap.width, decoded.bitmap.height ]).toEqual([ 550, 367 ]);
         });
     });
 

@@ -11,6 +11,8 @@ import isSvg from "is-svg";
 import { Jimp } from "jimp";
 import * as UPNG from "upng-js";
 
+import { estimateJpegQuality } from "./jpeg_quality.js";
+
 const JPEG_FORMAT: ImageFormat = { ext: "jpg", mime: "image/jpeg" };
 const PNG_FORMAT: ImageFormat = { ext: "png", mime: "image/png" };
 
@@ -194,7 +196,7 @@ export const serverImageProvider: ImageProvider = {
             // Reached either by conversion, which has already established there is no transparency
             // to lose, or by a JPEG source, which never had any to begin with.
             image.background = 0xffffffff;
-            result = await image.getBuffer("image/jpeg", { quality: jpegQualityFor(request, isLossless) });
+            result = await image.getBuffer("image/jpeg", { quality: jpegQualityFor(request, isLossless, buffer) });
         } else if (quantize) {
             result = quantizePng(image, buffer.byteLength);
         } else {
@@ -213,27 +215,34 @@ export const serverImageProvider: ImageProvider = {
 };
 
 /**
- * Which of the two qualities a JPEG about to be written is owed. Converting a pristine original and
- * recompressing an already-lossy one are different trades, so each has its own.
+ * Which quality a JPEG about to be written is owed. Converting a pristine original and recompressing
+ * an already-lossy one are different trades, so each has a setting of its own.
  *
- * The third case has neither: a JPEG that is only being scaled, its handling left on `keep`. It has
- * to be re-encoded all the same — there is no way to write scaled pixels without one — so it goes
- * out at {@link RESIZE_QUALITY}, high enough that "keep" is not quietly made to mean "degrade".
+ * The third case has neither: a JPEG only being scaled, its handling left on `keep`. It has to be
+ * re-encoded all the same — there is no way to write scaled pixels without one — so it goes out at
+ * whatever quality it was already stored at, read off its own quantization table. Anything fixed
+ * would be wrong in both directions: below the source it degrades an image nobody asked to degrade,
+ * and above it the bytes-per-pixel rise can outweigh the pixels removed, leaving a modest resize
+ * *larger* than it started and rejected by the size guard — the resize silently undone.
  */
-function jpegQualityFor(request: ImageCompressionRequest, isLossless: boolean): number {
+function jpegQualityFor(request: ImageCompressionRequest, isLossless: boolean, source: Uint8Array): number {
     if (isLossless) {
         return request.conversionQuality;
     }
 
-    return request.jpegHandling === "compress" ? request.quality : RESIZE_QUALITY;
+    if (request.jpegHandling === "compress") {
+        return request.quality;
+    }
+
+    return estimateJpegQuality(source) ?? FALLBACK_RESIZE_QUALITY;
 }
 
 /**
- * What a JPEG is re-encoded at when nothing asked for it to be recompressed and only the scaling
- * forced a rewrite. Near enough to lossless that the loss is not the point of the operation, while
- * still far below the size a quality of 100 would produce for no visible return.
+ * Stands in when a JPEG's own quality cannot be read — an unusual table, or an encoder that scales
+ * the standard one its own way. High enough that "keep" is not quietly made to mean "degrade",
+ * accepting that a mild resize of a heavily compressed original may then not pay for itself.
  */
-const RESIZE_QUALITY = 92;
+const FALLBACK_RESIZE_QUALITY = 92;
 
 /**
  * Rewrites the image as a palette PNG, which is where a PNG's weight actually goes: the saving
