@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-	delimitersCounts,
 	extractDelimiters,
 	hasDelimiters,
 	isMathJaxVersion2,
@@ -22,17 +21,6 @@ describe( 'utils: delimiter helpers', () => {
 			expect( hasDelimiters( 'x^2' ) ).toBeNull();
 			expect( hasDelimiters( '\\[x^2' ) ).toBeNull();
 			expect( hasDelimiters( 'lead \\[x^2\\]' ) ).toBeNull();
-		} );
-	} );
-
-	describe( 'delimitersCounts', () => {
-		it( 'counts every delimiter token', () => {
-			expect( delimitersCounts( '\\[x\\]' ) ).toBe( 2 );
-			expect( delimitersCounts( '\\(a\\) and \\(b\\)' ) ).toBe( 4 );
-		} );
-
-		it( 'returns undefined when there are none', () => {
-			expect( delimitersCounts( 'x^2' ) ).toBeUndefined();
 		} );
 	} );
 

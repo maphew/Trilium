@@ -2,7 +2,6 @@ import { ClassicEditor, Widget } from 'ckeditor5';
 import Mathematics from '../src/math.js';
 import MathEditing from '../src/mathediting.js';
 import MathUI from '../src/mathui.js';
-import AutoMath from '../src/automath.js';
 import { describe, beforeEach, it, afterEach, expect } from "vitest";
 
 describe( 'Math', () => {
@@ -42,10 +41,6 @@ describe( 'Math', () => {
 
 	it( 'should load MathUI plugin', () => {
 		expect( editor.plugins.get( MathUI ) ).to.instanceOf( MathUI );
-	} );
-
-	it( 'should load AutoMath plugin', () => {
-		expect( editor.plugins.get( AutoMath ) ).to.instanceOf( AutoMath );
 	} );
 
 	it( 'has proper name', () => {
