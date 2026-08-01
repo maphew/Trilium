@@ -1104,7 +1104,24 @@ export function useStaticTooltip(elRef: RefObject<Element>, config?: Partial<Too
         });
         tooltips.add(tooltip);
 
+        // A tooltip triggered by hover *and focus* — Bootstrap's default — outstays the press that
+        // opened something: the press leaves the trigger focused, and while any trigger is still active
+        // Bootstrap declines to put the tooltip away, pointer gone or not. So it sits over whatever the
+        // press brought up rather than beside it, until focus moves on. The status bar's connection
+        // badges are where that shows worst: the tooltip is left standing over the sidebar the press
+        // peeked. Dismissed on press, as the legacy button widgets did (`onclick_button.ts`).
+        const dismissOnPress = (event: Event) => {
+            // A delegated (`selector:`) config spawns an instance per hovered child, so the one showing
+            // belongs to the child the press landed on rather than to the container the config sits on.
+            const delegate = config?.selector && event.target instanceof Element
+                ? event.target.closest(config.selector)
+                : null;
+            (delegate ? Tooltip.getInstance(delegate) : tooltip)?.hide();
+        };
+        element.addEventListener("click", dismissOnPress);
+
         return () => {
+            element.removeEventListener("click", dismissOnPress);
             tooltips.delete(tooltip);
             // Dispose even when the trigger element is already detached (e.g. a keyed remount
             // replaced it before this cleanup ran) — dispose() also removes a currently-shown

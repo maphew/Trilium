@@ -154,6 +154,22 @@ describe("useStaticTooltip", () => {
 
         expect(document.querySelector(".tooltip")).toBeNull();
     });
+
+    it("puts the tooltip away on a press, which would otherwise leave it standing over what the press opened", async () => {
+        await act(async () => render(<TooltipHarness generation={1} />, container));
+
+        const trigger = container.querySelector("span");
+        expect(trigger).not.toBeNull();
+        act(() => {
+            if (trigger) Tooltip.getInstance(trigger)?.show();
+        });
+        expect(document.querySelector(".tooltip"), "shown").not.toBeNull();
+
+        // The press leaves the trigger focused, and Bootstrap declines to put a tooltip away while a
+        // trigger of its own is still active — so nothing else takes it down, pointer gone or not.
+        await act(async () => { trigger?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
+        expect(document.querySelector(".tooltip"), "gone with the press").toBeNull();
+    });
 });
 
 describe("useTooltip", () => {
