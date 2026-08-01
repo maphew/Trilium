@@ -44,7 +44,10 @@ export function NotePathsWidget({ sortedNotePaths, currentNotePath, cloneButton 
                 <ul className="note-path-list">
                     {sortedNotePaths?.length ? sortedNotePaths.map(sortedNotePath => (
                         <NotePath
-                            key={sortedNotePath.notePath}
+                            // Keyed by the joined path, not the array: `getAllNotePaths()` hands back
+                            // fresh arrays on every refresh, so an array key never matches the previous
+                            // one and each row would remount — blanking its links until they resolve.
+                            key={sortedNotePath.notePath.join("/")}
                             currentNotePath={currentNotePath}
                             notePathRecord={sortedNotePath}
                         />
