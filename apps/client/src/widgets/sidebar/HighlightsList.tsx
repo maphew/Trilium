@@ -112,9 +112,10 @@ function HighlightsListMenu({ currentValue, onChange }: {
             // is rendered into the body to stand clear of it — as the card's help popup is.
             portalToBody
         >
-            {HIGHLIGHT_FORMATS.map(({ val, titleKey }) => (
+            {HIGHLIGHT_FORMATS.map(({ val, titleKey, icon }) => (
                 <FormListToggleableItem
                     key={val}
+                    icon={icon}
                     title={t(titleKey)}
                     currentValue={currentValue.includes(val)}
                     onChange={(checked) => onChange(checked
