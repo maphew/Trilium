@@ -99,13 +99,13 @@ const LOCALE_MAPPINGS: Record<DISPLAYABLE_LOCALE_IDS, LocaleMapping | null> = {
  * locale.
  *
  * @param locale the Trilium locale to configure the editor for.
- * @param translate the host's translator, resolving an i18next key to the localized string. Omit it
- *                  (a test, a standalone editor) and every Trilium string falls back to the English
- *                  message id passed to `editor.t()`.
+ * @param messages the host's English message catalog (the `text-editor.ck` section) paired with its
+ *                 translator. Omit it — a test, a standalone editor — and every Trilium string
+ *                 falls back to the English message id passed to `editor.t()`.
  */
 export default async function getCkLocale(
     locale: DISPLAYABLE_LOCALE_IDS,
-    translate?: (key: string) => string
+    messages?: { englishMessages: Record<string, string>; translate: (key: string) => string }
 ): Promise<Pick<EditorConfig, "language" | "translations">> {
     const mapping = LOCALE_MAPPINGS[locale];
     const translations: Translations[] = [];
@@ -116,8 +116,8 @@ export default async function getCkLocale(
         translations.push((await mapping.coreTranslation()).default);
     }
 
-    if (translate) {
-        const dictionary = buildMessageDictionary(translate);
+    if (messages) {
+        const dictionary = buildMessageDictionary(messages.englishMessages, messages.translate);
         if (Object.keys(dictionary).length > 0) {
             // Keyed by the language CKEditor will resolve messages under, which is the editor's
             // default (`en`) whenever we pass no `language` below.

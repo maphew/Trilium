@@ -1,6 +1,7 @@
 import { buildExtraCommands, type EditorConfig, getCkLocale, SnippetDefinition } from "@triliumnext/ckeditor5";
 import emojiDefinitionsUrl from "@triliumnext/ckeditor5/src/emoji_definitions/en.json?url";
 import { ALLOWED_PROTOCOLS, DISPLAYABLE_LOCALE_IDS, KATEX_MACROS, MIME_TYPE_AUTO, normalizeMimeTypeForCKEditor } from "@triliumnext/commons";
+import i18next from "i18next";
 
 import { copyTextWithToast } from "../../../services/clipboard_ext.js";
 import { t } from "../../../services/i18n.js";
@@ -186,7 +187,7 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
         removePlugins: getDisabledPlugins(),
         // The locale's CKEditor translations, plus the dictionary of Trilium-authored editor
         // strings resolved through the app's i18n (see `messages.ts` in the ckeditor5 package).
-        ...await getCkLocale(opts.uiLanguage, (key) => t(key))
+        ...await getCkLocale(opts.uiLanguage, { englishMessages: getEnglishEditorMessages(), translate: (key) => t(key) })
     };
 
     // User-configurable todo task states (from the `_taskStates` hidden subtree).
@@ -269,6 +270,24 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
         ...config,
         ...buildToolbarConfig(opts.isClassicEditor)
     };
+}
+
+/**
+ * The English editor messages, i.e. the `text-editor.ck` section of the English catalog, mapping
+ * each derived key to the English text that plugins pass to `editor.t()`. This section is the
+ * registry of Trilium-authored editor strings — there is no list of them in code — so reading it
+ * back is what lets the message dictionary be built.
+ *
+ * English is always loaded, being i18next's `fallbackLng`; an empty section only means every editor
+ * string renders its English message id, which is what an unconfigured editor does anyway.
+ *
+ * `getResourceBundle` is bound onto the i18next instance by `init()`, so it is missing until
+ * `initLocale()` has run — the case for a test that builds a config without booting i18n.
+ */
+function getEnglishEditorMessages(): Record<string, string> {
+    const bundle = i18next.getResourceBundle?.("en", "translation") as
+        { "text-editor"?: { ck?: Record<string, string> } } | undefined;
+    return bundle?.["text-editor"]?.ck ?? {};
 }
 
 function buildListOfLanguages() {

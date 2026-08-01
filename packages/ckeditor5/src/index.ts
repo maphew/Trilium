@@ -17,6 +17,7 @@ export { default as TriliumSnippets } from "./plugins/snippets/snippets.js";
 export type { SnippetDefinition } from "./plugins/snippets/snippetsconfig.js";
 export { default as buildExtraCommands } from "./extra_slash_commands.js";
 export { default as getCkLocale } from "./i18n.js";
+export { MESSAGE_KEY_PREFIX, slugify } from "./messages.js";
 export * from "./utils.js";
 
 // Import with sideffects to ensure that type augmentations are present.

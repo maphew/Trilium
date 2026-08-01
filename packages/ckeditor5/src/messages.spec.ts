@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildMessageDictionary, MESSAGE_KEY_PREFIX, MESSAGES, slugify, translateMessage } from "./messages.js";
+import { buildMessageDictionary, MESSAGE_KEY_PREFIX, slugify, translateMessage } from "./messages.js";
 
 describe("slugify", () => {
     // The punctuation cases matter: `.` separates key paths in i18next, and `"`/`%0` would be
@@ -17,33 +17,24 @@ describe("slugify", () => {
 });
 
 describe("buildMessageDictionary", () => {
-    it("maps each message id to its translation", () => {
-        const dictionary = buildMessageDictionary((key) => `translated:${key}`);
+    const ENGLISH = { admonition: "Admonition", warning: "Warning" };
 
-        expect(dictionary.Admonition).toBe(`translated:${MESSAGE_KEY_PREFIX}admonition`);
-        expect(dictionary.Warning).toBe(`translated:${MESSAGE_KEY_PREFIX}warning`);
-        expect(Object.keys(dictionary)).toHaveLength(MESSAGES.length);
+    it("maps each English message to its translation", () => {
+        const dictionary = buildMessageDictionary(ENGLISH, (key) => `translated:${key}`);
+
+        expect(dictionary).toEqual({
+            Admonition: `translated:${MESSAGE_KEY_PREFIX}admonition`,
+            Warning: `translated:${MESSAGE_KEY_PREFIX}warning`
+        });
     });
 
     // i18next echoes the key back when an entry is missing. Putting that in the dictionary would
     // render `text-editor.ck.admonition` at the user; skipping it lets CKEditor fall back to the
     // English message id instead.
     it("omits messages whose key the translator does not resolve", () => {
-        expect(buildMessageDictionary((key) => key)).toEqual({});
-        expect(buildMessageDictionary(() => "")).toEqual({});
-    });
-
-    it("has no duplicate message ids", () => {
-        expect(new Set(MESSAGES).size).toBe(MESSAGES.length);
-    });
-
-    it("covers every message id, keyed by its slug", () => {
-        const dictionary = buildMessageDictionary((key) => key.slice(MESSAGE_KEY_PREFIX.length));
-
-        expect(Object.keys(dictionary)).toEqual([ ...MESSAGES ]);
-        for (const message of MESSAGES) {
-            expect(dictionary[message]).toBe(slugify(message));
-        }
+        expect(buildMessageDictionary(ENGLISH, (key) => key)).toEqual({});
+        expect(buildMessageDictionary(ENGLISH, () => "")).toEqual({});
+        expect(buildMessageDictionary({}, (key) => `translated:${key}`)).toEqual({});
     });
 });
 

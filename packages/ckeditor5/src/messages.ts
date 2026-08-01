@@ -1,43 +1,27 @@
 /**
  * Trilium-authored editor strings, and the bridge that gets them translated.
  *
- * Plugins localize with CKEditor's own `editor.t("English text")` — no host configuration, no
- * translation keys in plugin code. When nothing supplies a dictionary (a test, a standalone
- * editor), `t()` falls back to the message id itself, which *is* the English text, so the UI is
- * always correct rather than showing a raw key.
+ * Plugins localize with CKEditor's own `editor.t`, passing the English text itself as the message
+ * id — no host configuration, no translation keys in plugin code. When nothing supplies a
+ * dictionary (a test, a standalone editor), the message id is what gets rendered, so the UI is
+ * always correct English rather than a raw key.
  *
- * To actually translate those strings, the host hands {@link buildMessageDictionary} a translator
- * (the client passes i18next's `t`) and the resulting dictionary is appended to the editor's
- * `translations` config in `i18n.ts`. The i18next key is *derived* from the English text by
- * {@link slugify}, so there is no message-id-to-key mapping to maintain: every string is written
- * once, at the call site.
+ * To actually translate those strings, the host builds a message dictionary and `i18n.ts` appends
+ * it to the editor's `translations` config. The i18next key is *derived* from the English text by
+ * {@link slugify}, so there is no message-id-to-key mapping to maintain, and there is no list of
+ * messages either: the English catalog under `text-editor.ck` **is** the registry, and
+ * {@link buildMessageDictionary} turns it into the dictionary CKEditor wants. Adding a string means
+ * writing it at the call site and adding its English entry — nothing else, and the client's
+ * `i18n.spec.ts` fails if the entry is missing, because it gathers the translation calls from this
+ * package's source.
  *
- * The same mechanism can reword CKEditor's own strings — listing an upstream message id here
- * overrides the built-in translation for every locale, because our dictionary is merged after the
- * core one.
+ * The same mechanism can reword CKEditor's own strings: an entry whose English text matches an
+ * upstream message id overrides the built-in translation for every locale, because our dictionary
+ * is merged after the core one.
  */
 
 /** Prefix for the i18next keys this package's messages resolve to. */
 export const MESSAGE_KEY_PREFIX = "text-editor.ck.";
-
-/**
- * Every English message id the editor package owns, i.e. each distinct string passed to
- * `editor.t()` by a Trilium plugin (plus any upstream string we deliberately reword).
- *
- * Current scope: the admonition feature. The remaining plugins still localize through the older
- * `config.translate` bridge and are migrated separately.
- */
-export const MESSAGES = [
-    "Admonition",
-    // The admonition types, declared as titles in `ADMONITION_TYPES` and rendered by the toolbar
-    // dropdown, the type dropdown and the slash commands. `admonition_messages.spec.ts` keeps this
-    // list and that map in sync.
-    "Note",
-    "Tip",
-    "Important",
-    "Caution",
-    "Warning"
-] as const;
 
 /**
  * Derive the i18next key for a message id: lowercase, with every run of non-alphanumeric
@@ -55,9 +39,36 @@ export function slugify(message: string): string {
 }
 
 /**
+ * Build the CKEditor dictionary from the host's English catalog and translator.
+ *
+ * @param englishMessages the `text-editor.ck` section of the English catalog, mapping each derived
+ *                        key to the English text — which is the message id plugins pass to the
+ *                        editor's translation function.
+ * @param translate resolves a full i18next key to the localized string.
+ */
+export function buildMessageDictionary(
+    englishMessages: Record<string, string>,
+    translate: (key: string) => string
+): Record<string, string> {
+    const dictionary: Record<string, string> = {};
+
+    for (const [ derivedKey, message ] of Object.entries(englishMessages)) {
+        const key = MESSAGE_KEY_PREFIX + derivedKey;
+        const translated = translate(key);
+        // i18next echoes the key back for a missing entry; that would render `text-editor.ck.…` at
+        // the user, where falling back to the message id renders correct English.
+        if (translated && translated !== key) {
+            dictionary[message] = translated;
+        }
+    }
+
+    return dictionary;
+}
+
+/**
  * Translate a single message id outside an editor, for code that builds editor content before an
- * editor exists — the slash-command definitions, for instance. Inside a plugin use `editor.t()`
- * instead; this is the same lookup, minus the editor.
+ * editor exists — the slash-command definitions, for instance. Inside a plugin use the editor's own
+ * translation function instead; this is the same lookup, minus the editor.
  *
  * Falls back to the message id, which is the English text, so a missing entry renders English
  * rather than a raw key.
@@ -66,26 +77,4 @@ export function translateMessage(translate: (key: string) => string, message: st
     const key = MESSAGE_KEY_PREFIX + slugify(message);
     const translated = translate(key);
     return translated && translated !== key ? translated : message;
-}
-
-/**
- * Build the CKEditor dictionary for {@link MESSAGES} using the host's translator.
- *
- * A message is only included when the translator actually resolves its key. i18next echoes the key
- * back for a missing entry, so an unresolved message would otherwise put `text-editor.ck.…` in the
- * dictionary and render that key at the user; skipping it instead lets CKEditor fall back to the
- * English message id.
- */
-export function buildMessageDictionary(translate: (key: string) => string): Record<string, string> {
-    const dictionary: Record<string, string> = {};
-
-    for (const message of MESSAGES) {
-        const key = MESSAGE_KEY_PREFIX + slugify(message);
-        const translated = translate(key);
-        if (translated && translated !== key) {
-            dictionary[message] = translated;
-        }
-    }
-
-    return dictionary;
 }

@@ -8,13 +8,26 @@ import { MESSAGE_KEY_PREFIX } from "./messages.js";
 import Admonition from "./plugins/admonition/admonition.js";
 import AdmonitionUI from "./plugins/admonition/admonition_ui.js";
 
+/** The `text-editor.ck` section of the English catalog, as the client reads it back at runtime. */
+const ENGLISH_MESSAGES: Record<string, string> = {
+    admonition: "Admonition",
+    caution: "Caution",
+    important: "Important",
+    note: "Note",
+    tip: "Tip",
+    warning: "Warning"
+};
+
 /**
- * A translator that resolves only the admonition button, echoing every other key back the way
- * i18next does for a missing entry — so the assertions below pin one dictionary entry rather than
- * tracking the whole message list.
+ * Messages resolving only the admonition button, with every other key echoed back the way i18next
+ * does for a missing entry — so the assertions below pin one dictionary entry rather than tracking
+ * the whole catalog.
  */
-function translateAdmonitionOnly(translation: string) {
-    return (key: string) => (key === "text-editor.ck.admonition" ? translation : key);
+function admonitionOnly(translation: string) {
+    return {
+        englishMessages: ENGLISH_MESSAGES,
+        translate: (key: string) => (key === "text-editor.ck.admonition" ? translation : key)
+    };
 }
 
 interface AdmonitionDropdown {
@@ -62,7 +75,7 @@ describe("getCkLocale", () => {
     });
 
     it("appends the Trilium dictionary after the core translations", async () => {
-        const { language, translations } = await getCkLocale("de", translateAdmonitionOnly("Ermahnung"));
+        const { language, translations } = await getCkLocale("de", admonitionOnly("Ermahnung"));
 
         expect(language).toBe("de");
         if (!Array.isArray(translations)) throw new Error("expected an array of translations");
@@ -80,7 +93,7 @@ describe("getCkLocale", () => {
         if (!Array.isArray(before.translations)) throw new Error("expected an array of translations");
         const coreEntry = before.translations[1] as Record<string, { dictionary: Record<string, string> }>;
 
-        await getCkLocale("de", translateAdmonitionOnly("Ermahnung"));
+        await getCkLocale("de", admonitionOnly("Ermahnung"));
 
         expect(coreEntry.de.dictionary).not.toHaveProperty("Admonition");
     });
@@ -88,7 +101,7 @@ describe("getCkLocale", () => {
     // A locale with no CKEditor translation still needs the dictionary, since it also carries any
     // rewording of the editor's built-in English strings.
     it("supplies a dictionary keyed 'en' for locales with no core translation", async () => {
-        const { language, translations } = await getCkLocale("ga", translateAdmonitionOnly("Rabhadh"));
+        const { language, translations } = await getCkLocale("ga", admonitionOnly("Rabhadh"));
 
         expect(language).toBeUndefined();
         expect(translations).toEqual([ {}, { en: { dictionary: { Admonition: "Rabhadh" } } } ]);
@@ -97,7 +110,7 @@ describe("getCkLocale", () => {
     // An unresolved key yields an empty dictionary, which must not be pushed as a translations
     // entry — an empty dictionary for a locale would otherwise shadow nothing but still allocate.
     it("omits the dictionary when the translator resolves nothing", async () => {
-        expect(await getCkLocale("ga", (key) => key)).toEqual({});
+        expect(await getCkLocale("ga", { englishMessages: ENGLISH_MESSAGES, translate: (key) => key })).toEqual({});
     });
 
     // End-to-end over a real editor: `AdmonitionUI` localizes with plain `editor.t("Admonition")`,
@@ -120,7 +133,7 @@ describe("getCkLocale", () => {
         }
 
         it("translates the button and every type entry through the host translator", async () => {
-            const dropdown = await createAdmonitionDropdown(await getCkLocale("ro", translateToRomanian));
+            const dropdown = await createAdmonitionDropdown(await getCkLocale("ro", { englishMessages: ENGLISH_MESSAGES, translate: translateToRomanian }));
 
             expect(dropdown.buttonView.label).toBe("Casetă de avertizare");
             expect(readTypeLabels(dropdown)).toEqual([ "Notă", "Sfat", "Important", "Atenție", "Avertisment" ]);
@@ -133,7 +146,7 @@ describe("getCkLocale", () => {
             [ "no translator is configured", undefined ],
             [ "the translation is missing", (key: string) => key ]
         ])("falls back to the English message ids when %s", async (_case, translate) => {
-            const dropdown = await createAdmonitionDropdown(await getCkLocale("ro", translate));
+            const dropdown = await createAdmonitionDropdown(await getCkLocale("ro", translate && { englishMessages: ENGLISH_MESSAGES, translate }));
 
             expect(dropdown.buttonView.label).toBe("Admonition");
             expect(readTypeLabels(dropdown)).toEqual([ "Note", "Tip", "Important", "Caution", "Warning" ]);
