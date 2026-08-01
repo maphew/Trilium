@@ -1016,8 +1016,12 @@ export function useTooltip(elRef: RefObject<HTMLElement>, config: Partial<Toolti
     const showTooltip = useCallback(() => {
         if (!elRef?.current) return;
 
-        const $el = $(elRef.current);
-        $el.tooltip("show");
+        const element = elRef.current;
+        const tooltip = Tooltip.getInstance(element);
+        if (tooltip) {
+            clearStaleHoverState(tooltip);
+        }
+        $(element).tooltip("show");
     }, [ elRef, config ]);
 
     const hideTooltip = useCallback(() => {
@@ -1030,6 +1034,27 @@ export function useTooltip(elRef: RefObject<HTMLElement>, config: Partial<Toolti
     useDebugValue(config.title);
 
     return { showTooltip, hideTooltip };
+}
+
+/**
+ * Clears the hover state Bootstrap keeps of its own accord, so that a manual `show()` isn't undone by
+ * the hover before it.
+ *
+ * Bootstrap tracks `_isHovered` even under `trigger: "manual"`, and leans on `hide()` resetting it to
+ * `null` — the value that tells a later `show()` there is no hover to act on ("a trick to support
+ * manual triggering", as it puts it). But `show()` writes `false` into the same flag from a callback
+ * deferred until the fade-in has finished, so a hover ended before then reverses the two writes:
+ * `hide()` sets `null`, and the deferred callback then sets `false` over it. The flag is left standing
+ * with nothing shown, and the next `show()` reads it, takes the tooltip to have been left already and
+ * calls `_leave()` — which hides it a moment after it appeared, with the pointer still on the trigger.
+ *
+ * A quick pass over a trigger is enough to leave it in that state, which is why the `?` of the sidebar
+ * card headers (a {@link Dropdown} title, shown from its own mouseenter) so often vanished under the
+ * pointer. Bootstrap offers no public way to reach the flag, and no public call that clears it without
+ * a tooltip already being shown.
+ */
+function clearStaleHoverState(tooltip: Tooltip) {
+    (tooltip as unknown as { _isHovered: boolean | null })._isHovered = null;
 }
 
 const tooltips = new Set<Tooltip>();

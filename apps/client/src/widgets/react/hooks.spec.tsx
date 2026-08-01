@@ -4,7 +4,7 @@ import { useRef } from "preact/hooks";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { type DelayedVisibilityPhase, useDelayedVisibility, useImperativeSearchHighlighlighting, useStaticTooltip } from "./hooks";
+import { type DelayedVisibilityPhase, useDelayedVisibility, useImperativeSearchHighlighlighting, useStaticTooltip, useTooltip } from "./hooks";
 
 /**
  * mark.js delegating to the real implementation, so marking still works, while recording the calls
@@ -153,6 +153,59 @@ describe("useStaticTooltip", () => {
         await act(async () => render(<TooltipHarness generation={2} />, container));
 
         expect(document.querySelector(".tooltip")).toBeNull();
+    });
+});
+
+describe("useTooltip", () => {
+    let container: HTMLElement;
+    let show: (() => void) | undefined;
+    let hide: (() => void) | undefined;
+
+    // Bootstrap defers show()'s completion until the fade-in ends, so the hover state it keeps
+    // settles a tick after the event that drove it.
+    const settle = () => act(async () => { await new Promise((resolve) => setTimeout(resolve, 40)); });
+    const isShown = () => document.querySelector(".tooltip") !== null;
+
+    const CONFIG = { title: "Show help", trigger: "manual" } satisfies Partial<Tooltip.Options>;
+
+    function TooltipHarness() {
+        const ref = useRef<HTMLSpanElement>(null);
+        ({ showTooltip: show, hideTooltip: hide } = useTooltip(ref, CONFIG));
+        return <span ref={ref} />;
+    }
+
+    beforeEach(async () => {
+        container = document.createElement("div");
+        document.body.appendChild(container);
+        await act(async () => render(<TooltipHarness />, container));
+    });
+
+    afterEach(() => {
+        render(null, container);
+        container.remove();
+        show = hide = undefined;
+        for (const orphan of document.querySelectorAll(".tooltip")) {
+            orphan.remove();
+        }
+    });
+
+    it("keeps a manually shown tooltip up after a hover too short for its fade-in", async () => {
+        act(() => show?.());
+        await settle();
+        expect(isShown(), "shown on the first hover").toBe(true);
+
+        // A quick pass over the trigger: away again before the fade-in has finished, which used to
+        // leave Bootstrap's own hover flag set with nothing shown (see clearStaleHoverState).
+        act(() => show?.());
+        act(() => hide?.());
+        await settle();
+        expect(isShown(), "hidden once the pointer has left").toBe(false);
+
+        // The hover that follows it must stand rather than being put away by the one before.
+        act(() => show?.());
+        expect(isShown(), "shown straight away").toBe(true);
+        await settle();
+        expect(isShown(), "still shown with the pointer where it is").toBe(true);
     });
 });
 
