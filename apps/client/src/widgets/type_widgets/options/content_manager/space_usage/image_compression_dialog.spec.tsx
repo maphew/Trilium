@@ -93,21 +93,48 @@ vi.mock("../../../../react/Modal", () => ({
 import { showImageCompressionDialog } from "./image_compression_dialog";
 import { IMAGE_COMPRESSION_TOAST_ID, type ImageCompressionTarget } from "./image_compression_operation";
 
+/** A note holding whatever it holds; the collection case, where every setting is in play. */
 const NOTE_TARGET: ImageCompressionTarget = { type: "note", noteId: "n1" };
-const ATTACHMENT_TARGET: ImageCompressionTarget = { type: "attachment", attachmentId: "a1" };
+/** One image apiece, which is what carrying a mime means. */
+const JPEG_IMAGE_TARGET: ImageCompressionTarget = { type: "attachment", attachmentId: "a1", mime: "image/jpeg" };
+const PNG_IMAGE_TARGET: ImageCompressionTarget = { type: "attachment", attachmentId: "a1", mime: "image/png" };
 
-function rows() {
-    return Array.from(document.body.querySelectorAll<HTMLElement>(".image-compression-section"));
+function rows(within: ParentNode = document.body) {
+    return Array.from(within.querySelectorAll<HTMLElement>(".image-compression-section"));
 }
 
-function titles() {
-    return rows().map((row) => row.querySelector(".image-compression-section-title")?.textContent);
-}
+const titles = () => titlesOf(document.body);
+const titlesOf = (within: ParentNode) =>
+    rows(within).map((row) => row.querySelector(".image-compression-section-title")?.textContent);
 
+const cards = () => Array.from(document.body.querySelectorAll<HTMLElement>(".modal-stub .tn-card"));
 const numberField = () => document.body.querySelector<HTMLInputElement>(".image-compression-section-number");
 const slider = () => document.body.querySelector<HTMLInputElement>(".slider");
+const qualityRows = () => rows().filter((row) => !!row.querySelector(".slider"));
 const qualityReading = () => document.body.querySelector(".image-compression-section-value")?.textContent ?? "";
 const toggles = () => Array.from(document.body.querySelectorAll<HTMLInputElement>(".switch-toggle"));
+const hasHelp = (row: HTMLElement) => !!row.querySelector(".image-compression-section-title .contextual-help");
+
+/** The buttons of one format's choice, the groups being in the order the card lists them. */
+const choiceButtons = (group: number) =>
+    Array.from(document.body.querySelectorAll<HTMLElement>(".image-compression-section-choice"))
+        .map((element) => Array.from(element.querySelectorAll<HTMLButtonElement>("button")))[group] ?? [];
+
+/** How many choice groups precede the PNG one, which is last and so counts from the end. */
+const pngGroup = () => document.body.querySelectorAll(".image-compression-section-choice").length - 1;
+
+const chosenOf = (group: number) =>
+    choiceButtons(group).find((button) => button.classList.contains("active"))?.textContent?.trim();
+const chosenJpeg = () => chosenOf(0);
+const chosenPng = () => chosenOf(pngGroup());
+
+async function chooseJpeg(handling: "keep" | "compress") {
+    await click(choiceButtons(0)[[ "keep", "compress" ].indexOf(handling)]);
+}
+
+async function choosePng(handling: "keep" | "optimize" | "jpeg") {
+    await click(choiceButtons(pngGroup())[[ "keep", "optimize", "jpeg" ].indexOf(handling)]);
+}
 const buttons = () => Array.from(document.body.querySelectorAll<HTMLButtonElement>(".footer-stub button"));
 const cancelButton = () => buttons()[0];
 const compressButton = () => buttons()[1];
@@ -184,31 +211,35 @@ afterEach(() => {
 });
 
 describe("showImageCompressionDialog", () => {
-    it("leads with each step, the bound nested under the one that measures against it", async () => {
+    it("offers each kind of image its own choice, with what qualifies it nested beneath", async () => {
         await openDialog();
 
         expect(titles()).toEqual([
-            "space_usage.compress_reduce_resolution",
-            "images.max_image_dimensions",
-            // One switch per kind of image: recompressing the lossy ones, and letting the lossless
-            // ones stop being lossless. Neither implies the other.
-            "space_usage.compress_reencode",
-            // Straight after the step it governs rather than nested under it: scaling writes a
-            // JPEG back too, so it is in force for either.
-            "images.jpeg_quality",
-            // One exclusive choice, since only one of the three can happen to a given PNG.
+            "space_usage.compress_resize",
+            "space_usage.compress_max_dimensions",
+            // One exclusive choice per kind of image, since only one thing can ever become of a
+            // given image — and each brings the quality that governs it alone.
+            "space_usage.compress_jpeg_handling",
+            "space_usage.compress_quality",
             "space_usage.compress_png_handling",
             "space_usage.compress_process_child_notes"
         ]);
         expect(rows().map(controlOf))
-            .toEqual([ "toggle", "number", "toggle", "slider", "choice", "toggle" ]);
-        expect(rows().map(isNested)).toEqual([ false, true, false, false, false, false ]);
+            .toEqual([ "toggle", "number", "choice", "slider", "choice", "toggle" ]);
+        expect(rows().map(isNested)).toEqual([ false, true, false, true, false, false ]);
 
-        // Each switch turns on something with a consequence its label cannot carry — what is left
-        // untouched, a permanent quality loss, a reach past the note the run was invoked on — so
-        // each explains itself beside its title. The two figures say all there is to say already.
-        expect(rows().map((row) => !!row.querySelector(".image-compression-section-title .contextual-help")))
-            .toEqual([ true, false, true, false, true, true ]);
+        // Every choice and switch carries a consequence its label cannot — what is left untouched,
+        // a permanent loss of quality, a reach past the note the run was invoked on — so each
+        // explains itself beside its title. The two figures say all there is to say already.
+        expect(rows().map(hasHelp)).toEqual([ true, false, true, false, true, true ]);
+    });
+
+    it("puts the reach of the run in a card of its own, apart from how it compresses", async () => {
+        await openDialog();
+
+        // Everything in the first card says *how*; the second says how far.
+        expect(cards()).toHaveLength(2);
+        expect(titlesOf(cards()[1])).toEqual([ "space_usage.compress_process_child_notes" ]);
     });
 
     it("shows the bound only while there is a step that measures against it", async () => {
@@ -216,57 +247,34 @@ describe("showImageCompressionDialog", () => {
 
         // Reading it off a switch that is off would present a figure still in force.
         await toggle(toggles()[0]);
-        expect(titles()).not.toContain("images.max_image_dimensions");
         expect(numberField()).toBeNull();
 
         await toggle(toggles()[0]);
         expect(numberField()?.value).toBe(String(CONFIGURED_MAX_DIMENSIONS));
     });
 
-    it("keeps the quality up whichever steps are on, being in force for all of them", async () => {
+    it("shows each quality only while the choice it qualifies is the one taken", async () => {
         await openDialog();
 
-        await toggle(toggles()[0]);
-        await toggle(toggles()[1]);
-        await chooseHandling("keep");
+        // Opens on compressing JPEGs and optimizing PNGs, so one quality is in force and one is not.
+        expect(qualityRows()).toHaveLength(1);
 
-        expect(titles()).toContain("images.jpeg_quality");
-        expect(slider()).not.toBeNull();
+        await choosePng("jpeg");
+        expect(qualityRows()).toHaveLength(2);
+
+        await chooseJpeg("keep");
+        expect(qualityRows()).toHaveLength(1);
+
+        await choosePng("optimize");
+        expect(qualityRows()).toHaveLength(0);
     });
 
-    it("shows the conversion quality only while converting is the chosen handling", async () => {
-        await openDialog();
-
-        // Nested under the choice it qualifies, and under nothing else: it is the one setting that
-        // governs that handling alone.
-        expect(titles()).not.toContain("space_usage.compress_quality");
-
-        await chooseHandling("jpeg");
-        expect(titles()).toContain("space_usage.compress_quality");
-        expect(rows().map(isNested)).toEqual([ false, true, false, false, false, true, false ]);
-
-        await chooseHandling("optimize");
-        expect(titles()).not.toContain("space_usage.compress_quality");
-    });
-
-    it("drops the subtree row for an attachment, which has no subtree to reach into", async () => {
-        await openDialog(ATTACHMENT_TARGET);
-
-        expect(titles()).toEqual([
-            "space_usage.compress_reduce_resolution",
-            "images.max_image_dimensions",
-            "space_usage.compress_reencode",
-            "images.jpeg_quality",
-            "space_usage.compress_png_handling"
-        ]);
-    });
-
-    it("reads the quality out between its title and the slider", async () => {
+    it("reads a quality out between its title and the slider", async () => {
         await openDialog();
 
         // A slider says which way it is going but never where it is, so the row reads
         // title, value, control — the reading placed before the control it reads.
-        expect(Array.from(rows()[3].children).map((child) => child.classList[0])).toEqual([
+        expect(Array.from(qualityRows()[0].children).map((child) => child.classList[0])).toEqual([
             "image-compression-section-title",
             "image-compression-section-value",
             "slider"
@@ -286,42 +294,37 @@ describe("showImageCompressionDialog", () => {
         expect(numberField()?.value).toBe(String(CONFIGURED_MAX_DIMENSIONS));
         expect(slider()?.value).toBe(String(CONFIGURED_QUALITY));
 
-        // Every step starts on — converting in particular, being where nearly all the saving
-        // comes from. Reaching into the subtree does not: that widens what the run touches rather
-        // than how hard it compresses, and a descendant may be a clone.
-        expect(toggles().map((input) => input.checked)).toEqual([ true, true, false ]);
-        // PNGs start on being made smaller without ceasing to be PNGs, which is the least
-        // surprising thing to do by default.
-        expect(chosenHandling()).toBe("space_usage.compress_png_optimize");
+        // A JPEG is compressed and a PNG is made smaller without ceasing to be one — the least
+        // surprising thing to do to each. Reaching into the subtree is not assumed: that widens
+        // what the run touches rather than how hard it compresses, and a child may be a clone.
+        expect(chosenJpeg()).toBe("space_usage.compress_jpeg_compress");
+        expect(chosenPng()).toBe("space_usage.compress_png_optimize");
+        expect(toggles().map((input) => input.checked)).toEqual([ true, false ]);
     });
 
-    it("keeps a stored answer of off for a step, rather than reasserting the default", async () => {
-        mocks.storedOption = JSON.stringify({ reencode: false, pngHandling: "keep" });
-
-        await openDialog();
-
-        expect(toggles().map((input) => input.checked)).toEqual([ true, false, false ]);
-        expect(chosenHandling()).toBe("space_usage.compress_png_keep");
-    });
-
-    it("falls back to optimizing on a stored handling it does not recognise", async () => {
-        mocks.storedOption = JSON.stringify({ pngHandling: "shrink" });
-
-        await openDialog();
-
-        expect(chosenHandling()).toBe("space_usage.compress_png_optimize");
-    });
-
-    it("reads a stored answer back, and lets it override the image options", async () => {
+    it("keeps a stored answer, rather than reasserting the defaults over it", async () => {
         mocks.storedOption = JSON.stringify({
-            maxWidthHeight: 800, quality: 35, reencode: false, processChildNotes: true
+            maxWidthHeight: 800, quality: 35, jpegHandling: "keep", pngHandling: "keep",
+            processChildNotes: true
         });
 
         await openDialog();
 
         expect(numberField()?.value).toBe("800");
-        expect(slider()?.value).toBe("35");
-        expect(toggles().map((input) => input.checked)).toEqual([ true, false, true ]);
+        expect(chosenJpeg()).toBe("space_usage.compress_jpeg_keep");
+        expect(chosenPng()).toBe("space_usage.compress_png_keep");
+        expect(toggles().map((input) => input.checked)).toEqual([ true, true ]);
+    });
+
+    it.each([
+        [ "an unknown JPEG handling", { jpegHandling: "squash" }, "space_usage.compress_jpeg_compress" ],
+        [ "an unknown PNG handling", { pngHandling: "shrink" }, "space_usage.compress_png_optimize" ]
+    ])("falls back to the default on %s", async (_label, stored, expected) => {
+        mocks.storedOption = JSON.stringify(stored);
+
+        await openDialog();
+
+        expect([ chosenJpeg(), chosenPng() ]).toContain(expected);
     });
 
     it.each([
@@ -349,15 +352,15 @@ describe("showImageCompressionDialog", () => {
 
         await type(numberField(), "900");
         await drag(slider(), "45");
+        await chooseJpeg("keep");
+        await choosePng("jpeg");
         await toggle(toggles()[1]);
-        await chooseHandling("jpeg");
-        await toggle(toggles()[2]);
 
         // The last write carries the whole set, each change having been folded into the one before.
         expect(mocks.save).toHaveBeenLastCalledWith("imageCompressionToolOptions", JSON.stringify({
             resize: true,
             maxWidthHeight: 900,
-            reencode: false,
+            jpegHandling: "keep",
             pngHandling: "jpeg",
             quality: 45,
             conversionQuality: 85,
@@ -365,19 +368,19 @@ describe("showImageCompressionDialog", () => {
         }));
     });
 
-    it("offers no run at all once every step is switched off", async () => {
+    it("offers no run at all once nothing is asked of anything", async () => {
         await openDialog();
 
         await toggle(toggles()[0]);
-        await toggle(toggles()[1]);
-        await chooseHandling("keep");
+        await chooseJpeg("keep");
+        await choosePng("keep");
 
         // Every image would be visited and none of them changed; a button that provably does
         // nothing is not one to offer.
         expect(compressButton()?.disabled).toBe(true);
 
         // Any one of them is enough to make the run worth offering again.
-        await chooseHandling("optimize");
+        await choosePng("optimize");
         expect(compressButton()?.disabled).toBe(false);
     });
 
@@ -392,7 +395,7 @@ describe("showImageCompressionDialog", () => {
     it("hands back nothing when the user backs out, settings remembered all the same", async () => {
         const { closed } = await openDialog();
 
-        await toggle(toggles()[2]);
+        await toggle(toggles()[1]);
         await click(cancelButton());
 
         // The answer is "no run", and nothing was asked of the server — but the settings are kept
@@ -404,11 +407,72 @@ describe("showImageCompressionDialog", () => {
     });
 });
 
+describe("a single image rather than a note's collection", () => {
+    it("offers only the choice for its own format, and nothing about a subtree", async () => {
+        await openDialog(JPEG_IMAGE_TARGET);
+
+        // A lone JPEG can never be reached by anything the PNG choice says, so offering it would
+        // be offering a setting that cannot apply. And one image has no subtree to descend into.
+        expect(titles()).toEqual([
+            "space_usage.compress_resize",
+            "space_usage.compress_max_dimensions",
+            "space_usage.compress_jpeg_handling",
+            "space_usage.compress_quality"
+        ]);
+        expect(cards()).toHaveLength(1);
+    });
+
+    it("offers the PNG choice for a PNG, and its conversion quality when converting", async () => {
+        await openDialog(PNG_IMAGE_TARGET);
+
+        expect(titles()).toEqual([
+            "space_usage.compress_resize",
+            "space_usage.compress_max_dimensions",
+            "space_usage.compress_png_handling"
+        ]);
+
+        await choosePng("jpeg");
+        expect(titles()).toContain("space_usage.compress_quality");
+    });
+
+    it("treats an image note as one image, the same as an attachment", async () => {
+        await openDialog({ type: "note", noteId: "n1", mime: "image/png" });
+
+        expect(titles()).not.toContain("space_usage.compress_jpeg_handling");
+        expect(titles()).not.toContain("space_usage.compress_process_child_notes");
+    });
+
+    it("says why it has nothing to offer for a format it cannot compress", async () => {
+        await openDialog({ type: "attachment", attachmentId: "a1", mime: "image/gif" });
+
+        expect(titles()).toEqual([
+            "space_usage.compress_resize",
+            "space_usage.compress_max_dimensions"
+        ]);
+        expect(document.body.querySelector(".image-compression-notice")?.textContent)
+            .toBe("space_usage.compress_unsupported_format");
+
+        // And nothing on offer could reach it, so there is no run to offer either.
+        expect(compressButton()?.disabled).toBe(true);
+    });
+
+    it("offers no run for a lone JPEG once its own choice is the only one left off", async () => {
+        await openDialog(JPEG_IMAGE_TARGET);
+
+        await toggle(toggles()[0]);
+        await chooseJpeg("keep");
+
+        // The PNG setting is still stored as "optimize", but it could never reach this image, so
+        // it must not count as work either.
+        expect(compressButton()?.disabled).toBe(true);
+    });
+});
+
 describe("running the compression", () => {
     it("sends the settings to the note endpoint, the subtree choice among them", async () => {
         const { closed } = await openDialog();
 
-        await toggle(toggles()[2]);
+        await toggle(toggles()[1]);
         await click(compressButton());
         await closed;
 
@@ -416,7 +480,7 @@ describe("running the compression", () => {
         expect(postedBody()).toEqual({
             resize: true,
             maxWidthHeight: CONFIGURED_MAX_DIMENSIONS,
-            reencode: true,
+            jpegHandling: "compress",
             pngHandling: "optimize",
             quality: CONFIGURED_QUALITY,
             conversionQuality: 85,
@@ -424,19 +488,20 @@ describe("running the compression", () => {
         });
     });
 
-    it("sends a step that was switched off as switched off, rather than leaving it out", async () => {
+    it("sends a choice that was narrowed as narrowed, rather than leaving it out", async () => {
         const { closed } = await openDialog();
 
         await toggle(toggles()[0]);
+        await chooseJpeg("keep");
         await click(compressButton());
         await closed;
 
-        // The server defaults an omitted step to on, so silence would ask for the opposite.
-        expect(postedBody()).toMatchObject({ resize: false, reencode: true, pngHandling: "optimize" });
+        // The server defaults an omitted setting to acting, so silence would ask for the opposite.
+        expect(postedBody()).toMatchObject({ resize: false, jpegHandling: "keep", pngHandling: "optimize" });
     });
 
     it("sends nothing about subtrees to the attachment endpoint, which has no use for it", async () => {
-        const { closed } = await openDialog(ATTACHMENT_TARGET);
+        const { closed } = await openDialog(JPEG_IMAGE_TARGET);
 
         await click(compressButton());
         await closed;
@@ -510,21 +575,6 @@ describe("running the compression", () => {
         expect(rows()).toEqual([]);
     });
 });
-
-/** The segmented choice buttons, in the order they are offered. */
-const choiceButtons = () =>
-    Array.from(document.body.querySelectorAll<HTMLButtonElement>(".image-compression-section-choice button"));
-
-/** The label of the choice currently highlighted. */
-function chosenHandling() {
-    return choiceButtons().find((button) => button.classList.contains("active"))?.textContent?.trim();
-}
-
-/** Picks a handling by its position, the way a click on that button does. */
-async function chooseHandling(handling: "keep" | "optimize" | "jpeg") {
-    const index = [ "keep", "optimize", "jpeg" ].indexOf(handling);
-    await click(choiceButtons()[index]);
-}
 
 /** Whether a row is drawn as qualifying the one above it rather than standing beside it. */
 function isNested(row: HTMLElement) {

@@ -11,7 +11,7 @@
  * recompressed belongs to the platform's {@link ImageProvider}.
  */
 
-import { getImageAttachmentTitle, IMAGE_PNG_HANDLINGS, type ImageCompressionItem, type ImageCompressionOptions, type ImageCompressionResponse, type ImageCompressionSkipReason } from "@triliumnext/commons";
+import { getImageAttachmentTitle, IMAGE_JPEG_HANDLINGS, IMAGE_PNG_HANDLINGS, type ImageCompressionItem, type ImageCompressionOptions, type ImageCompressionResponse, type ImageCompressionSkipReason } from "@triliumnext/commons";
 
 import becca from "../becca/becca.js";
 import type BAttachment from "../becca/entities/battachment.js";
@@ -70,7 +70,7 @@ export async function compressAttachmentImage(attachmentId: string, options?: Im
  * failing the request — the caller did not choose that value and cannot fix it from here.
  */
 export function resolveCompressionRequest(options: ImageCompressionOptions = {}): ImageCompressionRequest {
-    const { resize, maxWidthHeight, reencode, pngHandling, quality, conversionQuality } = options;
+    const { resize, maxWidthHeight, jpegHandling, pngHandling, quality, conversionQuality } = options;
 
     if (maxWidthHeight !== undefined && (!Number.isInteger(maxWidthHeight) || maxWidthHeight < MIN_MAX_WIDTH_HEIGHT)) {
         throw new ValidationError(`maxWidthHeight must be an integer of ${MIN_MAX_WIDTH_HEIGHT} or above.`);
@@ -79,11 +79,8 @@ export function resolveCompressionRequest(options: ImageCompressionOptions = {})
     requireQuality(quality, "quality");
     requireQuality(conversionQuality, "conversionQuality");
     requireBoolean(resize, "resize");
-    requireBoolean(reencode, "reencode");
-
-    if (pngHandling !== undefined && !IMAGE_PNG_HANDLINGS.includes(pngHandling)) {
-        throw new ValidationError(`pngHandling must be one of: ${IMAGE_PNG_HANDLINGS.join(", ")}.`);
-    }
+    requireOneOf(jpegHandling, IMAGE_JPEG_HANDLINGS, "jpegHandling");
+    requireOneOf(pngHandling, IMAGE_PNG_HANDLINGS, "pngHandling");
 
     return {
         // Every step defaults to acting: a request that named none of them asked for the images to
@@ -91,7 +88,7 @@ export function resolveCompressionRequest(options: ImageCompressionOptions = {})
         // being made smaller without ceasing to be one.
         resize: resize ?? true,
         maxWidthHeight: maxWidthHeight ?? optionService.getOptionInt("imageMaxWidthHeight"),
-        reencode: reencode ?? true,
+        jpegHandling: jpegHandling ?? "compress",
         pngHandling: pngHandling ?? "optimize",
         quality: quality ?? defaultQuality(),
         conversionQuality: conversionQuality ?? DEFAULT_CONVERSION_QUALITY
@@ -101,6 +98,12 @@ export function resolveCompressionRequest(options: ImageCompressionOptions = {})
 function requireBoolean(value: unknown, name: string) {
     if (value !== undefined && typeof value !== "boolean") {
         throw new ValidationError(`${name} must be a boolean.`);
+    }
+}
+
+function requireOneOf<T extends string>(value: T | undefined, allowed: readonly T[], name: string) {
+    if (value !== undefined && !allowed.includes(value)) {
+        throw new ValidationError(`${name} must be one of: ${allowed.join(", ")}.`);
     }
 }
 

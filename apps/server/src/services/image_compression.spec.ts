@@ -295,7 +295,7 @@ describe("compression parameters", () => {
         [ "a quality above the maximum", { quality: 101 } ],
         [ "a non-integer quality", { quality: 75.5 } ],
         [ "a non-boolean resize", { resize: "yes" } ],
-        [ "a non-boolean reencode", { reencode: "yes" } ],
+        [ "an unknown jpegHandling", { jpegHandling: "loads" } ],
         [ "an unknown pngHandling", { pngHandling: "shrink" } ],
         [ "a conversion quality out of range", { conversionQuality: 5 } ]
     ])("400s on %s", async (_label, body) => {
@@ -310,7 +310,7 @@ describe("compression parameters", () => {
         const noteId = await createImageNote(smallPng);
 
         expect((await api.post(`/api/notes/${noteId}/compress-images`, { body: [ 1, 2 ] })).status).toBe(400);
-        expect((await api.post(`/api/notes/${noteId}/compress-images`, { body: "reencode" })).status).toBe(400);
+        expect((await api.post(`/api/notes/${noteId}/compress-images`, { body: "jpegHandling" })).status).toBe(400);
     });
 
     it("treats a missing body as a request to compress without changing formats", async () => {
@@ -329,7 +329,7 @@ describe("compression parameters", () => {
 
         const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
             body: {
-                resize: false, reencode: false, pngHandling: "keep", maxWidthHeight: 10
+                resize: false, jpegHandling: "keep", pngHandling: "keep", maxWidthHeight: 10
             }
         });
 
@@ -340,8 +340,8 @@ describe("compression parameters", () => {
     });
 
     it.each([
-        [ "the lossy one", { reencode: true, pngHandling: "keep" }, "jpeg.jpg" ],
-        [ "the lossless one", { reencode: false, pngHandling: "jpeg" }, "png.png" ]
+        [ "the lossy one", { jpegHandling: "compress", pngHandling: "keep" }, "jpeg.jpg" ],
+        [ "the lossless one", { jpegHandling: "keep", pngHandling: "jpeg" }, "png.png" ]
     ])("reaches only its own kind of image with %s switched on", async (_label, body, expected) => {
         const { noteId } = await createTextNote(api);
         await addAttachment(noteId, "png.png", noisyPng);

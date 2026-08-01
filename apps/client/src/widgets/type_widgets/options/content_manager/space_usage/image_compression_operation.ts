@@ -6,12 +6,44 @@ import { formatSize } from "../../../../../services/utils";
 import type { ImageCompressionToolOptions } from "./image_compression_options";
 
 /**
- * What a compression run acts on: a whole note — its own image, or the images its attachments hold
- * — or a single attachment picked out on its own.
+ * What a compression run acts on: a whole note — the images its attachments hold — or a single
+ * image picked out on its own, which may be an image note or an image attachment.
+ *
+ * `mime` is what tells the two apart. Present, the target *is* one image of that type, and the
+ * dialog can offer only the settings that could reach it; absent, the target is a note holding
+ * however many images of whatever types, and every setting is in play.
  */
 export type ImageCompressionTarget =
-    | { type: "note"; noteId: string }
-    | { type: "attachment"; attachmentId: string };
+    | { type: "note"; noteId: string; mime?: string }
+    | { type: "attachment"; attachmentId: string; mime: string };
+
+/** The formats a run can act on at all, which is what the settings are ultimately about. */
+export type CompressibleFormat = "jpeg" | "png";
+
+/**
+ * Which formats the settings could reach on this target: the one format of a single image, both for
+ * a note holding a collection, and neither for a single image of a type nothing here can compress —
+ * a GIF, a WebP, an SVG.
+ *
+ * A collection is answered with both without looking: what a note actually holds is not known until
+ * the run visits it, and offering only what is there would mean measuring the note to open a dialog.
+ */
+export function compressibleFormatsOf(target: ImageCompressionTarget): CompressibleFormat[] {
+    if (target.mime === undefined) {
+        return [ "jpeg", "png" ];
+    }
+
+    if (target.mime === "image/jpeg") {
+        return [ "jpeg" ];
+    }
+
+    return target.mime === "image/png" ? [ "png" ] : [];
+}
+
+/** Whether the dialog is configuring one named image rather than whatever a note happens to hold. */
+export function isSingleImage(target: ImageCompressionTarget): boolean {
+    return target.mime !== undefined;
+}
 
 /** Shared by every stage of a run, so the message is swapped in place rather than stacked. */
 export const IMAGE_COMPRESSION_TOAST_ID = "image-compression";
@@ -35,7 +67,7 @@ export function runImageCompression(
     return server.postWithTimeout<ImageCompressionResponse>(url, COMPRESSION_TIMEOUT_MS, {
         resize: options.resize,
         maxWidthHeight: options.maxWidthHeight,
-        reencode: options.reencode,
+        jpegHandling: options.jpegHandling,
         pngHandling: options.pngHandling,
         quality: options.quality,
         conversionQuality: options.conversionQuality,

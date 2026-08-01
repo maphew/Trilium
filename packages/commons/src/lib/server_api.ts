@@ -296,6 +296,11 @@ export const IMAGE_PNG_HANDLINGS = [ "keep", "optimize", "jpeg" ] as const;
 
 export type ImagePngHandling = (typeof IMAGE_PNG_HANDLINGS)[number];
 
+/** The two things that can become of an already-lossy image; see {@link ImageCompressionOptions}. */
+export const IMAGE_JPEG_HANDLINGS = [ "keep", "compress" ] as const;
+
+export type ImageJpegHandling = (typeof IMAGE_JPEG_HANDLINGS)[number];
+
 export interface ImageCompressionOptions {
     /**
      * Whether an image larger than {@link maxWidthHeight} is scaled down to fit. On its own this
@@ -308,14 +313,17 @@ export interface ImageCompressionOptions {
     /** Longest edge in pixels. Omitted, it falls back to the `imageMaxWidthHeight` option. */
     maxWidthHeight?: number;
     /**
-     * Whether an image that is *already* lossy — a JPEG — is recompressed at {@link quality} even
-     * when nothing needs scaling. It costs quality every time it runs, on an image that has already
-     * paid that cost once.
+     * What is done with an image that is *already* lossy — a JPEG:
      *
-     * Says nothing about lossless sources, which is {@link convertLossless}'s to answer: the two
-     * are separate choices, and squeezing the JPEGs harder is no reason to stop a PNG being a PNG.
+     * - `keep` leaves its encoding alone. Scaling still has to write a JPEG back, but at a quality
+     *   high enough not to be a further deliberate degradation.
+     * - `compress` recompresses it at {@link quality}, whatever its size. It costs quality every
+     *   time it runs, on an image that has already paid that cost once.
+     *
+     * Says nothing about lossless sources, which is {@link pngHandling}'s to answer: squeezing the
+     * JPEGs harder is no reason to stop a PNG being a PNG. Defaults to `compress`.
      */
-    reencode?: boolean;
+    jpegHandling?: ImageJpegHandling;
     /**
      * What is done with a lossless image — a PNG. Only ever one of the three, since a PNG either
      * survives as it is, survives smaller, or stops being a PNG:
@@ -332,8 +340,9 @@ export interface ImageCompressionOptions {
      */
     pngHandling?: ImagePngHandling;
     /**
-     * JPEG quality, 10 to 100, used when recompressing an image that is *already* lossy — and when
-     * scaling one, which has to write a JPEG back whatever {@link reencode} says.
+     * JPEG quality, 10 to 100, used when recompressing an image that is *already* lossy — so only
+     * where {@link jpegHandling} is `compress`. A JPEG merely being scaled is written back at a
+     * near-lossless quality of the implementation's own instead, `keep` meaning what it says.
      *
      * Omitted, it falls back to the `imageJpegQuality` option (75 by default).
      */

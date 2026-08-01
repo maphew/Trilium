@@ -259,7 +259,7 @@ describe('serverImageProvider.compressImage', () => {
     /** Every parameter is explicit, so nothing here depends on the stored options. */
     function request(overrides: Partial<ImageCompressionRequest> = {}): ImageCompressionRequest {
         return {
-            resize: true, maxWidthHeight: 2000, reencode: true, pngHandling: "optimize",
+            resize: true, maxWidthHeight: 2000, jpegHandling: "compress", pngHandling: "optimize",
             quality: 75, conversionQuality: 85, ...overrides
         };
     }
@@ -368,7 +368,7 @@ describe('serverImageProvider.compressImage', () => {
         it('never touches a JPEG, whichever handling is chosen', async () => {
             for (const pngHandling of [ 'keep', 'optimize', 'jpeg' ] as const) {
                 const outcome = await serverImageProvider.compressImage(
-                    noisyJpeg, request({ reencode: false, pngHandling }));
+                    noisyJpeg, request({ jpegHandling: "keep", pngHandling }));
 
                 expect(outcome).toEqual({ compressed: false, reason: 'no-gain' });
             }
@@ -400,15 +400,24 @@ describe('serverImageProvider.compressImage', () => {
             expect(coarse.buffer.byteLength).toBeLessThan(fine.buffer.byteLength);
         });
 
-        it('writes a scaled JPEG at the recompression quality with every re-encoding step off', async () => {
-            // Scaling has to write a JPEG back whatever the settings say, so that quality governs
-            // this too — which is why it is not nested under the recompression step.
-            const off = { reencode: false, pngHandling: 'keep' as const, maxWidthHeight: 300 };
-            const coarse = await serverImageProvider.compressImage(noisyJpeg, request({ ...off, quality: 20 }));
-            const fine = await serverImageProvider.compressImage(noisyJpeg, request({ ...off, quality: 80 }));
+        it('writes a scaled JPEG near-losslessly when its handling is "keep"', async () => {
+            // Scaling has to write a JPEG back whatever the settings say, but "keep" is not a place
+            // to quietly apply a quality nobody asked for — the slider is hidden under it in the
+            // dialog, so it must not be in force either. Moving it changes nothing here.
+            const kept = { jpegHandling: 'keep' as const, maxWidthHeight: 300 };
+            const atLow = await serverImageProvider.compressImage(noisyJpeg, request({ ...kept, quality: 20 }));
+            const atHigh = await serverImageProvider.compressImage(noisyJpeg, request({ ...kept, quality: 80 }));
 
-            if (!coarse.compressed || !fine.compressed) throw new Error('expected both to compress');
-            expect(coarse.buffer.byteLength).toBeLessThan(fine.buffer.byteLength);
+            if (!atLow.compressed || !atHigh.compressed) throw new Error('expected both to compress');
+            expect(atLow.buffer.byteLength).toBe(atHigh.buffer.byteLength);
+
+            // And it comes out above what recompressing at a high quality would have chosen, so
+            // "keep" gives up the scaling and nothing else.
+            const compressed = await serverImageProvider.compressImage(
+                noisyJpeg, request({ jpegHandling: 'compress', maxWidthHeight: 300, quality: 80 }));
+
+            if (!compressed.compressed) throw new Error('expected it to compress');
+            expect(atLow.buffer.byteLength).toBeGreaterThan(compressed.buffer.byteLength);
         });
     });
 
@@ -418,7 +427,7 @@ describe('serverImageProvider.compressImage', () => {
     ])('changes nothing about %s when every step is off', async (_label, getBuffer) => {
         const outcome = await serverImageProvider.compressImage(
             getBuffer(),
-            request({ resize: false, reencode: false, pngHandling: 'keep', maxWidthHeight: 10 })
+            request({ resize: false, jpegHandling: "keep", pngHandling: 'keep', maxWidthHeight: 10 })
         );
 
         expect(outcome).toEqual({ compressed: false, reason: 'no-gain' });

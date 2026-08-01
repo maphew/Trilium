@@ -11,9 +11,11 @@ import { Card } from "../../../../react/Card";
 import { useTriliumOptionJson } from "../../../../react/hooks";
 import Modal from "../../../../react/Modal";
 import {
+    compressibleFormatsOf,
     compressionResultMessage,
     IMAGE_COMPRESSION_TOAST_ID,
     type ImageCompressionTarget,
+    isSingleImage,
     runImageCompression
 } from "./image_compression_operation";
 import {
@@ -22,11 +24,11 @@ import {
     readImageCompressionOptions
 } from "./image_compression_options";
 import {
-    JpegQualitySection,
+    JpegHandlingSection,
     PngHandlingSection,
     ProcessChildNotesSection,
-    ReduceResolutionSection,
-    ReencodeImagesSection
+    ResizeImageSection,
+    UnsupportedFormatNotice
 } from "./image_compression_sections";
 
 /**
@@ -75,6 +77,11 @@ function ImageCompressionDialog({ target, onFinished }: {
     const pending = useRef<ImageCompressionToolOptions | null>(null);
     const sectionProps = { options, onChange: update };
 
+    // A single image is offered only the settings that could reach it: the choice for its own
+    // format and nothing about the other, since neither could ever act on it. A note is offered
+    // both, holding whatever it holds.
+    const formats = compressibleFormatsOf(target);
+
     async function runPendingCompression() {
         const settings = pending.current;
 
@@ -120,9 +127,9 @@ function ImageCompressionDialog({ target, onFinished }: {
                 <Button
                     text={t("space_usage.compress_run")}
                     kind="primary"
-                    // Neither step switched on would visit every image and change none of them:
-                    // a run that provably does nothing is not one to offer.
-                    disabled={!hasWorkToDo(options)}
+                    // Nothing asked of anything this target holds would visit every image and
+                    // change none of them: a run that provably does nothing is not one to offer.
+                    disabled={!hasWorkToDo(options, target)}
                     onClick={() => {
                         pending.current = options;
                         setShown(false);
@@ -132,16 +139,21 @@ function ImageCompressionDialog({ target, onFinished }: {
             stackable
         >
             <Card className="image-compression-settings">
-                <ReduceResolutionSection {...sectionProps} />
-                <ReencodeImagesSection {...sectionProps} />
-                {/* Straight after the step it governs, rather than under it: scaling a JPEG has to
-                    write one back too, so it is in force for either. */}
-                <JpegQualitySection {...sectionProps} />
-                {/* Last of the three, since converting brings a quality of its own nested beneath. */}
-                <PngHandlingSection {...sectionProps} />
-                {/* An attachment is one image; there is no subtree under it to reach into. */}
-                {target.type === "note" && <ProcessChildNotesSection {...sectionProps} />}
+                <ResizeImageSection {...sectionProps} />
+                {formats.includes("jpeg") && <JpegHandlingSection {...sectionProps} />}
+                {formats.includes("png") && <PngHandlingSection {...sectionProps} />}
+                {/* A single image of a format nothing here can act on: the dialog is open, and why
+                    it has nothing to offer is the one thing worth saying. */}
+                {formats.length === 0 && <UnsupportedFormatNotice />}
             </Card>
+
+            {/* A card of its own: everything above says *how* to compress, this says how far the
+                run reaches. Absent for a single image, which has no subtree to reach into. */}
+            {!isSingleImage(target) && (
+                <Card className="image-compression-scope">
+                    <ProcessChildNotesSection {...sectionProps} />
+                </Card>
+            )}
         </Modal>
     );
 }

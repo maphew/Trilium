@@ -171,10 +171,10 @@ export const serverImageProvider: ImageProvider = {
         // covers both `optimize` and a transparent image that `jpeg` could not take.
         const quantize = isLossless && !toJpeg && request.pngHandling !== "keep";
 
-        // Whether re-encoding alone is worth doing to *this* image: a lossy source is recompressed
-        // if `reencode` says so, a lossless one when its handling asks for anything at all —
-        // rewriting a PNG as the same PNG at its own size gains nothing.
-        const worthReencoding = isLossless ? (toJpeg || quantize) : request.reencode;
+        // Whether re-encoding alone is worth doing to *this* image, each kind answering for itself:
+        // a lossy source when its handling asks for it, a lossless one when its handling asks for
+        // anything at all — rewriting a PNG as the same PNG at its own size gains nothing.
+        const worthReencoding = isLossless ? (toJpeg || quantize) : request.jpegHandling === "compress";
 
         if (!needsResize && !worthReencoding) {
             return { compressed: false, reason: "no-gain" };
@@ -194,10 +194,7 @@ export const serverImageProvider: ImageProvider = {
             // Reached either by conversion, which has already established there is no transparency
             // to lose, or by a JPEG source, which never had any to begin with.
             image.background = 0xffffffff;
-            // Converting a pristine original and recompressing an already-lossy one are different
-            // trades, so each is written at its own quality.
-            const quality = isLossless ? request.conversionQuality : request.quality;
-            result = await image.getBuffer("image/jpeg", { quality });
+            result = await image.getBuffer("image/jpeg", { quality: jpegQualityFor(request, isLossless) });
         } else if (quantize) {
             result = quantizePng(image, buffer.byteLength);
         } else {
@@ -214,6 +211,29 @@ export const serverImageProvider: ImageProvider = {
         return { compressed: true, buffer: result, format: toJpeg ? JPEG_FORMAT : PNG_FORMAT };
     }
 };
+
+/**
+ * Which of the two qualities a JPEG about to be written is owed. Converting a pristine original and
+ * recompressing an already-lossy one are different trades, so each has its own.
+ *
+ * The third case has neither: a JPEG that is only being scaled, its handling left on `keep`. It has
+ * to be re-encoded all the same — there is no way to write scaled pixels without one — so it goes
+ * out at {@link RESIZE_QUALITY}, high enough that "keep" is not quietly made to mean "degrade".
+ */
+function jpegQualityFor(request: ImageCompressionRequest, isLossless: boolean): number {
+    if (isLossless) {
+        return request.conversionQuality;
+    }
+
+    return request.jpegHandling === "compress" ? request.quality : RESIZE_QUALITY;
+}
+
+/**
+ * What a JPEG is re-encoded at when nothing asked for it to be recompressed and only the scaling
+ * forced a rewrite. Near enough to lossless that the loss is not the point of the operation, while
+ * still far below the size a quality of 100 would produce for no visible return.
+ */
+const RESIZE_QUALITY = 92;
 
 /**
  * Rewrites the image as a palette PNG, which is where a PNG's weight actually goes: the saving

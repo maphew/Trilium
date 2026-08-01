@@ -4,7 +4,7 @@
  * Standalone uses simple format detection without compression.
  */
 
-import type { ImageCompressionSkipReason, ImagePngHandling } from "@triliumnext/commons";
+import type { ImageCompressionSkipReason, ImageJpegHandling, ImagePngHandling } from "@triliumnext/commons";
 
 export interface ImageFormat {
     ext: string;
@@ -25,11 +25,11 @@ export interface ImageCompressionRequest {
     resize: boolean;
     /** Longest edge in pixels. Only consulted when {@link resize} is on. */
     maxWidthHeight: number;
-    /** Whether an already-lossy image (JPEG) is recompressed even when nothing needs scaling. */
-    reencode: boolean;
+    /** What becomes of an already-lossy image (JPEG): left as encoded, or recompressed. */
+    jpegHandling: ImageJpegHandling;
     /** What becomes of a lossless image (PNG): left alone, quantized in place, or converted. */
     pngHandling: ImagePngHandling;
-    /** JPEG quality, 10 to 100, for recompressing or scaling an already-lossy image. */
+    /** JPEG quality, 10 to 100, for recompressing an already-lossy image. */
     quality: number;
     /** JPEG quality, 10 to 100, for converting a lossless image. */
     conversionQuality: number;

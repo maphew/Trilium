@@ -56,3 +56,13 @@
 .image-compression-section-nested .image-compression-section-title {
     color: var(--muted-text-color);
 }
+
+/* Prose rather than a row of controls, so none of the row layout applies to it. A fit-content
+   dialog takes its width from the longest unbroken line in it, and this sentence would otherwise
+   be that line; containment says the part that is true — this row's width does not depend on what
+   is written in it — so the dialog is sized by the rows that should size it. */
+.image-compression-notice {
+    contain: inline-size;
+    color: var(--muted-text-color);
+    font-size: 0.85em;
+}

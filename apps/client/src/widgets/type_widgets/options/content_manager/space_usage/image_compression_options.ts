@@ -1,6 +1,7 @@
-import { IMAGE_PNG_HANDLINGS, type ImagePngHandling } from "@triliumnext/commons";
+import { IMAGE_JPEG_HANDLINGS, IMAGE_PNG_HANDLINGS, type ImageJpegHandling, type ImagePngHandling } from "@triliumnext/commons";
 
 import optionService from "../../../../../services/options";
+import { compressibleFormatsOf, type ImageCompressionTarget } from "./image_compression_operation";
 
 /**
  * What the image compression tool is set to do. Persisted as JSON in the `imageCompressionToolOptions`
@@ -14,8 +15,8 @@ export interface ImageCompressionToolOptions {
     resize: boolean;
     /** Longest edge in pixels. Only consulted when {@link resize} is on. */
     maxWidthHeight: number;
-    /** Whether an already-lossy image (JPEG) is recompressed even when nothing needs scaling. */
-    reencode: boolean;
+    /** What becomes of an already-lossy image (JPEG): left as encoded, or recompressed. */
+    jpegHandling: ImageJpegHandling;
     /** What becomes of a lossless image (PNG): left alone, quantized in place, or converted. */
     pngHandling: ImagePngHandling;
     /** JPEG quality, {@link MIN_QUALITY} to {@link MAX_QUALITY}, for an already-lossy image. */
@@ -27,11 +28,18 @@ export interface ImageCompressionToolOptions {
 }
 
 /**
- * Whether the settings amount to anything at all. With nothing asked of either kind of image, every
- * one of them would be visited and left exactly as it was, so the run is not one worth offering.
+ * Whether the settings amount to anything at all. Only what the target can actually be reached by
+ * counts: asking for PNGs to be optimized says nothing about a lone JPEG, and a format the run
+ * cannot touch at all is not made reachable by any setting.
+ *
+ * Without this, a run would be offered that visits every image and changes none of them.
  */
-export function hasWorkToDo(options: ImageCompressionToolOptions): boolean {
-    return options.resize || options.reencode || options.pngHandling !== "keep";
+export function hasWorkToDo(options: ImageCompressionToolOptions, target: ImageCompressionTarget): boolean {
+    const formats = compressibleFormatsOf(target);
+
+    return (options.resize && formats.length > 0)
+        || (formats.includes("jpeg") && options.jpegHandling !== "keep")
+        || (formats.includes("png") && options.pngHandling !== "keep");
 }
 
 /** The bounds the server validates against; the controls here never offer a value it would reject. */
@@ -61,8 +69,8 @@ export function readImageCompressionOptions(
         maxWidthHeight: isPositiveInteger(stored?.maxWidthHeight)
             ? Number(stored?.maxWidthHeight)
             : defaultMaxWidthHeight(),
-        reencode: stored?.reencode ?? true,
-        pngHandling: readPngHandling(stored?.pngHandling),
+        jpegHandling: readHandling(stored?.jpegHandling, IMAGE_JPEG_HANDLINGS, "compress"),
+        pngHandling: readHandling(stored?.pngHandling, IMAGE_PNG_HANDLINGS, "optimize"),
         quality: isQuality(stored?.quality) ? Number(stored?.quality) : defaultQuality(),
         conversionQuality: isQuality(stored?.conversionQuality)
             ? Number(stored?.conversionQuality)
@@ -98,9 +106,9 @@ const FALLBACK_MAX_WIDTH_HEIGHT = 2000;
  */
 export const DEFAULT_CONVERSION_QUALITY = 85;
 
-/** Anything unrecognised falls back to optimizing, the choice that changes an image least. */
-function readPngHandling(value: unknown): ImagePngHandling {
-    return IMAGE_PNG_HANDLINGS.includes(value as ImagePngHandling) ? value as ImagePngHandling : "optimize";
+/** Anything unrecognised falls back to the default, rather than to whichever choice comes first. */
+function readHandling<T extends string>(value: unknown, allowed: readonly T[], fallback: T): T {
+    return allowed.includes(value as T) ? value as T : fallback;
 }
 
 function isPositiveInteger(value: unknown): boolean {
