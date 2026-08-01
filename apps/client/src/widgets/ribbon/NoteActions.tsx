@@ -27,6 +27,7 @@ import Dropdown from "../react/Dropdown";
 import { FormDropdownDivider, FormDropdownSubmenu, FormListHeader, FormListItem, FormListToggleableItem } from "../react/FormList";
 import { useIsNoteReadOnly, useNoteContext, useNoteLabel, useNoteLabelBoolean, useNoteLabelOptionalBool, useNoteProperty, useSyncedRef, useTriliumEvent, useTriliumOption } from "../react/hooks";
 import { ParentComponent } from "../react/react_utils";
+import { showImageCompressionDialog } from "../type_widgets/options/content_manager/space_usage/image_compression_dialog";
 import { NoteTypeDropdownContent, useNoteBookmarkState, useShareState } from "./BasicPropertiesTab";
 import NoteActionsCustom from "./NoteActionsCustom";
 
@@ -193,6 +194,11 @@ export function NoteContextMenu({ note, noteContext, itemsAtStart, itemsNearNote
                     <CommandItem command="showNoteSource" icon="bx bx-code" disabled={!hasSource} text={t("note_actions.note_source")} />
                     {(note.type === "text" || note.isMarkdown()) && isContentAvailable && !isInOptionsOrHelp &&
                         <ConvertNoteFormat note={note} />}
+                    {/* Always the note-level dialog, an image note included: it has children of its
+                        own, and reaching them is what makes this "images" and not "image". */}
+                    <CommandItem icon="bx bx-collapse-alt" text={t("note_actions.compress_images")}
+                        disabled={isInOptionsOrHelp}
+                        command={() => void showImageCompressionDialog({ type: "note", noteId: note.noteId })} />
                     <CommandItem command="showNoteOCRText" icon="bx bx-text" disabled={!["image", "file"].includes(noteType)} text={t("note_actions.view_ocr_text")} />
                     {(syncServerHost && isElectron) &&
                         <CommandItem command="openNoteOnServer" icon="bx bx-world" disabled={!syncServerHost} text={t("note_actions.open_note_on_server")} />

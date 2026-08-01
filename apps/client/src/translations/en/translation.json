@@ -1117,6 +1117,7 @@
     "convert_format_warning_risky": "You are converting between two formats that don't have identical capabilities, so some formatting may be lost and some unsupported elements may be dropped.<br><br>Do you fully assume this risk and want to proceed with the conversion?<br><br>A revision of the current note will be saved beforehand, so you can revert to the original format.",
     "convert_to_markdown_successful": "Note has been converted to Markdown.",
     "convert_to_text_successful": "Note has been converted to a text note.",
+    "compress_images": "Compress images",
     "print_pdf": "Export as PDF...",
     "export_as_image": "Export as image",
     "export_as_image_png": "PNG (raster)",
