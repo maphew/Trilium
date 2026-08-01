@@ -1,9 +1,9 @@
-import { Clipboard, Plugin, type Editor, ModelLivePosition, ModelLiveRange, Undo } from 'ckeditor5';
+import { Clipboard, ClipboardPipeline, Plugin, type Editor, ModelLivePosition, ModelLiveRange, Undo } from 'ckeditor5';
 import { extractDelimiters, hasDelimiters, delimitersCounts } from './utils.js';
 
 export default class AutoMath extends Plugin {
 	public static get requires() {
-		return [ Clipboard, Undo ] as const;
+		return [ Clipboard, ClipboardPipeline, Undo ] as const;
 	}
 
 	public static get pluginName() {
@@ -25,7 +25,9 @@ export default class AutoMath extends Plugin {
 		const editor = this.editor;
 		const modelDocument = editor.model.document;
 
-		this.listenTo( editor.plugins.get( Clipboard ), 'inputTransformation', () => {
+		// `inputTransformation` is emitted by ClipboardPipeline, not by the Clipboard facade.
+		// Listening on Clipboard silently never fires, which left this whole feature dead.
+		this.listenTo( editor.plugins.get( ClipboardPipeline ), 'inputTransformation', () => {
 			const firstRange = modelDocument.selection.getFirstRange();
 			if ( !firstRange ) {
 				return;
