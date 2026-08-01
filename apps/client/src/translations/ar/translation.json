@@ -1214,7 +1214,6 @@
   "highlights_list_2": {
     "options": "خيارات",
     "title": "قائمة التضليلات",
-    "modal_title": "تهيئة قائمة التمييزات",
     "menu_configure": "تهيئة قائمة التمييزات...",
     "no_highlights": "لا توجد عناصر مميزة.",
     "title_with_count_zero": "{{count}} تمييز",

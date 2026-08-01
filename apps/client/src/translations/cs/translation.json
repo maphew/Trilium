@@ -1593,7 +1593,6 @@
   "highlights_list_2": {
     "title": "Seznam zvýraznění",
     "options": "Nastavení",
-    "modal_title": "Konfigurovat seznam zvýraznění",
     "menu_configure": "Konfigurovat seznam zvýraznění...",
     "no_highlights": "Nebyla nalezena žádná zvýraznění.",
     "title_with_count_one": "{{count}} zvýraznění",

@@ -1483,7 +1483,6 @@
     "options": "Opções",
     "no_highlights": "Sem destaques encontrados.",
     "menu_configure": "Configurar lista de destaques...",
-    "modal_title": "Configurar list de destaques",
     "title_with_count_one": "{{count}} destaque",
     "title_with_count_many": "{{count}} destaques",
     "title_with_count_other": "{{count}} destaques"

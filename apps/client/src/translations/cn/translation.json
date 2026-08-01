@@ -1906,7 +1906,6 @@
     "title": "高亮列表",
     "options": "选项",
     "title_with_count_other": "{{count}} 处高亮",
-    "modal_title": "配置高亮列表",
     "menu_configure": "配置高亮列表...",
     "no_highlights": "未找到高亮内容。"
   },

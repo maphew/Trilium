@@ -1675,7 +1675,6 @@
     "options": "Optionen",
     "title_with_count_one": "{{count}} Markierung",
     "title_with_count_other": "{{count}} Markierungen",
-    "modal_title": "Markierungsliste konfigurieren",
     "menu_configure": "Markierungsliste konfigurieren...",
     "no_highlights": "Keine Markierungen gefunden."
   },
