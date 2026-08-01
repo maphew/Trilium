@@ -11,10 +11,10 @@
  * recompressed belongs to the platform's {@link ImageProvider}.
  */
 
-import { getImageAttachmentTitle, IMAGE_JPEG_HANDLINGS, IMAGE_PNG_HANDLINGS, type ImageCompressionItem, type ImageCompressionOptions, type ImageCompressionResponse, type ImageCompressionSkipReason } from "@triliumnext/commons";
+import { type AttachmentRow, getImageAttachmentTitle, IMAGE_JPEG_HANDLINGS, IMAGE_PNG_HANDLINGS, type ImageCompressionItem, type ImageCompressionOptions, type ImageCompressionResponse, type ImageCompressionSkipReason } from "@triliumnext/commons";
 
 import becca from "../becca/becca.js";
-import type BAttachment from "../becca/entities/battachment.js";
+import BAttachment from "../becca/entities/battachment.js";
 import type BNote from "../becca/entities/bnote.js";
 import { NotFoundError, ValidationError } from "../errors.js";
 import { getImageProvider, type ImageCompressionRequest } from "./image_provider.js";
@@ -142,13 +142,6 @@ function defaultQuality(): number {
     return configured >= MIN_QUALITY && configured <= MAX_QUALITY ? configured : DEFAULT_QUALITY;
 }
 
-/**
- * One image the run can act on, hiding whether it lives in a note's content or in an attachment.
- *
- * Neither kind is renamed when its format changes: an attachment's title is a reference elsewhere
- * (a canvas addresses its images by the Excalidraw file id stored as the title), and download and
- * export filenames already derive their extension from the mime when the title disagrees.
- */
 /** What an image weighs, and enough of its front to say what it is. */
 export interface TargetPeek {
     /** The stored image's size in bytes — the whole of it, not of {@link header}. */
@@ -166,6 +159,13 @@ export interface TargetPeek {
  */
 export const HEADER_BYTES = 64 * 1024;
 
+/**
+ * One image the run can act on, hiding whether it lives in a note's content or in an attachment.
+ *
+ * Neither kind is renamed when its format changes: an attachment's title is a reference elsewhere
+ * (a canvas addresses its images by the Excalidraw file id stored as the title), and download and
+ * export filenames already derive their extension from the mime when the title disagrees.
+ */
 export interface CompressionTarget {
     entityType: "note" | "attachment";
     entityId: string;
@@ -213,22 +213,60 @@ export function collectNoteTargets(note: BNote, recursive: boolean): Compression
  */
 export function collectNoteImages(note: BNote, recursive: boolean): { notes: BNote[]; targets: CompressionTarget[] } {
     const notes = recursive ? note.getSubtree().notes : [ note ];
+    // An image note *is* its image and stands alone, so it is never asked what it has attached.
+    const attachments = imageAttachmentsOf(notes.filter((candidate) => candidate.type !== "image"));
 
-    return { notes, targets: notes.flatMap(ownTargetsOf) };
+    // Note by note, in the order the subtree gave them, each note's own images in position order —
+    // the order a run reports on and the user reads back.
+    const targets = notes.flatMap((candidate) => candidate.type === "image"
+        ? [ noteTarget(candidate) ]
+        : (attachments.get(candidate.noteId) ?? []).map((attachment) => attachmentTarget(attachment)));
+
+    return { notes, targets };
 }
 
 /**
- * The images one note holds. An image note *is* its image, so it stands alone; for anything else
- * the images are the attachments it owns — which is where a text note's pictures live, and where
- * the weight the user is trying to shed actually sits.
+ * Every image attachment the given notes own, gathered in one query and grouped by owner.
+ *
+ * Asked note by note this was a round trip each: cheap on its own, and ten thousand of them for a
+ * subtree of that many notes. Once the images themselves stopped being read to decide their fate,
+ * that was most of what collecting them cost.
  */
-function ownTargetsOf(note: BNote): CompressionTarget[] {
-    if (note.type === "image") {
-        return [ noteTarget(note) ];
+function imageAttachmentsOf(notes: BNote[]): Map<string, BAttachment[]> {
+    const byOwner = new Map<string, BAttachment[]>();
+
+    if (!notes.length) {
+        return byOwner;
     }
 
-    return note.getAttachmentsByRole("image").map((attachment) => attachmentTarget(attachment));
+    const sql = getSql();
+    // Through the parameter table rather than an `IN` list: a subtree runs to more note ids than a
+    // statement is allowed parameters, and this is how the rest of core asks the same kind of
+    // question.
+    sql.fillParamList(notes.map((candidate) => candidate.noteId));
+
+    const rows = sql.getRows<AttachmentRow>(/*sql*/`
+        SELECT attachments.*
+        FROM attachments
+        JOIN param_list ON param_list.paramId = attachments.ownerId
+        WHERE attachments.role = 'image'
+          AND attachments.isDeleted = 0
+        ORDER BY attachments.ownerId, attachments.position`);
+
+    for (const row of rows) {
+        const owned = byOwner.get(row.ownerId);
+        const attachment = new BAttachment(row);
+
+        if (owned) {
+            owned.push(attachment);
+        } else {
+            byOwner.set(row.ownerId, [ attachment ]);
+        }
+    }
+
+    return byOwner;
 }
+
 
 function noteTarget(note: BNote): CompressionTarget {
     return {

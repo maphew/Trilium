@@ -134,6 +134,31 @@ describe("compress note images (POST /api/notes/:noteId/compress-images)", () =>
         expect(readAttachment(small).size).toBe(smallPng.byteLength);
     });
 
+    it("keeps each note's images with that note, in the order that note holds them", async () => {
+        const { noteId: parentId } = await createTextNote(api);
+        const { noteId: firstId } = await createTextNote(api, { parentNoteId: parentId });
+        const { noteId: secondId } = await createTextNote(api, { parentNoteId: parentId });
+
+        // Positions deliberately at odds with the order they are created in, so the run has to be
+        // following the note's own ordering rather than whatever the database hands back.
+        const firstLate = await addAttachment(firstId, "a.png", smallPng, { position: 20 });
+        const firstEarly = await addAttachment(firstId, "b.png", smallPng, { position: 10 });
+        const second = [
+            await addAttachment(secondId, "c.png", smallPng, { position: 10 }),
+            await addAttachment(secondId, "d.png", smallPng, { position: 20 })
+        ];
+        const first = [ firstEarly, firstLate ];
+
+        const res = await api.post<ImageCompressionResponse>(`/api/notes/${parentId}/compress-images`, {
+            body: { recursive: true }
+        });
+
+        // The subtree's attachments are fetched in one query and grouped back by owner, so this is
+        // what says the grouping is right: every image with the note that holds it, notes in the
+        // order the subtree gave them, images in the order the note keeps them.
+        expect(res.body.items.map((item) => item.entityId)).toEqual([ ...first, ...second ]);
+    });
+
     it("reports an empty run for a note holding no images", async () => {
         const { noteId } = await createTextNote(api);
 
@@ -617,10 +642,11 @@ async function addAttachment(
     noteId: string,
     title: string,
     content: Uint8Array,
-    { role = "image", mime = "image/png" } = {}
+    { role = "image", mime = "image/png", position }: { role?: string, mime?: string, position?: number } = {}
 ): Promise<string> {
     return cls.init(() => getSql().transactional(() => {
-        const attachment = becca.getNoteOrThrow(noteId).saveAttachment({ role, mime, title, content }, "title");
+        const attachment = becca.getNoteOrThrow(noteId)
+            .saveAttachment({ role, mime, title, content, position }, "title");
         return attachment.attachmentId ?? "";
     }));
 }

@@ -300,6 +300,20 @@ describe('serverImageProvider.compressImage', () => {
         expect(outcome).toEqual({ compressed: false, reason: 'unsupported-format' });
     });
 
+    it('reads an image that is a window onto a larger buffer, not the buffer behind it', async () => {
+        // The bytes handed around are Uint8Arrays, which the libraries below want as Buffers. Taking
+        // a view rather than a copy is what keeps a run from duplicating every photograph in a tree
+        // — but a view carries an offset, and forgetting it would read whatever sits in front of the
+        // image. Every other fixture here starts at zero, where that mistake looks like it works.
+        const padded = new Uint8Array(64 + noisyPng.byteLength + 64).fill(0xab);
+        padded.set(noisyPng, 64);
+
+        const outcome = await serverImageProvider.compressImage(
+            padded.subarray(64, 64 + noisyPng.byteLength), request({ maxWidthHeight: 100 }));
+
+        expect(outcome).toMatchObject({ compressed: true });
+    });
+
     it('ignores the compressImages option, which only governs automatic shrinking', async () => {
         setOptions({ compressImages: 'false' });
 

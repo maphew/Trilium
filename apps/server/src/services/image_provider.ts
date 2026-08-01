@@ -82,7 +82,7 @@ function planFromBytes(
        animated images already fail the format gate (file-type reports animated PNG as "apng"
        and animated GIF/WebP as gif/webp). Only a pathological PNG with 512+ chunks before its
        acTL chunk reaches here, and recompressing it would keep the first frame alone. */
-    if (isAnimated(Buffer.from(bytes))) {
+    if (isAnimated(asBuffer(bytes))) {
         return { verdict: "skip", reason: "animated" };
     }
     /* v8 ignore stop */
@@ -136,7 +136,19 @@ function exceedsDecodeCeiling({ width, height }: InspectedImage): boolean {
  * them, so passing a memory budget there reads as correct and does nothing at all.
  */
 function decodeImage(buffer: Uint8Array) {
-    return Jimp.fromBuffer(Buffer.from(buffer), DECODE_OPTIONS);
+    return Jimp.fromBuffer(asBuffer(buffer), DECODE_OPTIONS);
+}
+
+/**
+ * The same bytes as a `Buffer`, over the same memory.
+ *
+ * `Buffer.from(uint8Array)` duplicates what it is given, and the libraries below each want one —
+ * so an image was being copied whole several times on its way through, for readers that only ever
+ * read. On a run over a tree that is a second copy of every photograph in it, allocated and thrown
+ * away again, which costs more in collection than the copying does outright.
+ */
+function asBuffer(bytes: Uint8Array): Buffer {
+    return Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
 }
 
 /** What {@link decodeImage} hands back, for the helpers that work on a decoded image. */
@@ -185,7 +197,7 @@ async function getImageTypeFromBuffer(buffer: Uint8Array): Promise<ImageFormat |
  * as it always was.
  */
 function detectSvg(buffer: Uint8Array): ImageFormat | null {
-    if (!opensLikeMarkup(buffer) || !isSvg(Buffer.from(buffer).toString())) {
+    if (!opensLikeMarkup(buffer) || !isSvg(asBuffer(buffer).toString())) {
         return null;
     }
 
@@ -282,7 +294,7 @@ export const serverImageProvider: ImageProvider = {
            GIF/WebP as gif/webp). Only a pathological PNG with 512+ chunks before its acTL
            chunk slips through (file-type bails to "png" at its chunk-scan limit while
            is-animated still flags it), so this guard correctly skips recompressing it. */
-        } else if (isAnimated(Buffer.from(buffer))) {
+        } else if (isAnimated(asBuffer(buffer))) {
             // Recompression of animated images would make them static.
             shouldShrink = false;
         }
