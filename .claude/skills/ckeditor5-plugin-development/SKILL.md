@@ -2,15 +2,15 @@
 name: ckeditor5-plugin-development
 description: >-
   Write, extend, and review CKEditor 5 plugins in the Trilium (TriliumNext
-  Notes) monorepo — the rich-text-note editor under packages/ckeditor5 and the
-  @triliumnext/ckeditor5-<feature> plugin packages. Use when building or
+  Notes) monorepo — the rich-text-note editor under packages/ckeditor5, whose
+  plugins live in src/plugins/, plus the @triliumnext/ckeditor5-math package.
+  Use when building or
   reviewing a Trilium CKEditor 5 feature/plugin, or when working with the
   editing engine (model, view, schema, conversion/upcast-downcast), commands,
   the UI library (buttons, dropdowns, dialogs, balloons, toolbars), widgets
-  (block/inline, toWidget, nested editables), keystrokes, localization (t()/.po),
+  (block/inline, toWidget, nested editables), keystrokes, localization (t()),
   registering a plugin into plugins.ts / the editor classes / toolbar.ts, or
-  adding a plugin to the aggregator (or, for large features, a new
-  @triliumnext/ckeditor5-* package). Covers the architecture,
+  adding a new plugin folder under src/plugins/. Covers the architecture,
   idiomatic patterns, Trilium packaging/registration, code-style conventions,
   and a review checklist.
 ---
@@ -20,24 +20,24 @@ description: >-
 CKEditor 5 is **plugin-based**: every feature — even typing and `<p>` support — is a
 plugin. Without plugins the editor is an empty API. This skill is specific to **Trilium
 (TriliumNext Notes)**, whose rich-text note editor is built from the CKEditor 5 library
-(external dep, pinned `48.2.0`) plus Trilium's own plugins. In this repo the editor build
-lives in `packages/ckeditor5` (`@triliumnext/ckeditor5`) and custom features live in
-sibling `packages/ckeditor5-<feature>` workspace packages (`@triliumnext/ckeditor5-<feature>`:
-admonition, collapsible, footnotes, keyboard-marker, math, mermaid). The editor is consumed
-by `apps/client` (the text note widget). This skill distills how to write new Trilium plugins
-and review existing ones idiomatically.
+(external dep, pinned `48.3.1`) plus Trilium's own plugins. Both the editor build and the
+plugins live in `packages/ckeditor5` (`@triliumnext/ckeditor5`): each feature is a folder under
+`src/plugins/` — admonition, collapsible, footnotes, keyboard_marker, mermaid, mention, snippets
+and the rest — with its tests co-located beside it. `@triliumnext/ckeditor5-math` is the only
+feature still shipped as its own workspace package, because it owns a heavy exclusive dependency
+(`mathlive`). The editor is consumed by `apps/client` (the text note widget). This skill distills
+how to write new Trilium plugins and review existing ones idiomatically.
 
 ## When to use this skill
 
-Use it whenever the task involves a Trilium CKEditor 5 plugin/feature: creating one (by default an
-in-aggregator plugin under `packages/ckeditor5/src/plugins/`; a separate
-`@triliumnext/ckeditor5-<feature>` package only for large self-contained features), extending one,
+Use it whenever the task involves a Trilium CKEditor 5 plugin/feature: creating one (a folder under
+`packages/ckeditor5/src/plugins/` — separate packages are not the pattern any more), extending one,
 debugging editing behavior, registering a
 plugin so it reaches the editor, or reviewing plugin code for correctness and convention
 compliance. Trigger concepts include: model/view/schema, conversion (upcast/downcast),
 `Command`, `editor.model.change()`, `ButtonView`/`componentFactory`, widgets (`toWidget`),
 `ContextualBalloon`/`Dialog`, `editor.keystrokes`, `t()` localization, the `plugins.ts`
-registry / editor classes / `toolbar.ts`, or a `@triliumnext/ckeditor5-*` package.
+registry / editor classes / `toolbar.ts`, or the `@triliumnext/ckeditor5-math` package.
 
 ## The three pillars
 
@@ -65,7 +65,7 @@ data (HTML) ──upcast──▶ MODEL ──editing downcast──▶ editing 
 
 ## Importing CKEditor in Trilium
 
-Import everything from the single **`ckeditor5`** aggregate package (pinned `48.2.0`; it is a
+Import everything from the single **`ckeditor5`** aggregate package (pinned `48.3.1`; it is a
 `peerDependency` + `devDependency` of every plugin package). There is no premium package: every
 premium plugin Trilium used has an in-tree GPL replacement, and the editor always runs under the
 `GPL` license key:
@@ -74,8 +74,9 @@ premium plugin Trilium used has an in-tree GPL replacement, and the editor alway
 import { Plugin, ButtonView, Command, _setModelData } from 'ckeditor5';
 ```
 
-- **Cross-plugin** imports use the workspace package name, e.g.
-  `import { Kbd } from '@triliumnext/ckeditor5-keyboard-marker';`.
+- **Cross-plugin** imports inside `packages/ckeditor5` are **relative**, e.g.
+  `import Kbd from './keyboard_marker/keyboard_marker.js';`. The only workspace-package import
+  left is `@triliumnext/ckeditor5-math`, which the aggregate pulls in from `plugins.ts`.
 - **Every import includes its file extension** (`.js`/`.ts`/`.json`) — enforced by
   `eslint-config-ckeditor5` (`require-file-extensions-in-imports`), with
   `allow-imports-only-from-main-package-entry-point` and `no-legacy-imports` also active.
@@ -123,13 +124,20 @@ export default class Foo extends Plugin {
 }
 ```
 
-Per-package `src/` layout (e.g. `packages/ckeditor5-admonition/src/`): `{feature}.ts` glue,
-`{feature}editing.ts`, `{feature}ui.ts`, optional `{feature}command.ts`, `augmentation.ts`
-(the `declare module 'ckeditor5'` types), and `index.ts` (re-exports glue + sub-plugins +
-command types, plus `export const icons = { fooIcon }`). Complex plugins add `constants.ts`
+Plugin folder layout (e.g. `packages/ckeditor5/src/plugins/admonition/`), all files flat and
+snake_case: `{feature}.ts` glue, `{feature}_editing.ts`, `{feature}_ui.ts`, optional
+`{feature}_command.ts`. Put the `declare module 'ckeditor5'` augmentation at the **bottom of the
+glue file**: every folded-in plugin dropped its separate `augmentation.ts` and `index.ts` barrel
+that way, so consumers import the specific module they need. (`syntax_highlighting` still uses the
+older separate-file shape — leave it, but don't copy it.) Complex plugins add `constants.ts`
 (`ELEMENTS`/`ATTRIBUTES`/`COMMANDS`/`CLASSES`), `utils.ts` (model-query helpers), and split
-`schema.ts`/`converters.ts`. Assets: `theme/{feature}.css`, `theme/icons/*.svg`,
-`lang/en.po` + `lang/contexts.json`, `tests/`. See `references/conventions.md`.
+`schema.ts`/`converters.ts`. Tests sit beside the source as `*.spec.ts`.
+
+Assets live in the package's shared folders, not per plugin: stylesheets in
+`packages/ckeditor5/src/theme/{feature}.css` (imported from the glue plugin) and icons in
+`packages/ckeditor5/src/icons/`, prefixed where the name would otherwise be generic
+(`mermaid-info.svg`). A plugin derived from third-party code also keeps a `README.md` recording
+its provenance, and a `LICENSE.md` where upstream requires one. See `references/conventions.md`.
 
 Key rules (inherited from the upstream conventions via `eslint-config-ckeditor5`):
 
@@ -214,11 +222,10 @@ converters instead of `attributeToElement`; see `references/widgets.md`.
 
 ## Development workflow
 
-1. **Write the plugin.** **Default: an in-aggregator plugin** — a file/folder under
-   `packages/ckeditor5/src/plugins/`. Create a separate `packages/ckeditor5-<feature>` workspace
-   package (`@triliumnext/ckeditor5-<feature>`, `main: "src/index.ts"`, ships TS source) **only for
-   a large, self-contained feature**. See `references/tooling-and-packaging.md` ("Where a new plugin
-   goes").
+1. **Write the plugin.** A folder under `packages/ckeditor5/src/plugins/`. Separate workspace
+   packages are no longer the pattern — every one that existed has been folded in, since none had
+   consumers outside the aggregate or was ever published. See
+   `references/tooling-and-packaging.md` ("Where a new plugin goes").
 2. **Register it so it reaches the editor** (full flow in `references/tooling-and-packaging.md`):
    - For a new workspace package, add `"@triliumnext/ckeditor5-<feature>": "workspace:*"` to
      `packages/ckeditor5/package.json`.
@@ -276,10 +283,10 @@ review (workflow, CKEditor-specific defect patterns, contribution process), use 
 ## Scope & sources
 
 This skill is specific to the **Trilium (TriliumNext Notes) monorepo's** CKEditor 5 integration.
-Repository paths it cites — `packages/ckeditor5`, `packages/ckeditor5-<feature>`, `apps/client/...` —
-are **this repository**, and examples come from Trilium's own plugins (admonition, collapsible,
-footnotes, keyboard-marker, math, mermaid). The CKEditor 5 **library** is an external dependency
-pinned to **48.2.0**; its mechanics were distilled from the upstream docs (ckeditor.com/docs) and
+Repository paths it cites — `packages/ckeditor5`, `packages/ckeditor5/src/plugins/<name>/`,
+`packages/ckeditor5-math`, `apps/client/...` — are **this repository**, and examples come from
+Trilium's own plugins (admonition, collapsible, footnotes, keyboard_marker, math, mermaid). The CKEditor 5 **library** is an external dependency
+pinned to **48.3.1**; its mechanics were distilled from the upstream docs (ckeditor.com/docs) and
 source (github.com/ckeditor/ckeditor5, commit 9ecca53627). Where a snippet cites an upstream library
 package (e.g. ckeditor5-basic-styles, -link, -image), that is the library's own source — not a
 Trilium package.
