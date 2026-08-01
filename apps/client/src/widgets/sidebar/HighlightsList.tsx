@@ -1,13 +1,13 @@
 import type { CKTextEditor, ModelText } from "@triliumnext/ckeditor5";
-import { createPortal } from "preact/compat";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import { t } from "../../services/i18n";
 import { randomString } from "../../services/utils";
+import Dropdown from "../react/Dropdown";
+import { FormListToggleableItem } from "../react/FormList";
 import { useActiveNoteContext, useContentElement, useIsNoteReadOnly, useMathRendering, useNoteProperty, useTextEditor, useTriliumOptionJson } from "../react/hooks";
-import Modal from "../react/Modal";
 import RawHtml from "../react/RawHtml";
-import { HighlightsListOptions } from "../type_widgets/options/highlights_list_options";
+import { HIGHLIGHT_FORMATS, HighlightFormat } from "../type_widgets/options/highlights_list_options";
 import RightPanelWidget from "./RightPanelWidget";
 import SidebarHelp from "./SidebarHelp";
 
@@ -36,25 +36,11 @@ export default function HighlightsList() {
     );
 }
 
-function HighlightListOptionsModal({ shown, setShown }: { shown: boolean, setShown(value: boolean): void }) {
-    return (
-        <Modal
-            className="highlights-list-options-modal"
-            size="md"
-            title={t("highlights_list_2.modal_title")}
-            show={shown}
-            onHidden={() => setShown(false)}
-        >
-            <HighlightsListOptions />
-        </Modal>
-    );
-}
-
 function AbstractHighlightsList<T extends RawHighlight>({ highlights, scrollToHighlight }: {
     highlights: T[],
     scrollToHighlight(highlight: T): void;
 }) {
-    const [ highlightsList ] = useTriliumOptionJson<["bold" | "italic" | "underline" | "color" | "bgColor"]>("highlightsList");
+    const [ highlightsList, setHighlightsList ] = useTriliumOptionJson<HighlightFormat[]>("highlightsList");
     const highlightsListSet = new Set(highlightsList || []);
     const filteredHighlights = highlights.filter(highlight => {
         const { attrs } = highlight;
@@ -67,42 +53,76 @@ function AbstractHighlightsList<T extends RawHighlight>({ highlights, scrollToHi
         );
     });
 
-    const [ shown, setShown ] = useState(false);
     return (
-        <>
-            <RightPanelWidget
-                id="highlights"
-                title={t("highlights_list_2.title_with_count", { count: filteredHighlights.length })}
-                buttons={<SidebarHelp section="highlights" />}
-                contextMenuItems={[
-                    {
-                        title: t("highlights_list_2.menu_configure"),
-                        uiIcon: "bx bx-cog",
-                        handler: () => setShown(true)
-                    }
-                ]}
-                grow
-            >
-                <span className="highlights-list">
-                    {filteredHighlights.length > 0 ? (
-                        <ol>
-                            {filteredHighlights.map(highlight => (
-                                <HighlightItem
-                                    key={highlight.id}
-                                    highlight={highlight}
-                                    onClick={() => scrollToHighlight(highlight)}
-                                />
-                            ))}
-                        </ol>
-                    ) : (
-                        <div className="no-highlights">
-                            {t("highlights_list_2.no_highlights")}
-                        </div>
-                    )}
-                </span>
-            </RightPanelWidget>
-            {createPortal(<HighlightListOptionsModal shown={shown} setShown={setShown} />, document.body)}
-        </>
+        <RightPanelWidget
+            id="highlights"
+            title={t("highlights_list_2.title_with_count", { count: filteredHighlights.length })}
+            // What the list counts as a highlight is the question the card raises and the setting that
+            // answers it, so the setting sits in the header rather than behind a menu holding nothing
+            // else — and as a menu of its own rather than a modal, see HighlightsListMenu.
+            buttons={<>
+                <SidebarHelp section="highlights" />
+                <HighlightsListMenu currentValue={highlightsList} onChange={setHighlightsList} />
+            </>}
+            grow
+        >
+            <span className="highlights-list">
+                {filteredHighlights.length > 0 ? (
+                    <ol>
+                        {filteredHighlights.map(highlight => (
+                            <HighlightItem
+                                key={highlight.id}
+                                highlight={highlight}
+                                onClick={() => scrollToHighlight(highlight)}
+                            />
+                        ))}
+                    </ol>
+                ) : (
+                    <div className="no-highlights">
+                        {t("highlights_list_2.no_highlights")}
+                    </div>
+                )}
+            </span>
+        </RightPanelWidget>
+    );
+}
+
+/**
+ * The choice of what the list counts as a highlight, offered from the card's own header.
+ *
+ * A menu rather than a modal, because the toggles are a filter on the list right behind them: a modal
+ * covers the very thing being filtered, so the effect of a toggle is only seen once it is dismissed,
+ * whereas the list stays on show under a menu and re-filters as each format is turned over.
+ *
+ * Which is also why the rows are {@link FormListToggleableItem}s: they stop the press reaching
+ * Bootstrap's own dismiss, so the menu survives several toggles instead of closing after the first.
+ */
+function HighlightsListMenu({ currentValue, onChange }: {
+    currentValue: HighlightFormat[];
+    onChange(newValue: HighlightFormat[]): Promise<void>;
+}) {
+    return (
+        <Dropdown
+            buttonClassName="bx bx-cog"
+            title={t("highlights_list_2.menu_configure")}
+            iconAction
+            hideToggleArrow
+            noSelectButtonStyle
+            // The card establishes a stacking context of its own and clips its overflow, so the menu
+            // is rendered into the body to stand clear of it — as the card's help popup is.
+            portalToBody
+        >
+            {HIGHLIGHT_FORMATS.map(({ val, titleKey }) => (
+                <FormListToggleableItem
+                    key={val}
+                    title={t(titleKey)}
+                    currentValue={currentValue.includes(val)}
+                    onChange={(checked) => onChange(checked
+                        ? [ ...currentValue, val ]
+                        : currentValue.filter((format) => format !== val))}
+                />
+            ))}
+        </Dropdown>
     );
 }
 

@@ -1396,7 +1396,7 @@
     "attributes_definitions_what": "A definition is the schema behind an attribute name: what kind of value it takes, whether it may be given more than once, and whether it is promoted.",
     "attributes_definitions_promoted": "A promoted attribute is shown on the note itself as a form field rather than being left to this panel. Definitions usually arrive from a template, and each row names the note it lives on.",
     "highlights_what": "The passages this note picks out by their formatting. That is a wider net than it sounds: an ordinary bold or italic sentence counts, not only text you have highlighted.",
-    "highlights_configure": "Which formats count is yours to set: bold, italic, underlined, coloured text and text on a background colour can each be listed or left out, from the configure entry in this card's menu. Pressing an entry scrolls the note to it.",
+    "highlights_configure": "Which formats count is yours to set: bold, italic, underlined, coloured text and text on a background colour can each be listed or left out, from the gear in this card's header. Pressing an entry scrolls the note to it.",
     "note_map_what": "A map of what this note connects to. The link map draws the internal links and relations going in and out of it; the tree map draws where it sits in the note tree. The switcher in this header chooses between the two.",
     "note_map_interaction": "Hovering a note brings its own connections forward and fades the rest. The expand button opens the same map at the size of the window.",
     "note_paths_what": "A note can sit in more than one place in the note tree at once, and each of those places is listed here as a path.",
@@ -2461,7 +2461,6 @@
     "title_with_count_one": "{{count}} highlight",
     "title_with_count_other": "{{count}} highlights",
     "options": "Options",
-    "modal_title": "Configure Highlights List",
     "menu_configure": "Configure highlights list...",
     "no_highlights": "No highlights found."
   },
