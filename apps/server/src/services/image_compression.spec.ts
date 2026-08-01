@@ -1,5 +1,6 @@
 import type { ImageCompressionResponse } from "@triliumnext/commons";
 import { becca, cls, getSql, options } from "@triliumnext/core";
+import { collectNoteTargets, HEADER_BYTES } from "@triliumnext/core/src/services/image_compression.js";
 import { getImageProvider, initImageProvider } from "@triliumnext/core/src/services/image_provider.js";
 import { createTextNote } from "@triliumnext/core/src/test/api_fixtures.js";
 import { CoreApiTester } from "@triliumnext/core/src/test/api_tester.js";
@@ -370,6 +371,40 @@ describe("compression parameters", () => {
         expect(readAttachment(attachmentId).size).toBe(corruptPng.byteLength);
     });
 
+    it("reads the front of an image and its weight, leaving the body of it in the database", async () => {
+        const { noteId } = await createTextNote(api);
+        const attachmentId = await addAttachment(noteId, "big.png", noisyPng);
+
+        const peeked = cls.init(() => {
+            const target = collectNoteTargets(becca.getNoteOrThrow(noteId), false)
+                .find((candidate) => candidate.entityId === attachmentId);
+
+            return target?.peek();
+        });
+
+        // The weight is the whole image's, counted by the database; the bytes are only its front.
+        expect(peeked?.size).toBe(noisyPng.byteLength);
+        expect(noisyPng.byteLength).toBeGreaterThan(HEADER_BYTES);
+        expect(peeked?.header.byteLength).toBe(HEADER_BYTES);
+        expect(Array.from(peeked?.header.slice(0, 8) ?? [])).toEqual(Array.from(noisyPng.slice(0, 8)));
+    });
+
+    it("still compresses a JPEG whose dimensions sit past the front of the file", async () => {
+        const { noteId } = await createTextNote(api);
+        // Metadata ahead of the frame header, as a camera's thumbnail or a colour profile leaves it:
+        // nothing in the peeked bytes says how large the image is, so the run has to read it in full
+        // rather than assume. Getting that wrong would silently stop resizing such photographs.
+        const padded = withLeadingMetadata(noisyJpeg);
+        const attachmentId = await addAttachment(noteId, "padded.jpg", padded, { mime: "image/jpeg" });
+
+        const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
+            body: { resize: true, maxWidthHeight: 200, jpegHandling: "keep", pngHandling: "keep" }
+        });
+
+        expect(res.body.items[0]).toMatchObject({ entityId: attachmentId, compressed: true });
+        expect(readAttachment(attachmentId).size).toBeLessThan(padded.byteLength);
+    });
+
     it("refuses an image too large to decode rather than failing part-way through one", async () => {
         const { noteId } = await createTextNote(api);
         // 400 megapixels by its own header — well past what one decode is allowed. The bytes behind
@@ -527,6 +562,29 @@ function paintPhoto(image: InstanceType<typeof Jimp>, alpha: number) {
 }
 
 /**
+ * The same JPEG behind two segments of filler metadata, as a camera's thumbnail or an embedded
+ * colour profile sits ahead of the frame header — enough of it that nothing in the bytes a run
+ * peeks at says how large the picture is.
+ */
+function withLeadingMetadata(jpeg: Uint8Array): Uint8Array {
+    // A JPEG segment's length field counts itself, and is two bytes, so this is the largest one.
+    const payloadBytes = 65533;
+    const segment = new Uint8Array(4 + payloadBytes);
+    segment[0] = 0xff;
+    segment[1] = 0xe1;
+    new DataView(segment.buffer).setUint16(2, payloadBytes + 2);
+
+    const padded = new Uint8Array(2 + segment.byteLength * 2 + jpeg.byteLength - 2);
+    padded.set([ 0xff, 0xd8 ]);
+    padded.set(segment, 2);
+    padded.set(segment, 2 + segment.byteLength);
+    // Everything after the original's own start-of-image marker, which is now carried above.
+    padded.set(jpeg.subarray(2), 2 + segment.byteLength * 2);
+
+    return padded;
+}
+
+/**
  * The same PNG, its IHDR rewritten to claim the given dimensions — width and height sit at fixed
  * offsets, and nothing on this path verifies the chunk's checksum. A header that lies about how
  * large the image is, which is exactly what the ceiling has to answer for.
@@ -603,6 +661,7 @@ async function whileCompressing<T>(interfere: () => void, request: () => Promise
     initImageProvider({
         getImageType: (buffer) => real.getImageType(buffer),
         processImage: (buffer, originalName, shrink) => real.processImage(buffer, originalName, shrink),
+        planCompression: (header, compressionRequest) => real.planCompression(header, compressionRequest),
         compressImage: (buffer, compressionRequest) => {
             interfere();
             return real.compressImage(buffer, compressionRequest);

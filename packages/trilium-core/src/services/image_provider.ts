@@ -66,6 +66,24 @@ export interface ImageProvider {
      * @param request - Fully resolved compression parameters
      */
     compressImage(buffer: Uint8Array, request: ImageCompressionRequest): Promise<ImageCompressionOutcome>;
+
+    /**
+     * Why an image with this header would be left alone, decided without the rest of it.
+     *
+     * The point is to answer for images a run will not touch without paying to read them: an
+     * unsupported format, one already within the bound with nothing asked of its encoding, one too
+     * large to decode. Over a tree those are most of the images there are, and the difference is
+     * between reading a database's worth of pictures and reading the front of each.
+     *
+     * Answers only what the header settles. Anything it leaves open — dimensions past the end of
+     * the given bytes, a question that needs the pixels — comes back `null`, meaning the image has
+     * to be read in full and put through {@link compressImage}, which decides for itself either
+     * way. A reason given here is therefore always one that would be given there.
+     *
+     * @param header - The opening bytes of the image; may be the whole of it.
+     * @param request - Fully resolved compression parameters
+     */
+    planCompression(header: Uint8Array, request: ImageCompressionRequest): Promise<ImageCompressionSkipReason | null>;
 }
 
 let imageProvider: ImageProvider | null = null;

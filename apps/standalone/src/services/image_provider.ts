@@ -4,6 +4,7 @@
  * Images are saved as-is without resizing.
  */
 
+import type { ImageCompressionSkipReason } from "@triliumnext/commons";
 import type { ImageCompressionOutcome, ImageFormat, ImageProvider, ProcessedImage } from "@triliumnext/core";
 import { inspectImage, UNKNOWN_FORMAT } from "@triliumnext/core/src/services/image_inspect.js";
 
@@ -36,5 +37,11 @@ export const standaloneImageProvider: ImageProvider = {
         // No decoder here, so there is nothing to recompress with — the request is answered rather
         // than refused, and the caller reports the images as untouched along with the reason.
         return { compressed: false, reason: "unsupported-platform" };
+    },
+
+    async planCompression(): Promise<ImageCompressionSkipReason> {
+        // Settled before an image is so much as weighed: nothing here is going to compress it
+        // whatever its header says, so a run over a tree reads none of them.
+        return "unsupported-platform";
     }
 };

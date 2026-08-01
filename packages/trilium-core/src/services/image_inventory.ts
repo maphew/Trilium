@@ -23,6 +23,7 @@ import { NotFoundError } from "../errors.js";
 import {
     collectNoteImages,
     type CompressionTarget,
+    type TargetPeek,
     resolveMaxWidthHeight,
     resolveRecursive
 } from "./image_compression.js";
@@ -53,15 +54,15 @@ export function getNoteImageInventory(noteId: string, options: ImageInventoryOpt
     let unreadable = 0;
 
     for (const target of targets) {
-        const content = readContent(target);
+        const read = readHeader(target);
 
-        if (!content) {
+        if (!read) {
             unreadable++;
             continue;
         }
 
-        const { format, width, height } = inspectImage(content);
-        const size = content.byteLength;
+        const { format, width, height } = inspectImage(read.header);
+        const size = read.size;
 
         add(total, size);
         add(tallyFor(formats, format), size);
@@ -99,17 +100,32 @@ export function getNoteImageInventory(noteId: string, options: ImageInventoryOpt
 }
 
 /**
- * The image's bytes, or `null` where they cannot be had — protected content with no session open,
- * and any read that fails for a reason this has no use for. Counting an image it could not measure
- * would put a size of zero into the totals, which is worse than saying it went unread.
+ * What the image weighs and enough of it to identify, or `null` where neither can be had —
+ * protected content with no session open, and any read that fails for a reason this has no use for.
+ * Counting an image it could not measure would put a size of zero into the totals, which is worse
+ * than saying it went unread.
+ *
+ * Everything this reports — the format, the dimensions, the weight — is in the front of the file or
+ * in the database's own accounting, so the pictures themselves are left where they are. A note
+ * holding a gigabyte of photographs is tallied without a gigabyte being read to do it.
  */
-function readContent(target: CompressionTarget): Uint8Array | null {
+function readHeader(target: CompressionTarget): TargetPeek | null {
     if (target.skip === "protected") {
         return null;
     }
 
     try {
-        return target.getContent();
+        // Protected content with a session open has no peek to give — the stored bytes are
+        // encrypted — so it falls back to the read that decrypts them.
+        const peeked = target.peek();
+
+        if (peeked) {
+            return peeked;
+        }
+
+        const content = target.getContent();
+
+        return { size: content.byteLength, header: content };
     } catch {
         return null;
     }

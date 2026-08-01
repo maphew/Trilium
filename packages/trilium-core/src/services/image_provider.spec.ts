@@ -20,7 +20,8 @@ describe("image provider (core)", () => {
             compressImage: vi.fn(async (): Promise<ImageCompressionOutcome> => ({
                 compressed: false,
                 reason: "no-gain"
-            }))
+            })),
+            planCompression: vi.fn(async () => null)
         };
         mod.initImageProvider(fake);
         expect(mod.getImageProvider()).toBe(fake);

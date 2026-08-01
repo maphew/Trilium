@@ -149,6 +149,23 @@ function defaultQuality(): number {
  * (a canvas addresses its images by the Excalidraw file id stored as the title), and download and
  * export filenames already derive their extension from the mime when the title disagrees.
  */
+/** What an image weighs, and enough of its front to say what it is. */
+export interface TargetPeek {
+    /** The stored image's size in bytes — the whole of it, not of {@link header}. */
+    size: number;
+    header: Uint8Array;
+}
+
+/**
+ * How much of an image is read to identify it.
+ *
+ * A PNG states its dimensions within the first thirty-odd bytes, but a JPEG states them after
+ * whatever metadata precedes them, and a camera's EXIF thumbnail or an embedded colour profile can
+ * run to tens of kilobytes. This is picked to clear those: past it the reading simply comes back
+ * without dimensions, and the image is read in full as it was before — slower, never wrong.
+ */
+export const HEADER_BYTES = 64 * 1024;
+
 export interface CompressionTarget {
     entityType: "note" | "attachment";
     entityId: string;
@@ -157,6 +174,17 @@ export interface CompressionTarget {
     /** Set when the target must be left alone for a reason known before reading its content. */
     skip?: ImageCompressionSkipReason;
     getContent(): Uint8Array;
+    /**
+     * The image's size and its opening bytes, taken from the database without loading the rest.
+     *
+     * What decides an image's fate is almost entirely in its header, and reading a whole photograph
+     * to look at thirty bytes of it is most of what a run over a large tree spends its time on.
+     *
+     * Null where the bytes in the database are not the bytes of the image — protected content is
+     * stored encrypted, and a header read off the ciphertext describes nothing. The caller falls
+     * back to reading it in full, which is what decrypts it.
+     */
+    peek(): TargetPeek | null;
     /** Names the content {@link getContent} returns — a hash of those exact bytes. */
     blobId(): string | undefined;
     /**
@@ -210,6 +238,7 @@ function noteTarget(note: BNote): CompressionTarget {
         mime: note.mime,
         skip: note.isContentAvailable() ? undefined : "protected",
         getContent: () => wrapStringOrBuffer(note.getContent()),
+        peek: () => peekBlob(note.blobId, note.isProtected),
         blobId: () => note.blobId,
         save(buffer, mime, sourceBlobId) {
             const current = becca.getNote(note.noteId);
@@ -237,6 +266,7 @@ function attachmentTarget(attachment: BAttachment): CompressionTarget {
         mime: attachment.mime,
         skip: resolveAttachmentSkip(attachment),
         getContent: () => wrapStringOrBuffer(attachment.getContent()),
+        peek: () => peekBlob(attachment.blobId, attachment.isProtected),
         blobId: () => attachment.blobId,
         // Written through a freshly read attachment rather than the one collected at the start of
         // the run: that one is a detached copy of its row, and `forceSave` writes the whole row
@@ -254,6 +284,31 @@ function attachmentTarget(attachment: BAttachment): CompressionTarget {
             return true;
         }
     };
+}
+
+/**
+ * Reads an image's weight and its opening bytes straight out of the blob, leaving the body of it in
+ * the database. One statement answers both, so the saving is a smaller read rather than a second
+ * round trip.
+ *
+ * `CAST` on both: a blob column can hold text for other kinds of content, where `LENGTH` would
+ * count characters and `substr` would cut on them. Bytes are what an image header is measured in.
+ */
+function peekBlob(blobId: string | undefined, isProtected: boolean | undefined): TargetPeek | null {
+    if (!blobId || isProtected) {
+        return null;
+    }
+
+    const row = getSql().getRow<{ size: number | null; header: string | Uint8Array | null }>(/*sql*/`
+        SELECT LENGTH(CAST(content AS BLOB)) AS size,
+               substr(CAST(content AS BLOB), 1, ?) AS header
+        FROM blobs WHERE blobId = ?`, [ HEADER_BYTES, blobId ]);
+
+    if (!row || row.size === null || row.header === null) {
+        return null;
+    }
+
+    return { size: row.size, header: wrapStringOrBuffer(row.header) };
 }
 
 /**
@@ -309,13 +364,25 @@ async function compressTarget(target: CompressionTarget, request: ImageCompressi
     let content: Uint8Array | undefined;
 
     try {
+        // The front of the image and what it weighs, without the body of it. Most images a run
+        // visits are settled from this alone, and never read any further.
+        const peeked = target.peek();
+
+        if (target.skip) {
+            return skipped(peeked?.size ?? target.getContent().byteLength, target.skip);
+        }
+
+        if (peeked) {
+            const foreseen = await getImageProvider().planCompression(peeked.header, request);
+
+            if (foreseen) {
+                return skipped(peeked.size, foreseen);
+            }
+        }
+
         content = target.getContent();
         // Read in the same turn as the content itself, so it names exactly the bytes just read.
         const sourceBlobId = target.blobId();
-
-        if (target.skip) {
-            return skipped(content.byteLength, target.skip);
-        }
 
         const outcome = await getImageProvider().compressImage(content, request);
 

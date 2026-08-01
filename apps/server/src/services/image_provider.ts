@@ -3,7 +3,7 @@
  * Uses JIMP for image processing with full compression support.
  */
 
-import { IMAGE_COMPRESSIBLE_FORMATS } from "@triliumnext/commons";
+import { IMAGE_COMPRESSIBLE_FORMATS, type ImageCompressionSkipReason } from "@triliumnext/commons";
 import { estimateJpegQuality, getLog, type InspectedImage, inspectImage, options as optionService } from "@triliumnext/core";
 import type { ImageCompressionOutcome, ImageCompressionRequest, ImageFormat, ImageProvider, ProcessedImage } from "@triliumnext/core/src/services/image_provider.js";
 import imageType from "image-type";
@@ -56,6 +56,67 @@ const DECODE_BYTES_PER_PIXEL = 16;
  * process runs out of memory, and a ceiling refused here is the only guard it gets.
  */
 const MAX_DECODE_PIXELS = Math.floor((DECODE_MEMORY_MB * 1024 * 1024) / DECODE_BYTES_PER_PIXEL);
+
+type CompressionPlan =
+    | { verdict: "skip"; reason: ImageCompressionSkipReason }
+    | { verdict: "proceed"; isLossless: boolean; worthReencoding: boolean };
+
+/**
+ * What is to become of an image, decided from as much of it as the caller had.
+ *
+ * Every question here is answered from the header, which is what lets the same reasoning serve a
+ * run deciding whether an image is worth reading at all and the compression that follows once it
+ * has been. Given only the front of a file it errs one way: a dimension it cannot reach leaves the
+ * image to be read in full, never leaves it skipped on a reading that was never taken.
+ */
+function planFromBytes(
+    format: ImageFormat | null,
+    bytes: Uint8Array,
+    request: ImageCompressionRequest
+): CompressionPlan {
+    if (!format || !COMPRESSIBLE_EXTENSIONS.has(format.ext)) {
+        return { verdict: "skip", reason: "unsupported-format" };
+    }
+
+    /* v8 ignore start -- the same rare defensive guard as in processImage above: spec-compliant
+       animated images already fail the format gate (file-type reports animated PNG as "apng"
+       and animated GIF/WebP as gif/webp). Only a pathological PNG with 512+ chunks before its
+       acTL chunk reaches here, and recompressing it would keep the first frame alone. */
+    if (isAnimated(Buffer.from(bytes))) {
+        return { verdict: "skip", reason: "animated" };
+    }
+    /* v8 ignore stop */
+
+    const isLossless = format.ext === "png";
+
+    // Whether re-encoding alone is worth doing to *this* image, each kind answering for itself:
+    // a lossy source when its handling asks for it, a lossless one when its handling asks for
+    // anything at all — rewriting a PNG as the same PNG at its own size gains nothing.
+    //
+    // A PNG's transparency does not enter into it, though it decides *which* re-encoding happens:
+    // an image `jpeg` cannot take is quantized instead, so either way there is one to do. That is
+    // what lets this be answered before the image is decoded.
+    const worthReencoding = isLossless ? request.pngHandling !== "keep" : request.jpegHandling === "compress";
+
+    // Read off the header rather than from the pixels: deciding whether anything is going to happen
+    // to an image should not cost more than doing it. Dimensions the header does not give up — past
+    // the end of a prefix, or behind metadata — leave this open, and the decode settles it.
+    const declared = inspectImage(bytes);
+    const declaredEdge = Math.max(declared.width ?? 0, declared.height ?? 0);
+    const mayNeedResize = request.resize && (declaredEdge === 0 || declaredEdge > request.maxWidthHeight);
+
+    if (!mayNeedResize && !worthReencoding) {
+        return { verdict: "skip", reason: "no-gain" };
+    }
+
+    if (exceedsDecodeCeiling(declared)) {
+        getLog().info(`Image of ${declared.width}x${declared.height} is too large to decode; leaving it alone.`);
+
+        return { verdict: "skip", reason: "too-large" };
+    }
+
+    return { verdict: "proceed", isLossless, worthReencoding };
+}
 
 /**
  * Whether the header claims more pixels than {@link MAX_DECODE_PIXELS} allows.
@@ -243,51 +304,23 @@ export const serverImageProvider: ImageProvider = {
         return { buffer: finalBuffer, format };
     },
 
+    async planCompression(header: Uint8Array, request: ImageCompressionRequest): Promise<ImageCompressionSkipReason | null> {
+        const plan = planFromBytes(await getImageTypeFromBuffer(header), header, request);
+
+        return plan.verdict === "skip" ? plan.reason : null;
+    },
+
     async compressImage(buffer: Uint8Array, request: ImageCompressionRequest): Promise<ImageCompressionOutcome> {
-        const format = await getImageTypeFromBuffer(buffer);
+        // Asked again of the whole image, whatever a header was already judged on: the caller may
+        // have skipped that step entirely, and where it did not, this is the reading that had the
+        // bytes the other one was missing.
+        const plan = planFromBytes(await getImageTypeFromBuffer(buffer), buffer, request);
 
-        if (!format || !COMPRESSIBLE_EXTENSIONS.has(format.ext)) {
-            return { compressed: false, reason: "unsupported-format" };
+        if (plan.verdict === "skip") {
+            return { compressed: false, reason: plan.reason };
         }
 
-        /* v8 ignore start -- the same rare defensive guard as in processImage above: spec-compliant
-           animated images already fail the format gate (file-type reports animated PNG as "apng"
-           and animated GIF/WebP as gif/webp). Only a pathological PNG with 512+ chunks before its
-           acTL chunk reaches here, and recompressing it would keep the first frame alone. */
-        if (isAnimated(Buffer.from(buffer))) {
-            return { compressed: false, reason: "animated" };
-        }
-        /* v8 ignore stop */
-
-        const isLossless = format.ext === "png";
-
-        // Whether re-encoding alone is worth doing to *this* image, each kind answering for itself:
-        // a lossy source when its handling asks for it, a lossless one when its handling asks for
-        // anything at all — rewriting a PNG as the same PNG at its own size gains nothing.
-        //
-        // A PNG's transparency does not enter into it, though it decides *which* re-encoding
-        // happens: an image `jpeg` cannot take is quantized instead, so either way there is one to
-        // do. That is what lets this be answered before the image is decoded.
-        const worthReencoding = isLossless ? request.pngHandling !== "keep" : request.jpegHandling === "compress";
-
-        // Read off the header rather than from the pixels: deciding whether anything is going to
-        // happen to an image should not cost more than doing it. Dimensions the header does not
-        // give up leave this open, and the exact answer is taken from the decode below.
-        const declared = inspectImage(buffer);
-        const declaredEdge = Math.max(declared.width ?? 0, declared.height ?? 0);
-        const mayNeedResize = request.resize && (declaredEdge === 0 || declaredEdge > request.maxWidthHeight);
-
-        if (!mayNeedResize && !worthReencoding) {
-            return { compressed: false, reason: "no-gain" };
-        }
-
-        if (exceedsDecodeCeiling(declared)) {
-            getLog().info(
-                `Image of ${declared.width}x${declared.height} is too large to decode; leaving it alone.`);
-
-            return { compressed: false, reason: "too-large" };
-        }
-
+        const { isLossless, worthReencoding } = plan;
         const start = Date.now();
         const image = await decodeImage(buffer);
         const { width, height } = image.bitmap;
