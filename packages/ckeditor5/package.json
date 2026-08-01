@@ -16,7 +16,6 @@
   "dependencies": {
     "@triliumnext/commons": "workspace:*",
     "@triliumnext/ckeditor5-math": "workspace:*",
-    "@triliumnext/ckeditor5-mermaid": "workspace:*",
     "ckeditor5": "48.3.1"
   },
   "peerDependencies": {

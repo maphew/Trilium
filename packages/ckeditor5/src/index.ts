@@ -21,7 +21,7 @@ export * from "./utils.js";
 
 // Import with sideffects to ensure that type augmentations are present.
 import "@triliumnext/ckeditor5-math";
-import "@triliumnext/ckeditor5-mermaid";
+import "./plugins/mermaid/mermaid.js";
 
 window[Symbol.for("cke distribution")] = "trilium";
 

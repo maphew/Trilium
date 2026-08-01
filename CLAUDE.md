@@ -25,7 +25,7 @@ pnpm desktop:build             # Electron
 # Test
 pnpm test:all                  # All tests (parallel + sequential)
 pnpm test:parallel             # Client + most package tests
-pnpm test:sequential           # Server (shared DB) + browser-mode tests (ckeditor5, ckeditor5-mermaid, ckeditor5-math)
+pnpm test:sequential           # Server (shared DB) + browser-mode tests (ckeditor5, ckeditor5-math)
 pnpm --filter server test      # Single package tests
 pnpm coverage                  # Coverage reports
 
@@ -75,7 +75,7 @@ packages/
   codemirror/           # Code editor integration
   highlightjs/          # Syntax highlighting
   share-theme/          # Theme for shared/published notes
-  ckeditor5-math/, ckeditor5-mermaid/
+  ckeditor5-math/
   express-partial-content/, pdfjs-viewer/, splitjs/
   turndown-plugin-gfm/
 ```

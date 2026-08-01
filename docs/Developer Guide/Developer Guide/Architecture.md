@@ -95,7 +95,6 @@ trilium/
 │   ├── codemirror/        # Code editor customizations
 │   ├── highlightjs/       # Syntax highlighting
 │   ├── ckeditor5-math/           # CKEditor plugin: math equations
-│   ├── ckeditor5-mermaid/        # CKEditor plugin: diagrams
 │   ├── express-partial-content/  # HTTP partial content middleware
 │   ├── share-theme/              # Shared note theme
 │   ├── splitjs/                  # Split pane library

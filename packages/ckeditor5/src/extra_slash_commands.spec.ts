@@ -312,7 +312,7 @@ describe("buildExtraCommands", () => {
         });
 
         it("sample command execute calls editor.execute with INSERT_MERMAID_COMMAND and source", async () => {
-            const { INSERT_MERMAID_COMMAND } = await import("@triliumnext/ckeditor5-mermaid");
+            const { INSERT_MERMAID_COMMAND } = await import("./plugins/mermaid/insert_mermaid_command.js");
             const samples = [
                 { name: "Flowchart", content: "flowchart LR\n  A --> B" }
             ];
