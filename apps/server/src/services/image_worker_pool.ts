@@ -10,6 +10,10 @@
  * Nothing here is load-bearing. Every way this can fail — a worker file that is not where it was
  * expected, a thread that will not start, one that dies mid-image — ends in the same place: the
  * caller is told so once and compresses in this process instead, exactly as it always did.
+ *
+ * This is the Node half of the platform, reached only through the server's own image provider —
+ * the server itself and the desktop app, whose main process is Node too. The standalone build has
+ * no decoder to run in a thread and never arrives here; it answers for itself.
  */
 
 import { getLog } from "@triliumnext/core";
@@ -25,15 +29,20 @@ import type { ImageWorkerRequest, ImageWorkerResponse } from "./image_worker.js"
  * How many images may be compressed at once, or 1 where they cannot be compressed off-thread at
  * all — which is the same answer as "do it here", and is what the caller schedules against.
  *
- * A core is left for the thread being freed up: it still has requests to answer, and a machine
- * given entirely to a maintenance job is not obviously better off than one that was never asked.
- * Capped low besides, this being work nobody is waiting on.
+ * One per core. The thread this frees up needs very little while they work — it hands out images,
+ * takes the results and writes them — so holding a core back for it would leave one idle through
+ * the whole run for the sake of the part that is already waiting.
+ *
+ * This is a ceiling rather than a promise: what actually runs at once is whatever the memory budget
+ * admits, so on a machine with many cores and images to match, the budget is the binding constraint
+ * and this never comes into it.
+ *
+ * `availableParallelism` rather than the raw core count: it follows the affinity the process was
+ * given, so a container pinned to two cores is answered as two.
  */
 export function compressionConcurrency(): number {
-    return workerEntry() ? Math.max(1, Math.min(MAX_WORKERS, availableParallelism() - 1)) : 1;
+    return workerEntry() ? Math.max(1, availableParallelism()) : 1;
 }
-
-const MAX_WORKERS = 4;
 
 /**
  * Compresses one image in a worker, or answers `null` if there is no worker to do it in — which the
