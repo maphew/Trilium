@@ -62,7 +62,7 @@ export async function compressAttachmentImage(attachmentId: string, options?: Im
  * failing the request — the caller did not choose that value and cannot fix it from here.
  */
 export function resolveCompressionRequest(options: ImageCompressionOptions = {}): ImageCompressionRequest {
-    const { resize, maxWidthHeight, reencode, convertLossless, quality } = options;
+    const { resize, maxWidthHeight, reencode, convertLossless, optimizePNG, quality } = options;
 
     if (maxWidthHeight !== undefined && (!Number.isInteger(maxWidthHeight) || maxWidthHeight < MIN_MAX_WIDTH_HEIGHT)) {
         throw new ValidationError(`maxWidthHeight must be an integer of ${MIN_MAX_WIDTH_HEIGHT} or above.`);
@@ -75,14 +75,16 @@ export function resolveCompressionRequest(options: ImageCompressionOptions = {})
     requireBoolean(resize, "resize");
     requireBoolean(reencode, "reencode");
     requireBoolean(convertLossless, "convertLossless");
+    requireBoolean(optimizePNG, "optimizePNG");
 
     return {
-        // All three default on: a request that named none of them asked for the images to be
+        // Every step defaults on: a request that named none of them asked for the images to be
         // compressed, and switching one off is what narrows that down.
         resize: resize ?? true,
         maxWidthHeight: maxWidthHeight ?? optionService.getOptionInt("imageMaxWidthHeight"),
         reencode: reencode ?? true,
         convertLossless: convertLossless ?? true,
+        optimizePNG: optimizePNG ?? true,
         quality: quality ?? defaultQuality()
     };
 }

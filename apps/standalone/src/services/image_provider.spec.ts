@@ -85,7 +85,8 @@ describe("standaloneImageProvider.compressImage", () => {
 
         await expect(
             standaloneImageProvider.compressImage(buffer, {
-                resize: true, maxWidthHeight: 100, reencode: true, convertLossless: true, quality: 75
+                resize: true, maxWidthHeight: 100, reencode: true, convertLossless: true,
+                optimizePNG: true, quality: 75
             })
         ).resolves.toEqual({ compressed: false, reason: "unsupported-platform" });
     });

@@ -317,10 +317,23 @@ export interface ImageCompressionOptions {
      * image the file is, permanently.
      *
      * A PNG carrying transparency is never converted whatever this says, JPEG having no alpha
-     * channel to keep it in. With it off, a lossless image stays lossless, so scaling is the only
-     * thing that can happen to it at all.
+     * channel to keep it in — {@link optimizePNG} is what reaches those.
      */
     convertLossless?: boolean;
+    /**
+     * Whether a PNG that is staying a PNG may be shrunk in place, by reducing it to a palette
+     * rather than by changing what it is. It keeps the alpha channel, so it is the only step that
+     * reaches a transparent image at all, and the only one that helps a PNG when
+     * {@link convertLossless} is off.
+     *
+     * Lossy, but gently so: the saving comes from dropping 24-bit colour for an index rather than
+     * from throwing detail away, which is why it is not governed by {@link quality} — that is the
+     * JPEG encoder's knob, and this never produces a JPEG.
+     *
+     * Applies only where the image is not being converted: an opaque PNG with converting on
+     * becomes a JPEG instead, that being the larger saving of the two.
+     */
+    optimizePNG?: boolean;
     /**
      * JPEG quality, 10 to 100. Omitted, it falls back to the `imageJpegQuality` option (75 by
      * default).
@@ -352,7 +365,10 @@ export type ImageCompressionSkipReason =
     | "unsupported-format"
     /** Animated (APNG, animated GIF/WebP): recompressing would flatten it to a single frame. */
     | "animated"
-    /** A PNG carrying transparency, which JPEG cannot represent, and nothing to scale besides. */
+    /**
+     * A PNG carrying transparency, which JPEG cannot represent, with neither PNG optimization
+     * asked for nor anything to scale — so nothing was left that could reach it.
+     */
     | "transparent"
     /** The rendered picture of a canvas/mermaid/mind map/spreadsheet note, regenerated on save. */
     | "generated"

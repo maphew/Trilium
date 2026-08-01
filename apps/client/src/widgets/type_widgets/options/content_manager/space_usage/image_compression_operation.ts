@@ -37,6 +37,7 @@ export function runImageCompression(
         maxWidthHeight: options.maxWidthHeight,
         reencode: options.reencode,
         convertLossless: options.convertLossless,
+        optimizePNG: options.optimizePNG,
         quality: options.quality,
         // Left out entirely for an attachment, which has no subtree to descend into — the endpoint
         // does not read it, and sending it would suggest it does.

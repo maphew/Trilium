@@ -16,6 +16,8 @@ export interface ImageCompressionToolOptions {
     reencode: boolean;
     /** Whether a lossless image (PNG) may be re-encoded as JPEG. */
     convertLossless: boolean;
+    /** Whether a PNG staying a PNG may be reduced to a palette, transparency and all. */
+    optimizePNG: boolean;
     /** JPEG quality, {@link MIN_QUALITY} to {@link MAX_QUALITY}, whenever the output is a JPEG. */
     quality: number;
     /** Whether the note's whole subtree is compressed, rather than the note on its own. */
@@ -27,7 +29,7 @@ export interface ImageCompressionToolOptions {
  * image would be visited and left exactly as it was, so the run is not one worth offering.
  */
 export function hasWorkToDo(options: ImageCompressionToolOptions): boolean {
-    return options.resize || options.reencode || options.convertLossless;
+    return options.resize || options.reencode || options.convertLossless || options.optimizePNG;
 }
 
 /** The bounds the server validates against; the controls here never offer a value it would reject. */
@@ -60,6 +62,7 @@ export function readImageCompressionOptions(
             : defaultMaxWidthHeight(),
         reencode: stored?.reencode ?? true,
         convertLossless: stored?.convertLossless ?? true,
+        optimizePNG: stored?.optimizePNG ?? true,
         quality: isQuality(stored?.quality) ? Number(stored?.quality) : defaultQuality(),
         processChildNotes: stored?.processChildNotes === true
     };

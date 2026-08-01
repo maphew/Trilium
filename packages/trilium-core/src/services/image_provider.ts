@@ -29,6 +29,8 @@ export interface ImageCompressionRequest {
     reencode: boolean;
     /** Whether a lossless image (PNG) may be re-encoded as JPEG. */
     convertLossless: boolean;
+    /** Whether a PNG staying a PNG may be reduced to a palette, transparency and all. */
+    optimizePNG: boolean;
     /** JPEG quality, 10 to 100, applied whenever the output is a JPEG. */
     quality: number;
 }

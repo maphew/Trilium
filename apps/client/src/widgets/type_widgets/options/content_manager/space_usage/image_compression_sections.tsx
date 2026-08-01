@@ -122,6 +122,28 @@ export function ConvertLosslessSection({ options, onChange, disabled }: ImageCom
 }
 
 /**
+ * Shrinking a PNG in place, by reducing it to a palette rather than by changing what it is.
+ *
+ * Sits after converting because it is what picks up what converting cannot: transparent images,
+ * which are never converted, and every PNG at all when converting is off.
+ */
+export function OptimizePngSection({ options, onChange, disabled }: ImageCompressionSectionProps) {
+    return (
+        <CardSection className="image-compression-section">
+            <span className="image-compression-section-title">
+                {t("space_usage.compress_optimize_png")}
+                <ContextualHelp helpMessage={t("space_usage.compress_optimize_png_help")} />
+            </span>
+            <FormToggle
+                disabled={disabled}
+                currentValue={options.optimizePNG}
+                onChange={(value) => onChange({ optimizePNG: value })}
+            />
+        </CardSection>
+    );
+}
+
+/**
  * The quality any JPEG is written at. A row in its own right rather than a qualifier of the
  * re-encoding step, because it governs more than that step does: scaling a JPEG has to write one
  * back whether or not re-encoding was asked for, so the quality is in force there too.

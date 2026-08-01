@@ -24,6 +24,8 @@ let smallPng: Uint8Array;
 let corruptPng: Uint8Array;
 /** The same picture stored lossily, for telling the two re-encoding switches apart. */
 let noisyJpeg: Uint8Array;
+/** Half-transparent throughout: the image nothing but PNG optimization can reach. */
+let transparentPng: Uint8Array;
 
 beforeAll(async () => {
     api = CoreApiTester.build();
@@ -37,6 +39,15 @@ beforeAll(async () => {
     }
     noisyPng = new Uint8Array(await noisy.getBuffer("image/png"));
     noisyJpeg = new Uint8Array(await noisy.getBuffer("image/jpeg", { quality: 100 }));
+
+    const translucent = new Jimp({ width: 600, height: 400, color: 0x3366cc80 });
+    for (let x = 0; x < 600; x++) {
+        for (let y = 0; y < 400; y++) {
+            const color = ((((x * 31 + y * 17) % 256) << 24) | (((x * 13 + y * 7) % 256) << 16) | (((x * 5 + y * 23) % 256) << 8) | 0x80) >>> 0;
+            translucent.setPixelColor(color, x, y);
+        }
+    }
+    transparentPng = new Uint8Array(await translucent.getBuffer("image/png"));
 
     const small = new Jimp({ width: 8, height: 8, color: 0x3366ccff });
     smallPng = new Uint8Array(await small.getBuffer("image/png"));
@@ -89,7 +100,7 @@ describe("compress note images (POST /api/notes/:noteId/compress-images)", () =>
         // Scaling is then the only step that can reach a PNG, and there is nothing oversized to
         // scale. Recompressing lossy images stays on, and has no business with a PNG.
         const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
-            body: { convertLossless: false }
+            body: { convertLossless: false, optimizePNG: false }
         });
 
         expect(res.body.compressedCount).toBe(0);
@@ -276,7 +287,8 @@ describe("compression parameters", () => {
         [ "a non-integer quality", { quality: 75.5 } ],
         [ "a non-boolean resize", { resize: "yes" } ],
         [ "a non-boolean reencode", { reencode: "yes" } ],
-        [ "a non-boolean convertLossless", { convertLossless: "yes" } ]
+        [ "a non-boolean convertLossless", { convertLossless: "yes" } ],
+        [ "a non-boolean optimizePNG", { optimizePNG: "yes" } ]
     ])("400s on %s", async (_label, body) => {
         const noteId = await createImageNote(smallPng);
 
@@ -307,7 +319,10 @@ describe("compression parameters", () => {
         const noteId = await createImageNote(noisyPng);
 
         const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
-            body: { resize: false, reencode: false, convertLossless: false, maxWidthHeight: 10 }
+            body: {
+                resize: false, reencode: false, convertLossless: false, optimizePNG: false,
+                maxWidthHeight: 10
+            }
         });
 
         // Oversized by a long way, and still untouched: with nothing switched on, the bound is
@@ -317,8 +332,8 @@ describe("compression parameters", () => {
     });
 
     it.each([
-        [ "the lossy one", { reencode: true, convertLossless: false }, "jpeg.jpg" ],
-        [ "the lossless one", { reencode: false, convertLossless: true }, "png.png" ]
+        [ "the lossy one", { reencode: true, convertLossless: false, optimizePNG: false }, "jpeg.jpg" ],
+        [ "the lossless one", { reencode: false, convertLossless: true, optimizePNG: false }, "png.png" ]
     ])("reaches only its own kind of image with %s switched on", async (_label, body, expected) => {
         const { noteId } = await createTextNote(api);
         await addAttachment(noteId, "png.png", noisyPng);
@@ -329,6 +344,21 @@ describe("compression parameters", () => {
         // Squeezing the JPEGs harder is no reason to stop a PNG being a PNG, and vice versa: each
         // switch answers for its own kind and leaves the other exactly as it was.
         expect(res.body.items.filter((item) => item.compressed).map((item) => item.title)).toEqual([ expected ]);
+    });
+
+    it("shrinks a transparent image, which nothing else in the run can reach", async () => {
+        const noteId = await createImageNote(transparentPng);
+
+        const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`);
+
+        // Converting refuses it and there is nothing oversized to scale, so before PNG
+        // optimization existed this note could not be made smaller at all.
+        expect(res.body.items[0]).toMatchObject({ compressed: true, mime: "image/png" });
+        expect(res.body.savedSize).toBeGreaterThan(0);
+
+        const stored = readNote(noteId);
+        expect(stored.mime).toBe("image/png");
+        expect(stored.size).toBeLessThan(transparentPng.byteLength);
     });
 
     it("re-encodes without scaling when only scaling is switched off", async () => {

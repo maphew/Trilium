@@ -9,12 +9,25 @@ import imageType from "image-type";
 import isAnimated from "is-animated";
 import isSvg from "is-svg";
 import { Jimp } from "jimp";
+import * as UPNG from "upng-js";
 
 const JPEG_FORMAT: ImageFormat = { ext: "jpg", mime: "image/jpeg" };
 const PNG_FORMAT: ImageFormat = { ext: "png", mime: "image/png" };
 
 /** The only formats JIMP can both decode and re-encode here; everything else is left untouched. */
 const COMPRESSIBLE_EXTENSIONS = new Set([ "jpg", "png" ]);
+
+/**
+ * How large a palette the PNG quantizer may keep — deliberately the largest an indexed PNG can
+ * hold, which makes this the gentlest lossy setting there is while still doing the work.
+ *
+ * The saving comes from storing one index per pixel rather than 24-bit colour, so a screenshot or
+ * a diagram — what most PNGs in a note actually are — typically loses half its weight or better
+ * with nothing visible to show for it. Going lower (64, 128) starts to band across gradients, and
+ * encoding losslessly instead (0) rarely reaches a fifth. Neither extreme is the trade this tool
+ * is for.
+ */
+const PNG_PALETTE_COLORS = 256;
 
 async function getImageTypeFromBuffer(buffer: Uint8Array): Promise<ImageFormat | null> {
     // Check for SVG first (text-based)
@@ -153,17 +166,22 @@ export const serverImageProvider: ImageProvider = {
         // from the header.
         const toJpeg = !isLossless || (request.convertLossless && !hasTransparency(image));
 
-        // Whether re-encoding alone is worth doing to *this* image, which the two switches answer
-        // for their own kind: a lossy source is recompressed if `reencode` says so, a lossless one
-        // is worth rewriting only when it is becoming a JPEG — rewriting a PNG as a PNG at its own
-        // size is lossless and gains nothing.
-        const worthReencoding = isLossless ? toJpeg : request.reencode;
+        // Quantizing applies to a PNG that is staying one — a transparent image, or any of them
+        // when converting is off. An opaque PNG being converted goes to JPEG instead, that being
+        // the larger saving of the two, so the two steps never compete over the same image.
+        const quantize = isLossless && !toJpeg && request.optimizePNG;
+
+        // Whether re-encoding alone is worth doing to *this* image, which each switch answers for
+        // its own kind: a lossy source is recompressed if `reencode` says so, a lossless one when
+        // it is either becoming a JPEG or being quantized — rewriting a PNG as the same PNG at its
+        // own size is lossless and gains nothing.
+        const worthReencoding = isLossless ? (toJpeg || quantize) : request.reencode;
 
         if (!needsResize && !worthReencoding) {
             return {
                 compressed: false,
-                // Transparency is the reason only when converting was actually asked for;
-                // otherwise there was simply nothing this run wanted to do to the image.
+                // Transparency is the reason only when converting was asked for and quantizing was
+                // not; otherwise there was simply nothing this run wanted to do to the image.
                 reason: isLossless && request.convertLossless ? "transparent" : "no-gain"
             };
         }
@@ -183,6 +201,8 @@ export const serverImageProvider: ImageProvider = {
             // to lose, or by a JPEG source, which never had any to begin with.
             image.background = 0xffffffff;
             result = await image.getBuffer("image/jpeg", { quality: request.quality });
+        } else if (quantize) {
+            result = quantizePng(image, buffer.byteLength);
         } else {
             result = await image.getBuffer("image/png");
         }
@@ -197,6 +217,32 @@ export const serverImageProvider: ImageProvider = {
         return { compressed: true, buffer: result, format: toJpeg ? JPEG_FORMAT : PNG_FORMAT };
     }
 };
+
+/**
+ * Rewrites the image as a palette PNG, which is where a PNG's weight actually goes: the saving
+ * comes from storing an index per pixel instead of 24-bit colour, not from discarding detail. The
+ * alpha channel survives it, so this is the only step that can shrink a transparent image at all.
+ *
+ * @param originalByteLength the source file, for the ratio in the log line. After a resize the two
+ *                           are not measuring the same picture, which is the reading that matters
+ *                           anyway — how much smaller the stored image ends up.
+ */
+function quantizePng(image: Awaited<ReturnType<typeof Jimp.read>>, originalByteLength: number): Uint8Array {
+    const start = Date.now();
+    const { width, height, data } = image.bitmap;
+    // A tightly packed copy: UPNG reads the whole ArrayBuffer, so a view carrying a byte offset or
+    // slack past the pixels would be read as image data.
+    const rgba = new Uint8Array(data);
+    const encoded = new Uint8Array(UPNG.encode([ rgba.buffer ], width, height, PNG_PALETTE_COLORS));
+    const saved = Math.round((1 - encoded.byteLength / originalByteLength) * 100);
+
+    getLog().info(
+        `PNG optimization of ${width}x${height} to ${PNG_PALETTE_COLORS} colors: `
+        + `${originalByteLength} -> ${encoded.byteLength} bytes (${saved}% smaller) in ${Date.now() - start}ms`
+    );
+
+    return encoded;
+}
 
 /** True when any pixel is less than fully opaque, read off the decoded RGBA bitmap. */
 function hasTransparency(image: Awaited<ReturnType<typeof Jimp.read>>): boolean {

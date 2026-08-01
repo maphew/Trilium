@@ -24,6 +24,7 @@ import {
 import {
     ConvertLosslessSection,
     JpegQualitySection,
+    OptimizePngSection,
     ProcessChildNotesSection,
     ReduceResolutionSection,
     ReencodeImagesSection
@@ -135,8 +136,9 @@ function ImageCompressionDialog({ target, onFinished }: {
                 <ReduceResolutionSection {...sectionProps} />
                 <ReencodeImagesSection {...sectionProps} />
                 <ConvertLosslessSection {...sectionProps} />
-                {/* Not nested under either: every step above writes a JPEG on some image or other,
-                    so the quality is in force whichever of them is on. */}
+                <OptimizePngSection {...sectionProps} />
+                {/* Not nested under any of them: the quality governs every step that writes a
+                    JPEG, and none of the step that writes a PNG. */}
                 <JpegQualitySection {...sectionProps} />
                 {/* An attachment is one image; there is no subtree under it to reach into. */}
                 {target.type === "note" && <ProcessChildNotesSection {...sectionProps} />}

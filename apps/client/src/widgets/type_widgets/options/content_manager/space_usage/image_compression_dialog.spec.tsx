@@ -194,18 +194,22 @@ describe("showImageCompressionDialog", () => {
             // ones stop being lossless. Neither implies the other.
             "space_usage.compress_reencode",
             "space_usage.compress_convert_lossless",
-            // Standing on its own rather than under either: every step above writes a JPEG.
+            // The third re-encoding choice: shrinking a PNG that is staying a PNG.
+            "space_usage.compress_optimize_png",
+            // Standing on its own rather than under any of them: the quality governs the steps
+            // that write a JPEG, and none of the one that writes a PNG.
             "images.jpeg_quality",
             "space_usage.compress_process_child_notes"
         ]);
-        expect(rows().map(controlOf)).toEqual([ "toggle", "number", "toggle", "toggle", "slider", "toggle" ]);
-        expect(rows().map(isNested)).toEqual([ false, true, false, false, false, false ]);
+        expect(rows().map(controlOf))
+            .toEqual([ "toggle", "number", "toggle", "toggle", "toggle", "slider", "toggle" ]);
+        expect(rows().map(isNested)).toEqual([ false, true, false, false, false, false, false ]);
 
         // Each switch turns on something with a consequence its label cannot carry — what is left
         // untouched, a permanent quality loss, a reach past the note the run was invoked on — so
         // each explains itself beside its title. The two figures say all there is to say already.
         expect(rows().map((row) => !!row.querySelector(".image-compression-section-title .contextual-help")))
-            .toEqual([ true, false, true, true, false, true ]);
+            .toEqual([ true, false, true, true, true, false, true ]);
     });
 
     it("shows the bound only while there is a step that measures against it", async () => {
@@ -226,6 +230,7 @@ describe("showImageCompressionDialog", () => {
         await toggle(toggles()[0]);
         await toggle(toggles()[1]);
         await toggle(toggles()[2]);
+        await toggle(toggles()[3]);
 
         expect(titles()).toContain("images.jpeg_quality");
         expect(slider()).not.toBeNull();
@@ -239,6 +244,7 @@ describe("showImageCompressionDialog", () => {
             "images.max_image_dimensions",
             "space_usage.compress_reencode",
             "space_usage.compress_convert_lossless",
+            "space_usage.compress_optimize_png",
             "images.jpeg_quality"
         ]);
     });
@@ -248,7 +254,7 @@ describe("showImageCompressionDialog", () => {
 
         // A slider says which way it is going but never where it is, so the row reads
         // title, value, control — the reading placed before the control it reads.
-        expect(Array.from(rows()[4].children).map((child) => child.classList[0])).toEqual([
+        expect(Array.from(rows()[5].children).map((child) => child.classList[0])).toEqual([
             "image-compression-section-title",
             "image-compression-section-value",
             "slider"
@@ -268,10 +274,10 @@ describe("showImageCompressionDialog", () => {
         expect(numberField()?.value).toBe(String(CONFIGURED_MAX_DIMENSIONS));
         expect(slider()?.value).toBe(String(CONFIGURED_QUALITY));
 
-        // All three steps start on — converting in particular, being where nearly all the saving
+        // Every step starts on — converting in particular, being where nearly all the saving
         // comes from. Reaching into the subtree does not: that widens what the run touches rather
         // than how hard it compresses, and a descendant may be a clone.
-        expect(toggles().map((input) => input.checked)).toEqual([ true, true, true, false ]);
+        expect(toggles().map((input) => input.checked)).toEqual([ true, true, true, true, false ]);
     });
 
     it("keeps a stored answer of off for a step, rather than reasserting the default", async () => {
@@ -279,7 +285,7 @@ describe("showImageCompressionDialog", () => {
 
         await openDialog();
 
-        expect(toggles().map((input) => input.checked)).toEqual([ true, true, false, false ]);
+        expect(toggles().map((input) => input.checked)).toEqual([ true, true, false, true, false ]);
     });
 
     it("reads a stored answer back, and lets it override the image options", async () => {
@@ -291,7 +297,7 @@ describe("showImageCompressionDialog", () => {
 
         expect(numberField()?.value).toBe("800");
         expect(slider()?.value).toBe("35");
-        expect(toggles().map((input) => input.checked)).toEqual([ true, false, true, true ]);
+        expect(toggles().map((input) => input.checked)).toEqual([ true, false, true, true, true ]);
     });
 
     it.each([
@@ -320,7 +326,7 @@ describe("showImageCompressionDialog", () => {
         await type(numberField(), "900");
         await drag(slider(), "45");
         await toggle(toggles()[1]);
-        await toggle(toggles()[3]);
+        await toggle(toggles()[4]);
 
         // The last write carries the whole set, each change having been folded into the one before.
         expect(mocks.save).toHaveBeenLastCalledWith("imageCompressionToolOptions", JSON.stringify({
@@ -328,6 +334,7 @@ describe("showImageCompressionDialog", () => {
             maxWidthHeight: 900,
             reencode: false,
             convertLossless: true,
+            optimizePNG: true,
             quality: 45,
             processChildNotes: true
         }));
@@ -339,6 +346,7 @@ describe("showImageCompressionDialog", () => {
         await toggle(toggles()[0]);
         await toggle(toggles()[1]);
         await toggle(toggles()[2]);
+        await toggle(toggles()[3]);
 
         // Every image would be visited and none of them changed; a button that provably does
         // nothing is not one to offer.
@@ -360,7 +368,7 @@ describe("showImageCompressionDialog", () => {
     it("hands back nothing when the user backs out, settings remembered all the same", async () => {
         const { closed } = await openDialog();
 
-        await toggle(toggles()[3]);
+        await toggle(toggles()[4]);
         await click(cancelButton());
 
         // The answer is "no run", and nothing was asked of the server — but the settings are kept
@@ -376,7 +384,7 @@ describe("running the compression", () => {
     it("sends the settings to the note endpoint, the subtree choice among them", async () => {
         const { closed } = await openDialog();
 
-        await toggle(toggles()[3]);
+        await toggle(toggles()[4]);
         await click(compressButton());
         await closed;
 
@@ -386,6 +394,7 @@ describe("running the compression", () => {
             maxWidthHeight: CONFIGURED_MAX_DIMENSIONS,
             reencode: true,
             convertLossless: true,
+            optimizePNG: true,
             quality: CONFIGURED_QUALITY,
             recursive: true
         });
@@ -399,7 +408,7 @@ describe("running the compression", () => {
         await closed;
 
         // The server defaults an omitted step to on, so silence would ask for the opposite.
-        expect(postedBody()).toMatchObject({ resize: false, reencode: true, convertLossless: true });
+        expect(postedBody()).toMatchObject({ resize: false, reencode: true, convertLossless: true, optimizePNG: true });
     });
 
     it("sends nothing about subtrees to the attachment endpoint, which has no use for it", async () => {
