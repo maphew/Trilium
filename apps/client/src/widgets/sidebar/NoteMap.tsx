@@ -5,9 +5,9 @@ import "./NoteMap.css";
 import appContext from "../../components/app_context";
 import { t } from "../../services/i18n";
 import MapTypeSwitcher from "../note_map/MapTypeSwitcher";
-import { toMapType } from "../note_map/utils";
+import { NOTE_MAP_TYPE_OPTION, toMapType } from "../note_map/utils";
 import ActionButton from "../react/ActionButton";
-import { useActiveNoteContext, useNoteLabel } from "../react/hooks";
+import { useActiveNoteContext, useTriliumOption } from "../react/hooks";
 import LazyComponent from "../react/LazyComponent";
 import RightPanelWidget from "./RightPanelWidget";
 import SidebarHelp from "./SidebarHelp";
@@ -21,15 +21,16 @@ import SidebarHelp from "./SidebarHelp";
  *
  * Which map to draw is asked here too, rather than in the map's own floating overlay: a card of the
  * pane keeps its controls in its header, and a map this small has little room to stand buttons over.
- * The map reads the same label, so the two stay of one mind without being told.
+ * The map reads the same option, so the two stay of one mind without being told.
  *
  * It grows, sharing the room the tab's lists leave over with the backlinks below them and taking all
  * of it where they are collapsed — a map is worth whatever height it is given, and there is no height
  * at which it is finished being read. Where it stops is in NoteMap.css.
  */
 export default function NoteMap() {
-    const { note, notePath } = useActiveNoteContext();
-    const [ mapTypeLabel, setMapType ] = useNoteLabel(note, "mapType");
+    const { notePath } = useActiveNoteContext();
+    // The reader's own preference rather than the note's — see NOTE_MAP_TYPE_OPTION.
+    const [ mapType, setMapType ] = useTriliumOption(NOTE_MAP_TYPE_OPTION);
 
     return (
         <RightPanelWidget
@@ -37,10 +38,14 @@ export default function NoteMap() {
             title={t("note_map.title")}
             buttons={<>
                 <SidebarHelp section="noteMap" />
-                <MapTypeSwitcher mapType={toMapType(mapTypeLabel)} setMapType={setMapType} />
+                <MapTypeSwitcher mapType={toMapType(mapType)} setMapType={(type) => void setMapType(type)} />
                 {/* One rung of the same ladder the quick-edit popup already offers: a press here takes the
                     map from a card to the greater part of the window, and the popup's own expand takes it
-                    on to a tab. The popup rather than a split, because a map that sits beside the note
+                    on to a tab. What it opens is the note's own map, drawn as that note's `mapType` label
+                    asks for — which is not this card's option, and so need not be the map being expanded.
+                    The popup is reached from the ribbon's tab as well, and belongs to neither of them.
+
+                    The popup rather than a split, because a map that sits beside the note
                     being read looks as though it follows it and doesn't; a glance that goes away when it
                     has sent the reader somewhere makes no such promise. */}
                 {notePath && (

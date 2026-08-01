@@ -1,6 +1,16 @@
 export type NoteMapWidgetMode = "ribbon" | "sidebar" | "hoisted" | "type";
 export type MapType = "tree" | "link";
 
+/**
+ * Where the connections tab's map is told which of the two to draw.
+ *
+ * A preference of the reader's rather than a property of the note being read: the tab is a lens on
+ * whatever passes under it, and a map that changed kind as one navigated — because one note out of a
+ * subtree had once been left as a tree map — would be an instrument that cannot be relied on. The
+ * maps that are a note's own thing are told by that note instead, through its `mapType` label.
+ */
+export const NOTE_MAP_TYPE_OPTION = "rightPaneNoteMapType";
+
 /** Whether the map is rooted at the note being read, rather than at a configured or hoisted note. */
 export function isRootedAtCurrentNote(widgetMode: NoteMapWidgetMode) {
     return widgetMode === "ribbon" || widgetMode === "sidebar";

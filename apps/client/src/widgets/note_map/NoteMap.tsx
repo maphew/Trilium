@@ -11,14 +11,14 @@ import hoisted_note from "../../services/hoisted_note";
 import { t } from "../../services/i18n";
 import ActionButton from "../react/ActionButton";
 import Button from "../react/Button";
-import { useColorScheme, useElementSize, useNoteLabel } from "../react/hooks";
+import { useColorScheme, useElementSize, useNoteLabel, useTriliumOption } from "../react/hooks";
 import NoItems from "../react/NoItems";
 import Slider from "../react/Slider";
 import { loadNotesAndRelations, NoteMapLinkObject, NoteMapNodeObject, NotesAndRelationsData } from "./data";
 import { loadIconFont, resolveIconGlyphs } from "./icons";
 import MapTypeSwitcher from "./MapTypeSwitcher";
 import { CssData, setupRendering } from "./rendering";
-import { isRootedAtCurrentNote, NoteMapWidgetMode, rgb2hex, toMapType } from "./utils";
+import { isRootedAtCurrentNote, MapType, NOTE_MAP_TYPE_OPTION, NoteMapWidgetMode, rgb2hex, toMapType } from "./utils";
 
 /** Maximum number of notes to render in the note map before showing a warning. */
 const MAX_NOTES_THRESHOLD = 1_000;
@@ -32,9 +32,8 @@ interface NoteMapProps {
 export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
     const containerRef = useRef<HTMLDivElement>(null);
     const styleResolverRef = useRef<HTMLDivElement>(null);
-    const [ mapTypeRaw, setMapType ] = useNoteLabel(note, "mapType");
+    const [ mapType, setMapType ] = useMapType(note, widgetMode);
     const [ mapRootIdLabel ] = useNoteLabel(note, "mapRootNoteId");
-    const mapType = toMapType(mapTypeRaw);
 
     const graphRef = useRef<ForceGraph<NoteMapNodeObject, NoteMapLinkObject>>();
     // Everything the map is drawn in is settled when it is built — the colour of a note of each type,
@@ -234,6 +233,23 @@ export default function NoteMap({ note, widgetMode, parentRef }: NoteMapProps) {
             <div ref={containerRef} className="note-map-container" />
         </div>
     );
+}
+
+/**
+ * Which of the two maps to draw, and how to ask for the other one.
+ *
+ * The connections tab's map is a lens on whatever note is being read, so which map it draws is the
+ * reader's own preference and is kept as an option (see {@link NOTE_MAP_TYPE_OPTION}). Everywhere
+ * else the map is a note's own thing — a note map note, a hoisted map, the ribbon's tab — and the
+ * note it belongs to says which to draw through its `mapType` label.
+ */
+function useMapType(note: FNote, widgetMode: NoteMapWidgetMode): [ MapType, (mapType: MapType) => void ] {
+    const [ label, setLabel ] = useNoteLabel(note, "mapType");
+    const [ option, setOption ] = useTriliumOption(NOTE_MAP_TYPE_OPTION);
+
+    return widgetMode === "sidebar"
+        ? [ toMapType(option), (mapType) => void setOption(mapType) ]
+        : [ toMapType(label), setLabel ];
 }
 
 /**
