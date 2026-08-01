@@ -20,6 +20,7 @@ import server from "../../services/server";
 import toast from "../../services/toast";
 import utils from "../../services/utils";
 import ws from "../../services/ws";
+import ActionButton from "../react/ActionButton";
 import Admonition from "../react/Admonition";
 import Button from "../react/Button";
 import Dropdown from "../react/Dropdown";
@@ -35,6 +36,7 @@ import { ParentComponent, refToJQuerySelector } from "../react/react_utils";
 import SiblingNavigator from "../react/SiblingNavigator";
 import { TextPreview } from "./File";
 import MediaPreview from "./file/MediaPreview";
+import { showImageCompressionDialog } from "./options/content_manager/space_usage/image_compression_dialog";
 import { TypeWidgetProps } from "./type_widget";
 
 /**
@@ -92,6 +94,12 @@ function AttachmentListHeader({ noteId }: { noteId: string }) {
                     icon="bx bx-folder-open"
                     text={t("attachment_list.upload_attachments")}
                     onClick={() => parentComponent?.triggerCommand("showUploadAttachmentsDialog", { noteId })}
+                />
+                &nbsp;
+                <ActionButton
+                    icon="bx bx-collapse-alt"
+                    text={t("compress-images")}
+                    onClick={() => void showImageCompressionDialog({ type: "note", noteId })}
                 />
                 &nbsp;
                 <HelpButton
@@ -390,6 +398,16 @@ function AttachmentActions({ attachment, copyAttachmentReferenceToClipboard, onS
                 >{t("attachments_actions.delete_attachment")}</FormListItem>
                 <FormDropdownDivider />
 
+                {attachment.role === "image" && (
+                    <FormListItem
+                        icon="bx bx-collapse-alt"
+                        onClick={() => void showImageCompressionDialog({
+                            type: "attachment",
+                            attachmentId: attachment.attachmentId,
+                            mime: attachment.mime
+                        })}
+                    >{t("compress-image")}</FormListItem>
+                )}
                 <FormListItem
                     icon="bx bx-note"
                     onClick={async () => {
