@@ -1631,7 +1631,6 @@
     "options": "選項",
     "title_with_count_one": "{{count}} 處高亮",
     "title_with_count_other": "{{count}} 處高亮",
-    "modal_title": "設定高亮列表",
     "menu_configure": "設定高亮列表…",
     "no_highlights": "未找到高亮內容。"
   },

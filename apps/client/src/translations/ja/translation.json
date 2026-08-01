@@ -1495,7 +1495,6 @@
     "title": "ハイライトリスト",
     "options": "オプション",
     "title_with_count_other": "{{count}} ハイライト",
-    "modal_title": "ハイライトリストの設定",
     "menu_configure": "ハイライトリストの設定...",
     "no_highlights": "ハイライトが見つかりません。"
   },

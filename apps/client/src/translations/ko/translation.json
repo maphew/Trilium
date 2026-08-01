@@ -2425,7 +2425,6 @@
     "title": "하이라이트 목록",
     "title_with_count_other": "하이라이트 {{count}}개",
     "options": "옵션",
-    "modal_title": "하이라이트 목록 구성",
     "menu_configure": "하이라이트 리스트 설정하기...",
     "no_highlights": "하이라이트는 찾지 못했습니다."
   },

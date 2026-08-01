@@ -1944,7 +1944,6 @@
     "title_with_count_one": "{{count}} punto destacado",
     "title_with_count_many": "{{count}} puntos destacados",
     "title_with_count_other": "{{count}} puntos destacados",
-    "modal_title": "Configurar la lista de puntos destacados",
     "menu_configure": "Configurar la lista de puntos destacados...",
     "no_highlights": "Ningún punto destacado encontrado."
   },
