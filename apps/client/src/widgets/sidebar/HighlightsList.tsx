@@ -64,7 +64,6 @@ function AbstractHighlightsList<T extends RawHighlight>({ highlights, scrollToHi
                 <SidebarHelp section="highlights" />
                 <HighlightsListMenu currentValue={highlightsList} onChange={setHighlightsList} />
             </>}
-            grow
         >
             <span className="highlights-list">
                 {filteredHighlights.length > 0 ? (
