@@ -20,6 +20,7 @@ import { NotFoundError, ValidationError } from "../errors.js";
 import { getImageProvider, type ImageCompressionRequest } from "./image_provider.js";
 import { getLog } from "./log.js";
 import optionService from "./options.js";
+import { runWithinBudget } from "./parallel_budget.js";
 import { getSql } from "./sql/index.js";
 import { wrapStringOrBuffer } from "./utils/binary.js";
 
@@ -369,26 +370,91 @@ function resolveAttachmentSkip(attachment: BAttachment): ImageCompressionSkipRea
     return undefined;
 }
 
+/**
+ * Visits every image, in two passes.
+ *
+ * The first settles what it can from headers alone, which over a tree is most of the images there
+ * are, and costs a small query each. What survives it has to be read and decoded, which is the
+ * expensive part and the only part worth scheduling — so the second pass hands those to the budget,
+ * each with what its decode is expected to want.
+ *
+ * The passes are not an optimization of each other: the first exists because deciding should not
+ * cost what doing costs, the second because doing should not be allowed to cost everything at once.
+ */
 async function compressTargets(targets: CompressionTarget[], request: ImageCompressionRequest): Promise<ImageCompressionResponse> {
-    const items: ImageCompressionItem[] = [];
+    const concurrency = getImageProvider().compressionConcurrency();
 
-    for (const target of targets) {
-        items.push(await compressTarget(target, request));
+    logRunStart(targets.length, concurrency);
+
+    const items = new Array<ImageCompressionItem>(targets.length);
+    const worthReading: { at: number; target: CompressionTarget; cost: number | null }[] = [];
+
+    for (const [ at, target ] of targets.entries()) {
+        const foreseen = await foreseeTarget(target, request);
+
+        if (foreseen.item) {
+            items[at] = foreseen.item;
+        } else {
+            worthReading.push({ at, target, cost: foreseen.cost });
+        }
     }
+
+    const compressed = await runWithinBudget(
+        worthReading.map(({ target, cost }) => ({ cost, run: () => compressTarget(target, request) })),
+        { totalBytes: COMPRESSION_BUDGET_BYTES, maxConcurrent: concurrency }
+    );
+
+    // Back into the order they were visited in, which is the order they are reported in — the
+    // schedule above is free to have run them in any other.
+    worthReading.forEach(({ at }, index) => {
+        items[at] = compressed[index];
+    });
 
     return summarize(items);
 }
 
-async function compressTarget(target: CompressionTarget, request: ImageCompressionRequest): Promise<ImageCompressionItem> {
-    const skipped = (originalSize: number, skipReason: ImageCompressionSkipReason): ImageCompressionItem => ({
-        entityType: target.entityType,
-        entityId: target.entityId,
-        title: target.title,
-        mime: target.mime,
-        originalSize,
-        newSize: originalSize,
-        compressed: false,
-        skipReason
+/**
+ * The most all decodes running at once may be holding between them.
+ *
+ * Conservative on purpose: this is a maintenance job running behind whatever the user is actually
+ * doing, and a gigabyte is enough for one photograph of any size beside a good many screenshots.
+ */
+const COMPRESSION_BUDGET_BYTES = 1024 * 1024 * 1024;
+
+/**
+ * Announces a run before it begins, since it is otherwise silent until it ends: a subtree of
+ * thousands is minutes of work whose only trace, until now, was the images it changed.
+ *
+ * Says what it is actually running on rather than a figure that reads as one — a single slot is
+ * this thread doing the decoding, not a worker sitting somewhere. Nothing is announced for a note
+ * holding no images at all; there is no operation to have started.
+ */
+function logRunStart(imageCount: number, concurrency: number) {
+    if (imageCount === 0) {
+        return;
+    }
+
+    const images = `${imageCount} image${imageCount === 1 ? "" : "s"}`;
+    const how = concurrency > 1 ? `using ${concurrency} workers` : "on this thread";
+
+    getLog().info(`Image Compression Tool: started operation over ${images} ${how}.`);
+}
+
+/**
+ * What is already known about a target before reading it: the finished item where its fate was
+ * settled from the header, otherwise what its decode is expected to want.
+ *
+ * Nothing here is allowed to fail the run. A header that cannot be read, or a provider that cannot
+ * answer for one, leaves the image to be read in full at an unknown cost — the slow path, which is
+ * exactly what this pass is an optimization of, so falling back to it is always safe.
+ */
+async function foreseeTarget(target: CompressionTarget, request: ImageCompressionRequest): Promise<{
+    item?: ImageCompressionItem;
+    cost: number | null;
+}> {
+    const skipped = (originalSize: number, skipReason: ImageCompressionSkipReason) => ({
+        item: skippedItem(target, originalSize, skipReason),
+        cost: null
     });
 
     // Protected content cannot even be read without a session, so it is the one skip decided
@@ -397,27 +463,43 @@ async function compressTarget(target: CompressionTarget, request: ImageCompressi
         return skipped(0, "protected");
     }
 
-    // One image failing is reported as that image's own skip and nothing more: the images after it
-    // in the same run are still worth compressing.
-    let content: Uint8Array | undefined;
-
     try {
-        // The front of the image and what it weighs, without the body of it. Most images a run
-        // visits are settled from this alone, and never read any further.
+        // The front of the image and what it weighs, without the body of it.
         const peeked = target.peek();
 
         if (target.skip) {
             return skipped(peeked?.size ?? target.getContent().byteLength, target.skip);
         }
 
-        if (peeked) {
-            const foreseen = await getImageProvider().planCompression(peeked.header, request);
-
-            if (foreseen) {
-                return skipped(peeked.size, foreseen);
-            }
+        if (!peeked) {
+            return { cost: null };
         }
 
+        const plan = await getImageProvider().planCompression(peeked.header, request);
+
+        return plan.skip ? skipped(peeked.size, plan.skip) : { cost: plan.decodeCost };
+    } catch (e: unknown) {
+        logFailure(target, e);
+
+        // Not reported as a failure: nothing was attempted yet, and the read below may well succeed
+        // where the glance at its header did not.
+        return { cost: null };
+    }
+}
+
+/**
+ * Reads one image in full and compresses it. Reached only for images {@link foreseeTarget} could
+ * not settle from the header, so the reading and the decoding are both known to be worth doing.
+ */
+async function compressTarget(target: CompressionTarget, request: ImageCompressionRequest): Promise<ImageCompressionItem> {
+    const skipped = (originalSize: number, skipReason: ImageCompressionSkipReason) =>
+        skippedItem(target, originalSize, skipReason);
+
+    // One image failing is reported as that image's own skip and nothing more: the images after it
+    // in the same run are still worth compressing.
+    let content: Uint8Array | undefined;
+
+    try {
         content = target.getContent();
         // Read in the same turn as the content itself, so it names exactly the bytes just read.
         const sourceBlobId = target.blobId();
@@ -460,6 +542,27 @@ async function compressTarget(target: CompressionTarget, request: ImageCompressi
         logFailure(target, e);
         return skipped(content?.byteLength ?? 0, "error");
     }
+}
+
+/**
+ * An image the run visited and left as it was. Weighed the same on both sides, so a skipped image
+ * contributes nothing to what the run reports as saved while still being counted as visited.
+ */
+function skippedItem(
+    target: CompressionTarget,
+    originalSize: number,
+    skipReason: ImageCompressionSkipReason
+): ImageCompressionItem {
+    return {
+        entityType: target.entityType,
+        entityId: target.entityId,
+        title: target.title,
+        mime: target.mime,
+        originalSize,
+        newSize: originalSize,
+        compressed: false,
+        skipReason
+    };
 }
 
 function logFailure(target: CompressionTarget, e: unknown) {

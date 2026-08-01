@@ -68,6 +68,15 @@ export interface ImageProvider {
     compressImage(buffer: Uint8Array, request: ImageCompressionRequest): Promise<ImageCompressionOutcome>;
 
     /**
+     * How many images this platform can usefully compress at once.
+     *
+     * One means "on the calling thread", which is not a limitation to work around: decoding is
+     * synchronous, so without somewhere else to run it, more at once is the same work interleaved
+     * and more memory held while it happens.
+     */
+    compressionConcurrency(): number;
+
+    /**
      * Why an image with this header would be left alone, decided without the rest of it.
      *
      * The point is to answer for images a run will not touch without paying to read them: an
@@ -83,7 +92,26 @@ export interface ImageProvider {
      * @param header - The opening bytes of the image; may be the whole of it.
      * @param request - Fully resolved compression parameters
      */
-    planCompression(header: Uint8Array, request: ImageCompressionRequest): Promise<ImageCompressionSkipReason | null>;
+    planCompression(header: Uint8Array, request: ImageCompressionRequest): Promise<ImageCompressionPlan>;
+}
+
+/** What a provider makes of an image from its header alone. */
+export interface ImageCompressionPlan {
+    /** Set when the image is to be left alone, and why; absent when it has to be read in full. */
+    skip?: ImageCompressionSkipReason;
+    /**
+     * What decoding this is expected to want at its peak, in bytes, so a caller can decide how many
+     * such decodes to have running at once. `null` where the header would not say — an unknown cost
+     * is treated as the largest there is, rather than as a small one.
+     *
+     * A working figure for scheduling, not a limit to hold a decode to: it is what an ordinary image
+     * of this size wants, and an unusually encoded one wants half as much again. What stops a decode
+     * running away is the implementation's own ceiling, which does not move with this.
+     *
+     * Platform knowledge: what a decoder allocates is a fact about that decoder, which is why this
+     * is answered here rather than estimated by the caller.
+     */
+    decodeCost: number | null;
 }
 
 let imageProvider: ImageProvider | null = null;

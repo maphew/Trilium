@@ -430,6 +430,33 @@ describe("compression parameters", () => {
         expect(readAttachment(attachmentId).size).toBeLessThan(padded.byteLength);
     });
 
+    it("falls back to reading an image in full when it cannot be judged from its header", async () => {
+        const { noteId } = await createTextNote(api);
+        const attachmentId = await addAttachment(noteId, "photo.png", noisyPng);
+        const real = getImageProvider();
+
+        // The header pass is an optimization of the read, never a precondition for it — so when it
+        // cannot answer, the run must go the long way round rather than report a failure.
+        initImageProvider({
+            getImageType: (buffer) => real.getImageType(buffer),
+            processImage: (buffer, name, shrink) => real.processImage(buffer, name, shrink),
+            compressImage: (buffer, compressionRequest) => real.compressImage(buffer, compressionRequest),
+            compressionConcurrency: () => real.compressionConcurrency(),
+            planCompression: () => Promise.reject(new Error("planner unavailable"))
+        });
+
+        try {
+            const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
+                body: { pngHandling: "jpeg" }
+            });
+
+            expect(res.body.items[0]).toMatchObject({ entityId: attachmentId, compressed: true });
+            expect(readAttachment(attachmentId).mime).toBe("image/jpeg");
+        } finally {
+            initImageProvider(real);
+        }
+    });
+
     it("refuses an image too large to decode rather than failing part-way through one", async () => {
         const { noteId } = await createTextNote(api);
         // 400 megapixels by its own header — well past what one decode is allowed. The bytes behind
@@ -688,6 +715,7 @@ async function whileCompressing<T>(interfere: () => void, request: () => Promise
         getImageType: (buffer) => real.getImageType(buffer),
         processImage: (buffer, originalName, shrink) => real.processImage(buffer, originalName, shrink),
         planCompression: (header, compressionRequest) => real.planCompression(header, compressionRequest),
+        compressionConcurrency: () => real.compressionConcurrency(),
         compressImage: (buffer, compressionRequest) => {
             interfere();
             return real.compressImage(buffer, compressionRequest);
