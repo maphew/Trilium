@@ -35,7 +35,12 @@ async function paint(width: number, height: number, mime: "image/png" | "image/j
         }
     }
 
-    return new Uint8Array(await image.getBuffer(mime, { quality: 60 }));
+    // Each format is asked for by name rather than through the parameter: the encoder derives its
+    // options from the mime, so a union of the two resolves to no options at all — and quality is a
+    // JPEG setting, which a PNG has no use for.
+    return new Uint8Array(mime === "image/jpeg"
+        ? await image.getBuffer("image/jpeg", { quality: 60 })
+        : await image.getBuffer("image/png"));
 }
 
 const noteInfo = (noteId: string) => api.get<ImageInfoResponse>(`/api/notes/${noteId}/image-info`);
