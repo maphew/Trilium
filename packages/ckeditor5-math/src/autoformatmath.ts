@@ -24,6 +24,7 @@ export default class AutoformatMath extends Plugin {
 		const editor = this.editor;
 		const command = editor.commands.get( 'math' );
 
+		/* v8 ignore next -- defensive: MathEditing always registers a MathCommand under this name */
 		if ( command instanceof MathCommand ) {
 			const callback = () => {
 				if ( !command.isEnabled ) {
@@ -36,6 +37,7 @@ export default class AutoformatMath extends Plugin {
 				window.setTimeout(
 					() => {
 						const mathUIInstance = editor.plugins.get( 'MathUI' );
+						/* v8 ignore next -- defensive: the Math glue plugin always loads MathUI */
 						if ( mathUIInstance instanceof MathUI ) {
 							mathUIInstance._showUI();
 						}

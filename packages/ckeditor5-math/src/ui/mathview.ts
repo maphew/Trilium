@@ -83,6 +83,7 @@ export default class MathView extends View {
 		).catch( error => {
 			console.error( 'Math rendering failed:', error );
 
+			/* v8 ignore next -- defensive: updateMath() returns early when there is no element */
 			if ( this.element ) {
 				this.element.textContent = 'Error rendering equation';
 				this.element.classList.add( 'ck-math-render-error' );

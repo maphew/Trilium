@@ -129,6 +129,7 @@ export async function renderEquation(
 			previewUid,
 			previewClassName,
 			el => {
+				/* v8 ignore next -- defensive: this arm is already gated on window.katex being defined */
 				if ( katex ) {
 					katex.render( equation, el, {
 						throwOnError: false,
@@ -252,6 +253,7 @@ function selectRenderMode(
 
 function renderMathJax3( equation: string, element: HTMLElement, display: boolean, cb: () => void ) {
 	let promiseFunction: undefined | ( ( input: string, options: { display: boolean } ) => Promise<HTMLElement> ) = undefined;
+	/* v8 ignore next 3 -- defensive: only called from the branch that already checked for MathJax 3 */
 	if ( !isMathJaxVersion3( MathJax ) ) {
 		return;
 	}

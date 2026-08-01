@@ -88,6 +88,7 @@ export default class MathInputView extends View {
 
 		// Sync changes from the LaTeX textarea to the mathfield and model
 		this.listenTo( textarea, 'input', () => {
+			/* v8 ignore next 3 -- re-entrancy latch: set only while the partner handler writes */
 			if ( this._updating ) {
 				return;
 			}
@@ -162,6 +163,7 @@ export default class MathInputView extends View {
 			}
 			if ( !MathInputView._configured ) {
 				const MathfieldClass = customElements.get( 'math-field' ) as any;
+				/* v8 ignore next -- defensive: whenDefined() resolved, so the element is registered */
 				if ( MathfieldClass ) {
 					MathfieldClass.soundsDirectory = null;
 					MathfieldClass.plonkSound = null;
@@ -171,6 +173,7 @@ export default class MathInputView extends View {
 			if ( this.element && !this._destroyed ) {
 				this._initMathField( true );
 			}
+		/* v8 ignore next 6 -- defensive: only reached if the bundled MathLive import itself fails */
 		} catch {
 			const c = this.element?.querySelector( '.ck-mathlive-container' );
 			if ( c ) {
@@ -182,6 +185,7 @@ export default class MathInputView extends View {
 	// Initializes the <math-field> element
 	private _initMathField( shouldFocus: boolean ): void {
 		const container = this.element?.querySelector( '.ck-mathlive-container' );
+		/* v8 ignore next 3 -- defensive: the container is part of this view's own template */
 		if ( !container ) {
 			return;
 		}
@@ -215,6 +219,7 @@ export default class MathInputView extends View {
 			}
 		}, { capture: true } );
 		mf.addEventListener( 'input', () => {
+			/* v8 ignore next 3 -- re-entrancy latch: set only while the partner handler writes */
 			if ( this._updating ) {
 				return;
 			}
@@ -236,6 +241,7 @@ export default class MathInputView extends View {
 
 	// Updates the mathfield value without triggering loops
 	private _setMathfieldValue( value: string ): void {
+		/* v8 ignore next 3 -- defensive: every caller checks for the math field first */
 		if ( !this.mathfield ) {
 			return;
 		}

@@ -63,6 +63,7 @@ export default class MathUI extends Plugin {
 	private _createFormView() {
 		const editor = this.editor;
 		const mathCommand = editor.commands.get( 'math' );
+		/* v8 ignore next 7 -- defensive: MathEditing, which MathUI requires, always registers this command */
 		if ( !( mathCommand instanceof MathCommand ) ) {
 			/**
 			 * Missing Math command
@@ -138,6 +139,7 @@ export default class MathUI extends Plugin {
 
 		const editor = this.editor;
 		const mathCommand = editor.commands.get( 'math' );
+		/* v8 ignore next 7 -- defensive: MathEditing always registers this command */
 		if ( !( mathCommand instanceof MathCommand ) ) {
 			/**
 			* Math command not found
@@ -146,6 +148,7 @@ export default class MathUI extends Plugin {
 			throw new CKEditorError( 'plugin-load', { pluginName: 'math' } );
 		}
 
+		/* v8 ignore next 3 -- defensive: the form view is built in init() before any show */
 		if ( this.formView == null ) {
 			return;
 		}
@@ -217,6 +220,7 @@ export default class MathUI extends Plugin {
 	private _createToolbarMathButton() {
 		const editor = this.editor;
 		const mathCommand = editor.commands.get( 'math' );
+		/* v8 ignore next 7 -- defensive: MathEditing always registers this command */
 		if ( !mathCommand ) {
 			/**
 			* Math command not found
@@ -279,9 +283,11 @@ export default class MathUI extends Plugin {
 			clickOutsideHandler( {
 				emitter: this.formView,
 				activator: () => !!this._isFormInPanel,
+				/* v8 ignore next -- defensive: the balloon view is rendered by the time init() runs */
 				contextElements: this._balloon.view.element ? [ this._balloon.view.element ] : [],
 				callback: () => { this._hideUI(); }
 			} );
+		/* v8 ignore next 3 -- defensive: init() builds the form view before wiring interactions */
 		} else {
 			throw new Error( 'missing form view' );
 		}

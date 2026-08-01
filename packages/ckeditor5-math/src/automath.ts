@@ -29,6 +29,7 @@ export default class AutoMath extends Plugin {
 		// Listening on Clipboard silently never fires, which left this whole feature dead.
 		this.listenTo( editor.plugins.get( ClipboardPipeline ), 'inputTransformation', () => {
 			const firstRange = modelDocument.selection.getFirstRange();
+			/* v8 ignore next 3 -- defensive: the document selection always has at least one range */
 			if ( !firstRange ) {
 				return;
 			}
@@ -111,6 +112,7 @@ export default class AutoMath extends Plugin {
 				let insertPosition: ModelLivePosition | null;
 
 				// Check if position where the math element should be inserted is still valid.
+				/* v8 ignore next -- defensive: reachable only if the document is rewritten under the 100ms timer */
 				if ( this._positionToInsert?.root.rootName !== '$graveyard' ) {
 					insertPosition = this._positionToInsert;
 				}
