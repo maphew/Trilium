@@ -1747,7 +1747,6 @@
   "highlights_list_2": {
     "title": "Lista wyróżnień",
     "options": "Opcje",
-    "modal_title": "Konfiguracja listy wyróżnień",
     "menu_configure": "Konfiguracja listy wyróżnień...",
     "no_highlights": "Nie znaleziono wyróżnień.",
     "title_with_count_one": "{{count}} wyróżnienie",

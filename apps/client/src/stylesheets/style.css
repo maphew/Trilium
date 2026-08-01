@@ -768,7 +768,17 @@ table.promoted-attributes-in-tooltip th {
 
 .tooltip {
     font-size: var(--main-font-size) !important;
-    z-index: calc(var(--ck-z-panel) - 1) !important;
+    /* Just under CKEditor's panels (balloons, dropdowns), so a tooltip on an editor button doesn't
+       cover the panel that button opens.
+
+       The fallback is not decoration: `--ck-z-panel` is declared by CKEditor's own stylesheet, which
+       only enters the document with the lazily loaded editor bundle. Until something pulls it in
+       (a text note, the attribute editor), the variable is undefined, `calc()` is invalid at
+       computed-value time and the whole declaration — `!important` and all — resolves to the initial
+       `z-index: auto`. Tooltips then paint below every positioned layer with a z-index of its own,
+       the peeked right pane among them (they show up blurred through its backdrop-filter). The
+       fallback matches what CKEditor declares, so the value doesn't shift once the bundle loads. */
+    z-index: calc(var(--ck-z-panel, 1000) - 1) !important;
 }
 
 .tooltip.tooltip-top {

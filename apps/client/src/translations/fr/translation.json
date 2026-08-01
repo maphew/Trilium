@@ -1652,7 +1652,6 @@
     "title_with_count_one": "{{count}} mise en évidence",
     "title_with_count_many": "{{count}} mises en évidence",
     "title_with_count_other": "{{count}} mises en évidence",
-    "modal_title": "Configurer les Mises en évidence",
     "menu_configure": "Configuration des mises en évidence...",
     "no_highlights": "Aucune mise en évidence."
   },

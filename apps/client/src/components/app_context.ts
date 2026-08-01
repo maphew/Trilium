@@ -150,6 +150,8 @@ export type CommandMappings = {
     openInWindow: NoteCommandData;
     /** Opens a note in the quick-edit popup. A `viewScope` carrying an `attachmentId` opens that attachment instead of the note itself. */
     openInPopup: CommandData & { noteIdOrPath: string; viewScope?: ViewScope; };
+    /** Dismisses the quick-edit popup, for something within it that has sent the reader elsewhere. Does nothing if it isn't open. */
+    closePopupEditor: CommandData;
     openInTreePopup: CommandData & { noteIdOrPath: string; hoistedNoteId: string; };
     openNoteInNewTab: CommandData;
     openNoteInNewSplit: CommandData;
@@ -359,7 +361,19 @@ export type CommandMappings = {
     toggleRightPane: CommandData;
     peekRightPane: CommandData;
     /** Shows the given tab of the right pane, opening the pane if it is closed. */
-    selectRightPaneTab: CommandData & { tabId: RightPaneTabId };
+    selectRightPaneTab: CommandData & {
+        tabId: RightPaneTabId;
+        /**
+         * Peek the pane rather than dock it when it is closed, for an entry point that is only a glance
+         * at the tab and shouldn't reflow the content around it. An already docked pane stays docked.
+         */
+        peek?: boolean;
+        /**
+         * The id of a widget of that tab (see `RightPanelWidget`) to expand, so that an entry point
+         * aimed at one widget doesn't land on it collapsed.
+         */
+        expandWidgetId?: string;
+    };
     printActiveNote: CommandData;
     exportAsPdf: CommandData;
     showPrintPreview: PrintPreviewData;

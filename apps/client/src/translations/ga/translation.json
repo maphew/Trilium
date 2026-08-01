@@ -1825,7 +1825,6 @@
     "title_with_count_many": "{{count}} buaicphointí",
     "title_with_count_other": "{{count}} buaicphointí",
     "options": "Roghanna",
-    "modal_title": "Cumraigh Liosta Buaicphointí",
     "menu_configure": "Cumraigh liosta buaicphointí...",
     "no_highlights": "Níor aimsíodh aon bhuaicphointí."
   },
