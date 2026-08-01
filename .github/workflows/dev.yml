@@ -147,7 +147,18 @@ jobs:
           "$CHROMEDRIVER_PATH" --version || echo "could not read the chromedriver version"
           (google-chrome --version || chromium --version || chromium-browser --version) 2>/dev/null \
             || echo "could not read the Chrome version"
-          pnpm run --filter=ckeditor5 test --coverage
+          # Browser mode keeps one page for the whole run, and v8 coverage data accumulates in it:
+          # measured locally, the heap reaches ~850MB by the 100th spec file with --coverage against
+          # ~240MB without it. That is where a CI runner's renderer gives out — the session either
+          # drops mid-run or stops responding. Run the suite in two shards (~60 files each, peaking
+          # around 500MB) and merge the blob reports afterwards, so the 100% gate is still evaluated
+          # over the whole suite rather than per shard.
+          SHARD_ARGS="--reporter=blob --coverage \
+            --coverage.thresholds.lines=0 --coverage.thresholds.functions=0 \
+            --coverage.thresholds.branches=0 --coverage.thresholds.statements=0"
+          pnpm run --filter=ckeditor5 test --shard=1/2 $SHARD_ARGS
+          pnpm run --filter=ckeditor5 test --shard=2/2 $SHARD_ARGS
+          pnpm run --filter=ckeditor5 test --mergeReports --coverage
 
       - name: Upload ckeditor5 coverage to Codecov
         uses: codecov/codecov-action@v7
