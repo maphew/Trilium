@@ -1266,8 +1266,7 @@
     "hide_child_notes": "트리에서 하위 노트 숨기기",
     "open_all_in_tabs": "모두 열기",
     "open_all_in_tabs_tooltip": "새 탭에서 모든 결과를 열기",
-    "open_all_confirm_other": "노트 {{count}}개를 새 탭에서 엽니다. 계속하시겠습니까?",
-    "open_all_too_many": "한 번에 열기에는 노트가 너무 많습니다({{count}}개). 최대 {{max}}개까지 가능하니 결과를 먼저 좁혀 보세요."
+    "open_all_confirm_other": "노트 {{count}}개를 새 탭에서 엽니다. 계속하시겠습니까?"
   },
   "edited_notes": {
     "no_edited_notes_found": "아직 이날 편집한 노트가 없습니다...",
