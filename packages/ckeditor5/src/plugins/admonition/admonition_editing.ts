@@ -1,7 +1,14 @@
 /**
- * @license Copyright (c) 2003-2024, CKSource Holding sp. z o.o. All rights reserved.
- * For licensing, see the `README.md` next to this file or
- * https://ckeditor.com/legal/ckeditor-oss-license
+ * Derived from `BlockQuoteEditing` in `@ckeditor/ckeditor5-block-quote`.
+ * Copyright (c) 2003-2026, CKSource Holding sp. z o.o. All rights reserved.
+ * Used under the GPL-2.0-or-later arm of CKEditor 5's dual license; see
+ * https://ckeditor.com/legal/ckeditor-licensing-options.
+ *
+ * Modified by the Trilium Notes contributors: the schema registers `<aside>` with an
+ * `admonitionType` attribute, and the plain `elementToElement` conversion is replaced by an upcast
+ * that reads the type from the element's class list and a downcast that writes
+ * `class="admonition <type>"`. Upstream's post-fixer and Enter/Backspace break-out handlers are
+ * kept, minus one branch that is unreachable here (see the comment on the post-fixer).
  */
 
 import { Delete, Enter, Plugin, ViewDocumentDeleteEvent, ViewDocumentEnterEvent } from "ckeditor5";

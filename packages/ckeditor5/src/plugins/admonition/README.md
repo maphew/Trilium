@@ -17,10 +17,29 @@ The feature is split the usual CKEditor way:
 
 ## Provenance
 
-Adapted from CKEditor 5's **block-quote** feature (`@ckeditor/ckeditor5-block-quote`), copyright
-CKSource Holding sp. z o.o., which Trilium forked to build admonitions on: the command, editing
-plugin and UI plugin still carry the CKSource license header, and the command's internals still
-speak in terms of "quotes". The autoformat, toolbar and type-dropdown parts are Trilium's own.
+The feature began as a copy of CKEditor 5's **block-quote** plugin
+(`@ckeditor/ckeditor5-block-quote`, copyright CKSource Holding sp. z o.o.) and was then tailored to
+admonitions — a different model element, a type attribute, its own styling and a different toolbar.
+How much of upstream survives varies a lot per file, so the headers say so individually rather than
+blanket-stamping the folder:
+
+| File | Relationship to `ckeditor5-block-quote` |
+|---|---|
+| `admonition_command.ts` | **Substantially derived.** The block grouping/splitting/merging logic is upstream's; the type attribute, `forceValue`/`usePreviousChoice` handling and retyping are ours |
+| `admonition_editing.ts` | **Substantially derived.** The post-fixer and Enter/Backspace break-out are upstream's; the schema, class-list upcast and downcast are ours |
+| `admonition.ts` | Same glue-plugin shape as upstream's `BlockQuote`, plus our autoformat |
+| `admonition_ui.ts` | **Ours.** Upstream has one toggle button; this is a split button with a type dropdown. Only the bind-and-focus idiom is shared |
+| `admonition_autoformat.ts` | **Ours.** No upstream counterpart |
+| `admonition_toolbar.ts`, `admonition_type_dropdown.ts` | **Ours.** No upstream counterpart |
+
+CKEditor 5 is dual-licensed; the derived files are used under its
+[GPL-2.0-or-later arm](https://ckeditor.com/legal/ckeditor-licensing-options), which combines with
+this repository's AGPL-3.0-only license. GPL-2.0 §2(a) requires derived files to carry notice that
+they were changed, which is what the headers on the two derived files do.
+
+Separately, [aarkue/ckeditor5-admonition](https://github.com/aarkue/ckeditor5-admonition) was an
+inspiration for the feature, the toolbar icon included — as recorded on the *Technologies used* page
+of the User Guide.
 
 It lived at `packages/ckeditor5-admonition` until it was folded into this package — it had no
 consumers outside `@triliumnext/ckeditor5`, was never published, and shipped a

@@ -1,7 +1,14 @@
 /**
- * @license Copyright (c) 2003-2024, CKSource Holding sp. z o.o. All rights reserved.
- * For licensing, see the `README.md` next to this file or
- * https://ckeditor.com/legal/ckeditor-oss-license
+ * Derived from `BlockQuoteCommand` in `@ckeditor/ckeditor5-block-quote`.
+ * Copyright (c) 2003-2026, CKSource Holding sp. z o.o. All rights reserved.
+ * Used under the GPL-2.0-or-later arm of CKEditor 5's dual license; see
+ * https://ckeditor.com/legal/ckeditor-licensing-options.
+ *
+ * Modified by the Trilium Notes contributors: the model element is `<aside>` rather than
+ * `<blockQuote>` and carries an `admonitionType` attribute, so `value` reports the admonition's
+ * type instead of a boolean, `execute()` takes `forceValue`/`usePreviousChoice` options resolved
+ * by `_getType()`, and `_applyQuote()` retypes an admonition the selection already sits in. The
+ * block grouping, splitting and merging logic is upstream's.
  */
 
 import { Command, first } from "ckeditor5";

@@ -1,7 +1,11 @@
 /**
- * @license Copyright (c) 2003-2024, CKSource Holding sp. z o.o. All rights reserved.
- * For licensing, see the `README.md` next to this file or
- * https://ckeditor.com/legal/ckeditor-oss-license
+ * Written for Trilium Notes, and not a derivative of `BlockQuoteUI` beyond the handful of lines
+ * every CKEditor UI plugin shares: register a component in the factory, bind it to the command's
+ * `value`/`isEnabled`, and focus the editing view after executing.
+ *
+ * Upstream offers a single toggle `ButtonView` (plus a menu-bar variant); this is a `SplitButtonView`
+ * in a dropdown, where the button re-applies the previously chosen type and the list offers all five.
+ * The type definitions, titles and per-item bindings below have no upstream counterpart.
  */
 
 import { addListToDropdown, Collection, createDropdown, ListDropdownItemDefinition, Plugin, SplitButtonView, ViewModel } from "ckeditor5";

@@ -12,7 +12,8 @@ import AdmonitionUI from "./admonition_ui.js";
  * This is a "glue" plugin which loads {@link AdmonitionEditing}, {@link AdmonitionUI} and
  * {@link AdmonitionAutoformat}.
  *
- * Adapted from CKEditor 5's block-quote feature; see the `README.md` next to this file.
+ * The feature began as a copy of CKEditor 5's block-quote plugin and has since been tailored to
+ * admonitions; `README.md` next to this file records which parts still derive from it.
  */
 export default class Admonition extends Plugin {
 
