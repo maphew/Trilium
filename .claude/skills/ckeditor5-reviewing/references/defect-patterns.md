@@ -49,7 +49,8 @@ group covers the monorepo wiring/convention defects. For the idiomatic "how it s
 
 **Clipboard-pipeline handler bound to the wrong emitter (silently dead).**
 - Spot: `listenTo(editor.plugins.get(Clipboard), 'inputTransformation'|'contentInsertion', …)` — the
-  handler is attached to the `Clipboard` *umbrella* glue plugin (a real one in `ckeditor5-math/src/automath.ts:28`).
+  handler is attached to the `Clipboard` *umbrella* glue plugin (Trilium's math AutoMath plugin did
+  exactly this before it was removed).
 - Why: those events fire on **`ClipboardPipeline`**, not `Clipboard` (which only `requires` it), so the
   handler never runs — no error, no test failure (a Trilium handler sat dead ~1 year this way).
 - Fix: `listenTo(editor.plugins.get(ClipboardPipeline), 'inputTransformation', …)`.
@@ -205,8 +206,8 @@ nothing loads it, no button shows, or lint/license/localization is off.
 - Why: every plugin package has been folded into `packages/ckeditor5/src/plugins/` — none of them
   earned its scaffolding, since none had consumers outside the aggregate or was ever published.
   New plugins belong in `src/plugins/<name>/`, registered in `TRILIUM_PLUGINS` or
-  `EXTERNAL_PLUGINS`. Only `ckeditor5-math` is still separate, and only because it owns a heavy
-  exclusive dependency (`mathlive`).
+  `EXTERNAL_PLUGINS`. No CKEditor plugin package remains separate — math was the last, and its
+  heavy exclusive dependency (`mathlive`) simply moved onto the aggregate.
 - Fix: move it into `packages/ckeditor5/src/plugins/`.
 
 **Toolbar component not wired up.**

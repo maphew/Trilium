@@ -7,7 +7,7 @@ The conceptual foundation. Read this before working on editing behavior.
 > `editor.editing`, `Plugin`, the writer, schema, conversion) are the library's, imported as
 > `import { Plugin } from 'ckeditor5'` (with file extensions). Paths under
 > `packages/ckeditor5/src/plugins/` (admonition, collapsible, footnotes, keyboard_marker, mermaid,
-> …) and `packages/ckeditor5-math` are **Trilium's own** plugins that consume these APIs; the
+> …) are **Trilium's own** plugins that consume these APIs; the
 > editor build itself is `packages/ckeditor5`. Trilium examples are cited throughout — they exercise the same library
 > mechanics described below.
 

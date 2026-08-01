@@ -3,7 +3,7 @@ name: ckeditor5-testing
 description: >-
   Testing CKEditor 5 plugins in the Trilium monorepo. Use when adding or
   reviewing unit tests for the packages/ckeditor5 aggregate (including its
-  in-tree plugins under src/plugins/) or packages/ckeditor5-math, debugging a
+  in-tree plugins under src/plugins/), debugging a
   failing test, or setting up a package's test runner. Covers the WebdriverIO
   browser-mode Vitest setup, the vitest.config.ts, testing against a real ClassicEditor, the
   model/view helpers imported from 'ckeditor5' (_setModelData / _getModelData /
@@ -17,14 +17,13 @@ description: >-
 
 Testing CKEditor 5 plugins in the **Trilium (TriliumNext Notes) monorepo**. Nearly everything lives
 in one package, `packages/ckeditor5`, with **tests co-located as `*.spec.ts` next to the source** —
-including every plugin under `src/plugins/`. `packages/ckeditor5-math` is the last separate package
-and still keeps a legacy `tests/` directory. Both gate `src/**` at **100% coverage** on all four
+including every plugin under `src/plugins/`. It gates `src/**` at **100% coverage** on all four
 metrics, so every code change must ship with a test.
 
 ## Scope & sources
 
 This skill covers testing CKEditor 5 plugins in the **Trilium (TriliumNext Notes) monorepo**
-(`packages/ckeditor5` and `packages/ckeditor5-math`). The CKEditor 5 library is 48 or later.
+(`packages/ckeditor5`). The CKEditor 5 library is 48 or later.
 For general (non-CKEditor) Trilium testing, see the `writing-unit-tests` skill.
 
 **On versions:** these skills name **major versions only** ("48 or later"). Trilium tracks CKEditor
@@ -42,7 +41,7 @@ Trilium testing (Preact components, jQuery widgets, server routes), use `writing
 - **Runner:** Vitest 4 or later. **No shared factory** — each package has its own
   `vitest.config.ts` built with `defineConfig` directly.
 - **One environment: WebdriverIO browser mode** (`@vitest/browser-webdriverio`, headless Chrome),
-  used by both `ckeditor5` and `ckeditor5-math`. Real DOM and real layout, so
+  used by `ckeditor5`. Real DOM and real layout, so
   `getBoundingClientRect()`, `elementFromPoint()` and pointer events behave as in a browser. Gates
   `src/**` coverage at 100% (lines/functions/branches/statements). This is **not Playwright**.
   - Trilium used to run some plugins on **happy-dom**; that is gone. If you are porting an old
@@ -57,9 +56,7 @@ Trilium testing (Preact components, jQuery widgets, server routes), use `writing
   from the `ckeditor5` package.
 - **Test-file location:** **co-located `*.spec.ts`** next to the source, including inside plugin
   folders (`src/plugins/<name>/<name>.spec.ts`), with vitest `include: ['src/**/*.spec.ts']`.
-  `packages/ckeditor5-math` is the exception and still uses a `tests/` dir
-  (`include: ['tests/**/*.[jt]s']`, no `.spec` suffix); fold new math tests in alongside those, but
-  anything new elsewhere is co-located. `globals: true`. Coverage provider `v8`,
+  `globals: true`. Coverage provider `v8`,
   `include: src/**` (test files themselves excluded from coverage). The aggregate keeps
   `allowExternal: false` so an imported sibling package cannot bleed into its report (see
   `references/running-and-config.md`).
@@ -72,7 +69,7 @@ Trilium testing (Preact components, jQuery widgets, server routes), use `writing
 ## Running tests
 
 ```bash
-pnpm --filter @triliumnext/ckeditor5-math test     # one package (from anywhere)
+pnpm --filter @triliumnext/ckeditor5 test     # the whole suite (from anywhere)
 # or, from the package dir:
 vitest run
 ```
@@ -84,7 +81,7 @@ vitest --inspect-brk --no-file-parallelism --browser.headless=false
 ```
 
 Root orchestration: `pnpm test:parallel` runs the light packages in parallel; `pnpm
-test:sequential` runs `ckeditor5` and `ckeditor5-math` **sequentially** (browser resource
+test:sequential` runs `ckeditor5` **sequentially** (browser resource
 limits), alongside the server. `pnpm test:all` runs both. Each package exposes `"test": "vitest"` and
 `"test:debug": "vitest --inspect-brk --no-file-parallelism --browser.headless=false"`.
 

@@ -6,7 +6,7 @@ CKEditor 5 plugin tests.
 
 ## The environment: WebdriverIO browser mode
 
-Both `packages/ckeditor5` and `packages/ckeditor5-math` run tests in **real headless Chrome** via
+`packages/ckeditor5` runs its tests in **real headless Chrome** via
 `@vitest/browser-webdriverio`, so layout, `getBoundingClientRect()`, `elementFromPoint()` and
 pointer events all behave as they do in a browser. Both gate `src/**` at 100% coverage.
 
@@ -72,12 +72,11 @@ directly: `expect( _getModelData( model ) ).toEqual( '<paragraph>…</paragraph>
   from `'ckeditor5'`. In-package source imports use a file extension (`../src/foo.js`).
 - Spies/mocks via `vi` (`vi.spyOn` / `vi.fn` / `vi.useFakeTimers`).
 - Test-file location: **co-located `*.spec.ts`** in `packages/ckeditor5`, including inside plugin
-  folders (`include: ['src/**/*.spec.ts']`). `packages/ckeditor5-math` still keeps a `tests/` dir
-  (`tests/**/*.[jt]s`, no `.spec` suffix); everything else is co-located.
+  folders (`include: ['src/**/*.spec.ts']`).
 
 ## Running the browser-mode packages
 
-`ckeditor5` and `ckeditor5-math` run **sequentially** at the root (`pnpm test:sequential`) because
+`ckeditor5` runs **sequentially** at the root (`pnpm test:sequential`) because
 each spins up headless Chrome and they exhaust resources in parallel. Everything else runs via
 `pnpm test:parallel`. For a single package, use `pnpm --filter @triliumnext/ckeditor5 test` (or
 `...-math`).

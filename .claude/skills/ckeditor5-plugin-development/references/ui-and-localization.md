@@ -340,7 +340,7 @@ Each Trilium plugin keeps two files under `lang/`:
 
 **Note:** the `.po`/`contexts.json` workflow described above is effectively dormant in Trilium.
 The folded-in plugins' `lang/` directories were dropped during consolidation because nothing in the
-build or CI consumed them — only `packages/ckeditor5-math/lang/contexts.json` survives. New
+build or CI consumed them, and none survive. New
 user-facing strings reach the UI either through CKEditor's own `t()` dictionary
 (`packages/ckeditor5/src/translation_overrides.ts`) or, for Trilium-specific strings, through the
 host's `translate` config callback described below.

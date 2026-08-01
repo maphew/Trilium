@@ -205,7 +205,7 @@ For `CKEditorError`, match the error id substring.
 
 ## Reaching 100% coverage
 
-Both `ckeditor5` and `ckeditor5-math` gate `src/**` at 100%
+`ckeditor5` gates `src/**` at 100%
 (lines/functions/branches/statements, provider `v8`). Every branch needs a test: both states of
 each boolean, each schema-allowed/disallowed path, collapsed vs. ranged selection, and error/guard
 branches. Run the package's `test` script and read the coverage text report to find uncovered

@@ -1,8 +1,8 @@
 # Running tests & configuration (Trilium)
 
-Two packages carry CKEditor 5 tests: `packages/ckeditor5` (the aggregate, which holds every
-in-tree plugin under `src/plugins/`) and `packages/ckeditor5-math`. Each has its own
-`vitest.config.ts` built with `defineConfig` directly — there is no shared factory. Vitest is 4 or
+One package carries the CKEditor 5 tests: `packages/ckeditor5` (the aggregate, which holds every
+in-tree plugin under `src/plugins/`). Its `vitest.config.ts` is built with `defineConfig` directly
+— there is no shared factory. Vitest is 4 or
 later.
 
 ## Per-package scripts
@@ -17,7 +17,7 @@ Each package's `package.json` defines:
 Run a single package from anywhere in the monorepo:
 
 ```bash
-pnpm --filter @triliumnext/ckeditor5-math test
+pnpm --filter @triliumnext/ckeditor5 test
 ```
 
 Or, from the package directory: `vitest run`. Add `-t "name"` to filter by test name, or a
@@ -65,19 +65,16 @@ resolves, and coverage via `v8` over `src/**` (test files themselves excluded).
 **Test-file location.** `packages/ckeditor5` uses **co-located `*.spec.ts`** next to the source —
 `include: ['src/**/*.spec.ts']` — including inside plugin folders, e.g.
 `src/plugins/collapsible/collapsible_editing.spec.ts`. That is the repo-wide convention (see the
-`writing-unit-tests` skill). `packages/ckeditor5-math` still uses a `tests/` directory
-(`include: ['tests/**/*.[jt]s']`, no `.spec` suffix); add math tests there, and use co-located
-`.spec.ts` everywhere else.
+`writing-unit-tests` skill).
 
 The aggregate also sets `setupFiles: ['./test/setup.ts']`, which wires the global `afterEach` that
 destroys editors created through `test/editor-kit.ts`.
 
 ## Coverage scope for the aggregate (`packages/ckeditor5`)
 
-The aggregate **imports** `@triliumnext/ckeditor5-math`, so a plain `--coverage` run instruments
-its loaded `src/` too — and the `include: ['src/**']` glob matches those sibling sources, dragging
-the report well below the aggregate's real number. Math carries its own 100% gate in its own
-package, so scope the aggregate's report to its own sources only —
+The aggregate used to import sibling `ckeditor5-*` packages, whose loaded `src/` a plain
+`--coverage` run would instrument too, dragging the report below the aggregate's real number.
+Nothing sibling is left, but the report is still scoped to this package's own sources —
 `packages/ckeditor5/vitest.config.ts` does this with:
 
 ```ts
@@ -115,13 +112,13 @@ The root `package.json` splits the run because the browser-mode packages compete
 resources:
 
 ```bash
-pnpm test:parallel     # everything except server, ckeditor5 and ckeditor5-math, in parallel
-pnpm test:sequential   # server, ckeditor5 and ckeditor5-math, sequentially
+pnpm test:parallel     # everything except server and ckeditor5, in parallel
+pnpm test:sequential   # server and ckeditor5, sequentially
 pnpm test:all          # test:parallel && test:sequential
 ```
 
-`ckeditor5` and `ckeditor5-math` **must** run sequentially — running multiple headless Chrome
-instances at once exhausts resources. `server` is in the same group for a different reason (shared
+`ckeditor5` **must not** run alongside another browser-mode suite — multiple headless Chrome
+instances at once exhaust resources. `server` is in the same group for a different reason (shared
 test DB, per `CLAUDE.md`), not browser limits. Everything else runs in parallel.
 
 ## Notes

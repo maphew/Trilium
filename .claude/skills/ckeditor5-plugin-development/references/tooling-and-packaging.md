@@ -14,9 +14,8 @@ Separate workspace packages are no longer the pattern (see "Where a new plugin g
   (admonition, collapsible, footnotes, keyboard_marker, mermaid, mention, snippets, …), each a
   folder with its tests co-located; `src/theme/` and `src/icons/` hold their assets; built with
   **Vite**.
-- `packages/ckeditor5-math` — `@triliumnext/ckeditor5-math`, the one remaining plugin package. It
-  stayed separate because it owns a heavy exclusive dependency (`mathlive`); everything else was
-  folded in.
+  Nothing sits outside it any more: `mathlive` and the other former plugin-package dependencies
+  are declared on the aggregate itself.
 - `apps/client/src/widgets/type_widgets/text/` — the rich-text note widget that instantiates the
   editor (`config.ts`, `CKEditorWithWatchdog.tsx`, `toolbar.ts`).
 
@@ -36,13 +35,14 @@ carrying a `ckeditor5-package-generator` scaffold — sample pages, its own ESLi
 configs, typings — that no script or CI job ever ran. Folding them in also put them under the
 aggregate's 100% coverage gate, which is where several latent bugs surfaced.
 
-`packages/ckeditor5-math` is the sole exception, kept because it owns `mathlive` outright. Note
-that even that is a weak reason: `mathlive` is loaded through a dynamic `import()` in the source,
-so code-splitting does not depend on the package boundary.
+There are no exceptions left. Math was the final holdout — kept for a while because it owns
+`mathlive` — but even that was a weak reason: `mathlive` is loaded through a dynamic `import()`,
+so code-splitting never depended on the package boundary.
 
-The package layout below is documented **only** for reading `ckeditor5-math`. Do not copy it.
+The package layout below is documented **only** so old branches and history stay readable.
+Do not copy it.
 
-## Plugin package layout (`packages/ckeditor5-math` only — historical)
+## Plugin package layout (historical — no package uses this any more)
 
 `package.json`:
 
@@ -193,7 +193,7 @@ For test setup, model/view assertions, and command/UI test patterns, use the sep
 
 ## Scope
 
-Paths here (`packages/ckeditor5`, `packages/ckeditor5/src/plugins/<name>/`, `packages/ckeditor5-math`, `apps/client/...`) are **this
+Paths here (`packages/ckeditor5`, `packages/ckeditor5/src/plugins/<name>/`, `apps/client/...`) are **this
 Trilium repository**. The CKEditor 5 library mechanics referenced (editor bases `BalloonEditor`/
 `DecoupledEditor`, `EditorConfig`, the watchdog) come from the external `ckeditor5` package,
 **48 or later**.

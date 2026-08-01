@@ -3,7 +3,7 @@ name: ckeditor5-plugin-development
 description: >-
   Write, extend, and review CKEditor 5 plugins in the Trilium (TriliumNext
   Notes) monorepo — the rich-text-note editor under packages/ckeditor5, whose
-  plugins live in src/plugins/, plus the @triliumnext/ckeditor5-math package.
+  plugins live in src/plugins/.
   Use when building or
   reviewing a Trilium CKEditor 5 feature/plugin, or when working with the
   editing engine (model, view, schema, conversion/upcast-downcast), commands,
@@ -22,10 +22,9 @@ plugin. Without plugins the editor is an empty API. This skill is specific to **
 (TriliumNext Notes)**, whose rich-text note editor is built from the CKEditor 5 library
 (external dep, **CKEditor 5 48 or later**) plus Trilium's own plugins. Both the editor build and the
 plugins live in `packages/ckeditor5` (`@triliumnext/ckeditor5`): each feature is a folder under
-`src/plugins/` — admonition, collapsible, footnotes, keyboard_marker, mermaid, mention, snippets
-and the rest — with its tests co-located beside it. `@triliumnext/ckeditor5-math` is the only
-feature still shipped as its own workspace package, because it owns a heavy exclusive dependency
-(`mathlive`). The editor is consumed by `apps/client` (the text note widget). This skill distills
+`src/plugins/` — admonition, collapsible, footnotes, keyboard_marker, math, mermaid, mention,
+snippets and the rest — with its tests co-located beside it. No CKEditor feature ships as its own
+workspace package any more. The editor is consumed by `apps/client` (the text note widget). This skill distills
 how to write new Trilium plugins and review existing ones idiomatically.
 
 ## When to use this skill
@@ -37,7 +36,7 @@ plugin so it reaches the editor, or reviewing plugin code for correctness and co
 compliance. Trigger concepts include: model/view/schema, conversion (upcast/downcast),
 `Command`, `editor.model.change()`, `ButtonView`/`componentFactory`, widgets (`toWidget`),
 `ContextualBalloon`/`Dialog`, `editor.keystrokes`, `t()` localization, the `plugins.ts`
-registry / editor classes / `toolbar.ts`, or the `@triliumnext/ckeditor5-math` package.
+registry / editor classes / `toolbar.ts`.
 
 ## The three pillars
 
@@ -76,7 +75,7 @@ import { Plugin, ButtonView, Command, _setModelData } from 'ckeditor5';
 
 - **Cross-plugin** imports inside `packages/ckeditor5` are **relative**, e.g.
   `import Kbd from './keyboard_marker/keyboard_marker.js';`. The only workspace-package import
-  left is `@triliumnext/ckeditor5-math`, which the aggregate pulls in from `plugins.ts`.
+  in-tree under `src/plugins/`, and the aggregate registers them from `plugins.ts`.
 - **Every import includes its file extension** (`.js`/`.ts`/`.json`) — enforced by
   `eslint-config-ckeditor5` (`require-file-extensions-in-imports`), with
   `allow-imports-only-from-main-package-entry-point` and `no-legacy-imports` also active.
@@ -284,7 +283,7 @@ review (workflow, CKEditor-specific defect patterns, contribution process), use 
 
 This skill is specific to the **Trilium (TriliumNext Notes) monorepo's** CKEditor 5 integration.
 Repository paths it cites — `packages/ckeditor5`, `packages/ckeditor5/src/plugins/<name>/`,
-`packages/ckeditor5-math`, `apps/client/...` — are **this repository**, and examples come from
+`apps/client/...` — are **this repository**, and examples come from
 Trilium's own plugins (admonition, collapsible, footnotes, keyboard_marker, math, mermaid). The
 CKEditor 5 **library** is an external dependency tracked at **48 or later**; its mechanics were
 distilled from the upstream docs (ckeditor.com/docs) and source (github.com/ckeditor/ckeditor5,

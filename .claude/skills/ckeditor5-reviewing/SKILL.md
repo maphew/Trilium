@@ -3,7 +3,7 @@ name: ckeditor5-reviewing
 description: >-
   Review or audit CKEditor 5 plugin code in the Trilium (TriliumNext Notes)
   monorepo, or a PR/diff touching packages/ckeditor5 (including its in-tree
-  plugins under src/plugins/) or packages/ckeditor5-math. Use when checking a Trilium CKEditor 5 plugin for correctness and idiom:
+  plugins under src/plugins/). Use when checking a Trilium CKEditor 5 plugin for correctness and idiom:
   schema / conversion / command / UI / widget code, CKEditor-specific defects
   (asymmetric upcast/downcast, unconsumed upcast elements, missing inline-widget
   position mapping, command refresh/isEnabled bugs, memory leaks, t() gaps,
@@ -36,7 +36,7 @@ CKEditor 5 library itself is the **external `ckeditor5` dependency, 48 or later*
 ([github.com/ckeditor/ckeditor5](https://github.com/ckeditor/ckeditor5)) are *external references*,
 not the code under review. Nearly all Trilium plugins live **inside** `packages/ckeditor5`, under
 `src/plugins/<name>/` — admonition, collapsible, footnotes, keyboard_marker, mermaid and the
-in-tree plugins alongside them. `packages/ckeditor5-math` is the only remaining separate package.
+in-tree plugins alongside them. There are no separate CKEditor plugin packages left.
 The aggregate assembles them all and is wired into the editor UI from `apps/client`.
 
 **On versions:** these skills name **major versions only** ("48 or later"). Trilium tracks CKEditor
@@ -46,7 +46,7 @@ The aggregate assembles them all and is wired into the editor UI from `apps/clie
 ## When to use
 
 Reviewing a PR or diff that touches a Trilium CKEditor 5 plugin (`packages/ckeditor5/src/plugins/`
-or `packages/ckeditor5-math`), the aggregate itself, or the toolbar config in `apps/client`;
+), the aggregate itself, or the toolbar config in `apps/client`;
 auditing an existing
 plugin; sanity-checking your own feature before opening a PR. For *writing* the feature, use
 `ckeditor5-plugin-development`; for *writing tests*, use `ckeditor5-testing`.
@@ -55,7 +55,7 @@ plugin; sanity-checking your own feature before opening a PR. For *writing* the 
 
 1. **Scope the diff against Trilium's structure.** What surface changed — editing
    (schema/conversion/command), UI (componentFactory/buttons/dropdowns/balloons), a widget, config?
-   Which plugin (`packages/ckeditor5/src/plugins/<name>/`, or `packages/ckeditor5-math`)? Does it
+   Which plugin (`packages/ckeditor5/src/plugins/<name>/`)? Does it
    also touch the aggregate's wiring (`packages/ckeditor5/src/plugins.ts`, `src/index.ts`) or the toolbar
    (`apps/client/src/widgets/type_widgets/text/toolbar.ts`)? This tells you which checklists, defect
    groups, and integration checks apply.
@@ -143,7 +143,7 @@ The CKEditor-general defect patterns are distilled from the companion skills and
 library at **48 or later**; `docs/…` / `packages/…` paths in those patterns point into the
 **external CKEditor 5 repository** ([github.com/ckeditor/ckeditor5](https://github.com/ckeditor/ckeditor5)),
 not the Trilium code under review. The Trilium-specific paths
-(`packages/ckeditor5/src/plugins/<name>/`, `packages/ckeditor5-math`,
+(`packages/ckeditor5/src/plugins/<name>/`,
 `packages/ckeditor5/src/{plugins,index}.ts`, `apps/client/src/widgets/type_widgets/text/toolbar.ts`)
 point into the **Trilium monorepo**. To refresh, re-check those paths against the
 current Trilium tree and bump the CKEditor version if the `ckeditor5` pin changes.

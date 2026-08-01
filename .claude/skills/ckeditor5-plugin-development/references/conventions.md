@@ -59,7 +59,7 @@ Follow the existing files in the package you touch; don't add or strip headers w
   `@ckeditor/ckeditor5-icons` and `@ckeditor/ckeditor5-inspector`.
 - **Cross-plugin** imports inside `packages/ckeditor5` are relative
   (`import Kbd from './keyboard_marker/keyboard_marker.js';`), as are same-plugin imports
-  (`import FooEditing from './foo_editing.js';`). `@triliumnext/ckeditor5-math` is the one
+  (`import FooEditing from './foo_editing.js';`). The former plugin packages were the one
   remaining workspace-package import.
 - **All imports include file extensions** (`.ts`/`.js`/`.json`) — `import './augmentation.js';`
   even though the source is `.ts` (`require-file-extensions-in-imports`).
@@ -98,7 +98,7 @@ declare module 'ckeditor5' {
 - A new plugin needs **no packaging at all** — it is a folder under
   `packages/ckeditor5/src/plugins/` and is registered by editing `plugins.ts`. See
   `references/tooling-and-packaging.md` for the registration flow.
-- The one surviving plugin package, `@triliumnext/ckeditor5-math`, shows the older shape:
+- The former plugin packages showed an older shape, still visible in history:
   scope `@triliumnext/`, `"type": "module"`, `"main": "src/index.ts"` (ships TS source — no
   per-package dist), a `peerDependencies` entry for `ckeditor5` matching the repo's pin, pulled in with
   `workspace:*`. Don't copy it for new work.
