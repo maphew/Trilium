@@ -1,6 +1,6 @@
 # Reviewing a CKEditor 5 plugin (Trilium)
 
-A structured checklist for reviewing Trilium CKEditor plugin code under `packages/ckeditor5-*`.
+A structured checklist for reviewing Trilium CKEditor plugin code under `packages/ckeditor5/src/plugins/`.
 Pair each item with the relevant reference file when you need the "why". Flag deviations; not
 every item applies to every plugin (e.g. a UI-only or editing-only plugin). The Trilium
 integration items at the end are specific to this monorepo.

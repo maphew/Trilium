@@ -1,42 +1,48 @@
 # Tooling & packaging (Trilium)
 
 How CKEditor 5 plugins are packaged, registered, built, and debugged in the **Trilium
-(TriliumNext Notes)** monorepo. This is a pnpm workspace (`pnpm@11.5.2`, `nodeLinker: hoisted`,
+(TriliumNext Notes)** monorepo. This is a pnpm workspace (pnpm 11 or later, `nodeLinker: hoisted`,
 no nx/turbo) with packages under `packages/*` and apps under `apps/*`, org scope `@triliumnext/`.
-The CKEditor 5 **library** is an external dependency pinned to `48.2.0`; there is no package
-generator here — you add a plugin by hand. **By default a new plugin lives inside the aggregator**
-(a file/folder under `packages/ckeditor5/src/plugins/`); a separate workspace package is the
-exception, reserved for large self-contained features (see "Where a new plugin goes" below).
+The CKEditor 5 **library** is an external dependency on **48 or later**; there is no package
+generator here — you add a plugin by hand, as a folder under `packages/ckeditor5/src/plugins/`.
+Separate workspace packages are no longer the pattern (see "Where a new plugin goes" below).
 
 ## Where the editor lives
 
-- `packages/ckeditor5` — `@triliumnext/ckeditor5`, the **editor build / aggregator**. `src/index.ts`
-  defines the editor classes; `src/plugins.ts` is the plugin registry; built with **Vite**.
-- `packages/ckeditor5-{admonition,collapsible,footnotes,keyboard-marker,math,mermaid}` — Trilium's
-  custom plugin packages, each `@triliumnext/ckeditor5-<feature>`.
+- `packages/ckeditor5` — `@triliumnext/ckeditor5`, the **editor build**. `src/index.ts` defines the
+  editor classes; `src/plugins.ts` is the plugin registry; `src/plugins/` holds every plugin
+  (admonition, collapsible, footnotes, keyboard_marker, mermaid, mention, snippets, …), each a
+  folder with its tests co-located; `src/theme/` and `src/icons/` hold their assets; built with
+  **Vite**.
+  Nothing sits outside it any more: `mathlive` and the other former plugin-package dependencies
+  are declared on the aggregate itself.
 - `apps/client/src/widgets/type_widgets/text/` — the rich-text note widget that instantiates the
   editor (`config.ts`, `CKEditorWithWatchdog.tsx`, `toolbar.ts`).
 
 The library's own packages (basic-styles, link, image, engine, ui, core, widget, typing, …) are
 **upstream** and not present in this repo — they ship inside the `ckeditor5` npm aggregate.
 
-## Where a new plugin goes (default: in the aggregator)
+## Where a new plugin goes
 
-**Project direction: keep new plugins inside the aggregator.** The default home for a new feature
-is an **in-aggregator plugin** — a file or folder under `packages/ckeditor5/src/plugins/`, written
-as a normal `Plugin` class and registered in `TRILIUM_PLUGINS`. No new package, `package.json`,
-tsconfig, build, or workspace wiring; just the code and one line in `plugins.ts`. This is the right
-choice for the large majority of features.
+**A new plugin is a folder under `packages/ckeditor5/src/plugins/`**, written as a normal `Plugin`
+class and registered in `TRILIUM_PLUGINS` (or `EXTERNAL_PLUGINS` if it derives from third-party
+code). No package.json, tsconfig, vitest config or workspace wiring — just the code, its co-located
+`*.spec.ts`, and one line in `plugins.ts`.
 
-**Create a separate `@triliumnext/ckeditor5-<feature>` workspace package only for large,
-self-contained external plugins** — substantial code with their own theme/lang/tests that could
-plausibly stand alone (the existing ones: math, footnotes, mermaid, admonition, collapsible,
-keyboard-marker). When in doubt, start in-aggregator and promote to a package later if it grows.
+Trilium used to ship features as sibling `@triliumnext/ckeditor5-<feature>` packages. All of them
+have been folded in: none had a consumer outside the aggregate, none was published, and each was
+carrying a `ckeditor5-package-generator` scaffold — sample pages, its own ESLint/Stylelint/vitest
+configs, typings — that no script or CI job ever ran. Folding them in also put them under the
+aggregate's 100% coverage gate, which is where several latent bugs surfaced.
 
-The package layout below applies **only to the separate-package case**. An in-aggregator plugin
-needs none of it.
+There are no exceptions left. Math was the final holdout — kept for a while because it owns
+`mathlive` — but even that was a weak reason: `mathlive` is loaded through a dynamic `import()`,
+so code-splitting never depended on the package boundary.
 
-## Plugin package layout (`packages/ckeditor5-<feature>`, the separate-package exception)
+The package layout below is documented **only** so old branches and history stay readable.
+Do not copy it.
+
+## Plugin package layout (historical — no package uses this any more)
 
 `package.json`:
 
@@ -46,7 +52,7 @@ needs none of it.
   "type": "module",
   "main": "src/index.ts",            // ships TS SOURCE — no per-package dist for consumers
   "license": "GPL-2.0-or-later",
-  "peerDependencies": { "ckeditor5": "48.2.0" },
+  "peerDependencies": { "ckeditor5": "<exact pin from packages/ckeditor5/package.json>" },
   "scripts": {
     "lint": "eslint \"**/*.{js,ts}\" --quiet",
     "stylelint": "stylelint --quiet --allow-empty-input 'theme/**/*.css'",
@@ -70,7 +76,7 @@ currently lacks `eslint.config.js`/stylelint + lint scripts):
 - `eslint.config.js` — `eslint-config-ckeditor5` + `eslint-plugin-ckeditor5-rules`.
 - `stylelint-config-ckeditor5` for theme CSS.
 
-Plugin packages have **no `vite.config.ts`** — only the aggregator (`packages/ckeditor5`) builds;
+Plugin packages have **no `vite.config.ts`** — only `packages/ckeditor5` builds;
 each plugin just ships raw TS via `main: src/index.ts`, compiled by whatever bundles the editor.
 
 `src/` files: `{feature}.ts` (glue), `{feature}editing.ts`, `{feature}ui.ts`, optional
@@ -106,9 +112,13 @@ Four steps:
    `POPUP_EDITOR_PLUGINS` = `COMMON_PLUGINS` + `BlockToolbar`.
 
    ```ts
-   import { Footnotes } from '@triliumnext/ckeditor5-footnotes';
+   import Footnotes from './plugins/footnotes/footnotes.js';
    const EXTERNAL_PLUGINS: typeof Plugin[] = [ Kbd, Mermaid, Admonition, Collapsible, Footnotes, Math, AutoformatMath ];
    ```
+
+   `EXTERNAL_PLUGINS` is a historical grouping — it holds the features that began life as
+   third-party or separate packages, while `TRILIUM_PLUGINS` holds the ones written here. Both
+   now live under `src/plugins/`; put a new plugin in whichever array matches its provenance.
 3. **Editor classes pick it up automatically.** The classes in `packages/ckeditor5/src/index.ts`
    expose those arrays via `static get builtinPlugins()`, so adding to the array is enough — no
    per-class edit needed (unless the plugin is editor-specific).
@@ -135,7 +145,7 @@ always carries `licenseKey: "GPL"`. `_setModelData`/inspector aside, all symbols
 ## Vite build
 
 `packages/ckeditor5` builds with Vite (`vite.config.ts`); `vitest.config.ts` drives tests. Because
-plugin packages expose `main: src/index.ts`, the aggregator and ultimately `apps/client` compile
+plugin packages expose `main: src/index.ts`, the aggregate and ultimately `apps/client` compile
 the plugin TS sources directly through the bundler — there is no intermediate per-package build to
 keep in sync. `src/index.ts` imports `ckeditor5/ckeditor5.css` and the Trilium theme CSS.
 
@@ -183,7 +193,7 @@ For test setup, model/view assertions, and command/UI test patterns, use the sep
 
 ## Scope
 
-Paths here (`packages/ckeditor5`, `packages/ckeditor5-<feature>`, `apps/client/...`) are **this
+Paths here (`packages/ckeditor5`, `packages/ckeditor5/src/plugins/<name>/`, `apps/client/...`) are **this
 Trilium repository**. The CKEditor 5 library mechanics referenced (editor bases `BalloonEditor`/
-`DecoupledEditor`, `EditorConfig`, the watchdog) come from the external `ckeditor5` package at
-`48.2.0`.
+`DecoupledEditor`, `EditorConfig`, the watchdog) come from the external `ckeditor5` package,
+**48 or later**.

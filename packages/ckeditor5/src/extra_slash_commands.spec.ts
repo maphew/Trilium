@@ -142,7 +142,7 @@ describe("buildExtraCommands", () => {
             const commands = buildExtraCommands(t);
             const cmd = commands.find((c) => c.id === "math");
 
-            const { MathUI } = await import("@triliumnext/ckeditor5-math");
+            const { default: MathUI } = await import("./plugins/math/math_ui.js");
             const showUI = vi.fn();
             const { editor, pluginInstances } = makeFakeEditor();
             pluginInstances.set(MathUI, { _showUI: showUI });
@@ -250,7 +250,7 @@ describe("buildExtraCommands", () => {
 
     describe("admonition commands", () => {
         it("includes one command per ADMONITION_TYPE with execute function", async () => {
-            const { ADMONITION_TYPES } = await import("@triliumnext/ckeditor5-admonition");
+            const { ADMONITION_TYPES } = await import("./plugins/admonition/admonition_ui.js");
             const commands = buildExtraCommands(t);
             for (const keyword of Object.keys(ADMONITION_TYPES)) {
                 const cmd = commands.find((c) => c.id === keyword);
@@ -263,7 +263,7 @@ describe("buildExtraCommands", () => {
         });
 
         it("admonition execute calls editor.execute('admonition') with the keyword", async () => {
-            const { ADMONITION_TYPES } = await import("@triliumnext/ckeditor5-admonition");
+            const { ADMONITION_TYPES } = await import("./plugins/admonition/admonition_ui.js");
             const commands = buildExtraCommands(t);
 
             for (const keyword of Object.keys(ADMONITION_TYPES)) {
@@ -312,7 +312,7 @@ describe("buildExtraCommands", () => {
         });
 
         it("sample command execute calls editor.execute with INSERT_MERMAID_COMMAND and source", async () => {
-            const { INSERT_MERMAID_COMMAND } = await import("@triliumnext/ckeditor5-mermaid");
+            const { INSERT_MERMAID_COMMAND } = await import("./plugins/mermaid/insert_mermaid_command.js");
             const samples = [
                 { name: "Flowchart", content: "flowchart LR\n  A --> B" }
             ];

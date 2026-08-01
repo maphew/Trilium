@@ -1,7 +1,7 @@
 import { BlockToolbar } from "ckeditor5";
 import { describe, expect, it } from "vitest";
 
-import { Admonition } from "@triliumnext/ckeditor5-admonition";
+import Admonition from "./plugins/admonition/admonition.js";
 import { COMMON_PLUGINS, CORE_PLUGINS, POPUP_EDITOR_PLUGINS } from "./plugins.js";
 import CutToNotePlugin from "./plugins/cuttonote.js";
 import Uploadfileplugin from "./plugins/file_upload/uploadfileplugin.js";
