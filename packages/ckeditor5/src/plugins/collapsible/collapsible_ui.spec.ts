@@ -21,18 +21,21 @@ describe("CollapsibleUI", () => {
         expect(CollapsibleUI.pluginName).toBe("CollapsibleUI");
     });
 
-    it("falls back to the raw key when the host supplies no translate callback", async () => {
+    // No dictionary is configured here, so `t()` renders the message id, which is the English
+    // label — never a raw `text-editor.…` key, as the retired host bridge would have shown.
+    it("labels the button in English when no dictionary is configured", async () => {
         const editor = await createTestEditor([Essentials, Paragraph, Collapsible]);
 
-        expect(createButton(editor).label).toBe("text-editor.collapsible-button-label");
+        expect(createButton(editor).label).toBe("Collapsible block");
     });
 
-    it("labels the button through the host's translate callback when one is configured", async () => {
-        const translate = vi.fn(() => "Collapsible block");
-        const editor = await createTestEditor([Essentials, Paragraph, Collapsible], { translate });
+    it("labels the button from the editor's dictionary when one is configured", async () => {
+        // Keyed by `en`, the language the editor resolves messages under when none is configured.
+        const editor = await createTestEditor([Essentials, Paragraph, Collapsible], {
+            translations: [ {}, { en: { dictionary: { "Collapsible block": "Bloc pliabil" } } } ]
+        });
 
-        expect(createButton(editor).label).toBe("Collapsible block");
-        expect(translate).toHaveBeenCalledWith("text-editor.collapsible-button-label");
+        expect(createButton(editor).label).toBe("Bloc pliabil");
     });
 
     it("executes the command and returns focus to the editing view", async () => {

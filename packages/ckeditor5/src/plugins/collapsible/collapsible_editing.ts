@@ -5,7 +5,13 @@ import BlockDragHandle from "./block_drag_handle.js";
 import CollapsibleCommand from "./collapsible_command.js";
 import { OPEN_ATTRIBUTE, TRANSIENT_OPEN_ATTRIBUTE } from "./constants.js";
 
-type TranslateFn = (key: string, params?: Record<string, unknown>) => string;
+/**
+ * Resolves an i18next key. Still needed for the shortcut key names, which live in the app-wide
+ * `keyboard_shortcuts.keys.*` catalog that {@link formatShortcut} reads and the command palette and
+ * help dialog share — those are not this package's messages to own. Everything the collapsible says
+ * in its own voice goes through `editor.t()` instead.
+ */
+type TranslateFn = (key: string) => string;
 
 /**
  * The keyboard shortcut for toggling a collapsible's `open` state. Shared as
@@ -294,6 +300,7 @@ export default class CollapsibleEditing extends Plugin {
         });
     }
 
+    /** See {@link TranslateFn}: shortcut key names only. */
     private translate(): TranslateFn {
         return (this.editor.config.get("translate") as TranslateFn | undefined)
             ?? ((key: string) => key);
@@ -307,7 +314,7 @@ export default class CollapsibleEditing extends Plugin {
     private createEditingSummary(writer: any): any {
         const editor = this.editor;
         const plugin = this;
-        const t = this.translate();
+        const t = editor.t;
         const summary = writer.createContainerElement("summary");
 
         // Selection / drag handle — non-editable affordance for selecting and
@@ -317,7 +324,7 @@ export default class CollapsibleEditing extends Plugin {
             class: "trilium-collapsible-handle",
             role: "button",
             tabindex: "0",
-            "aria-label": t("text-editor.collapsible-select-label")
+            "aria-label": t("Select collapsible block")
         }, function(this: any, domDocument: any) {
             const span: HTMLElement = this.toDomElement(domDocument);
             const resolveDetails = () => plugin.detailsFromDom(span);
@@ -364,7 +371,7 @@ export default class CollapsibleEditing extends Plugin {
             class: "trilium-collapsible-arrow",
             role: "button",
             tabindex: "0",
-            "aria-label": t("text-editor.collapsible-toggle-label"),
+            "aria-label": t("Toggle collapsible block"),
             "aria-expanded": "false"
         }, function(this: any, domDocument: any) {
             const span: HTMLElement = this.toDomElement(domDocument);
@@ -402,7 +409,7 @@ export default class CollapsibleEditing extends Plugin {
         enableViewPlaceholder({
             view: this.editor.editing.view,
             element: summary,
-            text: t("text-editor.collapsible-title-placeholder"),
+            text: t("Summary"),
             keepOnFocus: true
         });
         return summary;
@@ -510,7 +517,7 @@ export default class CollapsibleEditing extends Plugin {
 
     private registerBodyPlaceholder() {
         const editor = this.editor;
-        const t = this.translate();
+        const t = editor.t;
         editor.conversion.for("editingDowncast").add((dispatcher: any) => {
             dispatcher.on("insert:paragraph", (_evt: any, data: any, conversionApi: any) => {
                 const paragraph = data.item;
@@ -524,7 +531,7 @@ export default class CollapsibleEditing extends Plugin {
                 enableViewPlaceholder({
                     view: editor.editing.view,
                     element: view,
-                    text: t("text-editor.collapsible-body-placeholder"),
+                    text: t("Type the content here..."),
                     keepOnFocus: true
                 });
                 this.bodyPlaceholdersApplied.add(view);
@@ -1001,10 +1008,10 @@ export default class CollapsibleEditing extends Plugin {
      */
     private registerSummaryHints() {
         const editor = this.editor;
-        const t = this.translate();
-        const title = t("text-editor.collapsible-tooltip", {
-            shortcut: renderToggleShortcut(t)
-        });
+        // Two catalogs meet here: the sentence is ours, the key names inside the shortcut belong to
+        // the app-wide `keyboard_shortcuts.keys.*` set. The rendered shortcut is `<kbd>` markup, and
+        // nothing escapes it on the way in — the hint's tooltip sets `sanitize: false`.
+        const title = editor.t("Click on the arrow or press %0 to collapse/expand.", renderToggleShortcut(this.translate()));
         const manager = new ContentHintManager({
             tooltipOptions: {
                 sanitize: false,
@@ -1176,8 +1183,8 @@ export default class CollapsibleEditing extends Plugin {
      */
     private registerHandleHints() {
         const editor = this.editor;
-        const t = this.translate();
-        const title = t("text-editor.collapsible-handle-tooltip");
+        const t = editor.t;
+        const title = t("Drag to reposition the collapsible block");
         const manager = new ContentHintManager({
             autoHideAfterMs: HINT_AUTO_HIDE_MS
         });
