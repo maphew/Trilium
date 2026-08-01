@@ -77,11 +77,14 @@ export async function compressInWorker(
             throw new Error(response.error);
         }
 
+        release(worker);
+
         return response.outcome ?? null;
     } catch (e: unknown) {
-        // A thread that failed us once is not trusted with the next image: it may have died, and a
-        // pool of one bad worker would fail every image in the run rather than none.
-        discard(worker);
+        // Retired rather than released: a thread that failed us may well be dead, and handing it to
+        // the next image would post a message nothing is listening for — which looks like the run
+        // hanging rather than like one image having failed.
+        retire(worker);
 
         // Nothing has ever come back from a worker here, so this is not one thread having died but
         // this installation being unable to run them — an environment whose loader cannot read the
@@ -91,8 +94,6 @@ export async function compressInWorker(
         }
 
         throw e;
-    } finally {
-        release(worker);
     }
 }
 
@@ -154,15 +155,17 @@ function release(worker: PooledWorker) {
     idle.push(worker);
 }
 
-function discard(worker: PooledWorker) {
+/**
+ * Takes a worker out of the pool for good, and never puts it back.
+ *
+ * Whoever was waiting for a free worker is answered with none rather than with this one: no thread
+ * is coming to replace it, and a caller told there is none compresses the image itself. Waiting on
+ * a thread that no longer exists is the one outcome worse than not having threads at all.
+ */
+function retire(worker: PooledWorker) {
     started--;
     void worker.worker.terminate();
-
-    const at = idle.indexOf(worker);
-
-    if (at >= 0) {
-        idle.splice(at, 1);
-    }
+    waiting.shift()?.(null);
 }
 
 function spawn(): PooledWorker | null {
