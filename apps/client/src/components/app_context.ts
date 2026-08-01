@@ -163,6 +163,8 @@ export type CommandMappings = {
     showLeftPane: CommandData;
     showAttachments: CommandData;
     showNoteAttributes: CommandData;
+    /** Shows the note map as a modal, for the layouts with no right pane to put it in. */
+    showNoteMap: CommandData;
     showSearchHistory: CommandData;
     showShareSubtree: CommandData;
     hoistNote: CommandData & { noteId: string };

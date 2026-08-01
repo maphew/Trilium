@@ -196,6 +196,14 @@ export default class RootCommandExecutor extends Component {
     }
 
     async toggleRibbonTabNoteMapCommand(data: CommandListenerData<"toggleRibbonTabNoteMap">) {
+        // A phone has neither the ribbon the map was a tab of nor the pane it is a card of, so the menu
+        // it is asked from is where it is asked from and a modal is where it is shown — as the note's
+        // attributes, its backlinks and its paths already are.
+        if (utils.isMobile()) {
+            this.triggerEvent("showNoteMap", data);
+            return;
+        }
+
         const { isExperimentalFeatureEnabled } = await import("../services/experimental_features.js");
         const isNewLayout = isExperimentalFeatureEnabled("new-layout");
         if (!isNewLayout) {
