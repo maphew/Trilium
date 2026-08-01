@@ -990,46 +990,89 @@ TooltipProto.dispose = function () {
     this._element = disposedTooltipPlaceholder.element;
 };
 
-export function useTooltip(elRef: RefObject<HTMLElement>, config: Partial<Tooltip.Options>) {
+/**
+ * A Bootstrap tooltip whose lifetime follows the element it hangs off.
+ *
+ * @param enabled while false the tooltip is put away and kept away, for a host with something of its own
+ *                to put in front of the user — see {@link Dropdown}, which silences its toggle's title
+ *                for as long as the menu that title opened is on screen.
+ */
+export function useTooltip(elRef: RefObject<HTMLElement>, config: Partial<Tooltip.Options>, enabled = true) {
+    const tooltipRef = useRef<Tooltip | null>(null);
+
     useEffect(() => {
         if (!elRef?.current) return;
 
         const element = elRef.current;
-        const $el = $(element);
 
-        // Dispose any existing tooltip before creating a new one
+        // Held on to rather than looked up again through `Tooltip.getInstance`: Bootstrap keeps one
+        // component instance per element and refuses to register a second (it logs and returns), so on
+        // an element another Bootstrap component has already claimed — a dropdown's toggle, say — the
+        // lookup comes back empty. The tooltip works all the same, being a live object with its own
+        // listeners, but nothing can reach it to dispose it, and whatever it has shown is left on
+        // screen for good.
         Tooltip.getInstance(element)?.dispose();
-        $el.tooltip(config);
-
-        // Capture the tooltip instance now, since elRef.current may be null during cleanup.
-        const tooltip = Tooltip.getInstance(element);
+        const tooltip = new Tooltip(element, config);
+        tooltipRef.current = tooltip;
 
         return () => {
+            tooltipRef.current = null;
             // Dispose even when the trigger element is already detached (e.g. a keyed remount
             // replaced it before this cleanup ran) — dispose() also removes a currently-shown
             // popup from the DOM, and with the trigger gone nothing else ever would (#10567).
             // The pending-callback crash of bootstrap#37474 is handled by the dispose() patch above.
-            tooltip?.dispose();
+            tooltip.dispose();
         };
     }, [ elRef, config ]);
 
+    // Runs after the effect above, so a tooltip just recreated for a new config is caught by it too —
+    // hence the same dependencies alongside `enabled`.
+    useEffect(() => {
+        const tooltip = tooltipRef.current;
+        if (!tooltip) return;
+
+        if (enabled) {
+            tooltip.enable();
+        } else {
+            tooltip.hide();
+            tooltip.disable();
+        }
+    }, [ enabled, elRef, config ]);
+
     const showTooltip = useCallback(() => {
-        if (!elRef?.current) return;
+        const tooltip = tooltipRef.current;
+        if (!tooltip) return;
 
-        const $el = $(elRef.current);
-        $el.tooltip("show");
-    }, [ elRef, config ]);
+        clearStaleHoverState(tooltip);
+        tooltip.show();
+    }, []);
 
-    const hideTooltip = useCallback(() => {
-        if (!elRef?.current) return;
-
-        const $el = $(elRef.current);
-        $el.tooltip("hide");
-    }, [ elRef ]);
+    const hideTooltip = useCallback(() => tooltipRef.current?.hide(), []);
 
     useDebugValue(config.title);
 
     return { showTooltip, hideTooltip };
+}
+
+/**
+ * Clears the hover state Bootstrap keeps of its own accord, so that a manual `show()` isn't undone by
+ * the hover before it.
+ *
+ * Bootstrap tracks `_isHovered` even under `trigger: "manual"`, and leans on `hide()` resetting it to
+ * `null` — the value that tells a later `show()` there is no hover to act on ("a trick to support
+ * manual triggering", as it puts it). But `show()` writes `false` into the same flag from a callback
+ * deferred until the fade-in has finished, so a hover ended before then reverses the two writes:
+ * `hide()` sets `null`, and the deferred callback then sets `false` over it. The flag is left standing
+ * with nothing shown, and the next `show()` reads it, takes the tooltip to have been left already and
+ * calls `_leave()` — which hides it a moment after it appeared, with the pointer still on the trigger.
+ *
+ * A quick pass over a trigger is enough to leave it in that state, which is why the `?` of the sidebar
+ * card headers (a {@link Dropdown} title, shown from its own mouseenter) so often vanished under the
+ * pointer. Bootstrap offers no public way to reach the flag, and no public call that clears it without
+ * a tooltip already being shown.
+ */
+function clearStaleHoverState(tooltip: Tooltip) {
+    (tooltip as unknown as { _isHovered: boolean | null })._isHovered = null;
 }
 
 const tooltips = new Set<Tooltip>();
@@ -1061,7 +1104,24 @@ export function useStaticTooltip(elRef: RefObject<Element>, config?: Partial<Too
         });
         tooltips.add(tooltip);
 
+        // A tooltip triggered by hover *and focus* — Bootstrap's default — outstays the press that
+        // opened something: the press leaves the trigger focused, and while any trigger is still active
+        // Bootstrap declines to put the tooltip away, pointer gone or not. So it sits over whatever the
+        // press brought up rather than beside it, until focus moves on. The status bar's connection
+        // badges are where that shows worst: the tooltip is left standing over the sidebar the press
+        // peeked. Dismissed on press, as the legacy button widgets did (`onclick_button.ts`).
+        const dismissOnPress = (event: Event) => {
+            // A delegated (`selector:`) config spawns an instance per hovered child, so the one showing
+            // belongs to the child the press landed on rather than to the container the config sits on.
+            const delegate = config?.selector && event.target instanceof Element
+                ? event.target.closest(config.selector)
+                : null;
+            (delegate ? Tooltip.getInstance(delegate) : tooltip)?.hide();
+        };
+        element.addEventListener("click", dismissOnPress);
+
         return () => {
+            element.removeEventListener("click", dismissOnPress);
             tooltips.delete(tooltip);
             // Dispose even when the trigger element is already detached (e.g. a keyed remount
             // replaced it before this cleanup ran) — dispose() also removes a currently-shown

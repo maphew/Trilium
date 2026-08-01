@@ -73,6 +73,11 @@ export default function PopupEditor() {
         setShown(true);
     });
 
+    // Asked to stand aside by something within it that has sent the reader elsewhere — the note map,
+    // whose nodes navigate the pane behind rather than the popup, which would otherwise be left covering
+    // the note it has just gone to with a map of the note it came from.
+    useTriliumEvent("closePopupEditor", () => setShown(false));
+
     // Keep navigation that follows internal links inside the popup, rather than letting the global
     // link handler open the target in the background tab. Settings links open the options dialog.
     useContainedLinkNavigation(modalRef, useCallback((notePath, viewScope) => {
@@ -114,8 +119,10 @@ export default function PopupEditor() {
                         onClick: async () => {
                             if (!noteContext.noteId) return;
                             const { noteId, hoistedNoteId, viewScope } = noteContext;
-                            if (viewScope?.attachmentId) {
-                                // Keep showing the attachment rather than falling back to its owning note.
+                            if (viewScope?.attachmentId || (viewScope?.viewMode && viewScope.viewMode !== "default")) {
+                                // Whatever is on show that isn't the note itself — an attachment, or a view
+                                // mode such as the note map — is carried over, or the tab would open on the
+                                // note and drop what was being looked at.
                                 await appContext.tabManager.openContextWithNote(noteId, { hoistedNoteId, viewScope, activate: true });
                             } else {
                                 await appContext.tabManager.openInNewTab(noteId, hoistedNoteId, true);

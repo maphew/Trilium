@@ -62,12 +62,20 @@ export default function Dropdown({ id, className, buttonClassName, isStatic, chi
         // "" shows no tooltip).
         title: title ?? titleOptions?.title ?? "",
         placement: titlePosition ?? "bottom",
-        fallbackPlacements: [ titlePosition ?? "bottom" ],
-        trigger: "manual"
+        fallbackPlacements: [ titlePosition ?? "bottom" ]
     }), [title, titleOptions, titlePosition]);
-    const { showTooltip, hideTooltip } = useTooltip(containerRef, tooltipConfig);
-
     const [ shown, setShown ] = useState(false);
+    // On the wrapper, not on the toggle: Bootstrap keeps one component instance per element and the toggle
+    // is already the dropdown's own, so a tooltip put there is refused registration and can never be
+    // disposed — it goes on showing its title with nothing left to take it down.
+    //
+    // Triggering is Bootstrap's, though, rather than driven from the toggle's mouseenter/mouseleave as it
+    // once was: only Bootstrap's own listeners keep the hover state it decides by, and a tooltip shown
+    // around it is liable to be taken away again under the pointer. What that arrangement was for — the
+    // wrapper holding the open menu too, so the title hung over the menu the pointer had moved into — is
+    // answered by silencing the tooltip for as long as the menu is up.
+    const { hideTooltip } = useTooltip(containerRef, tooltipConfig, !shown);
+
     // A portaled menu lives in `document.body`, detached from the toggle's subtree. Mounting it eagerly
     // for every instance leaves an empty menu wrapper in the body for every note context/tab, so only
     // mount it while it's actually needed: open (`shown`), about to open (`armed` — set on interaction
@@ -189,6 +197,8 @@ export default function Dropdown({ id, className, buttonClassName, isStatic, chi
     );
 
     return (
+        // `title` stands in only for the moment before the tooltip is wired: Bootstrap moves the
+        // attribute into the tooltip and drops it, so the browser's own doesn't double up with ours.
         <div ref={containerRef} class={`dropdown ${className ?? ""}`} style={{ display: "flex" }} title={title}>
             <button
                 className={`${iconAction ? "icon-action" : "btn"} ${!noSelectButtonStyle ? "select-button" : ""} ${buttonClassName ?? ""} ${!hideToggleArrow ? "dropdown-toggle" : ""}`}
@@ -200,8 +210,6 @@ export default function Dropdown({ id, className, buttonClassName, isStatic, chi
                 aria-expanded="false"
                 id={id ?? ariaId}
                 disabled={disabled}
-                onMouseEnter={showTooltip}
-                onMouseLeave={hideTooltip}
                 // Mount the portaled menu just before it can open: any interaction that leads to a
                 // Bootstrap open (pointer press, or focusing the toggle ahead of a keyboard open) is
                 // preceded by one of these, so `_menu` is wired by the time the click/keydown fires.

@@ -33,7 +33,7 @@
         padding: 2px;
 
         button.right-pane-tab {
-            --icon-button-size: 22px;
+            --icon-button-size: 26px;
             /* Kept well inside the segment: the theme's own ratio is meant for a segment half again as
                tall, where the same glyph has room to breathe. */
             --icon-button-icon-ratio: 0.62;

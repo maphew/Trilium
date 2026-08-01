@@ -1,6 +1,26 @@
 import { describe, expect, it } from "vitest";
 
-import { groupIntoTabs, RightPanelWidgetDefinition } from "./RightPanelContainer";
+import { groupIntoTabs, reduceTabSelection, RightPanelWidgetDefinition } from "./RightPanelContainer";
+
+describe("reduceTabSelection", () => {
+    it("opens a closed pane, and brings a tab that is not the one on show to the front", () => {
+        expect(reduceTabSelection("closed", undefined, { tabId: "chat" })).toBe("open");
+        expect(reduceTabSelection("closed", "outline", { tabId: "connections", peek: true })).toBe("open");
+        expect(reduceTabSelection("docked", "outline", { tabId: "chat" })).toBe("select");
+        expect(reduceTabSelection("peek", "outline", { tabId: "connections", peek: true })).toBe("select");
+    });
+
+    it("puts away what the press itself opened: its peek, or the pane an entry point docks", () => {
+        expect(reduceTabSelection("peek", "connections", { tabId: "connections", peek: true })).toBe("dismiss");
+        expect(reduceTabSelection("peek", "chat", { tabId: "chat" })).toBe("dismiss");
+        expect(reduceTabSelection("docked", "chat", { tabId: "chat" })).toBe("close");
+    });
+
+    it("leaves a docked pane docked for a glance at the tab it is already showing", () => {
+        // The dock is the user's layout; the press is left to expand the widget it is about.
+        expect(reduceTabSelection("docked", "connections", { tabId: "connections", peek: true })).toBe("select");
+    });
+});
 
 describe("groupIntoTabs", () => {
     it("keeps the enabled widgets only, in position order, and drops the tabs left empty", () => {
@@ -33,10 +53,11 @@ describe("groupIntoTabs", () => {
         const attributes = widget("attributes");
         const tabs = groupIntoTabs([ attributes, widget("outline", { enabled: false }) ], true);
 
-        // The outline is the tab that asks; the chat and the widgets go as they did.
-        expect(tabs.map((tab) => tab.id)).toEqual([ "outline", "attributes" ]);
+        // The outline and the connections are the tabs that ask; the chat and the widgets go as they did.
+        expect(tabs.map((tab) => tab.id)).toEqual([ "outline", "attributes", "connections" ]);
         expect(tabs[0].items).toEqual([]);
         expect(tabs[1].items).toEqual([ attributes.el ]);
+        expect(tabs[2].items).toEqual([]);
     });
 });
 

@@ -182,8 +182,11 @@ const defaultOptions: DefaultOption[] = [
     { name: "leftPaneVisible", value: "true", isSynced: false },
     { name: "rightPaneWidth", value: "25", isSynced: false },
     { name: "rightPaneVisible", value: "true", isSynced: false },
-    { name: "rightPaneCollapsedItems", value: "[]", isSynced: false },
+    { name: "rightPaneCollapsedItems", value: '["similarNotes"]', isSynced: false },
     { name: "rightPaneSelectedTab", value: "outline", isSynced: false },
+    // Synced, unlike the rest of the pane's state: which map to read connections as is a preference
+    // rather than where a window happens to be left standing.
+    { name: "rightPaneNoteMapType", value: "link", isSynced: true },
     { name: "nativeTitleBarVisible", value: "false", isSynced: false },
     { name: "eraseEntitiesAfterTimeInSeconds", value: "604800", isSynced: true }, // default is 7 days
     { name: "eraseEntitiesAfterTimeScale", value: "86400", isSynced: true }, // default 86400 seconds = Day
