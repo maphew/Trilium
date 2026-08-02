@@ -101,13 +101,17 @@ export function createTransclusionExtension(options: TransclusionOptions = {}): 
 }
 
 /**
- * Background colour for highlights: CKEditor's default yellow highlight marker (`==…==`
- * carries no colour of its own). Matches the `<span style="background-color:…">` markup
- * CKEditor's Font Background Color feature emits, so a highlight rendered into a text note
- * round-trips as an editable highlight. Deliberately not `<mark>`: the editor has no
- * Highlight plugin, so it would drop the element on the next edit.
+ * Background colour for highlights: CKEditor's stock palette yellow (`==…==` carries no colour
+ * of its own). Matches the `<span style="background-color:…">` markup CKEditor's Font
+ * Background Color feature emits, so a highlight rendered into a text note round-trips as an
+ * editable highlight. Deliberately not `<mark>`: the editor has no Highlight plugin, so it
+ * would drop the element on the next edit.
+ *
+ * The Markdown exporter compares against this to decide which highlights can collapse back to
+ * `==…==` and which have to keep their colour as inline HTML, so the two directions must agree
+ * on the exact value.
  */
-const HIGHLIGHT_BACKGROUND = "hsl(60, 75%, 60%)";
+export const HIGHLIGHT_BACKGROUND = "hsl(60, 75%, 60%)";
 
 /**
  * Creates an extension for highlights: `==text==` → a background-coloured `<span>`.
