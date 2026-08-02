@@ -1791,8 +1791,6 @@
   "image": {
     "copied-to-clipboard": "Ein Verweis auf das Bild wurde in die Zwischenablage kopiert. Dieser kann in eine beliebige Textnotiz eingefügt werden.",
     "cannot-copy": "Das Bild konnte nicht in die Zwischenablage kopiert werden.",
-    "copy-to-clipboard": "Bild in die Zwischenablage kopieren",
-    "download": "Bild herunterladen",
     "image-copied-to-clipboard": "Das Bild wurde in die Zwischenablage kopiert.",
     "cannot-copy-image": "Das Bild konnte nicht in die Zwischenablage kopiert werden.",
     "cannot-download": "Das Bild konnte nicht heruntergeladen werden."
@@ -2524,8 +2522,6 @@
     "sample_ishikawa": "Ursache-Wirkung",
     "sample_treeview": "Baumansicht",
     "sample_wardley": "Wardley-Map",
-    "slash_command_blank_description": "Leeres Mermaid-Diagramm einfügen",
-    "slash_command_description": "Mermaid-Diagrammvorlage „{{name}}“ einfügen",
     "sample_cynefin": "Cynefin",
     "sample_swimlane": "Swimlane",
     "sample_railroad": "Railroad"
@@ -2863,8 +2859,7 @@
     "will_reload_frontend": "(App wird neu geladen)"
   },
   "link": {
-    "failed_to_open": "Link '{{- href}}' konnte nicht geöffnet werden: {{- message}}",
-    "copy_url": "URL kopieren"
+    "failed_to_open": "Link '{{- href}}' konnte nicht geöffnet werden: {{- message}}"
   },
   "display_mode": {
     "source": "Quellansicht",
@@ -2963,9 +2958,6 @@
     "button-retry": "Erneut versuchen"
   },
   "text-editor": {
-    "checkbox-tooltip": "Klicken Sie mit der rechten Maustaste oder drücken Sie {{- shortcut}}, um den Status zu ändern.",
-    "edit-states-tooltip": "Aufgabenzustände bearbeiten",
-    "unknown-task-state": "Unbekannter benutzerdefinierter Aufgabenzustand",
     "validation-errors": {
       "undefined-name": "undefinierter Bezeichner",
       "invalid-name": "ungültiger Bezeichner",
@@ -2975,39 +2967,56 @@
       "invalid-symbol": "das Markdown-Symbol muss ein einzelnes Zeichen sein, ausgenommen \"[\", \" \", \"X\" und \"]\"",
       "duplicate-symbol": "doppeltes Markdown-Symbol"
     },
-    "collapsible-body-placeholder": "Inhalt hier eingeben...",
-    "collapsible-button-label": "Einklappbarer Block",
-    "collapsible-handle-tooltip": "Ziehen, um den einklappbaren Block zu verschieben",
-    "collapsible-select-label": "Einklappbaren Block auswählen",
-    "collapsible-title-placeholder": "Zusammenfassung",
-    "collapsible-toggle-label": "Einklappbaren Block umschalten",
-    "collapsible-tooltip": "Klicken Sie auf den Pfeil oder drücken Sie {{- shortcut}}, um ein- oder auszuklappen.",
-    "checkbox-tooltip-state-label": "Aufgabenstatus:",
-    "checkbox-tooltip-state-unknown-suffix": "(fehlende Definition)",
     "task-state-dropped-title": "Ungültige Aufgabenstatus",
     "task-state-dropped-message_one": "Eine benutzerdefinierte Aufgabenstatusdefinition ist ungültig und wurde ignoriert.",
     "task-state-dropped-message_other": "{{count}} benutzerdefinierte Aufgabenstatusdefinitionen sind ungültig und wurden ignoriert.",
     "task-state-dropped-heading": "Ignorierte Definitionen:",
-    "task-state-dropped-configure": "Aufgabenstatus konfigurieren"
-  },
-  "slash_commands": {
-    "bulleted_list_description": "Aufzählungsliste erstellen",
-    "numbered_list_description": "Nummerierte Liste erstellen",
-    "todo_list_description": "Aufgabenliste erstellen",
-    "align_left_description": "Text linksbündig ausrichten",
-    "align_center_description": "Text zentrieren",
-    "align_right_description": "Text rechtsbündig ausrichten",
-    "justify_description": "Blocksatz",
-    "admonition_description": "Einen neuen Hinweisblock einfügen",
-    "collapsible_description": "Einen ein-/ausklappbaren Abschnitt einfügen, der Inhalt per Klick verbirgt oder anzeigt.",
-    "footnote_description": "Eine neue Fußnote erstellen und hier referenzieren",
-    "datetime_description": "Aktuelles Datum und Uhrzeit einfügen",
-    "internal_link_description": "Link zu einer anderen Trilium-Notiz einfügen",
-    "math_description": "Mathematische Gleichung einfügen",
-    "include_note_description": "Inhalt einer anderen Notiz in dieser Notiz anzeigen",
-    "page_break_description": "Seitenumbruch einfügen (zum Drucken)",
-    "markdown_import_description": "Markdown-Datei in diese Notiz importieren",
-    "anchor_description": "Anker für interne Verlinkung einfügen"
+    "task-state-dropped-configure": "Aufgabenstatus konfigurieren",
+    "ck": {
+      "align-text-to-the-center": "Text zentrieren",
+      "align-text-to-the-left": "Text linksbündig ausrichten",
+      "align-text-to-the-right": "Text rechtsbündig ausrichten",
+      "card": "Karte",
+      "click-on-the-arrow-or-press-0-to-collapse-expand": "Klicken Sie auf den Pfeil oder drücken Sie %0, um ein- oder auszuklappen.",
+      "collapsible-block": "Einklappbarer Block",
+      "copy-image-to-clipboard": "Bild in die Zwischenablage kopieren",
+      "copy-url": "URL kopieren",
+      "create-a-bulleted-list": "Aufzählungsliste erstellen",
+      "create-a-new-footnote-and-reference-it-here": "Eine neue Fußnote erstellen und hier referenzieren",
+      "create-a-numbered-list": "Nummerierte Liste erstellen",
+      "create-a-to-do-list": "Aufgabenliste erstellen",
+      "display": "Anzeige",
+      "display-the-content-of-another-note-in-this-note": "Inhalt einer anderen Notiz in dieser Notiz anzeigen",
+      "download-image": "Bild herunterladen",
+      "drag-to-reposition-the-collapsible-block": "Ziehen, um den einklappbaren Block zu verschieben",
+      "edit-task-states": "Aufgabenzustände bearbeiten",
+      "edit-title": "Titel bearbeiten",
+      "embed": "Einbetten",
+      "import-a-markdown-file-into-this-note": "Markdown-Datei in diese Notiz importieren",
+      "inline": "Inline",
+      "insert-a-0-mermaid-diagram-template": "Mermaid-Diagrammvorlage „%0“ einfügen",
+      "insert-a-link-to-another-trilium-note": "Link zu einer anderen Trilium-Notiz einfügen",
+      "insert-a-math-equation": "Mathematische Gleichung einfügen",
+      "insert-a-page-break-for-printing": "Seitenumbruch einfügen (zum Drucken)",
+      "insert-a-toggleable-section-that-hides-shows-content-on-click": "Einen ein-/ausklappbaren Abschnitt einfügen, der Inhalt per Klick verbirgt oder anzeigt.",
+      "insert-an-anchor-for-internal-linking": "Anker für interne Verlinkung einfügen",
+      "insert-an-empty-mermaid-diagram": "Leeres Mermaid-Diagramm einfügen",
+      "insert-the-current-date-and-time": "Aktuelles Datum und Uhrzeit einfügen",
+      "inserts-a-new-admonition": "Einen neuen Hinweisblock einfügen",
+      "justify-text-alignment": "Blocksatz",
+      "link-preview": "Linkvorschau",
+      "missing-definition": "(fehlende Definition)",
+      "plain-link": "Einfacher Link",
+      "right-click-or-press-0-to-change-state": "Klicken Sie mit der rechten Maustaste oder drücken Sie %0, um den Status zu ändern.",
+      "select-collapsible-block": "Einklappbaren Block auswählen",
+      "summary": "Zusammenfassung",
+      "task-state": "Aufgabenstatus:",
+      "title": "Titel",
+      "toggle-collapsible-block": "Einklappbaren Block umschalten",
+      "type-the-content-here": "Inhalt hier eingeben...",
+      "undefined-custom-task-state": "Unbekannter benutzerdefinierter Aufgabenzustand",
+      "url": "URL"
+    }
   },
   "image_buttons": {
     "zoom_in": "Vergrößern",
@@ -3243,16 +3252,7 @@
   },
   "link_embed": {
     "play_video": "Video wiedergeben",
-    "title": "Linkvorschau",
-    "url": "URL",
     "insert": "Einfügen",
-    "display": "Anzeige",
-    "mode_inline": "Inline",
-    "mode_card": "Karte",
-    "mode_embed": "Einbetten",
-    "mode_plain": "Einfacher Link",
-    "edit_title": "Titel bearbeiten",
-    "title_label": "Titel",
     "save": "Speichern"
   },
   "wizard": {

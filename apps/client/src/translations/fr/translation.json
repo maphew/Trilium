@@ -1770,8 +1770,6 @@
   "image": {
     "copied-to-clipboard": "Une référence à l'image a été copiée dans le presse-papiers. Elle peut être collée dans n'importe quelle note texte.",
     "cannot-copy": "Impossible de copier la référence d'image dans le presse-papiers.",
-    "copy-to-clipboard": "Copier l'image dans le presse-papiers",
-    "download": "Télécharger l'image",
     "image-copied-to-clipboard": "L'image a été copiée dans le presse-papiers.",
     "cannot-copy-image": "Impossible de copier l'image dans le presse-papiers.",
     "cannot-download": "Impossible de télécharger l'image."
@@ -2483,9 +2481,7 @@
     "sample_venn": "Venn",
     "sample_ishikawa": "Ishikawa",
     "sample_treeview": "Vue arborescente",
-    "sample_wardley": "Carte Wardley",
-    "slash_command_blank_description": "Insérer un diagramme Mermaid vide",
-    "slash_command_description": "Insérer un modèle de diagramme Mermaid \"{{name}}\""
+    "sample_wardley": "Carte Wardley"
   },
   "mind-map": {
     "addChild": "Ajouter un enfant",
@@ -2706,8 +2702,7 @@
     "more_actions": "Plus d’actions"
   },
   "link": {
-    "failed_to_open": "Impossible d’ouvrir le lien '{{- href}}' : {{- message}}",
-    "copy_url": "Copier l'URL"
+    "failed_to_open": "Impossible d’ouvrir le lien '{{- href}}' : {{- message}}"
   },
   "display_mode": {
     "source": "Vue source",
@@ -2829,9 +2824,6 @@
     "export-csv-failed": "Échec de l'exportation de la feuille de calcul vers CSV."
   },
   "text-editor": {
-    "checkbox-tooltip": "Clic droit pour plus d'états.\nAppuyez sur {{shortcut}} pour changer d'état.",
-    "edit-states-tooltip": "Modifier les états des tâches",
-    "unknown-task-state": "État personnalisé non défini",
     "validation-errors": {
       "undefined-name": "identifiant non défini",
       "invalid-name": "identifiant invalide",
@@ -2841,32 +2833,40 @@
       "invalid-symbol": "le symbole Markdown doit être un seul caractère (sauf \"[\", \"X\" et \"]\")",
       "duplicate-symbol": "symbole Markdown en double"
     },
-    "collapsible-body-placeholder": "Saisissez le contenu ici...",
-    "collapsible-button-label": "Bloc repliable",
-    "collapsible-handle-tooltip": "Glisser pour déplacer le bloc repliable",
-    "collapsible-select-label": "Sélectionner le bloc repliable",
-    "collapsible-title-placeholder": "Résumé",
-    "collapsible-toggle-label": "Ouvrir/fermer le bloc repliable",
-    "collapsible-tooltip": "Cliquez sur la flèche ou appuyez sur {{shortcut}} pour replier/déplier."
-  },
-  "slash_commands": {
-    "bulleted_list_description": "Créer une liste à puces",
-    "numbered_list_description": "Créer une liste numérotée",
-    "todo_list_description": "Créer une liste de tâches",
-    "align_left_description": "Aligner le texte à gauche",
-    "align_center_description": "Centrer le texte",
-    "align_right_description": "Aligner le texte à droite",
-    "justify_description": "Justifier le texte",
-    "admonition_description": "Insérer une nouvelle admonition",
-    "collapsible_description": "Insérer une section repliable qui affiche/masque le contenu au clic.",
-    "footnote_description": "Créer une nouvelle note de bas de page et insérer sa référence ici",
-    "datetime_description": "Insérer la date et l'heure actuelles",
-    "internal_link_description": "Insérer un lien vers une autre note Trilium",
-    "math_description": "Insérer une équation mathématique",
-    "include_note_description": "Afficher le contenu d'une autre note dans cette note",
-    "page_break_description": "Insérer un saut de page (pour l'impression)",
-    "markdown_import_description": "Importer un fichier Markdown dans cette note",
-    "anchor_description": "Insérer une ancre pour les liens internes"
+    "ck": {
+      "align-text-to-the-center": "Centrer le texte",
+      "align-text-to-the-left": "Aligner le texte à gauche",
+      "align-text-to-the-right": "Aligner le texte à droite",
+      "click-on-the-arrow-or-press-0-to-collapse-expand": "Cliquez sur la flèche ou appuyez sur %0 pour replier/déplier.",
+      "collapsible-block": "Bloc repliable",
+      "copy-image-to-clipboard": "Copier l'image dans le presse-papiers",
+      "copy-url": "Copier l'URL",
+      "create-a-bulleted-list": "Créer une liste à puces",
+      "create-a-new-footnote-and-reference-it-here": "Créer une nouvelle note de bas de page et insérer sa référence ici",
+      "create-a-numbered-list": "Créer une liste numérotée",
+      "create-a-to-do-list": "Créer une liste de tâches",
+      "display-the-content-of-another-note-in-this-note": "Afficher le contenu d'une autre note dans cette note",
+      "download-image": "Télécharger l'image",
+      "drag-to-reposition-the-collapsible-block": "Glisser pour déplacer le bloc repliable",
+      "edit-task-states": "Modifier les états des tâches",
+      "import-a-markdown-file-into-this-note": "Importer un fichier Markdown dans cette note",
+      "insert-a-0-mermaid-diagram-template": "Insérer un modèle de diagramme Mermaid \"%0\"",
+      "insert-a-link-to-another-trilium-note": "Insérer un lien vers une autre note Trilium",
+      "insert-a-math-equation": "Insérer une équation mathématique",
+      "insert-a-page-break-for-printing": "Insérer un saut de page (pour l'impression)",
+      "insert-a-toggleable-section-that-hides-shows-content-on-click": "Insérer une section repliable qui affiche/masque le contenu au clic.",
+      "insert-an-anchor-for-internal-linking": "Insérer une ancre pour les liens internes",
+      "insert-an-empty-mermaid-diagram": "Insérer un diagramme Mermaid vide",
+      "insert-the-current-date-and-time": "Insérer la date et l'heure actuelles",
+      "inserts-a-new-admonition": "Insérer une nouvelle admonition",
+      "justify-text-alignment": "Justifier le texte",
+      "right-click-or-press-0-to-change-state": "Clic droit pour plus d'états.\nAppuyez sur %0 pour changer d'état.",
+      "select-collapsible-block": "Sélectionner le bloc repliable",
+      "summary": "Résumé",
+      "toggle-collapsible-block": "Ouvrir/fermer le bloc repliable",
+      "type-the-content-here": "Saisissez le contenu ici...",
+      "undefined-custom-task-state": "État personnalisé non défini"
+    }
   },
   "image_buttons": {
     "zoom_in": "Zoomer",

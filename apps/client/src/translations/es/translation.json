@@ -2062,8 +2062,6 @@
   "image": {
     "copied-to-clipboard": "Una referencia a la imagen ha sido copiada al portapapeles. Esta puede ser pegada en cualquier nota de texto.",
     "cannot-copy": "No se pudo copiar la referencia de imagen al portapapeles.",
-    "copy-to-clipboard": "Copiar imagen al portapapeles",
-    "download": "Descargar imagen",
     "image-copied-to-clipboard": "La imagen se ha copiado al portapapeles.",
     "cannot-copy-image": "No se pudo copiar la imagen al portapapeles.",
     "cannot-download": "No se pudo descargar la imagen."
@@ -2719,8 +2717,6 @@
     "sample_treemap": "Mapa de árbol",
     "sample_treeview": "Vista de árbol",
     "sample_wardley": "Mapa de Wardley",
-    "slash_command_blank_description": "Insertar un diagrama Mermaid vacío",
-    "slash_command_description": "Insertar una plantilla de diagrama Mermaid «{{name}}»",
     "sample_cynefin": "Cynefin",
     "sample_swimlane": "Carril",
     "sample_railroad": "Diagrama de ferrocarril"
@@ -2887,8 +2883,7 @@
     "delete_confirm": "¿Eliminar este chat? Esta acción no se puede deshacer."
   },
   "link": {
-    "failed_to_open": "Fallo al abrir enlace '{{- href}}': {{- message}}",
-    "copy_url": "Copiar URL"
+    "failed_to_open": "Fallo al abrir enlace '{{- href}}': {{- message}}"
   },
   "display_mode": {
     "source": "Vista de fuente",
@@ -3182,25 +3177,6 @@
       "table_column": "Columna {{number}}"
     }
   },
-  "slash_commands": {
-    "bulleted_list_description": "Crear una lista con viñetas",
-    "numbered_list_description": "Crear una lista numerada",
-    "todo_list_description": "Crear una lista de tareas",
-    "align_left_description": "Alinear el texto a la izquierda",
-    "align_center_description": "Alinear el texto al centro",
-    "align_right_description": "Alinear el texto a la derecha",
-    "justify_description": "Justificar la alineación del texto",
-    "admonition_description": "Inserta una nueva admonición",
-    "collapsible_description": "Insertar una sección conmutable que oculta o muestra el contenido al hacer clic.",
-    "footnote_description": "Crear una nueva nota al pie y referenciarla aquí",
-    "datetime_description": "Insertar la fecha y hora actuales",
-    "internal_link_description": "Insertar un enlace a otra nota de Trilium",
-    "math_description": "Insertar una ecuación matemática",
-    "include_note_description": "Mostrar el contenido de otra nota en esta nota",
-    "page_break_description": "Insertar un salto de página (para impresión)",
-    "markdown_import_description": "Importar un archivo Markdown a esta nota",
-    "anchor_description": "Insertar un ancla para enlaces internos"
-  },
   "save_revision": {
     "save_revision": "Guardar revisión",
     "revision_name_placeholder": "Nombre de la revisión (opcional)",
@@ -3333,16 +3309,7 @@
   },
   "link_embed": {
     "play_video": "Reproducir vídeo",
-    "title": "Vista previa del enlace",
-    "url": "URL",
     "insert": "Insertar",
-    "display": "Visualización",
-    "mode_inline": "En línea",
-    "mode_card": "Tarjeta",
-    "mode_embed": "Incrustar",
-    "mode_plain": "Enlace simple",
-    "edit_title": "Editar título",
-    "title_label": "Título",
     "save": "Guardar"
   },
   "time_interval": {
@@ -3510,18 +3477,6 @@
     "your-ip-addresses": "Direcciones de este dispositivo"
   },
   "text-editor": {
-    "checkbox-tooltip": "Haga clic derecho o pulse {{- shortcut}} para cambiar el estado.",
-    "checkbox-tooltip-state-label": "Estado de la tarea:",
-    "checkbox-tooltip-state-unknown-suffix": "(definición ausente)",
-    "collapsible-body-placeholder": "Escriba aquí el contenido...",
-    "collapsible-button-label": "Bloque plegable",
-    "collapsible-handle-tooltip": "Arrastre para reposicionar el bloque plegable",
-    "collapsible-select-label": "Seleccionar bloque plegable",
-    "collapsible-title-placeholder": "Resumen",
-    "collapsible-toggle-label": "Alternar bloque plegable",
-    "collapsible-tooltip": "Haga clic en la flecha o pulse {{- shortcut}} para plegar o expandir.",
-    "edit-states-tooltip": "Editar estados de tarea",
-    "unknown-task-state": "Estado de tarea personalizado no definido",
     "task-state-dropped-title": "Estados de tarea no válidos",
     "task-state-dropped-message_one": "Una definición personalizada de estado de tarea no es válida y se ha ignorado.",
     "task-state-dropped-message_many": "{{count}} definiciones personalizadas de estado de tarea no son válidas y se han ignorado.",
@@ -3536,6 +3491,51 @@
       "missing-icon": "falta el icono",
       "invalid-symbol": "el símbolo Markdown debe ser un carácter, excepto «[», « », «X» y «]»",
       "duplicate-symbol": "símbolo Markdown duplicado"
+    },
+    "ck": {
+      "align-text-to-the-center": "Alinear el texto al centro",
+      "align-text-to-the-left": "Alinear el texto a la izquierda",
+      "align-text-to-the-right": "Alinear el texto a la derecha",
+      "card": "Tarjeta",
+      "click-on-the-arrow-or-press-0-to-collapse-expand": "Haga clic en la flecha o pulse %0 para plegar o expandir.",
+      "collapsible-block": "Bloque plegable",
+      "copy-image-to-clipboard": "Copiar imagen al portapapeles",
+      "copy-url": "Copiar URL",
+      "create-a-bulleted-list": "Crear una lista con viñetas",
+      "create-a-new-footnote-and-reference-it-here": "Crear una nueva nota al pie y referenciarla aquí",
+      "create-a-numbered-list": "Crear una lista numerada",
+      "create-a-to-do-list": "Crear una lista de tareas",
+      "display": "Visualización",
+      "display-the-content-of-another-note-in-this-note": "Mostrar el contenido de otra nota en esta nota",
+      "download-image": "Descargar imagen",
+      "drag-to-reposition-the-collapsible-block": "Arrastre para reposicionar el bloque plegable",
+      "edit-task-states": "Editar estados de tarea",
+      "edit-title": "Editar título",
+      "embed": "Incrustar",
+      "import-a-markdown-file-into-this-note": "Importar un archivo Markdown a esta nota",
+      "inline": "En línea",
+      "insert-a-0-mermaid-diagram-template": "Insertar una plantilla de diagrama Mermaid «%0»",
+      "insert-a-link-to-another-trilium-note": "Insertar un enlace a otra nota de Trilium",
+      "insert-a-math-equation": "Insertar una ecuación matemática",
+      "insert-a-page-break-for-printing": "Insertar un salto de página (para impresión)",
+      "insert-a-toggleable-section-that-hides-shows-content-on-click": "Insertar una sección conmutable que oculta o muestra el contenido al hacer clic.",
+      "insert-an-anchor-for-internal-linking": "Insertar un ancla para enlaces internos",
+      "insert-an-empty-mermaid-diagram": "Insertar un diagrama Mermaid vacío",
+      "insert-the-current-date-and-time": "Insertar la fecha y hora actuales",
+      "inserts-a-new-admonition": "Inserta una nueva admonición",
+      "justify-text-alignment": "Justificar la alineación del texto",
+      "link-preview": "Vista previa del enlace",
+      "missing-definition": "(definición ausente)",
+      "plain-link": "Enlace simple",
+      "right-click-or-press-0-to-change-state": "Haga clic derecho o pulse %0 para cambiar el estado.",
+      "select-collapsible-block": "Seleccionar bloque plegable",
+      "summary": "Resumen",
+      "task-state": "Estado de la tarea:",
+      "title": "Título",
+      "toggle-collapsible-block": "Alternar bloque plegable",
+      "type-the-content-here": "Escriba aquí el contenido...",
+      "undefined-custom-task-state": "Estado de tarea personalizado no definido",
+      "url": "URL"
     }
   },
   "attribute_list_panel": {

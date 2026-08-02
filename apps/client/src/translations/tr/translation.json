@@ -259,6 +259,25 @@
   "text-editor": {
     "validation-errors": {
       "missing-icon": "eksik simge"
+    },
+    "ck": {
+      "align-text-to-the-center": "Metni merkeze hizala",
+      "align-text-to-the-left": "Metni sola hizala",
+      "align-text-to-the-right": "Metni sağa hizala",
+      "create-a-bulleted-list": "Madde işaretli liste oluştur",
+      "create-a-new-footnote-and-reference-it-here": "Yeni bir dipnot oluşturup buraya referans verin",
+      "create-a-numbered-list": "Numaralı liste oluştur",
+      "create-a-to-do-list": "Yapılacaklar listesi oluştur",
+      "display-the-content-of-another-note-in-this-note": "Bu notta başka bir notun içeriğini görüntüle",
+      "import-a-markdown-file-into-this-note": "Bu notun içine bir markdown dosyası aktarın",
+      "insert-a-link-to-another-trilium-note": "Başka Trilium notuna link ekleyin",
+      "insert-a-math-equation": "Matematiksel bir denklem ekle",
+      "insert-a-page-break-for-printing": "Sayfa sonu ekle (yazdırma için)",
+      "insert-a-toggleable-section-that-hides-shows-content-on-click": "Tıklandığında içeriği gizleyen/gösteren, açılıp kapanabilir bir bölüm ekleyin.",
+      "insert-an-anchor-for-internal-linking": "Dahili linkleme için bir bağlantı metni ekleyin",
+      "insert-the-current-date-and-time": "Geçerli tarih ve saati girin",
+      "inserts-a-new-admonition": "Yeni bir uyarı ekler",
+      "justify-text-alignment": "Metni iki yana hizala"
     }
   },
   "include_note": {
@@ -303,25 +322,6 @@
       "collapsible_summary": "Özet",
       "collapsible_details": "Ayrıntılar"
     }
-  },
-  "slash_commands": {
-    "bulleted_list_description": "Madde işaretli liste oluştur",
-    "numbered_list_description": "Numaralı liste oluştur",
-    "todo_list_description": "Yapılacaklar listesi oluştur",
-    "align_left_description": "Metni sola hizala",
-    "align_center_description": "Metni merkeze hizala",
-    "align_right_description": "Metni sağa hizala",
-    "justify_description": "Metni iki yana hizala",
-    "admonition_description": "Yeni bir uyarı ekler",
-    "collapsible_description": "Tıklandığında içeriği gizleyen/gösteren, açılıp kapanabilir bir bölüm ekleyin.",
-    "footnote_description": "Yeni bir dipnot oluşturup buraya referans verin",
-    "datetime_description": "Geçerli tarih ve saati girin",
-    "internal_link_description": "Başka Trilium notuna link ekleyin",
-    "math_description": "Matematiksel bir denklem ekle",
-    "include_note_description": "Bu notta başka bir notun içeriğini görüntüle",
-    "page_break_description": "Sayfa sonu ekle (yazdırma için)",
-    "markdown_import_description": "Bu notun içine bir markdown dosyası aktarın",
-    "anchor_description": "Dahili linkleme için bir bağlantı metni ekleyin"
   },
   "move_to": {
     "dialog_title": "Notları ... konumuna taşı.",
