@@ -281,10 +281,7 @@ function CleanupDialog({ onFinished }: { onFinished: (reclaimed: number | null) 
                     {/* Carries no color, having no arc to name — it is here so the title starts
                         where every other row's does, rather than half a swatch to its left. */}
                     <span className="cleanup-item-swatch" aria-hidden="true" />
-                    <span className="cleanup-item-title">
-                        {t("compress-images")}
-                        <ContextualHelp helpMessage={t("space_usage.cleanup_compress_images_help")} />
-                    </span>
+                    <span className="cleanup-item-title">{t("compress-images")}</span>
                     <FormToggle
                         currentValue={options.compressImages}
                         onChange={(value) => update({ compressImages: value })}
