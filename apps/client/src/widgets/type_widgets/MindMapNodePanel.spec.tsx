@@ -2,7 +2,7 @@ import type { MindElixirInstance, NodeObj } from "mind-elixir";
 import { describe, expect, it, vi } from "vitest";
 
 import { renderInto } from "../../test/render";
-import MindMapNodePanel, { DEFAULT_FONT_SIZE, getCommonValue, MIXED, NODE_BACKGROUND_COLORS, NODE_COLORS } from "./MindMapNodePanel";
+import MindMapNodePanel, { applyTagTexts, DEFAULT_FONT_SIZE, getCommonValue, MIXED, NODE_BACKGROUND_COLORS, NODE_COLORS } from "./MindMapNodePanel";
 
 function buildNode(node: Partial<NodeObj> = {}): NodeObj {
     return { id: "n1", topic: "Node", ...node };
@@ -26,6 +26,7 @@ const SIZE = 0;
 const TEXT = 1;
 const BACKGROUND = 2;
 const BRANCH = 3;
+const TAGS = 4;
 
 function section(container: HTMLElement, index: number) {
     const sections = container.querySelectorAll<HTMLElement>(".mind-map-node-panel-section");
@@ -76,6 +77,18 @@ describe("getCommonValue", () => {
             buildNode({ style: { color: "" } }),
             buildNode()
         ], read)).toBeNull();
+    });
+});
+
+describe("applyTagTexts", () => {
+    it("keeps a styled tag while its text stands, and plain text for the rest", () => {
+        const styled = { text: "urgent", style: { color: "red" } };
+
+        expect(applyTagTexts([styled, "later"], ["urgent", "done"])).toEqual([styled, "done"]);
+        // Dropped from the texts, the styling goes with it rather than following the tag back.
+        expect(applyTagTexts([styled], ["done"])).toEqual(["done"]);
+        expect(applyTagTexts(undefined, ["done"])).toEqual(["done"]);
+        expect(applyTagTexts([styled], [])).toEqual([]);
     });
 });
 
@@ -180,6 +193,36 @@ describe("MindMapNodePanel", () => {
         reshapeNode.mockClear();
         presetCells(section(container, BRANCH))[1].click();
         expect(reshapeNode).toHaveBeenNthCalledWith(1, mind.currentNodes[0], { branchColor: NODE_COLORS[1] });
+    });
+
+    it("edits the tags of a single node, keeping the styling of the ones that stay", () => {
+        const styled = { text: "urgent", style: { color: "red" } };
+        const nodes = [buildNode({ tags: [styled, "later"] })];
+        const { mind, reshapeNode } = buildMind(nodes);
+
+        const container = renderInto(<MindMapNodePanel mind={mind} nodes={nodes} />);
+        const tags = section(container, TAGS);
+
+        expect([...tags.querySelectorAll(".tn-chip")].map((chip) => chip.textContent)).toEqual(
+            expect.arrayContaining([expect.stringContaining("urgent"), expect.stringContaining("later")]));
+
+        const input = tags.querySelector<HTMLInputElement>("input");
+        if (!input) throw new Error("the tag field has no box to type in");
+        input.value = "done";
+        input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+
+        expect(reshapeNode).toHaveBeenCalledWith(mind.currentNodes[0], { tags: [styled, "later", "done"] });
+    });
+
+    it("leaves the tags out for a selection of several nodes", () => {
+        // Every node carries its own, so a field standing for all of them could only overwrite.
+        const nodes = [buildNode({ id: "a", tags: ["one"] }), buildNode({ id: "b", tags: ["two"] })];
+        const { mind } = buildMind(nodes);
+
+        const container = renderInto(<MindMapNodePanel mind={mind} nodes={nodes} />);
+
+        expect(container.querySelectorAll(".mind-map-node-panel-section")).toHaveLength(TAGS);
+        expect(container.querySelector(".tn-field")).toBeNull();
     });
 
     it("keeps clicks and key presses from reaching the map underneath", () => {

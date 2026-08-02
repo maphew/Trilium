@@ -3530,7 +3530,10 @@
     "font-size-small": "S",
     "font-size-medium": "M",
     "font-size-large": "L",
-    "font-size-extra-large": "XL"
+    "font-size-extra-large": "XL",
+    "tags": "Tags",
+    "add-tag": "Add tag",
+    "remove-tag": "Remove tag"
   },
   "llm": {
     "disabled_placeholder": "AI features are turned off. Enable them to configure providers and MCP.",

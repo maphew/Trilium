@@ -1,9 +1,10 @@
 import "./MindMapNodePanel.css";
 
-import type { MindElixirInstance, NodeObj } from "mind-elixir";
+import type { MindElixirInstance, NodeObj, TagObj } from "mind-elixir";
 import { ComponentChildren } from "preact";
 
 import { t } from "../../services/i18n";
+import ValuesInput from "../attribute_widgets/values_input";
 import ColorPicker, { DEFAULT_COLOR_PALETTE } from "../react/ColorPicker";
 import SegmentedChoice from "../react/SegmentedChoice";
 
@@ -35,6 +36,9 @@ export default function MindMapNodePanel({ mind, nodes }: MindMapNodePanelProps)
     const textColor = getCommonValue(nodes, (node) => node.style?.color);
     const backgroundColor = getCommonValue(nodes, (node) => node.style?.background);
     const branchColor = getCommonValue(nodes, (node) => node.branchColor);
+    // Tags belong to one node rather than to a shape shared by the selection: offering them for
+    // several would mean overwriting each node's own with whatever is typed.
+    const taggedNode = (nodes.length === 1 ? nodes[0] : null);
 
     /**
      * Applies a patch to every selected node. The selection is read back from the instance rather
@@ -86,6 +90,19 @@ export default function MindMapNodePanel({ mind, nodes }: MindMapNodePanelProps)
                     onChange={(color) => patchSelectedNodes({ branchColor: color ?? "" })}
                 />
             </PanelSection>
+
+            {taggedNode && (
+                <PanelSection label={t("mind-map.tags")}>
+                    <ValuesInput
+                        labelType="text"
+                        values={(taggedNode.tags ?? []).map(getTagText)}
+                        placeholder={t("mind-map.add-tag")}
+                        addButtonText={t("mind-map.add-tag")}
+                        removeButtonText={t("mind-map.remove-tag")}
+                        onCommit={(texts) => patchSelectedNodes({ tags: applyTagTexts(taggedNode.tags, texts) })}
+                    />
+                </PanelSection>
+            )}
         </div>
     );
 }
@@ -108,6 +125,20 @@ function buildFontSizeOptions() {
         { value: "24px", label: t("mind-map.font-size-large") },
         { value: "32px", label: t("mind-map.font-size-extra-large") }
     ];
+}
+
+/** The text a tag reads as, whether it carries a style of its own or is only the text. */
+export function getTagText(tag: string | TagObj) {
+    return typeof tag === "string" ? tag : tag.text;
+}
+
+/**
+ * Turns the texts a node is now tagged with back into tags. A tag that carries a style of its own
+ * is kept as it was for as long as its text is, so that a map made elsewhere doesn't lose the
+ * styling of its tags to one being added beside them.
+ */
+export function applyTagTexts(tags: NodeObj["tags"], texts: string[]): (string | TagObj)[] {
+    return texts.map((text) => tags?.find((tag) => getTagText(tag) === text) ?? text);
 }
 
 /** Turns the outcome of {@link getCommonValue} into the matching {@link ColorPicker} state. */
