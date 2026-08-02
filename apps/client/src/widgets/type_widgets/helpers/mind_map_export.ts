@@ -117,6 +117,8 @@ export function postProcessExportedSvg(mind: MindElixirInstance, svgText: string
         backTranslucentNodeBoxes(contentSvg, canvasColor);
     }
 
+    carryImageFit(contentSvg, mind);
+
     const labels = mind.nodes.querySelectorAll<HTMLElement>(".svg-label");
     for (const label of Array.from(labels)) {
         contentSvg.appendChild(doc.importNode(buildLabelForeignObject(label), true));
@@ -154,6 +156,39 @@ function backTranslucentNodeBoxes(contentSvg: Element, canvasColor: string) {
         contentSvg.insertBefore(backing, box);
     }
 }
+
+/**
+ * Tells each exported picture what to do with a box that is not its shape.
+ *
+ * A node draws its picture with `object-fit`, which the exporter does not carry over: it writes the
+ * box and the address and nothing else, so a picture cut to a square on the map would be drawn
+ * whole and squashed into that square in the preview. The same instruction in SVG is
+ * `preserveAspectRatio`, set here from what each picture was drawn with.
+ *
+ * The exporter appends one `<image>` per `<img>` of the map, in the order it finds them, and emits
+ * no others — so the two line up. Where they do not, nothing is said rather than the wrong thing.
+ */
+function carryImageFit(contentSvg: Element, mind: MindElixirInstance) {
+    const drawn = Array.from(mind.nodes.querySelectorAll("img"));
+    const exported = Array.from(contentSvg.querySelectorAll("image"));
+    if (drawn.length !== exported.length) {
+        return;
+    }
+
+    for (const [ index, image ] of exported.entries()) {
+        // Unset, a picture is stretched to its box, which is what CSS does with `object-fit` unset
+        // — and what a box of the picture's own shape, the usual case, makes no difference to.
+        const fit = drawn[index].style.objectFit || "fill";
+        image.setAttribute("preserveAspectRatio", FIT_ALIGNMENTS[fit] ?? FIT_ALIGNMENTS.fill);
+    }
+}
+
+/** What each `object-fit` is called in SVG. */
+const FIT_ALIGNMENTS: Record<string, string> = {
+    fill: "none",
+    contain: "xMidYMid meet",
+    cover: "xMidYMid slice"
+};
 
 /**
  * The alpha of a fill the exporter took from a computed style, or `null` when it carries none.

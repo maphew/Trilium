@@ -68,11 +68,19 @@ function iconFaces(container: HTMLElement) {
 }
 
 function imageWidthButtons(container: HTMLElement) {
-    return Array.from(section(container, IMAGE).querySelectorAll<HTMLElement>(".btn-group .btn"));
+    return Array.from(section(container, IMAGE).querySelectorAll<HTMLElement>(".mind-map-node-image-actions .btn"));
 }
 
 function activeImageWidth(container: HTMLElement) {
     return imageWidthButtons(container).findIndex((button) => button.classList.contains("active"));
+}
+
+function imageShapeButtons(container: HTMLElement) {
+    return Array.from(section(container, IMAGE).querySelectorAll<HTMLElement>(".mind-map-node-image-shapes .btn"));
+}
+
+function activeImageShape(container: HTMLElement) {
+    return imageShapeButtons(container).findIndex((button) => button.classList.contains("active"));
 }
 
 /** The button of the picture row wearing the given icon, if it is offered at all. */
@@ -353,6 +361,27 @@ describe("MindMapNodePanel", () => {
         imageAction(container, "bx-trash")?.click();
         expect(reshapeNode).toHaveBeenNthCalledWith(1, mind.currentNodes[0], { image: undefined });
         expect(reshapeNode).toHaveBeenNthCalledWith(2, mind.currentNodes[1], { image: undefined });
+    });
+
+    it("cuts every selected picture to the shape it is asked for, each at the width it is drawn at", async () => {
+        const nodes = [
+            buildNode({ id: "a", image: { url: "a.png", width: 240, height: 180 } }),
+            buildNode({ id: "b", image: { url: "b.png", width: 120, height: 90 } })
+        ];
+        const { mind, reshapeNode } = buildMind(nodes);
+
+        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
+
+        // Both carry their own shape, which is the one shown; the widths they disagree on are not.
+        expect(imageShapeButtons(container)).toHaveLength(3);
+        expect(activeImageShape(container)).toBe(0);
+        expect(activeImageWidth(container)).toBe(-1);
+
+        imageShapeButtons(container)[1].click();
+
+        await vi.waitFor(() => expect(reshapeNode).toHaveBeenCalledTimes(2));
+        expect(reshapeNode).toHaveBeenNthCalledWith(1, mind.currentNodes[0], { image: { url: "a.png", width: 240, height: 240, fit: "cover" } });
+        expect(reshapeNode).toHaveBeenNthCalledWith(2, mind.currentNodes[1], { image: { url: "b.png", width: 120, height: 120, fit: "cover" } });
     });
 
     it("takes no picture in where the selection carries different ones", () => {

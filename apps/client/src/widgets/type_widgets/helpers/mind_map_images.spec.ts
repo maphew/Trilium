@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import server from "../../../services/server";
 import toast from "../../../services/toast";
-import { DEFAULT_NODE_IMAGE_WIDTH, fitNodeImage, loadImageData, measureImage, nearestNodeImageWidth, NODE_IMAGE_WIDTHS, uploadNodeImage } from "./mind_map_images";
+import { DEFAULT_NODE_IMAGE_WIDTH, fitNodeImage, getNodeImageShape, loadImageData, measureImage, nearestNodeImageWidth, NODE_IMAGE_WIDTHS, shapeNodeImage, uploadNodeImage } from "./mind_map_images";
 
 vi.mock("../../../services/server", () => ({ default: { upload: vi.fn() } }));
 vi.mock("../../../services/toast", () => ({ default: { showError: vi.fn() } }));
@@ -61,6 +61,41 @@ describe("nearestNodeImageWidth", () => {
         expect(nearestNodeImageWidth(60)).toBe(NODE_IMAGE_WIDTHS[0]);
         expect(nearestNodeImageWidth(200)).toBe(NODE_IMAGE_WIDTHS[1]);
         expect(nearestNodeImageWidth(4000)).toBe(NODE_IMAGE_WIDTHS[2]);
+    });
+});
+
+describe("shapeNodeImage", () => {
+    const image = { url: "a.png", width: 240, height: 180 };
+
+    it("cuts a picture to a shape it did not come in, and asks it to fill the box", async () => {
+        expect(await shapeNodeImage(image, "square")).toEqual({ url: "a.png", width: 240, height: 240, fit: "cover" });
+        expect(await shapeNodeImage(image, "wide")).toEqual({ url: "a.png", width: 240, height: 135, fit: "cover" });
+    });
+
+    it("reads the picture again to give it its own shape back, keeping the width it is drawn at", async () => {
+        // Cut to a square, a picture no longer says what it came in — so it is asked.
+        stubDecoder({ width: 800, height: 600 });
+        const square = await shapeNodeImage(image, "square");
+
+        expect(await shapeNodeImage(square, "original")).toEqual({ url: "a.png", width: 240, height: 180, fit: undefined });
+    });
+
+    it("leaves a picture as it stands where it can no longer be read", async () => {
+        stubDecoder(null);
+        const square = { url: "gone.png", width: 240, height: 240, fit: "cover" } as const;
+
+        expect(await shapeNodeImage(square, "original")).toBe(square);
+    });
+});
+
+describe("getNodeImageShape", () => {
+    it("reads the shape a picture is drawn in, its own being every other", () => {
+        expect(getNodeImageShape({ url: "a.png", width: 240, height: 240 })).toBe("square");
+        expect(getNodeImageShape({ url: "a.png", width: 240, height: 135 })).toBe("wide");
+        expect(getNodeImageShape({ url: "a.png", width: 240, height: 180 })).toBe("original");
+
+        // A height rounded to whole pixels still reads as the shape it was cut to.
+        expect(getNodeImageShape({ url: "a.png", width: 121, height: 68 })).toBe("wide");
     });
 });
 

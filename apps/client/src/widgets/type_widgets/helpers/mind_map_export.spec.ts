@@ -123,6 +123,43 @@ describe("postProcessExportedSvg", () => {
         }
     });
 
+    it("tells each exported picture what to do with a box that is not its shape", () => {
+        // The exporter writes the box and the address alone, so a picture cut to a square on the
+        // map would be drawn whole and squashed into it here.
+        const mind = buildMind();
+        for (const objectFit of [ "cover", "contain", "" ]) {
+            const drawn = document.createElement("img");
+            drawn.style.objectFit = objectFit;
+            mind.nodes.appendChild(drawn);
+        }
+
+        const exportedSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="400px" height="300px">` +
+            `<svg x="100" y="100" overflow="visible">` +
+            `<image width="240px" height="240px" href="a.png"/>` +
+            `<image width="240px" height="240px" href="b.png"/>` +
+            `<image width="240px" height="180px" href="c.png"/>` +
+            `</svg></svg>`;
+        const result = postProcessExportedSvg(mind, exportedSvg);
+
+        const doc = new DOMParser().parseFromString(result, "image/svg+xml");
+        expect(Array.from(doc.querySelectorAll("image")).map((image) => image.getAttribute("preserveAspectRatio")))
+            // The last is drawn with no fit of its own, which stretches it to its box — the shape
+            // of the picture, as it happens, so nothing comes of it.
+            .toEqual([ "xMidYMid slice", "xMidYMid meet", "none" ]);
+    });
+
+    it("says nothing of the fit where the pictures of the map and of the export do not line up", () => {
+        const mind = buildMind();
+        mind.nodes.appendChild(document.createElement("img"));
+
+        const exportedSvg = `<svg xmlns="http://www.w3.org/2000/svg"><svg><image href="a.png"/>` +
+            `<image href="b.png"/></svg></svg>`;
+        const result = postProcessExportedSvg(mind, exportedSvg);
+
+        const doc = new DOMParser().parseFromString(result, "image/svg+xml");
+        expect(doc.querySelector("image")?.hasAttribute("preserveAspectRatio")).toBe(false);
+    });
+
     it("adds no labels when the map has none, and returns unparseable input unchanged", () => {
         const noLabels = postProcessExportedSvg(buildMind(), buildExportedSvg());
         const doc = new DOMParser().parseFromString(noLabels, "image/svg+xml");

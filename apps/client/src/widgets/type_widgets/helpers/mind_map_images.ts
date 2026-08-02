@@ -67,12 +67,80 @@ async function uploadImage(noteId: string, file: File): Promise<string | null> {
 /**
  * The size a picture comes in, or `null` if it cannot be read as a picture at all.
  */
-export async function measureImage(file: Blob): Promise<{ width: number, height: number } | null> {
-    const image = await decodeImage(file);
-    if (!image?.naturalWidth || !image.naturalHeight) {
-        return null;
+export async function measureImage(file: Blob): Promise<ImageSize | null> {
+    return sizeOf(await decodeImage(file));
+}
+
+/** The same, for a picture the note already holds, read from where a node points at it. */
+export async function measureImageAt(url: string): Promise<ImageSize | null> {
+    return sizeOf(await decodeImageAt(url));
+}
+
+export interface ImageSize {
+    width: number;
+    height: number;
+}
+
+/**
+ * The shapes a picture is offered in, in the order the panel lays them out.
+ *
+ * A picture is drawn in the box a node gives it, and the box need not be the shape the picture came
+ * in: a portrait and a landscape sitting side by side on two nodes read as a jumble, where the same
+ * two cut to a square read as a pair. What is asked of the picture where the two disagree is
+ * {@link NodeImage.fit} — cut to fill the box, which is what a shape is chosen for.
+ */
+export const NODE_IMAGE_SHAPES = [ "original", "square", "wide" ] as const;
+
+export type NodeImageShape = typeof NODE_IMAGE_SHAPES[number];
+
+/** How tall each shape stands for a width of one. "Original" is the picture's own, so it has none. */
+const NODE_IMAGE_SHAPE_RATIOS: Record<Exclude<NodeImageShape, "original">, number> = {
+    square: 1,
+    wide: 9 / 16
+};
+
+/**
+ * The same picture in the given shape, at the width it is already drawn at.
+ *
+ * Read back rather than remembered: a picture cut to a square no longer says what it came in, so
+ * returning it to its own shape means asking the picture itself again — it is a fetch the browser
+ * answers from what it already holds, the picture being on screen.
+ *
+ * @returns the picture as it is to be drawn, or as it stands where its own shape was asked for and
+ *          it could no longer be read.
+ */
+export async function shapeNodeImage(image: NodeImage, shape: NodeImageShape): Promise<NodeImage> {
+    if (shape !== "original") {
+        return {
+            ...image,
+            height: Math.max(1, Math.round(image.width * NODE_IMAGE_SHAPE_RATIOS[shape])),
+            fit: "cover"
+        };
     }
-    return { width: image.naturalWidth, height: image.naturalHeight };
+
+    const size = await measureImageAt(image.url);
+    if (!size) {
+        return image;
+    }
+    return { ...fitNodeImage({ ...image, ...size }, image.width), fit: undefined };
+}
+
+/**
+ * The shape a picture is drawn in, as the panel shows it. A picture that came in one of these
+ * shapes and was never cut reads as that shape, which is what it is — nothing is asked of it, and
+ * choosing that shape leaves it as it is.
+ */
+export function getNodeImageShape(image: NodeImage): NodeImageShape {
+    const ratio = (image.width > 0 ? image.height / image.width : 1);
+
+    for (const [ shape, shapeRatio ] of Object.entries(NODE_IMAGE_SHAPE_RATIOS)) {
+        // Wide enough to take in the rounding of a height to whole pixels, and no wider.
+        if (Math.abs(ratio - shapeRatio) < 0.01) {
+            return shape as NodeImageShape;
+        }
+    }
+
+    return "original";
 }
 
 /**
@@ -160,24 +228,31 @@ async function redrawImage(blob: Blob, width: number): Promise<string | null> {
     }
 }
 
+/** The size of a decoded picture, or `null` for what could not be read as one. */
+function sizeOf(image: HTMLImageElement | null): ImageSize | null {
+    if (!image?.naturalWidth || !image.naturalHeight) {
+        return null;
+    }
+    return { width: image.naturalWidth, height: image.naturalHeight };
+}
+
+/** Hands the picture to the browser to decode, under an address of the moment. */
+function decodeImage(blob: Blob): Promise<HTMLImageElement | null> {
+    const url = URL.createObjectURL(blob);
+    return decodeImageAt(url).finally(() => URL.revokeObjectURL(url));
+}
+
 /**
- * Hands the picture to the browser to decode, `null` where it will not have it. Decoded through an
+ * Decodes the picture at an address, `null` where the browser will not have it. Decoded through an
  * `<img>` rather than through `createImageBitmap`, which several browsers refuse for SVG — a format
  * a node takes as readily as any other.
  */
-function decodeImage(blob: Blob): Promise<HTMLImageElement | null> {
+function decodeImageAt(src: string): Promise<HTMLImageElement | null> {
     return new Promise((resolve) => {
-        const url = URL.createObjectURL(blob);
         const image = new Image();
-
-        const settle = (decoded: HTMLImageElement | null) => {
-            URL.revokeObjectURL(url);
-            resolve(decoded);
-        };
-
-        image.onload = () => settle(image);
-        image.onerror = () => settle(null);
-        image.src = url;
+        image.onload = () => resolve(image);
+        image.onerror = () => resolve(null);
+        image.src = src;
     });
 }
 

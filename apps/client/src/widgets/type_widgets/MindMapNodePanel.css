@@ -51,7 +51,14 @@
     }
 }
 
+/* What is done with the picture stands on one line, the shapes it is cut to on the next. */
 .mind-map-node-panel .mind-map-node-image {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.mind-map-node-panel .mind-map-node-image-actions {
     display: flex;
     align-items: center;
     gap: 4px;
@@ -60,6 +67,22 @@
     .btn-group {
         flex: 1;
         width: auto;
+    }
+}
+
+/*
+ * A shape is drawn rather than named, and a drawing asks for no more room than itself: the row is
+ * as wide as the three of them, instead of each taking a third of the panel (see below).
+ *
+ * Written onto the group itself rather than as a descendant of the panel, so that it outweighs the
+ * rule below rather than merely disagreeing with it — that one is written last and would win.
+ */
+.mind-map-node-panel .mind-map-node-image-shapes.btn-group {
+    align-self: start;
+    width: auto;
+
+    .btn {
+        flex: 0 0 auto;
     }
 }
 

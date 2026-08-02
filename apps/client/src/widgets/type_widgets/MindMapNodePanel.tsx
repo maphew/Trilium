@@ -21,7 +21,7 @@ import IconPicker from "../react/IconPicker";
 import NoteAutocomplete from "../react/NoteAutocomplete";
 import { refToJQuerySelector } from "../react/react_utils";
 import SegmentedChoice from "../react/SegmentedChoice";
-import { fitNodeImage, nearestNodeImageWidth, NODE_IMAGE_WIDTHS, uploadNodeImage } from "./helpers/mind_map_images";
+import { fitNodeImage, getNodeImageShape, nearestNodeImageWidth, NODE_IMAGE_SHAPES, NODE_IMAGE_WIDTHS, type NodeImage as NodeImageData, type NodeImageShape, shapeNodeImage, uploadNodeImage } from "./helpers/mind_map_images";
 import { describeExternalLink, linkFromSuggestion } from "./helpers/mind_map_links";
 
 /**
@@ -57,6 +57,7 @@ export default function MindMapNodePanel({ mind, noteId, nodes }: MindMapNodePan
     const icons = gatherListValues(nodes, (node) => node.icons ?? []);
     const image = getCommonValue(nodes, (node) => node.image?.url);
     const imageWidth = getCommonValue(nodes, (node) => node.image && String(node.image.width));
+    const imageShape = getCommonValue(nodes, (node) => node.image && getNodeImageShape(node.image)) as NodeImageShape | null | typeof MIXED;
     const link = getCommonValue(nodes, (node) => node.hyperLink);
     const tags = gatherTags(nodes);
 
@@ -77,6 +78,23 @@ export default function MindMapNodePanel({ mind, noteId, nodes }: MindMapNodePan
         if (image) {
             patchSelectedNodes({ image });
         }
+    }
+
+    /**
+     * Draws the picture of every selected node in the given shape. Worked out before any node is
+     * touched — a picture returning to its own shape has to be read again for it, and a patch is
+     * applied as it is handed over.
+     */
+    async function shapeImages(shape: NodeImageShape) {
+        const shaped = new Map<string, NodeImageData>();
+
+        await Promise.all(mind.currentNodes.map(async ({ nodeObj }) => {
+            if (nodeObj.image) {
+                shaped.set(nodeObj.id, await shapeNodeImage(nodeObj.image, shape));
+            }
+        }));
+
+        patchSelectedNodes((node) => ({ image: shaped.get(node.id) ?? node.image }));
     }
 
     return (
@@ -139,6 +157,8 @@ export default function MindMapNodePanel({ mind, noteId, nodes }: MindMapNodePan
                     hasImage={!!image}
                     indeterminate={image === MIXED}
                     width={imageWidth !== MIXED && imageWidth ? Number(imageWidth) : null}
+                    shape={imageShape !== MIXED ? imageShape : null}
+                    onShape={(shape) => void shapeImages(shape)}
                     // A node carries one picture, so what is taken in takes the place of what was
                     // there, at the size it comes in at.
                     onPick={(file) => void takeInImage(file)}
@@ -371,7 +391,7 @@ function NodeIcon({ face, title, disabled, onSelect, onRemove }: {
  * carrying none offers the one button that takes a picture in, and every other is only there once
  * there is something for it to act on.
  */
-function NodeImage({ hasImage, indeterminate, width, onPick, onResize, onRemove }: {
+function NodeImage({ hasImage, indeterminate, width, shape, onPick, onResize, onShape, onRemove }: {
     /** Whether the selection carries a picture at all, which is what the row offers to do with. */
     hasImage: boolean;
     /**
@@ -382,37 +402,51 @@ function NodeImage({ hasImage, indeterminate, width, onPick, onResize, onRemove 
     indeterminate: boolean;
     /** The width they are drawn at, or `null` where the nodes disagree on one. */
     width: number | null;
+    /** The shape they are drawn in, or `null` where the nodes disagree on one. */
+    shape: NodeImageShape | null;
     onPick(file: File): void;
     onResize(width: number): void;
+    onShape(shape: NodeImageShape): void;
     onRemove(): void;
 }) {
     return (
         <div className="mind-map-node-image">
+            <div className="mind-map-node-image-actions">
+                {hasImage && (
+                    <SegmentedChoice
+                        options={buildImageWidthOptions()}
+                        // Nothing is highlighted where the nodes are drawn at different widths, or
+                        // where a map made elsewhere carries a width of its own.
+                        currentValue={width !== null ? String(nearestNodeImageWidth(width)) : ""}
+                        onChange={(width) => onResize(Number(width))}
+                    />
+                )}
+
+                <FormFileUploadActionButton
+                    icon={hasImage ? "bx bx-repost" : "bx bx-image-add"}
+                    text={hasImage ? t("mind-map.change-image") : t("mind-map.add-image")}
+                    disabled={indeterminate}
+                    onChange={(files) => {
+                        const file = files?.[0];
+                        if (file) onPick(file);
+                    }}
+                />
+
+                {hasImage && (
+                    <ActionButton
+                        icon="bx bx-trash"
+                        text={t("mind-map.remove-image")}
+                        onClick={onRemove}
+                    />
+                )}
+            </div>
+
             {hasImage && (
                 <SegmentedChoice
-                    options={buildImageWidthOptions()}
-                    // Nothing is highlighted where the nodes are drawn at different widths, or
-                    // where a map made elsewhere carries a width of its own.
-                    currentValue={width !== null ? String(nearestNodeImageWidth(width)) : ""}
-                    onChange={(width) => onResize(Number(width))}
-                />
-            )}
-
-            <FormFileUploadActionButton
-                icon={hasImage ? "bx bx-repost" : "bx bx-image-add"}
-                text={hasImage ? t("mind-map.change-image") : t("mind-map.add-image")}
-                disabled={indeterminate}
-                onChange={(files) => {
-                    const file = files?.[0];
-                    if (file) onPick(file);
-                }}
-            />
-
-            {hasImage && (
-                <ActionButton
-                    icon="bx bx-trash"
-                    text={t("mind-map.remove-image")}
-                    onClick={onRemove}
+                    className="mind-map-node-image-shapes"
+                    options={buildImageShapeOptions()}
+                    currentValue={shape ?? ""}
+                    onChange={onShape}
                 />
             )}
         </div>
@@ -423,6 +457,24 @@ function NodeImage({ hasImage, indeterminate, width, onPick, onResize, onRemove 
 function buildImageWidthOptions() {
     const labels = [ t("mind-map.font-size-small"), t("mind-map.font-size-medium"), t("mind-map.font-size-large") ];
     return NODE_IMAGE_WIDTHS.map((width, index) => ({ value: String(width), label: labels[index] }));
+}
+
+/**
+ * The shapes a picture is cut to, its own among them — each drawn as the shape it stands for, which
+ * says it more plainly than its name does and leaves the three of them room in a panel this narrow.
+ */
+function buildImageShapeOptions() {
+    const icons: Record<NodeImageShape, string> = {
+        original: "bx-image",
+        square: "bx-square",
+        wide: "bx-rectangle"
+    };
+    const titles: Record<NodeImageShape, string> = {
+        original: t("mind-map.image-shape-original"),
+        square: t("mind-map.image-shape-square"),
+        wide: t("mind-map.image-shape-wide")
+    };
+    return NODE_IMAGE_SHAPES.map((shape) => ({ value: shape, icon: icons[shape], title: titles[shape] }));
 }
 
 /** Kept still, so that the autocomplete is not built anew every time the panel renders. */
