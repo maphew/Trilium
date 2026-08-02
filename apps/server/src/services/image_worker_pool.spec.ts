@@ -53,6 +53,9 @@ const h = vi.hoisted(() => {
     return {
         forked,
         forkOptions,
+        // What the fake machine has; individual tests shrink these to watch the pool follow.
+        cores: 8,
+        memoryBytes: 32 * 1024 * 1024 * 1024,
         fork(file: string, options: { serialization?: string; execArgv?: string[] }) {
             void file;
             forkOptions.push(options);
@@ -67,6 +70,7 @@ const h = vi.hoisted(() => {
 });
 
 vi.mock("node:child_process", () => ({ fork: h.fork }));
+vi.mock("node:os", () => ({ availableParallelism: () => h.cores, totalmem: () => h.memoryBytes }));
 vi.mock("@triliumnext/core", () => ({ getLog: () => ({ info() {}, error() {} }) }));
 
 const REQUEST: ImageCompressionRequest = {
@@ -90,6 +94,8 @@ beforeEach(() => {
     vi.resetModules();
     h.forked.length = 0;
     h.forkOptions.length = 0;
+    h.cores = 8;
+    h.memoryBytes = 32 * 1024 * 1024 * 1024;
 });
 
 describe("worker pool failure semantics", () => {
@@ -142,5 +148,23 @@ describe("worker pool failure semantics", () => {
         // Disabled: the next image is answered without so much as a spawn attempt.
         await expect(pool.compressInWorker(BYTES, REQUEST, 1024)).resolves.toBeNull();
         expect(h.forked).toHaveLength(1);
+    });
+
+    it("sizes the pool to the machine's memory as well as its cores", async () => {
+        const pool = await import("./image_worker_pool.js");
+
+        // A roomy machine gets the full cap; each worker below may grow a 2 GB heap, so the sum
+        // is kept inside half the memory: 8 GB carries two of them, and a small box gets the one
+        // worker that off-thread compression needs at minimum, never zero.
+        expect(pool.compressionConcurrency()).toBe(4);
+        h.memoryBytes = 8 * 1024 * 1024 * 1024;
+        expect(pool.compressionConcurrency()).toBe(2);
+        h.memoryBytes = 2 * 1024 * 1024 * 1024;
+        expect(pool.compressionConcurrency()).toBe(1);
+
+        // The core count still binds on its own.
+        h.memoryBytes = 32 * 1024 * 1024 * 1024;
+        h.cores = 2;
+        expect(pool.compressionConcurrency()).toBe(2);
     });
 });

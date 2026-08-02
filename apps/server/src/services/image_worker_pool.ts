@@ -27,7 +27,7 @@
 
 import { type ChildProcess, fork } from "node:child_process";
 import { existsSync } from "node:fs";
-import { availableParallelism } from "node:os";
+import { availableParallelism, totalmem } from "node:os";
 import { join } from "node:path";
 
 import { getLog } from "@triliumnext/core";
@@ -51,9 +51,21 @@ import type { ImageWorkerRequest, ImageWorkerResponse, ImageWorkerTrace } from "
  *
  * `availableParallelism` rather than the raw core count, for the machines below the cap: it follows
  * the affinity the process was given, so a container pinned to two cores is answered as two.
+ *
+ * Bounded by memory besides. Each worker may grow a {@link WORKER_HEAP_MB} heap, and their sum is
+ * kept inside half of what the machine has — a four-gigabyte NAS is answered 1, not 4, because the
+ * failure past that bound is not the compression slowing down but the machine paging, which stops
+ * everything on it. Coarse on purpose: in a container `totalmem` reads the host rather than the
+ * cgroup, so this guards the obvious overcommit rather than accounting for what is genuinely free.
  */
 export function compressionConcurrency(): number {
-    return workerEntry() ? Math.max(1, Math.min(MAX_WORKERS, availableParallelism())) : 1;
+    if (!workerEntry()) {
+        return 1;
+    }
+
+    const byMemory = Math.floor(totalmem() / 2 / (WORKER_HEAP_MB * 1024 * 1024));
+
+    return Math.max(1, Math.min(MAX_WORKERS, availableParallelism(), byMemory));
 }
 
 /** Where decoding stops going faster for being given more workers; see above for the measurement. */
@@ -290,6 +302,17 @@ function spawn(): PooledWorker | null {
 
         const pooled: PooledWorker = { worker, pid: worker.pid, ready };
 
+        // A process that comes up says so within a second, so a long silence here is not a slow
+        // boot but a hung one — and without a deadline of its own it would sit on the run for the
+        // whole of the reply timeout, which is sized for decodes, not for saying hello.
+        const bootTimer = setTimeout(() => {
+            getLog().info(`Image Compression Tool: worker ${pooled.pid} did not come up within `
+                + `${WORKER_BOOT_TIMEOUT_MS}ms; giving up on it`);
+            readiness.died?.(new Error("Image worker did not come up in time."));
+        }, WORKER_BOOT_TIMEOUT_MS);
+
+        bootTimer.unref();
+
         // Rare enough to say out loud without asking: a handful of lines per process, and the ones
         // that answer "did a worker ever start, and did it stay up" — which is the whole question
         // when a run stops making progress.
@@ -299,6 +322,7 @@ function spawn(): PooledWorker | null {
             () => getLog().info(`Image Compression Tool: worker ${pooled.pid} online in ${Date.now() - startedAt}ms`));
 
         pooled.worker.on("message", (response: ImageWorkerResponse | ImageWorkerTrace) => {
+            clearTimeout(bootTimer);
             everSpoke = true;
             readiness.arrived?.();
 
@@ -314,11 +338,13 @@ function spawn(): PooledWorker | null {
         });
         // A worker that dies takes its in-flight image with it; the image is failed, not the run.
         pooled.worker.on("error", (error) => {
+            clearTimeout(bootTimer);
             getLog().info(`Image Compression Tool: worker ${pooled.pid} errored: ${firstLine(error)}`);
             readiness.died?.(error);
             pooled.failed?.(error);
         });
         pooled.worker.on("exit", (code, signal) => {
+            clearTimeout(bootTimer);
             // A worker we stopped ourselves exits with a failure code too, so saying so plainly is
             // the difference between "this is the pool tidying up" and "something died mid-image".
             getLog().info(pooled.stopped
@@ -422,6 +448,16 @@ function send(
  * meets that at most once per worker, and the images are not waiting on anything else meanwhile.
  */
 const WORKER_REPLY_TIMEOUT_MS = 15 * 60 * 1000;
+
+/**
+ * How long a fresh process is given to announce itself before it is written off.
+ *
+ * Kept apart from the reply timeout above, which is sized for decodes that legitimately take
+ * minutes: coming up is under a second of work, and a process silent for this long past it is not
+ * going to speak. Generous all the same — a first spawn on a loaded machine, behind a virus
+ * scanner reading the binary, has taken whole seconds without anything being wrong.
+ */
+const WORKER_BOOT_TIMEOUT_MS = 30 * 1000;
 
 /**
  * Per-image tracing, off unless asked for: a cleanup over a large tree would otherwise write two
