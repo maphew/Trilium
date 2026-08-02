@@ -9,8 +9,13 @@
  * Called for the whole map after every layout, which is what follows any change to a node.
  *
  * @param container the element holding the rendered nodes.
+ * @returns whether anything was dressed, and with it the width of the node it sits on — the class
+ *          takes far more room as words than as the icon it becomes, so a caller that has measured
+ *          the map has to measure it again.
  */
 export function renderIconClasses(container: HTMLElement) {
+    let dressed = false;
+
     for (const iconEl of container.querySelectorAll<HTMLElement>(".icons > span")) {
         const iconClass = iconEl.textContent?.trim() ?? "";
         if (!isIconClass(iconClass)) continue;
@@ -21,7 +26,10 @@ export function renderIconClasses(container: HTMLElement) {
         // span holding no children at all throws — which failed the save of any map with an icon,
         // the preview being rendered through that exporter.
         iconEl.replaceChildren(document.createTextNode(""));
+        dressed = true;
     }
+
+    return dressed;
 }
 
 /**

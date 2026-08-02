@@ -281,7 +281,15 @@ function MindElixir({ children, containerRef: externalContainerRef, containerPro
         const mind = apiRef.current;
         if (!mind) return;
 
-        const renderIcons = () => renderIconClasses(mind.nodes);
+        const renderIcons = () => {
+            // An icon takes far less room than the class it arrived as, so the node it sits on
+            // narrows the moment it is dressed — after the branches have been measured against the
+            // wider one, leaving them reaching past it. Measure again, but only where something
+            // was dressed: the second pass finds nothing to do and the redrawing stops there.
+            if (renderIconClasses(mind.nodes)) {
+                mind.linkDiv();
+            }
+        };
 
         renderIcons();
         mind.bus.addListener("linkDiv", renderIcons);

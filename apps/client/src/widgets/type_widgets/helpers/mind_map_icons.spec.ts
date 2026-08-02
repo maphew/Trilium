@@ -23,7 +23,7 @@ describe("renderIconClasses", () => {
     it("dresses a Trilium icon class, whichever pack it belongs to", () => {
         const container = buildNode("bx bx-star", "mdi mdi-cube");
 
-        renderIconClasses(container);
+        expect(renderIconClasses(container)).toBe(true);
 
         const [ boxicon, mdi ] = container.querySelectorAll(".icons > span");
         expect(boxicon.className).toBe("bx bx-star");
@@ -36,7 +36,7 @@ describe("renderIconClasses", () => {
         // could be drawn; and a sentence is a sentence.
         const container = buildNode("⭐", "phosphor ph-cube", "bx");
 
-        renderIconClasses(container);
+        expect(renderIconClasses(container)).toBe(false);
 
         expect([ ...container.querySelectorAll(".icons > span") ].map((icon) => [ icon.className, icon.textContent ]))
             .toEqual([ [ "", "⭐" ], [ "", "phosphor ph-cube" ], [ "", "bx" ] ]);
@@ -54,12 +54,14 @@ describe("renderIconClasses", () => {
         expect(icon?.childNodes[0].textContent).toBe("");
     });
 
-    it("can be run again over what it has already dressed", () => {
-        // It runs after every layout, and a layout does not always rebuild the node.
+    it("can be run again over what it has already dressed, reporting that it changed nothing", () => {
+        // It runs after every layout, and a layout does not always rebuild the node. Saying that
+        // nothing was dressed is what stops the caller measuring the map over and over: it measures
+        // again only where a node has just narrowed.
         const container = buildNode("bx bx-star");
 
-        renderIconClasses(container);
-        renderIconClasses(container);
+        expect(renderIconClasses(container)).toBe(true);
+        expect(renderIconClasses(container)).toBe(false);
 
         const icon = container.querySelector(".icons > span");
         expect(icon?.className).toBe("bx bx-star");
