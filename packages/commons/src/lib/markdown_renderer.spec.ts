@@ -215,6 +215,18 @@ describe("renderToHtml", () => {
         });
     });
 
+    describe("strikethrough (literal tilde)", () => {
+        it("strikes through only doubled tildes, leaving lone ones literal", () => {
+            expect(render("this is ~~gone~~ now")).toBe("<p>this is <del>gone</del> now</p>");
+            // Two approximations in one paragraph must not pair up into a strikethrough.
+            expect(render("a ~07:50 departure, supplement (~€11)"))
+                .toBe("<p>a ~07:50 departure, supplement (~€11)</p>");
+            // A lone tilde inside a real strikethrough stays part of the struck text.
+            expect(render("~~strike with ~5 min inside~~"))
+                .toBe("<p><del>strike with ~5 min inside</del></p>");
+        });
+    });
+
     describe("lists", () => {
         it("renders a task list with checkbox inputs and labels", () => {
             const html = render("- [ ] a\n- [x] b");

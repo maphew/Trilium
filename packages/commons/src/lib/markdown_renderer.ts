@@ -83,6 +83,7 @@ import { getMimeTypeFromMarkdownName, MIME_TYPE_AUTO, normalizeMimeTypeForCKEdit
 import {
     createCommentExtension,
     createHighlightExtension,
+    createLiteralTildeExtension,
     createTransclusionExtension,
     createWikiLinkExtension,
     transclusionExtension,
@@ -583,7 +584,8 @@ export function renderToHtml(content: string, title: string, options: RenderToHt
     const extensions = [
         options.transclusion ? createTransclusionExtension(options.transclusion) : transclusionExtension,
         options.wikiLink ? createWikiLinkExtension(options.wikiLink) : wikiLinkExtension,
-        createHighlightExtension()
+        createHighlightExtension(),
+        createLiteralTildeExtension()
     ];
     if (options.obsidian) {
         extensions.push(createCommentExtension());

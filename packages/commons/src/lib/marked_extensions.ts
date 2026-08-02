@@ -188,6 +188,42 @@ export function createCommentExtension(): TokenizerAndRendererExtension {
     };
 }
 
+/**
+ * Creates an extension that keeps a lone `~` literal, so only `~~text~~` strikes text through.
+ *
+ * GFM also accepts a single tilde as a strikethrough delimiter, which is a poor fit for prose
+ * where `~` overwhelmingly means "approximately". Two unrelated approximations in one paragraph
+ * ("a ~07:50 departure … the supplement (~€11–12)") otherwise pair up and strike out everything
+ * between them — a frequent and very visible mangling of AI-written text. Losing the single-tilde
+ * shorthand is the cheaper trade: the doubled form is what editors emit and what Obsidian and
+ * Notion require.
+ */
+export function createLiteralTildeExtension(): TokenizerAndRendererExtension {
+    return {
+        name: "literalTilde",
+        level: "inline",
+
+        start(src: string) {
+            return src.indexOf("~");
+        },
+
+        tokenizer(src) {
+            // Consume the tilde as text; a doubled one is left to marked's own `del` tokenizer.
+            if (src.startsWith("~") && !src.startsWith("~~")) {
+                return {
+                    type: "literalTilde",
+                    raw: "~",
+                    text: "~"
+                };
+            }
+        },
+
+        renderer() {
+            return "~";
+        }
+    };
+}
+
 /** Pre-configured wiki-link extension for server-side (uses /noteId format) */
 export const wikiLinkExtension = createWikiLinkExtension();
 

@@ -3,6 +3,7 @@ import "./MarkdownCommons.css";
 
 import VanillaCodeMirror from "@triliumnext/codemirror";
 import { CustomMarkdownRenderer, renderToHtml } from "@triliumnext/commons/src/lib/markdown_renderer";
+import { createLiteralTildeExtension } from "@triliumnext/commons/src/lib/marked_extensions";
 import DOMPurify from "dompurify";
 import { Marked, type Tokens } from "marked";
 import { createContext } from "preact";
@@ -27,6 +28,9 @@ import { useSlashCommands } from "./completions";
 import { insertText, replaceSelection, uploadImageAndInsert } from "./editor_utils";
 
 const marked = new Marked({ breaks: true, gfm: true });
+// Headings in the outline are rendered by this instance rather than by `renderToHtml`, so it needs
+// the same single-tilde handling to stay consistent with the preview body.
+marked.use({ extensions: [createLiteralTildeExtension()] });
 
 /**
  * The default {@link CustomMarkdownRenderer} falls back to
