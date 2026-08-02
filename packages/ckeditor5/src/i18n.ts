@@ -117,12 +117,12 @@ export default async function getCkLocale(
     }
 
     if (messages) {
+        // Always configured once a host is attached, even for a catalog that resolves nothing: the
+        // dictionary still carries the renames of CKEditor's own strings, which apply regardless.
+        // Keyed by the language CKEditor will resolve messages under, which is the editor's default
+        // (`en`) whenever we pass no `language` below.
         const dictionary = buildMessageDictionary(messages.englishMessages, messages.translate);
-        if (Object.keys(dictionary).length > 0) {
-            // Keyed by the language CKEditor will resolve messages under, which is the editor's
-            // default (`en`) whenever we pass no `language` below.
-            translations.push({ [mapping?.languageCode ?? "en"]: { dictionary } });
-        }
+        translations.push({ [mapping?.languageCode ?? "en"]: { dictionary } });
     }
 
     return {

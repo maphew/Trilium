@@ -11,9 +11,24 @@ const optionsState = vi.hoisted(() => ({ map: {} as Record<string, string | unde
 // Toggles whether the editor advertises raw-image clipboard support.
 const imageState = vi.hoisted(() => ({ copySupported: false }));
 
-// Key names inside a rendered shortcut come from the app catalog; echo the key back so the lookup
-// is visible in the assertions rather than resolving to `undefined` against an uninitialized i18n.
-vi.mock("../../../services/i18n.js", () => ({ t: (key: string) => key }));
+// The app catalog, as far as the config is concerned: `bundle` is the `translation` namespace the
+// editor messages are read back from, and `t` resolves a key against `entries`. Unknown keys echo
+// back the way i18next does for a missing entry, which keeps every lookup visible in the assertions
+// rather than resolving to `undefined` against an uninitialized i18n.
+const catalogState = vi.hoisted(() => ({
+    bundle: undefined as Record<string, unknown> | undefined,
+    entries: {} as Record<string, string>
+}));
+vi.mock("../../../services/i18n.js", () => ({ t: (key: string) => catalogState.entries[key] ?? key }));
+vi.mock("i18next", () => ({
+    default: {
+        // i18next binds `getResourceBundle` in `init()`, so it is absent until the app has booted —
+        // the case for a test that builds a config without one.
+        get getResourceBundle() {
+            return catalogState.bundle && (() => catalogState.bundle);
+        }
+    }
+}));
 
 vi.mock("../../../services/options.js", () => ({
     default: {
@@ -82,6 +97,7 @@ interface MentionSuggestion {
 /** The dynamically-attached config members that CKEditor's `EditorConfig` type doesn't declare. */
 interface DynamicConfig {
     renderShortcut(shortcut: string): string;
+    autoLinkPreviewsEnabled(): boolean;
     imageActions: {
         copyToClipboard(src: string): void;
         download(src: string): void;
@@ -106,6 +122,8 @@ async function buildDynamicConfig(overrides: Partial<BuildEditorOptions> = {}) {
 beforeEach(() => {
     optionsState.map = {};
     imageState.copySupported = false;
+    catalogState.bundle = undefined;
+    catalogState.entries = {};
     window.glob.isDev = false;
 });
 
@@ -141,6 +159,20 @@ describe("CK config", () => {
             }
         }
     }, 20_000);
+
+    // The `text-editor.ck` section of the English catalog is the registry of editor strings: each
+    // entry names the English message id a plugin passes to `editor.t()`, and the value the editor
+    // gets for it is that key resolved through the app's i18n.
+    it("turns the English editor catalog into the dictionary the editor resolves messages through", async () => {
+        catalogState.bundle = { "text-editor": { ck: { "insert-a-table": "Insert a table." } } };
+        catalogState.entries["text-editor.ck.insert-a-table"] = "Tabelle einfügen";
+
+        const config = await buildConfig(baseOpts({ uiLanguage: "de" }));
+
+        const translations = config.translations as Record<string, { dictionary: Record<string, string> }>[];
+        // Ours is merged last, after CKEditor's own translations.
+        expect(translations.at(-1)?.de.dictionary["Insert a table."]).toBe("Tabelle einfügen");
+    });
 
     it("excludes Trilium frontend/backend script JS variants from code-block languages", async () => {
         const config = await buildConfig(baseOpts());
@@ -228,6 +260,16 @@ describe("CK config - image actions", () => {
         config.imageActions.download("image-src-2");
         expect(imageService.copyImageToClipboard).toHaveBeenCalledWith("image-src-1");
         expect(imageService.downloadImage).toHaveBeenCalledWith("image-src-2");
+    });
+
+    // The option is read per call rather than baked into the config, so toggling it applies to
+    // editors that are already open.
+    it("re-reads the auto-link-preview option on every call", async () => {
+        const config = await buildDynamicConfig();
+        expect(config.autoLinkPreviewsEnabled()).toBe(false);
+
+        optionsState.map["textNoteAutoLinkPreviewsEnabled"] = "true";
+        expect(config.autoLinkPreviewsEnabled()).toBe(true);
     });
 });
 
