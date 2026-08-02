@@ -223,9 +223,9 @@
     "safeImport": "Safe import",
     "explodeArchivesTooltip": "Creates notes from the files inside <code>.zip</code>, <code>.enex</code> and <code>.opml</code> archives. When off, the archives are attached as-is.",
     "explodeArchives": "Read contents of <code>.zip</code>, <code>.enex</code> and <code>.opml</code> archives.",
-    "shrinkImagesTooltip": "Scales and optimizes images to save space, which may slightly reduce quality. Doesn't apply to <code>.zip</code> imports with metadata, which are assumed already optimized.",
-    "shrinkImagesProviderTooltip": "Scales and optimizes imported images to save space, which may slightly reduce quality.",
-    "shrinkImages": "Shrink images",
+    "shrinkImagesTooltip": "Reduces the size of imported images, which may slightly reduce their quality. Not applied to <code>.zip</code> imports containing Trilium metadata, whose images are assumed to have been compressed already.",
+    "shrinkImagesProviderTooltip": "Reduces the size of imported images, which may slightly reduce their quality.",
+    "shrinkImages": "Compress images",
     "textImportedAsText": "Import HTML, Markdown and TXT as text notes if it's unclear from metadata",
     "codeImportedAsCode": "Import recognized code files (e.g. <code>.json</code>) as code notes if it's unclear from metadata",
     "spreadsheetImportedAsSpreadsheet": "Import CSV and Excel files as editable spreadsheets rather than files",
@@ -521,9 +521,9 @@
     "choose_files": "Choose files",
     "files_will_be_uploaded": "Files will be uploaded as attachments into {{noteTitle}}",
     "options": "Options",
-    "shrink_images": "Shrink images",
+    "shrink_images": "Compress images",
     "upload": "Upload",
-    "tooltip": "If you check this option, Trilium will attempt to shrink the uploaded images by scaling and optimization which may affect the perceived image quality. If unchecked, images will be uploaded without changes."
+    "tooltip": "Reduces the size of the uploaded images, which may slightly reduce their quality. When cleared, images are uploaded unchanged."
   },
   "attribute_detail": {
     "close_button_title": "Cancel changes and close",
