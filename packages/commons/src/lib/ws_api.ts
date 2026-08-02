@@ -165,4 +165,14 @@ export type WebSocketMessage = AllTaskDefinitions | {
     lastSyncedPush: number;
 } | {
     type: "consistency-checks-failed"
+} | {
+    /**
+     * An error that escaped every other handler and reached the process-level safety net — typically a
+     * throw from deferred background work (a timer, a floating promise), which has no request to fail.
+     * The backend keeps running; this only tells the user that something went wrong, since the failure
+     * would otherwise be invisible outside the log.
+     */
+    type: "unhandled-error";
+    /** The error message alone. The stack trace stays in the backend log rather than in the UI. */
+    message: string;
 }

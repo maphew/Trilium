@@ -45,7 +45,8 @@
     },
     "widget-missing-parent": "Custom widget does not have mandatory '{{property}}' property defined.\n\nIf this script is meant to be run without a UI element, use '#run=frontendStartup' instead.",
     "open-script-note": "Open script note",
-    "scripting-error": "The script note failed to run"
+    "scripting-error": "The script note failed to run",
+    "unhandled-error": "A background task failed"
   },
   "add_link": {
     "add_link": "Add link",

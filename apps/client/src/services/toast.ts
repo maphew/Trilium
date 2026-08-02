@@ -112,6 +112,25 @@ export function showErrorForScriptNote(noteId: string, message: string, opts?: {
     });
 }
 
+/**
+ * Surfaces a backend failure that no request was waiting on — a background task that threw, and would
+ * otherwise be visible only in the log. The backend keeps running, so this informs rather than alarms.
+ *
+ * Shown under a fixed id so that a task failing repeatedly refreshes one toast instead of stacking a
+ * column of identical ones.
+ */
+export function showUnhandledError(message: string) {
+    showPersistent({
+        id: "unhandled-error",
+        title: t("toast.unhandled-error"),
+        icon: "bx bx-error-circle",
+        message,
+        // Raw error strings are shown verbatim, so render them monospace.
+        messageMonospace: true,
+        timeout: 20_000
+    });
+}
+
 //#region Toast store
 export const toasts = signal<ToastOptionsWithRequiredId[]>([]);
 
