@@ -33,7 +33,15 @@
     opacity: .75;
 }
 
-/* The icon stands at the size it will read at on a node, rather than the size a note wears. */
+/* The icons of a node stand side by side, the button adding one more after them. */
+.mind-map-node-panel .mind-map-node-icons {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 2px;
+}
+
+/* Each stands at the size it will read at on a node, rather than the size a note wears. */
 .mind-map-node-panel .mind-map-node-icon {
     --note-icon-size: 20px;
     --note-icon-container-padding-size: 4px;

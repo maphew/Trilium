@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 
 import { buildNotes } from "../../test/easy-froca";
 import { renderInto } from "../../test/render";
-import MindMapNodePanel, { applyTagTexts, DEFAULT_FONT_SIZE, gatherTags, getCommonValue, MIXED, NODE_BACKGROUND_COLORS, NODE_COLORS } from "./MindMapNodePanel";
+import MindMapNodePanel, { applyTagTexts, DEFAULT_FONT_SIZE, gatherTags, getCommonValue, MIXED, NODE_BACKGROUND_COLORS, NODE_COLORS, withIconAt } from "./MindMapNodePanel";
 
 function buildNode(node: Partial<NodeObj> = {}): NodeObj {
     return { id: "n1", topic: "Node", ...node };
@@ -46,6 +46,16 @@ function typeTag(container: HTMLElement, text: string) {
     if (!input) throw new Error("the tag field has no box to type in");
     input.value = text;
     input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+}
+
+function iconButtons(container: HTMLElement) {
+    return [ ...section(container, ICON).querySelectorAll<HTMLButtonElement>(".mind-map-node-icon button") ];
+}
+
+/** The icon each button in the row wears, the adding button included. */
+function iconFaces(container: HTMLElement) {
+    return iconButtons(container).map((button) =>
+        [ ...button.classList ].filter((name) => name.startsWith("bx")).join(" "));
 }
 
 function sizeButtons(container: HTMLElement) {
@@ -115,6 +125,24 @@ describe("gatherTags", () => {
         // One node holding none of them is a disagreement like any other.
         expect(gatherTags([buildNode({ id: "a", tags: ["one"] }), buildNode({ id: "b" })]))
             .toEqual({ texts: ["one"], readOnly: true });
+    });
+});
+
+describe("withIconAt", () => {
+    it("takes an icon in at a place, and drops the one that was there", () => {
+        const icons = [ "bx bx-star", "bx bx-cube" ];
+
+        // The button at the end of the row stands one past it, which is where a pick is appended.
+        expect(withIconAt(icons, icons.length, "bx bx-bulb")).toEqual([ "bx bx-star", "bx bx-cube", "bx bx-bulb" ]);
+        expect(withIconAt([], 0, "bx bx-bulb")).toEqual([ "bx bx-bulb" ]);
+        // Picking on an icon takes its place, wherever in the row it stands.
+        expect(withIconAt(icons, 0, "bx bx-bulb")).toEqual([ "bx bx-bulb", "bx bx-cube" ]);
+        expect(withIconAt(icons, 1, "bx bx-bulb")).toEqual([ "bx bx-star", "bx bx-bulb" ]);
+        // Removing takes out that one alone, the same icon worn twice included.
+        expect(withIconAt(icons, 0, null)).toEqual([ "bx bx-cube" ]);
+        expect(withIconAt([ "bx bx-star", "bx bx-star" ], 1, null)).toEqual([ "bx bx-star" ]);
+        // Nothing of the original is touched along the way.
+        expect(icons).toEqual([ "bx bx-star", "bx bx-cube" ]);
     });
 });
 
@@ -233,18 +261,29 @@ describe("MindMapNodePanel", () => {
         expect(reshapeNode).toHaveBeenNthCalledWith(1, mind.currentNodes[0], { branchColor: NODE_COLORS[1] });
     });
 
-    it("shows the icon the selection wears, and none where they disagree", () => {
-        const iconButton = (nodes: NodeObj[]) =>
-            renderInto(<MindMapNodePanel mind={buildMind(nodes).mind} nodes={nodes} />)
-                .querySelector(`.mind-map-node-panel-section:nth-child(${ICON + 1}) button`);
+    it("shows every icon the selection wears, and a button for one more", () => {
+        const nodes = [buildNode({ icons: ["bx bx-star", "bx bx-cube"] })];
 
-        expect(iconButton([buildNode({ icons: ["bx bx-star"] })])?.className).toContain("bx bx-star");
-        // Nothing of its own, and a selection that disagrees, both read as no icon.
-        expect(iconButton([buildNode()])?.className).toContain("bx bx-empty");
-        expect(iconButton([
+        const container = renderInto(<MindMapNodePanel mind={buildMind(nodes).mind} nodes={nodes} />);
+
+        // The icons themselves, then the button adding another.
+        expect(iconFaces(container)).toEqual(["bx bx-star", "bx bx-cube", "bx bx-plus"]);
+        // A node wearing none is the adding button alone, which is invitation enough.
+        expect(iconFaces(renderInto(<MindMapNodePanel mind={buildMind([buildNode()]).mind} nodes={[buildNode()]} />)))
+            .toEqual(["bx bx-plus"]);
+    });
+
+    it("shows what a disagreeing selection carries between them, for reading only", () => {
+        const nodes = [
             buildNode({ id: "a", icons: ["bx bx-star"] }),
             buildNode({ id: "b", icons: ["bx bx-cube"] })
-        ])?.className).toContain("bx bx-empty");
+        ];
+
+        const container = renderInto(<MindMapNodePanel mind={buildMind(nodes).mind} nodes={nodes} />);
+
+        // Everything they carry, and no way to add: a pick could only overwrite what each has.
+        expect(iconFaces(container)).toEqual(["bx bx-star", "bx bx-cube"]);
+        expect(iconButtons(container).every((button) => button.disabled)).toBe(true);
     });
 
     it("says what the selection is linked to, and what it would take to link it", async () => {

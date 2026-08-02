@@ -48,7 +48,7 @@ export default function MindMapNodePanel({ mind, nodes }: MindMapNodePanelProps)
     const textColor = getCommonValue(nodes, (node) => node.style?.color);
     const backgroundColor = getCommonValue(nodes, (node) => node.style?.background);
     const branchColor = getCommonValue(nodes, (node) => node.branchColor);
-    const icon = getCommonValue(nodes, (node) => node.icons?.[0]);
+    const icons = gatherListValues(nodes, (node) => node.icons ?? []);
     const link = getCommonValue(nodes, (node) => node.hyperLink);
     const tags = gatherTags(nodes);
 
@@ -104,13 +104,14 @@ export default function MindMapNodePanel({ mind, nodes }: MindMapNodePanelProps)
                 />
             </PanelSection>
 
-            <PanelSection label={t("mind-map.icon")}>
-                <NodeIcon
-                    currentValue={icon !== MIXED ? icon : null}
-                    // A node takes one icon, like a note does, so what is picked replaces what was
-                    // there rather than joining it.
-                    onSelect={(iconClass) => patchSelectedNodes({ icons: [ iconClass ] })}
-                    onClear={() => patchSelectedNodes({ icons: [] })}
+            <PanelSection
+                label={t("mind-map.icons")}
+                title={icons.readOnly ? t("mind-map.icons-differ") : undefined}
+            >
+                <NodeIcons
+                    icons={icons.values}
+                    readOnly={icons.readOnly}
+                    onChange={(icons) => patchSelectedNodes({ icons })}
                 />
             </PanelSection>
 
@@ -169,23 +170,44 @@ function buildFontSizeOptions() {
 }
 
 /**
- * What the tag field stands for, given the selection.
+ * What a field standing for a property a node holds several of — its tags, its icons — shows for
+ * the selection.
  *
- * Tags belong to a node rather than to a shape the selection shares, so a field standing for
- * several of them can only be edited where they already agree — one node always does. Where they
- * don't, the field shows everything the selection carries between them, for reading: taking a tag
- * as read would mean writing one node's tags over another's.
+ * Such a property belongs to a node rather than to a shape the selection shares, so a field
+ * standing for several of them can only be edited where they already agree — one node always does.
+ * Where they don't, the field shows everything the selection carries between them, for reading:
+ * taking one as read would mean writing one node's list over another's.
  */
-export function gatherTags(nodes: NodeObj[]): { texts: string[], readOnly: boolean } {
-    const perNode = nodes.map((node) => (node.tags ?? []).map(getTagText));
+export function gatherListValues(nodes: NodeObj[], read: (node: NodeObj) => string[]): { values: string[], readOnly: boolean } {
+    const perNode = nodes.map(read);
     const [ first = [], ...rest ] = perNode;
 
-    if (rest.every((texts) => texts.length === first.length && texts.every((text) => first.includes(text)))) {
-        return { texts: first, readOnly: false };
+    if (rest.every((values) => values.length === first.length && values.every((value) => first.includes(value)))) {
+        return { values: first, readOnly: false };
     }
 
-    // In the order they are first met, so that the tags of the node selected first lead.
-    return { texts: [ ...new Set(perNode.flat()) ], readOnly: true };
+    // In the order they are first met, so that what the node selected first carries leads.
+    return { values: [ ...new Set(perNode.flat()) ], readOnly: true };
+}
+
+/**
+ * The icons a node wears once the one at `index` becomes `iconClass`, or is dropped where none is
+ * given. An index past the end appends, which is what the button at the end of the row stands at.
+ */
+export function withIconAt(icons: string[], index: number, iconClass: string | null): string[] {
+    if (iconClass === null) {
+        return icons.filter((_, at) => at !== index);
+    }
+    if (index >= icons.length) {
+        return [ ...icons, iconClass ];
+    }
+    return icons.map((held, at) => (at === index ? iconClass : held));
+}
+
+/** The tags of the selection, by the rule above. */
+export function gatherTags(nodes: NodeObj[]): { texts: string[], readOnly: boolean } {
+    const { values, readOnly } = gatherListValues(nodes, (node) => (node.tags ?? []).map(getTagText));
+    return { texts: values, readOnly };
 }
 
 /** The text a tag reads as, whether it carries a style of its own or is only the text. */
@@ -211,15 +233,60 @@ function toPickerValue(value: string | null | typeof MIXED) {
 }
 
 /**
- * The icon a node wears, chosen through the picker every other icon in Trilium is chosen through.
+ * The icons a node wears, side by side, and a button adding one more.
+ *
+ * Each icon is its own picker: opening it swaps that icon for whichever is chosen next, and the
+ * picker's own way back — the button offering to remove it — takes it out of the row. Nothing else
+ * is needed to drop one, and with no icons at all the row is the adding button alone, which says
+ * plainly enough what it is for.
+ */
+function NodeIcons({ icons, readOnly, onChange }: {
+    icons: string[];
+    readOnly: boolean;
+    onChange(icons: string[]): void;
+}) {
+    return (
+        <div className="mind-map-node-icons">
+            {icons.map((iconClass, index) => (
+                <NodeIcon
+                    // By position: a node may wear the same icon twice over, and the row is built
+                    // from what it holds rather than from a set.
+                    key={index}
+                    face={iconClass}
+                    title={t("mind-map.change-icon")}
+                    disabled={readOnly}
+                    onSelect={(picked) => onChange(withIconAt(icons, index, picked))}
+                    onRemove={() => onChange(withIconAt(icons, index, null))}
+                />
+            ))}
+
+            {!readOnly && (
+                // Standing one past the end, which is where what it takes is put.
+                <NodeIcon
+                    face="bx bx-plus"
+                    title={t("mind-map.add-icon")}
+                    onSelect={(picked) => onChange(withIconAt(icons, icons.length, picked))}
+                />
+            )}
+        </div>
+    );
+}
+
+/**
+ * One icon of a node, chosen through the picker every other icon in Trilium is chosen through.
  *
  * The picker is only built once opened: it holds every icon of every installed pack, which is far
  * more work than a panel that merely happens to be on screen should be doing.
  */
-function NodeIcon({ currentValue, onSelect, onClear }: {
-    currentValue: string | null;
+function NodeIcon({ face, title, disabled, onSelect, onRemove }: {
+    /** The class the button wears, whether an icon of the node or the invitation to add one. */
+    face: string;
+    title: string;
+    disabled?: boolean;
     onSelect(iconClass: string): void;
-    onClear(): void;
+    /** Offered inside the picker. Left out — as it is on the adding button — there is nothing yet
+     *  to remove. */
+    onRemove?(): void;
 }) {
     const dropdownRef = useRef<BootstrapDropdown>(null);
     const [ pickerShown, setPickerShown ] = useState(false);
@@ -229,8 +296,9 @@ function NodeIcon({ currentValue, onSelect, onClear }: {
             // The legacy class dresses the menu the picker sits in, which the themes and the
             // picker's own stylesheet reach through it.
             className="mind-map-node-icon note-icon-widget"
-            buttonClassName={`note-icon tn-focusable-button ${currentValue ?? "bx bx-empty"}`}
-            title={t("mind-map.choose-icon")}
+            buttonClassName={`note-icon tn-focusable-button ${face}`}
+            title={title}
+            disabled={disabled}
             dropdownRef={dropdownRef}
             dropdownContainerStyle={{ width: "620px" }}
             dropdownOptions={{ autoClose: "outside" }}
@@ -249,10 +317,10 @@ function NodeIcon({ currentValue, onSelect, onClear }: {
                         onSelect(iconClass);
                         dropdownRef.current?.hide();
                     }}
-                    onReset={currentValue ? () => {
-                        onClear();
+                    onReset={onRemove && (() => {
+                        onRemove();
                         dropdownRef.current?.hide();
-                    } : undefined}
+                    })}
                 />
             )}
         </Dropdown>
