@@ -15,6 +15,7 @@ import utils from "../../services/utils";
 import { useColorScheme, useEditorSpacedUpdate, useEffectiveReadOnly, useSyncedRef, useTriliumEvent, useTriliumEvents, useTriliumOption } from "../react/hooks";
 import { refToJQuerySelector } from "../react/react_utils";
 import { renderMindMapPreviewSvg } from "./helpers/mind_map_export";
+import { renderIconClasses } from "./helpers/mind_map_icons";
 import MindMapNodePanel from "./MindMapNodePanel";
 import { TypeWidgetProps } from "./type_widget";
 
@@ -273,6 +274,20 @@ function MindElixir({ children, containerRef: externalContainerRef, containerPro
             bus.removeListener("changeDirection", onChange);
         };
     }, [ onChange ]);
+
+    // Node icons are rendered as text by Mind Elixir, while ours are icon classes, so they are
+    // dressed again after every layout — which is what follows any change to a node.
+    useEffect(() => {
+        const mind = apiRef.current;
+        if (!mind) return;
+
+        const renderIcons = () => renderIconClasses(mind.nodes);
+
+        renderIcons();
+        mind.bus.addListener("linkDiv", renderIcons);
+
+        return () => mind.bus.removeListener("linkDiv", renderIcons);
+    }, [ instanceVersion ]);
 
     // Selection listener. The events only carry the nodes that were added to or removed from the
     // selection, so the full selection is read back from the instance instead.

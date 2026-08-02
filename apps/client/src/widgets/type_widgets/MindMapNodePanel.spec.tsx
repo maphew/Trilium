@@ -26,7 +26,8 @@ const SIZE = 0;
 const TEXT = 1;
 const BACKGROUND = 2;
 const BRANCH = 3;
-const TAGS = 4;
+const ICON = 4;
+const TAGS = 5;
 
 function section(container: HTMLElement, index: number) {
     const sections = container.querySelectorAll<HTMLElement>(".mind-map-node-panel-section");
@@ -228,6 +229,20 @@ describe("MindMapNodePanel", () => {
         reshapeNode.mockClear();
         presetCells(section(container, BRANCH))[1].click();
         expect(reshapeNode).toHaveBeenNthCalledWith(1, mind.currentNodes[0], { branchColor: NODE_COLORS[1] });
+    });
+
+    it("shows the icon the selection wears, and none where they disagree", () => {
+        const iconButton = (nodes: NodeObj[]) =>
+            renderInto(<MindMapNodePanel mind={buildMind(nodes).mind} nodes={nodes} />)
+                .querySelector(`.mind-map-node-panel-section:nth-child(${ICON + 1}) button`);
+
+        expect(iconButton([buildNode({ icons: ["bx bx-star"] })])?.className).toContain("bx bx-star");
+        // Nothing of its own, and a selection that disagrees, both read as no icon.
+        expect(iconButton([buildNode()])?.className).toContain("bx bx-empty");
+        expect(iconButton([
+            buildNode({ id: "a", icons: ["bx bx-star"] }),
+            buildNode({ id: "b", icons: ["bx bx-cube"] })
+        ])?.className).toContain("bx bx-empty");
     });
 
     it("edits the tags of a single node, keeping the styling of the ones that stay", () => {

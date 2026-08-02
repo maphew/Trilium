@@ -33,6 +33,12 @@
     opacity: .75;
 }
 
+/* The icon stands at the size it will read at on a node, rather than the size a note wears. */
+.mind-map-node-panel .mind-map-node-icon {
+    --note-icon-size: 20px;
+    --note-icon-container-padding-size: 4px;
+}
+
 /* The sizes share the width of the panel evenly, rather than each taking its label's width. */
 .mind-map-node-panel .btn-group {
     width: 100%;

@@ -1,11 +1,15 @@
 import "./MindMapNodePanel.css";
 
+import { Dropdown as BootstrapDropdown } from "bootstrap";
 import type { MindElixirInstance, NodeObj, TagObj } from "mind-elixir";
 import { ComponentChildren } from "preact";
+import { useRef, useState } from "preact/hooks";
 
 import { t } from "../../services/i18n";
 import ValuesInput from "../attribute_widgets/values_input";
 import ColorPicker, { DEFAULT_COLOR_PALETTE } from "../react/ColorPicker";
+import Dropdown from "../react/Dropdown";
+import IconPicker from "../react/IconPicker";
 import SegmentedChoice from "../react/SegmentedChoice";
 
 /**
@@ -36,6 +40,7 @@ export default function MindMapNodePanel({ mind, nodes }: MindMapNodePanelProps)
     const textColor = getCommonValue(nodes, (node) => node.style?.color);
     const backgroundColor = getCommonValue(nodes, (node) => node.style?.background);
     const branchColor = getCommonValue(nodes, (node) => node.branchColor);
+    const icon = getCommonValue(nodes, (node) => node.icons?.[0]);
     const tags = gatherTags(nodes);
 
     /**
@@ -87,6 +92,16 @@ export default function MindMapNodePanel({ mind, nodes }: MindMapNodePanelProps)
                     presets={NODE_COLORS}
                     {...toPickerValue(branchColor)}
                     onChange={(color) => patchSelectedNodes({ branchColor: color ?? "" })}
+                />
+            </PanelSection>
+
+            <PanelSection label={t("mind-map.icon")}>
+                <NodeIcon
+                    currentValue={icon !== MIXED ? icon : null}
+                    // A node takes one icon, like a note does, so what is picked replaces what was
+                    // there rather than joining it.
+                    onSelect={(iconClass) => patchSelectedNodes({ icons: [ iconClass ] })}
+                    onClear={() => patchSelectedNodes({ icons: [] })}
                 />
             </PanelSection>
 
@@ -170,6 +185,55 @@ function toPickerValue(value: string | null | typeof MIXED) {
         currentValue: (value !== MIXED ? value : null),
         indeterminate: (value === MIXED)
     };
+}
+
+/**
+ * The icon a node wears, chosen through the picker every other icon in Trilium is chosen through.
+ *
+ * The picker is only built once opened: it holds every icon of every installed pack, which is far
+ * more work than a panel that merely happens to be on screen should be doing.
+ */
+function NodeIcon({ currentValue, onSelect, onClear }: {
+    currentValue: string | null;
+    onSelect(iconClass: string): void;
+    onClear(): void;
+}) {
+    const dropdownRef = useRef<BootstrapDropdown>(null);
+    const [ pickerShown, setPickerShown ] = useState(false);
+
+    return (
+        <Dropdown
+            // The legacy class dresses the menu the picker sits in, which the themes and the
+            // picker's own stylesheet reach through it.
+            className="mind-map-node-icon note-icon-widget"
+            buttonClassName={`note-icon tn-focusable-button ${currentValue ?? "bx bx-empty"}`}
+            title={t("mind-map.choose-icon")}
+            dropdownRef={dropdownRef}
+            dropdownContainerStyle={{ width: "620px" }}
+            dropdownOptions={{ autoClose: "outside" }}
+            // The panel scrolls, and the picker is wider than the panel is; hand the menu to the
+            // page instead of leaving it to be clipped.
+            portalToBody
+            hideToggleArrow
+            onShown={() => setPickerShown(true)}
+            onHidden={() => setPickerShown(false)}
+        >
+            {pickerShown && (
+                <IconPicker
+                    columnCount={12}
+                    resetText={t("mind-map.clear-icon")}
+                    onSelect={(iconClass) => {
+                        onSelect(iconClass);
+                        dropdownRef.current?.hide();
+                    }}
+                    onReset={currentValue ? () => {
+                        onClear();
+                        dropdownRef.current?.hide();
+                    } : undefined}
+                />
+            )}
+        </Dropdown>
+    );
 }
 
 function PanelSection({ label, title, children }: { label: string, title?: string, children: ComponentChildren }) {
