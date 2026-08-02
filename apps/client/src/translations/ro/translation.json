@@ -2787,6 +2787,11 @@
       "url": "URL",
       "warning": "Avertisment"
     },
+    "toolbar-groups": {
+      "text-formatting": "Formatare text",
+      "insert": "Inserare",
+      "alignment": "Aliniere"
+    },
     "validation-errors": {
       "undefined-name": "identificator nedefinit",
       "invalid-name": "identificator invalid",
