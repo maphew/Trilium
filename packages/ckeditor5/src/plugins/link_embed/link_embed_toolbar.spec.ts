@@ -407,9 +407,9 @@ describe("LinkEmbedToolbar", () => {
             writer.setSelection(embed, "on");
         });
         const dropdown = editor.ui.componentFactory.create("linkEmbedDisplayDropdown") as unknown as DropdownView;
-        // embedType "opengraph" maps to mode "card"
-        const cardMode = LINK_DISPLAY_MODES.find(m => m.value === "card");
-        expect(dropdown.buttonView.label).toBe(cardMode?.label);
+        // embedType "opengraph" maps to mode "card". No dictionary is configured, so the label
+        // renders its English message id.
+        expect(dropdown.buttonView.label).toBe("Card");
     });
 
     // -----------------------------------------------------------------------
@@ -429,19 +429,21 @@ describe("LinkEmbedToolbar", () => {
         for (let i = 0; i < LINK_DISPLAY_MODES.length; i++) {
             const item = listView.items.get(i);
             const button = item.children.get(0);
-            expect(button._displayMode).toBe(LINK_DISPLAY_MODES[i].value);
+            expect(button._displayMode).toBe(LINK_DISPLAY_MODES[i]);
         }
     });
 
     it("each list item has the correct label", () => {
         const dropdown = editor.ui.componentFactory.create("linkEmbedDisplayDropdown") as unknown as DropdownView;
         const listView = openDropdown(dropdown);
+        const labels = [];
 
         for (let i = 0; i < LINK_DISPLAY_MODES.length; i++) {
-            const item = listView.items.get(i);
-            const button = item.children.get(0);
-            expect(button.label).toBe(LINK_DISPLAY_MODES[i].label);
+            labels.push(listView.items.get(i).children.get(0).label);
         }
+
+        // No dictionary is configured, so each label renders its English message id.
+        expect(labels).toEqual([ "Inline", "Card", "Embed", "Plain link" ]);
     });
 
     it("list item isOn is true for the matching mode when a card linkEmbed is selected", () => {
