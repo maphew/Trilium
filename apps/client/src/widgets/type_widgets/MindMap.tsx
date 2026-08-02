@@ -285,10 +285,14 @@ function MindElixir({ children, containerRef: externalContainerRef, containerPro
         reportSelection();
         mind.bus.addListener("selectNodes", reportSelection);
         mind.bus.addListener("unselectNodes", reportSelection);
+        // Operations edit the node objects in place, leaving the selection pointing at the same
+        // ones. Report it again so that what is shown of a selected node follows its edits.
+        mind.bus.addListener("operation", reportSelection);
 
         return () => {
             mind.bus.removeListener("selectNodes", reportSelection);
             mind.bus.removeListener("unselectNodes", reportSelection);
+            mind.bus.removeListener("operation", reportSelection);
         };
     }, [ onSelectionChange, instanceVersion ]);
 
