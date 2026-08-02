@@ -14,7 +14,6 @@ import {
 } from "ckeditor5";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-import "../../translation_overrides.js";
 import { createTestEditor } from "../../../test/editor-kit.js";
 import TriliumSnippets from "./snippets.js";
 import type { SnippetDefinition } from "./snippetsconfig.js";
@@ -123,7 +122,9 @@ describe("SnippetsUI — insertTemplate dropdown", () => {
     });
 
     it("labels the toggle and binds it to the command", () => {
-        expect(dropdown.buttonView.label).toBe("Insert text snippet"); // relabelled by translation_overrides
+        // The message id itself, no dictionary configured: the plugin says "text snippet" rather
+        // than the "template" wording of the premium plugin it replaces.
+        expect(dropdown.buttonView.label).toBe("Insert text snippet");
         expect(dropdown.buttonView.icon).toContain("<svg");
 
         const command = editor.commands.get("insertTemplate");

@@ -10,9 +10,9 @@ import "./theme/snippets.css";
  * `menuBar:insertTemplate` menu entry. Both render from {@link SnippetsEditing}'s live definition
  * collection, so snippet changes appear without recreating the editor.
  *
- * The user-facing strings deliberately reuse the same English source keys as the premium plugin this
- * replaces (`"Insert template"`, `"Search template"`, …) so the existing `translation_overrides.ts`
- * relabelling ("Insert text snippet" / "Search text snippet") keeps applying.
+ * The user-facing strings say "text snippet" rather than the "template" wording of the premium
+ * plugin this replaces. They used to reuse premium's English ids verbatim and be relabelled by a
+ * global override; with the message ids being Trilium's own now, they simply say what they mean.
  */
 export default class SnippetsUI extends Plugin {
 
@@ -45,7 +45,7 @@ export default class SnippetsUI extends Plugin {
             const searchView = new SearchTextView(locale, {
                 filteredView: listView,
                 queryView: {
-                    label: t("Search template")
+                    label: t("Search text snippet")
                 },
                 class: "ck-template-form",
                 infoView: {
@@ -70,7 +70,7 @@ export default class SnippetsUI extends Plugin {
             dropdownView.bind("isEnabled").to(command);
             dropdownView.panelView.children.add(searchView);
             dropdownView.buttonView.set({
-                label: t("Insert template"),
+                label: t("Insert text snippet"),
                 icon: templateIcon,
                 tooltip: true
             });

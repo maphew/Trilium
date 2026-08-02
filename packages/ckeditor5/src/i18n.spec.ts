@@ -82,7 +82,8 @@ describe("getCkLocale", () => {
         // Seed, core translations, ours — ours last, so it wins for any message id both define.
         expect(translations).toHaveLength(3);
         expect(translations[0]).toEqual({});
-        expect(translations[2]).toEqual({ de: { dictionary: { Admonition: "Ermahnung" } } });
+        const dictionary = (translations[2] as Record<string, { dictionary: Record<string, string> }>).de.dictionary;
+        expect(dictionary.Admonition).toBe("Ermahnung");
     });
 
     // CKEditor merges the `translations` array in place via `reduce(merge)`, so a missing seed
@@ -98,19 +99,27 @@ describe("getCkLocale", () => {
         expect(coreEntry.de.dictionary).not.toHaveProperty("Admonition");
     });
 
-    // A locale with no CKEditor translation still needs the dictionary, since it also carries any
-    // rewording of the editor's built-in English strings.
+    // A locale with no CKEditor translation still needs the dictionary, since it also carries the
+    // renames of the editor's built-in English strings.
     it("supplies a dictionary keyed 'en' for locales with no core translation", async () => {
         const { language, translations } = await getCkLocale("ga", admonitionOnly("Rabhadh"));
 
         expect(language).toBeUndefined();
-        expect(translations).toEqual([ {}, { en: { dictionary: { Admonition: "Rabhadh" } } } ]);
+        if (!Array.isArray(translations)) throw new Error("expected an array of translations");
+        expect(translations).toHaveLength(2);
+        expect((translations[1] as Record<string, { dictionary: Record<string, string> }>).en.dictionary.Admonition)
+            .toBe("Rabhadh");
     });
 
-    // An unresolved key yields an empty dictionary, which must not be pushed as a translations
-    // entry — an empty dictionary for a locale would otherwise shadow nothing but still allocate.
-    it("omits the dictionary when the translator resolves nothing", async () => {
-        expect(await getCkLocale("ga", { englishMessages: ENGLISH_MESSAGES, translate: (key) => key })).toEqual({});
+    // Even with nothing to translate, the dictionary still carries the renames of CKEditor's own
+    // strings — dropping it would put "Bookmark" back in front of the user.
+    it("supplies the renames when the translator resolves nothing", async () => {
+        const { translations } = await getCkLocale("ga", { englishMessages: ENGLISH_MESSAGES, translate: (key) => key });
+
+        if (!Array.isArray(translations)) throw new Error("expected an array of translations");
+        const dictionary = (translations[1] as Record<string, { dictionary: Record<string, string> }>).en.dictionary;
+        expect(dictionary.Bookmark).toBe("Anchor");
+        expect(dictionary).not.toHaveProperty("Admonition");
     });
 
     // End-to-end over a real editor: `AdmonitionUI` localizes with plain `editor.t("Admonition")`,

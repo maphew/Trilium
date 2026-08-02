@@ -39,6 +39,31 @@ export function slugify(message: string): string {
 }
 
 /**
+ * CKEditor's own strings that Trilium renames, mapping the upstream message id to the English
+ * wording we show instead. Trilium calls CKEditor's bookmarks "anchors", so every string the
+ * upstream `Bookmark` plugin renders is relabelled here.
+ *
+ * This is the one case where a message id and its English text differ, which is why the pairs are
+ * declared rather than discovered: the dictionary has to be keyed by the *upstream* id for CKEditor
+ * to find it, while the text shown comes from our catalog entry for the replacement. Both halves of
+ * a pair therefore live here, and the replacement needs its own English entry like any other
+ * message — which is what makes the rename translatable per locale instead of English-only.
+ *
+ * A plugin Trilium owns never belongs here: rename its message id at the call site instead.
+ */
+export const MESSAGE_OVERRIDES: Record<string, string> = {
+    "Bookmark": "Anchor",
+    "Bookmarks": "Anchors",
+    "Bookmark name": "Anchor name",
+    "Bookmark must not be empty.": "Anchor name must not be empty.",
+    "Bookmark name already exists.": "Anchor name already exists.",
+    "Bookmark name cannot contain space characters.": "Anchor name cannot contain space characters.",
+    "Edit bookmark": "Edit anchor",
+    "Enter the bookmark name without spaces.": "Enter the anchor name without spaces.",
+    "Bookmark toolbar": "Anchor toolbar"
+};
+
+/**
  * Build the CKEditor dictionary from the host's English catalog and translator.
  *
  * @param englishMessages the `text-editor.ck` section of the English catalog, mapping each derived
@@ -60,6 +85,13 @@ export function buildMessageDictionary(
         if (translated && translated !== key) {
             dictionary[message] = translated;
         }
+    }
+
+    // Renames are applied last, so an upstream id resolves to our wording rather than CKEditor's.
+    // Unlike a translation, a rename applies even when the locale has no entry: the English
+    // replacement is itself the point, so it stands in until a translator supplies the rest.
+    for (const [ upstreamMessage, replacement ] of Object.entries(MESSAGE_OVERRIDES)) {
+        dictionary[upstreamMessage] = dictionary[replacement] ?? replacement;
     }
 
     return dictionary;

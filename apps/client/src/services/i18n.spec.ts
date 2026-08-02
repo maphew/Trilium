@@ -1,4 +1,4 @@
-import { MESSAGE_KEY_PREFIX, slugify } from "@triliumnext/ckeditor5";
+import { MESSAGE_KEY_PREFIX, MESSAGE_OVERRIDES, slugify } from "@triliumnext/ckeditor5";
 import { dayjs, findDuplicateJsonKeys, findPluralKeyConflicts, LOCALES } from "@triliumnext/commons";
 import { readdirSync, readFileSync } from "fs";
 import { join } from "path";
@@ -101,6 +101,12 @@ describe("i18n", () => {
                         messages.add(message);
                     }
                 }
+            }
+
+            // Renames of CKEditor's own strings are declared rather than called, and the wording we
+            // substitute needs an English entry like any other message.
+            for (const replacement of Object.values(MESSAGE_OVERRIDES)) {
+                messages.add(replacement);
             }
 
             return [ ...messages ];
