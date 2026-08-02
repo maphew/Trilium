@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import server from "../../../services/server";
 import toast from "../../../services/toast";
-import { DEFAULT_NODE_IMAGE_WIDTH, fitNodeImage, getNodeImageShape, loadImageData, measureImage, nearestNodeImageWidth, NODE_IMAGE_WIDTHS, shapeNodeImage, uploadNodeImage } from "./mind_map_images";
+import { DEFAULT_NODE_IMAGE_WIDTH, fitNodeImage, getNodeImageShape, loadImageData, measureImage, nearestNodeImageWidth, NODE_IMAGE_WIDTHS, shapeNodeImage, uploadNodeImage } from "./images";
 
 vi.mock("../../../services/server", () => ({ default: { upload: vi.fn() } }));
 vi.mock("../../../services/toast", () => ({ default: { showError: vi.fn() } }));

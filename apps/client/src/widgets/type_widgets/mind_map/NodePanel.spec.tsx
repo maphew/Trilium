@@ -3,15 +3,15 @@ import { render } from "preact";
 import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
 
-import { buildNotes } from "../../test/easy-froca";
-import { renderInto } from "../../test/render";
-import { uploadNodeImage } from "./helpers/mind_map_images";
-import MindMapNodePanel, { applyTagTexts, DEFAULT_FONT_SIZE, gatherTags, getCommonValue, MIXED, NODE_BACKGROUND_COLORS, NODE_COLORS, withIconAt } from "./MindMapNodePanel";
+import { buildNotes } from "../../../test/easy-froca";
+import { renderInto } from "../../../test/render";
+import { uploadNodeImage } from "./images";
+import NodePanel, { applyTagTexts, DEFAULT_FONT_SIZE, gatherTags, getCommonValue, MIXED, NODE_BACKGROUND_COLORS, NODE_COLORS, withIconAt } from "./NodePanel";
 
 // Storing a picture is the one thing the panel does that leaves the browser; the rest of the module
 // (the sizes, the proportions) is the real one, being what the panel is checked against here.
-vi.mock("./helpers/mind_map_images", async (importOriginal) => ({
-    ...await importOriginal<typeof import("./helpers/mind_map_images")>(),
+vi.mock("./images", async (importOriginal) => ({
+    ...await importOriginal<typeof import("./images")>(),
     uploadNodeImage: vi.fn()
 }));
 
@@ -22,7 +22,7 @@ vi.mock("./helpers/mind_map_images", async (importOriginal) => ({
 let memoEditor: MemoEditorProps = { className: "" };
 /** What the stand-in is showing, which outlives the props it was last handed. */
 let shownMemoText: string | undefined;
-vi.mock("../react/CKEditor", async () => {
+vi.mock("../../react/CKEditor", async () => {
     const { useEffect, useImperativeHandle } = await import("preact/hooks");
 
     return {
@@ -250,7 +250,7 @@ describe("the memo field of the panel", () => {
         let container: HTMLElement | undefined;
 
         await act(async () => {
-            container = renderInto(<MindMapNodePanel mind={buildMind([withMemo]).mind} noteId="map" nodes={[withMemo]} />);
+            container = renderInto(<NodePanel mind={buildMind([withMemo]).mind} noteId="map" nodes={[withMemo]} />);
         });
         if (!container) throw new Error("render produced no container");
         const panel = container;
@@ -258,12 +258,12 @@ describe("the memo field of the panel", () => {
 
         // Rendered into the same container, so the panel is updated rather than built anew.
         await act(async () => {
-            render(<MindMapNodePanel mind={buildMind([without]).mind} noteId="map" nodes={[without]} />, panel);
+            render(<NodePanel mind={buildMind([without]).mind} noteId="map" nodes={[without]} />, panel);
         });
         expect(shownMemo(panel)).toBe("");
 
         await act(async () => {
-            render(<MindMapNodePanel mind={buildMind([withMemo]).mind} noteId="map" nodes={[withMemo]} />, panel);
+            render(<NodePanel mind={buildMind([withMemo]).mind} noteId="map" nodes={[withMemo]} />, panel);
         });
         expect(shownMemo(panel)).toBe("<p>About A</p>");
     });
@@ -277,7 +277,7 @@ describe("the memo field of the panel", () => {
         let container: HTMLElement | undefined;
 
         await act(async () => {
-            container = renderInto(<MindMapNodePanel mind={buildMind([first]).mind} noteId="map" nodes={[first]} />);
+            container = renderInto(<NodePanel mind={buildMind([first]).mind} noteId="map" nodes={[first]} />);
         });
         if (!container) throw new Error("render produced no container");
         const panel = container;
@@ -286,7 +286,7 @@ describe("the memo field of the panel", () => {
         expect(shownMemoText).toBe("<p>Typed for A</p>");
 
         await act(async () => {
-            render(<MindMapNodePanel mind={buildMind([second]).mind} noteId="map" nodes={[second]} />, panel);
+            render(<NodePanel mind={buildMind([second]).mind} noteId="map" nodes={[second]} />, panel);
         });
         expect(shownMemoText).toBe("");
     });
@@ -298,7 +298,7 @@ describe("the memo field of the panel", () => {
         let container: HTMLElement | undefined;
 
         await act(async () => {
-            container = renderInto(<MindMapNodePanel mind={firstMind.mind} noteId="map" nodes={[first]} />);
+            container = renderInto(<NodePanel mind={firstMind.mind} noteId="map" nodes={[first]} />);
         });
         if (!container) throw new Error("render produced no container");
         const panel = container;
@@ -308,7 +308,7 @@ describe("the memo field of the panel", () => {
         // Selecting another node writes what was typed for the first back to the first...
         const secondMind = buildMind([second]);
         await act(async () => {
-            render(<MindMapNodePanel mind={secondMind.mind} noteId="map" nodes={[second]} />, panel);
+            render(<NodePanel mind={secondMind.mind} noteId="map" nodes={[second]} />, panel);
         });
         expect(firstMind.reshapeNode).toHaveBeenCalledWith(firstMind.mind.currentNodes[0], { memo: "<p>About A, at length</p>" });
 
@@ -332,12 +332,12 @@ describe("applyTagTexts", () => {
     });
 });
 
-describe("MindMapNodePanel", () => {
+describe("NodePanel", () => {
     it("offers every row on a single line, backgrounds as translucent variants of the same hues", () => {
         const nodes = [buildNode()];
         const { mind } = buildMind(nodes);
 
-        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
+        const container = renderInto(<NodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
 
         for (const index of [TEXT, BACKGROUND, BRANCH]) {
             // A row is the presets plus the clear and custom cells; more would wrap in the panel.
@@ -351,7 +351,7 @@ describe("MindMapNodePanel", () => {
         const nodes = [buildNode({ id: "a" }), buildNode({ id: "b" })];
         const { mind, reshapeNode } = buildMind(nodes);
 
-        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
+        const container = renderInto(<NodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
 
         expect(sizeButtons(container)).toHaveLength(4);
         expect(activeSize(container)).toBe(1);
@@ -371,11 +371,11 @@ describe("MindMapNodePanel", () => {
     it("shows the size the selection already carries, and none when the nodes disagree", () => {
         const large = { style: { fontSize: "24px" } };
         const { mind } = buildMind([buildNode(large)]);
-        expect(activeSize(renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={[buildNode(large)]} />))).toBe(2);
+        expect(activeSize(renderInto(<NodePanel mind={mind} noteId="mapNote" nodes={[buildNode(large)]} />))).toBe(2);
 
         const mixed = [buildNode({ id: "a", ...large }), buildNode({ id: "b", style: { fontSize: "32px" } })];
         const mixedMind = buildMind(mixed);
-        expect(activeSize(renderInto(<MindMapNodePanel mind={mixedMind.mind} noteId="mapNote" nodes={mixed} />))).toBe(-1);
+        expect(activeSize(renderInto(<NodePanel mind={mixedMind.mind} noteId="mapNote" nodes={mixed} />))).toBe(-1);
     });
 
     it("shows the colors the selection already carries", () => {
@@ -385,7 +385,7 @@ describe("MindMapNodePanel", () => {
         })];
         const { mind } = buildMind(nodes);
 
-        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
+        const container = renderInto(<NodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
 
         const selectedIn = (index: number) => presetCells(section(container, index))
             .findIndex((cell) => cell.classList.contains("selected"));
@@ -402,7 +402,7 @@ describe("MindMapNodePanel", () => {
         ];
         const { mind } = buildMind(nodes);
 
-        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
+        const container = renderInto(<NodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
 
         const textCells = Array.from(section(container, TEXT).querySelectorAll(".color-cell"));
         expect(textCells.some((cell) => cell.classList.contains("selected"))).toBe(false);
@@ -415,7 +415,7 @@ describe("MindMapNodePanel", () => {
         const nodes = [buildNode({ id: "a" }), buildNode({ id: "b" })];
         const { mind, reshapeNode } = buildMind(nodes);
 
-        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
+        const container = renderInto(<NodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
 
         presetCells(section(container, TEXT))[3].click();
         expect(reshapeNode).toHaveBeenCalledTimes(2);
@@ -438,12 +438,12 @@ describe("MindMapNodePanel", () => {
     it("shows every icon the selection wears, and a button for one more", () => {
         const nodes = [buildNode({ icons: ["bx bx-star", "bx bx-cube"] })];
 
-        const container = renderInto(<MindMapNodePanel mind={buildMind(nodes).mind} noteId="mapNote" nodes={nodes} />);
+        const container = renderInto(<NodePanel mind={buildMind(nodes).mind} noteId="mapNote" nodes={nodes} />);
 
         // The icons themselves, then the button adding another.
         expect(iconFaces(container)).toEqual(["bx bx-star", "bx bx-cube", "bx bx-plus"]);
         // A node wearing none is the adding button alone, which is invitation enough.
-        expect(iconFaces(renderInto(<MindMapNodePanel mind={buildMind([buildNode()]).mind} noteId="mapNote" nodes={[buildNode()]} />)))
+        expect(iconFaces(renderInto(<NodePanel mind={buildMind([buildNode()]).mind} noteId="mapNote" nodes={[buildNode()]} />)))
             .toEqual(["bx bx-plus"]);
     });
 
@@ -453,7 +453,7 @@ describe("MindMapNodePanel", () => {
             buildNode({ id: "b", icons: ["bx bx-cube"] })
         ];
 
-        const container = renderInto(<MindMapNodePanel mind={buildMind(nodes).mind} noteId="mapNote" nodes={nodes} />);
+        const container = renderInto(<NodePanel mind={buildMind(nodes).mind} noteId="mapNote" nodes={nodes} />);
 
         // Everything they carry, and no way to add: a pick could only overwrite what each has.
         expect(iconFaces(container)).toEqual(["bx bx-star", "bx bx-cube"]);
@@ -463,7 +463,7 @@ describe("MindMapNodePanel", () => {
     it("offers what can be done with the picture a node carries, and only takes one in without", () => {
         const nodes = [buildNode({ image: { url: "api/attachments/att1/image/a.png", width: 240, height: 180 } })];
 
-        const container = renderInto(<MindMapNodePanel mind={buildMind(nodes).mind} noteId="mapNote" nodes={nodes} />);
+        const container = renderInto(<NodePanel mind={buildMind(nodes).mind} noteId="mapNote" nodes={nodes} />);
 
         // The picture is on the node itself; the row says how large it is drawn and offers the way
         // to another one or to none.
@@ -473,7 +473,7 @@ describe("MindMapNodePanel", () => {
 
         // A node carrying none offers to take one in, and nothing else: there is no size to set and
         // nothing to remove.
-        const empty = renderInto(<MindMapNodePanel mind={buildMind([buildNode()]).mind} noteId="mapNote" nodes={[buildNode()]} />);
+        const empty = renderInto(<NodePanel mind={buildMind([buildNode()]).mind} noteId="mapNote" nodes={[buildNode()]} />);
         expect(imageWidthButtons(empty)).toHaveLength(0);
         expect(imageAction(empty, "bx-trash")).toBeNull();
         expect(imageAction(empty, "bx-image-add")).toBeTruthy();
@@ -486,7 +486,7 @@ describe("MindMapNodePanel", () => {
         ];
         const { mind, reshapeNode } = buildMind(nodes);
 
-        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
+        const container = renderInto(<NodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
 
         imageWidthButtons(container)[2].click();
         expect(reshapeNode).toHaveBeenNthCalledWith(1, mind.currentNodes[0], { image: { url: "a.png", width: 400, height: 300 } });
@@ -506,7 +506,7 @@ describe("MindMapNodePanel", () => {
         ];
         const { mind, reshapeNode } = buildMind(nodes);
 
-        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
+        const container = renderInto(<NodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
 
         // Both carry their own shape, which is the one shown; the widths they disagree on are not.
         expect(imageShapeButtons(container)).toHaveLength(3);
@@ -526,7 +526,7 @@ describe("MindMapNodePanel", () => {
             buildNode({ id: "b", image: { url: "b.png", width: 120, height: 90 } })
         ];
 
-        const container = renderInto(<MindMapNodePanel mind={buildMind(nodes).mind} noteId="mapNote" nodes={nodes} />);
+        const container = renderInto(<NodePanel mind={buildMind(nodes).mind} noteId="mapNote" nodes={nodes} />);
 
         // One picture cannot take the place of them all — that is a removal in all but name. What
         // it would take, removing them and taking one in, is what the row still offers. (The
@@ -545,7 +545,7 @@ describe("MindMapNodePanel", () => {
         const nodes = [buildNode({ id: "a" }), buildNode({ id: "b" })];
         const { mind, reshapeNode } = buildMind(nodes);
 
-        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
+        const container = renderInto(<NodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
         chooseImage(container, new File([""], "photo.png", { type: "image/png" }));
 
         await vi.waitFor(() => expect(reshapeNode).toHaveBeenCalledTimes(2));
@@ -559,7 +559,7 @@ describe("MindMapNodePanel", () => {
         const nodes = [buildNode()];
         const { mind, reshapeNode } = buildMind(nodes);
 
-        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
+        const container = renderInto(<NodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
         chooseImage(container, new File([""], "photo.png", { type: "image/png" }));
 
         await vi.waitFor(() => expect(uploadNodeImage).toHaveBeenCalled());
@@ -569,7 +569,7 @@ describe("MindMapNodePanel", () => {
     it("says what the selection is linked to, and what it would take to link it", async () => {
         const [ noteId ] = buildNotes([ { title: "Linked note", "#iconClass": "bx bx-cube" } ]);
         const linkFace = (nodes: NodeObj[]) =>
-            renderInto(<MindMapNodePanel mind={buildMind(nodes).mind} noteId="mapNote" nodes={nodes} />)
+            renderInto(<NodePanel mind={buildMind(nodes).mind} noteId="mapNote" nodes={nodes} />)
                 .querySelector<HTMLElement>(`.mind-map-node-panel-section:nth-child(${LINK + 1}) button`);
 
         // Nothing yet, and a selection that disagrees, each say so in their own words.
@@ -594,7 +594,7 @@ describe("MindMapNodePanel", () => {
         const nodes = [buildNode({ tags: [styled, "later"] })];
         const { mind, reshapeNode } = buildMind(nodes);
 
-        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
+        const container = renderInto(<NodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
 
         expect(tagTexts(container)).toEqual(["urgent", "later"]);
 
@@ -612,7 +612,7 @@ describe("MindMapNodePanel", () => {
         ];
         const { mind, reshapeNode } = buildMind(nodes);
 
-        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
+        const container = renderInto(<NodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
 
         expect(tagTexts(container)).toEqual(["urgent"]);
         expect(container.querySelector<HTMLInputElement>(".tn-field input")?.disabled).toBe(false);
@@ -630,7 +630,7 @@ describe("MindMapNodePanel", () => {
         ];
         const { mind, reshapeNode } = buildMind(nodes);
 
-        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
+        const container = renderInto(<NodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
 
         expect(tagTexts(container)).toEqual(["one", "shared", "two"]);
         expect(container.querySelector<HTMLInputElement>(".tn-field input")?.disabled).toBe(true);
@@ -645,7 +645,7 @@ describe("MindMapNodePanel", () => {
         const nodes = [buildNode()];
         const { mind } = buildMind(nodes);
 
-        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
+        const container = renderInto(<NodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
         const panel = container.querySelector(".mind-map-node-panel");
 
         for (const event of [

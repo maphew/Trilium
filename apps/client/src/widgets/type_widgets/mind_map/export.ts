@@ -1,7 +1,7 @@
 import type { MindElixirInstance } from "mind-elixir";
 
 import { sanitizeNoteContentHtml } from "../../../services/sanitize_content";
-import { loadImageData } from "./mind_map_images";
+import { loadImageData } from "./images";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const XHTML_NS = "http://www.w3.org/1999/xhtml";
@@ -135,7 +135,7 @@ export function postProcessExportedSvg(mind: MindElixirInstance, svgText: string
 /**
  * Paints an opaque copy of the map canvas behind every translucent node box.
  *
- * The node backgrounds the editor offers are tints (see MindMapNodePanel) meant to composite
+ * The node backgrounds the editor offers are tints (see NodePanel) meant to composite
  * against the canvas, but the exporter draws the branch lines first and the node boxes over them
  * (each box being a direct `<rect>` child of the map layers, filled with the node's computed
  * background), so a tint alone would show the lines through the node. Nodes with no background of

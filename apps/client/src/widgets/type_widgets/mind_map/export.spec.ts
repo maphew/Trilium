@@ -5,7 +5,7 @@
 import MindElixir, { type MindElixirData, type MindElixirInstance } from "mind-elixir";
 import { describe, expect, it, vi } from "vitest";
 
-import { inlineExportedImages, postProcessExportedSvg, renderMindMapPreviewSvg } from "./mind_map_export";
+import { inlineExportedImages, postProcessExportedSvg, renderMindMapPreviewSvg } from "./export";
 
 // mind-elixir touches these browser APIs at construction time; jsdom lacks them.
 window.matchMedia = window.matchMedia ?? ((query: string) => ({
@@ -228,7 +228,7 @@ describe("renderMindMapPreviewSvg", () => {
  * Non-regression tests against a real mind-elixir instance, guarding the internals the
  * label injection depends on (labels as `.svg-label` divs inside `mind.nodes`, the
  * nested-svg export structure). If these fail after a mind-elixir upgrade, re-verify
- * mind_map_export.ts against the new internals — see the module comment there.
+ * export.ts against the new internals — see the module comment there.
  */
 describe("renderMindMapPreviewSvg (real mind-elixir)", () => {
     function initRealMindMap(data: MindElixirData): MindElixirInstance {

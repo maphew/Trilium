@@ -1,11 +1,11 @@
-import "./MindMapNodeMemo.css";
+import "./NodeMemo.css";
 
 import { AttributeEditor, CHAT_INPUT_PLUGINS, type CKTextEditor, type EditorConfig } from "@triliumnext/ckeditor5";
 import type { NodeObj } from "mind-elixir";
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 
-import { escapeHtml } from "../../services/utils";
-import CKEditor, { type CKEditorApi } from "../react/CKEditor";
+import { escapeHtml } from "../../../services/utils";
+import CKEditor, { type CKEditorApi } from "../../react/CKEditor";
 
 /**
  * The memo a node carries: text kept about it, which the map itself never shows.
@@ -14,7 +14,7 @@ import CKEditor, { type CKEditorApi } from "../react/CKEditor";
  * did: a memo is written a paragraph at a time, and taking every keystroke would mean a copy of the
  * whole map in the undo stack for each of them.
  */
-export default function MindMapNodeMemo({ selectionKey, memo, readOnly, onCommit }: {
+export default function NodeMemo({ selectionKey, memo, readOnly, onCommit }: {
     /**
      * What the panel currently stands for. The field is one editor for however many nodes are
      * selected over its lifetime, so it is told when that changes: the memo shown is the memo of

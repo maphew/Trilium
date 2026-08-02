@@ -19,7 +19,7 @@
 }
 
 /*
- * The node backgrounds the panel offers are tints (see MindMapNodePanel), which take on whatever
+ * The node backgrounds the panel offers are tints (see NodePanel), which take on whatever
  * the canvas is. The branch lines are drawn underneath the nodes, so a tint on its own composites
  * against them and lets them show through the node — give a tinted node an opaque copy of the
  * canvas to sit on instead. Only nodes carrying a background of their own get one, so that the
@@ -41,7 +41,7 @@
 }
 
 /*
- * The first icon of a node leads its text, as a note's icon leads its title (see mind_map_icons).
+ * The first icon of a node leads its text, as a note's icon leads its title (see icons.ts).
  * The ones after it follow the text a little smaller: the first says what the node is, the rest are
  * marks upon it.
  */

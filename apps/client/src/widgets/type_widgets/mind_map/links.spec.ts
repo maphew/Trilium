@@ -1,7 +1,7 @@
 import type { Suggestion } from "../../../services/note_autocomplete";
 import { describe, expect, it } from "vitest";
 
-import { describeExternalLink, getNodeLinkHref, linkFromSuggestion, renderNodeLinks } from "./mind_map_links";
+import { describeExternalLink, getNodeLinkHref, linkFromSuggestion, renderNodeLinks } from "./links";
 
 /** Builds the anchor Mind Elixir gives a node that carries a link. */
 function buildNodes(...links: string[]) {

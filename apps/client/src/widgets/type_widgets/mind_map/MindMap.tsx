@@ -9,16 +9,16 @@ import { ComponentChildren, HTMLAttributes, RefObject } from "preact";
 import { createPortal } from "preact/compat";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
-import { sanitizeNoteContentHtml } from "../../services/sanitize_content";
-import toast from "../../services/toast";
-import utils from "../../services/utils";
-import { useColorScheme, useEditorSpacedUpdate, useEffectiveReadOnly, useSyncedRef, useTriliumEvent, useTriliumEvents, useTriliumOption } from "../react/hooks";
-import { refToJQuerySelector } from "../react/react_utils";
-import { renderMindMapPreviewSvg } from "./helpers/mind_map_export";
-import { renderIconClasses } from "./helpers/mind_map_icons";
-import { renderNodeLinks } from "./helpers/mind_map_links";
-import MindMapNodePanel from "./MindMapNodePanel";
-import { TypeWidgetProps } from "./type_widget";
+import { sanitizeNoteContentHtml } from "../../../services/sanitize_content";
+import toast from "../../../services/toast";
+import utils from "../../../services/utils";
+import { useColorScheme, useEditorSpacedUpdate, useEffectiveReadOnly, useSyncedRef, useTriliumEvent, useTriliumEvents, useTriliumOption } from "../../react/hooks";
+import { refToJQuerySelector } from "../../react/react_utils";
+import { TypeWidgetProps } from "../type_widget";
+import { renderMindMapPreviewSvg } from "./export";
+import { renderIconClasses } from "./icons";
+import { renderNodeLinks } from "./links";
+import NodePanel from "./NodePanel";
 
 const NEW_TOPIC_NAME = "";
 
@@ -191,7 +191,7 @@ export default function MindMap({ note, ntxId, noteContext }: TypeWidgetProps) {
             }}
         >
             {!isReadOnly && selectedNodes.length > 0 && apiRef.current &&
-                <MindMapNodePanel mind={apiRef.current} noteId={note.noteId} nodes={selectedNodes} />}
+                <NodePanel mind={apiRef.current} noteId={note.noteId} nodes={selectedNodes} />}
         </MindElixir>
     );
 }

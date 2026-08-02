@@ -145,7 +145,7 @@ export function getNodeImageShape(image: NodeImage): NodeImageShape {
 
 /**
  * A picture of the map, fetched from where a node points at it and redrawn at about the size it is
- * shown at, as data that can be carried inside the exported SVG (see `mind_map_export`).
+ * shown at, as data that can be carried inside the exported SVG (see `export`).
  *
  * What has been fetched once is kept: the SVG is written again at every pause in the editing, and
  * an address names one picture for good — a picture put in the place of another is stored anew and

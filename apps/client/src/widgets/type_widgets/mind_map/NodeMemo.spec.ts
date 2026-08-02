@@ -1,7 +1,7 @@
 import type { NodeObj } from "mind-elixir";
 import { describe, expect, it } from "vitest";
 
-import { getNodeMemo, toMemoHtml } from "./MindMapNodeMemo";
+import { getNodeMemo, toMemoHtml } from "./NodeMemo";
 
 function buildNode(node: Partial<NodeObj> = {}): NodeObj {
     return { id: "n1", topic: "Node", ...node };

@@ -1,4 +1,4 @@
-import "./MindMapNodePanel.css";
+import "./NodePanel.css";
 
 import { parseMindMapNoteLink } from "@triliumnext/commons";
 import { Dropdown as BootstrapDropdown } from "bootstrap";
@@ -6,24 +6,24 @@ import type { MindElixirInstance, NodeObj, TagObj } from "mind-elixir";
 import { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 
-import { t } from "../../services/i18n";
-import note_autocomplete from "../../services/note_autocomplete";
-import tree from "../../services/tree";
-import ValuesInput from "../attribute_widgets/values_input";
-import ActionButton from "../react/ActionButton";
-import ColorPicker, { DEFAULT_COLOR_PALETTE } from "../react/ColorPicker";
-import Dropdown from "../react/Dropdown";
-import { FormFileUploadActionButton } from "../react/FormFileUpload";
-import { FormListItem } from "../react/FormList";
-import { useNote, useNoteIcon, useNoteTitle } from "../react/hooks";
-import Icon from "../react/Icon";
-import IconPicker from "../react/IconPicker";
-import NoteAutocomplete from "../react/NoteAutocomplete";
-import { refToJQuerySelector } from "../react/react_utils";
-import SegmentedChoice from "../react/SegmentedChoice";
-import MindMapNodeMemo, { getNodeMemo } from "./MindMapNodeMemo";
-import { fitNodeImage, getNodeImageShape, nearestNodeImageWidth, NODE_IMAGE_SHAPES, NODE_IMAGE_WIDTHS, type NodeImage as NodeImageData, type NodeImageShape, shapeNodeImage, uploadNodeImage } from "./helpers/mind_map_images";
-import { describeExternalLink, linkFromSuggestion } from "./helpers/mind_map_links";
+import { t } from "../../../services/i18n";
+import note_autocomplete from "../../../services/note_autocomplete";
+import tree from "../../../services/tree";
+import ValuesInput from "../../attribute_widgets/values_input";
+import ActionButton from "../../react/ActionButton";
+import ColorPicker, { DEFAULT_COLOR_PALETTE } from "../../react/ColorPicker";
+import Dropdown from "../../react/Dropdown";
+import { FormFileUploadActionButton } from "../../react/FormFileUpload";
+import { FormListItem } from "../../react/FormList";
+import { useNote, useNoteIcon, useNoteTitle } from "../../react/hooks";
+import Icon from "../../react/Icon";
+import IconPicker from "../../react/IconPicker";
+import NoteAutocomplete from "../../react/NoteAutocomplete";
+import { refToJQuerySelector } from "../../react/react_utils";
+import SegmentedChoice from "../../react/SegmentedChoice";
+import { fitNodeImage, getNodeImageShape, nearestNodeImageWidth, NODE_IMAGE_SHAPES, NODE_IMAGE_WIDTHS, type NodeImage as NodeImageData, type NodeImageShape, shapeNodeImage, uploadNodeImage } from "./images";
+import { describeExternalLink, linkFromSuggestion } from "./links";
+import NodeMemo, { getNodeMemo } from "./NodeMemo";
 
 /**
  * The hues offered by the panel: as many of the shared palette as fit on a single row next to the
@@ -38,7 +38,7 @@ export const NODE_COLORS = [0, 1, 2, 4, 7, 9].map((index) => DEFAULT_COLOR_PALET
  */
 export const NODE_BACKGROUND_COLORS = NODE_COLORS.map((color) => `${color}40`);
 
-interface MindMapNodePanelProps {
+interface NodePanelProps {
     mind: MindElixirInstance;
     /** The note the map belongs to, which is where a picture put on a node is stored. */
     noteId: string;
@@ -50,7 +50,7 @@ interface MindMapNodePanelProps {
  * Floating panel displayed over a mind map while at least one node is selected, holding the
  * formatting controls for the selection.
  */
-export default function MindMapNodePanel({ mind, noteId, nodes }: MindMapNodePanelProps) {
+export default function NodePanel({ mind, noteId, nodes }: NodePanelProps) {
     const fontSize = getCommonValue(nodes, (node) => node.style?.fontSize);
     const textColor = getCommonValue(nodes, (node) => node.style?.color);
     const backgroundColor = getCommonValue(nodes, (node) => node.style?.background);
@@ -225,7 +225,7 @@ export default function MindMapNodePanel({ mind, noteId, nodes }: MindMapNodePan
                 label={t("mind-map.memo")}
                 title={memo === MIXED ? t("mind-map.memos-differ") : undefined}
             >
-                <MindMapNodeMemo
+                <NodeMemo
                     selectionKey={nodes.map((node) => node.id).join(" ")}
                     memo={memo !== MIXED ? memo : null}
                     readOnly={memo === MIXED}
@@ -629,7 +629,7 @@ export const MIXED = Symbol("mixed");
 /**
  * Reads one property off every given node, returning the value they share, `null` if none of them
  * has one, or {@link MIXED} if they disagree. Values that are unset and values that were blanked
- * out (see {@link MindMapNodePanel}) count as the same thing.
+ * out (see {@link NodePanel}) count as the same thing.
  */
 export function getCommonValue(nodes: NodeObj[], read: (node: NodeObj) => string | undefined): string | null | typeof MIXED {
     let common: string | null | undefined;

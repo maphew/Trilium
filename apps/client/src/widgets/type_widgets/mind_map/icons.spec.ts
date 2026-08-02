@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 
-import { LEAD_ICON_CLASS, renderIconClasses } from "./mind_map_icons";
+import { LEAD_ICON_CLASS, renderIconClasses } from "./icons";
 
 const uncheckedWindow = window as unknown as { glob: { iconRegistry?: unknown } };
 
