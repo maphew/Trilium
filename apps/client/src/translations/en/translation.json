@@ -3552,6 +3552,7 @@
     "clear-link": "Remove the link",
     "link-mixed": "Different links",
     "links-differ": "The selected nodes don't carry the same link.",
+    "tab-format": "Format",
     "memo": "Memo",
     "memos-differ": "The selected nodes carry different memos, so this one can only be read.",
     "tags": "Tags",

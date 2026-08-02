@@ -5,9 +5,11 @@
     inset-inline-end: 20px;
     width: 240px;
     max-height: calc(100% - 100px);
-    overflow: auto;
+    /* The tab strip is the panel's header and stays put; only the tab under it scrolls. */
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
     box-sizing: border-box;
-    padding: 15px;
     background: var(--menu-background-color);
     color: var(--menu-text-color);
     border: 1px solid var(--dropdown-border-color);
@@ -18,6 +20,50 @@
 
 .mind-map-container:fullscreen .mind-map-node-panel {
     top: calc(20px + env(safe-area-inset-top));
+}
+
+/*
+ * The strip parts from the tab under it by a line the width of the panel, so that it reads as the
+ * panel's header rather than as one more choice among the fields — which is what the same button
+ * group means everywhere else in here (the font sizes, the picture's shapes).
+ */
+.mind-map-node-panel .mind-map-node-panel-tabs {
+    display: flex;
+    justify-content: center;
+    flex-shrink: 0;
+    padding: 8px;
+    border-bottom: 1px solid var(--main-border-color);
+
+    .mind-map-node-panel-tab {
+        /* The icon leads the name, as it does on a tab of the right pane. */
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 5px;
+    }
+}
+
+/* Each tab holds the padding, rather than the panel: the memo's is its own (see below). */
+.mind-map-node-panel .mind-map-node-panel-body {
+    padding: 15px;
+    overflow: auto;
+    /* Without it a flex item refuses to shrink past its content, and the panel scrolls as a whole. */
+    min-height: 0;
+}
+
+/*
+ * The memo is the whole of its tab: it takes the height the panel can spare and grows the panel to
+ * a comfortable writing box where there is room, instead of the three lines it had as a field.
+ */
+.mind-map-node-panel .mind-map-node-panel-memo-body {
+    display: flex;
+    padding: 8px;
+
+    .mind-map-node-memo {
+        flex: 1;
+        min-height: 220px;
+        max-height: none;
+    }
 }
 
 .mind-map-node-panel .mind-map-node-panel-section + .mind-map-node-panel-section {

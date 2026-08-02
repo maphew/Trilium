@@ -234,6 +234,30 @@ describe("the memo field of the panel", () => {
         return container.querySelector(".mind-map-node-memo")?.getAttribute("data-current-value");
     }
 
+    /**
+     * Brings a tab to the front, named by the icon it wears rather than by its title, so that the
+     * tests speak of the panel and not of the wording it happens to carry.
+     */
+    async function openTab(container: HTMLElement, icon: string) {
+        const tab = container.querySelector(`[role="tab"] .${icon}`)?.closest("button");
+        if (!tab) throw new Error(`the panel has no ${icon} tab`);
+
+        await act(async () => tab.click());
+    }
+
+    /**
+     * The panel opens on the formatting tab, and the editor is built only when the memo's own is
+     * first opened — so there is nothing to read or write into before this.
+     */
+    const openMemoTab = (container: HTMLElement) => openTab(container, "bx-notepad");
+    const openFormatTab = (container: HTMLElement) => openTab(container, "bx-palette");
+
+    /** The icon of the tab on show, which is what the panel says it is showing. */
+    function activeTabIcon(container: HTMLElement) {
+        const active = container.querySelector('[role="tab"][aria-selected="true"] .tn-icon');
+        return [ ...active?.classList ?? [] ].find((name) => name.startsWith("bx-"));
+    }
+
     /** Writes into the field, as someone typing does: what it shows is what it then reports. */
     async function typeMemo(html: string) {
         await act(async () => {
@@ -241,6 +265,54 @@ describe("the memo field of the panel", () => {
             memoEditor.onChange?.(html);
         });
     }
+
+    it("keeps the memo in a tab of its own, raised only once it is asked for", async () => {
+        const node = buildNode({ id: "a", memo: "<p>About A</p>" } as Partial<NodeObj>);
+        let container: HTMLElement | undefined;
+
+        await act(async () => {
+            container = renderInto(<NodePanel mind={buildMind([node]).mind} noteId="map" nodes={[node]} />);
+        });
+        if (!container) throw new Error("render produced no container");
+        const panel = container;
+
+        // The panel opens on the fields, the editor not yet built — which is what keeps a map whose
+        // memos are never touched from paying for one on every selection.
+        expect(activeTabIcon(panel)).toBe("bx-palette");
+        expect(panel.querySelector(".mind-map-node-memo")).toBeNull();
+
+        await openMemoTab(panel);
+        expect(activeTabIcon(panel)).toBe("bx-notepad");
+        expect(shownMemo(panel)).toBe("<p>About A</p>");
+        // The fields are put out of sight rather than taken down, so returning to them is instant
+        // and nothing half-typed in them is lost on the way to the memo.
+        expect(section(panel, SIZE)).toBeTruthy();
+    });
+
+    it("writes a memo back from behind the other tab, the editor staying up once raised", async () => {
+        // Switching away must not take the editor down: it is what writes a memo back as the
+        // selection moves on, and someone who types one and returns to the fields would lose it.
+        const first = buildNode({ id: "a" });
+        const second = buildNode({ id: "b" });
+        const firstMind = buildMind([first]);
+        let container: HTMLElement | undefined;
+
+        await act(async () => {
+            container = renderInto(<NodePanel mind={firstMind.mind} noteId="map" nodes={[first]} />);
+        });
+        if (!container) throw new Error("render produced no container");
+        const panel = container;
+
+        await openMemoTab(panel);
+        await typeMemo("<p>About A</p>");
+        await openFormatTab(panel);
+        expect(activeTabIcon(panel)).toBe("bx-palette");
+
+        await act(async () => {
+            render(<NodePanel mind={buildMind([second]).mind} noteId="map" nodes={[second]} />, panel);
+        });
+        expect(firstMind.reshapeNode).toHaveBeenCalledWith(firstMind.mind.currentNodes[0], { memo: "<p>About A</p>" });
+    });
 
     it("shows the memo of whatever is selected now, not of what was selected before", async () => {
         // One field serves every selection it outlives, so the memo it shows has to follow the
@@ -254,6 +326,7 @@ describe("the memo field of the panel", () => {
         });
         if (!container) throw new Error("render produced no container");
         const panel = container;
+        await openMemoTab(panel);
         expect(shownMemo(panel)).toBe("<p>About A</p>");
 
         // Rendered into the same container, so the panel is updated rather than built anew.
@@ -281,6 +354,7 @@ describe("the memo field of the panel", () => {
         });
         if (!container) throw new Error("render produced no container");
         const panel = container;
+        await openMemoTab(panel);
 
         await typeMemo("<p>Typed for A</p>");
         expect(shownMemoText).toBe("<p>Typed for A</p>");
@@ -302,6 +376,7 @@ describe("the memo field of the panel", () => {
         });
         if (!container) throw new Error("render produced no container");
         const panel = container;
+        await openMemoTab(panel);
 
         await typeMemo("<p>About A, at length</p>");
 
