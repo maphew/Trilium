@@ -2569,8 +2569,6 @@
   "image": {
     "copied-to-clipboard": "A reference to the image has been copied to clipboard. This can be pasted in any text note.",
     "cannot-copy": "Could not copy the image reference to clipboard.",
-    "copy-to-clipboard": "Copy image to clipboard",
-    "download": "Download image",
     "image-copied-to-clipboard": "The image has been copied to clipboard.",
     "cannot-copy-image": "Could not copy the image to clipboard.",
     "cannot-download": "Could not download the image."
@@ -3595,6 +3593,7 @@
       "click-on-the-arrow-or-press-0-to-collapse-expand": "Click on the arrow or press %0 to collapse/expand.",
       "collapsible-block": "Collapsible block",
       "copy-formatting": "Copy formatting",
+      "copy-image-to-clipboard": "Copy image to clipboard",
       "create-a-bulleted-list": "Create a bulleted list",
       "create-a-new-footnote-and-reference-it-here": "Create a new footnote and reference it here",
       "create-a-numbered-list": "Create a numbered list",
@@ -3604,6 +3603,7 @@
       "decrease-the-indentation-of-the-current-block": "Decrease the indentation of the current block.",
       "display-mode": "Display mode",
       "display-the-content-of-another-note-in-this-note": "Display the content of another note in this note",
+      "download-image": "Download image",
       "drag-to-reposition-the-collapsible-block": "Drag to reposition the collapsible block",
       "equation-preview": "Equation preview",
       "error-rendering-equation": "Error rendering equation",
