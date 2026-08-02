@@ -1,6 +1,6 @@
 import { buildExtraCommands, type EditorConfig, getCkLocale, SnippetDefinition } from "@triliumnext/ckeditor5";
 import emojiDefinitionsUrl from "@triliumnext/ckeditor5/src/emoji_definitions/en.json?url";
-import { ALLOWED_PROTOCOLS, DISPLAYABLE_LOCALE_IDS, KATEX_MACROS, MIME_TYPE_AUTO, normalizeMimeTypeForCKEditor } from "@triliumnext/commons";
+import { ALLOWED_PROTOCOLS, DISPLAYABLE_LOCALE_IDS, formatShortcut, joinShortcut, KATEX_MACROS, MIME_TYPE_AUTO, normalizeMimeTypeForCKEditor } from "@triliumnext/commons";
 import i18next from "i18next";
 
 import { copyTextWithToast } from "../../../services/clipboard_ext.js";
@@ -11,6 +11,7 @@ import { default as mimeTypesService, getHighlightJsNameForMime } from "../../..
 import noteAutocompleteService, { type Suggestion } from "../../../services/note_autocomplete.js";
 import options from "../../../services/options.js";
 import { ensureMimeTypesForHighlighting, isSyntaxHighlightEnabled } from "../../../services/syntax_highlight.js";
+import { isMac } from "../../../services/utils.js";
 import { getTaskStateDefinitions, openCustomTaskStateConfig } from "../../../services/task_states.js";
 import SAMPLE_DIAGRAMS from "../mermaid/sample_diagrams.js";
 import { buildToolbarConfig } from "./toolbar.js";
@@ -194,8 +195,12 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
     (config as Record<string, unknown>).taskStates = await getTaskStateDefinitions();
     (config as Record<string, unknown>).editTaskStates = openCustomTaskStateConfig;
 
-    // The app's i18n translate function, so plugins can resolve Trilium translation keys.
-    (config as Record<string, unknown>).translate = (key: string, params?: Record<string, unknown>) => t(key, params);
+    // Renders a keystroke a plugin mentions in a hint. The editor's own strings translate through
+    // its dictionary (see `messages.ts` in the ckeditor5 package), but the key names inside a
+    // shortcut come from `keyboard_shortcut_keys`, which the command palette and the help dialog
+    // read too — so the app renders them and hands the markup over.
+    (config as Record<string, unknown>).renderShortcut = (shortcut: string) =>
+        joinShortcut(formatShortcut(shortcut, t, isMac()).map((token) => `<kbd>${token}</kbd>`), isMac());
 
     // Global on/off switch for content-area hints (bottom-corner popups on task
     // checkboxes, collapsible summaries, drag handles). Plugins consult this via

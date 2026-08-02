@@ -1,8 +1,9 @@
-import { DEFAULT_TASK_STATES, DONE_STATE_NAME, formatShortcut, isAnchorState, joinShortcut, NONE_STATE_NAME, type TaskStateDef } from "@triliumnext/commons";
-import { Command, env, ListEditing, Plugin, TodoList, type Editor, type ModelElement, type ViewElement } from "ckeditor5";
+import { DEFAULT_TASK_STATES, DONE_STATE_NAME, isAnchorState, NONE_STATE_NAME, type TaskStateDef } from "@triliumnext/commons";
+import { Command, ListEditing, Plugin, TodoList, type Editor, type ModelElement, type ViewElement } from "ckeditor5";
 
 import { onTodoRowSplit } from "../todo_list_uncheck_on_enter.js";
 import { ContentHintManager, type HintHandle } from "../../content_hint_manager.js";
+import { renderShortcut } from "../../shortcut.js";
 
 /**
  * Dwell delay before a hover or a stationary caret pops the checkbox tooltip.
@@ -73,15 +74,10 @@ export default class TodoListMultistateEditing extends Plugin {
     /** State-name → definition, keyed for `buildTooltipTitle` calls. */
     private _stateByName!: Map<string, TaskStateDef>;
 
-    /** Key resolver for the shortcut key names only — see {@link TranslateFn}. Identity fallback. */
-    private _translate!: TranslateFn;
-
     init() {
         const editor = this.editor;
         const states = getConfiguredTaskStates(editor);
         this._stateByName = new Map(states.map((state) => [state.name, state]));
-        this._translate = (editor.config.get("translate") as TranslateFn | undefined)
-            ?? ((key: string) => key);
         const stateByName = this._stateByName;
         // Global user preference: skip all content-hint wiring when off. The
         // rest of `init()` (schema, keystroke, downcast/upcast, post-fixer)
@@ -441,7 +437,7 @@ export default class TodoListMultistateEditing extends Plugin {
             readTaskState(input),
             this._stateByName,
             this.editor.t,
-            renderCycleShortcut(this._translate)
+            renderShortcut(this.editor, STATE_CYCLE_SHORTCUT)
         );
     }
 
@@ -480,14 +476,6 @@ export default class TodoListMultistateEditing extends Plugin {
 }
 
 /**
- * Resolves an i18next key. Still needed for the shortcut key names, which live in the app-wide
- * `keyboard_shortcuts.keys.*` catalog that {@link formatShortcut} reads and the command palette and
- * help dialog share — those are not this package's messages to own. Everything the plugin says in
- * its own voice goes through `editor.t()` instead.
- */
-export type TranslateFn = (key: string) => string;
-
-/**
  * The task state applied to the todo item that owns the given checkbox. Anchor
  * states (`none`/`done`) never carry a `data-trilium-task-state`, so this
  * returns `null` for them.
@@ -518,8 +506,7 @@ function readTaskState(input: HTMLInputElement): string | null {
  *
  * @param t the editor's translation function, for the strings this package owns.
  * @param shortcut the cycle shortcut, already rendered as `<kbd>` markup by
- *                 {@link renderCycleShortcut} — its key names come from the app-wide catalog rather
- *                 than from ours, so it is resolved by the caller and passed in as content. Nothing
+ *                 {@link renderShortcut} — the host renders it, so it arrives as content. Nothing
  *                 escapes it here, and the tooltip opts out of Bootstrap's sanitizer.
  */
 export function buildTooltipTitle(
@@ -554,18 +541,6 @@ export function buildTooltipTitle(
  * both places share, so a rebinding in one has to be mirrored in the other.
  */
 const STATE_CYCLE_SHORTCUT = "Ctrl+Shift+Enter";
-
-/**
- * Render the state-cycle shortcut as `<kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Enter</kbd>`
- * (or `<kbd>⌃</kbd><kbd>⇧</kbd><kbd>↩</kbd>` on macOS). Uses the shared
- * `formatShortcut`/`joinShortcut` from `@triliumnext/commons` so key labels
- * flow through the same i18n and Mac-glyph rules as the rest of the app.
- */
-function renderCycleShortcut(translate: TranslateFn): string {
-    const kbdTokens = formatShortcut(STATE_CYCLE_SHORTCUT, translate, env.isMac)
-        .map((token) => `<kbd>${token}</kbd>`);
-    return joinShortcut(kbdTokens, env.isMac);
-}
 
 /**
  * "<mini-checkbox> <strong>Name</strong>" — the icon and name flow inline
