@@ -83,8 +83,6 @@ export async function compressInWorker(
     try {
         const response = await send(worker, buffer, request, budgetMb);
 
-        everSucceeded = true;
-
         // The worker's own logging, written here because here is where a logger exists.
         response.logs.forEach((line) => getLog().info(line));
 
@@ -101,18 +99,22 @@ export async function compressInWorker(
         // hanging rather than like one image having failed.
         retire(worker);
 
-        // Nothing has ever come back from a worker here, so this is not one process having died but
-        // this installation being unable to run them — an environment whose loader cannot read the
-        // entry point, say. Answered as "there are no workers", which is the truth of it: this image
-        // and every one after it is compressed by the caller, exactly as before there were workers.
-        if (!everSucceeded) {
+        // No worker has ever so much as announced itself, so this is not one process having died
+        // but this installation being unable to run them — an environment whose loader cannot read
+        // the entry point, say. Answered as "there are no workers", which is the truth of it: this
+        // image and every one after it is compressed by the caller, exactly as before there were
+        // workers.
+        if (!everSpoke) {
             return disable(`they do not work here (${firstLine(e)})`);
         }
 
-        // Workers do work here, and one of them failed on this image. Raised rather than answered
-        // with a fallback: doing it on the calling thread instead would stop the application for the
-        // length of a decode, and doing that for each of several failing workers is how a run takes
-        // the whole application down with it. The image is reported untouched and the run goes on.
+        // Workers run here — one announced itself, which took spawning, the loader and the channel
+        // all working — so this failure belongs to the image: a decode that blew through the heap,
+        // say, taking its worker with it. Raised rather than answered with a fallback, and
+        // emphatically not treated as the installation being broken: decoding this image on the
+        // calling thread would stop the application for the length of a decode — the very freeze
+        // the pool exists to prevent, handed to exactly the image that just proved too much for a
+        // worker. The image is reported untouched and the run goes on.
         throw e;
     }
 }
@@ -175,7 +177,13 @@ const idle: PooledWorker[] = [];
 const waiting: ((worker: PooledWorker | null) => void)[] = [];
 let started = 0;
 let disabled = false;
-let everSucceeded = false;
+/**
+ * Whether any worker has ever sent anything back — its startup announce being the first thing one
+ * says. That is proof the installation can run workers at all, which is the line between "give up
+ * on workers for good" and "this one image failed": everything a worker needs to exist — spawning,
+ * the loader, the channel home — has demonstrably worked once.
+ */
+let everSpoke = false;
 
 async function acquire(): Promise<PooledWorker | null> {
     if (disabled) {
@@ -291,6 +299,7 @@ function spawn(): PooledWorker | null {
             () => getLog().info(`Image Compression Tool: worker ${pooled.pid} online in ${Date.now() - startedAt}ms`));
 
         pooled.worker.on("message", (response: ImageWorkerResponse | ImageWorkerTrace) => {
+            everSpoke = true;
             readiness.arrived?.();
 
             // Traces arrive while the image is still being worked on, so they are written straight

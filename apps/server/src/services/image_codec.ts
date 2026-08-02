@@ -122,6 +122,16 @@ export function planFromBytes(
         return { verdict: "skip", reason: "no-gain" };
     }
 
+    // What is left to do is a re-encoding, and a file can show that it has already had one.
+    // Settled from the header rather than proven by decoding, which is what makes a second run
+    // over the same tree cost a glance per image instead of a decode — and what stops those
+    // re-encodings from shaving a little more quality off the same pixels on every run: writing
+    // a JPEG back at the quality it already has usually saves a few bytes, so the size guard
+    // after the decode never stops it.
+    if (!mayNeedResize && alreadyReencoded(isLossless, bytes, declared, request)) {
+        return { verdict: "skip", reason: "no-gain" };
+    }
+
     if (exceedsDecodeCeiling(declared)) {
         log(`Image of ${declared.width}x${declared.height} is too large to decode; leaving it alone.`);
 
@@ -129,6 +139,35 @@ export function planFromBytes(
     }
 
     return { verdict: "proceed", isLossless, worthReencoding, declared };
+}
+
+/**
+ * Whether the one step left to do — re-encoding — has visibly already happened to this image.
+ * Consulted only once resizing is off the table, so this is the whole of what remains.
+ *
+ * A JPEG carries the quality it was written at in its quantization table; at or below the target,
+ * re-encoding buys nothing and costs a little of the picture, every time it is done. A PNG that
+ * already stores a palette is what quantizing would produce. Conversion stays out of this: an
+ * indexed PNG asked to become a JPEG can still come out smaller, so it is still worth attempting.
+ *
+ * Read from whatever bytes the caller had, and erring toward doing the work: a quality that cannot
+ * be read — an unusual table, or one sitting past the end of a header prefix — answers false, and
+ * the image is decoded exactly as before. The few points the estimate can be out by are accepted
+ * the other way too: a re-encoding it forgoes was itself marginal.
+ */
+function alreadyReencoded(
+    isLossless: boolean,
+    bytes: Uint8Array,
+    declared: InspectedImage,
+    request: ImageCompressionRequest
+): boolean {
+    if (isLossless) {
+        return request.pngHandling === "optimize" && declared.indexed === true;
+    }
+
+    const quality = estimateJpegQuality(bytes);
+
+    return quality !== null && quality <= request.quality;
 }
 
 /**

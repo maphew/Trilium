@@ -535,6 +535,28 @@ describe("compression parameters", () => {
         // The bound is quoted and ignored: nothing was asked to be measured against it.
         expect(await decodedSize(noteId)).toEqual([ 600, 400 ]);
     });
+
+    it("settles a second run from headers alone, leaving what the first run wrote untouched", async () => {
+        const jpegNoteId = await createImageNote(noisyJpeg, "root", "image/jpeg");
+        const pngNoteId = await createImageNote(noisyPng);
+        const body = { resize: true, maxWidthHeight: 300, jpegHandling: "compress", pngHandling: "optimize", quality: 75 };
+
+        for (const noteId of [ jpegNoteId, pngNoteId ]) {
+            const first = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, { body });
+
+            expect(first.body.items[0].compressed).toBe(true);
+
+            const written = readNote(noteId).size;
+            // The second run finds a JPEG already at the target quality and a PNG already storing
+            // a palette, and reports both as no-gain without decoding — or rewriting — either.
+            // Without that reading, each run re-encoded the last run's output a few bytes smaller,
+            // eroding quality and churning the database every time.
+            const second = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, { body });
+
+            expect(second.body.items[0]).toMatchObject({ compressed: false, skipReason: "no-gain" });
+            expect(readNote(noteId).size).toBe(written);
+        }
+    });
 });
 
 describe("compress one attachment (POST /api/attachments/:attachmentId/compress-image)", () => {
