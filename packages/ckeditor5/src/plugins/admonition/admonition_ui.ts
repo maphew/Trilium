@@ -11,33 +11,7 @@
 import { addListToDropdown, Collection, createDropdown, ListDropdownItemDefinition, Plugin, SplitButtonView, ViewModel } from "ckeditor5";
 
 import admonitionIcon from "../../icons/admonition.svg?raw";
-import { AdmonitionType } from "./admonition_command.js";
-
-interface AdmonitionDefinition {
-    title: string;
-}
-
-/**
- * The user-facing definition of each admonition type. Keyed by the type names in
- * `ADMONITION_TYPE_NAMES` (see `admonition_command.ts`).
- */
-export const ADMONITION_TYPES: Record<AdmonitionType, AdmonitionDefinition> = {
-    note: {
-        title: "Note"
-    },
-    tip: {
-        title: "Tip"
-    },
-    important: {
-        title: "Important"
-    },
-    caution: {
-        title: "Caution"
-    },
-    warning: {
-        title: "Warning"
-    }
-};
+import { ADMONITION_TYPE_NAMES, AdmonitionType } from "./admonition_command.js";
 
 /**
  * The admonition UI plugin.
@@ -109,12 +83,12 @@ export default class AdmonitionUI extends Plugin {
             return itemDefinitions;
         }
 
-        for (const [type, admonition] of Object.entries(ADMONITION_TYPES)) {
+        for (const type of ADMONITION_TYPE_NAMES) {
             const definition: ListDropdownItemDefinition = {
                 type: "button",
                 model: new ViewModel({
                     commandParam: type,
-                    label: admonition.title,
+                    label: getAdmonitionTitle(this.editor.t, type),
                     class: `ck-tn-admonition-option ck-tn-admonition-${type}`,
                     role: "menuitemradio",
                     withText: true
@@ -128,4 +102,32 @@ export default class AdmonitionUI extends Plugin {
         return itemDefinitions;
     }
 
+}
+
+/**
+ * The user-facing title of an admonition type, as shown by the toolbar dropdown, the type dropdown
+ * and the slash commands.
+ *
+ * A switch rather than a table of titles, so that each title is written as a literal argument of a
+ * `t()` call: that is how the messages this package owns are discovered (see `messages.ts`) and a
+ * title tucked away in a table would be invisible to translators.
+ *
+ * @param t the editor's translation function (`editor.t`).
+ * @param type the admonition type; an unrecognized one has no title and is returned as-is.
+ */
+export function getAdmonitionTitle(t: (message: string) => string, type: AdmonitionType): string {
+    switch (type) {
+        case "note":
+            return t("Note");
+        case "tip":
+            return t("Tip");
+        case "important":
+            return t("Important");
+        case "caution":
+            return t("Caution");
+        case "warning":
+            return t("Warning");
+        default:
+            return type;
+    }
 }

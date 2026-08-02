@@ -133,7 +133,7 @@ describe( 'MermaidEditing', () => {
 							'<div class="ck ck-widget__selection-handle"></div>' +
 							// New lines replaced with space, same issue in getViewData as in #11365.
 							'<textarea class="ck-mermaid__editing-view" data-cke-ignore-events="true"' +
-								' placeholder="Insert mermaid source code"></textarea>' +
+								' placeholder="Insert Mermaid source code"></textarea>' +
 							'<div class="ck-mermaid__preview"></div>' +
 							'<div class="ck ck-reset_all ck-widget__type-around"></div>' +
 						'</div>'
@@ -150,7 +150,7 @@ describe( 'MermaidEditing', () => {
 							'ck-widget_with-selection-handle" contenteditable="false">' +
 							'<div class="ck ck-widget__selection-handle"></div>' +
 							'<textarea class="ck-mermaid__editing-view" data-cke-ignore-events="true"' +
-								' placeholder="Insert mermaid source code"></textarea>' +
+								' placeholder="Insert Mermaid source code"></textarea>' +
 							'<div class="ck-mermaid__preview"></div>' +
 							'<div class="ck ck-reset_all ck-widget__type-around"></div>' +
 						'</div>'
@@ -167,7 +167,7 @@ describe( 'MermaidEditing', () => {
 							'ck-widget_with-selection-handle" contenteditable="false">' +
 							'<div class="ck ck-widget__selection-handle"></div>' +
 							'<textarea class="ck-mermaid__editing-view" data-cke-ignore-events="true"' +
-								' placeholder="Insert mermaid source code"></textarea>' +
+								' placeholder="Insert Mermaid source code"></textarea>' +
 							'<div class="ck-mermaid__preview"></div>' +
 							'<div class="ck ck-reset_all ck-widget__type-around"></div>' +
 						'</div>'

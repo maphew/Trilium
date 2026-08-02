@@ -272,25 +272,6 @@
       "collapsible_details": "Detail"
     }
   },
-  "slash_commands": {
-    "bulleted_list_description": "Buat daftar berpoin",
-    "numbered_list_description": "Buat daftar bernomor",
-    "todo_list_description": "Buat daftar tugas",
-    "align_left_description": "Ratakan teks ke kiri",
-    "align_center_description": "Ratakan teks ke tengah",
-    "align_right_description": "Ratakan teks ke kanan",
-    "justify_description": "Ratakan teks kiri-kanan",
-    "admonition_description": "Sisipkan admonition baru",
-    "collapsible_description": "Sisipkan bagian yang dapat dibuka-tutup untuk menyembunyikan/menampilkan konten saat diklik.",
-    "footnote_description": "Buat footnote baru dan rujuk di sini",
-    "datetime_description": "Sisipkan tanggal dan waktu saat ini",
-    "internal_link_description": "Sisipkan tautan ke catatan Trilium lain",
-    "math_description": "Sisipkan persamaan matematika",
-    "include_note_description": "Tampilkan konten catatan lain di catatan ini",
-    "page_break_description": "Sisipkan pemisah halaman (untuk pencetakan)",
-    "markdown_import_description": "Impor file Markdown ke catatan ini",
-    "anchor_description": "Sisipkan anchor untuk tautan internal"
-  },
   "move_to": {
     "dialog_title": "Pindahkan catatan ke ...",
     "notes_to_move": "Catatan yang akan dipindahkan",
@@ -2086,8 +2067,6 @@
   "image": {
     "copied-to-clipboard": "Referensi ke gambar telah disalin ke clipboard. Ini dapat ditempelkan di catatan teks mana pun.",
     "cannot-copy": "Tidak dapat menyalin referensi gambar ke clipboard.",
-    "copy-to-clipboard": "Salin gambar ke clipboard",
-    "download": "Unduh gambar",
     "image-copied-to-clipboard": "Gambar telah disalin ke clipboard.",
     "cannot-copy-image": "Tidak dapat menyalin gambar ke clipboard.",
     "cannot-download": "Tidak dapat mengunduh gambar."
@@ -2193,8 +2172,7 @@
     "copy_image_to_clipboard": "Salin gambar ke clipboard"
   },
   "link": {
-    "failed_to_open": "Gagal membuka tautan '{{- href}}': {{- message}}",
-    "copy_url": "Salin URL"
+    "failed_to_open": "Gagal membuka tautan '{{- href}}': {{- message}}"
   },
   "link_context_menu": {
     "open_note_in_new_tab": "Buka catatan di tab baru",
@@ -2642,8 +2620,6 @@
   "mermaid": {
     "placeholder": "Ketik isi diagram Mermaid Anda atau gunakan salah satu diagram contoh di bawah ini.",
     "sample_diagrams": "Diagram contoh:",
-    "slash_command_blank_description": "Sisipkan diagram Mermaid kosong",
-    "slash_command_description": "Sisipkan template diagram Mermaid \"{{name}}\"",
     "sample_flowchart": "Flowchart",
     "sample_class": "Class",
     "sample_sequence": "Sequence",
@@ -2801,16 +2777,6 @@
     "export-csv-failed": "Gagal mengekspor spreadsheet ke CSV."
   },
   "text-editor": {
-    "checkbox-tooltip": "Klik kanan untuk status tugas lainnya.\nTekan {{shortcut}} untuk berpindah antarstatus.",
-    "collapsible-body-placeholder": "Ketik isi di sini...",
-    "collapsible-button-label": "Blok yang dapat dilipat",
-    "collapsible-handle-tooltip": "Seret untuk mengubah posisi blok yang dapat dilipat",
-    "collapsible-select-label": "Pilih blok yang dapat dilipat",
-    "collapsible-title-placeholder": "Ringkasan",
-    "collapsible-toggle-label": "Alihkan blok yang dapat dilipat",
-    "collapsible-tooltip": "Klik panah atau tekan {{shortcut}} untuk melipat/membuka.",
-    "edit-states-tooltip": "Edit status tugas",
-    "unknown-task-state": "Status tugas kustom tidak terdefinisi",
     "validation-errors": {
       "undefined-name": "identifier tidak terdefinisi",
       "invalid-name": "identifier tidak valid",
@@ -2819,6 +2785,39 @@
       "missing-icon": "ikon tidak ada",
       "invalid-symbol": "simbol markdown harus satu karakter, kecuali \"[\", \" \", \"X\", dan \"]\"",
       "duplicate-symbol": "simbol markdown duplikat"
+    },
+    "ck": {
+      "align-text-to-the-center": "Ratakan teks ke tengah",
+      "align-text-to-the-left": "Ratakan teks ke kiri",
+      "align-text-to-the-right": "Ratakan teks ke kanan",
+      "click-on-the-arrow-or-press-0-to-collapse-expand": "Klik panah atau tekan %0 untuk melipat/membuka.",
+      "collapsible-block": "Blok yang dapat dilipat",
+      "copy-image-to-clipboard": "Salin gambar ke clipboard",
+      "copy-url": "Salin URL",
+      "create-a-bulleted-list": "Buat daftar berpoin",
+      "create-a-new-footnote-and-reference-it-here": "Buat footnote baru dan rujuk di sini",
+      "create-a-numbered-list": "Buat daftar bernomor",
+      "create-a-to-do-list": "Buat daftar tugas",
+      "display-the-content-of-another-note-in-this-note": "Tampilkan konten catatan lain di catatan ini",
+      "download-image": "Unduh gambar",
+      "drag-to-reposition-the-collapsible-block": "Seret untuk mengubah posisi blok yang dapat dilipat",
+      "edit-task-states": "Edit status tugas",
+      "insert-a-0-mermaid-diagram-template": "Sisipkan template diagram Mermaid \"%0\"",
+      "insert-a-link-to-another-trilium-note": "Sisipkan tautan ke catatan Trilium lain",
+      "insert-a-math-equation": "Sisipkan persamaan matematika",
+      "insert-a-new-admonition": "Sisipkan admonition baru",
+      "insert-a-page-break-for-printing": "Sisipkan pemisah halaman (untuk pencetakan)",
+      "insert-a-toggleable-section-that-hides-shows-content-on-click": "Sisipkan bagian yang dapat dibuka-tutup untuk menyembunyikan/menampilkan konten saat diklik.",
+      "insert-an-anchor-for-internal-linking": "Sisipkan anchor untuk tautan internal",
+      "insert-an-empty-mermaid-diagram": "Sisipkan diagram Mermaid kosong",
+      "insert-the-current-date-and-time": "Sisipkan tanggal dan waktu saat ini",
+      "justify-text-alignment": "Ratakan teks kiri-kanan",
+      "right-click-or-press-0-to-change-state": "Klik kanan untuk status tugas lainnya.\nTekan %0 untuk berpindah antarstatus.",
+      "select-collapsible-block": "Pilih blok yang dapat dilipat",
+      "summary": "Ringkasan",
+      "toggle-collapsible-block": "Alihkan blok yang dapat dilipat",
+      "type-the-content-here": "Ketik isi di sini...",
+      "undefined-custom-task-state": "Status tugas kustom tidak terdefinisi"
     }
   },
   "options": {

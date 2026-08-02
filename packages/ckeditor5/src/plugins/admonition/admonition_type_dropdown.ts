@@ -1,8 +1,8 @@
 import { Plugin, type ListDropdownButtonDefinition, Collection, ViewModel, createDropdown, addListToDropdown, DropdownButtonView } from "ckeditor5";
 import Admonition from "./admonition.js";
 import type AdmonitionCommand from "./admonition_command.js";
-import type { AdmonitionType } from "./admonition_command.js";
-import { ADMONITION_TYPES } from "./admonition_ui.js";
+import { ADMONITION_TYPE_NAMES, type AdmonitionType } from "./admonition_command.js";
+import { getAdmonitionTitle } from "./admonition_ui.js";
 
 /**
  * Toolbar item which displays the list of admonition types in a dropdown.
@@ -29,8 +29,7 @@ export default class AdmonitionTypeDropdown extends Plugin {
             dropdownView.bind("isEnabled").to(command, "value", value => !!value);
             dropdownView.buttonView.bind("label").to(command, "value", (value) => {
                 if (!value) return "";
-                const typeDef = ADMONITION_TYPES[value as AdmonitionType];
-                return typeDef?.title ?? value;
+                return getAdmonitionTitle(editor.t, value as AdmonitionType);
             });
             dropdownView.on("execute", evt => {
                 const source = evt.source as any;
@@ -49,12 +48,12 @@ export default class AdmonitionTypeDropdown extends Plugin {
         const command = editor.commands.get("admonition") as AdmonitionCommand;
         const itemDefinitions = new Collection<ListDropdownButtonDefinition>();
 
-        for (const [type, typeDef] of Object.entries(ADMONITION_TYPES)) {
+        for (const type of ADMONITION_TYPE_NAMES) {
             const definition: ListDropdownButtonDefinition = {
                 type: "button",
                 model: new ViewModel({
                     commandParam: type,
-                    label: typeDef.title,
+                    label: getAdmonitionTitle(editor.t, type),
                     class: `ck-tn-admonition-option ck-tn-admonition-${type}`,
                     role: "menuitemradio",
                     withText: true

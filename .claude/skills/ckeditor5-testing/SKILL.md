@@ -85,6 +85,25 @@ test:sequential` runs `ckeditor5` **sequentially** (browser resource
 limits), alongside the server. `pnpm test:all` runs both. Each package exposes `"test": "vitest"` and
 `"test:debug": "vitest --inspect-brk --no-file-parallelism --browser.headless=false"`.
 
+**When the downloaded browser cannot run** — on NixOS the Chrome for Testing build and chromedriver
+webdriverio fetches into `/tmp` are linked against libraries no store path provides and die on a
+missing `libxcb.so.1` — point the suite at a system pair instead:
+
+```bash
+CHROME_BIN=/path/to/chromium CHROMEDRIVER_PATH=/path/to/chromedriver \
+    pnpm --filter @triliumnext/ckeditor5 test
+```
+
+`CHROMEDRIVER_PATH` is webdriverio's own variable and makes it spawn that driver on a free port;
+`CHROME_BIN` is read by the package's `vitest.config.ts` and passed as `goog:chromeOptions.binary`,
+which also stops the browser download (`setupPuppeteerBrowser` returns early for a string `binary`).
+The two versions must match at least in their major. `nix develop` sets both from `pkgs.chromium`
+and `pkgs.chromedriver`, so inside the dev shell the plain command works — **don't** start a driver
+by hand or write a local override config.
+
+Failed browser tests dump PNGs into a gitignored `__screenshots__` beside the spec; delete them
+afterwards.
+
 ## Anatomy of a test
 
 In the aggregate (`packages/ckeditor5`), use the shared **editor kit** —
@@ -127,6 +146,40 @@ Conventions visible here and across the suite:
 - Create the editor in `beforeEach` (return the Promise or use `async`/`await` — Vitest awaits it).
 - Pass `licenseKey: 'GPL'` (the kit does this for you). List only the plugins the test needs
   (commands can also be instantiated directly, e.g. `new InsertMermaidCommand( editor )`).
+
+## Asserting localized strings
+
+Trilium passes the English text itself as the message id (see the **`ckeditor5-plugin-development`**
+skill), so a test editor with no dictionary renders **the English text** — assert that literal:
+
+```ts
+expect( button.label ).toBe( 'Collapsible block' );
+```
+
+Never assert a `text-editor.…` key: that shape belonged to the retired host bridge, and a spec
+expecting one is testing a mechanism that no longer exists.
+
+To prove a string really is translatable rather than hardcoded, configure a dictionary. The entry
+must be keyed by language, and the leading `{}` is load-bearing — CKEditor merges `translations`
+with `reduce(merge)` and no initial value, so without the seed it mutates the first entry:
+
+```ts
+editor = await createTestEditor( [ Essentials, Paragraph, Collapsible ], {
+    translations: [ {}, { en: { dictionary: { 'Collapsible block': 'Bloc pliabil' } } } ]
+} );
+
+expect( createButton( editor ).label ).toBe( 'Bloc pliabil' );
+```
+
+`en` because that is the language the editor resolves under when none is configured. Getting the
+shape wrong (omitting the language key) throws inside `Locale.t` and fails every spec in the file,
+not just the one.
+
+For a helper that takes a translator parameter rather than an editor, pass
+`( message: string ) => message` — the same English-fallback behaviour, no editor needed. To observe
+*which* messages a plugin asked for, spy with `vi.spyOn( editor, 't' )`: `t` is an own property the
+editor assigns in its constructor, so the spy intercepts as long as the code reads `this.editor.t`
+per call. Install it before whatever triggers the render.
 
 ## Model/view test data
 

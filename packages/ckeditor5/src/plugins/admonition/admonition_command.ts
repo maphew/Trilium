@@ -17,8 +17,9 @@ import type { ModelElement, ModelPosition, ModelRange, ModelSchema, ModelWriter 
 /**
  * The admonition type names, in the order they are offered in the UI.
  *
- * The user-facing titles live in `ADMONITION_TYPES` in `admonition_ui.ts`; this is the bare list
- * of names, used where only the names matter (autoformat, upcast).
+ * The user-facing titles come from `getAdmonitionTitle()` in `admonition_ui.ts`; this is the bare
+ * list of names, used wherever a title is not needed (autoformat, upcast) and to drive the order of
+ * the type lists that do show titles.
  */
 export const ADMONITION_TYPE_NAMES = ["note", "tip", "important", "caution", "warning"] as const;
 export const ADMONITION_TYPE_ATTRIBUTE = "admonitionType";

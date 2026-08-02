@@ -2601,7 +2601,6 @@
     "view_all_chats": "عرض جميع المحادثات"
   },
   "text-editor": {
-    "edit-states-tooltip": "تعديل حالات المهام",
     "validation-errors": {
       "duplicate-symbol": "رمز Markdown مكرر",
       "undefined-name": "معرّف غير مُعرّف",
@@ -2611,8 +2610,11 @@
       "missing-icon": "الأيقونة مفقودة",
       "invalid-symbol": "يجب أن يكون رمز Markdown عبارة عن حرف واحد، باستثناء \"[\", \" \", \"X\", و \"]\""
     },
-    "unknown-task-state": "حالة مهمة مخصصة غير مُعرّفة",
-    "checkbox-tooltip": "انقر بزر الفأرة الأيمن لمزيد من حالات المهمة.\nاضغط {{shortcut}} للتنقل بين الحالات."
+    "ck": {
+      "edit-task-states": "تعديل حالات المهام",
+      "right-click-or-press-0-to-change-state": "انقر بزر الفأرة الأيمن لمزيد من حالات المهمة.\nاضغط %0 للتنقل بين الحالات.",
+      "undefined-custom-task-state": "حالة مهمة مخصصة غير مُعرّفة"
+    }
   },
   "note-color": {
     "set-custom-color": "تعيين لون مخصص للملاحظة",

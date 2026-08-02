@@ -208,6 +208,7 @@ SQLite via `better-sqlite3`. SQL abstraction in `packages/trilium-core/src/servi
 - Client tests can run in parallel
 - E2E tests use Playwright for both server and desktop apps
 - Build validation tests check artifact integrity
+- **Browser-mode tests** (`packages/ckeditor5`) drive a real headless Chrome via `@vitest/browser-webdriverio`, which downloads its own Chrome and chromedriver. Where those cannot run (NixOS: they die on a missing `libxcb.so.1`), set `CHROME_BIN` and `CHROMEDRIVER_PATH` to a system pair of matching versions — `nix develop` exports both. Never start a chromedriver by hand or add a local override config; see `docs/Developer Guide/Developer Guide/Testing.md`
 - **Write concise tests**: Group related assertions together in a single test case rather than creating many one-shot tests
 - **Extract and test business logic**: When adding pure business logic (e.g., data transformations, migrations, validations), extract it as a separate function and always write unit tests for it
 
@@ -225,6 +226,34 @@ SQLite via `better-sqlite3`. SQL abstraction in `packages/trilium-core/src/servi
 - **Server-side**: `import { t } from "i18next"` with keys in `apps/server/src/assets/translations/en/server.json`
 - **Electron main process** (e.g. `apps/desktop/src/`): `import { t } from "i18next"` — uses server-side keys from `apps/server/src/assets/translations/en/server.json` (same as server-side). **Never hardcode user-facing strings** in Electron dialogs, tray menus, or IPC handlers — always use `t()`.
 - **Interpolation**: Use `{{variable}}` for normal interpolation; use `{{- variable}}` (with hyphen) for **unescaped** interpolation when the value contains special characters like quotes that shouldn't be HTML-escaped
+
+#### Text Editor (`packages/ckeditor5`) Translation Usage
+The rich-text editor does **not** use i18next keys in plugin code. A plugin passes the **English text itself** to CKEditor's own translation function, and that text *is* the message id:
+
+```ts
+const t = editor.t;                 // or locale.t, or this.t inside a View
+t("Insert a table.");
+t("Insert footnote %0", index);     // %0/%1 placeholders — never a template literal
+```
+
+With no dictionary configured (a test, a standalone editor) the message id renders, so the UI is always correct English rather than a raw key. To translate it, add the English entry under `text-editor.ck` in `apps/client/src/translations/en/translation.json`, keyed by the **slug of the English text** (lowercase, every run of non-alphanumerics collapsed to `-`):
+
+```jsonc
+"text-editor": { "ck": { "insert-a-table": "Insert a table." } }
+```
+
+That is the whole procedure — call site plus English entry. `apps/client/src/services/i18n.spec.ts` enforces it in **both** directions by scanning the editor package's source, so a missing entry and a stale one both fail.
+
+Rules specific to this mechanism:
+
+- **The function must be named `t`.** The scan matches `\bt\(` followed by a quoted literal, so `translate("Save")` or `_t("Save")` is invisible and the string silently stays English in every locale. Name the local or parameter `t` (`.t(` matches too, e.g. `editor.t(…)`).
+- **The first argument must be a literal.** `t(definition.title)` is invisible for the same reason. Where labels would otherwise live in a table, use a switch with a literal at each call — see `getAdmonitionTitle()`, `getLinkDisplayModeLabel()`, `getBoxSizeLabel()`.
+- **Never add an entry for a string CKEditor already translates.** Our dictionary is merged *after* the core one, so an entry overrides upstream in every locale. Still call `t()` — CKEditor's own catalog resolves it. Check before adding:
+  `node --input-type=module -e "const c=(await import('ckeditor5/translations/de.js')).default; console.log(new Set(Object.keys(c.de.dictionary)).has('Save'))"`
+- **Renaming an upstream string** (Trilium calls CKEditor's bookmarks "anchors") is the one case where id and text differ: add the pair to `MESSAGE_OVERRIDES` in `packages/ckeditor5/src/messages.ts` and give the replacement its own English entry.
+- **Code that runs before an editor exists** (the slash-command definitions) uses `translateMessage(hostTranslate, message, values)` from `messages.ts` — same lookup and same `%0` substitution, minus the editor.
+- **A keystroke inside a message** comes from `renderShortcut(editor, SHORTCUT)` (`packages/ckeditor5/src/shortcut.ts`). Key names live in the app-wide `keyboard_shortcut_keys` catalog, which the command palette and help dialog share; don't resolve them inside the package.
+- There is no `config.translate` bridge and no `lang/*.po` catalogs any more — both were removed. Any doc or plugin still describing them is stale.
 
 ### Electron Desktop App
 - Desktop entry point: `apps/desktop/src/main.ts`, window management: `apps/desktop/src/services/window.ts`

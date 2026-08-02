@@ -82,8 +82,8 @@ each plugin just ships raw TS via `main: src/index.ts`, compiled by whatever bun
 `src/` files: `{feature}.ts` (glue), `{feature}editing.ts`, `{feature}ui.ts`, optional
 `{feature}command.ts`, `augmentation.ts`, `index.ts`. Complex plugins add `constants.ts`
 (`ELEMENTS`/`ATTRIBUTES`/`COMMANDS`/`CLASSES`), `utils.ts` (model-query helpers), and split
-`schema.ts`/`converters.ts`. Assets: `theme/{feature}.css`, `theme/icons/*.svg`, `lang/en.po`
-(gettext) + `lang/contexts.json`, `tests/`. License and file headers vary per package — see
+`schema.ts`/`converters.ts`. Assets: `theme/{feature}.css`, `theme/icons/*.svg`, `tests/`. (Localization has no
+per-plugin files: the English catalog lives in the client — see `references/ui-and-localization.md`.) License and file headers vary per package — see
 `references/conventions.md`.
 
 `index.ts` re-exports the glue plugin, its sub-plugins and command types, and exposes icons:
@@ -187,6 +187,10 @@ pnpm --filter @triliumnext/ckeditor5-<feature> test:debug  # vitest, headed + in
 pnpm --filter @triliumnext/ckeditor5-<feature> lint        # eslint-config-ckeditor5
 pnpm --filter @triliumnext/ckeditor5-<feature> stylelint   # theme CSS
 ```
+
+Tests run in a real headless Chrome that webdriverio downloads. Where that build cannot run — NixOS
+being the case in point — set `CHROME_BIN` and `CHROMEDRIVER_PATH` to a matching system pair, which
+`nix develop` already exports; don't start a driver by hand.
 
 For test setup, model/view assertions, and command/UI test patterns, use the separate
 **`ckeditor5-testing`** skill.

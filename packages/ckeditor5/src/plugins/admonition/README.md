@@ -51,8 +51,8 @@ Two things were straightened out during the move:
 
 - The package exported **two different** `ADMONITION_TYPES` — a tuple of names from the command
   module and a `Record<type, {title}>` from the UI module — and the barrel re-exported the UI one,
-  shadowing the other. The tuple is now `ADMONITION_TYPE_NAMES`; `ADMONITION_TYPES` remains the
-  record consumers already used.
+  shadowing the other. The tuple is now `ADMONITION_TYPE_NAMES` and is the only list of types; the
+  record is gone, its titles now coming from `getAdmonitionTitle()`, which translates them.
 - `theme/blockquote.css` did not belong to this feature at all — it is CKEditor's baseline
   `blockquote` styling, inherited from the fork. It moved to `src/theme/blockquote.css` and is
   imported from `src/index.ts` with the other global stylesheets.

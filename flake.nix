@@ -387,7 +387,18 @@ nodejs.python
             pnpm
             electron
             nodejs.python
+            # For the browser-mode tests (packages/ckeditor5). The Chrome and chromedriver
+            # webdriverio downloads for itself are dynamically linked against libraries no NixOS
+            # system provides, so they die on a missing libxcb.so.1; these come from the same
+            # nixpkgs revision, so their versions match.
+            pkgs.chromium
+            pkgs.chromedriver
           ];
+
+          # Read by packages/ckeditor5/vitest.config.ts and by webdriverio itself, respectively.
+          # Without them webdriverio downloads its own pair and the suite cannot start.
+          CHROME_BIN = "${pkgs.chromium}/bin/chromium";
+          CHROMEDRIVER_PATH = "${pkgs.chromedriver}/bin/chromedriver";
         };
       }
     );
