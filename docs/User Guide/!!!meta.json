@@ -11352,6 +11352,13 @@
                                                     "value": "bx bx-link-alt",
                                                     "isInheritable": false,
                                                     "position": 90
+                                                },
+                                                {
+                                                    "type": "relation",
+                                                    "name": "internalLink",
+                                                    "value": "6RM1Q7ppFVoj",
+                                                    "isInheritable": false,
+                                                    "position": 120
                                                 }
                                             ],
                                             "format": "markdown",
