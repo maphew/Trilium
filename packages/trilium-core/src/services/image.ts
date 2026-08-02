@@ -192,7 +192,7 @@ function saveImageToAttachment(
     const fileName = sanitizeFilename(originalName);
     const note = becca.getNoteOrThrow(noteId);
 
-    let attachment = note.saveAttachment({
+    const attachment = note.saveAttachment({
         role: "image",
         mime: "unknown",
         title: fileName
@@ -202,7 +202,18 @@ function saveImageToAttachment(
     setTimeout(() => {
         getContext().init(() => {
             getSql().transactional(() => {
-                const note = becca.getNoteOrThrow(noteId);
+                // Looked up again rather than captured, and without asserting it is still there: five
+                // seconds is ample time for the note to be deleted, whether by the user or by an incoming
+                // sync change, and a note that no longer exists simply has nothing left to post-process.
+                // Demanding it exist turned that ordinary race into a process-level throw, which — coming
+                // from a timer, with no request to fail and no caller to catch it — took the whole
+                // application down (#10823).
+                const note = becca.getNote(noteId);
+
+                if (!note) {
+                    return;
+                }
+
                 noteService.asyncPostProcessContent(note, note.getContent());
             });
         });
@@ -216,16 +227,25 @@ function saveImageToAttachment(
                 if (!attachmentId) {
                     throw new Error("Missing attachment ID.");
                 }
-                attachment = becca.getAttachmentOrThrow(attachmentId);
 
-                attachment.mime = getImageMimeFromExtension(format.ext);
+                // Deleting a note marks its attachments deleted too, and image processing can easily
+                // outlast the note it belongs to — in which case there is nothing left to write the
+                // result into. Same race as the post-processing timer above; here it would surface as an
+                // unhandled rejection instead of a throw.
+                const savedAttachment = becca.getAttachment(attachmentId);
+
+                if (!savedAttachment) {
+                    return;
+                }
+
+                savedAttachment.mime = getImageMimeFromExtension(format.ext);
 
                 if (!originalName.includes(".")) {
                     originalName += `.${format.ext}`;
-                    attachment.title = sanitizeFilename(originalName);
+                    savedAttachment.title = sanitizeFilename(originalName);
                 }
 
-                attachment.setContent(buffer, { forceSave: true });
+                savedAttachment.setContent(buffer, { forceSave: true });
             });
         });
     }), attachmentId ?? "", `attachment '${attachmentId}'`);

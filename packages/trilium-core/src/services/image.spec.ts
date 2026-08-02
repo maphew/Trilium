@@ -6,6 +6,7 @@ import { getContext } from "./context.js";
 import imageService from "./image.js";
 import { getImageProvider } from "./image_provider.js";
 import type { ProcessedImage } from "./image_provider.js";
+import noteService from "./notes.js";
 import protectedSessionService from "./protected_session.js";
 
 /**
@@ -162,6 +163,68 @@ describe("image service (real DB)", () => {
                     imageService.saveImageToAttachment("missingNote123", fakeBuffer, "x.png", false)
                 )
             ).toThrow();
+        });
+
+        it("post-processes the note five seconds later, and lets it go quietly once deleted", () => {
+            const postProcessSpy = vi.spyOn(noteService, "asyncPostProcessContent").mockResolvedValue(undefined);
+            stubProcessImage({ ext: "png" });
+            vi.useFakeTimers();
+
+            try {
+                const survivor = createTargetNote();
+                getContext().init(() =>
+                    imageService.saveImageToAttachment(survivor.noteId, fakeBuffer, "kept.png", false)
+                );
+
+                const doomed = createTargetNote();
+                getContext().init(() =>
+                    imageService.saveImageToAttachment(doomed.noteId, fakeBuffer, "raced.png", false)
+                );
+                // The window is wide enough to lose the note to a delete — the user's own, or one
+                // arriving over sync — which is what made this a routine crash rather than a rare one.
+                getContext().init(() => doomed.deleteNote());
+
+                expect(() => vi.advanceTimersByTime(5000)).not.toThrow();
+
+                // The surviving note is still post-processed, so the guard skips the deleted note only.
+                expect(postProcessSpy).toHaveBeenCalledTimes(1);
+                expect(postProcessSpy.mock.calls[0][0].noteId).toBe(survivor.noteId);
+            } finally {
+                vi.useRealTimers();
+            }
+        });
+
+        it("drops the processed image when its attachment no longer exists", async () => {
+            const host = createTargetNote();
+            let resolveProcessing: ((processed: ProcessedImage) => void) | undefined;
+            vi.spyOn(getImageProvider(), "processImage").mockReturnValue(
+                new Promise<ProcessedImage>((resolve) => { resolveProcessing = resolve; })
+            );
+
+            const att = getContext().init(() =>
+                imageService.saveImageToAttachment(host.noteId, fakeBuffer, "outlived.png", false)
+            );
+
+            // Nothing awaits the processing chain, so a throw inside it never reaches an assertion — it
+            // escapes as an unhandled rejection, which Node promotes to the same fatal uncaught
+            // exception. Watch for it directly, or this test would pass with the guard removed.
+            const rejections: unknown[] = [];
+            const captureRejection = (reason: unknown) => rejections.push(reason);
+            process.on("unhandledRejection", captureRejection);
+
+            try {
+                // Deleting the note marks its attachments deleted, so the in-flight processing resolves
+                // with nowhere to write its result.
+                getContext().init(() => host.deleteNote());
+                resolveProcessing?.({ buffer: fakeBuffer, format: { ext: "png", mime: "image/png" } });
+                await flushAsync();
+            } finally {
+                process.off("unhandledRejection", captureRejection);
+            }
+
+            // The attachment really is gone, so the guard — not a lucky lookup — is what was exercised.
+            expect(becca.getAttachment(att.attachmentId ?? "")).toBeFalsy();
+            expect(rejections).toEqual([]);
         });
 
         it("updates the attachment mime/content and appends a missing extension asynchronously", async () => {
