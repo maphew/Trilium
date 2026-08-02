@@ -112,8 +112,7 @@ export default class AdmonitionUI extends Plugin {
  * `t()` call: that is how the messages this package owns are discovered (see `messages.ts`) and a
  * title tucked away in a table would be invisible to translators.
  *
- * @param t the editor's translation function (`editor.t`), or the host translator where no editor
- *          exists yet — see `translateMessage()`.
+ * @param t the editor's translation function (`editor.t`).
  * @param type the admonition type; an unrecognized one has no title and is returned as-is.
  */
 export function getAdmonitionTitle(t: (message: string) => string, type: AdmonitionType): string {

@@ -14,7 +14,6 @@ export type { SlashCommandConfig, SlashCommandDefinition } from "./plugins/menti
 export type { TriliumMentionFeed } from "./plugins/mention/types.js";
 export { default as TriliumSnippets } from "./plugins/snippets/snippets.js";
 export type { SnippetDefinition } from "./plugins/snippets/snippetsconfig.js";
-export { default as buildExtraCommands } from "./extra_slash_commands.js";
 export { default as getCkLocale } from "./i18n.js";
 export { MESSAGE_KEY_PREFIX, MESSAGE_OVERRIDES, slugify } from "./messages.js";
 export * from "./utils.js";

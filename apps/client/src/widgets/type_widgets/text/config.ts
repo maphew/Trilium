@@ -1,4 +1,4 @@
-import { buildExtraCommands, type EditorConfig, getCkLocale, SnippetDefinition } from "@triliumnext/ckeditor5";
+import { type EditorConfig, getCkLocale, SnippetDefinition } from "@triliumnext/ckeditor5";
 import emojiDefinitionsUrl from "@triliumnext/ckeditor5/src/emoji_definitions/en.json?url";
 import { ALLOWED_PROTOCOLS, DISPLAYABLE_LOCALE_IDS, formatShortcut, joinShortcut, KATEX_MACROS, MIME_TYPE_AUTO, normalizeMimeTypeForCKEditor } from "@triliumnext/commons";
 import i18next from "i18next";
@@ -172,12 +172,11 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
             copy: copyTextWithToast
         },
         slashCommand: {
-            // Drop CKEditor's built-in slash commands whose title/icon we re-define in
-            // buildExtraCommands: the Mermaid one (generic icon) and the list ones
-            // (Title Case titles, normalized to sentence case).
+            // Drop CKEditor's built-in slash commands whose title/icon the palette re-defines: the
+            // Mermaid one (generic icon) and the list ones (Title Case titles, normalized to
+            // sentence case).
             removeCommands: ["insertMermaidCommand", "bulletedList", "numberedList", "todoList"],
-            dropdownLimit: Number.MAX_SAFE_INTEGER,
-            extraCommands: buildExtraCommands((key) => t(key), SAMPLE_DIAGRAMS)
+            dropdownLimit: Number.MAX_SAFE_INTEGER
         },
         snippets: {
             definitions: opts.templates
