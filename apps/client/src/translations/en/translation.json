@@ -3533,6 +3533,7 @@
     "font-size-extra-large": "XL",
     "tags": "Tags",
     "tags-placeholder": "Type a tag and press Enter",
+    "tags-differ": "The selected nodes don't carry the same tags, so these can only be read.",
     "add-tag": "Add this tag",
     "remove-tag": "Remove this tag"
   },

@@ -36,17 +36,16 @@ export default function MindMapNodePanel({ mind, nodes }: MindMapNodePanelProps)
     const textColor = getCommonValue(nodes, (node) => node.style?.color);
     const backgroundColor = getCommonValue(nodes, (node) => node.style?.background);
     const branchColor = getCommonValue(nodes, (node) => node.branchColor);
-    // Tags belong to one node rather than to a shape shared by the selection: offering them for
-    // several would mean overwriting each node's own with whatever is typed.
-    const taggedNode = (nodes.length === 1 ? nodes[0] : null);
+    const tags = gatherTags(nodes);
 
     /**
      * Applies a patch to every selected node. The selection is read back from the instance rather
      * than taken from the props, so that the elements the patch is applied to are the live ones.
+     * The patch may be derived per node, for what is written depending on what a node already has.
      */
-    function patchSelectedNodes(patch: Partial<NodeObj>) {
+    function patchSelectedNodes(patch: Partial<NodeObj> | ((node: NodeObj) => Partial<NodeObj>)) {
         for (const topic of mind.currentNodes) {
-            mind.reshapeNode(topic, patch);
+            mind.reshapeNode(topic, typeof patch === "function" ? patch(topic.nodeObj) : patch);
         }
     }
 
@@ -91,18 +90,22 @@ export default function MindMapNodePanel({ mind, nodes }: MindMapNodePanelProps)
                 />
             </PanelSection>
 
-            {taggedNode && (
-                <PanelSection label={t("mind-map.tags")}>
-                    <ValuesInput
-                        labelType="text"
-                        values={(taggedNode.tags ?? []).map(getTagText)}
-                        placeholder={t("mind-map.tags-placeholder")}
-                        addButtonText={t("mind-map.add-tag")}
-                        removeButtonText={t("mind-map.remove-tag")}
-                        onCommit={(texts) => patchSelectedNodes({ tags: applyTagTexts(taggedNode.tags, texts) })}
-                    />
-                </PanelSection>
-            )}
+            <PanelSection
+                label={t("mind-map.tags")}
+                title={tags.readOnly ? t("mind-map.tags-differ") : undefined}
+            >
+                <ValuesInput
+                    labelType="text"
+                    values={tags.texts}
+                    placeholder={t("mind-map.tags-placeholder")}
+                    addButtonText={t("mind-map.add-tag")}
+                    removeButtonText={t("mind-map.remove-tag")}
+                    disabled={tags.readOnly}
+                    // Derived per node: the nodes agree on the texts, but each may dress its own
+                    // tags differently, and that is kept by reading from the node being written to.
+                    onCommit={(texts) => patchSelectedNodes((node) => ({ tags: applyTagTexts(node.tags, texts) }))}
+                />
+            </PanelSection>
         </div>
     );
 }
@@ -127,6 +130,26 @@ function buildFontSizeOptions() {
     ];
 }
 
+/**
+ * What the tag field stands for, given the selection.
+ *
+ * Tags belong to a node rather than to a shape the selection shares, so a field standing for
+ * several of them can only be edited where they already agree — one node always does. Where they
+ * don't, the field shows everything the selection carries between them, for reading: taking a tag
+ * as read would mean writing one node's tags over another's.
+ */
+export function gatherTags(nodes: NodeObj[]): { texts: string[], readOnly: boolean } {
+    const perNode = nodes.map((node) => (node.tags ?? []).map(getTagText));
+    const [ first = [], ...rest ] = perNode;
+
+    if (rest.every((texts) => texts.length === first.length && texts.every((text) => first.includes(text)))) {
+        return { texts: first, readOnly: false };
+    }
+
+    // In the order they are first met, so that the tags of the node selected first lead.
+    return { texts: [ ...new Set(perNode.flat()) ], readOnly: true };
+}
+
 /** The text a tag reads as, whether it carries a style of its own or is only the text. */
 export function getTagText(tag: string | TagObj) {
     return typeof tag === "string" ? tag : tag.text;
@@ -149,9 +172,9 @@ function toPickerValue(value: string | null | typeof MIXED) {
     };
 }
 
-function PanelSection({ label, children }: { label: string, children: ComponentChildren }) {
+function PanelSection({ label, title, children }: { label: string, title?: string, children: ComponentChildren }) {
     return (
-        <div className="mind-map-node-panel-section">
+        <div className="mind-map-node-panel-section" title={title}>
             <div className="mind-map-node-panel-section-label">{label}</div>
             {children}
         </div>

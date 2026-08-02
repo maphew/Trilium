@@ -2,7 +2,7 @@ import type { MindElixirInstance, NodeObj } from "mind-elixir";
 import { describe, expect, it, vi } from "vitest";
 
 import { renderInto } from "../../test/render";
-import MindMapNodePanel, { applyTagTexts, DEFAULT_FONT_SIZE, getCommonValue, MIXED, NODE_BACKGROUND_COLORS, NODE_COLORS } from "./MindMapNodePanel";
+import MindMapNodePanel, { applyTagTexts, DEFAULT_FONT_SIZE, gatherTags, getCommonValue, MIXED, NODE_BACKGROUND_COLORS, NODE_COLORS } from "./MindMapNodePanel";
 
 function buildNode(node: Partial<NodeObj> = {}): NodeObj {
     return { id: "n1", topic: "Node", ...node };
@@ -31,6 +31,18 @@ const TAGS = 4;
 function section(container: HTMLElement, index: number) {
     const sections = container.querySelectorAll<HTMLElement>(".mind-map-node-panel-section");
     return sections[index];
+}
+
+function tagTexts(container: HTMLElement) {
+    return [ ...section(container, TAGS).querySelectorAll(".tn-chip > span") ].map((chip) => chip.textContent);
+}
+
+/** Types a tag into the field and settles it, the way Enter does for someone using the panel. */
+function typeTag(container: HTMLElement, text: string) {
+    const input = section(container, TAGS).querySelector<HTMLInputElement>("input");
+    if (!input) throw new Error("the tag field has no box to type in");
+    input.value = text;
+    input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
 }
 
 function sizeButtons(container: HTMLElement) {
@@ -77,6 +89,29 @@ describe("getCommonValue", () => {
             buildNode({ style: { color: "" } }),
             buildNode()
         ], read)).toBeNull();
+    });
+});
+
+describe("gatherTags", () => {
+    it("hands over the tags a selection agrees on, whatever order each holds them in", () => {
+        expect(gatherTags([buildNode()])).toEqual({ texts: [], readOnly: false });
+        expect(gatherTags([buildNode({ tags: ["one", { text: "two" }] })]))
+            .toEqual({ texts: ["one", "two"], readOnly: false });
+        expect(gatherTags([
+            buildNode({ id: "a", tags: ["one", "two"] }),
+            buildNode({ id: "b", tags: ["two", "one"] })
+        ])).toEqual({ texts: ["one", "two"], readOnly: false });
+    });
+
+    it("gathers everything the selection carries, for reading only, once they disagree", () => {
+        expect(gatherTags([
+            buildNode({ id: "a", tags: ["one", "shared"] }),
+            buildNode({ id: "b", tags: ["shared", "two"] })
+        ])).toEqual({ texts: ["one", "shared", "two"], readOnly: true });
+
+        // One node holding none of them is a disagreement like any other.
+        expect(gatherTags([buildNode({ id: "a", tags: ["one"] }), buildNode({ id: "b" })]))
+            .toEqual({ texts: ["one"], readOnly: true });
     });
 });
 
@@ -201,28 +236,50 @@ describe("MindMapNodePanel", () => {
         const { mind, reshapeNode } = buildMind(nodes);
 
         const container = renderInto(<MindMapNodePanel mind={mind} nodes={nodes} />);
-        const tags = section(container, TAGS);
 
-        expect([...tags.querySelectorAll(".tn-chip")].map((chip) => chip.textContent)).toEqual(
-            expect.arrayContaining([expect.stringContaining("urgent"), expect.stringContaining("later")]));
+        expect(tagTexts(container)).toEqual(["urgent", "later"]);
 
-        const input = tags.querySelector<HTMLInputElement>("input");
-        if (!input) throw new Error("the tag field has no box to type in");
-        input.value = "done";
-        input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+        typeTag(container, "done");
 
         expect(reshapeNode).toHaveBeenCalledWith(mind.currentNodes[0], { tags: [styled, "later", "done"] });
     });
 
-    it("leaves the tags out for a selection of several nodes", () => {
-        // Every node carries its own, so a field standing for all of them could only overwrite.
-        const nodes = [buildNode({ id: "a", tags: ["one"] }), buildNode({ id: "b", tags: ["two"] })];
-        const { mind } = buildMind(nodes);
+    it("edits the tags of several nodes that carry the same ones, each keeping its own styling", () => {
+        // The same tag, dressed differently on each node: what is written back has to be read from
+        // the node it is written to, rather than from whichever node the field happened to show.
+        const nodes = [
+            buildNode({ id: "a", tags: [{ text: "urgent", style: { color: "red" } }] }),
+            buildNode({ id: "b", tags: [{ text: "urgent", style: { color: "blue" } }] })
+        ];
+        const { mind, reshapeNode } = buildMind(nodes);
 
         const container = renderInto(<MindMapNodePanel mind={mind} nodes={nodes} />);
 
-        expect(container.querySelectorAll(".mind-map-node-panel-section")).toHaveLength(TAGS);
-        expect(container.querySelector(".tn-field")).toBeNull();
+        expect(tagTexts(container)).toEqual(["urgent"]);
+        expect(container.querySelector<HTMLInputElement>(".tn-field input")?.disabled).toBe(false);
+
+        typeTag(container, "done");
+
+        expect(reshapeNode).toHaveBeenNthCalledWith(1, mind.currentNodes[0], { tags: [nodes[0].tags?.[0], "done"] });
+        expect(reshapeNode).toHaveBeenNthCalledWith(2, mind.currentNodes[1], { tags: [nodes[1].tags?.[0], "done"] });
+    });
+
+    it("gathers the tags of a selection that disagrees, for reading only", () => {
+        const nodes = [
+            buildNode({ id: "a", tags: ["one", "shared"] }),
+            buildNode({ id: "b", tags: ["shared", "two"] })
+        ];
+        const { mind, reshapeNode } = buildMind(nodes);
+
+        const container = renderInto(<MindMapNodePanel mind={mind} nodes={nodes} />);
+
+        expect(tagTexts(container)).toEqual(["one", "shared", "two"]);
+        expect(container.querySelector<HTMLInputElement>(".tn-field input")?.disabled).toBe(true);
+        // Nothing to press: a removal would take a tag off a node that never had it.
+        expect([...container.querySelectorAll<HTMLButtonElement>(".tn-chip-remove")].every((button) => button.disabled)).toBe(true);
+
+        typeTag(container, "done");
+        expect(reshapeNode).not.toHaveBeenCalled();
     });
 
     it("keeps clicks and key presses from reaching the map underneath", () => {
