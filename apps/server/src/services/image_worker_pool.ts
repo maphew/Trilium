@@ -39,18 +39,21 @@ import type { ImageWorkerRequest, ImageWorkerResponse, ImageWorkerTrace } from "
  * How many images may be compressed at once, or 1 where they cannot be compressed off-thread at
  * all — which is the same answer as "do it here", and is what the caller schedules against.
  *
- * Capped low, and deliberately not scaled to the machine. Decoding a photograph is bound by memory
- * bandwidth at least as much as by processor: past a handful of them the decoders are queueing for
- * the same bus, and adding more buys contention rather than throughput. Measured on a 24-thread
- * machine, letting it run one per core left a 380 KB image taking 10.7 seconds where a 4.9 MB one
- * had taken 2.9 seconds earlier in the same run — and starting a further worker, 24ms of work at
- * the outset, took 2.3 seconds by then.
+ * How much of the machine to take depends on whose machine it is.
  *
- * It stays a ceiling rather than a promise: what actually runs at once is whatever the memory budget
- * admits, which on large images is fewer still.
+ * The desktop app runs on one person's computer, doing a job that person just asked for and is
+ * waiting on, so it takes a core per worker and leaves one for the thread handing out the images —
+ * which is also the thread the window is answering on. A server is not anyone's computer in that
+ * sense: it may be serving other people while this runs, and a maintenance job nobody is watching
+ * has no business taking the whole of it, so it stays with a handful.
  *
- * `availableParallelism` rather than the raw core count, for the machines below the cap: it follows
- * the affinity the process was given, so a container pinned to two cores is answered as two.
+ * A ceiling rather than a promise either way: what actually runs at once is whatever the memory
+ * budget admits, which on large images is far fewer. Worth knowing that decoding is bound by memory
+ * bandwidth as much as by processor, so the last threads on a wide machine are worth much less than
+ * the first — this is what the machine allows, not what it will reward.
+ *
+ * `availableParallelism` rather than the raw core count: it follows the affinity the process was
+ * given, so a container pinned to two cores is answered as two.
  *
  * Bounded by memory besides. Each worker may grow a {@link WORKER_HEAP_MB} heap, and their sum is
  * kept inside half of what the machine has — a four-gigabyte NAS is answered 1, not 4, because the
@@ -64,12 +67,26 @@ export function compressionConcurrency(): number {
     }
 
     const byMemory = Math.floor(totalmem() / 2 / (WORKER_HEAP_MB * 1024 * 1024));
+    const byCores = isDesktopApp()
+        ? availableParallelism() - 1
+        : Math.min(availableParallelism(), SERVER_MAX_WORKERS);
 
-    return Math.max(1, Math.min(MAX_WORKERS, availableParallelism(), byMemory));
+    return Math.max(1, Math.min(byCores, byMemory));
 }
 
-/** Where decoding stops going faster for being given more workers; see above for the measurement. */
-const MAX_WORKERS = 4;
+/** What a shared machine is allowed to spend on a job nobody is waiting for. */
+const SERVER_MAX_WORKERS = 4;
+
+/**
+ * Whether this is the desktop app rather than a server.
+ *
+ * Read from the runtime rather than from core's platform flags: those are settled during startup,
+ * and this is asked for whenever a run begins.
+ */
+function isDesktopApp(): boolean {
+    return process.versions.electron !== undefined;
+}
+
 
 /**
  * Compresses one image in a worker, or answers `null` if there is no worker to do it in — which the

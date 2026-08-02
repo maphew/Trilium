@@ -167,4 +167,29 @@ describe("worker pool failure semantics", () => {
         h.cores = 2;
         expect(pool.compressionConcurrency()).toBe(2);
     });
+
+    it("takes more of a desktop machine than of a server", async () => {
+        const pool = await import("./image_worker_pool.js");
+        const versions = process.versions as { electron?: string };
+
+        // Same machine, both readings: a server holds back to a handful whatever it is running on,
+        // where the desktop app takes a core per worker and leaves one for the thread handing them
+        // out — the machine belongs to the person waiting for the run.
+        h.cores = 12;
+        h.memoryBytes = 64 * 1024 * 1024 * 1024;
+        expect(pool.compressionConcurrency()).toBe(4);
+
+        versions.electron = "38.0.0";
+
+        try {
+            expect(pool.compressionConcurrency()).toBe(11);
+
+            // Memory still has the last word, whoever's machine it is: twelve cores buy nothing on
+            // a box that cannot hold twelve of these heaps.
+            h.memoryBytes = 8 * 1024 * 1024 * 1024;
+            expect(pool.compressionConcurrency()).toBe(2);
+        } finally {
+            delete versions.electron;
+        }
+    });
 });
