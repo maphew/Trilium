@@ -3691,6 +3691,11 @@
     "task-state-dropped-message_other": "{{count}} custom task state definitions are invalid and were ignored.",
     "task-state-dropped-heading": "Ignored definitions:",
     "task-state-dropped-configure": "Configure task states",
+    "toolbar-groups": {
+      "text-formatting": "Text formatting",
+      "insert": "Insert",
+      "alignment": "Alignment"
+    },
     "validation-errors": {
       "undefined-name": "undefined identifier",
       "invalid-name": "invalid identifier",
