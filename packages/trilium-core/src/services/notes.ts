@@ -1,4 +1,4 @@
-import { type AttachmentRow, type AttributeRow, type BranchRow, dayjs, type NoteRow, NOTE_TYPE_IMAGE_ATTACHMENTS, type NoteType } from "@triliumnext/commons";
+import { type AttachmentRow, type AttributeRow, type BranchRow, dayjs, type NoteRow, NOTE_TYPE_IMAGE_ATTACHMENTS, type NoteType, parseMindMapNoteLink } from "@triliumnext/commons";
 import { t } from "i18next";
 import { parse as parseHtml } from "node-html-parser";
 import url from "url";
@@ -792,10 +792,10 @@ function findRelationMapLinks(content: string, foundLinks: FoundLink[]) {
 /**
  * Collects the notes a mind map's nodes link to.
  *
- * A node carries one link of its own, which the editor writes as the in-app address a note link
- * wears everywhere else (`#root/…`, see the client's `mind_map_links`); anything else is an address
- * outside Trilium and is not a link between notes. The whole map is walked rather than only its
- * nodes, so that a link stays found wherever Mind Elixir comes to keep one.
+ * A node carries one link of its own, and what makes it a link to a note is
+ * {@link parseMindMapNoteLink}'s to say; anything else is an address outside Trilium. The whole map
+ * is walked rather than only its nodes, so that a link stays found wherever Mind Elixir comes to
+ * keep one.
  */
 export function findMindMapLinks(content: string, foundLinks: FoundLink[]) {
     try {
@@ -818,7 +818,7 @@ function collectMindMapLinks(value: unknown, foundLinks: FoundLink[]) {
     }
 
     const record = value as Record<string, unknown>;
-    const noteId = getMindMapLinkTarget(record.hyperLink);
+    const noteId = parseMindMapNoteLink(record.hyperLink)?.noteId;
     if (noteId) {
         foundLinks.push({
             name: "internalLink",
@@ -829,18 +829,6 @@ function collectMindMapLinks(value: unknown, foundLinks: FoundLink[]) {
     for (const key of Object.keys(record)) {
         collectMindMapLinks(record[key], foundLinks);
     }
-}
-
-/**
- * The note a link points at, or `null` where it points elsewhere. The whole value has to be the
- * address, so that a page whose own address happens to carry `#root/…` is not read as a note.
- */
-function getMindMapLinkTarget(link: unknown): string | null {
-    if (typeof link !== "string" || !/^#root(\/[a-zA-Z0-9_]+)*$/.test(link)) {
-        return null;
-    }
-
-    return link.split("/").at(-1)?.replace(/^#/, "") ?? null;
 }
 
 const imageUrlToAttachmentIdMapping: Record<string, string> = {};

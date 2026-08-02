@@ -1,4 +1,4 @@
-import { ALLOWED_PROTOCOLS } from "@triliumnext/commons";
+import { ALLOWED_PROTOCOLS, parseMindMapNoteLink } from "@triliumnext/commons";
 
 import type { Suggestion } from "../../../services/note_autocomplete";
 import { normalizeExternalUrl } from "../../../utils/url";
@@ -10,13 +10,10 @@ import { normalizeExternalUrl } from "../../../utils/url";
  * A link to a note is therefore written the way a note link is written everywhere else in Trilium,
  * as the in-app address `#root/…`. The delegated handler in `link.ts` picks a click up off any
  * anchor on the page, so a note opens with nothing else to wire up. Anything else is an address
- * outside Trilium.
+ * outside Trilium. What makes an address one or the other is `parseMindMapNoteLink`'s to say, which
+ * lives with the rest of the note logic both ends share: the map is written here and read by the
+ * scan that relates it to the notes it points at.
  */
-
-/** The note path a link points at, or `null` where it points somewhere else entirely. */
-export function getLinkedNotePath(link: string | null | undefined): string | null {
-    return (link && /^#root(\/|$)/.test(link)) ? link.slice(1) : null;
-}
 
 /** The link to store for what was picked in the note autocomplete, or `null` if nothing was. */
 export function linkFromSuggestion(suggestion: Suggestion | null | undefined): string | null {
@@ -35,7 +32,7 @@ export function getNodeLinkHref(link: string | null | undefined): string | null 
         return null;
     }
 
-    if (getLinkedNotePath(link)) {
+    if (parseMindMapNoteLink(link)) {
         return link;
     }
 
@@ -77,7 +74,7 @@ export function renderNodeLinks(container: HTMLElement) {
         anchor.setAttribute("href", href ?? "about:blank");
         anchor.rel = "noopener noreferrer";
 
-        if (getLinkedNotePath(link)) {
+        if (parseMindMapNoteLink(link)) {
             // A note opens where the map is, as it does from anywhere else; `_blank` would force a
             // tab of its own (see `goToLinkExt`), leaving the map for a click that meant to follow
             // a thought.

@@ -1,5 +1,6 @@
 import "./MindMapNodePanel.css";
 
+import { parseMindMapNoteLink } from "@triliumnext/commons";
 import { Dropdown as BootstrapDropdown } from "bootstrap";
 import type { MindElixirInstance, NodeObj, TagObj } from "mind-elixir";
 import { ComponentChildren } from "preact";
@@ -21,7 +22,7 @@ import NoteAutocomplete from "../react/NoteAutocomplete";
 import { refToJQuerySelector } from "../react/react_utils";
 import SegmentedChoice from "../react/SegmentedChoice";
 import { fitNodeImage, nearestNodeImageWidth, NODE_IMAGE_WIDTHS, uploadNodeImage } from "./helpers/mind_map_images";
-import { describeExternalLink, getLinkedNotePath, linkFromSuggestion } from "./helpers/mind_map_links";
+import { describeExternalLink, linkFromSuggestion } from "./helpers/mind_map_links";
 
 /**
  * The hues offered by the panel: as many of the shared palette as fit on a single row next to the
@@ -506,7 +507,7 @@ function NodeLinkFace({ link, indeterminate }: { link: string | null, indetermin
         return <><Icon icon="bx bx-link" /><span className="mind-map-node-link-label mind-map-node-link-mixed">{t("mind-map.link-mixed")}</span></>;
     }
 
-    const notePath = getLinkedNotePath(link);
+    const notePath = parseMindMapNoteLink(link)?.notePath;
     if (notePath) {
         return <LinkedNoteFace notePath={notePath} />;
     }

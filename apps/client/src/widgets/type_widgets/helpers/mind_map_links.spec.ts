@@ -1,7 +1,7 @@
 import type { Suggestion } from "../../../services/note_autocomplete";
 import { describe, expect, it } from "vitest";
 
-import { describeExternalLink, getLinkedNotePath, getNodeLinkHref, linkFromSuggestion, renderNodeLinks } from "./mind_map_links";
+import { describeExternalLink, getNodeLinkHref, linkFromSuggestion, renderNodeLinks } from "./mind_map_links";
 
 /** Builds the anchor Mind Elixir gives a node that carries a link. */
 function buildNodes(...links: string[]) {
@@ -20,18 +20,6 @@ function buildNodes(...links: string[]) {
 function anchors(nodes: HTMLElement) {
     return Array.from(nodes.querySelectorAll("a"));
 }
-
-describe("getLinkedNotePath", () => {
-    it("tells a link to a note from one pointing outside Trilium", () => {
-        expect(getLinkedNotePath("#root/abc123")).toBe("root/abc123");
-        expect(getLinkedNotePath("#root/parent/abc123")).toBe("root/parent/abc123");
-        expect(getLinkedNotePath("#root")).toBe("root");
-
-        for (const link of [ null, undefined, "", "https://example.com", "#rootless/abc", "root/abc123" ]) {
-            expect(getLinkedNotePath(link)).toBeNull();
-        }
-    });
-});
 
 describe("linkFromSuggestion", () => {
     it("stores a note as an in-app address and an external link as one we could follow", () => {
