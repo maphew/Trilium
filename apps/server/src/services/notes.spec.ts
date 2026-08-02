@@ -1,4 +1,4 @@
-import { BAttribute, becca, becca_easy_mocking, checkImageAttachments, collectCanvasImageFileIds, findBookmarks, findLlmChatLinks, saveLinks } from "@triliumnext/core";
+import { BAttribute, becca, becca_easy_mocking, checkImageAttachments, collectCanvasImageFileIds, findBookmarks, findLlmChatLinks, findMindMapLinks, saveLinks } from "@triliumnext/core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { randomString } from "./utils.js";
@@ -734,6 +734,63 @@ describe("saveLinks", () => {
 
             expect(() => saveLinks(note, JSON.stringify({ version: 1, messages: [] }))).not.toThrow();
         });
+    });
+});
+
+describe("findMindMapLinks", () => {
+    type FoundLink = { name: "internalLink" | "imageLink" | "includeNoteLink" | "relationMapLink"; value: string };
+
+    /** A map whose nodes carry the given links, one per node, nested a level deep. */
+    function buildMap(...links: (string | undefined)[]) {
+        const [ rootLink, ...childLinks ] = links;
+        return JSON.stringify({
+            nodeData: {
+                id: "root",
+                topic: "Root",
+                hyperLink: rootLink,
+                children: childLinks.map((hyperLink, index) => ({
+                    id: `n${index}`,
+                    topic: `Node ${index}`,
+                    hyperLink,
+                    children: []
+                }))
+            }
+        });
+    }
+
+    it("collects the notes the nodes link to, wherever in the map they sit", () => {
+        const links: FoundLink[] = [];
+
+        findMindMapLinks(buildMap("#root/abc123", "#root/parent/def456", undefined, "#root"), links);
+
+        expect(links).toEqual([
+            { name: "internalLink", value: "abc123" },
+            // The whole path is stored, but it is the note at the end of it that is linked.
+            { name: "internalLink", value: "def456" },
+            { name: "internalLink", value: "root" }
+        ]);
+    });
+
+    it("takes nothing from a node pointing outside Trilium", () => {
+        const links: FoundLink[] = [];
+
+        findMindMapLinks(buildMap(
+            "https://example.com",
+            "mailto:someone@example.com",
+            // An address of its own that happens to carry a note path is still a page elsewhere.
+            "https://example.com/#root/abc123"
+        ), links);
+
+        expect(links).toEqual([]);
+    });
+
+    it("survives content it cannot read", () => {
+        const links: FoundLink[] = [];
+
+        findMindMapLinks("not valid json", links);
+        findMindMapLinks(JSON.stringify({ nodeData: { id: "root", hyperLink: 42 } }), links);
+
+        expect(links).toEqual([]);
     });
 });
 

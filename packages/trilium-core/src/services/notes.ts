@@ -789,6 +789,60 @@ function findRelationMapLinks(content: string, foundLinks: FoundLink[]) {
     }
 }
 
+/**
+ * Collects the notes a mind map's nodes link to.
+ *
+ * A node carries one link of its own, which the editor writes as the in-app address a note link
+ * wears everywhere else (`#root/…`, see the client's `mind_map_links`); anything else is an address
+ * outside Trilium and is not a link between notes. The whole map is walked rather than only its
+ * nodes, so that a link stays found wherever Mind Elixir comes to keep one.
+ */
+export function findMindMapLinks(content: string, foundLinks: FoundLink[]) {
+    try {
+        collectMindMapLinks(JSON.parse(content), foundLinks);
+    } catch (e: any) {
+        getLog().error(`Could not scan for mind map links: ${e.message}`);
+    }
+}
+
+function collectMindMapLinks(value: unknown, foundLinks: FoundLink[]) {
+    if (Array.isArray(value)) {
+        for (const item of value) {
+            collectMindMapLinks(item, foundLinks);
+        }
+        return;
+    }
+
+    if (!value || typeof value !== "object") {
+        return;
+    }
+
+    const record = value as Record<string, unknown>;
+    const noteId = getMindMapLinkTarget(record.hyperLink);
+    if (noteId) {
+        foundLinks.push({
+            name: "internalLink",
+            value: noteId
+        });
+    }
+
+    for (const key of Object.keys(record)) {
+        collectMindMapLinks(record[key], foundLinks);
+    }
+}
+
+/**
+ * The note a link points at, or `null` where it points elsewhere. The whole value has to be the
+ * address, so that a page whose own address happens to carry `#root/…` is not read as a note.
+ */
+function getMindMapLinkTarget(link: unknown): string | null {
+    if (typeof link !== "string" || !/^#root(\/[a-zA-Z0-9_]+)*$/.test(link)) {
+        return null;
+    }
+
+    return link.split("/").at(-1)?.replace(/^#/, "") ?? null;
+}
+
 const imageUrlToAttachmentIdMapping: Record<string, string> = {};
 
 async function downloadImage(noteId: string, imageUrl: string) {
@@ -1039,9 +1093,9 @@ export function saveLinks(note: BNote, content: string | Uint8Array) {
         // erasure. There are no Trilium internal links to extract from canvas content.
         ({ forceFrontendReload, content } = checkImageAttachments(note, content));
     } else if (note.type === "mindMap" && typeof content === "string") {
+        findMindMapLinks(content, foundLinks);
         // Mind map node images are stored as attachments referenced by URL from the map JSON; scan
-        // for orphans (inserted-then-removed images) so they get scheduled for erasure. No Trilium
-        // internal links are extracted from map content: a node's link is stored as a plain URL.
+        // for orphans (inserted-then-removed images) so they get scheduled for erasure.
         ({ forceFrontendReload, content } = checkImageAttachments(note, content));
     } else if (note.type === "relationMap" && typeof content === "string") {
         findRelationMapLinks(content, foundLinks);
@@ -1321,7 +1375,9 @@ function getUndeletedParentBranchIds(noteId: string, deleteId: string) {
 }
 
 function scanForLinks(note: BNote, content: string | Uint8Array) {
-    if (!note || !["text", "relationMap"].includes(note.type)) {
+    // A mind map is scanned here as well as on save, so that one arriving by import carries its
+    // links to the notes it points at without having to be opened and edited first.
+    if (!note || !["text", "relationMap", "mindMap"].includes(note.type)) {
         return;
     }
 
