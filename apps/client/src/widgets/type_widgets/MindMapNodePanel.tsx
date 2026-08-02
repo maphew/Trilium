@@ -3,14 +3,22 @@ import "./MindMapNodePanel.css";
 import { Dropdown as BootstrapDropdown } from "bootstrap";
 import type { MindElixirInstance, NodeObj, TagObj } from "mind-elixir";
 import { ComponentChildren } from "preact";
-import { useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 
 import { t } from "../../services/i18n";
+import note_autocomplete from "../../services/note_autocomplete";
+import tree from "../../services/tree";
 import ValuesInput from "../attribute_widgets/values_input";
 import ColorPicker, { DEFAULT_COLOR_PALETTE } from "../react/ColorPicker";
 import Dropdown from "../react/Dropdown";
+import { FormListItem } from "../react/FormList";
+import { useNote, useNoteIcon, useNoteTitle } from "../react/hooks";
+import Icon from "../react/Icon";
 import IconPicker from "../react/IconPicker";
+import NoteAutocomplete from "../react/NoteAutocomplete";
+import { refToJQuerySelector } from "../react/react_utils";
 import SegmentedChoice from "../react/SegmentedChoice";
+import { describeExternalLink, getLinkedNotePath, linkFromSuggestion } from "./helpers/mind_map_links";
 
 /**
  * The hues offered by the panel: as many of the shared palette as fit on a single row next to the
@@ -41,6 +49,7 @@ export default function MindMapNodePanel({ mind, nodes }: MindMapNodePanelProps)
     const backgroundColor = getCommonValue(nodes, (node) => node.style?.background);
     const branchColor = getCommonValue(nodes, (node) => node.branchColor);
     const icon = getCommonValue(nodes, (node) => node.icons?.[0]);
+    const link = getCommonValue(nodes, (node) => node.hyperLink);
     const tags = gatherTags(nodes);
 
     /**
@@ -102,6 +111,20 @@ export default function MindMapNodePanel({ mind, nodes }: MindMapNodePanelProps)
                     // there rather than joining it.
                     onSelect={(iconClass) => patchSelectedNodes({ icons: [ iconClass ] })}
                     onClear={() => patchSelectedNodes({ icons: [] })}
+                />
+            </PanelSection>
+
+            <PanelSection
+                label={t("mind-map.node-link")}
+                title={link === MIXED ? t("mind-map.links-differ") : undefined}
+            >
+                <NodeLink
+                    currentValue={link !== MIXED ? link : null}
+                    indeterminate={link === MIXED}
+                    // A node carries one link, so what is picked takes the place of what was there.
+                    // Clearing blanks the property, Mind Elixir only ever assigning the ones it is
+                    // given (see the colors above).
+                    onChange={(link) => patchSelectedNodes({ hyperLink: link ?? "" })}
                 />
             </PanelSection>
 
@@ -234,6 +257,112 @@ function NodeIcon({ currentValue, onSelect, onClear }: {
             )}
         </Dropdown>
     );
+}
+
+/** Kept still, so that the autocomplete is not built anew every time the panel renders. */
+const LINK_AUTOCOMPLETE_OPTIONS = { allowExternalLinks: true };
+
+/**
+ * The link a node carries: a note, or a page outside Trilium — one field, a node carrying one link.
+ *
+ * The picker sits in a menu rather than in the panel itself: it is the field a note is picked
+ * through everywhere else in Trilium, and it wants more room than a panel this narrow can give it.
+ */
+function NodeLink({ currentValue, indeterminate, onChange }: {
+    currentValue: string | null;
+    indeterminate: boolean;
+    onChange(link: string | null): void;
+}) {
+    const dropdownRef = useRef<BootstrapDropdown>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+    const pickerRef = useRef<HTMLDivElement>(null);
+    const [ pickerShown, setPickerShown ] = useState(false);
+
+    // Opened on the notes last visited, which are the likeliest thing to be linking to and what the
+    // add-link dialog opens on as well. Once the picker is up, so that there is a field to fill.
+    useEffect(() => {
+        if (!pickerShown || !inputRef.current) return;
+        const $input = refToJQuerySelector(inputRef);
+        note_autocomplete.showRecentNotes($input);
+        $input.trigger("focus");
+    }, [ pickerShown ]);
+
+    function commit(link: string | null) {
+        onChange(link);
+        dropdownRef.current?.hide();
+    }
+
+    return (
+        <Dropdown
+            className="mind-map-node-link"
+            text={<NodeLinkFace link={currentValue} indeterminate={indeterminate} />}
+            title={t("mind-map.choose-link")}
+            dropdownRef={dropdownRef}
+            dropdownContainerStyle={{ width: "360px" }}
+            // The suggestions land inside the menu, so picking one is not the click outside that
+            // would take the menu down before the pick is made.
+            dropdownOptions={{ autoClose: "outside" }}
+            // The panel scrolls, and the picker is wider than the panel is; hand the menu to the
+            // page instead of leaving it to be clipped.
+            portalToBody
+            onShown={() => setPickerShown(true)}
+            onHidden={() => setPickerShown(false)}
+        >
+            {pickerShown && (
+                <div className="mind-map-node-link-picker" ref={pickerRef}>
+                    <NoteAutocomplete
+                        inputRef={inputRef}
+                        container={pickerRef}
+                        placeholder={t("mind-map.link-placeholder")}
+                        opts={LINK_AUTOCOMPLETE_OPTIONS}
+                        // Only a pick is worth taking: the field is also cleared as one types, and
+                        // the way back to no link at all is the one offered below.
+                        onChange={(suggestion) => {
+                            const link = linkFromSuggestion(suggestion);
+                            if (link) commit(link);
+                        }}
+                    />
+
+                    {(currentValue || indeterminate) && (
+                        <FormListItem
+                            icon="bx bx-unlink"
+                            onClick={() => commit(null)}
+                        >{t("mind-map.clear-link")}</FormListItem>
+                    )}
+                </div>
+            )}
+        </Dropdown>
+    );
+}
+
+/** What the button says the selection is linked to. */
+function NodeLinkFace({ link, indeterminate }: { link: string | null, indeterminate: boolean }) {
+    if (indeterminate) {
+        return <><Icon icon="bx bx-link" /><span className="mind-map-node-link-label mind-map-node-link-mixed">{t("mind-map.link-mixed")}</span></>;
+    }
+
+    const notePath = getLinkedNotePath(link);
+    if (notePath) {
+        return <LinkedNoteFace notePath={notePath} />;
+    }
+
+    if (link) {
+        return <><Icon icon="bx bx-link-external" /><span className="mind-map-node-link-label">{describeExternalLink(link)}</span></>;
+    }
+
+    return <><Icon icon="bx bx-link" /><span className="mind-map-node-link-label mind-map-node-link-empty">{t("mind-map.add-link")}</span></>;
+}
+
+/** A linked note as it is named and dressed now, rather than as it was when it was linked. */
+function LinkedNoteFace({ notePath }: { notePath: string }) {
+    const { noteId, parentNoteId } = tree.getNoteIdAndParentIdFromUrl(notePath);
+    const note = useNote(noteId);
+    const title = useNoteTitle(noteId, parentNoteId);
+    const icon = useNoteIcon(note);
+
+    // The title is read asynchronously; until it lands, what is already known of the note stands in
+    // for it, rather than the address the panel would otherwise have to show.
+    return <><Icon icon={icon} /><span className="mind-map-node-link-label">{title ?? note?.title ?? ""}</span></>;
 }
 
 function PanelSection({ label, title, children }: { label: string, title?: string, children: ComponentChildren }) {

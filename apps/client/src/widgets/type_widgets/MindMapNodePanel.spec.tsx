@@ -1,6 +1,7 @@
 import type { MindElixirInstance, NodeObj } from "mind-elixir";
 import { describe, expect, it, vi } from "vitest";
 
+import { buildNotes } from "../../test/easy-froca";
 import { renderInto } from "../../test/render";
 import MindMapNodePanel, { applyTagTexts, DEFAULT_FONT_SIZE, gatherTags, getCommonValue, MIXED, NODE_BACKGROUND_COLORS, NODE_COLORS } from "./MindMapNodePanel";
 
@@ -27,7 +28,8 @@ const TEXT = 1;
 const BACKGROUND = 2;
 const BRANCH = 3;
 const ICON = 4;
-const TAGS = 5;
+const LINK = 5;
+const TAGS = 6;
 
 function section(container: HTMLElement, index: number) {
     const sections = container.querySelectorAll<HTMLElement>(".mind-map-node-panel-section");
@@ -243,6 +245,29 @@ describe("MindMapNodePanel", () => {
             buildNode({ id: "a", icons: ["bx bx-star"] }),
             buildNode({ id: "b", icons: ["bx bx-cube"] })
         ])?.className).toContain("bx bx-empty");
+    });
+
+    it("says what the selection is linked to, and what it would take to link it", async () => {
+        const [ noteId ] = buildNotes([ { title: "Linked note", "#iconClass": "bx bx-cube" } ]);
+        const linkFace = (nodes: NodeObj[]) =>
+            renderInto(<MindMapNodePanel mind={buildMind(nodes).mind} nodes={nodes} />)
+                .querySelector<HTMLElement>(`.mind-map-node-panel-section:nth-child(${LINK + 1}) button`);
+
+        // Nothing yet, and a selection that disagrees, each say so in their own words.
+        expect(linkFace([buildNode()])?.querySelector(".mind-map-node-link-empty")).toBeTruthy();
+        expect(linkFace([
+            buildNode({ id: "a", hyperLink: "https://example.com" }),
+            buildNode({ id: "b" })
+        ])?.querySelector(".mind-map-node-link-mixed")).toBeTruthy();
+
+        // An address reads as the host it points at, its whole self being far too long for the panel.
+        expect(linkFace([buildNode({ hyperLink: "https://example.com/a/long/page?q=1" })])?.textContent)
+            .toBe("example.com");
+
+        // A note reads as it is named and dressed now, rather than as the address it is stored as.
+        const note = linkFace([buildNode({ hyperLink: `#root/${noteId}` })]);
+        expect(note?.querySelector(".bx-cube")).toBeTruthy();
+        await vi.waitFor(() => expect(note?.textContent).toBe("Linked note"));
     });
 
     it("edits the tags of a single node, keeping the styling of the ones that stay", () => {

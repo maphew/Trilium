@@ -16,6 +16,7 @@ import { useColorScheme, useEditorSpacedUpdate, useEffectiveReadOnly, useSyncedR
 import { refToJQuerySelector } from "../react/react_utils";
 import { renderMindMapPreviewSvg } from "./helpers/mind_map_export";
 import { renderIconClasses } from "./helpers/mind_map_icons";
+import { renderNodeLinks } from "./helpers/mind_map_links";
 import MindMapNodePanel from "./MindMapNodePanel";
 import { TypeWidgetProps } from "./type_widget";
 
@@ -276,12 +277,16 @@ function MindElixir({ children, containerRef: externalContainerRef, containerPro
     }, [ onChange ]);
 
     // Node icons are rendered as text by Mind Elixir, while ours are icon classes, so they are
-    // dressed again after every layout — which is what follows any change to a node.
+    // dressed again after every layout — which is what follows any change to a node. The links a
+    // node carries are hardened in the same pass and for the same reason: Mind Elixir builds their
+    // anchors anew from the node's own data (see renderNodeLinks).
     useEffect(() => {
         const mind = apiRef.current;
         if (!mind) return;
 
-        const renderIcons = () => {
+        const dressNodes = () => {
+            renderNodeLinks(mind.nodes);
+
             // An icon takes far less room than the class it arrived as, so the node it sits on
             // narrows the moment it is dressed — after the branches have been measured against the
             // wider one, leaving them reaching past it. Measure again, but only where something
@@ -291,10 +296,10 @@ function MindElixir({ children, containerRef: externalContainerRef, containerPro
             }
         };
 
-        renderIcons();
-        mind.bus.addListener("linkDiv", renderIcons);
+        dressNodes();
+        mind.bus.addListener("linkDiv", dressNodes);
 
-        return () => mind.bus.removeListener("linkDiv", renderIcons);
+        return () => mind.bus.removeListener("linkDiv", dressNodes);
     }, [ instanceVersion ]);
 
     // Selection listener. The events only carry the nodes that were added to or removed from the
