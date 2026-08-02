@@ -42,24 +42,13 @@ export function extractHighlightsFromStaticHtml(el: HTMLElement | null) {
         if (processedElements.has(styledEl)) continue;
         if (!styledEl.textContent?.trim()) continue;
 
-        const attrs: RawHighlight["attrs"] = {
+        record(highlights, processedElements, styledEl, {
             bold: !!styledEl.closest("strong"),
             italic: !!styledEl.closest("em"),
             underline: !!styledEl.closest("u"),
             background: styledEl.style.backgroundColor,
             color: styledEl.style.color
-        };
-
-        if (Object.values(attrs).some(Boolean)) {
-            processedElements.add(styledEl);
-
-            highlights.push({
-                id: randomString(),
-                text: styledEl.innerHTML,
-                element: styledEl,
-                attrs
-            });
-        }
+        });
     }
 
     // Also find bold, italic, underline elements
@@ -70,29 +59,34 @@ export function extractHighlightsFromStaticHtml(el: HTMLElement | null) {
         if (!formattedEl.textContent?.trim()) continue;
         if (isAlreadyReported(formattedEl, processedElements)) continue;
 
-        const attrs: RawHighlight["attrs"] = {
+        record(highlights, processedElements, formattedEl, {
             bold: formattedEl.matches("strong, b"),
             italic: formattedEl.matches("em, i"),
             underline: formattedEl.matches("u"),
             background: formattedEl.style.backgroundColor,
             color: formattedEl.style.color
-        };
-
-        // Always true for the tags queried above, so this branch reads as half-covered. It is
-        // kept for the tag that gets added without a matching flag below — `mark`, say.
-        if (Object.values(attrs).some(Boolean)) {
-            processedElements.add(formattedEl);
-
-            highlights.push({
-                id: randomString(),
-                text: formattedEl.innerHTML,
-                element: formattedEl,
-                attrs
-            });
-        }
+        });
     }
 
     return highlights;
+}
+
+/** Records a run, unless nothing about it is worth reporting — a `border-color`, say. */
+function record(
+    highlights: DomHighlight[],
+    processedElements: Set<Element>,
+    element: HTMLElement,
+    attrs: RawHighlight["attrs"]
+) {
+    if (!Object.values(attrs).some(Boolean)) return;
+
+    processedElements.add(element);
+    highlights.push({
+        id: randomString(),
+        text: element.innerHTML,
+        element,
+        attrs
+    });
 }
 
 /**
@@ -111,22 +105,29 @@ export function htmlForRun(element: HTMLElement, data: string): string {
 }
 
 /**
- * Whether a run already recorded by the colour pass covers this element, making it a repeat.
+ * Whether the runs already recorded by the colour pass account for all of this element, making
+ * it a repeat: either it sits inside one, or every piece of text it holds is inside one.
  *
- * Either the element sits inside one, or one covers the whole of its text — the shape a
- * coloured run inside formatting takes, since `**==hl==**` renders as
- * `<strong><span style="background-color:…">hl</span></strong>`. The span is recorded first and
- * already reports the bold (the colour pass resolves formatting with `closest`), so listing the
- * `<strong>` too would repeat the same text, and drop the colour in the repeat.
+ * That second shape is what formatting around colour looks like — `**==hl==**` renders as
+ * `<strong><span style="background-color:…">hl</span></strong>` — and it holds however many
+ * runs the formatting is split across, so the test is per text node rather than a comparison
+ * of whole strings. Those runs already report the formatting, since the colour pass resolves
+ * it with `closest`, and repeating them under the `<strong>` would lose their colours.
  *
- * Formatting that only *partly* overlaps a recorded run is kept: in
- * `<strong>a <span style="color:red">b</span> c</strong>` the bold "a … c" is a run of its own
- * that nothing else reports.
+ * Text of the element's own keeps it: in `<strong>a <span style="color:red">b</span> c</strong>`
+ * the bold "a … c" is a run nothing else reports. Whitespace between runs is not such text.
  */
 function isAlreadyReported(element: HTMLElement, processedElements: Set<Element>): boolean {
-    const text = element.textContent?.trim();
+    const processed = Array.from(processedElements);
 
-    return Array.from(processedElements).some((processed) =>
-        processed.contains(element)
-        || (element.contains(processed) && processed.textContent?.trim() === text));
+    if (processed.some((other) => other.contains(element))) return true;
+
+    const textNodes = element.ownerDocument.createTreeWalker(element, NodeFilter.SHOW_TEXT);
+
+    for (let node = textNodes.nextNode(); node; node = textNodes.nextNode()) {
+        if (!node.textContent?.trim()) continue;
+        if (!processed.some((other) => other.contains(node))) return false;
+    }
+
+    return true;
 }

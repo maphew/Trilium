@@ -102,6 +102,36 @@ describe("extractHighlightsFromStaticHtml", () => {
 
             expect(highlights.map(h => h.text)).toEqual([ "a", "b" ]);
         });
+
+        it("reports formatting split across several coloured runs once", () => {
+            // Every character of the <strong> is inside a run already reported as bold, so the
+            // <strong> itself would only repeat them — with the colours lost.
+            const highlights = extract(
+                `<p><strong><span style="color:red">a</span><span style="color:blue">b</span></strong></p>`
+            );
+
+            expect(highlights.map(h => h.text)).toEqual([ "a", "b" ]);
+        });
+
+        it("ignores whitespace between the runs when deciding that", () => {
+            const highlights = extract(
+                `<p><strong><span style="color:red">a</span>\n <span style="color:blue">b</span></strong></p>`
+            );
+
+            expect(highlights.map(h => h.text)).toEqual([ "a", "b" ]);
+        });
+
+        it("keeps formatting holding text of its own between coloured runs", () => {
+            const highlights = extract(
+                `<p><strong><span style="color:red">a</span> and <span style="color:blue">b</span></strong></p>`
+            );
+
+            expect(highlights.map(h => h.text)).toEqual([
+                "a",
+                "b",
+                `<span style="color:red">a</span> and <span style="color:blue">b</span>`
+            ]);
+        });
     });
 
     describe("runs with nothing to report", () => {
