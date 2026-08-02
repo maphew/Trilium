@@ -111,7 +111,7 @@ afterEach(() => {
         imageMaxWidthHeight: '2000',
         imageResize: 'true',
         imageJpegHandling: 'compress',
-        imagePngHandling: 'jpeg'
+        imagePngHandling: 'optimize'
     });
 });
 
@@ -234,9 +234,10 @@ describe('serverImageProvider.processImage', () => {
 
         const result = await serverImageProvider.processImage(noisyPng, 'wide.png', true);
 
-        // Noisy 600x400 -> resized to width 100, re-encoded as JPEG (smaller).
+        // Noisy 600x400 -> resized to width 100, and written back as the same kind of image:
+        // the default handling optimizes a PNG rather than turning it into a JPEG.
         expect(result.buffer.byteLength).toBeLessThan(noisyPng.byteLength);
-        expect(result.format).toEqual({ ext: 'jpg', mime: 'image/jpeg' });
+        expect(result.format).toEqual({ ext: 'png', mime: 'image/png' });
     });
 
     it('resizes a tall image by height', async () => {
@@ -245,7 +246,7 @@ describe('serverImageProvider.processImage', () => {
         // tallPng (200x600) is taller than wide, so the height-resize branch runs.
         const result = await serverImageProvider.processImage(tallPng, 'tall.png', true);
 
-        expect(result.format).toEqual({ ext: 'jpg', mime: 'image/jpeg' });
+        expect(result.format).toEqual({ ext: 'png', mime: 'image/png' });
         expect(result.buffer.byteLength).toBeLessThan(tallPng.byteLength);
     });
 
@@ -270,9 +271,12 @@ describe('serverImageProvider.processImage', () => {
         expect(result.format).toEqual({ ext: 'png', mime: 'image/png' });
     });
 
-    /** Shrinks the noisy PNG, which the default handling converts, under the given settings. */
+    /**
+      * Shrinks the noisy PNG under the given settings, converting it — which the default handling
+      * does not do, so the two tests below that are about conversion ask for it by name.
+      */
     async function shrunkSize(values: Record<string, string>): Promise<number> {
-        setOptions({ imageMaxWidthHeight: '100', ...values });
+        setOptions({ imageMaxWidthHeight: '100', imagePngHandling: 'jpeg', ...values });
         const result = await serverImageProvider.processImage(noisyPng, 'wide.png', true);
         expect(result.format).toEqual({ ext: 'jpg', mime: 'image/jpeg' });
         return result.buffer.byteLength;

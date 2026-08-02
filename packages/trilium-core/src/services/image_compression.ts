@@ -209,7 +209,7 @@ export function automaticCompressionRequest(): ImageCompressionRequest {
         resize: optionService.getOptionBool("imageResize"),
         maxWidthHeight: defaultMaxWidthHeight(),
         jpegHandling: storedHandling("imageJpegHandling", IMAGE_JPEG_HANDLINGS, "compress"),
-        pngHandling: storedHandling("imagePngHandling", IMAGE_PNG_HANDLINGS, "jpeg"),
+        pngHandling: storedHandling("imagePngHandling", IMAGE_PNG_HANDLINGS, "optimize"),
         quality: defaultQuality(),
         conversionQuality: storedQuality("imageConversionQuality")
     };

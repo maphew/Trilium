@@ -59,7 +59,7 @@ afterEach(() => {
         imageConversionQuality: "75",
         imageResize: "true",
         imageJpegHandling: "compress",
-        imagePngHandling: "jpeg"
+        imagePngHandling: "optimize"
     });
 });
 
@@ -315,7 +315,7 @@ describe("what automatic compression is set to do", () => {
         expect(automaticCompressionRequest()).toMatchObject({
             maxWidthHeight: 2000,
             jpegHandling: "compress",
-            pngHandling: "jpeg",
+            pngHandling: "optimize",
             quality: 75,
             conversionQuality: 75
         });

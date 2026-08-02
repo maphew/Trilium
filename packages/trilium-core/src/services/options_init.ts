@@ -166,13 +166,15 @@ const defaultOptions: DefaultOption[] = [
     { name: "spellCheckLanguageCode", value: "en-US", isSynced: false },
     { name: "imageMaxWidthHeight", value: "2000", isSynced: true },
     { name: "imageJpegQuality", value: "75", isSynced: true },
-    // The three below are what automatic compression always did, said out loud rather than left
-    // implicit: oversized images scaled down, JPEGs recompressed, PNGs written back as JPEGs. They
-    // are defaults for what an install already does, not a recommendation — `optimize` keeps a PNG
-    // a PNG, and is the gentler answer for anyone who would rather it did.
+    // What automatic compression does to an arriving image, said out loud rather than left implicit.
+    // Scaling and recompressing are what it always did; the PNG answer is not. It used to turn every
+    // PNG into a JPEG, which is lossy, permanent, and throws away transparency — the only thing it
+    // could do before there was anything else. Optimizing makes a PNG smaller and leaves it a PNG,
+    // which is the right default for a step that runs unattended on everything a user pastes.
+    // Converting is still there for anyone who wants the space more than the format.
     { name: "imageResize", value: "true", isSynced: true },
     { name: "imageJpegHandling", value: "compress", isSynced: true },
-    { name: "imagePngHandling", value: "jpeg", isSynced: true },
+    { name: "imagePngHandling", value: "optimize", isSynced: true },
     { name: "imageConversionQuality", value: "75", isSynced: true },
     { name: "autoFixConsistencyIssues", value: "true", isSynced: false },
     { name: "vimKeymapEnabled", value: "false", isSynced: false },

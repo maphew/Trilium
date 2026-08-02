@@ -55,7 +55,7 @@ const DEFAULTS: Record<string, string> = {
     imageResize: "true",
     imageMaxWidthHeight: "2000",
     imageJpegHandling: "compress",
-    imagePngHandling: "jpeg",
+    imagePngHandling: "optimize",
     imageJpegQuality: "75",
     imageConversionQuality: "75",
     downloadImagesAutomatically: "true"
@@ -106,16 +106,17 @@ describe("the image compression card", () => {
     it("hangs the whole group off its switch, nesting what qualifies each choice", () => {
         open();
 
-        // Every row the settings can offer, in order: the switch, scaling with its bound, then one
-        // exclusive choice per format, each followed by the quality that qualifies it.
+        // What an untouched install shows, in order: the switch, scaling with its bound, then one
+        // exclusive choice per format. Recompressing a JPEG brings a quality with it; optimizing a
+        // PNG does not, there being no quality to reducing it to a palette — so only one of the two
+        // choices carries a nested row here.
         expect(rowTitles()).toEqual([
             "images.automatic_image_compression",
             "space_usage.compress_resize",
             "space_usage.compress_max_dimensions",
             "space_usage.compress_jpeg_handling",
             "space_usage.compress_quality",
-            "space_usage.compress_png_handling",
-            "space_usage.compress_quality"
+            "space_usage.compress_png_handling"
         ]);
 
         // Switched off, the settings are not merely greyed out but gone: there is nothing for them

@@ -107,8 +107,8 @@ export const CONSERVATIVE_IMAGE_COMPRESSION_DEFAULTS: ImageCompressionDefaults =
 };
 
 /**
- * What automatic compression falls back to, which is what it has always done: an arriving JPEG
- * recompressed, an arriving PNG written back as a JPEG.
+ * What automatic compression falls back to: an arriving JPEG recompressed, an arriving PNG made
+ * smaller without ceasing to be one.
  *
  * Only ever reached by a stored option that cannot be read, since every one of these settings has
  * a value from the moment the database is created. It is here so that the unreadable case answers
@@ -117,7 +117,7 @@ export const CONSERVATIVE_IMAGE_COMPRESSION_DEFAULTS: ImageCompressionDefaults =
  */
 export const AUTOMATIC_IMAGE_COMPRESSION_DEFAULTS: ImageCompressionDefaults = {
     jpegHandling: "compress",
-    pngHandling: "jpeg"
+    pngHandling: "optimize"
 };
 
 /** The longest edge the first run offers to scale down to: the width of a Full HD screen. */
