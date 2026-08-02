@@ -5,6 +5,7 @@ import { ComponentChildren } from "preact";
 
 import { t } from "../../services/i18n";
 import ColorPicker, { DEFAULT_COLOR_PALETTE } from "../react/ColorPicker";
+import SegmentedChoice from "../react/SegmentedChoice";
 
 /**
  * The hues offered by the panel: as many of the shared palette as fit on a single row next to the
@@ -30,6 +31,7 @@ interface MindMapNodePanelProps {
  * formatting controls for the selection.
  */
 export default function MindMapNodePanel({ mind, nodes }: MindMapNodePanelProps) {
+    const fontSize = getCommonValue(nodes, (node) => node.style?.fontSize);
     const textColor = getCommonValue(nodes, (node) => node.style?.color);
     const backgroundColor = getCommonValue(nodes, (node) => node.style?.background);
     const branchColor = getCommonValue(nodes, (node) => node.branchColor);
@@ -51,6 +53,14 @@ export default function MindMapNodePanel({ mind, nodes }: MindMapNodePanelProps)
             onMouseDown={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
         >
+            <PanelSection label={t("mind-map.font-size")}>
+                <SegmentedChoice
+                    options={buildFontSizeOptions()}
+                    currentValue={fontSize !== MIXED ? fontSize ?? DEFAULT_FONT_SIZE : MIXED_FONT_SIZE}
+                    onChange={(fontSize) => patchSelectedNodes({ style: { fontSize } })}
+                />
+            </PanelSection>
+
             <PanelSection label={t("mind-map.text-color")}>
                 <ColorPicker
                     presets={NODE_COLORS}
@@ -78,6 +88,26 @@ export default function MindMapNodePanel({ mind, nodes }: MindMapNodePanelProps)
             </PanelSection>
         </div>
     );
+}
+
+/**
+ * A node of medium size is one with no size of its own: that is what a node comes with, and it
+ * leaves the root, which is larger by default, at the size its level implies rather than pinning
+ * it to the size of an ordinary node.
+ */
+export const DEFAULT_FONT_SIZE = "";
+
+/** Matches none of the sizes, for a selection whose nodes are not all of the same size. */
+const MIXED_FONT_SIZE = "mixed";
+
+/** The sizes a node can be given, after the ones the canvas note type offers. */
+function buildFontSizeOptions() {
+    return [
+        { value: "12px", label: t("mind-map.font-size-small") },
+        { value: DEFAULT_FONT_SIZE, label: t("mind-map.font-size-medium") },
+        { value: "24px", label: t("mind-map.font-size-large") },
+        { value: "32px", label: t("mind-map.font-size-extra-large") }
+    ];
 }
 
 /** Turns the outcome of {@link getCommonValue} into the matching {@link ColorPicker} state. */

@@ -33,6 +33,15 @@
     opacity: .75;
 }
 
+/* The sizes share the width of the panel evenly, rather than each taking its label's width. */
+.mind-map-node-panel .btn-group {
+    width: 100%;
+
+    .btn {
+        flex: 1;
+    }
+}
+
 /* Each palette is meant to fit on one line; wrapping is only a safety net for larger cells. */
 .mind-map-node-panel .color-picker {
     flex-wrap: wrap;
