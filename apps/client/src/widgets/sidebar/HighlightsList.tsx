@@ -8,7 +8,7 @@ import { FormListToggleableItem } from "../react/FormList";
 import { useActiveNoteContext, useContentElement, useGetContextData, useIsNoteReadOnly, useMathRendering, useNoteProperty, useTextEditor, useTriliumOptionJson } from "../react/hooks";
 import RawHtml from "../react/RawHtml";
 import { HIGHLIGHT_FORMATS, HighlightFormat } from "../type_widgets/options/highlights_list_options";
-import { extractHighlightsFromStaticHtml, type DomHighlight, type RawHighlight } from "./highlights_extract";
+import { extractHighlightsFromStaticHtml, htmlForRun, type DomHighlight, type RawHighlight } from "./highlights_extract";
 import RightPanelWidget from "./RightPanelWidget";
 import SidebarHelp from "./SidebarHelp";
 
@@ -249,15 +249,14 @@ function extractHighlightsFromTextEditor(editor: CKTextEditor) {
         };
 
         if (Object.values(attrs).some(Boolean)) {
-            // Get HTML content from DOM (includes nested elements like math)
+            // Take the run's markup from the DOM, so nested content survives into the list.
             let html = item.data;
             try {
                 const modelPos = editor.model.createPositionAt(item.textNode, "before");
                 const viewPos = editor.editing.mapper.toViewPosition(modelPos);
                 const domPos = editor.editing.view.domConverter.viewPositionToDom(viewPos);
                 if (domPos?.parent instanceof HTMLElement) {
-                    // Get the formatting span's innerHTML (includes math elements)
-                    html = domPos.parent.innerHTML;
+                    html = htmlForRun(domPos.parent, item.data);
                 }
             } catch {
                 // During change:data events, the view may not be fully synchronized with the model.

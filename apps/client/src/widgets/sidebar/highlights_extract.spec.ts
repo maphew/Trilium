@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractHighlightsFromStaticHtml } from "./highlights_extract.js";
+import { extractHighlightsFromStaticHtml, htmlForRun } from "./highlights_extract.js";
 
 describe("extractHighlightsFromStaticHtml", () => {
     it("extracts a single highlight containing text and math equation together", () => {
@@ -101,5 +101,34 @@ describe("extractHighlightsFromStaticHtml", () => {
 
             expect(highlights.map(h => h.text)).toEqual([ "a", "b" ]);
         });
+    });
+});
+
+describe("htmlForRun", () => {
+    function element(html: string) {
+        const el = document.createElement("div");
+        el.innerHTML = html;
+        return el;
+    }
+
+    it("keeps the markup when the element holds the run and nothing else", () => {
+        // What a formatting element wrapping the run looks like — nested content has to survive.
+        const el = element(`Mass <span class="math-tex">\\(e=mc^2\\)</span>`);
+
+        expect(htmlForRun(el, "Mass \\(e=mc^2\\)")).toBe(`Mass <span class="math-tex">\\(e=mc^2\\)</span>`);
+    });
+
+    it("falls back to the run's text when the element holds more than the run", () => {
+        // The mapper lands on the block for a run at its start, so the element here is the whole
+        // paragraph; taking its markup would list every word as a single highlight.
+        const paragraph = element(`<span style="color:red">One</span> Two Three`);
+
+        expect(htmlForRun(paragraph, "One")).toBe("One");
+    });
+
+    it("ignores whitespace around the run when comparing", () => {
+        const el = element(`\n    <b>One</b>\n`);
+
+        expect(htmlForRun(el, "One ")).toBe(`\n    <b>One</b>\n`);
     });
 });

@@ -93,6 +93,21 @@ export function extractHighlightsFromStaticHtml(el: HTMLElement | null) {
 }
 
 /**
+ * The rendered markup of a run, read off the element the editor's mapper landed in — but only
+ * when that element holds the run and nothing besides, so nested content (a formula inside a
+ * coloured run) survives into the list.
+ *
+ * The mapper does not reliably land on the formatting element. A run at the very start of a
+ * block maps to the *block*, because `Mapper#findPositionIn` returns the container position
+ * unchanged when the node after it is not a text node — so a paragraph opening with a coloured
+ * word would otherwise be listed with the whole paragraph as its text. The run's own text is
+ * the safe answer there.
+ */
+export function htmlForRun(element: HTMLElement, data: string): string {
+    return element.textContent?.trim() === data.trim() ? element.innerHTML : data;
+}
+
+/**
  * Whether a run already recorded by the colour pass covers this element, making it a repeat.
  *
  * Either the element sits inside one, or one covers the whole of its text — the shape a
