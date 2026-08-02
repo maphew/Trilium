@@ -43,12 +43,15 @@ export default class MermaidUI extends Plugin {
 	 */
 	_addButtons() {
 		const editor = this.editor;
+		const t = editor.t;
 
 		this._addInsertMermaidButton();
 		this._addMermaidInfoButton();
-		this._createToolbarButton( editor, 'mermaidPreview', 'Preview', previewModeIcon );
-		this._createToolbarButton( editor, 'mermaidSourceView', 'Source view', sourceModeIcon );
-		this._createToolbarButton( editor, 'mermaidSplitView', 'Split view', splitModeIcon );
+		// Translated here rather than inside the helper: each label has to be a literal argument of
+		// a `t()` call for the message registry to find it (see `messages.ts`).
+		this._createToolbarButton( editor, 'mermaidPreview', t( 'Preview' ), previewModeIcon );
+		this._createToolbarButton( editor, 'mermaidSourceView', t( 'Source view' ), sourceModeIcon );
+		this._createToolbarButton( editor, 'mermaidSplitView', t( 'Split view' ), splitModeIcon );
 	}
 
 	/**
@@ -178,11 +181,11 @@ export default class MermaidUI extends Plugin {
 	/**
 	 * Adds the mermaid balloon toolbar button.
 	 *
+	 * `label` arrives already translated — see `_addButtons()`.
+	 *
 	 * @private
 	 */
 	_createToolbarButton( editor: Editor, name: string, label: string, icon: string ) {
-		const t = editor.t;
-
 		editor.ui.componentFactory.add( name, locale => {
 			const buttonView = new ButtonView( locale );
 			const command = editor.commands.get( `${ name }Command` );
@@ -191,7 +194,7 @@ export default class MermaidUI extends Plugin {
 			}
 
 			buttonView.set( {
-				label: t( label ),
+				label,
 				icon,
 				tooltip: true
 			} );

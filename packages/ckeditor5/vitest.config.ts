@@ -3,11 +3,22 @@ import { resolve } from "node:path";
 import { webdriverio } from "@vitest/browser-webdriverio";
 import { defineConfig } from "vitest/config";
 
+/**
+ * The browser to drive, when the one webdriverio would fetch for itself cannot run — on NixOS the
+ * downloaded Chrome for Testing dies on a missing `libxcb.so.1`, since nothing outside the store
+ * provides it. Point `CHROME_BIN` at a system Chrome/Chromium and webdriverio skips the download
+ * altogether; pair it with `CHROMEDRIVER_PATH` (webdriverio's own variable) for the driver, which
+ * has the same problem. The Nix dev shell sets both.
+ */
+const systemChrome = process.env.CHROME_BIN;
+
 export default defineConfig({
     test: {
         browser: {
             enabled: true,
-            provider: webdriverio(),
+            provider: webdriverio(systemChrome
+                ? { capabilities: { browserName: "chrome", "goog:chromeOptions": { binary: systemChrome } } }
+                : {}),
             headless: true,
             ui: false,
             instances: [{ browser: "chrome" }]

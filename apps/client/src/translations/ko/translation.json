@@ -388,25 +388,6 @@
       "table_column": "열 {{number}}"
     }
   },
-  "slash_commands": {
-    "bulleted_list_description": "글머리 기호 목록 만들기",
-    "numbered_list_description": "번호 매기기 목록 만들기",
-    "todo_list_description": "할 일 목록 만들기",
-    "align_left_description": "텍스트를 왼쪽으로 정렬",
-    "align_center_description": "텍스트를 가운데로 정렬",
-    "align_right_description": "텍스트를 오른쪽으로 정렬",
-    "justify_description": "텍스트 정렬 양쪽 맞춤",
-    "admonition_description": "새 알림 블록 삽입",
-    "collapsible_description": "클릭 시 콘텐츠를 숨기거나 표시하는 토글 가능한 섹션을 삽입합니다.",
-    "footnote_description": "새 각주를 생성하고 여기에 참조합니다.",
-    "datetime_description": "현재 날짜와 시간을 삽입합니다.",
-    "internal_link_description": "다른 Trilium 노트에 대한 링크를 삽입합니다.",
-    "math_description": "수식 삽입",
-    "include_note_description": "여기에 다른 노트의 내용을 표시합니다. 노트",
-    "page_break_description": "페이지 나누기 삽입(인쇄용)",
-    "markdown_import_description": "이 노트에 Markdown 파일 가져오기",
-    "anchor_description": "내부 연결을 위한 앵커 삽입"
-  },
   "move_to": {
     "dialog_title": "노트를 이동할 위치...",
     "notes_to_move": "이동할 노트",
@@ -2549,8 +2530,6 @@
   "image": {
     "copied-to-clipboard": "이미지 참조를 클립보드에 복사했습니다. 모든 텍스트 노트에 붙여넣을 수 있습니다.",
     "cannot-copy": "이미지 참조를 클립보드에 복사할 수 없었습니다.",
-    "copy-to-clipboard": "클립보드에 이미지 복사",
-    "download": "이미지 다운로드",
     "image-copied-to-clipboard": "이미지는 클립보드에 복사되었습니다.",
     "cannot-copy-image": "이미지를 클립보드에 복사할 수 없었어요.",
     "cannot-download": "이미지를 다운로드할 수 없었어요."
@@ -2664,21 +2643,11 @@
     "copy_image_to_clipboard": "클립보드에 이미지 복사"
   },
   "link": {
-    "failed_to_open": "링크 '{{- href}}' 열리지 않음: {{- message}}",
-    "copy_url": "URL 복사"
+    "failed_to_open": "링크 '{{- href}}' 열리지 않음: {{- message}}"
   },
   "link_embed": {
     "play_video": "영상 재생",
-    "title": "링크 미리보기",
-    "url": "URL",
     "insert": "삽입",
-    "display": "표시",
-    "mode_inline": "인라인",
-    "mode_card": "카드",
-    "mode_embed": "임베드",
-    "mode_plain": "일반 링크",
-    "edit_title": "제목 수정",
-    "title_label": "제목",
     "save": "저장"
   },
   "link_context_menu": {
@@ -3294,8 +3263,6 @@
   "mermaid": {
     "placeholder": "Mermaid 다이어그램 내용을 입력하거나 아래의 예제 다이어그램을 사용하세요.",
     "sample_diagrams": "샘플 다이어그램:",
-    "slash_command_blank_description": "빈 Mermaid 다이어그램 삽입",
-    "slash_command_description": "\"{{name}}\" Mermaid 다이어그램 템플릿 삽입",
     "sample_flowchart": "플로우차트",
     "sample_class": "클래스",
     "sample_sequence": "순서",
@@ -3530,18 +3497,6 @@
     "export-csv-failed": "스프레드시트를 CSV로 내보내는 데 실패했습니다."
   },
   "text-editor": {
-    "checkbox-tooltip": "우클릭하거나 {{- shortcut}} 키를 눌러 상태를 변경하세요.",
-    "checkbox-tooltip-state-label": "과제 상태:",
-    "checkbox-tooltip-state-unknown-suffix": "(정의가 누락됨)",
-    "collapsible-body-placeholder": "여기에 내용을 입력하세요...",
-    "collapsible-button-label": "접이식 블록",
-    "collapsible-handle-tooltip": "접이식 블록을 이동하려면 드래그",
-    "collapsible-select-label": "접이식 블록 선택",
-    "collapsible-title-placeholder": "요약",
-    "collapsible-toggle-label": "접이식 블록 전환",
-    "collapsible-tooltip": "화살표를 클릭하거나 {{- shortcut}} 키를 눌러 접거나 확장하세요.",
-    "edit-states-tooltip": "작업 상태 편집",
-    "unknown-task-state": "정의되지 않은 맞춤 작업 상태",
     "task-state-dropped-title": "잘못된 작업 상태",
     "task-state-dropped-heading": "무시된 정의:",
     "task-state-dropped-configure": "작업 상태 구성",
@@ -3554,7 +3509,51 @@
       "invalid-symbol": "Markdown 기호는 한 문자여야 합니다. 단, ‘[’, 공백, ‘X’, ‘]’는 제외합니다.",
       "duplicate-symbol": "중복된 Markdown 기호"
     },
-    "task-state-dropped-message_other": "사용자 지정 작업 상태 정의 {{count}}개가 유효하지 않아 무시되었습니다."
+    "task-state-dropped-message_other": "사용자 지정 작업 상태 정의 {{count}}개가 유효하지 않아 무시되었습니다.",
+    "ck": {
+      "align-text-to-the-center": "텍스트를 가운데로 정렬",
+      "align-text-to-the-left": "텍스트를 왼쪽으로 정렬",
+      "align-text-to-the-right": "텍스트를 오른쪽으로 정렬",
+      "card": "카드",
+      "click-on-the-arrow-or-press-0-to-collapse-expand": "화살표를 클릭하거나 %0 키를 눌러 접거나 확장하세요.",
+      "collapsible-block": "접이식 블록",
+      "copy-image-to-clipboard": "클립보드에 이미지 복사",
+      "copy-url": "URL 복사",
+      "create-a-bulleted-list": "글머리 기호 목록 만들기",
+      "create-a-new-footnote-and-reference-it-here": "새 각주를 생성하고 여기에 참조합니다.",
+      "create-a-numbered-list": "번호 매기기 목록 만들기",
+      "create-a-to-do-list": "할 일 목록 만들기",
+      "display": "표시",
+      "display-the-content-of-another-note-in-this-note": "여기에 다른 노트의 내용을 표시합니다. 노트",
+      "download-image": "이미지 다운로드",
+      "drag-to-reposition-the-collapsible-block": "접이식 블록을 이동하려면 드래그",
+      "edit-task-states": "작업 상태 편집",
+      "edit-title": "제목 수정",
+      "embed": "임베드",
+      "inline": "인라인",
+      "insert-a-0-mermaid-diagram-template": "\"%0\" Mermaid 다이어그램 템플릿 삽입",
+      "insert-a-link-to-another-trilium-note": "다른 Trilium 노트에 대한 링크를 삽입합니다.",
+      "insert-a-math-equation": "수식 삽입",
+      "insert-a-new-admonition": "새 알림 블록 삽입",
+      "insert-a-page-break-for-printing": "페이지 나누기 삽입(인쇄용)",
+      "insert-a-toggleable-section-that-hides-shows-content-on-click": "클릭 시 콘텐츠를 숨기거나 표시하는 토글 가능한 섹션을 삽입합니다.",
+      "insert-an-anchor-for-internal-linking": "내부 연결을 위한 앵커 삽입",
+      "insert-an-empty-mermaid-diagram": "빈 Mermaid 다이어그램 삽입",
+      "insert-the-current-date-and-time": "현재 날짜와 시간을 삽입합니다.",
+      "justify-text-alignment": "텍스트 정렬 양쪽 맞춤",
+      "link-preview": "링크 미리보기",
+      "missing-definition": "(정의가 누락됨)",
+      "plain-link": "일반 링크",
+      "right-click-or-press-0-to-change-state": "우클릭하거나 %0 키를 눌러 상태를 변경하세요.",
+      "select-collapsible-block": "접이식 블록 선택",
+      "summary": "요약",
+      "task-state": "과제 상태:",
+      "title": "제목",
+      "toggle-collapsible-block": "접이식 블록 전환",
+      "type-the-content-here": "여기에 내용을 입력하세요...",
+      "undefined-custom-task-state": "정의되지 않은 맞춤 작업 상태",
+      "url": "URL"
+    }
   },
   "contextual_help": {
     "label": "도움말: {{- message}}",

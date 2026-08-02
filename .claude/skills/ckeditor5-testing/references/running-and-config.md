@@ -23,6 +23,30 @@ pnpm --filter @triliumnext/ckeditor5 test
 Or, from the package directory: `vitest run`. Add `-t "name"` to filter by test name, or a
 filename substring to filter by file.
 
+### Supplying the browser and driver
+
+webdriverio downloads a Chrome for Testing build and a matching chromedriver into `/tmp` on first
+run. Where those cannot execute — NixOS, where they are linked against libraries no store path
+provides and abort on a missing `libxcb.so.1` — two variables hand it a system pair instead:
+
+| Variable | Read by | Effect |
+|---|---|---|
+| `CHROMEDRIVER_PATH` | webdriverio (`@wdio/utils` `startWebDriver`) | Spawns that driver on a free port instead of downloading one. |
+| `CHROME_BIN` | `packages/ckeditor5/vitest.config.ts` | Passed as `goog:chromeOptions.binary`; `setupPuppeteerBrowser` returns early for a string `binary`, so no browser is downloaded either. |
+
+```bash
+CHROME_BIN=/path/to/chromium CHROMEDRIVER_PATH=/path/to/chromedriver \
+    pnpm --filter @triliumnext/ckeditor5 test
+```
+
+The versions must match at least in their major. `nix develop` exports both from `pkgs.chromium`
+and `pkgs.chromedriver` (same nixpkgs revision, so they agree), which is why the plain command works
+inside the dev shell. Starting a chromedriver by hand and writing a local config that connects to
+its port does work, but it is strictly more setup — reach for the variables.
+
+A failing browser test writes a PNG into a gitignored `__screenshots__` directory next to the spec.
+Clean those up when done.
+
 ## The config shape
 
 Both packages run **WebdriverIO browser mode**: real headless Chrome via

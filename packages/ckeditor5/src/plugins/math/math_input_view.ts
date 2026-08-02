@@ -57,8 +57,12 @@ export default class MathInputView extends View {
 	private _updating = false;
 	private static _configured = false;
 
+	/** Replaces the editor when MathLive fails to load; resolved up front, while the locale is at hand. */
+	private readonly _unavailableLabel: string;
+
 	constructor( locale: Locale ) {
 		super( locale );
+		this._unavailableLabel = locale.t( 'Math editor unavailable' );
 		this.latexTextAreaView = new LatexTextAreaView( locale );
 		this.mathFieldFocusableView = new MathFieldFocusableView( locale, this );
 		this.set( 'value', null );
@@ -170,7 +174,7 @@ export default class MathInputView extends View {
 		} catch {
 			const c = this.element?.querySelector( '.ck-mathlive-container' );
 			if ( c ) {
-				c.textContent = 'Math editor unavailable';
+				c.textContent = this._unavailableLabel;
 			}
 		}
 		/* v8 ignore stop */

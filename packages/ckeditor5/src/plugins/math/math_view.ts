@@ -31,9 +31,13 @@ export default class MathView extends View {
 	 */
 	private options: MathViewOptions;
 
+	/** Shown in place of the equation when rendering fails; resolved up front, while the locale is at hand. */
+	private readonly renderErrorLabel: string;
+
 	constructor( locale: Locale, options: MathViewOptions ) {
 		super( locale );
 		this.options = options;
+		this.renderErrorLabel = locale.t( 'Error rendering equation' );
 
 		this.set( 'value', '' );
 		this.set( 'display', false );
@@ -86,7 +90,7 @@ export default class MathView extends View {
 
 			/* v8 ignore next -- defensive: updateMath() returns early when there is no element */
 			if ( this.element ) {
-				this.element.textContent = 'Error rendering equation';
+				this.element.textContent = this.renderErrorLabel;
 				this.element.classList.add( 'ck-math-render-error' );
 			}
 		} );

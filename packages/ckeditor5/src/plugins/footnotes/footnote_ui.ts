@@ -16,7 +16,7 @@ export default class FootnoteUI extends Plugin {
 
     public init(): void {
         const editor = this.editor;
-        const translate = editor.t;
+        const t = editor.t;
 
         editor.ui.componentFactory.add(TOOLBAR_COMPONENT_NAME, (locale) => {
             const dropdownView = createDropdown(locale, SplitButtonView);
@@ -28,7 +28,7 @@ export default class FootnoteUI extends Plugin {
             }
 
             splitButtonView.set({
-                label: translate("Footnote"),
+                label: t("Footnote"),
                 icon: insertFootnoteIcon,
                 tooltip: true,
                 isToggleable: true
@@ -73,12 +73,13 @@ export default class FootnoteUI extends Plugin {
      */
     public getDropdownItemsDefinitions(): Collection<ListDropdownItemDefinition> {
         const itemDefinitions = new Collection<ListDropdownItemDefinition>();
+        const t = this.editor.t;
 
         itemDefinitions.add({
             type: "button",
             model: new ViewModel({
                 commandParam: 0,
-                label: "New footnote",
+                label: t("New footnote"),
                 withText: true
             })
         });
@@ -104,7 +105,7 @@ export default class FootnoteUI extends Plugin {
                     type: "button",
                     model: new ViewModel({
                         commandParam: index,
-                        label: `Insert footnote ${index}`,
+                        label: t("Insert footnote %0", String(index)),
                         withText: true
                     })
                 });

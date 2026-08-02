@@ -161,13 +161,18 @@ group covers the monorepo wiring/convention defects. For the idiomatic "how it s
 
 ## Localization
 
-**`t()` gaps / misuse.**
-- Spot: user-facing strings not wrapped in `t()`; `t` renamed or called on a variable (the static
-  analyzer only recognizes a literal-arg `t()`); a reused string creating a new source message
-  instead of aliasing `editor.locale.t`; a new `t('…')` string with no matching entry added to the
-  plugin's `lang/en.po` (+ `lang/contexts.json` where context disambiguation is needed).
-- Fix: wrap all UI strings in `t()` with a literal first arg; reuse via the `locale.t` alias; add the
-  source string to `lang/en.po` and its context note to `lang/contexts.json`.
+**`t()` gaps / misuse.** Trilium passes **the English text itself** as the message id, and a
+scan of this package's source (`\bt\(` + a quoted literal) is what drives the English catalog. Three
+variants, all of which render fine in English and are never translated anywhere:
+- Spot: a user-facing string not wrapped at all (`label: 'Copy to clipboard'`) — no test catches
+  this, so read the strings.
+- Spot: the translator reached under another name — `translate('Save')`, `_t('Save')`. Does not match
+  `\bt\(`. Fix: name the local or parameter `t`.
+- Spot: a non-literal first argument — `t( def.label )`, typically because labels sit in a
+  `{ value, label }` table. Fix: a switch with a literal per case
+  (`getAdmonitionTitle()`, `getLinkDisplayModeLabel()`, `getBoxSizeLabel()`), or translate at the
+  call site and pass the label in ready-made.
+- Also check interpolation is `%0`, not a template literal or `{{name}}`.
 
 ## Undo / batching
 
@@ -241,12 +246,16 @@ nothing loads it, no button shows, or lint/license/localization is off.
   the wrong module declaration doesn't merge and the types are missing.
 - Fix: `declare module 'ckeditor5'`.
 
-**New UI strings missing from localization.**
-- Spot: a new user-facing `t('…')` string with no entry in the plugin's `lang/en.po` (and, where
-  context matters, `lang/contexts.json`).
-- Why: the source catalog is incomplete; downstream translation can't pick the string up.
-- Fix: add the string to `lang/en.po` and its context note to `lang/contexts.json`. (See the
-  Localization group above.)
+**New UI strings missing from — or wrongly added to — the English catalog.**
+- Spot: a new `t('…')` message with no entry under `text-editor.ck` in
+  `apps/client/src/translations/en/translation.json`, keyed by the slug of its English text.
+- Spot (the inverse): an entry added for a string **CKEditor already ships**. Our dictionary merges
+  after the core one, so that overrides the upstream translation in every locale. Call `t()`, add no
+  entry. Verify with the German core dictionary:
+  `node --input-type=module -e "const c=(await import('ckeditor5/translations/de.js')).default; console.log(new Set(Object.keys(c.de.dictionary)).has('Save'))"`
+- Why: an unentered message renders its English id in every locale and is invisible to Weblate.
+- Fix: add (or don't) as above; `pnpm --filter client exec vitest run src/services/i18n.spec.ts`
+  checks both directions. (See the Localization group above.)
 
 **Test written against the wrong DOM assumptions.**
 - Spot: a synthetic event dispatched without `cancelable: true` whose `preventDefault()` is then

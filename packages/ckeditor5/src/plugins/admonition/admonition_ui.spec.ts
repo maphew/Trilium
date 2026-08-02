@@ -4,7 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestEditor } from "../../../test/editor-kit.js";
 import Admonition from "./admonition.js";
 import type AdmonitionCommand from "./admonition_command.js";
-import AdmonitionUI, { ADMONITION_TYPES } from "./admonition_ui.js";
+import { ADMONITION_TYPE_NAMES, type AdmonitionType } from "./admonition_command.js";
+import AdmonitionUI, { getAdmonitionTitle } from "./admonition_ui.js";
 
 // ---- Typed interfaces for the dropdown internals ----
 
@@ -103,20 +104,26 @@ describe("AdmonitionUI", () => {
         it("offers every admonition type in the dropdown", () => {
             const dropdown = createButton(editor);
             const listView = openDropdown(dropdown);
-            const types = Object.keys(ADMONITION_TYPES);
 
-            expect(listView.items.length).toBe(types.length);
+            expect(listView.items.length).toBe(ADMONITION_TYPE_NAMES.length);
 
+            const items = [];
             for (let i = 0; i < listView.items.length; i++) {
                 const button = listView.items.get(i).children.get(0);
-                const type = button.commandParam as keyof typeof ADMONITION_TYPES | undefined;
-
-                expect(types).toContain(button.commandParam);
-                if (type) {
-                    expect(button.label).toBe(ADMONITION_TYPES[type].title);
-                }
+                items.push({ type: button.commandParam, label: button.label });
             }
+
+            // No dictionary is configured here, so `t()` renders the message id, which is the
+            // English title.
+            expect(items).toEqual([
+                { type: "note", label: "Note" },
+                { type: "tip", label: "Tip" },
+                { type: "important", label: "Important" },
+                { type: "caution", label: "Caution" },
+                { type: "warning", label: "Warning" }
+            ]);
         });
+
 
         it("applies the picked type when a dropdown item is executed", () => {
             setModelData(editor.model, "<paragraph>foo[]</paragraph>");
@@ -144,6 +151,21 @@ describe("AdmonitionUI", () => {
 
             expect(listView.items.get(1).children.get(0).isOn).toBe(true);
             expect(listView.items.get(0).children.get(0).isOn).toBe(false);
+        });
+    });
+
+    describe("getAdmonitionTitle", () => {
+        it("passes every type title through the translation function", () => {
+            const translated = ADMONITION_TYPE_NAMES.map((type) => getAdmonitionTitle((message) => `xx:${message}`, type));
+
+            expect(translated).toEqual([ "xx:Note", "xx:Tip", "xx:Important", "xx:Caution", "xx:Warning" ]);
+        });
+
+        it("returns an unrecognized type as-is, without translating it", () => {
+            const translate = vi.fn();
+
+            expect(getAdmonitionTitle(translate, "custom-unknown" as AdmonitionType)).toBe("custom-unknown");
+            expect(translate).not.toHaveBeenCalled();
         });
     });
 

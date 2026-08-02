@@ -1,6 +1,7 @@
-import { buildExtraCommands, type EditorConfig, getCkLocale, SnippetDefinition } from "@triliumnext/ckeditor5";
+import { type EditorConfig, getCkLocale, SnippetDefinition } from "@triliumnext/ckeditor5";
 import emojiDefinitionsUrl from "@triliumnext/ckeditor5/src/emoji_definitions/en.json?url";
-import { ALLOWED_PROTOCOLS, DISPLAYABLE_LOCALE_IDS, KATEX_MACROS, MIME_TYPE_AUTO, normalizeMimeTypeForCKEditor } from "@triliumnext/commons";
+import { ALLOWED_PROTOCOLS, DISPLAYABLE_LOCALE_IDS, formatShortcut, joinShortcut, KATEX_MACROS, MIME_TYPE_AUTO, normalizeMimeTypeForCKEditor } from "@triliumnext/commons";
+import i18next from "i18next";
 
 import { copyTextWithToast } from "../../../services/clipboard_ext.js";
 import { t } from "../../../services/i18n.js";
@@ -10,6 +11,7 @@ import { default as mimeTypesService, getHighlightJsNameForMime } from "../../..
 import noteAutocompleteService, { type Suggestion } from "../../../services/note_autocomplete.js";
 import options from "../../../services/options.js";
 import { ensureMimeTypesForHighlighting, isSyntaxHighlightEnabled } from "../../../services/syntax_highlight.js";
+import { isMac } from "../../../services/utils.js";
 import { getTaskStateDefinitions, openCustomTaskStateConfig } from "../../../services/task_states.js";
 import SAMPLE_DIAGRAMS from "../mermaid/sample_diagrams.js";
 import { buildToolbarConfig } from "./toolbar.js";
@@ -170,12 +172,11 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
             copy: copyTextWithToast
         },
         slashCommand: {
-            // Drop CKEditor's built-in slash commands whose title/icon we re-define in
-            // buildExtraCommands: the Mermaid one (generic icon) and the list ones
-            // (Title Case titles, normalized to sentence case).
+            // Drop CKEditor's built-in slash commands whose title/icon the palette re-defines: the
+            // Mermaid one (generic icon) and the list ones (Title Case titles, normalized to
+            // sentence case).
             removeCommands: ["insertMermaidCommand", "bulletedList", "numberedList", "todoList"],
-            dropdownLimit: Number.MAX_SAFE_INTEGER,
-            extraCommands: buildExtraCommands((key, params) => t(key, params), SAMPLE_DIAGRAMS)
+            dropdownLimit: Number.MAX_SAFE_INTEGER
         },
         snippets: {
             definitions: opts.templates
@@ -184,15 +185,21 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
             allow: JSON.parse(options.get("allowedHtmlTags"))
         },
         removePlugins: getDisabledPlugins(),
-        ...await getCkLocale(opts.uiLanguage)
+        // The locale's CKEditor translations, plus the dictionary of Trilium-authored editor
+        // strings resolved through the app's i18n (see `messages.ts` in the ckeditor5 package).
+        ...await getCkLocale(opts.uiLanguage, { englishMessages: getEnglishEditorMessages(), translate: (key) => t(key) })
     };
 
     // User-configurable todo task states (from the `_taskStates` hidden subtree).
     (config as Record<string, unknown>).taskStates = await getTaskStateDefinitions();
     (config as Record<string, unknown>).editTaskStates = openCustomTaskStateConfig;
 
-    // The app's i18n translate function, so plugins can resolve Trilium translation keys.
-    (config as Record<string, unknown>).translate = (key: string, params?: Record<string, unknown>) => t(key, params);
+    // Renders a keystroke a plugin mentions in a hint. The editor's own strings translate through
+    // its dictionary (see `messages.ts` in the ckeditor5 package), but the key names inside a
+    // shortcut come from `keyboard_shortcut_keys`, which the command palette and the help dialog
+    // read too — so the app renders them and hands the markup over.
+    (config as Record<string, unknown>).renderShortcut = (shortcut: string) =>
+        joinShortcut(formatShortcut(shortcut, t, isMac()).map((token) => `<kbd>${token}</kbd>`), isMac());
 
     // Global on/off switch for content-area hints (bottom-corner popups on task
     // checkboxes, collapsible summaries, drag handles). Plugins consult this via
@@ -267,6 +274,24 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
         ...config,
         ...buildToolbarConfig(opts.isClassicEditor)
     };
+}
+
+/**
+ * The English editor messages, i.e. the `text-editor.ck` section of the English catalog, mapping
+ * each derived key to the English text that plugins pass to `editor.t()`. This section is the
+ * registry of Trilium-authored editor strings — there is no list of them in code — so reading it
+ * back is what lets the message dictionary be built.
+ *
+ * English is always loaded, being i18next's `fallbackLng`; an empty section only means every editor
+ * string renders its English message id, which is what an unconfigured editor does anyway.
+ *
+ * `getResourceBundle` is bound onto the i18next instance by `init()`, so it is missing until
+ * `initLocale()` has run — the case for a test that builds a config without booting i18n.
+ */
+function getEnglishEditorMessages(): Record<string, string> {
+    const bundle = i18next.getResourceBundle?.("en", "translation") as
+        { "text-editor"?: { ck?: Record<string, string> } } | undefined;
+    return bundle?.["text-editor"]?.ck ?? {};
 }
 
 function buildListOfLanguages() {

@@ -1872,8 +1872,6 @@
   "image": {
     "copied-to-clipboard": "तस्वीर का लिंक कॉपी हो गया है। इसे किसी भी टेक्स्ट नोट में पेस्ट किया जा सकता है।",
     "cannot-copy": "तस्वीर का लिंक कॉपी नहीं हो सका।",
-    "copy-to-clipboard": "इमेज क्लिपबोर्ड पर कॉपी करें",
-    "download": "इमेज डाउनलोड करें",
     "image-copied-to-clipboard": "इमेज को क्लिपबोर्ड पर कॉपी कर दिया गया है।",
     "cannot-copy-image": "इमेज को क्लिपबोर्ड पर कॉपी नहीं किया जा सका।",
     "cannot-download": "इमेज डाउनलोड नहीं की जा सकी।"
@@ -2422,25 +2420,6 @@
       "collapsible_details": "विवरण (Details)"
     }
   },
-  "slash_commands": {
-    "bulleted_list_description": "बुलेटेड लिस्ट बनाएं",
-    "numbered_list_description": "नंबर वाली लिस्ट बनाएं",
-    "todo_list_description": "टू-डू लिस्ट बनाएं",
-    "align_left_description": "टेक्स्ट को बाईं ओर संरेखित (align) करें",
-    "align_center_description": "टेक्स्ट को बीच में संरेखित करें",
-    "align_right_description": "टेक्स्ट को दाईं ओर संरेखित करें",
-    "justify_description": "टेक्स्ट अलाइनमेंट जस्टिफाई करें",
-    "admonition_description": "एक नया एडमोनिशन (admonition) डालें",
-    "collapsible_description": "एक टॉगल करने योग्य सेक्शन डालें जो क्लिक करने पर कंटेंट को छुपाता/दिखाता है।",
-    "footnote_description": "एक नया फुटनोट बनाएं और उसका संदर्भ (reference) यहाँ दें",
-    "datetime_description": "करंट डेट और टाइम डालें",
-    "internal_link_description": "दूसरे ट्रिलियम नोट का लिंक डालें",
-    "math_description": "मैथ इक्वेशन डालें",
-    "include_note_description": "इस नोट में दूसरे नोट की कंटेंट दिखाएं",
-    "page_break_description": "पेज ब्रेक डालें (प्रिंट करने के लिए)",
-    "markdown_import_description": "इस नोट में एक मार्कडाउन फ़ाइल इम्पोर्ट करें",
-    "anchor_description": "इंटरनल लिंकिंग के लिए एक एंकर डालें"
-  },
   "revisions": {
     "note_revisions": "नोट रिवीजन्स",
     "back": "पीछे जाएं",
@@ -2646,8 +2625,7 @@
     "remove_from_launch_bar": "लॉन्च बार से हटाएं"
   },
   "link": {
-    "failed_to_open": "लिंक '{{- href}}' खोलने में विफल: {{- message}}",
-    "copy_url": "URL कॉपी करें"
+    "failed_to_open": "लिंक '{{- href}}' खोलने में विफल: {{- message}}"
   },
   "display_mode": {
     "source": "सोर्स व्यू",
@@ -2716,8 +2694,6 @@
   "mermaid": {
     "placeholder": "अपने मरमेड डायग्राम का कंटेंट टाइप करें या नीचे दिए गए सैंपल डायग्राम्स में से एक का उपयोग करें।",
     "sample_diagrams": "सैंपल डायग्राम्स:",
-    "slash_command_blank_description": "एक खाली मरमेड डायग्राम डालें",
-    "slash_command_description": "\"{{name}}\" मरमेड डायग्राम टेम्पलेट डालें",
     "sample_flowchart": "फ्लोचार्ट (Flowchart)",
     "sample_class": "क्लास (Class)",
     "sample_sequence": "सीक्वेंस (Sequence)",
@@ -2875,16 +2851,6 @@
     "export-csv-failed": "स्प्रेडशीट को CSV में एक्सपोर्ट करने में विफल।"
   },
   "text-editor": {
-    "checkbox-tooltip": "अधिक टास्क स्टेट्स के लिए राइट क्लिक करें।\nस्टेट्स के बीच साइकिल करने के लिए {{shortcut}} दबाएं।",
-    "collapsible-body-placeholder": "यहाँ कंटेंट टाइप करें..।",
-    "collapsible-button-label": "कोलाप्सिबल ब्लॉक",
-    "collapsible-handle-tooltip": "कोलाप्सिबल ब्लॉक को फिर से स्थानांतरित करने के लिए ड्रैग करें",
-    "collapsible-select-label": "कोलाप्सिबल ब्लॉक चुनें",
-    "collapsible-title-placeholder": "सारांश",
-    "collapsible-toggle-label": "कोलाप्सिबल ब्लॉक टॉगल करें",
-    "collapsible-tooltip": "सिकुड़ने/फैलने के लिए तीर पर क्लिक करें या {{shortcut}} दबाएं।",
-    "edit-states-tooltip": "टास्क स्टेट्स संपादित करें",
-    "unknown-task-state": "अपरिभाषित कस्टम टास्क स्टेट",
     "validation-errors": {
       "undefined-name": "अपरिभाषित आइडेंटिफायर",
       "invalid-name": "अमान्य आइडेंटिफायर",
@@ -2893,6 +2859,39 @@
       "missing-icon": "लापता आइकन",
       "invalid-symbol": "मार्कडाउन सिंबल एक वर्ण होना चाहिए, \"[\", \" \", \"X\", और \"]\" को छोड़कर",
       "duplicate-symbol": "डुप्लिकेट मार्कडाउन सिंबल"
+    },
+    "ck": {
+      "align-text-to-the-center": "टेक्स्ट को बीच में संरेखित करें",
+      "align-text-to-the-left": "टेक्स्ट को बाईं ओर संरेखित (align) करें",
+      "align-text-to-the-right": "टेक्स्ट को दाईं ओर संरेखित करें",
+      "click-on-the-arrow-or-press-0-to-collapse-expand": "सिकुड़ने/फैलने के लिए तीर पर क्लिक करें या %0 दबाएं।",
+      "collapsible-block": "कोलाप्सिबल ब्लॉक",
+      "copy-image-to-clipboard": "इमेज क्लिपबोर्ड पर कॉपी करें",
+      "copy-url": "URL कॉपी करें",
+      "create-a-bulleted-list": "बुलेटेड लिस्ट बनाएं",
+      "create-a-new-footnote-and-reference-it-here": "एक नया फुटनोट बनाएं और उसका संदर्भ (reference) यहाँ दें",
+      "create-a-numbered-list": "नंबर वाली लिस्ट बनाएं",
+      "create-a-to-do-list": "टू-डू लिस्ट बनाएं",
+      "display-the-content-of-another-note-in-this-note": "इस नोट में दूसरे नोट की कंटेंट दिखाएं",
+      "download-image": "इमेज डाउनलोड करें",
+      "drag-to-reposition-the-collapsible-block": "कोलाप्सिबल ब्लॉक को फिर से स्थानांतरित करने के लिए ड्रैग करें",
+      "edit-task-states": "टास्क स्टेट्स संपादित करें",
+      "insert-a-0-mermaid-diagram-template": "\"%0\" मरमेड डायग्राम टेम्पलेट डालें",
+      "insert-a-link-to-another-trilium-note": "दूसरे ट्रिलियम नोट का लिंक डालें",
+      "insert-a-math-equation": "मैथ इक्वेशन डालें",
+      "insert-a-new-admonition": "एक नया एडमोनिशन (admonition) डालें",
+      "insert-a-page-break-for-printing": "पेज ब्रेक डालें (प्रिंट करने के लिए)",
+      "insert-a-toggleable-section-that-hides-shows-content-on-click": "एक टॉगल करने योग्य सेक्शन डालें जो क्लिक करने पर कंटेंट को छुपाता/दिखाता है।",
+      "insert-an-anchor-for-internal-linking": "इंटरनल लिंकिंग के लिए एक एंकर डालें",
+      "insert-an-empty-mermaid-diagram": "एक खाली मरमेड डायग्राम डालें",
+      "insert-the-current-date-and-time": "करंट डेट और टाइम डालें",
+      "justify-text-alignment": "टेक्स्ट अलाइनमेंट जस्टिफाई करें",
+      "right-click-or-press-0-to-change-state": "अधिक टास्क स्टेट्स के लिए राइट क्लिक करें।\nस्टेट्स के बीच साइकिल करने के लिए %0 दबाएं।",
+      "select-collapsible-block": "कोलाप्सिबल ब्लॉक चुनें",
+      "summary": "सारांश",
+      "toggle-collapsible-block": "कोलाप्सिबल ब्लॉक टॉगल करें",
+      "type-the-content-here": "यहाँ कंटेंट टाइप करें..।",
+      "undefined-custom-task-state": "अपरिभाषित कस्टम टास्क स्टेट"
     }
   }
 }

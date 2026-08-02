@@ -1,6 +1,6 @@
 import { ClassicEditor, Essentials, Paragraph, _setModelData as setModelData } from "ckeditor5";
 import Admonition from "./admonition.js";
-import { ADMONITION_TYPES } from "./admonition_ui.js";
+import { ADMONITION_TYPE_NAMES } from "./admonition_command.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../../test/editor-kit.js";
@@ -127,12 +127,14 @@ describe("AdmonitionTypeDropdown", () => {
         const dropdown = editor.ui.componentFactory.create("admonitionTypeDropdown") as unknown as DropdownView;
         const command = editor.commands.get("admonition") as { value: string };
         expect(command.value).toBe("note");
-        expect(dropdown.buttonView.label).toBe(ADMONITION_TYPES["note"].title);
+        // No dictionary is configured here, so `t()` renders the message id, which is the English
+        // title.
+        expect(dropdown.buttonView.label).toBe("Note");
     });
 
     it("button label falls back to the raw value for unknown admonition types", () => {
-        // Sets an admonitionType value not in ADMONITION_TYPES so typeDef is undefined
-        // and the `?? value` fallback path is exercised.
+        // Sets an admonitionType value that has no title, so the untranslated-fallback path of
+        // `getAdmonitionTitle()` is exercised.
         editor.setData('<aside class="admonition note"><p>Hello</p></aside>');
         editor.model.change((writer) => {
             const root = editor.model.document.getRoot();
@@ -152,39 +154,31 @@ describe("AdmonitionTypeDropdown", () => {
         });
 
         const dropdown = editor.ui.componentFactory.create("admonitionTypeDropdown") as unknown as DropdownView;
-        // typeDef is undefined for "custom-unknown", so label falls back to the raw value.
+        // "custom-unknown" has no title, so the label falls back to the raw value.
         expect(dropdown.buttonView.label).toBe("custom-unknown");
     });
 
-    it("dropdown panel contains one list item per admonition type", () => {
+    it("dropdown panel contains one titled list item per admonition type", () => {
         const dropdown = editor.ui.componentFactory.create("admonitionTypeDropdown") as unknown as DropdownView;
         const listView = openDropdown(dropdown);
-        const typeCount = Object.keys(ADMONITION_TYPES).length;
-        expect(listView.items.length).toBe(typeCount);
-    });
 
-    it("each list item has the correct commandParam matching an admonition type", () => {
-        const dropdown = editor.ui.componentFactory.create("admonitionTypeDropdown") as unknown as DropdownView;
-        const listView = openDropdown(dropdown);
-        const types = Object.keys(ADMONITION_TYPES);
+        expect(listView.items.length).toBe(ADMONITION_TYPE_NAMES.length);
 
+        const items = [];
         for (let i = 0; i < listView.items.length; i++) {
             const button = listView.items.get(i).children.get(0);
-            expect(types).toContain(button.commandParam);
+            items.push({ type: button.commandParam, label: button.label });
         }
-    });
 
-    it("each list item label matches the type title", () => {
-        const dropdown = editor.ui.componentFactory.create("admonitionTypeDropdown") as unknown as DropdownView;
-        const listView = openDropdown(dropdown);
-
-        for (let i = 0; i < listView.items.length; i++) {
-            const button = listView.items.get(i).children.get(0);
-            const type = button.commandParam as keyof typeof ADMONITION_TYPES | undefined;
-            if (type) {
-                expect(button.label).toBe(ADMONITION_TYPES[type].title);
-            }
-        }
+        // No dictionary is configured here, so `t()` renders the message id, which is the English
+        // title.
+        expect(items).toEqual([
+            { type: "note", label: "Note" },
+            { type: "tip", label: "Tip" },
+            { type: "important", label: "Important" },
+            { type: "caution", label: "Caution" },
+            { type: "warning", label: "Warning" }
+        ]);
     });
 
     it("each list item has the correct CSS classes", () => {

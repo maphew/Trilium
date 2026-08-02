@@ -9,6 +9,7 @@ import { viewQueryElement } from "./utils.js";
  */
 export const defineConverters = (editor: Editor): void => {
     const conversion = editor.conversion;
+    const t = editor.t;
 
     /* Attribute conversion */
 
@@ -66,7 +67,9 @@ export const defineConverters = (editor: Editor): void => {
                 class: CLASSES.footnoteSection
             });
 
-            return toWidget(section, viewWriter, { label: "footnote widget" });
+            // Announced by screen readers when the widget is selected; lowercase to match the
+            // "image widget" / "table widget" labels CKEditor gives its own widgets.
+            return toWidget(section, viewWriter, { label: t("footnote widget") });
         }
     });
 

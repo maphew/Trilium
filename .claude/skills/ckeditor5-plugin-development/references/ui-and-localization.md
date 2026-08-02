@@ -301,61 +301,160 @@ Keys map to platform conventions automatically (e.g. `Ctrl` → `Cmd` on macOS).
 
 ## Localization with `editor.t()`
 
-Every user-facing string must pass through the editor's translation function so it can be
-localized. Trilium ships translations as **gettext PO files per package** — not the upstream
-`window.CKEDITOR_TRANSLATIONS` / `add()` / webpack-bundled-language flow.
-
-- Get the function from the editor/locale: `const t = editor.t;`, `const { t } = editor.locale;`,
-  or in a view `const t = this.t;` (`editor.locale.t` is the same function as `editor.t`).
-- **First arg must be a string or object literal**, never a variable — the build scans source
-  for these literals to extract message ids.
+Every user-facing string must pass through the editor's translation function. Trilium's mechanism is
+**the English text is the message id** — there are no translation keys in plugin code, no `.po`
+catalogs, and no host `translate` callback. (Both of those existed once; every trace has been
+removed. Ignore any older doc that mentions `lang/en.po`, `contexts.json`, `translation_overrides.ts`
+or `config.get('translate')`.)
 
 ```ts
-const t = editor.t;
-t( 'Admonition' );                                     // simple
-t( 'Insert %0', label );                               // placeholder; array also ok
-t( { string: '%0 footnote', plural: '%0 footnotes', id: 'N_FOOTNOTES' }, quantity ); // plural
-t( { string: '%0', id: 'ACTION_INSERT' }, 'insert' );  // disambiguating id
+const t = editor.t;              // or locale.t, or this.t inside a View
+t( 'Insert a table.' );
+t( 'Insert footnote %0', index );
 ```
 
-### Where translations live
+With no dictionary configured — a test, a standalone editor — `t()` returns the message id, so the
+UI renders correct English instead of a raw key. That property is what makes the whole scheme safe.
 
-Each Trilium plugin keeps two files under `lang/`:
+### The two steps
 
-- **`lang/en.po`** — the gettext catalog. Each entry is `msgctxt` (translator context) +
-  `msgid` (the source string passed to `t()`) + `msgstr` (the translation):
+1. **Call `t()` with the English text** at the point of use.
+2. **Add the English entry** under `text-editor.ck` in
+   `apps/client/src/translations/en/translation.json`, keyed by the *slug* of that text — lowercase,
+   with every run of non-alphanumeric characters collapsed to `-` (`slugify()` in
+   `packages/ckeditor5/src/messages.ts`):
 
-  ```po
-  msgctxt "Toolbar button tooltip for the Admonition feature."
-  msgid "Admonition"
-  msgstr "Admonition"
+   ```jsonc
+   "text-editor": { "ck": { "insert-a-table": "Insert a table." } }
+   ```
+
+English only. Other locales come from Weblate.
+
+Nothing else is maintained: there is no list of messages, because the English catalog **is** the
+registry. `getCkLocale()` turns it into the dictionary CKEditor wants (`buildMessageDictionary()`),
+keyed by English text and appended after the core translations.
+
+`apps/client/src/services/i18n.spec.ts` enforces both directions by scanning this package's source —
+a message with no entry fails, and an entry no message asks for fails too. Run it with
+`pnpm --filter client exec vitest run src/services/i18n.spec.ts`.
+
+### Two traps that fail silently
+
+The scan matches `\bt\(` followed by a **quoted literal**. Both halves matter, and getting either
+wrong produces a string that looks localized, passes typecheck, renders fine in English, and is
+never translated in any locale:
+
+- **The function has to be named `t`.** `translate('Save')` does not match `\bt\(`; neither does
+  `_t('Save')`. `.t(` does, so `editor.t(…)` / `this.t(…)` are fine. If you inject a translator into
+  a view or helper, name the parameter `t`.
+- **The first argument has to be a literal.** `t( definition.title )` is invisible. This is the
+  common failure when labels live in a table:
+
+  ```ts
+  // ✗ invisible to the registry — the label reaches t() as a variable
+  const MODES = [ { value: 'card', label: 'Card' } ];
+  label: t( mode.label )
+
+  // ✓ a switch puts a literal at each call site
+  export const MODES = [ 'card', 'embed' ] as const;
+  export function getModeLabel( t: ( message: string ) => string, mode: Mode ): string {
+      switch ( mode ) {
+          case 'card': return t( 'Card' );
+          case 'embed': return t( 'Embed' );
+          default: return mode;   // unrecognized value renders as-is
+      }
+  }
   ```
 
-- **`lang/contexts.json`** — maps each message id to a short context string for translators
-  (mirrors the `msgctxt`):
+  Existing examples: `getAdmonitionTitle()`, `getLinkDisplayModeLabel()`, `getBoxSizeLabel()`.
+  Where a helper takes the label ready-made instead (`_createToolbarButton` in mermaid,
+  `_registerButton` in image actions), translate at the **call site** and document that the
+  parameter arrives translated.
 
-  ```json
-  { "Admonition": "Toolbar button tooltip for the Admonition feature." }
-  ```
+### Upstream messages: call `t()`, add no entry
 
-**Note:** the `.po`/`contexts.json` workflow described above is effectively dormant in Trilium.
-The folded-in plugins' `lang/` directories were dropped during consolidation because nothing in the
-build or CI consumed them, and none survive. New
-user-facing strings reach the UI either through CKEditor's own `t()` dictionary
-(`packages/ckeditor5/src/translation_overrides.ts`) or, for Trilium-specific strings, through the
-host's `translate` config callback described below.
+If CKEditor already ships the string, our dictionary merges **after** the core one, so an entry
+would override the upstream translation in every locale. Call `t()` anyway — CKEditor's own catalog
+resolves it — but do not add it to `text-editor.ck`. `i18n.spec.ts` recognizes upstream messages and
+exempts them from the missing check, so this is only a hazard when adding entries by hand.
 
-### Custom `translate` config fallback
+Check before adding:
 
-Some Trilium plugins (e.g. collapsible) also accept a `translate` function via editor config,
-falling back to the identity function so the string is used verbatim when none is supplied:
+```bash
+node --input-type=module -e "const c=(await import('ckeditor5/translations/de.js')).default;
+  console.log(new Set(Object.keys(c.de.dictionary)).has('Save'))"
+```
+
+Strings found this way so far: `Save`, `Cancel`, `Insert`, `Small`, `Page break`,
+`Align left/center/right`, `Justify`, `Block quote`, `Code block`, `Table`, `Horizontal line`,
+`Please try a different phrase or check the spelling.`
+
+### Renaming an upstream string
+
+Trilium calls CKEditor's bookmarks "anchors". That is the one case where a message id and its
+English text differ, so the pairs are declared in `MESSAGE_OVERRIDES` (`messages.ts`) rather than
+discovered — the dictionary must be keyed by the *upstream* id for CKEditor to find it, while the
+text comes from our catalog entry for the replacement:
 
 ```ts
-const translate = ( editor.config.get( 'translate' ) as
-	( ( key: string, params?: Record<string, unknown> ) => string ) | undefined )
-	?? ( ( key: string ) => key );
+export const MESSAGE_OVERRIDES: Record<string, string> = {
+    "Bookmark": "Anchor",
+    "Edit bookmark": "Edit anchor"
+};
 ```
 
-See `packages/ckeditor5/src/plugins/collapsible/collapsible_ui.ts` and `collapsible-editing.ts`. This
-is independent of `editor.t()`/PO catalogs — it lets the host (Trilium) inject its own
-translator for plugin-specific labels.
+The replacement needs its own English entry like any other message — that is what makes the rename
+translatable per locale instead of English-only. A rename also applies when the locale has nothing,
+since the English replacement is itself the point. **A plugin Trilium owns never belongs here:**
+rename its message id at the call site.
+
+### Interpolation
+
+`%0`, `%1`, … — CKEditor's convention, not i18next's `{{name}}` and not a template literal:
+
+```ts
+t( 'Insert footnote %0', index );
+t( 'No templates were found matching "%0".', query );
+```
+
+A placeholder lets a translator move the value; `` `Insert footnote ${index}` `` does not, and is
+invisible to the scan besides. Nothing escapes the substituted value, so markup passes through — the
+caller is responsible for the sanitizer settings of wherever it lands.
+
+### Code that runs before an editor exists
+
+The slash-command definitions are built by the host, with no editor to ask. They use
+`translateMessage( hostTranslate, message, values )` from `messages.ts` — the same key derivation and
+the same `%0` substitution, minus the editor:
+
+```ts
+const t: MessageTranslateFn = ( message, ...values ) => translateMessage( translate, message, values );
+```
+
+Note the local is still named `t`, so the literals at the call sites stay visible to the scan.
+
+### Keystrokes inside a message
+
+Don't resolve key names in this package. Key labels ("Ctrl" is "Strg" in German) live in the
+app-wide `keyboard_shortcut_keys` catalog that the command palette and help dialog also read;
+duplicating them here would fork fifteen strings and collide with upstream's `Insert`. The host
+renders the whole shortcut and the plugin interpolates the markup:
+
+```ts
+import { renderShortcut } from '../../shortcut.js';
+
+const title = editor.t( 'Click on the arrow or press %0 to collapse/expand.',
+    renderShortcut( editor, TOGGLE_SHORTCUT ) );
+```
+
+`renderShortcut` reads the host's `renderShortcut` editor-config entry and falls back to the stored
+form (`"Ctrl+Enter"`) when none is configured. The result is `<kbd>` markup, so the surface showing
+it must not sanitize (both current callers set `sanitize: false` on their tooltip).
+
+### What the checks cannot see
+
+`i18n.spec.ts` only knows about strings the scan finds, so a string that reaches **no** translation
+function at all is invisible to it — a bare `label: 'Copy to clipboard'` passes every test. A grep
+for `label:`/`tooltip:`/`title:`/`placeholder:`/`aria-label` catches most, but not text built by
+concatenation or assembled in a `setTemplate` children array. When reviewing a plugin, read its
+strings rather than trusting a green suite.
