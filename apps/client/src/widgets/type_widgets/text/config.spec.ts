@@ -1,7 +1,6 @@
 import { DISPLAYABLE_LOCALE_IDS, LOCALES } from "@triliumnext/commons";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { t } from "../../../services/i18n.js";
 import imageService from "../../../services/image.js";
 import noteAutocompleteService from "../../../services/note_autocomplete.js";
 import { ensureMimeTypesForHighlighting } from "../../../services/syntax_highlight.js";
@@ -11,6 +10,10 @@ import { buildConfig, type BuildEditorOptions, OPEN_SOURCE_LICENSE_KEY } from ".
 const optionsState = vi.hoisted(() => ({ map: {} as Record<string, string | undefined> }));
 // Toggles whether the editor advertises raw-image clipboard support.
 const imageState = vi.hoisted(() => ({ copySupported: false }));
+
+// Key names inside a rendered shortcut come from the app catalog; echo the key back so the lookup
+// is visible in the assertions rather than resolving to `undefined` against an uninitialized i18n.
+vi.mock("../../../services/i18n.js", () => ({ t: (key: string) => key }));
 
 vi.mock("../../../services/options.js", () => ({
     default: {
@@ -78,7 +81,7 @@ interface MentionSuggestion {
 
 /** The dynamically-attached config members that CKEditor's `EditorConfig` type doesn't declare. */
 interface DynamicConfig {
-    translate(key: string, params?: Record<string, unknown>): unknown;
+    renderShortcut(shortcut: string): string;
     imageActions: {
         copyToClipboard(src: string): void;
         download(src: string): void;
@@ -208,11 +211,18 @@ describe("CK config - image actions", () => {
         expect(supportedToolbar).toContain("downloadImage");
     });
 
-    it("wires the translate, copy and download callbacks to their services", async () => {
+    it("wires the shortcut renderer, copy and download callbacks to their services", async () => {
         const config = await buildDynamicConfig();
 
-        // `translate` simply delegates to the app's i18n function.
-        expect(config.translate("editable_text.placeholder")).toBe(t("editable_text.placeholder"));
+        // `renderShortcut` hands a plugin ready-made markup: every key translated through the app
+        // catalog and wrapped in its own `<kbd>`. The platform is read per call, so both the
+        // separated rendering and the macOS glyph one come from the same config entry.
+        vi.stubGlobal("navigator", { platform: "Win32" });
+        expect(config.renderShortcut("Ctrl+Enter"))
+            .toBe("<kbd>keyboard_shortcut_keys.ctrl</kbd>+<kbd>keyboard_shortcut_keys.enter</kbd>");
+
+        vi.stubGlobal("navigator", { platform: "MacIntel" });
+        expect(config.renderShortcut("Ctrl+Enter")).toBe("<kbd>⌃</kbd><kbd>↩</kbd>");
 
         config.imageActions.copyToClipboard("image-src-1");
         config.imageActions.download("image-src-2");
