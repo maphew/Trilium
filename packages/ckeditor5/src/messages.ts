@@ -35,7 +35,9 @@ export function slugify(message: string): string {
     return message
         .toLowerCase()
         .replace(/[^a-z0-9]+/g, "-")
-        .replace(/^-+|-+$/g, "");
+        // The collapse above leaves at most one dash at each end, so trimming a single one is
+        // enough — and matching `-+$` instead would rescan the whole string from every position.
+        .replace(/^-|-$/g, "");
 }
 
 /**
