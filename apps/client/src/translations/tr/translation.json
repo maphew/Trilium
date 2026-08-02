@@ -269,14 +269,13 @@
       "create-a-numbered-list": "Numaralı liste oluştur",
       "create-a-to-do-list": "Yapılacaklar listesi oluştur",
       "display-the-content-of-another-note-in-this-note": "Bu notta başka bir notun içeriğini görüntüle",
-      "import-a-markdown-file-into-this-note": "Bu notun içine bir markdown dosyası aktarın",
       "insert-a-link-to-another-trilium-note": "Başka Trilium notuna link ekleyin",
       "insert-a-math-equation": "Matematiksel bir denklem ekle",
+      "insert-a-new-admonition": "Yeni bir uyarı ekler",
       "insert-a-page-break-for-printing": "Sayfa sonu ekle (yazdırma için)",
       "insert-a-toggleable-section-that-hides-shows-content-on-click": "Tıklandığında içeriği gizleyen/gösteren, açılıp kapanabilir bir bölüm ekleyin.",
       "insert-an-anchor-for-internal-linking": "Dahili linkleme için bir bağlantı metni ekleyin",
       "insert-the-current-date-and-time": "Geçerli tarih ve saati girin",
-      "inserts-a-new-admonition": "Yeni bir uyarı ekler",
       "justify-text-alignment": "Metni iki yana hizala"
     }
   },

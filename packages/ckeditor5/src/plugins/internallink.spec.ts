@@ -35,7 +35,7 @@ describe("InternalLinkPlugin", () => {
         // No dictionary is configured here, so `t()` renders the message id, which is the English
         // label. The shortcut is not part of it — CKEditor appends the keystroke to the tooltip,
         // localized per platform.
-        expect(view.label).toBe("Internal Trilium link");
+        expect(view.label).toBe("Internal link");
         expect(view.keystroke).toBe("CTRL+L");
     });
 

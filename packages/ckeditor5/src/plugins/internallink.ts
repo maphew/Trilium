@@ -23,7 +23,7 @@ export default class InternalLinkPlugin extends Plugin {
 			// the tooltip itself — rendered as ⌘L on macOS, where the binding really is
 			// `CommandOrControl+L`, and left out of the string translators see.
 			view.set( {
-				label: t('Internal Trilium link'),
+				label: t('Internal link'),
 				icon: internalLinkIcon,
 				keystroke: 'CTRL+L',
 				tooltip: true

@@ -26,7 +26,7 @@ describe("InsertDateTimePlugin", () => {
         // No dictionary is configured here, so `t()` renders the message id, which is the English
         // label.
         const view = editor.ui.componentFactory.create("dateTime") as { label?: string };
-        expect(view.label).toBe("Date time");
+        expect(view.label).toBe("Insert date/time");
     });
 
     it("triggers insertDateTimeToText on the glob component when executed", () => {

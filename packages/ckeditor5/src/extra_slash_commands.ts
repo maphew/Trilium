@@ -79,7 +79,7 @@ export default function buildExtraCommands(
         },
         {
             id: "internal-link",
-            title: t("Internal Trilium link"),
+            title: t("Internal link"),
             description: t("Insert a link to another Trilium note"),
             aliases: [ "internal link", "trilium link", "reference link" ],
             icon: internalLinkIcon,
@@ -110,7 +110,7 @@ export default function buildExtraCommands(
         {
             id: "markdown-import",
             title: t("Markdown import"),
-            description: t("Import a markdown file into this note"),
+            description: t("Import Markdown from the clipboard"),
             icon: importMarkdownIcon,
             commandName: MARKDOWN_IMPORT_COMMAND
         },
@@ -233,7 +233,7 @@ function buildAdmonitionExtraCommands(t: MessageTranslateFn): SlashCommandDefini
         commands.push({
             id: type,
             title: getAdmonitionTitle(t, type),
-            description: t("Inserts a new admonition"),
+            description: t("Insert a new admonition"),
             icon: admonitionIcons[type],
             execute: (editor: Editor) => editor.execute("admonition", { forceValue: type }),
             aliases: [ "box" ]

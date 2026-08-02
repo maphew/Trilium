@@ -14,7 +14,7 @@ export default class CutToNotePlugin extends Plugin {
 			const view = new ButtonView( locale );
 
 			view.set( {
-				label: t('Cut & paste selection to sub-note'),
+				label: t('Cut selection into a sub-note'),
 				icon: scissorsIcon,
 				tooltip: true
 			} );

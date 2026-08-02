@@ -14,7 +14,7 @@ export default class InsertDateTimePlugin extends Plugin {
             const view = new ButtonView( locale );
 
             view.set( {
-                label: t('Date time'),
+                label: t('Insert date/time'),
                 icon: dateTimeIcon,
                 tooltip: true
             } );

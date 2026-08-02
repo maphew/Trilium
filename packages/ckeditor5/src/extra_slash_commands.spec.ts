@@ -61,7 +61,7 @@ describe("buildExtraCommands", () => {
         const commands = buildExtraCommands(t);
         const cmd = commands.find((c) => c.id === "internal-link");
         expect(cmd).toBeDefined();
-        expect(cmd?.title).toBe("Internal Trilium link");
+        expect(cmd?.title).toBe("Internal link");
         expect(Array.isArray(cmd?.aliases)).toBe(true);
         expect(cmd?.icon).toBeTruthy();
     });
@@ -257,7 +257,7 @@ describe("buildExtraCommands", () => {
                 expect(cmd, `admonition command for ${keyword}`).toBeDefined();
                 expect(typeof cmd?.execute).toBe("function");
                 expect(cmd?.icon).toBeTruthy();
-                expect(cmd?.description).toBe("Inserts a new admonition");
+                expect(cmd?.description).toBe("Insert a new admonition");
                 expect(cmd?.aliases).toContain("box");
                 expect(cmd?.title).toBe(ENGLISH_TITLES[keyword]);
             }
