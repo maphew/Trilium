@@ -85,6 +85,25 @@ test:sequential` runs `ckeditor5` **sequentially** (browser resource
 limits), alongside the server. `pnpm test:all` runs both. Each package exposes `"test": "vitest"` and
 `"test:debug": "vitest --inspect-brk --no-file-parallelism --browser.headless=false"`.
 
+**When the downloaded browser cannot run** — on NixOS the Chrome for Testing build and chromedriver
+webdriverio fetches into `/tmp` are linked against libraries no store path provides and die on a
+missing `libxcb.so.1` — point the suite at a system pair instead:
+
+```bash
+CHROME_BIN=/path/to/chromium CHROMEDRIVER_PATH=/path/to/chromedriver \
+    pnpm --filter @triliumnext/ckeditor5 test
+```
+
+`CHROMEDRIVER_PATH` is webdriverio's own variable and makes it spawn that driver on a free port;
+`CHROME_BIN` is read by the package's `vitest.config.ts` and passed as `goog:chromeOptions.binary`,
+which also stops the browser download (`setupPuppeteerBrowser` returns early for a string `binary`).
+The two versions must match at least in their major. `nix develop` sets both from `pkgs.chromium`
+and `pkgs.chromedriver`, so inside the dev shell the plain command works — **don't** start a driver
+by hand or write a local override config.
+
+Failed browser tests dump PNGs into a gitignored `__screenshots__` beside the spec; delete them
+afterwards.
+
 ## Anatomy of a test
 
 In the aggregate (`packages/ckeditor5`), use the shared **editor kit** —

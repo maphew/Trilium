@@ -205,6 +205,7 @@ SQLite via `better-sqlite3`. SQL abstraction in `packages/trilium-core/src/servi
 - Client tests can run in parallel
 - E2E tests use Playwright for both server and desktop apps
 - Build validation tests check artifact integrity
+- **Browser-mode tests** (`packages/ckeditor5`) drive a real headless Chrome via `@vitest/browser-webdriverio`, which downloads its own Chrome and chromedriver. Where those cannot run (NixOS: they die on a missing `libxcb.so.1`), set `CHROME_BIN` and `CHROMEDRIVER_PATH` to a system pair of matching versions — `nix develop` exports both. Never start a chromedriver by hand or add a local override config; see `docs/Developer Guide/Developer Guide/Testing.md`
 - **Write concise tests**: Group related assertions together in a single test case rather than creating many one-shot tests
 - **Extract and test business logic**: When adding pure business logic (e.g., data transformations, migrations, validations), extract it as a separate function and always write unit tests for it
 
