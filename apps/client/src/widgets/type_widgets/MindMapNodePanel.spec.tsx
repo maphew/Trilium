@@ -77,7 +77,7 @@ function activeImageWidth(container: HTMLElement) {
 
 /** The button of the picture row wearing the given icon, if it is offered at all. */
 function imageAction(container: HTMLElement, icon: string) {
-    return section(container, IMAGE).querySelector<HTMLElement>(`.mind-map-node-image-actions .${icon}`);
+    return section(container, IMAGE).querySelector<HTMLButtonElement>(`.mind-map-node-image .${icon}`);
 }
 
 /** Hands a picture to the field behind the button, the way picking one from disk does. */
@@ -324,6 +324,7 @@ describe("MindMapNodePanel", () => {
         // The picture is on the node itself; the row says how large it is drawn and offers the way
         // to another one or to none.
         expect(activeImageWidth(container)).toBe(1);
+        expect(imageAction(container, "bx-repost")?.disabled).toBe(false);
         expect(imageAction(container, "bx-trash")).toBeTruthy();
 
         // A node carrying none offers to take one in, and nothing else: there is no size to set and
@@ -354,7 +355,7 @@ describe("MindMapNodePanel", () => {
         expect(reshapeNode).toHaveBeenNthCalledWith(2, mind.currentNodes[1], { image: undefined });
     });
 
-    it("says as much where the selection carries different pictures", () => {
+    it("takes no picture in where the selection carries different ones", () => {
         const nodes = [
             buildNode({ id: "a", image: { url: "a.png", width: 240, height: 180 } }),
             buildNode({ id: "b", image: { url: "b.png", width: 120, height: 90 } })
@@ -362,10 +363,15 @@ describe("MindMapNodePanel", () => {
 
         const container = renderInto(<MindMapNodePanel mind={buildMind(nodes).mind} noteId="mapNote" nodes={nodes} />);
 
-        expect(section(container, IMAGE).querySelector(".mind-map-node-image-mixed")).toBeTruthy();
-        // No width can be shown, but one can still be set for all of them.
-        expect(activeImageWidth(container)).toBe(-1);
+        // One picture cannot take the place of them all — that is a removal in all but name. What
+        // it would take, removing them and taking one in, is what the row still offers. (The
+        // section carries the reason as its title, which no test can read: the panel's own strings
+        // resolve to nothing until i18next is initialized, which it is not here.)
+        expect(imageAction(container, "bx-repost")?.disabled).toBe(true);
         expect(imageAction(container, "bx-trash")).toBeTruthy();
+        // No width can be shown either, but one can still be set for all of them.
+        expect(activeImageWidth(container)).toBe(-1);
+        expect(imageWidthButtons(container)).toHaveLength(3);
     });
 
     it("stores a chosen picture on the note and gives it to every selected node", async () => {

@@ -53,19 +53,6 @@
 
 .mind-map-node-panel .mind-map-node-image {
     display: flex;
-    flex-direction: column;
-    gap: 8px;
-}
-
-/* Where the selection carries different pictures, said above the row rather than beside it. */
-.mind-map-node-panel .mind-map-node-image-mixed {
-    align-self: center;
-    font-size: .9em;
-    opacity: .7;
-}
-
-.mind-map-node-panel .mind-map-node-image-actions {
-    display: flex;
     align-items: center;
     gap: 4px;
 

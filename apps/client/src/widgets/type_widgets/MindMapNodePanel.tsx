@@ -373,7 +373,11 @@ function NodeIcon({ face, title, disabled, onSelect, onRemove }: {
 function NodeImage({ hasImage, indeterminate, width, onPick, onResize, onRemove }: {
     /** Whether the selection carries a picture at all, which is what the row offers to do with. */
     hasImage: boolean;
-    /** The selected nodes carry different pictures, which is why no width is shown. */
+    /**
+     * The selected nodes carry different pictures. Nothing here shows which — the nodes do — and
+     * one cannot be put in the place of them all: that is a removal in all but name, and the way
+     * to it is to remove them and take one in, which the rest of the row offers plainly.
+     */
     indeterminate: boolean;
     /** The width they are drawn at, or `null` where the nodes disagree on one. */
     width: number | null;
@@ -383,36 +387,33 @@ function NodeImage({ hasImage, indeterminate, width, onPick, onResize, onRemove 
 }) {
     return (
         <div className="mind-map-node-image">
-            {indeterminate && <div className="mind-map-node-image-mixed">{t("mind-map.image-mixed")}</div>}
-
-            <div className="mind-map-node-image-actions">
-                {hasImage && (
-                    <SegmentedChoice
-                        options={buildImageWidthOptions()}
-                        // Nothing is highlighted where the nodes are drawn at different widths, or
-                        // where a map made elsewhere carries a width of its own.
-                        currentValue={width !== null ? String(nearestNodeImageWidth(width)) : ""}
-                        onChange={(width) => onResize(Number(width))}
-                    />
-                )}
-
-                <FormFileUploadActionButton
-                    icon={hasImage ? "bx bx-repost" : "bx bx-image-add"}
-                    text={hasImage ? t("mind-map.change-image") : t("mind-map.add-image")}
-                    onChange={(files) => {
-                        const file = files?.[0];
-                        if (file) onPick(file);
-                    }}
+            {hasImage && (
+                <SegmentedChoice
+                    options={buildImageWidthOptions()}
+                    // Nothing is highlighted where the nodes are drawn at different widths, or
+                    // where a map made elsewhere carries a width of its own.
+                    currentValue={width !== null ? String(nearestNodeImageWidth(width)) : ""}
+                    onChange={(width) => onResize(Number(width))}
                 />
+            )}
 
-                {hasImage && (
-                    <ActionButton
-                        icon="bx bx-trash"
-                        text={t("mind-map.remove-image")}
-                        onClick={onRemove}
-                    />
-                )}
-            </div>
+            <FormFileUploadActionButton
+                icon={hasImage ? "bx bx-repost" : "bx bx-image-add"}
+                text={hasImage ? t("mind-map.change-image") : t("mind-map.add-image")}
+                disabled={indeterminate}
+                onChange={(files) => {
+                    const file = files?.[0];
+                    if (file) onPick(file);
+                }}
+            />
+
+            {hasImage && (
+                <ActionButton
+                    icon="bx bx-trash"
+                    text={t("mind-map.remove-image")}
+                    onClick={onRemove}
+                />
+            )}
         </div>
     );
 }
