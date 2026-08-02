@@ -1,15 +1,13 @@
 import "mind-elixir/style";
-import "@mind-elixir/node-menu/dist/style.css";
 import "./MindMap.css";
 
-// allow node-menu plugin css to be bundled by webpack
-import nodeMenu from "@mind-elixir/node-menu";
 import { NOTE_TYPE_IMAGE_ATTACHMENTS } from "@triliumnext/commons";
 import { t } from "i18next";
-import { DARK_THEME, default as VanillaMindElixir, MindElixirData, MindElixirInstance, Operation, THEME as LIGHT_THEME } from "mind-elixir";
+import { DARK_THEME, default as VanillaMindElixir, MindElixirData, MindElixirInstance, NodeObj, Operation, THEME as LIGHT_THEME } from "mind-elixir";
 import type { LangPack } from "mind-elixir/i18n";
-import { HTMLAttributes, RefObject } from "preact";
-import { useCallback, useEffect, useRef } from "preact/hooks";
+import { ComponentChildren, HTMLAttributes, RefObject } from "preact";
+import { createPortal } from "preact/compat";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import { sanitizeNoteContentHtml } from "../../services/sanitize_content";
 import toast from "../../services/toast";
@@ -17,6 +15,7 @@ import utils from "../../services/utils";
 import { useColorScheme, useEditorSpacedUpdate, useEffectiveReadOnly, useSyncedRef, useTriliumEvent, useTriliumEvents, useTriliumOption } from "../react/hooks";
 import { refToJQuerySelector } from "../react/react_utils";
 import { renderMindMapPreviewSvg } from "./helpers/mind_map_export";
+import MindMapNodePanel from "./MindMapNodePanel";
 import { TypeWidgetProps } from "./type_widget";
 
 const NEW_TOPIC_NAME = "";
@@ -68,10 +67,13 @@ function sanitizeMindMapNode(value: unknown): void {
 
 interface MindElixirProps {
     apiRef?: RefObject<MindElixirInstance>;
+    /** Rendered in an overlay on top of the map, outside of the DOM managed by Mind Elixir. */
+    children?: ComponentChildren;
     containerProps?: Omit<HTMLAttributes<HTMLDivElement>, "ref">;
     containerRef?: RefObject<HTMLDivElement>;
     editable: boolean;
     onChange?: () => void;
+    onSelectionChange?: (selectedNodes: NodeObj[]) => void;
 }
 
 function buildMindElixirLangPack(): LangPack {
@@ -95,6 +97,7 @@ export default function MindMap({ note, ntxId, noteContext }: TypeWidgetProps) {
     const apiRef = useRef<MindElixirInstance>(null);
     const containerRef = useRef<HTMLDivElement>(null);
     const isReadOnly = useEffectiveReadOnly(note, noteContext);
+    const [ selectedNodes, setSelectedNodes ] = useState<NodeObj[]>([]);
 
 
     const spacedUpdate = useEditorSpacedUpdate({
@@ -178,21 +181,27 @@ export default function MindMap({ note, ntxId, noteContext }: TypeWidgetProps) {
             containerRef={containerRef}
             apiRef={apiRef}
             onChange={() => spacedUpdate.scheduleUpdate()}
+            onSelectionChange={setSelectedNodes}
             editable={!isReadOnly}
             containerProps={{
                 className: "mind-map-container",
                 onKeyDown
             }}
-        />
+        >
+            {!isReadOnly && selectedNodes.length > 0 && <MindMapNodePanel />}
+        </MindElixir>
     );
 }
 
-function MindElixir({ containerRef: externalContainerRef, containerProps, apiRef: externalApiRef, onChange, editable }: MindElixirProps) {
+function MindElixir({ children, containerRef: externalContainerRef, containerProps, apiRef: externalApiRef, onChange, onSelectionChange, editable }: MindElixirProps) {
     const containerRef = useSyncedRef<HTMLDivElement>(externalContainerRef, null);
     const apiRef = useRef<MindElixirInstance>(null);
     const [ locale ] = useTriliumOption("locale");
     const colorScheme = useColorScheme();
     const defaultColorScheme = useRef(colorScheme);
+    const [ overlayEl ] = useState(createOverlayElement);
+    // Incremented every time a new instance is built, so that listeners get rebound onto its event bus.
+    const [ instanceVersion, setInstanceVersion ] = useState(0);
 
     function reinitialize() {
         if (!containerRef.current) return;
@@ -204,14 +213,16 @@ function MindElixir({ containerRef: externalContainerRef, containerProps, apiRef
             theme: defaultColorScheme.current === "dark" ? DARK_THEME : LIGHT_THEME
         });
 
-        if (editable) {
-            mind.install(nodeMenu);
-        }
-
         apiRef.current = mind;
         if (externalApiRef) {
             externalApiRef.current = mind;
         }
+
+        // Mind Elixir wipes the element it is given, so the overlay has to be reattached
+        // after every initialization. It goes outside `mind.container` on purpose, since
+        // that one scrolls along with the map.
+        containerRef.current.appendChild(overlayEl);
+        setInstanceVersion((version) => version + 1);
     }
 
     useEffect(() => {
@@ -262,7 +273,34 @@ function MindElixir({ containerRef: externalContainerRef, containerProps, apiRef
         };
     }, [ onChange ]);
 
+    // Selection listener. The events only carry the nodes that were added to or removed from the
+    // selection, so the full selection is read back from the instance instead.
+    useEffect(() => {
+        const mind = apiRef.current;
+        if (!onSelectionChange || !mind) return;
+
+        const reportSelection = () => onSelectionChange(mind.currentNodes.map(({ nodeObj }) => nodeObj));
+
+        reportSelection();
+        mind.bus.addListener("selectNodes", reportSelection);
+        mind.bus.addListener("unselectNodes", reportSelection);
+
+        return () => {
+            mind.bus.removeListener("selectNodes", reportSelection);
+            mind.bus.removeListener("unselectNodes", reportSelection);
+        };
+    }, [ onSelectionChange, instanceVersion ]);
+
     return (
-        <div ref={containerRef} {...containerProps} />
+        <>
+            <div ref={containerRef} {...containerProps} />
+            {createPortal(<>{children}</>, overlayEl)}
+        </>
     );
+}
+
+function createOverlayElement() {
+    const overlayEl = document.createElement("div");
+    overlayEl.className = "mind-map-overlay";
+    return overlayEl;
 }

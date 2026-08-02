@@ -28,10 +28,6 @@ declare module "draggabilly" {
     }
 }
 
-declare module "@mind-elixir/node-menu" {
-    export default mindmap;
-}
-
 declare module "katex/contrib/auto-render" {
     var renderMathInElement: (element: HTMLElement, options: {
         trust: boolean;

@@ -1,0 +1,21 @@
+.mind-map-node-panel {
+    position: absolute;
+    /* Leaves room for the floating buttons of the note. */
+    top: 60px;
+    inset-inline-end: 20px;
+    width: 240px;
+    max-height: calc(100% - 100px);
+    overflow: auto;
+    box-sizing: border-box;
+    padding: 15px;
+    background: var(--menu-background-color);
+    color: var(--menu-text-color);
+    border: 1px solid var(--dropdown-border-color);
+    border-radius: 8px;
+    box-shadow: 0 2px 8px #0003;
+    backdrop-filter: blur(10px);
+}
+
+.mind-map-container:fullscreen .mind-map-node-panel {
+    top: calc(20px + env(safe-area-inset-top));
+}
