@@ -9,8 +9,10 @@ import { t } from "../../services/i18n";
 import note_autocomplete from "../../services/note_autocomplete";
 import tree from "../../services/tree";
 import ValuesInput from "../attribute_widgets/values_input";
+import ActionButton from "../react/ActionButton";
 import ColorPicker, { DEFAULT_COLOR_PALETTE } from "../react/ColorPicker";
 import Dropdown from "../react/Dropdown";
+import { FormFileUploadActionButton } from "../react/FormFileUpload";
 import { FormListItem } from "../react/FormList";
 import { useNote, useNoteIcon, useNoteTitle } from "../react/hooks";
 import Icon from "../react/Icon";
@@ -18,6 +20,7 @@ import IconPicker from "../react/IconPicker";
 import NoteAutocomplete from "../react/NoteAutocomplete";
 import { refToJQuerySelector } from "../react/react_utils";
 import SegmentedChoice from "../react/SegmentedChoice";
+import { fitNodeImage, nearestNodeImageWidth, NODE_IMAGE_WIDTHS, uploadNodeImage } from "./helpers/mind_map_images";
 import { describeExternalLink, getLinkedNotePath, linkFromSuggestion } from "./helpers/mind_map_links";
 
 /**
@@ -35,6 +38,8 @@ export const NODE_BACKGROUND_COLORS = NODE_COLORS.map((color) => `${color}40`);
 
 interface MindMapNodePanelProps {
     mind: MindElixirInstance;
+    /** The note the map belongs to, which is where a picture put on a node is stored. */
+    noteId: string;
     /** The currently selected nodes; the panel edits all of them at once. */
     nodes: NodeObj[];
 }
@@ -43,12 +48,14 @@ interface MindMapNodePanelProps {
  * Floating panel displayed over a mind map while at least one node is selected, holding the
  * formatting controls for the selection.
  */
-export default function MindMapNodePanel({ mind, nodes }: MindMapNodePanelProps) {
+export default function MindMapNodePanel({ mind, noteId, nodes }: MindMapNodePanelProps) {
     const fontSize = getCommonValue(nodes, (node) => node.style?.fontSize);
     const textColor = getCommonValue(nodes, (node) => node.style?.color);
     const backgroundColor = getCommonValue(nodes, (node) => node.style?.background);
     const branchColor = getCommonValue(nodes, (node) => node.branchColor);
     const icons = gatherListValues(nodes, (node) => node.icons ?? []);
+    const image = getCommonValue(nodes, (node) => node.image?.url);
+    const imageWidth = getCommonValue(nodes, (node) => node.image && String(node.image.width));
     const link = getCommonValue(nodes, (node) => node.hyperLink);
     const tags = gatherTags(nodes);
 
@@ -60,6 +67,14 @@ export default function MindMapNodePanel({ mind, nodes }: MindMapNodePanelProps)
     function patchSelectedNodes(patch: Partial<NodeObj> | ((node: NodeObj) => Partial<NodeObj>)) {
         for (const topic of mind.currentNodes) {
             mind.reshapeNode(topic, typeof patch === "function" ? patch(topic.nodeObj) : patch);
+        }
+    }
+
+    /** Stores a picture on the note and gives it to the selection, if it can be taken in at all. */
+    async function takeInImage(file: File) {
+        const image = await uploadNodeImage(noteId, file);
+        if (image) {
+            patchSelectedNodes({ image });
         }
     }
 
@@ -112,6 +127,26 @@ export default function MindMapNodePanel({ mind, nodes }: MindMapNodePanelProps)
                     icons={icons.values}
                     readOnly={icons.readOnly}
                     onChange={(icons) => patchSelectedNodes({ icons })}
+                />
+            </PanelSection>
+
+            <PanelSection
+                label={t("mind-map.image")}
+                title={image === MIXED ? t("mind-map.images-differ") : undefined}
+            >
+                <NodeImage
+                    url={image !== MIXED ? image : null}
+                    indeterminate={image === MIXED}
+                    width={imageWidth !== MIXED && imageWidth ? Number(imageWidth) : null}
+                    // A node carries one picture, so what is taken in takes the place of what was
+                    // there, at the size it comes in at.
+                    onPick={(file) => void takeInImage(file)}
+                    // Derived per node: the nodes are set to the same width, but each keeps the
+                    // proportions of the picture it carries.
+                    onResize={(width) => patchSelectedNodes((node) => ({
+                        image: node.image && fitNodeImage(node.image, width)
+                    }))}
+                    onRemove={() => patchSelectedNodes({ image: undefined })}
                 />
             </PanelSection>
 
@@ -325,6 +360,69 @@ function NodeIcon({ face, title, disabled, onSelect, onRemove }: {
             )}
         </Dropdown>
     );
+}
+
+/**
+ * The picture a node carries: what it looks like, how large it is drawn, and the way to another one
+ * or to none at all.
+ *
+ * A node holds one picture, so the button offering one stands alone until there is a picture to
+ * show, and turns into the way to replace it once there is — the same shape the icons row takes.
+ */
+function NodeImage({ url, indeterminate, width, onPick, onResize, onRemove }: {
+    url: string | null;
+    /** The selected nodes carry different pictures, so none of them can be shown. */
+    indeterminate: boolean;
+    /** The width they are drawn at, or `null` where the nodes disagree on one. */
+    width: number | null;
+    onPick(file: File): void;
+    onResize(width: number): void;
+    onRemove(): void;
+}) {
+    const hasImage = !!url || indeterminate;
+
+    return (
+        <div className="mind-map-node-image">
+            {indeterminate
+                ? <div className="mind-map-node-image-mixed">{t("mind-map.image-mixed")}</div>
+                : url && <img className="mind-map-node-image-preview" src={url} alt="" />}
+
+            <div className="mind-map-node-image-actions">
+                {hasImage && (
+                    <SegmentedChoice
+                        options={buildImageWidthOptions()}
+                        // Nothing is highlighted where the nodes are drawn at different widths, or
+                        // where a map made elsewhere carries a width of its own.
+                        currentValue={width !== null ? String(nearestNodeImageWidth(width)) : ""}
+                        onChange={(width) => onResize(Number(width))}
+                    />
+                )}
+
+                <FormFileUploadActionButton
+                    icon={hasImage ? "bx bx-repost" : "bx bx-image-add"}
+                    text={hasImage ? t("mind-map.change-image") : t("mind-map.add-image")}
+                    onChange={(files) => {
+                        const file = files?.[0];
+                        if (file) onPick(file);
+                    }}
+                />
+
+                {hasImage && (
+                    <ActionButton
+                        icon="bx bx-trash"
+                        text={t("mind-map.remove-image")}
+                        onClick={onRemove}
+                    />
+                )}
+            </div>
+        </div>
+    );
+}
+
+/** The widths a picture is drawn at, under the same labels the text sizes wear. */
+function buildImageWidthOptions() {
+    const labels = [ t("mind-map.font-size-small"), t("mind-map.font-size-medium"), t("mind-map.font-size-large") ];
+    return NODE_IMAGE_WIDTHS.map((width, index) => ({ value: String(width), label: labels[index] }));
 }
 
 /** Kept still, so that the autocomplete is not built anew every time the panel renders. */

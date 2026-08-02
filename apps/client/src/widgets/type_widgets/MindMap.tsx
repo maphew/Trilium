@@ -191,7 +191,7 @@ export default function MindMap({ note, ntxId, noteContext }: TypeWidgetProps) {
             }}
         >
             {!isReadOnly && selectedNodes.length > 0 && apiRef.current &&
-                <MindMapNodePanel mind={apiRef.current} nodes={selectedNodes} />}
+                <MindMapNodePanel mind={apiRef.current} noteId={note.noteId} nodes={selectedNodes} />}
         </MindElixir>
     );
 }

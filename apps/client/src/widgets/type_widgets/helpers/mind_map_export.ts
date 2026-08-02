@@ -1,6 +1,7 @@
 import type { MindElixirInstance } from "mind-elixir";
 
 import { sanitizeNoteContentHtml } from "../../../services/sanitize_content";
+import { loadImageData } from "./mind_map_images";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const XHTML_NS = "http://www.w3.org/1999/xhtml";
@@ -28,8 +29,53 @@ const XHTML_NS = "http://www.w3.org/1999/xhtml";
  */
 export async function renderMindMapPreviewSvg(mind: MindElixirInstance): Promise<string> {
     const svgText = await mind.exportSvg().text();
-    return postProcessExportedSvg(mind, svgText);
+    return inlineExportedImages(postProcessExportedSvg(mind, svgText));
 }
+
+/**
+ * Carries the pictures of the nodes into the SVG itself, as data of their own.
+ *
+ * The exporter points each of them at the address it was drawn from, and that address is of no use
+ * to whoever ends up holding the SVG: it is read as a picture — on a share page, in an included
+ * note, as the note's own image — and a picture drawn by the browser is not allowed to fetch
+ * anything from anywhere, whatever it points at. The same is true of the rasterizer the PNG export
+ * runs through, which would additionally be barred from reading back a canvas it had tainted.
+ *
+ * Each picture is redrawn to about the size it is shown at rather than carried at its full weight,
+ * since the SVG is written afresh on every save: a photograph on a node would otherwise be paid for,
+ * a third over again for being written as text, at every pause in the editing.
+ *
+ * @param svgText the exported SVG.
+ * @param load how a picture is fetched and redrawn; the caller's own in the tests.
+ * @returns the SVG with every picture it could take in carried inside it. One it could not — a map
+ *          made elsewhere pointing at another site, a picture no longer there — is left pointing
+ *          where it did, which is no worse than it was.
+ */
+export async function inlineExportedImages(svgText: string, load: ImageLoader = loadImageData): Promise<string> {
+    const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+    const images = Array.from(doc.querySelectorAll("image"));
+
+    const loaded = await Promise.all(images.map((image) => {
+        const href = image.getAttribute("href") ?? "";
+        if (!href || href.startsWith("data:")) {
+            return null;
+        }
+        return load(href, Number.parseFloat(image.getAttribute("width") ?? "") || 0);
+    }));
+
+    let inlined = false;
+    for (const [ index, data ] of loaded.entries()) {
+        if (data) {
+            images[index].setAttribute("href", data);
+            inlined = true;
+        }
+    }
+
+    return inlined ? new XMLSerializer().serializeToString(doc) : svgText;
+}
+
+/** Fetches a picture and redraws it, given the width it is shown at. See {@link inlineExportedImages}. */
+export type ImageLoader = (url: string, displayWidth: number) => Promise<string | null>;
 
 // The exporter emits exact-fit foreignObject boxes: the text's measured width in the
 // page's font, to the third decimal, with `white-space: pre-wrap`. Any context that

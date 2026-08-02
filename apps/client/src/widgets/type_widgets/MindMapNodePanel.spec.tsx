@@ -3,7 +3,15 @@ import { describe, expect, it, vi } from "vitest";
 
 import { buildNotes } from "../../test/easy-froca";
 import { renderInto } from "../../test/render";
+import { uploadNodeImage } from "./helpers/mind_map_images";
 import MindMapNodePanel, { applyTagTexts, DEFAULT_FONT_SIZE, gatherTags, getCommonValue, MIXED, NODE_BACKGROUND_COLORS, NODE_COLORS, withIconAt } from "./MindMapNodePanel";
+
+// Storing a picture is the one thing the panel does that leaves the browser; the rest of the module
+// (the sizes, the proportions) is the real one, being what the panel is checked against here.
+vi.mock("./helpers/mind_map_images", async (importOriginal) => ({
+    ...await importOriginal<typeof import("./helpers/mind_map_images")>(),
+    uploadNodeImage: vi.fn()
+}));
 
 function buildNode(node: Partial<NodeObj> = {}): NodeObj {
     return { id: "n1", topic: "Node", ...node };
@@ -28,8 +36,9 @@ const TEXT = 1;
 const BACKGROUND = 2;
 const BRANCH = 3;
 const ICON = 4;
-const LINK = 5;
-const TAGS = 6;
+const IMAGE = 5;
+const LINK = 6;
+const TAGS = 7;
 
 function section(container: HTMLElement, index: number) {
     const sections = container.querySelectorAll<HTMLElement>(".mind-map-node-panel-section");
@@ -56,6 +65,31 @@ function iconButtons(container: HTMLElement) {
 function iconFaces(container: HTMLElement) {
     return iconButtons(container).map((button) =>
         [ ...button.classList ].filter((name) => name.startsWith("bx")).join(" "));
+}
+
+function imagePreview(container: HTMLElement) {
+    return section(container, IMAGE).querySelector<HTMLImageElement>(".mind-map-node-image-preview");
+}
+
+function imageWidthButtons(container: HTMLElement) {
+    return Array.from(section(container, IMAGE).querySelectorAll<HTMLElement>(".btn-group .btn"));
+}
+
+function activeImageWidth(container: HTMLElement) {
+    return imageWidthButtons(container).findIndex((button) => button.classList.contains("active"));
+}
+
+/** The button of the picture row wearing the given icon, if it is offered at all. */
+function imageAction(container: HTMLElement, icon: string) {
+    return section(container, IMAGE).querySelector<HTMLElement>(`.mind-map-node-image-actions .${icon}`);
+}
+
+/** Hands a picture to the field behind the button, the way picking one from disk does. */
+function chooseImage(container: HTMLElement, file: File) {
+    const input = section(container, IMAGE).querySelector<HTMLInputElement>("input[type=file]");
+    if (!input) throw new Error("the picture row has no field to pick through");
+    Object.defineProperty(input, "files", { value: [ file ], configurable: true });
+    input.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
 function sizeButtons(container: HTMLElement) {
@@ -163,7 +197,7 @@ describe("MindMapNodePanel", () => {
         const nodes = [buildNode()];
         const { mind } = buildMind(nodes);
 
-        const container = renderInto(<MindMapNodePanel mind={mind} nodes={nodes} />);
+        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
 
         for (const index of [TEXT, BACKGROUND, BRANCH]) {
             // A row is the presets plus the clear and custom cells; more would wrap in the panel.
@@ -177,7 +211,7 @@ describe("MindMapNodePanel", () => {
         const nodes = [buildNode({ id: "a" }), buildNode({ id: "b" })];
         const { mind, reshapeNode } = buildMind(nodes);
 
-        const container = renderInto(<MindMapNodePanel mind={mind} nodes={nodes} />);
+        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
 
         expect(sizeButtons(container)).toHaveLength(4);
         expect(activeSize(container)).toBe(1);
@@ -197,11 +231,11 @@ describe("MindMapNodePanel", () => {
     it("shows the size the selection already carries, and none when the nodes disagree", () => {
         const large = { style: { fontSize: "24px" } };
         const { mind } = buildMind([buildNode(large)]);
-        expect(activeSize(renderInto(<MindMapNodePanel mind={mind} nodes={[buildNode(large)]} />))).toBe(2);
+        expect(activeSize(renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={[buildNode(large)]} />))).toBe(2);
 
         const mixed = [buildNode({ id: "a", ...large }), buildNode({ id: "b", style: { fontSize: "32px" } })];
         const mixedMind = buildMind(mixed);
-        expect(activeSize(renderInto(<MindMapNodePanel mind={mixedMind.mind} nodes={mixed} />))).toBe(-1);
+        expect(activeSize(renderInto(<MindMapNodePanel mind={mixedMind.mind} noteId="mapNote" nodes={mixed} />))).toBe(-1);
     });
 
     it("shows the colors the selection already carries", () => {
@@ -211,7 +245,7 @@ describe("MindMapNodePanel", () => {
         })];
         const { mind } = buildMind(nodes);
 
-        const container = renderInto(<MindMapNodePanel mind={mind} nodes={nodes} />);
+        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
 
         const selectedIn = (index: number) => presetCells(section(container, index))
             .findIndex((cell) => cell.classList.contains("selected"));
@@ -228,7 +262,7 @@ describe("MindMapNodePanel", () => {
         ];
         const { mind } = buildMind(nodes);
 
-        const container = renderInto(<MindMapNodePanel mind={mind} nodes={nodes} />);
+        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
 
         const textCells = Array.from(section(container, TEXT).querySelectorAll(".color-cell"));
         expect(textCells.some((cell) => cell.classList.contains("selected"))).toBe(false);
@@ -241,7 +275,7 @@ describe("MindMapNodePanel", () => {
         const nodes = [buildNode({ id: "a" }), buildNode({ id: "b" })];
         const { mind, reshapeNode } = buildMind(nodes);
 
-        const container = renderInto(<MindMapNodePanel mind={mind} nodes={nodes} />);
+        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
 
         presetCells(section(container, TEXT))[3].click();
         expect(reshapeNode).toHaveBeenCalledTimes(2);
@@ -264,12 +298,12 @@ describe("MindMapNodePanel", () => {
     it("shows every icon the selection wears, and a button for one more", () => {
         const nodes = [buildNode({ icons: ["bx bx-star", "bx bx-cube"] })];
 
-        const container = renderInto(<MindMapNodePanel mind={buildMind(nodes).mind} nodes={nodes} />);
+        const container = renderInto(<MindMapNodePanel mind={buildMind(nodes).mind} noteId="mapNote" nodes={nodes} />);
 
         // The icons themselves, then the button adding another.
         expect(iconFaces(container)).toEqual(["bx bx-star", "bx bx-cube", "bx bx-plus"]);
         // A node wearing none is the adding button alone, which is invitation enough.
-        expect(iconFaces(renderInto(<MindMapNodePanel mind={buildMind([buildNode()]).mind} nodes={[buildNode()]} />)))
+        expect(iconFaces(renderInto(<MindMapNodePanel mind={buildMind([buildNode()]).mind} noteId="mapNote" nodes={[buildNode()]} />)))
             .toEqual(["bx bx-plus"]);
     });
 
@@ -279,17 +313,97 @@ describe("MindMapNodePanel", () => {
             buildNode({ id: "b", icons: ["bx bx-cube"] })
         ];
 
-        const container = renderInto(<MindMapNodePanel mind={buildMind(nodes).mind} nodes={nodes} />);
+        const container = renderInto(<MindMapNodePanel mind={buildMind(nodes).mind} noteId="mapNote" nodes={nodes} />);
 
         // Everything they carry, and no way to add: a pick could only overwrite what each has.
         expect(iconFaces(container)).toEqual(["bx bx-star", "bx bx-cube"]);
         expect(iconButtons(container).every((button) => button.disabled)).toBe(true);
     });
 
+    it("shows the picture the selection carries and what can be done with it, nothing more", () => {
+        const nodes = [buildNode({ image: { url: "api/attachments/att1/image/a.png", width: 240, height: 180 } })];
+
+        const container = renderInto(<MindMapNodePanel mind={buildMind(nodes).mind} noteId="mapNote" nodes={nodes} />);
+
+        expect(imagePreview(container)?.getAttribute("src")).toBe("api/attachments/att1/image/a.png");
+        expect(activeImageWidth(container)).toBe(1);
+        expect(imageAction(container, "bx-trash")).toBeTruthy();
+
+        // A node carrying none offers to take one in, and nothing else: there is no size to set and
+        // nothing to remove.
+        const empty = renderInto(<MindMapNodePanel mind={buildMind([buildNode()]).mind} noteId="mapNote" nodes={[buildNode()]} />);
+        expect(imagePreview(empty)).toBeNull();
+        expect(imageWidthButtons(empty)).toHaveLength(0);
+        expect(imageAction(empty, "bx-trash")).toBeNull();
+        expect(imageAction(empty, "bx-image-add")).toBeTruthy();
+    });
+
+    it("draws every selected node at the width it is asked for, each keeping its own proportions", () => {
+        const nodes = [
+            buildNode({ id: "a", image: { url: "a.png", width: 240, height: 180 } }),
+            buildNode({ id: "b", image: { url: "b.png", width: 240, height: 480 } })
+        ];
+        const { mind, reshapeNode } = buildMind(nodes);
+
+        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
+
+        imageWidthButtons(container)[2].click();
+        expect(reshapeNode).toHaveBeenNthCalledWith(1, mind.currentNodes[0], { image: { url: "a.png", width: 400, height: 300 } });
+        expect(reshapeNode).toHaveBeenNthCalledWith(2, mind.currentNodes[1], { image: { url: "b.png", width: 400, height: 800 } });
+
+        // Removing takes the picture off every selected node.
+        reshapeNode.mockClear();
+        imageAction(container, "bx-trash")?.click();
+        expect(reshapeNode).toHaveBeenNthCalledWith(1, mind.currentNodes[0], { image: undefined });
+        expect(reshapeNode).toHaveBeenNthCalledWith(2, mind.currentNodes[1], { image: undefined });
+    });
+
+    it("says as much where the selection carries different pictures", () => {
+        const nodes = [
+            buildNode({ id: "a", image: { url: "a.png", width: 240, height: 180 } }),
+            buildNode({ id: "b", image: { url: "b.png", width: 120, height: 90 } })
+        ];
+
+        const container = renderInto(<MindMapNodePanel mind={buildMind(nodes).mind} noteId="mapNote" nodes={nodes} />);
+
+        expect(imagePreview(container)).toBeNull();
+        expect(section(container, IMAGE).querySelector(".mind-map-node-image-mixed")).toBeTruthy();
+        // Neither the picture nor the width can be shown, but both can still be set for all of them.
+        expect(activeImageWidth(container)).toBe(-1);
+        expect(imageAction(container, "bx-trash")).toBeTruthy();
+    });
+
+    it("stores a chosen picture on the note and gives it to every selected node", async () => {
+        const image = { url: "api/attachments/att9/image/photo.png", width: 240, height: 160 };
+        vi.mocked(uploadNodeImage).mockResolvedValue(image);
+        const nodes = [buildNode({ id: "a" }), buildNode({ id: "b" })];
+        const { mind, reshapeNode } = buildMind(nodes);
+
+        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
+        chooseImage(container, new File([""], "photo.png", { type: "image/png" }));
+
+        await vi.waitFor(() => expect(reshapeNode).toHaveBeenCalledTimes(2));
+        expect(uploadNodeImage).toHaveBeenCalledWith("mapNote", expect.objectContaining({ name: "photo.png" }));
+        expect(reshapeNode).toHaveBeenNthCalledWith(1, mind.currentNodes[0], { image });
+        expect(reshapeNode).toHaveBeenNthCalledWith(2, mind.currentNodes[1], { image });
+    });
+
+    it("leaves the selection as it was when a picture cannot be stored", async () => {
+        vi.mocked(uploadNodeImage).mockResolvedValue(null);
+        const nodes = [buildNode()];
+        const { mind, reshapeNode } = buildMind(nodes);
+
+        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
+        chooseImage(container, new File([""], "photo.png", { type: "image/png" }));
+
+        await vi.waitFor(() => expect(uploadNodeImage).toHaveBeenCalled());
+        expect(reshapeNode).not.toHaveBeenCalled();
+    });
+
     it("says what the selection is linked to, and what it would take to link it", async () => {
         const [ noteId ] = buildNotes([ { title: "Linked note", "#iconClass": "bx bx-cube" } ]);
         const linkFace = (nodes: NodeObj[]) =>
-            renderInto(<MindMapNodePanel mind={buildMind(nodes).mind} nodes={nodes} />)
+            renderInto(<MindMapNodePanel mind={buildMind(nodes).mind} noteId="mapNote" nodes={nodes} />)
                 .querySelector<HTMLElement>(`.mind-map-node-panel-section:nth-child(${LINK + 1}) button`);
 
         // Nothing yet, and a selection that disagrees, each say so in their own words.
@@ -314,7 +428,7 @@ describe("MindMapNodePanel", () => {
         const nodes = [buildNode({ tags: [styled, "later"] })];
         const { mind, reshapeNode } = buildMind(nodes);
 
-        const container = renderInto(<MindMapNodePanel mind={mind} nodes={nodes} />);
+        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
 
         expect(tagTexts(container)).toEqual(["urgent", "later"]);
 
@@ -332,7 +446,7 @@ describe("MindMapNodePanel", () => {
         ];
         const { mind, reshapeNode } = buildMind(nodes);
 
-        const container = renderInto(<MindMapNodePanel mind={mind} nodes={nodes} />);
+        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
 
         expect(tagTexts(container)).toEqual(["urgent"]);
         expect(container.querySelector<HTMLInputElement>(".tn-field input")?.disabled).toBe(false);
@@ -350,7 +464,7 @@ describe("MindMapNodePanel", () => {
         ];
         const { mind, reshapeNode } = buildMind(nodes);
 
-        const container = renderInto(<MindMapNodePanel mind={mind} nodes={nodes} />);
+        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
 
         expect(tagTexts(container)).toEqual(["one", "shared", "two"]);
         expect(container.querySelector<HTMLInputElement>(".tn-field input")?.disabled).toBe(true);
@@ -365,7 +479,7 @@ describe("MindMapNodePanel", () => {
         const nodes = [buildNode()];
         const { mind } = buildMind(nodes);
 
-        const container = renderInto(<MindMapNodePanel mind={mind} nodes={nodes} />);
+        const container = renderInto(<MindMapNodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
         const panel = container.querySelector(".mind-map-node-panel");
 
         for (const event of [

@@ -3,9 +3,9 @@
 // breaks (NodeIterator mishandling — see sanitize_content.spec.ts). jsdom matches
 // real-browser behavior.
 import MindElixir, { type MindElixirData, type MindElixirInstance } from "mind-elixir";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
-import { postProcessExportedSvg, renderMindMapPreviewSvg } from "./mind_map_export";
+import { inlineExportedImages, postProcessExportedSvg, renderMindMapPreviewSvg } from "./mind_map_export";
 
 // mind-elixir touches these browser APIs at construction time; jsdom lacks them.
 window.matchMedia = window.matchMedia ?? ((query: string) => ({
@@ -131,6 +131,48 @@ describe("postProcessExportedSvg", () => {
         const withLabels = buildMind({ labels: [ "a label" ] });
         const flatSvg = `<svg xmlns="http://www.w3.org/2000/svg"><rect/></svg>`;
         expect(postProcessExportedSvg(withLabels, flatSvg)).toBe(flatSvg);
+    });
+});
+
+describe("inlineExportedImages", () => {
+    /** An export holding the pictures of three nodes, one of them already carried inside it. */
+    function buildExportWithImages() {
+        return `<svg xmlns="http://www.w3.org/2000/svg" width="400px" height="300px">` +
+            `<svg x="100" y="100" overflow="visible">` +
+            `<image x="0" y="0" width="240px" height="180px" href="api/attachments/att1/image/a.png"/>` +
+            `<image x="0" y="0" width="120px" height="90px" href="https://elsewhere.example/b.png"/>` +
+            `<image x="0" y="0" width="60px" height="45px" href="data:image/webp;base64,already"/>` +
+            `</svg></svg>`;
+    }
+
+    function imageHrefs(svgText: string) {
+        const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
+        return Array.from(doc.querySelectorAll("image")).map((image) => image.getAttribute("href"));
+    }
+
+    it("carries in every picture it can load, at the width it is drawn at", async () => {
+        // The picture of another site cannot be read back, and one already carried is not fetched.
+        const load = vi.fn(async (url: string) => (url.startsWith("api/") ? "data:image/webp;base64,carried" : null));
+
+        const result = await inlineExportedImages(buildExportWithImages(), load);
+
+        expect(imageHrefs(result)).toEqual([
+            "data:image/webp;base64,carried",
+            "https://elsewhere.example/b.png",
+            "data:image/webp;base64,already"
+        ]);
+        expect(load.mock.calls).toEqual([
+            [ "api/attachments/att1/image/a.png", 240 ],
+            [ "https://elsewhere.example/b.png", 120 ]
+        ]);
+    });
+
+    it("hands back what it was given when there is nothing to carry in", async () => {
+        const load = vi.fn(async () => "data:image/webp;base64,carried");
+        const svgText = buildExportedSvg();
+
+        expect(await inlineExportedImages(svgText, load)).toBe(svgText);
+        expect(load).not.toHaveBeenCalled();
     });
 });
 

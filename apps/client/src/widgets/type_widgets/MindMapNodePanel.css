@@ -51,6 +51,46 @@
     }
 }
 
+/* The picture stands above the row of what can be done with it. */
+.mind-map-node-panel .mind-map-node-image {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+/*
+ * Shown as it will read on a node, only smaller — enough to tell which picture it is. Left to keep
+ * its proportions inside that, and read against the panel as it will be read against the map, so
+ * that a picture with transparent parts shows them as such rather than on a plate of its own.
+ */
+.mind-map-node-panel .mind-map-node-image-preview {
+    align-self: center;
+    max-width: 100%;
+    max-height: 90px;
+    object-fit: contain;
+    border-radius: 4px;
+}
+
+/* Where the selection carries different pictures, said in the room one would have taken. */
+.mind-map-node-panel .mind-map-node-image-mixed {
+    align-self: center;
+    padding: 12px 0;
+    font-size: .9em;
+    opacity: .7;
+}
+
+.mind-map-node-panel .mind-map-node-image-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    /* The sizes take what the buttons beside them leave, rather than the whole row (see below). */
+    .btn-group {
+        flex: 1;
+        width: auto;
+    }
+}
+
 /*
  * The link takes the width of the panel and says what it points at, however long that runs: a title
  * or an address is as long as it is, and cutting it short is kinder than letting it push the panel
