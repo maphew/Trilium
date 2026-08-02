@@ -35,7 +35,29 @@ export interface ImageCompressionSectionProps {
     onChange(patch: Partial<ImageCompressionToolOptions>): void;
     /** Greys the controls out, for a host that hangs the whole group off a switch of its own. */
     disabled?: boolean;
+    /**
+     * A sentence under a row's title, for a host with room to explain rather than to be asked.
+     *
+     * Keyed by row rather than passed to one, because the group is wired once and handed down: a
+     * nested row is rendered by the row above it, and this is what lets a host still describe it.
+     *
+     * The settings page fills these in; the dialogs leave them out. A dialog is opened to do one
+     * thing and is read in a hurry, so what a row means lives behind its help mark and stays out of
+     * the way — where a settings page is read by someone deciding, and the prose is the point. Rows
+     * with nothing extra to say keep the mark alone.
+     */
+    descriptions?: Partial<Record<ImageCompressionSectionKey, string>>;
 }
+
+/** The rows a host can describe, named after the setting each one carries. */
+export type ImageCompressionSectionKey =
+    | "resize"
+    | "maxWidthHeight"
+    | "jpegHandling"
+    | "pngHandling"
+    | "quality"
+    | "conversionQuality"
+    | "processChildNotes";
 
 /**
  * Scaling an oversized image down, with the bound it is scaled to. The bound appears only while the
@@ -51,10 +73,11 @@ export function ResizeImageSection(props: ImageCompressionSectionProps) {
             subSectionsVisible={options.resize}
             subSections={[ <MaxImageDimensionsSection key="max-dimensions" {...props} /> ]}
         >
-            <span className="image-compression-section-title">
-                {t("space_usage.compress_resize")}
-                <ContextualHelp helpMessage={t("space_usage.compress_resize_help")} />
-            </span>
+            <SectionLabel
+                title={t("space_usage.compress_resize")}
+                help={t("space_usage.compress_resize_help")}
+                description={props.descriptions?.resize}
+            />
             <FormToggle
                 disabled={disabled}
                 currentValue={options.resize}
@@ -65,10 +88,13 @@ export function ResizeImageSection(props: ImageCompressionSectionProps) {
 }
 
 /** The bound an image is scaled down to fit. */
-export function MaxImageDimensionsSection({ options, onChange, disabled }: ImageCompressionSectionProps) {
+export function MaxImageDimensionsSection({ options, onChange, disabled, descriptions }: ImageCompressionSectionProps) {
     return (
         <CardSection className="image-compression-section image-compression-section-nested">
-            <span className="image-compression-section-title">{t("space_usage.compress_max_dimensions")}</span>
+            <SectionLabel
+                title={t("space_usage.compress_max_dimensions")}
+                description={descriptions?.maxWidthHeight}
+            />
             <FormTextBoxWithUnit
                 className="image-compression-section-number"
                 type="number"
@@ -104,6 +130,7 @@ export function JpegHandlingSection(props: ImageCompressionSectionProps) {
                 help={t("space_usage.compress_jpeg_handling_help")}
                 values={IMAGE_JPEG_HANDLINGS}
                 currentValue={options.jpegHandling}
+                description={props.descriptions?.jpegHandling}
                 labelKey="compress_jpeg"
                 onChoose={(jpegHandling) => onChange({ jpegHandling })}
             />
@@ -132,6 +159,7 @@ export function PngHandlingSection(props: ImageCompressionSectionProps) {
                 help={t("space_usage.compress_png_handling_help")}
                 values={IMAGE_PNG_HANDLINGS}
                 currentValue={options.pngHandling}
+                description={props.descriptions?.pngHandling}
                 labelKey="compress_png"
                 onChoose={(pngHandling) => onChange({ pngHandling })}
             />
@@ -140,35 +168,38 @@ export function PngHandlingSection(props: ImageCompressionSectionProps) {
 }
 
 /** The quality an already-lossy image is recompressed at. */
-export function JpegQualitySection({ options, onChange, disabled }: ImageCompressionSectionProps) {
+export function JpegQualitySection({ options, onChange, disabled, descriptions }: ImageCompressionSectionProps) {
     return (
         <QualitySlider
             value={options.quality}
             disabled={disabled}
+            description={descriptions?.quality}
             onChange={(quality) => onChange({ quality })}
         />
     );
 }
 
 /** The quality a converted lossless image is written at, kept apart from the one above. */
-export function ConversionQualitySection({ options, onChange, disabled }: ImageCompressionSectionProps) {
+export function ConversionQualitySection({ options, onChange, disabled, descriptions }: ImageCompressionSectionProps) {
     return (
         <QualitySlider
             value={options.conversionQuality}
             disabled={disabled}
+            description={descriptions?.conversionQuality}
             onChange={(conversionQuality) => onChange({ conversionQuality })}
         />
     );
 }
 
 /** Whether the run reaches past the note it was invoked on, into its whole subtree. */
-export function ProcessChildNotesSection({ options, onChange, disabled }: ImageCompressionSectionProps) {
+export function ProcessChildNotesSection({ options, onChange, disabled, descriptions }: ImageCompressionSectionProps) {
     return (
         <CardSection className="image-compression-section">
-            <span className="image-compression-section-title">
-                {t("space_usage.compress_process_child_notes")}
-                <ContextualHelp helpMessage={t("space_usage.compress_process_child_notes_help")} />
-            </span>
+            <SectionLabel
+                title={t("space_usage.compress_process_child_notes")}
+                help={t("space_usage.compress_process_child_notes_help")}
+                description={descriptions?.processChildNotes}
+            />
             <FormToggle
                 disabled={disabled}
                 currentValue={options.processChildNotes}
@@ -191,10 +222,39 @@ export function UnsupportedFormatNotice() {
     );
 }
 
+/**
+ * What a row is called, and — where the host gave one — what it means.
+ *
+ * Undescribed, this is the bare title span the rows have always been built from, so a dialog's
+ * markup is exactly what it was. A description wraps the pair in a column instead: the title keeps
+ * its own element, since the title is what the row's layout is measured against, and the sentence
+ * hangs beneath it where it can wrap.
+ */
+function SectionLabel({ title, help, description }: { title: string; help?: string; description?: string }) {
+    const label = (
+        <span className="image-compression-section-title">
+            {title}
+            {help && <ContextualHelp helpMessage={help} />}
+        </span>
+    );
+
+    if (!description) {
+        return label;
+    }
+
+    return (
+        <span className="image-compression-section-label">
+            {label}
+            <small className="image-compression-section-description">{description}</small>
+        </span>
+    );
+}
+
 /** The title, help and buttons every format choice is made of. */
-function HandlingChoice<T extends string>({ title, help, values, currentValue, labelKey, onChoose, disabled }: {
+function HandlingChoice<T extends string>({ title, help, description, values, currentValue, labelKey, onChoose, disabled }: {
     title: string;
     help: string;
+    description?: string;
     values: readonly T[];
     currentValue: T;
     /** Prefix of the translation key naming each choice, completed with the value itself. */
@@ -203,10 +263,7 @@ function HandlingChoice<T extends string>({ title, help, values, currentValue, l
 } & ImageCompressionSectionProps) {
     return (
         <>
-            <span className="image-compression-section-title">
-                {title}
-                <ContextualHelp helpMessage={help} />
-            </span>
+            <SectionLabel title={title} help={help} description={description} />
             <SegmentedChoice
                 className="image-compression-section-choice"
                 // A disabled group highlights nothing rather than showing a choice it will not take.
@@ -225,14 +282,15 @@ function HandlingChoice<T extends string>({ title, help, values, currentValue, l
  * going but never where it is, and the reading belongs beside the control it reads. Always nested,
  * each quality qualifying exactly one choice above it.
  */
-function QualitySlider({ value, onChange, disabled }: {
+function QualitySlider({ value, onChange, disabled, description }: {
     value: number;
     onChange: (value: number) => void;
     disabled?: boolean;
+    description?: string;
 }) {
     return (
         <CardSection className={clsx("image-compression-section", "image-compression-section-nested")}>
-            <span className="image-compression-section-title">{t("space_usage.compress_quality")}</span>
+            <SectionLabel title={t("space_usage.compress_quality")} description={description} />
             <span className="image-compression-section-value">
                 {t("space_usage.compress_quality_value", { quality: value })}
             </span>

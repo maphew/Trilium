@@ -12,6 +12,26 @@
         white-space: nowrap;
     }
 
+    /* A described row: the title and its sentence stack, and the pair takes the slack the title
+       alone would have taken. Unlike the title it may shrink, since a sentence wraps where a label
+       does not — and it needs to, or a long description would push the control off the row. */
+    .image-compression-section-label {
+        display: flex;
+        flex: 1 1 auto;
+        flex-direction: column;
+        gap: 2px;
+        min-width: 0;
+
+        .image-compression-section-title {
+            white-space: normal;
+        }
+    }
+
+    .image-compression-section-description {
+        color: var(--muted-text-color);
+        font-size: 0.85em;
+    }
+
     /* Where the slider currently is, which the slider itself cannot say. Fixed-width digits so the
        row holds still as the value is dragged through. */
     .image-compression-section-value {

@@ -1816,6 +1816,7 @@
     "download_images_automatically": "Download images automatically",
     "download_images_description": "Download referenced online images from pasted HTML so they are available offline.",
     "enable_image_compression": "Image compression",
+    "automatic_image_compression": "Automatically compress images",
     "enable_image_compression_description": "Compress and resize images when they are uploaded or pasted.",
     "max_image_dimensions": "Max image dimensions",
     "max_image_dimensions_description": "Images exceeding this size will be resized automatically.",

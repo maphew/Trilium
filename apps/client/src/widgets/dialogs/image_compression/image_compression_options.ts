@@ -106,6 +106,20 @@ export const CONSERVATIVE_IMAGE_COMPRESSION_DEFAULTS: ImageCompressionDefaults =
     pngHandling: "keep"
 };
 
+/**
+ * What automatic compression falls back to, which is what it has always done: an arriving JPEG
+ * recompressed, an arriving PNG written back as a JPEG.
+ *
+ * Only ever reached by a stored option that cannot be read, since every one of these settings has
+ * a value from the moment the database is created. It is here so that the unreadable case answers
+ * the way the server answers it — the settings page and the upload path must not disagree about
+ * what an install with a corrupt option is doing.
+ */
+export const AUTOMATIC_IMAGE_COMPRESSION_DEFAULTS: ImageCompressionDefaults = {
+    jpegHandling: "compress",
+    pngHandling: "jpeg"
+};
+
 /** The longest edge the first run offers to scale down to: the width of a Full HD screen. */
 export const DEFAULT_MAX_WIDTH_HEIGHT = 1920;
 
