@@ -49,4 +49,57 @@ describe("extractHighlightsFromStaticHtml", () => {
 
         document.body.removeChild(container);
     });
+
+    describe("formatting nested with a coloured run", () => {
+        function extract(html: string) {
+            const container = document.createElement("div");
+            container.innerHTML = html;
+            document.body.appendChild(container);
+
+            try {
+                return extractHighlightsFromStaticHtml(container);
+            } finally {
+                document.body.removeChild(container);
+            }
+        }
+
+        // Both nestings render identically, so both must report the run once rather than
+        // once per element. Only the first shape used to double up.
+        it("reports a coloured run inside formatting once, carrying both", () => {
+            const highlights = extract(`<p><strong><span style="color:red">text</span></strong></p>`);
+
+            expect(highlights.length).toBe(1);
+            expect(highlights[0].text).toBe("text");
+            expect(highlights[0].attrs).toMatchObject({ bold: true, color: "red" });
+        });
+
+        it("reports formatting inside a coloured run once", () => {
+            const highlights = extract(`<p><span style="color:red"><strong>text</strong></span></p>`);
+
+            expect(highlights.length).toBe(1);
+            expect(highlights[0].text).toBe("<strong>text</strong>");
+            expect(highlights[0].attrs).toMatchObject({ color: "red" });
+        });
+
+        // `**==hl==**` in a Markdown note renders as exactly this.
+        it("reports a bold highlight once", () => {
+            const highlights = extract(`<p><strong><span style="background-color:hsl(60, 75%, 60%)">hl</span></strong></p>`);
+
+            expect(highlights.length).toBe(1);
+            expect(highlights[0].attrs).toMatchObject({ bold: true, background: "hsl(60, 75%, 60%)" });
+        });
+
+        it("keeps formatting that only partly covers a coloured run", () => {
+            // The bold "a … c" is a run of its own — dropping it as a duplicate would lose it.
+            const highlights = extract(`<p><strong>a <span style="color:red">b</span> c</strong></p>`);
+
+            expect(highlights.map(h => h.text)).toEqual([ "b", `a <span style="color:red">b</span> c` ]);
+        });
+
+        it("keeps sibling formatting alongside a coloured run", () => {
+            const highlights = extract(`<p><span style="color:red">a</span> <strong>b</strong></p>`);
+
+            expect(highlights.map(h => h.text)).toEqual([ "a", "b" ]);
+        });
+    });
 });

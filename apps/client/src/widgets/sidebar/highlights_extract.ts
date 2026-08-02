@@ -65,10 +65,9 @@ export function extractHighlightsFromStaticHtml(el: HTMLElement | null) {
     const formattingElements = el.querySelectorAll<HTMLElement>("strong, em, u, b, i");
 
     for (const formattedEl of formattingElements) {
-        // Skip if already processed or inside a processed element
         if (processedElements.has(formattedEl)) continue;
-        if (Array.from(processedElements).some(processed => processed.contains(formattedEl))) continue;
         if (!formattedEl.textContent?.trim()) continue;
+        if (isAlreadyReported(formattedEl, processedElements)) continue;
 
         const attrs: RawHighlight["attrs"] = {
             bold: formattedEl.matches("strong, b"),
@@ -91,4 +90,25 @@ export function extractHighlightsFromStaticHtml(el: HTMLElement | null) {
     }
 
     return highlights;
+}
+
+/**
+ * Whether a run already recorded by the colour pass covers this element, making it a repeat.
+ *
+ * Either the element sits inside one, or one covers the whole of its text — the shape a
+ * coloured run inside formatting takes, since `**==hl==**` renders as
+ * `<strong><span style="background-color:…">hl</span></strong>`. The span is recorded first and
+ * already reports the bold (the colour pass resolves formatting with `closest`), so listing the
+ * `<strong>` too would repeat the same text, and drop the colour in the repeat.
+ *
+ * Formatting that only *partly* overlaps a recorded run is kept: in
+ * `<strong>a <span style="color:red">b</span> c</strong>` the bold "a … c" is a run of its own
+ * that nothing else reports.
+ */
+function isAlreadyReported(element: HTMLElement, processedElements: Set<Element>): boolean {
+    const text = element.textContent?.trim();
+
+    return Array.from(processedElements).some((processed) =>
+        processed.contains(element)
+        || (element.contains(processed) && processed.textContent?.trim() === text));
 }
