@@ -1,0 +1,23 @@
+/*
+ * The memo is a field like the others around it, framed and scrolling once what is written outgrows
+ * the room the panel has: the editor inside it brings neither.
+ */
+.mind-map-node-panel .mind-map-node-memo {
+    max-height: 160px;
+    overflow: auto;
+    padding: 4px 8px;
+    border: 1px solid var(--main-border-color);
+    border-radius: 6px;
+    background: var(--input-background-color);
+
+    &:focus-within {
+        outline: 2px solid var(--input-focus-outline-color);
+    }
+
+    /* The editor is the field's own surface; a frame of its own would draw a second one within it. */
+    .ck.ck-editor__editable {
+        border: none;
+        box-shadow: none;
+        background: transparent;
+    }
+}

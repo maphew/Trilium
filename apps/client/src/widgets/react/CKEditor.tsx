@@ -43,6 +43,9 @@ interface CKEditorOpts {
 export default function CKEditor({ apiRef, currentValue, editor, config, disableNewlines, disableSpellcheck, onChange, onClick, onInitialized, ...restProps }: CKEditorOpts) {
     const editorContainerRef = useRef<HTMLDivElement>(null);
     const textEditorRef = useRef<CKTextEditor>(null);
+    /** The value as it stands now, for the building of the editor to end on rather than begin with. */
+    const currentValueRef = useRef(currentValue);
+    currentValueRef.current = currentValue;
     useImperativeHandle(apiRef, () => {
         return {
             focus() {
@@ -105,8 +108,16 @@ export default function CKEditor({ apiRef, currentValue, editor, config, disable
 
     useEffect(() => {
         if (!editorContainerRef.current) return;
+        let unmounted = false;
 
         editor.create(editorContainerRef.current, config).then((textEditor) => {
+            // Gone before it was ready: build no further, and take with it what it has put on the
+            // page, or the next editor would find it there and take it for its own content.
+            if (unmounted) {
+                void textEditor.destroy();
+                return;
+            }
+
             textEditorRef.current = textEditor;
 
             if (disableNewlines) {
@@ -134,12 +145,24 @@ export default function CKEditor({ apiRef, currentValue, editor, config, disable
                 });
             }
 
-            if (currentValue) {
-                textEditor.setData(currentValue);
-            }
+            // Read as the editor is ready rather than as it was asked for: building one takes a
+            // while, and a value handed over in the meantime would otherwise be passed over — the
+            // effect watching it having had no editor to give it to, and this one holding the value
+            // as it stood when the building began.
+            //
+            // Set even when there is nothing to set: an editor built upon an element takes what
+            // that element holds as its content, so anything left there — by an editor that stood
+            // here before this one — would otherwise become the content of this one.
+            textEditor.setData(currentValueRef.current ?? "");
 
             onInitialized?.(textEditor);
         });
+
+        return () => {
+            unmounted = true;
+            void textEditorRef.current?.destroy();
+            textEditorRef.current = null;
+        };
     }, []);
 
     useEffect(() => {

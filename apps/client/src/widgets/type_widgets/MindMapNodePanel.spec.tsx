@@ -1,4 +1,6 @@
 import type { MindElixirInstance, NodeObj } from "mind-elixir";
+import { render } from "preact";
+import { act } from "preact/test-utils";
 import { describe, expect, it, vi } from "vitest";
 
 import { buildNotes } from "../../test/easy-froca";
@@ -13,6 +15,45 @@ vi.mock("./helpers/mind_map_images", async (importOriginal) => ({
     uploadNodeImage: vi.fn()
 }));
 
+// The memo field is a CKEditor, which wants a browser to build itself in; what it is handed and
+// what it gives back is checked around it instead (see `toMemoHtml` below). The stand-in reports
+// what it was last handed, so that a test can speak for the editor — the real one reports a change
+// for a memo handed to it as readily as for one typed.
+let memoEditor: MemoEditorProps = { className: "" };
+/** What the stand-in is showing, which outlives the props it was last handed. */
+let shownMemoText: string | undefined;
+vi.mock("../react/CKEditor", async () => {
+    const { useEffect, useImperativeHandle } = await import("preact/hooks");
+
+    return {
+        default: (props: MemoEditorProps) => {
+            memoEditor = props;
+            // What the real one shows: the value it was last told to show, whether it noticed the
+            // change itself or was told outright.
+            useImperativeHandle(props.apiRef ?? { current: undefined as { setText(text: string): void } | undefined }, () => ({
+                setText(text: string) {
+                    shownMemoText = text;
+                    props.onChange?.(text);
+                }
+            }), []);
+            // As the real one does: it takes a value it is handed only when that differs from the
+            // one before it, and reports the change from an effect — where its own `setData` is made.
+            useEffect(() => {
+                shownMemoText = props.currentValue ?? "";
+                props.onChange?.(props.currentValue ?? "");
+            }, [ props.currentValue ]);
+            return <div className={props.className} data-current-value={props.currentValue} />;
+        }
+    };
+});
+
+interface MemoEditorProps {
+    className: string;
+    currentValue?: string;
+    apiRef?: { current: { setText(text: string): void } | undefined };
+    onChange?: (html: string) => void;
+}
+
 function buildNode(node: Partial<NodeObj> = {}): NodeObj {
     return { id: "n1", topic: "Node", ...node };
 }
@@ -23,8 +64,11 @@ function buildNode(node: Partial<NodeObj> = {}): NodeObj {
  */
 function buildMind(nodes: NodeObj[]) {
     const reshapeNode = vi.fn();
+    const topics = nodes.map((nodeObj) => ({ nodeObj }));
     const mind = {
-        currentNodes: nodes.map((nodeObj) => ({ nodeObj })),
+        currentNodes: topics,
+        // Looked up by the memo, which writes to the nodes it was given rather than to the selection.
+        findEle: (id: string) => topics.find(({ nodeObj }) => nodeObj.id === id),
         reshapeNode
     } as unknown as MindElixirInstance;
     return { mind, reshapeNode };
@@ -181,6 +225,98 @@ describe("withIconAt", () => {
         expect(withIconAt([ "bx bx-star", "bx bx-star" ], 1, null)).toEqual([ "bx bx-star" ]);
         // Nothing of the original is touched along the way.
         expect(icons).toEqual([ "bx bx-star", "bx bx-cube" ]);
+    });
+});
+
+describe("the memo field of the panel", () => {
+    /** What the field is currently showing, the editor itself standing in for the real one. */
+    function shownMemo(container: HTMLElement) {
+        return container.querySelector(".mind-map-node-memo")?.getAttribute("data-current-value");
+    }
+
+    /** Writes into the field, as someone typing does: what it shows is what it then reports. */
+    async function typeMemo(html: string) {
+        await act(async () => {
+            shownMemoText = html;
+            memoEditor.onChange?.(html);
+        });
+    }
+
+    it("shows the memo of whatever is selected now, not of what was selected before", async () => {
+        // One field serves every selection it outlives, so the memo it shows has to follow the
+        // selection — otherwise the memo of the node left behind is what is read, and written over.
+        const withMemo = buildNode({ id: "a", memo: "<p>About A</p>" } as Partial<NodeObj>);
+        const without = buildNode({ id: "b" });
+        let container: HTMLElement | undefined;
+
+        await act(async () => {
+            container = renderInto(<MindMapNodePanel mind={buildMind([withMemo]).mind} noteId="map" nodes={[withMemo]} />);
+        });
+        if (!container) throw new Error("render produced no container");
+        const panel = container;
+        expect(shownMemo(panel)).toBe("<p>About A</p>");
+
+        // Rendered into the same container, so the panel is updated rather than built anew.
+        await act(async () => {
+            render(<MindMapNodePanel mind={buildMind([without]).mind} noteId="map" nodes={[without]} />, panel);
+        });
+        expect(shownMemo(panel)).toBe("");
+
+        await act(async () => {
+            render(<MindMapNodePanel mind={buildMind([withMemo]).mind} noteId="map" nodes={[withMemo]} />, panel);
+        });
+        expect(shownMemo(panel)).toBe("<p>About A</p>");
+    });
+
+    it("clears what was typed when the node selected next carries the same memo — none, usually", async () => {
+        // The field takes a value it is handed only when it differs from the one before it, and two
+        // nodes with no memo hand it the same nothing. Left to that, what was typed for the node
+        // just left stays on the page as the memo of the one just selected.
+        const first = buildNode({ id: "a" });
+        const second = buildNode({ id: "b" });
+        let container: HTMLElement | undefined;
+
+        await act(async () => {
+            container = renderInto(<MindMapNodePanel mind={buildMind([first]).mind} noteId="map" nodes={[first]} />);
+        });
+        if (!container) throw new Error("render produced no container");
+        const panel = container;
+
+        await typeMemo("<p>Typed for A</p>");
+        expect(shownMemoText).toBe("<p>Typed for A</p>");
+
+        await act(async () => {
+            render(<MindMapNodePanel mind={buildMind([second]).mind} noteId="map" nodes={[second]} />, panel);
+        });
+        expect(shownMemoText).toBe("");
+    });
+
+    it("writes what was typed to the node it was typed for, and the memo it is handed to none", async () => {
+        const first = buildNode({ id: "a", memo: "<p>About A</p>" } as Partial<NodeObj>);
+        const second = buildNode({ id: "b", memo: "<p>About B</p>" } as Partial<NodeObj>);
+        const firstMind = buildMind([first]);
+        let container: HTMLElement | undefined;
+
+        await act(async () => {
+            container = renderInto(<MindMapNodePanel mind={firstMind.mind} noteId="map" nodes={[first]} />);
+        });
+        if (!container) throw new Error("render produced no container");
+        const panel = container;
+
+        await typeMemo("<p>About A, at length</p>");
+
+        // Selecting another node writes what was typed for the first back to the first...
+        const secondMind = buildMind([second]);
+        await act(async () => {
+            render(<MindMapNodePanel mind={secondMind.mind} noteId="map" nodes={[second]} />, panel);
+        });
+        expect(firstMind.reshapeNode).toHaveBeenCalledWith(firstMind.mind.currentNodes[0], { memo: "<p>About A, at length</p>" });
+
+        // ...and the memo the field is then handed is the second node's own, which it is not asked
+        // to write anywhere — least of all over the node just left.
+        await act(async () => memoEditor.onChange?.("<p>About B</p>"));
+        expect(secondMind.reshapeNode).not.toHaveBeenCalled();
+        expect(firstMind.reshapeNode).toHaveBeenCalledTimes(1);
     });
 });
 

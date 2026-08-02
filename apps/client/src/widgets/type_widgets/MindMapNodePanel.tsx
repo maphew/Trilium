@@ -21,6 +21,7 @@ import IconPicker from "../react/IconPicker";
 import NoteAutocomplete from "../react/NoteAutocomplete";
 import { refToJQuerySelector } from "../react/react_utils";
 import SegmentedChoice from "../react/SegmentedChoice";
+import MindMapNodeMemo, { getNodeMemo } from "./MindMapNodeMemo";
 import { fitNodeImage, getNodeImageShape, nearestNodeImageWidth, NODE_IMAGE_SHAPES, NODE_IMAGE_WIDTHS, type NodeImage as NodeImageData, type NodeImageShape, shapeNodeImage, uploadNodeImage } from "./helpers/mind_map_images";
 import { describeExternalLink, linkFromSuggestion } from "./helpers/mind_map_links";
 
@@ -60,6 +61,7 @@ export default function MindMapNodePanel({ mind, noteId, nodes }: MindMapNodePan
     const imageShape = getCommonValue(nodes, (node) => node.image && getNodeImageShape(node.image)) as NodeImageShape | null | typeof MIXED;
     const link = getCommonValue(nodes, (node) => node.hyperLink);
     const tags = gatherTags(nodes);
+    const memo = getCommonValue(nodes, getNodeMemo);
 
     /**
      * Applies a patch to every selected node. The selection is read back from the instance rather
@@ -69,6 +71,23 @@ export default function MindMapNodePanel({ mind, noteId, nodes }: MindMapNodePan
     function patchSelectedNodes(patch: Partial<NodeObj> | ((node: NodeObj) => Partial<NodeObj>)) {
         for (const topic of mind.currentNodes) {
             mind.reshapeNode(topic, typeof patch === "function" ? patch(topic.nodeObj) : patch);
+        }
+    }
+
+    /**
+     * Writes a memo to the nodes the panel was handed rather than to the live selection: a memo is
+     * written as the field is left, and what a user leaves it with is often the very click that
+     * selects something else. The nodes are looked up again all the same, the elements a patch is
+     * applied to having to be the ones on the map.
+     */
+    function writeMemo(memo: string) {
+        for (const node of nodes) {
+            try {
+                void mind.reshapeNode(mind.findEle(node.id), { memo } as Partial<NodeObj>);
+            } catch (e) {
+                // The node is no longer on the map, or is folded away inside one that is closed.
+                console.warn("Could not write the memo of a mind map node:", e);
+            }
         }
     }
 
@@ -199,6 +218,18 @@ export default function MindMapNodePanel({ mind, noteId, nodes }: MindMapNodePan
                     // Derived per node: the nodes agree on the texts, but each may dress its own
                     // tags differently, and that is kept by reading from the node being written to.
                     onCommit={(texts) => patchSelectedNodes((node) => ({ tags: applyTagTexts(node.tags, texts) }))}
+                />
+            </PanelSection>
+
+            <PanelSection
+                label={t("mind-map.memo")}
+                title={memo === MIXED ? t("mind-map.memos-differ") : undefined}
+            >
+                <MindMapNodeMemo
+                    selectionKey={nodes.map((node) => node.id).join(" ")}
+                    memo={memo !== MIXED ? memo : null}
+                    readOnly={memo === MIXED}
+                    onCommit={writeMemo}
                 />
             </PanelSection>
         </div>
