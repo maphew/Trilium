@@ -101,6 +101,23 @@ describe("ColorPicker", () => {
         expect(customCell(container)?.classList.contains("selected")).toBe(false);
     });
 
+    it("keeps the alpha channel when matching translucent presets", () => {
+        // A palette may be translucent (the mind map tints node backgrounds this way), so the
+        // alpha must survive normalisation — otherwise every entry collapses onto its opaque hue.
+        const presets = ["#e64d4d40", "#4d99e640"];
+        const container = renderInto(<ColorPicker currentValue="RGBA(230, 77, 77, 0.251)" onChange={vi.fn()} presets={presets} />);
+
+        const selected = presetCells(container).filter((cell) => cell.classList.contains("selected"));
+        expect(selected).toHaveLength(1);
+        expect(selected[0].getAttribute("style")).toContain(presets[0]);
+        expect(customCell(container)?.classList.contains("selected")).toBe(false);
+
+        // The opaque hue is a different colour, and belongs to no preset in this palette.
+        const opaque = renderInto(<ColorPicker currentValue="#e64d4d" onChange={vi.fn()} presets={presets} />);
+        expect(presetCells(opaque).some((cell) => cell.classList.contains("selected"))).toBe(false);
+        expect(customCell(opaque)?.classList.contains("selected")).toBe(true);
+    });
+
     it("marks the custom cell selected for a colour outside the palette", () => {
         const container = renderInto(<ColorPicker currentValue="#123456" onChange={vi.fn()} />);
 

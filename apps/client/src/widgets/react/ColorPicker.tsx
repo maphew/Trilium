@@ -46,7 +46,7 @@ export interface ColorPickerProps {
  * variant that reads and writes the `color` label, see `NoteColorPicker`.
  */
 export default function ColorPicker({ currentValue, onChange, presets = DEFAULT_COLOR_PALETTE, indeterminate, disabled, className, tooltips }: ColorPickerProps) {
-    const normalizedValue = currentValue ? tryParseColor(currentValue)?.hex().toLowerCase() ?? null : null;
+    const normalizedValue = normalizeColor(currentValue);
     const isCustomColor = !indeterminate && normalizedValue !== null && presets.indexOf(normalizedValue) === -1;
 
     return <div className={clsx("color-picker", className)}>
@@ -161,6 +161,19 @@ function CustomColorCell(props: ColorCellProps) {
                 style="width: 0; height: 0; opacity: 0" />
         </ColorCell>
     </div>;
+}
+
+/**
+ * Brings a color into the notation the presets are written in, so that the two can be compared.
+ * The alpha channel is kept when there is one, letting callers offer translucent presets.
+ */
+function normalizeColor(color: string | null) {
+    if (!color) return null;
+
+    const parsed = tryParseColor(color);
+    if (!parsed) return null;
+
+    return (parsed.alpha() < 1 ? parsed.hexa() : parsed.hex()).toLowerCase();
 }
 
 function getForegroundColor(backgroundColor: string | null) {

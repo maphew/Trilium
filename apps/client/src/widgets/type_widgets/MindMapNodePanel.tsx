@@ -4,7 +4,20 @@ import type { MindElixirInstance, NodeObj } from "mind-elixir";
 import { ComponentChildren } from "preact";
 
 import { t } from "../../services/i18n";
-import ColorPicker from "../react/ColorPicker";
+import ColorPicker, { DEFAULT_COLOR_PALETTE } from "../react/ColorPicker";
+
+/**
+ * The hues offered by the panel: as many of the shared palette as fit on a single row next to the
+ * clear and custom cells.
+ */
+export const NODE_COLORS = [0, 1, 2, 4, 7, 9].map((index) => DEFAULT_COLOR_PALETTE[index]);
+
+/**
+ * Backgrounds are the same hues at a quarter opacity. That keeps a node readable when its text and
+ * its background are set to "the same" color, and lets a single set of swatches sit well on both
+ * the light and the dark map theme, since the tint takes on whatever the canvas is.
+ */
+export const NODE_BACKGROUND_COLORS = NODE_COLORS.map((color) => `${color}40`);
 
 interface MindMapNodePanelProps {
     mind: MindElixirInstance;
@@ -40,6 +53,7 @@ export default function MindMapNodePanel({ mind, nodes }: MindMapNodePanelProps)
         >
             <PanelSection label={t("mind-map.text-color")}>
                 <ColorPicker
+                    presets={NODE_COLORS}
                     {...toPickerValue(textColor)}
                     // Mind Elixir only ever assigns the style properties it is given and never
                     // resets the ones it isn't, so clearing has to blank the property explicitly.
@@ -49,6 +63,7 @@ export default function MindMapNodePanel({ mind, nodes }: MindMapNodePanelProps)
 
             <PanelSection label={t("mind-map.background-color")}>
                 <ColorPicker
+                    presets={NODE_BACKGROUND_COLORS}
                     {...toPickerValue(backgroundColor)}
                     onChange={(color) => patchSelectedNodes({ style: { background: color ?? "" } })}
                 />
@@ -56,9 +71,7 @@ export default function MindMapNodePanel({ mind, nodes }: MindMapNodePanelProps)
 
             <PanelSection label={t("mind-map.branch-color")}>
                 <ColorPicker
-                    // The branches of a map are drawn from the theme's own palette, so those are
-                    // the colors offered here.
-                    presets={mind.theme.palette}
+                    presets={NODE_COLORS}
                     {...toPickerValue(branchColor)}
                     onChange={(color) => patchSelectedNodes({ branchColor: color ?? "" })}
                 />

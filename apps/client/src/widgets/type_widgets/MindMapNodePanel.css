@@ -33,8 +33,8 @@
     opacity: .75;
 }
 
-/* The palettes are wider than the panel, so they wrap instead of spreading across a single row. */
+/* Each palette is meant to fit on one line; wrapping is only a safety net for larger cells. */
 .mind-map-node-panel .color-picker {
     flex-wrap: wrap;
-    justify-content: flex-start;
+    row-gap: 8px;
 }
