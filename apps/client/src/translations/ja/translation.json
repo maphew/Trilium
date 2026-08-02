@@ -3394,9 +3394,7 @@
     "esc_hint": "閉じる"
   },
   "link_embed": {
-    "play_video": "動画を再生",
-    "insert": "挿入",
-    "save": "保存"
+    "play_video": "動画を再生"
   },
   "wizard": {
     "back": "戻る",

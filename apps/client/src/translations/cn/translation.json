@@ -3394,9 +3394,7 @@
     "esc_hint": "关闭"
   },
   "link_embed": {
-    "play_video": "播放视频",
-    "insert": "插入",
-    "save": "保存"
+    "play_video": "播放视频"
   },
   "wizard": {
     "back": "返回",

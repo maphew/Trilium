@@ -2646,9 +2646,7 @@
     "failed_to_open": "링크 '{{- href}}' 열리지 않음: {{- message}}"
   },
   "link_embed": {
-    "play_video": "영상 재생",
-    "insert": "삽입",
-    "save": "저장"
+    "play_video": "영상 재생"
   },
   "link_context_menu": {
     "open_note_in_new_tab": "새 탭에서 노트를 엽니다",

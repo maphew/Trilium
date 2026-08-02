@@ -3250,9 +3250,7 @@
     "esc_hint": "zum Schließen"
   },
   "link_embed": {
-    "play_video": "Video wiedergeben",
-    "insert": "Einfügen",
-    "save": "Speichern"
+    "play_video": "Video wiedergeben"
   },
   "wizard": {
     "back": "Zurück",
