@@ -40,6 +40,25 @@
     background-color: var(--bgcolor);
 }
 
+/*
+ * The first icon of a node leads its text, as a note's icon leads its title (see mind_map_icons).
+ * The ones after it follow the text a little smaller: the first says what the node is, the rest are
+ * marks upon it.
+ */
+.mind-map-container .mind-map-lead-icon {
+    margin-inline-end: .3em;
+    vertical-align: middle;
+}
+
+.mind-map-container .icons {
+    font-size: .8em;
+}
+
+/* Emptied by the move, the wrapper would otherwise hold on to the gap it keeps before itself. */
+.mind-map-container .icons:empty {
+    display: none;
+}
+
 .mind-map-container:fullscreen {
     .rb {
         bottom: calc(20px + env(safe-area-inset-bottom));
