@@ -369,6 +369,52 @@ describe("checkImageAttachments", () => {
         });
     });
 
+    describe("Mind map content", () => {
+        /** Wraps picture URLs into the JSON shape a mind map persists (one node per URL). */
+        function mindMapContent(...urls: string[]) {
+            return JSON.stringify({
+                nodeData: {
+                    id: "root",
+                    topic: "Root",
+                    children: urls.map((url, index) => ({
+                        id: `node-${index}`,
+                        topic: `Node ${index}`,
+                        image: { url, width: 240, height: 180 }
+                    }))
+                }
+            });
+        }
+
+        it("keeps a picture referenced by a node alive, and schedules one taken off a node for erasure", () => {
+            const note = buildNote({ title: "Map", type: "mindMap", mime: "application/json", attachments: [{ title: "photo.png", role: "image", mime: "image/png" }] });
+            mockAttachmentSaves(note);
+            const [att] = note.getAttachments();
+
+            checkImageAttachments(note, mindMapContent(`api/attachments/${att.attachmentId}/image/photo.png`));
+            expect(att.save).not.toHaveBeenCalled();
+
+            checkImageAttachments(note, mindMapContent("api/attachments/someOtherId/image/photo.png"));
+            expect(att.save).toHaveBeenCalled();
+            expect(att.utcDateScheduledForErasureSince).toBeTruthy();
+
+            // Put back on a node (e.g. undo), it is kept again.
+            checkImageAttachments(note, mindMapContent(`api/attachments/${att.attachmentId}/image/photo.png`));
+            expect(att.utcDateScheduledForErasureSince).toBeNull();
+        });
+
+        it("never schedules the SVG export preview for erasure even though it is unreferenced", () => {
+            const note = buildNote({ title: "Map", type: "mindMap", mime: "application/json", attachments: [{ title: "mindmap-export.svg", role: "image", mime: "image/svg+xml" }] });
+            mockAttachmentSaves(note);
+            const [preview] = note.getAttachments();
+
+            // A map with no pictures at all — the preview is the only "image" attachment.
+            checkImageAttachments(note, mindMapContent());
+
+            expect(preview.save).not.toHaveBeenCalled();
+            expect(preview.utcDateScheduledForErasureSince).toBeFalsy();
+        });
+    });
+
     describe("foreign attachment copying", () => {
         it("replaces foreign attachment IDs in HTML content", () => {
             const note = buildNote({ title: "Test" });
@@ -435,11 +481,11 @@ describe("saveLinks", () => {
         return attr;
     }
 
-    // `checkImageAttachments` exempts the canvas and spreadsheet rendered images by title, but not
-    // the mermaid and mindMap ones. That looks like an oversight until you notice `saveLinks` bails
-    // out before it for those two types, so their SVGs are never reachable by orphan erasure at all.
-    // Pinned here: if either type ever gains a `saveLinks` branch, it needs an exemption first, and
-    // this test is what will say so.
+    // `checkImageAttachments` exempts the canvas, spreadsheet and mind map rendered images by title,
+    // but not the mermaid one. That looks like an oversight until you notice `saveLinks` bails out
+    // before it for mermaid, so its SVG is never reachable by orphan erasure at all. Pinned here: if
+    // mermaid ever gains a `saveLinks` branch, it needs an exemption first, and this test is what
+    // will say so — as it did for mind maps, which now carry pictures and so have both.
     it.each([
         [ "mermaid", "text/mermaid", "mermaid-export.svg", "flowchart TD\n A --> B" ],
         [ "mindMap", "application/json", "mindmap-export.svg", `{"nodeData":{}}` ]
@@ -453,6 +499,16 @@ describe("saveLinks", () => {
 
         expect(rendered.save).not.toHaveBeenCalled();
         expect(rendered.utcDateScheduledForErasureSince).toBeFalsy();
+    });
+
+    it("schedules a picture taken off a mind map's nodes for erasure", () => {
+        const note = buildNote({ title: "Map", type: "mindMap", mime: "application/json", attachments: [{ title: "photo.png", role: "image", mime: "image/png" }] });
+        mockAttachmentSaves(note);
+        const [picture] = note.getAttachments();
+
+        saveLinks(note, JSON.stringify({ nodeData: { id: "root", topic: "Root" } }));
+
+        expect(picture.utcDateScheduledForErasureSince).toBeTruthy();
     });
 
     it("does not delete existing imageLink relations on markdown notes that reference images", () => {

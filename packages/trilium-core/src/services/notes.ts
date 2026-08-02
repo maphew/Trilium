@@ -452,9 +452,10 @@ export function checkImageAttachments(note: BNote, content: string) {
     if (!isCanvas) {
         let match;
 
-        // Spreadsheet content is JSON storing inline images as bare `api/attachments/{id}/image/...`
-        // URLs (no `src="..."` wrapper), so it scans with the same loose pattern as Markdown.
-        const patterns = (note.isMarkdown() || note.type === "spreadsheet")
+        // Spreadsheet and mind map content is JSON storing images as bare
+        // `api/attachments/{id}/image/...` URLs (no `src="..."` wrapper), so they scan with the same
+        // loose pattern as Markdown.
+        const patterns = (note.isMarkdown() || note.type === "spreadsheet" || note.type === "mindMap")
             ? [
                 // ![...](api/attachments/{id}/image/...) or similar markdown image syntax
                 /api\/attachments\/([a-zA-Z0-9_]+)\/image/g,
@@ -492,6 +493,11 @@ export function checkImageAttachments(note: BNote, content: string) {
         // rendered image, looked up by title by the image endpoint — so leave it alone (otherwise it
         // would be scheduled for erasure on every save).
         if (note.type === "spreadsheet" && attachment.title === NOTE_TYPE_IMAGE_ATTACHMENTS.spreadsheet) {
+            continue;
+        }
+
+        // Likewise for the mind map SVG export preview, which the map JSON never references.
+        if (note.type === "mindMap" && attachment.title === NOTE_TYPE_IMAGE_ATTACHMENTS.mindMap) {
             continue;
         }
 
@@ -998,7 +1004,7 @@ function stripStaleSrcset(content: string): string {
 
 
 export function saveLinks(note: BNote, content: string | Uint8Array) {
-    if ((note.type !== "text" && note.type !== "relationMap" && note.type !== "llmChat" && note.type !== "spreadsheet" && note.type !== "canvas" && !note.isMarkdown()) || (note.isProtected && !protectedSessionService.isProtectedSessionAvailable())) {
+    if ((note.type !== "text" && note.type !== "relationMap" && note.type !== "llmChat" && note.type !== "spreadsheet" && note.type !== "canvas" && note.type !== "mindMap" && !note.isMarkdown()) || (note.isProtected && !protectedSessionService.isProtectedSessionAvailable())) {
         return {
             forceFrontendReload: false,
             content
@@ -1031,6 +1037,11 @@ export function saveLinks(note: BNote, content: string | Uint8Array) {
         // Canvas images are stored as attachments titled with the Excalidraw fileId referenced from
         // the scene JSON; scan for orphans (inserted-then-removed images) so they get scheduled for
         // erasure. There are no Trilium internal links to extract from canvas content.
+        ({ forceFrontendReload, content } = checkImageAttachments(note, content));
+    } else if (note.type === "mindMap" && typeof content === "string") {
+        // Mind map node images are stored as attachments referenced by URL from the map JSON; scan
+        // for orphans (inserted-then-removed images) so they get scheduled for erasure. No Trilium
+        // internal links are extracted from map content: a node's link is stored as a plain URL.
         ({ forceFrontendReload, content } = checkImageAttachments(note, content));
     } else if (note.type === "relationMap" && typeof content === "string") {
         findRelationMapLinks(content, foundLinks);
