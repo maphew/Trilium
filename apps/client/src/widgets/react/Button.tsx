@@ -32,6 +32,12 @@ function Button({ name, buttonRef, className, text, onClick, keyboardShortcut, i
     const classes = useMemo(() => {
         const classList: string[] = ["btn"];
 
+        // Said here because a stylesheet cannot see it: the label is a text node, which no selector
+        // reaches, so the spacing meant to part an icon from it has no way of knowing there is none.
+        if (icon && (text === undefined || text === null || text === "")) {
+            classList.push("tn-icon-only");
+        }
+
         switch(kind) {
             case "primary":
                 classList.push("btn-primary");
@@ -53,7 +59,7 @@ function Button({ name, buttonRef, className, text, onClick, keyboardShortcut, i
             classList.push("btn-micro");
         }
         return classList.join(" ");
-    }, [kind, className, size]);
+    }, [kind, className, size, icon, text]);
 
     // Memoize keyboard shortcut rendering
     const shortcutElements = useMemo(() => {
