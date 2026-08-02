@@ -423,8 +423,8 @@ importers:
   apps/db-compare:
     dependencies:
       better-sqlite3:
-        specifier: 13.0.1
-        version: 13.0.1
+        specifier: 13.0.2
+        version: 13.0.2
       diff:
         specifier: 9.0.0
         version: 9.0.0
@@ -442,8 +442,8 @@ importers:
   apps/desktop:
     dependencies:
       better-sqlite3:
-        specifier: 13.0.1
-        version: 13.0.1
+        specifier: 13.0.2
+        version: 13.0.2
       electron-debug:
         specifier: 4.1.0
         version: 4.1.0(supports-color@10.2.2)
@@ -518,8 +518,8 @@ importers:
   apps/dump-db:
     dependencies:
       better-sqlite3:
-        specifier: 13.0.1
-        version: 13.0.1
+        specifier: 13.0.2
+        version: 13.0.2
       mime-types:
         specifier: 3.0.2
         version: 3.0.2
@@ -549,8 +549,8 @@ importers:
         specifier: 8.0.0
         version: 8.0.0
       better-sqlite3:
-        specifier: 13.0.1
-        version: 13.0.1
+        specifier: 13.0.2
+        version: 13.0.2
     devDependencies:
       '@triliumnext/client':
         specifier: workspace:*
@@ -626,8 +626,8 @@ importers:
         specifier: 7.0.41
         version: 7.0.41(zod@4.4.3)
       better-sqlite3:
-        specifier: 13.0.1
-        version: 13.0.1
+        specifier: 13.0.2
+        version: 13.0.2
       html-to-text:
         specifier: 10.0.0
         version: 10.0.0
@@ -6393,8 +6393,8 @@ packages:
   before-after-hook@4.0.0:
     resolution: {integrity: sha512-q6tR3RPqIB1pMiTRMFcZwuG5T8vwp+vUvEG0vuI6B+Rikh5BfPp2fQ82c925FOs+b0lcFQ8CFrL+KbilfZFhOQ==}
 
-  better-sqlite3@13.0.1:
-    resolution: {integrity: sha512-LYpmOXdkpQYf4wmlxkdzW01XGlOXNIbjLg45yNkh0FQ4814VbK9PdOFmhZpYbej+EZtR/i3FDdhEG98HqZdgnA==}
+  better-sqlite3@13.0.2:
+    resolution: {integrity: sha512-jW6oufeDhXZaiX9Lw5A+oerVClx4iFrI6uDj1zu7SqUAjak9vbJvA0NEcKLNxHiQHb6kYCoFzzXYV0YOauhV3g==}
     engines: {node: '>=22'}
 
   bezier-easing@2.1.0:
@@ -19174,7 +19174,7 @@ snapshots:
 
   before-after-hook@4.0.0: {}
 
-  better-sqlite3@13.0.1:
+  better-sqlite3@13.0.2:
     dependencies:
       node-addon-api: 8.9.0
 
