@@ -9,6 +9,7 @@
 import { getLog, imageCompressionService, options as optionService } from "@triliumnext/core";
 import type { ImageCompressionOutcome, ImageCompressionPlan, ImageCompressionRequest, ImageFormat, ImageProvider, ProcessedImage } from "@triliumnext/core/src/services/image_provider.js";
 
+import { createConcurrencyGate } from "./concurrency_gate.js";
 import {
     compressImageBytes,
     DECODE_MEMORY_MB,
@@ -32,6 +33,22 @@ const toBackendLog = (message: string, detail?: boolean) => {
         getLog().info(message);
     }
 };
+
+/**
+ * How many arriving images are compressed at once.
+ *
+ * The compression tool decides this for itself: it holds the whole list and schedules it against a
+ * memory budget. Images on their way *in* have nobody doing that — an import hands over one per
+ * note as it reads them, hundreds of them, each call knowing nothing of the others. Left ungoverned
+ * that is hundreds of decodes wanting to run at once, which on an installation with no workers to
+ * take them is hundreds of them interleaved on the thread that serves the application, each holding
+ * a decoded bitmap.
+ *
+ * Sized to the same figure the pool uses, so the queue in front of the workers stays short and the
+ * fallback path — where there are no workers and the decoding happens here — is bounded by exactly
+ * the same number.
+ */
+const automaticCompression = createConcurrencyGate(compressionConcurrency);
 
 
 export const serverImageProvider: ImageProvider = {
@@ -66,8 +83,8 @@ export const serverImageProvider: ImageProvider = {
         }
 
         try {
-            const outcome = await this.compressImage(
-                buffer, imageCompressionService.automaticCompressionRequest());
+            const outcome = await automaticCompression.run(() =>
+                this.compressImage(buffer, imageCompressionService.automaticCompressionRequest()));
 
             return outcome.compressed ? { buffer: outcome.buffer, format: outcome.format } : original();
         } catch (e: unknown) {

@@ -1,8 +1,9 @@
 import { cls, estimateJpegQuality, type ImageCompressionRequest, options } from '@triliumnext/core';
 import { Jimp } from 'jimp';
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 
 import { serverImageProvider } from './image_provider.js';
+import { compressionConcurrency } from './image_worker_pool.js';
 
 // is-svg / image-type / is-animated / jimp are all loaded by spec/setup.ts (which
 // imports serverImageProvider to initialise core), so they cannot be re-mocked
@@ -146,6 +147,33 @@ describe('serverImageProvider.getImageType', () => {
 });
 
 describe('serverImageProvider.processImage', () => {
+    it('compresses no more arriving images at once than it has room for', async () => {
+        // An import hands over one image per note as it reads them, hundreds at a time, from calls
+        // that know nothing of each other. Nothing there says how many may be acted on at once, so
+        // the provider has to — or, on an installation with no workers to take them, that is
+        // hundreds of decodes interleaved on the thread serving the application.
+        const inFlight = { now: 0, most: 0 };
+        const compressing = vi.spyOn(serverImageProvider, 'compressImage').mockImplementation(async () => {
+            inFlight.now++;
+            inFlight.most = Math.max(inFlight.most, inFlight.now);
+            await new Promise((resolve) => setTimeout(resolve, 5));
+            inFlight.now--;
+
+            return { compressed: false, reason: 'no-gain' };
+        });
+
+        try {
+            const answered = await Promise.all(Array.from({ length: 20 },
+                () => serverImageProvider.processImage(smallPng, 'a.png', true)));
+
+            // Every one of them answered, and never more than the pool's own figure at a time.
+            expect(answered).toHaveLength(20);
+            expect(inFlight.most).toBeLessThanOrEqual(compressionConcurrency());
+        } finally {
+            compressing.mockRestore();
+        }
+    });
+
     it('returns the original buffer and detected format when compression is disabled', async () => {
         // An image that genuinely does compress when the option is on, so what this proves is the
         // switch rather than the image: a picture nothing could shrink comes back untouched either

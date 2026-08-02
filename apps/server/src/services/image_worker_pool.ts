@@ -237,8 +237,15 @@ async function acquire(): Promise<PooledWorker | null> {
         return null;
     }
 
-    // Every worker is busy. The caller's own scheduling normally prevents this, so rather than
-    // queue indefinitely this waits for the next one to come free.
+    // Every worker is busy, so this one queues for the next to come free. That queue is ordinary
+    // and can be deep: images arriving into the database are handed over one call at a time by
+    // callers that know nothing of each other, and an import produces hundreds at once.
+    //
+    // Which makes it the pool's business to answer every caller in it. Whoever waits here is past
+    // the point where they could have started a worker for themselves, so from here they are
+    // answered by `release`, by `retire`, or by `disable` — and if any of those three forgets
+    // them, they wait for the life of the process. An image whose compression never comes back is
+    // an image never written: the note was created empty and is filled in when the answer arrives.
     return new Promise((resolve) => waiting.push(resolve));
 }
 
