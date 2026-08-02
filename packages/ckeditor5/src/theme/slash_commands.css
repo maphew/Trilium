@@ -8,8 +8,19 @@
  */
 
 :root {
-    --ck-slash-command-button-width: 250px;
-    --ck-slash-command-description-width: 200px;
+    /*
+     * Premium sized these 250px/200px, which ellipsised a third of the descriptions. At a 280px text
+     * column all but the longest fit; wider than that buys nothing, since the next-longest message
+     * is far below it. Capped against the viewport so the balloon still fits a phone screen.
+     */
+    --ck-slash-command-button-width: min(350px, 90vw);
+
+    /*
+     * The text column is what is left of the row: the icon chip and the gaps and padding around it.
+     * Derived rather than written out, so widening the row above cannot leave the two disagreeing —
+     * the text would either stop short of the row's edge or overflow it.
+     */
+    --ck-slash-command-description-width: calc(var(--ck-slash-command-button-width) - 4.8em);
 }
 
 .ck-mentions .ck.ck-button.ck-slash-command-button {

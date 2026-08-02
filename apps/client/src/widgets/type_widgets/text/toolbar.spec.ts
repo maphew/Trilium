@@ -11,6 +11,10 @@ vi.mock("../../../services/options.js", () => ({
     default: { get: (name: string) => optionsState.values[name] }
 }));
 
+// The group labels are translated when the toolbar is built (CKEditor renders a nested dropdown's
+// `label` verbatim), so echo the key back to make the lookup visible to the assertions below.
+vi.mock("../../../services/i18n.js", () => ({ t: (key: string) => key }));
+
 function setDevice(device: "mobile" | "desktop") {
     (window as unknown as { glob?: { device?: string } }).glob = { device };
 }
@@ -53,6 +57,31 @@ describe("buildClassicToolbar", () => {
     it("reflects the multiline flag via shouldNotGroupWhenFull", () => {
         expect(buildClassicToolbar(false).toolbar.shouldNotGroupWhenFull).toBe(false);
         expect(buildClassicToolbar(true).toolbar.shouldNotGroupWhenFull).toBe(true);
+    });
+});
+
+describe("group labels", () => {
+    // Each nested group carries a translated label; a hardcoded English one would reach the user
+    // untranslated, since CKEditor passes it straight to the dropdown button.
+    function groupLabels(items: unknown[]): string[] {
+        return items
+            .filter((item): item is { label: string } => typeof item === "object" && item !== null && "label" in item)
+            .map((item) => item.label);
+    }
+
+    it("translates every group label, on both the classic and the floating toolbar", () => {
+        expect(groupLabels(buildClassicToolbar(false).toolbar.items)).toStrictEqual([
+            "text-editor.toolbar-groups.text-formatting",
+            "text-editor.toolbar-groups.insert",
+            "text-editor.toolbar-groups.alignment"
+        ]);
+
+        const floating = buildFloatingToolbar();
+        expect(groupLabels(floating.toolbar.items)).toStrictEqual([ "text-editor.toolbar-groups.text-formatting" ]);
+        expect(groupLabels(floating.blockToolbar)).toStrictEqual([
+            "text-editor.toolbar-groups.insert",
+            "text-editor.toolbar-groups.alignment"
+        ]);
     });
 });
 

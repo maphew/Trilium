@@ -1790,7 +1790,8 @@
   },
   "zpetne_odkazy": {
     "relation": "リレーション",
-    "backlink_other": "{{count}} 個のバックリンク"
+    "backlink_other": "{{count}} 個のバックリンク",
+    "no_backlinks": "このノートには、リンクされているノートはありません。"
   },
   "mobile_detail_menu": {
     "delete_this_note": "このノートを削除",
@@ -1813,7 +1814,8 @@
     "link-distance": "リンク距離",
     "fix-nodes": "ノードを修正",
     "too-many-notes_other": "ここに {{count}} 件のノートがあります。表示すると処理速度が遅くなる可能性があります。",
-    "show-anyway": "マップを表示"
+    "show-anyway": "マップを表示",
+    "expand": "マップを展開"
   },
   "owned_attribute_list": {
     "owned_attributes": "所有属性"
@@ -2146,8 +2148,6 @@
   "image": {
     "copied-to-clipboard": "画像への参照がクリップボードにコピーされました。これは任意のテキストノートに貼り付けることができます。",
     "cannot-copy": "画像参照をクリップボードにコピーできませんでした。",
-    "copy-to-clipboard": "画像をクリップボードにコピー",
-    "download": "画像をダウンロード",
     "image-copied-to-clipboard": "画像がクリップボードにコピーされました。",
     "cannot-copy-image": "画像をクリップボードにコピーできませんでした。",
     "cannot-download": "画像をダウンロードできませんでした。"
@@ -2525,7 +2525,9 @@
     "tab_outline": "アウトライン",
     "tab_attributes": "属性",
     "tab_chat": "AI チャット",
-    "tab_widgets": "ウィジェット"
+    "tab_widgets": "ウィジェット",
+    "backlinks": "バックリンク",
+    "tab_connections": "コネクション"
   },
   "attributes_panel": {
     "title": "ノート属性"
@@ -2665,8 +2667,6 @@
     "sample_ishikawa": "石川図",
     "sample_treeview": "ツリービュー",
     "sample_wardley": "ウォードリーマップ",
-    "slash_command_blank_description": "空のマーメイド図を挿入",
-    "slash_command_description": "\"{{name}}\" マーメイド図テンプレートを挿入",
     "sample_cynefin": "クネビン（Cynefin）",
     "sample_swimlane": "スイムレーン",
     "sample_railroad": "レイルロード図"
@@ -2896,8 +2896,7 @@
     "related_task_states": "to-do リストのカスタムチェックボックスの状態"
   },
   "link": {
-    "failed_to_open": "'{{- href}}' のリンクを開けなせんでした: {{- message}}",
-    "copy_url": "URLをコピー"
+    "failed_to_open": "'{{- href}}' のリンクを開けなせんでした: {{- message}}"
   },
   "print_preview": {
     "title": "印刷プレビュー",
@@ -3107,9 +3106,6 @@
     "button-retry": "再試行"
   },
   "text-editor": {
-    "checkbox-tooltip": "右クリックするか、{{- shortcut}} を押すと、状態を変更できます。",
-    "edit-states-tooltip": "タスクの状態を編集",
-    "unknown-task-state": "未定義のカスタムタスクの状態",
     "validation-errors": {
       "undefined-name": "未定義の識別子",
       "invalid-name": "無効な識別子",
@@ -3119,38 +3115,54 @@
       "invalid-symbol": "マークダウン記号は \"[\", \" \", \"X\", \"]\" を除き 1 文字である必要があります",
       "duplicate-symbol": "重複したマークダウン記号"
     },
-    "collapsible-body-placeholder": "ここに内容を入力してください...",
-    "collapsible-button-label": "折りたたみブロック",
-    "collapsible-handle-tooltip": "折りたたみブロックをドラッグして位置を調整",
-    "collapsible-select-label": "折りたたみブロックを選択",
-    "collapsible-title-placeholder": "概要",
-    "collapsible-toggle-label": "折りたたみブロックの切り替え",
-    "collapsible-tooltip": "矢印をクリックするか、{{- shortcut}} を押すと、折りたたみ/展開ができます。",
-    "checkbox-tooltip-state-label": "タスクの状態:",
-    "checkbox-tooltip-state-unknown-suffix": "(定義がありません)",
     "task-state-dropped-title": "無効なタスク状態",
     "task-state-dropped-message_other": "{{count}} 件のカスタムタスク状態の定義が無効であるため、無視されました。",
     "task-state-dropped-heading": "無視された定義:",
-    "task-state-dropped-configure": "タスク状態の設定"
-  },
-  "slash_commands": {
-    "bulleted_list_description": "箇条書きリストを作成",
-    "numbered_list_description": "番号付きリストを作成",
-    "todo_list_description": "to-do リストを作成",
-    "align_left_description": "テキストを左揃え",
-    "align_center_description": "テキストを中央揃え",
-    "align_right_description": "テキストを右揃え",
-    "justify_description": "テキストを両端揃え",
-    "admonition_description": "新しい注釈を挿入",
-    "collapsible_description": "クリックでコンテンツの表示 / 非表示を切り替えるセクションを挿入する。",
-    "footnote_description": "新しい脚注を作成し、ここに参照を挿入",
-    "datetime_description": "現在の日時を挿入",
-    "internal_link_description": "別の Trilium ノートへのリンクを挿入",
-    "math_description": "数式を挿入",
-    "include_note_description": "このノートに別のノートの内容を表示する",
-    "page_break_description": "改ページを挿入（印刷用）",
-    "markdown_import_description": "マークダウンファイルをこのノートにインポート",
-    "anchor_description": "内部リンク用のアンカーを挿入"
+    "task-state-dropped-configure": "タスク状態の設定",
+    "ck": {
+      "align-text-to-the-center": "テキストを中央揃え",
+      "align-text-to-the-left": "テキストを左揃え",
+      "align-text-to-the-right": "テキストを右揃え",
+      "card": "カード",
+      "click-on-the-arrow-or-press-0-to-collapse-expand": "矢印をクリックするか、%0 を押すと、折りたたみ/展開ができます。",
+      "collapsible-block": "折りたたみブロック",
+      "copy-image-to-clipboard": "画像をクリップボードにコピー",
+      "copy-url": "URLをコピー",
+      "create-a-bulleted-list": "箇条書きリストを作成",
+      "create-a-new-footnote-and-reference-it-here": "新しい脚注を作成し、ここに参照を挿入",
+      "create-a-numbered-list": "番号付きリストを作成",
+      "create-a-to-do-list": "to-do リストを作成",
+      "display": "表示",
+      "display-the-content-of-another-note-in-this-note": "このノートに別のノートの内容を表示する",
+      "download-image": "画像をダウンロード",
+      "drag-to-reposition-the-collapsible-block": "折りたたみブロックをドラッグして位置を調整",
+      "edit-task-states": "タスクの状態を編集",
+      "edit-title": "タイトルを編集",
+      "embed": "埋め込み",
+      "inline": "インライン",
+      "insert-a-0-mermaid-diagram-template": "\"%0\" マーメイド図テンプレートを挿入",
+      "insert-a-link-to-another-trilium-note": "別の Trilium ノートへのリンクを挿入",
+      "insert-a-math-equation": "数式を挿入",
+      "insert-a-new-admonition": "新しい注釈を挿入",
+      "insert-a-page-break-for-printing": "改ページを挿入（印刷用）",
+      "insert-a-toggleable-section-that-hides-shows-content-on-click": "クリックでコンテンツの表示 / 非表示を切り替えるセクションを挿入する。",
+      "insert-an-anchor-for-internal-linking": "内部リンク用のアンカーを挿入",
+      "insert-an-empty-mermaid-diagram": "空のマーメイド図を挿入",
+      "insert-the-current-date-and-time": "現在の日時を挿入",
+      "justify-text-alignment": "テキストを両端揃え",
+      "link-preview": "リンクプレビュー",
+      "missing-definition": "(定義がありません)",
+      "plain-link": "プレーンリンク",
+      "right-click-or-press-0-to-change-state": "右クリックするか、%0 を押すと、状態を変更できます。",
+      "select-collapsible-block": "折りたたみブロックを選択",
+      "summary": "概要",
+      "task-state": "タスクの状態:",
+      "title": "タイトル",
+      "toggle-collapsible-block": "折りたたみブロックの切り替え",
+      "type-the-content-here": "ここに内容を入力してください...",
+      "undefined-custom-task-state": "未定義のカスタムタスクの状態",
+      "url": "URL"
+    }
   },
   "security": {
     "backend_scripting_title": "バックエンドスクリプト",
@@ -3382,18 +3394,7 @@
     "esc_hint": "閉じる"
   },
   "link_embed": {
-    "play_video": "動画を再生",
-    "title": "リンクプレビュー",
-    "url": "URL",
-    "insert": "挿入",
-    "display": "表示",
-    "mode_inline": "インライン",
-    "mode_card": "カード",
-    "mode_embed": "埋め込み",
-    "mode_plain": "プレーンリンク",
-    "edit_title": "タイトルを編集",
-    "title_label": "タイトル",
-    "save": "保存"
+    "play_video": "動画を再生"
   },
   "wizard": {
     "back": "戻る",
@@ -3555,5 +3556,23 @@
   "contextual_help": {
     "label": "ヘルプ: {{- message}}",
     "sheet_label": "ヘルプ"
+  },
+  "sidebar_help": {
+    "attributes_what": "このノート自体に設定されているラベルとリレーション。ラベルはノートに名前と、必要に応じて値を割り当てます。リレーションは、別のノートを指します。",
+    "attributes_inheritable": "継承可能に設定すると、そのラベルとリレーションはノートのサブツリー全体に引き継がれ、所有ではなく継承されたものとして表示されます。",
+    "attributes_inherited_what": "他の場所からこのノートに渡されるラベルとリレーション: 上位のノートに設定された継承可能なもの、またはテンプレートによって引き継がれたもの。",
+    "attributes_inherited_source": "これらはここでは読み取り専用です。各行に取得元のノート名が表示されており、変更や削除はその元のノートで行えます。",
+    "attributes_definitions_what": "定義とは、属性名の背後にあるスキーマのことです。属性がどのような値を取るか、複数回指定できるか、そしてプロモート(昇格 )されるかどうかなどが含まれます。",
+    "attributes_definitions_promoted": "プロモート属性は、このパネルではなく、ノート自体にフォームフィールドとして表示されます。定義は通常テンプレートから生成され、各行にはその定義が含まれるノートの名前が表示されます。",
+    "highlights_what": "このノートは、書式設定によって文章を抽出します。これは見た目以上に広範囲を対象としており、太字や斜体などの通常の文章も、強調表示されたテキストだけでなく対象となります。",
+    "highlights_configure": "どの書式を対象とするかは、このカードのヘッダーにある歯車アイコンから設定できます。太字、斜体、下線、色付きテキスト、背景色付きテキストは、それぞれリストに追加したり、除外したりできます。項目をクリックすると、ノートがその項目までスクロールします。",
+    "note_map_what": "このノートの接続関係を示すマップです。リンクマップは、そのノートに出入りする内部リンクや関連性を表示し、ツリーマップはノートツリー内での位置を表示します。ヘッダーにある切り替え機能で、これら 2 つの表示を切り替えることができます。",
+    "note_map_interaction": "ノートにカーソルを合わせると、そのノートに関連する接続が強調表示され、それ以外の部分は薄く表示されます。展開ボタンを押すと、同じマップがウィンドウいっぱいのサイズで開きます。",
+    "note_paths_what": "1 つのノートをノートツリー内の複数の場所に同時に配置することができ、それぞれの場所はパスとしてここに一覧表示されます。",
+    "note_paths_cloning": "場所を追加することをクローンと呼ばれます。データは複製されないため、あるパスでの編集はすべてに反映され、あるパスを削除しても他の場所のノートはそのまま残ります。",
+    "backlinks_what": "本文中のリンクや、そのノートを指し示すリレーションによって、このノートを参照しているノート。",
+    "backlinks_listing": "テキストリンクは前後の文章とともに表示され、リレーションはそのリンクの名前とともに表示されます。この画面からリンクを直接編集することはできません。リンク元のノートからリンクが削除されると、この表示も消滅します。",
+    "similar_notes_what": "直接的なリンクがなくても、このノートと関連性が高いと見なされるノート。",
+    "similar_notes_how": "この類似性は、ノートの内容、属性、設定されているリレーション、および作成時期の近さなどに基づいて算出されます。"
   }
 }

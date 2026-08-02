@@ -132,19 +132,33 @@ jobs:
           disable_search: true
           fail_ci_if_error: false
 
-      - name: Run CKEditor e2e tests
-        run: |
-          export CHROMEDRIVER_PATH=$(which chromedriver || find /usr/local/share -name chromedriver -type f 2>/dev/null | head -1)
-          echo "Using chromedriver at: $CHROMEDRIVER_PATH"
-          pnpm run --filter=ckeditor5-mermaid test
-          pnpm run --filter=ckeditor5-math test
-
       - name: Run the CKEditor 5 aggregate tests
         id: test-ckeditor5
+        # The suite drives a real headless Chrome through webdriverio. When the browser session
+        # fails to start, vitest waits on it rather than erroring, so cap the step instead of
+        # letting it sit until the job's default timeout.
+        timeout-minutes: 15
         run: |
           export CHROMEDRIVER_PATH=$(which chromedriver || find /usr/local/share -name chromedriver -type f 2>/dev/null | head -1)
           echo "Using chromedriver at: $CHROMEDRIVER_PATH"
-          pnpm run --filter=ckeditor5 test --coverage
+          # A chromedriver whose major version does not match the installed Chrome fails the
+          # session handshake, which surfaces as a hang or a mid-run disconnect rather than a
+          # clear error — so record both up front.
+          "$CHROMEDRIVER_PATH" --version || echo "could not read the chromedriver version"
+          (google-chrome --version || chromium --version || chromium-browser --version) 2>/dev/null \
+            || echo "could not read the Chrome version"
+          # Browser mode keeps one page for the whole run, and v8 coverage data accumulates in it:
+          # measured locally, the heap reaches ~850MB by the 100th spec file with --coverage against
+          # ~240MB without it. That is where a CI runner's renderer gives out — the session either
+          # drops mid-run or stops responding. Run the suite in two shards (~60 files each, peaking
+          # around 500MB) and merge the blob reports afterwards, so the 100% gate is still evaluated
+          # over the whole suite rather than per shard.
+          SHARD_ARGS="--reporter=blob --coverage \
+            --coverage.thresholds.lines=0 --coverage.thresholds.functions=0 \
+            --coverage.thresholds.branches=0 --coverage.thresholds.statements=0"
+          pnpm run --filter=ckeditor5 test --shard=1/2 $SHARD_ARGS
+          pnpm run --filter=ckeditor5 test --shard=2/2 $SHARD_ARGS
+          pnpm run --filter=ckeditor5 test --mergeReports --coverage
 
       - name: Upload ckeditor5 coverage to Codecov
         uses: codecov/codecov-action@v7
@@ -162,32 +176,6 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: packages/ckeditor5/test-output/vitest/junit.xml
           flags: ckeditor5
-          disable_search: true
-          fail_ci_if_error: false
-
-      - name: Run the CKEditor 5 utils tests
-        id: test-ckeditor5-utils
-        run: |
-          export CHROMEDRIVER_PATH=$(which chromedriver || find /usr/local/share -name chromedriver -type f 2>/dev/null | head -1)
-          echo "Using chromedriver at: $CHROMEDRIVER_PATH"
-          pnpm run --filter=ckeditor5-utils test --coverage
-
-      - name: Upload ckeditor5-utils coverage to Codecov
-        uses: codecov/codecov-action@v7
-        if: ${{ !cancelled() && steps.test-ckeditor5-utils.outcome == 'success' }}
-        with:
-          files: packages/ckeditor5-utils/test-output/vitest/coverage/lcov.info
-          flags: ckeditor5-utils
-          disable_search: true
-          fail_ci_if_error: false
-
-      - name: Upload ckeditor5-utils test results to Codecov
-        uses: codecov/test-results-action@v1
-        if: ${{ !cancelled() && steps.test-ckeditor5-utils.outcome != 'skipped' }}
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: packages/ckeditor5-utils/test-output/vitest/junit.xml
-          flags: ckeditor5-utils
           disable_search: true
           fail_ci_if_error: false
 
@@ -330,7 +318,7 @@ jobs:
           fail_ci_if_error: false
 
       - name: Run the rest of the tests
-        run: pnpm run --filter=\!client --filter=\!standalone --filter=\!server --filter=\!desktop --filter=\!commons --filter=\!ckeditor5-mermaid --filter=\!ckeditor5-math --filter=\!ckeditor5 --filter=\!ckeditor5-utils --filter=\!codemirror --filter=\!express-partial-content --filter=\!highlightjs --filter=\!pdfjs-viewer test
+        run: pnpm run --filter=\!client --filter=\!standalone --filter=\!server --filter=\!desktop --filter=\!commons --filter=\!ckeditor5 --filter=\!codemirror --filter=\!express-partial-content --filter=\!highlightjs --filter=\!pdfjs-viewer test
 
   build_docker:
     name: Build Docker image

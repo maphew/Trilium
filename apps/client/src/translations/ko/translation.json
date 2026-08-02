@@ -166,7 +166,7 @@
     "recommended": "추천",
     "result_subtree_html": "텍스트 노트가 HTML로 저장되는 ZIP 아카이브입니다. 코드, 이미지 및 기타 파일은 원래 형식을 유지합니다.",
     "result_subtree_markdown": "텍스트가 Markdown으로 저장되는 ZIP 아카이브입니다. 코드, 이미지 및 기타 파일은 원본 형식을 유지합니다.",
-    "result_share": "shared-notes 테마를 사용하는 게시용 정적 웹사이트가 포함된 ZIP 아카이브",
+    "result_share": "shared-notes 테마를 사용하는 게시 가능한 정적 웹사이트가 포함된 ZIP 아카이브입니다.",
     "result_opml": "노트 제목과 텍스트를 포함하는 단일 OPML 개요 파일입니다. 이미지, 코드 파일 및 첨부 파일은 포함하지 않습니다.",
     "result_single_html": "단일 HTML 파일입니다. 이미지와 첨부 파일이 내장되어 있습니다.",
     "result_single_markdown": "단일 Markdown(.md) 파일입니다.",
@@ -205,21 +205,21 @@
     "followLink": "커서아래 링크 따라가기",
     "insertDateTime": "커서위치에 현재 날짜와 시간 삽입",
     "toggleArchivedNotes": "보관된 노트 표시/숨기기",
-    "newTabNoteLink": "노트에 대한 링크가 새 탭에서 노트를 엽니다.",
-    "newTabWithActivationNoteLink": "노트에 대한 링크가 열리고 새 탭에서 노트가 활성화됩니다.",
-    "createNoteAfter": "활성 노트 다음에 새 노트 생성",
+    "newTabNoteLink": "노트 링크를 새 탭에서 엽니다",
+    "newTabWithActivationNoteLink": "노트에 대한 링크가 열리고 새 탭에서 노트가 활성화됩니다",
+    "createNoteAfter": "활성 노트 뒤에 새 노트 만들기",
     "editBranchPrefix": "활성 노트 복제본의 <a class=\"external\" href=\"https://triliumnext.github.io/Docs/Wiki/tree-concepts.html#prefix\">접두사</a> 편집",
     "moveNoteUpHierarchy": "노트를 계층 구조에서 위로 이동",
     "multiSelectNote": "다중 선택 노트 위/아래",
-    "copyNotes": "활성 노트(또는 현재 선택 항목)를 클립보드에 복사합니다 (<a class=\"external\" href=\"https://triliumnext.github.io/Docs/Wiki/cloning-notes.html#cloning-notes\">복제</a>에 사용됨).",
-    "cutNotes": "현재 노트(또는 현재 선택 항목)를 클립보드로 잘라냅니다 (노트 이동에 사용됨).",
-    "pasteNotes": "노트를 활성 노트의 하위 노트로 붙여넣습니다. 클립보드에 복사한 노트는 복제하고 잘라낸 노트는 이동합니다.",
-    "editNoteTitle": "트리 창에서 노트 제목으로 포커스를 이동합니다. 노트 제목에서 Enter 키를 누르면 텍스트 편집기로 이동하고, <kbd>Ctrl+.</kbd>을 누르면 편집기에서 트리 창으로 돌아갑니다.",
-    "jumpToTreePane": "트리 창으로 이동하여 활성 노트로 스크롤합니다.",
+    "copyNotes": "활성 노트 또는 현재 선택 항목을 클립보드에 복사합니다. 이 기능은 <a class=\"external\" href=\"https://triliumnext.github.io/Docs/Wiki/cloning-notes.html#cloning-notes\">노트 복제</a>에 사용됩니다",
+    "cutNotes": "현재 노트(또는 현재 선택 항목)를 클립보드로 잘라냅니다 (노트 이동에 사용됨)",
+    "pasteNotes": "노트를 활성 노트의 하위 노트로 붙여넣습니다. 클립보드에 복사한 노트는 복제되고, 잘라낸 노트는 이동됩니다",
+    "editNoteTitle": "트리 창에서는 노트 제목으로 포커스가 이동합니다. 노트 제목에서 Enter 키를 누르면 텍스트 편집기로 포커스가 이동합니다. <kbd>Ctrl+.</kbd> 키를 누르면 편집기에서 트리 창으로 돌아갑니다.",
+    "jumpToTreePane": "트리 창으로 이동하여 활성 노트로 스크롤합니다",
     "markdownAutoformat": "Markdown과 유사한 자동 서식 지정",
-    "headings": "<code>##</code>, <code>###</code>, <code>####</code> 등의 제목 기호 뒤에 공백을 입력하면 제목이 됩니다.",
-    "bulletList": "<code>*</code> 또는 <code>-</code> 뒤에 공백을 입력하면 글머리 기호 목록이 됩니다.",
-    "numberedList": "<code>1.</code> 또는 <code>1)</code> 뒤에 공백을 입력하면 번호 매기기 목록이 됩니다.",
+    "headings": "제목을 만들려면 <code>##</code>, <code>###</code>, <code>####</code> 등을 입력한 뒤 공백을 넣습니다",
+    "bulletList": "<code>*</code> 또는 <code>-</code> 뒤에 공백을 입력하면 글머리 기호 목록이 됩니다",
+    "numberedList": "<code>1.</code> 또는 <code>1)</code> 뒤에 공백을 입력하면 번호 매기기 목록이 됩니다",
     "blockQuote": "<code>></code>로 줄을 시작하고 공백을 입력하면 블록 인용이 됩니다.",
     "troubleshooting": "문제 해결",
     "reloadFrontend": "Trilium 프런트엔드 다시 로드",
@@ -387,25 +387,6 @@
       "collapsible_details": "세부정보",
       "table_column": "열 {{number}}"
     }
-  },
-  "slash_commands": {
-    "bulleted_list_description": "글머리 기호 목록 만들기",
-    "numbered_list_description": "번호 매기기 목록 만들기",
-    "todo_list_description": "할 일 목록 만들기",
-    "align_left_description": "텍스트를 왼쪽으로 정렬",
-    "align_center_description": "텍스트를 가운데로 정렬",
-    "align_right_description": "텍스트를 오른쪽으로 정렬",
-    "justify_description": "텍스트 정렬 양쪽 맞춤",
-    "admonition_description": "새 알림 블록 삽입",
-    "collapsible_description": "클릭 시 콘텐츠를 숨기거나 표시하는 토글 가능한 섹션을 삽입합니다.",
-    "footnote_description": "새 각주를 생성하고 여기에 참조합니다.",
-    "datetime_description": "현재 날짜와 시간을 삽입합니다.",
-    "internal_link_description": "다른 Trilium 노트에 대한 링크를 삽입합니다.",
-    "math_description": "수식 삽입",
-    "include_note_description": "여기에 다른 노트의 내용을 표시합니다. 노트",
-    "page_break_description": "페이지 나누기 삽입(인쇄용)",
-    "markdown_import_description": "이 노트에 Markdown 파일 가져오기",
-    "anchor_description": "내부 연결을 위한 앵커 삽입"
   },
   "move_to": {
     "dialog_title": "노트를 이동할 위치...",
@@ -1213,7 +1194,8 @@
   },
   "zpetne_odkazy": {
     "backlink_other": "백링크 {{count}}개",
-    "relation": "관계"
+    "relation": "관계",
+    "no_backlinks": "이 노트로 연결되는 노트가 없습니다."
   },
   "mobile_detail_menu": {
     "insert_child_note": "하위 노트 삽입",
@@ -1322,7 +1304,8 @@
     "fix-nodes": "고정 노드",
     "link-distance": "링크 거리",
     "too-many-notes_other": "여기에 노트가 {{count}}개 있습니다. 모두 표시하면 속도가 느려질 수 있습니다.",
-    "show-anyway": "지도 표시"
+    "show-anyway": "지도 표시",
+    "expand": "지도 펼치기"
   },
   "note_paths": {
     "title": "노트 경로",
@@ -2031,7 +2014,7 @@
     "reset_password_button": "지금 재설정",
     "cancel": "취소",
     "protected_session_timeout": "보호 세션",
-    "protected_session_timeout_description": "세션 전 비활성 시간이 브라우저 메모리에서 삭제됩니다. 참고",
+    "protected_session_timeout_description": "설정한 시간 동안 활동이 없으면 세션 정보가 브라우저 메모리에서 삭제됩니다. 자세한 내용은",
     "wiki": "위키",
     "for_more_info": "자세한 정보는",
     "protected_session_timeout_label": "자동 종료 세션 후",
@@ -2190,7 +2173,7 @@
     "server_address": "서버 주소",
     "server_address_description": "동기화할 수 있는 Trilium 서버의 URL",
     "timeout": "연결 타임아웃",
-    "timeout_description": "느린 연결을 포기하기 전에 기다릴 시간입니다.",
+    "timeout_description": "느린 연결의 응답을 기다리는 최대 시간입니다.",
     "proxy_label": "프록시 서버",
     "proxy_description": "시스템 프록시를 사용하려면 빈칸으로 남겨두세요(데스크톱 전용). \"noproxy\"를 사용해 모든 프록시를 우회하세요.",
     "save": "저장",
@@ -2547,8 +2530,6 @@
   "image": {
     "copied-to-clipboard": "이미지 참조를 클립보드에 복사했습니다. 모든 텍스트 노트에 붙여넣을 수 있습니다.",
     "cannot-copy": "이미지 참조를 클립보드에 복사할 수 없었습니다.",
-    "copy-to-clipboard": "클립보드에 이미지 복사",
-    "download": "이미지 다운로드",
     "image-copied-to-clipboard": "이미지는 클립보드에 복사되었습니다.",
     "cannot-copy-image": "이미지를 클립보드에 복사할 수 없었어요.",
     "cannot-download": "이미지를 다운로드할 수 없었어요."
@@ -2662,22 +2643,10 @@
     "copy_image_to_clipboard": "클립보드에 이미지 복사"
   },
   "link": {
-    "failed_to_open": "링크 '{{- href}}' 열리지 않음: {{- message}}",
-    "copy_url": "URL 복사"
+    "failed_to_open": "링크 '{{- href}}' 열리지 않음: {{- message}}"
   },
   "link_embed": {
-    "play_video": "영상 재생",
-    "title": "링크 미리보기",
-    "url": "URL",
-    "insert": "삽입",
-    "display": "표시",
-    "mode_inline": "인라인",
-    "mode_card": "카드",
-    "mode_embed": "임베드",
-    "mode_plain": "일반 링크",
-    "edit_title": "제목 수정",
-    "title_label": "제목",
-    "save": "저장"
+    "play_video": "영상 재생"
   },
   "link_context_menu": {
     "open_note_in_new_tab": "새 탭에서 노트를 엽니다",
@@ -3202,7 +3171,9 @@
     "tab_outline": "개요",
     "tab_attributes": "속성",
     "tab_chat": "AI 채팅",
-    "tab_widgets": "위젯"
+    "tab_widgets": "위젯",
+    "backlinks": "이 노트를 참조하는 노트",
+    "tab_connections": "연결 관계"
   },
   "print_preview": {
     "title": "인쇄 미리보기",
@@ -3290,8 +3261,6 @@
   "mermaid": {
     "placeholder": "Mermaid 다이어그램 내용을 입력하거나 아래의 예제 다이어그램을 사용하세요.",
     "sample_diagrams": "샘플 다이어그램:",
-    "slash_command_blank_description": "빈 Mermaid 다이어그램 삽입",
-    "slash_command_description": "\"{{name}}\" Mermaid 다이어그램 템플릿 삽입",
     "sample_flowchart": "플로우차트",
     "sample_class": "클래스",
     "sample_sequence": "순서",
@@ -3526,18 +3495,6 @@
     "export-csv-failed": "스프레드시트를 CSV로 내보내는 데 실패했습니다."
   },
   "text-editor": {
-    "checkbox-tooltip": "우클릭하거나 {{- shortcut}} 키를 눌러 상태를 변경하세요.",
-    "checkbox-tooltip-state-label": "과제 상태:",
-    "checkbox-tooltip-state-unknown-suffix": "(정의가 누락됨)",
-    "collapsible-body-placeholder": "여기에 내용을 입력하세요...",
-    "collapsible-button-label": "접이식 블록",
-    "collapsible-handle-tooltip": "접이식 블록을 이동하려면 드래그",
-    "collapsible-select-label": "접이식 블록 선택",
-    "collapsible-title-placeholder": "요약",
-    "collapsible-toggle-label": "접이식 블록 전환",
-    "collapsible-tooltip": "화살표를 클릭하거나 {{- shortcut}} 키를 눌러 접거나 확장하세요.",
-    "edit-states-tooltip": "작업 상태 편집",
-    "unknown-task-state": "정의되지 않은 맞춤 작업 상태",
     "task-state-dropped-title": "잘못된 작업 상태",
     "task-state-dropped-heading": "무시된 정의:",
     "task-state-dropped-configure": "작업 상태 구성",
@@ -3550,10 +3507,72 @@
       "invalid-symbol": "Markdown 기호는 한 문자여야 합니다. 단, ‘[’, 공백, ‘X’, ‘]’는 제외합니다.",
       "duplicate-symbol": "중복된 Markdown 기호"
     },
-    "task-state-dropped-message_other": "사용자 지정 작업 상태 정의 {{count}}개가 유효하지 않아 무시되었습니다."
+    "task-state-dropped-message_other": "사용자 지정 작업 상태 정의 {{count}}개가 유효하지 않아 무시되었습니다.",
+    "ck": {
+      "align-text-to-the-center": "텍스트를 가운데로 정렬",
+      "align-text-to-the-left": "텍스트를 왼쪽으로 정렬",
+      "align-text-to-the-right": "텍스트를 오른쪽으로 정렬",
+      "card": "카드",
+      "click-on-the-arrow-or-press-0-to-collapse-expand": "화살표를 클릭하거나 %0 키를 눌러 접거나 확장하세요.",
+      "collapsible-block": "접이식 블록",
+      "copy-image-to-clipboard": "클립보드에 이미지 복사",
+      "copy-url": "URL 복사",
+      "create-a-bulleted-list": "글머리 기호 목록 만들기",
+      "create-a-new-footnote-and-reference-it-here": "새 각주를 생성하고 여기에 참조합니다.",
+      "create-a-numbered-list": "번호 매기기 목록 만들기",
+      "create-a-to-do-list": "할 일 목록 만들기",
+      "display": "표시",
+      "display-the-content-of-another-note-in-this-note": "여기에 다른 노트의 내용을 표시합니다. 노트",
+      "download-image": "이미지 다운로드",
+      "drag-to-reposition-the-collapsible-block": "접이식 블록을 이동하려면 드래그",
+      "edit-task-states": "작업 상태 편집",
+      "edit-title": "제목 수정",
+      "embed": "임베드",
+      "inline": "인라인",
+      "insert-a-0-mermaid-diagram-template": "\"%0\" Mermaid 다이어그램 템플릿 삽입",
+      "insert-a-link-to-another-trilium-note": "다른 Trilium 노트에 대한 링크를 삽입합니다.",
+      "insert-a-math-equation": "수식 삽입",
+      "insert-a-new-admonition": "새 알림 블록 삽입",
+      "insert-a-page-break-for-printing": "페이지 나누기 삽입(인쇄용)",
+      "insert-a-toggleable-section-that-hides-shows-content-on-click": "클릭 시 콘텐츠를 숨기거나 표시하는 토글 가능한 섹션을 삽입합니다.",
+      "insert-an-anchor-for-internal-linking": "내부 연결을 위한 앵커 삽입",
+      "insert-an-empty-mermaid-diagram": "빈 Mermaid 다이어그램 삽입",
+      "insert-the-current-date-and-time": "현재 날짜와 시간을 삽입합니다.",
+      "justify-text-alignment": "텍스트 정렬 양쪽 맞춤",
+      "link-preview": "링크 미리보기",
+      "missing-definition": "(정의가 누락됨)",
+      "plain-link": "일반 링크",
+      "right-click-or-press-0-to-change-state": "우클릭하거나 %0 키를 눌러 상태를 변경하세요.",
+      "select-collapsible-block": "접이식 블록 선택",
+      "summary": "요약",
+      "task-state": "과제 상태:",
+      "title": "제목",
+      "toggle-collapsible-block": "접이식 블록 전환",
+      "type-the-content-here": "여기에 내용을 입력하세요...",
+      "undefined-custom-task-state": "정의되지 않은 맞춤 작업 상태",
+      "url": "URL"
+    }
   },
   "contextual_help": {
     "label": "도움말: {{- message}}",
     "sheet_label": "도움말"
+  },
+  "sidebar_help": {
+    "attributes_what": "이 노트에 직접 설정된 라벨과 관계입니다. 라벨은 이름과 선택적 값을 사용해 노트에 태그를 지정하고, 관계는 다른 노트를 가리킵니다.",
+    "attributes_inheritable": "속성을 상속 가능으로 설정하면 해당 노트 아래의 전체 하위 트리에 전달되며, 소유한 속성이 아니라 상속된 속성으로 표시됩니다.",
+    "attributes_inherited_what": "다른 곳에서 이 노트로 전달된 라벨과 관계입니다. 상위 노트에 설정된 상속 가능한 속성이거나, 템플릿을 통해 적용된 속성입니다.",
+    "attributes_inherited_source": "여기서는 읽기 전용입니다. 각 행에는 속성의 원본 노트가 표시되며, 수정이나 삭제는 해당 노트에서 할 수 있습니다.",
+    "attributes_definitions_what": "정의는 속성 이름에 적용되는 규칙입니다. 어떤 형식의 값을 사용할 수 있는지, 여러 번 지정할 수 있는지, 그리고 승격 여부를 정합니다.",
+    "attributes_definitions_promoted": "승격된 속성은 이 패널이 아니라 노트 본문에 입력 필드로 표시됩니다. 속성 정의는 보통 템플릿을 통해 적용되며, 각 행에는 그 정의가 설정된 노트가 표시됩니다.",
+    "highlights_what": "이 노트에서 서식으로 구분된 구절입니다. 직접 하이라이트한 텍스트뿐 아니라 일반적인 굵게 또는 기울임꼴 문장도 포함됩니다.",
+    "highlights_configure": "포함할 서식은 이 카드 머리글의 톱니바퀴 메뉴에서 설정할 수 있습니다. 굵게, 기울임꼴, 밑줄, 색상 텍스트, 배경색 텍스트를 각각 포함하거나 제외할 수 있으며, 항목을 누르면 노트의 해당 위치로 이동합니다.",
+    "note_map_what": "이 노트의 연결 관계를 보여주는 지도입니다. 링크 맵은 이 노트로 들어오고 나가는 내부 링크와 관계를 표시하며, 트리 맵은 노트 트리에서의 위치를 보여줍니다. 머리글의 전환 버튼으로 두 지도 사이를 전환할 수 있습니다.",
+    "note_map_interaction": "노트에 마우스를 올리면 해당 노트의 연결 관계가 강조되고, 나머지는 흐리게 표시됩니다. 펼치기 버튼을 누르면 같은 지도가 창 전체 크기로 열립니다.",
+    "note_paths_what": "하나의 노트가 노트 트리의 여러 위치에 동시에 있을 수 있으며, 각각의 위치가 여기에 경로로 표시됩니다.",
+    "note_paths_cloning": "새 위치를 추가하는 것을 복제라고 합니다. 실제로 내용이 복사되는 것은 아니므로, 한 경로에서 수정한 내용은 모든 경로에 동일하게 반영됩니다. 또한 경로 하나를 제거해도 노트는 다른 경로에 그대로 남아 있습니다.",
+    "backlinks_what": "본문 링크 또는 이 노트를 대상으로 하는 관계를 통해, 이 노트를 참조하는 노트들입니다.",
+    "backlinks_listing": "텍스트 링크는 주변 문맥과 함께 표시되고, 관계는 이 노트를 참조할 때 사용한 이름과 함께 표시됩니다. 이 화면에서는 편집할 수 없으며, 링크를 만든 노트에서 해당 링크를 삭제하면 여기에서도 사라집니다.",
+    "similar_notes_what": "서로 직접 연결되어 있지는 않지만, 이 노트와 관련 있어 보이는 노트들입니다.",
+    "similar_notes_how": "노트의 내용과 속성·관계, 그리고 생성된 시점의 근접성을 바탕으로 유사도를 판단합니다."
   }
 }

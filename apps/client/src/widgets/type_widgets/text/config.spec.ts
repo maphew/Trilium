@@ -1,7 +1,6 @@
 import { DISPLAYABLE_LOCALE_IDS, LOCALES } from "@triliumnext/commons";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { t } from "../../../services/i18n.js";
 import imageService from "../../../services/image.js";
 import noteAutocompleteService from "../../../services/note_autocomplete.js";
 import { ensureMimeTypesForHighlighting } from "../../../services/syntax_highlight.js";
@@ -11,6 +10,25 @@ import { buildConfig, type BuildEditorOptions, OPEN_SOURCE_LICENSE_KEY } from ".
 const optionsState = vi.hoisted(() => ({ map: {} as Record<string, string | undefined> }));
 // Toggles whether the editor advertises raw-image clipboard support.
 const imageState = vi.hoisted(() => ({ copySupported: false }));
+
+// The app catalog, as far as the config is concerned: `bundle` is the `translation` namespace the
+// editor messages are read back from, and `t` resolves a key against `entries`. Unknown keys echo
+// back the way i18next does for a missing entry, which keeps every lookup visible in the assertions
+// rather than resolving to `undefined` against an uninitialized i18n.
+const catalogState = vi.hoisted(() => ({
+    bundle: undefined as Record<string, unknown> | undefined,
+    entries: {} as Record<string, string>
+}));
+vi.mock("../../../services/i18n.js", () => ({ t: (key: string) => catalogState.entries[key] ?? key }));
+vi.mock("i18next", () => ({
+    default: {
+        // i18next binds `getResourceBundle` in `init()`, so it is absent until the app has booted —
+        // the case for a test that builds a config without one.
+        get getResourceBundle() {
+            return catalogState.bundle && (() => catalogState.bundle);
+        }
+    }
+}));
 
 vi.mock("../../../services/options.js", () => ({
     default: {
@@ -78,7 +96,8 @@ interface MentionSuggestion {
 
 /** The dynamically-attached config members that CKEditor's `EditorConfig` type doesn't declare. */
 interface DynamicConfig {
-    translate(key: string, params?: Record<string, unknown>): unknown;
+    renderShortcut(shortcut: string): string;
+    autoLinkPreviewsEnabled(): boolean;
     imageActions: {
         copyToClipboard(src: string): void;
         download(src: string): void;
@@ -103,6 +122,8 @@ async function buildDynamicConfig(overrides: Partial<BuildEditorOptions> = {}) {
 beforeEach(() => {
     optionsState.map = {};
     imageState.copySupported = false;
+    catalogState.bundle = undefined;
+    catalogState.entries = {};
     window.glob.isDev = false;
 });
 
@@ -129,12 +150,29 @@ describe("CK config", () => {
             if (locale.id !== "en" && locale.id !== "ga") {
                 expect((config.language as unknown as { ui: string }).ui).toMatch(new RegExp(`^${expectedLocale}`));
                 expect(config.translations, locale.id).toBeDefined();
-                // Only CKEditor's GPL core translations: the premium bundle used to contribute a
-                // second entry, but no premium plugin is loaded any more.
-                expect(config.translations, locale.id).toHaveLength(1);
+                // The merge seed, CKEditor's GPL core translations, and the Trilium dictionary. The
+                // premium bundle used to contribute another entry, but no premium plugin is loaded
+                // any more. i18next is not initialized here, so the dictionary holds only the
+                // renames of CKEditor's own strings — those apply with or without a catalog — and
+                // every other editor string falls back to its English message id.
+                expect(config.translations, locale.id).toHaveLength(3);
             }
         }
     }, 20_000);
+
+    // The `text-editor.ck` section of the English catalog is the registry of editor strings: each
+    // entry names the English message id a plugin passes to `editor.t()`, and the value the editor
+    // gets for it is that key resolved through the app's i18n.
+    it("turns the English editor catalog into the dictionary the editor resolves messages through", async () => {
+        catalogState.bundle = { "text-editor": { ck: { "insert-a-table": "Insert a table." } } };
+        catalogState.entries["text-editor.ck.insert-a-table"] = "Tabelle einfügen";
+
+        const config = await buildConfig(baseOpts({ uiLanguage: "de" }));
+
+        const translations = config.translations as Record<string, { dictionary: Record<string, string> }>[];
+        // Ours is merged last, after CKEditor's own translations.
+        expect(translations.at(-1)?.de.dictionary["Insert a table."]).toBe("Tabelle einfügen");
+    });
 
     it("excludes Trilium frontend/backend script JS variants from code-block languages", async () => {
         const config = await buildConfig(baseOpts());
@@ -205,16 +243,33 @@ describe("CK config - image actions", () => {
         expect(supportedToolbar).toContain("downloadImage");
     });
 
-    it("wires the translate, copy and download callbacks to their services", async () => {
+    it("wires the shortcut renderer, copy and download callbacks to their services", async () => {
         const config = await buildDynamicConfig();
 
-        // `translate` simply delegates to the app's i18n function.
-        expect(config.translate("editable_text.placeholder")).toBe(t("editable_text.placeholder"));
+        // `renderShortcut` hands a plugin ready-made markup: every key translated through the app
+        // catalog and wrapped in its own `<kbd>`. The platform is read per call, so both the
+        // separated rendering and the macOS glyph one come from the same config entry.
+        vi.stubGlobal("navigator", { platform: "Win32" });
+        expect(config.renderShortcut("Ctrl+Enter"))
+            .toBe("<kbd>keyboard_shortcut_keys.ctrl</kbd>+<kbd>keyboard_shortcut_keys.enter</kbd>");
+
+        vi.stubGlobal("navigator", { platform: "MacIntel" });
+        expect(config.renderShortcut("Ctrl+Enter")).toBe("<kbd>⌃</kbd><kbd>↩</kbd>");
 
         config.imageActions.copyToClipboard("image-src-1");
         config.imageActions.download("image-src-2");
         expect(imageService.copyImageToClipboard).toHaveBeenCalledWith("image-src-1");
         expect(imageService.downloadImage).toHaveBeenCalledWith("image-src-2");
+    });
+
+    // The option is read per call rather than baked into the config, so toggling it applies to
+    // editors that are already open.
+    it("re-reads the auto-link-preview option on every call", async () => {
+        const config = await buildDynamicConfig();
+        expect(config.autoLinkPreviewsEnabled()).toBe(false);
+
+        optionsState.map["textNoteAutoLinkPreviewsEnabled"] = "true";
+        expect(config.autoLinkPreviewsEnabled()).toBe(true);
     });
 });
 

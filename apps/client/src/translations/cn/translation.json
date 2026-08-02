@@ -941,7 +941,8 @@
   },
   "zpetne_odkazy": {
     "relation": "关系",
-    "backlink_other": "{{count}} 个反链"
+    "backlink_other": "{{count}} 个反链",
+    "no_backlinks": "没有笔记链接到这篇笔记。"
   },
   "mobile_detail_menu": {
     "insert_child_note": "插入子笔记",
@@ -1050,7 +1051,8 @@
     "fix-nodes": "固定节点",
     "link-distance": "链接距离",
     "too-many-notes_other": "这里有 {{count}} 条笔记。全部显示可能会导致运行变慢。",
-    "show-anyway": "显示地图"
+    "show-anyway": "显示地图",
+    "expand": "展开地图"
   },
   "note_paths": {
     "title": "笔记路径",
@@ -1321,10 +1323,10 @@
   "vacuum_database": {
     "title": "数据库清理",
     "description": "这会重建数据库，通常会减少占用空间，不会删除数据。",
-    "button_text": "立即清理",
-    "vacuuming_database": "正在清理数据库...",
-    "database_vacuumed": "数据库已清理",
-    "vacuum_label": "数据库清理",
+    "button_text": "立即压缩",
+    "vacuuming_database": "正在压缩数据库...",
+    "database_vacuumed": "数据库已压缩",
+    "vacuum_label": "压缩（vacuum）数据库",
     "vacuum_description": "重建数据库以减小文件大小。数据不会发生任何变化。"
   },
   "fonts": {
@@ -1488,7 +1490,9 @@
     "snapshot_number_limit_unit": "快照",
     "note_revisions_snapshot_limit_description_short": "每个笔记的最大修订数。设为 -1 表示无限制，设为 0 表示禁用。",
     "erase_excess_revision_snapshots_description": "删除所有笔记中超出上限的修订。",
-    "erase_now_button": "立即清理"
+    "erase_now_button": "立即清理",
+    "keep_named_revisions_label": "保留带名称的修订",
+    "keep_named_revisions_description": "你已命名的修订永远不会被擦除，也不会计入最大数量限制。"
   },
   "search_engine": {
     "title": "搜索引擎",
@@ -2020,8 +2024,6 @@
   "image": {
     "copied-to-clipboard": "图片的引用已复制到剪贴板，可以粘贴到任何文本笔记中。",
     "cannot-copy": "无法将图片引用复制到剪贴板。",
-    "copy-to-clipboard": "将图片复制到剪贴板",
-    "download": "下载图片",
     "image-copied-to-clipboard": "图片已复制到剪贴板。",
     "cannot-copy-image": "无法将图片复制到剪贴板。",
     "cannot-download": "无法下载图片。"
@@ -2371,7 +2373,10 @@
     "scripting_disabled_button": "打开安全设置"
   },
   "settings": {
-    "related_settings": "相关设置"
+    "related_settings": "相关设置",
+    "related_actions": "相关操作",
+    "related_space_usage": "分析数据库内的空间占用",
+    "related_space_usage_description": "查看哪些笔记、修订和附件占用空间最多，并回收这些空间。"
   },
   "settings_appearance": {
     "related_code_blocks": "文本笔记中代码块的色彩方案",
@@ -2520,7 +2525,9 @@
     "tab_outline": "大纲",
     "tab_attributes": "属性",
     "tab_chat": "AI 对话",
-    "tab_widgets": "组件"
+    "tab_widgets": "组件",
+    "backlinks": "反向链接",
+    "tab_connections": "连接"
   },
   "attributes_panel": {
     "title": "笔记属性"
@@ -2660,8 +2667,6 @@
     "placeholder": "输入你的美人鱼图的内容，或者使用下面的示例图之一。",
     "sample_treeview": "树形视图",
     "sample_wardley": "沃德利地图",
-    "slash_command_blank_description": "插入一个空白的 Mermaid 图表",
-    "slash_command_description": "插入一个“{{name}}”类型的 Mermaid 图表模板",
     "sample_cynefin": "Cynefin",
     "sample_swimlane": "泳道图",
     "sample_railroad": "铁路图"
@@ -2958,8 +2963,7 @@
     "will_reload_frontend": "（将重新加载应用）"
   },
   "link": {
-    "failed_to_open": "无法打开链接“{{- href}}”：{{- message}}",
-    "copy_url": "复制链接"
+    "failed_to_open": "无法打开链接“{{- href}}”：{{- message}}"
   },
   "display_mode": {
     "source": "源代码视图",
@@ -3102,9 +3106,6 @@
     "button-retry": "重试"
   },
   "text-editor": {
-    "checkbox-tooltip": "单击右键或按下 {{- shortcut}} 修改状态。",
-    "edit-states-tooltip": "编辑任务状态",
-    "unknown-task-state": "未定义的自定义任务状态",
     "validation-errors": {
       "undefined-name": "未定义的标识符",
       "invalid-name": "无效的标识符",
@@ -3114,38 +3115,54 @@
       "invalid-symbol": "Markdown 符号应为一个字符，但不能是 \"[\", \" \", \"X\", 和 \"]\"",
       "duplicate-symbol": "重复的 Markdown 符号"
     },
-    "collapsible-body-placeholder": "在此输入内容..",
-    "collapsible-button-label": "可折叠块",
-    "collapsible-handle-tooltip": "拖动以重新定位可折叠块",
-    "collapsible-select-label": "选择可折叠块",
-    "collapsible-title-placeholder": "摘要",
-    "collapsible-toggle-label": "切换可折叠块",
-    "collapsible-tooltip": "点击箭头或按 {{- shortcut}} 键以折叠/展开。",
-    "checkbox-tooltip-state-label": "任务状态：",
-    "checkbox-tooltip-state-unknown-suffix": "（缺少定义）",
     "task-state-dropped-title": "无效的任务状态",
     "task-state-dropped-message_other": "{{count}}项自定义任务状态定义无效，已被忽略。",
     "task-state-dropped-heading": "被忽略的定义：",
-    "task-state-dropped-configure": "配置任务状态"
-  },
-  "slash_commands": {
-    "bulleted_list_description": "创建一个项目符号列表",
-    "numbered_list_description": "创建一个编号列表",
-    "todo_list_description": "创建一个待办事项列表",
-    "align_left_description": "将文本左对齐",
-    "align_center_description": "将文本居中对齐",
-    "align_right_description": "将文本右对齐",
-    "justify_description": "将文本两端对齐",
-    "admonition_description": "插入一个新的提示框",
-    "collapsible_description": "插入一个可展开/收起的区域，点击即可隐藏或显示内容。",
-    "footnote_description": "创建一个新脚注并在此处引用",
-    "datetime_description": "插入当前的日期和时间",
-    "internal_link_description": "插入一个指向其他 Trilium 笔记的链接",
-    "math_description": "插入一个数学公式",
-    "include_note_description": "在当前笔记中显示另一篇笔记的内容",
-    "page_break_description": "插入一个分页符（用于打印）",
-    "markdown_import_description": "将一个 Markdown 文件导入到这篇笔记中",
-    "anchor_description": "插入一个用于内部链接的锚点"
+    "task-state-dropped-configure": "配置任务状态",
+    "ck": {
+      "align-text-to-the-center": "将文本居中对齐",
+      "align-text-to-the-left": "将文本左对齐",
+      "align-text-to-the-right": "将文本右对齐",
+      "card": "卡片",
+      "click-on-the-arrow-or-press-0-to-collapse-expand": "点击箭头或按 %0 键以折叠/展开。",
+      "collapsible-block": "可折叠块",
+      "copy-image-to-clipboard": "将图片复制到剪贴板",
+      "copy-url": "复制链接",
+      "create-a-bulleted-list": "创建一个项目符号列表",
+      "create-a-new-footnote-and-reference-it-here": "创建一个新脚注并在此处引用",
+      "create-a-numbered-list": "创建一个编号列表",
+      "create-a-to-do-list": "创建一个待办事项列表",
+      "display": "显示方式",
+      "display-the-content-of-another-note-in-this-note": "在当前笔记中显示另一篇笔记的内容",
+      "download-image": "下载图片",
+      "drag-to-reposition-the-collapsible-block": "拖动以重新定位可折叠块",
+      "edit-task-states": "编辑任务状态",
+      "edit-title": "编辑标题",
+      "embed": "嵌入",
+      "inline": "行内",
+      "insert-a-0-mermaid-diagram-template": "插入一个“%0”类型的 Mermaid 图表模板",
+      "insert-a-link-to-another-trilium-note": "插入一个指向其他 Trilium 笔记的链接",
+      "insert-a-math-equation": "插入一个数学公式",
+      "insert-a-new-admonition": "插入一个新的提示框",
+      "insert-a-page-break-for-printing": "插入一个分页符（用于打印）",
+      "insert-a-toggleable-section-that-hides-shows-content-on-click": "插入一个可展开/收起的区域，点击即可隐藏或显示内容。",
+      "insert-an-anchor-for-internal-linking": "插入一个用于内部链接的锚点",
+      "insert-an-empty-mermaid-diagram": "插入一个空白的 Mermaid 图表",
+      "insert-the-current-date-and-time": "插入当前的日期和时间",
+      "justify-text-alignment": "将文本两端对齐",
+      "link-preview": "链接预览",
+      "missing-definition": "（缺少定义）",
+      "plain-link": "纯链接",
+      "right-click-or-press-0-to-change-state": "单击右键或按下 %0 修改状态。",
+      "select-collapsible-block": "选择可折叠块",
+      "summary": "摘要",
+      "task-state": "任务状态：",
+      "title": "标题",
+      "toggle-collapsible-block": "切换可折叠块",
+      "type-the-content-here": "在此输入内容..",
+      "undefined-custom-task-state": "未定义的自定义任务状态",
+      "url": "URL"
+    }
   },
   "image_buttons": {
     "zoom_in": "放大",
@@ -3377,18 +3394,7 @@
     "esc_hint": "关闭"
   },
   "link_embed": {
-    "play_video": "播放视频",
-    "title": "链接预览",
-    "url": "URL",
-    "insert": "插入",
-    "display": "显示方式",
-    "mode_inline": "行内",
-    "mode_card": "卡片",
-    "mode_embed": "嵌入",
-    "mode_plain": "纯链接",
-    "edit_title": "编辑标题",
-    "title_label": "标题",
-    "save": "保存"
+    "play_video": "播放视频"
   },
   "wizard": {
     "back": "返回",
@@ -3543,6 +3549,30 @@
     "cleanup_confirm_interrupted": "如果过程中发生中断（如崩溃、重启或断电），除已选项目外不会丢失任何内容。",
     "cleanup_confirm_compacting_title": "压缩数据库是一项较慢的操作",
     "cleanup_confirm_compacting": "压缩数据库可能需要几分钟时间，具体取决于数据库大小和运行 Trilium 的机器性能。另外，机器上最多需要 {{space}} 的可用磁盘空间（在数据目录和系统临时目录中）。",
-    "cleanup_compact_notice": "此操作可能需要几分钟时间，Trilium 在完成前将无响应。"
+    "cleanup_compact_notice": "此操作可能需要几分钟时间，Trilium 在完成前将无响应。",
+    "cleanup_snapshots_to_keep_help": "每篇笔记保留的修订快照数量，从最近的一个往前数。设为 0 将擦除整个修订历史。",
+    "cleanup_keep_named_help": "你已命名的修订始终保留，无论有多少个，且不计入每篇笔记保留的快照数量。"
+  },
+  "sidebar_help": {
+    "attributes_inheritable": "将其标记为可继承后，它会向下传递到该笔记下的整个子树，并在其中显示为「可继承」而非「自有」。",
+    "attributes_what": "本篇笔记上设置的标签和关系。标签给笔记贴上一个名称（需要时可附带一个值），关系则指向另一篇笔记。",
+    "attributes_inherited_what": "这篇笔记的标签和关系也可能来自别处：例如设置在上层笔记上的可继承属性，或由模板带入的属性。",
+    "attributes_inherited_source": "这些属性在此处为只读。每一行都标明了其来源笔记，也只有在来源笔记处才能修改或删除。",
+    "attributes_definitions_what": "定义是属性名称背后的模式（schema）：它接受什么类型的值、是否允许重复赋值，以及是否为提升属性（promoted）。",
+    "attributes_definitions_promoted": "提升属性会以表单字段的形式直接显示在笔记上，而不是留在此面板中。定义通常来自模板，每一行都标明了定义所在的笔记。",
+    "highlights_what": "这里是笔记中具有特定格式的片段，覆盖范围比想象中更广：普通的加粗或斜体句子也算，不限于你手动高亮的文字。",
+    "highlights_configure": "哪些格式要被统计，由你说了算：加粗、斜体、下划线、彩色文字和背景色文字都能在卡片右上角的齿轮菜单里勾选或去掉。点一下某个条目，笔记就滚到那儿。",
+    "note_map_what": "笔记地图展示这篇笔记的连接关系：链接地图显示进出它的内部链接和关系，树形地图显示它在笔记树中的位置。标题栏的切换器可在两种视图间切换。",
+    "note_map_interaction": "悬停某篇笔记会将其自身的连接突出显示，其余部分变淡。展开按钮会以窗口大小打开同一张图谱。",
+    "note_paths_what": "一篇笔记可以同时位于笔记树中的多个位置，每个位置都会以路径形式列在这里。",
+    "note_paths_cloning": "「克隆（clone）」有别于「创建独立副本（duplicate）」：修改某一个克隆笔记，修改内容会同步到所有的该篇克隆笔记；删除其中一个路径的克隆笔记，不会影响到其他路径下的克隆副本。",
+    "backlinks_what": "反向链接是那些指向这篇笔记的其他笔记，可能是通过正文里的链接，也可能是一条以这篇笔记为目标的关系。",
+    "backlinks_listing": "文本链接会连同其周围片段一起列出，关系则按其指向的名称列出。链接的这一侧不可编辑：当创建链接的笔记删除该链接时，它就会消失。",
+    "similar_notes_what": "即使没有任何链接关系，看起来也与这篇笔记相关的笔记。",
+    "similar_notes_how": "相似度是根据笔记内容、它们携带的属性和关系，以及创建时间的接近程度计算得出的。"
+  },
+  "contextual_help": {
+    "label": "帮助：{{- message}}",
+    "sheet_label": "帮助"
   }
 }

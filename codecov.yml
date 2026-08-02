@@ -41,10 +41,6 @@ flags:
     paths:
       - packages/ckeditor5/src/
     carryforward: true
-  ckeditor5-utils:
-    paths:
-      - packages/ckeditor5-utils/src/
-    carryforward: true
   codemirror:
     paths:
       - packages/codemirror/src/
