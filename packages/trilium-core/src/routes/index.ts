@@ -130,7 +130,7 @@ export function buildSharedApiRoutes({ route, asyncRoute, apiRoute, asyncApiRout
     route(GET, "/api/revisions/:revisionId/image/:filename", [checkApiAuthOrElectron], imageRoute.returnImageFromRevision);
     route(GET, "/api/attachments/:attachmentId/image/:filename", [checkApiAuthOrElectron], imageRoute.returnAttachedImage);
     route(GET, "/api/images/:noteId/:filename", [checkApiAuthOrElectron], imageRoute.returnImageFromNote);
-    route(PUT, "/api/images/:noteId", [checkApiAuthOrElectron, uploadMiddlewareWithErrorHandling, csrfMiddleware], imageRoute.updateImage, apiResultHandler);
+    asyncRoute(PUT, "/api/images/:noteId", [checkApiAuthOrElectron, uploadMiddlewareWithErrorHandling, csrfMiddleware], imageRoute.updateImage, apiResultHandler);
     // Readings rather than runs: headers only, so they are cheap enough to open a dialog with.
     apiRoute(GET, "/api/notes/:noteId/image-info", imageRoute.getNoteImageInfo);
     apiRoute(GET, "/api/attachments/:attachmentId/image-info", imageRoute.getAttachmentImageInfo);
@@ -140,7 +140,7 @@ export function buildSharedApiRoutes({ route, asyncRoute, apiRoute, asyncApiRout
     asyncApiRoute(PST, "/api/notes/:noteId/compress-images", imageRoute.compressNoteImages);
     apiRoute(PST, "/api/image-compression/:taskId/cancel", imageRoute.cancelImageCompression);
     asyncApiRoute(PST, "/api/attachments/:attachmentId/compress-image", imageRoute.compressAttachmentImage);
-    route(PST, "/api/notes/:noteId/attachments/upload", [checkApiAuthOrElectron, uploadMiddlewareWithErrorHandling, csrfMiddleware], attachmentsApiRoute.uploadAttachment, apiResultHandler);
+    asyncRoute(PST, "/api/notes/:noteId/attachments/upload", [checkApiAuthOrElectron, uploadMiddlewareWithErrorHandling, csrfMiddleware], attachmentsApiRoute.uploadAttachment, apiResultHandler);
 
     // group of the services below are meant to be executed from the outside
     route(GET, "/api/setup/status", [], setupApiRoute.getStatus, apiResultHandler);
@@ -163,7 +163,7 @@ export function buildSharedApiRoutes({ route, asyncRoute, apiRoute, asyncApiRout
 
     //#region Import/export
     asyncRoute(PST, "/api/notes/:parentNoteId/notes-import", [checkApiAuthOrElectron, importMiddlewareWithErrorHandling, csrfMiddleware], importRoute.importNotesToBranch, apiResultHandler);
-    route(PST, "/api/notes/:parentNoteId/attachments-import", [checkApiAuthOrElectron, importMiddlewareWithErrorHandling, csrfMiddleware], importRoute.importAttachmentsToNote, apiResultHandler);
+    asyncRoute(PST, "/api/notes/:parentNoteId/attachments-import", [checkApiAuthOrElectron, importMiddlewareWithErrorHandling, csrfMiddleware], importRoute.importAttachmentsToNote, apiResultHandler);
     asyncRoute(GET, "/api/branches/:branchId/export/:type/:format/:taskId", [checkApiAuthOrElectron], exportRoute.exportBranch);
     //#endregion
 

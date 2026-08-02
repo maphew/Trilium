@@ -150,6 +150,75 @@ describe("worker pool failure semantics", () => {
         expect(h.forked).toHaveLength(1);
     });
 
+    /**
+     * What happens to the images queued behind a worker, which is where the pool can do real harm.
+     *
+     * A caller queues only when every worker is busy, and is then past the point where it could
+     * have started one for itself: from there it is answered by the pool or not at all. Not at all
+     * is not a slow answer but a permanent one — an import creates each note empty and fills it in
+     * when its compression returns, so a promise that never settles is a note left at zero bytes.
+     */
+    describe("images queued behind a busy pool", () => {
+        /** Fills the pool and queues `count` more images behind it. */
+        async function queueBehind(pool: typeof import("./image_worker_pool.js"), count: number) {
+            h.cores = 1;
+
+            const running = pool.compressInWorker(BYTES, REQUEST, 1024);
+
+            await flush();
+
+            const queued = Array.from({ length: count }, () => pool.compressInWorker(BYTES, REQUEST, 1024));
+
+            await flush();
+            // One process for all of them: the rest are waiting on it, not on one of their own.
+            expect(h.forked).toHaveLength(1);
+
+            return { running, queued };
+        }
+
+        it("answers all of them when workers are given up on, rather than leaving them waiting", async () => {
+            const pool = await import("./image_worker_pool.js");
+            const { running, queued } = await queueBehind(pool, 3);
+
+            // Dead before it ever spoke, so this installation is taken to have no workers at all.
+            // The one being run is answered by its own call; the queued ones are answered by
+            // nothing unless giving up says so.
+            h.forked[0].emit("exit", 127, null);
+
+            await expect(running).resolves.toBeNull();
+            await expect(Promise.all(queued)).resolves.toEqual([ null, null, null ]);
+        });
+
+        it("starts a replacement for one that dies, so the queue behind it moves", async () => {
+            const pool = await import("./image_worker_pool.js");
+            const { running, queued } = await queueBehind(pool, 1);
+            const worker = h.forked[0];
+
+            worker.emit("message", { trace: "worker 4000: loaded and listening" });
+            await flush();
+            // Taken down by the image it was given, having already proven workers run here.
+            worker.emit("exit", 1, null);
+            await expect(running).rejects.toThrow("exited with code 1");
+            await flush();
+
+            // The capacity it held is free again, and the image queued for it gets a process rather
+            // than a wait with nothing left to end it.
+            expect(h.forked).toHaveLength(2);
+
+            const replacement = h.forked[1];
+
+            replacement.emit("message", { trace: "worker 4001: loaded and listening" });
+            await flush();
+            replacement.emit("message", {
+                id: (replacement.sent[0] as { id: number }).id,
+                outcome: { compressed: false, reason: "no-gain" },
+                logs: []
+            });
+
+            await expect(queued[0]).resolves.toMatchObject({ compressed: false, reason: "no-gain" });
+        });
+    });
+
     it("sizes the pool to the machine's memory as well as its cores", async () => {
         const pool = await import("./image_worker_pool.js");
 

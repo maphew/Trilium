@@ -47,7 +47,7 @@ function saveAttachment(req: Request<{ noteId: string }>) {
     note.saveAttachment({ attachmentId, role, mime, title, content }, matchBy);
 }
 
-function uploadAttachment(req: FileRequest<{ noteId: string }>) {
+async function uploadAttachment(req: FileRequest<{ noteId: string }>) {
     const { noteId } = req.params;
     const { file } = req;
 
@@ -66,6 +66,13 @@ function uploadAttachment(req: FileRequest<{ noteId: string }>) {
 
     if (["image/png", "image/jpg", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"].includes(file.mimetype)) {
         const attachment = imageService.saveImageToAttachment(noteId, buffer, file.originalname, true, true);
+
+        // The URL below is fetched the moment this answers — the editor puts it straight into the
+        // document as the source of an image. Answering before the bytes are stored hands it the
+        // address of an empty attachment, which draws as a broken image and stays broken until
+        // something reloads the note. So this one image is waited for; nothing else is.
+        await imageService.awaitImageWrite(attachment.attachmentId);
+
         url = `api/attachments/${attachment.attachmentId}/image/${encodeURIComponent(attachment.title)}`;
     } else {
         const attachment = note.saveAttachment({

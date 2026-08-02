@@ -267,7 +267,32 @@ function retire(worker: PooledWorker) {
     started--;
     worker.stopped = true;
     worker.worker.kill();
-    waiting.shift()?.(null);
+
+    const next = waiting.shift();
+
+    if (!next) {
+        return;
+    }
+
+    // The capacity this worker held is free again, and whoever is queued for it is already past
+    // the point where they could have started one for themselves — they queued because the pool
+    // was full, and it no longer is. Starting the replacement here is what keeps the queue moving;
+    // without it a pool whose workers all died would leave everyone behind them waiting on a
+    // release that can no longer come.
+    //
+    // Only where workers are known to run, though. If none has ever spoken, another is not going
+    // to either, and starting one would make this caller wait out a second process failing to come
+    // up before hearing the same answer it can be given now.
+    const replacement = everSpoke ? spawn() : null;
+
+    if (replacement) {
+        started++;
+        next(replacement);
+    } else {
+        // Nothing can be started, which `spawn` has already answered for by disabling workers
+        // outright — and that answers everyone else. This one was taken off the queue first.
+        next(null);
+    }
 }
 
 /**
@@ -399,7 +424,22 @@ function disable(reason: string): null {
             `Image Compression Tool: compressing in this process because ${reason}.`);
     }
 
+    // Everyone still queued is answered, not left holding a promise for a worker that is now never
+    // coming. Nothing else would ever answer them — the queue is drained by workers coming free,
+    // and there are to be no more workers — so without this they wait for the life of the process,
+    // and whoever is awaiting them waits with them. An image whose compression never returns is an
+    // image that is never written: the note is created empty and filled in when the compression
+    // answers, so a promise that never settles is a note left at nothing.
+    answerEveryoneWaiting();
+
     return null;
+}
+
+/** Tells every queued caller there is no worker for it, so each one compresses its own image. */
+function answerEveryoneWaiting() {
+    while (waiting.length > 0) {
+        waiting.shift()?.(null);
+    }
 }
 
 function send(

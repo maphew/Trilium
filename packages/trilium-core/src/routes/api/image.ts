@@ -111,7 +111,7 @@ function returnAttachedImage(req: Request<{ attachmentId: string }>, res: Respon
     }
 }
 
-function updateImage(req: FileRequest<{ noteId: string }>) {
+async function updateImage(req: FileRequest<{ noteId: string }>) {
     const { noteId } = req.params;
     const { file } = req;
 
@@ -139,6 +139,10 @@ function updateImage(req: FileRequest<{ noteId: string }>) {
     }
 
     imageService.updateImage(noteId, file.buffer, file.originalname);
+
+    // The client re-requests the image as soon as this answers, to show what it just uploaded.
+    // Answering first would have it fetch the note's old content, or nothing at all.
+    await imageService.awaitImageWrite(noteId);
 
     return { uploaded: true };
 }
