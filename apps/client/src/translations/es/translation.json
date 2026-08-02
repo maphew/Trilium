@@ -3308,9 +3308,7 @@
     "more_actions": "Más acciones"
   },
   "link_embed": {
-    "play_video": "Reproducir vídeo",
-    "insert": "Insertar",
-    "save": "Guardar"
+    "play_video": "Reproducir vídeo"
   },
   "time_interval": {
     "seconds_one": "{{count}} segundo",
