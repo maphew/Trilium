@@ -28,6 +28,7 @@ import { useFetch } from "../../../../react/use_fetch";
 import {
     CLEANUP_ITEMS,
     type CleanupPhase,
+    type CleanupProgress,
     type CleanupToolOptions,
     computeCleanupSizes,
     hasWorkToDo,
@@ -376,22 +377,34 @@ export const CLEANUP_TOAST_ID = "content-manager-cleanup";
 const CLEANUP_DONE_TIMEOUT_MS = 15000;
 
 /**
- * The app's in-progress toast, the same one printing raises: a spinning icon rather than a bar,
- * since none of this can say how far along it is. Compressing and compacting each name themselves,
- * being the steps that can hold the server for minutes with nothing at all to show meanwhile.
+ * The app's in-progress toast, the same one printing raises: a spinning icon rather than a bar.
+ * Compressing and compacting each name themselves, being the steps that can hold the server for
+ * minutes with nothing at all to show meanwhile.
  *
- * Raised again per phase rather than replaced — the toast service updates the one already carrying
+ * Raised again per report rather than replaced — the toast service updates the one already carrying
  * this id, so the message changes in place instead of stacking a second toast beside the first.
  */
-function showCleanupProgress(phase: CleanupPhase) {
+function showCleanupProgress(phase: CleanupPhase, progress?: CleanupProgress) {
     toast.showPersistent({
         id: CLEANUP_TOAST_ID,
         icon: "bx bx-loader-circle bx-spin",
-        message: t(CLEANUP_PHASE_MESSAGES[phase]),
+        message: phaseMessage(phase, progress),
         // Nothing here to cancel: the server carries on whatever the client does, so a close button
         // would read as a stop that stops nothing.
         dismissible: false
     });
+}
+
+/**
+ * A phase counts itself off where it can, and merely names itself where it cannot.
+ *
+ * Recompressing is the only one that can, and only once its first report has arrived: the total
+ * comes from the server along with the count, so until then this reads as the other phases do.
+ */
+function phaseMessage(phase: CleanupPhase, progress?: CleanupProgress): string {
+    return progress?.total
+        ? t("space_usage.compress_running_progress", { done: progress.done, total: progress.total })
+        : t(CLEANUP_PHASE_MESSAGES[phase]);
 }
 
 /**

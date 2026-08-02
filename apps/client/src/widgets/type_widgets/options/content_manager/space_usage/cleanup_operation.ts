@@ -1,6 +1,5 @@
 import type {
     CompactionEstimateResponse,
-    ImageCompressionResponse,
     SpaceUsageNoteResponse,
     SpaceUsageOverviewResponse,
     VacuumDatabaseResponse
@@ -8,6 +7,7 @@ import type {
 
 import optionService from "../../../../../services/options";
 import server from "../../../../../services/server";
+import { newCompressionTaskId, runImageCompression } from "../../../../dialogs/image_compression/image_compression_operation";
 import {
     CONSERVATIVE_IMAGE_COMPRESSION_DEFAULTS,
     type ImageCompressionToolOptions,
@@ -29,6 +29,18 @@ export type CleanupItemId = (typeof CLEANUP_ITEMS)[number]["id"];
  * so each says so rather than leaving the same message up throughout.
  */
 export type CleanupPhase = "erasing" | "compressing" | "compacting";
+
+/**
+ * How far a phase has got, for the one phase that can say.
+ *
+ * Erasing and rebuilding are each a single request the server answers when it is finished; only
+ * recompressing works through a list it knows the length of, and reports itself against it.
+ */
+export interface CleanupProgress {
+    done: number;
+    /** Absent until the run has said how many there are, which its first report does. */
+    total?: number;
+}
 
 
 /**
@@ -206,7 +218,7 @@ export function computeCleanupSizes(
  */
 export async function runCleanup(
     options: CleanupToolOptions,
-    onPhase: (phase: CleanupPhase) => void = () => {}
+    onPhase: (phase: CleanupPhase, progress?: CleanupProgress) => void = () => {}
 ): Promise<number> {
     const erasing = options.revisionSnapshots || options.unusedAttachments || options.deletedEntities;
 
@@ -235,7 +247,8 @@ export async function runCleanup(
 
     if (options.compressImages) {
         onPhase("compressing");
-        await compressAllImages(options.imageCompression);
+        await compressAllImages(options.imageCompression,
+            (done, total) => onPhase("compressing", { done, total }));
     }
 
     let compaction: VacuumDatabaseResponse | undefined;
@@ -273,20 +286,23 @@ export async function runCleanup(
  * readings show is what the database actually handed back, which is smaller whenever a revision
  * still points at an original. Only the second is a claim about space, and space is what this tool
  * is answering for.
+ *
+ * Run through the image tool's own runner rather than posted from here, which is what names the run
+ * and so what lets it be counted: the server reports each image against a task, and a task exists
+ * only because the request quoted one. The count itself costs nothing to obtain — the run knows how
+ * many images it collected before it touches the first, and says so with its first report.
  */
-async function compressAllImages(options: ImageCompressionToolOptions): Promise<void> {
-    await server.postWithTimeout<ImageCompressionResponse>(
-        "notes/root/compress-images", CLEANUP_TIMEOUT_MS, {
-            resize: options.resize,
-            maxWidthHeight: options.maxWidthHeight,
-            jpegHandling: options.jpegHandling,
-            pngHandling: options.pngHandling,
-            quality: options.quality,
-            conversionQuality: options.conversionQuality,
-            // Always the whole tree: a cleanup is a database-wide operation, and the root note on
-            // its own holds no images at all.
-            recursive: true
-        });
+async function compressAllImages(
+    options: ImageCompressionToolOptions,
+    onProgress: (done: number, total: number | undefined) => void
+): Promise<void> {
+    await runImageCompression(
+        { type: "note", noteId: "root" },
+        // Always the whole tree: a cleanup is a database-wide operation, and the root note on its
+        // own holds no images at all.
+        { ...options, processChildNotes: true },
+        newCompressionTaskId(),
+        onProgress);
 }
 
 /**

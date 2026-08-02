@@ -5,11 +5,22 @@ const mocks = vi.hoisted(() => ({
     getInt: vi.fn<(name: string) => number | null>(() => -1),
     /** Reads the `revisionIgnoreNamedSnapshots` option, which the named-revisions field follows. */
     is: vi.fn<(name: string) => boolean>(() => true),
-    post: vi.fn(async (url: string, _body?: object) => {
+    /** Whoever is listening to the websocket, which for the length of a run is the run itself. */
+    listeners: [] as ((message: unknown) => void)[],
+    /** What the server reports over that socket while a compression request is still open. */
+    progress: [] as { progressCount: number; totalCount?: number }[],
+    post: vi.fn(async (url: string, body?: object) => {
         if (url === "database/vacuum-database") return { sizeBefore: 9000, sizeAfter: 2000 };
         // A saving far larger than any reading here, so a test can prove it is never added on top:
         // the compression step runs between the two readings and is already counted in them.
-        if (url === "notes/root/compress-images") return { savedSize: 999999 };
+        if (url === "notes/root/compress-images") {
+            const { taskId } = (body ?? {}) as { taskId?: string };
+
+            mocks.progress.forEach((report) => mocks.listeners.forEach(
+                (listener) => listener({ type: "taskProgressCount", taskId, ...report })));
+
+            return { savedSize: 999999 };
+        }
         return undefined;
     }),
     /** Occupied bytes, read once before the erasures and once after; shifted per test. */
@@ -36,8 +47,18 @@ vi.mock("../../../../../services/server", () => ({
     }
 }));
 
+// The compression step is followed over the websocket rather than answered by the request, so the
+// socket is where its counting has to be driven from.
+vi.mock("../../../../../services/ws", () => ({
+    subscribeToMessages: (listener: (message: unknown) => void) => void mocks.listeners.push(listener),
+    unsubscribeToMessage: (listener: (message: unknown) => void) =>
+        void mocks.listeners.splice(mocks.listeners.indexOf(listener), 1)
+}));
+
 import type { ImageCompressionToolOptions } from "../../../../dialogs/image_compression/image_compression_options";
 import {
+    type CleanupPhase,
+    type CleanupProgress,
     type CleanupToolOptions,
     computeCleanupSizes,
     hasWorkToDo,
@@ -80,10 +101,21 @@ const ALL_PICKED: CleanupToolOptions = {
     compactDatabase: false
 };
 
+/** Recompressing on its own, so the phases a run reports are that step's and nothing else's. */
+const ONLY_COMPRESSING: CleanupToolOptions = {
+    ...ALL_PICKED,
+    deletedEntities: false,
+    unusedAttachments: false,
+    revisionSnapshots: false,
+    compressImages: true
+};
+
 beforeEach(() => {
     mocks.getInt.mockReturnValue(-1);
     mocks.is.mockReturnValue(true);
     mocks.occupied = [ 5000, 3000 ];
+    mocks.listeners.length = 0;
+    mocks.progress.length = 0;
     mocks.post.mockClear();
     mocks.get.mockClear();
 });
@@ -266,6 +298,9 @@ describe("runCleanup", () => {
         ]);
         // The whole tree, and none of the tool's own scope switch — a cleanup has no scope to choose.
         expect(mocks.post.mock.calls[3][1]).toEqual({
+            // Named, which is the whole of what it takes to be counted: the server reports each
+            // image against a task, and there is a task only because the request quoted one.
+            taskId: expect.any(String),
             resize: true,
             maxWidthHeight: 1920,
             jpegHandling: "compress",
@@ -274,6 +309,40 @@ describe("runCleanup", () => {
             conversionQuality: 85,
             recursive: true
         });
+    });
+
+    it("counts the images off as the run reports them, against a total it supplies itself", async () => {
+        const reported: [ CleanupPhase, CleanupProgress | undefined ][] = [];
+
+        mocks.progress = [ { progressCount: 1, totalCount: 867 }, { progressCount: 197, totalCount: 867 } ];
+
+        await runCleanup({ ...ONLY_COMPRESSING }, (phase, progress) => reported.push([ phase, progress ]));
+
+        // The phase announces itself before the request is made — nothing can be counted yet — and
+        // is then re-announced with each report. No inventory is read for the total: the run knows
+        // how many images it collected before it touches the first, and says so as it goes.
+        expect(reported).toEqual([
+            [ "compressing", undefined ],
+            [ "compressing", { done: 1, total: 867 } ],
+            [ "compressing", { done: 197, total: 867 } ]
+        ]);
+    });
+
+    it("hears only its own run, and stops listening once that run is over", async () => {
+        const reported: CleanupProgress[] = [];
+
+        mocks.progress = [ { progressCount: 5, totalCount: 40 } ];
+
+        await runCleanup({ ...ONLY_COMPRESSING }, (_phase, progress) => {
+            if (progress) {
+                reported.push(progress);
+            }
+        });
+
+        expect(reported).toEqual([ { done: 5, total: 40 } ]);
+        // Subscribed for the length of the request rather than the length of the session: a second
+        // run's reports must not still be counted against a toast this one has taken down.
+        expect(mocks.listeners).toEqual([]);
     });
 
     it("counts what compressing freed once, through the readings rather than the endpoint", async () => {
