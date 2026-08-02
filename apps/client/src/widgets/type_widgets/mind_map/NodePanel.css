@@ -23,24 +23,14 @@
 }
 
 /*
- * The strip parts from the tab under it by a line the width of the panel, so that it reads as the
- * panel's header rather than as one more choice among the fields — which is what the same button
- * group means everywhere else in here (the font sizes, the picture's shapes).
+ * The strip is the right pane's, at the size it stands there (see TabStrip.css); what is left here
+ * is the row it heads. It parts from the tab under it by a line the width of the panel, so that it
+ * reads as the panel's header rather than as one more choice among the fields — which is what a
+ * button group means everywhere else in here (the font sizes, the picture's shapes).
  */
 .mind-map-node-panel .mind-map-node-panel-tabs {
-    display: flex;
-    justify-content: center;
-    flex-shrink: 0;
     padding: 8px;
     border-bottom: 1px solid var(--main-border-color);
-
-    .mind-map-node-panel-tab {
-        /* The icon leads the name, as it does on a tab of the right pane. */
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        gap: 5px;
-    }
 }
 
 /* Each tab holds the padding, rather than the panel: the memo's is its own (see below). */

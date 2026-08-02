@@ -22,6 +22,7 @@ import IconPicker from "../../react/IconPicker";
 import NoteAutocomplete from "../../react/NoteAutocomplete";
 import { refToJQuerySelector } from "../../react/react_utils";
 import SegmentedChoice from "../../react/SegmentedChoice";
+import TabStrip, { type TabStripTabDefinition } from "../../react/TabStrip";
 import { fitNodeImage, getNodeImageShape, nearestNodeImageWidth, NODE_IMAGE_SHAPES, NODE_IMAGE_WIDTHS, type NodeImage as NodeImageData, type NodeImageShape, shapeNodeImage, uploadNodeImage } from "./images";
 import { describeExternalLink, linkFromSuggestion } from "./links";
 import NodeMemo, { getNodeMemo } from "./NodeMemo";
@@ -131,7 +132,12 @@ export default function NodePanel({ mind, noteId, nodes }: NodePanelProps) {
             onMouseDown={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
         >
-            <NodePanelTabs activeTabId={activeTabId} onSelect={setActiveTabId} />
+            <TabStrip
+                className="mind-map-node-panel-tabs"
+                tabs={buildTabs()}
+                activeTabId={activeTabId}
+                onSelect={setActiveTabId}
+            />
 
             <div
                 role="tabpanel"
@@ -266,45 +272,11 @@ type NodePanelTabId = "format" | "memo";
  * rather than picked from, and a paragraph of prose wants the room the whole panel has — which, at
  * the foot of eight other fields, meant scrolling to the bottom to reach a box three lines tall.
  */
-function buildTabs(): { id: NodePanelTabId, title: string, icon: string }[] {
+function buildTabs(): TabStripTabDefinition<NodePanelTabId>[] {
     return [
         { id: "format", title: t("mind-map.tab-format"), icon: "bx bx-palette" },
         { id: "memo", title: t("mind-map.memo"), icon: "bx bx-notepad" }
     ];
-}
-
-/**
- * The panel's header: which group of fields is on show.
- *
- * Built as the right pane's tab strip is — a button group as a tablist, the tab on show raised out
- * of the recessed track by the theme — but with each tab named beside its icon rather than left to
- * a tooltip. That strip is icon-only because five tabs have to fit a pane; two tabs have the width
- * of this panel between them, and the same button group the panel already uses for its font sizes
- * spells its segments out.
- */
-function NodePanelTabs({ activeTabId, onSelect }: { activeTabId: NodePanelTabId, onSelect: (tabId: NodePanelTabId) => void }) {
-    return (
-        <div className="mind-map-node-panel-tabs">
-            <div className="btn-group btn-group-sm" role="tablist">
-                {buildTabs().map((tab) => (
-                    <button
-                        key={tab.id}
-                        type="button"
-                        role="tab"
-                        aria-selected={tab.id === activeTabId}
-                        // `active` is what the theme raises the tab on show with; the rest is the
-                        // segment the panel's other button groups are built from, so the strip
-                        // carries the same weight as the rows under it.
-                        className={clsx("btn btn-secondary btn-sm mind-map-node-panel-tab", tab.id === activeTabId && "active")}
-                        onClick={() => onSelect(tab.id)}
-                    >
-                        <Icon icon={tab.icon} />
-                        {tab.title}
-                    </button>
-                ))}
-            </div>
-        </div>
-    );
 }
 
 /**
