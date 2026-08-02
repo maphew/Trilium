@@ -67,10 +67,6 @@ function iconFaces(container: HTMLElement) {
         [ ...button.classList ].filter((name) => name.startsWith("bx")).join(" "));
 }
 
-function imagePreview(container: HTMLElement) {
-    return section(container, IMAGE).querySelector<HTMLImageElement>(".mind-map-node-image-preview");
-}
-
 function imageWidthButtons(container: HTMLElement) {
     return Array.from(section(container, IMAGE).querySelectorAll<HTMLElement>(".btn-group .btn"));
 }
@@ -320,19 +316,19 @@ describe("MindMapNodePanel", () => {
         expect(iconButtons(container).every((button) => button.disabled)).toBe(true);
     });
 
-    it("shows the picture the selection carries and what can be done with it, nothing more", () => {
+    it("offers what can be done with the picture a node carries, and only takes one in without", () => {
         const nodes = [buildNode({ image: { url: "api/attachments/att1/image/a.png", width: 240, height: 180 } })];
 
         const container = renderInto(<MindMapNodePanel mind={buildMind(nodes).mind} noteId="mapNote" nodes={nodes} />);
 
-        expect(imagePreview(container)?.getAttribute("src")).toBe("api/attachments/att1/image/a.png");
+        // The picture is on the node itself; the row says how large it is drawn and offers the way
+        // to another one or to none.
         expect(activeImageWidth(container)).toBe(1);
         expect(imageAction(container, "bx-trash")).toBeTruthy();
 
         // A node carrying none offers to take one in, and nothing else: there is no size to set and
         // nothing to remove.
         const empty = renderInto(<MindMapNodePanel mind={buildMind([buildNode()]).mind} noteId="mapNote" nodes={[buildNode()]} />);
-        expect(imagePreview(empty)).toBeNull();
         expect(imageWidthButtons(empty)).toHaveLength(0);
         expect(imageAction(empty, "bx-trash")).toBeNull();
         expect(imageAction(empty, "bx-image-add")).toBeTruthy();
@@ -366,9 +362,8 @@ describe("MindMapNodePanel", () => {
 
         const container = renderInto(<MindMapNodePanel mind={buildMind(nodes).mind} noteId="mapNote" nodes={nodes} />);
 
-        expect(imagePreview(container)).toBeNull();
         expect(section(container, IMAGE).querySelector(".mind-map-node-image-mixed")).toBeTruthy();
-        // Neither the picture nor the width can be shown, but both can still be set for all of them.
+        // No width can be shown, but one can still be set for all of them.
         expect(activeImageWidth(container)).toBe(-1);
         expect(imageAction(container, "bx-trash")).toBeTruthy();
     });

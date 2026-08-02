@@ -135,7 +135,7 @@ export default function MindMapNodePanel({ mind, noteId, nodes }: MindMapNodePan
                 title={image === MIXED ? t("mind-map.images-differ") : undefined}
             >
                 <NodeImage
-                    url={image !== MIXED ? image : null}
+                    hasImage={!!image}
                     indeterminate={image === MIXED}
                     width={imageWidth !== MIXED && imageWidth ? Number(imageWidth) : null}
                     // A node carries one picture, so what is taken in takes the place of what was
@@ -363,15 +363,17 @@ function NodeIcon({ face, title, disabled, onSelect, onRemove }: {
 }
 
 /**
- * The picture a node carries: what it looks like, how large it is drawn, and the way to another one
- * or to none at all.
+ * The picture a node carries: how large it is drawn, and the way to another one or to none at all.
  *
- * A node holds one picture, so the button offering one stands alone until there is a picture to
- * show, and turns into the way to replace it once there is — the same shape the icons row takes.
+ * The picture itself is not shown again here — it is on the node, at the very size these buttons
+ * set, a hand's width from the panel. What the row says instead is whether there is one: a node
+ * carrying none offers the one button that takes a picture in, and every other is only there once
+ * there is something for it to act on.
  */
-function NodeImage({ url, indeterminate, width, onPick, onResize, onRemove }: {
-    url: string | null;
-    /** The selected nodes carry different pictures, so none of them can be shown. */
+function NodeImage({ hasImage, indeterminate, width, onPick, onResize, onRemove }: {
+    /** Whether the selection carries a picture at all, which is what the row offers to do with. */
+    hasImage: boolean;
+    /** The selected nodes carry different pictures, which is why no width is shown. */
     indeterminate: boolean;
     /** The width they are drawn at, or `null` where the nodes disagree on one. */
     width: number | null;
@@ -379,13 +381,9 @@ function NodeImage({ url, indeterminate, width, onPick, onResize, onRemove }: {
     onResize(width: number): void;
     onRemove(): void;
 }) {
-    const hasImage = !!url || indeterminate;
-
     return (
         <div className="mind-map-node-image">
-            {indeterminate
-                ? <div className="mind-map-node-image-mixed">{t("mind-map.image-mixed")}</div>
-                : url && <img className="mind-map-node-image-preview" src={url} alt="" />}
+            {indeterminate && <div className="mind-map-node-image-mixed">{t("mind-map.image-mixed")}</div>}
 
             <div className="mind-map-node-image-actions">
                 {hasImage && (
