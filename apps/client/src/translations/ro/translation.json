@@ -2707,8 +2707,12 @@
       "insert-text-snippet": "Inserează fragment de text",
       "keyboard-shortcut": "Scurtătură de la tastatură",
       "link-preview": "Previzualizare link",
+      "no-text-snippets-available": "Nu există fragmente de text.",
+      "no-text-snippets-were-found-matching-0": "Nu s-a găsit niciun fragment de text care să corespundă „%0”.",
       "note": "Notă",
       "search-text-snippet": "Caută fragment de text",
+      "text-snippet": "Fragment de text",
+      "text-snippets-found-0": "Fragmente de text găsite: %0",
       "tip": "Sfat",
       "warning": "Avertisment"
     },

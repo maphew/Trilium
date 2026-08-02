@@ -51,11 +51,11 @@ export default class SnippetsUI extends Plugin {
                 infoView: {
                     text: {
                         notFound: {
-                            primary: (query) => t("No templates were found matching \"%0\".", query as string),
+                            primary: (query) => t("No text snippets were found matching \"%0\".", query as string),
                             secondary: t("Please try a different phrase or check the spelling.")
                         },
                         noSearchableItems: {
-                            primary: t("No templates available.")
+                            primary: t("No text snippets available.")
                         }
                     }
                 }
@@ -63,7 +63,10 @@ export default class SnippetsUI extends Plugin {
 
             searchView.on("search", (evt, data: { query: string; resultsCount: number }) => {
                 if (data.query.length) {
-                    editor.ui.ariaLiveAnnouncer.announce(t("%0 templates found", data.resultsCount));
+                    // Phrased with the count last rather than as "%0 text snippets found", which
+                    // would need a plural form: this is announced for every result count, one
+                    // included, and the message dictionary has no plural handling.
+                    editor.ui.ariaLiveAnnouncer.announce(t("Text snippets found: %0", data.resultsCount));
                 }
             });
 
@@ -89,7 +92,7 @@ export default class SnippetsUI extends Plugin {
             const command = editor.commands.get("insertTemplate") as Command;
             const menuView = new MenuBarMenuView(locale);
             menuView.buttonView.set({
-                label: t("Template"),
+                label: t("Text snippet"),
                 icon: templateIcon
             });
 
@@ -124,7 +127,7 @@ export default class SnippetsUI extends Plugin {
         if (!definitions.length) {
             const emptyItem = new MenuBarMenuListItemView(locale, menuView);
             const emptyButton = new MenuBarMenuListItemButtonView(locale);
-            emptyButton.set({ label: t("No templates available."), isEnabled: false });
+            emptyButton.set({ label: t("No text snippets available."), isEnabled: false });
             emptyItem.children.add(emptyButton);
             listView.items.add(emptyItem);
             return;

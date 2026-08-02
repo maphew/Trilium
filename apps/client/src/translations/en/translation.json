@@ -3567,7 +3567,6 @@
   },
   "text-editor": {
     "ck": {
-      "0-templates-found": "%0 templates found",
       "admonition": "Admonition",
       "align-text-to-the-center": "Align text to the center",
       "align-text-to-the-left": "Align text to the left",
@@ -3658,8 +3657,8 @@
       "mermaid-widget": "Mermaid widget",
       "missing-definition": "(missing definition)",
       "new-footnote": "New footnote",
-      "no-templates-available": "No templates available.",
-      "no-templates-were-found-matching-0": "No templates were found matching \"%0\".",
+      "no-text-snippets-available": "No text snippets available.",
+      "no-text-snippets-were-found-matching-0": "No text snippets were found matching \"%0\".",
       "note": "Note",
       "numbered-list": "Numbered list",
       "outdent": "Outdent",
@@ -3674,7 +3673,8 @@
       "split-view": "Split view",
       "summary": "Summary",
       "task-state": "Task state:",
-      "template": "Template",
+      "text-snippet": "Text snippet",
+      "text-snippets-found-0": "Text snippets found: %0",
       "tip": "Tip",
       "title": "Title",
       "to-do-list": "To-do list",

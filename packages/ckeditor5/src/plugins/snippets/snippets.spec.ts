@@ -147,7 +147,7 @@ describe("SnippetsUI — insertTemplate dropdown", () => {
 
     it("shows the not-found message when a query matches nothing", () => {
         searchView.search("zzzznomatch");
-        expect((searchView.element as HTMLElement).textContent).toContain("No templates were found matching");
+        expect((searchView.element as HTMLElement).textContent).toContain("No text snippets were found matching");
     });
 
     it("inserts the snippet when a row is chosen", () => {
@@ -181,7 +181,7 @@ describe("SnippetsUI — menu-bar entry", () => {
     });
 
     it("lists one entry per snippet and inserts on execute", () => {
-        expect(menu.buttonView.label).toBe("Template");
+        expect(menu.buttonView.label).toBe("Text snippet");
         expect(menuButtons()).toHaveLength(2);
 
         const execute = vi.spyOn(editor, "execute");
@@ -196,7 +196,7 @@ describe("SnippetsUI — menu-bar entry", () => {
         const items = menuButtons();
         expect(items).toHaveLength(1);
         const emptyButton = (items[0] as ListItemView).children.get(0) as { label?: string; isEnabled?: boolean };
-        expect(emptyButton.label).toBe("No templates available.");
+        expect(emptyButton.label).toBe("No text snippets available.");
         expect(emptyButton.isEnabled).toBe(false);
     });
 
