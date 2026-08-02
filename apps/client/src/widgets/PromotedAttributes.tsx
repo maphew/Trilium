@@ -8,6 +8,7 @@ import { Dispatch, StateUpdater, useCallback, useEffect, useState } from "preact
 import NoteContext from "../components/note_context";
 import FAttribute from "../entities/fattribute";
 import FNote from "../entities/fnote";
+import { ColorPicker } from "../menus/custom-items/NoteColorPicker";
 import { Attribute } from "../services/attribute_parser";
 import attributes from "../services/attributes";
 import { t } from "../services/i18n";
@@ -258,8 +259,17 @@ function LabelInput(props: CellProps & { inputId: string }) {
             <label for={inputId}>{definition.promotedAlias ?? valueName}</label>
         </>;
     }
-
-    return <div className="input-group">{input}</div>;
+    return (
+        <div className="input-group">
+            {input}
+            { definition.labelType === "color" && (
+                <ColorPicker
+                    currentValue={valueAttr.value || null}
+                    onChange={(color) => updateAttribute(note, cell, componentId, color ?? "", setCells)}
+                />
+            )}
+        </div>
+    );
 }
 
 /**
