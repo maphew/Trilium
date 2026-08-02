@@ -3532,8 +3532,9 @@
     "font-size-large": "L",
     "font-size-extra-large": "XL",
     "tags": "Tags",
-    "add-tag": "Add tag",
-    "remove-tag": "Remove tag"
+    "tags-placeholder": "Type a tag and press Enter",
+    "add-tag": "Add this tag",
+    "remove-tag": "Remove this tag"
   },
   "llm": {
     "disabled_placeholder": "AI features are turned off. Enable them to configure providers and MCP.",

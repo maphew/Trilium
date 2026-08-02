@@ -96,7 +96,7 @@ export default function MindMapNodePanel({ mind, nodes }: MindMapNodePanelProps)
                     <ValuesInput
                         labelType="text"
                         values={(taggedNode.tags ?? []).map(getTagText)}
-                        placeholder={t("mind-map.add-tag")}
+                        placeholder={t("mind-map.tags-placeholder")}
                         addButtonText={t("mind-map.add-tag")}
                         removeButtonText={t("mind-map.remove-tag")}
                         onCommit={(texts) => patchSelectedNodes({ tags: applyTagTexts(taggedNode.tags, texts) })}
