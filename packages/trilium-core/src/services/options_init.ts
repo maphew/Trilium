@@ -166,6 +166,14 @@ const defaultOptions: DefaultOption[] = [
     { name: "spellCheckLanguageCode", value: "en-US", isSynced: false },
     { name: "imageMaxWidthHeight", value: "2000", isSynced: true },
     { name: "imageJpegQuality", value: "75", isSynced: true },
+    // The three below are what automatic compression always did, said out loud rather than left
+    // implicit: oversized images scaled down, JPEGs recompressed, PNGs written back as JPEGs. They
+    // are defaults for what an install already does, not a recommendation — `optimize` keeps a PNG
+    // a PNG, and is the gentler answer for anyone who would rather it did.
+    { name: "imageResize", value: "true", isSynced: true },
+    { name: "imageJpegHandling", value: "compress", isSynced: true },
+    { name: "imagePngHandling", value: "jpeg", isSynced: true },
+    { name: "imageConversionQuality", value: "75", isSynced: true },
     { name: "autoFixConsistencyIssues", value: "true", isSynced: false },
     { name: "vimKeymapEnabled", value: "false", isSynced: false },
     { name: "codeLineWrapEnabled", value: "true", isSynced: false },

@@ -180,9 +180,49 @@ function defaultMaxWidthHeight(): number {
 const FALLBACK_MAX_WIDTH_HEIGHT = 2000;
 
 function defaultQuality(): number {
-    const configured = optionService.getOptionInt("imageJpegQuality", 0);
+    return storedQuality("imageJpegQuality");
+}
+
+function storedQuality(name: "imageJpegQuality" | "imageConversionQuality"): number {
+    const configured = optionService.getOptionInt(name, 0);
 
     return configured >= MIN_QUALITY && configured <= MAX_QUALITY ? configured : DEFAULT_QUALITY;
+}
+
+/**
+ * What automatic shrinking is set to do to an image on its way in — the same request the tool sends,
+ * read from the image options instead of from a dialog.
+ *
+ * This is what puts uploads, pastes and imports on the compression the tool uses: PNGs quantized
+ * rather than only ever turned into JPEGs, a JPEG already written at the target quality left alone
+ * instead of squeezed again on every upload, and the decode run off-thread where there is a worker
+ * for it. Before this, the automatic path had a resizer of its own that did none of that.
+ *
+ * Read as defensively as the two readers above, and for the same reason: a stored setting is not a
+ * validated one. It arrives by synchronisation from another instance, or from a database edited by
+ * hand, and a value that cannot be acted on falls back to what the option ships as. Nothing here
+ * throws — this runs on the way into an upload, where refusing the settings would mean refusing the
+ * image.
+ */
+export function automaticCompressionRequest(): ImageCompressionRequest {
+    return {
+        resize: optionService.getOptionBool("imageResize"),
+        maxWidthHeight: defaultMaxWidthHeight(),
+        jpegHandling: storedHandling("imageJpegHandling", IMAGE_JPEG_HANDLINGS, "compress"),
+        pngHandling: storedHandling("imagePngHandling", IMAGE_PNG_HANDLINGS, "jpeg"),
+        quality: defaultQuality(),
+        conversionQuality: storedQuality("imageConversionQuality")
+    };
+}
+
+function storedHandling<T extends string>(
+    name: "imageJpegHandling" | "imagePngHandling",
+    allowed: readonly T[],
+    fallback: T
+): T {
+    const configured = optionService.getOption(name);
+
+    return allowed.includes(configured as T) ? (configured as T) : fallback;
 }
 
 /** What an image weighs, and enough of its front to say what it is. */
@@ -852,6 +892,7 @@ function summarize(items: ImageCompressionItem[]): ImageCompressionResponse {
 }
 
 export default {
+    automaticCompressionRequest,
     compressNoteImages,
     compressAttachmentImage,
     cancelImageCompression,

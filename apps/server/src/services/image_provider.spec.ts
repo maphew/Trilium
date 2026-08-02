@@ -103,7 +103,15 @@ beforeAll(async () => {
 }, 30000);
 
 afterEach(() => {
-    setOptions({ compressImages: 'true', imageJpegQuality: '75', imageMaxWidthHeight: '2000' });
+    setOptions({
+        compressImages: 'true',
+        imageJpegQuality: '75',
+        imageConversionQuality: '75',
+        imageMaxWidthHeight: '2000',
+        imageResize: 'true',
+        imageJpegHandling: 'compress',
+        imagePngHandling: 'jpeg'
+    });
 });
 
 describe('serverImageProvider.getImageType', () => {
@@ -139,12 +147,18 @@ describe('serverImageProvider.getImageType', () => {
 
 describe('serverImageProvider.processImage', () => {
     it('returns the original buffer and detected format when compression is disabled', async () => {
-        setOptions({ compressImages: 'false' });
+        // An image that genuinely does compress when the option is on, so what this proves is the
+        // switch rather than the image: a picture nothing could shrink comes back untouched either
+        // way, and would pass this whether or not the option was ever read.
+        setOptions({ compressImages: 'false', imageMaxWidthHeight: '100' });
 
-        const result = await serverImageProvider.processImage(smallPng, 'a.png', true);
+        const result = await serverImageProvider.processImage(noisyPng, 'a.png', true);
 
-        expect(result.buffer).toBe(smallPng);
+        expect(result.buffer).toBe(noisyPng);
         expect(result.format).toEqual({ ext: 'png', mime: 'image/png' });
+
+        setOptions({ compressImages: 'true' });
+        expect((await serverImageProvider.processImage(noisyPng, 'a.png', true)).buffer).not.toBe(noisyPng);
     });
 
     it('uses the octet-stream fallback format when the type cannot be detected', async () => {
@@ -228,25 +242,53 @@ describe('serverImageProvider.processImage', () => {
         expect(result.format).toEqual({ ext: 'png', mime: 'image/png' });
     });
 
-    async function shrunkSize(jpegQuality: string): Promise<number> {
-        setOptions({ imageMaxWidthHeight: '100', imageJpegQuality: jpegQuality });
+    /** Shrinks the noisy PNG, which the default handling converts, under the given settings. */
+    async function shrunkSize(values: Record<string, string>): Promise<number> {
+        setOptions({ imageMaxWidthHeight: '100', ...values });
         const result = await serverImageProvider.processImage(noisyPng, 'wide.png', true);
         expect(result.format).toEqual({ ext: 'jpg', mime: 'image/jpeg' });
         return result.buffer.byteLength;
     }
 
-    it('clamps out-of-range JPEG quality to the default (75)', async () => {
+    it('clamps an out-of-range quality to the default (75)', async () => {
         // An out-of-range quality must produce byte-identical output to an explicit
         // quality of 75, and differ from a valid in-range quality — proving the clamp
         // actually ran (and the bad value was not passed through).
-        const at75 = await shrunkSize('75');
-        const valid = await shrunkSize('30');
-        const tooLow = await shrunkSize('5');
-        const tooHigh = await shrunkSize('150');
+        const at75 = await shrunkSize({ imageConversionQuality: '75' });
+        const valid = await shrunkSize({ imageConversionQuality: '30' });
+        const tooLow = await shrunkSize({ imageConversionQuality: '5' });
+        const tooHigh = await shrunkSize({ imageConversionQuality: '150' });
 
         expect(tooLow).toBe(at75);
         expect(tooHigh).toBe(at75);
         expect(valid).not.toBe(at75);
+    });
+
+    it('writes a PNG it converts at the conversion quality, not the recompression one', async () => {
+        // The two were one setting: automatic shrinking wrote every image it touched, whatever it
+        // started as, at imageJpegQuality. They are now the same two qualities the tool has —
+        // giving up detail a lossless original genuinely holds is a different bet from squeezing
+        // an already-lossy one, and the settings say so.
+        const at75 = await shrunkSize({ imageConversionQuality: '75', imageJpegQuality: '75' });
+
+        expect(await shrunkSize({ imageConversionQuality: '75', imageJpegQuality: '30' })).toBe(at75);
+        expect(await shrunkSize({ imageConversionQuality: '30', imageJpegQuality: '75' })).not.toBe(at75);
+    });
+
+    it('honours each handling on the way in, the same choices the tool offers', async () => {
+        // "keep" is the setting the automatic path never had: before this, a PNG arriving here
+        // could only ever leave as a JPEG.
+        setOptions({ imagePngHandling: 'keep', imageMaxWidthHeight: '2000' });
+        expect((await serverImageProvider.processImage(noisyPng, 'wide.png', true)).buffer).toBe(noisyPng);
+
+        setOptions({ imagePngHandling: 'optimize' });
+        const optimized = await serverImageProvider.processImage(photoPng, 'photo.png', true);
+        expect(optimized.format).toEqual({ ext: 'png', mime: 'image/png' });
+
+        // And resizing can be switched off on its own, leaving the re-encodings to do what they can.
+        setOptions({ imageResize: 'false', imagePngHandling: 'jpeg', imageMaxWidthHeight: '100' });
+        const unresized = await serverImageProvider.processImage(photoPng, 'photo.png', true);
+        expect(unresized.format).toEqual({ ext: 'jpg', mime: 'image/jpeg' });
     });
 
     it('bakes EXIF orientation into the pixels when shrinking a rotated photo (#4254)', async () => {

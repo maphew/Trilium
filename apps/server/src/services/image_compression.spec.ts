@@ -1,6 +1,6 @@
 import type { ImageCompressionResponse } from "@triliumnext/commons";
 import { becca, cls, getSql, options } from "@triliumnext/core";
-import { cancelImageCompression, collectNoteTargets, HEADER_BYTES, writeImage } from "@triliumnext/core/src/services/image_compression.js";
+import { automaticCompressionRequest, cancelImageCompression, collectNoteTargets, HEADER_BYTES, writeImage } from "@triliumnext/core/src/services/image_compression.js";
 import { getImageProvider, initImageProvider } from "@triliumnext/core/src/services/image_provider.js";
 import { createTextNote } from "@triliumnext/core/src/test/api_fixtures.js";
 import { CoreApiTester } from "@triliumnext/core/src/test/api_tester.js";
@@ -53,11 +53,24 @@ beforeAll(async () => {
 }, 60000);
 
 afterEach(() => {
-    cls.init(() => {
-        options.setOption("imageMaxWidthHeight", "2000");
-        options.setOption("imageJpegQuality", "75");
+    setImageOptions({
+        imageMaxWidthHeight: "2000",
+        imageJpegQuality: "75",
+        imageConversionQuality: "75",
+        imageResize: "true",
+        imageJpegHandling: "compress",
+        imagePngHandling: "jpeg"
     });
 });
+
+/** Writes image options as the strings they are stored as, valid or otherwise. */
+function setImageOptions(values: Record<string, string>) {
+    cls.init(() => {
+        for (const [ name, value ] of Object.entries(values)) {
+            options.setOption(name as Parameters<typeof options.setOption>[0], value);
+        }
+    });
+}
 
 describe("compress note images (POST /api/notes/:noteId/compress-images)", () => {
     it("404s for a note that does not exist", async () => {
@@ -262,6 +275,50 @@ describe("compress note images (POST /api/notes/:noteId/compress-images)", () =>
 
         expect(itemFor(res.body, broken).skipReason).toBe("error");
         expect(itemFor(res.body, good).compressed).toBe(true);
+    });
+});
+
+describe("what automatic compression is set to do", () => {
+    it("reads the image options as one request, disregarding any value it could not act on", () => {
+        setImageOptions({
+            imageResize: "false",
+            imageMaxWidthHeight: "1280",
+            imageJpegHandling: "keep",
+            imagePngHandling: "optimize",
+            imageJpegQuality: "60",
+            imageConversionQuality: "90"
+        });
+
+        // Everything the settings page can say, said back — this is what an uploaded image is put
+        // through, and the two qualities are separate here as they are everywhere else.
+        expect(automaticCompressionRequest()).toEqual({
+            resize: false,
+            maxWidthHeight: 1280,
+            jpegHandling: "keep",
+            pngHandling: "optimize",
+            quality: 60,
+            conversionQuality: 90
+        });
+
+        setImageOptions({
+            imageMaxWidthHeight: "0",
+            imageJpegHandling: "squeeze",
+            imagePngHandling: "",
+            imageJpegQuality: "500",
+            imageConversionQuality: "not a number"
+        });
+
+        // None of which throws. A stored setting is not a validated one — it arrives by
+        // synchronisation from another instance, or from a database edited by hand — and this is
+        // read on the way into an upload, where refusing the settings would mean refusing the
+        // image. Each unusable value falls back to what its option ships as.
+        expect(automaticCompressionRequest()).toMatchObject({
+            maxWidthHeight: 2000,
+            jpegHandling: "compress",
+            pngHandling: "jpeg",
+            quality: 75,
+            conversionQuality: 75
+        });
     });
 });
 
