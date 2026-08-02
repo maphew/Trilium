@@ -148,6 +148,23 @@ describe("TriliumSlashCommands", () => {
             expect(defaults).not.toContain("heading1");
         });
 
+        // The configured titles are English message ids, and CKEditor's own catalogs translate them
+        // — its heading dropdown does the same. Without this the palette showed English titles
+        // beside descriptions that were translated, since those went through `t()` already.
+        it("translates the heading titles rather than using the configured English verbatim", async () => {
+            editor = await createTestEditor(
+                [ Essentials, Paragraph, Heading, BlockQuote, MentionEditing, TriliumMentionUI, TriliumSlashCommands ],
+                {
+                    heading: { options: HEADING_OPTIONS },
+                    translations: [ {}, { en: { dictionary: { "Paragraph": "Paragraf", "Heading 2": "Titlu 2" } } } ]
+                }
+            );
+
+            const titles = buildDefaultSlashCommands(editor).slice(0, 3).map((definition) => definition.title);
+
+            expect(titles).toEqual([ "Paragraf", "Titlu 2", "Heading 3" ]);
+        });
+
         it("falls back to a heading-free palette in an editor that configures neither headings nor slash commands", async () => {
             editor = await createTestEditor(
                 [ Essentials, Paragraph, BlockQuote, MentionEditing, TriliumMentionUI, TriliumSlashCommands ]

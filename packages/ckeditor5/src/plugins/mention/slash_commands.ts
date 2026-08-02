@@ -306,12 +306,17 @@ function buildHeadingSlashCommands(editor: Editor): SlashCommandDefinition[] {
         heading6: IconHeading6
     };
 
+    // The configured titles are English message ids ("Paragraph", "Heading 2"), which CKEditor's own
+    // catalogs translate — its heading dropdown runs them through `t()` for exactly this reason. The
+    // palette has to do the same, or it shows English titles beside translated descriptions.
+    const t = editor.locale.t;
+
     return options.map((option) => {
         if (option.model === "paragraph") {
             return {
                 id: "paragraph",
-                title: option.title,
-                description: editor.locale.t("Turn the current block into a paragraph."),
+                title: t(option.title),
+                description: t("Turn the current block into a paragraph."),
                 aliases: [ "text", "body" ],
                 icon: IconParagraph,
                 commandName: "paragraph"
@@ -320,7 +325,7 @@ function buildHeadingSlashCommands(editor: Editor): SlashCommandDefinition[] {
 
         return {
             id: option.model,
-            title: option.title,
+            title: t(option.title),
             description: editor.locale.t("Turn the current block into a heading."),
             aliases: [ "title", option.model.replace("heading", "h") ],
             icon: icons[option.model] ?? IconHeading2,
