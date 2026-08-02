@@ -19,3 +19,22 @@
 .mind-map-container:fullscreen .mind-map-node-panel {
     top: calc(20px + env(safe-area-inset-top));
 }
+
+.mind-map-node-panel .mind-map-node-panel-section + .mind-map-node-panel-section {
+    margin-top: 16px;
+}
+
+.mind-map-node-panel .mind-map-node-panel-section-label {
+    margin-bottom: 8px;
+    font-size: .85em;
+    font-weight: 550;
+    text-transform: uppercase;
+    letter-spacing: .75pt;
+    opacity: .75;
+}
+
+/* The palettes are wider than the panel, so they wrap instead of spreading across a single row. */
+.mind-map-node-panel .color-picker {
+    flex-wrap: wrap;
+    justify-content: flex-start;
+}

@@ -3199,6 +3199,11 @@
     "set-color": "Set note color",
     "set-custom-color": "Set custom note color"
   },
+  "color-picker": {
+    "clear-color": "Clear color",
+    "set-color": "Set color",
+    "set-custom-color": "Set custom color"
+  },
   "popup-editor": {
     "maximize": "Switch to full editor",
     "attachment_title": "Attachment: {{title}}"
@@ -3517,7 +3522,10 @@
     "link": "Link",
     "linkBidirectional": "Bidirectional Link",
     "clickTips": "Please click the target node",
-    "summary": "Summary"
+    "summary": "Summary",
+    "text-color": "Text",
+    "background-color": "Background",
+    "branch-color": "Branch"
   },
   "llm": {
     "disabled_placeholder": "AI features are turned off. Enable them to configure providers and MCP.",
