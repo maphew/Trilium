@@ -67,6 +67,9 @@ function toMarkdown(content: string) {
         instance.addRule("inlineLink", buildInlineLinkFilter());
         instance.addRule("figure", buildFigureFilter());
         instance.addRule("linkPreview", buildLinkPreviewFilter());
+        // Before "math": rules are consulted in reverse registration order, so a highlighted
+        // formula stays a formula instead of being flattened into `==\(x\)==`.
+        instance.addRule("highlight", buildHighlightFilter());
         instance.addRule("math", buildMathFilter());
         instance.addRule("li", buildListItemFilter());
         instance.use(gfm);
@@ -404,6 +407,34 @@ function buildMathFilter(): Rule {
 
             // Unknown.
             return content;
+        }
+    };
+}
+
+/**
+ * `==text==` for highlighted text, in both shapes it reaches the exporter: CKEditor's Font
+ * Background Color emits `<span style="background-color:…">`, and `<mark>` arrives from pasted
+ * or imported HTML. Neither has a rule of its own, so without this the wrapper is dropped and
+ * only the text survives — the highlight is silently lost on export.
+ *
+ * Markdown cannot express *which* colour, so every colour collapses to a plain highlight and
+ * re-imports as the default yellow. A font colour (`color:` with no background) is not a
+ * highlight and is deliberately left alone.
+ */
+function buildHighlightFilter(): Rule {
+    return {
+        filter(node) {
+            if (node.nodeName === "MARK") {
+                return true;
+            }
+
+            return node.nodeName === "SPAN"
+                && /(?:^|;)\s*background-color\s*:/i.test(node.getAttribute("style") ?? "");
+        },
+        replacement(content: string) {
+            // Turnish hoists flanking whitespace out of the delimiters, but an element whose only
+            // content is a `<br>` still lands here; `==  ==` would not parse back as a highlight.
+            return content.trim() ? `==${content}==` : content;
         }
     };
 }

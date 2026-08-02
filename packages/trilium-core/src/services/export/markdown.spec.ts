@@ -772,4 +772,60 @@ describe("Markdown export", () => {
         expect(markdownExportService.toMarkdown(html)).toBe(expected);
     });
 
+    describe("highlights", () => {
+        it("renders a background-coloured span and a <mark> as ==text==", () => {
+            expect(markdownExportService.toMarkdown(
+                /*html*/`<p>A <span style="background-color:hsl(60, 75%, 60%);">highlight</span> here.</p>`
+            )).toBe("A ==highlight== here.");
+
+            // Whatever the colour, and however the style attribute is spelled.
+            expect(markdownExportService.toMarkdown(
+                /*html*/`<p><span style="color:#ff0000;background-color:rgb(0, 255, 0)">green</span></p>`
+            )).toBe("==green==");
+
+            expect(markdownExportService.toMarkdown(/*html*/`<p>A <mark>highlight</mark> here.</p>`))
+                .toBe("A ==highlight== here.");
+        });
+
+        it("keeps inline formatting inside and around a highlight", () => {
+            expect(markdownExportService.toMarkdown(
+                /*html*/`<p><span style="background-color:yellow"><strong>bold</strong></span></p>`
+            )).toBe("==**bold**==");
+
+            expect(markdownExportService.toMarkdown(
+                /*html*/`<p><strong><span style="background-color:yellow">bold</span></strong></p>`
+            )).toBe("**==bold==**");
+        });
+
+        it("hoists whitespace out of the delimiters so the result parses back", () => {
+            expect(markdownExportService.toMarkdown(
+                /*html*/`<p>a<span style="background-color:yellow"> hi </span>b</p>`
+            )).toBe("a ==hi== b");
+        });
+
+        it("leaves a font colour, a coloured block and a highlighted formula alone", () => {
+            // `color` without a background is a font colour, not a highlight.
+            expect(markdownExportService.toMarkdown(/*html*/`<p><span style="color:#ff0000">red</span></p>`))
+                .toBe("red");
+
+            // Only inline highlights are representable; a coloured block would wrap its whole text.
+            expect(markdownExportService.toMarkdown(/*html*/`<p style="background-color:yellow">para</p>`))
+                .toBe("para");
+
+            expect(markdownExportService.toMarkdown(
+                /*html*/`<p><span class="math-tex" style="background-color:yellow">\\(x^2\\)</span></p>`
+            )).toBe("$x^2$");
+        });
+
+        it("emits no delimiters for a highlight with no text of its own", () => {
+            expect(markdownExportService.toMarkdown(/*html*/`<p>a<span style="background-color:yellow"><br></span>b</p>`))
+                .not.toContain("==");
+        });
+
+        it("does not touch == inside a code block", () => {
+            const html = /*html*/`<pre><code class="language-text-x-trilium-auto">a ==b== c</code></pre>`;
+            expect(markdownExportService.toMarkdown(html)).toBe("```\na ==b== c\n```");
+        });
+    });
+
 });
