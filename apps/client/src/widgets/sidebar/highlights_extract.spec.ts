@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { extractHighlightsFromStaticHtml } from "./HighlightsList.js";
+import { extractHighlightsFromStaticHtml } from "./highlights_extract.js";
 
 describe("extractHighlightsFromStaticHtml", () => {
     it("extracts a single highlight containing text and math equation together", () => {
