@@ -51,6 +51,7 @@ const SIZE_SLACK_PX = 2;
  *   replicating the label's box and text style.
  * - Adds slack to every `<foreignObject>`'s exact-fit size so text is not clipped when
  *   the SVG is rasterized with slightly different font metrics (see the slack constants).
+ * - Backs translucent node boxes with the canvas color (see {@link backTranslucentNodeBoxes}).
  *
  * @param mind the live mind map instance the SVG was exported from.
  * @param svgText the output of `mind.exportSvg().text()`.
@@ -65,6 +66,11 @@ export function postProcessExportedSvg(mind: MindElixirInstance, svgText: string
         return svgText;
     }
 
+    const canvasColor = mind.theme?.cssVar?.["--bgcolor"];
+    if (canvasColor) {
+        backTranslucentNodeBoxes(contentSvg, canvasColor);
+    }
+
     const labels = mind.nodes.querySelectorAll<HTMLElement>(".svg-label");
     for (const label of Array.from(labels)) {
         contentSvg.appendChild(doc.importNode(buildLabelForeignObject(label), true));
@@ -76,6 +82,41 @@ export function postProcessExportedSvg(mind: MindElixirInstance, svgText: string
     }
 
     return new XMLSerializer().serializeToString(doc);
+}
+
+/**
+ * Paints an opaque copy of the map canvas behind every translucent node box.
+ *
+ * The node backgrounds the editor offers are tints (see MindMapNodePanel) meant to composite
+ * against the canvas, but the exporter draws the branch lines first and the node boxes over them
+ * (each box being a direct `<rect>` child of the map layers, filled with the node's computed
+ * background), so a tint alone would show the lines through the node. Nodes with no background of
+ * their own are fully transparent and are left as they are, so the lines keep running under them.
+ *
+ * @param contentSvg the exporter's inner svg, holding the map layers.
+ * @param canvasColor the map background, as the exporter fills its own backdrop with.
+ */
+function backTranslucentNodeBoxes(contentSvg: Element, canvasColor: string) {
+    for (const box of Array.from(contentSvg.querySelectorAll(":scope > rect"))) {
+        const alpha = getFillAlpha(box.getAttribute("fill"));
+        if (alpha === null || alpha <= 0 || alpha >= 1) {
+            continue;
+        }
+
+        const backing = box.cloneNode(false) as Element;
+        backing.setAttribute("fill", canvasColor);
+        contentSvg.insertBefore(backing, box);
+    }
+}
+
+/**
+ * The alpha of a fill the exporter took from a computed style, or `null` when it carries none.
+ * Computed sRGB colors are always serialized as `rgb()`/`rgba()`, so a translucent one arrives in
+ * the `rgba()` form whichever notation the node's background was written in.
+ */
+function getFillAlpha(fill: string | null) {
+    const alpha = /^rgba\(\s*[\d.]+\s*,\s*[\d.]+\s*,\s*[\d.]+\s*,\s*([\d.]+)\s*\)$/.exec(fill ?? "")?.[1];
+    return (alpha !== undefined ? Number.parseFloat(alpha) : null);
 }
 
 function addSizeSlack(element: Element, attribute: "width" | "height") {

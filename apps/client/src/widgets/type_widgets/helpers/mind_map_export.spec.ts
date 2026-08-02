@@ -37,7 +37,7 @@ function buildExportedSvg() {
         `</svg>`;
 }
 
-function buildMind({ labels = [] as string[], exportedSvg = buildExportedSvg() } = {}) {
+function buildMind({ labels = [] as string[], exportedSvg = buildExportedSvg(), canvasColor = "#252526" } = {}) {
     const nodes = document.createElement("me-nodes");
     for (const labelHtml of labels) {
         const label = document.createElement("div");
@@ -49,6 +49,7 @@ function buildMind({ labels = [] as string[], exportedSvg = buildExportedSvg() }
 
     return {
         nodes,
+        theme: { cssVar: { "--bgcolor": canvasColor } },
         exportSvg: () => new Blob([ exportedSvg ], { type: "image/svg+xml" })
     } as unknown as MindElixirInstance;
 }
@@ -95,6 +96,31 @@ describe("postProcessExportedSvg", () => {
         expect(foreignObject?.getAttribute("height")).toBe(String(Math.ceil(37.5 * 1.02 + 2)));
         // The background rect and the svg dimensions must stay untouched.
         expect(doc.querySelector("rect")?.getAttribute("width")).toBe("400");
+    });
+
+    it("backs only translucent node boxes with the canvas color, keeping their geometry", () => {
+        // The exporter draws the lines first and the node boxes over them, so a tinted box would
+        // otherwise show the branch lines through the node.
+        const exportedSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="400px" height="300px">` +
+            `<rect x="0" y="0" width="400" height="300" fill="#fff"/>` +
+            `<svg x="100" y="100" overflow="visible"><g class="lines"></g>` +
+            `<rect x="1" y="2" width="30" height="10" rx="3px" fill="rgba(229, 230, 77, 0.251)"/>` +
+            `<rect x="5" y="6" width="30" height="10" fill="rgb(45, 55, 72)"/>` +
+            `<rect x="7" y="8" width="30" height="10" fill="rgba(0, 0, 0, 0)"/>` +
+            `</svg></svg>`;
+        const result = postProcessExportedSvg(buildMind({ canvasColor: "#252526" }), exportedSvg);
+
+        const doc = new DOMParser().parseFromString(result, "image/svg+xml");
+        const innerSvg = doc.documentElement.querySelector(":scope > svg");
+        const boxes = Array.from(innerSvg?.querySelectorAll(":scope > rect") ?? []);
+        expect(boxes.map((box) => box.getAttribute("fill"))).toEqual([
+            // The backing sits right below the tinted box; the opaque and the fully transparent
+            // boxes are left alone.
+            "#252526", "rgba(229, 230, 77, 0.251)", "rgb(45, 55, 72)", "rgba(0, 0, 0, 0)"
+        ]);
+        for (const attribute of [ "x", "y", "width", "height", "rx" ]) {
+            expect(boxes[0].getAttribute(attribute)).toBe(boxes[1].getAttribute(attribute));
+        }
     });
 
     it("adds no labels when the map has none, and returns unparseable input unchanged", () => {

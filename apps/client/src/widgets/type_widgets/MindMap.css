@@ -18,6 +18,28 @@
     pointer-events: auto;
 }
 
+/*
+ * The node backgrounds the panel offers are tints (see MindMapNodePanel), which take on whatever
+ * the canvas is. The branch lines are drawn underneath the nodes, so a tint on its own composites
+ * against them and lets them show through the node — give a tinted node an opaque copy of the
+ * canvas to sit on instead. Only nodes carrying a background of their own get one, so that the
+ * lines keep running under plain nodes as they did.
+ */
+.mind-map-container me-tpc[style*="background"] {
+    position: relative;
+}
+
+.mind-map-container me-tpc[style*="background"]::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    /* Below the node's own background, but still above the lines, which are outside the stacking
+       context that the node's `me-parent` / `me-root` establishes. */
+    z-index: -1;
+    border-radius: inherit;
+    background-color: var(--bgcolor);
+}
+
 .mind-map-container:fullscreen {
     .rb {
         bottom: calc(20px + env(safe-area-inset-bottom));
