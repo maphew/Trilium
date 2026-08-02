@@ -23,6 +23,7 @@ import { getLog } from "./log.js";
 import optionService from "./options.js";
 import { runWithinBudget } from "./parallel_budget.js";
 import { getSql } from "./sql/index.js";
+import TaskContext from "./task_context.js";
 import { wrapStringOrBuffer } from "./utils/binary.js";
 
 /** Quality bounds shared with the automatic shrinking, so the two cannot drift apart. */
@@ -48,7 +49,8 @@ export async function compressNoteImages(noteId: string, options?: ImageCompress
         throw new NotFoundError(`Note '${noteId}' was not found.`);
     }
 
-    return compressTargets(collectNoteTargets(note, resolveRecursive(options)), resolveCompressionRequest(options));
+    return compressTargets(
+        collectNoteTargets(note, resolveRecursive(options)), resolveCompressionRequest(options), options?.taskId);
 }
 
 /** Compresses one image attachment, under exactly the rules a whole-note run would apply to it. */
@@ -63,7 +65,7 @@ export async function compressAttachmentImage(attachmentId: string, options?: Im
         throw new ValidationError(`Attachment '${attachmentId}' has role '${attachment.role}', but 'image' was expected.`);
     }
 
-    return compressTargets([ attachmentTarget(attachment) ], resolveCompressionRequest(options));
+    return compressTargets([ attachmentTarget(attachment) ], resolveCompressionRequest(options), options?.taskId);
 }
 
 /**
@@ -430,8 +432,13 @@ function resolveAttachmentSkip(attachment: BAttachment): ImageCompressionSkipRea
  * The passes are not an optimization of each other: the first exists because deciding should not
  * cost what doing costs, the second because doing should not be allowed to cost everything at once.
  */
-async function compressTargets(targets: CompressionTarget[], request: ImageCompressionRequest): Promise<ImageCompressionResponse> {
+async function compressTargets(
+    targets: CompressionTarget[],
+    request: ImageCompressionRequest,
+    taskId?: string
+): Promise<ImageCompressionResponse> {
     const concurrency = getImageProvider().compressionConcurrency();
+    const reportProgress = progressReporter(taskId, targets.length);
 
     logRunStart(targets.length, concurrency);
 
@@ -443,6 +450,7 @@ async function compressTargets(targets: CompressionTarget[], request: ImageCompr
 
         if (foreseen.item) {
             items[at] = foreseen.item;
+            reportProgress();
         } else {
             worthReading.push({ at, target, cost: foreseen.cost });
         }
@@ -450,7 +458,10 @@ async function compressTargets(targets: CompressionTarget[], request: ImageCompr
 
     const writes = createWriteBatch();
     const compressed = await runWithinBudget(
-        worthReading.map(({ target, cost }) => ({ cost, run: () => compressTarget(target, request, writes) })),
+        worthReading.map(({ target, cost }) => ({
+            cost,
+            run: () => compressTarget(target, request, writes).finally(reportProgress)
+        })),
         { totalBytes: COMPRESSION_BUDGET_BYTES, maxConcurrent: concurrency }
     );
 
@@ -465,6 +476,29 @@ async function compressTargets(targets: CompressionTarget[], request: ImageCompr
     });
 
     return logRunEnd(summarize(items));
+}
+
+/**
+ * Counts images off against the total, so a run of hundreds can say how far it has got rather than
+ * only that it is going.
+ *
+ * Every image counts, whether it was compressed or settled from its header — the total is what the
+ * run set out to visit, so the two have to agree or the count would stall short of its own end. The
+ * effect is that a tree of mostly-untouched images races to a high number and then slows, which is
+ * a fair picture of what is happening.
+ *
+ * A run nobody asked to watch is not reported on: without a task to report against, this is nothing.
+ */
+function progressReporter(taskId: string | undefined, total: number): () => void {
+    if (!taskId) {
+        return () => {};
+    }
+
+    const task = TaskContext.getInstance(taskId, "compressImages", null);
+
+    task.setTotalCount(total);
+
+    return () => task.increaseProgressCount();
 }
 
 /**

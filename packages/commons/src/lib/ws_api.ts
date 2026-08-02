@@ -42,7 +42,8 @@ type TaskDataDefinitions = {
         shrinkImages?: boolean;
         safeImport?: boolean;
     } | null,
-    importAttachments: null
+    importAttachments: null,
+    compressImages: null
 }
 
 type TaskResultDefinitions = {
@@ -59,6 +60,7 @@ type TaskResultDefinitions = {
         parentNoteId?: string;
         importedNoteId?: string
     };
+    compressImages: null;
 }
 
 export type TaskType = keyof TaskDataDefinitions | keyof TaskResultDefinitions;

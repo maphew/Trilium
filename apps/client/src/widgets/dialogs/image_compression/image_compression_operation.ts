@@ -1,8 +1,9 @@
-import type { ImageCompressionResponse } from "@triliumnext/commons";
+import type { ImageCompressionResponse, WebSocketMessage } from "@triliumnext/commons";
 
 import { t } from "../../../services/i18n";
 import server from "../../../services/server";
-import { formatSize } from "../../../services/utils";
+import { formatSize, randomString } from "../../../services/utils";
+import { subscribeToMessages, unsubscribeToMessage } from "../../../services/ws";
 import type { ImageCompressionToolOptions } from "./image_compression_options";
 
 /**
@@ -38,16 +39,26 @@ export const IMAGE_COMPRESSION_TOAST_ID = "image-compression";
  */
 const COMPRESSION_TIMEOUT_MS = 60 * 60 * 1000;
 
-/** Compresses the target's images and reports what that did, image by image and in total. */
+/**
+ * Compresses the target's images and reports what that did, image by image and in total.
+ *
+ * `onProgress` is called as the run works through them. A subtree can hold hundreds, and the request
+ * itself says nothing until it is over — so the count comes back the other way, over the websocket,
+ * against a task named here and quoted in the request.
+ */
 export function runImageCompression(
     target: ImageCompressionTarget,
-    options: ImageCompressionToolOptions
+    options: ImageCompressionToolOptions,
+    onProgress?: (done: number, total: number | undefined) => void
 ): Promise<ImageCompressionResponse> {
     const url = target.type === "note"
         ? `notes/${target.noteId}/compress-images`
         : `attachments/${target.attachmentId}/compress-image`;
+    const taskId = randomString(12);
+    const listener = onProgress && followProgress(taskId, onProgress);
 
     return server.postWithTimeout<ImageCompressionResponse>(url, COMPRESSION_TIMEOUT_MS, {
+        taskId,
         resize: options.resize,
         maxWidthHeight: options.maxWidthHeight,
         jpegHandling: options.jpegHandling,
@@ -57,7 +68,31 @@ export function runImageCompression(
         // Left out entirely for an attachment, which has no subtree to descend into — the endpoint
         // does not read it, and sending it would suggest it does.
         ...(target.type === "note" ? { recursive: options.processChildNotes } : {})
+    }).finally(() => {
+        if (listener) {
+            unsubscribeToMessage(listener);
+        }
     });
+}
+
+/**
+ * Watches one run's progress messages, and only that run's.
+ *
+ * Subscribed for the length of the request rather than for the length of the session: a run is
+ * started from here and is over when the request answers, so there is nothing for a listener to
+ * hear before or after. The task id is checked as well as the type — two runs can be in flight from
+ * two windows, and each should count its own.
+ */
+function followProgress(taskId: string, onProgress: (done: number, total: number | undefined) => void) {
+    const listener = (message: WebSocketMessage) => {
+        if (message.type === "taskProgressCount" && "taskId" in message && message.taskId === taskId) {
+            onProgress(message.progressCount, message.totalCount);
+        }
+    };
+
+    subscribeToMessages(listener);
+
+    return listener;
 }
 
 /**

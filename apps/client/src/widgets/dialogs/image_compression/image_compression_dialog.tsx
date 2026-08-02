@@ -99,20 +99,28 @@ function ImageCompressionDialog({ target, onFinished }: {
             return;
         }
 
-        // Nothing here can say how far along it is — the images are compressed server-side and the
-        // run reports only once — so a spinner rather than a bar, and nothing to cancel: the server
-        // carries on whatever the client does.
-        toast.showPersistent({
+        // A spinner rather than a bar, and nothing to cancel: the server carries on whatever the
+        // client does. The message is replaced as the count arrives — one toast throughout, so the
+        // wording changes in place rather than a second toast appearing beside the first.
+        const showProgress = (message: string) => toast.showPersistent({
             id: IMAGE_COMPRESSION_TOAST_ID,
             icon: "bx bx-loader-circle bx-spin",
-            message: t("space_usage.compress_running"),
+            message,
             dismissible: false
         });
+
+        showProgress(t("space_usage.compress_running"));
 
         let result: ImageCompressionResponse | null = null;
 
         try {
-            result = await runImageCompression(target, settings);
+            result = await runImageCompression(target, settings, (done, total) => {
+                // Until the run has said how many there are, the count on its own would read as a
+                // total; the wording without one says only that it is working through them.
+                showProgress(total === undefined
+                    ? t("space_usage.compress_running")
+                    : t("space_usage.compress_running_progress", { done, total }));
+            });
             toast.showMessage(compressionResultMessage(result), COMPRESSION_DONE_TIMEOUT_MS);
         } catch {
             // Already reported by the request layer, and nothing here can say what the run managed

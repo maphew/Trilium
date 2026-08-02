@@ -695,6 +695,9 @@ describe("running the compression", () => {
 
         expect(postedUrl()).toBe("notes/n1/compress-images");
         expect(postedBody()).toEqual({
+            // Names the run so its progress can be followed back over the websocket; generated per
+            // request, so only its presence is worth asserting.
+            taskId: expect.any(String),
             resize: true,
             maxWidthHeight: DEFAULT_MAX_WIDTH_HEIGHT,
             jpegHandling: "compress",

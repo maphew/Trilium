@@ -461,6 +461,11 @@ export interface ImageCompressionOptions {
      * Only the note endpoint reads this; an attachment has no subtree to descend into.
      */
     recursive?: boolean;
+    /**
+     * Names a task to report progress against, so a caller watching a long run can be told how far
+     * it has got. Left out, the run reports only when it finishes.
+     */
+    taskId?: string;
 }
 
 /**
