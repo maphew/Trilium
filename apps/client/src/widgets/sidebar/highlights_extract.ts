@@ -38,6 +38,7 @@ export function extractHighlightsFromStaticHtml(el: HTMLElement | null) {
     const styledElements = el.querySelectorAll<HTMLElement>('[style*="background-color"], [style*="color"]');
 
     for (const styledEl of styledElements) {
+        /* v8 ignore next -- nothing is in the set yet on this pass; kept to mirror the second */
         if (processedElements.has(styledEl)) continue;
         if (!styledEl.textContent?.trim()) continue;
 
@@ -77,6 +78,8 @@ export function extractHighlightsFromStaticHtml(el: HTMLElement | null) {
             color: formattedEl.style.color
         };
 
+        // Always true for the tags queried above, so this branch reads as half-covered. It is
+        // kept for the tag that gets added without a matching flag below — `mark`, say.
         if (Object.values(attrs).some(Boolean)) {
             processedElements.add(formattedEl);
 

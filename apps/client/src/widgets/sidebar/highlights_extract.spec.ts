@@ -2,6 +2,19 @@ import { describe, expect, it } from "vitest";
 import { extractHighlightsFromStaticHtml, htmlForRun } from "./highlights_extract.js";
 
 describe("extractHighlightsFromStaticHtml", () => {
+    /** Extracts from `html` rendered into an attached container, which is then cleaned up. */
+    function extract(html: string) {
+        const container = document.createElement("div");
+        container.innerHTML = html;
+        document.body.appendChild(container);
+
+        try {
+            return extractHighlightsFromStaticHtml(container);
+        } finally {
+            document.body.removeChild(container);
+        }
+    }
+
     it("extracts a single highlight containing text and math equation together", () => {
         const container = document.createElement("div");
         container.innerHTML = `<p>
@@ -51,18 +64,6 @@ describe("extractHighlightsFromStaticHtml", () => {
     });
 
     describe("formatting nested with a coloured run", () => {
-        function extract(html: string) {
-            const container = document.createElement("div");
-            container.innerHTML = html;
-            document.body.appendChild(container);
-
-            try {
-                return extractHighlightsFromStaticHtml(container);
-            } finally {
-                document.body.removeChild(container);
-            }
-        }
-
         // Both nestings render identically, so both must report the run once rather than
         // once per element. Only the first shape used to double up.
         it("reports a coloured run inside formatting once, carrying both", () => {
@@ -100,6 +101,30 @@ describe("extractHighlightsFromStaticHtml", () => {
             const highlights = extract(`<p><span style="color:red">a</span> <strong>b</strong></p>`);
 
             expect(highlights.map(h => h.text)).toEqual([ "a", "b" ]);
+        });
+    });
+
+    describe("runs with nothing to report", () => {
+        it("returns nothing when there is no content element", () => {
+            // The sidebar asks before the note's content is on screen.
+            expect(extractHighlightsFromStaticHtml(null)).toEqual([]);
+        });
+
+        it("ignores an element holding only whitespace", () => {
+            expect(extract(`<p><span style="color:red"> </span><strong> </strong></p>`)).toEqual([]);
+        });
+
+        it("ignores a style that names a colour without setting one", () => {
+            // `border-color` satisfies the `[style*="color"]` selector but is not a text colour.
+            expect(extract(`<p><span style="border-color:red">plain</span></p>`)).toEqual([]);
+        });
+
+        it("reports an element that is both formatted and coloured once", () => {
+            // Matches both passes; the second must recognise it as already reported.
+            const highlights = extract(`<p><strong style="color:red">both</strong></p>`);
+
+            expect(highlights.length).toBe(1);
+            expect(highlights[0].attrs).toMatchObject({ bold: true, color: "red" });
         });
     });
 });
