@@ -33,25 +33,43 @@
     border-bottom: 1px solid var(--main-border-color);
 }
 
+/*
+ * Every tab is laid into the same cell, so the panel stands as tall as the tallest of them and
+ * keeps that height whichever is on show. Were each tab to size the panel in turn, switching to the
+ * memo would collapse the panel to the height of one field — pulling the strip up the screen, out
+ * from under the pointer that had just pressed a tab.
+ */
+.mind-map-node-panel .mind-map-node-panel-bodies {
+    display: grid;
+    /* Without it a grid refuses to shrink past its content, and the panel scrolls as a whole. */
+    min-height: 0;
+}
+
 /* Each tab holds the padding, rather than the panel: the memo's is its own (see below). */
 .mind-map-node-panel .mind-map-node-panel-body {
+    grid-area: 1 / 1;
     padding: 15px;
     overflow: auto;
-    /* Without it a flex item refuses to shrink past its content, and the panel scrolls as a whole. */
+    /* As above, for the tab within the cell. */
     min-height: 0;
 }
 
 /*
- * The memo is the whole of its tab: it takes the height the panel can spare and grows the panel to
- * a comfortable writing box where there is room, instead of the three lines it had as a field.
+ * The tab not on show keeps its place in the cell rather than leaving it, which is what holds the
+ * height of the panel still. `visibility` and not `display`, whose `none` would give the place up —
+ * it takes the tab out of reach of the pointer, the keyboard and a screen reader all the same.
  */
+.mind-map-node-panel .mind-map-node-panel-body[aria-hidden="true"] {
+    visibility: hidden;
+}
+
+/* The memo is the whole of its tab, so it fills the height the panel took from the fields. */
 .mind-map-node-panel .mind-map-node-panel-memo-body {
     display: flex;
     padding: 8px;
 
     .mind-map-node-memo {
         flex: 1;
-        min-height: 220px;
         max-height: none;
     }
 }

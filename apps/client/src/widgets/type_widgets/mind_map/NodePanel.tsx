@@ -2,7 +2,6 @@ import "./NodePanel.css";
 
 import { parseMindMapNoteLink } from "@triliumnext/commons";
 import { Dropdown as BootstrapDropdown } from "bootstrap";
-import clsx from "clsx";
 import type { MindElixirInstance, NodeObj, TagObj } from "mind-elixir";
 import { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -139,125 +138,131 @@ export default function NodePanel({ mind, noteId, nodes }: NodePanelProps) {
                 onSelect={setActiveTabId}
             />
 
-            <div
-                role="tabpanel"
-                className={clsx("mind-map-node-panel-body", activeTabId !== "format" && "hidden-ext")}
-            >
-                <PanelSection label={t("mind-map.font-size")}>
-                    <SegmentedChoice
-                        options={buildFontSizeOptions()}
-                        currentValue={fontSize !== MIXED ? fontSize ?? DEFAULT_FONT_SIZE : MIXED_FONT_SIZE}
-                        onChange={(fontSize) => patchSelectedNodes({ style: { fontSize } })}
-                    />
-                </PanelSection>
-
-                <PanelSection label={t("mind-map.text-color")}>
-                    <ColorPicker
-                        presets={NODE_COLORS}
-                        {...toPickerValue(textColor)}
-                        // Mind Elixir only ever assigns the style properties it is given and never
-                        // resets the ones it isn't, so clearing has to blank the property explicitly.
-                        onChange={(color) => patchSelectedNodes({ style: { color: color ?? "" } })}
-                    />
-                </PanelSection>
-
-                <PanelSection label={t("mind-map.background-color")}>
-                    <ColorPicker
-                        presets={NODE_BACKGROUND_COLORS}
-                        {...toPickerValue(backgroundColor)}
-                        onChange={(color) => patchSelectedNodes({ style: { background: color ?? "" } })}
-                    />
-                </PanelSection>
-
-                <PanelSection label={t("mind-map.branch-color")}>
-                    <ColorPicker
-                        presets={NODE_COLORS}
-                        {...toPickerValue(branchColor)}
-                        onChange={(color) => patchSelectedNodes({ branchColor: color ?? "" })}
-                    />
-                </PanelSection>
-
-                <PanelSection
-                    label={t("mind-map.icons")}
-                    title={icons.readOnly ? t("mind-map.icons-differ") : undefined}
-                >
-                    <NodeIcons
-                        icons={icons.values}
-                        readOnly={icons.readOnly}
-                        onChange={(icons) => patchSelectedNodes({ icons })}
-                    />
-                </PanelSection>
-
-                <PanelSection
-                    label={t("mind-map.image")}
-                    title={image === MIXED ? t("mind-map.images-differ") : undefined}
-                >
-                    <NodeImage
-                        hasImage={!!image}
-                        indeterminate={image === MIXED}
-                        width={imageWidth !== MIXED && imageWidth ? Number(imageWidth) : null}
-                        shape={imageShape !== MIXED ? imageShape : null}
-                        onShape={(shape) => void shapeImages(shape)}
-                        // A node carries one picture, so what is taken in takes the place of what was
-                        // there, at the size it comes in at.
-                        onPick={(file) => void takeInImage(file)}
-                        // Derived per node: the nodes are set to the same width, but each keeps the
-                        // proportions of the picture it carries.
-                        onResize={(width) => patchSelectedNodes((node) => ({
-                            image: node.image && fitNodeImage(node.image, width)
-                        }))}
-                        onRemove={() => patchSelectedNodes({ image: undefined })}
-                    />
-                </PanelSection>
-
-                <PanelSection
-                    label={t("mind-map.node-link")}
-                    title={link === MIXED ? t("mind-map.links-differ") : undefined}
-                >
-                    <NodeLink
-                        currentValue={link !== MIXED ? link : null}
-                        indeterminate={link === MIXED}
-                        // A node carries one link, so what is picked takes the place of what was there.
-                        // Clearing blanks the property, Mind Elixir only ever assigning the ones it is
-                        // given (see the colors above).
-                        onChange={(link) => patchSelectedNodes({ hyperLink: link ?? "" })}
-                    />
-                </PanelSection>
-
-                <PanelSection
-                    label={t("mind-map.tags")}
-                    title={tags.readOnly ? t("mind-map.tags-differ") : undefined}
-                >
-                    <ValuesInput
-                        labelType="text"
-                        values={tags.texts}
-                        placeholder={t("mind-map.tags-placeholder")}
-                        addButtonText={t("mind-map.add-tag")}
-                        removeButtonText={t("mind-map.remove-tag")}
-                        disabled={tags.readOnly}
-                        // Derived per node: the nodes agree on the texts, but each may dress its own
-                        // tags differently, and that is kept by reading from the node being written to.
-                        onCommit={(texts) => patchSelectedNodes((node) => ({ tags: applyTagTexts(node.tags, texts) }))}
-                    />
-                </PanelSection>
-            </div>
-
-            {/* The memo goes without a label of its own: the tab it fills is the label, and the
-                editor is the whole of the tab rather than a field within it. */}
-            {openedTabs.current.has("memo") && (
+            {/* The tabs are stacked one over the other rather than shown one at a time, so that
+                the panel keeps the height of the tallest of them whichever is on show. */}
+            <div className="mind-map-node-panel-bodies">
                 <div
                     role="tabpanel"
-                    className={clsx("mind-map-node-panel-body mind-map-node-panel-memo-body", activeTabId !== "memo" && "hidden-ext")}
-                    title={memo === MIXED ? t("mind-map.memos-differ") : undefined}
+                    className="mind-map-node-panel-body"
+                    aria-hidden={activeTabId !== "format"}
                 >
-                    <NodeMemo
-                        selectionKey={nodes.map((node) => node.id).join(" ")}
-                        memo={memo !== MIXED ? memo : null}
-                        readOnly={memo === MIXED}
-                        onCommit={writeMemo}
-                    />
+                    <PanelSection label={t("mind-map.font-size")}>
+                        <SegmentedChoice
+                            options={buildFontSizeOptions()}
+                            currentValue={fontSize !== MIXED ? fontSize ?? DEFAULT_FONT_SIZE : MIXED_FONT_SIZE}
+                            onChange={(fontSize) => patchSelectedNodes({ style: { fontSize } })}
+                        />
+                    </PanelSection>
+
+                    <PanelSection label={t("mind-map.text-color")}>
+                        <ColorPicker
+                            presets={NODE_COLORS}
+                            {...toPickerValue(textColor)}
+                            // Mind Elixir only ever assigns the style properties it is given and never
+                            // resets the ones it isn't, so clearing has to blank the property explicitly.
+                            onChange={(color) => patchSelectedNodes({ style: { color: color ?? "" } })}
+                        />
+                    </PanelSection>
+
+                    <PanelSection label={t("mind-map.background-color")}>
+                        <ColorPicker
+                            presets={NODE_BACKGROUND_COLORS}
+                            {...toPickerValue(backgroundColor)}
+                            onChange={(color) => patchSelectedNodes({ style: { background: color ?? "" } })}
+                        />
+                    </PanelSection>
+
+                    <PanelSection label={t("mind-map.branch-color")}>
+                        <ColorPicker
+                            presets={NODE_COLORS}
+                            {...toPickerValue(branchColor)}
+                            onChange={(color) => patchSelectedNodes({ branchColor: color ?? "" })}
+                        />
+                    </PanelSection>
+
+                    <PanelSection
+                        label={t("mind-map.icons")}
+                        title={icons.readOnly ? t("mind-map.icons-differ") : undefined}
+                    >
+                        <NodeIcons
+                            icons={icons.values}
+                            readOnly={icons.readOnly}
+                            onChange={(icons) => patchSelectedNodes({ icons })}
+                        />
+                    </PanelSection>
+
+                    <PanelSection
+                        label={t("mind-map.image")}
+                        title={image === MIXED ? t("mind-map.images-differ") : undefined}
+                    >
+                        <NodeImage
+                            hasImage={!!image}
+                            indeterminate={image === MIXED}
+                            width={imageWidth !== MIXED && imageWidth ? Number(imageWidth) : null}
+                            shape={imageShape !== MIXED ? imageShape : null}
+                            onShape={(shape) => void shapeImages(shape)}
+                            // A node carries one picture, so what is taken in takes the place of what was
+                            // there, at the size it comes in at.
+                            onPick={(file) => void takeInImage(file)}
+                            // Derived per node: the nodes are set to the same width, but each keeps the
+                            // proportions of the picture it carries.
+                            onResize={(width) => patchSelectedNodes((node) => ({
+                                image: node.image && fitNodeImage(node.image, width)
+                            }))}
+                            onRemove={() => patchSelectedNodes({ image: undefined })}
+                        />
+                    </PanelSection>
+
+                    <PanelSection
+                        label={t("mind-map.node-link")}
+                        title={link === MIXED ? t("mind-map.links-differ") : undefined}
+                    >
+                        <NodeLink
+                            currentValue={link !== MIXED ? link : null}
+                            indeterminate={link === MIXED}
+                            // A node carries one link, so what is picked takes the place of what was there.
+                            // Clearing blanks the property, Mind Elixir only ever assigning the ones it is
+                            // given (see the colors above).
+                            onChange={(link) => patchSelectedNodes({ hyperLink: link ?? "" })}
+                        />
+                    </PanelSection>
+
+                    <PanelSection
+                        label={t("mind-map.tags")}
+                        title={tags.readOnly ? t("mind-map.tags-differ") : undefined}
+                    >
+                        <ValuesInput
+                            labelType="text"
+                            values={tags.texts}
+                            placeholder={t("mind-map.tags-placeholder")}
+                            addButtonText={t("mind-map.add-tag")}
+                            removeButtonText={t("mind-map.remove-tag")}
+                            disabled={tags.readOnly}
+                            // Derived per node: the nodes agree on the texts, but each may dress its own
+                            // tags differently, and that is kept by reading from the node being written to.
+                            onCommit={(texts) => patchSelectedNodes((node) => ({ tags: applyTagTexts(node.tags, texts) }))}
+                        />
+                    </PanelSection>
                 </div>
-            )}
+
+                {/* The memo goes without a label of its own: the tab it fills is the label, and the
+                    editor is the whole of the tab rather than a field within it. */}
+                {openedTabs.current.has("memo") && (
+                    <div
+                        role="tabpanel"
+                        className="mind-map-node-panel-body mind-map-node-panel-memo-body"
+                        aria-hidden={activeTabId !== "memo"}
+                        title={memo === MIXED ? t("mind-map.memos-differ") : undefined}
+                    >
+                        <NodeMemo
+                            selectionKey={nodes.map((node) => node.id).join(" ")}
+                            memo={memo !== MIXED ? memo : null}
+                            readOnly={memo === MIXED}
+                            onCommit={writeMemo}
+                        />
+                    </div>
+                )}
+            </div>
         </div>
     );
 }

@@ -252,6 +252,11 @@ describe("the memo field of the panel", () => {
     const openMemoTab = (container: HTMLElement) => openTab(container, "bx-notepad");
     const openFormatTab = (container: HTMLElement) => openTab(container, "bx-palette");
 
+    /** The tabs' bodies, in the order they are laid into the panel — all of them, shown or not. */
+    function tabBodies(container: HTMLElement) {
+        return [ ...container.querySelectorAll('[role="tabpanel"]') ];
+    }
+
     /** The icon of the tab on show, which is what the panel says it is showing. */
     function activeTabIcon(container: HTMLElement) {
         const active = container.querySelector('[role="tab"][aria-selected="true"] .tn-icon');
@@ -284,9 +289,11 @@ describe("the memo field of the panel", () => {
         await openMemoTab(panel);
         expect(activeTabIcon(panel)).toBe("bx-notepad");
         expect(shownMemo(panel)).toBe("<p>About A</p>");
-        // The fields are put out of sight rather than taken down, so returning to them is instant
-        // and nothing half-typed in them is lost on the way to the memo.
+        // Every tab keeps its place in the panel, the one not on show merely hidden within it: that
+        // is what holds the panel's height still as tabs are switched, and it is also what makes
+        // returning to the fields instant, with nothing half-typed in them lost on the way.
         expect(section(panel, SIZE)).toBeTruthy();
+        expect(tabBodies(panel).map((body) => body.getAttribute("aria-hidden"))).toEqual([ "true", "false" ]);
     });
 
     it("writes a memo back from behind the other tab, the editor staying up once raised", async () => {
