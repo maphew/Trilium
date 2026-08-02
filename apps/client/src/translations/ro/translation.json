@@ -2286,7 +2286,7 @@
     "mermaid": "Inserează o diagramă Mermaid",
     "mermaid_template": "Inserează o diagramă Mermaid „{{name}}”",
     "collapsible": "Inserează un bloc pliabil",
-    "admonition": "Inserează o casetă de avertizare {{type}}",
+    "admonition": "Inserează o casetă de evidențiere {{type}}",
     "todo": "Inserează un element de sarcină „{{title}}”",
     "todo_nonstandard": "Inserează un element de sarcină „{{title}}” (non-standard)",
     "placeholders": {
@@ -2665,7 +2665,7 @@
   },
   "text-editor": {
     "ck": {
-      "admonition": "Casetă de avertizare",
+      "admonition": "Casetă de evidențiere",
       "align-text-to-the-center": "Aliniază textul la centru",
       "align-text-to-the-left": "Aliniază textul la stânga",
       "align-text-to-the-right": "Aliniază textul la dreapta",
@@ -2694,7 +2694,7 @@
       "enter-the-anchor-name-without-spaces": "Introduceți numele ancorei fără spații.",
       "import-a-markdown-file-into-this-note": "Importă un fișier Markdown în această notiță",
       "important": "Important",
-      "include-note": "Include notița",
+      "include-note": "Include notiță",
       "insert-a-0-mermaid-diagram-template": "Inserează un șablon de diagramă Mermaid „%0”",
       "insert-a-link-to-another-trilium-note": "Inserează o legătură către o altă notiță Trilium",
       "insert-a-math-equation": "Inserează o ecuație matematică",
@@ -2704,7 +2704,7 @@
       "insert-an-empty-mermaid-diagram": "Inserează o diagramă Mermaid goală",
       "insert-text-snippet": "Inserează fragment de text",
       "insert-the-current-date-and-time": "Inserează data și ora curentă",
-      "inserts-a-new-admonition": "Inserează o casetă de avertizare nouă",
+      "inserts-a-new-admonition": "Inserează o casetă de evidențiere nouă",
       "justify-text-alignment": "Aliniază textul stânga-dreapta",
       "keyboard-shortcut": "Scurtătură de la tastatură",
       "link-preview": "Previzualizare link",
