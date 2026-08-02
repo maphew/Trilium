@@ -101,16 +101,20 @@ export function createTransclusionExtension(options: TransclusionOptions = {}): 
 }
 
 /**
- * Background colour for imported highlights: CKEditor's default yellow highlight marker
- * (Obsidian highlights carry no colour of their own). Matches the `<span
- * style="background-color:…">` markup CKEditor's Font Background Color feature emits, so the
- * imported highlight round-trips as an editable highlight.
+ * Background colour for highlights: CKEditor's default yellow highlight marker (`==…==`
+ * carries no colour of its own). Matches the `<span style="background-color:…">` markup
+ * CKEditor's Font Background Color feature emits, so a highlight rendered into a text note
+ * round-trips as an editable highlight. Deliberately not `<mark>`: the editor has no
+ * Highlight plugin, so it would drop the element on the next edit.
  */
 const HIGHLIGHT_BACKGROUND = "hsl(60, 75%, 60%)";
 
 /**
- * Creates an extension for Obsidian-style highlights: `==text==` → a background-coloured
- * `<span>`.
+ * Creates an extension for highlights: `==text==` → a background-coloured `<span>`.
+ *
+ * Not part of CommonMark or GFM, but the de-facto standard everywhere else (Obsidian,
+ * Typora, Bear, python-markdown), so it is enabled for all Markdown rendering rather than
+ * only for the Obsidian importer.
  *
  * Inner markdown is parsed so `==**bold**==` highlights bold text. A non-space is required
  * just inside each `==` (like emphasis), so `a == b` and `====` stay literal.

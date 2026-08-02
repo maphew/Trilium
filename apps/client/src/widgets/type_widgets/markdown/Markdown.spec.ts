@@ -245,4 +245,9 @@ describe("renderWithSourceLines", () => {
             expect(h.text).not.toMatch(/javascript:/i);
         }
     });
+
+    it("renders ==text== as a highlight, surviving sanitization", () => {
+        expect(html("==hi==")).toBe('<p><span style="background-color:hsl(60, 75%, 60%);">hi</span></p>');
+        expect(html("a == b")).toBe("<p>a == b</p>");
+    });
 });
