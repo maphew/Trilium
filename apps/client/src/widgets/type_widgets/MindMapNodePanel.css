@@ -45,6 +45,10 @@
 .mind-map-node-panel .mind-map-node-icon {
     --note-icon-size: 20px;
     --note-icon-container-padding-size: 4px;
+
+    &:last-child {
+        --note-icon-background-color: transparent;
+    }
 }
 
 /*
