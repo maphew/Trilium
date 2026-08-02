@@ -73,7 +73,7 @@ export default class TodoListMultistateEditing extends Plugin {
     /** State-name → definition, keyed for `buildTooltipTitle` calls. */
     private _stateByName!: Map<string, TaskStateDef>;
 
-    /** Translate function resolved once from editor config; identity fallback. */
+    /** Key resolver for the shortcut key names only — see {@link TranslateFn}. Identity fallback. */
     private _translate!: TranslateFn;
 
     init() {
@@ -440,7 +440,8 @@ export default class TodoListMultistateEditing extends Plugin {
             input.ownerDocument,
             readTaskState(input),
             this._stateByName,
-            this._translate
+            this.editor.t,
+            renderCycleShortcut(this._translate)
         );
     }
 
@@ -478,7 +479,13 @@ export default class TodoListMultistateEditing extends Plugin {
 
 }
 
-export type TranslateFn = (key: string, params?: Record<string, unknown>) => string;
+/**
+ * Resolves an i18next key. Still needed for the shortcut key names, which live in the app-wide
+ * `keyboard_shortcuts.keys.*` catalog that {@link formatShortcut} reads and the command palette and
+ * help dialog share — those are not this package's messages to own. Everything the plugin says in
+ * its own voice goes through `editor.t()` instead.
+ */
+export type TranslateFn = (key: string) => string;
 
 /**
  * The task state applied to the todo item that owns the given checkbox. Anchor
@@ -508,16 +515,21 @@ function readTaskState(input: HTMLInputElement): string | null {
  *
  * Exported so specs can verify the assembled HTML directly, without having to
  * introspect Bootstrap Tooltip's private `_config` field.
+ *
+ * @param t the editor's translation function, for the strings this package owns.
+ * @param shortcut the cycle shortcut, already rendered as `<kbd>` markup by
+ *                 {@link renderCycleShortcut} — its key names come from the app-wide catalog rather
+ *                 than from ours, so it is resolved by the caller and passed in as content. Nothing
+ *                 escapes it here, and the tooltip opts out of Bootstrap's sanitizer.
  */
 export function buildTooltipTitle(
     doc: Document,
     state: string | null,
     stateByName: Map<string, TaskStateDef>,
-    translate: TranslateFn
+    t: (message: string, ...values: string[]) => string,
+    shortcut: string
 ): string {
-    const body = translate("text-editor.checkbox-tooltip", {
-        shortcut: renderCycleShortcut(translate)
-    });
+    const body = t("Right-click or press %0 to change state.", shortcut);
     if (!state) {
         return body;
     }
@@ -527,9 +539,9 @@ export function buildTooltipTitle(
         : buildUnknownStateSuffixHtml(
             doc,
             state,
-            translate("text-editor.checkbox-tooltip-state-unknown-suffix")
+            t("(missing definition)")
         );
-    const label = translate("text-editor.checkbox-tooltip-state-label");
+    const label = t("Task state:");
     // The status line is a block-level <div> so it forces a line break before
     // the body and the CSS `margin-bottom: 8px` cleanly separates the two.
     return `<div class="tn-task-tooltip-state">${label} ${suffix}</div>${body}`;
