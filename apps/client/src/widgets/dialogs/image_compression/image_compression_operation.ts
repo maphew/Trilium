@@ -49,12 +49,12 @@ const COMPRESSION_TIMEOUT_MS = 60 * 60 * 1000;
 export function runImageCompression(
     target: ImageCompressionTarget,
     options: ImageCompressionToolOptions,
+    taskId: string,
     onProgress?: (done: number, total: number | undefined) => void
 ): Promise<ImageCompressionResponse> {
     const url = target.type === "note"
         ? `notes/${target.noteId}/compress-images`
         : `attachments/${target.attachmentId}/compress-image`;
-    const taskId = randomString(12);
     const listener = onProgress && followProgress(taskId, onProgress);
 
     return server.postWithTimeout<ImageCompressionResponse>(url, COMPRESSION_TIMEOUT_MS, {
@@ -73,6 +73,21 @@ export function runImageCompression(
             unsubscribeToMessage(listener);
         }
     });
+}
+
+/** Names a run, so it can be followed and called off by whoever started it. */
+export function newCompressionTaskId(): string {
+    return randomString(12);
+}
+
+/**
+ * Calls off a run that is still going.
+ *
+ * Answers nothing: the images already compressed are already saved, and the run itself reports what
+ * it managed as it always does — so there is no second account of it to wait for here.
+ */
+export function cancelImageCompression(taskId: string): void {
+    void server.post(`image-compression/${taskId}/cancel`);
 }
 
 /**
@@ -102,21 +117,32 @@ function followProgress(taskId: string, onProgress: (done: number, total: number
  * A run that saved nothing says so rather than quoting a size that did not move: "from 45 MiB to
  * 45 MiB" reads as a failure to report, where it is in fact a complete and correct answer — the
  * images were already as small as these settings can make them.
+ *
+ * The images a stopped run never reached are counted out of both, because they were never weighed
+ * either: they are reported at zero bytes, having not been read. Counting them would claim the
+ * whole tree was processed and then quote the sizes of the handful that actually were, which is
+ * how "867 images processed, reducing the size from 73.72 MiB to 554.6 KiB" comes about. What the
+ * run got through before it was called off is said instead, against the total it set out to visit.
  */
 export function compressionResultMessage(result: ImageCompressionResponse): string {
-    const count = result.items.length;
+    const total = result.items.length;
+    const done = total - result.items.filter((item) => item.skipReason === "cancelled").length;
+    const stopped = done < total;
 
-    if (count === 0) {
-        return t("space_usage.compress_result_none");
+    if (done === 0) {
+        return t(stopped ? "space_usage.compress_result_stopped_none" : "space_usage.compress_result_none");
     }
 
     if (result.savedSize <= 0) {
-        return t("space_usage.compress_result_no_gain", { count });
+        return stopped
+            ? t("space_usage.compress_result_stopped_no_gain", { done, total })
+            : t("space_usage.compress_result_no_gain", { count: done });
     }
 
-    return t("space_usage.compress_result", {
-        count,
-        before: formatSize(result.originalSize),
-        after: formatSize(result.newSize)
-    });
+    const before = formatSize(result.originalSize);
+    const after = formatSize(result.newSize);
+
+    return stopped
+        ? t("space_usage.compress_result_stopped", { done, total, before, after })
+        : t("space_usage.compress_result", { count: done, before, after });
 }

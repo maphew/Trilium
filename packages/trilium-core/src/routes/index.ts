@@ -138,6 +138,7 @@ export function buildSharedApiRoutes({ route, asyncRoute, apiRoute, asyncApiRout
     // Recompressing decodes and re-encodes each image, so these run outside a transaction and open
     // one per image written instead of holding a single one across the whole (asynchronous) run.
     asyncApiRoute(PST, "/api/notes/:noteId/compress-images", imageRoute.compressNoteImages);
+    apiRoute(PST, "/api/image-compression/:taskId/cancel", imageRoute.cancelImageCompression);
     asyncApiRoute(PST, "/api/attachments/:attachmentId/compress-image", imageRoute.compressAttachmentImage);
     route(PST, "/api/notes/:noteId/attachments/upload", [checkApiAuthOrElectron, uploadMiddlewareWithErrorHandling, csrfMiddleware], attachmentsApiRoute.uploadAttachment, apiResultHandler);
 

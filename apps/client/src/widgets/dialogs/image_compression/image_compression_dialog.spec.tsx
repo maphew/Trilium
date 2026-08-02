@@ -22,6 +22,20 @@ function resultOf(count: number, originalSize: number, newSize: number) {
     };
 }
 
+/**
+ * A run called off part-way: the images it got through, and then the ones it never reached.
+ *
+ * Those carry no sizes because nothing read them — which is exactly why they cannot be counted
+ * alongside the bytes the run does report.
+ */
+function stoppedRun(done: number, cancelled: number, originalSize: number, newSize: number) {
+    const result = resultOf(done, originalSize, newSize);
+    const untouched = Array.from({ length: cancelled },
+        (_, index) => ({ entityId: `left${index}`, skipReason: "cancelled" }));
+
+    return { ...result, items: [ ...result.items, ...untouched ], skippedCount: cancelled };
+}
+
 const mocks = vi.hoisted(() => ({
     storedOption: "{}",
     /** URLs the summary asked for, in order, so a re-reading can be told from a first reading. */
@@ -766,8 +780,27 @@ describe("running the compression", () => {
         expect(result?.compressedCount).toBe(10);
     });
 
+    it("counts out the images a stopped run never reached, instead of claiming it processed them", async () => {
+        // The figures a real run produced: a tree of 867, called off after fifteen. Counting the
+        // 852 it never opened put the whole tree's number in front of fifteen images' worth of
+        // bytes — "867 images processed, reducing the size from 73 MiB to 554 KiB".
+        mocks.postWithTimeout.mockResolvedValueOnce(stoppedRun(15, 852, 73 * 1024 * 1024, 554 * 1024));
+
+        const { closed } = await openDialog();
+        await click(compressButton());
+        await closed;
+
+        expect(reportedMessage()).toBe('space_usage.compress_result_stopped '
+            + '{"done":15,"total":867,"before":"73 MiB","after":"554 KiB"}');
+    });
+
     it.each([
         [ "found no images at all", EMPTY_RESULT, "space_usage.compress_result_none" ],
+        // Stopped before the first image was read: no count is worth quoting, but "there are no
+        // images to compress" would be a plain untruth about a tree full of them.
+        [ "was stopped at once", stoppedRun(0, 12, 0, 0), "space_usage.compress_result_stopped_none" ],
+        [ "was stopped having gained nothing", stoppedRun(4, 20, 900, 900),
+            'space_usage.compress_result_stopped_no_gain {"done":4,"total":24}' ],
         // Quoting "from 45 MiB to 45 MiB" would read as a failure to report, where it is in fact a
         // complete answer: the images were already as small as these settings can make them.
         [ "made nothing smaller", resultOf(4, 900, 900), 'space_usage.compress_result_no_gain {"count":4}' ]

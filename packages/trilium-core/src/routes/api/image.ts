@@ -180,6 +180,17 @@ function compressAttachmentImage(req: Request<{ attachmentId: string }>) {
     return imageCompressionService.compressAttachmentImage(req.params.attachmentId, readCompressionOptions(req));
 }
 
+/**
+ * Calls off a run by the name its caller gave it, and says nothing about whether one was going.
+ *
+ * There is nothing useful to report either way: a run that has just finished and a name that was
+ * never used look the same from here, and neither is a failure — the caller wanted this run stopped
+ * and after this it is, or it already was.
+ */
+function cancelImageCompression(req: Request<{ taskId: string }>) {
+    imageCompressionService.cancelImageCompression(req.params.taskId);
+}
+
 export default {
     returnImageFromNote,
     returnImageFromRevision,
@@ -189,7 +200,8 @@ export default {
     getAttachmentImageInfo,
     getImageInventory,
     compressNoteImages,
-    compressAttachmentImage
+    compressAttachmentImage,
+    cancelImageCompression
 };
 
 /**

@@ -11,10 +11,12 @@ import { Card } from "../../react/Card";
 import { useTriliumOptionJson } from "../../react/hooks";
 import Modal from "../../react/Modal";
 import {
+    cancelImageCompression,
     compressionResultMessage,
     IMAGE_COMPRESSION_TOAST_ID,
     type ImageCompressionTarget,
     isSingleImage,
+    newCompressionTaskId,
     runImageCompression
 } from "./image_compression_operation";
 import {
@@ -99,14 +101,23 @@ function ImageCompressionDialog({ target, onFinished }: {
             return;
         }
 
-        // A spinner rather than a bar, and nothing to cancel: the server carries on whatever the
-        // client does. The message is replaced as the count arrives — one toast throughout, so the
-        // wording changes in place rather than a second toast appearing beside the first.
+        // A spinner rather than a bar: nothing here can say how far along one image is. The message
+        // is replaced as the count arrives — one toast throughout, so the wording changes in place
+        // rather than a second toast appearing beside the first.
+        //
+        // Calling it off leaves everything already compressed compressed: the run writes as it goes,
+        // and starting it again skips what is done without reading it. So the button says stop, not
+        // undo, and the toast stays up until the run answers with what it managed.
+        const taskId = newCompressionTaskId();
         const showProgress = (message: string) => toast.showPersistent({
             id: IMAGE_COMPRESSION_TOAST_ID,
             icon: "bx bx-loader-circle bx-spin",
             message,
-            dismissible: false
+            dismissible: false,
+            buttons: [ {
+                text: t("space_usage.compress_cancel_run"),
+                onClick: () => cancelImageCompression(taskId)
+            } ]
         });
 
         showProgress(t("space_usage.compress_running"));
@@ -114,7 +125,7 @@ function ImageCompressionDialog({ target, onFinished }: {
         let result: ImageCompressionResponse | null = null;
 
         try {
-            result = await runImageCompression(target, settings, (done, total) => {
+            result = await runImageCompression(target, settings, taskId, (done, total) => {
                 // Until the run has said how many there are, the count on its own would read as a
                 // total; the wording without one says only that it is working through them.
                 showProgress(total === undefined

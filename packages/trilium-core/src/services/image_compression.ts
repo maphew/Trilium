@@ -41,6 +41,26 @@ const DEFAULT_CONVERSION_QUALITY = 85;
 /** A one-pixel bound is pointless but harmless; anything below it cannot be resized to. */
 const MIN_MAX_WIDTH_HEIGHT = 1;
 
+/**
+ * Calls off a run that is still going, by the name its caller gave it.
+ *
+ * Takes effect between images rather than during one: an image already being decoded is finished
+ * and written, because stopping a worker mid-decode saves a second and loses the work. Everything
+ * committed stays committed — the run writes as it goes — and running the tool again picks up where
+ * this left off, since what is already compressed is recognised from its header and skipped.
+ */
+export function cancelImageCompression(taskId: string) {
+    cancelledRuns.add(taskId);
+}
+
+/**
+ * Runs called off and not yet finished.
+ *
+ * Emptied by the run itself on its way out, so a name reused by a later run does not arrive
+ * pre-cancelled.
+ */
+const cancelledRuns = new Set<string>();
+
 /** Compresses every image the given note holds: an image note's own content, or its attachments. */
 export async function compressNoteImages(noteId: string, options?: ImageCompressionOptions): Promise<ImageCompressionResponse> {
     const note = becca.getNote(noteId);
@@ -368,114 +388,132 @@ export function writeImage(entity: WritableImage, buffer: Uint8Array, mime: stri
     entity.mime = mime;
 
     try {
-        entity.setContent(buffer, { forceSave: true });
-    } catch (e: unknown) {
-        entity.mime = previousMime;
+            entity.setContent(buffer, { forceSave: true });
+        } catch (e: unknown) {
+            entity.mime = previousMime;
 
-        throw e;
-    }
-}
-
-/**
- * Reads an image's weight and its opening bytes straight out of the blob, leaving the body of it in
- * the database. One statement answers both, so the saving is a smaller read rather than a second
- * round trip.
- *
- * `CAST` on both: a blob column can hold text for other kinds of content, where `LENGTH` would
- * count characters and `substr` would cut on them. Bytes are what an image header is measured in.
- */
-function peekBlob(blobId: string | undefined, isProtected: boolean | undefined): TargetPeek | null {
-    if (!blobId || isProtected) {
-        return null;
-    }
-
-    const row = getSql().getRow<{ size: number | null; header: string | Uint8Array | null }>(/*sql*/`
-        SELECT LENGTH(CAST(content AS BLOB)) AS size,
-               substr(CAST(content AS BLOB), 1, ?) AS header
-        FROM blobs WHERE blobId = ?`, [ HEADER_BYTES, blobId ]);
-
-    if (!row || row.size === null || row.header === null) {
-        return null;
-    }
-
-    return { size: row.size, header: wrapStringOrBuffer(row.header) };
-}
-
-/**
- * A canvas, mermaid, mind map or spreadsheet note carries its rendered picture in an attachment of
- * a fixed title. Those are regenerated whenever the note is saved, so compressing one buys nothing
- * and lasts until the next save; worse, the route serving the spreadsheet's picture declares it
- * `image/png` unconditionally, so converting it to JPEG would serve bytes under the wrong type.
- */
-function resolveAttachmentSkip(attachment: BAttachment): ImageCompressionSkipReason | undefined {
-    if (!attachment.isContentAvailable()) {
-        return "protected";
-    }
-
-    const ownerNote = attachment.getNote();
-
-    if (ownerNote && attachment.title === getImageAttachmentTitle(ownerNote.type)) {
-        return "generated";
-    }
-
-    return undefined;
-}
-
-/**
- * Visits every image, in two passes.
- *
- * The first settles what it can from headers alone, which over a tree is most of the images there
- * are, and costs a small query each. What survives it has to be read and decoded, which is the
- * expensive part and the only part worth scheduling — so the second pass hands those to the budget,
- * each with what its decode is expected to want.
- *
- * The passes are not an optimization of each other: the first exists because deciding should not
- * cost what doing costs, the second because doing should not be allowed to cost everything at once.
- */
-async function compressTargets(
-    targets: CompressionTarget[],
-    request: ImageCompressionRequest,
-    taskId?: string
-): Promise<ImageCompressionResponse> {
-    const concurrency = getImageProvider().compressionConcurrency();
-    const reportProgress = progressReporter(taskId, targets.length);
-
-    logRunStart(targets.length, concurrency);
-
-    const items = new Array<ImageCompressionItem>(targets.length);
-    const worthReading: { at: number; target: CompressionTarget; cost: number | null }[] = [];
-
-    for (const [ at, target ] of targets.entries()) {
-        const foreseen = await foreseeTarget(target, request);
-
-        if (foreseen.item) {
-            items[at] = foreseen.item;
-            reportProgress();
-        } else {
-            worthReading.push({ at, target, cost: foreseen.cost });
+            throw e;
         }
     }
 
-    const writes = createWriteBatch();
-    const compressed = await runWithinBudget(
-        worthReading.map(({ target, cost }) => ({
-            cost,
-            run: () => compressTarget(target, request, writes).finally(reportProgress)
-        })),
-        { totalBytes: COMPRESSION_BUDGET_BYTES, maxConcurrent: concurrency }
-    );
+    /**
+     * Reads an image's weight and its opening bytes straight out of the blob, leaving the body of it in
+     * the database. One statement answers both, so the saving is a smaller read rather than a second
+     * round trip.
+     *
+     * `CAST` on both: a blob column can hold text for other kinds of content, where `LENGTH` would
+     * count characters and `substr` would cut on them. Bytes are what an image header is measured in.
+     */
+    function peekBlob(blobId: string | undefined, isProtected: boolean | undefined): TargetPeek | null {
+        if (!blobId || isProtected) {
+            return null;
+        }
 
-    // Nothing should be left — every write either filled a group or waited out its own timer — but
-    // saying so costs nothing and a run must not end holding work it has not committed.
-    writes.flush();
+        const row = getSql().getRow<{ size: number | null; header: string | Uint8Array | null }>(/*sql*/`
+            SELECT LENGTH(CAST(content AS BLOB)) AS size,
+                   substr(CAST(content AS BLOB), 1, ?) AS header
+            FROM blobs WHERE blobId = ?`, [ HEADER_BYTES, blobId ]);
 
-    // Back into the order they were visited in, which is the order they are reported in — the
-    // schedule above is free to have run them in any other.
-    worthReading.forEach(({ at }, index) => {
-        items[at] = compressed[index];
-    });
+        if (!row || row.size === null || row.header === null) {
+            return null;
+        }
 
-    return logRunEnd(summarize(items));
+        return { size: row.size, header: wrapStringOrBuffer(row.header) };
+    }
+
+    /**
+     * A canvas, mermaid, mind map or spreadsheet note carries its rendered picture in an attachment of
+     * a fixed title. Those are regenerated whenever the note is saved, so compressing one buys nothing
+     * and lasts until the next save; worse, the route serving the spreadsheet's picture declares it
+     * `image/png` unconditionally, so converting it to JPEG would serve bytes under the wrong type.
+     */
+    function resolveAttachmentSkip(attachment: BAttachment): ImageCompressionSkipReason | undefined {
+        if (!attachment.isContentAvailable()) {
+            return "protected";
+        }
+
+        const ownerNote = attachment.getNote();
+
+        if (ownerNote && attachment.title === getImageAttachmentTitle(ownerNote.type)) {
+            return "generated";
+        }
+
+        return undefined;
+    }
+
+    /**
+     * Visits every image, in two passes.
+     *
+     * The first settles what it can from headers alone, which over a tree is most of the images there
+     * are, and costs a small query each. What survives it has to be read and decoded, which is the
+     * expensive part and the only part worth scheduling — so the second pass hands those to the budget,
+     * each with what its decode is expected to want.
+     *
+     * The passes are not an optimization of each other: the first exists because deciding should not
+     * cost what doing costs, the second because doing should not be allowed to cost everything at once.
+     */
+    async function compressTargets(
+        targets: CompressionTarget[],
+        request: ImageCompressionRequest,
+        taskId?: string
+    ): Promise<ImageCompressionResponse> {
+        const concurrency = getImageProvider().compressionConcurrency();
+        const reportProgress = progressReporter(taskId, targets.length);
+
+        logRunStart(targets.length, concurrency);
+
+        const stopped = () => taskId !== undefined && cancelledRuns.has(taskId);
+        const items = new Array<ImageCompressionItem>(targets.length);
+        const worthReading: { at: number; target: CompressionTarget; cost: number | null }[] = [];
+
+        try {
+        for (const [ at, target ] of targets.entries()) {
+            if (stopped()) {
+                items[at] = skippedItem(target, 0, "cancelled");
+                reportProgress();
+                continue;
+            }
+
+            const foreseen = await foreseeTarget(target, request);
+
+            if (foreseen.item) {
+                items[at] = foreseen.item;
+                reportProgress();
+            } else {
+                worthReading.push({ at, target, cost: foreseen.cost });
+            }
+        }
+
+        const writes = createWriteBatch();
+        const compressed = await runWithinBudget(
+            // A cancelled run still drains its queue, but each remaining image is answered rather than
+            // worked on — the images go by in milliseconds and the scheduler needs no notion of any of
+            // this.
+            worthReading.map(({ target, cost }) => ({
+                cost,
+                run: () => (stopped()
+                    ? Promise.resolve(skippedItem(target, 0, "cancelled"))
+                    : compressTarget(target, request, writes)).finally(reportProgress)
+            })),
+            { totalBytes: COMPRESSION_BUDGET_BYTES, maxConcurrent: concurrency }
+        );
+
+        // Nothing should be left — every write either filled a group or waited out its own timer — but
+        // saying so costs nothing and a run must not end holding work it has not committed.
+        writes.flush();
+
+        // Back into the order they were visited in, which is the order they are reported in — the
+        // schedule above is free to have run them in any other.
+        worthReading.forEach(({ at }, index) => {
+            items[at] = compressed[index];
+        });
+
+        return logRunEnd(summarize(items));
+    } finally {
+        if (taskId !== undefined) {
+            cancelledRuns.delete(taskId);
+        }
+    }
 }
 
 /**
@@ -816,6 +854,7 @@ function summarize(items: ImageCompressionItem[]): ImageCompressionResponse {
 export default {
     compressNoteImages,
     compressAttachmentImage,
+    cancelImageCompression,
     resolveCompressionRequest,
     resolveRecursive
 };

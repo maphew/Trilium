@@ -1,6 +1,6 @@
 import type { ImageCompressionResponse } from "@triliumnext/commons";
 import { becca, cls, getSql, options } from "@triliumnext/core";
-import { collectNoteTargets, HEADER_BYTES, writeImage } from "@triliumnext/core/src/services/image_compression.js";
+import { cancelImageCompression, collectNoteTargets, HEADER_BYTES, writeImage } from "@triliumnext/core/src/services/image_compression.js";
 import { getImageProvider, initImageProvider } from "@triliumnext/core/src/services/image_provider.js";
 import { createTextNote } from "@triliumnext/core/src/test/api_fixtures.js";
 import { CoreApiTester } from "@triliumnext/core/src/test/api_tester.js";
@@ -493,6 +493,75 @@ describe("compression parameters", () => {
         } finally {
             initImageProvider(real);
         }
+    });
+
+    it("stops when called off, keeping what it had already compressed", async () => {
+        const { noteId } = await createTextNote(api);
+        const taskId = "cancelMe123";
+        const images = [
+            await addAttachment(noteId, "a.png", noisyPng, { position: 10 }),
+            await addAttachment(noteId, "b.png", noisyPng, { position: 20 }),
+            await addAttachment(noteId, "c.png", noisyPng, { position: 30 })
+        ];
+
+        // Called off while the first image is in the encoder, so the run has started but has not
+        // reached the rest: what it manages is real, and what it never got to says so.
+        const real = getImageProvider();
+        let compressedSoFar = 0;
+
+        initImageProvider({
+            getImageType: (buffer) => real.getImageType(buffer),
+            processImage: (buffer, name, shrink) => real.processImage(buffer, name, shrink),
+            planCompression: (header, req) => real.planCompression(header, req),
+            compressionConcurrency: () => 1,
+            compressImage: async (buffer, req) => {
+                const outcome = await real.compressImage(buffer, req);
+
+                if (++compressedSoFar === 1) {
+                    cancelImageCompression(taskId);
+                }
+
+                return outcome;
+            }
+        });
+
+        try {
+            const res = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
+                body: { taskId, pngHandling: "jpeg" }
+            });
+
+            expect(res.body.compressedCount).toBe(1);
+            expect(res.body.items.map((item) => item.skipReason))
+                .toEqual([ undefined, "cancelled", "cancelled" ]);
+
+            // The one it finished is written; the two it never reached are untouched, not half-done.
+            expect(readAttachment(images[0]).mime).toBe("image/jpeg");
+            expect(readAttachment(images[1]).size).toBe(noisyPng.byteLength);
+            expect(readAttachment(images[2]).size).toBe(noisyPng.byteLength);
+        } finally {
+            initImageProvider(real);
+        }
+    });
+
+    it("forgets a cancellation once the run it stopped is over", async () => {
+        const { noteId } = await createTextNote(api);
+        const attachmentId = await addAttachment(noteId, "later.png", noisyPng);
+        const taskId = "reusedName99";
+
+        cancelImageCompression(taskId);
+
+        const stopped = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
+            body: { taskId, pngHandling: "jpeg" }
+        });
+        expect(stopped.body.items[0]).toMatchObject({ skipReason: "cancelled" });
+
+        // The same name again: a run must not inherit the last one's cancellation, or a caller
+        // reusing an id would find every later run refusing to start.
+        const second = await api.post<ImageCompressionResponse>(`/api/notes/${noteId}/compress-images`, {
+            body: { taskId, pngHandling: "jpeg" }
+        });
+        expect(second.body.items[0]).toMatchObject({ compressed: true });
+        expect(readAttachment(attachmentId).mime).toBe("image/jpeg");
     });
 
     it("refuses an image too large to decode rather than failing part-way through one", async () => {

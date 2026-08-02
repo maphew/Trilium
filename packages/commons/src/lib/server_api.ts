@@ -499,6 +499,12 @@ export type ImageCompressionSkipReason =
      * it would have put the superseded picture back; the newer one is kept instead.
      */
     | "changed"
+    /**
+     * The run was called off before reaching this image. Nothing was read and nothing weighed, so
+     * it reports no size — it is here to be counted, so that a run stopped half way says so rather
+     * than reporting the part it did as the whole.
+     */
+    | "cancelled"
     /** Compression failed; the original was kept and the failure logged. */
     | "error";
 

@@ -2978,11 +2978,15 @@
     "compress_cancel": "Cancel",
     "compress_running": "Compressing images…",
     "compress_running_progress": "Compressing image {{done}} of {{total}}…",
+    "compress_cancel_run": "Stop",
     "compress_result_one": "{{count}} image processed, reducing the size from {{before}} to {{after}}.",
     "compress_result_other": "{{count}} images processed, reducing the size from {{before}} to {{after}}.",
     "compress_result_no_gain_one": "{{count}} image processed, but it could not be made any smaller.",
     "compress_result_no_gain_other": "{{count}} images processed, but none of them could be made any smaller.",
-    "compress_result_none": "There are no images to compress."
+    "compress_result_none": "There are no images to compress.",
+    "compress_result_stopped": "Stopped after {{done}} of {{total}} images, reducing their size from {{before}} to {{after}}.",
+    "compress_result_stopped_no_gain": "Stopped after {{done}} of {{total}} images, none of which could be made any smaller.",
+    "compress_result_stopped_none": "Stopped before any image was processed."
   },
   "note_language": {
     "not_set": "No language set",
