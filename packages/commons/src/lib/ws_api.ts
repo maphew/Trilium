@@ -173,6 +173,12 @@ export type WebSocketMessage = AllTaskDefinitions | {
      * would otherwise be invisible outside the log.
      */
     type: "unhandled-error";
-    /** The error message alone. The stack trace stays in the backend log rather than in the UI. */
+    /** The error message, shown directly in the notification. */
     message: string;
+    /**
+     * The stack trace, kept behind a "view more details" step rather than shown up front: it is what
+     * makes a bug report actionable, and nothing the user is expected to read. Absent when the thrown
+     * value carried no stack.
+     */
+    stack?: string;
 }

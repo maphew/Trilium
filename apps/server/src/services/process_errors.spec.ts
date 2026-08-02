@@ -93,11 +93,12 @@ describe("reportProcessError", () => {
         markAppReady();
         reportProcessError(UNCAUGHT_EXCEPTION, new Error("Note 'XvA0rKdu1238' doesn't exist."));
 
-        // no second crash, and the message reaches the user without the stack trace
+        // no second crash, and the failure reaches the user with the stack for a bug report
         expect(crashMock).toHaveBeenCalledOnce();
         expect(sendMessageToAllClientsMock).toHaveBeenCalledWith({
             type: "unhandled-error",
-            message: "Note 'XvA0rKdu1238' doesn't exist."
+            message: "Note 'XvA0rKdu1238' doesn't exist.",
+            stack: expect.stringContaining("Note 'XvA0rKdu1238' doesn't exist.")
         });
         expect(getLogMock.error).toHaveBeenCalledTimes(2);
         expect(getLogMock.error.mock.calls[1][0]).toContain("Note 'XvA0rKdu1238' doesn't exist.");
@@ -123,9 +124,11 @@ describe("reportProcessError", () => {
 
         expect(() => reportProcessError(UNHANDLED_REJECTION, "just a string")).not.toThrow();
 
+        // a thrown string carries no stack, so the client gets nothing to put behind the details step
         expect(sendMessageToAllClientsMock).toHaveBeenCalledWith({
             type: "unhandled-error",
-            message: "just a string"
+            message: "just a string",
+            stack: undefined
         });
     });
 

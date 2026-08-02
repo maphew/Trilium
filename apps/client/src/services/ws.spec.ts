@@ -94,8 +94,8 @@ describe("dispatchMessage", () => {
         await ws.dispatchMessage({ type: "toast", message: "hi", timeout: 5 } as any);
         expect(toast.showMessage).toHaveBeenCalledWith("hi", 5);
 
-        await ws.dispatchMessage({ type: "unhandled-error", message: "Note 'abc' doesn't exist." } as any);
-        expect(showUnhandledError).toHaveBeenCalledWith("Note 'abc' doesn't exist.");
+        await ws.dispatchMessage({ type: "unhandled-error", message: "Note 'abc' doesn't exist.", stack: "at getNoteOrThrow" } as any);
+        expect(showUnhandledError).toHaveBeenCalledWith("Note 'abc' doesn't exist.", "at getNoteOrThrow");
     });
 
     it("execute-script resolves the origin entity from froca when an id is present", async () => {

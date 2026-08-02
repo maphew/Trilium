@@ -99,9 +99,9 @@ export function reportProcessError(kind: ProcessErrorKind, error: unknown) {
             return;
         }
 
-        // Only the message reaches the UI: a stack trace against a bundled build tells the user nothing
-        // they can act on, and the log — which is what they attach to a bug report — already has it.
-        ws.sendMessageToAllClients({ type: "unhandled-error", message });
+        // The stack goes along for the user to copy into a bug report; the client keeps it behind a
+        // details step so the notification itself stays readable.
+        ws.sendMessageToAllClients({ type: "unhandled-error", message, stack });
     } catch (e: unknown) {
         // This is the handler of last resort, so a throw from inside it has nowhere left to go and would
         // terminate the process with an error about the error. Fall back to the console, and keep a

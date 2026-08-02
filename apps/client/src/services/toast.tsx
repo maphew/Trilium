@@ -114,19 +114,42 @@ export function showErrorForScriptNote(noteId: string, message: string, opts?: {
 
 /**
  * Surfaces a backend failure that no request was waiting on — a background task that threw, and would
- * otherwise be visible only in the log. The backend keeps running, so this informs rather than alarms.
+ * otherwise be visible only in the log. The backend keeps running, so this informs rather than alarms:
+ * the message identifies what broke, and the stack trace — the part that actually makes a bug report
+ * useful, and the part no user wants filling their screen — waits behind a details step, as the text
+ * editor's crash notification does with its crash log.
  *
  * Shown under a fixed id so that a task failing repeatedly refreshes one toast instead of stacking a
  * column of identical ones.
  */
-export function showUnhandledError(message: string) {
+export function showUnhandledError(message: string, stack?: string) {
     showPersistent({
         id: "unhandled-error",
-        title: t("toast.unhandled-error"),
+        title: t("toast.unhandled-error.title"),
         icon: "bx bx-error-circle",
         message,
         // Raw error strings are shown verbatim, so render them monospace.
         messageMonospace: true,
+        buttons: stack ? [ {
+            text: t("toast.unhandled-error.details-button"),
+            onClick: async ({ dismissToast }) => {
+                dismissToast();
+                // Imported here rather than at the top of the module: toasts are pulled in by the app
+                // context itself, and a static dependency on the dialog service would both close a cycle
+                // through it and drag the modal machinery into everything that merely shows a toast.
+                const dialog = (await import("./dialog.js")).default;
+
+                dialog.info(<>
+                    <p>{t("toast.unhandled-error.details-intro")}</p>
+                    <h3>{t("toast.unhandled-error.details-title")}</h3>
+                    <pre><code>{stack}</code></pre>
+                </>, {
+                    title: t("toast.unhandled-error.title"),
+                    size: "lg",
+                    copyToClipboardButton: true
+                });
+            }
+        } ] : undefined,
         timeout: 20_000
     });
 }

@@ -106,7 +106,7 @@ export async function dispatchMessage(message: WebSocketMessage) {
     } else if (messageType === "toast") {
         toastService.showMessage(msg.message, msg.timeout);
     } else if (messageType === "unhandled-error") {
-        showUnhandledError(msg.message);
+        showUnhandledError(msg.message, msg.stack);
     } else if (messageType === "execute-script") {
         const originEntity = msg.originEntityId ? await froca.getNote(msg.originEntityId) : null;
 
