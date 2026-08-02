@@ -59,8 +59,12 @@ export const MESSAGE_OVERRIDES: Record<string, string> = {
     "Bookmark name already exists.": "Anchor name already exists.",
     "Bookmark name cannot contain space characters.": "Anchor name cannot contain space characters.",
     "Edit bookmark": "Edit anchor",
+    "Remove bookmark": "Remove anchor",
     "Enter the bookmark name without spaces.": "Enter the anchor name without spaces.",
-    "Bookmark toolbar": "Anchor toolbar"
+    "Bookmark toolbar": "Anchor toolbar",
+    "bookmark widget": "anchor widget",
+    "No bookmarks available.": "No anchors available.",
+    "Scroll to bookmark": "Scroll to anchor"
 };
 
 /**
