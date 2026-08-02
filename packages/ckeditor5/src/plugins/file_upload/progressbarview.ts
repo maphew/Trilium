@@ -56,7 +56,9 @@ export default class ProgressBarView extends View {
 		view.set({
 			icon: IconCancel,
 			tooltip: true,
-			label: 'Cancel',
+			// An upstream message, so CKEditor's own catalog translates it — the editor package
+			// deliberately declares no entry of its own for it.
+			label: locale.t('Cancel'),
             //@ts-expect-error Object literal may only specify known properties, and 'attributes' does not exist in type
 			attributes: {
 				class: ['ck', 'ck-button', 'ck-off', 'ck-button-cancel', 'ck-uploading-cancel']
