@@ -111,8 +111,12 @@ extends it for tests.
 
 ## Localization
 
-User-facing strings go through `editor.t( … )`. Translations live in `lang/en.po` (gettext PO) with
-disambiguation/notes in `lang/contexts.json`.
+User-facing strings go through `editor.t( … )`, passing **the English text itself** as the message
+id. The English entry then goes under `text-editor.ck` in
+`apps/client/src/translations/en/translation.json`, keyed by the slug of that text. Two silent
+traps: the function must be *named* `t`, and its first argument must be a literal — anything else
+renders English forever. There are no `lang/en.po`/`contexts.json` catalogs (removed) and no host
+`translate` config (retired). Full rules in `references/ui-and-localization.md`.
 
 ## Visibility & documentation
 

@@ -128,6 +128,40 @@ Conventions visible here and across the suite:
 - Pass `licenseKey: 'GPL'` (the kit does this for you). List only the plugins the test needs
   (commands can also be instantiated directly, e.g. `new InsertMermaidCommand( editor )`).
 
+## Asserting localized strings
+
+Trilium passes the English text itself as the message id (see the **`ckeditor5-plugin-development`**
+skill), so a test editor with no dictionary renders **the English text** — assert that literal:
+
+```ts
+expect( button.label ).toBe( 'Collapsible block' );
+```
+
+Never assert a `text-editor.…` key: that shape belonged to the retired host bridge, and a spec
+expecting one is testing a mechanism that no longer exists.
+
+To prove a string really is translatable rather than hardcoded, configure a dictionary. The entry
+must be keyed by language, and the leading `{}` is load-bearing — CKEditor merges `translations`
+with `reduce(merge)` and no initial value, so without the seed it mutates the first entry:
+
+```ts
+editor = await createTestEditor( [ Essentials, Paragraph, Collapsible ], {
+    translations: [ {}, { en: { dictionary: { 'Collapsible block': 'Bloc pliabil' } } } ]
+} );
+
+expect( createButton( editor ).label ).toBe( 'Bloc pliabil' );
+```
+
+`en` because that is the language the editor resolves under when none is configured. Getting the
+shape wrong (omitting the language key) throws inside `Locale.t` and fails every spec in the file,
+not just the one.
+
+For a helper that takes a translator parameter rather than an editor, pass
+`( message: string ) => message` — the same English-fallback behaviour, no editor needed. To observe
+*which* messages a plugin asked for, spy with `vi.spyOn( editor, 't' )`: `t` is an own property the
+editor assigns in its constructor, so the spy intercepts as long as the code reads `this.editor.t`
+per call. Install it before whatever triggers the render.
+
 ## Model/view test data
 
 `_setModelData()` / `_getModelData()` (and `_getViewData()`) stringify and parse the engine
