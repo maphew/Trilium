@@ -59,6 +59,33 @@ export interface RevisionPojo {
     contentLength?: number;
 }
 
+/**
+ * How far "Erase excess revision snapshots" should go. Both fields are optional: left out, the
+ * operation behaves exactly as the automatic trimming that runs after every saved revision.
+ */
+export interface EraseExcessRevisionsOptions {
+    /**
+     * How many snapshots to keep per note, standing in for the `revisionSnapshotNumberLimit` option
+     * for this run. Negative keeps every snapshot (nothing is excess), zero keeps none; omitted
+     * falls back to the option itself.
+     *
+     * A note carrying a valid `#versioningLimit` follows its own label instead: that is a policy set
+     * on the note deliberately, and a one-off answer to the global setting does not overrule it.
+     */
+    snapshotsToKeep?: number;
+    /**
+     * Spares named snapshots — those the user gave a description — from erasure, and leaves them
+     * out of the count as well, so the limit governs the automatic snapshots alone. Omitted, it
+     * falls back to the `revisionIgnoreNamedSnapshots` option.
+     */
+    keepNamedSnapshots?: boolean;
+}
+
+export interface EraseExcessRevisionsResponse {
+    /** Snapshots actually erased, across every note the operation visited. */
+    erasedCount: number;
+}
+
 export interface RecentChangeRow {
     noteId: string;
     current_isDeleted: boolean;
@@ -79,6 +106,30 @@ export interface DatabaseCheckIntegrityResponse {
     results: {
         integrity_check: string;
     }[];
+}
+
+/**
+ * What rebuilding the database file gave back, measured either side of the vacuum. Erasing content
+ * does not shrink the file — the pages it frees stay allocated on the freelist — so this difference
+ * is the only figure that says what the disk actually got back.
+ */
+export interface VacuumDatabaseResponse {
+    /** The database's size in bytes before the rebuild, free pages included. */
+    sizeBefore: number;
+    sizeAfter: number;
+}
+
+export interface CompactionEstimateResponse {
+    /**
+     * Bytes a rebuild would return, from the pages already free inside the file. A floor rather than
+     * a promise: a rebuild also recovers the slack left inside pages still in use.
+     */
+    reclaimableBytes: number;
+    /**
+     * What the database occupies now, free pages included. Rebuilding writes a fresh copy of it
+     * before replacing the original, so this is also the headroom the operation wants while it runs.
+     */
+    databaseBytes: number;
 }
 
 export interface DatabaseAnonymizeResponse {
@@ -278,6 +329,24 @@ export interface SpaceUsageDeletedNotes {
 }
 
 /**
+ * Space held by attachments a live note still owns but no longer references from its content —
+ * an image or file inserted and then removed. Saving the note schedules those for erasure, and the
+ * scheduled cleanup erases them once `eraseUnusedAttachmentsAfterSeconds` has passed.
+ *
+ * Every scheduled attachment counts, not only those already past that delay, so the figure is what
+ * erasing unused attachments *now* would remove.
+ */
+export interface SpaceUsageUnusedAttachments {
+    /**
+     * What erasing them would actually reclaim: their blobs, counted once, minus any still held by
+     * a live note body, a still-referenced attachment or a revision.
+     */
+    size: number;
+    /** Attachments scheduled for erasure, whether or not something else shares their content. */
+    attachmentCount: number;
+}
+
+/**
  * What the live content actually occupies — every blob referenced by a live note, attachment or
  * revision, hidden subtree included, counted once however many entities share it through
  * deduplication. The breakdown attributes each blob to exactly one tier — bodies first, then
@@ -306,6 +375,7 @@ export interface SpaceUsageOverviewResponse {
     /** Notes reachable only through the hidden subtree, plus any note not reachable at all. */
     hiddenNotes: SpaceUsageBucket;
     deletedNotes: SpaceUsageDeletedNotes;
+    unusedAttachments: SpaceUsageUnusedAttachments;
     /** Every note of the visible tree: {@link notes} and {@link otherNotes} combined. */
     total: SpaceUsageBucket;
 }
@@ -335,10 +405,16 @@ export interface SpaceUsageNoteResponse extends SpaceUsageSizes {
     /** Like {@link noteContentSize}, over the note's whole canonical subtree. */
     subtreeContentSize: number;
     /**
-     * What erasing the whole subtree's history would actually reclaim: blobs held only by the
-     * subtree's revisions, each counted once, and none that a live body or note attachment still
-     * shares. Tiered like the database-wide figure, so the two are comparable — unlike the
-     * per-entity {@link revisionsSize}, which counts a shared snapshot at every entity holding it.
+     * An estimate of what trimming the subtree's history would reclaim: blobs held only by the
+     * snapshots that would go, each counted once, and none that a live body, a note attachment or a
+     * surviving snapshot still shares. Tiered like the database-wide figure, so the two are
+     * comparable — unlike the per-entity {@link revisionsSize}, which counts a shared snapshot at
+     * every entity holding it.
+     *
+     * How far that trimming goes is the request's own {@link EraseExcessRevisionsOptions}: by
+     * default every snapshot goes, which is the whole history. The limit asked for stands for every
+     * note at once, so a note whose `#versioningLimit` keeps more than that frees less than this
+     * figure allows for — an estimate reading high, not a promise.
      */
     subtreeRevisionsContentSize: number;
     attachments: SpaceUsageAttachment[];
@@ -346,6 +422,8 @@ export interface SpaceUsageNoteResponse extends SpaceUsageSizes {
     children: SpaceUsageChild[];
     /** Only present on the root, deleted notes having no place in the tree. */
     deletedNotes?: SpaceUsageDeletedNotes;
+    /** Only present on the root: a database-wide figure, like the deleted one beside it. */
+    unusedAttachments?: SpaceUsageUnusedAttachments;
 }
 
 export interface SimilarNote {
@@ -354,7 +432,7 @@ export interface SimilarNote {
     noteId: string;
 }
 
-export type SimilarNoteResponse = (SimilarNote[] | undefined);
+export type SimilarNoteResponse = SimilarNote[];
 
 export type SaveSearchNoteResponse = CloneResponse;
 
@@ -432,8 +510,11 @@ export interface NoteMapLink {
     name: string;
 }
 
+/** A note of a map, kept as a tuple rather than an object: a map carries thousands of them. */
+export type NoteMapNote = [ noteId: string, title: string, type: string, color: string | null, icon: string ];
+
 export interface NoteMapPostResponse {
-    notes: string[];
+    notes: NoteMapNote[];
     links: NoteMapLink[];
     noteIdToDescendantCountMap: Record<string, number>;
 }

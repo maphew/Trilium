@@ -1214,7 +1214,6 @@
   "highlights_list_2": {
     "options": "خيارات",
     "title": "قائمة التضليلات",
-    "modal_title": "تهيئة قائمة التمييزات",
     "menu_configure": "تهيئة قائمة التمييزات...",
     "no_highlights": "لا توجد عناصر مميزة.",
     "title_with_count_zero": "{{count}} تمييز",
@@ -2229,7 +2228,6 @@
     "add_provider": "إضافة مزوّد ذكاء اصطناعي",
     "edit_index": "تحرير {{index}} من {{total}}",
     "tool_calls": "{{count}} استدعاء/استدعاءات أداة",
-    "context_used": "تم استخدام {{percentage}}٪",
     "sources_summary": "{{count}} مصدر من {{sites}} مواقع",
     "no_provider_message": "لم يتم إعداد مزوّد ذكاء اصطناعي. أضف مزوّدًا لبدء المحادثة.",
     "total_tokens": "{{total}} رمزًا (Tokens)",

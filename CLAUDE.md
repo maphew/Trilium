@@ -25,7 +25,7 @@ pnpm desktop:build             # Electron
 # Test
 pnpm test:all                  # All tests (parallel + sequential)
 pnpm test:parallel             # Client + most package tests
-pnpm test:sequential           # Server (shared DB) + browser-mode tests (ckeditor5, ckeditor5-mermaid, ckeditor5-math)
+pnpm test:sequential           # Server (shared DB) + browser-mode tests (ckeditor5)
 pnpm --filter server test      # Single package tests
 pnpm coverage                  # Coverage reports
 
@@ -38,6 +38,12 @@ pnpm typecheck                 # TypeScript type check across all projects
 ```
 
 **Running a single test file**: `pnpm --filter server test spec/etapi/search.spec.ts`
+
+## Git Workflow
+
+- **Committing directly on `main` is allowed and expected** for small fixes and self-contained features — do **not** create a branch first for those. The default "branch before committing on the default branch" rule does not apply to this repository.
+- **Large or risky work goes on a branch**: multi-commit features, migrations, refactors spanning many packages, anything that needs review or a PR before landing.
+- Only commit when explicitly asked to in that message; leave changes staged/unstaged for review otherwise.
 
 ## Main Applications
 
@@ -69,8 +75,7 @@ packages/
   codemirror/           # Code editor integration
   highlightjs/          # Syntax highlighting
   share-theme/          # Theme for shared/published notes
-  ckeditor5-admonition/, ckeditor5-footnotes/, ckeditor5-math/, ckeditor5-mermaid/
-  ckeditor5-keyboard-marker/, express-partial-content/, pdfjs-viewer/, splitjs/
+  express-partial-content/, pdfjs-viewer/, splitjs/
   turndown-plugin-gfm/
 ```
 

@@ -768,7 +768,17 @@ table.promoted-attributes-in-tooltip th {
 
 .tooltip {
     font-size: var(--main-font-size) !important;
-    z-index: calc(var(--ck-z-panel) - 1) !important;
+    /* Just under CKEditor's panels (balloons, dropdowns), so a tooltip on an editor button doesn't
+       cover the panel that button opens.
+
+       The fallback is not decoration: `--ck-z-panel` is declared by CKEditor's own stylesheet, which
+       only enters the document with the lazily loaded editor bundle. Until something pulls it in
+       (a text note, the attribute editor), the variable is undefined, `calc()` is invalid at
+       computed-value time and the whole declaration — `!important` and all — resolves to the initial
+       `z-index: auto`. Tooltips then paint below every positioned layer with a z-index of its own,
+       the peeked right pane among them (they show up blurred through its backdrop-filter). The
+       fallback matches what CKEditor declares, so the value doesn't shift once the bundle loads. */
+    z-index: calc(var(--ck-z-panel, 1000) - 1) !important;
 }
 
 .tooltip.tooltip-top {
@@ -1709,6 +1719,28 @@ body:not(.mobile) #launcher-pane.horizontal .dropdown-submenu > .dropdown-menu {
 
 ::selection {
     background-color: var(--selection-background-color);
+}
+
+/*
+ * Fades a scroll container's content out at its edges instead of hard-clipping it, so text
+ * dissolves toward whatever chrome sits past the edge (a section title bar, a composer).
+ * A mask rather than an overlay gradient because the content becomes genuinely transparent:
+ * this holds up when the pane background is a semi-transparent tint over a window material
+ * (Mica/vibrancy), which no painted gradient color could match. Opt in per edge by setting
+ * `--scroll-fade-top` / `--scroll-fade-bottom` on the scroll container (or an ancestor);
+ * each edge defaults to a hard clip. The defaults are `var()` fallbacks rather than custom
+ * property declarations here, so a widget's knobs win regardless of stylesheet bundling
+ * order. The overlay scrollbar fades over the same distance — the cost of masking the
+ * scroll container itself, accepted wherever this is used.
+ */
+.scroll-edge-fade {
+    mask-image: linear-gradient(
+        to bottom,
+        transparent,
+        black var(--scroll-fade-top, 0px),
+        black calc(100% - var(--scroll-fade-bottom, 0px)),
+        transparent
+    );
 }
 
 [data-bs-toggle="tooltip"]:not(.button-widget) span {

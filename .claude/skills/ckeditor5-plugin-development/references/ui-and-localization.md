@@ -1,7 +1,7 @@
 # UI library & localization (Trilium)
 
 In the Trilium monorepo every CKEditor plugin (`packages/ckeditor5-*`) builds its UI with the
-library's UI layer, imported from `ckeditor5` (pinned 48.2.0). It is a small MVC: **Views**
+library's UI layer, imported from `ckeditor5` (48 or later). It is a small MVC: **Views**
 render DOM via **Templates**, expose **observable** properties, and are organized into
 **collections** that form the UI tree. Features talk to views through observables — never the
 native DOM directly. Trilium's text editor runs as one of three classes — `AttributeEditor`
@@ -75,8 +75,8 @@ editor.ui.componentFactory.add( 'admonition', locale => {
 
 A registered name only appears in the editor when it is added to `toolbar.ts`; registering the
 component factory entry alone is not enough. Real examples: the admonition button/dropdown
-(`packages/ckeditor5-admonition/src/admonitionui.ts`), the footnotes insert button + dynamic
-"insert existing footnote" dropdown (`packages/ckeditor5-footnotes/src/footnote-ui.ts`).
+(`packages/ckeditor5/src/plugins/admonition/admonition_ui.ts`), the footnotes insert button + dynamic
+"insert existing footnote" dropdown (`packages/ckeditor5/src/plugins/footnotes/footnote_ui.ts`).
 
 **Best practice:** on any user action (button/dropdown execute), call
 `editor.editing.view.focus()` so the editor keeps focus.
@@ -140,14 +140,15 @@ import { IconBold, IconCheck, IconCancel, IconQuote } from 'ckeditor5';
 button.set( { icon: IconBold } );
 ```
 
-For a **custom** icon, Trilium plugins import the raw SVG XML string with the `?raw` suffix,
-keep the file under `theme/icons/`, and re-export an `icons` map from `index.ts` (so the
-aggregator can collect them):
+For a **custom** icon, Trilium plugins import the raw SVG XML string with the `?raw` suffix. The
+file lives in the package-wide `packages/ckeditor5/src/icons/` folder — prefixed when the bare name
+would be too generic (`mermaid-info.svg`) — and is imported directly by whichever plugin file needs
+it. The folded-in plugins used to re-export an `icons` map from a barrel `index.ts`; those barrels
+are gone, and nothing consumed the maps:
 
 ```ts
-// index.ts
-import admonitionIcon from '../theme/icons/admonition.svg?raw';
-export const icons = { admonitionIcon };
+// src/plugins/admonition/admonition_ui.ts
+import admonitionIcon from '../../icons/admonition.svg?raw';
 
 // admonitionui.ts
 button.set( { icon: admonitionIcon } );      // the raw SVG string
@@ -190,9 +191,9 @@ addMenuToDropdown( dropdown, editor.body.ui.view, [
 Even when `withText` is false, set `label` for screen readers.
 
 In Trilium, the admonition type picker is a list dropdown built from `ADMONITION_TYPES`
-(`packages/ckeditor5-admonition/src/admonitionui.ts`), and footnotes builds its list
+(`packages/ckeditor5/src/plugins/admonition/admonition_ui.ts`), and footnotes builds its list
 dynamically from the footnotes already present in the note
-(`packages/ckeditor5-footnotes/src/footnote-ui.ts`) — re-reading the model each time the
+(`packages/ckeditor5/src/plugins/footnotes/footnote_ui.ts`) — re-reading the model each time the
 dropdown opens.
 
 ## Contextual balloon
@@ -337,9 +338,12 @@ Each Trilium plugin keeps two files under `lang/`:
   { "Admonition": "Toolbar button tooltip for the Admonition feature." }
   ```
 
-When you add a new `t( '…' )` string, add a matching `msgid`/`msgctxt`/`msgstr` block to
-`en.po` and an entry to `contexts.json`. See `packages/ckeditor5-admonition/lang/` for the
-canonical pair.
+**Note:** the `.po`/`contexts.json` workflow described above is effectively dormant in Trilium.
+The folded-in plugins' `lang/` directories were dropped during consolidation because nothing in the
+build or CI consumed them, and none survive. New
+user-facing strings reach the UI either through CKEditor's own `t()` dictionary
+(`packages/ckeditor5/src/translation_overrides.ts`) or, for Trilium-specific strings, through the
+host's `translate` config callback described below.
 
 ### Custom `translate` config fallback
 
@@ -352,6 +356,6 @@ const translate = ( editor.config.get( 'translate' ) as
 	?? ( ( key: string ) => key );
 ```
 
-See `packages/ckeditor5-collapsible/src/collapsible-ui.ts` and `collapsible-editing.ts`. This
+See `packages/ckeditor5/src/plugins/collapsible/collapsible_ui.ts` and `collapsible-editing.ts`. This
 is independent of `editor.t()`/PO catalogs — it lets the host (Trilium) inject its own
 translator for plugin-specific labels.

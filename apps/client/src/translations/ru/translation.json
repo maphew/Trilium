@@ -1479,7 +1479,6 @@
   "highlights_list_2": {
     "options": "Параметры",
     "title": "Акценты",
-    "modal_title": "Настроить акценты",
     "menu_configure": "Настроить акценты...",
     "no_highlights": "Акценты в тексте не найдены.",
     "title_with_count_one": "{{count}} акцент",
@@ -2301,7 +2300,6 @@
     "tool_error": "ошибка",
     "total_tokens": "{{total}} токен(а/ов)",
     "tokens": "токены",
-    "context_used": "{{percentage}}% использовано",
     "note_context_enabled": "Нажмите, чтобы отключить контекст заметки: {{title}}",
     "note_context_disabled": "Нажмите, чтобы включить текущую заметку в контекст",
     "no_provider_message": "Не выбран провайдер ИИ. Добавьте его для начала общения.",

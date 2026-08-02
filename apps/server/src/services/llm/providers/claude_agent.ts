@@ -475,7 +475,8 @@ export class ClaudeAgentProvider implements LlmProvider {
                                 // No cost is reported: usage is covered by the subscription,
                                 // so a per-turn dollar figure would only imply billing that
                                 // doesn't happen. (The SDK's total_cost_usd is API-equivalent.)
-                                model: modelDisplayName
+                                model: modelDisplayName,
+                                provider: this.name
                             }
                         };
                         break;

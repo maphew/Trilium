@@ -99,9 +99,15 @@ export interface ModalProps {
      * Indicates if the dialog will be displayed as a full page on mobile devices.
      */
     isFullPageOnMobile?: boolean;
+    /**
+     * What assistive technology announces the dialog as, for a dialog whose {@link title} is not a
+     * name it can read — one shown without a title at all, above all, which would otherwise be
+     * announced as nothing but "dialog".
+     */
+    ariaLabel?: string;
 }
 
-export default function Modal({ children, className, size, title, customTitleBarButtons: titleBarButtons, header, footer, footerStyle, footerAlignment, onShown, onSubmit, helpPageId, minWidth, maxWidth, zIndex, scrollable, onHidden, modalRef: externalModalRef, formRef, bodyStyle, show, stackable, keepInDom, noFocus, sidebar, hideSidebarHeader, isFullPageOnMobile }: ModalProps) {
+export default function Modal({ children, className, size, title, customTitleBarButtons: titleBarButtons, header, footer, footerStyle, footerAlignment, onShown, onSubmit, helpPageId, minWidth, maxWidth, zIndex, scrollable, onHidden, modalRef: externalModalRef, formRef, bodyStyle, show, stackable, keepInDom, noFocus, sidebar, hideSidebarHeader, isFullPageOnMobile, ariaLabel }: ModalProps) {
     const modalRef = useSyncedRef<HTMLDivElement>(externalModalRef);
     const modalInstanceRef = useRef<BootstrapModal>();
     const elementToFocus = useRef<Element | null>();
@@ -173,7 +179,7 @@ export default function Modal({ children, className, size, title, customTitleBar
     }, [maxWidth, minWidth]);
 
     return (
-        <div className={`modal fade mx-auto ${className}`} tabIndex={-1} style={dialogStyle} role="dialog" ref={modalRef}>
+        <div className={`modal fade mx-auto ${className}`} tabIndex={-1} style={dialogStyle} role="dialog" aria-label={ariaLabel} ref={modalRef}>
             {(show || keepInDom) && <ContainerVisibilityContext.Provider value={show}><div className={clsx("modal-dialog", `modal-${size}`, {"modal-dialog-scrollable": scrollable, "modal-dialog-full-page-on-mobile": isFullPageOnMobile, "modal-content-with-sidebar": sidebar})} style={documentStyle} role="document">
                 <div className={clsx("modal-content", sidebar && "modal-content-with-sidebar")}>
                     {sidebar && <div className="modal-sidebar">

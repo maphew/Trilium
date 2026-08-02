@@ -1,5 +1,5 @@
 import type { Editor } from 'ckeditor5';
-import { icons as footnoteIcons } from '@triliumnext/ckeditor5-footnotes';
+import insertFootnoteIcon from './icons/insert-footnote.svg?raw';
 import { IconPageBreak, IconAlignLeft, IconAlignCenter, IconAlignRight, IconAlignJustify, IconBulletedList, IconNumberedList, IconTodoList } from "@ckeditor/ckeditor5-icons";
 import bxInfoCircle from "boxicons/svg/regular/bx-info-circle.svg?raw";
 import bxBulb from "boxicons/svg/regular/bx-bulb.svg?raw";
@@ -10,14 +10,17 @@ import { COMMAND_NAME as INSERT_DATE_TIME_COMMAND } from './plugins/insert_date_
 import { COMMAND_NAME as INTERNAL_LINK_COMMAND } from './plugins/internallink.js';
 import { COMMAND_NAME as INCLUDE_NOTE_COMMAND } from './plugins/includenote.js';
 import { COMMAND_NAME as MARKDOWN_IMPORT_COMMAND } from './plugins/markdownimport.js';
-import { ADMONITION_TYPES, type AdmonitionType } from '@triliumnext/ckeditor5-admonition';
-import { icons as collapsibleIcons } from '@triliumnext/ckeditor5-collapsible';
+import { ADMONITION_TYPES } from "./plugins/admonition/admonition_ui.js";
+import type { AdmonitionType } from "./plugins/admonition/admonition_command.js";
+import collapsibleIcon from './icons/collapsible.svg?raw';
 import dateTimeIcon from './icons/date-time.svg?raw';
 import internalLinkIcon from './icons/trilium.svg?raw';
 import noteIcon from './icons/note.svg?raw';
 import importMarkdownIcon from './icons/markdown-mark.svg?raw';
-import { icons as mathIcons, MathUI } from '@triliumnext/ckeditor5-math';
-import { INSERT_MERMAID_COMMAND, type MermaidSample } from '@triliumnext/ckeditor5-mermaid';
+import mathIcon from './icons/math.svg?raw';
+import MathUI from './plugins/math/math_ui.js';
+import { INSERT_MERMAID_COMMAND } from './plugins/mermaid/insert_mermaid_command.js';
+import type { MermaidSample } from './plugins/mermaid/mermaid_ui.js';
 import { BookmarkUI } from "ckeditor5";
 import bxBookmark from "boxicons/svg/regular/bx-bookmark.svg?raw";
 import bxNetworkChart from "boxicons/svg/regular/bx-network-chart.svg?raw";
@@ -44,14 +47,14 @@ export default function buildExtraCommands(
             title: "Collapsible block",
             description: t("slash_commands.collapsible_description"),
             aliases: [ "details", "fold", "toggle" ],
-            icon: collapsibleIcons.collapsibleIcon,
+            icon: collapsibleIcon,
             commandName: "collapsible"
         },
         {
             id: 'footnote',
             title: 'Footnote',
             description: t("slash_commands.footnote_description"),
-            icon: footnoteIcons.insertFootnoteIcon,
+            icon: insertFootnoteIcon,
             commandName: "InsertFootnote"
         },
         {
@@ -74,7 +77,7 @@ export default function buildExtraCommands(
             title: "Math equation",
             description: t("slash_commands.math_description"),
             aliases: [ "latex", "equation" ],
-            icon: mathIcons.ckeditor,
+            icon: mathIcon,
             execute: (editor: Editor) => editor.plugins.get(MathUI)._showUI()
         },
         {

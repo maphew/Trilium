@@ -1631,7 +1631,6 @@
     "options": "選項",
     "title_with_count_one": "{{count}} 處高亮",
     "title_with_count_other": "{{count}} 處高亮",
-    "modal_title": "設定高亮列表",
     "menu_configure": "設定高亮列表…",
     "no_highlights": "未找到高亮內容。"
   },
@@ -2443,7 +2442,6 @@
     "tokens_used_with_model": "{{model}}：{{prompt}} 提示詞 + {{completion}} 補全 = {{total}} 個詞元",
     "tokens_used_with_model_and_cost": "{{model}}：{{prompt}} 提示詞 + {{completion}} 補全 = {{total}} 個詞元（約 ${{cost}}）",
     "tokens": "詞元",
-    "context_used": "已使用 {{percentage}}%",
     "note_context_enabled": "點擊以禁用筆記上下文：{{title}}",
     "note_context_disabled": "點擊將當前筆記納入上下文",
     "no_provider_message": "尚未設定任何 AI 服務提供者。請新增一個以開始聊天。",

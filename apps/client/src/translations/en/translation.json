@@ -1201,7 +1201,8 @@
   "zpetne_odkazy": {
     "backlink_one": "{{count}} Backlink",
     "backlink_other": "{{count}} Backlinks",
-    "relation": "relation"
+    "relation": "relation",
+    "no_backlinks": "No notes link to this one."
   },
   "mobile_detail_menu": {
     "insert_child_note": "Insert child note",
@@ -1309,6 +1310,7 @@
   },
   "note_map": {
     "open_full": "Expand to full",
+    "expand": "Expand map",
     "collapse": "Collapse to normal size",
     "title": "Note Map",
     "fix-nodes": "Fix nodes",
@@ -1385,6 +1387,24 @@
   "similar_notes": {
     "title": "Similar Notes",
     "no_similar_notes_found": "No similar notes found."
+  },
+  "sidebar_help": {
+    "attributes_what": "The labels and relations set on this note itself. A label tags the note with a name and, if you like, a value; a relation points it at another note.",
+    "attributes_inheritable": "Marking one inheritable passes it down the whole subtree under the note, where it is listed as inherited rather than owned.",
+    "attributes_inherited_what": "Labels and relations reaching this note from elsewhere: an inheritable one set on a note above it, or one carried in by a template.",
+    "attributes_inherited_source": "They are read-only here. Each row names the note it comes from, which is where it can be changed or removed.",
+    "attributes_definitions_what": "A definition is the schema behind an attribute name: what kind of value it takes, whether it may be given more than once, and whether it is promoted.",
+    "attributes_definitions_promoted": "A promoted attribute is shown on the note itself as a form field rather than being left to this panel. Definitions usually arrive from a template, and each row names the note it lives on.",
+    "highlights_what": "The passages this note picks out by their formatting. That is a wider net than it sounds: an ordinary bold or italic sentence counts, not only text you have highlighted.",
+    "highlights_configure": "Which formats count is yours to set: bold, italic, underlined, coloured text and text on a background colour can each be listed or left out, from the gear in this card's header. Pressing an entry scrolls the note to it.",
+    "note_map_what": "A map of what this note connects to. The link map draws the internal links and relations going in and out of it; the tree map draws where it sits in the note tree. The switcher in this header chooses between the two.",
+    "note_map_interaction": "Hovering a note brings its own connections forward and fades the rest. The expand button opens the same map at the size of the window.",
+    "note_paths_what": "A note can sit in more than one place in the note tree at once, and each of those places is listed here as a path.",
+    "note_paths_cloning": "Adding a place is called cloning: nothing is copied, so an edit made under one path shows under all of them, and removing one path leaves the note under the others.",
+    "backlinks_what": "The notes pointing at this one, either through a link in their text or through a relation naming it.",
+    "backlinks_listing": "A text link is listed with the passage around it, a relation with the name it points by. This side of a link is not editable: it goes away when the note that made it drops the link.",
+    "similar_notes_what": "Notes that look related to this one even where nothing links them.",
+    "similar_notes_how": "The likeness is worked out from the content of the notes, the attributes and relations they carry, and how close together they were created."
   },
   "abstract_search_option": {
     "remove_this_search_option": "Remove this search option",
@@ -1666,12 +1686,12 @@
   },
   "vacuum_database": {
     "title": "Vacuum Database",
-    "vacuum_label": "Vacuum database",
+    "vacuum_label": "Compact (vacuum) database",
     "vacuum_description": "Rebuild the database to reduce file size. No data will be changed.",
     "description": "This will rebuild the database which will typically result in a smaller database file. No data will be actually changed.",
-    "button_text": "Vacuum now",
-    "vacuuming_database": "Vacuuming database...",
-    "database_vacuumed": "Database has been vacuumed"
+    "button_text": "Compact now",
+    "vacuuming_database": "Compacting the database...",
+    "database_vacuumed": "The database has been compacted"
   },
   "experimental_features": {
     "title": "Experimental Options",
@@ -1857,6 +1877,8 @@
     "note_revisions_snapshot_limit_description_short": "Max revisions per note. Use -1 for unlimited, 0 to disable.",
     "snapshot_number_limit_label": "Maximum revisions",
     "snapshot_number_limit_unit": "snapshots",
+    "keep_named_revisions_label": "Keep named revisions",
+    "keep_named_revisions_description": "Revisions you have named are never erased and don't count towards the maximum.",
     "erase_excess_revision_snapshots": "Erase excess revision snapshots",
     "erase_excess_revision_snapshots_description": "Delete revisions exceeding the limit for all notes.",
     "erase_now_button": "Erase now",
@@ -2349,6 +2371,8 @@
     "edit_index": "Edit {{index}} of {{total}}",
     "result": "Result",
     "error": "Error",
+    "error_api": "API error (HTTP {{status}})",
+    "error_show_details": "Show details",
     "tool_error": "failed",
     "total_tokens": "{{total}} tokens",
     "tokens_detail": "{{prompt}} prompt + {{completion}} completion",
@@ -2357,9 +2381,11 @@
     "tokens_used_with_model": "{{model}}: {{prompt}} prompt + {{completion}} completion = {{total}} tokens",
     "tokens_used_with_model_and_cost": "{{model}}: {{prompt}} prompt + {{completion}} completion = {{total}} tokens (~${{cost}})",
     "tokens": "tokens",
-    "context_used": "{{percentage}}% used",
+    "context_usage_label": "Context window usage",
+    "context_tooltip": "{{used}} of {{total}} tokens used ({{percentage}}%)",
+    "context_nearly_full": "Context nearly full. Consider starting a new chat.",
     "note_context_enabled": "Click to disable note context: {{title}}",
-    "note_context_disabled": "Click to include current note in context",
+    "note_context_disabled": "Click to include the current note in context: {{title}}",
     "no_provider_message": "No AI provider configured. Add one to start chatting.",
     "add_provider": "Add AI Provider",
     "free": "Free",
@@ -2437,7 +2463,6 @@
     "title_with_count_one": "{{count}} highlight",
     "title_with_count_other": "{{count}} highlights",
     "options": "Options",
-    "modal_title": "Configure Highlights List",
     "menu_configure": "Configure highlights list...",
     "no_highlights": "No highlights found."
   },
@@ -2887,7 +2912,28 @@
     "menu_show_details": "Show details",
     "menu_erase_deleted": "Erase deleted data",
     "erase_deleted_message": "Deleted data has been erased.",
-    "revisions_limit_required": "Excess snapshots can only be erased once a maximum number of revision snapshots per note is set. Without a limit, no snapshot counts as excess. Do you want to set the limit now?"
+    "revisions_limit_required": "Excess snapshots can only be erased once a maximum number of revision snapshots per note is set. Without a limit, no snapshot counts as excess. Do you want to set the limit now?",
+    "cleanup_title": "Clean up",
+    "cleanup_estimated": "Estimated saving",
+    "cleanup_amount_of": "of {{total}}",
+    "cleanup_deleted_entities": "Erase deleted notes and attachments",
+    "cleanup_unused_attachments": "Erase unused attachments",
+    "cleanup_revision_snapshots": "Erase revision snapshots",
+    "cleanup_snapshots_to_keep": "Revision snapshots to keep",
+    "cleanup_snapshots_to_keep_help": "How many revision snapshots are spared for each note, counting back from the most recent one. 0 erases the entire revision history.",
+    "cleanup_keep_named": "Keep named revisions",
+    "cleanup_keep_named_help": "Revisions that you have named are always kept, regardless of how many there are, in addition to the snapshot count spared for each note.",
+    "cleanup_cancel": "Cancel",
+    "cleanup_clean": "Clean",
+    "cleanup_confirm": "This permanently deletes the selected data. It cannot be undone.",
+    "cleanup_done": "The cleanup operation is complete. {{size}} reclaimed.",
+    "cleanup_compact_database": "Compact database",
+    "cleanup_running": "Cleaning up…",
+    "cleanup_compacting": "Compacting the database. This may take several minutes.",
+    "cleanup_confirm_interrupted": "If something interrupts it, such as a crash, a restart or a power cut, nothing beyond the selected items is lost.",
+    "cleanup_confirm_compacting_title": "Compacting database is a slow operation",
+    "cleanup_confirm_compacting": "Compacting the database can take several minutes, depending on its size and on the performance of the machine running Trilium. Also, up to {{space}} of free disk space on the machine is temporarily needed (in the data directory and the system's temporary directory).",
+    "cleanup_compact_notice": "This operation may take several minutes and Trilium will not respond until it completes."
   },
   "note_language": {
     "not_set": "No language set",
@@ -3091,8 +3137,15 @@
     "scripting_disabled_button": "Open security settings",
     "dismiss": "Dismiss"
   },
+  "contextual_help": {
+    "label": "Help: {{- message}}",
+    "sheet_label": "Help"
+  },
   "settings": {
-    "related_settings": "Related settings"
+    "related_settings": "Related settings",
+    "related_actions": "Related actions",
+    "related_space_usage": "Analyze the space usage within the database",
+    "related_space_usage_description": "See which notes, revisions and attachments take up the most space, and reclaim it."
   },
   "settings_appearance": {
     "related_code_blocks": "Color scheme for code blocks in text notes",
@@ -3213,8 +3266,10 @@
     "dock": "Dock panel",
     "close": "Close panel",
     "custom_widget_go_to_source": "Go to source code",
+    "backlinks": "Backlinks",
     "tab_outline": "Outline",
     "tab_attributes": "Attributes",
+    "tab_connections": "Connections",
     "tab_chat": "AI chat",
     "tab_widgets": "Widgets"
   },

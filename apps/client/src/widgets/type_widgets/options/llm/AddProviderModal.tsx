@@ -13,15 +13,8 @@ import MaskedIcon from "../../../react/MaskedIcon";
 import SelectableCard, { SelectableCardGrid } from "../../../react/SelectableCard";
 import WizardModal, { type WizardStep } from "../../../react/WizardModal";
 import OptionsRow from "../components/OptionsRow";
-import anthropicIcon from "./icons/anthropic.svg?url";
-import claudeAgentIcon from "./icons/claude-ai.svg?url";
-import deepseekIcon from "./icons/deepseek.svg?url";
-import geminiIcon from "./icons/gemini.svg?url";
-import lmStudioIcon from "./icons/lmstudio.svg?url";
-import ollamaIcon from "./icons/ollama.svg?url";
-import openaiIcon from "./icons/openai.svg?url";
-import openAiCompatibleIcon from "./icons/robot.svg?url";
 import ModelSelection from "./ModelSelection";
+import { PROVIDER_ICONS } from "./provider_icons.js";
 
 export interface LlmProviderConfig {
     id: string;
@@ -101,35 +94,35 @@ const PROVIDER_GROUPS = [
 type ProviderGroupId = (typeof PROVIDER_GROUPS)[number]["id"];
 
 export const PROVIDER_TYPES: ProviderType[] = [
-    { id: "anthropic", name: "Anthropic", group: "cloud", defaultBaseUrl: "https://api.anthropic.com/v1", iconUrl: anthropicIcon },
-    { id: "openai", name: "OpenAI", group: "cloud", defaultBaseUrl: "https://api.openai.com/v1", iconUrl: openaiIcon },
-    { id: "google", name: "Google Gemini", group: "cloud", defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta", iconUrl: geminiIcon },
+    { id: "anthropic", name: "Anthropic", group: "cloud", defaultBaseUrl: "https://api.anthropic.com/v1", iconUrl: PROVIDER_ICONS.anthropic },
+    { id: "openai", name: "OpenAI", group: "cloud", defaultBaseUrl: "https://api.openai.com/v1", iconUrl: PROVIDER_ICONS.openai },
+    { id: "google", name: "Google Gemini", group: "cloud", defaultBaseUrl: "https://generativelanguage.googleapis.com/v1beta", iconUrl: PROVIDER_ICONS.google },
     // Reachable through the custom endpoint card too — it speaks the OpenAI API —
     // but carded here so its models resolve against the committed price table,
     // which a nameless endpoint never can.
-    { id: "deepseek", name: "DeepSeek", group: "cloud", defaultBaseUrl: "https://api.deepseek.com/v1", iconUrl: deepseekIcon, beta: true },
+    { id: "deepseek", name: "DeepSeek", group: "cloud", defaultBaseUrl: "https://api.deepseek.com/v1", iconUrl: PROVIDER_ICONS.deepseek, beta: true },
     // Uses the Claude Agent SDK on the server; auth belongs to Claude Code (`claude /login`),
     // and usage is covered by the subscription rather than charged per token.
-    { id: "claude-agent", name: "Claude Code", group: "subscription", defaultBaseUrl: "", iconUrl: claudeAgentIcon, description: t("llm.provider_desc_claude_agent"), beta: true, apiKey: "none", baseUrl: "none" },
+    { id: "claude-agent", name: "Claude Code", group: "subscription", defaultBaseUrl: "", iconUrl: PROVIDER_ICONS["claude-agent"], description: t("llm.provider_desc_claude_agent"), beta: true, apiKey: "none", baseUrl: "none" },
     // The three self-hosted cards share one server-side provider; they differ only in
     // the endpoint they prefill and the setup hint they show.
     // No blurbs: the group heading already says local/self-hosted, and how to start
     // each server belongs on the connection step, where the setup hints live.
     {
         id: "ollama", name: "Ollama", group: "local", defaultBaseUrl: "http://localhost:11434", prefillBaseUrl: true,
-        iconUrl: ollamaIcon,
+        iconUrl: PROVIDER_ICONS.ollama,
         setupHintKey: "llm.setup_hint_ollama", apiKey: "none", baseUrl: "required",
         beta: true
     },
     {
         id: "lmstudio", name: "LM Studio", group: "local", defaultBaseUrl: "http://localhost:1234/v1", prefillBaseUrl: true,
-        iconUrl: lmStudioIcon,
+        iconUrl: PROVIDER_ICONS.lmstudio,
         setupHintKey: "llm.setup_hint_lmstudio", apiKey: "none", baseUrl: "required",
         beta: true
     },
     {
         id: "openai-compatible", name: t("llm.provider_openai_compatible"), group: "custom", defaultBaseUrl: "http://localhost:8080/v1",
-        iconUrl: openAiCompatibleIcon, description: t("llm.provider_desc_openai_compatible"),
+        iconUrl: PROVIDER_ICONS["openai-compatible"], description: t("llm.provider_desc_openai_compatible"),
         setupHintKey: "llm.setup_hint_openai_compatible", apiKey: "optional", baseUrl: "required",
         beta: true
     }

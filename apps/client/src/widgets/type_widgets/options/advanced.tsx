@@ -86,13 +86,18 @@ function DatabaseOptions() {
                 buttonText={t("vacuum_database.button_text")}
                 onClick={async () => {
                     toast.showMessage(t("vacuum_database.vacuuming_database"));
-                    await server.post("database/vacuum-database");
+                    // A rebuild runs in minutes on a large database — half an hour on 36 GiB — so
+                    // the default minute would report a failure for something still succeeding.
+                    await server.postWithTimeout("database/vacuum-database", VACUUM_TIMEOUT_MS);
                     toast.showMessage(t("vacuum_database.database_vacuumed"));
                 }}
             />
         </OptionsSection>
     );
 }
+
+/** Rebuilding runs in minutes on a large database, and the client must not give up before it ends. */
+const VACUUM_TIMEOUT_MS = 60 * 60 * 1000;
 
 function DatabaseAnonymizationOptions() {
     const [databases, setDatabases] = useState<AnonymizedDbResponse[]>([]);

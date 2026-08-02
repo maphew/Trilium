@@ -481,7 +481,7 @@
     "select_type": "选择",
     "select_options": "选项",
     "select_options_title": "字段的可选值（顺序以此为准）。",
-    "add_option": "添加选项",
+    "add_option": "添加此选项",
     "remove_option": "移除此选项",
     "versioning_limit": "限制此笔记保留的版本数量，覆盖全局设置。",
     "similar_notes_widget_disabled": "禁用此笔记的「相似笔记」功能区选项卡。仅限旧版布局。",
@@ -611,7 +611,8 @@
     "hoisted_note": "启动器打开目标时聚焦到的笔记。",
     "share_logo": "用作共享页面 Logo 的图片笔记。必须位于共享子树内。",
     "share_open_graph_image_relation": "作为共享页面 <code>og:image</code> 的图片笔记。改为设置同名标签指向一个地址。",
-    "share_html": "注入到共享页面的 HTML 笔记，位置由该笔记上的 <code>#shareHtmlLocation</code> 指定。该笔记必须位于共享子树内。"
+    "share_html": "注入到共享页面的 HTML 笔记，位置由该笔记上的 <code>#shareHtmlLocation</code> 指定。该笔记必须位于共享子树内。",
+    "select_options_placeholder": "输入一个选项并按 Enter"
   },
   "attribute_editor": {
     "help_text_body1": "要添加标签，只需输入例如 <code>#rock</code> ；或者如果你还想同时添加数值，则可输入例如 <code>#year = 2020</code>",
@@ -940,7 +941,8 @@
   },
   "zpetne_odkazy": {
     "relation": "关系",
-    "backlink_other": "{{count}} 个反链"
+    "backlink_other": "{{count}} 个反链",
+    "no_backlinks": "没有笔记链接到这篇笔记。"
   },
   "mobile_detail_menu": {
     "insert_child_note": "插入子笔记",
@@ -1049,7 +1051,8 @@
     "fix-nodes": "固定节点",
     "link-distance": "链接距离",
     "too-many-notes_other": "这里有 {{count}} 条笔记。全部显示可能会导致运行变慢。",
-    "show-anyway": "显示地图"
+    "show-anyway": "显示地图",
+    "expand": "展开地图"
   },
   "note_paths": {
     "title": "笔记路径",
@@ -1082,7 +1085,8 @@
     "create_option": "创建「{{- option}}」",
     "remove_value": "移除此值",
     "select_values_placeholder": "选择一个选项或创建一个",
-    "values_placeholder": "输入一个值并按回车"
+    "values_placeholder": "输入一个值并按回车",
+    "add_value": "添加此值"
   },
   "script_executor": {
     "query": "查询",
@@ -1319,10 +1323,10 @@
   "vacuum_database": {
     "title": "数据库清理",
     "description": "这会重建数据库，通常会减少占用空间，不会删除数据。",
-    "button_text": "立即清理",
-    "vacuuming_database": "正在清理数据库...",
-    "database_vacuumed": "数据库已清理",
-    "vacuum_label": "数据库清理",
+    "button_text": "立即压缩",
+    "vacuuming_database": "正在压缩数据库...",
+    "database_vacuumed": "数据库已压缩",
+    "vacuum_label": "压缩（vacuum）数据库",
     "vacuum_description": "重建数据库以减小文件大小。数据不会发生任何变化。"
   },
   "fonts": {
@@ -1486,7 +1490,9 @@
     "snapshot_number_limit_unit": "快照",
     "note_revisions_snapshot_limit_description_short": "每个笔记的最大修订数。设为 -1 表示无限制，设为 0 表示禁用。",
     "erase_excess_revision_snapshots_description": "删除所有笔记中超出上限的修订。",
-    "erase_now_button": "立即清理"
+    "erase_now_button": "立即清理",
+    "keep_named_revisions_label": "保留带名称的修订",
+    "keep_named_revisions_description": "你已命名的修订永远不会被擦除，也不会计入最大数量限制。"
   },
   "search_engine": {
     "title": "搜索引擎",
@@ -1904,7 +1910,6 @@
     "title": "高亮列表",
     "options": "选项",
     "title_with_count_other": "{{count}} 处高亮",
-    "modal_title": "配置高亮列表",
     "menu_configure": "配置高亮列表...",
     "no_highlights": "未找到高亮内容。"
   },
@@ -2321,7 +2326,8 @@
     "edit-column-title": "点击编辑列标题",
     "remove-from-board": "从看板上移除",
     "column-already-exists": "此列已在看板上。",
-    "column-definition-save-error": "列已保存在看板上，但无法保存到状态属性。"
+    "column-definition-save-error": "列已保存在看板上，但无法保存到状态属性。",
+    "status-alias": "状态"
   },
   "command_palette": {
     "tree-action-name": "树形：{{name}}",
@@ -2344,7 +2350,9 @@
   },
   "content_renderer": {
     "open_externally": "用外部程序打开",
-    "mermaid_diagram_error": "Mermaid 图表渲染失败：{{error}}"
+    "mermaid_diagram_error": "Mermaid 图表渲染失败：{{error}}",
+    "office_rendering": "正在渲染预览…",
+    "office_render_error": "此文档无法渲染为预览。您仍可下载它或从外部打开。"
   },
   "modal": {
     "close": "关闭",
@@ -2367,7 +2375,10 @@
     "scripting_disabled_button": "打开安全设置"
   },
   "settings": {
-    "related_settings": "相关设置"
+    "related_settings": "相关设置",
+    "related_actions": "相关操作",
+    "related_space_usage": "分析数据库内的空间占用",
+    "related_space_usage_description": "查看哪些笔记、修订和附件占用空间最多，并回收这些空间。"
   },
   "settings_appearance": {
     "related_code_blocks": "文本笔记中代码块的色彩方案",
@@ -2423,7 +2434,8 @@
     "set-custom-color": "设置自定义笔记颜色"
   },
   "popup-editor": {
-    "maximize": "切换至完整编辑器"
+    "maximize": "切换至完整编辑器",
+    "attachment_title": "附件：{{title}}"
   },
   "server": {
     "unknown_http_error_title": "与服务器通讯错误",
@@ -2515,7 +2527,9 @@
     "tab_outline": "大纲",
     "tab_attributes": "属性",
     "tab_chat": "AI 对话",
-    "tab_widgets": "组件"
+    "tab_widgets": "组件",
+    "backlinks": "反向链接",
+    "tab_connections": "连接"
   },
   "attributes_panel": {
     "title": "笔记属性"
@@ -2684,9 +2698,8 @@
     "tokens_used_with_model": "{{model}}: {{prompt}} 提示词 + {{completion}} 补全 = {{total}} 个词元",
     "tokens_used_with_model_and_cost": "{{model}}: {{prompt}} 提示词 + {{completion}} 补全 = {{total}} 个词元（约 ${{cost}}）",
     "tokens": "词元",
-    "context_used": "{{percentage}}% 使用率",
     "note_context_enabled": "点击即可禁用笔记上下文：{{title}}",
-    "note_context_disabled": "点击即可将当前注释添加到上下文中",
+    "note_context_disabled": "点击把当前笔记加入上下文：{{title}}",
     "no_provider_message": "未配置AI提供商。添加一个即可开始对话。",
     "add_provider": "添加AI提供商",
     "note_tools": "笔记访问",
@@ -2723,7 +2736,12 @@
     "no_models_selected": "未选择模型 — 点击铅笔图标进行选择",
     "no_model_selected": "选择一个模型",
     "edit_models": "编辑模型",
-    "free": "免费"
+    "free": "免费",
+    "error_api": "API 错误（HTTP {{status}}）",
+    "error_show_details": "显示详情",
+    "context_usage_label": "上下文窗口使用量",
+    "context_tooltip": "已使用 {{used}} / {{total}} 个 token（{{percentage}}%）",
+    "context_nearly_full": "上下文即将用尽。建议开启新对话。"
   },
   "sidebar_chat": {
     "title": "AI对话",
@@ -3460,13 +3478,19 @@
     "delete_confirm": "删除属性 \"{{name}}\"?",
     "add_definition": "添加新定义",
     "no_target": "无目标笔记",
-    "inverse_of": "{{name}} 的反向关系",
     "type_label": "标签",
     "type_relation": "关系",
     "type_label_definition": "标签定义",
     "type_relation_definition": "关系定义",
     "internal_other": "{{count}} 个内部系统属性",
-    "back": "返回属性"
+    "back": "返回属性",
+    "no_value": "无值",
+    "change_target": "更改目标笔记",
+    "inverse_hint": "「{{name}}」的反向关系：目标笔记将自动获得一个指向来源的「{{name}}」关系",
+    "system_hint": "系统：此名称具有内置含义",
+    "add_attribute": "添加属性",
+    "creation_kind_label": "标签：点击此处，或输入 ~，将其改为关系",
+    "creation_kind_relation": "关系：点击此处，或输入 #，将其改为标签"
   },
   "attribute_names": {
     "system": "系统",
@@ -3501,9 +3525,57 @@
     "current_note": "当前笔记：",
     "status_content_other": "{{count}} 篇笔记占用 {{size}}（其中附件占 {{attachmentsSize}}）",
     "status_content_hint": "所有笔记（含隐藏笔记）、其附件和版本历史占用的空间，重复内容只计一次",
-    "status_deleted_other": "已删除笔记：{{count}} 篇，共 {{size}}",
-    "status_deleted_hint": "已删除笔记仍占用的空间，彻底擦除后可回收",
+    "status_deleted": "已删除笔记与附件：{{size}}",
+    "status_deleted_hint": "已删除笔记及已删除附件（其所属笔记可能仍存在）仍占用的空间，彻底擦除后可回收",
     "menu_show_details": "显示详情",
-    "refresh": "刷新"
+    "refresh": "刷新",
+    "deleted_attachments_other": "{{count}} 个已删除附件",
+    "deleted_entities": "{{notes}}, {{attachments}}",
+    "menu_erase_deleted": "擦除已删除数据",
+    "erase_deleted_message": "已删除数据已被擦除。",
+    "revisions_limit_required": "多余的快照只有在设置了每篇笔记的最大修订快照数后才能被擦除。没有限制时，没有快照会被视为多余。是否立即设置限制？",
+    "cleanup_title": "清理",
+    "cleanup_estimated": "预计节省",
+    "cleanup_amount_of": "共 {{total}}",
+    "cleanup_deleted_entities": "擦除已删除的笔记和附件",
+    "cleanup_unused_attachments": "擦除未使用的附件",
+    "cleanup_revision_snapshots": "擦除修订快照",
+    "cleanup_snapshots_to_keep": "保留的修订快照数",
+    "cleanup_keep_named": "保留带名称的修订",
+    "cleanup_cancel": "取消",
+    "cleanup_clean": "清理",
+    "cleanup_confirm": "此操作将永久删除所选数据，无法撤销。",
+    "cleanup_done": "清理操作已完成。已回收 {{size}}。",
+    "cleanup_compact_database": "压缩数据库",
+    "cleanup_running": "正在清理…",
+    "cleanup_compacting": "正在压缩数据库。这可能需要几分钟时间。",
+    "cleanup_confirm_interrupted": "如果过程中发生中断（如崩溃、重启或断电），除已选项目外不会丢失任何内容。",
+    "cleanup_confirm_compacting_title": "压缩数据库是一项较慢的操作",
+    "cleanup_confirm_compacting": "压缩数据库可能需要几分钟时间，具体取决于数据库大小和运行 Trilium 的机器性能。另外，机器上最多需要 {{space}} 的可用磁盘空间（在数据目录和系统临时目录中）。",
+    "cleanup_compact_notice": "此操作可能需要几分钟时间，Trilium 在完成前将无响应。",
+    "cleanup_snapshots_to_keep_help": "每篇笔记保留的修订快照数量，从最近的一个往前数。设为 0 将擦除整个修订历史。",
+    "cleanup_keep_named_help": "你已命名的修订始终保留，无论有多少个，且不计入每篇笔记保留的快照数量。"
+  },
+  "sidebar_help": {
+    "attributes_inheritable": "将其标记为可继承后，它会向下传递到该笔记下的整个子树，并在其中显示为「可继承」而非「自有」。",
+    "attributes_what": "本篇笔记上设置的标签和关系。标签给笔记贴上一个名称（需要时可附带一个值），关系则指向另一篇笔记。",
+    "attributes_inherited_what": "这篇笔记的标签和关系也可能来自别处：例如设置在上层笔记上的可继承属性，或由模板带入的属性。",
+    "attributes_inherited_source": "这些属性在此处为只读。每一行都标明了其来源笔记，也只有在来源笔记处才能修改或删除。",
+    "attributes_definitions_what": "定义是属性名称背后的模式（schema）：它接受什么类型的值、是否允许重复赋值，以及是否为提升属性（promoted）。",
+    "attributes_definitions_promoted": "提升属性会以表单字段的形式直接显示在笔记上，而不是留在此面板中。定义通常来自模板，每一行都标明了定义所在的笔记。",
+    "highlights_what": "这里是笔记中具有特定格式的片段，覆盖范围比想象中更广：普通的加粗或斜体句子也算，不限于你手动高亮的文字。",
+    "highlights_configure": "哪些格式要被统计，由你说了算：加粗、斜体、下划线、彩色文字和背景色文字都能在卡片右上角的齿轮菜单里勾选或去掉。点一下某个条目，笔记就滚到那儿。",
+    "note_map_what": "笔记地图展示这篇笔记的连接关系：链接地图显示进出它的内部链接和关系，树形地图显示它在笔记树中的位置。标题栏的切换器可在两种视图间切换。",
+    "note_map_interaction": "悬停某篇笔记会将其自身的连接突出显示，其余部分变淡。展开按钮会以窗口大小打开同一张图谱。",
+    "note_paths_what": "一篇笔记可以同时位于笔记树中的多个位置，每个位置都会以路径形式列在这里。",
+    "note_paths_cloning": "「克隆（clone）」有别于「创建独立副本（duplicate）」：修改某一个克隆笔记，修改内容会同步到所有的该篇克隆笔记；删除其中一个路径的克隆笔记，不会影响到其他路径下的克隆副本。",
+    "backlinks_what": "反向链接是那些指向这篇笔记的其他笔记，可能是通过正文里的链接，也可能是一条以这篇笔记为目标的关系。",
+    "backlinks_listing": "文本链接会连同其周围片段一起列出，关系则按其指向的名称列出。链接的这一侧不可编辑：当创建链接的笔记删除该链接时，它就会消失。",
+    "similar_notes_what": "即使没有任何链接关系，看起来也与这篇笔记相关的笔记。",
+    "similar_notes_how": "相似度是根据笔记内容、它们携带的属性和关系，以及创建时间的接近程度计算得出的。"
+  },
+  "contextual_help": {
+    "label": "帮助：{{- message}}",
+    "sheet_label": "帮助"
   }
 }

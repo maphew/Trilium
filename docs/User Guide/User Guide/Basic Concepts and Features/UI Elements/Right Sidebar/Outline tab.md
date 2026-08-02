@@ -13,7 +13,7 @@ The following note types are supported:
 *   <a class="reference-link" href="../../../AI.md">AI</a> chat notes
 *   The pages of the in-app documentation
 
-<figure class="image image-style-align-right image_resized" style="width:47%;"><img style="aspect-ratio:556/205;" src="Outline tab_image.png" width="556" height="205"></figure>
+<figure class="image image-style-align-right image_resized" style="width:47%;"><img style="aspect-ratio:556/205;" src="1_Outline tab_image.png" width="556" height="205"></figure>
 
 ### Interaction
 
@@ -34,7 +34,7 @@ The following note types are supported:
 
 ## Highlights
 
-<figure class="image image-style-align-right"><img style="aspect-ratio:403/139;" src="api/images/6Cri7DB88vbN/image.png" width="403" height="139"></figure>
+<figure class="image image-style-align-right image_resized" style="width:46.04%;"><img style="aspect-ratio:489/240;" src="Outline tab_image.png" width="489" height="240"></figure>
 
 Similar to the table of contents, but instead of headings this feature will list highlighted text from a text note and allow easy navigation to them.
 
@@ -51,11 +51,13 @@ Highlighted text is defined as:
 ### Interaction
 
 *   Clicking on a highlighted text will scroll the document to its position.
-*   Pressing the close button will dismiss the list of highlights but it can be shown again from the <a class="reference-link" href="../Floating%20buttons.md">Floating buttons</a> section.
+*   For the old layout only, pressing the close button will dismiss the list of highlights but it can be shown again from the <a class="reference-link" href="../Floating%20buttons.md">Floating buttons</a> section.
 
 ### Configuration
 
-*   Globally, it's possible to toggle the display of each category of highlighted text (as defined above) in the highlights list by going to <a class="reference-link" href="#root/_hidden/_options/_optionsTextNotes">Text Notes</a> settings and looking for the _Highlights List_ section.
+*   Globally, it's possible to toggle the display of each category of highlighted text (as defined above) 
+    *   For the new layout, pressing the gear button in the top-right part of the section will reveal a menu to toggle between the highlight categories.
+    *   Alternatively, they can be changed by going to <a class="reference-link" href="#root/_hidden/_options/_optionsTextNotes">Text Notes</a> settings and looking for the _Highlights List_ section.
 *   For the old layout only, to suppress the display of highlighted text for one specific note, use <a class="reference-link" href="../../../Advanced%20Usage/Attributes.md">Attributes</a> to add the `#hideHighlightWidget` label.
 
 ## PDF-specific outline

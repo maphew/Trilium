@@ -638,16 +638,6 @@ div.quick-search .dropdown-menu {
     --menu-item-icon-vert-offset: -.065em;
 }
 
-/*
- * TO FIX: The quick search results dropdown has a backdrop issue with the tree panel
- * when background effects are enabled in Electron.
- * As a temporary workaround, the backdrop and transparency are disabled for the
- * vertical layout.
- */
-body.layout-vertical.background-effects div.quick-search .dropdown-menu {
-    --menu-background-color: var(--menu-background-color-no-backdrop) !important;
-}
-
 /* Item */
 .quick-search .dropdown-menu *.dropdown-item {
     padding: 8px 12px !important;

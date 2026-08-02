@@ -97,6 +97,7 @@ export const LOCALE_MAPPINGS: Record<DISPLAYABLE_LOCALE_IDS, (() => Promise<{ de
     ro: () => import("@fullcalendar/core/locales/ro"),
     ru: () => import("@fullcalendar/core/locales/ru"),
     ja: () => import("@fullcalendar/core/locales/ja"),
+    ko: () => import("@fullcalendar/core/locales/ko"),
     pt: () => import("@fullcalendar/core/locales/pt"),
     pl: () => import("@fullcalendar/core/locales/pl"),
     "pt_br": () => import("@fullcalendar/core/locales/pt-br"),

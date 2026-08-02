@@ -1652,7 +1652,6 @@
     "title_with_count_one": "{{count}} mise en évidence",
     "title_with_count_many": "{{count}} mises en évidence",
     "title_with_count_other": "{{count}} mises en évidence",
-    "modal_title": "Configurer les Mises en évidence",
     "menu_configure": "Configuration des mises en évidence...",
     "no_highlights": "Aucune mise en évidence."
   },
@@ -2311,7 +2310,6 @@
     "tokens_used_with_model": "{{model}}: {{prompt}} prompt + {{completion}} achèvement = {{total}} jetons",
     "tokens_used_with_model_and_cost": "{{model}}: {{prompt}} prompt + {{completion}} achèvement = {{total}} jetons (~${{cost}})",
     "tokens": "jetons",
-    "context_used": "{{percentage}}% utilisé",
     "note_context_enabled": "Cliquez pour désactiver le contexte de la note : {{title}}",
     "note_context_disabled": "Cliquez pour inclure la note actuelle dans le contexte",
     "no_provider_message": "Aucun fournisseur d'IA configuré. Ajoutez en un pour commencer à discuter.",

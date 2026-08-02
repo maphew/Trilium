@@ -204,6 +204,7 @@ export function buildSharedApiRoutes({ route, asyncRoute, apiRoute, asyncApiRout
 
     apiRoute(GET, "/api/space-usage/overview", spaceUsageRoute.getOverview);
     apiRoute(GET, "/api/space-usage/note/:noteId", spaceUsageRoute.getNoteUsage);
+    apiRoute(PST, "/api/space-usage/cleanup-completed", spaceUsageRoute.logCleanupCompleted);
 
     apiRoute(GET, "/api/sql/schema", sqlRoute.getSchema);
     apiRoute(PST, "/api/sql/execute/:noteId", sqlRoute.execute);

@@ -2,7 +2,7 @@ import { DEFAULT_TASK_STATES, DONE_STATE_NAME, formatShortcut, isAnchorState, jo
 import { Command, env, ListEditing, Plugin, TodoList, type Editor, type ModelElement, type ViewElement } from "ckeditor5";
 
 import { onTodoRowSplit } from "../todo_list_uncheck_on_enter.js";
-import { ContentHintManager, type HintHandle } from "@triliumnext/ckeditor5-utils";
+import { ContentHintManager, type HintHandle } from "../../content_hint_manager.js";
 
 /**
  * Dwell delay before a hover or a stationary caret pops the checkbox tooltip.

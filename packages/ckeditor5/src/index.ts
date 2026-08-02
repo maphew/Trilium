@@ -1,4 +1,8 @@
 import "ckeditor5/ckeditor5.css";
+// Baseline block-quote styling from CKEditor's block-quote feature. It arrived here with the
+// admonition plugin (which was forked from block-quote) but styles `blockquote`, not admonitions —
+// the client's theme-next stylesheet overrides parts of it with `!important`.
+import "./theme/blockquote.css";
 import "./theme/code_block_toolbar.css";
 import "./theme/link_embed_form.css";
 import { COMMON_PLUGINS, CORE_PLUGINS, POPUP_EDITOR_PLUGINS } from "./plugins.js";
@@ -16,8 +20,8 @@ export { default as getCkLocale } from "./i18n.js";
 export * from "./utils.js";
 
 // Import with sideffects to ensure that type augmentations are present.
-import "@triliumnext/ckeditor5-math";
-import "@triliumnext/ckeditor5-mermaid";
+import "./plugins/math/math.js";
+import "./plugins/mermaid/mermaid.js";
 
 window[Symbol.for("cke distribution")] = "trilium";
 

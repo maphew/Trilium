@@ -11,6 +11,7 @@ import SegmentedChoice from "../../../../react/SegmentedChoice";
 import OptionsPageHeader from "../../components/OptionsPageHeader";
 import type { ContentManagerSectionProps } from "../index";
 import Browse from "./browse";
+import { showCleanupDialog } from "./cleanup_dialog";
 import Overview from "./overview";
 import SpaceUsagePlaceholder from "./placeholder";
 import { useSpaceUsageFetch } from "./use_space_usage_fetch";
@@ -53,6 +54,18 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
                         options={VIEWS}
                         currentValue={view}
                         onChange={setView}
+                    />
+                    {/* Boxicons ships no broom; the brush is the nearest thing it has. The charts
+                        re-measure once the dialog is done, having just been made wrong by it. */}
+                    <ActionButton
+                        className="space-usage-cleanup"
+                        icon="bx bx-brush-alt"
+                        text={t("space_usage.cleanup_title")}
+                        onClick={() => void showCleanupDialog().then((reclaimed) => {
+                            if (reclaimed !== null) {
+                                refresh();
+                            }
+                        })}
                     />
                     {/* Measuring is expensive, so a reading is taken when asked for rather than
                         kept live — and the button stays out while one is being taken. */}

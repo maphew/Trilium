@@ -60,6 +60,26 @@ describe("DonutChart rendering", () => {
         expect(circles[0].style.strokeWidth).toContain("20");
     });
 
+    it("lays the segments on a track when asked, and keeps it when they add up to nothing", () => {
+        const probe = renderChart([ ring({ track: true }) ]);
+        const tracks = probe.querySelectorAll<SVGCircleElement>(".donut-track");
+
+        expect(tracks.length).toBe(1);
+        // Drawn first, so every segment paints over it, and at the band's own width.
+        expect(probe.querySelector("circle")).toBe(tracks[0]);
+        expect(tracks[0].style.strokeWidth).toContain("20");
+
+        // The case it is there for: nothing to draw, and the ring still reads as a ring.
+        render(null, probe);
+        const empty = renderChart([ ring({ track: true, segments: [ { id: "none", value: 0 } ] }) ]);
+        expect(empty.querySelectorAll(".donut-track").length).toBe(1);
+        expect(empty.querySelectorAll(".donut-segment").length).toBe(0);
+    });
+
+    it("leaves the band bare unless a track is asked for", () => {
+        expect(renderChart([ ring() ]).querySelector(".donut-track")).toBeNull();
+    });
+
     it("tints by hue variable, forwards classes, and renders the center content", () => {
         const probe = renderChart([ ring() ], <span className="center-probe">middle</span>);
         const [ a, b ] = [ ...probe.querySelectorAll<SVGCircleElement>("circle") ];

@@ -83,6 +83,8 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     textNoteEditorType: string;
     layoutOrientation: string;
     allowedHtmlTags: string;
+    /** JSON: what the Content Manager's cleanup tool was last set to erase — see `CleanupToolOptions`. */
+    cleanupToolOptions: string;
     documentId: string;
     documentSecret: string;
     passwordVerificationHash: string;
@@ -107,6 +109,7 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     revisionSnapshotTimeInterval: number;
     revisionSnapshotTimeIntervalTimeScale: number;
     revisionSnapshotNumberLimit: number;
+    revisionIgnoreNamedSnapshots: boolean;
     protectedSessionTimeout: number;
     protectedSessionTimeoutTimeScale: number;
     zoomFactor: number;
@@ -120,6 +123,13 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     rightPaneWidth: number;
     rightPaneCollapsedItems: string;
     rightPaneSelectedTab: string;
+    /**
+     * Which map the connections tab draws, `link` or `tree`. A preference of the reader's rather than
+     * a property of any one note: the tab is a lens on whatever note is being read, and a note map
+     * that is a note's own thing — a note map note, a hoisted map — is told which to draw by that
+     * note's own `mapType` label instead.
+     */
+    rightPaneNoteMapType: string;
     eraseEntitiesAfterTimeInSeconds: number;
     eraseEntitiesAfterTimeScale: number;
     autoReadonlySizeText: number;

@@ -166,6 +166,7 @@ function register(app: express.Application) {
     // backup routes (backups, backup-database, backup/download) are in core
     // VACUUM requires execution outside of transaction
     asyncRoute(PST, "/api/database/vacuum-database", [auth.checkApiAuthOrElectron, csrfMiddleware], databaseRoute.vacuumDatabase, apiResultHandler);
+    apiRoute(GET, "/api/database/compaction-estimate", databaseRoute.getCompactionEstimate);
 
     asyncRoute(PST, "/api/database/find-and-fix-consistency-issues", [auth.checkApiAuthOrElectron, csrfMiddleware], databaseRoute.findAndFixConsistencyIssues, apiResultHandler);
 

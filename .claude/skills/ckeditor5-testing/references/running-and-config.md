@@ -1,7 +1,9 @@
 # Running tests & configuration (Trilium)
 
-Trilium gives **each** `packages/ckeditor5-*` package its own `vitest.config.ts` (built with
-`defineConfig` directly — there is no shared factory). Vitest is `4.1.8`.
+One package carries the CKEditor 5 tests: `packages/ckeditor5` (the aggregate, which holds every
+in-tree plugin under `src/plugins/`). Its `vitest.config.ts` is built with `defineConfig` directly
+— there is no shared factory. Vitest is 4 or
+later.
 
 ## Per-package scripts
 
@@ -15,45 +17,17 @@ Each package's `package.json` defines:
 Run a single package from anywhere in the monorepo:
 
 ```bash
-pnpm --filter @triliumnext/ckeditor5-math test
+pnpm --filter @triliumnext/ckeditor5 test
 ```
 
 Or, from the package directory: `vitest run`. Add `-t "name"` to filter by test name, or a
 filename substring to filter by file.
 
-## Two config shapes
+## The config shape
 
-### happy-dom (e.g. `admonition`, `collapsible`)
-
-Light, no coverage thresholds. Not a real browser — `getBoundingClientRect()` is zeroed, layout
-and `ResizeObserver` are stubbed. Use for model/conversion/command logic.
-
-```ts
-import { defineConfig } from 'vitest/config';
-import svg from 'vite-plugin-svgo';
-
-export default defineConfig( {
-	plugins: [ svg() ],
-	test: {
-		environment: 'happy-dom',
-		include: [ 'tests/**/*.[jt]s' ],
-		globals: true,
-		watch: false,
-		passWithNoTests: true,
-		coverage: {
-			provider: 'v8',
-			include: [ 'src/**/*.{ts,tsx}' ],
-			exclude: [ '**/*.{test,spec}.{ts,mts,cts,tsx,js,jsx}', '**/*.d.ts' ],
-			reporter: [ 'text', 'lcov' ]
-		}
-	}
-} );
-```
-
-### WebdriverIO browser mode (e.g. `footnotes`, `keyboard-marker`, `math`, `mermaid`)
-
-Real headless Chrome via `@vitest/browser-webdriverio` (**not** Playwright). Real DOM/layout.
-Gates `src/**` coverage at 100%.
+Both packages run **WebdriverIO browser mode**: real headless Chrome via
+`@vitest/browser-webdriverio` (**not** Playwright), with real DOM and layout, gating `src/**`
+coverage at 100%. Trilium previously ran some plugins on happy-dom; no CKEditor package does now.
 
 ```ts
 import { defineConfig } from 'vitest/config';
@@ -70,8 +44,8 @@ export default defineConfig( {
 			ui: false,
 			instances: [ { browser: 'chrome' } ]
 		},
-		include: [ 'tests/**/*.[jt]s' ],
-		exclude: [ 'tests/setup.ts' ],
+		include: [ 'src/**/*.spec.ts' ],       // math instead uses [ 'tests/**/*.[jt]s' ]
+		setupFiles: [ './test/setup.ts' ],     // aggregate only — wires the editor-kit teardown
 		globals: true,
 		watch: false,
 		coverage: {
@@ -85,25 +59,23 @@ export default defineConfig( {
 } );
 ```
 
-Common to both: `globals: true`, the `vite-plugin-svgo` plugin so `import icon from './x.svg'`
+Also standard: `globals: true`, the `vite-plugin-svgo` plugin so `import icon from './x.svg'`
 resolves, and coverage via `v8` over `src/**` (test files themselves excluded).
 
-**Test-file location depends on where the code lives.** The two configs above are the existing
-**standalone packages**, which use a `tests/` directory (`include: ['tests/**/*.[jt]s']`, no
-`.spec` suffix) — keep them that way. The **aggregator** (`packages/ckeditor5`), **in-aggregator
-plugins** (`src/plugins/`), and **any new code** instead use **co-located `*.spec.ts`** next to the
-source — vitest `include: ['src/**/*.spec.ts']` (e.g. `src/plugins/collapsible_list_items.spec.ts`).
-This is the repo-wide convention (see the `writing-unit-tests` skill) and what
-`feature/collapsible_experiment` uses. New standalone packages should also adopt co-located
-`.spec.ts`.
+**Test-file location.** `packages/ckeditor5` uses **co-located `*.spec.ts`** next to the source —
+`include: ['src/**/*.spec.ts']` — including inside plugin folders, e.g.
+`src/plugins/collapsible/collapsible_editing.spec.ts`. That is the repo-wide convention (see the
+`writing-unit-tests` skill).
+
+The aggregate also sets `setupFiles: ['./test/setup.ts']`, which wires the global `afterEach` that
+destroys editors created through `test/editor-kit.ts`.
 
 ## Coverage scope for the aggregate (`packages/ckeditor5`)
 
-The aggregate **imports** the sibling `@triliumnext/ckeditor5-*` workspace packages, so a plain
-`--coverage` run instruments their loaded `src/` too — and the `include: ['src/**']` glob matches
-those sibling sources. The report then reads a misleading **~48%** instead of the aggregate's real
-number. Those siblings carry their own 100% gates in their own packages, so scope the aggregate's
-report to its own sources only — `packages/ckeditor5/vitest.config.ts` does this with:
+The aggregate used to import sibling `ckeditor5-*` packages, whose loaded `src/` a plain
+`--coverage` run would instrument too, dragging the report below the aggregate's real number.
+Nothing sibling is left, but the report is still scoped to this package's own sources —
+`packages/ckeditor5/vitest.config.ts` does this with:
 
 ```ts
 coverage: {
@@ -140,19 +112,17 @@ The root `package.json` splits the run because the browser-mode packages compete
 resources:
 
 ```bash
-pnpm test:parallel     # all but math & mermaid (and server/ckeditor5), in parallel
-pnpm test:sequential   # math & mermaid (and server/ckeditor5), sequentially
+pnpm test:parallel     # everything except server and ckeditor5, in parallel
+pnpm test:sequential   # server and ckeditor5, sequentially
 pnpm test:all          # test:parallel && test:sequential
 ```
 
-`math` and `mermaid` **must** run sequentially — running multiple headless Chrome instances at
-once exhausts resources. The aggregator (`ckeditor5`) is also in the sequential group (its
-`src/**/*.spec.ts` includes browser-mode specs); `server` is there for a different reason (shared
-test DB, per `CLAUDE.md`), not browser limits. Light (happy-dom) packages run in parallel.
+`ckeditor5` **must not** run alongside another browser-mode suite — multiple headless Chrome
+instances at once exhaust resources. `server` is in the same group for a different reason (shared
+test DB, per `CLAUDE.md`), not browser limits. Everything else runs in parallel.
 
 ## Notes
 
-- Some packages (`admonition`, `footnotes`, `keyboard-marker`) have a vitest config but **no tests
-  yet** (`passWithNoTests` / empty `tests/`). Adding tests is encouraged.
+- Both packages are at **100% coverage** and gated there, so a change that adds a line adds a test.
 - There are **no** manual-test or memory-leak harnesses in the Trilium plugin packages (those
   exist only in the upstream ckeditor5 monorepo).

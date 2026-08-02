@@ -119,6 +119,8 @@ import { ParentComponent } from "../react/react_utils";
 import PopupEditor from "./PopupEditor";
 
 const ATTACHMENT_SCOPE: ViewScope = { viewMode: "attachments", attachmentId: "att-1" };
+/** A view mode of the note itself, as the sidebar's note map card expands into the popup with. */
+const NOTE_MAP_SCOPE: ViewScope = { viewMode: "note-map" };
 
 function fakeNote(labels: string[] = [], isOptions = false) {
     return {
@@ -278,7 +280,7 @@ describe("PopupEditor", () => {
         expect(modal()?.dataset.shown).toBe("false");
     });
 
-    it("maximizes into a tab, carrying the attachment along when one is in view", async () => {
+    it("maximizes into a tab, carrying along whatever is in view instead of the note itself", async () => {
         await openPopup({ noteIdOrPath: "root/n1" });
         await act(async () => container.querySelector<HTMLElement>(".maximize-stub")?.click());
 
@@ -294,6 +296,27 @@ describe("PopupEditor", () => {
             viewScope: expect.objectContaining(ATTACHMENT_SCOPE),
             activate: true
         });
+
+        // Likewise for a view mode of the note itself: the last rung of the map's expand ladder is the
+        // popup's own maximize, which would otherwise land on the note and leave the map behind.
+        await openPopup({ noteIdOrPath: "root/n1", viewScope: NOTE_MAP_SCOPE });
+        await act(async () => container.querySelector<HTMLElement>(".maximize-stub")?.click());
+
+        expect(mocks.openContextWithNote).toHaveBeenLastCalledWith("n1", {
+            hoistedNoteId: "root",
+            viewScope: expect.objectContaining(NOTE_MAP_SCOPE),
+            activate: true
+        });
+    });
+
+    it("stands aside when something within it has sent the reader elsewhere", async () => {
+        await openPopup({ noteIdOrPath: "root/n1" });
+        expect(modal()?.dataset.shown).toBe("true");
+
+        // What a press on a node of the note map amounts to: the map navigates the pane behind the
+        // popup, so the popup would otherwise be left covering the note it has just gone to.
+        await act(async () => { await parent.handleEvent("closePopupEditor", {} as never); });
+        expect(modal()?.dataset.shown).toBe("false");
     });
 
     it("stays put when there is no note to maximize", async () => {

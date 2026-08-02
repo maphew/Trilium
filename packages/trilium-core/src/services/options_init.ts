@@ -149,6 +149,7 @@ const defaultOptions: DefaultOption[] = [
     { name: "revisionSnapshotTimeInterval", value: "600", isSynced: true },
     { name: "revisionSnapshotTimeIntervalTimeScale", value: "60", isSynced: true }, // default to Minutes
     { name: "revisionSnapshotNumberLimit", value: "-1", isSynced: true },
+    { name: "revisionIgnoreNamedSnapshots", value: "true", isSynced: true },
     { name: "protectedSessionTimeout", value: "600", isSynced: true },
     { name: "protectedSessionTimeoutTimeScale", value: "60", isSynced: true },
     { name: "zoomFactor", value: () => isWindows() ? "0.9" : "1.0", isSynced: false },
@@ -181,8 +182,11 @@ const defaultOptions: DefaultOption[] = [
     { name: "leftPaneVisible", value: "true", isSynced: false },
     { name: "rightPaneWidth", value: "25", isSynced: false },
     { name: "rightPaneVisible", value: "true", isSynced: false },
-    { name: "rightPaneCollapsedItems", value: "[]", isSynced: false },
+    { name: "rightPaneCollapsedItems", value: '["similarNotes"]', isSynced: false },
     { name: "rightPaneSelectedTab", value: "outline", isSynced: false },
+    // Synced, unlike the rest of the pane's state: which map to read connections as is a preference
+    // rather than where a window happens to be left standing.
+    { name: "rightPaneNoteMapType", value: "link", isSynced: true },
     { name: "nativeTitleBarVisible", value: "false", isSynced: false },
     { name: "eraseEntitiesAfterTimeInSeconds", value: "604800", isSynced: true }, // default is 7 days
     { name: "eraseEntitiesAfterTimeScale", value: "86400", isSynced: true }, // default 86400 seconds = Day
@@ -295,6 +299,10 @@ const defaultOptions: DefaultOption[] = [
         value: JSON.stringify(SANITIZER_DEFAULT_ALLOWED_TAGS),
         isSynced: true
     },
+
+    // Empty rather than a set of defaults: nothing the cleanup tool erases is picked until the user
+    // picks it, so an uninitialized setting has to mean "nothing selected".
+    { name: "cleanupToolOptions", value: "{}", isSynced: true },
 
     // Share settings
     { name: "redirectBareDomain", value: "false", isSynced: true },

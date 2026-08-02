@@ -1447,7 +1447,6 @@
     "title_with_count_one": "{{count}} destaque",
     "title_with_count_many": "{{count}} destaques",
     "title_with_count_other": "{{count}} destaques",
-    "modal_title": "Configurar lista de destaques",
     "menu_configure": "Configurar lista de destaques…",
     "no_highlights": "Nenhum destaque encontrado."
   },
