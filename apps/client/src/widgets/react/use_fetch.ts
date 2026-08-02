@@ -1,33 +1,33 @@
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
-import server from "../../../../../services/server";
+import server from "../../services/server";
 
-export interface SpaceUsageFetch<T> {
+export interface FetchState<T> {
     data: T | null;
     /** The last attempt failed. Meaningful only while {@link data} is still null — see below. */
     failed: boolean;
-    /** A request is in flight. Measuring is expensive enough to be worth keeping to one at a time. */
+    /** A request is in flight. One at a time, however often the URL changes. */
     loading: boolean;
 }
 
 /**
- * Fetches a space-usage endpoint once, and again whenever the URL changes (Browse navigation) or
- * {@link refreshToken} does — which is how the page's refresh button asks for a fresh reading.
+ * Reads a GET endpoint once, and again whenever the URL changes or {@link refreshToken} does.
  *
- * Deliberately *not* refreshed when notes change: measuring the database is expensive enough that
- * re-running it after every edit would keep the server busy for as long as this page stayed open —
- * and the numbers are a snapshot to read, not a live readout. Re-measuring is the user's call.
+ * Nothing else re-runs it — not a note changing, not the component re-rendering. That suits a
+ * reading that costs the server real work to produce and is meant to be looked at rather than
+ * watched: measuring the database for the space-usage pages, or counting up a note's images for the
+ * compression dialog. Asking again is the caller's decision, expressed by bumping the token.
  *
  * `null` until the first response; on a URL change the previous payload stays up while the new one
- * is in flight, so the charts transition instead of blanking.
+ * is in flight, so a view transitions instead of blanking.
  *
  * A failure is reported rather than swallowed, because there is nothing to fall back on before the
- * first success: the view would otherwise claim to be measuring for as long as it stayed open. The
+ * first success: the view would otherwise claim to be loading for as long as it stayed open. The
  * server service toasts most failures, but not one the browser itself rejected (a dropped
  * connection, an unreachable server), which would leave no trace at all. Callers show the failure
- * only while `data` is null — once a payload exists, keeping it beats blanking the charts.
+ * only while `data` is null — once a payload exists, keeping it beats blanking what is shown.
  */
-export function useSpaceUsageFetch<T>(url: string, refreshToken = 0): SpaceUsageFetch<T> {
+export function useFetch<T>(url: string, refreshToken = 0): FetchState<T> {
     const [ data, setData ] = useState<T | null>(null);
     const [ failed, setFailed ] = useState(false);
     const [ loading, setLoading ] = useState(true);

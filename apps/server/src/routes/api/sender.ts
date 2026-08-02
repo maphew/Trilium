@@ -35,6 +35,9 @@ async function uploadImage(req: Request) {
 
     const { note, noteId } = imageService.saveImage(parentNote.noteId, file.buffer, originalName, true);
 
+    // The sender opens the note it is told about, so the picture should be in it by then.
+    await imageService.awaitImageWrite(noteId);
+
     const labelsStr = req.headers["x-labels"];
 
     if (labelsStr?.trim()) {

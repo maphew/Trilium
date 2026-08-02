@@ -171,6 +171,15 @@ describe("Attachments API (core)", () => {
             expect(res.status).toBe(200);
             expect(res.body.uploaded).toBe(true);
             expect(res.body.url).toContain("/image/");
+
+            // The URL it just handed back has to be fetchable *now*. The editor puts it straight
+            // into the document as an image source and the browser asks for it immediately, so an
+            // upload that answers before the bytes are stored draws a broken image — the picture
+            // shows for a moment from the local copy and is then replaced by nothing.
+            const fetched = await api.get(`/${res.body.url}`);
+
+            expect(fetched.status).toBe(200);
+            expect((fetched.body as Uint8Array).length).toBeGreaterThan(0);
         });
 
         it("reports a missing upload when no file is present", async () => {

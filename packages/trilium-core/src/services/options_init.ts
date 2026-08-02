@@ -166,6 +166,16 @@ const defaultOptions: DefaultOption[] = [
     { name: "spellCheckLanguageCode", value: "en-US", isSynced: false },
     { name: "imageMaxWidthHeight", value: "2000", isSynced: true },
     { name: "imageJpegQuality", value: "75", isSynced: true },
+    // What automatic compression does to an arriving image, said out loud rather than left implicit.
+    // Scaling and recompressing are what it always did; the PNG answer is not. It used to turn every
+    // PNG into a JPEG, which is lossy, permanent, and throws away transparency — the only thing it
+    // could do before there was anything else. Optimizing makes a PNG smaller and leaves it a PNG,
+    // which is the right default for a step that runs unattended on everything a user pastes.
+    // Converting is still there for anyone who wants the space more than the format.
+    { name: "imageResize", value: "true", isSynced: true },
+    { name: "imageJpegHandling", value: "compress", isSynced: true },
+    { name: "imagePngHandling", value: "optimize", isSynced: true },
+    { name: "imageConversionQuality", value: "75", isSynced: true },
     { name: "autoFixConsistencyIssues", value: "true", isSynced: false },
     { name: "vimKeymapEnabled", value: "false", isSynced: false },
     { name: "codeLineWrapEnabled", value: "true", isSynced: false },
@@ -303,6 +313,11 @@ const defaultOptions: DefaultOption[] = [
     // Empty rather than a set of defaults: nothing the cleanup tool erases is picked until the user
     // picks it, so an uninitialized setting has to mean "nothing selected".
     { name: "cleanupToolOptions", value: "{}", isSynced: true },
+
+    // Likewise empty: the compression tool fills its dimensions and quality in from the image
+    // options, so an uninitialized setting opens on those rather than on a second set of defaults
+    // that could disagree with them.
+    { name: "imageCompressionToolOptions", value: "{}", isSynced: true },
 
     // Share settings
     { name: "redirectBareDomain", value: "false", isSynced: true },

@@ -1,4 +1,5 @@
 import type { KeyboardActionNames } from "./keyboard_actions_interface.js";
+import type { ImageJpegHandling, ImagePngHandling } from "./server_api.js";
 
 /**
  * A dictionary where the keys are the option keys (e.g. `theme`) and their corresponding values.
@@ -85,6 +86,8 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     allowedHtmlTags: string;
     /** JSON: what the Content Manager's cleanup tool was last set to erase — see `CleanupToolOptions`. */
     cleanupToolOptions: string;
+    /** JSON: how the image compression tool was last set to compress — see `ImageCompressionToolOptions`. */
+    imageCompressionToolOptions: string;
     documentId: string;
     documentSecret: string;
     passwordVerificationHash: string;
@@ -119,6 +122,8 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     monospaceFontSize: number;
     imageMaxWidthHeight: number;
     imageJpegQuality: number;
+    /** JPEG quality a lossless image is converted at, kept apart from {@link imageJpegQuality}. */
+    imageConversionQuality: number;
     leftPaneWidth: number;
     rightPaneWidth: number;
     rightPaneCollapsedItems: string;
@@ -181,6 +186,15 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     weeklyBackupEnabled: boolean;
     monthlyBackupEnabled: boolean;
     compressImages: boolean;
+    /**
+     * Whether an image above {@link imageMaxWidthHeight} is scaled down on its way in. Off, the
+     * bound governs nothing and only the re-encoding choices below can shrink anything.
+     */
+    imageResize: boolean;
+    /** What becomes of an already-lossy image on its way in: left as encoded, or recompressed. */
+    imageJpegHandling: ImageJpegHandling;
+    /** What becomes of a lossless image on its way in: left alone, quantized, or converted. */
+    imagePngHandling: ImagePngHandling;
     downloadImagesAutomatically: boolean;
     checkForUpdates: boolean;
     disableTray: boolean;
