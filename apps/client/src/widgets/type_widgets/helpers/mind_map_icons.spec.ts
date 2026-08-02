@@ -42,6 +42,18 @@ describe("renderIconClasses", () => {
             .toEqual([ [ "", "⭐" ], [ "", "phosphor ph-cube" ], [ "", "bx" ] ]);
     });
 
+    it("leaves a dressed icon something to read, for the exporter's sake", () => {
+        // Mind Elixir's SVG exporter reads `childNodes[0].textContent` off every icon it finds, so
+        // a span emptied down to nothing throws there — and the preview is rendered on every save.
+        const container = buildNode("bx bx-star");
+
+        renderIconClasses(container);
+
+        const icon = container.querySelector(".icons > span");
+        expect(icon?.childNodes).toHaveLength(1);
+        expect(icon?.childNodes[0].textContent).toBe("");
+    });
+
     it("can be run again over what it has already dressed", () => {
         // It runs after every layout, and a layout does not always rebuild the node.
         const container = buildNode("bx bx-star");

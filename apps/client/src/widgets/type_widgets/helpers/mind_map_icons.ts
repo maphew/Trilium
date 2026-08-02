@@ -16,7 +16,11 @@ export function renderIconClasses(container: HTMLElement) {
         if (!isIconClass(iconClass)) continue;
 
         iconEl.className = iconClass;
-        iconEl.textContent = "";
+        // Emptied down to an empty text node rather than to nothing at all: Mind Elixir's SVG
+        // exporter reads `span.childNodes[0].textContent` for every icon it comes across, and a
+        // span holding no children at all throws — which failed the save of any map with an icon,
+        // the preview being rendered through that exporter.
+        iconEl.replaceChildren(document.createTextNode(""));
     }
 }
 
