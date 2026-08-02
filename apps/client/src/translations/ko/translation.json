@@ -3611,7 +3611,7 @@
       "new-footnote": "새 각주",
       "no-anchors-available": "사용 가능한 앵커가 없습니다.",
       "no-text-snippets-available": "사용 가능한 텍스트 조각이 없습니다.",
-      "no-text-snippets-were-found-matching-0": "%0\"과(와) 일치하는 텍스트 조각을 찾을 수 없습니다.",
+      "no-text-snippets-were-found-matching-0": "\"%0\"과(와) 일치하는 텍스트 조각을 찾을 수 없습니다.",
       "note": "노트",
       "numbered-list": "번호 매기기 목록",
       "outdent": "내어쓰기",
