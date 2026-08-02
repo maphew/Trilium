@@ -1,5 +1,5 @@
 /**
- * A small pool of worker threads that compress images, so the decoding stops holding the thread
+ * A small pool of worker processes that compress images, so the decoding stops holding the thread
  * that serves the application.
  *
  * Decoding is synchronous from beginning to end — jpeg-js, pngjs and UPNG all run to completion
@@ -7,8 +7,17 @@
  * stopped answering for as long as it takes. Moving that off-thread is worth more than the extra
  * cores it also buys.
  *
+ * Processes rather than worker threads, which were tried first and cannot be used: in the Electron
+ * main process a worker thread's isolate wedges on this workload. Its garbage collector hands
+ * sweeping to V8 background tasks that never complete there, so the hundreds of megabytes a decode
+ * allocates are never truly reclaimed — a forced full collection returns without them, and a second
+ * one never returns at all. The first image per thread works, the next waits on that sweep forever;
+ * in between sit runs that crawl, seconds of collector stall per image. A forked child is a main
+ * isolate on Node's own platform, where collection simply works — under the plain server, which
+ * never had the problem, and under Electron, which fork serves by re-running its binary as Node.
+ *
  * Nothing here is load-bearing. Every way this can fail — a worker file that is not where it was
- * expected, a thread that will not start, one that dies mid-image — ends in the same place: the
+ * expected, a process that will not start, one that dies mid-image — ends in the same place: the
  * caller is told so once and compresses in this process instead, exactly as it always did.
  *
  * This is the Node half of the platform, reached only through the server's own image provider —
@@ -16,12 +25,13 @@
  * no decoder to run in a thread and never arrives here; it answers for itself.
  */
 
-import { getLog } from "@triliumnext/core";
-import type { ImageCompressionOutcome, ImageCompressionRequest } from "@triliumnext/core/src/services/image_provider.js";
+import { type ChildProcess, fork } from "node:child_process";
 import { existsSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { join } from "node:path";
-import { Worker } from "node:worker_threads";
+
+import { getLog } from "@triliumnext/core";
+import type { ImageCompressionOutcome, ImageCompressionRequest } from "@triliumnext/core/src/services/image_provider.js";
 
 import type { ImageWorkerRequest, ImageWorkerResponse, ImageWorkerTrace } from "./image_worker.js";
 
@@ -33,7 +43,7 @@ import type { ImageWorkerRequest, ImageWorkerResponse, ImageWorkerTrace } from "
  * bandwidth at least as much as by processor: past a handful of them the decoders are queueing for
  * the same bus, and adding more buys contention rather than throughput. Measured on a 24-thread
  * machine, letting it run one per core left a 380 KB image taking 10.7 seconds where a 4.9 MB one
- * had taken 2.9 seconds earlier in the same run — and starting a further thread, 24ms of work at
+ * had taken 2.9 seconds earlier in the same run — and starting a further worker, 24ms of work at
  * the outset, took 2.3 seconds by then.
  *
  * It stays a ceiling rather than a promise: what actually runs at once is whatever the memory budget
@@ -46,7 +56,7 @@ export function compressionConcurrency(): number {
     return workerEntry() ? Math.max(1, Math.min(MAX_WORKERS, availableParallelism())) : 1;
 }
 
-/** Where decoding stops going faster for being given more threads; see above for the measurement. */
+/** Where decoding stops going faster for being given more workers; see above for the measurement. */
 const MAX_WORKERS = 4;
 
 /**
@@ -86,15 +96,15 @@ export async function compressInWorker(
 
         return response.outcome ?? null;
     } catch (e: unknown) {
-        // Retired rather than released: a thread that failed us may well be dead, and handing it to
+        // Retired rather than released: a process that failed us may well be dead, and handing it to
         // the next image would post a message nothing is listening for — which looks like the run
         // hanging rather than like one image having failed.
         retire(worker);
 
-        // Nothing has ever come back from a worker here, so this is not one thread having died but
+        // Nothing has ever come back from a worker here, so this is not one process having died but
         // this installation being unable to run them — an environment whose loader cannot read the
         // entry point, say. Answered as "there are no workers", which is the truth of it: this image
-        // and every one after it is compressed by the caller, exactly as before there were threads.
+        // and every one after it is compressed by the caller, exactly as before there were workers.
         if (!everSucceeded) {
             return disable(`they do not work here (${firstLine(e)})`);
         }
@@ -111,10 +121,9 @@ export async function compressInWorker(
  * Stops the workers that are not doing anything, so a Trilium that has finished compressing is not
  * still holding them.
  *
- * A thread does not release what it decoded when it goes quiet — its isolate keeps the last image
- * it worked on until something there collects it, and several idle threads each sitting on a
- * decoded photograph is memory the rest of the application would rather have. Terminating them
- * gives it back outright.
+ * An idle child is still a process, holding its runtime and whatever its last decode grew it to.
+ * Several of them sitting on that is memory the rest of the machine would rather have, and
+ * terminating them gives it back outright.
  *
  * Only the free ones: a busy worker is not in the pool to be found here, and is left to finish.
  */
@@ -122,17 +131,17 @@ export function shutdownImageWorkers() {
     started -= idle.length;
     idle.forEach((pooled) => {
         pooled.stopped = true;
-        void pooled.worker.terminate();
+        pooled.worker.kill();
     });
     idle.length = 0;
 }
 
 /**
- * How long the pool waits, having been given nothing to do, before letting its threads go.
+ * How long the pool waits, having been given nothing to do, before letting its workers go.
  *
- * Long enough that the images of one run do not pay to start a thread each, short enough that a run
- * which has finished stops costing anything soon after. Nothing schedules a run, so any wait at all
- * is only ever bridging the gap between two images.
+ * Long enough that the images of one run do not pay to start a process each, short enough that a
+ * run which has finished stops costing anything soon after. Nothing schedules a run, so any wait at
+ * all is only ever bridging the gap between two images.
  */
 const IDLE_SHUTDOWN_MS = 30 * 1000;
 
@@ -147,9 +156,15 @@ function scheduleShutdown() {
 }
 
 interface PooledWorker {
-    worker: Worker;
-    /** Captured while it is alive: a thread reports its id as -1 once it has gone. */
-    threadId: number;
+    worker: ChildProcess;
+    /** Missing exactly when the spawn failed, in which case its error event is on the way. */
+    pid: number | undefined;
+    /**
+     * Settled when the child first speaks, or when it dies trying. Waited out before sending:
+     * unlike a thread's queue, a process's channel does not hold messages for a listener that has
+     * not attached yet, and the child only listens once its module has loaded.
+     */
+    ready: Promise<void>;
     /** Set when we stopped it ourselves, so its exit is not reported as something going wrong. */
     stopped?: boolean;
     pending?: (response: ImageWorkerResponse) => void;
@@ -207,14 +222,14 @@ function release(worker: PooledWorker) {
 /**
  * Takes a worker out of the pool for good, and never puts it back.
  *
- * Whoever was waiting for a free worker is answered with none rather than with this one: no thread
+ * Whoever was waiting for a free worker is answered with none rather than with this one: no process
  * is coming to replace it, and a caller told there is none compresses the image itself. Waiting on
- * a thread that no longer exists is the one outcome worse than not having threads at all.
+ * a worker that no longer exists is the one outcome worse than not having workers at all.
  */
 function retire(worker: PooledWorker) {
     started--;
     worker.stopped = true;
-    void worker.worker.terminate();
+    worker.worker.kill();
     waiting.shift()?.(null);
 }
 
@@ -224,22 +239,17 @@ function retire(worker: PooledWorker) {
  * Both directions matter, which is why this is a fixed figure rather than a floor.
  *
  * Too small and a decode does not fail, it collects — over and over, taking several times longer
- * while looking perfectly healthy. A thread started by Electron's main process inherits a heap set
- * for running an application, not for decoding photographs.
+ * while looking perfectly healthy. Whatever started this process sized its heap for running an
+ * application, not for decoding photographs.
  *
- * Too large is the subtler half. V8 collects lazily against its ceiling, so a thread allowed four
- * gigabytes will happily accumulate several before it bothers, and four such threads can put a
+ * Too large is the subtler half. V8 collects lazily against its ceiling, so a child allowed four
+ * gigabytes will happily accumulate several before it bothers, and four such children can put a
  * machine into paging — where the symptom is not the compression slowing down but everything else
  * stopping, the process that hosts them included.
  *
  * This is what one decode actually needs: the memory budget a single image may claim, and room to
  * work around it. A worker only ever holds one image at a time, so it never needs more.
  */
-function workerLimits() {
-    return { maxOldGenerationSizeMb: WORKER_HEAP_MB };
-}
-
-/** Room for the largest decode the budget will admit, and the working set around it. */
 const WORKER_HEAP_MB = 2048;
 
 function spawn(): PooledWorker | null {
@@ -254,21 +264,35 @@ function spawn(): PooledWorker | null {
 
     try {
         const startedAt = Date.now();
-        const limits = workerLimits();
-        const worker = new Worker(entry.file, { execArgv: entry.execArgv, resourceLimits: limits });
-        // Read now rather than in the handlers: a thread that has exited reports its id as -1, which
-        // is the one moment the id is worth having.
-        const pooled: PooledWorker = { worker, threadId: worker.threadId };
+        const worker = fork(entry.file, {
+            execArgv: [ ...(entry.execArgv ?? []), `--max-old-space-size=${WORKER_HEAP_MB}` ],
+            // The default serialization is JSON, which has no idea what to do with an image's
+            // bytes; this is the structured clone a worker thread's messages always had.
+            serialization: "advanced"
+        });
+        const readiness: { arrived?: () => void; died?: (error: unknown) => void } = {};
+        const ready = new Promise<void>((resolve, reject) => {
+            readiness.arrived = resolve;
+            readiness.died = reject;
+        });
+
+        // A worker that dies while idle has nobody awaiting its readiness; that is not a leak
+        // worth a warning about an unhandled rejection.
+        ready.catch(() => {});
+
+        const pooled: PooledWorker = { worker, pid: worker.pid, ready };
 
         // Rare enough to say out loud without asking: a handful of lines per process, and the ones
-        // that answer "did a thread ever start, and did it stay up" — which is the whole question
+        // that answer "did a worker ever start, and did it stay up" — which is the whole question
         // when a run stops making progress.
         getLog().info(`Image Compression Tool: starting a worker with a `
-            + `${limits.maxOldGenerationSizeMb} MB heap from ${entry.file}`);
-        pooled.worker.on("online",
-            () => getLog().info(`Image Compression Tool: worker ${pooled.threadId} online in ${Date.now() - startedAt}ms`));
+            + `${WORKER_HEAP_MB} MB heap from ${entry.file}`);
+        pooled.worker.on("spawn",
+            () => getLog().info(`Image Compression Tool: worker ${pooled.pid} online in ${Date.now() - startedAt}ms`));
 
         pooled.worker.on("message", (response: ImageWorkerResponse | ImageWorkerTrace) => {
+            readiness.arrived?.();
+
             // Traces arrive while the image is still being worked on, so they are written straight
             // out rather than waited for; only the answer settles the request.
             if ("trace" in response) {
@@ -281,24 +305,33 @@ function spawn(): PooledWorker | null {
         });
         // A worker that dies takes its in-flight image with it; the image is failed, not the run.
         pooled.worker.on("error", (error) => {
-            getLog().info(`Image Compression Tool: worker ${pooled.threadId} errored: ${firstLine(error)}`);
+            getLog().info(`Image Compression Tool: worker ${pooled.pid} errored: ${firstLine(error)}`);
+            readiness.died?.(error);
             pooled.failed?.(error);
         });
-        pooled.worker.on("exit", (code) => {
-            // A thread we stopped ourselves exits with a failure code too, so saying so plainly is
+        pooled.worker.on("exit", (code, signal) => {
+            // A worker we stopped ourselves exits with a failure code too, so saying so plainly is
             // the difference between "this is the pool tidying up" and "something died mid-image".
             getLog().info(pooled.stopped
-                ? `Image Compression Tool: worker ${pooled.threadId} stopped`
-                : `Image Compression Tool: worker ${pooled.threadId} exited unexpectedly with code ${code}`
+                ? `Image Compression Tool: worker ${pooled.pid} stopped`
+                : `Image Compression Tool: worker ${pooled.pid} exited unexpectedly with code ${code ?? signal}`
                     + `${pooled.pending ? " while working on an image" : " while idle"}`);
-            pooled.failed?.(new Error(`Image worker exited with code ${code}.`));
+            readiness.died?.(new Error(`Image worker exited with code ${code ?? signal}.`));
+            pooled.failed?.(new Error(`Image worker exited with code ${code ?? signal}.`));
         });
+        // Never a reason for the pool to be what holds this process open; both handles count.
         pooled.worker.unref();
+        pooled.worker.channel?.unref();
 
         return pooled;
     } catch (e: unknown) {
         return disable(`they could not be started (${(e as Error).message})`);
     }
+}
+
+/** The gist of a failure. A worker's error arrives with its stack attached, which a log line is not. */
+function firstLine(error: unknown): string {
+    return String(error instanceof Error ? error.message : error).split(/\r?\n/)[0];
 }
 
 /**
@@ -307,11 +340,6 @@ function spawn(): PooledWorker | null {
  * Once rather than per image: a run over a subtree would otherwise write the same line a thousand
  * times, and the condition is a property of this installation rather than of any one image.
  */
-/** The gist of a failure. A worker's error arrives with its stack attached, which a log line is not. */
-function firstLine(error: unknown): string {
-    return String(error instanceof Error ? error.message : error).split(/\r?\n/)[0];
-}
-
 function disable(reason: string): null {
     if (!disabled) {
         disabled = true;
@@ -331,32 +359,40 @@ function send(
     const message: ImageWorkerRequest = { id: ++lastRequestId, buffer, request, budgetMb };
     const sentAt = Date.now();
 
-    trace(`sending image #${message.id} (${buffer.byteLength} bytes) to worker ${worker.threadId}`
+    trace(`sending image #${message.id} (${buffer.byteLength} bytes) to worker ${worker.pid}`
         + ` — ${started} started, ${idle.length} idle, ${waiting.length} waiting`);
 
     return new Promise<ImageWorkerResponse>((resolve, reject) => {
-        // A thread that took an image and went quiet would otherwise hold the run open with nothing
+        // A worker that took an image and went quiet would otherwise hold the run open with nothing
         // to show for it. Generous, because a large decode legitimately takes minutes; expiring is
         // treated as the worker having failed, and the image is compressed here instead.
         const expiry = setTimeout(() => {
             getLog().info(
-                `Image Compression Tool: worker ${worker.threadId} did not answer for image `
+                `Image Compression Tool: worker ${worker.pid} did not answer for image `
                 + `#${message.id} within ${WORKER_REPLY_TIMEOUT_MS}ms; giving up on it`);
             reject(new Error("Image worker did not answer in time."));
         }, WORKER_REPLY_TIMEOUT_MS);
 
         worker.pending = (response) => {
             clearTimeout(expiry);
-            trace(`worker ${worker.threadId} answered image #${message.id} in ${Date.now() - sentAt}ms`);
+            trace(`worker ${worker.pid} answered image #${message.id} in ${Date.now() - sentAt}ms`);
             resolve(response);
         };
         worker.failed = (error) => {
             clearTimeout(expiry);
             reject(error);
         };
-        // Copied rather than transferred: these bytes were read from the database and the caller
-        // still holds them to report the original size, and to fall back on if this goes wrong.
-        worker.worker.postMessage(message);
+        // Only once the child is listening; a message sent into its boot is a message lost. The
+        // bytes are copied rather than shared either way — the caller still holds them to report
+        // the original size, and to fall back on if this goes wrong.
+        worker.ready.then(
+            () => worker.worker.send(message, (error) => {
+                if (error) {
+                    worker.failed?.(error);
+                }
+            }),
+            (error: unknown) => worker.failed?.(error)
+        );
     }).finally(() => {
         worker.pending = undefined;
         worker.failed = undefined;
@@ -373,7 +409,7 @@ function send(
  * work fell back onto the thread serving the application, blocked it for twenty seconds, and made
  * the next worker time out in turn.
  *
- * So this is for a thread that has genuinely stopped, not for one that is taking a while. A run
+ * So this is for a worker that has genuinely stopped, not for one that is taking a while. A run
  * meets that at most once per worker, and the images are not waiting on anything else meanwhile.
  */
 const WORKER_REPLY_TIMEOUT_MS = 15 * 60 * 1000;
@@ -401,7 +437,9 @@ interface WorkerEntry {
  *
  * Bundled, the worker sits beside the bundle as an entry point of its own. Running from sources it
  * is the TypeScript, started with this process's own loader flags — which works wherever those
- * flags are what makes TypeScript readable, and fails harmlessly wherever they are not.
+ * flags are what makes TypeScript readable, and fails harmlessly wherever they are not. A loader
+ * that arrived through `NODE_OPTIONS` instead — the desktop's dev launcher does this — reaches the
+ * child through its environment, which fork passes on by itself.
  *
  * Answered once and remembered, including the answer that there is none: this is a question about
  * an installation, and asking the filesystem it per image would be its own small waste.
@@ -411,10 +449,6 @@ function workerEntry(): WorkerEntry | null {
         resolvedEntry = [
             { file: join(__dirname, "services", "image_worker.cjs") },
             { file: join(__dirname, "image_worker.cjs") },
-            // Running from sources, where a thread can only read TypeScript through the loader that
-            // is already reading it here. Inherited rather than named: whatever started this process
-            // is by definition able to start one more like it, and guessing at a loader by name
-            // would be a guess about how someone chose to run the server.
             { file: join(__dirname, "image_worker.ts"), execArgv: process.execArgv }
         ].find((candidate) => existsSync(candidate.file)) ?? null;
     }
