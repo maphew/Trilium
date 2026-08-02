@@ -23,26 +23,31 @@ import { availableParallelism } from "node:os";
 import { join } from "node:path";
 import { Worker } from "node:worker_threads";
 
-import type { ImageWorkerRequest, ImageWorkerResponse } from "./image_worker.js";
+import type { ImageWorkerRequest, ImageWorkerResponse, ImageWorkerTrace } from "./image_worker.js";
 
 /**
  * How many images may be compressed at once, or 1 where they cannot be compressed off-thread at
  * all — which is the same answer as "do it here", and is what the caller schedules against.
  *
- * One per core. The thread this frees up needs very little while they work — it hands out images,
- * takes the results and writes them — so holding a core back for it would leave one idle through
- * the whole run for the sake of the part that is already waiting.
+ * Capped low, and deliberately not scaled to the machine. Decoding a photograph is bound by memory
+ * bandwidth at least as much as by processor: past a handful of them the decoders are queueing for
+ * the same bus, and adding more buys contention rather than throughput. Measured on a 24-thread
+ * machine, letting it run one per core left a 380 KB image taking 10.7 seconds where a 4.9 MB one
+ * had taken 2.9 seconds earlier in the same run — and starting a further thread, 24ms of work at
+ * the outset, took 2.3 seconds by then.
  *
- * This is a ceiling rather than a promise: what actually runs at once is whatever the memory budget
- * admits, so on a machine with many cores and images to match, the budget is the binding constraint
- * and this never comes into it.
+ * It stays a ceiling rather than a promise: what actually runs at once is whatever the memory budget
+ * admits, which on large images is fewer still.
  *
- * `availableParallelism` rather than the raw core count: it follows the affinity the process was
- * given, so a container pinned to two cores is answered as two.
+ * `availableParallelism` rather than the raw core count, for the machines below the cap: it follows
+ * the affinity the process was given, so a container pinned to two cores is answered as two.
  */
 export function compressionConcurrency(): number {
-    return workerEntry() ? Math.max(1, availableParallelism()) : 1;
+    return workerEntry() ? Math.max(1, Math.min(MAX_WORKERS, availableParallelism())) : 1;
 }
+
+/** Where decoding stops going faster for being given more threads; see above for the measurement. */
+const MAX_WORKERS = 4;
 
 /**
  * Compresses one image in a worker, or answers `null` if there is no worker to do it in — which the
@@ -88,23 +93,65 @@ export async function compressInWorker(
 
         // Nothing has ever come back from a worker here, so this is not one thread having died but
         // this installation being unable to run them — an environment whose loader cannot read the
-        // entry point, say. Trying again per image would fail a thousand times over.
+        // entry point, say. Answered as "there are no workers", which is the truth of it: this image
+        // and every one after it is compressed by the caller, exactly as before there were threads.
         if (!everSucceeded) {
-            disable(`they do not work here (${firstLine(e)})`);
+            return disable(`they do not work here (${firstLine(e)})`);
         }
 
+        // Workers do work here, and one of them failed on this image. Raised rather than answered
+        // with a fallback: doing it on the calling thread instead would stop the application for the
+        // length of a decode, and doing that for each of several failing workers is how a run takes
+        // the whole application down with it. The image is reported untouched and the run goes on.
         throw e;
     }
 }
 
-/** Stops the pool between runs, so an idle Trilium is not holding threads it is not using. */
+/**
+ * Stops the workers that are not doing anything, so a Trilium that has finished compressing is not
+ * still holding them.
+ *
+ * A thread does not release what it decoded when it goes quiet — its isolate keeps the last image
+ * it worked on until something there collects it, and several idle threads each sitting on a
+ * decoded photograph is memory the rest of the application would rather have. Terminating them
+ * gives it back outright.
+ *
+ * Only the free ones: a busy worker is not in the pool to be found here, and is left to finish.
+ */
 export function shutdownImageWorkers() {
-    idle.forEach((pooled) => void pooled.worker.terminate());
+    started -= idle.length;
+    idle.forEach((pooled) => {
+        pooled.stopped = true;
+        void pooled.worker.terminate();
+    });
     idle.length = 0;
+}
+
+/**
+ * How long the pool waits, having been given nothing to do, before letting its threads go.
+ *
+ * Long enough that the images of one run do not pay to start a thread each, short enough that a run
+ * which has finished stops costing anything soon after. Nothing schedules a run, so any wait at all
+ * is only ever bridging the gap between two images.
+ */
+const IDLE_SHUTDOWN_MS = 30 * 1000;
+
+let idleTimer: NodeJS.Timeout | undefined;
+
+/** Restarted whenever a worker comes free, so the countdown only ever runs on a quiet pool. */
+function scheduleShutdown() {
+    clearTimeout(idleTimer);
+    idleTimer = setTimeout(shutdownImageWorkers, IDLE_SHUTDOWN_MS);
+    // Never a reason for this to be what holds the process open.
+    idleTimer.unref();
 }
 
 interface PooledWorker {
     worker: Worker;
+    /** Captured while it is alive: a thread reports its id as -1 once it has gone. */
+    threadId: number;
+    /** Set when we stopped it ourselves, so its exit is not reported as something going wrong. */
+    stopped?: boolean;
     pending?: (response: ImageWorkerResponse) => void;
     failed?: (error: unknown) => void;
 }
@@ -153,6 +200,8 @@ function release(worker: PooledWorker) {
     }
 
     idle.push(worker);
+    // Nothing was waiting for it, so this may well have been the last image of a run.
+    scheduleShutdown();
 }
 
 /**
@@ -164,9 +213,34 @@ function release(worker: PooledWorker) {
  */
 function retire(worker: PooledWorker) {
     started--;
+    worker.stopped = true;
     void worker.worker.terminate();
     waiting.shift()?.(null);
 }
+
+/**
+ * The heap a worker is given: sized to the work, and neither inherited nor unbounded.
+ *
+ * Both directions matter, which is why this is a fixed figure rather than a floor.
+ *
+ * Too small and a decode does not fail, it collects — over and over, taking several times longer
+ * while looking perfectly healthy. A thread started by Electron's main process inherits a heap set
+ * for running an application, not for decoding photographs.
+ *
+ * Too large is the subtler half. V8 collects lazily against its ceiling, so a thread allowed four
+ * gigabytes will happily accumulate several before it bothers, and four such threads can put a
+ * machine into paging — where the symptom is not the compression slowing down but everything else
+ * stopping, the process that hosts them included.
+ *
+ * This is what one decode actually needs: the memory budget a single image may claim, and room to
+ * work around it. A worker only ever holds one image at a time, so it never needs more.
+ */
+function workerLimits() {
+    return { maxOldGenerationSizeMb: WORKER_HEAP_MB };
+}
+
+/** Room for the largest decode the budget will admit, and the working set around it. */
+const WORKER_HEAP_MB = 2048;
 
 function spawn(): PooledWorker | null {
     const entry = workerEntry();
@@ -179,12 +253,46 @@ function spawn(): PooledWorker | null {
     }
 
     try {
-        const pooled: PooledWorker = { worker: new Worker(entry.file, { execArgv: entry.execArgv }) };
+        const startedAt = Date.now();
+        const limits = workerLimits();
+        const worker = new Worker(entry.file, { execArgv: entry.execArgv, resourceLimits: limits });
+        // Read now rather than in the handlers: a thread that has exited reports its id as -1, which
+        // is the one moment the id is worth having.
+        const pooled: PooledWorker = { worker, threadId: worker.threadId };
 
-        pooled.worker.on("message", (response: ImageWorkerResponse) => pooled.pending?.(response));
+        // Rare enough to say out loud without asking: a handful of lines per process, and the ones
+        // that answer "did a thread ever start, and did it stay up" — which is the whole question
+        // when a run stops making progress.
+        getLog().info(`Image Compression Tool: starting a worker with a `
+            + `${limits.maxOldGenerationSizeMb} MB heap from ${entry.file}`);
+        pooled.worker.on("online",
+            () => getLog().info(`Image Compression Tool: worker ${pooled.threadId} online in ${Date.now() - startedAt}ms`));
+
+        pooled.worker.on("message", (response: ImageWorkerResponse | ImageWorkerTrace) => {
+            // Traces arrive while the image is still being worked on, so they are written straight
+            // out rather than waited for; only the answer settles the request.
+            if ("trace" in response) {
+                getLog().info(`Image Compression Tool: ${response.trace}`);
+
+                return;
+            }
+
+            pooled.pending?.(response);
+        });
         // A worker that dies takes its in-flight image with it; the image is failed, not the run.
-        pooled.worker.on("error", (error) => pooled.failed?.(error));
-        pooled.worker.on("exit", () => pooled.failed?.(new Error("Image worker exited.")));
+        pooled.worker.on("error", (error) => {
+            getLog().info(`Image Compression Tool: worker ${pooled.threadId} errored: ${firstLine(error)}`);
+            pooled.failed?.(error);
+        });
+        pooled.worker.on("exit", (code) => {
+            // A thread we stopped ourselves exits with a failure code too, so saying so plainly is
+            // the difference between "this is the pool tidying up" and "something died mid-image".
+            getLog().info(pooled.stopped
+                ? `Image Compression Tool: worker ${pooled.threadId} stopped`
+                : `Image Compression Tool: worker ${pooled.threadId} exited unexpectedly with code ${code}`
+                    + `${pooled.pending ? " while working on an image" : " while idle"}`);
+            pooled.failed?.(new Error(`Image worker exited with code ${code}.`));
+        });
         pooled.worker.unref();
 
         return pooled;
@@ -221,16 +329,25 @@ function send(
     budgetMb: number
 ): Promise<ImageWorkerResponse> {
     const message: ImageWorkerRequest = { id: ++lastRequestId, buffer, request, budgetMb };
+    const sentAt = Date.now();
+
+    trace(`sending image #${message.id} (${buffer.byteLength} bytes) to worker ${worker.threadId}`
+        + ` — ${started} started, ${idle.length} idle, ${waiting.length} waiting`);
 
     return new Promise<ImageWorkerResponse>((resolve, reject) => {
         // A thread that took an image and went quiet would otherwise hold the run open with nothing
         // to show for it. Generous, because a large decode legitimately takes minutes; expiring is
         // treated as the worker having failed, and the image is compressed here instead.
-        const expiry = setTimeout(
-            () => reject(new Error("Image worker did not answer in time.")), WORKER_REPLY_TIMEOUT_MS);
+        const expiry = setTimeout(() => {
+            getLog().info(
+                `Image Compression Tool: worker ${worker.threadId} did not answer for image `
+                + `#${message.id} within ${WORKER_REPLY_TIMEOUT_MS}ms; giving up on it`);
+            reject(new Error("Image worker did not answer in time."));
+        }, WORKER_REPLY_TIMEOUT_MS);
 
         worker.pending = (response) => {
             clearTimeout(expiry);
+            trace(`worker ${worker.threadId} answered image #${message.id} in ${Date.now() - sentAt}ms`);
             resolve(response);
         };
         worker.failed = (error) => {
@@ -246,7 +363,31 @@ function send(
     });
 }
 
-const WORKER_REPLY_TIMEOUT_MS = 5 * 60 * 1000;
+/**
+ * How long a worker is given to answer before it is written off.
+ *
+ * Deliberately far longer than any decode should take, because the cost of being wrong in this
+ * direction is small and the cost of being wrong in the other is not. Two minutes looked generous
+ * against images that decode in seconds — until an image near the size ceiling, sharing the memory
+ * bus with three others, legitimately took longer than that. Killing it did not save any time: the
+ * work fell back onto the thread serving the application, blocked it for twenty seconds, and made
+ * the next worker time out in turn.
+ *
+ * So this is for a thread that has genuinely stopped, not for one that is taking a while. A run
+ * meets that at most once per worker, and the images are not waiting on anything else meanwhile.
+ */
+const WORKER_REPLY_TIMEOUT_MS = 15 * 60 * 1000;
+
+/**
+ * Per-image tracing, off unless asked for: a cleanup over a large tree would otherwise write two
+ * lines per image into the log a user reads. Set `TRILIUM_IMAGE_WORKER_DEBUG` to follow a run image
+ * by image; the worker reads the same variable and traces its own side to stdout.
+ */
+function trace(message: string) {
+    if (process.env.TRILIUM_IMAGE_WORKER_DEBUG) {
+        getLog().info(`Image Compression Tool: ${message}`);
+    }
+}
 
 let lastRequestId = 0;
 

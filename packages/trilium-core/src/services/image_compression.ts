@@ -18,6 +18,7 @@ import BAttachment from "../becca/entities/battachment.js";
 import type BNote from "../becca/entities/bnote.js";
 import { NotFoundError, ValidationError } from "../errors.js";
 import { getImageProvider, type ImageCompressionRequest } from "./image_provider.js";
+import { getContext } from "./context.js";
 import { getLog } from "./log.js";
 import optionService from "./options.js";
 import { runWithinBudget } from "./parallel_budget.js";
@@ -447,10 +448,15 @@ async function compressTargets(targets: CompressionTarget[], request: ImageCompr
         }
     }
 
+    const writes = createWriteBatch();
     const compressed = await runWithinBudget(
-        worthReading.map(({ target, cost }) => ({ cost, run: () => compressTarget(target, request) })),
+        worthReading.map(({ target, cost }) => ({ cost, run: () => compressTarget(target, request, writes) })),
         { totalBytes: COMPRESSION_BUDGET_BYTES, maxConcurrent: concurrency }
     );
+
+    // Nothing should be left — every write either filled a group or waited out its own timer — but
+    // saying so costs nothing and a run must not end holding work it has not committed.
+    writes.flush();
 
     // Back into the order they were visited in, which is the order they are reported in — the
     // schedule above is free to have run them in any other.
@@ -458,7 +464,7 @@ async function compressTargets(targets: CompressionTarget[], request: ImageCompr
         items[at] = compressed[index];
     });
 
-    return summarize(items);
+    return logRunEnd(summarize(items));
 }
 
 /**
@@ -487,6 +493,102 @@ function logRunStart(imageCount: number, concurrency: number) {
 
     getLog().info(`Image Compression Tool: started operation over ${images} ${how}.`);
 }
+
+/**
+ * Commits the run's writes in groups instead of one at a time.
+ *
+ * Every compressed image is a new blob written, an old one — often several megabytes — deleted, a
+ * row updated and a change recorded. On its own that is a small transaction; eight hundred of them
+ * back to back is gigabytes of pages through the write-ahead log, a commit and a flush each, and
+ * the checkpoints that follow. None of that stops the process, which is what makes it confusing to
+ * watch: the application keeps answering while the database it shares stops being available to
+ * anything else, the note holding the log included.
+ *
+ * Grouping them changes none of the writing and almost all of the committing.
+ *
+ * Flushed when the group is full *or* when one has been waiting: without the second, the last few
+ * images of a run would sit in a batch that never fills, and the run waits on them — which is a
+ * deadlock rather than a delay.
+ */
+function createWriteBatch() {
+    const pending: {
+        write: () => boolean;
+        settle: (saved: boolean) => void;
+        fail: (error: unknown) => void;
+    }[] = [];
+    let timer: ReturnType<typeof setTimeout> | undefined;
+
+    function flush() {
+        clearTimeout(timer);
+        timer = undefined;
+
+        const batch = pending.splice(0);
+
+        if (batch.length === 0) {
+            return;
+        }
+
+        try {
+            // Each write answers for itself inside the one transaction: a single image that cannot
+            // be written must not take the other twenty-four down with it, which is what letting
+            // the exception out would do.
+            // Given a context of its own, as every other write resumed after an asynchronous step
+            // is: a flush runs from a timer, by which point the one the request was carrying is no
+            // longer around it, and a transaction without one has no entity changes to record
+            // against. `image.ts` does the same after its own processing completes.
+            const outcomes = getContext().init(() => getSql().transactional(() => batch.map((entry) => {
+                try {
+                    return { saved: entry.write() };
+                } catch (error: unknown) {
+                    return { error };
+                }
+            })));
+
+            batch.forEach((entry, at) => {
+                const outcome = outcomes[at];
+
+                if ("error" in outcome) {
+                    entry.fail(outcome.error);
+                } else {
+                    entry.settle(outcome.saved);
+                }
+            });
+        } catch (error: unknown) {
+            // The transaction itself failed — not one write within it, but the whole thing, which
+            // leaves every image in this group unanswered.
+            //
+            // Answering them is the entire point of catching it. A flush runs from a timer, so an
+            // exception let out here goes nowhere anyone is watching, and the images waiting on it
+            // wait for a promise that will never settle: the run stops, silently and permanently,
+            // with its workers idle and nothing in the log to say why. Reporting the failure costs
+            // those images and nothing else.
+            getLog().error(`Image Compression Tool: a batch of ${batch.length} writes failed: ${error}`);
+            batch.forEach((entry) => entry.fail(error));
+        }
+    }
+
+    return {
+        /** Queues a write and answers once it has been committed, with whatever it answered. */
+        add(write: () => boolean): Promise<boolean> {
+            return new Promise<boolean>((settle, fail) => {
+                pending.push({ write, settle, fail });
+
+                if (pending.length >= WRITE_BATCH_SIZE) {
+                    flush();
+                } else if (!timer) {
+                    timer = setTimeout(flush, WRITE_BATCH_MS);
+                }
+            });
+        },
+        flush
+    };
+}
+
+/** Enough to make the commits rare, few enough that a run is never far from having saved its work. */
+const WRITE_BATCH_SIZE = 25;
+
+/** How long a write waits for company before going on its own. */
+const WRITE_BATCH_MS = 250;
 
 /**
  * What is already known about a target before reading it: the finished item where its fate was
@@ -539,13 +641,18 @@ async function foreseeTarget(target: CompressionTarget, request: ImageCompressio
  * Reads one image in full and compresses it. Reached only for images {@link foreseeTarget} could
  * not settle from the header, so the reading and the decoding are both known to be worth doing.
  */
-async function compressTarget(target: CompressionTarget, request: ImageCompressionRequest): Promise<ImageCompressionItem> {
+async function compressTarget(
+    target: CompressionTarget,
+    request: ImageCompressionRequest,
+    writes: ReturnType<typeof createWriteBatch>
+): Promise<ImageCompressionItem> {
     const skipped = (originalSize: number, skipReason: ImageCompressionSkipReason) =>
         skippedItem(target, originalSize, skipReason);
 
     // One image failing is reported as that image's own skip and nothing more: the images after it
     // in the same run are still worth compressing.
     let content: Uint8Array | undefined;
+    const startedAt = Date.now();
 
     try {
         content = target.getContent();
@@ -558,12 +665,16 @@ async function compressTarget(target: CompressionTarget, request: ImageCompressi
             return skipped(content.byteLength, outcome.reason);
         }
 
-        // The compression itself is asynchronous, so the write is a separate transaction of its
-        // own rather than one held open across it. Long enough, in fact, for the image to have been
-        // replaced meanwhile — by another request, or by an incoming synchronisation update — and
-        // these bytes are a smaller copy of the picture that replacement got rid of. Nothing here
-        // is worth putting that back, so the newer image wins and this one is reported as skipped.
-        const saved = getSql().transactional(() => target.save(outcome.buffer, outcome.format.mime, sourceBlobId));
+        // Queued rather than written here and now: the compression was asynchronous, so this is a
+        // transaction of its own either way, and one shared with the images finishing around it
+        // costs the database a fraction of what eight hundred separate commits do.
+        //
+        // The wait is long enough for the image to have been replaced meanwhile — by another
+        // request, or by an incoming synchronisation update — and these bytes are a smaller copy of
+        // the picture that replacement got rid of. Nothing here is worth putting that back, so the
+        // newer image wins and this one is reported as skipped. The check happens inside the
+        // transaction, whichever group it lands in.
+        const saved = await writes.add(() => target.save(outcome.buffer, outcome.format.mime, sourceBlobId));
 
         if (!saved) {
             getLog().info(
@@ -573,8 +684,14 @@ async function compressTarget(target: CompressionTarget, request: ImageCompressi
             return skipped(content.byteLength, "changed");
         }
 
+        // The elapsed time rides on the line that was being written anyway. Per-image timing is the
+        // first thing wanted when a run is slower than it should be, and asking for it separately
+        // meant either a second line an image — which is what made the log a burden — or a setting
+        // nobody has turned on at the moment they need it. This covers the whole of an image's
+        // handling: reading it, compressing it, and waiting for its write to be committed.
         getLog().info(
-            `Compressed ${target.entityType} '${target.entityId}' from ${content.byteLength} to ${outcome.buffer.byteLength} bytes.`
+            `Compressed ${target.entityType} '${target.entityId}' from ${content.byteLength} to `
+            + `${outcome.buffer.byteLength} bytes in ${Date.now() - startedAt}ms.`
         );
 
         return {
@@ -617,6 +734,35 @@ function logFailure(target: CompressionTarget, e: unknown) {
     const error = e as Error;
 
     getLog().error(`Failed to compress ${target.entityType} '${target.entityId}': ${error?.stack ?? error}`);
+}
+
+/**
+ * Says how a run ended, which until now nothing did.
+ *
+ * A run that finished and a run that stopped part-way looked exactly alike in the log: images going
+ * by, and then no more lines. Saying so plainly is the difference between "it is still working" and
+ * "it is done" — and the tally of what was left alone is usually the answer to why so few images
+ * were touched at all.
+ */
+function logRunEnd(response: ImageCompressionResponse): ImageCompressionResponse {
+    if (response.items.length > 0) {
+        const reasons = new Map<string, number>();
+
+        response.items.filter((item) => !item.compressed).forEach((item) => {
+            const reason = item.skipReason ?? "unknown";
+
+            reasons.set(reason, (reasons.get(reason) ?? 0) + 1);
+        });
+
+        const left = [ ...reasons ].map(([ reason, count ]) => `${count} ${reason}`).join(", ");
+
+        getLog().info(
+            `Image Compression Tool: finished — ${response.compressedCount} compressed, `
+            + `${response.skippedCount} left alone${left ? ` (${left})` : ""}, `
+            + `${response.savedSize} bytes saved.`);
+    }
+
+    return response;
 }
 
 function summarize(items: ImageCompressionItem[]): ImageCompressionResponse {

@@ -20,8 +20,13 @@ import isSvg from "is-svg";
 import { Jimp } from "jimp";
 import * as UPNG from "upng-js";
 
-/** Where a line the codec wants written goes. Dropped by default, since nothing here needs it. */
-export type CodecLog = (message: string) => void;
+/**
+ * Where a line the codec wants written goes. Dropped by default, since nothing here needs it.
+ *
+ * `detail` marks a line that is worth having while investigating and not worth having otherwise —
+ * one per image, which over a run is most of a log. The host decides what to do with that.
+ */
+export type CodecLog = (message: string, detail?: boolean) => void;
 
 const IGNORE_LOG: CodecLog = () => {};
 
@@ -46,19 +51,23 @@ const COMPRESSIBLE_EXTENSIONS = new Set<string>(IMAGE_COMPRESSIBLE_FORMATS);
 export const DECODE_MEMORY_MB = 1024;
 
 /**
- * What a decode is taken to want, per pixel of the image.
+ * What a decode is taken to want, per pixel of the image — the most it might, not the usual.
  *
  * jpeg-js counts every allocation it makes and credits none of them back, so what it weighs against
  * its budget is the sum of all of them: the coefficient blocks it holds per component (4 bytes a
  * pixel each), the per-component planes (1 each), the interleaved component data (1 a component)
- * and the RGBA bitmap at the end (4). For an ordinary photograph, whose chroma planes are stored at
- * a quarter resolution, that comes to about 15.
+ * and the RGBA bitmap at the end (4). A photograph whose chroma is stored at quarter resolution
+ * comes to about 15; one stored without any subsampling — which is what jimp itself writes — comes
+ * to 22. This is the second figure, rounded up.
  *
- * Rounded up from there, so the ceiling below sits inside the budget rather than exactly on it. An
- * image stored without chroma subsampling wants nearer 22 and can still exceed the budget while
- * under this ceiling; that decode fails as it always did, reported against the one image.
+ * Taking the usual case instead was a mistake worth recording. This governs two things: how many
+ * decodes a caller will run at once, and how large an image is refused rather than attempted. Under-
+ * counting made a sixty-megapixel image look like it would fit a gigabyte, so it was admitted,
+ * reserved almost the whole budget, held every other image behind it for as long as the decode
+ * took, and then had a fair chance of exceeding the decoder's own ceiling and failing anyway. A run
+ * that stops dead on one enormous image is a far worse outcome than one that declines to touch it.
  */
-const DECODE_BYTES_PER_PIXEL = 16;
+const DECODE_BYTES_PER_PIXEL = 24;
 
 export type CompressionPlan =
     | { verdict: "skip"; reason: ImageCompressionSkipReason }
@@ -381,7 +390,10 @@ export async function compressImageBytes(
         result = await image.getBuffer("image/png");
     }
 
-    log(`Compressing image of ${buffer.byteLength} bytes took ${Date.now() - start}ms`);
+    // The pixels, not just the bytes: a well-compressed photograph can be a tenth the size of a
+    // plain one and ten times the work, and without this the log gives no way to tell the two apart.
+    log(`Compressing image of ${buffer.byteLength} bytes (${width}x${height}, `
+        + `${(width * height / 1e6).toFixed(1)} MP) took ${Date.now() - start}ms`, true);
 
     if (result.byteLength >= buffer.byteLength) {
         // A small or already well-compressed image can grow; the original stays.

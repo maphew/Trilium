@@ -23,8 +23,19 @@ import {
     planFromBytes
 } from "./image_codec.js";
 
-/** Lines the codec produced, written where the rest of the server's logging goes. */
-const toBackendLog = (message: string) => getLog().info(message);
+/**
+ * Lines the codec produced, written where the rest of the server's logging goes.
+ *
+ * Per-image detail is dropped unless it was asked for. The backend log is a note the client reads,
+ * and re-reads as it grows: a line an image over several hundred images is most of that file, and
+ * serving it back is work this process does instead of compressing. Set
+ * `TRILIUM_IMAGE_WORKER_DEBUG` to keep them.
+ */
+const toBackendLog = (message: string, detail?: boolean) => {
+    if (!detail || process.env.TRILIUM_IMAGE_WORKER_DEBUG) {
+        getLog().info(message);
+    }
+};
 
 async function shrinkImage(buffer: Uint8Array, originalName: string): Promise<Uint8Array> {
     let jpegQuality = optionService.getOptionInt("imageJpegQuality", 0);
@@ -124,22 +135,24 @@ export const serverImageProvider: ImageProvider = {
             : { decodeCost: decodeCostOf(plan.declared) };
     },
 
+    /**
+     * Compresses off-thread where there are threads to do it on, and here where there are not.
+     *
+     * The distinction matters more than it looks. "No workers at all" is a property of the
+     * installation — nothing was found to run, or nothing would start — and doing the work here is
+     * then the only way to do it, exactly as before there were workers. "A worker failed on this
+     * image" is a different thing entirely, and answering it by decoding here is a cure worse than
+     * the illness: a decode does not yield, so the thread that serves the application stops serving
+     * it for as long as it takes, several times over if several workers are failing. That is the
+     * application freezing in order to save one image.
+     *
+     * So a failed worker fails its image. The run carries on, the image is reported untouched, and
+     * running the tool again picks it up — none of which requires the application to stop.
+     */
     async compressImage(buffer: Uint8Array, request: ImageCompressionRequest): Promise<ImageCompressionOutcome> {
-        try {
-            const offThread = await compressInWorker(buffer, request, DECODE_MEMORY_MB);
+        const offThread = await compressInWorker(buffer, request, DECODE_MEMORY_MB);
 
-            if (offThread) {
-                return offThread;
-            }
-        } catch (e: unknown) {
-            // The image is not given up on because a thread was: the work is perfectly possible
-            // here, only slower and in the way. Said per image, since a worker dying mid-run is a
-            // different matter from there being no workers at all — which is said once, by the pool.
-            getLog().info(
-                `Image Compression Tool: a worker failed (${(e as Error).message}); compressing here instead.`);
-        }
-
-        return compressImageBytes(buffer, request, toBackendLog);
+        return offThread ?? compressImageBytes(buffer, request, toBackendLog);
     },
 
     compressionConcurrency
