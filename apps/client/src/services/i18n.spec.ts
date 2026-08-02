@@ -139,6 +139,71 @@ describe("i18n", () => {
             ).toEqual([]);
         });
 
+        /** The `text-editor.ck` section of every locale that has one, keyed by locale id. */
+        function gatherEditorSections(): [ string, Record<string, string> ][] {
+            const sections: [ string, Record<string, string> ][] = [];
+
+            for (const locale of LOCALES) {
+                if (locale.contentOnly || locale.id === "en_rtl") continue;
+
+                const catalog = JSON.parse(readFileSync(
+                    join(__dirname, "..", "translations", locale.id, "translation.json"),
+                    { encoding: "utf-8" }
+                ));
+                const section = resolveKey(catalog, "text-editor.ck");
+                if (section) sections.push([ locale.id, section as Record<string, string> ]);
+            }
+
+            // Guards the checks below against passing on an empty corpus, were the section ever
+            // renamed or moved.
+            if (sections.length < 2) throw new Error("expected editor messages in English and at least one translation");
+
+            return sections;
+        }
+
+        /** The `%0`, `%1`, … a message interpolates, as a set — a translation may reorder them. */
+        function placeholders(message: string): string[] {
+            return [ ...new Set(message.match(/%\d/g) ?? []) ].sort();
+        }
+
+        // These strings are interpolated by CKEditor, which substitutes `%0`, `%1`, … — the
+        // convention `translateMessage()` mirrors for the strings built before an editor exists.
+        // i18next's `{{name}}` is never substituted on this path and would reach the user verbatim,
+        // and it is an easy thing to reach for, since every other string in the catalog uses it.
+        it("interpolates with CKEditor's %0 placeholders rather than i18next's {{…}}", () => {
+            const offenders = [
+                ...gatherEditorMessages().map((message) => [ "the editor sources", message ] as const),
+                ...gatherEditorSections().flatMap(([ localeId, section ]) =>
+                    Object.entries(section).map(([ key, value ]) => [ `${localeId} (${key})`, value ] as const))
+            ].filter(([ , message ]) => /\{\{.*?\}\}/.test(message));
+
+            expect(
+                offenders.map(([ where, message ]) => `  - ${where}: "${message}"`),
+                "Editor messages using i18next interpolation, which CKEditor leaves untouched:"
+            ).toEqual([]);
+        });
+
+        // A translation that drops a placeholder swallows the value the editor passes for it; one
+        // that invents a placeholder renders `%1` at the user, since nothing is substituted for it.
+        it("keeps the placeholders of the English message in every translation", () => {
+            const english = (resolveKey(
+                JSON.parse(readFileSync(translationPath, { encoding: "utf-8" })), "text-editor.ck"
+            ) ?? {}) as Record<string, string>;
+
+            const mismatched = gatherEditorSections()
+                .filter(([ localeId ]) => localeId !== "en")
+                .flatMap(([ localeId, section ]) => Object.entries(section)
+                    // A key English no longer declares is the orphan test's business, not this one.
+                    .filter(([ key ]) => key in english)
+                    .filter(([ key, value ]) => placeholders(value).join() !== placeholders(english[key]).join())
+                    .map(([ key, value ]) =>
+                        `  - ${localeId} "${key}": "${value}" carries ${
+                            placeholders(value).join(", ") || "no placeholder"} where "${english[key]}" carries ${
+                            placeholders(english[key]).join(", ") || "none"}`));
+
+            expect(mismatched, "Translations whose placeholders don't match their English message:").toEqual([]);
+        });
+
         it("has no English entry that no plugin asks for", () => {
             const translations = JSON.parse(readFileSync(translationPath, { encoding: "utf-8" }));
             const declared = (resolveKey(translations, "text-editor.ck") ?? {}) as Record<string, string>;
