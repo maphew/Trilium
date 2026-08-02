@@ -2682,8 +2682,7 @@
     "copy_image_to_clipboard": "Copy image to clipboard"
   },
   "link": {
-    "failed_to_open": "Failed to open link '{{- href}}': {{- message}}",
-    "copy_url": "Copy URL"
+    "failed_to_open": "Failed to open link '{{- href}}': {{- message}}"
   },
   "link_embed": {
     "play_video": "Play video",
@@ -3594,6 +3593,7 @@
       "collapsible-block": "Collapsible block",
       "copy-formatting": "Copy formatting",
       "copy-image-to-clipboard": "Copy image to clipboard",
+      "copy-url": "Copy URL",
       "create-a-bulleted-list": "Create a bulleted list",
       "create-a-new-footnote-and-reference-it-here": "Create a new footnote and reference it here",
       "create-a-numbered-list": "Create a numbered list",

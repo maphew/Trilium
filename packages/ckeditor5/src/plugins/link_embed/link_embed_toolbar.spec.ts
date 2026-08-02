@@ -625,11 +625,11 @@ describe("LinkEmbedToolbar", () => {
 
         beforeEach(async () => {
             copy = vi.fn();
-            // The copy button reaches the host through these two config entries, which the editor
-            // config type does not declare (the host sets them the same way, via a cast).
+            // The copy button reaches the host through `clipboard`, which the editor config type
+            // does not declare (the host sets it the same way, via a cast). Its label comes from
+            // the editor's own dictionary, not from the host.
             const hostConfig = {
-                clipboard: { copy },
-                translate: (key: string) => `translated:${key}`
+                clipboard: { copy }
             } as unknown as Parameters<typeof createTestEditor>[1];
 
             editor = await createTestEditor([Essentials, Paragraph, LinkEmbed, LinkEmbedToolbar], hostConfig);
@@ -669,7 +669,7 @@ describe("LinkEmbedToolbar", () => {
 
         it("linkEmbedCopyUrl copies the selected widget's URL through the host clipboard", () => {
             const button = createButton("linkEmbedCopyUrl");
-            expect(button.label).toBe("translated:link.copy_url");
+            expect(button.label).toBe("Copy URL");
 
             // With nothing selected there is no URL, so nothing is copied.
             button.fire("execute");
