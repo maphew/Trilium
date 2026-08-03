@@ -33,24 +33,35 @@ export function safeHostname(url: string): string {
  * Fetches link metadata from the server. Called once at link creation time.
  * The returned metadata is then stored in the note's HTML as data attributes.
  *
- * When `ownerNoteId` is given, the preview image is stored as an attachment of that note and only
- * its `api/attachments/...` URL ends up in the metadata. Inlined as a base64 data URI it would be
- * 10–140KB of note content per preview — enough for a single card to push the note past the
- * `autoReadonlySizeText` threshold (32KB by default) and flip it read-only.
+ * When `ownerNoteId` is given, both pictures a preview carries — the card image and the favicon —
+ * are stored as attachments of that note, and only their `api/attachments/...` URLs end up in the
+ * metadata. Inlined as base64 data URIs they are 10–140KB of note content for a card image and
+ * 1–10KB for a favicon, and that lands in the note's HTML, where it is synced and revisioned like
+ * any other content. A single card is enough to push a note past the `autoReadonlySizeText`
+ * threshold (32KB by default) and flip it read-only; favicons get there by repetition instead,
+ * since a note that links a site once usually links it many times and each copy carries the icon
+ * again.
  */
 export async function fetchMetadata(url: string, ownerNoteId?: string): Promise<EmbedMetadata> {
     try {
         // POSTed rather than passed in the query string: a URL can carry a one-time token or a
         // signed signature, and a query string ends up in every access log along the way.
         const metadata = await server.post<LinkEmbedMetadata>("link-embed/metadata", { url });
+        // Uploaded together: they are two independent requests and a preview needs both before it
+        // can be stored.
+        const [ favicon, image ] = await Promise.all([
+            offloadPictureToAttachment(metadata.favicon, ownerNoteId),
+            offloadPictureToAttachment(metadata.image, ownerNoteId)
+        ]);
+
         return {
             url: metadata.url,
             embedType: metadata.embedType,
             title: metadata.title,
             description: metadata.description,
-            favicon: metadata.favicon,
+            favicon,
             siteName: metadata.siteName,
-            image: await offloadImageToAttachment(metadata.image, ownerNoteId),
+            image,
             unresolved: metadata.unresolved
         };
     } catch {
@@ -64,19 +75,19 @@ export async function fetchMetadata(url: string, ownerNoteId?: string): Promise<
 }
 
 /**
- * Converts a base64 preview image into an attachment of the owning note, returning its
- * `api/attachments/...` URL — or the data URI unchanged when the upload fails, so the preview
- * still persists and renders, just at the old inline cost.
+ * Converts one of a preview's base64 pictures into an attachment of the owning note, returning its
+ * `api/attachments/...` URL — or the data URI unchanged when the upload fails, so the preview still
+ * persists and renders, just at the old inline cost.
  *
- * Only the card image is offloaded. The favicon stays inline on purpose: it is a few KB, and it is
- * carried by inline mentions too, where an attachment per mention would flood the attachment list.
+ * Both pictures go through this, so both are subject to the same rule at the render sinks: only an
+ * inline image or an attachment of this instance is ever loaded (see `isLocalPreviewImageSrc`).
  */
-async function offloadImageToAttachment(image: string | undefined, ownerNoteId: string | undefined): Promise<string | undefined> {
-    if (!image || !ownerNoteId || !image.startsWith("data:")) {
-        return image;
+async function offloadPictureToAttachment(picture: string | undefined, ownerNoteId: string | undefined): Promise<string | undefined> {
+    if (!picture || !ownerNoteId || !picture.startsWith("data:")) {
+        return picture;
     }
 
-    return await uploadImageAttachment(ownerNoteId, image) ?? image;
+    return await uploadImageAttachment(ownerNoteId, picture) ?? picture;
 }
 
 // ---------------------------------------------------------------------------
@@ -206,8 +217,8 @@ function EmbedPreview({ meta, editable }: { meta: EmbedMetadata; editable?: bool
                 {meta.title && <div className="link-embed-card-title">{meta.title}</div>}
                 {meta.description && <div className="link-embed-card-description">{meta.description}</div>}
                 <div className="link-embed-card-url">
-                    {/* The same favicon the inline mention shows, read from the metadata already stored
-                        on the element — the data URI is not duplicated. */}
+                    {/* The same favicon the inline mention shows, read from the metadata already
+                        stored on the element. */}
                     <Favicon src={meta.favicon} />
                     <span>{meta.siteName || safeHostname(meta.url)}</span>
                 </div>

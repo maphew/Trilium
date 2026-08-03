@@ -115,52 +115,60 @@ describe("fetchMetadata", () => {
         expect(result.unresolved).toBe(true);
     });
 
-    describe("image offload to attachment", () => {
+    describe("picture offload to attachments", () => {
         const metaWithDataUriImage = {
             url: "https://example.com",
             embedType: "opengraph",
             title: "Title",
-            favicon: "data:image/png;base64,FAV",
+            favicon: "data:image/x-icon;base64,FAV",
             image: "data:image/jpeg;base64,IMG"
         };
 
-        it("stores the image as an attachment of the owning note, keeping the favicon inline", async () => {
+        it("stores both the card image and the favicon as attachments of the owning note", async () => {
             server.post = vi.fn(async () => metaWithDataUriImage) as typeof server.post;
-            uploadImageAttachmentMock.mockResolvedValueOnce("api/attachments/att1/image/image.jpg");
+            uploadImageAttachmentMock
+                .mockResolvedValueOnce("api/attachments/att1/image/favicon.ico")
+                .mockResolvedValueOnce("api/attachments/att2/image/image.jpg");
 
             const result = await fetchMetadata("https://example.com", "note1");
 
-            expect(uploadImageAttachmentMock).toHaveBeenCalledExactlyOnceWith("note1", "data:image/jpeg;base64,IMG");
-            // Only the attachment URL lands in the note content — inlined base64 would count against
-            // the auto-read-only size threshold. The favicon stays inline: it is small and shared
-            // with inline mentions.
-            expect(result.image).toBe("api/attachments/att1/image/image.jpg");
-            expect(result.favicon).toBe("data:image/png;base64,FAV");
+            expect(uploadImageAttachmentMock).toHaveBeenCalledWith("note1", "data:image/x-icon;base64,FAV");
+            expect(uploadImageAttachmentMock).toHaveBeenCalledWith("note1", "data:image/jpeg;base64,IMG");
+            // Only the attachment URLs land in the note content — inlined base64 counts against the
+            // auto-read-only size threshold, and a favicon pays that cost once per link rather than
+            // once per note.
+            expect(result.favicon).toBe("api/attachments/att1/image/favicon.ico");
+            expect(result.image).toBe("api/attachments/att2/image/image.jpg");
         });
 
         it("keeps the data URI when the upload fails, so the preview still persists", async () => {
             server.post = vi.fn(async () => metaWithDataUriImage) as typeof server.post;
-            uploadImageAttachmentMock.mockResolvedValueOnce(null);
+            uploadImageAttachmentMock.mockResolvedValue(null);
 
             const result = await fetchMetadata("https://example.com", "note1");
 
             expect(result.image).toBe("data:image/jpeg;base64,IMG");
+            expect(result.favicon).toBe("data:image/x-icon;base64,FAV");
         });
 
-        it("does not upload without an owning note, a non-data-URI image, or a missing image", async () => {
+        it("does not upload without an owning note, a non-data-URI picture, or a missing one", async () => {
             uploadImageAttachmentMock.mockClear();
 
             server.post = vi.fn(async () => metaWithDataUriImage) as typeof server.post;
             const withoutNote = await fetchMetadata("https://example.com");
             expect(withoutNote.image).toBe("data:image/jpeg;base64,IMG");
+            expect(withoutNote.favicon).toBe("data:image/x-icon;base64,FAV");
 
-            server.post = vi.fn(async () => ({ ...metaWithDataUriImage, image: "https://img.example/x.png" })) as typeof server.post;
-            const remoteImage = await fetchMetadata("https://example.com", "note1");
-            expect(remoteImage.image).toBe("https://img.example/x.png");
+            const remote = { ...metaWithDataUriImage, image: "https://img.example/x.png", favicon: "https://img.example/f.ico" };
+            server.post = vi.fn(async () => remote) as typeof server.post;
+            const remotePictures = await fetchMetadata("https://example.com", "note1");
+            expect(remotePictures.image).toBe("https://img.example/x.png");
+            expect(remotePictures.favicon).toBe("https://img.example/f.ico");
 
-            server.post = vi.fn(async () => ({ ...metaWithDataUriImage, image: undefined })) as typeof server.post;
-            const noImage = await fetchMetadata("https://example.com", "note1");
-            expect(noImage.image).toBeUndefined();
+            server.post = vi.fn(async () => ({ ...metaWithDataUriImage, image: undefined, favicon: undefined })) as typeof server.post;
+            const noPictures = await fetchMetadata("https://example.com", "note1");
+            expect(noPictures.image).toBeUndefined();
+            expect(noPictures.favicon).toBeUndefined();
 
             expect(uploadImageAttachmentMock).not.toHaveBeenCalled();
         });

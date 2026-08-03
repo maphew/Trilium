@@ -38,9 +38,10 @@ describe("Note type mappings", () => {
         }
     });
 
-    it("inlines a link preview's data-image attachment as base64 in single-note HTML export", () => {
-        // A link preview references its card image attachment from `data-image`, not an <img src>;
-        // the single-file export must inline it the same way to stay self-contained.
+    it("inlines both of a link preview's picture attachments as base64 in single-note HTML export", () => {
+        // A link preview references its card image and its favicon from `data-image` and
+        // `data-favicon`, not from an <img src>; the single-file export must inline both the same
+        // way to stay self-contained.
         const note = buildNote({ type: "text", title: "Preview" });
         const fakeAttachment = {
             mime: "image/jpeg",
@@ -50,11 +51,14 @@ describe("Note type mappings", () => {
 
         try {
             const content = `<section class="link-embed" data-url="https://example.com"`
-                + ` data-image="api/attachments/att1/image/preview.jpg"></section>`;
+                + ` data-image="api/attachments/att1/image/preview.jpg"`
+                + ` data-favicon="api/attachments/att2/image/favicon.ico"></section>`;
             const { payload } = mapByNoteType(note, content, "html");
 
             expect(getAttachment).toHaveBeenCalledWith("att1");
+            expect(getAttachment).toHaveBeenCalledWith("att2");
             expect(payload).toContain(`data-image="data:image/jpeg;base64,AQID"`);
+            expect(payload).toContain(`data-favicon="data:image/jpeg;base64,AQID"`);
             expect(payload).not.toContain("api/attachments");
         } finally {
             getAttachment.mockRestore();

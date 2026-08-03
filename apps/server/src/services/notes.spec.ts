@@ -113,18 +113,41 @@ describe("checkImageAttachments", () => {
             expect(att.save).not.toHaveBeenCalled();
         });
 
-        it("keeps attachments referenced from a link preview's data-image attribute alive", () => {
-            const note = buildNote({ title: "Test", attachments: [{ title: "image.jpg", role: "image", mime: "image/jpeg" }] });
+        it("keeps attachments referenced from a link preview's picture attributes alive", () => {
+            const note = buildNote({
+                title: "Test",
+                attachments: [
+                    { title: "image.jpg", role: "image", mime: "image/jpeg" },
+                    { title: "favicon.ico", role: "image", mime: "image/x-icon" }
+                ]
+            });
             mockAttachmentSaves(note);
-            const [att] = note.getAttachments();
-            att.utcDateScheduledForErasureSince = "2025-01-01 00:00:00.000Z";
+            const [ image, favicon ] = note.getAttachments();
+            image.utcDateScheduledForErasureSince = "2025-01-01 00:00:00.000Z";
+            favicon.utcDateScheduledForErasureSince = "2025-01-01 00:00:00.000Z";
 
-            // A link preview carries its card image in a data attribute, not an <img src>.
-            const content = `<section class="link-embed" data-url="https://example.com"` +
-                ` data-image="api/attachments/${att.attachmentId}/image/image.jpg"></section>`;
+            // A link preview carries both of its pictures in data attributes, not in an <img src>:
+            // the card image, and the favicon an inline mention shows on its own.
+            const content = `<section class="link-embed" data-url="https://example.com"`
+                + ` data-image="api/attachments/${image.attachmentId}/image/image.jpg"`
+                + ` data-favicon="api/attachments/${favicon.attachmentId}/image/favicon.ico"></section>`;
             checkImageAttachments(note, content);
 
-            expect(att.utcDateScheduledForErasureSince).toBeNull();
+            expect(image.utcDateScheduledForErasureSince).toBeNull();
+            expect(favicon.utcDateScheduledForErasureSince).toBeNull();
+        });
+
+        it("keeps a mention's favicon alive, which is all an inline mention carries", () => {
+            const note = buildNote({ title: "Test", attachments: [{ title: "favicon.ico", role: "image", mime: "image/x-icon" }] });
+            mockAttachmentSaves(note);
+            const [ favicon ] = note.getAttachments();
+            favicon.utcDateScheduledForErasureSince = "2025-01-01 00:00:00.000Z";
+
+            const content = `<span class="link-mention" data-url="https://example.com"`
+                + ` data-favicon="api/attachments/${favicon.attachmentId}/image/favicon.ico"></span>`;
+            checkImageAttachments(note, content);
+
+            expect(favicon.utcDateScheduledForErasureSince).toBeNull();
         });
 
         it("schedules unreferenced attachments for erasure", () => {

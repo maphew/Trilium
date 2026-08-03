@@ -44,10 +44,11 @@ export function safeLinkPreviewHref(url: string | undefined | null): string {
  *
  * The metadata pipeline never produces anything else. The server downloads the favicon and the card
  * image itself and hands back base64 `data:` URIs, precisely so that the note carries the picture
- * instead of hotlinking the origin site; the client then offloads the larger card image into an
- * attachment and stores its `api/attachments/…` URL. So a *remote* URL in `data-favicon` /
- * `data-image` is illegitimate by construction — the mirror image of the {@link isHttpUrl} rule for
- * `data-url`, where http(s) is the only legitimate case.
+ * instead of hotlinking the origin site; the client then offloads both into attachments and stores
+ * their `api/attachments/…` URLs, leaving the inline form only for a preview whose upload failed
+ * and for notes written before that. So a *remote* URL in `data-favicon` / `data-image` is
+ * illegitimate by construction — the mirror image of the {@link isHttpUrl} rule for `data-url`,
+ * where http(s) is the only legitimate case.
  *
  * That matters because those attributes reach an `<img src>` that fires on page load with no click,
  * and `data-*` survives both sanitizers untouched (see {@link isHttpUrl}), so a note arriving by

@@ -5,6 +5,7 @@ import isSvg from "is-svg";
 import { Jimp } from "jimp";
 import { parse } from "node-html-parser";
 
+import { getImageTypeFromBuffer } from "../../services/image_codec.js";
 import { safeFetch, validateUrl } from "../../services/safe_fetch.js";
 
 const MAX_RESPONSE_SIZE = 512 * 1024; // 512KB
@@ -101,14 +102,33 @@ function toDataUri(contentType: string, buffer: Buffer): string {
 }
 
 /**
- * Downloads a favicon and returns it as a base64 data URI.
- * Returns undefined if the download fails or the image is too large.
+ * The media type to name a downloaded picture by, read from its own bytes, or undefined when the
+ * bytes are not a picture at all.
+ *
+ * The response header cannot answer this. `favicon.ico` is routinely served as
+ * `application/octet-stream` or `text/plain`, and the media type is not decoration: the client
+ * offloads these into attachments, and the upload endpoint decides whether it is storing a picture
+ * from the type the data URI declares. A favicon named by a careless header would be stored as a
+ * file, come back as a `#root/...` reference, and be rejected at the render sink.
+ *
+ * Undefined also covers the case the header hides in the other direction — an HTML error page
+ * served in place of an image, which is not something to keep whatever it claims to be.
+ */
+async function detectImageMime(buffer: Buffer): Promise<string | undefined> {
+    return (await getImageTypeFromBuffer(buffer))?.mime;
+}
+
+/**
+ * Downloads a favicon and returns it as a base64 data URI, named by its own bytes.
+ * Returns undefined if the download fails, the image is too large, or it is not an image.
  */
 async function downloadFaviconAsDataUri(faviconUrl: string): Promise<string | undefined> {
     const downloaded = await downloadBinary(faviconUrl, MAX_FAVICON_SIZE, "image/x-icon");
     if (!downloaded) return undefined;
 
-    return toDataUri(downloaded.contentType, downloaded.buffer);
+    const mime = await detectImageMime(downloaded.buffer);
+
+    return mime ? toDataUri(mime, downloaded.buffer) : undefined;
 }
 
 /**
@@ -160,16 +180,18 @@ async function downloadImageAsDataUri(imageUrl: string, minSourceDimension = 0):
     } catch (e: unknown) {
         // Jimp bundles decoders for PNG/JPEG/GIF/BMP/TIFF only, so a WebP or AVIF lands here. Keep
         // the original bytes when they are small enough — unresized, but still not hotlinked. The
-        // content type is checked so that an error page served in place of the image (an undecodable
-        // response that is not an image at all) is dropped rather than embedded. A caller that
-        // requires a minimum size gets nothing: undecodable means unverifiable.
+        // bytes are asked what they are, the same way a favicon's are, so that an error page served
+        // in place of the image (an undecodable response that is not an image at all) is dropped
+        // rather than embedded. A caller that requires a minimum size gets nothing: undecodable
+        // means unverifiable.
         // The URL is deliberately left out of the log: it is the user's private browsing, and a
         // pasted link can carry a one-time token in its path or query. The timestamp is enough to
         // match a log line against the paste that caused it.
         getLog().info(`Could not decode a link preview image: ${e}`);
-        return isSmallEnoughToKeepVerbatim && contentType.startsWith("image/") && !minSourceDimension
-            ? toDataUri(contentType, buffer)
-            : undefined;
+
+        const mime = isSmallEnoughToKeepVerbatim && !minSourceDimension ? await detectImageMime(buffer) : undefined;
+
+        return mime ? toDataUri(mime, buffer) : undefined;
     }
 }
 

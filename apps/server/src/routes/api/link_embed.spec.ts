@@ -47,6 +47,22 @@ async function makePng(width: number, height: number, color: number) {
     return Buffer.from(await image.getBuffer("image/png"));
 }
 
+/**
+ * A real icon directory of one entry, since a favicon is now named by what its bytes say it is
+ * rather than by the content type the site served it under.
+ */
+function makeIco(): Buffer {
+    const directory = Buffer.alloc(22);
+    directory.writeUInt16LE(1, 2); // type: icon
+    directory.writeUInt16LE(1, 4); // one entry
+    directory.writeUInt8(16, 6); // width
+    directory.writeUInt8(16, 7); // height
+    directory.writeUInt32LE(4, 14); // payload length
+    directory.writeUInt32LE(directory.length, 18); // where the payload starts
+
+    return Buffer.concat([ directory, Buffer.from([ 0, 0, 0, 0 ]) ]);
+}
+
 /** Decodes a `data:` URI back into its media type and bytes. */
 function parseDataUri(dataUri: string) {
     const match = /^data:([^;]+);base64,(.+)$/.exec(dataUri);
@@ -74,7 +90,7 @@ describe("link-embed getMetadata", () => {
 
     it("returns YouTube metadata via the oEmbed endpoint", async () => {
         safeFetch.mockImplementation(async (url: string) => {
-            if (url.includes("favicon")) return fakeResponse(Buffer.from([1, 2, 3]), { contentType: "image/x-icon" });
+            if (url.includes("favicon")) return fakeResponse(makeIco(), { contentType: "image/x-icon" });
             return fakeResponse("", { json: { title: "Cool Video", author_name: "Channel", thumbnail_url: "https://img/thumb.jpg" } });
         });
 
@@ -95,7 +111,7 @@ describe("link-embed getMetadata", () => {
         </head></html>`;
         const png = await makePng(40, 20, 0xff0000ff);
         safeFetch.mockImplementation(async (url: string) => {
-            if (url.includes("fav.ico")) return fakeResponse(Buffer.from([9, 9]), { contentType: "image/x-icon" });
+            if (url.includes("fav.ico")) return fakeResponse(makeIco(), { contentType: "image/x-icon" });
             if (url.includes("img.png")) return fakeResponse(png, { contentType: "image/png" });
             return fakeResponse(html, { contentType: "text/html" });
         });
@@ -310,7 +326,7 @@ describe("link-embed getMetadata", () => {
 
     it("uses a generic YouTube title when oEmbed is unavailable", async () => {
         safeFetch.mockImplementation(async (url: string) => {
-            if (url.includes("favicon")) return fakeResponse(Buffer.from([1]), { contentType: "image/x-icon" });
+            if (url.includes("favicon")) return fakeResponse(makeIco(), { contentType: "image/x-icon" });
             return fakeResponse("", { ok: false }); // oembed fails
         });
         const result = await linkEmbedRoute.getMetadata(req("https://youtu.be/dQw4w9WgXcQ"));
@@ -360,6 +376,31 @@ describe("link-embed getMetadata", () => {
 
         const result = await linkEmbedRoute.getMetadata(req("https://example.com/page"));
         expect(result.title).toBe("Plain");
+        expect(result.favicon).toBeUndefined();
+    });
+
+    it("names a favicon by its own bytes rather than by the content type it was served under", async () => {
+        const html = `<html><head><title>Plain</title><link rel="icon" href="/fav.ico"></head></html>`;
+        // Serving favicon.ico as an octet-stream is common enough to be the normal case on some
+        // hosts. The media type decides whether the client's upload of it is stored as a picture at
+        // all, so taking the header's word for it would leave the icon as a file attachment, which
+        // comes back as a `#root/...` reference the render sinks reject.
+        safeFetch.mockImplementation(async (url: string) => {
+            if (url.includes("fav.ico")) return fakeResponse(makeIco(), { contentType: "application/octet-stream" });
+            return fakeResponse(html, { contentType: "text/html" });
+        });
+
+        let result = await linkEmbedRoute.getMetadata(req("https://example.com/page"));
+        expect(parseDataUri(result.favicon ?? "").contentType).toBe("image/x-icon");
+
+        // And the same reading in the other direction: an error page served where the icon should
+        // be is not made into one by a content type claiming it is.
+        safeFetch.mockImplementation(async (url: string) => {
+            if (url.includes("fav.ico")) return fakeResponse("<html>Not found</html>", { contentType: "image/x-icon" });
+            return fakeResponse(html, { contentType: "text/html" });
+        });
+
+        result = await linkEmbedRoute.getMetadata(req("https://example.com/page"));
         expect(result.favicon).toBeUndefined();
     });
 
@@ -432,7 +473,7 @@ describe("link-embed getMetadata", () => {
         safeFetch.mockImplementation(async (url: string) => {
             if (url.includes("oembed")) return fakeResponse("", { json: {} });
             if (url.includes("hqdefault.jpg")) return fakeResponse(thumb, { contentType: "image/jpeg" });
-            if (url.includes("favicon")) return fakeResponse(Buffer.from([1]), { contentType: "image/x-icon" });
+            if (url.includes("favicon")) return fakeResponse(makeIco(), { contentType: "image/x-icon" });
             return fakeResponse("", { ok: false });
         });
 
@@ -462,7 +503,7 @@ describe("link-embed getMetadata", () => {
         const html = `<html><head><title>Plain</title><link rel="icon" href="/big.ico"></head></html>`;
         safeFetch.mockImplementation(async (url: string) => {
             if (url.includes("big.ico")) {
-                const big = fakeResponse(Buffer.from([1, 2, 3]), { contentType: "image/x-icon" });
+                const big = fakeResponse(makeIco(), { contentType: "image/x-icon" });
                 (big.headers as { get: (h: string) => string | null }).get = (h: string) =>
                     h.toLowerCase() === "content-length" ? String(1024 * 1024) : "image/x-icon";
                 return big;

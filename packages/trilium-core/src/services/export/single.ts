@@ -140,9 +140,10 @@ function inlineAttachments(content: string) {
         return `src="${srcValue}"`;
     });
 
-    // `data-image` is where link previews (section.link-embed) keep their card image reference;
-    // inlining it keeps the exported file self-contained just like an <img> src.
-    content = content.replace(/(src|data-image)="[^"]*api\/attachments\/([a-zA-Z0-9_]+)\/image\/?[^"]+"/g, (match, attrName, attachmentId) => {
+    // `data-image` and `data-favicon` are where link previews (section.link-embed,
+    // span.link-mention) keep their two picture references; inlining them keeps the exported file
+    // self-contained just like an <img> src.
+    content = content.replace(/(src|data-image|data-favicon)="[^"]*api\/attachments\/([a-zA-Z0-9_]+)\/image\/?[^"]+"/g, (match, attrName, attachmentId) => {
         const attachment = becca.getAttachment(attachmentId);
         if (!attachment || !attachment.mime.startsWith("image/")) {
             return match;
