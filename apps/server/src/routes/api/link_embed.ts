@@ -14,6 +14,7 @@ import { parse } from "node-html-parser";
 
 import { trimIcoToSmallestEntry } from "../../services/ico.js";
 import { getImageTypeFromBuffer } from "../../services/image_codec.js";
+import { findPageDescription } from "../../services/page_description.js";
 import { safeFetch, validateUrl } from "../../services/safe_fetch.js";
 
 const MAX_RESPONSE_SIZE = 512 * 1024; // 512KB
@@ -475,7 +476,11 @@ async function fetchOpenGraphData(url: string) {
         // Twitter tags are common enough to be worth the extra look. `getMeta` tries `property=`
         // and `name=` in turn, so it finds the tag under either spelling — the card spec says
         // `name`, and plenty of sites write `property` regardless.
-        description: getMeta("og:description") || getMeta("twitter:description") || getMeta("description") || undefined,
+        // ...and the page's own opening sentence where it publishes no description at all, which a
+        // Wikipedia article does not. See findPageDescription: only ever reached when the site has
+        // said nothing, a description written for the purpose being what it wants shown.
+        description: getMeta("og:description") || getMeta("twitter:description") || getMeta("description")
+            || findPageDescription(document),
         siteName: getMeta("og:site_name") || undefined,
         image,
         favicon

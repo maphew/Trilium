@@ -645,6 +645,26 @@ describe("link-embed getMetadata", () => {
         expect(await describedBy("")).toBeUndefined();
     });
 
+    it("falls back to the page's own opening sentence, but only where it says nothing itself", async () => {
+        const article = `<article><p>Fowler–Noll–Vo is a non-cryptographic hash function created by Glenn Fowler and others.</p></article>`;
+        const describedBy = async (head: string) => {
+            safeFetch.mockResolvedValue(fakeResponse(
+                `<html><head><title>T</title>${head}</head><body>${article}</body></html>`,
+                { contentType: "text/html" }
+            ));
+            return (await linkEmbedRoute.getMetadata(req("https://example.com/page"))).description;
+        };
+
+        // What a Wikipedia article offers: a title and nothing else.
+        expect(await describedBy("")).toBe("Fowler–Noll–Vo is a non-cryptographic hash function created by Glenn Fowler and others.");
+
+        // A description the site wrote for the purpose is what it wants shown, so every one of them
+        // comes first.
+        expect(await describedBy(`<meta property="og:description" content="Written for the card">`)).toBe("Written for the card");
+        expect(await describedBy(`<meta name="twitter:description" content="Written for the card">`)).toBe("Written for the card");
+        expect(await describedBy(`<meta name="description" content="Written for a search result">`)).toBe("Written for a search result");
+    });
+
     it("ignores a favicon that advertises a size over the limit", async () => {
         const html = `<html><head><title>Plain</title><link rel="icon" href="/big.ico"></head></html>`;
         safeFetch.mockImplementation(async (url: string) => {
