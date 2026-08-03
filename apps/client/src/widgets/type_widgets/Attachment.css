@@ -25,10 +25,27 @@
  */
 .attachment-list .attachment-group-choice {
     /* A flex item of the list's column, so without this it is stretched the width of the pane and the
-       two options grow into banners. Sized to its labels instead, as the app's other segmented choices
-       are. */
-    align-self: flex-start;
+       two options grow into banners. Centred over the list instead. */
+    align-self: center;
     margin-bottom: 12px;
+
+    /* Both halves are given the same width, and more of it than their labels ask for: the labels carry
+       a count, so sizing each to its own text would move the divider — and the whole control, being
+       centred — every time an attachment is added or removed.
+       Sized on the group rather than per button: the theme resets `min-width` on anything inside a
+       button group (`:root div.btn-group button.btn.btn-secondary` in theme-next/forms.css), which
+       outweighs anything scoped from here that is still worth reading. A minimum rather than a width,
+       so a locale whose labels run longer than English's grows the control instead of clipping it. */
+    .btn-group {
+        min-width: 20em;
+    }
+
+    /* Equal halves, which flex-basis decides rather than the labels' own widths — Bootstrap's
+       `flex: 1 1 auto` would hand each the space its text leaves over, making the wider label wider
+       still. */
+    .btn {
+        flex: 1 1 0;
+    }
 }
 /* #endregion */
 
