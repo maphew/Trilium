@@ -62,6 +62,12 @@ const MAX_VERBATIM_IMAGE_SIZE = 100 * 1024; // 100KB
 const MIN_ICON_AS_IMAGE_DIMENSION = 96;
 /** How many icon candidates to try before giving up, so a page full of <link rel="icon"> costs little. */
 const MAX_ICON_CANDIDATES = 3;
+/**
+ * The same cap for the favicon, which then always tries `/favicon.ico` besides. A page declaring
+ * more icons than this has already had its best three refuse to be downloaded, and the fourth is
+ * not where the icon was going to come from.
+ */
+const MAX_FAVICON_CANDIDATES = 3;
 
 /**
  * Reads the response body as text, stopping after maxBytes to avoid
@@ -384,18 +390,95 @@ function largestDeclaredSize(sizes: string | undefined): number {
 }
 
 /**
- * Resolves a favicon URL from the parsed HTML, then downloads it.
+ * The site's icon: the first candidate that yields one, or nothing.
+ *
+ * Trying more than one is the whole point. A declared `<link rel="icon">` is a promise, not a
+ * delivery — it 404s, it serves an error page under an image content type, it is one picture too
+ * large to keep — and taking only the first one and giving up left the preview with no icon at all
+ * in every one of those cases, including when the page also declared a perfectly good second icon.
  */
 async function resolveFavicon(document: ReturnType<typeof parse>, pageUrl: string): Promise<DownloadedPicture | undefined> {
-    const faviconEl = document.querySelector('link[rel="icon"]')
-        || document.querySelector('link[rel="shortcut icon"]')
-        || document.querySelector('link[rel="apple-touch-icon"]');
+    for (const candidate of collectFaviconCandidates(document, pageUrl)) {
+        const favicon = await downloadFavicon(candidate);
+        if (favicon) return favicon;
+    }
 
-    // `pageUrl` already passed validateUrl, so the conventional fallback always forms a URL.
-    const faviconUrl = toAbsoluteUrl(faviconEl?.getAttribute("href"), pageUrl)
-        ?? new URL("/favicon.ico", pageUrl).toString();
+    return undefined;
+}
 
-    return await downloadFavicon(faviconUrl);
+/**
+ * The page's icon URLs, ranked for an icon drawn at {@link FAVICON_TARGET_EDGE} and ending at the
+ * conventional `/favicon.ico`.
+ *
+ * Every `rel` naming an icon is collected, rather than the three exact spellings this used to ask
+ * for: `rel="shortcut icon"`, `rel="icon shortcut"` and `rel="apple-touch-icon-precomposed"` all
+ * mean the same thing to a browser, and a site writing any of them was read as declaring no icon.
+ *
+ * The ranking is the opposite of {@link collectIconCandidates}, which wants the largest picture it
+ * can find for a card. Here the smallest one that still covers a 3x display is the best: an icon
+ * declared 512x512 is a few tens of KB stored per site to draw 16 CSS pixels, and it is the ceiling
+ * on what may be kept that it tends to fall foul of. Scalable icons come first for costing nothing
+ * either way, and a Safari `mask-icon` comes last — it is a monochrome silhouette meant to be
+ * tinted, so it draws as a black blob wherever a real icon was expected.
+ */
+function collectFaviconCandidates(document: ReturnType<typeof parse>, pageUrl: string): string[] {
+    const candidates: { url: string; tier: number; size: number }[] = [];
+
+    for (const link of document.querySelectorAll("link")) {
+        const rel = (link.getAttribute("rel") || "").toLowerCase();
+        if (!rel.includes("icon")) continue;
+
+        const href = link.getAttribute("href") || "";
+        const url = toAbsoluteUrl(href, pageUrl);
+        if (!url) continue;
+
+        const declared = largestDeclaredSize(link.getAttribute("sizes"));
+        candidates.push({ url, size: declared, tier: faviconTier(rel, href, link.getAttribute("type"), declared) });
+    }
+
+    // Within a tier, the size decides — smallest of the big enough, largest of the too small — and
+    // ties keep the order the page declared them in, sort() being stable.
+    candidates.sort((a, b) => a.tier - b.tier || (a.tier === TIER_BIG_ENOUGH ? a.size - b.size : b.size - a.size));
+
+    const urls = [ ...new Set(candidates.map((candidate) => candidate.url)) ].slice(0, MAX_FAVICON_CANDIDATES);
+
+    // Every site is entitled to serve this whether it declares it or not, so it is the last resort
+    // rather than one of the ranked candidates. `pageUrl` already passed validateUrl, so it forms a
+    // URL. Appended after the cap, never dropped by it.
+    const conventional = new URL("/favicon.ico", pageUrl).toString();
+    if (!urls.includes(conventional)) {
+        urls.push(conventional);
+    }
+
+    return urls;
+}
+
+/** The order icons are worth trying in; see {@link faviconTier}. */
+const TIER_SCALABLE = 0;
+const TIER_BIG_ENOUGH = 1;
+const TIER_UNDECLARED = 2;
+const TIER_TOO_SMALL = 3;
+const TIER_MASK = 4;
+
+/**
+ * How promising an icon link is as a favicon, best first.
+ *
+ * An undeclared size sits between the two declared cases rather than being guessed at: it is what a
+ * plain `favicon.ico` carries, and that is usually an icon directory of several sizes, out of which
+ * {@link downloadFavicon} keeps the right one. Ranking it below what a page says is big enough, and
+ * above what a page says is too small, is exactly what it is worth.
+ */
+function faviconTier(rel: string, href: string, type: string | undefined, declared: number): number {
+    if (rel.includes("mask-icon")) return TIER_MASK;
+
+    const scalable = declared === Number.MAX_SAFE_INTEGER
+        || (type || "").toLowerCase().includes("svg")
+        || /\.svg([?#]|$)/i.test(href);
+
+    if (scalable) return TIER_SCALABLE;
+    if (declared === 0) return TIER_UNDECLARED;
+
+    return declared >= FAVICON_TARGET_EDGE ? TIER_BIG_ENOUGH : TIER_TOO_SMALL;
 }
 
 /**

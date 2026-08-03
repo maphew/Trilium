@@ -542,6 +542,72 @@ describe("link-embed getMetadata", () => {
         expect(result.favicon).toBeUndefined();
     });
 
+    it("reads every spelling of an icon rel, and tries them in the order a 16px icon wants", async () => {
+        // A browser reads all of these as naming an icon. Asking for three exact spellings instead
+        // read a site writing any of the others — `rel="icon shortcut"`, the precomposed
+        // apple-touch-icon — as declaring no icon at all.
+        const head = `<link rel="mask-icon" href="/pinned.svg">`
+            + `<link rel="ICON SHORTCUT" sizes="16x16" href="/tiny.png">`
+            + `<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/touch.png">`
+            + `<link rel="icon" sizes="48x48" href="/right.png">`;
+        const serve = (extra = "") => {
+            safeFetch.mockReset();
+            safeFetch.mockImplementation(async (url: string) => url.endsWith("/page")
+                ? fakeResponse(`<html><head><title>T</title>${extra}${head}</head></html>`, { contentType: "text/html" })
+                : fakeResponse("", { ok: false }));
+        };
+        const iconsRequested = () => safeFetch.mock.calls
+            .map((call) => String(call[0]))
+            .filter((url) => !url.endsWith("/page"));
+
+        serve();
+        expect((await linkEmbedRoute.getMetadata(req("https://example.com/page"))).favicon).toBeUndefined();
+        // The smallest that still covers a 3x display, then the larger one, then the one that would
+        // have to be upscaled — and /favicon.ico last, which no site has to declare. The mask-icon
+        // falls past the cap: a silhouette meant to be tinted draws as a black blob.
+        expect(iconsRequested().slice(0, 4)).toEqual([
+            "https://example.com/right.png",
+            "https://example.com/touch.png",
+            "https://example.com/tiny.png",
+            "https://example.com/favicon.ico"
+        ]);
+
+        // An SVG — named by its type here, by its extension elsewhere — draws at every size for a
+        // few hundred bytes, so it outranks anything a size can be declared for.
+        serve(`<link rel="icon" type="image/svg+xml" href="/scalable.svg">`);
+        await linkEmbedRoute.getMetadata(req("https://example.com/page"));
+        expect(iconsRequested()[0]).toBe("https://example.com/scalable.svg");
+    });
+
+    it("keeps trying after an icon that fails to arrive, down to the conventional path", async () => {
+        // A declared icon is a promise, not a delivery — it 404s, it answers with an error page
+        // under an image content type, it is one picture too large to keep. Taking the first one
+        // and giving up cost the preview its icon in every one of those cases, even when the page
+        // named a perfectly good second one.
+        const twoIcons = `<html><head><title>T</title>`
+            + `<link rel="icon" sizes="48x48" href="/gone.png">`
+            + `<link rel="icon" sizes="64x64" href="/good.ico">`
+            + `</head></html>`;
+        safeFetch.mockImplementation(async (url: string) => {
+            if (url.endsWith("/good.ico")) return fakeResponse(makeIco(), { contentType: "image/x-icon" });
+            if (url.endsWith("/page")) return fakeResponse(twoIcons, { contentType: "text/html" });
+            return fakeResponse("", { ok: false });
+        });
+
+        expect((await linkEmbedRoute.getMetadata(req("https://example.com/page"))).favicon).toBeTruthy();
+
+        // And when every icon the page names fails, the path every site serves whether it says so
+        // or not — appended after the cap, so it is never the candidate that gets dropped.
+        const oneDeadIcon = `<html><head><title>T</title><link rel="icon" href="/gone.png"></head></html>`;
+        safeFetch.mockImplementation(async (url: string) => {
+            if (url.endsWith("/favicon.ico")) return fakeResponse(makeIco(), { contentType: "image/x-icon" });
+            if (url.endsWith("/page")) return fakeResponse(oneDeadIcon, { contentType: "text/html" });
+            return fakeResponse("", { ok: false });
+        });
+
+        expect((await linkEmbedRoute.getMetadata(req("https://example.com/page"))).favicon).toBeTruthy();
+    });
+
     it("treats a bodyless or content-type-less page response as unresolved", async () => {
         // No body: there is no HTML to read, so the page names itself nowhere.
         safeFetch.mockResolvedValue({ ...fakeResponse("<html><head><title>T</title></head></html>"), body: undefined });
