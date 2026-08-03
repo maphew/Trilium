@@ -1686,10 +1686,6 @@
     "close": "Dún"
   },
   "attachment_detail_2": {
-    "will_be_deleted_in": "Scriosfar an ceangaltán seo go huathoibríoch i gceann {{time}}",
-    "will_be_deleted_soon": "Scriosfar an ceangaltán seo go huathoibríoch go luath",
-    "deletion_reason": ", mar nach bhfuil an ceangaltán nasctha in ábhar an nóta. Chun scriosadh a chosc, cuir an nasc ceangaltáin ar ais san ábhar nó tiontaigh an ceangaltán ina nóta.",
-    "role_and_size": "Ról: {{role}}, méid: {{size}}, MIME: {{- mimeType}}",
     "link_copied": "Tagairt an cheangaltáin cóipeáilte chuig an ghearrthaisce.",
     "unrecognized_role": "Ról ceangail neamhaitheanta '{{role}}'."
   },

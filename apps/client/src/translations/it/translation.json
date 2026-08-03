@@ -1882,10 +1882,6 @@
     "close": "Vicino"
   },
   "attachment_detail_2": {
-    "will_be_deleted_in": "Questo allegato verrà eliminato automaticamente tra {{time}}",
-    "will_be_deleted_soon": "Questo allegato verrà eliminato automaticamente a breve",
-    "deletion_reason": ", perché l'allegato non è collegato al contenuto della nota. Per impedirne l'eliminazione, aggiungi nuovamente il collegamento all'allegato nel contenuto o converti l'allegato in nota.",
-    "role_and_size": "Ruolo: {{role}}, dimensione: {{size}}, MIME: {{- mimeType}}",
     "link_copied": "Link all'allegato copiato negli appunti.",
     "unrecognized_role": "Ruolo di allegato non riconosciuto '{{role}}'."
   },

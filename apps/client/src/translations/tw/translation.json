@@ -1503,10 +1503,6 @@
     "close": "關閉"
   },
   "attachment_detail_2": {
-    "will_be_deleted_in": "此附件將在 {{time}} 後自動刪除",
-    "will_be_deleted_soon": "該附件即將被自動刪除",
-    "deletion_reason": "，因為該附件未連結在筆記的內容中。為防止被刪除，請將附件連結重新新增至內容中或將附件轉換為筆記。",
-    "role_and_size": "角色：{{role}}，大小：{{size}}，MIME：{{- mimeType}}",
     "link_copied": "已複製附件連結到剪貼簿。",
     "unrecognized_role": "無法識別的附件角色 '{{role}}'。"
   },

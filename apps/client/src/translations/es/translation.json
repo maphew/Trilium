@@ -1814,10 +1814,6 @@
     "close": "Cerrar"
   },
   "attachment_detail_2": {
-    "will_be_deleted_in": "Este archivo adjunto se eliminará automáticamente en {{time}}",
-    "will_be_deleted_soon": "Este archivo adjunto se eliminará automáticamente pronto",
-    "deletion_reason": ", porque el archivo adjunto no está vinculado en el contenido de la nota. Para evitar la eliminación, vuelva a agregar el enlace del archivo adjunto al contenido o convierta el archivo adjunto en una nota.",
-    "role_and_size": "Rol: {{role}}, tamaño: {{size}}, MIME: {{- mimeType}}",
     "link_copied": "Enlace del archivo adjunto copiado al portapapeles.",
     "unrecognized_role": "Rol de archivo adjunto no reconocido '{{role}}'."
   },

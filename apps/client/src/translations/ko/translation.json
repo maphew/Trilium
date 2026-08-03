@@ -2194,10 +2194,6 @@
     "close": "닫기"
   },
   "attachment_detail_2": {
-    "will_be_deleted_in": "이 첨부 파일은 {{time}} 자동으로 삭제됩니다",
-    "will_be_deleted_soon": "이 첨부 파일은 곧 자동으로 삭제될 예정입니다",
-    "deletion_reason": ", 첨부 파일이 노트 내용에 연결되어 있지 않기 때문입니다. 삭제를 방지하려면 첨부 링크를 다시 콘텐츠에 추가하거나 첨부 파일을 노트로 변환하세요.",
-    "role_and_size": "역할: {{role}}, 크기: {{size}}, MIME: {{- mimeType}}",
     "link_copied": "첨부 파일 참조를 클립보드에 복사했습니다.",
     "unrecognized_role": "인식되지 않은 첨부 파일 역할 '{{role}}'."
   },
