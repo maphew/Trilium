@@ -355,17 +355,33 @@ function renderText(result: Result, note: SNote | BNote, options: ShareRenderOpt
     };
     const document = parse(result.content || "", parseOpts);
 
+    // One of a preview's pictures, or what stands in for it. Every picture on a shared page makes
+    // the same decision, so it is made once: safeLinkPreviewImageSrc() keeps the placeholder for
+    // anything but an inline image or an attachment of this instance, because an <img> fires on
+    // load — a remote URL here would have every visitor to the shared page announce itself to a
+    // third party without so much as a click.
+    const renderPicture = (
+        src: string | undefined | null,
+        { className, placeholder, size }: { className: string; placeholder: string; size?: number }
+    ) => {
+        const safeSrc = safeLinkPreviewImageSrc(src);
+
+        if (!safeSrc) {
+            return placeholder;
+        }
+
+        const sizeAttrs = size ? ` width="${size}" height="${size}"` : "";
+
+        return `<img class="${className}" src="${escapeHtml(safeSrc)}" alt="" loading="lazy"${sizeAttrs}>`;
+    };
+
     // The site's favicon, or a neutral dot when it has none — shown by both the inline mention and
     // the card's URL line, from the one `data-favicon` the element already carries.
-    // safeLinkPreviewImageSrc() keeps the dot for anything but an inline image or an attachment of
-    // this instance: an <img> fires on load, so a remote URL here would have every visitor to the
-    // shared page announce itself to a third party without so much as a click.
-    const renderFavicon = (favicon: string | undefined | null) => {
-        const src = safeLinkPreviewImageSrc(favicon);
-        return src
-            ? `<img class="link-embed-mention-favicon" src="${escapeHtml(src)}" width="16" height="16">`
-            : `<span class="link-embed-mention-dot"></span>`;
-    };
+    const renderFavicon = (favicon: string | undefined | null) => renderPicture(favicon, {
+        className: "link-embed-mention-favicon",
+        size: 16,
+        placeholder: `<span class="link-embed-mention-dot"></span>`
+    });
 
     // Process link mentions (inline) — metadata is stored in data attributes.
     for (const mentionEl of document.querySelectorAll("span.link-mention")) {
@@ -393,10 +409,11 @@ function renderText(result: Result, note: SNote | BNote, options: ShareRenderOpt
                 // loads YouTube's player once a visitor asks for it, so simply reading the page does
                 // not hand every visitor's IP to Google. The swap is done by the share theme's
                 // video_facade script, which reads data-video-id.
-                const image = safeLinkPreviewImageSrc(embedEl.getAttribute("data-image"));
-                const thumbnailHtml = image
-                    ? `<img class="link-embed-video-thumbnail" src="${escapeHtml(image)}" alt="" loading="lazy">`
-                    : "";
+                // No placeholder: the play button carries the facade on its own.
+                const thumbnailHtml = renderPicture(embedEl.getAttribute("data-image"), {
+                    className: "link-embed-video-thumbnail",
+                    placeholder: ""
+                });
                 embedEl.innerHTML = `<div class="link-embed-video">`
                     + `<button type="button" class="link-embed-video-facade" data-video-id="${escapeHtml(videoId)}" aria-label="Play video" title="Play video">`
                     + thumbnailHtml
@@ -406,12 +423,16 @@ function renderText(result: Result, note: SNote | BNote, options: ShareRenderOpt
         } else {
             const title = embedEl.getAttribute("data-title") || safeHostnameForShare(url);
             const description = embedEl.getAttribute("data-description");
-            const image = safeLinkPreviewImageSrc(embedEl.getAttribute("data-image"));
             const siteName = embedEl.getAttribute("data-site-name") || safeHostnameForShare(url);
 
-            const imageHtml = image
-                ? `<div class="link-embed-card-image-wrapper"><img class="link-embed-card-image" src="${escapeHtml(image)}" alt="" loading="lazy"></div>`
-                : `<div class="link-embed-card-image-wrapper"><div class="link-embed-card-image-placeholder">&#128279;</div></div>`;
+            // The wrapper is there either way: it is what gives the card's left column its size, so
+            // a card without a picture keeps the same shape as one with it.
+            const imageHtml = `<div class="link-embed-card-image-wrapper">`
+                + renderPicture(embedEl.getAttribute("data-image"), {
+                    className: "link-embed-card-image",
+                    placeholder: `<div class="link-embed-card-image-placeholder">&#128279;</div>`
+                })
+                + `</div>`;
             const descHtml = description ? `<div class="link-embed-card-description">${escapeHtml(description)}</div>` : "";
             const urlHtml = `<div class="link-embed-card-url">`
                 + renderFavicon(embedEl.getAttribute("data-favicon"))

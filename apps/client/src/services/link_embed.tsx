@@ -1,7 +1,7 @@
 import "../widgets/type_widgets/text/LinkEmbed.css";
 
 import { extractYouTubeVideoId, type LinkEmbedMetadata, safeHostname, safeLinkPreviewHref, safeLinkPreviewImageSrc, YOUTUBE_REGEX } from "@triliumnext/commons";
-import { render } from "preact";
+import { render, type VNode } from "preact";
 import { useState } from "preact/hooks";
 
 import { t } from "./i18n.js";
@@ -82,22 +82,39 @@ export function unresolvedMetadata(url: string): EmbedMetadata {
 // notes, markdown preview).
 // ---------------------------------------------------------------------------
 
-function Favicon({ src }: { src?: string }) {
-    const [failed, setFailed] = useState(false);
-    // See safeLinkPreviewImageSrc: only an inline image or an attachment of this instance, so that
-    // opening a note never announces the reader to a third party.
+/**
+ * One of a preview's pictures, or the placeholder standing in for it.
+ *
+ * Both pictures make the same two decisions, so they make them in one place: load only what
+ * {@link safeLinkPreviewImageSrc} allows — an inline image or an attachment of this instance, so
+ * that opening a note never announces the reader to a third party — and show the placeholder both
+ * when there is nothing to load and when loading fails. The failure half matters as much as the
+ * check: an attachment can be erased out from under a preview that still references it, and a
+ * broken-image glyph reads as a bug where the placeholder reads as an absence.
+ */
+function PreviewPicture({ src, className, placeholder, size }: {
+    src?: string | null;
+    className: string;
+    placeholder: VNode;
+    /** For a picture drawn at a fixed size; the card image is sized by CSS instead. */
+    size?: number;
+}) {
+    const [ failed, setFailed ] = useState(false);
     const safeSrc = safeLinkPreviewImageSrc(src);
 
     if (!safeSrc || failed) {
-        return <span className="link-embed-mention-dot" />;
+        return placeholder;
     }
 
     return (
         <img
-            className="link-embed-mention-favicon"
+            className={className}
             src={safeSrc}
-            width={16}
-            height={16}
+            alt=""
+            width={size}
+            height={size}
+            loading="lazy"
+            draggable={false}
             onError={() => setFailed(true)}
         />
     );
@@ -107,24 +124,19 @@ function ImagePlaceholder() {
     return <div className="link-embed-card-image-placeholder">&#128279;</div>;
 }
 
-function CardImage({ src }: { src?: string }) {
-    const [failed, setFailed] = useState(false);
-    const safeSrc = safeLinkPreviewImageSrc(src);
-
-    if (!safeSrc || failed) {
-        return <ImagePlaceholder />;
-    }
-
+function Favicon({ src }: { src?: string }) {
     return (
-        <img
-            className="link-embed-card-image"
-            src={safeSrc}
-            alt=""
-            loading="lazy"
-            draggable={false}
-            onError={() => setFailed(true)}
+        <PreviewPicture
+            src={src}
+            className="link-embed-mention-favicon"
+            size={16}
+            placeholder={<span className="link-embed-mention-dot" />}
         />
     );
+}
+
+function CardImage({ src }: { src?: string }) {
+    return <PreviewPicture src={src} className="link-embed-card-image" placeholder={<ImagePlaceholder />} />;
 }
 
 /**

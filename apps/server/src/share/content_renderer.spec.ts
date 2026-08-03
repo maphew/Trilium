@@ -298,7 +298,7 @@ describe("content_renderer", () => {
 
             const content = String(getContent(note).content);
             expect(content).toContain(`<div class="link-embed-card-url">`
-                + `<img class="link-embed-mention-favicon" src="${FAVICON}" width="16" height="16">`
+                + `<img class="link-embed-mention-favicon" src="${FAVICON}" alt="" loading="lazy" width="16" height="16">`
                 + `<span>Example</span></div>`);
         });
 
@@ -386,7 +386,7 @@ describe("content_renderer", () => {
             });
 
             const content = String(getContent(note).content);
-            expect(content).toContain(`<img class="link-embed-mention-favicon" src="${FAVICON}" width="16" height="16">`);
+            expect(content).toContain(`<img class="link-embed-mention-favicon" src="${FAVICON}" alt="" loading="lazy" width="16" height="16">`);
             expect(content).toContain(`<span class="link-embed-mention-title">A title</span>`);
         });
     });
