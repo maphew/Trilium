@@ -71,9 +71,10 @@ export function parseMindMapNoteLink(link: unknown): { notePath: string; noteId:
     }
 
     const notePath = link.slice(1);
+    const segments = notePath.split("/");
     return {
         notePath,
-        noteId: notePath.split("/").at(-1) ?? notePath
+        noteId: segments[segments.length - 1]
     };
 }
 
