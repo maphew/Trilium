@@ -222,6 +222,8 @@ function MindElixir({ children, containerRef: externalContainerRef, containerPro
             theme: buildTheme(defaultColorScheme.current, containerRef.current)
         });
 
+        localizeBuiltLabels(mind);
+
         apiRef.current = mind;
         if (externalApiRef) {
             externalApiRef.current = mind;
@@ -366,6 +368,73 @@ export function buildTheme(colorScheme: "light" | "dark", container: HTMLElement
         ...baseTheme,
         cssVar: { ...baseTheme.cssVar, "--bgcolor": background }
     };
+}
+
+/**
+ * Names the arrows and summaries Mind Elixir builds in the user's language.
+ *
+ * Neither name is covered by the library's own translations — its lang pack carries the twelve
+ * context-menu entries and nothing else — and neither is offered as an option, so each is taken
+ * where the library leaves an opening:
+ *
+ * - An arrow is built from `{ label: "Custom Link", ...options }`, so a label carried among its
+ *   options stands in place of the English one. Its options are not described as carrying a label,
+ *   hence the cast; were the library to stop passing what it is not expecting through, the arrow
+ *   would be named in English again and nothing else about it would change.
+ * - A summary's name is written into it and cannot be given, so it is replaced in the moment
+ *   between the summary being built and being handed to the editor that opens over it — which the
+ *   library reaches through the instance. The editor reads both the text it opens with and the text
+ *   it falls back to, should the summary be left empty, from the summary itself, so both follow.
+ *
+ * @param mind the instance to name after, taken over for as long as it lives.
+ */
+export function localizeBuiltLabels(mind: MindElixirInstance) {
+    const { createArrow, createSummary, editSummary } = mind;
+
+    mind.createArrow = function (from, to, options) {
+        const named = { label: t("mind-map.custom-link"), ...options };
+        createArrow.call(this, from, to, named as Parameters<typeof createArrow>[2]);
+    };
+
+    // Raised only around a summary the map is building, so that opening an existing one for editing
+    // leaves whatever it is called alone — including a summary someone did call "summary".
+    let building = false;
+
+    mind.createSummary = function (options) {
+        building = true;
+        try {
+            createSummary.call(this, options);
+        } finally {
+            building = false;
+        }
+    };
+
+    mind.editSummary = function (summary) {
+        if (building && summary?.summaryObj) {
+            summary.summaryObj.label = t("mind-map.new-summary");
+            renameOverlayLabel(summary.labelEl, summary.summaryObj.label);
+        }
+        editSummary.call(this, summary);
+    };
+}
+
+/**
+ * Writes a text into one of the labels Mind Elixir lays over the map, which are placed by hand
+ * against the point they belong to rather than by the browser — so one that is no longer the size it
+ * was measured at has to be placed again, from the point and the side it recorded when it was built.
+ */
+export function renameOverlayLabel(label: HTMLElement | undefined, text: string) {
+    if (!label) return;
+
+    label.textContent = text;
+
+    const x = Number(label.dataset.x);
+    const y = Number(label.dataset.y);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+
+    const width = label.clientWidth;
+    label.style.left = `${label.dataset.anchor === "end" ? x - width : label.dataset.anchor === "middle" ? x - width / 2 : x}px`;
+    label.style.top = `${y - label.clientHeight / 2}px`;
 }
 
 function createOverlayElement() {
