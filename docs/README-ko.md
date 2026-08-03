@@ -216,7 +216,7 @@ TriliumNext를 설치하려면 [서버 설치
 
 ### 코드
 
-저장소를 다운로드하고 `pnpm`으로 종속성을 설치한 다음 서버를 실행합니다(http://localhost:8080에서 이용 가능):
+저장소를 다운로드하고 `pnpm`으로 종속성을 설치한 다음 서버를 실행합니다(http://localhost:8080 에서 이용 가능):
 ```shell
 git clone https://github.com/TriliumNext/Trilium.git
 cd Trilium
