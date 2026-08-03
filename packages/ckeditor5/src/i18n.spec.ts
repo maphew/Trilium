@@ -160,6 +160,38 @@ describe("getCkLocale", () => {
             expect(dropdown.buttonView.label).toBe("Admonition");
             expect(readTypeLabels(dropdown)).toEqual([ "Note", "Tip", "Important", "Caution", "Warning" ]);
         });
+
+        /*
+         * A catalog does not always arrive under the name we ask CKEditor to answer to: `zh-cn.js`
+         * carries `zh-cn` where we say `zh`, `zh.js` carries `zh` where we say `zh-tw`, and
+         * `en-gb.js` carries `en-gb` where we say `en-GB`.
+         *
+         * Filed as it arrives, such a catalog is one CKEditor never looks in — but only once a
+         * dictionary of ours is filed beside it. Alone, it is the single entry in `translations`,
+         * and CKEditor answers from the only language it was given whatever language was asked for;
+         * a second entry ends that, and the lookup goes to the name we asked for and finds our
+         * strings alone there. So it is exactly the configuration the text editor is built from —
+         * the one that carries a translator — that loses CKEditor's own strings, and only for the
+         * locales whose two names part ways.
+         */
+        it.each([
+            [ "cn", "加粗", "Aldin" ],
+            [ "tw", "粗體", "Aldin" ]
+        ])("translates CKEditor's own strings for '%s', beside a dictionary of ours", async (locale, bold, ourString) => {
+            const localeConfig = await getCkLocale(locale as DISPLAYABLE_LOCALE_IDS, {
+                englishMessages: ENGLISH_MESSAGES,
+                translate: () => ourString
+            });
+            const editor = await createTestEditor([ Essentials, Paragraph, Bold, Admonition, AdmonitionUI ], localeConfig);
+
+            const boldButton = editor.ui.componentFactory.create("bold");
+            if (!(boldButton instanceof ButtonView)) throw new Error("expected the bold component to be a button");
+            expect(boldButton.label).toBe(bold);
+
+            // And ours are still read, the two dictionaries answering to the one name between them.
+            const dropdown = editor.ui.componentFactory.create("admonition") as unknown as AdmonitionDropdown;
+            expect(dropdown.buttonView.label).toBe(ourString);
+        });
     });
 
     // The CKEditor language code often differs from Trilium's locale id, so pin the mapping for

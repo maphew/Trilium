@@ -113,7 +113,18 @@ export default async function getCkLocale(
     // `en`, the `en_rtl` pseudo-locale and `ga` have no CKEditor translation to load; they still get
     // our dictionary, since it also carries any rewording of CKEditor's built-in English strings.
     if (mapping) {
-        translations.push((await mapping.coreTranslation()).default);
+        // Filed under the code the editor will be answering to rather than the one the catalog
+        // arrives under. The two part ways for three locales — `zh-cn.js` carries `zh-cn` where we
+        // say `zh`, `zh.js` carries `zh` where we say `zh-tw`, `en-gb.js` carries `en-gb` where we
+        // say `en-GB` — and filed as it arrives, such a catalog is one CKEditor never looks in.
+        //
+        // It went unseen for as long as it did because a lone catalog is rescued: CKEditor answers
+        // from the only language it was given whatever language was asked for. The dictionary below
+        // is a second, which ends the rescue and sends the lookup to the name we asked for, where
+        // our strings sit alone. So it fails only where a translator is attached — which is every
+        // text editor, and no test.
+        const [ catalog ] = Object.values((await mapping.coreTranslation()).default);
+        translations.push({ [mapping.languageCode]: catalog });
     }
 
     if (messages) {
