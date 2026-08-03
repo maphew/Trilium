@@ -1,6 +1,6 @@
 import "./Attachment.css";
 
-import { ConvertAttachmentToNoteResponse, isImageAttachmentRole } from "@triliumnext/commons";
+import { attachmentIcon, ConvertAttachmentToNoteResponse, isImageAttachmentRole } from "@triliumnext/commons";
 import { t } from "i18next";
 import { useContext, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
@@ -294,6 +294,7 @@ function AttachmentInfo({ attachment, isFullDetail, ownerNote, noteContext, view
                             processUrl: `ocr/process-attachment/${attachment.attachmentId}`
                         }) : undefined}
                     />
+                    <Icon className="attachment-icon" icon={attachmentIcon(attachment.role, attachment.mime)} />
                     <h4 className="attachment-title">
                         {!isFullDetail ? (
                             <NoteLink

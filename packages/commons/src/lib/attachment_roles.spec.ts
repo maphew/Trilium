@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
-import { ATTACHMENT_ROLES, attachmentRoleTraits, IMAGE_ATTACHMENT_ROLES, isDeduplicatedAttachmentRole, isEmbeddedAttachmentRole, isImageAttachmentRole } from "./attachment_roles.js";
+import { ATTACHMENT_ROLES, attachmentIcon, attachmentRoleTraits, IMAGE_ATTACHMENT_ROLES, isDeduplicatedAttachmentRole, isEmbeddedAttachmentRole, isImageAttachmentRole } from "./attachment_roles.js";
+import { getNoteIcon } from "./notes.js";
 
 describe("isImageAttachmentRole", () => {
     it("recognises every picture role and nothing else", () => {
@@ -61,7 +62,7 @@ describe("attachmentRoleTraits", () => {
         // The types already refuse a role that arrives without one; this says the same at runtime,
         // for the shape the table is actually read with.
         for (const [ role, traits ] of Object.entries(ATTACHMENT_ROLES)) {
-            expect(Object.keys(traits).sort(), role).toStrictEqual([ "copiedAs", "deduplicated", "embedded", "picture" ]);
+            expect(Object.keys(traits).sort(), role).toStrictEqual([ "copiedAs", "deduplicated", "embedded", "icon", "picture" ]);
         }
     });
 
@@ -104,6 +105,61 @@ describe("copiedAs", () => {
         for (const [ role, traits ] of Object.entries(ATTACHMENT_ROLES)) {
             expect([ "image", "file" ], role).toContain(traits.copiedAs);
             expect(ATTACHMENT_ROLES[traits.copiedAs].picture, role).toBe(traits.picture);
+        }
+    });
+});
+
+describe("attachmentIcon", () => {
+    it("reads the media type for what a reader put there themselves", () => {
+        // Between a spreadsheet, a PDF and a video, the difference worth showing is the content's:
+        // "file" is the same word for all three.
+        expect(attachmentIcon("file", "application/pdf")).toBe("bx bxs-file-pdf");
+        expect(attachmentIcon("file", "video/mp4")).toBe("bx bx-video");
+        expect(attachmentIcon("file", "audio/mpeg")).toBe("bx bx-music");
+        expect(attachmentIcon("image", "image/gif")).toBe("bx bxs-file-gif");
+        expect(attachmentIcon("image", "image/png")).toBe("bx bx-image");
+    });
+
+    it("gives an attachment the icon a note of the same content would have", () => {
+        // The point of routing both through one table: a PDF is a PDF however it got here.
+        for (const [ type, mime ] of [ [ "file", "application/pdf" ], [ "file", "video/mp4" ], [ "image", "image/gif" ] ] as const) {
+            expect(attachmentIcon(type, mime), mime).toBe(getNoteIcon({
+                noteId: "abc123", type, mime, iconClass: undefined, workspaceIconClass: undefined, isFolder: () => false
+            }));
+        }
+    });
+
+    it("names the app's own doing for the roles the app created", () => {
+        // Their content is an implementation detail — a favicon is a PNG, a saved view is JSON — and
+        // what a reader wants told is which part of the app put it there.
+        expect(attachmentIcon("favicon", "image/png")).toBe("bx bx-globe");
+        expect(attachmentIcon("coverImage", "image/jpeg")).toBe("bx bx-image-alt");
+        expect(attachmentIcon("viewConfig", "application/json")).toBe("bx bx-cog");
+        expect(attachmentIcon("canvasLibraryItem", "application/json")).toBe("bx bx-shape-square");
+        expect(attachmentIcon("importSource", "application/zip")).toBe("bx bx-import");
+    });
+
+    it("treats a role it has never heard of as the reader's own upload", () => {
+        // Whatever a script attached, the reader is still looking at a file.
+        expect(attachmentIcon("somethingAScriptInvented", "application/pdf")).toBe("bx bxs-file-pdf");
+        // The role and the media type are both whatever was stored, so these reach the lookups; read
+        // off a table rather than checked against it, they would answer with one of its prototype's
+        // functions, which survives the fallback and is handed on as an icon class.
+        expect(attachmentIcon("constructor", "image/gif")).toBe("bx bxs-file-gif");
+        expect(attachmentIcon("file", "constructor")).toBe("bx bx-file");
+        expect(attachmentIcon("file", "toString")).toBe("bx bx-file");
+    });
+
+    it("always answers, whatever is missing", () => {
+        // An attachment with no media type recorded still has a row in the list to fill.
+        expect(attachmentIcon("file", undefined)).toBe("bx bx-file");
+        expect(attachmentIcon(undefined, undefined)).toBe("bx bx-file");
+        expect(attachmentIcon(null, "")).toBe("bx bx-file");
+    });
+
+    it("gives every role an icon, or says plainly that it has none", () => {
+        for (const [ role, traits ] of Object.entries(ATTACHMENT_ROLES)) {
+            expect(attachmentIcon(role, "application/pdf"), role).toBe(traits.icon ?? "bx bxs-file-pdf");
         }
     });
 });

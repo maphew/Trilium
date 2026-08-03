@@ -1,3 +1,5 @@
+import { getMimeIcon } from "./notes.js";
+
 /**
  * What the app knows about an attachment of a given role.
  *
@@ -52,6 +54,19 @@ export interface AttachmentRoleTraits {
      * the app's roles would only move the problem. A picture stays a picture: see the spec.
      */
     copiedAs: "image" | "file";
+    /**
+     * The icon standing for an attachment of this role, or `null` where the role has nothing to say
+     * about what the thing is.
+     *
+     * Null for exactly the two roles that mean "someone put this here": between a spreadsheet, a PDF
+     * and a video the difference a reader is looking for is the content's, not the role's, so those
+     * read their media type instead — and get the same icon a note of that content would.
+     *
+     * A role the app created is the opposite case. Its content is an implementation detail (a
+     * favicon is a PNG, a saved view is JSON) and what the reader wants told is which of the app's
+     * doings put it there, which is the role and nothing else.
+     */
+    icon: string | null;
 }
 
 /**
@@ -63,9 +78,9 @@ export interface AttachmentRoleTraits {
  */
 export const ATTACHMENT_ROLES = {
     /** A picture the user placed in the note. */
-    image: { picture: true, deduplicated: false, embedded: true, copiedAs: "image" },
+    image: { picture: true, deduplicated: false, embedded: true, copiedAs: "image", icon: null },
     /** A file the user attached to the note. */
-    file: { picture: false, deduplicated: false, embedded: true, copiedAs: "file" },
+    file: { picture: false, deduplicated: false, embedded: true, copiedAs: "file", icon: null },
     /**
      * A link preview's two pictures, kept apart from `image` so they can be told from one the user
      * chose. Both arrive already sized by the server (a 16x16 icon, a 256px thumbnail), so the
@@ -74,14 +89,14 @@ export const ATTACHMENT_ROLES = {
      * what eventually takes them with it. Carried into a note by hand, though, they are pictures like
      * any other — the preview they belonged to stayed behind.
      */
-    favicon: { picture: true, deduplicated: true, embedded: true, copiedAs: "image" },
-    coverImage: { picture: true, deduplicated: true, embedded: true, copiedAs: "image" },
+    favicon: { picture: true, deduplicated: true, embedded: true, copiedAs: "image", icon: "bx bx-globe" },
+    coverImage: { picture: true, deduplicated: true, embedded: true, copiedAs: "image", icon: "bx bx-image-alt" },
     /** How a collection remembers the way it is being looked at, and a PDF where the reader had got to. */
-    viewConfig: { picture: false, deduplicated: false, embedded: false, copiedAs: "file" },
+    viewConfig: { picture: false, deduplicated: false, embedded: false, copiedAs: "file", icon: "bx bx-cog" },
     /** Shapes saved into an Excalidraw canvas's library. */
-    canvasLibraryItem: { picture: false, deduplicated: false, embedded: false, copiedAs: "file" },
+    canvasLibraryItem: { picture: false, deduplicated: false, embedded: false, copiedAs: "file", icon: "bx bx-shape-square" },
     /** The file an import was read from, kept so an import that went wrong can be looked at again. */
-    importSource: { picture: false, deduplicated: false, embedded: false, copiedAs: "file" }
+    importSource: { picture: false, deduplicated: false, embedded: false, copiedAs: "file", icon: "bx bx-import" }
 } as const satisfies Record<string, AttachmentRoleTraits>;
 
 /** A role the app itself creates. Arbitrary strings reach the same fields — see {@link ATTACHMENT_ROLES}. */
@@ -109,6 +124,20 @@ export function isDeduplicatedAttachmentRole(role: string | undefined | null): b
 /** @see AttachmentRoleTraits.embedded */
 export function isEmbeddedAttachmentRole(role: string | undefined | null): boolean {
     return attachmentRoleTraits(role)?.embedded ?? false;
+}
+
+/**
+ * The icon for an attachment, from its role where the role says what the thing is and from its media
+ * type where it does not.
+ *
+ * A role nobody here has heard of — a script's own — is treated as the user's own upload rather than
+ * given a mark for "unknown": whatever a script attached, the reader is still looking at a file, and
+ * its media type describes it as well as it describes anyone else's.
+ *
+ * @see AttachmentRoleTraits.icon
+ */
+export function attachmentIcon(role: string | undefined | null, mime: string | undefined | null): string {
+    return attachmentRoleTraits(role)?.icon ?? getMimeIcon(mime);
 }
 
 /**

@@ -202,6 +202,14 @@
     }
 }
 
+/* What the attachment is, ahead of its name — the role's own mark where the role says something, and
+   the media type's where it only says the reader put it there. Sized and placed as the note icon on a
+   collection's cards is, since the two sit in the same kind of header. */
+.attachment-icon {
+    flex-shrink: 0;
+    font-size: 1.2em;
+}
+
 .attachment-title-line {
     display: flex;
     align-items: center;

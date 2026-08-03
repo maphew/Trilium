@@ -90,12 +90,44 @@ export function getNoteIcon({ noteId, type, mime, iconClass, workspaceIconClass,
         const correspondingMimeType = MIME_TYPES_DICT.find(m => m.mime === mime);
         return correspondingMimeType?.icon ?? NOTE_TYPE_ICONS.code;
     } else if (type === "file") {
-        if (mime.startsWith("video/")) return "bx bx-video";
-        if (mime.startsWith("audio/")) return "bx bx-music";
-        return FILE_MIME_MAPPINGS[mime] ?? NOTE_TYPE_ICONS.file;
+        return getFileMimeIcon(mime);
     } else if (type === "image") {
-        return IMAGE_MIME_MAPPINGS[mime] ?? NOTE_TYPE_ICONS.image;
+        return getImageMimeIcon(mime);
     }
 
     return NOTE_TYPE_ICONS[type];
+}
+
+/**
+ * The icon for something known only by its media type — an attachment, or anything else the app holds
+ * that is not a note and so has no type to ask about.
+ *
+ * A note of the same content gets the same icon, which is the point of routing both through here: a PDF
+ * is a PDF whether it was uploaded as a note or attached to one.
+ */
+export function getMimeIcon(mime: string | undefined | null): string {
+    if (!mime) {
+        return NOTE_TYPE_ICONS.file;
+    }
+
+    return mime.startsWith("image/") ? getImageMimeIcon(mime) : getFileMimeIcon(mime);
+}
+
+function getFileMimeIcon(mime: string): string {
+    if (mime.startsWith("video/")) return "bx bx-video";
+    if (mime.startsWith("audio/")) return "bx bx-music";
+    return lookUpMime(FILE_MIME_MAPPINGS, mime) ?? NOTE_TYPE_ICONS.file;
+}
+
+function getImageMimeIcon(mime: string): string {
+    return lookUpMime(IMAGE_MIME_MAPPINGS, mime) ?? NOTE_TYPE_ICONS.image;
+}
+
+/**
+ * `hasOwn` rather than a plain lookup: the media type is whatever was stored, so `"constructor"` reaches
+ * these tables, and reading it off one would answer with something from its prototype — a function, which
+ * survives the `??` and is handed on as an icon class.
+ */
+function lookUpMime(mappings: Record<string, string>, mime: string): string | undefined {
+    return Object.hasOwn(mappings, mime) ? mappings[mime] : undefined;
 }
