@@ -1,4 +1,4 @@
-import { type AttachmentRow, type AttributeRow, type BranchRow, dayjs, isImageAttachmentRole, type NoteRow, NOTE_TYPE_IMAGE_ATTACHMENTS, type NoteType } from "@triliumnext/commons";
+import { type AttachmentRow, type AttributeRow, type BranchRow, dayjs, isEmbeddedAttachmentRole, isImageAttachmentRole, type NoteRow, NOTE_TYPE_IMAGE_ATTACHMENTS, type NoteType } from "@triliumnext/commons";
 import { t } from "i18next";
 import { parse as parseHtml } from "node-html-parser";
 import url from "url";
@@ -483,12 +483,10 @@ export function checkImageAttachments(note: BNote, content: string) {
     const attachments = note.getAttachments();
 
     for (const attachment of attachments) {
-        // Only attachments that are meant to be embedded in the note content (pictures, files) are
-        // auto-scheduled for erasure when no longer referenced. Other roles (e.g. "viewConfig",
-        // "importSource") are managed explicitly by their owners and must not be cleaned up here.
-        // A link preview's favicon belongs to the first group: nothing manages it, so deleting the
-        // preview has to be what eventually takes the icon with it.
-        if (!isImageAttachmentRole(attachment.role) && attachment.role !== "file") {
+        // Only attachments that live in the note content are auto-scheduled for erasure when nothing
+        // refers to them any more; the rest are managed explicitly by their owners and must not be
+        // cleaned up here. Which is which is a property of the role — see `AttachmentRoleTraits`.
+        if (!isEmbeddedAttachmentRole(attachment.role)) {
             continue;
         }
 

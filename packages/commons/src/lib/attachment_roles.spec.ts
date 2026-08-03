@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { IMAGE_ATTACHMENT_ROLES, isDeduplicatedAttachmentRole, isImageAttachmentRole } from "./attachment_roles.js";
+import { ATTACHMENT_ROLES, attachmentRoleTraits, IMAGE_ATTACHMENT_ROLES, isDeduplicatedAttachmentRole, isEmbeddedAttachmentRole, isImageAttachmentRole } from "./attachment_roles.js";
 
 describe("isImageAttachmentRole", () => {
     it("recognises every picture role and nothing else", () => {
@@ -22,6 +22,55 @@ describe("isImageAttachmentRole", () => {
     it("covers both the user's own pictures and the ones the app fetched for them", () => {
         expect(isImageAttachmentRole("image")).toBe(true);
         expect(isImageAttachmentRole("favicon")).toBe(true);
+    });
+});
+
+describe("isEmbeddedAttachmentRole", () => {
+    it("covers what lives in the note's content, and nothing that manages itself", () => {
+        // What the cleanup that erases unreferenced attachments is allowed to look at. A link
+        // preview's pictures belong here: nothing manages them, so deleting the preview has to be
+        // what eventually takes them with it.
+        for (const role of [ "image", "file", "favicon", "coverImage" ]) {
+            expect(isEmbeddedAttachmentRole(role), role).toBe(true);
+        }
+
+        // Nothing in the content ever refers to these, so letting the cleanup see them would erase
+        // every one of them on the next save.
+        for (const role of [ "viewConfig", "canvasLibraryItem", "importSource" ]) {
+            expect(isEmbeddedAttachmentRole(role), role).toBe(false);
+        }
+    });
+});
+
+describe("attachmentRoleTraits", () => {
+    it("answers nothing for a role it does not recognise", () => {
+        // A script's own role, or one from a newer version reached over sync.
+        expect(attachmentRoleTraits("somethingAScriptInvented")).toBeUndefined();
+        expect(attachmentRoleTraits(undefined)).toBeUndefined();
+        expect(attachmentRoleTraits("")).toBeUndefined();
+
+        // The role is whatever was stored, so these reach the lookup too. Read off the table rather
+        // than checked against it, they would answer with something from its prototype — and
+        // `"constructor"` is truthy, which would make every question below answer yes.
+        expect(attachmentRoleTraits("constructor")).toBeUndefined();
+        expect(attachmentRoleTraits("toString")).toBeUndefined();
+        expect(isImageAttachmentRole("constructor")).toBe(false);
+    });
+
+    it("gives every role an answer to every question", () => {
+        // The types already refuse a role that arrives without one; this says the same at runtime,
+        // for the shape the table is actually read with.
+        for (const [ role, traits ] of Object.entries(ATTACHMENT_ROLES)) {
+            expect(Object.keys(traits).sort(), role).toStrictEqual([ "deduplicated", "embedded", "picture" ]);
+        }
+    });
+
+    it("is what the questions are answered from", () => {
+        for (const [ role, traits ] of Object.entries(ATTACHMENT_ROLES)) {
+            expect(isImageAttachmentRole(role), role).toBe(traits.picture);
+            expect(isDeduplicatedAttachmentRole(role), role).toBe(traits.deduplicated);
+            expect(isEmbeddedAttachmentRole(role), role).toBe(traits.embedded);
+        }
     });
 });
 

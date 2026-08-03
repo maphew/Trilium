@@ -1,48 +1,113 @@
 /**
- * The attachment roles whose content is a picture.
+ * What the app knows about an attachment of a given role.
  *
- * A role is not a label — it is what the code branches on. `image` alone used to mean "this
- * attachment is a picture", so every such branch spelled it that way, and a second picture role
- * has to be admitted to all of them at once or it half-works: served but never cleaned up, cleaned
- * up but never served, listed but rendered as an unknown file.
- *
- * `favicon` and `coverImage` are separate from `image` so the two pictures a link preview carries
- * can be told apart from one the user put in the note — they are created, deduplicated and replaced
- * on completely different terms, and only `image` is something the user chose. Keeping them apart
- * also keeps them out of the places that reason about the user's own pictures: both arrive already
- * sized by the server (a 16x16 icon, a 256px thumbnail), so the compression inventory has nothing
- * to gain from either and offering to recompress one is noise.
+ * A role is not a label — it is what the code branches on, and each of these is a branch that used to
+ * be written out by name at every site that cared. Spelling them here instead is what makes adding a
+ * role a decision taken once: {@link ATTACHMENT_ROLES} is checked against this shape, so a role that
+ * arrives without an answer to every question below does not compile, rather than half-working —
+ * served but never cleaned up, cleaned up but never served, listed but rendered as an unknown file.
  */
-export const IMAGE_ATTACHMENT_ROLES = [ "image", "favicon", "coverImage" ] as const;
-
-export type ImageAttachmentRole = typeof IMAGE_ATTACHMENT_ROLES[number];
-
-/** Whether an attachment of this role holds a picture, whoever created it. */
-export function isImageAttachmentRole(role: string | undefined | null): role is ImageAttachmentRole {
-    return !!role && (IMAGE_ATTACHMENT_ROLES as readonly string[]).includes(role);
+export interface AttachmentRoleTraits {
+    /**
+     * Whether the content is a picture, and so is served, rendered and converted as one.
+     *
+     * `image` alone used to mean this, so every such branch spelled it that way, and a second picture
+     * role had to be admitted to all of them at once.
+     */
+    picture: boolean;
+    /**
+     * Whether a second attachment of this role and title should reuse the first rather than be stored
+     * again.
+     *
+     * Only for pictures the app fetched and named itself, where the title says which thing it is and
+     * the same thing is fetched again and again: a note that links a site once usually links it many
+     * times, and each link would otherwise bring its own copy of that site's icon. The title is the
+     * key, so for these it is the caller's job to make it identify the thing — a site's hostname for a
+     * favicon, a page's URL for its cover — and the server's not to shorten it.
+     *
+     * Never for a picture the user placed. Two images they happened to give the same name are two
+     * images, and quietly collapsing them would lose one.
+     */
+    deduplicated: boolean;
+    /**
+     * Whether the attachment lives in the note's content, and so is scheduled for erasure once nothing
+     * there refers to it any more.
+     *
+     * False for the ones their owner manages explicitly — a collection's saved view, a canvas's
+     * library, the file an import was read from. Nothing in the content ever refers to those, so
+     * leaving them to the cleanup would erase every one of them on the next save.
+     */
+    embedded: boolean;
 }
 
 /**
- * Roles that keep one attachment per title in a note, rather than one per use.
+ * Every role the app itself creates, and what it does with each.
  *
- * Only for pictures the app fetched and named itself, where the title says which thing it is and
- * the same thing is fetched again and again. A note that links a site once usually links it many
- * times, so each link would otherwise bring its own copy of that site's icon; and pasting the same
- * URL twice is ordinary, so each paste would bring its own copy of that page's cover. One row per
- * thing instead of one per use is the difference between an attachment list a reader can use and a
- * wall of identical pictures.
- *
- * Never for a picture the user placed. Two images they happened to give the same name are two
- * images, and quietly collapsing them would lose one.
+ * Not a closed set at runtime: a script or ETAPI client can attach anything under a role of its own,
+ * which is why the questions are asked of a `string` below rather than of this union. It is closed to
+ * *us*, though — see {@link AttachmentRoleTraits}.
  */
-const DEDUPLICATED_ATTACHMENT_ROLES: readonly string[] = [ "favicon", "coverImage" ];
+export const ATTACHMENT_ROLES = {
+    /** A picture the user placed in the note. */
+    image: { picture: true, deduplicated: false, embedded: true },
+    /** A file the user attached to the note. */
+    file: { picture: false, deduplicated: false, embedded: true },
+    /**
+     * A link preview's two pictures, kept apart from `image` so they can be told from one the user
+     * chose. Both arrive already sized by the server (a 16x16 icon, a 256px thumbnail), so the
+     * compression inventory has nothing to gain from either and offering to recompress one is noise.
+     * They are embedded all the same: nothing else manages them, so deleting the preview has to be
+     * what eventually takes them with it.
+     */
+    favicon: { picture: true, deduplicated: true, embedded: true },
+    coverImage: { picture: true, deduplicated: true, embedded: true },
+    /** How a collection remembers the way it is being looked at, and a PDF where the reader had got to. */
+    viewConfig: { picture: false, deduplicated: false, embedded: false },
+    /** Shapes saved into an Excalidraw canvas's library. */
+    canvasLibraryItem: { picture: false, deduplicated: false, embedded: false },
+    /** The file an import was read from, kept so an import that went wrong can be looked at again. */
+    importSource: { picture: false, deduplicated: false, embedded: false }
+} as const satisfies Record<string, AttachmentRoleTraits>;
+
+/** A role the app itself creates. Arbitrary strings reach the same fields — see {@link ATTACHMENT_ROLES}. */
+export type AttachmentRole = keyof typeof ATTACHMENT_ROLES;
+
+/** The roles whose content is a picture, read off {@link ATTACHMENT_ROLES} rather than listed again. */
+export type ImageAttachmentRole = {
+    [Role in AttachmentRole]: typeof ATTACHMENT_ROLES[Role]["picture"] extends true ? Role : never
+}[AttachmentRole];
+
+/** @see ImageAttachmentRole */
+export const IMAGE_ATTACHMENT_ROLES: readonly ImageAttachmentRole[] =
+    attachmentRolesWhere("picture") as readonly ImageAttachmentRole[];
+
+/** Whether an attachment of this role holds a picture, whoever created it. */
+export function isImageAttachmentRole(role: string | undefined | null): role is ImageAttachmentRole {
+    return attachmentRoleTraits(role)?.picture ?? false;
+}
+
+/** @see AttachmentRoleTraits.deduplicated */
+export function isDeduplicatedAttachmentRole(role: string | undefined | null): boolean {
+    return attachmentRoleTraits(role)?.deduplicated ?? false;
+}
+
+/** @see AttachmentRoleTraits.embedded */
+export function isEmbeddedAttachmentRole(role: string | undefined | null): boolean {
+    return attachmentRoleTraits(role)?.embedded ?? false;
+}
 
 /**
- * Whether a second attachment of this role and title should reuse the first rather than be stored
- * again. The title is the key, so for these roles it is the caller's job to make it identify the
- * thing — a site's hostname for a favicon, a page's URL for its cover — and the server's not to
- * shorten it.
+ * What the app knows about this role, or nothing at all for one it does not recognise — a script's
+ * own, or a role from a newer version reached over sync.
+ *
+ * `hasOwn` rather than a plain lookup: the role is whatever was stored, so `"constructor"` and
+ * `"toString"` reach this, and reading them off the object would answer with something from its
+ * prototype instead of with nothing.
  */
-export function isDeduplicatedAttachmentRole(role: string | undefined | null): boolean {
-    return !!role && DEDUPLICATED_ATTACHMENT_ROLES.includes(role);
+export function attachmentRoleTraits(role: string | undefined | null): AttachmentRoleTraits | undefined {
+    return role && Object.hasOwn(ATTACHMENT_ROLES, role) ? ATTACHMENT_ROLES[role as AttachmentRole] : undefined;
+}
+
+function attachmentRolesWhere(trait: keyof AttachmentRoleTraits): readonly AttachmentRole[] {
+    return (Object.keys(ATTACHMENT_ROLES) as AttachmentRole[]).filter((role) => ATTACHMENT_ROLES[role][trait]);
 }

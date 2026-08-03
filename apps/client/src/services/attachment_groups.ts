@@ -1,3 +1,5 @@
+import type { AttachmentRole } from "@triliumnext/commons";
+
 /**
  * Which half of the attachment list an attachment belongs in.
  *
@@ -11,34 +13,43 @@
 export type AttachmentGroup = "user" | "system";
 
 /**
- * The roles the app creates for its own purposes.
+ * Which half each role the app creates belongs in.
  *
- * Listed rather than derived because there is no field that says so: a role is just a string, and
- * whether it names something the user placed is knowledge about the role, not about the attachment.
- *
- * Named as the *system* half, so that a role nobody here has heard of — a script's own, a role added
- * to the app since — counts as the user's and stays in the view that opens by default. The opposite
- * arrangement would file each new role under `system` and quietly bury an attachment its owner is
- * looking for; this way the worst an unknown role costs is one extra row among the user's own.
+ * A `Record` over the roles rather than a list of the system ones, so that a role added to
+ * `ATTACHMENT_ROLES` does not compile until it has been placed here. Which half something belongs in
+ * is not derivable from the traits that live with the roles themselves — `viewConfig` and `favicon`
+ * agree on nothing else — and it is only this list that presents them, so the answer is kept here.
  */
-export const SYSTEM_ATTACHMENT_ROLES: readonly string[] = [
+export const ATTACHMENT_ROLE_GROUPS: Record<AttachmentRole, AttachmentGroup> = {
+    // What the reader placed on the note.
+    image: "user",
+    file: "user",
     // The two pictures a link preview fetches: a site's icon and a page's thumbnail. Neither is
     // chosen, and a note that links a lot of pages accumulates a lot of them.
-    "favicon",
-    "coverImage",
+    favicon: "system",
+    coverImage: "system",
     // How a collection remembers the way it is being looked at, and how the PDF viewer remembers
     // where the reader had got to.
-    "viewConfig",
+    viewConfig: "system",
     // Shapes saved into an Excalidraw canvas's library. Kept by the canvas for the canvas, rather
     // than attached to the note by hand.
-    "canvasLibraryItem",
+    canvasLibraryItem: "system",
     // The file an import was read from, kept so an import that went wrong can be looked at again.
-    "importSource"
-];
+    importSource: "system"
+};
 
-/** Which half of the list an attachment of this role belongs in. */
+/**
+ * Which half of the list an attachment of this role belongs in.
+ *
+ * A role nobody here has heard of — a script's own, or one from a newer version reached over sync —
+ * counts as the user's and stays in the view that opens by default. Filing it under `system` instead
+ * would quietly bury an attachment its owner is looking for; this way the worst it costs is one extra
+ * row among the user's own.
+ */
 export function attachmentGroupForRole(role: string | undefined | null): AttachmentGroup {
-    return role && SYSTEM_ATTACHMENT_ROLES.includes(role) ? "system" : "user";
+    return (role && Object.hasOwn(ATTACHMENT_ROLE_GROUPS, role)
+        ? ATTACHMENT_ROLE_GROUPS[role as AttachmentRole]
+        : undefined) ?? "user";
 }
 
 /**
