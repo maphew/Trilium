@@ -56,7 +56,8 @@ export function attachmentGroupForRole(role: string | undefined | null): Attachm
  * Splits attachments into the two groups, each keeping the order it arrived in.
  *
  * Both halves are always returned, empty ones included, so a caller can count what it is not showing
- * — which is how the switcher says there is a second group to look at at all.
+ * — which is how the list knows whether to offer the app's own attachments at all, and how the row
+ * that offers them says how much is behind it without unfolding.
  */
 export function partitionAttachmentsByGroup<T extends { role: string }>(attachments: readonly T[]): Record<AttachmentGroup, T[]> {
     const groups: Record<AttachmentGroup, T[]> = { user: [], system: [] };

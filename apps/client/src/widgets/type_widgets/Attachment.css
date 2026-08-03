@@ -154,28 +154,51 @@
     }
 }
 
-.attachment-list .attachment-group-choice {
-    /* A flex item of the list's column, so without this it is stretched the width of the pane and the
-       two options grow into banners. Centred over the list instead. */
-    align-self: center;
-    margin-bottom: 12px;
+/* The header stays put and only the listing under it scrolls, so the owning note and the upload actions
+   are still reachable from the bottom of a long list. */
+.attachment-list .attachment-list-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+}
 
-    /* Both halves are given the same width, and more of it than their labels ask for: the labels carry
-       a count, so sizing each to its own text would move the divider — and the whole control, being
-       centred — every time an attachment is added or removed.
-       Sized on the group rather than per button: the theme resets `min-width` on anything inside a
-       button group (`:root div.btn-group button.btn.btn-secondary` in theme-next/forms.css), which
-       outweighs anything scoped from here that is still worth reading. A minimum rather than a width,
-       so a locale whose labels run longer than English's grows the control instead of clipping it. */
-    .btn-group {
-        min-width: 20em;
+.attachment-list .attachment-list-body {
+    flex-grow: 1;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+
+    /* Nothing in here is squeezed to fit the pane — a listing longer than it scrolls instead. */
+    > * {
+        flex-shrink: 0;
     }
 
-    /* Equal halves, which flex-basis decides rather than the labels' own widths — Bootstrap's
-       `flex: 1 1 auto` would hand each the space its text leaves over, making the wider label wider
-       still. */
-    .btn {
-        flex: 1 1 0;
+    /* The placeholder stands in for the listing rather than for the pane. Its own `height: 100%` is
+       measured against the whole body, which on a note whose only attachments are the app's would
+       push the row offering them past the bottom edge; growing into whatever that row leaves over
+       centres it in exactly the same way, and identically where there is no such row. */
+    > .no-items {
+        height: auto;
+    }
+}
+
+/*
+ * The app's own attachments, folded away under the reader's.
+ *
+ * Dressed as an aside rather than as a control: a muted line the width of its own words, set off from the
+ * listing above it but given no frame, no fill and no place of its own in the layout. What is behind it is
+ * a footnote to the note's attachments, and anything heavier — the button group this replaced, centred and
+ * 20em wide — reads as a question the reader has to answer before the list means anything.
+ */
+.attachment-list .attachment-system-group {
+    margin-top: 20px;
+
+    .collapsible-title {
+        /* `Collapsible` lays its button out as a flex row, which makes it block-level and hands it the
+           whole pane — a hover tint the width of the listing, for a line of words. */
+        width: fit-content;
+        color: var(--muted-text-color);
+        font-size: .9em;
     }
 }
 /* #endregion */

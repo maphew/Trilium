@@ -9,7 +9,7 @@ import type NoteContext from "../../components/note_context";
 import FAttachment from "../../entities/fattachment";
 import FNote from "../../entities/fnote";
 import imageContextMenu from "../../menus/image_context_menu";
-import { type AttachmentGroup, partitionAttachmentsByGroup } from "../../services/attachment_groups";
+import { partitionAttachmentsByGroup } from "../../services/attachment_groups";
 import { attachmentRoleLabel } from "../../services/attachment_role_names";
 import content_renderer from "../../services/content_renderer";
 import dialog from "../../services/dialog";
@@ -26,6 +26,7 @@ import { showImageCompressionDialog } from "../dialogs/image_compression/image_c
 import ActionButton from "../react/ActionButton";
 import { Badge } from "../react/Badge";
 import Button from "../react/Button";
+import { ExternallyControlledCollapsible } from "../react/Collapsible";
 import Dropdown from "../react/Dropdown";
 import FormFileUpload from "../react/FormFileUpload";
 import { FormDropdownDivider, FormListItem } from "../react/FormList";
@@ -36,7 +37,6 @@ import ImageViewer from "../react/ImageViewer";
 import NoItems from "../react/NoItems";
 import NoteLink from "../react/NoteLink";
 import { ParentComponent, refToJQuerySelector } from "../react/react_utils";
-import SegmentedChoice from "../react/SegmentedChoice";
 import SiblingNavigator from "../react/SiblingNavigator";
 import { TextPreview } from "./File";
 import MediaPreview from "./file/MediaPreview";
@@ -47,55 +47,68 @@ import { TypeWidgetProps } from "./type_widget";
  */
 export function AttachmentList({ note }: TypeWidgetProps) {
     const attachments = useAttachments(note);
-    const [ group, setGroup ] = useState<AttachmentGroup>("user");
     const groups = useMemo(() => partitionAttachmentsByGroup(attachments), [ attachments ]);
-    // Nothing to choose between until the app has made an attachment of its own, which most notes
-    // never give it reason to — so an ordinary note's list looks exactly as it did.
-    const isGrouped = groups.system.length > 0;
-    const shown = isGrouped ? groups[group] : attachments;
 
-    // TODO: Extract inline styles to CSS
     return (
-        <div style={{display: "flex", flexDirection: "column", height: "100%"}}>
+        <div className="attachment-list-container">
             <AttachmentListHeader noteId={note.noteId} />
-            {isGrouped && <AttachmentGroupChoice groups={groups} currentGroup={group} onChange={setGroup} />}
-            <div style={{overflow: "auto", flexGrow: 1}}>
-                {shown.length ? (
-                    <div className="attachment-list-wrapper">
-                        {shown.map(attachment => <AttachmentInfo key={attachment.attachmentId} attachment={attachment} />)}
-                    </div>
+            <div className="attachment-list-body">
+                {groups.user.length ? (
+                    <AttachmentGrid attachments={groups.user} />
                 ) : (
-                    <NoItems
-                        icon="bx bx-unlink"
-                        text={isGrouped ? t("attachment_list.no_attachments_in_group") : t("attachment_list.no_attachments")}
-                    />
+                    <NoItems icon="bx bx-unlink" text={t("attachment_list.no_attachments")} />
                 )}
+                {/* Nothing to fold away until the app has made an attachment of its own, which most
+                    notes never give it reason to — so an ordinary note's list looks exactly as it did.
+                    Keyed by the note so that moving to another one starts folded again, whatever was
+                    opened on the last. */}
+                {groups.system.length > 0 && <SystemAttachments key={note.noteId} attachments={groups.system} />}
             </div>
         </div>
     );
 }
 
-/**
- * Which half of the list is on show. Both halves carry a count, so the group not being looked at still
- * says how much is in it — the point of the switcher being that a note can carry far more of the app's
- * own attachments than of the reader's, and neither number is guessable from the other's list.
- */
-function AttachmentGroupChoice({ groups, currentGroup, onChange }: {
-    groups: Record<AttachmentGroup, FAttachment[]>,
-    currentGroup: AttachmentGroup,
-    onChange: (group: AttachmentGroup) => void
-}) {
+/** The cards themselves, in the order the group came in. */
+function AttachmentGrid({ attachments }: { attachments: FAttachment[] }) {
     return (
-        <div className="attachment-group-choice">
-            <SegmentedChoice
-                options={[
-                    { value: "user", label: t("attachment_list.group_user"), count: groups.user.length },
-                    { value: "system", label: t("attachment_list.group_system"), count: groups.system.length }
-                ]}
-                currentValue={currentGroup}
-                onChange={onChange}
-            />
+        <div className="attachment-list-wrapper">
+            {attachments.map(attachment => <AttachmentInfo key={attachment.attachmentId} attachment={attachment} />)}
         </div>
+    );
+}
+
+/**
+ * What the app made for itself, folded away under what the reader placed.
+ *
+ * A disclosure rather than a second half of a switcher: these are not an alternative view of the note's
+ * attachments but a footnote to them, and giving them a button of their own equal to the reader's own
+ * made every note carrying a single link preview open on a mode chooser. Folded always, on every note —
+ * the count says how much is behind it, which is as much as someone who is not looking for them needs.
+ *
+ * The cards are not built until it is first opened. Each one fetches its content and renders a preview,
+ * and a link-heavy note carries more of these than of anything else; a collapsed section that has
+ * loaded all of them costs the same as the old switcher did on the tab nobody chose.
+ */
+function SystemAttachments({ attachments }: { attachments: FAttachment[] }) {
+    const [ expanded, setExpanded ] = useState(false);
+    // Kept mounted once opened, so folding it back does not throw away what was just loaded.
+    const [ everExpanded, setEverExpanded ] = useState(false);
+
+    return (
+        <ExternallyControlledCollapsible
+            className="attachment-system-group"
+            /* `amount` rather than i18next's `count`, which would pull the label into the plural
+               machinery — the number here is parenthetical, not a counted noun, so the sentence is the
+               same either way and the pair of identical English forms would be noise for translators. */
+            title={t("attachment_list.system_group", { amount: attachments.length })}
+            expanded={expanded}
+            setExpanded={(newExpanded) => {
+                if (newExpanded) setEverExpanded(true);
+                setExpanded(newExpanded);
+            }}
+        >
+            {everExpanded && <AttachmentGrid attachments={attachments} />}
+        </ExternallyControlledCollapsible>
     );
 }
 
