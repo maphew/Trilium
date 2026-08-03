@@ -1,4 +1,5 @@
 import { trimIndentation } from "@triliumnext/commons";
+import { parse } from "node-html-parser";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import { buildShareNote, buildShareNotes } from "../test/shaca_mocking.js";
@@ -387,6 +388,81 @@ describe("content_renderer", () => {
             const content = String(getContent(note).content);
             expect(content).toContain(`<img class="link-embed-mention-favicon" src="${FAVICON}" width="16" height="16">`);
             expect(content).toContain(`<span class="link-embed-mention-title">A title</span>`);
+        });
+    });
+
+    describe("Web view note", () => {
+        const SANDBOX = "allow-same-origin allow-scripts allow-popups";
+
+        /**
+         * Renders a web view note and reads back the element the share page ends up with, so a test
+         * can assert the whole of it — every attribute the browser sees, and nothing besides.
+         */
+        function renderWebViewNote(src?: string) {
+            const note = buildShareNote({
+                type: "webView",
+                content: "",
+                ...(src !== undefined ? { "#webViewSrc": src } : {})
+            });
+            const root = parse(String(getContent(note).content));
+            return { root, frame: root.querySelector("iframe") };
+        }
+
+        it("renders a frame carrying the source URL, and nothing else", () => {
+            const { root, frame } = renderWebViewNote("https://example.com/page");
+            expect(root.childNodes.length).toBe(1);
+            expect(frame?.rawTagName).toBe("iframe");
+            expect(frame?.attributes).toStrictEqual({
+                class: "webview",
+                src: "https://example.com/page",
+                sandbox: SANDBOX
+            });
+            expect(frame?.innerHTML).toBe("");
+        });
+
+        it("renders nothing at all when the note carries no source", () => {
+            const { root, frame } = renderWebViewNote();
+            expect(frame).toBeNull();
+            expect(root.childNodes.length).toBe(0);
+        });
+
+        it("passes through the source URLs a frame is allowed to load", () => {
+            for (const src of [
+                "https://example.com/page",
+                "http://example.com/a?b=1&c=2",
+                "/relative/path",
+                "//example.com/protocol-relative"
+            ]) {
+                expect(renderWebViewNote(src).frame?.getAttribute("src")).toBe(src);
+            }
+        });
+
+        it("substitutes a blank page for a source URL that would run script", () => {
+            for (const src of ["javascript:alert(1)", "JaVaScRiPt:alert(1)", "data:text/html,<script>alert(1)</script>", "vbscript:msgbox"]) {
+                expect(renderWebViewNote(src).frame?.attributes).toStrictEqual({
+                    class: "webview",
+                    src: "about:blank",
+                    sandbox: SANDBOX
+                });
+            }
+        });
+
+        it("keeps a quote-carrying source URL inside the src attribute instead of letting it open a new one", () => {
+            // Sanitising the URL only normalises its scheme: a relative URL, or one whose scheme is
+            // neither http nor https, comes back verbatim with its quotes intact. Placing such a
+            // value in an attribute is what closes it, so it has to be escaped on the way in.
+            for (const src of [
+                `./a" onload="alert(1)" data-x="`,
+                `mailto:x@y" onload="alert(1)" data-x="`
+            ]) {
+                // The full attribute set, so that nothing the value carries can be read as a
+                // further attribute on the element and the whole of it stays the source.
+                expect(renderWebViewNote(src).frame?.attributes).toStrictEqual({
+                    class: "webview",
+                    src,
+                    sandbox: SANDBOX
+                });
+            }
         });
     });
 

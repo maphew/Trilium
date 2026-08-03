@@ -687,13 +687,27 @@ function renderSpreadsheet(result: Result) {
     }
 }
 
+/**
+ * Renders a web view note as the frame that embeds its source.
+ *
+ * The frame is built as an element rather than assembled as a string: `setAttribute()` escapes the
+ * value it is handed, so a source URL is placed as a value and can only ever be read back as one.
+ * Sanitising the URL alone would not be enough — it normalises the scheme, but returns a relative
+ * URL, or one whose scheme is neither http nor https, verbatim with any quotes it carries intact.
+ */
 function renderWebView(note: SNote | BNote, result: Result) {
     const url = note.getLabelValue("webViewSrc");
     if (!url) return;
 
-    result.content = `<iframe class="webview" src="${sanitize.sanitizeUrl(url)}" sandbox="allow-same-origin allow-scripts allow-popups"></iframe>`;
+    const frame = new HTMLElement("iframe", { class: "webview" });
+    frame.setAttribute("src", sanitize.sanitizeUrl(url));
+    // The embedded page keeps its own origin, may run scripts and may open windows. Keeping the
+    // origin is what lets the pages a web view is normally pointed at use their cookies and
+    // storage, but it also means a page served from this very origin is not isolated from the page
+    // embedding it; only dropping allow-same-origin would isolate it.
+    frame.setAttribute("sandbox", "allow-same-origin allow-scripts allow-popups");
+    result.content = frame.toString();
 }
-
 
 
 function safeHostnameForShare(url: string): string {
