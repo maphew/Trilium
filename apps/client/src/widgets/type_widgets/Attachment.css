@@ -17,6 +17,19 @@
         gap: 0.5em;
     }
 }
+/*
+ * The switcher between the reader's own attachments and the app's, which only appears once there is a
+ * second group to switch to. Sits under the header rather than in it: the header's row is already
+ * shared between the owning note and the upload actions, and on a narrow window that row wraps into a
+ * column the choice would land in the middle of.
+ */
+.attachment-list .attachment-group-choice {
+    /* A flex item of the list's column, so without this it is stretched the width of the pane and the
+       two options grow into banners. Sized to its labels instead, as the app's other segmented choices
+       are. */
+    align-self: flex-start;
+    margin-bottom: 12px;
+}
 /* #endregion */
 
 /* #region Attachment info */

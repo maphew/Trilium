@@ -2,13 +2,14 @@ import "./Attachment.css";
 
 import { ConvertAttachmentToNoteResponse, isImageAttachmentRole } from "@triliumnext/commons";
 import { t } from "i18next";
-import { useContext, useEffect, useRef, useState } from "preact/hooks";
+import { useContext, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import appContext from "../../components/app_context";
 import type NoteContext from "../../components/note_context";
 import FAttachment from "../../entities/fattachment";
 import FNote from "../../entities/fnote";
 import imageContextMenu from "../../menus/image_context_menu";
+import { type AttachmentGroup, partitionAttachmentsByGroup } from "../../services/attachment_groups";
 import content_renderer from "../../services/content_renderer";
 import dialog from "../../services/dialog";
 import froca from "../../services/froca";
@@ -34,6 +35,7 @@ import ImageViewer from "../react/ImageViewer";
 import NoItems from "../react/NoItems";
 import NoteLink from "../react/NoteLink";
 import { ParentComponent, refToJQuerySelector } from "../react/react_utils";
+import SegmentedChoice from "../react/SegmentedChoice";
 import SiblingNavigator from "../react/SiblingNavigator";
 import { TextPreview } from "./File";
 import MediaPreview from "./file/MediaPreview";
@@ -44,20 +46,55 @@ import { TypeWidgetProps } from "./type_widget";
  */
 export function AttachmentList({ note }: TypeWidgetProps) {
     const attachments = useAttachments(note);
+    const [ group, setGroup ] = useState<AttachmentGroup>("user");
+    const groups = useMemo(() => partitionAttachmentsByGroup(attachments), [ attachments ]);
+    // Nothing to choose between until the app has made an attachment of its own, which most notes
+    // never give it reason to — so an ordinary note's list looks exactly as it did.
+    const isGrouped = groups.system.length > 0;
+    const shown = isGrouped ? groups[group] : attachments;
 
     // TODO: Extract inline styles to CSS
     return (
         <div style={{display: "flex", flexDirection: "column", height: "100%"}}>
             <AttachmentListHeader noteId={note.noteId} />
+            {isGrouped && <AttachmentGroupChoice groups={groups} currentGroup={group} onChange={setGroup} />}
             <div style={{overflow: "auto", flexGrow: 1}}>
-                {attachments.length ? (
+                {shown.length ? (
                     <div className="attachment-list-wrapper">
-                        {attachments.map(attachment => <AttachmentInfo key={attachment.attachmentId} attachment={attachment} />)}
+                        {shown.map(attachment => <AttachmentInfo key={attachment.attachmentId} attachment={attachment} />)}
                     </div>
                 ) : (
-                    <NoItems icon="bx bx-unlink" text={t("attachment_list.no_attachments")} />
+                    <NoItems
+                        icon="bx bx-unlink"
+                        text={isGrouped ? t("attachment_list.no_attachments_in_group") : t("attachment_list.no_attachments")}
+                    />
                 )}
             </div>
+        </div>
+    );
+}
+
+/**
+ * Which half of the list is on show. Both halves are named with their size, so the group not being
+ * looked at still says how much is in it — the point of the switcher being that a note can carry far
+ * more of the app's own attachments than of the reader's, and neither number is guessable from the
+ * other's list.
+ */
+function AttachmentGroupChoice({ groups, currentGroup, onChange }: {
+    groups: Record<AttachmentGroup, FAttachment[]>,
+    currentGroup: AttachmentGroup,
+    onChange: (group: AttachmentGroup) => void
+}) {
+    return (
+        <div className="attachment-group-choice">
+            <SegmentedChoice
+                options={[
+                    { value: "user", label: t("attachment_list.group_user", { total: groups.user.length }) },
+                    { value: "system", label: t("attachment_list.group_system", { total: groups.system.length }) }
+                ]}
+                currentValue={currentGroup}
+                onChange={onChange}
+            />
         </div>
     );
 }
