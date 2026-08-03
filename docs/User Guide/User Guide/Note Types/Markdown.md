@@ -27,6 +27,7 @@ The following features are supported by Trilium's Markdown format and will show 
 *   All standard and GitHub-flavored syntax (basic formatting, tables, blockquotes).
 *   Basic HTML is also supported (e.g. collapsible blocks using `<details>` and `<summary>`).
 *   Code blocks with syntax highlight.
+    
     *   The language must be specified for syntax highlight to be applied (e.g. ` ```js `).
     *   Code blocks will respect the text wrapping from the <a class="reference-link" href="Text.md">Text</a> section in <a class="reference-link" href="../Basic%20Concepts%20and%20Features/UI%20Elements/Options.md">Options</a>.
 *   <a class="reference-link" href="Text/Block%20quotes%20%26%20admonitions.md">Block quotes &amp; admonitions</a>
@@ -48,7 +49,7 @@ The following features are supported by Trilium's Markdown format and will show 
     ```
 *   To-do lists with extended task states:
     
-    <table class="ck-table-resized" style="border-style:none;">
+    <table class="ck-table-resized" style="border-style:none">
         <colgroup>
             <col style="width:80.6%;">
             <col style="width:19.4%;">
@@ -85,7 +86,7 @@ The following features are supported by Trilium's Markdown format and will show 
     ```
 *   Highlights (background color) are supported both via the `==` Markdown syntax, as well as the canonical HTML representation in Trilium:
     
-    ```markdown
+    ```gfm
     ==highlighted==
     <span style="background-color:hsl(0,0%,100%);">Highlighted</span>
     ```
