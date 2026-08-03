@@ -118,7 +118,14 @@ describe("linkPreviewImageName", () => {
     it("names the page it is a picture of, readably", () => {
         // The attachment list shows this, where several rows of "image.jpeg" say nothing about
         // which is which.
-        expect(linkPreviewImageName(wiki)).toMatch(/^en-wikipedia-org-Russo-Japanese-War-[0-9a-f]{8}$/);
+        expect(linkPreviewImageName(wiki)).toMatch(/^en\.wikipedia\.org-Russo-Japanese-War-[0-9a-f]{8}$/);
+    });
+
+    it("spells the site the same way its favicon does", () => {
+        // A favicon is titled by the bare hostname, so reducing the hostname here would put the
+        // two pictures of one site under two different-looking names in the same list.
+        expect(linkPreviewImageName(wiki).startsWith("en.wikipedia.org")).toBe(true);
+        expect(linkPreviewImageName("https://example.com/")).toMatch(/^example\.com-[0-9a-f]{8}$/);
     });
 
     it("gives the same URL the same name, which is what makes pasting it twice reuse one picture", () => {
@@ -157,10 +164,11 @@ describe("linkPreviewImageName", () => {
         ];
 
         for (const name of names) {
-            // Nothing a file system, a URL or an export archive would have to escape.
-            expect(name, name).toMatch(/^[a-zA-Z0-9-]+$/);
-            expect(name.startsWith("-"), name).toBe(false);
-            expect(name.endsWith("-"), name).toBe(false);
+            // Nothing a file system, a URL or an export archive would have to escape. Dots are in,
+            // being what a hostname is written with.
+            expect(name, name).toMatch(/^[a-zA-Z0-9.-]+$/);
+            expect(name.startsWith("-") || name.startsWith("."), name).toBe(false);
+            expect(name.endsWith("-") || name.endsWith("."), name).toBe(false);
             // Bounded, so a long path cannot crowd the attachment list out.
             expect(name.length, name).toBeLessThanOrEqual(70);
         }

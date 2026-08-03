@@ -144,7 +144,7 @@ describe("fetchMetadata", () => {
                 "note1",
                 "data:image/jpeg;base64,IMG",
                 "coverImage",
-                expect.stringMatching(/^example-com-[0-9a-f]{8}$/)
+                expect.stringMatching(/^example\.com-[0-9a-f]{8}$/)
             );
             // Only the attachment URLs land in the note content — inlined base64 counts against the
             // auto-read-only size threshold, and a favicon pays that cost once per link rather than

@@ -102,31 +102,39 @@ export function safeLinkPreviewImageSrc(src: string | undefined | null): string 
  */
 export function linkPreviewImageName(url: string): string {
     let canonical = url;
-    let readable = url;
+    let readable = toFileNamePart(url);
 
     try {
         const parsed = new URL(url);
         parsed.hash = "";
         canonical = parsed.toString();
 
-        const lastSegment = decodeURIComponent(parsed.pathname).split("/").filter(Boolean).pop() ?? "";
-        readable = `${parsed.hostname} ${lastSegment}`;
+        const lastSegment = toFileNamePart(decodeURIComponent(parsed.pathname).split("/").filter(Boolean).pop() ?? "");
+
+        // The hostname is kept as it is written. It is already a file name — letters, digits, dots
+        // and dashes, an international one having been punycoded by the parse — so reducing it too
+        // would only spell the same site one way here and another under its favicon, which is
+        // titled by the bare hostname.
+        readable = lastSegment ? `${parsed.hostname}-${lastSegment}` : parsed.hostname;
     } catch {
         // Not an address that can be taken apart — rare, since a preview only ever has an http(s)
         // URL. The digest identifies it regardless; only the readable part suffers.
     }
 
-    return `${toFileNamePart(readable) || "image"}-${shortDigest(canonical)}`;
+    return `${capReadable(readable) || "image"}-${shortDigest(canonical)}`;
 }
 
 /** How much of the readable part to keep, so a long path does not crowd out the attachment list. */
 const PREVIEW_NAME_MAX_READABLE = 60;
 
+/** Reduces a part of the address that is not already a file name — a path segment, or the lot. */
 function toFileNamePart(value: string): string {
-    return value
-        .replace(/[^a-zA-Z0-9]+/g, "-")
-        .slice(0, PREVIEW_NAME_MAX_READABLE)
-        .replace(/^-+|-+$/g, "");
+    return value.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+/** Bounds the readable part, and never lets it end on the punctuation a cut leaves behind. */
+function capReadable(value: string): string {
+    return value.slice(0, PREVIEW_NAME_MAX_READABLE).replace(/^[-.]+|[-.]+$/g, "");
 }
 
 /**

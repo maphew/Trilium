@@ -282,9 +282,9 @@ describe("Attachments API (core)", () => {
                 { file: { originalname: title, mimetype: "image/jpeg", buffer: PIXEL_PNG } }
             );
 
-            const first = await upload("en-wikipedia-org-Russo-Japanese-War-1a2b3c4d.jpeg");
-            const again = await upload("en-wikipedia-org-Russo-Japanese-War-1a2b3c4d.jpeg");
-            await upload("en-wikipedia-org-Crimean-War-5e6f7a8b.jpeg");
+            const first = await upload("en.wikipedia.org-Russo-Japanese-War-1a2b3c4d.jpeg");
+            const again = await upload("en.wikipedia.org-Russo-Japanese-War-1a2b3c4d.jpeg");
+            await upload("en.wikipedia.org-Crimean-War-5e6f7a8b.jpeg");
 
             expect(again.body.url).toBe(first.body.url);
             expect((await api.get<AttachmentPojo[]>(`/api/notes/${noteId}/attachments`)).body).toHaveLength(2);
