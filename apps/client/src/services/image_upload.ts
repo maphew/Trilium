@@ -15,9 +15,18 @@ import server from "./server.js";
  * caller passes something else only for a picture the app fetched on its behalf, such as a link
  * preview's site icon; see {@link IMAGE_ATTACHMENT_ROLES}. The server checks the value against the
  * same list rather than storing whatever it is sent.
+ *
+ * `baseName` names the attachment. For a role that deduplicates it is also the key the note reuses
+ * an existing attachment by, so it has to say which thing this is — a site's hostname for a
+ * favicon — rather than describe it.
  */
-export async function uploadImageAttachment(noteId: string, dataUrl: string, role: ImageAttachmentRole = "image"): Promise<string | null> {
-    const file = dataUrlToImageFile(dataUrl);
+export async function uploadImageAttachment(
+    noteId: string,
+    dataUrl: string,
+    role: ImageAttachmentRole = "image",
+    baseName = "image"
+): Promise<string | null> {
+    const file = dataUrlToImageFile(dataUrl, baseName);
     if (!file) return null;
 
     try {
@@ -30,8 +39,11 @@ export async function uploadImageAttachment(noteId: string, dataUrl: string, rol
     }
 }
 
-/** Decodes a `data:<mime>;base64,<data>` URL into a {@link File} suitable for upload. */
-export function dataUrlToImageFile(dataUrl: string): File | null {
+/**
+ * Decodes a `data:<mime>;base64,<data>` URL into a {@link File} suitable for upload, named
+ * `<baseName>.<ext>` — the extension coming from the data URL's own media type.
+ */
+export function dataUrlToImageFile(dataUrl: string, baseName = "image"): File | null {
     const parsed = parseImageDataUrl(dataUrl);
     if (!parsed) return null;
 
@@ -45,7 +57,7 @@ export function dataUrlToImageFile(dataUrl: string): File | null {
     for (let i = 0; i < binary.length; i++) {
         bytes[i] = binary.charCodeAt(i);
     }
-    return new File([ bytes ], `image.${parsed.ext}`, { type: parsed.mime });
+    return new File([ bytes ], `${baseName}.${parsed.ext}`, { type: parsed.mime });
 }
 
 export interface ParsedImageDataUrl {

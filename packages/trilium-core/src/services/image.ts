@@ -3,7 +3,7 @@
  * Uses ImageProvider for platform-specific processing (compression, format detection).
  */
 
-import type { ImageAttachmentRole } from "@triliumnext/commons";
+import { type ImageAttachmentRole, isDeduplicatedAttachmentRole } from "@triliumnext/commons";
 import sanitizeFilename from "sanitize-filename";
 
 import becca from "../becca/becca.js";
@@ -196,12 +196,27 @@ function saveImageToAttachment(
 ): { attachmentId: string | undefined; title: string } {
     getLog().info(`Saving image '${originalName}' as attachment into note '${noteId}'`);
 
-    if (trimFilename && originalName.length > 40) {
+    // A deduplicated role's title is what identifies the picture, so it is never collapsed: every
+    // hostname past the limit would otherwise share one icon.
+    if (trimFilename && !isDeduplicatedAttachmentRole(role) && originalName.length > 40) {
         originalName = "image";
     }
 
     const fileName = sanitizeFilename(originalName);
     const note = becca.getNoteOrThrow(noteId);
+
+    const reusable = isDeduplicatedAttachmentRole(role)
+        ? note.getAttachments().find((existing) => existing.role === role && existing.title === fileName)
+        : undefined;
+
+    if (reusable) {
+        // Handed back untouched rather than rewritten with the same bytes: it already holds them,
+        // and its content is what a blob is keyed by. Any erasure it was scheduled for is cleared
+        // by checkImageAttachments on the save that follows, which owns that state.
+        getLog().info(`Reusing attachment '${reusable.attachmentId}' of note '${noteId}' for '${fileName}'`);
+
+        return { attachmentId: reusable.attachmentId, title: reusable.title };
+    }
 
     const attachment = note.saveAttachment({
         role,

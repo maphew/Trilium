@@ -64,6 +64,17 @@ describe("uploadImageAttachment", () => {
         expect(serverUpload).toHaveBeenCalledWith("notes/note1/attachments/upload?role=favicon", expect.any(File), undefined, "POST");
     });
 
+    it("names the upload after the base name it was given, keeping the data URL's extension", async () => {
+        // For a deduplicated role the name is the key an existing attachment is reused by, so it
+        // has to reach the server intact.
+        serverUpload.mockResolvedValue({ uploaded: true, url: "api/attachments/new1/image/example.com.png" });
+
+        await uploadImageAttachment("note1", "data:image/png;base64,QUJD", "favicon", "example.com");
+
+        const [ , uploaded ] = serverUpload.mock.calls[0] as [string, File];
+        expect(uploaded.name).toBe("example.com.png");
+    });
+
     it("returns null when the server reports the upload did not succeed", async () => {
         serverUpload.mockResolvedValue({ uploaded: false });
         expect(await uploadImageAttachment("note1", "data:image/png;base64,QUJD")).toBeNull();

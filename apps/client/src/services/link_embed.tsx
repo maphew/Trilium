@@ -49,8 +49,10 @@ export async function fetchMetadata(url: string, ownerNoteId?: string): Promise<
         const metadata = await server.post<LinkEmbedMetadata>("link-embed/metadata", { url });
         // Uploaded together: they are two independent requests and a preview needs both before it
         // can be stored.
+        // The favicon is named by its site, which is what lets a note that links the same site many
+        // times keep one icon rather than one per link.
         const [ favicon, image ] = await Promise.all([
-            offloadPictureToAttachment(metadata.favicon, ownerNoteId, "favicon"),
+            offloadPictureToAttachment(metadata.favicon, ownerNoteId, "favicon", safeHostname(metadata.url)),
             offloadPictureToAttachment(metadata.image, ownerNoteId)
         ]);
 
@@ -90,13 +92,14 @@ export async function fetchMetadata(url: string, ownerNoteId?: string): Promise<
 async function offloadPictureToAttachment(
     picture: string | undefined,
     ownerNoteId: string | undefined,
-    role: ImageAttachmentRole = "image"
+    role: ImageAttachmentRole = "image",
+    baseName?: string
 ): Promise<string | undefined> {
     if (!picture || !ownerNoteId || !picture.startsWith("data:")) {
         return picture;
     }
 
-    return await uploadImageAttachment(ownerNoteId, picture, role) ?? picture;
+    return await uploadImageAttachment(ownerNoteId, picture, role, baseName) ?? picture;
 }
 
 // ---------------------------------------------------------------------------

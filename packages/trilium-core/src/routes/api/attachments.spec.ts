@@ -254,6 +254,62 @@ describe("Attachments API (core)", () => {
             expect((await api.get(`/${res.body.url}`)).status).toBe(200);
         });
 
+        it("reuses a favicon of the same title rather than storing the site's icon again", async () => {
+            const { noteId } = await createTextNote(api, { title: "Dedup target" });
+            const upload = (title: string) => api.post<{ url: string }>(
+                `/api/notes/${noteId}/attachments/upload?role=favicon`,
+                { file: { originalname: title, mimetype: "image/x-icon", buffer: icoWrapping(PIXEL_PNG) } }
+            );
+
+            const first = await upload("example.com.ico");
+            const again = await upload("example.com.ico");
+
+            // The same attachment, so a note that links a site many times carries one icon rather
+            // than one per link — and the second upload answers with the URL the first got.
+            expect(again.body.url).toBe(first.body.url);
+
+            // A different site is a different icon, identical bytes notwithstanding.
+            await upload("other.example.ico");
+
+            const attachments = (await api.get<AttachmentPojo[]>(`/api/notes/${noteId}/attachments`)).body;
+            expect(attachments.map((a) => a.title).sort()).toStrictEqual([ "example.com.ico", "other.example.ico" ]);
+        });
+
+        it("does not deduplicate the user's own images, whatever they are called", async () => {
+            // Two pictures the user gave the same name are two pictures; collapsing them would
+            // lose one. Only roles the app names itself deduplicate.
+            const { noteId } = await createTextNote(api, { title: "No dedup target" });
+            const upload = () => api.post(
+                `/api/notes/${noteId}/attachments/upload`,
+                { file: { originalname: "photo.png", mimetype: "image/png", buffer: PIXEL_PNG } }
+            );
+
+            await upload();
+            await upload();
+
+            expect((await api.get<AttachmentPojo[]>(`/api/notes/${noteId}/attachments`)).body).toHaveLength(2);
+        });
+
+        it("keeps a long hostname whole, since it is what one icon is told from another by", async () => {
+            // Ordinary uploads collapse a title past 40 characters to "image". Doing that to a
+            // deduplicated role would make every long hostname share a single icon.
+            const { noteId } = await createTextNote(api, { title: "Long host target" });
+            const hosts = [
+                "a-very-long-subdomain-name-indeed.example.com.ico",
+                "another-very-long-subdomain-name.example.com.ico"
+            ];
+
+            for (const host of hosts) {
+                await api.post(
+                    `/api/notes/${noteId}/attachments/upload?role=favicon`,
+                    { file: { originalname: host, mimetype: "image/x-icon", buffer: icoWrapping(PIXEL_PNG) } }
+                );
+            }
+
+            const attachments = (await api.get<AttachmentPojo[]>(`/api/notes/${noteId}/attachments`)).body;
+            expect(attachments.map((a) => a.title).sort()).toStrictEqual([ ...hosts ].sort());
+        });
+
         it("ignores a role it does not know rather than storing it", async () => {
             // The role is what decides whether an attachment is served, listed and cleaned up, so a
             // request must not be able to invent one and leave an attachment no code path looks at.

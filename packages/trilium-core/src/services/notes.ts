@@ -25,7 +25,7 @@ import { getSql } from "./sql/index.js";
 import type TaskContext from "./task_context.js";
 import { decodeBase64 } from "./utils/binary.js";
 import date_utils from "./utils/date.js";
-import { newEntityId, quoteRegex, toMap, unescapeHtml } from "./utils/index.js";
+import { newEntityId, quoteRegex, replaceAll, toMap, unescapeHtml } from "./utils/index.js";
 import { basename } from "./utils/path.js";
 import ws from "./ws.js";
 
@@ -551,8 +551,13 @@ export function checkImageAttachments(note: BNote, content: string) {
             getLog().info(`Copied attachment '${unknownAttachment.attachmentId}' of note '${unknownAttachment.ownerId}' to new '${localAttachment.attachmentId}' of note '${note.noteId}'`);
         }
 
-        // replace image links
-        content = content.replace(`api/attachments/${unknownAttachment.attachmentId}/image`, `api/attachments/${localAttachment.attachmentId}/image`);
+        // Replace image links — every one of them. A string first argument to replace() rewrites
+        // only the first match, which was survivable while each reference had an attachment of its
+        // own, but a deduplicated role (a link preview's favicon, one per site rather than one per
+        // link) is referenced as many times as the note links that site. Leaving the rest pointing
+        // at the foreign attachment made them resolve to another note's picture until a later save
+        // happened to fix one more, each one announcing itself with a toast.
+        content = replaceAll(content, `api/attachments/${unknownAttachment.attachmentId}/image`, `api/attachments/${localAttachment.attachmentId}/image`);
         // replace reference links
         content = content.replace(
             new RegExp(`href="[^"]+attachmentId=${unknownAttachment.attachmentId}[^"]*"`, "g"),

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { IMAGE_ATTACHMENT_ROLES, isImageAttachmentRole } from "./attachment_roles.js";
+import { IMAGE_ATTACHMENT_ROLES, isDeduplicatedAttachmentRole, isImageAttachmentRole } from "./attachment_roles.js";
 
 describe("isImageAttachmentRole", () => {
     it("recognises every picture role and nothing else", () => {
@@ -22,5 +22,21 @@ describe("isImageAttachmentRole", () => {
     it("covers both the user's own pictures and the ones the app fetched for them", () => {
         expect(isImageAttachmentRole("image")).toBe(true);
         expect(isImageAttachmentRole("favicon")).toBe(true);
+    });
+});
+
+describe("isDeduplicatedAttachmentRole", () => {
+    it("deduplicates only what the app named itself", () => {
+        // A site's icon: one per site rather than one per link to it.
+        expect(isDeduplicatedAttachmentRole("favicon")).toBe(true);
+
+        // Never a picture the user placed. Two images they gave the same name are two images, and
+        // collapsing them by title would lose one.
+        for (const role of [ "image", "file", "viewConfig", "importSource", "" ]) {
+            expect(isDeduplicatedAttachmentRole(role), role).toBe(false);
+        }
+
+        expect(isDeduplicatedAttachmentRole(undefined)).toBe(false);
+        expect(isDeduplicatedAttachmentRole(null)).toBe(false);
     });
 });

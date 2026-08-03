@@ -150,6 +150,44 @@ describe("checkImageAttachments", () => {
             expect(favicon.utcDateScheduledForErasureSince).toBeNull();
         });
 
+        it("rewrites every reference to a foreign attachment, not just the first", () => {
+            // A deduplicated favicon is referenced once per link to its site, so content pasted
+            // into another note arrives holding many references to the one attachment. Rewriting
+            // only the first left the rest pointing at the other note's picture — which a later
+            // save would fix one more of, announcing each with its own toast.
+            const source = buildNote({
+                title: "Source",
+                attachments: [{ id: "foreignAtt1", title: "example.com.ico", role: "favicon", mime: "image/x-icon" }]
+            });
+            const [ foreign ] = source.getAttachments();
+            foreign.blobId = "sharedBlob";
+
+            const target = buildNote({
+                title: "Target",
+                attachments: [{ id: "localAtt1", title: "example.com.ico", role: "favicon", mime: "image/x-icon" }]
+            });
+            mockAttachmentSaves(target);
+            const [ local ] = target.getAttachments();
+            local.blobId = "sharedBlob";
+
+            // The attachment is owned by another note, which is what makes it "unknown" here.
+            const getAttachments = vi.spyOn(becca, "getAttachments").mockReturnValue([ foreign ]);
+
+            try {
+                const mention = (attachmentId: string) =>
+                    `<span class="link-mention" data-favicon="api/attachments/${attachmentId}/image/example.com.ico"></span>`;
+                const { content } = checkImageAttachments(
+                    target,
+                    `<p>${mention("foreignAtt1")} and ${mention("foreignAtt1")} and ${mention("foreignAtt1")}</p>`
+                );
+
+                expect(content).not.toContain("foreignAtt1");
+                expect(content.match(/localAtt1/g)).toHaveLength(3);
+            } finally {
+                getAttachments.mockRestore();
+            }
+        });
+
         it("schedules an unreferenced favicon for erasure, its own role notwithstanding", () => {
             // The role exists so an icon can be told apart from the user's own pictures, not so it
             // can escape the cleanup: nothing else manages a favicon, so deleting the preview that
