@@ -1,4 +1,4 @@
-import { DISPLAYABLE_LOCALE_IDS, LOCALES } from "@triliumnext/commons";
+import { DISPLAYABLE_LOCALE_IDS, IMAGE_MIMES, LOCALES } from "@triliumnext/commons";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import imageService from "../../../services/image.js";
@@ -163,6 +163,25 @@ describe("CK config", () => {
     // The `text-editor.ck` section of the English catalog is the registry of editor strings: each
     // entry names the English message id a plugin passes to `editor.t()`, and the value the editor
     // gets for it is that key resolved through the app's i18n.
+    it("claims exactly the media types the upload endpoint stores as images", async () => {
+        const config = await buildConfig(baseOpts());
+        const types = (config.image as { upload: { types: string[] } }).upload.types;
+        // The editor decides whether a dropped file is a picture with this exact expression (see
+        // createImageTypeRegExp) — anchored, so a subtype has to be listed in full.
+        const claimed = new RegExp(`^image\\/(${types.map((type) => type.replace("+", "\\+")).join("|")})$`);
+
+        for (const mime of IMAGE_MIMES) {
+            expect(claimed.test(mime), mime).toBe(true);
+        }
+
+        // And nothing beyond them. A type the editor claims but the endpoint does not store as an
+        // image is the worse half of the mismatch: the editor inserts a picture, the endpoint
+        // answers with a `#root/...` file reference, and that goes into the <img src> unexamined.
+        expect(types.length).toBe(IMAGE_MIMES.length);
+        // TIFF is the one deliberately left out — no browser but Safari draws one in an <img>.
+        expect(claimed.test("image/tiff")).toBe(false);
+    });
+
     it("turns the English editor catalog into the dictionary the editor resolves messages through", async () => {
         catalogState.bundle = { "text-editor": { ck: { "insert-a-table": "Insert a table." } } };
         catalogState.entries["text-editor.ck.insert-a-table"] = "Tabelle einfügen";

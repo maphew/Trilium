@@ -113,18 +113,92 @@ describe("checkImageAttachments", () => {
             expect(att.save).not.toHaveBeenCalled();
         });
 
-        it("keeps attachments referenced from a link preview's data-image attribute alive", () => {
-            const note = buildNote({ title: "Test", attachments: [{ title: "image.jpg", role: "image", mime: "image/jpeg" }] });
+        it("keeps attachments referenced from a link preview's picture attributes alive", () => {
+            const note = buildNote({
+                title: "Test",
+                attachments: [
+                    { title: "image.jpg", role: "image", mime: "image/jpeg" },
+                    { title: "favicon.ico", role: "favicon", mime: "image/x-icon" }
+                ]
+            });
             mockAttachmentSaves(note);
-            const [att] = note.getAttachments();
-            att.utcDateScheduledForErasureSince = "2025-01-01 00:00:00.000Z";
+            const [ image, favicon ] = note.getAttachments();
+            image.utcDateScheduledForErasureSince = "2025-01-01 00:00:00.000Z";
+            favicon.utcDateScheduledForErasureSince = "2025-01-01 00:00:00.000Z";
 
-            // A link preview carries its card image in a data attribute, not an <img src>.
-            const content = `<section class="link-embed" data-url="https://example.com"` +
-                ` data-image="api/attachments/${att.attachmentId}/image/image.jpg"></section>`;
+            // A link preview carries both of its pictures in data attributes, not in an <img src>:
+            // the card image, and the favicon an inline mention shows on its own.
+            const content = `<section class="link-embed" data-url="https://example.com"`
+                + ` data-image="api/attachments/${image.attachmentId}/image/image.jpg"`
+                + ` data-favicon="api/attachments/${favicon.attachmentId}/image/favicon.ico"></section>`;
             checkImageAttachments(note, content);
 
-            expect(att.utcDateScheduledForErasureSince).toBeNull();
+            expect(image.utcDateScheduledForErasureSince).toBeNull();
+            expect(favicon.utcDateScheduledForErasureSince).toBeNull();
+        });
+
+        it("keeps a mention's favicon alive, which is all an inline mention carries", () => {
+            const note = buildNote({ title: "Test", attachments: [{ title: "favicon.ico", role: "favicon", mime: "image/x-icon" }] });
+            mockAttachmentSaves(note);
+            const [ favicon ] = note.getAttachments();
+            favicon.utcDateScheduledForErasureSince = "2025-01-01 00:00:00.000Z";
+
+            const content = `<span class="link-mention" data-url="https://example.com"`
+                + ` data-favicon="api/attachments/${favicon.attachmentId}/image/favicon.ico"></span>`;
+            checkImageAttachments(note, content);
+
+            expect(favicon.utcDateScheduledForErasureSince).toBeNull();
+        });
+
+        it("rewrites every reference to a foreign attachment, not just the first", () => {
+            // A deduplicated favicon is referenced once per link to its site, so content pasted
+            // into another note arrives holding many references to the one attachment. Rewriting
+            // only the first left the rest pointing at the other note's picture — which a later
+            // save would fix one more of, announcing each with its own toast.
+            const source = buildNote({
+                title: "Source",
+                attachments: [{ id: "foreignAtt1", title: "example.com.ico", role: "favicon", mime: "image/x-icon" }]
+            });
+            const [ foreign ] = source.getAttachments();
+            foreign.blobId = "sharedBlob";
+
+            const target = buildNote({
+                title: "Target",
+                attachments: [{ id: "localAtt1", title: "example.com.ico", role: "favicon", mime: "image/x-icon" }]
+            });
+            mockAttachmentSaves(target);
+            const [ local ] = target.getAttachments();
+            local.blobId = "sharedBlob";
+
+            // The attachment is owned by another note, which is what makes it "unknown" here.
+            const getAttachments = vi.spyOn(becca, "getAttachments").mockReturnValue([ foreign ]);
+
+            try {
+                const mention = (attachmentId: string) =>
+                    `<span class="link-mention" data-favicon="api/attachments/${attachmentId}/image/example.com.ico"></span>`;
+                const { content } = checkImageAttachments(
+                    target,
+                    `<p>${mention("foreignAtt1")} and ${mention("foreignAtt1")} and ${mention("foreignAtt1")}</p>`
+                );
+
+                expect(content).not.toContain("foreignAtt1");
+                expect(content.match(/localAtt1/g)).toHaveLength(3);
+            } finally {
+                getAttachments.mockRestore();
+            }
+        });
+
+        it("schedules an unreferenced favicon for erasure, its own role notwithstanding", () => {
+            // The role exists so an icon can be told apart from the user's own pictures, not so it
+            // can escape the cleanup: nothing else manages a favicon, so deleting the preview that
+            // referenced it has to be what eventually takes it away.
+            const note = buildNote({ title: "Test", attachments: [{ title: "favicon.ico", role: "favicon", mime: "image/x-icon" }] });
+            mockAttachmentSaves(note);
+            const [ favicon ] = note.getAttachments();
+
+            checkImageAttachments(note, "<p>the preview that referenced it is gone</p>");
+
+            expect(favicon.utcDateScheduledForErasureSince).toBeTruthy();
         });
 
         it("schedules unreferenced attachments for erasure", () => {
@@ -390,6 +464,117 @@ describe("checkImageAttachments", () => {
 
             expect(result.forceFrontendReload).toBe(true);
             expect(result.content).not.toContain("foreignAtt1");
+        });
+
+        /**
+         * Copies for real, so the role the copy ends up with is the one production put there, and
+         * hands the copy back to the test. Only the writing is stood in for: `setContent` and `save`
+         * reach blobs and the DB, which this spec has no room for.
+         */
+        function captureRealCopy(foreign: ReturnType<typeof buildNote>["getAttachments"] extends () => (infer A)[] ? A : never) {
+            const copies: typeof foreign[] = [];
+            const realCopy = foreign.copy.bind(foreign);
+            foreign.copy = () => {
+                const copy = realCopy();
+                copy.setContent = vi.fn();
+                copy.save = vi.fn();
+                copies.push(copy);
+                return copy;
+            };
+            foreign.getContent = () => Buffer.from("picture data");
+            return copies;
+        }
+
+        it("hands a preview's picture over as the reader's own when it is pasted as a plain image", () => {
+            // "Copy reference to clipboard" on a link preview's favicon puts a bare <img> on the
+            // clipboard. Carried into another note that way it is a picture someone placed, not a
+            // preview's any more — and keeping the role would leave it deduplicated by title against
+            // that note's own previews, denied OCR and compression, and filed under "System".
+            const source = buildNote({
+                title: "Source",
+                attachments: [{ id: "foreignFavicon", title: "example.com.ico", role: "favicon", mime: "image/x-icon" }]
+            });
+            const [ foreign ] = source.getAttachments();
+            const copies = captureRealCopy(foreign);
+
+            const target = buildNote({ title: "Target" });
+            target.getAttachments = () => [];
+            const getAttachments = vi.spyOn(becca, "getAttachments").mockReturnValue([ foreign ]);
+
+            try {
+                checkImageAttachments(target, `<img src="api/attachments/foreignFavicon/image/example.com.ico">`);
+
+                expect(copies).toHaveLength(1);
+                expect(copies[0].role).toBe("image");
+            } finally {
+                getAttachments.mockRestore();
+            }
+        });
+
+        it("keeps a preview's pictures its own when the whole preview is pasted", () => {
+            // The same copy, reached the other way: the pictures still belong to a preview in the new
+            // note, and demoting them would give every link to the site its own icon again.
+            const source = buildNote({
+                title: "Source",
+                attachments: [
+                    { id: "foreignCover", title: "https://example.com", role: "coverImage", mime: "image/jpeg" },
+                    { id: "foreignIcon", title: "example.com", role: "favicon", mime: "image/x-icon" }
+                ]
+            });
+            const [ cover, icon ] = source.getAttachments();
+            const coverCopies = captureRealCopy(cover);
+            const iconCopies = captureRealCopy(icon);
+
+            const target = buildNote({ title: "Target" });
+            target.getAttachments = () => [];
+            const getAttachments = vi.spyOn(becca, "getAttachments").mockReturnValue([ cover, icon ]);
+
+            try {
+                checkImageAttachments(
+                    target,
+                    `<section class="link-embed" data-url="https://example.com"`
+                    + ` data-image="api/attachments/foreignCover/image/cover.jpg"`
+                    + ` data-favicon="api/attachments/foreignIcon/image/example.com.ico"></section>`
+                );
+
+                expect([ ...coverCopies, ...iconCopies ].map((copy) => copy.role)).toStrictEqual([ "coverImage", "favicon" ]);
+            } finally {
+                getAttachments.mockRestore();
+            }
+        });
+
+        it("reuses an equivalent local picture under the role the copy would have taken", () => {
+            // The equivalent-attachment lookup matches on role, so it has to ask for the role the copy
+            // is going to land on. Asking for the foreign one would never match the note's own picture,
+            // and every save would copy the bytes again.
+            const source = buildNote({
+                title: "Source",
+                attachments: [{ id: "foreignIcon", title: "example.com.ico", role: "favicon", mime: "image/x-icon" }]
+            });
+            const [ foreign ] = source.getAttachments();
+            foreign.blobId = "sharedBlob";
+            const copies = captureRealCopy(foreign);
+
+            const target = buildNote({
+                title: "Target",
+                attachments: [{ id: "localPicture", title: "example.com.ico", role: "image", mime: "image/x-icon" }]
+            });
+            mockAttachmentSaves(target);
+            target.getAttachments()[0].blobId = "sharedBlob";
+
+            const getAttachments = vi.spyOn(becca, "getAttachments").mockReturnValue([ foreign ]);
+
+            try {
+                const { content } = checkImageAttachments(
+                    target,
+                    `<img src="api/attachments/foreignIcon/image/example.com.ico">`
+                );
+
+                expect(copies).toHaveLength(0);
+                expect(content).toContain("localPicture");
+            } finally {
+                getAttachments.mockRestore();
+            }
         });
 
         it("replaces foreign attachment IDs in markdown content", () => {

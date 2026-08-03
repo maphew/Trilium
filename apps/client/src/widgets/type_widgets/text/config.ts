@@ -1,6 +1,6 @@
 import { type EditorConfig, getCkLocale, SnippetDefinition } from "@triliumnext/ckeditor5";
 import emojiDefinitionsUrl from "@triliumnext/ckeditor5/src/emoji_definitions/en.json?url";
-import { ALLOWED_PROTOCOLS, DISPLAYABLE_LOCALE_IDS, formatShortcut, joinShortcut, KATEX_MACROS, MIME_TYPE_AUTO, normalizeMimeTypeForCKEditor } from "@triliumnext/commons";
+import { ALLOWED_PROTOCOLS, DISPLAYABLE_LOCALE_IDS, formatShortcut, IMAGE_UPLOAD_SUBTYPES, joinShortcut, KATEX_MACROS, MIME_TYPE_AUTO, normalizeMimeTypeForCKEditor } from "@triliumnext/commons";
 import i18next from "i18next";
 
 import { copyTextWithToast } from "../../../services/clipboard_ext.js";
@@ -111,7 +111,10 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
                 "toggleImageCaption"
             ],
             upload: {
-                types: ["jpeg", "png", "gif", "bmp", "webp", "tiff", "svg", "svg+xml", "avif"]
+                // Derived rather than listed, so what the editor inserts as a picture and what the
+                // upload endpoint stores as one cannot drift apart — either direction of a mismatch
+                // is a broken element. See IMAGE_MIMES.
+                types: [ ...IMAGE_UPLOAD_SUBTYPES ]
             }
         },
         heading: {

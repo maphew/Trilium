@@ -42,6 +42,16 @@ function uint32(value: number): number[] {
     return [ (value >>> 24) & 0xff, (value >>> 16) & 0xff, (value >>> 8) & 0xff, value & 0xff ];
 }
 
+/** An icon directory stating one entry of the given size, each edge a single byte. */
+function ico(width: number, height: number): Uint8Array {
+    return bytes(0x00, 0x00, 0x01, 0x00, 0x01, 0x00, width & 0xff, height & 0xff);
+}
+
+/** An ISO base media file: a box length, the `ftyp` tag, then the brand that says what it holds. */
+function isoBmff(brand: string): Uint8Array {
+    return bytes(0x00, 0x00, 0x00, 0x18, ...[ ..."ftyp" ].map((c) => c.charCodeAt(0)), ...[ ...brand ].map((c) => c.charCodeAt(0)));
+}
+
 function bytes(...values: number[]): Uint8Array {
     // Padded past the length below which nothing is read at all.
     return Uint8Array.from([ ...values, ...new Array(Math.max(0, 16 - values.length)).fill(0) ]);
@@ -59,6 +69,21 @@ describe("inspectImage", () => {
             .toMatchObject({ format: "webp", mime: "image/webp" });
         expect(inspectImage(text("<svg xmlns='http://www.w3.org/2000/svg'></svg>")))
             .toMatchObject({ format: "svg", mime: "image/svg+xml" });
+        expect(inspectImage(ico(16, 16))).toMatchObject({ format: "ico", mime: "image/x-icon" });
+        expect(inspectImage(isoBmff("avif"))).toMatchObject({ format: "avif", mime: "image/avif" });
+    });
+
+    it("reads the AVIF sequence brand, which an <img> draws just the same", () => {
+        expect(inspectImage(isoBmff("avis")).format).toBe("avif");
+        // Other things are packed in the same container and are not pictures.
+        expect(inspectImage(isoBmff("mp42")).format).toBe(UNKNOWN_FORMAT);
+        expect(inspectImage(isoBmff("heic")).format).toBe(UNKNOWN_FORMAT);
+    });
+
+    it("does not read a cursor as an icon", () => {
+        // Same directory layout, type 2 rather than 1 — not something a note holds, and reporting
+        // it as an icon would have it served as one.
+        expect(inspectImage(bytes(0x00, 0x00, 0x02, 0x00, 0x01, 0x00, 0x20, 0x20)).format).toBe(UNKNOWN_FORMAT);
     });
 
     it("recognises an SVG behind an XML declaration", () => {
@@ -124,6 +149,12 @@ describe("inspectImage", () => {
             bmp.set([ 0x20, 0xfe, 0xff, 0xff ], 22);
 
             expect(inspectImage(bmp)).toMatchObject({ format: "bmp", width: 640, height: 480 });
+        });
+
+        it("reads an ICO from its first directory entry, where 0 means 256", () => {
+            expect(inspectImage(ico(48, 32))).toMatchObject({ width: 48, height: 32 });
+            // A single byte per edge cannot hold 256, so the format spends 0 on it.
+            expect(inspectImage(ico(0, 0))).toMatchObject({ width: 256, height: 256 });
         });
 
         it("measures nothing for a format whose header it does not read", () => {

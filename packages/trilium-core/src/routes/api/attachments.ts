@@ -1,4 +1,4 @@
-import { ConvertAttachmentToNoteResponse } from "@triliumnext/commons";
+import { ConvertAttachmentToNoteResponse, isAcceptedImageMime } from "@triliumnext/commons";
 import { ValidationError } from "../../errors";
 import type { Request } from "express";
 import type { File } from "../../services/import/common.js";
@@ -64,7 +64,9 @@ async function uploadAttachment(req: FileRequest<{ noteId: string }>) {
     // Convert buffer to Uint8Array (Buffer extends Uint8Array, string needs encoding)
     const buffer = wrapStringOrBuffer(file.buffer as string | Uint8Array);
 
-    if (["image/png", "image/jpg", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"].includes(file.mimetype)) {
+    if (isAcceptedImageMime(file.mimetype)) {
+        // Always the user's own image: the pictures the app fetches for itself — a link preview's
+        // favicon and cover — are stored by the code that fetched them, never uploaded through here.
         const attachment = imageService.saveImageToAttachment(noteId, buffer, file.originalname, true, true);
 
         // The URL below is fetched the moment this answers — the editor puts it straight into the

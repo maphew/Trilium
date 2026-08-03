@@ -3,6 +3,7 @@
  * Uses ImageProvider for platform-specific processing (compression, format detection).
  */
 
+import { type ImageAttachmentRole, imageMimeForExtension, isDeduplicatedAttachmentRole } from "@triliumnext/commons";
 import sanitizeFilename from "sanitize-filename";
 
 import becca from "../becca/becca.js";
@@ -13,11 +14,6 @@ import noteService from "./notes.js";
 import protectedSessionService from "./protected_session.js";
 import { getSql } from "./sql/index.js";
 import { sanitizeHtml } from "./sanitizer.js";
-
-function getImageMimeFromExtension(ext: string): string {
-    ext = ext.toLowerCase();
-    return `image/${ext === "svg" ? "svg+xml" : ext}`;
-}
 
 /**
  * Image content that has been promised but not yet stored.
@@ -113,7 +109,7 @@ function updateImage(noteId: string, uploadBuffer: Uint8Array, originalName: str
     trackWrite(getImageProvider().processImage(uploadBuffer, originalName, true).then(({ buffer, format }) => {
         getContext().init(() => {
             getSql().transactional(() => {
-                note.mime = getImageMimeFromExtension(format.ext);
+                note.mime = imageMimeForExtension(format.ext);
                 note.save();
                 note.setContent(buffer);
             });
@@ -155,7 +151,7 @@ function saveImage(
     trackWrite(getImageProvider().processImage(uploadBuffer, originalName, shrinkImageSwitch).then(({ buffer, format }) => {
         getContext().init(() => {
             getSql().transactional(() => {
-                note.mime = getImageMimeFromExtension(format.ext);
+                note.mime = imageMimeForExtension(format.ext);
 
                 if (!originalName.includes(".")) {
                     originalName += `.${format.ext}`;
@@ -181,19 +177,36 @@ function saveImageToAttachment(
     uploadBuffer: Uint8Array,
     originalName: string,
     shrinkImageSwitch?: boolean,
-    trimFilename = false
+    trimFilename = false,
+    /** Which kind of picture this is; see {@link IMAGE_ATTACHMENT_ROLES}. */
+    role: ImageAttachmentRole = "image"
 ): { attachmentId: string | undefined; title: string } {
     getLog().info(`Saving image '${originalName}' as attachment into note '${noteId}'`);
 
-    if (trimFilename && originalName.length > 40) {
+    // A deduplicated role's title is what identifies the picture, so it is never collapsed: every
+    // hostname past the limit would otherwise share one icon.
+    if (trimFilename && !isDeduplicatedAttachmentRole(role) && originalName.length > 40) {
         originalName = "image";
     }
 
     const fileName = sanitizeFilename(originalName);
     const note = becca.getNoteOrThrow(noteId);
 
+    const reusable = isDeduplicatedAttachmentRole(role)
+        ? note.getAttachments().find((existing) => existing.role === role && existing.title === fileName)
+        : undefined;
+
+    if (reusable) {
+        // Handed back untouched rather than rewritten with the same bytes: it already holds them,
+        // and its content is what a blob is keyed by. Any erasure it was scheduled for is cleared
+        // by checkImageAttachments on the save that follows, which owns that state.
+        getLog().info(`Reusing attachment '${reusable.attachmentId}' of note '${noteId}' for '${fileName}'`);
+
+        return { attachmentId: reusable.attachmentId, title: reusable.title };
+    }
+
     const attachment = note.saveAttachment({
-        role: "image",
+        role,
         mime: "unknown",
         title: fileName
     });
@@ -238,7 +251,7 @@ function saveImageToAttachment(
                     return;
                 }
 
-                savedAttachment.mime = getImageMimeFromExtension(format.ext);
+                savedAttachment.mime = imageMimeForExtension(format.ext);
 
                 if (!originalName.includes(".")) {
                     originalName += `.${format.ext}`;
