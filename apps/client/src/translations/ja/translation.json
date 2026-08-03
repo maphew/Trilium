@@ -2408,10 +2408,6 @@
     "button-tree-map": "ツリーマップ"
   },
   "attachment_detail_2": {
-    "will_be_deleted_in": "この添付ファイルは {{time}} 後に自動的に削除されます",
-    "will_be_deleted_soon": "この添付ファイルはすぐに自動的に削除されます",
-    "deletion_reason": "、添付ファイルがノートのコンテンツにリンクされていないためです。削除されないようにするには、添付ファイルのリンクをコンテンツに再度追加するか、添付ファイルをノートに変換してください。",
-    "role_and_size": "ロール: {{role}},サイズ: {{size}}, MIME: {{- mimeType}}",
     "link_copied": "添付ファイルの参照先をクリップボードにコピーしました。",
     "unrecognized_role": "添付ファイルのロール「{{role}}」は認識されません。"
   },

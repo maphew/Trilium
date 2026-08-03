@@ -2005,10 +2005,6 @@
     "close": "Tutup"
   },
   "attachment_detail_2": {
-    "will_be_deleted_in": "Lampiran ini akan dihapus secara otomatis dalam {{time}}",
-    "will_be_deleted_soon": "Lampiran ini akan segera dihapus secara otomatis",
-    "deletion_reason": ", karena lampiran tidak ditautkan di dalam konten catatan. Untuk mencegah penghapusan, tambahkan kembali tautan lampiran ke dalam konten atau ubah lampiran menjadi catatan.",
-    "role_and_size": "Peran: {{role}}, ukuran: {{size}}, MIME: {{- mimeType}}",
     "link_copied": "Referensi lampiran disalin ke clipboard.",
     "unrecognized_role": "Peran lampiran '{{role}}' tidak dikenali."
   },

@@ -1547,10 +1547,6 @@
     "close": "Schließen"
   },
   "attachment_detail_2": {
-    "will_be_deleted_in": "Dieser Anhang wird in {{time}} automatisch gelöscht",
-    "will_be_deleted_soon": "Dieser Anhang wird bald automatisch gelöscht",
-    "deletion_reason": ", da der Anhang nicht im Inhalt der Notiz verlinkt ist. Um das Löschen zu verhindern, füge den Anhangslink wieder in den Inhalt ein oder wandel den Anhang in eine Notiz um.",
-    "role_and_size": "Rolle: {{role}}, Größe: {{size}}, MIME: {{- mimeType}}",
     "link_copied": "Anhangsverweis in die Zwischenablage kopiert.",
     "unrecognized_role": "Unbekannte Anhangsrolle „{{role}}“."
   },

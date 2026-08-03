@@ -1791,10 +1791,6 @@
     "close": "关闭"
   },
   "attachment_detail_2": {
-    "will_be_deleted_in": "此附件将在 {{time}} 后自动删除",
-    "will_be_deleted_soon": "该附件在不久后将被自动删除",
-    "deletion_reason": "，因为该附件未链接在笔记的内容中。为防止被删除，请将附件链接重新添加到内容中或将附件转换为笔记。",
-    "role_and_size": "角色：{{role}}，大小：{{size}}，文件类型：{{- mimeType}}",
     "link_copied": "附件引用已复制到剪贴板。",
     "unrecognized_role": "无法识别的附件角色 '{{role}}'。"
   },
