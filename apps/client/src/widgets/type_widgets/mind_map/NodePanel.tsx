@@ -168,7 +168,9 @@ export default function NodePanel({ mind, noteId, nodes, readOnly }: NodePanelPr
                 ) : (
                     <TabStrip
                         className="mind-map-node-panel-tabs"
-                        tabs={buildTabs()}
+                        // A selection whose memos differ carries one all the same, which is what the
+                        // tab is saying: that there is something written to go and read.
+                        tabs={buildTabs(memo !== null)}
                         activeTabId={activeTabId}
                         onSelect={setActiveTabId}
                     />
@@ -322,12 +324,24 @@ type NodePanelTabId = "format" | "memo";
  * rather than picked from, and a paragraph of prose wants the room the whole panel has — which, at
  * the foot of eight other fields, meant scrolling to the bottom to reach a box three lines tall.
  */
-function buildTabs(): TabStripTabDefinition<NodePanelTabId>[] {
+function buildTabs(hasMemo: boolean): TabStripTabDefinition<NodePanelTabId>[] {
     return [
         { id: "format", title: t("mind-map.tab-format"), icon: "bx bx-palette" },
-        { id: "memo", title: t("mind-map.memo"), icon: "bx bx-notepad" }
+        { id: "memo", title: t("mind-map.memo"), icon: hasMemo ? MEMO_WRITTEN_ICON : MEMO_BLANK_ICON }
     ];
 }
+
+/**
+ * What the memo's tab wears: a pad with writing on it where the selection carries a memo, and the
+ * same pad blank where it carries none.
+ *
+ * The tab is the only place a memo is ever announced — the map draws every other thing a node holds,
+ * and draws nothing of this — so whether there is one to read is worth saying before the tab is
+ * opened. The two are one shape and differ only in that one has been written on, which is the whole
+ * of what the pair has to say; the blank comes from the calendar, its outline being the pad's own.
+ */
+const MEMO_WRITTEN_ICON = "bx bx-notepad";
+const MEMO_BLANK_ICON = "bx bx-calendar-alt";
 
 /**
  * A node of medium size is one with no size of its own: that is what a node comes with, and it

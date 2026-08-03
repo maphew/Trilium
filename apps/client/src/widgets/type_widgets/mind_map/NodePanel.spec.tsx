@@ -265,9 +265,23 @@ describe("the memo field of the panel", () => {
     /**
      * The panel opens on the formatting tab, and the editor is built only when the memo's own is
      * first opened — so there is nothing to read or write into before this.
+     *
+     * Found by either face it wears: the tab says on itself whether anything is written about the
+     * node, so naming one icon would be naming only the nodes that carry a memo.
      */
-    const openMemoTab = (container: HTMLElement) => openTab(container, "bx-notepad");
+    async function openMemoTab(container: HTMLElement) {
+        const tab = memoTabIcon(container)?.closest("button");
+        if (!tab) throw new Error("the panel has no memo tab");
+
+        await act(async () => tab.click());
+    }
+
     const openFormatTab = (container: HTMLElement) => openTab(container, "bx-palette");
+
+    /** The face the memo's tab wears, which is what it says about the node without being opened. */
+    function memoTabIcon(container: HTMLElement) {
+        return container.querySelector('[role="tab"] .bx-notepad, [role="tab"] .bx-calendar-alt');
+    }
 
     /** The tabs' bodies, in the order they are laid into the panel — all of them, shown or not. */
     function tabBodies(container: HTMLElement) {
@@ -428,6 +442,21 @@ describe("the memo field of the panel", () => {
         if (!container) throw new Error("render produced no container");
         return container;
     }
+
+    it("says on the tab whether there is anything written about the node", async () => {
+        // The map draws everything else a node holds and draws nothing of a memo, so the tab is the
+        // only place one is ever announced — worth saying before it is opened.
+        const faceOf = (nodes: NodeObj[]) => {
+            const panel = renderInto(<NodePanel mind={buildMind(nodes).mind} noteId="map" nodes={nodes} />);
+            return [ ...memoTabIcon(panel)?.classList ?? [] ].find((name) => name.startsWith("bx-"));
+        };
+        const written = (id: string, memo: string) => buildNode({ id, memo } as Partial<NodeObj>);
+
+        expect(faceOf([ buildNode() ])).toBe("bx-calendar-alt");
+        expect(faceOf([ written("a", "<p>About A</p>") ])).toBe("bx-notepad");
+        // A selection whose memos differ carries one all the same: there is something to go and read.
+        expect(faceOf([ written("a", "<p>About A</p>"), buildNode({ id: "b" }) ])).toBe("bx-notepad");
+    });
 
     it("holds the memo alone, and nothing to edit with, on a map that can only be read", async () => {
         const node = buildNode({ id: "a", memo: "<p>About A</p>" } as Partial<NodeObj>);
