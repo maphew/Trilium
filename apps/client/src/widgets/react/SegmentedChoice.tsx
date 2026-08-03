@@ -1,8 +1,11 @@
+import "./SegmentedChoice.css";
+
 import clsx from "clsx";
 
+import SimpleBadge from "./Badge";
 import Button, { ButtonGroup } from "./Button";
 
-interface SegmentedChoiceOption<T extends string> {
+export interface SegmentedChoiceOption<T extends string> {
     value: T;
     /** Left out where the option is shown as an icon alone, which then wants a {@link title}. */
     label?: string;
@@ -10,6 +13,16 @@ interface SegmentedChoiceOption<T extends string> {
     icon?: string;
     /** What the option is called, for an option that shows as an icon alone. */
     title?: string;
+    /**
+     * How much the option holds, shown as a badge after its name.
+     *
+     * For a choice between views of the same things, where the size of the one not on show is part of
+     * the decision to look at it — and where writing it into the label instead ("Yours (3)") reads as
+     * part of the name rather than as a quantity. Zero is a count like any other and is shown: an
+     * option offering nothing is worth saying so, and hiding it would leave the group's widths moving
+     * as the last item goes.
+     */
+    count?: number;
 }
 
 interface SegmentedChoiceProps<T extends string> {
@@ -29,11 +42,21 @@ interface SegmentedChoiceProps<T extends string> {
  */
 export default function SegmentedChoice<T extends string>({ options, currentValue, onChange, className }: SegmentedChoiceProps<T>) {
     return (
-        <ButtonGroup size="sm" className={className}>
-            {options.map(({ value, label, icon, title }) => (
+        <ButtonGroup size="sm" className={clsx("tn-segmented-choice", className)}>
+            {options.map(({ value, label, icon, title, count }) => (
                 <Button
                     key={value}
-                    text={label ?? ""}
+                    // Name and count share one inline box, rather than being two children of the
+                    // button: the button is a flex row, so a badge left as a child of its own is laid
+                    // out against the row's centre line instead of against the text, and lands a
+                    // pixel above it. Inside a line box it aligns to the text itself, in the text's
+                    // own units.
+                    text={count !== undefined ? (
+                        <span class="tn-segmented-choice-label">
+                            {label}
+                            <SimpleBadge className="tn-segmented-choice-count" title={count} />
+                        </span>
+                    ) : (label ?? "")}
                     icon={icon}
                     title={title}
                     size="small"

@@ -165,6 +165,45 @@ describe("image service (real DB)", () => {
             ).toThrow();
         });
 
+        it("reuses a deduplicated role's attachment of the same title rather than storing it twice", () => {
+            // A note that links a site many times, or pastes one URL twice, would otherwise carry a
+            // copy of that site's icon and that page's cover for every use.
+            const host = createTargetNote();
+            const store = (title: string, role: "favicon" | "coverImage") =>
+                getContext().init(() => imageService.saveImageToAttachment(host.noteId, fakeBuffer, title, false, false, role));
+
+            const first = store("example.com.ico", "favicon");
+            const again = store("example.com.ico", "favicon");
+            const otherSite = store("other.example.ico", "favicon");
+            const cover = store("example.com-page-1a2b3c4d.jpeg", "coverImage");
+
+            expect(again.attachmentId).toBe(first.attachmentId);
+            // A different site, and a different kind of picture, are different things.
+            expect(otherSite.attachmentId).not.toBe(first.attachmentId);
+            expect(cover.attachmentId).not.toBe(first.attachmentId);
+        });
+
+        it("stores the user's own images separately however they are named", () => {
+            // Two pictures the user gave one name are two pictures; collapsing them would lose one.
+            const host = createTargetNote();
+            const store = () =>
+                getContext().init(() => imageService.saveImageToAttachment(host.noteId, fakeBuffer, "photo.png", false));
+
+            expect(store().attachmentId).not.toBe(store().attachmentId);
+        });
+
+        it("keeps a long title whole for a deduplicated role, that being what identifies it", () => {
+            // Ordinary uploads collapse a title past 40 characters to "image"; doing that here
+            // would make every hostname past the limit share one icon.
+            const host = createTargetNote();
+            const longHost = `${"a-very-long-subdomain".repeat(3)}.example.com.ico`;
+
+            const stored = getContext().init(() =>
+                imageService.saveImageToAttachment(host.noteId, fakeBuffer, longHost, false, true, "favicon"));
+
+            expect(stored.title).toBe(longHost);
+        });
+
         it("post-processes the note five seconds later, and lets it go quietly once deleted", () => {
             const postProcessSpy = vi.spyOn(noteService, "asyncPostProcessContent").mockResolvedValue(undefined);
             stubProcessImage({ ext: "png" });

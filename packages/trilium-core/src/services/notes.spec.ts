@@ -7,6 +7,7 @@ import { disableEntityEvents, getContext } from "./context.js";
 import { getLog } from "./log.js";
 import noteService, { prepareTitle, saveLinks } from "./notes.js";
 import optionService from "./options.js";
+import { initRequest } from "./request.js";
 import { getSql } from "./sql/index.js";
 
 /**
@@ -410,6 +411,35 @@ describe("notes service (real DB)", () => {
             // Pointed elsewhere, the node no longer relates the two notes.
             getContext().init(() => saveLinks(map.note, buildMap("https://example.com")));
             expect(map.note.getRelations().some((r) => r.name === "internalLink" && !r.isDeleted)).toBe(false);
+        });
+    });
+
+    describe("asyncPostProcessContent", () => {
+        it("sets the link preview picture download going", async () => {
+            // The pass itself is covered in image_download.spec.ts. What matters here is the wiring:
+            // saving content is the only thing that starts it.
+            const asked: string[] = [];
+            initRequest({
+                exec: async () => { throw new Error("Not used by this test."); },
+                getImage: async (address: string) => {
+                    asked.push(address);
+                    const png = Buffer.from(
+                        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC",
+                        "base64"
+                    );
+                    return png.buffer.slice(png.byteOffset, png.byteOffset + png.byteLength) as ArrayBuffer;
+                }
+            });
+
+            const { note } = createNote("root", {
+                title: "spec-preview-wiring",
+                content: `<section class="link-embed" data-url="https://example.com/p" data-favicon="https://example.com/f.png"></section>`
+            });
+
+            await getContext().init(() => noteService.asyncPostProcessContent(note, note.getContent()));
+
+            expect(asked).toEqual([ "https://example.com/f.png" ]);
+            expect(note.getAttachments().map((a) => a.role)).toStrictEqual([ "favicon" ]);
         });
     });
 

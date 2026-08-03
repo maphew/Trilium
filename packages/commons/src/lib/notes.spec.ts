@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getImageAttachmentTitle, getNoteIcon, NOTE_TYPE_ICONS, NOTE_TYPE_IMAGE_ATTACHMENTS, parseMindMapNoteLink } from "./notes.js";
+import { getImageAttachmentTitle, getMimeIcon, getNoteIcon, NOTE_TYPE_ICONS, NOTE_TYPE_IMAGE_ATTACHMENTS, parseMindMapNoteLink } from "./notes.js";
 import { NoteType } from "./rows.js";
 
 function buildArgs(overrides: {
@@ -159,5 +159,31 @@ describe("parseMindMapNoteLink", () => {
         ]) {
             expect(parseMindMapNoteLink(link)).toBeNull();
         }
+    });
+});
+
+describe("getMimeIcon", () => {
+    it("reads a media type the way a note of that content is read", () => {
+        // Same answers as the file/image branches above, which now go through here: a PDF is a PDF
+        // whether it arrived as a note or as an attachment.
+        expect(getMimeIcon("application/pdf")).toBe("bx bxs-file-pdf");
+        expect(getMimeIcon("video/mp4")).toBe("bx bx-video");
+        expect(getMimeIcon("audio/mpeg")).toBe("bx bx-music");
+        expect(getMimeIcon("image/gif")).toBe("bx bxs-file-gif");
+        expect(getMimeIcon("image/png")).toBe("bx bx-image");
+        expect(getMimeIcon("text/plain")).toBe("bx bx-file");
+    });
+
+    it("falls back to the file icon when there is no media type to read", () => {
+        expect(getMimeIcon(undefined)).toBe("bx bx-file");
+        expect(getMimeIcon(null)).toBe("bx bx-file");
+        expect(getMimeIcon("")).toBe("bx bx-file");
+    });
+
+    it("does not answer with something off the mapping tables' prototype", () => {
+        // The media type is whatever was stored. Read off a table rather than checked against it,
+        // these return a function, which survives the `??` and is handed on as an icon class.
+        expect(getMimeIcon("constructor")).toBe("bx bx-file");
+        expect(getMimeIcon("toString")).toBe("bx bx-file");
     });
 });

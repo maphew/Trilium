@@ -1,4 +1,4 @@
-import { type ImageCompressionOptions, NOTE_TYPE_IMAGE_ATTACHMENTS } from "@triliumnext/commons";
+import { type ImageCompressionOptions, isAcceptedImageMime, isImageAttachmentRole, NOTE_TYPE_IMAGE_ATTACHMENTS } from "@triliumnext/commons";
 import type { Request, Response } from "express";
 import type { File } from "../../services/import/common.js";
 
@@ -97,8 +97,9 @@ function returnAttachedImage(req: Request<{ attachmentId: string }>, res: Respon
         return res.sendStatus(404);
     }
 
-    if (!["image"].includes(attachment.role)) {
-        return res.setHeader("Content-Type", "text/plain").status(400).send(`Attachment '${attachment.attachmentId}' has role '${attachment.role}', but 'image' was expected.`);
+    if (!isImageAttachmentRole(attachment.role)) {
+        return res.setHeader("Content-Type", "text/plain").status(400)
+            .send(`Attachment '${attachment.attachmentId}' has role '${attachment.role}', but a picture was expected.`);
     }
 
     res.set("Content-Type", attachment.mime);
@@ -124,7 +125,7 @@ async function updateImage(req: FileRequest<{ noteId: string }>) {
         };
     }
 
-    if (!["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"].includes(file.mimetype)) {
+    if (!isAcceptedImageMime(file.mimetype)) {
         return {
             uploaded: false,
             message: `Unknown image type: ${file.mimetype}`

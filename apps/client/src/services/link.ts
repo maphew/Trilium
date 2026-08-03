@@ -447,11 +447,16 @@ async function loadReferenceLinkTitle($el: JQuery<HTMLElement>, href: string | n
 
     const { noteId, viewScope } = parseNavigationStateFromUrl(href);
     if (!noteId) {
+        // Warned about but not returned on. The editing downcast creates an empty <span> and this
+        // call is the only thing that ever fills it, so bailing here left the widget rendering as
+        // nothing at all while the stored HTML — which resolves its title through
+        // getReferenceLinkTitleSync instead — said "[missing note]". An href that is not a hash
+        // note URL is ordinary enough to reach: an attachment image URL, an external link, or
+        // imported HTML carrying an <a class="reference-link">.
         console.warn("Missing note ID.");
-        return;
     }
 
-    const note = await froca.getNote(noteId, true);
+    const note = noteId ? await froca.getNote(noteId, true) : null;
 
     if (note) {
         $el.addClass(note.getColorClass());
@@ -467,8 +472,8 @@ async function loadReferenceLinkTitle($el: JQuery<HTMLElement>, href: string | n
         ));
     }
 
-    if (note) {
-        const icon = await getLinkIcon(noteId, viewScope.viewMode);
+    if (noteId && note) {
+        const icon = await getLinkIcon(noteId, viewScope?.viewMode);
 
         if (icon) {
             $el.prepend($("<span>").addClass(icon));
