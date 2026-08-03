@@ -218,9 +218,6 @@ importers:
       '@mermaid-js/layout-elk':
         specifier: 0.2.2
         version: 0.2.2(mermaid@11.16.0)
-      '@mind-elixir/node-menu':
-        specifier: 5.0.1
-        version: 5.0.1(mind-elixir@5.14.0)
       '@preact/signals':
         specifier: 2.10.0
         version: 2.10.0(preact@10.29.7)
@@ -840,9 +837,6 @@ importers:
       '@mermaid-js/layout-elk':
         specifier: 0.2.2
         version: 0.2.2(mermaid@11.16.0)
-      '@mind-elixir/node-menu':
-        specifier: 5.0.1
-        version: 5.0.1(mind-elixir@5.14.0)
       '@popperjs/core':
         specifier: 2.11.8
         version: 2.11.8
@@ -3551,11 +3545,6 @@ packages:
 
   '@mermaid-js/parser@1.2.0':
     resolution: {integrity: sha512-oYPyv8A4As1yH5Bx+04iQEQxXuIQDe0GKCNSRgao6z8AM9jixXIfP0vsppRLvGf+nKIOb9/LdpWA4YuJiVvESA==}
-
-  '@mind-elixir/node-menu@5.0.1':
-    resolution: {integrity: sha512-K5+DiduGqEEPd0IejxW7eMqafOajMby4sA8IEt+iUvNjeBCboGVng9M7ZIk6aTp/MhVYTKLZvV+FPXFnGzohmA==}
-    peerDependencies:
-      mind-elixir: '>5.0.0'
 
   '@mixmark-io/domino@2.2.0':
     resolution: {integrity: sha512-Y28PR25bHXUg88kCV7nivXrP2Nj2RueZ3/l/jdx6J9f8J4nsEGcgX0Qe6lt7Pa+J79+kPiJU3LguR6O/6zrLOw==}
@@ -15464,10 +15453,6 @@ snapshots:
   '@mermaid-js/parser@1.2.0':
     dependencies:
       '@chevrotain/types': 11.1.2
-
-  '@mind-elixir/node-menu@5.0.1(mind-elixir@5.14.0)':
-    dependencies:
-      mind-elixir: 5.14.0
 
   '@mixmark-io/domino@2.2.0': {}
 

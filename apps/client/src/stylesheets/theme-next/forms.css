@@ -74,6 +74,13 @@ button.btn.btn-success span.tn-icon {
     font-size: 1.2em;
 }
 
+/* An icon with no label beside it is the whole of the button, and the spacing above would only push
+   it off centre. A label is a text node, which no selector reaches, so the button says so itself
+   (see `tn-icon-only` in Button.tsx). Written after the rule it undoes, the two weighing the same. */
+button.btn.tn-icon-only span.tn-icon {
+    margin-inline-end: 0;
+}
+
 /* Button's keyboard shortcut */
 button.btn.btn-primary kbd,
 button.btn.btn-secondary kbd,

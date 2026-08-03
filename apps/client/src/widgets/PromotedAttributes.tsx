@@ -8,7 +8,6 @@ import { Dispatch, StateUpdater, useCallback, useEffect, useState } from "preact
 import NoteContext from "../components/note_context";
 import FAttribute from "../entities/fattribute";
 import FNote from "../entities/fnote";
-import { ColorPicker } from "../menus/custom-items/NoteColorPicker";
 import { Attribute } from "../services/attribute_parser";
 import attributes from "../services/attributes";
 import { t } from "../services/i18n";
@@ -18,6 +17,7 @@ import ws from "../services/ws";
 import LabelValueInput from "./attribute_widgets/label_value_input";
 import MultiValueInput from "./attribute_widgets/multi_value_input";
 import RelationValuesInput from "./attribute_widgets/relation_values_input";
+import ColorPicker from "./react/ColorPicker";
 import { useNoteContext, useNoteLabel, useTriliumEvent, useUniqueName } from "./react/hooks";
 import NoteAutocomplete from "./react/NoteAutocomplete";
 

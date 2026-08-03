@@ -2604,7 +2604,11 @@
     "link": "Legătură",
     "linkBidirectional": "Legătură bidirecțională",
     "clickTips": "Vă rugăm să faceți clic pe nodul țintă",
-    "summary": "Rezumat"
+    "summary": "Rezumat",
+    "new-topic": "Subiect nou",
+    "new-node": "Nod nou",
+    "new-summary": "Rezumat",
+    "custom-link": "Legătură personalizată"
   },
   "llm": {
     "feature_not_enabled": "Activați funcția experimentală LLM din Setări → Avansat → Funcții experimentale pentru a folosi integrările AI.",

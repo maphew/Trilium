@@ -1,16 +1,20 @@
+/*
+ * The `--note-color-picker-*` names predate the picker becoming generic; they are kept because the
+ * themes override them for the picker embedded in the note context menu.
+ */
 :root {
     --note-color-picker-clear-color-cell-background: var(--primary-button-background-color);
     --note-color-picker-clear-color-cell-color: var(--main-background-color);
     --note-color-picker-clear-color-cell-selection-outline-color: var(--primary-button-border-color);
 }
 
-.note-color-picker {
+.color-picker {
     display: flex;
     gap: 8px;
     justify-content: space-between;
 }
 
-.note-color-picker .color-cell {
+.color-picker .color-cell {
     --color-picker-cell-size: 14px;
 
     width: var(--color-picker-cell-size);
@@ -19,15 +23,15 @@
     background-color: var(--color);
 }
 
-.note-color-picker .color-cell:not(.selected):hover {
+.color-picker .color-cell:not(.selected):hover {
     transform: scale(1.2);
 }
 
-.note-color-picker .color-cell.disabled-color-cell {
+.color-picker .color-cell.disabled-color-cell {
     cursor: not-allowed;
 }
 
-.note-color-picker .color-cell.selected {
+.color-picker .color-cell.selected {
     outline: 2px solid var(--outline-color, var(--color));
     outline-offset: 2px;
 }
@@ -36,7 +40,7 @@
  * RESET COLOR CELL
  */
 
-.note-color-picker .color-cell-reset {
+.color-picker .color-cell-reset {
     --color: var(--note-color-picker-clear-color-cell-background);
     --outline-color: var(--note-color-picker-clear-color-cell-selection-outline-color);
 
@@ -46,7 +50,7 @@
     align-items: center;
 }
 
-.note-color-picker .color-cell-reset svg {
+.color-picker .color-cell-reset svg {
     width: var(--color-picker-cell-size);
     height: var(--color-picker-cell-size);
     fill: var(--note-color-picker-clear-color-cell-color);
@@ -56,7 +60,7 @@
  * CUSTOM COLOR CELL
  */
 
- .note-color-picker .custom-color-cell::before {
+ .color-picker .custom-color-cell::before {
     position: absolute;
     content: "\ed35";
     display: flex;
@@ -72,14 +76,14 @@
     color: var(--foreground);
 }
 
-.note-color-picker .custom-color-cell {
+.color-picker .custom-color-cell {
     position: relative;
     display: flex;
     justify-content: center;
     overflow: hidden;
 }
 
-.note-color-picker .custom-color-cell.custom-color-cell-empty {
+.color-picker .custom-color-cell.custom-color-cell-empty {
     background-image: url(./custom-color.png);
     background-size: cover;
     --foreground: transparent;
