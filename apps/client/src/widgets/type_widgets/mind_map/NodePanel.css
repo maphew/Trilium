@@ -34,6 +34,12 @@
     --node-panel-top: var(--mind-map-inset-top);
 }
 
+/* The new layout keeps no floating buttons over that corner — what they did is done from the title
+   row above the note instead — so there is nothing there for the panel to start under. */
+body.experimental-feature-new-layout .mind-map-node-panel {
+    --node-panel-top: var(--mind-map-inset-top);
+}
+
 /*
  * The strip is the right pane's, at the size it stands there (see TabStrip.css); what is left here
  * is the row it heads. It parts from the tab under it by a line the width of the panel, so that it
