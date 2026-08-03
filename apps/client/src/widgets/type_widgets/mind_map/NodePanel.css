@@ -34,6 +34,20 @@
 }
 
 /*
+ * Where the memo is all there is (a map that can only be read), the strip gives way to a heading,
+ * dressed as the strip was: the same line under it, and the same room — reckoned from the memo's own
+ * padding, so that the heading stands over the writing rather than beside it.
+ */
+.mind-map-node-panel .mind-map-node-panel-title {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 15px;
+    border-bottom: 1px solid var(--main-border-color);
+    font-weight: 550;
+}
+
+/*
  * Every tab is laid into the same cell, so the panel stands as tall as the tallest of them and
  * keeps that height whichever is on show. Were each tab to size the panel in turn, switching to the
  * memo would collapse the panel to the height of one field — pulling the strip up the screen, out

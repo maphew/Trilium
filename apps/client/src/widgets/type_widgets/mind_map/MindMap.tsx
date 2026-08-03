@@ -190,8 +190,11 @@ export default function MindMap({ note, ntxId, noteContext }: TypeWidgetProps) {
                 onKeyDown
             }}
         >
-            {!isReadOnly && selectedNodes.length > 0 && apiRef.current &&
-                <NodePanel mind={apiRef.current} noteId={note.noteId} nodes={selectedNodes} />}
+            {/* Offered on a read-only map as well: Mind Elixir still selects a node there, and the
+                panel then holds the memo alone — the one thing a node carries that the map itself
+                never draws, and which would otherwise be out of reach (see NodePanel). */}
+            {selectedNodes.length > 0 && apiRef.current &&
+                <NodePanel mind={apiRef.current} noteId={note.noteId} nodes={selectedNodes} readOnly={isReadOnly} />}
         </MindElixir>
     );
 }

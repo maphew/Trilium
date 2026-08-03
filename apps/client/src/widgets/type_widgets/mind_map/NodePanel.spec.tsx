@@ -405,6 +405,63 @@ describe("the memo field of the panel", () => {
         expect(secondMind.reshapeNode).not.toHaveBeenCalled();
         expect(firstMind.reshapeNode).toHaveBeenCalledTimes(1);
     });
+
+    /** The panel as a map that can only be read raises it, which is the memo or nothing at all. */
+    async function renderReadOnly(nodes: NodeObj[], mind = buildMind(nodes).mind) {
+        let container: HTMLElement | undefined;
+
+        await act(async () => {
+            container = renderInto(<NodePanel mind={mind} noteId="map" nodes={nodes} readOnly />);
+        });
+        if (!container) throw new Error("render produced no container");
+        return container;
+    }
+
+    it("holds the memo alone, and nothing to edit with, on a map that can only be read", async () => {
+        const node = buildNode({ id: "a", memo: "<p>About A</p>" } as Partial<NodeObj>);
+
+        const panel = await renderReadOnly([node]);
+
+        // What is written about the node is there to be read at once, with no tab to reach it
+        // through: with the fields gone there is nothing left to choose between.
+        expect(shownMemo(panel)).toBe("<p>About A</p>");
+        expect(panel.querySelectorAll('[role="tab"]')).toHaveLength(0);
+        expect(panel.querySelector(".mind-map-node-panel-title")).toBeTruthy();
+        // None of the fields, every one of which edits — and what they stand for is on the node.
+        expect(panel.querySelectorAll(".mind-map-node-panel-section")).toHaveLength(0);
+    });
+
+    it("stands aside where there is no one memo to read", async () => {
+        // Nothing written about the node, and nothing to show for a selection whose memos differ:
+        // either way the panel could only put an empty pane between the reader and the map.
+        expect((await renderReadOnly([buildNode()])).querySelector(".mind-map-node-panel")).toBeNull();
+        expect((await renderReadOnly([
+            buildNode({ id: "a", memo: "<p>About A</p>" } as Partial<NodeObj>),
+            buildNode({ id: "b", memo: "<p>About B</p>" } as Partial<NodeObj>)
+        ])).querySelector(".mind-map-node-panel")).toBeNull();
+
+        // A map that can be edited raises the panel for the very same node, memo or no memo.
+        const editable = renderInto(<NodePanel mind={buildMind([buildNode()]).mind} noteId="map" nodes={[buildNode()]} />);
+        expect(editable.querySelector(".mind-map-node-panel")).toBeTruthy();
+    });
+
+    it("writes nothing back from a map that can only be read", async () => {
+        const first = buildNode({ id: "a", memo: "<p>About A</p>" } as Partial<NodeObj>);
+        const second = buildNode({ id: "b", memo: "<p>About B</p>" } as Partial<NodeObj>);
+        const firstMind = buildMind([first]);
+
+        const panel = await renderReadOnly([first], firstMind.mind);
+
+        // Nothing can be typed into it in the first place, the field being held read-only; what it
+        // is holding is written back all the same as the selection moves on, and that is the way a
+        // map being read would come to be written to.
+        await typeMemo("<p>About A, meddled with</p>");
+        await act(async () => {
+            render(<NodePanel mind={buildMind([second]).mind} noteId="map" nodes={[second]} readOnly />, panel);
+        });
+
+        expect(firstMind.reshapeNode).not.toHaveBeenCalled();
+    });
 });
 
 describe("applyTagTexts", () => {

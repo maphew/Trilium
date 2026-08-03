@@ -44,13 +44,20 @@ interface NodePanelProps {
     noteId: string;
     /** The currently selected nodes; the panel edits all of them at once. */
     nodes: NodeObj[];
+    /**
+     * The map cannot be edited, which leaves the panel the memo alone: every other field either
+     * edits a node or stands for something already drawn on it, while the memo is the one thing a
+     * node carries that the map itself never shows.
+     */
+    readOnly?: boolean;
 }
 
 /**
  * Floating panel displayed over a mind map while at least one node is selected, holding the
- * formatting controls for the selection.
+ * formatting controls for the selection — or, where the map is only being read, the memo of the
+ * selected node and nothing else (see {@link NodePanelProps.readOnly}).
  */
-export default function NodePanel({ mind, noteId, nodes }: NodePanelProps) {
+export default function NodePanel({ mind, noteId, nodes, readOnly }: NodePanelProps) {
     const fontSize = getCommonValue(nodes, (node) => node.style?.fontSize);
     const textColor = getCommonValue(nodes, (node) => node.style?.color);
     const backgroundColor = getCommonValue(nodes, (node) => node.style?.background);
@@ -69,6 +76,13 @@ export default function NodePanel({ mind, noteId, nodes }: NodePanelProps) {
     // happens just as often while the other tab is the one on show, and has to keep working there.
     const openedTabs = useRef(new Set<NodePanelTabId>());
     openedTabs.current.add(activeTabId);
+
+    // A map that cannot be edited is shown the memo or nothing at all: a panel holding an empty pane
+    // would only stand between the reader and the map. That takes in a selection whose memos differ
+    // as well — there is no one memo to show, and nothing here to fill the pane with instead.
+    if (readOnly && (memo === null || memo === MIXED)) {
+        return null;
+    }
 
     /**
      * Applies a patch to every selected node. The selection is read back from the instance rather
@@ -130,17 +144,25 @@ export default function NodePanel({ mind, noteId, nodes }: NodePanelProps) {
             onMouseDown={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
         >
-            <TabStrip
-                className="mind-map-node-panel-tabs"
-                tabs={buildTabs()}
-                activeTabId={activeTabId}
-                onSelect={setActiveTabId}
-            />
+            {/* With the memo the only thing on show there is no choice to offer, so the strip gives
+                way to a plain heading — the panel still says what it is holding. */}
+            {readOnly ? (
+                <div className="mind-map-node-panel-title">
+                    <Icon icon="bx bx-notepad" />{t("mind-map.memo")}
+                </div>
+            ) : (
+                <TabStrip
+                    className="mind-map-node-panel-tabs"
+                    tabs={buildTabs()}
+                    activeTabId={activeTabId}
+                    onSelect={setActiveTabId}
+                />
+            )}
 
             {/* The tabs are stacked one over the other rather than shown one at a time, so that
                 the panel keeps the height of the tallest of them whichever is on show. */}
             <div className="mind-map-node-panel-bodies">
-                <div
+                {!readOnly && <div
                     role="tabpanel"
                     className="mind-map-node-panel-body"
                     aria-hidden={activeTabId !== "format"}
@@ -242,21 +264,22 @@ export default function NodePanel({ mind, noteId, nodes }: NodePanelProps) {
                             onCommit={(texts) => patchSelectedNodes((node) => ({ tags: applyTagTexts(node.tags, texts) }))}
                         />
                     </PanelSection>
-                </div>
+                </div>}
 
-                {/* The memo goes without a label of its own: the tab it fills is the label, and the
-                    editor is the whole of the tab rather than a field within it. */}
-                {openedTabs.current.has("memo") && (
+                {/* The memo goes without a label of its own: what stands above it says what it is —
+                    the tab it fills, or the heading where there are no tabs — and the editor is the
+                    whole of the tab rather than a field within it. */}
+                {(readOnly || openedTabs.current.has("memo")) && (
                     <div
-                        role="tabpanel"
+                        role={!readOnly ? "tabpanel" : undefined}
                         className="mind-map-node-panel-body mind-map-node-panel-memo-body"
-                        aria-hidden={activeTabId !== "memo"}
+                        aria-hidden={!readOnly ? activeTabId !== "memo" : undefined}
                         title={memo === MIXED ? t("mind-map.memos-differ") : undefined}
                     >
                         <NodeMemo
                             selectionKey={nodes.map((node) => node.id).join(" ")}
                             memo={memo !== MIXED ? memo : null}
-                            readOnly={memo === MIXED}
+                            readOnly={readOnly || memo === MIXED}
                             onCommit={writeMemo}
                         />
                     </div>
