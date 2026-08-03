@@ -56,6 +56,14 @@
   font-size: 17px;
 }
 
+/* The icon drawn as a picture (see buildIconHtml): sized as the span's glyph was. */
+.geo-map-container .geo-marker img.tn-icon {
+  width: 17px;
+  height: 17px;
+  box-sizing: content-box;
+  display: block;
+}
+
 .geo-map-container .geo-marker .title-label {
   display: block;
   position: absolute;

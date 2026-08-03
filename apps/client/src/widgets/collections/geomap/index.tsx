@@ -8,6 +8,7 @@ import FNote from "../../../entities/fnote";
 import branches from "../../../services/branches";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
+import { renderIconImage } from "../../../services/icon_glyphs";
 import server from "../../../services/server";
 import toast from "../../../services/toast";
 import { escapeHtml } from "../../../services/utils";
@@ -231,16 +232,14 @@ function NoteWrapper({ note, isReadOnly, hideLabels }: {
 }
 
 function NoteMarker({ note, editable, latLng, hideLabels }: { note: FNote, editable: boolean, latLng: [number, number], hideLabels: boolean }) {
-    // React to changes
-    const [ color ] = useNoteLabel(note, "color");
-    const [ iconClass ] = useNoteLabel(note, "iconClass");
+    // Subscribed for re-rendering only: the icon and colour reach useIconHtml through the values
+    // derived from them (note.getIcon(), note.getColorClass()).
+    useNoteLabel(note, "color");
+    useNoteLabel(note, "iconClass");
     const [ archived ] = useNoteLabelBoolean(note, "archived");
 
     const title = useNoteProperty(note, "title");
-    const iconHtml = useMemo(() => {
-        const titleOrNone = hideLabels ? undefined : title;
-        return buildIconHtml(note.getIcon(), note.getColorClass() ?? undefined, titleOrNone, note.noteId, archived);
-    }, [ iconClass, color, title, note.noteId, archived, hideLabels ]);
+    const iconHtml = useIconHtml(note.getIcon(), note.getColorClass() ?? undefined, hideLabels ? undefined : title, note.noteId, archived);
 
     const onClick = useCallback(() => {
         appContext.triggerCommand("openInPopup", { noteIdOrPath: note.noteId });
@@ -261,7 +260,7 @@ function NoteMarker({ note, editable, latLng, hideLabels }: { note: FNote, edita
 
     const onContextMenu = useCallback((e: GeoMouseEvent) => openContextMenu(note.noteId, e, editable), [ note.noteId, editable ]);
 
-    return latLng && <Marker
+    return latLng && iconHtml && <Marker
         coordinates={latLng}
         iconHtml={iconHtml}
         iconSize={[25, 41]}
@@ -290,12 +289,12 @@ function NoteGpxTrack({ note, hideLabels }: { note: FNote, hideLabels?: boolean 
 
     // React to changes
     const color = useNoteLabel(note, "color");
-    const iconClass = useNoteLabel(note, "iconClass");
+    useNoteLabel(note, "iconClass");
 
     const trackColor = useMemo(() => note.getLabelValue("color") ?? "blue", [ color ]);
-    const startIconHtml = useMemo(() => buildIconHtml(note.getIcon(), note.getColorClass() ?? undefined, hideLabels ? undefined : note.title), [ iconClass, color, hideLabels ]);
-    const endIconHtml = useMemo(() => buildIconHtml("bxs-flag-checkered"), [ ]);
-    const waypointIconHtml = useMemo(() => buildIconHtml("bx bx-pin"), [ ]);
+    const startIconHtml = useIconHtml(note.getIcon(), note.getColorClass() ?? undefined, hideLabels ? undefined : note.title);
+    const endIconHtml = useIconHtml("bxs-flag-checkered");
+    const waypointIconHtml = useIconHtml("bx bx-pin");
 
     return xmlString && <GpxTrack
         gpxXmlString={xmlString}
@@ -312,10 +311,48 @@ const MARKER_SVG = `<svg width="25" height="41" viewBox="0 0 25 41" xmlns="http:
     `<circle cx="12.5" cy="12.5" r="8" fill="white" />` +
     `</svg>`;
 
-function buildIconHtml(bxIconClass: string, colorClass?: string, title?: string, noteIdLink?: string, archived?: boolean) {
+/** The size the icon badge is drawn at, matching the font size the CSS-styled span used. */
+const MARKER_ICON_SIZE = 17;
+
+/**
+ * The marker HTML for {@link buildIconHtml}, built asynchronously because the icon inside it is
+ * drawn through the shared icon-rendering service. Undefined until the first build resolves; the
+ * service caches each icon/colour pair, so every marker after the first with the same icon gets
+ * its HTML in a single tick.
+ */
+function useIconHtml(bxIconClass: string, colorClass?: string, title?: string, noteIdLink?: string, archived?: boolean) {
+    const [ html, setHtml ] = useState<string>();
+
+    useEffect(() => {
+        let cancelled = false;
+        buildIconHtml(bxIconClass, colorClass, title, noteIdLink, archived).then((result) => {
+            if (!cancelled) {
+                setHtml(result);
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [ bxIconClass, colorClass, title, noteIdLink, archived ]);
+
+    return html;
+}
+
+async function buildIconHtml(bxIconClass: string, colorClass?: string, title?: string, noteIdLink?: string, archived?: boolean) {
+    // Drawn as a picture through the shared icon service (icon_glyphs.ts) rather than styled by
+    // CSS, so the marker renders any icon pack's icon the way the rest of the app draws it. A
+    // class the service cannot resolve falls back to the CSS-styled span.
+    const image = await renderIconImage(`bx ${bxIconClass}`, {
+        size: MARKER_ICON_SIZE,
+        color: resolveIconColor(colorClass)
+    });
+    const icon = image
+        ? `<img class="tn-icon" src="${image}" alt="" />`
+        : `<span class="bx ${escapeHtml(bxIconClass)} tn-icon ${escapeHtml(colorClass ?? "")}"></span>`;
+
     let html = /*html*/`\
         <div class="marker-pin">${MARKER_SVG}</div>
-        <span class="bx ${escapeHtml(bxIconClass)} tn-icon ${escapeHtml(colorClass ?? "")}"></span>
+        ${icon}
         <span class="title-label">${escapeHtml(title ?? "")}</span>`;
 
     if (noteIdLink) {
@@ -323,5 +360,26 @@ function buildIconHtml(bxIconClass: string, colorClass?: string, title?: string,
     }
 
     return html;
+}
+
+/**
+ * The concrete colour the marker icon is drawn in: the light-theme variant of the note's colour —
+ * the same value the CSS-styled span read from `--light-theme-custom-color` — or black without
+ * one. Only the stylesheet knows the adjusted value, so it is read off an element wearing the
+ * colour class, the way the icon service reads its glyphs.
+ */
+function resolveIconColor(colorClass?: string) {
+    if (!colorClass) {
+        return "black";
+    }
+
+    const probe = document.createElement("span");
+    probe.className = colorClass;
+    document.body.appendChild(probe);
+    try {
+        return getComputedStyle(probe).getPropertyValue("--light-theme-custom-color").trim() || "black";
+    } finally {
+        probe.remove();
+    }
 }
 
