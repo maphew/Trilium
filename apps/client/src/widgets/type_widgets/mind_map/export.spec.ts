@@ -160,6 +160,71 @@ describe("postProcessExportedSvg", () => {
         expect(doc.querySelector("image")?.hasAttribute("preserveAspectRatio")).toBe(false);
     });
 
+    it("writes each icon drawing once and stamps it out wherever it is worn", () => {
+        // The same icon on two nodes and another on a third: a drawing carried as text is the
+        // heaviest thing in the file, so it is written once and pointed at twice.
+        const star = "data:image/png;base64,STAR";
+        const icons = [
+            { x: 10, y: 20, size: 16, color: "rgb(20, 20, 20)", image: star },
+            { x: 30, y: 40, size: 16, color: "rgb(20, 20, 20)", image: star },
+            { x: 50, y: 60, size: 12, color: "rgb(20, 20, 20)", image: "data:image/png;base64,CUBE" }
+        ];
+
+        const result = postProcessExportedSvg(buildMind(), buildExportedSvg(), icons);
+
+        const doc = new DOMParser().parseFromString(result, "image/svg+xml");
+        const innerSvg = doc.documentElement.querySelector(":scope > svg");
+        const symbols = Array.from(innerSvg?.querySelectorAll("defs > symbol") ?? []);
+        expect(symbols.map((symbol) => symbol.querySelector("image")?.getAttribute("href")))
+            .toEqual([ star, "data:image/png;base64,CUBE" ]);
+
+        const uses = Array.from(innerSvg?.querySelectorAll(":scope > use") ?? []);
+        expect(uses.map((use) => [ use.getAttribute("href"), use.getAttribute("x"), use.getAttribute("width") ]))
+            .toEqual([
+                [ `#${symbols[0].id}`, "10", "16" ],
+                [ `#${symbols[0].id}`, "30", "16" ],
+                [ `#${symbols[1].id}`, "50", "12" ]
+            ]);
+        // The older spelling of the reference alongside the newer one, for whatever needs it.
+        expect(uses[0].getAttributeNS("http://www.w3.org/1999/xlink", "href")).toBe(`#${symbols[0].id}`);
+        // Only the drawings go in the defs, and every drawing is written inside the map layers.
+        expect(doc.documentElement.querySelectorAll(":scope > use, :scope > defs")).toHaveLength(0);
+    });
+
+    it("writes an icon that is a character as the character, centred on its square", () => {
+        const icons = [ { x: 10, y: 20, size: 16, color: "rgb(20, 20, 20)", text: "⭐" } ];
+
+        const result = postProcessExportedSvg(buildMind(), buildExportedSvg(), icons);
+
+        const doc = new DOMParser().parseFromString(result, "image/svg+xml");
+        const text = doc.querySelector("text");
+        expect(text?.textContent).toBe("⭐");
+        expect([ text?.getAttribute("x"), text?.getAttribute("y"), text?.getAttribute("dy") ])
+            .toEqual([ "18", "28", "0.35em" ]);
+        expect(text?.getAttribute("text-anchor")).toBe("middle");
+        expect(text?.getAttribute("fill")).toBe("rgb(20, 20, 20)");
+        // Nothing is drawn for it, so it costs the file no drawing.
+        expect(doc.querySelectorAll("defs")).toHaveLength(0);
+    });
+
+    it("leaves the pictures of the map paired with those of the export when it writes icons in", () => {
+        // The fit is carried over by counting the two against each other, which an icon written in
+        // beforehand would throw off — and quietly, the pairing simply being abandoned.
+        const mind = buildMind();
+        const drawn = document.createElement("img");
+        drawn.style.objectFit = "cover";
+        mind.nodes.appendChild(drawn);
+
+        const exportedSvg = `<svg xmlns="http://www.w3.org/2000/svg"><svg>` +
+            `<image width="240px" height="240px" href="a.png"/></svg></svg>`;
+        const icons = [ { x: 1, y: 2, size: 16, color: "black", image: "data:image/png;base64,STAR" } ];
+        const result = postProcessExportedSvg(mind, exportedSvg, icons);
+
+        const doc = new DOMParser().parseFromString(result, "image/svg+xml");
+        const picture = Array.from(doc.querySelectorAll("image")).find((image) => image.getAttribute("href") === "a.png");
+        expect(picture?.getAttribute("preserveAspectRatio")).toBe("xMidYMid slice");
+    });
+
     it("adds no labels when the map has none, and returns unparseable input unchanged", () => {
         const noLabels = postProcessExportedSvg(buildMind(), buildExportedSvg());
         const doc = new DOMParser().parseFromString(noLabels, "image/svg+xml");

@@ -1,10 +1,12 @@
 import type { MindElixirInstance } from "mind-elixir";
 
 import { sanitizeNoteContentHtml } from "../../../services/sanitize_content";
+import { type ExportedIcon, renderExportedIcons } from "./icons";
 import { loadImageData } from "./images";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
 const XHTML_NS = "http://www.w3.org/1999/xhtml";
+const XLINK_NS = "http://www.w3.org/1999/xlink";
 
 /**
  * Renders the mind map to an SVG string for the preview attachment (share pages,
@@ -16,7 +18,8 @@ const XHTML_NS = "http://www.w3.org/1999/xhtml";
  * and summaries live in an HTML overlay (`.label-container`) rather than in the SVG
  * layers it clones, so they are missing from its output (the reason the preview was
  * previously generated with snapdom). {@link postProcessExportedSvg} re-adds them and
- * relaxes the exporter's exact-fit text boxes so rasterization cannot clip them.
+ * relaxes the exporter's exact-fit text boxes so rasterization cannot clip them. It also
+ * carries in the node icons, which are a font the export is given none of (see icons.ts).
  *
  * Note that upstream considers `exportSvg()` deprecated in favor of DOM screenshot
  * libraries and will not fix the label gap (see
@@ -28,8 +31,13 @@ const XHTML_NS = "http://www.w3.org/1999/xhtml";
  * switching back to a screenshot library.
  */
 export async function renderMindMapPreviewSvg(mind: MindElixirInstance): Promise<string> {
-    const svgText = await mind.exportSvg().text();
-    return inlineExportedImages(postProcessExportedSvg(mind, svgText));
+    const [ svgText, icons ] = await Promise.all([
+        mind.exportSvg().text(),
+        // Drawn alongside the export rather than after it: each is a drawing of its own, and the
+        // first of them may have a font to wait on before there is anything to draw with.
+        renderExportedIcons(mind.nodes)
+    ]);
+    return inlineExportedImages(postProcessExportedSvg(mind, svgText, icons));
 }
 
 /**
@@ -98,12 +106,14 @@ const SIZE_SLACK_PX = 2;
  * - Adds slack to every `<foreignObject>`'s exact-fit size so text is not clipped when
  *   the SVG is rasterized with slightly different font metrics (see the slack constants).
  * - Backs translucent node boxes with the canvas color (see {@link backTranslucentNodeBoxes}).
+ * - Writes in the node icons the exporter cannot draw (see {@link placeExportedIcons}).
  *
  * @param mind the live mind map instance the SVG was exported from.
  * @param svgText the output of `mind.exportSvg().text()`.
+ * @param icons the drawings of the map's icons, as `renderExportedIcons` made them.
  * @returns the post-processed SVG, or the input unchanged if it cannot be parsed.
  */
-export function postProcessExportedSvg(mind: MindElixirInstance, svgText: string): string {
+export function postProcessExportedSvg(mind: MindElixirInstance, svgText: string, icons: ExportedIcon[] = []): string {
     const doc = new DOMParser().parseFromString(svgText, "image/svg+xml");
     // The exporter produces <svg> [ <rect background>, <svg map layers> ] — label
     // coordinates are relative to the inner svg.
@@ -117,7 +127,10 @@ export function postProcessExportedSvg(mind: MindElixirInstance, svgText: string
         backTranslucentNodeBoxes(contentSvg, canvasColor);
     }
 
+    // Before the icons are written in: the fit is carried over by pairing the pictures of the map
+    // with those of the export in the order they were written, which any picture added here breaks.
     carryImageFit(contentSvg, mind);
+    placeExportedIcons(contentSvg, icons);
 
     const labels = mind.nodes.querySelectorAll<HTMLElement>(".svg-label");
     for (const label of Array.from(labels)) {
@@ -189,6 +202,87 @@ const FIT_ALIGNMENTS: Record<string, string> = {
     contain: "xMidYMid meet",
     cover: "xMidYMid slice"
 };
+
+/**
+ * Writes the node icons into the exported map (see `renderExportedIcons` for why they are drawn).
+ *
+ * Each drawing is written once however many nodes wear it and stamped out of that one copy: a map is
+ * commonly a handful of icons over a great many nodes, and a drawing carried as text inside the SVG
+ * is far and away the heaviest thing in it. An icon that is a character rather than a drawing is
+ * written as the character, which the export needs nothing of its own to draw.
+ */
+function placeExportedIcons(contentSvg: Element, icons: ExportedIcon[]) {
+    const doc = contentSvg.ownerDocument;
+    /** The icons already written, by the drawing each of them is. */
+    const stamps = new Map<string, string>();
+    let defs: Element | undefined;
+
+    for (const icon of icons) {
+        if (icon.image) {
+            let id = stamps.get(icon.image);
+            if (!id) {
+                id = `mind-map-icon-${stamps.size}`;
+                stamps.set(icon.image, id);
+
+                defs ??= contentSvg.appendChild(doc.createElementNS(SVG_NS, "defs"));
+                defs.appendChild(buildIconStamp(doc, id, icon.image));
+            }
+            contentSvg.appendChild(buildIconUse(doc, id, icon));
+        } else if (icon.text) {
+            contentSvg.appendChild(buildIconText(doc, icon));
+        }
+    }
+}
+
+/**
+ * The one copy of a drawing, held in a square of its own so that every use of it can be given a size
+ * — which is what a `<symbol>` carries over a bare `<image>`, whose own size a `<use>` cannot change.
+ */
+function buildIconStamp(doc: Document, id: string, image: string) {
+    const symbol = doc.createElementNS(SVG_NS, "symbol");
+    symbol.setAttribute("id", id);
+    symbol.setAttribute("viewBox", "0 0 1 1");
+
+    const picture = doc.createElementNS(SVG_NS, "image");
+    picture.setAttribute("href", image);
+    picture.setAttribute("width", "1");
+    picture.setAttribute("height", "1");
+    symbol.appendChild(picture);
+
+    return symbol;
+}
+
+function buildIconUse(doc: Document, id: string, { x, y, size }: ExportedIcon) {
+    const use = doc.createElementNS(SVG_NS, "use");
+    use.setAttribute("href", `#${id}`);
+    // The older spelling alongside it, for whatever reads the file that has not caught up with the
+    // newer one — a rasterizer of its own, a drawing program.
+    use.setAttributeNS(XLINK_NS, "xlink:href", `#${id}`);
+    use.setAttribute("x", String(x));
+    use.setAttribute("y", String(y));
+    use.setAttribute("width", String(size));
+    use.setAttribute("height", String(size));
+
+    return use;
+}
+
+/**
+ * An icon that is a character, written on the middle line of its square and nudged down by the part
+ * of a character that hangs below that line — the plain way of centring text in SVG, rather than the
+ * `dominant-baseline` that says so outright and that not everything reading the file honours.
+ */
+function buildIconText(doc: Document, { x, y, size, color, text }: ExportedIcon) {
+    const element = doc.createElementNS(SVG_NS, "text");
+    element.setAttribute("x", String(x + size / 2));
+    element.setAttribute("y", String(y + size / 2));
+    element.setAttribute("dy", "0.35em");
+    element.setAttribute("text-anchor", "middle");
+    element.setAttribute("font-size", String(size));
+    element.setAttribute("fill", color);
+    element.textContent = text ?? "";
+
+    return element;
+}
 
 /**
  * The alpha of a fill the exporter took from a computed style, or `null` when it carries none.

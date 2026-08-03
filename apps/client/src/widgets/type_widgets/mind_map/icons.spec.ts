@@ -1,6 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { LEAD_ICON_CLASS, renderIconClasses } from "./icons";
+import { renderIconImage } from "../../../services/icon_glyphs";
+import { LEAD_ICON_CLASS, renderExportedIcons, renderIconClasses } from "./icons";
+
+// The drawing of a glyph needs a canvas and the browser's own style resolution, neither of which
+// this environment has; the service has its own tests for that.
+vi.mock("../../../services/icon_glyphs", () => ({ renderIconImage: vi.fn() }));
 
 const uncheckedWindow = window as unknown as { glob: { iconRegistry?: unknown } };
 
@@ -120,5 +125,87 @@ describe("renderIconClasses", () => {
         renderIconClasses(container);
 
         expect(icons(container)[0]?.textContent).toBe("bx bx-star");
+    });
+});
+
+describe("renderExportedIcons", () => {
+    beforeEach(() => {
+        uncheckedWindow.glob.iconRegistry = { sources: [ { prefix: "bx" } ] };
+        vi.mocked(renderIconImage).mockReset();
+        vi.mocked(renderIconImage).mockImplementation(async (iconClass) => `data:image/png;drawn-${iconClass}`);
+    });
+
+    afterEach(() => {
+        delete uncheckedWindow.glob.iconRegistry;
+        vi.restoreAllMocks();
+    });
+
+    /**
+     * A node dressed as the map dresses it, laid out as the browser would lay it out — neither of
+     * which the test environment does of its own accord.
+     */
+    function buildLaidOutNode(...iconTexts: string[]) {
+        const nodes = document.createElement("me-nodes");
+        const container = buildNode(...iconTexts);
+        nodes.appendChild(container);
+        renderIconClasses(container);
+
+        // Each icon 12 wide on a line of 20, the node itself 100 across the map and 40 down it. The
+        // walk out to the map adds the two up, so the icons hang off the node and the node off the
+        // map, as they would be laid out.
+        const topic = container.querySelector("me-tpc");
+        lay(topic, nodes, { offsetLeft: 100, offsetTop: 40 });
+        for (const [ index, icon ] of icons(container).entries()) {
+            lay(icon, topic, { offsetLeft: index * 12, offsetTop: 0, offsetWidth: 12, offsetHeight: 20 });
+        }
+
+        // The size and the colour are read off the styles, which resolve to nothing here.
+        vi.spyOn(window, "getComputedStyle")
+            .mockReturnValue({ fontSize: "16px", color: "rgb(20, 20, 20)" } as CSSStyleDeclaration);
+
+        return nodes;
+    }
+
+    /** Puts an element where it would have been laid out, and off the element it was laid out in. */
+    function lay(element: Element | null, offsetParent: Element | null, offsets: Record<string, number>) {
+        for (const [ name, value ] of Object.entries({ ...offsets, offsetParent })) {
+            Object.defineProperty(element, name, { configurable: true, value });
+        }
+    }
+
+    it("draws every icon a pack draws, centred in the room the text left it", async () => {
+        const nodes = buildLaidOutNode("bx bx-star", "bx bx-cube");
+
+        const drawn = await renderExportedIcons(nodes);
+
+        expect(drawn).toEqual([
+            // The node sits at (100, 40) and each icon within it, so the two are added up; the icon
+            // is drawn at the size of the text, centred in the 12 by 20 it was given.
+            { x: 100 + (12 - 16) / 2, y: 40 + (20 - 16) / 2, size: 16, color: "rgb(20, 20, 20)", image: "data:image/png;drawn-bx bx-star" },
+            { x: 112 + (12 - 16) / 2, y: 40 + (20 - 16) / 2, size: 16, color: "rgb(20, 20, 20)", image: "data:image/png;drawn-bx bx-cube" }
+        ]);
+        // Drawn at one size whatever size it is shown at, the drawing being scaled to each place it
+        // is stamped — so the same icon on a large node and a small one is drawn once between them.
+        expect(renderIconImage).toHaveBeenCalledWith("bx bx-star", { size: 48, color: "rgb(20, 20, 20)", scale: 1 });
+    });
+
+    it("draws only the leading one of the icons that are characters, the rest being drawn already", async () => {
+        // An emoji leads the text, where the exporter no longer finds it; the one that follows it
+        // stays in the wrapper the exporter reads, and is left to it.
+        const nodes = buildLaidOutNode("⭐", "\u{1f9ca}");
+
+        const drawn = await renderExportedIcons(nodes);
+
+        expect(drawn).toEqual([
+            { x: 100 + (12 - 16) / 2, y: 40 + (20 - 16) / 2, size: 16, color: "rgb(20, 20, 20)", text: "⭐" }
+        ]);
+        expect(renderIconImage).not.toHaveBeenCalled();
+    });
+
+    it("passes over an icon that could not be drawn at all", async () => {
+        vi.mocked(renderIconImage).mockResolvedValue(null);
+        const nodes = buildLaidOutNode("bx bx-star");
+
+        await expect(renderExportedIcons(nodes)).resolves.toEqual([]);
     });
 });
