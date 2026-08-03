@@ -84,6 +84,11 @@
         flex-wrap: wrap;
     }
 
+    /* The card is what the icon lies on here, so that is what its paperclip is knocked out of. */
+    .attachment-icon-marker {
+        --attachment-icon-marker-tint: var(--card-background-color, transparent);
+    }
+
     .attachment-title {
         /* A zero basis, not `auto`: the row wraps, and a title measured at its own width — these are
            hostnames and URLs — would take the whole line and send the menu below it. */
@@ -206,8 +211,41 @@
    the media type's where it only says the reader put it there. Sized and placed as the note icon on a
    collection's cards is, since the two sit in the same kind of header. */
 .attachment-icon {
+    position: relative;
+    display: inline-flex;
     flex-shrink: 0;
     font-size: 1.2em;
+}
+
+/* The paperclip overprinted on the corner, saying the thing the mark underneath cannot: this belongs to
+   a note rather than being one.
+
+   Built the way the tree builds a protected note's lock (`theme-next/shell.css`): held in the corner
+   rather than hung off it, knocked out of the glyph by a disc of the surface behind, and left in the
+   icon's own colour. Nothing of its own — no ring, no fill, no padding around it — so it reads as part
+   of the mark it qualifies rather than as something stuck on top.
+
+   The disc has to be the surface the icon is actually lying on, as the tree's is the left pane's own
+   colour. It cannot simply *be* `--card-background-color`: that is a tint of a few percent alpha, and the
+   glyph's strokes would show through the paperclip's hole. So the tint is composited over the opaque
+   window background the way the card itself composites it — a gradient of one flat colour, which is the
+   only way to lay a second background layer over a background colour. Where there is no card, the tint is
+   transparent and the disc is the window's background alone. */
+.attachment-icon-marker {
+    --attachment-icon-marker-tint: transparent;
+
+    position: absolute;
+    bottom: 0;
+    inset-inline-end: 0;
+    transform: translateX(25%);
+    font-size: 0.6em;
+    border-radius: 50%;
+    background-color: var(--main-background-color);
+    background-image: linear-gradient(var(--attachment-icon-marker-tint), var(--attachment-icon-marker-tint));
+}
+
+body[dir=rtl] .attachment-icon-marker {
+    transform: translateX(-25%);
 }
 
 .attachment-title-line {

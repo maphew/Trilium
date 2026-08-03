@@ -294,7 +294,7 @@ function AttachmentInfo({ attachment, isFullDetail, ownerNote, noteContext, view
                             processUrl: `ocr/process-attachment/${attachment.attachmentId}`
                         }) : undefined}
                     />
-                    <Icon className="attachment-icon" icon={attachmentIcon(attachment.role, attachment.mime)} />
+                    <AttachmentIcon attachment={attachment} />
                     <h4 className="attachment-title">
                         {!isFullDetail ? (
                             <NoteLink
@@ -349,6 +349,24 @@ function AttachmentInfo({ attachment, isFullDetail, ownerNote, noteContext, view
             </div>
 
         </div>
+    );
+}
+
+/**
+ * What the attachment is, ahead of its name.
+ *
+ * Two marks rather than one. The inner is the content's, or the role's where the role is the app's own
+ * doing — but a PDF's mark is the same one a PDF note wears, and a card carrying it alone reads as a note
+ * that happens to be listed here. So it is overprinted with the paperclip the app uses for attachments
+ * everywhere else, which says the one thing the content mark cannot: this belongs to a note rather than
+ * being one.
+ */
+function AttachmentIcon({ attachment }: { attachment: FAttachment }) {
+    return (
+        <span className="attachment-icon">
+            <Icon icon={attachmentIcon(attachment.role, attachment.mime)} />
+            <Icon className="attachment-icon-marker" icon="bx bx-paperclip" />
+        </span>
     );
 }
 
