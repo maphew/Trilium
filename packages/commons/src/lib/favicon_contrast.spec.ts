@@ -1,9 +1,10 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
     classifyFaviconContrast,
     contrastRatio,
     faviconContrastClass,
+    measureFaviconVisibility,
     relativeLuminance,
     summarizeFaviconVisibility
 } from "./favicon_contrast.js";
@@ -111,6 +112,49 @@ describe("classifying a favicon", () => {
         expect(visibility).toEqual({ onDark: 0, onLight: 0, hasContent: false });
         expect(classifyFaviconContrast(visibility)).toBe("neutral");
         expect(summarizeFaviconVisibility(new Uint8ClampedArray()).hasContent).toBe(false);
+    });
+});
+
+describe("measureFaviconVisibility", () => {
+    /** A canvas that draws nowhere and answers with the pixels it was given. */
+    function stubCanvas(context: unknown) {
+        vi.stubGlobal("document", { createElement: () => ({ getContext: () => context }) });
+    }
+
+    afterEach(() => {
+        vi.unstubAllGlobals();
+    });
+
+    it("reads the icon back off the canvas it was rasterised into", () => {
+        const drawn: unknown[][] = [];
+        stubCanvas({
+            drawImage: (...args: unknown[]) => drawn.push(args),
+            getImageData: () => ({ data: bitmap(TRANSPARENT, [0, 0, 0, 255, 40]) })
+        });
+
+        const image = {} as CanvasImageSource;
+
+        expect(measureFaviconVisibility(image)).toEqual({ onDark: 0, onLight: 1, hasContent: true });
+        // Into a box of a stated size, because an SVG that declares only a viewBox has no size of
+        // its own for `drawImage` to read — and the whole box is read back, transparent field and all.
+        expect(drawn).toEqual([ [ image, 0, 0, 32, 32 ] ]);
+    });
+
+    it("answers nothing rather than a verdict when the icon cannot be measured", () => {
+        // No 2d context to be had.
+        stubCanvas(null);
+        expect(measureFaviconVisibility({} as CanvasImageSource)).toBeUndefined();
+
+        // `getImageData` throws on a tainted canvas. A preview's pictures are always same-origin, so
+        // this should not arise — but an unreadable icon is a reason to leave it as the site drew it,
+        // never to fail the render around it.
+        stubCanvas({
+            drawImage: () => {},
+            getImageData: () => {
+                throw new Error("tainted canvas");
+            }
+        });
+        expect(measureFaviconVisibility({} as CanvasImageSource)).toBeUndefined();
     });
 });
 

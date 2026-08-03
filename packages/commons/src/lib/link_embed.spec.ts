@@ -8,6 +8,7 @@ import {
     isLocalPreviewImageSrc,
     isUrlAloneInBlock,
     linkPreviewImageName,
+    safeHostname,
     safeLinkPreviewHref,
     safeLinkPreviewImageSrc,
     YOUTUBE_REGEX
@@ -109,6 +110,18 @@ describe("isLocalPreviewImageSrc / safeLinkPreviewImageSrc", () => {
         expect(safeLinkPreviewImageSrc("  api/attachments/abc123/image/x.png  ")).toBe("api/attachments/abc123/image/x.png");
         expect(safeLinkPreviewImageSrc("https://evil.test/pixel.gif")).toBeUndefined();
         expect(safeLinkPreviewImageSrc(undefined)).toBeUndefined();
+    });
+});
+
+describe("safeHostname", () => {
+    it("names the host, and answers with the address itself where there is no host to name", () => {
+        expect(safeHostname("https://en.wikipedia.org/wiki/Russo-Japanese_War")).toBe("en.wikipedia.org");
+        // An international host is punycoded by the parse, which is what makes it a file name.
+        expect(safeHostname("https://münchen.de/x")).toBe("xn--mnchen-3ya.de");
+
+        // Not an address at all. Both the label a preview falls back to and the title its favicon is
+        // stored under come from here, so answering with nothing would leave a preview unnamed.
+        expect(safeHostname("not a url")).toBe("not a url");
     });
 });
 

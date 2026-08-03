@@ -40,6 +40,12 @@ describe("isEmbeddedAttachmentRole", () => {
         for (const role of [ "viewConfig", "canvasLibraryItem", "importSource" ]) {
             expect(isEmbeddedAttachmentRole(role), role).toBe(false);
         }
+
+        // A role from a script, or from a newer version reached over sync, is not one to hand the
+        // cleanup either — it answers for nothing it has never heard of.
+        expect(isEmbeddedAttachmentRole("somethingAScriptInvented")).toBe(false);
+        expect(isEmbeddedAttachmentRole(undefined)).toBe(false);
+        expect(isEmbeddedAttachmentRole(null)).toBe(false);
     });
 });
 
