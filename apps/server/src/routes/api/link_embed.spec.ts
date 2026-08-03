@@ -2,7 +2,7 @@ import { extractYouTubeVideoId } from "@triliumnext/commons";
 import { ValidationError } from "@triliumnext/core";
 import type { Request } from "express";
 import { Jimp } from "jimp";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const safeFetch = vi.hoisted(() => vi.fn());
 
@@ -12,7 +12,38 @@ vi.mock("../../services/safe_fetch.js", () => ({
     safeFetch: (...args: unknown[]) => safeFetch(...args)
 }));
 
+const saveImageToAttachment = vi.hoisted(() => vi.fn());
+const awaitImageWrite = vi.hoisted(() => vi.fn(async () => {}));
+
+/**
+ * The route stores each picture it downloads as an attachment of the note the preview is going
+ * into. What matters here is which picture was handed over, under which role and name — not that a
+ * database took it — so the store is stood in for.
+ */
+vi.mock("@triliumnext/core", async (importOriginal) => ({
+    ...(await importOriginal<Record<string, unknown>>()),
+    imageService: { saveImageToAttachment, awaitImageWrite }
+}));
+
 import linkEmbedRoute from "./link_embed.js";
+
+let attachmentCounter = 0;
+
+beforeEach(() => {
+    attachmentCounter = 0;
+    saveImageToAttachment.mockReset();
+    saveImageToAttachment.mockImplementation((_noteId: string, _buffer: Buffer, fileName: string) => ({
+        attachmentId: `att${++attachmentCounter}`,
+        title: fileName
+    }));
+});
+
+/** What was handed to the attachment store under a given role, if anything was. */
+function stored(role: "favicon" | "coverImage") {
+    const call = saveImageToAttachment.mock.calls.find((args: unknown[]) => args[5] === role);
+
+    return call ? { buffer: call[1] as Buffer, fileName: call[2] as string } : undefined;
+}
 
 function oneShotReader(bytes: Buffer) {
     let sent = false;
@@ -63,13 +94,6 @@ function makeIco(): Buffer {
     return Buffer.concat([ directory, Buffer.from([ 0, 0, 0, 0 ]) ]);
 }
 
-/** Decodes a `data:` URI back into its media type and bytes. */
-function parseDataUri(dataUri: string) {
-    const match = /^data:([^;]+);base64,(.+)$/.exec(dataUri);
-    if (!match) throw new Error(`Not a base64 data URI: ${dataUri.slice(0, 40)}`);
-    return { contentType: match[1], buffer: Buffer.from(match[2], "base64") };
-}
-
 describe("extractYouTubeVideoId", () => {
     it("extracts ids and rejects non-YouTube URLs", () => {
         expect(extractYouTubeVideoId("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
@@ -81,11 +105,21 @@ describe("extractYouTubeVideoId", () => {
 describe("link-embed getMetadata", () => {
     // The URL is POSTed in the body, never in the query string: a query string ends up in every
     // access log along the way, and a pasted URL can carry a one-time token or a signature.
-    function req(url?: unknown) { return { body: { url } } as unknown as Request; }
+    function req(url?: unknown, noteId: unknown = "note1") { return { body: { url, noteId } } as unknown as Request; }
 
     it("requires a url in the body", async () => {
         await expect(linkEmbedRoute.getMetadata(req())).rejects.toBeInstanceOf(ValidationError);
         await expect(linkEmbedRoute.getMetadata({} as unknown as Request)).rejects.toBeInstanceOf(ValidationError);
+    });
+
+    it("requires the note the preview is going into", async () => {
+        // The pictures are stored as that note's attachments, so there is nowhere to put them
+        // without it — and nothing to answer with, the metadata carrying their URLs.
+        // Built directly rather than through req(), whose default would supply the very thing
+        // these are checking the absence of.
+        const withoutNote = { body: { url: "https://example.com" } } as unknown as Request;
+        await expect(linkEmbedRoute.getMetadata(withoutNote)).rejects.toBeInstanceOf(ValidationError);
+        await expect(linkEmbedRoute.getMetadata(req("https://example.com", 42))).rejects.toBeInstanceOf(ValidationError);
     });
 
     it("returns YouTube metadata via the oEmbed endpoint", async () => {
@@ -98,7 +132,10 @@ describe("link-embed getMetadata", () => {
         expect(result.embedType).toBe("youtube");
         expect(result.title).toBe("Cool Video");
         expect(result.description).toBe("Channel");
-        expect(result.favicon).toMatch(/^data:image\//);
+        // Stored as an attachment of the note, titled by the site it belongs to, and referenced
+        // from the note by the URL the store answered with.
+        expect(stored("favicon")?.fileName).toBe("www.youtube.com.ico");
+        expect(result.favicon).toMatch(/^api\/attachments\/att\d+\/image\/www\.youtube\.com\.ico$/);
     });
 
     it("parses OpenGraph metadata from an HTML page", async () => {
@@ -121,8 +158,10 @@ describe("link-embed getMetadata", () => {
         expect(result.title).toBe("OG Title");
         expect(result.description).toBe("OG Desc");
         expect(result.siteName).toBe("Example");
-        // Embedded, not hotlinked; opaque, so re-encoded as JPEG.
-        expect(result.image).toMatch(/^data:image\/jpeg;base64,/);
+        // Stored, not hotlinked; opaque, so re-encoded as JPEG. Named after the page it is a
+        // picture of, which is what a second paste of the same URL reuses it by.
+        expect(stored("coverImage")?.fileName).toMatch(/^example\.com-page-[0-9a-f]{8}\.jpeg$/);
+        expect(result.image).toMatch(/^api\/attachments\/att\d+\/image\/example\.com-page-[0-9a-f]{8}\.jpeg$/);
     });
 
     it("resolves a relative og:image against the page URL before downloading it", async () => {
@@ -162,20 +201,25 @@ describe("link-embed getMetadata", () => {
             });
         }
 
+        /**
+         * Runs the route and answers with the cover picture it handed to the store, if any.
+         * Earlier runs are forgotten first, so a test that fetches twice reads only the second.
+         */
         async function imageOf() {
+            saveImageToAttachment.mockClear();
             const result = await linkEmbedRoute.getMetadata(req("https://example.com/page"));
             // The rest of the preview must survive whatever happens to the image.
             expect(result.title).toBe("T");
-            return result.image;
+            return stored("coverImage");
         }
 
         it("scales an oversized image down to the 256px limit, preserving the aspect ratio", async () => {
             serveImage({ payload: await makePng(1024, 512, 0x00ff00ff), contentType: "image/png" });
 
             const image = await imageOf();
-            expect(image).toMatch(/^data:image\/jpeg;base64,/);
+            expect(image?.fileName).toMatch(/\.jpeg$/);
 
-            const decoded = await Jimp.read(parseDataUri(image ?? "").buffer);
+            const decoded = await Jimp.read(image?.buffer ?? Buffer.alloc(0));
             expect(decoded.bitmap.width).toBe(256);
             expect(decoded.bitmap.height).toBe(128);
         });
@@ -184,9 +228,9 @@ describe("link-embed getMetadata", () => {
             serveImage({ payload: await makePng(400, 400, 0x00000000), contentType: "image/png" });
 
             const image = await imageOf();
-            expect(image).toMatch(/^data:image\/png;base64,/);
+            expect(image?.fileName).toMatch(/\.png$/);
 
-            const decoded = await Jimp.read(parseDataUri(image ?? "").buffer);
+            const decoded = await Jimp.read(image?.buffer ?? Buffer.alloc(0));
             expect(decoded.bitmap.width).toBe(256);
             expect(decoded.hasAlpha()).toBe(true);
         });
@@ -194,15 +238,15 @@ describe("link-embed getMetadata", () => {
         it("does not enlarge an image that is already smaller than the limit", async () => {
             serveImage({ payload: await makePng(64, 32, 0xff0000ff), contentType: "image/png" });
 
-            const decoded = await Jimp.read(parseDataUri(await imageOf() ?? "").buffer);
+            const decoded = await Jimp.read((await imageOf())?.buffer ?? Buffer.alloc(0));
             expect(decoded.bitmap.width).toBe(64);
             expect(decoded.bitmap.height).toBe(32);
         });
 
-        it("embeds an SVG verbatim, but drops one over 100KB", async () => {
+        it("stores an SVG verbatim, but drops one over 100KB", async () => {
             const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="10" height="10"><rect width="10" height="10"/></svg>`;
             serveImage({ payload: svg, contentType: "image/svg+xml" });
-            expect(parseDataUri(await imageOf() ?? "")).toMatchObject({ contentType: "image/svg+xml" });
+            expect((await imageOf())?.fileName).toMatch(/\.svg$/);
 
             const hugeSvg = svg.replace("<rect", `<!--${"x".repeat(100 * 1024)}--><rect`);
             serveImage({ payload: hugeSvg, contentType: "image/svg+xml" });
@@ -213,7 +257,7 @@ describe("link-embed getMetadata", () => {
             // Jimp bundles no WebP decoder, so these bytes cannot be resized — but they must still not
             // be hotlinked. Anything over the verbatim cap is dropped instead.
             serveImage({ payload: Buffer.from("RIFF????WEBPVP8 not-really"), contentType: "image/webp" });
-            expect(await imageOf()).toMatch(/^data:image\/webp;base64,/);
+            expect((await imageOf())?.fileName).toMatch(/\.webp$/);
 
             serveImage({ payload: Buffer.alloc(150 * 1024, 1), contentType: "image/webp" });
             expect(await imageOf()).toBeUndefined();
@@ -245,15 +289,16 @@ describe("link-embed getMetadata", () => {
             });
         }
 
-        const metadataFor = () => linkEmbedRoute.getMetadata(req("https://example.com/page"));
+        const metadataFor = () => {
+            saveImageToAttachment.mockClear();
+            return linkEmbedRoute.getMetadata(req("https://example.com/page"));
+        };
 
         it("uses a large apple-touch-icon as the image", async () => {
             servePage(`<link rel="apple-touch-icon" href="/touch.png">`, { "/touch.png": { width: 180, height: 180 } });
 
-            const result = await metadataFor();
-            expect(result.image).toMatch(/^data:image\//);
-
-            const decoded = await Jimp.read(parseDataUri(result.image ?? "").buffer);
+            await metadataFor();
+            const decoded = await Jimp.read(stored("coverImage")?.buffer ?? Buffer.alloc(0));
             expect(decoded.bitmap.width).toBe(180);
         });
 
@@ -279,14 +324,16 @@ describe("link-embed getMetadata", () => {
                 { "/medium.png": { width: 96, height: 96 }, "/large.png": { width: 192, height: 192 } }
             );
 
-            const decoded = await Jimp.read(parseDataUri((await metadataFor()).image ?? "").buffer);
+            await metadataFor();
+            const decoded = await Jimp.read(stored("coverImage")?.buffer ?? Buffer.alloc(0));
             expect(decoded.bitmap.width).toBe(192);
         });
 
         it("falls back to the conventional /apple-touch-icon.png when none is declared", async () => {
             servePage("", { "/apple-touch-icon.png": { width: 180, height: 180 } });
 
-            expect((await metadataFor()).image).toMatch(/^data:image\//);
+            await metadataFor();
+            expect(stored("coverImage")).toBeDefined();
         });
 
         it("prefers a real og:image over the site icon", async () => {
@@ -295,7 +342,8 @@ describe("link-embed getMetadata", () => {
                 { "/cover.png": { width: 600, height: 300 }, "/touch.png": { width: 180, height: 180 } }
             );
 
-            const decoded = await Jimp.read(parseDataUri((await metadataFor()).image ?? "").buffer);
+            await metadataFor();
+            const decoded = await Jimp.read(stored("coverImage")?.buffer ?? Buffer.alloc(0));
             // The og:image is 2:1, the icon is square — the aspect ratio identifies which one was used.
             expect(decoded.bitmap.width).toBe(256);
             expect(decoded.bitmap.height).toBe(128);
@@ -382,16 +430,15 @@ describe("link-embed getMetadata", () => {
     it("names a favicon by its own bytes rather than by the content type it was served under", async () => {
         const html = `<html><head><title>Plain</title><link rel="icon" href="/fav.ico"></head></html>`;
         // Serving favicon.ico as an octet-stream is common enough to be the normal case on some
-        // hosts. The media type decides whether the client's upload of it is stored as a picture at
-        // all, so taking the header's word for it would leave the icon as a file attachment, which
-        // comes back as a `#root/...` reference the render sinks reject.
+        // hosts. The media type names the extension the attachment is stored under and the type it
+        // is later served as, so taking the header's word for it would file the icon as a `.dat`.
         safeFetch.mockImplementation(async (url: string) => {
             if (url.includes("fav.ico")) return fakeResponse(makeIco(), { contentType: "application/octet-stream" });
             return fakeResponse(html, { contentType: "text/html" });
         });
 
         let result = await linkEmbedRoute.getMetadata(req("https://example.com/page"));
-        expect(parseDataUri(result.favicon ?? "").contentType).toBe("image/x-icon");
+        expect(stored("favicon")?.fileName).toBe("example.com.ico");
 
         // And the same reading in the other direction: an error page served where the icon should
         // be is not made into one by a content type claiming it is.
@@ -457,9 +504,9 @@ describe("link-embed getMetadata", () => {
             return fakeResponse("", { ok: false });
         });
 
-        const result = await linkEmbedRoute.getMetadata(req("https://example.com/page"));
+        await linkEmbedRoute.getMetadata(req("https://example.com/page"));
         // "any" declares a scalable icon — the best possible candidate, tried (and kept) first.
-        expect(result.image).toMatch(/^data:image\/svg\+xml;base64,/);
+        expect(stored("coverImage")?.fileName).toMatch(/\.svg$/);
         // The declared apple-touch-icon href dedupes against the conventional fallback path, so it
         // is never requested twice.
         const touchIconRequests = safeFetch.mock.calls
@@ -483,7 +530,7 @@ describe("link-embed getMetadata", () => {
         // used either, and the thumbnail comes from the conventional hqdefault URL.
         expect(result.title).toBeUndefined();
         expect(result.description).toBeUndefined();
-        expect(result.image).toMatch(/^data:image\/jpeg;base64,/);
+        expect(stored("coverImage")?.fileName).toMatch(/\.jpeg$/);
     });
 
     it("ignores meta tags whose content is empty, falling back to the document title", async () => {

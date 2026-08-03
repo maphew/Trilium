@@ -1,4 +1,4 @@
-import { ConvertAttachmentToNoteResponse, type ImageAttachmentRole, isAcceptedImageMime, isImageAttachmentRole } from "@triliumnext/commons";
+import { ConvertAttachmentToNoteResponse, isAcceptedImageMime } from "@triliumnext/commons";
 import { ValidationError } from "../../errors";
 import type { Request } from "express";
 import type { File } from "../../services/import/common.js";
@@ -65,7 +65,9 @@ async function uploadAttachment(req: FileRequest<{ noteId: string }>) {
     const buffer = wrapStringOrBuffer(file.buffer as string | Uint8Array);
 
     if (isAcceptedImageMime(file.mimetype)) {
-        const attachment = imageService.saveImageToAttachment(noteId, buffer, file.originalname, true, true, requestedImageRole(req));
+        // Always the user's own image: the pictures the app fetches for itself — a link preview's
+        // favicon and cover — are stored by the code that fetched them, never uploaded through here.
+        const attachment = imageService.saveImageToAttachment(noteId, buffer, file.originalname, true, true);
 
         // The URL below is fetched the moment this answers — the editor puts it straight into the
         // document as the source of an image. Answering before the bytes are stored hands it the
@@ -89,19 +91,6 @@ async function uploadAttachment(req: FileRequest<{ noteId: string }>) {
         uploaded: true,
         url
     };
-}
-
-/**
- * Which kind of picture the caller says it is uploading, defaulting to a plain image.
- *
- * Read from a fixed set rather than taken at its word: the role is what decides whether an
- * attachment is served, listed and cleaned up, so an arbitrary string from a request would be a way
- * to create attachments that no code path looks at again.
- */
-function requestedImageRole(req: FileRequest<{ noteId: string }>): ImageAttachmentRole {
-    const requested = req.query?.role;
-
-    return typeof requested === "string" && isImageAttachmentRole(requested) ? requested : "image";
 }
 
 function renameAttachment(req: Request<{ attachmentId: string }>) {

@@ -85,6 +85,20 @@ export function safeLinkPreviewImageSrc(src: string | undefined | null): string 
 }
 
 /**
+ * The host a URL points at, or the URL itself when it cannot be read as one.
+ *
+ * Both the site name a preview falls back to showing and the title its favicon is stored under, so
+ * it lives here rather than on either side: the picture and the label have to name the same site.
+ */
+export function safeHostname(url: string): string {
+    try {
+        return new URL(url).hostname;
+    } catch {
+        return url;
+    }
+}
+
+/**
  * The attachment title a link preview's cover image is stored under.
  *
  * This is the deduplication key (see `isDeduplicatedAttachmentRole`), so it has to name exactly one

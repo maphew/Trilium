@@ -1,12 +1,13 @@
 import "../widgets/type_widgets/text/LinkEmbed.css";
 
-import { extractYouTubeVideoId, type ImageAttachmentRole, type LinkEmbedMetadata, linkPreviewImageName, safeLinkPreviewHref, safeLinkPreviewImageSrc, YOUTUBE_REGEX } from "@triliumnext/commons";
+import { extractYouTubeVideoId, type LinkEmbedMetadata, safeHostname, safeLinkPreviewHref, safeLinkPreviewImageSrc, YOUTUBE_REGEX } from "@triliumnext/commons";
 import { render } from "preact";
 import { useState } from "preact/hooks";
 
 import { t } from "./i18n.js";
-import { uploadImageAttachment } from "./image_upload.js";
 import server from "./server.js";
+
+export { safeHostname };
 
 export interface EmbedMetadata {
     url: string;
@@ -25,82 +26,53 @@ export function detectEmbedType(url: string): "youtube" | "opengraph" {
     return YOUTUBE_REGEX.test(url) ? "youtube" : "opengraph";
 }
 
-export function safeHostname(url: string): string {
-    try { return new URL(url).hostname; } catch { return url; }
-}
-
 /**
  * Fetches link metadata from the server. Called once at link creation time.
  * The returned metadata is then stored in the note's HTML as data attributes.
  *
- * When `ownerNoteId` is given, both pictures a preview carries — the card image and the favicon —
- * are stored as attachments of that note, and only their `api/attachments/...` URLs end up in the
- * metadata. Inlined as base64 data URIs they are 10–140KB of note content for a card image and
- * 1–10KB for a favicon, and that lands in the note's HTML, where it is synced and revisioned like
- * any other content. A single card is enough to push a note past the `autoReadonlySizeText`
- * threshold (32KB by default) and flip it read-only; favicons get there by repetition instead,
- * since a note that links a site once usually links it many times and each copy carries the icon
- * again.
+ * Both pictures a preview carries — the cover image and the favicon — are stored by the server as
+ * attachments of `ownerNoteId`, and only their `api/attachments/...` URLs come back. That is why
+ * the note id is required rather than optional: the pictures have nowhere else to live, and
+ * carrying them in the note's HTML instead would be 10–140KB of content for a cover and 1–10KB for
+ * a favicon, synced and revisioned like anything else the note holds. A single card is enough to
+ * push a note past the `autoReadonlySizeText` threshold (32KB by default) and flip it read-only;
+ * favicons get there by repetition, a note that links a site once usually linking it many times.
  */
-export async function fetchMetadata(url: string, ownerNoteId?: string): Promise<EmbedMetadata> {
+export async function fetchMetadata(url: string, ownerNoteId: string): Promise<EmbedMetadata> {
     try {
         // POSTed rather than passed in the query string: a URL can carry a one-time token or a
         // signed signature, and a query string ends up in every access log along the way.
-        const metadata = await server.post<LinkEmbedMetadata>("link-embed/metadata", { url });
-        // Uploaded together: they are two independent requests and a preview needs both before it
-        // can be stored.
-        // Each picture is named after the thing it is of — the favicon by its site, the cover by
-        // its page — which is what lets a note that links the same site many times keep one icon,
-        // and the same URL pasted twice keep one cover.
-        const [ favicon, image ] = await Promise.all([
-            offloadPictureToAttachment(metadata.favicon, ownerNoteId, "favicon", safeHostname(metadata.url)),
-            offloadPictureToAttachment(metadata.image, ownerNoteId, "coverImage", linkPreviewImageName(metadata.url))
-        ]);
+        const metadata = await server.post<LinkEmbedMetadata>("link-embed/metadata", { url, noteId: ownerNoteId });
 
         return {
             url: metadata.url,
             embedType: metadata.embedType,
             title: metadata.title,
             description: metadata.description,
-            favicon,
+            favicon: metadata.favicon,
             siteName: metadata.siteName,
-            image,
+            image: metadata.image,
             unresolved: metadata.unresolved
         };
     } catch {
-        return {
-            url,
-            embedType: detectEmbedType(url),
-            title: safeHostname(url),
-            unresolved: true
-        };
+        return unresolvedMetadata(url);
     }
 }
 
 /**
- * Converts one of a preview's base64 pictures into an attachment of the owning note, returning its
- * `api/attachments/...` URL — or the data URI unchanged when the upload fails, so the preview still
- * persists and renders, just at the old inline cost.
+ * What a URL is worth when nothing could be learned about it: the hostname, and a flag saying so.
  *
- * Both pictures go through this, so both are subject to the same rule at the render sinks: only an
- * inline image or an attachment of this instance is ever loaded (see `isLocalPreviewImageSrc`).
- *
- * They are stored under different roles all the same. A card image is a picture of the page and
- * belongs with the note's own images; a favicon is the site's mark, fetched rather than chosen, and
- * telling the two apart is what lets icons be deduplicated and kept out of the tools that reason
- * about what the user put in the note.
+ * The caller keeps it as a plain link rather than rendering a preview that shows less than the URL
+ * did. Reached when the metadata request fails, and when there is no note yet to store the
+ * preview's pictures on.
  */
-async function offloadPictureToAttachment(
-    picture: string | undefined,
-    ownerNoteId: string | undefined,
-    role: ImageAttachmentRole = "image",
-    baseName?: string
-): Promise<string | undefined> {
-    if (!picture || !ownerNoteId || !picture.startsWith("data:")) {
-        return picture;
-    }
-
-    return await uploadImageAttachment(ownerNoteId, picture, role, baseName) ?? picture;
+export function unresolvedMetadata(url: string): EmbedMetadata {
+    return {
+        url,
+        embedType: detectEmbedType(url),
+        title: safeHostname(url),
+        unresolved: true
+    };
 }
 
 // ---------------------------------------------------------------------------
@@ -298,6 +270,7 @@ export function applyLinkEmbeds(container: HTMLElement) {
 
 export default {
     fetchMetadata,
+    unresolvedMetadata,
     detectEmbedType,
     safeHostname,
     renderEmbedPreview,

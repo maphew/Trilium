@@ -1,5 +1,12 @@
-import { extractYouTubeVideoId, type LinkEmbedMetadata } from "@triliumnext/commons";
-import { getLog, ValidationError } from "@triliumnext/core";
+import {
+    extractYouTubeVideoId,
+    type ImageAttachmentRole,
+    imageExtensionForMime,
+    type LinkEmbedMetadata,
+    linkPreviewImageName,
+    safeHostname
+} from "@triliumnext/commons";
+import { getLog, imageService, ValidationError } from "@triliumnext/core";
 import type { Request } from "express";
 import isSvg from "is-svg";
 import { Jimp } from "jimp";
@@ -97,8 +104,71 @@ async function downloadBinary(url: string, maxBytes: number, defaultContentType:
     }
 }
 
-function toDataUri(contentType: string, buffer: Buffer): string {
-    return `data:${contentType};base64,${buffer.toString("base64")}`;
+/** A picture that has been fetched and identified, but not yet stored anywhere. */
+interface DownloadedPicture {
+    buffer: Buffer;
+    mime: string;
+}
+
+/**
+ * A preview as it comes back from the site: everything the note will carry as text, and the
+ * pictures still holding their bytes.
+ *
+ * They are kept apart until the very end so that storing them happens once, in one place, rather
+ * than at each of the several points a picture can be found. The note only ever receives the
+ * `api/attachments/...` URLs.
+ */
+interface FetchedPreview {
+    metadata: LinkEmbedMetadata;
+    favicon?: DownloadedPicture;
+    image?: DownloadedPicture;
+}
+
+/**
+ * Stores one of a preview's pictures on the note the preview is going into, and answers with the
+ * URL the note will reference it by.
+ *
+ * `shrink` is off: {@link downloadPreviewImage} has already scaled and re-encoded what it fetched,
+ * and a favicon arrives at the size the site published it. The generic compression pass would only
+ * decode a picture that has nothing left to give, and it holds a slot sized for the user's own
+ * photographs while it does.
+ */
+async function storePicture(
+    noteId: string,
+    picture: DownloadedPicture | undefined,
+    role: ImageAttachmentRole,
+    baseName: string
+): Promise<string | undefined> {
+    if (!picture) {
+        return undefined;
+    }
+
+    const fileName = `${baseName}.${imageExtensionForMime(picture.mime)}`;
+    const attachment = imageService.saveImageToAttachment(noteId, picture.buffer, fileName, false, false, role);
+
+    if (!attachment.attachmentId) {
+        return undefined;
+    }
+
+    // The client renders the preview the moment this answers, so the URL it is handed has to be
+    // fetchable by then; otherwise the picture draws broken and stays that way until a reload.
+    await imageService.awaitImageWrite(attachment.attachmentId);
+
+    return `api/attachments/${attachment.attachmentId}/image/${encodeURIComponent(attachment.title)}`;
+}
+
+/**
+ * Stores both of a preview's pictures, naming each after the thing it is of — the favicon by its
+ * site, the cover by its page — which is what lets a note that links one site many times keep a
+ * single icon, and the same URL pasted twice keep a single cover.
+ */
+async function storePictures(noteId: string, url: string, fetched: FetchedPreview): Promise<LinkEmbedMetadata> {
+    const [ favicon, image ] = await Promise.all([
+        storePicture(noteId, fetched.favicon, "favicon", safeHostname(url)),
+        storePicture(noteId, fetched.image, "coverImage", linkPreviewImageName(url))
+    ]);
+
+    return { ...fetched.metadata, favicon, image };
 }
 
 /**
@@ -106,10 +176,8 @@ function toDataUri(contentType: string, buffer: Buffer): string {
  * bytes are not a picture at all.
  *
  * The response header cannot answer this. `favicon.ico` is routinely served as
- * `application/octet-stream` or `text/plain`, and the media type is not decoration: the client
- * offloads these into attachments, and the upload endpoint decides whether it is storing a picture
- * from the type the data URI declares. A favicon named by a careless header would be stored as a
- * file, come back as a `#root/...` reference, and be rejected at the render sink.
+ * `application/octet-stream` or `text/plain`, and the media type is not decoration: it decides the
+ * extension the attachment is titled with and the type the picture is later served under.
  *
  * Undefined also covers the case the header hides in the other direction — an HTML error page
  * served in place of an image, which is not something to keep whatever it claims to be.
@@ -118,27 +186,34 @@ async function detectImageMime(buffer: Buffer): Promise<string | undefined> {
     return (await getImageTypeFromBuffer(buffer))?.mime;
 }
 
-/**
- * Downloads a favicon and returns it as a base64 data URI, named by its own bytes.
- * Returns undefined if the download fails, the image is too large, or it is not an image.
- */
-async function downloadFaviconAsDataUri(faviconUrl: string): Promise<string | undefined> {
-    const downloaded = await downloadBinary(faviconUrl, MAX_FAVICON_SIZE, "image/x-icon");
-    if (!downloaded) return undefined;
+/** Downloads a picture and names it by its own bytes, or nothing if those are not a picture. */
+async function asPicture(buffer: Buffer): Promise<DownloadedPicture | undefined> {
+    const mime = await detectImageMime(buffer);
 
-    const mime = await detectImageMime(downloaded.buffer);
-
-    return mime ? toDataUri(mime, downloaded.buffer) : undefined;
+    return mime ? { buffer, mime } : undefined;
 }
 
 /**
- * Downloads the preview image, scales it down to {@link IMAGE_MAX_DIMENSION} and returns it as a
- * base64 data URI, so the note carries the image itself instead of hotlinking the origin site (which
- * would leak every reader's IP to it, and break whenever the remote URL rots).
+ * Downloads a favicon.
+ * Returns undefined if the download fails, the image is too large, or it is not an image.
+ */
+async function downloadFavicon(faviconUrl: string): Promise<DownloadedPicture | undefined> {
+    const downloaded = await downloadBinary(faviconUrl, MAX_FAVICON_SIZE, "image/x-icon");
+
+    return downloaded ? await asPicture(downloaded.buffer) : undefined;
+}
+
+/**
+ * Downloads the preview image and scales it down to {@link IMAGE_MAX_DIMENSION}, so the note holds
+ * the picture itself instead of hotlinking the origin site (which would leak every reader's IP to
+ * it, and break whenever the remote URL rots).
+ *
+ * Sized here rather than left to the generic image pipeline because these bytes make a round trip:
+ * they are downloaded here and stored here, and a 5MB `og:image` has no business being carried
+ * through that as a card thumbnail nobody will see above 256 pixels.
  *
  * Transparency is preserved by re-encoding to PNG only when the image actually has non-opaque
- * pixels; an opaque image becomes a JPEG, which is several times smaller — and this ends up inside
- * the note's HTML, so every byte is synced and stored forever.
+ * pixels; an opaque image becomes a JPEG, which is several times smaller.
  *
  * Returns undefined when the image cannot be had at a reasonable size, in which case the preview is
  * still shown without it — the title and description carry the value, not the picture.
@@ -146,7 +221,7 @@ async function downloadFaviconAsDataUri(faviconUrl: string): Promise<string | un
  * `minSourceDimension` rejects a source whose longest edge is below it, used when falling back to a
  * site icon: a 16x16 favicon blown up into a card thumbnail looks worse than no image at all.
  */
-async function downloadImageAsDataUri(imageUrl: string, minSourceDimension = 0): Promise<string | undefined> {
+async function downloadPreviewImage(imageUrl: string, minSourceDimension = 0): Promise<DownloadedPicture | undefined> {
     const downloaded = await downloadBinary(imageUrl, MAX_IMAGE_DOWNLOAD_SIZE, "image/jpeg");
     if (!downloaded) return undefined;
 
@@ -157,7 +232,7 @@ async function downloadImageAsDataUri(imageUrl: string, minSourceDimension = 0):
     // and it satisfies any minimum dimension by definition.
     // The isSvg() sniff only runs on a buffer we would be willing to keep, to avoid stringifying megabytes.
     if (contentType.includes("svg") || (isSmallEnoughToKeepVerbatim && isSvg(buffer.toString()))) {
-        return isSmallEnoughToKeepVerbatim ? toDataUri("image/svg+xml", buffer) : undefined;
+        return isSmallEnoughToKeepVerbatim ? { buffer, mime: "image/svg+xml" } : undefined;
     }
 
     try {
@@ -175,8 +250,8 @@ async function downloadImageAsDataUri(imageUrl: string, minSourceDimension = 0):
         // hasAlpha() inspects the pixels, not just the channel, so an opaque PNG still takes the
         // JPEG path. An animated GIF/WebP collapses to its first frame, which is fine for a thumbnail.
         return image.hasAlpha()
-            ? toDataUri("image/png", Buffer.from(await image.getBuffer("image/png")))
-            : toDataUri("image/jpeg", Buffer.from(await image.getBuffer("image/jpeg", { quality: IMAGE_JPEG_QUALITY })));
+            ? { buffer: Buffer.from(await image.getBuffer("image/png")), mime: "image/png" }
+            : { buffer: Buffer.from(await image.getBuffer("image/jpeg", { quality: IMAGE_JPEG_QUALITY })), mime: "image/jpeg" };
     } catch (e: unknown) {
         // Jimp bundles decoders for PNG/JPEG/GIF/BMP/TIFF only, so a WebP or AVIF lands here. Keep
         // the original bytes when they are small enough — unresized, but still not hotlinked. The
@@ -189,9 +264,7 @@ async function downloadImageAsDataUri(imageUrl: string, minSourceDimension = 0):
         // match a log line against the paste that caused it.
         getLog().info(`Could not decode a link preview image: ${e}`);
 
-        const mime = isSmallEnoughToKeepVerbatim && !minSourceDimension ? await detectImageMime(buffer) : undefined;
-
-        return mime ? toDataUri(mime, buffer) : undefined;
+        return isSmallEnoughToKeepVerbatim && !minSourceDimension ? await asPicture(buffer) : undefined;
     }
 }
 
@@ -219,9 +292,9 @@ function toAbsoluteUrl(href: string | undefined, pageUrl: string): string | unde
  * {@link MIN_ICON_AS_IMAGE_DIMENSION} across — the declared `sizes` attribute is a hint used for
  * ordering, never trusted as fact, since the actual bytes decide.
  */
-async function resolveIconAsImage(document: ReturnType<typeof parse>, pageUrl: string): Promise<string | undefined> {
+async function resolveIconAsImage(document: ReturnType<typeof parse>, pageUrl: string): Promise<DownloadedPicture | undefined> {
     for (const candidate of collectIconCandidates(document, pageUrl).slice(0, MAX_ICON_CANDIDATES)) {
-        const image = await downloadImageAsDataUri(candidate, MIN_ICON_AS_IMAGE_DIMENSION);
+        const image = await downloadPreviewImage(candidate, MIN_ICON_AS_IMAGE_DIMENSION);
         if (image) return image;
     }
 
@@ -276,9 +349,9 @@ function largestDeclaredSize(sizes: string | undefined): number {
 }
 
 /**
- * Resolves a favicon URL from the parsed HTML, then downloads it as a data URI.
+ * Resolves a favicon URL from the parsed HTML, then downloads it.
  */
-async function resolveFavicon(document: ReturnType<typeof parse>, pageUrl: string): Promise<string | undefined> {
+async function resolveFavicon(document: ReturnType<typeof parse>, pageUrl: string): Promise<DownloadedPicture | undefined> {
     const faviconEl = document.querySelector('link[rel="icon"]')
         || document.querySelector('link[rel="shortcut icon"]')
         || document.querySelector('link[rel="apple-touch-icon"]');
@@ -287,22 +360,21 @@ async function resolveFavicon(document: ReturnType<typeof parse>, pageUrl: strin
     const faviconUrl = toAbsoluteUrl(faviconEl?.getAttribute("href"), pageUrl)
         ?? new URL("/favicon.ico", pageUrl).toString();
 
-    return await downloadFaviconAsDataUri(faviconUrl);
+    return await downloadFavicon(faviconUrl);
 }
 
 /**
  * Fetches YouTube metadata via the public oEmbed endpoint.
  * This works reliably unlike scraping youtube.com (which blocks bots).
  */
-async function fetchYouTubeMetadata(url: string, videoId: string): Promise<LinkEmbedMetadata> {
+async function fetchYouTubeMetadata(url: string, videoId: string): Promise<FetchedPreview> {
     const metadata: LinkEmbedMetadata = {
         url,
         siteName: "YouTube",
         embedType: "youtube"
     };
 
-    // Download YouTube favicon as data URI
-    metadata.favicon = await downloadFaviconAsDataUri("https://www.youtube.com/favicon.ico");
+    const favicon = await downloadFavicon("https://www.youtube.com/favicon.ico");
 
     let thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
 
@@ -320,11 +392,9 @@ async function fetchYouTubeMetadata(url: string, videoId: string): Promise<LinkE
         metadata.title = "YouTube Video";
     }
 
-    // The thumbnail is embedded like any other preview image: it is what Card display mode shows, and
+    // The thumbnail is stored like any other preview image: it is what Card display mode shows, and
     // hotlinking it would tell YouTube every time the note is opened.
-    metadata.image = await downloadImageAsDataUri(thumbnailUrl);
-
-    return metadata;
+    return { metadata, favicon, image: await downloadPreviewImage(thumbnailUrl) };
 }
 
 async function fetchOpenGraphData(url: string) {
@@ -360,14 +430,14 @@ async function fetchOpenGraphData(url: string) {
     const imageUrl = toAbsoluteUrl(getMeta("og:image"), url);
     // A site with no og:image (or one that fails to download) still usually has a large home-screen
     // icon, which makes a far better card than an empty placeholder.
-    const image = (imageUrl ? await downloadImageAsDataUri(imageUrl) : undefined)
+    const image = (imageUrl ? await downloadPreviewImage(imageUrl) : undefined)
         ?? await resolveIconAsImage(document, url);
 
     return {
         title: getMeta("og:title") || document.querySelector("title")?.textContent?.trim() || undefined,
         description: getMeta("og:description") || getMeta("description") || undefined,
-        image,
         siteName: getMeta("og:site_name") || undefined,
+        image,
         favicon
     };
 }
@@ -375,9 +445,17 @@ async function fetchOpenGraphData(url: string) {
 async function getMetadata(req: Request) {
     // Taken from the body, not the query string: see the route registration for why.
     const urlParam = req.body?.url;
+    const noteIdParam = req.body?.noteId;
 
     if (!urlParam || typeof urlParam !== "string") {
         throw new ValidationError("'url' is required");
+    }
+
+    // The note the preview is going into. Required, because the pictures are stored as its
+    // attachments and there is nowhere else for them to live — a preview that belongs to no note
+    // is a preview nothing will ever render.
+    if (!noteIdParam || typeof noteIdParam !== "string") {
+        throw new ValidationError("'noteId' is required");
     }
 
     const validatedUrl = validateUrl(urlParam);
@@ -387,27 +465,30 @@ async function getMetadata(req: Request) {
     // A YouTube link stays resolved even when oEmbed is unreachable: the player embeds from the
     // video ID alone, so the preview is worth showing with or without the title and channel.
     if (videoId) {
-        return await fetchYouTubeMetadata(url, videoId);
+        return await storePictures(noteIdParam, url, await fetchYouTubeMetadata(url, videoId));
     }
 
     try {
         const ogData = await fetchOpenGraphData(url);
 
         // A page that answered but names itself nowhere (no og:title, no <title>) leaves us with
-        // the hostname we already had, which is no better than a failed fetch.
+        // the hostname we already had, which is no better than a failed fetch. Nothing is stored
+        // for it: the pictures are dropped along with the preview they would have belonged to.
         if (!ogData.title) {
             return unresolvedMetadata(validatedUrl);
         }
 
-        return {
-            url,
-            title: ogData.title,
-            description: ogData.description,
-            image: ogData.image,
+        return await storePictures(noteIdParam, url, {
+            metadata: {
+                url,
+                title: ogData.title,
+                description: ogData.description,
+                siteName: ogData.siteName,
+                embedType: "opengraph"
+            },
             favicon: ogData.favicon,
-            siteName: ogData.siteName,
-            embedType: "opengraph"
-        } satisfies LinkEmbedMetadata;
+            image: ogData.image
+        });
     } catch (e: unknown) {
         // No URL here either — see the note above the image-decode log.
         getLog().info(`Failed to fetch link preview metadata: ${e}`);

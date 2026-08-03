@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { uploadImageAttachment } from "./image_upload.js";
 import {
     applyLinkEmbeds,
     detectEmbedType,
@@ -10,12 +9,6 @@ import {
     safeHostname
 } from "./link_embed.js";
 import server from "./server.js";
-
-vi.mock("./image_upload.js", () => ({
-    uploadImageAttachment: vi.fn()
-}));
-
-const uploadImageAttachmentMock = vi.mocked(uploadImageAttachment);
 
 let container: HTMLDivElement | undefined;
 
@@ -80,11 +73,12 @@ describe("fetchMetadata", () => {
         };
         server.post = vi.fn(async () => fromServer) as typeof server.post;
 
-        const result = await fetchMetadata(url);
+        const result = await fetchMetadata(url, "note1");
 
         // The URL travels in the body, so it never reaches an access log — a pasted URL can carry a
-        // one-time token or a signature in its query string.
-        expect(server.post).toHaveBeenCalledWith("link-embed/metadata", { url });
+        // one-time token or a signature in its query string. The note id goes with it: the server
+        // stores the preview's pictures as that note's attachments and answers with their URLs.
+        expect(server.post).toHaveBeenCalledWith("link-embed/metadata", { url, noteId: "note1" });
         expect(result).toEqual(fromServer);
     });
 
@@ -93,7 +87,7 @@ describe("fetchMetadata", () => {
             throw new Error("network down");
         }) as typeof server.post;
 
-        const result = await fetchMetadata("https://youtu.be/abcdefghijk");
+        const result = await fetchMetadata("https://youtu.be/abcdefghijk", "note1");
         expect(result).toEqual({
             url: "https://youtu.be/abcdefghijk",
             embedType: "youtube",
@@ -111,79 +105,26 @@ describe("fetchMetadata", () => {
             unresolved: true
         })) as typeof server.post;
 
-        const result = await fetchMetadata("https://blocked.example.com/x");
+        const result = await fetchMetadata("https://blocked.example.com/x", "note1");
         expect(result.unresolved).toBe(true);
     });
 
-    describe("picture offload to attachments", () => {
-        const metaWithDataUriImage = {
+    it("takes the server's attachment URLs as they come, having nothing left to upload", async () => {
+        // The pictures are stored server-side now: the metadata answers with
+        // `api/attachments/...` URLs and the client's only job is to put them in the note.
+        const fromServer = {
             url: "https://example.com",
             embedType: "opengraph",
             title: "Title",
-            favicon: "data:image/x-icon;base64,FAV",
-            image: "data:image/jpeg;base64,IMG"
+            favicon: "api/attachments/att1/image/example.com.ico",
+            image: "api/attachments/att2/image/example.com-1a2b3c4d.jpeg"
         };
+        server.post = vi.fn(async () => fromServer) as typeof server.post;
 
-        it("stores both the card image and the favicon as attachments of the owning note", async () => {
-            server.post = vi.fn(async () => metaWithDataUriImage) as typeof server.post;
-            uploadImageAttachmentMock
-                .mockResolvedValueOnce("api/attachments/att1/image/favicon.ico")
-                .mockResolvedValueOnce("api/attachments/att2/image/image.jpg");
+        const result = await fetchMetadata("https://example.com", "note1");
 
-            const result = await fetchMetadata("https://example.com", "note1");
-
-            // Stored under different roles: the card image is a picture of the page and belongs
-            // with the note's own images, while the favicon is the site's mark, fetched rather than
-            // chosen — which is what lets icons be deduplicated and kept out of the tools that
-            // reason about the user's own pictures.
-            // Each is named after the thing it is of, which is the key the note reuses one by: the
-            // favicon by its site, so linking that site many times keeps one icon; the cover by its
-            // page, so pasting the same URL twice keeps one cover.
-            expect(uploadImageAttachmentMock).toHaveBeenCalledWith("note1", "data:image/x-icon;base64,FAV", "favicon", "example.com");
-            expect(uploadImageAttachmentMock).toHaveBeenCalledWith(
-                "note1",
-                "data:image/jpeg;base64,IMG",
-                "coverImage",
-                expect.stringMatching(/^example\.com-[0-9a-f]{8}$/)
-            );
-            // Only the attachment URLs land in the note content — inlined base64 counts against the
-            // auto-read-only size threshold, and a favicon pays that cost once per link rather than
-            // once per note.
-            expect(result.favicon).toBe("api/attachments/att1/image/favicon.ico");
-            expect(result.image).toBe("api/attachments/att2/image/image.jpg");
-        });
-
-        it("keeps the data URI when the upload fails, so the preview still persists", async () => {
-            server.post = vi.fn(async () => metaWithDataUriImage) as typeof server.post;
-            uploadImageAttachmentMock.mockResolvedValue(null);
-
-            const result = await fetchMetadata("https://example.com", "note1");
-
-            expect(result.image).toBe("data:image/jpeg;base64,IMG");
-            expect(result.favicon).toBe("data:image/x-icon;base64,FAV");
-        });
-
-        it("does not upload without an owning note, a non-data-URI picture, or a missing one", async () => {
-            uploadImageAttachmentMock.mockClear();
-
-            server.post = vi.fn(async () => metaWithDataUriImage) as typeof server.post;
-            const withoutNote = await fetchMetadata("https://example.com");
-            expect(withoutNote.image).toBe("data:image/jpeg;base64,IMG");
-            expect(withoutNote.favicon).toBe("data:image/x-icon;base64,FAV");
-
-            const remote = { ...metaWithDataUriImage, image: "https://img.example/x.png", favicon: "https://img.example/f.ico" };
-            server.post = vi.fn(async () => remote) as typeof server.post;
-            const remotePictures = await fetchMetadata("https://example.com", "note1");
-            expect(remotePictures.image).toBe("https://img.example/x.png");
-            expect(remotePictures.favicon).toBe("https://img.example/f.ico");
-
-            server.post = vi.fn(async () => ({ ...metaWithDataUriImage, image: undefined, favicon: undefined })) as typeof server.post;
-            const noPictures = await fetchMetadata("https://example.com", "note1");
-            expect(noPictures.image).toBeUndefined();
-            expect(noPictures.favicon).toBeUndefined();
-
-            expect(uploadImageAttachmentMock).not.toHaveBeenCalled();
-        });
+        expect(result.favicon).toBe("api/attachments/att1/image/example.com.ico");
+        expect(result.image).toBe("api/attachments/att2/image/example.com-1a2b3c4d.jpeg");
     });
 });
 

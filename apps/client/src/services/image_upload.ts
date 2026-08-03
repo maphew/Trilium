@@ -1,4 +1,4 @@
-import { type ImageAttachmentRole, imageExtensionForMime } from "@triliumnext/commons";
+import { imageExtensionForMime } from "@triliumnext/commons";
 
 import server from "./server.js";
 
@@ -11,27 +11,15 @@ import server from "./server.js";
  * Format-agnostic: used by any rich note type that needs to offload inline base64 images to
  * attachments (e.g. the spreadsheet drawing layer).
  *
- * `role` says which kind of picture it is. The default is a plain image — the user's own — and a
- * caller passes something else only for a picture the app fetched on its behalf, such as a link
- * preview's site icon; see {@link IMAGE_ATTACHMENT_ROLES}. The server checks the value against the
- * same list rather than storing whatever it is sent.
- *
- * `baseName` names the attachment. For a role that deduplicates it is also the key the note reuses
- * an existing attachment by, so it has to say which thing this is — a site's hostname for a
- * favicon — rather than describe it.
+ * Always the user's own image. The pictures the app fetches on their behalf — a link preview's
+ * favicon and cover — are downloaded and stored server-side, and never travel through here.
  */
-export async function uploadImageAttachment(
-    noteId: string,
-    dataUrl: string,
-    role: ImageAttachmentRole = "image",
-    baseName = "image"
-): Promise<string | null> {
-    const file = dataUrlToImageFile(dataUrl, baseName);
+export async function uploadImageAttachment(noteId: string, dataUrl: string): Promise<string | null> {
+    const file = dataUrlToImageFile(dataUrl);
     if (!file) return null;
 
     try {
-        const url = `notes/${noteId}/attachments/upload?role=${encodeURIComponent(role)}`;
-        const response = await server.upload(url, file, undefined, "POST") as { uploaded?: boolean; url?: string };
+        const response = await server.upload(`notes/${noteId}/attachments/upload`, file, undefined, "POST") as { uploaded?: boolean; url?: string };
         return response?.uploaded && response.url ? response.url : null;
     } catch (e) {
         console.error("Failed to upload image attachment", e);
@@ -41,9 +29,9 @@ export async function uploadImageAttachment(
 
 /**
  * Decodes a `data:<mime>;base64,<data>` URL into a {@link File} suitable for upload, named
- * `<baseName>.<ext>` — the extension coming from the data URL's own media type.
+ * `image.<ext>` — the extension coming from the data URL's own media type.
  */
-export function dataUrlToImageFile(dataUrl: string, baseName = "image"): File | null {
+export function dataUrlToImageFile(dataUrl: string): File | null {
     const parsed = parseImageDataUrl(dataUrl);
     if (!parsed) return null;
 
@@ -57,7 +45,7 @@ export function dataUrlToImageFile(dataUrl: string, baseName = "image"): File | 
     for (let i = 0; i < binary.length; i++) {
         bytes[i] = binary.charCodeAt(i);
     }
-    return new File([ bytes ], `${baseName}.${parsed.ext}`, { type: parsed.mime });
+    return new File([ bytes ], `image.${parsed.ext}`, { type: parsed.mime });
 }
 
 export interface ParsedImageDataUrl {

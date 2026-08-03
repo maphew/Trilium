@@ -55,28 +55,7 @@ describe("uploadImageAttachment", () => {
         const url = await uploadImageAttachment("note1", "data:image/png;base64,QUJD");
 
         expect(url).toBe("api/attachments/new1/image/image.png");
-        // The role travels in the URL and defaults to a plain image, which is what a caller that
-        // says nothing means.
-        expect(serverUpload).toHaveBeenCalledWith("notes/note1/attachments/upload?role=image", expect.any(File), undefined, "POST");
-    });
-
-    it("asks for the role it was given, so a fetched picture is not stored as the user's own", async () => {
-        serverUpload.mockResolvedValue({ uploaded: true, url: "api/attachments/new1/image/favicon.ico" });
-
-        await uploadImageAttachment("note1", "data:image/png;base64,QUJD", "favicon");
-
-        expect(serverUpload).toHaveBeenCalledWith("notes/note1/attachments/upload?role=favicon", expect.any(File), undefined, "POST");
-    });
-
-    it("names the upload after the base name it was given, keeping the data URL's extension", async () => {
-        // For a deduplicated role the name is the key an existing attachment is reused by, so it
-        // has to reach the server intact.
-        serverUpload.mockResolvedValue({ uploaded: true, url: "api/attachments/new1/image/example.com.png" });
-
-        await uploadImageAttachment("note1", "data:image/png;base64,QUJD", "favicon", "example.com");
-
-        const [ , uploaded ] = serverUpload.mock.calls[0] as [string, File];
-        expect(uploaded.name).toBe("example.com.png");
+        expect(serverUpload).toHaveBeenCalledWith("notes/note1/attachments/upload", expect.any(File), undefined, "POST");
     });
 
     it("returns null when the server reports the upload did not succeed", async () => {
