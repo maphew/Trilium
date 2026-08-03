@@ -140,6 +140,11 @@ function chooseImage(container: HTMLElement, file: File) {
     input.dispatchEvent(new Event("change", { bubbles: true }));
 }
 
+/** The button beside the link field dropping what the selection points at, if it is offered at all. */
+function unlinkButton(container: HTMLElement) {
+    return section(container, LINK).querySelector<HTMLButtonElement>(".bx-unlink");
+}
+
 function sizeButtons(container: HTMLElement) {
     return Array.from(section(container, SIZE).querySelectorAll<HTMLElement>(".btn"));
 }
@@ -669,6 +674,24 @@ describe("NodePanel", () => {
         const note = linkFace([buildNode({ hyperLink: `#root/${noteId}` })]);
         expect(note?.querySelector(".bx-cube")).toBeTruthy();
         await vi.waitFor(() => expect(note?.textContent).toBe("Linked note"));
+    });
+
+    it("unlinks the selection from the button beside the field, which is only there to be unlinked", () => {
+        const linked = [
+            buildNode({ id: "a", hyperLink: "https://example.com" }),
+            buildNode({ id: "b", hyperLink: "https://example.com" })
+        ];
+        const { mind, reshapeNode } = buildMind(linked);
+
+        // Nothing to drop, nothing offering to: the field alone stands there.
+        expect(unlinkButton(renderInto(<NodePanel mind={buildMind([buildNode()]).mind} noteId="mapNote" nodes={[buildNode()]} />))).toBeNull();
+
+        const container = renderInto(<NodePanel mind={mind} noteId="mapNote" nodes={linked} />);
+        unlinkButton(container)?.click();
+
+        // Blanked out rather than removed, Mind Elixir only ever assigning the properties it is given.
+        expect(reshapeNode).toHaveBeenNthCalledWith(1, mind.currentNodes[0], { hyperLink: "" });
+        expect(reshapeNode).toHaveBeenNthCalledWith(2, mind.currentNodes[1], { hyperLink: "" });
     });
 
     it("edits the tags of a single node, keeping the styling of the ones that stay", () => {

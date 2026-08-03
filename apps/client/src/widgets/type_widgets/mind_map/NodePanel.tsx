@@ -14,7 +14,6 @@ import ActionButton from "../../react/ActionButton";
 import ColorPicker, { DEFAULT_COLOR_PALETTE } from "../../react/ColorPicker";
 import Dropdown from "../../react/Dropdown";
 import { FormFileUploadActionButton } from "../../react/FormFileUpload";
-import { FormListItem } from "../../react/FormList";
 import { useNote, useNoteIcon, useNoteTitle } from "../../react/hooks";
 import Icon from "../../react/Icon";
 import IconPicker from "../../react/IconPicker";
@@ -564,6 +563,9 @@ const LINK_AUTOCOMPLETE_OPTIONS = { allowExternalLinks: true };
  *
  * The picker sits in a menu rather than in the panel itself: it is the field a note is picked
  * through everywhere else in Trilium, and it wants more room than a panel this narrow can give it.
+ * Unlinking stands beside the field rather than at the foot of that menu, as it does for the picture
+ * above: dropping a link is not one more note to pick from, and offered among them it read as one —
+ * besides taking a menu opened on something else entirely to reach.
  */
 function NodeLink({ currentValue, indeterminate, onChange }: {
     currentValue: string | null;
@@ -590,45 +592,50 @@ function NodeLink({ currentValue, indeterminate, onChange }: {
     }
 
     return (
-        <Dropdown
-            className="mind-map-node-link"
-            text={<NodeLinkFace link={currentValue} indeterminate={indeterminate} />}
-            title={t("mind-map.choose-link")}
-            dropdownRef={dropdownRef}
-            dropdownContainerStyle={{ width: "360px" }}
-            // The suggestions land inside the menu, so picking one is not the click outside that
-            // would take the menu down before the pick is made.
-            dropdownOptions={{ autoClose: "outside" }}
-            // The panel scrolls, and the picker is wider than the panel is; hand the menu to the
-            // page instead of leaving it to be clipped.
-            portalToBody
-            onShown={() => setPickerShown(true)}
-            onHidden={() => setPickerShown(false)}
-        >
-            {pickerShown && (
-                <div className="mind-map-node-link-picker" ref={pickerRef}>
-                    <NoteAutocomplete
-                        inputRef={inputRef}
-                        container={pickerRef}
-                        placeholder={t("mind-map.link-placeholder")}
-                        opts={LINK_AUTOCOMPLETE_OPTIONS}
-                        // Only a pick is worth taking: the field is also cleared as one types, and
-                        // the way back to no link at all is the one offered below.
-                        onChange={(suggestion) => {
-                            const link = linkFromSuggestion(suggestion);
-                            if (link) commit(link);
-                        }}
-                    />
+        <div className="mind-map-node-link-row">
+            <Dropdown
+                className="mind-map-node-link"
+                text={<NodeLinkFace link={currentValue} indeterminate={indeterminate} />}
+                title={t("mind-map.choose-link")}
+                dropdownRef={dropdownRef}
+                dropdownContainerStyle={{ width: "360px" }}
+                // The suggestions land inside the menu, so picking one is not the click outside that
+                // would take the menu down before the pick is made.
+                dropdownOptions={{ autoClose: "outside" }}
+                // The panel scrolls, and the picker is wider than the panel is; hand the menu to the
+                // page instead of leaving it to be clipped.
+                portalToBody
+                onShown={() => setPickerShown(true)}
+                onHidden={() => setPickerShown(false)}
+            >
+                {pickerShown && (
+                    <div className="mind-map-node-link-picker" ref={pickerRef}>
+                        <NoteAutocomplete
+                            inputRef={inputRef}
+                            container={pickerRef}
+                            placeholder={t("mind-map.link-placeholder")}
+                            opts={LINK_AUTOCOMPLETE_OPTIONS}
+                            // Only a pick is worth taking: the field is also cleared as one types, and
+                            // the way back to no link at all is the button beside the menu.
+                            onChange={(suggestion) => {
+                                const link = linkFromSuggestion(suggestion);
+                                if (link) commit(link);
+                            }}
+                        />
+                    </div>
+                )}
+            </Dropdown>
 
-                    {(currentValue || indeterminate) && (
-                        <FormListItem
-                            icon="bx bx-unlink"
-                            onClick={() => commit(null)}
-                        >{t("mind-map.clear-link")}</FormListItem>
-                    )}
-                </div>
+            {/* Only where there is a link to drop — as with the picture, what acts on one is there
+                once there is something for it to act on. */}
+            {(currentValue || indeterminate) && (
+                <ActionButton
+                    icon="bx bx-unlink"
+                    text={t("mind-map.clear-link")}
+                    onClick={() => onChange(null)}
+                />
             )}
-        </Dropdown>
+        </div>
     );
 }
 

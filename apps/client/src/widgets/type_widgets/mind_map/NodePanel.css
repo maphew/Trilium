@@ -144,6 +144,19 @@
     }
 }
 
+/* The field takes what the unlinking button beside it leaves, as the picture's sizes do above. */
+.mind-map-node-panel .mind-map-node-link-row {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+
+    .mind-map-node-link {
+        flex: 1;
+        /* Without it a flex item refuses to shrink past its content, and there is nothing to cut. */
+        min-width: 0;
+    }
+}
+
 /*
  * The link takes the width of the panel and says what it points at, however long that runs: a title
  * or an address is as long as it is, and cutting it short is kinder than letting it push the panel
