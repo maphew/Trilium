@@ -101,7 +101,7 @@ describe("MapContextMenu", () => {
         choose("drawArrowBidirectional");
         expect(hint(container)).not.toBeNull();
 
-        act(() => to.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+        act(() => { to.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
 
         expect(mind.createArrow).toHaveBeenCalledWith(from, to, { bidirectional: true });
         expect(hint(container)).toBeNull();
@@ -115,7 +115,7 @@ describe("MapContextMenu", () => {
 
         rightClick();
         choose("drawArrow");
-        act(() => to.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+        act(() => { to.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
 
         expect(mind.createArrow).toHaveBeenCalledWith(mind.currentNode, to, undefined);
     });
@@ -126,7 +126,7 @@ describe("MapContextMenu", () => {
 
         rightClick();
         choose("drawArrow");
-        act(() => map.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+        act(() => { map.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
         expect(mind.createArrow).not.toHaveBeenCalled();
         expect(hint(container)).toBeNull();
 
@@ -147,7 +147,7 @@ describe("MapContextMenu", () => {
 
         rightClick();
         choose("drawArrow");
-        act(() => from?.dispatchEvent(new MouseEvent("click", { bubbles: true })));
+        act(() => { from?.dispatchEvent(new MouseEvent("click", { bubbles: true })); });
 
         expect(mind.createArrow).not.toHaveBeenCalled();
         // Given up all the same: the click was spent, and a hint left standing would be a lie.
