@@ -3523,6 +3523,8 @@
     "linkBidirectional": "Bidirectional Link",
     "clickTips": "Please click the target node",
     "summary": "Summary",
+    "new-topic": "New topic",
+    "new-node": "New node",
     "text-color": "Text",
     "background-color": "Background",
     "branch-color": "Branch",

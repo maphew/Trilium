@@ -20,8 +20,6 @@ import { renderIconClasses } from "./icons";
 import { renderNodeLinks } from "./links";
 import NodePanel from "./NodePanel";
 
-const NEW_TOPIC_NAME = "";
-
 /**
  * Recursively sanitizes a parsed Mind Elixir data structure in place, neutralizing any
  * `dangerouslySetInnerHTML` payloads found anywhere in the tree.
@@ -134,7 +132,9 @@ export default function MindMap({ note, ntxId, noteContext }: TypeWidgetProps) {
                     console.debug("Wrong JSON content: ", content);
                 }
             } else {
-                newContent = VanillaMindElixir.new(NEW_TOPIC_NAME);
+                // Named rather than left blank: Mind Elixir falls back to an English "new topic" of
+                // its own for any empty name it is given.
+                newContent = VanillaMindElixir.new(t("mind-map.new-topic"));
             }
             apiRef.current?.init(newContent!);
         }
@@ -216,6 +216,9 @@ function MindElixir({ children, containerRef: externalContainerRef, containerPro
             el: containerRef.current,
             editable,
             contextMenu: { locale: buildMindElixirLangPack() },
+            // The name every node added to the map is born with, which Mind Elixir would otherwise
+            // give in English. Read afresh on every build, which follows a change of locale.
+            newTopicName: t("mind-map.new-node"),
             theme: buildTheme(defaultColorScheme.current, containerRef.current)
         });
 
