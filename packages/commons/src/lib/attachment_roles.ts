@@ -38,6 +38,20 @@ export interface AttachmentRoleTraits {
      * leaving them to the cleanup would erase every one of them on the next save.
      */
     embedded: boolean;
+    /**
+     * What a copy of this becomes when a person carries it into a note themselves.
+     *
+     * A role says who made the attachment and why, so a copy made by hand has a new answer: the
+     * pictures a link preview fetched are the app's while they belong to that preview, but pasted
+     * into a note as a picture they are one the reader placed, and nothing about them is the app's to
+     * manage any more. Keeping the role would leave the copy deduplicated by title against that
+     * note's own previews, denied the OCR and compression offered to a picture, and filed under the
+     * half of the attachment list nobody opens.
+     *
+     * Always one of the two roles that mean "someone put this here" — handing a copy to another of
+     * the app's roles would only move the problem. A picture stays a picture: see the spec.
+     */
+    copiedAs: "image" | "file";
 }
 
 /**
@@ -49,24 +63,25 @@ export interface AttachmentRoleTraits {
  */
 export const ATTACHMENT_ROLES = {
     /** A picture the user placed in the note. */
-    image: { picture: true, deduplicated: false, embedded: true },
+    image: { picture: true, deduplicated: false, embedded: true, copiedAs: "image" },
     /** A file the user attached to the note. */
-    file: { picture: false, deduplicated: false, embedded: true },
+    file: { picture: false, deduplicated: false, embedded: true, copiedAs: "file" },
     /**
      * A link preview's two pictures, kept apart from `image` so they can be told from one the user
      * chose. Both arrive already sized by the server (a 16x16 icon, a 256px thumbnail), so the
      * compression inventory has nothing to gain from either and offering to recompress one is noise.
      * They are embedded all the same: nothing else manages them, so deleting the preview has to be
-     * what eventually takes them with it.
+     * what eventually takes them with it. Carried into a note by hand, though, they are pictures like
+     * any other — the preview they belonged to stayed behind.
      */
-    favicon: { picture: true, deduplicated: true, embedded: true },
-    coverImage: { picture: true, deduplicated: true, embedded: true },
+    favicon: { picture: true, deduplicated: true, embedded: true, copiedAs: "image" },
+    coverImage: { picture: true, deduplicated: true, embedded: true, copiedAs: "image" },
     /** How a collection remembers the way it is being looked at, and a PDF where the reader had got to. */
-    viewConfig: { picture: false, deduplicated: false, embedded: false },
+    viewConfig: { picture: false, deduplicated: false, embedded: false, copiedAs: "file" },
     /** Shapes saved into an Excalidraw canvas's library. */
-    canvasLibraryItem: { picture: false, deduplicated: false, embedded: false },
+    canvasLibraryItem: { picture: false, deduplicated: false, embedded: false, copiedAs: "file" },
     /** The file an import was read from, kept so an import that went wrong can be looked at again. */
-    importSource: { picture: false, deduplicated: false, embedded: false }
+    importSource: { picture: false, deduplicated: false, embedded: false, copiedAs: "file" }
 } as const satisfies Record<string, AttachmentRoleTraits>;
 
 /** A role the app itself creates. Arbitrary strings reach the same fields — see {@link ATTACHMENT_ROLES}. */

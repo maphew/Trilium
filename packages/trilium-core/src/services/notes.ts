@@ -1,4 +1,4 @@
-import { type AttachmentRow, type AttributeRow, type BranchRow, dayjs, isEmbeddedAttachmentRole, isImageAttachmentRole, type NoteRow, NOTE_TYPE_IMAGE_ATTACHMENTS, type NoteType } from "@triliumnext/commons";
+import { type AttachmentRow, attachmentRoleTraits, type AttributeRow, type BranchRow, dayjs, isEmbeddedAttachmentRole, isImageAttachmentRole, type NoteRow, NOTE_TYPE_IMAGE_ATTACHMENTS, type NoteType } from "@triliumnext/commons";
 import { t } from "i18next";
 import { parse as parseHtml } from "node-html-parser";
 import url from "url";
@@ -447,6 +447,12 @@ export function checkImageAttachments(note: BNote, content: string) {
     // embedded in the content (an image URL or attachment link).
     const isCanvas = note.type === "canvas";
     const foundAttachmentIds = new Set<string>();
+    /**
+     * Of those, the ones the content refers to as a link preview's own pictures rather than as a
+     * picture of its own. A copy of one of these is still a preview's, so it keeps its role; a copy
+     * reached any other way was put there by hand and takes the role that says so.
+     */
+    const previewPictureIds = new Set<string>();
     const foundCanvasFileIds = isCanvas ? collectCanvasImageFileIds(content) : new Set<string>();
 
     if (!isCanvas) {
@@ -454,28 +460,32 @@ export function checkImageAttachments(note: BNote, content: string) {
 
         // Spreadsheet content is JSON storing inline images as bare `api/attachments/{id}/image/...`
         // URLs (no `src="..."` wrapper), so it scans with the same loose pattern as Markdown.
-        const patterns = (note.isMarkdown() || note.type === "spreadsheet")
+        const patterns: { pattern: RegExp, previewPicture?: boolean }[] = (note.isMarkdown() || note.type === "spreadsheet")
             ? [
                 // ![...](api/attachments/{id}/image/...) or similar markdown image syntax
-                /api\/attachments\/([a-zA-Z0-9_]+)\/image/g,
+                { pattern: /api\/attachments\/([a-zA-Z0-9_]+)\/image/g },
                 // [...](#root/{noteId}?viewMode=attachments&attachmentId={id})
-                /attachmentId=([a-zA-Z0-9_]+)/g
+                { pattern: /attachmentId=([a-zA-Z0-9_]+)/g }
             ]
             : [
                 // <img src="api/attachments/{id}/image/...">
-                /src="[^"]*api\/attachments\/([a-zA-Z0-9_]+)\/image/g,
+                { pattern: /src="[^"]*api\/attachments\/([a-zA-Z0-9_]+)\/image/g },
                 // Link previews reference both of their pictures from data attributes rather than
                 // from an <img>: the card image, and the favicon that an inline mention carries on
                 // its own. <section class="link-embed" data-image="api/attachments/{id}/image/..."
                 // data-favicon="api/attachments/{id}/image/...">
-                /data-(?:image|favicon)="[^"]*api\/attachments\/([a-zA-Z0-9_]+)\/image/g,
+                { pattern: /data-(?:image|favicon)="[^"]*api\/attachments\/([a-zA-Z0-9_]+)\/image/g, previewPicture: true },
                 // <a href="...attachmentId={id}">
-                /href="[^"]+attachmentId=([a-zA-Z0-9_]+)/g
+                { pattern: /href="[^"]+attachmentId=([a-zA-Z0-9_]+)/g }
             ];
 
-        for (const pattern of patterns) {
+        for (const { pattern, previewPicture } of patterns) {
             while ((match = pattern.exec(content))) {
-            foundAttachmentIds.add(match[1]);
+                foundAttachmentIds.add(match[1]);
+
+                if (previewPicture) {
+                    previewPictureIds.add(match[1]);
+                }
             }
         }
     }
@@ -526,9 +536,21 @@ export function checkImageAttachments(note: BNote, content: string) {
     const unknownAttachments = becca.getAttachments(unknownAttachmentIds);
 
     for (const unknownAttachment of unknownAttachments) {
+        // A role says who made the attachment and why, so the copy's role is decided by how this note
+        // refers to it. Still a link preview's picture here — the whole preview having been pasted —
+        // and it stays the preview's. Reached any other way it is a picture or a file someone placed,
+        // and carrying the app's role over would leave the copy deduplicated against this note's own
+        // previews, denied the OCR and compression a picture is offered, and filed out of sight. A
+        // role we know nothing about is left alone: there is nothing better to say about it.
+        const copiedRole = previewPictureIds.has(unknownAttachment.attachmentId ?? "")
+            ? unknownAttachment.role
+            : attachmentRoleTraits(unknownAttachment.role)?.copiedAs ?? unknownAttachment.role;
+
         // the attachment belongs to a different note (was copy-pasted). Attachments can be linked only from the note
         // which owns it, so either find an existing attachment having the same content or make a copy.
-        let localAttachment = note.getAttachments().find((att) => att.role === unknownAttachment.role && att.blobId === unknownAttachment.blobId);
+        // Matched on the role the copy would take, not the one it came with, or a picture this note
+        // already holds would never be recognised and every save would copy the bytes again.
+        let localAttachment = note.getAttachments().find((att) => att.role === copiedRole && att.blobId === unknownAttachment.blobId);
 
         if (localAttachment) {
             if (localAttachment.utcDateScheduledForErasureSince) {
@@ -543,6 +565,7 @@ export function checkImageAttachments(note: BNote, content: string) {
         } else {
             localAttachment = unknownAttachment.copy();
             localAttachment.ownerId = note.noteId;
+            localAttachment.role = copiedRole;
             localAttachment.setContent(unknownAttachment.getContent(), { forceSave: true });
 
             ws.sendMessageToAllClients({ type: "toast", message: `Attachment '${localAttachment.title}' has been copied to note '${note.title}'.` });

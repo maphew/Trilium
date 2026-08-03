@@ -61,7 +61,7 @@ describe("attachmentRoleTraits", () => {
         // The types already refuse a role that arrives without one; this says the same at runtime,
         // for the shape the table is actually read with.
         for (const [ role, traits ] of Object.entries(ATTACHMENT_ROLES)) {
-            expect(Object.keys(traits).sort(), role).toStrictEqual([ "deduplicated", "embedded", "picture" ]);
+            expect(Object.keys(traits).sort(), role).toStrictEqual([ "copiedAs", "deduplicated", "embedded", "picture" ]);
         }
     });
 
@@ -70,6 +70,40 @@ describe("attachmentRoleTraits", () => {
             expect(isImageAttachmentRole(role), role).toBe(traits.picture);
             expect(isDeduplicatedAttachmentRole(role), role).toBe(traits.deduplicated);
             expect(isEmbeddedAttachmentRole(role), role).toBe(traits.embedded);
+        }
+    });
+});
+
+describe("copiedAs", () => {
+    it("hands a copy to whoever made it: a picture the app fetched becomes one the reader placed", () => {
+        // The point of the column. A link preview's pictures are the app's while they belong to the
+        // preview; carried into a note by hand they are a picture like any other, and keeping the
+        // role would leave them deduplicated by title against that note's own previews, denied OCR
+        // and compression, and filed under the half of the list nobody opens.
+        expect(ATTACHMENT_ROLES.favicon.copiedAs).toBe("image");
+        expect(ATTACHMENT_ROLES.coverImage.copiedAs).toBe("image");
+    });
+
+    it("leaves the roles a reader already owns as they are", () => {
+        expect(ATTACHMENT_ROLES.image.copiedAs).toBe("image");
+        expect(ATTACHMENT_ROLES.file.copiedAs).toBe("file");
+    });
+
+    it("hands over what the app kept for itself as a plain file", () => {
+        // None of these is reachable by copying today — nothing in a note's content refers to them —
+        // but the question has an answer all the same, and it is not "carry on managing yourself in
+        // a note that has no idea you exist".
+        expect(ATTACHMENT_ROLES.viewConfig.copiedAs).toBe("file");
+        expect(ATTACHMENT_ROLES.canvasLibraryItem.copiedAs).toBe("file");
+        expect(ATTACHMENT_ROLES.importSource.copiedAs).toBe("file");
+    });
+
+    it("only ever hands over something the reader can own", () => {
+        // A copy lands on a role that means "someone put this here" — never on another of the app's,
+        // which would only move the problem.
+        for (const [ role, traits ] of Object.entries(ATTACHMENT_ROLES)) {
+            expect([ "image", "file" ], role).toContain(traits.copiedAs);
+            expect(ATTACHMENT_ROLES[traits.copiedAs].picture, role).toBe(traits.picture);
         }
     });
 });
