@@ -2,7 +2,7 @@ import "./NodeMemo.css";
 
 import { AttributeEditor, type CKTextEditor, type EditorConfig, MEMO_PLUGINS } from "@triliumnext/ckeditor5";
 import type { DISPLAYABLE_LOCALE_IDS } from "@triliumnext/commons";
-import type { NodeObj } from "mind-elixir";
+import type { NodeObj, Topic } from "mind-elixir";
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 
 import { t } from "../../../services/i18n";
@@ -164,4 +164,40 @@ export function toMemoHtml(memo: string | null | undefined) {
     if (/<[a-z][\s\S]*>/i.test(memo)) return memo;
 
     return memo.split(/\r?\n/).map((line) => `<p>${escapeHtml(line)}</p>`).join("");
+}
+
+/**
+ * Worn on the map by a node there is a memo about, which is what draws the mark. See MindMap.css.
+ *
+ * An attribute rather than a class: selecting a node sets `className` outright — Mind Elixir writes
+ * `"selected"` over whatever the node wore — and unselecting only takes that word off again, so a
+ * class of ours would leave with the first click and stay gone until the map was next laid out.
+ */
+export const MEMO_MARKER_ATTRIBUTE = "data-has-memo";
+
+/**
+ * Marks every node on the map carrying a memo, and unmarks every node that no longer carries one.
+ *
+ * A memo is the one thing a node holds that the map draws nothing of — its colors, its icons, its
+ * picture, its link and its tags are all on the node itself — so without a mark there is no telling
+ * a node written about from a node not, short of selecting it and opening the tab. That matters most
+ * on a map that can only be read, where a reader has no reason to click anything at all.
+ *
+ * The mark is left to CSS, this putting only the attribute on: drawn beside the text rather than in
+ * the flow of it, it changes no box, so — unlike the icons, which are dressed in the same pass — it
+ * costs the map no second measuring. It is out of an exported picture for the same reason, which is
+ * where it belongs: a mark saying there is writing here to go and read means nothing in a picture
+ * there is no reading it from.
+ *
+ * Called for the whole map after every layout, which is what follows any change to a node.
+ *
+ * @param container the element holding the rendered nodes.
+ */
+export function renderMemoMarkers(container: HTMLElement) {
+    for (const topic of container.querySelectorAll<Topic>("me-tpc")) {
+        // Anything written at all, as the panel's own tab reads it (see `getCommonValue`), so that
+        // the two never disagree over a memo one of them counts and the other does not.
+        const memo = topic.nodeObj && getNodeMemo(topic.nodeObj);
+        topic.toggleAttribute(MEMO_MARKER_ATTRIBUTE, !!memo);
+    }
 }

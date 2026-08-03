@@ -19,6 +19,7 @@ import { renderIconClasses } from "./icons";
 import { renderNodeLinks } from "./links";
 import MapContextMenu from "./MapContextMenu";
 import MapToolbar, { DirectionToolbar } from "./MapToolbar";
+import { renderMemoMarkers } from "./NodeMemo";
 import NodePanel from "./NodePanel";
 
 /**
@@ -298,6 +299,8 @@ function MindElixir({ children, containerRef: externalContainerRef, containerPro
 
         const dressNodes = () => {
             renderNodeLinks(mind.nodes);
+            // Beside the node rather than within it, so it changes no box and asks for no measuring.
+            renderMemoMarkers(mind.nodes);
 
             // An icon takes far less room than the class it arrived as, so the node it sits on
             // narrows the moment it is dressed — after the branches have been measured against the
