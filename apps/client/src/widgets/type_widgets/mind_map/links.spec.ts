@@ -1,7 +1,7 @@
 import type { Suggestion } from "../../../services/note_autocomplete";
 import { describe, expect, it } from "vitest";
 
-import { describeExternalLink, getNodeLinkHref, linkFromSuggestion, renderNodeLinks } from "./links";
+import { describeExternalLink, getNodeLinkHref, linkFromSuggestion, renderNodeLinks, suggestionFromLink } from "./links";
 
 /** Builds the anchor Mind Elixir gives a node that carries a link. */
 function buildNodes(...links: string[]) {
@@ -33,6 +33,22 @@ describe("linkFromSuggestion", () => {
         expect(linkFromSuggestion(null)).toBeNull();
         expect(linkFromSuggestion({ action: "search-notes" } as Suggestion)).toBeNull();
         expect(linkFromSuggestion({ externalLink: "javascript:alert(1)" } as Suggestion)).toBeNull();
+    });
+});
+
+describe("suggestionFromLink", () => {
+    it("hands a stored link back as the pick it was, for a picker to open on", () => {
+        expect(suggestionFromLink("#root/abc123")).toEqual({ notePath: "root/abc123" });
+        expect(suggestionFromLink("https://example.com/page")).toEqual({ externalLink: "https://example.com/page" });
+
+        // A node linked to nothing opens the picker on nothing in particular.
+        expect(suggestionFromLink(null)).toBeUndefined();
+        expect(suggestionFromLink("")).toBeUndefined();
+
+        // What it hands over is what the picker gives back, for every link we would store.
+        for (const link of [ "#root/abc123", "https://example.com/page" ]) {
+            expect(linkFromSuggestion(suggestionFromLink(link) ?? null)).toBe(link);
+        }
     });
 });
 

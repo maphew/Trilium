@@ -55,6 +55,7 @@
   },
   "add_link": {
     "add_link": "Add link",
+    "edit_link": "Edit link",
     "help_on_links": "Help on links",
     "note": "Note",
     "search_note": "search for note by its name",
@@ -63,7 +64,8 @@
     "link_title": "Link title",
     "anchor": "Anchor (optional)",
     "anchor_none": "None (link to note)",
-    "button_add_link": "Add link"
+    "button_add_link": "Add link",
+    "button_edit_link": "Save link"
   },
   "branch_prefix": {
     "edit_branch_prefix": "Edit branch prefix",

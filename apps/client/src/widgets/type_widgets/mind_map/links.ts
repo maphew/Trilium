@@ -26,6 +26,19 @@ export function linkFromSuggestion(suggestion: Suggestion | null | undefined): s
     return (suggestion?.externalLink ? normalizeExternalUrl(suggestion.externalLink) : null);
 }
 
+/**
+ * What a link a node already carries reads as to the picker it is changed in — the inverse of the
+ * above, for opening that picker on what is already there.
+ */
+export function suggestionFromLink(link: string | null | undefined): Suggestion | undefined {
+    if (!link) {
+        return undefined;
+    }
+
+    const notePath = parseMindMapNoteLink(link)?.notePath;
+    return (notePath ? { notePath } : { externalLink: link });
+}
+
 /** The address a link may be followed to, or `null` where it may not be followed at all. */
 export function getNodeLinkHref(link: string | null | undefined): string | null {
     if (!link) {

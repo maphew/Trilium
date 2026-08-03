@@ -21,7 +21,7 @@ import IconPicker from "../../react/IconPicker";
 import SegmentedChoice from "../../react/SegmentedChoice";
 import TabStrip, { type TabStripTabDefinition } from "../../react/TabStrip";
 import { fitNodeImage, getNodeImageShape, nearestNodeImageWidth, NODE_IMAGE_SHAPES, NODE_IMAGE_WIDTHS, type NodeImage as NodeImageData, type NodeImageShape, shapeNodeImage, uploadNodeImage } from "./images";
-import { describeExternalLink, linkFromSuggestion } from "./links";
+import { describeExternalLink, linkFromSuggestion, suggestionFromLink } from "./links";
 import NodeMemo, { getNodeMemo } from "./NodeMemo";
 
 /**
@@ -586,7 +586,8 @@ function buildImageShapeOptions() {
  * no title to write beside it. A dialog rather than a menu hung off the field, which is where the
  * picker used to sit — the panel stands in the corner of the map, and a menu anchored there had a
  * strip of screen to search a whole tree in, growing and shrinking under the pointer as the results
- * came in.
+ * came in. Where the node points somewhere already, the dialog opens on it, so that changing a link
+ * starts from the one being changed rather than from an empty field.
  *
  * Unlinking stands beside the field rather than inside what it opens, as it does for the picture
  * above: dropping a link is not one more note to pick from.
@@ -603,12 +604,13 @@ function NodeLink({ currentValue, indeterminate, onChange }: {
                 text={<NodeLinkFace link={currentValue} indeterminate={indeterminate} />}
                 title={t("mind-map.choose-link")}
                 onClick={() => void appContext.triggerCommand("showAddLinkDialog", {
-                    // An address is handed back for editing as it stands; a note is not — what is
-                    // stored for one is a path rather than anything anyone typed, and the dialog
-                    // opens on the notes last visited instead.
-                    text: (currentValue && !parseMindMapNoteLink(currentValue)) ? currentValue : "",
+                    text: "",
                     hasSelection: false,
                     targetOnly: true,
+                    // What the node points at now, so that the dialog opens on it and says it is
+                    // being changed rather than made. A selection that disagrees points at nothing
+                    // one dialog could open on, and asks to be linked afresh instead.
+                    currentLink: !indeterminate ? suggestionFromLink(currentValue) : undefined,
                     async addLink(target, _linkTitle, externalLink) {
                         // Only a target we can store is worth taking, as it was when the field was
                         // picked through directly.

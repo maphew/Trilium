@@ -754,9 +754,9 @@ describe("NodePanel", () => {
         linkField(container)?.click();
 
         // A node reads as its own topic, so the dialog is asked for what is pointed at and nothing
-        // else — no title beside it, and nothing to open the field on for a node linked to nothing.
+        // else — no title to write beside it.
         expect(triggerCommand).toHaveBeenCalledWith("showAddLinkDialog",
-            expect.objectContaining({ targetOnly: true, hasSelection: false, text: "" }));
+            expect.objectContaining({ targetOnly: true, hasSelection: false }));
 
         // What comes back is stored the way the map stores it: a note as an in-app address, an
         // address as one we could follow. Every node the panel was handed takes it.
@@ -775,20 +775,27 @@ describe("NodePanel", () => {
         expect(reshapeNode).not.toHaveBeenCalled();
     });
 
-    it("opens the dialog on the address a node already carries, a note having none to type", () => {
+    it("opens the dialog on the link the selection already carries", () => {
         const triggerCommand = vi.spyOn(appContext, "triggerCommand").mockReturnValue(undefined);
         onTestFinished(() => triggerCommand.mockRestore());
 
-        const openOn = (link: string) => {
-            const nodes = [buildNode({ hyperLink: link })];
+        const openOn = (...nodes: NodeObj[]) => {
             linkField(renderInto(<NodePanel mind={buildMind(nodes).mind} noteId="mapNote" nodes={nodes} />))?.click();
-            return (triggerCommand.mock.lastCall?.[1] as AddLinkOpts).text;
+            return (triggerCommand.mock.lastCall?.[1] as AddLinkOpts).currentLink;
         };
 
-        // An address is what someone typed, so it is handed back to be edited; the address a note is
-        // stored as is not, and the dialog opens on the notes last visited instead.
-        expect(openOn("https://example.com/page")).toBe("https://example.com/page");
-        expect(openOn("#root/abc123")).toBe("");
+        // Handed over as the pick it was, so that the dialog opens on it and offers to change it.
+        expect(openOn(buildNode({ hyperLink: "#root/abc123" }))).toEqual({ notePath: "root/abc123" });
+        expect(openOn(buildNode({ hyperLink: "https://example.com/page" })))
+            .toEqual({ externalLink: "https://example.com/page" });
+
+        // Nothing to open on: a node linked to nothing, and a selection pointing several ways at
+        // once — there is no one link there to be changed.
+        expect(openOn(buildNode())).toBeUndefined();
+        expect(openOn(
+            buildNode({ id: "a", hyperLink: "https://example.com" }),
+            buildNode({ id: "b" })
+        )).toBeUndefined();
     });
 
     it("unlinks the selection from the button beside the field, which is only there to be unlinked", () => {
