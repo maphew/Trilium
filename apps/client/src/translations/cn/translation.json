@@ -45,7 +45,13 @@
     },
     "widget-missing-parent": "自定义小部件未定义强制性的 \"{{property}}\" 属性。\n\n如果此脚本需要在没有 UI 元素的情况下运行，请改用“#run=frontendStartup”。",
     "open-script-note": "打开脚本笔记",
-    "scripting-error": "脚本笔记运行失败"
+    "scripting-error": "脚本笔记运行失败",
+    "unhandled-error": {
+      "title": "后台任务执行失败",
+      "details-button": "查看更多详情...",
+      "details-intro": "应用程序仍在运行，你的笔记未受影响。如果此问题反复出现，可以考虑将以下信息粘贴到 GitHub 上进行反馈。",
+      "details-title": "技术信息"
+    }
   },
   "add_link": {
     "add_link": "添加链接",
@@ -217,7 +223,7 @@
     "safeImport": "安全导入",
     "explodeArchivesTooltip": "从 <code>.zip</code>、<code>.enex</code> 和 <code>.opml</code> 存档中的文件创建笔记。关闭此选项时，压缩包将直接作为笔记附件。",
     "explodeArchives": "读取 <code>.zip</code>、<code>.enex</code> 和 <code>.opml</code> 归档文件的内容。",
-    "shrinkImagesTooltip": "如果选中此选项，Trilium将尝试通过缩放和优化来缩小导入的图像，这可能会影响图像的感知质量。如果未选中，图像将不做修改地导入。这不适用于带有元数据的 <code>.zip</code> 导入，因为这些文件已被假定为已优化。",
+    "shrinkImagesTooltip": "缩小导入图片的尺寸，画质可能会轻微下降。不适用于包含 Trilium 元数据的 <code>.zip</code> 导入，这类导入的图片被视为已压缩过。",
     "shrinkImages": "压缩图像",
     "textImportedAsText": "如果元数据不明确，将 HTML、Markdown 和 TXT 导入为文本笔记",
     "codeImportedAsCode": "如果元数据不明确，将识别的代码文件（例如 <code>.json</code>）导入为代码笔记",
@@ -240,7 +246,7 @@
     "import_from": "从…导入",
     "cardName": "文件及其他格式",
     "cardDescription": "ZIP、ENEX、OPML、Markdown、HTML、图片及更多格式",
-    "shrinkImagesProviderTooltip": "缩放并优化导入图片以节省存储空间，画质会轻微下降。",
+    "shrinkImagesProviderTooltip": "缩小导入图片的尺寸，画质可能会轻微下降。",
     "extracting": "已提取 {{progress}} / {{total}} 项内容",
     "processing": "已处理 {{progress}} / {{total}} 条笔记",
     "throttled": "服务正在对请求进行速率限制；导入操作正在等待访问恢复……",
@@ -347,9 +353,9 @@
     "choose_files": "选择文件",
     "files_will_be_uploaded": "文件将作为附件上传到 {{noteTitle}}",
     "options": "选项",
-    "shrink_images": "缩小图片",
+    "shrink_images": "压缩图片",
     "upload": "上传",
-    "tooltip": "如果你勾选此选项，Trilium 将尝试通过缩放和优化来缩小上传的图像，这可能会影响感知的图像质量。如果未选中，则将以不进行修改的方式上传图像。"
+    "tooltip": "缩小上传图片的尺寸，画质可能会轻微下降。取消勾选后，图片将原样上传。"
   },
   "attribute_detail": {
     "close_button_title": "取消修改并关闭",
@@ -1448,7 +1454,8 @@
     "batch_ocr_progress": "正在处理 {{processed}} 个文件，共 {{total}} 个文件...",
     "batch_ocr_completed": "批量处理完成！已处理 {{processed}} 个文件。",
     "batch_ocr_error": "批量处理过程中出错：{{error}}",
-    "batch_ocr_completed_with_failures": "批处理完成。已处理 {{processed}} 个文件，{{failed}} 个读取失败（详见日志）。"
+    "batch_ocr_completed_with_failures": "批处理完成。已处理 {{processed}} 个文件，{{failed}} 个读取失败（详见日志）。",
+    "automatic_image_compression": "自动压缩图片"
   },
   "attachment_erasure_timeout": {
     "attachment_erasure_timeout": "未使用的附件",
@@ -3635,7 +3642,49 @@
     "cleanup_confirm_compacting": "压缩数据库可能需要几分钟时间，具体取决于数据库大小和运行 Trilium 的机器性能。另外，机器上最多需要 {{space}} 的可用磁盘空间（在数据目录和系统临时目录中）。",
     "cleanup_compact_notice": "此操作可能需要几分钟时间，Trilium 在完成前将无响应。",
     "cleanup_snapshots_to_keep_help": "每篇笔记保留的修订快照数量，从最近的一个往前数。设为 0 将擦除整个修订历史。",
-    "cleanup_keep_named_help": "你已命名的修订始终保留，无论有多少个，且不计入每篇笔记保留的快照数量。"
+    "cleanup_keep_named_help": "你已命名的修订始终保留，无论有多少个，且不计入每篇笔记保留的快照数量。",
+    "compress_summary_reading": "正在读取…",
+    "compress_summary_failed": "无法读取此处内容。",
+    "compress_summary_scope_other": "{{title}}，{{count}} 篇后代笔记",
+    "compress_summary_none": "没有图片。",
+    "compress_summary_total_other": "{{count}} 张图片，占用 {{size}}。",
+    "compress_summary_format_other": "{{count}} 个 {{format}} 文件（{{size}}）",
+    "compress_summary_oversized_other": "{{count}} 张超过 {{bound}} 像素的图片",
+    "compress_summary_compressible_other": "{{count}} 张可压缩的图片",
+    "compress_summary_unreadable_other": "{{count}} 张图片无法读取",
+    "compress_format_unknown": "无法识别",
+    "compress_info_file": "{{format}} 文件，{{size}}",
+    "compress_info_pixels": "{{width}}x{{height}} 像素",
+    "compress_info_bits": "每像素 {{bits}} 位",
+    "compress_info_transparency": "使用了透明度",
+    "compress_info_quality": "质量 {{quality}}",
+    "compress_quality_value": "{{quality}}%",
+    "compress_resize": "调整图片大小",
+    "compress_resize_help": "将大于所选尺寸的图片缩小。已经符合尺寸的图片保持不变。",
+    "compress_max_dimensions": "将图片尺寸缩小至",
+    "compress_jpeg_handling": "JPEG 图片",
+    "compress_jpeg_handling_help": "保持原样可保留图片当前的质量。压缩会以较低质量重新保存以减小体积，此操作无法撤销。",
+    "compress_jpeg_keep": "保持原样",
+    "compress_jpeg_compress": "压缩",
+    "compress_png_handling": "PNG 图片",
+    "compress_png_handling_help": "保持原样可完整保留图片。优化会减少颜色数量，在截图和图表中通常难以察觉。转换为 JPEG 最节省空间，但不适用于带透明度的图片，这类图片会改为优化处理。",
+    "compress_png_keep": "保持原样",
+    "compress_png_optimize": "优化",
+    "compress_png_jpeg": "转换为 JPEG",
+    "compress_quality": "质量",
+    "compress_unsupported_format": "此图片的格式无法压缩。只有 JPEG 和 PNG 图片可以压缩。",
+    "compress_process_child_notes": "同时处理子笔记",
+    "compress_process_child_notes_help": "同时压缩所选笔记下方各笔记中的图片。子笔记可能出现在多个位置，其图片由这些位置共享。",
+    "compress_cancel": "取消",
+    "compress_running": "正在压缩图片…",
+    "compress_running_progress": "正在压缩第 {{done}}/{{total}} 张图片…",
+    "compress_cancel_run": "停止",
+    "compress_result_other": "已处理 {{count}} 张图片，体积从 {{before}} 降至 {{after}}。",
+    "compress_result_no_gain_other": "已处理 {{count}} 张图片，但无法进一步缩小。",
+    "compress_result_none": "没有可压缩的图片。",
+    "compress_result_stopped": "处理 {{total}} 张图片中的 {{done}} 张后停止，体积从 {{before}} 降至 {{after}}。",
+    "compress_result_stopped_no_gain": "处理 {{total}} 张图片中的 {{done}} 张后停止，没有一张能进一步缩小。",
+    "compress_result_stopped_none": "尚未处理任何图片就停止了。"
   },
   "sidebar_help": {
     "attributes_inheritable": "将其标记为可继承后，它会向下传递到该笔记下的整个子树，并在其中显示为「可继承」而非「自有」。",
@@ -3658,5 +3707,7 @@
   "contextual_help": {
     "label": "帮助：{{- message}}",
     "sheet_label": "帮助"
-  }
+  },
+  "compress-images": "压缩图片",
+  "compress-image": "压缩图片"
 }
