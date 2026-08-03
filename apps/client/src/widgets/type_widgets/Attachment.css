@@ -70,7 +70,11 @@
 
     .attachment-title-line {
         flex-shrink: 0;
-        gap: 8px;
+        /* Column only. A `gap` spaces the wrapped metadata line off the title as well, on top of the
+           room the 32px menu button already leaves under a 19px title by being what decides how tall
+           their line is. */
+        column-gap: 8px;
+        row-gap: 0;
         border-bottom: 1px solid var(--card-border-color, var(--main-border-color));
         padding: .5rem 1rem;
         padding-inline-end: 8px;
@@ -86,8 +90,12 @@
         min-width: 0;
         font-size: 1em;
         font-weight: 500;
-        /* Titles here have no spaces to break at, as a collection's card titles mostly do not either. */
-        overflow-wrap: anywhere;
+        /* One line, cut short where it does not fit. A screenshot's name or a page's URL is long
+           enough to take three rows of a card, which pushes the metadata and the preview down for
+           the sake of characters the reader can see in full by opening the attachment. */
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
 
         /* A heading that happens to be a link, so not dressed as one: `a.tn-link:hover` draws a
            tinted pill wider than the words. Same two lines as `.note-book-title`. */
