@@ -1,6 +1,6 @@
 import "./NodeMemo.css";
 
-import { AttributeEditor, CHAT_INPUT_PLUGINS, type CKTextEditor, type EditorConfig } from "@triliumnext/ckeditor5";
+import { AttributeEditor, type CKTextEditor, type EditorConfig, MEMO_PLUGINS } from "@triliumnext/ckeditor5";
 import type { NodeObj } from "mind-elixir";
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 
@@ -103,17 +103,37 @@ export default function NodeMemo({ selectionKey, memo, readOnly, onCommit }: {
  * Built where it is used rather than kept still beside the module: the hint is a translated string,
  * and the catalogue is not yet loaded when this module is. Nothing is spent on rebuilding it — an
  * editor is raised from the configuration it is handed as it mounts, and never reconfigured.
+ *
+ * English, as the two other fields built on an {@link AttributeEditor} are (the ribbon's attributes,
+ * the chat box): the strings on show are CKEditor's own, and the dictionary they resolve through is
+ * fetched, which an editor raised as its field mounts cannot wait for. That leaves the toolbar's
+ * tooltips in English wherever the rest of Trilium is not, for all three of them together to answer.
  */
 function buildMemoEditorConfig(): EditorConfig {
     return {
-        // The markdown autoformatting the chat box has — quotes, code, lists, links — and no toolbar.
-        extraPlugins: CHAT_INPUT_PLUGINS,
-        toolbar: { items: [] },
+        extraPlugins: MEMO_PLUGINS,
+        toolbar: { items: MEMO_TOOLBAR_ITEMS },
         placeholder: t("mind-map.memo-placeholder"),
         licenseKey: "GPL",
         language: "en"
     };
 }
+
+/**
+ * What the toolbar over a selection offers. A memo is written in sentences, so what it holds is what
+ * a sentence is marked up with and nothing beyond: no headings, which a pane this narrow has no use
+ * for, and no colors, which are the map's business rather than the memo's.
+ *
+ * The toolbar itself is the editor's own. An {@link AttributeEditor} is a `BalloonEditor`, which
+ * raises whatever it is configured with over the selection — this list is the whole of the feature,
+ * the panel that shows it having been there, empty, all along.
+ */
+const MEMO_TOOLBAR_ITEMS = [
+    "bold", "italic", "strikethrough", "code",
+    "|", "link",
+    "|", "bulletedList", "numberedList",
+    "|", "blockQuote", "codeBlock"
+];
 
 /** Held while the selection disagrees, there being no one memo to write over the others. */
 const MEMO_READ_ONLY_LOCK = "mind-map-node-memo";
