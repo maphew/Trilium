@@ -84,7 +84,13 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
             center: toCenter(coordinates),
             zoom,
             minZoom: 2,
-            maxBounds: [ [ -180, -90 ], [ 180, 90 ] ],
+            // No explicit maxBounds: a bounds whose longitude range spans the full world
+            // (-180..180) crashes MapLibre — the east edge wraps to -180, collapsing the range
+            // to zero width and making the constrain zoom infinite (a singular-matrix null
+            // deref). With renderWorldCopies disabled, MapLibre itself constrains panning to a
+            // single world (substituting an almost-full-world longitude range that avoids the
+            // collapse) and clamps latitude to the Mercator limit, which is the Leaflet-parity
+            // behavior we want.
             renderWorldCopies: false
         });
 
