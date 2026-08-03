@@ -10,6 +10,7 @@ import FAttachment from "../../entities/fattachment";
 import FNote from "../../entities/fnote";
 import imageContextMenu from "../../menus/image_context_menu";
 import { type AttachmentGroup, partitionAttachmentsByGroup } from "../../services/attachment_groups";
+import { attachmentRoleName } from "../../services/attachment_role_names";
 import content_renderer from "../../services/content_renderer";
 import dialog from "../../services/dialog";
 import froca from "../../services/froca";
@@ -305,11 +306,13 @@ function AttachmentInfo({ attachment, isFullDetail, ownerNote, noteContext, view
                             />
                         ) : title}
                     </h4>
+                    {/* The media type used to sit here too, spelled out. On a card whose title ends in
+                        the extension and whose content is drawn right below, `image/svg+xml` told a
+                        reader nothing they could not already see. */}
                     <div className="attachment-details">
-                        {t("attachment_detail_2.role_and_size", {
-                            role: attachment.role,
-                            size: utils.formatSize(attachment.contentLength),
-                            mimeType: attachment.mime
+                        {t("attachment_detail_2.kind_and_size", {
+                            role: attachmentRoleName(attachment.role),
+                            size: utils.formatSize(attachment.contentLength)
                         })}
                     </div>
                     {scheduledForErasureSince && <DeletionBadge utcDateScheduledForErasureSince={scheduledForErasureSince} />}

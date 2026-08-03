@@ -2234,9 +2234,18 @@
     "deletion_badge": "Deleted in {{time}}",
     "deletion_badge_soon": "Deleted soon",
     "deletion_badge_tooltip": "This attachment will be deleted automatically, because it is not linked in the note's content. To keep it, add the attachment link back into the content or convert the attachment into a note.",
-    "role_and_size": "Role: {{role}}, size: {{size}}, MIME: {{- mimeType}}",
+    "kind_and_size": "{{role}} · {{size}}",
     "link_copied": "Attachment reference copied to clipboard.",
     "unrecognized_role": "Unrecognized attachment role '{{role}}'."
+  },
+  "attachment_roles": {
+    "image": "Image",
+    "file": "File",
+    "favicon": "Site icon",
+    "coverImage": "Cover image",
+    "viewConfig": "View settings",
+    "canvasLibraryItem": "Canvas library",
+    "importSource": "Import source"
   },
   "bookmark_switch": {
     "bookmark": "Bookmark",
