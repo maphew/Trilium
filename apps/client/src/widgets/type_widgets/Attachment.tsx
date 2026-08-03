@@ -22,7 +22,7 @@ import utils from "../../services/utils";
 import ws from "../../services/ws";
 import { showImageCompressionDialog } from "../dialogs/image_compression/image_compression_dialog";
 import ActionButton from "../react/ActionButton";
-import Admonition from "../react/Admonition";
+import { Badge } from "../react/Badge";
 import Button from "../react/Button";
 import Dropdown from "../react/Dropdown";
 import FormFileUpload from "../react/FormFileUpload";
@@ -276,10 +276,9 @@ function AttachmentInfo({ attachment, isFullDetail, ownerNote, noteContext, view
                             mimeType: attachment.mime
                         })}
                     </div>
-                    <div style="flex: 1 1;" />
+                    {scheduledForErasureSince && <DeletionBadge utcDateScheduledForErasureSince={scheduledForErasureSince} />}
                 </div>
 
-                {scheduledForErasureSince && <DeletionAlert utcDateScheduledForErasureSince={scheduledForErasureSince} />}
                 {textContent && <TextPreview content={textContent} mime={attachment.mime} />}
                 {isZoomableImage ? (
                     <div key="image-viewer" ref={imageViewerWrapper} className="attachment-content-wrapper attachment-image-viewer">
@@ -313,20 +312,31 @@ function AttachmentInfo({ attachment, isFullDetail, ownerNote, noteContext, view
     );
 }
 
-function DeletionAlert({ utcDateScheduledForErasureSince }: { utcDateScheduledForErasureSince: string }) {
+/**
+ * Marks an attachment the cleanup job has scheduled for erasure, on the row it belongs to rather than in
+ * a block of its own: the countdown is a state the attachment is in, not something to act on right now,
+ * and a banner between the title and the preview pushed every following attachment down the list for it.
+ * What to do about it — link it back, or convert it to a note — is a sentence too long for a pill, so it
+ * goes in the tooltip, next to the two menu entries that carry it out.
+ */
+function DeletionBadge({ utcDateScheduledForErasureSince }: { utcDateScheduledForErasureSince: string }) {
     const scheduledSinceTimestamp = utils.parseDate(utcDateScheduledForErasureSince)?.getTime();
     // use default value (30 days in seconds) from options_init as fallback, in case getInt returns null
     const intervalMs = (options.getInt("eraseUnusedAttachmentsAfterSeconds") || 2592000) * 1000;
-    const deletionTimestamp = scheduledSinceTimestamp + intervalMs;
-    const willBeDeletedInMs = deletionTimestamp - Date.now();
+    const willBeDeletedInMs = scheduledSinceTimestamp !== undefined
+        ? scheduledSinceTimestamp + intervalMs - Date.now()
+        : undefined;
 
     return (
-        <Admonition className="attachment-deletion-warning" type="warning">
-            { willBeDeletedInMs >= 60000
-                ? t("attachment_detail_2.will_be_deleted_in", { time: utils.formatTimeInterval(willBeDeletedInMs) })
-                : t("attachment_detail_2.will_be_deleted_soon")}
-            {t("attachment_detail_2.deletion_reason")}
-        </Admonition>
+        <Badge
+            outline
+            className="attachment-deletion-badge"
+            icon="bx bx-trash"
+            text={willBeDeletedInMs !== undefined && willBeDeletedInMs >= 60000
+                ? t("attachment_detail_2.deletion_badge", { time: utils.formatTimeInterval(willBeDeletedInMs) })
+                : t("attachment_detail_2.deletion_badge_soon")}
+            tooltip={t("attachment_detail_2.deletion_badge_tooltip")}
+        />
     );
 }
 

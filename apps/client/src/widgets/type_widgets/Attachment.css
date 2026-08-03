@@ -134,8 +134,17 @@
     filter: contrast(10%);
 }
 
-.attachment-detail-wrapper .attachment-deletion-warning {
-    margin: 0.5em 0;
+/*
+ * The countdown to an unlinked attachment's erasure. Outlined, like the mark against a system attribute
+ * name, so a list of attachments keeps its rhythm where a banner used to break it — but in the colour the
+ * "Delete attachment" entry gives its own icon, since this is the one badge here reporting a loss to come.
+ */
+.attachment-deletion-badge {
+    --color: var(--dropdown-item-icon-destructive-color);
+    flex-shrink: 0;
+    /* Held against the far end of the row rather than trailing the MIME type, which is as long as the
+       type happens to be — so the badge sits in the same place down a list of attachments. */
+    margin-inline-start: auto;
 }
 /* #endregion */
 
