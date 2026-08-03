@@ -1,6 +1,6 @@
 import "../widgets/type_widgets/text/LinkEmbed.css";
 
-import { extractYouTubeVideoId, type LinkEmbedMetadata, safeLinkPreviewHref, YOUTUBE_REGEX } from "@triliumnext/commons";
+import { extractYouTubeVideoId, type LinkEmbedMetadata, safeLinkPreviewHref, safeLinkPreviewImageSrc, YOUTUBE_REGEX } from "@triliumnext/commons";
 import { render } from "preact";
 import { useState } from "preact/hooks";
 
@@ -88,15 +88,18 @@ async function offloadImageToAttachment(image: string | undefined, ownerNoteId: 
 
 function Favicon({ src }: { src?: string }) {
     const [failed, setFailed] = useState(false);
+    // See safeLinkPreviewImageSrc: only an inline image or an attachment of this instance, so that
+    // opening a note never announces the reader to a third party.
+    const safeSrc = safeLinkPreviewImageSrc(src);
 
-    if (!src || failed) {
+    if (!safeSrc || failed) {
         return <span className="link-embed-mention-dot" />;
     }
 
     return (
         <img
             className="link-embed-mention-favicon"
-            src={src}
+            src={safeSrc}
             width={16}
             height={16}
             onError={() => setFailed(true)}
@@ -110,15 +113,16 @@ function ImagePlaceholder() {
 
 function CardImage({ src }: { src?: string }) {
     const [failed, setFailed] = useState(false);
+    const safeSrc = safeLinkPreviewImageSrc(src);
 
-    if (!src || failed) {
+    if (!safeSrc || failed) {
         return <ImagePlaceholder />;
     }
 
     return (
         <img
             className="link-embed-card-image"
-            src={src}
+            src={safeSrc}
             alt=""
             loading="lazy"
             draggable={false}
@@ -136,6 +140,7 @@ function CardImage({ src }: { src?: string }) {
  */
 function VideoEmbed({ meta, videoId }: { meta: EmbedMetadata; videoId: string }) {
     const [playing, setPlaying] = useState(false);
+    const thumbnail = safeLinkPreviewImageSrc(meta.image);
 
     if (!playing) {
         return (
@@ -147,7 +152,7 @@ function VideoEmbed({ meta, videoId }: { meta: EmbedMetadata; videoId: string })
                     title={t("link_embed.play_video")}
                     onClick={() => setPlaying(true)}
                 >
-                    {meta.image && <img className="link-embed-video-thumbnail" src={meta.image} alt="" draggable={false} />}
+                    {thumbnail && <img className="link-embed-video-thumbnail" src={thumbnail} alt="" draggable={false} />}
                     <span className="link-embed-video-play" aria-hidden="true" />
                 </button>
             </div>

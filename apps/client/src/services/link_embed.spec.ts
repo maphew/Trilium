@@ -238,7 +238,7 @@ describe("renderEmbedPreview", () => {
             title: "A title",
             description: "A description",
             siteName: "YouTube",
-            image: "https://img.example/x.png"
+            image: "api/attachments/abc123/image/x.png"
         });
 
         expect(root.querySelector("iframe")).toBeNull();
@@ -262,6 +262,36 @@ describe("renderEmbedPreview", () => {
         const mention = document.createElement("div");
         renderMentionPreview(mention, { url: "javascript:alert(1)", title: "Evil" });
         expect(mention.querySelector("a.link-embed-mention")?.getAttribute("href")).toBe("about:blank");
+    });
+
+    it("never loads a remote favicon or image, whatever the note stores", () => {
+        // Reaches here straight from the stored note HTML, exactly like the hostile `data-url` above.
+        // An <img> needs no click, so a remote value would tell a third party that the reader opened
+        // the note — the very thing embedding the metadata server-side exists to prevent.
+        const card = makeContainer();
+        renderEmbedPreview(card, {
+            url: "https://example.com",
+            embedType: "opengraph",
+            favicon: "https://tracker.test/favicon.ico",
+            image: "https://tracker.test/pixel.gif"
+        });
+        expect(card.querySelector("img.link-embed-card-image")).toBeNull();
+        expect(card.querySelector(".link-embed-card-image-placeholder")).not.toBeNull();
+        expect(card.querySelector("img.link-embed-mention-favicon")).toBeNull();
+        expect(card.querySelector(".link-embed-mention-dot")).not.toBeNull();
+
+        const video = makeContainer();
+        renderEmbedPreview(video, {
+            url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+            embedType: "youtube",
+            image: "https://tracker.test/thumb.jpg"
+        });
+        expect(video.querySelector("img.link-embed-video-thumbnail")).toBeNull();
+
+        const mention = makeContainer();
+        renderMentionPreview(mention, { url: "https://example.com", favicon: "http://169.254.169.254/latest/meta-data/" });
+        expect(mention.querySelector("img.link-embed-mention-favicon")).toBeNull();
+        expect(mention.querySelector(".link-embed-mention-dot")).not.toBeNull();
     });
 
     it("shows the stored favicon beside the site name, falling back to a dot without one", () => {
@@ -312,11 +342,12 @@ describe("renderEmbedPreview", () => {
     });
 
     it("replaces a broken card image with the placeholder on error", async () => {
+        // How a stored image actually breaks: its attachment was deleted, so the reference 404s.
         const root = makeContainer();
         renderEmbedPreview(root, {
             url: "https://example.com",
             embedType: "opengraph",
-            image: "https://img.example/broken.png"
+            image: "api/attachments/deleted1/image/broken.png"
         });
 
         const img = root.querySelector("img.link-embed-card-image")!;
@@ -334,7 +365,7 @@ describe("renderMentionPreview", () => {
         renderMentionPreview(root, {
             url: "https://example.com",
             title: "Example site",
-            favicon: "https://example.com/favicon.ico"
+            favicon: "data:image/png;base64,AAA"
         });
 
         const anchor = root.querySelector("a.link-embed-mention")!;
@@ -363,7 +394,7 @@ describe("renderMentionPreview", () => {
         const root = makeContainer();
         renderMentionPreview(root, {
             url: "https://example.com",
-            favicon: "https://example.com/broken.ico"
+            favicon: "api/attachments/deleted1/image/broken.ico"
         });
 
         const img = root.querySelector("img.link-embed-mention-favicon")!;
@@ -381,10 +412,10 @@ describe("applyLinkEmbeds", () => {
         root.innerHTML = `
             <section class="link-embed" data-url="https://full.example.com"
                 data-embed-type="opengraph" data-title="T" data-description="D"
-                data-site-name="Site" data-image="https://img.example/x.png"></section>
+                data-site-name="Site" data-image="api/attachments/abc123/image/x.png"></section>
             <section class="link-embed"></section>
             <span class="link-mention" data-url="https://m.example.com"
-                data-title="MT" data-favicon="https://m.example.com/fav.ico"></span>
+                data-title="MT" data-favicon="data:image/png;base64,AAA"></span>
             <span class="link-mention"></span>
         `;
 

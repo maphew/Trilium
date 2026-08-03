@@ -342,6 +342,43 @@ describe("content_renderer", () => {
             expect(content).toContain(`<a class="link-embed-mention" href="about:blank"`);
         });
 
+        it("keeps a stored attachment reference, which is served from this instance", () => {
+            const note = buildShareNote({
+                content: `<section class="link-embed" data-url="https://example.com/page" data-embed-type="opengraph"`
+                    + ` data-title="A title" data-image="api/attachments/abc123/image/preview.png"></section>`
+            });
+
+            const content = String(getContent(note).content);
+            expect(content).toContain(`<img class="link-embed-card-image" src="api/attachments/abc123/image/preview.png"`);
+        });
+
+        it("drops a remote favicon/image rather than have every visitor fetch it", () => {
+            // Same route in as the hostile `data-url` above: `data-*` survives the sanitizer, so a
+            // note from import, ETAPI or sync can name any URL here. An <img> needs no click, so
+            // leaving it in place would announce every visitor to whoever it points at — and the
+            // metadata pipeline only ever stores an inline image or an attachment, so a remote URL
+            // is illegitimate by construction.
+            const note = buildShareNote({
+                content: `<section class="link-embed" data-url="https://example.com/page" data-embed-type="opengraph"`
+                    + ` data-title="A title" data-favicon="http://169.254.169.254/latest/meta-data/"`
+                    + ` data-image="https://tracker.test/pixel.gif"></section>`
+                    + `<section class="link-embed" data-url="https://www.youtube.com/watch?v=dQw4w9WgXcQ"`
+                    + ` data-embed-type="youtube" data-image="https://tracker.test/thumb.jpg"></section>`
+                    + `<p><span class="link-mention" data-url="https://example.com/page" data-title="A title"`
+                    + ` data-favicon="https://tracker.test/favicon.ico"></span></p>`
+            });
+
+            const content = String(getContent(note).content);
+            // As with the hostile data-url above, the element keeps its inert attribute — no browser
+            // fetches a `data-favicon` — but nothing reaches an `src`, which is what would be fetched.
+            expect(content).not.toContain(`src="http://169.254.169.254`);
+            expect(content).not.toContain(`src="https://tracker.test`);
+            // Each sink degrades to the placeholder it already shows for a preview with no image.
+            expect(content).toContain(`<span class="link-embed-mention-dot"></span>`);
+            expect(content).toContain(`<div class="link-embed-card-image-placeholder">`);
+            expect(content).not.toContain(`class="link-embed-video-thumbnail"`);
+        });
+
         it("renders an inline mention with the same favicon markup", () => {
             const note = buildShareNote({
                 content: `<p><span class="link-mention" data-url="https://example.com/page" data-title="A title" data-favicon="${FAVICON}"></span></p>`

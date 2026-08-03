@@ -5,8 +5,10 @@ import {
     chooseLinkPreviewKind,
     extractYouTubeVideoId,
     isHttpUrl,
+    isLocalPreviewImageSrc,
     isUrlAloneInBlock,
     safeLinkPreviewHref,
+    safeLinkPreviewImageSrc,
     YOUTUBE_REGEX
 } from "./link_embed.js";
 
@@ -69,6 +71,43 @@ describe("isHttpUrl / safeLinkPreviewHref", () => {
         expect(safeLinkPreviewHref("https://example.com/page")).toBe("https://example.com/page");
         expect(safeLinkPreviewHref("javascript:alert(document.cookie)")).toBe("about:blank");
         expect(safeLinkPreviewHref(undefined)).toBe("about:blank");
+    });
+});
+
+describe("isLocalPreviewImageSrc / safeLinkPreviewImageSrc", () => {
+    it("accepts the inline images and own attachments the metadata pipeline produces", () => {
+        expect(isLocalPreviewImageSrc("data:image/png;base64,iVBORw0KGgo=")).toBe(true);
+        expect(isLocalPreviewImageSrc("data:image/jpeg;base64,/9j/4AAQ")).toBe(true);
+        // The server emits one of these for a vector favicon; an SVG loaded through <img> runs no script.
+        expect(isLocalPreviewImageSrc("data:image/svg+xml;base64,PHN2Zz4=")).toBe(true);
+        expect(isLocalPreviewImageSrc("api/attachments/abc123DEF_/image/preview.png")).toBe(true);
+        expect(isLocalPreviewImageSrc("  api/attachments/abc123/image/x.png  ")).toBe(true);
+    });
+
+    it("rejects anything that would make the reader fetch from a third party", () => {
+        // The whole point: an <img> fires on load, so a remote favicon/image would announce every
+        // reader of the note — and every visitor to it as a shared page — to whoever it points at.
+        expect(isLocalPreviewImageSrc("https://evil.test/pixel.gif")).toBe(false);
+        expect(isLocalPreviewImageSrc("http://169.254.169.254/latest/meta-data/")).toBe(false);
+        expect(isLocalPreviewImageSrc("//evil.test/api/attachments/abc123/image/x.png")).toBe(false);
+        expect(isLocalPreviewImageSrc("https://evil.test/api/attachments/abc123/image/x.png")).toBe(false);
+        expect(isLocalPreviewImageSrc("/api/attachments/abc123/image/x.png")).toBe(false);
+        expect(isLocalPreviewImageSrc("../../api/attachments/abc123/image/x.png")).toBe(false);
+    });
+
+    it("rejects non-image data URIs and other schemes", () => {
+        expect(isLocalPreviewImageSrc("data:text/html,<script>alert(1)</script>")).toBe(false);
+        expect(isLocalPreviewImageSrc("javascript:alert(1)")).toBe(false);
+        expect(isLocalPreviewImageSrc("file:///etc/passwd")).toBe(false);
+        expect(isLocalPreviewImageSrc(undefined)).toBe(false);
+        expect(isLocalPreviewImageSrc("")).toBe(false);
+    });
+
+    it("degrades a rejected value to no image at all, so the caller shows its placeholder", () => {
+        expect(safeLinkPreviewImageSrc("data:image/png;base64,iVBORw0KGgo=")).toBe("data:image/png;base64,iVBORw0KGgo=");
+        expect(safeLinkPreviewImageSrc("  api/attachments/abc123/image/x.png  ")).toBe("api/attachments/abc123/image/x.png");
+        expect(safeLinkPreviewImageSrc("https://evil.test/pixel.gif")).toBeUndefined();
+        expect(safeLinkPreviewImageSrc(undefined)).toBeUndefined();
     });
 });
 

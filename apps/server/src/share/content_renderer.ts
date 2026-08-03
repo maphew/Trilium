@@ -1,4 +1,4 @@
-import { extractYouTubeVideoId, safeLinkPreviewHref } from "@triliumnext/commons";
+import { extractYouTubeVideoId, safeLinkPreviewHref, safeLinkPreviewImageSrc } from "@triliumnext/commons";
 import { renderToHtml as renderMarkdownToHtml } from "@triliumnext/commons/src/lib/markdown_renderer.js";
 import { renderSpreadsheetToHtml } from "@triliumnext/commons/src/lib/spreadsheet/render_to_html.js";
 import { type BAttachment, type BBranch, becca, BNote, getLog, icon_packs as iconPackService, options, sanitize, task_states, utils } from "@triliumnext/core";
@@ -357,9 +357,15 @@ function renderText(result: Result, note: SNote | BNote, options: ShareRenderOpt
 
     // The site's favicon, or a neutral dot when it has none — shown by both the inline mention and
     // the card's URL line, from the one `data-favicon` the element already carries.
-    const renderFavicon = (favicon: string | undefined) => (favicon
-        ? `<img class="link-embed-mention-favicon" src="${escapeHtml(favicon)}" width="16" height="16">`
-        : `<span class="link-embed-mention-dot"></span>`);
+    // safeLinkPreviewImageSrc() keeps the dot for anything but an inline image or an attachment of
+    // this instance: an <img> fires on load, so a remote URL here would have every visitor to the
+    // shared page announce itself to a third party without so much as a click.
+    const renderFavicon = (favicon: string | undefined | null) => {
+        const src = safeLinkPreviewImageSrc(favicon);
+        return src
+            ? `<img class="link-embed-mention-favicon" src="${escapeHtml(src)}" width="16" height="16">`
+            : `<span class="link-embed-mention-dot"></span>`;
+    };
 
     // Process link mentions (inline) — metadata is stored in data attributes.
     for (const mentionEl of document.querySelectorAll("span.link-mention")) {
@@ -387,7 +393,7 @@ function renderText(result: Result, note: SNote | BNote, options: ShareRenderOpt
                 // loads YouTube's player once a visitor asks for it, so simply reading the page does
                 // not hand every visitor's IP to Google. The swap is done by the share theme's
                 // video_facade script, which reads data-video-id.
-                const image = embedEl.getAttribute("data-image");
+                const image = safeLinkPreviewImageSrc(embedEl.getAttribute("data-image"));
                 const thumbnailHtml = image
                     ? `<img class="link-embed-video-thumbnail" src="${escapeHtml(image)}" alt="" loading="lazy">`
                     : "";
@@ -400,7 +406,7 @@ function renderText(result: Result, note: SNote | BNote, options: ShareRenderOpt
         } else {
             const title = embedEl.getAttribute("data-title") || safeHostnameForShare(url);
             const description = embedEl.getAttribute("data-description");
-            const image = embedEl.getAttribute("data-image");
+            const image = safeLinkPreviewImageSrc(embedEl.getAttribute("data-image"));
             const siteName = embedEl.getAttribute("data-site-name") || safeHostnameForShare(url);
 
             const imageHtml = image

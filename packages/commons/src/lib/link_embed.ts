@@ -38,6 +38,51 @@ export function safeLinkPreviewHref(url: string | undefined | null): string {
     return isHttpUrl(url) ? String(url) : "about:blank";
 }
 
+/**
+ * A preview image reference the renderers may load: an inline `data:` image, or an attachment of
+ * this very instance.
+ *
+ * The metadata pipeline never produces anything else. The server downloads the favicon and the card
+ * image itself and hands back base64 `data:` URIs, precisely so that the note carries the picture
+ * instead of hotlinking the origin site; the client then offloads the larger card image into an
+ * attachment and stores its `api/attachments/…` URL. So a *remote* URL in `data-favicon` /
+ * `data-image` is illegitimate by construction — the mirror image of the {@link isHttpUrl} rule for
+ * `data-url`, where http(s) is the only legitimate case.
+ *
+ * That matters because those attributes reach an `<img src>` that fires on page load with no click,
+ * and `data-*` survives both sanitizers untouched (see {@link isHttpUrl}), so a note arriving by
+ * import, ETAPI or sync could otherwise make every reader of the note — and every visitor to it as a
+ * shared page — announce themselves to a third party. Keeping the check here, at the render sinks,
+ * means no stored value can produce an outbound request whatever route it came in by.
+ */
+export function isLocalPreviewImageSrc(src: string | undefined | null): boolean {
+    if (!src) {
+        return false;
+    }
+
+    const trimmed = src.trim();
+
+    // An SVG data URI is included on purpose: the server itself emits one for a vector favicon, and
+    // scripts inside an SVG loaded through <img> do not run.
+    if (/^data:image\/[a-z0-9.+-]+[;,]/i.test(trimmed)) {
+        return true;
+    }
+
+    // Exactly the shape the attachment upload endpoint returns. Anchored, so a protocol-relative
+    // `//evil.test/api/attachments/…` or a traversal cannot masquerade as one.
+    return /^api\/attachments\/[a-zA-Z0-9_]+\/image\/[^\s"'<>]*$/.test(trimmed);
+}
+
+/**
+ * The value to put in a preview's `<img src>`, or `undefined` when it is not one we may load.
+ * Every caller already renders a placeholder for a preview with no image (a neutral dot for the
+ * favicon, a link glyph for the card), so a rejected value degrades to that rather than to a broken
+ * image. See {@link isLocalPreviewImageSrc}.
+ */
+export function safeLinkPreviewImageSrc(src: string | undefined | null): string | undefined {
+    return isLocalPreviewImageSrc(src) ? String(src).trim() : undefined;
+}
+
 export interface LinkEmbedMetadata {
     url: string;
     title?: string;
