@@ -274,10 +274,6 @@
     overflow: hidden;
 }
 
-.attachment-detail-wrapper.scheduled-for-deletion .attachment-content-wrapper img {
-    filter: contrast(10%);
-}
-
 /*
  * The countdown to an unlinked attachment's erasure.
  *
