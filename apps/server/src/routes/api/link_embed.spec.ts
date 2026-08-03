@@ -476,15 +476,17 @@ describe("link-embed getMetadata", () => {
         expect(result.favicon).toBeUndefined();
     });
 
-    it("keeps only the size of an icon a preview draws, so a large one is not lost to the ceiling", async () => {
-        // The shape that made triliumnotes.org show no icon at all: 114KB across six sizes, of
-        // which the rendered entry is 1.1KB. Fetched whole and stored trimmed, because the sizes
-        // are what the choice is made from — enforcing the ceiling on the download instead simply
-        // threw the icon away.
+    it("keeps one size out of an icon offering several, so a large file is not lost to the ceiling", async () => {
+        // The exact shape that made triliumnotes.org show no icon at all: six sizes totalling
+        // 114KB, over the ceiling a favicon is allowed. Fetched whole and stored trimmed, because
+        // the sizes are what the choice is made from — enforcing the ceiling on the download
+        // instead aborted the stream and threw the icon away.
         const html = `<html><head><title>Plain</title><link rel="icon" href="/fav.ico"></head></html>`;
         const fat = makeMultiSizeIco([
             { edge: 16, bytes: 1128 },
             { edge: 32, bytes: 4264 },
+            { edge: 48, bytes: 9640 },
+            { edge: 64, bytes: 16936 },
             { edge: 128, bytes: 67624 },
             { edge: 256, bytes: 14550 }
         ]);
@@ -499,8 +501,9 @@ describe("link-embed getMetadata", () => {
 
         expect(result.favicon).toBeTruthy();
         expect(stored("favicon")?.fileName).toBe("example.com.ico");
-        // The 16x16 entry, and a one-entry directory to hold it.
-        expect(stored("favicon")?.buffer.byteLength).toBe(22 + 1128);
+        // The 48x48 entry and a one-entry directory to hold it — not the 16x16 one, which is what
+        // a preview draws at and therefore exactly what a 2x or 3x display has to upscale.
+        expect(stored("favicon")?.buffer.byteLength).toBe(22 + 9640);
     });
 
     it("drops an icon that is one picture too large to keep, having nothing to give up", async () => {

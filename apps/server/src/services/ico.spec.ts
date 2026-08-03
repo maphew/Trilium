@@ -113,6 +113,17 @@ describe("trimIcoToSmallestEntry", () => {
         expect(readTrimmed(trimmed ?? new Uint8Array()).picture).toStrictEqual(payload(0xaa));
     });
 
+    it("takes the floor it is given, a preview wanting more pixels than it draws", () => {
+        // Drawn at 16 CSS pixels, so 16 is what a 2x display upscales. The caller asks for the size
+        // that covers the screens it might be opened on, not the size it lays out at.
+        const sizes = [ 16, 32, 48, 64, 128 ].map((edge) => ({ edge, payload: payload(edge) }));
+
+        expect(readTrimmed(trimIcoToSmallestEntry(buildIco(sizes)) ?? new Uint8Array()).edge).toBe(16);
+        expect(readTrimmed(trimIcoToSmallestEntry(buildIco(sizes), 48) ?? new Uint8Array()).edge).toBe(48);
+        // Nothing that large on offer: the largest there is, rather than nothing.
+        expect(readTrimmed(trimIcoToSmallestEntry(buildIco(sizes), 512) ?? new Uint8Array()).edge).toBe(128);
+    });
+
     it("settles for the largest when every picture is below the floor", () => {
         const trimmed = trimIcoToSmallestEntry(buildIco([
             { edge: 8, payload: payload(0xcc) },

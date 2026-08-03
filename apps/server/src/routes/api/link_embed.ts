@@ -29,6 +29,18 @@ const MAX_RESPONSE_SIZE = 512 * 1024; // 512KB
 const MAX_FAVICON_DOWNLOAD_SIZE = 256 * 1024; // 256KB
 /** How large a favicon may be once trimmed. Icons that are one picture already measure a few KB. */
 const MAX_FAVICON_SIZE = 64 * 1024; // 64KB
+/**
+ * The size of icon to keep out of a file offering several, in pixels.
+ *
+ * A preview draws its icon at 16 CSS pixels, so 16 is only enough for a display that has one device
+ * pixel per CSS pixel. Everything above that upscales it, visibly so on the 2x and 3x screens that
+ * are now ordinary — and the note is one document shown on whichever screen opens it, so the size
+ * cannot be chosen per viewer. 48 covers up to 3x and downscales cleanly below it, at a few KB
+ * against an attachment already kept once per site rather than once per link.
+ *
+ * A file that offers nothing this large gives its largest, which is the best it has.
+ */
+const FAVICON_TARGET_EDGE = 48;
 
 /** Longest edge of the preview image kept in the note; larger images are scaled down to fit. */
 const IMAGE_MAX_DIMENSION = 256;
@@ -217,7 +229,7 @@ async function downloadFavicon(faviconUrl: string): Promise<DownloadedPicture | 
     }
 
     // An icon directory gives up the sizes nothing will look at; anything else is kept as it came.
-    const trimmed = trimIcoToSmallestEntry(downloaded.buffer);
+    const trimmed = trimIcoToSmallestEntry(downloaded.buffer, FAVICON_TARGET_EDGE);
     const bytes = trimmed ? Buffer.from(trimmed) : downloaded.buffer;
 
     // The ceiling is on what is kept, not on what arrived: a file that is one large picture has
