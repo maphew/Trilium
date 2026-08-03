@@ -570,8 +570,6 @@ li.dropdown-item a.dropdown-item-button:focus-visible {
     --modal-control-button-background: var(--toast-close-button-background);
     --modal-control-button-color: var(--bs-toast-color);
 
-    display: flex;
-    flex-direction: column;
     backdrop-filter: blur(6px);
 }
 

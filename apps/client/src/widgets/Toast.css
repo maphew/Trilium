@@ -10,9 +10,14 @@
     contain: none;
 }
 
-.toast {
+/* Scoped to the container so the `display` beats Bootstrap's `.toast:not(.show) { display: none }` —
+   the toast is rendered by Preact and never carries Bootstrap's `show` class, so without this the
+   layout comes from whichever theme happens to define it, and toasts vanish under every other one. */
+#toast-container .toast {
     --bs-toast-bg: var(--accented-background-color);
     --bs-toast-color: var(--main-text-color);
+    display: flex;
+    flex-direction: column;
     z-index: 9999999999 !important;
     pointer-events: all;
     overflow: hidden;
