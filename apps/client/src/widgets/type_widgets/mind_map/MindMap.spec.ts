@@ -2,9 +2,10 @@
 // DOMPurify relies on browser-faithful DOM traversal (NodeIterator); happy-dom
 // mishandles it and strips valid markup (surfaced by dompurify 3.4.8). Run the
 // sanitization-dependent specs under jsdom, which matches real-browser behavior.
+import { DARK_THEME, THEME as LIGHT_THEME } from "mind-elixir";
 import { describe, expect, it } from "vitest";
 
-import { sanitizeMindMapData } from "./MindMap.js";
+import { buildTheme, sanitizeMindMapData } from "./MindMap.js";
 
 describe("sanitizeMindMapData", () => {
     it("strips XSS/RCE vectors from dangerouslySetInnerHTML (GHSA-rj57-j38v-3577)", () => {
@@ -76,5 +77,31 @@ describe("sanitizeMindMapData", () => {
         const data = { nodeData: { dangerouslySetInnerHTML: 123 } };
         sanitizeMindMapData(data);
         expect(data.nodeData.dangerouslySetInnerHTML).toBe(123);
+    });
+});
+
+describe("buildTheme", () => {
+    function container(background?: string) {
+        const el = document.createElement("div");
+        if (background) {
+            el.style.setProperty("--main-background-color", background);
+        }
+        return el;
+    }
+
+    it("draws the map on Trilium's background, keeping the rest of the scheme's theme", () => {
+        const light = buildTheme("light", container("#fafafa"));
+        expect(light.name).toBe(LIGHT_THEME.name);
+        expect(light.cssVar?.["--bgcolor"]).toBe("#fafafa");
+        expect(light.cssVar?.["--main-bgcolor"]).toBe(LIGHT_THEME.cssVar["--main-bgcolor"]);
+        expect(light.palette).toEqual(LIGHT_THEME.palette);
+
+        const dark = buildTheme("dark", container("#242424"));
+        expect(dark.name).toBe(DARK_THEME.name);
+        expect(dark.cssVar?.["--bgcolor"]).toBe("#242424");
+    });
+
+    it("leaves the theme as it is when Trilium's background cannot be resolved", () => {
+        expect(buildTheme("dark", container())).toBe(DARK_THEME);
     });
 });

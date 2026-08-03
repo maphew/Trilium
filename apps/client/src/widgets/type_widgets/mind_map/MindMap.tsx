@@ -3,7 +3,7 @@ import "./MindMap.css";
 
 import { NOTE_TYPE_IMAGE_ATTACHMENTS } from "@triliumnext/commons";
 import { t } from "i18next";
-import { DARK_THEME, default as VanillaMindElixir, MindElixirData, MindElixirInstance, NodeObj, Operation, THEME as LIGHT_THEME } from "mind-elixir";
+import { DARK_THEME, default as VanillaMindElixir, MindElixirData, MindElixirInstance, NodeObj, Operation, Theme, THEME as LIGHT_THEME } from "mind-elixir";
 import type { LangPack } from "mind-elixir/i18n";
 import { ComponentChildren, HTMLAttributes, RefObject } from "preact";
 import { createPortal } from "preact/compat";
@@ -213,7 +213,7 @@ function MindElixir({ children, containerRef: externalContainerRef, containerPro
             el: containerRef.current,
             editable,
             contextMenu: { locale: buildMindElixirLangPack() },
-            theme: defaultColorScheme.current === "dark" ? DARK_THEME : LIGHT_THEME
+            theme: buildTheme(defaultColorScheme.current, containerRef.current)
         });
 
         apiRef.current = mind;
@@ -238,9 +238,11 @@ function MindElixir({ children, containerRef: externalContainerRef, containerPro
 
     // React to theme changes.
     useEffect(() => {
-        if (!apiRef.current) return;
-        const newTheme = colorScheme === "dark" ? DARK_THEME : LIGHT_THEME;
-        if (apiRef.current.theme === newTheme) return; // Avoid unnecessary theme changes, which can be expensive to render.
+        if (!apiRef.current || !containerRef.current) return;
+        const newTheme = buildTheme(colorScheme, containerRef.current);
+        // Avoid unnecessary theme changes, which can be expensive to render. Compared by name, since
+        // buildTheme hands out a fresh object every time.
+        if (apiRef.current.theme.name === newTheme.name) return;
         try {
             apiRef.current.changeTheme(newTheme);
         } catch (e) {
@@ -330,6 +332,34 @@ function MindElixir({ children, containerRef: externalContainerRef, containerPro
             {createPortal(<>{children}</>, overlayEl)}
         </>
     );
+}
+
+/**
+ * The Mind Elixir theme to draw the map with, on a canvas of Trilium's own.
+ *
+ * The map would otherwise sit on a background the library picked for itself — a grey of its own in
+ * either color scheme — which reads as a panel laid over the note rather than as the note. The
+ * canvas is the only surface taken over: the nodes and the branches keep the library's palette.
+ *
+ * The color is resolved against the container rather than handed over as `var(--main-background-color)`,
+ * because the theme is not only written to the container as custom properties: it is also read
+ * straight out of the instance to fill the backdrop of the exported SVG (see export.ts), which is
+ * carried far from any document that could resolve a variable.
+ *
+ * @param colorScheme the color scheme in effect.
+ * @param container the element the map is drawn in, to resolve Trilium's background against.
+ * @returns the library's theme for that scheme, with the canvas replaced; unchanged if Trilium's
+ *          background cannot be resolved.
+ */
+export function buildTheme(colorScheme: "light" | "dark", container: HTMLElement): Theme {
+    const baseTheme = (colorScheme === "dark" ? DARK_THEME : LIGHT_THEME);
+    const background = getComputedStyle(container).getPropertyValue("--main-background-color").trim();
+    if (!background) return baseTheme;
+
+    return {
+        ...baseTheme,
+        cssVar: { ...baseTheme.cssVar, "--bgcolor": background }
+    };
 }
 
 function createOverlayElement() {
