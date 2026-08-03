@@ -469,7 +469,13 @@ async function fetchOpenGraphData(url: string) {
 
     return {
         title: getMeta("og:title") || document.querySelector("title")?.textContent?.trim() || undefined,
-        description: getMeta("og:description") || getMeta("description") || undefined,
+        // A Twitter card's description before the generic one: both of the first two are written to
+        // be read on a card, which is what this is, whereas `name="description"` is written for a
+        // search result and is often keyword-stuffed or cut off mid-sentence. Sites that ship only
+        // Twitter tags are common enough to be worth the extra look. `getMeta` tries `property=`
+        // and `name=` in turn, so it finds the tag under either spelling — the card spec says
+        // `name`, and plenty of sites write `property` regardless.
+        description: getMeta("og:description") || getMeta("twitter:description") || getMeta("description") || undefined,
         siteName: getMeta("og:site_name") || undefined,
         image,
         favicon

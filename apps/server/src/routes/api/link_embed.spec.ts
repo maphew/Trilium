@@ -616,6 +616,35 @@ describe("link-embed getMetadata", () => {
         expect(result.description).toBeUndefined();
     });
 
+    it("takes a Twitter card's description where a page offers no OpenGraph one", async () => {
+        const describedBy = async (tags: string) => {
+            safeFetch.mockResolvedValue(fakeResponse(
+                `<html><head><title>T</title>${tags}</head></html>`,
+                { contentType: "text/html" }
+            ));
+            return (await linkEmbedRoute.getMetadata(req("https://example.com/page"))).description;
+        };
+
+        // The card spec says `name`; plenty of sites write `property` regardless, and both are read.
+        expect(await describedBy(`<meta name="twitter:description" content="From the card">`)).toBe("From the card");
+        expect(await describedBy(`<meta property="twitter:description" content="From the card">`)).toBe("From the card");
+
+        // Both of the first two are written to be read on a card, so they come before the one
+        // written for a search result.
+        expect(await describedBy(
+            `<meta property="og:description" content="From OpenGraph">`
+            + `<meta name="twitter:description" content="From the card">`
+            + `<meta name="description" content="For a search result">`
+        )).toBe("From OpenGraph");
+        expect(await describedBy(
+            `<meta name="twitter:description" content="From the card">`
+            + `<meta name="description" content="For a search result">`
+        )).toBe("From the card");
+
+        // And a page carrying none of them still says nothing rather than something invented.
+        expect(await describedBy("")).toBeUndefined();
+    });
+
     it("ignores a favicon that advertises a size over the limit", async () => {
         const html = `<html><head><title>Plain</title><link rel="icon" href="/big.ico"></head></html>`;
         safeFetch.mockImplementation(async (url: string) => {
