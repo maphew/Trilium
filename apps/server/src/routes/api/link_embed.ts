@@ -12,10 +12,22 @@ import isSvg from "is-svg";
 import { Jimp } from "jimp";
 import { parse } from "node-html-parser";
 
+import { trimIcoToSmallestEntry } from "../../services/ico.js";
 import { getImageTypeFromBuffer } from "../../services/image_codec.js";
 import { safeFetch, validateUrl } from "../../services/safe_fetch.js";
 
 const MAX_RESPONSE_SIZE = 512 * 1024; // 512KB
+
+/**
+ * How much of a favicon to fetch.
+ *
+ * Deliberately far above what is kept. A site's icon is often a directory of several pictures where
+ * only the smallest is ever drawn — Trilium's own is 114KB, of which the rendered entry is 1.1KB —
+ * and the whole file has to arrive before the rest can be dropped. Enforcing the storage ceiling
+ * here instead is what left such a site with no icon at all.
+ */
+const MAX_FAVICON_DOWNLOAD_SIZE = 256 * 1024; // 256KB
+/** How large a favicon may be once trimmed. Icons that are one picture already measure a few KB. */
 const MAX_FAVICON_SIZE = 64 * 1024; // 64KB
 
 /** Longest edge of the preview image kept in the note; larger images are scaled down to fit. */
@@ -194,13 +206,23 @@ async function asPicture(buffer: Buffer): Promise<DownloadedPicture | undefined>
 }
 
 /**
- * Downloads a favicon.
- * Returns undefined if the download fails, the image is too large, or it is not an image.
+ * Downloads a favicon, keeping only the size of it a preview will draw.
+ * Returns undefined if the download fails, it is not an image, or too much of it is left.
  */
 async function downloadFavicon(faviconUrl: string): Promise<DownloadedPicture | undefined> {
-    const downloaded = await downloadBinary(faviconUrl, MAX_FAVICON_SIZE, "image/x-icon");
+    const downloaded = await downloadBinary(faviconUrl, MAX_FAVICON_DOWNLOAD_SIZE, "image/x-icon");
 
-    return downloaded ? await asPicture(downloaded.buffer) : undefined;
+    if (!downloaded) {
+        return undefined;
+    }
+
+    // An icon directory gives up the sizes nothing will look at; anything else is kept as it came.
+    const trimmed = trimIcoToSmallestEntry(downloaded.buffer);
+    const bytes = trimmed ? Buffer.from(trimmed) : downloaded.buffer;
+
+    // The ceiling is on what is kept, not on what arrived: a file that is one large picture has
+    // nothing to give up, and is the case this refuses.
+    return bytes.byteLength <= MAX_FAVICON_SIZE ? await asPicture(bytes) : undefined;
 }
 
 /**

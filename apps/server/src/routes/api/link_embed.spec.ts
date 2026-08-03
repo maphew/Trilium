@@ -94,6 +94,31 @@ function makeIco(): Buffer {
     return Buffer.concat([ directory, Buffer.from([ 0, 0, 0, 0 ]) ]);
 }
 
+/**
+ * An icon directory of several sizes, the shape a real site's icon takes — Trilium's own carries
+ * six, of which only the smallest is ever drawn.
+ */
+function makeMultiSizeIco(sizes: { edge: number; bytes: number }[]): Buffer {
+    const directory = Buffer.alloc(6 + sizes.length * 16);
+    directory.writeUInt16LE(1, 2);
+    directory.writeUInt16LE(sizes.length, 4);
+
+    const payloads: Buffer[] = [];
+    let offset = directory.length;
+
+    for (const [ index, { edge, bytes } ] of sizes.entries()) {
+        const at = 6 + index * 16;
+        directory.writeUInt8(edge % 256, at); // 256 is written as 0
+        directory.writeUInt8(edge % 256, at + 1);
+        directory.writeUInt32LE(bytes, at + 8);
+        directory.writeUInt32LE(offset, at + 12);
+        payloads.push(Buffer.alloc(bytes, edge));
+        offset += bytes;
+    }
+
+    return Buffer.concat([ directory, ...payloads ]);
+}
+
 describe("extractYouTubeVideoId", () => {
     it("extracts ids and rejects non-YouTube URLs", () => {
         expect(extractYouTubeVideoId("https://www.youtube.com/watch?v=dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
@@ -449,6 +474,48 @@ describe("link-embed getMetadata", () => {
 
         result = await linkEmbedRoute.getMetadata(req("https://example.com/page"));
         expect(result.favicon).toBeUndefined();
+    });
+
+    it("keeps only the size of an icon a preview draws, so a large one is not lost to the ceiling", async () => {
+        // The shape that made triliumnotes.org show no icon at all: 114KB across six sizes, of
+        // which the rendered entry is 1.1KB. Fetched whole and stored trimmed, because the sizes
+        // are what the choice is made from — enforcing the ceiling on the download instead simply
+        // threw the icon away.
+        const html = `<html><head><title>Plain</title><link rel="icon" href="/fav.ico"></head></html>`;
+        const fat = makeMultiSizeIco([
+            { edge: 16, bytes: 1128 },
+            { edge: 32, bytes: 4264 },
+            { edge: 128, bytes: 67624 },
+            { edge: 256, bytes: 14550 }
+        ]);
+        expect(fat.byteLength).toBeGreaterThan(64 * 1024);
+
+        safeFetch.mockImplementation(async (url: string) => {
+            if (url.includes("fav.ico")) return fakeResponse(fat, { contentType: "image/vnd.microsoft.icon" });
+            return fakeResponse(html, { contentType: "text/html" });
+        });
+
+        const result = await linkEmbedRoute.getMetadata(req("https://example.com/page"));
+
+        expect(result.favicon).toBeTruthy();
+        expect(stored("favicon")?.fileName).toBe("example.com.ico");
+        // The 16x16 entry, and a one-entry directory to hold it.
+        expect(stored("favicon")?.buffer.byteLength).toBe(22 + 1128);
+    });
+
+    it("drops an icon that is one picture too large to keep, having nothing to give up", async () => {
+        const html = `<html><head><title>Plain</title><link rel="icon" href="/fav.ico"></head></html>`;
+        const huge = makeMultiSizeIco([ { edge: 256, bytes: 100 * 1024 } ]);
+
+        safeFetch.mockImplementation(async (url: string) => {
+            if (url.includes("fav.ico")) return fakeResponse(huge, { contentType: "image/x-icon" });
+            return fakeResponse(html, { contentType: "text/html" });
+        });
+
+        const result = await linkEmbedRoute.getMetadata(req("https://example.com/page"));
+
+        expect(result.favicon).toBeUndefined();
+        expect(stored("favicon")).toBeUndefined();
     });
 
     it("keeps the preview when the favicon download throws or has no body", async () => {
