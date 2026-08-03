@@ -11,7 +11,7 @@ import MapToolbar, { DirectionToolbar } from "./MapToolbar";
  * range, the element that goes fullscreen, the map's own transform, the direction it is laid out
  * by, and the ways it is moved and relaid.
  */
-function buildMind({ scaleVal = 1, direction = 1 } = {}) {
+function buildMind({ scaleVal = 1, direction = 1, isFocusMode = false } = {}) {
     const el = document.createElement("div");
     el.requestFullscreen = vi.fn(async () => {});
     document.body.appendChild(el);
@@ -41,12 +41,18 @@ function buildMind({ scaleVal = 1, direction = 1 } = {}) {
         scaleMin: 0.2,
         scaleMax: 1.4,
         direction,
+        isFocusMode,
         scale,
         toCenter: vi.fn(),
         move: vi.fn(),
         initLeft: relayOut(0),
         initRight: relayOut(1),
         initSide: relayOut(2),
+        // As the map does: it is laid out afresh, showing all it has again.
+        cancelFocus: vi.fn(() => {
+            mind.isFocusMode = false;
+            fire("linkDiv");
+        }),
         bus: {
             fire,
             addListener: (type: string, listener: (...args: unknown[]) => void) => {
@@ -109,6 +115,26 @@ describe("MapToolbar", () => {
         expect(buttons(container)).toHaveLength(4);
         expect(buttons(container)[CENTER].className).toContain("bx-current-location");
         expect(buttons(container)[FULLSCREEN].className).toContain("bx-fullscreen");
+    });
+
+    it("keeps the way out of focus mode off the bar while there is nothing to leave", () => {
+        const container = renderToolbar(buildMind());
+
+        expect(buttons(container).some((button) => button.className.includes("bx-exit"))).toBe(false);
+    });
+
+    it("offers the way out of focus mode while the map is narrowed, and drops it once it is not", () => {
+        const mind = buildMind({ isFocusMode: true });
+        const container = renderToolbar(mind);
+
+        // Leading the bar: it is the one thing there that undoes a state the map is being read in.
+        expect(buttons(container)).toHaveLength(5);
+        expect(buttons(container)[0].className).toContain("bx-exit");
+
+        press(container, 0);
+
+        expect(mind.cancelFocus).toHaveBeenCalled();
+        expect(buttons(container)).toHaveLength(4);
     });
 
     it("zooms by one step of the map's own sensitivity, in either direction", () => {

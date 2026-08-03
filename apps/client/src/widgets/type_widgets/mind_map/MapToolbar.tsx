@@ -24,6 +24,7 @@ interface MapToolbarProps {
  */
 export default function MapToolbar({ mind }: MapToolbarProps) {
     const scale = useMapScale(mind);
+    const isFocused = useMapFocus(mind);
     const [ isFullscreen, toggleFullscreen ] = useMapFullscreen(mind);
 
     const limits = { sensitivity: mind.scaleSensitivity, min: mind.scaleMin, max: mind.scaleMax };
@@ -32,6 +33,18 @@ export default function MapToolbar({ mind }: MapToolbarProps) {
 
     return (
         <Toolbar className="mind-map-view-toolbar">
+            {/* Leaving focus mode is about the map rather than about any one node, so it stands
+                here rather than in the menu a node is right-clicked for — which is where Mind
+                Elixir kept it, offered on every node whether the map was narrowed or not. It is
+                only here while there is something to leave, the map otherwise showing all it has. */}
+            {isFocused && (
+                <ToolbarButton
+                    icon="bx bx-exit"
+                    text={t("mind-map.cancelFocus")}
+                    onClick={() => mind.cancelFocus()}
+                />
+            )}
+
             <ToolbarButton
                 icon="bx bx-zoom-in"
                 text={t("mind-map.zoom-in")}
@@ -162,27 +175,41 @@ function useMapScale(mind: MindElixirInstance) {
     return scale;
 }
 
-/**
- * The way the map is laid out, followed as it changes.
- *
- * A map says so when it is laid out afresh, but not when it is first filled: content carrying a
- * direction of its own is taken silently, and a map built and then filled would leave the bar
- * showing the direction it was born with. What every layout of a map does say is that its branches
- * have been drawn, which is asked after instead — it costs a read of a number, and it is the one
- * word that comes however the direction was arrived at.
- */
+/** The way the map is laid out, followed as it changes. */
 function useMapDirection(mind: MindElixirInstance) {
-    const [ direction, setDirection ] = useState(mind.direction);
+    return useMapState(mind, (mind) => mind.direction);
+}
+
+/** Whether the map is narrowed to one node's branch, followed as that comes and goes. */
+function useMapFocus(mind: MindElixirInstance) {
+    return useMapState(mind, (mind) => mind.isFocusMode);
+}
+
+/**
+ * Follows something a map holds that it does not announce in its own right.
+ *
+ * Neither the direction nor the focus is spoken of directly: content carrying a direction of its own
+ * is taken silently as a map is filled, and narrowing a map says only that it has been laid out
+ * afresh. What every one of them does say is that the branches have been drawn, which is asked after
+ * instead — it costs a read of what is wanted, and it is the one word that comes however the map
+ * arrived at it.
+ */
+function useMapState<T>(mind: MindElixirInstance, read: (mind: MindElixirInstance) => T) {
+    const [ value, setValue ] = useState(() => read(mind));
+    // Read afresh on every report rather than closed over, so that a listener bound once follows a
+    // reader the component hands over anew on each render.
+    const readRef = useRef(read);
+    readRef.current = read;
 
     useEffect(() => {
-        const report = () => setDirection(mind.direction);
+        const report = () => setValue(() => readRef.current(mind));
 
         report();
         mind.bus.addListener("linkDiv", report);
         return () => mind.bus.removeListener("linkDiv", report);
     }, [ mind ]);
 
-    return direction;
+    return value;
 }
 
 /**

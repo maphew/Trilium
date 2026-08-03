@@ -4,7 +4,6 @@ import "./MindMap.css";
 import { NOTE_TYPE_IMAGE_ATTACHMENTS } from "@triliumnext/commons";
 import { t } from "i18next";
 import { DARK_THEME, default as VanillaMindElixir, MindElixirData, MindElixirInstance, NodeObj, Operation, Theme, THEME as LIGHT_THEME } from "mind-elixir";
-import type { LangPack } from "mind-elixir/i18n";
 import { ComponentChildren, HTMLAttributes, RefObject } from "preact";
 import { createPortal } from "preact/compat";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
@@ -18,6 +17,7 @@ import { TypeWidgetProps } from "../type_widget";
 import { renderMindMapPreviewSvg } from "./export";
 import { renderIconClasses } from "./icons";
 import { renderNodeLinks } from "./links";
+import MapContextMenu from "./MapContextMenu";
 import MapToolbar, { DirectionToolbar } from "./MapToolbar";
 import NodePanel from "./NodePanel";
 
@@ -80,23 +80,6 @@ interface MindElixirProps {
     editable: boolean;
     onChange?: () => void;
     onSelectionChange?: (selectedNodes: NodeObj[]) => void;
-}
-
-function buildMindElixirLangPack(): LangPack {
-    return {
-        addChild: t("mind-map.addChild"),
-        addParent: t("mind-map.addParent"),
-        addSibling: t("mind-map.addSibling"),
-        removeNode: t("mind-map.removeNode"),
-        focus: t("mind-map.focus"),
-        cancelFocus: t("mind-map.cancelFocus"),
-        moveUp: t("mind-map.moveUp"),
-        moveDown: t("mind-map.moveDown"),
-        link: t("mind-map.link"),
-        linkBidirectional: t("mind-map.linkBidirectional"),
-        clickTips: t("mind-map.clickTips"),
-        summary: t("mind-map.summary")
-    };
 }
 
 export default function MindMap({ note, ntxId, noteContext }: TypeWidgetProps) {
@@ -200,6 +183,11 @@ export default function MindMap({ note, ntxId, noteContext }: TypeWidgetProps) {
                 <DirectionToolbar mind={mind} />
                 <MapToolbar mind={mind} />
 
+                {/* Only a map that can be edited is right-clicked at all: the event the menu is
+                    built from comes from Mind Elixir's pointer handling, which raises it for an
+                    editable map alone. Everything the menu holds edits the map in any case. */}
+                {!isReadOnly && <MapContextMenu mind={mind} />}
+
                 {/* Offered on a read-only map as well: Mind Elixir still selects a node there, and
                     the panel then holds the memo alone — the one thing a node carries that the map
                     itself never draws, and which would otherwise be out of reach (see NodePanel). */}
@@ -226,8 +214,9 @@ function MindElixir({ children, containerRef: externalContainerRef, containerPro
         const mind = new VanillaMindElixir({
             el: containerRef.current,
             editable,
-            contextMenu: { locale: buildMindElixirLangPack() },
-            // Both of the bars the library lays over a map are Trilium's instead (see MapToolbar).
+            // Everything the library would lay over a map is Trilium's instead: the two bars of
+            // buttons (see MapToolbar) and the menu a node is right-clicked for (see MapContextMenu).
+            contextMenu: false,
             toolBar: false,
             // The name every node added to the map is born with, which Mind Elixir would otherwise
             // give in English. Read afresh on every build, which follows a change of locale.
