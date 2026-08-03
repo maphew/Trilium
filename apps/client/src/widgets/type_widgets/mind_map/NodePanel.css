@@ -189,11 +189,10 @@
  * or an address is as long as it is, and cutting it short is kinder than letting it push the panel
  * wider than the map can spare.
  */
-.mind-map-node-panel .mind-map-node-link button {
+.mind-map-node-panel button.mind-map-node-link {
     display: flex;
     align-items: center;
     gap: 6px;
-    width: 100%;
     text-align: start;
 
     .mind-map-node-link-label {
@@ -208,16 +207,6 @@
     /* A link there is not yet is an invitation rather than a value. */
     .mind-map-node-link-empty {
         opacity: .7;
-    }
-}
-
-/* The field is the whole of the menu, its suggestions falling under it as they do anywhere else. */
-.mind-map-node-link-picker {
-    padding: 8px;
-
-    /* The wrapper Algolia puts around the field takes no width of its own. */
-    .algolia-autocomplete {
-        flex: 1;
     }
 }
 

@@ -1,10 +1,12 @@
 import type { MindElixirInstance, NodeObj } from "mind-elixir";
 import { render } from "preact";
 import { act } from "preact/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it, onTestFinished, vi } from "vitest";
 
+import appContext from "../../../components/app_context";
 import { buildNotes } from "../../../test/easy-froca";
 import { renderInto } from "../../../test/render";
+import type { AddLinkOpts } from "../../dialogs/add_link";
 import { uploadNodeImage } from "./images";
 import NodePanel, { applyTagTexts, DEFAULT_FONT_SIZE, gatherTags, getCommonValue, MIXED, NODE_BACKGROUND_COLORS, NODE_COLORS, withIconAt } from "./NodePanel";
 
@@ -138,6 +140,16 @@ function chooseImage(container: HTMLElement, file: File) {
     if (!input) throw new Error("the picture row has no field to pick through");
     Object.defineProperty(input, "files", { value: [ file ], configurable: true });
     input.dispatchEvent(new Event("change", { bubbles: true }));
+}
+
+/** The field saying what the selection is linked to, which is what opens the dialog. */
+function linkField(container: HTMLElement) {
+    return section(container, LINK).querySelector<HTMLButtonElement>("button.mind-map-node-link");
+}
+
+/** What the field says the selection points at, read off the label rather than the whole button. */
+function linkLabel(field: HTMLElement | null) {
+    return field?.querySelector(".mind-map-node-link-label")?.textContent;
 }
 
 /** The button beside the link field dropping what the selection points at, if it is offered at all. */
@@ -713,8 +725,7 @@ describe("NodePanel", () => {
     it("says what the selection is linked to, and what it would take to link it", async () => {
         const [ noteId ] = buildNotes([ { title: "Linked note", "#iconClass": "bx bx-cube" } ]);
         const linkFace = (nodes: NodeObj[]) =>
-            renderInto(<NodePanel mind={buildMind(nodes).mind} noteId="mapNote" nodes={nodes} />)
-                .querySelector<HTMLElement>(`.mind-map-node-panel-section:nth-child(${LINK + 1}) button`);
+            linkField(renderInto(<NodePanel mind={buildMind(nodes).mind} noteId="mapNote" nodes={nodes} />));
 
         // Nothing yet, and a selection that disagrees, each say so in their own words.
         expect(linkFace([buildNode()])?.querySelector(".mind-map-node-link-empty")).toBeTruthy();
@@ -724,13 +735,60 @@ describe("NodePanel", () => {
         ])?.querySelector(".mind-map-node-link-mixed")).toBeTruthy();
 
         // An address reads as the host it points at, its whole self being far too long for the panel.
-        expect(linkFace([buildNode({ hyperLink: "https://example.com/a/long/page?q=1" })])?.textContent)
+        expect(linkLabel(linkFace([buildNode({ hyperLink: "https://example.com/a/long/page?q=1" })])))
             .toBe("example.com");
 
         // A note reads as it is named and dressed now, rather than as the address it is stored as.
         const note = linkFace([buildNode({ hyperLink: `#root/${noteId}` })]);
         expect(note?.querySelector(".bx-cube")).toBeTruthy();
-        await vi.waitFor(() => expect(note?.textContent).toBe("Linked note"));
+        await vi.waitFor(() => expect(linkLabel(note)).toBe("Linked note"));
+    });
+
+    it("picks a link through the add-link dialog, asked for the target alone", async () => {
+        const nodes = [buildNode({ id: "a" }), buildNode({ id: "b" })];
+        const { mind, reshapeNode } = buildMind(nodes);
+        const triggerCommand = vi.spyOn(appContext, "triggerCommand").mockReturnValue(undefined);
+        onTestFinished(() => triggerCommand.mockRestore());
+
+        const container = renderInto(<NodePanel mind={mind} noteId="mapNote" nodes={nodes} />);
+        linkField(container)?.click();
+
+        // A node reads as its own topic, so the dialog is asked for what is pointed at and nothing
+        // else — no title beside it, and nothing to open the field on for a node linked to nothing.
+        expect(triggerCommand).toHaveBeenCalledWith("showAddLinkDialog",
+            expect.objectContaining({ targetOnly: true, hasSelection: false, text: "" }));
+
+        // What comes back is stored the way the map stores it: a note as an in-app address, an
+        // address as one we could follow. Every node the panel was handed takes it.
+        const opts = triggerCommand.mock.calls[0][1] as AddLinkOpts;
+        await opts.addLink("root/abc123", "Linked note");
+        expect(reshapeNode).toHaveBeenNthCalledWith(1, mind.currentNodes[0], { hyperLink: "#root/abc123" });
+        expect(reshapeNode).toHaveBeenNthCalledWith(2, mind.currentNodes[1], { hyperLink: "#root/abc123" });
+
+        reshapeNode.mockClear();
+        await opts.addLink("example.com", "example.com", true);
+        expect(reshapeNode).toHaveBeenNthCalledWith(1, mind.currentNodes[0], { hyperLink: "https://example.com" });
+
+        // Nothing we could store, nothing written: the selection keeps the link it had.
+        reshapeNode.mockClear();
+        await opts.addLink("javascript:alert(1)", "", true);
+        expect(reshapeNode).not.toHaveBeenCalled();
+    });
+
+    it("opens the dialog on the address a node already carries, a note having none to type", () => {
+        const triggerCommand = vi.spyOn(appContext, "triggerCommand").mockReturnValue(undefined);
+        onTestFinished(() => triggerCommand.mockRestore());
+
+        const openOn = (link: string) => {
+            const nodes = [buildNode({ hyperLink: link })];
+            linkField(renderInto(<NodePanel mind={buildMind(nodes).mind} noteId="mapNote" nodes={nodes} />))?.click();
+            return (triggerCommand.mock.lastCall?.[1] as AddLinkOpts).text;
+        };
+
+        // An address is what someone typed, so it is handed back to be edited; the address a note is
+        // stored as is not, and the dialog opens on the notes last visited instead.
+        expect(openOn("https://example.com/page")).toBe("https://example.com/page");
+        expect(openOn("#root/abc123")).toBe("");
     });
 
     it("unlinks the selection from the button beside the field, which is only there to be unlinked", () => {

@@ -4,21 +4,20 @@ import { parseMindMapNoteLink } from "@triliumnext/commons";
 import { Dropdown as BootstrapDropdown } from "bootstrap";
 import type { MindElixirInstance, NodeObj, TagObj } from "mind-elixir";
 import { ComponentChildren } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useRef, useState } from "preact/hooks";
 
+import appContext from "../../../components/app_context";
 import { t } from "../../../services/i18n";
-import note_autocomplete from "../../../services/note_autocomplete";
 import tree from "../../../services/tree";
 import ValuesInput from "../../attribute_widgets/values_input";
 import ActionButton from "../../react/ActionButton";
+import Button from "../../react/Button";
 import ColorPicker, { DEFAULT_COLOR_PALETTE } from "../../react/ColorPicker";
 import Dropdown from "../../react/Dropdown";
 import { FormFileUploadActionButton } from "../../react/FormFileUpload";
 import { useNote, useNoteIcon, useNoteTitle } from "../../react/hooks";
 import Icon from "../../react/Icon";
 import IconPicker from "../../react/IconPicker";
-import NoteAutocomplete from "../../react/NoteAutocomplete";
-import { refToJQuerySelector } from "../../react/react_utils";
 import SegmentedChoice from "../../react/SegmentedChoice";
 import TabStrip, { type TabStripTabDefinition } from "../../react/TabStrip";
 import { fitNodeImage, getNodeImageShape, nearestNodeImageWidth, NODE_IMAGE_SHAPES, NODE_IMAGE_WIDTHS, type NodeImage as NodeImageData, type NodeImageShape, shapeNodeImage, uploadNodeImage } from "./images";
@@ -96,18 +95,19 @@ export default function NodePanel({ mind, noteId, nodes, readOnly }: NodePanelPr
     }
 
     /**
-     * Writes a memo to the nodes the panel was handed rather than to the live selection: a memo is
-     * written as the field is left, and what a user leaves it with is often the very click that
-     * selects something else. The nodes are looked up again all the same, the elements a patch is
-     * applied to having to be the ones on the map.
+     * Applies a patch to the nodes the panel was handed rather than to the live selection, for the
+     * fields whose value lands after the panel has had its say: a memo is written as the field is
+     * left, and what a user leaves it with is often the very click that selects something else,
+     * while a link comes back from a dialog opened over the map. The nodes are looked up again all
+     * the same, the elements a patch is applied to having to be the ones on the map.
      */
-    function writeMemo(memo: string) {
+    function patchGivenNodes(patch: Partial<NodeObj>) {
         for (const node of nodes) {
             try {
-                void mind.reshapeNode(mind.findEle(node.id), { memo } as Partial<NodeObj>);
+                void mind.reshapeNode(mind.findEle(node.id), patch);
             } catch (e) {
                 // The node is no longer on the map, or is folded away inside one that is closed.
-                console.warn("Could not write the memo of a mind map node:", e);
+                console.warn("Could not change a mind map node:", e);
             }
         }
     }
@@ -244,7 +244,7 @@ export default function NodePanel({ mind, noteId, nodes, readOnly }: NodePanelPr
                             // A node carries one link, so what is picked takes the place of what was there.
                             // Clearing blanks the property, Mind Elixir only ever assigning the ones it is
                             // given (see the colors above).
-                            onChange={(link) => patchSelectedNodes({ hyperLink: link ?? "" })}
+                            onChange={(link) => patchGivenNodes({ hyperLink: link ?? "" })}
                         />
                     </PanelSection>
 
@@ -280,7 +280,7 @@ export default function NodePanel({ mind, noteId, nodes, readOnly }: NodePanelPr
                             selectionKey={nodes.map((node) => node.id).join(" ")}
                             memo={memo !== MIXED ? memo : null}
                             readOnly={readOnly || memo === MIXED}
-                            onCommit={writeMemo}
+                            onCommit={(memo) => patchGivenNodes({ memo } as Partial<NodeObj>)}
                         />
                     </div>
                 )}
@@ -578,76 +578,45 @@ function buildImageShapeOptions() {
     return NODE_IMAGE_SHAPES.map((shape) => ({ value: shape, icon: icons[shape], title: titles[shape] }));
 }
 
-/** Kept still, so that the autocomplete is not built anew every time the panel renders. */
-const LINK_AUTOCOMPLETE_OPTIONS = { allowExternalLinks: true };
-
 /**
  * The link a node carries: a note, or a page outside Trilium — one field, a node carrying one link.
  *
- * The picker sits in a menu rather than in the panel itself: it is the field a note is picked
- * through everywhere else in Trilium, and it wants more room than a panel this narrow can give it.
- * Unlinking stands beside the field rather than at the foot of that menu, as it does for the picture
- * above: dropping a link is not one more note to pick from, and offered among them it read as one —
- * besides taking a menu opened on something else entirely to reach.
+ * What the field opens is the add-link dialog every other link in Trilium is picked through, asked
+ * for the target alone (`targetOnly` among its options): a node reads as its own topic, so there is
+ * no title to write beside it. A dialog rather than a menu hung off the field, which is where the
+ * picker used to sit — the panel stands in the corner of the map, and a menu anchored there had a
+ * strip of screen to search a whole tree in, growing and shrinking under the pointer as the results
+ * came in.
+ *
+ * Unlinking stands beside the field rather than inside what it opens, as it does for the picture
+ * above: dropping a link is not one more note to pick from.
  */
 function NodeLink({ currentValue, indeterminate, onChange }: {
     currentValue: string | null;
     indeterminate: boolean;
     onChange(link: string | null): void;
 }) {
-    const dropdownRef = useRef<BootstrapDropdown>(null);
-    const inputRef = useRef<HTMLInputElement>(null);
-    const pickerRef = useRef<HTMLDivElement>(null);
-    const [ pickerShown, setPickerShown ] = useState(false);
-
-    // Opened on the notes last visited, which are the likeliest thing to be linking to and what the
-    // add-link dialog opens on as well. Once the picker is up, so that there is a field to fill.
-    useEffect(() => {
-        if (!pickerShown || !inputRef.current) return;
-        const $input = refToJQuerySelector(inputRef);
-        note_autocomplete.showRecentNotes($input);
-        $input.trigger("focus");
-    }, [ pickerShown ]);
-
-    function commit(link: string | null) {
-        onChange(link);
-        dropdownRef.current?.hide();
-    }
-
     return (
         <div className="mind-map-node-link-row">
-            <Dropdown
+            <Button
                 className="mind-map-node-link"
                 text={<NodeLinkFace link={currentValue} indeterminate={indeterminate} />}
                 title={t("mind-map.choose-link")}
-                dropdownRef={dropdownRef}
-                dropdownContainerStyle={{ width: "360px" }}
-                // The suggestions land inside the menu, so picking one is not the click outside that
-                // would take the menu down before the pick is made.
-                dropdownOptions={{ autoClose: "outside" }}
-                // The panel scrolls, and the picker is wider than the panel is; hand the menu to the
-                // page instead of leaving it to be clipped.
-                portalToBody
-                onShown={() => setPickerShown(true)}
-                onHidden={() => setPickerShown(false)}
-            >
-                {pickerShown && (
-                    <div className="mind-map-node-link-picker" ref={pickerRef}>
-                        <NoteAutocomplete
-                            inputRef={inputRef}
-                            container={pickerRef}
-                            placeholder={t("mind-map.link-placeholder")}
-                            opts={LINK_AUTOCOMPLETE_OPTIONS}
-                            // Only a pick is worth taking: the field is also cleared as one types, and
-                            // the way back to no link at all is the button beside the menu.
-                            onChange={(suggestion) => {
-                                const link = linkFromSuggestion(suggestion);
-                                if (link) commit(link);
-                            }}
-                        />
-                    </div>
-                )}
-            </Dropdown>
+                onClick={() => void appContext.triggerCommand("showAddLinkDialog", {
+                    // An address is handed back for editing as it stands; a note is not — what is
+                    // stored for one is a path rather than anything anyone typed, and the dialog
+                    // opens on the notes last visited instead.
+                    text: (currentValue && !parseMindMapNoteLink(currentValue)) ? currentValue : "",
+                    hasSelection: false,
+                    targetOnly: true,
+                    async addLink(target, _linkTitle, externalLink) {
+                        // Only a target we can store is worth taking, as it was when the field was
+                        // picked through directly.
+                        const link = linkFromSuggestion(externalLink ? { externalLink: target } : { notePath: target });
+                        if (link) onChange(link);
+                    }
+                })}
+            />
 
             {/* Only where there is a link to drop — as with the picture, what acts on one is there
                 once there is something for it to act on. */}

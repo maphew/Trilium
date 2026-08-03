@@ -36,6 +36,15 @@ function findAnchorIds(content: string): string[] {
 export interface AddLinkOpts {
     text: string;
     hasSelection: boolean;
+    /**
+     * Pick what the link points at and nothing else.
+     *
+     * For a caller that carries no text of its own to dress — a mind map node reads as its own
+     * topic — there is no title to write and no reference-or-hyperlink to choose between, and the
+     * anchor within a note is left out too: what it appends is a link only a rich text can follow.
+     * `linkTitle` is handed over all the same, so a caller minding it need not be told twice.
+     */
+    targetOnly?: boolean;
     addLink(notePath: string, linkTitle: string | null, externalLink?: boolean): Promise<void>;
 }
 
@@ -198,7 +207,7 @@ export default function AddLinkDialog() {
                 />
             </FormGroup>
 
-            {bookmarks.length > 0 && (
+            {bookmarks.length > 0 && !opts?.targetOnly && (
                 <FormGroup label={t("add_link.anchor")} name="anchor">
                     <select
                         className="form-select"
@@ -213,7 +222,7 @@ export default function AddLinkDialog() {
                 </FormGroup>
             )}
 
-            {!opts?.hasSelection && (
+            {!opts?.hasSelection && !opts?.targetOnly && (
                 <div className="add-link-title-settings">
                     {(linkType !== "external-link") && (
                         <>
