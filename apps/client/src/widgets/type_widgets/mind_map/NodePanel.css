@@ -41,6 +41,33 @@ body.experimental-feature-new-layout .mind-map-node-panel {
 }
 
 /*
+ * The head of the panel: a strip of tabs or a heading of one line, and beside either of them the
+ * button that sends the panel away. Only the placing of that button is this row's business — what
+ * heads the panel keeps its own padding and the line under it (see below), the two headers standing
+ * at different heights.
+ */
+.mind-map-node-panel .mind-map-node-panel-header {
+    position: relative;
+    /* The head of a full panel keeps its height; what gives way is the tab under it, which scrolls. */
+    flex-shrink: 0;
+}
+
+/*
+ * At the end of the row and centred on it, whichever header it is standing at. What it looks like
+ * is the theme's — an "x" icon button is dressed as the one closing a tab is, here as everywhere.
+ *
+ * Laid over the row rather than standing in it: the tabs are centred on the panel, and a button
+ * taking its own place beside them would push them off it. There is room to spare next to two tabs
+ * and next to one word, so the two never meet.
+ */
+.mind-map-node-panel .mind-map-node-panel-close {
+    position: absolute;
+    inset-inline-end: 6px;
+    top: 50%;
+    transform: translateY(-50%);
+}
+
+/*
  * The strip is the right pane's, at the size it stands there (see TabStrip.css); what is left here
  * is the row it heads. It parts from the tab under it by a line the width of the panel, so that it
  * reads as the panel's header rather than as one more choice among the fields — which is what a
@@ -61,6 +88,8 @@ body.experimental-feature-new-layout .mind-map-node-panel {
     align-items: center;
     gap: 6px;
     padding: 10px 15px;
+    /* Clear of the button laid over the end of the row, for a heading longer than English gives it. */
+    padding-inline-end: 36px;
     border-bottom: 1px solid var(--main-border-color);
     font-weight: 550;
 }

@@ -868,6 +868,43 @@ describe("NodePanel", () => {
         expect(reshapeNode).not.toHaveBeenCalled();
     });
 
+    it("goes away when sent away, and comes back with the next selection", async () => {
+        const first = buildNode({ id: "a" });
+        const second = buildNode({ id: "b" });
+        let container: HTMLElement | undefined;
+        await act(async () => {
+            container = renderInto(<NodePanel mind={buildMind([first]).mind} noteId="mapNote" nodes={[first]} />);
+        });
+        if (!container) throw new Error("render produced no container");
+        const panel = container;
+
+        /** Renders the panel for the given selection, as the map does when the selection changes. */
+        const select = async (nodes: NodeObj[]) => act(async () => {
+            render(<NodePanel mind={buildMind(nodes).mind} noteId="mapNote" nodes={nodes} />, panel);
+        });
+        const shown = () => !!panel.querySelector(".mind-map-node-panel");
+        /** Presses the button that sends the panel away, the way it is pressed on the map. */
+        const dismiss = async () => act(async () => {
+            panel.querySelector<HTMLButtonElement>(".mind-map-node-panel-close")?.click();
+        });
+
+        await dismiss();
+        expect(shown()).toBe(false);
+
+        // The node is still the selected one — what was sent away is the panel, not the selection —
+        // so it stays away for as long as that selection stands, edits to the node included.
+        await select([first]);
+        expect(shown()).toBe(false);
+
+        // Anything selected after it raises the panel again, the node just left among them.
+        await select([second]);
+        expect(shown()).toBe(true);
+        await dismiss();
+        expect(shown()).toBe(false);
+        await select([first]);
+        expect(shown()).toBe(true);
+    });
+
     it("keeps clicks and key presses from reaching the map underneath", () => {
         const nodes = [buildNode()];
         const { mind } = buildMind(nodes);

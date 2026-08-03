@@ -4,7 +4,7 @@ import { parseMindMapNoteLink } from "@triliumnext/commons";
 import { Dropdown as BootstrapDropdown } from "bootstrap";
 import type { MindElixirInstance, NodeObj, TagObj } from "mind-elixir";
 import { ComponentChildren } from "preact";
-import { useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../../../components/app_context";
 import { t } from "../../../services/i18n";
@@ -69,6 +69,14 @@ export default function NodePanel({ mind, noteId, nodes, readOnly }: NodePanelPr
     const tags = gatherTags(nodes);
     const memo = getCommonValue(nodes, getNodeMemo);
     const [ activeTabId, setActiveTabId ] = useState<NodePanelTabId>("format");
+    const selectionKey = nodes.map((node) => node.id).join(" ");
+
+    // The panel can be sent away while the selection it stands for is kept, for the corner of the
+    // map it covers. It is only sent away for as long as that selection lasts: what brings it back
+    // is selecting something — anything, this node included, once something else has been selected
+    // since — which is also what a panel put away by mistake is recovered by.
+    const [ dismissed, setDismissed ] = useState(false);
+    useEffect(() => setDismissed(false), [ selectionKey ]);
 
     // The memo is built when its tab is first opened and kept mounted from then on. The editor is
     // costly to raise, and it is also what writes a memo back as the selection moves on — which
@@ -80,6 +88,10 @@ export default function NodePanel({ mind, noteId, nodes, readOnly }: NodePanelPr
     // would only stand between the reader and the map. That takes in a selection whose memos differ
     // as well — there is no one memo to show, and nothing here to fill the pane with instead.
     if (readOnly && (memo === null || memo === MIXED)) {
+        return null;
+    }
+
+    if (dismissed) {
         return null;
     }
 
@@ -144,20 +156,31 @@ export default function NodePanel({ mind, noteId, nodes, readOnly }: NodePanelPr
             onMouseDown={(e) => e.stopPropagation()}
             onKeyDown={(e) => e.stopPropagation()}
         >
-            {/* With the memo the only thing on show there is no choice to offer, so the strip gives
-                way to a plain heading — the panel still says what it is holding. */}
-            {readOnly ? (
-                <div className="mind-map-node-panel-title">
-                    <Icon icon="bx bx-notepad" />{t("mind-map.memo")}
-                </div>
-            ) : (
-                <TabStrip
-                    className="mind-map-node-panel-tabs"
-                    tabs={buildTabs()}
-                    activeTabId={activeTabId}
-                    onSelect={setActiveTabId}
+            {/* What heads the panel, and the way to send it away — laid over the head of it rather
+                than beside what is there, so that the tabs stay centred on the panel (see the CSS). */}
+            <div className="mind-map-node-panel-header">
+                {/* With the memo the only thing on show there is no choice to offer, so the strip
+                    gives way to a plain heading — the panel still says what it is holding. */}
+                {readOnly ? (
+                    <div className="mind-map-node-panel-title">
+                        <Icon icon="bx bx-notepad" />{t("mind-map.memo")}
+                    </div>
+                ) : (
+                    <TabStrip
+                        className="mind-map-node-panel-tabs"
+                        tabs={buildTabs()}
+                        activeTabId={activeTabId}
+                        onSelect={setActiveTabId}
+                    />
+                )}
+
+                <ActionButton
+                    className="mind-map-node-panel-close"
+                    icon="bx bx-x"
+                    text={t("mind-map.hide-panel")}
+                    onClick={() => setDismissed(true)}
                 />
-            )}
+            </div>
 
             {/* The tabs are stacked one over the other rather than shown one at a time, so that
                 the panel keeps the height of the tallest of them whichever is on show. */}
@@ -277,7 +300,7 @@ export default function NodePanel({ mind, noteId, nodes, readOnly }: NodePanelPr
                         title={memo === MIXED ? t("mind-map.memos-differ") : undefined}
                     >
                         <NodeMemo
-                            selectionKey={nodes.map((node) => node.id).join(" ")}
+                            selectionKey={selectionKey}
                             memo={memo !== MIXED ? memo : null}
                             readOnly={readOnly || memo === MIXED}
                             onCommit={(memo) => patchGivenNodes({ memo } as Partial<NodeObj>)}

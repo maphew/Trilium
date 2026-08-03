@@ -3567,6 +3567,7 @@
     "link-mixed": "Different links",
     "links-differ": "The selected nodes don't carry the same link.",
     "tab-format": "Format",
+    "hide-panel": "Hide this panel",
     "memo": "Memo",
     "memo-placeholder": "Write a memo...",
     "memos-differ": "The selected nodes carry different memos, so this one can only be read.",
