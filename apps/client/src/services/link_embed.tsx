@@ -4,6 +4,7 @@ import { extractYouTubeVideoId, type LinkEmbedMetadata, safeHostname, safeLinkPr
 import { render, type VNode } from "preact";
 import { useState } from "preact/hooks";
 
+import { useFaviconContrastClass } from "./favicon_contrast.js";
 import { t } from "./i18n.js";
 import server from "./server.js";
 
@@ -125,10 +126,15 @@ function ImagePlaceholder() {
 }
 
 function Favicon({ src }: { src?: string }) {
+    // A site draws its icon for one background, and ours is not always that one — see
+    // favicon_contrast.ts. The verdict travels as a class so that switching theme corrects the icon
+    // without anything being measured again.
+    const contrastClass = useFaviconContrastClass(src);
+
     return (
         <PreviewPicture
             src={src}
-            className="link-embed-mention-favicon"
+            className={contrastClass ? `link-embed-mention-favicon ${contrastClass}` : "link-embed-mention-favicon"}
             size={16}
             placeholder={<span className="link-embed-mention-dot" />}
         />
