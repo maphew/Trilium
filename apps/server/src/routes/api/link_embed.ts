@@ -414,15 +414,20 @@ async function resolveFavicon(document: ReturnType<typeof parse>, pageUrl: strin
  * for: `rel="shortcut icon"`, `rel="icon shortcut"` and `rel="apple-touch-icon-precomposed"` all
  * mean the same thing to a browser, and a site writing any of them was read as declaring no icon.
  *
- * The ranking is the opposite of {@link collectIconCandidates}, which wants the largest picture it
- * can find for a card. Here the smallest one that still covers a 3x display is the best: an icon
- * declared 512x512 is a few tens of KB stored per site to draw 16 CSS pixels, and it is the ceiling
- * on what may be kept that it tends to fall foul of. Scalable icons come first for costing nothing
- * either way, and a Safari `mask-icon` comes last — it is a monochrome silhouette meant to be
- * tinted, so it draws as a black blob wherever a real icon was expected.
+ * What a candidate is stored in comes before what size it is, because an `.ico` holds its pictures
+ * as uncompressed bitmaps and the same picture as a PNG is a fraction of the bytes — python.org's
+ * icon is 9.7KB as an icon file against 3.3KB, GitHub's 5.2KB against 1KB — where the difference
+ * between two sizes of the same mark, drawn at 16 CSS pixels, is one nobody will see. Scalable
+ * icons come first, being both the smallest and the only ones that owe nothing to a size at all.
+ *
+ * Size then ranks the way {@link collectIconCandidates} inverts: a card wants the largest picture
+ * on offer, a favicon the smallest that still covers a 3x display.
+ *
+ * A Safari `mask-icon` is the one thing no format saves — a monochrome silhouette meant to be
+ * tinted, which draws as a black blob wherever a real icon was expected — so it stays last.
  */
 function collectFaviconCandidates(document: ReturnType<typeof parse>, pageUrl: string): string[] {
-    const candidates: { url: string; tier: number; size: number }[] = [];
+    const candidates: { url: string; mask: number; format: number; fit: number; size: number }[] = [];
 
     for (const link of document.querySelectorAll("link")) {
         const rel = (link.getAttribute("rel") || "").toLowerCase();
@@ -432,13 +437,15 @@ function collectFaviconCandidates(document: ReturnType<typeof parse>, pageUrl: s
         const url = toAbsoluteUrl(href, pageUrl);
         if (!url) continue;
 
-        const declared = largestDeclaredSize(link.getAttribute("sizes"));
-        candidates.push({ url, size: declared, tier: faviconTier(rel, href, link.getAttribute("type"), declared) });
+        const type = link.getAttribute("type");
+        candidates.push({ url, ...rankFavicon(rel, href, type, link.getAttribute("sizes")) });
     }
 
-    // Within a tier, the size decides — smallest of the big enough, largest of the too small — and
-    // ties keep the order the page declared them in, sort() being stable.
-    candidates.sort((a, b) => a.tier - b.tier || (a.tier === TIER_BIG_ENOUGH ? a.size - b.size : b.size - a.size));
+    // Ties keep the order the page declared them in, sort() being stable.
+    candidates.sort((a, b) => a.mask - b.mask
+        || a.format - b.format
+        || a.fit - b.fit
+        || (a.fit === FIT_TOO_SMALL ? b.size - a.size : a.size - b.size));
 
     const urls = [ ...new Set(candidates.map((candidate) => candidate.url)) ].slice(0, MAX_FAVICON_CANDIDATES);
 
@@ -453,40 +460,53 @@ function collectFaviconCandidates(document: ReturnType<typeof parse>, pageUrl: s
     return urls;
 }
 
-/** The order icons are worth trying in; see {@link faviconTier}. */
-const TIER_SCALABLE = 0;
-const TIER_BIG_ENOUGH = 1;
-const TIER_UNDECLARED = 2;
-const TIER_TOO_SMALL = 3;
-const TIER_HOME_SCREEN = 4;
-const TIER_MASK = 5;
+/** What a candidate is stored in: scalable, compressed, or an uncompressed icon file. */
+const FORMAT_SCALABLE = 0;
+const FORMAT_COMPRESSED = 1;
+const FORMAT_ICO = 2;
+
+/** How well a size suits an icon drawn at {@link FAVICON_TARGET_EDGE}. */
+const FIT_BIG_ENOUGH = 0;
+const FIT_UNDECLARED = 1;
+const FIT_TOO_SMALL = 2;
 
 /**
- * How promising an icon link is as a favicon, best first.
+ * By what an icon link is worth ranking, in the order {@link collectFaviconCandidates} applies it.
+ *
+ * Every field is read off what the page says, never off the bytes, which have not been fetched yet.
+ * The page can be wrong — a PNG served from a path ending `.ico` is legal and happens — and being
+ * wrong costs an ordering rather than a download, so nothing here needs to be more certain than the
+ * declaration it came from.
  *
  * An undeclared size sits between the two declared cases rather than being guessed at: it is what a
  * plain `favicon.ico` carries, and that is usually an icon directory of several sizes, out of which
- * {@link downloadFavicon} keeps the right one. Ranking it below what a page says is big enough, and
- * above what a page says is too small, is exactly what it is worth.
- *
- * The two icons at the bottom are there for being the wrong picture rather than the wrong size. A
- * home-screen icon is composited onto an opaque tile by the platform it is for, so sites draw one:
- * Wikipedia's apple-touch icon is a thin dark W on a white square, where its favicon is the same
- * mark drawn to be seen at 16 pixels. Both would download; only one is the site's icon. And a
- * Safari `mask-icon` is a silhouette meant to be tinted, which draws as a black blob when it is not.
+ * {@link downloadFavicon} keeps the right one. A home-screen icon that declares no size is read at
+ * the 180 its platform asks for, the same convention {@link collectIconCandidates} uses.
  */
-function faviconTier(rel: string, href: string, type: string | undefined, declared: number): number {
-    if (rel.includes("mask-icon")) return TIER_MASK;
-    if (rel.includes("apple-touch-icon")) return TIER_HOME_SCREEN;
-
+function rankFavicon(rel: string, href: string, type: string | undefined, sizes: string | undefined) {
+    const declared = largestDeclaredSize(sizes) || (rel.includes("apple-touch-icon") ? 180 : 0);
     const scalable = declared === Number.MAX_SAFE_INTEGER
         || (type || "").toLowerCase().includes("svg")
         || /\.svg([?#]|$)/i.test(href);
+    const ico = /\.ico([?#]|$)/i.test(href) || /icon$/i.test((type || "").trim());
 
-    if (scalable) return TIER_SCALABLE;
-    if (declared === 0) return TIER_UNDECLARED;
+    // A scalable icon has no size to weigh: it is drawn at whatever is asked of it, so it is ranked
+    // as the exact fit it is rather than by whatever the page happened to declare.
+    if (scalable) {
+        return {
+            mask: rel.includes("mask-icon") ? 1 : 0,
+            format: FORMAT_SCALABLE,
+            fit: FIT_BIG_ENOUGH,
+            size: FAVICON_TARGET_EDGE
+        };
+    }
 
-    return declared >= FAVICON_TARGET_EDGE ? TIER_BIG_ENOUGH : TIER_TOO_SMALL;
+    return {
+        mask: rel.includes("mask-icon") ? 1 : 0,
+        format: ico ? FORMAT_ICO : FORMAT_COMPRESSED,
+        fit: declared === 0 ? FIT_UNDECLARED : declared >= FAVICON_TARGET_EDGE ? FIT_BIG_ENOUGH : FIT_TOO_SMALL,
+        size: declared
+    };
 }
 
 /**

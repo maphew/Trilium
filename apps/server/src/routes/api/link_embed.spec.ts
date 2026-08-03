@@ -562,14 +562,14 @@ describe("link-embed getMetadata", () => {
 
         serve();
         expect((await linkEmbedRoute.getMetadata(req("https://example.com/page"))).favicon).toBeUndefined();
-        // The smallest that still covers a 3x display, then the one that would have to be upscaled,
-        // then the home-screen icon — which is a picture of the site drawn for a different purpose,
-        // on the opaque tile the platform requires — and /favicon.ico last, which no site has to
-        // declare. The mask-icon falls past the cap: a silhouette meant to be tinted is a black blob.
+        // All compressed here, so the size decides: the smallest that still covers a 3x display,
+        // the larger one next, and the one that would have to be upscaled last — then /favicon.ico,
+        // which no site has to declare. The mask-icon falls past the cap, being a silhouette meant
+        // to be tinted rather than drawn.
         expect(iconsRequested().slice(0, 4)).toEqual([
             "https://example.com/right.png",
-            "https://example.com/tiny.png",
             "https://example.com/touch.png",
+            "https://example.com/tiny.png",
             "https://example.com/favicon.ico"
         ]);
 
@@ -579,12 +579,20 @@ describe("link-embed getMetadata", () => {
         await linkEmbedRoute.getMetadata(req("https://example.com/page"));
         expect(iconsRequested()[0]).toBe("https://example.com/scalable.svg");
 
-        // Wikipedia's head exactly: a home-screen icon named first, the site's own icon second,
-        // neither declaring a size. Taking the first was how a preview ended up storing a white
-        // tile with a thin mark on it, which the theme then inverted into a black square.
+        // The same icon offered both ways, which many sites do. An `.ico` holds its pictures
+        // uncompressed, so the other one is the same picture for a fraction of the bytes — and the
+        // page says which is which before either is fetched.
+        serve(`<link rel="icon" href="/fav.ico"><link rel="icon" href="/icon.png">`);
+        await linkEmbedRoute.getMetadata(req("https://example.com/page"));
+        expect(iconsRequested()[0]).toBe("https://example.com/icon.png");
+
+        // Wikipedia's head exactly, where the compressed candidate is the home-screen icon and the
+        // icon file is the site's own. The bytes decide: 1.3KB against 1.7KB there, 3.3KB against
+        // 9.7KB on python.org, where the difference between two sizes of one mark drawn at 16
+        // pixels is not one a reader can see.
         serve(`<link rel="apple-touch-icon" href="/touch.png"><link rel="icon" href="/fav.ico">`);
         await linkEmbedRoute.getMetadata(req("https://example.com/page"));
-        expect(iconsRequested()[0]).toBe("https://example.com/fav.ico");
+        expect(iconsRequested()[0]).toBe("https://example.com/touch.png");
     });
 
     it("keeps trying after an icon that fails to arrive, down to the conventional path", async () => {
