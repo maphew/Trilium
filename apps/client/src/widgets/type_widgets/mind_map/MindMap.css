@@ -8,10 +8,10 @@
 }
 
 /*
- * The corner the map's own furniture stands in: the toolbar at the foot of it (see MapToolbar.css)
- * and the node panel above (see NodePanel.css). Both are placed from here, so that the two agree on
- * where the one ends and the other may begin — including in fullscreen, where the edges of the map
- * are the edges of the screen and part of them may not be the screen's to draw on.
+ * How far everything standing over a map is held off its edges: the two bars (see MapToolbar.css)
+ * and the node panel between them (see NodePanel.css). All three are placed from here, so that they
+ * agree on where the one ends and the next may begin — including in fullscreen, where the edges of
+ * the map are the edges of the screen and part of them may not be the screen's to draw on.
  */
 .mind-map-container {
     --mind-map-inset: 20px;
@@ -20,15 +20,6 @@
     /* What a row of icon buttons, its padding and its border come out at — the room the panel above
        the toolbar has to leave for it. */
     --mind-map-toolbar-height: 42px;
-}
-
-/*
- * Replaced by our own, which stands in the same corner and does the same four things (see
- * MapToolbar.tsx). Hidden rather than left out: the map offers no way to drop the one bar without
- * the other, and the bar of direction buttons in the opposite corner is still the library's.
- */
-.mind-map-container .mind-elixir-toolbar.rb {
-    display: none;
 }
 
 /* Hosts our own floating UI on top of the map, without interfering with the DOM managed by Mind Elixir. */
@@ -87,9 +78,4 @@
 .mind-map-container:fullscreen {
     --mind-map-inset-top: calc(var(--mind-map-inset) + env(safe-area-inset-top));
     --mind-map-inset-bottom: calc(var(--mind-map-inset) + env(safe-area-inset-bottom));
-
-    /* The library's own bar of direction buttons, which its stylesheet pins to the top corner. */
-    .lt {
-        top: var(--mind-map-inset-top);
-    }
 }

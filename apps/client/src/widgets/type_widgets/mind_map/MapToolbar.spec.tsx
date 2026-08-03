@@ -1,23 +1,35 @@
+import type { ComponentChild } from "preact";
 import type { MindElixirInstance } from "mind-elixir";
 import { act } from "preact/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { renderInto } from "../../../test/render";
-import MapToolbar from "./MapToolbar";
+import MapToolbar, { DirectionToolbar } from "./MapToolbar";
 
 /**
- * A stand-in for the Mind Elixir instance exposing only what the toolbar touches: the scale and its
- * range, the element that goes fullscreen, the map's own transform, and the ways it is moved.
+ * A stand-in for the Mind Elixir instance exposing only what the bars touch: the scale and its
+ * range, the element that goes fullscreen, the map's own transform, the direction it is laid out
+ * by, and the ways it is moved and relaid.
  */
-function buildMind({ scaleVal = 1 } = {}) {
+function buildMind({ scaleVal = 1, direction = 1 } = {}) {
     const el = document.createElement("div");
     el.requestFullscreen = vi.fn(async () => {});
     document.body.appendChild(el);
 
     const listeners = new Map<string, ((...args: unknown[]) => void)[]>();
+    const fire = (type: string, ...payload: unknown[]) => {
+        for (const listener of listeners.get(type) ?? []) listener(...payload);
+    };
+
     const scale = vi.fn((value: number) => {
         mind.scaleVal = value;
-        for (const listener of listeners.get("scale") ?? []) listener(value);
+        fire("scale", value);
+    });
+
+    // As the map does: it is laid out afresh, and says only that its branches have been drawn.
+    const relayOut = (value: 0 | 1 | 2) => vi.fn(() => {
+        mind.direction = value;
+        fire("linkDiv");
     });
 
     const mind = {
@@ -28,10 +40,15 @@ function buildMind({ scaleVal = 1 } = {}) {
         scaleSensitivity: 0.1,
         scaleMin: 0.2,
         scaleMax: 1.4,
+        direction,
         scale,
         toCenter: vi.fn(),
         move: vi.fn(),
+        initLeft: relayOut(0),
+        initRight: relayOut(1),
+        initSide: relayOut(2),
         bus: {
+            fire,
             addListener: (type: string, listener: (...args: unknown[]) => void) => {
                 listeners.set(type, [ ...(listeners.get(type) ?? []), listener ]);
             },
@@ -44,19 +61,27 @@ function buildMind({ scaleVal = 1 } = {}) {
     return mind;
 }
 
-/** The order the toolbar lays its buttons out in. */
+/** The order the view bar lays its buttons out in. */
 const ZOOM_IN = 0;
 const ZOOM_OUT = 1;
 const CENTER = 2;
 const FULLSCREEN = 3;
 
-/** Builds the bar and settles it, so that what it listens to is listened to before it is spoken to. */
-function renderToolbar(mind: MindElixirInstance) {
+/** The order the direction bar lays its buttons out in. */
+const LEFT = 0;
+const RIGHT = 1;
+const SIDE = 2;
+
+/** Builds a bar and settles it, so that what it listens to is listened to before it is spoken to. */
+function renderBar(bar: ComponentChild) {
     let container: HTMLElement | undefined;
-    act(() => { container = renderInto(<MapToolbar mind={mind} />); });
+    act(() => { container = renderInto(bar); });
     if (!container) throw new Error("the toolbar was not rendered");
     return container;
 }
+
+const renderToolbar = (mind: MindElixirInstance) => renderBar(<MapToolbar mind={mind} />);
+const renderDirections = (mind: MindElixirInstance) => renderBar(<DirectionToolbar mind={mind} />);
 
 function buttons(container: HTMLElement) {
     return [ ...container.querySelectorAll<HTMLButtonElement>(".mind-map-toolbar button") ];
@@ -165,5 +190,56 @@ describe("MapToolbar", () => {
 
         expect(mind.move).not.toHaveBeenCalled();
         expect(buttons(container)[FULLSCREEN].className).toContain("bx-fullscreen");
+    });
+});
+
+describe("DirectionToolbar", () => {
+    it("offers the three layouts the map's own bar did, each wearing its own mark", () => {
+        const container = renderDirections(buildMind());
+
+        expect(buttons(container).map((button) => button.className)).toEqual([
+            expect.stringContaining("mind-map-direction-left"),
+            expect.stringContaining("mind-map-direction-right"),
+            expect.stringContaining("mind-map-direction-side")
+        ]);
+    });
+
+    it("lays the map out the way the button pressed stands for", () => {
+        const mind = buildMind();
+        const container = renderDirections(mind);
+
+        press(container, LEFT);
+        expect(mind.initLeft).toHaveBeenCalled();
+
+        press(container, SIDE);
+        expect(mind.initSide).toHaveBeenCalled();
+
+        press(container, RIGHT);
+        expect(mind.initRight).toHaveBeenCalled();
+    });
+
+    it("shows the layout in force held down, and follows it as it changes", () => {
+        const mind = buildMind({ direction: 1 });
+        const container = renderDirections(mind);
+
+        expect(buttons(container).map((button) => button.classList.contains("active")))
+            .toEqual([ false, true, false ]);
+
+        press(container, SIDE);
+
+        expect(buttons(container).map((button) => button.classList.contains("active")))
+            .toEqual([ false, false, true ]);
+    });
+
+    it("catches up with a map that took a direction from the content it was filled with", () => {
+        const mind = buildMind({ direction: 1 });
+        const container = renderDirections(mind);
+
+        // As loading a map does: the direction is taken silently, and only the layout is announced.
+        mind.direction = 0;
+        act(() => mind.bus.fire("linkDiv"));
+
+        expect(buttons(container).map((button) => button.classList.contains("active")))
+            .toEqual([ true, false, false ]);
     });
 });

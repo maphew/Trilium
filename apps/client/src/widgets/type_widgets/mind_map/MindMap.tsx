@@ -18,7 +18,7 @@ import { TypeWidgetProps } from "../type_widget";
 import { renderMindMapPreviewSvg } from "./export";
 import { renderIconClasses } from "./icons";
 import { renderNodeLinks } from "./links";
-import MapToolbar from "./MapToolbar";
+import MapToolbar, { DirectionToolbar } from "./MapToolbar";
 import NodePanel from "./NodePanel";
 
 /**
@@ -197,6 +197,7 @@ export default function MindMap({ note, ntxId, noteContext }: TypeWidgetProps) {
             }}
         >
             {(mind) => <>
+                <DirectionToolbar mind={mind} />
                 <MapToolbar mind={mind} />
 
                 {/* Offered on a read-only map as well: Mind Elixir still selects a node there, and
@@ -226,6 +227,8 @@ function MindElixir({ children, containerRef: externalContainerRef, containerPro
             el: containerRef.current,
             editable,
             contextMenu: { locale: buildMindElixirLangPack() },
+            // Both of the bars the library lays over a map are Trilium's instead (see MapToolbar).
+            toolBar: false,
             // The name every node added to the map is born with, which Mind Elixir would otherwise
             // give in English. Read afresh on every build, which follows a change of locale.
             newTopicName: t("mind-map.new-node"),

@@ -1,13 +1,11 @@
 /*
- * The bar is dressed as the node panel standing above it is (see NodePanel.css): the same surface,
- * the same border and the same blur, so that the two read as one piece of furniture in that corner
- * rather than as two things that happen to be there. Where they stand and how much room the one
- * leaves the other is settled between them in MindMap.css.
+ * The bars are dressed as the node panel is (see NodePanel.css): the same surface, the same border
+ * and the same blur, so that everything standing over a map reads as one family rather than as
+ * pieces from three places. Where they stand and how much room they leave the panel is settled
+ * between them in MindMap.css.
  */
 .mind-map-container .mind-map-toolbar {
     position: absolute;
-    bottom: var(--mind-map-inset-bottom);
-    inset-inline-end: var(--mind-map-inset);
     display: flex;
     align-items: center;
     gap: 4px;
@@ -20,9 +18,32 @@
     backdrop-filter: blur(10px);
 }
 
-/* The buttons are on the bar's own surface rather than on the shell's, so they take their color
-   from it — as the ones inside a menu do. */
+/* What is done with the view stands at the foot of the map, out of the way of its root. */
+.mind-map-container .mind-map-view-toolbar {
+    bottom: var(--mind-map-inset-bottom);
+    inset-inline-end: var(--mind-map-inset);
+}
+
+/* The way the map is laid out stands in the corner opposite, where Mind Elixir kept it. */
+.mind-map-container .mind-map-direction-toolbar {
+    top: var(--mind-map-inset-top);
+    inset-inline-start: var(--mind-map-inset);
+}
+
+/*
+ * The buttons are on the bar's own surface rather than on the shell's, so they take their color
+ * from it — as the ones inside a menu do.
+ *
+ * Their marks are centred by the button rather than by the text inside them, which is what a button
+ * does of its own accord and what the theme leans on: `text-align` centres the glyph a font icon
+ * paints, and has nothing to grip on a mark drawn as a box with a width of its own (see the
+ * direction marks below), leaving that one against the leading edge. Centring the box itself holds
+ * for both, so the seven marks sit alike whichever kind each is.
+ */
 .mind-map-container .mind-map-toolbar .tn-tool-button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
     color: inherit;
 }
 
@@ -31,4 +52,57 @@
 .mind-map-container .mind-map-toolbar .tn-tool-button:disabled {
     opacity: .4;
     pointer-events: none;
+}
+
+/*
+ * The direction the map is laid out by is a choice among three rather than three things to do, so
+ * the one in force is shown held down. It is dressed in the fill the app marks a chosen thing with
+ * rather than in the button group's raised chip: that chip is only told apart from its neighbours by
+ * the recessed track behind it, and there is no track here — a bar of glass is what these stand on.
+ * Held through a hover as well, so that pointing at the one already chosen does not lower it.
+ */
+.mind-map-container .mind-map-toolbar .tn-tool-button.active,
+.mind-map-container .mind-map-toolbar .tn-tool-button.active:hover {
+    background: var(--active-item-background-color);
+    color: var(--active-item-text-color);
+}
+
+/*
+ * The three marks a direction is chosen by, which are Mind Elixir's own (MIT, © 2019 DjZhou): each
+ * draws the very layout it sets, and Trilium's icon set has nothing that says it. They are drawn as
+ * a mask filled with the button's own color rather than as pictures, so that they take the color a
+ * boxicon would — including the one a pressed or hovered button lends its icon.
+ *
+ * Sized in `em` against the font size the theme gives an icon button's mark, so that the three sit
+ * at the size the four beside them do and follow that setting wherever it is changed.
+ */
+.mind-map-container .mind-map-direction-icon::before {
+    content: "";
+    width: 1em;
+    height: 1em;
+    background-color: currentColor;
+    -webkit-mask-position: center;
+    mask-position: center;
+    -webkit-mask-size: contain;
+    mask-size: contain;
+    -webkit-mask-repeat: no-repeat;
+    mask-repeat: no-repeat;
+}
+
+/* Each mark names its own file rather than handing one to a shared rule through a custom property:
+   a relative `url()` in a variable is resolved from wherever the variable is *used*, which the CSS
+   compiler refuses to guess at. */
+.mind-map-container .mind-map-direction-left::before {
+    -webkit-mask-image: url("./direction-left.svg");
+    mask-image: url("./direction-left.svg");
+}
+
+.mind-map-container .mind-map-direction-right::before {
+    -webkit-mask-image: url("./direction-right.svg");
+    mask-image: url("./direction-right.svg");
+}
+
+.mind-map-container .mind-map-direction-side::before {
+    -webkit-mask-image: url("./direction-side.svg");
+    mask-image: url("./direction-side.svg");
 }

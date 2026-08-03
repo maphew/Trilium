@@ -3579,7 +3579,10 @@
     "zoom-out": "Zoom out",
     "center-map": "Center the map",
     "fullscreen": "Fullscreen",
-    "exit-fullscreen": "Exit fullscreen"
+    "exit-fullscreen": "Exit fullscreen",
+    "direction-left": "Branches to the left",
+    "direction-right": "Branches to the right",
+    "direction-side": "Branches to both sides"
   },
   "llm": {
     "disabled_placeholder": "AI features are turned off. Enable them to configure providers and MCP.",

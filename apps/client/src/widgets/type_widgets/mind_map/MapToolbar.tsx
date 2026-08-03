@@ -1,6 +1,7 @@
 import "./MapToolbar.css";
 
 import type { MindElixirInstance } from "mind-elixir";
+import type { ComponentChildren } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import { t } from "../../../services/i18n";
@@ -15,10 +16,11 @@ interface MapToolbarProps {
  * The bar standing in the bottom corner of a mind map: the scale the map is drawn at, where it
  * stands, and how much of the screen it is given.
  *
- * Mind Elixir puts a bar of its own in that corner, which is hidden (see MindMap.css). It is the one
- * piece of furniture the library lays over the map, and it was dressed in neither Trilium's buttons
- * nor Trilium's colors — it kept its own icons and its own surface next to the node panel above it.
- * Everything it did is done here, over the same instance.
+ * Mind Elixir lays two bars of its own over a map — this corner and the one opposite (see
+ * {@link DirectionToolbar}) — which are left out entirely (`toolBar: false`, see MindMap.tsx). They
+ * were dressed in neither Trilium's buttons nor Trilium's colors, standing on a surface of their own
+ * beside the node panel they share the map with. Everything they did is done here, over the same
+ * instance.
  */
 export default function MapToolbar({ mind }: MapToolbarProps) {
     const scale = useMapScale(mind);
@@ -29,12 +31,7 @@ export default function MapToolbar({ mind }: MapToolbarProps) {
     const zoomedOut = stepZoom(scale, -1, limits);
 
     return (
-        <div
-            className="mind-map-toolbar"
-            /* Keep interactions inside the bar from reaching the map underneath, which would
-               otherwise take a press on a button for the start of a drag or a selection. */
-            onMouseDown={(e) => e.stopPropagation()}
-        >
+        <Toolbar className="mind-map-view-toolbar">
             <ToolbarButton
                 icon="bx bx-zoom-in"
                 text={t("mind-map.zoom-in")}
@@ -60,18 +57,89 @@ export default function MapToolbar({ mind }: MapToolbarProps) {
                 text={isFullscreen ? t("mind-map.exit-fullscreen") : t("mind-map.fullscreen")}
                 onClick={toggleFullscreen}
             />
+        </Toolbar>
+    );
+}
+
+/**
+ * The bar standing in the top corner opposite: which way the map's branches run from its root —
+ * to the left of it, to the right of it, or to either side.
+ *
+ * The three are a choice rather than three things to do, so the one the map is laid out by is shown
+ * pressed. Their marks are Mind Elixir's own, kept because they draw the very thing they set and
+ * nothing in Trilium's icon set says it (see MapToolbar.css).
+ */
+export function DirectionToolbar({ mind }: MapToolbarProps) {
+    const direction = useMapDirection(mind);
+
+    return (
+        <Toolbar className="mind-map-direction-toolbar">
+            {buildDirections().map(({ value, icon, label, apply }) => (
+                <ToolbarButton
+                    key={value}
+                    icon={`mind-map-direction-icon ${icon}`}
+                    text={label}
+                    active={direction === value}
+                    // The bar stands at the head of the map, where a tooltip over it would fall off.
+                    titlePosition="bottom"
+                    onClick={() => apply(mind)}
+                />
+            ))}
+        </Toolbar>
+    );
+}
+
+/**
+ * The ways a map is laid out, in the order Mind Elixir offered them: each with the value
+ * `mind.direction` reads as, the mark it wears, and the call that lays the map out that way.
+ *
+ * Named afresh on every render, which follows a change of locale.
+ */
+function buildDirections() {
+    return [
+        {
+            value: 0,
+            icon: "mind-map-direction-left",
+            label: t("mind-map.direction-left"),
+            apply: (mind: MindElixirInstance) => mind.initLeft()
+        },
+        {
+            value: 1,
+            icon: "mind-map-direction-right",
+            label: t("mind-map.direction-right"),
+            apply: (mind: MindElixirInstance) => mind.initRight()
+        },
+        {
+            value: 2,
+            icon: "mind-map-direction-side",
+            label: t("mind-map.direction-side"),
+            apply: (mind: MindElixirInstance) => mind.initSide()
+        }
+    ];
+}
+
+/** The surface both bars stand on, and the reach of the map they are kept out of. */
+function Toolbar({ className, children }: { className: string, children: ComponentChildren }) {
+    return (
+        <div
+            className={`mind-map-toolbar ${className}`}
+            /* Keep interactions inside the bar from reaching the map underneath, which would
+               otherwise take a press on a button for the start of a drag or a selection. */
+            onMouseDown={(e) => e.stopPropagation()}
+        >
+            {children}
         </div>
     );
 }
 
 /** Dressed as the buttons floating over a rendered diagram are (see SplitEditor's `PreviewButton`). */
-function ToolbarButton(props: Omit<ActionButtonProps, "titlePosition">) {
+function ToolbarButton({ titlePosition, ...props }: ActionButtonProps) {
     return <ActionButton
         {...props}
         className="tn-tool-button"
         noIconActionClass
-        // The bar sits at the foot of the map, where a tooltip under it would fall off the edge.
-        titlePosition="top"
+        // Away from the edge of the map the bar stands at, where a tooltip would fall off it.
+        titlePosition={titlePosition ?? "top"}
     />;
 }
 
@@ -92,6 +160,29 @@ function useMapScale(mind: MindElixirInstance) {
     }, [ mind ]);
 
     return scale;
+}
+
+/**
+ * The way the map is laid out, followed as it changes.
+ *
+ * A map says so when it is laid out afresh, but not when it is first filled: content carrying a
+ * direction of its own is taken silently, and a map built and then filled would leave the bar
+ * showing the direction it was born with. What every layout of a map does say is that its branches
+ * have been drawn, which is asked after instead — it costs a read of a number, and it is the one
+ * word that comes however the direction was arrived at.
+ */
+function useMapDirection(mind: MindElixirInstance) {
+    const [ direction, setDirection ] = useState(mind.direction);
+
+    useEffect(() => {
+        const report = () => setDirection(mind.direction);
+
+        report();
+        mind.bus.addListener("linkDiv", report);
+        return () => mind.bus.removeListener("linkDiv", report);
+    }, [ mind ]);
+
+    return direction;
 }
 
 /**
