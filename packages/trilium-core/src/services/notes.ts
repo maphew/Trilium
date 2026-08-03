@@ -14,7 +14,7 @@ import * as cls from "./context.js";
 import entityChangesService from "./entity_changes.js";
 import eventService from "./events.js";
 import imageService from "./image.js";
-import { downloadImages, downloadLinkPreviewPictures } from "./image_download.js";
+import { downloadImages, storeLinkPreviewPictures } from "./image_download.js";
 import noteTypesService from "./note_types.js";
 import optionService from "./options.js";
 import revisionService from "./revisions.js";
@@ -1222,7 +1222,7 @@ async function asyncPostProcessContent(note: BNote, content: string | Uint8Array
 
     scanForLinks(note, content);
     // Read from the note rather than from `content`: scanForLinks may just have rewritten it.
-    await downloadLinkPreviewPictures(note);
+    await storeLinkPreviewPictures(note);
 }
 
 

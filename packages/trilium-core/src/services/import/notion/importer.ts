@@ -20,7 +20,7 @@ import { type HTMLElement, parse } from "node-html-parser";
 import type BNote from "../../../becca/entities/bnote.js";
 import * as cls from "../../context.js";
 import imageService from "../../image.js";
-import { downloadLinkPreviewPictures } from "../../image_download.js";
+import { storeLinkPreviewPictures } from "../../image_download.js";
 import noteService from "../../notes.js";
 import protectedSessionService from "../../protected_session.js";
 import { sanitizeHtml } from "../../sanitizer.js";
@@ -70,7 +70,7 @@ async function importNotion(taskContext: TaskContext<"importNotes">, source: Zip
     // address — so those have to be fetched if the cards are to show anything. Done here rather
     // than inside createNotes, which is synchronous, and only once every page's content is final.
     for (const { note } of createdNotes(rootNote)) {
-        await downloadLinkPreviewPictures(note);
+        await storeLinkPreviewPictures(note);
     }
 
     return rootNote;

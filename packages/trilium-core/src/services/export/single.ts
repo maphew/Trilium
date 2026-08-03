@@ -122,6 +122,15 @@ export function mapByNoteType(note: BNote, content: string | Uint8Array, format:
     return { payload, extension, mime };
 }
 
+/**
+ * Carries every picture and file the content points at into the content itself, as base64 `data:`
+ * URIs — the whole point of a single-file export being that the one file stands alone.
+ *
+ * Anything left un-inlined leaves behind a reference to `api/attachments/<id>` or `api/images/<id>`,
+ * which is not merely unresolvable outside this instance but actively misleading: the ids are this
+ * database's, so the file names an attachment that exists, somewhere else, belonging to someone
+ * else's note. Hence no bail-out here is by choice — each one is a case that could not be encoded.
+ */
 function inlineAttachments(content: string) {
     content = content.replace(/src="[^"]*api\/images\/([a-zA-Z0-9_]+)\/?[^"]+"/g, (match, noteId) => {
         const note = becca.getNote(noteId);
@@ -129,12 +138,7 @@ function inlineAttachments(content: string) {
             return match;
         }
 
-        const imageContent = note.getContent();
-        if (typeof imageContent === "string") {
-            return match;
-        }
-
-        const base64Content = encodeBase64(imageContent);
+        const base64Content = encodeBase64(note.getContent());
         const srcValue = `data:${note.mime};base64,${base64Content}`;
 
         return `src="${srcValue}"`;
@@ -149,12 +153,7 @@ function inlineAttachments(content: string) {
             return match;
         }
 
-        const attachmentContent = attachment.getContent();
-        if (typeof attachmentContent === "string") {
-            return match;
-        }
-
-        const base64Content = encodeBase64(attachmentContent);
+        const base64Content = encodeBase64(attachment.getContent());
         const srcValue = `data:${attachment.mime};base64,${base64Content}`;
 
         return `${attrName}="${srcValue}"`;
@@ -166,12 +165,7 @@ function inlineAttachments(content: string) {
             return match;
         }
 
-        const attachmentContent = attachment.getContent();
-        if (typeof attachmentContent === "string") {
-            return match;
-        }
-
-        const base64Content = encodeBase64(attachmentContent);
+        const base64Content = encodeBase64(attachment.getContent());
         const hrefValue = `data:${attachment.mime};base64,${base64Content}`;
 
         return `href="${hrefValue}" download="${escapeHtml(attachment.title)}"`;

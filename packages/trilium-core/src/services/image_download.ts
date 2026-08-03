@@ -10,8 +10,12 @@
  * Governed throughout by `downloadImagesAutomatically`: fetching is the note reaching out to a third
  * party on the reader's behalf, which is the user's decision rather than ours.
  *
- * Two shapes of reference are handled, and {@link downloadPictureToAttachment} is the step they
- * share — give it an address and it answers with the attachment URL that replaces it.
+ * A picture carried *inline*, as a base64 `data:` URI, is moved out here for the same reasons minus
+ * the fetch: base64 costs a third more than the bytes it encodes, is copied into every revision of
+ * the note, and repeats in full for each place the same picture appears.
+ *
+ * Two shapes of reference are handled, and {@link storePictureBytes} is the step they share — give
+ * it bytes and it answers with the attachment URL that references them.
  */
 
 import { type ImageAttachmentRole, imageExtensionForMime, isHttpUrl, linkPreviewImageName, safeHostname } from "@triliumnext/commons";
@@ -31,9 +35,37 @@ import { decodeBase64 } from "./utils/binary.js";
 import { quoteRegex, unescapeHtml } from "./utils/index.js";
 import { basename } from "./utils/path.js";
 
-/** What a stored picture is referenced by, once it belongs to the note rather than to a website. */
-function attachmentReference(attachmentId: string, title: string): string {
-    return `api/attachments/${attachmentId}/image/${encodeURIComponent(title)}`;
+/**
+ * Keeps a picture's bytes as an attachment of `noteId`, answering with the URL that references it —
+ * or nothing when the bytes are not a picture at all.
+ *
+ * The bytes are asked what they are rather than the address, the server or the `data:` prefix being
+ * taken for it, so a 404 page served where a picture should be is refused rather than stored.
+ */
+function storePictureBytes(
+    noteId: string,
+    bytes: Uint8Array,
+    { role, title, shrink }: { role: ImageAttachmentRole; title: string; shrink: boolean }
+): string | undefined {
+    const { format, mime } = inspectImage(bytes);
+
+    if (format === UNKNOWN_FORMAT) {
+        return undefined;
+    }
+
+    const attachment = imageService.saveImageToAttachment(
+        noteId,
+        bytes,
+        `${title}.${imageExtensionForMime(mime)}`,
+        shrink,
+        // The title is the key a deduplicated role is reused by, so it is never shortened.
+        false,
+        role
+    );
+
+    return attachment.attachmentId
+        ? `api/attachments/${attachment.attachmentId}/image/${encodeURIComponent(attachment.title)}`
+        : undefined;
 }
 
 /**
@@ -60,23 +92,8 @@ export async function downloadPictureToAttachment(
 
     try {
         const bytes = new Uint8Array(await request.getImage(pictureUrl));
-        const { format, mime } = inspectImage(bytes);
 
-        if (format === UNKNOWN_FORMAT) {
-            return undefined;
-        }
-
-        const attachment = imageService.saveImageToAttachment(
-            noteId,
-            bytes,
-            `${title}.${imageExtensionForMime(mime)}`,
-            shrink,
-            // The title is the key a deduplicated role is reused by, so it is never shortened.
-            false,
-            role
-        );
-
-        return attachment.attachmentId ? attachmentReference(attachment.attachmentId, attachment.title) : undefined;
+        return storePictureBytes(noteId, bytes, { role, title, shrink });
     } catch (e: unknown) {
         // The address is deliberately left out of the line: it is a page the user was reading, and
         // the note it came from is enough to find this again.
@@ -244,20 +261,29 @@ const PREVIEW_PICTURE_ROLES = [
 const PREVIEW_TAG_REGEX = /<(?:section|span)\b[^>]*\bclass="[^"]*link-(?:embed|mention)[^"]*"[^>]*>/gi;
 
 /**
- * Fetches the pictures a link preview names at a third party, storing each as an attachment.
+ * Makes a link preview's two pictures attachments of the note, wherever they currently are.
  *
- * Only imported and pasted content ever holds such a URL: a preview made here has its pictures
- * downloaded and stored server-side already, and the render sinks refuse a remote one outright, so
- * until they are fetched these cards show placeholders. A Notion export is the case in point — it
- * ships no bytes at all, only the origin's addresses.
+ * A preview made here already has both stored server-side, so this is entirely about content that
+ * arrived from elsewhere, and such content carries its pictures one of two ways:
  *
- * Governed by `downloadImagesAutomatically`, the same setting that decides whether a remote `<img>`
- * in note content is fetched. These pictures belong to that question and were only ever outside it
- * by accident: they arrive in an export as ordinary `<img>` elements and become attributes when the
- * importer rewrites the card, which took them out of the pass that would have handled them.
+ * - **named at a third party**, which is what a Notion export ships — the origin's addresses and no
+ *   bytes at all. Fetching them is the note reaching out on the reader's behalf, so it is governed
+ *   by `downloadImagesAutomatically`, the same setting that decides whether a remote `<img>` in note
+ *   content is fetched. They belong to that question and were only ever outside it by accident: they
+ *   arrive in an export as ordinary `<img>` elements and become attributes when the importer
+ *   rewrites the card, which took them out of the pass that would have handled them.
+ * - **carried inline**, as a base64 `data:` URI. Our own single-file export writes them that way (it
+ *   has nowhere else to put them), as did every preview made before the pictures became attachments.
+ *   Nothing is fetched to unpack one, so the setting above has no say — the bytes are already here,
+ *   and the only question is whether they sit in the content or beside it.
+ *
+ * Both are worth undoing, for the same reason the pictures became attachments in the first place. An
+ * inline picture is base64 in the note's content, a third again larger than the bytes it encodes,
+ * duplicated into every revision of the note and reread on every load. A site linked a dozen times
+ * inlines its icon a dozen times; stored under a deduplicating role, those dozen become one.
  */
-export async function downloadLinkPreviewPictures(note: BNote) {
-    if (note.type !== "text" || !optionService.getOptionBool("downloadImagesAutomatically")) {
+export async function storeLinkPreviewPictures(note: BNote) {
+    if (note.type !== "text") {
         return;
     }
 
@@ -273,7 +299,7 @@ export async function downloadLinkPreviewPictures(note: BNote) {
     let cursor = 0;
 
     for (const tag of tags) {
-        rewritten += content.slice(cursor, tag.index) + await downloadPicturesOf(note.noteId, tag[0]);
+        rewritten += content.slice(cursor, tag.index) + await storePicturesOf(note.noteId, tag[0]);
         cursor = tag.index + tag[0].length;
     }
 
@@ -284,28 +310,42 @@ export async function downloadLinkPreviewPictures(note: BNote) {
     }
 }
 
-/** One preview's opening tag, with any picture it names at a third party fetched and pointed at. */
-async function downloadPicturesOf(noteId: string, tag: string): Promise<string> {
+/** One preview's opening tag, with each picture it holds or names stored and pointed at. */
+async function storePicturesOf(noteId: string, tag: string): Promise<string> {
     const cardUrl = unescapeHtml(attributeOf(tag, "data-url") ?? "");
     let rewritten = tag;
 
     for (const [ attribute, role ] of PREVIEW_PICTURE_ROLES) {
         const stored = attributeOf(tag, attribute);
-        // Anything already local — an attachment of this note, or an inline image — is left alone.
-        if (!stored || !isHttpUrl(unescapeHtml(stored))) {
+
+        if (!stored) {
             continue;
         }
 
+        const value = unescapeHtml(stored);
         // Named and roled exactly as a preview fetched here would be, so an imported card ends up
         // indistinguishable from a made one — and a site named by several cards keeps one icon
         // between them, the title being what a deduplicated role reuses an attachment by.
-        const reference = await downloadPictureToAttachment(noteId, unescapeHtml(stored), {
-            role,
-            title: role === "favicon" ? safeHostname(cardUrl) : linkPreviewImageName(cardUrl),
-            // An icon is a few KB of flat colour with nothing for the compression pipeline to find;
-            // a cover may be a full-size social image.
-            shrink: role === "coverImage"
-        });
+        const title = role === "favicon" ? safeHostname(cardUrl) : linkPreviewImageName(cardUrl);
+        let reference: string | undefined;
+
+        if (isHttpUrl(value)) {
+            if (!optionService.getOptionBool("downloadImagesAutomatically")) {
+                continue;
+            }
+
+            reference = await downloadPictureToAttachment(noteId, value, {
+                role,
+                title,
+                // An icon is a few KB of flat colour with nothing for the compression pipeline to
+                // find; a cover may be a full-size social image.
+                shrink: role === "coverImage"
+            });
+        } else {
+            // Anything that is neither inline nor remote — an attachment of this note already — is
+            // left alone by `storeInlinePicture` answering with nothing.
+            reference = storeInlinePicture(noteId, value, { role, title });
+        }
 
         if (reference) {
             rewritten = rewritten.replace(`${attribute}="${stored}"`, `${attribute}="${reference}"`);
@@ -313,6 +353,36 @@ async function downloadPicturesOf(noteId: string, tag: string): Promise<string> 
     }
 
     return rewritten;
+}
+
+/**
+ * Lifts a picture carried inline in the content out into an attachment, answering with the URL that
+ * replaces it — or nothing when the value is not an inline picture to begin with.
+ *
+ * Only base64 is read. A `data:` URI may also carry its payload percent-encoded, but nothing that
+ * reaches here writes one that way: it is the form for short text, and our own exporter, the old
+ * preview pipeline and every browser encoding a picture all use base64.
+ */
+function storeInlinePicture(
+    noteId: string,
+    value: string,
+    { role, title }: { role: ImageAttachmentRole; title: string }
+): string | undefined {
+    const inline = /^data:image\/[a-z0-9.+-]+;base64,(.*)$/is.exec(value.trim());
+
+    if (!inline) {
+        return undefined;
+    }
+
+    try {
+        // The picture was sized by whoever made the preview — ours are stored at an icon's and a
+        // thumbnail's size already — so this only moves bytes, and recompressing them would be a
+        // second lossy pass over a picture that has had one.
+        return storePictureBytes(noteId, decodeBase64(inline[1]), { role, title, shrink: false });
+    } catch (e: unknown) {
+        getLog().info(`Could not store an inline preview picture of note '${noteId}': ${e}`);
+        return undefined;
+    }
 }
 
 function attributeOf(tag: string, name: string): string | undefined {

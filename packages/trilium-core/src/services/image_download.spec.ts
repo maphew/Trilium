@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type BNote from "../becca/entities/bnote.js";
 import { getContext } from "./context.js";
-import { downloadLinkPreviewPictures, downloadPictureToAttachment } from "./image_download.js";
+import { downloadPictureToAttachment, storeLinkPreviewPictures } from "./image_download.js";
 import noteService from "./notes.js";
 import optionService from "./options.js";
 import { initRequest } from "./request.js";
@@ -33,6 +33,9 @@ const PIXEL_PNG = Buffer.from(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+M8AAAMBAQDJ/pLvAAAAAElFTkSuQmCC",
     "base64"
 );
+
+/** A vector icon, as GitHub and a good many other sites serve. Markup, so its bytes are text. */
+const TINY_SVG = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16"><path d="M0 0h16v16H0z"/></svg>`;
 
 const card = (url: string, favicon: string, image?: string) =>
     `<section class="link-embed" data-url="${url}" data-embed-type="opengraph" data-favicon="${favicon}"`
@@ -122,13 +125,13 @@ describe("downloadPictureToAttachment (real DB)", () => {
     });
 });
 
-describe("downloadLinkPreviewPictures (real DB)", () => {
+describe("storeLinkPreviewPictures (real DB)", () => {
     it("stores each as an attachment and points the card at it", async () => {
         // What a Notion export leaves behind: the origin's addresses and no bytes, which the render
         // sinks refuse outright — so until they are fetched the card shows placeholders.
         const note = createNote(card("https://example.com/page", "https://example.com/favicon.png", "https://cdn.example.com/cover.png"));
 
-        await getContext().init(() => downloadLinkPreviewPictures(note));
+        await getContext().init(() => storeLinkPreviewPictures(note));
 
         expect(asked).toEqual([ "https://example.com/favicon.png", "https://cdn.example.com/cover.png" ]);
 
@@ -153,7 +156,7 @@ describe("downloadLinkPreviewPictures (real DB)", () => {
             + card("https://example.com/b", "https://example.com/favicon.png")
         );
 
-        await getContext().init(() => downloadLinkPreviewPictures(note));
+        await getContext().init(() => storeLinkPreviewPictures(note));
 
         expect(note.getAttachments().map((a) => a.title)).toStrictEqual([ "example.com.png" ]);
     });
@@ -165,7 +168,7 @@ describe("downloadLinkPreviewPictures (real DB)", () => {
         getContext().init(() => optionService.setOption("downloadImagesAutomatically", "false"));
 
         try {
-            await getContext().init(() => downloadLinkPreviewPictures(note));
+            await getContext().init(() => storeLinkPreviewPictures(note));
         } finally {
             getContext().init(() => optionService.setOption("downloadImagesAutomatically", String(previously)));
         }
@@ -176,16 +179,84 @@ describe("downloadLinkPreviewPictures (real DB)", () => {
         expect(String(note.getContent())).toContain("https://example.com/favicon.png");
     });
 
-    it("leaves a picture that is already local alone", async () => {
-        // A preview made here, or one already fetched: neither is a third party's address.
-        const note = createNote(
-            card("https://example.com/page", "api/attachments/att1/image/example.com.ico")
-            + card("https://other.example/x", "data:image/png;base64,AAAA")
-        );
+    it("leaves a picture that is already an attachment alone", async () => {
+        // A preview made here, or one already stored: nothing left to do and nobody to ask.
+        const note = createNote(card("https://example.com/page", "api/attachments/att1/image/example.com.ico"));
 
-        await getContext().init(() => downloadLinkPreviewPictures(note));
+        await getContext().init(() => storeLinkPreviewPictures(note));
 
         expect(asked).toEqual([]);
+        expect(note.getAttachments()).toHaveLength(0);
+        expect(String(note.getContent())).toContain(`data-favicon="api/attachments/att1/image/example.com.ico"`);
+    });
+
+    it("lifts a picture carried inline out into an attachment", async () => {
+        // Our own single-file export inlines both pictures as base64, having nowhere else to put them,
+        // and every preview made before the pictures became attachments carried them the same way.
+        // Left inline they cost a third more than the bytes they encode, in every revision of the note.
+        const note = createNote(card(
+            "https://example.com/page",
+            `data:image/svg+xml;base64,${btoa(TINY_SVG)}`,
+            `data:image/png;base64,${PIXEL_PNG.toString("base64")}`
+        ));
+
+        await getContext().init(() => storeLinkPreviewPictures(note));
+
+        // Nothing was fetched — the bytes were already here — and both are roled and named exactly as
+        // a preview made here would have stored them.
+        expect(asked).toEqual([]);
+        const attachments = note.getAttachments();
+        expect(attachments.map((a) => [ a.role, a.title ]).sort()).toStrictEqual([
+            [ "coverImage", expect.stringMatching(/^example\.com-page-[0-9a-f]{8}\.png$/) ],
+            [ "favicon", "example.com.svg" ]
+        ]);
+
+        const content = String(note.getContent());
+        expect(content).not.toContain("base64");
+        for (const attachment of attachments) {
+            expect(content).toContain(`api/attachments/${attachment.attachmentId}/image/`);
+        }
+    });
+
+    it("lifts an inline picture whatever the setting says, having nobody to ask", async () => {
+        // `downloadImagesAutomatically` governs reaching out to a third party on the reader's behalf.
+        // Unpacking bytes the note already carries asks nothing of anyone, so the setting has no say —
+        // and gating it there would leave the base64 in place for anyone who had turned it off.
+        const note = createNote(card("https://example.com/page", `data:image/png;base64,${PIXEL_PNG.toString("base64")}`));
+        const previously = optionService.getOptionBool("downloadImagesAutomatically");
+        getContext().init(() => optionService.setOption("downloadImagesAutomatically", "false"));
+
+        try {
+            await getContext().init(() => storeLinkPreviewPictures(note));
+        } finally {
+            getContext().init(() => optionService.setOption("downloadImagesAutomatically", String(previously)));
+        }
+
+        expect(note.getAttachments().map((a) => a.title)).toStrictEqual([ "example.com.png" ]);
+        expect(String(note.getContent())).not.toContain("base64");
+    });
+
+    it("keeps one icon when the same inline picture repeats across cards", async () => {
+        // The saving that makes this worth doing: a site linked a dozen times inlines its icon a
+        // dozen times, and a deduplicated role keys on the title, so those dozen become one.
+        const icon = `data:image/png;base64,${PIXEL_PNG.toString("base64")}`;
+        const note = createNote(
+            card("https://example.com/a", icon) + card("https://example.com/b", icon)
+        );
+
+        await getContext().init(() => storeLinkPreviewPictures(note));
+
+        expect(note.getAttachments().map((a) => a.title)).toStrictEqual([ "example.com.png" ]);
+    });
+
+    it("leaves an inline value alone when it is not a picture at all", async () => {
+        // The bytes are asked what they are rather than the `data:` prefix being taken for it.
+        const note = createNote(card("https://example.com/page", "data:image/png;base64,AAAA"));
+
+        await getContext().init(() => storeLinkPreviewPictures(note));
+
+        expect(note.getAttachments()).toHaveLength(0);
+        expect(String(note.getContent())).toContain(`data-favicon="data:image/png;base64,AAAA"`);
     });
 
     it("drops nothing and keeps going when a picture cannot be had", async () => {
@@ -194,7 +265,7 @@ describe("downloadLinkPreviewPictures (real DB)", () => {
         const note = createNote(card("https://example.com/page", "https://example.com/favicon.png", "https://cdn.example.com/gone.png"));
         answerWith = (url) => (url.includes("gone") ? undefined : PIXEL_PNG);
 
-        await getContext().init(() => downloadLinkPreviewPictures(note));
+        await getContext().init(() => storeLinkPreviewPictures(note));
 
         expect(note.getAttachments().map((a) => a.role)).toStrictEqual([ "favicon" ]);
         expect(String(note.getContent())).toContain(`data-image="https://cdn.example.com/gone.png"`);
