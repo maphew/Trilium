@@ -1,7 +1,6 @@
 import { type AttachmentRow, attachmentRoleTraits, type AttributeRow, type BranchRow, dayjs, isEmbeddedAttachmentRole, isImageAttachmentRole, type NoteRow, NOTE_TYPE_IMAGE_ATTACHMENTS, type NoteType } from "@triliumnext/commons";
 import { t } from "i18next";
 import { parse as parseHtml } from "node-html-parser";
-import url from "url";
 
 import becca from "../becca/becca.js";
 import BAttachment from "../becca/entities/battachment.js";
@@ -15,9 +14,9 @@ import * as cls from "./context.js";
 import entityChangesService from "./entity_changes.js";
 import eventService from "./events.js";
 import imageService from "./image.js";
+import { downloadImages, downloadLinkPreviewPictures } from "./image_download.js";
 import noteTypesService from "./note_types.js";
 import optionService from "./options.js";
-import request from "./request.js";
 import revisionService from "./revisions.js";
 import { evaluateTemplateSafe } from "./safe_template.js";
 import { sanitizeHtml } from "./sanitizer.js";
@@ -25,8 +24,7 @@ import { getSql } from "./sql/index.js";
 import type TaskContext from "./task_context.js";
 import { decodeBase64 } from "./utils/binary.js";
 import date_utils from "./utils/date.js";
-import { newEntityId, quoteRegex, replaceAll, toMap, unescapeHtml } from "./utils/index.js";
-import { basename } from "./utils/path.js";
+import { newEntityId, replaceAll, toMap, unescapeHtml } from "./utils/index.js";
 import ws from "./ws.js";
 
 interface FoundLink {
@@ -813,154 +811,6 @@ function findRelationMapLinks(content: string, foundLinks: FoundLink[]) {
     }
 }
 
-const imageUrlToAttachmentIdMapping: Record<string, string> = {};
-
-async function downloadImage(noteId: string, imageUrl: string) {
-    const unescapedUrl = unescapeHtml(imageUrl);
-
-    // SSRF protection: only allow http(s) URLs and block file:// and other schemes.
-    try {
-        const parsed = new URL(unescapedUrl);
-        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-            getLog().error(`Download of '${imageUrl}' for note '${noteId}' rejected: only http/https URLs are allowed.`);
-            return;
-        }
-    } catch {
-        getLog().error(`Download of '${imageUrl}' for note '${noteId}' rejected: invalid URL.`);
-        return;
-    }
-
-    try {
-        const imageBuffer = new Uint8Array(await request.getImage(unescapedUrl));
-
-        const parsedUrl = url.parse(unescapedUrl);
-        const title = basename(parsedUrl.pathname || "");
-
-        const attachment = imageService.saveImageToAttachment(noteId, imageBuffer, title, true, true);
-
-        if (attachment.attachmentId) {
-            imageUrlToAttachmentIdMapping[imageUrl] = attachment.attachmentId;
-        } else {
-            getLog().error(`Download of '${imageUrl}' for note '${noteId}' failed due to no attachment ID.`);
-        }
-
-        getLog().info(`Download of '${imageUrl}' succeeded and was saved as image attachment '${attachment.attachmentId}' of note '${noteId}'`);
-    } catch (e: any) {
-        getLog().error(`Download of '${imageUrl}' for note '${noteId}' failed with error: ${e.message} ${e.stack}`);
-    }
-}
-
-/** url => download promise */
-const downloadImagePromises: Record<string, Promise<void>> = {};
-
-function replaceUrl(content: string, url: string, attachment: Attachment) {
-    const quotedUrl = quoteRegex(url);
-
-    return content.replace(new RegExp(`\\s+src=[\"']${quotedUrl}[\"']`, "ig"), ` src="api/attachments/${attachment.attachmentId}/image/${encodeURIComponent(attachment.title)}"`);
-}
-
-function downloadImages(noteId: string, content: string) {
-    const imageRe = /<img[^>]*?\ssrc=['"]([^'">]+)['"]/gi;
-    let imageMatch;
-
-    while ((imageMatch = imageRe.exec(content))) {
-        const url = imageMatch[1];
-        const inlineImageMatch = /^data:image\/[a-z]+;base64,/.exec(url);
-
-        if (inlineImageMatch) {
-            const imageBase64 = url.substring(inlineImageMatch[0].length);
-            const imageBuffer = decodeBase64(imageBase64);
-
-            const attachment = imageService.saveImageToAttachment(noteId, imageBuffer, "inline image", true, true);
-
-            const encodedTitle = encodeURIComponent(attachment.title);
-
-            content = `${content.substring(0, imageMatch.index)}<img src="api/attachments/${attachment.attachmentId}/image/${encodedTitle}"${content.substring(imageMatch.index + imageMatch[0].length)}`;
-        } else if (
-            !url.includes("api/images/") &&
-            !/api\/attachments\/.+\/image\/?.*/.test(url) &&
-            // this is an exception for the web clipper's "imageId"
-            (url.length !== 20 || url.toLowerCase().startsWith("http"))
-        ) {
-            if (!optionService.getOptionBool("downloadImagesAutomatically")) {
-                continue;
-            }
-
-            if (url in imageUrlToAttachmentIdMapping) {
-                const attachment = becca.getAttachment(imageUrlToAttachmentIdMapping[url]);
-
-                if (!attachment) {
-                    delete imageUrlToAttachmentIdMapping[url];
-                } else {
-                    content = replaceUrl(content, url, attachment);
-                    continue;
-                }
-            }
-
-            if (url in downloadImagePromises) {
-                // download is already in progress
-                continue;
-            }
-
-            // this is done asynchronously, it would be too slow to wait for the download
-            // given that save can be triggered very often
-            downloadImagePromises[url] = downloadImage(noteId, url);
-        }
-    }
-
-    Promise.all(Object.values(downloadImagePromises)).then(() => {
-        setTimeout(() => {
-            // the normal expected flow of the offline image saving is that users will paste the image(s)
-            // which will get asynchronously downloaded, during that time they keep editing the note
-            // once the download is finished, the image note representing the downloaded image will be used
-            // to replace the IMG link.
-            // However, there's another flow where the user pastes the image and leaves the note before the images
-            // are downloaded and the IMG references are not updated. For this occasion we have this code
-            // which upon the download of all the images will update the note if the links have not been fixed before
-
-            cls.getContext().init(() => {
-                getSql().transactional(() => {
-                const imageNotes = becca.getNotes(Object.values(imageUrlToAttachmentIdMapping), true);
-                    const log = getLog();
-
-                const origNote = becca.getNote(noteId);
-
-                if (!origNote) {
-                    log.error(`Cannot find note '${noteId}' to replace image link.`);
-                    return;
-                }
-
-                const origContent = origNote.getContent();
-                let updatedContent = origContent;
-
-                if (typeof updatedContent !== "string") {
-                    log.error(`Note '${noteId}' has a non-string content, cannot replace image link.`);
-                    return;
-                }
-
-                for (const url in imageUrlToAttachmentIdMapping) {
-                    const imageNote = imageNotes.find((note) => note.noteId === imageUrlToAttachmentIdMapping[url]);
-
-                    if (imageNote) {
-                        updatedContent = replaceUrl(updatedContent, url, imageNote);
-                    }
-                }
-
-                // update only if the links have not been already fixed.
-                if (updatedContent !== origContent) {
-                    origNote.setContent(updatedContent);
-
-                    asyncPostProcessContent(origNote, updatedContent);
-
-                    console.log(`Fixed the image links for note '${noteId}' to the offline saved.`);
-                }
-                });
-            });
-        }, 5000);
-    });
-
-    return content;
-}
 
 /**
  * Derives a plain-text attachment title from the inner HTML of an inline
@@ -1371,7 +1221,10 @@ async function asyncPostProcessContent(note: BNote, content: string | Uint8Array
     }
 
     scanForLinks(note, content);
+    // Read from the note rather than from `content`: scanForLinks may just have rewritten it.
+    await downloadLinkPreviewPictures(note);
 }
+
 
 // all keys should be replaced by the corresponding values
 function replaceByMap(str: string, mapObj: Record<string, string>) {
