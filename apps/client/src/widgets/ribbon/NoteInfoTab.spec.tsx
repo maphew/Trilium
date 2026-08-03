@@ -6,7 +6,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
     // Hoisted rather than a plain const: app_context pulls the server service in at module scope, so the
     // factory below runs before this file's own top-level statements do.
-    serverGet: vi.fn<(url: string) => Promise<unknown>>(async () => ({})),
+    // Replacing the module also replaces the shared mock from test/setup.ts, so unrelated module-scope
+    // loads have to be answered here too: keyboard_actions.ts filters the response as it imports.
+    serverGet: vi.fn<(url: string) => Promise<unknown>>(async (url) => (url === "keyboard-actions" ? [] : {})),
     entitiesReloadedHandler: undefined as ((data: { loadResults: unknown }) => void) | undefined
 }));
 const serverGet = mocks.serverGet;
