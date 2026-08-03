@@ -1,12 +1,11 @@
 import dateNoteService from "../services/date_notes.js";
 import froca from "../services/froca.js";
-import noteCreateService from "../services/note_create.js";
 import openService from "../services/open.js";
 import options from "../services/options.js";
 import protectedSessionService from "../services/protected_session.js";
-import toastService from "../services/toast.js";
+import { collectShortcutHints } from "../services/shortcut_hints.js";
 import treeService from "../services/tree.js";
-import utils, { openInReusableSplit } from "../services/utils.js";
+import utils from "../services/utils.js";
 import appContext, { type CommandListenerData } from "./app_context.js";
 import Component from "./component.js";
 
@@ -17,6 +16,11 @@ export default class RootCommandExecutor extends Component {
             noteContext.viewScope.readOnlyTemporarilyDisabled = true;
             appContext.triggerEvent("readOnlyTemporarilyDisabled", { noteContext });
         }
+    }
+
+    async showShortcutHintsCommand() {
+        const sections = collectShortcutHints(await resolveFocusedComponent());
+        appContext.triggerEvent("shortcutHintsRequested", { sections });
     }
 
     async showSQLConsoleCommand() {
@@ -103,8 +107,7 @@ export default class RootCommandExecutor extends Component {
 
     async showLaunchBarSubtreeCommand() {
         const rootNote = utils.isMobile() ? "_lbMobileRoot" : "_lbRoot";
-        await this.showAndHoistSubtree(rootNote);
-        this.showLeftPaneCommand();
+        appContext.triggerCommand("openInTreePopup", { noteIdOrPath: rootNote, hoistedNoteId: rootNote });
     }
 
     async showShareSubtreeCommand() {
@@ -113,13 +116,6 @@ export default class RootCommandExecutor extends Component {
 
     async showHiddenSubtreeCommand() {
         await this.showAndHoistSubtree("_hidden");
-    }
-
-    async showOptionsCommand({ section }: CommandListenerData<"showOptions">) {
-        await appContext.tabManager.openContextWithNote(section || "_options", {
-            activate: true,
-            hoistedNoteId: "_options"
-        });
     }
 
     async showSQLConsoleHistoryCommand() {
@@ -146,6 +142,16 @@ export default class RootCommandExecutor extends Component {
                 viewScope: {
                     viewMode: "source"
                 }
+            });
+        }
+    }
+
+    showNoteOCRTextCommand() {
+        const noteId = appContext.tabManager.getActiveContextNoteId();
+        if (noteId) {
+            appContext.triggerCommand("showOcrTextDialog", {
+                textUrl: `ocr/notes/${noteId}/text`,
+                processUrl: `ocr/process-note/${noteId}`
             });
         }
     }
@@ -179,11 +185,7 @@ export default class RootCommandExecutor extends Component {
     toggleTrayCommand() {
         if (!utils.isElectron() || options.is("disableTray")) return;
 
-        const { BrowserWindow } = utils.dynamicRequire("@electron/remote");
-        const windows = BrowserWindow.getAllWindows() as Electron.BaseWindow[];
-        const isVisible = windows.every((w) => w.isVisible());
-        const action = isVisible ? "hide" : "show";
-        for (const window of windows) window[action]();
+        window.electronApi?.window.toggleAllWindows();
     }
 
     toggleZenModeCommand() {
@@ -194,6 +196,18 @@ export default class RootCommandExecutor extends Component {
     }
 
     async toggleRibbonTabNoteMapCommand(data: CommandListenerData<"toggleRibbonTabNoteMap">) {
+        // A phone has neither the ribbon the map was a tab of nor the pane it is a card of, so it is
+        // shown the way the pane's card shows it expanded: as the quick-edit popup, which is the map at
+        // the size of the window wherever there is no card to expand from. The popup carries the note's
+        // title, steps aside when a note of the map is pressed, and can be taken on to a tab.
+        if (utils.isMobile()) {
+            const notePath = appContext.tabManager.getActiveContext()?.notePath;
+            if (notePath) {
+                void appContext.triggerCommand("openInPopup", { noteIdOrPath: notePath, viewScope: { viewMode: "note-map" } });
+            }
+            return;
+        }
+
         const { isExperimentalFeatureEnabled } = await import("../services/experimental_features.js");
         const isNewLayout = isExperimentalFeatureEnabled("new-layout");
         if (!isNewLayout) {
@@ -201,9 +215,16 @@ export default class RootCommandExecutor extends Component {
             return;
         }
 
-        const activeContext = appContext.tabManager.getActiveContext();
-        if (!activeContext?.notePath) return;
-        openInReusableSplit(activeContext.notePath, "note-map");
+        // The sidebar's map is the note map of the new layout: it is the one that follows the note being
+        // read, so the menu points at it rather than opening a second copy beside it that would then go
+        // stale. Peeked rather than docked, as the connection badges of the status bar are: a press for
+        // the tab already docked would otherwise close the pane out from under the card it is meant to
+        // expand (see reduceTabSelection).
+        void appContext.triggerEvent("selectRightPaneTab", {
+            tabId: "connections",
+            peek: true,
+            expandWidgetId: "noteMap"
+        });
     }
 
     firstTabCommand() {
@@ -244,38 +265,24 @@ export default class RootCommandExecutor extends Component {
         const tab = mainNoteContexts[index];
 
         if (tab) {
-            appContext.tabManager.activateNoteContext(tab.ntxId);
+            appContext.tabManager.activateTabContext(tab.ntxId);
         }
     }
 
-    async createAiChatCommand() {
-        try {
-            // Create a new AI Chat note at the root level
-            const rootNoteId = "root";
+}
 
-            const result = await noteCreateService.createNote(rootNoteId, {
-                title: "New AI Chat",
-                type: "aiChat",
-                content: JSON.stringify({
-                    messages: [],
-                    title: "New AI Chat"
-                })
-            });
-
-            if (!result.note) {
-                toastService.showError("Failed to create AI Chat note");
-                return;
-            }
-
-            await appContext.tabManager.openTabWithNoteWithHoisting(result.note.noteId, {
-                activate: true
-            });
-
-            toastService.showMessage("Created new AI Chat note");
-        }
-        catch (e) {
-            console.error("Error creating AI Chat note:", e);
-            toastService.showError(`Failed to create AI Chat note: ${(e as Error).message}`);
+/**
+ * The component to start collecting shortcut hints from: the one owning the focused element, or —
+ * when nothing focusable is (e.g. the image/media viewers) — the active pane's type widget.
+ */
+async function resolveFocusedComponent(): Promise<Component | undefined> {
+    const activeEl = document.activeElement;
+    if (activeEl instanceof HTMLElement) {
+        const component = appContext.getComponentByEl(activeEl) as Component | undefined;
+        if (component) {
+            return component;
         }
     }
+
+    return appContext.tabManager.getActiveContext()?.getTypeWidget();
 }

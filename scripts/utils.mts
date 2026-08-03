@@ -28,7 +28,7 @@ function resetPath() {
 
 export function getElectronPath() {
     if (isNixOS()) {
-        resetPath();            
+        resetPath();
 
         try {
             const path = execSync("which electron").toString("utf-8").trimEnd();
@@ -37,9 +37,26 @@ export function getElectronPath() {
             // Nothing to do, since we have a fallback below.
         }
 
-        console.log("Using default since no Electron is available in path.");
-        return execSync("nix eval --raw nixpkgs#electron_37").toString("utf-8") + "/bin/electron";
+        console.log("No Electron in PATH, using 'nix develop' to get it...");
+
+        try {
+            const path = execSync("nix develop -c which electron", { stdio: ["pipe", "pipe", "pipe"] }).toString("utf-8").trimEnd();
+            return path;
+        } catch (e) {
+            console.error("\nFailed to get Electron from 'nix develop'.");
+            console.error("Please ensure you have a valid flake.nix with electron in devShells.default.");
+            process.exit(1);
+        }
     } else {
         return "electron";
     }
+}
+
+/**
+ * On NixOS the Nix-provided Electron is dynamically linked against libstdc++
+ * from gcc.cc.lib. Resolve that store path so callers can add it to
+ * LD_LIBRARY_PATH before launching Electron.
+ */
+export function getNixLdLibraryPath() {
+    return execSync("nix eval --raw nixpkgs#gcc.cc.lib").toString("utf-8").trimEnd() + "/lib";
 }

@@ -1,0 +1,114 @@
+import { describe, expect, it, vi } from "vitest";
+import { sanitizeHtml } from "./sanitizer.js";
+import optionService from "./options.js";
+import { trimIndentation } from "@triliumnext/commons";
+
+describe("sanitize", () => {
+    it("filters out position inline CSS", () => {
+        const dirty = `<div style="z-index:999999999;margin:0px;left:250px;height:100px;display:table;background:none;position:fixed;top:250px;"></div>`;
+        const clean = `<div></div>`;
+        expect(sanitizeHtml(dirty)).toBe(clean);
+    });
+
+    it("keeps inline styles defined in CKEDitor", () => {
+        const dirty = trimIndentation`\
+            <p>
+                <span style="color:hsl(0, 0%, 90%);">
+                    Hi
+                </span>
+
+                <span style="background-color:hsl(30, 75%, 60%);">
+                    there
+                </span>
+            </p>
+            <figure class="table" style="float:left;height:800px;width:600px;">
+                <table style="background-color:hsl(0, 0%, 90%);border-color:hsl(0, 0%, 0%);border-style:dotted;">
+                    <tbody>
+                        <tr>
+                            <td style="border:2px groove hsl(60, 75%, 60%);"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </figure>`;
+        const clean = trimIndentation`\
+            <p>
+                <span style="color:hsl(0, 0%, 90%)">
+                    Hi
+                </span>
+
+                <span style="background-color:hsl(30, 75%, 60%)">
+                    there
+                </span>
+            </p>
+            <figure class="table" style="float:left;height:800px;width:600px">
+                <table style="background-color:hsl(0, 0%, 90%);border-color:hsl(0, 0%, 0%);border-style:dotted">
+                    <tbody>
+                        <tr>
+                            <td style="border:2px groove hsl(60, 75%, 60%)"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </figure>`;
+        expect(sanitizeHtml(dirty)).toBe(clean);
+    });
+
+    it("keeps the hidden-border style on table header cells", () => {
+        // The OneNote importer maps hidden borders to border-color:transparent on table, td and th —
+        // all three must survive sanitization, or header cells render with visible borders.
+        const dirty = `<table style="border-color:transparent"><tr><th style="border-color:transparent">H</th><td style="border-color:transparent">C</td></tr></table>`;
+        expect(sanitizeHtml(dirty)).toBe(dirty);
+    });
+
+    it("keeps the open attribute on <details> (collapsible state from imports)", () => {
+        const dirty = `<details open class="trilium-collapsible"><summary>T</summary><p>body</p></details>`;
+        expect(sanitizeHtml(dirty)).toBe(dirty);
+    });
+
+    it("keeps the scope attribute on table header cells", () => {
+        const dirty = `<table><thead><tr><th scope="col">C</th></tr></thead><tbody><tr><th scope="row">R</th><td>A</td></tr></tbody></table>`;
+        expect(sanitizeHtml(dirty)).toBe(dirty);
+    });
+
+    it("keeps a fractional image aspect-ratio (OneNote reports fractional pixel dimensions)", () => {
+        // CKEditor's usual integer ratio still passes...
+        expect(sanitizeHtml(`<img style="aspect-ratio:991/403" src="x.png" />`)).toContain("aspect-ratio:991/403");
+        // ...and a fractional ratio (e.g. a 577.5×277.5 OneNote screen clipping) is no longer stripped.
+        expect(sanitizeHtml(`<img style="aspect-ratio:577.5/277.5" src="x.png" />`)).toContain("aspect-ratio:577.5/277.5");
+        // A non-ratio value is still rejected.
+        expect(sanitizeHtml(`<img style="aspect-ratio:auto" src="x.png" />`)).not.toContain("aspect-ratio");
+    });
+
+    it("falls back to the default allowed tags when the allowedHtmlTags option is unusable", () => {
+        const optionSpy = vi.spyOn(optionService, "getOption").mockReturnValue("{ not json");
+        try {
+            // The parse failure must not propagate; sanitization still applies the default list.
+            const sanitized = sanitizeHtml(`<p>kept</p><script>alert(1)</script>`);
+            expect(sanitized).toContain(`<p>kept</p>`);
+            expect(sanitized).not.toContain(`<script>`);
+        } finally {
+            optionSpy.mockRestore();
+        }
+    });
+
+    describe("bookmark anchors", () => {
+        it("preserves id attribute on empty <a> tags (CKEditor bookmarks)", () => {
+            const dirty = `<a id="my-bookmark"></a>`;
+            expect(sanitizeHtml(dirty)).toBe(dirty);
+        });
+
+        it("preserves id attribute on <a> tags with bookmark class", () => {
+            const dirty = `<a id="chapter-1" class="ck-bookmark"></a>`;
+            expect(sanitizeHtml(dirty)).toBe(dirty);
+        });
+
+        it("strips id attribute from non-anchor tags to prevent DOM clobbering", () => {
+            const dirty = `<div id="loginForm">content</div>`;
+            expect(sanitizeHtml(dirty)).toBe(`<div>content</div>`);
+        });
+
+        it("strips id attribute from <img> tags to prevent DOM clobbering", () => {
+            const dirty = `<img id="someId" src="test.png" />`;
+            expect(sanitizeHtml(dirty)).toBe(`<img src="test.png" />`);
+        });
+    });
+});

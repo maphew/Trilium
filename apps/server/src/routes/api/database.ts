@@ -1,44 +1,95 @@
-"use strict";
+import {
+    BackupDatabaseNowResponse,
+    CompactionEstimateResponse,
+    DatabaseCheckIntegrityResponse,
+    ExistingAnonymizedDatabasesResponse,
+    VacuumDatabaseResponse
+} from "@triliumnext/commons";
+import { becca_loader, consistency_checks as consistencyChecksService, getBackup, getLog, utils, ValidationError } from "@triliumnext/core";
+import type { Request, Response } from "express";
+import fs, { readFileSync } from "fs";
+import path from "path";
 
-import sql from "../../services/sql.js";
-import log from "../../services/log.js";
-import backupService from "../../services/backup.js";
 import anonymizationService from "../../services/anonymization.js";
-import consistencyChecksService from "../../services/consistency_checks.js";
-import type { Request } from "express";
-import ValidationError from "../../errors/validation_error.js";
+import dataDir from "../../services/data_dir.js";
+import sql from "../../services/sql.js";
 import sql_init from "../../services/sql_init.js";
-import becca_loader from "../../becca/becca_loader.js";
-import { BackupDatabaseNowResponse, DatabaseCheckIntegrityResponse } from "@triliumnext/commons";
 
 function getExistingBackups() {
-    return backupService.getExistingBackups();
+    return getBackup().getExistingBackups();
 }
 
 async function backupDatabase() {
     return {
-        backupFile: await backupService.backupNow("now")
+        backupFile: await getBackup().backupNow("now")
     } satisfies BackupDatabaseNowResponse;
 }
 
 function vacuumDatabase() {
-    sql.execute("VACUUM");
+    // Timed from here, the two readings included: they are a pragma query each, and what the log is
+    // answering for is how long the whole thing held the database.
+    const startedAt = Date.now();
+    const sizeBefore = databaseBytes();
 
-    log.info("Database has been vacuumed.");
+    // Announced before the rebuild starts, not only once it ends: this holds the process for minutes
+    // on a large database, and if it is killed or the machine goes down in the meantime, this line
+    // is the only record that one was ever under way.
+    getLog().info(`Compacting the database (${utils.formatSize(sizeBefore)}). This may take several minutes.`);
+
+    sql.execute("VACUUM");
+    const sizeAfter = databaseBytes();
+
+    getLog().info(`Compacted the database from ${utils.formatSize(sizeBefore)}`
+        + ` to ${utils.formatSize(sizeAfter)} in ${Date.now() - startedAt} ms.`);
+
+    return { sizeBefore, sizeAfter } satisfies VacuumDatabaseResponse;
+}
+
+/**
+ * What a rebuild would hand back, read before running one. Erasing content does not shrink the file
+ * — the pages it frees stay allocated in it, on the freelist — so this is where that space shows up
+ * until a vacuum returns it.
+ */
+function getCompactionEstimate() {
+    return {
+        reclaimableBytes: reclaimableBytes(),
+        databaseBytes: databaseBytes()
+    } satisfies CompactionEstimateResponse;
+}
+
+/**
+ * The database's own view of its size: every page it has allocated, the free ones included. Read
+ * through pragma functions rather than the file itself, so there is no path to resolve and no race
+ * with the filesystem — and it is exactly the figure a vacuum moves.
+ *
+ * Covers the main database alone; in WAL mode the `-wal` sidecar is not part of it.
+ */
+function databaseBytes(): number {
+    return sql.getValue<number>("SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()");
+}
+
+/** Pages already free inside the file. A floor, not a promise: a rebuild also recovers the slack
+ *  left inside pages that are still in use, which no count of whole pages can see. */
+function reclaimableBytes(): number {
+    return sql.getValue<number>("SELECT freelist_count * page_size FROM pragma_freelist_count(), pragma_page_size()");
 }
 
 function findAndFixConsistencyIssues() {
-    consistencyChecksService.runOnDemandChecks(true);
+    void consistencyChecksService.runOnDemandChecks(true);
 }
 
 async function rebuildIntegrationTestDatabase() {
-    sql.rebuildIntegrationTestDatabase();
+    const fixtureBytes = readFileSync(dataDir.DOCUMENT_PATH);
+    sql.rebuildFromBuffer(fixtureBytes);
     sql_init.initializeDb();
     becca_loader.load();
 }
 
 function getExistingAnonymizedDatabases() {
-    return anonymizationService.getExistingAnonymizedDatabases();
+    return {
+        anonymizedFolderPath: path.resolve(dataDir.ANONYMIZED_DB_DIR),
+        databases: anonymizationService.getExistingAnonymizedDatabases()
+    } satisfies ExistingAnonymizedDatabasesResponse;
 }
 
 async function anonymize(req: Request) {
@@ -51,20 +102,58 @@ async function anonymize(req: Request) {
 function checkIntegrity() {
     const results = sql.getRows<{ integrity_check: string }>("PRAGMA integrity_check");
 
-    log.info(`Integrity check result: ${JSON.stringify(results)}`);
+    getLog().info(`Integrity check result: ${JSON.stringify(results)}`);
 
     return {
         results
     } satisfies DatabaseCheckIntegrityResponse;
 }
 
+function downloadBackup(req: Request, res: Response) {
+    downloadDatabaseFile(req, res, dataDir.BACKUP_DIR, "Backup file not found");
+}
+
+function downloadAnonymizedDatabase(req: Request, res: Response) {
+    downloadDatabaseFile(req, res, dataDir.ANONYMIZED_DB_DIR, "Anonymized database file not found");
+}
+
 export default {
     getExistingBackups,
     backupDatabase,
     vacuumDatabase,
+    getCompactionEstimate,
     findAndFixConsistencyIssues,
     rebuildIntegrationTestDatabase,
     getExistingAnonymizedDatabases,
     anonymize,
-    checkIntegrity
+    checkIntegrity,
+    downloadBackup,
+    downloadAnonymizedDatabase
 };
+
+function downloadDatabaseFile(req: Request, res: Response, allowedDir: string, notFoundMessage: string) {
+    const filePath = req.query.filePath as string;
+    if (!filePath) {
+        res.status(400).send("Missing filePath");
+        return;
+    }
+
+    const resolvedPath = path.resolve(filePath);
+    if (!resolvedPath.startsWith(path.resolve(allowedDir) + path.sep)) {
+        res.status(403).send("Access denied");
+        return;
+    }
+
+    if (!fs.existsSync(resolvedPath)) {
+        res.status(404).send(notFoundMessage);
+        return;
+    }
+
+    const mtime = fs.statSync(resolvedPath).mtime;
+    const dateStr = mtime.toISOString().slice(0, 19)
+        .replaceAll(":", "-")
+        .replace("T", "_");
+    const ext = path.extname(resolvedPath);
+    const baseName = path.basename(resolvedPath, ext);
+    res.download(resolvedPath, `${baseName}_${dateStr}${ext}`);
+}

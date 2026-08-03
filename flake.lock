@@ -20,15 +20,16 @@
     },
     "nixpkgs": {
       "locked": {
-        "lastModified": 1769184885,
-        "narHash": "sha256-wVX5Cqpz66SINNsmt3Bv/Ijzzfl8EPUISq5rKK129K0=",
+        "lastModified": 1784812282,
+        "narHash": "sha256-Na4aTmdz22ovtSvcvNKaRwEWkg801hDyX6t8JqvW+sE=",
         "owner": "NixOS",
         "repo": "nixpkgs",
-        "rev": "12689597ba7a6d776c3c979f393896be095269d4",
+        "rev": "6d12004108e0e4a5cfa4bd83b14477f040b15773",
         "type": "github"
       },
       "original": {
         "owner": "NixOS",
+        "ref": "nixpkgs-unstable",
         "repo": "nixpkgs",
         "type": "github"
       }
@@ -43,15 +44,16 @@
         ]
       },
       "locked": {
-        "lastModified": 1749022118,
-        "narHash": "sha256-7Qzmy1snKbxFBKoqUrfyxxmEB8rPxDdV7PQwRiAR01o=",
+        "lastModified": 1784968304,
+        "narHash": "sha256-NPXKyp40QNCk9r6kavSwqi/zv7OcLgrSRtPmHW+e74w=",
         "owner": "FliegendeWurst",
         "repo": "pnpm2nix-nzbr",
-        "rev": "35f88a41d29839b3989f31871263451c8e092cb1",
+        "rev": "9b15300b711a50bb96e553b66aad5cad94df9c7e",
         "type": "github"
       },
       "original": {
         "owner": "FliegendeWurst",
+        "ref": "main",
         "repo": "pnpm2nix-nzbr",
         "type": "github"
       }

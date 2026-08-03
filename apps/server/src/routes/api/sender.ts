@@ -1,10 +1,9 @@
+import { isAcceptedImageMime } from "@triliumnext/commons";
+import { note_service as noteService, special_notes as specialNotesService,utils } from "@triliumnext/core";
 import type { Request } from "express";
 import imageType from "image-type";
 
 import imageService from "../../services/image.js";
-import noteService from "../../services/notes.js";
-import sanitizeAttributeName from "../../services/sanitize_attribute_name.js";
-import specialNotesService from "../../services/special_notes.js";
 
 async function uploadImage(req: Request) {
     const file = req.file;
@@ -16,7 +15,7 @@ async function uploadImage(req: Request) {
         };
     }
 
-    if (!["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"].includes(file.mimetype)) {
+    if (!isAcceptedImageMime(file.mimetype)) {
         return [400, `Unknown image type: ${file.mimetype}`];
     }
     if (typeof file.buffer === "string") {
@@ -37,20 +36,23 @@ async function uploadImage(req: Request) {
 
     const { note, noteId } = imageService.saveImage(parentNote.noteId, file.buffer, originalName, true);
 
+    // The sender opens the note it is told about, so the picture should be in it by then.
+    await imageService.awaitImageWrite(noteId);
+
     const labelsStr = req.headers["x-labels"];
 
     if (labelsStr?.trim()) {
         const labels = JSON.parse(labelsStr);
 
         for (const { name, value } of labels) {
-            note.setLabel(sanitizeAttributeName(name), value);
+            note.setLabel(utils.sanitizeAttributeName(name), value);
         }
     }
 
     note.setLabel("sentFromSender");
 
     return {
-        noteId: noteId
+        noteId
     };
 }
 
@@ -72,7 +74,7 @@ async function saveNote(req: Request) {
 
     if (req.body.labels) {
         for (const { name, value } of req.body.labels) {
-            note.setLabel(sanitizeAttributeName(name), value);
+            note.setLabel(utils.sanitizeAttributeName(name), value);
         }
     }
 

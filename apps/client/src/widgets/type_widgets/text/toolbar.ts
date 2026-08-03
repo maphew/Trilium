@@ -1,11 +1,7 @@
 import utils from "../../../services/utils.js";
 import options from "../../../services/options.js";
-import IconAlignCenter from "@ckeditor/ckeditor5-icons/theme/icons/align-center.svg?raw";
-
-const TEXT_FORMATTING_GROUP = {
-    label: "Text formatting",
-    icon: "text"
-};
+import { t } from "../../../services/i18n.js";
+import { IconAlignCenter } from "@ckeditor/ckeditor5-icons";
 
 export function buildToolbarConfig(isClassicToolbar: boolean) {
     if (utils.isMobile()) {
@@ -52,7 +48,7 @@ export function buildClassicToolbar(multilineToolbar: boolean) {
                 "bold",
                 "italic",
                 {
-                    ...TEXT_FORMATTING_GROUP,
+                    ...buildTextFormattingGroup(),
                     items: ["underline", "strikethrough", "|", "superscript", "subscript", "|", "kbd"]
                 },
                 "formatPainter",
@@ -65,6 +61,7 @@ export function buildClassicToolbar(multilineToolbar: boolean) {
                 "numberedList",
                 "todoList",
                 "|",
+                "imageUpload",
                 "blockQuote",
                 "admonition",
                 "insertTable",
@@ -74,9 +71,8 @@ export function buildClassicToolbar(multilineToolbar: boolean) {
                 "|",
                 "footnote",
                 {
-                    label: "Insert",
-                    icon: "plus",
-                    items: ["imageUpload", "|", "link", "bookmark", "internallink", "includeNote", "|", "specialCharacters", "emoji", "math", "mermaid", "horizontalLine", "pageBreak", "dateTime"]
+                    ...buildInsertGroup(),
+                    items: ["link", "linkEmbed", "bookmark", "internallink", "includeNote", "|", "collapsible", "math", "mermaid", "horizontalLine", "pageBreak", "|", "dateTime", "specialCharacters", "emoji"]
                 },
                 "|",
                 buildAlignmentToolbar(),
@@ -85,7 +81,10 @@ export function buildClassicToolbar(multilineToolbar: boolean) {
                 "|",
                 "insertTemplate",
                 "markdownImport",
-                "cuttonote"
+                "cuttonote",
+                "|",
+                "undo",
+                "redo"
             ],
             shouldNotGroupWhenFull: multilineToolbar
         }
@@ -101,7 +100,7 @@ export function buildFloatingToolbar() {
                 "italic",
                 "underline",
                 {
-                    ...TEXT_FORMATTING_GROUP,
+                    ...buildTextFormattingGroup(),
                     items: [ "strikethrough", "|", "superscript", "subscript", "|", "kbd" ]
                 },
                 "formatPainter",
@@ -112,8 +111,10 @@ export function buildFloatingToolbar() {
                 "code",
                 "link",
                 "bookmark",
-                "removeFormat",
                 "internallink",
+                "collapsible",
+                "|",
+                "removeFormat",
                 "cuttonote"
             ]
         },
@@ -125,15 +126,15 @@ export function buildFloatingToolbar() {
             "numberedList",
             "todoList",
             "|",
+            "imageUpload",
             "blockQuote",
             "admonition",
             "codeBlock",
             "insertTable",
             "footnote",
             {
-                label: "Insert",
-                icon: "plus",
-                items: ["link", "bookmark", "internallink", "includeNote", "|", "math", "mermaid", "horizontalLine", "pageBreak", "dateTime"]
+                ...buildInsertGroup(),
+                items: ["link", "linkEmbed", "bookmark", "internallink", "includeNote", "|", "collapsible", "math", "mermaid", "horizontalLine", "pageBreak", "dateTime"]
             },
             "|",
             buildAlignmentToolbar(),
@@ -141,7 +142,6 @@ export function buildFloatingToolbar() {
             "indent",
             "|",
             "insertTemplate",
-            "imageUpload",
             "markdownImport",
             "specialCharacters",
             "emoji"
@@ -149,9 +149,27 @@ export function buildFloatingToolbar() {
     };
 }
 
+// The labels below are resolved here rather than by the editor: CKEditor takes a nested toolbar
+// dropdown's `label` verbatim (see `ToolbarView#_createNestedToolbarDropdown`), so it never reaches
+// a translation function of its own. They render as the dropdown's tooltip and accessible name.
+
+function buildTextFormattingGroup() {
+    return {
+        label: t("text-editor.toolbar-groups.text-formatting"),
+        icon: "text"
+    };
+}
+
+function buildInsertGroup() {
+    return {
+        label: t("text-editor.toolbar-groups.insert"),
+        icon: "plus"
+    };
+}
+
 function buildAlignmentToolbar() {
     return {
-        label: "Alignment",
+        label: t("text-editor.toolbar-groups.alignment"),
         icon: IconAlignCenter,
         items: ["alignment:left", "alignment:center", "alignment:right", "|", "alignment:justify"]
     };

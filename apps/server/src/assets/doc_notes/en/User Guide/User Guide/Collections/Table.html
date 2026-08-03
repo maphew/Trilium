@@ -22,6 +22,8 @@
   </li>
   <li>If there are multiple attribute definitions with the same <code spellcheck="false">name</code>,
     only one will be displayed.</li>
+  <li>If an attribute definition has multiple values, they will all be grouped
+    under a single column, with chips indicating individual values.</li>
 </ul>
 <p>There are also a few predefined columns:</p>
 <ul>
@@ -36,8 +38,9 @@
 </ul>
 <h2>Interaction</h2>
 <h3>Creating a new table</h3>
-<p>Right click the&nbsp;<a class="reference-link" href="#root/_help_oPVyFC7WL2Lp">Note Tree</a>&nbsp;and
-  select <em>Insert child note</em> and look for the <em>Table item</em>.</p>
+<p>Right click on an existing note in the&nbsp;<a class="reference-link"
+  href="#root/_help_oPVyFC7WL2Lp">Note Tree</a>&nbsp;and select <em>Insert child note</em> and
+  look for <em>Table</em>.</p>
 <h3>Adding columns</h3>
 <p>Each column is a <a href="#root/_help_OFXdgB2nNk1F">promoted or unpromoted attribute</a> that
   is defined on the Collection note.</p>
@@ -153,8 +156,8 @@
   to a certain number of levels or even disable it completely. To do so,
   either:</p>
 <ul>
-  <li>Go to <em>Collection Properties</em> in the&nbsp;<a class="reference-link"
-    href="#root/_help_BlN9DFI679QC">Ribbon</a>&nbsp;and look for the <em>Max nesting depth</em> section.
+  <li>Go to&nbsp;<a class="reference-link" href="#root/_help_CssoWBu8I7jF">Collection Properties</a>&nbsp;and
+    look for the <em>Max nesting depth</em> section.
     <ul>
       <li>To disable nesting, type 0 and press Enter.</li>
       <li>To limit to a certain depth, type in the desired number (e.g. 2 to only
@@ -171,9 +174,6 @@
 </ul>
 <h2>Limitations</h2>
 <ul>
-  <li>Multi-value labels and relations are not supported. If a&nbsp;<a class="reference-link"
-    href="#root/_help_OFXdgB2nNk1F">Promoted Attributes</a>&nbsp;is defined with
-    a <em>Multi value</em> specificity, they will be ignored.</li>
   <li>There is no support to filter the rows by a certain criteria. Consider
     using the table view in search for that use case.</li>
 </ul>

@@ -5,6 +5,7 @@ import { Dispatch, StateUpdater, useCallback, useEffect, useMemo, useRef, useSta
 
 import FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
+import { isIMEComposing } from "../../../services/shortcuts";
 import toast from "../../../services/toast";
 import CollectionProperties from "../../note_bars/CollectionProperties";
 import FormTextArea from "../../react/FormTextArea";
@@ -16,6 +17,7 @@ import { onWheelHorizontalScroll } from "../../widget_utils";
 import { ViewModeProps } from "../interface";
 import Api from "./api";
 import BoardApi from "./api";
+import { DEFAULT_GROUP_BY, getStatusDefinition } from "./columns";
 import Column from "./column";
 import { ColumnMap, getBoardData } from "./data";
 
@@ -47,7 +49,7 @@ interface BoardViewContextData {
 export const BoardViewContext = createContext<BoardViewContextData | undefined>(undefined);
 
 export default function BoardView({ note: parentNote, noteIds, viewConfig, saveConfig }: ViewModeProps<BoardViewData>) {
-    const [ statusAttributeWithPrefix ] = useNoteLabelWithDefault(parentNote, "board:groupBy", "status");
+    const [ statusAttributeWithPrefix ] = useNoteLabelWithDefault(parentNote, "board:groupBy", DEFAULT_GROUP_BY);
     const [ includeArchived ] = useNoteLabelBoolean(parentNote, "includeArchived");
     const [ byColumn, setByColumn ] = useState<ColumnMap>();
     const [ columns, setColumns ] = useState<string[]>();
@@ -60,9 +62,14 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     const [ columnHoverIndex, setColumnHoverIndex ] = useState<number | null>(null);
     const [ branchIdToEdit, setBranchIdToEdit ] = useState<string>();
     const [ columnNameToEdit, setColumnNameToEdit ] = useState<string>();
+    /** Bumped when the definition changes, since it is read off the note rather than held in state. */
+    const [ definitionRevision, setDefinitionRevision ] = useState(0);
+    const statusDefinition = useMemo(
+        () => getStatusDefinition(parentNote, statusAttributeWithPrefix),
+        [ parentNote, statusAttributeWithPrefix, definitionRevision ]);
     const api = useMemo(() => {
-        return new Api(byColumn, columns ?? [], parentNote, statusAttributeWithPrefix, viewConfig ?? {}, saveConfig, setBranchIdToEdit );
-    }, [ byColumn, columns, parentNote, statusAttributeWithPrefix, viewConfig, saveConfig, setBranchIdToEdit ]);
+        return new Api(byColumn, columns ?? [], parentNote, statusAttributeWithPrefix, viewConfig ?? {}, saveConfig, setBranchIdToEdit, statusDefinition );
+    }, [ byColumn, columns, parentNote, statusAttributeWithPrefix, viewConfig, saveConfig, setBranchIdToEdit, statusDefinition ]);
     const boardViewContext = useMemo<BoardViewContextData>(() => ({
         api,
         parentNote,
@@ -84,24 +91,29 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     ]);
 
     function refresh() {
-        getBoardData(parentNote, statusAttributeWithPrefix, viewConfig ?? {}, includeArchived).then(({ byColumn, newPersistedData, isInRelationMode }) => {
-            setByColumn(byColumn);
-            setIsRelationMode(isInRelationMode);
+        getBoardData(parentNote, statusAttributeWithPrefix, viewConfig ?? {}, includeArchived, statusDefinition?.options ?? [])
+            .then(({ byColumn, columns, newPersistedData, isInRelationMode }) => {
+                setByColumn(byColumn);
+                setIsRelationMode(isInRelationMode);
+                setColumns(columns);
 
-            if (newPersistedData) {
-                viewConfig = { ...newPersistedData };
-                saveConfig(newPersistedData);
-            }
+                if (newPersistedData) {
+                    viewConfig = { ...newPersistedData };
+                    saveConfig(newPersistedData);
+                }
 
-            // Use the order from persistedData.columns, then add any new columns found
-            const orderedColumns = viewConfig?.columns?.map(col => col.value) || [];
-            const allColumns = Array.from(byColumn.keys());
-            const newColumns = allColumns.filter(col => !orderedColumns.includes(col));
-            setColumns([...orderedColumns, ...newColumns]);
-        });
+                // The columns the board settled on are the options its definition should offer. This
+                // is what gives a board created after migration 0240 ran a definition at all, and what
+                // keeps one that gained a column from outside the board's own UI up to date. It writes
+                // only when the two actually differ, so the re-render its own write causes stops here.
+                // Reported rather than surfaced: nothing the user did is failing, and a board that
+                // cannot write it re-tries on the next render, which would toast on each one.
+                api.syncColumnsToDefinition(columns)
+                    .catch((e) => console.error("Failed to sync the board columns to the attribute definition:", e));
+            });
     }
 
-    useEffect(refresh, [ parentNote, noteIds, viewConfig, statusAttributeWithPrefix ]);
+    useEffect(refresh, [ parentNote, noteIds, viewConfig, statusAttributeWithPrefix, statusDefinition ]);
 
     const handleColumnDrop = useCallback((fromIndex: number, toIndex: number) => {
         const newColumns = api.reorderColumn(fromIndex, toIndex);
@@ -114,6 +126,12 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     }, [api]);
 
     useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
+        // The column list is read off the definition, which may be edited from the attribute panel,
+        // another split, or a synced instance. Re-reading it re-runs the refresh through the effect.
+        if (loadResults.getAttributeRows().some(attr => attr.name === `label:${api.statusAttribute}`)) {
+            setDefinitionRevision(revision => revision + 1);
+        }
+
         // Check if any changes affect our board
         const hasRelevantChanges =
             // React to changes in status attribute for notes in this board
@@ -124,8 +142,8 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
             loadResults.getBranchRows().some(branch => noteIds.includes(branch.noteId!)) ||
             // React to changes in note icon or color.
             loadResults.getAttributeRows().some(attr => [ "iconClass", "color" ].includes(attr.name ?? "") && noteIds.includes(attr.noteId ?? "")) ||
-            // React to attachment change
-            loadResults.getAttachmentRows().some(att => att.ownerId === parentNote.noteId && att.title === "board.json") ||
+            // External changes to the board.json attachment arrive via the viewConfig prop
+            // (see useViewModeConfig), which re-triggers the refresh effect.
             // React to changes in "groupBy"
             loadResults.getAttributeRows().some(attr => attr.name === "board:groupBy" && attr.noteId === parentNote.noteId);
 
@@ -269,6 +287,12 @@ export function TitleEditor({ currentValue, placeholder, save, dismiss, mode, is
     });
 
     const onKeyDown = (e: TargetedKeyboardEvent<HTMLInputElement | HTMLTextAreaElement> | KeyboardEvent) => {
+        // Skip processing during IME composition so the Enter that commits a
+        // CJK conversion does not also save the title with unconfirmed text.
+        if (isIMEComposing(e)) {
+            return;
+        }
+
         if (e.key === "Enter" || e.key === "Escape") {
             e.preventDefault();
             e.stopPropagation();

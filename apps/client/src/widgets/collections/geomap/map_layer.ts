@@ -1,24 +1,21 @@
-export interface MapLayer {
-    name: string;
-    isDarkTheme?: boolean;
-}
-
-interface VectorLayer extends MapLayer {
+export type MapLayer = ({
     type: "vector";
     style: string | (() => Promise<{}>);
     styleFallback: {};
-}
-
-interface RasterLayer extends MapLayer {
+} | {
     type: "raster";
     url: string;
     attribution: string;
-}
+}) & {
+    // Common properties
+    name: string;
+    isDarkTheme?: boolean;
+};
 
 // Minimal empty style used as a placeholder while the real style loads asynchronously.
 const EMPTY_STYLE = { version: 8, sources: {}, layers: [] };
 
-export const MAP_LAYERS: Record<string, VectorLayer | RasterLayer> = {
+export const MAP_LAYERS: Record<string, MapLayer> = {
     "openstreetmap": {
         name: "OpenStreetMap",
         type: "raster",

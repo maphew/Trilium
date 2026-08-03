@@ -1,24 +1,24 @@
-import { CKTextEditor, ModelText } from "@triliumnext/ckeditor5";
-import { createPortal } from "preact/compat";
-import { useCallback, useEffect, useState } from "preact/hooks";
+import type { CKTextEditor, ModelText } from "@triliumnext/ckeditor5";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import { t } from "../../services/i18n";
 import { randomString } from "../../services/utils";
-import { useActiveNoteContext, useContentElement, useIsNoteReadOnly, useNoteProperty, useTextEditor, useTriliumOptionJson } from "../react/hooks";
-import Modal from "../react/Modal";
-import { HighlightsListOptions } from "../type_widgets/options/text_notes";
+import Dropdown from "../react/Dropdown";
+import { FormListToggleableItem } from "../react/FormList";
+import { useActiveNoteContext, useContentElement, useGetContextData, useIsNoteReadOnly, useMathRendering, useNoteProperty, useTextEditor, useTriliumOptionJson } from "../react/hooks";
+import RawHtml from "../react/RawHtml";
+import { HIGHLIGHT_FORMATS, HighlightFormat } from "../type_widgets/options/highlights_list_options";
+import { extractHighlightsFromStaticHtml, htmlForRun, type DomHighlight, type RawHighlight } from "./highlights_extract";
 import RightPanelWidget from "./RightPanelWidget";
+import SidebarHelp from "./SidebarHelp";
 
-interface RawHighlight {
-    id: string;
-    text: string;
-    attrs: {
-        bold: boolean;
-        italic: boolean;
-        underline: boolean;
-        color: string | undefined;
-        background: string | undefined;
-    }
+/**
+ * Highlights published by a type widget that renders its own content, rather than one the
+ * sidebar can read out of the editor or the DOM itself (see the Markdown note type).
+ */
+export interface HighlightContext {
+    highlights: RawHighlight[];
+    scrollToHighlight(highlight: RawHighlight): void;
 }
 
 export default function HighlightsList() {
@@ -30,29 +30,26 @@ export default function HighlightsList() {
         <>
             {noteType === "text" && isReadOnly && <ReadOnlyTextHighlightsList />}
             {noteType === "text" && !isReadOnly && <EditableTextHighlightsList />}
+            {note?.isMarkdown() && <ContextDataHighlightsList />}
         </>
     );
 }
 
-function HighlightListOptionsModal({ shown, setShown }: { shown: boolean, setShown(value: boolean): void }) {
-    return (
-        <Modal
-            className="highlights-list-options-modal"
-            size="md"
-            title={t("highlights_list_2.modal_title")}
-            show={shown}
-            onHidden={() => setShown(false)}
-        >
-            <HighlightsListOptions />
-        </Modal>
-    );
+/** Reads what the note's own widget published, so the source stays the widget's business. */
+function ContextDataHighlightsList() {
+    const data = useGetContextData("highlights");
+
+    return <AbstractHighlightsList
+        highlights={data?.highlights ?? []}
+        scrollToHighlight={data?.scrollToHighlight ?? (() => {})}
+    />;
 }
 
 function AbstractHighlightsList<T extends RawHighlight>({ highlights, scrollToHighlight }: {
     highlights: T[],
     scrollToHighlight(highlight: T): void;
 }) {
-    const [ highlightsList ] = useTriliumOptionJson<["bold" | "italic" | "underline" | "color" | "bgColor"]>("highlightsList");
+    const [ highlightsList, setHighlightsList ] = useTriliumOptionJson<HighlightFormat[]>("highlightsList");
     const highlightsListSet = new Set(highlightsList || []);
     const filteredHighlights = highlights.filter(highlight => {
         const { attrs } = highlight;
@@ -65,50 +62,101 @@ function AbstractHighlightsList<T extends RawHighlight>({ highlights, scrollToHi
         );
     });
 
-    const [ shown, setShown ] = useState(false);
     return (
-        <>
-            <RightPanelWidget
-                id="highlights"
-                title={t("highlights_list_2.title_with_count", { count: filteredHighlights.length })}
-                contextMenuItems={[
-                    {
-                        title: t("highlights_list_2.menu_configure"),
-                        uiIcon: "bx bx-cog",
-                        handler: () => setShown(true)
-                    }
-                ]}
-                grow
-            >
-                <span className="highlights-list">
-                    {filteredHighlights.length > 0 ? (
-                        <ol>
-                            {filteredHighlights.map(highlight => (
-                                <li
-                                    key={highlight.id}
-                                    onClick={() => scrollToHighlight(highlight)}
-                                >
-                                    <span
-                                        style={{
-                                            fontWeight: highlight.attrs.bold ? "700" : undefined,
-                                            fontStyle: highlight.attrs.italic ? "italic" : undefined,
-                                            textDecoration: highlight.attrs.underline ? "underline" : undefined,
-                                            color: highlight.attrs.color,
-                                            backgroundColor: highlight.attrs.background
-                                        }}
-                                    >{highlight.text}</span>
-                                </li>
-                            ))}
-                        </ol>
-                    ) : (
-                        <div className="no-highlights">
-                            {t("highlights_list_2.no_highlights")}
-                        </div>
-                    )}
-                </span>
-            </RightPanelWidget>
-            {createPortal(<HighlightListOptionsModal shown={shown} setShown={setShown} />, document.body)}
-        </>
+        <RightPanelWidget
+            id="highlights"
+            title={t("highlights_list_2.title_with_count", { count: filteredHighlights.length })}
+            // What the list counts as a highlight is the question the card raises and the setting that
+            // answers it, so the setting sits in the header rather than behind a menu holding nothing
+            // else — and as a menu of its own rather than a modal, see HighlightsListMenu.
+            buttons={<>
+                <SidebarHelp section="highlights" />
+                <HighlightsListMenu currentValue={highlightsList} onChange={setHighlightsList} />
+            </>}
+        >
+            <span className="highlights-list">
+                {filteredHighlights.length > 0 ? (
+                    <ol>
+                        {filteredHighlights.map(highlight => (
+                            <HighlightItem
+                                key={highlight.id}
+                                highlight={highlight}
+                                onClick={() => scrollToHighlight(highlight)}
+                            />
+                        ))}
+                    </ol>
+                ) : (
+                    <div className="no-highlights">
+                        {t("highlights_list_2.no_highlights")}
+                    </div>
+                )}
+            </span>
+        </RightPanelWidget>
+    );
+}
+
+/**
+ * The choice of what the list counts as a highlight, offered from the card's own header.
+ *
+ * A menu rather than a modal, because the toggles are a filter on the list right behind them: a modal
+ * covers the very thing being filtered, so the effect of a toggle is only seen once it is dismissed,
+ * whereas the list stays on show under a menu and re-filters as each format is turned over.
+ *
+ * Which is also why the rows are {@link FormListToggleableItem}s: they stop the press reaching
+ * Bootstrap's own dismiss, so the menu survives several toggles instead of closing after the first.
+ */
+function HighlightsListMenu({ currentValue, onChange }: {
+    currentValue: HighlightFormat[];
+    onChange(newValue: HighlightFormat[]): Promise<void>;
+}) {
+    return (
+        <Dropdown
+            buttonClassName="bx bx-cog"
+            title={t("highlights_list_2.menu_configure")}
+            iconAction
+            hideToggleArrow
+            noSelectButtonStyle
+            // The card establishes a stacking context of its own and clips its overflow, so the menu
+            // is rendered into the body to stand clear of it — as the card's help popup is.
+            portalToBody
+        >
+            {HIGHLIGHT_FORMATS.map(({ val, titleKey, icon }) => (
+                <FormListToggleableItem
+                    key={val}
+                    icon={icon}
+                    title={t(titleKey)}
+                    currentValue={currentValue.includes(val)}
+                    onChange={(checked) => onChange(checked
+                        ? [ ...currentValue, val ]
+                        : currentValue.filter((format) => format !== val))}
+                />
+            ))}
+        </Dropdown>
+    );
+}
+
+function HighlightItem<T extends RawHighlight>({ highlight, onClick }: {
+    highlight: T;
+    onClick(): void;
+}) {
+    const contentRef = useRef<HTMLElement>(null);
+
+    useMathRendering(contentRef, [highlight.text]);
+
+    return (
+        <li onClick={onClick}>
+            <RawHtml
+                containerRef={contentRef}
+                style={{
+                    fontWeight: highlight.attrs.bold ? "700" : undefined,
+                    fontStyle: highlight.attrs.italic ? "italic" : undefined,
+                    textDecoration: highlight.attrs.underline ? "underline" : undefined,
+                    color: highlight.attrs.color,
+                    backgroundColor: highlight.attrs.background
+                }}
+                html={highlight.text}
+            />
+        </li>
     );
 }
 
@@ -201,9 +249,23 @@ function extractHighlightsFromTextEditor(editor: CKTextEditor) {
         };
 
         if (Object.values(attrs).some(Boolean)) {
+            // Take the run's markup from the DOM, so nested content survives into the list.
+            let html = item.data;
+            try {
+                const modelPos = editor.model.createPositionAt(item.textNode, "before");
+                const viewPos = editor.editing.mapper.toViewPosition(modelPos);
+                const domPos = editor.editing.view.domConverter.viewPositionToDom(viewPos);
+                if (domPos?.parent instanceof HTMLElement) {
+                    html = htmlForRun(domPos.parent, item.data);
+                }
+            } catch {
+                // During change:data events, the view may not be fully synchronized with the model.
+                // Fall back to using the raw text data.
+            }
+
             result.push({
                 id: randomString(),
-                text: item.data,
+                text: html,
                 attrs,
                 textNode: item.textNode,
                 offset: item.startOffset
@@ -216,10 +278,6 @@ function extractHighlightsFromTextEditor(editor: CKTextEditor) {
 //#endregion
 
 //#region Read-only text
-interface DomHighlight extends RawHighlight {
-    element: HTMLElement;
-}
-
 function ReadOnlyTextHighlightsList() {
     const { noteContext } = useActiveNoteContext();
     const contentEl = useContentElement(noteContext);
@@ -235,50 +293,4 @@ function ReadOnlyTextHighlightsList() {
     />;
 }
 
-function extractHighlightsFromStaticHtml(el: HTMLElement | null) {
-    if (!el) return [];
-
-    const { color: defaultColor, backgroundColor: defaultBackgroundColor } = getComputedStyle(el);
-
-    const walker = document.createTreeWalker(
-        el,
-        NodeFilter.SHOW_TEXT,
-        null
-    );
-
-    const highlights: DomHighlight[] = [];
-
-    let node: Node | null;
-    while ((node = walker.nextNode())) {
-        const el = node.parentElement;
-        if (!el || !node.textContent?.trim()) continue;
-
-        const style = getComputedStyle(el);
-
-        if (
-            el.closest('strong, em, u') ||
-            style.color !== defaultColor ||
-            style.backgroundColor !== defaultBackgroundColor
-        ) {
-            const attrs: RawHighlight["attrs"] = {
-                bold: !!el.closest("strong"),
-                italic: !!el.closest("em"),
-                underline: !!el.closest("u"),
-                background: el.style.backgroundColor,
-                color: el.style.color
-            };
-
-            if (Object.values(attrs).some(Boolean)) {
-                highlights.push({
-                    id: randomString(),
-                    text: node.textContent,
-                    element: el,
-                    attrs
-                });
-            }
-        }
-    }
-
-    return highlights;
-}
 //#endregion

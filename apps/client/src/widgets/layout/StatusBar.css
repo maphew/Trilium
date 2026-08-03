@@ -1,6 +1,5 @@
-.component.status-bar {
+.status-bar {
     contain: none;
-    border-top: 1px solid var(--status-bar-border-color);
 
     > .status-bar-main-row {
         min-height: 28px;
@@ -9,6 +8,10 @@
         background-color: var(--left-pane-background-color);
         padding-inline: 0.25em;
         font-size: 0.85em;
+
+        body.layout-horizontal & {
+            border-top: 1px solid var(--main-border-color);
+        }
 
         > .breadcrumb {
             flex-grow: 1;
@@ -62,19 +65,6 @@
 
         .dropdown-note-info {
             padding: 1em !important;
-        }
-
-        .dropdown-note-paths {
-            .note-paths-widget {
-                padding: 0.5em;
-            }
-        }
-
-        .backlinks-widget > .dropdown-menu {
-            --menu-padding-size: .9em;
-
-            max-height: 60vh;
-            overflow-y: scroll;
         }
     }
 
@@ -156,15 +146,6 @@ body.experimental-feature-new-layout .note-info-content {
             }
 }
 
-body.experimental-feature-new-layout div.similar-notes-widget div.similar-notes-wrapper {
-    max-height: unset;
-}
-
-body.experimental-feature-new-layout.mobile div.similar-notes-widget div.similar-notes-wrapper {
-    max-height: unset;
-    padding: 0;
-}
-
 .bottom-panel {
     margin: 0 !important;
     padding: 0;
@@ -178,19 +159,27 @@ body.experimental-feature-new-layout.mobile div.similar-notes-widget div.similar
         display: flex;
         padding: 6px 12px;
         background: var(--bottom-panel-title-bar-background-color);
-        justify-content: space-between;
         align-items: center;
+        gap: 4px;
 
         .bottom-panel-title-bar-caption {
+            flex-grow: 1;
             text-transform: uppercase;
             letter-spacing: .3pt;
             font-weight: 600;
             font-size: .85em;
         }
+
+        .icon-action {
+            --icon-button-size: 24px;
+            --icon-button-icon-ratio: 0.8;
+            border-radius: 50%;
+        }
     }
 
     .bottom-panel-content {
         border-bottom: 1px solid var(--main-border-color);
+        border-end-start-radius: var(--center-pane-border-radius);
         background: var(--bottom-panel-background-color);
         padding: 8px 12px;
         max-height: 40vh;

@@ -1,24 +1,27 @@
-import { EventCallBackMethods, RowComponent, Tabulator } from "tabulator-tables";
-import { CommandListenerData } from "../../../components/app_context";
-import note_create, { CreateNoteOpts } from "../../../services/note_create";
-import { useLegacyImperativeHandlers } from "../../react/hooks";
 import { RefObject } from "preact";
-import { setAttribute, setLabel } from "../../../services/attributes";
-import froca from "../../../services/froca";
-import server from "../../../services/server";
-import branches from "../../../services/branches";
-import AttributeDetailWidget from "../../attribute_widgets/attribute_detail";
+import { EventCallBackMethods, RowComponent, Tabulator } from "tabulator-tables";
 
-export default function useRowTableEditing(api: RefObject<Tabulator>, attributeDetailWidget: AttributeDetailWidget, parentNotePath: string): Partial<EventCallBackMethods> {
+import { CommandListenerData } from "../../../components/app_context";
+import FNote from "../../../entities/fnote";
+import { setAttribute, setLabel, setLabelValues, setRelationValues } from "../../../services/attributes";
+import branches from "../../../services/branches";
+import froca from "../../../services/froca";
+import note_create, { CreateNoteOpts } from "../../../services/note_create";
+import server from "../../../services/server";
+import AttributeDetailWidget from "../../attribute_widgets/attribute_detail";
+import { useLegacyImperativeHandlers } from "../../react/hooks";
+
+export default function useRowTableEditing(api: RefObject<Tabulator>, attributeDetailWidget: AttributeDetailWidget, parentNote: FNote): Partial<EventCallBackMethods> {
     // Adding new rows
     useLegacyImperativeHandlers({
         addNewRowCommand({ customOpts, parentNotePath: customNotePath }: CommandListenerData<"addNewRow">) {
-            const notePath = customNotePath ?? parentNotePath;
+            const notePath = customNotePath ?? parentNote.noteId;
             if (notePath) {
                 const opts: CreateNoteOpts = {
                     activate: false,
+                    isProtected: parentNote.isProtected,
                     ...customOpts
-                }
+                };
                 note_create.createNote(notePath, opts).then(({ branch }) => {
                     if (branch) {
                         setTimeout(() => {
@@ -26,7 +29,7 @@ export default function useRowTableEditing(api: RefObject<Tabulator>, attributeD
                             focusOnBranch(api.current, branch?.branchId);
                         }, 100);
                     }
-                })
+                });
             }
         }
     });
@@ -46,14 +49,32 @@ export default function useRowTableEditing(api: RefObject<Tabulator>, attributeD
             if (field.includes(".")) {
                 const [ type, name ] = field.split(".", 2);
                 if (type === "labels") {
+                    // A set of values is written as the several labels it is, rather than as one
+                    // holding the array stringified.
+                    if (Array.isArray(newValue)) {
+                        const note = await froca.getNote(noteId);
+                        if (note) {
+                            await setLabelValues(note, name, newValue as string[]);
+                        }
+                        return;
+                    }
+
                     if (typeof newValue === "boolean") {
                         newValue = newValue ? "true" : "false";
+                    } else if (typeof newValue === "number") {
+                        newValue = String(newValue);
                     }
                     setLabel(noteId, name, newValue);
                 } else if (type === "relations") {
                     const note = await froca.getNote(noteId);
                     if (note) {
-                        setAttribute(note, "relation", name, newValue);
+                        // A set of targets is written as the several relations it is, as a set of
+                        // label values is.
+                        if (Array.isArray(newValue)) {
+                            await setRelationValues(note, name, newValue as string[]);
+                        } else {
+                            setAttribute(note, "relation", name, newValue);
+                        }
                     }
                 }
             }
@@ -91,14 +112,14 @@ function focusOnBranch(api: Tabulator, branchId: string) {
 }
 
 function findRowDataById(rows: RowComponent[], branchId: string): RowComponent | null {
-    for (let row of rows) {
+    for (const row of rows) {
         const item = row.getIndex() as string;
 
         if (item === branchId) {
             return row;
         }
 
-        let found = findRowDataById(row.getTreeChildren(), branchId);
+        const found = findRowDataById(row.getTreeChildren(), branchId);
         if (found) return found;
     }
     return null;

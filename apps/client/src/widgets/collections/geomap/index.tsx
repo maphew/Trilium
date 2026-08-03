@@ -1,6 +1,7 @@
 import "./index.css";
 
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import type maplibregl from "maplibre-gl";
 
 import appContext from "../../../components/app_context";
 import FNote from "../../../entities/fnote";
@@ -9,19 +10,17 @@ import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import server from "../../../services/server";
 import toast from "../../../services/toast";
+import { escapeHtml } from "../../../services/utils";
 import CollectionProperties from "../../note_bars/CollectionProperties";
 import ActionButton from "../../react/ActionButton";
 import { ButtonOrActionButton } from "../../react/Button";
-import { useNoteBlob, useNoteLabel, useNoteLabelBoolean, useNoteProperty, useNoteTreeDrag, useSpacedUpdate, useTriliumEvent } from "../../react/hooks";
-import { ParentComponent } from "../../react/react_utils";
-import TouchBar, { TouchBarButton, TouchBarSlider } from "../../react/TouchBar";
+import { useCollectionTreeDrag, useNoteBlob, useNoteLabel, useNoteLabelBoolean, useNoteProperty, useSpacedUpdate, useTriliumEvent } from "../../react/hooks";
 import { ViewModeProps } from "../interface";
 import { createNewNote, moveMarker } from "./api";
 import openContextMenu, { openMapContextMenu } from "./context_menu";
 import Map, { GeoMouseEvent } from "./map";
-import { DEFAULT_MAP_LAYER_NAME } from "./map_layer";
+import { DEFAULT_MAP_LAYER_NAME, MAP_LAYERS, MapLayer } from "./map_layer";
 import Marker, { GpxTrack } from "./marker";
-import type maplibregl from "maplibre-gl";
 
 const DEFAULT_COORDINATES: [number, number] = [3.878638227135724, 446.6630455551659];
 const DEFAULT_ZOOM = 2;
@@ -43,10 +42,12 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
     const [ state, setState ] = useState(State.Normal);
     const [ coordinates, setCoordinates ] = useState(viewConfig?.view?.center);
     const [ zoom, setZoom ] = useState(viewConfig?.view?.zoom);
-    const [ layerName ] = useNoteLabel(note, "map:style");
     const [ hasScale ] = useNoteLabelBoolean(note, "map:scale");
+    const [ hideLabels ] = useNoteLabelBoolean(note, "map:hideLabels");
     const [ isReadOnly ] = useNoteLabelBoolean(note, "readOnly");
+    const [ includeArchived ] = useNoteLabelBoolean(note, "includeArchived");
     const [ notes, setNotes ] = useState<FNote[]>([]);
+    const layerData = useLayerData(note);
     const spacedUpdate = useSpacedUpdate(() => {
         if (viewConfig) {
             saveConfig(viewConfig);
@@ -61,27 +62,38 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
         setZoom(viewConfig?.view?.zoom ?? DEFAULT_ZOOM);
     }, [ note, viewConfig ]);
 
-    // Note creation.
-    useTriliumEvent("geoMapCreateChildNote", () => {
+    // Note creation. Scoped to this map instance via a local callback rather than the global
+    // geoMapCreateChildNote command: embedded maps share no note context (no distinct ntxId), so a
+    // broadcast command would arm placement mode on every map at once. The button is this command's
+    // only trigger, so a direct handler keeps it isolated to the clicked map.
+    const startNotePlacement = useCallback(() => setState(State.NewNote), []);
+
+    // Placement mode (NewNote) is armed by the button. Tying the instruction toast and the global
+    // Escape-to-cancel listener to the state (rather than the click handler) guarantees both are
+    // torn down on cancel, on completion (map click) and on unmount — otherwise the listener leaks
+    // and a fresh one accumulates on every placement cycle.
+    useEffect(() => {
+        if (state !== State.NewNote) return;
+
         toast.showPersistent({
             icon: "plus",
             id: "geo-new-note",
-            title: "New note",
+            title: t("geo-map.create-child-note-toast-title"),
             message: t("geo-map.create-child-note-instruction")
         });
 
-        setState(State.NewNote);
-
-        const globalKeyListener: (this: Window, ev: KeyboardEvent) => any = (e) => {
+        const globalKeyListener = (e: KeyboardEvent) => {
             if (e.key === "Escape") {
                 setState(State.Normal);
-
-                window.removeEventListener("keydown", globalKeyListener);
-                toast.closePersistent("geo-new-note");
             }
         };
         window.addEventListener("keydown", globalKeyListener);
-    });
+
+        return () => {
+            window.removeEventListener("keydown", globalKeyListener);
+            toast.closePersistent("geo-new-note");
+        };
+    }, [ state ]);
 
     useTriliumEvent("deleteFromMap", ({ noteId }) => {
         moveMarker(noteId, null);
@@ -89,45 +101,46 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
 
     const onClick = useCallback(async (e: GeoMouseEvent) => {
         if (state === State.NewNote) {
-            toast.closePersistent("geo-new-note");
-            await createNewNote(note.noteId, e);
+            // Leaving NewNote closes the instruction toast via the placement-mode effect cleanup.
+            await createNewNote(note, e);
             setState(State.Normal);
         }
-    }, [ state ]);
+    }, [ note, state ]);
 
     const onContextMenu = useCallback((e: GeoMouseEvent) => {
-        openMapContextMenu(note.noteId, e, !isReadOnly);
-    }, [ note.noteId, isReadOnly ]);
+        openMapContextMenu(note, e, !isReadOnly);
+    }, [ note, isReadOnly ]);
 
     // Dragging
     const containerRef = useRef<HTMLDivElement>(null);
     const apiRef = useRef<maplibregl.Map>(null);
-    useNoteTreeDrag(containerRef, {
+    useCollectionTreeDrag(containerRef, {
         dragEnabled: !isReadOnly,
-        dragNotEnabledMessage: {
-            icon: "bx bx-lock-alt",
-            title: t("book.drag_locked_title"),
-            message: t("book.drag_locked_message")
-        },
+        includeArchived,
         async callback(treeData, e) {
             const api = apiRef.current;
-            if (!note || !api || isReadOnly) return;
+            // treeData is non-empty in practice (useNoteTreeDrag drops empty payloads), but guard
+            // explicitly so the treeData[0] access can't throw.
+            if (!note || !api || isReadOnly || !treeData.length) return [];
 
             const { noteId } = treeData[0];
 
             const offset = containerRef.current?.getBoundingClientRect();
             const x = e.clientX - (offset?.left ?? 0);
             const y = e.clientY - (offset?.top ?? 0);
-            const lngLat = api.unproject([x, y]);
+            const lngLat = api.unproject([ x, y ]);
+            const latlng = { lat: lngLat.lat, lng: lngLat.lng };
 
             const targetNote = await froca.getNote(noteId, true);
             const parents = targetNote?.getParentNoteIds();
             if (parents?.includes(note.noteId)) {
-                await moveMarker(noteId, { lat: lngLat.lat, lng: lngLat.lng });
-            } else {
-                await branches.cloneNoteToParentNote(noteId, noteId);
-                await moveMarker(noteId, { lat: lngLat.lat, lng: lngLat.lng });
+                await moveMarker(noteId, latlng);
+                return [];
             }
+
+            await branches.cloneNoteToParentNote(noteId, note.noteId);
+            await moveMarker(noteId, latlng);
+            return [ noteId ];
         }
     });
 
@@ -141,7 +154,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                         icon="bx bx-plus"
                         text={t("geo-map.create-child-note-text")}
                         title={t("geo-map.create-child-note-title")}
-                        triggerCommand="geoMapCreateChildNote"
+                        onClick={startNotePlacement}
                         disabled={isReadOnly}
                     />
                 </>}
@@ -150,7 +163,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                 apiRef={apiRef} containerRef={containerRef}
                 coordinates={coordinates}
                 zoom={zoom}
-                layerName={layerName ?? DEFAULT_MAP_LAYER_NAME}
+                layerData={layerData}
                 viewportChanged={(coordinates, zoom) => {
                     if (!viewConfig) viewConfig = {};
                     viewConfig.view = { center: coordinates, zoom };
@@ -160,11 +173,32 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                 onContextMenu={onContextMenu}
                 scale={hasScale}
             >
-                {notes.map(note => <NoteWrapper note={note} isReadOnly={isReadOnly} />)}
+                {notes.map(note => <NoteWrapper note={note} isReadOnly={isReadOnly} hideLabels={hideLabels} />)}
             </Map>}
-            <GeoMapTouchBar state={state} map={apiRef.current} />
         </div>
     );
+}
+
+function useLayerData(note: FNote) {
+    const [ layerName ] = useNoteLabel(note, "map:style");
+    // Memo is needed because it would generate unnecessary reloads due to layer change.
+    const layerData = useMemo(() => {
+        // Custom layers.
+        if (layerName?.startsWith("http")) {
+            return {
+                name: "Custom",
+                type: "raster",
+                url: layerName,
+                attribution: ""
+            } satisfies MapLayer;
+        }
+
+        // Built-in layers.
+        const layerData = MAP_LAYERS[layerName ?? ""] ?? MAP_LAYERS[DEFAULT_MAP_LAYER_NAME];
+        return layerData;
+    }, [ layerName ]);
+
+    return layerData;
 }
 
 function ToggleReadOnlyButton({ note }: { note: FNote }) {
@@ -177,22 +211,26 @@ function ToggleReadOnlyButton({ note }: { note: FNote }) {
     />;
 }
 
-function NoteWrapper({ note, isReadOnly }: { note: FNote, isReadOnly: boolean }) {
+function NoteWrapper({ note, isReadOnly, hideLabels }: {
+    note: FNote,
+    isReadOnly: boolean,
+    hideLabels: boolean
+}) {
     const mime = useNoteProperty(note, "mime");
     const [ location ] = useNoteLabel(note, LOCATION_ATTRIBUTE);
 
     if (mime === "application/gpx+xml") {
-        return <NoteGpxTrack note={note} />;
+        return <NoteGpxTrack note={note} hideLabels={hideLabels} />;
     }
 
     if (location) {
         const latLng = location?.split(",", 2).map((el) => parseFloat(el)) as [ number, number ] | undefined;
         if (!latLng) return;
-        return <NoteMarker note={note} editable={!isReadOnly} latLng={latLng} />;
+        return <NoteMarker note={note} editable={!isReadOnly} latLng={latLng} hideLabels={hideLabels} />;
     }
 }
 
-function NoteMarker({ note, editable, latLng }: { note: FNote, editable: boolean, latLng: [number, number] }) {
+function NoteMarker({ note, editable, latLng, hideLabels }: { note: FNote, editable: boolean, latLng: [number, number], hideLabels: boolean }) {
     // React to changes
     const [ color ] = useNoteLabel(note, "color");
     const [ iconClass ] = useNoteLabel(note, "iconClass");
@@ -200,8 +238,9 @@ function NoteMarker({ note, editable, latLng }: { note: FNote, editable: boolean
 
     const title = useNoteProperty(note, "title");
     const iconHtml = useMemo(() => {
-        return buildIconHtml(note.getIcon(), note.getColorClass() ?? undefined, title, note.noteId, archived);
-    }, [ iconClass, color, title, note.noteId, archived]);
+        const titleOrNone = hideLabels ? undefined : title;
+        return buildIconHtml(note.getIcon(), note.getColorClass() ?? undefined, titleOrNone, note.noteId, archived);
+    }, [ iconClass, color, title, note.noteId, archived, hideLabels ]);
 
     const onClick = useCallback(() => {
         appContext.triggerCommand("openInPopup", { noteIdOrPath: note.noteId });
@@ -226,7 +265,6 @@ function NoteMarker({ note, editable, latLng }: { note: FNote, editable: boolean
         coordinates={latLng}
         iconHtml={iconHtml}
         iconSize={[25, 41]}
-        iconAnchor={[12, 41]}
         draggable={editable}
         onMouseDown={onMouseDown}
         onDragged={editable ? onDragged : undefined}
@@ -235,7 +273,7 @@ function NoteMarker({ note, editable, latLng }: { note: FNote, editable: boolean
     />;
 }
 
-function NoteGpxTrack({ note }: { note: FNote }) {
+function NoteGpxTrack({ note, hideLabels }: { note: FNote, hideLabels?: boolean }) {
     const [ xmlString, setXmlString ] = useState<string>();
     const blob = useNoteBlob(note);
 
@@ -255,7 +293,7 @@ function NoteGpxTrack({ note }: { note: FNote }) {
     const iconClass = useNoteLabel(note, "iconClass");
 
     const trackColor = useMemo(() => note.getLabelValue("color") ?? "blue", [ color ]);
-    const startIconHtml = useMemo(() => buildIconHtml(note.getIcon(), note.getColorClass() ?? undefined, note.title), [ iconClass, color ]);
+    const startIconHtml = useMemo(() => buildIconHtml(note.getIcon(), note.getColorClass() ?? undefined, hideLabels ? undefined : note.title), [ iconClass, color, hideLabels ]);
     const endIconHtml = useMemo(() => buildIconHtml("bxs-flag-checkered"), [ ]);
     const waypointIconHtml = useMemo(() => buildIconHtml("bx bx-pin"), [ ]);
 
@@ -277,48 +315,13 @@ const MARKER_SVG = `<svg width="25" height="41" viewBox="0 0 25 41" xmlns="http:
 function buildIconHtml(bxIconClass: string, colorClass?: string, title?: string, noteIdLink?: string, archived?: boolean) {
     let html = /*html*/`\
         <div class="marker-pin">${MARKER_SVG}</div>
-        <span class="bx ${bxIconClass} tn-icon ${colorClass ?? ""}"></span>
-        <span class="title-label">${title ?? ""}</span>`;
+        <span class="bx ${escapeHtml(bxIconClass)} tn-icon ${escapeHtml(colorClass ?? "")}"></span>
+        <span class="title-label">${escapeHtml(title ?? "")}</span>`;
 
     if (noteIdLink) {
-        html = `<div data-href="#root/${noteIdLink}" class="${archived ? "archived" : ""}">${html}</div>`;
+        html = `<div data-href="#root/${escapeHtml(noteIdLink)}" class="${archived ? "archived" : ""}">${html}</div>`;
     }
 
     return html;
 }
 
-function GeoMapTouchBar({ state, map }: { state: State, map: maplibregl.Map | null | undefined }) {
-    const [ currentZoom, setCurrentZoom ] = useState<number>();
-    const parentComponent = useContext(ParentComponent);
-
-    useEffect(() => {
-        if (!map) return;
-
-        function onZoomChanged() {
-            setCurrentZoom(map?.getZoom());
-        }
-
-        map.on("zoom", onZoomChanged);
-        return () => { map.off("zoom", onZoomChanged); };
-    }, [ map ]);
-
-    return map && currentZoom && (
-        <TouchBar>
-            <TouchBarSlider
-                label="Zoom"
-                value={currentZoom}
-                minValue={map.getMinZoom()}
-                maxValue={map.getMaxZoom()}
-                onChange={(newValue) => {
-                    setCurrentZoom(newValue);
-                    map.setZoom(newValue);
-                }}
-            />
-            <TouchBarButton
-                label="New geo note"
-                click={() => parentComponent?.triggerCommand("geoMapCreateChildNote")}
-                enabled={state === State.Normal}
-            />
-        </TouchBar>
-    );
-}

@@ -13,10 +13,13 @@
       "path": "./apps/server"
     },
     {
-      "path": "./apps/server-e2e"
+      "path": "./packages/trilium-e2e"
     },
     {
       "path": "./apps/client"
+    },
+    {
+      "path": "./apps/build-docs"
     },
     {
       "path": "./apps/desktop"
@@ -43,21 +46,6 @@
       "path": "./packages/ckeditor5"
     },
     {
-      "path": "./packages/ckeditor5-keyboard-marker"
-    },
-    {
-      "path": "./packages/ckeditor5-mermaid"
-    },
-    {
-      "path": "./packages/ckeditor5-admonition"
-    },
-    {
-      "path": "./packages/ckeditor5-footnotes"
-    },
-    {
-      "path": "./packages/ckeditor5-math"
-    },
-    {
       "path": "./packages/codemirror"
     },
     {
@@ -71,6 +59,9 @@
     },
     {
       "path": "./scripts"
+    },
+    {
+      "path": "./apps/script-deployer"
     }
   ]
 }

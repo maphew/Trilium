@@ -1,18 +1,20 @@
-.note-detail-empty {
-    container-type: size;
-    padding-top: 50px;
-    min-width: 350px;
-}
+body.desktop {
+    .note-detail-empty {
+        container-type: size;
+        padding-top: 50px;
+        min-width: 350px;
+    }
 
-.note-detail-empty > * {
-    margin-inline: auto;
-    max-width: 850px;
-    padding-inline: 50px;
-}
-
-@container (max-width: 600px) {
     .note-detail-empty > * {
-        padding-inline: 20px;
+        margin-inline: auto;
+        max-width: 850px;
+        padding-inline: 50px;
+    }
+
+    @container (max-width: 600px) {
+        .note-detail-empty > * {
+            padding-inline: 20px;
+        }
     }
 }
 
@@ -24,10 +26,22 @@
 }
 
 .workspace-notes .workspace-note {
-    width: 130px;
     text-align: center;
     margin: 10px;
     border: 1px transparent solid;
+
+    .workspace-icon {
+        text-align: center;
+        font-size: 250%;
+    }
+
+    @media (min-width: 992px) {
+        width: 130px;
+
+        .workspace-icon {
+            font-size: 500%;
+        }
+    }
 }
 
 .workspace-notes .workspace-note:hover {
@@ -37,8 +51,6 @@
 }
 
 .note-detail-empty-results .aa-dropdown-menu {
-    max-height: 50vh;
-    overflow: scroll;
     border: var(--bs-border-width) solid var(--bs-border-color);
     border-top: 0;
 }
@@ -46,6 +58,10 @@
 .empty-tab-search label {
     margin-bottom: 8px;
     color: var(--muted-text-color);
+
+    body.mobile & {
+        display: none;
+    }
 }
 
 .empty-tab-search .note-autocomplete-input {
@@ -56,7 +72,27 @@
     border-bottom-right-radius: 0;
 }
 
-.workspace-icon {
-    text-align: center;
-    font-size: 500%;
+.empty-tab-search-mobile {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 12px;
+    margin-inline: 16px;
+    border: 1px solid var(--bs-border-color);
+    border-radius: 8px;
+    background: var(--input-background-color);
+    cursor: pointer;
+
+    &:active {
+        background: var(--icon-button-hover-background);
+    }
+}
+
+.empty-tab-search-mobile-icon {
+    font-size: 1.2em;
+    color: var(--muted-text-color);
+}
+
+.empty-tab-search-mobile-placeholder {
+    color: var(--muted-text-color);
 }

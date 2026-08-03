@@ -40,15 +40,14 @@ import PromotedAttributes from "../widgets/PromotedAttributes.jsx";
 import QuickSearchWidget from "../widgets/quick_search.js";
 import ReadOnlyNoteInfoBar from "../widgets/ReadOnlyNoteInfoBar.jsx";
 import { FixedFormattingToolbar } from "../widgets/ribbon/FormattingToolbar.jsx";
+import LazyComponent from "../widgets/react/LazyComponent.jsx";
 import NoteActions from "../widgets/ribbon/NoteActions.jsx";
-import Ribbon from "../widgets/ribbon/Ribbon.jsx";
 import ScrollPadding from "../widgets/scroll_padding.js";
 import SearchResult from "../widgets/search_result.jsx";
 import SharedInfo from "../widgets/shared_info.jsx";
 import RightPanelContainer from "../widgets/sidebar/RightPanelContainer.jsx";
 import TabRowWidget from "../widgets/tab_row.js";
 import TabHistoryNavigationButtons from "../widgets/TabHistoryNavigationButtons.jsx";
-import TitleBarButtons from "../widgets/title_bar_buttons.jsx";
 import TocWidget from "../widgets/toc.js";
 import WatchedFileUpdateStatusWidget from "../widgets/watched_file_update_status.js";
 import { applyModals } from "./layout_commons.js";
@@ -67,16 +66,15 @@ export default class DesktopLayout {
         const launcherPaneIsHorizontal = options.get("layoutOrientation") === "horizontal";
         const launcherPane = this.#buildLauncherPane(launcherPaneIsHorizontal);
         const isElectron = utils.isElectron();
-        const isMac = window.glob.platform === "darwin";
-        const isWindows = window.glob.platform === "win32";
         const hasNativeTitleBar = window.glob.hasNativeTitleBar;
 
         /**
          * If true, the tab bar is displayed above the launcher pane with full width; if false (default), the tab bar is displayed in the rest pane.
-         * On macOS we need to force the full-width tab bar on Electron in order to allow the semaphore (window controls) enough space.
+         * We force the full-width tab bar on Electron whenever the window controls sit on the left (always on macOS, and on Linux
+         * depending on the desktop's decoration layout): the rest pane starts past the launcher pane, so a tab bar confined to it
+         * cannot give those controls room, and they end up drawn over the launcher pane instead.
          */
-        const fullWidthTabBar = launcherPaneIsHorizontal || (isElectron && !hasNativeTitleBar && isMac);
-        const customTitleBarButtons = !hasNativeTitleBar && !isMac && !isWindows;
+        const fullWidthTabBar = launcherPaneIsHorizontal || (isElectron && !hasNativeTitleBar && utils.areWindowControlsOnLeft());
         const isNewLayout = isExperimentalFeatureEnabled("new-layout");
 
         const rootContainer = new RootContainer(true)
@@ -91,7 +89,6 @@ export default class DesktopLayout {
                     .child(<TabHistoryNavigationButtons />)
                     .child(new TabRowWidget().class("full-width"))
                     .optChild(isNewLayout, <RightPaneToggle />)
-                    .optChild(customTitleBarButtons, <TitleBarButtons />)
                     .css("height", "40px")
                     .css("background-color", "var(--launcher-pane-background-color)")
                     .setParent(appContext)
@@ -118,7 +115,6 @@ export default class DesktopLayout {
                                     .child(<TabHistoryNavigationButtons />)
                                     .child(new TabRowWidget())
                                     .optChild(isNewLayout, <RightPaneToggle />)
-                                    .optChild(customTitleBarButtons, <TitleBarButtons />)
                                     .css("height", "40px")
                                     .css("align-items", "center")
                             )
@@ -148,7 +144,7 @@ export default class DesktopLayout {
                                                             .optChild(!isNewLayout, <ClosePaneButton />)
                                                             .optChild(!isNewLayout, <CreatePaneButton />)
                                                             .optChild(isNewLayout, <NoteActions />))
-                                                        .optChild(!isNewLayout, <Ribbon />)
+                                                        .optChild(!isNewLayout, <LazyComponent loader={() => import("../widgets/ribbon/Ribbon.jsx")} />)
                                                         .child(new WatchedFileUpdateStatusWidget())
                                                         .optChild(!isNewLayout, <FloatingButtons items={DESKTOP_FLOATING_BUTTONS} />)
                                                         .child(
@@ -189,8 +185,7 @@ export default class DesktopLayout {
             .child(<CloseZenModeButton />)
 
             // Desktop-specific dialogs.
-            .child(<PasswordNoteSetDialog />)
-            .child(<UploadAttachmentsDialog />);
+            .child(<PasswordNoteSetDialog />);
 
         applyModals(rootContainer);
         return rootContainer;

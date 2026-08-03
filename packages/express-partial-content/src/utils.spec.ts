@@ -10,7 +10,8 @@ import {
   setAcceptRangesHeader,
   setContentDispositionHeader,
   setContentRangeHeader,
-  setCacheControlHeaderNoCache
+  setCacheControlHeaderNoCache,
+  setETagHeader
 } from "./utils.js";
 
 describe("utils tests", () => {
@@ -106,6 +107,22 @@ describe("utils tests", () => {
       const value = "no-cache";
       setCacheControlHeaderNoCache(res);
       expect(res.setHeader).toHaveBeenCalledExactlyOnceWith("Cache-Control", value);
+    });
+  });
+  describe("setETagHeader tests", () => {
+    it("quotes a bare validator but passes through already-quoted and weak ones", () => {
+      // RFC 9110 requires the entity-tag to be quoted, so a bare value gets wrapped; a value that
+      // already carries quotes (strong or weak) must be forwarded untouched.
+      setETagHeader("abc123", res);
+      expect(res.setHeader).toHaveBeenCalledExactlyOnceWith("ETag", `"abc123"`);
+
+      (res.setHeader as Mock).mockClear();
+      setETagHeader(`"abc123"`, res);
+      expect(res.setHeader).toHaveBeenCalledExactlyOnceWith("ETag", `"abc123"`);
+
+      (res.setHeader as Mock).mockClear();
+      setETagHeader(`W/"abc123"`, res);
+      expect(res.setHeader).toHaveBeenCalledExactlyOnceWith("ETag", `W/"abc123"`);
     });
   });
 });

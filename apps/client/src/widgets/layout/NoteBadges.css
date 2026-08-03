@@ -20,7 +20,9 @@
         &.read-only-badge {--color: var(--badge-read-only-background-color);}
         &.share-badge {--color: var(--badge-share-background-color);}
         &.clipped-note-badge {--color: var(--badge-clipped-note-background-color);}
+        &.doc-url-badge {--color: var(--badge-doc-url-background-color);}
         &.execute-badge {--color: var(--badge-execute-background-color);}
+        &.snippet-badge {--color: var(--badge-snippet-background-color);}
         &.save-status-badge {
             --default-opacity: 0.4;
             opacity: var(--default-opacity);
@@ -36,6 +38,14 @@
                 animation: fadeOut 250ms ease-in 5s forwards;
                 pointer-events: none;
             }
+
+            body#trilium-app.motion-disabled &.saved {
+                animation: fadeOut 0s 5s forwards !important;
+            }
+        }
+        &.active-content-badge { --color: var(--badge-active-content-background-color); }
+        &.active-content-badge.disabled {
+            opacity: 0.5;
         }
 
         min-width: 0;
@@ -44,6 +54,11 @@
             overflow: hidden;
             text-overflow: ellipsis;
             min-width: 0;
+        }
+
+        .switch-button {
+            --switch-track-height: 8px;
+            --switch-track-width: 30px;
         }
     }
 

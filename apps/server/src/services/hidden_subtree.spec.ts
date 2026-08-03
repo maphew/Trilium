@@ -1,11 +1,9 @@
 import { deferred, LOCALES } from "@triliumnext/commons";
+import { becca, becca_loader, binary_utils, cls, hidden_subtree as hiddenSubtreeService, i18n, note_service as notes, TaskContext } from "@triliumnext/core";
+import protectedSessionService from "@triliumnext/core/src/services/protected_session.js";
 import { beforeAll, describe, expect, it } from "vitest";
 
-import becca from "../becca/becca.js";
 import branches from "./branches.js";
-import cls from "./cls.js";
-import hiddenSubtreeService from "./hidden_subtree.js";
-import { changeLanguage } from "./i18n.js";
 import sql_init from "./sql_init.js";
 
 describe("Hidden Subtree", () => {
@@ -114,7 +112,7 @@ describe("Hidden Subtree", () => {
         });
 
         it("maintains launchers hidden, if they were shown by default but moved by the user", () => {
-            const launcher = becca.getNote("_lbLlmChat");
+            const launcher = becca.getNote("_lbCalendar");
             const branch = launcher?.getParentBranches()[0];
             expect(branch).toBeDefined();
             expect(branch!.parentNoteId).toBe("_lbVisibleLaunchers");
@@ -139,7 +137,7 @@ describe("Hidden Subtree", () => {
                     }
 
                     try {
-                        await changeLanguage(locale.id);
+                        await i18n.changeLanguage(locale.id);
                     } catch (error) {
                         done.reject(error);
                     }
@@ -157,6 +155,81 @@ describe("Hidden Subtree", () => {
             expect(hiddenSubtree.hasLabel("excludeFromNoteMap")).toBeTruthy();
             cls.init(() => hiddenSubtreeService.checkHiddenSubtree());
             expect(hiddenSubtree.hasLabel("excludeFromNoteMap")).toBeFalsy();
+        });
+
+        it("cleans up attribute change in templates", () => {
+            const template = becca.getNoteOrThrow("_template_table");
+            cls.init(() => {
+                template.setLabel("subtreeHidden", "foo");
+                hiddenSubtreeService.checkHiddenSubtree();
+            });
+            expect(template.getLabelValue("subtreeHidden")).toBe("false");
+        });
+
+        it("cleans up item to be deleted", async () => {
+            const noteId = "_lbLlmChat";
+            let llmNote = becca.getNote(noteId);
+
+            cls.init(() => {
+                if (!llmNote) {
+                    llmNote = notes.createNewNote({
+                        parentNoteId: "_lbVisibleLaunchers",
+                        noteId,
+                        title: "LLM chat",
+                        type: "launcher",
+                        content: ""
+                    }).note;
+                }
+
+                hiddenSubtreeService.checkHiddenSubtree();
+                becca_loader.reload("test");
+            });
+
+            llmNote = becca.getNote(noteId);
+            expect(llmNote).toBeFalsy();
+        });
+
+        it("leaves the content of a protected template alone when no protected session is available (#10549)", () => {
+            const dataKey = binary_utils.encodeUtf8("0123456789abcdef"); // exactly 16 bytes
+            const note = becca.getNoteOrThrow("_template_presentation_first");
+            const originalContent = note.getContent();
+            expect(originalContent).toBeTruthy();
+
+            // Simulate a user who protected the hidden template while a protected session was active...
+            protectedSessionService.setDataKey(dataKey);
+            try {
+                cls.init(() => notes.protectNoteRecursively(note, true, false, new TaskContext("test-protect", "protectNotes", { protect: true })));
+                expect(note.isProtected).toBe(true);
+
+                // ...and then the server restarts without a protected session — the boot state of #10549.
+                protectedSessionService.resetDataKey();
+                expect(note.isContentAvailable()).toBe(false);
+
+                // The check must neither throw (it used to crash the server on startup) nor touch the content.
+                expect(() => cls.init(() => hiddenSubtreeService.checkHiddenSubtree(true))).not.toThrow();
+
+                // With the session restored, the content still decrypts to the original.
+                protectedSessionService.setDataKey(dataKey);
+                expect(note.getContent()).toBe(originalContent);
+
+                // Clean up: unprotect the note again so the remaining tests see the default state.
+                cls.init(() => notes.protectNoteRecursively(note, false, false, new TaskContext("test-unprotect", "protectNotes", { protect: false })));
+                expect(note.isProtected).toBe(false);
+                expect(note.getContent()).toBe(originalContent);
+            } finally {
+                protectedSessionService.resetDataKey();
+            }
+        });
+
+        it("fixes attribute of wrong type", () => {
+            const template = becca.getNoteOrThrow("_template_table");
+            cls.init(() => {
+                template.setAttribute("relation", "template", "root");
+                hiddenSubtreeService.checkHiddenSubtree();
+            });
+            const attr = template.getAttributes().find(a => a.name === "template");
+            expect(attr).toBeDefined();
+            expect(attr?.type).toBe("label");
         });
     });
 });

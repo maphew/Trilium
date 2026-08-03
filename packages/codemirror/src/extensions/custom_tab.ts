@@ -1,4 +1,5 @@
 import { indentLess, indentMore } from "@codemirror/commands";
+import { indentUnit } from "@codemirror/language";
 import { EditorSelection, EditorState, SelectionRange, type Transaction, type ChangeSpec } from "@codemirror/state";
 import type { KeyBinding } from "@codemirror/view";
 
@@ -53,11 +54,12 @@ export default smartIndentWithTab;
 function handleSingleLineSelection(state: EditorState, dispatch: (transaction: Transaction) => void) {
     const changes: ChangeSpec[] = [];
     const newSelections: SelectionRange[] = [];
+    const unit = state.facet(indentUnit);
 
-    // Single line selection, replace with tab.
+    // Single line selection, replace with indent unit.
     for (let range of state.selection.ranges) {
-        changes.push({ from: range.from, to: range.to, insert: "\t" });
-        newSelections.push(EditorSelection.cursor(range.from + 1));
+        changes.push({ from: range.from, to: range.to, insert: unit });
+        newSelections.push(EditorSelection.cursor(range.from + unit.length));
     }
 
     dispatch(
@@ -75,6 +77,7 @@ function handleSingleLineSelection(state: EditorState, dispatch: (transaction: T
 function handleEmptySelections(state: EditorState, dispatch: (transaction: Transaction) => void) {
     const changes: ChangeSpec[] = [];
     const newSelections: SelectionRange[] = [];
+    const unit = state.facet(indentUnit);
 
     for (let range of state.selection.ranges) {
         const line = state.doc.lineAt(range.head);
@@ -84,12 +87,14 @@ function handleEmptySelections(state: EditorState, dispatch: (transaction: Trans
             // Only whitespace before cursor → indent line
             return indentMore({ state, dispatch });
         } else {
-            // Insert tab character at cursor
-            changes.push({ from: range.head, to: range.head, insert: "\t" });
-            newSelections.push(EditorSelection.cursor(range.head + 1));
+            // Insert configured indent unit at cursor
+            changes.push({ from: range.head, to: range.head, insert: unit });
+            newSelections.push(EditorSelection.cursor(range.head + unit.length));
         }
     }
 
+    /* v8 ignore next -- a selection always has at least one range, and every range either returns
+       indentMore above or pushes a change, so `changes` is never empty. */
     if (changes.length) {
         dispatch(
             state.update({
@@ -102,5 +107,6 @@ function handleEmptySelections(state: EditorState, dispatch: (transaction: Trans
         return true;
     }
 
+    /* v8 ignore next -- unreachable for the same reason as the guard above. */
     return false;
 }

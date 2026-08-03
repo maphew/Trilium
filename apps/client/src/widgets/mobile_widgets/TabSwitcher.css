@@ -35,11 +35,6 @@
             display: flex;
             flex-direction: column;
 
-            &.with-hue {
-                background-color: hsl(var(--bg-hue), 8.8%, 11.2%);
-                border-color: hsl(var(--bg-hue), 9.4%, 25.1%);
-            }
-
             &.active {
                 outline: 4px solid var(--more-accented-background-color);
                 background: var(--card-background-hover-color);
@@ -87,7 +82,8 @@
                 user-select: none;
                 pointer-events: none;
 
-                &.type-text {
+                &.type-text,
+                &.type-code .type-markdown {
                     padding: 10px;
                     --ck-content-todo-list-checkmark-size: 8px;
 
@@ -113,6 +109,11 @@
                     justify-content: center;
                     font-size: 1.25em;
                     color: var(--muted-text-color);
+
+                    .note-book-content {
+                        display: flex;
+                        align-items: center;
+                    }
                 }
 
                 .preview-placeholder {

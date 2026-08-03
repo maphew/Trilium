@@ -1,6 +1,7 @@
 import { OptionNames } from "@triliumnext/commons";
+
 import server from "./server.js";
-import { isShare } from "./utils.js";
+import { isPreAuthScreen, isShare } from "./utils.js";
 
 export type OptionValue = number | string;
 
@@ -9,7 +10,9 @@ class Options {
     private arr!: Record<string, OptionValue>;
 
     constructor() {
-        if (!isShare) {
+        // Don't fetch on the share view, nor on the login / set-password pre-auth screens, where an
+        // unauthenticated GET /api/options would 401 (#10589). Options aren't needed to render those.
+        if (!isShare && !isPreAuthScreen()) {
             this.initializedPromise = server.get<Record<string, OptionValue>>("options").then((data) => this.load(data));
         } else {
             this.initializedPromise = Promise.resolve();

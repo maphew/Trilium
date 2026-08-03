@@ -5,13 +5,14 @@ import { useEffect, useMemo, useState } from "preact/hooks";
 
 import FNote from "../../entities/fnote";
 import attributes from "../../services/attributes";
+import { isExperimentalFeatureEnabled } from "../../services/experimental_features";
 import froca from "../../services/froca";
 import { t } from "../../services/i18n";
 import { NOTE_TYPES, NoteTypeMapping } from "../../services/note_types";
 import server from "../../services/server";
 import { Badge, BadgeWithDropdown } from "../react/Badge";
 import { FormDropdownDivider, FormListItem } from "../react/FormList";
-import { useNoteContext, useNoteProperty, useNoteSavedData, useTriliumEvent } from "../react/hooks";
+import { useNoteProperty, useNoteSavedData, useTriliumEvent } from "../react/hooks";
 import { onWheelHorizontalScroll } from "../widget_utils";
 
 const SWITCHER_PINNED_NOTE_TYPES = new Set<NoteType>([ "text", "code", "book", "canvas" ]);
@@ -19,15 +20,16 @@ const supportedNoteTypes = new Set<NoteType>([
     "text", "code"
 ]);
 
-export default function NoteTypeSwitcher() {
-    const { note } = useNoteContext();
+export default function NoteTypeSwitcher({ note }: { note?: FNote | null }) {
     const blob = useNoteSavedData(note?.noteId);
     const currentNoteType = useNoteProperty(note, "type");
     const { pinnedNoteTypes, restNoteTypes } = useMemo(() => {
         const pinnedNoteTypes: NoteTypeMapping[] = [];
         const restNoteTypes: NoteTypeMapping[] = [];
         for (const noteType of NOTE_TYPES) {
-            if (noteType.reserved || noteType.static || noteType.type === "book") continue;
+            if (noteType.reserved || noteType.type === "book") continue;
+            if (noteType.type === "search") continue;
+            if (noteType.type === "llmChat" && !isExperimentalFeatureEnabled("llm")) continue;
             if (SWITCHER_PINNED_NOTE_TYPES.has(noteType.type)) {
                 pinnedNoteTypes.push(noteType);
             } else {
@@ -39,7 +41,7 @@ export default function NoteTypeSwitcher() {
     const currentNoteTypeData = useMemo(() => NOTE_TYPES.find(t => t.type === currentNoteType), [ currentNoteType ]);
     const { builtinTemplates, collectionTemplates } = useBuiltinTemplates();
 
-    return (currentNoteType && supportedNoteTypes.has(currentNoteType) && !note?.isTriliumSqlite() &&
+    return (currentNoteType && supportedNoteTypes.has(currentNoteType) && !note?.isTriliumSqlite() && !note?.isMarkdown() && !note?.isIconPack() &&
         <div
             className="note-type-switcher"
             onWheel={onWheelHorizontalScroll}
@@ -98,7 +100,7 @@ function CollectionNoteTypes({ noteId, collectionTemplates }: { noteId: string, 
     );
 }
 
-function TemplateNoteTypes({ noteId, builtinTemplates }: { noteId: string, builtinTemplates: FNote[] }) {
+export function TemplateNoteTypes({ noteId, builtinTemplates }: { noteId: string, builtinTemplates: FNote[] }) {
     const [ userTemplates, setUserTemplates ] = useState<FNote[]>([]);
 
     async function refreshTemplates() {
@@ -117,6 +119,13 @@ function TemplateNoteTypes({ noteId, builtinTemplates }: { noteId: string, built
         if (loadResults.getAttributeRows().some(attr => attr.type === "label" && attr.name === "template")) {
             refreshTemplates();
         }
+    });
+
+    // Swap to fresh FNote refs after a full froca reload (e.g. entering a protected session
+    // clears the cache and creates new instances — old refs are orphaned with stale titles,
+    // leaving protected templates stuck at "[protected]" after unlock).
+    useTriliumEvent("frocaReloaded", () => {
+        refreshTemplates();
     });
 
     return (
@@ -148,7 +157,7 @@ function setTemplate(noteId: string, templateId: string) {
     return attributes.setRelation(noteId, "template", templateId);
 }
 
-function useBuiltinTemplates() {
+export function useBuiltinTemplates() {
     const [ templates, setTemplates ] = useState<{
         builtinTemplates: FNote[];
         collectionTemplates: FNote[];
@@ -177,6 +186,13 @@ function useBuiltinTemplates() {
     useEffect(() => {
         loadBuiltinTemplates();
     }, []);
+
+    // Swap to fresh FNote refs after a full froca reload (e.g. entering a protected session
+    // clears the cache and creates new instances — old refs are orphaned with stale titles,
+    // leaving protected templates stuck at "[protected]" after unlock).
+    useTriliumEvent("frocaReloaded", () => {
+        loadBuiltinTemplates();
+    });
 
     return templates;
 }

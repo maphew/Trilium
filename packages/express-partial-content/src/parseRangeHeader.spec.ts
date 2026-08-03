@@ -52,4 +52,9 @@ describe("parseRangeHeader tests", () => {
     let value = parseRangeHeader("bytes=0-5", 10, logger);
     expect(value).to.be.deep.equal({ start: 0, end: 5 });
   });
+  it("uses the first entry when the header arrives repeated", () => {
+    // Express surfaces a repeated header as string[]; only the first range is honoured.
+    const value = parseRangeHeader(["bytes=0-5", "bytes=6-9"], 10, logger);
+    expect(value).to.be.deep.equal({ start: 0, end: 5 });
+  });
 });

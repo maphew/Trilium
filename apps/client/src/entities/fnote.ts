@@ -1,5 +1,6 @@
 import { getNoteIcon } from "@triliumnext/commons";
 
+import bundleService from "../services/bundle.js";
 import cssClassManager from "../services/css_class_manager.js";
 import type { Froca } from "../services/froca-interface.js";
 import noteAttributeCache from "../services/note_attribute_cache.js";
@@ -18,7 +19,7 @@ const RELATION = "relation";
  * end user. Those types should be used only for checking against, they are
  * not for direct use.
  */
-export type NoteType = "file" | "image" | "search" | "noteMap" | "launcher" | "doc" | "contentWidget" | "text" | "relationMap" | "render" | "canvas" | "mermaid" | "book" | "webView" | "code" | "mindMap" | "aiChat";
+export type NoteType = "file" | "image" | "search" | "noteMap" | "launcher" | "doc" | "contentWidget" | "text" | "relationMap" | "render" | "canvas" | "mermaid" | "book" | "webView" | "code" | "mindMap" | "spreadsheet" | "llmChat";
 
 export interface NotePathRecord {
     isArchived: boolean;
@@ -95,7 +96,11 @@ export default class FNote {
         this.isProtected = !!row.isProtected;
         this.type = row.type;
 
-        this.mime = row.mime;
+        // The server can send a row without a mime: becca materialises "skeleton" notes for
+        // entities that arrive out of order during sync, and their undefined mime/title are dropped
+        // outright by JSON serialisation. Defaulting keeps the mime predicates (isTriliumScript(),
+        // isJavaScript(), ...) from throwing until the real row syncs in.
+        this.mime = row.mime ?? "";
 
         this.blobId = row.blobId;
     }
@@ -233,6 +238,16 @@ export default class FNote {
 
     get isArchived() {
         return this.hasAttribute("label", "archived");
+    }
+
+    /**
+     * Returns true if the note's metadata (title, icon) should not be editable.
+     * This applies to system notes like options, help, and launch bar configuration.
+     */
+    get isMetadataReadOnly() {
+        return utils.isLaunchBarConfig(this.noteId)
+            || this.noteId.startsWith("_help_")
+            || this.noteId.startsWith("_options");
     }
 
     getChildNoteIds() {
@@ -451,9 +466,11 @@ export default class FNote {
                 return a.isArchived ? 1 : -1;
             } else if (a.isHidden !== b.isHidden) {
                 return a.isHidden ? 1 : -1;
+            /* v8 ignore start -- unreachable: getAllNotePaths() filters out search-typed parents at every level, so no path can contain a search note (isSearch is always false) */
             } else if (a.isSearch !== b.isSearch) {
                 return a.isSearch ? 1 : -1;
             }
+            /* v8 ignore stop */
             return a.notePath.length - b.notePath.length;
         });
 
@@ -520,11 +537,10 @@ export default class FNote {
             return attributes.filter((attr) => attr.name === name && attr.type === type);
         } else if (type) {
             return attributes.filter((attr) => attr.type === type);
-        } else if (name) {
-            return attributes.filter((attr) => attr.name === name);
         }
 
-        return [];
+        // type is falsy and the both-falsy case already returned above, so name is necessarily set here
+        return attributes.filter((attr) => attr.name === name);
     }
 
     __getInheritableAttributes(path: string[]) {
@@ -701,6 +717,15 @@ export default class FNote {
     }
 
     /**
+     * Returns `true` if the note has a label with the given name (same as {@link hasOwnedLabel}), or it has a label with the `disabled:` prefix (for example due to a safe import).
+     * @param name the name of the label to look for.
+     * @returns `true` if the label exists, or its version with the `disabled:` prefix.
+     */
+    hasLabelOrDisabled(name: string) {
+        return this.hasLabel(name) || this.hasLabel(`disabled:${name}`);
+    }
+
+    /**
      * @param name - label name
      * @returns true if label exists (including inherited) and does not have "false" value.
      */
@@ -859,9 +884,29 @@ export default class FNote {
         return promotedAttrs;
     }
 
+    /**
+     * The attribute definitions that apply to this note, at most one per defined name.
+     *
+     * A definition can reach a note from several places at once — its own, an ancestor's, a
+     * template's — and the nearest one wins: a note redefining `label:status` describes it for
+     * itself rather than gaining a second field beside the one it inherited. `getAttributes()`
+     * already lists owned attributes before inherited ones and inherited before templated ones, at
+     * every level, so keeping the first of each name is keeping the nearest.
+     */
     getAttributeDefinitions() {
-        return this.getAttributes()
-            .filter((attr) => attr.isDefinition());
+        const definitions: FAttribute[] = [];
+        const seenNames = new Set<string>();
+
+        for (const attr of this.getAttributes()) {
+            if (!attr.isDefinition() || seenNames.has(attr.name)) {
+                continue;
+            }
+
+            seenNames.add(attr.name);
+            definitions.push(attr);
+        }
+
+        return definitions;
     }
 
     hasAncestor(ancestorNoteId: string, followTemplates = false, visitedNoteIds: Set<string> | null = null) {
@@ -1005,7 +1050,6 @@ export default class FNote {
         const env = this.getScriptEnv();
 
         if (env === "frontend") {
-            const bundleService = (await import("../services/bundle.js")).default;
             return await bundleService.getAndExecuteBundle(this.noteId);
         } else if (env === "backend") {
             await server.post(`script/run/${this.noteId}`);
@@ -1050,8 +1094,23 @@ export default class FNote {
         return this.mime === "text/x-sqlite;schema=trilium";
     }
 
+    isMarkdown() {
+        return this.type === "code" && (this.mime === "text/markdown" || this.mime === "text/x-markdown" || this.mime === "text/x-gfm");
+    }
+
+    isIconPack() {
+        // Icon-pack manifests exist both as JSON `code` notes (created manually per the docs) and as
+        // `file` notes (produced by the icon-pack builder and shipped in distributable zips). Disabled
+        // packs (#disabled:iconPack, e.g. from a safe import) still preview so the user can inspect them.
+        return (this.type === "code" || this.type === "file") && this.mime === "application/json" && this.hasLabelOrDisabled("iconPack");
+    }
+
     isTriliumScript() {
         return this.mime.startsWith("application/javascript");
+    }
+
+    isSvg() {
+        return this.mime === "image/svg+xml";
     }
 
     /**

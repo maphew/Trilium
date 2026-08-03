@@ -47,7 +47,7 @@ export function trimIndentation(strings: TemplateStringsArray, ...values: any[])
     const output: string[] = [];
     for (let i = 0; i < lines.length; i++) {
         let numSpacesLine = 0;
-        while (str.charAt(numSpacesLine) == " " && numSpacesLine < str.length) {
+        while (numSpacesLine < numSpaces && lines[i].charAt(numSpacesLine) === " ") {
             numSpacesLine++;
         }
         output.push(lines[i].substring(numSpacesLine));
@@ -55,10 +55,112 @@ export function trimIndentation(strings: TemplateStringsArray, ...values: any[])
     return output.join("\n");
 }
 
-export function flushPromises() {
-    return new Promise(setImmediate);
-}
-
 export function sleepFor(duration: number) {
     return new Promise(resolve => setTimeout(resolve, duration));
+}
+
+/**
+ * Scans raw JSON text for keys that are duplicated within the same object.
+ *
+ * `JSON.parse` silently collapses duplicate keys (the last one wins), which makes
+ * it impossible to detect them from the parsed value. This scanner walks the raw
+ * text, pushing/popping a scope for each `{`/`}`, and identifies a string as a
+ * key when the next non-whitespace char is `:`.
+ *
+ * Intended for validating hand-maintained JSON files (e.g. translation files)
+ * at test level.
+ */
+/**
+ * Scans a parsed translation file for keys that Weblate would read as a plural form but
+ * that do not hold a plain string.
+ *
+ * Weblate parses our translation files as i18next JSON v4, in which a `_zero`, `_one`,
+ * `_two`, `_few`, `_many` or `_other` suffix marks a plural form of the key preceding it.
+ * All the forms found for a key are then combined into a single multistring, which fails
+ * with "multistring can only contain strings or list of strings" as soon as one of them
+ * is a nested object rather than a translated string.
+ *
+ * In practice this bites when a namespace happens to be named after a plural suffix — for
+ * example a `settings_other` section sitting next to a `settings` one, which Weblate reads
+ * as the plural of `settings` instead of as a section of its own.
+ *
+ * @param value the parsed translation file (or any subtree of it).
+ * @param path the dotted path of `value`, used to build the reported paths.
+ * @returns one entry per offending key, with its dotted path and the plural suffix that
+ *          made Weblate treat it as a plural form.
+ */
+export function findPluralKeyConflicts(value: unknown, path = ""): Array<{ path: string; suffix: string }> {
+    if (typeof value !== "object" || value === null || Array.isArray(value)) {
+        return [];
+    }
+
+    const conflicts: Array<{ path: string; suffix: string }> = [];
+    for (const [ key, child ] of Object.entries(value)) {
+        const childPath = path ? `${path}.${key}` : key;
+        const suffix = PLURAL_SUFFIXES.find((candidate) => key.endsWith(`_${candidate}`));
+        if (suffix && !isTranslatableValue(child)) {
+            conflicts.push({ path: childPath, suffix });
+        }
+        conflicts.push(...findPluralKeyConflicts(child, childPath));
+    }
+    return conflicts;
+}
+
+/** The CLDR plural categories i18next appends to a key, in the `key_<category>` form. */
+const PLURAL_SUFFIXES = [ "zero", "one", "two", "few", "many", "other" ];
+
+/** Whether Weblate can turn the value into a multistring, i.e. a string or a list of strings. */
+function isTranslatableValue(value: unknown) {
+    return typeof value === "string"
+        || (Array.isArray(value) && value.every((entry) => typeof entry === "string"));
+}
+
+export function findDuplicateJsonKeys(text: string): Array<{ key: string; line: number }> {
+    const duplicates: Array<{ key: string; line: number }> = [];
+    const stack: Set<string>[] = [];
+    let line = 1;
+    let i = 0;
+
+    while (i < text.length) {
+        const c = text[i];
+        if (c === "\n") {
+            line++;
+            i++;
+        } else if (c === "{") {
+            stack.push(new Set());
+            i++;
+        } else if (c === "}") {
+            stack.pop();
+            i++;
+        } else if (c === '"') {
+            const start = i;
+            const startLine = line;
+            i++;
+            while (i < text.length && text[i] !== '"') {
+                if (text[i] === "\\") {
+                    i += 2;
+                } else {
+                    if (text[i] === "\n") line++;
+                    i++;
+                }
+            }
+            i++;
+            // A string is a key iff the next non-whitespace char is ':'.
+            let j = i;
+            while (j < text.length && /\s/.test(text[j])) j++;
+            if (text[j] === ":" && stack.length > 0) {
+                const key = JSON.parse(text.substring(start, i)) as string;
+                const frame = stack[stack.length - 1];
+                if (frame.has(key)) {
+                    duplicates.push({ key, line: startLine });
+                } else {
+                    frame.add(key);
+                }
+            }
+        } else {
+            i++;
+        }
+    }
+
+    return duplicates;
 }

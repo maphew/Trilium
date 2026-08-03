@@ -18,7 +18,7 @@ export interface EntityChange {
 
 export interface EntityRow {
     isDeleted?: boolean;
-    content?: Buffer | string;
+    content?: Uint8Array | string;
 }
 
 export interface EntityChangeRecord {
@@ -37,11 +37,13 @@ type TaskDataDefinitions = {
     importNotes: {
         textImportedAsText?: boolean;
         codeImportedAsCode?: boolean;
+        spreadsheetImportedAsSpreadsheet?: boolean;
         replaceUnderscoresWithSpaces?: boolean;
         shrinkImages?: boolean;
         safeImport?: boolean;
     } | null,
-    importAttachments: null
+    importAttachments: null,
+    compressImages: null
 }
 
 type TaskResultDefinitions = {
@@ -58,18 +60,34 @@ type TaskResultDefinitions = {
         parentNoteId?: string;
         importedNoteId?: string
     };
+    compressImages: null;
 }
 
 export type TaskType = keyof TaskDataDefinitions | keyof TaskResultDefinitions;
 export type TaskData<T extends TaskType> = TaskDataDefinitions[T];
 export type TaskResult<T extends TaskType> = TaskResultDefinitions[T];
 
+/**
+ * Identifies which phase of a multi-phase task a progress message belongs to, so the client can label
+ * the bar accordingly (e.g. zip import counts archive entries while "extracting", then notes while
+ * "processing"). Single-phase tasks omit it and the client falls back to a generic message.
+ *
+ * "throttled" is a transient state rather than a pipeline stage: the task is alive but deliberately
+ * waiting out an external service's rate limiting (e.g. the OneNote importer under Graph throttling),
+ * so the count will not move for a while and the client should say why instead of looking hung.
+ */
+export type ProgressPhase = "extracting" | "processing" | "throttled";
+
 type TaskDefinition<T extends TaskType> = {
     type: "taskProgressCount",
     taskId: string;
     taskType: T;
     data: TaskData<T>,
-    progressCount: number
+    progressCount: number;
+    /** Total expected units of work, when known up front; lets the client show a progress bar. */
+    totalCount?: number;
+    /** Which phase of a multi-phase task this count belongs to; lets the client pick a phase-specific label. */
+    phase?: ProgressPhase;
 } | {
     type: "taskError",
     taskId: string;
@@ -101,7 +119,13 @@ type AllTaskDefinitions =
     | TaskDefinition<"importAttachments">;
 
 export type WebSocketMessage = AllTaskDefinitions | {
-    type: "ping"
+    type: "ping",
+    /**
+     * Live protected-session state of the backend, present on server→client pings. Lets the client
+     * detect a protected-session expiry whose `reload-frontend` broadcast never arrived (e.g. the
+     * WebSocket was dead at expiry time) and reload itself. Absent on client→server pings.
+     */
+    protectedSessionAvailable?: boolean
 } | {
     type: "frontend-update",
     data: {
@@ -120,6 +144,7 @@ export type WebSocketMessage = AllTaskDefinitions | {
 } | {
     type: "toast",
     message: string;
+    timeout?: number;
 } | {
     type: "api-log-messages",
     noteId: string,
@@ -141,18 +166,19 @@ export type WebSocketMessage = AllTaskDefinitions | {
 } | {
     type: "consistency-checks-failed"
 } | {
-    type: "llm-stream",
-    chatNoteId: string;
-    done?: boolean;
-    error?: string;
-    thinking?: string;
-    content?: string;
-    toolExecution?: {
-        action?: string;
-        tool?: string;
-        toolCallId?: string;
-        result?: string | Record<string, any>;
-        error?: string;
-        args?: Record<string, unknown>;
-    }
+    /**
+     * An error that escaped every other handler and reached the process-level safety net — typically a
+     * throw from deferred background work (a timer, a floating promise), which has no request to fail.
+     * The backend keeps running; this only tells the user that something went wrong, since the failure
+     * would otherwise be invisible outside the log.
+     */
+    type: "unhandled-error";
+    /** The error message, shown directly in the notification. */
+    message: string;
+    /**
+     * The stack trace, kept behind a "view more details" step rather than shown up front: it is what
+     * makes a bug report actionable, and nothing the user is expected to read. Absent when the thrown
+     * value carried no stack.
+     */
+    stack?: string;
 }

@@ -1,5 +1,10 @@
-import { AttributeEditor as CKEditorAttributeEditor, MentionFeed, ModelElement, ModelNode, ModelPosition } from "@triliumnext/ckeditor5";
+import "../../attribute_widgets/attribute_name_suggestion.css";
+import "./AttributeEditor.css";
+
+import type { AttributeEditor as CKEditorAttributeEditor, ModelElement, ModelNode, ModelPosition, TriliumMentionFeed } from "@triliumnext/ckeditor5";
 import { AttributeType } from "@triliumnext/commons";
+import clsx from "clsx";
+import { createPortal } from "preact/compat";
 import { MutableRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from "preact/hooks";
 
 import type { CommandData, FilteredCommandNames } from "../../../components/app_context";
@@ -8,9 +13,10 @@ import FNote from "../../../entities/fnote";
 import contextMenu from "../../../menus/context_menu";
 import attribute_parser, { Attribute } from "../../../services/attribute_parser";
 import attribute_renderer from "../../../services/attribute_renderer";
-import attributes from "../../../services/attributes";
+import attributes, { isBuiltinAttribute } from "../../../services/attributes";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
+import { ATTRIBUTE_HELP_PAGE } from "../../../services/in_app_help";
 import link from "../../../services/link";
 import note_autocomplete, { Suggestion } from "../../../services/note_autocomplete";
 import note_create from "../../../services/note_create";
@@ -20,18 +26,21 @@ import { escapeQuotes, getErrorMessage } from "../../../services/utils";
 import AttributeDetailWidget from "../../attribute_widgets/attribute_detail";
 import ActionButton from "../../react/ActionButton";
 import CKEditor, { CKEditorApi } from "../../react/CKEditor";
-import { useLegacyImperativeHandlers, useLegacyWidget, useTooltip, useTriliumEvent, useTriliumOption } from "../../react/hooks";
+import HelpDropdown from "../../react/HelpDropdown";
+import { useLegacyImperativeHandlers, useLegacyWidget, useTriliumEvent } from "../../react/hooks";
+import AttributeHelp from "./AttributeHelp";
 
 type AttributeCommandNames = FilteredCommandNames<CommandData>;
 
-const HELP_TEXT = `
-<p>${t("attribute_editor.help_text_body1")}</p>
+/**
+ * How long the post-save blink runs for. Matches the animation in the CSS, and only serves to take the
+ * class back off again — shortening it would cut the animation short.
+ */
+const BLINK_DURATION = 300;
 
-<p>${t("attribute_editor.help_text_body2")}</p>
-
-<p>${t("attribute_editor.help_text_body3")}</p>`;
-
-const mentionSetup: MentionFeed[] = [
+// `preselectFirstItem: false` throughout: in this editor Enter means "save the attributes", so an
+// open panel must not silently swallow it into committing whichever suggestion happens to be first.
+const mentionSetup: TriliumMentionFeed[] = [
     {
         marker: "@",
         feed: (queryText) => note_autocomplete.autocompleteSourceForCKEditor(queryText),
@@ -43,35 +52,24 @@ const mentionSetup: MentionFeed[] = [
 
             return itemElement;
         },
-        minimumCharacters: 0
+        minimumCharacters: 0,
+        // Relation targets are note titles, which contain spaces.
+        allowSpaces: true,
+        preselectFirstItem: false
     },
     {
         marker: "#",
-        feed: async (queryText) => {
-            const names = await server.get<string[]>(`attribute-names/?type=label&query=${encodeURIComponent(queryText)}`);
-
-            return names.map((name) => {
-                return {
-                    id: `#${name}`,
-                    name
-                };
-            });
-        },
-        minimumCharacters: 0
+        feed: (queryText) => fetchAttributeNames("label", queryText),
+        itemRenderer: (item) => renderAttributeName("label", (item as AttributeNameItem).name),
+        minimumCharacters: 0,
+        preselectFirstItem: false
     },
     {
         marker: "~",
-        feed: async (queryText) => {
-            const names = await server.get<string[]>(`attribute-names/?type=relation&query=${encodeURIComponent(queryText)}`);
-
-            return names.map((name) => {
-                return {
-                    id: `~${name}`,
-                    name
-                };
-            });
-        },
-        minimumCharacters: 0
+        feed: (queryText) => fetchAttributeNames("relation", queryText),
+        itemRenderer: (item) => renderAttributeName("relation", (item as AttributeNameItem).name),
+        minimumCharacters: 0,
+        preselectFirstItem: false
     }
 ];
 
@@ -83,6 +81,11 @@ interface AttributeEditorProps {
     notePath?: string | null;
     ntxId?: string | null;
     hidden?: boolean;
+    /**
+     * Suppresses the editor's own `?` button, for hosts that already offer the same help elsewhere
+     * (the new layout's attributes panel carries it in its title bar).
+     */
+    hideHelpButton?: boolean;
 }
 
 export interface AttributeEditorImperativeHandlers {
@@ -92,35 +95,40 @@ export interface AttributeEditorImperativeHandlers {
     renderOwnedAttributes(ownedAttributes: FAttribute[]): Promise<void>;
 }
 
-export default function AttributeEditor({ api, note, componentId, notePath, ntxId, hidden }: AttributeEditorProps) {
+export default function AttributeEditor({ api, note, componentId, notePath, ntxId, hidden, hideHelpButton }: AttributeEditorProps) {
     const [ currentValue, setCurrentValue ] = useState("");
-    const [ state, setState ] = useState<"normal" | "showHelpTooltip" | "showAttributeDetail">();
     const [ error, setError ] = useState<unknown>();
     const [ needsSaving, setNeedsSaving ] = useState(false);
+    const [ isBlinking, setIsBlinking ] = useState(false);
+    const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const suppressNextOnHide = useRef(false);
 
+    const blinkTimeout = useRef<ReturnType<typeof setTimeout>>();
     const lastSavedContent = useRef<string>();
     const currentValueRef = useRef(currentValue);
     const wrapperRef = useRef<HTMLDivElement>(null);
     const editorRef = useRef<CKEditorApi>();
-    const [ locale ] = useTriliumOption("locale");
 
-    const { showTooltip, hideTooltip } = useTooltip(wrapperRef, {
-        trigger: "focus",
-        html: true,
-        title: HELP_TEXT,
-        placement: "bottom",
-        offset: "0,30"
-    });
+    // The CKEditor bundle is heavy and this component mounts in always-visible containers
+    // (e.g. the status bar), so the editor class is loaded on demand to keep CKEditor out
+    // of the startup module graph.
+    const [ editorClass, setEditorClass ] = useState<typeof CKEditorAttributeEditor>();
+    useEffect(() => {
+        let active = true;
+        void import("@triliumnext/ckeditor5").then((ckeditor) => {
+            // Avoid a state update if the editor unmounted before the bundle finished loading.
+            if (active) {
+                setEditorClass(() => ckeditor.AttributeEditor);
+            }
+        });
+        return () => {
+            active = false;
+        };
+    }, []);
 
     const [ attributeDetailWidgetEl, attributeDetailWidget ] = useLegacyWidget(() => new AttributeDetailWidget());
 
-    useEffect(() => {
-        if (state === "showHelpTooltip") {
-            showTooltip();
-        } else {
-            hideTooltip();
-        }
-    }, [ state ]);
+    useEffect(() => () => clearTimeout(blinkTimeout.current), []);
 
     async function renderOwnedAttributes(ownedAttributes: FAttribute[], saved: boolean) {
         // attrs are not resorted if position changes after the initial load
@@ -160,14 +168,9 @@ export default function AttributeEditor({ api, note, componentId, notePath, ntxI
         setNeedsSaving(false);
 
         // blink the attribute text to give a visual hint that save has been executed
-        if (wrapperRef.current) {
-            wrapperRef.current.style.opacity = "0";
-            setTimeout(() => {
-                if (wrapperRef.current) {
-                    wrapperRef.current.style.opacity = "1";
-                }
-            }, 100);
-        }
+        setIsBlinking(true);
+        clearTimeout(blinkTimeout.current);
+        blinkTimeout.current = setTimeout(() => setIsBlinking(false), BLINK_DURATION);
     }
 
     async function handleAddNewAttributeCommand(command: AttributeCommandNames | undefined) {
@@ -215,17 +218,15 @@ export default function AttributeEditor({ api, note, componentId, notePath, ntxI
         // this.$editor.scrollTop(this.$editor[0].scrollHeight);
         const rect = wrapperRef.current?.getBoundingClientRect();
 
-        setTimeout(() => {
-            // showing a little bit later because there's a conflict with outside click closing the attr detail
-            attributeDetailWidget.showAttributeDetail({
-                allAttributes: attrs,
-                attribute: attrs[attrs.length - 1],
-                isOwned: true,
-                x: rect ? (rect.left + rect.right) / 2 : 0,
-                y: rect?.bottom ?? 0,
-                focus: "name"
-            });
-        }, 100);
+        attributeDetailWidget.showAttributeDetail({
+            allAttributes: attrs,
+            attribute: attrs[attrs.length - 1],
+            isOwned: true,
+            x: rect ? (rect.left + rect.right) / 2 : 0,
+            y: rect?.bottom ?? 0,
+            focus: "name",
+            parent: wrapperRef.current ?? undefined
+        });
     }
 
     // Refresh with note
@@ -283,7 +284,7 @@ export default function AttributeEditor({ api, note, componentId, notePath, ntxI
     return (
         <>
             {!hidden && <div
-                className="attribute-list-editor-wrapper"
+                className={clsx("attribute-list-editor-wrapper", isBlinking && "blink")}
                 ref={wrapperRef}
                 style="position: relative; padding-top: 10px; padding-bottom: 10px"
                 onKeyDown={(e) => {
@@ -298,11 +299,11 @@ export default function AttributeEditor({ api, note, componentId, notePath, ntxI
                     }
                 }}
             >   <div style="position: relative;">
-                    <CKEditor
+                    {editorClass && <CKEditor
                         apiRef={editorRef}
                         className="attribute-list-editor"
                         tabIndex={200}
-                        editor={CKEditorAttributeEditor}
+                        editor={editorClass}
                         currentValue={currentValue}
                         config={{
                             toolbar: { items: [] },
@@ -336,35 +337,36 @@ export default function AttributeEditor({ api, note, componentId, notePath, ntxI
                                 let matchedAttr: Attribute | null = null;
 
                                 for (const attr of parsedAttrs) {
-                                    if (attr.startIndex && clickIndex > attr.startIndex && attr.endIndex && clickIndex <= attr.endIndex) {
+                                    if (attr.startIndex !== undefined && clickIndex > attr.startIndex &&
+                                        attr.endIndex !== undefined && clickIndex <= attr.endIndex) {
                                         matchedAttr = attr;
                                         break;
                                     }
                                 }
 
-                                setTimeout(() => {
-                                    if (matchedAttr) {
-                                        attributeDetailWidget.showAttributeDetail({
-                                            allAttributes: parsedAttrs,
-                                            attribute: matchedAttr,
-                                            isOwned: true,
-                                            x: e.pageX,
-                                            y: e.pageY
-                                        });
-                                        setState("showAttributeDetail");
-                                    } else {
-                                        setState("showHelpTooltip");
-                                    }
-                                }, 100);
+                                if (matchedAttr) {
+                                    attributeDetailWidget.showAttributeDetail({
+                                        allAttributes: parsedAttrs,
+                                        attribute: matchedAttr,
+                                        isOwned: true,
+                                        x: e.pageX,
+                                        y: e.pageY,
+                                        parent: wrapperRef.current ?? undefined
+                                    });
+                                } else {
+                                    // Presses inside the editor no longer dismiss the popup, so
+                                    // clicking next to an attribute has to close it explicitly.
+                                    attributeDetailWidget.hide();
+                                }
                             } else {
-                                setState("showHelpTooltip");
+                                attributeDetailWidget.hide();
                             }
                         }}
                         onKeyDown={() => attributeDetailWidget.hide()}
                         onBlur={() => save()}
                         onInitialized={() => editorRef.current?.focus()}
                         disableNewlines disableSpellcheck
-                    />
+                    />}
 
                     <div className="attribute-editor-buttons">
                         { needsSaving && <ActionButton
@@ -374,6 +376,18 @@ export default function AttributeEditor({ api, note, componentId, notePath, ntxI
                             onClick={save}
                         /> }
 
+                        { !hideHelpButton && (
+                            // This button lives inside the wrapper the detail popup treats as its
+                            // spawner, so its outside-click dismissal exempts it. Close it by hand to
+                            // match the hosts whose help button sits outside (the attributes panel).
+                            <HelpDropdown
+                                helpPage={ATTRIBUTE_HELP_PAGE}
+                                onShown={() => attributeDetailWidget.hide()}
+                            >
+                                <AttributeHelp />
+                            </HelpDropdown>
+                        ) }
+
                         <ActionButton
                             icon="bx bx-plus"
                             className="add-new-attribute-button tn-tool-button"
@@ -381,6 +395,12 @@ export default function AttributeEditor({ api, note, componentId, notePath, ntxI
                             onClick={(e) => {
                                 // Prevent automatic hiding of the context menu due to the button being clicked.
                                 e.stopPropagation();
+                                if (isMenuOpen) {
+                                // If we re-show the menu, ContextMenu.show() will call hide()
+                                // and immediately trigger onHide. Suppress that transient hide.
+                                    suppressNextOnHide.current = true;
+                                }
+                                setIsMenuOpen(true);
 
                                 contextMenu.show<AttributeCommandNames>({
                                     x: e.pageX,
@@ -393,7 +413,14 @@ export default function AttributeEditor({ api, note, componentId, notePath, ntxI
                                         { title: t("attribute_editor.add_new_label_definition"), command: "addNewLabelDefinition", uiIcon: "bx bx-empty" },
                                         { title: t("attribute_editor.add_new_relation_definition"), command: "addNewRelationDefinition", uiIcon: "bx bx-empty" }
                                     ],
-                                    selectMenuItemHandler: (item) => handleAddNewAttributeCommand(item.command)
+                                    selectMenuItemHandler: (item) => handleAddNewAttributeCommand(item.command),
+                                    onHide: () => {
+                                        if (suppressNextOnHide.current) {
+                                            suppressNextOnHide.current = false;
+                                            return;
+                                        }
+                                        setIsMenuOpen(false);
+                                    },
                                 });
                             }}
                         />
@@ -407,12 +434,70 @@ export default function AttributeEditor({ api, note, componentId, notePath, ntxI
                 )}
             </div>}
 
-            {attributeDetailWidgetEl}
+            {createPortal(attributeDetailWidgetEl, document.body)}
         </>
     );
 }
 
-function getPreprocessedData(currentValue: string) {
+interface AttributeNameItem {
+    /** The marker and the name, which is what committing the suggestion inserts. */
+    id: string;
+    name: string;
+}
+
+export async function fetchAttributeNames(type: "label" | "relation", queryText: string): Promise<AttributeNameItem[]> {
+    const names = await server.get<string[]>(`attribute-names/?type=${type}&query=${encodeURIComponent(queryText)}`);
+    const marker = type === "label" ? "#" : "~";
+
+    return names.map((name) => ({ id: `${marker}${name}`, name }));
+}
+
+/**
+ * One completed attribute name, marking the ones Trilium itself attaches a meaning to — the same
+ * distinction the detail popup's name field draws, on the same names, so that the two agree.
+ *
+ * Built as DOM rather than rendered from the popup's `AttributeNameSuggestion` component: the mention
+ * panel drops and rebuilds its rows on every keystroke with no unmount hook to run, so a Preact root
+ * per row would leak. The badge markup is mirrored from `Badge` rather than restyled, so that both
+ * surfaces still take their look from the one stylesheet.
+ */
+export function renderAttributeName(type: "label" | "relation", name: string) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.tabIndex = -1;
+    // `ck-button_with-text` is load-bearing, not cosmetic: the base button styles hide
+    // `.ck-button__label` outright without it, leaving the row showing nothing but its badge.
+    button.classList.add("ck", "ck-button", "ck-button_with-text", "attr-name-suggestion-button");
+
+    const row = document.createElement("span");
+    // The balloon hosting the panel resets everything inside it (`.ck-reset_all` zeroes borders,
+    // padding, width, colour and font on every descendant), which would strip the badge back to bare
+    // text. `ck-reset_all-excluded` is CKEditor's opt-out for embedded content and covers the whole
+    // subtree, so the row is styled by the client's stylesheets exactly as the popup's row is.
+    row.classList.add("attr-name-suggestion", "ck-reset_all-excluded");
+    button.append(row);
+
+    const label = document.createElement("span");
+    label.classList.add("ck", "ck-button__label", "attr-name-suggestion-name");
+    label.textContent = name;
+    row.append(label);
+
+    if (isBuiltinAttribute(type, name)) {
+        const badge = document.createElement("span");
+        badge.classList.add("ext-badge", "outline");
+        row.append(badge);
+
+        const badgeText = document.createElement("span");
+        badgeText.classList.add("text");
+        badgeText.textContent = t("attribute_names.system");
+        badge.append(badgeText);
+    }
+
+    return button;
+}
+
+/** The attributes as plain text: reference links back down to their note path, entities resolved. */
+export function getPreprocessedData(currentValue: string) {
     const str = currentValue
         .replace(/<a[^>]+href="(#[A-Za-z0-9_/]*)"[^>]*>[^<]*<\/a>/g, "$1")
         .replace(/&nbsp;/g, " "); // otherwise .text() below outputs non-breaking space in unicode
@@ -420,7 +505,12 @@ function getPreprocessedData(currentValue: string) {
     return $("<div>").html(str).text();
 }
 
-function getClickIndex(pos: ModelPosition) {
+/**
+ * Where the press landed in {@link getPreprocessedData}'s text, which is what the parsed attributes
+ * carry their offsets in: the editor's own offset counts a reference link as one node, so every
+ * sibling before the pressed one is measured as the text it stands for.
+ */
+export function getClickIndex(pos: ModelPosition) {
     let clickIndex = pos.offset - (pos.textNode?.startOffset ?? 0);
 
     let curNode: ModelNode | Text | ModelElement | null = pos.textNode;

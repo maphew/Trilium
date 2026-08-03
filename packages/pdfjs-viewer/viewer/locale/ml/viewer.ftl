@@ -309,6 +309,10 @@ pdfjs-editor-signature-add-signature-button-label = പുതിയ ഒപ്പ
 #   $description (String) - a string describing/labeling the signature.
 pdfjs-editor-add-saved-signature-button =
     .title = കരുതിവച്ച ഒപ്പു് : { $description }
+pdfjs-editor-comments-sidebar-close-button =
+    .title = അണിവക്കം അടയ്ക്കുക
+    .aria-label = അണിവക്കം അടയ്ക്കുക
+pdfjs-editor-comments-sidebar-close-button-label = അണിവക്കം അടയ്ക്കുക
 
 ## Alt-text dialog
 
@@ -474,6 +478,21 @@ pdfjs-editor-add-signature-error-close-button = അടയ്ക്കുക
 pdfjs-editor-add-signature-cancel-button = റദ്ദാക്കുക
 pdfjs-editor-add-signature-add-button = ചേൎക്കുക
 pdfjs-editor-edit-signature-update-button = പുതുക്കുക
+
+##  Edit a comment dialog
+
+pdfjs-editor-edit-comment-dialog-cancel-button = റദ്ദാക്കുക
+
+## The view manager is a sidebar displaying different views:
+##  - thumbnails;
+##  - outline;
+##  - attachments;
+##  - layers.
+## The thumbnails view is used to edit the pdf: remove/insert pages, ...
+
+pdfjs-views-manager-status-close-button =
+    .title = അടയ്ക്കുക
+pdfjs-views-manager-status-close-button-label = അടയ്ക്കുക
 
 ## Main menu for adding/removing signatures
 

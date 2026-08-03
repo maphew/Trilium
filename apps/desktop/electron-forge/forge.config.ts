@@ -1,10 +1,10 @@
 import type { ForgeConfig } from "@electron-forge/shared-types";
+import { FuseV1Options, FuseVersion } from "@electron/fuses";
 import { LOCALES } from "@triliumnext/commons";
-import { existsSync } from "fs";
-import fs from "fs-extra";
+import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, unlinkSync } from "fs";
 import path, { join } from "path";
 
-import packageJson from "../package.json" assert { type: "json" };
+import packageJson from "../package.json" with { type: "json" };
 import { PRODUCT_NAME } from "../src/app-info.js";
 
 const ELECTRON_FORGE_DIR = __dirname;
@@ -55,27 +55,27 @@ const config: ForgeConfig = {
             (buildPath, _electronVersion, platform, _arch, callback) => {
                 // Only move resources on non-macOS platforms
                 if (platform !== "darwin") {
-                    for (const resource of extraResourcesForPlatform) {
-                        const baseName = path.basename(resource);
-                        const sourcePath = path.join(buildPath, "resources", baseName);
+                    try {
+                        for (const resource of extraResourcesForPlatform) {
+                            const baseName = path.basename(resource);
+                            const sourcePath = path.join(buildPath, "resources", baseName);
 
-                        // prettier-ignore
-                        const destPath = (baseName !== "256x256.png")
-                            ? path.join(buildPath, baseName)
-                            : path.join(buildPath, "icon.png");
+                            // prettier-ignore
+                            const destPath = (baseName !== "256x256.png")
+                                ? path.join(buildPath, baseName)
+                                : path.join(buildPath, "icon.png");
 
-                        fs.move(sourcePath, destPath)
-                            .then(() => callback())
-                            .catch((err) => callback(err));
+                            renameSync(sourcePath, destPath);
+                        }
+                        callback();
+                    } catch (err) {
+                        callback(err as Error);
                     }
                 } else {
                     callback();
                 }
             }
         ]
-    },
-    rebuildConfig: {
-        extraModules: [ "better-sqlite3" ]
     },
     makers: [
         {
@@ -149,7 +149,22 @@ const config: ForgeConfig = {
         {
             name: "@electron-forge/maker-dmg",
             config: {
-                icon: path.join(APP_ICON_PATH, isNightly ? "icon-dev.icns" : "icon.icns")
+                icon: path.join(APP_ICON_PATH, isNightly ? "icon-dev.icns" : "icon.icns"),
+                // Branded Finder-window background (generated from dmg-background/background.html).
+                // appdmg auto-uses the sibling background@2x.png for Retina.
+                background: path.join(ELECTRON_FORGE_DIR, "dmg-background", isNightly ? "background-dev.png" : "background.png"),
+                iconSize: 128,
+                additionalDMGOptions: {
+                    window: { size: { width: 640, height: 400 } }
+                },
+                // Icon CENTERS in Finder's .DS_Store Iloc coordinate space: top-left origin,
+                // y increasing downward. y=182 centers the icon + its caption pair vertically in
+                // the window (there is no baked banner above them). Verify on a macOS build
+                // (appdmg is darwin-only).
+                contents: (opts: { appPath: string }) => [
+                    { x: 180, y: 182, type: "file", path: opts.appPath },
+                    { x: 460, y: 182, type: "link", path: "/Applications" }
+                ]
             }
         },
         {
@@ -166,6 +181,19 @@ const config: ForgeConfig = {
         {
             name: "@electron-forge/plugin-auto-unpack-natives",
             config: {}
+        },
+        {
+            name: "@electron-forge/plugin-fuses",
+            config: {
+                version: FuseVersion.V1,
+                [FuseV1Options.RunAsNode]: false,
+                [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
+                [FuseV1Options.EnableNodeCliInspectArguments]: false,
+                [FuseV1Options.EnableCookieEncryption]: true,
+                [FuseV1Options.OnlyLoadAppFromAsar]: true,
+                [FuseV1Options.GrantFileProtocolExtraPrivileges]: false,
+                [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true
+            }
         }
     ],
     hooks: {
@@ -192,12 +220,12 @@ const config: ForgeConfig = {
                     : [ path.join(outputPath, 'locales') ];
 
                 for (const localeDir of localeDirs) {
-                    if (!fs.existsSync(localeDir)) {
+                    if (!existsSync(localeDir)) {
                         console.log(`No locales directory found in '${localeDir}'.`);
                         process.exit(2);
                     }
 
-                    const files = fs.readdirSync(localeDir);
+                    const files = readdirSync(localeDir);
 
                     for (const file of files) {
                         if (!file.endsWith(extension)) {
@@ -218,9 +246,9 @@ const config: ForgeConfig = {
 
                         const filePath = path.join(localeDir, file);
                         if (isMac) {
-                            fs.rm(filePath, { recursive: true });
+                            rmSync(filePath, { recursive: true });
                         } else {
-                            fs.unlinkSync(filePath);
+                            unlinkSync(filePath);
                         }
 
                         removedLocales.push(file);
@@ -238,9 +266,13 @@ const config: ForgeConfig = {
             }
 
             // Check that the bettersqlite3 binary has the right architecture.
+            // Since v13, better-sqlite3 ships N-API prebuilds and the Electron
+            // native rebuild was dropped, so no build/Release/ addon is ever
+            // produced. The loadable binary is the shipped prebuild, which
+            // auto-unpack-natives extracts to app.asar.unpacked/.../prebuilds/.
             if (packageResult.platform === "linux" && packageResult.arch === "arm64") {
                 for (const outputPath of packageResult.outputPaths) {
-                    const binaryPath = join(outputPath, "resources/app.asar.unpacked/node_modules/better-sqlite3/build/Release/better_sqlite3.node");
+                    const binaryPath = join(outputPath, "resources/app.asar.unpacked/node_modules/better-sqlite3/prebuilds/linux-arm64.node");
                     if (!existsSync(binaryPath)) {
                         throw new Error(`[better-sqlite3] Unable to find .node file at ${binaryPath}`);
                     }
@@ -255,7 +287,7 @@ const config: ForgeConfig = {
         // Gather all the artifacts produced by the makers and copy them to a common upload directory.
         async postMake(_, makeResults) {
             const outputDir = path.join(__dirname, "..", "upload");
-            fs.mkdirpSync(outputDir);
+            mkdirSync(outputDir, { recursive: true });
             for (const makeResult of makeResults) {
                 for (const artifactPath of makeResult.artifacts) {
                     // Ignore certain artifacts.
@@ -273,7 +305,7 @@ const config: ForgeConfig = {
 
                     const outputPath = path.join(outputDir, fileName);
                     console.log(`[Artifact] ${artifactPath} -> ${outputPath}`);
-                    fs.copyFileSync(artifactPath, outputPath);
+                    copyFileSync(artifactPath, outputPath);
                 }
             }
         }
@@ -304,7 +336,7 @@ function getExtraResourcesForPlatform() {
 }
 
 function getELFArch(file: string) {
-    const buf = fs.readFileSync(file);
+    const buf = readFileSync(file);
 
     if (buf[0] !== 0x7f || buf[1] !== 0x45 || buf[2] !== 0x4c || buf[3] !== 0x46) {
         throw new Error("Not an ELF file");

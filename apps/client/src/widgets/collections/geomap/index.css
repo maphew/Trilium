@@ -7,13 +7,16 @@
 
   > .collection-properties {
     position: relative;
-    z-index: 998;
   }
 }
 
 .geo-map-container {
   height: 100%;
   overflow: hidden;
+
+  .maplibregl-canvas-container {
+    position: relative;
+  }
 }
 
 .maplibregl-ctrl-top-left,

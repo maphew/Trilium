@@ -1,7 +1,7 @@
 import "./PopupEditor.css";
 
 import { ComponentChildren } from "preact";
-import { useContext, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import appContext from "../../components/app_context";
 import NoteContext from "../../components/note_context";
@@ -18,66 +18,115 @@ import NoteIcon from "../note_icon";
 import NoteTitleWidget from "../note_title";
 import NoteDetail from "../NoteDetail";
 import PromotedAttributes from "../PromotedAttributes";
-import { useNoteContext, useNoteLabel, useTriliumEvent } from "../react/hooks";
+import { useContainedLinkNavigation, useNoteContext, useNoteLabel, useTriliumEvent } from "../react/hooks";
+import Icon from "../react/Icon";
 import Modal from "../react/Modal";
 import { NoteContextContext, ParentComponent } from "../react/react_utils";
 import ReadOnlyNoteInfoBar from "../ReadOnlyNoteInfoBar";
 import StandaloneRibbonAdapter from "../ribbon/components/StandaloneRibbonAdapter";
-import FormattingToolbar from "../ribbon/FormattingToolbar";
+import FormattingToolbar, { showFormattingToolbar } from "../ribbon/FormattingToolbar";
 import MobileEditorToolbar from "../type_widgets/text/mobile_editor_toolbar";
 
 const isNewLayout = isExperimentalFeatureEnabled("new-layout");
 
 export default function PopupEditor() {
     const [ shown, setShown ] = useState(false);
+    const [ stacked, setStacked ] = useState(false);
     const parentComponent = useContext(ParentComponent);
-    const [ noteContext, setNoteContext ] = useState(new NoteContext("_popup-editor"));
+    const [ noteContext, setNoteContext ] = useState(() => new NoteContext("_popup-editor"));
+    const modalRef = useRef<HTMLDivElement>(null);
     const isMobile = utils.isMobile();
     const items = useMemo(() => {
         const baseItems = isMobile ? [] : DESKTOP_FLOATING_BUTTONS;
         return baseItems.filter(item => !POPUP_HIDDEN_FLOATING_BUTTONS.includes(item));
     }, [ isMobile ]);
 
-    useTriliumEvent("openInPopup", async ({ noteIdOrPath }) => {
-        const noteContext = new NoteContext("_popup-editor");
-
+    useTriliumEvent("openInPopup", async ({ noteIdOrPath, viewScope }) => {
         const noteId = tree.getNoteIdAndParentIdFromUrl(noteIdOrPath);
         if (!noteId.noteId) return;
         const note = await froca.getNote(noteId.noteId);
         if (!note) return;
 
+        // Settings pages are displayed in their own dedicated dialog with the page selector sidebar.
+        if (note.isOptions()) {
+            void appContext.triggerCommand("showOptions", { section: noteId.noteId });
+            return;
+        }
+
+        const noteContext = new NoteContext("_popup-editor");
+        setStacked(!!document.querySelector(".modal.show"));
+
         const hasUserSetNoteReadOnly = note.hasLabel("readOnly");
         await noteContext.setNote(noteIdOrPath, {
             viewScope: {
                 // Override auto-readonly notes to be editable, but respect user's choice to have a read-only note.
-                readOnlyTemporarilyDisabled: !hasUserSetNoteReadOnly
-            }
+                readOnlyTemporarilyDisabled: !hasUserSetNoteReadOnly,
+                // A view scope from the caller (e.g. an attachment link) decides what is actually displayed.
+                ...viewScope
+            },
+            keepActiveDialog: true
         });
 
+        // Events triggered at note context level (e.g. the save indicator) would not work since the note context has no parent component. Propagate events to parent component so that they can be handled properly.
+        noteContext.triggerEvent = (name, data) => parentComponent?.handleEventInChildren(name, data);
         setNoteContext(noteContext);
         setShown(true);
     });
 
+    // Asked to stand aside by something within it that has sent the reader elsewhere — the note map,
+    // whose nodes navigate the pane behind rather than the popup, which would otherwise be left covering
+    // the note it has just gone to with a map of the note it came from.
+    useTriliumEvent("closePopupEditor", () => setShown(false));
+
+    // Keep navigation that follows internal links inside the popup, rather than letting the global
+    // link handler open the target in the background tab. Settings links open the options dialog.
+    useContainedLinkNavigation(modalRef, useCallback((notePath, viewScope) => {
+        const targetNoteId = notePath.split("/").at(-1);
+        if (targetNoteId?.startsWith("_options")) {
+            void appContext.triggerCommand("showOptions", { section: targetNoteId });
+        } else {
+            void noteContext.setNote(notePath, { viewScope, keepActiveDialog: true });
+        }
+    }, [ noteContext ]));
+
     // Add a global class to be able to handle issues with z-index due to rendering in a popup.
     useEffect(() => {
         document.body.classList.toggle("popup-editor-open", shown);
-    }, [shown]);
+        document.body.classList.toggle("popup-editor-stacked", shown && stacked);
+    }, [shown, stacked]);
+
+    // When stacked on top of another modal, raise this popup's own backdrop above
+    // the underlying modal. Bootstrap does not auto-increment z-index for stacked
+    // modals, and the appended `.modal-backdrop` is not individually addressable.
+    useEffect(() => {
+        if (!shown || !stacked) return;
+        const backdrops = document.querySelectorAll(".modal-backdrop");
+        const popupBackdrop = backdrops[backdrops.length - 1] as HTMLElement | undefined;
+        if (!popupBackdrop) return;
+        popupBackdrop.classList.add("popup-editor-backdrop");
+        return () => popupBackdrop.classList.remove("popup-editor-backdrop");
+    }, [shown, stacked]);
 
     return (
         <NoteContextContext.Provider value={noteContext}>
             <DialogWrapper>
                 <Modal
-                    title={<>
-                        <TitleRow />
-                        {isNewLayout && <NoteBadges />}
-                    </>}
+                    modalRef={modalRef}
+                    title={<TitleRow />}
                     customTitleBarButtons={[{
                         iconClassName: "bx-expand-alt",
                         title: t("popup-editor.maximize"),
                         onClick: async () => {
                             if (!noteContext.noteId) return;
-                            const { noteId, hoistedNoteId } = noteContext;
-                            await appContext.tabManager.openInNewTab(noteId, hoistedNoteId, true);
+                            const { noteId, hoistedNoteId, viewScope } = noteContext;
+                            if (viewScope?.attachmentId || (viewScope?.viewMode && viewScope.viewMode !== "default")) {
+                                // Whatever is on show that isn't the note itself — an attachment, or a view
+                                // mode such as the note map — is carried over, or the tab would open on the
+                                // note and drop what was being looked at.
+                                await appContext.tabManager.openContextWithNote(noteId, { hoistedNoteId, viewScope, activate: true });
+                            } else {
+                                await appContext.tabManager.openInNewTab(noteId, hoistedNoteId, true);
+                            }
                             setShown(false);
                         }
                     }]}
@@ -95,7 +144,7 @@ export default function PopupEditor() {
 
                     {isMobile
                         ? <MobileEditorToolbar inPopupEditor />
-                        : <StandaloneRibbonAdapter component={FormattingToolbar} />}
+                        : <StandaloneRibbonAdapter component={FormattingToolbar} show={showFormattingToolbar} />}
 
                     <FloatingButtons items={items} />
                     <NoteDetail />
@@ -119,10 +168,44 @@ export function DialogWrapper({ children }: { children: ComponentChildren }) {
 }
 
 export function TitleRow() {
+    const { viewScope } = useNoteContext();
+
+    if (viewScope?.attachmentId) {
+        return <AttachmentTitleRow attachmentId={viewScope.attachmentId} />;
+    }
+
     return (
         <div className="title-row">
             <NoteIcon />
             <NoteTitleWidget />
+            {isNewLayout && <NoteBadges />}
+        </div>
+    );
+}
+
+/**
+ * The header shown when the popup displays an attachment instead of a note. Attachments are not
+ * editable in place, so the title is plain read-only text, prefixed to make clear that what is
+ * displayed is an attachment of the note and not the note itself.
+ */
+function AttachmentTitleRow({ attachmentId }: { attachmentId: string }) {
+    const [ title, setTitle ] = useState<string>();
+
+    function refresh() {
+        froca.getAttachment(attachmentId).then(attachment => setTitle(attachment?.title));
+    }
+
+    useEffect(refresh, [ attachmentId ]);
+    useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
+        if (loadResults.getAttachmentRows().some(row => row.attachmentId === attachmentId)) {
+            refresh();
+        }
+    });
+
+    return (
+        <div className="title-row attachment-title-row">
+            <Icon icon="bx bx-paperclip" />
+            <span className="attachment-title">{t("popup-editor.attachment_title", { title })}</span>
         </div>
     );
 }

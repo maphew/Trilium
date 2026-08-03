@@ -25,6 +25,20 @@ body {
     --native-titlebar-darwin-y-offset: 12 !important;
 }
 
+/*
+ * The caption buttons are centred within the overlay, so its height has to be twice the centre
+ * line of the tab bar's own buttons for the two to line up. Those buttons are top-aligned
+ * (`margin: 3px ... auto ...` below), so the centre line follows the tab bar height: 3 + 30/2 = 18
+ * here, and 26 in the taller horizontal layout. Linux-only, as in the base stylesheet.
+ */
+body.platform-linux {
+    --native-titlebar-height: 36 !important;
+}
+
+body.platform-linux.layout-horizontal {
+    --native-titlebar-height: 52 !important;
+}
+
 body.layout-horizontal {
     --active-tab-background-color: var(--launcher-pane-horiz-background-color);
     --active-tab-hover-background-color: var(--active-tab-background-color);
@@ -101,10 +115,21 @@ body.background-effects.theme-supports-background-effects #center-pane .note-spl
 
 /* #endregion */
 
+#horizontal-main-container {
+    /* The default start-start and end-start border radius for the note split.
+     * Updated automatically according to the layout. */
+    --note-split-top-border-radius: var(--center-pane-border-radius);
+    --note-split-bottom-border-radius: var(--center-pane-border-radius);
+}
+
 /* Matches when the left pane is collapsed */
 #horizontal-main-container.left-pane-hidden {
-    --center-pane-border-radius: 0;
-    --tab-first-item-horiz-offset: 5px;
+    --note-split-top-border-radius: 0;
+}
+
+/* Matches when a status bar panel is open */
+body.experimental-feature-new-layout #horizontal-main-container:has(#rest-pane > .status-bar.status-bar-panel-open) {
+    --note-split-bottom-border-radius: 0;
 }
 
 /* Add a border to the vertical launch bar if collapsed. */
@@ -329,7 +354,7 @@ body[dir=ltr] #launcher-container {
 
 #launcher-pane .sync-status-disconnected-with-changes {
     --pulse-color: var(--sync-status-error-pulse-color);
-    animation: sync-status-pulse 1s ease-in-out alternate-reverse infinite;
+    animation: sync-status-pulse 1s steps(10, jump-none) alternate-reverse infinite;
 }
 
 #launcher-pane button.global-menu-button {
@@ -344,13 +369,12 @@ body[dir=ltr] #launcher-container {
 }
 
 .tooltip .tooltip-inner {
-    padding: 6px 10px !important;
-    box-shadow:
-        -1px -1px 2px var(--tooltip-shadow-color),
-        2px 2px 8px var(--tooltip-shadow-color) !important;
+    padding: var(--tooltip-padding) !important;
+    box-shadow: var(--tooltip-box-shadow) !important;
     border: unset !important;
-    border-radius: 6px;
-    backdrop-filter: blur(5px);
+    border-radius: var(--tooltip-border-radius);
+    backdrop-filter: var(--tooltip-backdrop-filter);
+    font-size: var(--tooltip-font-size);
     color: var(--tooltip-foreground-color) !important;
 }
 
@@ -372,10 +396,6 @@ body[dir=ltr] #launcher-container {
 .calendar-dropdown-widget .calendar-header [data-calendar-input="month"] {
     --input-background-color: transparent;
     --menu-background-color: transparent;
-
-    text-align: center;
-    font-size: 1.4em;
-    font-weight: 300;
 }
 
 .calendar-dropdown-widget .calendar-header input:not(:focus) {
@@ -425,8 +445,6 @@ body[dir=ltr] #launcher-container {
 }
 
 .calendar-dropdown-widget .calendar-week span {
-    font-size: 0.85em;
-    font-weight: 500;
     color: var(--calendar-weekday-labels-color);
 }
 
@@ -620,16 +638,6 @@ div.quick-search .dropdown-menu {
     --menu-item-icon-vert-offset: -.065em;
 }
 
-/*
- * TO FIX: The quick search results dropdown has a backdrop issue with the tree panel
- * when background effects are enabled in Electron.
- * As a temporary workaround, the backdrop and transparency are disabled for the
- * vertical layout.
- */
-body.layout-vertical.background-effects div.quick-search .dropdown-menu {
-    --menu-background-color: var(--menu-background-color-no-backdrop) !important;
-}
-
 /* Item */
 .quick-search .dropdown-menu *.dropdown-item {
     padding: 8px 12px !important;
@@ -667,31 +675,36 @@ body.layout-vertical.background-effects div.quick-search .dropdown-menu {
 
 /*
  * TREE PANE
+ *
+ * The tree popup editor's sidebar (`.tree-popup-sidebar`) hosts the same NoteTreeWidget outside
+ * `#left-pane`, so every rule in this section matches both via `:is()` — which also keeps the
+ * original id-level specificity for the popup, so these still override the base tree.css rules.
  */
 
-#left-pane div.tree {
+:is(#left-pane, .tree-popup-sidebar) div.tree {
     padding: 3px 6px 40px 6px;
     animation: fade-in 200ms ease-in;
 }
 
-#left-pane span.fancytree-node {
+:is(#left-pane, .tree-popup-sidebar) span.fancytree-node {
     border: unset;
     border-radius: 6px;
     cursor: default;
 }
 
-#left-pane .ui-fancytree ul {
+:is(#left-pane, .tree-popup-sidebar) .ui-fancytree ul {
     padding-inline-start: 10px;
 }
 
 /* The root element of the tree */
-#left-pane .fancytree-container > li:first-child > span {
+:is(#left-pane, .tree-popup-sidebar) .fancytree-container > li:first-child > span {
     padding-inline-start: 12px;
 }
 
-#left-pane span.fancytree-node.fancytree-active {
+:is(#left-pane, .tree-popup-sidebar) span.fancytree-node.fancytree-active,
+:is(#left-pane, .tree-popup-sidebar) span.fancytree-node.fancytree-active:hover {
     position: relative;
-    background: transparent !important;
+    background: transparent;
     color: var(--custom-color, var(--left-pane-item-selected-color));
 }
 
@@ -704,7 +717,15 @@ body.layout-vertical.background-effects div.quick-search .dropdown-menu {
     }
 }
 
-#left-pane span.fancytree-node.fancytree-active::before {
+/*
+ * .fancytree-node pseudo-elements:
+ *
+ *      - ::before: the active tree item decorator.
+ *      - ::after:  the selected tree item background. A pseudo-element is used instead of the
+ *                  element's background color, to allow alpha compositing for the hover state.
+ */
+
+:is(#left-pane, .tree-popup-sidebar) span.fancytree-node.fancytree-active::before {
     position: absolute;
     content: "";
     top: var(--left-pane-item-selected-shadow-size);
@@ -718,12 +739,30 @@ body.layout-vertical.background-effects div.quick-search .dropdown-menu {
     z-index: -1;
 }
 
-#left-pane span.fancytree-node.protected > span.fancytree-custom-icon {
+:is(#left-pane, .tree-popup-sidebar) span.fancytree-node.fancytree-selected {
+    --left-pane-item-selected-shadow-size: 4px;
+
+    position: relative;
+    background-color: transparent;
+    border-radius: 0;
+}
+
+:is(#left-pane, .tree-popup-sidebar) span.fancytree-node.fancytree-selected::after {
+    display: block;
+    position: absolute;
+    z-index: -2;
+    content: "";
+    inset: 0;
+    background: var(--selection-background-color);
+    animation: left-pane-item-select 100ms ease-out;
+}
+
+:is(#left-pane, .tree-popup-sidebar) span.fancytree-node.protected > span.fancytree-custom-icon {
     position: relative;
     filter: unset !important;
 }
 
-#left-pane span.fancytree-node.protected > span.fancytree-custom-icon:after {
+:is(#left-pane, .tree-popup-sidebar) span.fancytree-node.protected > span.fancytree-custom-icon:after {
     position: absolute;
     bottom: 0;
     inset-inline-end: 0;
@@ -735,7 +774,7 @@ body.layout-vertical.background-effects div.quick-search .dropdown-menu {
     border-radius: 50%;
 }
 
-body[dir=rtl] #left-pane span.fancytree-node.protected > span.fancytree-custom-icon:after {
+body[dir=rtl] :is(#left-pane, .tree-popup-sidebar) span.fancytree-node.protected > span.fancytree-custom-icon:after {
     transform: translateX(-25%);
 }
 
@@ -751,34 +790,37 @@ body[dir=rtl] #left-pane span.fancytree-node.protected > span.fancytree-custom-i
     }
 }
 
-#left-pane .fancytree-expander {
+:is(#left-pane, .tree-popup-sidebar) .fancytree-expander,
+.nested-note-list-item .note-expander {
     opacity: 0.65;
     transition: opacity 150ms ease-in;
 }
 
-#left-pane .fancytree-expander:hover {
+:is(#left-pane, .tree-popup-sidebar) .fancytree-expander:hover,
+.nested-note-list-item .note-expander:hover {
     opacity: 1;
     transition: opacity 300ms ease-out;
 }
 
-#left-pane .fancytree-custom-icon {
+:is(#left-pane, .tree-popup-sidebar) .fancytree-custom-icon {
     margin-top: 0; /* Use this to align the icon with the tree view item's caption */
     color: var(--custom-color, var(--left-pane-icon-color));
 }
 
-#left-pane span.fancytree-active .fancytree-title {
+:is(#left-pane, .tree-popup-sidebar) span.fancytree-active .fancytree-title {
     font-weight: normal;
 }
 
-#left-pane span.fancytree-node:hover {
+:is(#left-pane, .tree-popup-sidebar) span.fancytree-node:hover {
     background: var(--left-pane-item-hover-background);
 }
 
-#left-pane .note-indicator-icon.shared-indicator {
+:is(#left-pane, .tree-popup-sidebar) .note-indicator-icon.shared-indicator {
     opacity: 0.5;
 }
 
-#left-pane .tree-item-button {
+:is(#left-pane, .tree-popup-sidebar) .tree-item-button,
+:is(#left-pane, .tree-popup-sidebar) span.fancytree-node.fancytree-selected .fancytree-custom-icon {
     margin-inline-end: 6px;
     border: unset;
     border-radius: 50%;
@@ -789,7 +831,8 @@ body[dir=rtl] #left-pane span.fancytree-node.protected > span.fancytree-custom-i
         box-shadow 200ms ease-out;
 }
 
-#left-pane .tree-item-button:hover {
+:is(#left-pane, .tree-popup-sidebar) .tree-item-button:hover,
+:is(#left-pane, .tree-popup-sidebar) span.fancytree-node.fancytree-selected .fancytree-custom-icon:hover {
     background: var(--left-pane-item-action-button-hover-background);
     box-shadow: var(--left-pane-item-action-button-hover-shadow);
     transition:
@@ -797,9 +840,40 @@ body[dir=rtl] #left-pane span.fancytree-node.protected > span.fancytree-custom-i
         box-shadow 100ms ease-in;
 }
 
-#left-pane span.fancytree-node.fancytree-active .tree-item-button:hover {
+:is(#left-pane, .tree-popup-sidebar) span.fancytree-node.fancytree-active .tree-item-button:hover,
+:is(#left-pane, .tree-popup-sidebar) span.fancytree-node.fancytree-active.fancytree-selected .fancytree-custom-icon:hover {
     box-shadow: var(--left-pane-item-selected-action-button-hover-shadow);
 }
+
+/* Selected item bulk action button */
+
+@keyframes bulk-action-button-blink {
+    from {
+        opacity: 1;
+    }
+    to {
+        opacity: .3;
+    }
+}
+
+:is(#left-pane, .tree-popup-sidebar) span.fancytree-node.fancytree-selected .fancytree-custom-icon {
+    margin: 0;
+}
+
+:is(#left-pane, .tree-popup-sidebar) span.fancytree-node.fancytree-selected .fancytree-custom-icon::before {
+    border: 0;
+    font-size: .65em;
+}
+
+:is(#left-pane, .tree-popup-sidebar) span.fancytree-node.fancytree-selected:hover .fancytree-custom-icon:not(:hover)::before {
+    animation: bulk-action-button-blink 500ms linear infinite alternate;
+}
+
+:is(#left-pane, .tree-popup-sidebar) span.fancytree-node.fancytree-selected.protected .fancytree-custom-icon::after {
+    /* Protected note indicator */
+    display: none;
+}
+
 
 #context-menu-container {
     /* The context menu of the tree */
@@ -811,7 +885,7 @@ body[dir=rtl] #left-pane span.fancytree-node.protected > span.fancytree-custom-i
  */
 
 /* Toolbar container (collapsed state) */
-#left-pane .tree-actions {
+:is(#left-pane, .tree-popup-sidebar) .tree-actions {
     max-width: var(--tree-actions-toolbar-collapsed-width);
     inset-inline-end: var(--tree-actions-toolbar-horizontal-margin);
     bottom: var(--tree-actions-toolbar-vertical-margin);
@@ -827,7 +901,7 @@ body[dir=rtl] #left-pane span.fancytree-node.protected > span.fancytree-custom-i
 }
 
 /* Toolbar container (expanded state) */
-#left-pane .tree-actions:hover {
+:is(#left-pane, .tree-popup-sidebar) .tree-actions:hover {
     max-width: 200px;
     border-color: var(--dropdown-border-color);
     background: var(--menu-background-color);
@@ -836,7 +910,7 @@ body[dir=rtl] #left-pane span.fancytree-node.protected > span.fancytree-custom-i
 }
 
 /* Toolbar button (toolbar collapsed)*/
-#left-pane .tree-actions button {
+:is(#left-pane, .tree-popup-sidebar) .tree-actions button {
     border: unset;
     color: var(--menu-item-icon-color);
     opacity: 0;
@@ -844,18 +918,18 @@ body[dir=rtl] #left-pane span.fancytree-node.protected > span.fancytree-custom-i
 }
 
 /* Toolbar button on hover */
-#left-pane .tree-actions button:hover {
+:is(#left-pane, .tree-popup-sidebar) .tree-actions button:hover {
     background: var(--hover-item-background-color);
 }
 
 /* Toolbar button (toolbar expanded) */
-#left-pane .tree-actions:hover button {
+:is(#left-pane, .tree-popup-sidebar) .tree-actions:hover button {
     opacity: 1;
     transition: opacity 250ms ease-in;
 }
 
 /* The floating expand button (toolbar collapsed) */
-#left-pane .tree-actions::after {
+:is(#left-pane, .tree-popup-sidebar) .tree-actions::after {
     display: flex;
     content: "\eab4";
     position: absolute;
@@ -878,7 +952,7 @@ body[dir=rtl] #left-pane span.fancytree-node.protected > span.fancytree-custom-i
 }
 
 /* The floating expand button (toolbar expanded) */
-#left-pane .tree-actions:hover::after {
+:is(#left-pane, .tree-popup-sidebar) .tree-actions:hover::after {
     background: transparent;
     color: var(--menu-item-icon-color);
     opacity: var(--menu-item-disabled-opacity);
@@ -889,7 +963,7 @@ body[dir=rtl] #left-pane span.fancytree-node.protected > span.fancytree-custom-i
  * Tree settings popup
  */
 
-#left-pane .tree-settings-popup {
+:is(#left-pane, .tree-popup-sidebar) .tree-settings-popup {
     box-shadow: 0px 10px 20px rgba(0, 0, 0, var(--dropdown-shadow-opacity));
     border: 1px solid var(--dropdown-border-color);
     padding: 25px;
@@ -898,7 +972,7 @@ body[dir=rtl] #left-pane span.fancytree-node.protected > span.fancytree-custom-i
     color: var(--menu-text-color);
 }
 
-#left-pane .tree-settings-popup h4 {
+:is(#left-pane, .tree-popup-sidebar) .tree-settings-popup h4 {
     margin-bottom: 0.75em;
     font-size: 1.5em;
     line-height: 1;
@@ -1031,7 +1105,7 @@ body.layout-vertical.electron.platform-darwin .tab-row-container {
     height: var(--tab-height) !important;
 }
 
-.tab-row-widget > * {
+body.layout-vertical .tab-row-widget > * {
     margin-top: calc((var(--tab-bar-height) - var(--tab-height)) / 2);
 }
 
@@ -1088,10 +1162,6 @@ body.desktop:not(.background-effects) #root-widget.horizontal-layout {
     transition: none;
 }
 
-.tab-row-container .title-bar-buttons {
-    margin-top: calc((var(--tab-bar-height) - var(--tab-height)) * -1);
-}
-
 body.layout-horizontal div.tab-row-widget div.note-tab div.note-tab-wrapper {
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
@@ -1109,10 +1179,6 @@ body.layout-horizontal div.tab-row-widget div.note-tab div.note-tab-wrapper {
     inset-inline-end: 0;
     height: 3px;
     background-color: var(--workspace-tab-background-color);
-}
-
-body:not([dir=rtl]) .tab-row-widget .note-tab:nth-child(1) {
-    transform: translate3d(var(--tab-first-item-horiz-offset), 0, 0);
 }
 
 :root .tab-row-widget .note-tab .note-tab-icon {
@@ -1238,7 +1304,7 @@ body.layout-vertical .tab-row-widget-is-sorting .note-tab.note-tab-is-dragging .
 }
 
 body.layout-vertical #rest-pane > .classic-toolbar-widget {
-    border-start-start-radius: var(--center-pane-border-radius);
+    border-start-start-radius: var(--note-split-top-border-radius);
 }
 
 body.layout-vertical #rest-pane > .classic-toolbar-widget {
@@ -1251,16 +1317,30 @@ body.layout-horizontal #rest-pane > .classic-toolbar-widget {
 
 .classic-toolbar-widget:not(.hidden-ext) + #vertical-main-container {
     /* Remove the center panel border radius when the toolbar is visible */
-    --center-pane-border-radius: 0;
+    --note-split-top-border-radius: 0;
 }
 
 /*
  * CENTER PANE
  */
 
+ /* Note split */
+ body.desktop.experimental-feature-new-layout .vertical-layout #center-pane .note-split {
+    border-bottom: 1px solid var(--status-bar-border-color);
+ }
+
  /* The first visible note split */
 .vertical-layout #center-pane .note-split:not(.visible ~ .visible) {
-    border-start-start-radius: var(--center-pane-border-radius);
+    border-start-start-radius: var(--note-split-top-border-radius);
+
+    body.desktop.experimental-feature-new-layout & {
+        border-end-start-radius: var(--note-split-bottom-border-radius);
+
+        > .scrolling-container {
+            /* Use clip-path to force rounded bottom corner for the note content */
+            clip-path: inset(0px round 0 0 0 var(--note-split-bottom-border-radius));
+        }
+    }
 }
 
 #center-pane .note-split {
@@ -1403,7 +1483,8 @@ body.experimental-feature-new-layout #center-pane .note-split > div.alert {
 
 /* The promoted attributes section */
 div.promoted-attributes-container {
-    display: flex;
+    /* The cards are sized by the container query below instead of wrapping. */
+    flex-wrap: nowrap;
     margin-inline-end: 10%;
     padding: 6px 0;
     gap: 8px;
@@ -1461,6 +1542,23 @@ div.promoted-attribute-cell:not(:has(input[type="checkbox"])) > label::after {
 div.promoted-attribute-cell div.input-group {
     min-height: auto;
     padding: 1px 6px;
+}
+
+/*
+ * The field of a label holding several values, which in this theme sits inside a card of its own. The
+ * card is the frame — as it already is for the group around a single value's box, whose input gives up
+ * its border and background here — so the field brings none, a second rounded edge just within the
+ * first reading as two boxes where there is one.
+ *
+ * The border is kept and made invisible rather than dropped, so the chips sit where they would in a
+ * theme that does frame the field.
+ */
+div.promoted-attribute-cell div.promoted-attribute-values {
+    min-height: auto;
+
+    > .tn-field {
+        border-color: transparent;
+    }
 }
 
 div.promoted-attribute-cell input {
@@ -1709,6 +1807,20 @@ div.floating-buttons-children .close-floating-buttons:has(.close-floating-button
     font-size: var(--floating-button-icon-size);
 }
 
+/* Button groups */
+:root .floating-buttons .btn-group {
+    --button-group-active-button-background-color: var(--low-profile-button-active-background-color);
+    --button-group-active-button-color: var(--low-profile-button-active-color);
+
+    background: transparent;
+    padding: 0;
+
+    button.btn.floating-button.btn {
+        border-radius: 0;
+        box-shadow: unset;
+    }
+}
+
 /*
  * Find and replace bar
  */
@@ -1817,6 +1929,11 @@ div.find-replace-widget div.find-widget-found-wrapper > span {
 #right-pane {
     background: var(--right-pane-background-color);
 }
+
+/* New layout: status bar delimiter */
+body.desktop.experimental-feature-new-layout .vertical-layout #right-pane {
+    border-bottom: 1px solid var(--status-bar-border-color);
+ }
 
 #right-pane > * {
     animation: fade-in 200ms ease-in;

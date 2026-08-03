@@ -1,11 +1,11 @@
 .collection-properties {
-    padding: 0.55em 12px;
+    padding: 0.55em var(--content-margin-inline);
     display: flex;
     gap: 0.25em;
     align-items: center;
     width: 100%;
     max-width: unset;
-    font-size: 0.8em;
+    font-size: 0.8rem;
 
     .dropdown-menu {
         input.form-control {

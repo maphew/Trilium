@@ -1,0 +1,17 @@
+.llm-chat-container {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    box-sizing: border-box;
+
+    .llm-chat-messages {
+        padding: 1em;
+    }
+
+    /* The composer is an island with its own inner padding, so the gap to the
+       timeline and the pane edges is a margin here rather than padding there. */
+    .llm-chat-input-form,
+    .llm-chat-no-provider {
+        margin: 0 1em 0.75em;
+    }
+}

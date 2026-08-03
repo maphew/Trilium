@@ -8,13 +8,11 @@ import { HTMLProps } from "preact/compat";
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import FNote from "../../../entities/fnote";
-import attribute_autocomplete from "../../../services/attribute_autocomplete";
 import dialog from "../../../services/dialog";
 import { isExperimentalFeatureEnabled } from "../../../services/experimental_features";
 import { t } from "../../../services/i18n";
 import server from "../../../services/server";
 import toast from "../../../services/toast";
-import utils from "../../../services/utils";
 import ActionButton from "../../react/ActionButton";
 import { useEditorSpacedUpdate, useTriliumEvent, useTriliumEvents } from "../../react/hooks";
 import { TypeWidgetProps } from "../type_widget";
@@ -23,7 +21,7 @@ import { buildRelationContextMenuHandler } from "./context_menu";
 import { JsPlumb } from "./jsplumb";
 import { NoteBox } from "./NoteBox";
 import setupOverlays, { uniDirectionalOverlays } from "./overlays";
-import { getMousePosition, getZoom, idToNoteId, noteIdToId } from "./utils";
+import { getMousePosition, getZoom, idToNoteId, noteIdToId, promptForRelationName } from "./utils";
 
 const isNewLayout = isExperimentalFeatureEnabled("new-layout");
 
@@ -65,7 +63,7 @@ export default function RelationMap({ note, noteContext, ntxId, parentComponent 
             };
         },
         onContentChange(content) {
-            let newData: MapData | null = null;
+            let newData: Partial<MapData> | null = null;
 
             if (content) {
                 try {
@@ -75,7 +73,7 @@ export default function RelationMap({ note, noteContext, ntxId, parentComponent 
                 }
             }
 
-            if (!newData) {
+            if (!newData || !newData.notes || !newData.transform) {
                 newData = {
                     notes: [],
                     // it is important to have this exact value here so that initial transform is the same as this
@@ -90,8 +88,8 @@ export default function RelationMap({ note, noteContext, ntxId, parentComponent 
                 };
             }
 
-            setData(newData);
-            mapApiRef.current = new RelationMapApi(note, newData, (newData, refreshUi) => {
+            setData(newData as MapData);
+            mapApiRef.current = new RelationMapApi(note, newData as MapData, (newData, refreshUi) => {
                 if (refreshUi) {
                     setData(newData);
                 }
@@ -306,8 +304,10 @@ async function useRelationData(noteId: string, mapData: MapData | undefined, map
                 });
                 if (!connection) return;
 
-                // TODO: Does this actually do anything.
-                //@ts-expect-error
+                // Stash the attributeId on the connection so api.ts can map a clicked connection
+                // back to its relation (see the `rel.attributeId === connection.id` lookups there),
+                // and so it can be exposed as data-connection-id below.
+                //@ts-expect-error jsPlumb's Connection type has no writable `id` property.
                 connection.id = relation.attributeId;
 
                 if (relation.type === "inverse") {
@@ -415,27 +415,7 @@ function useRelationCreation({ mapApiRef, jsPlumbApiRef }: { mapApiRef: RefObjec
         // if there's no event, then this has been triggered programmatically
         if (!originalEvent || !mapApiRef.current) return;
 
-        const name = await dialog.prompt({
-            message: t("relation_map.specify_new_relation_name"),
-            shown: ({ $answer }) => {
-                if (!$answer) {
-                    return;
-                }
-
-                $answer.on("keyup", () => {
-                    // invalid characters are simply ignored (from user perspective they are not even entered)
-                    const attrName = utils.filterAttributeName($answer.val() as string);
-
-                    $answer.val(attrName);
-                });
-
-                attribute_autocomplete.initAttributeNameAutocomplete({
-                    $el: $answer,
-                    attributeType: "relation",
-                    open: true
-                });
-            }
-        });
+        const name = await promptForRelationName();
 
         // Delete the newly created connection if the dialog was dismissed.
         if (!name || !name.trim()) {
@@ -447,10 +427,11 @@ function useRelationCreation({ mapApiRef, jsPlumbApiRef }: { mapApiRef: RefObjec
         const sourceNoteId = idToNoteId(connection.source.id);
         const result = await mapApiRef.current.connect(name, sourceNoteId, targetNoteId);
         if (!result) {
-            await dialog.info(t("relation_map.connection_exists", { name }));
+            toast.showError(t("relation_map.connection_exists", { name }));
             jsPlumbApiRef.current?.deleteConnection(connection);
         }
     }, []);
 
     return connectionCallback;
 }
+
