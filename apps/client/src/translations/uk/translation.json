@@ -1270,7 +1270,8 @@
     "title": "Редактор"
   },
   "code_mime_types": {
-    "title": "Доступні типи MIME у спадаючому списку"
+    "title": "Доступні типи MIME у спадаючому списку",
+    "tooltip_syntax_highlighting": "Підсвічування синтаксису"
   },
   "vim_key_bindings": {
     "use_vim_keybindings_in_code_notes": "Комбінації клавіш Vim",
@@ -1732,9 +1733,9 @@
     "export": "Експорт",
     "import-into-note": "Імпортувати в нотатку",
     "apply-bulk-actions": "Застосувати масові дії",
-    "converted-to-attachments_one": "({{count}}) нотаток перетворено на вкладення.",
-    "converted-to-attachments_few": "",
-    "converted-to-attachments_many": "",
+    "converted-to-attachments_one": "({{count}}) нотатка перетворена на вкладення.",
+    "converted-to-attachments_few": "({{count}}) нотатки перетворено на вкладення.",
+    "converted-to-attachments_many": "({{count}}) нотаток перетворено на вкладення.",
     "convert-to-attachment-confirm": "Ви впевнені, що хочете конвертувати вибрані нотатки у вкладення до їхніх батьківських нотаток? Ця операція застосовується лише до нотаток із зображеннями, інші нотатки будуть пропущені.",
     "open-in-popup": "Швидке редагування",
     "archive": "Архівувати",
@@ -1869,7 +1870,9 @@
     "enable-shadows": "Увімкнути тіні",
     "enable-backdrop-effects": "Увімкнути фонові ефекти для меню, спливаючих вікон та панелей",
     "enable-smooth-scroll": "Увімкнути плавне прокручування",
-    "app-restart-required": "(щоб зміни набули чинності, потрібен перезапуск програми)"
+    "app-restart-required": "Потрібен перезапуск програми",
+    "enable-hardware-acceleration": "Апаратне прискорення (графічний процесор)",
+    "enable-hardware-acceleration-description": "Вимкніть цю функцію, якщо програма відображає порожнє вікно або має збої відображення, спричинені драйверами графічного процесора. Потребує перезапуску програми."
   },
   "pagination": {
     "total_notes_one": "{{count}} нотаток",
@@ -1949,5 +1952,13 @@
     "hints": {
       "playback": "Відтворення"
     }
+  },
+  "read-only-info": {
+    "auto-read-only-note": "Для швидшого завантаження ця нотатка відображається в режимі \"лише для читання\".",
+    "edit-note": "Редагувати нотатку"
+  },
+  "note-color": {
+    "set-color": "Обрати колір нотатки",
+    "set-custom-color": "Обрати власний колір нотатки"
   }
 }
