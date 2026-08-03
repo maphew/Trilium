@@ -557,11 +557,6 @@ li.dropdown-item a.dropdown-item-button:focus-visible {
  * TOASTS
  */
 
- #toast-container {
-    /* The vertical gap between toasts */
-    gap: 10px;
-}
-
 #toast-container .toast {
     --bs-toast-padding-x: 12px;
     --bs-border-radius: 8px;

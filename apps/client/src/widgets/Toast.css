@@ -1,6 +1,9 @@
 #toast-container {
     display: flex;
     flex-direction: column;
+    /* The vertical gap between stacked toasts. Bootstrap's own spacing rule targets `.toast-container`,
+       which this element isn't, so without this stacked toasts touch. */
+    gap: 10px;
     justify-content: center;
     align-items: center;
     position: absolute;
