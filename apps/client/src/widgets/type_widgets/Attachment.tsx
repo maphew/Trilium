@@ -48,6 +48,9 @@ import { TypeWidgetProps } from "./type_widget";
 export function AttachmentList({ note }: TypeWidgetProps) {
     const attachments = useAttachments(note);
     const groups = useMemo(() => partitionAttachmentsByGroup(attachments), [ attachments ]);
+    // Nothing to fold away until the app has made an attachment of its own, which most notes never give
+    // it reason to — so an ordinary note's list looks exactly as it did.
+    const hasFoldedAway = groups.system.length > 0;
 
     return (
         <div className="attachment-list-container">
@@ -56,13 +59,26 @@ export function AttachmentList({ note }: TypeWidgetProps) {
                 {groups.user.length ? (
                     <AttachmentGrid attachments={groups.user} />
                 ) : (
-                    <NoItems icon="bx bx-unlink" text={t("attachment_list.no_attachments")} />
+                    <NoItems
+                        icon="bx bx-unlink"
+                        // "No attachments" would be a plain untruth on a note carrying a preview's
+                        // pictures, and the row saying otherwise is folded shut directly underneath —
+                        // so where there is one, the placeholder says what is missing (anything of the
+                        // note's own) and where the rest of it went.
+                        text={hasFoldedAway ? t("attachment_list.no_user_attachments") : t("attachment_list.no_attachments")}
+                        // Where something is folded away underneath, the placeholder gives up the room
+                        // it would otherwise fill and settles directly above the row offering it: the two
+                        // are one answer to what the note is carrying, and a placeholder centred in the
+                        // pane leaves the other half of that answer at the bottom edge. Small for the
+                        // same reason — a 4em mark over a single line, with the row tucked under it,
+                        // is a lot of furniture for a note that has nothing of its own.
+                        size={hasFoldedAway ? "small" : "normal"}
+                        className={hasFoldedAway ? "beside-folded-away" : undefined}
+                    />
                 )}
-                {/* Nothing to fold away until the app has made an attachment of its own, which most
-                    notes never give it reason to — so an ordinary note's list looks exactly as it did.
-                    Keyed by the note so that moving to another one starts folded again, whatever was
+                {/* Keyed by the note so that moving to another one starts folded again, whatever was
                     opened on the last. */}
-                {groups.system.length > 0 && <SystemAttachments key={note.noteId} attachments={groups.system} />}
+                {hasFoldedAway && <SystemAttachments key={note.noteId} attachments={groups.system} />}
             </div>
         </div>
     );

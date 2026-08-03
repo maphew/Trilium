@@ -3,6 +3,14 @@ import { describe, expect, it, vi } from "vitest";
 import FAttachment from "../../entities/fattachment";
 import { renderInto } from "../../test/render";
 
+// Nothing initialises i18next in a unit test, and an uninitialised one answers every lookup with an
+// empty string — which would make the two placeholder messages indistinguishable. Answering with the
+// key instead is enough to tell which of them the list reached for.
+vi.mock("i18next", () => {
+    const t = (key: string) => key;
+    return { default: { t }, t };
+});
+
 // The cards' content is drawn imperatively; nothing here asks what a preview looks like, only how many
 // were built at all.
 vi.mock("../../services/content_renderer", () => ({
@@ -46,8 +54,21 @@ describe("AttachmentList", () => {
         const container = await mount([ role("favicon"), role("viewConfig") ]);
 
         expect(cards(container)).toHaveLength(0);
-        expect(container.querySelector(".no-items")).not.toBeNull();
+        // Sized and placed to sit with the row under it rather than to fill the pane over it, and
+        // saying what is actually absent: the note's own, not attachments as such.
+        const placeholder = container.querySelector(".no-items.no-items-small.beside-folded-away");
+        expect(placeholder?.textContent).toBe("attachment_list.no_user_attachments");
         expect(container.querySelector(".attachment-system-group .collapsible-title")?.getAttribute("aria-expanded")).toBe("false");
+    });
+
+    it("says plainly that there is nothing where a note carries nothing at all", async () => {
+        const container = await mount([]);
+
+        // Nothing here is qualified by anything: the full-size placeholder fills the pane as it always
+        // did, with no row underneath to leave room for and nothing to correct about the word it uses.
+        expect(container.querySelector(".attachment-system-group")).toBeNull();
+        expect(container.querySelector(".no-items")?.textContent).toBe("attachment_list.no_attachments");
+        expect(container.querySelector(".no-items-small, .beside-folded-away")).toBeNull();
     });
 });
 
@@ -75,9 +96,12 @@ async function mount(attachments: FAttachment[]) {
     const container = renderInto(<AttachmentList {...props} />);
 
     // The load is asynchronous, and its first render — before anything has arrived — is indistinguishable
-    // from a note with no attachments at all. Every case here carries at least one, so waiting for
-    // something the empty render cannot produce is enough.
-    await vi.waitFor(() => expect(container.querySelector(".attachment-detail-widget, .attachment-system-group")).not.toBeNull());
+    // from a note with no attachments at all: which is why waiting for something that first render
+    // cannot produce settles a note that has any, and a note that has none needs no waiting, its final
+    // state being the one it started in.
+    if (attachments.length) {
+        await vi.waitFor(() => expect(container.querySelector(".attachment-detail-widget, .attachment-system-group")).not.toBeNull());
+    }
     return container;
 }
 

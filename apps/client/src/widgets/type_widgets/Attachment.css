@@ -175,10 +175,16 @@
 
     /* The placeholder stands in for the listing rather than for the pane. Its own `height: 100%` is
        measured against the whole body, which on a note whose only attachments are the app's would
-       push the row offering them past the bottom edge; growing into whatever that row leaves over
-       centres it in exactly the same way, and identically where there is no such row. */
+       push the row offering them past the bottom edge. */
     > .no-items {
         height: auto;
+    }
+
+    /* And where there is such a row, the placeholder stops growing into the space above it as well, so
+       that the two read as the one answer they are rather than as a message and, an inch of nothing
+       later, an unrelated line at the foot of the pane. */
+    > .no-items.beside-folded-away {
+        flex-grow: 0;
     }
 }
 
