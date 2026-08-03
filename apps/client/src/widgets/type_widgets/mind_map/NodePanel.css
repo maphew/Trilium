@@ -1,10 +1,20 @@
 .mind-map-node-panel {
+    /* Below the floating buttons of the note, which stand in this corner. */
+    --node-panel-top: 60px;
+    /*
+     * And above the map's own buttons, which stand in the corner under it: zooming, centring and
+     * going fullscreen sit 20px up from the foot of the map and are 41px tall, in a row inset as far
+     * from the edge as the panel is. The panel is drawn over them, so a panel that reached the foot
+     * of the map would take the top half of every one of those buttons with it — the clicks along
+     * with the sight of them. What is kept is that 61px and a gap over it.
+     */
+    --node-panel-foot: 80px;
+
     position: absolute;
-    /* Leaves room for the floating buttons of the note. */
-    top: 60px;
+    top: var(--node-panel-top);
     inset-inline-end: 20px;
     width: 240px;
-    max-height: calc(100% - 100px);
+    max-height: calc(100% - var(--node-panel-top) - var(--node-panel-foot));
     /* The tab strip is the panel's header and stays put; only the tab under it scrolls. */
     display: flex;
     flex-direction: column;
@@ -18,8 +28,11 @@
     backdrop-filter: blur(10px);
 }
 
+/* Both sets of buttons move with the safe areas in fullscreen (see MindMap.css), and the room kept
+   clear of them moves with them. */
 .mind-map-container:fullscreen .mind-map-node-panel {
-    top: calc(20px + env(safe-area-inset-top));
+    --node-panel-top: calc(20px + env(safe-area-inset-top));
+    --node-panel-foot: calc(80px + env(safe-area-inset-bottom));
 }
 
 /*
