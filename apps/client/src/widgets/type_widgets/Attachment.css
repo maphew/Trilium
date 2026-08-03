@@ -184,6 +184,8 @@
     display: flex;
     flex-direction: column;
     overflow: hidden;
+    /* What the deletion badge is pinned to. */
+    position: relative;
 }
 
 .attachment-detail-wrapper.list-view {
@@ -277,16 +279,42 @@
 }
 
 /*
- * The countdown to an unlinked attachment's erasure. Outlined, like the mark against a system attribute
- * name, so a list of attachments keeps its rhythm where a banner used to break it — but in the colour the
- * "Delete attachment" entry gives its own icon, since this is the one badge here reporting a loss to come.
+ * The countdown to an unlinked attachment's erasure.
+ *
+ * Laid over the attachment's own corner rather than given a place in the header: the header is a row the
+ * title is already sharing with the menu, so a pill there is read as part of the heading and takes width
+ * from it, and it lands at a different height on every card besides. Over the content it belongs plainly
+ * to the one attachment under it, in the same corner every time. Bottom rather than top, and trailing:
+ * that leaves the header alone and keeps clear of the image viewer's own overlay, which sits bottom-left.
+ *
+ * Dressed as the overlay controls elsewhere are — the same frosted neutral the sibling navigator wears in
+ * the opposite corner of this very card — rather than filled with the destructive colour. A red pill the
+ * width of a sentence reads as an error the reader has to answer, and this is a date: nothing is wrong,
+ * nothing is being asked, and the attachment can sit like this for a month. The trash icon keeps the
+ * colour, which is as much of it as the message needs.
+ *
+ * Not the outline variant, which is what an overlay costs: it is transparent, and a picture reads
+ * straight through the words.
  */
 .attachment-deletion-badge {
-    --color: var(--dropdown-item-icon-destructive-color);
-    flex-shrink: 0;
-    /* Held against the far end of the row rather than trailing the MIME type, which is as long as the
-       type happens to be — so the badge sits in the same place down a list of attachments. */
-    margin-inline-start: auto;
+    position: absolute;
+    bottom: 10px;
+    inset-inline-end: 10px;
+    z-index: 1;
+    max-width: calc(100% - 20px);
+
+    /* Fallbacks for themes without the overlay palette: opaque, since the blur is then absent too. */
+    background-color: var(--overlay-button-background, var(--main-background-color));
+    backdrop-filter: var(--overlay-button-backdrop-filter);
+    color: var(--overlay-button-color, var(--main-text-color));
+    /* Enough separation from whatever it covers to read as sitting above it rather than in it. */
+    box-shadow: 0 2px 6px rgba(0, 0, 0, .25);
+
+    .tn-icon {
+        color: var(--dropdown-item-icon-destructive-color);
+        /* The badge dims its icon to sit behind the text; here it is the only thing carrying the tone. */
+        opacity: 1;
+    }
 }
 /* #endregion */
 

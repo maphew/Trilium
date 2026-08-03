@@ -315,9 +315,9 @@ function AttachmentInfo({ attachment, isFullDetail, ownerNote, noteContext, view
                             size: utils.formatSize(attachment.contentLength)
                         })}
                     </div>
-                    {scheduledForErasureSince && <DeletionBadge utcDateScheduledForErasureSince={scheduledForErasureSince} />}
                 </div>
 
+                {scheduledForErasureSince && <DeletionBadge utcDateScheduledForErasureSince={scheduledForErasureSince} />}
                 {textContent && <TextPreview content={textContent} mime={attachment.mime} />}
                 {isZoomableImage ? (
                     <div key="image-viewer" ref={imageViewerWrapper} className="attachment-content-wrapper attachment-image-viewer">
@@ -352,11 +352,11 @@ function AttachmentInfo({ attachment, isFullDetail, ownerNote, noteContext, view
 }
 
 /**
- * Marks an attachment the cleanup job has scheduled for erasure, on the row it belongs to rather than in
- * a block of its own: the countdown is a state the attachment is in, not something to act on right now,
- * and a banner between the title and the preview pushed every following attachment down the list for it.
- * What to do about it — link it back, or convert it to a note — is a sentence too long for a pill, so it
- * goes in the tooltip, next to the two menu entries that carry it out.
+ * Marks an attachment the cleanup job has scheduled for erasure. Pinned over the corner of its own card
+ * rather than given a row of its own: the countdown is a state the attachment is in, not something to act
+ * on right now, and a banner between the title and the preview pushed every following attachment down the
+ * list for it. What to do about it — link it back, or convert it to a note — is a sentence too long for a
+ * pill, so it goes in the tooltip, next to the two menu entries that carry it out.
  */
 function DeletionBadge({ utcDateScheduledForErasureSince }: { utcDateScheduledForErasureSince: string }) {
     const scheduledSinceTimestamp = utils.parseDate(utcDateScheduledForErasureSince)?.getTime();
@@ -368,7 +368,6 @@ function DeletionBadge({ utcDateScheduledForErasureSince }: { utcDateScheduledFo
 
     return (
         <Badge
-            outline
             className="attachment-deletion-badge"
             icon="bx bx-trash"
             text={willBeDeletedInMs !== undefined && willBeDeletedInMs >= 60000
