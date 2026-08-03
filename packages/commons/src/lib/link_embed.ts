@@ -84,6 +84,69 @@ export function safeLinkPreviewImageSrc(src: string | undefined | null): string 
     return isLocalPreviewImageSrc(src) ? String(src).trim() : undefined;
 }
 
+/**
+ * The attachment title a link preview's cover image is stored under.
+ *
+ * This is the deduplication key (see `isDeduplicatedAttachmentRole`), so it has to name exactly one
+ * page: pasting a URL twice must reuse the first picture, and two different URLs must never land on
+ * the same one. It is also what a reader sees in the attachment list, where several rows of
+ * "image.jpeg" say nothing about which is which.
+ *
+ * So it is both — a readable part built from the host and the last path segment, and a short digest
+ * of the whole address. The readable part cannot be the key on its own: reducing a URL to
+ * filename-safe characters is lossy, and `.../a/b` and `.../a-b` would reduce to the same name and
+ * then to the same picture. The digest settles identity; the prefix is there to be read.
+ *
+ * The fragment is left out of both. It never reaches the server and never changes the picture, so
+ * two links into different sections of one page share the cover they both showed anyway.
+ */
+export function linkPreviewImageName(url: string): string {
+    let canonical = url;
+    let readable = url;
+
+    try {
+        const parsed = new URL(url);
+        parsed.hash = "";
+        canonical = parsed.toString();
+
+        const lastSegment = decodeURIComponent(parsed.pathname).split("/").filter(Boolean).pop() ?? "";
+        readable = `${parsed.hostname} ${lastSegment}`;
+    } catch {
+        // Not an address that can be taken apart — rare, since a preview only ever has an http(s)
+        // URL. The digest identifies it regardless; only the readable part suffers.
+    }
+
+    return `${toFileNamePart(readable) || "image"}-${shortDigest(canonical)}`;
+}
+
+/** How much of the readable part to keep, so a long path does not crowd out the attachment list. */
+const PREVIEW_NAME_MAX_READABLE = 60;
+
+function toFileNamePart(value: string): string {
+    return value
+        .replace(/[^a-zA-Z0-9]+/g, "-")
+        .slice(0, PREVIEW_NAME_MAX_READABLE)
+        .replace(/^-+|-+$/g, "");
+}
+
+/**
+ * A short digest of a string, used only to tell two addresses apart.
+ *
+ * FNV-1a, which is not a security primitive and is not asked to be one. Web Crypto is not an option
+ * here: Trilium is served over plain HTTP as often as not, and `crypto.subtle` exists only in a
+ * secure context.
+ */
+function shortDigest(value: string): string {
+    let hash = 0x811c9dc5;
+
+    for (let i = 0; i < value.length; i++) {
+        hash ^= value.charCodeAt(i);
+        hash = Math.imul(hash, 0x01000193);
+    }
+
+    return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
 export interface LinkEmbedMetadata {
     url: string;
     title?: string;

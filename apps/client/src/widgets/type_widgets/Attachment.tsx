@@ -166,9 +166,9 @@ function AttachmentInfo({ attachment, isFullDetail, ownerNote, noteContext, view
     // preview, OCR and link-copying purposes.
     const isFileLike = attachment.role === "file" || attachment.role === "importSource";
     const isPicture = isImageAttachmentRole(attachment.role);
-    // A link preview's favicon is deliberately left out: it is 16 pixels of site mark, so there is
-    // no text in it to find, and offering to read one is noise in every attachment list that has a
-    // preview in it. The same goes for recompressing it further down.
+    // A link preview's pictures are deliberately left out: the server already sized both, and both
+    // belong to a preview rather than to the note, so reading text out of them — or offering to
+    // recompress them further down — is noise in every attachment list that holds a preview.
     const supportsOcr = attachment.role === "image" || isFileLike;
 
     // Opened in full detail, an image gets the interactive zoom/pan viewer and audio/video the full media
@@ -343,6 +343,8 @@ function AttachmentActions({ attachment, copyAttachmentReferenceToClipboard, onS
                 iconAction
                 dropdownContainerClassName="mobile-bottom-menu"
                 mobileBackdrop
+                // Doesn't scroll, so it keeps the working backdrop blur — see the prop's own docs.
+                noDropdownListStyle
             >
                 <FormListItem
                     icon="bx bx-file-find"

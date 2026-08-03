@@ -7,6 +7,7 @@ import {
     isHttpUrl,
     isLocalPreviewImageSrc,
     isUrlAloneInBlock,
+    linkPreviewImageName,
     safeLinkPreviewHref,
     safeLinkPreviewImageSrc,
     YOUTUBE_REGEX
@@ -108,6 +109,64 @@ describe("isLocalPreviewImageSrc / safeLinkPreviewImageSrc", () => {
         expect(safeLinkPreviewImageSrc("  api/attachments/abc123/image/x.png  ")).toBe("api/attachments/abc123/image/x.png");
         expect(safeLinkPreviewImageSrc("https://evil.test/pixel.gif")).toBeUndefined();
         expect(safeLinkPreviewImageSrc(undefined)).toBeUndefined();
+    });
+});
+
+describe("linkPreviewImageName", () => {
+    const wiki = "https://en.wikipedia.org/wiki/Russo-Japanese_War";
+
+    it("names the page it is a picture of, readably", () => {
+        // The attachment list shows this, where several rows of "image.jpeg" say nothing about
+        // which is which.
+        expect(linkPreviewImageName(wiki)).toMatch(/^en-wikipedia-org-Russo-Japanese-War-[0-9a-f]{8}$/);
+    });
+
+    it("gives the same URL the same name, which is what makes pasting it twice reuse one picture", () => {
+        expect(linkPreviewImageName(wiki)).toBe(linkPreviewImageName(wiki));
+    });
+
+    it("never gives two different URLs the same name, however alike they reduce to", () => {
+        // The readable part alone could not be the key: reducing a URL to filename-safe characters
+        // is lossy, and these two collapse to the same letters.
+        const slash = "https://example.com/a/b";
+        const dash = "https://example.com/a-b";
+        expect(linkPreviewImageName(slash)).not.toBe(linkPreviewImageName(dash));
+
+        // Same page, different query — a different picture as far as the site is concerned.
+        expect(linkPreviewImageName("https://example.com/p?id=1")).not.toBe(linkPreviewImageName("https://example.com/p?id=2"));
+    });
+
+    it("ignores the fragment, which never changed the picture", () => {
+        // Two links into different sections of one page show the cover they both showed anyway.
+        expect(linkPreviewImageName(`${wiki}#Background`)).toBe(linkPreviewImageName(wiki));
+        expect(linkPreviewImageName(`${wiki}#Aftermath`)).toBe(linkPreviewImageName(wiki));
+    });
+
+    it("treats the same page written two ways as one page", () => {
+        // A bare host and a trailing slash address the same thing, so they share the picture.
+        expect(linkPreviewImageName("https://example.com")).toBe(linkPreviewImageName("https://example.com/"));
+    });
+
+    it("stays a usable file name whatever the address looks like", () => {
+        const names = [
+            linkPreviewImageName("https://example.com/"),
+            linkPreviewImageName("https://exämple.com/ünïcode path/§±!"),
+            linkPreviewImageName(`https://example.com/${"very-long-segment".repeat(20)}`),
+            linkPreviewImageName("not a url at all"),
+            linkPreviewImageName("")
+        ];
+
+        for (const name of names) {
+            // Nothing a file system, a URL or an export archive would have to escape.
+            expect(name, name).toMatch(/^[a-zA-Z0-9-]+$/);
+            expect(name.startsWith("-"), name).toBe(false);
+            expect(name.endsWith("-"), name).toBe(false);
+            // Bounded, so a long path cannot crowd the attachment list out.
+            expect(name.length, name).toBeLessThanOrEqual(70);
+        }
+
+        // And these are all different addresses, so they are all different names.
+        expect(new Set(names).size).toBe(names.length);
     });
 });
 

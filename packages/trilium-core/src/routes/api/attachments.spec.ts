@@ -275,6 +275,21 @@ describe("Attachments API (core)", () => {
             expect(attachments.map((a) => a.title).sort()).toStrictEqual([ "example.com.ico", "other.example.ico" ]);
         });
 
+        it("reuses a cover image of the same title, which is what the same URL pasted twice gives", async () => {
+            const { noteId } = await createTextNote(api, { title: "Cover dedup target" });
+            const upload = (title: string) => api.post<{ url: string }>(
+                `/api/notes/${noteId}/attachments/upload?role=coverImage`,
+                { file: { originalname: title, mimetype: "image/jpeg", buffer: PIXEL_PNG } }
+            );
+
+            const first = await upload("en-wikipedia-org-Russo-Japanese-War-1a2b3c4d.jpeg");
+            const again = await upload("en-wikipedia-org-Russo-Japanese-War-1a2b3c4d.jpeg");
+            await upload("en-wikipedia-org-Crimean-War-5e6f7a8b.jpeg");
+
+            expect(again.body.url).toBe(first.body.url);
+            expect((await api.get<AttachmentPojo[]>(`/api/notes/${noteId}/attachments`)).body).toHaveLength(2);
+        });
+
         it("does not deduplicate the user's own images, whatever they are called", async () => {
             // Two pictures the user gave the same name are two pictures; collapsing them would
             // lose one. Only roles the app names itself deduplicate.

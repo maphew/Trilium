@@ -136,10 +136,16 @@ describe("fetchMetadata", () => {
             // with the note's own images, while the favicon is the site's mark, fetched rather than
             // chosen — which is what lets icons be deduplicated and kept out of the tools that
             // reason about the user's own pictures.
-            // The favicon is named by its site, which is the key the note reuses one by: a note
-            // linking the same site many times keeps one icon rather than one per link.
+            // Each is named after the thing it is of, which is the key the note reuses one by: the
+            // favicon by its site, so linking that site many times keeps one icon; the cover by its
+            // page, so pasting the same URL twice keeps one cover.
             expect(uploadImageAttachmentMock).toHaveBeenCalledWith("note1", "data:image/x-icon;base64,FAV", "favicon", "example.com");
-            expect(uploadImageAttachmentMock).toHaveBeenCalledWith("note1", "data:image/jpeg;base64,IMG", "image", undefined);
+            expect(uploadImageAttachmentMock).toHaveBeenCalledWith(
+                "note1",
+                "data:image/jpeg;base64,IMG",
+                "coverImage",
+                expect.stringMatching(/^example-com-[0-9a-f]{8}$/)
+            );
             // Only the attachment URLs land in the note content — inlined base64 counts against the
             // auto-read-only size threshold, and a favicon pays that cost once per link rather than
             // once per note.

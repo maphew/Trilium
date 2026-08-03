@@ -1,6 +1,6 @@
 import "../widgets/type_widgets/text/LinkEmbed.css";
 
-import { extractYouTubeVideoId, type ImageAttachmentRole, type LinkEmbedMetadata, safeLinkPreviewHref, safeLinkPreviewImageSrc, YOUTUBE_REGEX } from "@triliumnext/commons";
+import { extractYouTubeVideoId, type ImageAttachmentRole, type LinkEmbedMetadata, linkPreviewImageName, safeLinkPreviewHref, safeLinkPreviewImageSrc, YOUTUBE_REGEX } from "@triliumnext/commons";
 import { render } from "preact";
 import { useState } from "preact/hooks";
 
@@ -49,11 +49,12 @@ export async function fetchMetadata(url: string, ownerNoteId?: string): Promise<
         const metadata = await server.post<LinkEmbedMetadata>("link-embed/metadata", { url });
         // Uploaded together: they are two independent requests and a preview needs both before it
         // can be stored.
-        // The favicon is named by its site, which is what lets a note that links the same site many
-        // times keep one icon rather than one per link.
+        // Each picture is named after the thing it is of — the favicon by its site, the cover by
+        // its page — which is what lets a note that links the same site many times keep one icon,
+        // and the same URL pasted twice keep one cover.
         const [ favicon, image ] = await Promise.all([
             offloadPictureToAttachment(metadata.favicon, ownerNoteId, "favicon", safeHostname(metadata.url)),
-            offloadPictureToAttachment(metadata.image, ownerNoteId)
+            offloadPictureToAttachment(metadata.image, ownerNoteId, "coverImage", linkPreviewImageName(metadata.url))
         ]);
 
         return {
