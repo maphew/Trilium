@@ -7,7 +7,7 @@ type FileRequest<P> = Omit<Request<P>, "file"> & { file?: File };
 
 import becca from "../../becca/becca.js";
 import blobService from "../../services/blob.js";
-import imageService from "../../services/image.js";
+import imageService, { ACCEPTED_IMAGE_MIMES } from "../../services/image.js";
 import { wrapStringOrBuffer } from "../../services/utils/binary.js";
 
 function getAttachmentBlob(req: Request<{ attachmentId: string }>) {
@@ -64,7 +64,7 @@ async function uploadAttachment(req: FileRequest<{ noteId: string }>) {
     // Convert buffer to Uint8Array (Buffer extends Uint8Array, string needs encoding)
     const buffer = wrapStringOrBuffer(file.buffer as string | Uint8Array);
 
-    if (["image/png", "image/jpg", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"].includes(file.mimetype)) {
+    if (ACCEPTED_IMAGE_MIMES.has(file.mimetype)) {
         const attachment = imageService.saveImageToAttachment(noteId, buffer, file.originalname, true, true);
 
         // The URL below is fetched the moment this answers — the editor puts it straight into the

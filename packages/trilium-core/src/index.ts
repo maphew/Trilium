@@ -114,7 +114,7 @@ export { default as imageInfoService } from "./services/image_info";
 export { estimateJpegQuality } from "./services/jpeg_quality";
 export { inspectImage, type InspectedImage, UNKNOWN_FORMAT } from "./services/image_inspect";
 export { type CoreConfig, initConfig, getConfig } from "./services/config";
-export { default as imageService } from "./services/image";
+export { ACCEPTED_IMAGE_MIMES, default as imageService } from "./services/image";
 export { t } from "i18next";
 export type { RequestProvider, ExecOpts, CookieJar } from "./services/request";
 export type * from "./meta";

@@ -8,7 +8,7 @@ import becca from "../../becca/becca.js";
 import type BNote from "../../becca/entities/bnote.js";
 import type BRevision from "../../becca/entities/brevision.js";
 import { ValidationError } from "../../errors.js";
-import imageService from "../../services/image.js";
+import imageService, { ACCEPTED_IMAGE_MIMES } from "../../services/image.js";
 import imageCompressionService from "../../services/image_compression.js";
 import imageInfoService from "../../services/image_info.js";
 import imageInventoryService from "../../services/image_inventory.js";
@@ -124,7 +124,7 @@ async function updateImage(req: FileRequest<{ noteId: string }>) {
         };
     }
 
-    if (!["image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml"].includes(file.mimetype)) {
+    if (!ACCEPTED_IMAGE_MIMES.has(file.mimetype)) {
         return {
             uploaded: false,
             message: `Unknown image type: ${file.mimetype}`

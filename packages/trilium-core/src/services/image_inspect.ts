@@ -12,7 +12,7 @@
  * standing in for a measurement that was not taken.
  */
 export interface InspectedImage {
-    /** "jpg", "png", "gif", "webp", "bmp", "svg", or {@link UNKNOWN_FORMAT}. */
+    /** "jpg", "png", "gif", "webp", "bmp", "svg", "ico", or {@link UNKNOWN_FORMAT}. */
     format: string;
     mime: string;
     width: number | null;
@@ -56,6 +56,7 @@ function readHeader(format: string, buffer: Uint8Array): Partial<ImageMeasuremen
         // needs a walk through palette and header variants that nothing here has a use for.
         case "gif": return readUint16LePair(buffer, 6, 8);
         case "bmp": return buffer.length >= 26 ? readUint32LePair(buffer, 18, 22) : {};
+        case "ico": return readIcoHeader(buffer);
         default: return {};
     }
 }
@@ -89,7 +90,30 @@ function detectFormat(buffer: Uint8Array): string {
         return "webp";
     }
 
+    // An icon directory: two reserved zero bytes, then the type as a little-endian 1. Type 2 is a
+    // cursor, which shares the layout but is not something a note holds.
+    if (startsWith(buffer, [ 0x00, 0x00, 0x01, 0x00 ])) {
+        return "ico";
+    }
+
     return startsWith(buffer, [ 0x42, 0x4d ]) ? "bmp" : UNKNOWN_FORMAT;
+}
+
+/**
+ * An ICO is a directory of images at different sizes rather than a single picture. Its first entry
+ * is the one reported, that being what a renderer handed the whole file sizes from.
+ *
+ * Each edge is a single byte, and 0 means 256 — how the format fits its largest size into a byte.
+ */
+function readIcoHeader(buffer: Uint8Array): Partial<ImageMeasurements> {
+    if (buffer.length < 8) {
+        return {};
+    }
+
+    return {
+        width: buffer[6] || 256,
+        height: buffer[7] || 256
+    };
 }
 
 /**
@@ -239,5 +263,6 @@ const FORMAT_MIMES: Record<string, string> = {
     webp: "image/webp",
     bmp: "image/bmp",
     svg: "image/svg+xml",
+    ico: "image/x-icon",
     [UNKNOWN_FORMAT]: "application/octet-stream"
 };
