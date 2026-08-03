@@ -1,4 +1,4 @@
-import { extractYouTubeVideoId, safeLinkPreviewHref, safeLinkPreviewImageSrc } from "@triliumnext/commons";
+import { extractYouTubeVideoId, isHttpUrl, safeLinkPreviewHref, safeLinkPreviewImageSrc } from "@triliumnext/commons";
 import { renderToHtml as renderMarkdownToHtml } from "@triliumnext/commons/src/lib/markdown_renderer.js";
 import { renderSpreadsheetToHtml } from "@triliumnext/commons/src/lib/spreadsheet/render_to_html.js";
 import { type BAttachment, type BBranch, becca, BNote, getLog, icon_packs as iconPackService, options, sanitize, task_states, utils } from "@triliumnext/core";
@@ -690,14 +690,22 @@ function renderSpreadsheet(result: Result) {
 /**
  * Renders a web view note as the frame that embeds its source.
  *
+ * Only an absolute http(s) URL is framed, which is the source a web view is documented to take and
+ * the only one its setup form will write. Any other value reaches the label by another route — a
+ * hand-edited attribute, an import, ETAPI, a sync — and is either not framable at all or points at
+ * this very server, which `allow-same-origin` would then not isolate from the page framing it.
+ *
  * The frame is built as an element rather than assembled as a string: `setAttribute()` escapes the
- * value it is handed, so a source URL is placed as a value and can only ever be read back as one.
- * Sanitising the URL alone would not be enough — it normalises the scheme, but returns a relative
- * URL, or one whose scheme is neither http nor https, verbatim with any quotes it carries intact.
+ * value it is handed, so the source is placed as a value and can only ever be read back as one.
  */
 function renderWebView(note: SNote | BNote, result: Result) {
     const url = note.getLabelValue("webViewSrc");
     if (!url) return;
+
+    if (!isHttpUrl(url)) {
+        getLog().error(`Web view of shared note '${note.noteId}' not rendered: '${url}' is not an absolute http(s) URL.`);
+        return;
+    }
 
     const frame = new HTMLElement("iframe", { class: "webview" });
     frame.setAttribute("src", sanitize.sanitizeUrl(url));

@@ -426,42 +426,50 @@ describe("content_renderer", () => {
             expect(root.childNodes.length).toBe(0);
         });
 
-        it("passes through the source URLs a frame is allowed to load", () => {
+        it("loads an absolute http(s) source URL, normalising only its scheme and host", () => {
+            for (const [src, expected] of [
+                ["https://example.com/page", "https://example.com/page"],
+                ["http://example.com/a?b=1&c=2", "http://example.com/a?b=1&c=2"],
+                ["HTTPS://Example.com/Page", "https://example.com/Page"]
+            ]) {
+                expect(renderWebViewNote(src).frame?.getAttribute("src")).toBe(expected);
+            }
+        });
+
+        it("renders nothing for a source URL a frame has no business loading", () => {
+            // A web view frames a website, and the setup form only ever writes an absolute URL.
+            // Anything else reaches the label by another route — a hand-edited attribute, an
+            // import, ETAPI, a sync — and either cannot be framed at all or would frame this very
+            // server, which the sandbox's allow-same-origin would then not isolate from the page
+            // doing the framing.
             for (const src of [
-                "https://example.com/page",
-                "http://example.com/a?b=1&c=2",
                 "/relative/path",
-                "//example.com/protocol-relative"
+                "//example.com/protocol-relative",
+                "./a",
+                "mailto:a@b.com",
+                "ftp://example.com/file",
+                "javascript:alert(1)",
+                "JaVaScRiPt:alert(1)",
+                "data:text/html,<script>alert(1)</script>",
+                "vbscript:msgbox",
+                "not a url at all"
             ]) {
-                expect(renderWebViewNote(src).frame?.getAttribute("src")).toBe(src);
+                const { root, frame } = renderWebViewNote(src);
+                expect(frame).toBeNull();
+                expect(root.childNodes.length).toBe(0);
             }
         });
 
-        it("substitutes a blank page for a source URL that would run script", () => {
-            for (const src of ["javascript:alert(1)", "JaVaScRiPt:alert(1)", "data:text/html,<script>alert(1)</script>", "vbscript:msgbox"]) {
-                expect(renderWebViewNote(src).frame?.attributes).toStrictEqual({
-                    class: "webview",
-                    src: "about:blank",
-                    sandbox: SANDBOX
-                });
-            }
-        });
-
-        it("keeps a quote-carrying source URL inside the src attribute instead of letting it open a new one", () => {
-            // Sanitising the URL only normalises its scheme: a relative URL, or one whose scheme is
-            // neither http nor https, comes back verbatim with its quotes intact. Placing such a
-            // value in an attribute is what closes it, so it has to be escaped on the way in.
+        it("never lets a source URL add attributes of its own to the frame", () => {
+            // Whatever the URL carries, it can only ever be read back as the frame's source: an
+            // attribute value cannot end early and leave the rest of itself to be read as markup.
             for (const src of [
-                `./a" onload="alert(1)" data-x="`,
-                `mailto:x@y" onload="alert(1)" data-x="`
+                `https://example.com/?a=" onload="alert(1)" data-x="`,
+                `https://example.com/#" onload="alert(1)" data-x="`
             ]) {
-                // The full attribute set, so that nothing the value carries can be read as a
-                // further attribute on the element and the whole of it stays the source.
-                expect(renderWebViewNote(src).frame?.attributes).toStrictEqual({
-                    class: "webview",
-                    src,
-                    sandbox: SANDBOX
-                });
+                expect(Object.keys(renderWebViewNote(src).frame?.attributes ?? {})).toStrictEqual([
+                    "class", "src", "sandbox"
+                ]);
             }
         });
     });
