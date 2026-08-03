@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type BNote from "../becca/entities/bnote.js";
 import { getContext } from "./context.js";
@@ -76,6 +76,15 @@ beforeEach(() => {
     answerWith = () => PIXEL_PNG;
 });
 
+/**
+ * Lets whatever a save started run to wherever it gets to.
+ *
+ * `downloadImages` answers without waiting for the network — a save cannot be held up by someone
+ * else's server — so a test that asserts nothing was fetched has to give the fetch that was not
+ * started the chance to have been.
+ */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
 describe("downloadPictureToAttachment (real DB)", () => {
     it("keeps the picture as an attachment under the role and title it is given", async () => {
         const note = createNote("<p>x</p>");
@@ -141,6 +150,129 @@ describe("downloadImages (real DB)", () => {
         // A picture this note already holds is not a picture to go and fetch.
         expect(rewritten).toContain(stored);
         expect(asked).toEqual([]);
+    });
+
+    /**
+     * A distinct address per test. The module keeps one url→attachment map for the life of the
+     * process, deliberately — a picture pasted into twenty notes is fetched once — so two tests
+     * sharing an address would be two tests sharing a result.
+     */
+    const freshUrl = () => `https://pictures.test/${++counter}.png`;
+
+    /** Runs `work` with the reader's answer to "may a note fetch what it names" set either way. */
+    function withDownloads<T>(allowed: boolean, work: () => T): T {
+        const previously = optionService.getOptionBool("downloadImagesAutomatically");
+        getContext().init(() => optionService.setOption("downloadImagesAutomatically", String(allowed)));
+
+        try {
+            return getContext().init(work);
+        } finally {
+            getContext().init(() => optionService.setOption("downloadImagesAutomatically", String(previously)));
+        }
+    }
+
+    it("fetches what a note names elsewhere, and rewrites a later save from what it kept", async () => {
+        const note = createNote("<p>x</p>");
+        const url = freshUrl();
+
+        // The fetch is deliberately not waited for: a save happens on every keystroke's pause, and
+        // a third party's server is not something to hold one up. So the content comes back naming
+        // the address it named before.
+        expect(withDownloads(true, () => downloadImages(note.noteId, `<p><img src="${url}"></p>`))).toContain(url);
+
+        await vi.waitFor(() => expect(note.getAttachments()).toHaveLength(1));
+        expect(asked).toEqual([ url ]);
+
+        // The next save of the same address is answered from what was kept, without asking again —
+        // which is the whole point of remembering it.
+        const [ attachment ] = note.getAttachments();
+        const later = withDownloads(true, () => downloadImages(note.noteId, `<p><img src="${url}"></p>`));
+
+        expect(later).toContain(`src="api/attachments/${attachment.attachmentId}/image/`);
+        expect(asked).toEqual([ url ]);
+
+        // And when what was kept has since been erased, the note is left naming the address rather
+        // than pointed at an attachment that is not there.
+        getContext().init(() => attachment.markAsDeleted());
+        expect(withDownloads(true, () => downloadImages(note.noteId, `<p><img src="${url}"></p>`))).toContain(url);
+    });
+
+    it("asks for nothing at all when the reader has said not to fetch", async () => {
+        const note = createNote("<p>x</p>");
+        const url = freshUrl();
+
+        expect(withDownloads(false, () => downloadImages(note.noteId, `<p><img src="${url}"></p>`))).toContain(url);
+
+        await settle();
+        expect(asked).toEqual([]);
+        expect(note.getAttachments()).toHaveLength(0);
+    });
+
+    it("refuses an address that is not a website, whatever the content says", async () => {
+        // The content is whatever was pasted, imported or synced, so the scheme is checked here and
+        // not taken on trust: `file://` would otherwise have the server read its own disk.
+        const note = createNote("<p>x</p>");
+
+        withDownloads(true, () => downloadImages(note.noteId, `<p><img src="file:///etc/passwd"></p>`));
+
+        await settle();
+        expect(asked).toEqual([]);
+        expect(note.getAttachments()).toHaveLength(0);
+    });
+
+    it("leaves alone what is already ours, and what the clipper is still to resolve", async () => {
+        const note = createNote("<p>x</p>");
+        // An image note's own address, an attachment's, and the web clipper's 20-character id —
+        // none of them a third party's, so none of them anything to go and fetch.
+        const content = `<p><img src="api/images/abc123456789/x.png">`
+            + `<img src="api/attachments/abc123456789/image/y.png">`
+            + `<img src="12345678901234567890"></p>`;
+
+        expect(withDownloads(true, () => downloadImages(note.noteId, content))).toBe(content);
+
+        await settle();
+        expect(asked).toEqual([]);
+    });
+
+    it("goes back over the note once the pictures it started have arrived", async () => {
+        // The flow this exists for: the reader pastes a picture and leaves the note before the
+        // fetch finishes, so nothing rewrites the address at save time. A while later the note is
+        // read again and mended — or found gone, and left alone.
+        vi.useFakeTimers();
+
+        try {
+            const url = freshUrl();
+            const content = `<p><img src="${url}"></p>`;
+            const note = createNote(content);
+
+            withDownloads(true, () => downloadImages(note.noteId, content));
+
+            // Long enough for the fetch to have answered and the pass over the note to have run.
+            await vi.advanceTimersByTimeAsync(10_000);
+
+            const [ attachment ] = note.getAttachments();
+            // The reader is left with a note that names what this instance holds rather than what
+            // someone else's server does — without their having saved again to get it.
+            expect(String(note.getContent()))
+                .toBe(`<p><img src="api/attachments/${attachment.attachmentId}/image/${encodeURIComponent(attachment.title)}"></p>`);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    it("asks once for an address that appears twice before the first answer arrives", async () => {
+        const note = createNote("<p>x</p>");
+        const url = freshUrl();
+
+        // Two saves in quick succession, which is what typing produces. The second finds the first
+        // still in flight: neither the map nor the note has the picture yet.
+        withDownloads(true, () => {
+            downloadImages(note.noteId, `<p><img src="${url}"></p>`);
+            downloadImages(note.noteId, `<p><img src="${url}"></p>`);
+        });
+
+        await vi.waitFor(() => expect(note.getAttachments()).toHaveLength(1));
+        expect(asked).toEqual([ url ]);
     });
 });
 

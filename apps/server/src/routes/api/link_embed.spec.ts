@@ -420,26 +420,35 @@ describe("link-embed getMetadata", () => {
     });
 
     it("drops a favicon whose stream exceeds the limit despite a smaller advertised size", async () => {
-        // A lying content-length must not bypass the cap: the limit is enforced while streaming too.
+        // A lying content-length must not bypass the cap: the limit is enforced while streaming too,
+        // so the read is abandoned partway rather than after the whole of it has arrived.
         const html = `<html><head><title>Plain</title><link rel="icon" href="/liar.ico"></head></html>`;
-        const chunk = Buffer.alloc(40 * 1024, 7);
+        const chunk = Buffer.alloc(64 * 1024, 7);
+        // How far each read of the body got. One entry per fetch of it: the icon is a candidate for
+        // the card's picture as well, and that one is allowed to read far more before it stops.
+        const reads: number[] = [];
+        let cancelled = false;
         safeFetch.mockImplementation(async (url: string) => {
             if (url.includes("liar.ico")) {
-                let sent = 0;
                 return {
                     ok: true,
                     status: 200,
                     // No content-type either, exercising the caller-provided default.
                     headers: { get: (h: string) => (h.toLowerCase() === "content-length" ? "10" : null) },
                     body: {
-                        getReader: () => ({
-                            async read() {
-                                if (sent >= 2) return { done: true, value: undefined };
-                                sent++;
-                                return { done: false, value: new Uint8Array(chunk) };
-                            },
-                            async cancel() {}
-                        })
+                        getReader: () => {
+                            const at = reads.push(0) - 1;
+
+                            return {
+                                async read() {
+                                    reads[at]++;
+                                    return { done: false, value: new Uint8Array(chunk) };
+                                },
+                                async cancel() {
+                                    cancelled = true;
+                                }
+                            };
+                        }
                     },
                     json: async () => undefined
                 };
@@ -448,6 +457,27 @@ describe("link-embed getMetadata", () => {
         });
 
         const result = await linkEmbedRoute.getMetadata(req("https://example.com/page"));
+        expect(result.title).toBe("Plain");
+        expect(result.favicon).toBeUndefined();
+        // A body with no end to it: abandoned at the ceiling rather than read for as long as it
+        // comes. Four 64KB chunks fit under the 256KB an icon may be fetched at; the fifth is what
+        // carries the total past it.
+        expect(cancelled).toBe(true);
+        expect(reads[0]).toBe(5);
+    });
+
+    it("keeps nothing it cannot reference, when the store answers without an id", async () => {
+        // Every picture is referenced by `api/attachments/<id>/…`, so a store that answers without
+        // one leaves the preview naming an address that could not be built.
+        const html = `<html><head><title>Plain</title><link rel="icon" href="/fav.ico"></head></html>`;
+        saveImageToAttachment.mockImplementation((_noteId: string, _buffer: Buffer, fileName: string) => ({ title: fileName }));
+        safeFetch.mockImplementation(async (url: string) => {
+            if (url.includes("fav.ico")) return fakeResponse(makeIco(), { contentType: "image/x-icon" });
+            return fakeResponse(html, { contentType: "text/html" });
+        });
+
+        const result = await linkEmbedRoute.getMetadata(req("https://example.com/page"));
+
         expect(result.title).toBe("Plain");
         expect(result.favicon).toBeUndefined();
     });
@@ -547,7 +577,9 @@ describe("link-embed getMetadata", () => {
         // read a site writing any of the others — `rel="icon shortcut"`, the precomposed
         // apple-touch-icon — as declaring no icon at all.
         const head = `<link rel="mask-icon" href="/pinned.svg">`
+            + `<link rel="mask-icon" href="/pinned.png">`
             + `<link rel="ICON SHORTCUT" sizes="16x16" href="/tiny.png">`
+            + `<link rel="icon" sizes="32x32" href="/small.png">`
             + `<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/touch.png">`
             + `<link rel="icon" sizes="48x48" href="/right.png">`;
         const serve = (declared = head) => {
@@ -569,7 +601,9 @@ describe("link-embed getMetadata", () => {
         expect(iconsRequested().slice(0, 4)).toEqual([
             "https://example.com/right.png",
             "https://example.com/touch.png",
-            "https://example.com/tiny.png",
+            // Of the two that would have to be upscaled, the larger — and both before the tinted
+            // silhouette, which is past the cap.
+            "https://example.com/small.png",
             "https://example.com/favicon.ico"
         ]);
 
@@ -593,6 +627,23 @@ describe("link-embed getMetadata", () => {
         serve(`<link rel="apple-touch-icon" href="/touch.png"><link rel="icon" href="/fav.ico">`);
         await linkEmbedRoute.getMetadata(req("https://example.com/page"));
         expect(iconsRequested()[0]).toBe("https://example.com/touch.png");
+
+        // A site naming the conventional path itself is not asked for it twice: it is appended only
+        // where the ranked candidates do not already hold it. The page carries a picture of its own
+        // so that the card never goes looking through the icons as well.
+        const cover = await makePng(600, 300, 0xff0000ff);
+        safeFetch.mockReset();
+        safeFetch.mockImplementation(async (url: string) => {
+            if (url.endsWith("/cover.png")) return fakeResponse(cover, { contentType: "image/png" });
+            if (url.endsWith("/page")) {
+                return fakeResponse(`<html><head><title>T</title><meta property="og:image" content="/cover.png">`
+                    + `<link rel="icon" href="/favicon.ico"></head></html>`, { contentType: "text/html" });
+            }
+            return fakeResponse("", { ok: false });
+        });
+
+        await linkEmbedRoute.getMetadata(req("https://example.com/page"));
+        expect(iconsRequested().filter((url) => url.endsWith("/favicon.ico"))).toEqual([ "https://example.com/favicon.ico" ]);
     });
 
     it("keeps trying after an icon that fails to arrive, down to the conventional path", async () => {
