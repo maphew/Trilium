@@ -1,12 +1,14 @@
 import "./NodeMemo.css";
 
 import { AttributeEditor, type CKTextEditor, type EditorConfig, MEMO_PLUGINS } from "@triliumnext/ckeditor5";
+import type { DISPLAYABLE_LOCALE_IDS } from "@triliumnext/commons";
 import type { NodeObj } from "mind-elixir";
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 
 import { t } from "../../../services/i18n";
 import { escapeHtml } from "../../../services/utils";
 import CKEditor, { type CKEditorApi } from "../../react/CKEditor";
+import { useTriliumOption } from "../../react/hooks";
 
 /**
  * The memo a node carries: text kept about it, which the map itself never shows.
@@ -28,6 +30,7 @@ export default function NodeMemo({ selectionKey, memo, readOnly, onCommit }: {
 }) {
     const apiRef = useRef<CKEditorApi>();
     const editorRef = useRef<CKTextEditor>(null);
+    const [ uiLanguage ] = useTriliumOption("locale");
     const html = toMemoHtml(memo);
     // Both are stamped with the selection they belong to: what the field was handed, and what it
     // holds now. The editor reports a change for a memo handed to it as readily as for one typed,
@@ -81,6 +84,7 @@ export default function NodeMemo({ selectionKey, memo, readOnly, onCommit }: {
             className="mind-map-node-memo"
             editor={AttributeEditor}
             config={buildMemoEditorConfig()}
+            uiLanguage={uiLanguage as DISPLAYABLE_LOCALE_IDS}
             currentValue={html}
             onChange={(html) => (typed.current = { key: currentKey.current, html: html ?? "" })}
             onInitialized={(editor) => {
@@ -104,18 +108,16 @@ export default function NodeMemo({ selectionKey, memo, readOnly, onCommit }: {
  * and the catalogue is not yet loaded when this module is. Nothing is spent on rebuilding it — an
  * editor is raised from the configuration it is handed as it mounts, and never reconfigured.
  *
- * English, as the two other fields built on an {@link AttributeEditor} are (the ribbon's attributes,
- * the chat box): the strings on show are CKEditor's own, and the dictionary they resolve through is
- * fetched, which an editor raised as its field mounts cannot wait for. That leaves the toolbar's
- * tooltips in English wherever the rest of Trilium is not, for all three of them together to answer.
+ * The language is not among what is settled here: the strings on show are CKEditor's own, and their
+ * dictionary has to be fetched, which is done for the field by the wrapper that raises the editor
+ * (see the `uiLanguage` it is handed).
  */
 function buildMemoEditorConfig(): EditorConfig {
     return {
         extraPlugins: MEMO_PLUGINS,
         toolbar: { items: MEMO_TOOLBAR_ITEMS },
         placeholder: t("mind-map.memo-placeholder"),
-        licenseKey: "GPL",
-        language: "en"
+        licenseKey: "GPL"
     };
 }
 

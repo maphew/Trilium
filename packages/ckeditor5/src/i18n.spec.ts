@@ -1,9 +1,9 @@
 import { DISPLAYABLE_LOCALE_IDS } from "@triliumnext/commons";
-import { Essentials, Paragraph, SplitButtonView } from "ckeditor5";
+import { Bold, ButtonView, Essentials, Paragraph, SplitButtonView } from "ckeditor5";
 import { describe, expect, it } from "vitest";
 
 import { createTestEditor } from "../test/editor-kit.js";
-import getCkLocale from "./i18n.js";
+import getCkLocale, { registerCkTranslations } from "./i18n.js";
 import { MESSAGE_KEY_PREFIX } from "./messages.js";
 import Admonition from "./plugins/admonition/admonition.js";
 import AdmonitionUI from "./plugins/admonition/admonition_ui.js";
@@ -195,5 +195,52 @@ describe("getCkLocale", () => {
         if (!Array.isArray(translations)) throw new Error("expected an array of translations");
         expect(translations).toHaveLength(2);
         expect(typeof translations[1]).toBe("object");
+    });
+});
+
+describe("registerCkTranslations", () => {
+    /** What an editor carrying no dictionary of its own reads from (see the function's own note). */
+    function globalDictionary(languageCode: string) {
+        return window.CKEDITOR_TRANSLATIONS?.[languageCode]?.dictionary;
+    }
+
+    it("lays a locale's dictionary where an editor built without one will read it", async () => {
+        expect(await registerCkTranslations("de")).toEqual({ language: "de" });
+
+        // The strings the small fields show are CKEditor's own, and this is them arriving.
+        expect(globalDictionary("de")?.["Bold"]).toBe("Fett");
+        expect(globalDictionary("de")?.["Insert code block"]).toBe("Code-Block einfügen");
+    });
+
+    it("files a dictionary under the name the editor will ask for, not the one it arrived under", async () => {
+        // Both spellings part ways: what we ask CKEditor to speak is `zh`, while the catalog is
+        // `zh-cn.js` and carries `zh-cn`. Filed as it arrived, it would be a dictionary unread.
+        expect(await registerCkTranslations("cn")).toEqual({ language: "zh" });
+        expect(globalDictionary("zh")?.["Bold"]).toBeTruthy();
+    });
+
+    it("says nothing of a locale CKEditor has no catalog for, which is the English it was written in", async () => {
+        for (const locale of [ "en", "en_rtl", "ga" ] as DISPLAYABLE_LOCALE_IDS[]) {
+            expect(await registerCkTranslations(locale)).toEqual({});
+        }
+    });
+
+    it("is read by an editor that carries no dictionary of its own, which is the whole point", async () => {
+        // What the small fields are: raised from a configuration settled as they mount, with no
+        // `translations` in it. CKEditor falls back to the global registry for exactly those, so a
+        // button built afterwards wears the language without the field ever having carried it.
+        const { language } = await registerCkTranslations("de");
+        const editor = await createTestEditor([ Essentials, Paragraph, Bold ], { language });
+
+        const boldButton = editor.ui.componentFactory.create("bold");
+        if (!(boldButton instanceof ButtonView)) throw new Error("expected the bold component to be a button");
+        expect(boldButton.label).toBe("Fett");
+    });
+
+    it("fetches a locale once, however many fields ask for it", async () => {
+        // Every field on the page asks as it is built, and a catalog is a chunk to go and get.
+        expect(registerCkTranslations("fr")).toBe(registerCkTranslations("fr"));
+        await registerCkTranslations("fr");
+        expect(globalDictionary("fr")?.["Bold"]).toBeTruthy();
     });
 });
