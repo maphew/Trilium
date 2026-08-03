@@ -14,29 +14,6 @@ import protectedSessionService from "./protected_session.js";
 import { getSql } from "./sql/index.js";
 import { sanitizeHtml } from "./sanitizer.js";
 
-/**
- * The media types an upload is handled as an image under — stored as an image note or as an
- * `image`-role attachment, rather than as an opaque file with only a download link to it.
- *
- * ICO is included because a favicon is one, and treating it as a file made an `.ico` dropped into a
- * note produce a download link instead of a picture. Nothing downstream has to learn the format:
- * `image-type` identifies it from its magic number, and the compression planner skips it as an
- * unsupported format, so it is simply stored as it arrived. Both spellings are listed —
- * `image/vnd.microsoft.icon` is the registered name, `image/x-icon` is what servers actually send.
- *
- * `image/jpg` is likewise unregistered, but some clients send it for a JPEG.
- */
-export const ACCEPTED_IMAGE_MIMES = new Set([
-    "image/png",
-    "image/jpg",
-    "image/jpeg",
-    "image/gif",
-    "image/webp",
-    "image/svg+xml",
-    "image/x-icon",
-    "image/vnd.microsoft.icon"
-]);
-
 /** Extensions whose media type is not simply `image/<ext>`. */
 const IMAGE_MIME_EXCEPTIONS: Record<string, string> = {
     svg: "image/svg+xml",

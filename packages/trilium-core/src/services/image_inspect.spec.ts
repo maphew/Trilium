@@ -47,6 +47,11 @@ function ico(width: number, height: number): Uint8Array {
     return bytes(0x00, 0x00, 0x01, 0x00, 0x01, 0x00, width & 0xff, height & 0xff);
 }
 
+/** An ISO base media file: a box length, the `ftyp` tag, then the brand that says what it holds. */
+function isoBmff(brand: string): Uint8Array {
+    return bytes(0x00, 0x00, 0x00, 0x18, ...[ ..."ftyp" ].map((c) => c.charCodeAt(0)), ...[ ...brand ].map((c) => c.charCodeAt(0)));
+}
+
 function bytes(...values: number[]): Uint8Array {
     // Padded past the length below which nothing is read at all.
     return Uint8Array.from([ ...values, ...new Array(Math.max(0, 16 - values.length)).fill(0) ]);
@@ -65,6 +70,14 @@ describe("inspectImage", () => {
         expect(inspectImage(text("<svg xmlns='http://www.w3.org/2000/svg'></svg>")))
             .toMatchObject({ format: "svg", mime: "image/svg+xml" });
         expect(inspectImage(ico(16, 16))).toMatchObject({ format: "ico", mime: "image/x-icon" });
+        expect(inspectImage(isoBmff("avif"))).toMatchObject({ format: "avif", mime: "image/avif" });
+    });
+
+    it("reads the AVIF sequence brand, which an <img> draws just the same", () => {
+        expect(inspectImage(isoBmff("avis")).format).toBe("avif");
+        // Other things are packed in the same container and are not pictures.
+        expect(inspectImage(isoBmff("mp42")).format).toBe(UNKNOWN_FORMAT);
+        expect(inspectImage(isoBmff("heic")).format).toBe(UNKNOWN_FORMAT);
     });
 
     it("does not read a cursor as an icon", () => {

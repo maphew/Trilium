@@ -12,7 +12,7 @@
  * standing in for a measurement that was not taken.
  */
 export interface InspectedImage {
-    /** "jpg", "png", "gif", "webp", "bmp", "svg", "ico", or {@link UNKNOWN_FORMAT}. */
+    /** "jpg", "png", "gif", "webp", "bmp", "svg", "ico", "avif", or {@link UNKNOWN_FORMAT}. */
     format: string;
     mime: string;
     width: number | null;
@@ -94,6 +94,13 @@ function detectFormat(buffer: Uint8Array): string {
     // cursor, which shares the layout but is not something a note holds.
     if (startsWith(buffer, [ 0x00, 0x00, 0x01, 0x00 ])) {
         return "ico";
+    }
+
+    // An ISO base media file whose brand says AVIF: the box length comes first, so the signature
+    // starts four bytes in. `avis` is the sequence brand, which an <img> still draws.
+    if (startsWith(buffer.subarray(4), [ 0x66, 0x74, 0x79, 0x70 ])
+        && (startsWith(buffer.subarray(8), [ 0x61, 0x76, 0x69, 0x66 ]) || startsWith(buffer.subarray(8), [ 0x61, 0x76, 0x69, 0x73 ]))) {
+        return "avif";
     }
 
     return startsWith(buffer, [ 0x42, 0x4d ]) ? "bmp" : UNKNOWN_FORMAT;
@@ -264,5 +271,6 @@ const FORMAT_MIMES: Record<string, string> = {
     bmp: "image/bmp",
     svg: "image/svg+xml",
     ico: "image/x-icon",
+    avif: "image/avif",
     [UNKNOWN_FORMAT]: "application/octet-stream"
 };

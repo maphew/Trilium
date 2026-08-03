@@ -1,4 +1,5 @@
-import { ACCEPTED_IMAGE_MIMES, note_service as noteService, special_notes as specialNotesService,utils } from "@triliumnext/core";
+import { isAcceptedImageMime } from "@triliumnext/commons";
+import { note_service as noteService, special_notes as specialNotesService,utils } from "@triliumnext/core";
 import type { Request } from "express";
 import imageType from "image-type";
 
@@ -14,7 +15,7 @@ async function uploadImage(req: Request) {
         };
     }
 
-    if (!ACCEPTED_IMAGE_MIMES.has(file.mimetype)) {
+    if (!isAcceptedImageMime(file.mimetype)) {
         return [400, `Unknown image type: ${file.mimetype}`];
     }
     if (typeof file.buffer === "string") {
