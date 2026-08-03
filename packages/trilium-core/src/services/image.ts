@@ -3,7 +3,7 @@
  * Uses ImageProvider for platform-specific processing (compression, format detection).
  */
 
-import { type ImageAttachmentRole, isDeduplicatedAttachmentRole } from "@triliumnext/commons";
+import { type ImageAttachmentRole, imageMimeForExtension, isDeduplicatedAttachmentRole } from "@triliumnext/commons";
 import sanitizeFilename from "sanitize-filename";
 
 import becca from "../becca/becca.js";
@@ -14,19 +14,6 @@ import noteService from "./notes.js";
 import protectedSessionService from "./protected_session.js";
 import { getSql } from "./sql/index.js";
 import { sanitizeHtml } from "./sanitizer.js";
-
-/** Extensions whose media type is not simply `image/<ext>`. */
-const IMAGE_MIME_EXCEPTIONS: Record<string, string> = {
-    svg: "image/svg+xml",
-    // There is no `image/ico`: serving one under it leaves the picture to the browser's sniffing
-    // rather than to the type it was told.
-    ico: "image/x-icon"
-};
-
-function getImageMimeFromExtension(ext: string): string {
-    ext = ext.toLowerCase();
-    return IMAGE_MIME_EXCEPTIONS[ext] ?? `image/${ext}`;
-}
 
 /**
  * Image content that has been promised but not yet stored.
@@ -122,7 +109,7 @@ function updateImage(noteId: string, uploadBuffer: Uint8Array, originalName: str
     trackWrite(getImageProvider().processImage(uploadBuffer, originalName, true).then(({ buffer, format }) => {
         getContext().init(() => {
             getSql().transactional(() => {
-                note.mime = getImageMimeFromExtension(format.ext);
+                note.mime = imageMimeForExtension(format.ext);
                 note.save();
                 note.setContent(buffer);
             });
@@ -164,7 +151,7 @@ function saveImage(
     trackWrite(getImageProvider().processImage(uploadBuffer, originalName, shrinkImageSwitch).then(({ buffer, format }) => {
         getContext().init(() => {
             getSql().transactional(() => {
-                note.mime = getImageMimeFromExtension(format.ext);
+                note.mime = imageMimeForExtension(format.ext);
 
                 if (!originalName.includes(".")) {
                     originalName += `.${format.ext}`;
@@ -264,7 +251,7 @@ function saveImageToAttachment(
                     return;
                 }
 
-                savedAttachment.mime = getImageMimeFromExtension(format.ext);
+                savedAttachment.mime = imageMimeForExtension(format.ext);
 
                 if (!originalName.includes(".")) {
                     originalName += `.${format.ext}`;

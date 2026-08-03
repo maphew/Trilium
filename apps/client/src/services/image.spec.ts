@@ -132,6 +132,9 @@ describe("getFileNameFromSrc", () => {
 
     it("derives a clean extension from a compound MIME type", () => {
         expect(getFileNameFromSrc("api/images/abc/diagram", "image/svg+xml")).toBe("diagram.svg");
+        // Named the way people write it, rather than by stripping the punctuation out of the
+        // subtype — which would save a favicon as "icon.xicon".
+        expect(getFileNameFromSrc("api/images/abc/icon", "image/x-icon")).toBe("icon.ico");
     });
 
     it("falls back to the raw segment when it is a malformed URI", () => {
@@ -139,9 +142,9 @@ describe("getFileNameFromSrc", () => {
     });
 
     it("leaves the name unchanged when the MIME type yields no extension", () => {
-        // "image/" -> split("/")[1] is "" -> extension is falsy, so no suffix is appended.
+        // A media type too malformed to name a format says nothing, rather than having a guessed
+        // extension appended to the file the user is about to save.
         expect(getFileNameFromSrc("api/images/abc/screenshot", "image/")).toBe("screenshot");
-        // A MIME type without a slash -> split("/")[1] is undefined -> optional chaining short-circuits.
         expect(getFileNameFromSrc("api/images/abc/screenshot", "image")).toBe("screenshot");
     });
 });

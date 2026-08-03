@@ -1,4 +1,4 @@
-import type { ImageAttachmentRole } from "@triliumnext/commons";
+import { type ImageAttachmentRole, imageExtensionForMime } from "@triliumnext/commons";
 
 import server from "./server.js";
 
@@ -73,7 +73,6 @@ export function parseImageDataUrl(dataUrl: string): ParsedImageDataUrl | null {
 
     const mime = match[1];
     const base64 = match[2];
-    const subtype = mime.split("/")[1] ?? "png";
-    const ext = subtype === "svg+xml" ? "svg" : (subtype.replace(/[^a-z0-9]/gi, "") || "png");
-    return { mime, base64, ext };
+
+    return { mime, base64, ext: imageExtensionForMime(mime) };
 }
