@@ -141,9 +141,15 @@ export function linkPreviewImageName(url: string): string {
 /** How much of the readable part to keep, so a long path does not crowd out the attachment list. */
 const PREVIEW_NAME_MAX_READABLE = 60;
 
-/** Reduces a part of the address that is not already a file name — a path segment, or the lot. */
+/**
+ * Reduces a part of the address that is not already a file name — a path segment, or the lot.
+ *
+ * The trim matches one dash rather than a run of them, which is all there can be: the collapse just
+ * before it leaves no two dashes adjacent. A run would also be an address's to choose — this is
+ * handed whatever a link was pasted as — and `-+$` costs a scan from every position it starts at.
+ */
 function toFileNamePart(value: string): string {
-    return value.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+    return value.replace(/[^a-zA-Z0-9]+/g, "-").replace(/^-|-$/g, "");
 }
 
 /** Bounds the readable part, and never lets it end on the punctuation a cut leaves behind. */

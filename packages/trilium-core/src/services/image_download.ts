@@ -142,6 +142,17 @@ async function downloadImage(noteId: string, imageUrl: string) {
 /** url => download promise */
 const downloadImagePromises: Record<string, Promise<void>> = {};
 
+/**
+ * How far into an `<img>` tag to look for its `src`.
+ *
+ * Bounded because the content is whatever was pasted or imported, and an unbounded look costs a
+ * scan from every `<img` in it — text that is nothing but `<img<img<img…` takes time in the square
+ * of its length. What the bound gives up is a picture whose tag carries several KB of other
+ * attributes before its `src`, which is not a tag anything writes: the bytes that make a tag long
+ * are the picture's own, and those are in the `src` this is looking for.
+ */
+const MAX_ATTRIBUTES_BEFORE_SRC = 4096;
+
 function replaceUrl(content: string, url: string, attachment: { attachmentId?: string; title: string }) {
     const quotedUrl = quoteRegex(url);
 
@@ -149,7 +160,7 @@ function replaceUrl(content: string, url: string, attachment: { attachmentId?: s
 }
 
 export function downloadImages(noteId: string, content: string) {
-    const imageRe = /<img[^>]*?\ssrc=['"]([^'">]+)['"]/gi;
+    const imageRe = new RegExp(`<img[^>]{0,${MAX_ATTRIBUTES_BEFORE_SRC}}?\\ssrc=['"]([^'">]+)['"]`, "gi");
     let imageMatch;
 
     while ((imageMatch = imageRe.exec(content))) {
@@ -167,7 +178,10 @@ export function downloadImages(noteId: string, content: string) {
             content = `${content.substring(0, imageMatch.index)}<img src="api/attachments/${attachment.attachmentId}/image/${encodedTitle}"${content.substring(imageMatch.index + imageMatch[0].length)}`;
         } else if (
             !url.includes("api/images/") &&
-            !/api\/attachments\/.+\/image\/?.*/.test(url) &&
+            // The id between the two is one path segment, so it is matched as one. Written `.+` it
+            // could stand for any part of any URL, which costs a scan back from every `/image` for
+            // an address that turns out not to be an attachment's.
+            !/api\/attachments\/[^/]+\/image/.test(url) &&
             // this is an exception for the web clipper's "imageId"
             (url.length !== 20 || url.toLowerCase().startsWith("http"))
         ) {

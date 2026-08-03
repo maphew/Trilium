@@ -124,7 +124,9 @@ describe("linkPreviewImageName", () => {
     it("spells the site the same way its favicon does", () => {
         // A favicon is titled by the bare hostname, so reducing the hostname here would put the
         // two pictures of one site under two different-looking names in the same list.
-        expect(linkPreviewImageName(wiki).startsWith("en.wikipedia.org")).toBe(true);
+        // Matched to where the hostname ends, not merely to where it starts: a bare `startsWith`
+        // says nothing about what follows, which is how a host check is normally got wrong.
+        expect(linkPreviewImageName(wiki)).toMatch(/^en\.wikipedia\.org-/);
         expect(linkPreviewImageName("https://example.com/")).toMatch(/^example\.com-[0-9a-f]{8}$/);
     });
 

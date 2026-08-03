@@ -2,7 +2,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 import type BNote from "../becca/entities/bnote.js";
 import { getContext } from "./context.js";
-import { downloadPictureToAttachment, storeLinkPreviewPictures } from "./image_download.js";
+import { downloadImages, downloadPictureToAttachment, storeLinkPreviewPictures } from "./image_download.js";
 import noteService from "./notes.js";
 import optionService from "./options.js";
 import { initRequest } from "./request.js";
@@ -122,6 +122,25 @@ describe("downloadPictureToAttachment (real DB)", () => {
             role: "image",
             title: "x"
         }))).toBeUndefined();
+    });
+});
+
+describe("downloadImages (real DB)", () => {
+    it("reads a src past the attributes written before it, and knows an attachment's own", () => {
+        // The tag is bounded in how far it is read for a `src`, so what an editor actually writes
+        // before one — a class, a style, an alt — has to still be found past it.
+        const note = createNote("<p>x</p>");
+        const pasted = `<img class="image_resized" style="width:53.68%;" alt="a pasted picture"`
+            + ` src="data:image/png;base64,${PIXEL_PNG.toString("base64")}">`;
+        const stored = `<img src="api/attachments/abc123456789/image/kept.png">`;
+
+        const rewritten = getContext().init(() => downloadImages(note.noteId, `<p>${pasted}${stored}</p>`));
+
+        const [ attachment ] = note.getAttachments();
+        expect(rewritten).toContain(`<img src="api/attachments/${attachment.attachmentId}/image/`);
+        // A picture this note already holds is not a picture to go and fetch.
+        expect(rewritten).toContain(stored);
+        expect(asked).toEqual([]);
     });
 });
 
