@@ -3565,7 +3565,12 @@
     "tags-placeholder": "Type a tag and press Enter",
     "tags-differ": "The selected nodes don't carry the same tags, so these can only be read.",
     "add-tag": "Add this tag",
-    "remove-tag": "Remove this tag"
+    "remove-tag": "Remove this tag",
+    "zoom-in": "Zoom in",
+    "zoom-out": "Zoom out",
+    "center-map": "Center the map",
+    "fullscreen": "Fullscreen",
+    "exit-fullscreen": "Exit fullscreen"
   },
   "llm": {
     "disabled_placeholder": "AI features are turned off. Enable them to configure providers and MCP.",

@@ -18,6 +18,7 @@ import { TypeWidgetProps } from "../type_widget";
 import { renderMindMapPreviewSvg } from "./export";
 import { renderIconClasses } from "./icons";
 import { renderNodeLinks } from "./links";
+import MapToolbar from "./MapToolbar";
 import NodePanel from "./NodePanel";
 
 /**
@@ -67,8 +68,13 @@ function sanitizeMindMapNode(value: unknown): void {
 
 interface MindElixirProps {
     apiRef?: RefObject<MindElixirInstance>;
-    /** Rendered in an overlay on top of the map, outside of the DOM managed by Mind Elixir. */
-    children?: ComponentChildren;
+    /**
+     * Rendered in an overlay on top of the map, outside of the DOM managed by Mind Elixir, and given
+     * the instance it stands over. Asked for rather than handed in, the instance being built after
+     * the first render and again whenever the map has to be rebuilt — what is drawn over it follows
+     * onto the new one instead of holding a reference to the one it was born with.
+     */
+    children?: (mind: MindElixirInstance) => ComponentChildren;
     containerProps?: Omit<HTMLAttributes<HTMLDivElement>, "ref">;
     containerRef?: RefObject<HTMLDivElement>;
     editable: boolean;
@@ -190,11 +196,15 @@ export default function MindMap({ note, ntxId, noteContext }: TypeWidgetProps) {
                 onKeyDown
             }}
         >
-            {/* Offered on a read-only map as well: Mind Elixir still selects a node there, and the
-                panel then holds the memo alone — the one thing a node carries that the map itself
-                never draws, and which would otherwise be out of reach (see NodePanel). */}
-            {selectedNodes.length > 0 && apiRef.current &&
-                <NodePanel mind={apiRef.current} noteId={note.noteId} nodes={selectedNodes} readOnly={isReadOnly} />}
+            {(mind) => <>
+                <MapToolbar mind={mind} />
+
+                {/* Offered on a read-only map as well: Mind Elixir still selects a node there, and
+                    the panel then holds the memo alone — the one thing a node carries that the map
+                    itself never draws, and which would otherwise be out of reach (see NodePanel). */}
+                {selectedNodes.length > 0 &&
+                    <NodePanel mind={mind} noteId={note.noteId} nodes={selectedNodes} readOnly={isReadOnly} />}
+            </>}
         </MindElixir>
     );
 }
@@ -337,7 +347,9 @@ function MindElixir({ children, containerRef: externalContainerRef, containerPro
     return (
         <>
             <div ref={containerRef} {...containerProps} />
-            {createPortal(<>{children}</>, overlayEl)}
+            {/* Read afresh on every render, which follows every build of the instance (see
+                `instanceVersion` above); until the first one there is nothing to draw over. */}
+            {createPortal(<>{apiRef.current && children?.(apiRef.current)}</>, overlayEl)}
         </>
     );
 }
