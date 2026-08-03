@@ -3554,6 +3554,7 @@
     "links-differ": "The selected nodes don't carry the same link.",
     "tab-format": "Format",
     "memo": "Memo",
+    "memo-placeholder": "Write a memo...",
     "memos-differ": "The selected nodes carry different memos, so this one can only be read.",
     "tags": "Tags",
     "tags-placeholder": "Type a tag and press Enter",

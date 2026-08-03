@@ -4,6 +4,7 @@ import { AttributeEditor, CHAT_INPUT_PLUGINS, type CKTextEditor, type EditorConf
 import type { NodeObj } from "mind-elixir";
 import { useEffect, useLayoutEffect, useRef } from "preact/hooks";
 
+import { t } from "../../../services/i18n";
 import { escapeHtml } from "../../../services/utils";
 import CKEditor, { type CKEditorApi } from "../../react/CKEditor";
 
@@ -79,7 +80,7 @@ export default function NodeMemo({ selectionKey, memo, readOnly, onCommit }: {
             apiRef={apiRef}
             className="mind-map-node-memo"
             editor={AttributeEditor}
-            config={MEMO_EDITOR_CONFIG}
+            config={buildMemoEditorConfig()}
             currentValue={html}
             onChange={(html) => (typed.current = { key: currentKey.current, html: html ?? "" })}
             onInitialized={(editor) => {
@@ -98,14 +99,21 @@ export default function NodeMemo({ selectionKey, memo, readOnly, onCommit }: {
     );
 }
 
-/** Kept still, so that the editor is not configured anew every time the panel renders. */
-const MEMO_EDITOR_CONFIG: EditorConfig = {
-    // The markdown autoformatting the chat box has — quotes, code, lists, links — and no toolbar.
-    extraPlugins: CHAT_INPUT_PLUGINS,
-    toolbar: { items: [] },
-    licenseKey: "GPL",
-    language: "en"
-};
+/**
+ * Built where it is used rather than kept still beside the module: the hint is a translated string,
+ * and the catalogue is not yet loaded when this module is. Nothing is spent on rebuilding it — an
+ * editor is raised from the configuration it is handed as it mounts, and never reconfigured.
+ */
+function buildMemoEditorConfig(): EditorConfig {
+    return {
+        // The markdown autoformatting the chat box has — quotes, code, lists, links — and no toolbar.
+        extraPlugins: CHAT_INPUT_PLUGINS,
+        toolbar: { items: [] },
+        placeholder: t("mind-map.memo-placeholder"),
+        licenseKey: "GPL",
+        language: "en"
+    };
+}
 
 /** Held while the selection disagrees, there being no one memo to write over the others. */
 const MEMO_READ_ONLY_LOCK = "mind-map-node-memo";

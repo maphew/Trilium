@@ -63,14 +63,18 @@
     visibility: hidden;
 }
 
-/* The memo is the whole of its tab, so it fills the height the panel took from the fields. */
+/*
+ * The memo is the whole of its tab, so it fills the height the panel took from the fields — and the
+ * width edge to edge, the tab keeping none of the padding for itself. What insets the writing is
+ * the memo's own padding (see NodeMemo.css), so that the two read as one surface rather than as a
+ * sheet laid on a tab.
+ */
 .mind-map-node-panel .mind-map-node-panel-memo-body {
     display: flex;
-    padding: 8px;
+    padding: 0;
 
     .mind-map-node-memo {
         flex: 1;
-        max-height: none;
     }
 }
 
