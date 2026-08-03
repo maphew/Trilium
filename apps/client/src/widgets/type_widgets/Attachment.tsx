@@ -10,7 +10,7 @@ import FAttachment from "../../entities/fattachment";
 import FNote from "../../entities/fnote";
 import imageContextMenu from "../../menus/image_context_menu";
 import { type AttachmentGroup, partitionAttachmentsByGroup } from "../../services/attachment_groups";
-import { attachmentRoleName } from "../../services/attachment_role_names";
+import { attachmentRoleLabel } from "../../services/attachment_role_names";
 import content_renderer from "../../services/content_renderer";
 import dialog from "../../services/dialog";
 import froca from "../../services/froca";
@@ -310,12 +310,7 @@ function AttachmentInfo({ attachment, isFullDetail, ownerNote, noteContext, view
                     {/* The media type used to sit here too, spelled out. On a card whose title ends in
                         the extension and whose content is drawn right below, `image/svg+xml` told a
                         reader nothing they could not already see. */}
-                    <div className="attachment-details">
-                        {t("attachment_detail_2.kind_and_size", {
-                            role: attachmentRoleName(attachment.role),
-                            size: utils.formatSize(attachment.contentLength)
-                        })}
-                    </div>
+                    <AttachmentDetails attachment={attachment} />
                 </div>
 
                 {scheduledForErasureSince && <DeletionBadge utcDateScheduledForErasureSince={scheduledForErasureSince} />}
@@ -348,6 +343,21 @@ function AttachmentInfo({ attachment, isFullDetail, ownerNote, noteContext, view
                 )}
             </div>
 
+        </div>
+    );
+}
+
+/**
+ * The line under the title. Its size always, and what kind of thing it is only where the icon beside the
+ * title has not already said so — see {@link attachmentRoleLabel}.
+ */
+function AttachmentDetails({ attachment }: { attachment: FAttachment }) {
+    const size = utils.formatSize(attachment.contentLength);
+    const role = attachmentRoleLabel(attachment.role);
+
+    return (
+        <div className="attachment-details">
+            {role ? t("attachment_detail_2.kind_and_size", { role, size }) : size}
         </div>
     );
 }

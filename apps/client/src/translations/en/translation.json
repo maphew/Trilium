@@ -2239,8 +2239,6 @@
     "unrecognized_role": "Unrecognized attachment role '{{role}}'."
   },
   "attachment_roles": {
-    "image": "Image",
-    "file": "File",
     "favicon": "Site icon",
     "coverImage": "Cover image",
     "viewConfig": "View settings",

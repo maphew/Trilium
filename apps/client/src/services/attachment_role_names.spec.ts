@@ -5,30 +5,43 @@ import { describe, expect, it, vi } from "vitest";
 // what the mapping here is actually about.
 vi.mock("./i18n.js", () => ({ t: (key: string) => key }));
 
-const { attachmentRoleName } = await import("./attachment_role_names.js");
+const { attachmentRoleLabel } = await import("./attachment_role_names.js");
 
-describe("attachmentRoleName", () => {
-    it("names every role the app creates", () => {
-        // The types already refuse a role that arrives without a name; this says the same for a role
-        // added to neither table, which would otherwise reach a reader as its own identifier.
-        for (const role of Object.keys(ATTACHMENT_ROLES)) {
-            expect(attachmentRoleName(role), role).toBe(`attachment_roles.${role}`);
+describe("attachmentRoleLabel", () => {
+    it("names the app's own doing, which nothing else in the card does", () => {
+        // "Site icon" is the whole reason that row is not a picture the reader forgot placing.
+        for (const role of [ "favicon", "coverImage", "viewConfig", "canvasLibraryItem", "importSource" ]) {
+            expect(attachmentRoleLabel(role), role).toBe(`attachment_roles.${role}`);
         }
     });
 
-    it("shows a role it has never heard of as it was stored", () => {
-        // Not a name anyone chose, but it is all that is known about the attachment, and a blank
-        // would leave a gap where every other row says something.
-        expect(attachmentRoleName("somethingAScriptInvented")).toBe("somethingAScriptInvented");
-        // The role is whatever was stored, so these reach the lookup too; read off the table rather
-        // than checked against it, they would answer with something from its prototype.
-        expect(attachmentRoleName("constructor")).toBe("constructor");
-        expect(attachmentRoleName("toString")).toBe("toString");
+    it("says nothing over what a reader placed themselves", () => {
+        // "Image" over a picture, "File" over a PDF's own mark: the icon beside the title has said it.
+        expect(attachmentRoleLabel("image")).toBeNull();
+        expect(attachmentRoleLabel("file")).toBeNull();
     });
 
-    it("has nothing to say for an attachment without a role", () => {
-        expect(attachmentRoleName(undefined)).toBe("");
-        expect(attachmentRoleName(null)).toBe("");
-        expect(attachmentRoleName("")).toBe("");
+    it("follows the icon column rather than answering the question twice", () => {
+        // The types already refuse a role given a mark of its own and no name; this says the same at
+        // runtime, and the other way round too — so the two tables cannot drift apart.
+        for (const [ role, traits ] of Object.entries(ATTACHMENT_ROLES)) {
+            expect(attachmentRoleLabel(role) === null, role).toBe(traits.icon === null);
+        }
+    });
+
+    it("keeps the name of a role it has never heard of", () => {
+        // A script's own, or one from a newer version reached over sync. Not a name anyone chose, but
+        // the only identification the attachment has.
+        expect(attachmentRoleLabel("somethingAScriptInvented")).toBe("somethingAScriptInvented");
+        // The role is whatever was stored, so these reach the lookups too; read off a table rather
+        // than checked against it, they would answer with one of its prototype's functions.
+        expect(attachmentRoleLabel("constructor")).toBe("constructor");
+        expect(attachmentRoleLabel("toString")).toBe("toString");
+    });
+
+    it("says nothing for an attachment without a role", () => {
+        expect(attachmentRoleLabel(undefined)).toBeNull();
+        expect(attachmentRoleLabel(null)).toBeNull();
+        expect(attachmentRoleLabel("")).toBeNull();
     });
 });

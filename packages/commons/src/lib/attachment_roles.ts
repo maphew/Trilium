@@ -102,6 +102,20 @@ export const ATTACHMENT_ROLES = {
 /** A role the app itself creates. Arbitrary strings reach the same fields — see {@link ATTACHMENT_ROLES}. */
 export type AttachmentRole = keyof typeof ATTACHMENT_ROLES;
 
+/**
+ * The roles worth spelling out to a reader: the ones the app created, which is the same set as the ones
+ * with a mark of their own.
+ *
+ * Read off the icon column rather than listed again, so the two cannot drift. A role that cannot say what
+ * the thing is has nothing to add once the thing is shown — "Image" over a picture is not worth a word,
+ * let alone a word in every language.
+ *
+ * @see AttachmentRoleTraits.icon
+ */
+export type NamedAttachmentRole = {
+    [Role in AttachmentRole]: typeof ATTACHMENT_ROLES[Role]["icon"] extends null ? never : Role
+}[AttachmentRole];
+
 /** The roles whose content is a picture, read off {@link ATTACHMENT_ROLES} rather than listed again. */
 export type ImageAttachmentRole = {
     [Role in AttachmentRole]: typeof ATTACHMENT_ROLES[Role]["picture"] extends true ? Role : never
