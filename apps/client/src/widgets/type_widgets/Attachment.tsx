@@ -1,6 +1,6 @@
 import "./Attachment.css";
 
-import { ConvertAttachmentToNoteResponse } from "@triliumnext/commons";
+import { ConvertAttachmentToNoteResponse, isImageAttachmentRole } from "@triliumnext/commons";
 import { t } from "i18next";
 import { useContext, useEffect, useRef, useState } from "preact/hooks";
 
@@ -165,13 +165,17 @@ function AttachmentInfo({ attachment, isFullDetail, ownerNote, noteContext, view
     // "importSource" attachments (e.g. OneNote debug source) behave like ordinary files for
     // preview, OCR and link-copying purposes.
     const isFileLike = attachment.role === "file" || attachment.role === "importSource";
+    const isPicture = isImageAttachmentRole(attachment.role);
+    // A link preview's favicon is deliberately left out: it is 16 pixels of site mark, so there is
+    // no text in it to find, and offering to read one is noise in every attachment list that has a
+    // preview in it. The same goes for recompressing it further down.
     const supportsOcr = attachment.role === "image" || isFileLike;
 
     // Opened in full detail, an image gets the interactive zoom/pan viewer and audio/video the full media
     // player — both mounted here rather than through the content renderer, which has no tab context to hand
     // them (and it is the tab that lets them navigate between the note's other attachments). Everything else,
     // in either view, is rendered imperatively via the content renderer.
-    const isZoomableImage = !!isFullDetail && attachment.role === "image";
+    const isZoomableImage = !!isFullDetail && isPicture;
     const isPlayableMedia = !!isFullDetail && (attachment.mime.startsWith("audio/") || attachment.mime.startsWith("video/"));
     const rendersItself = isZoomableImage || isPlayableMedia;
     const imageSrc = `api/attachments/${attachment.attachmentId}/image/${encodeURIComponent(attachment.title)}?${modified}`;
@@ -221,7 +225,7 @@ function AttachmentInfo({ attachment, isFullDetail, ownerNote, noteContext, view
     }, [ isZoomableImage ]);
 
     async function copyAttachmentReferenceToClipboard() {
-        if (attachment.role === "image") {
+        if (isPicture) {
             const $img = refToJQuerySelector(isZoomableImage ? imageViewerWrapper : contentWrapper).find("img");
             if ($img.length) image.copyImageReferenceToClipboard($img.parent());
         } else if (isFileLike) {

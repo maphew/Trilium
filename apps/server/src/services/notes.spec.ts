@@ -118,7 +118,7 @@ describe("checkImageAttachments", () => {
                 title: "Test",
                 attachments: [
                     { title: "image.jpg", role: "image", mime: "image/jpeg" },
-                    { title: "favicon.ico", role: "image", mime: "image/x-icon" }
+                    { title: "favicon.ico", role: "favicon", mime: "image/x-icon" }
                 ]
             });
             mockAttachmentSaves(note);
@@ -138,7 +138,7 @@ describe("checkImageAttachments", () => {
         });
 
         it("keeps a mention's favicon alive, which is all an inline mention carries", () => {
-            const note = buildNote({ title: "Test", attachments: [{ title: "favicon.ico", role: "image", mime: "image/x-icon" }] });
+            const note = buildNote({ title: "Test", attachments: [{ title: "favicon.ico", role: "favicon", mime: "image/x-icon" }] });
             mockAttachmentSaves(note);
             const [ favicon ] = note.getAttachments();
             favicon.utcDateScheduledForErasureSince = "2025-01-01 00:00:00.000Z";
@@ -148,6 +148,19 @@ describe("checkImageAttachments", () => {
             checkImageAttachments(note, content);
 
             expect(favicon.utcDateScheduledForErasureSince).toBeNull();
+        });
+
+        it("schedules an unreferenced favicon for erasure, its own role notwithstanding", () => {
+            // The role exists so an icon can be told apart from the user's own pictures, not so it
+            // can escape the cleanup: nothing else manages a favicon, so deleting the preview that
+            // referenced it has to be what eventually takes it away.
+            const note = buildNote({ title: "Test", attachments: [{ title: "favicon.ico", role: "favicon", mime: "image/x-icon" }] });
+            mockAttachmentSaves(note);
+            const [ favicon ] = note.getAttachments();
+
+            checkImageAttachments(note, "<p>the preview that referenced it is gone</p>");
+
+            expect(favicon.utcDateScheduledForErasureSince).toBeTruthy();
         });
 
         it("schedules unreferenced attachments for erasure", () => {

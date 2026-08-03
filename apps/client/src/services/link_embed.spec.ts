@@ -132,8 +132,12 @@ describe("fetchMetadata", () => {
 
             const result = await fetchMetadata("https://example.com", "note1");
 
-            expect(uploadImageAttachmentMock).toHaveBeenCalledWith("note1", "data:image/x-icon;base64,FAV");
-            expect(uploadImageAttachmentMock).toHaveBeenCalledWith("note1", "data:image/jpeg;base64,IMG");
+            // Stored under different roles: the card image is a picture of the page and belongs
+            // with the note's own images, while the favicon is the site's mark, fetched rather than
+            // chosen — which is what lets icons be deduplicated and kept out of the tools that
+            // reason about the user's own pictures.
+            expect(uploadImageAttachmentMock).toHaveBeenCalledWith("note1", "data:image/x-icon;base64,FAV", "favicon");
+            expect(uploadImageAttachmentMock).toHaveBeenCalledWith("note1", "data:image/jpeg;base64,IMG", "image");
             // Only the attachment URLs land in the note content — inlined base64 counts against the
             // auto-read-only size threshold, and a favicon pays that cost once per link rather than
             // once per note.

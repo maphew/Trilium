@@ -3,6 +3,7 @@
  * Uses ImageProvider for platform-specific processing (compression, format detection).
  */
 
+import type { ImageAttachmentRole } from "@triliumnext/commons";
 import sanitizeFilename from "sanitize-filename";
 
 import becca from "../becca/becca.js";
@@ -189,7 +190,9 @@ function saveImageToAttachment(
     uploadBuffer: Uint8Array,
     originalName: string,
     shrinkImageSwitch?: boolean,
-    trimFilename = false
+    trimFilename = false,
+    /** Which kind of picture this is; see {@link IMAGE_ATTACHMENT_ROLES}. */
+    role: ImageAttachmentRole = "image"
 ): { attachmentId: string | undefined; title: string } {
     getLog().info(`Saving image '${originalName}' as attachment into note '${noteId}'`);
 
@@ -201,7 +204,7 @@ function saveImageToAttachment(
     const note = becca.getNoteOrThrow(noteId);
 
     const attachment = note.saveAttachment({
-        role: "image",
+        role,
         mime: "unknown",
         title: fileName
     });

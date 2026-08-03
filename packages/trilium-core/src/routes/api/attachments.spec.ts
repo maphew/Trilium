@@ -236,6 +236,38 @@ describe("Attachments API (core)", () => {
             expect(attachment).toMatchObject({ role: "image", mime: "image/x-icon" });
         });
 
+        it("stores an upload under a requested picture role, and serves it like any other", async () => {
+            const { noteId } = await createTextNote(api, { title: "Favicon target" });
+
+            const res = await api.post<{ uploaded: boolean; url: string }>(
+                `/api/notes/${noteId}/attachments/upload?role=favicon`,
+                { file: { originalname: "favicon.ico", mimetype: "image/x-icon", buffer: icoWrapping(PIXEL_PNG) } }
+            );
+            expect(res.status).toBe(200);
+            expect(res.body.url).toContain("/image/");
+
+            const [ attachment ] = (await api.get<AttachmentPojo[]>(`/api/notes/${noteId}/attachments`)).body;
+            expect(attachment.role).toBe("favicon");
+
+            // The role decides whether the image route will serve it at all — a role it does not
+            // know is answered with a 400, which would leave every preview showing a placeholder.
+            expect((await api.get(`/${res.body.url}`)).status).toBe(200);
+        });
+
+        it("ignores a role it does not know rather than storing it", async () => {
+            // The role is what decides whether an attachment is served, listed and cleaned up, so a
+            // request must not be able to invent one and leave an attachment no code path looks at.
+            const { noteId } = await createTextNote(api, { title: "Bogus role target" });
+
+            await api.post(
+                `/api/notes/${noteId}/attachments/upload?role=viewConfig`,
+                { file: { originalname: "pixel.png", mimetype: "image/png", buffer: PIXEL_PNG } }
+            );
+
+            const [ attachment ] = (await api.get<AttachmentPojo[]>(`/api/notes/${noteId}/attachments`)).body;
+            expect(attachment.role).toBe("image");
+        });
+
         it("reports a missing upload when no file is present", async () => {
             const { noteId } = await createTextNote(api, { title: "No file target" });
 

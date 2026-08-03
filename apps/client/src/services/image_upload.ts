@@ -1,3 +1,5 @@
+import type { ImageAttachmentRole } from "@triliumnext/commons";
+
 import server from "./server.js";
 
 /**
@@ -8,13 +10,19 @@ import server from "./server.js";
  *
  * Format-agnostic: used by any rich note type that needs to offload inline base64 images to
  * attachments (e.g. the spreadsheet drawing layer).
+ *
+ * `role` says which kind of picture it is. The default is a plain image — the user's own — and a
+ * caller passes something else only for a picture the app fetched on its behalf, such as a link
+ * preview's site icon; see {@link IMAGE_ATTACHMENT_ROLES}. The server checks the value against the
+ * same list rather than storing whatever it is sent.
  */
-export async function uploadImageAttachment(noteId: string, dataUrl: string): Promise<string | null> {
+export async function uploadImageAttachment(noteId: string, dataUrl: string, role: ImageAttachmentRole = "image"): Promise<string | null> {
     const file = dataUrlToImageFile(dataUrl);
     if (!file) return null;
 
     try {
-        const response = await server.upload(`notes/${noteId}/attachments/upload`, file, undefined, "POST") as { uploaded?: boolean; url?: string };
+        const url = `notes/${noteId}/attachments/upload?role=${encodeURIComponent(role)}`;
+        const response = await server.upload(url, file, undefined, "POST") as { uploaded?: boolean; url?: string };
         return response?.uploaded && response.url ? response.url : null;
     } catch (e) {
         console.error("Failed to upload image attachment", e);

@@ -1,4 +1,4 @@
-import { type AttachmentRow, type AttributeRow, type BranchRow, dayjs, type NoteRow, NOTE_TYPE_IMAGE_ATTACHMENTS, type NoteType } from "@triliumnext/commons";
+import { type AttachmentRow, type AttributeRow, type BranchRow, dayjs, isImageAttachmentRole, type NoteRow, NOTE_TYPE_IMAGE_ATTACHMENTS, type NoteType } from "@triliumnext/commons";
 import { t } from "i18next";
 import { parse as parseHtml } from "node-html-parser";
 import url from "url";
@@ -143,7 +143,7 @@ function copyChildAttributes(parentNote: BNote, childNote: BNote, isTypeDefaulte
 
 function copyAttachments(origNote: BNote, newNote: BNote) {
     for (const attachment of origNote.getAttachments()) {
-        if (attachment.role === "image") {
+        if (isImageAttachmentRole(attachment.role)) {
             // Handled separately, see `checkImageAttachments`.
             continue;
         }
@@ -483,10 +483,12 @@ export function checkImageAttachments(note: BNote, content: string) {
     const attachments = note.getAttachments();
 
     for (const attachment of attachments) {
-        // Only attachments that are meant to be embedded in the note content (images, files) are
+        // Only attachments that are meant to be embedded in the note content (pictures, files) are
         // auto-scheduled for erasure when no longer referenced. Other roles (e.g. "viewConfig",
         // "importSource") are managed explicitly by their owners and must not be cleaned up here.
-        if (attachment.role !== "image" && attachment.role !== "file") {
+        // A link preview's favicon belongs to the first group: nothing manages it, so deleting the
+        // preview has to be what eventually takes the icon with it.
+        if (!isImageAttachmentRole(attachment.role) && attachment.role !== "file") {
             continue;
         }
 

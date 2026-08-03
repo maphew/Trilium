@@ -5,6 +5,7 @@ export * from "./lib/keyboard_actions_interface.js";
 export * from "./lib/hidden_subtree.js";
 export * from "./lib/rows.js";
 export * from "./lib/test-utils.js";
+export * from "./lib/attachment_roles.js";
 export * from "./lib/image_mimes.js";
 export * from "./lib/mime_type.js";
 export * from "./lib/office.js";

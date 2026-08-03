@@ -1,6 +1,6 @@
 import "../widgets/type_widgets/text/LinkEmbed.css";
 
-import { extractYouTubeVideoId, type LinkEmbedMetadata, safeLinkPreviewHref, safeLinkPreviewImageSrc, YOUTUBE_REGEX } from "@triliumnext/commons";
+import { extractYouTubeVideoId, type ImageAttachmentRole, type LinkEmbedMetadata, safeLinkPreviewHref, safeLinkPreviewImageSrc, YOUTUBE_REGEX } from "@triliumnext/commons";
 import { render } from "preact";
 import { useState } from "preact/hooks";
 
@@ -50,7 +50,7 @@ export async function fetchMetadata(url: string, ownerNoteId?: string): Promise<
         // Uploaded together: they are two independent requests and a preview needs both before it
         // can be stored.
         const [ favicon, image ] = await Promise.all([
-            offloadPictureToAttachment(metadata.favicon, ownerNoteId),
+            offloadPictureToAttachment(metadata.favicon, ownerNoteId, "favicon"),
             offloadPictureToAttachment(metadata.image, ownerNoteId)
         ]);
 
@@ -81,13 +81,22 @@ export async function fetchMetadata(url: string, ownerNoteId?: string): Promise<
  *
  * Both pictures go through this, so both are subject to the same rule at the render sinks: only an
  * inline image or an attachment of this instance is ever loaded (see `isLocalPreviewImageSrc`).
+ *
+ * They are stored under different roles all the same. A card image is a picture of the page and
+ * belongs with the note's own images; a favicon is the site's mark, fetched rather than chosen, and
+ * telling the two apart is what lets icons be deduplicated and kept out of the tools that reason
+ * about what the user put in the note.
  */
-async function offloadPictureToAttachment(picture: string | undefined, ownerNoteId: string | undefined): Promise<string | undefined> {
+async function offloadPictureToAttachment(
+    picture: string | undefined,
+    ownerNoteId: string | undefined,
+    role: ImageAttachmentRole = "image"
+): Promise<string | undefined> {
     if (!picture || !ownerNoteId || !picture.startsWith("data:")) {
         return picture;
     }
 
-    return await uploadImageAttachment(ownerNoteId, picture) ?? picture;
+    return await uploadImageAttachment(ownerNoteId, picture, role) ?? picture;
 }
 
 // ---------------------------------------------------------------------------
