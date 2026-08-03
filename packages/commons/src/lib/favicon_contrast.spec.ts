@@ -80,11 +80,28 @@ describe("classifying a favicon", () => {
         expect(classifyFaviconContrast(visibility)).toBe("neutral");
     });
 
+    it("leaves a tile alone however thin its mark is, since inverting one only moves the problem", () => {
+        // Wikipedia's home-screen icon: a white tile with a thin dark W over a sixteenth of it. The
+        // tile is the surface's own colour on a light theme, so it counts for nothing here — but
+        // that is what makes the icon look right, and inverting it yields a black square with a
+        // white W, which is what a reader saw before this share was lowered.
+        const lightTile = summarizeFaviconVisibility(bitmap([255, 255, 255, 255, 94], [0x20, 0x20, 0x20, 255, 6]));
+
+        expect(lightTile.onLight).toBeCloseTo(0.06, 5);
+        expect(classifyFaviconContrast(lightTile)).toBe("neutral");
+
+        // The same icon drawn the other way round, which a dark theme has to leave alone for the
+        // same reason.
+        const darkTile = summarizeFaviconVisibility(bitmap([0, 0, 0, 255, 94], [255, 255, 255, 255, 6]));
+
+        expect(classifyFaviconContrast(darkTile)).toBe("neutral");
+    });
+
     it("weighs each pixel by how opaque it is, so a faint edge does not count as a whole mark", () => {
         // A black glyph whose only light pixels are half-transparent: not enough to save it.
         const visibility = summarizeFaviconVisibility(bitmap([0, 0, 0, 255, 90], [255, 255, 255, 26, 10]));
 
-        expect(visibility.onDark).toBeLessThan(0.15);
+        expect(visibility.onDark).toBeLessThan(0.02);
         expect(classifyFaviconContrast(visibility)).toBe("dark");
     });
 

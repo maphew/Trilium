@@ -458,7 +458,8 @@ const TIER_SCALABLE = 0;
 const TIER_BIG_ENOUGH = 1;
 const TIER_UNDECLARED = 2;
 const TIER_TOO_SMALL = 3;
-const TIER_MASK = 4;
+const TIER_HOME_SCREEN = 4;
+const TIER_MASK = 5;
 
 /**
  * How promising an icon link is as a favicon, best first.
@@ -467,9 +468,16 @@ const TIER_MASK = 4;
  * plain `favicon.ico` carries, and that is usually an icon directory of several sizes, out of which
  * {@link downloadFavicon} keeps the right one. Ranking it below what a page says is big enough, and
  * above what a page says is too small, is exactly what it is worth.
+ *
+ * The two icons at the bottom are there for being the wrong picture rather than the wrong size. A
+ * home-screen icon is composited onto an opaque tile by the platform it is for, so sites draw one:
+ * Wikipedia's apple-touch icon is a thin dark W on a white square, where its favicon is the same
+ * mark drawn to be seen at 16 pixels. Both would download; only one is the site's icon. And a
+ * Safari `mask-icon` is a silhouette meant to be tinted, which draws as a black blob when it is not.
  */
 function faviconTier(rel: string, href: string, type: string | undefined, declared: number): number {
     if (rel.includes("mask-icon")) return TIER_MASK;
+    if (rel.includes("apple-touch-icon")) return TIER_HOME_SCREEN;
 
     const scalable = declared === Number.MAX_SAFE_INTEGER
         || (type || "").toLowerCase().includes("svg")

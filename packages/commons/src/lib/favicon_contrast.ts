@@ -119,11 +119,17 @@ export type FaviconContrast = "dark" | "light" | "neutral";
  * How much of an icon has to survive a surface for it to be left alone there.
  *
  * Not zero, because an icon is allowed a few stray pixels that happen to clear the threshold — a
- * black glyph with an anti-aliased edge or a single light speck is still a black glyph. A seventh of
- * the icon is enough to read as a shape, and is roughly the size of the white mark inside a filled
- * tile, which is the case this is really here to spare.
+ * black glyph with an anti-aliased edge or a single light speck is still a black glyph. But barely
+ * above it, because the share is measured over the whole icon, and an icon that carries its own
+ * background spends most of itself on that background: where the background is the surface's own
+ * colour it counts as invisible here, though it is precisely what makes such an icon look right.
+ *
+ * Wikipedia's home-screen icon is the case that fixed the number — a thin dark W on a white tile,
+ * of which the mark is 6% of what is drawn. It reads perfectly on a light theme, and at the seventh
+ * this used to ask for it was condemned and inverted into a black square. An icon that genuinely
+ * vanishes has no share at all to speak of: GitHub's octocat on a dark surface measures zero.
  */
-const MIN_VISIBLE_SHARE = 0.15;
+const MIN_VISIBLE_SHARE = 0.04;
 
 /** Reads {@link summarizeFaviconVisibility}'s measurement as the one decision the stylesheets need. */
 export function classifyFaviconContrast(visibility: FaviconVisibility): FaviconContrast {

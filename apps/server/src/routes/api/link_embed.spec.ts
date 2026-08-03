@@ -550,10 +550,10 @@ describe("link-embed getMetadata", () => {
             + `<link rel="ICON SHORTCUT" sizes="16x16" href="/tiny.png">`
             + `<link rel="apple-touch-icon-precomposed" sizes="180x180" href="/touch.png">`
             + `<link rel="icon" sizes="48x48" href="/right.png">`;
-        const serve = (extra = "") => {
+        const serve = (declared = head) => {
             safeFetch.mockReset();
             safeFetch.mockImplementation(async (url: string) => url.endsWith("/page")
-                ? fakeResponse(`<html><head><title>T</title>${extra}${head}</head></html>`, { contentType: "text/html" })
+                ? fakeResponse(`<html><head><title>T</title>${declared}</head></html>`, { contentType: "text/html" })
                 : fakeResponse("", { ok: false }));
         };
         const iconsRequested = () => safeFetch.mock.calls
@@ -562,21 +562,29 @@ describe("link-embed getMetadata", () => {
 
         serve();
         expect((await linkEmbedRoute.getMetadata(req("https://example.com/page"))).favicon).toBeUndefined();
-        // The smallest that still covers a 3x display, then the larger one, then the one that would
-        // have to be upscaled — and /favicon.ico last, which no site has to declare. The mask-icon
-        // falls past the cap: a silhouette meant to be tinted draws as a black blob.
+        // The smallest that still covers a 3x display, then the one that would have to be upscaled,
+        // then the home-screen icon — which is a picture of the site drawn for a different purpose,
+        // on the opaque tile the platform requires — and /favicon.ico last, which no site has to
+        // declare. The mask-icon falls past the cap: a silhouette meant to be tinted is a black blob.
         expect(iconsRequested().slice(0, 4)).toEqual([
             "https://example.com/right.png",
-            "https://example.com/touch.png",
             "https://example.com/tiny.png",
+            "https://example.com/touch.png",
             "https://example.com/favicon.ico"
         ]);
 
         // An SVG — named by its type here, by its extension elsewhere — draws at every size for a
         // few hundred bytes, so it outranks anything a size can be declared for.
-        serve(`<link rel="icon" type="image/svg+xml" href="/scalable.svg">`);
+        serve(`<link rel="icon" type="image/svg+xml" href="/scalable.svg">${head}`);
         await linkEmbedRoute.getMetadata(req("https://example.com/page"));
         expect(iconsRequested()[0]).toBe("https://example.com/scalable.svg");
+
+        // Wikipedia's head exactly: a home-screen icon named first, the site's own icon second,
+        // neither declaring a size. Taking the first was how a preview ended up storing a white
+        // tile with a thin mark on it, which the theme then inverted into a black square.
+        serve(`<link rel="apple-touch-icon" href="/touch.png"><link rel="icon" href="/fav.ico">`);
+        await linkEmbedRoute.getMetadata(req("https://example.com/page"));
+        expect(iconsRequested()[0]).toBe("https://example.com/fav.ico");
     });
 
     it("keeps trying after an icon that fails to arrive, down to the conventional path", async () => {
