@@ -111,7 +111,18 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
                 "toggleImageCaption"
             ],
             upload: {
-                types: ["jpeg", "png", "gif", "bmp", "webp", "tiff", "svg", "svg+xml", "avif"]
+                // Matched against a dropped file's media type as `^image/(<one of these>)$`, which
+                // is what decides whether the editor inserts a picture or hands the file to the
+                // file-upload plugin to make a reference link out of. So this has to claim
+                // everything the upload endpoint stores as an image (ACCEPTED_IMAGE_MIMES): a type
+                // the server calls an image but the editor calls a file ends up as a reference link
+                // pointed at an `api/attachments/.../image/...` URL, which is not a note URL and so
+                // renders as "[missing note]". Both ICO spellings are listed for the same reason
+                // the server accepts both — servers send either.
+                types: [
+                    "jpeg", "png", "gif", "bmp", "webp", "tiff", "svg", "svg+xml", "avif",
+                    "x-icon", "vnd.microsoft.icon"
+                ]
             }
         },
         heading: {

@@ -163,6 +163,26 @@ describe("CK config", () => {
     // The `text-editor.ck` section of the English catalog is the registry of editor strings: each
     // entry names the English message id a plugin passes to `editor.t()`, and the value the editor
     // gets for it is that key resolved through the app's i18n.
+    it("claims every media type the upload endpoint stores as an image", async () => {
+        const config = await buildConfig(baseOpts());
+        const types = (config.image as { upload: { types: string[] } }).upload.types;
+        // The editor decides whether a dropped file is an image with this exact expression (see
+        // createImageTypeRegExp) — anchored, so a subtype has to be listed in full.
+        const claimed = new RegExp(`^image\\/(${types.map((type) => type.replace("+", "\\+")).join("|")})$`);
+
+        // Kept in step with ACCEPTED_IMAGE_MIMES in trilium-core's image service. A type the server
+        // stores as an image but the editor does not claim falls through to the file-upload plugin,
+        // which builds a reference link out of it — and a reference link cannot be pointed at the
+        // `api/attachments/.../image/...` URL the server answers with, so it renders as
+        // "[missing note]" rather than as the picture.
+        for (const mime of [
+            "image/png", "image/jpeg", "image/gif", "image/webp", "image/svg+xml",
+            "image/x-icon", "image/vnd.microsoft.icon"
+        ]) {
+            expect(claimed.test(mime), mime).toBe(true);
+        }
+    });
+
     it("turns the English editor catalog into the dictionary the editor resolves messages through", async () => {
         catalogState.bundle = { "text-editor": { ck: { "insert-a-table": "Insert a table." } } };
         catalogState.entries["text-editor.ck.insert-a-table"] = "Tabelle einfügen";
