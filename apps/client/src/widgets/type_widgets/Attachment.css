@@ -23,6 +23,116 @@
  * shared between the owning note and the upload actions, and on a narrow window that row wraps into a
  * column the choice would land in the middle of.
  */
+/*
+ * The listing is a grid of cards, drawn to match the one a collection lays its notes out in — same
+ * track sizing, same frame, same header rule, same content padding, so that a note's attachments and
+ * a note's children look like one idea rather than two. The rules are restated here rather than
+ * shared: the collection's belong to its own markup (`.note-book-card`, `.note-book-header`), which
+ * an attachment has nothing corresponding to, and reaching for that markup would tie a listing to a
+ * view mode it has no other business with. The values they agree on are the card variables from
+ * `react/Card.css` wherever there is one to use.
+ *
+ * The full-detail page is left alone: it shows one attachment in a pane of its own, which is not a
+ * grid of anything.
+ */
+.attachment-list .attachment-list-wrapper {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+/* One card per attachment. `.attachment-detail-widget` is the direct child, so the track sizing goes
+   here and the frame goes on the wrapper it holds. */
+.attachment-list .attachment-detail-widget {
+    display: flex;
+    flex-shrink: 0;
+    flex-grow: 1;
+    flex-basis: 300px;
+    /* Overrides the height:100% the widget carries for the full-detail page, where it is the pane. */
+    height: auto;
+    max-height: 300px;
+
+    body.mobile & {
+        flex-basis: 150px;
+    }
+}
+
+.attachment-list .attachment-detail-wrapper.list-view {
+    flex-grow: 1;
+    /* Let the card shrink to its track: without it the default min-width:auto keeps it as wide as the
+       longest unbroken thing inside — a title that is a URL, in a list full of them. */
+    min-width: 0;
+    margin-bottom: 0;
+    border: 1px solid var(--card-border-color, var(--main-border-color));
+    border-radius: var(--card-border-radius, 8px);
+    background: var(--card-background-color);
+    overflow: hidden;
+
+    .attachment-title-line {
+        flex-shrink: 0;
+        gap: 8px;
+        border-bottom: 1px solid var(--card-border-color, var(--main-border-color));
+        padding: .5rem 1rem;
+        padding-inline-end: 8px;
+        /* The metadata takes the line under the title rather than competing with it for a card's
+           width. It is still the sentence it was — that is a separate question from this one. */
+        flex-wrap: wrap;
+    }
+
+    .attachment-title {
+        /* A zero basis, not `auto`: the row wraps, and a title measured at its own width — these are
+           hostnames and URLs — would take the whole line and send the menu below it. */
+        flex: 1 1 0;
+        min-width: 0;
+        font-size: 1em;
+        font-weight: 500;
+        /* Titles here have no spaces to break at, as a collection's card titles mostly do not either. */
+        overflow-wrap: anywhere;
+    }
+
+    /* The menu closes the header, as the note menu does on a collection's cards; it opens the row
+       here only because that is the order the markup happens to be in. */
+    .attachment-actions-container {
+        order: 1;
+        flex-shrink: 0;
+    }
+
+    .attachment-details {
+        /* After the menu, so the header's own line ends with it as a card's does; the full basis then
+           takes the metadata to a line of its own rather than squeezing the title. */
+        order: 2;
+        flex-basis: 100%;
+        margin-inline-start: 0;
+        font-size: .85em;
+        color: var(--muted-text-color);
+    }
+
+    .attachment-content-wrapper {
+        flex: 1;
+        max-height: none;
+        overflow: hidden;
+        font-size: 0.8rem;
+    }
+
+    .attachment-content-wrapper .rendered-content {
+        padding: .5rem 1rem 1rem 1rem;
+    }
+
+    /* A picture is the card's content rather than something set in it, so it goes to the edges — the
+       collection does the same for an image note, off a type class the renderer gives it there and
+       not here. */
+    .attachment-content-wrapper .rendered-content:has(> img) {
+        padding: 0;
+    }
+
+    .attachment-content-wrapper img,
+    .attachment-content-wrapper video {
+        max-width: 100%;
+        max-height: 220px;
+        object-fit: contain;
+    }
+}
+
 .attachment-list .attachment-group-choice {
     /* A flex item of the list's column, so without this it is stretched the width of the pane and the
        two options grow into banners. Centred over the list instead. */
@@ -116,22 +226,9 @@
     height: 100%;
 }
 
-.attachment-detail-wrapper.list-view {
-    border-radius: 12px;
-    background-color: var(--card-background-color);
-    padding: 6px;
-    box-shadow: var(--card-box-shadow);
-}
-
 .attachment-detail-wrapper.list-view .attachment-content-wrapper pre {
     max-height: 400px;
     padding: 0;
-}
-
-.attachment-detail-wrapper.list-view .attachment-content-wrapper img, .attachment-detail-wrapper.list-view .attachment-content-wrapper video {
-    max-height: 300px;
-    max-width: 90%;
-    object-fit: contain;
 }
 
 .attachment-detail-wrapper.full-detail .attachment-content-wrapper img {
