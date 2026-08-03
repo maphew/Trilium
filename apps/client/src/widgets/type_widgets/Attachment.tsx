@@ -75,10 +75,9 @@ export function AttachmentList({ note }: TypeWidgetProps) {
 }
 
 /**
- * Which half of the list is on show. Both halves are named with their size, so the group not being
- * looked at still says how much is in it — the point of the switcher being that a note can carry far
- * more of the app's own attachments than of the reader's, and neither number is guessable from the
- * other's list.
+ * Which half of the list is on show. Both halves carry a count, so the group not being looked at still
+ * says how much is in it — the point of the switcher being that a note can carry far more of the app's
+ * own attachments than of the reader's, and neither number is guessable from the other's list.
  */
 function AttachmentGroupChoice({ groups, currentGroup, onChange }: {
     groups: Record<AttachmentGroup, FAttachment[]>,
@@ -89,8 +88,8 @@ function AttachmentGroupChoice({ groups, currentGroup, onChange }: {
         <div className="attachment-group-choice">
             <SegmentedChoice
                 options={[
-                    { value: "user", label: t("attachment_list.group_user", { total: groups.user.length }) },
-                    { value: "system", label: t("attachment_list.group_system", { total: groups.system.length }) }
+                    { value: "user", label: t("attachment_list.group_user"), count: groups.user.length },
+                    { value: "system", label: t("attachment_list.group_system"), count: groups.system.length }
                 ]}
                 currentValue={currentGroup}
                 onChange={onChange}

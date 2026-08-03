@@ -1479,8 +1479,8 @@
     "owning_note": "Owning note: ",
     "upload_attachments": "Upload attachments",
     "no_attachments": "This note has no attachments.",
-    "group_user": "Yours ({{total}})",
-    "group_system": "System ({{total}})",
+    "group_user": "Yours",
+    "group_system": "System",
     "no_attachments_in_group": "No attachments of this kind."
   },
   "book": {
