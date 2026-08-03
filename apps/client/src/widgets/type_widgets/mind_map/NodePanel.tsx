@@ -1,7 +1,6 @@
 import "./NodePanel.css";
 
 import { parseMindMapNoteLink } from "@triliumnext/commons";
-import { Dropdown as BootstrapDropdown } from "bootstrap";
 import type { MindElixirInstance, NodeObj, TagObj } from "mind-elixir";
 import { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -13,11 +12,10 @@ import ValuesInput from "../../attribute_widgets/values_input";
 import ActionButton from "../../react/ActionButton";
 import Button from "../../react/Button";
 import ColorPicker, { DEFAULT_COLOR_PALETTE } from "../../react/ColorPicker";
-import Dropdown from "../../react/Dropdown";
 import { FormFileUploadActionButton } from "../../react/FormFileUpload";
 import { useNote, useNoteIcon, useNoteTitle } from "../../react/hooks";
 import Icon from "../../react/Icon";
-import IconPicker from "../../react/IconPicker";
+import { IconPickerButton } from "../../react/IconPicker";
 import SegmentedChoice from "../../react/SegmentedChoice";
 import TabStrip, { type TabStripTabDefinition } from "../../react/TabStrip";
 import { fitNodeImage, getNodeImageShape, nearestNodeImageWidth, NODE_IMAGE_SHAPES, NODE_IMAGE_WIDTHS, type NodeImage as NodeImageData, type NodeImageShape, shapeNodeImage, uploadNodeImage } from "./images";
@@ -467,10 +465,9 @@ function NodeIcons({ icons, readOnly, onChange }: {
 }
 
 /**
- * One icon of a node, chosen through the picker every other icon in Trilium is chosen through.
- *
- * The picker is only built once opened: it holds every icon of every installed pack, which is far
- * more work than a panel that merely happens to be on screen should be doing.
+ * One icon of a node, chosen through the button every other icon in Trilium is chosen through —
+ * the picker under it on a desktop, and on a phone the modal a note's icon is picked in as well
+ * (see {@link IconPickerButton}), rather than a menu wider than the screen hung off a panel.
  */
 function NodeIcon({ face, title, disabled, onSelect, onRemove }: {
     /** The class the button wears, whether an icon of the node or the invitation to add one. */
@@ -482,42 +479,16 @@ function NodeIcon({ face, title, disabled, onSelect, onRemove }: {
      *  to remove. */
     onRemove?(): void;
 }) {
-    const dropdownRef = useRef<BootstrapDropdown>(null);
-    const [ pickerShown, setPickerShown ] = useState(false);
-
     return (
-        <Dropdown
-            // The legacy class dresses the menu the picker sits in, which the themes and the
-            // picker's own stylesheet reach through it.
-            className="mind-map-node-icon note-icon-widget"
-            buttonClassName={`note-icon tn-focusable-button ${face}`}
+        <IconPickerButton
+            className="mind-map-node-icon"
+            icon={face}
             title={title}
             disabled={disabled}
-            dropdownRef={dropdownRef}
-            dropdownContainerStyle={{ width: "620px" }}
-            dropdownOptions={{ autoClose: "outside" }}
-            // The panel scrolls, and the picker is wider than the panel is; hand the menu to the
-            // page instead of leaving it to be clipped.
-            portalToBody
-            hideToggleArrow
-            onShown={() => setPickerShown(true)}
-            onHidden={() => setPickerShown(false)}
-        >
-            {pickerShown && (
-                <IconPicker
-                    columnCount={12}
-                    resetText={t("mind-map.clear-icon")}
-                    onSelect={(iconClass) => {
-                        onSelect(iconClass);
-                        dropdownRef.current?.hide();
-                    }}
-                    onReset={onRemove && (() => {
-                        onRemove();
-                        dropdownRef.current?.hide();
-                    })}
-                />
-            )}
-        </Dropdown>
+            onSelect={onSelect}
+            onReset={onRemove}
+            resetText={t("mind-map.clear-icon")}
+        />
     );
 }
 

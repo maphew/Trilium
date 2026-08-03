@@ -1,8 +1,10 @@
 import "./IconPicker.css";
 
 import { IconRegistry } from "@triliumnext/commons";
+import { Dropdown as BootstrapDropdown } from "bootstrap";
 import clsx from "clsx";
 import { CSSProperties } from "preact";
+import { createPortal } from "preact/compat";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import type React from "react";
 import { CellComponentProps, Grid } from "react-window";
@@ -14,7 +16,8 @@ import ActionButton from "./ActionButton";
 import Dropdown from "./Dropdown";
 import { FormDropdownDivider, FormListItem } from "./FormList";
 import FormTextBox from "./FormTextBox";
-import { useStaticTooltip } from "./hooks";
+import { useStaticTooltip, useWindowSize } from "./hooks";
+import Modal from "./Modal";
 
 /** The room one icon takes in the grid, which also decides how many fit across a given width. */
 export const ICON_SIZE = isMobile() ? 56 : 48;
@@ -98,6 +101,121 @@ export default function IconPicker({ onSelect, onReset, resetText, columnCount }
                     <div class="no-results">{t("note_icon.no_results")}</div>
                 )}
             </div>
+        </div>
+    );
+}
+
+interface IconPickerButtonProps extends Pick<IconPickerProps, "onSelect" | "onReset" | "resetText"> {
+    /** The class the button wears, which is the icon it stands for, e.g. `bx bx-star`. */
+    icon: string;
+    /** What pressing it is for, worn as its tooltip and as the heading of the modal on a phone. */
+    title: string;
+    /** The host's own class, for a host that dresses the button or the widget around it. */
+    className?: string;
+    disabled?: boolean;
+}
+
+/**
+ * The button an icon is picked through: the picker hangs under it, and what is picked is reported
+ * and the picker put away.
+ *
+ * Where it is put differs with the screen. A desktop gets the menu under the button, at the width
+ * twelve icons and a search field ask for. A phone gets a modal of its own instead: that width is
+ * wider than the screen, and a menu of it — hung off a button that may itself be in the corner of a
+ * panel — leaves the grid mostly off-screen, which is no way to pick from a thousand icons.
+ */
+export function IconPickerButton({ className, ...props }: IconPickerButtonProps) {
+    // A constant of the session rather than of the render, as everywhere else it is branched on.
+    return isMobile()
+        ? <IconPickerModalButton className={className} {...props} />
+        : <IconPickerDropdownButton className={className} {...props} />;
+}
+
+/** The picker under the button, as a desktop shows it. */
+function IconPickerDropdownButton({ icon, title, className, disabled, onSelect, onReset, resetText }: IconPickerButtonProps) {
+    const dropdownRef = useRef<BootstrapDropdown>(null);
+    const [ pickerShown, setPickerShown ] = useState(false);
+
+    return (
+        <Dropdown
+            // The legacy class dresses the menu the picker sits in, which the themes and the
+            // picker's own stylesheet reach through it.
+            className={clsx("note-icon-widget", className)}
+            buttonClassName={`note-icon tn-focusable-button ${icon}`}
+            title={title}
+            disabled={disabled}
+            dropdownRef={dropdownRef}
+            dropdownContainerStyle={{ width: "620px" }}
+            dropdownOptions={{ autoClose: "outside" }}
+            // The menu is wider than some of the places a button stands in, and the inline title
+            // establishes a backdrop root that would flatten its blur into a tint; hand the menu to
+            // the page rather than leaving it to be clipped or dulled.
+            portalToBody
+            hideToggleArrow
+            onShown={() => setPickerShown(true)}
+            onHidden={() => setPickerShown(false)}
+        >
+            {/* Built only once opened: it holds every icon of every installed pack, which is far
+                more work than a button that merely happens to be on screen should be doing. */}
+            {pickerShown && (
+                <IconPicker
+                    columnCount={12}
+                    resetText={resetText}
+                    onSelect={(iconClass) => {
+                        onSelect(iconClass);
+                        dropdownRef.current?.hide();
+                    }}
+                    onReset={onReset && (() => {
+                        onReset();
+                        dropdownRef.current?.hide();
+                    })}
+                />
+            )}
+        </Dropdown>
+    );
+}
+
+/** The picker on a screen of its own, as a phone shows it. */
+function IconPickerModalButton({ icon, title, className, disabled, onSelect, onReset, resetText }: IconPickerButtonProps) {
+    const [ modalShown, setModalShown ] = useState(false);
+    const { windowWidth } = useWindowSize();
+
+    return (
+        <div className={clsx("note-icon-widget", className)}>
+            <ActionButton
+                className="note-icon"
+                icon={icon}
+                text={title}
+                onClick={() => setModalShown(true)}
+                disabled={disabled}
+            />
+
+            {/* Out of whatever the button stands in — a panel floating over a note holds its own
+                stacking context, and the modal belongs to the page rather than to it. */}
+            {createPortal((
+                <Modal
+                    title={title}
+                    size="xl"
+                    show={modalShown} onHidden={() => setModalShown(false)}
+                    className="icon-switcher note-icon-widget"
+                    scrollable
+                >
+                    {/* As many icons as the screen has room for, rather than the twelve a menu is
+                        built for (see the CSS, which gives the grid the rest of the screen). */}
+                    <IconPicker
+                        columnCount={Math.max(1, Math.floor(windowWidth / ICON_SIZE))}
+                        resetText={resetText}
+                        onSelect={(iconClass) => {
+                            onSelect(iconClass);
+                            setModalShown(false);
+                        }}
+                        onReset={onReset && (() => {
+                            onReset();
+                            setModalShown(false);
+                        })}
+                    />
+                </Modal>
+            ), document.body)}
         </div>
     );
 }
