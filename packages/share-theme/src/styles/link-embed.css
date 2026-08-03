@@ -46,19 +46,9 @@ html.theme-light .link-embed-favicon-light {
     filter: hue-rotate(180deg) invert(1);
 }
 
-.link-embed-mention-dot {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--text-menu);
-    flex-shrink: 0;
-}
-
 /* Sits the favicon before the link text and spaces it off the title. Scoped to the mention so
    it doesn't disturb the same favicon reused in the card's flex URL row. */
-.link-embed-mention > .link-embed-mention-favicon,
-.link-embed-mention > .link-embed-mention-dot {
+.link-embed-mention > .link-embed-mention-favicon {
     vertical-align: -0.2em;
     margin-right: 4px;
 }
@@ -240,10 +230,5 @@ html.theme-light .link-embed-favicon-light {
     & .link-embed-mention-favicon {
         width: 14px;
         height: 14px;
-    }
-
-    & .link-embed-mention-dot {
-        width: 6px;
-        height: 6px;
     }
 }

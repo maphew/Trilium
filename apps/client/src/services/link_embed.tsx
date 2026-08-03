@@ -84,19 +84,22 @@ export function unresolvedMetadata(url: string): EmbedMetadata {
 // ---------------------------------------------------------------------------
 
 /**
- * One of a preview's pictures, or the placeholder standing in for it.
+ * One of a preview's pictures, or what stands in for it.
  *
  * Both pictures make the same two decisions, so they make them in one place: load only what
  * {@link safeLinkPreviewImageSrc} allows — an inline image or an attachment of this instance, so
- * that opening a note never announces the reader to a third party — and show the placeholder both
- * when there is nothing to load and when loading fails. The failure half matters as much as the
- * check: an attachment can be erased out from under a preview that still references it, and a
- * broken-image glyph reads as a bug where the placeholder reads as an absence.
+ * that opening a note never announces the reader to a third party — and fall back both when there
+ * is nothing to load and when loading fails. The failure half matters as much as the check: an
+ * attachment can be erased out from under a preview that still references it, and a broken-image
+ * glyph reads as a bug where an absence reads as an absence.
+ *
+ * `placeholder` is what a card's missing cover image gets, having a hole to fill; a missing favicon
+ * omits it, since nothing drawn in its place says as much as the title already does.
  */
 function PreviewPicture({ src, className, placeholder, size }: {
     src?: string | null;
     className: string;
-    placeholder: VNode;
+    placeholder?: VNode;
     /** For a picture drawn at a fixed size; the card image is sized by CSS instead. */
     size?: number;
 }) {
@@ -104,7 +107,7 @@ function PreviewPicture({ src, className, placeholder, size }: {
     const safeSrc = safeLinkPreviewImageSrc(src);
 
     if (!safeSrc || failed) {
-        return placeholder;
+        return placeholder ?? null;
     }
 
     return (
@@ -136,7 +139,6 @@ function Favicon({ src }: { src?: string }) {
             src={src}
             className={contrastClass ? `link-embed-mention-favicon ${contrastClass}` : "link-embed-mention-favicon"}
             size={16}
-            placeholder={<span className="link-embed-mention-dot" />}
         />
     );
 }

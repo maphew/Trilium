@@ -302,13 +302,13 @@ describe("content_renderer", () => {
                 + `<span>Example</span></div>`);
         });
 
-        it("falls back to a dot when the site has no favicon", () => {
+        it("shows the site name alone when the site has no favicon", () => {
             const note = buildShareNote({
                 content: `<section class="link-embed" data-url="https://example.com/page" data-embed-type="opengraph" data-title="A title"></section>`
             });
 
             const content = String(getContent(note).content);
-            expect(content).toContain(`<div class="link-embed-card-url"><span class="link-embed-mention-dot"></span><span>example.com</span></div>`);
+            expect(content).toContain(`<div class="link-embed-card-url"><span>example.com</span></div>`);
         });
 
         it("renders a video as a click-to-play facade, without contacting YouTube", () => {
@@ -374,8 +374,11 @@ describe("content_renderer", () => {
             // fetches a `data-favicon` — but nothing reaches an `src`, which is what would be fetched.
             expect(content).not.toContain(`src="http://169.254.169.254`);
             expect(content).not.toContain(`src="https://tracker.test`);
-            // Each sink degrades to the placeholder it already shows for a preview with no image.
-            expect(content).toContain(`<span class="link-embed-mention-dot"></span>`);
+            // Each sink degrades to what it already shows for a preview that has no such picture:
+            // the card keeps a placeholder in the hole its cover would fill, the favicon simply goes.
+            expect(content).not.toContain(`class="link-embed-mention-favicon"`);
+            expect(content).toContain(`<a class="link-embed-mention" href="https://example.com/page" target="_blank" rel="noopener noreferrer">`
+                + `<span class="link-embed-mention-title">A title</span></a>`);
             expect(content).toContain(`<div class="link-embed-card-image-placeholder">`);
             expect(content).not.toContain(`class="link-embed-video-thumbnail"`);
         });

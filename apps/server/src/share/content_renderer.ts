@@ -375,12 +375,14 @@ function renderText(result: Result, note: SNote | BNote, options: ShareRenderOpt
         return `<img class="${className}" src="${escapeHtml(safeSrc)}" alt="" loading="lazy"${sizeAttrs}>`;
     };
 
-    // The site's favicon, or a neutral dot when it has none — shown by both the inline mention and
-    // the card's URL line, from the one `data-favicon` the element already carries.
+    // The site's favicon — shown by both the inline mention and the card's URL line, from the one
+    // `data-favicon` the element already carries. A site whose icon could not be had shows nothing
+    // in its place: unlike a card's missing cover there is no hole to fill, and anything stood there
+    // instead was read as a mark of its own rather than as an absent icon.
     const renderFavicon = (favicon: string | undefined | null) => renderPicture(favicon, {
         className: "link-embed-mention-favicon",
         size: 16,
-        placeholder: `<span class="link-embed-mention-dot"></span>`
+        placeholder: ""
     });
 
     // Process link mentions (inline) — metadata is stored in data attributes.

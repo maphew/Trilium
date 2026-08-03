@@ -239,7 +239,6 @@ describe("renderEmbedPreview", () => {
         expect(card.querySelector("img.link-embed-card-image")).toBeNull();
         expect(card.querySelector(".link-embed-card-image-placeholder")).not.toBeNull();
         expect(card.querySelector("img.link-embed-mention-favicon")).toBeNull();
-        expect(card.querySelector(".link-embed-mention-dot")).not.toBeNull();
 
         const video = makeContainer();
         renderEmbedPreview(video, {
@@ -251,11 +250,10 @@ describe("renderEmbedPreview", () => {
 
         const mention = makeContainer();
         renderMentionPreview(mention, { url: "https://example.com", favicon: "http://169.254.169.254/latest/meta-data/" });
-        expect(mention.querySelector("img.link-embed-mention-favicon")).toBeNull();
-        expect(mention.querySelector(".link-embed-mention-dot")).not.toBeNull();
+        expect(mention.querySelector("img")).toBeNull();
     });
 
-    it("shows the stored favicon beside the site name, falling back to a dot without one", () => {
+    it("shows the stored favicon beside the site name, and nothing at all without one", () => {
         const root = makeContainer();
         const meta = {
             url: "https://example.com/page",
@@ -274,10 +272,12 @@ describe("renderEmbedPreview", () => {
         // The favicon leads the line, so it renders to the left of the site name.
         expect(urlLine.firstElementChild).toBe(favicon);
 
+        // Nothing stands in for an icon that could not be had: the URL line is the site name alone.
         const withoutFavicon = document.createElement("div");
         renderEmbedPreview(withoutFavicon, { ...meta, favicon: undefined });
-        expect(withoutFavicon.querySelector(".link-embed-card-url .link-embed-mention-dot")).not.toBeNull();
-        expect(withoutFavicon.querySelector(".link-embed-card-url img")).toBeNull();
+        const urlLineWithout = withoutFavicon.querySelector(".link-embed-card-url");
+        expect(urlLineWithout?.querySelector("img")).toBeNull();
+        expect(urlLineWithout?.children.length).toBe(1);
     });
 
     it("omits optional fields and falls back to hostname, and drops target when editable", () => {
@@ -332,11 +332,10 @@ describe("renderMentionPreview", () => {
         const anchor = root.querySelector("a.link-embed-mention")!;
         expect(anchor.getAttribute("target")).toBe("_blank");
         expect(anchor.querySelector("img.link-embed-mention-favicon")).not.toBeNull();
-        expect(root.querySelector(".link-embed-mention-dot")).toBeNull();
         expect(anchor.querySelector(".link-embed-mention-title")!.textContent).toBe("Example site");
     });
 
-    it("falls back to a dot favicon and hostname title; drops target when editable", () => {
+    it("shows the title alone without a favicon, and drops target when editable", () => {
         const root = makeContainer();
         renderMentionPreview(
             root,
@@ -346,12 +345,13 @@ describe("renderMentionPreview", () => {
 
         const anchor = root.querySelector("a.link-embed-mention")!;
         expect(anchor.getAttribute("target")).toBeNull();
-        expect(root.querySelector("img.link-embed-mention-favicon")).toBeNull();
-        expect(root.querySelector(".link-embed-mention-dot")).not.toBeNull();
+        expect(root.querySelector("img")).toBeNull();
+        // The title is the whole mention: nothing is drawn where the icon would have been.
+        expect(anchor.children.length).toBe(1);
         expect(anchor.querySelector(".link-embed-mention-title")!.textContent).toBe("fallback.example.com");
     });
 
-    it("replaces a broken favicon with the dot on error", async () => {
+    it("drops a broken favicon on error, leaving the title alone", async () => {
         const root = makeContainer();
         renderMentionPreview(root, {
             url: "https://example.com",
@@ -363,7 +363,7 @@ describe("renderMentionPreview", () => {
         await fireError(img);
 
         expect(root.querySelector("img.link-embed-mention-favicon")).toBeNull();
-        expect(root.querySelector(".link-embed-mention-dot")).not.toBeNull();
+        expect(root.querySelector("a.link-embed-mention")?.children.length).toBe(1);
     });
 });
 
