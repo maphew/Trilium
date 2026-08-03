@@ -88,6 +88,13 @@
         font-weight: 500;
         /* Titles here have no spaces to break at, as a collection's card titles mostly do not either. */
         overflow-wrap: anywhere;
+
+        /* A heading that happens to be a link, so not dressed as one: `a.tn-link:hover` draws a
+           tinted pill wider than the words. Same two lines as `.note-book-title`. */
+        a {
+            --link-hover-background: transparent;
+            --link-hover-color: currentColor;
+        }
     }
 
     /* The menu closes the header, as the note menu does on a collection's cards; it opens the row
