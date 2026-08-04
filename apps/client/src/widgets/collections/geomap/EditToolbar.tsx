@@ -15,6 +15,8 @@ interface EditToolbarProps {
     /** Arms the map for a note to be placed, or stands it down again — the visible counterpart of
      *  the Escape the instruction toast offers (see index.tsx). */
     onTogglePlacement: () => void;
+    /** Asks for a GPX file and brings it onto the map (see `addGpxTrack` in index.tsx). */
+    onAddGpxTrack: () => void;
 }
 
 /**
@@ -30,7 +32,7 @@ interface EditToolbarProps {
  * goes fullscreen (see MapToolbar): the collection bar stays behind, and while the button lived
  * there, a fullscreen map could only be added to through its right-click menu.
  */
-export default function EditToolbar({ isReadOnly, placing, onTogglePlacement }: EditToolbarProps) {
+export default function EditToolbar({ isReadOnly, placing, onTogglePlacement, onAddGpxTrack }: EditToolbarProps) {
     const map = useContext(ParentMap);
 
     // No bar over a map that could not be drawn (see the WebGL fallback in map.tsx).
@@ -45,6 +47,13 @@ export default function EditToolbar({ isReadOnly, placing, onTogglePlacement }: 
                 active={placing}
                 disabled={isReadOnly}
                 onClick={onTogglePlacement}
+            />
+
+            <OverlayToolbarButton
+                icon="bx bx-trip"
+                text={t("geo-map.add-gpx-track")}
+                disabled={isReadOnly}
+                onClick={onAddGpxTrack}
             />
         </OverlayToolbar>
     );

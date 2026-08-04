@@ -13,19 +13,25 @@ import { ParentMap } from "./map";
 /** Builds the bar over a map, which it asks nothing more of than being there at all. */
 function renderBar({ map = {} as never, isReadOnly = false, placing = false } = {}) {
     const onTogglePlacement = vi.fn();
+    const onAddGpxTrack = vi.fn();
     let container: HTMLElement | undefined;
     act(() => {
         container = renderInto(
             <ParentMap.Provider value={map}>
-                <EditToolbar isReadOnly={isReadOnly} placing={placing} onTogglePlacement={onTogglePlacement} />
+                <EditToolbar isReadOnly={isReadOnly} placing={placing} onTogglePlacement={onTogglePlacement} onAddGpxTrack={onAddGpxTrack} />
             </ParentMap.Provider>
         );
     });
     if (!container) throw new Error("the toolbar was not rendered");
 
+    const all = () => [ ...container?.querySelectorAll<HTMLButtonElement>(".geo-edit-toolbar button") ?? [] ];
     return {
         onTogglePlacement,
-        button: () => container?.querySelector<HTMLButtonElement>(".geo-edit-toolbar button") ?? null
+        onAddGpxTrack,
+        buttons: all,
+        /** The first button, which is the +. */
+        button: () => all()[0] ?? null,
+        gpxButton: () => all()[1] ?? null
     };
 }
 
@@ -49,15 +55,26 @@ describe("geo map EditToolbar", () => {
         expect(onTogglePlacement).toHaveBeenCalledTimes(1);
     });
 
-    it("refuses on a map that may not be edited", () => {
-        const { button } = renderBar({ isReadOnly: true });
+    it("offers to bring in a GPX track, and hands the asking to the map view", () => {
+        const { gpxButton, onAddGpxTrack } = renderBar();
 
-        expect(button()?.disabled).toBe(true);
+        expect(gpxButton()?.className).toContain("bx-trip");
+
+        act(() => gpxButton()?.click());
+        expect(onAddGpxTrack).toHaveBeenCalledTimes(1);
+    });
+
+    it("refuses every button on a map that may not be edited", () => {
+        const { buttons } = renderBar({ isReadOnly: true });
+
+        for (const button of buttons()) {
+            expect(button.disabled).toBe(true);
+        }
     });
 
     it("stands aside where there is no map at all", () => {
-        const { button } = renderBar({ map: null as never });
+        const { buttons } = renderBar({ map: null as never });
 
-        expect(button()).toBeNull();
+        expect(buttons()).toHaveLength(0);
     });
 });

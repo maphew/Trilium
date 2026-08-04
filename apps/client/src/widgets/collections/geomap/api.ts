@@ -21,6 +21,35 @@ export async function moveMarker(noteId: string, latLng: { lat: number; lng: num
  * under the stock name instead, and the caller opens the pane on it with that name selected — naming
  * the place is typing over it (see index.tsx).
  */
+/**
+ * Brings a GPX file onto the map as a child note, and hands the note back.
+ *
+ * Created directly rather than sent through the import pipeline: an import's success is announced
+ * app-wide and navigates the active tab to what it made, which here would carry the user off the
+ * very map the track was added to. The note a track lives in is simple enough to make in place — a
+ * file note whose content is the file's text.
+ *
+ * The mime is pinned to what the map draws tracks by (see NoteGpxTrackWrapper in index.tsx) rather
+ * than read off the file: a browser reports no type at all for a `.gpx`, and an import that guessed
+ * wrong left the user hunting the File-type field for why their track never appeared — the user
+ * guide has a step for exactly that.
+ */
+export async function importGpxTrack(parentNote: FNote, file: File) {
+    const { note } = await note_create.createNote(parentNote.noteId, {
+        title: file.name,
+        content: await file.text(),
+        type: "file",
+        mime: "application/gpx+xml",
+        activate: false,
+        isProtected: parentNote.isProtected,
+        attributes: [
+            { type: "label", name: "originalFileName", value: file.name }
+        ]
+    });
+
+    return note;
+}
+
 export async function createNewNote(parentNote: FNote, e: GeoMouseEvent) {
     const { note } = await note_create.createNote(parentNote.noteId, {
         title: t("relation_map.default_new_note_title"),

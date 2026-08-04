@@ -16,7 +16,7 @@ import CollectionProperties from "../../note_bars/CollectionProperties";
 import ActionButton from "../../react/ActionButton";
 import { useCollectionTreeDrag, useNoteBlob, useNoteLabel, useNoteLabelBoolean, useNoteProperty, useSpacedUpdate, useTriliumEvent } from "../../react/hooks";
 import { ViewModeProps } from "../interface";
-import { createNewNote, moveMarker } from "./api";
+import { createNewNote, importGpxTrack, moveMarker } from "./api";
 import ContextMenus from "./ContextMenus";
 import DetailPane, { PaneSelection } from "./DetailPane";
 import EditToolbar from "./EditToolbar";
@@ -118,6 +118,22 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
 
         setNotes((current) => current.some((n) => n.noteId === created.noteId) ? current : [ ...current, created ]);
         setSelection({ noteId: created.noteId, isNew: true });
+    }, [ note ]);
+
+    /**
+     * Asks for a GPX file and brings it onto the map as a child note (see importGpxTrack). The
+     * note is put among the map's own straight away, as a created note is, so the track is drawn
+     * the moment the file is read rather than after the collection reloads around it. No pane
+     * opens: a track is not a marker, and the file's name already names it.
+     */
+    const addGpxTrack = useCallback(async () => {
+        const file = await pickGpxFile();
+        if (!file) return;
+
+        const created = await importGpxTrack(note, file);
+        if (!created) return;
+
+        setNotes((current) => current.some((n) => n.noteId === created.noteId) ? current : [ ...current, created ]);
     }, [ note ]);
 
     // Placement mode is armed by the button or by the context menu. Tying the instruction toast and
@@ -233,6 +249,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                     isReadOnly={isReadOnly}
                     placing={placement?.mode === "new"}
                     onTogglePlacement={toggleNotePlacement}
+                    onAddGpxTrack={addGpxTrack}
                 />
                 <Tooltips />
                 {/* The preview under the pointer while a click is armed to mean a place — the note
@@ -249,6 +266,26 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
             </Map>}
         </div>
     );
+}
+
+/**
+ * Asks the user for a GPX file, resolving to none where the dialog is dismissed.
+ *
+ * A detached input rather than one rendered somewhere: the browser only wants an input to open its
+ * file dialog through, and a rendered one would be a piece of DOM standing around for the one
+ * moment a button is pressed. The `cancel` event is how a file input reports the dialog closed
+ * empty-handed; a browser old enough not to fire it leaves an already-forgotten promise unsettled,
+ * which is the same nothing the caller does on null.
+ */
+function pickGpxFile(): Promise<File | null> {
+    return new Promise((resolve) => {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = ".gpx,application/gpx+xml";
+        input.addEventListener("change", () => resolve(input.files?.[0] ?? null));
+        input.addEventListener("cancel", () => resolve(null));
+        input.click();
+    });
 }
 
 function useLayerData(note: FNote) {
