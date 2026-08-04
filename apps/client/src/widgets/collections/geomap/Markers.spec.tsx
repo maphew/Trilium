@@ -33,7 +33,9 @@ function fakeMap() {
     const sources = new Set<string>();
     const listeners = new Map<string, Set<() => void>>();
     const calls = { addLayer: 0, removeLayer: 0, addSource: 0, removeSource: 0, setData: 0 };
+    const properties = new Map<string, unknown>();
     let lastFeatures: unknown[] = [];
+    let lastLayer: { layout?: Record<string, unknown>, paint?: Record<string, unknown> } | undefined;
     let removed = false;
 
     /** What every style-reading call becomes once the map is gone: `this.style is undefined`. */
@@ -44,6 +46,10 @@ function fakeMap() {
     return {
         calls,
         get lastFeatures() { return lastFeatures; },
+        /** The layout and paint the layer was added with, as `addLayer` was given them. */
+        get lastLayer() { return lastLayer; },
+        /** What a layout or paint property has been set to since, by name. */
+        property(name: string) { return properties.get(name); },
         fireStyleLoad() {
             for (const fn of listeners.get("style.load") ?? []) fn();
         },
@@ -83,8 +89,14 @@ function fakeMap() {
             requireStyle();
             return layers.has(id) ? { id } : undefined;
         },
-        addLayer({ id }: { id: string }) { layers.add(id); calls.addLayer++; },
-        removeLayer(id: string) { layers.delete(id); calls.removeLayer++; }
+        addLayer(layer: { id: string, layout?: Record<string, unknown>, paint?: Record<string, unknown> }) {
+            layers.add(layer.id);
+            lastLayer = layer;
+            calls.addLayer++;
+        },
+        removeLayer(id: string) { layers.delete(id); calls.removeLayer++; },
+        setLayoutProperty(_id: string, name: string, value: unknown) { properties.set(name, value); },
+        setPaintProperty(_id: string, name: string, value: unknown) { properties.set(name, value); }
     };
 }
 
@@ -137,12 +149,17 @@ describe("Markers", () => {
         vi.unstubAllGlobals();
     });
 
-    function mount(notes: FNote[], map: ReturnType<typeof fakeMap>, parent: Component) {
+    /** Renders into the same container, so calling it again is a re-render with fresh props. */
+    function mount(notes: FNote[], map: ReturnType<typeof fakeMap>, parent: Component, look?: { hideLabels?: boolean, isDarkTheme?: boolean }) {
         return act(async () => {
             render(
                 <ParentComponent.Provider value={parent}>
                     <ParentMap.Provider value={map as never}>
-                        <Markers notes={notes} hideLabels={false} isDarkTheme={false} />
+                        <Markers
+                            notes={notes}
+                            hideLabels={look?.hideLabels ?? false}
+                            isDarkTheme={look?.isDarkTheme ?? false}
+                        />
                     </ParentMap.Provider>
                 </ParentComponent.Provider>,
                 container as HTMLElement
@@ -182,6 +199,58 @@ describe("Markers", () => {
         expect(map.calls.addLayer).toBe(1);
         expect(map.calls.setData).toBeGreaterThan(setDataBefore);
         expect(map.lastFeatures).toHaveLength(1);
+    });
+
+    it("repaints rather than rebuilds when the map switches between a light and a dark style", async () => {
+        // The same array both times, as the view hands it over: the notes shown are keyed on the
+        // note itself, and switching the style is nothing to do with them.
+        const notes = [ buildNote({ title: "Somewhere", "#geolocation": "1,2" }) ];
+        const map = fakeMap();
+        const parent = new Component();
+
+        await mount(notes, map, parent);
+        await act(async () => {
+            map.fireStyleLoad();
+            await settle();
+        });
+
+        expect(map.lastLayer?.paint?.["text-color"]).toBe("#333");
+        expect(map.lastLayer?.layout?.["text-field"]).toEqual([ "get", "name" ]);
+        const setDataBefore = map.calls.setData;
+
+        // The map is switched to a dark style, and its titles hidden.
+        await mount(notes, map, parent, { isDarkTheme: true, hideLabels: true });
+        await act(async () => { await settle(); });
+
+        // The layer stood throughout, and the markers were never built again for it.
+        expect(map.calls.removeLayer).toBe(0);
+        expect(map.calls.removeSource).toBe(0);
+        expect(map.calls.addLayer).toBe(1);
+        expect(map.calls.setData).toBe(setDataBefore);
+
+        expect(map.property("text-color")).toBe("#fff");
+        expect(map.property("text-halo-color")).toBe("rgba(0, 0, 0, 0.8)");
+        expect(map.property("text-field")).toBe("");
+    });
+
+    it("gives a layer added after a style switch the look it is being shown with", async () => {
+        const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+        const map = fakeMap();
+        const parent = new Component();
+
+        // Dark from the outset, so the first layer this map is given is the one under test.
+        await mount([ note ], map, parent, { isDarkTheme: true, hideLabels: true });
+        await act(async () => {
+            map.fireStyleLoad();
+            await settle();
+        });
+
+        expect(map.lastLayer?.paint?.["text-color"]).toBe("#fff");
+        expect(map.lastLayer?.paint?.["text-halo-color"]).toBe("rgba(0, 0, 0, 0.8)");
+        expect(map.lastLayer?.layout?.["text-field"]).toBe("");
+        // Hiding the titles empties the field rather than dropping the layout, so the rest of it
+        // still has to be there for showing them again to be a single property.
+        expect(map.lastLayer?.layout?.["text-optional"]).toBe(true);
     });
 
     it("takes the layer down when the component goes away", async () => {

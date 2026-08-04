@@ -48,6 +48,32 @@ const LABEL_LAYOUT: Extract<AddLayerObject, { type: "symbol" }>["layout"] = {
 };
 
 /**
+ * What a title is drawn in, over a light map and over a dark one.
+ *
+ * A title is drawn the way the style draws its own place names: light on the dark styles, and haloed
+ * by a soft, blurred glow rather than a hard keyline. A crisp white outline stood out as a cut-out
+ * sticker on any map, and on a dark one it was a white edge around dark text.
+ */
+const LABEL_PAINT = {
+    light: {
+        "text-color": "#333",
+        "text-halo-color": "rgba(255, 255, 255, 0.8)"
+    },
+    dark: {
+        "text-color": "#fff",
+        "text-halo-color": "rgba(0, 0, 0, 0.8)"
+    }
+};
+
+/**
+ * The title of a marker whose titles are hidden.
+ *
+ * Hiding them empties the field rather than dropping the label layout, so that showing them again is
+ * one property set on the standing layer — see the paint effect in {@link Markers}.
+ */
+const HIDDEN_TEXT_FIELD = "";
+
+/**
  * Every note that carries a location, drawn as one symbol layer.
  *
  * A layer rather than an element apiece: the map is meant to hold thousands of notes, and a DOM node
@@ -64,6 +90,12 @@ export default function Markers({ notes, hideLabels, isDarkTheme }: { notes: FNo
     // The markers last built, kept where both effects can reach them: the layer has to be able to
     // fill itself again the moment it is rebuilt, without waiting on a fresh build.
     const markerData = useRef<Awaited<ReturnType<typeof buildMarkerData>>>();
+    // How the titles are to be drawn, read rather than depended on: `install` is what builds the
+    // layer, so a version of it per look would take the layer down and every marker with it for
+    // what is two paint properties and a layout one. Only a layer being added fresh reads this —
+    // one already standing is repainted by the effect at the end.
+    const labelStyle = useRef({ hideLabels, isDarkTheme });
+    labelStyle.current = { hideLabels, isDarkTheme };
 
     /**
      * Puts the layer and its data on the map. A style is a world of its own — switching one wipes
@@ -108,19 +140,15 @@ export default function Markers({ notes, hideLabels, isDarkTheme }: { notes: FNo
                     // LABEL_LAYOUT). The pins still take part in placement, so a title is never
                     // laid over one.
                     "icon-allow-overlap": true,
-                    ...(hideLabels ? {} : LABEL_LAYOUT)
+                    ...LABEL_LAYOUT,
+                    ...(labelStyle.current.hideLabels ? { "text-field": HIDDEN_TEXT_FIELD } : {})
                 },
                 paint: {
                     // Archived notes are drawn faintly, as they were when each marker was an
                     // element of its own wearing an `archived` class.
                     "icon-opacity": [ "case", [ "get", "archived" ], 0.5, 1 ],
                     "text-opacity": [ "case", [ "get", "archived" ], 0.5, 1 ],
-                    // A title is drawn the way the style draws its own place names: light on
-                    // the dark styles, and haloed by a soft, blurred glow rather than a hard
-                    // keyline. A crisp white outline stood out as a cut-out sticker on any map,
-                    // and on a dark one it was a white edge around dark text.
-                    "text-color": isDarkTheme ? "#fff" : "#333",
-                    "text-halo-color": isDarkTheme ? "rgba(0, 0, 0, 0.8)" : "rgba(255, 255, 255, 0.8)",
+                    ...LABEL_PAINT[labelStyle.current.isDarkTheme ? "dark" : "light"],
                     "text-halo-width": 2,
                     "text-halo-blur": 1
                 }
@@ -131,12 +159,12 @@ export default function Markers({ notes, hideLabels, isDarkTheme }: { notes: FNo
             type: "FeatureCollection",
             features
         });
-    }, [ map, hideLabels, isDarkTheme ]);
+    }, [ map ]);
 
-    // The layer, which stands for as long as the map and the look of a marker do. Editing a note
-    // does not come through here: taking the layer down and putting it back is what made one note's
-    // colour blink every marker on the map off and back on, since the layer went at once and the
-    // markers only returned once all of them had been built again.
+    // The layer, which stands for as long as the map does. Neither editing a note nor changing the
+    // look of a title comes through here: taking the layer down and putting it back is what made
+    // one note's colour blink every marker on the map off and back on, since the layer went at once
+    // and the markers only returned once all of them had been built again.
     useEffect(() => {
         if (!map) return;
 
@@ -203,6 +231,21 @@ export default function Markers({ notes, hideLabels, isDarkTheme }: { notes: FNo
             cancelled = true;
         };
     }, [ map, notes, version, install ]);
+
+    // The look of the titles, set on the layer already standing. Switching the map between a light
+    // and a dark style — or hiding the titles — is a repaint of three properties, not a reason to
+    // build every marker again: the pins are unaffected by either, and the rebuild that used to
+    // follow took the whole layer off the map for as long as it ran. Nothing to do until the layer
+    // is up, since one added after this has the current look built into it (see `install`).
+    useEffect(() => {
+        if (!map?.getLayer(MARKER_LAYER)) return;
+
+        map.setLayoutProperty(MARKER_LAYER, "text-field",
+            hideLabels ? HIDDEN_TEXT_FIELD : LABEL_LAYOUT?.["text-field"]);
+        for (const [ property, value ] of Object.entries(LABEL_PAINT[isDarkTheme ? "dark" : "light"])) {
+            map.setPaintProperty(MARKER_LAYER, property, value);
+        }
+    }, [ map, hideLabels, isDarkTheme ]);
 
     return null;
 }
