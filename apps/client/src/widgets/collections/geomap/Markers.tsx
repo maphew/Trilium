@@ -1,5 +1,5 @@
 import { AddLayerObject, type GeoJSONSource } from "maplibre-gl";
-import { useContext, useEffect, useState } from "preact/hooks";
+import { useContext, useEffect, useRef, useState } from "preact/hooks";
 
 import FNote from "../../../entities/fnote";
 import { getReadableTextColor } from "../../../services/css_class_manager";
@@ -57,94 +57,110 @@ const LABEL_LAYOUT: Extract<AddLayerObject, { type: "symbol" }>["layout"] = {
 export default function Markers({ notes, hideLabels, isDarkTheme }: { notes: FNote[], hideLabels: boolean, isDarkTheme: boolean }) {
     const map = useContext(ParentMap);
     const version = useNoteChangeVersion(notes);
+    // Whether the style has finished loading at least once. Held outside the effect because the
+    // effect re-runs whenever the notes change, and a run that starts after the style has loaded
+    // has no other way to learn that it did — `style.load` fires once per style and is long gone.
+    const styleLoaded = useRef(false);
 
     useEffect(() => {
         if (!map) return;
 
         let cancelled = false;
-        let stopListening: (() => void) | undefined;
+        let data: Awaited<ReturnType<typeof buildMarkerData>> | undefined;
 
-        async function render() {
-            const { features, images } = await buildMarkerData(notes);
-            if (cancelled || !map) return;
+        /**
+         * Puts the layer and its data back on the map. A style is a world of its own — switching
+         * one wipes every source, layer and image added to the last — so this has to run again
+         * after each style load, not only when the notes change. Does nothing until there is both a
+         * loaded style to add to and something to add.
+         */
+        function install() {
+            if (!map || !data || !styleLoaded.current) return;
+            const { features, images } = data;
 
-            /**
-             * Puts the layer and its data back on the map. A style is a world of its own — switching
-             * one wipes every source, layer and image added to the last — so this has to run again
-             * after each style load, not only when the notes change.
-             */
-            function install() {
-                if (!map) return;
-
-                for (const [ id, image ] of images) {
-                    if (!map.hasImage(id)) {
-                        map.addImage(id, image, { pixelRatio: window.devicePixelRatio || 1 });
-                    }
+            for (const [ id, image ] of images) {
+                if (!map.hasImage(id)) {
+                    map.addImage(id, image, { pixelRatio: window.devicePixelRatio || 1 });
                 }
+            }
 
-                if (!map.getSource(MARKER_SOURCE)) {
-                    map.addSource(MARKER_SOURCE, {
-                        type: "geojson",
-                        data: { type: "FeatureCollection", features: [] }
-                    });
-                }
-
-                if (!map.getLayer(MARKER_LAYER)) {
-                    map.addLayer({
-                        id: MARKER_LAYER,
-                        type: "symbol",
-                        source: MARKER_SOURCE,
-                        layout: {
-                            "icon-image": [ "get", "icon" ],
-                            "icon-size": 1,
-                            "icon-anchor": "bottom",
-                            // The image carries padding for the shadow, so its bottom edge sits
-                            // below the pin's tip. Push it back down by exactly that much, or every
-                            // marker would stand a shadow's width off its own coordinate.
-                            "icon-offset": [ 0, MARKER_SHADOW_PADDING ],
-                            // Every note keeps its pin, however crowded the map: a pin dropped for
-                            // colliding is a note that has silently left the map, and one that can
-                            // no longer be hovered or right-clicked. Only the titles are thinned
-                            // out (see LABEL_LAYOUT). The pins still take part in placement, so a
-                            // title is never laid over one.
-                            "icon-allow-overlap": true,
-                            ...(hideLabels ? {} : LABEL_LAYOUT)
-                        },
-                        paint: {
-                            // Archived notes are drawn faintly, as they were when each marker was an
-                            // element of its own wearing an `archived` class.
-                            "icon-opacity": [ "case", [ "get", "archived" ], 0.5, 1 ],
-                            "text-opacity": [ "case", [ "get", "archived" ], 0.5, 1 ],
-                            // A title is drawn the way the style draws its own place names: light
-                            // on the dark styles, and haloed by a soft, blurred glow rather than a
-                            // hard keyline. A crisp white outline stood out as a cut-out sticker on
-                            // any map, and on a dark one it was a white edge around dark text.
-                            "text-color": isDarkTheme ? "#fff" : "#333",
-                            "text-halo-color": isDarkTheme ? "rgba(0, 0, 0, 0.8)" : "rgba(255, 255, 255, 0.8)",
-                            "text-halo-width": 2,
-                            "text-halo-blur": 1
-                        }
-                    });
-                }
-
-                map.getSource<GeoJSONSource>(MARKER_SOURCE)?.setData({
-                    type: "FeatureCollection",
-                    features
+            if (!map.getSource(MARKER_SOURCE)) {
+                map.addSource(MARKER_SOURCE, {
+                    type: "geojson",
+                    data: { type: "FeatureCollection", features: [] }
                 });
             }
 
-            if (map.isStyleLoaded()) {
-                install();
+            if (!map.getLayer(MARKER_LAYER)) {
+                map.addLayer({
+                    id: MARKER_LAYER,
+                    type: "symbol",
+                    source: MARKER_SOURCE,
+                    layout: {
+                        "icon-image": [ "get", "icon" ],
+                        "icon-size": 1,
+                        "icon-anchor": "bottom",
+                        // The image carries padding for the shadow, so its bottom edge sits below
+                        // the pin's tip. Push it back down by exactly that much, or every marker
+                        // would stand a shadow's width off its own coordinate.
+                        "icon-offset": [ 0, MARKER_SHADOW_PADDING ],
+                        // Every note keeps its pin, however crowded the map: a pin dropped for
+                        // colliding is a note that has silently left the map, and one that can no
+                        // longer be hovered or right-clicked. Only the titles are thinned out (see
+                        // LABEL_LAYOUT). The pins still take part in placement, so a title is never
+                        // laid over one.
+                        "icon-allow-overlap": true,
+                        ...(hideLabels ? {} : LABEL_LAYOUT)
+                    },
+                    paint: {
+                        // Archived notes are drawn faintly, as they were when each marker was an
+                        // element of its own wearing an `archived` class.
+                        "icon-opacity": [ "case", [ "get", "archived" ], 0.5, 1 ],
+                        "text-opacity": [ "case", [ "get", "archived" ], 0.5, 1 ],
+                        // A title is drawn the way the style draws its own place names: light on
+                        // the dark styles, and haloed by a soft, blurred glow rather than a hard
+                        // keyline. A crisp white outline stood out as a cut-out sticker on any map,
+                        // and on a dark one it was a white edge around dark text.
+                        "text-color": isDarkTheme ? "#fff" : "#333",
+                        "text-halo-color": isDarkTheme ? "rgba(0, 0, 0, 0.8)" : "rgba(255, 255, 255, 0.8)",
+                        "text-halo-width": 2,
+                        "text-halo-blur": 1
+                    }
+                });
             }
-            map.on("style.load", install);
-            stopListening = () => map.off("style.load", install);
+
+            map.getSource<GeoJSONSource>(MARKER_SOURCE)?.setData({
+                type: "FeatureCollection",
+                features
+            });
         }
 
-        render();
+        function onStyleLoad() {
+            styleLoaded.current = true;
+            install();
+        }
+
+        // Listened for before the markers are built, not after. Building them is asynchronous — for
+        // a map of a few thousand notes it takes far longer than the style takes to load — and
+        // `style.load` is a one-shot event, so a listener attached afterwards is never called at
+        // all. `isStyleLoaded()` is no safety net either: it answers for the tiles as well as the
+        // style, so on a map whose tiles are slow, or refused, it stays false long after the style
+        // itself is ready to be added to. Between the two, a map with enough markers to be worth
+        // drawing would silently end up with none.
+        map.on("style.load", onStyleLoad);
+        if (map.isStyleLoaded()) {
+            styleLoaded.current = true;
+        }
+
+        buildMarkerData(notes).then((built) => {
+            if (cancelled) return;
+            data = built;
+            install();
+        });
 
         return () => {
             cancelled = true;
-            stopListening?.();
+            map.off("style.load", onStyleLoad);
             if (map.getLayer(MARKER_LAYER)) {
                 map.removeLayer(MARKER_LAYER);
             }
