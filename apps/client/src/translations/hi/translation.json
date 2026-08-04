@@ -2781,8 +2781,6 @@
     "cancelFocus": "फोकस मोड रद्द करें",
     "moveUp": "ऊपर ले जाएं",
     "moveDown": "नीचे ले जाएं",
-    "link": "लिंक (Link)",
-    "linkBidirectional": "द्विदिश लिंक (Bidirectional Link)",
     "clickTips": "कृपया लक्षित (target) नोड पर क्लिक करें",
     "summary": "सारांश (Summary)"
   },
