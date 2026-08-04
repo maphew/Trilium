@@ -84,6 +84,32 @@
 }
 
 /*
+ * Where the marker stands, reading as a subtitle to the name above it rather than as one more thing
+ * to press: it is a line of text that happens to answer to a click, so it stands on no plate of its
+ * own until it is aimed at.
+ */
+.geo-map-container .geo-detail-pane .geo-detail-pane-location {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    align-self: flex-start;
+    /* Room to be pressed, taken back at the leading edge so the text still lines up with the button
+       row under it. */
+    margin-inline-start: -6px;
+    padding: 2px 6px;
+    border: none;
+    border-radius: 6px;
+    background: none;
+    color: var(--muted-text-color);
+    font-size: 0.85em;
+
+    &:hover {
+        background: var(--hover-item-background-color);
+        color: var(--main-text-color);
+    }
+}
+
+/*
  * The note's promoted fields, laid out for a third of the width they are written for.
  *
  * A field reads across one line — its name, then what it holds — and stays that way here; what

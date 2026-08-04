@@ -23,7 +23,7 @@ import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
 import { CLUSTER_COUNT_LAYER, CLUSTER_LAYER } from "./clusters";
 import { ParentMap } from "./map";
-import Markers, { MARKER_LAYER, MARKER_SOURCE } from "./Markers";
+import Markers, { formatLocation, MARKER_LAYER, MARKER_SOURCE, parseLocation } from "./Markers";
 
 vi.mock("../../../services/icon_glyphs", () => ({
     renderIconImage: vi.fn(async () => "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=")
@@ -544,5 +544,28 @@ describe("Markers", () => {
             await mount([ note ], map, parent, { placing: true });
             expect(map.cursor).toBe("");
         });
+    });
+});
+
+/**
+ * The label writes latitude first, as coordinates are written; GeoJSON wants the other order. The
+ * two functions are the crossing point, so the order is pinned here rather than trusted at each of
+ * the half-dozen places that use them.
+ */
+describe("reading and writing a place", () => {
+    it("keeps latitude first on the way out, whichever way round it is held", () => {
+        const coordinates = parseLocation("48.855654, 2.365493");
+
+        // Stored latitude first, carried longitude first.
+        expect(coordinates).toEqual([ 2.365493, 48.855654 ]);
+        expect(coordinates && formatLocation(coordinates)).toBe("48.855654, 2.365493");
+    });
+
+    it("rounds to a stride by default and gives back every digit when asked", () => {
+        // What the map writes when a marker is placed, which is a float's worth of decimals.
+        const coordinates = parseLocation("48.855653506551015,2.36549253686366");
+
+        expect(coordinates && formatLocation(coordinates)).toBe("48.855654, 2.365493");
+        expect(coordinates && formatLocation(coordinates, 15)).toBe("48.855653506551015, 2.365492536863660");
     });
 });

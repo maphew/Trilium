@@ -48,6 +48,13 @@ vi.mock("../../NoteDetail", () => ({
     }
 }));
 
+/** What the pane puts on the clipboard, the writing of it being the browser's business. */
+const copied = vi.fn();
+vi.mock("../../../services/clipboard_ext", async (importOriginal) => ({
+    ...(await importOriginal<object>()),
+    copyTextWithToast: (...args: unknown[]) => copied(...args)
+}));
+
 // A promoted text field suggests what other notes hold under its name, asked for through the Algolia
 // jQuery plugin and answered by the server. Neither is loaded here.
 type PluggedIn = { autocomplete(...args: unknown[]): PluggedIn };
@@ -461,6 +468,43 @@ describe("DetailPane", () => {
             expect(editorAskedToSave).toHaveBeenCalledWith({ ntxIds: [ "_geo-detail-pane" ] });
             expect(pane()).toBeNull();
         });
+    });
+
+    /**
+     * The place has a line of its own under the name, and is kept out of the grid of fields: the
+     * collection promotes `geolocation` so that a marker can be placed from the tree, but in the
+     * pane that field is a box of raw digits standing beside a map of the very place it names.
+     */
+    it("names the place under the title rather than among the fields", async () => {
+        // An id of its own: the froca raised for a test keeps the attributes of every note built
+        // under a given id, so reusing one would read back whatever an earlier test placed there.
+        buildNote({ id: "root", title: "root", children: [ {
+            id: "placeDesVosges",
+            title: "Somewhere",
+            // What the map writes when a marker is placed, which is a float's worth of decimals.
+            "#geolocation": "48.855653506551015,2.36549253686366",
+            // As the geo map template promotes it (see hidden_subtree_templates.ts).
+            "#label:geolocation": "promoted,single,text"
+        } ] });
+        const map = fakeMap();
+        await mount([ froca.notes["placeDesVosges"] ], map);
+
+        map.setUnderPointer([ markerFeature(froca.notes["placeDesVosges"], [ 2.365, 48.855 ]) ]);
+        await act(async () => map.click());
+        await settle();
+
+        // Rounded to a stride, which is as finely as anywhere is pointed out on a map.
+        const location = pane()?.querySelector<HTMLButtonElement>(".geo-detail-pane-location");
+        expect(location?.textContent).toBe("48.855654, 2.365493");
+        expect(pane()?.querySelector(".promoted-attribute-cell")).toBeNull();
+
+        // Carried at every digit the note holds, so what is pasted elsewhere is the place itself.
+        await act(async () => { location?.click(); });
+        expect(copied).toHaveBeenCalledWith("48.855653506551015, 2.365492536863660");
+
+        // Named by the app's own tooltip, as the buttons beneath it are, rather than by the one the
+        // browser draws from a `title` — which is what carrying no such attribute leaves.
+        expect(location?.getAttribute("title")).toBeNull();
     });
 
     /**

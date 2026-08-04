@@ -12,7 +12,7 @@ import link from "../../../services/link.js";
 import { createNewNote } from "./api.js";
 import { trackHitLayers } from "./GpxTrack.js";
 import { type GeoMouseEvent, ParentMap, toGeoMouseEvent } from "./map.js";
-import { MARKER_LAYER } from "./Markers.js";
+import { formatLocation, MARKER_LAYER } from "./Markers.js";
 
 interface ContextMenusProps {
     note: FNote;
@@ -129,15 +129,13 @@ export function openMapContextMenu(note: FNote, e: GeoMouseEvent, isEditable: bo
 }
 
 function buildGeoLocationItem(e: GeoMouseEvent) {
-    function formatGeoLocation(latlng: { lat: number; lng: number }, precision: number = 6) {
-        return `${latlng.lat.toFixed(precision)}, ${latlng.lng.toFixed(precision)}`;
-    }
+    const coordinates: [number, number] = [ e.latlng.lng, e.latlng.lat ];
 
     return [
         {
-            title: formatGeoLocation(e.latlng),
+            title: formatLocation(coordinates),
             uiIcon: "bx bx-current-location",
-            handler: () => copyTextWithToast(formatGeoLocation(e.latlng, 15))
+            handler: () => copyTextWithToast(formatLocation(coordinates, 15))
         },
         {
             title: t("geo-map-context.open-location"),

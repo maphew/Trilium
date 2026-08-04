@@ -2,24 +2,25 @@ import "./DetailPane.css";
 
 import clsx from "clsx";
 import type { Map as MapLibreGLMap, MapMouseEvent } from "maplibre-gl";
-import { useCallback, useContext, useEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import appContext from "../../../components/app_context";
 import Component from "../../../components/component";
 import NoteContext, { openInCurrentNoteContext } from "../../../components/note_context";
 import FNote from "../../../entities/fnote";
+import { copyTextWithToast } from "../../../services/clipboard_ext";
 import { t } from "../../../services/i18n";
 import link from "../../../services/link";
 import TitleRow from "../../layout/TitleRow";
 import NoteDetail from "../../NoteDetail";
-import ActionButton from "../../react/ActionButton";
-import { useLegacyComponentElement, useNoteColorClass, useNoteLabel } from "../../react/hooks";
 import PromotedAttributes from "../../PromotedAttributes";
+import ActionButton from "../../react/ActionButton";
+import { useLegacyComponentElement, useNoteColorClass, useNoteLabel, useStaticTooltip } from "../../react/hooks";
 import OverlayPanel, { OverlayPanelBody } from "../../react/OverlayPanel";
 import { NoteContextContext, ParentComponent } from "../../react/react_utils";
 import { moveMarker } from "./api";
 import { ParentMap } from "./map";
-import { LOCATION_ATTRIBUTE, MARKER_LAYER, parseLocation } from "./Markers";
+import { formatLocation, LOCATION_ATTRIBUTE, MARKER_LAYER, parseLocation } from "./Markers";
 
 /**
  * The pane standing against the trailing edge of the map for as long as a marker is selected.
@@ -189,12 +190,18 @@ function MarkerDetails({ note, isReadOnly, onClose, onRelocate }: { note: FNote;
             close={{ text: t("geo-map.close-details"), onClick: onClose }}
         >
             <OverlayPanelBody className="geo-detail-pane-body">
+                <MarkerLocation note={note} />
+
                 <MarkerActions note={note} isReadOnly={isReadOnly} onRelocate={onRelocate} />
 
                 {/* Whatever fields the note's own definitions ask for, ahead of the note as the quick
                     editor puts them — a marker is often a note whose type says less about it than
-                    its fields do. Nothing at all is shown for a note that promotes none. */}
-                <PromotedAttributes />
+                    its fields do. Nothing at all is shown for a note that promotes none.
+
+                    The location is not among them, the line above naming it better: promoted, it is
+                    a box of raw digits standing beside a map of the very place it names, and the way
+                    to put a marker somewhere else here is to move it. */}
+                <PromotedAttributes omit={[ LOCATION_ATTRIBUTE ]} />
 
                 {/* The note itself, drawn by whichever widget its type calls for — the same one the
                     quick editor mounts, so a marker is written in exactly as it is anywhere else.
@@ -340,3 +347,55 @@ function MarkerActions({ note, isReadOnly, onRelocate }: { note: FNote; isReadOn
         </div>
     );
 }
+
+/**
+ * Where the marker stands, written out under the note's name.
+ *
+ * The map says it too, but only as exactly as the eye can read a map, and it is the written pair
+ * that gets carried into a message or a search box. Pressing it copies — every digit the note holds
+ * rather than the six shown, so what lands in the clipboard is the place and not the rounding, which
+ * is the bargain the map's own menu strikes for the point under the pointer.
+ */
+function MarkerLocation({ note }: { note: FNote }) {
+    const [ location ] = useNoteLabel(note, LOCATION_ATTRIBUTE);
+    const coordinates = parseLocation(location);
+
+    // The label is read in an effect, so a marker just opened has nothing to say yet.
+    if (!coordinates) {
+        return null;
+    }
+
+    return <LocationButton coordinates={coordinates} />;
+}
+
+/**
+ * A component of its own so that the tooltip is built when the button appears rather than when the
+ * pane does: the hook binds on mount and does not look again, and there is a render before the
+ * location has been read in which there is no button to bind to.
+ */
+function LocationButton({ coordinates }: { coordinates: [number, number] }) {
+    const buttonRef = useRef<HTMLButtonElement>(null);
+
+    // The app's own tooltip rather than the browser's, as the buttons under it wear (see
+    // ActionButton). Held still between renders because the hook builds the tooltip afresh whenever
+    // it is handed different options, and an object literal is different every time.
+    useStaticTooltip(buttonRef, useMemo(() => ({
+        title: t("geo-map.copy-coordinates"),
+        placement: "bottom" as const,
+        animation: false
+    }), []));
+
+    return (
+        <button
+            ref={buttonRef}
+            className="geo-detail-pane-location"
+            onClick={() => copyTextWithToast(formatLocation(coordinates, FULL_PRECISION))}
+        >
+            <span className="bx bx-current-location" />
+            {formatLocation(coordinates)}
+        </button>
+    );
+}
+
+/** Enough decimals to give back whatever was stored, the map writing a float's worth of them. */
+const FULL_PRECISION = 15;

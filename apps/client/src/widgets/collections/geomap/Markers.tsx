@@ -414,6 +414,18 @@ export function parseLocation(location: string | null | undefined): [number, num
     return [ lng, lat ];
 }
 
+/**
+ * A place as it is written and as the label stores it — latitude first — from the `[lng, lat]`
+ * {@link parseLocation} yields and MapLibre reports.
+ *
+ * Six decimals name a spot to within a stride, which is as fine as anything is pointed out on a map.
+ * The full stored value is worth having when it is being carried somewhere else, so what is copied
+ * asks for every digit rather than what was read.
+ */
+export function formatLocation([ lng, lat ]: [number, number], precision = 6) {
+    return `${lat.toFixed(precision)}, ${lng.toFixed(precision)}`;
+}
+
 function markerImageId(color: string, iconClass: string) {
     return `marker|${color}|${iconClass}`;
 }
