@@ -165,7 +165,18 @@
   mask-repeat: no-repeat;
 }
 
-.geo-view.placing-note .geo-map-container {
+/*
+ * The map is waiting to be told a place, and says so under the pointer.
+ *
+ * Set on MapLibre's own canvas container rather than on the map around it: MapLibre dresses that
+ * container itself (`.maplibregl-canvas-container.maplibregl-interactive { cursor: grab }`), so a
+ * cursor stated anywhere above it is never inherited through — which is why the rule stopped showing
+ * when the map moved off Leaflet. Named by four classes, which is what it takes to outweigh that.
+ *
+ * Left off while the pointer is down, so that panning the map to reach the place still says grabbing
+ * as it does at every other time — MapLibre's `:active` rule is a class fewer, and would lose.
+ */
+.geo-view.placing-note .geo-map-container .maplibregl-canvas-container:not(:active) {
   cursor: crosshair;
 }
 

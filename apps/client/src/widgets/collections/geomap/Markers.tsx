@@ -295,7 +295,7 @@ export default function Markers({ notes, hideLabels, isDarkTheme, clustered, pla
         }
     }, [ map, hideLabels, isDarkTheme ]);
 
-    useClusterExpansion(map, MARKER_SOURCE, clustered);
+    useClusterExpansion(map, MARKER_SOURCE, clustered && !placing);
     useMarkerOpening(map, opensNotes && !placing);
 
     return null;

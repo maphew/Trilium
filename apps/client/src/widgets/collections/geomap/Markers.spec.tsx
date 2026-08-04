@@ -107,6 +107,10 @@ function fakeMap() {
         leaveMarker() {
             for (const fn of listeners.get(`mouseleave:${MARKER_LAYER}`) ?? []) fn({});
         },
+        /** The same, for a bubble standing in for the notes it gathered. */
+        enterCluster() {
+            for (const fn of listeners.get(`mouseenter:${CLUSTER_LAYER}`) ?? []) fn({});
+        },
         /** What the map is currently showing the pointer as. */
         get cursor() { return canvas.style.cursor ?? ""; },
         isStyleLoaded: () => false,
@@ -333,6 +337,38 @@ describe("Markers", () => {
         expect(map.layer(CLUSTER_COUNT_LAYER)?.layout?.["text-field"]).toEqual([ "get", "point_count_abbreviated" ]);
         // A count that loses a placement contest leaves a bubble that means nothing.
         expect(map.layer(CLUSTER_COUNT_LAYER)?.layout?.["text-allow-overlap"]).toBe(true);
+    });
+
+    /**
+     * A bubble offers to be stepped into, which is not what a click means while the map is waiting to
+     * be told a place — and the offer is made by writing the cursor onto the canvas, which is an
+     * inline style and so outranks the crosshair the map wears meanwhile (a rule in index.css).
+     */
+    it("leaves the bubbles alone while the map is armed to place something", async () => {
+        const notes = [
+            buildNote({ title: "One", "#geolocation": "1,2" }),
+            buildNote({ title: "Two", "#geolocation": "1.001,2.001" })
+        ];
+        const map = fakeMap();
+        const parent = new Component();
+
+        await mount(notes, map, parent, { clustered: true });
+        await act(async () => {
+            map.fireStyleLoad();
+            await settle();
+        });
+
+        map.enterCluster();
+        expect(map.cursor).toBe("pointer");
+
+        // Armed with the pointer still on the bubble, which is where it has to be put back by hand:
+        // the `mouseleave` that would have cleared it is no longer being listened for.
+        await mount(notes, map, parent, { clustered: true, placing: true });
+        expect(map.cursor).toBe("");
+
+        // And the bubble makes no offer at all from here on.
+        map.enterCluster();
+        expect(map.cursor).toBe("");
     });
 
     it("leaves every note its own pin when the map is not set to gather them", async () => {
