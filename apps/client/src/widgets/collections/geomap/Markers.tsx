@@ -145,6 +145,18 @@ export default function Markers({ notes, hideLabels, isDarkTheme }: { notes: FNo
             install();
         }
 
+        // A style belongs to a map, so a map that has been removed has none — and asking a removed
+        // map for a layer is not a no-op but a crash, since every such call goes through the style
+        // that is no longer there. The map is removed by the component above this one, whose
+        // cleanup Preact runs *before* this one's, so on a note switch this cleanup is always
+        // handed a dead map. Nothing needs taking off a map that no longer exists, so the flag
+        // ends the cleanup rather than guarding each call in turn.
+        let mapRemoved = false;
+        function onMapRemove() {
+            mapRemoved = true;
+        }
+        map.on("remove", onMapRemove);
+
         // Listened for before the markers are built, not after. Building them is asynchronous, so
         // nothing says whether it finishes before or after the style loads, and `style.load` is a
         // one-shot event: a listener attached after it has fired is never called at all.
@@ -163,6 +175,9 @@ export default function Markers({ notes, hideLabels, isDarkTheme }: { notes: FNo
 
         return () => {
             map.off("style.load", onStyleLoad);
+            map.off("remove", onMapRemove);
+            if (mapRemoved) return;
+
             if (map.getLayer(MARKER_LAYER)) {
                 map.removeLayer(MARKER_LAYER);
             }

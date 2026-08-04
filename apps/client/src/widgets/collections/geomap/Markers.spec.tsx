@@ -34,12 +34,28 @@ function fakeMap() {
     const listeners = new Map<string, Set<() => void>>();
     const calls = { addLayer: 0, removeLayer: 0, addSource: 0, removeSource: 0, setData: 0 };
     let lastFeatures: unknown[] = [];
+    let removed = false;
+
+    /** What every style-reading call becomes once the map is gone: `this.style is undefined`. */
+    function requireStyle() {
+        if (removed) throw new TypeError("can't access property \"getLayer\", this.style is undefined");
+    }
 
     return {
         calls,
         get lastFeatures() { return lastFeatures; },
         fireStyleLoad() {
             for (const fn of listeners.get("style.load") ?? []) fn();
+        },
+        /**
+         * The map going away under the component, as MapLibre does it: the style is dropped first
+         * and the event announced afterwards, so everything that reads the style throws from here
+         * on. This is what the parent Map component does in its own cleanup, which Preact runs
+         * before this component's.
+         */
+        remove() {
+            removed = true;
+            for (const fn of listeners.get("remove") ?? []) fn();
         },
         on(event: string, fn: () => void) {
             if (!listeners.has(event)) listeners.set(event, new Set());
@@ -52,6 +68,7 @@ function fakeMap() {
         hasImage: () => false,
         addImage: () => {},
         getSource(id: string) {
+            requireStyle();
             if (!sources.has(id)) return undefined;
             return {
                 setData: ({ features }: { features: unknown[] }) => {
@@ -62,7 +79,10 @@ function fakeMap() {
         },
         addSource(id: string) { sources.add(id); calls.addSource++; },
         removeSource(id: string) { sources.delete(id); calls.removeSource++; },
-        getLayer: (id: string) => (layers.has(id) ? { id } : undefined),
+        getLayer: (id: string) => {
+            requireStyle();
+            return layers.has(id) ? { id } : undefined;
+        },
         addLayer({ id }: { id: string }) { layers.add(id); calls.addLayer++; },
         removeLayer(id: string) { layers.delete(id); calls.removeLayer++; }
     };
@@ -182,5 +202,34 @@ describe("Markers", () => {
 
         expect(map.calls.removeLayer).toBe(1);
         expect(map.calls.removeSource).toBe(1);
+    });
+
+    /**
+     * Switching away from a geo map used to throw `can't access property "getLayer", this.style is
+     * undefined`. The map is removed by the component above this one, and Preact runs a component's
+     * cleanup before its children's, so this cleanup was handed a map whose style had already gone.
+     * The throw was not confined to it either: Preact hands a cleanup's error to the nearest error
+     * boundary and, finding none, rethrows it in the middle of unmounting the tree — so the GPX
+     * tracks rendered after this component were never unmounted, and kept their markers and
+     * listeners on a map nobody could see any more.
+     */
+    it("survives the map being removed before it is unmounted", async () => {
+        const note = buildNote({ title: "Nowhere", "#geolocation": "5,6" });
+        const map = fakeMap();
+        const parent = new Component();
+
+        await mount([ note ], map, parent);
+        await act(async () => {
+            map.fireStyleLoad();
+            await settle();
+        });
+        expect(map.calls.addLayer).toBe(1);
+
+        map.remove();
+
+        expect(() => render(null, container as HTMLElement)).not.toThrow();
+        // The layer went with the map, so there was nothing to take off it.
+        expect(map.calls.removeLayer).toBe(0);
+        expect(map.calls.removeSource).toBe(0);
     });
 });
