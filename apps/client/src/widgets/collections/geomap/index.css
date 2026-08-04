@@ -42,14 +42,12 @@
   filter: drop-shadow(2px 2px 2px rgba(0, 0, 0, 0.3));
 }
 
+/* Cut straight out of the pin — no disc behind it, so only the note's colour is seen. */
 .geo-map-container .geo-marker .tn-icon {
   position: absolute;
-  top: 3px;
+  top: 4px;
   inset-inline-start: 4px;
-  background-color: white;
-  color: var(--light-theme-custom-color, black);
-  padding: 2px;
-  border-radius: 50%;
+  color: white;
   font-size: 17px;
 }
 
@@ -57,7 +55,6 @@
 .geo-map-container .geo-marker img.tn-icon {
   width: 17px;
   height: 17px;
-  box-sizing: content-box;
   display: block;
 }
 

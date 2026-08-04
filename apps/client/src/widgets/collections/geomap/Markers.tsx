@@ -2,6 +2,7 @@ import { AddLayerObject, type GeoJSONSource } from "maplibre-gl";
 import { useContext, useEffect, useState } from "preact/hooks";
 
 import FNote from "../../../entities/fnote";
+import { getReadableTextColor } from "../../../services/css_class_manager";
 import { renderIconImage } from "../../../services/icon_glyphs";
 import { useTriliumEvent } from "../../react/hooks";
 import { ParentMap } from "./map";
@@ -15,8 +16,9 @@ const DEFAULT_MARKER_COLOR = "#2A81CB";
 const MARKER_WIDTH = 25;
 const MARKER_HEIGHT = 41;
 const MARKER_ICON_SIZE = 20;
+// Centred on the pin's round head, which is a circle of the pin's own width sitting at the top.
 const MARKER_ICON_X = (MARKER_WIDTH - MARKER_ICON_SIZE) / 2;
-const MARKER_ICON_Y = 4;
+const MARKER_ICON_Y = (MARKER_WIDTH - MARKER_ICON_SIZE) / 2;
 
 const LABEL_LAYOUT: Extract<AddLayerObject, { type: "symbol" }>["layout"] = {
     "text-field": [ "get", "name" ],
@@ -187,17 +189,18 @@ function buildMarkerImage(color: string, iconClass: string) {
 
 async function drawMarkerImage(color: string, iconClass: string) {
     // Drawn through the shared icon service, so a marker wears the icon its note wears everywhere
-    // else — including one from a pack the user brought along.
+    // else — including one from a pack the user brought along. It is cut straight out of the pin
+    // rather than set on a disc of its own, so the note's colour is all that is seen; the icon
+    // takes whichever of black or white stands out against that colour.
     const scale = window.devicePixelRatio || 1;
     const icon = await renderIconImage(`bx ${iconClass}`, {
         size: MARKER_ICON_SIZE,
-        color: "black",
+        color: getReadableTextColor(color),
         scale
     });
 
     const badge = icon
-        ? `<circle cx="${MARKER_WIDTH / 2}" cy="${MARKER_ICON_Y + MARKER_ICON_SIZE / 2}" r="${MARKER_ICON_SIZE / 2}" fill="white" />
-    <image href="${icon}" x="${MARKER_ICON_X}" y="${MARKER_ICON_Y}" width="${MARKER_ICON_SIZE}" height="${MARKER_ICON_SIZE}" preserveAspectRatio="xMidYMid meet" />`
+        ? `<image href="${icon}" x="${MARKER_ICON_X}" y="${MARKER_ICON_Y}" width="${MARKER_ICON_SIZE}" height="${MARKER_ICON_SIZE}" preserveAspectRatio="xMidYMid meet" />`
         : "";
 
     return svgToImage(`\
