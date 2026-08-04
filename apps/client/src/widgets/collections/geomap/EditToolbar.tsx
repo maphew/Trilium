@@ -66,9 +66,12 @@ export default function EditToolbar({ isReadOnly, placing, onTogglePlacement, on
                 disabled={isReadOnly}
                 onClick={onTogglePlacement}
             >
-                {/* The glyph is a child rather than a class on the button: the boxicons class sets
-                    the icon font on whatever wears it, and the words beside it are to stay words. */}
-                <span className="bx bx-plus" aria-hidden="true"></span>
+                {/* The pin a note dropped on the map wears (see CHILD_NOTE_ICON in api.ts) — the
+                    button shows the very thing it drops, which is also the ghost that will follow
+                    the pointer once armed. A child rather than a class on the button: the boxicons
+                    class sets the icon font on whatever wears it, and the words beside it are to
+                    stay words. */}
+                <span className="bx bx-pin" aria-hidden="true"></span>
                 {placing ? t("geo-map.add-marker-cancel") : t("geo-map.add-marker")}
             </button>
             <button

@@ -118,7 +118,8 @@ export function openMapContextMenu(e: GeoMouseEvent, isEditable: boolean, onCrea
                 // The click named the place already, so this skips the armed-click step entirely:
                 // the note is created here and the pane opened on it, like any other creation.
                 handler: () => onCreateNote(e),
-                uiIcon: "bx bx-plus"
+                // The pin a dropped note wears, as on the editing group's button (see EditToolbar).
+                uiIcon: "bx bx-pin"
             }
         ];
     }

@@ -40,8 +40,8 @@ describe("geo map EditToolbar", () => {
         const { button, onTogglePlacement } = renderBar();
 
         // The glyph is a child of the button rather than the button's own class — the words beside
-        // it are to stay words (see EditToolbar.tsx).
-        expect(button()?.querySelector(".bx-plus")).not.toBeNull();
+        // it are to stay words — and it is the pin a dropped note wears (see EditToolbar.tsx).
+        expect(button()?.querySelector(".bx-pin")).not.toBeNull();
         expect(button()?.classList.contains("active")).toBe(false);
 
         act(() => button()?.click());
