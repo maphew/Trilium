@@ -4,7 +4,8 @@ import { Map as MapLibreGLMap, MapMouseEvent, NavigationControl, type Point, Sca
 import { ComponentChildren, createContext, RefObject } from "preact";
 import { useEffect, useImperativeHandle, useState } from "preact/hooks";
 
-import { useElementSize, useSyncedRef } from "../../react/hooks";
+import { getMeasurementSystem } from "../../../utils/formatters";
+import { useElementSize, useSyncedRef, useTriliumOption } from "../../react/hooks";
 import { type MapLayer } from "./map_layer";
 
 export interface GeoMouseEvent {
@@ -168,13 +169,15 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
         return () => { map.off("click", handler); };
     }, [ map, onClick ]);
 
-    // Scale
+    // Scale. Miles or kilometres follow the formatting locale, which the option is read for: the
+    // unit is resolved inside the effect, so the control has to be rebuilt when that option changes.
+    const [ formattingLocale ] = useTriliumOption("formattingLocale");
     useEffect(() => {
         if (!scale || !map) return;
-        const scaleControl = new ScaleControl();
+        const scaleControl = new ScaleControl({ unit: getMeasurementSystem() });
         map.addControl(scaleControl);
         return () => { map.removeControl(scaleControl); };
-    }, [ map, scale ]);
+    }, [ map, scale, formattingLocale ]);
 
     // Adapt to container size changes.
     const size = useElementSize(containerRef);
