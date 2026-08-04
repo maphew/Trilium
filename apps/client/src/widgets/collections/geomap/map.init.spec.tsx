@@ -115,13 +115,13 @@ describe("Map initialization", () => {
     });
 
     /** Puts the map up, with whatever the mocked constructor has been told to do. */
-    function renderMap({ scale = false } = {}) {
+    function renderMap({ scale = false, layer = LAYER }: { scale?: boolean; layer?: MapLayer } = {}) {
         act(() => {
             render(
                 <Map
                     coordinates={{ lat: 0, lng: 0 }}
                     zoom={2}
-                    layerData={LAYER}
+                    layerData={layer}
                     viewportChanged={vi.fn()}
                     scale={scale}
                 >
@@ -185,6 +185,54 @@ describe("Map initialization", () => {
             // The origin and never the path, so no note is named, and nothing at all from a secure
             // page to an insecure server.
             referrerPolicy: "strict-origin"
+        });
+    });
+
+    describe("the raster source a custom map is drawn from", () => {
+        /** The raster source of the style the map was built with. */
+        function rasterSource() {
+            return MapConstructor.mock.calls[0][0].style.sources["raster-tiles"];
+        }
+
+        // A block body: `mockImplementation` returns the mock, and a hook that returns a function is
+        // taken for one that has handed back its own teardown — which Vitest then calls, recording a
+        // constructor call with no arguments where the next test looks for its own.
+        beforeEach(() => {
+            MapConstructor.mockImplementation(workingMap);
+        });
+
+        /**
+         * A URL typed into `#map:style` is copied from Leaflet Providers, where a server with
+         * double-resolution tiles is written with Leaflet's `{r}`. MapLibre calls it `{ratio}` and
+         * passes anything else through, so the letter itself went out in the request.
+         */
+        it("asks for the double-resolution tiles a Leaflet URL knows how to ask for", () => {
+            renderMap({ layer: { ...LAYER, url: "https://tile.example.org/{z}/{x}/{y}{r}.png" } });
+
+            expect(rasterSource().tiles).toEqual([ "https://tile.example.org/{z}/{x}/{y}{ratio}.png" ]);
+        });
+
+        it("leaves a URL that asks for no such thing exactly as it was given", () => {
+            renderMap();
+
+            expect(rasterSource().tiles).toEqual([ LAYER.url ]);
+            // Never the level below drawn small: that is sharper, but it halves the labels and the
+            // road widths the tile was drawn with, and reads as a map one zoom further out.
+            expect(rasterSource().tileSize).toBe(256);
+        });
+
+        it("stops where the server stops, rather than asking for a level it has not got", () => {
+            // OpenStreetMap answers 400 past z19, and a tile that fails leaves a hole where
+            // stretching the level above would have done.
+            renderMap();
+
+            expect(rasterSource().maxzoom).toBe(19);
+        });
+
+        it("believes a layer that says where its own tiles stop", () => {
+            renderMap({ layer: { ...LAYER, maxZoom: 22 } });
+
+            expect(rasterSource().maxzoom).toBe(22);
         });
     });
 

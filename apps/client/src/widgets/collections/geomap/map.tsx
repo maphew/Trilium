@@ -8,7 +8,7 @@ import { t } from "../../../services/i18n";
 import { getMeasurementSystem } from "../../../utils/formatters";
 import { useElementSize, useSyncedRef, useTriliumOption } from "../../react/hooks";
 import NoItems from "../../react/NoItems";
-import { type MapLayer } from "./map_layer";
+import { DEFAULT_RASTER_MAX_ZOOM, type MapLayer } from "./map_layer";
 
 export interface GeoMouseEvent {
     latlng: { lat: number; lng: number };
@@ -77,8 +77,18 @@ function buildSyncStyle(layerData: MapLayer): StyleSpecification | string {
         sources: {
             "raster-tiles": {
                 type: "raster",
-                tiles: [ layerData.url ],
+                tiles: [ toMapLibreUrl(layerData.url) ],
+                // The size the tiles are drawn at, which is also the size they are designed at: a
+                // raster tile carries its labels and its road widths in the picture, sized for this.
+                // Taking the level below and drawing it at 128 would be sharper on a fine screen —
+                // Leaflet's `detectRetina` did exactly that — but it halves the cartography with it,
+                // and a map whose every label is half-size reads as one zoom further out. A server
+                // with real `@2x` tiles is the only way to have both, which is what `{r}` is for.
                 tileSize: 256,
+                // Where the server's own tiles stop. Past it MapLibre stretches the deepest one it
+                // has rather than asking for a level that does not exist, which is a blurry map
+                // rather than a blank one.
+                maxzoom: layerData.maxZoom ?? DEFAULT_RASTER_MAX_ZOOM,
                 attribution: layerData.attribution
             }
         },
@@ -90,6 +100,23 @@ function buildSyncStyle(layerData: MapLayer): StyleSpecification | string {
             }
         ]
     };
+}
+
+/**
+ * A tile URL as MapLibre spells it.
+ *
+ * The user guide sends anyone wanting a custom map to Leaflet Providers, whose URLs are written in
+ * Leaflet's templates. `{r}` is where a server that draws tiles twice over wants `@2x` put, and
+ * MapLibre asks for the same thing under the name `{ratio}` — it knows nothing of `{r}`, so the
+ * three characters went out in the request and the server was asked for a tile named after a letter.
+ *
+ * This is the one way a raster map is sharp on a fine screen and still the map it was drawn as: an
+ * `@2x` tile is twice the picture of the same ground, with the labels drawn twice the size to match.
+ * Nothing can be done for a server that has no such tiles — OpenStreetMap answers 400 — which is why
+ * this is left to the URL to ask for rather than done to every map.
+ */
+function toMapLibreUrl(url: string) {
+    return url.replaceAll("{r}", "{ratio}");
 }
 
 function toCenter(coordinates: { lat: number; lng: number } | [number, number]): [number, number] {
