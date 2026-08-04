@@ -11,11 +11,24 @@
 }
 
 .geo-map-container {
+  /* How far everything standing over the map is held off its edges: the toolbar (see
+     MapToolbar.css) and MapLibre's own scale and attribution below. Settled here so that the two
+     agree, and matching the room the mind map gives its bars (see MindMap.css). */
+  --geo-map-inset: 20px;
+
   height: 100%;
   overflow: hidden;
 
   .maplibregl-canvas-container {
     position: relative;
+  }
+
+  /* MapLibre holds its controls 10px off the edge, which is half of what everything else over the
+     map keeps to; only the foot of the map carries any (the scale and the attribution). */
+  .maplibregl-ctrl-bottom-left .maplibregl-ctrl,
+  .maplibregl-ctrl-bottom-right .maplibregl-ctrl {
+    margin-bottom: var(--geo-map-inset);
+    margin-inline: var(--geo-map-inset);
   }
 }
 

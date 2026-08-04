@@ -4,15 +4,15 @@
  * the top corner MapLibre keeps its zoom buttons in. The corner is the map's to give: its attribution
  * has been moved to the foot of the other side, beside the scale (see map.tsx).
  *
- * Held off the edges by as much as MapLibre holds its own controls off them, so the bar and the scale
- * opposite it stand on the same line.
+ * Held off the edges by as much as everything else standing over the map is, which is settled for
+ * both in index.css, so the bar and the scale opposite it stand on the same line.
  *
  * Above the canvas whatever order the two end up in: MapLibre builds its part of the container
  * itself, so what Preact renders alongside is not reliably the later sibling. The number clears
  * MapLibre's own control corners, which sit at 2.
  */
 .geo-map-container .geo-map-toolbar {
-    bottom: 10px;
-    inset-inline-end: 10px;
+    bottom: var(--geo-map-inset);
+    inset-inline-end: var(--geo-map-inset);
     z-index: 3;
 }
