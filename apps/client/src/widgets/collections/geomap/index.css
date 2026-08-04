@@ -19,13 +19,6 @@
   }
 }
 
-.maplibregl-ctrl-top-left,
-.maplibregl-ctrl-top-right,
-.maplibregl-ctrl-bottom-left,
-.maplibregl-ctrl-bottom-right {
-  z-index: 997 !important;
-}
-
 .geo-view.placing-note .geo-map-container {
   cursor: crosshair;
 }

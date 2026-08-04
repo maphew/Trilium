@@ -1,19 +1,23 @@
-import { useEffect, useImperativeHandle, useRef } from "preact/hooks";
-import maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
-import { type MapLayer } from "./map_layer";
+
+import { Map as MapLibreGLMap, MapMouseEvent, NavigationControl, type Point, ScaleControl, type StyleSpecification } from "maplibre-gl";
 import { ComponentChildren, createContext, RefObject } from "preact";
+import { useEffect, useImperativeHandle, useState } from "preact/hooks";
+
 import { useElementSize, useSyncedRef } from "../../react/hooks";
+import { type MapLayer } from "./map_layer";
 
 export interface GeoMouseEvent {
     latlng: { lat: number; lng: number };
     originalEvent: MouseEvent;
+    /** Where the event landed in the container, for hit-testing against the rendered layers. */
+    point: Point;
 }
 
-export const ParentMap = createContext<maplibregl.Map | null>(null);
+export const ParentMap = createContext<MapLibreGLMap | null>(null);
 
 interface MapProps {
-    apiRef?: RefObject<maplibregl.Map | null>;
+    apiRef?: RefObject<MapLibreGLMap | null>;
     containerRef?: RefObject<HTMLDivElement>;
     coordinates: { lat: number; lng: number } | [number, number];
     zoom: number;
@@ -21,25 +25,24 @@ interface MapProps {
     viewportChanged: (coordinates: { lat: number; lng: number }, zoom: number) => void;
     children: ComponentChildren;
     onClick?: (e: GeoMouseEvent) => void;
-    onContextMenu?: (e: GeoMouseEvent) => void;
-    onZoom?: () => void;
     scale: boolean;
 }
 
-function toGeoMouseEvent(e: maplibregl.MapMouseEvent): GeoMouseEvent {
+export function toGeoMouseEvent(e: MapMouseEvent): GeoMouseEvent {
     return {
         latlng: { lat: e.lngLat.lat, lng: e.lngLat.lng },
-        originalEvent: e.originalEvent
+        originalEvent: e.originalEvent,
+        point: e.point
     };
 }
 
 /** Builds the style that can be applied synchronously: the raster style spec, a vector style URL
  * or the vector fallback style used as a placeholder until the real style loads asynchronously. */
-function buildSyncStyle(layerData: MapLayer): maplibregl.StyleSpecification | string {
+function buildSyncStyle(layerData: MapLayer): StyleSpecification | string {
     if (layerData.type === "vector") {
         return typeof layerData.style === "string"
             ? layerData.style
-            : layerData.styleFallback as maplibregl.StyleSpecification;
+            : layerData.styleFallback;
     }
 
     return {
@@ -68,17 +71,19 @@ function toCenter(coordinates: { lat: number; lng: number } | [number, number]):
         : [ coordinates.lng, coordinates.lat ];
 }
 
-export default function Map({ coordinates, zoom, layerData, viewportChanged, children, onClick, onContextMenu, scale, apiRef, containerRef: _containerRef, onZoom }: MapProps) {
-    const mapRef = useRef<maplibregl.Map>(null);
+export default function Map({ coordinates, zoom, layerData, viewportChanged, children, onClick, scale, apiRef, containerRef: _containerRef }: MapProps) {
+    // State rather than a ref: the children below read the map off the context, so its creation has
+    // to produce a render or they would only ever see the null it started as.
+    const [ map, setMap ] = useState<MapLibreGLMap | null>(null);
     const containerRef = useSyncedRef<HTMLDivElement>(_containerRef);
 
-    useImperativeHandle(apiRef ?? null, () => mapRef.current);
+    useImperativeHandle(apiRef ?? null, () => map);
 
     // Initialize the map.
     useEffect(() => {
         if (!containerRef.current) return;
 
-        const mapInstance = new maplibregl.Map({
+        const mapInstance = new MapLibreGLMap({
             container: containerRef.current,
             style: buildSyncStyle(layerData),
             center: toCenter(coordinates),
@@ -94,11 +99,18 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
             renderWorldCopies: false
         });
 
-        mapRef.current = mapInstance;
+        // Zoom buttons, which Leaflet added of its own accord. No compass: nothing here persists a
+        // bearing, so the button would offer to undo a rotation the map never remembers.
+        mapInstance.addControl(new NavigationControl({
+            showCompass: false,
+            showZoom: true
+        }), "top-left");
+
+        setMap(mapInstance);
 
         return () => {
             mapInstance.remove();
-            mapRef.current = null;
+            setMap(null);
         };
     }, []);
 
@@ -106,7 +118,6 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
     // synchronous styles (setStyle diffs against the current style) but loads the asynchronous
     // vector styles for the first time.
     useEffect(() => {
-        const map = mapRef.current;
         if (!map) return;
 
         let cancelled = false;
@@ -115,8 +126,8 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
             layerData.style().then(asyncStyle => {
                 // Guard against the layer changing again or the map being torn down while the
                 // style was still loading.
-                if (cancelled || mapRef.current !== map) return;
-                map.setStyle(asyncStyle as maplibregl.StyleSpecification);
+                if (cancelled) return;
+                map.setStyle(asyncStyle);
             });
         } else {
             map.setStyle(buildSyncStyle(layerData));
@@ -125,18 +136,17 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
         return () => {
             cancelled = true;
         };
-    }, [ layerData ]);
+    }, [ map, layerData ]);
 
     // React to coordinate changes.
     useEffect(() => {
-        if (!mapRef.current) return;
-        mapRef.current.setCenter(toCenter(coordinates));
-        mapRef.current.setZoom(zoom);
-    }, [ coordinates, zoom ]);
+        if (!map) return;
+        map.setCenter(toCenter(coordinates));
+        map.setZoom(zoom);
+    }, [ map, coordinates, zoom ]);
 
     // Viewport callback. MapLibre fires "moveend" for every camera change, including zooming.
     useEffect(() => {
-        const map = mapRef.current;
         if (!map) return;
 
         const updateFn = () => {
@@ -148,58 +158,36 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
         return () => {
             map.off("moveend", updateFn);
         };
-    }, [ viewportChanged ]);
+    }, [ map, viewportChanged ]);
 
     useEffect(() => {
-        const map = mapRef.current;
         if (!onClick || !map) return;
 
-        const handler = (e: maplibregl.MapMouseEvent) => onClick(toGeoMouseEvent(e));
+        const handler = (e: MapMouseEvent) => onClick(toGeoMouseEvent(e));
         map.on("click", handler);
         return () => { map.off("click", handler); };
-    }, [ onClick ]);
-
-    useEffect(() => {
-        const map = mapRef.current;
-        if (!onContextMenu || !map) return;
-
-        const handler = (e: maplibregl.MapMouseEvent) => {
-            e.preventDefault();
-            onContextMenu(toGeoMouseEvent(e));
-        };
-        map.on("contextmenu", handler);
-        return () => { map.off("contextmenu", handler); };
-    }, [ onContextMenu ]);
-
-    useEffect(() => {
-        const map = mapRef.current;
-        if (!onZoom || !map) return;
-
-        map.on("zoom", onZoom);
-        return () => { map.off("zoom", onZoom); };
-    }, [ onZoom ]);
+    }, [ map, onClick ]);
 
     // Scale
     useEffect(() => {
-        const map = mapRef.current;
         if (!scale || !map) return;
-        const scaleControl = new maplibregl.ScaleControl();
+        const scaleControl = new ScaleControl();
         map.addControl(scaleControl);
         return () => { map.removeControl(scaleControl); };
-    }, [ scale ]);
+    }, [ map, scale ]);
 
     // Adapt to container size changes.
     const size = useElementSize(containerRef);
     useEffect(() => {
-        mapRef.current?.resize();
-    }, [ size?.width, size?.height ]);
+        map?.resize();
+    }, [ map, size?.width, size?.height ]);
 
     return (
         <div
             ref={containerRef}
             className={`geo-map-container ${layerData.isDarkTheme ? "dark" : ""}`}
         >
-            <ParentMap.Provider value={mapRef.current}>
+            <ParentMap.Provider value={map}>
                 {children}
             </ParentMap.Provider>
         </div>

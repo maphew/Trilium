@@ -1,11 +1,10 @@
-import type { GeoMouseEvent } from "./map";
-
 import FNote from "../../../entities/fnote";
 import attributes from "../../../services/attributes";
 import { prompt } from "../../../services/dialog";
 import { t } from "../../../services/i18n";
 import note_create from "../../../services/note_create";
-import { LOCATION_ATTRIBUTE } from ".";
+import type { GeoMouseEvent } from "./map";
+import { LOCATION_ATTRIBUTE } from "./Markers";
 
 const CHILD_NOTE_ICON = "bx bx-pin";
 

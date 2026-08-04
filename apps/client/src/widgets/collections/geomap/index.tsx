@@ -1,9 +1,8 @@
 import "./index.css";
 
+import type { Map as MapLibreGLMap } from "maplibre-gl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
-import type maplibregl from "maplibre-gl";
 
-import appContext from "../../../components/app_context";
 import FNote from "../../../entities/fnote";
 import branches from "../../../services/branches";
 import froca from "../../../services/froca";
@@ -18,14 +17,17 @@ import { ButtonOrActionButton } from "../../react/Button";
 import { useCollectionTreeDrag, useNoteBlob, useNoteLabel, useNoteLabelBoolean, useNoteProperty, useSpacedUpdate, useTriliumEvent } from "../../react/hooks";
 import { ViewModeProps } from "../interface";
 import { createNewNote, moveMarker } from "./api";
-import openContextMenu, { openMapContextMenu } from "./context_menu";
+import ContextMenus from "./ContextMenus";
+import { GpxTrack } from "./GpxTrack";
 import Map, { GeoMouseEvent } from "./map";
 import { DEFAULT_MAP_LAYER_NAME, MAP_LAYERS, MapLayer } from "./map_layer";
-import Marker, { GpxTrack } from "./marker";
+import Markers, { LOCATION_ATTRIBUTE } from "./Markers";
+import Tooltips from "./Tooltips";
 
 const DEFAULT_COORDINATES: [number, number] = [3.878638227135724, 446.6630455551659];
 const DEFAULT_ZOOM = 2;
-export const LOCATION_ATTRIBUTE = "geolocation";
+
+export { LOCATION_ATTRIBUTE };
 
 interface MapData {
     view?: {
@@ -108,13 +110,9 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
         }
     }, [ note, state ]);
 
-    const onContextMenu = useCallback((e: GeoMouseEvent) => {
-        openMapContextMenu(note, e, !isReadOnly);
-    }, [ note, isReadOnly ]);
-
     // Dragging
     const containerRef = useRef<HTMLDivElement>(null);
-    const apiRef = useRef<maplibregl.Map>(null);
+    const apiRef = useRef<MapLibreGLMap>(null);
     useCollectionTreeDrag(containerRef, {
         dragEnabled: !isReadOnly,
         includeArchived,
@@ -171,10 +169,12 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                     spacedUpdate.scheduleUpdate();
                 }}
                 onClick={onClick}
-                onContextMenu={onContextMenu}
                 scale={hasScale}
             >
-                {notes.map(note => <NoteWrapper note={note} isReadOnly={isReadOnly} hideLabels={hideLabels} />)}
+                <Tooltips />
+                <ContextMenus note={note} isReadOnly={isReadOnly} />
+                <Markers notes={notes} hideLabels={hideLabels} />
+                {notes.map(note => <NoteGpxTrackWrapper note={note} hideLabels={hideLabels} />)}
             </Map>}
         </div>
     );
@@ -212,64 +212,20 @@ function ToggleReadOnlyButton({ note }: { note: FNote }) {
     />;
 }
 
-function NoteWrapper({ note, isReadOnly, hideLabels }: {
-    note: FNote,
-    isReadOnly: boolean,
-    hideLabels: boolean
-}) {
+/**
+ * A GPX note's track, where the note is one.
+ *
+ * Only tracks are rendered a component apiece: a note that merely carries a location is drawn into
+ * the shared symbol layer instead (see {@link Markers}).
+ */
+function NoteGpxTrackWrapper({ note, hideLabels }: { note: FNote, hideLabels: boolean }) {
     const mime = useNoteProperty(note, "mime");
-    const [ location ] = useNoteLabel(note, LOCATION_ATTRIBUTE);
 
-    if (mime === "application/gpx+xml") {
-        return <NoteGpxTrack note={note} hideLabels={hideLabels} />;
+    if (mime !== "application/gpx+xml") {
+        return null;
     }
 
-    if (location) {
-        const latLng = location?.split(",", 2).map((el) => parseFloat(el)) as [ number, number ] | undefined;
-        if (!latLng) return;
-        return <NoteMarker note={note} editable={!isReadOnly} latLng={latLng} hideLabels={hideLabels} />;
-    }
-}
-
-function NoteMarker({ note, editable, latLng, hideLabels }: { note: FNote, editable: boolean, latLng: [number, number], hideLabels: boolean }) {
-    // Subscribed for re-rendering only: the icon and colour reach useIconHtml through the values
-    // derived from them (note.getIcon(), note.getColorClass()).
-    useNoteLabel(note, "color");
-    useNoteLabel(note, "iconClass");
-    const [ archived ] = useNoteLabelBoolean(note, "archived");
-
-    const title = useNoteProperty(note, "title");
-    const iconHtml = useIconHtml(note.getIcon(), note.getColorClass() ?? undefined, hideLabels ? undefined : title, note.noteId, archived);
-
-    const onClick = useCallback(() => {
-        appContext.triggerCommand("openInPopup", { noteIdOrPath: note.noteId });
-    }, [ note.noteId ]);
-
-    // Middle click to open in new tab
-    const onMouseDown = useCallback((e: MouseEvent) => {
-        if (e.button === 1) {
-            const hoistedNoteId = appContext.tabManager.getActiveContext()?.hoistedNoteId;
-            appContext.tabManager.openInNewTab(note.noteId, hoistedNoteId);
-            return true;
-        }
-    }, [ note.noteId ]);
-
-    const onDragged = useCallback((newCoordinates: { lat: number; lng: number }) => {
-        moveMarker(note.noteId, newCoordinates);
-    }, [ note.noteId ]);
-
-    const onContextMenu = useCallback((e: GeoMouseEvent) => openContextMenu(note.noteId, e, editable), [ note.noteId, editable ]);
-
-    return latLng && iconHtml && <Marker
-        coordinates={latLng}
-        iconHtml={iconHtml}
-        iconSize={[25, 41]}
-        draggable={editable}
-        onMouseDown={onMouseDown}
-        onDragged={editable ? onDragged : undefined}
-        onClick={!editable ? onClick : undefined}
-        onContextMenu={onContextMenu}
-    />;
+    return <NoteGpxTrack note={note} hideLabels={hideLabels} />;
 }
 
 function NoteGpxTrack({ note, hideLabels }: { note: FNote, hideLabels?: boolean }) {
