@@ -1,3 +1,4 @@
+import $ from "jquery";
 import { render } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -8,6 +9,7 @@ import type FNote from "../../../entities/fnote";
 import attributes from "../../../services/attributes";
 import froca from "../../../services/froca";
 import link from "../../../services/link";
+import server from "../../../services/server";
 import { buildNote } from "../../../test/easy-froca";
 import { useNoteContext, useTriliumEvent } from "../../react/hooks";
 import { ParentComponent } from "../../react/react_utils";
@@ -42,6 +44,12 @@ vi.mock("../../NoteDetail", () => ({
         );
     }
 }));
+
+// A promoted text field suggests what other notes hold under its name, asked for through the Algolia
+// jQuery plugin and answered by the server. Neither is loaded here.
+type PluggedIn = { autocomplete(...args: unknown[]): PluggedIn };
+($.fn as unknown as PluggedIn).autocomplete = function (this: PluggedIn) { return this; };
+server.get = (async () => []) as unknown as typeof server.get;
 
 /** What a marker click hands the handler, and what the pane reads the note out of. */
 type Listener = (e?: unknown) => void;
@@ -390,6 +398,40 @@ describe("DetailPane", () => {
             expect(editorAskedToSave).toHaveBeenCalledWith({ ntxIds: [ "_geo-detail-pane" ] });
             expect(pane()).toBeNull();
         });
+    });
+
+    /**
+     * A marker is very often a note whose fields say more about the place than its content does — the
+     * grid of them is the quick editor's, standing where the quick editor puts it.
+     */
+    it("offers the note's own promoted fields, and none where a note promotes none", async () => {
+        buildNote({ id: "root", title: "root", children: [
+            {
+                id: "somewhere",
+                title: "Somewhere",
+                "#geolocation": "1,2",
+                "#label:visited": "promoted,single,text",
+                "#visited": "2026-08-04"
+            },
+            { id: "elsewhere", title: "Elsewhere", "#geolocation": "3,4" }
+        ] });
+        const map = fakeMap();
+        await mount([ froca.notes["somewhere"], froca.notes["elsewhere"] ], map);
+
+        map.setUnderPointer([ markerFeature(froca.notes["somewhere"]) ]);
+        await act(async () => map.click());
+        await settle();
+
+        const cell = pane()?.querySelector(".promoted-attribute-cell");
+        expect(cell?.querySelector("label")?.textContent).toBe("visited");
+        expect(cell?.querySelector<HTMLInputElement>("input")?.value).toBe("2026-08-04");
+
+        // Moving between markers is a note switch within the standing pane, so the fields follow it.
+        map.setUnderPointer([ markerFeature(froca.notes["elsewhere"], [ 4, 3 ]) ]);
+        await act(async () => map.click());
+        await settle();
+
+        expect(pane()?.querySelector(".promoted-attribute-cell")).toBeNull();
     });
 
     describe("taking the marker off the map", () => {

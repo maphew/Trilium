@@ -13,6 +13,7 @@ import TitleRow from "../../layout/TitleRow";
 import NoteDetail from "../../NoteDetail";
 import ActionButton from "../../react/ActionButton";
 import { useNoteLabel } from "../../react/hooks";
+import PromotedAttributes from "../../PromotedAttributes";
 import OverlayPanel, { OverlayPanelBody } from "../../react/OverlayPanel";
 import { NoteContextContext, ParentComponent } from "../../react/react_utils";
 import { moveMarker } from "./api";
@@ -155,6 +156,11 @@ function MarkerDetails({ note, isReadOnly, onClose }: { note: FNote; isReadOnly:
         >
             <OverlayPanelBody className="geo-detail-pane-body">
                 <MarkerActions note={note} isReadOnly={isReadOnly} />
+
+                {/* Whatever fields the note's own definitions ask for, ahead of the note as the quick
+                    editor puts them — a marker is often a note whose type says less about it than
+                    its fields do. Nothing at all is shown for a note that promotes none. */}
+                <PromotedAttributes />
 
                 {/* The note itself, drawn by whichever widget its type calls for — the same one the
                     quick editor mounts, so a marker is written in exactly as it is anywhere else.
