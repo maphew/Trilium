@@ -11,57 +11,211 @@
 }
 
 .geo-map-container {
+  /* How far everything standing over the map is held off its edges: the toolbar (see
+     MapToolbar.css) and MapLibre's own scale and attribution below. Settled here so that the two
+     agree, and matching the room the mind map gives its bars (see MindMap.css). */
+  --geo-map-inset: 20px;
+
+  /*
+   * What everything standing over the map is dressed in — our own bar and MapLibre's scale and
+   * attribution alike, so that the three read as one set rather than as ours beside theirs. The
+   * app's menu surface, which is what every panel floating over content in Trilium is drawn on
+   * (see OverlayToolbar.css); the map's furniture asks for it by these names, and the bar has them
+   * handed to it under the names the shared component reads (see MapToolbar.css).
+   *
+   * Thinner than a menu's, though, and that is the whole of the difference: a menu is opened over a
+   * page that is mostly one flat colour, where 85% of that colour over the rest of it is glass
+   * enough. These stand over a picture. At the same fill the frosting behind them (see below) has
+   * nothing left to show — on a dark map especially, where what little comes through is dark to
+   * begin with — and a panel meant to look like glass reads as a chip of plastic laid on the map.
+   * Two thirds of the fill leaves the streets under it as shapes rather than as detail, which is
+   * what a frosted pane does, and still carries text at the size these are set in.
+   */
+  --geo-map-panel-fill: 66%;
+  --geo-map-panel-background: color-mix(in srgb, var(--menu-background-color) var(--geo-map-panel-fill), transparent);
+  --geo-map-panel-text-color: var(--menu-text-color);
+  --geo-map-panel-border-color: var(--dropdown-border-color);
+  --geo-map-panel-hover-background: var(--icon-button-hover-background);
+  --geo-map-panel-hover-text-color: var(--hover-item-text-color);
+  --geo-map-panel-active-background: var(--active-item-background-color);
+  --geo-map-panel-active-text-color: var(--active-item-text-color);
+
   height: 100%;
   overflow: hidden;
 
   .maplibregl-canvas-container {
     position: relative;
   }
+
+  /* MapLibre holds its controls 10px off the edge, which is half of what everything else over the
+     map keeps to; only the foot of the map carries any (the scale and the attribution). */
+  .maplibregl-ctrl-bottom-left .maplibregl-ctrl,
+  .maplibregl-ctrl-bottom-right .maplibregl-ctrl {
+    margin-bottom: var(--geo-map-inset);
+    margin-inline: var(--geo-map-inset);
+  }
 }
 
-.leaflet-pane {
-  z-index: 1;
+/*
+ * On a dark map everything standing over it goes dark too, whatever the app itself is wearing — a
+ * built-in dark style or one a note has said is dark (`#map:darkStyle`, see `useLayerData`). A pale
+ * panel over a dark map is a lamp standing in the corner of it: the eye goes to the panel rather
+ * than to what the panel is for.
+ *
+ * The colours are ones the app already keeps dark in both of its themes — what a tooltip is drawn in
+ * — so this follows the theme rather than setting up a second one beside it. The hairline and the
+ * hover are the dark surface's own, the theme's being settled against a background these panels no
+ * longer have: its light-theme border would ring a dark panel in white, and its hover would put dark
+ * text on a dark fill.
+ *
+ * Only what we dress is dressed: a marker's preview is the app's own note tooltip, and it belongs to
+ * the app rather than to the map, so it is left in the theme the reader chose.
+ */
+.geo-map-container.dark {
+  --geo-map-panel-background: color-mix(in srgb, var(--tooltip-background-color) var(--geo-map-panel-fill), transparent);
+  --geo-map-panel-text-color: var(--tooltip-foreground-color);
+  --geo-map-panel-border-color: rgb(255 255 255 / 15%);
+  --geo-map-panel-hover-background: rgb(255 255 255 / 12%);
+  --geo-map-panel-hover-text-color: var(--tooltip-foreground-color);
+  --geo-map-panel-active-background: rgb(255 255 255 / 22%);
+  --geo-map-panel-active-text-color: var(--tooltip-foreground-color);
 }
 
-.leaflet-top,
-.leaflet-bottom {
-  z-index: 997 !important;
+/*
+ * MapLibre's own furniture, dressed as the bar opposite it is.
+ *
+ * It ships them as white boxes with hairlines of their own and nothing to switch: there is no dark
+ * mode in maplibre-gl.css, only literal colours (the scale a white fill with a `#333` rule around
+ * it, the attribution a flat white pill), so the only way for them to belong to the map they stand
+ * on is to be dressed here. Selectors carry both of the control's own classes, which is what it
+ * takes to outweigh MapLibre's `.maplibregl-ctrl-attrib.maplibregl-compact` without `!important`.
+ */
+.geo-map-container .maplibregl-ctrl.maplibregl-ctrl-scale,
+.geo-map-container .maplibregl-ctrl.maplibregl-ctrl-attrib {
+  background: var(--geo-map-panel-background);
+  color: var(--geo-map-panel-text-color);
+  border: 1px solid var(--geo-map-panel-border-color);
+  border-radius: 8px;
+  box-shadow: 0 2px 8px #0003;
+  /* The frosting the bar opposite wears, which is a menu's (see OverlayToolbar.css). */
+  backdrop-filter: var(--dropdown-backdrop-filter, blur(10px));
+}
+
+/* The scale is a ruler as much as a label: its width says what the distance is worth, so it keeps
+   the room MapLibre gives its text rather than being squeezed into a chip. */
+.geo-map-container .maplibregl-ctrl.maplibregl-ctrl-scale {
+  padding: 1px 6px;
+}
+
+/* Folded into a corner, and unfolded there, the attribution is rounded further by MapLibre than our
+   panels are (12px against 8px) — by rules as specific as the one above, so its corners are asked
+   for once more with a class to spare. */
+.geo-map-container .maplibregl-ctrl.maplibregl-ctrl-attrib.maplibregl-compact,
+.geo-map-container .maplibregl-ctrl.maplibregl-ctrl-attrib.maplibregl-compact-show {
+  border-radius: 8px;
+}
+
+/* The links are the attribution — every word of it but the separators — so they are the text rather
+   than something coloured apart from it, and say they can be followed when pointed at. */
+.geo-map-container .maplibregl-ctrl-attrib a {
+  color: inherit;
+}
+
+.geo-map-container .maplibregl-ctrl-attrib a:hover {
+  color: inherit;
+  text-decoration: underline;
+}
+
+/*
+ * The mark on the button that folds the attribution away, drawn as the mask of a shape filled with
+ * the panel's own colour rather than as the picture MapLibre paints there.
+ *
+ * That picture is a black glyph baked into a data URI, so on a dark panel it is a black mark on a
+ * dark ground with no way to recolour it — and inverting it would be a guess at which panels are
+ * dark. Worn as a mask it takes whatever colour the panel is wearing, in either theme and on either
+ * kind of map. The shape is MapLibre's own (BSD-3-Clause, © MapLibre contributors), the very one it
+ * would have drawn.
+ *
+ * Named by four of its classes, which is what it takes to outweigh the faint black MapLibre washes
+ * the button with while the attribution is unfolded — three classes of its own, and enough to leave
+ * the mark filled with a colour that cannot be seen against anything.
+ */
+.geo-map-container .maplibregl-ctrl-attrib.maplibregl-compact .maplibregl-ctrl-attrib-button {
+  background-color: currentColor;
+  background-image: none;
+  -webkit-mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill-rule='evenodd' viewBox='0 0 20 20'%3E%3Cpath d='M4 10a6 6 0 1 0 12 0 6 6 0 1 0-12 0m5-3a1 1 0 1 0 2 0 1 1 0 1 0-2 0m0 3a1 1 0 1 1 2 0v3a1 1 0 1 1-2 0'/%3E%3C/svg%3E");
+  mask-image: url("data:image/svg+xml;charset=utf-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' fill-rule='evenodd' viewBox='0 0 20 20'%3E%3Cpath d='M4 10a6 6 0 1 0 12 0 6 6 0 1 0-12 0m5-3a1 1 0 1 0 2 0 1 1 0 1 0-2 0m0 3a1 1 0 1 1 2 0v3a1 1 0 1 1-2 0'/%3E%3C/svg%3E");
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
 }
 
 .geo-view.placing-note .geo-map-container {
   cursor: crosshair;
 }
 
-.geo-map-container .marker-pin {
+/* The marker preview is the app's own note tooltip (see Tooltips), so the popup around it is taken
+   back to nothing — otherwise the tooltip, chrome and all, would sit inside a second box of
+   MapLibre's own, white on every theme and with its own padding, corners and shadow. */
+.marker-tooltip .maplibregl-popup-content {
+  padding: 0;
+  background: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Drawn in a hard white by MapLibre, and the tooltip it would point at hides its own arrow anyway. */
+.marker-tooltip .maplibregl-popup-tip {
+  display: none;
+}
+
+/* Bootstrap positions a tooltip absolutely, which here would take the preview out of the popup's
+   flow and collapse the box the popup is sized and placed by — MapLibre already places it. Still
+   positioned, though, so that the quick-edit button, which is pinned to the corner of the tooltip,
+   still has that tooltip to be pinned to. */
+.marker-tooltip .tooltip {
   position: relative;
 }
 
-.geo-map-container .leaflet-div-icon {
-  position: relative;
-  background: transparent;
-  border: 0;
+/* No `position` here: MapLibre positions markers itself with `.maplibregl-marker`'s
+   `position: absolute` + a transform, and this more specific selector would override it back to
+   `relative`, dropping every marker into the canvas container's normal flow — each one then sits
+   41px (a marker height) lower than the previous, so the marker added last lands furthest below its
+   coordinate. `absolute` is a positioned box too, so the badge and label below still anchor here. */
+.geo-map-container .geo-marker {
+  cursor: pointer;
   overflow: visible;
 }
 
-.geo-map-container .leaflet-div-icon .icon-shadow {
-  position: absolute;
-  top: 0;
-  inset-inline-start: 0;
-  z-index: -1;
+.geo-map-container .geo-marker .marker-pin {
+  position: relative;
 }
 
-.geo-map-container .leaflet-div-icon .tn-icon {
+/* The same shadow the pins in the symbol layer are drawn with (see drawMarkerImage), expressed the
+   CSS way — its blur radius is twice the filter's standard deviation. */
+.geo-map-container .geo-marker .marker-pin svg {
+  display: block;
+  filter: drop-shadow(0 1.5px 3px rgba(0, 0, 0, 0.35));
+}
+
+/* Cut straight out of the pin — no disc behind it, so only the note's colour is seen. */
+.geo-map-container .geo-marker .tn-icon {
   position: absolute;
-  top: 3px;
-  inset-inline-start: 2px;
-  background-color: white;
-  color: var(--light-theme-custom-color, black);
-  padding: 2px;
-  border-radius: 50%;
+  top: 4px;
+  inset-inline-start: 4px;
+  color: white;
   font-size: 17px;
 }
 
-.geo-map-container .leaflet-div-icon .title-label {
+/* The icon drawn as a picture (see buildIconHtml): sized as the span's glyph was. */
+.geo-map-container .geo-marker img.tn-icon {
+  width: 17px;
+  height: 17px;
+  display: block;
+}
+
+.geo-map-container .geo-marker .title-label {
   display: block;
   position: absolute;
   top: 100%;
@@ -69,24 +223,27 @@
   transform: translateX(-50%);
   font-size: 0.75rem;
   height: 1rem;
-  color: black;
+  --label-halo: rgba(255, 255, 255, 0.8);
+  color: #333;
   width: 100px;
   text-align: center;
   text-overflow: ellipsis;
-  text-shadow: -1px -1px 0 white, 1px -1px 0 white, -1px 1px 0 white, 1px 1px 0 white;
-  white-space: no-wrap;
+  /* The soft glow the titles in the symbol layer are haloed with (see Markers), stacked because one
+     blurred shadow alone is too faint to hold the text apart from a busy map. */
+  text-shadow: 0 0 2px var(--label-halo), 0 0 2px var(--label-halo), 0 0 4px var(--label-halo);
+  white-space: nowrap;
   overflow: hidden;
 }
 
-body[dir=rtl] .geo-map-container .leaflet-div-icon .title-label {
+body[dir=rtl] .geo-map-container .geo-marker .title-label {
   transform: translateX(50%);
 }
 
-.geo-map-container .leaflet-div-icon .archived {
+.geo-map-container .geo-marker .archived {
   opacity: 0.5;
 }
 
-.geo-map-container.dark .leaflet-div-icon .title-label {
+.geo-map-container.dark .geo-marker .title-label {
+  --label-halo: rgba(0, 0, 0, 0.8);
   color: white;
-  text-shadow: -1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black;
 }

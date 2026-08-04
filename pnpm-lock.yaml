@@ -83,8 +83,6 @@ overrides:
 
 patchedDependencies:
   '@excalidraw/excalidraw@0.18.1': 859531a8ff622291b895d36bcd33e07ced6fcb3bcc90631ccaf776789b03f0c2
-  '@maplibre/maplibre-gl-leaflet@0.1.3': c30b921f19820021e9c5c23d64378cbdf3dfba379cd4b5daff8a3f1f8b3578d5
-  leaflet@1.9.4: 124bf3dd7f7c9674e69724570d6727af9dea5b99a30a56a6e4573a95c49c4402
 
 importers:
 
@@ -217,9 +215,6 @@ importers:
       '@fullcalendar/timegrid':
         specifier: 6.1.21
         version: 6.1.21(@fullcalendar/core@6.1.21(preact-render-to-string@6.7.0))
-      '@maplibre/maplibre-gl-leaflet':
-        specifier: 0.1.3
-        version: 0.1.3(patch_hash=c30b921f19820021e9c5c23d64378cbdf3dfba379cd4b5daff8a3f1f8b3578d5)(@types/leaflet@1.9.21)(leaflet@1.9.4(patch_hash=124bf3dd7f7c9674e69724570d6727af9dea5b99a30a56a6e4573a95c49c4402))(maplibre-gl@5.24.0)
       '@mermaid-js/layout-elk':
         specifier: 0.2.2
         version: 0.2.2(mermaid@11.16.0)
@@ -322,12 +317,9 @@ importers:
       katex:
         specifier: 0.18.1
         version: 0.18.1
-      leaflet:
-        specifier: 1.9.4
-        version: 1.9.4(patch_hash=124bf3dd7f7c9674e69724570d6727af9dea5b99a30a56a6e4573a95c49c4402)
-      leaflet-gpx:
-        specifier: 2.2.0
-        version: 2.2.0
+      maplibre-gl:
+        specifier: 5.24.0
+        version: 5.24.0
       mark.js:
         specifier: 8.11.1
         version: 8.11.1
@@ -389,12 +381,6 @@ importers:
       '@types/jquery':
         specifier: 4.0.1
         version: 4.0.1
-      '@types/leaflet':
-        specifier: 1.9.21
-        version: 1.9.21
-      '@types/leaflet-gpx':
-        specifier: 1.3.8
-        version: 1.3.8
       '@types/mark.js':
         specifier: 8.11.12
         version: 8.11.12
@@ -848,9 +834,6 @@ importers:
       '@fullcalendar/timegrid':
         specifier: 6.1.21
         version: 6.1.21(@fullcalendar/core@6.1.21(preact-render-to-string@6.7.0))
-      '@maplibre/maplibre-gl-leaflet':
-        specifier: 0.1.3
-        version: 0.1.3(patch_hash=c30b921f19820021e9c5c23d64378cbdf3dfba379cd4b5daff8a3f1f8b3578d5)(@types/leaflet@1.9.21)(leaflet@1.9.4(patch_hash=124bf3dd7f7c9674e69724570d6727af9dea5b99a30a56a6e4573a95c49c4402))(maplibre-gl@5.24.0)
       '@mermaid-js/layout-elk':
         specifier: 0.2.2
         version: 0.2.2(mermaid@11.16.0)
@@ -944,12 +927,9 @@ importers:
       katex:
         specifier: 0.18.1
         version: 0.18.1
-      leaflet:
-        specifier: 1.9.4
-        version: 1.9.4(patch_hash=124bf3dd7f7c9674e69724570d6727af9dea5b99a30a56a6e4573a95c49c4402)
-      leaflet-gpx:
-        specifier: 2.2.0
-        version: 2.2.0
+      maplibre-gl:
+        specifier: 5.24.0
+        version: 5.24.0
       mark.js:
         specifier: 8.11.1
         version: 8.11.1
@@ -1008,12 +988,6 @@ importers:
       '@types/jquery':
         specifier: 4.0.1
         version: 4.0.1
-      '@types/leaflet':
-        specifier: 1.9.21
-        version: 1.9.21
-      '@types/leaflet-gpx':
-        specifier: 1.3.8
-        version: 1.3.8
       '@types/mark.js':
         specifier: 8.11.12
         version: 8.11.12
@@ -3542,13 +3516,6 @@ packages:
   '@maplibre/geojson-vt@6.1.1':
     resolution: {integrity: sha512-FVMOcmSP/yqol45t7StApEyTL5/vmqBCuFhH9n+fFuINenhaX+YgHHIt1yJ86S8kln3uJLcMvmEU2cfn6E2eCQ==}
 
-  '@maplibre/maplibre-gl-leaflet@0.1.3':
-    resolution: {integrity: sha512-9+hp1PSJcxuuj5/Zta9zbQ8+ZvN4doWXPtlY7ikNtUZY1VbkamY0uTqzHp9kxRPqpgeKGrI7MjzXvwzU88wWCw==}
-    peerDependencies:
-      '@types/leaflet': ^1.9.0
-      leaflet: ^1.9.3
-      maplibre-gl: ^2.4.0 || ^3.3.1 || ^4.3.2 || ^5.0.0
-
   '@maplibre/maplibre-gl-style-spec@24.10.0':
     resolution: {integrity: sha512-lichxSiagMEBBrqHF0trtMQH9RKh+9jUlIJl0qW0QHvt2H/tbvUWdE+ZzI2Jd0/pT7j/iavLonlPu7EQ/ixTOw==}
     hasBin: true
@@ -5053,12 +5020,6 @@ packages:
 
   '@types/keyv@3.1.4':
     resolution: {integrity: sha512-BQ5aZNSCpj7D6K2ksrRCTmKRLEpnPvWDiLPfoGyhZ++8YtiK9d/3DBKPJgry359X/P1PfruyYwvnvwFjuEiEIg==}
-
-  '@types/leaflet-gpx@1.3.8':
-    resolution: {integrity: sha512-woIh3APM4FbrEQ+go3yaa4k5j4yn49YLVa1xfSB+T5aYwJn+O3pYhBBQvuxQJW68jpjcaAX/PTJRJLFJ+XT6ow==}
-
-  '@types/leaflet@1.9.21':
-    resolution: {integrity: sha512-TbAd9DaPGSnzp6QvtYngntMZgcRk+igFELwR2N99XZn7RXUdKgsXMR+28bUO0rPsWp8MIu/f47luLIQuSLYv/w==}
 
   '@types/mark.js@8.11.12':
     resolution: {integrity: sha512-244ZnaIBpz4c6xutliAnYVZp6xJlmC569jZqnR3ElO1Y01ooYASSVQEqpd2x0A2UfrgVMs5V9/9tUAdZaDMytQ==}
@@ -9174,12 +9135,6 @@ packages:
 
   leac@0.7.0:
     resolution: {integrity: sha512-qMrZeyEekgdRQ9o6a4NAB2EQZrv827GJdn1vnapwSJ90hWRB4TzUSunvacPkxQ2TnNqHNI1/zSt0hlo0crG8Jw==}
-
-  leaflet-gpx@2.2.0:
-    resolution: {integrity: sha512-iVUx6o0ydLn2ikYSVLuWnr0k/CDAOIUtmvQ91AI24/PXuIFIb+iEIJMHTQfvGhMCKcFrwd9ZaFYH7P/46tgGhw==}
-
-  leaflet@1.9.4:
-    resolution: {integrity: sha512-nxS1ynzJOmOlHp+iL3FyWqK89GtNL8U8rvlMOsQdTTssxZwCXh8N2NB3GDQOL+YR3XnWyZAxwQixURb+FA74PA==}
 
   levn@0.4.1:
     resolution: {integrity: sha512-+bT2uH4E5LGE7h/n3evcS/sQlJXCpIp6ym8OWJ5eV6+67Dsql/LaaT7qJBAt2rzfoa/5QBGBhxDix1dMt2kQKQ==}
@@ -15454,12 +15409,6 @@ snapshots:
     dependencies:
       kdbush: 4.1.0
 
-  '@maplibre/maplibre-gl-leaflet@0.1.3(patch_hash=c30b921f19820021e9c5c23d64378cbdf3dfba379cd4b5daff8a3f1f8b3578d5)(@types/leaflet@1.9.21)(leaflet@1.9.4(patch_hash=124bf3dd7f7c9674e69724570d6727af9dea5b99a30a56a6e4573a95c49c4402))(maplibre-gl@5.24.0)':
-    dependencies:
-      '@types/leaflet': 1.9.21
-      leaflet: 1.9.4(patch_hash=124bf3dd7f7c9674e69724570d6727af9dea5b99a30a56a6e4573a95c49c4402)
-      maplibre-gl: 5.24.0
-
   '@maplibre/maplibre-gl-style-spec@24.10.0':
     dependencies:
       '@mapbox/jsonlint-lines-primitives': 2.0.3
@@ -16783,14 +16732,6 @@ snapshots:
   '@types/keyv@3.1.4':
     dependencies:
       '@types/node': 24.13.3
-
-  '@types/leaflet-gpx@1.3.8':
-    dependencies:
-      '@types/leaflet': 1.9.21
-
-  '@types/leaflet@1.9.21':
-    dependencies:
-      '@types/geojson': 7946.0.16
 
   '@types/mark.js@8.11.12':
     dependencies:
@@ -22492,10 +22433,6 @@ snapshots:
       readable-stream: 2.3.8
 
   leac@0.7.0: {}
-
-  leaflet-gpx@2.2.0: {}
-
-  leaflet@1.9.4(patch_hash=124bf3dd7f7c9674e69724570d6727af9dea5b99a30a56a6e4573a95c49c4402): {}
 
   levn@0.4.1:
     dependencies:

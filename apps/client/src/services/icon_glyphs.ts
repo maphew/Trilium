@@ -197,45 +197,14 @@ export function drawIconGlyph(glyph: IconGlyph, { size, color, scale }: Required
     context.font = `${size}px ${glyph.fontFamily}`;
     context.fillStyle = color;
 
-    const placement = placeGlyph(context.measureText(glyph.content), size);
-    context.textAlign = placement.textAlign;
-    context.textBaseline = placement.textBaseline;
-    context.fillText(glyph.content, placement.x, placement.y);
+    // The glyph's own box goes in the middle, which is where the stylesheet puts it everywhere else
+    // it is drawn. Measuring the ink and centring that instead is not portable: browsers do not
+    // answer `actualBoundingBox*` alike, and the same icon came out pixels apart between them.
+    context.textAlign = "center";
+    context.textBaseline = "middle";
+    context.fillText(glyph.content, size / 2, size / 2);
 
     return canvas.toDataURL();
-}
-
-/**
- * Where a glyph of the given measurements is written for its ink to sit in the middle of the square.
- *
- * An icon font fills its own line box as it pleases — the character is a drawing, not a letter, and
- * nothing holds it to the shape of one — so a glyph written on the middle line of the square lands
- * wherever the pack happened to draw it. Measuring the ink itself and centring that instead is what
- * keeps a row of icons from wandering up and down.
- *
- * Where the browser will not say how far the ink reaches, the glyph is centred on the square as a
- * letter would be, which is right often enough and is all there is to go on.
- */
-export function placeGlyph(metrics: TextMetrics, size: number) {
-    const left = metrics.actualBoundingBoxLeft;
-    const right = metrics.actualBoundingBoxRight;
-    const ascent = metrics.actualBoundingBoxAscent;
-    const descent = metrics.actualBoundingBoxDescent;
-
-    const width = left + right;
-    const height = ascent + descent;
-    if (!(width > 0) || !(height > 0) || !Number.isFinite(width) || !Number.isFinite(height)) {
-        return { x: size / 2, y: size / 2, textAlign: "center", textBaseline: "middle" } as const;
-    }
-
-    // The ink runs from `x - left` to `x + right`, and is centred when the first of those is at half
-    // of what the square has left over. The same holds of the ascent going up from the baseline.
-    return {
-        x: (size - width) / 2 + left,
-        y: (size - height) / 2 + ascent,
-        textAlign: "start",
-        textBaseline: "alphabetic"
-    } as const;
 }
 
 /** The display's density, as a number a drawing can be scaled by even where there is no window. */

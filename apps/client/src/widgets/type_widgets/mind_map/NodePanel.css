@@ -24,7 +24,8 @@
     border: 1px solid var(--dropdown-border-color);
     border-radius: 8px;
     box-shadow: 0 2px 8px #0003;
-    backdrop-filter: blur(10px);
+    /* The frosting the bars beside it wear, which is a menu's (see OverlayToolbar.css). */
+    backdrop-filter: var(--dropdown-backdrop-filter, blur(10px));
 }
 
 /* On a screen of its own the panel starts where the map does, there being no note buttons over it

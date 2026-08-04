@@ -1,15 +1,14 @@
 import "./index.css";
 
-import { divIcon, GPXOptions, LatLng, LeafletMouseEvent } from "leaflet";
-import markerIcon from "leaflet/dist/images/marker-icon.png";
-import markerIconShadow from "leaflet/dist/images/marker-shadow.png";
+import type { Map as MapLibreGLMap } from "maplibre-gl";
 import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
-import appContext from "../../../components/app_context";
 import FNote from "../../../entities/fnote";
 import branches from "../../../services/branches";
+import { getReadableTextColor } from "../../../services/css_class_manager";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
+import { renderIconImage } from "../../../services/icon_glyphs";
 import server from "../../../services/server";
 import toast from "../../../services/toast";
 import { escapeHtml } from "../../../services/utils";
@@ -19,33 +18,52 @@ import { ButtonOrActionButton } from "../../react/Button";
 import { useCollectionTreeDrag, useNoteBlob, useNoteLabel, useNoteLabelBoolean, useNoteProperty, useSpacedUpdate, useTriliumEvent } from "../../react/hooks";
 import { ViewModeProps } from "../interface";
 import { createNewNote, moveMarker } from "./api";
-import openContextMenu, { openMapContextMenu } from "./context_menu";
-import Map from "./map";
+import ContextMenus from "./ContextMenus";
+import { GpxTrack } from "./GpxTrack";
+import Map, { GeoMouseEvent } from "./map";
 import { DEFAULT_MAP_LAYER_NAME, MAP_LAYERS, MapLayer } from "./map_layer";
-import Marker, { GpxTrack } from "./marker";
+import MapToolbar from "./MapToolbar";
+import Markers, { LOCATION_ATTRIBUTE } from "./Markers";
+import Tooltips from "./Tooltips";
 
 const DEFAULT_COORDINATES: [number, number] = [3.878638227135724, 446.6630455551659];
 const DEFAULT_ZOOM = 2;
-export const LOCATION_ATTRIBUTE = "geolocation";
+
+/**
+ * The instruction toast that says what the map is waiting for. One id for both kinds of placement:
+ * only one of them can be armed at a time, and reusing the id means arming the other while one is up
+ * rewrites that toast rather than stacking a second one under it.
+ */
+const PLACEMENT_TOAST_ID = "geo-placement";
+
+export { LOCATION_ATTRIBUTE };
 
 interface MapData {
     view?: {
-        center?: LatLng | [number, number];
+        center?: { lat: number; lng: number } | [number, number];
         zoom?: number;
     };
 }
 
-enum State {
-    Normal,
-    NewNote
-}
+/**
+ * What the next click on the map is for, where it is for anything at all: a new note is to be created
+ * there, or the marker of the note named here is to be moved there. `undefined` is a map that is only
+ * being looked at, which is every map most of the time.
+ *
+ * The two are one state rather than two because they are alternatives — a click cannot mean both — and
+ * because the note being moved has nowhere else to be kept where it could not go missing.
+ */
+type Placement =
+    | { mode: "new" }
+    | { mode: "move"; noteId: string };
 
 export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewModeProps<MapData>) {
-    const [ state, setState ] = useState(State.Normal);
+    const [ placement, setPlacement ] = useState<Placement>();
     const [ coordinates, setCoordinates ] = useState(viewConfig?.view?.center);
     const [ zoom, setZoom ] = useState(viewConfig?.view?.zoom);
     const [ hasScale ] = useNoteLabelBoolean(note, "map:scale");
     const [ hideLabels ] = useNoteLabelBoolean(note, "map:hideLabels");
+    const [ clustered ] = useNoteLabelBoolean(note, "map:cluster");
     const [ isReadOnly ] = useNoteLabelBoolean(note, "readOnly");
     const [ includeArchived ] = useNoteLabelBoolean(note, "includeArchived");
     const [ notes, setNotes ] = useState<FNote[]>([]);
@@ -64,58 +82,71 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
         setZoom(viewConfig?.view?.zoom ?? DEFAULT_ZOOM);
     }, [ note, viewConfig ]);
 
-    // Note creation. Scoped to this map instance via a local callback rather than the global
-    // geoMapCreateChildNote command: embedded maps share no note context (no distinct ntxId), so a
-    // broadcast command would arm placement mode on every map at once. The button is this command's
-    // only trigger, so a direct handler keeps it isolated to the clicked map.
-    const startNotePlacement = useCallback(() => setState(State.NewNote), []);
+    // Note creation and marker relocation. Both are scoped to this map instance via local callbacks
+    // rather than global commands: embedded maps share no note context (no distinct ntxId), so a
+    // broadcast command would arm placement mode on every map at once. The button and the marker's
+    // context menu are these callbacks' only triggers, so a direct handler keeps each isolated to the
+    // map that was clicked.
+    const startNotePlacement = useCallback(() => setPlacement({ mode: "new" }), []);
+    const startMarkerRelocation = useCallback((noteId: string) => setPlacement({ mode: "move", noteId }), []);
 
-    // Placement mode (NewNote) is armed by the button. Tying the instruction toast and the global
-    // Escape-to-cancel listener to the state (rather than the click handler) guarantees both are
-    // torn down on cancel, on completion (map click) and on unmount — otherwise the listener leaks
-    // and a fresh one accumulates on every placement cycle.
+    // Placement mode is armed by the button or by the context menu. Tying the instruction toast and
+    // the global Escape-to-cancel listener to the state (rather than the handler that armed it)
+    // guarantees both are torn down on cancel, on completion (map click) and on unmount — otherwise
+    // the listener leaks and a fresh one accumulates on every placement cycle.
     useEffect(() => {
-        if (state !== State.NewNote) return;
+        if (!placement) return;
 
         toast.showPersistent({
-            icon: "plus",
-            id: "geo-new-note",
-            title: t("geo-map.create-child-note-toast-title"),
-            message: t("geo-map.create-child-note-instruction")
+            id: PLACEMENT_TOAST_ID,
+            ...(placement.mode === "new"
+                ? {
+                    icon: "plus",
+                    title: t("geo-map.create-child-note-toast-title"),
+                    message: t("geo-map.create-child-note-instruction")
+                }
+                : {
+                    icon: "move",
+                    title: t("geo-map.move-marker-toast-title"),
+                    message: t("geo-map.move-marker-instruction")
+                })
         });
 
         const globalKeyListener = (e: KeyboardEvent) => {
             if (e.key === "Escape") {
-                setState(State.Normal);
+                setPlacement(undefined);
             }
         };
         window.addEventListener("keydown", globalKeyListener);
 
         return () => {
             window.removeEventListener("keydown", globalKeyListener);
-            toast.closePersistent("geo-new-note");
+            toast.closePersistent(PLACEMENT_TOAST_ID);
         };
-    }, [ state ]);
+    }, [ placement ]);
 
     useTriliumEvent("deleteFromMap", ({ noteId }) => {
         moveMarker(noteId, null);
     });
 
-    const onClick = useCallback(async (e: LeafletMouseEvent) => {
-        if (state === State.NewNote) {
-            // Leaving NewNote closes the instruction toast via the placement-mode effect cleanup.
-            await createNewNote(note, e);
-            setState(State.Normal);
-        }
-    }, [ note, state ]);
+    const onClick = useCallback(async (e: GeoMouseEvent) => {
+        if (!placement) return;
 
-    const onContextMenu = useCallback((e: LeafletMouseEvent) => {
-        openMapContextMenu(note, e, !isReadOnly);
-    }, [ note, isReadOnly ]);
+        // Leaving placement mode closes the instruction toast via the effect's cleanup. The state is
+        // cleared first either way, so a failure to write the location does not leave the map armed
+        // for a click the user has stopped expecting to mean anything.
+        setPlacement(undefined);
+
+        if (placement.mode === "new") {
+            await createNewNote(note, e);
+        } else {
+            await moveMarker(placement.noteId, e.latlng);
+        }
+    }, [ note, placement ]);
 
     // Dragging
     const containerRef = useRef<HTMLDivElement>(null);
-    const apiRef = useRef<L.Map>(null);
+    const apiRef = useRef<MapLibreGLMap>(null);
     useCollectionTreeDrag(containerRef, {
         dragEnabled: !isReadOnly,
         includeArchived,
@@ -130,7 +161,8 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
             const offset = containerRef.current?.getBoundingClientRect();
             const x = e.clientX - (offset?.left ?? 0);
             const y = e.clientY - (offset?.top ?? 0);
-            const latlng = api.containerPointToLatLng([ x, y ]);
+            const lngLat = api.unproject([ x, y ]);
+            const latlng = { lat: lngLat.lat, lng: lngLat.lng };
 
             const targetNote = await froca.getNote(noteId, true);
             const parents = targetNote?.getParentNoteIds();
@@ -146,7 +178,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
     });
 
     return (
-        <div className={`geo-view ${state === State.NewNote ? "placing-note" : ""}`}>
+        <div className={`geo-view ${placement ? "placing-note" : ""}`}>
             <CollectionProperties
                 note={note}
                 rightChildren={<>
@@ -171,10 +203,13 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                     spacedUpdate.scheduleUpdate();
                 }}
                 onClick={onClick}
-                onContextMenu={onContextMenu}
                 scale={hasScale}
             >
-                {notes.map(note => <NoteWrapper note={note} isReadOnly={isReadOnly} hideLabels={hideLabels} />)}
+                <MapToolbar />
+                <Tooltips />
+                <ContextMenus note={note} isReadOnly={isReadOnly} onRelocate={startMarkerRelocation} />
+                <Markers notes={notes} hideLabels={hideLabels} isDarkTheme={layerData.isDarkTheme ?? false} clustered={clustered} placing={!!placement} />
+                {notes.map(note => <NoteGpxTrackWrapper note={note} hideLabels={hideLabels} isDarkTheme={layerData.isDarkTheme ?? false} />)}
             </Map>}
         </div>
     );
@@ -182,6 +217,10 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
 
 function useLayerData(note: FNote) {
     const [ layerName ] = useNoteLabel(note, "map:style");
+    // Whether the style is a dark one, which decides how a marker's title is drawn over it (see
+    // Markers). Only the style itself can say, and a style named by URL says nothing to us: it is
+    // fetched by the map, and its tiles are pictures besides. So the note is asked instead.
+    const [ isDarkStyle ] = useNoteLabelBoolean(note, "map:darkStyle");
     // Memo is needed because it would generate unnecessary reloads due to layer change.
     const layerData = useMemo(() => {
         // Custom layers.
@@ -190,14 +229,17 @@ function useLayerData(note: FNote) {
                 name: "Custom",
                 type: "raster",
                 url: layerName,
-                attribution: ""
+                attribution: "",
+                isDarkTheme: isDarkStyle
             } satisfies MapLayer;
         }
 
-        // Built-in layers.
+        // Built-in layers, which declare it for themselves. The label is still honoured over one, so
+        // that setting it does something wherever it is set; it can only ever say that a style is
+        // dark, never that it is light, so a built-in dark style keeps its own answer either way.
         const layerData = MAP_LAYERS[layerName ?? ""] ?? MAP_LAYERS[DEFAULT_MAP_LAYER_NAME];
-        return layerData;
-    }, [ layerName ]);
+        return isDarkStyle ? { ...layerData, isDarkTheme: true } : layerData;
+    }, [ layerName, isDarkStyle ]);
 
     return layerData;
 }
@@ -212,68 +254,23 @@ function ToggleReadOnlyButton({ note }: { note: FNote }) {
     />;
 }
 
-function NoteWrapper({ note, isReadOnly, hideLabels }: {
-    note: FNote,
-    isReadOnly: boolean,
-    hideLabels: boolean
-}) {
+/**
+ * A GPX note's track, where the note is one.
+ *
+ * Only tracks are rendered a component apiece: a note that merely carries a location is drawn into
+ * the shared symbol layer instead (see {@link Markers}).
+ */
+function NoteGpxTrackWrapper({ note, hideLabels, isDarkTheme }: { note: FNote, hideLabels: boolean, isDarkTheme: boolean }) {
     const mime = useNoteProperty(note, "mime");
-    const [ location ] = useNoteLabel(note, LOCATION_ATTRIBUTE);
 
-    if (mime === "application/gpx+xml") {
-        return <NoteGpxTrack note={note} hideLabels={hideLabels} />;
+    if (mime !== "application/gpx+xml") {
+        return null;
     }
 
-    if (location) {
-        const latLng = location?.split(",", 2).map((el) => parseFloat(el)) as [ number, number ] | undefined;
-        if (!latLng) return;
-        return <NoteMarker note={note} editable={!isReadOnly} latLng={latLng} hideLabels={hideLabels} />;
-    }
+    return <NoteGpxTrack note={note} hideLabels={hideLabels} isDarkTheme={isDarkTheme} />;
 }
 
-function NoteMarker({ note, editable, latLng, hideLabels }: { note: FNote, editable: boolean, latLng: [number, number], hideLabels: boolean }) {
-    // React to changes
-    const [ color ] = useNoteLabel(note, "color");
-    const [ iconClass ] = useNoteLabel(note, "iconClass");
-    const [ archived ] = useNoteLabelBoolean(note, "archived");
-
-    const title = useNoteProperty(note, "title");
-    const icon = useMemo(() => {
-        const titleOrNone = hideLabels ? undefined : title;
-        return buildIcon(note.getIcon(), note.getColorClass() ?? undefined, titleOrNone, note.noteId, archived);
-    }, [ iconClass, color, title, note.noteId, archived, hideLabels ]);
-
-    const onClick = useCallback(() => {
-        appContext.triggerCommand("openInPopup", { noteIdOrPath: note.noteId });
-    }, [ note.noteId ]);
-
-    // Middle click to open in new tab
-    const onMouseDown = useCallback((e: MouseEvent) => {
-        if (e.button === 1) {
-            const hoistedNoteId = appContext.tabManager.getActiveContext()?.hoistedNoteId;
-            appContext.tabManager.openInNewTab(note.noteId, hoistedNoteId);
-            return true;
-        }
-    }, [ note.noteId ]);
-
-    const onDragged = useCallback((newCoordinates: LatLng) => {
-        moveMarker(note.noteId, newCoordinates);
-    }, [ note.noteId ]);
-
-    const onContextMenu = useCallback((e: LeafletMouseEvent) => openContextMenu(note.noteId, e, editable), [ note.noteId, editable ]);
-
-    return latLng && <Marker
-        coordinates={latLng}
-        icon={icon}
-        draggable={editable}
-        onMouseDown={onMouseDown}
-        onDragged={editable ? onDragged : undefined}
-        onClick={!editable ? onClick : undefined}
-        onContextMenu={onContextMenu}
-    />;
-}
-
-function NoteGpxTrack({ note, hideLabels }: { note: FNote, hideLabels?: boolean }) {
+function NoteGpxTrack({ note, hideLabels, isDarkTheme }: { note: FNote, hideLabels?: boolean, isDarkTheme?: boolean }) {
     const [ xmlString, setXmlString ] = useState<string>();
     const blob = useNoteBlob(note);
 
@@ -290,38 +287,117 @@ function NoteGpxTrack({ note, hideLabels }: { note: FNote, hideLabels?: boolean 
 
     // React to changes
     const color = useNoteLabel(note, "color");
-    const iconClass = useNoteLabel(note, "iconClass");
+    useNoteLabel(note, "iconClass");
+    // The line is named after the note along its whole length, so a note being renamed has to reach
+    // the map rather than leaving the old name written across the track.
+    const title = useNoteProperty(note, "title") ?? "";
 
-    const options = useMemo<GPXOptions>(() => ({
-        markers: {
-            startIcon: buildIcon(note.getIcon(), note.getColorClass(), hideLabels ? undefined : note.title),
-            endIcon: buildIcon("bxs-flag-checkered"),
-            wptIcons: {
-                "": buildIcon("bx bx-pin")
-            }
-        },
-        polyline_options: {
-            color: note.getLabelValue("color") ?? "blue"
-        }
-    }), [ color, iconClass, hideLabels ]);
-    return xmlString && <GpxTrack gpxXmlString={xmlString} options={options} />;
+    const trackColor = useMemo(() => note.getLabelValue("color") ?? "blue", [ color ]);
+    const startIconHtml = useIconHtml(note.getIcon(), note.getColorClass() ?? undefined, hideLabels ? undefined : title);
+    const endIconHtml = useIconHtml("bx bxs-flag-checkered");
+    const waypointIconHtml = useIconHtml("bx bx-pin");
+
+    return xmlString && <GpxTrack
+        noteId={note.noteId}
+        title={title}
+        gpxXmlString={xmlString}
+        trackColor={trackColor}
+        startIconHtml={startIconHtml}
+        endIconHtml={endIconHtml}
+        waypointIconHtml={waypointIconHtml}
+        isDarkTheme={isDarkTheme}
+        hideLabels={hideLabels}
+    />;
 }
 
-function buildIcon(bxIconClass: string, colorClass?: string, title?: string, noteIdLink?: string, archived?: boolean) {
+/** The pin shape, filled with whatever colour the note asks for. Replaces the Leaflet marker PNG. */
+function buildMarkerSvg(color: string) {
+    return `<svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg">` +
+        `<path d="M12.5 0C5.6 0 0 5.6 0 12.5C0 21.9 12.5 41 12.5 41S25 21.9 25 12.5C25 5.6 19.4 0 12.5 0Z" fill="${escapeHtml(color)}" />` +
+        `</svg>`;
+}
+
+/** What a pin is filled with where its note asks for no colour of its own. */
+const DEFAULT_MARKER_COLOR = "#2A81CB";
+
+/** The size the icon is drawn at, matching the font size the CSS-styled span used. */
+const MARKER_ICON_SIZE = 17;
+
+/**
+ * The marker HTML for {@link buildIconHtml}, built asynchronously because the icon inside it is
+ * drawn through the shared icon-rendering service. Undefined until the first build resolves; the
+ * service caches each icon/colour pair, so every marker after the first with the same icon gets
+ * its HTML in a single tick.
+ */
+function useIconHtml(iconClass: string, colorClass?: string, title?: string, noteIdLink?: string, archived?: boolean) {
+    const [ html, setHtml ] = useState<string>();
+
+    useEffect(() => {
+        let cancelled = false;
+        buildIconHtml(iconClass, colorClass, title, noteIdLink, archived).then((result) => {
+            if (!cancelled) {
+                setHtml(result);
+            }
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [ iconClass, colorClass, title, noteIdLink, archived ]);
+
+    return html;
+}
+
+async function buildIconHtml(iconClass: string, colorClass?: string, title?: string, noteIdLink?: string, archived?: boolean) {
+    // The note's colour fills the pin, as it does for the note markers drawn into the symbol layer,
+    // and the icon is cut out of it in whichever of black or white stands out against that.
+    const pinColor = resolveNoteColor(colorClass) ?? DEFAULT_MARKER_COLOR;
+
+    // Drawn as a picture through the shared icon service (icon_glyphs.ts) rather than styled by
+    // CSS, so the marker renders any icon pack's icon the way the rest of the app draws it. A
+    // class the service cannot resolve falls back to the CSS-styled span.
+    //
+    // The class is passed on whole, as callers give it — a complete one, family and all. The
+    // service resolves a class by wearing it and reading back what the stylesheet made of it, so
+    // every class handed over is one more voice in that cascade: a `bx` of our own would have the
+    // built-in pack's font competing with the pack the icon actually belongs to.
+    const image = await renderIconImage(iconClass, {
+        size: MARKER_ICON_SIZE,
+        color: getReadableTextColor(pinColor)
+    });
+    const icon = image
+        ? `<img class="tn-icon" src="${image}" alt="" />`
+        : `<span class="${escapeHtml(iconClass)} tn-icon"></span>`;
+
     let html = /*html*/`\
-        <img class="icon" src="${markerIcon}" />
-        <img class="icon-shadow" src="${markerIconShadow}" />
-        <span class="bx ${escapeHtml(bxIconClass)} ${escapeHtml(colorClass ?? "")}"></span>
+        <div class="marker-pin">${buildMarkerSvg(pinColor)}</div>
+        ${icon}
         <span class="title-label">${escapeHtml(title ?? "")}</span>`;
 
     if (noteIdLink) {
         html = `<div data-href="#root/${escapeHtml(noteIdLink)}" class="${archived ? "archived" : ""}">${html}</div>`;
     }
 
-    return divIcon({
-        html,
-        iconSize: [25, 41],
-        iconAnchor: [12, 41]
-    });
+    return html;
+}
+
+/**
+ * The concrete colour a note's colour class stands for — the light-theme variant, the same value
+ * the CSS-styled span used to read from `--light-theme-custom-color`, or `null` for a note that
+ * asks for no colour. Only the stylesheet knows the adjusted value, so it is read off an element
+ * wearing the class, the way the icon service reads its glyphs.
+ */
+function resolveNoteColor(colorClass?: string) {
+    if (!colorClass) {
+        return null;
+    }
+
+    const probe = document.createElement("span");
+    probe.className = colorClass;
+    document.body.appendChild(probe);
+    try {
+        return getComputedStyle(probe).getPropertyValue("--light-theme-custom-color").trim() || null;
+    } finally {
+        probe.remove();
+    }
 }
 

@@ -90,7 +90,7 @@ const renderToolbar = (mind: MindElixirInstance) => renderBar(<MapToolbar mind={
 const renderDirections = (mind: MindElixirInstance) => renderBar(<DirectionToolbar mind={mind} />);
 
 function buttons(container: HTMLElement) {
-    return [ ...container.querySelectorAll<HTMLButtonElement>(".mind-map-toolbar button") ];
+    return [ ...container.querySelectorAll<HTMLButtonElement>(".tn-overlay-toolbar button") ];
 }
 
 function press(container: HTMLElement, index: number) {

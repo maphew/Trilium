@@ -947,6 +947,54 @@ export function useElementSize(ref: RefObject<HTMLElement>) {
 }
 
 /**
+ * Whether an element has the screen to itself, and the way to give it or take it back.
+ *
+ * The state follows the browser rather than the button, so a screen left by pressing Escape — which
+ * nothing asks us for — is still noticed.
+ *
+ * @param element the element to put on a screen of its own, or `null` while there is none yet.
+ * @param onChange called once the screen has changed, either way, and after the state has been
+ *                 updated. Where something has to be measured across the change, take it in the
+ *                 handler passed to `toggle` and spend it here.
+ * @returns whether the element is currently fullscreen, and a toggle that resolves to whether the
+ *          screen actually changed — a request the browser refuses (no user gesture behind it, a
+ *          policy against it) leaves the view exactly as it was.
+ */
+export function useFullscreen(element: HTMLElement | null | undefined, onChange?: () => void): [ boolean, () => Promise<boolean> ] {
+    const [ isFullscreen, setFullscreen ] = useState(() => !!element && document.fullscreenElement === element);
+    // Read afresh on every change rather than closed over, so that a listener bound once follows a
+    // handler the caller hands over anew on each render.
+    const onChangeRef = useRef(onChange);
+    onChangeRef.current = onChange;
+
+    useEffect(() => {
+        if (!element) return;
+
+        const onFullscreenChange = () => {
+            setFullscreen(document.fullscreenElement === element);
+            onChangeRef.current?.();
+        };
+
+        document.addEventListener("fullscreenchange", onFullscreenChange);
+        return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
+    }, [ element ]);
+
+    const toggle = useCallback(async () => {
+        if (!element) return false;
+
+        try {
+            await (document.fullscreenElement ? document.exitFullscreen() : element.requestFullscreen());
+            return true;
+        } catch (e) {
+            console.warn("Could not change the fullscreen state:", e);
+            return false;
+        }
+    }, [ element ]);
+
+    return [ isFullscreen, toggle ];
+}
+
+/**
  * Obtains the inner width and height of the window, as well as reacts to changes in size.
  *
  * @returns the width and height of the window.
