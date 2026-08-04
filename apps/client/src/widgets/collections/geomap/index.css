@@ -10,6 +10,14 @@
   }
 }
 
+.geo-map-container.maplibregl-map {
+  font: inherit;
+
+  .maplibregl-ctrl-attrib {
+    font-size: 0.8em;
+  }
+}
+
 .geo-map-container {
   /* How far everything standing over the map is held off its edges: the toolbar (see
      MapToolbar.css) and MapLibre's own scale and attribution below. Settled here so that the two
