@@ -19,6 +19,21 @@ export interface GeoMouseEvent {
 
 export const ParentMap = createContext<MapLibreGLMap | null>(null);
 
+/**
+ * Whether the map's style has finished loading, and so whether a source or a layer can be added to it.
+ *
+ * Offered here rather than left to each child to work out, because neither of the two things MapLibre
+ * says about it can be asked after the fact. `style.load` fires once per style, so a child that mounts
+ * late — one waiting on the note's content to be fetched, say — attaches its listener to an event that
+ * has already gone by. And `isStyleLoaded()` is no fallback, since it answers for the tiles as much as
+ * for the style: it stays false while they are still arriving, and forever on a map whose tile server
+ * is slow or refuses us. A child that misses both never gets to add anything at all.
+ *
+ * Latched beside the map's own creation instead (see below), where the event cannot be missed, and
+ * handed down as context so a child that mounts at any time reads the same answer.
+ */
+export const MapStyleLoaded = createContext(false);
+
 interface MapProps {
     apiRef?: RefObject<MapLibreGLMap | null>;
     containerRef?: RefObject<HTMLDivElement>;
@@ -95,6 +110,8 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
     const appliedStyle = useRef<StyleContents>();
     // Whether there is no map to be had here at all — see the catch below.
     const [ unsupported, setUnsupported ] = useState(false);
+    // See MapStyleLoaded.
+    const [ styleLoaded, setStyleLoaded ] = useState(false);
 
     // Initialize the map.
     useEffect(() => {
@@ -118,6 +135,12 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
             return;
         }
         setUnsupported(false);
+
+        // Listened for here, in the same breath as the map is built, rather than in an effect of its
+        // own: a style begins loading inside the constructor and `style.load` fires once, so a
+        // listener attached even one render later can already be too late. Never unlatched — a style
+        // that has loaded is followed only by another style loading, and each of those fires again.
+        mapInstance.on("style.load", () => setStyleLoaded(true));
 
         // The attribution stands at the foot of the map beside its scale, rather than in the corner
         // where the zoom buttons now are (see MapToolbar): a bar of buttons is reached for, and it
@@ -145,6 +168,7 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
         return () => {
             mapInstance.remove();
             setMap(null);
+            setStyleLoaded(false);
         };
     }, []);
 
@@ -235,7 +259,9 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
                 ? <NoItems icon="bx bx-error-circle" text={t("geo-map.webgl-unavailable")} />
                 : (
                     <ParentMap.Provider value={map}>
-                        {children}
+                        <MapStyleLoaded.Provider value={styleLoaded}>
+                            {children}
+                        </MapStyleLoaded.Provider>
                     </ParentMap.Provider>
                 )}
         </div>
