@@ -14,6 +14,7 @@ import { render } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import appContext from "../../../components/app_context";
 import Component from "../../../components/component";
 import type FNote from "../../../entities/fnote";
 import type { EntityChange } from "../../../server_types";
@@ -38,11 +39,14 @@ interface FakeLayer {
     paint?: Record<string, unknown>;
 }
 
+/** What the component hands the map, which for a layer-scoped event is given the event itself. */
+type Listener = (e?: unknown) => void;
+
 /** A map that records what the component does to it, standing in for MapLibre. */
 function fakeMap() {
     const layers = new Map<string, FakeLayer>();
     const sources = new Map<string, unknown>();
-    const listeners = new Map<string, Set<() => void>>();
+    const listeners = new Map<string, Set<Listener>>();
     const calls = { addLayer: 0, removeLayer: 0, addSource: 0, removeSource: 0, setData: 0 };
     const properties = new Map<string, unknown>();
     const canvas = { style: {} as Record<string, string> };
@@ -77,18 +81,34 @@ function fakeMap() {
             for (const fn of listeners.get("remove") ?? []) fn();
         },
         /**
-         * MapLibre lets a listener be scoped to a layer, which the cluster handlers use — the layer
-         * comes between the event and the handler when it does. Keyed by event alone here, since
-         * nothing in these tests fires a layer-scoped one.
+         * MapLibre lets a listener be scoped to a layer, which the cluster and marker handlers use —
+         * the layer comes between the event and the handler when it does, and is part of the key so
+         * that firing one of them does not reach a handler listening to the same event elsewhere.
          */
         on(event: string, fnOrLayer: unknown, fn?: () => void) {
-            const handler = (fn ?? fnOrLayer) as () => void;
-            if (!listeners.has(event)) listeners.set(event, new Set());
-            listeners.get(event)?.add(handler);
+            const key = fn ? `${event}:${fnOrLayer}` : event;
+            const handler = (fn ?? fnOrLayer) as Listener;
+            if (!listeners.has(key)) listeners.set(key, new Set());
+            listeners.get(key)?.add(handler);
         },
         off(event: string, fnOrLayer: unknown, fn?: () => void) {
-            listeners.get(event)?.delete((fn ?? fnOrLayer) as () => void);
+            listeners.get(fn ? `${event}:${fnOrLayer}` : event)?.delete((fn ?? fnOrLayer) as Listener);
         },
+        /** A marker being clicked, as MapLibre reports a click that landed on the layer. */
+        clickMarker(note: FNote) {
+            for (const fn of listeners.get(`click:${MARKER_LAYER}`) ?? []) {
+                fn({ features: [ { properties: { id: note.noteId } } ] });
+            }
+        },
+        /** The pointer coming to rest on a marker, and leaving it again. */
+        enterMarker() {
+            for (const fn of listeners.get(`mouseenter:${MARKER_LAYER}`) ?? []) fn({});
+        },
+        leaveMarker() {
+            for (const fn of listeners.get(`mouseleave:${MARKER_LAYER}`) ?? []) fn({});
+        },
+        /** What the map is currently showing the pointer as. */
+        get cursor() { return canvas.style.cursor ?? ""; },
         isStyleLoaded: () => false,
         hasImage: () => false,
         addImage: () => {},
@@ -169,7 +189,7 @@ describe("Markers", () => {
     });
 
     /** Renders into the same container, so calling it again is a re-render with fresh props. */
-    function mount(notes: FNote[], map: ReturnType<typeof fakeMap>, parent: Component, look?: { hideLabels?: boolean, isDarkTheme?: boolean, clustered?: boolean }) {
+    function mount(notes: FNote[], map: ReturnType<typeof fakeMap>, parent: Component, look?: { hideLabels?: boolean, isDarkTheme?: boolean, clustered?: boolean, placing?: boolean }) {
         return act(async () => {
             render(
                 <ParentComponent.Provider value={parent}>
@@ -179,6 +199,7 @@ describe("Markers", () => {
                             hideLabels={look?.hideLabels ?? false}
                             isDarkTheme={look?.isDarkTheme ?? false}
                             clustered={look?.clustered ?? false}
+                            placing={look?.placing ?? false}
                         />
                     </ParentMap.Provider>
                 </ParentComponent.Provider>,
@@ -412,5 +433,65 @@ describe("Markers", () => {
         // The layer went with the map, so there was nothing to take off it.
         expect(map.calls.removeLayer).toBe(0);
         expect(map.calls.removeSource).toBe(0);
+    });
+
+    /**
+     * What a click on a marker is for.
+     *
+     * A note used to open only on a map that could not be edited, since on one that could the mouse
+     * belonged to dragging the marker. Nothing is dragged any more — a marker is moved by being
+     * placed again, from its own context menu — so a click means the same thing on every map.
+     */
+    describe("opening a note", () => {
+        let openInPopup: ReturnType<typeof vi.spyOn>;
+
+        beforeEach(() => {
+            openInPopup = vi.spyOn(appContext, "triggerCommand").mockResolvedValue(undefined);
+        });
+
+        afterEach(() => openInPopup.mockRestore());
+
+        it("opens the note behind the marker that was clicked", async () => {
+            const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+            const map = fakeMap();
+            await mount([ note ], map, new Component());
+
+            map.enterMarker();
+            // A marker is a thing to be opened, and says so before it is.
+            expect(map.cursor).toBe("pointer");
+
+            map.clickMarker(note);
+            expect(openInPopup).toHaveBeenCalledWith("openInPopup", { noteIdOrPath: note.noteId });
+        });
+
+        it("leaves the click alone while the map is armed to place something", async () => {
+            const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+            const map = fakeMap();
+            await mount([ note ], map, new Component(), { placing: true });
+
+            // The click belongs to the placement, which is handled where that state lives: opening
+            // the note as well would both put the marker down and open the note it landed on.
+            map.clickMarker(note);
+            expect(openInPopup).not.toHaveBeenCalled();
+        });
+
+        /**
+         * Relocation is armed from the marker's own context menu, so the pointer is almost always
+         * sitting on a marker at the moment the opening handlers are taken off — and the `mouseleave`
+         * that would have cleared the cursor is no longer being listened for. The map would be left
+         * offering to open a note while waiting to be told where to put one.
+         */
+        it("puts the cursor back when it is disarmed with the pointer on a marker", async () => {
+            const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+            const map = fakeMap();
+            const parent = new Component();
+            await mount([ note ], map, parent);
+
+            map.enterMarker();
+            expect(map.cursor).toBe("pointer");
+
+            await mount([ note ], map, parent, { placing: true });
+            expect(map.cursor).toBe("");
+        });
     });
 });

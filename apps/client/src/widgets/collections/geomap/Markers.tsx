@@ -1,6 +1,7 @@
-import { AddLayerObject, type GeoJSONSource } from "maplibre-gl";
+import { AddLayerObject, type GeoJSONSource, type MapGeoJSONFeature, type Map as MapLibreGLMap, type MapMouseEvent } from "maplibre-gl";
 import { useCallback, useContext, useEffect, useRef, useState } from "preact/hooks";
 
+import appContext from "../../../components/app_context";
 import FNote from "../../../entities/fnote";
 import { getReadableTextColor } from "../../../services/css_class_manager";
 import { renderIconImage } from "../../../services/icon_glyphs";
@@ -86,7 +87,20 @@ const HIDDEN_TEXT_FIELD = "";
  * per note is what made that slow. The pin is rasterized once per colour and icon and handed to the
  * map as an image, which the layer then stamps on the GPU.
  */
-export default function Markers({ notes, hideLabels, isDarkTheme, clustered }: { notes: FNote[], hideLabels: boolean, isDarkTheme: boolean, clustered: boolean }) {
+interface MarkersProps {
+    notes: FNote[];
+    hideLabels: boolean;
+    isDarkTheme: boolean;
+    clustered: boolean;
+    /**
+     * Whether the map is armed for a click that already means something — a note to be created where
+     * it lands, or a marker to be moved there. A marker is not opened by such a click: it is a place
+     * on the map like any other for as long as the map is waiting to be told one.
+     */
+    placing: boolean;
+}
+
+export default function Markers({ notes, hideLabels, isDarkTheme, clustered, placing }: MarkersProps) {
     const map = useContext(ParentMap);
     const version = useNoteChangeVersion(notes);
     // Whether the style has finished loading at least once. Held outside the effects because either
@@ -273,8 +287,60 @@ export default function Markers({ notes, hideLabels, isDarkTheme, clustered }: {
     }, [ map, hideLabels, isDarkTheme ]);
 
     useClusterExpansion(map, MARKER_SOURCE, clustered);
+    useMarkerOpening(map, !placing);
 
     return null;
+}
+
+/**
+ * Opening a note by clicking its marker, which is what a marker is for.
+ *
+ * Bound to the layer rather than to the map, so MapLibre does the hit-testing and the handler hears
+ * only the clicks that landed on a pin — the same way a bubble is opened (see `useClusterExpansion`).
+ * A click that misses every marker is the map's own, and reaches the handler in `index.tsx`.
+ *
+ * Note that the note is opened whether or not the map may be edited. Clicking used to open a note on
+ * a read-only map alone, because on an editable one the mouse belonged to dragging the marker; there
+ * is no dragging any more — a marker is moved by being placed again, from its context menu — so
+ * nothing is left for a click to mean instead.
+ *
+ * @param enabled whether a click on a marker is this map's to act on at all. False while the map is
+ *                armed for placement, whose click is handled where that state lives and would
+ *                otherwise both put the marker down and open the note it was clicked through.
+ */
+function useMarkerOpening(map: MapLibreGLMap | null, enabled: boolean) {
+    useEffect(() => {
+        if (!map || !enabled) return;
+
+        function onClick(e: MapMouseEvent & { features?: MapGeoJSONFeature[] }) {
+            const noteId = e.features?.[0]?.properties.id;
+            if (noteId) {
+                appContext.triggerCommand("openInPopup", { noteIdOrPath: noteId });
+            }
+        }
+
+        // A marker is a thing to be opened, and says so before it is.
+        const setCursor = (cursor: string) => {
+            if (map) map.getCanvas().style.cursor = cursor;
+        };
+        const onEnter = () => setCursor("pointer");
+        const onLeave = () => setCursor("");
+
+        map.on("click", MARKER_LAYER, onClick);
+        map.on("mouseenter", MARKER_LAYER, onEnter);
+        map.on("mouseleave", MARKER_LAYER, onLeave);
+
+        return () => {
+            map.off("click", MARKER_LAYER, onClick);
+            map.off("mouseenter", MARKER_LAYER, onEnter);
+            map.off("mouseleave", MARKER_LAYER, onLeave);
+            // The pointer is put back by hand: relocation is armed from a marker's own context menu,
+            // so this is torn down with the pointer sitting on a marker more often than not, and the
+            // `mouseleave` that would have cleared it is no longer being listened for. The cursor
+            // would otherwise stay a pointer over a map that is waiting to be clicked somewhere.
+            onLeave();
+        };
+    }, [ map, enabled ]);
 }
 
 /**

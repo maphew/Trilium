@@ -13,7 +13,19 @@ import { createNewNote } from "./api.js";
 import { type GeoMouseEvent, ParentMap, toGeoMouseEvent } from "./map.js";
 import { MARKER_LAYER } from "./Markers.js";
 
-export default function ContextMenus({ note, isReadOnly }: { note: FNote, isReadOnly: boolean }) {
+interface ContextMenusProps {
+    note: FNote;
+    isReadOnly: boolean;
+    /**
+     * Arms this map for the marker of the given note to be put somewhere else, the next click on the
+     * map being where. Handed down rather than triggered as a command because a command is heard by
+     * every map at once: embedded maps share no note context, so a broadcast would arm all of them
+     * (see the same reasoning around note placement in `index.tsx`).
+     */
+    onRelocate: (noteId: string) => void;
+}
+
+export default function ContextMenus({ note, isReadOnly, onRelocate }: ContextMenusProps) {
     const map = useContext(ParentMap);
 
     const onContextMenu = useCallback((e: GeoMouseEvent) => {
@@ -24,12 +36,12 @@ export default function ContextMenus({ note, isReadOnly }: { note: FNote, isRead
 
         if (features.length > 0) {
             // Marker context menu.
-            openContextMenu(features[0].properties.id, e, !isReadOnly);
+            openContextMenu(features[0].properties.id, e, !isReadOnly, onRelocate);
         } else {
             // Empty area context menu.
             openMapContextMenu(note, e, !isReadOnly);
         }
-    }, [ map, note, isReadOnly ]);
+    }, [ map, note, isReadOnly, onRelocate ]);
 
     useEffect(() => {
         if (!onContextMenu || !map) return;
@@ -45,7 +57,7 @@ export default function ContextMenus({ note, isReadOnly }: { note: FNote, isRead
     return null;
 }
 
-export function openContextMenu(noteId: string, e: GeoMouseEvent, isEditable: boolean) {
+export function openContextMenu(noteId: string, e: GeoMouseEvent, isEditable: boolean, onRelocate: (noteId: string) => void) {
     let items: MenuItem<keyof CommandMappings>[] = [
         ...buildGeoLocationItem(e),
         { kind: "separator" },
@@ -56,6 +68,10 @@ export function openContextMenu(noteId: string, e: GeoMouseEvent, isEditable: bo
         items = [
             ...items,
             { kind: "separator" },
+            // The marker is put somewhere else by being placed again rather than dragged: the notes
+            // are drawn into one symbol layer, not an element apiece, so there is nothing on the map
+            // to take hold of.
+            { title: t("geo-map-context.move-marker"), handler: () => onRelocate(noteId), uiIcon: "bx bx-move" },
             { title: t("geo-map-context.remove-from-map"), command: "deleteFromMap", uiIcon: "bx bx-trash" },
             { kind: "separator"},
             {

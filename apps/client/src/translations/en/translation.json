@@ -2742,6 +2742,8 @@
     "create-child-note-text": "Add marker",
     "create-child-note-instruction": "Click on the map to create a new note at that location or press Escape to dismiss.",
     "create-child-note-toast-title": "New note",
+    "move-marker-instruction": "Click on the map to move the marker to that location or press Escape to dismiss.",
+    "move-marker-toast-title": "Move marker",
     "unable-to-load-map": "Unable to load map.",
     "webgl-unavailable": "This map can't be drawn because WebGL isn't available. Check that hardware acceleration is enabled and that your graphics drivers are up to date.",
     "zoom-in": "Zoom in",
@@ -2751,6 +2753,7 @@
   },
   "geo-map-context": {
     "open-location": "Open location",
+    "move-marker": "Move to another location",
     "remove-from-map": "Remove from map",
     "add-note": "Add a marker at this location"
   },

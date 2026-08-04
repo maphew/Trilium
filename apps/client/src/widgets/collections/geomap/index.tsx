@@ -29,6 +29,13 @@ import Tooltips from "./Tooltips";
 const DEFAULT_COORDINATES: [number, number] = [3.878638227135724, 446.6630455551659];
 const DEFAULT_ZOOM = 2;
 
+/**
+ * The instruction toast that says what the map is waiting for. One id for both kinds of placement:
+ * only one of them can be armed at a time, and reusing the id means arming the other while one is up
+ * rewrites that toast rather than stacking a second one under it.
+ */
+const PLACEMENT_TOAST_ID = "geo-placement";
+
 export { LOCATION_ATTRIBUTE };
 
 interface MapData {
@@ -38,13 +45,20 @@ interface MapData {
     };
 }
 
-enum State {
-    Normal,
-    NewNote
-}
+/**
+ * What the next click on the map is for, where it is for anything at all: a new note is to be created
+ * there, or the marker of the note named here is to be moved there. `undefined` is a map that is only
+ * being looked at, which is every map most of the time.
+ *
+ * The two are one state rather than two because they are alternatives — a click cannot mean both — and
+ * because the note being moved has nowhere else to be kept where it could not go missing.
+ */
+type Placement =
+    | { mode: "new" }
+    | { mode: "move"; noteId: string };
 
 export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewModeProps<MapData>) {
-    const [ state, setState ] = useState(State.Normal);
+    const [ placement, setPlacement ] = useState<Placement>();
     const [ coordinates, setCoordinates ] = useState(viewConfig?.view?.center);
     const [ zoom, setZoom ] = useState(viewConfig?.view?.zoom);
     const [ hasScale ] = useNoteLabelBoolean(note, "map:scale");
@@ -68,50 +82,67 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
         setZoom(viewConfig?.view?.zoom ?? DEFAULT_ZOOM);
     }, [ note, viewConfig ]);
 
-    // Note creation. Scoped to this map instance via a local callback rather than the global
-    // geoMapCreateChildNote command: embedded maps share no note context (no distinct ntxId), so a
-    // broadcast command would arm placement mode on every map at once. The button is this command's
-    // only trigger, so a direct handler keeps it isolated to the clicked map.
-    const startNotePlacement = useCallback(() => setState(State.NewNote), []);
+    // Note creation and marker relocation. Both are scoped to this map instance via local callbacks
+    // rather than global commands: embedded maps share no note context (no distinct ntxId), so a
+    // broadcast command would arm placement mode on every map at once. The button and the marker's
+    // context menu are these callbacks' only triggers, so a direct handler keeps each isolated to the
+    // map that was clicked.
+    const startNotePlacement = useCallback(() => setPlacement({ mode: "new" }), []);
+    const startMarkerRelocation = useCallback((noteId: string) => setPlacement({ mode: "move", noteId }), []);
 
-    // Placement mode (NewNote) is armed by the button. Tying the instruction toast and the global
-    // Escape-to-cancel listener to the state (rather than the click handler) guarantees both are
-    // torn down on cancel, on completion (map click) and on unmount — otherwise the listener leaks
-    // and a fresh one accumulates on every placement cycle.
+    // Placement mode is armed by the button or by the context menu. Tying the instruction toast and
+    // the global Escape-to-cancel listener to the state (rather than the handler that armed it)
+    // guarantees both are torn down on cancel, on completion (map click) and on unmount — otherwise
+    // the listener leaks and a fresh one accumulates on every placement cycle.
     useEffect(() => {
-        if (state !== State.NewNote) return;
+        if (!placement) return;
 
         toast.showPersistent({
-            icon: "plus",
-            id: "geo-new-note",
-            title: t("geo-map.create-child-note-toast-title"),
-            message: t("geo-map.create-child-note-instruction")
+            id: PLACEMENT_TOAST_ID,
+            ...(placement.mode === "new"
+                ? {
+                    icon: "plus",
+                    title: t("geo-map.create-child-note-toast-title"),
+                    message: t("geo-map.create-child-note-instruction")
+                }
+                : {
+                    icon: "move",
+                    title: t("geo-map.move-marker-toast-title"),
+                    message: t("geo-map.move-marker-instruction")
+                })
         });
 
         const globalKeyListener = (e: KeyboardEvent) => {
             if (e.key === "Escape") {
-                setState(State.Normal);
+                setPlacement(undefined);
             }
         };
         window.addEventListener("keydown", globalKeyListener);
 
         return () => {
             window.removeEventListener("keydown", globalKeyListener);
-            toast.closePersistent("geo-new-note");
+            toast.closePersistent(PLACEMENT_TOAST_ID);
         };
-    }, [ state ]);
+    }, [ placement ]);
 
     useTriliumEvent("deleteFromMap", ({ noteId }) => {
         moveMarker(noteId, null);
     });
 
     const onClick = useCallback(async (e: GeoMouseEvent) => {
-        if (state === State.NewNote) {
-            // Leaving NewNote closes the instruction toast via the placement-mode effect cleanup.
+        if (!placement) return;
+
+        // Leaving placement mode closes the instruction toast via the effect's cleanup. The state is
+        // cleared first either way, so a failure to write the location does not leave the map armed
+        // for a click the user has stopped expecting to mean anything.
+        setPlacement(undefined);
+
+        if (placement.mode === "new") {
             await createNewNote(note, e);
-            setState(State.Normal);
+        } else {
+            await moveMarker(placement.noteId, e.latlng);
         }
-    }, [ note, state ]);
+    }, [ note, placement ]);
 
     // Dragging
     const containerRef = useRef<HTMLDivElement>(null);
@@ -147,7 +178,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
     });
 
     return (
-        <div className={`geo-view ${state === State.NewNote ? "placing-note" : ""}`}>
+        <div className={`geo-view ${placement ? "placing-note" : ""}`}>
             <CollectionProperties
                 note={note}
                 rightChildren={<>
@@ -176,8 +207,8 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
             >
                 <MapToolbar />
                 <Tooltips />
-                <ContextMenus note={note} isReadOnly={isReadOnly} />
-                <Markers notes={notes} hideLabels={hideLabels} isDarkTheme={layerData.isDarkTheme ?? false} clustered={clustered} />
+                <ContextMenus note={note} isReadOnly={isReadOnly} onRelocate={startMarkerRelocation} />
+                <Markers notes={notes} hideLabels={hideLabels} isDarkTheme={layerData.isDarkTheme ?? false} clustered={clustered} placing={!!placement} />
                 {notes.map(note => <NoteGpxTrackWrapper note={note} hideLabels={hideLabels} />)}
             </Map>}
         </div>
