@@ -68,13 +68,17 @@
 }
 
 /*
- * The note's promoted fields, laid out for a third of the width they are written for: one field per
- * line, each name over its own box rather than beside it. Side by side, a name of more than a word
- * leaves nothing for the box, and every box starts at a different place down the column.
+ * The note's promoted fields, laid out for a third of the width they are written for.
+ *
+ * A field reads across one line — its name, then what it holds — and stays that way here; what
+ * changes is the row they stand in. Across a note they stand side by side, each as wide as what it
+ * holds; in the pane there is room for one, so they come down the column instead, each taking the
+ * whole width.
  */
 .geo-map-container .geo-detail-pane .promoted-attributes-container {
     flex-direction: column;
-    gap: 10px;
+    align-items: stretch;
+    gap: 8px;
     margin: 0;
     /* The body of the pane is the one thing that scrolls; a scroller inside it would take the wheel
        off whichever of the two the pointer happened to be over. */
@@ -82,23 +86,30 @@
 }
 
 .geo-map-container .geo-detail-pane .promoted-attribute-cell {
-    flex-direction: column;
-    align-items: stretch;
     margin: 0;
 
-    /* The gap after the name is the column's now, the name no longer standing beside the box. */
+    /* The field takes whatever its name leaves, rather than the width of what it holds: a card
+       standing alone on its line has that room whether it needs it or not. */
     > .input-group,
     > .promoted-attribute-values {
-        margin-inline-start: 0;
+        flex: 1;
+        min-width: 0;
+        margin-inline-start: 8px;
     }
-}
 
-/* A flag is named after its own box, the checkbox and the words reading as the one sentence they
-   are. Stacking would part them, so it stays the row it is everywhere else. */
-.geo-map-container .geo-detail-pane .promoted-attribute-label-boolean {
-    flex-direction: row;
-    align-items: center;
-    gap: 8px;
+    /* Both are given a width in ems, which is a card's own width where cards stand side by side.
+       Marked as the theme marks them, there being no other way past it. */
+    input[type="text"],
+    input[type="number"] {
+        width: auto !important;
+    }
+
+    /* A name longer than the pane is cut short rather than pushing the field it names off the end. */
+    > label {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
 }
 
 /* The widget stands whether the note promotes anything or not, and an empty one would still take
