@@ -435,9 +435,7 @@ describe("DetailPane", () => {
             try {
                 await openPaneFor(note, map);
 
-                // The half of the split that is a button in its own right, the rest being behind its
-                // arrow.
-                container?.querySelector<HTMLButtonElement>(".geo-detail-pane-open-note")?.click();
+                press("bx-log-in");
                 expect(openInCurrentNoteContext).toHaveBeenCalledWith(expect.anything(), notePath);
 
                 // Latitude first, as a geo URI is written and as the map's own menu hands one over —
@@ -452,20 +450,20 @@ describe("DetailPane", () => {
         });
 
         /**
-         * The rest live behind the split's arrow, and are the same ways a link offers anywhere in
+         * The rest are gathered behind one button, and are the same ways a link offers anywhere in
          * the app — which is how a split view, the one worth having beside a map, comes to be
-         * offered at all: the row of buttons this replaced never had one.
+         * offered at all: the three buttons this replaced never had one.
          *
          * The pane names them itself, the shared menu wanting an event it cannot be handed before
          * anything is pressed, so what is pinned here is that the two lists stay the same list. Add
          * a fifth way to open a link and this fails until the pane offers it too.
          */
-        it("offers behind the split exactly the ways a link is opened anywhere else", async () => {
+        it("gathers the rest of the ways of opening it, exactly as a link offers them", async () => {
             const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
             const map = fakeMap();
             await openPaneFor(note, map);
 
-            expect(container?.querySelector(".dropdown-toggle-split")).toBeTruthy();
+            expect(container?.querySelector(".geo-detail-pane-more")).toBeTruthy();
             expect(OTHER_WAYS_TO_OPEN.map((way) => way.command)).toEqual(
                 linkContextMenu.getItems(new MouseEvent("click"))
                     .map((item) => ("command" in item ? item.command : undefined)));
@@ -692,7 +690,7 @@ describe("DetailPane", () => {
 
             // The ways of reading the note stay; the one that writes it does not.
             expect(pane()).toBeTruthy();
-            expect(container?.querySelector(".geo-detail-pane-open-note")).toBeTruthy();
+            expect(container?.querySelector(".geo-detail-pane-actions button.bx-log-in")).toBeTruthy();
             expect(removeButton()).toBeNull();
         });
     });

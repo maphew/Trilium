@@ -17,7 +17,6 @@ import TitleRow from "../../layout/TitleRow";
 import NoteDetail from "../../NoteDetail";
 import PromotedAttributes from "../../PromotedAttributes";
 import ActionButton from "../../react/ActionButton";
-import Button, { ButtonGroup } from "../../react/Button";
 import Dropdown from "../../react/Dropdown";
 import { FormListItem } from "../../react/FormList";
 import { useLegacyComponentElement, useNoteColorClass, useNoteContext, useNoteLabel, useStaticTooltip } from "../../react/hooks";
@@ -353,43 +352,44 @@ function MarkerActions({ note, isReadOnly, onRelocate }: { note: FNote; isReadOn
 
     return (
         <div className="geo-detail-pane-actions">
-            <ButtonGroup className="geo-detail-pane-open">
-                <Button
-                    className="geo-detail-pane-open-note"
-                    // Flat, as everything else in the row is: a filled button beside five bare icons
-                    // reads as the one thing on the pane worth pressing, which it is not.
-                    kind="lowProfile"
-                    size="small"
-                    icon="bx-log-in"
-                    text={t("geo-map.open-note")}
-                    // Handed the event: `openInCurrentNoteContext` reads the target tab off the
-                    // element clicked, which lands the note in the tab the map is in.
-                    onClick={(e) => notePath && openInCurrentNoteContext(e as MouseEvent, notePath)}
-                    disabled={!notePath}
-                />
+            <ActionButton
+                icon="bx bx-log-in"
+                text={t("geo-map.open-note")}
+                // Handed the event: `openInCurrentNoteContext` reads the target tab off the element
+                // clicked, which lands the note in the tab the map is in.
+                onClick={(e) => notePath && openInCurrentNoteContext(e as MouseEvent, notePath)}
+                disabled={!notePath}
+            />
 
-                <Dropdown
-                    buttonClassName="dropdown-toggle-split tn-low-profile btn-sm"
-                    title={t("geo-map.more-ways-to-open")}
-                    noSelectButtonStyle
-                    noDropdownListStyle
-                    // The panel clips what overflows it, so a menu nested in the row would be cut off
-                    // at its edge; and the panel's backdrop filter would flatten the menu's own.
-                    portalToBody
-                    disabled={!notePath}
-                >
-                    {OTHER_WAYS_TO_OPEN.map(({ command, icon, title }) => (
-                        <FormListItem
-                            key={command}
-                            icon={icon}
-                            onClick={(e) => notePath && linkContextMenu.handleLinkContextMenuItem(
-                                command, e as MouseEvent, notePath, {}, hoistedNoteId ?? null)}
-                        >
-                            {title()}
-                        </FormListItem>
-                    ))}
-                </Dropdown>
-            </ButtonGroup>
+            {/* The other ways of opening it, gathered behind one button rather than spread across
+                three: they are one act with three destinations.
+
+                A dropdown and not the menu the marker's own right-click raises — that one is shown
+                at a point and dismissed by the next press on the document, and the press that opened
+                it from inside the panel is that press. */}
+            <Dropdown
+                className="geo-detail-pane-more"
+                buttonClassName="bx bx-dots-horizontal-rounded"
+                title={t("geo-map.more-ways-to-open")}
+                iconAction
+                hideToggleArrow
+                noDropdownListStyle
+                // The panel clips what overflows it, so a menu nested in the row would be cut off at
+                // its edge; and the panel's backdrop filter would flatten the menu's own.
+                portalToBody
+                disabled={!notePath}
+            >
+                {OTHER_WAYS_TO_OPEN.map(({ command, icon, title }) => (
+                    <FormListItem
+                        key={command}
+                        icon={icon}
+                        onClick={(e) => notePath && linkContextMenu.handleLinkContextMenuItem(
+                            command, e as MouseEvent, notePath, {}, hoistedNoteId ?? null)}
+                    >
+                        {title()}
+                    </FormListItem>
+                ))}
+            </Dropdown>
 
             <ActionButton
                 icon="bx bx-map-alt"
