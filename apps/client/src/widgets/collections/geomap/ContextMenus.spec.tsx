@@ -65,14 +65,13 @@ function fakeMap(markerUnderPointer?: FNote, trackUnderPointer?: FNote) {
 }
 
 /** Opens the menu over the given map and hands back the items it was shown with. */
-async function openMenu(map: ReturnType<typeof fakeMap>, { isReadOnly = false, onRelocate = vi.fn() } = {}) {
-    const note = buildNote({ title: "The map itself" });
+async function openMenu(map: ReturnType<typeof fakeMap>, { isReadOnly = false, onRelocate = vi.fn(), onCreateNote = vi.fn() } = {}) {
     // Settled before the map is clicked: the listener the menu opens from is bound in an effect, and
     // effects do not run within the render itself.
     await act(async () => {
         renderInto(
             <ParentMap.Provider value={map as never}>
-                <ContextMenus note={note} isReadOnly={isReadOnly} onRelocate={onRelocate} />
+                <ContextMenus isReadOnly={isReadOnly} onRelocate={onRelocate} onCreateNote={onCreateNote} />
             </ParentMap.Provider>
         );
     });
@@ -81,7 +80,7 @@ async function openMenu(map: ReturnType<typeof fakeMap>, { isReadOnly = false, o
     act(() => { map.rightClick(); });
 
     const items: MenuItem<string>[] = show.mock.calls[0]?.[0]?.items ?? [];
-    return { items, onRelocate };
+    return { items, onRelocate, onCreateNote };
 }
 
 /** The item offering to move a marker, where one was offered. */
@@ -115,6 +114,21 @@ describe("ContextMenus", () => {
 
         expect(moveItem(items)).toBeUndefined();
         expect(items).toContainEqual(expect.objectContaining({ title: "geo-map-context.add-note" }));
+    });
+
+    /**
+     * Adding a note goes through the map view rather than being done here: the click has named the
+     * place already, so the map creates the note there and opens the pane on it — the same road a
+     * note created by the armed click takes (see `createNoteAt` in index.tsx).
+     */
+    it("hands the map the place a note was asked for", async () => {
+        const { items, onCreateNote } = await openMenu(fakeMap());
+
+        const add = items.find((item): item is MenuCommandItem<string> =>
+            "title" in item && item.title === "geo-map-context.add-note");
+        add?.handler?.(add, undefined as never);
+
+        expect(onCreateNote).toHaveBeenCalledWith(expect.objectContaining({ latlng: { lat: 1, lng: 2 } }));
     });
 
     it("opens the note of a GPX track that was clicked, not the map's own menu", async () => {

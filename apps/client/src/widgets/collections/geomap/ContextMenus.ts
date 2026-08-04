@@ -2,20 +2,17 @@ import { MapMouseEvent } from "maplibre-gl";
 import { useCallback, useContext, useEffect } from "preact/hooks";
 
 import appContext, { type CommandMappings } from "../../../components/app_context.js";
-import FNote from "../../../entities/fnote.js";
 import contextMenu, { type MenuItem } from "../../../menus/context_menu.js";
 import NoteColorPicker from "../../../menus/custom-items/NoteColorPicker.jsx";
 import linkContextMenu from "../../../menus/link_context_menu.js";
 import { copyTextWithToast } from "../../../services/clipboard_ext.js";
 import { t } from "../../../services/i18n.js";
 import link from "../../../services/link.js";
-import { createNewNote } from "./api.js";
 import { trackHitLayers } from "./GpxTrack.js";
 import { type GeoMouseEvent, ParentMap, toGeoMouseEvent } from "./map.js";
 import { formatLocation, MARKER_LAYER } from "./Markers.js";
 
 interface ContextMenusProps {
-    note: FNote;
     isReadOnly: boolean;
     /**
      * Arms this map for the marker of the given note to be put somewhere else, the next click on the
@@ -24,9 +21,15 @@ interface ContextMenusProps {
      * (see the same reasoning around note placement in `index.tsx`).
      */
     onRelocate: (noteId: string) => void;
+    /**
+     * Creates a note where the click landed. Handed down rather than done here because creating is
+     * only half of what the map does with a new note — it opens the pane on it too, and the pane's
+     * selection lives with the map (see `createNoteAt` in `index.tsx`).
+     */
+    onCreateNote: (e: GeoMouseEvent) => void;
 }
 
-export default function ContextMenus({ note, isReadOnly, onRelocate }: ContextMenusProps) {
+export default function ContextMenus({ isReadOnly, onRelocate, onCreateNote }: ContextMenusProps) {
     const map = useContext(ParentMap);
 
     const onContextMenu = useCallback((e: GeoMouseEvent) => {
@@ -43,9 +46,9 @@ export default function ContextMenus({ note, isReadOnly, onRelocate }: ContextMe
             openContextMenu(features[0].properties.id, e, !isReadOnly, onRelocate);
         } else {
             // Empty area context menu.
-            openMapContextMenu(note, e, !isReadOnly);
+            openMapContextMenu(e, !isReadOnly, onCreateNote);
         }
-    }, [ map, note, isReadOnly, onRelocate ]);
+    }, [ map, isReadOnly, onRelocate, onCreateNote ]);
 
     useEffect(() => {
         if (!onContextMenu || !map) return;
@@ -101,7 +104,7 @@ export function openContextMenu(noteId: string, e: GeoMouseEvent, isEditable: bo
     });
 }
 
-export function openMapContextMenu(note: FNote, e: GeoMouseEvent, isEditable: boolean) {
+export function openMapContextMenu(e: GeoMouseEvent, isEditable: boolean, onCreateNote: (e: GeoMouseEvent) => void) {
     let items: MenuItem<keyof CommandMappings>[] = [
         ...buildGeoLocationItem(e)
     ];
@@ -112,7 +115,9 @@ export function openMapContextMenu(note: FNote, e: GeoMouseEvent, isEditable: bo
             { kind: "separator" },
             {
                 title: t("geo-map-context.add-note"),
-                handler: () => createNewNote(note, e),
+                // The click named the place already, so this skips the armed-click step entirely:
+                // the note is created here and the pane opened on it, like any other creation.
+                handler: () => onCreateNote(e),
                 uiIcon: "bx bx-plus"
             }
         ];

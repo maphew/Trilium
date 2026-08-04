@@ -175,11 +175,35 @@
     align-items: center;
     gap: 4px;
 
-    /* The two that write rather than read stand apart from the four being reached for repeatedly, so
+    /*
+     * The two halves of the split read as the one control they are: the way in, and the arrow
+     * offering the other ways.
+     *
+     * A button group joins its own children — squares the corners where they meet and pulls the
+     * second onto the first's border — but the dropdown brings a wrapper of its own, so neither
+     * rule reaches the arrow and it stands off as a rounded box of its own. Joined by hand here.
+     */
+    .geo-detail-pane-open {
+        > .geo-detail-pane-open-note {
+            border-start-end-radius: 0;
+            border-end-end-radius: 0;
+        }
+
+        > .dropdown {
+            margin-inline-start: -1px;
+
+            > .btn {
+                border-start-start-radius: 0;
+                border-end-start-radius: 0;
+            }
+        }
+    }
+
+    /* Those that write rather than read stand apart from the ones being reached for repeatedly, so
        the pointer cannot land on one of them by being a moment early. The gap falls before the first
-       of the pair, which is the move: both are drawn together or not at all, a read-only map having
-       neither. */
-    .geo-detail-pane-move {
+       of them, which is the colour: they are drawn together or not at all, a read-only map having
+       none of them. */
+    .geo-detail-pane-color {
         margin-inline-start: auto;
     }
 }

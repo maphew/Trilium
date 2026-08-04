@@ -19,7 +19,7 @@ import { useCollectionTreeDrag, useNoteBlob, useNoteLabel, useNoteLabelBoolean, 
 import { ViewModeProps } from "../interface";
 import { createNewNote, moveMarker } from "./api";
 import ContextMenus from "./ContextMenus";
-import DetailPane from "./DetailPane";
+import DetailPane, { PaneSelection } from "./DetailPane";
 import GhostPin from "./GhostPin";
 import { GpxTrack } from "./GpxTrack";
 import Map, { GeoMouseEvent } from "./map";
@@ -61,6 +61,9 @@ type Placement =
 
 export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewModeProps<MapData>) {
     const [ placement, setPlacement ] = useState<Placement>();
+    // Which marker the detail pane stands for. Held here rather than in the pane so that creating a
+    // note can open the pane on it (see createNoteAt below).
+    const [ selection, setSelection ] = useState<PaneSelection | null>(null);
     const [ coordinates, setCoordinates ] = useState(viewConfig?.view?.center);
     const [ zoom, setZoom ] = useState(viewConfig?.view?.zoom);
     const [ hasScale ] = useNoteLabelBoolean(note, "map:scale");
@@ -91,6 +94,24 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
     // map that was clicked.
     const startNotePlacement = useCallback(() => setPlacement({ mode: "new" }), []);
     const startMarkerRelocation = useCallback((noteId: string) => setPlacement({ mode: "move", noteId }), []);
+
+    /**
+     * Creates a note where the click landed and opens the pane on it, title selected, so naming the
+     * place is typing over the stock name — there is no dialog between the click and the note (see
+     * createNewNote). Serving both ways of asking for a note: the armed click and the right-click menu.
+     *
+     * The note is put among the map's own before the pane is pointed at it. It is already a child —
+     * the collection just has not reloaded around it yet — and the pane closes itself over a
+     * selection it cannot find, so waiting for the reload would open the pane on a note it refuses.
+     * The marker appears with the pane rather than after it, which is no accident either.
+     */
+    const createNoteAt = useCallback(async (e: GeoMouseEvent) => {
+        const created = await createNewNote(note, e);
+        if (!created) return;
+
+        setNotes((current) => current.some((n) => n.noteId === created.noteId) ? current : [ ...current, created ]);
+        setSelection({ noteId: created.noteId, isNew: true });
+    }, [ note ]);
 
     // Placement mode is armed by the button or by the context menu. Tying the instruction toast and
     // the global Escape-to-cancel listener to the state (rather than the handler that armed it)
@@ -140,11 +161,11 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
         setPlacement(undefined);
 
         if (placement.mode === "new") {
-            await createNewNote(note, e);
+            await createNoteAt(e);
         } else {
             await moveMarker(placement.noteId, e.latlng);
         }
-    }, [ note, placement ]);
+    }, [ placement, createNoteAt ]);
 
     // Dragging
     const containerRef = useRef<HTMLDivElement>(null);
@@ -213,8 +234,8 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                     being moved wearing its own pin, a note to be created wearing the pin it will be
                     given (see api.ts). */}
                 {placement && <GhostPin note={placement.mode === "move" ? notes.find((n) => n.noteId === placement.noteId) : undefined} />}
-                <DetailPane notes={notes} placing={!!placement} isReadOnly={isReadOnly} onRelocate={startMarkerRelocation} />
-                <ContextMenus note={note} isReadOnly={isReadOnly} onRelocate={startMarkerRelocation} />
+                <DetailPane notes={notes} placing={!!placement} isReadOnly={isReadOnly} selection={selection} onSelect={setSelection} onRelocate={startMarkerRelocation} />
+                <ContextMenus isReadOnly={isReadOnly} onRelocate={startMarkerRelocation} onCreateNote={createNoteAt} />
                 {/* The pane above is what a click on a marker opens now, so the markers no longer
                     open the note themselves — the two would otherwise both answer the same click,
                     raising the quick editor over the pane that had just opened behind it. */}

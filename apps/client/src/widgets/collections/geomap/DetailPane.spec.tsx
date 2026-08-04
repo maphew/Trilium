@@ -1,5 +1,6 @@
 import $ from "jquery";
 import { render } from "preact";
+import { useState } from "preact/hooks";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -7,13 +8,14 @@ import appContext from "../../../components/app_context";
 import Component from "../../../components/component";
 import type FNote from "../../../entities/fnote";
 import attributes from "../../../services/attributes";
+import linkContextMenu from "../../../menus/link_context_menu";
 import froca from "../../../services/froca";
 import link from "../../../services/link";
 import server from "../../../services/server";
 import { buildNote } from "../../../test/easy-froca";
 import { useLegacyImperativeHandlers, useNoteContext, useTriliumEvent } from "../../react/hooks";
 import { ParentComponent } from "../../react/react_utils";
-import DetailPane from "./DetailPane";
+import DetailPane, { OTHER_WAYS_TO_OPEN, PaneSelection } from "./DetailPane";
 import { ParentMap } from "./map";
 import { MARKER_LAYER } from "./Markers";
 
@@ -139,14 +141,33 @@ describe("DetailPane", () => {
     /** Stands in for the map's own component, which is what the pane hangs under. */
     let mapComponent: Component | undefined;
 
+    /**
+     * Stands in for the map view, which is what owns the selection now (see PaneSelection): the pane
+     * asks for changes through `onSelect` and is handed the result back, exactly as GeoView does it.
+     * `initialSelection` is the map view opening the pane by hand — on a note it has just created.
+     */
+    function Harness({ notes, placing, isReadOnly, initialSelection }: {
+        notes: FNote[]; placing: boolean; isReadOnly: boolean; initialSelection?: PaneSelection;
+    }) {
+        const [ selection, setSelection ] = useState<PaneSelection | null>(initialSelection ?? null);
+        return <DetailPane
+            notes={notes}
+            placing={placing}
+            isReadOnly={isReadOnly}
+            selection={selection}
+            onSelect={setSelection}
+            onRelocate={onRelocate}
+        />;
+    }
+
     /** Renders into the same container, so calling it again is a re-render with fresh props. */
-    function mount(notes: FNote[], map: ReturnType<typeof fakeMap>, placing = false, isReadOnly = false) {
+    function mount(notes: FNote[], map: ReturnType<typeof fakeMap>, placing = false, isReadOnly = false, initialSelection?: PaneSelection) {
         mapComponent ??= new Component();
         return act(async () => {
             render(
                 <ParentComponent.Provider value={mapComponent as Component}>
                     <ParentMap.Provider value={map as never}>
-                        <DetailPane notes={notes} placing={placing} isReadOnly={isReadOnly} onRelocate={onRelocate} />
+                        <Harness notes={notes} placing={placing} isReadOnly={isReadOnly} initialSelection={initialSelection} />
                     </ParentMap.Provider>
                 </ParentComponent.Provider>,
                 container as HTMLElement
@@ -275,6 +296,42 @@ describe("DetailPane", () => {
         expect(map.eased).toEqual([ { center: [ 2, 1 ], offset: [ 0, 0 ] } ]);
     });
 
+    /**
+     * The way in for a note the map has just created (see `createNoteAt` in index.tsx): no click —
+     * the map hands the pane the selection, marked as new, and the pane opens ready for the one
+     * thing the note still lacks, a name.
+     */
+    it("opens on a note it is handed, with the stock name selected to be typed over", async () => {
+        buildNote({ id: "root", title: "root", children: [ { id: "fresh", title: "new note", "#geolocation": "1,2" } ] });
+        const note = froca.notes["fresh"];
+        const map = fakeMap();
+
+        // What the title widget asks before taking the focus; nothing in this DOM has a layout to
+        // answer it with, so the answer a drawn pane would give is supplied by hand.
+        (HTMLElement.prototype as { checkVisibility?: () => boolean }).checkVisibility = () => true;
+        // The selecting itself is asserted as a call: happy-dom keeps no faithful selection range —
+        // the controlled value write walks the caret to the end regardless of what select() did.
+        const select = vi.spyOn(HTMLInputElement.prototype, "select");
+
+        try {
+            await mount([ note ], map, false, false, { noteId: note.noteId, isNew: true });
+            await settle();
+
+            // Open and held clear of the pane, exactly as if the marker had been clicked.
+            expect(pane()).toBeTruthy();
+            expect(map.eased).toEqual([ { center: [ 2, 1 ], offset: [ -200, 0 ] } ]);
+
+            // The caret is in the title with the whole of the stock name selected: naming the
+            // place is typing over it, not clearing a field first.
+            const title = pane()?.querySelector<HTMLInputElement>(".title-row input");
+            expect(title?.value).toBe("new note");
+            expect(document.activeElement).toBe(title);
+            expect(select.mock.instances).toContain(title);
+        } finally {
+            select.mockRestore();
+        }
+    });
+
     it("clears on a click that misses every marker, and on Escape", async () => {
         const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
         const map = fakeMap();
@@ -373,21 +430,15 @@ describe("DetailPane", () => {
             // one is searched from.
             const notePath = "root/places/somewhere";
             const bestNotePath = vi.spyOn(note, "getBestNotePathString").mockReturnValue(notePath);
-            const openContextWithNote = vi.spyOn(appContext.tabManager, "openContextWithNote").mockResolvedValue(undefined as never);
-            const triggerCommand = vi.spyOn(appContext, "triggerCommand").mockResolvedValue(undefined);
             const goToLinkExt = vi.spyOn(link, "goToLinkExt").mockReturnValue(true);
 
             try {
                 await openPaneFor(note, map);
 
-                press("bx-log-in");
+                // The half of the split that is a button in its own right, the rest being behind its
+                // arrow.
+                container?.querySelector<HTMLButtonElement>(".geo-detail-pane-open-note")?.click();
                 expect(openInCurrentNoteContext).toHaveBeenCalledWith(expect.anything(), notePath);
-
-                press("bx-link-external");
-                expect(openContextWithNote).toHaveBeenCalledWith(notePath, { hoistedNoteId: undefined });
-
-                press("bx-window-open");
-                expect(triggerCommand).toHaveBeenCalledWith("openInWindow", { notePath, hoistedNoteId: undefined });
 
                 // Latitude first, as a geo URI is written and as the map's own menu hands one over —
                 // the note stores it that way round, and the features the map draws do not.
@@ -395,11 +446,29 @@ describe("DetailPane", () => {
                 expect(goToLinkExt).toHaveBeenCalledWith(null, "geo:1,2");
             } finally {
                 bestNotePath.mockRestore();
-                openContextWithNote.mockRestore();
-                triggerCommand.mockRestore();
                 goToLinkExt.mockRestore();
                 openInCurrentNoteContext.mockClear();
             }
+        });
+
+        /**
+         * The rest live behind the split's arrow, and are the same ways a link offers anywhere in
+         * the app — which is how a split view, the one worth having beside a map, comes to be
+         * offered at all: the row of buttons this replaced never had one.
+         *
+         * The pane names them itself, the shared menu wanting an event it cannot be handed before
+         * anything is pressed, so what is pinned here is that the two lists stay the same list. Add
+         * a fifth way to open a link and this fails until the pane offers it too.
+         */
+        it("offers behind the split exactly the ways a link is opened anywhere else", async () => {
+            const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+            const map = fakeMap();
+            await openPaneFor(note, map);
+
+            expect(container?.querySelector(".dropdown-toggle-split")).toBeTruthy();
+            expect(OTHER_WAYS_TO_OPEN.map((way) => way.command)).toEqual(
+                linkContextMenu.getItems(new MouseEvent("click"))
+                    .map((item) => ("command" in item ? item.command : undefined)));
         });
     });
 
@@ -623,7 +692,7 @@ describe("DetailPane", () => {
 
             // The ways of reading the note stay; the one that writes it does not.
             expect(pane()).toBeTruthy();
-            expect(container?.querySelector(".geo-detail-pane-actions button.bx-log-in")).toBeTruthy();
+            expect(container?.querySelector(".geo-detail-pane-open-note")).toBeTruthy();
             expect(removeButton()).toBeNull();
         });
     });

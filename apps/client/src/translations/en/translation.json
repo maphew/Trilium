@@ -2752,6 +2752,8 @@
     "exit-fullscreen": "Exit fullscreen",
     "close-details": "Close",
     "open-note": "Open note",
+    "more-ways-to-open": "More ways to open",
+    "marker-color": "Marker color",
     "copy-coordinates": "Copy coordinates"
   },
   "geo-map-context": {
