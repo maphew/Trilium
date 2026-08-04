@@ -438,7 +438,7 @@ describe("PromotedAttributesContent rendering", () => {
             buildCell(note, { definition: { labelType: "color" }, value: "#123456" })
         ]);
 
-        expect(container.querySelector(".note-color-picker")).not.toBeNull();
+        expect(container.querySelector(".color-picker")).not.toBeNull();
         // The raw input is kept but hidden, the picker drives the value.
         expect(container.querySelector("input.promoted-attribute-input")?.getAttribute("type")).toBe("hidden");
     });
