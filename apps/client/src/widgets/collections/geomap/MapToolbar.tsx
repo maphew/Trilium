@@ -5,7 +5,7 @@ import { useContext, useEffect, useRef, useState } from "preact/hooks";
 
 import { t } from "../../../services/i18n";
 import { useFullscreen, useStaticTooltip } from "../../react/hooks";
-import { DEFAULT_ZOOM, ParentMap } from "./map";
+import { ParentMap } from "./map";
 
 /**
  * The controls standing in the corner of a geo map: how close in the map is drawn, and how much of
@@ -15,8 +15,9 @@ import { DEFAULT_ZOOM, ParentMap } from "./map";
  * `FullscreenControl`), dressed in neither Trilium's buttons nor Trilium's colors — a white box with
  * hairline-separated squares in it, on a map that may well be dark. What they do is done here
  * instead, on the control group the image viewer's zoom buttons stand on (`tn-overlay-control-group`,
- * see {@link ImageViewer}): a step out, a step in, and between them a readout saying how close in the
- * map is — which, pressed, takes the map back out to the whole world.
+ * see {@link ImageViewer}): a step out, a step in, and between them a readout saying how close in
+ * the map is. The readout only says it — a map has no fitted view to be reset to the way an image
+ * has, and the whole world is a place worth going back to only rarely.
  */
 export default function MapToolbar() {
     const map = useContext(ParentMap);
@@ -26,14 +27,12 @@ export default function MapToolbar() {
     const [ isFullscreen, toggleFullscreen ] = useFullscreen(map?.getContainer());
 
     const zoomOutRef = useRef<HTMLButtonElement>(null);
-    const zoomLevelRef = useRef<HTMLButtonElement>(null);
     const zoomInRef = useRef<HTMLButtonElement>(null);
     const fullscreenRef = useRef<HTMLButtonElement>(null);
 
     // The group stands at the foot of the map, so its tooltips open away from that edge, where
     // they would otherwise fall off.
     useStaticTooltip(zoomOutRef, { title: t("geo-map.zoom-out"), placement: "top" });
-    useStaticTooltip(zoomLevelRef, { title: t("geo-map.reset-zoom"), placement: "top" });
     useStaticTooltip(zoomInRef, { title: t("geo-map.zoom-in"), placement: "top" });
     useStaticTooltip(fullscreenRef, {
         title: isFullscreen ? t("geo-map.exit-fullscreen") : t("geo-map.fullscreen"),
@@ -60,14 +59,17 @@ export default function MapToolbar() {
                 disabled={current <= map.getMinZoom()}
                 onClick={() => map.zoomOut()}
             />
+            {/* The readout is told, not asked: the image viewer's presses this to go back to the
+                fitted view, but a map has no such view to offer — so it only says where between the
+                ends the zoom stands, whole levels being all anyone does anything with. Disabled
+                rather than a plain span so it stays a child the group's styling knows; the refused
+                look is taken off it in MapToolbar.css. */}
             <button
-                ref={zoomLevelRef}
                 type="button"
                 className="tn-overlay-text-button geo-map-zoom-level"
-                aria-label={t("geo-map.reset-zoom")}
-                onClick={() => map.zoomTo(DEFAULT_ZOOM)}
+                disabled
             >
-                {current.toFixed(1)}
+                {Math.round(current)}
             </button>
             <button
                 ref={zoomInRef}

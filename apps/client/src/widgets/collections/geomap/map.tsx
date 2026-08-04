@@ -19,8 +19,7 @@ export interface GeoMouseEvent {
 
 export const ParentMap = createContext<MapLibreGLMap | null>(null);
 
-/** The zoom a map opens at where no view has been saved: far enough out to see the whole world.
- *  Also what the zoom readout returns the map to when pressed (see {@link MapToolbar}). */
+/** The zoom a map opens at where no view has been saved: far enough out to see the whole world. */
 export const DEFAULT_ZOOM = 2;
 
 /**

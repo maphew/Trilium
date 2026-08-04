@@ -3,7 +3,7 @@
  * be dark, dressed in neither Trilium's buttons nor its colors. What is checked here is what they
  * did for us: the two steps, a step that would carry the map past either end of the range it is
  * allowed being refused rather than merely doing nothing, the readout between the steps saying how
- * close in the map is and taking it back out, and the screen being given and taken back.
+ * close in the map is, and the screen being given and taken back.
  */
 import type { Map as MapLibreGLMap } from "maplibre-gl";
 import { render } from "preact";
@@ -11,7 +11,7 @@ import { act } from "preact/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { renderInto } from "../../../test/render";
-import { DEFAULT_ZOOM, ParentMap } from "./map";
+import { ParentMap } from "./map";
 import MapToolbar from "./MapToolbar";
 
 /** The order the group lays its buttons out in — the image viewer's, with the screen at the end. */
@@ -39,8 +39,8 @@ function fakeMap({ zoom = 5, minZoom = 2, maxZoom = 22 } = {}) {
         getContainer: () => container,
         zoomIn: vi.fn(() => setZoom(zoom + 1)),
         zoomOut: vi.fn(() => setZoom(zoom - 1)),
-        /** The map being zoomed to a level outright — the readout's reset, or a restored view. */
-        zoomTo: vi.fn(setZoom),
+        /** The map being zoomed by something other than these buttons — the wheel, or a pinch. */
+        zoomTo: setZoom,
         on: (event: string, listener: () => void) => { if (event === "zoom") listeners.add(listener); },
         off: (event: string, listener: () => void) => { if (event === "zoom") listeners.delete(listener); },
         get listenerCount() { return listeners.size; }
@@ -109,24 +109,17 @@ describe("geo map MapToolbar", () => {
         expect(map.zoomOut).toHaveBeenCalled();
     });
 
-    it("says how close in the map is, following the wheel as much as the buttons", () => {
+    it("says how close in the map is, in whole levels, following the wheel as much as the buttons", () => {
         const map = fakeMap({ zoom: 5 });
         const container = renderToolbar(map);
-        expect(buttons(container)[ZOOM_LEVEL].textContent).toBe("5.0");
+        expect(buttons(container)[ZOOM_LEVEL].textContent).toBe("5");
 
-        // As the wheel or a pinch would.
-        act(() => map.zoomTo(12.5));
+        // As the wheel or a pinch would — landing between levels, which the readout does not split.
+        act(() => map.zoomTo(13.6));
 
-        expect(buttons(container)[ZOOM_LEVEL].textContent).toBe("12.5");
-    });
-
-    it("takes the map back out to the whole world when the readout is pressed", () => {
-        const map = fakeMap({ zoom: 15 });
-        const container = renderToolbar(map);
-
-        press(container, ZOOM_LEVEL);
-
-        expect(map.zoomTo).toHaveBeenCalledWith(DEFAULT_ZOOM);
+        expect(buttons(container)[ZOOM_LEVEL].textContent).toBe("14");
+        // The readout is told, not asked: unlike the image viewer's, pressing it resets nothing.
+        expect(buttons(container)[ZOOM_LEVEL].disabled).toBe(true);
     });
 
     it("disables the step that would carry the map past the range it is allowed", () => {

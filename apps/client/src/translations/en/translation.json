@@ -2749,7 +2749,6 @@
     "webgl-unavailable": "This map can't be drawn because WebGL isn't available. Check that hardware acceleration is enabled and that your graphics drivers are up to date.",
     "zoom-in": "Zoom in",
     "zoom-out": "Zoom out",
-    "reset-zoom": "Reset zoom",
     "fullscreen": "Fullscreen",
     "exit-fullscreen": "Exit fullscreen",
     "close-details": "Close",

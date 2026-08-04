@@ -19,10 +19,11 @@
 }
 
 .geo-map-container {
-  /* How far everything standing over the map is held off its edges: the toolbar (see
-     MapToolbar.css) and MapLibre's own scale and attribution below. Settled here so that the two
-     agree, and matching the room the mind map gives its bars (see MindMap.css). */
-  --geo-map-inset: 20px;
+  /* How far everything standing over the map is held off its edges: the zoom controls (see
+     MapToolbar.css), the editing bar, and MapLibre's own scale and attribution below. The very
+     room the image viewer keeps its controls at, taken from the shared name rather than restated
+     (see the overlay buttons in theme-next/base.css), so the two cannot drift apart. */
+  --geo-map-inset: var(--overlay-button-inset, 10px);
 
   /* How tall the controls in the corner stand, which is what anything else opened over that corner
      has to end above (see DetailPane.css). The image viewer's zoom controls are the same height,
@@ -63,8 +64,9 @@
     position: relative;
   }
 
-  /* MapLibre holds its controls 10px off the edge, which is half of what everything else over the
-     map keeps to; only the foot of the map carries any (the scale and the attribution). */
+  /* MapLibre spaces its controls off the edge by margins of its own — only the foot of the map
+     carries any (the scale and the attribution). Restated in the shared inset's terms, so they
+     stand where everything else over the map stands and follow it if it ever moves. */
   .maplibregl-ctrl-bottom-left .maplibregl-ctrl,
   .maplibregl-ctrl-bottom-right .maplibregl-ctrl {
     margin-bottom: var(--geo-map-inset);
