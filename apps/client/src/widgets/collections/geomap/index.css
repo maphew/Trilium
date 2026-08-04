@@ -30,8 +30,12 @@
   cursor: crosshair;
 }
 
+/* No `position` here: MapLibre positions markers itself with `.maplibregl-marker`'s
+   `position: absolute` + a transform, and this more specific selector would override it back to
+   `relative`, dropping every marker into the canvas container's normal flow — each one then sits
+   41px (a marker height) lower than the previous, so the marker added last lands furthest below its
+   coordinate. `absolute` is a positioned box too, so the badge and label below still anchor here. */
 .geo-map-container .geo-marker {
-  position: relative;
   cursor: pointer;
   overflow: visible;
 }
