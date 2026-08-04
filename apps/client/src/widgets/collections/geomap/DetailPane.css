@@ -157,3 +157,7 @@
         margin-inline-start: auto;
     }
 }
+
+:root .geo-map-container .geo-detail-pane .geo-detail-pane-remove.icon-action {
+    color: var(--dropdown-item-icon-destructive-color);
+}
