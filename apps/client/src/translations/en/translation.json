@@ -754,6 +754,7 @@
     "map_style": "Which style a geo map is drawn in, chosen from the raster and vector styles offered in the collection properties.",
     "map_scale": "Shows a scale bar on the geo map.",
     "map_hide_labels": "Hides the note titles beside the markers on a geo map.",
+    "map_cluster": "Gathers markers that are drawn close together into a single numbered bubble, which opens when clicked.",
     "presentation_theme": "Which theme a presentation is shown with.",
     "slide_background": "The background of a slide, as a colour or as a CSS gradient.",
     "tab_width": "How many spaces wide one level of indentation is in this code note.",
@@ -3062,7 +3063,8 @@
     "vector_light": "Vector (Light)",
     "vector_dark": "Vector (Dark)",
     "show-scale": "Show scale",
-    "show-labels": "Show marker names"
+    "show-labels": "Show marker names",
+    "cluster-markers": "Group nearby markers"
   },
   "table_context_menu": {
     "delete_row": "Delete row"

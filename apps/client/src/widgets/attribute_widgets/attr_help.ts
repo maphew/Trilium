@@ -177,6 +177,7 @@ export const ATTR_HELP: AttrHelpMap = {
         "map:style": t("attribute_detail.map_style"),
         "map:scale": t("attribute_detail.map_scale"),
         "map:hideLabels": t("attribute_detail.map_hide_labels"),
+        "map:cluster": t("attribute_detail.map_cluster"),
         "presentation:theme": t("attribute_detail.presentation_theme"),
         "slide:background": t("attribute_detail.slide_background"),
         tabWidth: t("attribute_detail.tab_width"),

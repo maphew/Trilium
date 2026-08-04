@@ -20,22 +20,33 @@ import type { EntityChange } from "../../../server_types";
 import LoadResults from "../../../services/load_results";
 import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
+import { CLUSTER_COUNT_LAYER, CLUSTER_LAYER } from "./clusters";
 import { ParentMap } from "./map";
-import Markers, { MARKER_LAYER } from "./Markers";
+import Markers, { MARKER_LAYER, MARKER_SOURCE } from "./Markers";
 
 vi.mock("../../../services/icon_glyphs", () => ({
     renderIconImage: vi.fn(async () => "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=")
 }));
 
+/** What a map that gathers its notes puts up: the pins, the bubbles, and the bubbles' counts. */
+const CLUSTERED_LAYER_COUNT = 3;
+
+interface FakeLayer {
+    id: string;
+    filter?: unknown;
+    layout?: Record<string, unknown>;
+    paint?: Record<string, unknown>;
+}
+
 /** A map that records what the component does to it, standing in for MapLibre. */
 function fakeMap() {
-    const layers = new Set<string>();
-    const sources = new Set<string>();
+    const layers = new Map<string, FakeLayer>();
+    const sources = new Map<string, unknown>();
     const listeners = new Map<string, Set<() => void>>();
     const calls = { addLayer: 0, removeLayer: 0, addSource: 0, removeSource: 0, setData: 0 };
     const properties = new Map<string, unknown>();
+    const canvas = { style: {} as Record<string, string> };
     let lastFeatures: unknown[] = [];
-    let lastLayer: { layout?: Record<string, unknown>, paint?: Record<string, unknown> } | undefined;
     let removed = false;
 
     /** What every style-reading call becomes once the map is gone: `this.style is undefined`. */
@@ -46,10 +57,12 @@ function fakeMap() {
     return {
         calls,
         get lastFeatures() { return lastFeatures; },
-        /** The layout and paint the layer was added with, as `addLayer` was given them. */
-        get lastLayer() { return lastLayer; },
-        /** What a layout or paint property has been set to since, by name. */
-        property(name: string) { return properties.get(name); },
+        /** The filter, layout and paint a layer was added with, as `addLayer` was given them. */
+        layer(id: string) { return layers.get(id); },
+        /** What a layout or paint property of a layer has been set to since, by name. */
+        property(id: string, name: string) { return properties.get(`${id}/${name}`); },
+        /** What a source was added with, which is where the clustering options live. */
+        source(id: string) { return sources.get(id); },
         fireStyleLoad() {
             for (const fn of listeners.get("style.load") ?? []) fn();
         },
@@ -63,16 +76,23 @@ function fakeMap() {
             removed = true;
             for (const fn of listeners.get("remove") ?? []) fn();
         },
-        on(event: string, fn: () => void) {
+        /**
+         * MapLibre lets a listener be scoped to a layer, which the cluster handlers use — the layer
+         * comes between the event and the handler when it does. Keyed by event alone here, since
+         * nothing in these tests fires a layer-scoped one.
+         */
+        on(event: string, fnOrLayer: unknown, fn?: () => void) {
+            const handler = (fn ?? fnOrLayer) as () => void;
             if (!listeners.has(event)) listeners.set(event, new Set());
-            listeners.get(event)?.add(fn);
+            listeners.get(event)?.add(handler);
         },
-        off(event: string, fn: () => void) {
-            listeners.get(event)?.delete(fn);
+        off(event: string, fnOrLayer: unknown, fn?: () => void) {
+            listeners.get(event)?.delete((fn ?? fnOrLayer) as () => void);
         },
         isStyleLoaded: () => false,
         hasImage: () => false,
         addImage: () => {},
+        getCanvas: () => canvas,
         getSource(id: string) {
             requireStyle();
             if (!sources.has(id)) return undefined;
@@ -83,20 +103,19 @@ function fakeMap() {
                 }
             };
         },
-        addSource(id: string) { sources.add(id); calls.addSource++; },
+        addSource(id: string, source: unknown) { sources.set(id, source); calls.addSource++; },
         removeSource(id: string) { sources.delete(id); calls.removeSource++; },
         getLayer: (id: string) => {
             requireStyle();
             return layers.has(id) ? { id } : undefined;
         },
-        addLayer(layer: { id: string, layout?: Record<string, unknown>, paint?: Record<string, unknown> }) {
-            layers.add(layer.id);
-            lastLayer = layer;
+        addLayer(layer: FakeLayer) {
+            layers.set(layer.id, layer);
             calls.addLayer++;
         },
         removeLayer(id: string) { layers.delete(id); calls.removeLayer++; },
-        setLayoutProperty(_id: string, name: string, value: unknown) { properties.set(name, value); },
-        setPaintProperty(_id: string, name: string, value: unknown) { properties.set(name, value); }
+        setLayoutProperty(id: string, name: string, value: unknown) { properties.set(`${id}/${name}`, value); },
+        setPaintProperty(id: string, name: string, value: unknown) { properties.set(`${id}/${name}`, value); }
     };
 }
 
@@ -150,7 +169,7 @@ describe("Markers", () => {
     });
 
     /** Renders into the same container, so calling it again is a re-render with fresh props. */
-    function mount(notes: FNote[], map: ReturnType<typeof fakeMap>, parent: Component, look?: { hideLabels?: boolean, isDarkTheme?: boolean }) {
+    function mount(notes: FNote[], map: ReturnType<typeof fakeMap>, parent: Component, look?: { hideLabels?: boolean, isDarkTheme?: boolean, clustered?: boolean }) {
         return act(async () => {
             render(
                 <ParentComponent.Provider value={parent}>
@@ -159,6 +178,7 @@ describe("Markers", () => {
                             notes={notes}
                             hideLabels={look?.hideLabels ?? false}
                             isDarkTheme={look?.isDarkTheme ?? false}
+                            clustered={look?.clustered ?? false}
                         />
                     </ParentMap.Provider>
                 </ParentComponent.Provider>,
@@ -214,8 +234,8 @@ describe("Markers", () => {
             await settle();
         });
 
-        expect(map.lastLayer?.paint?.["text-color"]).toBe("#333");
-        expect(map.lastLayer?.layout?.["text-field"]).toEqual([ "get", "name" ]);
+        expect(map.layer(MARKER_LAYER)?.paint?.["text-color"]).toBe("#333");
+        expect(map.layer(MARKER_LAYER)?.layout?.["text-field"]).toEqual([ "get", "name" ]);
         const setDataBefore = map.calls.setData;
 
         // The map is switched to a dark style, and its titles hidden.
@@ -228,9 +248,9 @@ describe("Markers", () => {
         expect(map.calls.addLayer).toBe(1);
         expect(map.calls.setData).toBe(setDataBefore);
 
-        expect(map.property("text-color")).toBe("#fff");
-        expect(map.property("text-halo-color")).toBe("rgba(0, 0, 0, 0.8)");
-        expect(map.property("text-field")).toBe("");
+        expect(map.property(MARKER_LAYER, "text-color")).toBe("#fff");
+        expect(map.property(MARKER_LAYER, "text-halo-color")).toBe("rgba(0, 0, 0, 0.8)");
+        expect(map.property(MARKER_LAYER, "text-field")).toBe("");
     });
 
     it("gives a layer added after a style switch the look it is being shown with", async () => {
@@ -245,12 +265,104 @@ describe("Markers", () => {
             await settle();
         });
 
-        expect(map.lastLayer?.paint?.["text-color"]).toBe("#fff");
-        expect(map.lastLayer?.paint?.["text-halo-color"]).toBe("rgba(0, 0, 0, 0.8)");
-        expect(map.lastLayer?.layout?.["text-field"]).toBe("");
+        expect(map.layer(MARKER_LAYER)?.paint?.["text-color"]).toBe("#fff");
+        expect(map.layer(MARKER_LAYER)?.paint?.["text-halo-color"]).toBe("rgba(0, 0, 0, 0.8)");
+        expect(map.layer(MARKER_LAYER)?.layout?.["text-field"]).toBe("");
         // Hiding the titles empties the field rather than dropping the layout, so the rest of it
         // still has to be there for showing them again to be a single property.
-        expect(map.lastLayer?.layout?.["text-optional"]).toBe(true);
+        expect(map.layer(MARKER_LAYER)?.layout?.["text-optional"]).toBe(true);
+    });
+
+    /**
+     * Regression test for crowded notes appearing to vanish as the map was zoomed.
+     *
+     * Clustering was turned on at the source without anything being drawn for the groups it makes.
+     * A clustered source hands its groups out through the same source as the notes it left alone,
+     * and a group carries none of a note's properties — no `icon`, so the pin layer had no image to
+     * stamp for one, and no `name`, so it had no title either. The pins therefore thinned out as the
+     * map zoomed and nothing took their place, which read as markers flickering in and out at random
+     * rather than as notes being gathered together.
+     */
+    it("draws a bubble for each group of notes and keeps the pins off them", async () => {
+        const notes = [
+            buildNote({ title: "One", "#geolocation": "1,2" }),
+            buildNote({ title: "Two", "#geolocation": "1.001,2.001" })
+        ];
+        const map = fakeMap();
+        const parent = new Component();
+
+        await mount(notes, map, parent, { clustered: true });
+        await act(async () => {
+            map.fireStyleLoad();
+            await settle();
+        });
+
+        // The source groups them; the pin layer is told to leave those groups alone.
+        expect(map.source(MARKER_SOURCE)).toMatchObject({ cluster: true });
+        expect(map.layer(MARKER_LAYER)?.filter).toEqual([ "!", [ "has", "point_count" ] ]);
+
+        // ...and something is drawn in their place: a bubble, and the count that gives it meaning.
+        expect(map.calls.addLayer).toBe(CLUSTERED_LAYER_COUNT);
+        expect(map.layer(CLUSTER_LAYER)?.filter).toEqual([ "has", "point_count" ]);
+        expect(map.layer(CLUSTER_COUNT_LAYER)?.filter).toEqual([ "has", "point_count" ]);
+        expect(map.layer(CLUSTER_COUNT_LAYER)?.layout?.["text-field"]).toEqual([ "get", "point_count_abbreviated" ]);
+        // A count that loses a placement contest leaves a bubble that means nothing.
+        expect(map.layer(CLUSTER_COUNT_LAYER)?.layout?.["text-allow-overlap"]).toBe(true);
+    });
+
+    it("leaves every note its own pin when the map is not set to gather them", async () => {
+        const notes = [
+            buildNote({ title: "One", "#geolocation": "1,2" }),
+            buildNote({ title: "Two", "#geolocation": "1.001,2.001" })
+        ];
+        const map = fakeMap();
+        const parent = new Component();
+
+        await mount(notes, map, parent);
+        await act(async () => {
+            map.fireStyleLoad();
+            await settle();
+        });
+
+        expect(map.source(MARKER_SOURCE)).not.toMatchObject({ cluster: true });
+        expect(map.layer(CLUSTER_LAYER)).toBeUndefined();
+        expect(map.layer(CLUSTER_COUNT_LAYER)).toBeUndefined();
+        expect(map.calls.addLayer).toBe(1);
+        // The pin layer keeps its filter either way — a source that gathers nothing produces no
+        // group for it to hide, so it passes every note through.
+        expect(map.lastFeatures).toHaveLength(2);
+    });
+
+    /**
+     * Whether a source gathers its notes is fixed when the source is made: MapLibre offers no way to
+     * set `cluster` on one already standing, so the toggle has to take the source down and put a new
+     * one up. Everything else about this component is careful *not* to rebuild; this is the one case
+     * where rebuilding is the only thing that works, and it is easy to "optimise" back into a toggle
+     * that silently does nothing.
+     */
+    it("rebuilds the source when the map is switched to gathering its notes", async () => {
+        const notes = [ buildNote({ title: "One", "#geolocation": "1,2" }) ];
+        const map = fakeMap();
+        const parent = new Component();
+
+        await mount(notes, map, parent);
+        await act(async () => {
+            map.fireStyleLoad();
+            await settle();
+        });
+        expect(map.calls.addSource).toBe(1);
+        expect(map.source(MARKER_SOURCE)).not.toMatchObject({ cluster: true });
+
+        await mount(notes, map, parent, { clustered: true });
+        await act(async () => { await settle(); });
+
+        // The old source went and a clustered one took its place, bubbles and all.
+        expect(map.calls.removeSource).toBe(1);
+        expect(map.calls.addSource).toBe(2);
+        expect(map.source(MARKER_SOURCE)).toMatchObject({ cluster: true });
+        expect(map.layer(CLUSTER_LAYER)).toBeDefined();
+        // ...and the markers are back on it rather than waiting on a fresh build.
+        expect(map.lastFeatures).toHaveLength(1);
     });
 
     it("takes the layer down when the component goes away", async () => {

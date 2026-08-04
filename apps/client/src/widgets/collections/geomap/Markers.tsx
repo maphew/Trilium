@@ -5,11 +5,12 @@ import FNote from "../../../entities/fnote";
 import { getReadableTextColor } from "../../../services/css_class_manager";
 import { renderIconImage } from "../../../services/icon_glyphs";
 import { useTriliumEvent } from "../../react/hooks";
+import { CLUSTER_LAYERS, CLUSTER_SOURCE_OPTIONS, installClusterLayers, UNCLUSTERED_ONLY, useClusterExpansion } from "./clusters";
 import { ParentMap } from "./map";
 
 export const LOCATION_ATTRIBUTE = "geolocation";
 export const MARKER_LAYER = "points-layer";
-const MARKER_SOURCE = "points";
+export const MARKER_SOURCE = "points";
 const DEFAULT_MARKER_COLOR = "#2A81CB";
 
 /** The pin, in the coordinates its SVG is drawn in. */
@@ -80,7 +81,7 @@ const HIDDEN_TEXT_FIELD = "";
  * per note is what made that slow. The pin is rasterized once per colour and icon and handed to the
  * map as an image, which the layer then stamps on the GPU.
  */
-export default function Markers({ notes, hideLabels, isDarkTheme }: { notes: FNote[], hideLabels: boolean, isDarkTheme: boolean }) {
+export default function Markers({ notes, hideLabels, isDarkTheme, clustered }: { notes: FNote[], hideLabels: boolean, isDarkTheme: boolean, clustered: boolean }) {
     const map = useContext(ParentMap);
     const version = useNoteChangeVersion(notes);
     // Whether the style has finished loading at least once. Held outside the effects because either
@@ -102,6 +103,11 @@ export default function Markers({ notes, hideLabels, isDarkTheme }: { notes: FNo
      * every source, layer and image added to the last — so this has to run again after each style
      * load, not only when the notes change. Does nothing until there is both a loaded style to add
      * to and something to add.
+     *
+     * `clustered` is depended on rather than read from a ref, unlike the look of the titles: whether
+     * a source gathers its notes is fixed when the source is made and cannot be set on one already
+     * standing, so turning it on or off has to take the source down and put a new one up. Rebuilding
+     * is the point here, which is why it is not kept out of the way as the others are.
      */
     const install = useCallback(() => {
         const data = markerData.current;
@@ -117,7 +123,8 @@ export default function Markers({ notes, hideLabels, isDarkTheme }: { notes: FNo
         if (!map.getSource(MARKER_SOURCE)) {
             map.addSource(MARKER_SOURCE, {
                 type: "geojson",
-                data: { type: "FeatureCollection", features: [] }
+                data: { type: "FeatureCollection", features: [] },
+                ...(clustered ? CLUSTER_SOURCE_OPTIONS : {})
             });
         }
 
@@ -126,6 +133,11 @@ export default function Markers({ notes, hideLabels, isDarkTheme }: { notes: FNo
                 id: MARKER_LAYER,
                 type: "symbol",
                 source: MARKER_SOURCE,
+                // Only the notes the source left standing on their own — the groups it made of the
+                // rest are drawn by the cluster layers instead. Kept whether or not this map
+                // gathers its notes: a source that does not has no group to hide, so the filter
+                // passes everything, and the layer need not be built two ways.
+                filter: UNCLUSTERED_ONLY,
                 layout: {
                     "icon-image": [ "get", "icon" ],
                     "icon-size": 1,
@@ -155,11 +167,15 @@ export default function Markers({ notes, hideLabels, isDarkTheme }: { notes: FNo
             });
         }
 
+        if (clustered) {
+            installClusterLayers(map, MARKER_SOURCE);
+        }
+
         map.getSource<GeoJSONSource>(MARKER_SOURCE)?.setData({
             type: "FeatureCollection",
             features
         });
-    }, [ map ]);
+    }, [ map, clustered ]);
 
     // The layer, which stands for as long as the map does. Neither editing a note nor changing the
     // look of a title comes through here: taking the layer down and putting it back is what made
@@ -206,8 +222,12 @@ export default function Markers({ notes, hideLabels, isDarkTheme }: { notes: FNo
             map.off("remove", onMapRemove);
             if (mapRemoved) return;
 
-            if (map.getLayer(MARKER_LAYER)) {
-                map.removeLayer(MARKER_LAYER);
+            // The layers before the source they all draw from: a source still in use cannot be
+            // removed.
+            for (const layer of [ MARKER_LAYER, ...CLUSTER_LAYERS ]) {
+                if (map.getLayer(layer)) {
+                    map.removeLayer(layer);
+                }
             }
             if (map.getSource(MARKER_SOURCE)) {
                 map.removeSource(MARKER_SOURCE);
@@ -246,6 +266,8 @@ export default function Markers({ notes, hideLabels, isDarkTheme }: { notes: FNo
             map.setPaintProperty(MARKER_LAYER, property, value);
         }
     }, [ map, hideLabels, isDarkTheme ]);
+
+    useClusterExpansion(map, MARKER_SOURCE, clustered);
 
     return null;
 }

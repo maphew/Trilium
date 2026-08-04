@@ -48,6 +48,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
     const [ zoom, setZoom ] = useState(viewConfig?.view?.zoom);
     const [ hasScale ] = useNoteLabelBoolean(note, "map:scale");
     const [ hideLabels ] = useNoteLabelBoolean(note, "map:hideLabels");
+    const [ clustered ] = useNoteLabelBoolean(note, "map:cluster");
     const [ isReadOnly ] = useNoteLabelBoolean(note, "readOnly");
     const [ includeArchived ] = useNoteLabelBoolean(note, "includeArchived");
     const [ notes, setNotes ] = useState<FNote[]>([]);
@@ -174,7 +175,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
             >
                 <Tooltips />
                 <ContextMenus note={note} isReadOnly={isReadOnly} />
-                <Markers notes={notes} hideLabels={hideLabels} isDarkTheme={layerData.isDarkTheme ?? false} />
+                <Markers notes={notes} hideLabels={hideLabels} isDarkTheme={layerData.isDarkTheme ?? false} clustered={clustered} />
                 {notes.map(note => <NoteGpxTrackWrapper note={note} hideLabels={hideLabels} />)}
             </Map>}
         </div>

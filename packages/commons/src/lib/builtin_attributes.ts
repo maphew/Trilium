@@ -294,6 +294,7 @@ const BUILTIN_ATTRIBUTES = [
     { type: "label", name: "map:style", valueType: "text", hasUserValue: true },
     { type: "label", name: "map:scale", valueType: "boolean", hasUserValue: true },
     { type: "label", name: "map:hideLabels", valueType: "boolean", hasUserValue: true },
+    { type: "label", name: "map:cluster", valueType: "boolean", hasUserValue: true },
     // Reveal.js' own stock themes, which is what the presentation bundles; anything else falls back
     // to `white`.
     { type: "label", name: "presentation:theme", valueType: "select", hasUserValue: true, selectOptions: [

@@ -37,6 +37,9 @@ export function toGeoMouseEvent(e: MapMouseEvent): GeoMouseEvent {
     };
 }
 
+/** Where the fonts a label is drawn from come from, matching what the vector styles ask for. */
+const GLYPHS_URL = "https://tiles.versatiles.org/assets/glyphs/{fontstack}/{range}.pbf";
+
 /** Builds the style that can be applied synchronously: the raster style spec, a vector style URL
  * or the vector fallback style used as a placeholder until the real style loads asynchronously. */
 function buildSyncStyle(layerData: MapLayer): StyleSpecification | string {
@@ -48,6 +51,12 @@ function buildSyncStyle(layerData: MapLayer): StyleSpecification | string {
 
     return {
         version: 8,
+        // Text on a map is drawn from glyphs the style has to name, and a raster style is built here
+        // rather than downloaded, so nothing else names them for it. Without this every symbol layer
+        // over a raster map loses its text and only its text: the marker titles and the count inside
+        // a cluster's bubble go silently missing, while the pins and the bubbles themselves are
+        // drawn as usual. The vector styles point at the same place (see their own `glyphs`).
+        glyphs: GLYPHS_URL,
         sources: {
             "raster-tiles": {
                 type: "raster",
