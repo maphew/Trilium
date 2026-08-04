@@ -272,13 +272,23 @@ function buildMarkerImage(color: string, iconClass: string) {
     return image;
 }
 
+/**
+ * The pin for one colour and icon, drawn once.
+ *
+ * The icon comes from the shared icon service, so a marker wears the icon its note wears everywhere
+ * else — including one from a pack the user brought along. It is cut straight out of the pin rather
+ * than set on a disc of its own, so the note's colour is all that is seen, and takes whichever of
+ * black or white stands out against that colour.
+ *
+ * `iconClass` is passed on whole, as {@link FNote.getIcon} gives it (`tn-icon f4 f4-bunker`). The
+ * service resolves a class by wearing it and reading back what the stylesheet made of it, so every
+ * class handed over is one more voice in that cascade: adding a `bx` of our own would have the
+ * built-in pack's font competing with the pack the icon actually belongs to, and whichever won would
+ * decide the font the glyph is drawn in.
+ */
 async function drawMarkerImage(color: string, iconClass: string) {
-    // Drawn through the shared icon service, so a marker wears the icon its note wears everywhere
-    // else — including one from a pack the user brought along. It is cut straight out of the pin
-    // rather than set on a disc of its own, so the note's colour is all that is seen; the icon
-    // takes whichever of black or white stands out against that colour.
     const scale = window.devicePixelRatio || 1;
-    const icon = await renderIconImage(`bx ${iconClass}`, {
+    const icon = await renderIconImage(iconClass, {
         size: MARKER_ICON_SIZE,
         color: getReadableTextColor(color),
         scale

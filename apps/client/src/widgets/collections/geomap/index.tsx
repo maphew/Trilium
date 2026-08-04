@@ -250,7 +250,7 @@ function NoteGpxTrack({ note, hideLabels }: { note: FNote, hideLabels?: boolean 
 
     const trackColor = useMemo(() => note.getLabelValue("color") ?? "blue", [ color ]);
     const startIconHtml = useIconHtml(note.getIcon(), note.getColorClass() ?? undefined, hideLabels ? undefined : note.title);
-    const endIconHtml = useIconHtml("bxs-flag-checkered");
+    const endIconHtml = useIconHtml("bx bxs-flag-checkered");
     const waypointIconHtml = useIconHtml("bx bx-pin");
 
     return xmlString && <GpxTrack
@@ -281,12 +281,12 @@ const MARKER_ICON_SIZE = 17;
  * service caches each icon/colour pair, so every marker after the first with the same icon gets
  * its HTML in a single tick.
  */
-function useIconHtml(bxIconClass: string, colorClass?: string, title?: string, noteIdLink?: string, archived?: boolean) {
+function useIconHtml(iconClass: string, colorClass?: string, title?: string, noteIdLink?: string, archived?: boolean) {
     const [ html, setHtml ] = useState<string>();
 
     useEffect(() => {
         let cancelled = false;
-        buildIconHtml(bxIconClass, colorClass, title, noteIdLink, archived).then((result) => {
+        buildIconHtml(iconClass, colorClass, title, noteIdLink, archived).then((result) => {
             if (!cancelled) {
                 setHtml(result);
             }
@@ -294,12 +294,12 @@ function useIconHtml(bxIconClass: string, colorClass?: string, title?: string, n
         return () => {
             cancelled = true;
         };
-    }, [ bxIconClass, colorClass, title, noteIdLink, archived ]);
+    }, [ iconClass, colorClass, title, noteIdLink, archived ]);
 
     return html;
 }
 
-async function buildIconHtml(bxIconClass: string, colorClass?: string, title?: string, noteIdLink?: string, archived?: boolean) {
+async function buildIconHtml(iconClass: string, colorClass?: string, title?: string, noteIdLink?: string, archived?: boolean) {
     // The note's colour fills the pin, as it does for the note markers drawn into the symbol layer,
     // and the icon is cut out of it in whichever of black or white stands out against that.
     const pinColor = resolveNoteColor(colorClass) ?? DEFAULT_MARKER_COLOR;
@@ -307,13 +307,18 @@ async function buildIconHtml(bxIconClass: string, colorClass?: string, title?: s
     // Drawn as a picture through the shared icon service (icon_glyphs.ts) rather than styled by
     // CSS, so the marker renders any icon pack's icon the way the rest of the app draws it. A
     // class the service cannot resolve falls back to the CSS-styled span.
-    const image = await renderIconImage(`bx ${bxIconClass}`, {
+    //
+    // The class is passed on whole, as callers give it — a complete one, family and all. The
+    // service resolves a class by wearing it and reading back what the stylesheet made of it, so
+    // every class handed over is one more voice in that cascade: a `bx` of our own would have the
+    // built-in pack's font competing with the pack the icon actually belongs to.
+    const image = await renderIconImage(iconClass, {
         size: MARKER_ICON_SIZE,
         color: getReadableTextColor(pinColor)
     });
     const icon = image
         ? `<img class="tn-icon" src="${image}" alt="" />`
-        : `<span class="bx ${escapeHtml(bxIconClass)} tn-icon"></span>`;
+        : `<span class="${escapeHtml(iconClass)} tn-icon"></span>`;
 
     let html = /*html*/`\
         <div class="marker-pin">${buildMarkerSvg(pinColor)}</div>
