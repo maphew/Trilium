@@ -13,9 +13,14 @@ export const MARKER_LAYER = "points-layer";
 export const MARKER_SOURCE = "points";
 const DEFAULT_MARKER_COLOR = "#2A81CB";
 
-/** The pin, in the coordinates its SVG is drawn in. */
-const MARKER_WIDTH = 25;
-const MARKER_HEIGHT = 41;
+/**
+ * The pin, in the coordinates its SVG is drawn in.
+ *
+ * Exported because a pin stands on its coordinate rather than over it, so anything else the map puts
+ * at that coordinate has to know how much of the pin is in the way (see {@link Tooltips}).
+ */
+export const MARKER_WIDTH = 25;
+export const MARKER_HEIGHT = 41;
 /**
  * Room left around the pin for its shadow, in those same coordinates.
  *

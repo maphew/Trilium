@@ -1,4 +1,4 @@
-import { type MapGeoJSONFeature, type MapMouseEvent, Popup } from "maplibre-gl";
+import { type MapGeoJSONFeature, type MapMouseEvent, type Offset, Popup } from "maplibre-gl";
 import { useContext, useEffect } from "preact/hooks";
 
 import froca from "../../../services/froca";
@@ -6,7 +6,7 @@ import { renderTooltip } from "../../../services/note_tooltip";
 import { sanitizeNoteContentHtml } from "../../../services/sanitize_content";
 import { isHtmlEmpty } from "../../../services/utils";
 import { ParentMap } from "./map";
-import { MARKER_LAYER } from "./Markers";
+import { MARKER_HEIGHT, MARKER_LAYER, MARKER_WIDTH } from "./Markers";
 
 /**
  * How long the pointer has to rest on a marker before its note is read.
@@ -26,6 +26,48 @@ const HOVER_DELAY = 500;
  */
 const DISMISS_DELAY = 400;
 
+/** How much air is left between the pin and the preview, whichever side it lands on. */
+const MARKER_GAP = 8;
+
+/** What it takes to get past the pin sideways, and to get above it. */
+const CLEAR_SIDEWAYS = MARKER_WIDTH / 2 + MARKER_GAP;
+const CLEAR_ABOVE = MARKER_HEIGHT + MARKER_GAP;
+
+/**
+ * Where the preview sits, for each placement MapLibre might choose.
+ *
+ * A pin stands on its coordinate rather than over it: everything it draws is *above* that point, and
+ * within half its width either side. A preview pushed away from the point by one flat distance
+ * therefore covers the very marker it belongs to, so each placement has to clear whichever part of
+ * the pin it opens onto — which is not the same part each time, and is why MapLibre asks for the
+ * offset per placement at all (see the `popupOffsets` example in its `Popup` documentation).
+ *
+ * What opens onto what is easy to get wrong. Placed straight above the point the preview meets the
+ * pin's full height, and straight below it meets nothing. But a preview placed from a *corner* has
+ * that corner on the point and spreads sideways from it, so what stands in its way there is the
+ * pin's width, not its height — clearing only the height leaves the corner placements lying across
+ * whichever half of the pin they open towards.
+ */
+const PREVIEW_OFFSET: Offset = {
+    // Straight below the point, where the pin draws nothing.
+    "top": [ 0, MARKER_GAP ],
+    // Straight above it, with the whole pin standing in between.
+    "bottom": [ 0, -CLEAR_ABOVE ],
+    // Beside it: past the pin's width, and lifted to the middle of its height rather than left
+    // hanging off the tip.
+    "left": [ CLEAR_SIDEWAYS, -MARKER_HEIGHT / 2 ],
+    "right": [ -CLEAR_SIDEWAYS, -MARKER_HEIGHT / 2 ],
+    // From a corner, spreading sideways: past the pin's width in whichever direction it opens, and
+    // clear of the point itself vertically. Getting past the width is what does the work here, so
+    // there is no need to rise the pin's whole height as well and leave the preview stranded up in
+    // the air away from the marker it belongs to.
+    "top-left": [ CLEAR_SIDEWAYS, MARKER_GAP ],
+    "top-right": [ -CLEAR_SIDEWAYS, MARKER_GAP ],
+    "bottom-left": [ CLEAR_SIDEWAYS, -MARKER_GAP ],
+    "bottom-right": [ -CLEAR_SIDEWAYS, -MARKER_GAP ],
+    "center": [ 0, 0 ]
+};
+
 /**
  * The preview shown while the pointer rests on a marker.
  *
@@ -44,7 +86,7 @@ export default function Tooltips() {
         const tooltip = new Popup({
             closeButton: false,
             closeOnClick: false,
-            offset: 12,
+            offset: PREVIEW_OFFSET,
             // The preview brings its own width — `.tooltip-inner` caps it at 500px — and MapLibre's
             // 240px default would squeeze a note's content into a column half that wide.
             maxWidth: "none",

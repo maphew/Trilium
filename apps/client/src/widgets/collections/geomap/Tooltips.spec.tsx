@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type FNote from "../../../entities/fnote";
 import { buildNote } from "../../../test/easy-froca";
 import { ParentMap } from "./map";
-import { MARKER_LAYER } from "./Markers";
+import { MARKER_HEIGHT, MARKER_LAYER, MARKER_WIDTH } from "./Markers";
 import Tooltips from "./Tooltips";
 
 /** What a note's preview renders to, standing in for the shared tooltip renderer. */
@@ -32,6 +32,11 @@ const { FakePopup } = vi.hoisted(() => {
         html = "";
         lngLat: unknown;
         element: HTMLElement | null = null;
+        options: { offset?: Record<string, [ number, number ]> };
+
+        constructor(options: { offset?: Record<string, [ number, number ]> }) {
+            this.options = options;
+        }
 
         setLngLat(lngLat: unknown) { this.lngLat = lngLat; return this; }
 
@@ -96,6 +101,34 @@ function fakeMap() {
         }
     };
 }
+
+/** A preview about the size the app renders one at, for the placement arithmetic below. */
+const PREVIEW_WIDTH = 500;
+const PREVIEW_HEIGHT = 120;
+
+/** The pin, in pixels around the coordinate it stands on. */
+const PIN = {
+    left: -MARKER_WIDTH / 2,
+    right: MARKER_WIDTH / 2,
+    top: -MARKER_HEIGHT,
+    bottom: 0
+};
+
+/**
+ * Where each of MapLibre's placements puts the preview's top-left corner before the offset is
+ * applied — its `anchorTranslate` table, worked out for a preview of the size above. `center` is
+ * left out: MapLibre's own placement logic never arrives at it.
+ */
+const PLACEMENTS: Record<string, [ number, number ]> = {
+    "top": [ -PREVIEW_WIDTH / 2, 0 ],
+    "bottom": [ -PREVIEW_WIDTH / 2, -PREVIEW_HEIGHT ],
+    "left": [ 0, -PREVIEW_HEIGHT / 2 ],
+    "right": [ -PREVIEW_WIDTH, -PREVIEW_HEIGHT / 2 ],
+    "top-left": [ 0, 0 ],
+    "top-right": [ -PREVIEW_WIDTH, 0 ],
+    "bottom-left": [ 0, -PREVIEW_HEIGHT ],
+    "bottom-right": [ -PREVIEW_WIDTH, -PREVIEW_HEIGHT ]
+};
 
 /** Drains the promise chain in `show` (note read → preview rendered) without moving the clock. */
 async function flush() {
@@ -213,6 +246,33 @@ describe("Tooltips", () => {
         await act(async () => { element?.dispatchEvent(new Event("mouseleave")); });
         await advance(500);
         expect(shownPreview()).toBeUndefined();
+    });
+
+    /**
+     * A pin stands on its coordinate, so every placement MapLibre can choose opens onto some part of
+     * it. Checked as the geometry it is rather than as a rule per axis: the first attempt cleared the
+     * pin's height, which reads as right until a corner placement — which spreads sideways from the
+     * point, not upwards — lies across half the pin anyway.
+     */
+    it("keeps clear of the pin wherever the map decides to put it", async () => {
+        const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+        const map = fakeMap();
+        await mount(map);
+
+        map.hover(note);
+        await advance(500);
+        const offset = FakePopup.open[0]?.options.offset;
+
+        for (const [ placement, corner ] of Object.entries(PLACEMENTS)) {
+            const [ offsetX, offsetY ] = offset?.[placement] ?? [ 0, 0 ];
+            const left = corner[0] + offsetX;
+            const top = corner[1] + offsetY;
+            const clear = left >= PIN.right || left + PREVIEW_WIDTH <= PIN.left
+                || top >= PIN.bottom || top + PREVIEW_HEIGHT <= PIN.top;
+
+            // Named in the assertion so a failure says which placement covers the pin.
+            expect(`${placement} is ${clear ? "clear of" : "over"} the pin`).toBe(`${placement} is clear of the pin`);
+        }
     });
 
     it("closes the preview when the pointer leaves the marker without reaching it", async () => {
