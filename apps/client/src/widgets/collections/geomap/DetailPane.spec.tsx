@@ -6,6 +6,7 @@ import appContext from "../../../components/app_context";
 import Component from "../../../components/component";
 import type FNote from "../../../entities/fnote";
 import attributes from "../../../services/attributes";
+import froca from "../../../services/froca";
 import link from "../../../services/link";
 import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
@@ -27,10 +28,8 @@ type Listener = (e?: unknown) => void;
 const MAP_WIDTH = 1200;
 
 /**
- * A map that records what the pane asks of it, standing in for MapLibre.
- *
- * What it has to answer is the hit test: the pane is bound to the map at large rather than to the
- * marker layer, and asks what is under the point that was clicked (see DetailPane).
+ * A map that records what the pane asks of it, standing in for MapLibre. What it has to answer is
+ * the hit test: the pane is bound to the map at large, not to the marker layer (see DetailPane).
  */
 function fakeMap({ width = MAP_WIDTH, features = [] as unknown[] } = {}) {
     const listeners = new Map<string, Set<Listener>>();
@@ -75,8 +74,8 @@ describe("DetailPane", () => {
         container = document.createElement("div");
         document.body.appendChild(container);
 
-        // The pane asks where the reader is hoisted, which the app has settled by the time a map is
-        // ever drawn and a test has not: `tabManager` is only built when the app starts.
+        // `tabManager` is only built when the app starts, and the pane asks it where the reader is
+        // hoisted.
         (appContext as unknown as { tabManager: unknown }).tabManager = {
             getActiveContext: () => undefined,
             openContextWithNote: async () => undefined
@@ -85,6 +84,7 @@ describe("DetailPane", () => {
 
     afterEach(() => {
         (appContext as unknown as { tabManager: unknown }).tabManager = undefined;
+        mapComponent = undefined;
 
         if (container) {
             render(null, container);
@@ -93,11 +93,15 @@ describe("DetailPane", () => {
         }
     });
 
+    /** Stands in for the map's own component, which is what the pane hangs under. */
+    let mapComponent: Component | undefined;
+
     /** Renders into the same container, so calling it again is a re-render with fresh props. */
     function mount(notes: FNote[], map: ReturnType<typeof fakeMap>, placing = false, isReadOnly = false) {
+        mapComponent ??= new Component();
         return act(async () => {
             render(
-                <ParentComponent.Provider value={new Component()}>
+                <ParentComponent.Provider value={mapComponent as Component}>
                     <ParentMap.Provider value={map as never}>
                         <DetailPane notes={notes} placing={placing} isReadOnly={isReadOnly} />
                     </ParentMap.Provider>
@@ -107,12 +111,25 @@ describe("DetailPane", () => {
         });
     }
 
+    /** Lets the pane's note context resolve its path and announce the note it landed on. */
+    async function settle() {
+        await act(async () => {
+            for (let i = 0; i < 20; i++) await new Promise((resolve) => setTimeout(resolve));
+        });
+    }
+
     function pane() {
         return container?.querySelector(".geo-detail-pane") ?? null;
     }
 
+    /**
+     * The title row reads the note out of a note context rather than taking one as a prop, so what
+     * this asserts is that the pane points that context at the marker clicked.
+     */
     it("stands for the marker that was clicked, naming its note", async () => {
-        const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+        // Hung under the root so there is a path to point the note context at.
+        buildNote({ id: "root", title: "root", children: [ { id: "somewhere", title: "Somewhere", "#geolocation": "1,2" } ] });
+        const note = froca.notes["somewhere"];
         const map = fakeMap();
         await mount([ note ], map);
 
@@ -121,15 +138,41 @@ describe("DetailPane", () => {
 
         map.setUnderPointer([ markerFeature(note) ]);
         await act(async () => map.click());
+        await settle();
 
-        expect(pane()?.querySelector(".tn-overlay-panel-title-text")?.textContent).toBe("Somewhere");
+        // A field and a picker, not a heading drawn for the occasion.
+        expect(pane()?.querySelector<HTMLInputElement>(".title-row input")?.value).toBe("Somewhere");
+        expect(pane()?.querySelector<HTMLButtonElement>(".title-row .note-icon")?.disabled).toBe(false);
     });
 
     /**
-     * The pane covers the trailing edge of the map, so the marker it stands for is brought to the
-     * middle of what is left uncovered rather than to the middle of the map — where the pane itself
-     * would be sitting on top of it.
+     * Regression test for a click on a marker whiting out the map and losing its WebGL context.
+     *
+     * An unbound `useNoteContext` rebinds to whatever context a note switch names. Announced to the
+     * map's component, the collection view around the pane rebound to the marker's note and tore the
+     * map down mid-click. The pane keeps its own component so its switches reach only its contents.
      */
+    it("keeps its own note switches from reaching the map's component", async () => {
+        buildNote({ id: "root", title: "root", children: [ { id: "somewhere", title: "Somewhere", "#geolocation": "1,2" } ] });
+        const note = froca.notes["somewhere"];
+        const map = fakeMap();
+        await mount([ note ], map);
+
+        const heardByTheMap = vi.fn();
+        for (const event of [ "noteSwitched", "noteSwitchedAndActivated", "beforeNoteSwitch" ] as const) {
+            mapComponent?.registerHandler(event, heardByTheMap);
+        }
+
+        map.setUnderPointer([ markerFeature(note) ]);
+        await act(async () => map.click());
+        await settle();
+
+        // The pane heard its own switch — it is showing the note — and nothing else did.
+        expect(pane()?.querySelector<HTMLInputElement>(".title-row input")?.value).toBe("Somewhere");
+        expect(heardByTheMap).not.toHaveBeenCalled();
+    });
+
+    /** The marker is brought to the middle of what the pane leaves uncovered, not of the map. */
     it("holds the marker it opens for clear of itself", async () => {
         const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
         const map = fakeMap();
@@ -138,12 +181,11 @@ describe("DetailPane", () => {
         map.setUnderPointer([ markerFeature(note, [ 2, 1 ]) ]);
         await act(async () => map.click());
 
-        // Half of what the pane reaches into the map: its own width, plus the air it is held off
-        // the edge by.
+        // Half of what the pane reaches into the map: its width plus the gap it stands off by.
         expect(map.eased).toEqual([ { center: [ 2, 1 ], offset: [ -200, 0 ] } ]);
     });
 
-    /** An embedded map may be narrower than the pane wants to be, and then there is nowhere to move to. */
+    /** An embedded map may be narrower than the pane, leaving nowhere to move to. */
     it("leaves the marker where it is on a map the pane covers whole", async () => {
         const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
         const map = fakeMap({ width: 300 });
@@ -177,11 +219,7 @@ describe("DetailPane", () => {
     });
 
 
-    /**
-     * The panel stops the key presses made inside it from reaching what is underneath, which is a
-     * map with shortcuts of its own — and which would stop them reaching the pane's own listener
-     * too, were that one not heard on the way down.
-     */
+    /** The panel stops key presses reaching the map, which would stop them reaching this too. */
     it("closes on Escape pressed with the focus inside the pane", async () => {
         const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
         const map = fakeMap();
@@ -210,11 +248,8 @@ describe("DetailPane", () => {
         expect(map.eased).toEqual([]);
     });
 
-    /**
-     * Taking a marker off the map clears the note's location and leaves the note itself exactly where
-     * it was, so the pane cannot wait to be told the note has gone — there is no pin left for it to
-     * stand for either way.
-     */
+    /** Removal clears the location and leaves the note in the tree, so the pane cannot wait to be
+     *  told the note has gone. */
     it("goes away when its marker leaves the map, whether the note does or not", async () => {
         const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
         const map = fakeMap();

@@ -1,73 +1,59 @@
 /*
- * The pane stands in the trailing corner of the map, held off its edges by as much as everything
- * else over the map is.
+ * An island in the trailing corner rather than a wall against the edge: everything else over this
+ * map is one, and the map is a widget inside a note rather than a screen of its own, so a pane flush
+ * to its edge reads as cropping it.
  *
- * An island rather than a wall against the edge: every other thing standing over this map is one —
- * the bar of buttons, the scale and the attribution beside it, and the mind map's panel opposite
- * them all — and the map here is a widget inside a note rather than a screen of its own, so a pane
- * flush to its edge reads as cropping the map instead of standing over it.
- *
- * The width has to agree with `PANE_WIDTH` in DetailPane.tsx, which is what the map is told to hold
- * a selected marker clear of.
+ * The width must agree with `PANE_WIDTH` in DetailPane.tsx.
  */
 .geo-map-container {
     --geo-detail-pane-width: 380px;
 }
 
 .geo-map-container .geo-detail-pane {
-    /*
-     * The room kept at the foot of the map for the bar of buttons, which stands in this very corner
-     * — its own room and as much again over it, so that the two are parted by the same air that
-     * holds the bar off the edge. The mind map's panel reckons its own foot the same way.
-     *
-     * Standing clear of the bar rather than moving it aside: the bar belongs to the map and keeps
-     * its corner whatever is opened over it, and a pane that ends above it needs no second file to
-     * agree about how wide it is.
-     */
+    /* Room at the foot for the bar of buttons, which stands in this same corner: its own height and
+       as much air again. Standing clear of it rather than moving it aside — the mind map's panel
+       reckons its foot the same way. */
     --detail-pane-foot: calc(var(--geo-map-inset) + var(--geo-map-toolbar-height) + var(--geo-map-inset));
 
     position: absolute;
-    /* The height of the map, less what is kept at either end: a pane that stood only as tall as
-       what it holds would be a different pane for every marker, growing and shrinking under the
-       pointer as the reader moved from one to the next. What it holds scrolls within it instead
-       (see OverlayPanel.css). */
+    /* A fixed height rather than one sized to its contents, which would be a different pane for
+       every marker. What it holds scrolls within it (see OverlayPanel.css). */
     top: var(--geo-map-inset);
     bottom: var(--detail-pane-foot);
     inset-inline-end: var(--geo-map-inset);
     width: var(--geo-detail-pane-width);
     /* An embedded map may be narrower than the pane would like to be. */
     max-width: calc(100% - 2 * var(--geo-map-inset));
-    /* Above the canvas and clear of MapLibre's own control corners, which sit at 2 — the same
-       reckoning the bar of buttons makes (see MapToolbar.css). */
+    /* Clear of MapLibre's own control corners, which sit at 2 (see MapToolbar.css). */
     z-index: 3;
 }
 
 /*
- * The ways of opening the note, side by side at the head of the pane — where the first thing to be
- * done with a place is offered on any map that shows you one.
- *
- * Named by their tooltips rather than beside their icons, as every other row of actions in a panel
- * is (see the picture's row in NodePanel): a label apiece would have four of them wrapping onto two
- * lines in a pane this narrow, and these are the same four actions, under the same four icons, that
- * a note is opened by everywhere else in Trilium.
+ * The app's own title row heads the pane (see TitleRow), so a note is renamed from a marker the way
+ * it is renamed anywhere else. It brings no placing of its own, the shared panel giving that only to
+ * its own heading, so the padding and the rule under it are handed over here.
+ */
+.geo-map-container .geo-detail-pane .tn-overlay-panel-header > .title-row {
+    box-sizing: content-box;
+    padding-block: 9px;
+    padding-inline-start: 9px;
+    /* Clear of the close button laid over the end of the row (see OverlayPanel.css). */
+    padding-inline-end: 36px;
+    border-bottom: 1px solid var(--main-border-color);
+}
+
+/*
+ * The ways of opening the note, at the head of the pane. Named by tooltips rather than labels, as
+ * every other row of actions in a panel is: labels would wrap four buttons onto two lines here.
  */
 .geo-map-container .geo-detail-pane .geo-detail-pane-actions {
     display: flex;
     align-items: center;
     gap: 4px;
 
-    /* Taking a marker off the map is the one thing in the row that writes rather than reads, so it
-       stands at the far end of it: away from the four the reader is reaching for over and over, and
-       not somewhere the pointer lands by being a moment early. */
+    /* The one thing in the row that writes rather than reads stands apart from the four being
+       reached for repeatedly, so the pointer cannot land on it by being a moment early. */
     .geo-detail-pane-remove {
         margin-inline-start: auto;
     }
 }
-
-/*
- * The pane is dressed in the app's own colors rather than the map's, which is what the bar beside it
- * does (see MapToolbar.css): what stands here is a note, and a note belongs to the app — the same
- * reasoning that leaves a marker's preview dressed as the app's tooltip. Nothing to write for it,
- * the shared panel reading the app's menu colors already; said here so that the difference between
- * the two is a decision on the record rather than an omission.
- */
