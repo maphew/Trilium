@@ -110,6 +110,10 @@
         overflow: hidden;
         text-overflow: ellipsis;
     }
+
+    .tn-field {
+        padding: 0;
+    }
 }
 
 /* The widget stands whether the note promotes anything or not, and an empty one would still take
