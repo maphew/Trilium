@@ -14,7 +14,10 @@
     border: 1px solid var(--dropdown-border-color);
     border-radius: 8px;
     box-shadow: 0 2px 8px #0003;
-    backdrop-filter: blur(10px);
+    /* The frosting a menu is given, rather than a blur of this bar's own: the theme sets what glass
+       looks like in the app (see shell.css), and a bar over a map is the one place it is looked
+       through at something with colour in it. A plain blur where a theme names none. */
+    backdrop-filter: var(--dropdown-backdrop-filter, blur(10px));
 }
 
 /*
