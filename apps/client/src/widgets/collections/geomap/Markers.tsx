@@ -1,5 +1,5 @@
 import { AddLayerObject, type GeoJSONSource } from "maplibre-gl";
-import { useContext, useEffect, useRef, useState } from "preact/hooks";
+import { useCallback, useContext, useEffect, useRef, useState } from "preact/hooks";
 
 import FNote from "../../../entities/fnote";
 import { getReadableTextColor } from "../../../services/css_class_manager";
@@ -57,83 +57,88 @@ const LABEL_LAYOUT: Extract<AddLayerObject, { type: "symbol" }>["layout"] = {
 export default function Markers({ notes, hideLabels, isDarkTheme }: { notes: FNote[], hideLabels: boolean, isDarkTheme: boolean }) {
     const map = useContext(ParentMap);
     const version = useNoteChangeVersion(notes);
-    // Whether the style has finished loading at least once. Held outside the effect because the
-    // effect re-runs whenever the notes change, and a run that starts after the style has loaded
-    // has no other way to learn that it did — `style.load` fires once per style and is long gone.
+    // Whether the style has finished loading at least once. Held outside the effects because either
+    // may run after the style has loaded, and one that does has no other way to learn that it did —
+    // `style.load` fires once per style and is long gone.
     const styleLoaded = useRef(false);
+    // The markers last built, kept where both effects can reach them: the layer has to be able to
+    // fill itself again the moment it is rebuilt, without waiting on a fresh build.
+    const markerData = useRef<Awaited<ReturnType<typeof buildMarkerData>>>();
 
-    useEffect(() => {
-        if (!map) return;
+    /**
+     * Puts the layer and its data on the map. A style is a world of its own — switching one wipes
+     * every source, layer and image added to the last — so this has to run again after each style
+     * load, not only when the notes change. Does nothing until there is both a loaded style to add
+     * to and something to add.
+     */
+    const install = useCallback(() => {
+        const data = markerData.current;
+        if (!map || !data || !styleLoaded.current) return;
+        const { features, images } = data;
 
-        let cancelled = false;
-        let data: Awaited<ReturnType<typeof buildMarkerData>> | undefined;
-
-        /**
-         * Puts the layer and its data back on the map. A style is a world of its own — switching
-         * one wipes every source, layer and image added to the last — so this has to run again
-         * after each style load, not only when the notes change. Does nothing until there is both a
-         * loaded style to add to and something to add.
-         */
-        function install() {
-            if (!map || !data || !styleLoaded.current) return;
-            const { features, images } = data;
-
-            for (const [ id, image ] of images) {
-                if (!map.hasImage(id)) {
-                    map.addImage(id, image, { pixelRatio: window.devicePixelRatio || 1 });
-                }
+        for (const [ id, image ] of images) {
+            if (!map.hasImage(id)) {
+                map.addImage(id, image, { pixelRatio: window.devicePixelRatio || 1 });
             }
+        }
 
-            if (!map.getSource(MARKER_SOURCE)) {
-                map.addSource(MARKER_SOURCE, {
-                    type: "geojson",
-                    data: { type: "FeatureCollection", features: [] }
-                });
-            }
-
-            if (!map.getLayer(MARKER_LAYER)) {
-                map.addLayer({
-                    id: MARKER_LAYER,
-                    type: "symbol",
-                    source: MARKER_SOURCE,
-                    layout: {
-                        "icon-image": [ "get", "icon" ],
-                        "icon-size": 1,
-                        "icon-anchor": "bottom",
-                        // The image carries padding for the shadow, so its bottom edge sits below
-                        // the pin's tip. Push it back down by exactly that much, or every marker
-                        // would stand a shadow's width off its own coordinate.
-                        "icon-offset": [ 0, MARKER_SHADOW_PADDING ],
-                        // Every note keeps its pin, however crowded the map: a pin dropped for
-                        // colliding is a note that has silently left the map, and one that can no
-                        // longer be hovered or right-clicked. Only the titles are thinned out (see
-                        // LABEL_LAYOUT). The pins still take part in placement, so a title is never
-                        // laid over one.
-                        "icon-allow-overlap": true,
-                        ...(hideLabels ? {} : LABEL_LAYOUT)
-                    },
-                    paint: {
-                        // Archived notes are drawn faintly, as they were when each marker was an
-                        // element of its own wearing an `archived` class.
-                        "icon-opacity": [ "case", [ "get", "archived" ], 0.5, 1 ],
-                        "text-opacity": [ "case", [ "get", "archived" ], 0.5, 1 ],
-                        // A title is drawn the way the style draws its own place names: light on
-                        // the dark styles, and haloed by a soft, blurred glow rather than a hard
-                        // keyline. A crisp white outline stood out as a cut-out sticker on any map,
-                        // and on a dark one it was a white edge around dark text.
-                        "text-color": isDarkTheme ? "#fff" : "#333",
-                        "text-halo-color": isDarkTheme ? "rgba(0, 0, 0, 0.8)" : "rgba(255, 255, 255, 0.8)",
-                        "text-halo-width": 2,
-                        "text-halo-blur": 1
-                    }
-                });
-            }
-
-            map.getSource<GeoJSONSource>(MARKER_SOURCE)?.setData({
-                type: "FeatureCollection",
-                features
+        if (!map.getSource(MARKER_SOURCE)) {
+            map.addSource(MARKER_SOURCE, {
+                type: "geojson",
+                data: { type: "FeatureCollection", features: [] }
             });
         }
+
+        if (!map.getLayer(MARKER_LAYER)) {
+            map.addLayer({
+                id: MARKER_LAYER,
+                type: "symbol",
+                source: MARKER_SOURCE,
+                layout: {
+                    "icon-image": [ "get", "icon" ],
+                    "icon-size": 1,
+                    "icon-anchor": "bottom",
+                    // The image carries padding for the shadow, so its bottom edge sits below
+                    // the pin's tip. Push it back down by exactly that much, or every marker
+                    // would stand a shadow's width off its own coordinate.
+                    "icon-offset": [ 0, MARKER_SHADOW_PADDING ],
+                    // Every note keeps its pin, however crowded the map: a pin dropped for
+                    // colliding is a note that has silently left the map, and one that can no
+                    // longer be hovered or right-clicked. Only the titles are thinned out (see
+                    // LABEL_LAYOUT). The pins still take part in placement, so a title is never
+                    // laid over one.
+                    "icon-allow-overlap": true,
+                    ...(hideLabels ? {} : LABEL_LAYOUT)
+                },
+                paint: {
+                    // Archived notes are drawn faintly, as they were when each marker was an
+                    // element of its own wearing an `archived` class.
+                    "icon-opacity": [ "case", [ "get", "archived" ], 0.5, 1 ],
+                    "text-opacity": [ "case", [ "get", "archived" ], 0.5, 1 ],
+                    // A title is drawn the way the style draws its own place names: light on
+                    // the dark styles, and haloed by a soft, blurred glow rather than a hard
+                    // keyline. A crisp white outline stood out as a cut-out sticker on any map,
+                    // and on a dark one it was a white edge around dark text.
+                    "text-color": isDarkTheme ? "#fff" : "#333",
+                    "text-halo-color": isDarkTheme ? "rgba(0, 0, 0, 0.8)" : "rgba(255, 255, 255, 0.8)",
+                    "text-halo-width": 2,
+                    "text-halo-blur": 1
+                }
+            });
+        }
+
+        map.getSource<GeoJSONSource>(MARKER_SOURCE)?.setData({
+            type: "FeatureCollection",
+            features
+        });
+    }, [ map, hideLabels, isDarkTheme ]);
+
+    // The layer, which stands for as long as the map and the look of a marker do. Editing a note
+    // does not come through here: taking the layer down and putting it back is what made one note's
+    // colour blink every marker on the map off and back on, since the layer went at once and the
+    // markers only returned once all of them had been built again.
+    useEffect(() => {
+        if (!map) return;
 
         function onStyleLoad() {
             styleLoaded.current = true;
@@ -152,14 +157,11 @@ export default function Markers({ notes, hideLabels, isDarkTheme }: { notes: FNo
             styleLoaded.current = true;
         }
 
-        buildMarkerData(notes).then((built) => {
-            if (cancelled) return;
-            data = built;
-            install();
-        });
+        // Whatever was last built goes straight back on, so a rebuilt layer is never empty while it
+        // waits for a build it does not need.
+        install();
 
         return () => {
-            cancelled = true;
             map.off("style.load", onStyleLoad);
             if (map.getLayer(MARKER_LAYER)) {
                 map.removeLayer(MARKER_LAYER);
@@ -168,7 +170,24 @@ export default function Markers({ notes, hideLabels, isDarkTheme }: { notes: FNo
                 map.removeSource(MARKER_SOURCE);
             }
         };
-    }, [ map, notes, hideLabels, isDarkTheme, version ]);
+    }, [ map, install ]);
+
+    // The markers themselves, handed to the standing layer as data. A note being edited reaches the
+    // map through here and nowhere else, so the map is redrawn rather than rebuilt.
+    useEffect(() => {
+        if (!map) return;
+
+        let cancelled = false;
+        buildMarkerData(notes).then((built) => {
+            if (cancelled) return;
+            markerData.current = built;
+            install();
+        });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [ map, notes, version, install ]);
 
     return null;
 }
