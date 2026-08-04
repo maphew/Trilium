@@ -4,8 +4,10 @@ import { AttributionControl, type ErrorEvent as MapErrorEvent, Map as MapLibreGL
 import { ComponentChildren, createContext, RefObject } from "preact";
 import { useEffect, useImperativeHandle, useRef, useState } from "preact/hooks";
 
+import { t } from "../../../services/i18n";
 import { getMeasurementSystem } from "../../../utils/formatters";
 import { useElementSize, useSyncedRef, useTriliumOption } from "../../react/hooks";
+import NoItems from "../../react/NoItems";
 import { type MapLayer } from "./map_layer";
 
 export interface GeoMouseEvent {
@@ -91,6 +93,8 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
     // What the style this map was last given was made of, which is how the sources and layers on it
     // that are its own are told from the ones a child added. See `keepAdditions`.
     const appliedStyle = useRef<StyleContents>();
+    // Whether there is no map to be had here at all — see the catch below.
+    const [ unsupported, setUnsupported ] = useState(false);
 
     // Initialize the map.
     useEffect(() => {
@@ -99,23 +103,21 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
         const initialStyle = buildSyncStyle(layerData);
         appliedStyle.current = typeof initialStyle === "string" ? undefined : styleContents(initialStyle);
 
-        const mapInstance = new MapLibreGLMap({
-            container: containerRef.current,
-            style: initialStyle,
-            center: toCenter(coordinates),
-            zoom,
-            minZoom: 2,
-            // No explicit maxBounds: a bounds whose longitude range spans the full world
-            // (-180..180) crashes MapLibre — the east edge wraps to -180, collapsing the range
-            // to zero width and making the constrain zoom infinite (a singular-matrix null
-            // deref). With renderWorldCopies disabled, MapLibre itself constrains panning to a
-            // single world (substituting an almost-full-world longitude range that avoids the
-            // collapse) and clamps latitude to the Mercator limit, which is the Leaflet-parity
-            // behavior we want.
-            renderWorldCopies: false,
-            // Added by hand below, in the corner opposite the one MapLibre keeps it in.
-            attributionControl: false
-        });
+        let mapInstance: MapLibreGLMap;
+        try {
+            mapInstance = createMap(containerRef.current, initialStyle, toCenter(coordinates), zoom);
+        } catch (e) {
+            // MapLibre draws through WebGL and has no other way to draw, so a context it cannot get
+            // is the end of it: the constructor throws rather than firing the "error" event handled
+            // below, and nothing here is ever built. This is not the tile server being unreachable —
+            // it is a browser with WebGL turned off, or one whose GPU is unavailable and which will
+            // not fall back to software rendering. Say so where the map would have been, since an
+            // empty container explains nothing.
+            console.warn(`Geo map: ${summarizeMapError(e).message}`);
+            setUnsupported(true);
+            return;
+        }
+        setUnsupported(false);
 
         // The attribution stands at the foot of the map beside its scale, rather than in the corner
         // where the zoom buttons now are (see MapToolbar): a bar of buttons is reached for, and it
@@ -222,16 +224,48 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
         map?.resize();
     }, [ map, size?.width, size?.height ]);
 
+    // The container stays in place either way: it is what the effect above is handed, so taking it
+    // away would leave nothing to build the map in should the component be mounted again.
     return (
         <div
             ref={containerRef}
             className={`geo-map-container ${layerData.isDarkTheme ? "dark" : ""}`}
         >
-            <ParentMap.Provider value={map}>
-                {children}
-            </ParentMap.Provider>
+            {unsupported
+                ? <NoItems icon="bx bx-error-circle" text={t("geo-map.webgl-unavailable")} />
+                : (
+                    <ParentMap.Provider value={map}>
+                        {children}
+                    </ParentMap.Provider>
+                )}
         </div>
     );
+}
+
+/**
+ * Builds the map itself.
+ *
+ * Separate from the effect that calls it so that the throw it is wrapped in covers the constructor
+ * and nothing else: everything the effect goes on to do is on a map that exists.
+ */
+function createMap(container: HTMLDivElement, style: StyleSpecification | string, center: [number, number], zoom: number) {
+    return new MapLibreGLMap({
+        container,
+        style,
+        center,
+        zoom,
+        minZoom: 2,
+        // No explicit maxBounds: a bounds whose longitude range spans the full world
+        // (-180..180) crashes MapLibre — the east edge wraps to -180, collapsing the range
+        // to zero width and making the constrain zoom infinite (a singular-matrix null
+        // deref). With renderWorldCopies disabled, MapLibre itself constrains panning to a
+        // single world (substituting an almost-full-world longitude range that avoids the
+        // collapse) and clamps latitude to the Mercator limit, which is the Leaflet-parity
+        // behavior we want.
+        renderWorldCopies: false,
+        // Added by hand by the caller, in the corner opposite the one MapLibre keeps it in.
+        attributionControl: false
+    });
 }
 
 /** An HTTP failure as MapLibre reports one: what {@link summarizeMapError} reads off an `AJAXError`. */
