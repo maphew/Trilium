@@ -66,17 +66,6 @@
 }
 
 /*
- * The editor's own toolbar, lifted out of it by the ribbon component. It is built for the width of a
- * note and this pane has a third of that, so it is left to scroll sideways rather than to push the
- * pane wider or spill over its edge.
- */
-.geo-map-container .geo-detail-pane .classic-toolbar-outer-container {
-    flex-shrink: 0;
-    overflow-x: auto;
-    background-color: transparent;
-}
-
-/*
  * The ways of opening the note, at the head of the pane. Named by tooltips rather than labels, as
  * every other row of actions in a panel is: labels would wrap four buttons onto two lines here.
  */

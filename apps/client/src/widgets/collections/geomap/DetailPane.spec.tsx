@@ -30,14 +30,18 @@ vi.mock("../../../components/note_context", async (importOriginal) => ({
 const editorAskedToSave = vi.fn();
 vi.mock("../../NoteDetail", () => ({
     default: () => {
-        const { note } = useNoteContext();
+        const { note, viewScope } = useNoteContext();
         useTriliumEvent("beforeNoteContextRemove", editorAskedToSave);
-        return <div className="note-detail-stub">{note?.title}</div>;
+        return (
+            <div
+                className="note-detail-stub"
+                data-floating-toolbar={String(!!viewScope?.floatingToolbar)}
+            >
+                {note?.title}
+            </div>
+        );
     }
 }));
-
-// The formatting toolbar reaches for the editor it belongs to, which the stand-in above is not.
-vi.mock("../../ribbon/components/StandaloneRibbonAdapter", () => ({ default: () => null }));
 
 /** What a marker click hands the handler, and what the pane reads the note out of. */
 type Listener = (e?: unknown) => void;
@@ -362,6 +366,14 @@ describe("DetailPane", () => {
 
             // Mounted under the pane's own note context, which is what it reads its note out of.
             expect(pane()?.querySelector(".note-detail-stub")?.textContent).toBe("Somewhere");
+        });
+
+        /** A toolbar built for the width of a note does not fit a pane a third that wide. */
+        it("is asked for the floating toolbar rather than a bar of its own", async () => {
+            const map = fakeMap();
+            await openPane(map);
+
+            expect(pane()?.querySelector(".note-detail-stub")?.getAttribute("data-floating-toolbar")).toBe("true");
         });
 
         /**

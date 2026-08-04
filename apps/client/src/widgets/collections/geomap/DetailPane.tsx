@@ -15,8 +15,6 @@ import ActionButton from "../../react/ActionButton";
 import { useNoteLabel } from "../../react/hooks";
 import OverlayPanel, { OverlayPanelBody } from "../../react/OverlayPanel";
 import { NoteContextContext, ParentComponent } from "../../react/react_utils";
-import StandaloneRibbonAdapter from "../../ribbon/components/StandaloneRibbonAdapter";
-import FormattingToolbar, { showFormattingToolbar } from "../../ribbon/FormattingToolbar";
 import { moveMarker } from "./api";
 import { ParentMap } from "./map";
 import { LOCATION_ATTRIBUTE, MARKER_LAYER, parseLocation } from "./Markers";
@@ -160,9 +158,8 @@ function MarkerDetails({ note, isReadOnly, onClose }: { note: FNote; isReadOnly:
 
                 {/* The note itself, drawn by whichever widget its type calls for — the same one the
                     quick editor mounts, so a marker is written in exactly as it is anywhere else.
-                    The toolbar is the editor's own, lifted out of it by the ribbon component the
-                    quick editor borrows for the same reason. */}
-                <StandaloneRibbonAdapter component={FormattingToolbar} show={showFormattingToolbar} />
+                    No toolbar stands beside it: the pane asks for the floating one, which the editor
+                    carries with it (see the view scope below). */}
                 <NoteDetail />
             </OverlayPanelBody>
         </OverlayPanel>
@@ -215,9 +212,14 @@ function usePaneNoteContext(note: FNote | undefined) {
         void noteContext.setNote(notePath, {
             // Selecting a marker is not the kind of navigation that should dismiss an open dialog.
             keepActiveDialog: true,
-            // A note held read-only only because of its size is editable here, as it is in the quick
-            // editor; one the reader has marked read-only stays that way.
-            viewScope: { readOnlyTemporarilyDisabled: !note.hasLabel("readOnly") }
+            viewScope: {
+                // A note held read-only only because of its size is editable here, as it is in the
+                // quick editor; one the reader has marked read-only stays that way.
+                readOnlyTemporarilyDisabled: !note.hasLabel("readOnly"),
+                // The pane has a third of a note's width, which is not a toolbar's worth: the
+                // editor's own follows the selection instead of standing in a bar (see link.ts).
+                floatingToolbar: true
+            }
         });
     }, [ noteContext, note?.noteId ]);
 
