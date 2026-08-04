@@ -239,7 +239,19 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
         if (!scale || !map) return;
         const scaleControl = new ScaleControl({ unit: getMeasurementSystem() });
         map.addControl(scaleControl);
-        return () => { map.removeControl(scaleControl); };
+
+        return () => {
+            // Unless the map has taken it off already, which is what going away amounts to: a map
+            // being removed hands every control it holds its notice and forgets them all. This
+            // cleanup still runs afterwards — the effect that built the map was written first, so
+            // its own cleanup, `map.remove()`, goes first — and MapLibre's `removeControl` asks the
+            // control to take itself off whether the map still holds it or not. Told twice, the
+            // control reaches for the map it has already let go of, and switching away from a geo
+            // map threw where nobody could catch it.
+            if (map.hasControl(scaleControl)) {
+                map.removeControl(scaleControl);
+            }
+        };
     }, [ map, scale, formattingLocale ]);
 
     // Adapt to container size changes.

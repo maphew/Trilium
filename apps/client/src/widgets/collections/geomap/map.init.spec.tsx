@@ -46,6 +46,9 @@ const LAYER: MapLayer = {
     attribution: "&copy; Example"
 };
 
+/** The last map built, for the tests that ask what was done to it. */
+let lastMap: ReturnType<typeof buildWorkingMap> | undefined;
+
 /**
  * A map that builds, recording only the little the component asks of it.
  *
@@ -53,13 +56,36 @@ const LAYER: MapLayer = {
  * construct a mock whose implementation is not constructible.
  */
 function workingMap(this: unknown) {
+    lastMap = buildWorkingMap();
+    return lastMap;
+}
+
+/**
+ * What such a map does, including the part of MapLibre's own bookkeeping that matters here: a map
+ * being removed hands every control it holds its notice and forgets them all, and `removeControl`
+ * passes that notice on whether the map still holds the control or not — so a control told twice
+ * reaches for the map it has already let go of.
+ */
+function buildWorkingMap() {
+    const controls = new Set<unknown>();
+    let removed = false;
+
     return {
-        addControl: vi.fn(),
-        removeControl: vi.fn(),
+        addControl: vi.fn((control: unknown) => { controls.add(control); }),
+        removeControl: vi.fn((control: unknown) => {
+            if (removed) {
+                throw new TypeError(`can't access property "off", this._map is undefined`);
+            }
+            controls.delete(control);
+        }),
+        hasControl: vi.fn((control: unknown) => controls.has(control)),
+        remove: vi.fn(() => {
+            removed = true;
+            controls.clear();
+        }),
         on: vi.fn(),
         off: vi.fn(),
         once: vi.fn(),
-        remove: vi.fn(),
         resize: vi.fn(),
         setStyle: vi.fn(),
         setCenter: vi.fn(),
@@ -89,7 +115,7 @@ describe("Map initialization", () => {
     });
 
     /** Puts the map up, with whatever the mocked constructor has been told to do. */
-    function renderMap() {
+    function renderMap({ scale = false } = {}) {
         act(() => {
             render(
                 <Map
@@ -97,7 +123,7 @@ describe("Map initialization", () => {
                     zoom={2}
                     layerData={LAYER}
                     viewportChanged={vi.fn()}
-                    scale={false}
+                    scale={scale}
                 >
                     <div className="map-child">A child of the map</div>
                 </Map>,
@@ -140,5 +166,33 @@ describe("Map initialization", () => {
 
         expect(container.querySelector(".no-items")).toBeNull();
         expect(container.querySelector(".map-child")).not.toBeNull();
+    });
+
+    /**
+     * Leaving a geo map for another note, which used to throw where nobody could catch it: the scale
+     * was taken off a map that had already gone, and a control given its notice twice reaches for the
+     * map it has let go of.
+     */
+    it("leaves a scale to the teardown of the map that holds it", () => {
+        MapConstructor.mockImplementation(workingMap);
+        renderMap({ scale: true });
+        expect(lastMap?.addControl).toHaveBeenCalled();
+
+        expect(() => act(() => { render(null, container); })).not.toThrow();
+
+        expect(lastMap?.remove).toHaveBeenCalled();
+        expect(lastMap?.removeControl).not.toHaveBeenCalled();
+    });
+
+    it("takes the scale off a map that is staying", () => {
+        MapConstructor.mockImplementation(workingMap);
+        renderMap({ scale: true });
+
+        // The scale switched off while the map goes on being read, which is the one time this
+        // cleanup has anything to do.
+        renderMap({ scale: false });
+
+        expect(lastMap?.removeControl).toHaveBeenCalledOnce();
+        expect(lastMap?.remove).not.toHaveBeenCalled();
     });
 });
