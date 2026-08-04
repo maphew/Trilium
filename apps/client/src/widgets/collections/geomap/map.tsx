@@ -1,8 +1,8 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { Map as MapLibreGLMap, MapMouseEvent, NavigationControl, type Point, ScaleControl, type StyleSpecification } from "maplibre-gl";
+import { Map as MapLibreGLMap, MapMouseEvent, NavigationControl, type Point, ScaleControl, type StyleSpecification, type TransformStyleFunction } from "maplibre-gl";
 import { ComponentChildren, createContext, RefObject } from "preact";
-import { useEffect, useImperativeHandle, useState } from "preact/hooks";
+import { useEffect, useImperativeHandle, useRef, useState } from "preact/hooks";
 
 import { getMeasurementSystem } from "../../../utils/formatters";
 import { useElementSize, useSyncedRef, useTriliumOption } from "../../react/hooks";
@@ -79,14 +79,20 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
     const containerRef = useSyncedRef<HTMLDivElement>(_containerRef);
 
     useImperativeHandle(apiRef ?? null, () => map);
+    // What the style this map was last given was made of, which is how the sources and layers on it
+    // that are its own are told from the ones a child added. See `keepAdditions`.
+    const appliedStyle = useRef<StyleContents>();
 
     // Initialize the map.
     useEffect(() => {
         if (!containerRef.current) return;
 
+        const initialStyle = buildSyncStyle(layerData);
+        appliedStyle.current = typeof initialStyle === "string" ? undefined : styleContents(initialStyle);
+
         const mapInstance = new MapLibreGLMap({
             container: containerRef.current,
-            style: buildSyncStyle(layerData),
+            style: initialStyle,
             center: toCenter(coordinates),
             zoom,
             minZoom: 2,
@@ -123,15 +129,21 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
 
         let cancelled = false;
 
+        /** Puts a style on the map, carrying what the children added to the last one across. */
+        function apply(style: StyleSpecification | string) {
+            map?.setStyle(style, { transformStyle: keepAdditions(appliedStyle.current) });
+            appliedStyle.current = typeof style === "string" ? undefined : styleContents(style);
+        }
+
         if (layerData.type === "vector" && typeof layerData.style !== "string") {
             layerData.style().then(asyncStyle => {
                 // Guard against the layer changing again or the map being torn down while the
                 // style was still loading.
                 if (cancelled) return;
-                map.setStyle(asyncStyle);
+                apply(asyncStyle);
             });
         } else {
-            map.setStyle(buildSyncStyle(layerData));
+            apply(buildSyncStyle(layerData));
         }
 
         return () => {
@@ -195,4 +207,71 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
             </ParentMap.Provider>
         </div>
     );
+}
+
+/** What a style is made of, by name — all {@link keepAdditions} needs of the one it is given. */
+export interface StyleContents {
+    sources: Set<string>;
+    layers: Set<string>;
+}
+
+/**
+ * The names of everything in a style, taken now rather than held onto.
+ *
+ * MapLibre shallow-copies the style it is handed and goes on to change what it made of it, so a
+ * style kept as an object is not necessarily the style that was applied by the time it is read back.
+ * The names are all that is wanted anyway.
+ */
+export function styleContents(style: StyleSpecification): StyleContents {
+    return {
+        sources: new Set(Object.keys(style.sources)),
+        layers: new Set(style.layers.map((layer) => layer.id))
+    };
+}
+
+/**
+ * Carries whatever was put on the outgoing style over to the incoming one.
+ *
+ * A style is a world of its own, and switching one takes every source and layer on the map with it —
+ * including those that were never the style's to begin with. The markers and the GPX tracks live on
+ * the style because a map has nowhere else to put them, so switching between a light and a dark map
+ * took every marker off it and put them back only once the new style had loaded, which is a network
+ * away. Handed over here instead, they are part of the incoming style before it is ever applied, and
+ * so are never off the map at all.
+ *
+ * What was added is what the outgoing style has and the style we applied did not, which is why the
+ * latter has to be known: everything else in the outgoing style is the old map itself, and carrying
+ * that over would leave it drawn on top of the new one. The additions go last, so they stay above
+ * the map rather than under it.
+ *
+ * Note that the images a layer draws with are not part of a style and do not come across (see
+ * `Markers`, which puts them back on `style.load`) — and that MapLibre applies this whether it can
+ * turn one style into the other or has to build the new one from scratch, so nothing here depends on
+ * which of the two it chooses.
+ *
+ * @param applied the style this map was last given, or `undefined` where it is not known — a style
+ *                named by URL, whose contents we never see. Nothing is carried over then, and the
+ *                additions are put back on `style.load` as they were before.
+ */
+export function keepAdditions(applied: StyleContents | undefined): TransformStyleFunction {
+    return (previous, next) => {
+        if (!applied || !previous) return next;
+
+        const sources = { ...next.sources };
+        for (const [ id, source ] of Object.entries(previous.sources)) {
+            if (!applied.sources.has(id) && !(id in sources)) {
+                sources[id] = source;
+            }
+        }
+
+        const nextLayers = new Set(next.layers.map((layer) => layer.id));
+        const layers = [ ...next.layers ];
+        for (const layer of previous.layers) {
+            if (!applied.layers.has(layer.id) && !nextLayers.has(layer.id)) {
+                layers.push(layer);
+            }
+        }
+
+        return { ...next, sources, layers };
+    };
 }
