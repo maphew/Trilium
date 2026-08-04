@@ -239,7 +239,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                 {/* The pane above is what a click on a marker opens now, so the markers no longer
                     open the note themselves — the two would otherwise both answer the same click,
                     raising the quick editor over the pane that had just opened behind it. */}
-                <Markers notes={notes} hideLabels={hideLabels} isDarkTheme={layerData.isDarkTheme ?? false} clustered={clustered} placing={!!placement} opensNotes={false} />
+                <Markers notes={notes} hideLabels={hideLabels} isDarkTheme={layerData.isDarkTheme ?? false} clustered={clustered} placing={!!placement} opensNotes={false} selectedNoteId={selection?.noteId ?? null} />
                 {notes.map(note => <NoteGpxTrackWrapper note={note} hideLabels={hideLabels} isDarkTheme={layerData.isDarkTheme ?? false} />)}
             </Map>}
         </div>

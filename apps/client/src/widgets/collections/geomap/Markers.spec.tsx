@@ -23,14 +23,17 @@ import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
 import { CLUSTER_COUNT_LAYER, CLUSTER_LAYER } from "./clusters";
 import { ParentMap } from "./map";
-import Markers, { formatLocation, MARKER_LAYER, MARKER_SOURCE, parseLocation } from "./Markers";
+import Markers, { formatLocation, MARKER_LAYER, MARKER_SOURCE, parseLocation, SELECTION_LAYER } from "./Markers";
 
 vi.mock("../../../services/icon_glyphs", () => ({
     renderIconImage: vi.fn(async () => "data:image/svg+xml;base64,PHN2Zz48L3N2Zz4=")
 }));
 
-/** What a map that gathers its notes puts up: the pins, the bubbles, and the bubbles' counts. */
-const CLUSTERED_LAYER_COUNT = 3;
+/** What every map puts up: the pins, and the glow that lights whichever of them is selected. */
+const BASE_LAYER_COUNT = 2;
+
+/** What a map that gathers its notes adds to that: the bubbles, and the bubbles' counts. */
+const CLUSTERED_LAYER_COUNT = BASE_LAYER_COUNT + 2;
 
 interface FakeLayer {
     id: string;
@@ -139,7 +142,10 @@ function fakeMap() {
         },
         removeLayer(id: string) { layers.delete(id); calls.removeLayer++; },
         setLayoutProperty(id: string, name: string, value: unknown) { properties.set(`${id}/${name}`, value); },
-        setPaintProperty(id: string, name: string, value: unknown) { properties.set(`${id}/${name}`, value); }
+        setPaintProperty(id: string, name: string, value: unknown) { properties.set(`${id}/${name}`, value); },
+        // Filed with the properties: what a layer's filter has been repointed to is read the same
+        // way as what it has been repainted with.
+        setFilter(id: string, filter: unknown) { properties.set(`${id}/filter`, filter); }
     };
 }
 
@@ -193,7 +199,7 @@ describe("Markers", () => {
     });
 
     /** Renders into the same container, so calling it again is a re-render with fresh props. */
-    function mount(notes: FNote[], map: ReturnType<typeof fakeMap>, parent: Component, look?: { hideLabels?: boolean, isDarkTheme?: boolean, clustered?: boolean, placing?: boolean, opensNotes?: boolean }) {
+    function mount(notes: FNote[], map: ReturnType<typeof fakeMap>, parent: Component, look?: { hideLabels?: boolean, isDarkTheme?: boolean, clustered?: boolean, placing?: boolean, opensNotes?: boolean, selectedNoteId?: string | null }) {
         return act(async () => {
             render(
                 <ParentComponent.Provider value={parent}>
@@ -208,6 +214,7 @@ describe("Markers", () => {
                             // map itself passes false, a marker being opened into the detail pane
                             // there instead (see index.tsx).
                             opensNotes={look?.opensNotes ?? true}
+                            selectedNoteId={look?.selectedNoteId ?? null}
                         />
                     </ParentMap.Provider>
                 </ParentComponent.Provider>,
@@ -229,7 +236,7 @@ describe("Markers", () => {
         });
 
         expect(map.getLayer(MARKER_LAYER)).toBeTruthy();
-        expect(map.calls.addLayer).toBe(1);
+        expect(map.calls.addLayer).toBe(BASE_LAYER_COUNT);
         expect(map.lastFeatures).toHaveLength(1);
         const setDataBefore = map.calls.setData;
 
@@ -245,7 +252,7 @@ describe("Markers", () => {
         // The layer stood throughout — it was handed fresh data rather than torn down and remade.
         expect(map.calls.removeLayer).toBe(0);
         expect(map.calls.removeSource).toBe(0);
-        expect(map.calls.addLayer).toBe(1);
+        expect(map.calls.addLayer).toBe(BASE_LAYER_COUNT);
         expect(map.calls.setData).toBeGreaterThan(setDataBefore);
         expect(map.lastFeatures).toHaveLength(1);
     });
@@ -274,7 +281,7 @@ describe("Markers", () => {
         // The layer stood throughout, and the markers were never built again for it.
         expect(map.calls.removeLayer).toBe(0);
         expect(map.calls.removeSource).toBe(0);
-        expect(map.calls.addLayer).toBe(1);
+        expect(map.calls.addLayer).toBe(BASE_LAYER_COUNT);
         expect(map.calls.setData).toBe(setDataBefore);
 
         expect(map.property(MARKER_LAYER, "text-color")).toBe("#fff");
@@ -388,7 +395,7 @@ describe("Markers", () => {
         expect(map.source(MARKER_SOURCE)).not.toMatchObject({ cluster: true });
         expect(map.layer(CLUSTER_LAYER)).toBeUndefined();
         expect(map.layer(CLUSTER_COUNT_LAYER)).toBeUndefined();
-        expect(map.calls.addLayer).toBe(1);
+        expect(map.calls.addLayer).toBe(BASE_LAYER_COUNT);
         // The pin layer keeps its filter either way — a source that gathers nothing produces no
         // group for it to hide, so it passes every note through.
         expect(map.lastFeatures).toHaveLength(2);
@@ -436,13 +443,13 @@ describe("Markers", () => {
             map.fireStyleLoad();
             await settle();
         });
-        expect(map.calls.addLayer).toBe(1);
+        expect(map.calls.addLayer).toBe(BASE_LAYER_COUNT);
 
         await act(async () => {
             render(null, container as HTMLElement);
         });
 
-        expect(map.calls.removeLayer).toBe(1);
+        expect(map.calls.removeLayer).toBe(BASE_LAYER_COUNT);
         expect(map.calls.removeSource).toBe(1);
     });
 
@@ -465,7 +472,7 @@ describe("Markers", () => {
             map.fireStyleLoad();
             await settle();
         });
-        expect(map.calls.addLayer).toBe(1);
+        expect(map.calls.addLayer).toBe(BASE_LAYER_COUNT);
 
         map.remove();
 
@@ -543,6 +550,89 @@ describe("Markers", () => {
 
             await mount([ note ], map, parent, { placing: true });
             expect(map.cursor).toBe("");
+        });
+    });
+
+    /**
+     * The map's half of the detail pane's selection: the chosen pin is grown, drawn above its
+     * neighbours, and lit from below by the glow layer. All of it property updates on standing
+     * layers — choosing a marker must never take every other marker off the map and back, for the
+     * same reason a note being recoloured must not (see the redraw test above).
+     */
+    describe("highlighting the selected marker", () => {
+        it("points the highlight at the marker, and away again when nothing is selected", async () => {
+            const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+            const map = fakeMap();
+            const parent = new Component();
+
+            await mount([ note ], map, parent);
+            await act(async () => {
+                map.fireStyleLoad();
+                await settle();
+            });
+
+            // The glow stands from the start, aimed at nothing: no note's id is the empty string.
+            expect(map.layer(SELECTION_LAYER)?.filter).toEqual([ "==", [ "get", "id" ], "" ]);
+            expect(map.layer(MARKER_LAYER)?.layout?.["icon-size"]).toBe(1);
+            const layersBefore = map.calls.addLayer;
+
+            // A marker is selected: everything is repointed rather than rebuilt.
+            await mount([ note ], map, parent, { selectedNoteId: note.noteId });
+            expect(map.calls.addLayer).toBe(layersBefore);
+            expect(map.property(SELECTION_LAYER, "filter")).toEqual([ "==", [ "get", "id" ], note.noteId ]);
+            expect(map.property(MARKER_LAYER, "icon-size"))
+                .toEqual([ "case", [ "==", [ "get", "id" ], note.noteId ], expect.any(Number), 1 ]);
+            expect(map.property(MARKER_LAYER, "symbol-sort-key"))
+                .toEqual([ "case", [ "==", [ "get", "id" ], note.noteId ], 1, 0 ]);
+
+            // The glow keeps the titles' bargain, so it changes sides with them.
+            expect(map.layer(SELECTION_LAYER)?.paint?.["circle-color"]).toBe("rgba(0, 0, 0, 0.35)");
+            await mount([ note ], map, parent, { selectedNoteId: note.noteId, isDarkTheme: true });
+            expect(map.property(SELECTION_LAYER, "circle-color")).toBe("rgba(255, 255, 255, 0.4)");
+
+            // The pane closes, and the map stops pointing at anything.
+            await mount([ note ], map, parent, { isDarkTheme: true });
+            expect(map.property(SELECTION_LAYER, "filter")).toEqual([ "==", [ "get", "id" ], "" ]);
+            expect(map.property(MARKER_LAYER, "icon-size")).toBe(1);
+        });
+
+        /**
+         * A style switch tears every layer down and `install` puts fresh ones up, reading the
+         * selection from a ref rather than depending on it — a layer added while the pane is open
+         * has to come up already highlighted, not wait for a selection change that may never come.
+         */
+        it("gives a layer added with a marker already selected the highlight built in", async () => {
+            const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+            const map = fakeMap();
+
+            await mount([ note ], map, new Component(), { selectedNoteId: note.noteId });
+            await act(async () => {
+                map.fireStyleLoad();
+                await settle();
+            });
+
+            expect(map.layer(SELECTION_LAYER)?.filter).toEqual([ "==", [ "get", "id" ], note.noteId ]);
+            expect(map.layer(MARKER_LAYER)?.layout?.["icon-size"])
+                .toEqual([ "case", [ "==", [ "get", "id" ], note.noteId ], expect.any(Number), 1 ]);
+        });
+
+        it("keeps saying the selected marker's title while the rest are hidden", async () => {
+            const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+            const map = fakeMap();
+            const parent = new Component();
+
+            await mount([ note ], map, parent, { hideLabels: true });
+            await act(async () => {
+                map.fireStyleLoad();
+                await settle();
+            });
+            expect(map.layer(MARKER_LAYER)?.layout?.["text-field"]).toBe("");
+
+            // A pane discussing a note whose name the map refuses to utter would leave the
+            // highlight pointing at an anonymous pin.
+            await mount([ note ], map, parent, { hideLabels: true, selectedNoteId: note.noteId });
+            expect(map.property(MARKER_LAYER, "text-field"))
+                .toEqual([ "case", [ "==", [ "get", "id" ], note.noteId ], [ "get", "name" ], "" ]);
         });
     });
 });
