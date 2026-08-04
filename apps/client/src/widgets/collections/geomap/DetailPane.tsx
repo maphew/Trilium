@@ -11,6 +11,7 @@ import link from "../../../services/link";
 import ActionButton from "../../react/ActionButton";
 import { useNoteIcon, useNoteLabel, useNoteProperty } from "../../react/hooks";
 import OverlayPanel, { OverlayPanelBody, OverlayPanelTitle } from "../../react/OverlayPanel";
+import { moveMarker } from "./api";
 import { ParentMap } from "./map";
 import { LOCATION_ATTRIBUTE, MARKER_LAYER, parseLocation } from "./Markers";
 
@@ -25,10 +26,12 @@ import { LOCATION_ATTRIBUTE, MARKER_LAYER, parseLocation } from "./Markers";
  * what is left uncovered rather than to the middle of the map (see {@link paneOffset}), and the bar
  * of buttons in the corner steps aside for it (see DetailPane.css).
  */
-export default function DetailPane({ notes, placing }: {
+export default function DetailPane({ notes, placing, isReadOnly }: {
     notes: FNote[];
     /** A marker is being placed, which is what the next click on the map is for. */
     placing: boolean;
+    /** The map may not be edited, which leaves the pane the ways of opening a note and no more. */
+    isReadOnly: boolean;
 }) {
     const map = useContext(ParentMap);
     const [ selectedNoteId, setSelectedNoteId ] = useState<string | null>(null);
@@ -94,7 +97,7 @@ export default function DetailPane({ notes, placing }: {
         return null;
     }
 
-    return <MarkerDetails note={note} onClose={() => setSelectedNoteId(null)} />;
+    return <MarkerDetails note={note} isReadOnly={isReadOnly} onClose={() => setSelectedNoteId(null)} />;
 }
 
 /**
@@ -137,7 +140,7 @@ function paneOffset(map: MapLibreGLMap): [number, number] {
 }
 
 /** The pane itself, for a marker there is one to draw. */
-function MarkerDetails({ note, onClose }: { note: FNote; onClose(): void }) {
+function MarkerDetails({ note, isReadOnly, onClose }: { note: FNote; isReadOnly: boolean; onClose(): void }) {
     const icon = useNoteIcon(note);
     const title = useNoteProperty(note, "title");
 
@@ -148,7 +151,7 @@ function MarkerDetails({ note, onClose }: { note: FNote; onClose(): void }) {
             close={{ text: t("geo-map.close-details"), onClick: onClose }}
         >
             <OverlayPanelBody>
-                <MarkerActions note={note} />
+                <MarkerActions note={note} isReadOnly={isReadOnly} />
             </OverlayPanelBody>
         </OverlayPanel>
     );
@@ -163,7 +166,7 @@ function MarkerDetails({ note, onClose }: { note: FNote; onClose(): void }) {
  * the quick editor: it used to be what a click on a marker raised, and the pane took that click
  * over, so offering it here would only put a modal back over the pane that replaced it.
  */
-function MarkerActions({ note }: { note: FNote }) {
+function MarkerActions({ note, isReadOnly }: { note: FNote; isReadOnly: boolean }) {
     const [ location ] = useNoteLabel(note, LOCATION_ATTRIBUTE);
     const hoistedNoteId = appContext.tabManager.getActiveContext()?.hoistedNoteId;
     // The path the note is best reached by from wherever the reader is hoisted, rather than its id:
@@ -204,6 +207,25 @@ function MarkerActions({ note }: { note: FNote }) {
                 onClick={() => latLng && link.goToLinkExt(null, `geo:${latLng[1]},${latLng[0]}`)}
                 disabled={!latLng}
             />
+
+            {/* Left out rather than shown spent on a map that cannot be edited, as the map's own
+                right-click menu leaves it out: the rest of the row reads a note, and this is the
+                one thing here that writes one. */}
+            {!isReadOnly && (
+                <ActionButton
+                    className="geo-detail-pane-remove"
+                    icon="bx bx-trash"
+                    text={t("geo-map-context.remove-from-map")}
+                    // Only the note's location goes; the note itself stays exactly where it was in
+                    // the tree. Nothing closes the pane afterwards because nothing has to — a note
+                    // with nowhere to be drawn is a note the pane stops standing for (see above).
+                    //
+                    // Called rather than commanded, though `deleteFromMap` is a command the map
+                    // already answers: a command is broadcast, and every geo map open at the time
+                    // would take the same note off the same map in turn.
+                    onClick={() => void moveMarker(note.noteId, null)}
+                />
+            )}
         </div>
     );
 }

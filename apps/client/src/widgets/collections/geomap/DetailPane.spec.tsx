@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import appContext from "../../../components/app_context";
 import Component from "../../../components/component";
 import type FNote from "../../../entities/fnote";
+import attributes from "../../../services/attributes";
 import link from "../../../services/link";
 import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
@@ -93,12 +94,12 @@ describe("DetailPane", () => {
     });
 
     /** Renders into the same container, so calling it again is a re-render with fresh props. */
-    function mount(notes: FNote[], map: ReturnType<typeof fakeMap>, placing = false) {
+    function mount(notes: FNote[], map: ReturnType<typeof fakeMap>, placing = false, isReadOnly = false) {
         return act(async () => {
             render(
                 <ParentComponent.Provider value={new Component()}>
                     <ParentMap.Provider value={map as never}>
-                        <DetailPane notes={notes} placing={placing} />
+                        <DetailPane notes={notes} placing={placing} isReadOnly={isReadOnly} />
                     </ParentMap.Provider>
                 </ParentComponent.Provider>,
                 container as HTMLElement
@@ -239,9 +240,8 @@ describe("DetailPane", () => {
     });
 
     describe("the ways of opening it", () => {
-        /** Opens the pane on a note that hangs somewhere, so that there is a path to open. */
-        async function openPaneFor(note: FNote, map: ReturnType<typeof fakeMap>) {
-            await mount([ note ], map);
+        async function openPaneFor(note: FNote, map: ReturnType<typeof fakeMap>, isReadOnly = false) {
+            await mount([ note ], map, false, isReadOnly);
             map.setUnderPointer([ markerFeature(note) ]);
             await act(async () => map.click());
         }
@@ -287,6 +287,52 @@ describe("DetailPane", () => {
                 goToLinkExt.mockRestore();
                 openInCurrentNoteContext.mockClear();
             }
+        });
+    });
+
+    describe("taking the marker off the map", () => {
+        function removeButton() {
+            return container?.querySelector<HTMLButtonElement>(".geo-detail-pane-actions button.bx-trash") ?? null;
+        }
+
+        /**
+         * Only the note's location goes — the note itself stays where it is in the tree — and the
+         * pane goes with it, there being no marker left for it to stand for.
+         */
+        it("clears the note's location and stands down", async () => {
+            const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+            const map = fakeMap();
+            const setLabel = vi.spyOn(attributes, "setLabel").mockResolvedValue(undefined);
+
+            try {
+                await mount([ note ], map);
+                map.setUnderPointer([ markerFeature(note) ]);
+                await act(async () => map.click());
+
+                await act(async () => { removeButton()?.click(); });
+                expect(setLabel).toHaveBeenCalledWith(note.noteId, "geolocation", "");
+
+                // What the server would send back, which is the note carrying nowhere to be drawn.
+                vi.spyOn(note, "getLabelValue").mockReturnValue(null);
+                await mount([ note ], map);
+                expect(pane()).toBeNull();
+            } finally {
+                setLabel.mockRestore();
+            }
+        });
+
+        it("is not offered at all on a map that cannot be edited", async () => {
+            const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+            const map = fakeMap();
+
+            await mount([ note ], map, false, true);
+            map.setUnderPointer([ markerFeature(note) ]);
+            await act(async () => map.click());
+
+            // The ways of reading the note stay; the one that writes it does not.
+            expect(pane()).toBeTruthy();
+            expect(container?.querySelector(".geo-detail-pane-actions button.bx-log-in")).toBeTruthy();
+            expect(removeButton()).toBeNull();
         });
     });
 

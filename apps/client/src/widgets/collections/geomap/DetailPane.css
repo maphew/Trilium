@@ -55,6 +55,13 @@
     display: flex;
     align-items: center;
     gap: 4px;
+
+    /* Taking a marker off the map is the one thing in the row that writes rather than reads, so it
+       stands at the far end of it: away from the four the reader is reaching for over and over, and
+       not somewhere the pointer lands by being a moment early. */
+    .geo-detail-pane-remove {
+        margin-inline-start: auto;
+    }
 }
 
 /*
