@@ -1,13 +1,13 @@
 /**
- * The zoom buttons, which used to be MapLibre's own `NavigationControl` — a white box on a map that
- * may well be dark, dressed in neither Trilium's buttons nor its colors. What is checked here is what
- * the control did for us: the two steps, and a step that would carry the map past either end of the
- * range it is allowed being refused rather than merely doing nothing.
+ * The bar over a geo map, which used to be MapLibre's own controls — white boxes on a map that may
+ * well be dark, dressed in neither Trilium's buttons nor its colors. What is checked here is what
+ * they did for us: the two steps, a step that would carry the map past either end of the range it is
+ * allowed being refused rather than merely doing nothing, and the screen being given and taken back.
  */
 import type { Map as MapLibreGLMap } from "maplibre-gl";
 import { render } from "preact";
 import { act } from "preact/test-utils";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { renderInto } from "../../../test/render";
 import { ParentMap } from "./map";
@@ -16,10 +16,14 @@ import MapToolbar from "./MapToolbar";
 /** The order the bar lays its buttons out in. */
 const ZOOM_IN = 0;
 const ZOOM_OUT = 1;
+const FULLSCREEN = 2;
 
-/** A map that only zooms and says so, which is all this bar asks of one. */
+/** A map that zooms, says so, and stands somewhere — all this bar asks of one. */
 function fakeMap({ zoom = 5, minZoom = 2, maxZoom = 22 } = {}) {
     const listeners = new Set<() => void>();
+    const container = document.createElement("div");
+    container.requestFullscreen = vi.fn(async () => {});
+    document.body.appendChild(container);
 
     const setZoom = (value: number) => {
         zoom = Math.min(Math.max(value, minZoom), maxZoom);
@@ -30,6 +34,7 @@ function fakeMap({ zoom = 5, minZoom = 2, maxZoom = 22 } = {}) {
         getZoom: () => zoom,
         getMinZoom: () => minZoom,
         getMaxZoom: () => maxZoom,
+        getContainer: () => container,
         zoomIn: vi.fn(() => setZoom(zoom + 1)),
         zoomOut: vi.fn(() => setZoom(zoom - 1)),
         /** The map being zoomed by something other than these buttons — the wheel, or a pinch. */
@@ -39,6 +44,17 @@ function fakeMap({ zoom = 5, minZoom = 2, maxZoom = 22 } = {}) {
         get listenerCount() { return listeners.size; }
     };
 }
+
+/** Puts the document in or out of fullscreen and tells whoever is listening, as the browser does. */
+function setFullscreenElement(element: Element | null) {
+    Object.defineProperty(document, "fullscreenElement", { value: element, configurable: true });
+    act(() => { document.dispatchEvent(new Event("fullscreenchange")); });
+}
+
+beforeEach(() => {
+    Object.defineProperty(document, "fullscreenElement", { value: null, configurable: true });
+    document.exitFullscreen = vi.fn(async () => {});
+});
 
 /** Builds the bar over a map and settles it, so that it is listening before it is spoken to. */
 function renderToolbar(map: ReturnType<typeof fakeMap> | null) {
@@ -63,12 +79,13 @@ function press(container: HTMLElement, index: number) {
 }
 
 describe("geo map MapToolbar", () => {
-    it("offers the two steps the map's own control did, in one row", () => {
+    it("offers what the map's own controls did, in one row", () => {
         const container = renderToolbar(fakeMap());
 
         expect(buttons(container).map((button) => button.className)).toEqual([
             expect.stringContaining("bx-zoom-in"),
-            expect.stringContaining("bx-zoom-out")
+            expect.stringContaining("bx-zoom-out"),
+            expect.stringContaining("bx-fullscreen")
         ]);
     });
 
@@ -108,6 +125,33 @@ describe("geo map MapToolbar", () => {
         act(() => map.zoomTo(6));
 
         expect(buttons(container)[ZOOM_IN].disabled).toBe(true);
+    });
+
+    it("gives the map the screen and takes it back, saying which it is offering", () => {
+        const map = fakeMap();
+        const container = renderToolbar(map);
+
+        press(container, FULLSCREEN);
+        // The map itself goes on the screen, not the note's chrome around it.
+        expect(map.getContainer().requestFullscreen).toHaveBeenCalled();
+
+        setFullscreenElement(map.getContainer());
+        expect(buttons(container)[FULLSCREEN].className).toContain("bx-exit-fullscreen");
+
+        press(container, FULLSCREEN);
+        expect(document.exitFullscreen).toHaveBeenCalled();
+    });
+
+    it("follows a screen left by pressing Escape rather than by the button", () => {
+        const map = fakeMap();
+        const container = renderToolbar(map);
+
+        setFullscreenElement(map.getContainer());
+        expect(buttons(container)[FULLSCREEN].className).toContain("bx-exit-fullscreen");
+
+        setFullscreenElement(null);
+
+        expect(buttons(container)[FULLSCREEN].className).toContain("bx-fullscreen");
     });
 
     it("stops listening to a map it is taken off", () => {

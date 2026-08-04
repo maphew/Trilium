@@ -4,21 +4,26 @@ import type { Map as MapLibreGLMap } from "maplibre-gl";
 import { useContext, useEffect, useState } from "preact/hooks";
 
 import { t } from "../../../services/i18n";
+import { useFullscreen } from "../../react/hooks";
 import OverlayToolbar, { OverlayToolbarButton } from "../../react/OverlayToolbar";
 import { ParentMap } from "./map";
 
 /**
- * The bar standing in the corner of a geo map: how close in the map is drawn.
+ * The bar standing in the corner of a geo map: how close in the map is drawn, and how much of the
+ * screen it is given.
  *
- * MapLibre offers a bar of its own for this (`NavigationControl`, which is what stood here), dressed
- * in neither Trilium's buttons nor Trilium's colors — a white box with two hairline-separated squares
- * in it, on a map that may well be dark. What it did is done here instead, on the surface every bar
- * standing over a canvas shares (see {@link OverlayToolbar}), which is what the mind map's own bar
- * stands on too.
+ * MapLibre offers bars of its own for both (`NavigationControl`, which is what stood here, and
+ * `FullscreenControl`), dressed in neither Trilium's buttons nor Trilium's colors — a white box with
+ * hairline-separated squares in it, on a map that may well be dark. What they do is done here
+ * instead, on the surface every bar standing over a canvas shares (see {@link OverlayToolbar}),
+ * which is what the mind map's own bar stands on too.
  */
 export default function MapToolbar() {
     const map = useContext(ParentMap);
     const zoom = useMapZoom(map);
+    // The map itself rather than the whole view: what is around it is the note's own chrome, and
+    // everything the bar above the map offers is on the map's right-click menu as well.
+    const [ isFullscreen, toggleFullscreen ] = useFullscreen(map?.getContainer());
 
     if (!map) return null;
 
@@ -41,6 +46,15 @@ export default function MapToolbar() {
                 text={t("geo-map.zoom-out")}
                 disabled={current <= map.getMinZoom()}
                 onClick={() => map.zoomOut()}
+            />
+
+            <OverlayToolbarButton
+                icon={isFullscreen ? "bx bx-exit-fullscreen" : "bx bx-fullscreen"}
+                text={isFullscreen ? t("geo-map.exit-fullscreen") : t("geo-map.fullscreen")}
+                // Nothing here is measured across the change: the map keeps the middle of its view
+                // through a resize of its own accord, and it is told of the new size by the view
+                // itself (see `useElementSize` in map.tsx).
+                onClick={() => void toggleFullscreen()}
             />
         </OverlayToolbar>
     );

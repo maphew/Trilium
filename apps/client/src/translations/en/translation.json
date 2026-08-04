@@ -2743,7 +2743,9 @@
     "create-child-note-toast-title": "New note",
     "unable-to-load-map": "Unable to load map.",
     "zoom-in": "Zoom in",
-    "zoom-out": "Zoom out"
+    "zoom-out": "Zoom out",
+    "fullscreen": "Fullscreen",
+    "exit-fullscreen": "Exit fullscreen"
   },
   "geo-map-context": {
     "open-location": "Open location",

@@ -4,6 +4,7 @@ import type { MindElixirInstance } from "mind-elixir";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import { t } from "../../../services/i18n";
+import { useFullscreen } from "../../react/hooks";
 import OverlayToolbar, { OverlayToolbarButton } from "../../react/OverlayToolbar";
 import { centerMapOn, type MapPoint, readMapCenter, stepZoom } from "./viewport";
 
@@ -198,33 +199,23 @@ function useMapState<T>(mind: MindElixirInstance, read: (mind: MindElixirInstanc
  * not by the bar this one replaces.
  */
 function useMapFullscreen(mind: MindElixirInstance): [ boolean, () => void ] {
-    const [ isFullscreen, setFullscreen ] = useState(() => document.fullscreenElement === mind.el);
     const center = useRef<MapPoint | null>(null);
 
-    useEffect(() => {
-        const onFullscreenChange = () => {
-            setFullscreen(document.fullscreenElement === mind.el);
-
-            const taken = center.current;
-            center.current = null;
-            if (taken) centerMapOn(mind, taken);
-        };
-
-        document.addEventListener("fullscreenchange", onFullscreenChange);
-        return () => document.removeEventListener("fullscreenchange", onFullscreenChange);
-    }, [ mind ]);
+    const [ isFullscreen, toggleScreen ] = useFullscreen(mind.el, () => {
+        const taken = center.current;
+        center.current = null;
+        if (taken) centerMapOn(mind, taken);
+    });
 
     const toggle = useCallback(() => {
         center.current = readMapCenter(mind);
 
-        const changed = document.fullscreenElement ? document.exitFullscreen() : mind.el.requestFullscreen();
         // A refused request leaves the view the size it was, so there is nothing to put back — and
         // holding on to the point would move the map on whatever change came next.
-        changed?.catch((e) => {
-            center.current = null;
-            console.warn("Could not change the mind map's fullscreen state:", e);
+        toggleScreen().then((changed) => {
+            if (!changed) center.current = null;
         });
-    }, [ mind ]);
+    }, [ mind, toggleScreen ]);
 
     return [ isFullscreen, toggle ];
 }
