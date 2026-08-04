@@ -2739,7 +2739,7 @@
   },
   "geo-map": {
     "create-child-note-title": "Create a new child note and add it to the map",
-    "create-child-note-text": "Add marker",
+    "create-child-note-cancel": "Cancel adding the note",
     "create-child-note-instruction": "Click on the map to create a new note at that location or press Escape to dismiss.",
     "create-child-note-toast-title": "New note",
     "move-marker-instruction": "Click on the map to move the marker to that location or press Escape to dismiss.",

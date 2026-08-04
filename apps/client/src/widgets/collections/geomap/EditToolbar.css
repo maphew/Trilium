@@ -1,0 +1,16 @@
+/*
+ * The editing bar stands in the top leading corner, laid down the column rather than along the row:
+ * the other corners are spoken for — the detail pane holds the whole trailing edge, the camera bar
+ * one side of the foot and the scale and attribution the other — and a column grows by a button
+ * without reaching along the map's edge toward any of them.
+ *
+ * Held off the edges by the shared inset, and dressed with the rest of the map's furniture: the
+ * palette handoff both bars wear is settled once in index.css.
+ */
+.geo-map-container .geo-edit-toolbar {
+    top: var(--geo-map-inset);
+    inset-inline-start: var(--geo-map-inset);
+    /* Above the canvas, clearing MapLibre's own control corners at 2 (see MapToolbar.css). */
+    z-index: 3;
+    flex-direction: column;
+}

@@ -14,12 +14,12 @@ import toast from "../../../services/toast";
 import { escapeHtml } from "../../../services/utils";
 import CollectionProperties from "../../note_bars/CollectionProperties";
 import ActionButton from "../../react/ActionButton";
-import { ButtonOrActionButton } from "../../react/Button";
 import { useCollectionTreeDrag, useNoteBlob, useNoteLabel, useNoteLabelBoolean, useNoteProperty, useSpacedUpdate, useTriliumEvent } from "../../react/hooks";
 import { ViewModeProps } from "../interface";
 import { createNewNote, moveMarker } from "./api";
 import ContextMenus from "./ContextMenus";
 import DetailPane, { PaneSelection } from "./DetailPane";
+import EditToolbar from "./EditToolbar";
 import GhostPin from "./GhostPin";
 import { GpxTrack } from "./GpxTrack";
 import Map, { GeoMouseEvent } from "./map";
@@ -89,10 +89,17 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
 
     // Note creation and marker relocation. Both are scoped to this map instance via local callbacks
     // rather than global commands: embedded maps share no note context (no distinct ntxId), so a
-    // broadcast command would arm placement mode on every map at once. The button and the marker's
+    // broadcast command would arm placement mode on every map at once. The edit bar and the marker's
     // context menu are these callbacks' only triggers, so a direct handler keeps each isolated to the
     // map that was clicked.
-    const startNotePlacement = useCallback(() => setPlacement({ mode: "new" }), []);
+    //
+    // A toggle rather than an arming: the button on the edit bar shows the mode as held down, so
+    // pressing it again is the visible way out of it — the counterpart of the toast's Escape. It
+    // also takes over a map armed to move a marker, a press on + saying what the next click is for
+    // more plainly than whatever was armed before.
+    const toggleNotePlacement = useCallback(() => {
+        setPlacement((current) => current?.mode === "new" ? undefined : { mode: "new" });
+    }, []);
     const startMarkerRelocation = useCallback((noteId: string) => setPlacement({ mode: "move", noteId }), []);
 
     /**
@@ -202,18 +209,11 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
 
     return (
         <div className={`geo-view ${placement ? "placing-note" : ""}`}>
+            {/* Only the lock at its end: adding a note lives on the map itself now (see
+                EditToolbar), where it survives the map going fullscreen without this bar. */}
             <CollectionProperties
                 note={note}
-                rightChildren={<>
-                    <ToggleReadOnlyButton note={note} />
-                    <ButtonOrActionButton
-                        icon="bx bx-plus"
-                        text={t("geo-map.create-child-note-text")}
-                        title={t("geo-map.create-child-note-title")}
-                        onClick={startNotePlacement}
-                        disabled={isReadOnly}
-                    />
-                </>}
+                rightChildren={<ToggleReadOnlyButton note={note} />}
             />
             { coordinates !== undefined && zoom !== undefined && <Map
                 apiRef={apiRef} containerRef={containerRef}
@@ -229,6 +229,11 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                 scale={hasScale}
             >
                 <MapToolbar />
+                <EditToolbar
+                    isReadOnly={isReadOnly}
+                    placing={placement?.mode === "new"}
+                    onTogglePlacement={toggleNotePlacement}
+                />
                 <Tooltips />
                 {/* The preview under the pointer while a click is armed to mean a place — the note
                     being moved wearing its own pin, a note to be created wearing the pin it will be

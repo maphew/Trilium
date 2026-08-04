@@ -96,6 +96,26 @@
 }
 
 /*
+ * The bars standing over the map — the camera bar in its foot corner (MapToolbar) and the editing
+ * bar at its head (EditToolbar) — dressed in the set the map's furniture shares, handed over here
+ * under the names the shared bar reads (see OverlayToolbar.css).
+ *
+ * Set on the bars rather than on the map, so that nothing else standing over the map is dressed for
+ * a theme the reader did not choose — a marker's preview is the app's own note tooltip, and it
+ * belongs to the app. The last pair marks a choice in force, which is the editing bar's + while the
+ * map waits to be told a place.
+ */
+.geo-map-container .tn-overlay-toolbar {
+  --menu-background-color: var(--geo-map-panel-background);
+  --menu-text-color: var(--geo-map-panel-text-color);
+  --dropdown-border-color: var(--geo-map-panel-border-color);
+  --icon-button-hover-background: var(--geo-map-panel-hover-background);
+  --icon-button-hover-color: var(--geo-map-panel-hover-text-color);
+  --active-item-background-color: var(--geo-map-panel-active-background);
+  --active-item-text-color: var(--geo-map-panel-active-text-color);
+}
+
+/*
  * MapLibre's own furniture, dressed as the bar opposite it is.
  *
  * It ships them as white boxes with hairlines of their own and nothing to switch: there is no dark
