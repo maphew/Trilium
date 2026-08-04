@@ -208,6 +208,38 @@ describe("DetailPane", () => {
         expect(heardByTheMap).not.toHaveBeenCalled();
     });
 
+    /**
+     * The icon in the title row is dressed by the hue of whatever carries the colour class around it
+     * (see theme-next-{light,dark}.css). The pane stands inside the map's note split, which carries
+     * the map note's colour, so without one of its own the marker wore the map's hue.
+     */
+    it("carries the marker's own colour, and none where it has no colour", async () => {
+        buildNote({ id: "root", title: "root", children: [
+            { id: "red", title: "Red", "#geolocation": "1,2", "#color": "#ff0000" },
+            { id: "plain", title: "Plain", "#geolocation": "3,4" }
+        ] });
+        const red = froca.notes["red"];
+        const plain = froca.notes["plain"];
+        const map = fakeMap();
+        await mount([ red, plain ], map);
+
+        map.setUnderPointer([ markerFeature(red) ]);
+        await act(async () => map.click());
+        await settle();
+
+        expect(pane()?.classList.contains("use-note-color")).toBe(true);
+        expect(pane()?.classList.contains("with-hue")).toBe(true);
+        expect(pane()?.className).toContain(red.getColorClass());
+
+        // Switching markers is a note switch within a standing pane, so the colour has to follow it.
+        map.setUnderPointer([ markerFeature(plain) ]);
+        await act(async () => map.click());
+        await settle();
+
+        expect(pane()?.classList.contains("use-note-color")).toBe(false);
+        expect(pane()?.classList.contains("with-hue")).toBe(false);
+    });
+
     /** The marker is brought to the middle of what the pane leaves uncovered, not of the map. */
     it("holds the marker it opens for clear of itself", async () => {
         const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });

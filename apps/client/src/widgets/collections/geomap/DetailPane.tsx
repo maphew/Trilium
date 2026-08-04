@@ -1,5 +1,6 @@
 import "./DetailPane.css";
 
+import clsx from "clsx";
 import type { Map as MapLibreGLMap, MapMouseEvent } from "maplibre-gl";
 import { useCallback, useContext, useEffect, useState } from "preact/hooks";
 
@@ -12,7 +13,7 @@ import link from "../../../services/link";
 import TitleRow from "../../layout/TitleRow";
 import NoteDetail from "../../NoteDetail";
 import ActionButton from "../../react/ActionButton";
-import { useNoteLabel } from "../../react/hooks";
+import { useNoteColorClass, useNoteLabel } from "../../react/hooks";
 import PromotedAttributes from "../../PromotedAttributes";
 import OverlayPanel, { OverlayPanelBody } from "../../react/OverlayPanel";
 import { NoteContextContext, ParentComponent } from "../../react/react_utils";
@@ -164,9 +165,14 @@ function paneOffset(map: MapLibreGLMap): [number, number] {
 
 /** The pane itself, for a marker there is one to draw. */
 function MarkerDetails({ note, isReadOnly, onClose, onRelocate }: { note: FNote; isReadOnly: boolean; onClose(): void; onRelocate(): void }) {
+    // The marker's own colour, which is what dresses its icon (see DetailPane.css) — as the quick
+    // editor's wrapper carries it. Without it the pane would inherit the hue of the note split it
+    // stands in, which is the map's colour and not the marker's.
+    const colorClass = useNoteColorClass(note);
+
     return (
         <OverlayPanel
-            className="geo-detail-pane"
+            className={clsx("geo-detail-pane", colorClass)}
             header={<TitleRow compact />}
             close={{ text: t("geo-map.close-details"), onClick: onClose }}
         >
