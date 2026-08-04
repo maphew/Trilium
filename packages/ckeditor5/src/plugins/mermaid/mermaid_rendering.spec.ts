@@ -196,6 +196,54 @@ describe( 'MermaidEditing rendering', () => {
 		expect( instance.render ).not.toHaveBeenCalled();
 	} );
 
+	it( 'does not restore a stale SVG after the source is cleared mid-render', async () => {
+		const pending: Array<( value: { svg: string } ) => void> = [];
+		const instance = createFakeMermaid( () => new Promise( resolve => {
+			pending.push( resolve );
+		} ) );
+		editor = await createEditor( { lazyLoad: async () => instance } );
+
+		const plugin = editor.plugins.get( MermaidEditing ) as unknown as {
+			_renderMermaid( domElement: HTMLElement, source: string ): Promise<void>;
+		};
+		const target = document.createElement( 'div' );
+
+		const first = plugin._renderMermaid( target, 'graph TD; A-->B;' );
+		await waitFor( () => pending.length >= 1 );
+
+		await plugin._renderMermaid( target, '   ' );
+		expect( target.innerHTML ).to.equal( '' );
+
+		pending[ 0 ]?.( { svg: '<svg id="stale"></svg>' } );
+		await first;
+
+		expect( target.innerHTML ).to.equal( '' );
+	} );
+
+	it( 'removes the temporary mermaid probe node after a successful render', async () => {
+		const instance = createFakeMermaid( async ( id: string ) => {
+			const probe = document.createElement( 'div' );
+			probe.id = id;
+			document.body.appendChild( probe );
+			// Real mermaid SVGs reuse the render id; ensure we don't delete that
+			// after inserting it into the preview.
+			return { svg: `<svg id="${ id }"></svg>` };
+		} );
+		editor = await createEditor( { lazyLoad: async () => instance } );
+
+		const plugin = editor.plugins.get( MermaidEditing ) as unknown as {
+			_renderMermaid( domElement: HTMLElement, source: string ): Promise<void>;
+		};
+		const target = document.createElement( 'div' );
+
+		await plugin._renderMermaid( target, 'graph TD; A-->B;' );
+
+		expect( target.querySelector( 'svg' ) ).to.not.equal( null );
+		expect( target.contains( target.querySelector( 'svg' )! ) ).to.equal( true );
+		// Probe on document.body is gone; only the preview SVG remains.
+		expect( document.body.querySelector( '[id^="ck-mermaid-"]' ) ).to.equal( null );
+	} );
+
 	it( 'does nothing when the host configured no lazyLoad', async () => {
 		editor = await createEditor( {} );
 

@@ -280,6 +280,10 @@ export default class MermaidEditing extends Plugin {
 	 */
 	async _renderMermaid( domElement: HTMLElement, source: string ) {
 		if ( !source?.trim() ) {
+			// Bump generation so an in-flight render for the previous source cannot
+			// write its SVG back into a cleared preview.
+			const generation = ( this._renderGenerations.get( domElement ) ?? 0 ) + 1;
+			this._renderGenerations.set( domElement, generation );
 			domElement.innerHTML = '';
 			return;
 		}
@@ -310,14 +314,19 @@ export default class MermaidEditing extends Plugin {
 			try {
 				const { svg } = await mermaid.render( id, source );
 
+				// Mermaid leaves a temporary probe node with `id`. Remove it *before*
+				// inserting the SVG — the returned SVG reuses the same id, so a later
+				// getElementById(id).remove() would delete the rendered diagram.
+				document.getElementById( id )?.remove();
+
 				if ( generation === this._renderGenerations.get( domElement ) ) {
 					domElement.innerHTML = svg;
 				}
-			} catch ( err: any ) {
-				if ( generation === this._renderGenerations.get( domElement ) ) {
-					domElement.innerText = err.message;
-				}
+			} catch ( err: unknown ) {
 				document.getElementById( id )?.remove();
+				if ( generation === this._renderGenerations.get( domElement ) ) {
+					domElement.innerText = err instanceof Error ? err.message : String( err );
+				}
 			}
 		};
 
