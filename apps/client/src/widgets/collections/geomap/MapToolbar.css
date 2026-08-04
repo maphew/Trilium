@@ -16,3 +16,30 @@
     inset-inline-end: var(--geo-map-inset);
     z-index: 3;
 }
+
+/*
+ * On a dark map the bar goes dark with it, whatever the app itself is wearing — a built-in dark style
+ * or one a note has said is dark (`#map:darkStyle`, see `useLayerData`). A pale bar over a dark map is
+ * a lamp standing in the corner of it: the eye goes to the bar rather than to what the bar is for.
+ *
+ * The colours are ones the app already keeps dark in both of its themes — what a tooltip is drawn in —
+ * so this follows the theme rather than setting up a second one beside it. The hairline and the hover
+ * are the dark surface's own, the theme's being settled against a background this bar no longer has:
+ * its light-theme border would ring a dark bar in white, and its hover would put dark text on a dark
+ * fill.
+ *
+ * Set on the bar rather than on the map, so that nothing else standing over the map is dressed for a
+ * theme the reader did not choose — a marker's preview is the app's own note tooltip, and it belongs
+ * to the app.
+ */
+.geo-map-container.dark .geo-map-toolbar {
+    --menu-background-color: var(--tooltip-background-color);
+    --menu-text-color: var(--tooltip-foreground-color);
+    --dropdown-border-color: rgb(255 255 255 / 15%);
+    --icon-button-hover-background: rgb(255 255 255 / 12%);
+    --icon-button-hover-color: var(--tooltip-foreground-color);
+    /* For whatever this bar comes to hold that stands for a choice in force (see OverlayToolbar.css),
+       which today is nothing. */
+    --active-item-background-color: rgb(255 255 255 / 22%);
+    --active-item-text-color: var(--tooltip-foreground-color);
+}
