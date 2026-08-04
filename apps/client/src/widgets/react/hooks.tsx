@@ -1223,6 +1223,45 @@ export function useLegacyImperativeHandlers(handlers: Record<string, Function>) 
 }
 
 /**
+ * Marks an element as the one the parent component is found at, which is how anything outside the
+ * component tree asks for it: `appContext.getComponentByEl` climbs the DOM to the nearest element
+ * bearing a component and reads it off there.
+ *
+ * The counterpart of {@link useLegacyImperativeHandlers} — that hook writes methods onto the parent
+ * component, and this is what lets a caller holding only a DOM node arrive at the same object. The
+ * text editor is the caller that matters: every one of its calls back into the app resolves the host
+ * that way (`glob.getComponentByEl(editor.editing.view.getDomRoot())` — reference-link titles,
+ * included notes, link embeds), so an editor mounted in a subtree whose parent component the DOM
+ * cannot name reaches whichever widget happens to enclose it and dies on the first of those calls.
+ *
+ * Only needed where a subtree provides a `ParentComponent` of its own. A component built as a widget
+ * marks its own element (see `BasicWidget.render`), and a React tree mounted under one answers to
+ * that same widget, so the two already agree everywhere else.
+ */
+export function useLegacyComponentElement(elRef: RefObject<HTMLElement>) {
+    const parentComponent = useContext(ParentComponent);
+
+    useEffect(() => {
+        const el = elRef.current;
+        if (!el || !parentComponent) return;
+
+        // The attribute is what the lookup searches by; the component itself is handed over as a
+        // property of the element, which is where jQuery's `.prop("component")` reads it from. No
+        // `component` class as a widget adds: nothing looks for it, and it carries the theme's
+        // styling with it.
+        el.dataset.componentId = parentComponent.componentId;
+        (el as ComponentElement).component = parentComponent;
+
+        return () => {
+            delete el.dataset.componentId;
+            delete (el as ComponentElement).component;
+        };
+    }, [ elRef, parentComponent ]);
+}
+
+type ComponentElement = HTMLElement & { component?: Component };
+
+/**
  * Registers this widget's contextual shortcut hints on its host component. When the user requests
  * contextual shortcut help (Alt+F1 by default), the dispatcher walks up from the focused element
  * and asks each component in the chain to contribute its hints — so these appear only while this

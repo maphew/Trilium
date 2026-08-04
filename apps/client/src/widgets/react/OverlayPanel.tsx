@@ -1,7 +1,7 @@
 import "./OverlayPanel.css";
 
 import clsx from "clsx";
-import { ComponentChildren } from "preact";
+import { ComponentChildren, RefObject } from "preact";
 
 import ActionButton from "./ActionButton";
 import Icon from "./Icon";
@@ -10,6 +10,9 @@ interface OverlayPanelProps {
     /** Where the panel stands, how wide it is and whatever else is peculiar to it, styled by
      *  whoever puts it there. */
     className?: string;
+    /** The panel's own element, for a caller that has something to do with it — marking it as where
+     *  its component is found, say (see `useLegacyComponentElement`). */
+    containerRef?: RefObject<HTMLDivElement>;
     /**
      * What heads the panel: a {@link TabStrip} where it is divided into tabs, or an
      * {@link OverlayPanelTitle} where there is only the one thing to show.
@@ -35,9 +38,10 @@ interface OverlayPanelProps {
  * left to the caller, which is what differs between two of them. The same division
  * {@link OverlayToolbar} makes for the bars those canvases carry.
  */
-export default function OverlayPanel({ className, header, close, children }: OverlayPanelProps) {
+export default function OverlayPanel({ className, containerRef, header, close, children }: OverlayPanelProps) {
     return (
         <div
+            ref={containerRef}
             className={clsx("tn-overlay-panel", className)}
             /* Keep interactions inside the panel from reaching the canvas underneath. */
             onMouseDown={(e) => e.stopPropagation()}

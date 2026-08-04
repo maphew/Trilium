@@ -2,7 +2,7 @@ import "./DetailPane.css";
 
 import clsx from "clsx";
 import type { Map as MapLibreGLMap, MapMouseEvent } from "maplibre-gl";
-import { useCallback, useContext, useEffect, useState } from "preact/hooks";
+import { useCallback, useContext, useEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../../../components/app_context";
 import Component from "../../../components/component";
@@ -13,7 +13,7 @@ import link from "../../../services/link";
 import TitleRow from "../../layout/TitleRow";
 import NoteDetail from "../../NoteDetail";
 import ActionButton from "../../react/ActionButton";
-import { useNoteColorClass, useNoteLabel } from "../../react/hooks";
+import { useLegacyComponentElement, useNoteColorClass, useNoteLabel } from "../../react/hooks";
 import PromotedAttributes from "../../PromotedAttributes";
 import OverlayPanel, { OverlayPanelBody } from "../../react/OverlayPanel";
 import { NoteContextContext, ParentComponent } from "../../react/react_utils";
@@ -170,8 +170,20 @@ function MarkerDetails({ note, isReadOnly, onClose, onRelocate }: { note: FNote;
     // stands in, which is the map's colour and not the marker's.
     const colorClass = useNoteColorClass(note);
 
+    /*
+     * The pane stands for its component in the DOM, which is how the text editor finds its host:
+     * every call it makes back into the app resolves one from the element it is mounted in (see
+     * `useLegacyComponentElement`). The pane provides a component of its own — the whole point of it
+     * being a component is that the map does not hear the pane's note switches — so without this the
+     * editor arrives at the widget enclosing the map instead, which answers to none of what it asks
+     * for: a note carrying a reference link died on `loadReferenceLinkTitle is not a function`.
+     */
+    const paneRef = useRef<HTMLDivElement>(null);
+    useLegacyComponentElement(paneRef);
+
     return (
         <OverlayPanel
+            containerRef={paneRef}
             className={clsx("geo-detail-pane", colorClass)}
             header={<TitleRow compact />}
             close={{ text: t("geo-map.close-details"), onClick: onClose }}

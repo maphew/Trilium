@@ -11,7 +11,7 @@ import froca from "../../../services/froca";
 import link from "../../../services/link";
 import server from "../../../services/server";
 import { buildNote } from "../../../test/easy-froca";
-import { useNoteContext, useTriliumEvent } from "../../react/hooks";
+import { useLegacyImperativeHandlers, useNoteContext, useTriliumEvent } from "../../react/hooks";
 import { ParentComponent } from "../../react/react_utils";
 import DetailPane from "./DetailPane";
 import { ParentMap } from "./map";
@@ -34,6 +34,9 @@ vi.mock("../../NoteDetail", () => ({
     default: () => {
         const { note, viewScope } = useNoteContext();
         useTriliumEvent("beforeNoteContextRemove", editorAskedToSave);
+        // The text editor puts what it offers the app onto its parent component, and reaches it again
+        // from the DOM (see the host test below). Registered here as the real editor registers it.
+        useLegacyImperativeHandlers({ loadReferenceLinkTitle: async () => {} });
         return (
             <div
                 className="note-detail-stub"
@@ -418,6 +421,30 @@ describe("DetailPane", () => {
             await openPane(map);
 
             expect(pane()?.querySelector(".note-detail-stub")?.getAttribute("data-floating-toolbar")).toBe("true");
+        });
+
+        /**
+         * Regression test for `component.loadReferenceLinkTitle is not a function`, which a marker
+         * whose note carried a reference link died on.
+         *
+         * Everything the text editor asks of the app it asks of a component it finds from its own
+         * element — `glob.getComponentByEl(editor.editing.view.getDomRoot())` — while what it offers
+         * is put onto the component it was mounted under. The pane mounts it under one of its own, so
+         * unless the pane says in the DOM which component that is, the editor arrives at the widget
+         * enclosing the map, which answers to none of it.
+         */
+        it("stands for its own component where the editor looks for one", async () => {
+            const map = fakeMap();
+            await openPane(map);
+
+            const editorEl = pane()?.querySelector(".note-detail-stub");
+            const host = appContext.getComponentByEl(editorEl as HTMLElement);
+
+            // The pane itself is what carries it, and what it carries is the component the editor's
+            // own registration landed on — the pane's, not the map's.
+            expect(pane()?.getAttribute("data-component-id")).toBeTruthy();
+            expect(host).not.toBe(mapComponent);
+            expect(typeof host?.loadReferenceLinkTitle).toBe("function");
         });
 
         /**
