@@ -16,6 +16,7 @@ import { buildNote } from "../../../test/easy-froca";
 import { useLegacyImperativeHandlers, useNoteContext, useTriliumEvent } from "../../react/hooks";
 import { ParentComponent } from "../../react/react_utils";
 import DetailPane, { OTHER_WAYS_TO_OPEN, PaneSelection } from "./DetailPane";
+import { GPX_MIME } from "./GpxTrack";
 import { ParentMap } from "./map";
 import { MARKER_LAYER } from "./Markers";
 
@@ -100,13 +101,20 @@ function fakeMap({ width = MAP_WIDTH, features = [] as unknown[] } = {}) {
             return layers.includes(MARKER_LAYER) ? under : [];
         },
         easeTo(options: unknown) { eased.push(options); },
-        getContainer: () => ({ clientWidth: width })
+        getContainer: () => ({ clientWidth: width }),
+        // Asked for by `trackHitLayers`, which reads the current GPX hit layers off the style.
+        getLayersOrder: () => [] as string[]
     };
 }
 
 /** A marker of the layer, as MapLibre reports one that was hit. */
 function markerFeature(note: FNote, coordinates: [number, number] = [ 2, 1 ]) {
     return { geometry: { type: "Point", coordinates }, properties: { id: note.noteId } };
+}
+
+/** A GPX track's hit line, as MapLibre reports one — the note carried in the feature (see GpxTrack). */
+function trackFeature(note: FNote) {
+    return { geometry: { type: "MultiLineString", coordinates: [] }, properties: { id: note.noteId } };
 }
 
 describe("DetailPane", () => {
@@ -210,6 +218,27 @@ describe("DetailPane", () => {
         // A field and a picker, not a heading drawn for the occasion.
         expect(pane()?.querySelector<HTMLInputElement>(".title-row input")?.value).toBe("Somewhere");
         expect(pane()?.querySelector<HTMLButtonElement>(".title-row .note-icon")?.disabled).toBe(false);
+    });
+
+    /**
+     * A GPX track opens the pane the way a marker does. Its note is on the map by being drawn
+     * across it — there is no location label for the pane to read, so what this pins down is that
+     * the pane neither refuses the note nor closes itself over the label it does not find.
+     */
+    it("stands for a GPX track that was clicked, which has no location of its own", async () => {
+        buildNote({ id: "root", title: "root", children: [ { id: "hikenote", title: "A hike", mime: GPX_MIME } ] });
+        const note = froca.notes["hikenote"];
+        const map = fakeMap();
+        await mount([ note ], map);
+
+        map.setUnderPointer([ trackFeature(note) ]);
+        await act(async () => map.click());
+        await settle();
+
+        expect(pane()?.querySelector<HTMLInputElement>(".title-row input")?.value).toBe("A hike");
+        // Nothing to pan to and no place to write out, there being no location label to read.
+        expect(map.eased).toEqual([]);
+        expect(pane()?.querySelector(".geo-detail-pane-location")).toBeNull();
     });
 
     /**

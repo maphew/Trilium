@@ -23,6 +23,7 @@ import { useLegacyComponentElement, useNoteColorClass, useNoteContext, useNoteLa
 import OverlayPanel, { OverlayPanelBody } from "../../react/OverlayPanel";
 import { NoteContextContext, ParentComponent } from "../../react/react_utils";
 import { moveMarker } from "./api";
+import { GPX_MIME, trackHitLayers } from "./GpxTrack";
 import { ParentMap } from "./map";
 import { formatLocation, LOCATION_ATTRIBUTE, MARKER_LAYER, parseLocation } from "./Markers";
 
@@ -111,21 +112,24 @@ export default function DetailPane({ notes, placing, isReadOnly, selection, onSe
     }, [ notes, onSelect ]);
 
     // A note no longer on the map takes the pane with it. Its location may merely have been cleared
-    // — which is all "remove from map" does — so the note being gone is not the only case.
+    // — which is all "remove from map" does — so the note being gone is not the only case. A GPX
+    // track is on the map by being one: its place is its line, not a location label.
     useEffect(() => {
-        if (selection && (!note || !parseLocation(location))) {
+        if (selection && (!note || (note.mime !== GPX_MIME && !parseLocation(location)))) {
             void closePane();
         }
     }, [ selection, note, location, closePane ]);
 
-    // A marker selects, anywhere else clears. Read off the rendered layer rather than bound to it
-    // (`map.on("click", MARKER_LAYER, ...)`) so one handler answers both, with no ordering to rely on.
+    // A marker or a GPX track selects, anywhere else clears. Read off the rendered layers rather
+    // than bound to them (`map.on("click", MARKER_LAYER, ...)`) so one handler answers all, with no
+    // ordering to rely on. The markers come ahead of the tracks for the reason the context menu
+    // puts them there: a pin standing on its own line is the smaller target, and the one aimed at.
     useEffect(() => {
         if (!map || placing) return;
 
         const onClick = (e: MapMouseEvent) => {
-            const feature = map.queryRenderedFeatures(e.point, { layers: [ MARKER_LAYER ] })[0];
-            if (!feature || feature.geometry.type !== "Point") {
+            const feature = map.queryRenderedFeatures(e.point, { layers: [ MARKER_LAYER, ...trackHitLayers(map) ] })[0];
+            if (!feature) {
                 void closePane();
                 return;
             }

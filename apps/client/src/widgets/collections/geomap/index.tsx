@@ -21,7 +21,7 @@ import ContextMenus from "./ContextMenus";
 import DetailPane, { PaneSelection } from "./DetailPane";
 import EditToolbar from "./EditToolbar";
 import GhostPin from "./GhostPin";
-import { GpxTrack } from "./GpxTrack";
+import { GPX_MIME, GpxTrack } from "./GpxTrack";
 import Map, { DEFAULT_ZOOM, GeoMouseEvent } from "./map";
 import { DEFAULT_MAP_LAYER_NAME, MAP_LAYERS, MapLayer } from "./map_layer";
 import MapToolbar from "./MapToolbar";
@@ -335,7 +335,7 @@ function ToggleReadOnlyButton({ note }: { note: FNote }) {
 function NoteGpxTrackWrapper({ note, hideLabels, isDarkTheme }: { note: FNote, hideLabels: boolean, isDarkTheme: boolean }) {
     const mime = useNoteProperty(note, "mime");
 
-    if (mime !== "application/gpx+xml") {
+    if (mime !== GPX_MIME) {
         return null;
     }
 

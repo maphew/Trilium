@@ -21,6 +21,9 @@ export interface GpxTrackProps {
     hideLabels?: boolean;
 }
 
+/** What marks a note as a GPX track: the mime its file carries. */
+export const GPX_MIME = "application/gpx+xml";
+
 /**
  * What a track's layers are named with.
  *
