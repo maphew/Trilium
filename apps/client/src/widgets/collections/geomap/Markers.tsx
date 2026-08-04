@@ -12,7 +12,7 @@ import { ParentMap } from "./map";
 export const LOCATION_ATTRIBUTE = "geolocation";
 export const MARKER_LAYER = "points-layer";
 export const MARKER_SOURCE = "points";
-const DEFAULT_MARKER_COLOR = "#2A81CB";
+export const DEFAULT_MARKER_COLOR = "#2A81CB";
 
 /**
  * The pin, in the coordinates its SVG is drawn in.
@@ -458,7 +458,7 @@ function buildMarkerImage(color: string, iconClass: string) {
  * built-in pack's font competing with the pack the icon actually belongs to, and whichever won would
  * decide the font the glyph is drawn in.
  */
-async function drawMarkerImage(color: string, iconClass: string) {
+export async function drawMarkerImage(color: string, iconClass: string) {
     const scale = window.devicePixelRatio || 1;
     const icon = await renderIconImage(iconClass, {
         size: MARKER_ICON_SIZE,

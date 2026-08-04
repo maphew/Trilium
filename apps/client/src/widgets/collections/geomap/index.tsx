@@ -20,6 +20,7 @@ import { ViewModeProps } from "../interface";
 import { createNewNote, moveMarker } from "./api";
 import ContextMenus from "./ContextMenus";
 import DetailPane from "./DetailPane";
+import GhostPin from "./GhostPin";
 import { GpxTrack } from "./GpxTrack";
 import Map, { GeoMouseEvent } from "./map";
 import { DEFAULT_MAP_LAYER_NAME, MAP_LAYERS, MapLayer } from "./map_layer";
@@ -208,6 +209,10 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
             >
                 <MapToolbar />
                 <Tooltips />
+                {/* The preview under the pointer while a click is armed to mean a place — the note
+                    being moved wearing its own pin, a note to be created wearing the pin it will be
+                    given (see api.ts). */}
+                {placement && <GhostPin note={placement.mode === "move" ? notes.find((n) => n.noteId === placement.noteId) : undefined} />}
                 <DetailPane notes={notes} placing={!!placement} isReadOnly={isReadOnly} onRelocate={startMarkerRelocation} />
                 <ContextMenus note={note} isReadOnly={isReadOnly} onRelocate={startMarkerRelocation} />
                 {/* The pane above is what a click on a marker opens now, so the markers no longer

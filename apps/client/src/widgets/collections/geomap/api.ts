@@ -6,7 +6,8 @@ import note_create from "../../../services/note_create";
 import type { GeoMouseEvent } from "./map";
 import { LOCATION_ATTRIBUTE } from "./Markers";
 
-const CHILD_NOTE_ICON = "bx bx-pin";
+/** The icon a note created on the map is given, and so what the ghost pin previews for one. */
+export const CHILD_NOTE_ICON = "bx bx-pin";
 
 export async function moveMarker(noteId: string, latLng: { lat: number; lng: number } | null) {
     const value = latLng ? [latLng.lat, latLng.lng].join(",") : "";
