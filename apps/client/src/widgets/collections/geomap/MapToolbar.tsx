@@ -18,20 +18,38 @@ import { ParentMap } from "./map";
  * see {@link ImageViewer}): a step out, a step in, and between them a readout saying how close in
  * the map is. The readout only says it — a map has no fitted view to be reset to the way an image
  * has, and the whole world is a place worth going back to only rarely.
+ *
+ * At the group's leading end stands the tilt, after Google Maps's own button: 3D leans the view
+ * over, 2D lays it flat again. Which of the two it offers is read off the view itself rather than
+ * remembered from the last press — MapLibre tilts for Ctrl and a drag as well, and a button that
+ * only watched itself would go on offering a 3D the reader is already in.
  */
+
+/** How far the button leans the view over — a lean rather than the horizon, as Google Maps takes
+ *  it. Ctrl and a drag go further, all the way to MapLibre's own limit. */
+const TILTED_PITCH = 45;
 export default function MapToolbar() {
     const map = useContext(ParentMap);
     const zoom = useMapZoom(map);
+    const pitch = useMapPitch(map);
     // The map itself rather than the whole view: what is around it is the note's own chrome, and
     // everything the bar above the map offers is on the map's right-click menu as well.
     const [ isFullscreen, toggleFullscreen ] = useFullscreen(map?.getContainer());
 
+    const tiltRef = useRef<HTMLButtonElement>(null);
     const zoomOutRef = useRef<HTMLButtonElement>(null);
     const zoomInRef = useRef<HTMLButtonElement>(null);
     const fullscreenRef = useRef<HTMLButtonElement>(null);
 
+    // Whether the reader is in a 3D view however they got there — the button, or Ctrl and a drag.
+    const isTilted = (pitch ?? map?.getPitch() ?? 0) > 0;
+
     // The group stands at the foot of the map, so its tooltips open away from that edge, where
     // they would otherwise fall off.
+    useStaticTooltip(tiltRef, {
+        title: isTilted ? t("geo-map.exit-3d") : t("geo-map.enter-3d"),
+        placement: "top"
+    });
     useStaticTooltip(zoomOutRef, { title: t("geo-map.zoom-out"), placement: "top" });
     useStaticTooltip(zoomInRef, { title: t("geo-map.zoom-in"), placement: "top" });
     useStaticTooltip(fullscreenRef, {
@@ -51,6 +69,16 @@ export default function MapToolbar() {
                otherwise take it for the start of a drag. */
             onMouseDown={(e) => e.stopPropagation()}
         >
+            {/* Its face names the view it offers, not the one in force — Google Maps's way round. */}
+            <button
+                ref={tiltRef}
+                type="button"
+                className="tn-overlay-text-button geo-map-tilt-button"
+                aria-label={isTilted ? t("geo-map.exit-3d") : t("geo-map.enter-3d")}
+                onClick={() => map.easeTo({ pitch: isTilted ? 0 : TILTED_PITCH })}
+            >
+                {isTilted ? "2D" : "3D"}
+            </button>
             <button
                 ref={zoomOutRef}
                 type="button"
@@ -118,4 +146,26 @@ function useMapZoom(map: MapLibreGLMap | null) {
     }, [ map ]);
 
     return zoom;
+}
+
+/**
+ * How far the view is leaned over, followed as it changes — by the tilt button, or by Ctrl and a
+ * drag, which MapLibre honours without being asked. Read for which view the button should offer:
+ * a tilt entered by hand is as much a 3D view as one the button gave.
+ */
+function useMapPitch(map: MapLibreGLMap | null) {
+    const [ pitch, setPitch ] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (!map) return;
+
+        const report = () => setPitch(map.getPitch());
+        // The map may have been tilted between being built and being listened to.
+        report();
+
+        map.on("pitch", report);
+        return () => { map.off("pitch", report); };
+    }, [ map ]);
+
+    return pitch;
 }

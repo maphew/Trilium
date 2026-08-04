@@ -14,36 +14,57 @@ import { renderInto } from "../../../test/render";
 import { ParentMap } from "./map";
 import MapToolbar from "./MapToolbar";
 
-/** The order the group lays its buttons out in — the image viewer's, with the screen at the end. */
-const ZOOM_OUT = 0;
-const ZOOM_LEVEL = 1;
-const ZOOM_IN = 2;
-const FULLSCREEN = 3;
+/** The order the group lays its buttons out in — the image viewer's, with the tilt leading and the
+ *  screen at the end. */
+const TILT = 0;
+const ZOOM_OUT = 1;
+const ZOOM_LEVEL = 2;
+const ZOOM_IN = 3;
+const FULLSCREEN = 4;
 
-/** A map that zooms, says so, and stands somewhere — all these controls ask of one. */
-function fakeMap({ zoom = 5, minZoom = 2, maxZoom = 22 } = {}) {
-    const listeners = new Set<() => void>();
+/** A map that zooms and tilts, says so, and stands somewhere — all these controls ask of one. */
+function fakeMap({ zoom = 5, minZoom = 2, maxZoom = 22, pitch = 0 } = {}) {
+    const listeners = new Map<string, Set<() => void>>();
+    const fire = (event: string) => {
+        for (const listener of listeners.get(event) ?? []) listener();
+    };
     const container = document.createElement("div");
     container.requestFullscreen = vi.fn(async () => {});
     document.body.appendChild(container);
 
     const setZoom = (value: number) => {
         zoom = Math.min(Math.max(value, minZoom), maxZoom);
-        for (const listener of listeners) listener();
+        fire("zoom");
+    };
+    const setPitch = (value: number) => {
+        pitch = value;
+        fire("pitch");
     };
 
     return {
         getZoom: () => zoom,
         getMinZoom: () => minZoom,
         getMaxZoom: () => maxZoom,
+        getPitch: () => pitch,
         getContainer: () => container,
         zoomIn: vi.fn(() => setZoom(zoom + 1)),
         zoomOut: vi.fn(() => setZoom(zoom - 1)),
         /** The map being zoomed by something other than these buttons — the wheel, or a pinch. */
         zoomTo: setZoom,
-        on: (event: string, listener: () => void) => { if (event === "zoom") listeners.add(listener); },
-        off: (event: string, listener: () => void) => { if (event === "zoom") listeners.delete(listener); },
-        get listenerCount() { return listeners.size; }
+        /** The view being leaned over by hand — Ctrl and a drag, which MapLibre honours itself. */
+        tiltTo: setPitch,
+        easeTo: vi.fn(({ pitch: leanedTo }: { pitch?: number }) => {
+            if (leanedTo !== undefined) setPitch(leanedTo);
+        }),
+        on: (event: string, listener: () => void) => {
+            listeners.set(event, (listeners.get(event) ?? new Set()).add(listener));
+        },
+        off: (event: string, listener: () => void) => { listeners.get(event)?.delete(listener); },
+        get listenerCount() {
+            let count = 0;
+            for (const held of listeners.values()) count += held.size;
+            return count;
+        }
     };
 }
 
@@ -85,11 +106,40 @@ describe("geo map MapToolbar", () => {
         const container = renderToolbar(fakeMap());
 
         expect(buttons(container).map((button) => button.className)).toEqual([
+            expect.stringContaining("geo-map-tilt-button"),
             expect.stringContaining("bx-minus-circle"),
             expect.stringContaining("tn-overlay-text-button"),
             expect.stringContaining("bx-plus-circle"),
             expect.stringContaining("bx-fullscreen")
         ]);
+    });
+
+    it("leans the view over and lays it flat again, its face naming the view it offers", () => {
+        const map = fakeMap();
+        const container = renderToolbar(map);
+        expect(buttons(container)[TILT].textContent).toBe("3D");
+
+        press(container, TILT);
+
+        // Leaned over — by an eased flight rather than a jump — and now offering the way back.
+        expect(map.easeTo).toHaveBeenCalled();
+        expect(map.getPitch()).toBeGreaterThan(0);
+        expect(buttons(container)[TILT].textContent).toBe("2D");
+
+        press(container, TILT);
+
+        expect(map.getPitch()).toBe(0);
+        expect(buttons(container)[TILT].textContent).toBe("3D");
+    });
+
+    it("counts a tilt dragged in with Ctrl as 3D, the button never having been pressed", () => {
+        const map = fakeMap();
+        const container = renderToolbar(map);
+
+        // As MapLibre's own Ctrl-drag would, without the button hearing of it directly.
+        act(() => map.tiltTo(30));
+
+        expect(buttons(container)[TILT].textContent).toBe("2D");
     });
 
     it("stands aside until there is a map to zoom", () => {
@@ -173,7 +223,8 @@ describe("geo map MapToolbar", () => {
     it("stops listening to a map it is taken off", () => {
         const map = fakeMap();
         const container = renderToolbar(map);
-        expect(map.listenerCount).toBe(1);
+        // One listener for the zoom, one for the pitch.
+        expect(map.listenerCount).toBe(2);
 
         // A map torn down under controls that stayed behind would go on being reported to.
         act(() => { render(null, container); });

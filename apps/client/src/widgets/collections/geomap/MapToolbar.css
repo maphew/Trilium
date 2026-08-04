@@ -28,3 +28,10 @@
     --opaque-icon-button-hover-color: var(--geo-map-panel-hover-text-color);
 }
 
+/* The tilt wears text — 3D or 2D, a word the icon set has no glyph for — but it is one action, so
+   it keeps an icon button's width rather than the readout's roomier chip. */
+.geo-map-container .geo-map-toolbar .geo-map-tilt-button {
+    min-width: 0;
+    width: 32px;
+}
+
