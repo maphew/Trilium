@@ -97,6 +97,15 @@ export default function DetailPane({ notes, placing }: {
  */
 const PANE_WIDTH = 380;
 
+/** How far the pane is held off the edge it stands against, matching `--geo-map-inset` (index.css). */
+const PANE_INSET = 20;
+
+/**
+ * How far into the map the pane reaches from that edge. The gap counts as covered: it is the pane's
+ * own air, and a marker sitting in it reads as tucked behind the pane rather than beside it.
+ */
+const PANE_REACH = PANE_WIDTH + PANE_INSET;
+
 /**
  * How far off its own centre the map has to hold a marker for the pane not to cover it.
  *
@@ -109,12 +118,12 @@ const PANE_WIDTH = 380;
 function paneOffset(map: MapLibreGLMap): [number, number] {
     // A pane with the whole map under it — an embedded one narrower than the pane — leaves nowhere
     // to hold the marker clear of, so it is left where it is.
-    if (map.getContainer().clientWidth <= PANE_WIDTH) {
+    if (map.getContainer().clientWidth <= PANE_REACH) {
         return [ 0, 0 ];
     }
 
     // The pane stands at the trailing edge, which is the left one where the app reads right to left.
-    const shift = PANE_WIDTH / 2;
+    const shift = PANE_REACH / 2;
     return [ glob.isRtl ? shift : -shift, 0 ];
 }
 

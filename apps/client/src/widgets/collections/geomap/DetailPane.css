@@ -1,10 +1,11 @@
 /*
- * The pane stands against the trailing edge of the map, the full height of it.
+ * The pane stands in the trailing corner of the map, held off its edges by as much as everything
+ * else over the map is.
  *
- * Flush rather than inset, and square rather than rounded: a card floating in the corner is what the
- * mind map's panel is (see NodePanel.css), and it is the right shape there, where what it holds is a
- * handful of controls for whatever is selected. This one holds a note, stands as tall as the map and
- * is meant to be read from, so it reads as a wall of the map rather than as a sheet laid over it.
+ * An island rather than a wall against the edge: every other thing standing over this map is one —
+ * the bar of buttons, the scale and the attribution beside it, and the mind map's panel opposite
+ * them all — and the map here is a widget inside a note rather than a screen of its own, so a pane
+ * flush to its edge reads as cropping the map instead of standing over it.
  *
  * The width has to agree with `PANE_WIDTH` in DetailPane.tsx, which is what the map is told to hold
  * a selected marker clear of.
@@ -14,32 +15,31 @@
 }
 
 .geo-map-container .geo-detail-pane {
-    --overlay-panel-radius: 0;
+    /*
+     * The room kept at the foot of the map for the bar of buttons, which stands in this very corner
+     * — its own room and as much again over it, so that the two are parted by the same air that
+     * holds the bar off the edge. The mind map's panel reckons its own foot the same way.
+     *
+     * Standing clear of the bar rather than moving it aside: the bar belongs to the map and keeps
+     * its corner whatever is opened over it, and a pane that ends above it needs no second file to
+     * agree about how wide it is.
+     */
+    --detail-pane-foot: calc(var(--geo-map-inset) + var(--geo-map-toolbar-height) + var(--geo-map-inset));
 
     position: absolute;
-    top: 0;
-    bottom: 0;
-    inset-inline-end: 0;
+    /* The height of the map, less what is kept at either end: a pane that stood only as tall as
+       what it holds would be a different pane for every marker, growing and shrinking under the
+       pointer as the reader moved from one to the next. What it holds scrolls within it instead
+       (see OverlayPanel.css). */
+    top: var(--geo-map-inset);
+    bottom: var(--detail-pane-foot);
+    inset-inline-end: var(--geo-map-inset);
     width: var(--geo-detail-pane-width);
     /* An embedded map may be narrower than the pane would like to be. */
-    max-width: 100%;
+    max-width: calc(100% - 2 * var(--geo-map-inset));
     /* Above the canvas and clear of MapLibre's own control corners, which sit at 2 — the same
        reckoning the bar of buttons makes (see MapToolbar.css). */
     z-index: 3;
-    /* Only the inner edge is an edge at all; the other three are the map's own. */
-    border-block: none;
-    border-inline-end: none;
-}
-
-/*
- * What the bar of buttons in the corner steps aside by, which is the whole of the pane while one is
- * open and nothing at all otherwise (see MapToolbar.css, which reads it).
- *
- * Written against the pane being there rather than set as the pane opens, so that the map's own
- * furniture answers to what is on it without the pane having to reach outside itself to say so.
- */
-.geo-map-container:has(.geo-detail-pane) {
-    --geo-pane-width: var(--geo-detail-pane-width);
 }
 
 /*

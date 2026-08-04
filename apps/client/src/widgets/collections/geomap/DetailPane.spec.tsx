@@ -119,7 +119,9 @@ describe("DetailPane", () => {
         map.setUnderPointer([ markerFeature(note, [ 2, 1 ]) ]);
         await act(async () => map.click());
 
-        expect(map.eased).toEqual([ { center: [ 2, 1 ], offset: [ -190, 0 ] } ]);
+        // Half of what the pane reaches into the map: its own width, plus the air it is held off
+        // the edge by.
+        expect(map.eased).toEqual([ { center: [ 2, 1 ], offset: [ -200, 0 ] } ]);
     });
 
     /** An embedded map may be narrower than the pane wants to be, and then there is nowhere to move to. */
