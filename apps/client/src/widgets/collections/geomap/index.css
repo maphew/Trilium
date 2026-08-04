@@ -23,6 +23,29 @@
   cursor: crosshair;
 }
 
+/* The marker preview is the app's own note tooltip (see Tooltips), so the popup around it is taken
+   back to nothing — otherwise the tooltip, chrome and all, would sit inside a second box of
+   MapLibre's own, white on every theme and with its own padding, corners and shadow. */
+.marker-tooltip .maplibregl-popup-content {
+  padding: 0;
+  background: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+/* Drawn in a hard white by MapLibre, and the tooltip it would point at hides its own arrow anyway. */
+.marker-tooltip .maplibregl-popup-tip {
+  display: none;
+}
+
+/* Bootstrap positions a tooltip absolutely, which here would take the preview out of the popup's
+   flow and collapse the box the popup is sized and placed by — MapLibre already places it. Still
+   positioned, though, so that the quick-edit button, which is pinned to the corner of the tooltip,
+   still has that tooltip to be pinned to. */
+.marker-tooltip .tooltip {
+  position: relative;
+}
+
 /* No `position` here: MapLibre positions markers itself with `.maplibregl-marker`'s
    `position: absolute` + a transform, and this more specific selector would override it back to
    `relative`, dropping every marker into the canvas container's normal flow — each one then sits
