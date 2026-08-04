@@ -45,7 +45,11 @@
     },
     "widget-missing-parent": "自訂元件未定義強制性的 \"{{property}}\" 屬性。\n\n若此腳本需在無 UI 的情況下執行，請改用 \"#run=frontendStartup\"。",
     "open-script-note": "打開腳本筆記",
-    "scripting-error": "自訂腳本錯誤：{{title}}"
+    "scripting-error": "腳本筆記執行失敗",
+    "unhandled-error": {
+      "title": "背景任務執行失敗",
+      "details-button": "查看詳情…"
+    }
   },
   "add_link": {
     "add_link": "新增連結",

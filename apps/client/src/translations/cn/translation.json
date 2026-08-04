@@ -1214,7 +1214,9 @@
     "open_help_page": "打开附件帮助页面",
     "owning_note": "所属笔记： ",
     "upload_attachments": "上传附件",
-    "no_attachments": "此笔记没有附件。"
+    "no_attachments": "此笔记没有附件。",
+    "no_user_attachments": "这篇笔记本身没有任何附件。\n下面列出的是 Trilium 为它生成的附件。",
+    "system_group": "由 Trilium 生成（{{amount}}）"
   },
   "book": {
     "no_children_help": "此集合没有任何子笔记，因此没有内容显示。",
@@ -1792,7 +1794,11 @@
   },
   "attachment_detail_2": {
     "link_copied": "附件引用已复制到剪贴板。",
-    "unrecognized_role": "无法识别的附件角色 '{{role}}'。"
+    "unrecognized_role": "无法识别的附件角色 '{{role}}'。",
+    "deletion_badge": "将在 {{time}} 后删除",
+    "deletion_badge_soon": "即将删除",
+    "deletion_badge_tooltip": "此附件将被自动删除，因为它没有链接到笔记内容中。若要保留它，请将附件链接重新添加到内容中，或将附件转换为笔记。",
+    "kind_and_size": "{{role}} · {{size}}"
   },
   "bookmark_switch": {
     "bookmark": "书签",
@@ -2530,7 +2536,7 @@
     "tab_chat": "AI 对话",
     "tab_widgets": "组件",
     "backlinks": "反向链接",
-    "tab_connections": "连接"
+    "tab_connections": "链接"
   },
   "attributes_panel": {
     "title": "笔记属性"
@@ -3705,5 +3711,12 @@
     "sheet_label": "帮助"
   },
   "compress-images": "压缩图片",
-  "compress-image": "压缩图片"
+  "compress-image": "压缩图片",
+  "attachment_roles": {
+    "favicon": "站点图标",
+    "coverImage": "封面图片",
+    "viewConfig": "视图设置",
+    "canvasLibraryItem": "画布库",
+    "importSource": "导入来源"
+  }
 }

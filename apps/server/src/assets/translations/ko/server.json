@@ -253,7 +253,7 @@
     "incorrect-password": "비밀번호가 올바르지 않습니다. 다시 시도해 주세요.",
     "password": "비밀번호",
     "button": "로그인",
-    "sign_in_with_sso": "{{ssoIssuerName}}로 로그인",
+    "sign_in_with_sso": "{{ ssoIssuerName }} 로 로그인",
     "incorrect-totp": "TOTP가 올바르지 않습니다. 다시 시도해 주세요.",
     "remember-me": "로그인 상태 유지",
     "sso-wrong-account": "이 Trilium 인스턴스에 연결된 계정이 아닙니다. 연결된 계정으로 로그인하세요.",

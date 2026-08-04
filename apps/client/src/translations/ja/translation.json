@@ -2302,7 +2302,9 @@
     "open_help_page": "添付ファイルのヘルプページを開く",
     "owning_note": "所有ノート: ",
     "upload_attachments": "添付ファイルをアップロード",
-    "no_attachments": "このノートには添付ファイルはありません。"
+    "no_attachments": "このノートには添付ファイルはありません。",
+    "no_user_attachments": "このノートには添付ファイルはありません。\nTrilium によって生成された添付ファイルは以下の通りです。",
+    "system_group": "Trilium により生成 ({{amount}})"
   },
   "book": {
     "no_children_help": "このコレクションには子ノートがないため、表示するものがありません。",
@@ -2409,7 +2411,11 @@
   },
   "attachment_detail_2": {
     "link_copied": "添付ファイルの参照先をクリップボードにコピーしました。",
-    "unrecognized_role": "添付ファイルのロール「{{role}}」は認識されません。"
+    "unrecognized_role": "添付ファイルのロール「{{role}}」は認識されません。",
+    "deletion_badge": "{{time}} 後に削除",
+    "deletion_badge_soon": "まもなく削除されます",
+    "deletion_badge_tooltip": "この添付ファイルはノートの本文内でリンクされていないため、自動的に削除されます。保持したい場合は、本文に添付ファイルのリンクを再度追加するか、添付ファイルをノートに変換してください。",
+    "kind_and_size": "{{role}} · {{size}}"
   },
   "presentation_view": {
     "edit-slide": "このスライドを編集",
@@ -3705,5 +3711,12 @@
     "similar_notes_how": "この類似性は、ノートの内容、属性、設定されているリレーション、および作成時期の近さなどに基づいて算出されます。"
   },
   "compress-images": "画像を圧縮",
-  "compress-image": "画像を圧縮"
+  "compress-image": "画像を圧縮",
+  "attachment_roles": {
+    "favicon": "サイトアイコン",
+    "coverImage": "カバー画像",
+    "viewConfig": "表示設定",
+    "canvasLibraryItem": "キャンバスライブラリ",
+    "importSource": "インポート元"
+  }
 }
