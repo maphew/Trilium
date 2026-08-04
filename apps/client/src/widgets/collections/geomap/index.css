@@ -54,6 +54,7 @@
   --geo-map-panel-active-text-color: var(--active-item-text-color);
 
   height: 100%;
+  position: relative;
   overflow: hidden;
 
   .maplibregl-canvas-container {
