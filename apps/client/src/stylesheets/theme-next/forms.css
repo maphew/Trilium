@@ -307,13 +307,6 @@ button.tn-low-profile:hover {
             pointer-events: none;
         }
 
-        /* A readout standing among the buttons — a zoom level, a scale — disabled only to stand
-           inert on the group's surface. It is not a refused action, and does not wear the refused
-           look. */
-        &.tn-overlay-readout:disabled {
-            opacity: 1;
-        }
-
     }
 }
 

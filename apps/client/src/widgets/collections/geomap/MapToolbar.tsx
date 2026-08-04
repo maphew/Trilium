@@ -15,9 +15,9 @@ import { ParentMap } from "./map";
  * `FullscreenControl`), dressed in neither Trilium's buttons nor Trilium's colors — a white box with
  * hairline-separated squares in it, on a map that may well be dark. What they do is done here
  * instead, on the control group the image viewer's zoom buttons stand on (`tn-overlay-control-group`,
- * see {@link ImageViewer}): a step out, a step in, and between them a readout saying how close in
- * the map is. The readout only says it — a map has no fitted view to be reset to the way an image
- * has, and the whole world is a place worth going back to only rarely.
+ * see {@link ImageViewer}). No readout between the steps, though: a map's zoom level is a number
+ * out of the cartographer's toolbox, not the reader's, and a map has no fitted view a readout
+ * could offer back the way an image has.
  *
  * At the group's leading end stands the tilt, after Google Maps's own button: 3D leans the view
  * over, 2D lays it flat again. Which of the two it offers is read off the view itself rather than
@@ -87,18 +87,6 @@ export default function MapToolbar() {
                 disabled={current <= map.getMinZoom()}
                 onClick={() => map.zoomOut()}
             />
-            {/* The readout is told, not asked: the image viewer's presses this to go back to the
-                fitted view, but a map has no such view to offer — so it only says where between the
-                ends the zoom stands, whole levels being all anyone does anything with. Disabled
-                rather than a plain span so it stays a child the group's styling knows; the refused
-                look is taken off it by `tn-overlay-readout` (see theme-next/forms.css). */}
-            <button
-                type="button"
-                className="tn-overlay-text-button tn-overlay-readout geo-map-zoom-level"
-                disabled
-            >
-                {Math.round(current)}
-            </button>
             <button
                 ref={zoomInRef}
                 type="button"
@@ -123,13 +111,12 @@ export default function MapToolbar() {
 
 /**
  * How close in the map is drawn, followed as it changes — by these buttons, by the wheel, or by the
- * view being restored. Read for the readout between the steps, and for whether there is any room
- * left to zoom, which is what leaves a button that would do nothing disabled instead of idle:
- * MapLibre clamps a step past either end silently.
+ * view being restored. What it is read for is whether there is any room left to zoom, which is what
+ * leaves a button that would do nothing disabled instead of idle: MapLibre clamps a step past
+ * either end silently.
  *
- * `zoom` rather than `zoomend`, so that the readout counts through the animated step rather than
- * jumping at its end, and a button reaching the end of the range is disabled as the map arrives
- * there rather than a moment later.
+ * `zoom` rather than `zoomend`, so that a button reaching the end of the range is disabled as the
+ * map arrives there rather than a moment later — the two steps are animated.
  */
 function useMapZoom(map: MapLibreGLMap | null) {
     const [ zoom, setZoom ] = useState<number | null>(null);

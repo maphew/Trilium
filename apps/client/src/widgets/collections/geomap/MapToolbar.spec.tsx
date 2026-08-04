@@ -2,8 +2,8 @@
  * The controls over a geo map, which used to be MapLibre's own — white boxes on a map that may well
  * be dark, dressed in neither Trilium's buttons nor its colors. What is checked here is what they
  * did for us: the two steps, a step that would carry the map past either end of the range it is
- * allowed being refused rather than merely doing nothing, the readout between the steps saying how
- * close in the map is, and the screen being given and taken back.
+ * allowed being refused rather than merely doing nothing, and the screen being given and taken
+ * back.
  */
 import type { Map as MapLibreGLMap } from "maplibre-gl";
 import { render } from "preact";
@@ -18,9 +18,8 @@ import MapToolbar from "./MapToolbar";
  *  screen at the end. */
 const TILT = 0;
 const ZOOM_OUT = 1;
-const ZOOM_LEVEL = 2;
-const ZOOM_IN = 3;
-const FULLSCREEN = 4;
+const ZOOM_IN = 2;
+const FULLSCREEN = 3;
 
 /** A map that zooms and tilts, says so, and stands somewhere — all these controls ask of one. */
 function fakeMap({ zoom = 5, minZoom = 2, maxZoom = 22, pitch = 0 } = {}) {
@@ -108,7 +107,6 @@ describe("geo map MapToolbar", () => {
         expect(buttons(container).map((button) => button.className)).toEqual([
             expect.stringContaining("geo-map-tilt-button"),
             expect.stringContaining("bx-minus-circle"),
-            expect.stringContaining("tn-overlay-text-button"),
             expect.stringContaining("bx-plus-circle"),
             expect.stringContaining("bx-fullscreen")
         ]);
@@ -157,19 +155,6 @@ describe("geo map MapToolbar", () => {
 
         press(container, ZOOM_OUT);
         expect(map.zoomOut).toHaveBeenCalled();
-    });
-
-    it("says how close in the map is, in whole levels, following the wheel as much as the buttons", () => {
-        const map = fakeMap({ zoom: 5 });
-        const container = renderToolbar(map);
-        expect(buttons(container)[ZOOM_LEVEL].textContent).toBe("5");
-
-        // As the wheel or a pinch would — landing between levels, which the readout does not split.
-        act(() => map.zoomTo(13.6));
-
-        expect(buttons(container)[ZOOM_LEVEL].textContent).toBe("14");
-        // The readout is told, not asked: unlike the image viewer's, pressing it resets nothing.
-        expect(buttons(container)[ZOOM_LEVEL].disabled).toBe(true);
     });
 
     it("disables the step that would carry the map past the range it is allowed", () => {
