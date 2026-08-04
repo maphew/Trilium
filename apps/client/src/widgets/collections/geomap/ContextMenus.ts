@@ -10,6 +10,7 @@ import { copyTextWithToast } from "../../../services/clipboard_ext.js";
 import { t } from "../../../services/i18n.js";
 import link from "../../../services/link.js";
 import { createNewNote } from "./api.js";
+import { trackHitLayers } from "./GpxTrack.js";
 import { type GeoMouseEvent, ParentMap, toGeoMouseEvent } from "./map.js";
 import { MARKER_LAYER } from "./Markers.js";
 
@@ -30,12 +31,15 @@ export default function ContextMenus({ note, isReadOnly, onRelocate }: ContextMe
 
     const onContextMenu = useCallback((e: GeoMouseEvent) => {
         if (!map) return;
+        // The markers first and the tracks after, so that a pin standing on its own track opens the
+        // pin's menu rather than the line's — they are the same note either way, but a marker is the
+        // smaller target and is what the user was aiming at when they hit both.
         const features = map.queryRenderedFeatures(e.point, {
-            layers: [ MARKER_LAYER ]
+            layers: [ MARKER_LAYER, ...trackHitLayers(map) ]
         });
 
         if (features.length > 0) {
-            // Marker context menu.
+            // Marker or track context menu.
             openContextMenu(features[0].properties.id, e, !isReadOnly, onRelocate);
         } else {
             // Empty area context menu.

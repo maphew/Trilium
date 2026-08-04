@@ -33,16 +33,23 @@ vi.mock("../../../menus/link_context_menu", () => ({
 vi.mock("../../../menus/custom-items/NoteColorPicker", () => ({ default: () => null }));
 
 /** A map that reports what is under a click and delegates its own, which is all this component asks. */
-function fakeMap(markerUnderPointer?: FNote) {
+function fakeMap(markerUnderPointer?: FNote, trackUnderPointer?: FNote) {
     const listeners = new Set<(e: unknown) => void>();
+    // The layer a GPX track offers to be pointed at by, named after its note (see `trackHitLayers`).
+    const trackLayer = trackUnderPointer && `gpx-hit-${trackUnderPointer.noteId}`;
 
     return {
         on(event: string, fn: (e: unknown) => void) { if (event === "contextmenu") listeners.add(fn); },
         off(event: string, fn: (e: unknown) => void) { if (event === "contextmenu") listeners.delete(fn); },
-        queryRenderedFeatures: (_point: unknown, options: { layers: string[] }) =>
-            markerUnderPointer && options.layers.includes(MARKER_LAYER)
+        getLayersOrder: () => (trackLayer ? [ trackLayer ] : []),
+        queryRenderedFeatures: (_point: unknown, options: { layers: string[] }) => [
+            ...(markerUnderPointer && options.layers.includes(MARKER_LAYER)
                 ? [ { properties: { id: markerUnderPointer.noteId } } ]
-                : [],
+                : []),
+            ...(trackUnderPointer && trackLayer && options.layers.includes(trackLayer)
+                ? [ { properties: { id: trackUnderPointer.noteId } } ]
+                : [])
+        ],
         /** The map being right-clicked, as MapLibre reports it. */
         rightClick() {
             for (const fn of listeners) {
@@ -108,5 +115,27 @@ describe("ContextMenus", () => {
 
         expect(moveItem(items)).toBeUndefined();
         expect(items).toContainEqual(expect.objectContaining({ title: "geo-map-context.add-note" }));
+    });
+
+    it("opens the note of a GPX track that was clicked, not the map's own menu", async () => {
+        const track = buildNote({ title: "A Sunday ride" });
+        const { items } = await openMenu(fakeMap(undefined, track));
+
+        // The note's menu rather than the map's: a track is a note, so what it offers is what a
+        // marker offers, and never the offer to add a note where the click landed.
+        expect(items).not.toContainEqual(expect.objectContaining({ title: "geo-map-context.add-note" }));
+        expect(items).toContainEqual(expect.objectContaining({ title: "geo-map-context.remove-from-map" }));
+    });
+
+    it("prefers the marker to the track it stands on, both being under the pointer", async () => {
+        const marker = buildNote({ title: "Where I stopped", "#geolocation": "1,2" });
+        const track = buildNote({ title: "A Sunday ride" });
+        const { items, onRelocate } = await openMenu(fakeMap(marker, track));
+
+        // Aiming at a pin standing on its own track has to mean the pin: it is the smaller target,
+        // and moving it is something only the marker's menu offers.
+        const move = moveItem(items);
+        move?.handler?.(move, undefined as never);
+        expect(onRelocate).toHaveBeenCalledWith(marker.noteId);
     });
 });

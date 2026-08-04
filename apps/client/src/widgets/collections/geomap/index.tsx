@@ -209,7 +209,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                 <Tooltips />
                 <ContextMenus note={note} isReadOnly={isReadOnly} onRelocate={startMarkerRelocation} />
                 <Markers notes={notes} hideLabels={hideLabels} isDarkTheme={layerData.isDarkTheme ?? false} clustered={clustered} placing={!!placement} />
-                {notes.map(note => <NoteGpxTrackWrapper note={note} hideLabels={hideLabels} />)}
+                {notes.map(note => <NoteGpxTrackWrapper note={note} hideLabels={hideLabels} isDarkTheme={layerData.isDarkTheme ?? false} />)}
             </Map>}
         </div>
     );
@@ -260,17 +260,17 @@ function ToggleReadOnlyButton({ note }: { note: FNote }) {
  * Only tracks are rendered a component apiece: a note that merely carries a location is drawn into
  * the shared symbol layer instead (see {@link Markers}).
  */
-function NoteGpxTrackWrapper({ note, hideLabels }: { note: FNote, hideLabels: boolean }) {
+function NoteGpxTrackWrapper({ note, hideLabels, isDarkTheme }: { note: FNote, hideLabels: boolean, isDarkTheme: boolean }) {
     const mime = useNoteProperty(note, "mime");
 
     if (mime !== "application/gpx+xml") {
         return null;
     }
 
-    return <NoteGpxTrack note={note} hideLabels={hideLabels} />;
+    return <NoteGpxTrack note={note} hideLabels={hideLabels} isDarkTheme={isDarkTheme} />;
 }
 
-function NoteGpxTrack({ note, hideLabels }: { note: FNote, hideLabels?: boolean }) {
+function NoteGpxTrack({ note, hideLabels, isDarkTheme }: { note: FNote, hideLabels?: boolean, isDarkTheme?: boolean }) {
     const [ xmlString, setXmlString ] = useState<string>();
     const blob = useNoteBlob(note);
 
@@ -288,18 +288,25 @@ function NoteGpxTrack({ note, hideLabels }: { note: FNote, hideLabels?: boolean 
     // React to changes
     const color = useNoteLabel(note, "color");
     useNoteLabel(note, "iconClass");
+    // The line is named after the note along its whole length, so a note being renamed has to reach
+    // the map rather than leaving the old name written across the track.
+    const title = useNoteProperty(note, "title") ?? "";
 
     const trackColor = useMemo(() => note.getLabelValue("color") ?? "blue", [ color ]);
-    const startIconHtml = useIconHtml(note.getIcon(), note.getColorClass() ?? undefined, hideLabels ? undefined : note.title);
+    const startIconHtml = useIconHtml(note.getIcon(), note.getColorClass() ?? undefined, hideLabels ? undefined : title);
     const endIconHtml = useIconHtml("bx bxs-flag-checkered");
     const waypointIconHtml = useIconHtml("bx bx-pin");
 
     return xmlString && <GpxTrack
+        noteId={note.noteId}
+        title={title}
         gpxXmlString={xmlString}
         trackColor={trackColor}
         startIconHtml={startIconHtml}
         endIconHtml={endIconHtml}
         waypointIconHtml={waypointIconHtml}
+        isDarkTheme={isDarkTheme}
+        hideLabels={hideLabels}
     />;
 }
 

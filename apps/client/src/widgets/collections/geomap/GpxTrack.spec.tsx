@@ -78,6 +78,9 @@ function fakeMap() {
             if (!loaded) throw new Error("Style is not done loading");
             layers.set(layer.id, layer);
         },
+        getLayersOrder() {
+            return [ ...layers.keys() ];
+        },
         removeSource(id: string) {
             sources.delete(id);
         },
@@ -111,6 +114,9 @@ const TWO_SEGMENT_GPX = `<?xml version="1.0" encoding="UTF-8"?>
   </trk>
 </gpx>`;
 
+/** The note the track belongs to, which every one of its layers is named after. */
+const NOTE_ID = "gpxNoteId1";
+
 describe("GpxTrack", () => {
     let container: HTMLElement;
     let map: ReturnType<typeof fakeMap>;
@@ -133,17 +139,23 @@ describe("GpxTrack", () => {
     });
 
     /** Mounts the track under a map whose style has loaded (or not), as the context reports it. */
-    function renderTrack({ styleLoaded, gpx = TWO_SEGMENT_GPX }: { styleLoaded: boolean; gpx?: string }) {
+    function renderTrack({ styleLoaded, gpx = TWO_SEGMENT_GPX, hideLabels = false, isDarkTheme = false }: {
+        styleLoaded: boolean; gpx?: string; hideLabels?: boolean; isDarkTheme?: boolean;
+    }) {
         act(() => {
             render(
                 <ParentMap.Provider value={map as never}>
                     <MapStyleLoaded.Provider value={styleLoaded}>
                         <GpxTrack
+                            noteId={NOTE_ID}
+                            title="A Sunday ride"
                             gpxXmlString={gpx}
                             trackColor="red"
                             startIconHtml="<i>start</i>"
                             endIconHtml="<i>end</i>"
                             waypointIconHtml="<i>waypoint</i>"
+                            hideLabels={hideLabels}
+                            isDarkTheme={isDarkTheme}
                         />
                     </MapStyleLoaded.Provider>
                 </ParentMap.Provider>,
@@ -152,16 +164,24 @@ describe("GpxTrack", () => {
         });
     }
 
-    /** The one line layer the track added, whatever its generated id. */
-    function trackLayer() {
-        return [ ...map.layers.values() ][0] as { paint: Record<string, unknown> } | undefined;
+    /** A layer the track added, by the id it is named after the note with. */
+    function layer(kind: "layer" | "hit" | "label") {
+        return map.layers.get(`gpx-${kind}-${NOTE_ID}`) as
+            { layout?: Record<string, unknown>; paint: Record<string, unknown> } | undefined;
     }
 
     /** The coordinates of the one source the track added. */
     function trackCoordinates() {
-        const source = [ ...map.sources.values() ][0] as
+        const source = map.sources.get(`gpx-source-${NOTE_ID}`) as
             { data: { geometry: { type: string; coordinates: [number, number][][] } } } | undefined;
         return source?.data.geometry;
+    }
+
+    /** What the source says the line stands for. */
+    function trackProperties() {
+        const source = map.sources.get(`gpx-source-${NOTE_ID}`) as
+            { data: { properties: Record<string, unknown> } } | undefined;
+        return source?.data.properties;
     }
 
     it("draws the line when it mounts after the style loaded, with the tiles still coming in", () => {
@@ -171,7 +191,7 @@ describe("GpxTrack", () => {
 
         renderTrack({ styleLoaded: true });
 
-        expect(trackLayer()?.paint["line-color"]).toBe("red");
+        expect(layer("layer")?.paint["line-color"]).toBe("red");
         expect(trackCoordinates()?.type).toBe("MultiLineString");
     });
 
@@ -183,7 +203,7 @@ describe("GpxTrack", () => {
 
         act(() => map.loadStyle());
 
-        expect(map.layers.size).toBe(1);
+        expect(layer("layer")).toBeDefined();
         expect(trackCoordinates()?.coordinates).toHaveLength(2);
     });
 
@@ -252,15 +272,83 @@ describe("GpxTrack", () => {
     it("puts the line back when the style is switched under it", () => {
         map.loadStyle();
         renderTrack({ styleLoaded: true });
-        expect(map.layers.size).toBe(1);
+        expect(map.layers.size).toBe(3);
 
         // A style is a world of its own: switching one takes everything on it away.
         map.layers.clear();
         map.sources.clear();
         act(() => map.loadStyle());
 
-        expect(map.layers.size).toBe(1);
+        expect(map.layers.size).toBe(3);
         expect(trackCoordinates()?.type).toBe("MultiLineString");
+    });
+
+    it("writes the note's name along the line, in the fontstack the styles carry", () => {
+        map.loadStyle();
+        renderTrack({ styleLoaded: true });
+
+        const label = layer("label");
+        expect(label?.layout?.["symbol-placement"]).toBe("line");
+        expect(label?.layout?.["text-field"]).toEqual([ "get", "name" ]);
+        expect(label?.layout?.["text-font"]).toEqual([ "Open Sans Regular" ]);
+        expect(trackProperties()).toEqual({ id: NOTE_ID, name: "A Sunday ride" });
+    });
+
+    it("draws the name the way the marker titles are drawn, light map or dark", async () => {
+        const { LABEL_PAINT } = await import("./Markers");
+
+        map.loadStyle();
+        renderTrack({ styleLoaded: true, isDarkTheme: true });
+
+        expect(layer("label")?.paint).toMatchObject(LABEL_PAINT.dark);
+    });
+
+    it("leaves the name off when the map's titles are hidden", () => {
+        map.loadStyle();
+        renderTrack({ styleLoaded: true, hideLabels: true });
+
+        expect(layer("label")).toBeUndefined();
+        // The line and the target for pointing at it are still there.
+        expect(layer("layer")).toBeDefined();
+        expect(layer("hit")).toBeDefined();
+    });
+
+    it("gives the line a target wide enough to be pointed at, without drawing it", () => {
+        map.loadStyle();
+        renderTrack({ styleLoaded: true });
+
+        const hit = layer("hit");
+        expect(hit?.paint["line-opacity"]).toBe(0);
+        // Wider than the three pixels the line is drawn with, or nobody could hit it.
+        expect(hit?.paint["line-width"]).toBeGreaterThan(layer("layer")?.paint["line-width"] as number);
+    });
+
+    it("offers its target to whatever hit-tests the tracks", async () => {
+        const { trackHitLayers } = await import("./GpxTrack");
+
+        map.loadStyle();
+        renderTrack({ styleLoaded: true });
+
+        // The line and the label are not offered: only the target is meant to be pointed at.
+        expect(trackHitLayers(map as never)).toEqual([ `gpx-hit-${NOTE_ID}` ]);
+
+        act(() => render(null, container));
+
+        // And a track that has gone is no longer named, so a query cannot ask for a layer that the
+        // style has since lost.
+        expect(trackHitLayers(map as never)).toEqual([]);
+    });
+
+    it("names its layers after the note, so a rerun does not churn through fresh ones", () => {
+        map.loadStyle();
+        renderTrack({ styleLoaded: true });
+        const first = [ ...map.layers.keys() ];
+
+        // The same track drawn again — as it is each time one of its icons resolves.
+        renderTrack({ styleLoaded: true });
+
+        expect([ ...map.layers.keys() ]).toEqual(first);
+        expect(first).toEqual([ `gpx-layer-${NOTE_ID}`, `gpx-hit-${NOTE_ID}`, `gpx-label-${NOTE_ID}` ]);
     });
 
     it("draws nothing for a file with no points, and does not throw over it", () => {
@@ -278,7 +366,7 @@ describe("GpxTrack", () => {
     it("takes the line off the map when it goes", () => {
         map.loadStyle();
         renderTrack({ styleLoaded: true });
-        expect(map.layers.size).toBe(1);
+        expect(map.layers.size).toBe(3);
 
         act(() => render(null, container));
 

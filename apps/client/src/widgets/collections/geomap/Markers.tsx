@@ -61,7 +61,7 @@ const LABEL_LAYOUT: Extract<AddLayerObject, { type: "symbol" }>["layout"] = {
  * by a soft, blurred glow rather than a hard keyline. A crisp white outline stood out as a cut-out
  * sticker on any map, and on a dark one it was a white edge around dark text.
  */
-const LABEL_PAINT = {
+export const LABEL_PAINT = {
     light: {
         "text-color": "#333",
         "text-halo-color": "rgba(255, 255, 255, 0.8)"
