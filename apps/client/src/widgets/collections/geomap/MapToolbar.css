@@ -16,17 +16,11 @@
     bottom: var(--geo-map-inset);
     inset-inline-end: var(--geo-map-inset);
     z-index: 3;
-
-    /* Dressed in the set the map's furniture shares, handed over under the names the control group
-       reads (see the overlay buttons in theme-next/forms.css) — the palette itself is settled in
-       index.css, which is also where a dark map darkens it. The hover pair has no overlay-button
-       name of its own, so the group's is asked for directly. */
-    --overlay-button-background: var(--geo-map-panel-background);
-    --overlay-button-color: var(--geo-map-panel-text-color);
-    --overlay-button-backdrop-filter: var(--dropdown-backdrop-filter, blur(10px));
-    --opaque-icon-button-hover-background-color: var(--geo-map-panel-hover-background);
-    --opaque-icon-button-hover-color: var(--geo-map-panel-hover-text-color);
 }
+
+/* The group is dressed in the set the map's furniture shares, handed over once for every control
+   group standing over this map — see the palette handoff in index.css, which is also where a dark
+   map darkens it. */
 
 /* The tilt wears text — 3D or 2D, a word the icon set has no glyph for — but it is one action, so
    it keeps an icon button's width rather than the readout's roomier chip. */

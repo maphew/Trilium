@@ -32,12 +32,11 @@
   --geo-map-toolbar-height: var(--overlay-button-height, 28px);
 
   /*
-   * What everything standing over the map is dressed in — our own bar and MapLibre's scale and
-   * attribution alike, so that the three read as one set rather than as ours beside theirs. The
-   * app's menu surface, which is what every panel floating over content in Trilium is drawn on
-   * (see OverlayToolbar.css); the map's furniture asks for it by these names, and what stands over
-   * the map has them handed to it under the names its own surface reads (the editing bar below,
-   * the zoom controls in MapToolbar.css).
+   * What everything standing over the map is dressed in — our own control groups and MapLibre's
+   * scale and attribution alike, so that they read as one set rather than as ours beside theirs.
+   * The app's menu surface, which is what every panel floating over content in Trilium is drawn on;
+   * the map's furniture asks for it by these names, and the groups have them handed over below,
+   * under the names their own surface reads.
    *
    * Thinner than a menu's, though, and that is the whole of the difference: a menu is opened over a
    * page that is mostly one flat colour, where 85% of that colour over the rest of it is glass
@@ -100,22 +99,23 @@
 }
 
 /*
- * The editing bar at the map's head (EditToolbar), dressed in the set the map's furniture shares,
- * handed over here under the names the shared bar reads (see OverlayToolbar.css). The zoom controls
- * in the foot corner wear the same set under different names, being the image viewer's control
- * group rather than a bar — their handoff is in MapToolbar.css.
+ * The control groups standing over the map — the camera's in the foot corner (MapToolbar) and the
+ * editing actions at the middle of the foot (EditToolbar) — dressed in the set the map's furniture
+ * shares, handed over here under the names the shared group reads (see the overlay buttons in
+ * theme-next/forms.css). The hover pair has no overlay-button name of its own, so the group's is
+ * asked for directly.
  *
- * Set on the bar rather than on the map, so that nothing else standing over the map is dressed for
- * a theme the reader did not choose — a marker's preview is the app's own note tooltip, and it
- * belongs to the app. The last pair marks a choice in force, which is the editing bar's + while the
- * map waits to be told a place.
+ * Set on the groups rather than on the map, so that nothing else standing over the map is dressed
+ * for a theme the reader did not choose — a marker's preview is the app's own note tooltip, and it
+ * belongs to the app. The last pair marks a choice in force, which is the editing group's + while
+ * the map waits to be told a place.
  */
-.geo-map-container .tn-overlay-toolbar {
-  --menu-background-color: var(--geo-map-panel-background);
-  --menu-text-color: var(--geo-map-panel-text-color);
-  --dropdown-border-color: var(--geo-map-panel-border-color);
-  --icon-button-hover-background: var(--geo-map-panel-hover-background);
-  --icon-button-hover-color: var(--geo-map-panel-hover-text-color);
+.geo-map-container .tn-overlay-control-group {
+  --overlay-button-background: var(--geo-map-panel-background);
+  --overlay-button-color: var(--geo-map-panel-text-color);
+  --overlay-button-backdrop-filter: var(--dropdown-backdrop-filter, blur(10px));
+  --opaque-icon-button-hover-background-color: var(--geo-map-panel-hover-background);
+  --opaque-icon-button-hover-color: var(--geo-map-panel-hover-text-color);
   --active-item-background-color: var(--geo-map-panel-active-background);
   --active-item-text-color: var(--geo-map-panel-active-text-color);
 }
@@ -136,7 +136,7 @@
   border: 1px solid var(--geo-map-panel-border-color);
   border-radius: 8px;
   box-shadow: 0 2px 8px #0003;
-  /* The frosting the bar opposite wears, which is a menu's (see OverlayToolbar.css). */
+  /* The frosting the groups opposite wear, which is a menu's. */
   backdrop-filter: var(--dropdown-backdrop-filter, blur(10px));
 }
 

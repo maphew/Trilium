@@ -39,7 +39,9 @@ describe("geo map EditToolbar", () => {
     it("offers to add a note, and hands the arming to the map view", () => {
         const { button, onTogglePlacement } = renderBar();
 
-        expect(button()?.className).toContain("bx-plus");
+        // The glyph is a child of the button rather than the button's own class — the words beside
+        // it are to stay words (see EditToolbar.tsx).
+        expect(button()?.querySelector(".bx-plus")).not.toBeNull();
         expect(button()?.classList.contains("active")).toBe(false);
 
         act(() => button()?.click());
