@@ -1,6 +1,6 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { AttributionControl, type ErrorEvent as MapErrorEvent, Map as MapLibreGLMap, MapMouseEvent, type Point, ScaleControl, type StyleSpecification, type TransformStyleFunction } from "maplibre-gl";
+import { AttributionControl, type ErrorEvent as MapErrorEvent, Map as MapLibreGLMap, MapMouseEvent, type Point, type RequestTransformFunction, ScaleControl, type StyleSpecification, type TransformStyleFunction } from "maplibre-gl";
 import { ComponentChildren, createContext, RefObject } from "preact";
 import { useEffect, useImperativeHandle, useRef, useState } from "preact/hooks";
 
@@ -302,9 +302,21 @@ function createMap(container: HTMLDivElement, style: StyleSpecification | string
         // behavior we want.
         renderWorldCopies: false,
         // Added by hand by the caller, in the corner opposite the one MapLibre keeps it in.
-        attributionControl: false
+        attributionControl: false,
+        transformRequest: withReferrer
     });
 }
+
+/**
+ * Names the app to a tile server, which `Referrer-Policy: no-referrer` otherwise keeps from it —
+ * OpenStreetMap answers an anonymous request with a refusal drawn into the tile, served as HTTP 200
+ * so that nothing here ever sees an error. Given per request, so the rest of the page keeps the
+ * policy it is served with; `strict-origin` names no note and says nothing to an insecure server.
+ *
+ * Nothing to send where the app has no http(s) origin: desktop puts the header back by hand (see
+ * `services/referer.ts`), and iOS on `capacitor://` has nowhere to do that yet.
+ */
+const withReferrer: RequestTransformFunction = (url) => ({ url, referrerPolicy: "strict-origin" });
 
 /** An HTTP failure as MapLibre reports one: what {@link summarizeMapError} reads off an `AJAXError`. */
 interface HttpFailure {

@@ -28,7 +28,7 @@ import DesktopPlatformProvider from "./platform_provider";
 import { registerTriliumAppScheme, setupTriliumAppProtocol } from "./protocol";
 import { applyLaunchOnStartup, setupAutoLaunch, wasLaunchedHidden } from "./services/auto_launch";
 import { setupCustomDictionary } from "./services/custom_dictionary";
-import { setupEmbedReferer } from "./services/embed_referer";
+import { setupReferer } from "./services/referer";
 import { setupExportHandlers } from "./services/export";
 import { setupImportHandlers } from "./services/import";
 import { setupOneNoteHandlers } from "./services/onenote";
@@ -324,7 +324,7 @@ async function onReady() {
     // custom `trilium-app://` origin. We use the desktop's local server origin —
     // the same value the working browser client sends. Registered on the shared
     // default session before any window is created.
-    setupEmbedReferer(`http://localhost:${port}/`);
+    setupReferer(`http://localhost:${port}/`);
 
     // if db is not initialized -> setup process
     // if db is initialized, then we need to wait until the migration process is finished

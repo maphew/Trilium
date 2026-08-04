@@ -169,6 +169,26 @@ describe("Map initialization", () => {
     });
 
     /**
+     * The app is served with `Referrer-Policy: no-referrer`, and OpenStreetMap answers a request that
+     * says nothing of itself with a 403 drawn into the tile — an image reading "Access blocked",
+     * served as HTTP 200, so the map fills with complaint and no error is ever raised. A policy on
+     * the request itself is what overrules the document's.
+     */
+    it("tells a tile server where it is asking from, which the page's own policy would withhold", () => {
+        MapConstructor.mockImplementation(workingMap);
+
+        renderMap();
+
+        const { transformRequest } = MapConstructor.mock.calls[0][0];
+        expect(transformRequest("https://tile.openstreetmap.org/2/1/1.png", "Tile")).toEqual({
+            url: "https://tile.openstreetmap.org/2/1/1.png",
+            // The origin and never the path, so no note is named, and nothing at all from a secure
+            // page to an insecure server.
+            referrerPolicy: "strict-origin"
+        });
+    });
+
+    /**
      * Leaving a geo map for another note, which used to throw where nobody could catch it: the scale
      * was taken off a map that had already gone, and a control given its notice twice reaches for the
      * map it has let go of.
