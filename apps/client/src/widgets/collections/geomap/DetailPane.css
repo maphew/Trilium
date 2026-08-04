@@ -83,6 +83,7 @@
     /* The body of the pane is the one thing that scrolls; a scroller inside it would take the wheel
        off whichever of the two the pointer happened to be over. */
     max-height: none;
+    overflow: visible;
 }
 
 .geo-map-container .geo-detail-pane .promoted-attribute-cell {
@@ -112,6 +113,7 @@
     }
 
     .tn-field {
+        min-width: 0;
         padding: 0;
     }
 }
