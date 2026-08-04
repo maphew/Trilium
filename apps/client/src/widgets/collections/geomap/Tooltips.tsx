@@ -165,12 +165,15 @@ export default function Tooltips() {
  *
  * The content is sanitized because a note's HTML reaches the client through paths CKEditor never
  * saw — the internal API, ETAPI and sync — exactly as the tooltip service sanitizes it.
+ *
+ * Written without a line break anywhere between the tags, because `.tooltip-inner` is `pre-line`:
+ * every newline inside it is a newline the preview is drawn with, and laying this out as one would
+ * lay out markup put a blank line above the preview and another below it.
  */
 function buildTooltipHtml(content: string) {
-    return `\
-<div class="tooltip note-tooltip show" role="tooltip">
-    <div class="tooltip-inner">
-        <div class="note-tooltip-content">${sanitizeNoteContentHtml(content)}</div>
-    </div>
-</div>`;
+    return `<div class="tooltip note-tooltip show" role="tooltip">`
+        + `<div class="tooltip-inner">`
+        + `<div class="note-tooltip-content">${sanitizeNoteContentHtml(content)}</div>`
+        + `</div>`
+        + `</div>`;
 }

@@ -162,6 +162,10 @@ describe("Tooltips", () => {
         // Drawn in the shape the app's tooltip styles are written against.
         expect(FakePopup.open[0]?.html).toContain(`class="tooltip note-tooltip show"`);
         expect(FakePopup.open[0]?.html).toContain(`class="note-tooltip-content"`);
+        // `.tooltip-inner` is `pre-line`, so a line break laid out between the tags is a blank line
+        // drawn in the preview — one above it and one below, 43px of nothing. The rendered note
+        // brings no newline of its own here, so the wrapper is where any of them would come from.
+        expect(FakePopup.open[0]?.html).not.toContain("\n");
     });
 
     /**
