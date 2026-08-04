@@ -470,6 +470,89 @@ describe("DetailPane", () => {
         });
     });
 
+    /**
+     * Following a link inside the pane. One that points at another marker of this map moves the
+     * selection — the pane switches, the map pans along — instead of navigating the whole tab away
+     * from the map; every other link, and every click asking for more than a plain navigation,
+     * keeps meaning what it means anywhere in the app.
+     */
+    describe("following a link inside the pane", () => {
+        function twoMarkersAndAStray() {
+            buildNote({ id: "root", title: "root", children: [
+                { id: "fromhere", title: "From here", "#geolocation": "1,2" },
+                { id: "tothere", title: "To there", "#geolocation": "3,4" },
+                { id: "offmap", title: "Off the map" }
+            ] });
+            return [ froca.notes["fromhere"], froca.notes["tothere"], froca.notes["offmap"] ];
+        }
+
+        async function openPaneOn(note: FNote, notes: FNote[], map: ReturnType<typeof fakeMap>) {
+            await mount(notes, map);
+            map.setUnderPointer([ markerFeature(note) ]);
+            await act(async () => map.click());
+            await settle();
+            openInCurrentNoteContext.mockClear();
+        }
+
+        /** A link as the note's content carries one, clicked as the browser reports it. */
+        function clickLink(noteId: string, init: MouseEventInit = {}) {
+            const anchor = document.createElement("a");
+            anchor.setAttribute("href", `#root/${noteId}`);
+            pane()?.querySelector(".geo-detail-pane-body")?.appendChild(anchor);
+
+            const event = new MouseEvent("click", { bubbles: true, cancelable: true, ...init });
+            // A real left click says `which: 1`, which is what the app's own link handler goes by;
+            // the DOM stand-in says 0 for every button, which it reads as no click at all.
+            Object.defineProperty(event, "which", { value: 1 });
+            return anchor.dispatchEvent(event);
+        }
+
+        it("follows a link to another marker by switching the pane, and pans to it", async () => {
+            const notes = twoMarkersAndAStray();
+            const map = fakeMap();
+            await openPaneOn(notes[0], notes, map);
+            expect(pane()?.textContent).toContain("From here");
+            const easedBefore = map.eased.length;
+
+            let defaultKept = true;
+            await act(async () => { defaultKept = clickLink("tothere"); });
+            await settle();
+
+            // The pane switched and the map went along; the tab underneath heard nothing of it.
+            expect(defaultKept).toBe(false);
+            expect(pane()?.textContent).toContain("To there");
+            expect(map.eased.length).toBeGreaterThan(easedBefore);
+            expect(openInCurrentNoteContext).not.toHaveBeenCalled();
+        });
+
+        it("leaves a link alone when its note does not stand on this map", async () => {
+            const notes = twoMarkersAndAStray();
+            const map = fakeMap();
+            await openPaneOn(notes[0], notes, map);
+
+            await act(async () => { clickLink("offmap"); });
+            await settle();
+
+            // The click fell through to the app's own handler, and the pane stayed where it was.
+            expect(openInCurrentNoteContext).toHaveBeenCalledWith(expect.anything(), "root/offmap", expect.anything());
+            expect(pane()?.textContent).toContain("From here");
+        });
+
+        it("leaves a modified click to mean a new tab, marker or not", async () => {
+            const notes = twoMarkersAndAStray();
+            const map = fakeMap();
+            const openTabWithNoteWithHoisting = vi.fn();
+            (appContext.tabManager as unknown as Record<string, unknown>).openTabWithNoteWithHoisting = openTabWithNoteWithHoisting;
+            await openPaneOn(notes[0], notes, map);
+
+            await act(async () => { clickLink("tothere", { ctrlKey: true }); });
+            await settle();
+
+            expect(openTabWithNoteWithHoisting).toHaveBeenCalledWith("root/tothere", expect.anything());
+            expect(pane()?.textContent).toContain("From here");
+        });
+    });
+
     describe("the note itself", () => {
         async function openPane(map: ReturnType<typeof fakeMap>) {
             buildNote({ id: "root", title: "root", children: [ { id: "somewhere", title: "Somewhere", "#geolocation": "1,2" } ] });

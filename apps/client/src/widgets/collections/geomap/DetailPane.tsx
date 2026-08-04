@@ -96,6 +96,20 @@ export default function DetailPane({ notes, placing, isReadOnly, selection, onSe
         onRelocate(note.noteId);
     }, [ note, closePane, onRelocate ]);
 
+    /**
+     * Follows a link inside the pane whose note stands on this map: the pane switches to it — the
+     * map panning along, through the easing effect below — the same as if its marker had been
+     * clicked. Answers whether the note stands on the map at all, a link to anything else keeping
+     * its ordinary meaning (see the interception in MarkerDetails).
+     */
+    const followLink = useCallback((noteId: string) => {
+        const target = notes.find((n) => n.noteId === noteId);
+        if (!target || !parseLocation(target.getLabelValue(LOCATION_ATTRIBUTE))) return false;
+
+        onSelect({ noteId });
+        return true;
+    }, [ notes, onSelect ]);
+
     // A note no longer on the map takes the pane with it. Its location may merely have been cleared
     // — which is all "remove from map" does — so the note being gone is not the only case.
     useEffect(() => {
@@ -161,7 +175,7 @@ export default function DetailPane({ notes, placing, isReadOnly, selection, onSe
         // TitleRow), and answers to the pane's own component rather than the map's (see below).
         <ParentComponent.Provider value={paneComponent}>
             <NoteContextContext.Provider value={noteContext}>
-                <MarkerDetails note={note} isReadOnly={isReadOnly} onClose={closePane} onRelocate={relocate} />
+                <MarkerDetails note={note} isReadOnly={isReadOnly} onClose={closePane} onRelocate={relocate} onFollowLink={followLink} />
                 {selection?.isNew && <SelectTitleOnFirstOpen />}
             </NoteContextContext.Provider>
         </ParentComponent.Provider>
@@ -223,7 +237,14 @@ function paneOffset(map: MapLibreGLMap): [number, number] {
 }
 
 /** The pane itself, for a marker there is one to draw. */
-function MarkerDetails({ note, isReadOnly, onClose, onRelocate }: { note: FNote; isReadOnly: boolean; onClose(): void; onRelocate(): void }) {
+function MarkerDetails({ note, isReadOnly, onClose, onRelocate, onFollowLink }: {
+    note: FNote;
+    isReadOnly: boolean;
+    onClose(): void;
+    onRelocate(): void;
+    /** Offered a link's note; answers whether the map took the navigation over. */
+    onFollowLink(noteId: string): boolean;
+}) {
     // The marker's own colour, which is what dresses its icon (see DetailPane.css) — as the quick
     // editor's wrapper carries it. Without it the pane would inherit the hue of the note split it
     // stands in, which is the map's colour and not the marker's.
@@ -239,6 +260,42 @@ function MarkerDetails({ note, isReadOnly, onClose, onRelocate }: { note: FNote;
      */
     const paneRef = useRef<HTMLDivElement>(null);
     useLegacyComponentElement(paneRef);
+
+    /*
+     * Links followed within the pane. One that points at another marker of this map switches the
+     * pane to it — the map panning along — instead of navigating the whole tab away from the map.
+     * Every other link keeps meaning what it means anywhere else, as does every way of asking for
+     * more than a plain navigation.
+     *
+     * Captured on the pane's own element, so it goes ahead of the document-level handler every
+     * link click otherwise lands in (see the delegated listeners in link.ts) — and of the editor's.
+     */
+    useEffect(() => {
+        const pane = paneRef.current;
+        if (!pane) return;
+
+        const onClick = (e: MouseEvent) => {
+            // A modified click asks for a new tab or window, neither of which the pane answers.
+            if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+
+            const anchor = e.target instanceof Element ? e.target.closest("a") : null;
+            const href = anchor?.getAttribute("href") ?? anchor?.getAttribute("data-href");
+            if (!href) return;
+
+            // A link that says how it wants to be opened — in a popup, at an attachment, at a
+            // bookmark, in a named tab — is left to say it; only the plain "go to this note" is
+            // the pane's to take, and only for a note the map can go to.
+            const { noteId, ntxId, viewScope, openInPopup } = link.parseNavigationStateFromUrl(href);
+            if (!noteId || ntxId || openInPopup || viewScope?.viewMode !== "default"
+                || viewScope.attachmentId || viewScope.bookmark || !onFollowLink(noteId)) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+        };
+
+        pane.addEventListener("click", onClick, true);
+        return () => pane.removeEventListener("click", onClick, true);
+    }, [ onFollowLink ]);
 
     return (
         <OverlayPanel
