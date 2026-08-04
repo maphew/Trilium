@@ -34,7 +34,17 @@ const LABEL_LAYOUT: Extract<AddLayerObject, { type: "symbol" }>["layout"] = {
     "text-font": [ "Open Sans Regular" ],
     "text-size": 12,
     "text-anchor": "top",
-    "text-allow-overlap": true
+    // Titles are placed against one another rather than drawn over one another: where two would
+    // overlap, only the one placed first is kept, and the map thins them out again as it is zoomed
+    // in. A dozen notes in one town used to stack every title into an unreadable pile.
+    //
+    // `text-optional` is what keeps this from hiding notes. Without it a symbol whose title cannot
+    // be placed is dropped whole, pin and all — the pins go with the titles, and a note nobody can
+    // see is also one nobody can hover or right-click, since both hit-test the rendered layer.
+    "text-optional": true,
+    // A little air around each title, so two that merely brush past each other both survive but two
+    // that would read as one word do not.
+    "text-padding": 4
 };
 
 /**
@@ -92,6 +102,11 @@ export default function Markers({ notes, hideLabels, isDarkTheme }: { notes: FNo
                             // below the pin's tip. Push it back down by exactly that much, or every
                             // marker would stand a shadow's width off its own coordinate.
                             "icon-offset": [ 0, MARKER_SHADOW_PADDING ],
+                            // Every note keeps its pin, however crowded the map: a pin dropped for
+                            // colliding is a note that has silently left the map, and one that can
+                            // no longer be hovered or right-clicked. Only the titles are thinned
+                            // out (see LABEL_LAYOUT). The pins still take part in placement, so a
+                            // title is never laid over one.
                             "icon-allow-overlap": true,
                             ...(hideLabels ? {} : LABEL_LAYOUT)
                         },
