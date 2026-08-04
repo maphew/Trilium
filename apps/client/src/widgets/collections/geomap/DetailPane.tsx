@@ -77,8 +77,13 @@ export default function DetailPane({ notes, placing }: {
                 setSelectedNoteId(null);
             }
         };
-        window.addEventListener("keydown", onKeyDown);
-        return () => window.removeEventListener("keydown", onKeyDown);
+        // Heard on the way down rather than on the way up: the panel stops the key presses made
+        // inside it from reaching what is underneath (see OverlayPanel), which is right — what is
+        // underneath is a map with shortcuts of its own — but it also stops them reaching this. On
+        // the way down nothing has had the chance to stop them yet, so Escape closes the pane from
+        // within it as readily as from the map.
+        window.addEventListener("keydown", onKeyDown, true);
+        return () => window.removeEventListener("keydown", onKeyDown, true);
     }, [ selectedNoteId ]);
 
     if (!note) {

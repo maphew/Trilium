@@ -157,6 +157,27 @@ describe("DetailPane", () => {
         expect(pane()).toBeNull();
     });
 
+
+    /**
+     * The panel stops the key presses made inside it from reaching what is underneath, which is a
+     * map with shortcuts of its own — and which would stop them reaching the pane's own listener
+     * too, were that one not heard on the way down.
+     */
+    it("closes on Escape pressed with the focus inside the pane", async () => {
+        const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+        const map = fakeMap();
+        await mount([ note ], map);
+
+        map.setUnderPointer([ markerFeature(note) ]);
+        await act(async () => map.click());
+        expect(pane()).toBeTruthy();
+
+        await act(async () => {
+            pane()?.dispatchEvent(new KeyboardEvent("keydown", { bubbles: true, key: "Escape" }));
+        });
+        expect(pane()).toBeNull();
+    });
+
     it("leaves the click alone while the map is armed to place something", async () => {
         const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
         const map = fakeMap();
