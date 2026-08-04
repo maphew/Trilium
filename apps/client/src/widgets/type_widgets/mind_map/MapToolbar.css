@@ -1,22 +1,10 @@
 /*
- * The bars are dressed as the node panel is (see NodePanel.css): the same surface, the same border
- * and the same blur, so that everything standing over a map reads as one family rather than as
- * pieces from three places. Where they stand and how much room they leave the panel is settled
- * between them in MindMap.css.
+ * The bars are dressed as every bar standing over a canvas is (see OverlayToolbar.css), which is the
+ * dress the node panel wears too (see NodePanel.css): the same surface, the same border and the same
+ * blur, so that everything standing over a map reads as one family rather than as pieces from three
+ * places. Left here is only what is the mind map's own — where they stand, and the marks a direction
+ * is chosen by. How much room they leave the panel is settled between them in MindMap.css.
  */
-.mind-map-container .mind-map-toolbar {
-    position: absolute;
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    padding: 4px;
-    background: var(--menu-background-color);
-    color: var(--menu-text-color);
-    border: 1px solid var(--dropdown-border-color);
-    border-radius: 8px;
-    box-shadow: 0 2px 8px #0003;
-    backdrop-filter: blur(10px);
-}
 
 /* What is done with the view stands at the foot of the map, out of the way of its root. */
 .mind-map-container .mind-map-view-toolbar {
@@ -28,43 +16,6 @@
 .mind-map-container .mind-map-direction-toolbar {
     top: var(--mind-map-inset-top);
     inset-inline-start: var(--mind-map-inset);
-}
-
-/*
- * The buttons are on the bar's own surface rather than on the shell's, so they take their color
- * from it — as the ones inside a menu do.
- *
- * Their marks are centred by the button rather than by the text inside them, which is what a button
- * does of its own accord and what the theme leans on: `text-align` centres the glyph a font icon
- * paints, and has nothing to grip on a mark drawn as a box with a width of its own (see the
- * direction marks below), leaving that one against the leading edge. Centring the box itself holds
- * for both, so the seven marks sit alike whichever kind each is.
- */
-.mind-map-container .mind-map-toolbar .tn-tool-button {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: inherit;
-}
-
-/* A step that would carry the map past the scale it is allowed does nothing (see viewport.ts), and
-   the button for it says as much rather than merely failing to answer. */
-.mind-map-container .mind-map-toolbar .tn-tool-button:disabled {
-    opacity: .4;
-    pointer-events: none;
-}
-
-/*
- * The direction the map is laid out by is a choice among three rather than three things to do, so
- * the one in force is shown held down. It is dressed in the fill the app marks a chosen thing with
- * rather than in the button group's raised chip: that chip is only told apart from its neighbours by
- * the recessed track behind it, and there is no track here — a bar of glass is what these stand on.
- * Held through a hover as well, so that pointing at the one already chosen does not lower it.
- */
-.mind-map-container .mind-map-toolbar .tn-tool-button.active,
-.mind-map-container .mind-map-toolbar .tn-tool-button.active:hover {
-    background: var(--active-item-background-color);
-    color: var(--active-item-text-color);
 }
 
 /*

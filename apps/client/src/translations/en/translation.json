@@ -2741,7 +2741,9 @@
     "create-child-note-text": "Add marker",
     "create-child-note-instruction": "Click on the map to create a new note at that location or press Escape to dismiss.",
     "create-child-note-toast-title": "New note",
-    "unable-to-load-map": "Unable to load map."
+    "unable-to-load-map": "Unable to load map.",
+    "zoom-in": "Zoom in",
+    "zoom-out": "Zoom out"
   },
   "geo-map-context": {
     "open-location": "Open location",

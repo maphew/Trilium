@@ -22,6 +22,7 @@ import ContextMenus from "./ContextMenus";
 import { GpxTrack } from "./GpxTrack";
 import Map, { GeoMouseEvent } from "./map";
 import { DEFAULT_MAP_LAYER_NAME, MAP_LAYERS, MapLayer } from "./map_layer";
+import MapToolbar from "./MapToolbar";
 import Markers, { LOCATION_ATTRIBUTE } from "./Markers";
 import Tooltips from "./Tooltips";
 
@@ -173,6 +174,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                 onClick={onClick}
                 scale={hasScale}
             >
+                <MapToolbar />
                 <Tooltips />
                 <ContextMenus note={note} isReadOnly={isReadOnly} />
                 <Markers notes={notes} hideLabels={hideLabels} isDarkTheme={layerData.isDarkTheme ?? false} clustered={clustered} />

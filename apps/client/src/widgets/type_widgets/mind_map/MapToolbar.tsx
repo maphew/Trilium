@@ -1,11 +1,10 @@
 import "./MapToolbar.css";
 
 import type { MindElixirInstance } from "mind-elixir";
-import type { ComponentChildren } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import { t } from "../../../services/i18n";
-import ActionButton, { type ActionButtonProps } from "../../react/ActionButton";
+import OverlayToolbar, { OverlayToolbarButton } from "../../react/OverlayToolbar";
 import { centerMapOn, type MapPoint, readMapCenter, stepZoom } from "./viewport";
 
 interface MapToolbarProps {
@@ -32,45 +31,47 @@ export default function MapToolbar({ mind }: MapToolbarProps) {
     const zoomedOut = stepZoom(scale, -1, limits);
 
     return (
-        <Toolbar className="mind-map-view-toolbar">
+        // The bar stands at the foot of the map, so its tooltips open away from that edge, where
+        // they would otherwise fall off.
+        <OverlayToolbar className="mind-map-view-toolbar" titlePosition="top">
             {/* Leaving focus mode is about the map rather than about any one node, so it stands
                 here rather than in the menu a node is right-clicked for — which is where Mind
                 Elixir kept it, offered on every node whether the map was narrowed or not. It is
                 only here while there is something to leave, the map otherwise showing all it has. */}
             {isFocused && (
-                <ToolbarButton
+                <OverlayToolbarButton
                     icon="bx bx-exit"
                     text={t("mind-map.cancelFocus")}
                     onClick={() => mind.cancelFocus()}
                 />
             )}
 
-            <ToolbarButton
+            <OverlayToolbarButton
                 icon="bx bx-zoom-in"
                 text={t("mind-map.zoom-in")}
                 disabled={zoomedIn === null}
                 onClick={() => zoomedIn !== null && mind.scale(zoomedIn)}
             />
 
-            <ToolbarButton
+            <OverlayToolbarButton
                 icon="bx bx-zoom-out"
                 text={t("mind-map.zoom-out")}
                 disabled={zoomedOut === null}
                 onClick={() => zoomedOut !== null && mind.scale(zoomedOut)}
             />
 
-            <ToolbarButton
+            <OverlayToolbarButton
                 icon="bx bx-current-location"
                 text={t("mind-map.center-map")}
                 onClick={() => mind.toCenter()}
             />
 
-            <ToolbarButton
+            <OverlayToolbarButton
                 icon={isFullscreen ? "bx bx-exit-fullscreen" : "bx bx-fullscreen"}
                 text={isFullscreen ? t("mind-map.exit-fullscreen") : t("mind-map.fullscreen")}
                 onClick={toggleFullscreen}
             />
-        </Toolbar>
+        </OverlayToolbar>
     );
 }
 
@@ -86,19 +87,18 @@ export function DirectionToolbar({ mind }: MapToolbarProps) {
     const direction = useMapDirection(mind);
 
     return (
-        <Toolbar className="mind-map-direction-toolbar">
+        // The bar stands at the head of the map, where a tooltip over it would fall off.
+        <OverlayToolbar className="mind-map-direction-toolbar" titlePosition="bottom">
             {buildDirections().map(({ value, icon, label, apply }) => (
-                <ToolbarButton
+                <OverlayToolbarButton
                     key={value}
                     icon={`mind-map-direction-icon ${icon}`}
                     text={label}
                     active={direction === value}
-                    // The bar stands at the head of the map, where a tooltip over it would fall off.
-                    titlePosition="bottom"
                     onClick={() => apply(mind)}
                 />
             ))}
-        </Toolbar>
+        </OverlayToolbar>
     );
 }
 
@@ -129,31 +129,6 @@ function buildDirections() {
             apply: (mind: MindElixirInstance) => mind.initSide()
         }
     ];
-}
-
-/** The surface both bars stand on, and the reach of the map they are kept out of. */
-function Toolbar({ className, children }: { className: string, children: ComponentChildren }) {
-    return (
-        <div
-            className={`mind-map-toolbar ${className}`}
-            /* Keep interactions inside the bar from reaching the map underneath, which would
-               otherwise take a press on a button for the start of a drag or a selection. */
-            onMouseDown={(e) => e.stopPropagation()}
-        >
-            {children}
-        </div>
-    );
-}
-
-/** Dressed as the buttons floating over a rendered diagram are (see SplitEditor's `PreviewButton`). */
-function ToolbarButton({ titlePosition, ...props }: ActionButtonProps) {
-    return <ActionButton
-        {...props}
-        className="tn-tool-button"
-        noIconActionClass
-        // Away from the edge of the map the bar stands at, where a tooltip would fall off it.
-        titlePosition={titlePosition ?? "top"}
-    />;
 }
 
 /**

@@ -1,6 +1,6 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { type ErrorEvent as MapErrorEvent, Map as MapLibreGLMap, MapMouseEvent, NavigationControl, type Point, ScaleControl, type StyleSpecification, type TransformStyleFunction } from "maplibre-gl";
+import { AttributionControl, type ErrorEvent as MapErrorEvent, Map as MapLibreGLMap, MapMouseEvent, type Point, ScaleControl, type StyleSpecification, type TransformStyleFunction } from "maplibre-gl";
 import { ComponentChildren, createContext, RefObject } from "preact";
 import { useEffect, useImperativeHandle, useRef, useState } from "preact/hooks";
 
@@ -112,8 +112,15 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
             // single world (substituting an almost-full-world longitude range that avoids the
             // collapse) and clamps latitude to the Mercator limit, which is the Leaflet-parity
             // behavior we want.
-            renderWorldCopies: false
+            renderWorldCopies: false,
+            // Added by hand below, in the corner opposite the one MapLibre keeps it in.
+            attributionControl: false
         });
+
+        // The attribution stands at the foot of the map beside its scale, rather than in the corner
+        // where the zoom buttons now are (see MapToolbar): a bar of buttons is reached for, and it
+        // would otherwise sit on top of a line of small print that is itself made of links.
+        mapInstance.addControl(new AttributionControl(), "bottom-left");
 
         // An error MapLibre finds no listener for goes to `console.error` with the stack of the
         // fetch that failed, and a tile server answering 403 fails once per tile: a screenful of
@@ -127,13 +134,10 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
             console.warn(`Geo map: ${message}`);
         });
 
-        // Zoom buttons, which Leaflet added of its own accord. No compass: nothing here persists a
-        // bearing, so the button would offer to undo a rotation the map never remembers.
-        mapInstance.addControl(new NavigationControl({
-            showCompass: false,
-            showZoom: true
-        }), "top-left");
-
+        // No navigation control of MapLibre's own: the zoom buttons are Trilium's (see MapToolbar),
+        // dressed as every other bar standing over a canvas in the app. No compass either — nothing
+        // here persists a bearing, so the button would offer to undo a rotation the map never
+        // remembers.
         setMap(mapInstance);
 
         return () => {
