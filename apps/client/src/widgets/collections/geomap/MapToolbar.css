@@ -28,15 +28,3 @@
     --opaque-icon-button-hover-color: var(--geo-map-panel-hover-text-color);
 }
 
-/* A button that would do nothing says as much rather than merely failing to answer — the group's
-   own styling leaves a disabled button looking ready (see OverlayToolbar.css for the same rule). */
-.geo-map-container .geo-map-toolbar button:disabled {
-    opacity: .4;
-    pointer-events: none;
-}
-
-/* The readout between the steps is disabled only to stand inert (see MapToolbar.tsx); it is not a
-   refused action, and does not wear the refused look. */
-.geo-map-container .geo-map-toolbar .geo-map-zoom-level:disabled {
-    opacity: 1;
-}

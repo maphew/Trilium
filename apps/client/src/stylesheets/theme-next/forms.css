@@ -292,6 +292,19 @@ button.tn-low-profile:hover {
             border-radius: var(--_start-border-radius, 0) var(--_end-border-radius, 0) var(--_end-border-radius, 0) var(--_start-border-radius, 0);
         }
 
+        /* A button that would do nothing says as much rather than merely failing to answer. */
+        &:disabled {
+            opacity: .4;
+            pointer-events: none;
+        }
+
+        /* A readout standing among the buttons — a zoom level, a scale — disabled only to stand
+           inert on the group's surface. It is not a refused action, and does not wear the refused
+           look. */
+        &.tn-overlay-readout:disabled {
+            opacity: 1;
+        }
+
     }
 }
 

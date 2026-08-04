@@ -3595,6 +3595,7 @@
     "remove-tag": "Remove this tag",
     "zoom-in": "Zoom in",
     "zoom-out": "Zoom out",
+    "reset-zoom": "Reset zoom",
     "center-map": "Center the map",
     "fullscreen": "Fullscreen",
     "exit-fullscreen": "Exit fullscreen",

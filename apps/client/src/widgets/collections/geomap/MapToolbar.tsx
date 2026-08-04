@@ -63,10 +63,10 @@ export default function MapToolbar() {
                 fitted view, but a map has no such view to offer — so it only says where between the
                 ends the zoom stands, whole levels being all anyone does anything with. Disabled
                 rather than a plain span so it stays a child the group's styling knows; the refused
-                look is taken off it in MapToolbar.css. */}
+                look is taken off it by `tn-overlay-readout` (see theme-next/forms.css). */}
             <button
                 type="button"
-                className="tn-overlay-text-button geo-map-zoom-level"
+                className="tn-overlay-text-button tn-overlay-readout geo-map-zoom-level"
                 disabled
             >
                 {Math.round(current)}
