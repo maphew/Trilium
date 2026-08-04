@@ -1,6 +1,6 @@
 import "maplibre-gl/dist/maplibre-gl.css";
 
-import { Map as MapLibreGLMap, MapMouseEvent, NavigationControl, type Point, ScaleControl, type StyleSpecification, type TransformStyleFunction } from "maplibre-gl";
+import { type ErrorEvent as MapErrorEvent, Map as MapLibreGLMap, MapMouseEvent, NavigationControl, type Point, ScaleControl, type StyleSpecification, type TransformStyleFunction } from "maplibre-gl";
 import { ComponentChildren, createContext, RefObject } from "preact";
 import { useEffect, useImperativeHandle, useRef, useState } from "preact/hooks";
 
@@ -106,6 +106,18 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
             renderWorldCopies: false
         });
 
+        // An error MapLibre finds no listener for goes to `console.error` with the stack of the
+        // fetch that failed, and a tile server answering 403 fails once per tile: a screenful of
+        // identical stacks, none of which says anything the first one did not. Listening takes that
+        // over, and what is left is one warning per distinct failure, with no stack on it.
+        const reported = new Set<string>();
+        mapInstance.on("error", ({ error }: MapErrorEvent) => {
+            const { key, message } = summarizeMapError(error);
+            if (reported.has(key)) return;
+            reported.add(key);
+            console.warn(`Geo map: ${message}`);
+        });
+
         // Zoom buttons, which Leaflet added of its own accord. No compass: nothing here persists a
         // bearing, so the button would offer to undo a rotation the map never remembers.
         mapInstance.addControl(new NavigationControl({
@@ -207,6 +219,53 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
             </ParentMap.Provider>
         </div>
     );
+}
+
+/** An HTTP failure as MapLibre reports one: what {@link summarizeMapError} reads off an `AJAXError`. */
+interface HttpFailure {
+    status: number;
+    statusText?: string;
+    url: string;
+}
+
+function isHttpFailure(error: unknown): error is HttpFailure {
+    return (
+        typeof error === "object" && error !== null &&
+        typeof (error as HttpFailure).status === "number" &&
+        typeof (error as HttpFailure).url === "string"
+    );
+}
+
+/**
+ * Says in one line what went wrong, and under what to count it as already said.
+ *
+ * A tile that cannot be fetched is not an error about that tile: the tile server is unreachable, or
+ * refuses us, and every other tile it is asked for will fail the same way. The key therefore names
+ * the server and the status rather than the URL, so the hundred tiles behind the first one are
+ * recognised as the same failure and stay quiet — the URL is still in the message, as an example of
+ * what was asked for.
+ */
+export function summarizeMapError(error: unknown): { key: string; message: string } {
+    if (isHttpFailure(error)) {
+        const host = hostOf(error.url);
+        const status = [ String(error.status), error.statusText ].filter(Boolean).join(" ");
+        return {
+            key: `${error.status} ${host}`,
+            message: `${host} answered ${status} — could not load ${error.url}`
+        };
+    }
+
+    const message = error instanceof Error ? error.message : String(error);
+    return { key: message, message };
+}
+
+/** The server a URL names, or the URL itself where it names none. */
+function hostOf(url: string): string {
+    try {
+        return new URL(url).host;
+    } catch {
+        return url;
+    }
 }
 
 /** What a style is made of, by name — all {@link keepAdditions} needs of the one it is given. */

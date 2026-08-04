@@ -9,7 +9,7 @@
 import type { LayerSpecification, StyleSpecification } from "maplibre-gl";
 import { describe, expect, it } from "vitest";
 
-import { keepAdditions, styleContents } from "./map";
+import { keepAdditions, styleContents, summarizeMapError } from "./map";
 
 /** A style with the given sources and layers, as MapLibre serializes one. */
 function style(sources: string[], layers: string[]): StyleSpecification {
@@ -83,5 +83,50 @@ describe("keepAdditions", () => {
         const transformed = keepAdditions(undefined)(withMarkers(applied), next);
 
         expect(transformed).toBe(next);
+    });
+});
+
+/**
+ * The console, which a tile server refusing us used to fill.
+ *
+ * MapLibre prints an error nobody listens for itself, with the stack of the fetch behind it, and a
+ * map asks for a hundred tiles: the same stack a hundred times over. One line per distinct failure
+ * is what the map settles for instead.
+ */
+describe("summarizeMapError", () => {
+    /** A failed request, as MapLibre's own `AJAXError` carries it. */
+    function ajaxError(status: number, statusText: string, url: string) {
+        return Object.assign(new Error(`AJAXError: ${statusText} (${status}): ${url}`), { status, statusText, url });
+    }
+
+    it("names the server and the status, and says which URL asked", () => {
+        const { message } = summarizeMapError(ajaxError(403, "Forbidden", "https://tiles.mapgenie.io/games/fallout-4/10/512/510.png"));
+
+        expect(message).toBe("tiles.mapgenie.io answered 403 Forbidden — could not load https://tiles.mapgenie.io/games/fallout-4/10/512/510.png");
+        // The stack the message would otherwise be printed with is what makes it verbose.
+        expect(message).not.toContain("maplibre");
+    });
+
+    it("counts every tile the same server refuses as the one failure", () => {
+        const first = summarizeMapError(ajaxError(403, "Forbidden", "https://tiles.mapgenie.io/10/512/510.png"));
+        const second = summarizeMapError(ajaxError(403, "Forbidden", "https://tiles.mapgenie.io/10/513/510.png"));
+
+        expect(second.key).toBe(first.key);
+        // A different server, or a different thing going wrong with the same one, is still worth saying.
+        expect(summarizeMapError(ajaxError(404, "Not Found", "https://tiles.mapgenie.io/10/512/510.png")).key).not.toBe(first.key);
+        expect(summarizeMapError(ajaxError(403, "Forbidden", "https://tiles.versatiles.org/10/512/510.png")).key).not.toBe(first.key);
+    });
+
+    it("copes with a status that has no text and a URL that is not one", () => {
+        expect(summarizeMapError(ajaxError(0, "", "/local/tiles/10/512/510.png")).message)
+            .toBe("/local/tiles/10/512/510.png answered 0 — could not load /local/tiles/10/512/510.png");
+    });
+
+    it("falls back to whatever the error says when it is not a failed request", () => {
+        expect(summarizeMapError(new Error("Style is not done loading"))).toEqual({
+            key: "Style is not done loading",
+            message: "Style is not done loading"
+        });
+        expect(summarizeMapError("something went wrong").message).toBe("something went wrong");
     });
 });
