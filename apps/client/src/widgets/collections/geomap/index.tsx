@@ -174,7 +174,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
             >
                 <Tooltips />
                 <ContextMenus note={note} isReadOnly={isReadOnly} />
-                <Markers notes={notes} hideLabels={hideLabels} />
+                <Markers notes={notes} hideLabels={hideLabels} isDarkTheme={layerData.isDarkTheme ?? false} />
                 {notes.map(note => <NoteGpxTrackWrapper note={note} hideLabels={hideLabels} />)}
             </Map>}
         </div>

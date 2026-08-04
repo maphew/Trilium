@@ -44,7 +44,7 @@ const LABEL_LAYOUT: Extract<AddLayerObject, { type: "symbol" }>["layout"] = {
  * per note is what made that slow. The pin is rasterized once per colour and icon and handed to the
  * map as an image, which the layer then stamps on the GPU.
  */
-export default function Markers({ notes, hideLabels }: { notes: FNote[], hideLabels: boolean }) {
+export default function Markers({ notes, hideLabels, isDarkTheme }: { notes: FNote[], hideLabels: boolean, isDarkTheme: boolean }) {
     const map = useContext(ParentMap);
     const version = useNoteChangeVersion(notes);
 
@@ -100,9 +100,14 @@ export default function Markers({ notes, hideLabels }: { notes: FNote[], hideLab
                             // element of its own wearing an `archived` class.
                             "icon-opacity": [ "case", [ "get", "archived" ], 0.5, 1 ],
                             "text-opacity": [ "case", [ "get", "archived" ], 0.5, 1 ],
-                            "text-color": "#333",
-                            "text-halo-color": "#fff",
-                            "text-halo-width": 1
+                            // A title is drawn the way the style draws its own place names: light
+                            // on the dark styles, and haloed by a soft, blurred glow rather than a
+                            // hard keyline. A crisp white outline stood out as a cut-out sticker on
+                            // any map, and on a dark one it was a white edge around dark text.
+                            "text-color": isDarkTheme ? "#fff" : "#333",
+                            "text-halo-color": isDarkTheme ? "rgba(0, 0, 0, 0.8)" : "rgba(255, 255, 255, 0.8)",
+                            "text-halo-width": 2,
+                            "text-halo-blur": 1
                         }
                     });
                 }
@@ -132,7 +137,7 @@ export default function Markers({ notes, hideLabels }: { notes: FNote[], hideLab
                 map.removeSource(MARKER_SOURCE);
             }
         };
-    }, [ map, notes, hideLabels, version ]);
+    }, [ map, notes, hideLabels, isDarkTheme, version ]);
 
     return null;
 }

@@ -68,11 +68,14 @@
   transform: translateX(-50%);
   font-size: 0.75rem;
   height: 1rem;
-  color: black;
+  --label-halo: rgba(255, 255, 255, 0.8);
+  color: #333;
   width: 100px;
   text-align: center;
   text-overflow: ellipsis;
-  text-shadow: -1px -1px 0 white, 1px -1px 0 white, -1px 1px 0 white, 1px 1px 0 white;
+  /* The soft glow the titles in the symbol layer are haloed with (see Markers), stacked because one
+     blurred shadow alone is too faint to hold the text apart from a busy map. */
+  text-shadow: 0 0 2px var(--label-halo), 0 0 2px var(--label-halo), 0 0 4px var(--label-halo);
   white-space: nowrap;
   overflow: hidden;
 }
@@ -86,6 +89,6 @@ body[dir=rtl] .geo-map-container .geo-marker .title-label {
 }
 
 .geo-map-container.dark .geo-marker .title-label {
+  --label-halo: rgba(0, 0, 0, 0.8);
   color: white;
-  text-shadow: -1px -1px 0 black, 1px -1px 0 black, -1px 1px 0 black, 1px 1px 0 black;
 }
