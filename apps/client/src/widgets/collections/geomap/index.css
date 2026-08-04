@@ -24,17 +24,19 @@
      agree, and matching the room the mind map gives its bars (see MindMap.css). */
   --geo-map-inset: 20px;
 
-  /* How tall the bar of buttons in the corner stands, which is what anything else opened over that
-     corner has to end above (see DetailPane.css). The mind map's bar is the same height, being the
-     same bar (see MindMap.css). */
-  --geo-map-toolbar-height: 42px;
+  /* How tall the controls in the corner stand, which is what anything else opened over that corner
+     has to end above (see DetailPane.css). The image viewer's zoom controls are the same height,
+     being the same group (see the overlay buttons in theme-next/forms.css); the fallback is that
+     height where no theme names one. */
+  --geo-map-toolbar-height: var(--overlay-button-height, 28px);
 
   /*
    * What everything standing over the map is dressed in — our own bar and MapLibre's scale and
    * attribution alike, so that the three read as one set rather than as ours beside theirs. The
    * app's menu surface, which is what every panel floating over content in Trilium is drawn on
-   * (see OverlayToolbar.css); the map's furniture asks for it by these names, and the bar has them
-   * handed to it under the names the shared component reads (see MapToolbar.css).
+   * (see OverlayToolbar.css); the map's furniture asks for it by these names, and what stands over
+   * the map has them handed to it under the names its own surface reads (the editing bar below,
+   * the zoom controls in MapToolbar.css).
    *
    * Thinner than a menu's, though, and that is the whole of the difference: a menu is opened over a
    * page that is mostly one flat colour, where 85% of that colour over the rest of it is glass
@@ -96,11 +98,12 @@
 }
 
 /*
- * The bars standing over the map — the camera bar in its foot corner (MapToolbar) and the editing
- * bar at its head (EditToolbar) — dressed in the set the map's furniture shares, handed over here
- * under the names the shared bar reads (see OverlayToolbar.css).
+ * The editing bar at the map's head (EditToolbar), dressed in the set the map's furniture shares,
+ * handed over here under the names the shared bar reads (see OverlayToolbar.css). The zoom controls
+ * in the foot corner wear the same set under different names, being the image viewer's control
+ * group rather than a bar — their handoff is in MapToolbar.css.
  *
- * Set on the bars rather than on the map, so that nothing else standing over the map is dressed for
+ * Set on the bar rather than on the map, so that nothing else standing over the map is dressed for
  * a theme the reader did not choose — a marker's preview is the app's own note tooltip, and it
  * belongs to the app. The last pair marks a choice in force, which is the editing bar's + while the
  * map waits to be told a place.

@@ -1,8 +1,9 @@
 /**
- * The bar over a geo map, which used to be MapLibre's own controls — white boxes on a map that may
- * well be dark, dressed in neither Trilium's buttons nor its colors. What is checked here is what
- * they did for us: the two steps, a step that would carry the map past either end of the range it is
- * allowed being refused rather than merely doing nothing, and the screen being given and taken back.
+ * The controls over a geo map, which used to be MapLibre's own — white boxes on a map that may well
+ * be dark, dressed in neither Trilium's buttons nor its colors. What is checked here is what they
+ * did for us: the two steps, a step that would carry the map past either end of the range it is
+ * allowed being refused rather than merely doing nothing, the readout between the steps saying how
+ * close in the map is and taking it back out, and the screen being given and taken back.
  */
 import type { Map as MapLibreGLMap } from "maplibre-gl";
 import { render } from "preact";
@@ -10,15 +11,16 @@ import { act } from "preact/test-utils";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { renderInto } from "../../../test/render";
-import { ParentMap } from "./map";
+import { DEFAULT_ZOOM, ParentMap } from "./map";
 import MapToolbar from "./MapToolbar";
 
-/** The order the bar lays its buttons out in. */
-const ZOOM_IN = 0;
-const ZOOM_OUT = 1;
-const FULLSCREEN = 2;
+/** The order the group lays its buttons out in — the image viewer's, with the screen at the end. */
+const ZOOM_OUT = 0;
+const ZOOM_LEVEL = 1;
+const ZOOM_IN = 2;
+const FULLSCREEN = 3;
 
-/** A map that zooms, says so, and stands somewhere — all this bar asks of one. */
+/** A map that zooms, says so, and stands somewhere — all these controls ask of one. */
 function fakeMap({ zoom = 5, minZoom = 2, maxZoom = 22 } = {}) {
     const listeners = new Set<() => void>();
     const container = document.createElement("div");
@@ -37,8 +39,8 @@ function fakeMap({ zoom = 5, minZoom = 2, maxZoom = 22 } = {}) {
         getContainer: () => container,
         zoomIn: vi.fn(() => setZoom(zoom + 1)),
         zoomOut: vi.fn(() => setZoom(zoom - 1)),
-        /** The map being zoomed by something other than these buttons — the wheel, or a pinch. */
-        zoomTo: setZoom,
+        /** The map being zoomed to a level outright — the readout's reset, or a restored view. */
+        zoomTo: vi.fn(setZoom),
         on: (event: string, listener: () => void) => { if (event === "zoom") listeners.add(listener); },
         off: (event: string, listener: () => void) => { if (event === "zoom") listeners.delete(listener); },
         get listenerCount() { return listeners.size; }
@@ -56,7 +58,7 @@ beforeEach(() => {
     document.exitFullscreen = vi.fn(async () => {});
 });
 
-/** Builds the bar over a map and settles it, so that it is listening before it is spoken to. */
+/** Builds the controls over a map and settles them, so they are listening before being spoken to. */
 function renderToolbar(map: ReturnType<typeof fakeMap> | null) {
     let container: HTMLElement | undefined;
     act(() => {
@@ -71,7 +73,7 @@ function renderToolbar(map: ReturnType<typeof fakeMap> | null) {
 }
 
 function buttons(container: HTMLElement) {
-    return [ ...container.querySelectorAll<HTMLButtonElement>(".tn-overlay-toolbar button") ];
+    return [ ...container.querySelectorAll<HTMLButtonElement>(".tn-overlay-control-group button") ];
 }
 
 function press(container: HTMLElement, index: number) {
@@ -79,12 +81,13 @@ function press(container: HTMLElement, index: number) {
 }
 
 describe("geo map MapToolbar", () => {
-    it("offers what the map's own controls did, in one row", () => {
+    it("offers what the map's own controls did, laid out as the image viewer's group", () => {
         const container = renderToolbar(fakeMap());
 
         expect(buttons(container).map((button) => button.className)).toEqual([
-            expect.stringContaining("bx-zoom-in"),
-            expect.stringContaining("bx-zoom-out"),
+            expect.stringContaining("bx-minus-circle"),
+            expect.stringContaining("tn-overlay-text-button"),
+            expect.stringContaining("bx-plus-circle"),
             expect.stringContaining("bx-fullscreen")
         ]);
     });
@@ -104,6 +107,26 @@ describe("geo map MapToolbar", () => {
 
         press(container, ZOOM_OUT);
         expect(map.zoomOut).toHaveBeenCalled();
+    });
+
+    it("says how close in the map is, following the wheel as much as the buttons", () => {
+        const map = fakeMap({ zoom: 5 });
+        const container = renderToolbar(map);
+        expect(buttons(container)[ZOOM_LEVEL].textContent).toBe("5.0");
+
+        // As the wheel or a pinch would.
+        act(() => map.zoomTo(12.5));
+
+        expect(buttons(container)[ZOOM_LEVEL].textContent).toBe("12.5");
+    });
+
+    it("takes the map back out to the whole world when the readout is pressed", () => {
+        const map = fakeMap({ zoom: 15 });
+        const container = renderToolbar(map);
+
+        press(container, ZOOM_LEVEL);
+
+        expect(map.zoomTo).toHaveBeenCalledWith(DEFAULT_ZOOM);
     });
 
     it("disables the step that would carry the map past the range it is allowed", () => {
@@ -159,7 +182,7 @@ describe("geo map MapToolbar", () => {
         const container = renderToolbar(map);
         expect(map.listenerCount).toBe(1);
 
-        // A map torn down under a bar that stayed behind would go on being reported to.
+        // A map torn down under controls that stayed behind would go on being reported to.
         act(() => { render(null, container); });
 
         expect(map.listenerCount).toBe(0);

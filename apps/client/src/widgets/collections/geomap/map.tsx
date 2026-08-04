@@ -19,6 +19,10 @@ export interface GeoMouseEvent {
 
 export const ParentMap = createContext<MapLibreGLMap | null>(null);
 
+/** The zoom a map opens at where no view has been saved: far enough out to see the whole world.
+ *  Also what the zoom readout returns the map to when pressed (see {@link MapToolbar}). */
+export const DEFAULT_ZOOM = 2;
+
 /**
  * Whether the map's style has finished loading, and so whether a source or a layer can be added to it.
  *
@@ -187,7 +191,7 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
         });
 
         // No navigation control of MapLibre's own: the zoom buttons are Trilium's (see MapToolbar),
-        // dressed as every other bar standing over a canvas in the app. No compass either — nothing
+        // dressed as the image viewer's zoom controls are. No compass either — nothing
         // here persists a bearing, so the button would offer to undo a rotation the map never
         // remembers.
         setMap(mapInstance);

@@ -1,21 +1,36 @@
 /*
- * The bar stands in the bottom corner, where every other bar floating over content in the app stands
- * — the mind map's own (see MapToolbar.css there), the relation map's zoom buttons — rather than in
- * the top corner MapLibre keeps its zoom buttons in. The corner is the map's to give: its attribution
+ * The controls stand in the bottom corner, where every other set of zoom controls floating over
+ * content in the app stands — the image viewer's, whose control group this is — rather than in the
+ * top corner MapLibre keeps its zoom buttons in. The corner is the map's to give: its attribution
  * has been moved to the foot of the other side, beside the scale (see map.tsx).
  *
  * Held off the edges by as much as everything else standing over the map is, which is settled for
- * both in index.css, so the bar and the scale opposite it stand on the same line.
+ * both in index.css, so the group and the scale opposite it stand on the same line.
  *
  * Above the canvas whatever order the two end up in: MapLibre builds its part of the container
  * itself, so what Preact renders alongside is not reliably the later sibling. The number clears
  * MapLibre's own control corners, which sit at 2.
  */
 .geo-map-container .geo-map-toolbar {
+    position: absolute;
     bottom: var(--geo-map-inset);
     inset-inline-end: var(--geo-map-inset);
     z-index: 3;
+
+    /* Dressed in the set the map's furniture shares, handed over under the names the control group
+       reads (see the overlay buttons in theme-next/forms.css) — the palette itself is settled in
+       index.css, which is also where a dark map darkens it. The hover pair has no overlay-button
+       name of its own, so the group's is asked for directly. */
+    --overlay-button-background: var(--geo-map-panel-background);
+    --overlay-button-color: var(--geo-map-panel-text-color);
+    --overlay-button-backdrop-filter: var(--dropdown-backdrop-filter, blur(10px));
+    --opaque-icon-button-hover-background-color: var(--geo-map-panel-hover-background);
+    --opaque-icon-button-hover-color: var(--geo-map-panel-hover-text-color);
 }
 
-/* The bar is dressed in the set the map's furniture shares, handed over once for every bar standing
-   over this map — see the palette handoff in index.css, which is also where a dark map darkens it. */
+/* A button that would do nothing says as much rather than merely failing to answer — the group's
+   own styling leaves a disabled button looking ready (see OverlayToolbar.css for the same rule). */
+.geo-map-container .geo-map-toolbar button:disabled {
+    opacity: .4;
+    pointer-events: none;
+}

@@ -22,14 +22,13 @@ import DetailPane, { PaneSelection } from "./DetailPane";
 import EditToolbar from "./EditToolbar";
 import GhostPin from "./GhostPin";
 import { GpxTrack } from "./GpxTrack";
-import Map, { GeoMouseEvent } from "./map";
+import Map, { DEFAULT_ZOOM, GeoMouseEvent } from "./map";
 import { DEFAULT_MAP_LAYER_NAME, MAP_LAYERS, MapLayer } from "./map_layer";
 import MapToolbar from "./MapToolbar";
 import Markers, { LOCATION_ATTRIBUTE } from "./Markers";
 import Tooltips from "./Tooltips";
 
 const DEFAULT_COORDINATES: [number, number] = [3.878638227135724, 446.6630455551659];
-const DEFAULT_ZOOM = 2;
 
 /**
  * The instruction toast that says what the map is waiting for. One id for both kinds of placement:
