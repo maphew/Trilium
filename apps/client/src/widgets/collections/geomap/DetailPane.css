@@ -133,9 +133,11 @@
     align-items: center;
     gap: 4px;
 
-    /* The one thing in the row that writes rather than reads stands apart from the four being
-       reached for repeatedly, so the pointer cannot land on it by being a moment early. */
-    .geo-detail-pane-remove {
+    /* The two that write rather than read stand apart from the four being reached for repeatedly, so
+       the pointer cannot land on one of them by being a moment early. The gap falls before the first
+       of the pair, which is the move: both are drawn together or not at all, a read-only map having
+       neither. */
+    .geo-detail-pane-move {
         margin-inline-start: auto;
     }
 }

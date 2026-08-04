@@ -112,6 +112,7 @@ describe("DetailPane", () => {
             openContextWithNote: async () => undefined
         };
         editorAskedToSave.mockClear();
+        onRelocate.mockClear();
     });
 
     afterEach(() => {
@@ -135,13 +136,16 @@ describe("DetailPane", () => {
             render(
                 <ParentComponent.Provider value={mapComponent as Component}>
                     <ParentMap.Provider value={map as never}>
-                        <DetailPane notes={notes} placing={placing} isReadOnly={isReadOnly} />
+                        <DetailPane notes={notes} placing={placing} isReadOnly={isReadOnly} onRelocate={onRelocate} />
                     </ParentMap.Provider>
                 </ParentComponent.Provider>,
                 container as HTMLElement
             );
         });
     }
+
+    /** Arming the map for the next click to be where the marker goes, which the map owns (index.tsx). */
+    const onRelocate = vi.fn();
 
     /** Lets the pane's note context resolve its path and announce the note it landed on. */
     async function settle() {
@@ -432,6 +436,47 @@ describe("DetailPane", () => {
         await settle();
 
         expect(pane()?.querySelector(".promoted-attribute-cell")).toBeNull();
+    });
+
+    describe("moving the marker", () => {
+        function moveButton() {
+            return container?.querySelector<HTMLButtonElement>(".geo-detail-pane-actions button.bx-move") ?? null;
+        }
+
+        /**
+         * The map is armed rather than the marker dragged, and the pane goes away while it waits: the
+         * click that names the new place has to land on the map, and the pane covers the part of it
+         * nearest the marker.
+         */
+        it("arms the map for the next click and stands down", async () => {
+            const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+            const map = fakeMap();
+
+            await mount([ note ], map);
+            map.setUnderPointer([ markerFeature(note) ]);
+            await act(async () => map.click());
+            await settle();
+
+            await act(async () => { moveButton()?.click(); });
+
+            // The arming belongs to the map, which alone knows what the next click on it is for.
+            expect(onRelocate).toHaveBeenCalledWith(note.noteId);
+            expect(pane()).toBeNull();
+            // Going away this way is still a close, so whatever was being written is saved first.
+            expect(editorAskedToSave).toHaveBeenCalledWith({ ntxIds: [ "_geo-detail-pane" ] });
+        });
+
+        it("is not offered at all on a map that cannot be edited", async () => {
+            const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+            const map = fakeMap();
+
+            await mount([ note ], map, false, true);
+            map.setUnderPointer([ markerFeature(note) ]);
+            await act(async () => map.click());
+
+            expect(pane()).toBeTruthy();
+            expect(moveButton()).toBeNull();
+        });
     });
 
     describe("taking the marker off the map", () => {

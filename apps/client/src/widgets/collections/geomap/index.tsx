@@ -208,7 +208,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
             >
                 <MapToolbar />
                 <Tooltips />
-                <DetailPane notes={notes} placing={!!placement} isReadOnly={isReadOnly} />
+                <DetailPane notes={notes} placing={!!placement} isReadOnly={isReadOnly} onRelocate={startMarkerRelocation} />
                 <ContextMenus note={note} isReadOnly={isReadOnly} onRelocate={startMarkerRelocation} />
                 {/* The pane above is what a click on a marker opens now, so the markers no longer
                     open the note themselves — the two would otherwise both answer the same click,

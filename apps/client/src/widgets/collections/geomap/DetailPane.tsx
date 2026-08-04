@@ -27,12 +27,14 @@ import { LOCATION_ATTRIBUTE, MARKER_LAYER, parseLocation } from "./Markers";
  * pane outside it would leave the screen. It reads as a dock because the map keeps out of its way
  * (see {@link paneOffset}).
  */
-export default function DetailPane({ notes, placing, isReadOnly }: {
+export default function DetailPane({ notes, placing, isReadOnly, onRelocate }: {
     notes: FNote[];
     /** A marker is being placed, which is what the next click on the map is for. */
     placing: boolean;
     /** The map may not be edited, which leaves the pane the ways of opening a note and no more. */
     isReadOnly: boolean;
+    /** Arms this map for the selected marker to be put somewhere else, the next click being where. */
+    onRelocate: (noteId: string) => void;
 }) {
     const map = useContext(ParentMap);
     const [ selectedNoteId, setSelectedNoteId ] = useState<string | null>(null);
@@ -56,6 +58,20 @@ export default function DetailPane({ notes, placing, isReadOnly }: {
         void paneComponent.handleEventInChildren("beforeNoteContextRemove", { ntxIds: [ PANE_NTX_ID ] });
         setSelectedNoteId(null);
     }, [ paneComponent ]);
+
+    /**
+     * Arms the map for this marker to be put somewhere else, and stands the pane down while it waits.
+     *
+     * The pane goes because the click that names the new place has to land on the map, and the pane
+     * covers the part of it nearest the marker — leaving it up would put the likeliest destinations
+     * out of reach. What the map is waiting for is said by the instruction toast instead (see
+     * index.tsx), which is where the same arming from the right-click menu says it too.
+     */
+    const relocate = useCallback(() => {
+        if (!note) return;
+        closePane();
+        onRelocate(note.noteId);
+    }, [ note, closePane, onRelocate ]);
 
     // A note no longer on the map takes the pane with it. Its location may merely have been cleared
     // — which is all "remove from map" does — so the note being gone is not the only case.
@@ -113,7 +129,7 @@ export default function DetailPane({ notes, placing, isReadOnly }: {
         // TitleRow), and answers to the pane's own component rather than the map's (see below).
         <ParentComponent.Provider value={paneComponent}>
             <NoteContextContext.Provider value={noteContext}>
-                <MarkerDetails note={note} isReadOnly={isReadOnly} onClose={closePane} />
+                <MarkerDetails note={note} isReadOnly={isReadOnly} onClose={closePane} onRelocate={relocate} />
             </NoteContextContext.Provider>
         </ParentComponent.Provider>
     );
@@ -147,7 +163,7 @@ function paneOffset(map: MapLibreGLMap): [number, number] {
 }
 
 /** The pane itself, for a marker there is one to draw. */
-function MarkerDetails({ note, isReadOnly, onClose }: { note: FNote; isReadOnly: boolean; onClose(): void }) {
+function MarkerDetails({ note, isReadOnly, onClose, onRelocate }: { note: FNote; isReadOnly: boolean; onClose(): void; onRelocate(): void }) {
     return (
         <OverlayPanel
             className="geo-detail-pane"
@@ -155,7 +171,7 @@ function MarkerDetails({ note, isReadOnly, onClose }: { note: FNote; isReadOnly:
             close={{ text: t("geo-map.close-details"), onClick: onClose }}
         >
             <OverlayPanelBody className="geo-detail-pane-body">
-                <MarkerActions note={note} isReadOnly={isReadOnly} />
+                <MarkerActions note={note} isReadOnly={isReadOnly} onRelocate={onRelocate} />
 
                 {/* Whatever fields the note's own definitions ask for, ahead of the note as the quick
                     editor puts them — a marker is often a note whose type says less about it than
@@ -238,7 +254,7 @@ function usePaneNoteContext(note: FNote | undefined) {
  * The quick editor is deliberately absent: it is what a click on a marker used to raise, and the
  * pane took that click over — offering it here would put a modal back over the pane that replaced it.
  */
-function MarkerActions({ note, isReadOnly }: { note: FNote; isReadOnly: boolean }) {
+function MarkerActions({ note, isReadOnly, onRelocate }: { note: FNote; isReadOnly: boolean; onRelocate(): void }) {
     const [ location ] = useNoteLabel(note, LOCATION_ATTRIBUTE);
     const hoistedNoteId = appContext.tabManager.getActiveContext()?.hoistedNoteId;
     // A path rather than an id: a note may hang in several places, and each of these opens a path.
@@ -278,9 +294,19 @@ function MarkerActions({ note, isReadOnly }: { note: FNote; isReadOnly: boolean 
                 disabled={!latLng}
             />
 
-            {/* Left out rather than disabled on a read-only map, as the right-click menu leaves it
-                out: everything else in the row reads the note, this alone writes it. */}
-            {!isReadOnly && (
+            {/* Left out rather than disabled on a read-only map, as the right-click menu leaves them
+                out: everything else in the row reads the note, these two alone write it. */}
+            {!isReadOnly && <>
+                <ActionButton
+                    className="geo-detail-pane-move"
+                    icon="bx bx-move"
+                    text={t("geo-map-context.move-marker")}
+                    // The marker is put somewhere else by being placed again rather than dragged: the
+                    // notes are drawn into one symbol layer, not an element apiece, so there is
+                    // nothing on the map to take hold of.
+                    onClick={onRelocate}
+                />
+
                 <ActionButton
                     className="geo-detail-pane-remove"
                     icon="bx bx-trash"
@@ -292,7 +318,7 @@ function MarkerActions({ note, isReadOnly }: { note: FNote; isReadOnly: boolean 
                     // map would take the same note off in turn.
                     onClick={() => void moveMarker(note.noteId, null)}
                 />
-            )}
+            </>}
         </div>
     );
 }
