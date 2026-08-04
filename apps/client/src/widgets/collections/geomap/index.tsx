@@ -186,6 +186,10 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
 
 function useLayerData(note: FNote) {
     const [ layerName ] = useNoteLabel(note, "map:style");
+    // Whether the style is a dark one, which decides how a marker's title is drawn over it (see
+    // Markers). Only the style itself can say, and a style named by URL says nothing to us: it is
+    // fetched by the map, and its tiles are pictures besides. So the note is asked instead.
+    const [ isDarkStyle ] = useNoteLabelBoolean(note, "map:darkStyle");
     // Memo is needed because it would generate unnecessary reloads due to layer change.
     const layerData = useMemo(() => {
         // Custom layers.
@@ -194,14 +198,17 @@ function useLayerData(note: FNote) {
                 name: "Custom",
                 type: "raster",
                 url: layerName,
-                attribution: ""
+                attribution: "",
+                isDarkTheme: isDarkStyle
             } satisfies MapLayer;
         }
 
-        // Built-in layers.
+        // Built-in layers, which declare it for themselves. The label is still honoured over one, so
+        // that setting it does something wherever it is set; it can only ever say that a style is
+        // dark, never that it is light, so a built-in dark style keeps its own answer either way.
         const layerData = MAP_LAYERS[layerName ?? ""] ?? MAP_LAYERS[DEFAULT_MAP_LAYER_NAME];
-        return layerData;
-    }, [ layerName ]);
+        return isDarkStyle ? { ...layerData, isDarkTheme: true } : layerData;
+    }, [ layerName, isDarkStyle ]);
 
     return layerData;
 }

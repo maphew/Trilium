@@ -175,6 +175,7 @@ export const ATTR_HELP: AttrHelpMap = {
         geolocation: t("attribute_detail.geolocation"),
         mapType: t("attribute_detail.map_type"),
         "map:style": t("attribute_detail.map_style"),
+        "map:darkStyle": t("attribute_detail.map_dark_style"),
         "map:scale": t("attribute_detail.map_scale"),
         "map:hideLabels": t("attribute_detail.map_hide_labels"),
         "map:cluster": t("attribute_detail.map_cluster"),
