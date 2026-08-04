@@ -32,13 +32,13 @@ export const MARKER_HEIGHT = 41;
  * reads as a grey box behind the pin rather than as a shadow. Wide enough for the blur (about three
  * times its deviation) plus the distance it is pushed down.
  */
-const MARKER_SHADOW_PADDING = 6;
+export const MARKER_SHADOW_PADDING = 6;
 const MARKER_ICON_SIZE = 20;
 // Centred on the pin's round head, which is a circle of the pin's own width sitting at the top.
 const MARKER_ICON_X = (MARKER_WIDTH - MARKER_ICON_SIZE) / 2;
 const MARKER_ICON_Y = (MARKER_WIDTH - MARKER_ICON_SIZE) / 2;
 
-const LABEL_LAYOUT: Extract<AddLayerObject, { type: "symbol" }>["layout"] = {
+export const LABEL_LAYOUT: Extract<AddLayerObject, { type: "symbol" }>["layout"] = {
     "text-field": [ "get", "name" ],
     "text-font": [ "Open Sans Regular" ],
     "text-size": 12,
@@ -538,14 +538,16 @@ export function formatLocation([ lng, lat ]: [number, number], precision = 6) {
     return `${lat.toFixed(precision)}, ${lng.toFixed(precision)}`;
 }
 
-function markerImageId(color: string, iconClass: string) {
+export function markerImageId(color: string, iconClass: string) {
     return `marker|${color}|${iconClass}`;
 }
 
 /** What has been rasterized already, since the same few pins are asked for over and over. */
 const markerImages = new Map<string, Promise<HTMLImageElement | null>>();
 
-function buildMarkerImage(color: string, iconClass: string) {
+/** The pin for a colour and icon, through the cache — what everything stamping pins should call,
+ *  the GPX marks included (see GpxTrack), so a map never draws the same pin twice. */
+export function buildMarkerImage(color: string, iconClass: string) {
     const id = markerImageId(color, iconClass);
 
     let image = markerImages.get(id);

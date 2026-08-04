@@ -5,13 +5,10 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks"
 
 import FNote from "../../../entities/fnote";
 import branches from "../../../services/branches";
-import { getReadableTextColor } from "../../../services/css_class_manager";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
-import { renderIconImage } from "../../../services/icon_glyphs";
 import server from "../../../services/server";
 import toast from "../../../services/toast";
-import { escapeHtml } from "../../../services/utils";
 import CollectionProperties from "../../note_bars/CollectionProperties";
 import ActionButton from "../../react/ActionButton";
 import { useCollectionTreeDrag, useNoteBlob, useNoteLabel, useNoteLabelBoolean, useNoteProperty, useSpacedUpdate, useTriliumEvent } from "../../react/hooks";
@@ -25,7 +22,7 @@ import { GPX_MIME, GpxTrack } from "./GpxTrack";
 import Map, { DEFAULT_ZOOM, GeoMouseEvent } from "./map";
 import { DEFAULT_MAP_LAYER_NAME, MAP_LAYERS, MapLayer } from "./map_layer";
 import MapToolbar from "./MapToolbar";
-import Markers, { LOCATION_ATTRIBUTE } from "./Markers";
+import Markers, { DEFAULT_MARKER_COLOR, LOCATION_ATTRIBUTE } from "./Markers";
 import Tooltips from "./Tooltips";
 
 const DEFAULT_COORDINATES: [number, number] = [3.878638227135724, 446.6630455551659];
@@ -358,118 +355,24 @@ function NoteGpxTrack({ note, hideLabels, isDarkTheme }: { note: FNote, hideLabe
     }, [ blob ]);
 
     // React to changes
-    const color = useNoteLabel(note, "color");
+    const [ color ] = useNoteLabel(note, "color");
     useNoteLabel(note, "iconClass");
     // The line is named after the note along its whole length, so a note being renamed has to reach
     // the map rather than leaving the old name written across the track.
     const title = useNoteProperty(note, "title") ?? "";
 
-    const trackColor = useMemo(() => note.getLabelValue("color") ?? "blue", [ color ]);
-    const startIconHtml = useIconHtml(note.getIcon(), note.getColorClass() ?? undefined, hideLabels ? undefined : title);
-    const endIconHtml = useIconHtml("bx bxs-flag-checkered");
-    const waypointIconHtml = useIconHtml("bx bx-pin");
-
     return xmlString && <GpxTrack
         noteId={note.noteId}
         title={title}
         gpxXmlString={xmlString}
-        trackColor={trackColor}
-        startIconHtml={startIconHtml}
-        endIconHtml={endIconHtml}
-        waypointIconHtml={waypointIconHtml}
+        trackColor={color ?? "blue"}
+        // The colour and icon rather than anything built from them: the marks are rasterized into
+        // the track's own symbol layer through the shared pin rasterizer (see GpxTrack), so the
+        // start of a track wears exactly the pin its note would wear as a marker.
+        pinColor={color ?? DEFAULT_MARKER_COLOR}
+        iconClass={note.getIcon()}
         isDarkTheme={isDarkTheme}
         hideLabels={hideLabels}
     />;
-}
-
-/** The pin shape, filled with whatever colour the note asks for. Replaces the Leaflet marker PNG. */
-function buildMarkerSvg(color: string) {
-    return `<svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg">` +
-        `<path d="M12.5 0C5.6 0 0 5.6 0 12.5C0 21.9 12.5 41 12.5 41S25 21.9 25 12.5C25 5.6 19.4 0 12.5 0Z" fill="${escapeHtml(color)}" />` +
-        `</svg>`;
-}
-
-/** What a pin is filled with where its note asks for no colour of its own. */
-const DEFAULT_MARKER_COLOR = "#2A81CB";
-
-/** The size the icon is drawn at, matching the font size the CSS-styled span used. */
-const MARKER_ICON_SIZE = 17;
-
-/**
- * The marker HTML for {@link buildIconHtml}, built asynchronously because the icon inside it is
- * drawn through the shared icon-rendering service. Undefined until the first build resolves; the
- * service caches each icon/colour pair, so every marker after the first with the same icon gets
- * its HTML in a single tick.
- */
-function useIconHtml(iconClass: string, colorClass?: string, title?: string, noteIdLink?: string, archived?: boolean) {
-    const [ html, setHtml ] = useState<string>();
-
-    useEffect(() => {
-        let cancelled = false;
-        buildIconHtml(iconClass, colorClass, title, noteIdLink, archived).then((result) => {
-            if (!cancelled) {
-                setHtml(result);
-            }
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, [ iconClass, colorClass, title, noteIdLink, archived ]);
-
-    return html;
-}
-
-async function buildIconHtml(iconClass: string, colorClass?: string, title?: string, noteIdLink?: string, archived?: boolean) {
-    // The note's colour fills the pin, as it does for the note markers drawn into the symbol layer,
-    // and the icon is cut out of it in whichever of black or white stands out against that.
-    const pinColor = resolveNoteColor(colorClass) ?? DEFAULT_MARKER_COLOR;
-
-    // Drawn as a picture through the shared icon service (icon_glyphs.ts) rather than styled by
-    // CSS, so the marker renders any icon pack's icon the way the rest of the app draws it. A
-    // class the service cannot resolve falls back to the CSS-styled span.
-    //
-    // The class is passed on whole, as callers give it — a complete one, family and all. The
-    // service resolves a class by wearing it and reading back what the stylesheet made of it, so
-    // every class handed over is one more voice in that cascade: a `bx` of our own would have the
-    // built-in pack's font competing with the pack the icon actually belongs to.
-    const image = await renderIconImage(iconClass, {
-        size: MARKER_ICON_SIZE,
-        color: getReadableTextColor(pinColor)
-    });
-    const icon = image
-        ? `<img class="tn-icon" src="${image}" alt="" />`
-        : `<span class="${escapeHtml(iconClass)} tn-icon"></span>`;
-
-    let html = /*html*/`\
-        <div class="marker-pin">${buildMarkerSvg(pinColor)}</div>
-        ${icon}
-        <span class="title-label">${escapeHtml(title ?? "")}</span>`;
-
-    if (noteIdLink) {
-        html = `<div data-href="#root/${escapeHtml(noteIdLink)}" class="${archived ? "archived" : ""}">${html}</div>`;
-    }
-
-    return html;
-}
-
-/**
- * The concrete colour a note's colour class stands for — the light-theme variant, the same value
- * the CSS-styled span used to read from `--light-theme-custom-color`, or `null` for a note that
- * asks for no colour. Only the stylesheet knows the adjusted value, so it is read off an element
- * wearing the class, the way the icon service reads its glyphs.
- */
-function resolveNoteColor(colorClass?: string) {
-    if (!colorClass) {
-        return null;
-    }
-
-    const probe = document.createElement("span");
-    probe.className = colorClass;
-    document.body.appendChild(probe);
-    try {
-        return getComputedStyle(probe).getPropertyValue("--light-theme-custom-color").trim() || null;
-    } finally {
-        probe.remove();
-    }
 }
 
