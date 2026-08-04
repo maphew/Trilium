@@ -1,7 +1,7 @@
 import "./DetailPane.css";
 
 import type { Map as MapLibreGLMap, MapMouseEvent } from "maplibre-gl";
-import { useContext, useEffect, useState } from "preact/hooks";
+import { useCallback, useContext, useEffect, useState } from "preact/hooks";
 
 import appContext from "../../../components/app_context";
 import Component from "../../../components/component";
@@ -10,10 +10,13 @@ import FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
 import link from "../../../services/link";
 import TitleRow from "../../layout/TitleRow";
+import NoteDetail from "../../NoteDetail";
 import ActionButton from "../../react/ActionButton";
 import { useNoteLabel } from "../../react/hooks";
 import OverlayPanel, { OverlayPanelBody } from "../../react/OverlayPanel";
 import { NoteContextContext, ParentComponent } from "../../react/react_utils";
+import StandaloneRibbonAdapter from "../../ribbon/components/StandaloneRibbonAdapter";
+import FormattingToolbar, { showFormattingToolbar } from "../../ribbon/FormattingToolbar";
 import { moveMarker } from "./api";
 import { ParentMap } from "./map";
 import { LOCATION_ATTRIBUTE, MARKER_LAYER, parseLocation } from "./Markers";
@@ -36,14 +39,32 @@ export default function DetailPane({ notes, placing, isReadOnly }: {
     const [ selectedNoteId, setSelectedNoteId ] = useState<string | null>(null);
     const note = notes.find((note) => note.noteId === selectedNoteId);
     const [ location ] = useNoteLabel(note, LOCATION_ATTRIBUTE);
+    const { noteContext, paneComponent } = usePaneNoteContext(note);
+
+    /**
+     * Lets the pane go, having given whatever is being edited in it the chance to save.
+     *
+     * Switching from one marker to another needs no such thing: that is a note switch within the
+     * pane, and the context announces it. Closing announces nothing at all — the widgets are simply
+     * unmounted — so the event a note context is removed under is raised here in its place, which is
+     * what the editors are listening for (see the spaced updates in hooks.tsx).
+     *
+     * Raised but not waited on: the save is under way by the time the call returns, and a request
+     * already in flight does not care that what started it has gone. Waiting would hold the pane
+     * open for a round trip to the server every time it was closed with something unsaved in it.
+     */
+    const closePane = useCallback(() => {
+        void paneComponent.handleEventInChildren("beforeNoteContextRemove", { ntxIds: [ PANE_NTX_ID ] });
+        setSelectedNoteId(null);
+    }, [ paneComponent ]);
 
     // A note no longer on the map takes the pane with it. Its location may merely have been cleared
     // — which is all "remove from map" does — so the note being gone is not the only case.
     useEffect(() => {
         if (selectedNoteId && (!note || !parseLocation(location))) {
-            setSelectedNoteId(null);
+            void closePane();
         }
-    }, [ selectedNoteId, note, location ]);
+    }, [ selectedNoteId, note, location, closePane ]);
 
     // A marker selects, anywhere else clears. Read off the rendered layer rather than bound to it
     // (`map.on("click", MARKER_LAYER, ...)`) so one handler answers both, with no ordering to rely on.
@@ -53,7 +74,7 @@ export default function DetailPane({ notes, placing, isReadOnly }: {
         const onClick = (e: MapMouseEvent) => {
             const feature = map.queryRenderedFeatures(e.point, { layers: [ MARKER_LAYER ] })[0];
             if (!feature || feature.geometry.type !== "Point") {
-                setSelectedNoteId(null);
+                void closePane();
                 return;
             }
 
@@ -66,7 +87,7 @@ export default function DetailPane({ notes, placing, isReadOnly }: {
 
         map.on("click", onClick);
         return () => { map.off("click", onClick); };
-    }, [ map, placing ]);
+    }, [ map, placing, closePane ]);
 
     // Bound only while something is selected, so the map's other Escape — giving up on placing a
     // marker (see index.tsx) — stands alone when nothing is.
@@ -75,20 +96,28 @@ export default function DetailPane({ notes, placing, isReadOnly }: {
 
         const onKeyDown = (e: KeyboardEvent) => {
             if (e.key === "Escape") {
-                setSelectedNoteId(null);
+                void closePane();
             }
         };
         // Captured, not bubbled: the panel stops key presses made inside it from reaching the map
         // underneath (see OverlayPanel), which would stop them reaching this listener too.
         window.addEventListener("keydown", onKeyDown, true);
         return () => window.removeEventListener("keydown", onKeyDown, true);
-    }, [ selectedNoteId ]);
+    }, [ selectedNoteId, closePane ]);
 
     if (!note) {
         return null;
     }
 
-    return <MarkerDetails note={note} isReadOnly={isReadOnly} onClose={() => setSelectedNoteId(null)} />;
+    return (
+        // What the pane holds reads the note out of the context rather than being handed one (see
+        // TitleRow), and answers to the pane's own component rather than the map's (see below).
+        <ParentComponent.Provider value={paneComponent}>
+            <NoteContextContext.Provider value={noteContext}>
+                <MarkerDetails note={note} isReadOnly={isReadOnly} onClose={closePane} />
+            </NoteContextContext.Provider>
+        </ParentComponent.Provider>
+    );
 }
 
 /** Must agree with `--geo-detail-pane-width` in DetailPane.css. */
@@ -120,24 +149,23 @@ function paneOffset(map: MapLibreGLMap): [number, number] {
 
 /** The pane itself, for a marker there is one to draw. */
 function MarkerDetails({ note, isReadOnly, onClose }: { note: FNote; isReadOnly: boolean; onClose(): void }) {
-    const { noteContext, paneComponent } = usePaneNoteContext(note);
-
     return (
-        // What the pane holds reads the note out of the context rather than being handed one (see
-        // TitleRow), and answers to the pane's own component rather than the map's (see below).
-        <ParentComponent.Provider value={paneComponent}>
-            <NoteContextContext.Provider value={noteContext}>
-                <OverlayPanel
-                    className="geo-detail-pane"
-                    header={<TitleRow compact />}
-                    close={{ text: t("geo-map.close-details"), onClick: onClose }}
-                >
-                    <OverlayPanelBody>
-                        <MarkerActions note={note} isReadOnly={isReadOnly} />
-                    </OverlayPanelBody>
-                </OverlayPanel>
-            </NoteContextContext.Provider>
-        </ParentComponent.Provider>
+        <OverlayPanel
+            className="geo-detail-pane"
+            header={<TitleRow compact />}
+            close={{ text: t("geo-map.close-details"), onClick: onClose }}
+        >
+            <OverlayPanelBody className="geo-detail-pane-body">
+                <MarkerActions note={note} isReadOnly={isReadOnly} />
+
+                {/* The note itself, drawn by whichever widget its type calls for — the same one the
+                    quick editor mounts, so a marker is written in exactly as it is anywhere else.
+                    The toolbar is the editor's own, lifted out of it by the ribbon component the
+                    quick editor borrows for the same reason. */}
+                <StandaloneRibbonAdapter component={FormattingToolbar} show={showFormattingToolbar} />
+                <NoteDetail />
+            </OverlayPanelBody>
+        </OverlayPanel>
     );
 }
 
@@ -151,7 +179,7 @@ const PANE_NTX_ID = "_geo-detail-pane";
  * One context for the pane rather than one per marker: moving between markers is a note switch
  * within a standing pane, not a new pane.
  */
-function usePaneNoteContext(note: FNote) {
+function usePaneNoteContext(note: FNote | undefined) {
     const parentComponent = useContext(ParentComponent);
     const [ noteContext ] = useState(() => new NoteContext(PANE_NTX_ID));
     // Stands between the map's component and the pane's contents. See below for why.
@@ -181,10 +209,17 @@ function usePaneNoteContext(note: FNote) {
     }, [ noteContext, paneComponent ]);
 
     useEffect(() => {
+        if (!note) return;
+
         const notePath = note.getBestNotePathString(appContext.tabManager.getActiveContext()?.hoistedNoteId);
-        // Selecting a marker is not the kind of navigation that should dismiss an open dialog.
-        void noteContext.setNote(notePath, { keepActiveDialog: true });
-    }, [ noteContext, note.noteId ]);
+        void noteContext.setNote(notePath, {
+            // Selecting a marker is not the kind of navigation that should dismiss an open dialog.
+            keepActiveDialog: true,
+            // A note held read-only only because of its size is editable here, as it is in the quick
+            // editor; one the reader has marked read-only stays that way.
+            viewScope: { readOnlyTemporarilyDisabled: !note.hasLabel("readOnly") }
+        });
+    }, [ noteContext, note?.noteId ]);
 
     return { noteContext, paneComponent };
 }

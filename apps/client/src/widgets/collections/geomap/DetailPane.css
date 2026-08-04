@@ -43,6 +43,40 @@
 }
 
 /*
+ * The pane's one body: the row of actions, then the note itself. A column so that the note takes
+ * whatever the row above leaves, however tall the pane happens to be.
+ */
+.geo-map-container .geo-detail-pane .geo-detail-pane-body {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/*
+ * The note fills the rest of the pane rather than ending where its content does, so that clicking
+ * below a short note still puts the caret in it — as it does in a note of its own.
+ */
+.geo-map-container .geo-detail-pane .note-detail {
+    flex: 1;
+    /* Written for a note split, where the split hands it one; there is no split here, and an unset
+       `--max-content-width` would leave `max-width` invalid rather than absent. */
+    max-width: none;
+    /* Without it a flex item refuses to shrink past its content, and a long note stops scrolling. */
+    min-height: 0;
+}
+
+/*
+ * The editor's own toolbar, lifted out of it by the ribbon component. It is built for the width of a
+ * note and this pane has a third of that, so it is left to scroll sideways rather than to push the
+ * pane wider or spill over its edge.
+ */
+.geo-map-container .geo-detail-pane .classic-toolbar-outer-container {
+    flex-shrink: 0;
+    overflow-x: auto;
+    background-color: transparent;
+}
+
+/*
  * The ways of opening the note, at the head of the pane. Named by tooltips rather than labels, as
  * every other row of actions in a panel is: labels would wrap four buttons onto two lines here.
  */

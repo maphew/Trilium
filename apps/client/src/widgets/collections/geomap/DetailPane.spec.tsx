@@ -9,6 +9,7 @@ import attributes from "../../../services/attributes";
 import froca from "../../../services/froca";
 import link from "../../../services/link";
 import { buildNote } from "../../../test/easy-froca";
+import { useNoteContext, useTriliumEvent } from "../../react/hooks";
 import { ParentComponent } from "../../react/react_utils";
 import DetailPane from "./DetailPane";
 import { ParentMap } from "./map";
@@ -20,6 +21,23 @@ vi.mock("../../../components/note_context", async (importOriginal) => ({
     ...(await importOriginal<object>()),
     openInCurrentNoteContext: (...args: unknown[]) => openInCurrentNoteContext(...args)
 }));
+
+/**
+ * The note's own editor, which has a spec of its own and drags the whole app in with it. What
+ * matters here is that the pane mounts it under a context it can read, and tells it to save before
+ * going away — so the stand-in listens for exactly what a real editor listens for.
+ */
+const editorAskedToSave = vi.fn();
+vi.mock("../../NoteDetail", () => ({
+    default: () => {
+        const { note } = useNoteContext();
+        useTriliumEvent("beforeNoteContextRemove", editorAskedToSave);
+        return <div className="note-detail-stub">{note?.title}</div>;
+    }
+}));
+
+// The formatting toolbar reaches for the editor it belongs to, which the stand-in above is not.
+vi.mock("../../ribbon/components/StandaloneRibbonAdapter", () => ({ default: () => null }));
 
 /** What a marker click hands the handler, and what the pane reads the note out of. */
 type Listener = (e?: unknown) => void;
@@ -78,8 +96,10 @@ describe("DetailPane", () => {
         // hoisted.
         (appContext as unknown as { tabManager: unknown }).tabManager = {
             getActiveContext: () => undefined,
+            getActiveContextNotePath: () => undefined,
             openContextWithNote: async () => undefined
         };
+        editorAskedToSave.mockClear();
     });
 
     afterEach(() => {
@@ -322,6 +342,41 @@ describe("DetailPane", () => {
                 goToLinkExt.mockRestore();
                 openInCurrentNoteContext.mockClear();
             }
+        });
+    });
+
+    describe("the note itself", () => {
+        async function openPane(map: ReturnType<typeof fakeMap>) {
+            buildNote({ id: "root", title: "root", children: [ { id: "somewhere", title: "Somewhere", "#geolocation": "1,2" } ] });
+            const note = froca.notes["somewhere"];
+            await mount([ note ], map);
+            map.setUnderPointer([ markerFeature(note) ]);
+            await act(async () => map.click());
+            await settle();
+            return note;
+        }
+
+        it("is drawn in the pane, by the widget its type calls for", async () => {
+            const map = fakeMap();
+            await openPane(map);
+
+            // Mounted under the pane's own note context, which is what it reads its note out of.
+            expect(pane()?.querySelector(".note-detail-stub")?.textContent).toBe("Somewhere");
+        });
+
+        /**
+         * Switching markers announces a note switch the editor saves on, but closing the pane
+         * announces nothing — the widgets are only unmounted — so the pane says it itself.
+         */
+        it("is told to save before the pane closes", async () => {
+            const map = fakeMap();
+            await openPane(map);
+            expect(editorAskedToSave).not.toHaveBeenCalled();
+
+            await act(async () => { window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape" })); });
+
+            expect(editorAskedToSave).toHaveBeenCalledWith({ ntxIds: [ "_geo-detail-pane" ] });
+            expect(pane()).toBeNull();
         });
     });
 
