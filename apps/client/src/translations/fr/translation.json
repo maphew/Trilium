@@ -1522,10 +1522,6 @@
     "close": "Fermer"
   },
   "attachment_detail_2": {
-    "will_be_deleted_in": "Cette pièce jointe sera automatiquement supprimée dans {{time}}",
-    "will_be_deleted_soon": "Cette pièce jointe sera bientôt supprimée automatiquement",
-    "deletion_reason": ", car la pièce jointe n'est pas liée dans le contenu de la note. Pour empêcher la suppression, ajoutez à nouveau le lien de la pièce jointe dans le contenu d'une note ou convertissez la pièce jointe en note.",
-    "role_and_size": "Rôle : {{role}}, Taille : {{size}}, MIME: {{- mimeType}}",
     "link_copied": "Référence de la pièce jointe copiée dans le presse-papiers.",
     "unrecognized_role": "Rôle de pièce jointe « {{role}} » non reconnu."
   },

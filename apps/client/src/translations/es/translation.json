@@ -45,7 +45,13 @@
     },
     "widget-missing-parent": "El widget personalizado no tiene definida la propiedad obligatoria '{{property}}'.\n\nSi este script está pensado para ejecutarse sin un elemento de interfaz de usuario, utilice '#run=frontendStartup' en su lugar.",
     "open-script-note": "Abrir script",
-    "scripting-error": "La nota de script no se pudo ejecutar"
+    "scripting-error": "La nota de script no se pudo ejecutar",
+    "unhandled-error": {
+      "title": "Una tarea en segundo plano ha fallado",
+      "details-button": "Ver más detalles...",
+      "details-intro": "La aplicación sigue ejecutándose y tus notas no se han visto afectadas. Si el problema persiste, considera informar de ello en GitHub incluyendo la información que aparece a continuación.",
+      "details-title": "Información técnica"
+    }
   },
   "add_link": {
     "add_link": "Agregar enlace",
@@ -947,7 +953,8 @@
     "relation": "relación",
     "backlink_one": "{{count}} Vínculo de retroceso",
     "backlink_many": "{{count}} Vínculos de retroceso",
-    "backlink_other": "{{count}} Vínculos de retroceso"
+    "backlink_other": "{{count}} Vínculos de retroceso",
+    "no_backlinks": "No hay notas asociadas a este elemento."
   },
   "mobile_detail_menu": {
     "insert_child_note": "Insertar subnota",
@@ -1067,7 +1074,8 @@
     "too-many-notes_one": "Aquí hay {{count}} nota. Mostrarla puede ralentizar el sistema.",
     "too-many-notes_many": "Aquí hay {{count}} notas. Mostrarlas todas puede ralentizar el sistema.",
     "too-many-notes_other": "Aquí hay {{count}} notas. Mostrarlas todas puede ralentizar el sistema.",
-    "show-anyway": "Mostrar mapa"
+    "show-anyway": "Mostrar mapa",
+    "expand": "Expandir mapa"
   },
   "note_paths": {
     "title": "Rutas de nota",
@@ -1814,10 +1822,6 @@
     "close": "Cerrar"
   },
   "attachment_detail_2": {
-    "will_be_deleted_in": "Este archivo adjunto se eliminará automáticamente en {{time}}",
-    "will_be_deleted_soon": "Este archivo adjunto se eliminará automáticamente pronto",
-    "deletion_reason": ", porque el archivo adjunto no está vinculado en el contenido de la nota. Para evitar la eliminación, vuelva a agregar el enlace del archivo adjunto al contenido o convierta el archivo adjunto en una nota.",
-    "role_and_size": "Rol: {{role}}, tamaño: {{size}}, MIME: {{- mimeType}}",
     "link_copied": "Enlace del archivo adjunto copiado al portapapeles.",
     "unrecognized_role": "Rol de archivo adjunto no reconocido '{{role}}'."
   },
@@ -3641,6 +3645,31 @@
     "cleanup_confirm_interrupted": "Si algo lo interrumpe, como un fallo, un reinicio o un corte de corriente, no se pierde nada más allá de los elementos seleccionados.",
     "cleanup_confirm_compacting_title": "Compactar la base de datos es una operación lenta",
     "cleanup_confirm_compacting": "Compactar la base de datos puede tardar varios minutos, según su tamaño y el rendimiento de la máquina que ejecuta Trilium. Además, se necesitan temporalmente hasta {{space}} de espacio libre en disco en la máquina (en el directorio de datos y en el directorio temporal del sistema).",
-    "cleanup_compact_notice": "Esta operación puede tardar varios minutos y Trilium no responderá hasta que finalice."
+    "cleanup_compact_notice": "Esta operación puede tardar varios minutos y Trilium no responderá hasta que finalice.",
+    "compress_summary_format_one": "{{count}} {{format}} archivo ({{size}})",
+    "compress_summary_format_many": "{{count}} {{format}} archivos ({{size}})",
+    "compress_summary_format_other": "{{count}} {{format}} archivos ({{size}})",
+    "compress_summary_oversized_one": "{{count}} imagen de más de {{bound}} píxeles",
+    "compress_summary_oversized_many": "{{count}} imágenes de más de {{bound}} píxeles",
+    "compress_summary_oversized_other": "{{count}} imágenes de más de {{bound}} píxeles",
+    "compress_summary_compressible_one": "{{count}} imagen comprimible",
+    "compress_summary_compressible_many": "{{count}} imágenes comprimibles",
+    "compress_summary_compressible_other": "{{count}} imágenes comprimibles",
+    "compress_summary_unreadable_one": "{{count}} imagen no se pudo leer",
+    "compress_summary_unreadable_many": "{{count}} imágenes no se pudieron leer",
+    "compress_summary_unreadable_other": "{{count}} imágenes no se pudieron leer",
+    "compress_format_unknown": "No reconocido",
+    "compress_info_file": "{{format}} archivo, {{size}}",
+    "compress_info_pixels": "{{width}}x{{height}} píxeles",
+    "compress_info_bits": "{{bits}} bits por píxel"
+  },
+  "sidebar_help": {
+    "attributes_what": "Las etiquetas y relaciones establecidas en esta nota. Una etiqueta asigna un nombre a la nota y, si lo deseas, un valor; una relación la vincula con otra nota.",
+    "attributes_inheritable": "Al marcar una etiqueta como heredable, esta se aplica a todo el subárbol de notas que se encuentra debajo de esta nota, donde aparecerá como heredada en lugar de propia.",
+    "attributes_inherited_what": "Etiquetas y relaciones que llegan a esta nota desde otras fuentes: una etiqueta heredable definida en una nota superior o añadida mediante una plantilla.",
+    "attributes_inherited_source": "Aquí son de solo lectura. Cada fila muestra la nota de origen, desde donde se pueden cambiar o eliminar.",
+    "attributes_definitions_what": "Una definición es el esquema asociado a un nombre de atributo: determina qué tipo de valor puede contener, si puede asignarse varias veces y si se promociona.",
+    "attributes_definitions_promoted": "Un atributo promovido aparece en la propia nota como un campo de formulario, en lugar de mostrarse únicamente en este panel. Las definiciones suelen provenir de una plantilla y cada fila muestra la nota donde se encuentra.",
+    "highlights_what": "Los fragmentos que esta nota identifica por su formato. El alcance es más amplio de lo que parece: una frase normal en negrita o cursiva también cuenta, no solo el texto que hayas resaltado."
   }
 }

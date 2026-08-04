@@ -1467,7 +1467,9 @@
     "open_help_page": "첨부 파일 도움말 페이지 열기",
     "owning_note": "소유 노트: ",
     "upload_attachments": "첨부 파일 업로드",
-    "no_attachments": "이 노트에는 첨부 파일이 없습니다."
+    "no_attachments": "이 노트에는 첨부 파일이 없습니다.",
+    "no_user_attachments": "이 노트에는 자체 첨부 파일이 없습니다.\nTrilium에서 이 노트를 위해 생성한 항목은 아래에 표시됩니다.",
+    "system_group": "Trilium에서 생성됨 ({{amount}})"
   },
   "book": {
     "no_children_help": "이 컬렉션에는 하위 노트가 없어 표시할 내용이 없습니다.",
@@ -2194,12 +2196,12 @@
     "close": "닫기"
   },
   "attachment_detail_2": {
-    "will_be_deleted_in": "이 첨부 파일은 {{time}} 자동으로 삭제됩니다",
-    "will_be_deleted_soon": "이 첨부 파일은 곧 자동으로 삭제될 예정입니다",
-    "deletion_reason": ", 첨부 파일이 노트 내용에 연결되어 있지 않기 때문입니다. 삭제를 방지하려면 첨부 링크를 다시 콘텐츠에 추가하거나 첨부 파일을 노트로 변환하세요.",
-    "role_and_size": "역할: {{role}}, 크기: {{size}}, MIME: {{- mimeType}}",
     "link_copied": "첨부 파일 참조를 클립보드에 복사했습니다.",
-    "unrecognized_role": "인식되지 않은 첨부 파일 역할 '{{role}}'."
+    "unrecognized_role": "인식되지 않은 첨부 파일 역할 '{{role}}'.",
+    "deletion_badge": "{{time}} 후 삭제됨",
+    "deletion_badge_soon": "곧 삭제됨",
+    "deletion_badge_tooltip": "이 첨부 파일은 노트 내용에 연결되어 있지 않으므로 자동으로 삭제됩니다. 유지하려면 첨부 파일 링크를 내용에 다시 추가하거나 첨부 파일을 노트로 변환하세요.",
+    "kind_and_size": "{{role}} · {{size}}"
   },
   "bookmark_switch": {
     "bookmark": "북마크",
@@ -3347,11 +3349,11 @@
     "button": "로그인",
     "remember-me": "로그인 상태 유지",
     "incorrect-password": "비밀번호가 올바르지 않습니다. 다시 시도해 주세요.",
-    "incorrect-totp": "일회성 비밀번호가 올바르지 않습니다. 다시 시도해 주세요.",
+    "incorrect-totp": "일회용 비밀번호가 올바르지 않습니다. 다시 시도해 주세요.",
     "incorrect-recovery-code": "복구 코드가 잘못되었거나 이미 사용된 경우입니다.",
     "too-many-attempts": "로그인 시도가 너무 많습니다. 몇 분 후 다시 시도하세요.",
     "connection-error": "서버에 연결하지 못했습니다. 연결 상태를 확인하고 다시 시도하세요.",
-    "sign_in_with_sso": "{{ ssoIssuerName }}로 로그인",
+    "sign_in_with_sso": "{{ssoIssuerName}} 로 로그인",
     "sso-wrong-account": "이 Trilium 인스턴스에 연결된 계정이 아닙니다. 연결된 계정으로 로그인하세요.",
     "sso-not-enrolled": "통합 로그인이 아직 설정되지 않았습니다. 먼저 비밀번호로 로그인한 다음 설정에서 계정을 연결하세요.",
     "sso-connection-failed": "인증 제공자와 연결할 수 없었습니다. 다시 시도하거나 서버 로그를 확인해 보세요."
@@ -3709,5 +3711,12 @@
     "similar_notes_how": "노트의 내용과 속성·관계, 그리고 생성된 시점의 근접성을 바탕으로 유사도를 판단합니다."
   },
   "compress-images": "이미지 압축",
-  "compress-image": "이미지 압축"
+  "compress-image": "이미지 압축",
+  "attachment_roles": {
+    "favicon": "사이트 아이콘",
+    "coverImage": "표지 이미지",
+    "viewConfig": "보기 설정",
+    "canvasLibraryItem": "캔버스 라이브러리",
+    "importSource": "가져오기 원본"
+  }
 }

@@ -1622,10 +1622,6 @@
     "close": "Zamknij"
   },
   "attachment_detail_2": {
-    "will_be_deleted_in": "Ten załącznik zostanie automatycznie usunięty za {{time}}",
-    "will_be_deleted_soon": "Ten załącznik zostanie wkrótce automatycznie usunięty",
-    "deletion_reason": ", ponieważ załącznik nie jest podlinkowany w treści notatki. Aby zapobiec usunięciu, dodaj link do załącznika z powrotem do treści lub przekonwertuj załącznik na notatkę.",
-    "role_and_size": "Rola: {{role}}, Rozmiar: {{size}}, MIME: {{- mimeType}}",
     "link_copied": "Link do załącznika skopiowany do schowka.",
     "unrecognized_role": "Nierozpoznana rola załącznika '{{role}}'."
   },
