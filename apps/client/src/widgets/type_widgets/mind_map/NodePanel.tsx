@@ -2,7 +2,6 @@ import "./NodePanel.css";
 
 import { parseMindMapNoteLink } from "@triliumnext/commons";
 import type { MindElixirInstance, NodeObj, TagObj } from "mind-elixir";
-import { ComponentChildren } from "preact";
 import { useEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../../../components/app_context";
@@ -16,6 +15,7 @@ import { FormFileUploadActionButton } from "../../react/FormFileUpload";
 import { useNote, useNoteIcon, useNoteTitle } from "../../react/hooks";
 import Icon from "../../react/Icon";
 import { IconPickerButton } from "../../react/IconPicker";
+import OverlayPanel, { OverlayPanelBody, OverlayPanelSection, OverlayPanelTitle } from "../../react/OverlayPanel";
 import SegmentedChoice from "../../react/SegmentedChoice";
 import TabStrip, { type TabStripTabDefinition } from "../../react/TabStrip";
 import { fitNodeImage, getNodeImageShape, nearestNodeImageWidth, NODE_IMAGE_SHAPES, NODE_IMAGE_WIDTHS, type NodeImage as NodeImageData, type NodeImageShape, shapeNodeImage, uploadNodeImage } from "./images";
@@ -148,167 +148,142 @@ export default function NodePanel({ mind, noteId, nodes, readOnly }: NodePanelPr
     }
 
     return (
-        <div
+        <OverlayPanel
             className="mind-map-node-panel"
-            /* Keep interactions inside the panel from reaching the map underneath. */
-            onMouseDown={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
-        >
-            {/* What heads the panel, and the way to send it away — laid over the head of it rather
-                than beside what is there, so that the tabs stay centred on the panel (see the CSS). */}
-            <div className="mind-map-node-panel-header">
-                {/* With the memo the only thing on show there is no choice to offer, so the strip
-                    gives way to a plain heading — the panel still says what it is holding. */}
-                {readOnly ? (
-                    <div className="mind-map-node-panel-title">
-                        <Icon icon="bx bx-notepad" />{t("mind-map.memo")}
-                    </div>
-                ) : (
-                    <TabStrip
-                        className="mind-map-node-panel-tabs"
-                        // A selection whose memos differ carries one all the same, which is what the
-                        // tab is saying: that there is something written to go and read.
-                        tabs={buildTabs(memo !== null)}
-                        activeTabId={activeTabId}
-                        onSelect={setActiveTabId}
-                    />
-                )}
-
-                <ActionButton
-                    className="mind-map-node-panel-close"
-                    icon="bx bx-x"
-                    text={t("mind-map.hide-panel")}
-                    onClick={() => setDismissed(true)}
+            /* With the memo the only thing on show there is no choice to offer, so the strip gives
+               way to a plain heading — the panel still says what it is holding. */
+            header={readOnly ? (
+                <OverlayPanelTitle icon="bx bx-notepad" text={t("mind-map.memo")} />
+            ) : (
+                <TabStrip
+                    // A selection whose memos differ carries one all the same, which is what the
+                    // tab is saying: that there is something written to go and read.
+                    tabs={buildTabs(memo !== null)}
+                    activeTabId={activeTabId}
+                    onSelect={setActiveTabId}
                 />
-            </div>
+            )}
+            close={{ text: t("mind-map.hide-panel"), onClick: () => setDismissed(true) }}
+        >
+            {!readOnly && <OverlayPanelBody isTab hidden={activeTabId !== "format"}>
+                <OverlayPanelSection label={t("mind-map.font-size")}>
+                    <SegmentedChoice
+                        options={buildFontSizeOptions()}
+                        currentValue={fontSize !== MIXED ? fontSize ?? DEFAULT_FONT_SIZE : MIXED_FONT_SIZE}
+                        onChange={(fontSize) => patchSelectedNodes({ style: { fontSize } })}
+                    />
+                </OverlayPanelSection>
 
-            {/* The tabs are stacked one over the other rather than shown one at a time, so that
-                the panel keeps the height of the tallest of them whichever is on show. */}
-            <div className="mind-map-node-panel-bodies">
-                {!readOnly && <div
-                    role="tabpanel"
-                    className="mind-map-node-panel-body"
-                    aria-hidden={activeTabId !== "format"}
+                <OverlayPanelSection label={t("mind-map.text-color")}>
+                    <ColorPicker
+                        presets={NODE_COLORS}
+                        {...toPickerValue(textColor)}
+                        // Mind Elixir only ever assigns the style properties it is given and never
+                        // resets the ones it isn't, so clearing has to blank the property explicitly.
+                        onChange={(color) => patchSelectedNodes({ style: { color: color ?? "" } })}
+                    />
+                </OverlayPanelSection>
+
+                <OverlayPanelSection label={t("mind-map.background-color")}>
+                    <ColorPicker
+                        presets={NODE_BACKGROUND_COLORS}
+                        {...toPickerValue(backgroundColor)}
+                        onChange={(color) => patchSelectedNodes({ style: { background: color ?? "" } })}
+                    />
+                </OverlayPanelSection>
+
+                <OverlayPanelSection label={t("mind-map.branch-color")}>
+                    <ColorPicker
+                        presets={NODE_COLORS}
+                        {...toPickerValue(branchColor)}
+                        onChange={(color) => patchSelectedNodes({ branchColor: color ?? "" })}
+                    />
+                </OverlayPanelSection>
+
+                <OverlayPanelSection
+                    label={t("mind-map.icons")}
+                    title={icons.readOnly ? t("mind-map.icons-differ") : undefined}
                 >
-                    <PanelSection label={t("mind-map.font-size")}>
-                        <SegmentedChoice
-                            options={buildFontSizeOptions()}
-                            currentValue={fontSize !== MIXED ? fontSize ?? DEFAULT_FONT_SIZE : MIXED_FONT_SIZE}
-                            onChange={(fontSize) => patchSelectedNodes({ style: { fontSize } })}
-                        />
-                    </PanelSection>
+                    <NodeIcons
+                        icons={icons.values}
+                        readOnly={icons.readOnly}
+                        onChange={(icons) => patchSelectedNodes({ icons })}
+                    />
+                </OverlayPanelSection>
 
-                    <PanelSection label={t("mind-map.text-color")}>
-                        <ColorPicker
-                            presets={NODE_COLORS}
-                            {...toPickerValue(textColor)}
-                            // Mind Elixir only ever assigns the style properties it is given and never
-                            // resets the ones it isn't, so clearing has to blank the property explicitly.
-                            onChange={(color) => patchSelectedNodes({ style: { color: color ?? "" } })}
-                        />
-                    </PanelSection>
+                <OverlayPanelSection
+                    label={t("mind-map.image")}
+                    title={image === MIXED ? t("mind-map.images-differ") : undefined}
+                >
+                    <NodeImage
+                        hasImage={!!image}
+                        indeterminate={image === MIXED}
+                        width={imageWidth !== MIXED && imageWidth ? Number(imageWidth) : null}
+                        shape={imageShape !== MIXED ? imageShape : null}
+                        onShape={(shape) => void shapeImages(shape)}
+                        // A node carries one picture, so what is taken in takes the place of what was
+                        // there, at the size it comes in at.
+                        onPick={(file) => void takeInImage(file)}
+                        // Derived per node: the nodes are set to the same width, but each keeps the
+                        // proportions of the picture it carries.
+                        onResize={(width) => patchSelectedNodes((node) => ({
+                            image: node.image && fitNodeImage(node.image, width)
+                        }))}
+                        onRemove={() => patchSelectedNodes({ image: undefined })}
+                    />
+                </OverlayPanelSection>
 
-                    <PanelSection label={t("mind-map.background-color")}>
-                        <ColorPicker
-                            presets={NODE_BACKGROUND_COLORS}
-                            {...toPickerValue(backgroundColor)}
-                            onChange={(color) => patchSelectedNodes({ style: { background: color ?? "" } })}
-                        />
-                    </PanelSection>
+                <OverlayPanelSection
+                    label={t("mind-map.node-link")}
+                    title={link === MIXED ? t("mind-map.links-differ") : undefined}
+                >
+                    <NodeLink
+                        currentValue={link !== MIXED ? link : null}
+                        indeterminate={link === MIXED}
+                        // A node carries one link, so what is picked takes the place of what was there.
+                        // Clearing blanks the property, Mind Elixir only ever assigning the ones it is
+                        // given (see the colors above).
+                        onChange={(link) => patchGivenNodes({ hyperLink: link ?? "" })}
+                    />
+                </OverlayPanelSection>
 
-                    <PanelSection label={t("mind-map.branch-color")}>
-                        <ColorPicker
-                            presets={NODE_COLORS}
-                            {...toPickerValue(branchColor)}
-                            onChange={(color) => patchSelectedNodes({ branchColor: color ?? "" })}
-                        />
-                    </PanelSection>
+                <OverlayPanelSection
+                    label={t("mind-map.tags")}
+                    title={tags.readOnly ? t("mind-map.tags-differ") : undefined}
+                >
+                    <ValuesInput
+                        labelType="text"
+                        values={tags.texts}
+                        placeholder={t("mind-map.tags-placeholder")}
+                        addButtonText={t("mind-map.add-tag")}
+                        removeButtonText={t("mind-map.remove-tag")}
+                        disabled={tags.readOnly}
+                        // Derived per node: the nodes agree on the texts, but each may dress its own
+                        // tags differently, and that is kept by reading from the node being written to.
+                        onCommit={(texts) => patchSelectedNodes((node) => ({ tags: applyTagTexts(node.tags, texts) }))}
+                    />
+                </OverlayPanelSection>
+            </OverlayPanelBody>}
 
-                    <PanelSection
-                        label={t("mind-map.icons")}
-                        title={icons.readOnly ? t("mind-map.icons-differ") : undefined}
-                    >
-                        <NodeIcons
-                            icons={icons.values}
-                            readOnly={icons.readOnly}
-                            onChange={(icons) => patchSelectedNodes({ icons })}
-                        />
-                    </PanelSection>
-
-                    <PanelSection
-                        label={t("mind-map.image")}
-                        title={image === MIXED ? t("mind-map.images-differ") : undefined}
-                    >
-                        <NodeImage
-                            hasImage={!!image}
-                            indeterminate={image === MIXED}
-                            width={imageWidth !== MIXED && imageWidth ? Number(imageWidth) : null}
-                            shape={imageShape !== MIXED ? imageShape : null}
-                            onShape={(shape) => void shapeImages(shape)}
-                            // A node carries one picture, so what is taken in takes the place of what was
-                            // there, at the size it comes in at.
-                            onPick={(file) => void takeInImage(file)}
-                            // Derived per node: the nodes are set to the same width, but each keeps the
-                            // proportions of the picture it carries.
-                            onResize={(width) => patchSelectedNodes((node) => ({
-                                image: node.image && fitNodeImage(node.image, width)
-                            }))}
-                            onRemove={() => patchSelectedNodes({ image: undefined })}
-                        />
-                    </PanelSection>
-
-                    <PanelSection
-                        label={t("mind-map.node-link")}
-                        title={link === MIXED ? t("mind-map.links-differ") : undefined}
-                    >
-                        <NodeLink
-                            currentValue={link !== MIXED ? link : null}
-                            indeterminate={link === MIXED}
-                            // A node carries one link, so what is picked takes the place of what was there.
-                            // Clearing blanks the property, Mind Elixir only ever assigning the ones it is
-                            // given (see the colors above).
-                            onChange={(link) => patchGivenNodes({ hyperLink: link ?? "" })}
-                        />
-                    </PanelSection>
-
-                    <PanelSection
-                        label={t("mind-map.tags")}
-                        title={tags.readOnly ? t("mind-map.tags-differ") : undefined}
-                    >
-                        <ValuesInput
-                            labelType="text"
-                            values={tags.texts}
-                            placeholder={t("mind-map.tags-placeholder")}
-                            addButtonText={t("mind-map.add-tag")}
-                            removeButtonText={t("mind-map.remove-tag")}
-                            disabled={tags.readOnly}
-                            // Derived per node: the nodes agree on the texts, but each may dress its own
-                            // tags differently, and that is kept by reading from the node being written to.
-                            onCommit={(texts) => patchSelectedNodes((node) => ({ tags: applyTagTexts(node.tags, texts) }))}
-                        />
-                    </PanelSection>
-                </div>}
-
-                {/* The memo goes without a label of its own: what stands above it says what it is —
-                    the tab it fills, or the heading where there are no tabs — and the editor is the
-                    whole of the tab rather than a field within it. */}
-                {(readOnly || openedTabs.current.has("memo")) && (
-                    <div
-                        role={!readOnly ? "tabpanel" : undefined}
-                        className="mind-map-node-panel-body mind-map-node-panel-memo-body"
-                        aria-hidden={!readOnly ? activeTabId !== "memo" : undefined}
-                        title={memo === MIXED ? t("mind-map.memos-differ") : undefined}
-                    >
-                        <NodeMemo
-                            selectionKey={selectionKey}
-                            memo={memo !== MIXED ? memo : null}
-                            readOnly={readOnly || memo === MIXED}
-                            onCommit={(memo) => patchGivenNodes({ memo } as Partial<NodeObj>)}
-                        />
-                    </div>
-                )}
-            </div>
-        </div>
+            {/* The memo goes without a label of its own: what stands above it says what it is —
+                the tab it fills, or the heading where there are no tabs — and the editor is the
+                whole of the tab rather than a field within it. */}
+            {(readOnly || openedTabs.current.has("memo")) && (
+                <OverlayPanelBody
+                    className="mind-map-node-panel-memo-body"
+                    isTab={!readOnly}
+                    hidden={activeTabId !== "memo"}
+                    title={memo === MIXED ? t("mind-map.memos-differ") : undefined}
+                >
+                    <NodeMemo
+                        selectionKey={selectionKey}
+                        memo={memo !== MIXED ? memo : null}
+                        readOnly={readOnly || memo === MIXED}
+                        onCommit={(memo) => patchGivenNodes({ memo } as Partial<NodeObj>)}
+                    />
+                </OverlayPanelBody>
+            )}
+        </OverlayPanel>
     );
 }
 
@@ -669,15 +644,6 @@ function LinkedNoteFace({ notePath }: { notePath: string }) {
     // The title is read asynchronously; until it lands, what is already known of the note stands in
     // for it, rather than the address the panel would otherwise have to show.
     return <><Icon icon={icon} /><span className="mind-map-node-link-label">{title ?? note?.title ?? ""}</span></>;
-}
-
-function PanelSection({ label, title, children }: { label: string, title?: string, children: ComponentChildren }) {
-    return (
-        <div className="mind-map-node-panel-section" title={title}>
-            <div className="mind-map-node-panel-section-label">{label}</div>
-            {children}
-        </div>
-    );
 }
 
 /** Returned instead of a value when the selected nodes don't agree on one. */
