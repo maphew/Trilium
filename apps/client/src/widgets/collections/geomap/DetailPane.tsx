@@ -3,8 +3,12 @@ import "./DetailPane.css";
 import type { Map as MapLibreGLMap, MapMouseEvent } from "maplibre-gl";
 import { useContext, useEffect, useState } from "preact/hooks";
 
+import appContext from "../../../components/app_context";
+import { openInCurrentNoteContext } from "../../../components/note_context";
 import FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
+import link from "../../../services/link";
+import ActionButton from "../../react/ActionButton";
 import { useNoteIcon, useNoteLabel, useNoteProperty } from "../../react/hooks";
 import OverlayPanel, { OverlayPanelBody, OverlayPanelTitle } from "../../react/OverlayPanel";
 import { ParentMap } from "./map";
@@ -143,9 +147,63 @@ function MarkerDetails({ note, onClose }: { note: FNote; onClose(): void }) {
             header={<OverlayPanelTitle icon={icon ?? note.getIcon()} text={title ?? note.title} />}
             close={{ text: t("geo-map.close-details"), onClick: onClose }}
         >
-            {/* Nothing is made of the note yet — what stands here is the wiring, and the pane is
-                filled in a step of its own. */}
-            <OverlayPanelBody>Hello world</OverlayPanelBody>
+            <OverlayPanelBody>
+                <MarkerActions note={note} />
+            </OverlayPanelBody>
         </OverlayPanel>
+    );
+}
+
+/**
+ * What can be done with the note behind the marker: the ways of opening it, and the way of opening
+ * where it is.
+ *
+ * These are the ways every note in Trilium is opened, which is why they are named as they are named
+ * everywhere else — the same strings the link menu offers them under. What is not among them is
+ * the quick editor: it used to be what a click on a marker raised, and the pane took that click
+ * over, so offering it here would only put a modal back over the pane that replaced it.
+ */
+function MarkerActions({ note }: { note: FNote }) {
+    const [ location ] = useNoteLabel(note, LOCATION_ATTRIBUTE);
+    const hoistedNoteId = appContext.tabManager.getActiveContext()?.hoistedNoteId;
+    // The path the note is best reached by from wherever the reader is hoisted, rather than its id:
+    // a note may hang in several places, and every one of these opens a path.
+    const notePath = note.getBestNotePathString(hoistedNoteId);
+    const latLng = parseLocation(location);
+
+    return (
+        <div className="geo-detail-pane-actions">
+            <ActionButton
+                icon="bx bx-log-in"
+                text={t("geo-map.open-note")}
+                // Handed the event so that the note lands in the pane's own tab, which is the one
+                // the map is in — `openInCurrentNoteContext` reads it off the element clicked.
+                onClick={(e) => notePath && openInCurrentNoteContext(e as MouseEvent, notePath)}
+                disabled={!notePath}
+            />
+
+            <ActionButton
+                icon="bx bx-link-external"
+                text={t("link_context_menu.open_note_in_new_tab")}
+                onClick={() => notePath && appContext.tabManager.openContextWithNote(notePath, { hoistedNoteId })}
+                disabled={!notePath}
+            />
+
+            <ActionButton
+                icon="bx bx-window-open"
+                text={t("link_context_menu.open_note_in_new_window")}
+                onClick={() => notePath && appContext.triggerCommand("openInWindow", { notePath, hoistedNoteId })}
+                disabled={!notePath}
+            />
+
+            <ActionButton
+                icon="bx bx-map-alt"
+                text={t("geo-map-context.open-location")}
+                // Where the note is, handed to whatever the system opens a place with, as the map's
+                // own right-click menu does with the point that was clicked.
+                onClick={() => latLng && link.goToLinkExt(null, `geo:${latLng[1]},${latLng[0]}`)}
+                disabled={!latLng}
+            />
+        </div>
     );
 }

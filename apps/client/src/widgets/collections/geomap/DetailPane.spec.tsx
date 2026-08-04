@@ -2,13 +2,22 @@ import { render } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import appContext from "../../../components/app_context";
 import Component from "../../../components/component";
 import type FNote from "../../../entities/fnote";
+import link from "../../../services/link";
 import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
 import DetailPane from "./DetailPane";
 import { ParentMap } from "./map";
 import { MARKER_LAYER } from "./Markers";
+
+/** Navigating the tab the map is in, which is a module function rather than a command. */
+const openInCurrentNoteContext = vi.fn();
+vi.mock("../../../components/note_context", async (importOriginal) => ({
+    ...(await importOriginal<object>()),
+    openInCurrentNoteContext: (...args: unknown[]) => openInCurrentNoteContext(...args)
+}));
 
 /** What a marker click hands the handler, and what the pane reads the note out of. */
 type Listener = (e?: unknown) => void;
@@ -64,9 +73,18 @@ describe("DetailPane", () => {
     beforeEach(() => {
         container = document.createElement("div");
         document.body.appendChild(container);
+
+        // The pane asks where the reader is hoisted, which the app has settled by the time a map is
+        // ever drawn and a test has not: `tabManager` is only built when the app starts.
+        (appContext as unknown as { tabManager: unknown }).tabManager = {
+            getActiveContext: () => undefined,
+            openContextWithNote: async () => undefined
+        };
     });
 
     afterEach(() => {
+        (appContext as unknown as { tabManager: unknown }).tabManager = undefined;
+
         if (container) {
             render(null, container);
             container.remove();
@@ -218,6 +236,58 @@ describe("DetailPane", () => {
         // And the note gone from the collection altogether.
         await mount([], map);
         expect(pane()).toBeNull();
+    });
+
+    describe("the ways of opening it", () => {
+        /** Opens the pane on a note that hangs somewhere, so that there is a path to open. */
+        async function openPaneFor(note: FNote, map: ReturnType<typeof fakeMap>) {
+            await mount([ note ], map);
+            map.setUnderPointer([ markerFeature(note) ]);
+            await act(async () => map.click());
+        }
+
+        function press(icon: string) {
+            container?.querySelector<HTMLButtonElement>(`.geo-detail-pane-actions button.${icon}`)?.click();
+        }
+
+        it("opens the note where every note in Trilium is opened", async () => {
+            const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+            const map = fakeMap();
+
+            // What each of these opens is a path rather than an id, a note being reachable by more
+            // than one. Which path that is belongs to the tree, not to the pane, so it is said here
+            // instead of built: nothing in a froca raised for a test hangs under the root the real
+            // one is searched from.
+            const notePath = "root/places/somewhere";
+            const bestNotePath = vi.spyOn(note, "getBestNotePathString").mockReturnValue(notePath);
+            const openContextWithNote = vi.spyOn(appContext.tabManager, "openContextWithNote").mockResolvedValue(undefined as never);
+            const triggerCommand = vi.spyOn(appContext, "triggerCommand").mockResolvedValue(undefined);
+            const goToLinkExt = vi.spyOn(link, "goToLinkExt").mockReturnValue(true);
+
+            try {
+                await openPaneFor(note, map);
+
+                press("bx-log-in");
+                expect(openInCurrentNoteContext).toHaveBeenCalledWith(expect.anything(), notePath);
+
+                press("bx-link-external");
+                expect(openContextWithNote).toHaveBeenCalledWith(notePath, { hoistedNoteId: undefined });
+
+                press("bx-window-open");
+                expect(triggerCommand).toHaveBeenCalledWith("openInWindow", { notePath, hoistedNoteId: undefined });
+
+                // Latitude first, as a geo URI is written and as the map's own menu hands one over —
+                // the note stores it that way round, and the features the map draws do not.
+                press("bx-map-alt");
+                expect(goToLinkExt).toHaveBeenCalledWith(null, "geo:1,2");
+            } finally {
+                bestNotePath.mockRestore();
+                openContextWithNote.mockRestore();
+                triggerCommand.mockRestore();
+                goToLinkExt.mockRestore();
+                openInCurrentNoteContext.mockClear();
+            }
+        });
     });
 
     it("keeps clicks and key presses from reaching the map underneath", async () => {

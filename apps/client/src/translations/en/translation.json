@@ -2750,7 +2750,8 @@
     "zoom-out": "Zoom out",
     "fullscreen": "Fullscreen",
     "exit-fullscreen": "Exit fullscreen",
-    "close-details": "Close"
+    "close-details": "Close",
+    "open-note": "Open note"
   },
   "geo-map-context": {
     "open-location": "Open location",

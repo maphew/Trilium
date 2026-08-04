@@ -43,6 +43,21 @@
 }
 
 /*
+ * The ways of opening the note, side by side at the head of the pane — where the first thing to be
+ * done with a place is offered on any map that shows you one.
+ *
+ * Named by their tooltips rather than beside their icons, as every other row of actions in a panel
+ * is (see the picture's row in NodePanel): a label apiece would have four of them wrapping onto two
+ * lines in a pane this narrow, and these are the same four actions, under the same four icons, that
+ * a note is opened by everywhere else in Trilium.
+ */
+.geo-map-container .geo-detail-pane .geo-detail-pane-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+/*
  * The pane is dressed in the app's own colors rather than the map's, which is what the bar beside it
  * does (see MapToolbar.css): what stands here is a note, and a note belongs to the app — the same
  * reasoning that leaves a marker's preview dressed as the app's tooltip. Nothing to write for it,
