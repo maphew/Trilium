@@ -189,7 +189,7 @@ describe("Markers", () => {
     });
 
     /** Renders into the same container, so calling it again is a re-render with fresh props. */
-    function mount(notes: FNote[], map: ReturnType<typeof fakeMap>, parent: Component, look?: { hideLabels?: boolean, isDarkTheme?: boolean, clustered?: boolean, placing?: boolean }) {
+    function mount(notes: FNote[], map: ReturnType<typeof fakeMap>, parent: Component, look?: { hideLabels?: boolean, isDarkTheme?: boolean, clustered?: boolean, placing?: boolean, opensNotes?: boolean }) {
         return act(async () => {
             render(
                 <ParentComponent.Provider value={parent}>
@@ -200,6 +200,10 @@ describe("Markers", () => {
                             isDarkTheme={look?.isDarkTheme ?? false}
                             clustered={look?.clustered ?? false}
                             placing={look?.placing ?? false}
+                            // What these tests are about, so on unless a case says otherwise. The geo
+                            // map itself passes false, a marker being opened into the detail pane
+                            // there instead (see index.tsx).
+                            opensNotes={look?.opensNotes ?? true}
                         />
                     </ParentMap.Provider>
                 </ParentComponent.Provider>,
@@ -462,6 +466,17 @@ describe("Markers", () => {
 
             map.clickMarker(note);
             expect(openInPopup).toHaveBeenCalledWith("openInPopup", { noteIdOrPath: note.noteId });
+        });
+
+        it("leaves the click alone where something else on the map has taken it over", async () => {
+            const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+            const map = fakeMap();
+            await mount([ note ], map, new Component(), { opensNotes: false });
+
+            // What the geo map itself passes: a marker is opened into the detail pane there, and
+            // raising the quick editor as well would put it over the pane that had just opened.
+            map.clickMarker(note);
+            expect(openInPopup).not.toHaveBeenCalled();
         });
 
         it("leaves the click alone while the map is armed to place something", async () => {

@@ -19,6 +19,7 @@ import { useCollectionTreeDrag, useNoteBlob, useNoteLabel, useNoteLabelBoolean, 
 import { ViewModeProps } from "../interface";
 import { createNewNote, moveMarker } from "./api";
 import ContextMenus from "./ContextMenus";
+import DetailPane from "./DetailPane";
 import { GpxTrack } from "./GpxTrack";
 import Map, { GeoMouseEvent } from "./map";
 import { DEFAULT_MAP_LAYER_NAME, MAP_LAYERS, MapLayer } from "./map_layer";
@@ -207,8 +208,12 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
             >
                 <MapToolbar />
                 <Tooltips />
+                <DetailPane notes={notes} placing={!!placement} />
                 <ContextMenus note={note} isReadOnly={isReadOnly} onRelocate={startMarkerRelocation} />
-                <Markers notes={notes} hideLabels={hideLabels} isDarkTheme={layerData.isDarkTheme ?? false} clustered={clustered} placing={!!placement} />
+                {/* The pane above is what a click on a marker opens now, so the markers no longer
+                    open the note themselves — the two would otherwise both answer the same click,
+                    raising the quick editor over the pane that had just opened behind it. */}
+                <Markers notes={notes} hideLabels={hideLabels} isDarkTheme={layerData.isDarkTheme ?? false} clustered={clustered} placing={!!placement} opensNotes={false} />
                 {notes.map(note => <NoteGpxTrackWrapper note={note} hideLabels={hideLabels} isDarkTheme={layerData.isDarkTheme ?? false} />)}
             </Map>}
         </div>

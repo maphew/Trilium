@@ -2749,7 +2749,8 @@
     "zoom-in": "Zoom in",
     "zoom-out": "Zoom out",
     "fullscreen": "Fullscreen",
-    "exit-fullscreen": "Exit fullscreen"
+    "exit-fullscreen": "Exit fullscreen",
+    "close-details": "Close"
   },
   "geo-map-context": {
     "open-location": "Open location",

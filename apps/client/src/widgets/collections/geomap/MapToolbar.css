@@ -13,8 +13,12 @@
  */
 .geo-map-container .geo-map-toolbar {
     bottom: var(--geo-map-inset);
-    inset-inline-end: var(--geo-map-inset);
+    /* Past whatever stands against that edge, which today is the detail pane and by default nothing
+       (see DetailPane.css, which is what sets it). The bar sliding clear as a pane opens is what
+       makes the pane read as a wall of the map rather than as something laid on top of it. */
+    inset-inline-end: calc(var(--geo-map-inset) + var(--geo-pane-width, 0px));
     z-index: 3;
+    transition: inset-inline-end 150ms ease;
 }
 
 /*

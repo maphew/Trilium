@@ -98,9 +98,18 @@ interface MarkersProps {
      * on the map like any other for as long as the map is waiting to be told one.
      */
     placing: boolean;
+    /**
+     * Whether opening the note is what a click on a marker means at all.
+     *
+     * False where something else on the map has taken that click over, which is what the detail pane
+     * does: a marker is opened *into the pane* instead, and the note itself is reached from there
+     * (see {@link DetailPane}). Left here rather than taken out, so that a map that carries no pane
+     * — should one ever be wanted — still opens its notes the way it always did.
+     */
+    opensNotes: boolean;
 }
 
-export default function Markers({ notes, hideLabels, isDarkTheme, clustered, placing }: MarkersProps) {
+export default function Markers({ notes, hideLabels, isDarkTheme, clustered, placing, opensNotes }: MarkersProps) {
     const map = useContext(ParentMap);
     const version = useNoteChangeVersion(notes);
     // Whether the style has finished loading at least once. Held outside the effects because either
@@ -287,7 +296,7 @@ export default function Markers({ notes, hideLabels, isDarkTheme, clustered, pla
     }, [ map, hideLabels, isDarkTheme ]);
 
     useClusterExpansion(map, MARKER_SOURCE, clustered);
-    useMarkerOpening(map, !placing);
+    useMarkerOpening(map, opensNotes && !placing);
 
     return null;
 }

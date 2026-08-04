@@ -1,0 +1,51 @@
+/*
+ * The pane stands against the trailing edge of the map, the full height of it.
+ *
+ * Flush rather than inset, and square rather than rounded: a card floating in the corner is what the
+ * mind map's panel is (see NodePanel.css), and it is the right shape there, where what it holds is a
+ * handful of controls for whatever is selected. This one holds a note, stands as tall as the map and
+ * is meant to be read from, so it reads as a wall of the map rather than as a sheet laid over it.
+ *
+ * The width has to agree with `PANE_WIDTH` in DetailPane.tsx, which is what the map is told to hold
+ * a selected marker clear of.
+ */
+.geo-map-container {
+    --geo-detail-pane-width: 380px;
+}
+
+.geo-map-container .geo-detail-pane {
+    --overlay-panel-radius: 0;
+
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    inset-inline-end: 0;
+    width: var(--geo-detail-pane-width);
+    /* An embedded map may be narrower than the pane would like to be. */
+    max-width: 100%;
+    /* Above the canvas and clear of MapLibre's own control corners, which sit at 2 — the same
+       reckoning the bar of buttons makes (see MapToolbar.css). */
+    z-index: 3;
+    /* Only the inner edge is an edge at all; the other three are the map's own. */
+    border-block: none;
+    border-inline-end: none;
+}
+
+/*
+ * What the bar of buttons in the corner steps aside by, which is the whole of the pane while one is
+ * open and nothing at all otherwise (see MapToolbar.css, which reads it).
+ *
+ * Written against the pane being there rather than set as the pane opens, so that the map's own
+ * furniture answers to what is on it without the pane having to reach outside itself to say so.
+ */
+.geo-map-container:has(.geo-detail-pane) {
+    --geo-pane-width: var(--geo-detail-pane-width);
+}
+
+/*
+ * The pane is dressed in the app's own colors rather than the map's, which is what the bar beside it
+ * does (see MapToolbar.css): what stands here is a note, and a note belongs to the app — the same
+ * reasoning that leaves a marker's preview dressed as the app's tooltip. Nothing to write for it,
+ * the shared panel reading the app's menu colors already; said here so that the difference between
+ * the two is a decision on the record rather than an omission.
+ */
