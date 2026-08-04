@@ -1,8 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import {
-    drawIconGlyph, type IconGlyph, loadIconFonts, placeGlyph, renderIconImage, resolveIconGlyphs,
-    warmIconFonts
+    drawIconGlyph, type IconGlyph, loadIconFonts, renderIconImage, resolveIconGlyphs, warmIconFonts
 } from "./icon_glyphs";
 
 const uncheckedWindow = window as unknown as { glob: { iconRegistry?: unknown } };
@@ -162,38 +161,6 @@ describe("warmIconFonts", () => {
     });
 });
 
-describe("placeGlyph", () => {
-    it("centres the ink of the glyph rather than the line box it was written on", () => {
-        const metrics = {
-            actualBoundingBoxLeft: 0,
-            actualBoundingBoxRight: 16,
-            actualBoundingBoxAscent: 14,
-            actualBoundingBoxDescent: 2
-        } as TextMetrics;
-
-        // 16 wide and 16 tall in a square of 20, so 2 of slack on each side; the baseline sits the
-        // ascent below that.
-        expect(placeGlyph(metrics, 20)).toEqual({
-            x: 2, y: 16, textAlign: "start", textBaseline: "alphabetic"
-        });
-    });
-
-    it("falls back to centring the square where the ink cannot be measured", () => {
-        const unmeasured = [
-            { actualBoundingBoxLeft: 0, actualBoundingBoxRight: 0, actualBoundingBoxAscent: 0, actualBoundingBoxDescent: 0 },
-            // A browser that carries no such measurements at all, and one that carries nonsense.
-            {},
-            { actualBoundingBoxLeft: 0, actualBoundingBoxRight: Infinity, actualBoundingBoxAscent: 8, actualBoundingBoxDescent: 0 }
-        ];
-
-        for (const metrics of unmeasured) {
-            expect(placeGlyph(metrics as TextMetrics, 20)).toEqual({
-                x: 10, y: 10, textAlign: "center", textBaseline: "middle"
-            });
-        }
-    });
-});
-
 describe("drawIconGlyph", () => {
     const glyph: IconGlyph = { fontFamily: "boxicons", content: FILE_GLYPH };
 
@@ -209,7 +176,13 @@ describe("drawIconGlyph", () => {
         expect(context.scale).toHaveBeenCalledWith(3, 3);
         expect(context.font).toBe("20px boxicons");
         expect(context.fillStyle).toBe("red");
-        expect(context.fillText).toHaveBeenCalledWith(FILE_GLYPH, 2, 16);
+        // The glyph's own box in the middle of the square, and nothing measured to get there:
+        // browsers do not answer `actualBoundingBox*` alike, and centring the ink on it drew the
+        // same icon pixels apart between them.
+        expect(context.measureText).not.toHaveBeenCalled();
+        expect(context.fillText).toHaveBeenCalledWith(FILE_GLYPH, 10, 10);
+        expect(context.textAlign).toBe("center");
+        expect(context.textBaseline).toBe("middle");
     });
 
     it("says so where there is no canvas to draw on", () => {
