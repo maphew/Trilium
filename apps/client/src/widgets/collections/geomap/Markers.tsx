@@ -15,6 +15,15 @@ const DEFAULT_MARKER_COLOR = "#2A81CB";
 /** The pin, in the coordinates its SVG is drawn in. */
 const MARKER_WIDTH = 25;
 const MARKER_HEIGHT = 41;
+/**
+ * Room left around the pin for its shadow, in those same coordinates.
+ *
+ * The shadow is drawn by a filter and an SVG clips to its own viewport, so a canvas the size of the
+ * pin cuts the blur off in a straight line down either side and across the tip — on a light map that
+ * reads as a grey box behind the pin rather than as a shadow. Wide enough for the blur (about three
+ * times its deviation) plus the distance it is pushed down.
+ */
+const MARKER_SHADOW_PADDING = 6;
 const MARKER_ICON_SIZE = 20;
 // Centred on the pin's round head, which is a circle of the pin's own width sitting at the top.
 const MARKER_ICON_X = (MARKER_WIDTH - MARKER_ICON_SIZE) / 2;
@@ -79,6 +88,10 @@ export default function Markers({ notes, hideLabels }: { notes: FNote[], hideLab
                             "icon-image": [ "get", "icon" ],
                             "icon-size": 1,
                             "icon-anchor": "bottom",
+                            // The image carries padding for the shadow, so its bottom edge sits
+                            // below the pin's tip. Push it back down by exactly that much, or every
+                            // marker would stand a shadow's width off its own coordinate.
+                            "icon-offset": [ 0, MARKER_SHADOW_PADDING ],
                             "icon-allow-overlap": true,
                             ...(hideLabels ? {} : LABEL_LAYOUT)
                         },
@@ -203,11 +216,16 @@ async function drawMarkerImage(color: string, iconClass: string) {
         ? `<image href="${icon}" x="${MARKER_ICON_X}" y="${MARKER_ICON_Y}" width="${MARKER_ICON_SIZE}" height="${MARKER_ICON_SIZE}" preserveAspectRatio="xMidYMid meet" />`
         : "";
 
+    // The viewBox starts at the padding's negative, so the pin and its icon keep the coordinates
+    // they are drawn in and only the canvas around them grows.
+    const canvasWidth = MARKER_WIDTH + 2 * MARKER_SHADOW_PADDING;
+    const canvasHeight = MARKER_HEIGHT + 2 * MARKER_SHADOW_PADDING;
+
     return svgToImage(`\
-<svg xmlns="http://www.w3.org/2000/svg" width="${MARKER_WIDTH * scale}" height="${MARKER_HEIGHT * scale}" viewBox="0 0 ${MARKER_WIDTH} ${MARKER_HEIGHT}">
+<svg xmlns="http://www.w3.org/2000/svg" width="${canvasWidth * scale}" height="${canvasHeight * scale}" viewBox="${-MARKER_SHADOW_PADDING} ${-MARKER_SHADOW_PADDING} ${canvasWidth} ${canvasHeight}">
     <defs>
         <filter id="shadow" x="-50%" y="-50%" width="200%" height="200%">
-            <feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="black" flood-opacity="0.4" />
+            <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" flood-color="black" flood-opacity="0.35" />
         </filter>
     </defs>
     <path d="M12.5 0C5.6 0 0 5.6 0 12.5C0 21.9 12.5 41 12.5 41S25 21.9 25 12.5C25 5.6 19.4 0 12.5 0Z" filter="url(#shadow)" fill="${escapeXmlAttribute(color)}" />

@@ -37,9 +37,11 @@
   position: relative;
 }
 
+/* The same shadow the pins in the symbol layer are drawn with (see drawMarkerImage), expressed the
+   CSS way — its blur radius is twice the filter's standard deviation. */
 .geo-map-container .geo-marker .marker-pin svg {
   display: block;
-  filter: drop-shadow(2px 2px 2px rgba(0, 0, 0, 0.3));
+  filter: drop-shadow(0 1.5px 3px rgba(0, 0, 0, 0.35));
 }
 
 /* Cut straight out of the pin — no disc behind it, so only the note's colour is seen. */
