@@ -2957,8 +2957,6 @@
     "cancelFocus": "Salir del modo enfoque",
     "moveUp": "Mover arriba",
     "moveDown": "Mover abajo",
-    "link": "Enlace",
-    "linkBidirectional": "Enlace bidireccional",
     "clickTips": "Haga clic en el nodo de destino",
     "summary": "Resumen"
   },

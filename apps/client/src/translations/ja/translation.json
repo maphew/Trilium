@@ -2775,8 +2775,6 @@
     "cancelFocus": "フォーカスモードを解除",
     "moveUp": "上に移動",
     "moveDown": "下に移動",
-    "link": "リンク",
-    "linkBidirectional": "双方向リンク",
     "clickTips": "対象ノードをクリックしてください",
     "summary": "概要"
   },

@@ -2474,8 +2474,6 @@
     "cancelFocus": "退出專注模式",
     "moveUp": "上移",
     "moveDown": "下移",
-    "link": "連結",
-    "linkBidirectional": "雙向連結",
     "clickTips": "請點擊目標節點",
     "summary": "摘要"
   },

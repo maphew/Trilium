@@ -3436,8 +3436,6 @@
     "cancelFocus": "포커스 모드 취소",
     "moveUp": "위로 이동",
     "moveDown": "아래로 이동",
-    "link": "링크",
-    "linkBidirectional": "양방향 링크",
     "clickTips": "대상 노드를 클릭하세요",
     "summary": "요약"
   },
