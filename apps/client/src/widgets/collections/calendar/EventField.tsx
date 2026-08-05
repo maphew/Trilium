@@ -1,0 +1,40 @@
+import "./EventField.css";
+
+import { ComponentChildren } from "preact";
+
+/**
+ * The column of an event's own fields — how the dock will say what the calendar draws the event by
+ * (its recurrence, and in time its start and end dates), those being kept out of the promoted grid
+ * (see EVENT_DATE_LABELS in DetailDock.tsx). One shared shape so every field of the event reads as
+ * a row of the same form.
+ */
+export function EventFieldList({ children }: { children: ComponentChildren }) {
+    return <div className="calendar-event-fields">{children}</div>;
+}
+
+/**
+ * One field of the event: its name over whatever edits it. The name is a `<label>` where there is
+ * one input to speak for ({@link htmlFor}), and reads as a heading where the field is a group —
+ * a row of weekday toggles has no single input to point at.
+ */
+export function EventField({ name, htmlFor, children }: {
+    name: string;
+    /** The id of the field's input, for a field that has exactly one. */
+    htmlFor?: string;
+    children: ComponentChildren;
+}) {
+    return (
+        <div className="calendar-event-field">
+            <label className="calendar-event-field-name" for={htmlFor}>{name}</label>
+            {children}
+        </div>
+    );
+}
+
+/**
+ * Controls standing in one line, for a field said as a sentence — "every [2] weeks", "after [10]
+ * times" — rather than as a single box.
+ */
+export function EventFieldControls({ children }: { children: ComponentChildren }) {
+    return <div className="calendar-event-field-controls">{children}</div>;
+}

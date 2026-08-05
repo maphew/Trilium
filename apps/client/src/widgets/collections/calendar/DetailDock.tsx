@@ -12,12 +12,15 @@ import PromotedAttributes from "../../PromotedAttributes";
 import ActionButton from "../../react/ActionButton";
 import { useLegacyComponentElement, useNote } from "../../react/hooks";
 import { removeFromCalendar } from "./api";
+import { EventFieldList } from "./EventField";
+import RecurrenceEditor from "./RecurrenceEditor";
 
 /**
- * The dates the calendar already draws the event by, so their fields are not repeated in the dock.
+ * The labels the dock already speaks for, so their fields are not repeated in the promoted grid:
+ * the dates the calendar draws the event by, and the recurrence the dock's own field edits.
  * Only the stock names for now; a calendar naming its own (`calendar:startDate`) still shows those.
  */
-const EVENT_DATE_LABELS = [ "startDate", "endDate", "startTime", "endTime" ];
+const EVENT_LABELS = [ "startDate", "endDate", "startTime", "endTime", "recurrence" ];
 
 /**
  * A pane docked at the trailing edge of the calendar, holding the note of the selected event — the
@@ -132,7 +135,15 @@ function DockContent({ note, parentNote, isEditable, onClose }: {
                     </>}
                 </EmbeddedNoteActions>
 
-                <PromotedAttributes omit={EVENT_DATE_LABELS} />
+                {/* How the event repeats — a way of changing it, so it goes where the calendar may
+                    be edited: a calendar root's day notes are days, and days do not recur. */}
+                {isEditable && (
+                    <EventFieldList>
+                        <RecurrenceEditor note={note} />
+                    </EventFieldList>
+                )}
+
+                <PromotedAttributes omit={EVENT_LABELS} />
                 <NoteDetail />
             </div>
         </div>

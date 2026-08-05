@@ -1,0 +1,33 @@
+.calendar-recurrence-weekdays {
+    display: flex;
+    gap: 4px;
+
+    .calendar-recurrence-weekday {
+        /* Seven of a kind sharing the row evenly, whatever their labels measure in a locale. */
+        flex: 1 1 0;
+        min-width: 0;
+        padding: 3px 0;
+        border: 1px solid var(--main-border-color);
+        border-radius: 6px;
+        background: transparent;
+        color: var(--main-text-color);
+        font-size: 0.85em;
+        cursor: pointer;
+
+        &:hover {
+            background: var(--hover-item-background-color);
+        }
+
+        &.active {
+            background: var(--active-item-background-color);
+            border-color: var(--active-item-background-color);
+            color: var(--active-item-text-color);
+        }
+    }
+}
+
+.calendar-recurrence-hint {
+    font-size: 0.85em;
+    opacity: 0.75;
+    margin: 0;
+}
