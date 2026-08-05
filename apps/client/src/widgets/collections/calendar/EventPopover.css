@@ -22,6 +22,17 @@
             flex: 1;
             min-width: 0;
         }
+
+        /* The maximize button, dressed as the X beside it is (see "The 'x' icon button" in
+           theme-next/forms.css) minus the red close hover: the same small round surface, with the
+           stock hover underneath. The icon keeps the stock ratio rather than the X's 0.8 — the
+           expand glyph fills its em box where the X's does not, so the stock size is what stands
+           at the X's visual weight. */
+        > .icon-action.bx-expand-alt {
+            --icon-button-size: 24px;
+
+            border-radius: 50%;
+        }
     }
 
     /* The note's own widgets are laid out by the shared class (see EmbeddedNotePane.css), which

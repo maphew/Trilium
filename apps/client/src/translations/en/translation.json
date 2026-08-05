@@ -1007,6 +1007,7 @@
     "pin_date": "Pin the current date so the calendar always opens on this interval instead of today",
     "unpin_date": "Unpin the date so the calendar opens on today's date again",
     "close_details": "Close event details",
+    "maximize_details": "Open in quick edit",
     "dates": {
       "all_day": "All day",
       "date": "Date",
