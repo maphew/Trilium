@@ -1,6 +1,6 @@
 import "./GhostPopover.css";
 
-import { useEffect, useState } from "preact/hooks";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import { t } from "../../../services/i18n";
 import { isMobile } from "../../../services/utils";
@@ -48,6 +48,17 @@ export default function GhostPopover({ draft, anchor, container, onCommit, onCan
     // Committing is asked for once, however many times Enter falls before the note arrives and
     // the form goes: each ask would make its own note.
     const [ committing, setCommitting ] = useState(false);
+    const titleRef = useRef<HTMLInputElement>(null);
+
+    /**
+     * The field asks for the caret on mount, which a dialog is in no position to grant: it is still
+     * rising, and Bootstrap lays its own focus trap on the dialog as it lands — taking back
+     * whatever the field had claimed. Asked for again once the dialog is up, which is after that.
+     *
+     * Held still between renders, or the dialog would unbind and rebind what it listens for on
+     * every letter typed into the very field this focuses.
+     */
+    const focusTitle = useCallback(() => titleRef.current?.focus(), []);
 
     const commit = () => {
         if (committing) return;
@@ -69,6 +80,7 @@ export default function GhostPopover({ draft, anchor, container, onCommit, onCan
     const form = (
         <div className="calendar-ghost-body">
             <FormTextBox
+                inputRef={titleRef}
                 autoFocus
                 currentValue={title}
                 placeholder={t("calendar_view.draft_title_placeholder")}
@@ -105,6 +117,7 @@ export default function GhostPopover({ draft, anchor, container, onCommit, onCan
                 size="md"
                 title={t("calendar_view.new_event")}
                 show
+                onShown={focusTitle}
                 onHidden={onCancel}
             >
                 {form}
