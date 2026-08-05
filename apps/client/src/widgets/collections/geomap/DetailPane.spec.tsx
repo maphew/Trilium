@@ -630,6 +630,36 @@ describe("DetailPane", () => {
         });
 
         /**
+         * The maximize in the header: the pane grown into the quick editor, which takes the pane's
+         * place rather than standing over it — the quick editor opened on the path the menu's own
+         * entry would open, and the pane standing down having told its editors to save (see
+         * MaximizeToQuickEditAction).
+         */
+        it("maximizes into the quick editor, the pane standing down behind it", async () => {
+            const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+            const map = fakeMap();
+
+            const notePath = "root/places/somewhere";
+            const bestNotePath = vi.spyOn(note, "getBestNotePathString").mockReturnValue(notePath);
+            const triggerCommand = vi.spyOn(appContext, "triggerCommand").mockResolvedValue(undefined as never);
+
+            try {
+                await openPaneFor(note, map);
+
+                await act(async () => {
+                    pane()?.querySelector<HTMLButtonElement>(".tn-overlay-panel-header-actions button.tn-embedded-note-maximize")?.click();
+                });
+
+                expect(triggerCommand).toHaveBeenCalledWith("openInPopup", { noteIdOrPath: notePath });
+                expect(editorAskedToSave).toHaveBeenCalled();
+                expect(pane()).toBeNull();
+            } finally {
+                bestNotePath.mockRestore();
+                triggerCommand.mockRestore();
+            }
+        });
+
+        /**
          * The rest are gathered behind one button, and are the same ways a link offers anywhere in
          * the app — which is how a split view, the one worth having beside a map, comes to be
          * offered at all: the three buttons this replaced never had one.
