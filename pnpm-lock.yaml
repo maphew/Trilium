@@ -630,6 +630,9 @@ importers:
       '@braintree/sanitize-url':
         specifier: 7.1.2
         version: 7.1.2
+      '@triliumnext/backup-container':
+        specifier: workspace:*
+        version: link:../../packages/trilium-backup-container
       '@triliumnext/commons':
         specifier: workspace:*
         version: link:../../packages/commons

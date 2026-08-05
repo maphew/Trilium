@@ -1,11 +1,17 @@
+import { writeBackupContainer } from "@triliumnext/backup-container";
 import type { DatabaseBackup } from "@triliumnext/commons";
 import { BackupOptionsService, BackupService, utils as coreUtils, getLog, sync_mutex as syncMutexService, ws } from "@triliumnext/core";
 import fs from "fs";
+import fsp from "fs/promises";
 import { t } from "i18next";
 import path from "path";
 
 import dataDir from "./services/data_dir.js";
 import sql from "./services/sql.js";
+
+/** Backups that are compressed, encrypted or both are containers rather than plain database copies. */
+const CONTAINER_EXTENSION = ".tnbackup";
+const DATABASE_EXTENSION = ".db";
 
 export interface ServerBackupConfig {
     /**
@@ -14,6 +20,23 @@ export interface ServerBackupConfig {
      * configured through the `TRILIUM_BACKUP_DIR` environment variable instead.
      */
     allowCustomDirectory?: boolean;
+    /**
+     * Reads the stored backup passphrase, or `null` when there is none to be had. Set by the desktop
+     * application, which is the only one with an OS keyring to keep a passphrase in.
+     */
+    getPassphrase?: () => Promise<string | null>;
+}
+
+/** How a backup is to be written, once the options and the passphrase have both had their say. */
+interface BackupFormat {
+    compress: boolean;
+    passphrase: string | null;
+    /**
+     * Set when encryption was asked for and could not be delivered. The backup is still worth having,
+     * but it must stay in the default directory: the chosen one is typically a synced folder, and
+     * putting an unencrypted database there is the very thing encryption was turned on to avoid.
+     */
+    keepLocal: boolean;
 }
 
 export default class ServerBackupService extends BackupService {
@@ -45,15 +68,16 @@ export default class ServerBackupService extends BackupService {
             throw new Error("Invalid backup name: must contain at least one alphanumeric character, hyphen, or underscore.");
         }
 
-        const fileName = `backup-${sanitizedName}.db`;
+        const baseName = `backup-${sanitizedName}`;
 
         // we don't want to back up DB in the middle of sync with potentially inconsistent DB state
         return await syncMutexService.doExclusively(async () => {
-            const customDir = this.getCustomBackupDir();
+            const format = await this.resolveFormat();
+            const customDir = format.keepLocal ? null : this.getCustomBackupDir();
 
             if (customDir) {
                 try {
-                    return await writeBackup(customDir, fileName, "custom");
+                    return await writeBackup(customDir, baseName, format, "custom");
                 } catch (e) {
                     // A backup that cannot reach the chosen location is still worth having, so the
                     // default one takes over instead of the backup being lost altogether. The reason
@@ -67,7 +91,7 @@ export default class ServerBackupService extends BackupService {
                 }
             }
 
-            return await writeBackup(getDefaultBackupDir(), fileName, "default");
+            return await writeBackup(getDefaultBackupDir(), baseName, format, "default");
         });
     }
 
@@ -84,6 +108,36 @@ export default class ServerBackupService extends BackupService {
         }
 
         return fs.readFileSync(resolvedPath);
+    }
+
+    /**
+     * Settles what the backup is written as. Compression alone needs nothing but the option; encryption
+     * also needs a passphrase, and where that cannot be read the backup falls back to being unencrypted
+     * and local rather than not being taken at all.
+     */
+    private async resolveFormat(): Promise<BackupFormat> {
+        // Read leniently: the pre-migration backup runs before the options added by newer versions exist.
+        const isEnabled = (name: "backupEnableCompression" | "backupEnableEncryption") =>
+            this.options.getOptionOrNull(name) === "true";
+
+        const compress = isEnabled("backupEnableCompression");
+        if (!isEnabled("backupEnableEncryption")) {
+            return { compress, passphrase: null, keepLocal: false };
+        }
+
+        const passphrase = (await this.config.getPassphrase?.()) ?? null;
+        if (passphrase) {
+            return { compress, passphrase, keepLocal: false };
+        }
+
+        getLog().error("Could not read the backup passphrase; backing up unencrypted to the default location.");
+        ws.sendMessageToAllClients({
+            type: "toast",
+            message: t("backup.passphrase_unavailable"),
+            timeout: 15000
+        });
+
+        return { compress, passphrase: null, keepLocal: true };
     }
 
     /** The directory the user chose to back up to, or `null` when the default one applies. */
@@ -135,8 +189,9 @@ function listBackupsIn(directory: string): DatabaseBackup[] {
     }
 
     return fileNames
-        // The .db check excludes intermediate SQLite files (e.g. *.db-journal) created while a backup is in progress.
-        .filter((fileName) => fileName.includes("backup") && fileName.endsWith(".db"))
+        // The extension check excludes intermediate files (e.g. *.db-journal, *.part) created while a
+        // backup is in progress.
+        .filter((fileName) => fileName.includes("backup") && (fileName.endsWith(DATABASE_EXTENSION) || fileName.endsWith(CONTAINER_EXTENSION)))
         .flatMap((fileName) => {
             const filePath = path.resolve(directory, fileName);
             const stat = fs.statSync(filePath, { throwIfNoEntry: false });
@@ -148,23 +203,71 @@ function listBackupsIn(directory: string): DatabaseBackup[] {
         });
 }
 
-async function writeBackup(directory: string, fileName: string, location: "default" | "custom"): Promise<string> {
+async function writeBackup(directory: string, baseName: string, format: BackupFormat, location: "default" | "custom"): Promise<string> {
+    const isContainer = format.compress || format.passphrase !== null;
+    const fileName = `${baseName}${isContainer ? CONTAINER_EXTENSION : DATABASE_EXTENSION}`;
     const backupFile = path.resolve(directory, fileName);
 
     fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
 
     getLog().info("Creating backup...");
     try {
-        await sql.copyDatabase(backupFile);
+        if (isContainer) {
+            await writeContainer(backupFile, baseName, format);
+        } else {
+            await sql.copyDatabase(backupFile);
+        }
     } catch (e) {
-        // Whatever was written before the failure is not a usable database, and would otherwise be
+        // Whatever was written before the failure is not a usable backup, and would otherwise be
         // listed and offered for download as if it were one.
         fs.rmSync(backupFile, { force: true });
         throw new Error(withoutDirectory(e, directory));
     }
+
+    // One backup name, one file: a container retires the plain copy it replaces, and the other way round.
+    fs.rmSync(path.resolve(directory, `${baseName}${isContainer ? DATABASE_EXTENSION : CONTAINER_EXTENSION}`), { force: true });
+
     getLog().info(`Created backup .${path.sep}${fileName}${location === "custom" ? " in the custom backup location." : ""}`);
 
     return backupFile;
+}
+
+/**
+ * Wraps the database into a container.
+ *
+ * SQLite's backup API writes to a path rather than a stream, so a snapshot has to land somewhere
+ * before it can be fed to the writer. It lands in the data directory's temp folder and is deleted
+ * straight after, so the backup directory never holds a plain database even for a moment.
+ */
+async function writeContainer(backupFile: string, baseName: string, format: BackupFormat): Promise<void> {
+    const snapshot = path.resolve(dataDir.TMP_DIR, `${baseName}.snapshot.db`);
+    const partial = `${backupFile}.part`;
+
+    try {
+        await sql.copyDatabase(snapshot);
+
+        await writeBackupContainer(fs.createReadStream(snapshot), fs.createWriteStream(partial), {
+            compress: format.compress,
+            passphrase: format.passphrase ?? undefined,
+            plaintextSize: fs.statSync(snapshot).size,
+            // The digest is only known once the payload is written, so it is patched in afterwards.
+            patchHeader: async (offset, data) => {
+                const handle = await fsp.open(partial, "r+");
+                try {
+                    await handle.write(data, 0, data.length, offset);
+                    await handle.sync();
+                } finally {
+                    await handle.close();
+                }
+            }
+        });
+
+        // Renamed last, so a half-written container is never mistaken for a finished one.
+        fs.renameSync(partial, backupFile);
+    } finally {
+        fs.rmSync(snapshot, { force: true });
+        fs.rmSync(partial, { force: true });
+    }
 }
 
 /**
