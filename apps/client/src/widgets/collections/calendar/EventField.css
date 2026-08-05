@@ -9,14 +9,21 @@
         gap: 4px;
     }
 
-    /* Fields sharing one line, splitting it evenly whatever each holds. */
+    /* Fields sharing one line, splitting what is left of it evenly. Parted by more than the
+       controls within a field are, so the line reads as two fields rather than as one field's
+       worth of controls. */
     .calendar-event-field-row {
         display: flex;
-        gap: 10px;
+        gap: 16px;
 
         > * {
             flex: 1 1 0;
             min-width: 0;
+        }
+
+        /* Except those that asked for no more room than they need (see EventField's `compact`). */
+        > .calendar-event-field-compact {
+            flex: 0 0 auto;
         }
     }
 

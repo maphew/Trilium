@@ -18,14 +18,17 @@ export function EventFieldList({ children }: { children: ComponentChildren }) {
  * one input to speak for ({@link htmlFor}), and reads as a heading where the field is a group —
  * a row of weekday toggles has no single input to point at.
  */
-export function EventField({ name, htmlFor, children }: {
+export function EventField({ name, htmlFor, compact, children }: {
     name: string;
     /** The id of the field's input, for a field that has exactly one. */
     htmlFor?: string;
+    /** Take no more of a shared line than the field's own name and control need, leaving the rest
+     *  to whatever stands beside it (see {@link EventFieldRow}). */
+    compact?: boolean;
     children: ComponentChildren;
 }) {
     return (
-        <div className="calendar-event-field">
+        <div className={clsx("calendar-event-field", compact && "calendar-event-field-compact")}>
             <label className="calendar-event-field-name" for={htmlFor}>{name}</label>
             {children}
         </div>

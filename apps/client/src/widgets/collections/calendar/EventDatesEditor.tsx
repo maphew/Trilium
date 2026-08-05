@@ -62,7 +62,7 @@ export default function EventDatesEditor({ note, repeats }: {
                 nameless because the field's name speaks for it — a switch rather than a checkbox,
                 as it reads as the mode flip it is. */}
             <EventFieldRow>
-                <EventField name={t("calendar.dates.all_day")} htmlFor={allDayId}>
+                <EventField name={t("calendar.dates.all_day")} htmlFor={allDayId} compact>
                     <div className="calendar-all-day-switch">
                         <FormToggle
                             id={allDayId}
