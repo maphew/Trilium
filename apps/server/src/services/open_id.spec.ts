@@ -492,7 +492,8 @@ describe("open_id", () => {
             expect(await openID.probeDiscovery()).toEqual({
                 endSessionSupported: true,
                 issuerBaseUrl: "https://issuer.example.com",
-                idTokenSigningAlg: "RS256"
+                idTokenSigningAlg: "RS256",
+                metadataAvailable: true
             });
             expect(fetchSpy).toHaveBeenCalledWith(wellKnownUrl, expect.anything());
         });
@@ -525,14 +526,16 @@ describe("open_id", () => {
             expect(await openID.probeDiscovery()).toEqual({
                 endSessionSupported: false,
                 issuerBaseUrl: "https://issuer.example.com",
-                idTokenSigningAlg: "RS256"
+                idTokenSigningAlg: "RS256",
+                metadataAvailable: false
             });
 
             vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("network down"));
             expect(await openID.probeDiscovery()).toEqual({
                 endSessionSupported: false,
                 issuerBaseUrl: "https://issuer.example.com",
-                idTokenSigningAlg: "RS256"
+                idTokenSigningAlg: "RS256",
+                metadataAvailable: false
             });
         });
 
@@ -544,7 +547,8 @@ describe("open_id", () => {
             expect(await openID.probeDiscovery()).toEqual({
                 endSessionSupported: false,
                 issuerBaseUrl: "",
-                idTokenSigningAlg: "RS256"
+                idTokenSigningAlg: "RS256",
+                metadataAvailable: false
             });
             expect(fetchSpy).not.toHaveBeenCalled();
         });
@@ -801,7 +805,8 @@ describe("createReactiveOidcMiddleware", () => {
         const probeDiscovery = vi.fn().mockResolvedValue({
             endSessionSupported: false,
             issuerBaseUrl: PROBED_ISSUER,
-            idTokenSigningAlg: "RS256"
+            idTokenSigningAlg: "RS256",
+            metadataAvailable: true
         });
         const generateOAuthConfig = vi.fn((endSessionSupported: boolean) => ({ endSessionSupported }) as never);
         const isConfigured = vi.fn(() => configured);
@@ -864,6 +869,47 @@ describe("createReactiveOidcMiddleware", () => {
         expect(next).toHaveBeenCalledOnce();
     });
 
+    /**
+     * A probe that couldn't reach the issuer returns fallbacks, not answers — and `auth()` performs no
+     * discovery of its own (it only validates config and builds a router), so the build succeeds and
+     * nothing downstream notices. Caching that would freeze the RS256 fallback into the config object
+     * for the life of the process: a provider signing EdDSA would then reject every valid ID token until
+     * a restart, re-creating the very failure this resolution exists to prevent. The library recovers
+     * from the same blip by itself, so the handler must be rebuilt rather than pinned.
+     */
+    it("does not cache a handler built without the provider's discovery document", async () => {
+        const t = setup();
+        t.probeDiscovery.mockResolvedValueOnce({
+            endSessionSupported: false,
+            issuerBaseUrl: PROBED_ISSUER,
+            idTokenSigningAlg: "RS256",
+            metadataAvailable: false
+        });
+        t.probeDiscovery.mockResolvedValue({
+            endSessionSupported: true,
+            issuerBaseUrl: PROBED_ISSUER,
+            idTokenSigningAlg: "EdDSA",
+            metadataAvailable: true
+        });
+        t.setConfigured(true);
+
+        // The degraded build still serves its own request rather than failing it — a blip must not break
+        // a sign-in the library itself may well complete.
+        await run(t.middleware);
+        expect(t.oidcHandler).toHaveBeenCalledOnce();
+        expect(t.generateOAuthConfig).toHaveBeenLastCalledWith(false, PROBED_ISSUER, "RS256");
+
+        // Once discovery recovers, the real algorithm takes effect without a restart...
+        await run(t.middleware);
+        expect(t.probeDiscovery).toHaveBeenCalledTimes(2);
+        expect(t.generateOAuthConfig).toHaveBeenLastCalledWith(true, PROBED_ISSUER, "EdDSA");
+
+        // ...and that build, made from a document that was actually read, is the one that gets cached.
+        await run(t.middleware);
+        expect(t.probeDiscovery).toHaveBeenCalledTimes(2);
+        expect(t.buildAuth).toHaveBeenCalledTimes(2);
+    });
+
     it("builds the underlying handler only once across requests (cached)", async () => {
         const t = setup();
         t.setConfigured(true);
@@ -884,7 +930,8 @@ describe("createReactiveOidcMiddleware", () => {
         t.probeDiscovery.mockResolvedValue({
             endSessionSupported: true,
             issuerBaseUrl: "https://sso.example.com/application/o/trilium-app/",
-            idTokenSigningAlg: "EdDSA"
+            idTokenSigningAlg: "EdDSA",
+            metadataAvailable: true
         });
         t.setConfigured(true);
 
@@ -931,13 +978,23 @@ describe("createReactiveOidcMiddleware", () => {
 
         // A deferred discovery probe keeps the first build in flight while a second request arrives,
         // exercising the in-flight-init guard (otherwise both requests would each build a handler).
-        type Probe = { endSessionSupported: boolean; issuerBaseUrl: string; idTokenSigningAlg: string };
+        type Probe = {
+            endSessionSupported: boolean;
+            issuerBaseUrl: string;
+            idTokenSigningAlg: string;
+            metadataAvailable: boolean;
+        };
         let resolveProbe: (value: Probe) => void = () => {};
         t.probeDiscovery.mockReturnValue(new Promise<Probe>((resolve) => { resolveProbe = resolve; }));
 
         const first = run(t.middleware);
         const second = run(t.middleware);
-        resolveProbe({ endSessionSupported: false, issuerBaseUrl: PROBED_ISSUER, idTokenSigningAlg: "RS256" });
+        resolveProbe({
+            endSessionSupported: false,
+            issuerBaseUrl: PROBED_ISSUER,
+            idTokenSigningAlg: "RS256",
+            metadataAvailable: true
+        });
         await Promise.all([first, second]);
 
         expect(t.buildAuth).toHaveBeenCalledOnce();

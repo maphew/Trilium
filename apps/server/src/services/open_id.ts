@@ -298,7 +298,7 @@ export function createReactiveOidcMiddleware(deps: Partial<ReactiveOidcDeps> = {
     } = deps;
 
     let oidcMiddleware: RequestHandler | null = null;
-    let oidcInit: Promise<void> | null = null;
+    let oidcInit: Promise<RequestHandler> | null = null;
 
     return async (req: Request, res: Response, next: NextFunction) => {
         // OAuth not selected as the sign-in method → behave as if the middleware were never mounted.
@@ -306,24 +306,51 @@ export function createReactiveOidcMiddleware(deps: Partial<ReactiveOidcDeps> = {
             return next();
         }
 
-        if (!oidcMiddleware) {
-            oidcInit ??= (async () => {
+        let handler = oidcMiddleware;
+        if (!handler) {
+            const init = (oidcInit ??= (async () => {
                 // Load express-openid-connect lazily so the (heavy) library and its transitive deps are
                 // only evaluated the first time OAuth is actually used, never on a server that runs with
                 // OAuth unselected. The sole static reference to the package is the erased `Session` type
                 // import, so the bundler keeps it out of the eager-init graph (see scripts/build-utils.ts).
                 const authFactory = buildAuth ?? (await import("express-openid-connect")).auth;
-                const { endSessionSupported, issuerBaseUrl, idTokenSigningAlg } = await probe();
-                oidcMiddleware = authFactory(buildOAuthConfig(endSessionSupported, issuerBaseUrl, idTokenSigningAlg));
-            })();
+                const { endSessionSupported, issuerBaseUrl, idTokenSigningAlg, metadataAvailable } = await probe();
+                const built = authFactory(buildOAuthConfig(endSessionSupported, issuerBaseUrl, idTokenSigningAlg));
+
+                // Only commit to the handler when the probe actually read the provider's document.
+                //
+                // A probe that couldn't reach the issuer degrades to fallbacks rather than throwing (see
+                // probeDiscovery), and `auth()` does not itself perform discovery — it only validates
+                // config and builds a router — so the build succeeds and nothing here would notice. The
+                // library recovers from the same blip on its own (it discovers per request, behind a
+                // cache it drops on failure), but these values are frozen into the config object handed
+                // to `auth()`. Caching them would outlive the blip: a provider that signs EdDSA would be
+                // pinned to the RS256 fallback and reject every valid ID token until a restart — exactly
+                // the failure this resolution exists to prevent.
+                if (metadataAvailable) {
+                    oidcMiddleware = built;
+                }
+                return built;
+            })());
+
             try {
-                await oidcInit;
+                handler = await init;
             } catch (error) {
-                // Reset so the next request can retry — otherwise a single failed init (transient
-                // discovery-probe failure, malformed config, etc.) would leave the rejected promise
+                // Reset so the next request can retry — otherwise a single failed init (a malformed
+                // config `auth()` rejects, an import failure, etc.) would leave the rejected promise
                 // cached and break every subsequent OAuth request until a server restart.
-                oidcInit = null;
+                if (oidcInit === init) {
+                    oidcInit = null;
+                }
                 return failRoundTrip(req, res, next, error);
+            }
+
+            // Settled, so drop the in-flight guard — its only job is to make concurrent first requests
+            // share one build. When the probe read the document `oidcMiddleware` now holds the handler
+            // and this is never consulted again; when it didn't, the next request re-probes. The identity
+            // check keeps a request from clearing a *newer* build's guard.
+            if (oidcInit === init) {
+                oidcInit = null;
             }
         }
 
@@ -331,14 +358,14 @@ export function createReactiveOidcMiddleware(deps: Partial<ReactiveOidcDeps> = {
         // (sends a response/redirect or calls next() itself) and returns undefined. We must NOT call
         // next() ourselves afterwards — doing so double-invokes the downstream pipeline and triggers
         // "Cannot set headers after they are sent". The guard only covers a failed build.
-        if (!oidcMiddleware) {
+        if (!handler) {
             return next();
         }
 
         // The library reports a broken round-trip by calling next(err) rather than by rejecting, so the
         // interception has to happen on `next` — a try/catch around this call would never see it. A bare
         // next() (the pass-through for non-OIDC routes) must still propagate untouched.
-        return oidcMiddleware(req, res, (error?: unknown) => {
+        return handler(req, res, (error?: unknown) => {
             if (!error) {
                 return next();
             }
@@ -428,6 +455,12 @@ interface DiscoveryProbe {
     issuerBaseUrl: string;
     /** The ID token signature algorithm to expect — see {@link resolveIdTokenSigningAlg}. */
     idTokenSigningAlg: string;
+    /**
+     * Whether the provider's discovery document was actually read. False means every field above is a
+     * fallback rather than an answer, which is what stops {@link createReactiveOidcMiddleware} from
+     * caching a handler built from it.
+     */
+    metadataAvailable: boolean;
 }
 
 /**
@@ -440,7 +473,8 @@ interface DiscoveryProbe {
  * Any fetch/parse failure degrades to the configured issuer with logout support off and the RS256
  * default, leaving a transient network blip to break neither sign-in (express-openid-connect runs its
  * own discovery, which either succeeds or reports the real error) nor logout (which falls back to
- * clearing the local session).
+ * clearing the local session). Such a result is flagged `metadataAvailable: false` so the caller can
+ * tell a fallback from an answer and decline to cache it — see {@link createReactiveOidcMiddleware}.
  */
 async function probeDiscovery(): Promise<DiscoveryProbe> {
     const configuredIssuer = config.MultiFactorAuthentication.oauthIssuerBaseUrl;
@@ -449,7 +483,8 @@ async function probeDiscovery(): Promise<DiscoveryProbe> {
     return {
         endSessionSupported: supportsRpInitiatedLogout(metadata),
         issuerBaseUrl: reconcileIssuerBaseUrl(configuredIssuer, readAdvertisedIssuer(metadata)),
-        idTokenSigningAlg: resolveIdTokenSigningAlg(metadata)
+        idTokenSigningAlg: resolveIdTokenSigningAlg(metadata),
+        metadataAvailable: metadata !== null
     };
 }
 
