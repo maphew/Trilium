@@ -1,7 +1,8 @@
 import { MapMouseEvent } from "maplibre-gl";
 import { useCallback, useContext, useEffect } from "preact/hooks";
 
-import appContext, { type CommandMappings } from "../../../components/app_context.js";
+import { type CommandMappings } from "../../../components/app_context.js";
+import FNote from "../../../entities/fnote.js";
 import contextMenu, { type MenuItem } from "../../../menus/context_menu.js";
 import NoteColorPicker from "../../../menus/custom-items/NoteColorPicker.jsx";
 import linkContextMenu from "../../../menus/link_context_menu.js";
@@ -9,11 +10,14 @@ import { copyTextWithToast } from "../../../services/clipboard_ext.js";
 import froca from "../../../services/froca.js";
 import { t } from "../../../services/i18n.js";
 import link from "../../../services/link.js";
+import { removeFromMap } from "./api.js";
 import { GPX_MIME, trackHitLayers } from "./GpxTrack.js";
 import { type GeoMouseEvent, ParentMap, toGeoMouseEvent } from "./map.js";
 import { formatLocation, MARKER_LAYER } from "./Markers.js";
 
 interface ContextMenusProps {
+    /** The map's own note, which is how the tree is told what the map holds a note by. */
+    parentNote: FNote;
     isReadOnly: boolean;
     /**
      * Arms this map for the marker of the given note to be put somewhere else, the next click on the
@@ -30,7 +34,7 @@ interface ContextMenusProps {
     onCreateNote: (e: GeoMouseEvent) => void;
 }
 
-export default function ContextMenus({ isReadOnly, onRelocate, onCreateNote }: ContextMenusProps) {
+export default function ContextMenus({ parentNote, isReadOnly, onRelocate, onCreateNote }: ContextMenusProps) {
     const map = useContext(ParentMap);
 
     const onContextMenu = useCallback((e: GeoMouseEvent) => {
@@ -44,12 +48,12 @@ export default function ContextMenus({ isReadOnly, onRelocate, onCreateNote }: C
 
         if (features.length > 0) {
             // Marker or track context menu.
-            openContextMenu(features[0].properties.id, e, !isReadOnly, onRelocate);
+            openContextMenu(features[0].properties.id, e, { isEditable: !isReadOnly, onRelocate, parentNote });
         } else {
             // Empty area context menu.
             openMapContextMenu(e, !isReadOnly, onCreateNote);
         }
-    }, [ map, isReadOnly, onRelocate, onCreateNote ]);
+    }, [ map, isReadOnly, onRelocate, onCreateNote, parentNote ]);
 
     useEffect(() => {
         if (!onContextMenu || !map) return;
@@ -65,7 +69,11 @@ export default function ContextMenus({ isReadOnly, onRelocate, onCreateNote }: C
     return null;
 }
 
-export function openContextMenu(noteId: string, e: GeoMouseEvent, isEditable: boolean, onRelocate: (noteId: string) => void) {
+export function openContextMenu(noteId: string, e: GeoMouseEvent, { isEditable, onRelocate, parentNote }: {
+    isEditable: boolean;
+    onRelocate: (noteId: string) => void;
+    parentNote: FNote;
+}) {
     let items: MenuItem<keyof CommandMappings>[] = [
         ...buildGeoLocationItem(e),
         { kind: "separator" },
@@ -73,11 +81,22 @@ export function openContextMenu(noteId: string, e: GeoMouseEvent, isEditable: bo
     ];
 
     if (isEditable) {
+        const note = froca.getNoteFromCache(noteId);
+
         items = [
             ...items,
             { kind: "separator" },
             ...buildRelocateItem(noteId, onRelocate),
-            { title: t("geo-map-context.remove-from-map"), command: "deleteFromMap", uiIcon: "bx bx-trash" },
+            {
+                // A track is named for what removing it does, which is delete the note: its line is
+                // drawn from the note's own file rather than from a location written on it, so there
+                // is no taking it off the map and keeping it (see removeFromMap).
+                title: t(note?.mime === GPX_MIME ? "geo-map-context.delete-note" : "geo-map-context.remove-from-map"),
+                // Called rather than commanded: what was a broadcast command every open map heard
+                // would now put a dialog up on each of them in turn.
+                handler: () => note && void removeFromMap(note, parentNote),
+                uiIcon: "bx bx-trash"
+            },
             { kind: "separator"},
             {
                 kind: "custom",
@@ -90,15 +109,8 @@ export function openContextMenu(noteId: string, e: GeoMouseEvent, isEditable: bo
         x: e.originalEvent.pageX,
         y: e.originalEvent.pageY,
         items,
-        selectMenuItemHandler: ({ command }) => {
-            if (command === "deleteFromMap") {
-                appContext.triggerCommand(command, { noteId });
-                return;
-            }
-
-            // Pass the events to the link context menu
-            linkContextMenu.handleLinkContextMenuItem(command, e, noteId);
-        }
+        // Pass the events to the link context menu, everything this menu adds handling itself.
+        selectMenuItemHandler: ({ command }) => linkContextMenu.handleLinkContextMenuItem(command, e, noteId)
     });
 }
 

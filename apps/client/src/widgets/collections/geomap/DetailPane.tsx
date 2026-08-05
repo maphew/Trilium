@@ -22,7 +22,7 @@ import { FormListItem } from "../../react/FormList";
 import { useLegacyComponentElement, useNoteColorClass, useNoteContext, useNoteLabel, useStaticTooltip } from "../../react/hooks";
 import OverlayPanel, { OverlayPanelBody } from "../../react/OverlayPanel";
 import { NoteContextContext, ParentComponent } from "../../react/react_utils";
-import { moveMarker } from "./api";
+import { removeFromMap } from "./api";
 import { GPX_MIME, trackHitLayers, trackSourceId } from "./GpxTrack";
 import { ParentMap } from "./map";
 import { formatLocation, LOCATION_ATTRIBUTE, MARKER_LAYER, parseLocation } from "./Markers";
@@ -61,8 +61,10 @@ export type PaneFocus =
  * pane outside it would leave the screen. It reads as a dock because the map keeps out of its way
  * (see {@link paneOffset}).
  */
-export default function DetailPane({ notes, placing, isReadOnly, selection, onSelect, onRelocate }: {
+export default function DetailPane({ notes, parentNote, placing, isReadOnly, selection, onSelect, onRelocate }: {
     notes: FNote[];
+    /** The map's own note, which is how the tree is told what the map holds a note by. */
+    parentNote: FNote;
     /** A marker is being placed, which is what the next click on the map is for. */
     placing: boolean;
     /** The map may not be edited, which leaves the pane the ways of opening a note and no more. */
@@ -240,7 +242,7 @@ export default function DetailPane({ notes, placing, isReadOnly, selection, onSe
         // TitleRow), and answers to the pane's own component rather than the map's (see below).
         <ParentComponent.Provider value={paneComponent}>
             <NoteContextContext.Provider value={noteContext}>
-                <MarkerDetails note={note} isReadOnly={isReadOnly} onClose={closePane} onRelocate={relocate} onFollowLink={followLink} />
+                <MarkerDetails note={note} parentNote={parentNote} isReadOnly={isReadOnly} onClose={closePane} onRelocate={relocate} onFollowLink={followLink} />
                 {selection?.isNew && <SelectTitleOnFirstOpen />}
             </NoteContextContext.Provider>
         </ParentComponent.Provider>
@@ -388,8 +390,9 @@ function trackFitPadding(map: MapLibreGLMap) {
 }
 
 /** The pane itself, for a marker there is one to draw. */
-function MarkerDetails({ note, isReadOnly, onClose, onRelocate, onFollowLink }: {
+function MarkerDetails({ note, parentNote, isReadOnly, onClose, onRelocate, onFollowLink }: {
     note: FNote;
+    parentNote: FNote;
     isReadOnly: boolean;
     onClose(): void;
     onRelocate(): void;
@@ -458,7 +461,7 @@ function MarkerDetails({ note, isReadOnly, onClose, onRelocate, onFollowLink }: 
             <OverlayPanelBody className="geo-detail-pane-body">
                 <MarkerLocation note={note} />
 
-                <MarkerActions note={note} isReadOnly={isReadOnly} onRelocate={onRelocate} />
+                <MarkerActions note={note} parentNote={parentNote} isReadOnly={isReadOnly} onRelocate={onRelocate} />
 
                 {/* Whatever fields the note's own definitions ask for, ahead of the note as the quick
                     editor puts them — a marker is often a note whose type says less about it than
@@ -551,7 +554,7 @@ function usePaneNoteContext(note: FNote | undefined) {
  * and the pane took that click over — offering it here would put a modal back over the pane that
  * replaced it.
  */
-function MarkerActions({ note, isReadOnly, onRelocate }: { note: FNote; isReadOnly: boolean; onRelocate(): void }) {
+function MarkerActions({ note, parentNote, isReadOnly, onRelocate }: { note: FNote; parentNote: FNote; isReadOnly: boolean; onRelocate(): void }) {
     const [ location ] = useNoteLabel(note, LOCATION_ATTRIBUTE);
     const hoistedNoteId = appContext.tabManager.getActiveContext()?.hoistedNoteId;
     // A path rather than an id: a note may hang in several places, and each of these opens a path.
@@ -644,13 +647,14 @@ function MarkerActions({ note, isReadOnly, onRelocate }: { note: FNote; isReadOn
                 <ActionButton
                     className="geo-detail-pane-remove"
                     icon="bx bx-trash"
-                    text={t("geo-map-context.remove-from-map")}
-                    // Only the location goes; the note stays in the tree. Nothing closes the pane
-                    // afterwards because the effect above already stands it down.
-                    //
-                    // Called rather than commanded: `deleteFromMap` is broadcast, so every open geo
-                    // map would take the same note off in turn.
-                    onClick={() => void moveMarker(note.noteId, null)}
+                    // Named for what it does to a track, which is delete the note: a track's line is
+                    // drawn from the note's own file, so there is no taking it off the map and
+                    // keeping it (see removeFromMap). The right-click menu names it the same way.
+                    text={t(note.mime === GPX_MIME ? "geo-map-context.delete-note" : "geo-map-context.remove-from-map")}
+                    // Whether the note goes with its marker is asked before anything happens, the
+                    // two being different wishes. Nothing closes the pane afterwards because the
+                    // effect above already stands it down, either way round.
+                    onClick={() => void removeFromMap(note, parentNote)}
                 />
             </>}
         </div>

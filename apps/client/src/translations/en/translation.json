@@ -111,7 +111,11 @@
     "cancel": "Cancel",
     "ok": "OK",
     "are_you_sure_remove_note": "Are you sure you want to remove the note \"{{title}}\" from relation map? ",
-    "if_you_dont_check": "If you don't check this, the note will be only removed from the relation map.",
+    "if_you_dont_check": "The note itself is kept; only its place here is removed.",
+    "delete_note_keeps_note_one": "The note has {{count}} other clone, so the note itself is kept.",
+    "delete_note_keeps_note_other": "The note has {{count}} other clones, so the note itself is kept.",
+    "delete_note_deletes_note": "This is the note's only place in the tree, so the note itself will be deleted. This can be undone in recent changes.",
+    "delete_note_deletes_clones": "The note will be deleted from all {{places}} places it appears in. This can be undone in recent changes.",
     "also_delete_note": "Also delete the note"
   },
   "delete_notes": {
@@ -1001,7 +1005,8 @@
     "list": "List",
     "today": "Today",
     "pin_date": "Pin the current date so the calendar always opens on this interval instead of today",
-    "unpin_date": "Unpin the date so the calendar opens on today's date again"
+    "unpin_date": "Unpin the date so the calendar opens on today's date again",
+    "close_details": "Close event details"
   },
   "close_pane_button": {
     "close_this_pane": "Close this pane"
@@ -2794,6 +2799,9 @@
     "open-location": "Open location",
     "move-marker": "Move to another location",
     "remove-from-map": "Remove from map",
+    "remove-from-map-confirmation": "Are you sure you want to remove the note \"{{title}}\" from the map?",
+    "delete-note": "Delete note",
+    "delete-note-confirmation": "Are you sure you want to delete the note \"{{title}}\"? A track is drawn from its own note, so it cannot be taken off the map on its own.",
     "add-note": "Add a marker at this location"
   },
   "help-button": {

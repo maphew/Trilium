@@ -51,6 +51,18 @@ vi.mock("../../NoteDetail", () => ({
     }
 }));
 
+/**
+ * Whether the reader agreed to the note being taken off the map, and whether it should go from the
+ * tree with it. What the dialog itself makes of that is its own spec's business (see confirm.spec).
+ */
+const confirmDelete = vi.fn();
+vi.mock("../../../services/dialog", async (importOriginal) => ({
+    default: {
+        ...((await importOriginal<{ default: object }>()).default),
+        confirmDeleteNoteBoxWithNote: (...args: unknown[]) => confirmDelete(...args)
+    }
+}));
+
 /** What the pane puts on the clipboard, the writing of it being the browser's business. */
 const copied = vi.fn();
 vi.mock("../../../services/clipboard_ext", async (importOriginal) => ({
@@ -146,6 +158,9 @@ describe("DetailPane", () => {
         };
         editorAskedToSave.mockClear();
         onRelocate.mockClear();
+        // Nothing is taken off the map unless a test says the reader agreed to it.
+        confirmDelete.mockReset();
+        confirmDelete.mockResolvedValue(false);
     });
 
     afterEach(() => {
@@ -173,6 +188,7 @@ describe("DetailPane", () => {
         const [ selection, setSelection ] = useState<PaneSelection | null>(initialSelection ?? null);
         return <DetailPane
             notes={notes}
+            parentNote={froca.notes["root"] ?? buildNote({ id: "root", title: "root" })}
             placing={placing}
             isReadOnly={isReadOnly}
             selection={selection}
@@ -922,13 +938,14 @@ describe("DetailPane", () => {
         }
 
         /**
-         * Only the note's location goes — the note itself stays where it is in the tree — and the
-         * pane goes with it, there being no marker left for it to stand for.
+         * Asked first, and only then does the note's location go — the note itself staying where it
+         * is in the tree — the pane going with the marker, there being nothing left to stand for.
          */
-        it("clears the note's location and stands down", async () => {
+        it("clears the note's location and stands down, the reader having agreed", async () => {
             const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
             const map = fakeMap();
             const setLabel = vi.spyOn(attributes, "setLabel").mockResolvedValue(undefined);
+            confirmDelete.mockResolvedValue({ confirmed: true, isDeleteNoteChecked: false });
 
             try {
                 await mount([ note ], map);
@@ -947,6 +964,27 @@ describe("DetailPane", () => {
             }
         });
 
+        /** Turned down at the dialog, the marker stays exactly where it was. */
+        it("leaves the marker alone where the reader changed their mind", async () => {
+            const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+            const map = fakeMap();
+            const setLabel = vi.spyOn(attributes, "setLabel").mockResolvedValue(undefined);
+            confirmDelete.mockResolvedValue(false);
+
+            try {
+                await mount([ note ], map);
+                map.setUnderPointer([ markerFeature(note) ]);
+                await act(async () => map.click());
+
+                await act(async () => { removeButton()?.click(); });
+
+                expect(setLabel).not.toHaveBeenCalled();
+                expect(pane()).toBeTruthy();
+            } finally {
+                setLabel.mockRestore();
+            }
+        });
+
         it("is not offered at all on a map that cannot be edited", async () => {
             const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
             const map = fakeMap();
@@ -959,6 +997,30 @@ describe("DetailPane", () => {
             expect(pane()).toBeTruthy();
             expect(container?.querySelector(".geo-detail-pane-actions button.bx-log-in")).toBeTruthy();
             expect(removeButton()).toBeNull();
+        });
+
+        /**
+         * A track's line is drawn from its own file rather than from a location written on it, so
+         * there is no taking it off the map and keeping it. The button is named for what it really
+         * does, and the dialog is told there is nothing to offer a choice about.
+         */
+        it("asks about a GPX track as a deletion, there being nothing else it could be", async () => {
+            buildNote({ id: "root", title: "root", children: [ { id: "hikegone", title: "A hike", mime: GPX_MIME } ] });
+            const note = froca.notes["hikegone"];
+            const map = fakeMap();
+
+            await mount([ note ], map);
+            map.setUnderPointer([ trackFeature(note) ]);
+            await act(async () => map.click());
+            await settle();
+
+            await act(async () => { removeButton()?.click(); });
+
+            expect(confirmDelete).toHaveBeenCalledWith(
+                note.title,
+                { noteId: note.noteId, branchId: "root_hikegone" },
+                expect.objectContaining({ mustDeleteNote: true })
+            );
         });
     });
 

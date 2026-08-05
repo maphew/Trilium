@@ -67,12 +67,14 @@ function fakeMap(markerUnderPointer?: FNote, trackUnderPointer?: FNote) {
 
 /** Opens the menu over the given map and hands back the items it was shown with. */
 async function openMenu(map: ReturnType<typeof fakeMap>, { isReadOnly = false, onRelocate = vi.fn(), onCreateNote = vi.fn() } = {}) {
+    const parentNote = buildNote({ title: "The map" });
+
     // Settled before the map is clicked: the listener the menu opens from is bound in an effect, and
     // effects do not run within the render itself.
     await act(async () => {
         renderInto(
             <ParentMap.Provider value={map as never}>
-                <ContextMenus isReadOnly={isReadOnly} onRelocate={onRelocate} onCreateNote={onCreateNote} />
+                <ContextMenus parentNote={parentNote} isReadOnly={isReadOnly} onRelocate={onRelocate} onCreateNote={onCreateNote} />
             </ParentMap.Provider>
         );
     });
@@ -132,14 +134,27 @@ describe("ContextMenus", () => {
         expect(onCreateNote).toHaveBeenCalledWith(expect.objectContaining({ latlng: { lat: 1, lng: 2 } }));
     });
 
-    it("opens the note of a GPX track that was clicked, not the map's own menu", async () => {
+    /**
+     * And named for what taking it off would do, which is delete the note: a track's line is drawn
+     * from its own file rather than from a location written on it, so "remove from map" would be a
+     * promise the map cannot keep.
+     */
+    it("opens the note of a GPX track that was clicked, offering to delete rather than unpin it", async () => {
         const track = buildNote({ title: "A Sunday ride", mime: GPX_MIME });
         const { items } = await openMenu(fakeMap(undefined, track));
 
-        // The note's menu rather than the map's: a track is a note, so what it offers is what a
-        // marker offers, and never the offer to add a note where the click landed.
+        // The note's menu rather than the map's: never the offer to add a note where the click landed.
         expect(items).not.toContainEqual(expect.objectContaining({ title: "geo-map-context.add-note" }));
+        expect(items).toContainEqual(expect.objectContaining({ title: "geo-map-context.delete-note" }));
+        expect(items).not.toContainEqual(expect.objectContaining({ title: "geo-map-context.remove-from-map" }));
+    });
+
+    it("offers a marker the plain removal, the note being able to outlive its pin", async () => {
+        const marker = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+        const { items } = await openMenu(fakeMap(marker));
+
         expect(items).toContainEqual(expect.objectContaining({ title: "geo-map-context.remove-from-map" }));
+        expect(items).not.toContainEqual(expect.objectContaining({ title: "geo-map-context.delete-note" }));
     });
 
     /**

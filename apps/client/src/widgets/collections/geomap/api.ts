@@ -1,7 +1,10 @@
 import FNote from "../../../entities/fnote";
 import attributes from "../../../services/attributes";
+import dialog from "../../../services/dialog";
 import { t } from "../../../services/i18n";
 import note_create from "../../../services/note_create";
+import { deleteNoteOrBranch } from "../../../services/note_deletion";
+import { GPX_MIME } from "./GpxTrack";
 import type { GeoMouseEvent } from "./map";
 import { LOCATION_ATTRIBUTE } from "./Markers";
 
@@ -11,6 +14,46 @@ export const CHILD_NOTE_ICON = "bx bx-pin";
 export async function moveMarker(noteId: string, latLng: { lat: number; lng: number } | null) {
     const value = latLng ? [latLng.lat, latLng.lng].join(",") : "";
     await attributes.setLabel(noteId, LOCATION_ATTRIBUTE, value);
+}
+
+/**
+ * Takes a note off the map, having asked first, and offers to delete it while it is at it.
+ *
+ * The offer is the point. A marker put down by mistake used to leave a note behind that the map no
+ * longer showed and the reader had to go hunting for in the tree — taking a note off the map and
+ * getting rid of it are different wishes, and only one of them was granted. What deleting would
+ * actually cost is the dialog's to work out and to say (see confirmDeleteNoteBoxWithNote); all this
+ * has to know is which branch the map holds the note by.
+ *
+ * A track is the exception, and is deleted or left alone: its line is drawn from the note's own file
+ * rather than from a location written on it, so there is no taking it off the map and keeping it —
+ * the note is the track. That is also why it is not offered under the same name (see ContextMenus).
+ */
+export async function removeFromMap(note: FNote, mapNote: FNote) {
+    const isTrack = note.mime === GPX_MIME;
+    // The map's own branch for the note, which is how a note the map merely shows — cloned in from
+    // elsewhere, and clone-able out again — is told from one that lives here and nowhere else.
+    const branchId = note.parentToBranch[mapNote.noteId] ?? null;
+
+    const result = await dialog.confirmDeleteNoteBoxWithNote(
+        note.title,
+        { noteId: note.noteId, branchId },
+        {
+            message: t(isTrack ? "geo-map-context.delete-note-confirmation" : "geo-map-context.remove-from-map-confirmation",
+                { title: note.title }),
+            mustDeleteNote: isTrack
+        }
+    );
+
+    if (typeof result !== "object" || !result.confirmed) {
+        return;
+    }
+
+    if (result.isDeleteNoteChecked) {
+        await deleteNoteOrBranch(note.noteId, branchId);
+    } else {
+        await moveMarker(note.noteId, null);
+    }
 }
 
 /**

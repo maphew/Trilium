@@ -11,7 +11,7 @@ import server from "../../../services/server";
 import toast from "../../../services/toast";
 import CollectionProperties from "../../note_bars/CollectionProperties";
 import ActionButton from "../../react/ActionButton";
-import { useCollectionTreeDrag, useNoteBlob, useNoteLabel, useNoteLabelBoolean, useNoteProperty, useSpacedUpdate, useTriliumEvent } from "../../react/hooks";
+import { useCollectionTreeDrag, useNoteBlob, useNoteLabel, useNoteLabelBoolean, useNoteProperty, useSpacedUpdate } from "../../react/hooks";
 import { ViewModeProps } from "../interface";
 import { createNewNote, importGpxTrack, moveMarker } from "./api";
 import ContextMenus from "./ContextMenus";
@@ -172,10 +172,6 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
         };
     }, [ placement ]);
 
-    useTriliumEvent("deleteFromMap", ({ noteId }) => {
-        moveMarker(noteId, null);
-    });
-
     const onClick = useCallback(async (e: GeoMouseEvent) => {
         if (!placement) return;
 
@@ -257,8 +253,8 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                     being moved wearing its own pin, a note to be created wearing the pin it will be
                     given (see api.ts). */}
                 {placement && <GhostPin note={placement.mode === "move" ? notes.find((n) => n.noteId === placement.noteId) : undefined} />}
-                <DetailPane notes={notes} placing={!!placement} isReadOnly={isReadOnly} selection={selection} onSelect={setSelection} onRelocate={startMarkerRelocation} />
-                <ContextMenus isReadOnly={isReadOnly} onRelocate={startMarkerRelocation} onCreateNote={createNoteAt} />
+                <DetailPane notes={notes} parentNote={note} placing={!!placement} isReadOnly={isReadOnly} selection={selection} onSelect={setSelection} onRelocate={startMarkerRelocation} />
+                <ContextMenus parentNote={note} isReadOnly={isReadOnly} onRelocate={startMarkerRelocation} onCreateNote={createNoteAt} />
                 {/* The pane above is what a click on a marker opens now, so the markers no longer
                     open the note themselves — the two would otherwise both answer the same click,
                     raising the quick editor over the pane that had just opened behind it. */}
