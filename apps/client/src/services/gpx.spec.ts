@@ -86,13 +86,35 @@ describe("parseGpxStats", () => {
         expect(stats?.elevation).toBeUndefined();
         expect(stats?.time).toBeUndefined();
 
-        // Each journey also answers for itself: the track with both its segments, the route alone.
-        expect(stats?.journeys).toHaveLength(2);
+        // Each journey also answers for itself — the track split at its ~1° leap into the two runs
+        // the map would flag, sharing the name, and the route alone.
+        expect(stats?.journeys).toHaveLength(3);
         expect(stats?.journeys[0]).toMatchObject({ kind: "track", name: "Morning ride" });
-        expect(stats?.journeys[0].distance).toBeCloseTo(0.03 * DEGREE_M, -1);
-        expect(stats?.journeys[1].kind).toBe("route");
-        expect(stats?.journeys[1].name).toBeUndefined();
+        expect(stats?.journeys[0].distance).toBeCloseTo(0.02 * DEGREE_M, -1);
+        expect(stats?.journeys[1]).toMatchObject({ kind: "track", name: "Morning ride" });
         expect(stats?.journeys[1].distance).toBeCloseTo(0.01 * DEGREE_M, -1);
+        expect(stats?.journeys[2].kind).toBe("route");
+        expect(stats?.journeys[2].name).toBeUndefined();
+        expect(stats?.journeys[2].distance).toBeCloseTo(0.01 * DEGREE_M, -1);
+    });
+
+    it("keeps a track one journey across a stroll of a gap, and splits it at a leap", () => {
+        const nearGap = parseGpxStats(gpx(`<trk>
+            <trkseg><trkpt lat="0" lon="0"/><trkpt lat="0" lon="0.001"/></trkseg>
+            <trkseg><trkpt lat="0" lon="0.003"/><trkpt lat="0" lon="0.004"/></trkseg>
+        </trk>`));
+        // ~220 m between the segments: a pause, not a journey's end.
+        expect(nearGap?.journeys).toHaveLength(1);
+        expect(nearGap?.journeys[0].distance).toBeCloseTo(0.002 * DEGREE_M, -1);
+
+        const farGap = parseGpxStats(gpx(`<trk><name>Commute</name>
+            <trkseg><trkpt lat="0" lon="0"/><trkpt lat="0" lon="0.001"/></trkseg>
+            <trkseg><trkpt lat="0" lon="0.03"/><trkpt lat="0" lon="0.031"/></trkseg>
+        </trk>`));
+        // ~3 km between them: two runs, sharing the track's name — as the map flags them.
+        expect(farGap?.journeys.map((journey) => journey.name)).toEqual([ "Commute", "Commute" ]);
+        expect(farGap?.journeys[0].distance).toBeCloseTo(0.001 * DEGREE_M, -1);
+        expect(farGap?.journeys[1].distance).toBeCloseTo(0.001 * DEGREE_M, -1);
     });
 
     it("reads elevation extremes and accumulates gain/loss through the noise window", () => {

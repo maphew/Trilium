@@ -44,7 +44,9 @@ export interface GpxStats {
     segmentCount: number;
     /** Track and route points that carry a readable position. */
     pointCount: number;
-    /** The file's tracks and routes in file order, each with the metres it draws. */
+    /** The file's tracks and routes in file order, each with the metres it draws — split at leaps
+     *  the same way the map splits them (see {@link readTrackLines}), so a track whose recording
+     *  jumped a kilometre lists as the separate runs the map flags, under the one name they share. */
     journeys: GpxJourney[];
     /** The file's waypoints that carry a readable position, in file order. */
     waypoints: GpxWaypoint[];
@@ -198,7 +200,7 @@ export function readTrackLines(doc: Document): GpxTrackLines[] {
             : [ ...container.querySelectorAll("trkseg") ].map((segment) => readCoordinates(segment.querySelectorAll("trkpt")));
 
         const name = childText(container, "name")?.trim() || undefined;
-        for (const run of splitAtJumps(lines.filter((line) => line.length > 0))) {
+        for (const run of splitAtJumps(lines.filter((line) => line.length > 0), ([ lon, lat ]) => ({ lat, lon }))) {
             tracks.push({ name, lines: run });
         }
     }
@@ -225,15 +227,18 @@ export function readTrackLines(doc: Document): GpxTrackLines[] {
 const JOURNEY_JUMP_M = 1000;
 
 /** One track's segments grouped into contiguous runs, split wherever the recording leapt further
- *  than {@link JOURNEY_JUMP_M} — each run one journey's worth of lines. */
-function splitAtJumps(lines: [number, number][][]): [number, number][][][] {
-    const runs: [number, number][][][] = [];
-    let current: [number, number][][] = [];
+ *  than {@link JOURNEY_JUMP_M} — each run one journey's worth of lines. Generic over the point,
+ *  since the map splits bare coordinates and the stats split points carrying elevation and time —
+ *  and both must split at the same places, or the preview would list journeys the map does not
+ *  draw. */
+function splitAtJumps<T>(lines: T[][], positionOf: (point: T) => { lat: number; lon: number }): T[][][] {
+    const runs: T[][][] = [];
+    let current: T[][] = [];
 
     for (const line of lines) {
-        const previous = current[current.length - 1]?.[current[current.length - 1].length - 1];
-        const [ lon, lat ] = line[0];
-        if (previous && haversine({ lat: previous[1], lon: previous[0] }, { lat, lon }) > JOURNEY_JUMP_M) {
+        const lastLine = current[current.length - 1];
+        const previous = lastLine?.[lastLine.length - 1];
+        if (previous && haversine(positionOf(previous), positionOf(line[0])) > JOURNEY_JUMP_M) {
             runs.push(current);
             current = [];
         }
@@ -292,9 +297,11 @@ interface GpxJourneyPoints {
 }
 
 /**
- * The point runs a GPX file is made of, one entry per track and per route with the track's
- * segments kept apart — grouped the same way {@link readTrackLines} groups the drawn lines,
- * including the fallback for schema-less files whose points sit outside any track or route.
+ * The point runs a GPX file is made of, one entry per journey with the track's segments kept
+ * apart — grouped and split exactly the way {@link readTrackLines} groups the drawn lines: a track
+ * whose recording leaps further than {@link JOURNEY_JUMP_M} between segments is split at the leap,
+ * so the runs the stats list are the very ones the map flags. Includes the same fallback for
+ * schema-less files whose points sit outside any track or route.
  */
 function readJourneys(doc: Document): GpxJourneyPoints[] {
     const journeys: GpxJourneyPoints[] = [];
@@ -306,9 +313,9 @@ function readJourneys(doc: Document): GpxJourneyPoints[] {
             : [ ...container.querySelectorAll("trkseg") ].map((segment) => readPoints(segment.querySelectorAll("trkpt")))
         ).filter((segment) => segment.length > 0);
 
-        if (segments.length > 0) {
-            const name = childText(container, "name")?.trim();
-            journeys.push({ kind, ...(name ? { name } : {}), segments });
+        const name = childText(container, "name")?.trim();
+        for (const run of splitAtJumps(segments, (point) => point)) {
+            journeys.push({ kind, ...(name ? { name } : {}), segments: run });
         }
     }
 
