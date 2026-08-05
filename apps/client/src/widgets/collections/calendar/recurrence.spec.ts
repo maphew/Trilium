@@ -57,7 +57,14 @@ describe("parseRecurrence", () => {
         [ "a zero interval", "RRULE:FREQ=DAILY;INTERVAL=0" ],
         [ "a malformed UNTIL", "RRULE:FREQ=DAILY;UNTIL=2026-06-05" ],
         [ "an unknown frequency", "RRULE:FREQ=HOURLY" ],
-        [ "something that is not an RRULE at all", "every second thursday" ]
+        [ "something that is not an RRULE at all", "every second thursday" ],
+        [ "a parameter that says nothing", "RRULE:FREQ=DAILY;JUSTAWORD" ],
+        [ "a parameter with no name", "RRULE:=DAILY" ],
+        [ "an unknown weekday", "RRULE:FREQ=WEEKLY;BYDAY=MO,XX" ],
+        [ "an interval that is not a number", "RRULE:FREQ=DAILY;INTERVAL=often" ],
+        [ "an interval left blank", "RRULE:FREQ=DAILY;INTERVAL=" ],
+        [ "a count that is not a number", "RRULE:FREQ=DAILY;COUNT=many" ],
+        [ "a zero count", "RRULE:FREQ=DAILY;COUNT=0" ]
     ])("steps aside for %s", (_description, value) => {
         expect(parseRecurrence(value)).toEqual({ kind: "custom", value });
     });
