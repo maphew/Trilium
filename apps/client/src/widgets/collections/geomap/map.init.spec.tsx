@@ -7,6 +7,7 @@
  * boundary over the widgets, what the user got was the empty container the map would have filled:
  * a blank panel and a console message they never see. It says what happened now.
  */
+import type { StyleSpecification } from "maplibre-gl";
 import { render } from "preact";
 import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -68,10 +69,12 @@ function workingMap(this: unknown) {
  */
 function buildWorkingMap() {
     const controls = new Set<unknown>();
+    const listeners = new Map<string, Set<(payload?: unknown) => void>>();
     let removed = false;
 
     return {
-        addControl: vi.fn((control: unknown) => { controls.add(control); }),
+        // The corner is recorded too, for the test that asks where the credit was stood.
+        addControl: vi.fn((control: unknown, _corner?: string) => { controls.add(control); }),
         removeControl: vi.fn((control: unknown) => {
             if (removed) {
                 throw new TypeError(`can't access property "off", this._map is undefined`);
@@ -83,9 +86,21 @@ function buildWorkingMap() {
             removed = true;
             controls.clear();
         }),
-        on: vi.fn(),
-        off: vi.fn(),
+        on: vi.fn((event: string, handler: (payload?: unknown) => void) => {
+            const handlers = listeners.get(event) ?? new Set();
+            handlers.add(handler);
+            listeners.set(event, handlers);
+        }),
+        off: vi.fn((event: string, handler: (payload?: unknown) => void) => {
+            listeners.get(event)?.delete(handler);
+        }),
         once: vi.fn(),
+        /** Fires an event as MapLibre would, for the tests that need one to have happened. */
+        fire(event: string, payload?: unknown) {
+            for (const handler of [ ...(listeners.get(event) ?? []) ]) {
+                handler(payload);
+            }
+        },
         resize: vi.fn(),
         setStyle: vi.fn(),
         setCenter: vi.fn(),
@@ -168,6 +183,25 @@ describe("Map initialization", () => {
         expect(container.querySelector(".map-child")).not.toBeNull();
     });
 
+    it("stands the credit at the foot on desktop, and at the head of a mobile map", () => {
+        MapConstructor.mockImplementation(workingMap);
+
+        renderMap();
+        expect(lastMap?.addControl.mock.calls[0][1]).toBe("bottom-left");
+
+        // On mobile the foot is fully spoken for, so the credit moves to the head's leading
+        // corner instead (see the comment in map.tsx).
+        const host = window as unknown as { glob?: { device?: string } };
+        host.glob = { device: "mobile" };
+        try {
+            render(null, container);
+            renderMap();
+            expect(lastMap?.addControl.mock.calls[0][1]).toBe("top-left");
+        } finally {
+            delete host.glob;
+        }
+    });
+
     /**
      * The app is served with `Referrer-Policy: no-referrer`, and OpenStreetMap answers a request that
      * says nothing of itself with a 403 drawn into the tile — an image reading "Access blocked",
@@ -233,6 +267,67 @@ describe("Map initialization", () => {
             renderMap({ layer: { ...LAYER, maxZoom: 22 } });
 
             expect(rasterSource().maxzoom).toBe(22);
+        });
+    });
+
+    /**
+     * The style switch and the frame it kept losing.
+     *
+     * MapLibre swaps styles by diffing, which keeps the painted map on screen — but it cannot diff
+     * against a style that has not finished loading, and every style is still loading for at least
+     * one animation frame after it is handed over. Rather than wait that frame out it tears the
+     * whole style down and rebuilds: a "Unable to perform style diff" warning and a map that blinks
+     * blank. The vector styles import asynchronously and routinely resolve inside that first frame,
+     * so whether the map blinked came down to which of the two won. A style that arrives early is
+     * held until `style.load` says the one before it is ready to be diffed against.
+     */
+    describe("a style that arrives before the last one has loaded", () => {
+        /** The style a vector layer's import resolves to, recognizable by identity. */
+        const VECTOR_STYLE: StyleSpecification = { version: 8, sources: {}, layers: [] };
+
+        /** A vector layer whose style import resolves as fast as a cached chunk does. */
+        const VECTOR_LAYER: MapLayer = {
+            name: "VersaTiles Colorful",
+            type: "vector",
+            style: async () => VECTOR_STYLE,
+            styleFallback: { version: 8, sources: {}, layers: [] }
+        };
+
+        beforeEach(() => {
+            MapConstructor.mockImplementation(workingMap);
+        });
+
+        it("is held until then, and applied the moment it is safe to diff", async () => {
+            renderMap({ layer: VECTOR_LAYER });
+            // The import resolves before the browser's next frame, which is the race this is about.
+            await act(async () => {});
+            expect(lastMap?.setStyle).not.toHaveBeenCalled();
+
+            act(() => lastMap?.fire("style.load"));
+
+            expect(lastMap?.setStyle).toHaveBeenCalledOnce();
+            expect(lastMap?.setStyle.mock.calls[0][0]).toBe(VECTOR_STYLE);
+        });
+
+        it("is applied straight away once the style before it has loaded", () => {
+            renderMap();
+            act(() => lastMap?.fire("style.load"));
+            lastMap?.setStyle.mockClear();
+
+            renderMap({ layer: { ...LAYER, url: "https://other.example.org/{z}/{x}/{y}.png" } });
+
+            expect(lastMap?.setStyle).toHaveBeenCalledOnce();
+        });
+
+        it("is dropped when a later switch overtakes it before it was ever applied", () => {
+            renderMap();
+            const overtakingUrl = "https://other.example.org/{z}/{x}/{y}.png";
+            renderMap({ layer: { ...LAYER, url: overtakingUrl } });
+
+            act(() => lastMap?.fire("style.load"));
+
+            expect(lastMap?.setStyle).toHaveBeenCalledOnce();
+            expect(lastMap?.setStyle.mock.calls[0][0].sources["raster-tiles"].tiles).toEqual([ overtakingUrl ]);
         });
     });
 

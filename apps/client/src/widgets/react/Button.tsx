@@ -1,7 +1,7 @@
 import "./Button.css";
 
 import type { Tooltip } from "bootstrap";
-import type { ComponentChildren, CSSProperties, RefObject } from "preact";
+import type { ComponentChildren, CSSProperties, JSX, RefObject } from "preact";
 import { useMemo, useRef } from "preact/hooks";
 
 import { CommandNames } from "../../components/app_context";
@@ -21,8 +21,14 @@ export interface ButtonProps {
     className?: string;
     icon?: string;
     keyboardShortcut?: string;
-    /** Called when the button is clicked. If not set, the button will submit the form (if any). */
-    onClick?: () => void;
+    /**
+     * Called when the button is clicked. If not set, the button will submit the form (if any).
+     *
+     * Handed the event, which the button already forwarded before this said so: some handlers read
+     * the press's own target to know where to act — opening a note in the tab the button stands in,
+     * for one (see `openInCurrentNoteContext`).
+     */
+    onClick?: JSX.MouseEventHandler<HTMLButtonElement>;
     kind?: "primary" | "secondary" | "lowProfile";
     disabled?: boolean;
     size?: "normal" | "small" | "micro";

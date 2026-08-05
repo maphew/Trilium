@@ -5,29 +5,27 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks"
 
 import FNote from "../../../entities/fnote";
 import branches from "../../../services/branches";
-import { getReadableTextColor } from "../../../services/css_class_manager";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
-import { renderIconImage } from "../../../services/icon_glyphs";
 import server from "../../../services/server";
 import toast from "../../../services/toast";
-import { escapeHtml } from "../../../services/utils";
 import CollectionProperties from "../../note_bars/CollectionProperties";
 import ActionButton from "../../react/ActionButton";
-import { ButtonOrActionButton } from "../../react/Button";
-import { useCollectionTreeDrag, useNoteBlob, useNoteLabel, useNoteLabelBoolean, useNoteProperty, useSpacedUpdate, useTriliumEvent } from "../../react/hooks";
+import { useCollectionTreeDrag, useNoteBlob, useNoteLabel, useNoteLabelBoolean, useNoteProperty, useSpacedUpdate } from "../../react/hooks";
 import { ViewModeProps } from "../interface";
-import { createNewNote, moveMarker } from "./api";
+import { createNewNote, importGpxTrack, moveMarker } from "./api";
 import ContextMenus from "./ContextMenus";
-import { GpxTrack } from "./GpxTrack";
-import Map, { GeoMouseEvent } from "./map";
+import DetailPane, { PaneSelection } from "./DetailPane";
+import EditToolbar from "./EditToolbar";
+import GhostPin from "./GhostPin";
+import { GPX_MIME, GpxTrack } from "./GpxTrack";
+import Map, { DEFAULT_ZOOM, GeoMouseEvent } from "./map";
 import { DEFAULT_MAP_LAYER_NAME, MAP_LAYERS, MapLayer } from "./map_layer";
 import MapToolbar from "./MapToolbar";
-import Markers, { LOCATION_ATTRIBUTE } from "./Markers";
+import Markers, { DEFAULT_MARKER_COLOR, LOCATION_ATTRIBUTE } from "./Markers";
 import Tooltips from "./Tooltips";
 
 const DEFAULT_COORDINATES: [number, number] = [3.878638227135724, 446.6630455551659];
-const DEFAULT_ZOOM = 2;
 
 /**
  * The instruction toast that says what the map is waiting for. One id for both kinds of placement:
@@ -59,6 +57,9 @@ type Placement =
 
 export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewModeProps<MapData>) {
     const [ placement, setPlacement ] = useState<Placement>();
+    // Which marker the detail pane stands for. Held here rather than in the pane so that creating a
+    // note can open the pane on it (see createNoteAt below).
+    const [ selection, setSelection ] = useState<PaneSelection | null>(null);
     const [ coordinates, setCoordinates ] = useState(viewConfig?.view?.center);
     const [ zoom, setZoom ] = useState(viewConfig?.view?.zoom);
     const [ hasScale ] = useNoteLabelBoolean(note, "map:scale");
@@ -84,11 +85,57 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
 
     // Note creation and marker relocation. Both are scoped to this map instance via local callbacks
     // rather than global commands: embedded maps share no note context (no distinct ntxId), so a
-    // broadcast command would arm placement mode on every map at once. The button and the marker's
+    // broadcast command would arm placement mode on every map at once. The edit bar and the marker's
     // context menu are these callbacks' only triggers, so a direct handler keeps each isolated to the
     // map that was clicked.
-    const startNotePlacement = useCallback(() => setPlacement({ mode: "new" }), []);
+    //
+    // A toggle rather than an arming: the button on the edit bar shows the mode as held down, so
+    // pressing it again is the visible way out of it — the counterpart of the toast's Escape. It
+    // also takes over a map armed to move a marker, a press on + saying what the next click is for
+    // more plainly than whatever was armed before.
+    const toggleNotePlacement = useCallback(() => {
+        setPlacement((current) => current?.mode === "new" ? undefined : { mode: "new" });
+    }, []);
     const startMarkerRelocation = useCallback((noteId: string) => setPlacement({ mode: "move", noteId }), []);
+
+    /**
+     * Creates a note where the click landed and opens the pane on it, title selected, so naming the
+     * place is typing over the stock name — there is no dialog between the click and the note (see
+     * createNewNote). Serving both ways of asking for a note: the armed click and the right-click menu.
+     *
+     * The note is put among the map's own before the pane is pointed at it. It is already a child —
+     * the collection just has not reloaded around it yet — and the pane closes itself over a
+     * selection it cannot find, so waiting for the reload would open the pane on a note it refuses.
+     * The marker appears with the pane rather than after it, which is no accident either.
+     */
+    const createNoteAt = useCallback(async (e: GeoMouseEvent) => {
+        const created = await createNewNote(note, e);
+        if (!created) return;
+
+        setNotes((current) => current.some((n) => n.noteId === created.noteId) ? current : [ ...current, created ]);
+        setSelection({ noteId: created.noteId, isNew: true });
+    }, [ note ]);
+
+    /**
+     * Asks for a GPX file and brings it onto the map as a child note (see importGpxTrack). The
+     * note is put among the map's own straight away, as a created note is, so the track is drawn
+     * the moment the file is read rather than after the collection reloads around it.
+     *
+     * The pane opens on it too, as it opens on a note just placed — and it is the pane's own fit
+     * that brings the track into view (see DetailPane), waiting on the line if it has not been
+     * drawn yet, so a file from the other side of the world does not land off-screen. Unlike a
+     * placed note the title is not offered for typing over: the file's name already names it.
+     */
+    const addGpxTrack = useCallback(async () => {
+        const file = await pickGpxFile();
+        if (!file) return;
+
+        const created = await importGpxTrack(note, file);
+        if (!created) return;
+
+        setNotes((current) => current.some((n) => n.noteId === created.noteId) ? current : [ ...current, created ]);
+        setSelection({ noteId: created.noteId });
+    }, [ note ]);
 
     // Placement mode is armed by the button or by the context menu. Tying the instruction toast and
     // the global Escape-to-cancel listener to the state (rather than the handler that armed it)
@@ -125,10 +172,6 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
         };
     }, [ placement ]);
 
-    useTriliumEvent("deleteFromMap", ({ noteId }) => {
-        moveMarker(noteId, null);
-    });
-
     const onClick = useCallback(async (e: GeoMouseEvent) => {
         if (!placement) return;
 
@@ -138,11 +181,11 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
         setPlacement(undefined);
 
         if (placement.mode === "new") {
-            await createNewNote(note, e);
+            await createNoteAt(e);
         } else {
             await moveMarker(placement.noteId, e.latlng);
         }
-    }, [ note, placement ]);
+    }, [ placement, createNoteAt ]);
 
     // Dragging
     const containerRef = useRef<HTMLDivElement>(null);
@@ -179,18 +222,11 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
 
     return (
         <div className={`geo-view ${placement ? "placing-note" : ""}`}>
+            {/* Only the lock at its end: adding a note lives on the map itself now (see
+                EditToolbar), where it survives the map going fullscreen without this bar. */}
             <CollectionProperties
                 note={note}
-                rightChildren={<>
-                    <ToggleReadOnlyButton note={note} />
-                    <ButtonOrActionButton
-                        icon="bx bx-plus"
-                        text={t("geo-map.create-child-note-text")}
-                        title={t("geo-map.create-child-note-title")}
-                        onClick={startNotePlacement}
-                        disabled={isReadOnly}
-                    />
-                </>}
+                rightChildren={<ToggleReadOnlyButton note={note} />}
             />
             { coordinates !== undefined && zoom !== undefined && <Map
                 apiRef={apiRef} containerRef={containerRef}
@@ -206,13 +242,47 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                 scale={hasScale}
             >
                 <MapToolbar />
-                <Tooltips />
-                <ContextMenus note={note} isReadOnly={isReadOnly} onRelocate={startMarkerRelocation} />
-                <Markers notes={notes} hideLabels={hideLabels} isDarkTheme={layerData.isDarkTheme ?? false} clustered={clustered} placing={!!placement} />
+                <EditToolbar
+                    isReadOnly={isReadOnly}
+                    placing={placement?.mode === "new"}
+                    onTogglePlacement={toggleNotePlacement}
+                    onAddGpxTrack={addGpxTrack}
+                />
+                <Tooltips selectedNoteId={selection?.noteId ?? null} />
+                {/* The preview under the pointer while a click is armed to mean a place — the note
+                    being moved wearing its own pin, a note to be created wearing the pin it will be
+                    given (see api.ts). */}
+                {placement && <GhostPin note={placement.mode === "move" ? notes.find((n) => n.noteId === placement.noteId) : undefined} />}
+                <DetailPane notes={notes} parentNote={note} placing={!!placement} isReadOnly={isReadOnly} selection={selection} onSelect={setSelection} onRelocate={startMarkerRelocation} />
+                <ContextMenus parentNote={note} isReadOnly={isReadOnly} onRelocate={startMarkerRelocation} onCreateNote={createNoteAt} />
+                {/* The pane above is what a click on a marker opens now, so the markers no longer
+                    open the note themselves — the two would otherwise both answer the same click,
+                    raising the quick editor over the pane that had just opened behind it. */}
+                <Markers notes={notes} hideLabels={hideLabels} isDarkTheme={layerData.isDarkTheme ?? false} clustered={clustered} placing={!!placement} opensNotes={false} selectedNoteId={selection?.noteId ?? null} />
                 {notes.map(note => <NoteGpxTrackWrapper note={note} hideLabels={hideLabels} isDarkTheme={layerData.isDarkTheme ?? false} />)}
             </Map>}
         </div>
     );
+}
+
+/**
+ * Asks the user for a GPX file, resolving to none where the dialog is dismissed.
+ *
+ * A detached input rather than one rendered somewhere: the browser only wants an input to open its
+ * file dialog through, and a rendered one would be a piece of DOM standing around for the one
+ * moment a button is pressed. The `cancel` event is how a file input reports the dialog closed
+ * empty-handed; a browser old enough not to fire it leaves an already-forgotten promise unsettled,
+ * which is the same nothing the caller does on null.
+ */
+function pickGpxFile(): Promise<File | null> {
+    return new Promise((resolve) => {
+        const input = document.createElement("input");
+        input.type = "file";
+        input.accept = ".gpx,application/gpx+xml";
+        input.addEventListener("change", () => resolve(input.files?.[0] ?? null));
+        input.addEventListener("cancel", () => resolve(null));
+        input.click();
+    });
 }
 
 function useLayerData(note: FNote) {
@@ -263,7 +333,7 @@ function ToggleReadOnlyButton({ note }: { note: FNote }) {
 function NoteGpxTrackWrapper({ note, hideLabels, isDarkTheme }: { note: FNote, hideLabels: boolean, isDarkTheme: boolean }) {
     const mime = useNoteProperty(note, "mime");
 
-    if (mime !== "application/gpx+xml") {
+    if (mime !== GPX_MIME) {
         return null;
     }
 
@@ -286,118 +356,24 @@ function NoteGpxTrack({ note, hideLabels, isDarkTheme }: { note: FNote, hideLabe
     }, [ blob ]);
 
     // React to changes
-    const color = useNoteLabel(note, "color");
+    const [ color ] = useNoteLabel(note, "color");
     useNoteLabel(note, "iconClass");
     // The line is named after the note along its whole length, so a note being renamed has to reach
     // the map rather than leaving the old name written across the track.
     const title = useNoteProperty(note, "title") ?? "";
 
-    const trackColor = useMemo(() => note.getLabelValue("color") ?? "blue", [ color ]);
-    const startIconHtml = useIconHtml(note.getIcon(), note.getColorClass() ?? undefined, hideLabels ? undefined : title);
-    const endIconHtml = useIconHtml("bx bxs-flag-checkered");
-    const waypointIconHtml = useIconHtml("bx bx-pin");
-
     return xmlString && <GpxTrack
         noteId={note.noteId}
         title={title}
         gpxXmlString={xmlString}
-        trackColor={trackColor}
-        startIconHtml={startIconHtml}
-        endIconHtml={endIconHtml}
-        waypointIconHtml={waypointIconHtml}
+        trackColor={color ?? "blue"}
+        // The colour and icon rather than anything built from them: the marks are rasterized into
+        // the track's own symbol layer through the shared pin rasterizer (see GpxTrack), so the
+        // start of a track wears exactly the pin its note would wear as a marker.
+        pinColor={color ?? DEFAULT_MARKER_COLOR}
+        iconClass={note.getIcon()}
         isDarkTheme={isDarkTheme}
         hideLabels={hideLabels}
     />;
-}
-
-/** The pin shape, filled with whatever colour the note asks for. Replaces the Leaflet marker PNG. */
-function buildMarkerSvg(color: string) {
-    return `<svg width="25" height="41" viewBox="0 0 25 41" xmlns="http://www.w3.org/2000/svg">` +
-        `<path d="M12.5 0C5.6 0 0 5.6 0 12.5C0 21.9 12.5 41 12.5 41S25 21.9 25 12.5C25 5.6 19.4 0 12.5 0Z" fill="${escapeHtml(color)}" />` +
-        `</svg>`;
-}
-
-/** What a pin is filled with where its note asks for no colour of its own. */
-const DEFAULT_MARKER_COLOR = "#2A81CB";
-
-/** The size the icon is drawn at, matching the font size the CSS-styled span used. */
-const MARKER_ICON_SIZE = 17;
-
-/**
- * The marker HTML for {@link buildIconHtml}, built asynchronously because the icon inside it is
- * drawn through the shared icon-rendering service. Undefined until the first build resolves; the
- * service caches each icon/colour pair, so every marker after the first with the same icon gets
- * its HTML in a single tick.
- */
-function useIconHtml(iconClass: string, colorClass?: string, title?: string, noteIdLink?: string, archived?: boolean) {
-    const [ html, setHtml ] = useState<string>();
-
-    useEffect(() => {
-        let cancelled = false;
-        buildIconHtml(iconClass, colorClass, title, noteIdLink, archived).then((result) => {
-            if (!cancelled) {
-                setHtml(result);
-            }
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, [ iconClass, colorClass, title, noteIdLink, archived ]);
-
-    return html;
-}
-
-async function buildIconHtml(iconClass: string, colorClass?: string, title?: string, noteIdLink?: string, archived?: boolean) {
-    // The note's colour fills the pin, as it does for the note markers drawn into the symbol layer,
-    // and the icon is cut out of it in whichever of black or white stands out against that.
-    const pinColor = resolveNoteColor(colorClass) ?? DEFAULT_MARKER_COLOR;
-
-    // Drawn as a picture through the shared icon service (icon_glyphs.ts) rather than styled by
-    // CSS, so the marker renders any icon pack's icon the way the rest of the app draws it. A
-    // class the service cannot resolve falls back to the CSS-styled span.
-    //
-    // The class is passed on whole, as callers give it — a complete one, family and all. The
-    // service resolves a class by wearing it and reading back what the stylesheet made of it, so
-    // every class handed over is one more voice in that cascade: a `bx` of our own would have the
-    // built-in pack's font competing with the pack the icon actually belongs to.
-    const image = await renderIconImage(iconClass, {
-        size: MARKER_ICON_SIZE,
-        color: getReadableTextColor(pinColor)
-    });
-    const icon = image
-        ? `<img class="tn-icon" src="${image}" alt="" />`
-        : `<span class="${escapeHtml(iconClass)} tn-icon"></span>`;
-
-    let html = /*html*/`\
-        <div class="marker-pin">${buildMarkerSvg(pinColor)}</div>
-        ${icon}
-        <span class="title-label">${escapeHtml(title ?? "")}</span>`;
-
-    if (noteIdLink) {
-        html = `<div data-href="#root/${escapeHtml(noteIdLink)}" class="${archived ? "archived" : ""}">${html}</div>`;
-    }
-
-    return html;
-}
-
-/**
- * The concrete colour a note's colour class stands for — the light-theme variant, the same value
- * the CSS-styled span used to read from `--light-theme-custom-color`, or `null` for a note that
- * asks for no colour. Only the stylesheet knows the adjusted value, so it is read off an element
- * wearing the class, the way the icon service reads its glyphs.
- */
-function resolveNoteColor(colorClass?: string) {
-    if (!colorClass) {
-        return null;
-    }
-
-    const probe = document.createElement("span");
-    probe.className = colorClass;
-    document.body.appendChild(probe);
-    try {
-        return getComputedStyle(probe).getPropertyValue("--light-theme-custom-color").trim() || null;
-    } finally {
-        probe.remove();
-    }
 }
 

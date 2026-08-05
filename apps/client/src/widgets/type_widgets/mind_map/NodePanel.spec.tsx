@@ -87,7 +87,7 @@ const LINK = 6;
 const TAGS = 7;
 
 function section(container: HTMLElement, index: number) {
-    const sections = container.querySelectorAll<HTMLElement>(".mind-map-node-panel-section");
+    const sections = container.querySelectorAll<HTMLElement>(".tn-overlay-panel-section");
     return sections[index];
 }
 
@@ -467,9 +467,9 @@ describe("the memo field of the panel", () => {
         // through: with the fields gone there is nothing left to choose between.
         expect(shownMemo(panel)).toBe("<p>About A</p>");
         expect(panel.querySelectorAll('[role="tab"]')).toHaveLength(0);
-        expect(panel.querySelector(".mind-map-node-panel-title")).toBeTruthy();
+        expect(panel.querySelector(".tn-overlay-panel-title")).toBeTruthy();
         // None of the fields, every one of which edits — and what they stand for is on the node.
-        expect(panel.querySelectorAll(".mind-map-node-panel-section")).toHaveLength(0);
+        expect(panel.querySelectorAll(".tn-overlay-panel-section")).toHaveLength(0);
     });
 
     it("stands aside where there is no one memo to read", async () => {
@@ -914,7 +914,7 @@ describe("NodePanel", () => {
         const shown = () => !!panel.querySelector(".mind-map-node-panel");
         /** Presses the button that sends the panel away, the way it is pressed on the map. */
         const dismiss = async () => act(async () => {
-            panel.querySelector<HTMLButtonElement>(".mind-map-node-panel-close")?.click();
+            panel.querySelector<HTMLButtonElement>(".tn-overlay-panel-close")?.click();
         });
 
         await dismiss();

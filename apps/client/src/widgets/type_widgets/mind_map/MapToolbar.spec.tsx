@@ -67,11 +67,13 @@ function buildMind({ scaleVal = 1, direction = 1, isFocusMode = false } = {}) {
     return mind;
 }
 
-/** The order the view bar lays its buttons out in. */
-const ZOOM_IN = 0;
-const ZOOM_OUT = 1;
-const CENTER = 2;
-const FULLSCREEN = 3;
+/** The order the view group lays its buttons out in, the map showing all it has — while it is
+ *  narrowed, the way out of focus mode leads and everything below stands one further along. */
+const ZOOM_OUT = 0;
+const ZOOM_LEVEL = 1;
+const ZOOM_IN = 2;
+const CENTER = 3;
+const FULLSCREEN = 4;
 
 /** The order the direction bar lays its buttons out in. */
 const LEFT = 0;
@@ -89,8 +91,12 @@ function renderBar(bar: ComponentChild) {
 const renderToolbar = (mind: MindElixirInstance) => renderBar(<MapToolbar mind={mind} />);
 const renderDirections = (mind: MindElixirInstance) => renderBar(<DirectionToolbar mind={mind} />);
 
+/* The view controls stand on the image viewer's control group, the direction bar on the shared
+   overlay bar — one helper serves both describes. */
 function buttons(container: HTMLElement) {
-    return [ ...container.querySelectorAll<HTMLButtonElement>(".tn-overlay-toolbar button") ];
+    return [ ...container.querySelectorAll<HTMLButtonElement>(
+        ".tn-overlay-control-group button, .tn-overlay-toolbar button"
+    ) ];
 }
 
 function press(container: HTMLElement, index: number) {
@@ -109,12 +115,32 @@ beforeEach(() => {
 });
 
 describe("MapToolbar", () => {
-    it("offers the four things the map's own bar did, in one row", () => {
+    it("offers what the map's own bar did, laid out as the image viewer's group", () => {
         const container = renderToolbar(buildMind());
 
-        expect(buttons(container)).toHaveLength(4);
-        expect(buttons(container)[CENTER].className).toContain("bx-current-location");
-        expect(buttons(container)[FULLSCREEN].className).toContain("bx-fullscreen");
+        expect(buttons(container).map((button) => button.className)).toEqual([
+            expect.stringContaining("bx-minus-circle"),
+            expect.stringContaining("tn-overlay-text-button"),
+            expect.stringContaining("bx-plus-circle"),
+            expect.stringContaining("bx-current-location"),
+            expect.stringContaining("bx-fullscreen")
+        ]);
+    });
+
+    it("keeps the zoom steps and the readout off a mobile screen, where the fingers already zoom", () => {
+        const host = window as unknown as { glob?: { device?: string } };
+        host.glob = { device: "mobile" };
+        try {
+            const container = renderToolbar(buildMind());
+
+            // What remains is what a gesture cannot do — see the mobile note in MapToolbar.tsx.
+            expect(buttons(container).map((button) => button.className)).toEqual([
+                expect.stringContaining("bx-current-location"),
+                expect.stringContaining("bx-fullscreen")
+            ]);
+        } finally {
+            delete host.glob;
+        }
     });
 
     it("keeps the way out of focus mode off the bar while there is nothing to leave", () => {
@@ -127,14 +153,14 @@ describe("MapToolbar", () => {
         const mind = buildMind({ isFocusMode: true });
         const container = renderToolbar(mind);
 
-        // Leading the bar: it is the one thing there that undoes a state the map is being read in.
-        expect(buttons(container)).toHaveLength(5);
+        // Leading the group: it is the one thing there that undoes a state the map is being read in.
+        expect(buttons(container)).toHaveLength(6);
         expect(buttons(container)[0].className).toContain("bx-exit");
 
         press(container, 0);
 
         expect(mind.cancelFocus).toHaveBeenCalled();
-        expect(buttons(container)).toHaveLength(4);
+        expect(buttons(container)).toHaveLength(5);
     });
 
     it("zooms by one step of the map's own sensitivity, in either direction", () => {
@@ -165,6 +191,20 @@ describe("MapToolbar", () => {
         act(() => mind.scale(1.4));
 
         expect(buttons(container)[ZOOM_IN].disabled).toBe(true);
+    });
+
+    it("says the scale the map is drawn at, and pressed, takes the map back to its own size", () => {
+        const mind = buildMind();
+        const container = renderToolbar(mind);
+        expect(buttons(container)[ZOOM_LEVEL].textContent).toBe("100%");
+
+        act(() => mind.scale(1.35));
+        expect(buttons(container)[ZOOM_LEVEL].textContent).toBe("135%");
+
+        // As the image viewer's readout does — a mind map has a natural size to be reset to.
+        press(container, ZOOM_LEVEL);
+        expect(vi.mocked(mind.scale)).toHaveBeenLastCalledWith(1);
+        expect(buttons(container)[ZOOM_LEVEL].textContent).toBe("100%");
     });
 
     it("centres the map", () => {

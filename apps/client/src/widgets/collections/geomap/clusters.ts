@@ -120,8 +120,11 @@ export function installClusterLayers(map: MapLibreGLMap, source: string) {
  * in. Safe to call before the layers are up — MapLibre keeps a listener for a layer that does not
  * exist yet and starts delivering to it once one does.
  *
- * @param enabled whether this map gathers its notes at all. A map that does not has no bubbles to
- *                click, and the cursor is left to whatever else on the map wants to set it.
+ * @param enabled whether this map gathers its notes at all, and whether a bubble is this map's to act
+ *                on for the moment. A map that gathers nothing has no bubbles to click, and one armed
+ *                for placement has a click that belongs to the placement — zooming into the group as
+ *                well would both put the marker down and step in on top of it. Either way the cursor
+ *                is left to whatever else on the map wants to set it.
  */
 export function useClusterExpansion(map: MapLibreGLMap | null, source: string, enabled: boolean) {
     useEffect(() => {
@@ -155,6 +158,11 @@ export function useClusterExpansion(map: MapLibreGLMap | null, source: string, e
             map.off("click", CLUSTER_LAYER, onClick);
             map.off("mouseenter", CLUSTER_LAYER, onEnter);
             map.off("mouseleave", CLUSTER_LAYER, onLeave);
+            // The pointer is put back by hand, as it is for the markers (see `useMarkerOpening`): a
+            // cursor set on the canvas is an inline style and outranks any rule, so a pointer left
+            // behind here would sit over the crosshair the map wears while it waits to be told a
+            // place — and the `mouseleave` that would have cleared it is no longer listened for.
+            onLeave();
         };
     }, [ map, source, enabled ]);
 }

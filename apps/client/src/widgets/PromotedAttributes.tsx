@@ -47,10 +47,20 @@ interface CellProps {
 type OnChangeEventData = TargetedEvent<HTMLInputElement | HTMLTextAreaElement, Event> | InputEvent | JQuery.TriggeredEvent<HTMLInputElement, undefined, HTMLInputElement, HTMLInputElement>;
 type OnChangeListener = (e: OnChangeEventData) => void | Promise<void>;
 
-export default function PromotedAttributes() {
+export default function PromotedAttributes({ omit }: {
+    /**
+     * Names of definitions to leave out, for a host that shows what they hold better than a field
+     * would — the geo map's marker pane leaves out the location it is already standing on.
+     *
+     * Left out of the grid only: the note keeps the attribute and every other view of it still
+     * offers the field, this being about where a value is best edited rather than whether it counts.
+     */
+    omit?: readonly string[];
+} = {}) {
     const { note, componentId, noteContext } = useNoteContext();
     const [ cells, setCells ] = usePromotedAttributeData(note, componentId, noteContext);
-    return <PromotedAttributesContent note={note} componentId={componentId} cells={cells} setCells={setCells} />;
+    const shown = omit?.length ? cells?.filter((cell) => !omit.includes(cell.valueName)) : cells;
+    return <PromotedAttributesContent note={note} componentId={componentId} cells={shown} setCells={setCells} />;
 }
 
 export function PromotedAttributesContent({ note, componentId, cells, setCells }: {
