@@ -6,10 +6,11 @@ import { useCallback, useEffect, useState } from "preact/hooks";
 import FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
 import LabelValueInput from "../../attribute_widgets/label_value_input";
+import Dropdown from "../../react/Dropdown";
 import FormSelect from "../../react/FormSelect";
 import FormTextBox, { FormTextBoxWithUnit } from "../../react/FormTextBox";
 import { useNoteLabel, useUniqueName } from "../../react/hooks";
-import { EventField, EventFieldControls } from "./EventField";
+import { EventField, EventFieldControls, EventFieldList } from "./EventField";
 import {
     FREQUENCIES,
     Frequency,
@@ -53,13 +54,39 @@ export default function RecurrenceEditor({ note }: { note: FNote }) {
         setStoredValue(serializeRecurrence(next));
     }, [ setStoredValue ]);
 
+    // One row in the dock, the whole rule behind it: the button says what the rule amounts to, and
+    // opening it lays the rule out to edit. Kept open through the edits (`autoClose: "outside"`) —
+    // a rule is several choices, and the menu going down after the first would make it three trips.
+    // Portaled to the body because the dock clips what overflows it (see DetailDock.css).
     return (
-        <>
-            <FrequencyField model={model} commit={commit} />
-            {model.kind === "simple" && <SimpleRuleFields rule={model.rule} commit={commit} />}
-            {model.kind === "custom" && <CustomRuleField value={model.value} commit={commit} />}
-        </>
+        <EventField name={t("calendar.recurrence.repeats")}>
+            <Dropdown
+                className="calendar-recurrence-dropdown"
+                text={modelTitle(model)}
+                noDropdownListStyle
+                portalToBody
+                dropdownOptions={{ autoClose: "outside" }}
+            >
+                <EventFieldList>
+                    <FrequencyField model={model} commit={commit} />
+                    {model.kind === "simple" && <SimpleRuleFields rule={model.rule} commit={commit} />}
+                    {model.kind === "custom" && <CustomRuleField value={model.value} commit={commit} />}
+                </EventFieldList>
+            </Dropdown>
+        </EventField>
     );
+}
+
+/** What the closed row says the rule amounts to: the same wording the frequency choice wears. */
+function modelTitle(model: ParsedRecurrence): string {
+    switch (model.kind) {
+        case "none":
+            return t("calendar.recurrence.does_not_repeat");
+        case "custom":
+            return t("calendar.recurrence.custom");
+        case "simple":
+            return FREQUENCY_TITLES[model.rule.frequency]();
+    }
 }
 
 /** What the frequency dropdown offers beside the frequencies themselves. */
@@ -111,7 +138,7 @@ function FrequencyField({ model, commit }: {
     };
 
     return (
-        <EventField name={t("calendar.recurrence.repeats")} htmlFor={selectId}>
+        <EventField name={t("calendar.recurrence.frequency")} htmlFor={selectId}>
             <FormSelect
                 id={selectId}
                 values={choices}
