@@ -1544,6 +1544,7 @@
     "tracks": "Tracks",
     "routes": "Routes",
     "waypoints": "Waypoints",
+    "map_hint": "Place this note in a Geo Map collection to see the track drawn on a map.",
     "elevation_profile": "Elevation profile",
     "duration_minutes": "{{minutes}} min",
     "duration_hours_minutes": "{{hours}} h {{minutes}} min",

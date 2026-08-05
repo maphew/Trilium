@@ -96,6 +96,10 @@ describe("GpxPreview", () => {
         expect(container.querySelector(".gpx-profile-line")).not.toBeNull();
         expect(container.querySelector(".gpx-profile-max")?.textContent).toBe("gpx_preview.unit_m|150");
         expect(container.querySelector(".gpx-profile-min")?.textContent).toBe("gpx_preview.unit_m|100");
+
+        // And the way to the whole track is pointed out. (Inside a geo map's own pane the hint is
+        // suppressed by the pane's CSS, which a DOM assertion here cannot see.)
+        expect(container.querySelector(".gpx-preview-map-hint")?.textContent).toContain("gpx_preview.map_hint");
     });
 
     it("decodes a binary response and paints the profile in the note's own colour", async () => {

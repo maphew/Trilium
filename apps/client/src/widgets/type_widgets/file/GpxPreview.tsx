@@ -83,6 +83,13 @@ export default function GpxPreview({ note, blob }: GpxPreviewProps) {
                     trackColor={trackColor}
                 />
             )}
+
+            {/* Where the track itself can be seen — hidden when this preview already sits in a geo
+                map's own pane (see the note in GpxPreview.css), where the track is right there. */}
+            <div className="gpx-preview-map-hint">
+                <span className="bx bx-map-alt" aria-hidden="true" />
+                {t("gpx_preview.map_hint")}
+            </div>
         </div>
     );
 }

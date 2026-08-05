@@ -124,4 +124,19 @@
         font-size: 0.8em;
         color: var(--muted-text-color);
     }
+
+    .gpx-preview-map-hint {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        margin-top: 16px;
+        font-size: 0.85em;
+        color: var(--muted-text-color);
+    }
+}
+
+/* The hint says where a map is; shown inside a geo map's own detail pane, it would point the
+   reader at the very map the pane stands on. */
+.geo-detail-pane .gpx-preview .gpx-preview-map-hint {
+    display: none;
 }
