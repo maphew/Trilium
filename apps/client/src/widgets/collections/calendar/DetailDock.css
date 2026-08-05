@@ -1,0 +1,107 @@
+.calendar-view .calendar-detail-dock {
+    /* One fixed width for the animated shell and the inner column, so the contents keep their
+       shape while the shell slides rather than reflowing at every frame of it. The percentage cap
+       belongs to the shell alone: on the inner column it would resolve against the shell's own
+       (already capped) width and halve the contents. On a narrow view the shell simply clips the
+       trailing end of the column. */
+    --calendar-dock-width: 360px;
+
+    flex: 0 0 auto;
+    width: 0;
+    overflow: hidden;
+    transition: width 250ms ease;
+
+    &.open {
+        width: min(var(--calendar-dock-width), 50%);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        transition: none;
+    }
+
+    .calendar-detail-dock-inner {
+        width: var(--calendar-dock-width);
+        height: 100%;
+        box-sizing: border-box;
+        display: flex;
+        flex-direction: column;
+        border-inline-start: 1px solid var(--main-border-color);
+        background: var(--main-background-color);
+    }
+
+    .calendar-detail-dock-header {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 9px;
+        border-bottom: 1px solid var(--main-border-color);
+
+        > .title-row {
+            flex: 1;
+            min-width: 0;
+        }
+    }
+
+    .calendar-detail-dock-body {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        padding: 10px;
+    }
+
+    /* The note fills the rest of the dock rather than ending where its content does, so that
+       clicking below a short note still puts the caret in it. */
+    .note-detail {
+        flex: 1;
+        /* Written for a note split, where the split hands it one; there is no split here. */
+        max-width: none;
+        min-height: 120px;
+    }
+
+    /* The note's promoted fields, one under the other: laid out for a third of the width they are
+       written for (as the geo pane lays them). */
+    .promoted-attributes-container {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 8px;
+        margin: 0;
+        /* The body of the dock is the one thing that scrolls. */
+        max-height: none;
+        overflow: visible;
+    }
+
+    .promoted-attribute-cell {
+        margin: 0;
+
+        > .input-group,
+        > .promoted-attribute-values {
+            flex: 1;
+            min-width: 0;
+            margin-inline-start: 8px;
+        }
+
+        input[type="text"],
+        input[type="number"] {
+            width: auto !important;
+        }
+
+        > label {
+            min-width: 0;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tn-field {
+            min-width: 0;
+            padding: 0;
+        }
+    }
+
+    /* An event promoting nothing would still take its share of the body's gap. */
+    .promoted-attributes-widget:not(:has(.promoted-attribute-cell)) {
+        display: none;
+    }
+}

@@ -1,7 +1,7 @@
 import "./index.css";
 
 import { Calendar as FullCalendar } from "@fullcalendar/core";
-import { DateSelectArg, EventChangeArg, EventMountArg, EventSourceFuncArg, LocaleInput, PluginDef } from "@fullcalendar/core/index.js";
+import { DateSelectArg, EventChangeArg, EventClickArg, EventMountArg, EventSourceFuncArg, LocaleInput, PluginDef } from "@fullcalendar/core/index.js";
 import { DateClickArg } from "@fullcalendar/interaction";
 import { DISPLAYABLE_LOCALE_IDS } from "@triliumnext/commons";
 import { RefObject } from "preact";
@@ -24,6 +24,7 @@ import { ParentComponent } from "../../react/react_utils";
 import { ViewModeProps } from "../interface";
 import { changeEvent, newEvent } from "./api";
 import Calendar from "./calendar";
+import DetailDock from "./DetailDock";
 import { openCalendarContextMenu } from "./context_menu";
 import { buildEvents, buildEventsForCalendar } from "./event_builder";
 import { formatDateToLocalISO, isValidDuration, parseStartEndDateFromEvent, parseStartEndTimeFromEvent } from "./utils";
@@ -111,7 +112,10 @@ export const LOCALE_MAPPINGS: Record<DISPLAYABLE_LOCALE_IDS, (() => Promise<{ de
 export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarViewData>) {
     const parentComponent = useContext(ParentComponent);
     const containerRef = useRef<HTMLDivElement>(null);
+    const calendarMainRef = useRef<HTMLDivElement>(null);
     const calendarRef = useRef<FullCalendar>(null);
+    // The note of the selected event, which the dock at the trailing edge stands for.
+    const [ selectedNoteId, setSelectedNoteId ] = useState<string | null>(null);
 
     const [ calendarRoot ] = useNoteLabelBoolean(note, "calendarRoot");
     const [ workspaceCalendarRoot ] = useNoteLabelBoolean(note, "workspaceCalendarRoot");
@@ -124,7 +128,9 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
     const [ slotLabelInterval ] = useNoteLabel(note, "calendar:slotLabelInterval");
     const initialView = useRef(calendarView);
     const viewSpacedUpdate = useSpacedUpdate(() => setCalendarView(initialView.current));
-    useResizeObserver(containerRef, () => calendarRef.current?.updateSize());
+    // Observed on the calendar's own wrapper rather than the view root, so the grid also reflows
+    // frame by frame while the detail dock slides open or closed beside it.
+    useResizeObserver(calendarMainRef, () => calendarRef.current?.updateSize());
     const isCalendarRoot = (calendarRoot || workspaceCalendarRoot);
     const isEditable = !isCalendarRoot;
     const eventBuilder = useMemo(() => {
@@ -139,6 +145,31 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
 
     const { eventDidMount } = useEventDisplayCustomization(note, parentComponent?.componentId);
     const editingProps = useEditing(note, isEditable, isCalendarRoot, parentComponent?.componentId);
+
+    // An event taken off the calendar takes the dock with it. Not in calendar-root mode, whose
+    // events (day notes and their children) are not in the collection's noteIds at all.
+    useEffect(() => {
+        if (!isCalendarRoot && selectedNoteId && !noteIds.includes(selectedNoteId)) {
+            setSelectedNoteId(null);
+        }
+    }, [ isCalendarRoot, selectedNoteId, noteIds ]);
+
+    // A click on an event opens it into the dock instead of navigating to the popup the event's
+    // `url` names. Not on mobile, where a tap is already spoken for (see eventDidMount) and the
+    // dock would take the whole of the screen.
+    const onEventClick = useCallback((e: EventClickArg) => {
+        if (isMobile()) return;
+
+        // The chip is an anchor at the event's `url`, and the app's document-level link handler
+        // (see the delegated listeners in link.ts) would open the popup it names no matter what
+        // FullCalendar makes of the click — so the click must not reach the document at all.
+        e.jsEvent.preventDefault();
+        e.jsEvent.stopPropagation();
+        const noteId = e.event.extendedProps.noteId;
+        if (noteId) {
+            setSelectedNoteId(noteId);
+        }
+    }, []);
 
     // React to changes.
     useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
@@ -169,31 +200,38 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
     return (plugins &&
         <div className="calendar-view" ref={containerRef} tabIndex={100}>
             <CalendarCollectionProperties note={note} calendarRef={calendarRef} />
-            <Calendar
-                events={eventBuilder}
-                calendarRef={calendarRef}
-                plugins={plugins}
-                initialView={initialView.current && SUPPORTED_CALENDAR_VIEW_TYPE.includes(initialView.current) ? initialView.current : "dayGridMonth"}
-                headerToolbar={false}
-                firstDay={firstDayOfWeek ?? 0}
-                weekends={!hideWeekends}
-                weekNumbers={weekNumbers}
-                slotDuration={isValidDuration(slotDuration) ? slotDuration : DEFAULT_SLOT_DURATION}
-                slotLabelInterval={isValidDuration(slotLabelInterval) ? slotLabelInterval : DEFAULT_SLOT_LABEL_INTERVAL}
-                height="100%"
-                nowIndicator
-                handleWindowResize={false}
-                initialDate={initialDate || undefined}
-                locale={locale}
-                {...editingProps}
-                eventDidMount={eventDidMount}
-                viewDidMount={({ view }) => {
-                    if (initialView.current !== view.type) {
-                        initialView.current = view.type;
-                        viewSpacedUpdate.scheduleUpdate();
-                    }
-                }}
-            />
+            <div className="calendar-body">
+                <div className="calendar-main" ref={calendarMainRef}>
+                    <Calendar
+                        events={eventBuilder}
+                        calendarRef={calendarRef}
+                        plugins={plugins}
+                        initialView={initialView.current && SUPPORTED_CALENDAR_VIEW_TYPE.includes(initialView.current) ? initialView.current : "dayGridMonth"}
+                        headerToolbar={false}
+                        firstDay={firstDayOfWeek ?? 0}
+                        weekends={!hideWeekends}
+                        weekNumbers={weekNumbers}
+                        slotDuration={isValidDuration(slotDuration) ? slotDuration : DEFAULT_SLOT_DURATION}
+                        slotLabelInterval={isValidDuration(slotLabelInterval) ? slotLabelInterval : DEFAULT_SLOT_LABEL_INTERVAL}
+                        height="100%"
+                        nowIndicator
+                        handleWindowResize={false}
+                        initialDate={initialDate || undefined}
+                        locale={locale}
+                        {...editingProps}
+                        eventClick={onEventClick}
+                        eventClassNames={(arg) => arg.event.extendedProps.noteId === selectedNoteId ? [ "calendar-event-in-dock" ] : []}
+                        eventDidMount={eventDidMount}
+                        viewDidMount={({ view }) => {
+                            if (initialView.current !== view.type) {
+                                initialView.current = view.type;
+                                viewSpacedUpdate.scheduleUpdate();
+                            }
+                        }}
+                    />
+                </div>
+                <DetailDock noteId={selectedNoteId} onClose={() => setSelectedNoteId(null)} />
+            </div>
         </div>
     );
 }

@@ -39,6 +39,18 @@
     bottom: 0;
 }
 
+/* The calendar and the detail dock side by side, under the properties bar. */
+.calendar-view .calendar-body {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+}
+
+.calendar-view .calendar-main {
+    flex: 1;
+    min-width: 0;
+}
+
 .calendar-container {
     height: 100%;
     --fc-page-bg-color: var(--main-background-color);
@@ -159,6 +171,12 @@
 .calendar-view a.fc-timegrid-event.fc-event:focus,
 .calendar-view a.fc-daygrid-event.fc-event-selected,
 .calendar-view a.fc-daygrid-event.fc-event:focus {
+    --border-color: var(--custom-color, var(--input-focus-outline-color));
+}
+
+/* The event the detail dock stands for, marked the way a focused event is. */
+.calendar-view a.fc-timegrid-event.calendar-event-in-dock,
+.calendar-view a.fc-daygrid-event.calendar-event-in-dock {
     --border-color: var(--custom-color, var(--input-focus-outline-color));
 }
 
