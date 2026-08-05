@@ -2072,7 +2072,32 @@
     "path": "Path",
     "database_backed_up_to": "Database has been backed up to {{- backupFilePath}}",
     "no_backup_yet": "no backup yet",
-    "download": "Download"
+    "download": "Download",
+    "options_title": "Backup options",
+    "enable_compression": "Enable compression",
+    "enable_compression_description": "Makes each backup considerably smaller, at the cost of some time while it is written.",
+    "enable_encryption": "Enable encryption",
+    "enable_encryption_description": "Locks each backup with a password of your own, so that nobody else can read it. Worth turning on when backups are written to a synced folder.",
+    "no_keyring": "A keyring is not available in your system. That means the password cannot be securely stored, so encrypting backups is not available.",
+    "turn_on_encryption": "Turn on encryption",
+    "change_password": "Change password",
+    "password_modal_title": "Backup password",
+    "password_modal_description": "Keep a copy of this password somewhere safe. Trilium cannot show it again, and without it a backup cannot be restored.",
+    "save_password": "Save password",
+    "password_stored": "The backup password has been saved.",
+    "password_not_stored": "The backup password could not be saved.",
+    "encryption_not_disabled": "The backup password was removed, but encryption could not be switched off. Backups will not be encrypted until you turn encryption on again.",
+    "encryption_not_enabled": "The backup password was saved, but encryption could not be switched on. Backups will not be encrypted until you switch it on.",
+    "compressed": "Compressed",
+    "encrypted": "Encrypted"
+  },
+  "database_file_list": {
+    "size_on_disk": "{{size}} on disk"
+  },
+  "password_with_confirmation": {
+    "password": "Password",
+    "repeat_password": "Repeat password",
+    "mismatch": "The passwords do not match."
   },
   "open": {
     "directory_failed": "Could not open {{- directory}}: {{- reason}}"

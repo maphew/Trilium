@@ -116,21 +116,33 @@ export default function Modal({ children, className, size, title, customTitleBar
         const modalElement = modalRef.current;
         if (!modalElement) return;
 
-        if (onShown) {
-            modalElement.addEventListener("shown.bs.modal", onShown);
-        }
+        /*
+         * Bootstrap's modal events are native events, and native events bubble. A stacked modal is a
+         * DOM descendant of the one it opened over, so without this its opening and closing would be
+         * reported to every modal underneath as their own — closing the Options dialog the moment a
+         * dialog opened from inside it is dismissed.
+         */
+        const ownEvent = (handler: () => void) => (event: Event) => {
+            if (event.target === modalElement) {
+                handler();
+            }
+        };
 
-        function onModalHidden() {
+        const onModalShown = onShown && ownEvent(onShown);
+        const onModalHidden = ownEvent(() => {
             onHidden();
             if (elementToFocus.current && "focus" in elementToFocus.current) {
                 (elementToFocus.current as HTMLElement).focus();
             }
-        }
+        });
 
+        if (onModalShown) {
+            modalElement.addEventListener("shown.bs.modal", onModalShown);
+        }
         modalElement.addEventListener("hidden.bs.modal", onModalHidden);
         return () => {
-            if (onShown) {
-                modalElement.removeEventListener("shown.bs.modal", onShown);
+            if (onModalShown) {
+                modalElement.removeEventListener("shown.bs.modal", onModalShown);
             }
             modalElement.removeEventListener("hidden.bs.modal", onModalHidden);
         };
