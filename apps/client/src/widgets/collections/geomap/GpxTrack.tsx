@@ -1,7 +1,7 @@
 import type { FilterSpecification, Map as MapLibreGLMap } from "maplibre-gl";
 import { useContext, useEffect } from "preact/hooks";
 
-import { GPX_MIME } from "../../../services/gpx";
+import { childText, GPX_MIME } from "../../../services/gpx";
 import { MapStyleLoaded, ParentMap } from "./map";
 import { buildMarkerImage, LABEL_LAYOUT, LABEL_PAINT, MARKER_SHADOW_PADDING, markerImageId } from "./Markers";
 
@@ -321,7 +321,9 @@ export function trackHitLayers(map: MapLibreGLMap) {
  * The marks a track is flagged with, as features of the same source its line is drawn from: where
  * the whole track begins and where it ends — not one pair per segment, since a track broken into
  * segments is still one journey, and a flag at every pause would be a flag at every traffic light —
- * and one at every waypoint. Only the start says the note's name; the pin says the rest.
+ * and one at every waypoint. The start says the note's name and a waypoint its own `<name>` — a
+ * file like the GPX spec's own sample carries dozens of named crossings, and a pin that will not
+ * say which one it is answers only to a click; the end's pin says the rest.
  */
 function readMarks(gpxDoc: Document, lines: [number, number][][], { noteId, title, pinColor, iconClass }: {
     noteId: string; title: string; pinColor: string; iconClass: string;
@@ -347,8 +349,11 @@ function readMarks(gpxDoc: Document, lines: [number, number][][], { noteId, titl
         }
     }
 
-    for (const waypoint of readPoints(gpxDoc.querySelectorAll("wpt"))) {
-        addMark(waypoint, WAYPOINT_ICON);
+    for (const waypoint of gpxDoc.querySelectorAll("wpt")) {
+        const [ coordinates ] = readPoints([ waypoint ]);
+        if (coordinates) {
+            addMark(coordinates, WAYPOINT_ICON, childText(waypoint, "name")?.trim() ?? "");
+        }
     }
 
     return marks;

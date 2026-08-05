@@ -258,12 +258,16 @@ describe("GpxTrack", () => {
         ]);
     });
 
-    it("marks the waypoints", () => {
+    it("marks the waypoints, each saying its own name", () => {
         map.loadStyle();
         renderTrack({ styleLoaded: true });
 
-        expect(marks().filter((mark) => mark.properties?.icon === WAYPOINT_IMAGE).map((mark) => mark.geometry))
+        const waypoints = marks().filter((mark) => mark.properties?.icon === WAYPOINT_IMAGE);
+        expect(waypoints.map((mark) => mark.geometry))
             .toEqual([ { type: "Point", coordinates: [ 24.1, 45.9 ] } ]);
+        // The waypoint's own <name>, not the note's: a file full of named crossings would
+        // otherwise put up pins that answer only to a click.
+        expect(waypoints[0].properties).toMatchObject({ id: NOTE_ID, name: "A rest" });
     });
 
     it("marks the waypoints of a file that draws no line at all", async () => {

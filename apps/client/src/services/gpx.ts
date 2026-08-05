@@ -38,7 +38,10 @@ export interface GpxStats {
         /** The track flattened to elevation-over-distance, decimated for drawing. */
         profile: GpxElevationSample[];
     };
-    /** Absent when no point carries a timestamp. */
+    /** Absent when no track point carries a timestamp. Read from track points alone: a track was
+     *  recorded, so its times are a journey — a route was planned, and the times its points carry
+     *  (when tools write any, as the GPX spec's own sample does) say when each point was authored,
+     *  which totalled up would report a "journey" of months. */
     time?: {
         start: Date;
         end: Date;
@@ -161,7 +164,7 @@ function readSegments(doc: Document): GpxPoint[][] {
     const segments: GpxPoint[][] = [];
 
     for (const container of doc.querySelectorAll("trkseg, rte")) {
-        const points = readPoints(container.querySelectorAll("trkpt, rtept"));
+        const points = readPoints(container.querySelectorAll("trkpt, rtept"), { withTime: container.localName !== "rte" });
         if (points.length > 0) {
             segments.push(points);
         }
@@ -177,8 +180,12 @@ function readSegments(doc: Document): GpxPoint[][] {
     return segments;
 }
 
-/** Each point that carries a readable position; one that cannot say where it is is skipped. */
-function readPoints(elements: Iterable<Element>): GpxPoint[] {
+/**
+ * Each point that carries a readable position; one that cannot say where it is is skipped.
+ * `withTime: false` leaves the timestamps unread — what a route's points carry is authoring
+ * time, not travel time (see the note on {@link GpxStats.time}).
+ */
+function readPoints(elements: Iterable<Element>, { withTime = true } = {}): GpxPoint[] {
     const points: GpxPoint[] = [];
 
     for (const element of elements) {
@@ -193,9 +200,11 @@ function readPoints(elements: Iterable<Element>): GpxPoint[] {
             point.elevation = elevation;
         }
 
-        const time = Date.parse(childText(element, "time") ?? "");
-        if (Number.isFinite(time)) {
-            point.time = time;
+        if (withTime) {
+            const time = Date.parse(childText(element, "time") ?? "");
+            if (Number.isFinite(time)) {
+                point.time = time;
+            }
         }
 
         points.push(point);
@@ -208,9 +217,10 @@ function countPositioned(elements: Iterable<Element>): number {
     return readPoints(elements).length;
 }
 
-/** What the file calls the given field: its metadata's, else its first track's or route's. */
+/** What the file calls the given field: its metadata's (kept directly on the root in GPX 1.0,
+ *  which had no `<metadata>`), else its first track's or route's. */
 function readMetadataOrFirst(root: Element, name: string): string | undefined {
-    for (const container of [ childNamed(root, "metadata"), childNamed(root, "trk"), childNamed(root, "rte") ]) {
+    for (const container of [ childNamed(root, "metadata"), root, childNamed(root, "trk"), childNamed(root, "rte") ]) {
         const text = container && childText(container, name)?.trim();
         if (text) {
             return text;
@@ -222,9 +232,10 @@ function readMetadataOrFirst(root: Element, name: string): string | undefined {
 /**
  * A direct child's text, matched by local name so a namespaced document reads the same as a bare
  * one — and only a direct child, so a `<time>` buried in a point's `<extensions>` (heart rate and
- * the like travel there) is not mistaken for the point's own.
+ * the like travel there) is not mistaken for the point's own. Exported for the map, which reads a
+ * waypoint's `<name>` the same way to title its mark (see GpxTrack).
  */
-function childText(element: Element, name: string): string | undefined {
+export function childText(element: Element, name: string): string | undefined {
     return childNamed(element, name)?.textContent ?? undefined;
 }
 

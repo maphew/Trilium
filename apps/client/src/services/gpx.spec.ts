@@ -85,16 +85,30 @@ describe("parseGpxStats", () => {
         expect(stats?.elevation).toMatchObject({ gain: 20, loss: 0, min: 100, max: 510 });
     });
 
-    it("reads the travel time from the points' own timestamps, not from extensions", () => {
+    it("reads the travel time from track points alone — not from extensions, not from routes", () => {
         const stats = parseGpxStats(gpx(`<trk><trkseg>
             <trkpt lat="0" lon="0"><time>2024-06-01T10:00:00Z</time></trkpt>
             <trkpt lat="0" lon="0.01"><extensions><time>1999-01-01T00:00:00Z</time></extensions></trkpt>
             <trkpt lat="0" lon="0.02"><time>2024-06-01T11:30:00Z</time></trkpt>
-        </trkseg></trk>`));
+        </trkseg></trk>
+        <rte>
+            <rtept lat="0" lon="1"><time>2001-06-02T03:26:55Z</time></rtept>
+            <rtept lat="0" lon="1.01"><time>2001-11-28T21:05:28Z</time></rtept>
+        </rte>`));
 
+        // The route's timestamps say when its points were authored, months apart (as in the GPX
+        // spec's own fells_loop sample) — counting them would report a journey of half a year.
         expect(stats?.time?.start.toISOString()).toBe("2024-06-01T10:00:00.000Z");
         expect(stats?.time?.end.toISOString()).toBe("2024-06-01T11:30:00.000Z");
         expect(stats?.time?.duration).toBe(90 * 60 * 1000);
+    });
+
+    it("reports no time at all for a routes-only file, however timestamped", () => {
+        const stats = parseGpxStats(gpx(`<rte>
+            <rtept lat="0" lon="0"><time>2001-06-02T03:26:55Z</time></rtept>
+            <rtept lat="0" lon="0.01"><time>2001-11-28T21:05:28Z</time></rtept>
+        </rte>`));
+        expect(stats?.time).toBeUndefined();
     });
 
     it("prefers the metadata name and description over the first track's", () => {
@@ -103,6 +117,15 @@ describe("parseGpxStats", () => {
             <trk><name>First track</name><desc>Only part</desc><trkseg><trkpt lat="0" lon="0"/></trkseg></trk>
         `));
         expect(stats).toMatchObject({ name: "The file", description: "All of it" });
+    });
+
+    it("reads the name a GPX 1.0 file keeps directly on the root, having no metadata", () => {
+        const stats = parseGpxStats(`<?xml version="1.0"?>
+<gpx version="1.0" xmlns="http://www.topografix.com/GPX/1/0">
+    <name>Fells loop</name><desc>A ramble</desc>
+    <wpt lat="42.4" lon="-71.1"><name>Crossing</name></wpt>
+</gpx>`);
+        expect(stats).toMatchObject({ name: "Fells loop", description: "A ramble", waypointCount: 1 });
     });
 
     it("reads points sitting outside any segment or route, as the map does", () => {
