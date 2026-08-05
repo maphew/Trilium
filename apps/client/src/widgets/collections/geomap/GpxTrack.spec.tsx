@@ -94,7 +94,8 @@ function fakeMap() {
     };
 }
 
-/** A track of two segments, a good way apart, plus a waypoint between them. */
+/** A track of two segments a short pause apart — near enough to stay one journey (see the jump
+ *  splitting in services/gpx) — plus a waypoint off to one side. */
 const TWO_SEGMENT_GPX = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx version="1.1" creator="test" xmlns="http://www.topografix.com/GPX/1/1">
   <wpt lat="45.9" lon="24.1"><name>A rest</name></wpt>
@@ -104,7 +105,7 @@ const TWO_SEGMENT_GPX = `<?xml version="1.0" encoding="UTF-8"?>
       <trkpt lat="45.81" lon="24.14" />
     </trkseg>
     <trkseg>
-      <trkpt lat="45.96" lon="24.16" />
+      <trkpt lat="45.813" lon="24.142" />
       <trkpt lat="45.89" lon="24.08" />
     </trkseg>
   </trk>
@@ -240,7 +241,7 @@ describe("GpxTrack", () => {
             type: "MultiLineString",
             coordinates: [
                 [ [ 24.13, 45.79 ], [ 24.14, 45.81 ] ],
-                [ [ 24.16, 45.96 ], [ 24.08, 45.89 ] ]
+                [ [ 24.142, 45.813 ], [ 24.08, 45.89 ] ]
             ]
         });
     });

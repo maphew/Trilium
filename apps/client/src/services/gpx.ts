@@ -145,9 +145,13 @@ export interface GpxTrackLines {
 }
 
 /**
- * The lines a GPX file draws, one entry per track and one per route — a file may hold several, and
- * each is a journey of its own: flagged, named and focused for itself (see GpxTrack and the pane's
- * camera in DetailPane), where flattening them strung one journey's flags across another's ground.
+ * The lines a GPX file draws, one entry per journey — a file may hold several, and each is flagged,
+ * named and focused for itself (see GpxTrack and the pane's camera in DetailPane), where flattening
+ * them strung one journey's flags across another's ground.
+ *
+ * A journey is a track or a route, but not always whole: a track whose recording leaps is split at
+ * the leap (see {@link splitAtJumps}), since the runs either side of it read on the map as the
+ * separate lines they are. The entries share the track's name.
  *
  * Points that name no readable position are dropped. A line of one point is kept: it draws nothing,
  * but it is still where a journey began or ended, which is what the marks are placed from. A file
@@ -163,9 +167,9 @@ export function readTrackLines(doc: Document): GpxTrackLines[] {
             ? [ readCoordinates(container.querySelectorAll("rtept")) ]
             : [ ...container.querySelectorAll("trkseg") ].map((segment) => readCoordinates(segment.querySelectorAll("trkpt")));
 
-        const kept = lines.filter((line) => line.length > 0);
-        if (kept.length > 0) {
-            tracks.push({ name: childText(container, "name")?.trim() || undefined, lines: kept });
+        const name = childText(container, "name")?.trim() || undefined;
+        for (const run of splitAtJumps(lines.filter((line) => line.length > 0))) {
+            tracks.push({ name, lines: run });
         }
     }
 
@@ -177,6 +181,39 @@ export function readTrackLines(doc: Document): GpxTrackLines[] {
     }
 
     return tracks;
+}
+
+/**
+ * How far a track may leap between two of its segments and still be one journey, in metres.
+ *
+ * A pause resumes more or less where it stopped — a traffic light, a lunch, a lost signal — and
+ * two runs a stroll apart are one line to the eye as well as one journey in fact. A leap of
+ * kilometres is a drive nobody logged: the runs either side of it draw as separate lines, and a
+ * journey whose start flag stands on one line and end flag on another reads as a relationship
+ * between two places that nothing on the map connects.
+ */
+const JOURNEY_JUMP_M = 1000;
+
+/** One track's segments grouped into contiguous runs, split wherever the recording leapt further
+ *  than {@link JOURNEY_JUMP_M} — each run one journey's worth of lines. */
+function splitAtJumps(lines: [number, number][][]): [number, number][][][] {
+    const runs: [number, number][][][] = [];
+    let current: [number, number][][] = [];
+
+    for (const line of lines) {
+        const previous = current[current.length - 1]?.[current[current.length - 1].length - 1];
+        const [ lon, lat ] = line[0];
+        if (previous && haversine({ lat: previous[1], lon: previous[0] }, { lat, lon }) > JOURNEY_JUMP_M) {
+            runs.push(current);
+            current = [];
+        }
+        current.push(line);
+    }
+
+    if (current.length > 0) {
+        runs.push(current);
+    }
+    return runs;
 }
 
 /**

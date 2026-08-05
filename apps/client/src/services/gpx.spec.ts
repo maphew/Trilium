@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { parseGpxStats } from "./gpx";
+import { parseGpxStats, readTrackLines } from "./gpx";
 
 /** One degree of longitude on the equator, which the distance assertions are stated in. */
 const DEGREE_M = (Math.PI / 180) * 6371000;
@@ -9,6 +9,44 @@ function gpx(body: string) {
     return `<?xml version="1.0" encoding="UTF-8"?>
 <gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1" creator="test">${body}</gpx>`;
 }
+
+describe("readTrackLines", () => {
+    function read(body: string) {
+        return readTrackLines(new DOMParser().parseFromString(gpx(body), "application/xml"));
+    }
+
+    it("keeps a paused track whole, and splits one whose recording leapt", () => {
+        const tracks = read(`
+            <trk><name>Sunday</name>
+                <trkseg><trkpt lat="0" lon="0"/><trkpt lat="0" lon="0.01"/></trkseg>
+                <trkseg><trkpt lat="0" lon="0.011"/><trkpt lat="0" lon="0.02"/></trkseg>
+                <trkseg><trkpt lat="0" lon="1"/><trkpt lat="0" lon="1.01"/></trkseg>
+            </trk>
+        `);
+
+        // The second segment resumes ~110 m on — a pause, one journey still, its segments kept
+        // apart within it. The third leaps ~110 km — a drive nobody logged — and what follows is a
+        // journey of its own, keeping the track's name.
+        expect(tracks).toEqual([
+            { name: "Sunday", lines: [ [ [ 0, 0 ], [ 0.01, 0 ] ], [ [ 0.011, 0 ], [ 0.02, 0 ] ] ] },
+            { name: "Sunday", lines: [ [ [ 1, 0 ], [ 1.01, 0 ] ] ] }
+        ]);
+    });
+
+    it("reads each track and route as a journey of its own, named where the file names one", () => {
+        const tracks = read(`
+            <trk><name>Out</name><trkseg><trkpt lat="1" lon="1"/></trkseg></trk>
+            <trk><trkseg><trkpt lat="2" lon="2"/></trkseg></trk>
+            <rte><name>Planned</name><rtept lat="3" lon="3"/></rte>
+        `);
+
+        expect(tracks).toEqual([
+            { name: "Out", lines: [ [ [ 1, 1 ] ] ] },
+            { name: undefined, lines: [ [ [ 2, 2 ] ] ] },
+            { name: "Planned", lines: [ [ [ 3, 3 ] ] ] }
+        ]);
+    });
+});
 
 describe("parseGpxStats", () => {
     it("counts the pieces and sums the distance within segments, not across the gaps", () => {
