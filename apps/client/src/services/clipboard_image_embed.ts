@@ -94,8 +94,8 @@ function embedSelection() {
     }
 
     const range = selection.getRangeAt(0);
-    const root = contentRootFor(range.commonAncestorContainer);
-    if (!root) {
+    const scope = noteContentScope(range.commonAncestorContainer);
+    if (!scope) {
         return null;
     }
 
@@ -104,7 +104,9 @@ function embedSelection() {
         return null;
     }
 
-    return { html: serialize(fragment, range.commonAncestorContainer, root), text: selection.toString() };
+    const context = scope.root && { from: range.commonAncestorContainer, root: scope.root };
+
+    return { html: serialize(fragment, context || undefined), text: selection.toString() };
 }
 
 /** The clipboard payload for a single dragged image, or `null` when it cannot be embedded. */
@@ -151,12 +153,12 @@ function embedImagesIn(fragment: DocumentFragment) {
  * inside a list or table would otherwise paste as bare paragraphs. Re-wrapping the fragment in the
  * ancestors between the selection and the note content root puts that structure back.
  */
-function serialize(fragment: DocumentFragment, from?: Node, root?: HTMLElement) {
+function serialize(fragment: DocumentFragment, context?: { from: Node; root: HTMLElement }) {
     let container = document.createElement("div");
     container.appendChild(fragment);
 
-    if (from && root) {
-        for (const ancestor of ancestorsBetween(from, root)) {
+    if (context) {
+        for (const ancestor of ancestorsBetween(context.from, context.root)) {
             const wrapper = ancestor.cloneNode(false) as HTMLElement;
             wrapper.append(...container.childNodes);
             container = document.createElement("div");
@@ -181,9 +183,38 @@ function ancestorsBetween(node: Node, root: HTMLElement) {
 }
 
 /**
- * The note-content container holding `node`, or `null` when it is somewhere else entirely (the tree,
- * a code editor, a plain input) or inside the text editor, which serves itself.
+ * Whether a selection anchored at `node` covers note content this handler should serve, and if so
+ * the single container to re-wrap the cloned range against.
+ *
+ * A selection usually sits inside one rendered container, which becomes `root`. But it often spans
+ * several: an LLM chat answer renders each markdown block as its own container, so selecting a whole
+ * reply anchors above all of them. Those are still worth embedding — there is simply no single
+ * ancestor chain to restore, so `root` is left undefined and the clone is serialized as-is.
+ *
+ * Returns `undefined` (leave the event alone) when no note content is involved at all, or when the
+ * text editor is, since its own plugin serializes that far better than this can.
  */
+function noteContentScope(node: Node | null) {
+    const element = node instanceof Element ? node : node?.parentElement;
+    if (!element || element.closest(EDITOR_SELECTOR)) {
+        return undefined;
+    }
+
+    const enclosing = element.closest<HTMLElement>(CONTENT_SELECTOR);
+    if (enclosing) {
+        return { root: enclosing };
+    }
+
+    // Spanning several containers. Bail if an editor is anywhere in the span rather than trying to
+    // out-serialize it.
+    if (element.querySelector(CONTENT_SELECTOR) && !element.querySelector(EDITOR_SELECTOR)) {
+        return { root: undefined };
+    }
+
+    return undefined;
+}
+
+/** The note-content container holding `node`, used to decide whether a dragged image qualifies. */
 function contentRootFor(node: Node | null) {
     const element = node instanceof Element ? node : node?.parentElement;
     const root = element?.closest<HTMLElement>(CONTENT_SELECTOR);

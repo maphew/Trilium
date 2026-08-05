@@ -83,6 +83,33 @@ describe("clipboard image embed", () => {
             expect(embedReferenceImageAsDataUrl).not.toHaveBeenCalled();
         });
 
+        it("embeds across several containers, as an LLM chat answer renders one per markdown block", () => {
+            // Each block is its own ReadOnlyTextContent, so selecting a whole reply anchors on the
+            // wrapper above them rather than inside any single one.
+            renderAndSelect(`<div class="llm-chat-message">
+                <div class="ck-content llm-chat-markdown"><p>first <img src="${REFERENCE}"></p></div>
+                <div class="ck-content llm-chat-markdown"><p>second</p></div>
+            </div>`);
+
+            const { store, defaultPrevented } = fireClipboardEvent("copy");
+
+            expect(store["text/html"]).toContain(`src="${DATA_URI}"`);
+            expect(store["text/html"]).toContain("second");
+            expect(defaultPrevented).toBe(true);
+        });
+
+        it("keeps out of a multi-container selection that takes the text editor in with it", () => {
+            renderAndSelect(`<div class="pane">
+                <div class="ck-content"><p><img src="${REFERENCE}"></p></div>
+                <div class="ck-editor__editable ck-content"><p>editable</p></div>
+            </div>`);
+
+            const { store, defaultPrevented } = fireClipboardEvent("copy");
+
+            expect(store).toEqual({});
+            expect(defaultPrevented).toBe(false);
+        });
+
         it("ignores a selection outside rendered note content", () => {
             renderAndSelect(`<div class="tree"><p>a tree item <img src="${REFERENCE}"></p></div>`);
 
