@@ -1,5 +1,6 @@
 import "./EventField.css";
 
+import clsx from "clsx";
 import { ComponentChildren } from "preact";
 
 /**
@@ -35,6 +36,9 @@ export function EventField({ name, htmlFor, children }: {
  * Controls standing in one line, for a field said as a sentence — "every [2] weeks", "after [10]
  * times" — rather than as a single box.
  */
-export function EventFieldControls({ children }: { children: ComponentChildren }) {
-    return <div className="calendar-event-field-controls">{children}</div>;
+export function EventFieldControls({ className, children }: {
+    className?: string;
+    children: ComponentChildren;
+}) {
+    return <div className={clsx("calendar-event-field-controls", className)}>{children}</div>;
 }

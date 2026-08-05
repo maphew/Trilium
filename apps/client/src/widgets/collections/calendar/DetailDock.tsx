@@ -12,6 +12,7 @@ import PromotedAttributes from "../../PromotedAttributes";
 import ActionButton from "../../react/ActionButton";
 import { useLegacyComponentElement, useNote } from "../../react/hooks";
 import { removeFromCalendar } from "./api";
+import EventDatesEditor from "./EventDatesEditor";
 import { EventFieldList } from "./EventField";
 import RecurrenceEditor from "./RecurrenceEditor";
 
@@ -135,10 +136,12 @@ function DockContent({ note, parentNote, isEditable, onClose }: {
                     </>}
                 </EmbeddedNoteActions>
 
-                {/* How the event repeats — a way of changing it, so it goes where the calendar may
-                    be edited: a calendar root's day notes are days, and days do not recur. */}
+                {/* The event's own fields — when it happens, how it repeats — which are ways of
+                    changing it, so they go where the calendar may be edited: a calendar root's day
+                    notes are days, and a day neither moves nor recurs. */}
                 {isEditable && (
                     <EventFieldList>
+                        <EventDatesEditor note={note} />
                         <RecurrenceEditor note={note} />
                     </EventFieldList>
                 )}
