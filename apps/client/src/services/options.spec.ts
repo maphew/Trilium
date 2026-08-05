@@ -104,6 +104,25 @@ describe("Options service", () => {
         expect(options.get(k("str"))).toBe("before");
     });
 
+    it("save() leaves a newer value alone when an older save fails after it", async () => {
+        options.load({ str: "before" });
+        let failTheSlowOne = (_: Error) => {};
+        server.put = vi.fn((_url: string, payload: unknown) => {
+            const value = (payload as Record<string, string>).str;
+            return value === "slow"
+                ? new Promise((_resolve, reject) => { failTheSlowOne = reject; })
+                : Promise.resolve({});
+        }) as unknown as typeof server.put;
+
+        const slow = options.save(k("str"), "slow");
+        await options.save(k("str"), "fast");
+        failTheSlowOne(new Error("HTTP 500"));
+
+        await expect(slow).rejects.toThrow("HTTP 500");
+        // The rollback belongs to the value that failed, not to whatever has since taken its place.
+        expect(options.get(k("str"))).toBe("fast");
+    });
+
     it("saveMany() PUTs the whole record verbatim", async () => {
         const put = (server.put = vi.fn(async () => ({})) as typeof server.put);
         const payload = { a: "1", b: "2" } as unknown as Record<OptionNames, string>;

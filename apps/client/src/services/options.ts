@@ -84,7 +84,12 @@ class Options {
             // Set ahead of the request so a read straight after the call sees the new value, but put
             // back when the server refuses it: a cache that keeps reporting a value which was never
             // stored makes the failure invisible to whoever asks afterwards.
-            this.set(key, previous as OptionValue);
+            //
+            // Only while this call's own value is still the one held, so that a save which fails
+            // slowly cannot undo a later one that has already succeeded.
+            if (this.arr?.[key] === value) {
+                this.set(key, previous as OptionValue);
+            }
             throw e;
         }
     }
