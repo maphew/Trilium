@@ -5,6 +5,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import Component from "../../../components/component";
 import type FNote from "../../../entities/fnote";
 import attributes from "../../../services/attributes";
+import froca from "../../../services/froca";
+import noteAttributeCache from "../../../services/note_attribute_cache";
 import { buildNote } from "../../../test/easy-froca";
 import { ParentComponent } from "../../react/react_utils";
 import EventDatesEditor from "./EventDatesEditor";
@@ -126,6 +128,29 @@ describe("EventDatesEditor", () => {
     it("falls back to a stock label the renamed one holds no value over, as the builder does", () => {
         mount(buildNote({ title: "Fair", "#calendar:startDate": "myStartDate", "#startDate": "2026-06-05" }));
         expect(dateInputs()[0].value).toBe("2026-06-05");
+    });
+
+    it("honours a renaming the note only inherits, as one just created under the calendar does", () => {
+        // The renaming stands on the calendar, inheritable, the way a whole collection is pointed
+        // at its own date labels; the event note holds only the stock label a fresh ghost commit
+        // writes (see newEvent in api.ts).
+        buildNote({
+            title: "Calendar",
+            "#calendar:startDate(inheritable)": "myStartDate",
+            children: [ { id: "inheritingEvent", title: "Fair", "#startDate": "2026-06-05" } ]
+        });
+        // The fixture seeds each note's attribute cache with its owned attributes alone;
+        // recomputed, the child sees what it inherits (see __getCachedAttributes in fnote.ts).
+        noteAttributeCache.invalidate();
+        const note = froca.notes["inheritingEvent"];
+        mount(note);
+
+        // Shown through the builder's fallback: the renamed label holds nothing yet.
+        expect(dateInputs()[0].value).toBe("2026-06-05");
+
+        // The first edit writes the renamed label on the note itself, which takes over from there.
+        commitValue(dateInputs()[0], "2026-06-09");
+        expect(setLabel).toHaveBeenCalledWith(note.noteId, "myStartDate", "2026-06-09");
     });
 
     it("clears the stock label along with the renamed one, keeping the fallback from resurrecting it", () => {
