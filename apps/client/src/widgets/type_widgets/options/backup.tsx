@@ -167,7 +167,13 @@ export function BackupOptions() {
     useEffect(() => { refreshPassphrase(); }, [refreshPassphrase]);
 
     async function storePassword(password: string) {
-        if (!await window.electronApi?.backupPassphrase.set(password)) {
+        const result = await window.electronApi?.backupPassphrase.set(password);
+
+        // Declined at the OS confirmation: the user has said no, which needs no telling back.
+        if (result === "cancelled") {
+            return;
+        }
+        if (result !== "applied") {
             toast.showError(t("backup.password_not_stored"));
             return;
         }
@@ -182,9 +188,13 @@ export function BackupOptions() {
     // and leaving it behind would mean a passphrase nobody remembers setting. Backups already written
     // keep the one they were written with.
     async function disableEncryption() {
-        await window.electronApi?.backupPassphrase.clear();
-        await setEncryptionEnabled(false);
+        const result = await window.electronApi?.backupPassphrase.clear();
+
+        // Re-read either way: a declined confirmation has to put the switch back where it was.
         await refreshPassphrase();
+        if (result === "applied") {
+            await setEncryptionEnabled(false);
+        }
     }
 
     return (

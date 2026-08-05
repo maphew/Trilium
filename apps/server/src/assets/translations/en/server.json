@@ -478,6 +478,17 @@
       "unrecognized-expression": "Unrecognized expression \"{{- token}}\""
     }
   },
+  "backup-password-dialog": {
+    "cancel": "Cancel",
+    "set-title": "Set the backup password?",
+    "set-message": "Future backups will be encrypted with this password.",
+    "set-detail": "Trilium cannot show this password again, so keep a copy somewhere safe: without it, a backup cannot be restored.\n\nIf you were not expecting to be asked, cancel — a note or a script may have requested this.",
+    "set-confirm": "Set password",
+    "clear-title": "Forget the backup password?",
+    "clear-message": "Backups will no longer be encrypted.",
+    "clear-detail": "Backups already written keep the password they were made with, and can still be restored with it.\n\nIf you were not expecting to be asked, cancel — a note or a script may have requested this.",
+    "clear-confirm": "Forget password"
+  },
   "security-dialog": {
     "enable-title": "Enable {{settingLabel}}",
     "enable-message": "Are you sure you want to enable {{settingLabel}}?",

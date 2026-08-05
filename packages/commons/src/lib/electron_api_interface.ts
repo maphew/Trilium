@@ -503,6 +503,15 @@ export interface BackupPassphraseStatus {
     set: boolean;
 }
 
+/** What became of a request to change the stored backup passphrase. */
+export type BackupPassphraseChange =
+    /** The change was confirmed and carried out. */
+    | "applied"
+    /** The user declined the OS confirmation, so nothing changed. */
+    | "cancelled"
+    /** There is no keyring on this system to keep a passphrase in. */
+    | "unavailable";
+
 /**
  * The backup passphrase, kept encrypted by the OS keyring in a file outside the database (the database
  * is what ends up inside the backup, so a passphrase stored there would ride along inside the very
@@ -510,14 +519,18 @@ export interface BackupPassphraseStatus {
  *
  * Deliberately write-only: there is no way to read the passphrase back, so a frontend script cannot
  * exfiltrate it. Only the main process ever sees the plaintext again, when it writes a backup.
+ *
+ * Both changes are also gated on a native OS confirmation, which a script can request but cannot
+ * answer. Without that, a script could quietly swap in a passphrase of its own and every later backup
+ * would be encrypted to it.
  */
 export interface ElectronBackupPassphraseApi {
     /** Whether a passphrase can be stored on this system, and whether one already is. */
     getStatus(): Promise<BackupPassphraseStatus>;
-    /** Stores a passphrase, replacing any existing one. Returns `false` when the OS has no keyring. */
-    set(passphrase: string): Promise<boolean>;
+    /** Stores a passphrase, replacing any existing one, once the user has confirmed it. */
+    set(passphrase: string): Promise<BackupPassphraseChange>;
     /** Forgets the stored passphrase. Existing backups keep the passphrase they were written with. */
-    clear(): Promise<void>;
+    clear(): Promise<BackupPassphraseChange>;
 }
 
 /** Outcome of a {@link ElectronOneNoteApi.login} attempt. */

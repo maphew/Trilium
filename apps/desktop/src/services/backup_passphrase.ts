@@ -1,8 +1,9 @@
-import type { BackupPassphraseStatus } from "@triliumnext/commons";
+import type { BackupPassphraseChange, BackupPassphraseStatus } from "@triliumnext/commons";
 import { getLog } from "@triliumnext/core";
 import dataDirs from "@triliumnext/server/src/services/data_dir.js";
 import electron from "electron";
 import fs from "fs";
+import { t } from "i18next";
 import path from "path";
 
 /**
@@ -84,11 +85,52 @@ export async function getBackupPassphrase(): Promise<string | null> {
     }
 }
 
+/**
+ * Asks the user through the operating system, not through the app.
+ *
+ * A frontend script can reach the IPC channel behind this, but it cannot press a button in a window
+ * the OS drew, which is the whole point: without the question, a script could quietly replace the
+ * passphrase with one it knows and every later backup would be encrypted to it.
+ *
+ * Deliberately without the "don't ask again" escape the security settings offer. That exists there to
+ * stop a script from fatiguing the user through repetition; here the question is rare enough that
+ * being asked every time costs nothing, and skipping it is the whole vulnerability.
+ */
+async function confirmChange(action: "set" | "clear"): Promise<boolean> {
+    const { response } = await electron.dialog.showMessageBox({
+        type: "warning",
+        buttons: [t("backup-password-dialog.cancel"), t(`backup-password-dialog.${action}-confirm`)],
+        defaultId: 1,
+        cancelId: 0,
+        title: t(`backup-password-dialog.${action}-title`),
+        message: t(`backup-password-dialog.${action}-message`),
+        detail: t(`backup-password-dialog.${action}-detail`)
+    });
+
+    return response === 1;
+}
+
 export function registerBackupPassphraseIpcHandlers(): void {
     electron.ipcMain.handle("backup-passphrase-status", (): BackupPassphraseStatus => getBackupPassphraseStatus());
 
-    electron.ipcMain.handle("backup-passphrase-set", (_event, passphrase: string): Promise<boolean> =>
-        storeBackupPassphrase(passphrase));
+    electron.ipcMain.handle("backup-passphrase-set", async (_event, passphrase: string): Promise<BackupPassphraseChange> => {
+        // Nothing to confirm when it could not be honoured anyway.
+        if (!isKeyringAvailable() || !passphrase) {
+            return "unavailable";
+        }
+        if (!await confirmChange("set")) {
+            return "cancelled";
+        }
 
-    electron.ipcMain.handle("backup-passphrase-clear", (): void => clearBackupPassphrase());
+        return await storeBackupPassphrase(passphrase) ? "applied" : "unavailable";
+    });
+
+    electron.ipcMain.handle("backup-passphrase-clear", async (): Promise<BackupPassphraseChange> => {
+        if (!await confirmChange("clear")) {
+            return "cancelled";
+        }
+        clearBackupPassphrase();
+
+        return "applied";
+    });
 }

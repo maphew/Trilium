@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => ({
     fileStore: new Map<string, Buffer>(),
     handlers: new Map<string, (event: unknown, ...args: unknown[]) => unknown>(),
+    showMessageBox: vi.fn(async (_options: Record<string, unknown>) => ({ response: 1 })),
     isReady: true,
     encryptionAvailable: true,
     storageBackend: "gnome_libsecret",
@@ -42,9 +43,12 @@ vi.mock("fs", async (importOriginal) => {
     return { ...actual, default: patched, existsSync, readFileSync, writeFileSync, renameSync, rmSync };
 });
 
+vi.mock("i18next", () => ({ t: (key: string) => key }));
+
 vi.mock("electron", () => ({
     default: {
         app: { isReady: () => h.isReady },
+        dialog: { showMessageBox: h.showMessageBox },
         safeStorage: {
             isEncryptionAvailable: () => h.encryptionAvailable,
             getSelectedStorageBackend: () => h.storageBackend,
@@ -168,12 +172,16 @@ describe("keyring availability", () => {
 });
 
 describe("IPC handlers", () => {
+    const invoke = (channel: string, ...args: unknown[]) => h.handlers.get(channel)?.({}, ...args);
+
     beforeEach(() => {
         h.fileStore.clear();
         h.handlers.clear();
         h.isReady = true;
         h.encryptionAvailable = true;
         h.storageBackend = "gnome_libsecret";
+        h.showMessageBox.mockClear();
+        h.showMessageBox.mockResolvedValue({ response: 1 });
         passphrase.registerBackupPassphraseIpcHandlers();
     });
 
@@ -186,13 +194,56 @@ describe("IPC handlers", () => {
     });
 
     it("drives the whole lifecycle over IPC", async () => {
-        const invoke = (channel: string, ...args: unknown[]) => h.handlers.get(channel)?.({}, ...args);
-
         expect(await invoke("backup-passphrase-status")).toEqual({ available: true, set: false });
-        expect(await invoke("backup-passphrase-set", "hunter2")).toBe(true);
+        expect(await invoke("backup-passphrase-set", "hunter2")).toBe("applied");
         expect(await invoke("backup-passphrase-status")).toEqual({ available: true, set: true });
 
-        await invoke("backup-passphrase-clear");
+        expect(await invoke("backup-passphrase-clear")).toBe("applied");
         expect(await invoke("backup-passphrase-status")).toEqual({ available: true, set: false });
+    });
+
+    it.each([
+        ["set", ["backup-passphrase-set", "hunter2"]],
+        ["clear", ["backup-passphrase-clear"]]
+    ] as [string, [string, ...unknown[]]][])("asks the OS before it %ss, and offers no way to stop being asked", async (_label, call) => {
+        await invoke(...call);
+
+        expect(h.showMessageBox).toHaveBeenCalledOnce();
+        const options = h.showMessageBox.mock.calls[0][0];
+        expect(options).toMatchObject({ type: "warning", cancelId: 0 });
+        // The security settings offer "don't ask again"; skipping the question is the vulnerability here.
+        expect(options).not.toHaveProperty("checkboxLabel");
+    });
+
+    it("stores nothing when the confirmation is declined", async () => {
+        h.showMessageBox.mockResolvedValue({ response: 0 });
+
+        expect(await invoke("backup-passphrase-set", "hunter2")).toBe("cancelled");
+        expect(h.fileStore.size).toBe(0);
+    });
+
+    it("keeps the stored passphrase when a clear is declined", async () => {
+        await invoke("backup-passphrase-set", "hunter2");
+        h.showMessageBox.mockResolvedValue({ response: 0 });
+
+        expect(await invoke("backup-passphrase-clear")).toBe("cancelled");
+        expect(await invoke("backup-passphrase-status")).toEqual({ available: true, set: true });
+    });
+
+    it("does not ask about something it could not do anyway", async () => {
+        h.encryptionAvailable = false;
+
+        expect(await invoke("backup-passphrase-set", "hunter2")).toBe("unavailable");
+        expect(await invoke("backup-passphrase-set", "")).toBe("unavailable");
+        expect(h.showMessageBox).not.toHaveBeenCalled();
+    });
+
+    it("never asks when the OS rotates its key under a backup, which runs unattended", async () => {
+        await invoke("backup-passphrase-set", "hunter2");
+        h.showMessageBox.mockClear();
+        h.decrypt.mockResolvedValueOnce({ result: "hunter2", shouldReEncrypt: true });
+
+        expect(await passphrase.getBackupPassphrase()).toBe("hunter2");
+        expect(h.showMessageBox).not.toHaveBeenCalled();
     });
 });
