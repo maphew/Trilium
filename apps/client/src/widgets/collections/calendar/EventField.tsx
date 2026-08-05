@@ -4,10 +4,10 @@ import clsx from "clsx";
 import { ComponentChildren } from "preact";
 
 /**
- * The column of an event's own fields — how the dock will say what the calendar draws the event by
- * (its recurrence, and in time its start and end dates), those being kept out of the promoted grid
- * (see EVENT_DATE_LABELS in DetailDock.tsx). One shared shape so every field of the event reads as
- * a row of the same form.
+ * The column of an event's own fields — how the event popover says what the calendar draws the
+ * event by (its recurrence, and in time its start and end dates), those being kept out of the
+ * promoted grid (see EVENT_LABELS in EventPopover.tsx). One shared shape so every field of the
+ * event reads as a row of the same form.
  */
 export function EventFieldList({ children }: { children: ComponentChildren }) {
     return <div className="calendar-event-fields">{children}</div>;

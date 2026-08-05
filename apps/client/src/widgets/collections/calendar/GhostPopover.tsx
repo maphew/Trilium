@@ -7,7 +7,7 @@ import ActionButton from "../../react/ActionButton";
 import Button from "../../react/Button";
 import FormTextBox from "../../react/FormTextBox";
 import Popover from "../../react/Popover";
-import { EventDraft } from "./DetailDock";
+import { AnchorPoint, EventDraft } from "./selection";
 
 /**
  * The ghost: a popover standing beside the dragged-out range, holding the form an event is decided
@@ -28,7 +28,7 @@ export default function GhostPopover({ draft, anchor, container, onCommit, onCan
     draft: EventDraft;
     /** Where the drag ended, in viewport coordinates — which of the shading's pieces to stand by,
      *  and the anchor of last resort when the shading cannot be found at all. */
-    anchor: { x: number; y: number } | null;
+    anchor: AnchorPoint | null;
     /** The calendar the range's shading is read out of (see {@link ghostAnchorRect}). */
     container: HTMLElement | null;
     onCommit(title: string): void;
@@ -105,7 +105,7 @@ export default function GhostPopover({ draft, anchor, container, onCommit, onCan
  * drawn, and to the bare point where no shading is on the grid at all. Read afresh on every
  * reposition (see Popover), so the ghost follows the shading through scrolls and redraws.
  */
-function ghostAnchorRect(container: HTMLElement | null, point: { x: number; y: number } | null): DOMRect {
+function ghostAnchorRect(container: HTMLElement | null, point: AnchorPoint | null): DOMRect {
     const highlights = container?.querySelectorAll<HTMLElement>(".fc-highlight");
 
     if (highlights?.length) {

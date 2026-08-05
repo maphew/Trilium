@@ -27,11 +27,11 @@ import {
 /**
  * Edits how the event repeats, through the note's `#recurrence` label — structured fields for the
  * everyday rules, the raw RRULE string for one saying more than they can (see recurrence.ts for
- * where that line runs). Rendered as {@link EventField} rows, so it stands in the dock's field
- * column beside the start and end dates when those grow editors of their own.
+ * where that line runs). Rendered as {@link EventField} rows, so it stands in the event popover's
+ * field column beside the start and end dates when those grow editors of their own.
  *
- * Only the stock label name for now, as the dock reads only the stock names (see EVENT_DATE_LABELS
- * in DetailDock.tsx); a calendar naming its own via `#calendar:recurrence` edits that label by
+ * Only the stock label name for now, as the popover reads only the stock names (see EVENT_LABELS
+ * in EventPopover.tsx); a calendar naming its own via `#calendar:recurrence` edits that label by
  * hand.
  */
 export default function RecurrenceEditor({ note }: { note: FNote }) {
@@ -55,10 +55,10 @@ export default function RecurrenceEditor({ note }: { note: FNote }) {
         setStoredValue(serializeRecurrence(next));
     }, [ setStoredValue ]);
 
-    // One row in the dock, the whole rule behind it: the button says what the rule amounts to, and
-    // opening it lays the rule out to edit. Kept open through the edits (`autoClose: "outside"`) —
-    // a rule is several choices, and the menu going down after the first would make it three trips.
-    // Portaled to the body because the dock clips what overflows it (see DetailDock.css).
+    // One row in the popover, the whole rule behind it: the button says what the rule amounts to,
+    // and opening it lays the rule out to edit. Kept open through the edits (`autoClose: "outside"`)
+    // — a rule is several choices, and the menu going down after the first would make it three
+    // trips. Portaled to the body because the popover clips what overflows it (see EventPopover.css).
     return (
         <EventField name={t("calendar.recurrence.repeats")}>
             <Dropdown

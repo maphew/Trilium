@@ -14,10 +14,11 @@ import { EventField, EventFieldControls, EventFieldRow } from "./EventField";
  * Edits when the event happens, through the date and time labels the calendar draws it by (see
  * event_builder.ts). Two shapes, told apart by the all-day switch: a whole-day event is a span of
  * days — a start date and, where it runs longer, an end date — while a timed one is a single day
- * and the hours within it. Rendered as {@link EventField} rows, standing in the dock's field column
- * beside the recurrence.
+ * and the hours within it. Rendered as {@link EventField} rows, standing in the event popover's
+ * field column beside the recurrence.
  *
- * Only the stock label names, as the dock reads only those (see EVENT_LABELS in DetailDock.tsx).
+ * Only the stock label names, as the popover reads only those (see EVENT_LABELS in
+ * EventPopover.tsx).
  */
 export default function EventDatesEditor({ note, repeats }: {
     note: FNote;

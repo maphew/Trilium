@@ -1,6 +1,6 @@
 import "./Popover.css";
 
-import { createPopper, Placement, VirtualElement } from "@popperjs/core";
+import { createPopper, Instance, Placement, VirtualElement } from "@popperjs/core";
 import clsx from "clsx";
 import { ComponentChildren } from "preact";
 import { createPortal } from "preact/compat";
@@ -16,6 +16,12 @@ export interface PopoverProps {
     getAnchorRect(): DOMRect;
     /** Which side of the anchor to stand on, flipped away from the viewport's edges as needed. */
     placement?: Placement;
+    /**
+     * Repositions when it changes. Popper watches scrolling and resizing on its own, but cannot
+     * know the anchor moved for a reason of the caller's — the popover switching to stand for
+     * something else, say — which is what this says.
+     */
+    updateKey?: unknown;
     className?: string;
     /** Called on a press outside the popover; the owner decides what being dismissed means. The
      *  press itself still lands where it fell — dismissal must not swallow it, or pressing the
@@ -30,8 +36,9 @@ export interface PopoverProps {
  * container clips it and no containment root flattens its frosting (see the Dropdown notes in
  * CLAUDE.md); positioned by Popper, which also keeps it in place while ancestors scroll.
  */
-export default function Popover({ getAnchorRect, placement, className, onDismiss, children }: PopoverProps) {
+export default function Popover({ getAnchorRect, placement, updateKey, className, onDismiss, children }: PopoverProps) {
     const elRef = useRef<HTMLDivElement>(null);
+    const popperRef = useRef<Instance>();
 
     // Held in a ref so the popper built once keeps asking the newest question — rebuilding it on
     // every render would reset the positioning mid-interaction.
@@ -52,9 +59,17 @@ export default function Popover({ getAnchorRect, placement, className, onDismiss
                 { name: "preventOverflow", options: { padding: 8 } }
             ]
         });
+        popperRef.current = popper;
 
-        return () => popper.destroy();
+        return () => {
+            popperRef.current = undefined;
+            popper.destroy();
+        };
     }, [ placement ]);
+
+    useEffect(() => {
+        void popperRef.current?.update();
+    }, [ updateKey ]);
 
     useEffect(() => {
         if (!onDismiss) return;

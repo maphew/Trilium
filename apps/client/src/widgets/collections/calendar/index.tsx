@@ -24,9 +24,10 @@ import { ParentComponent } from "../../react/react_utils";
 import { ViewModeProps } from "../interface";
 import { changeEvent, newEvent } from "./api";
 import Calendar from "./calendar";
-import DetailDock, { DockSelection, EventDraft } from "./DetailDock";
+import EventPopover from "./EventPopover";
 import GhostPopover from "./GhostPopover";
 import { openCalendarContextMenu } from "./context_menu";
+import { CalendarSelection, EventDraft } from "./selection";
 import { buildEvents, buildEventsForCalendar } from "./event_builder";
 import { formatDateToLocalISO, isValidDuration, parseStartEndDateFromEvent, parseStartEndTimeFromEvent } from "./utils";
 
@@ -113,11 +114,10 @@ export const LOCALE_MAPPINGS: Record<DISPLAYABLE_LOCALE_IDS, (() => Promise<{ de
 export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarViewData>) {
     const parentComponent = useContext(ParentComponent);
     const containerRef = useRef<HTMLDivElement>(null);
-    const calendarMainRef = useRef<HTMLDivElement>(null);
     const calendarRef = useRef<FullCalendar>(null);
-    // The event the dock at the trailing edge stands for — a chip clicked, or a note just created
-    // by drag-selecting a range (see DockSelection).
-    const [ selection, setSelection ] = useState<DockSelection | null>(null);
+    // The event the view's popovers stand for — a chip clicked, or a range just dragged out (see
+    // CalendarSelection).
+    const [ selection, setSelection ] = useState<CalendarSelection | null>(null);
 
     const [ calendarRoot ] = useNoteLabelBoolean(note, "calendarRoot");
     const [ workspaceCalendarRoot ] = useNoteLabelBoolean(note, "workspaceCalendarRoot");
@@ -130,9 +130,7 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
     const [ slotLabelInterval ] = useNoteLabel(note, "calendar:slotLabelInterval");
     const initialView = useRef(calendarView);
     const viewSpacedUpdate = useSpacedUpdate(() => setCalendarView(initialView.current));
-    // Observed on the calendar's own wrapper rather than the view root, so the grid also reflows
-    // frame by frame while the detail dock slides open or closed beside it.
-    useResizeObserver(calendarMainRef, () => calendarRef.current?.updateSize());
+    useResizeObserver(containerRef, () => calendarRef.current?.updateSize());
     const isCalendarRoot = (calendarRoot || workspaceCalendarRoot);
     const isEditable = !isCalendarRoot;
     const eventBuilder = useMemo(() => {
@@ -151,7 +149,8 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
 
     // Turns the standing ghost into the note: created only now, at the commit, and — where the
     // reader typed nothing — named by the calendar's own titleTemplate, the very thing the old
-    // title prompt used to override. The dock takes over from the ghost, opening on the new note.
+    // title prompt used to override. The event popover takes over from the ghost, opening on the
+    // new note at the ghost's own anchor — the chip itself has yet to be drawn.
     const commitDraft = useCallback(async (title: string) => {
         if (!selection || !("draft" in selection)) return;
 
@@ -161,7 +160,7 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
             componentId: parentComponent?.componentId
         });
         if (created) {
-            setSelection({ noteId: created.noteId });
+            setSelection({ noteId: created.noteId, anchor: selection.anchor });
         }
     }, [ selection, note, parentComponent?.componentId ]);
 
@@ -182,9 +181,9 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
         }
     }, [ isCalendarRoot, selection, noteIds ]);
 
-    // A click on an event opens it into the dock instead of navigating to the popup the event's
-    // `url` names. Not on mobile, where a tap is already spoken for (see eventDidMount) and the
-    // dock would take the whole of the screen.
+    // A click on an event opens it into the popover instead of navigating to the popup the
+    // event's `url` names. Not on mobile, where a tap is already spoken for (see eventDidMount)
+    // and the popover would take the whole of the screen.
     const onEventClick = useCallback((e: EventClickArg) => {
         if (isMobile()) return;
 
@@ -195,7 +194,8 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
         e.jsEvent.stopPropagation();
         const noteId = e.event.extendedProps.noteId;
         if (noteId) {
-            setSelection({ noteId });
+            // The click names which of the event's chips to stand by (see eventAnchorRect).
+            setSelection({ noteId, anchor: { x: e.jsEvent.clientX, y: e.jsEvent.clientY } });
         }
     }, []);
 
@@ -228,49 +228,49 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
     return (plugins &&
         <div className="calendar-view" ref={containerRef} tabIndex={100}>
             <CalendarCollectionProperties note={note} calendarRef={calendarRef} />
-            <div className="calendar-body">
-                <div className="calendar-main" ref={calendarMainRef}>
-                    <Calendar
-                        events={eventBuilder}
-                        calendarRef={calendarRef}
-                        plugins={plugins}
-                        initialView={initialView.current && SUPPORTED_CALENDAR_VIEW_TYPE.includes(initialView.current) ? initialView.current : "dayGridMonth"}
-                        headerToolbar={false}
-                        firstDay={firstDayOfWeek ?? 0}
-                        weekends={!hideWeekends}
-                        weekNumbers={weekNumbers}
-                        slotDuration={isValidDuration(slotDuration) ? slotDuration : DEFAULT_SLOT_DURATION}
-                        slotLabelInterval={isValidDuration(slotLabelInterval) ? slotLabelInterval : DEFAULT_SLOT_LABEL_INTERVAL}
-                        height="100%"
-                        nowIndicator
-                        handleWindowResize={false}
-                        initialDate={initialDate || undefined}
-                        locale={locale}
-                        {...editingProps}
-                        unselectAuto={false}
-                        eventClick={onEventClick}
-                        eventClassNames={(arg) => selection && "noteId" in selection && arg.event.extendedProps.noteId === selection.noteId ? [ "calendar-event-in-dock" ] : []}
-                        eventDidMount={eventDidMount}
-                        viewDidMount={({ view }) => {
-                            if (initialView.current !== view.type) {
-                                initialView.current = view.type;
-                                viewSpacedUpdate.scheduleUpdate();
-                            }
-                        }}
-                    />
-                </div>
-                <DetailDock
-                    selection={selection}
+            <Calendar
+                events={eventBuilder}
+                calendarRef={calendarRef}
+                plugins={plugins}
+                initialView={initialView.current && SUPPORTED_CALENDAR_VIEW_TYPE.includes(initialView.current) ? initialView.current : "dayGridMonth"}
+                headerToolbar={false}
+                firstDay={firstDayOfWeek ?? 0}
+                weekends={!hideWeekends}
+                weekNumbers={weekNumbers}
+                slotDuration={isValidDuration(slotDuration) ? slotDuration : DEFAULT_SLOT_DURATION}
+                slotLabelInterval={isValidDuration(slotLabelInterval) ? slotLabelInterval : DEFAULT_SLOT_LABEL_INTERVAL}
+                height="100%"
+                nowIndicator
+                handleWindowResize={false}
+                initialDate={initialDate || undefined}
+                locale={locale}
+                {...editingProps}
+                unselectAuto={false}
+                eventClick={onEventClick}
+                eventClassNames={(arg) => selection && "noteId" in selection && arg.event.extendedProps.noteId === selection.noteId ? [ "calendar-event-selected" ] : []}
+                eventDidMount={eventDidMount}
+                viewDidMount={({ view }) => {
+                    if (initialView.current !== view.type) {
+                        initialView.current = view.type;
+                        viewSpacedUpdate.scheduleUpdate();
+                    }
+                }}
+            />
+            {selection && "noteId" in selection && (
+                <EventPopover
+                    noteId={selection.noteId}
+                    anchor={selection.anchor}
+                    container={containerRef.current}
                     parentNote={note}
                     isEditable={isEditable}
                     onClose={() => setSelection(null)}
                 />
-            </div>
+            )}
             {selection && "draft" in selection && (
                 <GhostPopover
                     draft={selection.draft}
                     anchor={selection.anchor}
-                    container={calendarMainRef.current}
+                    container={containerRef.current}
                     onCommit={(title) => void commitDraft(title)}
                     onCancel={() => setSelection(null)}
                 />
@@ -476,6 +476,13 @@ function useEditing(note: FNote, isEditable: boolean, isCalendarRoot: boolean, c
 function useEventDisplayCustomization(parentNote: FNote, componentId: string | undefined) {
     const eventDidMount = useCallback((e: EventMountArg) => {
         const { iconClass, promotedAttributes } = e.event.extendedProps;
+
+        // The chip is tagged with its note, which is how the event popover finds the chip to
+        // stand beside — FullCalendar redraws chips at will, so an element held onto would go
+        // stale (see eventAnchorRect in EventPopover).
+        if (e.event.extendedProps.noteId) {
+            e.el.dataset.eventNoteId = String(e.event.extendedProps.noteId);
+        }
 
         // Prepend the icon to the title, if any.
         if (iconClass) {

@@ -1,0 +1,39 @@
+.calendar-event-popover {
+    width: 380px;
+    /* A fixed-width card as tall as its event needs, up to what the viewport can spare; what it
+       holds scrolls within it (see the body below). */
+    max-height: min(640px, 85vh);
+
+    .calendar-event-popover-inner {
+        display: flex;
+        flex-direction: column;
+        min-height: 0;
+    }
+
+    .calendar-event-popover-header {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 9px;
+        border-bottom: 1px solid var(--main-border-color);
+        flex-shrink: 0;
+
+        > .title-row {
+            flex: 1;
+            min-width: 0;
+        }
+    }
+
+    /* The note's own widgets are laid out by the shared class (see EmbeddedNotePane.css), which
+       also brings the column they stand in; what is peculiar to the popover is that its body is
+       the thing that scrolls. */
+    .calendar-event-popover-body {
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        padding: 10px;
+        /* The scrollbar's room is kept whether or not it shows, so the fields hold one width
+           across events instead of narrowing by its thickness when a longer note brings it. */
+        scrollbar-gutter: stable;
+    }
+}
