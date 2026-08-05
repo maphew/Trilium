@@ -200,6 +200,32 @@ describe("ServerBackupService: backup format", () => {
 
         expect(backups.map((b) => b.fileName).sort()).toEqual(["backup-daily.tnbackup", "backup-weekly.db"]);
     });
+
+    it("reads what each container is from its own header, not from today's options", async () => {
+        await desktopService("", { backupEnableCompression: "true" }).backupNow("compressed");
+        await desktopService("", { backupEnableEncryption: "true" }, withPassphrase).backupNow("encrypted");
+        await desktopService("").backupNow("plain");
+
+        // Listed by a service with both switched off: a backup keeps the shape it was written in.
+        const byName = new Map((await desktopService("").getExistingBackups()).map((b) => [b.fileName, b]));
+
+        expect(byName.get("backup-compressed.tnbackup")).toMatchObject({ compressed: true, encrypted: false, plaintextSize: "db-bytes".length });
+        expect(byName.get("backup-encrypted.tnbackup")).toMatchObject({ compressed: false, encrypted: true });
+        // A plain copy states nothing of the sort: its own size is the whole story.
+        expect(byName.get("backup-plain.db")).not.toHaveProperty("compressed");
+        expect(byName.get("backup-plain.db")).not.toHaveProperty("plaintextSize");
+    });
+
+    it("lists a container it cannot make sense of, rather than dropping it", async () => {
+        fs.mkdirSync(DEFAULT_DIR, { recursive: true });
+        fs.writeFileSync(path.join(DEFAULT_DIR, "backup-damaged.tnbackup"), "not a container at all");
+
+        const backups = await desktopService("").getExistingBackups();
+
+        expect(backups.map((b) => b.fileName)).toEqual(["backup-damaged.tnbackup"]);
+        expect(backups[0]).not.toHaveProperty("compressed");
+        expect(backups[0]).not.toHaveProperty("encrypted");
+    });
 });
 
 describe("ServerBackupService: when the backup passphrase cannot be read", () => {

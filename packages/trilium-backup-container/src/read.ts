@@ -48,6 +48,36 @@ export interface ReadBackupContainerOptions {
     requireSqliteHeader?: boolean;
 }
 
+/** What a container says about itself, before any of its payload is read. */
+export interface BackupContainerInfo {
+    version: number;
+    compressed: boolean;
+    encrypted: boolean;
+    /** Size of the wrapped database before compression, or 0 when the writer did not record it. */
+    plaintextSize: number;
+}
+
+/**
+ * Identifies a container from its first {@link FIXED_HEADER_BYTES} bytes, without touching the payload
+ * and without the passphrase: what a container is, is stated in the clear.
+ *
+ * Returns `null` for anything this reader does not recognise, so that listing a directory of backups is
+ * never derailed by one damaged or foreign file.
+ */
+export function peekBackupContainer(head: Buffer, maxHeaderBytes: number = DEFAULT_MAX_HEADER_BYTES): BackupContainerInfo | null {
+    if (head.length < FIXED_HEADER_BYTES) {
+        return null;
+    }
+
+    try {
+        const { version, compressed, encrypted, plaintextSize } = decodeFixedHeader(head.subarray(0, FIXED_HEADER_BYTES), maxHeaderBytes);
+
+        return { version, compressed, encrypted, plaintextSize };
+    } catch {
+        return null;
+    }
+}
+
 export interface ReadBackupContainerResult {
     version: number;
     compressed: boolean;

@@ -17,7 +17,7 @@ import FormToggle from "../../react/FormToggle";
 import { useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import Icon from "../../react/Icon";
 import Modal from "../../react/Modal";
-import DatabaseFileList, { type DatabaseFile } from "./components/DatabaseFileList";
+import DatabaseFileList from "./components/DatabaseFileList";
 import OptionsPageHeader from "./components/OptionsPageHeader";
 import OptionsRow, { OptionsRowWithToggle } from "./components/OptionsRow";
 import OptionsSection from "./components/OptionsSection";
@@ -270,20 +270,31 @@ export function BackupList({ backups, backupFolderPath, refreshCallback }: { bac
     const [backupInProgress, setBackupInProgress] = useState(false);
     const [customDir] = useTriliumOption("customDbBackupDir");
 
-    // With a custom location in use the list also carries whatever stayed in — or was redirected to —
-    // the default one, and a row shows only a file name, so those need telling apart.
-    const fileBadge = useCallback((file: DatabaseFile) => (
-        customDir && backupFolderPath && !isInsideDirectory(backupFolderPath, file.filePath)
-            ? t("backup.default_location")
-            : undefined
-    ), [customDir, backupFolderPath]);
+    // What a row cannot say for itself: the format it was written in, and — with a custom location in
+    // use, where the list also carries whatever stayed in or was redirected to the default one — which
+    // directory it is in.
+    const fileBadges = useCallback((file: DatabaseBackup) => {
+        const badges: string[] = [];
+
+        if (customDir && backupFolderPath && !isInsideDirectory(backupFolderPath, file.filePath)) {
+            badges.push(t("backup.default_location"));
+        }
+        if (file.compressed) {
+            badges.push(t("backup.compressed"));
+        }
+        if (file.encrypted) {
+            badges.push(t("backup.encrypted"));
+        }
+
+        return badges;
+    }, [customDir, backupFolderPath]);
 
     return (
         // Where the backups live is stated by the "Backup location" card above, not repeated here.
         <DatabaseFileList
             title={t("backup.existing_backups")}
             files={backups}
-            fileBadge={fileBadge}
+            fileBadges={fileBadges}
             downloadEndpoint="api/database/backup/download"
             rowName="existing-backup"
             downloadText={t("backup.download")}

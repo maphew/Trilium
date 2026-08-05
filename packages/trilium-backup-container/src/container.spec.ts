@@ -4,12 +4,13 @@ import { gunzipSync } from "node:zlib";
 import { describe, expect, it } from "vitest";
 
 import {
+    FIXED_HEADER_BYTES,
     FRAME_SIZE,
     HEADER_BYTES_ENCRYPTED,
     HEADER_BYTES_PLAIN,
     TAG_BYTES
 } from "./format.js";
-import { readBackupContainer } from "./read.js";
+import { peekBackupContainer, readBackupContainer } from "./read.js";
 import {
     chunked,
     fakeDatabase,
@@ -239,6 +240,50 @@ describe("damage and tampering", () => {
         expect(["damaged-payload", "digest-mismatch"]).toContain(await reasonOf(readFromBuffer(damaged)));
     });
 });
+
+describe("peeking at a container", () => {
+    it.each([
+        ["plain", {}, { compressed: false, encrypted: false }],
+        ["compressed", { compress: true }, { compressed: true, encrypted: false }],
+        ["encrypted", { passphrase: PASSPHRASE, scrypt: FAST_SCRYPT }, { compressed: false, encrypted: true }],
+        ["both", { compress: true, passphrase: PASSPHRASE, scrypt: FAST_SCRYPT }, { compressed: true, encrypted: true }]
+    ] as [string, WriteOptions, { compressed: boolean; encrypted: boolean }][])("reports a %s container from its first bytes alone", async (_label, options, expected) => {
+        const database = fakeDatabase(9_000);
+        const written = await writeToBuffer(database, { ...options, plaintextSize: database.length });
+
+        // Only the fixed header, and no passphrase, which is the whole point of the peek.
+        expect(peekBackupContainer(written.bytes.subarray(0, FIXED_HEADER_BYTES))).toEqual({
+            version: 1,
+            plaintextSize: 9_000,
+            ...expected
+        });
+    });
+
+    it("reports an unrecorded plaintext size as zero rather than guessing", async () => {
+        const written = await writeToBuffer(fakeDatabase(4096), { compress: true });
+
+        expect(peekBackupContainer(written.bytes)?.plaintextSize).toBe(0);
+    });
+
+    it.each([
+        ["fewer bytes than a header", Buffer.alloc(20)],
+        ["something that is not a container", Buffer.alloc(64, 9)],
+        ["a version it does not know", tamper((bytes) => bytes.writeUInt8(2, 20))],
+        ["a reserved flag bit", tamper((bytes) => bytes.writeUInt8(0b100, 21))]
+    ])("answers null for %s, so one bad file cannot derail a listing", (_label, bytes) => {
+        expect(peekBackupContainer(bytes)).toBeNull();
+    });
+});
+
+function tamper(mutate: (bytes: Buffer) => void): Buffer {
+    const header = Buffer.alloc(FIXED_HEADER_BYTES);
+    Buffer.from("Trilium Notes Backup", "ascii").copy(header, 0);
+    header.writeUInt8(1, 20);
+    header.writeUInt16LE(64, 22);
+    mutate(header);
+
+    return header;
+}
 
 describe("input that is not a container", () => {
     it.each([

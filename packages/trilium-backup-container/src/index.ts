@@ -42,6 +42,7 @@
 
 export { BackupContainerError, type BackupContainerErrorReason, isBackupContainerError } from "./errors.js";
 export {
+    FIXED_HEADER_BYTES,
     FORMAT_VERSION,
     FRAME_SIZE,
     SCRYPT_BOUNDS,
@@ -49,7 +50,9 @@ export {
     type ScryptParams
 } from "./format.js";
 export {
+    type BackupContainerInfo,
     DEFAULT_MAX_OUTPUT_BYTES,
+    peekBackupContainer,
     readBackupContainer,
     type ReadBackupContainerOptions,
     type ReadBackupContainerResult

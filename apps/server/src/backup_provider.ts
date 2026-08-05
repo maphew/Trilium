@@ -1,4 +1,4 @@
-import { writeBackupContainer } from "@triliumnext/backup-container";
+import { FIXED_HEADER_BYTES, peekBackupContainer, writeBackupContainer } from "@triliumnext/backup-container";
 import type { DatabaseBackup } from "@triliumnext/commons";
 import { BackupOptionsService, BackupService, utils as coreUtils, getLog, sync_mutex as syncMutexService, ws } from "@triliumnext/core";
 import fs from "fs";
@@ -199,8 +199,46 @@ function listBackupsIn(directory: string): DatabaseBackup[] {
                 return [];
             }
 
-            return [{ fileName, filePath, mtime: stat.mtime, fileSize: stat.size }];
+            return [{ fileName, filePath, mtime: stat.mtime, fileSize: stat.size, ...describeContainer(filePath, fileName) }];
         });
+}
+
+/**
+ * What a container is, read from its own header rather than from today's options: a backup keeps the
+ * shape it was written in, whatever the settings have since become.
+ *
+ * Only the fixed header is read, so this costs a few dozen bytes per file and never needs the
+ * passphrase. A file whose header does not parse is listed as a plain one rather than not at all.
+ */
+function describeContainer(filePath: string, fileName: string): Partial<DatabaseBackup> {
+    if (!fileName.endsWith(CONTAINER_EXTENSION)) {
+        return {};
+    }
+
+    const head = Buffer.alloc(FIXED_HEADER_BYTES);
+    let descriptor: number | undefined;
+    try {
+        descriptor = fs.openSync(filePath, "r");
+        fs.readSync(descriptor, head, 0, head.length, 0);
+    } catch {
+        return {};
+    } finally {
+        if (descriptor !== undefined) {
+            fs.closeSync(descriptor);
+        }
+    }
+
+    const info = peekBackupContainer(head);
+    if (!info) {
+        return {};
+    }
+
+    return {
+        compressed: info.compressed,
+        encrypted: info.encrypted,
+        // Recorded as 0 when the writer did not know it, which reads the same as "not stated".
+        plaintextSize: info.plaintextSize > 0 ? info.plaintextSize : undefined
+    };
 }
 
 async function writeBackup(directory: string, baseName: string, format: BackupFormat, location: "default" | "custom"): Promise<string> {

@@ -2052,7 +2052,12 @@
     "password_modal_description": "Keep a copy of this password somewhere safe. Trilium cannot show it again, and without it a backup cannot be restored.",
     "save_password": "Save password",
     "password_stored": "The backup password has been saved.",
-    "password_not_stored": "The backup password could not be saved."
+    "password_not_stored": "The backup password could not be saved.",
+    "compressed": "Compressed",
+    "encrypted": "Encrypted"
+  },
+  "database_file_list": {
+    "size_on_disk": "{{size}} on disk"
   },
   "password_with_confirmation": {
     "password": "Password",
