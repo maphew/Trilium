@@ -218,6 +218,9 @@ importers:
       '@mermaid-js/layout-elk':
         specifier: 0.2.2
         version: 0.2.2(mermaid@11.16.0)
+      '@popperjs/core':
+        specifier: 2.11.8
+        version: 2.11.8
       '@preact/signals':
         specifier: 2.10.0
         version: 2.10.0(preact@10.29.7)

@@ -1,0 +1,38 @@
+.calendar-ghost-popover {
+    width: 300px;
+
+    .calendar-ghost-header {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 4px 9px;
+        border-bottom: 1px solid var(--main-border-color);
+    }
+
+    .calendar-ghost-heading {
+        flex: 1;
+        min-width: 0;
+        padding: 6px 0;
+        font-weight: 600;
+    }
+
+    .calendar-ghost-body {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        padding: 10px;
+    }
+
+    .calendar-ghost-when {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--muted-text-color);
+        font-size: 0.9em;
+    }
+
+    .calendar-ghost-actions {
+        display: flex;
+        justify-content: flex-end;
+    }
+}

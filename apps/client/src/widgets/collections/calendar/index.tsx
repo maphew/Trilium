@@ -25,6 +25,7 @@ import { ViewModeProps } from "../interface";
 import { changeEvent, newEvent } from "./api";
 import Calendar from "./calendar";
 import DetailDock, { DockSelection, EventDraft } from "./DetailDock";
+import GhostPopover from "./GhostPopover";
 import { openCalendarContextMenu } from "./context_menu";
 import { buildEvents, buildEventsForCalendar } from "./event_builder";
 import { formatDateToLocalISO, isValidDuration, parseStartEndDateFromEvent, parseStartEndTimeFromEvent } from "./utils";
@@ -146,11 +147,11 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
 
     const { eventDidMount } = useEventDisplayCustomization(note, parentComponent?.componentId);
     const editingProps = useEditing(note, isEditable, isCalendarRoot, parentComponent?.componentId,
-        (draft) => setSelection({ draft }));
+        (draft, anchor) => setSelection({ draft, anchor }));
 
     // Turns the standing ghost into the note: created only now, at the commit, and — where the
     // reader typed nothing — named by the calendar's own titleTemplate, the very thing the old
-    // title prompt used to override.
+    // title prompt used to override. The dock takes over from the ghost, opening on the new note.
     const commitDraft = useCallback(async (title: string) => {
         if (!selection || !("draft" in selection)) return;
 
@@ -165,7 +166,7 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
     }, [ selection, note, parentComponent?.componentId ]);
 
     // The dragged range keeps its shading for as long as the ghost stands for it — unselectAuto is
-    // off, so pressing into the dock's own form does not clear it — and is let go the moment the
+    // off, so pressing into the ghost's own form does not clear it — and is let go the moment the
     // selection is anything else: committed into a note, moved on from, or gone.
     useEffect(() => {
         if (!selection || !("draft" in selection)) {
@@ -262,10 +263,18 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
                     selection={selection}
                     parentNote={note}
                     isEditable={isEditable}
-                    onCommitDraft={(title) => void commitDraft(title)}
                     onClose={() => setSelection(null)}
                 />
             </div>
+            {selection && "draft" in selection && (
+                <GhostPopover
+                    draft={selection.draft}
+                    anchor={selection.anchor}
+                    container={calendarMainRef.current}
+                    onCommit={(title) => void commitDraft(title)}
+                    onCancel={() => setSelection(null)}
+                />
+            )}
         </div>
     );
 }
@@ -401,15 +410,16 @@ function useLocale() {
 }
 
 function useEditing(note: FNote, isEditable: boolean, isCalendarRoot: boolean, componentId: string | undefined,
-    onDraft: (draft: EventDraft) => void) {
+    onDraft: (draft: EventDraft, anchor: { x: number; y: number } | null) => void) {
     const onCalendarSelection = useCallback(async (e: DateSelectArg) => {
         const { startDate, endDate } = parseStartEndDateFromEvent(e);
         if (!startDate) return;
         const { startTime, endTime } = parseStartEndTimeFromEvent(e);
 
-        // On a phone the dock does not open (see the event click), so the title is still asked for
-        // up front, in the dialog this flow always led with. Unselected by hand either way round:
-        // unselectAuto is off for the ghost's sake, so nothing else clears the drag's shading.
+        // On a phone the ghost does not open (see the event click), so the title is still asked
+        // for up front, in the dialog this flow always led with. Unselected by hand either way
+        // round: unselectAuto is off for the ghost's sake, so nothing else clears the drag's
+        // shading.
         if (isMobile()) {
             const title = await dialog.prompt({ message: t("relation_map.enter_title_of_new_note"), defaultValue: t("relation_map.default_new_note_title") });
             if (title?.trim()) {
@@ -419,11 +429,15 @@ function useEditing(note: FNote, isEditable: boolean, isCalendarRoot: boolean, c
             return;
         }
 
-        // Nothing is created yet: the range is handed over as a draft for the dock's ghost form,
-        // and a note is made only when the draft is committed (see commitDraft) — a stray drag
-        // dismissed costs nothing. The range keeps its shading meanwhile, standing on the grid for
-        // the event to be; the view lets it go when the draft resolves.
-        onDraft({ startDate, endDate, startTime, endTime });
+        // Nothing is created yet: the range is handed over as a draft for the ghost popover, and a
+        // note is made only when the draft is committed (see commitDraft) — a stray drag dismissed
+        // costs nothing. The range keeps its shading meanwhile, standing on the grid for the event
+        // to be; the view lets it go when the draft resolves. Where the drag ended anchors the
+        // ghost beside it (see ghostAnchorRect).
+        onDraft(
+            { startDate, endDate, startTime, endTime },
+            e.jsEvent ? { x: e.jsEvent.clientX, y: e.jsEvent.clientY } : null
+        );
     }, [ note, componentId, onDraft ]);
 
     const onEventChange = useCallback(async (e: EventChangeArg) => {
