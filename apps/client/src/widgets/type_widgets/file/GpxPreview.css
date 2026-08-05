@@ -21,17 +21,14 @@
         content: " · ";
     }
 
+    /* Boxless, but still a grid: the card backgrounds were furniture — nothing in them is
+       clickable — yet content-sized columns wrapped ragged in a narrow pane, so the stats keep
+       the grid's aligned columns and shed only the chrome. */
     .gpx-preview-stats {
         display: grid;
         grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
-        gap: 10px;
+        gap: 14px 16px;
         margin-bottom: 20px;
-    }
-
-    .gpx-stat {
-        padding: 10px 12px;
-        border-radius: 8px;
-        background: var(--accented-background-color);
     }
 
     .gpx-stat-value {
