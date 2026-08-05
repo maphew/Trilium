@@ -14,13 +14,14 @@ import { AnchorPoint, EventDraft } from "./selection";
 /**
  * The ghost: the form an event is decided in before its note exists. It asks for the one thing the
  * drag did not say — the name — and writes out the one thing it did; everything else an event can
- * hold waits for the note, one commit away. Dismissed — Escape, the close button, a press anywhere
- * else — the draft simply evaporates: nothing was created.
+ * hold waits for the note, a click on its chip away. Dismissed — Escape, the close button, a press
+ * anywhere else — the draft simply evaporates: nothing was created.
  *
  * A desktop stands it beside the range that called for it, a draft being born of a place: the form
  * appears where the eye already is, and the grid does not reflow under the very range just dragged.
  * A phone gets the sheet the app raises its dialogs as, there being no room beside anything (see
- * EventPopover, which divides itself the same way). The event surface takes over at the commit.
+ * EventPopover, which divides itself the same way). Committed, it simply goes: the calendar is left
+ * as it was found, with the new chip on it (see commitDraft in index.tsx).
  *
  * Committing with the title blank is allowed and meaningful: the note is then named by the
  * calendar's own `#titleTemplate` where one is set (see getNewNoteTitle in trilium-core), which

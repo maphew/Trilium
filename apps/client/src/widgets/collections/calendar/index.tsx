@@ -147,25 +147,31 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
     const editingProps = useEditing(note, isEditable, isCalendarRoot, parentComponent?.componentId,
         (draft, anchor) => setSelection({ draft, anchor }));
 
-    // Turns the standing ghost into the note: created only now, at the commit, and — where the
-    // reader typed nothing — named by the calendar's own titleTemplate, the very thing the old
-    // title prompt used to override. The event popover takes over from the ghost, opening on the
-    // new note at the ghost's own anchor — the chip itself has yet to be drawn.
+    /**
+     * Turns the standing ghost into the note: created only now, at the commit, and — where the
+     * reader typed nothing — named by the calendar's own titleTemplate, the very thing the old
+     * title prompt used to override.
+     *
+     * The calendar is then left as it was found, the new chip standing on it. Nothing is opened on
+     * the note: the ghost asked for everything a quick addition needs, and a surface raised over
+     * the very stretch of grid just worked in would have to be dismissed before the next event
+     * could be dragged out beside it. Whatever else the note may hold is a click on its chip away
+     * — which is where such a surface would have opened anyway.
+     */
     const commitDraft = useCallback(async (title: string) => {
         if (!selection || !("draft" in selection)) return;
 
-        const created = await newEvent(note, {
+        await newEvent(note, {
             title: title.trim() || undefined,
             ...selection.draft,
             componentId: parentComponent?.componentId
         });
-        if (created) {
-            // The range has become an event and its shading has nothing left to stand for; the
-            // chip takes its place. Said here because no press said it: committing is a key or a
-            // button within the ghost, and the ghost is exempt from clearing the shading.
-            calendarRef.current?.unselect();
-            setSelection({ noteId: created.noteId, anchor: selection.anchor });
-        }
+
+        // The range has become an event and its shading has nothing left to stand for; the chip
+        // takes its place. Said here because no press said it: committing is a key or a button
+        // within the ghost, and the ghost is exempt from clearing the shading.
+        calendarRef.current?.unselect();
+        setSelection(null);
     }, [ selection, note, parentComponent?.componentId ]);
 
     /**
