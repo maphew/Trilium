@@ -9,6 +9,7 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "p
 
 import appContext from "../../../components/app_context";
 import FNote from "../../../entities/fnote";
+import contextMenu from "../../../menus/context_menu";
 import date_notes from "../../../services/date_notes";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
@@ -146,7 +147,21 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
     const plugins = usePlugins(isEditable, isCalendarRoot);
     const locale = useLocale();
 
-    const { eventDidMount } = useEventDisplayCustomization(note, parentComponent?.componentId);
+    /**
+     * Puts away whatever surface stands over the calendar, answering whether there was one.
+     *
+     * Read through a ref because what asks is bound to a chip as it is drawn (see eventDidMount),
+     * once and for all events, and so cannot be given the selection as it changes.
+     */
+    const selectionRef = useRef(selection);
+    selectionRef.current = selection;
+    const dismissSurface = useCallback(() => {
+        if (!selectionRef.current) return false;
+        setSelection(null);
+        return true;
+    }, []);
+
+    const { eventDidMount } = useEventDisplayCustomization(note, parentComponent?.componentId, dismissSurface);
     const editingProps = useEditing(note, isEditable, isCalendarRoot, parentComponent?.componentId,
         (draft, anchor) => setSelection({ draft, anchor }), effectiveSlotDuration);
 
@@ -245,6 +260,14 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
         // instead: a preview left standing would cover the very popover the click opens, at the
         // chip both of them are drawn beside.
         note_tooltip.dismissAllTooltips();
+
+        // A menu standing open is what the click is for: putting it away is what a click anywhere
+        // means while one is up, and the stop above is what kept this one from saying so on its own
+        // (see isShown in context_menu.ts). The event is not opened as well — one press, one thing.
+        if (contextMenu.isShown()) {
+            void contextMenu.hide();
+            return;
+        }
 
         const noteId = e.event.extendedProps.noteId;
         if (noteId) {
@@ -575,7 +598,9 @@ function draftFromDateClick(e: DateClickArg, slotDuration: string): EventDraft |
     };
 }
 
-function useEventDisplayCustomization(parentNote: FNote, componentId: string | undefined) {
+function useEventDisplayCustomization(parentNote: FNote, componentId: string | undefined,
+    /** Puts away whatever surface stands over the calendar, answering whether there was one. */
+    dismissSurface: () => boolean) {
     const eventDidMount = useCallback((e: EventMountArg) => {
         const { iconClass, promotedAttributes } = e.event.extendedProps;
 
@@ -638,6 +663,19 @@ function useEventDisplayCustomization(parentNote: FNote, componentId: string | u
         }
 
         async function onContextMenu(contextMenuEvent: PointerEvent) {
+            // A surface standing open is what the press is for. A menu raised over it would cover
+            // the very event it belongs to — the surface is drawn beside that chip — and offer a
+            // second, smaller way to do what the surface already offers in full. So the press puts
+            // the surface away and stops there; a second one raises the menu over a clear grid.
+            //
+            // Said here rather than left to the popover's own outside-press dismissal, which spares
+            // a press on a chip: that exemption is for a press that switches the surface to another
+            // event (see keepOpenSelector), and a right-click asks for no such thing.
+            if (dismissSurface()) {
+                contextMenuEvent.preventDefault();
+                return;
+            }
+
             const note = await froca.getNote(e.event.extendedProps.noteId);
             if (!note) return;
 
@@ -647,7 +685,7 @@ function useEventDisplayCustomization(parentNote: FNote, componentId: string | u
         // A long press raises it on a phone, as a right-click does on a desktop; the tap itself now
         // belongs to the event sheet, which offers what the menu offers and more (see onEventClick).
         e.el.addEventListener("contextmenu", onContextMenu);
-    }, []);
+    }, [ dismissSurface ]);
     return { eventDidMount };
 }
 
