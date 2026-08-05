@@ -182,6 +182,14 @@ export function BackupOptions() {
         await refreshPassphrase();
         await setEncryptionEnabled(true);
         setPasswordModalShown(false);
+
+        // The password is stored either way, but saying it is encrypted when the option never
+        // reached the server would send the next backup out in the clear under that belief.
+        if (!options.is("backupEnableEncryption")) {
+            toast.showError(t("backup.encryption_not_enabled"));
+            return;
+        }
+
         toast.showMessage(t("backup.password_stored"));
     }
 

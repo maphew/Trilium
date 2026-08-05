@@ -72,12 +72,21 @@ class Options {
     }
 
     async save(key: OptionNames, value: OptionValue) {
+        const previous = this.arr?.[key];
         this.set(key, value);
 
         const payload: Record<string, OptionValue> = {};
         payload[key] = value;
 
-        await server.put(`options`, payload);
+        try {
+            await server.put(`options`, payload);
+        } catch (e) {
+            // Set ahead of the request so a read straight after the call sees the new value, but put
+            // back when the server refuses it: a cache that keeps reporting a value which was never
+            // stored makes the failure invisible to whoever asks afterwards.
+            this.set(key, previous as OptionValue);
+            throw e;
+        }
     }
 
     /**

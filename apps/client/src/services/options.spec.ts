@@ -94,6 +94,16 @@ describe("Options service", () => {
         expect(put).toHaveBeenCalledWith("options", { str: "saved" });
     });
 
+    it("save() puts the previous value back when the server refuses it", async () => {
+        options.load({ str: "before" });
+        server.put = vi.fn(async () => { throw new Error("HTTP 500"); }) as typeof server.put;
+
+        await expect(options.save(k("str"), "after")).rejects.toThrow("HTTP 500");
+
+        // Reported by whoever asks next, so a failed save cannot pass for a stored one.
+        expect(options.get(k("str"))).toBe("before");
+    });
+
     it("saveMany() PUTs the whole record verbatim", async () => {
         const put = (server.put = vi.fn(async () => ({})) as typeof server.put);
         const payload = { a: "1", b: "2" } as unknown as Record<OptionNames, string>;
