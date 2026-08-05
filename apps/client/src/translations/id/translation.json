@@ -1787,8 +1787,7 @@
     "no_backup_yet": "belum ada cadangan",
     "download": "Unduh",
     "automatic_backups_title": "Pencadangan otomatis",
-    "automatic_backups_description": "Trilium dapat mencadangkan database secara otomatis. Disarankan untuk tetap mengaktifkan pencadangan, tetapi ini dapat memperlambat startup aplikasi pada database besar dan/atau perangkat penyimpanan yang lambat.",
-    "backup_location_description": "Cadangan disimpan di {{- backupFolder}}."
+    "automatic_backups_description": "Trilium dapat mencadangkan database secara otomatis. Disarankan untuk tetap mengaktifkan pencadangan, tetapi ini dapat memperlambat startup aplikasi pada database besar dan/atau perangkat penyimpanan yang lambat."
   },
   "etapi": {
     "description": "ETAPI adalah REST API yang digunakan untuk mengakses instance Trilium secara terprogram, tanpa UI.",

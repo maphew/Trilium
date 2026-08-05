@@ -1961,7 +1961,6 @@
     "backup_now": "지금 백업",
     "backup_database_now": "지금 데이터베이스 백업",
     "existing_backups": "기존 백업",
-    "backup_location_description": "백업은 {{- backupFolder}}에 저장됩니다.",
     "date-and-time": "날짜 및 시간",
     "path": "경로",
     "database_backed_up_to": "데이터베이스는 {{- backupFilePath}}로 백업되었습니다",

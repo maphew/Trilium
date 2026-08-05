@@ -1630,8 +1630,7 @@
     "download": "Descargar",
     "title": "Respaldo",
     "automatic_backups_title": "Copias de seguridad automáticas",
-    "automatic_backups_description": "Trilium puede hacer copias de seguridad de la base de datos automáticamente. Se recomienda mantener las copias de seguridad activadas, pero esto puede ralentizar el arranque de la aplicación con bases de datos grandes o dispositivos de almacenamiento lentos.",
-    "backup_location_description": "Las copias de seguridad se almacenan en {{- backupFolder}}."
+    "automatic_backups_description": "Trilium puede hacer copias de seguridad de la base de datos automáticamente. Se recomienda mantener las copias de seguridad activadas, pero esto puede ralentizar el arranque de la aplicación con bases de datos grandes o dispositivos de almacenamiento lentos."
   },
   "etapi": {
     "description": "ETAPI es una REST API que se utiliza para acceder a la instancia de Trilium mediante programación, sin interfaz de usuario.",

@@ -1118,8 +1118,7 @@
     "download": "ダウンロード",
     "title": "バックアップ",
     "automatic_backups_title": "自動バックアップ",
-    "automatic_backups_description": "Trilium はデータベースを自動的にバックアップできます。バックアップを有効にしておくことをお勧めしますが、データベースが大きい場合やストレージデバイスの速度が遅い場合は、アプリケーションの起動が遅くなる可能性があります。",
-    "backup_location_description": "バックアップは {{- backupFolder}} に保存されます。"
+    "automatic_backups_description": "Trilium はデータベースを自動的にバックアップできます。バックアップを有効にしておくことをお勧めしますが、データベースが大きい場合やストレージデバイスの速度が遅い場合は、アプリケーションの起動が遅くなる可能性があります。"
   },
   "password": {
     "wiki": "wiki",

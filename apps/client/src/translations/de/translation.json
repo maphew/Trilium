@@ -1431,8 +1431,7 @@
     "title": "Sicherung",
     "download": "Herunterladen",
     "automatic_backups_title": "Automatische Sicherungen",
-    "automatic_backups_description": "Trilium kann die Datenbank automatisch sichern. Es wird empfohlen, die Sicherung aktiviert zu lassen, dies kann jedoch den Programmstart bei großen Datenbanken und/oder langsamen Speichermedien verlangsamen.",
-    "backup_location_description": "Sicherungen werden in {{- backupFolder}} gespeichert."
+    "automatic_backups_description": "Trilium kann die Datenbank automatisch sichern. Es wird empfohlen, die Sicherung aktiviert zu lassen, dies kann jedoch den Programmstart bei großen Datenbanken und/oder langsamen Speichermedien verlangsamen."
   },
   "etapi": {
     "description": "ETAPI ist eine REST-API, die für den programmgesteuerten Zugriff auf die Trilium-Instanz ohne Benutzeroberfläche verwendet wird.",

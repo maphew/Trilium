@@ -1598,8 +1598,7 @@
     "download": "下载",
     "title": "备份",
     "automatic_backups_title": "自动备份",
-    "automatic_backups_description": "Trilium 可以自动备份数据库。建议保持备份功能开启，但如果数据库较大或存储设备较慢，可能会拖慢应用启动。",
-    "backup_location_description": "备份文件保存在 {{- backupFolder}}。"
+    "automatic_backups_description": "Trilium 可以自动备份数据库。建议保持备份功能开启，但如果数据库较大或存储设备较慢，可能会拖慢应用启动。"
   },
   "etapi": {
     "description": "ETAPI 是一个 REST API，用于以编程方式访问 Trilium 实例，而无需 UI。",

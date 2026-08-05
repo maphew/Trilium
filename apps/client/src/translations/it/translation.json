@@ -502,8 +502,7 @@
     "download": "Scarica",
     "title": "Backup",
     "automatic_backups_title": "Backup automatici",
-    "automatic_backups_description": "Trilium è in grado di eseguire automaticamente il backup del database. Si consiglia di mantenere attiva questa funzione, ma ciò potrebbe rallentare l'avvio dell'applicazione in presenza di database di grandi dimensioni e/o dispositivi di archiviazione lenti.",
-    "backup_location_description": "I backup vengono salvati in {{- backupFolder}}."
+    "automatic_backups_description": "Trilium è in grado di eseguire automaticamente il backup del database. Si consiglia di mantenere attiva questa funzione, ma ciò potrebbe rallentare l'avvio dell'applicazione in presenza di database di grandi dimensioni e/o dispositivi di archiviazione lenti."
   },
   "backend_log": {
     "refresh": "Aggiorna"

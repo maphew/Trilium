@@ -1405,7 +1405,6 @@
     "title": "Sauvegarde",
     "download": "Télécharger",
     "automatic_backups_description": "Trilium peut sauvegarder la base de données automatiquement. Il est recommandé de maintenir cette fonction activée, mais cela peut ralentir le démarrage de l'application si la base de données est volumineuse et/ou si le support de stockage est lent.",
-    "backup_location_description": "Les sauvegardes sont stockées dans {{- backupFolder}}.",
     "automatic_backups_title": "Sauvegardes automatiques"
   },
   "etapi": {
