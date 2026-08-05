@@ -192,13 +192,14 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     weeklyBackupEnabled: boolean;
     monthlyBackupEnabled: boolean;
     /**
-     * Whether backups are gzip-compressed. Compression or encryption switches the backup from a plain
-     * database file to a backup container; with both off, backups stay plain `.db` copies.
+     * Whether backups are gzip-compressed. Compression or encryption switches the backup from a
+     * plain database file to a backup container; with both off, backups stay plain `.db` copies.
      */
     backupEnableCompression: boolean;
     /**
-     * Whether backups are encrypted with the stored backup passphrase. Desktop only, and only where the
-     * OS offers a keyring to keep that passphrase in, since unattended backups cannot ask for it.
+     * Whether backups are encrypted with the stored backup passphrase. Desktop only, and only where
+     * the OS offers a keyring to keep that passphrase in, since unattended backups cannot ask for
+     * it.
      */
     backupEnableEncryption: boolean;
     compressImages: boolean;

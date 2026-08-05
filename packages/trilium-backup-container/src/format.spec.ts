@@ -66,7 +66,12 @@ describe("header layout", () => {
         expect(digestOffset(64)).toBe(32);
 
         const decoded = decodeHeader(bytes, DEFAULT_MAX_HEADER_BYTES);
-        expect(decoded).toMatchObject({ version: 1, compressed: true, encrypted: false, plaintextSize: 4096 });
+        expect(decoded).toMatchObject({
+            version: 1,
+            compressed: true,
+            encrypted: false,
+            plaintextSize: 4096
+        });
         expect(decoded.encryption).toBeNull();
         expect(decoded.digest.equals(Buffer.alloc(32, 7))).toBe(true);
     });
@@ -114,11 +119,23 @@ describe("fixed header validation", () => {
     };
 
     it.each([
-        ["magic mismatch", (bytes: Buffer) => bytes.write("Trillium Notes Bckp!", 0, "ascii"), "not-a-container"],
+        [
+            "magic mismatch",
+            (bytes: Buffer) => bytes.write("Trillium Notes Bckp!", 0, "ascii"),
+            "not-a-container"
+        ],
         ["version 0", (bytes: Buffer) => bytes.writeUInt8(0, 20), "unsupported-version"],
         ["a newer version", (bytes: Buffer) => bytes.writeUInt8(2, 20), "unsupported-version"],
-        ["a reserved flag bit", (bytes: Buffer) => bytes.writeUInt8(0b100, 21), "unsupported-flags"],
-        ["a header length that does not match the flags", (bytes: Buffer) => bytes.writeUInt16LE(65, 22), "invalid-header-length"]
+        [
+            "a reserved flag bit",
+            (bytes: Buffer) => bytes.writeUInt8(0b100, 21),
+            "unsupported-flags"
+        ],
+        [
+            "a header length that does not match the flags",
+            (bytes: Buffer) => bytes.writeUInt16LE(65, 22),
+            "invalid-header-length"
+        ]
     ])("rejects %s", (_label, mutate, reason) => {
         expect(decode(mutate)).toThrow(expect.objectContaining({ reason }) as Error);
     });
@@ -130,8 +147,14 @@ describe("fixed header validation", () => {
     });
 
     it("accepts the exact length each flag combination requires", () => {
-        expect(decodeFixedHeader(encodeHeader(plainHeader()).subarray(0, 32), DEFAULT_MAX_HEADER_BYTES).headerLength).toBe(64);
-        expect(decodeFixedHeader(encodeHeader(encryptedHeader()).subarray(0, 32), DEFAULT_MAX_HEADER_BYTES).headerLength).toBe(108);
+        const lengthOf = (header: ContainerHeader) =>
+            decodeFixedHeader(
+                encodeHeader(header).subarray(0, 32),
+                DEFAULT_MAX_HEADER_BYTES
+            ).headerLength;
+
+        expect(lengthOf(plainHeader())).toBe(64);
+        expect(lengthOf(encryptedHeader())).toBe(108);
     });
 
     it("rejects a KDF id it does not implement", () => {
@@ -162,7 +185,10 @@ describe("scrypt parameter bounds", () => {
     });
 
     it("rejects a cost above the memory ceiling even when every field is in range", () => {
-        expect(() => validateScryptParams({ log2N: 20, r: 16, p: 1 }, 64 * 1024 * 1024)).toThrow(BackupContainerError);
+        const ceiling = 64 * 1024 * 1024;
+        const tooExpensive = () => validateScryptParams({ log2N: 20, r: 16, p: 1 }, ceiling);
+
+        expect(tooExpensive).toThrow(BackupContainerError);
         expect(() => validateScryptParams({ log2N: 17, r: 8, p: 1 }, 134217728)).not.toThrow();
     });
 });
@@ -181,7 +207,8 @@ describe("SQLite header check", () => {
         ["output that is too short", sqliteHead(4096).subarray(0, 17)],
         ["a foreign magic", Buffer.concat([Buffer.from("Not a database!!"), Buffer.alloc(2)])]
     ])("rejects %s", (_label, head) => {
-        expect(() => validateSqliteHeader(head)).toThrow(expect.objectContaining({ reason: "not-a-database" }) as Error);
+        expect(() => validateSqliteHeader(head))
+            .toThrow(expect.objectContaining({ reason: "not-a-database" }) as Error);
     });
 });
 

@@ -22,7 +22,11 @@ export class DigestTap extends Transform {
         return this.#bytes;
     }
 
-    override _transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback): void {
+    override _transform(
+        chunk: Buffer,
+        _encoding: BufferEncoding,
+        callback: TransformCallback
+    ): void {
         this.#hash.update(chunk);
         this.#bytes += chunk.length;
         callback(null, chunk);
@@ -36,14 +40,18 @@ export class DigestTap extends Transform {
 /**
  * Forces the gzip OS byte to "unknown".
  *
- * Node emits MTIME 0 and no FNAME or FEXTRA already, but the OS byte follows the build platform (3 on
- * Unix, 10 on Windows), which would leak where the backup was written. The byte is informational and
- * outside gzip's CRC, so rewriting it is safe.
+ * Node emits MTIME 0 and no FNAME or FEXTRA already, but the OS byte follows the build platform (3
+ * on Unix, 10 on Windows), which would leak where the backup was written. The byte is informational
+ * and outside gzip's CRC, so rewriting it is safe.
  */
 export class GzipHeaderNormaliser extends Transform {
     #seen = 0;
 
-    override _transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback): void {
+    override _transform(
+        chunk: Buffer,
+        _encoding: BufferEncoding,
+        callback: TransformCallback
+    ): void {
         const osByteIndex = 9 - this.#seen;
         if (osByteIndex >= 0 && osByteIndex < chunk.length) {
             // Copy first: the buffer belongs to zlib.
@@ -59,8 +67,9 @@ export class GzipHeaderNormaliser extends Transform {
  * Splits the stream into authenticated frames.
  *
  * Full frames are emitted as soon as they fill and the flush always emits exactly one final frame,
- * which is why a payload that is an exact multiple of the frame size ends with an empty one. That is
- * the canonical framing, and it lets the writer stream without ever needing to know what follows.
+ * which is why a payload that is an exact multiple of the frame size ends with an empty one. That
+ * is the canonical framing, and it lets the writer stream without ever needing to know what
+ * follows.
  */
 export class FrameEncryptor extends Transform {
     readonly #frame = Buffer.allocUnsafe(FRAME_SIZE);
@@ -77,7 +86,11 @@ export class FrameEncryptor extends Transform {
         super();
     }
 
-    override _transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback): void {
+    override _transform(
+        chunk: Buffer,
+        _encoding: BufferEncoding,
+        callback: TransformCallback
+    ): void {
         let offset = 0;
 
         try {
@@ -109,13 +122,23 @@ export class FrameEncryptor extends Transform {
 
     #seal(final: boolean): Buffer {
         if (this.#counter > this.maxCounter) {
-            throw new BackupContainerError("payload-too-large", `Payload needs more than ${this.maxCounter + 1} frames.`);
+            throw new BackupContainerError(
+                "payload-too-large",
+                `Payload needs more than ${this.maxCounter + 1} frames.`
+            );
         }
 
         const lengthField = Buffer.allocUnsafe(4);
         lengthField.writeUInt32LE(final ? (this.#filled | FRAME_FINAL_FLAG) >>> 0 : this.#filled);
 
-        const frame = sealFrame(this.key, this.noncePrefix, this.aad, this.#counter, lengthField, this.#frame.subarray(0, this.#filled));
+        const frame = sealFrame(
+            this.key,
+            this.noncePrefix,
+            this.aad,
+            this.#counter,
+            lengthField,
+            this.#frame.subarray(0, this.#filled)
+        );
 
         this.#counter++;
         this.#filled = 0;
@@ -145,9 +168,16 @@ export class OutputGuard extends Transform {
         return this.#written;
     }
 
-    override _transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback): void {
+    override _transform(
+        chunk: Buffer,
+        _encoding: BufferEncoding,
+        callback: TransformCallback
+    ): void {
         if (this.#written + chunk.length > this.ceiling) {
-            callback(new BackupContainerError("output-too-large", `Output would exceed the ${this.ceiling} byte ceiling.`));
+            callback(new BackupContainerError(
+                "output-too-large",
+                `Output would exceed the ${this.ceiling} byte ceiling.`
+            ));
             return;
         }
         this.#written += chunk.length;
@@ -173,7 +203,10 @@ export class OutputGuard extends Transform {
 
     override _flush(callback: TransformCallback): void {
         if (this.requireSqliteHeader && !this.#headChecked) {
-            callback(new BackupContainerError("not-a-database", "Output is too short to be a SQLite database."));
+            callback(new BackupContainerError(
+                "not-a-database",
+                "Output is too short to be a SQLite database."
+            ));
             return;
         }
         callback();

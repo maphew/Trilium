@@ -77,18 +77,26 @@ export async function writeBackupContainer(
     options: WriteBackupContainerOptions
 ): Promise<WriteBackupContainerResult> {
     if (typeof options.patchHeader !== "function") {
-        throw new BackupContainerError("invalid-options", "patchHeader is required to write the payload digest.");
+        throw new BackupContainerError(
+            "invalid-options",
+            "patchHeader is required to write the payload digest."
+        );
     }
 
     const plaintextSize = options.plaintextSize ?? 0;
     if (!Number.isSafeInteger(plaintextSize) || plaintextSize < 0) {
-        throw new BackupContainerError("invalid-options", `plaintextSize must be a non-negative safe integer, got ${plaintextSize}.`);
+        throw new BackupContainerError(
+            "invalid-options",
+            `plaintextSize must be a non-negative safe integer,
+            got ${plaintextSize}.`
+        );
     }
 
     const compressed = options.compress === true;
     const encrypted = options.passphrase !== undefined;
 
-    // Build the header first: the verifier tag authenticates the bytes before it, so those must be final.
+    // Build the header first: the verifier tag authenticates the bytes before it, so those must be
+    // final.
     const header: ContainerHeader = {
         version: FORMAT_VERSION,
         compressed,
@@ -118,7 +126,10 @@ export async function writeBackupContainer(
     const aad = headerBytes.subarray(0, authenticatedHeaderEnd(header.headerLength));
 
     if (header.encryption && key) {
-        computeVerifierTag(key, header.encryption.noncePrefix, aad).copy(headerBytes, authenticatedHeaderEnd(header.headerLength));
+        computeVerifierTag(key, header.encryption.noncePrefix, aad).copy(
+            headerBytes,
+            authenticatedHeaderEnd(header.headerLength)
+        );
     }
 
     await writeChunk(output, headerBytes);
@@ -127,14 +138,18 @@ export async function writeBackupContainer(
     const digestTap = new DigestTap();
     const stages: (Readable | Writable)[] = [input];
     if (compressed) {
-        stages.push(createGzip({ level: options.compressionLevel ?? 6 }), new GzipHeaderNormaliser());
+        stages.push(
+            createGzip({ level: options.compressionLevel ?? 6 }),
+            new GzipHeaderNormaliser()
+        );
     }
     if (header.encryption && key) {
         stages.push(new FrameEncryptor(key, header.encryption.noncePrefix, aad));
     }
     stages.push(digestTap, output);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- pipeline's overloads do not accept a built array.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- pipeline's overloads do not
+    // accept a built array.
     await pipeline(stages as any);
 
     const digest = digestTap.digest();

@@ -2,9 +2,9 @@
  * Reader and writer for the Trilium backup container: one SQLite database wrapped with
  * optional gzip compression and optional AES-256-GCM encryption.
  *
- * The module depends on nothing outside the Node standard library, carries no translated strings, and
- * reports every failure as a {@link BackupContainerError} whose `reason` is a stable machine-readable
- * code the caller maps to its own messages.
+ * The module depends on nothing outside the Node standard library, carries no translated strings,
+ * and reports every failure as a {@link BackupContainerError} whose `reason` is a stable
+ * machine-readable code the caller maps to its own messages.
  *
  * @example Writing an encrypted, compressed container
  * ```ts
@@ -40,7 +40,11 @@
  * @module
  */
 
-export { BackupContainerError, type BackupContainerErrorReason, isBackupContainerError } from "./errors.js";
+export {
+    BackupContainerError,
+    type BackupContainerErrorReason,
+    isBackupContainerError
+} from "./errors.js";
 export {
     FIXED_HEADER_BYTES,
     FORMAT_VERSION,

@@ -1,8 +1,16 @@
 import { Readable, Writable } from "node:stream";
 
 import { SQLITE_MAGIC, type ScryptParams } from "./format.js";
-import { readBackupContainer, type ReadBackupContainerOptions, type ReadBackupContainerResult } from "./read.js";
-import { writeBackupContainer, type WriteBackupContainerOptions, type WriteBackupContainerResult } from "./write.js";
+import {
+    readBackupContainer,
+    type ReadBackupContainerOptions,
+    type ReadBackupContainerResult
+} from "./read.js";
+import {
+    writeBackupContainer,
+    type WriteBackupContainerOptions,
+    type WriteBackupContainerResult
+} from "./write.js";
 
 /** Cheap scrypt cost, so the suite is not dominated by key derivation. */
 export const FAST_SCRYPT: ScryptParams = { log2N: 10, r: 8, p: 1 };
@@ -10,7 +18,11 @@ export const FAST_SCRYPT: ScryptParams = { log2N: 10, r: 8, p: 1 };
 export class MemorySink extends Writable {
     readonly chunks: Buffer[] = [];
 
-    override _write(chunk: Buffer, _encoding: BufferEncoding, callback: (error?: Error | null) => void): void {
+    override _write(
+        chunk: Buffer,
+        _encoding: BufferEncoding,
+        callback: (error?: Error | null) => void
+    ): void {
         this.chunks.push(Buffer.from(chunk));
         callback();
     }
@@ -57,7 +69,10 @@ export async function writeToBuffer(
     const result = await writeBackupContainer(
         Buffer.isBuffer(input) ? Readable.from([input]) : input,
         sink,
-        { ...options, patchHeader: (offset, data) => { patches.push({ offset, data: Buffer.from(data) }); } }
+        {
+            ...options,
+            patchHeader: (offset, data) => { patches.push({ offset, data: Buffer.from(data) }); }
+        }
     );
 
     const bytes = sink.toBuffer();
@@ -73,7 +88,10 @@ export interface ReadContainer {
     result: ReadBackupContainerResult;
 }
 
-export async function readFromBuffer(container: Buffer, options: ReadBackupContainerOptions = {}): Promise<ReadContainer> {
+export async function readFromBuffer(
+    container: Buffer,
+    options: ReadBackupContainerOptions = {}
+): Promise<ReadContainer> {
     const sink = new MemorySink();
     const result = await readBackupContainer(Readable.from([container]), sink, options);
 
@@ -86,6 +104,14 @@ export function flipByte(data: Buffer, offset: number): Buffer {
     copy[offset] ^= 0xff;
 
     return copy;
+}
+
+/** The `reason` reading these bytes fails with, which most of the failure tests assert on. */
+export function failureOf(
+    container: Buffer,
+    options: ReadBackupContainerOptions = {}
+): Promise<string> {
+    return reasonOf(readFromBuffer(container, options));
 }
 
 /** Runs `read` and returns the `reason` of the BackupContainerError it throws. */

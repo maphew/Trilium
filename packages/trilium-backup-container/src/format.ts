@@ -74,7 +74,10 @@ export interface ContainerHeader {
     version: number;
     compressed: boolean;
     encrypted: boolean;
-    /** Size of the wrapped database before compression, or 0 when unknown. A hint, never an instruction. */
+    /**
+     * Size of the wrapped database before compression, or 0 when unknown. A hint, never an
+     * instruction.
+     */
     plaintextSize: number;
     headerLength: number;
     encryption: EncryptionHeader | null;
@@ -89,9 +92,9 @@ export function headerLengthFor(encrypted: boolean): number {
 /**
  * End of the span that the verifier tag and every frame authenticate.
  *
- * The verifier tag and the payload digest are the last two fields of the header and are both written
- * after the fact, so neither can be inside what the header authenticates. Stopping here also keeps a
- * bit flip in the verifier tag from invalidating every frame in the file.
+ * The verifier tag and the payload digest are the last two fields of the header and are both
+ * written after the fact, so neither can be inside what the header authenticates. Stopping here
+ * also keeps a bit flip in the verifier tag from invalidating every frame in the file.
  */
 export function authenticatedHeaderEnd(headerLength: number): number {
     return headerLength - TAG_BYTES - DIGEST_BYTES;
@@ -115,13 +118,18 @@ export function nonceFor(noncePrefix: Buffer, counter: number): Buffer {
     return nonce;
 }
 
-/** Serialises a header. The digest is written as supplied, so a writer passes zeros and patches later. */
+/**
+ * Serialises a header. The digest is written as supplied, so a writer passes zeros and patches
+ * later.
+ */
 export function encodeHeader(header: ContainerHeader): Buffer {
     const buffer = Buffer.alloc(header.headerLength);
 
     MAGIC.copy(buffer, 0);
     buffer.writeUInt8(header.version, MAGIC.length);
-    buffer.writeUInt8((header.compressed ? FLAG_COMPRESSED : 0) | (header.encrypted ? FLAG_ENCRYPTED : 0), 21);
+    const compressed = header.compressed ? FLAG_COMPRESSED : 0;
+    const encrypted = header.encrypted ? FLAG_ENCRYPTED : 0;
+    buffer.writeUInt8(compressed | encrypted, 21);
     buffer.writeUInt16LE(header.headerLength, 22);
     buffer.writeBigUInt64LE(BigInt(header.plaintextSize), 24);
 
@@ -150,15 +158,18 @@ export interface FixedHeader {
 }
 
 /**
- * Parses and validates the 32 bytes every container starts with, which is as far as a reader can get
- * before it knows how long the header is.
+ * Parses and validates the 32 bytes every container starts with, which is as far as a reader can
+ * get before it knows how long the header is.
  *
  * @param buffer the first {@link FIXED_HEADER_BYTES} bytes of the file.
  * @param maxHeaderBytes ceiling above which a header is refused outright.
  */
 export function decodeFixedHeader(buffer: Buffer, maxHeaderBytes: number): FixedHeader {
     if (!buffer.subarray(0, MAGIC.length).equals(MAGIC)) {
-        throw new BackupContainerError("not-a-container", "File does not start with the container magic.");
+        throw new BackupContainerError(
+            "not-a-container",
+            "File does not start with the container magic."
+        );
     }
 
     const version = buffer.readUInt8(MAGIC.length);
@@ -166,24 +177,38 @@ export function decodeFixedHeader(buffer: Buffer, maxHeaderBytes: number): Fixed
         throw new BackupContainerError("unsupported-version", "Version 0 is never valid.");
     }
     if (version > FORMAT_VERSION) {
-        throw new BackupContainerError("unsupported-version", `Container version ${version} is newer than ${FORMAT_VERSION}.`);
+        throw new BackupContainerError(
+            "unsupported-version",
+            `Container version ${version} is newer than ${FORMAT_VERSION}.`
+        );
     }
 
     const flags = buffer.readUInt8(21);
     if (flags & FLAG_RESERVED) {
-        throw new BackupContainerError("unsupported-flags", `Reserved flag bits are set: 0x${flags.toString(16)}.`);
+        throw new BackupContainerError(
+            "unsupported-flags",
+            `Reserved flag bits are set: 0x${flags.toString(16)}.`
+        );
     }
     const encrypted = (flags & FLAG_ENCRYPTED) !== 0;
 
     const headerLength = buffer.readUInt16LE(22);
     if (headerLength > maxHeaderBytes) {
-        throw new BackupContainerError("invalid-header-length", `Header of ${headerLength} bytes exceeds the ${maxHeaderBytes} byte ceiling.`);
+        throw new BackupContainerError(
+            "invalid-header-length",
+            `Header of ${headerLength} bytes exceeds the ${maxHeaderBytes} byte ceiling.`
+        );
     }
     if (headerLength !== headerLengthFor(encrypted)) {
-        throw new BackupContainerError("invalid-header-length", `Header of ${headerLength} bytes does not match version ${version} with flags 0x${flags.toString(16)}.`);
+        throw new BackupContainerError(
+            "invalid-header-length",
+            `Header of ${headerLength} bytes does not match version ${version} `
+                + `with flags 0x${flags.toString(16)}.`
+        );
     }
 
-    // A hint that may only ever tighten a bound, so an unrepresentable value is the same as "unknown".
+    // A hint that may only ever tighten a bound, so an unrepresentable value is the same as
+    // "unknown".
     const plaintextSize = buffer.readBigUInt64LE(24);
 
     return {
@@ -195,7 +220,10 @@ export function decodeFixedHeader(buffer: Buffer, maxHeaderBytes: number): Fixed
     };
 }
 
-/** Parses the fields after the fixed header. `buffer` is the whole header, `headerLength` bytes long. */
+/**
+ * Parses the fields after the fixed header. `buffer` is the whole header, `headerLength` bytes
+ * long.
+ */
 export function decodeHeader(buffer: Buffer, maxHeaderBytes: number): ContainerHeader {
     const fixed = decodeFixedHeader(buffer.subarray(0, FIXED_HEADER_BYTES), maxHeaderBytes);
 
@@ -203,7 +231,10 @@ export function decodeHeader(buffer: Buffer, maxHeaderBytes: number): ContainerH
     if (fixed.encrypted) {
         const kdfId = buffer.readUInt8(32);
         if (kdfId !== KDF_SCRYPT) {
-            throw new BackupContainerError("unsupported-kdf", `Key derivation function ${kdfId} is not supported.`);
+            throw new BackupContainerError(
+                "unsupported-kdf",
+                `Key derivation function ${kdfId} is not supported.`
+            );
         }
 
         encryption = {
@@ -234,7 +265,11 @@ export function validateScryptParams(params: ScryptParams, maxMemoryBytes: numbe
     const inRange = (value: number, bounds: { min: number; max: number }) =>
         Number.isInteger(value) && value >= bounds.min && value <= bounds.max;
 
-    if (!inRange(params.log2N, SCRYPT_BOUNDS.log2N) || !inRange(params.r, SCRYPT_BOUNDS.r) || !inRange(params.p, SCRYPT_BOUNDS.p)) {
+    const withinBounds = inRange(params.log2N, SCRYPT_BOUNDS.log2N)
+        && inRange(params.r, SCRYPT_BOUNDS.r)
+        && inRange(params.p, SCRYPT_BOUNDS.p);
+
+    if (!withinBounds) {
         throw new BackupContainerError(
             "invalid-kdf-params",
             `scrypt parameters out of bounds: log2N=${params.log2N}, r=${params.r}, p=${params.p}.`
@@ -256,14 +291,23 @@ export function validateScryptParams(params: ScryptParams, maxMemoryBytes: numbe
  * @param head at least {@link SQLITE_HEADER_BYTES} bytes from offset 0 of the output.
  */
 export function validateSqliteHeader(head: Buffer): void {
-    if (head.length < SQLITE_HEADER_BYTES || !head.subarray(0, SQLITE_MAGIC.length).equals(SQLITE_MAGIC)) {
-        throw new BackupContainerError("not-a-database", "Output does not start with the SQLite file magic.");
+    const magicMatches = head.length >= SQLITE_HEADER_BYTES
+        && head.subarray(0, SQLITE_MAGIC.length).equals(SQLITE_MAGIC);
+
+    if (!magicMatches) {
+        throw new BackupContainerError(
+            "not-a-database",
+            "Output does not start with the SQLite file magic."
+        );
     }
 
     // Big-endian, and the value 1 encodes 65536 because that does not fit the field.
     const pageSize = head.readUInt16BE(16);
     const isPowerOfTwo = pageSize >= 512 && pageSize <= 32768 && (pageSize & (pageSize - 1)) === 0;
     if (pageSize !== 1 && !isPowerOfTwo) {
-        throw new BackupContainerError("not-a-database", `SQLite page size ${pageSize} is not valid.`);
+        throw new BackupContainerError(
+            "not-a-database",
+            `SQLite page size ${pageSize} is not valid.`
+        );
     }
 }

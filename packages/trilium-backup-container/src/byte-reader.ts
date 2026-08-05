@@ -24,7 +24,11 @@ export class ByteReader {
         await this.#buffer(count);
 
         if (this.#pendingBytes < count) {
-            throw new BackupContainerError("truncated", `Expected ${count} bytes at offset ${this.#consumed}, found ${this.#pendingBytes}.`);
+            throw new BackupContainerError(
+                "truncated",
+                `Expected ${count} bytes at offset ${this.#consumed},
+                found ${this.#pendingBytes}.`
+            );
         }
 
         return this.#take(count);
@@ -60,7 +64,10 @@ export class ByteReader {
             return Buffer.alloc(0);
         }
 
-        const merged = this.#pending.length === 1 ? this.#pending[0] : Buffer.concat(this.#pending, this.#pendingBytes);
+        const merged = this.#pending.length === 1 ? this.#pending[0] : Buffer.concat(
+            this.#pending,
+            this.#pendingBytes
+        );
         const taken = merged.subarray(0, count);
         const rest = merged.subarray(count);
 

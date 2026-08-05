@@ -1,4 +1,8 @@
-import { FIXED_HEADER_BYTES, peekBackupContainer, writeBackupContainer } from "@triliumnext/backup-container";
+import {
+    FIXED_HEADER_BYTES,
+    peekBackupContainer,
+    writeBackupContainer
+} from "@triliumnext/backup-container";
 import type { DatabaseBackup } from "@triliumnext/commons";
 import { BackupOptionsService, BackupService, utils as coreUtils, getLog, sync_mutex as syncMutexService, ws } from "@triliumnext/core";
 import fs from "fs";
@@ -9,7 +13,9 @@ import path from "path";
 import dataDir from "./services/data_dir.js";
 import sql from "./services/sql.js";
 
-/** Backups that are compressed, encrypted or both are containers rather than plain database copies. */
+/**
+ * Backups that are compressed, encrypted or both are containers rather than plain database copies.
+ */
 const CONTAINER_EXTENSION = ".tnbackup";
 const DATABASE_EXTENSION = ".db";
 
@@ -21,8 +27,8 @@ export interface ServerBackupConfig {
      */
     allowCustomDirectory?: boolean;
     /**
-     * Reads the stored backup passphrase, or `null` when there is none to be had. Set by the desktop
-     * application, which is the only one with an OS keyring to keep a passphrase in.
+     * Reads the stored backup passphrase, or `null` when there is none to be had. Set by the
+     * desktop application, which is the only one with an OS keyring to keep a passphrase in.
      */
     getPassphrase?: () => Promise<string | null>;
 }
@@ -32,9 +38,10 @@ interface BackupFormat {
     compress: boolean;
     passphrase: string | null;
     /**
-     * Set when encryption was asked for and could not be delivered. The backup is still worth having,
-     * but it must stay in the default directory: the chosen one is typically a synced folder, and
-     * putting an unencrypted database there is the very thing encryption was turned on to avoid.
+     * Set when encryption was asked for and could not be delivered. The backup is still worth
+     * having, but it must stay in the default directory: the chosen one is typically a synced
+     * folder, and putting an unencrypted database there is the very thing encryption was turned on
+     * to avoid.
      */
     keepLocal: boolean;
 }
@@ -111,12 +118,13 @@ export default class ServerBackupService extends BackupService {
     }
 
     /**
-     * Settles what the backup is written as. Compression alone needs nothing but the option; encryption
-     * also needs a passphrase, and where that cannot be read the backup falls back to being unencrypted
-     * and local rather than not being taken at all.
+     * Settles what the backup is written as. Compression alone needs nothing but the option;
+     * encryption also needs a passphrase, and where that cannot be read the backup falls back to
+     * being unencrypted and local rather than not being taken at all.
      */
     private async resolveFormat(): Promise<BackupFormat> {
-        // Read leniently: the pre-migration backup runs before the options added by newer versions exist.
+        // Read leniently: the pre-migration backup runs before the options added by newer versions
+        // exist.
         const isEnabled = (name: "backupEnableCompression" | "backupEnableEncryption") =>
             this.options.getOptionOrNull(name) === "true";
 
@@ -130,7 +138,8 @@ export default class ServerBackupService extends BackupService {
             return { compress, passphrase, keepLocal: false };
         }
 
-        getLog().error("Could not read the backup passphrase; backing up unencrypted to the default location.");
+        getLog().error("Could not read the backup passphrase; backing up unencrypted to the "
+            + "default location.");
         ws.sendMessageToAllClients({
             type: "toast",
             message: t("backup.passphrase_unavailable"),
@@ -189,9 +198,10 @@ function listBackupsIn(directory: string): DatabaseBackup[] {
     }
 
     return fileNames
-        // The extension check excludes intermediate files (e.g. *.db-journal, *.part) created while a
-        // backup is in progress.
-        .filter((fileName) => fileName.includes("backup") && (fileName.endsWith(DATABASE_EXTENSION) || fileName.endsWith(CONTAINER_EXTENSION)))
+        // The extension check excludes intermediate files (e.g. *.db-journal, *.part) created while
+        // a backup is in progress.
+        .filter((fileName) => fileName.includes("backup")
+            && (fileName.endsWith(DATABASE_EXTENSION) || fileName.endsWith(CONTAINER_EXTENSION)))
         .flatMap((fileName) => {
             const filePath = path.resolve(directory, fileName);
             const stat = fs.statSync(filePath, { throwIfNoEntry: false });
@@ -199,13 +209,19 @@ function listBackupsIn(directory: string): DatabaseBackup[] {
                 return [];
             }
 
-            return [{ fileName, filePath, mtime: stat.mtime, fileSize: stat.size, ...describeContainer(filePath, fileName) }];
+            return [
+                { fileName,
+                filePath,
+                mtime: stat.mtime,
+                fileSize: stat.size,
+                ...describeContainer(filePath, fileName) }
+            ];
         });
 }
 
 /**
- * What a container is, read from its own header rather than from today's options: a backup keeps the
- * shape it was written in, whatever the settings have since become.
+ * What a container is, read from its own header rather than from today's options: a backup keeps
+ * the shape it was written in, whatever the settings have since become.
  *
  * Only the fixed header is read, so this costs a few dozen bytes per file and never needs the
  * passphrase. A file whose header does not parse is listed as a plain one rather than not at all.
@@ -241,7 +257,12 @@ function describeContainer(filePath: string, fileName: string): Partial<Database
     };
 }
 
-async function writeBackup(directory: string, baseName: string, format: BackupFormat, location: "default" | "custom"): Promise<string> {
+async function writeBackup(
+    directory: string,
+    baseName: string,
+    format: BackupFormat,
+    location: "default" | "custom"
+): Promise<string> {
     const isContainer = format.compress || format.passphrase !== null;
     const fileName = `${baseName}${isContainer ? CONTAINER_EXTENSION : DATABASE_EXTENSION}`;
     const backupFile = path.resolve(directory, fileName);
@@ -262,8 +283,10 @@ async function writeBackup(directory: string, baseName: string, format: BackupFo
         throw new Error(withoutDirectory(e, directory));
     }
 
-    // One backup name, one file: a container retires the plain copy it replaces, and the other way round.
-    fs.rmSync(path.resolve(directory, `${baseName}${isContainer ? DATABASE_EXTENSION : CONTAINER_EXTENSION}`), { force: true });
+    // One backup name, one file: a container retires the plain copy it replaces, and the other way
+    // round.
+    const counterpart = `${baseName}${isContainer ? DATABASE_EXTENSION : CONTAINER_EXTENSION}`;
+    fs.rmSync(path.resolve(directory, counterpart), { force: true });
 
     getLog().info(`Created backup .${path.sep}${fileName}${location === "custom" ? " in the custom backup location." : ""}`);
 
@@ -277,7 +300,11 @@ async function writeBackup(directory: string, baseName: string, format: BackupFo
  * before it can be fed to the writer. It lands in the data directory's temp folder and is deleted
  * straight after, so the backup directory never holds a plain database even for a moment.
  */
-async function writeContainer(backupFile: string, baseName: string, format: BackupFormat): Promise<void> {
+async function writeContainer(
+    backupFile: string,
+    baseName: string,
+    format: BackupFormat
+): Promise<void> {
     const snapshot = path.resolve(dataDir.TMP_DIR, `${baseName}.snapshot.db`);
     const partial = `${backupFile}.part`;
 

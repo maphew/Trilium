@@ -616,17 +616,26 @@ describe("preload script", () => {
 
         it("getStatus invokes the corresponding IPC channel", async () => {
             await backupPassphrase().getStatus();
-            expect(ipcRendererInvoked).toContainEqual({ channel: "backup-passphrase-status", args: [] });
+            expect(ipcRendererInvoked).toContainEqual(
+                { channel: "backup-passphrase-status",
+                args: [] }
+            );
         });
 
         it("set invokes the corresponding IPC channel", async () => {
             await backupPassphrase().set("hunter2");
-            expect(ipcRendererInvoked).toContainEqual({ channel: "backup-passphrase-set", args: ["hunter2"] });
+            expect(ipcRendererInvoked).toContainEqual(
+                { channel: "backup-passphrase-set",
+                args: ["hunter2"] }
+            );
         });
 
         it("clear invokes the corresponding IPC channel", async () => {
             await backupPassphrase().clear();
-            expect(ipcRendererInvoked).toContainEqual({ channel: "backup-passphrase-clear", args: [] });
+            expect(ipcRendererInvoked).toContainEqual(
+                { channel: "backup-passphrase-clear",
+                args: [] }
+            );
         });
 
         it("exposes no way to read the passphrase back", () => {

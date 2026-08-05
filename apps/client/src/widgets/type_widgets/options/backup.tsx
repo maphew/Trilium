@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import dialogService from "../../../services/dialog";
 import { t } from "../../../services/i18n";
+import options from "../../../services/options";
 import server from "../../../services/server";
 import toast from "../../../services/toast";
 import { isElectron } from "../../../services/utils";
@@ -192,8 +193,17 @@ export function BackupOptions() {
 
         // Re-read either way: a declined confirmation has to put the switch back where it was.
         await refreshPassphrase();
-        if (result === "applied") {
-            await setEncryptionEnabled(false);
+        if (result !== "applied") {
+            return;
+        }
+
+        await setEncryptionEnabled(false);
+
+        // Saving an option swallows its own failure, and the passphrase is already gone by now. Left
+        // unsaid, every later backup would quietly fall back to an unencrypted one in the default
+        // directory, with nothing on this page to explain why.
+        if (options.is("backupEnableEncryption")) {
+            toast.showError(t("backup.encryption_not_disabled"));
         }
     }
 

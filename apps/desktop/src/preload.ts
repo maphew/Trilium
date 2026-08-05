@@ -1,4 +1,12 @@
-import type { BackupPassphraseChange, BackupPassphraseStatus, ElectronApi, ElectronContextMenuParams, NativeImportOptions, OneNoteLoginResult, RendererStartupMetric } from "@triliumnext/commons";
+import type {
+    BackupPassphraseChange,
+    BackupPassphraseStatus,
+    ElectronApi,
+    ElectronContextMenuParams,
+    NativeImportOptions,
+    OneNoteLoginResult,
+    RendererStartupMetric
+} from "@triliumnext/commons";
 import { contextBridge, ipcRenderer, webFrame, webUtils } from "electron";
 
 contextBridge.exposeInMainWorld("electronApi", {

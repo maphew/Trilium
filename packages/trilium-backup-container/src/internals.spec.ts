@@ -8,11 +8,21 @@ import { deriveKey } from "./crypto.js";
 import { BackupContainerError, isBackupContainerError } from "./errors.js";
 import { FRAME_SIZE, HEADER_BYTES_PLAIN } from "./format.js";
 import { FrameEncryptor } from "./streams.js";
-import { fakeDatabase, flipByte, MemorySink, reasonOf, readFromBuffer, writeToBuffer } from "./test-helpers.js";
+import {
+    fakeDatabase,
+    failureOf,
+    flipByte,
+    MemorySink,
+    reasonOf,
+    readFromBuffer,
+    writeToBuffer
+} from "./test-helpers.js";
 
 describe("BackupContainerError", () => {
     it("narrows only its own errors", () => {
-        expect(isBackupContainerError(new BackupContainerError("truncated", "cut short"))).toBe(true);
+        const own = new BackupContainerError("truncated", "cut short");
+
+        expect(isBackupContainerError(own)).toBe(true);
         expect(isBackupContainerError(new Error("something else"))).toBe(false);
         expect(isBackupContainerError("not even an error")).toBe(false);
     });
@@ -71,8 +81,11 @@ describe("compressed payload damage", () => {
 
         // Corrupt the deflate data, then repair the digest so the failure can only come from zlib.
         const damaged = flipByte(written.bytes, HEADER_BYTES_PLAIN + 30);
-        createHash("sha256").update(damaged.subarray(HEADER_BYTES_PLAIN)).digest().copy(damaged, HEADER_BYTES_PLAIN - 32);
+        createHash("sha256").update(damaged.subarray(HEADER_BYTES_PLAIN)).digest().copy(
+            damaged,
+            HEADER_BYTES_PLAIN - 32
+        );
 
-        expect(await reasonOf(readFromBuffer(damaged))).toBe("damaged-payload");
+        expect(await failureOf(damaged)).toBe("damaged-payload");
     });
 });

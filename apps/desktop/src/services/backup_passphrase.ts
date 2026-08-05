@@ -18,15 +18,16 @@ const TEMP_PATH = `${PASSPHRASE_PATH}.tmp`;
  * Whether the OS has somewhere safe to keep the passphrase.
  *
  * `isEncryptionAvailable()` alone is not enough. On Linux without a keyring the selected backend is
- * `basic_text`, which "encrypts" with a hardcoded password, so the file would be plaintext in all but
- * name. Both that and the backend name are only meaningful once the app is ready.
+ * `basic_text`, which "encrypts" with a hardcoded password, so the file would be plaintext in all
+ * but name. Both that and the backend name are only meaningful once the app is ready.
  */
 export function isKeyringAvailable(): boolean {
     if (!electron.app.isReady() || !electron.safeStorage.isEncryptionAvailable()) {
         return false;
     }
 
-    return process.platform !== "linux" || electron.safeStorage.getSelectedStorageBackend() !== "basic_text";
+    return process.platform !== "linux"
+        || electron.safeStorage.getSelectedStorageBackend() !== "basic_text";
 }
 
 export function isPassphraseSet(): boolean {
@@ -37,7 +38,9 @@ export function getBackupPassphraseStatus(): BackupPassphraseStatus {
     return { available: isKeyringAvailable(), set: isPassphraseSet() };
 }
 
-/** Stores a passphrase, replacing any existing one. Returns `false` when there is no keyring to use. */
+/**
+ * Stores a passphrase, replacing any existing one. Returns `false` when there is no keyring to use.
+ */
 export async function storeBackupPassphrase(passphrase: string): Promise<boolean> {
     if (!isKeyringAvailable() || !passphrase) {
         return false;
@@ -70,9 +73,11 @@ export async function getBackupPassphrase(): Promise<string | null> {
     }
 
     try {
-        const { result, shouldReEncrypt } = await electron.safeStorage.decryptStringAsync(fs.readFileSync(PASSPHRASE_PATH));
+        const stored = fs.readFileSync(PASSPHRASE_PATH);
+        const { result, shouldReEncrypt } = await electron.safeStorage.decryptStringAsync(stored);
 
-        // The OS rotated its key underneath us; rewrite now or the blob eventually stops decrypting.
+        // The OS rotated its key underneath us; rewrite now or the blob eventually stops
+        // decrypting.
         if (shouldReEncrypt) {
             await storeBackupPassphrase(result);
         }
@@ -80,7 +85,8 @@ export async function getBackupPassphrase(): Promise<string | null> {
         return result;
     } catch (e) {
         // The reason reaches the log, the passphrase never does.
-        getLog().error(`Could not read the stored backup passphrase: ${e instanceof Error ? e.message : String(e)}`);
+        const reason = e instanceof Error ? e.message : String(e);
+        getLog().error(`Could not read the stored backup passphrase: ${reason}`);
         return null;
     }
 }
@@ -92,14 +98,17 @@ export async function getBackupPassphrase(): Promise<string | null> {
  * the OS drew, which is the whole point: without the question, a script could quietly replace the
  * passphrase with one it knows and every later backup would be encrypted to it.
  *
- * Deliberately without the "don't ask again" escape the security settings offer. That exists there to
- * stop a script from fatiguing the user through repetition; here the question is rare enough that
- * being asked every time costs nothing, and skipping it is the whole vulnerability.
+ * Deliberately without the "don't ask again" escape the security settings offer. That exists there
+ * to stop a script from fatiguing the user through repetition; here the question is rare enough
+ * that being asked every time costs nothing, and skipping it is the whole vulnerability.
  */
 async function confirmChange(action: "set" | "clear"): Promise<boolean> {
     const { response } = await electron.dialog.showMessageBox({
         type: "warning",
-        buttons: [t("backup-password-dialog.cancel"), t(`backup-password-dialog.${action}-confirm`)],
+        buttons: [
+            t("backup-password-dialog.cancel"),
+            t(`backup-password-dialog.${action}-confirm`)
+        ],
         defaultId: 1,
         cancelId: 0,
         title: t(`backup-password-dialog.${action}-title`),
@@ -111,26 +120,32 @@ async function confirmChange(action: "set" | "clear"): Promise<boolean> {
 }
 
 export function registerBackupPassphraseIpcHandlers(): void {
-    electron.ipcMain.handle("backup-passphrase-status", (): BackupPassphraseStatus => getBackupPassphraseStatus());
+    electron.ipcMain.handle("backup-passphrase-status", handleStatus);
+    electron.ipcMain.handle("backup-passphrase-set", handleSet);
+    electron.ipcMain.handle("backup-passphrase-clear", handleClear);
+}
 
-    electron.ipcMain.handle("backup-passphrase-set", async (_event, passphrase: string): Promise<BackupPassphraseChange> => {
-        // Nothing to confirm when it could not be honoured anyway.
-        if (!isKeyringAvailable() || !passphrase) {
-            return "unavailable";
-        }
-        if (!await confirmChange("set")) {
-            return "cancelled";
-        }
+function handleStatus(): BackupPassphraseStatus {
+    return getBackupPassphraseStatus();
+}
 
-        return await storeBackupPassphrase(passphrase) ? "applied" : "unavailable";
-    });
+async function handleSet(_event: unknown, passphrase: string): Promise<BackupPassphraseChange> {
+    // Nothing to confirm when it could not be honoured anyway.
+    if (!isKeyringAvailable() || !passphrase) {
+        return "unavailable";
+    }
+    if (!await confirmChange("set")) {
+        return "cancelled";
+    }
 
-    electron.ipcMain.handle("backup-passphrase-clear", async (): Promise<BackupPassphraseChange> => {
-        if (!await confirmChange("clear")) {
-            return "cancelled";
-        }
-        clearBackupPassphrase();
+    return await storeBackupPassphrase(passphrase) ? "applied" : "unavailable";
+}
 
-        return "applied";
-    });
+async function handleClear(): Promise<BackupPassphraseChange> {
+    if (!await confirmChange("clear")) {
+        return "cancelled";
+    }
+    clearBackupPassphrase();
+
+    return "applied";
 }

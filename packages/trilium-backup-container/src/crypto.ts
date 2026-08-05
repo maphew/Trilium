@@ -11,8 +11,8 @@ import {
 } from "./format.js";
 
 /**
- * OpenSSL needs a little more than the `128 * N * r` working set, so the ceiling handed to Node sits
- * above what {@link scryptMemoryBytes} reports. It is a limit, not an allocation.
+ * OpenSSL needs a little more than the `128 * N * r` working set, so the ceiling handed to Node
+ * sits above what {@link scryptMemoryBytes} reports. It is a limit, not an allocation.
  */
 const MAXMEM_SLACK_BYTES = 1024 * 1024;
 
@@ -34,11 +34,21 @@ export function deriveKey(passphrase: string, salt: Buffer, params: ScryptParams
 
     return new Promise((resolve, reject) => {
         const fail = (error: Error) =>
-            reject(new BackupContainerError("invalid-kdf-params", `Key derivation failed: ${error.message}`));
+            reject(new BackupContainerError(
+                "invalid-kdf-params",
+                `Key derivation failed: ${error.message}`
+            ));
 
-        // scrypt rejects impossible parameters synchronously and everything else through the callback.
+        // scrypt rejects impossible parameters synchronously and everything else through the
+        // callback.
         try {
-            scrypt(secret, salt, KEY_BYTES, options, (error, key) => (error ? fail(error) : resolve(key)));
+            scrypt(
+                secret,
+                salt,
+                KEY_BYTES,
+                options,
+                (error, key) => (error ? fail(error) : resolve(key))
+            );
         } catch (error) {
             fail(error as Error);
         }
@@ -46,7 +56,14 @@ export function deriveKey(passphrase: string, salt: Buffer, params: ScryptParams
 }
 
 /** Seals one frame, returning `length || ciphertext || tag` ready to be written. */
-export function sealFrame(key: Buffer, noncePrefix: Buffer, aad: Buffer, counter: number, lengthField: Buffer, plaintext: Buffer): Buffer {
+export function sealFrame(
+    key: Buffer,
+    noncePrefix: Buffer,
+    aad: Buffer,
+    counter: number,
+    lengthField: Buffer,
+    plaintext: Buffer
+): Buffer {
     const cipher = createCipheriv("aes-256-gcm", key, nonceFor(noncePrefix, counter));
     cipher.setAAD(Buffer.concat([aad, lengthField]));
 
@@ -56,7 +73,16 @@ export function sealFrame(key: Buffer, noncePrefix: Buffer, aad: Buffer, counter
 }
 
 /** Opens one frame, throwing `damaged-payload` when the tag does not match. */
-export function openFrame(key: Buffer, noncePrefix: Buffer, aad: Buffer, counter: number, lengthField: Buffer, ciphertext: Buffer, tag: Buffer, offset: number): Buffer {
+export function openFrame(
+    key: Buffer,
+    noncePrefix: Buffer,
+    aad: Buffer,
+    counter: number,
+    lengthField: Buffer,
+    ciphertext: Buffer,
+    tag: Buffer,
+    offset: number
+): Buffer {
     const decipher = createDecipheriv("aes-256-gcm", key, nonceFor(noncePrefix, counter));
     decipher.setAAD(Buffer.concat([aad, lengthField]));
     decipher.setAuthTag(tag);
@@ -64,7 +90,10 @@ export function openFrame(key: Buffer, noncePrefix: Buffer, aad: Buffer, counter
     try {
         return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
     } catch {
-        throw new BackupContainerError("damaged-payload", `Frame ${counter} failed authentication at byte offset ${offset}.`);
+        throw new BackupContainerError(
+            "damaged-payload",
+            `Frame ${counter} failed authentication at byte offset ${offset}.`
+        );
     }
 }
 
@@ -78,12 +107,18 @@ export function computeVerifierTag(key: Buffer, noncePrefix: Buffer, aad: Buffer
 }
 
 /**
- * Checks the verifier tag, which tells a wrong passphrase from a usable one before any frame is read.
+ * Checks the verifier tag, which tells a wrong passphrase from a usable one before any frame is
+ * read.
  *
- * A mismatch cannot distinguish a wrong passphrase from a bit flip in the salt, nonce prefix or tag,
- * which is why the reason covers both.
+ * A mismatch cannot distinguish a wrong passphrase from a bit flip in the salt, nonce prefix or
+ * tag, which is why the reason covers both.
  */
-export function verifyPassphrase(key: Buffer, noncePrefix: Buffer, aad: Buffer, expectedTag: Buffer): void {
+export function verifyPassphrase(
+    key: Buffer,
+    noncePrefix: Buffer,
+    aad: Buffer,
+    expectedTag: Buffer
+): void {
     const decipher = createDecipheriv("aes-256-gcm", key, nonceFor(noncePrefix, VERIFIER_COUNTER));
     decipher.setAAD(aad);
     decipher.setAuthTag(expectedTag.subarray(0, TAG_BYTES));
@@ -91,6 +126,9 @@ export function verifyPassphrase(key: Buffer, noncePrefix: Buffer, aad: Buffer, 
     try {
         decipher.final();
     } catch {
-        throw new BackupContainerError("wrong-passphrase-or-damaged-header", "Verifier tag did not match.");
+        throw new BackupContainerError(
+            "wrong-passphrase-or-damaged-header",
+            "Verifier tag did not match."
+        );
     }
 }

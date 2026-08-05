@@ -31,7 +31,9 @@ export const DEFAULT_MAX_OUTPUT_BYTES = 64 * 1024 * 1024 * 1024;
 export interface ReadBackupContainerOptions {
     /** Required when the container is encrypted. */
     passphrase?: string;
-    /** Hard ceiling on unwrapped output. A recorded plaintext size may tighten it, never widen it. */
+    /**
+     * Hard ceiling on unwrapped output. A recorded plaintext size may tighten it, never widen it.
+     */
     maxOutputBytes?: number;
     /** Refuses a header above this size before anything is allocated. */
     maxHeaderBytes?: number;
@@ -58,19 +60,25 @@ export interface BackupContainerInfo {
 }
 
 /**
- * Identifies a container from its first {@link FIXED_HEADER_BYTES} bytes, without touching the payload
- * and without the passphrase: what a container is, is stated in the clear.
+ * Identifies a container from its first {@link FIXED_HEADER_BYTES} bytes, without touching the
+ * payload and without the passphrase: what a container is, is stated in the clear.
  *
- * Returns `null` for anything this reader does not recognise, so that listing a directory of backups is
- * never derailed by one damaged or foreign file.
+ * Returns `null` for anything this reader does not recognise, so that listing a directory of
+ * backups is never derailed by one damaged or foreign file.
  */
-export function peekBackupContainer(head: Buffer, maxHeaderBytes: number = DEFAULT_MAX_HEADER_BYTES): BackupContainerInfo | null {
+export function peekBackupContainer(
+    head: Buffer,
+    maxHeaderBytes: number = DEFAULT_MAX_HEADER_BYTES
+): BackupContainerInfo | null {
     if (head.length < FIXED_HEADER_BYTES) {
         return null;
     }
 
     try {
-        const { version, compressed, encrypted, plaintextSize } = decodeFixedHeader(head.subarray(0, FIXED_HEADER_BYTES), maxHeaderBytes);
+        const { version, compressed, encrypted, plaintextSize } = decodeFixedHeader(
+            head.subarray(0, FIXED_HEADER_BYTES),
+            maxHeaderBytes
+        );
 
         return { version, compressed, encrypted, plaintextSize };
     } catch {
@@ -92,7 +100,8 @@ export interface ReadBackupContainerResult {
  * Unwraps a container back into a database.
  *
  * Frames are authenticated before any of their plaintext is emitted, the output ceiling is applied
- * before bytes reach the destination, and the payload digest and recorded size are checked at the end.
+ * before bytes reach the destination, and the payload digest and recorded size are checked at the
+ * end.
  *
  * @param input the container bytes.
  * @param output the destination for the database, which is ended by this call.
@@ -111,19 +120,30 @@ export async function readBackupContainer(
     let key: Buffer | null = null;
     if (header.encryption) {
         if (options.passphrase === undefined) {
-            throw new BackupContainerError("passphrase-required", "Container is encrypted but no passphrase was given.");
+            throw new BackupContainerError(
+                "passphrase-required",
+                "Container is encrypted but no passphrase was given."
+            );
         }
 
-        validateScryptParams(header.encryption, options.maxKdfMemoryBytes ?? DEFAULT_MAX_KDF_MEMORY_BYTES);
+        validateScryptParams(
+            header.encryption,
+            options.maxKdfMemoryBytes ?? DEFAULT_MAX_KDF_MEMORY_BYTES
+        );
         key = await deriveKey(options.passphrase, header.encryption.salt, header.encryption);
 
         if (options.skipVerifier !== true) {
-            verifyPassphrase(key, header.encryption.noncePrefix, aadOf(header), header.encryption.verifierTag);
+            verifyPassphrase(
+                key,
+                header.encryption.noncePrefix,
+                aadOf(header),
+                header.encryption.verifierTag
+            );
         }
     }
 
-    // A recorded size may only tighten the ceiling, never widen it: it is unauthenticated in a plain
-    // container, so a crafted value would otherwise disable the guard entirely.
+    // A recorded size may only tighten the ceiling, never widen it: it is unauthenticated in a
+    // plain container, so a crafted value would otherwise disable the guard entirely.
     const ceiling = Math.min(
         options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES,
         header.plaintextSize > 0 ? header.plaintextSize : Number.POSITIVE_INFINITY
@@ -134,10 +154,15 @@ export async function readBackupContainer(
         ? readFrames(reader, header, header.encryption, key)
         : readPlainPayload(reader, header);
 
-    const stages = header.compressed ? [payload, createGunzip(), guard, output] : [payload, guard, output];
+    const stages = header.compressed ? [payload, createGunzip(), guard, output] : [
+        payload,
+        guard,
+        output
+    ];
 
     try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- pipeline's overloads do not accept a built array.
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- pipeline's overloads do
+        // not accept a built array.
         await pipeline(stages as any);
     } catch (error) {
         throw translatePipelineError(error);
@@ -162,14 +187,21 @@ export async function readBackupContainer(
 async function readHeader(reader: ByteReader, maxHeaderBytes: number): Promise<ContainerHeader> {
     const fixedBytes = await reader.readUpTo(FIXED_HEADER_BYTES);
 
-    // Too short to hold a header. An empty file identifies itself as nothing; anything else is judged
-    // on whether what is there could be the start of the magic.
+    // Too short to hold a header. An empty file identifies itself as nothing; anything else is
+    // judged on whether what is there could be the start of the magic.
     if (fixedBytes.length < FIXED_HEADER_BYTES) {
         const prefix = MAGIC.subarray(0, Math.min(fixedBytes.length, MAGIC.length));
         if (fixedBytes.length === 0 || !fixedBytes.subarray(0, prefix.length).equals(prefix)) {
-            throw new BackupContainerError("not-a-container", "File does not start with the container magic.");
+            throw new BackupContainerError(
+                "not-a-container",
+                "File does not start with the container magic."
+            );
         }
-        throw new BackupContainerError("truncated", `File ends after ${fixedBytes.length} bytes, inside the header.`);
+        throw new BackupContainerError(
+            "truncated",
+            `File ends after ${fixedBytes.length} bytes,
+            inside the header.`
+        );
     }
 
     const fixed = decodeFixedHeader(fixedBytes, maxHeaderBytes);
@@ -184,7 +216,12 @@ function aadOf(header: ContainerHeader): Buffer {
 }
 
 /** Yields the plaintext of each frame, after that frame has been authenticated. */
-async function* readFrames(reader: ByteReader, header: ContainerHeader, encryption: EncryptionHeader, key: Buffer): AsyncGenerator<Buffer> {
+async function* readFrames(
+    reader: ByteReader,
+    header: ContainerHeader,
+    encryption: EncryptionHeader,
+    key: Buffer
+): AsyncGenerator<Buffer> {
     const aad = aadOf(header);
     const hash = createHash("sha256");
     let counter = 0;
@@ -198,14 +235,26 @@ async function* readFrames(reader: ByteReader, header: ContainerHeader, encrypti
 
         // Checked before the data is read: the field can claim up to 2 GiB.
         if (length > FRAME_SIZE || (!final && length !== FRAME_SIZE)) {
-            throw new BackupContainerError("invalid-frame-length", `Frame ${counter} at offset ${offset} declares ${length} bytes.`);
+            throw new BackupContainerError(
+                "invalid-frame-length",
+                `Frame ${counter} at offset ${offset} declares ${length} bytes.`
+            );
         }
 
         const ciphertext = await reader.readExactly(length);
         const tag = await reader.readExactly(TAG_BYTES);
         hash.update(lengthField).update(ciphertext).update(tag);
 
-        yield openFrame(key, encryption.noncePrefix, aad, counter, lengthField, ciphertext, tag, offset);
+        yield openFrame(
+            key,
+            encryption.noncePrefix,
+            aad,
+            counter,
+            lengthField,
+            ciphertext,
+            tag,
+            offset
+        );
 
         if (final) {
             break;
@@ -214,14 +263,20 @@ async function* readFrames(reader: ByteReader, header: ContainerHeader, encrypti
     }
 
     if (!(await reader.atEof())) {
-        throw new BackupContainerError("trailing-data", `Bytes follow the final frame at offset ${reader.consumed}.`);
+        throw new BackupContainerError(
+            "trailing-data",
+            `Bytes follow the final frame at offset ${reader.consumed}.`
+        );
     }
 
     verifyDigest(hash.digest(), header.digest);
 }
 
 /** Yields the payload of an unencrypted container, which runs to end of file. */
-async function* readPlainPayload(reader: ByteReader, header: ContainerHeader): AsyncGenerator<Buffer> {
+async function* readPlainPayload(
+    reader: ByteReader,
+    header: ContainerHeader
+): AsyncGenerator<Buffer> {
     const hash = createHash("sha256");
 
     for (;;) {
@@ -238,15 +293,23 @@ async function* readPlainPayload(reader: ByteReader, header: ContainerHeader): A
 
 function verifyDigest(actual: Buffer, expected: Buffer): void {
     if (!timingSafeEqual(actual, expected)) {
-        throw new BackupContainerError("digest-mismatch", "Payload digest does not match the header.");
+        throw new BackupContainerError(
+            "digest-mismatch",
+            "Payload digest does not match the header."
+        );
     }
 }
 
-/** zlib failures mean a damaged payload; everything else, e.g. a full disk, belongs to the caller. */
+/**
+ * zlib failures mean a damaged payload; everything else, e.g. a full disk, belongs to the caller.
+ */
 function translatePipelineError(error: unknown): unknown {
     const code = (error as NodeJS.ErrnoException | undefined)?.code;
     if (typeof code === "string" && code.startsWith("Z_")) {
-        return new BackupContainerError("damaged-payload", `Compressed payload could not be read: ${code}.`);
+        return new BackupContainerError(
+            "damaged-payload",
+            `Compressed payload could not be read: ${code}.`
+        );
     }
 
     return error;

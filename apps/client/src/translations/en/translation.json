@@ -2053,6 +2053,7 @@
     "save_password": "Save password",
     "password_stored": "The backup password has been saved.",
     "password_not_stored": "The backup password could not be saved.",
+    "encryption_not_disabled": "The backup password was removed, but encryption could not be switched off. Backups will not be encrypted until you turn encryption on again.",
     "compressed": "Compressed",
     "encrypted": "Encrypted"
   },

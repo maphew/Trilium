@@ -10,7 +10,8 @@ const h = vi.hoisted(() => ({
     storageBackend: "gnome_libsecret",
     platform: "linux",
     // Base64 rather than a readable prefix, so "never stored in the clear" is a real assertion.
-    encrypt: vi.fn(async (plainText: string) => Buffer.from(Buffer.from(plainText, "utf8").toString("base64"), "utf8")),
+    encrypt: vi.fn(async (plainText: string) =>
+        Buffer.from(Buffer.from(plainText, "utf8").toString("base64"), "utf8")),
     decrypt: vi.fn(async (buffer: Buffer) => ({
         result: Buffer.from(buffer.toString("utf8"), "base64").toString("utf8"),
         shouldReEncrypt: false
@@ -23,9 +24,12 @@ const isPassphrasePath = (p: unknown) => String(p).includes("backup-passphrase.b
 vi.mock("fs", async (importOriginal) => {
     const actual = await importOriginal<typeof import("fs") & { default?: typeof import("fs") }>();
     const real = actual.default ?? actual;
-    const existsSync = (p: fs.PathLike) => (isPassphrasePath(p) ? h.fileStore.has(String(p)) : real.existsSync(p));
+    const existsSync = (p: fs.PathLike) =>
+        (isPassphrasePath(p) ? h.fileStore.has(String(p)) : real.existsSync(p));
     const readFileSync = ((p: fs.PathLike, enc?: unknown) =>
-        isPassphrasePath(p) ? h.fileStore.get(String(p)) : real.readFileSync(p, enc as never)) as typeof real.readFileSync;
+        isPassphrasePath(p)
+            ? h.fileStore.get(String(p))
+            : real.readFileSync(p, enc as never)) as typeof real.readFileSync;
     const writeFileSync = ((p: fs.PathLike, data: Buffer) => {
         h.fileStore.set(String(p), Buffer.from(data));
     }) as typeof real.writeFileSync;
@@ -40,7 +44,15 @@ vi.mock("fs", async (importOriginal) => {
         h.fileStore.delete(String(p));
     }) as typeof real.rmSync;
     const patched = { ...real, existsSync, readFileSync, writeFileSync, renameSync, rmSync };
-    return { ...actual, default: patched, existsSync, readFileSync, writeFileSync, renameSync, rmSync };
+    return {
+        ...actual,
+        default: patched,
+        existsSync,
+        readFileSync,
+        writeFileSync,
+        renameSync,
+        rmSync
+    };
 });
 
 vi.mock("i18next", () => ({ t: (key: string) => key }));
@@ -66,6 +78,8 @@ vi.mock("electron", () => ({
 vi.mock("@triliumnext/core", () => ({
     getLog: () => ({ error: (message: string) => h.errors.push(message) })
 }));
+
+type ConfirmCase = [string, [string, ...unknown[]]];
 
 const passphrase = await import("./backup_passphrase.js");
 
@@ -120,7 +134,7 @@ describe("backup passphrase storage", () => {
         expect(h.encrypt).toHaveBeenCalledWith("hunter2");
     });
 
-    it("returns null and logs, without the passphrase, when the blob cannot be decrypted", async () => {
+    it("returns null and logs, without the passphrase, when the blob will not open", async () => {
         await passphrase.storeBackupPassphrase("hunter2");
         h.decrypt.mockRejectedValueOnce(new Error("keyring is locked"));
 
@@ -142,7 +156,10 @@ describe("keyring availability", () => {
     it.each([
         ["the app is not ready yet", () => { h.isReady = false; }],
         ["the platform offers no encryption", () => { h.encryptionAvailable = false; }],
-        ["Linux falls back to the hardcoded-password backend", () => { h.storageBackend = "basic_text"; }]
+        [
+            "Linux falls back to the hardcoded-password backend",
+            () => { h.storageBackend = "basic_text"; }
+        ]
     ])("treats the keyring as unavailable when %s", async (_label, arrange) => {
         arrange();
 
@@ -205,13 +222,17 @@ describe("IPC handlers", () => {
     it.each([
         ["set", ["backup-passphrase-set", "hunter2"]],
         ["clear", ["backup-passphrase-clear"]]
-    ] as [string, [string, ...unknown[]]][])("asks the OS before it %ss, and offers no way to stop being asked", async (_label, call) => {
+    ] as ConfirmCase[])("asks the OS before it %ss, with no escape from asking", async (
+        _label,
+        call
+    ) => {
         await invoke(...call);
 
         expect(h.showMessageBox).toHaveBeenCalledOnce();
         const options = h.showMessageBox.mock.calls[0][0];
         expect(options).toMatchObject({ type: "warning", cancelId: 0 });
-        // The security settings offer "don't ask again"; skipping the question is the vulnerability here.
+        // The security settings offer "don't ask again"; skipping the question is the vulnerability
+        // here.
         expect(options).not.toHaveProperty("checkboxLabel");
     });
 

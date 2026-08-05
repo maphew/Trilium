@@ -1,8 +1,8 @@
 /**
  * Machine-readable cause of a container failure.
  *
- * The human-readable message on the error is fixed English meant for logs. Anything user-facing must
- * be selected from this reason instead, so that the module carries no translations.
+ * The human-readable message on the error is fixed English meant for logs. Anything user-facing
+ * must be selected from this reason instead, so that the module carries no translations.
  */
 export type BackupContainerErrorReason =
     /** The first bytes are not the container magic, i.e. this is not a backup container at all. */
@@ -11,7 +11,10 @@ export type BackupContainerErrorReason =
     | "unsupported-version"
     /** A reserved flag bit is set, or the flags are otherwise not understood. */
     | "unsupported-flags"
-    /** The header length is not the value this version and these flags require, or it is out of range. */
+    /**
+     * The header length is not the value this version and these flags require, or it is out of
+     * range.
+     */
     | "invalid-header-length"
     /** The key derivation function id is not one this reader implements. */
     | "unsupported-kdf"

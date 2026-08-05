@@ -28,7 +28,8 @@ describe("file destination", () => {
         const restored = join(directory, "restored.db");
         await writeFile(source, database);
 
-        const result = await writeBackupContainer(createReadStream(source), createWriteStream(partial), {
+        const output = createWriteStream(partial);
+        const result = await writeBackupContainer(createReadStream(source), output, {
             compress: true,
             passphrase: "file test",
             scrypt: FAST_SCRYPT,
@@ -49,11 +50,16 @@ describe("file destination", () => {
         await rename(partial, container);
         expect((await stat(container)).size).toBeLessThan(database.length);
 
-        const info = await readBackupContainer(createReadStream(container), createWriteStream(restored), {
+        const restoredOutput = createWriteStream(restored);
+        const info = await readBackupContainer(createReadStream(container), restoredOutput, {
             passphrase: "file test"
         });
 
-        expect(info).toMatchObject({ compressed: true, encrypted: true, bytesWritten: database.length });
+        expect(info).toMatchObject({
+            compressed: true,
+            encrypted: true,
+            bytesWritten: database.length
+        });
         expect((await readFile(restored)).equals(database)).toBe(true);
     });
 });
