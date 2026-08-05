@@ -1,12 +1,13 @@
-import { type MapGeoJSONFeature, type MapMouseEvent, type Offset, Popup } from "maplibre-gl";
+import { type Map as MapLibreGLMap, type MapGeoJSONFeature, type MapMouseEvent, Popup } from "maplibre-gl";
 import { useContext, useEffect } from "preact/hooks";
 
 import froca from "../../../services/froca";
 import { renderTooltip } from "../../../services/note_tooltip";
 import { sanitizeNoteContentHtml } from "../../../services/sanitize_content";
 import { isHtmlEmpty } from "../../../services/utils";
+import { PANE_REACH } from "./DetailPane";
 import { ParentMap } from "./map";
-import { MARKER_HEIGHT, MARKER_LAYER, MARKER_WIDTH } from "./Markers";
+import { MARKER_HEIGHT, MARKER_LAYER } from "./Markers";
 
 /**
  * How long the pointer has to rest on a marker before its note is read.
@@ -38,47 +39,23 @@ const HOVER_DELAY = 500;
  */
 const DISMISS_DELAY = 400;
 
-/** How much air is left between the pin and the preview, whichever side it lands on. */
+/** How much air is left between the marker and the preview, whichever side it lands on. */
 const MARKER_GAP = 8;
 
-/** What it takes to get past the pin sideways, and to get above it. */
-const CLEAR_SIDEWAYS = MARKER_WIDTH / 2 + MARKER_GAP;
-const CLEAR_ABOVE = MARKER_HEIGHT + MARKER_GAP;
-
 /**
- * Where the preview sits, for each placement MapLibre might choose.
+ * What it takes to clear the marker from above and from below.
  *
- * A pin stands on its coordinate rather than over it: everything it draws is *above* that point, and
- * within half its width either side. A preview pushed away from the point by one flat distance
- * therefore covers the very marker it belongs to, so each placement has to clear whichever part of
- * the pin it opens onto — which is not the same part each time, and is why MapLibre asks for the
- * offset per placement at all (see the `popupOffsets` example in its `Popup` documentation).
- *
- * What opens onto what is easy to get wrong. Placed straight above the point the preview meets the
- * pin's full height, and straight below it meets nothing. But a preview placed from a *corner* has
- * that corner on the point and spreads sideways from it, so what stands in its way there is the
- * pin's width, not its height — clearing only the height leaves the corner placements lying across
- * whichever half of the pin they open towards.
+ * A pin stands on its coordinate rather than over it: the whole of it is drawn *above* that point,
+ * and its title hangs *below* it (see the top-anchored text in {@link Markers}'s label layout). So
+ * a preview opening upwards has the pin's height to get past, and one opening downwards has the
+ * title's — a line of twelve-pixel text, cleared with a little to spare, since its exact reach is
+ * the renderer's business rather than ours.
  */
-const PREVIEW_OFFSET: Offset = {
-    // Straight below the point, where the pin draws nothing.
-    "top": [ 0, MARKER_GAP ],
-    // Straight above it, with the whole pin standing in between.
-    "bottom": [ 0, -CLEAR_ABOVE ],
-    // Beside it: past the pin's width, and lifted to the middle of its height rather than left
-    // hanging off the tip.
-    "left": [ CLEAR_SIDEWAYS, -MARKER_HEIGHT / 2 ],
-    "right": [ -CLEAR_SIDEWAYS, -MARKER_HEIGHT / 2 ],
-    // From a corner, spreading sideways: past the pin's width in whichever direction it opens, and
-    // clear of the point itself vertically. Getting past the width is what does the work here, so
-    // there is no need to rise the pin's whole height as well and leave the preview stranded up in
-    // the air away from the marker it belongs to.
-    "top-left": [ CLEAR_SIDEWAYS, MARKER_GAP ],
-    "top-right": [ -CLEAR_SIDEWAYS, MARKER_GAP ],
-    "bottom-left": [ CLEAR_SIDEWAYS, -MARKER_GAP ],
-    "bottom-right": [ -CLEAR_SIDEWAYS, -MARKER_GAP ],
-    "center": [ 0, 0 ]
-};
+const CLEAR_ABOVE = MARKER_HEIGHT + MARKER_GAP;
+const CLEAR_BELOW = 18 + MARKER_GAP;
+
+/** Air kept between the preview and the map's edges when it is slid back inside them. */
+const EDGE_PADDING = 8;
 
 /**
  * The preview shown while the pointer rests on a marker.
@@ -109,7 +86,6 @@ export default function Tooltips({ selectedNoteId }: {
         const tooltip = new Popup({
             closeButton: false,
             closeOnClick: false,
-            offset: PREVIEW_OFFSET,
             // The preview brings its own width — `.tooltip-inner` caps it at 500px — and MapLibre's
             // 240px default would squeeze a note's content into a column half that wide.
             maxWidth: "none",
@@ -151,6 +127,7 @@ export default function Tooltips({ selectedNoteId }: {
                 .setLngLat(coordinates)
                 .setHTML(buildTooltipHtml(content))
                 .addTo(map);
+            placePreview(map, tooltip, coordinates, selectedNoteId !== null);
 
             // The popup builds its element afresh every time it is added to a map, so what keeps it
             // open while the pointer is on it has to be bound per opening rather than once.
@@ -251,6 +228,63 @@ export default function Tooltips({ selectedNoteId }: {
     }, [ map, selectedNoteId ]);
 
     return null;
+}
+
+/**
+ * Puts the preview where it covers neither the pin nor its title, taken over from MapLibre.
+ *
+ * Left to itself, MapLibre swings a popup *beside* its point whenever the point stands within half
+ * the popup's width of the map's edge — and a preview beside a pin lies across the very marker it
+ * belongs to: the pin's title hangs at the point, and the popup arrives vertically centred on it.
+ * What a map application does instead is what is done here: the preview stays above the marker and
+ * is *slid sideways* as far as it takes to stay on the map — and out from under the detail pane,
+ * while one is up — the pin keeping its place under it.
+ * Only a marker too near the top for the preview to fit above it has the preview open downwards,
+ * past the title (see {@link CLEAR_BELOW}) — and a marker so hemmed in that neither fits gets the
+ * upward one anyway, there being no placement left to prefer.
+ *
+ * Called after the popup is added, because the sliding is measured against the preview's rendered
+ * size, which only mounting it can say. The correction lands in the same synchronous turn as the
+ * mounting, so nothing is painted in between; and the offset it sets is read back by MapLibre on
+ * every later reposition, so the preview follows its marker through any map movement.
+ */
+function placePreview(map: MapLibreGLMap, tooltip: Popup, coordinates: [ number, number ], paneUp: boolean) {
+    const element = tooltip.getElement();
+    if (!element) return;
+
+    const { offsetWidth: width, offsetHeight: height } = element;
+    const point = map.project(coordinates);
+    const { clientWidth: mapWidth, clientHeight: mapHeight } = map.getContainer();
+
+    const fitsAbove = point.y - CLEAR_ABOVE - height >= EDGE_PADDING;
+    const fitsBelow = point.y + CLEAR_BELOW + height <= mapHeight - EDGE_PADDING;
+    const anchor = fitsAbove || !fitsBelow ? "bottom" : "top";
+
+    // Where the preview may stand: inside the map's edges with their due air — and short of the
+    // detail pane, which covers the map's trailing side for as long as a marker is selected. A
+    // preview slid under the pane would be shown to nobody. The trailing side is the left one in
+    // a right-to-left app, as the pane's own arithmetic has it (see paneOffset in DetailPane).
+    let nearEdge = EDGE_PADDING;
+    let farEdge = mapWidth - EDGE_PADDING;
+    if (paneUp) {
+        if (glob.isRtl) nearEdge += PANE_REACH;
+        else farEdge -= PANE_REACH;
+    }
+
+    // How far sideways the preview has to give: enough to bring whichever edge stands outside
+    // that room back into it — and nothing at all where the room is too narrow to ever manage,
+    // centring on the pin being the best that can then be done.
+    let slide = 0;
+    if (farEdge - nearEdge >= width) {
+        slide = Math.max(slide, nearEdge + width / 2 - point.x);
+        slide = Math.min(slide, farEdge - width / 2 - point.x);
+    }
+
+    // The anchor is an option rather than a setter, but one MapLibre reads afresh on every
+    // reposition — setting it here is what its own auto-anchoring would otherwise do in the same
+    // place (see `_update` in its Popup).
+    tooltip.options.anchor = anchor;
+    tooltip.setOffset([ slide, anchor === "bottom" ? -CLEAR_ABOVE : CLEAR_BELOW ]);
 }
 
 /**

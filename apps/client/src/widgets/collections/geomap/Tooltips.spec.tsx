@@ -12,7 +12,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type FNote from "../../../entities/fnote";
 import { buildNote } from "../../../test/easy-froca";
 import { ParentMap } from "./map";
-import { MARKER_HEIGHT, MARKER_LAYER, MARKER_WIDTH } from "./Markers";
+import { MARKER_HEIGHT, MARKER_LAYER } from "./Markers";
 import Tooltips from "./Tooltips";
 
 /** What a note's preview renders to, standing in for the shared tooltip renderer. */
@@ -23,18 +23,24 @@ vi.mock("../../../services/note_tooltip", () => ({ renderTooltip: (note: FNote |
 
 /**
  * The popup MapLibre would draw, recording what it was shown and whether it is up. Hoisted because
- * the module mock below it is, and the mock is what hands the class to the component.
+ * the module mock below it is, and the mock is what hands the class to the component — and the
+ * preview's pretended size lives with it, because the hoisted block cannot reach anything outside
+ * itself.
  */
-const { FakePopup } = vi.hoisted(() => {
+const { FakePopup, PREVIEW_WIDTH } = vi.hoisted(() => {
+    /** A preview about the size the app renders one at, for the placement arithmetic below. */
+    const PREVIEW_WIDTH = 500;
+    const PREVIEW_HEIGHT = 120;
+
     class FakePopup {
         static open: FakePopup[] = [];
 
         html = "";
         lngLat: unknown;
         element: HTMLElement | null = null;
-        options: { offset?: Record<string, [ number, number ]> };
+        options: { anchor?: string; offset?: [ number, number ] };
 
-        constructor(options: { offset?: Record<string, [ number, number ]> }) {
+        constructor(options: object) {
             this.options = options;
         }
 
@@ -46,11 +52,20 @@ const { FakePopup } = vi.hoisted(() => {
             return this;
         }
 
+        setOffset(offset: [ number, number ]) {
+            this.options.offset = offset;
+            return this;
+        }
+
         addTo() {
             // Rebuilt on every opening, as MapLibre rebuilds it — which is why the listeners that
             // keep the preview open have to be bound per opening.
             this.element = document.createElement("div");
             this.element.innerHTML = this.html;
+            // The size the placement is measured against, which happy-dom's layoutless elements
+            // would otherwise report as nothing at all.
+            Object.defineProperty(this.element, "offsetWidth", { value: PREVIEW_WIDTH, configurable: true });
+            Object.defineProperty(this.element, "offsetHeight", { value: PREVIEW_HEIGHT, configurable: true });
             document.body.appendChild(this.element);
             FakePopup.open.push(this);
             return this;
@@ -66,13 +81,17 @@ const { FakePopup } = vi.hoisted(() => {
         }
     }
 
-    return { FakePopup };
+    return { FakePopup, PREVIEW_WIDTH, PREVIEW_HEIGHT };
 });
 
 vi.mock("maplibre-gl", () => ({ Popup: FakePopup }));
 
-/** A map that only delegates events — per layer or map-wide — which is all this component asks of one. */
-function fakeMap() {
+/**
+ * A map that delegates events — per layer or map-wide — and answers the questions the placement
+ * asks: where a coordinate projects to, and how big the map is. Both are settable per test, since
+ * the placement is chosen from exactly those two answers and the preview's size.
+ */
+function fakeMap({ width = 800, height = 800, point = { x: 400, y: 300 } } = {}) {
     const listeners = new Map<string, Set<(e: unknown) => void>>();
     const key = (event: string, layer: string) => `${event}:${layer}`;
     // The two shapes MapLibre's `on`/`off` take: with a layer between event and listener, and without.
@@ -95,6 +114,8 @@ function fakeMap() {
         click() {
             for (const fn of listeners.get(key("click", "")) ?? []) fn({});
         },
+        project: () => ({ ...point }),
+        getContainer: () => ({ clientWidth: width, clientHeight: height }),
         /** The pointer coming to rest on a marker, as MapLibre reports it. */
         hover(note: FNote) {
             const feature = {
@@ -112,34 +133,6 @@ function fakeMap() {
         }
     };
 }
-
-/** A preview about the size the app renders one at, for the placement arithmetic below. */
-const PREVIEW_WIDTH = 500;
-const PREVIEW_HEIGHT = 120;
-
-/** The pin, in pixels around the coordinate it stands on. */
-const PIN = {
-    left: -MARKER_WIDTH / 2,
-    right: MARKER_WIDTH / 2,
-    top: -MARKER_HEIGHT,
-    bottom: 0
-};
-
-/**
- * Where each of MapLibre's placements puts the preview's top-left corner before the offset is
- * applied — its `anchorTranslate` table, worked out for a preview of the size above. `center` is
- * left out: MapLibre's own placement logic never arrives at it.
- */
-const PLACEMENTS: Record<string, [ number, number ]> = {
-    "top": [ -PREVIEW_WIDTH / 2, 0 ],
-    "bottom": [ -PREVIEW_WIDTH / 2, -PREVIEW_HEIGHT ],
-    "left": [ 0, -PREVIEW_HEIGHT / 2 ],
-    "right": [ -PREVIEW_WIDTH, -PREVIEW_HEIGHT / 2 ],
-    "top-left": [ 0, 0 ],
-    "top-right": [ -PREVIEW_WIDTH, 0 ],
-    "bottom-left": [ 0, -PREVIEW_HEIGHT ],
-    "bottom-right": [ -PREVIEW_WIDTH, -PREVIEW_HEIGHT ]
-};
 
 /** Drains the promise chain in `show` (note read → preview rendered) without moving the clock. */
 async function flush() {
@@ -267,31 +260,84 @@ describe("Tooltips", () => {
         expect(shownPreview()).toBeUndefined();
     });
 
-    /**
-     * A pin stands on its coordinate, so every placement MapLibre can choose opens onto some part of
-     * it. Checked as the geometry it is rather than as a rule per axis: the first attempt cleared the
-     * pin's height, which reads as right until a corner placement — which spreads sideways from the
-     * point, not upwards — lies across half the pin anyway.
+    /*
+     * Placement is taken over from MapLibre (see placePreview in Tooltips): left to itself it
+     * swings the preview beside a pin standing near the map's edge, vertically centred on it —
+     * lying across the pin's title and reading as attached to nothing. The preview stays above
+     * the pin instead and slides sideways; only a pin too near the top has it open downwards.
      */
-    it("keeps clear of the pin wherever the map decides to put it", async () => {
+
+    it("stands above the pin, centred on it, where there is room", async () => {
         const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
         const map = fakeMap();
         await mount(map);
 
         map.hover(note);
         await advance(500);
-        const offset = FakePopup.open[0]?.options.offset;
 
-        for (const [ placement, corner ] of Object.entries(PLACEMENTS)) {
-            const [ offsetX, offsetY ] = offset?.[placement] ?? [ 0, 0 ];
-            const left = corner[0] + offsetX;
-            const top = corner[1] + offsetY;
-            const clear = left >= PIN.right || left + PREVIEW_WIDTH <= PIN.left
-                || top >= PIN.bottom || top + PREVIEW_HEIGHT <= PIN.top;
+        const popup = FakePopup.open[0];
+        expect(popup?.options.anchor).toBe("bottom");
+        // Straight up, past the whole pin standing on its coordinate.
+        expect(popup?.options.offset).toEqual([ 0, -(MARKER_HEIGHT + 8) ]);
+    });
 
-            // Named in the assertion so a failure says which placement covers the pin.
-            expect(`${placement} is ${clear ? "clear of" : "over"} the pin`).toBe(`${placement} is clear of the pin`);
-        }
+    it("slides sideways at the map's edge instead of swinging beside the pin", async () => {
+        const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+        // A pin forty pixels from the left edge, where MapLibre's own placement would go beside it.
+        const map = fakeMap({ point: { x: 40, y: 300 } });
+        await mount(map);
+
+        map.hover(note);
+        await advance(500);
+
+        const popup = FakePopup.open[0];
+        expect(popup?.options.anchor).toBe("bottom");
+        // Slid right exactly far enough for the preview's left edge to stand its air off the map's:
+        // half its width past the pin, less the forty pixels the pin already stands in.
+        expect(popup?.options.offset).toEqual([ 8 + PREVIEW_WIDTH / 2 - 40, -(MARKER_HEIGHT + 8) ]);
+    });
+
+    it("opens below a pin standing too near the top, past its title", async () => {
+        const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+        const map = fakeMap({ point: { x: 400, y: 60 } });
+        await mount(map);
+
+        map.hover(note);
+        await advance(500);
+
+        const popup = FakePopup.open[0];
+        expect(popup?.options.anchor).toBe("top");
+        // Below the point, and below the title hanging under it too.
+        expect(popup?.options.offset).toEqual([ 0, 18 + 8 ]);
+    });
+
+    it("slides out from under the detail pane while one is up", async () => {
+        const selected = buildNote({ title: "Open in the pane", "#geolocation": "5,6" });
+        const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+        // A pin standing in the map's trailing 400 pixels, which the pane covers while it is up
+        // (see PANE_REACH); a preview left there would be shown to nobody.
+        const map = fakeMap({ width: 1200, point: { x: 1000, y: 300 } });
+        await mount(map, selected.noteId);
+
+        map.hover(note);
+        await advance(500);
+
+        const popup = FakePopup.open[0];
+        expect(popup?.options.anchor).toBe("bottom");
+        // Slid left until its right edge stands its air short of the pane, not merely of the map.
+        expect(popup?.options.offset).toEqual([ (1200 - 8 - 400) - PREVIEW_WIDTH / 2 - 1000, -(MARKER_HEIGHT + 8) ]);
+    });
+
+    it("centres on the pin where the map is too narrow to slide within", async () => {
+        const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+        const map = fakeMap({ width: 400, point: { x: 200, y: 300 } });
+        await mount(map);
+
+        map.hover(note);
+        await advance(500);
+
+        // Overflowing both edges evenly is the best a map narrower than the preview can do.
+        expect(FakePopup.open[0]?.options.offset).toEqual([ 0, -(MARKER_HEIGHT + 8) ]);
     });
 
     /**
