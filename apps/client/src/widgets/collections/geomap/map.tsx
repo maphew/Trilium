@@ -5,6 +5,7 @@ import { ComponentChildren, createContext, RefObject } from "preact";
 import { useEffect, useImperativeHandle, useRef, useState } from "preact/hooks";
 
 import { t } from "../../../services/i18n";
+import { isMobile } from "../../../services/utils";
 import { getMeasurementSystem } from "../../../utils/formatters";
 import { useElementSize, useSyncedRef, useTriliumOption } from "../../react/hooks";
 import NoItems from "../../react/NoItems";
@@ -174,8 +175,10 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
 
         // The attribution stands at the foot of the map beside its scale, rather than in the corner
         // where the zoom buttons now are (see MapToolbar): a bar of buttons is reached for, and it
-        // would otherwise sit on top of a line of small print that is itself made of links.
-        mapInstance.addControl(new AttributionControl(), "bottom-left");
+        // would otherwise sit on top of a line of small print that is itself made of links. On
+        // mobile the foot is fully spoken for, so it stands at the head instead — in the leading
+        // corner, the trailing one being the detail pane's whenever a marker is open.
+        mapInstance.addControl(new AttributionControl(), isMobile() ? "top-left" : "bottom-left");
 
         // An error MapLibre finds no listener for goes to `console.error` with the stack of the
         // fetch that failed, and a tile server answering 403 fails once per tile: a screenful of

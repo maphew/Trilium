@@ -71,7 +71,8 @@ function buildWorkingMap() {
     let removed = false;
 
     return {
-        addControl: vi.fn((control: unknown) => { controls.add(control); }),
+        // The corner is recorded too, for the test that asks where the credit was stood.
+        addControl: vi.fn((control: unknown, _corner?: string) => { controls.add(control); }),
         removeControl: vi.fn((control: unknown) => {
             if (removed) {
                 throw new TypeError(`can't access property "off", this._map is undefined`);
@@ -166,6 +167,25 @@ describe("Map initialization", () => {
 
         expect(container.querySelector(".no-items")).toBeNull();
         expect(container.querySelector(".map-child")).not.toBeNull();
+    });
+
+    it("stands the credit at the foot on desktop, and at the head of a mobile map", () => {
+        MapConstructor.mockImplementation(workingMap);
+
+        renderMap();
+        expect(lastMap?.addControl.mock.calls[0][1]).toBe("bottom-left");
+
+        // On mobile the foot is fully spoken for, so the credit moves to the head's leading
+        // corner instead (see the comment in map.tsx).
+        const host = window as unknown as { glob?: { device?: string } };
+        host.glob = { device: "mobile" };
+        try {
+            render(null, container);
+            renderMap();
+            expect(lastMap?.addControl.mock.calls[0][1]).toBe("top-left");
+        } finally {
+            delete host.glob;
+        }
     });
 
     /**

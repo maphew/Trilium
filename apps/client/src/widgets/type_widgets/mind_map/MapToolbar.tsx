@@ -4,6 +4,7 @@ import type { MindElixirInstance } from "mind-elixir";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import { t } from "../../../services/i18n";
+import { isMobile } from "../../../services/utils";
 import { useFullscreen, useStaticTooltip } from "../../react/hooks";
 import OverlayToolbar, { OverlayToolbarButton } from "../../react/OverlayToolbar";
 import { centerMapOn, type MapPoint, readMapCenter, stepZoom } from "./viewport";
@@ -25,6 +26,10 @@ interface MapToolbarProps {
  * between the steps says the scale the way the image viewer says it — a hundred being the map drawn
  * at its own size — and pressed, takes the map back there, as the image viewer's does: unlike a geo
  * map, a mind map has a natural size to be reset to.
+ *
+ * On mobile the steps and the readout stay home, as the geo map's steps do: the fingers already
+ * zoom, and a narrow foot has little room. What remains is leaving focus, recentering, and the
+ * screen.
  */
 export default function MapToolbar({ mind }: MapToolbarProps) {
     const scale = useMapScale(mind);
@@ -75,31 +80,33 @@ export default function MapToolbar({ mind }: MapToolbarProps) {
                 />
             )}
 
-            <button
-                ref={zoomOutRef}
-                type="button"
-                className="tn-overlay-icon-button bx bx-minus-circle"
-                aria-label={t("mind-map.zoom-out")}
-                disabled={zoomedOut === null}
-                onClick={() => zoomedOut !== null && mind.scale(zoomedOut)}
-            />
-            <button
-                ref={zoomLevelRef}
-                type="button"
-                className="tn-overlay-text-button mind-map-zoom-level"
-                aria-label={t("mind-map.reset-zoom")}
-                onClick={() => mind.scale(1)}
-            >
-                {Math.round(scale * 100)}%
-            </button>
-            <button
-                ref={zoomInRef}
-                type="button"
-                className="tn-overlay-icon-button bx bx-plus-circle"
-                aria-label={t("mind-map.zoom-in")}
-                disabled={zoomedIn === null}
-                onClick={() => zoomedIn !== null && mind.scale(zoomedIn)}
-            />
+            {!isMobile() && <>
+                <button
+                    ref={zoomOutRef}
+                    type="button"
+                    className="tn-overlay-icon-button bx bx-minus-circle"
+                    aria-label={t("mind-map.zoom-out")}
+                    disabled={zoomedOut === null}
+                    onClick={() => zoomedOut !== null && mind.scale(zoomedOut)}
+                />
+                <button
+                    ref={zoomLevelRef}
+                    type="button"
+                    className="tn-overlay-text-button mind-map-zoom-level"
+                    aria-label={t("mind-map.reset-zoom")}
+                    onClick={() => mind.scale(1)}
+                >
+                    {Math.round(scale * 100)}%
+                </button>
+                <button
+                    ref={zoomInRef}
+                    type="button"
+                    className="tn-overlay-icon-button bx bx-plus-circle"
+                    aria-label={t("mind-map.zoom-in")}
+                    disabled={zoomedIn === null}
+                    onClick={() => zoomedIn !== null && mind.scale(zoomedIn)}
+                />
+            </>}
             <button
                 ref={centerRef}
                 type="button"

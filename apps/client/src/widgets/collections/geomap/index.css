@@ -63,12 +63,18 @@
     position: relative;
   }
 
-  /* MapLibre spaces its controls off the edge by margins of its own — only the foot of the map
-     carries any (the scale and the attribution). Restated in the shared inset's terms, so they
-     stand where everything else over the map stands and follow it if it ever moves. */
+  /* MapLibre spaces its controls off the edge by margins of its own; restated in the shared
+     inset's terms, so they stand where everything else over the map stands and follow it if it
+     ever moves. The foot carries the scale and, on desktop, the attribution; on mobile the
+     attribution stands at the head instead (see map.tsx). */
   .maplibregl-ctrl-bottom-left .maplibregl-ctrl,
   .maplibregl-ctrl-bottom-right .maplibregl-ctrl {
     margin-bottom: var(--geo-map-inset);
+    margin-inline: var(--geo-map-inset);
+  }
+
+  .maplibregl-ctrl-top-left .maplibregl-ctrl {
+    margin-top: var(--geo-map-inset);
     margin-inline: var(--geo-map-inset);
   }
 }

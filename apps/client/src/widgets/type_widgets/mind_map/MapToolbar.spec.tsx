@@ -127,6 +127,22 @@ describe("MapToolbar", () => {
         ]);
     });
 
+    it("keeps the zoom steps and the readout off a mobile screen, where the fingers already zoom", () => {
+        const host = window as unknown as { glob?: { device?: string } };
+        host.glob = { device: "mobile" };
+        try {
+            const container = renderToolbar(buildMind());
+
+            // What remains is what a gesture cannot do — see the mobile note in MapToolbar.tsx.
+            expect(buttons(container).map((button) => button.className)).toEqual([
+                expect.stringContaining("bx-current-location"),
+                expect.stringContaining("bx-fullscreen")
+            ]);
+        } finally {
+            delete host.glob;
+        }
+    });
+
     it("keeps the way out of focus mode off the bar while there is nothing to leave", () => {
         const container = renderToolbar(buildMind());
 
