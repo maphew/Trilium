@@ -16,15 +16,9 @@ import Popover from "../../react/Popover";
 import { removeFromCalendar } from "./api";
 import EventDatesEditor from "./EventDatesEditor";
 import { EventFieldList } from "./EventField";
+import { useEventLabelOmissions } from "./hooks";
 import RecurrenceEditor from "./RecurrenceEditor";
 import { AnchorPoint } from "./selection";
-
-/**
- * The labels the popover already speaks for, so their fields are not repeated in the promoted grid:
- * the dates the calendar draws the event by, and the recurrence the popover's own field edits.
- * Only the stock names for now; a calendar naming its own (`calendar:startDate`) still shows those.
- */
-const EVENT_LABELS = [ "startDate", "endDate", "startTime", "endTime", "recurrence" ];
 
 /**
  * The whole of an event: the note's title, its own fields — when it happens, how it repeats — its
@@ -238,6 +232,11 @@ function EventDetailsBody({ note, parentNote, isEditable, onClose }: {
     isEditable: boolean;
     onClose(): void;
 }) {
+    // The labels the body's own fields already speak for, so the promoted grid does not repeat
+    // them: the dates the calendar draws the event by and the recurrence — under the stock names
+    // and whatever names the note draws them by instead (see useEventLabelOmissions).
+    const eventLabels = useEventLabelOmissions(note);
+
     return (
         <div className="calendar-event-popover-body tn-embedded-note-pane">
                 {/* What can be done with the event: the ways of opening its note (see
@@ -277,7 +276,7 @@ function EventDetailsBody({ note, parentNote, isEditable, onClose }: {
                     </EventFieldList>
                 )}
 
-                <PromotedAttributes omit={EVENT_LABELS} />
+                <PromotedAttributes omit={eventLabels} />
                 <NoteDetail />
         </div>
     );

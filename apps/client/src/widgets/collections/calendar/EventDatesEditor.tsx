@@ -7,18 +7,17 @@ import FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
 import LabelValueInput from "../../attribute_widgets/label_value_input";
 import FormToggle from "../../react/FormToggle";
-import { useNoteLabel, useUniqueName } from "../../react/hooks";
+import { useUniqueName } from "../../react/hooks";
 import { EventField, EventFieldControls, EventFieldRow } from "./EventField";
+import { useEventLabel } from "./hooks";
 
 /**
  * Edits when the event happens, through the date and time labels the calendar draws it by (see
- * event_builder.ts). Two shapes, told apart by the all-day switch: a whole-day event is a span of
- * days — a start date and, where it runs longer, an end date — while a timed one is a single day
- * and the hours within it. Rendered as {@link EventField} rows, standing in the event popover's
- * field column beside the recurrence.
- *
- * Only the stock label names, as the popover reads only those (see EVENT_LABELS in
- * EventPopover.tsx).
+ * event_builder.ts) — under whatever names the note draws them by, a `#calendar:startDate`
+ * renaming included (see useEventLabel). Two shapes, told apart by the all-day switch: a whole-day
+ * event is a span of days — a start date and, where it runs longer, an end date — while a timed
+ * one is a single day and the hours within it. Rendered as {@link EventField} rows, standing in
+ * the event popover's field column beside the recurrence.
  */
 export default function EventDatesEditor({ note, repeats }: {
     note: FNote;
@@ -26,10 +25,10 @@ export default function EventDatesEditor({ note, repeats }: {
      *  belongs to the recurrence editor, but the room next to the switch is this editor's to give. */
     repeats?: ComponentChildren;
 }) {
-    const [ startDate, setStartDate ] = useNoteLabel(note, "startDate");
-    const [ endDate, setEndDate ] = useNoteLabel(note, "endDate");
-    const [ startTime, setStartTime ] = useNoteLabel(note, "startTime");
-    const [ endTime, setEndTime ] = useNoteLabel(note, "endTime");
+    const [ startDate, setStartDate ] = useEventLabel(note, "startDate");
+    const [ endDate, setEndDate ] = useEventLabel(note, "endDate");
+    const [ startTime, setStartTime ] = useEventLabel(note, "startTime");
+    const [ endTime, setEndTime ] = useEventLabel(note, "endTime");
     const startDateId = useUniqueName("event-start-date");
     const allDayId = useUniqueName("event-all-day");
 

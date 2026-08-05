@@ -9,9 +9,10 @@ import LabelValueInput from "../../attribute_widgets/label_value_input";
 import Dropdown from "../../react/Dropdown";
 import FormSelect from "../../react/FormSelect";
 import FormTextBox, { FormTextBoxWithUnit } from "../../react/FormTextBox";
-import { useNoteLabel, useUniqueName } from "../../react/hooks";
+import { useUniqueName } from "../../react/hooks";
 import SegmentedChoice from "../../react/SegmentedChoice";
 import { EventField, EventFieldControls, EventFieldList } from "./EventField";
+import { useEventLabel } from "./hooks";
 import {
     FREQUENCIES,
     Frequency,
@@ -25,17 +26,14 @@ import {
 } from "./recurrence";
 
 /**
- * Edits how the event repeats, through the note's `#recurrence` label — structured fields for the
- * everyday rules, the raw RRULE string for one saying more than they can (see recurrence.ts for
- * where that line runs). Rendered as {@link EventField} rows, so it stands in the event popover's
- * field column beside the start and end dates when those grow editors of their own.
- *
- * Only the stock label name for now, as the popover reads only the stock names (see EVENT_LABELS
- * in EventPopover.tsx); a calendar naming its own via `#calendar:recurrence` edits that label by
- * hand.
+ * Edits how the event repeats, through the note's `#recurrence` label — or whatever label a
+ * `#calendar:recurrence` renaming points at instead (see useEventLabel) — structured fields for
+ * the everyday rules, the raw RRULE string for one saying more than they can (see recurrence.ts
+ * for where that line runs). Rendered as {@link EventField} rows, so it stands in the event
+ * popover's field column beside the start and end dates when those grow editors of their own.
  */
 export default function RecurrenceEditor({ note }: { note: FNote }) {
-    const [ storedValue, setStoredValue ] = useNoteLabel(note, "recurrence");
+    const [ storedValue, setStoredValue ] = useEventLabel(note, "recurrence");
     const [ model, setModel ] = useState<ParsedRecurrence>(() => parseRecurrence(storedValue));
 
     // Follows the label wherever it changes from — another client, the attribute editor, an undo —

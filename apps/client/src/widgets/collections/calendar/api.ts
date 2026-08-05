@@ -1,11 +1,12 @@
 import { AttributeRow } from "@triliumnext/commons";
 
 import FNote from "../../../entities/fnote";
-import { setAttribute, setLabel } from "../../../services/attributes";
+import { setAttribute } from "../../../services/attributes";
 import dialog from "../../../services/dialog";
 import { t } from "../../../services/i18n";
 import note_create from "../../../services/note_create";
 import { deleteNoteOrBranch } from "../../../services/note_deletion";
+import { EventLabelName } from "./utils";
 
 interface NewEventOpts {
     /** Left out, the note is named the way any new child of the calendar is — by the calendar's
@@ -99,11 +100,10 @@ export async function removeFromCalendar(note: FNote, calendarNote: FNote) {
     if (result.isDeleteNoteChecked) {
         await deleteNoteOrBranch(note.noteId, branchId);
     } else {
-        // Only the start date goes — the label the calendar draws the event by, which the note may
-        // name for itself (see changeEvent). Whatever else the note holds about its dates keeps:
-        // an end or a time without a start puts nothing on the calendar.
-        const startAttribute = note.getLabelValue("calendar:startDate") || "startDate";
-        await setAttribute(note, "label", startAttribute, undefined);
+        // Only the start date goes — the label the calendar draws the event by, under whatever
+        // name the note draws it by (see setEventLabel). Whatever else the note holds about its
+        // dates keeps: an end or a time without a start puts nothing on the calendar.
+        await setEventLabel(note, "startDate", null);
     }
 
     return true;
@@ -115,18 +115,23 @@ export async function changeEvent(note: FNote, { startDate, endDate, startTime, 
         endDate = undefined;
     }
 
-    // Since they can be customized via calendar:startDate=$foo and calendar:endDate=$bar we need to determine the
-    // attributes to be effectively updated
-    let startAttribute = note.getAttributes("label").filter(attr => attr.name == "calendar:startDate").shift()?.value||"startDate";
-    let endAttribute = note.getAttributes("label").filter(attr => attr.name == "calendar:endDate").shift()?.value||"endDate";
+    await setEventLabel(note, "startDate", startDate, componentId);
+    await setEventLabel(note, "endDate", endDate ?? null, componentId);
+    await setEventLabel(note, "startTime", startTime ?? null, componentId);
+    await setEventLabel(note, "endTime", endTime ?? null, componentId);
+}
 
-    const noteId = note.noteId;
-    setLabel(noteId, startAttribute, startDate, false, componentId);
-    setAttribute(note, "label", endAttribute, endDate, componentId);
-
-    startAttribute = note.getAttributes("label").filter(attr => attr.name == "calendar:startTime").shift()?.value||"startTime";
-    endAttribute = note.getAttributes("label").filter(attr => attr.name == "calendar:endTime").shift()?.value||"endTime";
-
-    setAttribute(note, "label", startAttribute, startTime, componentId);
-    setAttribute(note, "label", endAttribute, endTime, componentId);
+/**
+ * Writes one of the labels the calendar draws an event by, honouring the note's own renaming of it
+ * (`#calendar:startDate=$foo` and kin): where a renaming names a label, that label is the one
+ * written, as it is the one the event builder reads (see getCustomisableLabel in utils.ts).
+ * Clearing clears the stock label too — a value left there would put the event straight back
+ * through the builder's fallback.
+ */
+export async function setEventLabel(note: FNote, defaultName: EventLabelName, value: string | null, componentId?: string) {
+    const customName = note.getLabelValue(`calendar:${defaultName}`);
+    await setAttribute(note, "label", customName || defaultName, value, componentId);
+    if (customName && value === null) {
+        await setAttribute(note, "label", defaultName, null, componentId);
+    }
 }

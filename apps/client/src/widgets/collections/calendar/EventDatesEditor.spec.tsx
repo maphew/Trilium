@@ -106,4 +106,43 @@ describe("EventDatesEditor", () => {
         expect(setLabel).not.toHaveBeenCalled();
         expect(removeLabel).not.toHaveBeenCalled();
     });
+
+    it("reads and writes the labels a note renames for itself, as the event builder reads them", () => {
+        const note = buildNote({
+            title: "Fair",
+            "#calendar:startDate": "myStartDate", "#myStartDate": "2026-06-05",
+            "#calendar:endDate": "myEndDate", "#myEndDate": "2026-06-07"
+        });
+        mount(note);
+
+        expect(allDayBox()?.checked).toBe(true);
+        expect(dateInputs()[0].value).toBe("2026-06-05");
+        expect(dateInputs()[1].value).toBe("2026-06-07");
+
+        commitValue(dateInputs()[1], "2026-06-09");
+        expect(setLabel).toHaveBeenCalledWith(note.noteId, "myEndDate", "2026-06-09");
+    });
+
+    it("falls back to a stock label the renamed one holds no value over, as the builder does", () => {
+        mount(buildNote({ title: "Fair", "#calendar:startDate": "myStartDate", "#startDate": "2026-06-05" }));
+        expect(dateInputs()[0].value).toBe("2026-06-05");
+    });
+
+    it("clears the stock label along with the renamed one, keeping the fallback from resurrecting it", () => {
+        const note = buildNote({
+            title: "Meeting", "#startDate": "2026-06-05",
+            "#calendar:startTime": "myStartTime", "#myStartTime": "13:00",
+            "#calendar:endTime": "myEndTime", "#myEndTime": "14:30"
+        });
+        mount(note);
+        expect(allDayBox()?.checked).toBe(false);
+        expect(timeInputs()[0].value).toBe("13:00");
+
+        act(() => allDayBox()?.click());
+
+        expect(removeLabel).toHaveBeenCalledWith(note, "myStartTime");
+        expect(removeLabel).toHaveBeenCalledWith(note, "startTime");
+        expect(removeLabel).toHaveBeenCalledWith(note, "myEndTime");
+        expect(removeLabel).toHaveBeenCalledWith(note, "endTime");
+    });
 });
