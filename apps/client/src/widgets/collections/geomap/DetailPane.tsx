@@ -297,17 +297,30 @@ function featureFocus(feature: MapGeoJSONFeature): PaneFocus | undefined {
  * Given a `track`, only the journey under that index counts (see the `track` property in GpxTrack):
  * its flags stand on its line, and another journey's ground — or a waypoint hung off in a third
  * place — is exactly what focusing one track is meant to leave out of frame.
+ *
+ * Longitude is read in two frames at once, because it is a circle wearing a seam: a track across
+ * the antimeridian holds points either side of ±180° that are a stroll apart on the ground, and
+ * their raw minimum and maximum span nearly the whole world. The same longitudes are therefore
+ * also read with the seam moved to 0° — each western value pushed a turn east — and whichever
+ * frame drew the narrower box is the one answered. A crossing of one seam is whole in the other
+ * frame; only a track truly girdling half the earth stays wide in both, and then wide is the
+ * truth. The shifted answer may name longitudes past 180°, which `fitBounds` takes in stride.
  */
 async function trackBounds(map: MapLibreGLMap, noteId: string, track?: number): Promise<[[number, number], [number, number]] | null> {
     const data = await map.getSource<GeoJSONSource>(trackSourceId(noteId))?.getData();
     if (!data || data.type !== "FeatureCollection") return null;
 
     let west = Infinity, south = Infinity, east = -Infinity, north = -Infinity;
+    let westShifted = Infinity, eastShifted = -Infinity;
     const extend = ([ lng, lat ]: number[]) => {
         west = Math.min(west, lng);
         south = Math.min(south, lat);
         east = Math.max(east, lng);
         north = Math.max(north, lat);
+
+        const shifted = lng < 0 ? lng + 360 : lng;
+        westShifted = Math.min(westShifted, shifted);
+        eastShifted = Math.max(eastShifted, shifted);
     };
 
     for (const { geometry, properties } of data.features) {
@@ -324,7 +337,11 @@ async function trackBounds(map: MapLibreGLMap, noteId: string, track?: number): 
         }
     }
 
-    return Number.isFinite(west) ? [ [ west, south ], [ east, north ] ] : null;
+    if (!Number.isFinite(west)) return null;
+
+    return eastShifted - westShifted < east - west
+        ? [ [ westShifted, south ], [ eastShifted, north ] ]
+        : [ [ west, south ], [ east, north ] ];
 }
 
 /**

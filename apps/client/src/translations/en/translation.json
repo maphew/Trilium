@@ -2057,16 +2057,25 @@
     "enable_daily_backup": "Daily backup",
     "enable_weekly_backup": "Weekly backup",
     "enable_monthly_backup": "Monthly backup",
+    "location_title": "Backup location",
+    "saved_in": "Backups are saved in",
+    "select_location": "Select location",
+    "select_location_desktop_only": "Choosing a backup location is available only in the desktop application.",
+    "reset_location": "Reset to default",
+    "reset_location_confirmation": "Would you like to reset the database backup location to default?",
+    "default_location": "Default location",
     "backup_recommendation": "It's recommended to keep the backup turned on, but this can make application startup slow with large databases and/or slow storage devices.",
     "backup_now": "Backup now",
     "backup_database_now": "Backup database now",
     "existing_backups": "Existing backups",
-    "backup_location_description": "Backups are stored in {{- backupFolder}}.",
     "date-and-time": "Date & time",
     "path": "Path",
     "database_backed_up_to": "Database has been backed up to {{- backupFilePath}}",
     "no_backup_yet": "no backup yet",
     "download": "Download"
+  },
+  "open": {
+    "directory_failed": "Could not open {{- directory}}: {{- reason}}"
   },
   "etapi": {
     "description": "ETAPI is a REST API used to access Trilium instance programmatically, without UI.",
