@@ -1,16 +1,18 @@
 import "./EventPopover.css";
 
-import { useCallback, useEffect, useRef } from "preact/hooks";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../../../components/app_context";
 import FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
+import { isMobile } from "../../../services/utils";
 import { announceEmbeddedNoteClosing, EmbeddedNoteActions, EmbeddedNoteScope, NoteColorAction, OpenNoteActions, useEmbeddedNoteContext } from "../../EmbeddedNotePane";
 import TitleRow from "../../layout/TitleRow";
 import NoteDetail from "../../NoteDetail";
 import PromotedAttributes from "../../PromotedAttributes";
 import ActionButton from "../../react/ActionButton";
 import { useLegacyComponentElement, useNote } from "../../react/hooks";
+import Modal from "../../react/Modal";
 import Popover from "../../react/Popover";
 import { removeFromCalendar } from "./api";
 import EventDatesEditor from "./EventDatesEditor";
@@ -26,27 +28,30 @@ import { AnchorPoint } from "./selection";
 const EVENT_LABELS = [ "startDate", "endDate", "startTime", "endTime", "recurrence" ];
 
 /**
- * The whole of an event, in a popover standing beside its chip: the note's title, its own fields —
- * when it happens, how it repeats — its promoted attributes and its content, each edited exactly as
- * it is anywhere else (the embedded-note arrangement the geo map's pane makes; see
- * EmbeddedNotePane). Anchored to the chip that was clicked rather than docked at an edge, so the
- * grid never reflows and the event is read where it was found.
+ * The whole of an event: the note's title, its own fields — when it happens, how it repeats — its
+ * promoted attributes and its content, each edited exactly as it is anywhere else (the
+ * embedded-note arrangement the geo map's pane makes; see EmbeddedNotePane).
  *
- * One popover for the selection rather than one per event: clicking another chip is a note switch
- * within a standing popover — the editors hear it and save — with the surface re-anchoring to the
- * new chip (see the updateKey handed to Popover).
+ * Where that stands depends on the screen it stands on. A desktop gets a popover beside the chip
+ * that was clicked, so the grid never reflows and the event is read where it was found; a phone
+ * gets the sheet the app raises every dialog as, a card anchored beside a chip being wider than the
+ * screen it would be anchored on. The same contents either way, and the same note context behind
+ * them — only the shell differs, as the icon picker's does (see IconPickerButton).
+ *
+ * One surface for the selection rather than one per event: clicking another chip is a note switch
+ * within a standing surface — the editors hear it and save.
  */
 export default function EventPopover({ noteId, anchor, container, parentNote, isEditable, onClose }: {
     noteId: string;
     /** Where the chip was clicked — which of the event's segments to stand by, and the anchor of
      *  last resort when no chip is on the grid at all (a note just committed from a ghost, whose
-     *  chip has yet to be drawn). */
+     *  chip has yet to be drawn). Of no interest to the sheet, which is anchored to nothing. */
     anchor: AnchorPoint | null;
     /** The calendar the chips are read out of (see {@link eventAnchorRect}). */
     container: HTMLElement | null;
     /** The calendar's own note, which is how the tree is told what the calendar holds a note by. */
     parentNote: FNote;
-    /** The calendar may not be edited, which leaves the popover the ways of opening a note and no
+    /** The calendar may not be edited, which leaves the surface the ways of opening a note and no
      *  more — a calendar root's day notes are not events to be recoloured or taken off it. */
     isEditable: boolean;
     onClose(): void;
@@ -55,51 +60,128 @@ export default function EventPopover({ noteId, anchor, container, parentNote, is
     const { noteContext, component } = useEmbeddedNoteContext(note ?? undefined, POPOVER_NTX_ID);
 
     /**
-     * Lets the popover go, having given whatever is being edited in it the chance to save — the
+     * Lets the surface go, having given whatever is being edited in it the chance to save — the
      * geo pane's bargain (see its closePane): announced first, while the editors are still
-     * mounted, and not waited on. Every way out leads through here; the popover closes at once,
-     * there being no slide to hold the editors up through.
+     * mounted, and not waited on. Every way out leads through here.
      */
     const close = useCallback(() => {
         void announceEmbeddedNoteClosing(component, POPOVER_NTX_ID);
         onClose();
     }, [ component, onClose ]);
 
-    useEffect(() => {
-        const onKeyDown = (e: KeyboardEvent) => {
-            if (e.key === "Escape") close();
-        };
-        window.addEventListener("keydown", onKeyDown);
-        return () => window.removeEventListener("keydown", onKeyDown);
-    }, [ close ]);
-
     if (!note) {
         return null;
     }
+
+    // The scope stands outside the shell rather than within it, so that a sheet's title — which is
+    // the note's own title row, handed to the dialog rather than drawn inside its body — reads the
+    // note out of the context like everything else does.
+    return (
+        <EmbeddedNoteScope component={component} noteContext={noteContext}>
+            {isMobile() ? (
+                <EventSheet note={note} parentNote={parentNote} isEditable={isEditable} onClose={close} />
+            ) : (
+                <EventPopoverShell
+                    note={note}
+                    anchorRect={() => eventAnchorRect(container, noteId, anchor)}
+                    updateKey={noteId}
+                    parentNote={parentNote}
+                    isEditable={isEditable}
+                    onClose={close}
+                />
+            )}
+        </EmbeddedNoteScope>
+    );
+}
+
+/** The event beside its chip, as a desktop shows it. */
+function EventPopoverShell({ note, anchorRect, updateKey, parentNote, isEditable, onClose }: {
+    note: FNote;
+    anchorRect(): DOMRect;
+    updateKey: string;
+    parentNote: FNote;
+    isEditable: boolean;
+    onClose(): void;
+}) {
+    useEffect(() => {
+        const onKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "Escape") onClose();
+        };
+        window.addEventListener("keydown", onKeyDown);
+        return () => window.removeEventListener("keydown", onKeyDown);
+    }, [ onClose ]);
 
     return (
         <Popover
             className="calendar-event-popover"
             placement={glob.isRtl ? "left-start" : "right-start"}
-            getAnchorRect={() => eventAnchorRect(container, noteId, anchor)}
-            updateKey={noteId}
+            getAnchorRect={anchorRect}
+            updateKey={updateKey}
             // A press on another chip is not a dismissal but a switch: the click behind it re-points
             // this popover at that event (see onEventClick), which would otherwise have to tear the
             // popover down on the press and build it again on the click.
             keepOpenSelector=".fc-event"
-            onDismiss={close}
+            onDismiss={onClose}
         >
-            <EmbeddedNoteScope component={component} noteContext={noteContext}>
-                <EventDetails note={note} parentNote={parentNote} isEditable={isEditable} onClose={close} />
-            </EmbeddedNoteScope>
+            <EventDetails note={note} parentNote={parentNote} isEditable={isEditable} onClose={onClose} />
         </Popover>
+    );
+}
+
+/**
+ * The event as a phone shows it: the sheet the app raises its dialogs as, rising from the foot of
+ * the screen (see `body.mobile .modal-dialog` in style.css). Given the whole page rather than the
+ * standing 85% of it, since what it holds is a note's own editor and a sheet would spend half the
+ * screen on the calendar behind it.
+ *
+ * The note's title row heads the dialog rather than standing inside it, which is what the sheet
+ * has a header for; Escape and the backdrop are the dialog's own to answer.
+ */
+function EventSheet({ note, parentNote, isEditable, onClose }: {
+    note: FNote;
+    parentNote: FNote;
+    isEditable: boolean;
+    onClose(): void;
+}) {
+    // Marked on the dialog itself rather than on its body, so that what heads it is inside the
+    // marked element too (see {@link useLegacyComponentElement}).
+    const modalRef = useRef<HTMLDivElement>(null);
+    useLegacyComponentElement(modalRef);
+
+    /*
+     * Closing is asked of the dialog rather than done to it: what is inside says it is finished —
+     * the event taken off the calendar, above all — and the dialog puts itself away, telling the
+     * host once it is down. Ceasing to draw a dialog that is still up leaves Bootstrap's backdrop
+     * behind, that being laid over the body rather than within the dialog, and a phone left with a
+     * page it cannot press is the worst of the ways this could go wrong.
+     */
+    const [ shown, setShown ] = useState(true);
+
+    return (
+        <Modal
+            className="calendar-event-sheet"
+            size="lg"
+            title={<TitleRow compact />}
+            isFullPageOnMobile
+            scrollable
+            modalRef={modalRef}
+            show={shown}
+            onHidden={onClose}
+        >
+            <EventDetailsBody
+                note={note}
+                parentNote={parentNote}
+                isEditable={isEditable}
+                onClose={() => setShown(false)}
+            />
+        </Modal>
     );
 }
 
 /** The popover's own ntxId, as the geo pane and the quick editor have one of their own. */
 const POPOVER_NTX_ID = "_calendar-event-popover";
 
-/** The popover's contents, reading the note out of the context the popover provides. */
+/** The popover's contents: what heads it, and the event under that. */
 function EventDetails({ note, parentNote, isEditable, onClose }: {
     note: FNote;
     parentNote: FNote;
@@ -108,6 +190,7 @@ function EventDetails({ note, parentNote, isEditable, onClose }: {
 }) {
     // The popover stands for its component in the DOM, which is how the text editor finds its
     // host — without this it resolves the widget enclosing the calendar instead (see the geo pane).
+    // A sheet marks its dialog instead, what heads it being the dialog's own.
     const innerRef = useRef<HTMLDivElement>(null);
     useLegacyComponentElement(innerRef);
 
@@ -119,7 +202,9 @@ function EventDetails({ note, parentNote, isEditable, onClose }: {
                     taking the popover's place rather than standing over it — opened first and
                     closed after, as the quick editor's own maximize hands over to a tab. A path
                     rather than an id, as the more-ways-to-open menu passes one (see
-                    OpenNoteActions), so the two roads into the quick editor agree. */}
+                    OpenNoteActions), so the two roads into the quick editor agree.
+
+                    A sheet is offered none: it already has the whole screen to grow into. */}
                 <ActionButton
                     icon="bx bx-expand-alt"
                     text={t("calendar.maximize_details")}
@@ -137,7 +222,24 @@ function EventDetails({ note, parentNote, isEditable, onClose }: {
                 />
             </div>
 
-            <div className="calendar-event-popover-body tn-embedded-note-pane">
+            <EventDetailsBody note={note} parentNote={parentNote} isEditable={isEditable} onClose={onClose} />
+        </div>
+    );
+}
+
+/**
+ * The event itself, under whatever heads it: what can be done with it, its own fields, the note's
+ * promoted attributes and the note. Shared by the two shells, which differ only in what they put
+ * around this and how they are dismissed.
+ */
+function EventDetailsBody({ note, parentNote, isEditable, onClose }: {
+    note: FNote;
+    parentNote: FNote;
+    isEditable: boolean;
+    onClose(): void;
+}) {
+    return (
+        <div className="calendar-event-popover-body tn-embedded-note-pane">
                 {/* What can be done with the event: the ways of opening its note (see
                     OpenNoteActions), then the ways of changing it — left out rather than disabled
                     where the calendar may not be edited, as the geo pane leaves them out. */}
@@ -177,7 +279,6 @@ function EventDetails({ note, parentNote, isEditable, onClose }: {
 
                 <PromotedAttributes omit={EVENT_LABELS} />
                 <NoteDetail />
-            </div>
         </div>
     );
 }

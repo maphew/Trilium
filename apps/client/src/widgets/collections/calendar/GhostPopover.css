@@ -1,3 +1,11 @@
+/*
+ * As a sheet (see the mobile shell in GhostPopover.tsx), the dialog brings the heading and the way
+ * out; what is left is the form, which gives up the padding the dialog's own body already keeps.
+ */
+.calendar-ghost-sheet .calendar-ghost-body {
+    padding: 0;
+}
+
 .calendar-ghost-popover {
     width: 300px;
 

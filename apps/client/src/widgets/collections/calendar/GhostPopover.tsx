@@ -3,22 +3,24 @@ import "./GhostPopover.css";
 import { useEffect, useState } from "preact/hooks";
 
 import { t } from "../../../services/i18n";
+import { isMobile } from "../../../services/utils";
 import ActionButton from "../../react/ActionButton";
 import Button from "../../react/Button";
 import FormTextBox from "../../react/FormTextBox";
+import Modal from "../../react/Modal";
 import Popover from "../../react/Popover";
 import { AnchorPoint, EventDraft } from "./selection";
 
 /**
- * The ghost: a popover standing beside the dragged-out range, holding the form an event is decided
- * in before its note exists. It asks for the one thing the drag did not say — the name — and writes
- * out the one thing it did; everything else an event can hold waits for the note, one commit away.
- * Dismissed — Escape, the close button, a press anywhere else — the draft simply evaporates:
- * nothing was created.
+ * The ghost: the form an event is decided in before its note exists. It asks for the one thing the
+ * drag did not say — the name — and writes out the one thing it did; everything else an event can
+ * hold waits for the note, one commit away. Dismissed — Escape, the close button, a press anywhere
+ * else — the draft simply evaporates: nothing was created.
  *
- * A popover rather than the dock, because a draft is born of a place: the form appears beside the
- * range that called for it instead of at the far edge, and the grid does not reflow under the very
- * range just dragged. The dock takes over at the commit, opening on the note the draft became.
+ * A desktop stands it beside the range that called for it, a draft being born of a place: the form
+ * appears where the eye already is, and the grid does not reflow under the very range just dragged.
+ * A phone gets the sheet the app raises its dialogs as, there being no room beside anything (see
+ * EventPopover, which divides itself the same way). The event surface takes over at the commit.
  *
  * Committing with the title blank is allowed and meaningful: the note is then named by the
  * calendar's own `#titleTemplate` where one is set (see getNewNoteTitle in trilium-core), which
@@ -52,13 +54,62 @@ export default function GhostPopover({ draft, anchor, container, onCommit, onCan
         onCommit(title);
     };
 
+    // The sheet answers Escape itself, being a dialog; the popover is not, so it listens.
     useEffect(() => {
+        if (isMobile()) return;
+
         const onKeyDown = (e: KeyboardEvent) => {
             if (e.key === "Escape") onCancel();
         };
         window.addEventListener("keydown", onKeyDown);
         return () => window.removeEventListener("keydown", onKeyDown);
     }, [ onCancel ]);
+
+    const form = (
+        <div className="calendar-ghost-body">
+            <FormTextBox
+                autoFocus
+                currentValue={title}
+                placeholder={t("calendar_view.draft_title_placeholder")}
+                onChange={setTitle}
+                onKeyDown={(e) => {
+                    if (e.key === "Enter") commit();
+                }}
+            />
+
+            <div className="calendar-ghost-when">
+                <span className="bx bx-calendar" />
+                {describeDraft(draft)}
+            </div>
+
+            <div className="calendar-ghost-actions">
+                <Button
+                    kind="primary"
+                    text={t("calendar_view.create_event")}
+                    disabled={committing}
+                    onClick={commit}
+                />
+            </div>
+        </div>
+    );
+
+    // A sheet rather than a card beside the range: a phone has no beside. Left at the height a
+    // dialog rises to rather than given the whole page — the form is three lines, and a page of it
+    // would hide the calendar for no gain. Backdrop and Escape are the dialog's own way out, which
+    // is a giving-up rather than a pressing-away: there is no grid under a backdrop to press on.
+    if (isMobile()) {
+        return (
+            <Modal
+                className="calendar-ghost-sheet"
+                size="md"
+                title={t("calendar_view.new_event")}
+                show
+                onHidden={onCancel}
+            >
+                {form}
+            </Modal>
+        );
+    }
 
     return (
         <Popover
@@ -76,31 +127,7 @@ export default function GhostPopover({ draft, anchor, container, onCommit, onCan
                 />
             </div>
 
-            <div className="calendar-ghost-body">
-                <FormTextBox
-                    autoFocus
-                    currentValue={title}
-                    placeholder={t("calendar_view.draft_title_placeholder")}
-                    onChange={setTitle}
-                    onKeyDown={(e) => {
-                        if (e.key === "Enter") commit();
-                    }}
-                />
-
-                <div className="calendar-ghost-when">
-                    <span className="bx bx-calendar" />
-                    {describeDraft(draft)}
-                </div>
-
-                <div className="calendar-ghost-actions">
-                    <Button
-                        kind="primary"
-                        text={t("calendar_view.create_event")}
-                        disabled={committing}
-                        onClick={commit}
-                    />
-                </div>
-            </div>
+            {form}
         </Popover>
     );
 }

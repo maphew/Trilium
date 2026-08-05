@@ -48,3 +48,22 @@
         scrollbar-gutter: stable;
     }
 }
+
+/*
+ * The same event as a sheet (see EventSheet): the dialog brings the surface, what heads it and the
+ * way out, so the body gives up the padding and the scrolling it kept for itself in the popover —
+ * a full-page dialog scrolls its own body — and stands as the plain column the shared class makes
+ * of it.
+ */
+.calendar-event-sheet .calendar-event-popover-body {
+    padding: 0;
+    overflow: visible;
+    scrollbar-gutter: auto;
+}
+
+/* The note's title row is the dialog's title, so it takes the header's room as a title would —
+   the close button beside it keeping its own. */
+.calendar-event-sheet .modal-header > .title-row {
+    flex: 1;
+    min-width: 0;
+}

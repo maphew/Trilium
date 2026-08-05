@@ -10,7 +10,6 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "p
 import appContext from "../../../components/app_context";
 import FNote from "../../../entities/fnote";
 import date_notes from "../../../services/date_notes";
-import dialog from "../../../services/dialog";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import note_tooltip from "../../../services/note_tooltip";
@@ -30,7 +29,7 @@ import GhostPopover from "./GhostPopover";
 import { openCalendarContextMenu } from "./context_menu";
 import { CalendarSelection, EventDraft } from "./selection";
 import { buildEvents, buildEventsForCalendar } from "./event_builder";
-import { formatDateToLocalISO, isValidDuration, parseStartEndDateFromEvent, parseStartEndTimeFromEvent } from "./utils";
+import { formatDateToLocalISO, formatTimeToLocalISO, isValidDuration, parseStartEndDateFromEvent, parseStartEndTimeFromEvent } from "./utils";
 
 interface CalendarViewData {
 
@@ -197,12 +196,10 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
         }
     }, [ isCalendarRoot, selection, noteIds ]);
 
-    // A click on an event opens it into the popover instead of navigating to the popup the
-    // event's `url` names. Not on mobile, where a tap is already spoken for (see eventDidMount)
-    // and the popover would take the whole of the screen.
+    // A click on an event opens it into the event surface instead of navigating to the popup the
+    // event's `url` names — a popover beside the chip, or a sheet where there is no beside (see
+    // EventPopover).
     const onEventClick = useCallback((e: EventClickArg) => {
-        if (isMobile()) return;
-
         // The chip is an anchor at the event's `url`, and the app's document-level link handler
         // (see the delegated listeners in link.ts) would open the popup it names no matter what
         // FullCalendar makes of the click — so the click must not reach the document at all.
@@ -270,10 +267,11 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
                 {...editingProps}
                 // The shading of a dragged range is FullCalendar's to keep and to clear, which it
                 // does on the press that follows — except a press within the ghost standing for
-                // that very range, which is what the exemption names. Letting it decide is what
-                // spares a press on the grid: the next selection has already begun by then, and
-                // FullCalendar knows not to clear what the same press has just made.
-                unselectCancel=".calendar-ghost-popover"
+                // that very range, whichever shell it wears, which is what the exemption names.
+                // Letting it decide is what spares a press on the grid: the next selection has
+                // already begun by then, and FullCalendar knows not to clear what the same press
+                // has just made.
+                unselectCancel=".calendar-ghost-popover, .calendar-ghost-sheet"
                 eventClick={onEventClick}
                 // The event the popover stands for is marked as such, and asks for no hover
                 // preview while it does: the popover beside it already says everything the
@@ -447,33 +445,21 @@ function useLocale() {
 
 function useEditing(note: FNote, isEditable: boolean, isCalendarRoot: boolean, componentId: string | undefined,
     onDraft: (draft: EventDraft, anchor: { x: number; y: number } | null) => void) {
-    const onCalendarSelection = useCallback(async (e: DateSelectArg) => {
+    const onCalendarSelection = useCallback((e: DateSelectArg) => {
         const { startDate, endDate } = parseStartEndDateFromEvent(e);
         if (!startDate) return;
         const { startTime, endTime } = parseStartEndTimeFromEvent(e);
 
-        // On a phone the ghost does not open (see the event click), so the title is still asked
-        // for up front, in the dialog this flow always led with. Unselected as the dialog closes,
-        // rather than leaving the range shaded behind it until the next press lands.
-        if (isMobile()) {
-            const title = await dialog.prompt({ message: t("relation_map.enter_title_of_new_note"), defaultValue: t("relation_map.default_new_note_title") });
-            if (title?.trim()) {
-                await newEvent(note, { title, startDate, endDate, startTime, endTime, componentId });
-            }
-            e.view.calendar.unselect();
-            return;
-        }
-
-        // Nothing is created yet: the range is handed over as a draft for the ghost popover, and a
-        // note is made only when the draft is committed (see commitDraft) — a stray drag dismissed
-        // costs nothing. The range keeps its shading meanwhile, standing on the grid for the event
-        // to be; the view lets it go when the draft resolves. Where the drag ended anchors the
-        // ghost beside it (see ghostAnchorRect).
+        // Nothing is created yet: the range is handed over as a draft for the ghost, and a note is
+        // made only when the draft is committed (see commitDraft) — a stray drag dismissed costs
+        // nothing. The range keeps its shading meanwhile, standing on the grid for the event to be;
+        // the view lets it go when the draft resolves. Where the drag ended anchors the ghost
+        // beside it (see ghostAnchorRect), which a sheet has no use for.
         onDraft(
             { startDate, endDate, startTime, endTime },
             e.jsEvent ? { x: e.jsEvent.clientX, y: e.jsEvent.clientY } : null
         );
-    }, [ note, componentId, onDraft ]);
+    }, [ onDraft ]);
 
     const onEventChange = useCallback(async (e: EventChangeArg) => {
         // Only process actual date/time changes, not other property changes (e.g., title via setProp).
@@ -491,22 +477,63 @@ function useEditing(note: FNote, isEditable: boolean, isCalendarRoot: boolean, c
         changeEvent(note, { startDate, endDate, startTime, endTime, componentId });
     }, [ componentId ]);
 
-    // Called upon when clicking the day number in the calendar, opens or creates the day note but only if in a calendar root.
+    /**
+     * A tap or click on the grid itself. In a calendar root that opens or creates the day's note,
+     * which is what a day means there. Elsewhere it is the phone's way of making an event: a touch
+     * drag asks for a long press before it selects anything (`selectLongPressDelay`), so a tap
+     * selects no range and nothing would open at all — the tap stands for a draft instead, which
+     * costs nothing if it was a mistake.
+     */
     const onDateClick = useCallback(async (e: DateClickArg) => {
-        const eventNote = await date_notes.getDayNote(e.dateStr, note.noteId);
-        if (eventNote) {
-            appContext.triggerCommand("openInPopup", { noteIdOrPath: eventNote.noteId });
+        if (isCalendarRoot) {
+            const eventNote = await date_notes.getDayNote(e.dateStr, note.noteId);
+            if (eventNote) {
+                appContext.triggerCommand("openInPopup", { noteIdOrPath: eventNote.noteId });
+            }
+            return;
         }
-    }, [ note ]);
+
+        const draft = draftFromDateClick(e);
+        if (draft) onDraft(draft, null);
+    }, [ note, isCalendarRoot, onDraft ]);
 
     return {
         select: onCalendarSelection,
         eventChange: onEventChange,
-        dateClick: isCalendarRoot ? onDateClick : undefined,
+        // A desktop leaves this alone where there are events to make: a click there already
+        // selects the range it fell in, and answering the tap as well would raise two ghosts.
+        dateClick: isCalendarRoot || (isMobile() && isEditable) ? onDateClick : undefined,
         editable: isEditable,
         selectable: isEditable
     };
 }
+
+/**
+ * The draft a tap stands for, a tap naming a moment where a drag names a range: the whole of a day
+ * where the view deals in days, and an hour from the slot where it deals in hours — the length
+ * FullCalendar itself gives an event whose end nobody said.
+ */
+function draftFromDateClick(e: DateClickArg): EventDraft | null {
+    const startDate = formatDateToLocalISO(e.date);
+    if (!startDate) return null;
+
+    if (e.allDay) {
+        return { startDate };
+    }
+
+    const end = new Date(e.date.getTime() + TAPPED_EVENT_DURATION);
+    const endDate = formatDateToLocalISO(end);
+    return {
+        startDate,
+        // Only where the hour runs into the next day; a single day says itself with the start.
+        endDate: endDate !== startDate ? endDate : undefined,
+        startTime: formatTimeToLocalISO(e.date),
+        endTime: formatTimeToLocalISO(end)
+    };
+}
+
+/** How long an event tapped into being lasts, FullCalendar's own default for one that says no end. */
+const TAPPED_EVENT_DURATION = 60 * 60 * 1000;
 
 function useEventDisplayCustomization(parentNote: FNote, componentId: string | undefined) {
     const eventDidMount = useCallback((e: EventMountArg) => {
@@ -577,11 +604,9 @@ function useEventDisplayCustomization(parentNote: FNote, componentId: string | u
             openCalendarContextMenu(contextMenuEvent, note, parentNote, componentId);
         }
 
-        if (isMobile()) {
-            e.el.addEventListener("click", onContextMenu);
-        } else {
-            e.el.addEventListener("contextmenu", onContextMenu);
-        }
+        // A long press raises it on a phone, as a right-click does on a desktop; the tap itself now
+        // belongs to the event sheet, which offers what the menu offers and more (see onEventClick).
+        e.el.addEventListener("contextmenu", onContextMenu);
     }, []);
     return { eventDidMount };
 }
