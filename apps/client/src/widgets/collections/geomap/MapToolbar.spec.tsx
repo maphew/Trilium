@@ -140,6 +140,22 @@ describe("geo map MapToolbar", () => {
         expect(buttons(container)[TILT].textContent).toBe("2D");
     });
 
+    it("keeps the zoom steps off a mobile screen, where the fingers already zoom", () => {
+        const host = window as unknown as { glob?: { device?: string } };
+        host.glob = { device: "mobile" };
+        try {
+            const container = renderToolbar(fakeMap());
+
+            // Only the tilt and the screen remain — see the mobile note in MapToolbar.tsx.
+            expect(buttons(container).map((button) => button.className)).toEqual([
+                expect.stringContaining("geo-map-tilt-button"),
+                expect.stringContaining("bx-fullscreen")
+            ]);
+        } finally {
+            delete host.glob;
+        }
+    });
+
     it("stands aside until there is a map to zoom", () => {
         const container = renderToolbar(null);
 

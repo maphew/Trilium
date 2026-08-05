@@ -4,6 +4,7 @@ import type { Map as MapLibreGLMap } from "maplibre-gl";
 import { useContext, useEffect, useRef, useState } from "preact/hooks";
 
 import { t } from "../../../services/i18n";
+import { isMobile } from "../../../services/utils";
 import { useFullscreen, useStaticTooltip } from "../../react/hooks";
 import { ParentMap } from "./map";
 
@@ -23,6 +24,11 @@ import { ParentMap } from "./map";
  * over, 2D lays it flat again. Which of the two it offers is read off the view itself rather than
  * remembered from the last press — MapLibre tilts for Ctrl and a drag as well, and a button that
  * only watched itself would go on offering a 3D the reader is already in.
+ *
+ * On mobile the two steps stay home, as the image viewer's do: the fingers already zoom, and the
+ * foot of a narrow map is spoken for. The tilt is kept — the two-finger drag that leans the view
+ * is told to nobody, so the button is the one visible way into 3D — and so is the screen, which a
+ * small one has the most to gain from.
  */
 
 /** How far the button leans the view over — a lean rather than the horizon, as Google Maps takes
@@ -30,7 +36,9 @@ import { ParentMap } from "./map";
 const TILTED_PITCH = 45;
 export default function MapToolbar() {
     const map = useContext(ParentMap);
-    const zoom = useMapZoom(map);
+    // The zoom is only read for the steps' disabled state, so where the steps stay home the map is
+    // not listened to for it either.
+    const zoom = useMapZoom(isMobile() ? null : map);
     const pitch = useMapPitch(map);
     // The map itself rather than the whole view: what is around it is the note's own chrome, and
     // everything the bar above the map offers is on the map's right-click menu as well.
@@ -79,22 +87,24 @@ export default function MapToolbar() {
             >
                 {isTilted ? "2D" : "3D"}
             </button>
-            <button
-                ref={zoomOutRef}
-                type="button"
-                className="tn-overlay-icon-button bx bx-minus-circle"
-                aria-label={t("geo-map.zoom-out")}
-                disabled={current <= map.getMinZoom()}
-                onClick={() => map.zoomOut()}
-            />
-            <button
-                ref={zoomInRef}
-                type="button"
-                className="tn-overlay-icon-button bx bx-plus-circle"
-                aria-label={t("geo-map.zoom-in")}
-                disabled={current >= map.getMaxZoom()}
-                onClick={() => map.zoomIn()}
-            />
+            {!isMobile() && <>
+                <button
+                    ref={zoomOutRef}
+                    type="button"
+                    className="tn-overlay-icon-button bx bx-minus-circle"
+                    aria-label={t("geo-map.zoom-out")}
+                    disabled={current <= map.getMinZoom()}
+                    onClick={() => map.zoomOut()}
+                />
+                <button
+                    ref={zoomInRef}
+                    type="button"
+                    className="tn-overlay-icon-button bx bx-plus-circle"
+                    aria-label={t("geo-map.zoom-in")}
+                    disabled={current >= map.getMaxZoom()}
+                    onClick={() => map.zoomIn()}
+                />
+            </>}
             <button
                 ref={fullscreenRef}
                 type="button"
