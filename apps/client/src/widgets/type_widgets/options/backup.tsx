@@ -1,7 +1,7 @@
 import "./backup.css";
 
-import { BackupDatabaseNowResponse, DatabaseBackup, ExistingBackupsResponse } from "@triliumnext/commons";
-import { useCallback, useEffect, useState } from "preact/hooks";
+import { BackupDatabaseNowResponse, BackupPassphraseStatus, DatabaseBackup, ExistingBackupsResponse } from "@triliumnext/commons";
+import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import dialogService from "../../../services/dialog";
 import { t } from "../../../services/i18n";
@@ -11,8 +11,12 @@ import { isElectron } from "../../../services/utils";
 import Button from "../../react/Button";
 import { Card, CardSection } from "../../react/Card";
 import DirectoryLink from "../../react/DirectoryLink";
+import FormPasswordWithConfirmation from "../../react/FormPasswordWithConfirmation";
+import FormText from "../../react/FormText";
+import FormToggle from "../../react/FormToggle";
 import { useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import Icon from "../../react/Icon";
+import Modal from "../../react/Modal";
 import DatabaseFileList, { type DatabaseFile } from "./components/DatabaseFileList";
 import OptionsPageHeader from "./components/OptionsPageHeader";
 import OptionsRow, { OptionsRowWithToggle } from "./components/OptionsRow";
@@ -37,6 +41,8 @@ export default function BackupSettings() {
             <BackupConfiguration />
             {/* Absent where there is no user-accessible location at all, e.g. backups kept in OPFS. */}
             {backupFolderPath && <BackupLocation backupFolderPath={backupFolderPath} refreshCallback={refreshBackups} />}
+            {/* Desktop only: the passphrase needs an OS keyring to live in, which only the desktop has. */}
+            {isElectron() && <BackupOptions />}
             <BackupList backups={backups} backupFolderPath={backupFolderPath} refreshCallback={refreshBackups} />
         </>
     );
@@ -134,6 +140,129 @@ export function BackupLocation({ backupFolderPath, refreshCallback }: { backupFo
                 </CardSection>
             </Card>
         </div>
+    );
+}
+
+/**
+ * What a backup is written as: a plain database copy, or a backup container that is compressed,
+ * encrypted, or both.
+ *
+ * Encryption hangs off a passphrase the OS keyring holds, so the controls follow what that keyring
+ * can do. Without one there is nowhere safe to keep the passphrase, and an unattended backup cannot
+ * ask for it, so the whole feature is unavailable rather than half-working.
+ */
+export function BackupOptions() {
+    const [compressionEnabled, setCompressionEnabled] = useTriliumOptionBool("backupEnableCompression");
+    const [encryptionEnabled, setEncryptionEnabled] = useTriliumOptionBool("backupEnableEncryption");
+    const [passphrase, setPassphrase] = useState<BackupPassphraseStatus>({ available: false, set: false });
+    const [passwordModalShown, setPasswordModalShown] = useState(false);
+
+    const refreshPassphrase = useCallback(async () => {
+        const status = await window.electronApi?.backupPassphrase.getStatus();
+        if (status) {
+            setPassphrase(status);
+        }
+    }, []);
+
+    useEffect(() => { refreshPassphrase(); }, [refreshPassphrase]);
+
+    async function storePassword(password: string) {
+        if (!await window.electronApi?.backupPassphrase.set(password)) {
+            toast.showError(t("backup.password_not_stored"));
+            return;
+        }
+
+        await refreshPassphrase();
+        await setEncryptionEnabled(true);
+        setPasswordModalShown(false);
+        toast.showMessage(t("backup.password_stored"));
+    }
+
+    // Switching encryption off forgets the passphrase with it: there is nothing left to keep it for,
+    // and leaving it behind would mean a passphrase nobody remembers setting. Backups already written
+    // keep the one they were written with.
+    async function disableEncryption() {
+        await window.electronApi?.backupPassphrase.clear();
+        await setEncryptionEnabled(false);
+        await refreshPassphrase();
+    }
+
+    return (
+        <div className="options-section backup-options">
+            <Card heading={t("backup.options_title")}>
+                <CardSection className="backup-options-row">
+                    <span className="backup-options-label">
+                        {t("backup.enable_compression")}
+                        <small className="backup-options-description">{t("backup.enable_compression_description")}</small>
+                    </span>
+
+                    <FormToggle currentValue={compressionEnabled} onChange={setCompressionEnabled} />
+                </CardSection>
+
+                <CardSection className="backup-options-row">
+                    <span className="backup-options-label">
+                        {t("backup.enable_encryption")}
+                        <small className="backup-options-description">
+                            {passphrase.available ? t("backup.enable_encryption_description") : t("backup.no_keyring")}
+                        </small>
+                    </span>
+
+                    {passphrase.set ? (
+                        <>
+                            <Button
+                                name="change-backup-password-button"
+                                text={t("backup.change_password")}
+                                size="micro"
+                                onClick={() => setPasswordModalShown(true)}
+                            />
+                            <FormToggle
+                                currentValue={encryptionEnabled}
+                                onChange={(enabled) => enabled ? setEncryptionEnabled(true) : disableEncryption()}
+                            />
+                        </>
+                    ) : (
+                        <Button
+                            name="turn-on-backup-encryption-button"
+                            text={t("backup.turn_on_encryption")}
+                            size="micro"
+                            disabled={!passphrase.available}
+                            onClick={() => setPasswordModalShown(true)}
+                        />
+                    )}
+                </CardSection>
+            </Card>
+
+            <BackupPasswordModal
+                show={passwordModalShown}
+                onHidden={() => setPasswordModalShown(false)}
+                onSave={storePassword}
+            />
+        </div>
+    );
+}
+
+/** Asks for a backup password twice over, for setting the first one or replacing the one in place. */
+function BackupPasswordModal({ show, onHidden, onSave }: { show: boolean; onHidden: () => void; onSave: (password: string) => void }) {
+    const [password, setPassword] = useState<string | null>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
+
+    return (
+        <Modal
+            className="backup-password-modal"
+            title={t("backup.password_modal_title")}
+            size="sm"
+            // Options can themselves be a dialog; without this, showing here closes the one behind.
+            stackable
+            show={show}
+            onShown={() => inputRef.current?.focus()}
+            onHidden={onHidden}
+            onSubmit={() => password && onSave(password)}
+            footer={<Button text={t("backup.save_password")} kind="primary" disabled={!password} />}
+        >
+            <FormText>{t("backup.password_modal_description")}</FormText>
+
+            <FormPasswordWithConfirmation inputRef={inputRef} onChange={setPassword} />
+        </Modal>
     );
 }
 
