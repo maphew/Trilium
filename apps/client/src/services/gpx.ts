@@ -15,6 +15,15 @@ export interface GpxElevationSample {
     elevation: number;
 }
 
+/** One of the journeys a GPX file holds — a track or a route — as a listing shows it. */
+export interface GpxJourney {
+    kind: "track" | "route";
+    /** What the file calls this journey, where it names one. */
+    name?: string;
+    /** Metres along this journey's lines alone. */
+    distance: number;
+}
+
 /** A named place the file marks beside its lines — only what a listing shows of one. */
 export interface GpxWaypoint {
     name?: string;
@@ -35,6 +44,8 @@ export interface GpxStats {
     segmentCount: number;
     /** Track and route points that carry a readable position. */
     pointCount: number;
+    /** The file's tracks and routes in file order, each with the metres it draws. */
+    journeys: GpxJourney[];
     /** The file's waypoints that carry a readable position, in file order. */
     waypoints: GpxWaypoint[];
     /** Metres travelled, summed within each segment and route. The jumps between segments are not
@@ -80,7 +91,7 @@ export function parseGpxStats(xml: string): GpxStats | null {
     }
 
     const root = doc.documentElement;
-    const segments = readSegments(doc);
+    const journeys = readJourneys(doc);
 
     const stats: GpxStats = {
         name: readMetadataOrFirst(root, "name"),
@@ -88,7 +99,8 @@ export function parseGpxStats(xml: string): GpxStats | null {
         trackCount: doc.querySelectorAll("trk").length,
         routeCount: doc.querySelectorAll("rte").length,
         segmentCount: doc.querySelectorAll("trkseg").length,
-        pointCount: segments.reduce((count, segment) => count + segment.length, 0),
+        pointCount: journeys.reduce((count, journey) => count + journey.segments.reduce((n, segment) => n + segment.length, 0), 0),
+        journeys: [],
         waypoints: readWaypoints(doc),
         distance: 0
     };
@@ -101,40 +113,47 @@ export function parseGpxStats(xml: string): GpxStats | null {
     let start = Infinity;
     let end = -Infinity;
 
-    for (const segment of segments) {
-        // The reference an elevation change is measured against, reset per segment: climbing that
-        // happened in the gap between two segments was not climbed on this track.
-        let anchor: number | undefined;
+    for (const journey of journeys) {
+        let journeyDistance = 0;
 
-        for (const [ index, point ] of segment.entries()) {
-            if (index > 0) {
-                stats.distance += haversine(segment[index - 1], point);
-            }
+        for (const segment of journey.segments) {
+            // The reference an elevation change is measured against, reset per segment: climbing
+            // that happened in the gap between two segments was not climbed on this track.
+            let anchor: number | undefined;
 
-            if (point.elevation !== undefined) {
-                profile.push({ distance: stats.distance, elevation: point.elevation });
-                min = Math.min(min, point.elevation);
-                max = Math.max(max, point.elevation);
+            for (const [ index, point ] of segment.entries()) {
+                if (index > 0) {
+                    journeyDistance += haversine(segment[index - 1], point);
+                }
 
-                // Gain and loss accumulate through a hysteresis window rather than point to point:
-                // GPS elevation jitters by a few metres either way, and summing every wobble
-                // reports a mountain climbed on a walk around the block.
-                if (anchor === undefined) {
-                    anchor = point.elevation;
-                } else if (point.elevation - anchor >= ELEVATION_NOISE_M) {
-                    gain += point.elevation - anchor;
-                    anchor = point.elevation;
-                } else if (anchor - point.elevation >= ELEVATION_NOISE_M) {
-                    loss += anchor - point.elevation;
-                    anchor = point.elevation;
+                if (point.elevation !== undefined) {
+                    profile.push({ distance: stats.distance + journeyDistance, elevation: point.elevation });
+                    min = Math.min(min, point.elevation);
+                    max = Math.max(max, point.elevation);
+
+                    // Gain and loss accumulate through a hysteresis window rather than point to
+                    // point: GPS elevation jitters by a few metres either way, and summing every
+                    // wobble reports a mountain climbed on a walk around the block.
+                    if (anchor === undefined) {
+                        anchor = point.elevation;
+                    } else if (point.elevation - anchor >= ELEVATION_NOISE_M) {
+                        gain += point.elevation - anchor;
+                        anchor = point.elevation;
+                    } else if (anchor - point.elevation >= ELEVATION_NOISE_M) {
+                        loss += anchor - point.elevation;
+                        anchor = point.elevation;
+                    }
+                }
+
+                if (point.time !== undefined) {
+                    start = Math.min(start, point.time);
+                    end = Math.max(end, point.time);
                 }
             }
-
-            if (point.time !== undefined) {
-                start = Math.min(start, point.time);
-                end = Math.max(end, point.time);
-            }
         }
+
+        stats.journeys.push({ kind: journey.kind, ...(journey.name ? { name: journey.name } : {}), distance: journeyDistance });
+        stats.distance += journeyDistance;
     }
 
     if (profile.length > 0) {
@@ -265,29 +284,42 @@ interface GpxPoint {
     time?: number;
 }
 
-/**
- * The point runs a GPX file is made of, one array per track segment and one per route — split the
- * same way {@link GpxTrack} draws them, including the fallback for schema-less files whose points
- * sit outside any segment or route.
- */
-function readSegments(doc: Document): GpxPoint[][] {
-    const segments: GpxPoint[][] = [];
+/** A journey's points still grouped by segment, which is what the stats walk. */
+interface GpxJourneyPoints {
+    kind: "track" | "route";
+    name?: string;
+    segments: GpxPoint[][];
+}
 
-    for (const container of doc.querySelectorAll("trkseg, rte")) {
-        const points = readPoints(container.querySelectorAll("trkpt, rtept"), { withTime: container.localName !== "rte" });
-        if (points.length > 0) {
-            segments.push(points);
+/**
+ * The point runs a GPX file is made of, one entry per track and per route with the track's
+ * segments kept apart — grouped the same way {@link readTrackLines} groups the drawn lines,
+ * including the fallback for schema-less files whose points sit outside any track or route.
+ */
+function readJourneys(doc: Document): GpxJourneyPoints[] {
+    const journeys: GpxJourneyPoints[] = [];
+
+    for (const container of doc.querySelectorAll("trk, rte")) {
+        const kind = container.localName === "rte" ? "route" : "track";
+        const segments = (kind === "route"
+            ? [ readPoints(container.querySelectorAll("rtept"), { withTime: false }) ]
+            : [ ...container.querySelectorAll("trkseg") ].map((segment) => readPoints(segment.querySelectorAll("trkpt")))
+        ).filter((segment) => segment.length > 0);
+
+        if (segments.length > 0) {
+            const name = childText(container, "name")?.trim();
+            journeys.push({ kind, ...(name ? { name } : {}), segments });
         }
     }
 
-    if (segments.length === 0) {
+    if (journeys.length === 0) {
         const points = readPoints(doc.querySelectorAll("trkpt, rtept"));
         if (points.length > 0) {
-            segments.push(points);
+            journeys.push({ kind: "track", segments: [ points ] });
         }
     }
 
-    return segments;
+    return journeys;
 }
 
 /**

@@ -130,10 +130,12 @@
         color: var(--muted-text-color);
     }
 
+    .gpx-journeys,
     .gpx-waypoints {
         margin-top: 12px;
     }
 
+    .gpx-journey-list,
     .gpx-waypoint-list {
         list-style: none;
         margin: 0;
@@ -160,7 +162,8 @@
         white-space: nowrap;
     }
 
-    .gpx-waypoint-elevation {
+    .gpx-waypoint-elevation,
+    .gpx-journey-distance {
         margin-left: auto;
         color: var(--muted-text-color);
         font-variant-numeric: tabular-nums;

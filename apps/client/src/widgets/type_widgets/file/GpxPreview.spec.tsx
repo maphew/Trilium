@@ -10,7 +10,8 @@ vi.mock("../../../services/server", () => ({
 // Pinned rather than read from the environment: the tiles' units are what the assertions read,
 // and the host machine's locale must not decide whether they say km or mi.
 vi.mock("../../../utils/formatters", () => ({
-    getMeasurementSystem: () => "metric"
+    getMeasurementSystem: () => "metric",
+    formatDateTime: (date: Date) => date.toISOString().slice(0, 10)
 }));
 
 // i18next is never initialized under test, so t() is rendered deterministic instead: the key with
@@ -88,12 +89,15 @@ describe("GpxPreview", () => {
         expect(tileValue("gpx_preview.elevation_gain")).toBe("gpx_preview.unit_m|50");
         expect(tileValue("gpx_preview.elevation_loss")).toBe("gpx_preview.unit_m|30");
         expect(tileValue("gpx_preview.max_elevation")).toBe("gpx_preview.unit_m|150");
+        expect(tileValue("gpx_preview.recorded_on")).toBe("2024-06-01");
         expect(tileValue("gpx_preview.points")).toBe("3");
         expect(tileValue("gpx_preview.segments")).toBe("1");
-        // A single track and no routes/waypoints say nothing worth a tile.
+        // A single track and no routes/waypoints say nothing worth a tile — and one journey is
+        // nothing to list either.
         expect(tileValue("gpx_preview.tracks")).toBeUndefined();
         expect(tileValue("gpx_preview.routes")).toBeUndefined();
         expect(tileValue("gpx_preview.waypoints")).toBeUndefined();
+        expect(container.querySelector(".gpx-journeys")).toBeNull();
 
         // The file's own name and description are shown (the note is titled differently).
         expect(container.querySelector(".gpx-preview-name")?.textContent).toBe("Ridge loop");
@@ -107,6 +111,32 @@ describe("GpxPreview", () => {
         // And the way to the whole track is pointed out. (Inside a geo map's own pane the hint is
         // suppressed by the pane's CSS, which a DOM assertion here cannot see.)
         expect(container.querySelector(".gpx-preview-map-hint")?.textContent).toContain("gpx_preview.map_hint");
+    });
+
+    it("lists the journeys when the file holds more than one, each with its own distance", async () => {
+        serverGet.mockResolvedValue(`<?xml version="1.0" encoding="UTF-8"?>
+<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1" creator="test">
+    <trk><name>Day one</name><trkseg>
+        <trkpt lat="0" lon="0"/><trkpt lat="0" lon="0.01"/>
+    </trkseg></trk>
+    <rte>
+        <rtept lat="0" lon="1"/><rtept lat="0" lon="1.02"/>
+    </rte>
+</gpx>`);
+
+        mount();
+        await vi.waitFor(() => expect(container.querySelector(".gpx-journeys")).not.toBeNull());
+
+        // A track and a route together are headed as neither alone would be.
+        expect(container.querySelector(".gpx-journeys .collapsible-title")?.textContent)
+            .toContain("gpx_preview.journeys_with_count|2");
+
+        const rows = [ ...container.querySelectorAll(".gpx-journey-list > li") ];
+        expect(rows.map((row) => row.querySelector(".gpx-journey-name")?.textContent))
+            .toEqual([ "Day one", "gpx_preview.unnamed" ]);
+        // 0.01° and 0.02° along the equator: ~1.11 km and ~2.22 km.
+        expect(rows[0].querySelector(".gpx-journey-distance")?.textContent).toMatch(/^gpx_preview\.unit_km\|1[.,]11$/);
+        expect(rows[1].querySelector(".gpx-journey-distance")?.textContent).toMatch(/^gpx_preview\.unit_km\|2[.,]22$/);
     });
 
     it("lists the waypoints under a collapsed section, one row apiece", async () => {

@@ -4,10 +4,10 @@ import { useEffect, useMemo, useState } from "preact/hooks";
 
 import type FBlob from "../../../entities/fblob";
 import type FNote from "../../../entities/fnote";
-import { GpxElevationSample, GpxStats, parseGpxStats } from "../../../services/gpx";
+import { GpxElevationSample, GpxJourney, GpxStats, parseGpxStats } from "../../../services/gpx";
 import { t } from "../../../services/i18n";
 import server from "../../../services/server";
-import { getMeasurementSystem } from "../../../utils/formatters";
+import { formatDateTime, getMeasurementSystem } from "../../../utils/formatters";
 import Alert from "../../react/Alert";
 import Collapsible from "../../react/Collapsible";
 
@@ -93,6 +93,29 @@ export default function GpxPreview({ note, blob }: GpxPreviewProps) {
                 />
             )}
 
+            {/* Only when there is more than one journey to tell apart — a single-track file is
+                already summed up by the stats above. Expanded, unlike the waypoints: a file
+                rarely holds more than a handful. */}
+            {stats.journeys.length > 1 && (
+                <Collapsible
+                    className="gpx-journeys"
+                    title={journeysTitle(stats.journeys)}
+                    initiallyExpanded
+                >
+                    <ul className="gpx-journey-list">
+                        {stats.journeys.map((journey, index) => (
+                            <li key={index}>
+                                <span className={journey.kind === "route" ? "bx bx-directions" : "bx bx-trip"} aria-hidden="true" />
+                                <span className="gpx-journey-name">{journey.name ?? t("gpx_preview.unnamed")}</span>
+                                {journey.distance > 0 && (
+                                    <span className="gpx-journey-distance">{formatDistance(journey.distance, system)}</span>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                </Collapsible>
+            )}
+
             {/* Collapsed by default: a file can carry dozens (the GPX spec's sample has 86), and
                 the numbers above should not have to be scrolled back to over a directory. */}
             {stats.waypoints.length > 0 && (
@@ -104,7 +127,7 @@ export default function GpxPreview({ note, blob }: GpxPreviewProps) {
                         {stats.waypoints.map((waypoint, index) => (
                             <li key={index}>
                                 <span className="bx bx-pin" aria-hidden="true" />
-                                <span className="gpx-waypoint-name">{waypoint.name ?? t("gpx_preview.unnamed_waypoint")}</span>
+                                <span className="gpx-waypoint-name">{waypoint.name ?? t("gpx_preview.unnamed")}</span>
                                 {waypoint.description && <span className="gpx-waypoint-description">{waypoint.description}</span>}
                                 {waypoint.elevation !== undefined && (
                                     <span className="gpx-waypoint-elevation">{formatElevation(waypoint.elevation, system)}</span>
@@ -140,6 +163,11 @@ function buildTiles(stats: GpxStats, system: MeasurementSystem) {
             tiles.push({ label: t("gpx_preview.avg_speed"), value: formatSpeed(kmh, system) });
         }
     }
+    if (stats.time) {
+        // The date alone: the day a track was ridden is the fact worth a glance, and the start
+        // time is implied well enough by the duration beside it.
+        tiles.push({ label: t("gpx_preview.recorded_on"), value: formatDateTime(stats.time.start, "medium", "none") });
+    }
     if (stats.elevation) {
         tiles.push(
             { label: t("gpx_preview.elevation_gain"), value: formatElevation(stats.elevation.gain, system) },
@@ -164,6 +192,18 @@ function buildTiles(stats: GpxStats, system: MeasurementSystem) {
     }
 
     return tiles;
+}
+
+/** What the journey listing is headed with — named by what the file actually holds, since a file
+ *  of routes headed "Tracks" would contradict the very rows under it. */
+function journeysTitle(journeys: GpxJourney[]): string {
+    if (journeys.every((journey) => journey.kind === "track")) {
+        return t("gpx_preview.tracks_with_count", { count: journeys.length });
+    }
+    if (journeys.every((journey) => journey.kind === "route")) {
+        return t("gpx_preview.routes_with_count", { count: journeys.length });
+    }
+    return t("gpx_preview.journeys_with_count", { count: journeys.length });
 }
 
 /** The drawing space the profile is projected into. Stretched to the container by the SVG itself

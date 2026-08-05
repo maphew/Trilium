@@ -85,6 +85,14 @@ describe("parseGpxStats", () => {
         expect(stats?.distance).toBeCloseTo(0.04 * DEGREE_M, -1);
         expect(stats?.elevation).toBeUndefined();
         expect(stats?.time).toBeUndefined();
+
+        // Each journey also answers for itself: the track with both its segments, the route alone.
+        expect(stats?.journeys).toHaveLength(2);
+        expect(stats?.journeys[0]).toMatchObject({ kind: "track", name: "Morning ride" });
+        expect(stats?.journeys[0].distance).toBeCloseTo(0.03 * DEGREE_M, -1);
+        expect(stats?.journeys[1].kind).toBe("route");
+        expect(stats?.journeys[1].name).toBeUndefined();
+        expect(stats?.journeys[1].distance).toBeCloseTo(0.01 * DEGREE_M, -1);
     });
 
     it("reads elevation extremes and accumulates gain/loss through the noise window", () => {
@@ -184,6 +192,8 @@ describe("parseGpxStats", () => {
         const stats = parseGpxStats(gpx(`<trkpt lat="0" lon="0"/><trkpt lat="0" lon="0.01"/>`));
         expect(stats?.pointCount).toBe(2);
         expect(stats?.distance).toBeCloseTo(0.01 * DEGREE_M, -1);
+        expect(stats?.journeys).toHaveLength(1);
+        expect(stats?.journeys[0].kind).toBe("track");
     });
 
     it("decimates a long profile while keeping its ends and its extremes", () => {
