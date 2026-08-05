@@ -1208,8 +1208,7 @@
     "path": "Шлях",
     "database_backed_up_to": "Резервну копію бази даних створено у {{backupFilePath}}",
     "no_backup_yet": "резервної копії поки що немає",
-    "title": "Резервна копія",
-    "backup_location_description": "Резервні копії зберігаються в {{- backupFolder}}."
+    "title": "Резервна копія"
   },
   "etapi": {
     "description": "ETAPI — це REST API, який використовується для програмного доступу до екземпляра Trilium без інтерфейсу користувача.",
