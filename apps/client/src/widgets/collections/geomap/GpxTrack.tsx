@@ -1,7 +1,7 @@
 import type { FilterSpecification, Map as MapLibreGLMap } from "maplibre-gl";
 import { useContext, useEffect } from "preact/hooks";
 
-import { childText, GPX_MIME } from "../../../services/gpx";
+import { childText, GPX_MIME, type GpxTrackLines, readCoordinates, readTrackLines } from "../../../services/gpx";
 import { MapStyleLoaded, ParentMap } from "./map";
 import { buildMarkerImage, LABEL_LAYOUT, LABEL_PAINT, MARKER_SHADOW_PADDING, markerImageId } from "./Markers";
 
@@ -92,8 +92,8 @@ export function GpxTrack({ noteId, title, gpxXmlString, trackColor, pinColor, ic
         const marksLayerId = `${MARKS_LAYER_PREFIX}${noteId}`;
 
         const gpxDoc = new DOMParser().parseFromString(gpxXmlString, "application/xml");
-        const lines = readLines(gpxDoc);
-        const marks = readMarks(gpxDoc, lines, { noteId, title, pinColor, iconClass });
+        const tracks = readTrackLines(gpxDoc);
+        const marks = readMarks(gpxDoc, tracks, { noteId, title, pinColor, iconClass });
 
         // The pins the marks stamp, rasterized off this path: the line must not wait on them, so
         // the layers go up in two halves — the line at once, the marks when their images arrive.
@@ -109,7 +109,7 @@ export function GpxTrack({ noteId, title, gpxXmlString, trackColor, pinColor, ic
         // would never draw it. Failing is expected in that window — the style load that follows
         // calls this again, against a style that will have it.
         function addTrackLayers() {
-            if (lines.length === 0 && marks.length === 0) return;
+            if (tracks.length === 0 && marks.length === 0) return;
 
             try {
                 if (!map.getSource(sourceId)) {
@@ -118,29 +118,34 @@ export function GpxTrack({ noteId, title, gpxXmlString, trackColor, pinColor, ic
                         data: {
                             type: "FeatureCollection",
                             features: [
-                                // One line per segment rather than every point strung together: a
-                                // track is broken into segments exactly where it stopped being
-                                // recorded, so joining them drew a straight line across each gap.
+                                // A line per track or route the file holds, each of its segments
+                                // kept apart rather than strung together: a track is broken into
+                                // segments exactly where it stopped being recorded, so joining
+                                // them drew a straight line across each gap.
                                 //
-                                // The note the line stands for is carried by the feature, so that
+                                // The note a line stands for is carried by the feature, so that
                                 // whatever the pointer lands on can be traced back to it — `id` is
-                                // what a click or the context menu opens, and `name` is what the
-                                // line is labelled with. The marks carry the same (see readMarks).
-                                ...(lines.length > 0 ? [ {
+                                // what a click or the context menu opens, `track` says which of
+                                // the file's journeys was hit so the camera can frame that one
+                                // alone (see the pane's focus in DetailPane), and `name` is what
+                                // the line is labelled with: the track's own where the file gives
+                                // one, the note's title where it does not. The marks carry the
+                                // same id (see readMarks).
+                                ...tracks.map((track, index) => ({
                                     type: "Feature",
-                                    properties: { id: noteId, name: title },
+                                    properties: { id: noteId, track: index, name: track.name ?? title },
                                     geometry: {
                                         type: "MultiLineString",
-                                        coordinates: lines
+                                        coordinates: track.lines
                                     }
-                                } satisfies GeoJSON.Feature ] : []),
+                                } satisfies GeoJSON.Feature)),
                                 ...marks
                             ]
                         }
                     });
                 }
 
-                if (lines.length > 0) {
+                if (tracks.length > 0) {
                     if (!map.getLayer(layerId)) {
                         map.addLayer({
                             id: layerId,
@@ -318,14 +323,17 @@ export function trackHitLayers(map: MapLibreGLMap) {
 }
 
 /**
- * The marks a track is flagged with, as features of the same source its line is drawn from: where
- * the whole track begins and where it ends — not one pair per segment, since a track broken into
- * segments is still one journey, and a flag at every pause would be a flag at every traffic light —
- * and one at every waypoint. The start says the note's name and a waypoint its own `<name>` — a
- * file like the GPX spec's own sample carries dozens of named crossings, and a pin that will not
- * say which one it is answers only to a click; the end's pin says the rest.
+ * The marks a file is flagged with, as features of the same source its lines are drawn from: where
+ * each of its tracks begins and ends — a pair per journey rather than per segment, since a track
+ * broken into segments is still one journey and a flag at every pause would be a flag at every
+ * traffic light; but a file of several tracks is several journeys, and one pair strung across them
+ * flagged a start in one town and an end in another as though something ran between — and one mark
+ * at every waypoint. A start says its track's name (the note's, for a track the file left nameless)
+ * and a waypoint its own `<name>` — a file like the GPX spec's own sample carries dozens of named
+ * crossings, and a pin that will not say which one it is answers only to a click; the ends' pin
+ * says the rest.
  */
-function readMarks(gpxDoc: Document, lines: [number, number][][], { noteId, title, pinColor, iconClass }: {
+function readMarks(gpxDoc: Document, tracks: GpxTrackLines[], { noteId, title, pinColor, iconClass }: {
     noteId: string; title: string; pinColor: string; iconClass: string;
 }) {
     const marks: GeoJSON.Feature[] = [];
@@ -338,11 +346,12 @@ function readMarks(gpxDoc: Document, lines: [number, number][][], { noteId, titl
         });
     }
 
-    const firstLine = lines[0] ?? [];
-    const lastLine = lines[lines.length - 1] ?? [];
+    for (const track of tracks) {
+        const firstLine = track.lines[0] ?? [];
+        const lastLine = track.lines[track.lines.length - 1] ?? [];
+        if (firstLine.length === 0) continue;
 
-    if (firstLine.length > 0) {
-        addMark(firstLine[0], iconClass, title);
+        addMark(firstLine[0], iconClass, track.name ?? title);
         const end = lastLine[lastLine.length - 1];
         if (end && end !== firstLine[0]) {
             addMark(end, END_ICON);
@@ -350,7 +359,7 @@ function readMarks(gpxDoc: Document, lines: [number, number][][], { noteId, titl
     }
 
     for (const waypoint of gpxDoc.querySelectorAll("wpt")) {
-        const [ coordinates ] = readPoints([ waypoint ]);
+        const [ coordinates ] = readCoordinates([ waypoint ]);
         if (coordinates) {
             addMark(coordinates, WAYPOINT_ICON, childText(waypoint, "name")?.trim() ?? "");
         }
@@ -378,51 +387,3 @@ async function buildMarkImages(pinColor: string, iconClass: string) {
     return images;
 }
 
-/**
- * The lines a GPX file draws, one per track segment and one per route.
- *
- * A track is split into segments precisely where the recording stopped and picked up again — a lost
- * signal, a paused watch, a drive home nobody logged — so the segments are kept apart rather than
- * strung together. Routes are lines of the same kind and are read alongside them.
- *
- * Points that name no readable position are dropped. A line of one point is kept: it draws nothing,
- * but it is still where the track began or ended, which is what the marks are placed from.
- */
-function readLines(gpxDoc: Document): [number, number][][] {
-    const lines: [number, number][][] = [];
-
-    for (const container of gpxDoc.querySelectorAll("trkseg, rte")) {
-        const points = readPoints(container.querySelectorAll("trkpt, rtept"));
-        if (points.length > 0) {
-            lines.push(points);
-        }
-    }
-
-    // A file whose points sit outside any segment or route is not one the GPX schema allows, but it
-    // used to draw as a single line here and there is no reason to stop drawing it. Only reached when
-    // the reading above found nothing, so a well-formed file never takes this path.
-    if (lines.length === 0) {
-        const points = readPoints(gpxDoc.querySelectorAll("trkpt, rtept"));
-        if (points.length > 0) {
-            lines.push(points);
-        }
-    }
-
-    return lines;
-}
-
-/** The `[lng, lat]` GeoJSON wants, for each point that carries a readable pair. */
-function readPoints(points: Iterable<Element>): [number, number][] {
-    const coordinates: [number, number][] = [];
-
-    for (const point of points) {
-        const lat = parseFloat(point.getAttribute("lat") ?? "");
-        const lon = parseFloat(point.getAttribute("lon") ?? "");
-        // A point that cannot say where it is is skipped rather than defaulted: falling back to zero
-        // put it in the Gulf of Guinea and ran the line out to it and back.
-        if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
-        coordinates.push([ lon, lat ]);
-    }
-
-    return coordinates;
-}

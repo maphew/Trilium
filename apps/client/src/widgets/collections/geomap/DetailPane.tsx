@@ -1,7 +1,7 @@
 import "./DetailPane.css";
 
 import clsx from "clsx";
-import type { GeoJSONSource, Map as MapLibreGLMap, MapMouseEvent, MapSourceDataEvent } from "maplibre-gl";
+import type { GeoJSONSource, MapGeoJSONFeature, Map as MapLibreGLMap, MapMouseEvent, MapSourceDataEvent } from "maplibre-gl";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import appContext from "../../../components/app_context";
@@ -39,7 +39,20 @@ export interface PaneSelection {
     /** Created a moment ago, so the pane opens with the stock title selected, ready to be typed
      *  over — the note has no name yet worth protecting from a keystroke. */
     isNew?: boolean;
+    /** What of the note the click named, where it named more than the note. See {@link PaneFocus}. */
+    focus?: PaneFocus;
 }
+
+/**
+ * What of a GPX note the camera should honour, a file being more than one thing to point at: a flag
+ * clicked is a place, stood clear of the pane at the zoom the reader chose; one of the file's
+ * tracks clicked is a shape, fitted whole. Absent — the note opened without a click saying more,
+ * or a click on the line of a file that holds only one journey's worth — the whole file is fitted.
+ * Camera only: the pane shows the note either way.
+ */
+export type PaneFocus =
+    | { at: [ number, number ] }
+    | { track: number };
 
 /**
  * The pane standing against the trailing edge of the map for as long as a marker is selected.
@@ -134,7 +147,7 @@ export default function DetailPane({ notes, placing, isReadOnly, selection, onSe
                 return;
             }
 
-            onSelect({ noteId: String(feature.properties.id) });
+            onSelect({ noteId: String(feature.properties.id), focus: featureFocus(feature) });
         };
 
         map.on("click", onClick);
@@ -147,11 +160,22 @@ export default function DetailPane({ notes, placing, isReadOnly, selection, onSe
     // location too, so a marker that has just been put somewhere else is followed there.
     //
     // A GPX track is not a point but a shape, so it is fitted rather than centred: panned and
-    // zoomed until the whole of it stands in the part of the map the pane leaves uncovered.
+    // zoomed until it stands in the part of the map the pane leaves uncovered — the whole file,
+    // or only what the click named where it named more (see PaneFocus).
     useEffect(() => {
         if (!map || !note) return;
 
         if (note.mime === GPX_MIME) {
+            const focus = selection?.focus;
+
+            // A clicked flag is a place the reader chose: stood clear of the pane at the zoom they
+            // were reading at, exactly as a note marker is — flying out to frame the whole file
+            // would lose the very flag they clicked.
+            if (focus && "at" in focus) {
+                map.easeTo({ center: focus.at, offset: paneOffset(map) });
+                return;
+            }
+
             const sourceId = trackSourceId(note.noteId);
             // Reading the track back off the map is asynchronous, and the answer may arrive after
             // the pane has moved on — to another note, or to nothing at all — or after another
@@ -159,7 +183,7 @@ export default function DetailPane({ notes, placing, isReadOnly, selection, onSe
             let done = false;
 
             const fit = async () => {
-                const bounds = await trackBounds(map, note.noteId);
+                const bounds = await trackBounds(map, note.noteId, focus?.track);
                 if (done || !bounds) return;
                 done = true;
                 map.off("sourcedata", onSourceData);
@@ -187,7 +211,9 @@ export default function DetailPane({ notes, placing, isReadOnly, selection, onSe
         if (!coordinates) return;
 
         map.easeTo({ center: coordinates, offset: paneOffset(map) });
-    }, [ map, note?.noteId, location ]);
+        // The focus is depended on by identity, which a click renews even on the same note: every
+        // click is a fresh ask, and re-clicking what is already open brings it back into view.
+    }, [ map, note?.noteId, location, selection?.focus ]);
 
     // Bound only while something is selected, so the map's other Escape — giving up on placing a
     // marker (see index.tsx) — stands alone when nothing is.
@@ -283,11 +309,32 @@ const TRACK_FIT_AIR = 60;
 const TRACK_FIT_MAX_ZOOM = 16;
 
 /**
- * The corners of the selected track, as `fitBounds` wants them, read back off the map itself — the
- * source already holds every point of the line and its marks, so the file is not parsed twice.
- * `null` for a track that is not on this map, or holds nothing with a place.
+ * What of its note a clicked feature names, beyond the note itself: its own place, for a point (a
+ * track's flag or a note's pin), or which of a file's journeys it is, for a line that says
+ * (`track`, see GpxTrack). A line's extent cannot be read here — the geometry a rendered feature
+ * answers with is clipped to the tile it was hit in — so a track is named for the camera effect to
+ * measure off the source instead. A note marker's point is named too, and goes unused: its camera
+ * follows the location label, which also moves when the marker does (see the camera effect).
  */
-async function trackBounds(map: MapLibreGLMap, noteId: string): Promise<[[number, number], [number, number]] | null> {
+function featureFocus(feature: MapGeoJSONFeature): PaneFocus | undefined {
+    if (feature.geometry.type === "Point") {
+        return { at: feature.geometry.coordinates as [ number, number ] };
+    }
+
+    const track = feature.properties?.track;
+    return typeof track === "number" ? { track } : undefined;
+}
+
+/**
+ * The corners of the selected track, as `fitBounds` wants them, read back off the map itself — the
+ * source already holds every point of the lines and their marks, so the file is not parsed twice.
+ * `null` for a track that is not on this map, or holds nothing with a place.
+ *
+ * Given a `track`, only the journey under that index counts (see the `track` property in GpxTrack):
+ * its flags stand on its line, and another journey's ground — or a waypoint hung off in a third
+ * place — is exactly what focusing one track is meant to leave out of frame.
+ */
+async function trackBounds(map: MapLibreGLMap, noteId: string, track?: number): Promise<[[number, number], [number, number]] | null> {
     const data = await map.getSource<GeoJSONSource>(trackSourceId(noteId))?.getData();
     if (!data || data.type !== "FeatureCollection") return null;
 
@@ -299,7 +346,9 @@ async function trackBounds(map: MapLibreGLMap, noteId: string): Promise<[[number
         north = Math.max(north, lat);
     };
 
-    for (const { geometry } of data.features) {
+    for (const { geometry, properties } of data.features) {
+        if (track !== undefined && properties?.track !== track) continue;
+
         if (geometry.type === "Point") {
             extend(geometry.coordinates);
         } else if (geometry.type === "MultiLineString") {

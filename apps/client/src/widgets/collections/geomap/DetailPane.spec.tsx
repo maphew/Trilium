@@ -124,9 +124,10 @@ function markerFeature(note: FNote, coordinates: [number, number] = [ 2, 1 ]) {
     return { geometry: { type: "Point", coordinates }, properties: { id: note.noteId } };
 }
 
-/** A GPX track's hit line, as MapLibre reports one — the note carried in the feature (see GpxTrack). */
-function trackFeature(note: FNote) {
-    return { geometry: { type: "MultiLineString", coordinates: [] }, properties: { id: note.noteId } };
+/** A GPX track's hit line, as MapLibre reports one — the note carried in the feature (see GpxTrack),
+ *  and which of the file's journeys the line is, where the source says. */
+function trackFeature(note: FNote, track?: number) {
+    return { geometry: { type: "MultiLineString", coordinates: [] }, properties: { id: note.noteId, ...(track !== undefined ? { track } : {}) } };
 }
 
 describe("DetailPane", () => {
@@ -318,6 +319,60 @@ describe("DetailPane", () => {
         // Announced again — a repaint, a tile settling — the map stays where it was put.
         await act(async () => { map.fireSourceData(trackSourceId(note.noteId)); });
         expect(map.fitted).toHaveLength(1);
+    });
+
+    /**
+     * A file may hold several journeys, and the clicked line says which it is (the `track` index,
+     * see GpxTrack): only that one is framed. The other journey's ground — and a waypoint hung off
+     * in a third place — is exactly what focusing one track is meant to leave out of the frame.
+     */
+    it("fits only the journey that was clicked, of a file holding several", async () => {
+        buildNote({ id: "root", title: "root", children: [ { id: "hiketwo", title: "Two rides", mime: GPX_MIME } ] });
+        const note = froca.notes["hiketwo"];
+        const map = fakeMap();
+        map.addSource(trackSourceId(note.noteId), {
+            type: "FeatureCollection",
+            features: [
+                { type: "Feature", properties: { id: note.noteId, track: 0 }, geometry: { type: "MultiLineString", coordinates: [ [ [ 24.13, 45.79 ], [ 24.16, 45.96 ] ] ] } },
+                { type: "Feature", properties: { id: note.noteId, track: 1 }, geometry: { type: "MultiLineString", coordinates: [ [ [ 25.5, 46.5 ], [ 25.7, 46.7 ] ] ] } },
+                { type: "Feature", properties: { id: note.noteId }, geometry: { type: "Point", coordinates: [ 20, 40 ] } }
+            ]
+        });
+        await mount([ note ], map);
+
+        map.setUnderPointer([ trackFeature(note, 1) ]);
+        await act(async () => map.click());
+        await settle();
+
+        expect(map.fitted).toEqual([ {
+            bounds: [ [ 25.5, 46.5 ], [ 25.7, 46.7 ] ],
+            options: { padding: { top: 60, bottom: 60, left: 60, right: 460 }, maxZoom: 16 }
+        } ]);
+    });
+
+    /**
+     * A clicked flag is a place the reader chose, not a request to re-frame the file: it is stood
+     * clear of the pane at the zoom they were reading at, exactly as a note marker is — flying out
+     * to the whole track would lose the very flag they clicked.
+     */
+    it("pans to a clicked flag without re-framing the whole file", async () => {
+        buildNote({ id: "root", title: "root", children: [ { id: "hikeflag", title: "A hike", mime: GPX_MIME } ] });
+        const note = froca.notes["hikeflag"];
+        const map = fakeMap();
+        map.addSource(trackSourceId(note.noteId), {
+            type: "FeatureCollection",
+            features: [ { type: "Feature", properties: { id: note.noteId }, geometry: { type: "MultiLineString", coordinates: [ [ [ 24.13, 45.79 ], [ 24.16, 45.96 ] ] ] } } ]
+        });
+        await mount([ note ], map);
+
+        // The click lands on one of the track's marks — a Point feature, the same shape a note's
+        // pin answers a hit with.
+        map.setUnderPointer([ markerFeature(note, [ 24.16, 45.96 ]) ]);
+        await act(async () => map.click());
+        await settle();
+
+        expect(map.fitted).toEqual([]);
+        expect(map.eased).toEqual([ { center: [ 24.16, 45.96 ], offset: [ -200, 0 ] } ]);
     });
 
     /**

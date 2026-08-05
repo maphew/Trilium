@@ -1,7 +1,8 @@
 /**
- * Reads a GPX file into the numbers a preview can show: how far it goes, how much it climbs, when
- * it was travelled and what it is made of. Pure parsing and arithmetic over the XML — nothing here
- * touches the map or the app, so the whole module is unit-testable.
+ * Reads a GPX file into the numbers a preview can show — how far it goes, how much it climbs, when
+ * it was travelled and what it is made of — and into the lines the map draws (see
+ * {@link readTrackLines}). Pure parsing and arithmetic over the XML — nothing here touches the map
+ * or the app, so the whole module is unit-testable.
  */
 
 /** What marks a note as a GPX track: the mime its file carries. */
@@ -133,6 +134,67 @@ export function parseGpxStats(xml: string): GpxStats | null {
     }
 
     return stats;
+}
+
+/** One of the journeys a GPX file holds — a `<trk>` or a `<rte>` — as the map draws it. */
+export interface GpxTrackLines {
+    /** What the file calls this track or route, where it names one. */
+    name?: string;
+    /** One line per segment of a track, kept apart where the recording stopped; a route is one line. */
+    lines: [number, number][][];
+}
+
+/**
+ * The lines a GPX file draws, one entry per track and one per route — a file may hold several, and
+ * each is a journey of its own: flagged, named and focused for itself (see GpxTrack and the pane's
+ * camera in DetailPane), where flattening them strung one journey's flags across another's ground.
+ *
+ * Points that name no readable position are dropped. A line of one point is kept: it draws nothing,
+ * but it is still where a journey began or ended, which is what the marks are placed from. A file
+ * whose points sit outside any track or route is not one the GPX schema allows, but it used to draw
+ * as a single line here and there is no reason to stop drawing it — the fallback is only reached
+ * when the reading above it found nothing, so a well-formed file never takes it.
+ */
+export function readTrackLines(doc: Document): GpxTrackLines[] {
+    const tracks: GpxTrackLines[] = [];
+
+    for (const container of doc.querySelectorAll("trk, rte")) {
+        const lines = container.localName === "rte"
+            ? [ readCoordinates(container.querySelectorAll("rtept")) ]
+            : [ ...container.querySelectorAll("trkseg") ].map((segment) => readCoordinates(segment.querySelectorAll("trkpt")));
+
+        const kept = lines.filter((line) => line.length > 0);
+        if (kept.length > 0) {
+            tracks.push({ name: childText(container, "name")?.trim() || undefined, lines: kept });
+        }
+    }
+
+    if (tracks.length === 0) {
+        const points = readCoordinates(doc.querySelectorAll("trkpt, rtept"));
+        if (points.length > 0) {
+            tracks.push({ lines: [ points ] });
+        }
+    }
+
+    return tracks;
+}
+
+/**
+ * The `[lng, lat]` GeoJSON wants, for each element that carries a readable pair. One that cannot
+ * say where it is is skipped rather than defaulted: falling back to zero put it in the Gulf of
+ * Guinea and ran the line out to it and back.
+ */
+export function readCoordinates(points: Iterable<Element>): [number, number][] {
+    const coordinates: [number, number][] = [];
+
+    for (const point of points) {
+        const lat = parseFloat(point.getAttribute("lat") ?? "");
+        const lon = parseFloat(point.getAttribute("lon") ?? "");
+        if (!Number.isFinite(lat) || !Number.isFinite(lon)) continue;
+        coordinates.push([ lon, lat ]);
+    }
+
+    return coordinates;
 }
 
 /** How much a point's elevation must move, in metres, before it counts as climbing rather than as

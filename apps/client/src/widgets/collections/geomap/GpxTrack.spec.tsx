@@ -306,6 +306,44 @@ describe("GpxTrack", () => {
         }
     });
 
+    /**
+     * A file may hold several tracks, and each is a journey of its own: a line of its own — named
+     * by the feature's `track` index, which is how a click on one says which it hit (see the pane's
+     * focus in DetailPane) — flagged with its own start and end, and labelled with its own name
+     * where the file gives one. One pair of flags strung across the file marked a start in one town
+     * and an end in another as though something ran between.
+     */
+    it("draws each of the file's tracks as a journey of its own", () => {
+        map.loadStyle();
+        renderTrack({
+            styleLoaded: true,
+            gpx: `<?xml version="1.0" encoding="UTF-8"?>
+<gpx version="1.1" xmlns="http://www.topografix.com/GPX/1/1">
+  <trk><name>Day one</name><trkseg>
+    <trkpt lat="45.79" lon="24.13" /><trkpt lat="45.81" lon="24.14" />
+  </trkseg></trk>
+  <trk><trkseg>
+    <trkpt lat="46.20" lon="24.50" /><trkpt lat="46.30" lon="24.60" />
+  </trkseg></trk>
+</gpx>`
+        });
+
+        const lines = features().filter((feature) => feature.geometry.type === "MultiLineString");
+        expect(lines.map((line) => line.properties)).toEqual([
+            // Named for itself where the file names it, for the note where it does not.
+            { id: NOTE_ID, track: 0, name: "Day one" },
+            { id: NOTE_ID, track: 1, name: "A Sunday ride" }
+        ]);
+
+        // A pair of flags per journey, the start of each saying its own name.
+        expect(marks().map((mark) => ({ ...mark.properties, at: mark.geometry.coordinates }))).toEqual([
+            { id: NOTE_ID, icon: START_IMAGE, name: "Day one", at: [ 24.13, 45.79 ] },
+            { id: NOTE_ID, icon: END_IMAGE, name: "", at: [ 24.14, 45.81 ] },
+            { id: NOTE_ID, icon: START_IMAGE, name: "A Sunday ride", at: [ 24.5, 46.2 ] },
+            { id: NOTE_ID, icon: END_IMAGE, name: "", at: [ 24.6, 46.3 ] }
+        ]);
+    });
+
     it("draws a route as it draws a track", () => {
         map.loadStyle();
         renderTrack({
@@ -362,7 +400,7 @@ describe("GpxTrack", () => {
         expect(label?.layout?.["symbol-placement"]).toBe("line");
         expect(label?.layout?.["text-field"]).toEqual([ "get", "name" ]);
         expect(label?.layout?.["text-font"]).toEqual([ "Open Sans Regular" ]);
-        expect(trackProperties()).toEqual({ id: NOTE_ID, name: "A Sunday ride" });
+        expect(trackProperties()).toEqual({ id: NOTE_ID, track: 0, name: "A Sunday ride" });
     });
 
     it("draws the name the way the marker titles are drawn, light map or dark", () => {
