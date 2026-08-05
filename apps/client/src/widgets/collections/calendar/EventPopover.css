@@ -50,20 +50,27 @@
 }
 
 /*
- * The same event as a sheet (see EventSheet): the dialog brings the surface, what heads it and the
- * way out, so the body gives up the padding and the scrolling it kept for itself in the popover —
- * a full-page dialog scrolls its own body — and stands as the plain column the shared class makes
- * of it.
+ * The same event as a sheet (see EventSheet). What heads it, the surface and the way out are the
+ * dialog's, and its head is dressed as the quick editor's (see the shared rules in
+ * PopupEditor.css); what is left here is how tall it stands and the body inside it.
  */
-.calendar-event-sheet .calendar-event-popover-body {
+.modal.calendar-event-sheet .modal-dialog {
+    /* As tall as a dialog may stand, the quick editor's own bargain: a note's editor wants the
+       room, and a sheet sized to its contents would jump between one event and the next. */
+    max-height: var(--tn-modal-max-height);
+    height: 100%;
+}
+
+/* The head carries a background of its own, which would square off the corners the dialog is
+   rounded by — the very thing a page-high sheet gives up (see EventSheet). */
+.modal.calendar-event-sheet .modal-content {
+    overflow: hidden;
+}
+
+/* The body gives up the padding and the scrolling it keeps for itself in the popover: the dialog
+   scrolls its own (`scrollable`), and pads it. */
+.modal.calendar-event-sheet .calendar-event-popover-body {
     padding: 0;
     overflow: visible;
     scrollbar-gutter: auto;
-}
-
-/* The note's title row is the dialog's title, so it takes the header's room as a title would —
-   the close button beside it keeping its own. */
-.calendar-event-sheet .modal-header > .title-row {
-    flex: 1;
-    min-width: 0;
 }

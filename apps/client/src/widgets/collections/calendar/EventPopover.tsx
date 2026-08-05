@@ -130,12 +130,15 @@ function EventPopoverShell({ note, anchorRect, updateKey, parentNote, isEditable
 
 /**
  * The event as a phone shows it: the sheet the app raises its dialogs as, rising from the foot of
- * the screen (see `body.mobile .modal-dialog` in style.css). Given the whole page rather than the
- * standing 85% of it, since what it holds is a note's own editor and a sheet would spend half the
- * screen on the calendar behind it.
+ * the screen (see `body.mobile .modal-dialog` in style.css).
  *
- * The note's title row heads the dialog rather than standing inside it, which is what the sheet
- * has a header for; Escape and the backdrop are the dialog's own to answer.
+ * Dressed as the quick editor is, that being the app's own way of showing a whole note over
+ * whatever raised it — the note's title row heading the dialog rather than standing inside it, at
+ * the height it stands there (see the shared rules in PopupEditor.css). It rises to what a dialog
+ * may take rather than to the whole page, as the quick editor does: a page-high sheet squares off
+ * the corners the app rounds every dialog by, and gains nothing for it.
+ *
+ * Escape and the backdrop are the dialog's own to answer.
  */
 function EventSheet({ note, parentNote, isEditable, onClose }: {
     note: FNote;
@@ -161,8 +164,7 @@ function EventSheet({ note, parentNote, isEditable, onClose }: {
         <Modal
             className="calendar-event-sheet"
             size="lg"
-            title={<TitleRow compact />}
-            isFullPageOnMobile
+            title={<TitleRow />}
             scrollable
             modalRef={modalRef}
             show={shown}
