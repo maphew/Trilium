@@ -92,24 +92,3 @@
     }
 }
 
-/*
- * The ways of opening the note, at the head of the pane. Named by tooltips rather than labels, as
- * every other row of actions in a panel is: labels would wrap four buttons onto two lines here.
- */
-.geo-map-container .geo-detail-pane .geo-detail-pane-actions {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-
-    /* Those that write rather than read stand apart from the ones being reached for repeatedly, so
-       the pointer cannot land on one of them by being a moment early. The gap falls before the first
-       of them, which is the colour: they are drawn together or not at all, a read-only map having
-       none of them. */
-    .geo-detail-pane-color {
-        margin-inline-start: auto;
-    }
-}
-
-:root .geo-map-container .geo-detail-pane .geo-detail-pane-remove.icon-action {
-    color: var(--dropdown-item-icon-destructive-color);
-}

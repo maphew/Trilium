@@ -4,21 +4,15 @@ import clsx from "clsx";
 import type { GeoJSONSource, MapGeoJSONFeature, Map as MapLibreGLMap, MapMouseEvent, MapSourceDataEvent } from "maplibre-gl";
 import { useCallback, useContext, useEffect, useMemo, useRef } from "preact/hooks";
 
-import appContext from "../../../components/app_context";
-import { openInCurrentNoteContext } from "../../../components/note_context";
 import FNote from "../../../entities/fnote";
-import NoteColorPicker from "../../../menus/custom-items/NoteColorPicker";
-import linkContextMenu from "../../../menus/link_context_menu";
 import { copyTextWithToast } from "../../../services/clipboard_ext";
 import { t } from "../../../services/i18n";
 import link from "../../../services/link";
-import { announceEmbeddedNoteClosing, EmbeddedNoteScope, useEmbeddedNoteContext } from "../../EmbeddedNotePane";
+import { announceEmbeddedNoteClosing, EmbeddedNoteActions, EmbeddedNoteScope, NoteColorAction, OpenNoteActions, useEmbeddedNoteContext } from "../../EmbeddedNotePane";
 import TitleRow from "../../layout/TitleRow";
 import NoteDetail from "../../NoteDetail";
 import PromotedAttributes from "../../PromotedAttributes";
 import ActionButton from "../../react/ActionButton";
-import Dropdown from "../../react/Dropdown";
-import { FormListItem } from "../../react/FormList";
 import { useLegacyComponentElement, useNoteColorClass, useNoteContext, useNoteLabel, useStaticTooltip } from "../../react/hooks";
 import OverlayPanel, { OverlayPanelBody } from "../../react/OverlayPanel";
 import { ParentComponent } from "../../react/react_utils";
@@ -479,64 +473,16 @@ function MarkerDetails({ note, parentNote, isReadOnly, onClose, onRelocate, onFo
 const PANE_NTX_ID = "_geo-detail-pane";
 
 /**
- * What can be done with the marker: the ways of opening its note, then the ways of changing it.
- *
- * One way of opening it stands out — into the tab the map is in — and the rest are gathered behind
- * the button beside it. Three of them spread across the row read as three unrelated things when they
- * are one thing with three destinations, and the menu they are gathered into is the app's own, so
- * the pane offers exactly what a link offers anywhere else rather than a hand-kept subset of it.
- *
- * The quick editor is in that menu but not in the row: it is what a click on a marker used to raise,
- * and the pane took that click over — offering it here would put a modal back over the pane that
- * replaced it.
+ * What can be done with the marker: the ways of opening its note (see {@link OpenNoteActions}),
+ * then the ways of changing it.
  */
 function MarkerActions({ note, parentNote, isReadOnly, onRelocate }: { note: FNote; parentNote: FNote; isReadOnly: boolean; onRelocate(): void }) {
     const [ location ] = useNoteLabel(note, LOCATION_ATTRIBUTE);
-    const hoistedNoteId = appContext.tabManager.getActiveContext()?.hoistedNoteId;
-    // A path rather than an id: a note may hang in several places, and each of these opens a path.
-    const notePath = note.getBestNotePathString(hoistedNoteId);
     const latLng = parseLocation(location);
 
     return (
-        <div className="geo-detail-pane-actions">
-            <ActionButton
-                icon="bx bx-log-in"
-                text={t("geo-map.open-note")}
-                // Handed the event: `openInCurrentNoteContext` reads the target tab off the element
-                // clicked, which lands the note in the tab the map is in.
-                onClick={(e) => notePath && openInCurrentNoteContext(e as MouseEvent, notePath)}
-                disabled={!notePath}
-            />
-
-            {/* The other ways of opening it, gathered behind one button rather than spread across
-                three: they are one act with three destinations.
-
-                A dropdown and not the menu the marker's own right-click raises — that one is shown
-                at a point and dismissed by the next press on the document, and the press that opened
-                it from inside the panel is that press. */}
-            <Dropdown
-                className="geo-detail-pane-more"
-                buttonClassName="bx bx-dots-horizontal-rounded"
-                title={t("geo-map.more-ways-to-open")}
-                iconAction
-                hideToggleArrow
-                noDropdownListStyle
-                // The panel clips what overflows it, so a menu nested in the row would be cut off at
-                // its edge; and the panel's backdrop filter would flatten the menu's own.
-                portalToBody
-                disabled={!notePath}
-            >
-                {OTHER_WAYS_TO_OPEN.map(({ command, icon, title }) => (
-                    <FormListItem
-                        key={command}
-                        icon={icon}
-                        onClick={(e) => notePath && linkContextMenu.handleLinkContextMenuItem(
-                            command, e as MouseEvent, notePath, {}, hoistedNoteId ?? null)}
-                    >
-                        {title()}
-                    </FormListItem>
-                ))}
-            </Dropdown>
+        <EmbeddedNoteActions>
+            <OpenNoteActions note={note} />
 
             <ActionButton
                 icon="bx bx-map-alt"
@@ -549,23 +495,9 @@ function MarkerActions({ note, parentNote, isReadOnly, onRelocate }: { note: FNo
             {/* Left out rather than disabled on a read-only map, as the right-click menu leaves them
                 out: everything else in the row reads the note, these three alone write it. */}
             {!isReadOnly && <>
-                {/* The colour the pin is drawn in, which the pane already wears in its title but had
-                    no way of setting — the right-click menu was the only place it could be reached.
-
-                    Sent to the body because the panel both clips what overflows it and carries a
-                    backdrop filter, either of which would be enough to cut the menu off or flatten
-                    its own frosting (see the Dropdown notes in CLAUDE.md). */}
-                <Dropdown
-                    className="geo-detail-pane-color"
-                    buttonClassName="bx bx-palette"
-                    title={t("geo-map.marker-color")}
-                    iconAction
-                    hideToggleArrow
-                    noDropdownListStyle
-                    portalToBody
-                >
-                    <NoteColorPicker note={note} />
-                </Dropdown>
+                {/* Named for the pin it dresses, the colour it sets being worn everywhere the note
+                    shows (see NoteColorPicker). */}
+                <NoteColorAction note={note} title={t("geo-map.marker-color")} />
 
                 {/* A track is offered nothing here: it is on the map by being drawn across it, and
                     its place is the line its file holds rather than a location that could be
@@ -581,7 +513,7 @@ function MarkerActions({ note, parentNote, isReadOnly, onRelocate }: { note: FNo
                 />}
 
                 <ActionButton
-                    className="geo-detail-pane-remove"
+                    className="tn-embedded-note-remove"
                     icon="bx bx-trash"
                     // Named for what it does to a track, which is delete the note: a track's line is
                     // drawn from the note's own file, so there is no taking it off the map and
@@ -593,31 +525,9 @@ function MarkerActions({ note, parentNote, isReadOnly, onRelocate }: { note: FNo
                     onClick={() => void removeFromMap(note, parentNote)}
                 />
             </>}
-        </div>
+        </EmbeddedNoteActions>
     );
 }
-
-/**
- * The ways of opening a note other than in the tab one is already in, which the split hides behind
- * its arrow. The same four a link offers anywhere in the app, and each is carried out by the app's
- * own handler — only the naming of them is repeated here.
- *
- * Repeated because `linkContextMenu.getItems` asks for the event that raised it, which a menu drawn
- * before anything is pressed does not have. What it wants the event for is one mobile-only wording,
- * so the loss is a label rather than behaviour. The titles are thunks so they are translated when
- * the menu is drawn rather than when this module loads.
- */
-export const OTHER_WAYS_TO_OPEN = [
-    { command: "openNoteInNewTab", icon: "bx bx-link-external", title: () => t("link_context_menu.open_note_in_new_tab") },
-    // The one the row never offered, and the one a map most wants: the place stays on show while the
-    // note is read beside it.
-    { command: "openNoteInNewSplit", icon: "bx bx-dock-right", title: () => t("link_context_menu.open_note_in_new_split") },
-    { command: "openNoteInNewWindow", icon: "bx bx-window-open", title: () => t("link_context_menu.open_note_in_new_window") },
-    // The quick editor, which is what a marker click used to raise before the pane took that click
-    // over. Kept because the marker's own right-click menu offers it and the two should agree —
-    // it is a way of opening the note that happens to stand over the pane, not a rival to it.
-    { command: "openNoteInPopup", icon: "bx bx-edit", title: () => t("link_context_menu.open_note_in_popup") }
-] as const;
 
 /**
  * Where the marker stands, written out under the note's name.

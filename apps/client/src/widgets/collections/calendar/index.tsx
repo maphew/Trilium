@@ -230,7 +230,12 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
                         }}
                     />
                 </div>
-                <DetailDock noteId={selectedNoteId} onClose={() => setSelectedNoteId(null)} />
+                <DetailDock
+                    noteId={selectedNoteId}
+                    parentNote={note}
+                    isEditable={isEditable}
+                    onClose={() => setSelectedNoteId(null)}
+                />
             </div>
         </div>
     );

@@ -80,4 +80,23 @@
     .promoted-attributes-widget:not(:has(.promoted-attribute-cell)) {
         display: none;
     }
+
+    /* The row of actions at the head of the pane (see EmbeddedNoteActions). */
+    .tn-embedded-note-actions {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+
+        /* Those that write rather than read stand apart from the ones being reached for repeatedly,
+           so the pointer cannot land on one of them by being a moment early. The gap falls before
+           the first of them, which is the colour: they are drawn together or not at all, a
+           read-only host having none of them. */
+        .tn-embedded-note-color {
+            margin-inline-start: auto;
+        }
+    }
+}
+
+:root .tn-embedded-note-pane .tn-embedded-note-remove.icon-action {
+    color: var(--dropdown-item-icon-destructive-color);
 }

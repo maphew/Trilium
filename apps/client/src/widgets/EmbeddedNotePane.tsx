@@ -5,8 +5,14 @@ import { useContext, useEffect, useState } from "preact/hooks";
 
 import appContext from "../components/app_context";
 import Component from "../components/component";
-import NoteContext from "../components/note_context";
+import NoteContext, { openInCurrentNoteContext } from "../components/note_context";
 import FNote from "../entities/fnote";
+import NoteColorPicker from "../menus/custom-items/NoteColorPicker";
+import linkContextMenu from "../menus/link_context_menu";
+import { t } from "../services/i18n";
+import ActionButton from "./react/ActionButton";
+import Dropdown from "./react/Dropdown";
+import { FormListItem } from "./react/FormList";
 import { NoteContextContext, ParentComponent } from "./react/react_utils";
 
 /*
@@ -103,5 +109,118 @@ export function EmbeddedNoteScope({ component, noteContext, children }: {
                 {children}
             </NoteContextContext.Provider>
         </ParentComponent.Provider>
+    );
+}
+
+/**
+ * The row of actions at the head of the pane: the ways of opening the note, then whatever the host
+ * offers to change about it. Named by tooltips rather than labels, as every other row of actions in
+ * a panel is: labels would wrap a handful of buttons onto two lines at this width.
+ */
+export function EmbeddedNoteActions({ children }: { children: ComponentChildren }) {
+    return <div className="tn-embedded-note-actions">{children}</div>;
+}
+
+/**
+ * The ways of opening the pane's note. One stands out — into the tab the host view is in — and the
+ * rest are gathered behind the button beside it: spread across the row they read as unrelated
+ * things when they are one thing with several destinations, and the menu they are gathered into is
+ * the app's own, so the pane offers exactly what a link offers anywhere else rather than a
+ * hand-kept subset of it.
+ *
+ * The quick editor is in that menu but not in the row: it is what a click on the note's marker or
+ * chip used to raise, and the pane took that click over — offering it here would put a modal back
+ * over the pane that replaced it.
+ */
+export function OpenNoteActions({ note }: { note: FNote }) {
+    const hoistedNoteId = appContext.tabManager.getActiveContext()?.hoistedNoteId;
+    // A path rather than an id: a note may hang in several places, and each of these opens a path.
+    const notePath = note.getBestNotePathString(hoistedNoteId);
+
+    return (
+        <>
+            <ActionButton
+                icon="bx bx-log-in"
+                text={t("embedded_note.open-note")}
+                // Handed the event: `openInCurrentNoteContext` reads the target tab off the element
+                // clicked, which lands the note in the tab the host view is in.
+                onClick={(e) => notePath && openInCurrentNoteContext(e as MouseEvent, notePath)}
+                disabled={!notePath}
+            />
+
+            {/* A dropdown and not the menu the note's own right-click raises — that one is shown at
+                a point and dismissed by the next press on the document, and the press that opened
+                it from inside the panel is that press. */}
+            <Dropdown
+                className="tn-embedded-note-more"
+                buttonClassName="bx bx-dots-horizontal-rounded"
+                title={t("embedded_note.more-ways-to-open")}
+                iconAction
+                hideToggleArrow
+                noDropdownListStyle
+                // The panel clips what overflows it, so a menu nested in the row would be cut off at
+                // its edge; and a panel's backdrop filter would flatten the menu's own.
+                portalToBody
+                disabled={!notePath}
+            >
+                {OTHER_WAYS_TO_OPEN.map(({ command, icon, title }) => (
+                    <FormListItem
+                        key={command}
+                        icon={icon}
+                        onClick={(e) => notePath && linkContextMenu.handleLinkContextMenuItem(
+                            command, e as MouseEvent, notePath, {}, hoistedNoteId ?? null)}
+                    >
+                        {title()}
+                    </FormListItem>
+                ))}
+            </Dropdown>
+        </>
+    );
+}
+
+/**
+ * The ways of opening a note other than in the tab one is already in, which the split hides behind
+ * its arrow. The same four a link offers anywhere in the app, and each is carried out by the app's
+ * own handler — only the naming of them is repeated here.
+ *
+ * Repeated because `linkContextMenu.getItems` asks for the event that raised it, which a menu drawn
+ * before anything is pressed does not have. What it wants the event for is one mobile-only wording,
+ * so the loss is a label rather than behaviour. The titles are thunks so they are translated when
+ * the menu is drawn rather than when this module loads.
+ */
+export const OTHER_WAYS_TO_OPEN = [
+    { command: "openNoteInNewTab", icon: "bx bx-link-external", title: () => t("link_context_menu.open_note_in_new_tab") },
+    // The one worth having beside a collection view most of all: what the view shows stays on show
+    // while the note is read beside it.
+    { command: "openNoteInNewSplit", icon: "bx bx-dock-right", title: () => t("link_context_menu.open_note_in_new_split") },
+    { command: "openNoteInNewWindow", icon: "bx bx-window-open", title: () => t("link_context_menu.open_note_in_new_window") },
+    // The quick editor, which is what a click on the note used to raise before the pane took that
+    // click over. Kept because the note's own right-click menu offers it and the two should agree —
+    // it is a way of opening the note that happens to stand over the pane, not a rival to it.
+    { command: "openNoteInPopup", icon: "bx bx-edit", title: () => t("link_context_menu.open_note_in_popup") }
+] as const;
+
+/**
+ * The colour the note's marker, chip or card is drawn in, which the pane already wears in its title
+ * but would otherwise have no way of setting — the right-click menu was the only place it could be
+ * reached. Named by the host: what the colour dresses is the host's to say (a marker, an event).
+ *
+ * Sent to the body because a panel may clip what overflows it or carry a backdrop filter, either of
+ * which would be enough to cut the menu off or flatten its own frosting (see the Dropdown notes in
+ * CLAUDE.md).
+ */
+export function NoteColorAction({ note, title }: { note: FNote; title: string }) {
+    return (
+        <Dropdown
+            className="tn-embedded-note-color"
+            buttonClassName="bx bx-palette"
+            title={title}
+            iconAction
+            hideToggleArrow
+            noDropdownListStyle
+            portalToBody
+        >
+            <NoteColorPicker note={note} />
+        </Dropdown>
     );
 }
