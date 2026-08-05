@@ -1,11 +1,13 @@
 import { cls, getLog, options } from "@triliumnext/core";
 import type { NextFunction, Request as ExpressRequest, RequestHandler, Response as ExpressResponse } from "express";
-import { ClientSecretBasic, ClientSecretPost, type CustomFetch, customFetch, discovery } from "openid-client";
+import { generateKeyPairSync, type KeyObject, sign } from "node:crypto";
+import { authorizationCodeGrant, ClientSecretBasic, ClientSecretPost, type CustomFetch, customFetch, discovery } from "openid-client";
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
+import { describeError } from "../routes/error_handlers.js";
 import config from "./config.js";
 import openIDEncryption from "./encryption/open_id_encryption.js";
-import openID, { createReactiveOidcMiddleware, reconcileIssuerBaseUrl, resolveClientAuthMethod, resolveOAuthIdentity, supportsRpInitiatedLogout } from "./open_id.js";
+import openID, { createReactiveOidcMiddleware, DEFAULT_ID_TOKEN_SIGNING_ALG, reconcileIssuerBaseUrl, resolveClientAuthMethod, resolveIdTokenSigningAlg, resolveOAuthIdentity, supportsRpInitiatedLogout } from "./open_id.js";
 import sql from "./sql.js";
 import sqlInit from "./sql_init.js";
 
@@ -20,6 +22,7 @@ function setOauthConfig(complete: boolean) {
     mfa.oauthIssuerName = "Acme";
     mfa.oauthIssuerIcon = "icon.png";
     mfa.oauthClientAuthMethod = "";
+    mfa.oauthIdTokenSigningAlg = "";
 }
 
 describe("open_id", () => {
@@ -488,7 +491,8 @@ describe("open_id", () => {
 
             expect(await openID.probeDiscovery()).toEqual({
                 endSessionSupported: true,
-                issuerBaseUrl: "https://issuer.example.com"
+                issuerBaseUrl: "https://issuer.example.com",
+                idTokenSigningAlg: "RS256"
             });
             expect(fetchSpy).toHaveBeenCalledWith(wellKnownUrl, expect.anything());
         });
@@ -520,13 +524,15 @@ describe("open_id", () => {
             mockFetch(() => ({ ok: false, status: 404, json: () => Promise.resolve({}) }));
             expect(await openID.probeDiscovery()).toEqual({
                 endSessionSupported: false,
-                issuerBaseUrl: "https://issuer.example.com"
+                issuerBaseUrl: "https://issuer.example.com",
+                idTokenSigningAlg: "RS256"
             });
 
             vi.spyOn(globalThis, "fetch").mockRejectedValue(new Error("network down"));
             expect(await openID.probeDiscovery()).toEqual({
                 endSessionSupported: false,
-                issuerBaseUrl: "https://issuer.example.com"
+                issuerBaseUrl: "https://issuer.example.com",
+                idTokenSigningAlg: "RS256"
             });
         });
 
@@ -535,8 +541,125 @@ describe("open_id", () => {
             mfa.oauthIssuerBaseUrl = "";
             const fetchSpy = mockFetch(() => ({ ok: true, json: () => Promise.resolve({}) }));
 
-            expect(await openID.probeDiscovery()).toEqual({ endSessionSupported: false, issuerBaseUrl: "" });
+            expect(await openID.probeDiscovery()).toEqual({
+                endSessionSupported: false,
+                issuerBaseUrl: "",
+                idTokenSigningAlg: "RS256"
+            });
             expect(fetchSpy).not.toHaveBeenCalled();
+        });
+
+        it("reports the signing algorithm the issuer advertises", async () => {
+            // Pocket ID with an Ed25519 key (discussion 6318): RS256 is not on offer at all, so expecting it is
+            // what produced "unexpected JWT alg received, expected RS256, got: EdDSA".
+            setOauthConfig(true);
+            mockFetch(() => ({
+                ok: true,
+                json: () => Promise.resolve({
+                    issuer: "https://issuer.example.com",
+                    id_token_signing_alg_values_supported: ["EdDSA"]
+                })
+            }));
+
+            expect((await openID.probeDiscovery()).idTokenSigningAlg).toBe("EdDSA");
+        });
+    });
+
+    /**
+     * Cover for https://github.com/orgs/TriliumNext/discussions/6318: express-openid-connect defaults
+     * `idTokenSigningAlg` to RS256 and hands it to openid-client as the client's registered
+     * `id_token_signed_response_alg`, which is then enforced on every ID token. Trilium never set it, so
+     * any provider signing with something else — Pocket ID and Kanidm sign Ed25519 by default — failed
+     * the round-trip outright.
+     */
+    describe("resolveIdTokenSigningAlg", () => {
+        it("keeps RS256 unless the issuer rules it out", () => {
+            setOauthConfig(true);
+
+            // No document, an unusable one, or one that says nothing about signing: the OIDC Core
+            // default stands, so nothing changes for a deployment that works today.
+            expect(resolveIdTokenSigningAlg(null)).toBe("RS256");
+            expect(resolveIdTokenSigningAlg("not an object")).toBe("RS256");
+            expect(resolveIdTokenSigningAlg({})).toBe("RS256");
+            expect(resolveIdTokenSigningAlg({ id_token_signing_alg_values_supported: "RS256" })).toBe("RS256");
+
+            // Advertised alongside others, in any position — RS256 is preferred whenever it is on offer,
+            // so a provider that supports both keeps signing exactly as it does today.
+            expect(resolveIdTokenSigningAlg({ id_token_signing_alg_values_supported: ["RS256", "EdDSA"] })).toBe("RS256");
+            expect(resolveIdTokenSigningAlg({ id_token_signing_alg_values_supported: ["EdDSA", "ES256", "RS256"] })).toBe("RS256");
+        });
+
+        it("adopts the issuer's algorithm when RS256 is not offered", () => {
+            setOauthConfig(true);
+            const logSpy = vi.spyOn(getLog(), "info").mockImplementation(() => {});
+
+            expect(resolveIdTokenSigningAlg({ id_token_signing_alg_values_supported: ["EdDSA"] })).toBe("EdDSA");
+            expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("EdDSA"));
+            // First advertised wins among several; providers list their own preference first.
+            expect(resolveIdTokenSigningAlg({ id_token_signing_alg_values_supported: ["ES256", "EdDSA"] })).toBe("ES256");
+
+            // "none" would leave ID tokens unsigned, and express-openid-connect's schema rejects it —
+            // passing it through would take the whole OIDC round-trip down at build time.
+            expect(resolveIdTokenSigningAlg({ id_token_signing_alg_values_supported: ["none"] })).toBe("RS256");
+            expect(resolveIdTokenSigningAlg({ id_token_signing_alg_values_supported: ["none", "EdDSA"] })).toBe("EdDSA");
+            // Junk entries are ignored rather than handed on as an algorithm.
+            expect(resolveIdTokenSigningAlg({ id_token_signing_alg_values_supported: [null, "", 256, "EdDSA"] })).toBe("EdDSA");
+        });
+
+        it("lets an explicit oauthIdTokenSigningAlg override discovery", () => {
+            setOauthConfig(true);
+
+            // The escape hatch for a provider that misadvertises, in both directions.
+            mfa.oauthIdTokenSigningAlg = "  EdDSA  ";
+            expect(resolveIdTokenSigningAlg({ id_token_signing_alg_values_supported: ["RS256"] })).toBe("EdDSA");
+            mfa.oauthIdTokenSigningAlg = "RS512";
+            expect(resolveIdTokenSigningAlg({ id_token_signing_alg_values_supported: ["EdDSA"] })).toBe("RS512");
+
+            // ...but not into accepting unsigned ID tokens: that is logged and ignored, leaving
+            // discovery to answer, rather than reaching express-openid-connect's schema (which rejects
+            // "none" and would take the OIDC round-trip down at build time).
+            const logSpy = vi.spyOn(getLog(), "error").mockImplementation(() => {});
+            mfa.oauthIdTokenSigningAlg = "none";
+            expect(resolveIdTokenSigningAlg({ id_token_signing_alg_values_supported: ["EdDSA"] })).toBe("EdDSA");
+            expect(resolveIdTokenSigningAlg(null)).toBe("RS256");
+            expect(logSpy).toHaveBeenCalledWith(expect.stringContaining("none"));
+        });
+
+        /**
+         * The other half of the loop. The cases above pin what Trilium *resolves*; these pin that the
+         * resolved value is what openid-client then accepts, by running a real authorization-code
+         * exchange against a provider that genuinely signs Ed25519 — the Pocket ID shape from the report.
+         */
+        describe("against a real Ed25519-signing provider", () => {
+            it("rejects the ID token while the client expects RS256", async () => {
+                // The reported failure, reproduced end to end: the token is validly signed and the
+                // signature verifies, but the client is registered as expecting an algorithm the issuer
+                // does not use, so the exchange is refused before any claim is read.
+                expect(await eddsaIdTokenOutcome(DEFAULT_ID_TOKEN_SIGNING_ALG))
+                    .toContain('unexpected JWT "alg" header parameter');
+            });
+
+            it("accepts it once the expected algorithm is the issuer's", async () => {
+                expect(await eddsaIdTokenOutcome("EdDSA")).toBe("accepted");
+            });
+
+            it("resolves, from that provider's own discovery document, an algorithm that is accepted", async () => {
+                setOauthConfig(true);
+                const pocketId = { id_token_signing_alg_values_supported: ["EdDSA"] };
+                expect(await eddsaIdTokenOutcome(resolveIdTokenSigningAlg(pocketId))).toBe("accepted");
+            });
+        });
+
+        it("closes the loop: the resolved algorithm is what reaches express-openid-connect", () => {
+            setOauthConfig(true);
+
+            // Unset, the library would silently apply its RS256 default — the bug.
+            expect(openID.generateOAuthConfig().idTokenSigningAlg).toBe("RS256");
+            expect(openID.generateOAuthConfig(false, mfa.oauthIssuerBaseUrl, "EdDSA").idTokenSigningAlg).toBe("EdDSA");
+
+            // A configured value applies even to callers that never probed discovery.
+            mfa.oauthIdTokenSigningAlg = "ES256";
+            expect(openID.generateOAuthConfig().idTokenSigningAlg).toBe("ES256");
         });
     });
 
@@ -677,7 +800,8 @@ describe("createReactiveOidcMiddleware", () => {
         const buildAuth = vi.fn(() => oidcHandler);
         const probeDiscovery = vi.fn().mockResolvedValue({
             endSessionSupported: false,
-            issuerBaseUrl: PROBED_ISSUER
+            issuerBaseUrl: PROBED_ISSUER,
+            idTokenSigningAlg: "RS256"
         });
         const generateOAuthConfig = vi.fn((endSessionSupported: boolean) => ({ endSessionSupported }) as never);
         const isConfigured = vi.fn(() => configured);
@@ -731,7 +855,7 @@ describe("createReactiveOidcMiddleware", () => {
         const { req, res, next } = await run(t.middleware);
 
         expect(t.probeDiscovery).toHaveBeenCalledOnce();
-        expect(t.generateOAuthConfig).toHaveBeenCalledWith(false, PROBED_ISSUER);
+        expect(t.generateOAuthConfig).toHaveBeenCalledWith(false, PROBED_ISSUER, "RS256");
         expect(t.buildAuth).toHaveBeenCalledOnce();
         expect(t.oidcHandler).toHaveBeenCalledWith(req, res, expect.any(Function));
         // The wrapper must hand off to the OIDC handler and NOT call next() itself — calling it again
@@ -752,19 +876,21 @@ describe("createReactiveOidcMiddleware", () => {
         expect(t.oidcHandler).toHaveBeenCalledTimes(2);
     });
 
-    it("passes both discovery-probe results into the OAuth config", async () => {
+    it("passes every discovery-probe result into the OAuth config", async () => {
         const t = setup();
         // The issuer reaching express-openid-connect is the probe's, not whatever sits in config — that
-        // indirection is what lets a trailing-slash difference be reconciled (#10695).
+        // indirection is what lets a trailing-slash difference be reconciled (#10695). The signing
+        // algorithm travels the same way, so a non-RS256 provider is honoured (discussion 6318).
         t.probeDiscovery.mockResolvedValue({
             endSessionSupported: true,
-            issuerBaseUrl: "https://sso.example.com/application/o/trilium-app/"
+            issuerBaseUrl: "https://sso.example.com/application/o/trilium-app/",
+            idTokenSigningAlg: "EdDSA"
         });
         t.setConfigured(true);
 
         await run(t.middleware);
 
-        expect(t.generateOAuthConfig).toHaveBeenCalledWith(true, "https://sso.example.com/application/o/trilium-app/");
+        expect(t.generateOAuthConfig).toHaveBeenCalledWith(true, "https://sso.example.com/application/o/trilium-app/", "EdDSA");
     });
 
     // This is the regression the whole change exists to fix: with the old startup-only mount, flipping
@@ -805,13 +931,13 @@ describe("createReactiveOidcMiddleware", () => {
 
         // A deferred discovery probe keeps the first build in flight while a second request arrives,
         // exercising the in-flight-init guard (otherwise both requests would each build a handler).
-        type Probe = { endSessionSupported: boolean; issuerBaseUrl: string };
+        type Probe = { endSessionSupported: boolean; issuerBaseUrl: string; idTokenSigningAlg: string };
         let resolveProbe: (value: Probe) => void = () => {};
         t.probeDiscovery.mockReturnValue(new Promise<Probe>((resolve) => { resolveProbe = resolve; }));
 
         const first = run(t.middleware);
         const second = run(t.middleware);
-        resolveProbe({ endSessionSupported: false, issuerBaseUrl: PROBED_ISSUER });
+        resolveProbe({ endSessionSupported: false, issuerBaseUrl: PROBED_ISSUER, idTokenSigningAlg: "RS256" });
         await Promise.all([first, second]);
 
         expect(t.buildAuth).toHaveBeenCalledOnce();
@@ -1031,4 +1157,84 @@ async function discoveryOutcome(configuredIssuer: string, advertisedIssuer: stri
     } catch (error) {
         return (error as { code?: string })?.code ?? String(error);
     }
+}
+
+/** The issuer the {@link eddsaIdTokenOutcome} stub provider answers as. */
+const EDDSA_ISSUER = "https://issuer.example.com";
+const EDDSA_CLIENT_ID = "client-id";
+
+/**
+ * Runs a full authorization-code exchange against a stub provider that signs its ID token with Ed25519,
+ * with the client registered as expecting `expectedAlg` — which is precisely what express-openid-connect
+ * hands openid-client as `id_token_signed_response_alg`. Returns `"accepted"`, or the error message a
+ * user would see in the log.
+ *
+ * Like {@link discoveryOutcome} this drives the real openid-client over a `customFetch` transport, so the
+ * assertions are about the library's actual behaviour rather than a re-implementation of it — but here
+ * the token is genuinely signed and genuinely verified against the served JWKS, so a wrong `expectedAlg`
+ * fails for the real reason instead of a stubbed one. Ed25519 comes from node's own crypto, so no
+ * dependency (and no Pocket ID container) is needed to reproduce the report.
+ */
+async function eddsaIdTokenOutcome(expectedAlg: string) {
+    const { publicKey, privateKey } = generateKeyPairSync("ed25519");
+    const jwks = { keys: [{ ...publicKey.export({ format: "jwk" }), kid: "ed25519-1", alg: "EdDSA", use: "sig" }] };
+
+    const now = Math.floor(Date.now() / 1000);
+    const idToken = signEdDsaJwt(privateKey, {
+        iss: EDDSA_ISSUER,
+        aud: EDDSA_CLIENT_ID,
+        sub: "user-1",
+        iat: now,
+        exp: now + 300
+    });
+
+    const json = (body: unknown) => new Response(
+        JSON.stringify(body), { status: 200, headers: { "content-type": "application/json" } }
+    );
+    // One transport serves all three legs of the exchange: discovery, the JWKS the signature is verified
+    // against, and the token endpoint that returns the signed ID token.
+    const serveProvider: CustomFetch = async (url) => {
+        const path = new URL(url.toString()).pathname;
+        if (path.endsWith("/jwks")) {
+            return json(jwks);
+        }
+        if (path.endsWith("/token")) {
+            return json({ access_token: "access-token", token_type: "bearer", id_token: idToken });
+        }
+        return json({
+            issuer: EDDSA_ISSUER,
+            authorization_endpoint: `${EDDSA_ISSUER}/authorize`,
+            token_endpoint: `${EDDSA_ISSUER}/token`,
+            jwks_uri: `${EDDSA_ISSUER}/jwks`,
+            response_types_supported: ["code"],
+            // The Pocket ID shape once its key has been rotated to Ed25519: RS256 is not on offer at all.
+            id_token_signing_alg_values_supported: ["EdDSA"]
+        });
+    };
+
+    const configuration = await discovery(
+        new URL(EDDSA_ISSUER),
+        EDDSA_CLIENT_ID,
+        { id_token_signed_response_alg: expectedAlg },
+        ClientSecretPost("client-secret"),
+        { [customFetch]: serveProvider }
+    );
+
+    try {
+        await authorizationCodeGrant(configuration, new URL("https://app.example.com/callback?code=auth-code"), {});
+        return "accepted";
+    } catch (error) {
+        // openid-client reports this as a bare "invalid response encountered" and puts the actual reason
+        // on `.cause`. describeError is what unwraps that chain for the log line and the toast the user
+        // gets (see failRoundTrip), so asserting on its output pins the message they would actually see.
+        return describeError(error) ?? String(error);
+    }
+}
+
+/** Signs `claims` as a compact EdDSA JWS. Node signs Ed25519 with a null digest (RFC 8032). */
+function signEdDsaJwt(privateKey: KeyObject, claims: Record<string, unknown>) {
+    const encode = (value: unknown) => Buffer.from(JSON.stringify(value)).toString("base64url");
+    const signingInput = `${encode({ alg: "EdDSA", typ: "JWT", kid: "ed25519-1" })}.${encode(claims)}`;
+    const signature = sign(null, Buffer.from(signingInput), privateKey).toString("base64url");
+    return `${signingInput}.${signature}`;
 }
