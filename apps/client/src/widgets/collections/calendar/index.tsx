@@ -13,6 +13,7 @@ import date_notes from "../../../services/date_notes";
 import dialog from "../../../services/dialog";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
+import note_tooltip from "../../../services/note_tooltip";
 import { escapeHtml, isMobile } from "../../../services/utils";
 import CollectionProperties from "../../note_bars/CollectionProperties";
 import ActionButton from "../../react/ActionButton";
@@ -192,6 +193,13 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
         // FullCalendar makes of the click — so the click must not reach the document at all.
         e.jsEvent.preventDefault();
         e.jsEvent.stopPropagation();
+
+        // Which also keeps the click from the tooltip service, whose own document listener is what
+        // ordinarily puts a preview away when something is done (see note_tooltip.ts). Said here
+        // instead: a preview left standing would cover the very popover the click opens, at the
+        // chip both of them are drawn beside.
+        note_tooltip.dismissAllTooltips();
+
         const noteId = e.event.extendedProps.noteId;
         if (noteId) {
             // The click names which of the event's chips to stand by (see eventAnchorRect).
@@ -247,7 +255,14 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
                 {...editingProps}
                 unselectAuto={false}
                 eventClick={onEventClick}
-                eventClassNames={(arg) => selection && "noteId" in selection && arg.event.extendedProps.noteId === selection.noteId ? [ "calendar-event-selected" ] : []}
+                // The event the popover stands for is marked as such, and asks for no hover
+                // preview while it does: the popover beside it already says everything the
+                // preview would, at full length and editable, and the two are drawn beside the
+                // same chip. The geo map's marker previews keep clear of its detail pane the same
+                // way (see Tooltips there).
+                eventClassNames={(arg) => selection && "noteId" in selection && arg.event.extendedProps.noteId === selection.noteId
+                    ? [ "calendar-event-selected", "no-tooltip-preview" ]
+                    : []}
                 eventDidMount={eventDidMount}
                 viewDidMount={({ view }) => {
                     if (initialView.current !== view.type) {
