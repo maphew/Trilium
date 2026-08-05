@@ -8,7 +8,7 @@ import FNote from "../../../entities/fnote";
 import { copyTextWithToast } from "../../../services/clipboard_ext";
 import { t } from "../../../services/i18n";
 import link from "../../../services/link";
-import { announceEmbeddedNoteClosing, EmbeddedNoteActions, EmbeddedNoteScope, MaximizeToQuickEditAction, NoteColorAction, OpenNoteActions, SelectTitleOnFirstOpen, useEmbeddedNoteContext } from "../../EmbeddedNotePane";
+import { announceEmbeddedNoteClosing, EmbeddedNoteActions, EmbeddedNoteScope, MaximizeToQuickEditAction, NoteColorAction, OpenNoteActions, SelectTitleOnFirstOpen, useEmbeddedNoteContext, useFollowLinksWithin } from "../../EmbeddedNotePane";
 import TitleRow from "../../layout/TitleRow";
 import NoteDetail from "../../NoteDetail";
 import PromotedAttributes from "../../PromotedAttributes";
@@ -374,41 +374,9 @@ function MarkerDetails({ note, parentNote, isReadOnly, onClose, onRelocate, onFo
     const paneRef = useRef<HTMLDivElement>(null);
     useLegacyComponentElement(paneRef);
 
-    /*
-     * Links followed within the pane. One that points at another marker of this map switches the
-     * pane to it — the map panning along — instead of navigating the whole tab away from the map.
-     * Every other link keeps meaning what it means anywhere else, as does every way of asking for
-     * more than a plain navigation.
-     *
-     * Captured on the pane's own element, so it goes ahead of the document-level handler every
-     * link click otherwise lands in (see the delegated listeners in link.ts) — and of the editor's.
-     */
-    useEffect(() => {
-        const pane = paneRef.current;
-        if (!pane) return;
-
-        const onClick = (e: MouseEvent) => {
-            // A modified click asks for a new tab or window, neither of which the pane answers.
-            if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
-
-            const anchor = e.target instanceof Element ? e.target.closest("a") : null;
-            const href = anchor?.getAttribute("href") ?? anchor?.getAttribute("data-href");
-            if (!href) return;
-
-            // A link that says how it wants to be opened — in a popup, at an attachment, at a
-            // bookmark, in a named tab — is left to say it; only the plain "go to this note" is
-            // the pane's to take, and only for a note the map can go to.
-            const { noteId, ntxId, viewScope, openInPopup } = link.parseNavigationStateFromUrl(href);
-            if (!noteId || ntxId || openInPopup || viewScope?.viewMode !== "default"
-                || viewScope.attachmentId || viewScope.bookmark || !onFollowLink(noteId)) return;
-
-            e.preventDefault();
-            e.stopPropagation();
-        };
-
-        pane.addEventListener("click", onClick, true);
-        return () => pane.removeEventListener("click", onClick, true);
-    }, [ onFollowLink ]);
+    // Links followed within the pane: one pointing at another marker of this map switches the pane
+    // to it, the map panning along, instead of navigating the whole tab away (see the shared hook).
+    useFollowLinksWithin(paneRef, onFollowLink);
 
     return (
         <OverlayPanel

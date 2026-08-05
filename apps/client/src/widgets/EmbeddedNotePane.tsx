@@ -1,6 +1,6 @@
 import "./EmbeddedNotePane.css";
 
-import { ComponentChildren } from "preact";
+import { ComponentChildren, RefObject } from "preact";
 import { useContext, useEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../components/app_context";
@@ -10,6 +10,7 @@ import FNote from "../entities/fnote";
 import NoteColorPicker from "../menus/custom-items/NoteColorPicker";
 import linkContextMenu from "../menus/link_context_menu";
 import { t } from "../services/i18n";
+import link from "../services/link";
 import ActionButton from "./react/ActionButton";
 import Dropdown from "./react/Dropdown";
 import { FormListItem } from "./react/FormList";
@@ -139,6 +140,47 @@ export function SelectTitleOnFirstOpen() {
     }, [ note?.noteId, parentComponent ]);
 
     return null;
+}
+
+/**
+ * Links followed within the pane. One that points at a note standing on the host view is the
+ * host's to answer — the pane switches to it, the view following along (the map pans, the
+ * calendar turns to its date) — instead of navigating the whole tab away from the view. Every
+ * other link keeps meaning what it means anywhere else, as does every way of asking for more than
+ * a plain navigation: a modified click wanting a new tab or window, a link saying how it wants to
+ * be opened — in a popup, at an attachment, at a bookmark, in a named tab.
+ *
+ * `onFollowLink` is offered the link's note and answers whether the host took the navigation
+ * over; only then is the link stopped. Captured on the pane's own element, so it goes ahead of
+ * the document-level handler every link click otherwise lands in (see the delegated listeners in
+ * link.ts) — and of the editor's.
+ */
+export function useFollowLinksWithin(paneRef: RefObject<HTMLElement>, onFollowLink: (noteId: string) => boolean) {
+    useEffect(() => {
+        const pane = paneRef.current;
+        if (!pane) return;
+
+        const onClick = (e: MouseEvent) => {
+            // A modified click asks for a new tab or window, neither of which the pane answers.
+            if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey || e.altKey) return;
+
+            const anchor = e.target instanceof Element ? e.target.closest("a") : null;
+            const href = anchor?.getAttribute("href") ?? anchor?.getAttribute("data-href");
+            if (!href) return;
+
+            // A link that says how it wants to be opened is left to say it; only the plain "go to
+            // this note" is the pane's to take, and only for a note the host can go to.
+            const { noteId, ntxId, viewScope, openInPopup } = link.parseNavigationStateFromUrl(href);
+            if (!noteId || ntxId || openInPopup || viewScope?.viewMode !== "default"
+                || viewScope.attachmentId || viewScope.bookmark || !onFollowLink(noteId)) return;
+
+            e.preventDefault();
+            e.stopPropagation();
+        };
+
+        pane.addEventListener("click", onClick, true);
+        return () => pane.removeEventListener("click", onClick, true);
+    }, [ paneRef, onFollowLink ]);
 }
 
 /**
