@@ -367,6 +367,38 @@ describe("DetailPane", () => {
     });
 
     /**
+     * A track that crosses the antimeridian holds points on either side of the ±180° seam — 179.9°
+     * and -179.9° are a stroll apart on the ground. Read as raw minimum and maximum, they stand a
+     * whole world apart instead, and the fit flies out to frame the globe rather than the crossing.
+     */
+    it("frames a track that crosses the antimeridian, not the world", async () => {
+        buildNote({ id: "root", title: "root", children: [ { id: "hikeseam", title: "Across the seam", mime: GPX_MIME } ] });
+        const note = froca.notes["hikeseam"];
+        const map = fakeMap();
+        map.addSource(trackSourceId(note.noteId), {
+            type: "FeatureCollection",
+            features: [
+                { type: "Feature", properties: {}, geometry: { type: "MultiLineString", coordinates: [ [ [ 179.9, 52.0 ], [ -179.9, 52.2 ] ] ] } }
+            ]
+        });
+        await mount([ note ], map);
+
+        map.setUnderPointer([ trackFeature(note) ]);
+        await act(async () => map.click());
+        await settle();
+
+        expect(map.fitted).toHaveLength(1);
+        const { bounds } = map.fitted[0] as { bounds: [ [ number, number ], [ number, number ] ] };
+        const [ [ west, south ], [ east, north ] ] = bounds;
+        expect([ south, north ]).toEqual([ 52.0, 52.2 ]);
+        // The box is 0.2° of longitude around the seam, however the crossing is written — an east
+        // unwrapped past 180°, or a west standing east of its east, either of which fitBounds
+        // takes. Measured around the circle so the writing is not prejudged; only a box that goes
+        // the long way round fails it.
+        expect(((east - west) % 360 + 360) % 360).toBeLessThan(1);
+    });
+
+    /**
      * A clicked flag is a place the reader chose, not a request to re-frame the file: it is stood
      * clear of the pane at the zoom they were reading at, exactly as a note marker is — flying out
      * to the whole track would lose the very flag they clicked.
