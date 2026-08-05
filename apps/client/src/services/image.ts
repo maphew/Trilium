@@ -188,11 +188,29 @@ function selectImage(element: HTMLElement | undefined) {
 const MAX_EMBED_DATA_URL_LENGTH = 12_000_000;
 
 /**
+ * Largest total embedded payload (in characters) for a single copy. The per-image cap above bounds
+ * one photo; this bounds a whole selection, so that `Ctrl+A` on an image-heavy note can't build a
+ * clipboard payload so large the browser refuses to write it — which would turn a working copy into
+ * a silently failing one. Images past the budget stay references, i.e. the previous behavior.
+ */
+const MAX_EMBED_TOTAL_LENGTH = 32_000_000;
+
+let remainingEmbedBudget = MAX_EMBED_TOTAL_LENGTH;
+
+/**
+ * Start a fresh {@link MAX_EMBED_TOTAL_LENGTH} budget. Called for every copy/cut/drag before any
+ * embedding runs, so the budget spans one clipboard operation rather than the session.
+ */
+export function resetImageEmbedBudget() {
+    remainingEmbedBudget = MAX_EMBED_TOTAL_LENGTH;
+}
+
+/**
  * Synchronously render an already-loaded internal image to a self-contained `data:` URI so the
  * clipboard image-embed plugin can inline it for pasting into external applications. Returns
  * `null` (leave the image as a reference) when the `src` isn't an internal note/attachment image,
  * the image hasn't finished loading, it can't be drawn, or the result would exceed
- * {@link MAX_EMBED_DATA_URL_LENGTH}.
+ * {@link MAX_EMBED_DATA_URL_LENGTH} or what is left of {@link MAX_EMBED_TOTAL_LENGTH}.
  *
  * Must stay synchronous: it runs inside the browser's `copy`/`dragstart` event, which cannot
  * await — ruling out `fetch()`. So the decoded `<img>` is re-encoded through a canvas (lossy for
@@ -222,7 +240,12 @@ export function embedReferenceImageAsDataUrl(src: string): string | null {
 
         const mimeType = inferEncodeMimeType(src);
         const dataUrl = canvas.toDataURL(mimeType, mimeType === "image/png" ? undefined : 0.92);
-        return dataUrl.length <= MAX_EMBED_DATA_URL_LENGTH ? dataUrl : null;
+        if (dataUrl.length > MAX_EMBED_DATA_URL_LENGTH || dataUrl.length > remainingEmbedBudget) {
+            return null;
+        }
+
+        remainingEmbedBudget -= dataUrl.length;
+        return dataUrl;
     } catch {
         return null; // e.g. a tainted canvas — fall back to the reference
     }
@@ -230,7 +253,7 @@ export function embedReferenceImageAsDataUrl(src: string): string | null {
 
 /** Find a fully-loaded `<img>` currently in the document whose raw `src` attribute matches. */
 function findLoadedImage(src: string): HTMLImageElement | null {
-    for (const image of Array.from(document.images)) {
+    for (const image of document.querySelectorAll("img")) {
         if (image.getAttribute("src") === src && image.complete && image.naturalWidth > 0) {
             return image;
         }

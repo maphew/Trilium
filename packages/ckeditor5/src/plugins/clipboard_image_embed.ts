@@ -1,13 +1,6 @@
+import { TRILIUM_SRC_ATTRIBUTE } from "@triliumnext/commons";
 import { ClipboardPipeline, Plugin, UpcastWriter } from "ckeditor5";
 import type { ClipboardInputTransformationData, ClipboardInputTransformationEvent, EditingView, ViewDocumentClipboardOutputEvent, ViewDocumentClipboardOutputEventData, ViewDocumentFragment, ViewElement } from "ckeditor5";
-
-/**
- * View attribute that carries the original internal image reference (e.g.
- * `api/images/<noteId>/...`) next to the embedded `data:` URI on the clipboard. External
- * applications read the `src` (the self-contained data URI); Trilium's own paste handler reads
- * this attribute to restore the reference, so an internal copy/paste never duplicates the image.
- */
-export const TRILIUM_SRC_ATTRIBUTE = "data-trilium-src";
 
 /**
  * Configuration injected by the host application (see the editor's `clipboardImageEmbed` config).

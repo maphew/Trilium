@@ -1,9 +1,10 @@
+import { TRILIUM_SRC_ATTRIBUTE } from "@triliumnext/commons";
 import { ClassicEditor, ClipboardPipeline, Essentials, FileRepository, Image, ImageBlock, ImageInline, ImageUpload, Paragraph } from "ckeditor5";
 import type { ViewDocumentFragment } from "ckeditor5";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../test/editor-kit.js";
-import ClipboardImageEmbed, { embedClipboardImageReferences, restoreClipboardImageReferences, TRILIUM_SRC_ATTRIBUTE } from "./clipboard_image_embed.js";
+import ClipboardImageEmbed, { embedClipboardImageReferences, restoreClipboardImageReferences } from "./clipboard_image_embed.js";
 
 /** A representative internal image reference and the data: URI a resolver would hand back. */
 const REFERENCE = "api/images/noteId123/photo.png";
