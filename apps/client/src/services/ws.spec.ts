@@ -11,6 +11,7 @@ const toast = vi.hoisted(() => ({
     showPersistent: vi.fn(),
     closePersistent: vi.fn()
 }));
+const showUnhandledError = vi.hoisted(() => vi.fn());
 const bundle = vi.hoisted(() => ({ getAndExecuteBundle: vi.fn() }));
 const appCtx = vi.hoisted(() => ({ triggerEvent: vi.fn() }));
 const frocaUpdater = vi.hoisted(() => ({ processEntityChanges: vi.fn(async () => {}) }));
@@ -20,7 +21,7 @@ const utilsCtrl = vi.hoisted(() => ({
 }));
 const optionsCtrl = vi.hoisted(() => ({ is: vi.fn(() => false) }));
 
-vi.mock("./toast.js", () => ({ default: toast }));
+vi.mock("./toast.js", () => ({ default: toast, showUnhandledError }));
 vi.mock("./bundle.js", () => ({ default: bundle }));
 vi.mock("../components/app_context.js", () => ({ default: appCtx }));
 vi.mock("./froca_updater.js", () => ({ default: frocaUpdater }));
@@ -92,6 +93,9 @@ describe("dispatchMessage", () => {
 
         await ws.dispatchMessage({ type: "toast", message: "hi", timeout: 5 } as any);
         expect(toast.showMessage).toHaveBeenCalledWith("hi", 5);
+
+        await ws.dispatchMessage({ type: "unhandled-error", message: "Note 'abc' doesn't exist.", stack: "at getNoteOrThrow" } as any);
+        expect(showUnhandledError).toHaveBeenCalledWith("Note 'abc' doesn't exist.", "at getNoteOrThrow");
     });
 
     it("execute-script resolves the origin entity from froca when an id is present", async () => {
@@ -118,6 +122,27 @@ describe("dispatchMessage", () => {
             params: []
         } as any);
         expect(bundle.getAndExecuteBundle).toHaveBeenCalledWith("cur2", null, "x", []);
+    });
+
+    it("reloads when a ping reports the protected session expired on the backend", async () => {
+        const ws = await loadWs();
+        (window as any).glob.isProtectedSessionAvailable = true;
+
+        // flag absent (client->server ping shape) or still true -> no reload
+        await ws.dispatchMessage({ type: "ping" } as WebSocketMessage);
+        await ws.dispatchMessage({ type: "ping", protectedSessionAvailable: true } as WebSocketMessage);
+        expect(utilsCtrl.reloadFrontendApp).not.toHaveBeenCalled();
+
+        await ws.dispatchMessage({ type: "ping", protectedSessionAvailable: false } as WebSocketMessage);
+        expect(utilsCtrl.reloadFrontendApp).toHaveBeenCalledWith(expect.stringContaining("protected session"));
+    });
+
+    it("does not reload on expiry pings when the client never had the protected session", async () => {
+        const ws = await loadWs();
+        (window as any).glob.isProtectedSessionAvailable = false;
+
+        await ws.dispatchMessage({ type: "ping", protectedSessionAvailable: false } as WebSocketMessage);
+        expect(utilsCtrl.reloadFrontendApp).not.toHaveBeenCalled();
     });
 
     it("ignores unknown message types", async () => {

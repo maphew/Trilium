@@ -2,6 +2,7 @@ import { KeyboardActionNames } from "@triliumnext/commons";
 import { h, JSX, render } from "preact";
 
 import keyboardActionService, { getActionSync } from "../services/keyboard_actions.js";
+import { formatShortcut, joinShortcut } from "../services/keyboard_shortcut_display.js";
 import note_tooltip from "../services/note_tooltip.js";
 import utils from "../services/utils.js";
 
@@ -67,10 +68,13 @@ class ContextMenu {
     private $cover?: JQuery<HTMLElement>;
     private options?: ContextMenuOptions<any>;
     private isMobile: boolean;
+    /** Where the menu stands while nothing has the screen to itself. See {@link hostInWhateverHasTheScreen}. */
+    private home: HTMLElement | null;
 
     constructor() {
         this.$widget = $("#context-menu-container");
         this.$widget.addClass("dropend");
+        this.home = this.$widget[0]?.parentElement ?? null;
         this.isMobile = utils.isMobile();
 
         if (this.isMobile) {
@@ -92,6 +96,8 @@ class ContextMenu {
             await this.hide();
         }
 
+        this.hostInWhateverHasTheScreen();
+
         this.$widget.toggleClass("mobile-bottom-menu", !this.options.forcePositionOnMobile);
         this.$cover?.addClass("show");
         $("body").addClass("context-menu-shown");
@@ -103,6 +109,24 @@ class ContextMenu {
         keyboardActionService.updateDisplayedShortcuts(this.$widget);
 
         this.positionMenu();
+    }
+
+    /**
+     * Puts the menu inside the element that currently has the screen to itself, and back where it
+     * belongs once nothing does.
+     *
+     * A browser showing an element fullscreen draws that element and nothing else: this menu lives at
+     * the end of the page, so over a map or a diagram given the screen (see `useFullscreen`) it was
+     * laid out, positioned and left unpainted — a right-click that appeared to do nothing at all.
+     * Moved into whatever is being shown, it is drawn as usual; it is positioned against the viewport
+     * either way, so nothing about where it lands changes.
+     */
+    private hostInWhateverHasTheScreen() {
+        const menu = this.$widget[0];
+        const host = document.fullscreenElement ?? this.home;
+        if (menu && host && menu.parentElement !== host) {
+            host.appendChild(menu);
+        }
     }
 
     positionMenu() {
@@ -159,6 +183,24 @@ class ContextMenu {
                 left
             })
             .addClass("show");
+    }
+
+    private repositionSubmenu(submenuEl: HTMLElement) {
+        const CONTEXT_MENU_PADDING = 5;
+
+        // Reset so the natural (downward) placement is measured on every hover.
+        submenuEl.classList.remove("submenu-flip-up");
+
+        const rect = submenuEl.getBoundingClientRect();
+        const clientHeight = document.documentElement.clientHeight;
+        const overflowsBottom = rect.bottom > clientHeight - CONTEXT_MENU_PADDING;
+        // Only flip up if there is actually more room above the parent than below, otherwise flipping
+        // would just clip the other end.
+        const fitsWhenFlippedUp = rect.top - rect.height >= CONTEXT_MENU_PADDING;
+
+        if (overflowsBottom && fitsWhenFlippedUp) {
+            submenuEl.classList.add("submenu-flip-up");
+        }
     }
 
     addItems($parent: JQuery<HTMLElement>, items: MenuItem<any>[], multicolumn = false) {
@@ -277,9 +319,11 @@ class ContextMenu {
             if (shortcuts) {
                 const allShortcuts: string[] = [];
                 for (const effectiveShortcut of shortcuts) {
-                    allShortcuts.push(effectiveShortcut.split("+")
-                        .map(key => `<kbd>${key}</kbd>`)
-                        .join("+"));
+                    const tokens = formatShortcut(effectiveShortcut);
+                    // On macOS the glyphs sit in one <kbd> (⇧⌘J); elsewhere each token gets its own.
+                    allShortcuts.push(utils.isMac()
+                        ? `<kbd>${joinShortcut(tokens)}</kbd>`
+                        : tokens.map(key => `<kbd>${key}</kbd>`).join("+"));
                 }
 
                 if (allShortcuts.length) {
@@ -345,8 +389,23 @@ class ContextMenu {
             this.addItems($subMenu, item.items, hasColumns);
 
             $item.append($subMenu);
+
+            // Submenus open downward by default (CSS `:hover`); flip them up when the parent item sits
+            // near the bottom of the viewport, otherwise the submenu would be clipped off-screen.
+            if (!this.isMobile) {
+                $item.on("mouseenter", () => this.repositionSubmenu($subMenu[0]));
+            }
         }
         return $item;
+    }
+
+    /**
+     * Whether a menu is up. For a host that answers a press itself and so keeps it from the
+     * document, whose click is what would otherwise put the menu away (see the listener bound in
+     * the constructor): such a host has to know a standing menu is what its press is really for.
+     */
+    isShown() {
+        return this.$widget.hasClass("show");
     }
 
     async hide() {

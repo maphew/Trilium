@@ -5,9 +5,7 @@
 /* ---------- Inline mention (favicon + title) ---------- */
 
 .link-embed-mention {
-    display: inline-flex;
-    align-items: center;
-    gap: 4px;
+    display: inline;
     padding: 1px 6px 1px 4px;
     border-radius: 4px;
     background: var(--background-highlight);
@@ -15,8 +13,12 @@
     color: var(--text-primary);
     font-size: 0.92em;
     line-height: 1.5;
-    vertical-align: baseline;
     transition: background-color 0.12s;
+
+    /* inline (not inline-flex) so a long link wraps line-by-line through the paragraph;
+       clone keeps each wrapped fragment's padding/rounded corners and background. */
+    -webkit-box-decoration-break: clone;
+    box-decoration-break: clone;
 }
 
 .link-embed-mention:hover {
@@ -32,13 +34,23 @@
     flex-shrink: 0;
 }
 
-.link-embed-mention-dot {
-    display: inline-block;
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: var(--text-menu);
-    flex-shrink: 0;
+/* A site draws its icon for one background, usually its own, and ours is not always that one:
+   GitHub's octocat is black on nothing and vanishes on the dark theme, while a mark drawn white for
+   a dark header vanishes on the light one. The classes are put on by the favicon_contrast script,
+   which measures each icon's own pixels; the theme decides when to act on them.
+   Rotating the hue a half turn before inverting is what keeps this from being vandalism: invert(1)
+   alone also sends every hue to its opposite, so a navy mark would come back pale yellow. Mirrors
+   the app-side rule in LinkEmbed.css, where the same markup faces the same problem. */
+html.theme-dark .link-embed-favicon-dark,
+html.theme-light .link-embed-favicon-light {
+    filter: hue-rotate(180deg) invert(1);
+}
+
+/* Sits the favicon before the link text and spaces it off the title. Scoped to the mention so
+   it doesn't disturb the same favicon reused in the card's flex URL row. */
+.link-embed-mention > .link-embed-mention-favicon {
+    vertical-align: -0.2em;
+    margin-right: 4px;
 }
 
 .link-embed-mention-title {
@@ -56,8 +68,8 @@
 
 .link-embed-video {
     position: relative;
-    width: 100%;
     max-width: 640px;
+    margin: auto;
     border-radius: 8px;
     overflow: hidden;
     background: #000;
@@ -70,10 +82,63 @@
     display: block;
 }
 
+/* ---------- Click-to-play facade ----------
+   Stands in for the player until the visitor clicks, so reading a shared page containing a video
+   sends no request to YouTube. The thumbnail comes from the note, not from a remote server. */
+
+.link-embed-video-facade {
+    position: relative;
+    display: block;
+    width: 100%;
+    aspect-ratio: 16 / 9;
+    padding: 0;
+    border: none;
+    background: #000;
+    cursor: pointer;
+}
+
+.link-embed-video-thumbnail {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    filter: blur(20px) brightness(0.65);
+}
+
+.link-embed-video-play {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 68px;
+    height: 48px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.7);
+    transition: background-color 0.12s;
+}
+
+/* The play triangle. */
+.link-embed-video-play::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    margin: auto;
+    width: 0;
+    height: 0;
+    border-style: solid;
+    border-width: 10px 0 10px 17px;
+    border-color: transparent transparent transparent #fff;
+}
+
+.link-embed-video-facade:hover .link-embed-video-play,
+.link-embed-video-facade:focus-visible .link-embed-video-play {
+    background: #f00;
+}
+
 /* ---------- Card embed ---------- */
 
 .link-embed-card {
     display: flex;
+    width: 100%;
     border: 1px solid var(--background-highlight);
     border-radius: 4px;
     overflow: hidden;
@@ -146,10 +211,24 @@
 }
 
 .link-embed-card-url {
+    display: flex;
+    align-items: center;
+    gap: 5px;
     font-size: 0.78em;
     color: var(--text-menu);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    min-width: 0;
     margin-top: auto;
+
+    /* The favicon keeps its size; only the site name is truncated. */
+    & > span {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    /* Scaled down from the inline mention's 16px: it sits next to 0.78em text here. */
+    & .link-embed-mention-favicon {
+        width: 14px;
+        height: 14px;
+    }
 }

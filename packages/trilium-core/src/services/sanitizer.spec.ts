@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { sanitizeHtml } from "./sanitizer.js";
+import optionService from "./options.js";
 import { trimIndentation } from "@triliumnext/commons";
 
 describe("sanitize", () => {
@@ -49,6 +50,44 @@ describe("sanitize", () => {
                 </table>
             </figure>`;
         expect(sanitizeHtml(dirty)).toBe(clean);
+    });
+
+    it("keeps the hidden-border style on table header cells", () => {
+        // The OneNote importer maps hidden borders to border-color:transparent on table, td and th —
+        // all three must survive sanitization, or header cells render with visible borders.
+        const dirty = `<table style="border-color:transparent"><tr><th style="border-color:transparent">H</th><td style="border-color:transparent">C</td></tr></table>`;
+        expect(sanitizeHtml(dirty)).toBe(dirty);
+    });
+
+    it("keeps the open attribute on <details> (collapsible state from imports)", () => {
+        const dirty = `<details open class="trilium-collapsible"><summary>T</summary><p>body</p></details>`;
+        expect(sanitizeHtml(dirty)).toBe(dirty);
+    });
+
+    it("keeps the scope attribute on table header cells", () => {
+        const dirty = `<table><thead><tr><th scope="col">C</th></tr></thead><tbody><tr><th scope="row">R</th><td>A</td></tr></tbody></table>`;
+        expect(sanitizeHtml(dirty)).toBe(dirty);
+    });
+
+    it("keeps a fractional image aspect-ratio (OneNote reports fractional pixel dimensions)", () => {
+        // CKEditor's usual integer ratio still passes...
+        expect(sanitizeHtml(`<img style="aspect-ratio:991/403" src="x.png" />`)).toContain("aspect-ratio:991/403");
+        // ...and a fractional ratio (e.g. a 577.5×277.5 OneNote screen clipping) is no longer stripped.
+        expect(sanitizeHtml(`<img style="aspect-ratio:577.5/277.5" src="x.png" />`)).toContain("aspect-ratio:577.5/277.5");
+        // A non-ratio value is still rejected.
+        expect(sanitizeHtml(`<img style="aspect-ratio:auto" src="x.png" />`)).not.toContain("aspect-ratio");
+    });
+
+    it("falls back to the default allowed tags when the allowedHtmlTags option is unusable", () => {
+        const optionSpy = vi.spyOn(optionService, "getOption").mockReturnValue("{ not json");
+        try {
+            // The parse failure must not propagate; sanitization still applies the default list.
+            const sanitized = sanitizeHtml(`<p>kept</p><script>alert(1)</script>`);
+            expect(sanitized).toContain(`<p>kept</p>`);
+            expect(sanitized).not.toContain(`<script>`);
+        } finally {
+            optionSpy.mockRestore();
+        }
     });
 
     describe("bookmark anchors", () => {

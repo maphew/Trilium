@@ -29,14 +29,16 @@ export function getSiblingNavigation(siblingNoteIds: string[], currentNoteId: st
 export type SiblingDirection = "previous" | "next" | "first" | "last";
 
 /**
- * Maps a `KeyboardEvent.code` to a navigation direction. PageUp/PageDown and the Previous/Next Track
- * media keys (prev/next) are built in, as are Home/End (first/last) unless `includeEdges` is false (e.g.
- * media players reserve Home/End for seeking); a renderer can supply extra codes for prev/next (e.g. the
- * image viewer adds `Backspace`/`Space`). Using `code` keeps it keyboard-layout independent.
+ * Maps a `KeyboardEvent.code` to a navigation direction. PageUp/PageDown (prev/next) are built in, as are
+ * Home/End (first/last) unless `includeEdges` is false (e.g. media players reserve Home/End for seeking); a
+ * renderer can supply extra codes for prev/next (e.g. the image viewer adds `Backspace`/`Space`). Using
+ * `code` keeps it keyboard-layout independent. The Previous/Next Track media keys are deliberately not
+ * handled here — OS media-key integration is wired only for video/audio (via `navigator.mediaSession`),
+ * where the hardware keys actually route reliably; for images it mostly never fired.
  */
 export function codeToSiblingDirection(code: string, extraPrevious: readonly string[], extraNext: readonly string[], includeEdges = true): SiblingDirection | null {
-    if (code === "PageUp" || code === "MediaTrackPrevious" || extraPrevious.includes(code)) return "previous";
-    if (code === "PageDown" || code === "MediaTrackNext" || extraNext.includes(code)) return "next";
+    if (code === "PageUp" || extraPrevious.includes(code)) return "previous";
+    if (code === "PageDown" || extraNext.includes(code)) return "next";
     if (includeEdges && code === "Home") return "first";
     if (includeEdges && code === "End") return "last";
     return null;
@@ -58,10 +60,13 @@ export function isInteractiveTarget(target: { tagName?: string; getAttribute?(na
 
 /**
  * From a note's ordered attachments and the currently-shown one, keeps those sharing its role (so the
- * viewer cycles e.g. image-with-image), mapped to `{ id, title }`. Empty when the current one is absent.
+ * viewer cycles e.g. image-with-image), optionally narrowed to a mime prefix — a media player only
+ * advances between playable attachments, where the `file` role alone would also hand it a PDF or a ZIP.
+ * Mapped to `{ id, title }`. Empty when the current one is absent.
  */
-export function sameRoleAttachments(attachments: readonly { attachmentId: string; role: string; title: string }[], currentAttachmentId: string | undefined): { id: string; title: string }[] {
+export function sameRoleAttachments(attachments: readonly { attachmentId: string; role: string; title: string; mime?: string }[], currentAttachmentId: string | undefined, mimePrefix?: string): { id: string; title: string }[] {
     const role = attachments.find((attachment) => attachment.attachmentId === currentAttachmentId)?.role;
     if (!role) return [];
-    return attachments.filter((attachment) => attachment.role === role).map((attachment) => ({ id: attachment.attachmentId, title: attachment.title }));
+    const matches = (attachment: { role: string; mime?: string }) => attachment.role === role && (!mimePrefix || !!attachment.mime?.startsWith(mimePrefix));
+    return attachments.filter(matches).map((attachment) => ({ id: attachment.attachmentId, title: attachment.title }));
 }

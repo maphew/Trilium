@@ -220,6 +220,15 @@ describe("createLink", () => {
         expect($el.find("a").text()).toBe("Override");
     });
 
+    it("appends a .note-link-suffix span right after the link when titleSuffix is set", async () => {
+        const note = buildNote({ title: "Base" });
+        const $el = await linkService.createLink(`root/${note.noteId}`, { titleSuffix: "— dropped" });
+        const $suffix = $el.children("span.note-link-suffix");
+        expect($suffix.length).toBe(1);
+        expect($suffix.text()).toBe("— dropped");
+        expect($suffix.prev().is("a")).toBe(true);
+    });
+
     it("auto-converts image notes to an <img> element", async () => {
         const note = buildNote({ title: "Pic", type: "image" });
         const $el = await linkService.createLink(`root/${note.noteId}`, { autoConvertToImage: true, title: "Pic" });
@@ -373,7 +382,15 @@ describe("goToLinkExt", () => {
 
     it("opens in a popup when the url requests it", () => {
         goToLinkExt(leftClick(), "#root/aaaaaaaaaaaa?popup=1");
-        expect(triggerCommand).toHaveBeenCalledWith("openInPopup", { noteIdOrPath: "root/aaaaaaaaaaaa" });
+        expect(triggerCommand).toHaveBeenCalledWith("openInPopup", { noteIdOrPath: "root/aaaaaaaaaaaa", viewScope: { viewMode: "default" } });
+    });
+
+    it("passes the attachment view scope along when opening in a popup", () => {
+        goToLinkExt(leftClick(), "#root/aaaaaaaaaaaa?popup=1&viewMode=attachments&attachmentId=bbbbbbbbbbbb");
+        expect(triggerCommand).toHaveBeenCalledWith("openInPopup", {
+            noteIdOrPath: "root/aaaaaaaaaaaa",
+            viewScope: { viewMode: "attachments", attachmentId: "bbbbbbbbbbbb" }
+        });
     });
 
     it("opens in a new window on shift+left-click", () => {
@@ -602,6 +619,20 @@ describe("loadReferenceLinkTitle", () => {
         warn.mockRestore();
     });
 
+    it("gives an href with no note id the same [missing note] the title resolvers do", async () => {
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        // Exactly what the editing downcast hands over: an empty <span> that this call is the only
+        // thing ever to fill. An href that is not a hash note URL — an attachment image URL like
+        // this one, an external link, imported HTML — must still leave something in it, or the
+        // reference link renders as a blank widget while the stored HTML says "[missing note]".
+        const $el = $("<span>");
+
+        await linkService.loadReferenceLinkTitle($el, "api/attachments/bc1EIIdlPLKV/image/favicon.ico");
+
+        expect($el.text()).toBe("[missing note]");
+        warn.mockRestore();
+    });
+
     it("sets text, color class, bookmark and icon for a resolved note", async () => {
         const note = buildNote({ title: "Loaded", "#color": "red", "#iconClass": "bx bx-star" });
         const $a = $("<a>").attr("href", `#root/${note.noteId}?bookmark=Sec`);
@@ -674,6 +705,25 @@ describe("module-level click handlers", () => {
         $a.remove();
     });
 
+    it("leaves navigation to content that handles its own clicks (no-link-navigation)", () => {
+        // A media player inside a collection card: the card is itself a link (it wires its own click straight
+        // to goToLink), so pressing play in the player must not also open the note.
+        const $card = $("<div class='block-link' data-href='#root/aaaaaaaaaaaa'></div>");
+        $card.append("<div class='no-link-navigation'><button class='play'></button></div>");
+        $("body").append($card);
+
+        const clickOn = (el: HTMLElement | undefined) =>
+            linkService.goToLink($.Event("click", { which: 1, target: el }) as unknown as JQuery.ClickEvent);
+
+        clickOn($card.find(".play")[0]);
+        expect(openInCurrentNoteContext).not.toHaveBeenCalled();
+
+        // A click on the card outside that content still navigates.
+        clickOn($card[0]);
+        expect(openInCurrentNoteContext).toHaveBeenCalled();
+        $card.remove();
+    });
+
     it("opens the link context menu on contextmenu of an internal link", () => {
         const $a = $("<a href='#root/aaaaaaaaaaaa'>link</a>");
         $("body").append($a);
@@ -703,7 +753,7 @@ describe("module-level click handlers", () => {
         const $a = $("<a href='#root/aaaaaaaaaaaa'>link</a>");
         $("body").append($a);
         $a.trigger($.Event("contextmenu", { button: 2 }));
-        expect(triggerCommand).toHaveBeenCalledWith("openInPopup", { noteIdOrPath: "root/aaaaaaaaaaaa" });
+        expect(triggerCommand).toHaveBeenCalledWith("openInPopup", { noteIdOrPath: "root/aaaaaaaaaaaa", viewScope: { viewMode: "default" } });
         spy.mockRestore();
         $a.remove();
     });

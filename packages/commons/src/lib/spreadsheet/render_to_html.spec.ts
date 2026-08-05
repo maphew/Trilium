@@ -625,6 +625,47 @@ describe("renderSpreadsheetToHtml", () => {
         expect(html).toContain("<td>x</td>");
     });
 
+    it("wraps a cell whose style enables the wrap strategy", () => {
+        // Univer WrapStrategy.WRAP === 3. Cells default to nowrap (overflow) via the stylesheet;
+        // a wrapping cell must opt back into normal wrapping inline.
+        const html = renderSpreadsheetToHtml(
+            singleCellWorkbook({ v: "This is a cell with line-wrapping", t: 1, s: { tb: 3 } })
+        );
+        expect(html).toContain("white-space:normal");
+        expect(html).toContain("overflow-wrap:break-word");
+    });
+
+    it("wraps a cell via a referenced style that enables wrapping", () => {
+        const input = JSON.stringify({
+            version: 1,
+            workbook: {
+                sheetOrder: ["s1"],
+                styles: { wrapStyle: { tb: 3 } },
+                sheets: {
+                    s1: {
+                        id: "s1",
+                        name: "Sheet1",
+                        hidden: 0,
+                        rowCount: 10,
+                        columnCount: 5,
+                        mergeData: [],
+                        cellData: { "0": { "0": { v: "wrapped", s: "wrapStyle" } } },
+                        rowData: {},
+                        columnData: {}
+                    }
+                }
+            }
+        });
+        const html = renderSpreadsheetToHtml(input);
+        expect(html).toContain("white-space:normal");
+    });
+
+    it("does not emit wrap styling for a non-wrapping (overflow) cell", () => {
+        // WrapStrategy.OVERFLOW === 1 -> the cell keeps the default nowrap/overflow behaviour.
+        const html = renderSpreadsheetToHtml(singleCellWorkbook({ v: "plain", s: { tb: 1 } }));
+        expect(html).not.toContain("white-space:normal");
+    });
+
     it("renders all vertical alignment values", () => {
         const top = renderSpreadsheetToHtml(singleCellWorkbook({ v: "t", s: { vt: 1 } }));
         const middle = renderSpreadsheetToHtml(singleCellWorkbook({ v: "m", s: { vt: 2 } }));
@@ -1095,7 +1136,34 @@ describe("renderSpreadsheetToHtml", () => {
         const html = renderSpreadsheetToHtml(
             singleCellWorkbook({ v: "x" }, { showGridlines: 1 })
         );
-        expect(html).toContain('<table class="spreadsheet-table show-gridlines">');
+        expect(html).toContain('<table class="spreadsheet-table show-gridlines" style="width:88px">');
+    });
+
+    it("emits an explicit fixed table width summing the visible column widths", () => {
+        const input = JSON.stringify({
+            version: 1,
+            workbook: {
+                sheetOrder: ["s1"],
+                styles: {},
+                sheets: {
+                    s1: {
+                        id: "s1",
+                        name: "Sheet1",
+                        hidden: 0,
+                        rowCount: 10,
+                        columnCount: 5,
+                        defaultColumnWidth: 88,
+                        mergeData: [],
+                        cellData: { "0": { "0": { v: "a" }, "1": { v: "b" } } },
+                        rowData: {},
+                        columnData: { "0": { w: 120 } }
+                    }
+                }
+            }
+        });
+        const html = renderSpreadsheetToHtml(input);
+        // Column 0 is 120, column 1 falls back to the default 88 -> 208.
+        expect(html).toContain('style="width:208px"');
     });
 
     it("marks a filled cell with has-fill so gridlines can be suppressed under the fill", () => {
@@ -1147,7 +1215,7 @@ describe("renderSpreadsheetToHtml", () => {
         const html = renderSpreadsheetToHtml(
             singleCellWorkbook({ v: "x" }, { showGridlines: 0 })
         );
-        expect(html).toContain('<table class="spreadsheet-table">');
+        expect(html).toContain('<table class="spreadsheet-table" style="width:88px">');
         expect(html).not.toContain("show-gridlines");
     });
 
@@ -1171,6 +1239,503 @@ describe("renderSpreadsheetToHtml", () => {
         );
         expect(html).not.toContain("evil.com");
         expect(html).toContain("--spreadsheet-gridline-color:transparent");
+    });
+
+    // Builds a workbook whose single sheet carries floating drawings in the
+    // SHEET_DRAWING_PLUGIN resource (Univer's z-ordered floating images).
+    function workbookWithFloatingDrawings(
+        drawings: Array<Record<string, unknown> & { drawingId: string }>,
+        opts: { cellData?: unknown; rowData?: unknown; columnData?: unknown; sheetExtra?: Record<string, unknown> } = {}
+    ): string {
+        const sheetId = "s1";
+        const data: Record<string, unknown> = {};
+        for (const d of drawings) data[d.drawingId] = d;
+        const order = drawings.map((d) => d.drawingId);
+        return JSON.stringify({
+            version: 1,
+            workbook: {
+                sheetOrder: [sheetId],
+                styles: {},
+                sheets: {
+                    [sheetId]: {
+                        id: sheetId,
+                        name: "Sheet1",
+                        hidden: 0,
+                        rowCount: 1000,
+                        columnCount: 20,
+                        defaultColumnWidth: 88,
+                        defaultRowHeight: 24,
+                        mergeData: [],
+                        cellData: opts.cellData ?? { "0": { "0": { v: "anchor" } } },
+                        rowData: opts.rowData ?? {},
+                        columnData: opts.columnData ?? {},
+                        ...(opts.sheetExtra ?? {})
+                    }
+                },
+                resources: [
+                    { name: "SHEET_DRAWING_PLUGIN", data: JSON.stringify({ [sheetId]: { data, order } }) },
+                    { name: "SHEET_DATA_VALIDATION_PLUGIN", data: JSON.stringify({ [sheetId]: [] }) }
+                ]
+            }
+        });
+    }
+
+    const urlDrawing = (id: string, source: string, transform: Record<string, number>) => ({
+        drawingId: id,
+        unitId: "u",
+        subUnitId: "s1",
+        drawingType: 0,
+        imageSourceType: "URL",
+        source,
+        transform
+    });
+
+    // #region Cell images (cellData[r][c].p.drawings)
+
+    it("renders a cell image embedded in a cell's rich-text document", () => {
+        const html = renderSpreadsheetToHtml(
+            singleCellWorkbook({
+                p: {
+                    drawings: {
+                        d1: {
+                            drawingId: "d1",
+                            imageSourceType: "URL",
+                            source: "api/attachments/NyhtJbXR6Qxh/image/image.png",
+                            transform: { width: 113, height: 96.72268495835375 }
+                        }
+                    },
+                    drawingsOrder: ["d1"]
+                }
+            })
+        );
+        expect(html).toContain('<img class="spreadsheet-cell-image"');
+        expect(html).toContain('src="api/attachments/NyhtJbXR6Qxh/image/image.png"');
+        // The image lives inside a table cell, not a floating wrapper.
+        expect(html).toContain("<td");
+        expect(html).not.toContain("spreadsheet-sheet");
+        // Dimensions come from the drawing transform, rounded to 2 decimals.
+        expect(html).toContain("width:113px");
+        expect(html).toContain("height:96.72px");
+    });
+
+    it("renders a base64 cell image", () => {
+        const html = renderSpreadsheetToHtml(
+            singleCellWorkbook({
+                p: {
+                    drawings: {
+                        d1: {
+                            drawingId: "d1",
+                            imageSourceType: "BASE64",
+                            source: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==",
+                            transform: { width: 10, height: 10 }
+                        }
+                    },
+                    drawingsOrder: ["d1"]
+                }
+            })
+        );
+        expect(html).toContain('src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUg=="');
+    });
+
+    it("renders multiple cell images in drawingsOrder", () => {
+        const html = renderSpreadsheetToHtml(
+            singleCellWorkbook({
+                p: {
+                    drawings: {
+                        first: { drawingId: "first", source: "api/attachments/AAAAAAAAAAAA/image/a.png", transform: { width: 5, height: 5 } },
+                        second: { drawingId: "second", source: "api/attachments/BBBBBBBBBBBB/image/b.png", transform: { width: 5, height: 5 } }
+                    },
+                    drawingsOrder: ["first", "second"]
+                }
+            })
+        );
+        expect(html.indexOf("AAAAAAAAAAAA")).toBeLessThan(html.indexOf("BBBBBBBBBBBB"));
+    });
+
+    it("falls back to insertion order when a cell document has no drawingsOrder", () => {
+        // `drawingsOrder` is only written once a document has reordered its images, so a
+        // single-image cell commonly arrives without it.
+        const html = renderSpreadsheetToHtml(
+            singleCellWorkbook({
+                p: {
+                    drawings: {
+                        first: { drawingId: "first", source: "api/attachments/AAAAAAAAAAAA/image/a.png", transform: { width: 5, height: 5 } },
+                        second: { drawingId: "second", source: "api/attachments/BBBBBBBBBBBB/image/b.png", transform: { width: 5, height: 5 } }
+                    }
+                }
+            })
+        );
+        expect(html.indexOf("AAAAAAAAAAAA")).toBeLessThan(html.indexOf("BBBBBBBBBBBB"));
+    });
+
+    it("skips an id in drawingsOrder that has no matching drawing", () => {
+        const html = renderSpreadsheetToHtml(
+            singleCellWorkbook({
+                p: {
+                    drawings: {
+                        d1: { drawingId: "d1", source: "api/attachments/AAAAAAAAAAAA/image/a.png", transform: { width: 5, height: 5 } }
+                    },
+                    drawingsOrder: ["stale", "d1"]
+                }
+            })
+        );
+        expect(html.match(/<img/g)?.length).toBe(1);
+        expect(html).toContain("AAAAAAAAAAAA");
+    });
+
+    it("omits the style attribute when a cell image has no usable dimensions", () => {
+        // Univer can store a drawing before its size is measured; the image should still render,
+        // just without width/height so it falls back to its intrinsic size.
+        const html = renderSpreadsheetToHtml(
+            singleCellWorkbook({
+                p: {
+                    drawings: {
+                        d1: { drawingId: "d1", source: "api/attachments/AAAAAAAAAAAA/image/a.png" },
+                        d2: { drawingId: "d2", source: "api/attachments/BBBBBBBBBBBB/image/b.png", transform: { width: "wide", height: null } }
+                    },
+                    drawingsOrder: ["d1", "d2"]
+                }
+            })
+        );
+        const imgs = html.match(/<img[^>]*>/g) ?? [];
+        expect(imgs.length).toBe(2);
+        expect(imgs.every((img) => !img.includes("style="))).toBe(true);
+    });
+
+    it("emits only the dimension that is present", () => {
+        const html = renderSpreadsheetToHtml(
+            singleCellWorkbook({
+                p: {
+                    drawings: {
+                        d1: { drawingId: "d1", source: "api/attachments/AAAAAAAAAAAA/image/a.png", transform: { width: 20 } }
+                    },
+                    drawingsOrder: ["d1"]
+                }
+            })
+        );
+        expect(html).toContain('style="width:20px"');
+    });
+
+    it("skips a cell image whose source is missing or not a string", () => {
+        const html = renderSpreadsheetToHtml(
+            singleCellWorkbook({
+                p: {
+                    drawings: {
+                        d1: { drawingId: "d1", transform: { width: 10, height: 10 } },
+                        d2: { drawingId: "d2", source: 42, transform: { width: 10, height: 10 } }
+                    },
+                    drawingsOrder: ["d1", "d2"]
+                }
+            })
+        );
+        expect(html).not.toContain("<img");
+    });
+
+    it("skips a cell image with an unsafe source", () => {
+        const html = renderSpreadsheetToHtml(
+            singleCellWorkbook({
+                p: {
+                    drawings: {
+                        d1: { drawingId: "d1", source: "javascript:alert(1)", transform: { width: 10, height: 10 } },
+                        d2: { drawingId: "d2", source: "http://evil.example/x.png", transform: { width: 10, height: 10 } }
+                    },
+                    drawingsOrder: ["d1", "d2"]
+                }
+            })
+        );
+        expect(html).not.toContain("<img");
+        expect(html).not.toContain("javascript:");
+        expect(html).not.toContain("evil.example");
+    });
+
+    // #endregion
+
+    // #region Floating images (SHEET_DRAWING_PLUGIN resource)
+
+    it("renders a floating image absolutely positioned in a per-sheet wrapper", () => {
+        const html = renderSpreadsheetToHtml(
+            workbookWithFloatingDrawings([
+                urlDrawing("img1", "api/attachments/cgN4jEBCA1Kn/image/image.png", { left: 50, top: 60, width: 100, height: 80 })
+            ])
+        );
+        expect(html).toContain('<div class="spreadsheet-sheet"');
+        expect(html).toContain("position:relative");
+        expect(html).toContain('<img class="spreadsheet-floating-image"');
+        expect(html).toContain('src="api/attachments/cgN4jEBCA1Kn/image/image.png"');
+        expect(html).toContain("position:absolute");
+        // Anchor cell is at (0,0), so the origin offset is zero.
+        expect(html).toContain("left:50px");
+        expect(html).toContain("top:60px");
+        expect(html).toContain("width:100px");
+        expect(html).toContain("height:80px");
+    });
+
+    it("positions a floating image at its absolute sheet coordinates regardless of where data starts", () => {
+        // Data only at row 2, col 1. Because the grid is rendered from the sheet origin (A1),
+        // the floating image keeps the absolute transform coordinates Univer stored (no offset).
+        const html = renderSpreadsheetToHtml(
+            workbookWithFloatingDrawings(
+                [urlDrawing("img1", "api/attachments/cgN4jEBCA1Kn/image/image.png", { left: 200, top: 100, width: 50, height: 40 })],
+                { cellData: { "2": { "1": { v: "x" } } } }
+            )
+        );
+        expect(html).toContain("left:200px");
+        expect(html).toContain("top:100px");
+    });
+
+    it("extends the grid down to cover a floating image below the data rows", () => {
+        const html = renderSpreadsheetToHtml(
+            workbookWithFloatingDrawings([
+                urlDrawing("img1", "api/attachments/cgN4jEBCA1Kn/image/image.png", { left: 0, top: 0, width: 50, height: 240 })
+            ])
+        );
+        // Default 24px rows: the image bottom at 240px reaches row 9, so 10 rows are emitted.
+        const rowCount = (html.match(/<tr/g) ?? []).length;
+        expect(rowCount).toBe(10);
+    });
+
+    it("extends the grid right to cover a floating image beyond the data columns", () => {
+        const html = renderSpreadsheetToHtml(
+            workbookWithFloatingDrawings([
+                urlDrawing("img1", "api/attachments/cgN4jEBCA1Kn/image/image.png", { left: 0, top: 0, width: 200, height: 10 })
+            ])
+        );
+        // Default 88px columns: the image right edge at 200px reaches column 2, so 3 columns emit.
+        const colCount = (html.match(/<col /g) ?? []).length;
+        expect(colCount).toBe(3);
+    });
+
+    it("does not shrink the grid when a floating image fits within the data bounds", () => {
+        const html = renderSpreadsheetToHtml(
+            workbookWithFloatingDrawings(
+                [urlDrawing("img1", "api/attachments/cgN4jEBCA1Kn/image/image.png", { left: 0, top: 0, width: 50, height: 10 })],
+                { cellData: { "5": { "0": { v: "x" } } } }
+            )
+        );
+        // Data extends to row 5 (6 rows); the small image must not reduce that.
+        const rowCount = (html.match(/<tr/g) ?? []).length;
+        expect(rowCount).toBe(6);
+    });
+
+    it("preserves floating image z-order", () => {
+        const html = renderSpreadsheetToHtml(
+            workbookWithFloatingDrawings([
+                urlDrawing("img1", "api/attachments/AAAAAAAAAAAA/image/a.png", { left: 0, top: 0, width: 10, height: 10 }),
+                urlDrawing("img2", "api/attachments/BBBBBBBBBBBB/image/b.png", { left: 0, top: 0, width: 10, height: 10 })
+            ])
+        );
+        expect(html.indexOf("AAAAAAAAAAAA")).toBeLessThan(html.indexOf("BBBBBBBBBBBB"));
+    });
+
+    it("shifts floating images by the row/column header sizes (Univer transforms include headers)", () => {
+        // Univer measures transform.left/top from the viewport corner, including the row header
+        // (width 46) and column header (height 20). The HTML grid has no headers, so subtract them.
+        const html = renderSpreadsheetToHtml(
+            workbookWithFloatingDrawings(
+                [urlDrawing("img1", "api/attachments/cgN4jEBCA1Kn/image/image.png", { left: 77, top: 208.8, width: 100, height: 80 })],
+                { sheetExtra: { rowHeader: { width: 46, hidden: 0 }, columnHeader: { height: 20, hidden: 0 } } }
+            )
+        );
+        expect(html).toContain("left:31px"); // 77 - 46
+        expect(html).toContain("top:188.8px"); // 208.8 - 20
+    });
+
+    it("does not subtract header sizes when the headers are hidden", () => {
+        const html = renderSpreadsheetToHtml(
+            workbookWithFloatingDrawings(
+                [urlDrawing("img1", "api/attachments/cgN4jEBCA1Kn/image/image.png", { left: 77, top: 208.8, width: 100, height: 80 })],
+                { sheetExtra: { rowHeader: { width: 46, hidden: 1 }, columnHeader: { height: 20, hidden: 1 } } }
+            )
+        );
+        expect(html).toContain("left:77px");
+        expect(html).toContain("top:208.8px");
+    });
+
+    it("rotates a floating image by its transform angle", () => {
+        const html = renderSpreadsheetToHtml(
+            workbookWithFloatingDrawings([
+                { drawingId: "img1", imageSourceType: "URL", source: "api/attachments/cgN4jEBCA1Kn/image/image.png", transform: { left: 0, top: 0, width: 50, height: 50, angle: 45 } }
+            ])
+        );
+        expect(html).toContain("transform:rotate(45deg)");
+    });
+
+    it("flips a floating image horizontally and vertically", () => {
+        const html = renderSpreadsheetToHtml(
+            workbookWithFloatingDrawings([
+                { drawingId: "img1", source: "api/attachments/cgN4jEBCA1Kn/image/image.png", transform: { left: 0, top: 0, width: 50, height: 50, flipX: true, flipY: true } }
+            ])
+        );
+        expect(html).toContain("scaleX(-1)");
+        expect(html).toContain("scaleY(-1)");
+    });
+
+    it("combines rotation and flip (flip first, then rotate)", () => {
+        const html = renderSpreadsheetToHtml(
+            workbookWithFloatingDrawings([
+                { drawingId: "img1", source: "api/attachments/cgN4jEBCA1Kn/image/image.png", transform: { left: 0, top: 0, width: 50, height: 50, angle: 90, flipX: true } }
+            ])
+        );
+        expect(html).toContain("transform:rotate(90deg) scaleX(-1)");
+    });
+
+    it("does not emit a transform for an unrotated, unflipped image", () => {
+        const html = renderSpreadsheetToHtml(
+            workbookWithFloatingDrawings([
+                urlDrawing("img1", "api/attachments/cgN4jEBCA1Kn/image/image.png", { left: 0, top: 0, width: 50, height: 50 })
+            ])
+        );
+        expect(html).not.toContain("transform:");
+    });
+
+    it("renders a base64 floating image", () => {
+        const html = renderSpreadsheetToHtml(
+            workbookWithFloatingDrawings([
+                { drawingId: "img1", imageSourceType: "BASE64", source: "data:image/jpeg;base64,/9j/4AAQSk==", transform: { left: 0, top: 0, width: 10, height: 10 } }
+            ])
+        );
+        expect(html).toContain('src="data:image/jpeg;base64,/9j/4AAQSk=="');
+    });
+
+    it("rounds fractional floating-image coordinates to two decimals", () => {
+        const html = renderSpreadsheetToHtml(
+            workbookWithFloatingDrawings([
+                urlDrawing("img1", "api/attachments/cgN4jEBCA1Kn/image/image.png", { left: 262.3, top: 458.1, width: 549.4, height: 148.555 })
+            ])
+        );
+        expect(html).toContain("width:549.4px");
+        expect(html).toContain("height:148.56px");
+    });
+
+    it("does not wrap the sheet when all floating drawings have unsafe sources", () => {
+        const html = renderSpreadsheetToHtml(
+            workbookWithFloatingDrawings([
+                { drawingId: "img1", imageSourceType: "URL", source: "http://evil.example/x.png", transform: { left: 0, top: 0, width: 10, height: 10 } }
+            ])
+        );
+        expect(html).not.toContain("spreadsheet-sheet");
+        expect(html).not.toContain("<img");
+        expect(html).not.toContain("evil.example");
+    });
+
+    it("treats a floating image's missing coordinates as zero", () => {
+        // Univer writes a transform as soon as an image is inserted, but individual fields can be
+        // absent before the image is moved or resized; those must read as 0, not NaN.
+        const html = renderSpreadsheetToHtml(
+            workbookWithFloatingDrawings([
+                { drawingId: "img1", source: "api/attachments/cgN4jEBCA1Kn/image/image.png", transform: { angle: 0 } }
+            ])
+        );
+        expect(html).toContain("left:0px;top:0px;width:0px;height:0px");
+    });
+
+    it("extends the grid using the default track sizes when the sheet declares none", () => {
+        // A sheet saved without explicit defaults still has to grow enough rows and columns to
+        // contain an image that reaches past the last populated cell.
+        const html = renderSpreadsheetToHtml(
+            workbookWithFloatingDrawings(
+                [urlDrawing("img1", "api/attachments/cgN4jEBCA1Kn/image/image.png", { left: 300, top: 200, width: 100, height: 80 })],
+                { sheetExtra: { defaultColumnWidth: undefined, defaultRowHeight: undefined, rowCount: undefined, columnCount: undefined } }
+            )
+        );
+        // 280px of height at the default 24px row is ~12 rows; the single-cell sheet had one.
+        expect((html.match(/<tr/g) ?? []).length).toBeGreaterThan(5);
+        expect(html).toContain("spreadsheet-sheet");
+    });
+
+    it("does not grow an axis the images do not reach past", () => {
+        // A flat image extends the sheet rightwards only; the vertical walk gets a non-positive
+        // target and must stop immediately rather than counting rows.
+        const html = renderSpreadsheetToHtml(
+            workbookWithFloatingDrawings([
+                urlDrawing("img1", "api/attachments/cgN4jEBCA1Kn/image/image.png", { left: 300, top: 0, width: 100, height: 0 })
+            ])
+        );
+        expect((html.match(/<tr/g) ?? []).length).toBe(1);
+    });
+
+    it("stops extending an axis whose default track size is degenerate", () => {
+        const html = renderSpreadsheetToHtml(
+            workbookWithFloatingDrawings(
+                [urlDrawing("img1", "api/attachments/cgN4jEBCA1Kn/image/image.png", { left: 0, top: 300, width: 10, height: 100 })],
+                { sheetExtra: { defaultRowHeight: 0 } }
+            )
+        );
+        expect((html.match(/<tr/g) ?? []).length).toBe(1);
+    });
+
+    it("counts hidden and explicitly sized tracks correctly when extending the grid", () => {
+        // Hidden rows occupy no space, so they must not consume any of the image's reach, while
+        // rows carrying an explicit height are counted at that height rather than the default.
+        const html = renderSpreadsheetToHtml(
+            workbookWithFloatingDrawings(
+                [urlDrawing("img1", "api/attachments/cgN4jEBCA1Kn/image/image.png", { left: 0, top: 0, width: 10, height: 200 })],
+                { rowData: { "0": { hd: 1 }, "1": { h: 100 }, "2": { h: 100 } } }
+            )
+        );
+        // Row 0 contributes nothing, rows 1-2 contribute 100px each: the image ends on row 2, so
+        // the grid grows to three rows — of which the hidden one is not emitted.
+        expect((html.match(/<tr/g) ?? []).length).toBe(2);
+    });
+
+    it("does not add a floating wrapper to a sheet without drawings", () => {
+        const html = renderSpreadsheetToHtml(singleCellWorkbook({ v: "x" }));
+        expect(html).not.toContain("spreadsheet-sheet");
+        expect(html).not.toContain("<img");
+    });
+
+    it("escapes a quote in an attachment-image source", () => {
+        // A crafted source that passes the prefix check but carries an attribute-breaking quote.
+        const html = renderSpreadsheetToHtml(
+            workbookWithFloatingDrawings([
+                urlDrawing("img1", 'api/attachments/AAAAAAAAAAAA/image/"onerror=alert(1).png', { left: 0, top: 0, width: 10, height: 10 })
+            ])
+        );
+        expect(html).not.toContain('"onerror=alert(1)');
+        expect(html).toContain("&quot;onerror");
+    });
+
+    // #endregion
+
+    // Wraps a single value placed at an arbitrary (row, col) into a complete workbook payload.
+    function cellAtWorkbook(row: number, col: number): string {
+        return JSON.stringify({
+            version: 1,
+            workbook: {
+                sheetOrder: ["s1"],
+                styles: {},
+                sheets: {
+                    s1: {
+                        id: "s1",
+                        name: "Sheet1",
+                        hidden: 0,
+                        rowCount: 1000,
+                        columnCount: 20,
+                        defaultColumnWidth: 88,
+                        defaultRowHeight: 24,
+                        mergeData: [],
+                        cellData: { [row]: { [col]: { v: "x" } } },
+                        rowData: {},
+                        columnData: {}
+                    }
+                }
+            }
+        });
+    }
+
+    it("renders leading empty rows so the grid starts at the sheet origin", () => {
+        // Data only at row 2 -> rows 0 and 1 must still be emitted (empty) so the grid keeps the
+        // editor's geometry and absolutely-positioned floating images line up.
+        const html = renderSpreadsheetToHtml(cellAtWorkbook(2, 0));
+        const rowCount = (html.match(/<tr/g) ?? []).length;
+        expect(rowCount).toBe(3);
+    });
+
+    it("renders leading empty columns so the grid starts at the sheet origin", () => {
+        // Data only at column 2 -> columns 0 and 1 must still be emitted.
+        const html = renderSpreadsheetToHtml(cellAtWorkbook(0, 2));
+        const colCount = (html.match(/<col /g) ?? []).length;
+        expect(colCount).toBe(3);
     });
 
     it("extends bounds to cover a merge range that exceeds the cell data", () => {

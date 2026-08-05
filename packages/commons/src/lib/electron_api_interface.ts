@@ -76,10 +76,11 @@ export interface ElectronWindowApi {
     // #region Title bar
 
     /**
-     * Customizes the colors of the Windows native title bar overlay
-     * (the area containing the minimize / maximize / close buttons).
+     * Customizes the Windows and Linux native title bar overlay (the area containing the
+     * minimize / maximize / close buttons). `height` also controls their vertical placement,
+     * since the buttons are centred within the overlay.
      */
-    setTitleBarOverlay(options: { color: string; symbolColor: string }): void;
+    setTitleBarOverlay(options: { color: string; symbolColor: string; height?: number }): void;
 
     /**
      * Repositions the macOS traffic-light window buttons.
@@ -340,6 +341,19 @@ export interface ElectronSpellcheckApi {
 
     /** Returns the BCP-47 language tags Chromium can spell-check on this platform. */
     getAvailableSpellCheckerLanguages(): string[];
+
+    /**
+     * Applies the spell-check language list to every open window's session
+     * immediately, without an application restart. No-op on macOS, where the OS
+     * spell checker auto-detects the language.
+     */
+    setSpellCheckerLanguages(languageCodes: string[]): void;
+
+    /**
+     * Enables or disables the built-in spell checker on every open window's
+     * session immediately, without an application restart.
+     */
+    setSpellCheckerEnabled(enabled: boolean): void;
 }
 
 /** OS integration controls — system tray and autostart / launch-on-login. */
@@ -468,6 +482,135 @@ export interface ElectronSecurityApi {
 
     /** Requests a change to the SQL console setting. Same flow as above. */
     setSqlConsoleEnabled(enabled: boolean): Promise<boolean>;
+
+    /**
+     * Requests enabling/disabling LAN access. When enabled, the desktop binds
+     * its TCP listener to all interfaces (instead of loopback) so other devices
+     * can reach it — e.g. to sync from another device. Same confirmation +
+     * restart flow as above.
+     */
+    setLanAccessEnabled(enabled: boolean): Promise<boolean>;
+}
+
+/** Outcome of a {@link ElectronOneNoteApi.login} attempt. */
+export interface OneNoteLoginResult {
+    /** True if sign-in completed and a Microsoft Graph token was stored. */
+    connected: boolean;
+    /** The connected Microsoft account, present when `connected` is true. */
+    account?: { name: string; email: string };
+    /** A human-readable failure reason when `connected` is false (absent on user cancellation). */
+    error?: string;
+}
+
+/** Desktop-only OneNote importer sign-in, driven from the main process via a loopback OAuth redirect. */
+export interface ElectronOneNoteApi {
+    /**
+     * Runs the Microsoft delegated-Graph OAuth flow: opens the system browser, captures the redirect
+     * on a throwaway loopback server, exchanges the code, and stores the token process-side. Resolves
+     * once the desktop session is connected (or with `connected: false` on failure/timeout).
+     */
+    login(): Promise<OneNoteLoginResult>;
+}
+
+/** Outcome of a {@link ElectronNativeExportApi.exportSubtreeToFile} request. */
+export interface NativeExportResult {
+    status: "saved" | "cancelled" | "error";
+    /** Absolute path the archive was written to (when `status === "saved"`). */
+    filePath?: string;
+    /** Failure detail (when `status === "error"`). */
+    message?: string;
+}
+
+/** Desktop-native subtree export that streams a `.zip` straight to a file. */
+export interface ElectronNativeExportApi {
+    /**
+     * Prompts a native "save as" dialog, then streams a subtree (branch) export
+     * to the chosen path on disk. This bypasses the in-memory download path, so
+     * memory stays bounded regardless of archive size. Progress/success/error
+     * are reported over the WebSocket via `taskId`. Resolves once the dialog is
+     * dismissed (`cancelled`) or the export finishes (`saved` / `error`).
+     */
+    exportSubtreeToFile(opts: { branchId: string; format: string; title: string; taskId: string }): Promise<NativeExportResult>;
+}
+
+/** Import flags forwarded to the native importer (mirrors the HTTP route's options; no path). */
+export interface NativeImportOptions {
+    safeImport: boolean;
+    shrinkImages: boolean;
+    textImportedAsText: boolean;
+    codeImportedAsCode: boolean;
+    spreadsheetImportedAsSpreadsheet: boolean;
+    explodeArchives: boolean;
+    replaceUnderscoresWithSpaces: boolean;
+}
+
+/** A single user-chosen file: a capability token (redeemed to import it) and its display name — never a path. */
+export interface NativeImportPickedFile {
+    /** Single-use, short-lived grant for the chosen file. */
+    token: string;
+    /** Display name of the chosen file. */
+    fileName: string;
+}
+
+/** Outcome of {@link ElectronNativeImportApi.pickFiles}: capability tokens, never paths. */
+export interface NativeImportPickResult {
+    status: "selected" | "cancelled";
+    /** The user-chosen files (when `status === "selected"`); one or more, since the dialog allows multi-select. */
+    files?: NativeImportPickedFile[];
+}
+
+/** Outcome of {@link ElectronNativeImportApi.importFromToken}. */
+export interface NativeImportResult {
+    status: "imported" | "error";
+    /** Root note of the import (when `status === "imported"`). */
+    importedNoteId?: string;
+    /** Failure detail (when `status === "error"`). */
+    message?: string;
+}
+
+/**
+ * Desktop-native import that reads the user's file **in place** (bounded memory, no temp copy) — the whole
+ * point being multi-GB `.zip` archives, though any importable file is accepted. The renderer never handles
+ * a filesystem path: {@link pickFiles} runs the OS dialog in the main process and returns opaque capability
+ * tokens, which {@link importFromToken} redeems. A script can't forge a token or pass a path, so it can
+ * never read an arbitrary file.
+ */
+export interface ElectronNativeImportApi {
+    /** Prompts a native "open file" dialog (multi-select, any type) and returns single-use tokens for the chosen files. */
+    pickFiles(): Promise<NativeImportPickResult>;
+    /**
+     * Resolves files the user dropped onto a drop zone to capability tokens, so a drag-and-drop import takes
+     * the same in-place (streamed) path as the dialog. The `File` is the unforgeable capability: the path is
+     * obtained via `webUtils.getPathForFile`, which yields a real path only for a genuinely user-supplied
+     * file and an empty string for anything a script constructed — so a script can't smuggle in an arbitrary
+     * path. Returns `cancelled` when no dropped file resolved (e.g. dragged from a browser, not the OS), so
+     * the caller falls back to the normal upload route.
+     */
+    grantDroppedFiles(files: File[]): Promise<NativeImportPickResult>;
+    /**
+     * Imports the file behind `token` into `parentNoteId`. Progress/success/error are reported over the
+     * WebSocket via `taskId`, matching the HTTP import path. When importing several files in one batch, set
+     * `last` only on the final call so the success toast fires once, after everything is in. `format` routes
+     * the file to a specific importer (e.g. "obsidian"), mirroring the HTTP route's format tag.
+     */
+    importFromToken(opts: { token: string; parentNoteId: string; taskId: string; options: NativeImportOptions; last: boolean; format?: string }): Promise<NativeImportResult>;
+}
+
+/** Outcome of {@link ElectronDialogApi.pickDirectory}. */
+export interface NativeDirectoryPickResult {
+    status: "selected" | "cancelled";
+    /** Absolute path of the chosen directory (when `status === "selected"`). */
+    path?: string;
+}
+
+/** Native OS pickers that hand the renderer a location the user chose themselves. */
+export interface ElectronDialogApi {
+    /**
+     * Prompts a native "select folder" dialog, starting at `defaultPath` when it is given. The renderer
+     * cannot supply the answer: a script can at most pop the dialog, which the user still has to accept
+     * before any path comes back.
+     */
+    pickDirectory(opts?: { defaultPath?: string }): Promise<NativeDirectoryPickResult>;
 }
 
 /**
@@ -502,4 +645,12 @@ export interface ElectronApi {
     ws: ElectronWsApi;
     /** Security settings (backend scripting, SQL console) stored outside the DB. */
     security: ElectronSecurityApi;
+    /** OneNote importer sign-in via a loopback OAuth redirect (desktop only). */
+    onenote: ElectronOneNoteApi;
+    /** Desktop-native subtree export that streams a `.zip` straight to a file. */
+    nativeExport: ElectronNativeExportApi;
+    /** Desktop-native large-`.zip` import that reads the user's file in place via a capability token. */
+    nativeImport: ElectronNativeImportApi;
+    /** Native OS pickers that hand the renderer a location the user chose themselves. */
+    dialog: ElectronDialogApi;
 }

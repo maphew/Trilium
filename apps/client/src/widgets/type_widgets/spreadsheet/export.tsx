@@ -1,3 +1,4 @@
+import type { ResolvedImage } from "@triliumnext/commons/src/lib/spreadsheet/render_to_xlsx";
 import { FUniver } from "@univerjs/presets";
 import { MutableRef } from "preact/hooks";
 
@@ -40,7 +41,7 @@ async function exportToXlsx(univerAPI: FUniver | undefined, note: FNote) {
     try {
         // Dynamic import keeps exceljs out of the main bundle (and out of standalone/core).
         const { renderSpreadsheetToXlsx } = await import("@triliumnext/commons/src/lib/spreadsheet/render_to_xlsx");
-        const buffer = await renderSpreadsheetToXlsx(json);
+        const buffer = await renderSpreadsheetToXlsx(json, { resolveImage: resolveSpreadsheetImage });
         await download(note, "xlsx", new Blob([buffer as BlobPart], { type: XLSX_MIME }));
     } catch (e) {
         console.error("[spreadsheet-export] xlsx failed", e);
@@ -104,4 +105,46 @@ function blobToDataUrl(blob: Blob): Promise<string> {
         reader.onerror = () => reject(reader.error);
         reader.readAsDataURL(blob);
     });
+}
+
+/**
+ * Resolves a spreadsheet image source to embeddable bytes for the XLSX exporter. Images are stored
+ * as `api/attachments/<id>/image/...` URLs (fetched here) or inline `data:` URLs; both are reduced
+ * to a base64 payload and an exceljs-supported extension. Returns null (image skipped) on a fetch
+ * failure or an unsupported format — exceljs only embeds png/jpeg/gif.
+ */
+async function resolveSpreadsheetImage(source: string): Promise<ResolvedImage | null> {
+    try {
+        const dataUrl = source.startsWith("data:") ? source : await fetchAsDataUrl(source);
+        if (!dataUrl) return null;
+
+        // Parse `data:<mime>;base64,<payload>` with plain string ops — a regex with a nested
+        // quantifier over the `;` parameters can backtrack exponentially (ReDoS).
+        const comma = dataUrl.indexOf(",");
+        if (comma < 0) return null;
+        const header = dataUrl.slice(0, comma);
+        if (!/;base64$/i.test(header)) return null; // only base64 payloads
+
+        const mime = header.slice("data:".length).split(";")[0];
+        const extension = imageExtensionForMime(mime);
+        return extension ? { base64: dataUrl.slice(comma + 1), extension } : null;
+    } catch {
+        return null;
+    }
+}
+
+async function fetchAsDataUrl(url: string): Promise<string | null> {
+    const response = await fetch(url);
+    if (!response.ok) return null;
+    return blobToDataUrl(await response.blob());
+}
+
+function imageExtensionForMime(mime: string): ResolvedImage["extension"] | null {
+    switch (mime.toLowerCase()) {
+        case "image/png": return "png";
+        case "image/jpeg":
+        case "image/jpg": return "jpeg";
+        case "image/gif": return "gif";
+        default: return null; // svg/webp/bmp etc. — exceljs can't embed these
+    }
 }

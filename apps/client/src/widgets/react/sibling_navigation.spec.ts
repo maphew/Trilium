@@ -45,9 +45,9 @@ describe("codeToSiblingDirection", () => {
         expect(codeToSiblingDirection("End", [], [])).toBe("last");
     });
 
-    it("maps the Previous/Next Track media keys", () => {
-        expect(codeToSiblingDirection("MediaTrackPrevious", [], [])).toBe("previous");
-        expect(codeToSiblingDirection("MediaTrackNext", [], [])).toBe("next");
+    it("ignores the Previous/Next Track media keys (OS media-key integration is video/audio-only)", () => {
+        expect(codeToSiblingDirection("MediaTrackPrevious", [], [])).toBeNull();
+        expect(codeToSiblingDirection("MediaTrackNext", [], [])).toBeNull();
     });
 
     it("honors caller-provided extra keys (e.g. the image viewer's Backspace/Space)", () => {
@@ -112,5 +112,22 @@ describe("sameRoleAttachments", () => {
         expect(sameRoleAttachments(attachments, "x")).toEqual([]);
         expect(sameRoleAttachments(attachments, undefined)).toEqual([]);
         expect(sameRoleAttachments([], "a")).toEqual([]);
+    });
+
+    it("narrows the role to a mime prefix, so a player only cycles what it can play", () => {
+        // Audio, video, PDFs and archives all share the "file" role — only the mime tells them apart.
+        const files = [
+            { attachmentId: "a", role: "file", title: "A", mime: "audio/mpeg" },
+            { attachmentId: "b", role: "file", title: "B", mime: "application/pdf" },
+            { attachmentId: "c", role: "file", title: "C", mime: "audio/ogg" },
+            { attachmentId: "d", role: "image", title: "D", mime: "image/png" },
+            { attachmentId: "e", role: "file", title: "E" }
+        ];
+        expect(sameRoleAttachments(files, "a", "audio/")).toEqual([ { id: "a", title: "A" }, { id: "c", title: "C" } ]);
+        // Without a prefix the role alone decides, as it does for the image viewer.
+        expect(sameRoleAttachments(files, "a")).toEqual([ { id: "a", title: "A" }, { id: "b", title: "B" }, { id: "c", title: "C" }, { id: "e", title: "E" } ]);
+        // An attachment the prefix excludes drops out of its own list; the engine, which needs the current
+        // id to be in it, then reports no navigation at all rather than jumping somewhere unplayable.
+        expect(sameRoleAttachments(files, "b", "audio/").some((sibling) => sibling.id === "b")).toBe(false);
     });
 });

@@ -54,7 +54,7 @@ vi.mock("@triliumnext/core", async () => {
     return { getLog: () => getLogMock, shouldLogMessage };
 });
 
-import WebSocketMessagingProvider from "./ws_messaging_provider.js";
+import WebSocketMessagingProvider, { isHttpAttachableMessagingProvider } from "./ws_messaging_provider.js";
 
 function makeSocket(readyState = OPEN) {
     const handlers: Record<string, Handler> = {};
@@ -92,10 +92,20 @@ describe("WebSocketMessagingProvider", () => {
         vi.restoreAllMocks();
     });
 
+    it("is recognised as HTTP-attachable (the capability www.ts gates the WS server on)", () => {
+        expect(isHttpAttachableMessagingProvider(provider)).toBe(true);
+        // A plain IPC-style provider without attachToHttpServer must not qualify.
+        expect(isHttpAttachableMessagingProvider({
+            sendMessageToAllClients() {},
+            sendMessageToClient: () => false,
+            setClientMessageHandler() {}
+        })).toBe(false);
+    });
+
     function init() {
         const httpServer = {} as any;
         const sessionParser = vi.fn((_req: any, _params: any, cb: () => void) => cb());
-        provider.init(httpServer, sessionParser as any);
+        provider.attachToHttpServer(httpServer, sessionParser as any);
         return { server: state.instances[0], sessionParser };
     }
 
@@ -166,6 +176,18 @@ describe("WebSocketMessagingProvider", () => {
         it("logs server errors via the error handler", () => {
             const { server } = init();
             expect(() => server.emit("error", new Error("ws boom"))).not.toThrow();
+        });
+
+        it("handles a per-connection error without throwing and untracks the client", () => {
+            // A protocol error on a single socket (e.g. WS_ERR_INVALID_CLOSE_CODE) must not
+            // bubble up as an uncaught exception that crashes the process. See issue #9598.
+            const { server } = init();
+            const ws = makeSocket();
+            server.emit("connection", ws, {});
+            expect(provider.sendMessageToClient("client-id", { type: "ping" } as any)).toBe(true);
+
+            expect(() => ws.emit("error", new Error("WS_ERR_INVALID_CLOSE_CODE"))).not.toThrow();
+            expect(provider.sendMessageToClient("client-id", { type: "ping" } as any)).toBe(false);
         });
     });
 

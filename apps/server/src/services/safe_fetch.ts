@@ -3,7 +3,7 @@ import net from "node:net";
 
 import { ValidationError } from "@triliumnext/core";
 import ipaddr from "ipaddr.js";
-import { Agent } from "undici";
+import { Agent, fetch as undiciFetch, type RequestInit as UndiciRequestInit, type Response as UndiciResponse } from "undici";
 
 const FETCH_TIMEOUT_MS = 5000;
 const MAX_REDIRECTS = 5;
@@ -32,17 +32,22 @@ function isBlockedIP(ip: string): boolean {
  * Returns the validated addresses so they can be pinned for the actual connection.
  */
 async function validateHostResolution(hostname: string): Promise<dns.LookupAddress[]> {
+    // `URL.hostname` hands back an IPv6 literal still wrapped in its brackets ("[::1]"), which is
+    // not a form either net.isIP or ipaddr.js recognises. Left as-is, such an address would be
+    // taken for a name and looked up as one instead of being checked as the address it is.
+    const host = hostname.replace(/^\[|\]$/g, "");
+
     // If the hostname is already an IP literal, check it directly
-    if (net.isIP(hostname)) {
-        if (isBlockedIP(hostname)) {
+    if (net.isIP(host)) {
+        if (isBlockedIP(host)) {
             throw new ValidationError("URLs pointing to private/internal networks are not allowed");
         }
-        return [{ address: hostname, family: net.isIP(hostname) as 4 | 6 }];
+        return [{ address: host, family: net.isIP(host) as 4 | 6 }];
     }
 
     let addresses: dns.LookupAddress[];
     try {
-        addresses = await dns.promises.lookup(hostname, { all: true });
+        addresses = await dns.promises.lookup(host, { all: true });
     } catch {
         throw new ValidationError("Could not resolve hostname");
     }
@@ -66,6 +71,13 @@ function validateUrl(urlString: string): URL {
 
     if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
         throw new ValidationError("Only http and https URLs are supported");
+    }
+
+    // `https://user:pass@host/` would put the credentials on the wire, and — for a link preview —
+    // into the note's stored URL and the server log along with them. Nothing here needs to
+    // authenticate, so refuse the URL rather than carry a secret around.
+    if (parsed.username || parsed.password) {
+        throw new ValidationError("URLs containing credentials are not supported");
     }
 
     return parsed;
@@ -107,13 +119,20 @@ function createPinnedLookup(validatedAddresses: dns.LookupAddress[]) {
 
 /**
  * Wraps a Response so that reading/cancelling the body automatically
- * closes the associated undici dispatcher afterwards.
+ * closes the associated undici dispatcher afterwards. Re-emits undici's response
+ * as a standard `Response` so callers stay decoupled from undici's own types.
  */
-function withDispatcherCleanup(response: Response, dispatcher: Agent): Response {
+function withDispatcherCleanup(response: UndiciResponse, dispatcher: Agent): Response {
+    const init: ResponseInit = {
+        status: response.status,
+        statusText: response.statusText,
+        headers: [...response.headers]
+    };
+
     const originalBody = response.body;
     if (!originalBody) {
         void dispatcher.close();
-        return response;
+        return new Response(null, init);
     }
 
     let closed = false;
@@ -146,11 +165,7 @@ function withDispatcherCleanup(response: Response, dispatcher: Agent): Response 
         }
     });
 
-    return new Response(wrappedBody, {
-        status: response.status,
-        statusText: response.statusText,
-        headers: response.headers
-    });
+    return new Response(wrappedBody, init);
 }
 
 /**
@@ -173,14 +188,17 @@ async function safeFetch(url: string, options: RequestInit = {}): Promise<Respon
         });
 
         // URL and resolved IPs are validated above and pinned via the custom dispatcher.
-        // Node.js fetch supports `dispatcher` at runtime (undici), but the type isn't in RequestInit.
+        // undici's own `fetch` is used rather than the global one: the dispatcher must come from the
+        // same undici copy as the fetch consuming it. Node's built-in fetch is a *different*, newer
+        // undici (8.x on Node 26) whose internal request handler the bundled 6.x `Agent` rejects
+        // ("invalid onError method"), which would make every request here fail.
         const fetchOptions = {
             ...options,
             redirect: "manual" as const,
             signal: options.signal ?? AbortSignal.timeout(FETCH_TIMEOUT_MS),
             dispatcher
-        };
-        const response = await fetch(currentUrl, fetchOptions as RequestInit); // codeql[js/request-forgery]
+        } as UndiciRequestInit;
+        const response = await undiciFetch(currentUrl, fetchOptions); // codeql[js/request-forgery]
 
         if (response.status >= 300 && response.status < 400) {
             const location = response.headers.get("location");
@@ -197,4 +215,4 @@ async function safeFetch(url: string, options: RequestInit = {}): Promise<Respon
     throw new Error("Too many redirects");
 }
 
-export { safeFetch, validateHostResolution, validateUrl };
+export { createPinnedLookup, safeFetch, validateHostResolution, validateUrl };

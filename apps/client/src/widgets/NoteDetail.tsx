@@ -1,8 +1,9 @@
 import "./NoteDetail.css";
 
 import clsx from "clsx";
+import { note } from "mermaid/dist/rendering-util/rendering-elements/shapes/note.js";
 import { isValidElement, VNode } from "preact";
-import { useEffect, useRef, useState } from "preact/hooks";
+import { useContext, useEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../components/app_context";
 import NoteContext from "../components/note_context";
@@ -10,7 +11,9 @@ import FNote from "../entities/fnote";
 import type { PrintReport } from "../print";
 import attributes from "../services/attributes";
 import dialog from "../services/dialog";
+import froca from "../services/froca";
 import { t } from "../services/i18n";
+import { stopBackgroundMedia } from "../services/media_playback";
 import protected_session_holder from "../services/protected_session_holder";
 import toast from "../services/toast.js";
 import { isElectron } from "../services/utils";
@@ -20,6 +23,7 @@ import { useDelayedVisibility, useGetContextDataFrom, useNoteContext, useTrilium
 import Icon from "./react/Icon";
 import NoItems from "./react/NoItems";
 import { NoteListWithLinks } from "./react/NoteList";
+import { ContainerVisibilityContext } from "./react/react_utils";
 import { TypeWidgetProps } from "./type_widgets/type_widget";
 
 /**
@@ -100,7 +104,12 @@ export default function NoteDetail() {
         // globally, so it gets also to e.g. ribbon components. But this means that the event can be generated multiple
         // times if the same note is open in several tabs.
 
-        if (note.noteId && loadResults.isNoteContentReloaded(note.noteId, parentComponent.componentId)) {
+        if (note.noteId
+            && loadResults.isNoteReloaded(note.noteId, parentComponent.componentId)
+            && (type !== (await getExtendedWidgetType(note, noteContext)) || mime !== note?.mime)) {
+            // this needs to have a triggerEvent so that e.g., note type (not in the component subtree) is updated
+            parentComponent.triggerEvent("noteTypeMimeChanged", { noteId: note.noteId });
+        } else if (note.noteId && loadResults.isNoteContentReloaded(note.noteId, parentComponent.componentId)) {
             // probably incorrect event
             // calling this.refresh() is not enough since the event needs to be propagated to children as well
             // FIXME: create a separate event to force hierarchical refresh
@@ -108,11 +117,6 @@ export default function NoteDetail() {
             // this uses handleEvent to make sure that the ordinary content updates are propagated only in the subtree
             // to avoid the problem in #3365
             parentComponent.handleEvent("noteTypeMimeChanged", { noteId: note.noteId });
-        } else if (note.noteId
-            && loadResults.isNoteReloaded(note.noteId, parentComponent.componentId)
-            && (type !== (await getExtendedWidgetType(note, noteContext)) || mime !== note?.mime)) {
-            // this needs to have a triggerEvent so that e.g., note type (not in the component subtree) is updated
-            parentComponent.triggerEvent("noteTypeMimeChanged", { noteId: note.noteId });
         } else {
             const attrs = loadResults.getAttributeRows();
 
@@ -257,7 +261,12 @@ export function isContextInActiveTab(noteContext: NoteContext | undefined, activ
  * while the widget is visible, to avoid rendering in the background. When not visible, the DOM element is simply hidden.
  */
 function NoteDetailWrapper({ Element, type, isVisible, isFullHeight, props }: { Element: (props: TypeWidgetProps) => VNode, type: ExtendedNoteType, isVisible: boolean, isFullHeight: boolean, props: TypeWidgetProps }) {
+    // False when an enclosing dialog (e.g. the quick-edit popup) is hidden but kept in the DOM, so a widget
+    // there is told it isn't displayed even though it's the context's current type — letting a media player
+    // inside a closed popup stop, just like one in a navigated-away tab.
+    const containerVisible = useContext(ContainerVisibilityContext);
     const [ cachedProps, setCachedProps ] = useState(props);
+    const wrapperRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (isVisible) {
@@ -266,15 +275,26 @@ function NoteDetailWrapper({ Element, type, isVisible, isFullHeight, props }: { 
         // When not visible, keep the old props to avoid re-rendering in the background.
     }, [ props, isVisible ]);
 
+    // This widget stays mounted (just hidden) when the user switches note type —
+    // e.g. read-only ↔ editable text — and also when an enclosing dialog such as the quick-edit
+    // popup is closed but kept in the DOM. A hidden but still-mounted embedded player keeps playing
+    // audio/video in the background, so stop it in either case.
+    useEffect(() => {
+        if (!isVisible || !containerVisible) {
+            stopBackgroundMedia(wrapperRef.current);
+        }
+    }, [ isVisible, containerVisible ]);
+
     const typeMapping = TYPE_MAPPINGS[type];
     return (
         <div
+            ref={wrapperRef}
             className={`${typeMapping.className} ${typeMapping.printable ? "note-detail-printable" : ""} ${isVisible ? "visible" : "hidden-ext"}`}
             style={{
                 height: isFullHeight ? "100%" : ""
             }}
         >
-            <Element {...cachedProps} />
+            <Element {...cachedProps} isVisible={isVisible && containerVisible} />
         </div>
     );
 }
@@ -392,6 +412,8 @@ export async function getExtendedWidgetType(note: FNote | null | undefined, note
         resultingType = "sqlConsole";
     } else if (note.isMarkdown()) {
         resultingType = "markdown";
+    } else if (note.isIconPack()) {
+        resultingType = "iconPack";
     } else if (type === "code" && (await noteContext?.isReadOnly())) {
         resultingType = "readOnlyCode";
     } else if (type === "text") {
@@ -404,12 +426,38 @@ export async function getExtendedWidgetType(note: FNote | null | undefined, note
         resultingType = type;
     }
 
+    // A note whose blob was withheld by the sync server (device blob size limit) has empty content;
+    // route it to a placeholder rather than a content widget. This also prevents an editor from
+    // saving the empty stub back over the real content on the server. Only content-backed types are
+    // checked, so blobless notes (docs, launchers, books) don't trigger a needless blob fetch; the
+    // fetch itself is froca-cached and coalesced with the render's own blob load.
+    //
+    // The froca-cache check skips the fetch during delete teardown: when the active note is deleted, a
+    // re-render can still run with the (batched, not-yet-cleared) stale FNote reference. froca_updater
+    // removes the note from the cache before emitting entitiesReloaded, so a missing cache entry means the
+    // note is gone — don't fetch a blob for a note that no longer exists. (The 404 that surfaced this is
+    // actually issued by the still-cached modal-close render racing the delete; froca.getBlob's
+    // silentNotFound handling is what keeps that one quiet. This check just avoids the redundant later fetch.)
+    if (BLOB_BACKED_TYPES.has(resultingType) && froca.getNoteFromCache(note.noteId)) {
+        const blob = await note.getBlob();
+        if (blob?.isStubbed) {
+            resultingType = "blobStub";
+        }
+    }
+
     if (note.isProtected && !protected_session_holder.isProtectedSessionAvailable()) {
         resultingType = "protectedSession";
     }
 
     return resultingType;
 }
+
+// Extended note types that render or edit a note's blob content, and so must fall back to the
+// "blobStub" placeholder when that content was not synced to this device.
+const BLOB_BACKED_TYPES = new Set<ExtendedNoteType>([
+    "editableText", "readOnlyText", "editableCode", "readOnlyCode", "markdown",
+    "file", "image", "mermaid", "canvas", "mindMap", "render", "spreadsheet"
+]);
 
 export function checkFullHeight(noteContext: NoteContext | undefined, type: ExtendedNoteType | undefined) {
     if (!noteContext) return false;

@@ -1,7 +1,6 @@
-import { DISPLAYABLE_LOCALE_IDS, LOCALES } from "@triliumnext/commons";
+import { DISPLAYABLE_LOCALE_IDS, IMAGE_MIMES, LOCALES } from "@triliumnext/commons";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { t } from "../../../services/i18n.js";
 import imageService from "../../../services/image.js";
 import noteAutocompleteService from "../../../services/note_autocomplete.js";
 import { ensureMimeTypesForHighlighting } from "../../../services/syntax_highlight.js";
@@ -11,6 +10,25 @@ import { buildConfig, type BuildEditorOptions, OPEN_SOURCE_LICENSE_KEY } from ".
 const optionsState = vi.hoisted(() => ({ map: {} as Record<string, string | undefined> }));
 // Toggles whether the editor advertises raw-image clipboard support.
 const imageState = vi.hoisted(() => ({ copySupported: false }));
+
+// The app catalog, as far as the config is concerned: `bundle` is the `translation` namespace the
+// editor messages are read back from, and `t` resolves a key against `entries`. Unknown keys echo
+// back the way i18next does for a missing entry, which keeps every lookup visible in the assertions
+// rather than resolving to `undefined` against an uninitialized i18n.
+const catalogState = vi.hoisted(() => ({
+    bundle: undefined as Record<string, unknown> | undefined,
+    entries: {} as Record<string, string>
+}));
+vi.mock("../../../services/i18n.js", () => ({ t: (key: string) => catalogState.entries[key] ?? key }));
+vi.mock("i18next", () => ({
+    default: {
+        // i18next binds `getResourceBundle` in `init()`, so it is absent until the app has booted —
+        // the case for a test that builds a config without one.
+        get getResourceBundle() {
+            return catalogState.bundle && (() => catalogState.bundle);
+        }
+    }
+}));
 
 vi.mock("../../../services/options.js", () => ({
     default: {
@@ -64,7 +82,6 @@ function baseOpts(overrides: Partial<BuildEditorOptions> = {}): BuildEditorOptio
     return {
         uiLanguage: "en",
         contentLanguage: "en",
-        forceGplLicense: false,
         isClassicEditor: false,
         templates: [],
         ...overrides
@@ -79,7 +96,8 @@ interface MentionSuggestion {
 
 /** The dynamically-attached config members that CKEditor's `EditorConfig` type doesn't declare. */
 interface DynamicConfig {
-    translate(key: string, params?: Record<string, unknown>): unknown;
+    renderShortcut(shortcut: string): string;
+    autoLinkPreviewsEnabled(): boolean;
     imageActions: {
         copyToClipboard(src: string): void;
         download(src: string): void;
@@ -104,6 +122,8 @@ async function buildDynamicConfig(overrides: Partial<BuildEditorOptions> = {}) {
 beforeEach(() => {
     optionsState.map = {};
     imageState.copySupported = false;
+    catalogState.bundle = undefined;
+    catalogState.entries = {};
     window.glob.isDev = false;
 });
 
@@ -130,10 +150,48 @@ describe("CK config", () => {
             if (locale.id !== "en" && locale.id !== "ga") {
                 expect((config.language as unknown as { ui: string }).ui).toMatch(new RegExp(`^${expectedLocale}`));
                 expect(config.translations, locale.id).toBeDefined();
-                expect(config.translations, locale.id).toHaveLength(2);
+                // The merge seed, CKEditor's GPL core translations, and the Trilium dictionary. The
+                // premium bundle used to contribute another entry, but no premium plugin is loaded
+                // any more. i18next is not initialized here, so the dictionary holds only the
+                // renames of CKEditor's own strings — those apply with or without a catalog — and
+                // every other editor string falls back to its English message id.
+                expect(config.translations, locale.id).toHaveLength(3);
             }
         }
     }, 20_000);
+
+    // The `text-editor.ck` section of the English catalog is the registry of editor strings: each
+    // entry names the English message id a plugin passes to `editor.t()`, and the value the editor
+    // gets for it is that key resolved through the app's i18n.
+    it("claims exactly the media types the upload endpoint stores as images", async () => {
+        const config = await buildConfig(baseOpts());
+        const types = (config.image as { upload: { types: string[] } }).upload.types;
+        // The editor decides whether a dropped file is a picture with this exact expression (see
+        // createImageTypeRegExp) — anchored, so a subtype has to be listed in full.
+        const claimed = new RegExp(`^image\\/(${types.map((type) => type.replace("+", "\\+")).join("|")})$`);
+
+        for (const mime of IMAGE_MIMES) {
+            expect(claimed.test(mime), mime).toBe(true);
+        }
+
+        // And nothing beyond them. A type the editor claims but the endpoint does not store as an
+        // image is the worse half of the mismatch: the editor inserts a picture, the endpoint
+        // answers with a `#root/...` file reference, and that goes into the <img src> unexamined.
+        expect(types.length).toBe(IMAGE_MIMES.length);
+        // TIFF is the one deliberately left out — no browser but Safari draws one in an <img>.
+        expect(claimed.test("image/tiff")).toBe(false);
+    });
+
+    it("turns the English editor catalog into the dictionary the editor resolves messages through", async () => {
+        catalogState.bundle = { "text-editor": { ck: { "insert-a-table": "Insert a table." } } };
+        catalogState.entries["text-editor.ck.insert-a-table"] = "Tabelle einfügen";
+
+        const config = await buildConfig(baseOpts({ uiLanguage: "de" }));
+
+        const translations = config.translations as Record<string, { dictionary: Record<string, string> }>[];
+        // Ours is merged last, after CKEditor's own translations.
+        expect(translations.at(-1)?.de.dictionary["Insert a table."]).toBe("Tabelle einfügen");
+    });
 
     it("excludes Trilium frontend/backend script JS variants from code-block languages", async () => {
         const config = await buildConfig(baseOpts());
@@ -146,35 +204,25 @@ describe("CK config", () => {
         expect(languages).not.toContain("application-javascript-env-frontend");
         expect(languages).not.toContain("application-javascript-env-backend");
     });
+
+    it("wires the MathLive→KaTeX compatibility macros into the math engine", async () => {
+        const config = await buildConfig(baseOpts());
+
+        const macros = (config.math as { katexRenderOptions?: { macros?: Record<string, string> } } | undefined)
+            ?.katexRenderOptions?.macros;
+        // Without this mapping, MathLive's \differentialD renders as raw error text (issue #9523).
+        expect(macros?.["\\differentialD"]).toBe("\\mathrm{d}");
+    });
 });
 
 describe("CK config - licensing", () => {
-    it("forces the open-source license and omits premium plugins when GPL is requested", async () => {
-        const config = await buildConfig(baseOpts({ forceGplLicense: true }));
+    it("always runs under the open-source license, with no premium plugins", async () => {
+        // Every premium plugin Trilium used has an in-tree GPL replacement, so there is no
+        // commercial key to read and nothing to add on top of the built-in plugin list.
+        const config = await buildConfig(baseOpts());
 
         expect(config.licenseKey).toBe(OPEN_SOURCE_LICENSE_KEY);
         expect(config.extraPlugins).toBeUndefined();
-    });
-
-    it("falls back to the open-source license and logs when no premium key is configured", async () => {
-        vi.stubEnv("VITE_CKEDITOR_KEY", "");
-        const logError = vi.fn();
-        vi.stubGlobal("logError", logError);
-
-        const config = await buildConfig(baseOpts({ forceGplLicense: false }));
-
-        expect(config.licenseKey).toBe(OPEN_SOURCE_LICENSE_KEY);
-        expect(config.extraPlugins).toBeUndefined();
-        expect(logError).toHaveBeenCalledOnce();
-    });
-
-    it("enables premium plugins when a license key is available", async () => {
-        // The dev key from `.env` is present in tests, so premium features are unlocked.
-        const config = await buildConfig(baseOpts({ forceGplLicense: false }));
-
-        expect(config.licenseKey).not.toBe(OPEN_SOURCE_LICENSE_KEY);
-        expect(Array.isArray(config.extraPlugins)).toBe(true);
-        expect((config.extraPlugins ?? []).length).toBeGreaterThan(0);
     });
 });
 
@@ -214,16 +262,33 @@ describe("CK config - image actions", () => {
         expect(supportedToolbar).toContain("downloadImage");
     });
 
-    it("wires the translate, copy and download callbacks to their services", async () => {
+    it("wires the shortcut renderer, copy and download callbacks to their services", async () => {
         const config = await buildDynamicConfig();
 
-        // `translate` simply delegates to the app's i18n function.
-        expect(config.translate("editable_text.placeholder")).toBe(t("editable_text.placeholder"));
+        // `renderShortcut` hands a plugin ready-made markup: every key translated through the app
+        // catalog and wrapped in its own `<kbd>`. The platform is read per call, so both the
+        // separated rendering and the macOS glyph one come from the same config entry.
+        vi.stubGlobal("navigator", { platform: "Win32" });
+        expect(config.renderShortcut("Ctrl+Enter"))
+            .toBe("<kbd>keyboard_shortcut_keys.ctrl</kbd>+<kbd>keyboard_shortcut_keys.enter</kbd>");
+
+        vi.stubGlobal("navigator", { platform: "MacIntel" });
+        expect(config.renderShortcut("Ctrl+Enter")).toBe("<kbd>⌃</kbd><kbd>↩</kbd>");
 
         config.imageActions.copyToClipboard("image-src-1");
         config.imageActions.download("image-src-2");
         expect(imageService.copyImageToClipboard).toHaveBeenCalledWith("image-src-1");
         expect(imageService.downloadImage).toHaveBeenCalledWith("image-src-2");
+    });
+
+    // The option is read per call rather than baked into the config, so toggling it applies to
+    // editors that are already open.
+    it("re-reads the auto-link-preview option on every call", async () => {
+        const config = await buildDynamicConfig();
+        expect(config.autoLinkPreviewsEnabled()).toBe(false);
+
+        optionsState.map["textNoteAutoLinkPreviewsEnabled"] = "true";
+        expect(config.autoLinkPreviewsEnabled()).toBe(true);
     });
 });
 
@@ -267,6 +332,13 @@ describe("CK config - mention feed", () => {
         expect((noteItem.firstChild as HTMLElement).className).toBe("bx bx-folder");
         expect(noteItem.querySelector("b")?.textContent).toBe("Hello");
 
+        // The row is exactly the icon and a wrapped title: the stylesheet lays the two out against
+        // each other, which it cannot do if the title is spread into the button as loose nodes.
+        expect(noteItem.className).toBe("note-mention-suggestion");
+        expect(noteItem.childNodes).toHaveLength(2);
+        const title = noteItem.querySelector(".note-mention-suggestion-title");
+        expect(title?.textContent).toBe("Hello");
+
         // A "create note" suggestion with no icon/title gets the plus icon and an empty title.
         const createItem = feedConfig.itemRenderer({ action: "create-note" });
         expect((createItem.firstChild as HTMLElement).className).toBe("bx bx-plus");
@@ -277,13 +349,13 @@ describe("CK config - mention feed", () => {
 describe("CK config - disabled plugins", () => {
     it("removes the emoji and slash-command plugins based on their option toggles", async () => {
         const disabled = await buildConfig(baseOpts());
-        expect(disabled.removePlugins).toContain("EmojiMention");
-        expect(disabled.removePlugins).toContain("SlashCommand");
+        expect(disabled.removePlugins).toContain("TriliumEmojiMention");
+        expect(disabled.removePlugins).toContain("TriliumSlashCommands");
 
         optionsState.map["textNoteEmojiCompletionEnabled"] = "true";
         optionsState.map["textNoteSlashCommandsEnabled"] = "true";
         const enabled = await buildConfig(baseOpts());
-        expect(enabled.removePlugins).not.toContain("EmojiMention");
-        expect(enabled.removePlugins).not.toContain("SlashCommand");
+        expect(enabled.removePlugins).not.toContain("TriliumEmojiMention");
+        expect(enabled.removePlugins).not.toContain("TriliumSlashCommands");
     });
 });

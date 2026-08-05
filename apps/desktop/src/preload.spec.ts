@@ -50,6 +50,12 @@ vi.mock("electron", () => ({
                 ipcRendererListeners.set(channel, filtered);
             }
         }
+    },
+    // Maps a dropped File to its on-disk path; here we read a test-only `path` field off the fake File.
+    webUtils: {
+        getPathForFile(file: { path?: string }) {
+            return file.path ?? "";
+        }
     }
 }));
 
@@ -369,6 +375,22 @@ describe("preload script", () => {
             ipcRendererSyncResults.set("get-available-spellchecker-languages:undefined", ["en-US", "de-DE"]);
             expect(spell().getAvailableSpellCheckerLanguages()).toEqual(["en-US", "de-DE"]);
         });
+
+        it("setSpellCheckerLanguages sends correct IPC message", () => {
+            spell().setSpellCheckerLanguages(["en-US", "fr"]);
+            expect(ipcRendererSent).toContainEqual({
+                channel: "set-spellchecker-languages",
+                args: [["en-US", "fr"]]
+            });
+        });
+
+        it("setSpellCheckerEnabled sends correct IPC message", () => {
+            spell().setSpellCheckerEnabled(false);
+            expect(ipcRendererSent).toContainEqual({
+                channel: "set-spellchecker-enabled",
+                args: [false]
+            });
+        });
     });
 
     describe("systemIntegration", () => {
@@ -581,6 +603,66 @@ describe("preload script", () => {
         it("setSqlConsoleEnabled invokes the corresponding IPC channel", async () => {
             await security().setSqlConsoleEnabled(false);
             expect(ipcRendererInvoked).toContainEqual({ channel: "security-set-sql-console", args: [false] });
+        });
+
+        it("setLanAccessEnabled invokes the corresponding IPC channel", async () => {
+            await security().setLanAccessEnabled(true);
+            expect(ipcRendererInvoked).toContainEqual({ channel: "security-set-lan-access", args: [true] });
+        });
+    });
+
+    describe("onenote", () => {
+        const onenote = () => getGroup("onenote");
+
+        it("login invokes the corresponding IPC channel", async () => {
+            await onenote().login();
+            expect(ipcRendererInvoked).toContainEqual({ channel: "onenote-login", args: [] });
+        });
+    });
+
+    describe("nativeExport", () => {
+        const nativeExport = () => getGroup("nativeExport");
+
+        it("exportSubtreeToFile invokes the corresponding IPC channel with the options", async () => {
+            const opts = { branchId: "branch123", format: "html", title: "My Note", taskId: "task1" };
+            await nativeExport().exportSubtreeToFile(opts);
+            expect(ipcRendererInvoked).toContainEqual({ channel: "export-subtree-to-file", args: [opts] });
+        });
+    });
+
+    describe("nativeImport", () => {
+        const nativeImport = () => getGroup("nativeImport");
+
+        it("pickFiles invokes the open-dialog IPC channel with no path argument", async () => {
+            await nativeImport().pickFiles();
+            expect(ipcRendererInvoked).toContainEqual({ channel: "import-pick-files", args: [] });
+        });
+
+        it("importFromToken forwards the token + options (never a path) to its IPC channel", async () => {
+            const opts = { token: "tok-1", parentNoteId: "p1", taskId: "task1", options: { explodeArchives: true }, last: true };
+            await nativeImport().importFromToken(opts);
+            expect(ipcRendererInvoked).toContainEqual({ channel: "import-from-token", args: [opts] });
+        });
+
+        it("grantDroppedFiles resolves File objects to paths and forwards only those (dropping unresolved)", async () => {
+            const grantDroppedFiles = nativeImport().grantDroppedFiles as (files: unknown[]) => Promise<unknown>;
+            // The second file has no backing path (a script-built blob / browser drag) → getPathForFile yields "".
+            await grantDroppedFiles([{ path: "/data/a.zip" }, { /* no path */ }]);
+            expect(ipcRendererInvoked).toContainEqual({ channel: "import-grant-dropped", args: [["/data/a.zip"]] });
+        });
+    });
+
+    describe("dialog", () => {
+        const dialog = () => getGroup("dialog");
+
+        it("pickDirectory forwards the starting location to its IPC channel", async () => {
+            await dialog().pickDirectory({ defaultPath: "/data/backup" });
+            expect(ipcRendererInvoked).toContainEqual({ channel: "dialog-pick-directory", args: [{ defaultPath: "/data/backup" }] });
+        });
+
+        it("pickDirectory may be called without a starting location", async () => {
+            await dialog().pickDirectory();
+            expect(ipcRendererInvoked).toContainEqual({ channel: "dialog-pick-directory", args: [undefined] });
         });
     });
 });

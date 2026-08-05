@@ -1,6 +1,6 @@
 "use strict";
 
-import type { TaskData, TaskResult, TaskType, WebSocketMessage } from "@triliumnext/commons";
+import type { ProgressPhase, TaskData, TaskResult, TaskType, WebSocketMessage } from "@triliumnext/commons";
 import ws from "./ws.js";
 
 // taskId => TaskContext
@@ -10,6 +10,8 @@ class TaskContext<T extends TaskType> {
     private taskId: string;
     private taskType: TaskType;
     private progressCount: number;
+    private totalCount: number | null;
+    private phase: ProgressPhase | null;
     private lastSentCountTs: number;
     data: TaskData<T>;
     noteDeletionHandlerTriggered: boolean;
@@ -19,6 +21,8 @@ class TaskContext<T extends TaskType> {
         this.taskType = taskType;
         this.data = data;
         this.noteDeletionHandlerTriggered = false;
+        this.totalCount = null;
+        this.phase = null;
 
         // progressCount is meant to represent just some progress - to indicate the task is not stuck
         this.progressCount = -1; // we're incrementing immediately
@@ -39,20 +43,81 @@ class TaskContext<T extends TaskType> {
         return taskContexts[taskId];
     }
 
+    /**
+     * Sets the total expected units of work, so progress messages can carry a denominator and the
+     * client can show a progress bar instead of a bare count. Optional — tasks that don't know their
+     * total up front simply never call this.
+     */
+    setTotalCount(totalCount: number) {
+        this.totalCount = totalCount;
+    }
+
+    /**
+     * Labels the phase the subsequent progress counts belong to, so the client can render a phase-specific
+     * message (e.g. "Extracted X items" vs "Processed X notes"). Typically paired with resetProgressCount()
+     * and setTotalCount() at a phase boundary so each phase drives its own 0→100% bar. Forces the next
+     * progress message to send immediately (bypassing the throttle) so the label switches without delay.
+     */
+    setPhase(phase: ProgressPhase) {
+        this.phase = phase;
+        this.lastSentCountTs = 0;
+    }
+
+    /**
+     * Resets the running progress count back to zero. Useful for multi-phase tasks (e.g. zip export,
+     * which first walks the tree to build metadata and then walks it again to write content) so a later
+     * phase can drive a 0→100% progress bar from scratch instead of continuing the earlier phase's count.
+     */
+    resetProgressCount() {
+        this.progressCount = 0;
+    }
+
+    /**
+     * Sets the phase and pushes the current progress immediately, without waiting for the next unit of
+     * work. For phases entered while no counts are flowing — e.g. the OneNote importer waiting out Graph
+     * throttling, where the next increaseProgressCount() may be an hour away — setPhase() alone would
+     * leave the client showing the previous label (and a seemingly hung count) the whole time.
+     */
+    reportPhase(phase: ProgressPhase) {
+        this.phase = phase;
+        this.sendProgressMessage();
+    }
+
+    /**
+     * Clears the phase so subsequent progress messages drop the label. Does not send by itself: callers
+     * clear right before counting the unit of work that ended the phase, and the forced flush here makes
+     * that very next increaseProgressCount() deliver the corrected label and count in one message.
+     */
+    clearPhase() {
+        if (this.phase !== null) {
+            this.phase = null;
+            this.lastSentCountTs = 0;
+        }
+    }
+
     increaseProgressCount() {
         this.progressCount++;
 
-        if (Date.now() - this.lastSentCountTs >= 300 && this.taskId !== "no-progress-reporting") {
-            this.lastSentCountTs = Date.now();
-
-            ws.sendMessageToAllClients({
-                type: "taskProgressCount",
-                taskId: this.taskId,
-                taskType: this.taskType,
-                data: this.data,
-                progressCount: this.progressCount
-            } as WebSocketMessage);
+        if (Date.now() - this.lastSentCountTs >= 300) {
+            this.sendProgressMessage();
         }
+    }
+
+    private sendProgressMessage() {
+        if (this.taskId === "no-progress-reporting") {
+            return;
+        }
+        this.lastSentCountTs = Date.now();
+
+        ws.sendMessageToAllClients({
+            type: "taskProgressCount",
+            taskId: this.taskId,
+            taskType: this.taskType,
+            data: this.data,
+            progressCount: this.progressCount,
+            ...(this.totalCount !== null ? { totalCount: this.totalCount } : {}),
+            ...(this.phase !== null ? { phase: this.phase } : {})
+        } as WebSocketMessage);
     }
 
     reportError(message: string) {

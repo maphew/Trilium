@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getNoteIcon, NOTE_TYPE_ICONS } from "./notes.js";
+import { getImageAttachmentTitle, getMimeIcon, getNoteIcon, NOTE_TYPE_ICONS, NOTE_TYPE_IMAGE_ATTACHMENTS, parseMindMapNoteLink } from "./notes.js";
 import { NoteType } from "./rows.js";
 
 function buildArgs(overrides: {
@@ -31,6 +31,30 @@ describe("NOTE_TYPE_ICONS", () => {
         expect(NOTE_TYPE_ICONS.mermaid).toBe("bx bx-selection");
         expect(NOTE_TYPE_ICONS.mindMap).toBe("bx bx-sitemap");
         expect(NOTE_TYPE_ICONS.llmChat).toBe("bx bx-message-square-dots");
+    });
+});
+
+describe("getImageAttachmentTitle", () => {
+    // These titles are a wire contract: the type widgets write attachments under them, the
+    // `api/images` routes look them up by title, and the ZIP export/import pair resolves embeds
+    // through them. Spelled out literally rather than read back off the table, so a typo in
+    // NOTE_TYPE_IMAGE_ATTACHMENTS fails here instead of silently breaking every one of them.
+    it("resolves the note types whose image lives in a generated attachment", () => {
+        expect(getImageAttachmentTitle("canvas")).toBe("canvas-export.svg");
+        expect(getImageAttachmentTitle("mermaid")).toBe("mermaid-export.svg");
+        expect(getImageAttachmentTitle("mindMap")).toBe("mindmap-export.svg");
+        expect(getImageAttachmentTitle("spreadsheet")).toBe("spreadsheet-export.png");
+
+        // Indexing the table directly narrows to the literal, for statically known types.
+        expect(NOTE_TYPE_IMAGE_ATTACHMENTS.mermaid).toBe("mermaid-export.svg");
+    });
+
+    it("returns undefined for note types that carry their image as content, and for no type", () => {
+        // An image note is served straight from its own content, so it has no such attachment.
+        expect(getImageAttachmentTitle("image")).toBeUndefined();
+        expect(getImageAttachmentTitle("text")).toBeUndefined();
+        expect(getImageAttachmentTitle(null)).toBeUndefined();
+        expect(getImageAttachmentTitle(undefined)).toBeUndefined();
     });
 });
 
@@ -113,5 +137,53 @@ describe("getNoteIcon", () => {
     it("returns the note-type icon for any other type", () => {
         const icon = getNoteIcon(buildArgs({ type: "book" }));
         expect(icon).toBe("bx bx-book");
+    });
+});
+
+describe("parseMindMapNoteLink", () => {
+    it("tells a link to a note from one pointing outside Trilium", () => {
+        expect(parseMindMapNoteLink("#root/abc123")).toEqual({ notePath: "root/abc123", noteId: "abc123" });
+        // The whole path is kept — it is what places the note — and the note is the end of it.
+        expect(parseMindMapNoteLink("#root/parent/abc123")).toEqual({ notePath: "root/parent/abc123", noteId: "abc123" });
+        expect(parseMindMapNoteLink("#root")).toEqual({ notePath: "root", noteId: "root" });
+
+        for (const link of [
+            null, undefined, "", 42,
+            "https://example.com",
+            // An address of its own that happens to carry a note path is still a page elsewhere.
+            "https://example.com/#root/abc123",
+            "#rootless/abc",
+            // The address as Mind Elixir would hold it, or not at all.
+            "root/abc123",
+            "#root/abc123?bookmark=x"
+        ]) {
+            expect(parseMindMapNoteLink(link)).toBeNull();
+        }
+    });
+});
+
+describe("getMimeIcon", () => {
+    it("reads a media type the way a note of that content is read", () => {
+        // Same answers as the file/image branches above, which now go through here: a PDF is a PDF
+        // whether it arrived as a note or as an attachment.
+        expect(getMimeIcon("application/pdf")).toBe("bx bxs-file-pdf");
+        expect(getMimeIcon("video/mp4")).toBe("bx bx-video");
+        expect(getMimeIcon("audio/mpeg")).toBe("bx bx-music");
+        expect(getMimeIcon("image/gif")).toBe("bx bxs-file-gif");
+        expect(getMimeIcon("image/png")).toBe("bx bx-image");
+        expect(getMimeIcon("text/plain")).toBe("bx bx-file");
+    });
+
+    it("falls back to the file icon when there is no media type to read", () => {
+        expect(getMimeIcon(undefined)).toBe("bx bx-file");
+        expect(getMimeIcon(null)).toBe("bx bx-file");
+        expect(getMimeIcon("")).toBe("bx bx-file");
+    });
+
+    it("does not answer with something off the mapping tables' prototype", () => {
+        // The media type is whatever was stored. Read off a table rather than checked against it,
+        // these return a function, which survives the `??` and is handed on as an icon class.
+        expect(getMimeIcon("constructor")).toBe("bx bx-file");
+        expect(getMimeIcon("toString")).toBe("bx bx-file");
     });
 });

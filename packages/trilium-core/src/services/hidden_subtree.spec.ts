@@ -1,4 +1,4 @@
-import { beforeAll, describe, expect, it } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 
 import becca from "../becca/becca.js";
 import type BNote from "../becca/entities/bnote.js";
@@ -129,6 +129,24 @@ describe("hidden_subtree (real DB)", () => {
             // while the declared docName label is preserved.
             expect(hidden.hasOwnedLabel("strayLabelXyz")).toBe(false);
             expect(hidden.getOwnedLabelValue("docName")).toBe("hidden");
+        });
+
+        it("does not re-save a value-less enforced attribute on every run", () => {
+            // `_template_text_snippet` declares `#textSnippet`/`#template` with no value, so they
+            // are stored as "". The enforcement compare used the raw (undefined) definition value,
+            // so `"" !== undefined` re-saved them on every run — and save() always emits a sync
+            // entity change, which churned `entitiesReloaded` and tore down every open text editor.
+            // The compare now normalizes undefined → "" to match what is actually written.
+            const snippet = becca.notes["_template_text_snippet"];
+            expect(snippet).toBeDefined();
+            const textSnippetAttr = snippet.getOwnedAttributes("label", "textSnippet")[0];
+            expect(textSnippetAttr).toBeDefined();
+            expect(textSnippetAttr.value).toBe("");
+
+            const saveSpy = vi.spyOn(textSnippetAttr, "save");
+            checkHiddenSubtree();
+            expect(saveSpy).not.toHaveBeenCalled();
+            saveSpy.mockRestore();
         });
 
         it("repairs a modified value on an enforced attribute", () => {

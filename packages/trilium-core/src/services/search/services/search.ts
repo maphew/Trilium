@@ -1,3 +1,4 @@
+import { extractLlmChatText } from "@triliumnext/commons/src/lib/llm/extract_chat_text.js";
 import normalizeString from "normalize-strings";
 import striptags from "striptags";
 
@@ -9,7 +10,7 @@ import { getLog } from "../../log.js";
 import protectedSessionService from "../../protected_session.js";
 import scriptService from "../../script.js";
 import { isScriptingEnabled } from "../../scripting_guard.js";
-import { escapeHtml, escapeRegExp } from "../../utils/index.js";
+import { escapeHtml, escapeRegExp, unescapeHtml } from "../../utils/index.js";
 import type Expression from "../expressions/expression.js";
 import SearchContext from "../search_context.js";
 import SearchResult from "../search_result.js";
@@ -470,7 +471,7 @@ function extractContentSnippet(noteId: string, searchTokens: string[], maxLength
     try {
         let content: string | undefined;
 
-        if (["text", "code", "mermaid", "canvas", "mindMap"].includes(note.type)) {
+        if (["text", "code", "mermaid", "canvas", "mindMap", "llmChat"].includes(note.type)) {
             const raw = note.getContent();
             if (raw && typeof raw === "string") {
                 content = raw;
@@ -497,7 +498,30 @@ function extractContentSnippet(noteId: string, searchTokens: string[], maxLength
 
         // Strip HTML tags for text notes
         if (note.type === "text") {
+            // A collapsible's summary and body must not run into surrounding text: striptags
+            // drops tags with no separator, so break the line after the summary and after the
+            // whole block. The newlines become paragraph breaks in the snippet (rendered as <br>).
+            content = content
+                .replace(/<\/summary>/gi, "</summary>\n")
+                .replace(/<\/details>/gi, "</details>\n");
+            // Link previews (link-embed / link-mention) keep their url/title/description in data
+            // attributes that striptags would drop; surface them as separate lines instead.
+            content = content.replace(/<(section|span)\b[^>]*\bclass="[^"]*\blink-(?:embed|mention)\b[^"]*"[^>]*>[\s\S]*?<\/\1>/gi, (element) => {
+                const url = element.match(/\bdata-url="([^"]*)"/i)?.[1] ?? "";
+                const title = element.match(/\bdata-title="([^"]*)"/i)?.[1] ?? "";
+                const description = element.match(/\bdata-description="([^"]*)"/i)?.[1] ?? "";
+                return `\n${[url, title, description].filter(Boolean).join("\n")}\n`;
+            });
             content = striptags(content);
+            // Decode HTML entities so the snippet shows real characters instead of escape codes
+            // (e.g. "&lt;", "&amp;", "&nbsp;") — attribute-sourced text above is entity-encoded too.
+            content = unescapeHtml(content).replace(/&nbsp;/g, " ");
+        } else if (note.type === "llmChat") {
+            // The note stores the whole conversation as a JSON blob; show the readable prose only.
+            content = extractLlmChatText(content);
+            if (!content) {
+                return "";
+            }
         }
 
         // Normalize whitespace while preserving paragraph breaks

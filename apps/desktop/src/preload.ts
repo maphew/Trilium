@@ -1,5 +1,5 @@
-import type { ElectronApi, ElectronContextMenuParams, RendererStartupMetric } from "@triliumnext/commons";
-import { contextBridge, ipcRenderer, webFrame } from "electron";
+import type { ElectronApi, ElectronContextMenuParams, NativeImportOptions, OneNoteLoginResult, RendererStartupMetric } from "@triliumnext/commons";
+import { contextBridge, ipcRenderer, webFrame, webUtils } from "electron";
 
 contextBridge.exposeInMainWorld("electronApi", {
     window: {
@@ -17,7 +17,7 @@ contextBridge.exposeInMainWorld("electronApi", {
         },
 
         // Title bar
-        setTitleBarOverlay(options: { color: string; symbolColor: string }) {
+        setTitleBarOverlay(options: { color: string; symbolColor: string; height?: number }) {
             ipcRenderer.send("set-title-bar-overlay", options);
         },
         setWindowButtonPosition(position: { x: number; y: number }) {
@@ -152,6 +152,12 @@ contextBridge.exposeInMainWorld("electronApi", {
         },
         getAvailableSpellCheckerLanguages(): string[] {
             return ipcRenderer.sendSync("get-available-spellchecker-languages");
+        },
+        setSpellCheckerLanguages(languageCodes: string[]) {
+            ipcRenderer.send("set-spellchecker-languages", languageCodes);
+        },
+        setSpellCheckerEnabled(enabled: boolean) {
+            ipcRenderer.send("set-spellchecker-enabled", enabled);
         }
     },
 
@@ -195,6 +201,35 @@ contextBridge.exposeInMainWorld("electronApi", {
         },
         printFromPreview(opts: Record<string, unknown>) {
             ipcRenderer.send("print-from-preview", opts);
+        }
+    },
+
+    nativeExport: {
+        exportSubtreeToFile(opts: { branchId: string; format: string; title: string; taskId: string }) {
+            return ipcRenderer.invoke("export-subtree-to-file", opts);
+        }
+    },
+
+    nativeImport: {
+        pickFiles() {
+            return ipcRenderer.invoke("import-pick-files");
+        },
+        grantDroppedFiles(files: File[]) {
+            // Resolve each dropped File to its on-disk path here in the preload: getPathForFile returns a
+            // real path only for a genuinely user-supplied file (empty for anything a script built), so the
+            // File is the capability. Only the resolved paths cross to the main process — the path-accepting
+            // channel is never exposed to the renderer, so a script can't smuggle in an arbitrary path.
+            const paths = files.map((file) => webUtils.getPathForFile(file)).filter((path) => !!path);
+            return ipcRenderer.invoke("import-grant-dropped", paths);
+        },
+        importFromToken(opts: { token: string; parentNoteId: string; taskId: string; options: NativeImportOptions; last: boolean; format?: string }) {
+            return ipcRenderer.invoke("import-from-token", opts);
+        }
+    },
+
+    dialog: {
+        pickDirectory(opts?: { defaultPath?: string }) {
+            return ipcRenderer.invoke("dialog-pick-directory", opts);
         }
     },
 
@@ -251,6 +286,15 @@ contextBridge.exposeInMainWorld("electronApi", {
         },
         setSqlConsoleEnabled(enabled: boolean): Promise<boolean> {
             return ipcRenderer.invoke("security-set-sql-console", enabled);
+        },
+        setLanAccessEnabled(enabled: boolean): Promise<boolean> {
+            return ipcRenderer.invoke("security-set-lan-access", enabled);
+        }
+    },
+
+    onenote: {
+        login(): Promise<OneNoteLoginResult> {
+            return ipcRenderer.invoke("onenote-login");
         }
     }
 } satisfies ElectronApi);

@@ -9,12 +9,17 @@
 /* Zoom controls pinned to the bottom-right corner of the viewport. */
 .image-viewer-controls {
     position: absolute;
-    inset-inline-end: 10px;
-    bottom: 10px;
+    inset-inline-end: var(--overlay-button-inset, 10px);
+    bottom: var(--overlay-button-inset, 10px);
     z-index: 1;
-    display: flex;
-    align-items: center;
-    gap: 4px;
+}
+
+/* Shortcut-hints button pinned to the top-right corner of the viewport. */
+.image-viewer-hint-button {
+    position: absolute;
+    inset-inline-end: var(--overlay-button-inset, 10px);
+    top: var(--overlay-button-inset, 10px);
+    z-index: 1;
 }
 
 /* Make the library's viewport fill the available space so the image fits and pans within it. */

@@ -91,8 +91,7 @@ async function extractAndSendAnnotations() {
     const app = window.PDFViewerApplication;
     try {
         const annotations = await extractFromDocument(app.pdfDocument);
-        applyEditorOverrides(annotations, app.pdfDocument.annotationStorage);
-        sendAnnotations(annotations);
+        sendAnnotations(applyEditorOverrides(annotations, app.pdfDocument.annotationStorage));
     } catch (error) {
         console.error("Error extracting annotations:", error);
         sendAnnotations([]);
@@ -105,13 +104,18 @@ async function extractAndSendAnnotations() {
  * newly created highlights with their overlaidText), then closes it.
  */
 export async function extractFromSavedData(data: ArrayBuffer | Uint8Array) {
+    let loadingTask: any;
     try {
-        const tempDoc = await (globalThis as any).pdfjsLib.getDocument({ data }).promise;
+        loadingTask = (globalThis as any).pdfjsLib.getDocument({ data });
+        const tempDoc = await loadingTask.promise;
         const annotations = await extractFromDocument(tempDoc);
-        tempDoc.destroy();
         sendAnnotations(annotations);
     } catch (error) {
         console.error("Error extracting annotations from saved data:", error);
+    } finally {
+        // PDFDocumentProxy.destroy() was removed in pdf.js v6; tear the temporary
+        // document (and its worker) down via the loading task instead.
+        await loadingTask?.destroy();
     }
 }
 
@@ -134,21 +138,32 @@ async function extractFromDocument(pdfDocument: any): Promise<PdfAnnotationInfo[
     return annotations;
 }
 
-function applyEditorOverrides(annotations: PdfAnnotationInfo[], storage: any) {
+/**
+ * Layers the in-session editing state over the annotations read from the document: until a
+ * save is written back, deletions and edits live only in the editor, not in the file.
+ *
+ * Returns a new array rather than removing entries from the one being iterated — splicing
+ * shifted the following annotation into the index the loop had just consumed, skipping it, so
+ * deleting adjacent annotations left every second one in the sidebar until the next save.
+ */
+function applyEditorOverrides(annotations: PdfAnnotationInfo[], storage: any): PdfAnnotationInfo[] {
+    const remaining: PdfAnnotationInfo[] = [];
+
     for (const ann of annotations) {
         const editor = storage.getEditor?.(ann.id);
-        if (!editor) continue;
-        if (editor.deleted) {
-            annotations.splice(annotations.indexOf(ann), 1);
+        if (editor?.deleted) {
             continue;
         }
-        if (editor.color) {
+        if (editor?.color) {
             ann.color = editor.color;
         }
-        if (editor.comment?.text) {
+        if (editor?.comment?.text) {
             ann.contents = editor.comment.text;
         }
+        remaining.push(ann);
     }
+
+    return remaining;
 }
 
 function sendAnnotations(annotations: PdfAnnotationInfo[]) {

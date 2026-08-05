@@ -12,7 +12,6 @@ import type FNote from "../entities/fnote.js";
 import contextMenu from "../menus/context_menu.js";
 import type { TreeCommandNames } from "../menus/tree_context_menu.js";
 import branchService from "../services/branches.js";
-import dialogService from "../services/dialog.js";
 import froca from "../services/froca.js";
 import hoistedNoteService from "../services/hoisted_note.js";
 import { t } from "../services/i18n.js";
@@ -23,6 +22,7 @@ import type { AttributeRow, BranchRow } from "../services/load_results.js";
 import noteCreateService from "../services/note_create.js";
 import options from "../services/options.js";
 import server from "../services/server.js";
+import { buildShareLink } from "../services/share_link.js";
 import shortcutService from "../services/shortcuts.js";
 import toastService from "../services/toast.js";
 import treeService from "../services/tree.js";
@@ -138,6 +138,14 @@ const TPL = /*html*/`
                       title="${t("note_tree.automatically-collapse-notes-title")}"></span>
             </label>
         </div>
+        <div class="form-check">
+            <label class="form-check-label tn-checkbox">
+                <input class="form-check-input follow-active-note" type="checkbox" value="">
+                ${t("note_tree.follow-active-note")}
+                <span class="bx bx-info-circle"
+                      title="${t("note_tree.follow-active-note-title")}"></span>
+            </label>
+        </div>
 
         <br/>
 
@@ -197,6 +205,7 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
     private $saveTreeSettingsButton!: JQuery<HTMLElement>;
     private $hideArchivedNotesCheckbox!: JQuery<HTMLElement>;
     private $autoCollapseNoteTree!: JQuery<HTMLElement>;
+    private $followActiveNoteCheckbox!: JQuery<HTMLElement>;
     private treeName: "main";
     private autoCollapseTimeoutId?: Timeout;
     private lastFilteredHoistedNotePath?: string | null;
@@ -226,7 +235,12 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
             } else if (target.classList.contains("add-note-button")) {
                 const node = $.ui.fancytree.getNode(e as unknown as Event);
                 const parentNotePath = treeService.getNotePath(node);
-                noteCreateService.createNote(parentNotePath, { isProtected: node.data.isProtected });
+                noteCreateService.createNote(parentNotePath, {
+                    isProtected: node.data.isProtected,
+                    // Activate in this tree's own context — in popup dialogs (e.g. the task states
+                    // tree popup) it is not the tab manager's active context.
+                    noteContext: this.noteContext
+                });
             } else if (target.classList.contains("enter-workspace-button")) {
                 const node = $.ui.fancytree.getNode(e as unknown as Event);
                 this.triggerCommand("hoistNote", { noteId: node.data.noteId });
@@ -261,6 +275,7 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
         this.$treeSettingsPopup = this.$widget.find(".tree-settings-popup");
         this.$hideArchivedNotesCheckbox = this.$treeSettingsPopup.find(".hide-archived-notes");
         this.$autoCollapseNoteTree = this.$treeSettingsPopup.find(".auto-collapse-note-tree");
+        this.$followActiveNoteCheckbox = this.$treeSettingsPopup.find(".follow-active-note");
 
         this.$treeSettingsButton = this.$widget.find(".tree-settings-button");
         this.$treeSettingsButton.on("click", (e) => {
@@ -271,6 +286,7 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
 
             this.$hideArchivedNotesCheckbox.prop("checked", this.hideArchivedNotes);
             this.$autoCollapseNoteTree.prop("checked", this.autoCollapseNoteTree);
+            this.$followActiveNoteCheckbox.prop("checked", this.treeScrollFollowNavigation);
 
             const top = this.$treeActions[0].offsetTop - (this.$treeSettingsPopup.outerHeight() ?? 0);
             const left = Math.max(0, this.$treeActions[0].offsetLeft - (this.$treeSettingsPopup.outerWidth() ?? 0) + (this.$treeActions.outerWidth() ?? 0));
@@ -295,6 +311,7 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
         this.$saveTreeSettingsButton.on("click", async () => {
             await this.setHideArchivedNotes(this.$hideArchivedNotesCheckbox.prop("checked"));
             await this.setAutoCollapseNoteTree(this.$autoCollapseNoteTree.prop("checked"));
+            await this.setTreeScrollFollowNavigation(this.$followActiveNoteCheckbox.prop("checked"));
 
             this.$treeSettingsPopup.hide();
 
@@ -352,6 +369,14 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
 
     async setAutoCollapseNoteTree(val: string) {
         await options.save("autoCollapseNoteTree", val.toString());
+    }
+
+    get treeScrollFollowNavigation() {
+        return options.is("treeScrollFollowNavigation");
+    }
+
+    async setTreeScrollFollowNavigation(val: boolean) {
+        await options.save("treeScrollFollowNavigation", val.toString());
     }
 
     initFancyTree() {
@@ -429,7 +454,9 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
 
                 return true;
             },
-            beforeActivate: (event, { node }) => {
+            beforeActivate: (event, data) => {
+                const { node } = data;
+
                 // hidden subtree is hidden hackily - we want it to be present in the tree so that we can switch to it
                 // without reloading the whole tree, but we want it to be hidden when hoisted to root. FancyTree allows
                 // filtering the display only by ascendant - i.e. if the root is visible, all the descendants are as well.
@@ -440,11 +467,24 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
                     // if we're hoisted in hidden subtree, we want to avoid crossing to "visible" tree,
                     // which could happen via UP key from hidden root
 
-                    return node.data.noteId !== "root";
+                    if (node.data.noteId === "root") return false;
+                } else {
+                    // we're not hoisted to hidden subtree, the only way to cross is via DOWN key to the hidden root
+                    if (node.data.noteId === "_hidden") return false;
                 }
 
-                // we're not hoisted to hidden subtree, the only way to cross is via DOWN key to the hidden root
-                return node.data.noteId !== "_hidden";
+                // Synchronously disable fancytree's activeVisible before it checks it in nodeSetActive,
+                // preventing the automatic makeVisible/scrollIntoView call on direct tree interaction.
+                // Restored after the current task via setTimeout so only this activation is affected.
+                if (!this.treeScrollFollowNavigation) {
+                    const prevActiveVisible = data.tree.options.activeVisible;
+                    data.tree.options.activeVisible = false;
+                    setTimeout(() => {
+                        data.tree.options.activeVisible = prevActiveVisible;
+                    }, 0);
+                }
+
+                return true;
             },
             activate: async (event, data) => {
                 // click event won't propagate so let's close context menu manually
@@ -513,6 +553,10 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
                         return false;
                     } else if (node.data.noteId.startsWith("_options")) {
                         return false;
+                    } else if (node.data.noteId === hoistedNoteService.getHoistedNoteId()) {
+                        // The hoisted note is the tree root, so it has no visible siblings to drop before/after.
+                        // Only allow dropping into it to avoid the easy-to-hit "dropping not allowed" strips.
+                        return ["over"];
                     } else if (node.data.noteType === "launcher") {
                         return ["before", "after"];
                     } else if (["_lbAvailableLaunchers", "_lbVisibleLaunchers"].includes(node.data.noteId)) {
@@ -526,7 +570,7 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
                         (data.hitMode === "over" && node.data.noteType === "search") ||
                         (["after", "before"].includes(data.hitMode) && (node.data.noteId === hoistedNoteService.getHoistedNoteId() || node.getParent().data.noteType === "search"))
                     ) {
-                        await dialogService.info(t("note_tree.dropping-not-allowed"));
+                        toastService.showError(t("note_tree.dropping-not-allowed"));
 
                         return;
                     }
@@ -1115,7 +1159,9 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
 
         const newActiveNode =
             this.noteContext?.notePath &&
-            (!treeService.isNotePathInHiddenSubtree(this.noteContext.notePath) || (await hoistedNoteService.isHoistedInHiddenSubtree())) &&
+            // Pass this tree's own hoisted note (e.g. a popup hoisted into the hidden subtree) rather
+            // than the active tab's — otherwise a hidden-subtree note never gets an active node here.
+            (!treeService.isNotePathInHiddenSubtree(this.noteContext.notePath) || (await hoistedNoteService.isHoistedInHiddenSubtree(this.hoistedNoteId))) &&
             (await this.getNodeFromPath(this.noteContext.notePath));
 
         if (this.spotlightedNode && newActiveNode !== this.spotlightedNode) {
@@ -1137,12 +1183,22 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
             }
 
             if (newActiveNode) {
-                if (!newActiveNode.isVisible() && this.noteContext?.notePath) {
+                if (this.treeScrollFollowNavigation && !newActiveNode.isVisible() && this.noteContext?.notePath) {
                     await this.expandToNote(this.noteContext.notePath);
                 }
 
-                newActiveNode.setActive(true, { noEvents: true, noFocus: !oldActiveNodeFocused });
-                newActiveNode.makeVisible({ scrollIntoView: true });
+                if (!this.treeScrollFollowNavigation) {
+                    this.tree.options.activeVisible = false;
+                    setTimeout(() => {
+                        this.tree.options.activeVisible = true;
+                    }, 0);
+                }
+
+                newActiveNode.setActive(true, {
+                    noEvents: true,
+                    noFocus: !oldActiveNodeFocused,
+                    scrollIntoView: this.treeScrollFollowNavigation,
+                });
             }
         }
 
@@ -1543,8 +1599,9 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
         }
 
         const hoistedNotePath = await treeService.resolveNotePath(this.noteContext.hoistedNoteId);
+        const hoistChanged = this.lastFilteredHoistedNotePath !== hoistedNotePath;
 
-        if (!forceUpdate && this.lastFilteredHoistedNotePath === hoistedNotePath) {
+        if (!forceUpdate && !hoistChanged) {
             // Hoisting did not change, so skip the expensive re-filter (avoids flickering on
             // simple note changes with large subtrees). The hidden-node class must still be
             // reapplied — the <li> may have been recreated by a lazy reload (e.g. via
@@ -1577,6 +1634,16 @@ export default class NoteTreeWidget extends NoteContextAwareWidget {
             if (node && node.data.noteId === this.noteContext.hoistedNoteId){
                 this.setExpanded(node.data.branchId, true);
             }
+        }
+
+        // Re-applying the filter (clearFilter / filterBranches) rebuilds the visible node set and
+        // resets the tree's scroll position to the top. When the hoisted note actually changed —
+        // e.g. switching between tabs belonging to different workspaces — bring the active note
+        // back into view so the tree doesn't jump to the top. We deliberately skip this when the
+        // hoist is unchanged (frequent forceUpdate re-filters during editing/sync) to avoid
+        // yanking the tree away from wherever the user scrolled.
+        if (hoistChanged) {
+            this.getActiveNode()?.makeVisible({ scrollIntoView: true });
         }
     }
 
@@ -1890,7 +1957,9 @@ function buildEnhanceTitle() {
         // Add shared indicator with tooltip if note is shared
         if (note.isShared()) {
             const shareId = note.getOwnedLabelValue("shareAlias") || note.noteId;
-            const shareUrl = `${location.origin}${location.pathname}share/${shareId}`;
+            // Pass no sync host to preserve this tooltip's prior local-origin behavior; the helper
+            // still substitutes the loopback origin for the trilium-app:// desktop renderer (#10589).
+            const shareUrl = buildShareLink(shareId, undefined);
             const tooltipText = t("note_tree.shared-indicator-tooltip-with-url", { url: shareUrl });
 
             const $sharedIndicator = $(`<span class="note-indicator-icon shared-indicator"></span>`);
@@ -1907,3 +1976,31 @@ function buildEnhanceTitle() {
         }
     };
 }
+
+type ScrollIntoViewFn = (this: Fancytree.FancytreeNode, effects?: boolean | object, options?: object) => JQueryPromise<unknown>;
+
+/**
+ * jquery.fancytree's `FancytreeNode.scrollIntoView()` reads `$(this.span).offset().top`, which throws
+ * "Cannot read properties of undefined (reading 'top')" for a node that has no DOM markup — e.g. nodes
+ * recreated by `load(true)` while rendering is suspended by `batchUpdate()` during a large sync update.
+ * Its `isVisible()` guard only checks the ancestors' expanded flags, not the actual markup, and the
+ * exception then aborts the whole tab activation (see #10407). Skip the scroll instead, mirroring the
+ * library's own early return for invisible nodes; the node gets rendered (and styled as active) by the
+ * full `tree.render()` that re-enabling updates triggers anyway.
+ */
+function patchScrollIntoViewCrash() {
+    const { _FancytreeNodeClass } = $.ui.fancytree as Fancytree.FancytreeStatic & {
+        _FancytreeNodeClass: { prototype: Fancytree.FancytreeNode };
+    };
+    const originalScrollIntoView = _FancytreeNodeClass.prototype.scrollIntoView as ScrollIntoViewFn;
+
+    _FancytreeNodeClass.prototype.scrollIntoView = function (this: Fancytree.FancytreeNode, effects?: boolean | object, options?: object) {
+        if (!this.span) {
+            return $.Deferred().resolveWith(this).promise();
+        }
+
+        return originalScrollIntoView.call(this, effects, options);
+    };
+}
+
+patchScrollIntoViewCrash();

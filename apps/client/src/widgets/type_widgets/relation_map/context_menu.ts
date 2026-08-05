@@ -6,6 +6,7 @@ import FNote from "../../../entities/fnote";
 import contextMenu from "../../../menus/context_menu";
 import link_context_menu from "../../../menus/link_context_menu";
 import dialog from "../../../services/dialog";
+import toast from "../../../services/toast";
 import { t } from "../../../services/i18n";
 import server from "../../../services/server";
 import RelationMapApi from "./api";
@@ -46,7 +47,14 @@ export function buildNoteContextMenuHandler(note: FNote | null | undefined, mapA
                     uiIcon: "bx bx-trash",
                     handler: async () => {
                         if (!note) return;
-                        const result = await dialog.confirmDeleteNoteBoxWithNote(note.title);
+
+                        // The branch is all the dialog is told: from it, it works out for itself
+                        // whether ticking the box would delete the note or merely unfile it here,
+                        // and says so (see confirmDeleteNoteBoxWithNote).
+                        const result = await dialog.confirmDeleteNoteBoxWithNote(note.title, {
+                            noteId: note.noteId,
+                            branchId: mapApiRef.current?.branchIdFor(note.noteId)
+                        });
                         if (typeof result !== "object" || !result.confirmed) return;
 
                         mapApiRef.current?.removeItem(note.noteId, result.isDeleteNoteChecked);
@@ -90,7 +98,7 @@ export function buildRelationContextMenuHandler(connection: Connection, mapApiRe
 
                         const result = await mapApiRef.current?.renameRelation(connection, newName);
                         if (!result) {
-                            await dialog.info(t("relation_map.connection_exists", { name: newName }));
+                            toast.showError(t("relation_map.connection_exists", { name: newName }));
                         }
                     } else if (command === "remove") {
                         if (!(await dialog.confirm(t("relation_map.confirm_remove_relation")))) {

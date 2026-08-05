@@ -8,6 +8,8 @@ const state = vi.hoisted(() => ({
     isDev: true,
     isMac: false,
     isWindows: false,
+    isLinux: false,
+    supportsBackgroundMaterial: false,
     appVersion: "1.0.0",
     options: {} as Record<string, string>,
     optionBools: {} as Record<string, boolean>,
@@ -38,6 +40,8 @@ interface FakeSession {
     clearCache: ReturnType<typeof vi.fn>;
     availableSpellCheckerLanguages: string[];
     setSpellCheckerLanguages: ReturnType<typeof vi.fn>;
+    setSpellCheckerEnabled: ReturnType<typeof vi.fn>;
+    on: ReturnType<typeof vi.fn>;
 }
 
 class FakeWebContents {
@@ -61,7 +65,9 @@ class FakeWebContents {
     public session: FakeSession = state.sharedSession ?? {
         clearCache: vi.fn(() => Promise.resolve()),
         availableSpellCheckerLanguages: ["en-US", "de"],
-        setSpellCheckerLanguages: vi.fn()
+        setSpellCheckerLanguages: vi.fn(),
+        setSpellCheckerEnabled: vi.fn(),
+        on: vi.fn()
     };
     public navigationHistory = {
         canGoBack: vi.fn(() => true),
@@ -197,6 +203,16 @@ vi.mock("./web_contents_security", () => ({ setupWebContentsSecurity: vi.fn() })
 // verify that window creation marks the right milestones.
 vi.mock("./startup_metrics", () => ({ markStartupMetric: vi.fn() }));
 
+// The real value is an import-time constant derived from the OS running the tests;
+// route it through mutable state so Windows 10 and 11 scenarios are both testable.
+vi.mock("@triliumnext/server/src/services/utils.js", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("@triliumnext/server/src/services/utils.js")>();
+    return {
+        ...actual,
+        get supportsBackgroundMaterial() { return state.supportsBackgroundMaterial; }
+    };
+});
+
 vi.mock("@triliumnext/core", async (importOriginal) => {
     const actual = await importOriginal<typeof import("@triliumnext/core")>();
     return {
@@ -207,7 +223,8 @@ vi.mock("@triliumnext/core", async (importOriginal) => {
             ...actual.utils,
             isDev: () => state.isDev,
             isMac: () => state.isMac,
-            isWindows: () => state.isWindows
+            isWindows: () => state.isWindows,
+            isLinux: () => state.isLinux
         },
         options: {
             ...actual.options,
@@ -266,6 +283,8 @@ beforeEach(() => {
     state.isDev = true;
     state.isMac = false;
     state.isWindows = false;
+    state.isLinux = false;
+    state.supportsBackgroundMaterial = false;
     state.appVersion = "1.0.0";
     state.options = { spellCheckLanguageCode: "en-US, de , " };
     state.optionBools = {};
@@ -318,6 +337,7 @@ describe("window service", () => {
 
         it("applies Windows hidden title bar + mica material", async () => {
             state.isWindows = true;
+            state.supportsBackgroundMaterial = true;
             state.optionBools = { backgroundEffects: true };
             await windowService.createMainWindow();
             const opts = state.windows[state.windows.length - 1].opts as Record<string, unknown>;
@@ -325,12 +345,30 @@ describe("window service", () => {
             expect(opts.backgroundMaterial).toBe("auto");
         });
 
-        it("does not apply Linux transparent effect when background effects enabled", async () => {
+        it("omits the window material on Windows builds without backdrop support (Win10 / Win11 21H2)", async () => {
+            state.isWindows = true;
+            state.supportsBackgroundMaterial = false;
             state.optionBools = { backgroundEffects: true };
             await windowService.createMainWindow();
             const opts = state.windows[state.windows.length - 1].opts as Record<string, unknown>;
-            expect(opts.frame).toBe(false);
+            expect(opts.titleBarStyle).toBe("hidden");
+            expect(opts.backgroundMaterial).toBeUndefined();
+        });
+
+        it("applies the Linux window controls overlay without a transparent effect", async () => {
+            state.isLinux = true;
+            state.optionBools = { backgroundEffects: true };
+            await windowService.createMainWindow();
+            const opts = state.windows[state.windows.length - 1].opts as Record<string, unknown>;
+            expect(opts.titleBarStyle).toBe("hidden");
+            expect(opts.titleBarOverlay).toBe(true);
             expect(opts.transparent).toBe(undefined);
+        });
+
+        it("falls back to a frameless window on platforms without a controls overlay", async () => {
+            await windowService.createMainWindow();
+            const opts = state.windows[state.windows.length - 1].opts as Record<string, unknown>;
+            expect(opts.frame).toBe(false);
         });
 
         it("keeps native title bar when option enabled", async () => {
@@ -384,11 +422,18 @@ describe("window service", () => {
             windowService.closeSetupWindow();
         });
 
-        it("applies Windows mica background to the setup window", async () => {
+        it("applies Windows mica background to the setup window only where supported", async () => {
             state.isWindows = true;
+            state.supportsBackgroundMaterial = true;
             await windowService.createSetupWindow();
-            const opts = state.windows[state.windows.length - 1].opts as Record<string, unknown>;
+            let opts = state.windows[state.windows.length - 1].opts as Record<string, unknown>;
             expect(opts.backgroundMaterial).toBe("mica");
+
+            // Windows 10: no DWM backdrop — a material would leave the window black (#10590).
+            state.supportsBackgroundMaterial = false;
+            await windowService.createSetupWindow();
+            opts = state.windows[state.windows.length - 1].opts as Record<string, unknown>;
+            expect(opts.backgroundMaterial).toBeUndefined();
         });
 
         it("applies macOS vibrancy to the setup window", async () => {
@@ -480,11 +525,37 @@ describe("window service", () => {
             expect(true).toBe(true);
         });
 
-        it("does not set up spellcheck when disabled", async () => {
+        it("applies the disabled spell-check state to the session", async () => {
             state.optionBools = { spellCheckEnabled: false };
             await windowService.createExtraWindow("#y");
             const wc = state.windows[state.windows.length - 1].webContents;
-            expect(wc.session.setSpellCheckerLanguages).not.toHaveBeenCalled();
+            // The subsystem is always attached (webPreferences.spellcheck: true); the
+            // option drives the runtime enabled state instead of window creation.
+            expect(wc.session.setSpellCheckerEnabled).toHaveBeenCalledWith(false);
+        });
+
+        it("applies the enabled spell-check state to the session", async () => {
+            state.optionBools = { spellCheckEnabled: true };
+            await windowService.createExtraWindow("#z");
+            const wc = state.windows[state.windows.length - 1].webContents;
+            expect(wc.session.setSpellCheckerEnabled).toHaveBeenCalledWith(true);
+        });
+
+        // Regression for issue #10569: Electron's setSpellCheckerLanguages() force-sets the
+        // enabled pref to !languages.empty(), so loading a (non-empty) language list AFTER
+        // disabling would silently re-enable spell check on every launch. The enabled state
+        // must therefore be applied last.
+        it("loads languages before applying the disabled state so it is not re-enabled", async () => {
+            state.optionBools = { spellCheckEnabled: false };
+            state.options = { spellCheckLanguageCode: "en-US" };
+            await windowService.createExtraWindow("#order");
+            const session = state.windows[state.windows.length - 1].webContents.session;
+
+            expect(session.setSpellCheckerLanguages).toHaveBeenCalledWith(["en-US"]);
+            expect(session.setSpellCheckerEnabled).toHaveBeenCalledWith(false);
+            const languagesOrder = session.setSpellCheckerLanguages.mock.invocationCallOrder[0];
+            const enabledOrder = session.setSpellCheckerEnabled.mock.invocationCallOrder[0];
+            expect(languagesOrder).toBeLessThan(enabledOrder);
         });
 
         it("loads spellcheck languages once per session", async () => {
@@ -512,7 +583,9 @@ describe("window service", () => {
             const shared = {
                 clearCache: vi.fn(() => Promise.resolve()),
                 availableSpellCheckerLanguages: ["en-US"],
-                setSpellCheckerLanguages: vi.fn()
+                setSpellCheckerLanguages: vi.fn(),
+                setSpellCheckerEnabled: vi.fn(),
+                on: vi.fn()
             };
             state.sharedSession = shared;
 
@@ -730,6 +803,38 @@ describe("window service", () => {
             const ev = makeEvent();
             fireOn("get-available-spellchecker-languages", ev);
             expect(ev.returnValue).toEqual(["en-US", "de"]);
+        });
+
+        it("set-spellchecker-languages applies the codes to every open window's session", () => {
+            new FakeBrowserWindow();
+            fireOn("set-spellchecker-languages", makeEvent(), ["en-US", "fr"]);
+            for (const win of state.windows) {
+                expect(win.webContents.session.setSpellCheckerLanguages).toHaveBeenCalledWith(["en-US", "fr"]);
+            }
+        });
+
+        // Regression for issue #10569: setSpellCheckerLanguages() force-enables spell check, so a
+        // live language change while the option is disabled must re-assert the disabled state after.
+        it("set-spellchecker-languages re-asserts the disabled option after setting the codes", () => {
+            state.optionBools = { spellCheckEnabled: false };
+            new FakeBrowserWindow();
+            fireOn("set-spellchecker-languages", makeEvent(), ["en-US", "fr"]);
+            for (const win of state.windows) {
+                const session = win.webContents.session;
+                expect(session.setSpellCheckerLanguages).toHaveBeenCalledWith(["en-US", "fr"]);
+                expect(session.setSpellCheckerEnabled).toHaveBeenCalledWith(false);
+                const languagesOrder = session.setSpellCheckerLanguages.mock.invocationCallOrder[0];
+                const enabledOrder = session.setSpellCheckerEnabled.mock.invocationCallOrder[0];
+                expect(languagesOrder).toBeLessThan(enabledOrder);
+            }
+        });
+
+        it("set-spellchecker-enabled applies the state to every open window's session", () => {
+            new FakeBrowserWindow();
+            fireOn("set-spellchecker-enabled", makeEvent(), false);
+            for (const win of state.windows) {
+                expect(win.webContents.session.setSpellCheckerEnabled).toHaveBeenCalledWith(false);
+            }
         });
 
         it("title bar / material / vibrancy / button position setters", () => {

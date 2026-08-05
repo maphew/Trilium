@@ -7,6 +7,7 @@
        with the type accent shown only as the leading bar below. */
     padding-inline-start: 1em;
     border-color: var(--main-border-color);
+    background: var(--main-background-color);
 }
 
 /* Thick accent bar on the leading edge. It has no radius of its own; the card's
@@ -38,4 +39,17 @@
 
 .extended-admonition .admonition-details {
     margin-block-start: 0.5em;
+}
+
+/* Title-less variant: the icon sits inline at the start of the body instead of in a header. */
+.extended-admonition.no-title .admonition-body {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4em;
+}
+
+.extended-admonition.no-title .admonition-body .tn-icon {
+    flex-shrink: 0;
+    color: var(--accent-color);
+    font-size: 1.2em;
 }

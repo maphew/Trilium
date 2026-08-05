@@ -24,6 +24,13 @@ export interface IWorkbookData {
     name?: string;
     styles?: Record<string, IStyleData | null>;
     sheets: Record<string, IWorksheetData>;
+    /** Plugin payloads (e.g. floating drawings); each `data` is itself a JSON string. */
+    resources?: IResource[];
+}
+
+export interface IResource {
+    name: string;
+    data: string;
 }
 
 export interface IWorksheetData {
@@ -40,6 +47,15 @@ export interface IWorksheetData {
     columnData?: Record<number, IColumnData>;
     showGridlines?: number;
     gridlinesColor?: string | null;
+    rowHeader?: ISheetHeader;
+    columnHeader?: ISheetHeader;
+}
+
+/** The row-number / column-letter gutters. Univer's drawing transforms are offset by their size. */
+export interface ISheetHeader {
+    width?: number;
+    height?: number;
+    hidden?: number;
 }
 
 export type CellMatrix = Record<number, Record<number, ICellData>>;
@@ -49,6 +65,47 @@ export interface ICellData {
     t?: number | null;
     s?: IStyleData | string | null;
     f?: string | null;
+    /** Rich-text document payload; carries images anchored inside the cell. */
+    p?: ICellDocumentData | null;
+}
+
+export interface ICellDocumentData {
+    drawings?: Record<string, ISheetDrawing>;
+    drawingsOrder?: string[];
+}
+
+export interface ISheetDrawing {
+    drawingId?: string;
+    imageSourceType?: string;
+    source?: string;
+    transform?: IDrawingTransform | null;
+    /** Cell-anchored extent (top-left/bottom-right), used by the XLSX emitter's two-cell anchor. */
+    sheetTransform?: ISheetDrawingAnchor | null;
+}
+
+export interface ISheetDrawingAnchor {
+    from?: IDrawingCellAnchor;
+    to?: IDrawingCellAnchor;
+}
+
+/** A drawing corner anchored to a cell plus a px offset into it (`row`/`column` are 0-based). */
+export interface IDrawingCellAnchor {
+    row?: number;
+    rowOffset?: number;
+    column?: number;
+    columnOffset?: number;
+}
+
+/** A drawing's absolute box. `left`/`top` are px from the sheet origin (A1); cell images omit them. */
+export interface IDrawingTransform {
+    left?: number;
+    top?: number;
+    width?: number;
+    height?: number;
+    /** Clockwise rotation in degrees, applied around the box centre. */
+    angle?: number;
+    flipX?: boolean;
+    flipY?: boolean;
 }
 
 export interface IStyleData {
@@ -249,4 +306,72 @@ export function computeBounds(cellData: CellMatrix, mergeData: IRange[] = []): B
 /** Checks that a value is a finite number (guards against stringified payloads from JSON). */
 export function isFiniteNumber(v: unknown): v is number {
     return typeof v === "number" && Number.isFinite(v);
+}
+
+/** Univer stores floating sheet images (drawings) under this workbook resource. */
+export const SHEET_DRAWING_RESOURCE = "SHEET_DRAWING_PLUGIN";
+
+/** Univer stores per-sheet data-validation rules (dropdowns, numeric/date constraints) here. */
+export const SHEET_DATA_VALIDATION_RESOURCE = "SHEET_DATA_VALIDATION_PLUGIN";
+
+/**
+ * A Univer data-validation rule. Matches `IDataValidationRule` from `@univerjs/core` (the subset the
+ * XLSX importer emits). For a `list` dropdown, `formula1` is the JSON-encoded option array that
+ * Univer's list validator parses via `deserializeListOptions`; for numeric/date constraints,
+ * `formula1`/`formula2` are the bound values and `operator` selects the comparison.
+ */
+export interface DataValidationRule {
+    uid: string;
+    /** Univer's `DataValidationType` string (e.g. "list", "whole", "decimal", "date", "custom"). */
+    type: string;
+    /** Univer's `DataValidationOperator` string, for numeric/date/text-length constraints. */
+    operator?: string;
+    formula1?: string;
+    formula2?: string;
+    ranges: IRange[];
+}
+
+/**
+ * Extracts the floating drawings for one sheet from the `SHEET_DRAWING_PLUGIN` resource, in
+ * their stored z-order. The resource `data` is itself a JSON string keyed by sheet id:
+ * `{ [sheetId]: { data: { [drawingId]: drawing }, order: string[] } }`. Returns an empty array
+ * when the resource is absent, unparseable, or carries no drawings for the sheet.
+ */
+export function getFloatingDrawings(workbook: IWorkbookData, sheetId: string): ISheetDrawing[] {
+    const resource = workbook.resources?.find((r) => r.name === SHEET_DRAWING_RESOURCE);
+    if (!resource?.data) return [];
+
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(resource.data);
+    } catch {
+        return [];
+    }
+
+    const sheetEntry = (parsed as Record<string, { data?: Record<string, ISheetDrawing>; order?: string[] }> | null)?.[sheetId];
+    const data = sheetEntry?.data;
+    if (!data) return [];
+
+    const order = Array.isArray(sheetEntry?.order) ? sheetEntry.order : Object.keys(data);
+    return order.map((id) => data[id]).filter((d): d is ISheetDrawing => Boolean(d));
+}
+
+/**
+ * Extracts the data-validation rules for one sheet from the `SHEET_DATA_VALIDATION_PLUGIN` resource.
+ * The resource `data` is a JSON string keyed by sheet id: `{ [sheetId]: DataValidationRule[] }`.
+ * Returns an empty array when the resource is absent, unparseable, or carries none for the sheet.
+ */
+export function getDataValidations(workbook: IWorkbookData, sheetId: string): DataValidationRule[] {
+    const resource = workbook.resources?.find((r) => r.name === SHEET_DATA_VALIDATION_RESOURCE);
+    if (!resource?.data) return [];
+
+    let parsed: unknown;
+    try {
+        parsed = JSON.parse(resource.data);
+    } catch {
+        return [];
+    }
+
+    const rules = (parsed as Record<string, DataValidationRule[]> | null)?.[sheetId];
+    return Array.isArray(rules) ? rules.filter((r): r is DataValidationRule => Boolean(r)) : [];
 }

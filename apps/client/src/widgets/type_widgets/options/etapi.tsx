@@ -10,6 +10,7 @@ import ActionButton from "../../react/ActionButton";
 import Button from "../../react/Button";
 import { useTriliumEvent } from "../../react/hooks";
 import NoItems from "../../react/NoItems";
+import OptionsPageHeader from "./components/OptionsPageHeader";
 import OptionsRow from "./components/OptionsRow";
 import OptionsSection from "./components/OptionsSection";
 
@@ -52,22 +53,23 @@ export default function EtapiSettings() {
     }, []);
 
     return (
-        <OptionsSection
-            title={t("etapi.title")}
-            description={t("etapi.description")}
-            helpUrl="pgxEVkzLl1OP"
-        >
-            <TokenList tokens={tokens} />
+        <>
+            <OptionsPageHeader helpUrl="pgxEVkzLl1OP" />
+            <OptionsSection
+                description={t("etapi.description")}
+            >
+                <TokenList tokens={tokens} />
 
-            <OptionsRow name="create-etapi-token" centered>
-                <Button
-                    name="create-etapi-token-button"
-                    size="micro" icon="bx bx-plus"
-                    text={t("etapi.create_token")}
-                    onClick={createTokenCallback}
-                />
-            </OptionsRow>
-        </OptionsSection>
+                <OptionsRow name="create-etapi-token" centered>
+                    <Button
+                        name="create-etapi-token-button"
+                        size="micro" icon="bx bx-plus"
+                        text={t("etapi.create_token")}
+                        onClick={createTokenCallback}
+                    />
+                </OptionsRow>
+            </OptionsSection>
+        </>
     );
 }
 

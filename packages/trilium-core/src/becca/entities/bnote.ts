@@ -1,4 +1,4 @@
-import type { AttachmentRow, AttributeType, CloneResponse, NoteRow, NoteType, RevisionRow, RevisionSource } from "@triliumnext/commons";
+import type { AttachmentRow, AttributeType, CloneResponse, EraseExcessRevisionsOptions, NoteRow, NoteType, RevisionRow, RevisionSource } from "@triliumnext/commons";
 import { dayjs, getNoteIcon } from "@triliumnext/commons";
 
 import cloningService from "../../services/cloning.js";
@@ -1519,6 +1519,10 @@ class BNote extends AbstractBeccaEntity<BNote> {
             try {
                 this.title = protectedSessionService.decryptString(this.title) || "";
                 this.__flatTextCache = null;
+                // The pre-built flat text search index still holds this note's encrypted
+                // title, so schedule a refresh — otherwise the note stays unsearchable by
+                // title even after the protected session is unlocked (issue #10406).
+                this.becca.dirtyNoteFlatText(this.noteId);
 
                 this.isDecrypted = true;
             } catch (e: any) {
@@ -1597,24 +1601,59 @@ class BNote extends AbstractBeccaEntity<BNote> {
         });
     }
 
-    // Limit the number of Snapshots to revisionSnapshotNumberLimit
-    // Delete older Snapshots that exceed the limit
-    eraseExcessRevisionSnapshots() {
-        // lable has a higher priority
-        let revisionSnapshotNumberLimit = parseInt(this.getLabelValue("versioningLimit") ?? "");
-        if (!Number.isInteger(revisionSnapshotNumberLimit)) {
-            revisionSnapshotNumberLimit = parseInt(optionService.getOption("revisionSnapshotNumberLimit"));
+    /**
+     * Erases the oldest revision snapshots beyond the number to keep, newest kept first.
+     *
+     * A negative limit keeps every snapshot — nothing is ever excess — while zero keeps none.
+     *
+     * @returns how many snapshots were erased.
+     */
+    eraseExcessRevisionSnapshots({ snapshotsToKeep, keepNamedSnapshots }: EraseExcessRevisionsOptions = {}): number {
+        const limit = this.resolveSnapshotLimit(snapshotsToKeep);
+
+        if (limit < 0) {
+            return 0;
         }
-        if (revisionSnapshotNumberLimit >= 0) {
-            const revisions = this.getRevisions();
-            if (revisions.length - revisionSnapshotNumberLimit > 0) {
-                const revisionIds = revisions
-                    .slice(0, revisions.length - revisionSnapshotNumberLimit)
-                    .map((revision) => revision.revisionId)
-                    .filter((id): id is string => id !== undefined);
-                eraseService.eraseRevisions(revisionIds);
-            }
+
+        // Named snapshots are the ones the user deliberately marked, so sparing them takes them out
+        // of the reckoning entirely: they are neither erased nor counted, and the limit then
+        // governs the automatic snapshots alone. Counting them would let a handful of named ones
+        // push every automatic snapshot out.
+        const keepNamed = keepNamedSnapshots ?? optionService.getOptionBool("revisionIgnoreNamedSnapshots");
+        const candidates = keepNamed
+            ? this.getRevisions().filter((revision) => !revision.description)
+            : this.getRevisions();
+
+        const revisionIds = candidates
+            .slice(0, Math.max(candidates.length - limit, 0))
+            .map((revision) => revision.revisionId)
+            .filter((id): id is string => id !== undefined);
+
+        if (revisionIds.length > 0) {
+            eraseService.eraseRevisions(revisionIds);
         }
+
+        return revisionIds.length;
+    }
+
+    /**
+     * How many snapshots this note keeps, most specific answer first: its own `#versioningLimit`,
+     * then the caller's override, then the `revisionSnapshotNumberLimit` option.
+     *
+     * The label outranks the override rather than the other way round. A label is a policy set on
+     * this note deliberately, while an override is a one-off answer standing in for the global
+     * setting — so it replaces that setting, and leaves a note that was given its own limit alone.
+     */
+    private resolveSnapshotLimit(override: number | undefined): number {
+        const labelled = parseInt(this.getLabelValue("versioningLimit") ?? "");
+
+        if (Number.isInteger(labelled)) {
+            return labelled;
+        }
+
+        return Number.isInteger(override)
+            ? Number(override)
+            : parseInt(optionService.getOption("revisionSnapshotNumberLimit"));
     }
 
     /**
@@ -1653,6 +1692,39 @@ class BNote extends AbstractBeccaEntity<BNote> {
 
     getFileName() {
         return formatDownloadTitle(this.title, this.type, this.mime);
+    }
+
+    /**
+     * Forces explicit creation/modification timestamps onto the note and its blob, persisting them
+     * immediately with raw SQL. This deliberately bypasses the automatic "now" stamping that
+     * {@link beforeSaving} applies on every regular save, which is why importers that need to preserve
+     * the source's original dates (ENEX, OneNote, …) call this *after* the note and its content have
+     * been saved.
+     *
+     * Both arguments are UTC datetimes in Trilium's DB format (e.g. `2023-08-21 23:38:51.110Z`); the
+     * matching local-time columns are derived from them. Either may be omitted to leave that pair at
+     * its current value.
+     */
+    setDateCreatedAndModified(utcDateCreated?: string, utcDateModified?: string) {
+        const toLocalDbFormat = (utc: string) => dayjs(utc).format(dateUtils.LOCAL_DATETIME_FORMAT);
+
+        if (utcDateCreated) {
+            this.utcDateCreated = utcDateCreated;
+            this.dateCreated = toLocalDbFormat(utcDateCreated);
+        }
+        if (utcDateModified) {
+            this.utcDateModified = utcDateModified;
+            this.dateModified = toLocalDbFormat(utcDateModified);
+        }
+
+        const sql = getSql();
+        sql.execute(
+            /*sql*/`UPDATE notes
+                    SET dateCreated = ?, utcDateCreated = ?, dateModified = ?, utcDateModified = ?
+                    WHERE noteId = ?`,
+            [this.dateCreated, this.utcDateCreated, this.dateModified, this.utcDateModified, this.noteId]
+        );
+        sql.execute(/*sql*/`UPDATE blobs SET utcDateModified = ? WHERE blobId = ?`, [this.utcDateModified, this.blobId]);
     }
 
     override beforeSaving() {

@@ -45,7 +45,13 @@
     },
     "widget-missing-parent": "Niestandardowy widżet nie ma zdefiniowanej obowiązkowej właściwości „{{property}}”.\n\nJeśli skrypt ma działać bez interfejsu użytkownika (UI) wyłącz go: '#run=frontendStartup'.",
     "open-script-note": "Otwórz notatkę ze skryptem",
-    "scripting-error": "Błąd skryptu użytkownika: {{title}}"
+    "scripting-error": "Błąd skryptu użytkownika: {{title}}",
+    "unhandled-error": {
+      "title": "Zadanie w tle zakończyło się błędem",
+      "details-button": "Wyświetl szczegóły...",
+      "details-intro": "Aplikacja nie została zamknięta, a wprowadzone przez Ciebie zmiany nie zostały anulowane. Jeżeli ten błąd będzie się powtarzał, możesz zgłosić go na GitHubie wklejając informacje wylistowane poniżej.",
+      "details-title": "Informacje techniczne"
+    }
   },
   "add_link": {
     "add_link": "Dodaj link",
@@ -55,7 +61,11 @@
     "link_title": "Tytuł linku",
     "button_add_link": "Dodaj link",
     "help_on_links": "Pomoc dotycząca linków",
-    "link_title_mirrors": "Tytuł linku odzwierciedla obecną nazwę notatki"
+    "link_title_mirrors": "Tytuł linku odzwierciedla obecną nazwę notatki",
+    "edit_link": "Edycja linku",
+    "anchor": "Zakotwiczenie (opcjonalne)",
+    "anchor_none": "Brak (link do notatki)",
+    "button_edit_link": "Zapisz link"
   },
   "branch_prefix": {
     "save": "Zapisz",
@@ -97,26 +107,28 @@
     "erase_notes_warning": "Wymaż notatki trwale (nie można cofnąć), w tym wszystkie klony. Wymusi to przeładowanie aplikacji.",
     "notes_to_be_deleted": "Następujące notatki zostaną usunięte ({{notesCount}})",
     "no_note_to_delete": "Żadna notatka nie zostanie usunięta (tylko klony).",
-    "broken_relations_to_be_deleted": "Następujące relacje zostaną zerwane i usunięte ({{ relationCount}})"
+    "broken_relations_to_be_deleted": "Następujące relacje zostaną zerwane i usunięte ({{ relationCount}})",
+    "title": "Skasuj notatki",
+    "erase_notes_label": "Usuń trwale",
+    "table_note_with_relation": "Notatka z relacją",
+    "table_relation": "Relacja",
+    "delete": "Skasuj"
   },
   "export": {
     "close": "Zamknij",
     "export_note_title": "Eksportuj notatkę",
     "export_type_subtree": "Ta notatka i wszystkie jej elementy podrzędne",
-    "format_html": "HTML - zalecane, ponieważ zachowuje pełne formatowanie",
-    "format_html_zip": "HTML w archiwum ZIP - zalecane, ponieważ zachowuje pełne formatowanie.",
-    "format_markdown": "Markdown - zachowuje większość formatowania.",
-    "format_opml": "OPML - format wymiany konspektów (tylko tekst). Formatowanie, obrazy i pliki nie są dołączane.",
-    "opml_version_1": "OPML v1.0 - tylko zwykły tekst",
-    "opml_version_2": "OPML v2.0 - dopuszcza również HTML",
     "export_type_single": "Tylko ta notatka (bez elementów podrzędnych)",
     "export": "Eksportuj",
     "choose_export_type": "Proszę najpierw wybrać typ eksportu",
-    "export_status": "Status eksportu",
-    "export_in_progress": "Eksport w toku: {{progressCount}}",
     "export_finished_successfully": "Eksport zakończony pomyślnie.",
     "format_pdf": "PDF - do druku lub udostępniania.",
-    "share-format": "HTML do publikacji w sieci - używa tego samego motywu co udostępnione notatki, ale może być opublikowany jako statyczna strona."
+    "format": "Format",
+    "format_html_name": "HTML",
+    "format_html_description": "Zachowaj całe formatowanie",
+    "format_markdown_name": "Markdown",
+    "format_markdown_description": "Zachowaj większość formatowania",
+    "recommended": "Zalecane"
   },
   "clone_to": {
     "clone_notes_to": "Sklonuj notatki do...",
@@ -297,31 +309,24 @@
     "related_notes_title": "Inne notatki z tą etykietą",
     "more_notes": "Więcej notatek",
     "label": "Szczegóły etykiety",
-    "label_definition": "Szczegóły definicji etykiety",
     "relation": "Szczegóły relacji",
-    "relation_definition": "Szczegóły definicji relacji",
     "disable_versioning": "wyłącza automatyczne wersjonowanie. Przydatne np. dla dużych, ale mało ważnych notatek - np. dużych bibliotek JS używanych do skryptów",
     "precision": "Precyzja",
     "digits": "cyfry",
     "inverse_relation_title": "Opcjonalne ustawienie określające, do której relacji ta jest odwrotna. Przykład: Ojciec - Syn to relacje odwrotne.",
     "inverse_relation": "Relacja odwrotna",
-    "attr_detail_title": "Tytuł szczegółów atrybutu",
     "close_button_title": "Anuluj zmiany i zamknij",
-    "attr_is_owned_by": "Atrybut należy do",
-    "attr_name_title": "Nazwa atrybutu może składać się wyłącznie ze znaków alfanumerycznych, dwukropka i podkreślenia",
     "name": "Nazwa",
     "value": "Wartość",
     "target_note_title": "Relacja to nazwane połączenie między notatką źródłową a docelową.",
     "target_note": "Notatka docelowa",
     "promoted_title": "Wyróżniony atrybut jest wyświetlany w widocznym miejscu notatki.",
     "promoted": "Wyróżniony",
-    "promoted_alias_title": "Nazwa wyświetlana w interfejsie wyróżnionych atrybutów.",
     "promoted_alias": "Alias",
     "multiplicity_title": "Krotność określa, ile atrybutów o tej samej nazwie można utworzyć - maksymalnie 1 lub więcej niż 1.",
     "multiplicity": "Krotność",
     "single_value": "Pojedyncza wartość",
     "multi_value": "Wiele wartości",
-    "label_type_title": "Typ etykiety pomoże Trilium wybrać odpowiedni interfejs do wprowadzenia wartości etykiety.",
     "label_type": "Typ",
     "text": "Tekst",
     "number": "Liczba",
@@ -333,7 +338,6 @@
     "precision_title": "Ile cyfr po przecinku powinno być dostępnych w interfejsie ustawiania wartości.",
     "inheritable_title": "Atrybut dziedziczony będzie dziedziczony przez wszystkie elementy podrzędne w tym drzewie.",
     "inheritable": "Dziedziczony",
-    "save_and_close": "Zapisz i zamknij <kbd>Ctrl+Enter</kbd>",
     "calendar_root": "oznacza notatkę, która powinna być używana jako korzeń dla notatek dziennych. Tylko jedna powinna być tak oznaczona.",
     "archived": "notatki z tą etykietą domyślnie nie będą widoczne w wynikach wyszukiwania (również w oknach Przejdź do, Dodaj link itp.).",
     "exclude_from_export": "notatki (wraz z ich poddrzewem) nie zostaną uwzględnione w żadnym eksporcie notatek",
@@ -412,7 +416,6 @@
     "share_favicon": "Notatka Favicon do ustawienia na udostępnionej stronie. Zazwyczaj chcesz ustawić ją w korzeniu udostępniania i uczynić dziedziczoną. Notatka Favicon musi znajdować się również w udostępnionym poddrzewie. Rozważ użycie 'share_hidden_from_tree'.",
     "is_owned_by_note": "jest własnością notatki",
     "other_notes_with_name": "Inne notatki z {{attributeType}} nazwa \"{{attributeName}}\"",
-    "and_more": "... i {{count}} więcej.",
     "print_landscape": "Podczas eksportowania do PDF zmienia orientację strony na poziomą zamiast pionowej.",
     "print_page_size": "Podczas eksportowania do PDF zmienia rozmiar strony. Obsługiwane wartości: <code>A0</code>, <code>A1</code>, <code>A2</code>, <code>A3</code>, <code>A4</code>, <code>A5</code>, <code>A6</code>, <code>Legal</code>, <code>Letter</code>, <code>Tabloid</code>, <code>Ledger</code>.",
     "color_type": "Kolor",
@@ -421,11 +424,9 @@
   "import": {
     "importIntoNote": "Importuj do notatki",
     "chooseImportFile": "Wybierz plik importu",
-    "importDescription": "Zawartość wybranego pliku/plików zostanie zaimportowana jako notatka/notatki podrzędne do",
     "options": "Opcje",
     "shrinkImages": "Zmniejsz obrazy",
     "safeImport": "Bezpieczny import",
-    "import-status": "Status importu",
     "in-progress": "Import w toku: {{progress}}",
     "successful": "Import zakończony pomyślnie.",
     "safeImportTooltip": "Pliki eksportu <code>.zip</code> Trilium mogą zawierać skrypty wykonywalne, które mogą mieć szkodliwe działanie. Bezpieczny import dezaktywuje automatyczne wykonywanie wszystkich zaimportowanych skryptów. Odznacz \"Bezpieczny import\" tylko wtedy, gdy importowane archiwum ma zawierać skrypty i całkowicie ufasz zawartości pliku importu.",
@@ -1259,9 +1260,7 @@
     "protecting-finished-successfully": "Ochrona zakończona pomyślnie.",
     "unprotecting-finished-successfully": "Zdejmowanie ochrony zakończone pomyślnie.",
     "protecting-in-progress": "Ochrona w toku: {{count}}",
-    "unprotecting-in-progress-count": "Zdejmowanie ochrony w toku: {{count}}",
-    "protecting-title": "Status ochrony",
-    "unprotecting-title": "Status zdejmowania ochrony"
+    "unprotecting-in-progress-count": "Zdejmowanie ochrony w toku: {{count}}"
   },
   "relation_map": {
     "remove_note": "Usuń notatkę",
@@ -1547,7 +1546,6 @@
     "no_backup_yet": "brak kopii zapasowych"
   },
   "etapi": {
-    "title": "ETAPI",
     "description": "ETAPI to REST API służące do programowego dostępu do instancji Trilium, bez interfejsu użytkownika.",
     "create_token": "Utwórz nowy token ETAPI",
     "existing_tokens": "Istniejące tokeny",
@@ -1593,33 +1591,12 @@
     "password_changed_success": "Hasło zostało zmienione. Trilium zostanie przeładowane po naciśnięciu OK."
   },
   "multi_factor_authentication": {
-    "title": "Uwierzytelnianie wieloskładnikowe",
-    "description": "Uwierzytelnianie wieloskładnikowe (MFA) dodaje dodatkową warstwę zabezpieczeń do Twojego konta. Zamiast tylko wpisywać hasło do logowania, MFA wymaga podania jednego lub więcej dodatkowych dowodów tożsamości. W ten sposób, nawet jeśli ktoś zdobędzie Twoje hasło, nadal nie będzie mógł uzyskać dostępu do Twojego konta bez drugiej informacji. To jak dodanie dodatkowego zamka do drzwi, utrudniającego włamanie.<br><br>Proszę postępować zgodnie z poniższymi instrukcjami, aby włączyć MFA. Jeśli nie skonfigurujesz poprawnie, logowanie powróci do samego hasła.",
-    "mfa_enabled": "Włącz uwierzytelnianie wieloskładnikowe",
-    "mfa_method": "Metoda MFA",
-    "electron_disabled": "Uwierzytelnianie wieloskładnikowe nie jest obecnie obsługiwane w wersji desktopowej.",
-    "totp_title": "Hasło jednorazowe oparte na czasie (TOTP)",
-    "totp_description": "TOTP (Time-Based One-Time Password) to funkcja bezpieczeństwa, która generuje unikalny, tymczasowy kod zmieniający się co 30 sekund. Używasz tego kodu wraz z hasłem do logowania się na konto, co znacznie utrudnia dostęp innym osobom.",
-    "totp_secret_title": "Wygeneruj sekret TOTP",
-    "totp_secret_generate": "Wygeneruj sekret TOTP",
-    "totp_secret_regenerate": "Wygeneruj ponownie sekret TOTP",
-    "no_totp_secret_warning": "Aby włączyć TOTP, musisz najpierw wygenerować sekret TOTP.",
-    "totp_secret_description_warning": "Po wygenerowaniu nowego sekretu TOTP będziesz musiał zalogować się ponownie przy użyciu nowego sekretu TOTP.",
-    "totp_secret_generated": "Sekret TOTP wygenerowany",
-    "totp_secret_warning": "Proszę zapisać wygenerowany sekret w bezpiecznym miejscu. Nie zostanie pokazany ponownie.",
-    "totp_secret_regenerate_confirm": "Czy na pewno chcesz ponownie wygenerować sekret TOTP? To unieważni poprzedni sekret TOTP i wszystkie istniejące kody odzyskiwania.",
-    "recovery_keys_title": "Klucze odzyskiwania logowania jednokrotnego",
-    "recovery_keys_description": "Klucze odzyskiwania logowania jednokrotnego służą do logowania w przypadku braku dostępu do kodów Authenticator.",
     "recovery_keys_description_warning": "Klucze odzyskiwania nie zostaną pokazane ponownie po opuszczeniu strony, przechowuj je w bezpiecznym miejscu.<br>Po użyciu klucza odzyskiwania nie można go użyć ponownie.",
     "recovery_keys_error": "Błąd generowania kodów odzyskiwania",
     "recovery_keys_no_key_set": "Nie ustawiono kodów odzyskiwania",
-    "recovery_keys_generate": "Wygeneruj kody odzyskiwania",
     "recovery_keys_regenerate": "Wygeneruj ponownie kody odzyskiwania",
-    "recovery_keys_used": "Użyto: {{date}}",
-    "recovery_keys_unused": "Kod odzyskiwania {{index}} jest nieużywany",
     "oauth_title": "OAuth/OpenID",
     "oauth_description": "OpenID to standardowy sposób logowania do stron internetowych przy użyciu konta z innej usługi, takiej jak Google, w celu weryfikacji tożsamości. Domyślnym dostawcą jest Google, ale można go zmienić na dowolnego innego dostawcę OpenID. Sprawdź <a href=\"#root/_hidden/_help/_help_Otzi9La2YAUX/_help_WOcw2SLH6tbX/_help_7DAiwaf8Z7Rz\">tutaj</a>, aby uzyskać więcej informacji. Postępuj zgodnie z tymi <a href=\"https://developers.google.com/identity/openid-connect/openid-connect\">instrukcjami</a>, aby skonfigurować usługę OpenID przez Google.",
-    "oauth_description_warning": "Aby włączyć OAuth/OpenID, musisz ustawić bazowy URL OAuth/OpenID, ID klienta i sekret klienta w pliku config.ini i zrestartować aplikację. Jeśli chcesz ustawić je za pomocą zmiennych środowiskowych, ustaw TRILIUM_OAUTH_BASE_URL, TRILIUM_OAUTH_CLIENT_ID i TRILIUM_OAUTH_CLIENT_SECRET.",
     "oauth_missing_vars": "Brakujące ustawienia: {{-variables}}",
     "oauth_user_account": "Konto użytkownika: ",
     "oauth_user_email": "Email użytkownika: ",
@@ -1627,13 +1604,7 @@
   },
   "shortcuts": {
     "keyboard_shortcuts": "Skróty klawiszowe",
-    "multiple_shortcuts": "Wiele skrótów dla tej samej akcji można oddzielić przecinkiem.",
-    "electron_documentation": "Zobacz <a href=\"https://www.electronjs.org/docs/latest/api/accelerator\">dokumentację Electron</a> dla dostępnych modyfikatorów i kodów klawiszy.",
     "type_text_to_filter": "Wpisz tekst, aby filtrować skróty...",
-    "action_name": "Nazwa akcji",
-    "shortcuts": "Skróty",
-    "default_shortcuts": "Domyślne skróty",
-    "description": "Opis",
     "reload_app": "Przeładuj aplikację, aby zastosować zmiany",
     "set_all_to_default": "Ustaw wszystkie skróty na domyślne",
     "confirm_reset": "Czy na pewno chcesz zresetować wszystkie skróty klawiszowe do domyślnych?",
@@ -1643,8 +1614,7 @@
     "title": "Sprawdzanie pisowni",
     "description": "Te opcje dotyczą tylko wersji desktopowych, przeglądarki będą używać własnego natywnego sprawdzania pisowni.",
     "enable": "Włącz sprawdzanie pisowni",
-    "language_code_label": "Kod(y) języka",
-    "restart-required": "Zmiany w opcjach sprawdzania pisowni wejdą w życie po ponownym uruchomieniu aplikacji."
+    "language_code_label": "Kod(y) języka"
   },
   "sync_2": {
     "config_title": "Konfiguracja synchronizacji",
@@ -1662,10 +1632,6 @@
     "close": "Zamknij"
   },
   "attachment_detail_2": {
-    "will_be_deleted_in": "Ten załącznik zostanie automatycznie usunięty za {{time}}",
-    "will_be_deleted_soon": "Ten załącznik zostanie wkrótce automatycznie usunięty",
-    "deletion_reason": ", ponieważ załącznik nie jest podlinkowany w treści notatki. Aby zapobiec usunięciu, dodaj link do załącznika z powrotem do treści lub przekonwertuj załącznik na notatkę.",
-    "role_and_size": "Rola: {{role}}, Rozmiar: {{size}}, MIME: {{- mimeType}}",
     "link_copied": "Link do załącznika skopiowany do schowka.",
     "unrecognized_role": "Nierozpoznana rola załącznika '{{role}}'."
   },
@@ -1787,7 +1753,6 @@
   "highlights_list_2": {
     "title": "Lista wyróżnień",
     "options": "Opcje",
-    "modal_title": "Konfiguracja listy wyróżnień",
     "menu_configure": "Konfiguracja listy wyróżnień...",
     "no_highlights": "Nie znaleziono wyróżnień.",
     "title_with_count_one": "{{count}} wyróżnienie",
@@ -1860,9 +1825,6 @@
     "search_not_executed": "Nie przeprowadzono jeszcze wyszukiwania.",
     "search_now": "Szukaj teraz"
   },
-  "spacer": {
-    "configure_launchbar": "Konfiguruj pasek szybkiego dostępu"
-  },
   "sql_result": {
     "no_rows": "Dla tego zapytania nie zwrócono żadnych wierszy",
     "not_executed": "Zapytanie nie zostało jeszcze wykonane.",
@@ -1918,7 +1880,6 @@
   },
   "branches": {
     "cannot-move-notes-here": "Nie można przenieść notatek tutaj.",
-    "delete-status": "Status usuwania",
     "delete-notes-in-progress": "Usuwanie notatek w toku: {{count}}",
     "delete-finished-successfully": "Usuwanie zakończone pomyślnie.",
     "undeleting-notes-in-progress": "Przywracanie notatek w toku: {{count}}",
@@ -1985,8 +1946,7 @@
   "geo-map": {
     "create-child-note-title": "Utwórz nową notatkę podrzędną i dodaj ją do mapy",
     "create-child-note-instruction": "Kliknij na mapie, aby utworzyć nową notatkę w tej lokalizacji lub naciśnij Escape, aby anulować.",
-    "unable-to-load-map": "Nie można załadować mapy.",
-    "create-child-note-text": "Dodaj zaznaczenie"
+    "unable-to-load-map": "Nie można załadować mapy."
   },
   "geo-map-context": {
     "open-location": "Otwórz lokalizację",
@@ -2178,13 +2138,10 @@
     "mute": "Wycisz (M)",
     "unmute": "Wyłącz wyciszenie (M)",
     "exit-fullscreen": "Wyłącz pełny ekran",
-    "loop": "Pętla",
-    "disable-loop": "Wyłącz pętle",
     "rotate": "Obróć",
     "picture-in-picture": "Obraz w obrazie",
     "pause": "Zatrzymaj (Space)",
     "back-10s": "Cofnij 10s (Lewa strzałka)",
-    "forward-30s": "Do przodu 30s",
     "playback-speed": "Szybkość odtwarzania",
     "exit-picture-in-picture": "Wyjdź z obrazu w obrazie",
     "zoom-to-fit": "Powiększ aby wypełnić",

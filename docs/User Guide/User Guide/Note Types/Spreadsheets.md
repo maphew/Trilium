@@ -19,6 +19,7 @@ Starting with v0.104.0, Trilium provides a level of data intercompatibility betw
 *   Microsoft Excel (.xlsx)
     *   Preserves basic formatting (fonts, sizes, borders, backgrounds).
     *   Formulas are preserved, but note that not all Excel functions are supported and vice-versa with Univer.
+    *   Images (cell-bound or floating), without preserving rotation.
     *   Supports multi-sheets natively.
 *   Comma-Separated Values (.csv)
     *   Since it's a text-based format, any formatting is lost.
@@ -33,7 +34,8 @@ Both [import and export](../Basic%20Concepts%20and%20Features/Import%20%26%20Exp
 *   Unlike importing, exporting is on a per-note basis:
     *   In the <a class="reference-link" href="../Basic%20Concepts%20and%20Features/UI%20Elements/Note%20buttons.md">Note buttons</a>, choose the _Export to Excel_ or _Export to CSV_ options for the <a class="reference-link" href="../Basic%20Concepts%20and%20Features/UI%20Elements/New%20Layout.md">New Layout</a>.
     *   For the old layout, choose the corresponding buttons in the <a class="reference-link" href="../Basic%20Concepts%20and%20Features/UI%20Elements/Floating%20buttons.md">Floating buttons</a> area.
-    *   The export is intentionally a different process than the normal <a class="reference-link" href="../Basic%20Concepts%20and%20Features/Import%20%26%20Export.md">Import &amp; Export</a> functionality because it does conversion to multiple formats with varying degrees of compatibility.
+    *   If exported as a single file via <a class="reference-link" href="../Basic%20Concepts%20and%20Features/Import%20%26%20Export.md">Import &amp; Export</a>, the resulting file will be a custom `.triliumsheet` file that preserves the spreadsheet as-is.
+        *   The export is intentionally a different process than the normal <a class="reference-link" href="../Basic%20Concepts%20and%20Features/Import%20%26%20Export.md">Import &amp; Export</a> functionality because it does conversion to multiple formats with varying degrees of compatibility.
 
 > [!IMPORTANT]
 > Import & export for both .xlsx and .csv files are supported on a best-effort basis. It does not support advanced features (data validation, scripting, etc.). If you notice a particular issue, it can be [reported](../Troubleshooting/Reporting%20issues.md), however all bug reports must contain a sample file in order to be taken into consideration.
@@ -42,6 +44,9 @@ Both [import and export](../Basic%20Concepts%20and%20Features/Import%20%26%20Exp
 
 The spreadsheet has support for the following features:
 
+*   Since v0.104.0, images that can be either inside a cell or floating above.
+    *   The images are saved as <a class="reference-link" href="../Basic%20Concepts%20and%20Features/Notes/Attachments.md">Attachments</a> for performance reasons.
+    *   The image upload respects the same compression settings as text <a class="reference-link" href="Text/Images.md">Images</a>.
 *   Filtering
 *   Sorting
 *   Data validation
@@ -56,8 +61,12 @@ We might consider adding [other features](https://docs.univer.ai/guides/sheets/f
 Spreadsheets can be [shared](../Advanced%20Usage/Sharing.md), case in which a best-effort HTML rendering of the spreadsheet is done:
 
 *   Preserves basic formatting.
-*   Since v0.104.0, properly formats numbers and dates.
-*   Cells with formulas display the i
+*   Cells with formulas display the precalculated value instead of the formula.
+
+Since v0.104.0:
+
+*   Numbers and dates are properly formatted.
+*   Images are shown inside a cell or floating above, including rotation.
 
 For more advanced use cases, this will most likely not work as intended. Feel free to [report issues](../Troubleshooting/Reporting%20issues.md), but keep in mind that we might not be able to have a complete feature parity with all the features of Univer.
 
@@ -81,6 +90,4 @@ If you would like us to work on these features, consider [supporting us](https:/
 
 ### Mobile support
 
-There is no dedicated mobile support.
-
-Mobile support is currently experimental in Univer and when it becomes stable, we could potentially integrate it into Trilium as well.
+Versions prior to v0.104.0 have no dedicated mobile support, which means that the interaction is difficult without a mouse and keyboard. Starting with v0.104.0 we integrate Univer's mobile plugin, which introduces feature such as drag to pan which makes the interface more usable on mobile.

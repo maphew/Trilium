@@ -36,6 +36,8 @@ import { getSql } from "./sql/index";
 import treeService from "./tree.js";
 import { escapeHtml, randomString, unescapeHtml } from "./utils/index";
 import ws from "./ws.js";
+import markdownExport from "./export/markdown.js";
+import markdownImport from "./import/markdown.js";
 
 /**
  * A whole number
@@ -60,6 +62,22 @@ interface NoteAndBranch {
 }
 
 export interface Api {
+    /**
+     * Converts the given HTML string to Markdown.
+     *
+     * @param html - HTML content to convert
+     * @returns Markdown representation of the input HTML
+     */
+    htmlToMarkdown(html: string): string;
+
+    /**
+     * Converts the given Markdown string to HTML.
+     *
+     * @param markdown - Markdown content to convert
+     * @returns HTML representation of the input Markdown
+     */
+    markdownToHtml(markdown: string): string;
+
     /**
      * Note where the script execution started — the entry point of the current script bundle
      * (in C terms, the file containing `main()`). When a script is spread across multiple code
@@ -508,6 +526,9 @@ function BackendScriptApi(this: Api, currentNote: BNote, apiParams: ApiParams) {
     this.getOptions = () => optionsService.getOptions();
     this.getAttribute = (attributeId) => becca.getAttribute(attributeId);
 
+    this.htmlToMarkdown = (html) => markdownExport.toMarkdown(html);
+    this.markdownToHtml = (markdown) => markdownImport.renderToHtml(markdown, "");
+
     this.searchForNotes = (query, searchParams = {}) => {
         if (searchParams.includeArchivedNotes === undefined) {
             searchParams.includeArchivedNotes = true;
@@ -640,7 +661,7 @@ function BackendScriptApi(this: Api, currentNote: BNote, apiParams: ApiParams) {
     this.sortNotes = (parentNoteId, sortConfig = {}) => treeService.sortNotes(parentNoteId, sortConfig.sortBy || "title", !!sortConfig.reverse, !!sortConfig.foldersFirst);
 
     this.setNoteToParent = treeService.setNoteToParent;
-    this.transactional = sql.transactional;
+    this.transactional = sql.transactional.bind(sql);
     this.randomString = randomString;
     this.escapeHtml = escapeHtml;
     this.unescapeHtml = unescapeHtml;

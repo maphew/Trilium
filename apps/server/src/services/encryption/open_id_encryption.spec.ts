@@ -36,6 +36,18 @@ describe("open_id_encryption", () => {
         expect(openIDEncryption.saveUser("other", "Bob", "bob@example.com")).toBe(false);
     });
 
+    it("verifySubjectIdentifier matches only the enrolled subject identifier", () => {
+        // No account enrolled yet → nothing matches.
+        expect(openIDEncryption.verifySubjectIdentifier("subject-123")).toBe(false);
+
+        openIDEncryption.saveUser("subject-123", "Alice", "alice@example.com");
+
+        expect(openIDEncryption.verifySubjectIdentifier("subject-123")).toBe(true);
+        expect(openIDEncryption.verifySubjectIdentifier("someone-else")).toBe(false);
+        // A prefix of the real identifier must not pass (length-safe comparison).
+        expect(openIDEncryption.verifySubjectIdentifier("subject-12")).toBe(false);
+    });
+
     it("setDataKey encrypts the data key so it can be recovered with the derived key", () => {
         const salt = "fixed-salt";
         const plainKey = "0123456789abcdef";

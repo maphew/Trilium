@@ -1,5 +1,6 @@
 import appContext, { type ContextMenuCommandData, type FilteredCommandNames } from "../components/app_context.js";
 import type Component from "../components/component.js";
+import type NoteContext from "../components/note_context.js";
 import type { SelectMenuItemEventListener } from "../components/events.js";
 import type FAttachment from "../entities/fattachment.js";
 import type FBranch from "../entities/fbranch.js";
@@ -16,6 +17,7 @@ import server from "../services/server.js";
 import toastService from "../services/toast.js";
 import treeService from "../services/tree.js";
 import utils from "../services/utils.js";
+import { showImageCompressionDialog } from "../widgets/dialogs/image_compression/image_compression_dialog.jsx";
 import type NoteTreeWidget from "../widgets/note_tree.js";
 import contextMenu, { type MenuCommandItem, type MenuItem } from "./context_menu.js";
 import NoteColorPicker from "./custom-items/NoteColorPicker.jsx";
@@ -49,6 +51,12 @@ export interface TreeContextMenuContext {
      * own parent component.
      */
     component: Component;
+    /**
+     * Note context to activate newly created notes in. Trees hosted in popup dialogs (e.g. the
+     * task states tree popup) pass their own context, which lives outside the tab manager —
+     * without it, creation would activate the note in the background tab.
+     */
+    noteContext?: NoteContext;
     /** Branches to operate on in bulk-capable commands (defaults to [branch.branchId]). */
     selectedOrActiveBranchIds?: string[];
     /** Notes to operate on in bulk-capable commands (defaults to [note.noteId]). */
@@ -174,6 +182,14 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
             enabled: true,
             items: [
                 { title: t("tree-context-menu.apply-bulk-actions"), command: "openBulkActionsDialog", uiIcon: "bx bx-list-plus", enabled: true },
+                {
+                    // One note at a time: the dialog is configured against what that note holds and
+                    // reports on what it changed there, neither of which a multi-selection has.
+                    title: t("compress-images"),
+                    uiIcon: "bx bx-collapse-alt",
+                    enabled: noSelectedNotes && notOptionsOrHelp,
+                    handler: () => void showImageCompressionDialog({ type: "note", noteId: note.noteId })
+                },
 
                 { kind: "separator" },
 
@@ -352,14 +368,16 @@ export async function handleTreeContextMenuSelect(
             type,
             mime,
             isProtected: parentNote?.isProtected ?? false,
-            templateNoteId
+            templateNoteId,
+            noteContext: resolved.noteContext
         });
     } else if (command === "insertChildNote") {
         noteCreateService.createNote(notePath, {
             type,
             mime,
             isProtected: note.isProtected,
-            templateNoteId
+            templateNoteId,
+            noteContext: resolved.noteContext
         });
     } else if (command === "openNoteInSplit") {
         const subContexts = appContext.tabManager.getActiveContext()?.getSubContexts();
@@ -462,6 +480,7 @@ export default class TreeContextMenu implements SelectMenuItemEventListener<Tree
             branch,
             notePath: treeService.getNotePath(this.node),
             component: this.treeWidget,
+            noteContext: this.treeWidget.noteContext,
             selectedOrActiveBranchIds: this.treeWidget.getSelectedOrActiveBranchIds(this.node),
             selectedOrActiveNoteIds: this.treeWidget.getSelectedOrActiveNoteIds(this.node),
             selectedNotes,

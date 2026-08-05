@@ -21,7 +21,7 @@ export default class MoveBlockUpDownPlugin extends Plugin {
         this.bindMoveBlockShortcuts(editor);
     }
 
-	bindMoveBlockShortcuts(editor: any) {
+	bindMoveBlockShortcuts(editor: Editor) {
 		editor.editing.view.once('render', () => {
 			const domRoot = editor.editing.view.getDomRoot();
 			/* v8 ignore next 1 -- domRoot is always set while the editor is alive; only null after destroy */
@@ -42,6 +42,15 @@ export default class MoveBlockUpDownPlugin extends Plugin {
 			};
 
 			domRoot.addEventListener('keydown', handleKeydown, { capture: true });
+
+			// Remove the native listener when the editor is destroyed. The editing root is
+			// reused across editor recreations (e.g. switching the content language rebuilds
+			// the editor in the same container — see #10095). Without this cleanup the orphaned
+			// listener stays attached, captures the keystroke first and runs editor.execute()
+			// against the destroyed editor — silently swallowing the shortcut until a reload.
+			this.listenTo(editor, 'destroy', () => {
+				domRoot.removeEventListener('keydown', handleKeydown, { capture: true });
+			});
 		});
 	}
 

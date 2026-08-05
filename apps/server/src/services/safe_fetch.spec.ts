@@ -8,7 +8,7 @@ interface MockAgent {
     close(): void;
 }
 
-const { agentInstances, MockAgent } = vi.hoisted(() => {
+const { agentInstances, MockAgent, undiciFetch } = vi.hoisted(() => {
     const agentInstances: MockAgent[] = [];
 
     class MockAgent {
@@ -25,10 +25,12 @@ const { agentInstances, MockAgent } = vi.hoisted(() => {
         }
     }
 
-    return { agentInstances, MockAgent };
+    return { agentInstances, MockAgent, undiciFetch: vi.fn() };
 });
 
-vi.mock("undici", () => ({ Agent: MockAgent }));
+// safeFetch calls undici's own `fetch` (not the global one) so that it and the `Agent` it passes as
+// a dispatcher come from the same undici copy — see the comment in safe_fetch.ts.
+vi.mock("undici", () => ({ Agent: MockAgent, fetch: undiciFetch }));
 
 import { safeFetch, validateHostResolution, validateUrl } from "./safe_fetch.js";
 
@@ -53,6 +55,12 @@ describe("validateUrl", () => {
         expect(() => validateUrl("not-a-url")).toThrow("Invalid URL");
         expect(() => validateUrl("")).toThrow("Invalid URL");
     });
+
+    it("rejects URLs carrying credentials, which must not reach the wire, the note or the log", () => {
+        expect(() => validateUrl("https://user:secret@example.com/page")).toThrow("credentials");
+        expect(() => validateUrl("https://user@example.com/page")).toThrow("credentials");
+        expect(() => validateUrl("http://:secret@example.com/page")).toThrow("credentials");
+    });
 });
 
 describe("validateHostResolution", () => {
@@ -70,6 +78,18 @@ describe("validateHostResolution", () => {
         await expect(validateHostResolution("fc00::1")).rejects.toThrow("private/internal");
         await expect(validateHostResolution("fd12::1")).rejects.toThrow("private/internal");
         await expect(validateHostResolution("fe80::1")).rejects.toThrow("private/internal");
+    });
+
+    it("reads an IPv6 literal still wrapped in the brackets URL.hostname leaves on it", async () => {
+        const lookup = vi.spyOn(dns.promises, "lookup");
+
+        await expect(validateHostResolution("[::1]")).rejects.toThrow("private/internal");
+        await expect(validateHostResolution("[fe80::1]")).rejects.toThrow("private/internal");
+        await expect(validateHostResolution("[2606:4700:4700::1111]")).resolves.toEqual([
+            { address: "2606:4700:4700::1111", family: 6 }
+        ]);
+        // Recognised as an address, so never taken for a name and looked up as one.
+        expect(lookup).not.toHaveBeenCalled();
     });
 
     it("allows public IP literals and returns validated addresses", async () => {
@@ -133,13 +153,12 @@ describe("safeFetch", () => {
 
     beforeEach(() => {
         agentInstances.length = 0;
-        fetchMock = vi.fn();
-        vi.stubGlobal("fetch", fetchMock);
+        fetchMock = undiciFetch;
+        fetchMock.mockReset();
         // DNS literal so no actual DNS lookup is attempted.
     });
 
     afterEach(() => {
-        vi.unstubAllGlobals();
         vi.restoreAllMocks();
     });
 

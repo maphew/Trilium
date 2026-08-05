@@ -1,5 +1,6 @@
 import { app_info, cls, events, getLog, keyboard_actions as keyboardActionsService, options as optionService, sql_init, utils as coreUtils } from "@triliumnext/core";
 import { RESOURCE_DIR } from "@triliumnext/server/src/services/resource_dir.js";
+import { supportsBackgroundMaterial } from "@triliumnext/server/src/services/utils.js";
 import { type BrowserWindow, type BrowserWindowConstructorOptions, default as electron, type Session, type WebContents } from "electron";
 import path from "path";
 
@@ -35,6 +36,7 @@ let mainWindow: BrowserWindow | null;
 let setupWindow: BrowserWindow | null;
 let allWindows: BrowserWindow[] = []; // Used to store all windows, sorted by the order of focus.
 const loadedSpellcheckSessions = new WeakSet<Session>();
+const exportRevealSessions = new WeakSet<Session>();
 
 // Set to `true` once the app is genuinely quitting (via `before-quit`, which fires
 // for every real quit path: Cmd+Q, the tray "Quit" item, the app menu, OS shutdown).
@@ -73,7 +75,11 @@ async function createExtraWindow(extraWindowHash: string) {
             nodeIntegration: false,
             contextIsolation: true,
             preload: getPreloadScript(),
-            spellcheck: spellcheckEnabled,
+            // Always attach Chromium's spell-check subsystem so it can be toggled at
+            // runtime via session.setSpellCheckerEnabled(); the actual on/off state is
+            // applied from the option in configureWebContents(). webPreferences.spellcheck
+            // is immutable after creation, so leaving it false would force a restart to enable.
+            spellcheck: true,
             webviewTag: true
         },
         ...getWindowExtraOpts(),
@@ -130,7 +136,11 @@ async function createMainWindow(startHidden = false) {
             nodeIntegration: false,
             contextIsolation: true,
             preload: getPreloadScript(),
-            spellcheck: spellcheckEnabled,
+            // Always attach Chromium's spell-check subsystem so it can be toggled at
+            // runtime via session.setSpellCheckerEnabled(); the actual on/off state is
+            // applied from the option in configureWebContents(). webPreferences.spellcheck
+            // is immutable after creation, so leaving it false would force a restart to enable.
+            spellcheck: true,
             webviewTag: true
         },
         icon: getIcon(),
@@ -169,11 +179,13 @@ function getWindowExtraOpts() {
         if (coreUtils.isMac()) {
             extraOpts.titleBarStyle = "hiddenInset";
             extraOpts.titleBarOverlay = true;
-        } else if (coreUtils.isWindows()) {
+        } else if (coreUtils.isWindows() || coreUtils.isLinux()) {
+            // Window Controls Overlay: Chromium draws the caption buttons itself, following the
+            // platform's own conventions (button glyphs, order and which side they sit on).
+            // Supported on Windows and, since Electron 27, on Linux too.
             extraOpts.titleBarStyle = "hidden";
             extraOpts.titleBarOverlay = true;
         } else {
-            // Linux or other platforms.
             extraOpts.frame = false;
         }
 
@@ -183,7 +195,7 @@ function getWindowExtraOpts() {
             if (coreUtils.isMac()) {
                 extraOpts.transparent = true;
                 extraOpts.visualEffectState = "active";
-            } else if (coreUtils.isWindows()) {
+            } else if (coreUtils.isWindows() && supportsBackgroundMaterial) {
                 extraOpts.backgroundMaterial = "auto";
             }
         }
@@ -197,9 +209,8 @@ async function configureWebContents(webContents: WebContents, spellcheckEnabled:
     // globally for every WebContents (including setup and print windows,
     // which never pass through this function) by web_contents_security.ts.
 
-    if (spellcheckEnabled) {
-        setupSpellcheckForSession(webContents.session);
-    }
+    setupSpellcheckForSession(webContents.session, spellcheckEnabled);
+    setupExportRevealForSession(webContents.session);
 
     // Forward full-screen events to the renderer via IPC.
     const win = electron.BrowserWindow.fromWebContents(webContents);
@@ -256,17 +267,83 @@ function isDevToolsDocked(webContents: WebContents) {
     return devToolsWindow !== null && devToolsWindow === electron.BrowserWindow.fromWebContents(webContents);
 }
 
-function setupSpellcheckForSession(session: Session) {
+/**
+ * Reveals note exports in the OS file manager once their download finishes, matching the native subtree
+ * export (which reveals via shell.showItemInFolder). Single-note and OPML exports go through Electron's
+ * download manager rather than the native handler, so they're caught here. Scoped to `/export/` URLs so
+ * attachment/revision/file downloads are left alone, and registered once per session.
+ */
+function setupExportRevealForSession(session: Session) {
+    if (exportRevealSessions.has(session)) {
+        return;
+    }
+    exportRevealSessions.add(session);
+
+    session.on("will-download", (_event, item) => {
+        if (!/\/export\//.test(item.getURL())) {
+            return;
+        }
+        item.once("done", (_e, state) => {
+            if (state === "completed") {
+                electron.shell.showItemInFolder(item.getSavePath());
+            }
+        });
+    });
+}
+
+function setupSpellcheckForSession(session: Session, enabled: boolean) {
+    // Preload the configured languages once per session (idempotent thereafter via the
+    // WeakSet guard) so a later live enable already has them. Harmless while disabled.
+    // This MUST run before setSpellCheckerEnabled(): Electron's setSpellCheckerLanguages()
+    // implicitly forces kSpellCheckEnable = !languages.empty(), so calling it after a
+    // disable would silently re-enable spell check on every launch (issue #10569).
     if (!loadedSpellcheckSessions.has(session)) {
         loadedSpellcheckSessions.add(session);
+        session.setSpellCheckerLanguages(getConfiguredSpellcheckLanguages());
+    }
+    session.setSpellCheckerEnabled(enabled);
+}
 
-        const languageCodes = optionService
-            .getOption("spellCheckLanguageCode")
-            .split(",")
-            .map((code) => code.trim())
-            .filter(Boolean);
+function getConfiguredSpellcheckLanguages(): string[] {
+    return optionService
+        .getOption("spellCheckLanguageCode")
+        .split(",")
+        .map((code) => code.trim())
+        .filter(Boolean);
+}
 
+/**
+ * Re-applies the spell-check language list to every open window's session so a
+ * language change in the settings takes effect without restarting the app.
+ * Sessions are deduplicated because all windows share the default session.
+ */
+function applySpellcheckLanguages(languageCodes: string[]) {
+    // setSpellCheckerLanguages() forces the enabled state to !languageCodes.empty(), so a
+    // language change while spell check is disabled would re-enable it. Re-assert the option
+    // afterwards to keep the toggle authoritative (see setupSpellcheckForSession, issue #10569).
+    const enabled = optionService.getOptionBool("spellCheckEnabled");
+    const sessions = new Set<Session>();
+    for (const win of electron.BrowserWindow.getAllWindows()) {
+        sessions.add(win.webContents.session);
+    }
+    for (const session of sessions) {
         session.setSpellCheckerLanguages(languageCodes);
+        session.setSpellCheckerEnabled(enabled);
+    }
+}
+
+/**
+ * Enables or disables the spell checker on every open window's session so the
+ * toggle in settings takes effect without restarting the app. Relies on the
+ * windows having been created with `webPreferences.spellcheck: true`.
+ */
+function applySpellcheckEnabled(enabled: boolean) {
+    const sessions = new Set<Session>();
+    for (const win of electron.BrowserWindow.getAllWindows()) {
+        sessions.add(win.webContents.session);
+    }
+    for (const session of sessions) {
+        session.setSpellCheckerEnabled(enabled);
     }
 }
 
@@ -292,8 +369,8 @@ async function createSetupWindow() {
         autoHideMenuBar: true,
         title: "Trilium Notes Setup",
         icon: getIcon(),
-        // Background effects (Mica on Windows, vibrancy on macOS)
-        ...(coreUtils.isWindows() && { backgroundMaterial: "mica" as const }),
+        // Background effects (Mica on Windows 11 22H2+, vibrancy on macOS)
+        ...(coreUtils.isWindows() && supportsBackgroundMaterial && { backgroundMaterial: "mica" as const }),
         ...(coreUtils.isMac() && { transparent: true, visualEffectState: "active" as const, vibrancy: "under-window" as const, titleBarStyle: "hiddenInset" as const }),
         webPreferences: {
             nodeIntegration: false,
@@ -451,8 +528,16 @@ export function setupWindowing() {
         event.returnValue = event.sender.session.availableSpellCheckerLanguages;
     });
 
+    electron.ipcMain.on("set-spellchecker-languages", (_event, languageCodes: string[]) => {
+        applySpellcheckLanguages(languageCodes);
+    });
+
+    electron.ipcMain.on("set-spellchecker-enabled", (_event, enabled: boolean) => {
+        applySpellcheckEnabled(enabled);
+    });
+
     // Window management IPC handlers (replacing @electron/remote for renderer access)
-    electron.ipcMain.on("set-title-bar-overlay", (event, options: { color: string; symbolColor: string }) => {
+    electron.ipcMain.on("set-title-bar-overlay", (event, options: { color: string; symbolColor: string; height?: number }) => {
         electron.BrowserWindow.fromWebContents(event.sender)?.setTitleBarOverlay(options);
     });
 

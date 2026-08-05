@@ -121,23 +121,14 @@
     "label": "تفاصيل التسمية",
     "relation": "تفاصيل العلاقة",
     "date_time": "التاريخ والوقت",
-    "label_definition": "تفاصيل تعريف التصنيف",
-    "relation_definition": "تفاصيل تعريف العلاقة",
-    "attr_detail_title": "عنوان تفاصيل السمة",
     "close_button_title": "الغاء التغييرات و اغلاق",
-    "attr_is_owned_by": "السمة مملوكة ل",
-    "save_and_close": "حفظ ونسخ <kbd>Ctrl+Enter</kbd>",
     "workspace_calendar_root": "‎تحديد جذر التقويم لكل مساحة عمل",
     "hide_highlight_widget": "اخفاء عنصر واجهة قائمة التمييزات",
     "is_owned_by_note": "تخص الملاحظة",
-    "and_more": "... و {{count}}مرات اكثر.",
     "related_notes_title": "ملاحظات اخرى بنفس التسمية",
-    "attr_name_title": "يمكن أن يتكوّن اسم الخاصية من أحرف أبجدية رقمية، والنقطتين الرأسيتين، والشرطة السفلية فقط",
     "target_note_title": "العلاقة هي اتصال مُسمّى بين ملاحظة مصدر وملاحظة هدف.",
     "promoted_title": "الخاصية المُروّجة تُعرض بشكل بارز داخل الملاحظة.",
-    "promoted_alias_title": "الاسم الذي سيتم عرضه في واجهة الخصائص المُروّجة.",
     "multiplicity_title": "التعددية تحدد عدد الخصائص التي يمكن إنشاؤها بنفس الاسم — إما واحدة كحد أقصى أو أكثر من واحدة.",
-    "label_type_title": "نوع الوسم يساعد Trilium على اختيار الواجهة المناسبة لإدخال قيمة الوسم.",
     "textarea": "نص متعدد الأسطر",
     "precision_title": "عدد الخانات بعد الفاصلة العشرية التي يجب إتاحتها في واجهة ضبط القيمة.",
     "inverse_relation_title": "إعداد اختياري لتحديد العلاقة المعاكسة لهذه العلاقة. مثال: الأب - الابن هما علاقتان متعاكستان لبعضهما البعض.",
@@ -630,20 +621,11 @@
     "close": "غلق",
     "export": "تصدير",
     "export_note_title": "تصدير الملاحظة",
-    "export_status": "حالة التصدير",
     "export_finished_successfully": "اكتمل التصدير بنجاح.",
-    "export_in_progress": "جار التصدير: {{progressCount}}",
     "choose_export_type": "اختر نوع التصدير اولا من فضلك",
     "export_type_single": "هذه الملاحظة فقط دون الملاحظات الفرعية التابعة لها",
     "format_pdf": "PDF - لأغراض الطباعة أو المشاركة.",
-    "share-format": "HTML للنشر على الويب - يستخدم نفس القالب المستخدم في الملاحظات المشتركة، ويمكن نشره كموقع ويب ثابت.",
-    "opml_version_1": "‏OPML v1.0 - نص عادي فقط",
-    "opml_version_2": "‏OPML v2.0 - يسمح أيضًا باستخدام HTML",
-    "export_type_subtree": "هذه الملاحظة وجميع الملاحظات التابعة لها",
-    "format_html": "HTML - يُوصى به لأنه يحافظ على جميع التنسيقات",
-    "format_html_zip": "HTML داخل أرشيف ZIP - يُوصى بهذا لأنه يحافظ على جميع التنسيقات.",
-    "format_markdown": "Markdown - يحافظ هذا على معظم التنسيقات.",
-    "format_opml": "OPML - صيغة تبادل للمخططات النصية فقط. لا يتم تضمين التنسيق أو الصور أو الملفات."
+    "export_type_subtree": "هذه الملاحظة وجميع الملاحظات التابعة لها"
   },
   "help": {
     "troubleshooting": "أستكشاف الاخطاء واصلاحها",
@@ -706,7 +688,6 @@
     "import": "استيراد",
     "safeImport": "أستيراد آمن",
     "shrinkImages": "تقليل حجم الصور",
-    "import-status": "حالة الاستبراد",
     "importIntoNote": "استيراد الى الملاحظة",
     "chooseImportFile": "اختر ملف الاستيراد",
     "failed": "فشل الاستيراد: {{messege}}.",
@@ -718,7 +699,6 @@
     },
     "successful": "اكتمل الاستيراد بنجاح.",
     "in-progress": "جار الاستيراد: {{progress}}",
-    "importDescription": "سيتم استيراد محتوى الملف (أو الملفات) المحددة كملاحظات فرعية داخل",
     "importZipRecommendation": "عند استيراد ملف ZIP، سيعكس تسلسل الملاحظات الهيكل الهرمي للمجلدات الفرعية داخل الأرشيف.",
     "safeImportTooltip": "قد تحتوي ملفات التصدير من Trilium بصيغة <code>.zip</code> على سكربتات قابلة للتنفيذ قد تتضمن سلوكًا ضارًا. يؤدي الاستيراد الآمن إلى تعطيل التنفيذ التلقائي لجميع السكربتات المستوردة. قم بإلغاء تحديد خيار \"الاستيراد الآمن\" فقط إذا كان الأرشيف المستورد من المفترض أن يحتوي على سكربتات قابلة للتنفيذ وكنت تثق تمامًا بمحتواه.",
     "explodeArchivesTooltip": "إذا كان هذا الخيار مفعّلًا، فسيقوم Trilium بقراءة ملفات <code>.zip</code> و<code>.enex</code> و<code>.opml</code> وإنشاء ملاحظات من الملفات الموجودة داخل تلك الأرشيفات. أما إذا كان غير مفعّل، فسيتم إرفاق الأرشيفات نفسها داخل الملاحظة.",
@@ -967,7 +947,6 @@
   "etapi": {
     "created": "تم الأنشاء",
     "actions": "أجراءات",
-    "title": "ETAPI",
     "existing_tokens": "الرموز الموجودة",
     "token_name": "اسم الرمز",
     "default_token_name": "رمز جديد",
@@ -1011,18 +990,12 @@
     "password_changed_success": "تم تغيير كلمة المرور. سيتم إعادة تحميل Trilium Notes بعد الضغط على OK."
   },
   "shortcuts": {
-    "shortcuts": "أختصارات",
-    "description": "الوصف",
     "keyboard_shortcuts": "اختصارات لوحة المفاتيح",
-    "action_name": "اسم الاجراء",
-    "default_shortcuts": "اختصارات افتراضية",
     "type_text_to_filter": "اكتب نصًا لتصفية الاختصارات...",
     "reload_app": "أعد تحميل التطبيق لتطبيق التغييرات",
     "no_results": "لا توجد اختصارات تطابق '{{filter}}'",
     "set_all_to_default": "إعادة تعيين جميع الاختصارات إلى الوضع الافتراضي",
-    "multiple_shortcuts": "يمكن فصل عدة اختصارات لنفس الإجراء باستخدام فاصلة.",
-    "confirm_reset": "هل تريد حقًا إعادة تعيين جميع اختصارات لوحة المفاتيح إلى الإعدادات الافتراضية؟",
-    "electron_documentation": "راجع توثيق Electron للاطلاع على المُعدِّلات ورموز المفاتيح المتاحة.<a href=\"https://www.electronjs.org/docs/latest/api/accelerator\">"
+    "confirm_reset": "هل تريد حقًا إعادة تعيين جميع اختصارات لوحة المفاتيح إلى الإعدادات الافتراضية؟"
   },
   "sync_2": {
     "save": "حفظ",
@@ -1241,7 +1214,6 @@
   "highlights_list_2": {
     "options": "خيارات",
     "title": "قائمة التضليلات",
-    "modal_title": "تهيئة قائمة التمييزات",
     "menu_configure": "تهيئة قائمة التمييزات...",
     "no_highlights": "لا توجد عناصر مميزة.",
     "title_with_count_zero": "{{count}} تمييز",
@@ -1384,36 +1356,15 @@
   },
   "multi_factor_authentication": {
     "oauth_title": "OAuth/OpenID",
-    "title": "المصادقة متعددة العوامل",
-    "mfa_method": "طريقة المصادقة متعددة العوامل",
     "oauth_user_account": "حساب المستخدم: ",
     "oauth_user_email": "البريد الإلكتروني للمستخدم: ",
-    "recovery_keys_used": "مستخدم: {{date}}",
-    "mfa_enabled": "تمكين المصادقة متعددة العوامل",
-    "recovery_keys_generate": "انشاء رموز الاسترداد",
     "recovery_keys_regenerate": "اعادة انشاء رموز الاسترداد",
     "oauth_user_not_logged_in": "لم يتم تسجيل الدخول!",
-    "totp_secret_generate": "توليد TOTP السري",
-    "totp_secret_regenerate": "اعادة توليد TOTP السري",
-    "totp_secret_generated": "تم انشاء TOTP السري",
     "oauth_missing_vars": "اعدادات مفقودة: {{-variables}}",
-    "totp_secret_title": "توليد TOTP سري",
-    "totp_title": "كلمة مرور لمرة واحدة معتمدة على الوقت (TOTP)",
-    "recovery_keys_title": "مفاتيح استرداد تسجيل الدخول الاحادي",
     "recovery_keys_error": "حدث خطأ اثناء توليد رموز الاسترجاع",
     "recovery_keys_no_key_set": "لاتوجد رموز استرجاع معينة",
-    "recovery_keys_unused": "رمز الاسترداد {{index}} غير مستخدم",
-    "electron_disabled": "المصادقة متعددة العوامل غير مدعومة حاليًا في إصدار سطح المكتب.",
-    "no_totp_secret_warning": "لتفعيل TOTP، تحتاج أولًا إلى إنشاء مفتاح سري (TOTP secret).",
-    "totp_secret_warning": "يرجى حفظ السر الذي تم إنشاؤه في مكان آمن. لن يتم عرضه مرة أخرى.",
-    "recovery_keys_description": "—تُستخدم مفاتيح استعادة تسجيل الدخول الموحد لتسجيل الدخول في حال عدم قدرتك على الوصول إلى رموز تطبيق المصادقة الخاص بك.",
-    "totp_secret_description_warning": "بعد إنشاء سر TOTP جديد، ستحتاج إلى تسجيل الدخول مرة أخرى باستخدام السر الجديد.",
-    "totp_secret_regenerate_confirm": "هل أنت متأكد أنك تريد إعادة إنشاء سر TOTP؟ سيؤدي ذلك إلى إبطال السر السابق وجميع رموز الاسترداد الحالية.",
     "recovery_keys_description_warning": "لن يتم عرض مفاتيح الاسترداد مرة أخرى بعد مغادرة الصفحة، لذا احتفظ بها في مكان آمن. <br>بعد استخدام مفتاح الاسترداد، لا يمكن استخدامه مرة أخرى.",
-    "totp_description": "TOTP (كلمة مرور لمرة واحدة تعتمد على الوقت) هي ميزة أمان تُنشئ رمزًا مؤقتًا فريدًا يتغير كل 30 ثانية. تستخدم هذا الرمز مع كلمة المرور لتسجيل الدخول إلى حسابك، مما يجعل من الصعب جدًا على أي شخص آخر الوصول إليه.",
-    "oauth_description": "OpenID هو معيار يتيح لك تسجيل الدخول إلى المواقع باستخدام حساب من خدمة أخرى، مثل Google، للتحقق من هويتك. المُصدر الافتراضي هو Google، ولكن يمكنك تغييره إلى أي مزود OpenID آخر. راجع <a href=\"#root/_hidden/_help/_help_Otzi9La2YAUX/_help_WOcw2SLH6tbX/_help_7DAiwaf8Z7Rz\">هنا</a> لمزيد من المعلومات. اتبع هذه <a href=\"https://developers.google.com/identity/openid-connect/openid-connect\">الإرشادات</a> لإعداد خدمة OpenID عبر Google.",
-    "description": "تُضيف المصادقة متعددة العوامل (Multi-Factor Authentication - MFA) طبقة أمان إضافية إلى حسابك. بدلًا من إدخال كلمة المرور فقط لتسجيل الدخول، تتطلب MFA تقديم عنصر أو أكثر إضافيًا للتحقق من هويتك. بهذه الطريقة، حتى لو حصل شخص ما على كلمة المرور الخاصة بك، فلن يتمكن من الوصول إلى حسابك دون العامل الثاني من المعلومات. يمكن تشبيه ذلك بإضافة قفل إضافي لبابك، مما يجعل اختراقه أكثر صعوبة.\n\n<br><br>\n\nيرجى اتباع التعليمات أدناه لتمكين MFA. إذا لم يتم التكوين بشكل صحيح، فسيعود تسجيل الدخول إلى استخدام كلمة المرور فقط.",
-    "oauth_description_warning": "لتمكين OAuth/OpenID، تحتاج إلى ضبط عنوان URL الأساسي لـ OAuth/OpenID ومعرّف العميل (Client ID) وسر العميل (Client Secret) في ملف config.ini ثم إعادة تشغيل التطبيق.\n\nإذا كنت ترغب في الإعداد عبر متغيرات البيئة، يرجى تعيين:\n\nTRILIUM_OAUTH_BASE_URL\n\nTRILIUM_OAUTH_CLIENT_ID\n\nTRILIUM_OAUTH_CLIENT_SECRET"
+    "oauth_description": "OpenID هو معيار يتيح لك تسجيل الدخول إلى المواقع باستخدام حساب من خدمة أخرى، مثل Google، للتحقق من هويتك. المُصدر الافتراضي هو Google، ولكن يمكنك تغييره إلى أي مزود OpenID آخر. راجع <a href=\"#root/_hidden/_help/_help_Otzi9La2YAUX/_help_WOcw2SLH6tbX/_help_7DAiwaf8Z7Rz\">هنا</a> لمزيد من المعلومات. اتبع هذه <a href=\"https://developers.google.com/identity/openid-connect/openid-connect\">الإرشادات</a> لإعداد خدمة OpenID عبر Google."
   },
   "execute_script": {
     "execute_script": "تنفيذ السكريبت",
@@ -1588,8 +1539,6 @@
   },
   "protected_session": {
     "wrong_password": "كلمة المرور خاطئة",
-    "protecting-title": "الحالة المحمية",
-    "unprotecting-title": "الحالة الغير محمية",
     "protecting-finished-successfully": "تم الحماية بنجاح.",
     "unprotecting-finished-successfully": "تم ازالة الحماية بنجاح.",
     "start_session_button": "البدء بالجلسة المحمية",
@@ -1704,16 +1653,12 @@
     "custom_dictionary_open": "تعديل القاموس",
     "description": "تنطبق هذه الخيارات فقط على إصدارات سطح المكتب، بينما ستستخدم المتصفحات تدقيق الإملاء الخاص بها.",
     "custom_dictionary_edit_description": "قم بتعديل قائمة الكلمات التي يجب عدم تمييزها بواسطة المدقق الإملائي. ستظهر التغييرات بعد إعادة التشغيل.",
-    "restart-required": "ستصبح التغييرات على خيارات التدقيق الإملائي سارية المفعول بعد إعادة تشغيل التطبيق.",
     "custom_dictionary_description": "الكلمات التي تتم إضافتها إلى القاموس تتم مزامنتها عبر جميع أجهزتك.",
     "related_description": "تكوين لغات التدقيق الإملائي والقاموس المخصص."
   },
   "note-map": {
     "button-link-map": "خريطة الروابط",
     "button-tree-map": "خريطة الشجرة"
-  },
-  "spacer": {
-    "configure_launchbar": "تهيئة شريط الاطلاق"
   },
   "entrypoints": {
     "note-executed": "تم تنفيذ الملاحظة.",
@@ -1723,7 +1668,6 @@
     "save-named-revision-message": "أدخل اسمًا لهذا الإصدار (اتركه فارغًا لعدم تسمية الإصدار):"
   },
   "branches": {
-    "delete-status": "حالة الحذف",
     "delete-finished-successfully": "تم الحذف بنجاح.",
     "cannot-move-notes-here": "لايمكن نقل الملاحظات الى هنا.",
     "undeleting-notes-finished-successfully": "تم استرجاع الملاحظات بنجاح.",
@@ -2028,12 +1972,8 @@
     "print_report_collection_content_other": "تعذّر طباعة {{count}} ملاحظة في المجموعة لأنها غير مدعومة أو محمية."
   },
   "attachment_detail_2": {
-    "role_and_size": "الدور: {{role}}، الحجم: {{size}}",
     "unrecognized_role": "دور المرفق '{{role}}'الغير معروف.",
-    "link_copied": "تم نسخ رابط المرفق إلى الحافظة.",
-    "deletion_reason": "لأن المرفق غير مرتبط بمحتوى الملاحظة. ولمنع حذفه، أضف رابط المرفق مرة أخرى داخل المحتوى أو قم بتحويل المرفق إلى ملاحظة.",
-    "will_be_deleted_in": "سيتم حذف هذا المرفق تلقائيًا خلال {{time}}",
-    "will_be_deleted_soon": "سيتم حذف هذا المرفق تلقائيًا قريبًا"
+    "link_copied": "تم نسخ رابط المرفق إلى الحافظة."
   },
   "title_bar_buttons": {
     "window-on-top": "ابقاء النافذة في الاعلى"
@@ -2055,7 +1995,6 @@
   },
   "geo-map": {
     "unable-to-load-map": "تعذر تحميل الخريطة.",
-    "create-child-note-text": "إضافة علامة",
     "create-child-note-instruction": "انقر على الخريطة لإنشاء ملاحظة جديدة في ذلك الموقع أو اضغط مفتاح Escape للإغلاق.",
     "create-child-note-title": "إنشاء ملاحظة فرعية جديدة وإضافتها إلى الخريطة"
   },
@@ -2218,17 +2157,14 @@
     "menu_run_mobile_startup": "عند بدء تشغيل واجهة الهاتف المحمول"
   },
   "media": {
-    "loop": "حلقة",
     "rotate": "تدوير",
     "picture-in-picture": "صورة داخل صورة",
     "play": "تشغيل (مسافة)",
     "pause": "إيقاف مؤقت (مسافة)",
     "back-10s": "رجوع 10 ثوانٍ (سهم لليسار)",
-    "forward-30s": "تقديم 30 ثانية",
     "mute": "كتم الصوت (M)",
     "unmute": "إلغاء كتم الصوت (M)",
     "playback-speed": "سرعة التشغيل",
-    "disable-loop": "إيقاف التكرار",
     "exit-picture-in-picture": "الخروج من وضع الصورة داخل الصورة",
     "fullscreen": "ملء الشاشة (F)",
     "exit-fullscreen": "الخروج من وضع ملء الشاشة",
@@ -2281,14 +2217,12 @@
     "web_search": "بحث الويب",
     "note_tools": "وصول الملاحظة",
     "extended_thinking": "تفكير موسّع",
-    "legacy_models": "النماذج القديمة",
     "thought_process": "عملية التفكير",
     "placeholder": "اكتب رسالة...",
     "searching_web": "جارٍ البحث في الويب...",
     "add_provider": "إضافة مزوّد ذكاء اصطناعي",
     "edit_index": "تحرير {{index}} من {{total}}",
     "tool_calls": "{{count}} استدعاء/استدعاءات أداة",
-    "context_used": "تم استخدام {{percentage}}٪",
     "sources_summary": "{{count}} مصدر من {{sites}} مواقع",
     "no_provider_message": "لم يتم إعداد مزوّد ذكاء اصطناعي. أضف مزوّدًا لبدء المحادثة.",
     "total_tokens": "{{total}} رمزًا (Tokens)",
@@ -2309,10 +2243,8 @@
   },
   "llm": {
     "provider_name": "اسم",
-    "provider_type": "المجهز",
     "actions": "الإجراءات",
     "delete_provider": "حذف",
-    "cancel": "الغاء",
     "add_provider": "إضافة مزود",
     "configured_providers": "المزوّدون المُهيّؤون",
     "api_key": "مفتاح API",
@@ -2343,7 +2275,6 @@
       "create_note": "إنشاء ملاحظة",
       "note_in_parent": "‎<Note/> في ‎<Parent/>‎"
     },
-    "settings_title": "الذكاء الاصطناعي / نموذج اللغة الكبير",
     "add_provider_title": "إضافة مزوّد ذكاء اصطناعي",
     "no_providers_configured": "لم يتم إعداد أي مزوّدين بعد.",
     "api_key_placeholder": "أدخل مفتاح API الخاص بك",
@@ -2354,8 +2285,7 @@
     "base_url_invalid": "يجب أن يكون الرابط الأساسي (Base URL) رابطًا صالحًا يبدأ بـ http:// أو https://",
     "feature_not_enabled": "قم بتمكين ميزة LLM التجريبية من خلال: الإعدادات → متقدم → الميزات التجريبية لاستخدام تكاملات الذكاء الاصطناعي.",
     "base_url_description": "اختياري. يمكنك تجاوز نقطة نهاية الـ API الافتراضية — وهو مفيد للنماذج المستضافة محليًا (مثل Ollama أو LM Studio أو vLLM) أو عند استخدام بروكسي.",
-    "mcp_enabled_description": "إتاحة نقطة نهاية بروتوكول سياق النموذج (Model Context Protocol - MCP) بحيث يمكن لمساعدي البرمجة بالذكاء الاصطناعي (مثل Claude Code و GitHub Copilot) قراءة وتعديل ملاحظاتك. تكون نقطة النهاية متاحة فقط من localhost.",
-    "settings_description": "تكوين تكاملات الذكاء الاصطناعي ونماذج اللغة الكبيرة (LLM)."
+    "mcp_enabled_description": "إتاحة نقطة نهاية بروتوكول سياق النموذج (Model Context Protocol - MCP) بحيث يمكن لمساعدي البرمجة بالذكاء الاصطناعي (مثل Claude Code و GitHub Copilot) قراءة وتعديل ملاحظاتك. تكون نقطة النهاية متاحة فقط من localhost."
   },
   "markdown_editor": {
     "image_upload_failed": "لا يمكن رفع الصورة \"{{name}}\"."
@@ -2379,7 +2309,6 @@
   },
   "mind-map": {
     "summary": "الملخص",
-    "link": "رابط",
     "addChild": "إضافة عنصر فرعي",
     "addParent": "إضافة عنصر رئيسي",
     "addSibling": "إضافة عنصر شقيق",
@@ -2387,7 +2316,6 @@
     "focus": "وضع التركيز",
     "moveUp": "تحريك للأعلى",
     "moveDown": "تحريك للاسفل",
-    "linkBidirectional": "رابط ثنائي الاتجاه",
     "cancelFocus": "إلغاء وضع التركيز",
     "clickTips": "يرجى النقر على العقدة المستهدفة"
   },
@@ -2666,7 +2594,6 @@
     "view_all_chats": "عرض جميع المحادثات"
   },
   "text-editor": {
-    "edit-states-tooltip": "تعديل حالات المهام",
     "validation-errors": {
       "duplicate-symbol": "رمز Markdown مكرر",
       "undefined-name": "معرّف غير مُعرّف",
@@ -2676,9 +2603,11 @@
       "missing-icon": "الأيقونة مفقودة",
       "invalid-symbol": "يجب أن يكون رمز Markdown عبارة عن حرف واحد، باستثناء \"[\", \" \", \"X\", و \"]\""
     },
-    "unknown-task-state": "حالة مهمة مخصصة غير مُعرّفة",
-    "task-state-dropped": "تم تجاهل تعريف حالة المهمة المخصصة \"{{title}}\" ({{id}}) بسبب: {{reason}}",
-    "checkbox-tooltip": "انقر بزر الفأرة الأيمن لمزيد من حالات المهمة.\nاضغط {{shortcut}} للتنقل بين الحالات."
+    "ck": {
+      "edit-task-states": "تعديل حالات المهام",
+      "right-click-or-press-0-to-change-state": "انقر بزر الفأرة الأيمن لمزيد من حالات المهمة.\nاضغط %0 للتنقل بين الحالات.",
+      "undefined-custom-task-state": "حالة مهمة مخصصة غير مُعرّفة"
+    }
   },
   "note-color": {
     "set-custom-color": "تعيين لون مخصص للملاحظة",
@@ -2702,9 +2631,6 @@
   },
   "revisions_snapshot": {
     "title": "إصدارات الملاحظة"
-  },
-  "auto_link_attribute_list": {
-    "title": "سمات النظام"
   },
   "platform_indicator": {
     "available_on": "متاح على {{platform}}"

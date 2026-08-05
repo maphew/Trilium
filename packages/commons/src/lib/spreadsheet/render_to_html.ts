@@ -15,17 +15,20 @@ import { format as formatNumfmt, formatColor as formatNumfmtColor } from "numfmt
 import {
     BorderStyle,
     computeBounds,
+    getFloatingDrawings,
     getVisibleSheets,
     HorizontalAlign,
     type IBorderStyleData,
     type ICellData,
     isFiniteNumber,
     type IRange,
+    type ISheetDrawing,
     type IStyleData,
     type IWorksheetData,
     parseWorkbookData,
     resolveCellStyle,
-    VerticalAlign
+    VerticalAlign,
+    WrapStrategy
 } from "./workbook_model.js";
 
 /**
@@ -54,37 +57,217 @@ export function renderSpreadsheetToHtml(jsonContent: string): string {
         if (visibleSheets.length > 1) {
             parts.push(`<h3>${escapeHtml(sheet.name)}</h3>`);
         }
-        parts.push(renderSheet(sheet, workbook.styles ?? {}));
+        const images = placeFloatingImages(sheet, getFloatingDrawings(workbook, sheet.id));
+        const table = renderSheet(sheet, workbook.styles ?? {}, images);
+        parts.push(wrapWithFloatingImages(table, images));
     }
 
     return parts.join("\n");
 }
 
-function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | null>): string {
+// #region Images
+
+/** A floating image resolved to its content-space box (header offsets removed), ready to emit. */
+interface PlacedImage {
+    src: string;
+    left: number;
+    top: number;
+    width: number;
+    height: number;
+    /** CSS `transform` value for rotation/flip, or "" when the image is upright and unflipped. */
+    transform: string;
+}
+
+/**
+ * Resolves a sheet's floating drawings to renderable boxes in the grid's content coordinate space.
+ * Univer measures `transform.left`/`top` from the viewport corner, *including* the row and column
+ * headers; the HTML grid has no headers, so the header sizes are subtracted to land on A1. Drawings
+ * with an unsafe source or no transform are dropped.
+ */
+function placeFloatingImages(sheet: IWorksheetData, drawings: ISheetDrawing[]): PlacedImage[] {
+    const headerWidth = sheet.rowHeader?.hidden ? 0 : (isFiniteNumber(sheet.rowHeader?.width) ? sheet.rowHeader.width : 0);
+    const headerHeight = sheet.columnHeader?.hidden ? 0 : (isFiniteNumber(sheet.columnHeader?.height) ? sheet.columnHeader.height : 0);
+
+    const placed: PlacedImage[] = [];
+    for (const drawing of drawings) {
+        const src = sanitizeImageSource(drawing.source);
+        if (!src || !drawing.transform) continue;
+
+        placed.push({
+            src,
+            left: toFinite(drawing.transform.left) - headerWidth,
+            top: toFinite(drawing.transform.top) - headerHeight,
+            width: toFinite(drawing.transform.width),
+            height: toFinite(drawing.transform.height),
+            transform: cssTransform(drawing.transform)
+        });
+    }
+    return placed;
+}
+
+/**
+ * Builds the CSS `transform` for a drawing's rotation/flip, around the default centre origin (which
+ * matches Univer). Flips are applied before the rotation (so they read in the image's own axes), and
+ * an upright, unflipped image yields "" so no transform is emitted.
+ */
+function cssTransform(transform: NonNullable<ISheetDrawing["transform"]>): string {
+    const parts: string[] = [];
+    if (isFiniteNumber(transform.angle) && transform.angle % 360 !== 0) {
+        parts.push(`rotate(${px(transform.angle)}deg)`);
+    }
+    if (transform.flipX) parts.push("scaleX(-1)");
+    if (transform.flipY) parts.push("scaleY(-1)");
+    return parts.join(" ");
+}
+
+/**
+ * Wraps a rendered sheet table in a positioned container carrying the sheet's floating images, each
+ * placed absolutely at its content-space coordinates (the table is rendered from A1 with no header
+ * gutter, so those coordinates apply directly). The container's `min-height` is stretched to contain
+ * images that float below the table so they don't overlap following content. Returns the table
+ * unchanged when the sheet has no renderable floating images.
+ */
+function wrapWithFloatingImages(tableHtml: string, images: PlacedImage[]): string {
+    if (images.length === 0) return tableHtml;
+
+    let maxBottom = 0;
+    const tags: string[] = [];
+    for (const image of images) {
+        maxBottom = Math.max(maxBottom, image.top + image.height);
+        const transform = image.transform ? `;transform:${image.transform}` : "";
+        tags.push(
+            `<img class="spreadsheet-floating-image" style="position:absolute;left:${px(image.left)}px;top:${px(image.top)}px;width:${px(image.width)}px;height:${px(image.height)}px${transform}" src="${escapeHtml(image.src)}" alt="">`
+        );
+    }
+
+    return `<div class="spreadsheet-sheet" style="position:relative;min-height:${px(maxBottom)}px">\n${tableHtml}\n${tags.join("\n")}\n</div>`;
+}
+
+/** Renders the images embedded in a cell's rich-text document (`cell.p.drawings`), in order. */
+function renderCellImages(cell: ICellData): string {
+    const doc = cell.p;
+    const drawings = doc?.drawings;
+    if (!drawings) return "";
+
+    const order = Array.isArray(doc?.drawingsOrder) ? doc.drawingsOrder : Object.keys(drawings);
+    const images: string[] = [];
+    for (const id of order) {
+        const drawing = drawings[id];
+        const src = drawing ? sanitizeImageSource(drawing.source) : null;
+        if (!drawing || !src) continue;
+
+        const dims: string[] = [];
+        if (isFiniteNumber(drawing.transform?.width)) dims.push(`width:${px(drawing.transform.width)}px`);
+        if (isFiniteNumber(drawing.transform?.height)) dims.push(`height:${px(drawing.transform.height)}px`);
+        const style = dims.length ? ` style="${dims.join(";")}"` : "";
+
+        images.push(`<img class="spreadsheet-cell-image"${style} src="${escapeHtml(src)}" alt="">`);
+    }
+    return images.join("");
+}
+
+/**
+ * Validates an image source for inclusion in shared/exported HTML. Accepts only the relative
+ * attachment-image URL Trilium emits (`api/attachments/<id>/image/...`, served by both the app
+ * and the share view) and inline `data:image/...` URLs. Anything else (`javascript:`, remote
+ * `http(s)`, etc.) returns `null` so the image is dropped. The returned value is still escaped
+ * before being placed in an attribute.
+ */
+function sanitizeImageSource(source: string | null | undefined): string | null {
+    if (typeof source !== "string") return null;
+    const trimmed = source.trim();
+    if (/^api\/attachments\/[a-zA-Z0-9_]+\/image\//.test(trimmed)) return trimmed;
+    if (/^data:image\/(?:png|jpe?g|gif|webp|bmp|svg\+xml)[;,]/i.test(trimmed)) return trimmed;
+    return null;
+}
+
+/** Rounds a px measurement to 2 decimals and renders it without a trailing `.00`. */
+function px(value: number): string {
+    return String(Math.round(value * 100) / 100);
+}
+
+function toFinite(value: number | undefined): number {
+    return isFiniteNumber(value) ? value : 0;
+}
+
+/**
+ * Grows a sheet's max row/column to enclose its floating images. An image placed in content space
+ * can reach below or to the right of the last populated cell; extending the bounds makes the grid
+ * render enough empty rows/columns to contain it, matching the editor. Returns the bounds unchanged
+ * when no image reaches past them.
+ */
+function extendBoundsForImages(sheet: IWorksheetData, maxRow: number, maxCol: number, images: PlacedImage[]): { maxRow: number; maxCol: number } {
+    let bottomPx = 0;
+    let rightPx = 0;
+    for (const image of images) {
+        bottomPx = Math.max(bottomPx, image.top + image.height);
+        rightPx = Math.max(rightPx, image.left + image.width);
+    }
+    if (bottomPx <= 0 && rightPx <= 0) return { maxRow, maxCol };
+
+    return {
+        maxRow: Math.max(maxRow, trackIndexAtPx(bottomPx, sheet.defaultRowHeight ?? 24, sheet.rowCount, (i) => sheet.rowData?.[i])),
+        maxCol: Math.max(maxCol, trackIndexAtPx(rightPx, sheet.defaultColumnWidth ?? 88, sheet.columnCount, (i) => sheet.columnData?.[i]))
+    };
+}
+
+/**
+ * Returns the 0-based index of the last row/column needed to reach `targetPx` from the sheet
+ * origin, walking the per-track sizes (`h`/`w`, hidden tracks contributing 0) and falling back to
+ * `defaultSize`. Bounded by `count` (or a large cap) so a zero/degenerate size can't loop forever.
+ */
+function trackIndexAtPx(targetPx: number, defaultSize: number, count: number | undefined, meta: (index: number) => { hd?: number; h?: number; w?: number } | undefined): number {
+    if (targetPx <= 0 || defaultSize <= 0) return 0;
+    const cap = isFiniteNumber(count) && count > 0 ? count : 100000;
+    let cumulative = 0;
+    let index = 0;
+    while (cumulative < targetPx && index < cap) {
+        const track = meta(index);
+        const size = track?.h ?? track?.w;
+        cumulative += track?.hd ? 0 : (isFiniteNumber(size) ? size : defaultSize);
+        index++;
+    }
+    return index - 1;
+}
+
+// #endregion
+
+function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | null>, images: PlacedImage[]): string {
     const { cellData, mergeData = [], columnData = {}, rowData = {} } = sheet;
 
-    // Determine the actual bounds (only cells with data).
+    // Determine the actual bounds (only cells with data), then extend them to cover any floating
+    // images that reach past the data so the grid encloses them like the editor does.
     const bounds = computeBounds(cellData, mergeData);
-    if (!bounds) {
+    const { maxRow, maxCol } = extendBoundsForImages(sheet, bounds?.maxRow ?? -1, bounds?.maxCol ?? -1, images);
+    if (maxRow < 0 || maxCol < 0) {
         return "<p>Empty sheet.</p>";
     }
 
-    const { minRow, maxRow, minCol, maxCol } = bounds;
+    // Render from the sheet origin (A1), not the first populated cell: Univer positions floating
+    // images in absolute px from A1, and emitting the leading empty rows/columns keeps the grid in
+    // step with the editor so those images line up. Only trailing empty rows/columns are trimmed.
+    const minRow = 0;
+    const minCol = 0;
 
     // Build a set of cells that are hidden by merges (non-origin cells).
     const mergeMap = buildMergeMap(mergeData, minRow, maxRow, minCol, maxCol);
 
-    const lines: string[] = [];
-    lines.push(buildTableTag(sheet));
-
-    // Colgroup for column widths.
+    // Visible column widths, reused for the colgroup and the table's fixed total width.
     const defaultWidth = sheet.defaultColumnWidth ?? 88;
-    lines.push("<colgroup>");
+    const colWidths: number[] = [];
     for (let col = minCol; col <= maxCol; col++) {
         const colMeta = columnData[col];
         if (colMeta?.hd) continue;
-        const width = isFiniteNumber(colMeta?.w) ? colMeta.w : defaultWidth;
-        lines.push(`<col style="width:${width}px">`);
+        colWidths.push(isFiniteNumber(colMeta?.w) ? colMeta.w : defaultWidth);
+    }
+    const totalWidth = colWidths.reduce((sum, w) => sum + w, 0);
+
+    const lines: string[] = [];
+    lines.push(buildTableTag(sheet, totalWidth));
+
+    lines.push("<colgroup>");
+    for (const width of colWidths) {
+        lines.push(`<col style="width:${px(width)}px">`);
     }
     lines.push("</colgroup>");
 
@@ -106,7 +289,7 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
             const cell = cellData[row]?.[col];
             const cellStyle = resolveCellStyle(cell?.s, styles);
             const cssText = buildCssText(cellStyle, cell);
-            const value = formatCellValue(cell, cellStyle);
+            const value = formatCellValue(cell, cellStyle) + (cell ? renderCellImages(cell) : "");
 
             const attrs: string[] = [];
             // Cells with a background fill carry `has-fill` so the stylesheet can suppress
@@ -135,18 +318,21 @@ function renderSheet(sheet: IWorksheetData, styles: Record<string, IStyleData | 
  * stylesheet can draw a light border on every cell; explicit per-cell borders from the
  * data are emitted inline and override those on the sides they define.
  */
-function buildTableTag(sheet: IWorksheetData): string {
+function buildTableTag(sheet: IWorksheetData, totalWidth: number): string {
     // Default to shown (matching the editor) unless explicitly disabled.
     const showGridlines = sheet.showGridlines !== 0;
-    if (!showGridlines) {
-        return '<table class="spreadsheet-table">';
-    }
+    const className = showGridlines ? "spreadsheet-table show-gridlines" : "spreadsheet-table";
 
-    let style = "";
-    if (sheet.gridlinesColor) {
-        style = ` style="--spreadsheet-gridline-color:${sanitizeCssColor(sheet.gridlinesColor)}"`;
+    const styles: string[] = [];
+    if (showGridlines && sheet.gridlinesColor) {
+        styles.push(`--spreadsheet-gridline-color:${sanitizeCssColor(sheet.gridlinesColor)}`);
     }
-    return `<table class="spreadsheet-table show-gridlines"${style}>`;
+    // An explicit width is required for `table-layout: fixed` (the stylesheet) to honour the
+    // column widths, so cell text overflows into empty neighbours like a spreadsheet instead of
+    // wrapping and growing rows — which would shift the absolutely-positioned floating images.
+    styles.push(`width:${px(totalWidth)}px`);
+
+    return `<table class="${className}" style="${styles.join(";")}">`;
 }
 
 // #region Merge handling
@@ -225,6 +411,13 @@ function buildCssText(style: IStyleData | null, cell?: ICellData): string {
     if (style.vt != null) {
         const valign = verticalAlignToCss(style.vt);
         if (valign) parts.push(`vertical-align:${valign}`);
+    }
+
+    // Cells default to nowrap (overflow into empty neighbours, like the editor); a cell with the
+    // WRAP strategy opts back into normal wrapping so its text breaks within the column width.
+    if (style.tb === WrapStrategy.WRAP) {
+        parts.push("white-space:normal");
+        parts.push("overflow-wrap:break-word");
     }
 
     if (style.bd) {

@@ -12,6 +12,7 @@ import linkService, { type ViewScope } from "../services/link.js";
 import type LoadResults from "../services/load_results.js";
 import type { CreateNoteOpts } from "../services/note_create.js";
 import options from "../services/options.js";
+import type { ShortcutHintSection } from "../services/shortcut_hints.js";
 import toast from "../services/toast.js";
 import utils from "../services/utils.js";
 import { ReactWrappedWidget } from "../widgets/basic_widget.js";
@@ -20,13 +21,13 @@ import { AddLinkOpts } from "../widgets/dialogs/add_link.jsx";
 import type { ConfirmWithMessageOptions, ConfirmWithTitleOptions } from "../widgets/dialogs/confirm.js";
 import type { ResolveOptions } from "../widgets/dialogs/delete_notes.js";
 import { IncludeNoteOpts } from "../widgets/dialogs/include_note.jsx";
-import { LinkEmbedOpts } from "../widgets/dialogs/link_embed.jsx";
 import type { InfoProps } from "../widgets/dialogs/info.jsx";
 import type { MarkdownImportOpts } from "../widgets/dialogs/markdown_import.jsx";
 import { ChooseNoteTypeCallback } from "../widgets/dialogs/note_type_chooser.jsx";
 import type { PrintPreviewData } from "../widgets/dialogs/print_preview.jsx";
 import type { PromptDialogOptions } from "../widgets/dialogs/prompt.js";
 import type NoteTreeWidget from "../widgets/note_tree.js";
+import type { RightPaneTabId } from "../widgets/sidebar/RightPaneTabs.jsx";
 import Component from "./component.js";
 import Entrypoints from "./entrypoints.js";
 import MainTreeExecutors from "./main_tree_executors.js";
@@ -93,7 +94,15 @@ export type CommandMappings = {
     "api-log-messages": CommandData;
     focusTree: CommandData;
     focusOnTitle: CommandData;
-    focusOnDetail: CommandData;
+    focusOnDetail: CommandData & {
+        /**
+         * When set, instead of merely focusing the editor, an empty paragraph is inserted at the very
+         * top of the document and the cursor is placed there (Notion-like behavior when pressing Enter
+         * in the title). Only honored by text notes. If the first block is already an empty paragraph,
+         * the cursor is placed in it rather than stacking another empty paragraph.
+         */
+        insertNewlineAtTop?: boolean;
+    };
     searchNotes: CommandData & {
         searchString?: string;
         ancestorNoteId?: string | null;
@@ -135,10 +144,14 @@ export type CommandMappings = {
     showInfoDialog: InfoProps;
     showConfirmDialog: ConfirmWithMessageOptions;
     showRecentChanges: CommandData & { ancestorNoteId: string };
+    showDeletedNotes: CommandData & { ancestorNoteId?: string };
     showImportDialog: CommandData & { noteId: string };
     openNewNoteSplit: NoteCommandData;
     openInWindow: NoteCommandData;
-    openInPopup: CommandData & { noteIdOrPath: string; };
+    /** Opens a note in the quick-edit popup. A `viewScope` carrying an `attachmentId` opens that attachment instead of the note itself. */
+    openInPopup: CommandData & { noteIdOrPath: string; viewScope?: ViewScope; };
+    /** Dismisses the quick-edit popup, for something within it that has sent the reader elsewhere. Does nothing if it isn't open. */
+    closePopupEditor: CommandData;
     openInTreePopup: CommandData & { noteIdOrPath: string; hoistedNoteId: string; };
     openNoteInNewTab: CommandData;
     openNoteInNewSplit: CommandData;
@@ -149,6 +162,7 @@ export type CommandMappings = {
     showCpuArchWarning: CommandData;
     showLeftPane: CommandData;
     showAttachments: CommandData;
+    showNoteAttributes: CommandData;
     showSearchHistory: CommandData;
     showShareSubtree: CommandData;
     hoistNote: CommandData & { noteId: string };
@@ -234,7 +248,6 @@ export type CommandMappings = {
     showProtectedSessionPasswordDialog: CommandData;
     showUploadAttachmentsDialog: CommandData & { noteId: string };
     showIncludeNoteDialog: CommandData & IncludeNoteOpts;
-    showLinkEmbedDialog: CommandData & LinkEmbedOpts;
     showAddLinkDialog: CommandData & AddLinkOpts;
     showPasteMarkdownDialog: CommandData & MarkdownImportOpts;
     closeProtectedSessionPasswordDialog: CommandData;
@@ -324,6 +337,7 @@ export type CommandMappings = {
     showSQLConsole: CommandData;
     showBackendLog: CommandData;
     showCheatsheet: CommandData;
+    showShortcutHints: CommandData;
     showHelp: CommandData;
     addLinkToText: CommandData;
     followLinkUnderCursor: CommandData;
@@ -345,6 +359,21 @@ export type CommandMappings = {
     toggleRibbonTabNotePaths: CommandData;
     toggleRibbonTabSimilarNotes: CommandData;
     toggleRightPane: CommandData;
+    peekRightPane: CommandData;
+    /** Shows the given tab of the right pane, opening the pane if it is closed. */
+    selectRightPaneTab: CommandData & {
+        tabId: RightPaneTabId;
+        /**
+         * Peek the pane rather than dock it when it is closed, for an entry point that is only a glance
+         * at the tab and shouldn't reflow the content around it. An already docked pane stays docked.
+         */
+        peek?: boolean;
+        /**
+         * The id of a widget of that tab (see `RightPanelWidget`) to expand, so that an entry point
+         * aimed at one widget doesn't land on it collapsed.
+         */
+        expandWidgetId?: string;
+    };
     printActiveNote: CommandData;
     exportAsPdf: CommandData;
     showPrintPreview: PrintPreviewData;
@@ -362,9 +391,6 @@ export type CommandMappings = {
     zoomIn: CommandData;
     zoomReset: CommandData;
     copyWithoutFormatting: CommandData;
-
-    // Geomap
-    deleteFromMap: { noteId: string };
 
     toggleZenMode: CommandData;
 
@@ -432,8 +458,22 @@ type EventMappings = {
     activeScreenChanged: {
         activeScreen: Screen;
     };
+    /** Triggered when the active theme changes (theme option swap or, for auto themes, the OS light/dark flip),
+     * once the new stylesheet is applied. Lets widgets that read CSS variables in JS (e.g. canvas renderers)
+     * re-read them. Consume with {@link useTriliumEvent}("themeChanged") or the {@link useColorScheme} hook. */
+    themeChanged: {
+        themeStyle: "light" | "dark";
+    };
     activeContextChanged: {
         noteContext: NoteContext;
+    };
+    /** Emitted with the hints collected from the focused component chain (via the
+     * {@link CommandMappings.showShortcutHints} handler) or from a widget's help button, for the
+     * shortcut-hints pane to render. When `anchor` is set the pane opens as a dropdown by it;
+     * otherwise it opens in the bottom-right corner. */
+    shortcutHintsRequested: {
+        sections: ShortcutHintSection[];
+        anchor?: HTMLElement | null;
     };
     beforeNoteSwitch: {
         noteContext: NoteContext;

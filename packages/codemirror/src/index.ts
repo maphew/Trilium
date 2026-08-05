@@ -14,6 +14,7 @@ import { buildTypeCompletion, type ScriptApiContext } from "./type_completion/in
 
 export { default as ColorThemes, type ThemeDefinition, type ThemeVariant, getThemeById } from "./color_themes.js";
 export { isScriptMime, type ScriptApiContext, SCRIPT_MIME_BACKEND, SCRIPT_MIME_FRONTEND } from "./type_completion/index.js";
+export { triliumLogHighlighter } from "./extensions/trilium_log_highlighter.js";
 
 // Custom keymap to prevent Ctrl+Enter from inserting a newline
 // This allows the parent application to handle the shortcut (e.g., for "Run Active Note")
@@ -275,6 +276,26 @@ export default class CodeMirror extends EditorView {
         });
     }
 
+    /**
+     * Inserts a blank line at the very top of the document and places the cursor on it — the code-note
+     * analog of the Notion-like behavior when pressing Enter in the note title. If the first line is
+     * already empty, the cursor is simply moved there instead of inserting another blank line, so a
+     * brand-new (empty) note does not end up with two blank lines. No-op for read-only editors, since
+     * CodeMirror's `readOnly` facet does not block programmatic transactions.
+     */
+    insertBlankLineAtTop() {
+        if (this.config.readOnly) {
+            return;
+        }
+        const firstLineEmpty = this.state.doc.line(1).length === 0;
+        this.dispatch({
+            ...(firstLineEmpty ? {} : { changes: { from: 0, insert: "\n" } }),
+            selection: EditorSelection.cursor(0),
+            // Reveal the new top line — the cursor may have been at the bottom of a long note.
+            scrollIntoView: true
+        });
+    }
+
     async performFind(searchTerm: string, matchCase: boolean, wholeWord: boolean) {
         const plugin = createSearchHighlighter();
         this.dispatch({
@@ -287,6 +308,9 @@ export default class CodeMirror extends EditorView {
         instance?.searchFor(searchTerm, matchCase, wholeWord);
         this.searchPlugin = instance;
 
+        /* v8 ignore next 4 -- the plugin was just installed via the compartment above and the
+           view has re-rendered, so `this.plugin()` always resolves it; the guards only cover a
+           view destroyed mid-search. */
         return {
             totalFound: instance?.totalFound ?? 0,
             currentFound: instance?.currentFound ?? 0

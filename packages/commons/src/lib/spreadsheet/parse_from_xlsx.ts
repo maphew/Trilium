@@ -9,8 +9,9 @@
  * heavy lifting (unzip + XML) is delegated to `exceljs`.
  *
  * Known fidelity gaps (Excel features Univer's cell model — and our exporter — don't carry):
- * conditional formatting, data validation, filters, charts, embedded images, comments,
- * frozen panes and defined names are dropped. Rich text is flattened to plain text and
+ * conditional formatting, filters, charts, comments, frozen panes and defined names are dropped.
+ * Data validation is carried for the common constraint types (dropdown lists, numeric/date/text
+ * bounds) via the SHEET_DATA_VALIDATION_PLUGIN resource. Rich text is flattened to plain text and
  * hyperlinks keep their display text but lose the link. Theme/indexed colors are resolved
  * against the standard Office palette (see `THEME_COLORS`), which is approximate when the
  * file ships a custom theme.
@@ -18,9 +19,12 @@
 
 import ExcelJS from "exceljs";
 
+import "./exceljs_augmentation.js";
+
 import {
     BorderStyle,
     CellValueType,
+    type DataValidationRule,
     HorizontalAlign,
     type IBorderData,
     type IBorderStyleData,
@@ -29,8 +33,11 @@ import {
     type IRange,
     type IRowData,
     type IStyleData,
+    type IWorkbookData,
     type IWorksheetData,
     type PersistedData,
+    SHEET_DATA_VALIDATION_RESOURCE,
+    SHEET_DRAWING_RESOURCE,
     VerticalAlign,
     WrapStrategy
 } from "./workbook_model.js";
@@ -58,23 +65,40 @@ export async function parseXlsxToWorkbook(input: ArrayBuffer | Uint8Array): Prom
 
     const sheetOrder: string[] = [];
     const sheets: Record<string, IWorksheetData> = {};
+    const drawingsBySheet: Record<string, SheetDrawings> = {};
+    const validationsBySheet: Record<string, DataValidationRule[]> = {};
 
     wb.eachSheet((ws, sheetIndex) => {
         // Deterministic ids keyed off position; the workbook id/locale are reassigned on load
         // (see persistence.tsx) and sheet view state keys off this id, so stability is all we need.
         const id = `sheet-${sheetIndex}`;
         sheetOrder.push(id);
-        sheets[id] = readSheet(ws, id);
+        const sheet = readSheet(ws, id);
+        sheets[id] = sheet;
+
+        const drawings = readImages(wb, ws, sheet, id);
+        if (drawings) drawingsBySheet[id] = drawings;
+
+        const validations = readDataValidations(ws, id);
+        if (validations.length > 0) validationsBySheet[id] = validations;
     });
 
-    return {
-        version: 1,
-        workbook: {
-            sheetOrder,
-            styles: {},
-            sheets
-        }
-    };
+    const workbook: IWorkbookData = { sheetOrder, styles: {}, sheets };
+
+    // Both plugin payloads are JSON strings keyed by sheet id, matching the shape the editor
+    // persists; Univer reconciles their unit ids on load.
+    const resources: IWorkbookData["resources"] = [];
+    // Floating images go in the SHEET_DRAWING_PLUGIN resource.
+    if (Object.keys(drawingsBySheet).length > 0) {
+        resources.push({ name: SHEET_DRAWING_RESOURCE, data: JSON.stringify(drawingsBySheet) });
+    }
+    // Data-validation rules (dropdowns, numeric/date bounds) go in the SHEET_DATA_VALIDATION_PLUGIN resource.
+    if (Object.keys(validationsBySheet).length > 0) {
+        resources.push({ name: SHEET_DATA_VALIDATION_RESOURCE, data: JSON.stringify(validationsBySheet) });
+    }
+    if (resources.length > 0) workbook.resources = resources;
+
+    return { version: 1, workbook };
 }
 
 function readSheet(ws: ExcelJS.Worksheet, id: string): IWorksheetData {
@@ -95,7 +119,11 @@ function readSheet(ws: ExcelJS.Worksheet, id: string): IWorksheetData {
         columnCount: Math.max(DEFAULT_COLUMN_COUNT, maxCol + 1),
         // exceljs reports a hidden sheet as state "hidden"/"veryHidden".
         hidden: ws.state && ws.state !== "visible" ? 1 : 0,
-        showGridlines: ws.views?.[0]?.showGridLines === false ? 0 : 1
+        showGridlines: ws.views?.[0]?.showGridLines === false ? 0 : 1,
+        // Record Univer's default header gutters so the share renderer's image-offset subtraction
+        // matches the offset baked into each drawing's transform (see HEADER_WIDTH/HEIGHT below).
+        rowHeader: { width: HEADER_WIDTH, hidden: 0 },
+        columnHeader: { height: HEADER_HEIGHT, hidden: 0 }
     };
 
     if (isFiniteNumber(ws.properties?.defaultColWidth)) {
@@ -108,6 +136,322 @@ function readSheet(ws: ExcelJS.Worksheet, id: string): IWorksheetData {
 
     return sheet;
 }
+
+// #region Images
+
+/** Univer's default header gutter sizes (px); drawing transforms are measured including them. */
+const HEADER_WIDTH = 46;
+const HEADER_HEIGHT = 20;
+
+interface SheetDrawings {
+    data: Record<string, object>;
+    order: string[];
+}
+
+interface CellAnchor {
+    row: number;
+    rowOffset: number;
+    column: number;
+    columnOffset: number;
+}
+
+/**
+ * Reads a worksheet's floating images into Univer drawings. Each image's bytes (from exceljs media)
+ * become an inline base64 `data:` URL, and its exceljs cell anchor inverts into Univer's
+ * `sheetTransform` from/to plus an absolute `transform`. Returns null when the sheet has no
+ * embeddable images. Unsupported formats (anything but png/jpeg/gif) are skipped.
+ */
+function readImages(wb: ExcelJS.Workbook, ws: ExcelJS.Worksheet, sheet: IWorksheetData, sheetId: string): SheetDrawings | null {
+    const images = ws.getImages();
+    if (images.length === 0) return null;
+
+    const data: Record<string, object> = {};
+    const order: string[] = [];
+    images.forEach((image, index) => {
+        const drawing = buildDrawing(wb, sheet, sheetId, image, index);
+        if (!drawing) return;
+        data[drawing.drawingId] = drawing;
+        order.push(drawing.drawingId);
+    });
+
+    return order.length > 0 ? { data, order } : null;
+}
+
+function buildDrawing(wb: ExcelJS.Workbook, sheet: IWorksheetData, sheetId: string, image: ReturnType<ExcelJS.Worksheet["getImages"]>[number], index: number): { drawingId: string } & Record<string, unknown> | null {
+    const source = mediaToDataUrl(wb.getImage(Number(image.imageId)));
+    if (!source) return null;
+
+    const box = anchorToBox(sheet, image.range);
+    /* v8 ignore next -- exceljs refuses to *write* an anchor with no tl or no br/ext, so this
+       guard is only reachable from a malformed third-party file; anchorToBox's own null returns
+       are covered directly in the spec. */
+    if (!box) return null;
+
+    // Univer keeps the orientation fields on every transform; imports are always upright.
+    const orientation = { angle: 0, flipX: false, flipY: false, skewX: 0, skewY: 0 };
+    const cellAnchor = { from: box.from, to: box.to, ...orientation };
+
+    return {
+        // The unitId is reconciled against the loaded workbook, so a placeholder is fine.
+        unitId: "imported",
+        subUnitId: sheetId,
+        drawingId: `image-${sheetId}-${index}`,
+        drawingType: 0,
+        imageSourceType: "BASE64",
+        source,
+        // The transform is in viewport space (includes the header gutters), matching the editor.
+        transform: { left: box.left + HEADER_WIDTH, top: box.top + HEADER_HEIGHT, width: box.width, height: box.height, ...orientation },
+        sheetTransform: cellAnchor,
+        axisAlignSheetTransform: cellAnchor
+    };
+}
+
+/** Converts an exceljs media entry to a base64 `data:` URL, or null for an unsupported format. */
+export function mediaToDataUrl(media: { extension?: string; buffer?: Uint8Array | ArrayBuffer } | undefined): string | null {
+    const mime = imageMime(media?.extension);
+    if (!mime || !media?.buffer) return null;
+    const bytes = media.buffer instanceof Uint8Array ? media.buffer : new Uint8Array(media.buffer);
+    return `data:${mime};base64,${bytesToBase64(bytes)}`;
+}
+
+function imageMime(extension: string | undefined): string | null {
+    switch ((extension ?? "").toLowerCase()) {
+        case "png": return "image/png";
+        case "jpeg":
+        case "jpg": return "image/jpeg";
+        case "gif": return "image/gif";
+        default: return null;
+    }
+}
+
+/**
+ * Inverts an exceljs image range into Univer's content-space box: the `from`/`to` cell anchors plus
+ * the absolute `left`/`top`/`width`/`height`. The top-left comes from `tl`; the bottom-right from
+ * `br` (two-cell anchor) or `tl + ext` (one-cell anchor).
+ */
+export function anchorToBox(sheet: IWorksheetData, range: ExcelJS.ImageRange): { from: CellAnchor; to: CellAnchor; left: number; top: number; width: number; height: number } | null {
+    const tl = range?.tl as { col: number; row: number } | undefined;
+    if (!tl) return null;
+
+    const left = colPointPx(sheet, tl.col);
+    const top = rowPointPx(sheet, tl.row);
+
+    const br = range.br as { col: number; row: number } | undefined;
+    const ext = (range as { ext?: { width: number; height: number } }).ext;
+
+    let to: CellAnchor;
+    let right: number;
+    let bottom: number;
+    if (br) {
+        to = pointToAnchor(sheet, br.col, br.row);
+        right = colPointPx(sheet, br.col);
+        bottom = rowPointPx(sheet, br.row);
+    } else if (ext) {
+        right = left + ext.width;
+        bottom = top + ext.height;
+        to = pxToAnchor(sheet, right, bottom);
+    } else {
+        return null;
+    }
+
+    return { from: pointToAnchor(sheet, tl.col, tl.row), to, left, top, width: Math.max(0, right - left), height: Math.max(0, bottom - top) };
+}
+
+/** A fractional `{col, row}` point → Univer cell anchor (index + px offset into that cell). */
+function pointToAnchor(sheet: IWorksheetData, col: number, row: number): CellAnchor {
+    const column = Math.floor(col);
+    const rowIndex = Math.floor(row);
+    return {
+        row: rowIndex,
+        rowOffset: (row - rowIndex) * rowHeightPx(sheet, rowIndex),
+        column,
+        columnOffset: (col - column) * columnWidthPx(sheet, column)
+    };
+}
+
+/** An absolute px point → Univer cell anchor, walking the per-track sizes to find the cell. */
+function pxToAnchor(sheet: IWorksheetData, x: number, y: number): CellAnchor {
+    const [column, columnOffset] = trackAtPx(x, (c) => columnWidthPx(sheet, c));
+    const [row, rowOffset] = trackAtPx(y, (r) => rowHeightPx(sheet, r));
+    return { row, rowOffset, column, columnOffset };
+}
+
+function trackAtPx(target: number, sizeOf: (index: number) => number): [number, number] {
+    if (target <= 0) return [0, 0];
+    let cumulative = 0;
+    for (let index = 0; index < 100_000; index++) {
+        const size = sizeOf(index);
+        if (size <= 0) continue;
+        if (cumulative + size > target) return [index, target - cumulative];
+        cumulative += size;
+    }
+    return [0, 0];
+}
+
+/** Absolute x of a fractional column point (content space, no header gutter). */
+function colPointPx(sheet: IWorksheetData, col: number): number {
+    const column = Math.floor(col);
+    let sum = 0;
+    for (let c = 0; c < column; c++) sum += columnWidthPx(sheet, c);
+    return sum + (col - column) * columnWidthPx(sheet, column);
+}
+
+function rowPointPx(sheet: IWorksheetData, row: number): number {
+    const rowIndex = Math.floor(row);
+    let sum = 0;
+    for (let r = 0; r < rowIndex; r++) sum += rowHeightPx(sheet, r);
+    return sum + (row - rowIndex) * rowHeightPx(sheet, rowIndex);
+}
+
+function columnWidthPx(sheet: IWorksheetData, col: number): number {
+    const w = sheet.columnData?.[col]?.w;
+    return isFiniteNumber(w) ? w : (sheet.defaultColumnWidth ?? 88);
+}
+
+function rowHeightPx(sheet: IWorksheetData, row: number): number {
+    const h = sheet.rowData?.[row]?.h;
+    return isFiniteNumber(h) ? h : (sheet.defaultRowHeight ?? 24);
+}
+
+/** Base64-encodes raw bytes in both Node (server import) and the browser. */
+export function bytesToBase64(bytes: Uint8Array): string {
+    if (typeof Buffer !== "undefined") {
+        return Buffer.from(bytes).toString("base64");
+    }
+    let binary = "";
+    const CHUNK = 0x8000;
+    for (let i = 0; i < bytes.length; i += CHUNK) {
+        binary += String.fromCharCode(...bytes.subarray(i, i + CHUNK));
+    }
+    return btoa(binary);
+}
+
+// #endregion
+
+// #region Data validation
+
+/** A 0-based cell coordinate, used while coalescing per-cell validations back into ranges. */
+interface CellRef {
+    row: number;
+    column: number;
+}
+
+/**
+ * Reads a worksheet's data-validation rules into Univer rules. exceljs expands a rule's `sqref`
+ * (e.g. `D2:I6`) into one entry per cell, so cells sharing an identical config are grouped and
+ * their addresses coalesced back into rectangular ranges. Only constraint types Univer understands
+ * are emitted; a validation with no usable constraint is skipped. Returns an empty array when the
+ * sheet has none.
+ */
+function readDataValidations(ws: ExcelJS.Worksheet, sheetId: string): DataValidationRule[] {
+    const model = ws.dataValidations.model;
+
+    // Group cells by an identical validation config; the key is order-stable across the sheet.
+    const groups = new Map<string, { config: ExcelJS.DataValidation; cells: CellRef[] }>();
+    for (const [address, config] of Object.entries(model)) {
+        /* v8 ignore next -- defensive: exceljs model entries always carry a type */
+        if (!config?.type) continue;
+        const cell = parseAddress(address);
+        /* v8 ignore next -- defensive: exceljs validation keys are always well-formed addresses */
+        if (!cell) continue;
+        const key = JSON.stringify([config.type, config.operator ?? null, config.formulae ?? null]);
+        const group = groups.get(key) ?? { config, cells: [] };
+        group.cells.push({ row: cell.row, column: cell.col });
+        groups.set(key, group);
+    }
+
+    const rules: DataValidationRule[] = [];
+    let index = 0;
+    for (const { config, cells } of groups.values()) {
+        const rule = buildValidationRule(config, coalesceRanges(cells), `dv-${sheetId}-${index}`);
+        if (rule) {
+            rules.push(rule);
+            index++;
+        }
+    }
+    return rules;
+}
+
+/**
+ * Translates one exceljs validation config into a Univer rule, or null when its constraint can't be
+ * represented (an empty list). exceljs's type/operator strings already match Univer's enums; a
+ * `list`'s inline options are JSON-encoded the way Univer's list validator expects, while numeric,
+ * date, text-length and custom constraints carry their formula bounds and operator verbatim.
+ */
+function buildValidationRule(config: ExcelJS.DataValidation, ranges: IRange[], uid: string): DataValidationRule | null {
+    const rule: DataValidationRule = { uid, type: config.type, ranges };
+
+    if (config.type === "list") {
+        const raw = config.formulae?.[0];
+        if (raw == null) return null;
+        const inline = parseInlineListOptions(String(raw));
+        // An inline list ("a,b,c") becomes a JSON option array; a range reference ($A$1:$A$3) is
+        // passed through as the formula, which Univer resolves the same way.
+        rule.formula1 = inline ? JSON.stringify(inline) : String(raw);
+        return rule;
+    }
+
+    /* v8 ignore next -- defensive: exceljs's DataValidation.formulae is always an array */
+    const [formula1, formula2] = config.formulae ?? [];
+    if (formula1 != null) rule.formula1 = String(formula1);
+    if (formula2 != null) rule.formula2 = String(formula2);
+    if (config.operator) rule.operator = config.operator;
+    return rule;
+}
+
+/**
+ * Parses Excel's inline list syntax — a single comma-separated string wrapped in double quotes,
+ * e.g. `"a,b,c"` — into its option array. Returns null when the formula isn't an inline list (a
+ * range/name reference) so the caller can pass it through as a formula instead. Empty options are
+ * dropped, matching Univer's `serializeListOptions`.
+ */
+function parseInlineListOptions(formula: string): string[] | null {
+    if (formula.length < 2 || !formula.startsWith("\"") || !formula.endsWith("\"")) return null;
+    // Excel does not trim whitespace inside an inline list, so options are split verbatim.
+    return formula.slice(1, -1).split(",").filter((option) => option.length > 0);
+}
+
+/**
+ * Merges a set of cells into a minimal-ish list of rectangular ranges with a greedy sweep: each
+ * unclaimed cell grows right as far as contiguous cells allow, then down as many full-width rows as
+ * possible. A solid block collapses to a single range; scattered cells stay separate.
+ */
+function coalesceRanges(cells: CellRef[]): IRange[] {
+    const present = new Set(cells.map((c) => cellKey(c.row, c.column)));
+    const claimed = new Set<string>();
+    const ranges: IRange[] = [];
+
+    const sorted = [...cells].sort((a, b) => a.row - b.row || a.column - b.column);
+    for (const { row, column } of sorted) {
+        if (claimed.has(cellKey(row, column))) continue;
+
+        let endColumn = column;
+        while (present.has(cellKey(row, endColumn + 1)) && !claimed.has(cellKey(row, endColumn + 1))) endColumn++;
+
+        let endRow = row;
+        while (rowSpanFree(present, claimed, endRow + 1, column, endColumn)) endRow++;
+
+        for (let r = row; r <= endRow; r++) {
+            for (let c = column; c <= endColumn; c++) claimed.add(cellKey(r, c));
+        }
+        ranges.push({ startRow: row, endRow, startColumn: column, endColumn });
+    }
+    return ranges;
+}
+
+/** True when every cell of `row` across `[startColumn, endColumn]` is present and unclaimed. */
+function rowSpanFree(present: Set<string>, claimed: Set<string>, row: number, startColumn: number, endColumn: number): boolean {
+    for (let c = startColumn; c <= endColumn; c++) {
+        if (!present.has(cellKey(row, c)) || claimed.has(cellKey(row, c))) return false;
+    }
+    return true;
+}
+
+function cellKey(row: number, column: number): string {
+    return `${row},${column}`;
+}
+
+// #endregion
 
 function readCells(ws: ExcelJS.Worksheet): Record<number, Record<number, ICellData>> {
     const cellData: Record<number, Record<number, ICellData>> = {};

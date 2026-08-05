@@ -1,3 +1,5 @@
+import { imageExtensionForMime } from "@triliumnext/commons";
+
 import { t } from "./i18n.js";
 import open, { getUrlForDownload } from "./open.js";
 import toastService, { showError } from "./toast.js";
@@ -132,9 +134,12 @@ export function getFileNameFromSrc(src: string, mimeType?: string) {
         name = lastSegment || "image";
     }
 
-    // Ensure an extension, since a blob: URL carries none: derive it from the MIME type.
+    // Ensure an extension, since a blob: URL carries none: derive it from the MIME type. No
+    // fallback — a media type too malformed to name a format is left to say nothing, rather than
+    // having a guess appended to the file the user is about to save.
     if (mimeType && !name.includes(".")) {
-        const extension = mimeType.split("/")[1]?.split("+")[0]; // e.g. "image/svg+xml" → "svg"
+        const extension = imageExtensionForMime(mimeType, "");
+
         if (extension) {
             name += `.${extension}`;
         }

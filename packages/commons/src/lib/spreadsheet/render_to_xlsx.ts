@@ -3,7 +3,8 @@
  *
  * Unlike the HTML renderer, this is a near-lossless mapping: Univer's cell model mirrors
  * OOXML, so number formats pass through verbatim, the border-style enum maps almost 1:1 to
- * Excel's, and fonts/fills/alignment/merges map directly. The heavy lifting (zip + XML) is
+ * Excel's, and fonts/fills/alignment/merges map directly. Data-validation rules (dropdown lists,
+ * numeric/date/text bounds) invert their import counterparts. The heavy lifting (zip + XML) is
  * delegated to `exceljs`.
  *
  * The workbook type subset, sheet selection, and style resolution live in the shared
@@ -12,14 +13,22 @@
 
 import ExcelJS from "exceljs";
 
+import "./exceljs_augmentation.js";
+
 import {
     BorderStyle,
+    type DataValidationRule,
+    getDataValidations,
+    getFloatingDrawings,
     getVisibleSheets,
     HorizontalAlign,
     type IBorderData,
     type ICellData,
+    type IDrawingCellAnchor,
     isFiniteNumber,
+    type IRange,
     type IStyleData,
+    type IWorkbookData,
     type IWorksheetData,
     parseWorkbookData,
     resolveCellStyle,
@@ -27,12 +36,30 @@ import {
     WrapStrategy
 } from "./workbook_model.js";
 
+/** An image resolved to embeddable bytes. Returned by the caller's {@link XlsxRenderOptions.resolveImage}. */
+export interface ResolvedImage {
+    /** Raw base64 (no `data:` prefix). */
+    base64: string;
+    /** A format exceljs can embed. */
+    extension: "jpeg" | "png" | "gif";
+}
+
+export interface XlsxRenderOptions {
+    /**
+     * Resolves a drawing's `source` (an `api/attachments/...` URL or a `data:` URL) to embeddable
+     * bytes, or `null` to skip it. Image bytes can't be fetched from the platform-agnostic commons
+     * layer, so the caller (which has attachment access) supplies them. When omitted, images are
+     * dropped.
+     */
+    resolveImage?: (source: string) => Promise<ResolvedImage | null>;
+}
+
 /**
  * Parses the raw JSON content of a spreadsheet note and produces an `.xlsx` workbook as a
  * binary buffer. Hidden sheets are skipped; hidden rows/columns are preserved but flagged
  * hidden (Excel keeps the data). Throws if the content is not a parseable workbook.
  */
-export async function renderSpreadsheetToXlsx(jsonContent: string): Promise<ExcelJS.Buffer> {
+export async function renderSpreadsheetToXlsx(jsonContent: string, opts: XlsxRenderOptions = {}): Promise<ExcelJS.Buffer> {
     const { ok, data } = parseWorkbookData(jsonContent);
     if (!ok) {
         throw new Error("Unable to parse spreadsheet data.");
@@ -58,7 +85,11 @@ export async function renderSpreadsheetToXlsx(jsonContent: string): Promise<Exce
     // export) on names that are illegal or collide, so resolve each to an Excel-legal unique name.
     const usedNames = new Set<string>();
     for (const sheet of visibleSheets) {
-        writeSheet(out, sheet, uniqueSheetName(sheet.name, usedNames), styles);
+        const ws = writeSheet(out, sheet, uniqueSheetName(sheet.name, usedNames), styles);
+        applyDataValidations(ws, workbook, sheet.id);
+        if (opts.resolveImage) {
+            await embedImages(out, ws, sheet, workbook, opts.resolveImage);
+        }
     }
 
     return out.xlsx.writeBuffer();
@@ -96,7 +127,7 @@ function sanitizeSheetName(name: string | undefined): string {
     return cleaned;
 }
 
-function writeSheet(out: ExcelJS.Workbook, sheet: IWorksheetData, name: string, styles: Record<string, IStyleData | null>): void {
+function writeSheet(out: ExcelJS.Workbook, sheet: IWorksheetData, name: string, styles: Record<string, IStyleData | null>): ExcelJS.Worksheet {
     const ws = out.addWorksheet(name, {
         views: [{ showGridLines: sheet.showGridlines !== 0 }],
         // Carry Univer's sheet-wide defaults so rows/columns without an explicit size keep it on
@@ -128,7 +159,189 @@ function writeSheet(out: ExcelJS.Workbook, sheet: IWorksheetData, name: string, 
             // Overlapping/invalid merge — skip rather than abort the whole export.
         }
     }
+
+    return ws;
 }
+
+// #region Images
+
+/**
+ * Embeds a sheet's images into the worksheet: floating drawings (from the `SHEET_DRAWING_PLUGIN`
+ * resource) as two-cell anchors spanning their from/to cells, and cell images (`cell.p.drawings`)
+ * anchored to their cell at the drawing's pixel size. Bytes come from `resolveImage`; a drawing is
+ * skipped when it has no usable anchor or its source can't be resolved.
+ */
+async function embedImages(out: ExcelJS.Workbook, ws: ExcelJS.Worksheet, sheet: IWorksheetData, workbook: IWorkbookData, resolveImage: NonNullable<XlsxRenderOptions["resolveImage"]>): Promise<void> {
+    for (const drawing of getFloatingDrawings(workbook, sheet.id)) {
+        const anchor = drawing.sheetTransform;
+        if (!anchor?.from || !anchor?.to) continue;
+
+        const imageId = await addImage(out, drawing.source, resolveImage);
+        if (imageId == null) continue;
+
+        // exceljs's types demand native-EMU anchors, but the runtime accepts fractional {col,row}.
+        ws.addImage(imageId, {
+            tl: anchorPoint(sheet, anchor.from),
+            br: anchorPoint(sheet, anchor.to),
+            editAs: "twoCell"
+        } as unknown as ExcelJS.ImageRange);
+    }
+
+    const { cellData } = sheet;
+    for (const rowStr of Object.keys(cellData)) {
+        const row = Number(rowStr);
+        const cols = cellData[row];
+        for (const colStr of Object.keys(cols)) {
+            await embedCellImages(out, ws, row, Number(colStr), cols[Number(colStr)], resolveImage);
+        }
+    }
+}
+
+async function embedCellImages(out: ExcelJS.Workbook, ws: ExcelJS.Worksheet, row: number, col: number, cell: ICellData | undefined, resolveImage: NonNullable<XlsxRenderOptions["resolveImage"]>): Promise<void> {
+    const doc = cell?.p;
+    const drawings = doc?.drawings;
+    if (!drawings) return;
+
+    const order = Array.isArray(doc?.drawingsOrder) ? doc.drawingsOrder : Object.keys(drawings);
+    for (const id of order) {
+        const drawing = drawings[id];
+        if (!drawing) continue;
+
+        const width = toFinite(drawing.transform?.width);
+        const height = toFinite(drawing.transform?.height);
+        if (width <= 0 || height <= 0) continue;
+
+        const imageId = await addImage(out, drawing.source, resolveImage);
+        if (imageId == null) continue;
+
+        // exceljs anchors are 0-based, matching Univer's row/column indices.
+        ws.addImage(imageId, { tl: { col, row }, ext: { width, height }, editAs: "oneCell" } as unknown as ExcelJS.ImageRange);
+    }
+}
+
+/** Resolves a drawing source to bytes and registers it on the workbook, returning its image id. */
+async function addImage(out: ExcelJS.Workbook, source: string | undefined, resolveImage: NonNullable<XlsxRenderOptions["resolveImage"]>): Promise<number | null> {
+    if (!source) return null;
+    const resolved = await resolveImage(source);
+    if (!resolved?.base64) return null;
+    return out.addImage({ base64: resolved.base64, extension: resolved.extension });
+}
+
+/**
+ * Converts a Univer cell anchor to an exceljs fractional `{ col, row }` point: the cell index plus
+ * the px offset expressed as a fraction of that cell's width/height. exceljs re-expands the fraction
+ * using the same column/row sizes, reproducing the editor's placement.
+ */
+function anchorPoint(sheet: IWorksheetData, anchor: IDrawingCellAnchor): { col: number; row: number } {
+    const column = toFinite(anchor.column);
+    const row = toFinite(anchor.row);
+    const colWidth = columnWidthPx(sheet, column);
+    const rowHeight = rowHeightPx(sheet, row);
+    return {
+        col: column + (colWidth > 0 ? toFinite(anchor.columnOffset) / colWidth : 0),
+        row: row + (rowHeight > 0 ? toFinite(anchor.rowOffset) / rowHeight : 0)
+    };
+}
+
+function columnWidthPx(sheet: IWorksheetData, col: number): number {
+    const w = sheet.columnData?.[col]?.w;
+    return isFiniteNumber(w) ? w : (sheet.defaultColumnWidth ?? 88);
+}
+
+function rowHeightPx(sheet: IWorksheetData, row: number): number {
+    const h = sheet.rowData?.[row]?.h;
+    return isFiniteNumber(h) ? h : (sheet.defaultRowHeight ?? 24);
+}
+
+function toFinite(value: number | undefined): number {
+    return isFiniteNumber(value) ? value : 0;
+}
+
+// #endregion
+
+// #region Data validation
+
+/**
+ * Writes a sheet's Univer data-validation rules (from the SHEET_DATA_VALIDATION_PLUGIN resource)
+ * into the worksheet — the inverse of the importer's `readDataValidations`. Each rule is applied
+ * once per range, because exceljs rejects a multi-range `sqref` on write; contiguous cells are
+ * re-consolidated by exceljs when it serialises. Rules whose type Excel can't represent are skipped.
+ */
+function applyDataValidations(ws: ExcelJS.Worksheet, workbook: IWorkbookData, sheetId: string): void {
+    for (const rule of getDataValidations(workbook, sheetId)) {
+        const validation = buildExcelValidation(rule);
+        /* v8 ignore next -- defensive: an imported rule always carries at least one range */
+        if (!validation || !rule.ranges) continue;
+        for (const range of rule.ranges) {
+            ws.dataValidations.add(rangeToA1(range), validation);
+        }
+    }
+}
+
+/** exceljs's supported data-validation types; Univer types outside this set can't be exported. */
+const EXCEL_VALIDATION_TYPES: ReadonlySet<string> = new Set(["list", "whole", "decimal", "date", "textLength", "custom"]);
+
+/**
+ * Converts a Univer rule to an exceljs `DataValidation`, or null when it can't be represented: a
+ * type with no Excel equivalent (checkbox, none, time), or a list with no options. A `list`/
+ * `listMultiple` becomes an Excel `list`: literal options (a JSON array in `formula1`) are re-joined
+ * into Excel's inline `"a,b,c"` syntax, while a range/name reference is passed through as the
+ * formula. Other types carry their bounds and operator verbatim.
+ */
+function buildExcelValidation(rule: DataValidationRule): ExcelJS.DataValidation | null {
+    if (rule.type === "list" || rule.type === "listMultiple") {
+        const options = parseListOptions(rule.formula1);
+        // An option array that parses but is empty (an import of an inline list of only empty
+        // tokens, e.g. `",,"`) has no dropdown to write, and Excel rejects an empty inline list.
+        if (options) return options.length > 0 ? { type: "list", allowBlank: true, formulae: [`"${options.join(",")}"`] } : null;
+        // A range/name reference passes through; an absent/empty formula has no dropdown to write.
+        if (rule.formula1) return { type: "list", allowBlank: true, formulae: [rule.formula1] };
+        return null;
+    }
+
+    if (!EXCEL_VALIDATION_TYPES.has(rule.type)) return null;
+
+    const formulae = [rule.formula1, rule.formula2].filter((f): f is string => f != null);
+    const validation = { type: rule.type, allowBlank: true, formulae } as ExcelJS.DataValidation;
+    if (rule.operator) validation.operator = rule.operator as ExcelJS.DataValidationOperator;
+    return validation;
+}
+
+/**
+ * Reads a Univer list `formula1` back into its literal options: a JSON-encoded string array (how
+ * the list validator serialises inline options). Returns null when `formula1` is a range/name
+ * reference (not a JSON array), so the caller passes it through as a formula instead.
+ */
+function parseListOptions(formula1: string | undefined): string[] | null {
+    if (formula1 == null) return null;
+    try {
+        const parsed: unknown = JSON.parse(formula1);
+        if (Array.isArray(parsed) && parsed.every((o) => typeof o === "string")) return parsed;
+    } catch {
+        // Not JSON — a range/name reference; fall through.
+    }
+    return null;
+}
+
+/** Converts a 0-based inclusive Univer range to an A1 sqref ("D2" for a single cell, else "D2:E3"). */
+function rangeToA1(range: IRange): string {
+    const start = `${columnLetters(range.startColumn)}${range.startRow + 1}`;
+    if (range.startRow === range.endRow && range.startColumn === range.endColumn) return start;
+    return `${start}:${columnLetters(range.endColumn)}${range.endRow + 1}`;
+}
+
+/** 0-based column index to its Excel letters (0 -> "A", 25 -> "Z", 26 -> "AA"). */
+function columnLetters(index: number): string {
+    let n = index;
+    let letters = "";
+    do {
+        letters = String.fromCharCode(65 + (n % 26)) + letters;
+        n = Math.floor(n / 26) - 1;
+    } while (n >= 0);
+    return letters;
+}
+
+// #endregion
 
 function applyColumns(ws: ExcelJS.Worksheet, sheet: IWorksheetData): void {
     const columnData = sheet.columnData ?? {};

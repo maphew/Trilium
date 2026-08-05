@@ -9,6 +9,7 @@ import { FormTextBoxWithUnit } from "../../react/FormTextBox";
 import { useColorScheme, useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import { CODE_THEME_DEFAULT_PREFIX as DEFAULT_PREFIX } from "../constants";
 import { CodeMimeTypesList } from "./code_mime_types_list";
+import OptionsPageHeader from "./components/OptionsPageHeader";
 import OptionsRow, { OptionsRowWithToggle } from "./components/OptionsRow";
 import OptionsSection from "./components/OptionsSection";
 import ThemeModeSelector from "./components/ThemeModeSelector";
@@ -22,6 +23,7 @@ export default function CodeNoteSettings() {
 
     return (
         <>
+            <OptionsPageHeader />
             <Editor wordWrapping={codeLineWrapEnabled} setWordWrapping={setCodeLineWrapEnabled} />
             <Appearance wordWrapping={codeLineWrapEnabled} indentSize={parseInt(codeNoteTabWidth) || 4} />
             <CodeMimeTypes />

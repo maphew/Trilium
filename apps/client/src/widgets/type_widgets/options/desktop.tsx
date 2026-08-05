@@ -6,6 +6,7 @@ import { Badge } from "../../react/Badge";
 import FormTextBox from "../../react/FormTextBox";
 import { useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import NoItems from "../../react/NoItems";
+import OptionsPageHeader from "./components/OptionsPageHeader";
 import OptionsRow, { OptionsRowWithToggle } from "./components/OptionsRow";
 import OptionsSection from "./components/OptionsSection";
 
@@ -15,14 +16,18 @@ export default function DesktopSettings() {
     // spellcheck page.
     if (!isElectron()) {
         return (
-            <OptionsSection>
-                <NoItems text={t("desktop.web_placeholder")} icon="bx bx-desktop" />
-            </OptionsSection>
+            <>
+                <OptionsPageHeader />
+                <OptionsSection>
+                    <NoItems text={t("desktop.web_placeholder")} icon="bx bx-desktop" />
+                </OptionsSection>
+            </>
         );
     }
 
     return (
         <>
+            <OptionsPageHeader />
             <TrayOptionsSettings />
             <StartupSettings />
             <SearchEngineSettings />

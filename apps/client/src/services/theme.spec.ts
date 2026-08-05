@@ -1,6 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { applyTheme, buildThemeStylesheetRefs, getConfiguredThemeStylesheets, getEffectiveThemeStyle, getThemeStyle } from "./theme.js";
+import { applyTheme, buildThemeStylesheetRefs, getConfiguredThemeStylesheets, getEffectiveThemeStyle, getThemeStyle, initThemeChangeNotifier } from "./theme.js";
+
+// theme.ts lazily imports the app context to emit `themeChanged`; mock it so the tests capture the emission
+// without pulling the whole app graph into happy-dom.
+const { triggerEvent } = vi.hoisted(() => ({ triggerEvent: vi.fn() }));
+vi.mock("../components/app_context.js", () => ({ default: { triggerEvent } }));
 
 const STYLESHEETS_PATH = "/assets/stylesheets";
 
@@ -27,10 +32,14 @@ function setTheme(theme: ThemeValue) {
     win.glob = { ...(win.glob ?? {}), theme };
 }
 
-afterEach(() => {
+afterEach(async () => {
+    // Let any pending `themeChanged` dynamic import settle before teardown, so a late emit can't leak into the
+    // next test, then clear the captured calls.
+    await new Promise((resolve) => setTimeout(resolve));
     win.getComputedStyle = originalGetComputedStyle;
     win.matchMedia = originalMatchMedia;
     win.glob = originalGlob;
+    triggerEvent.mockClear();
     vi.restoreAllMocks();
 });
 
@@ -232,6 +241,24 @@ describe("applyTheme", () => {
         expect(win.glob?.themeBase).toBe("next-dark");
     });
 
+    it("emits themeChanged once the new stylesheet has loaded", async () => {
+        applyTheme("dark");
+        fireLoadOnPendingThemeLinks();
+        await vi.waitFor(() => expect(triggerEvent).toHaveBeenCalledWith("themeChanged", { themeStyle: "dark" }));
+    });
+
+    it("does not emit themeChanged when the swap rolls back", async () => {
+        applyTheme("dark");
+        fireLoadOnPendingThemeLinks();
+        await vi.waitFor(() => expect(triggerEvent).toHaveBeenCalled());
+        triggerEvent.mockClear();
+
+        applyTheme("my-theme", "api/notes/download/missing");
+        document.head.querySelector(`link[href="api/notes/download/missing"]`)?.dispatchEvent(new Event("error"));
+        await new Promise((resolve) => setTimeout(resolve));
+        expect(triggerEvent).not.toHaveBeenCalled();
+    });
+
     it("keeps the previous theme when a new stylesheet fails to load", async () => {
         applyTheme("dark");
         fireLoadOnPendingThemeLinks();
@@ -261,6 +288,46 @@ describe("applyTheme", () => {
         expect(themeStylesheetHrefs()).toEqual([`${STYLESHEETS_PATH}/theme-dark.css`]);
         expect(document.body.getAttribute("data-theme-id")).toBe("dark");
         expect(win.glob?.theme).toBe("dark");
+    });
+});
+
+describe("initThemeChangeNotifier", () => {
+    beforeEach(() => {
+        setTheme(undefined);
+        stubComputedStyle({});
+        triggerEvent.mockClear();
+    });
+
+    /** Fake MediaQueryList whose `matches` is mutable and whose `change` listener we can fire by hand. */
+    function installMatchMedia(matches: boolean) {
+        const state: { matches: boolean; listener?: () => void } = { matches, listener: undefined };
+        win.matchMedia = vi.fn(() => ({
+            get matches() { return state.matches; },
+            addEventListener: (_type: string, listener: () => void) => { state.listener = listener; },
+            removeEventListener: vi.fn()
+        })) as unknown as typeof window.matchMedia;
+        return state;
+    }
+
+    it("emits themeChanged on an OS light/dark flip while an auto theme follows the OS", async () => {
+        setTheme("auto");
+        const mql = installMatchMedia(false);
+        initThemeChangeNotifier();
+
+        mql.matches = true;
+        mql.listener?.();
+        await vi.waitFor(() => expect(triggerEvent).toHaveBeenCalledWith("themeChanged", { themeStyle: "dark" }));
+    });
+
+    it("ignores OS flips for a fixed theme that does not follow the OS", async () => {
+        setTheme("dark");
+        const mql = installMatchMedia(false);
+        initThemeChangeNotifier();
+
+        mql.matches = true;
+        mql.listener?.();
+        await new Promise((resolve) => setTimeout(resolve));
+        expect(triggerEvent).not.toHaveBeenCalled();
     });
 });
 

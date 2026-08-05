@@ -17,6 +17,7 @@ class StubBackupService extends BackupService {
     constructor() {
         super({
             getOption: () => "",
+            getOptionOrNull: () => null,
             getOptionBool: () => false,
             setOption: () => {}
         });
@@ -40,13 +41,16 @@ const stubImageProvider: ImageProvider = {
     getImageType: () => null,
     processImage: async () => {
         throw new Error("Image processing not supported in build-docs");
-    }
+    },
+    compressImage: async () => ({ compressed: false, reason: "unsupported-platform" }),
+    planCompression: async () => ({ skip: "unsupported-platform" as const, decodeCost: null }),
+    compressionConcurrency: () => 1
 };
 import { ZipArchive } from "archiver";
 import { execSync } from "child_process";
 import { createWriteStream, readFileSync } from "fs";
 import * as fs from "fs/promises";
-import yaml from "js-yaml";
+import { load } from "js-yaml";
 import { dirname, join, resolve } from "path";
 
 import BuildContext from "./context.js";
@@ -110,7 +114,7 @@ async function loadConfig(configPath?: string): Promise<Config | null> {
     for (const path of pathsToTry) {
         try {
             const configContent = await fs.readFile(path, "utf-8");
-            const config = yaml.load(configContent) as Config;
+            const config = load(configContent) as Config;
 
             // Resolve all paths relative to the config file's directory
             const CONFIG_DIR = dirname(path);

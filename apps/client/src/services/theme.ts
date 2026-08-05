@@ -225,12 +225,45 @@ export function applyTheme(theme: string, customThemeCssUrl?: string, themeBase?
         document.body.setAttribute("data-theme-id", theme);
         updateColorSchemeClasses();
         updateThemeCapabilities();
+        notifyThemeChanged();
 
         // The stylesheet swap is invisible to Electron, whose window configuration (Mica tint,
         // background material, title bar colors) derives from the theme. Imported lazily so this
         // module stays loadable from the early boot entry point (see `applyThemeFromOptions`).
         if (window.electronApi) {
             void import("./native_window.js").then(({ syncNativeWindowWithTheme }) => syncNativeWindowWithTheme());
+        }
+    });
+}
+
+/** Last effective light/dark style broadcast via `themeChanged`, so the OS-preference listener only fires when
+ *  the style actually flips (an auto theme following the OS) rather than on every preference change. */
+let lastNotifiedThemeStyle: "light" | "dark" | null = null;
+
+/** Broadcasts the global `themeChanged` event. `appContext` is imported lazily because this module is loaded by
+ *  the boot entry point before the app context (and jQuery) exist; the import resolves later, when an actual
+ *  theme change occurs. */
+function notifyThemeChanged() {
+    const themeStyle = getEffectiveThemeStyle();
+    lastNotifiedThemeStyle = themeStyle;
+    void import("../components/app_context.js").then(({ default: appContext }) => {
+        void appContext.triggerEvent("themeChanged", { themeStyle });
+    });
+}
+
+/**
+ * Installs a listener so that, while an auto theme follows the OS, a system light/dark switch also emits
+ * `themeChanged` — explicit theme-option swaps already emit from {@link applyTheme}. Call once at startup.
+ */
+export function initThemeChangeNotifier() {
+    if (!window.matchMedia) {
+        return;
+    }
+    lastNotifiedThemeStyle = getEffectiveThemeStyle();
+    window.matchMedia("(prefers-color-scheme: dark)").addEventListener("change", () => {
+        // A fixed light/dark theme ignores the OS preference, so only emit when the effective style truly flips.
+        if (getEffectiveThemeStyle() !== lastNotifiedThemeStyle) {
+            notifyThemeChanged();
         }
     });
 }

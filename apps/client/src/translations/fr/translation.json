@@ -19,8 +19,8 @@
     "donate": "Faire un don",
     "donate_tooltip": "Faites un don pour soutenir ce projet",
     "channel": {
-      "nightly": "Nightly",
-      "standalone": "Standalone"
+      "nightly": "Nocturne",
+      "standalone": "Autonome"
     }
   },
   "toast": {
@@ -67,7 +67,7 @@
     "branch_prefix_saved": "Le préfixe de la branche a été enregistré.",
     "edit_branch_prefix_multiple": "Modifier le préfixe pour {{count}} branches",
     "branch_prefix_saved_multiple": "Le préfixe de la branche a été sauvegardé pour {{count}} branches.",
-    "affected_branches": "Branches impactées ({{count}}):",
+    "affected_branches": "Branches impactées ({{count}}) :",
     "preview_in_tree": "Aperçu dans l’arborescence",
     "description": "Préfixé au titre de la note dans cette branche uniquement. Les autres branches conservent le titre d’origine.",
     "cancel": "Annuler"
@@ -130,20 +130,20 @@
     "export_note_title": "Exporter la note",
     "close": "Fermer",
     "export_type_subtree": "Cette note et tous ses descendants",
-    "format_html": "HTML - recommandé car il conserve la mise en forme",
-    "format_html_zip": "HTML dans l'archive ZIP - recommandé car préserve la mise en forme.",
-    "format_markdown": "Markdown - préserve la majeure partie du formatage.",
-    "format_opml": "OPML - format d'échange pour les outlineurs, uniquement pour le texte. La mise en forme, les images et les fichiers ne sont pas inclus.",
-    "opml_version_1": "OPML v1.0 - texte brut uniquement",
-    "opml_version_2": "OPML v2.0 - HTML également autorisé",
-    "export_type_single": "Seulement cette note sans ses descendants",
+    "export_type_single": "Seulement cette note",
     "export": "Exporter",
     "choose_export_type": "Choisissez d'abord le type d'export",
-    "export_status": "Statut d'exportation",
-    "export_in_progress": "Exportation en cours : {{progressCount}}",
     "export_finished_successfully": "L'exportation s'est terminée avec succès.",
     "format_pdf": "PDF - pour l'impression ou le partage de documents.",
-    "share-format": "HTML pour la publication Web : utilise le même thème que celui utilisé pour les notes partagées, mais peut être publié sous forme de site Web statique."
+    "what_to_export": "exporter quoi",
+    "format_html_description": "garder tout le formatage",
+    "format_markdown_name": "Markdown",
+    "format_markdown_description": "préserver la plupart du formatage",
+    "format_opml_name": "OPML",
+    "format_opml_description": "format extérieur avec contenu HTML",
+    "format_share_name": "HTML pour internet",
+    "format_share_description": "statique pouvant être publié avec le thème des notes partagées",
+    "recommended": "Recommandé"
   },
   "help": {
     "noteNavigation": "Navigation dans les notes",
@@ -204,13 +204,12 @@
   "import": {
     "importIntoNote": "Importer dans la note",
     "chooseImportFile": "Choisissez le fichier à importer",
-    "importDescription": "Le contenu du ou des fichiers sélectionnés sera importé en tant que note(s) enfant dans",
     "options": "Options",
-    "safeImportTooltip": "Les fichiers d'exportation Trilium <code>.zip</code> peuvent contenir des scripts exécutables susceptibles de comporter un comportement nuisible. L'importation sécurisée désactivera l'exécution automatique de tous les scripts importés. Décochez \"Importation sécurisée\" uniquement si l'archive importée est censée contenir des scripts exécutables et que vous faites entièrement confiance au contenu du fichier d'importation.",
+    "safeImportTooltip": "Les exports <code>.zip</code> Trilium peuvent contenir des scripts exécutables. L'import sécurisé les désactive ; ne décochez cette option que si l'archive est censée exécuter des scripts et que vous en faites confiance au contenu.",
     "safeImport": "Importation sécurisée",
-    "explodeArchivesTooltip": "Si cette case est cochée, Trilium lira les fichiers <code>.zip</code>, <code>.enex</code> et <code>.opml</code> et créera des notes à partir des fichiers contenus dans ces archives. Si cette case n'est pas cochée, Trilium joindra les archives elles-mêmes à la note.",
+    "explodeArchivesTooltip": "Crée des notes à partir des fichiers contenus dans les archives <code>.zip</code>, <code>.enex</code> et <code>.opml</code>. Lorsque cette option est désactivée, les archives sont jointes telles quelles.",
     "explodeArchives": "Lire le contenu des archives <code>.zip</code>, <code>.enex</code> et <code>.opml</code>.",
-    "shrinkImagesTooltip": "<p>Si vous cochez cette option, Trilium tentera de réduire la taille des images importées, ce qui peut affecter la qualité perçue des images. Si cette option est décochée, les images seront importées sans modification..</p><p>Cela ne s'applique pas aux importations de fichiers <code>.zip</code> contenant des métadonnées, car il est supposé que ces fichiers sont déjà optimisés..</p>",
+    "shrinkImagesTooltip": "Redimensionne et optimise les images pour gagner de la place, ce qui peut légèrement réduire la qualité. Cela ne s'applique pas aux imports <code>.zip</code> avec métadonnées, supposés déjà optimisés.",
     "shrinkImages": "Réduire la taille des images",
     "textImportedAsText": "Importez HTML, Markdown et TXT sous forme de notes de texte si les métadonnées ne sont pas claires",
     "codeImportedAsCode": "Importez des fichiers de code reconnus (par exemple <code>.json</code>) en tant que notes de code si cela n'est pas clair à partir des métadonnées",
@@ -223,11 +222,19 @@
       "placeholder": "Saisir les balises HTML, une par ligne",
       "reset_button": "Réinitialiser à la liste par défaut"
     },
-    "import-status": "Statut de l'importation",
-    "in-progress": "Importation en cours : {{progress}}",
+    "in-progress": "{{progress}} notes importées",
     "successful": "Importation terminée avec succès.",
     "importZipRecommendation": "Lors de l'importation d'un fichier ZIP, la hiérarchie des notes reflétera la structure des sous-répertoires au sein de l'archive.",
-    "spreadsheetImportedAsSpreadsheet": "Importer les fichiers CSV et Excel sous forme de feuilles de calcul modifiables plutôt que de fichiers"
+    "spreadsheetImportedAsSpreadsheet": "Importer les fichiers CSV et Excel sous forme de feuilles de calcul modifiables plutôt que de fichiers",
+    "starting": "Importation…",
+    "in-progress-with-total": "{{progress}} notes importées sur {{total}}",
+    "importIntoNoteNamed": "Importer dans {{- title}}",
+    "import_from": "Importer à partir de",
+    "cardName": "Fichiers et autres formats",
+    "cardDescription": "ZIP, ENEX, OPML, Markdown, HTML, images et plus encore",
+    "shrinkImagesProviderTooltip": "Redimensionne et optimise les images importées pour gagner de la place, ce qui peut légèrement réduire la qualité.",
+    "extracting": "{{progress}} éléments extraits sur {{total}}",
+    "processing": "{{progress}} notes traitées sur {{total}}"
   },
   "include_note": {
     "dialog_title": "Inclure une note",
@@ -280,7 +287,7 @@
     "go_to_password_options": "Aller aux paramètres de mot de passe"
   },
   "prompt": {
-    "title": "Prompt",
+    "title": "Invite de commande",
     "ok": "OK",
     "defaultTitle": "Prompt"
   },
@@ -293,7 +300,7 @@
   },
   "recent_changes": {
     "title": "Modifications récentes",
-    "erase_notes_button": "Effacer les notes supprimées",
+    "erase_notes_button": "Effacer maintenant les notes supprimées",
     "deleted_notes_message": "Les notes supprimées ont été effacées.",
     "no_changes_message": "Aucun changement pour l'instant...",
     "undelete_link": "annuler la suppression",
@@ -326,23 +333,18 @@
     "tooltip": "Si vous cochez cette option, Trilium tentera de réduire la taille des images importées, ce qui peut affecter la qualité perçue des images. Si cette option est décochée, les images seront importées sans modification."
   },
   "attribute_detail": {
-    "attr_detail_title": "Titre détaillé de l'attribut",
     "close_button_title": "Annuler les modifications et fermer",
-    "attr_is_owned_by": "L'attribut appartient à",
-    "attr_name_title": "Le nom de l'attribut ne peut être composé que de caractères alphanumériques, de deux-points et de tirets bas",
     "name": "Nom",
     "value": "Valeur",
     "target_note_title": "La relation est une liaison nommée entre une note source et une note cible.",
     "target_note": "Note cible",
     "promoted_title": "L'attribut promu est affiché bien en évidence sur la note.",
     "promoted": "Promu",
-    "promoted_alias_title": "Nom à afficher dans l'interface des attributs promus.",
     "promoted_alias": "Alias",
     "multiplicity_title": "La multiplicité définit combien d'attributs du même nom peuvent être créés - au maximum 1 ou plus de 1.",
     "multiplicity": "Multiplicité",
     "single_value": "Valeur unique",
     "multi_value": "Valeur multiple",
-    "label_type_title": "Le type de label aidera Trilium à choisir l'interface appropriée pour saisir la valeur du label.",
     "label_type": "Type",
     "text": "Texte",
     "number": "Nombre",
@@ -358,14 +360,11 @@
     "inverse_relation": "Relation inverse",
     "inheritable_title": "L'attribut hérité sera transmis à tous les descendants dans cet arbre.",
     "inheritable": "Héritable",
-    "save_and_close": "Enregistrer et fermer <kbd>Ctrl+Entrée</kbd>",
     "delete": "Supprimer",
     "related_notes_title": "Autres notes avec ce label",
     "more_notes": "Plus de notes",
     "label": "Détail du label",
-    "label_definition": "Détails de la définition du label",
     "relation": "Détail de la relation",
-    "relation_definition": "Détail de la définition de la relation",
     "disable_versioning": "désactive la gestion automatique des versions. Utile pour les notes volumineuses mais sans importance - par ex. grandes bibliothèques JS utilisées pour les scripts",
     "calendar_root": "indique la note qui doit être utilisée comme racine pour les notes du jour. Une seule note doit être marquée comme telle.",
     "archived": "les notes portant ce label ne seront pas visibles par défaut dans les résultats de recherche (ou dans les boîtes de dialogue Aller à, Ajouter un lien, etc.).",
@@ -445,7 +444,6 @@
     "share_favicon": "Favicon de la note à définir dans la page partagée. En règle générale, vous souhaitez le configurer pour partager la racine et le rendre héritable. La note Favicon doit également figurer dans le sous-arbre partagé. Pensez à utiliser 'share_hidden_from_tree'.",
     "is_owned_by_note": "appartient à la note",
     "other_notes_with_name": "Autres notes portant le nom {{attributeType}} \"{{attributeName}}\"",
-    "and_more": "... et {{count}} plus.",
     "print_landscape": "Lors de l'exportation en PDF, change l'orientation de la page en paysage au lieu de portrait.",
     "print_page_size": "Lors de l'exportation en PDF, change la taille de la page. Valeurs supportées : <code>A0</code>, <code>A1</code>, <code>A2</code>, <code>A3</code>, <code>A4</code>, <code>A5</code>, <code>A6</code>, <code>Legal</code>, <code>Letter</code>, <code>Tabloid</code>, <code>Ledger</code>.",
     "color_type": "Couleur",
@@ -577,7 +575,7 @@
     "download": "Télécharger",
     "rename_attachment": "Renommer la pièce jointe",
     "upload_new_revision": "Téléverser une nouvelle version",
-    "copy_link_to_clipboard": "Copier le lien dans le presse-papier",
+    "copy_link_to_clipboard": "Copier la référence dans le presse-papiers",
     "convert_attachment_into_note": "Convertir la pièce jointe en note",
     "delete_attachment": "Supprimer la pièce jointe",
     "upload_success": "Une nouvelle version de pièce jointe a été téléversée.",
@@ -622,7 +620,9 @@
     "year_previous": "Année précédente",
     "year_next": "Année suivante",
     "list": "Liste",
-    "today": "Aujourd'hui"
+    "today": "Aujourd'hui",
+    "pin_date": "Épinglez la date actuelle pour que le calendrier s'ouvre toujours sur cette plage plutôt que sur aujourd'hui",
+    "unpin_date": "Désépinglez la date pour que le calendrier s'ouvre à nouveau sur la date d'aujourd'hui"
   },
   "close_pane_button": {
     "close_this_pane": "Fermer ce volet"
@@ -778,7 +778,7 @@
     "error_unrecognized_command": "Commande non reconnue {{command}}",
     "note_revisions": "Révision de la note",
     "backlinks": "Rétro-liens",
-    "content_language_switcher": "Langue du contenu: {{language}}"
+    "content_language_switcher": "Langue du contenu : {{language}}"
   },
   "note_icon": {
     "change_note_icon": "Changer l'icône de note",
@@ -825,7 +825,8 @@
     "open_all_confirm_one": "Cela ouvrira {{count}} note dans un nouvel onglet. Continuer ?",
     "open_all_confirm_many": "Cela ouvrira {{count}} notes dans de nouveaux onglets. Continuer ?",
     "open_all_confirm_other": "Cela ouvrira {{count}} notes dans de nouveaux onglets. Continuer ?",
-    "open_all_in_tabs": "Tout ouvrir"
+    "open_all_in_tabs": "Tout ouvrir",
+    "dashboard": "Tableau de bord"
   },
   "edited_notes": {
     "no_edited_notes_found": "Aucune note modifiée ce jour-là...",
@@ -942,7 +943,7 @@
     "unknown_search_option": "Option de recherche inconnue {{searchOptionName}}",
     "search_note_saved": "La note de recherche a été enregistrée dans {{- notePathTitle}}",
     "actions_executed": "Les actions ont été exécutées.",
-    "view_options": "Afficher les options:",
+    "view_options": "Afficher les options :",
     "option": "option"
   },
   "similar_notes": {
@@ -1039,7 +1040,10 @@
   "book": {
     "no_children_help": "Cette collection ne contient pas de notes enfants, il n'y a donc rien à afficher.",
     "drag_locked_title": "Edition verrouillée",
-    "drag_locked_message": "Le glisser-déposer n'est pas autorisé car l'édition de cette collection est verrouillé."
+    "drag_locked_message": "Le glisser-déposer n'est pas autorisé car l'édition de cette collection est verrouillé.",
+    "archived_notes_hidden_one": "Une note archivée a été copiée ici mais reste cachée jusqu'à que vous activez \"Voir les notes archivées\".",
+    "archived_notes_hidden_many": "{{count}} notes archivées ont été copiées mais reste cachées jusqu'à que vous activez \"Voir les notes archivées\".",
+    "archived_notes_hidden_other": "{{count}} notes archivées ont été copiées mais reste cachées jusqu'à que vous activez \"Voir les notes archivées\"."
   },
   "editable_code": {
     "placeholder": "Saisir le contenu de votre note de code ici..."
@@ -1071,9 +1075,7 @@
     "protecting-finished-successfully": "La protection de la note s'est terminée avec succès.",
     "unprotecting-finished-successfully": "La protection de la note a été retirée avec succès.",
     "protecting-in-progress": "Protection en cours : {{count}}",
-    "unprotecting-in-progress-count": "Retrait de la protection en cours : {{count}}",
-    "protecting-title": "Statut de la protection",
-    "unprotecting-title": "Statut de la non-protection"
+    "unprotecting-in-progress-count": "Retrait de la protection en cours : {{count}}"
   },
   "relation_map": {
     "remove_note": "Supprimer la note",
@@ -1108,11 +1110,11 @@
     "title": "Anonymisation de la base de données",
     "full_anonymization": "Anonymisation complète",
     "full_anonymization_description": "Crée une copie de la base de données dans laquelle tout le contenu des notes est supprimé, ne conservant que la structure et les métadonnées non sensibles. Sécurisée pour un partage en ligne lors du débogage de problèmes.",
-    "save_fully_anonymized_database": "Enregistrer la base de données entièrement anonymisée",
+    "save_fully_anonymized_database": "Créer une copie",
     "light_anonymization": "Anonymisation légère",
     "light_anonymization_description": "Crée une copie dont le contenu des notes est supprimé, mais où les titres, attributs et scripts/widgets personnalisés sont conservés. Fournit davantage de contexte pour le débogage.",
     "choose_anonymization": "Vous pouvez décider vous-même si vous souhaitez fournir une base de données entièrement ou partiellement anonymisée. Même une base de données entièrement anonymisée est très utile, mais dans certains cas, une base de données partiellement anonymisée peut accélérer le processus d'identification et de correction des bugs.",
-    "save_lightly_anonymized_database": "Enregistrer la base de données partiellement anonymisée",
+    "save_lightly_anonymized_database": "Créer une copie",
     "existing_anonymized_databases": "Bases de données anonymisées existantes",
     "creating_fully_anonymized_database": "Création d'une base de données entièrement anonymisée...",
     "creating_lightly_anonymized_database": "Création d'une base de données partiellement anonymisée...",
@@ -1120,11 +1122,13 @@
     "successfully_created_fully_anonymized_database": "Base de données entièrement anonymisée crée dans {{anonymizedFilePath}}",
     "successfully_created_lightly_anonymized_database": "Base de données partiellement anonymisée crée dans {{anonymizedFilePath}}",
     "no_anonymized_database_yet": "Aucune base de données anonymisée.",
-    "description": "Créer une copie anonymisée de votre base de données afin de la partager avec les développeurs lors du débogage de problèmes, sans divulguer de données personnelles."
+    "description": "Créer une copie anonymisée de votre base de données afin de la partager avec les développeurs lors du débogage de problèmes, sans divulguer de données personnelles.",
+    "anonymized_databases_location": "Les bases de données anonymisées sont stockées dans {{- anonymizedFolder}}.",
+    "download": "Télécharger"
   },
   "database_integrity_check": {
     "title": "Vérification de l'intégrité de la base de données",
-    "check_button": "Vérifier l'intégrité de la base de données",
+    "check_button": "Vérifier l'intégrité",
     "checking_integrity": "Vérification de l'intégrité de la base de données...",
     "integrity_check_succeeded": "Le contrôle d'intégrité a réussi - aucun problème détecté.",
     "integrity_check_failed": "Échec du contrôle d'intégrité : {{results}}",
@@ -1133,8 +1137,8 @@
   },
   "sync": {
     "title": "Synchroniser",
-    "force_full_sync_button": "Forcer la synchronisation complète",
-    "fill_entity_changes_button": "Reconstruire l’historique des modifications",
+    "force_full_sync_button": "Forcer la synchronisation",
+    "fill_entity_changes_button": "Reconstruire les modifications",
     "full_sync_triggered": "Synchronisation complète lancée",
     "filling_entity_changes": "Reconstruction des enregistrements de modifications…",
     "sync_rows_filled_successfully": "Synchronisation des modifications réussie",
@@ -1148,7 +1152,7 @@
   "vacuum_database": {
     "title": "Nettoyage de la base de données",
     "description": "Cela reconstruira la base de données, ce qui générera un fichier de base de données généralement plus petit. Aucune donnée ne sera réellement modifiée.",
-    "button_text": "Nettoyer la base de données",
+    "button_text": "Nettoyer maintenant",
     "vacuuming_database": "Nettoyage de la base de données en cours...",
     "database_vacuumed": "La base de données a été nettoyée",
     "vacuum_description": "Reconstruit la base de données pour réduire sa taille. Aucune donnée ne sera modifiée.",
@@ -1272,10 +1276,11 @@
     "attachment_erasure_timeout": "Pièces jointes inutilisées",
     "erase_attachments_after": "Effacer les pièces jointes inutilisées après",
     "manual_erasing_description": "Lance la suppression manuellement, sans tenir compte du délai ci-dessus.",
-    "erase_unused_attachments_now": "Effacer immédiatement les pièces jointes inutilisées",
+    "erase_unused_attachments_now": "Effacer les pièces jointes inutilisées",
     "unused_attachments_erased": "Les pièces jointes inutilisées ont été effacées.",
     "description": "Les pièces jointes qui ne sont plus référencées par aucune note sont considérées comme inutilisées et peuvent être automatiquement effacées après un certain délai.",
-    "erase_attachments_after_description": "Délai avant l'effacement définitif des pièces jointes inutilisées."
+    "erase_attachments_after_description": "Délai avant l'effacement définitif des pièces jointes inutilisées.",
+    "erase_now_button": "Supprimer maintenant"
   },
   "network_connections": {
     "network_connections_title": "Réseau",
@@ -1286,10 +1291,11 @@
     "note_erasure_timeout_title": "Notes supprimées",
     "erase_notes_after": "Effacer les notes après",
     "manual_erasing_description": "Lance la suppression manuellement, sans tenir compte du délai ci-dessus.",
-    "erase_deleted_notes_now": "Effacer immédiatement les notes supprimées",
+    "erase_deleted_notes_now": "Effacer les notes supprimées",
     "deleted_notes_erased": "Les notes supprimées ont été effacées.",
     "description": "Les notes supprimées sont d’abord simplement marquées comme supprimées et peuvent être restaurées depuis les Modifications récentes. Après un certain délai, elles sont définitivement effacées.",
-    "erase_notes_after_description": "Délai avant l'effacement définitif des notes supprimées."
+    "erase_notes_after_description": "Délai avant l'effacement définitif des notes supprimées.",
+    "erase_now_button": "Supprimer maintenant"
   },
   "revisions_snapshot_interval": {
     "note_revisions_snapshot_interval_title": "Intervalle des instantanés de révision de note",
@@ -1305,7 +1311,8 @@
     "erase_excess_revision_snapshots_prompt": "Les révisions en excès ont été effacées.",
     "snapshot_number_limit_unit": "instantanés",
     "erase_excess_revision_snapshots_description": "Supprime immediatement les révisions excédant la limite pour toutes les notes.",
-    "note_revisions_snapshot_limit_description_short": "Nombre maximal de révisions par note. Utilisez -1 pour aucune limite, 0 pour désactiver."
+    "note_revisions_snapshot_limit_description_short": "Nombre maximal de révisions par note. Utilisez -1 pour aucune limite, 0 pour désactiver.",
+    "erase_now_button": "Effacer maintenant"
   },
   "search_engine": {
     "title": "Moteur de recherche",
@@ -1325,7 +1332,9 @@
   "tray": {
     "title": "Barre d'état système",
     "enable_tray": "Icône dans la barre d'état",
-    "enable_tray_description": "Trilium doit être redémarré pour que cette modification prenne effet."
+    "enable_tray_description": "Les modifications prennent effet immédiatement, bien que sur certaines plateformes, masquer l'icône de la zone de notification puisse nécessiter de redémarrer Trilium.",
+    "close_to_tray": "Fermer dans la zone de notification",
+    "close_to_tray_description": "Lorsque vous fermez la fenêtre, laissez Trilium s'exécuter dans la zone de notification au lieu de le quitter. Nécessite que l'icône de la zone de notification soit activée."
   },
   "heading_style": {
     "title": "Style de titre",
@@ -1394,10 +1403,11 @@
     "database_backed_up_to": "La base de données a été sauvegardée dans {{- backupFilePath}}",
     "no_backup_yet": "pas encore de sauvegarde",
     "title": "Sauvegarde",
-    "download": "Télécharger"
+    "download": "Télécharger",
+    "automatic_backups_description": "Trilium peut sauvegarder la base de données automatiquement. Il est recommandé de maintenir cette fonction activée, mais cela peut ralentir le démarrage de l'application si la base de données est volumineuse et/ou si le support de stockage est lent.",
+    "automatic_backups_title": "Sauvegardes automatiques"
   },
   "etapi": {
-    "title": "ETAPI",
     "description": "ETAPI est une API REST utilisée pour accéder à l'instance Trilium par programme, sans interface utilisateur.",
     "create_token": "Créer un nouveau jeton ETAPI",
     "existing_tokens": "Jetons existants",
@@ -1415,7 +1425,8 @@
     "delete_token": "Supprimer/désactiver ce token",
     "rename_token_title": "Renommer le jeton",
     "rename_token_message": "Veuillez saisir le nom du nouveau jeton",
-    "delete_token_confirmation": "Êtes-vous sûr de vouloir supprimer le jeton ETAPI « {{name}} » ?"
+    "delete_token_confirmation": "Êtes-vous sûr de vouloir supprimer le jeton ETAPI « {{name}} » ?",
+    "no_tokens": "Il n'y a pas encore de jetons."
   },
   "options_widget": {
     "options_status": "Statut des options",
@@ -1444,34 +1455,52 @@
     "change_password_description": "Mettre à jour votre mot de passe actuel",
     "reset_password": "Réinitialiser le mot de passe",
     "reset_password_description": "Perdre définitivement l’accès aux notes protégées",
-    "cancel": "Annuler"
+    "cancel": "Annuler",
+    "change_password_button": "Mettre à jour le mot de passe",
+    "reset_password_button": "Réinitialiser maintenant"
   },
   "shortcuts": {
     "keyboard_shortcuts": "Raccourcis clavier",
-    "multiple_shortcuts": "Plusieurs raccourcis pour la même action peuvent être séparés par une virgule.",
-    "electron_documentation": "Consultez la <a href=\"https://www.electronjs.org/docs/latest/api/accelerator\">documentation Electron</a> pour connaître les modificateurs et codes clés disponibles.",
     "type_text_to_filter": "Saisir du texte pour filtrer les raccourcis...",
-    "action_name": "Nom de l'action",
-    "shortcuts": "Raccourcis",
-    "default_shortcuts": "Raccourcis par défaut",
-    "description": "Description",
-    "reload_app": "Recharger l'application pour appliquer les modifications",
-    "set_all_to_default": "Réinitialiser aux valeurs par défaut",
+    "reload_app": "Recharger l'application",
+    "set_all_to_default": "Tout réinitialiser",
     "confirm_reset": "Voulez-vous vraiment réinitialiser tous les raccourcis clavier par défaut ?",
-    "no_results": "Aucun raccourci correspondant à '{{filter}}'"
+    "no_results": "Aucun raccourci correspondant à '{{filter}}'",
+    "modified_from_default": "Ce raccourci a été changé de son paramètre défaut.",
+    "remove_shortcut": "Enlever ce raccourci",
+    "press_keys": "Appuyer sur des touches…",
+    "recording_toast": "Appuyer sur une combinaison de touches pour l'assigner, ou Echap pour annuler.",
+    "revert_to_default": "Rétablir les paramètres par défaut ({{shortcuts}})",
+    "no_default_shortcut": "pas de raccourci",
+    "record_shortcut": "Ajouter un raccourci",
+    "make_global": "Faites-en un raccourci à l'échelle du système (global)",
+    "make_local": "En faire un raccourci dans l'application",
+    "global_shortcut": "Raccourci à l'échelle du système (global), actif uniquement sur l'application de bureau",
+    "conflict_chip": "Cette combinaison est également attribuée à : {{actions}}",
+    "no_conflicts": "Aucun raccourci en conflit.",
+    "no_matches": "Aucun raccourci ne correspond aux filtres sélectionnés.",
+    "filter": "Raccourcis de filtrage",
+    "filter_all": "Tous les raccourcis",
+    "filter_conflicts": "Conflits ({{count}})",
+    "filter_global": "Raccourcis globaux ({{count}})",
+    "filter_modified": "Modifié par rapport à la valeur par défaut ({{count}})",
+    "conflicts_badge_one": "{{count}} conflit",
+    "conflicts_badge_many": "{{count}} conflits",
+    "conflicts_badge_other": "{{count}} conflits",
+    "conflicts_badge_tooltip": "Certains raccourcis sont associés à plusieurs actions. Cliquez pour afficher uniquement les raccourcis en conflit."
   },
   "spellcheck": {
     "title": "Vérification orthographique",
     "description": "Ces options s'appliquent uniquement aux versions de bureau, les navigateurs utiliseront leur propre vérification orthographique native.",
     "enable": "Vérifier l'orthographe",
     "language_code_label": "Langues de vérification orthographique",
-    "restart-required": "Les modifications apportées aux options de vérification orthographique prendront effet après le redémarrage de l'application.",
     "custom_dictionary_title": "Dictionnaire personnalisé",
     "custom_dictionary_description": "Les mots ajoutés au dictionnaire sont synchronisés sur tous vos appareils.",
     "custom_dictionary_edit": "Mots personnalisés",
     "custom_dictionary_edit_description": "Modifiez la liste des mots qui ne doivent pas être signalés par le correcteur orthographique. Les modifications seront visibles après un redémarrage.",
     "custom_dictionary_open": "Modifier le dictionnaire",
-    "related_description": "Configurez les langues du correcteur orthographique et le dictionnaire personnalisé."
+    "related_description": "Configurez les langues du correcteur orthographique et le dictionnaire personnalisé.",
+    "disabled_placeholder": "La vérification orthographique est désactivée. Activez-la pour choisir les langues et gérer le dictionnaire personnalisé."
   },
   "sync_2": {
     "config_title": "Serveur de synchronisation",
@@ -1482,7 +1511,7 @@
     "help": "Aide",
     "test_title": "Test de connexion",
     "test_description": "Teste la connexion au serveur de synchronisation. Si elle n'est pas initialisée, cela configurera la synchronisation.",
-    "test_button": "Tester la synchronisation",
+    "test_button": "Tester maintenant",
     "handshake_failed": "Échec de la négociation avec le serveur de synchronisation, erreur : {{message}}",
     "server_address_description": "URL du serveur Trilium avec lequel synchroniser.",
     "timeout_description": "Temps d’attente avant d’abandonner une connexion lente.",
@@ -1492,11 +1521,7 @@
     "close": "Fermer"
   },
   "attachment_detail_2": {
-    "will_be_deleted_in": "Cette pièce jointe sera automatiquement supprimée dans {{time}}",
-    "will_be_deleted_soon": "Cette pièce jointe sera bientôt supprimée automatiquement",
-    "deletion_reason": ", car la pièce jointe n'est pas liée dans le contenu de la note. Pour empêcher la suppression, ajoutez à nouveau le lien de la pièce jointe dans le contenu d'une note ou convertissez la pièce jointe en note.",
-    "role_and_size": "Rôle : {{role}}, Taille : {{size}}, MIME: {{- mimeType}}",
-    "link_copied": "Lien de pièce jointe copié dans le presse-papiers.",
+    "link_copied": "Référence de la pièce jointe copiée dans le presse-papiers.",
     "unrecognized_role": "Rôle de pièce jointe « {{role}} » non reconnu."
   },
   "bookmark_switch": {
@@ -1622,7 +1647,6 @@
     "title_with_count_one": "{{count}} mise en évidence",
     "title_with_count_many": "{{count}} mises en évidence",
     "title_with_count_other": "{{count}} mises en évidence",
-    "modal_title": "Configurer les Mises en évidence",
     "menu_configure": "Configuration des mises en évidence...",
     "no_highlights": "Aucune mise en évidence."
   },
@@ -1658,7 +1682,9 @@
     "subtree-hidden-tooltip_other": "{{count}} notes enfants cachées de l'arbre",
     "subtree-hidden-moved-title": "Ajouté à {{title}}",
     "subtree-hidden-moved-description-collection": "Cette collection cache ses notes enfants dans l'arbre.",
-    "subtree-hidden-moved-description-other": "Les notes enfants sont cachées dans l'arbre pour cette note."
+    "subtree-hidden-moved-description-other": "Les notes enfants sont cachées dans l'arbre pour cette note.",
+    "follow-active-note": "Suivre la note active",
+    "follow-active-note-title": "Fait défiler l'arborescence et développe les nœuds parents pour afficher la note active. Lorsque cette option est désactivée, l'arborescence reste immobile et seul le surlignage d'arrière-plan est mis à jour."
   },
   "title_bar_buttons": {
     "window-on-top": "Épingler cette fenêtre au premier plan"
@@ -1674,7 +1700,10 @@
     "print_report_stack_trace": "Trace de la pile",
     "print_report_collection_content_one": "La {{count}} note de la collection n'a pas pu être imprimée car elle n'est pas prises en charge ou est protégée.",
     "print_report_collection_content_many": "Les {{count}} notes de la collection n'ont pas pu être imprimées car elles ne sont pas prises en charge ou sont protégées.",
-    "print_report_collection_content_other": "Les {{count}} notes de la collection n'ont pas pu être imprimées car elles ne sont pas prises en charge ou sont protégées."
+    "print_report_collection_content_other": "Les {{count}} notes de la collection n'ont pas pu être imprimées car elles ne sont pas prises en charge ou sont protégées.",
+    "content_load_error": "Le contenu de la note n'a pas pu être chargé.",
+    "content_load_retry": "Réessayer",
+    "content_load_stalled": "Chargement du contenu de la note en cours…"
   },
   "note_title": {
     "placeholder": "saisir le titre de la note ici...",
@@ -1691,9 +1720,6 @@
     "no_notes_found": "Aucune note n'a été trouvée pour les paramètres de recherche donnés.",
     "search_not_executed": "La recherche n'a pas encore été exécutée.",
     "search_now": "Recherche maintenant"
-  },
-  "spacer": {
-    "configure_launchbar": "Configurer la Barre de raccourcis"
   },
   "sql_result": {
     "no_rows": "Aucune ligne n'a été renvoyée pour cette requête",
@@ -1739,8 +1765,6 @@
   "image": {
     "copied-to-clipboard": "Une référence à l'image a été copiée dans le presse-papiers. Elle peut être collée dans n'importe quelle note texte.",
     "cannot-copy": "Impossible de copier la référence d'image dans le presse-papiers.",
-    "copy-to-clipboard": "Copier l'image dans le presse-papiers",
-    "download": "Télécharger l'image",
     "image-copied-to-clipboard": "L'image a été copiée dans le presse-papiers.",
     "cannot-copy-image": "Impossible de copier l'image dans le presse-papiers.",
     "cannot-download": "Impossible de télécharger l'image."
@@ -1760,7 +1784,6 @@
   },
   "branches": {
     "cannot-move-notes-here": "Impossible de déplacer les notes ici.",
-    "delete-status": "Etat de la suppression",
     "delete-notes-in-progress": "Suppression des notes en cours : {{count}}",
     "delete-finished-successfully": "Suppression terminée avec succès.",
     "undeleting-notes-in-progress": "Restauration des notes en cours : {{count}}",
@@ -1875,7 +1898,7 @@
     "create-child-note-title": "Créer une nouvelle note enfant et l'ajouter à la carte",
     "create-child-note-instruction": "Cliquez sur la carte pour créer une nouvelle note à cet endroit ou appuyez sur Échap pour la supprimer.",
     "unable-to-load-map": "Impossible de charger la carte.",
-    "create-child-note-text": "Ajouter le marqueur"
+    "create-child-note-toast-title": "Nouvelle note"
   },
   "geo-map-context": {
     "open-location": "Ouvrir la position",
@@ -1907,37 +1930,87 @@
     "minimum_input": "La valeur de temps saisie doit être d'au moins {{minimumSeconds}} secondes."
   },
   "multi_factor_authentication": {
-    "oauth_user_email": "Courriel de l'utilisateur : ",
-    "title": "Authentification multifacteur",
-    "description": "L'authentification multifacteur (MFA) renforce la sécurité de votre compte. Au lieu de simplement saisir un mot de passe pour vous connecter, le MFA vous demande de fournir une ou plusieurs preuves supplémentaires pour vérifier votre identité. Ainsi, même si quelqu'un obtient votre mot de passe, il ne peut accéder à votre compte sans cette deuxième information. C'est comme ajouter une serrure supplémentaire à votre porte, rendant l'effraction beaucoup plus difficile.<br><br>Veuillez suivre les instructions ci-dessous pour activer le MFA. Si vous ne configurez pas correctement, la connexion se fera uniquement par mot de passe.",
-    "mfa_enabled": "Activer l'authentification multifacteur",
-    "mfa_method": "Méthode MFA",
-    "electron_disabled": "L'authentification multifacteur n'est actuellement pas prise en charge dans la version de bureau.",
-    "totp_title": "Mot de passe à usage unique basé sur le temps (TOTP)",
-    "totp_description": "Le TOTP (Time-Based One-Time Password) est une fonctionnalité de sécurité qui génère un code unique et temporaire, modifié toutes les 30 secondes. Vous utilisez ce code, associé à votre mot de passe, pour vous connecter à votre compte, ce qui rend l'accès à celui-ci beaucoup plus difficile.",
-    "totp_secret_title": "Générer un secret TOTP",
-    "totp_secret_generate": "Générer un secret TOTP",
-    "totp_secret_regenerate": "Re-générer un secret TOTP",
-    "no_totp_secret_warning": "Pour activer TOTP, vous devez d’abord générer un secret TOTP.",
-    "totp_secret_description_warning": "Après avoir généré un nouveau secret TOTP, vous devrez vous reconnecter avec le nouveau secret TOTP.",
-    "totp_secret_generated": "Secret TOTP généré",
-    "totp_secret_warning": "Veuillez conserver le secret généré dans un endroit sûr. Il ne sera plus affiché.",
-    "totp_secret_regenerate_confirm": "Voulez-vous vraiment régénérer le secret TOTP ? Cela invalidera le secret TOTP précédent et tous les codes de récupération existants.",
-    "recovery_keys_title": "Clés de récupération d'authentification unique",
-    "recovery_keys_description": "Les clés de récupération d'authentification unique sont utilisées pour vous connecter même si vous ne pouvez pas accéder à vos codes d'authentification.",
+    "oauth_user_email": "Adresse email",
     "recovery_keys_description_warning": "Les clés de récupération ne seront plus affichées après avoir quitté la page, conservez-les dans un endroit sûr et sécurisé.<br>Une fois qu'une clé de récupération a été utilisée, elle devient inutilisable.",
     "recovery_keys_error": "Erreur lors de la génération des codes de récupération",
     "recovery_keys_no_key_set": "Aucun code de récupération défini",
-    "recovery_keys_generate": "Générer des codes de récupération",
-    "recovery_keys_regenerate": "Re-générer des codes de récupération",
-    "recovery_keys_used": "Utilisé : {{date}}",
-    "recovery_keys_unused": "Le code de récupération {{index}} n'est pas utilisé",
-    "oauth_title": "OAuth/OpenID",
-    "oauth_description": "OpenID est un moyen standardisé de vous connecter à des sites web avec un compte d'un autre service, comme Google, afin de vérifier votre identité. L'émetteur par défaut est Google, mais vous pouvez le modifier pour n'importe quel autre fournisseur OpenID. Consultez <a href=\"#root/_hidden/_help/_help_Otzi9La2YAUX/_help_WOcw2SLH6tbX/_help_7DAiwaf8Z7Rz\">ici</a> pour plus d'informations. Suivez ces <a href=\"https://developers.google.com/identity/openid-connect/openid-connect\">instructions</a> pour configurer un service OpenID via Google.",
-    "oauth_description_warning": "Pour activer OAuth/OpenID, vous devez définir l'URL de base, l'ID client et le secret client OAuth/OpenID dans le fichier config.ini, puis redémarrer l'application. Pour les définir à partir des variables d'environnement, définissez TRILIUM_OAUTH_BASE_URL, TRILIUM_OAUTH_CLIENT_ID et TRILIUM_OAUTH_CLIENT_SECRET.",
-    "oauth_missing_vars": "Paramètres manquants : {{-variables}}",
-    "oauth_user_account": "Compte utilisateur: ",
-    "oauth_user_not_logged_in": "Pas connecté !"
+    "recovery_keys_regenerate": "Régénérer les codes de récupération",
+    "oauth_title": "Connexion OpenID",
+    "oauth_description": "OpenID Connect vous permet de vous connecter à l'aide d'un compte provenant d'un autre service, tel que Google, pour vérifier votre identité. Google est le fournisseur par défaut, mais vous pouvez le remplacer par tout autre fournisseur OpenID Connect. Consultez <a href=\"#root/_hidden/_help/_help_Otzi9La2YAUX/_help_WOcw2SLH6tbX/_help_7DAiwaf8Z7Rz\">ici</a> pour plus d'informations. Suivez ces <a href=\"https://developers.google.com/identity/openid-connect/openid-connect\">instructions</a> pour configurer un service OpenID Connect via Google.",
+    "oauth_missing_vars": "À configurer : {{-variables}}",
+    "oauth_user_account": "Nom du compte",
+    "oauth_user_not_logged_in": "Pas connecté !",
+    "signin_local": "Mot de passe local (optionnel avec l'authentification à 2 facteurs)",
+    "totp_setup_description": "Génère un code basé sur le temps d'une application d'authentification comme votre second facteur. Vous allez scanner un QR code et confirmer un code pour finir.",
+    "totp_enroll_step1_title": "1. Ajouter le compte à votre application d'authentification",
+    "totp_enroll_step2_title": "2. Entrer le code de vérification",
+    "totp_enroll_scan": "Scanner ce QR code :",
+    "totp_enroll_secret_label": "Ne peut pas le scanner ? Entre ce code manuellement",
+    "totp_enroll_code_label": "Code de vérification",
+    "totp_enroll_code_placeholder": "000000",
+    "totp_enroll_verify": "Vérifier & continuer",
+    "totp_enroll_cancel": "Annuler",
+    "totp_enroll_invalid_code": "Ce code ne correspond pas. Vérifiez si l'horloge de votre appareil est correct et entrez le dernier code.",
+    "totp_section_title": "Authentification à 2 facteurs",
+    "totp_status_active": "Actif",
+    "totp_status_inactive": "Inactif",
+    "totp_remove_label": "Enlever l'authentification à 2 facteurs",
+    "recovery_keys_remaining": "{{remaining}} de {{total}} restant. Ne peut pas être revu, seulement remplacé.",
+    "oauth_status_connected": "Connecté",
+    "oauth_status_not_connected": "Non Connecté",
+    "oauth_status_not_configured": "Non configuré",
+    "oauth_not_enrolled_title": "Pas de compte connecté",
+    "oauth_connect_label": "Connecter un compte",
+    "oauth_disconnect_label": "Déconnecter du compte",
+    "oauth_connect_button": "Se connecter au compte",
+    "oauth_account_unknown": "votre compte",
+    "authentication_title": "Authentification",
+    "signin_method": "Se connecter avec",
+    "signin_oauth": "Fournisseur OpenID Connect (par ex. Google)",
+    "signin_local_description": "Connectez-vous avec votre mot de passe Trilium. Vous pouvez également activer l'authentification à deux facteurs pour une couche de sécurité supplémentaire.",
+    "totp_setup_label": "Mot de passe à usage unique basé sur le temps (TOTP)",
+    "totp_setup_button": "Installation",
+    "totp_enroll_title": "Confirmez votre application d'authentification",
+    "totp_enroll_instructions": "Le TOTP ne sera activé qu'une fois que vous aurez confirmé un code valide ci-dessous ; vous ne risquez donc pas de vous retrouver bloqué par erreur.",
+    "totp_enroll_generate_error": "Impossible de générer un mot de passe TOTP. Veuillez fermer cette boîte de dialogue et réessayer.",
+    "totp_enroll_enabled": "L'authentification à deux facteurs est désormais activée.",
+    "totp_enroll_recovery_title": "Enregistrez vos codes de récupération",
+    "totp_enroll_recovery_instructions": "Conservez ces codes de récupération en lieu sûr. Chacun d'eux peut être utilisé une fois pour vous connecter si vous perdez l'accès à votre application d'authentification.",
+    "totp_enroll_recovery_copy": "Copier",
+    "totp_enroll_recovery_copied": "Codes de récupération copiés dans le presse-papiers.",
+    "totp_enroll_recovery_download": "Télécharger",
+    "totp_enroll_saved_ack": "J'ai conservé mes codes de récupération dans un endroit sûr",
+    "totp_enroll_finish": "Terminer la configuration",
+    "totp_enroll_enable_error": "Impossible d'activer l'authentification à deux facteurs. Veuillez réessayer.",
+    "totp_remove_description": "Supprimer entièrement votre configuration d'authentification à deux facteurs. Contrairement à la simple désactivation mentionnée plus haut, vous devrez la reconfigurer de zéro pour pouvoir l'utiliser.",
+    "totp_remove_button": "Supprimer",
+    "totp_remove_confirm": "Voulez-vous supprimer définitivement l'authentification à deux facteurs ? Cette opération efface votre configuration (elle ne se contente pas de la désactiver) ; vous devrez donc la reconfigurer entièrement pour pouvoir l'utiliser. D'ici là, vous vous connecterez uniquement à l'aide de votre mot de passe.",
+    "totp_removed": "L'authentification à deux facteurs a été supprimée.",
+    "recovery_keys_regenerate_confirm": "Générer de nouveaux codes de récupération ? Vos codes de récupération actuels cesseront immédiatement de fonctionner et vous devrez enregistrer les nouveaux.",
+    "recovery_keys_regenerated_title": "Nouveaux codes de récupération",
+    "recovery_keys_regenerated_instructions": "Voici vos nouveaux codes de récupération. Enregistrez-les dès maintenant : ils remplacent vos anciens codes et ne seront plus affichés.",
+    "recovery_keys_done": "Fait",
+    "recovery_keys_label": "Codes de récupération",
+    "recovery_keys_dot_available": "Disponible",
+    "recovery_keys_dot_used": "Utilisé le {{- date}}",
+    "oauth_not_configured_title": "Configurer OpenID Connect",
+    "oauth_not_configured_hint": "OpenID Connect doit d'abord être configuré via le fichier config.ini ou des variables d'environnement.",
+    "oauth_how_to_enable": "Comment activer",
+    "oauth_server_config_hint": "Ajoutez ce qui suit à votre fichier config.ini et redémarrez l'application :",
+    "oauth_server_env_hint": "Ou définissez les variables d'environnement suivantes :",
+    "oauth_provider": "Fournisseur",
+    "oauth_provider_url": "URL de l'émetteur",
+    "oauth_provider_unknown": "Fournisseur inconnu",
+    "oauth_not_enrolled_hint": "OpenID Connect est configuré, mais aucun compte n'est encore connecté.",
+    "oauth_not_enrolled_details_label": "Qu'est-ce que cela signifie ?",
+    "oauth_not_enrolled_details": "Tant qu'un compte n'est pas associé, OpenID Connect n'est pas actif et vous continuerez à vous connecter avec votre mot de passe. Associez votre compte ci-dessous pour l'activer.",
+    "oauth_connect_description": "Connectez-vous une fois via votre fournisseur pour associer votre compte. Seul ce compte pourra se connecter par la suite.",
+    "oauth_disconnect_description": "Dissociez le compte connecté. La connexion s'effectuera à l'aide de votre mot de passe jusqu'à ce que vous connectiez à nouveau un compte.",
+    "oauth_disconnect_button": "Déconnecter",
+    "oauth_disconnect_confirm": "Êtes-vous sûr de vouloir déconnecter ce compte ? La connexion s'effectuera à l'aide de votre mot de passe jusqu'à ce que vous reconnectiez un compte.",
+    "oauth_disconnected": "Compte {{account}} déconnecté de {{provider}}.",
+    "oauth_connect_success": "Connecté à {{provider}} en tant que {{account}}.",
+    "oauth_connect_success_generic": "Compte connecté avec succès."
   },
   "modal": {
     "close": "Fermer",
@@ -2166,12 +2239,9 @@
     "play": "Lire (Espace)",
     "pause": "Pause (Espace)",
     "back-10s": "Retour arrière 10s (flèche gauche)",
-    "forward-30s": "Avance 30s",
     "mute": "Silence (M)",
     "unmute": "Réactiver le son (M)",
     "playback-speed": "Vitesse de lecture",
-    "loop": "Boucle",
-    "disable-loop": "Désactiver la boucle",
     "rotate": "Rotation",
     "picture-in-picture": "Image dans l'image",
     "exit-picture-in-picture": "Sortir de Image dans l'image",
@@ -2183,7 +2253,13 @@
     "previous-video": "Vidéo précédente : {{- title}}",
     "next-video": "Vidéo suivante : {{- title}}",
     "previous-audio": "Audio précédent : {{- title}}",
-    "next-audio": "Audio suivant : {{- title}}"
+    "next-audio": "Audio suivant : {{- title}}",
+    "play-mode-title": "Jouer le mode : {{mode}}",
+    "play-mode-once": "Jouer une fois",
+    "play-mode-loop": "Boucle",
+    "play-mode-next": "Jouer le prochain",
+    "seek": "Rechercher (touches fléchées gauche/droite)",
+    "forward-10s": "Avancer de 10 s (touche flèche droite)"
   },
   "render": {
     "setup_title": "Afficher du HTML personnalisé ou Preact JSX dans cette note",
@@ -2212,7 +2288,6 @@
     "note_tools": "Accès aux notes",
     "sources": "Sources",
     "extended_thinking": "Réflexion étendue",
-    "legacy_models": "Modèles hérités",
     "thinking": "Réflexion...",
     "thought_process": "Processus de réflexion",
     "tool_calls": "{{count}} appel(s) d'outil",
@@ -2227,7 +2302,6 @@
     "tokens_used_with_model": "{{model}}: {{prompt}} prompt + {{completion}} achèvement = {{total}} jetons",
     "tokens_used_with_model_and_cost": "{{model}}: {{prompt}} prompt + {{completion}} achèvement = {{total}} jetons (~${{cost}})",
     "tokens": "jetons",
-    "context_used": "{{percentage}}% utilisé",
     "note_context_enabled": "Cliquez pour désactiver le contexte de la note : {{title}}",
     "note_context_disabled": "Cliquez pour inclure la note actuelle dans le contexte",
     "no_provider_message": "Aucun fournisseur d'IA configuré. Ajoutez en un pour commencer à discuter.",
@@ -2311,7 +2385,11 @@
     "toggle": "Afficher/Masquer le panneau de droite",
     "custom_widget_go_to_source": "Aller sur le code source",
     "empty_message": "Rien à afficher pour cette note",
-    "empty_button": "Cacher le panneau"
+    "empty_button": "Cacher le panneau",
+    "peek": "Aperçu du panneau de droite",
+    "hide": "Masquer le panneau de droite",
+    "dock": "Ancrer le panneau",
+    "close": "Fermer le panneau"
   },
   "pdf": {
     "attachments_one": "{{count}} pièce jointe",
@@ -2363,14 +2441,15 @@
     "menu_run_mobile_startup": "Lorsque le frontend mobile démarre",
     "menu_change_to_widget": "Passer au widget",
     "menu_change_to_frontend_script": "Passer au script frontend",
-    "menu_theme_base": "Thème de base"
+    "menu_theme_base": "Thème de base",
+    "type_custom_request_handler": "Gestionnaire de requêtes personnalisé"
   },
   "setup_form": {
     "more_info": "En savoir plus"
   },
   "mermaid": {
     "placeholder": "Tapez le contenu de votre diagramme Mermaid ou utilisez l'un des diagrammes de l'échantillon ci-dessous.",
-    "sample_diagrams": "Diagrammes d 'exemple:",
+    "sample_diagrams": "Diagrammes d'exemple :",
     "sample_flowchart": "Organigramme",
     "sample_class": "Classe",
     "sample_sequence": "Séquence",
@@ -2396,9 +2475,7 @@
     "sample_venn": "Venn",
     "sample_ishikawa": "Ishikawa",
     "sample_treeview": "Vue arborescente",
-    "sample_wardley": "Carte Wardley",
-    "slash_command_blank_description": "Insérer un diagramme Mermaid vide",
-    "slash_command_description": "Insérer un modèle de diagramme Mermaid \"{{name}}\""
+    "sample_wardley": "Carte Wardley"
   },
   "mind-map": {
     "addChild": "Ajouter un enfant",
@@ -2409,26 +2486,20 @@
     "cancelFocus": "Annuler le mode Focus",
     "moveUp": "Monter",
     "moveDown": "Descendre",
-    "link": "Lien",
-    "linkBidirectional": "Lien bidirectionnel",
     "clickTips": "Cliquer sur le nœud cible",
     "summary": "Résumé"
   },
   "llm": {
-    "settings_title": "IA / LLM",
-    "settings_description": "Configurer les intégrations IA et les LLM (Large Language Model).",
     "add_provider": "Ajouter le fournisseur",
     "add_provider_title": "Ajouter le fournisseur d'IA",
     "configured_providers": "Fournisseurs configurés",
     "no_providers_configured": "Aucun fournisseur n'est encore configuré.",
     "provider_name": "Nom",
-    "provider_type": "Fournisseur",
     "actions": "Actions",
     "delete_provider": "Supprimer",
     "delete_provider_confirmation": "Êtes-vous sûr de vouloir supprimer le fournisseur \"{{name}}\" ?",
     "api_key": "Clé API",
     "api_key_placeholder": "Entrer votre clé API",
-    "cancel": "Annuler",
     "tools": {
       "note_in_parent": "<Note/> dans <Parent/>",
       "search_notes": "Rechercher des notes",
@@ -2452,7 +2523,8 @@
       "move_note": "Déplacer la note",
       "clone_note": "Cloner la note",
       "set_note_content": "Remplacer le contenu d'une note",
-      "edit_note_content": "Modifier le contenu d'une note"
+      "edit_note_content": "Modifier le contenu d'une note",
+      "search_icons": "Icônes de recherche"
     },
     "feature_not_enabled": "Activez la fonctionnalité expérimentale LLM dans Paramètres → Avancé → Fonctionnalités expérimentales pour utiliser les intégrations d’IA.",
     "mcp_title": "MCP (Model Context Protocol)",
@@ -2462,7 +2534,9 @@
     "mcp_endpoint_description": "Ajoutez cette URL à la configuration MCP de votre assistant IA",
     "base_url": "URL de base",
     "base_url_description": "Optionnel. Permet de remplacer l'endpoint API par défaut (utile pour les modèles auto-hébergés comme Ollama, LM Studio, vLLM ou proxies).",
-    "base_url_invalid": "L'URL de base doit être une adresse valide (commençant par http:// ou https://)"
+    "base_url_invalid": "L'URL de base doit être une adresse valide (commençant par http:// ou https://)",
+    "disabled_placeholder": "Les fonctionnalités d'IA sont désactivées. Activez-les pour configurer les fournisseurs et MCP.",
+    "not_available_in_standalone": "Les fonctionnalités basées sur l'IA ou les LLM ne sont pas disponibles dans la version autonome de Trilium, car les fournisseurs de LLM n'autorisent pas l'accès direct depuis un navigateur."
   },
   "status_bar": {
     "language_title": "Changer de langue",
@@ -2561,7 +2635,8 @@
     "source_etapi": "ETAPI",
     "source_llm": "LLM",
     "source_unknown": "Instantané",
-    "diff_identical": "Cette révision est identique au contenu actuel de la note."
+    "diff_identical": "Cette révision est identique au contenu actuel de la note.",
+    "back": "Retour"
   },
   "database": {
     "title": "Base de données"
@@ -2591,8 +2666,11 @@
     "placeholders": {
       "math": "équation",
       "collapsible_summary": "Résumé",
-      "collapsible_details": "Détails"
-    }
+      "collapsible_details": "Détails",
+      "table_column": "Colonne {{number}}"
+    },
+    "page_break": "Insérer un saut de page (pour l'impression)",
+    "table": "Insérer un tableau"
   },
   "search": {
     "title": "Rechercher",
@@ -2616,8 +2694,7 @@
     "more_actions": "Plus d’actions"
   },
   "link": {
-    "failed_to_open": "Impossible d’ouvrir le lien '{{- href}}' : {{- message}}",
-    "copy_url": "Copier l'URL"
+    "failed_to_open": "Impossible d’ouvrir le lien '{{- href}}' : {{- message}}"
   },
   "display_mode": {
     "source": "Vue source",
@@ -2672,9 +2749,6 @@
     "page_ranges_invalid": "Format invalide. Utilisez par exemple : 1-5, 8, 11-13.",
     "page_ranges_placeholder": "ex. : 1-5, 8, 11-13"
   },
-  "auto_link_attribute_list": {
-    "title": "Attributs système"
-  },
   "setup": {
     "heading": "Démarrer avec Trilium",
     "new-document": "Nouvelle base de connaissances",
@@ -2725,7 +2799,10 @@
     "language": "Langue",
     "continue": "Continuer",
     "your-ip-addresses": "Adresses pour cet appareil",
-    "sync-in-progress-banner": "La synchronisation peut prendre quelques instants selon le volume de vos notes. Merci de rester sur cette application jusqu’à la fin de l’opération."
+    "sync-in-progress-banner": "La synchronisation peut prendre quelques instants selon le volume de vos notes. Merci de rester sur cette application jusqu’à la fin de l’opération.",
+    "sync-from-desktop-unreachable-title": "Cet appareil n'est pas accessible depuis d'autres appareils",
+    "sync-from-desktop-unreachable-description": "Pour effectuer la synchronisation, l'autre poste doit se connecter à celui-ci via le réseau. Pour des raisons de sécurité, cette application de bureau n'accepte que les connexions provenant de cet ordinateur ; l'autre poste ne peut donc pas encore s'y connecter. Autorisez l'accès réseau ci-dessous ; Trilium redémarrera pour appliquer ce changement.",
+    "sync-from-desktop-allow-access": "Autoriser l'accès au réseau et redémarrer"
   },
   "common": {
     "save": "Enregistrer",
@@ -2739,10 +2816,6 @@
     "export-csv-failed": "Échec de l'exportation de la feuille de calcul vers CSV."
   },
   "text-editor": {
-    "checkbox-tooltip": "Clic droit pour plus d'états.\nAppuyez sur {{shortcut}} pour changer d'état.",
-    "edit-states-tooltip": "Modifier les états des tâches",
-    "unknown-task-state": "État personnalisé non défini",
-    "task-state-dropped": "L'état \"{{title}}\" {{id}} a été supprimé pour la raison suivante : {{reason}}",
     "validation-errors": {
       "undefined-name": "identifiant non défini",
       "invalid-name": "identifiant invalide",
@@ -2752,32 +2825,39 @@
       "invalid-symbol": "le symbole Markdown doit être un seul caractère (sauf \"[\", \"X\" et \"]\")",
       "duplicate-symbol": "symbole Markdown en double"
     },
-    "collapsible-body-placeholder": "Saisissez le contenu ici...",
-    "collapsible-button-label": "Bloc repliable",
-    "collapsible-handle-tooltip": "Glisser pour déplacer le bloc repliable",
-    "collapsible-select-label": "Sélectionner le bloc repliable",
-    "collapsible-title-placeholder": "Résumé",
-    "collapsible-toggle-label": "Ouvrir/fermer le bloc repliable",
-    "collapsible-tooltip": "Cliquez sur la flèche ou appuyez sur {{shortcut}} pour replier/déplier."
-  },
-  "slash_commands": {
-    "bulleted_list_description": "Créer une liste à puces",
-    "numbered_list_description": "Créer une liste numérotée",
-    "todo_list_description": "Créer une liste de tâches",
-    "align_left_description": "Aligner le texte à gauche",
-    "align_center_description": "Centrer le texte",
-    "align_right_description": "Aligner le texte à droite",
-    "justify_description": "Justifier le texte",
-    "admonition_description": "Insérer une nouvelle admonition",
-    "collapsible_description": "Insérer une section repliable qui affiche/masque le contenu au clic.",
-    "footnote_description": "Créer une nouvelle note de bas de page et insérer sa référence ici",
-    "datetime_description": "Insérer la date et l'heure actuelles",
-    "internal_link_description": "Insérer un lien vers une autre note Trilium",
-    "math_description": "Insérer une équation mathématique",
-    "include_note_description": "Afficher le contenu d'une autre note dans cette note",
-    "page_break_description": "Insérer un saut de page (pour l'impression)",
-    "markdown_import_description": "Importer un fichier Markdown dans cette note",
-    "anchor_description": "Insérer une ancre pour les liens internes"
+    "ck": {
+      "align-text-to-the-center": "Centrer le texte",
+      "align-text-to-the-left": "Aligner le texte à gauche",
+      "align-text-to-the-right": "Aligner le texte à droite",
+      "click-on-the-arrow-or-press-0-to-collapse-expand": "Cliquez sur la flèche ou appuyez sur %0 pour replier/déplier.",
+      "collapsible-block": "Bloc repliable",
+      "copy-image-to-clipboard": "Copier l'image dans le presse-papiers",
+      "copy-url": "Copier l'URL",
+      "create-a-bulleted-list": "Créer une liste à puces",
+      "create-a-new-footnote-and-reference-it-here": "Créer une nouvelle note de bas de page et insérer sa référence ici",
+      "create-a-numbered-list": "Créer une liste numérotée",
+      "create-a-to-do-list": "Créer une liste de tâches",
+      "display-the-content-of-another-note-in-this-note": "Afficher le contenu d'une autre note dans cette note",
+      "download-image": "Télécharger l'image",
+      "drag-to-reposition-the-collapsible-block": "Glisser pour déplacer le bloc repliable",
+      "edit-task-states": "Modifier les états des tâches",
+      "insert-a-0-mermaid-diagram-template": "Insérer un modèle de diagramme Mermaid \"%0\"",
+      "insert-a-link-to-another-trilium-note": "Insérer un lien vers une autre note Trilium",
+      "insert-a-math-equation": "Insérer une équation mathématique",
+      "insert-a-new-admonition": "Insérer une nouvelle admonition",
+      "insert-a-page-break-for-printing": "Insérer un saut de page (pour l'impression)",
+      "insert-a-toggleable-section-that-hides-shows-content-on-click": "Insérer une section repliable qui affiche/masque le contenu au clic.",
+      "insert-an-anchor-for-internal-linking": "Insérer une ancre pour les liens internes",
+      "insert-an-empty-mermaid-diagram": "Insérer un diagramme Mermaid vide",
+      "insert-the-current-date-and-time": "Insérer la date et l'heure actuelles",
+      "justify-text-alignment": "Justifier le texte",
+      "right-click-or-press-0-to-change-state": "Clic droit pour plus d'états.\nAppuyez sur %0 pour changer d'état.",
+      "select-collapsible-block": "Sélectionner le bloc repliable",
+      "summary": "Résumé",
+      "toggle-collapsible-block": "Ouvrir/fermer le bloc repliable",
+      "type-the-content-here": "Saisissez le contenu ici...",
+      "undefined-custom-task-state": "État personnalisé non défini"
+    }
   },
   "image_buttons": {
     "zoom_in": "Zoomer",
@@ -2804,12 +2884,105 @@
     "server_config_hint": "Ajoutez la ligne suivante à votre fichier config.ini :",
     "server_env_hint": "Ou définissez la variable d'environnement suivante :",
     "restart_required": "Un redémarrage est nécessaire pour appliquer ce changement.",
-    "restart_now": "Redémarrer l'application maintenant"
+    "restart_now": "Redémarrer l'application maintenant",
+    "lan_access_title": "Accès réseau",
+    "lan_access_section_description": "Par défault l'application d'ordinateur accepte seulement les connections de cet ordinateur. Autoriser l'accès depuis votre réseau local pour que les autres appareils puissent s'y connecter — par exemple pour synchroniser depuis un autre appareil. Seulement activé sur les réseaux vous faites confiance.",
+    "lan_access_label": "Autoriser les connections des autres appareils",
+    "lan_access_description": "Liez le serveur à toutes les interfaces réseau au lieu de localhost uniquement."
   },
   "snippet_badge": {
     "label": "Extrait {{type}}",
     "type_text": "Texte",
     "type_code": "Code",
     "tooltip": "Un élément réutilisable de texte ou de code, conçu pour être inséré dans l'éditeur (depuis le menu des extraits dans la barre d'outils, ou via une commande slash)."
+  },
+  "import_provider": {
+    "choose_provider": "Choisissez un service ci-dessus pour importer."
+  },
+  "onenote_import": {
+    "connecting": "En attente de la connexion de se compléter…",
+    "connected_as": "Connecté comme {{name}}",
+    "disconnect": "Déconnecter",
+    "load_failed": "N'a pas pu charger vos cahiers OneNote.",
+    "no_notebooks": "Pas de cahiers n'ont été trouvé dans ce compte.",
+    "select_sections": "Selectionner les sections à importer",
+    "name": "OneNote",
+    "description": "Connexion à votre compte",
+    "connect_description": "Connectez-vous avec votre compte Microsoft pour importer vos cahiers OneNote.",
+    "connect": "Connectez-vous avec Microsoft",
+    "import": "Importer la sélection",
+    "attach_source": "Joindre le code HTML d'origine (débogage)",
+    "attach_source_hint": "Enregistre le code HTML OneNote non modifié de chaque page en tant que pièce jointe à la note importée, afin de permettre une comparaison avec le résultat converti.",
+    "section_heading": "Microsoft OneNote",
+    "checking": "Vérification de votre connexion OneNote…",
+    "select_sections_hint": "OneNote n'inclut pas l'ordre original dans les données d'importation, donc les sections et groupes sont triés par date de création et peuvent ne pas correspondre à leur affichage dans OneNote."
+  },
+  "split_editor": {
+    "show_details": "Montrer les détails",
+    "render_error": "Impossible d'afficher l'aperçu",
+    "last_valid_render": "Affichage du dernier rendu valide"
+  },
+  "desktop": {
+    "web_placeholder": "Ces options s'appliquent seulement pour les constructions d'ordinateurs."
+  },
+  "startup": {
+    "title": "Démarrage",
+    "launch_on_startup": "Lancer au démarrage",
+    "launch_on_startup_description": "Ouvrir Trilium automatiquement quand vous vous connectez dans votre ordinateur.",
+    "hide_on_auto_start": "Démarrer réduit dans la zone de notification",
+    "hide_on_auto_start_description": "Lors du lancement automatique à la connexion, démarrer masqué dans la zone de notification au lieu d'ouvrir une fenêtre. Nécessite que le lancement au démarrage et l'icône de la zone de notification soient activés."
+  },
+  "notion_import": {
+    "name": "Notion",
+    "description": "À partir d'un export HTML",
+    "description_long": "Dans Notion, exportez votre espace de travail ou une page au format HTML en incluant les sous-pages, puis sélectionnez le fichier .zip obtenu ici.",
+    "choose_file": "Export Notion (.zip)",
+    "import": "Importer"
+  },
+  "keep_import": {
+    "name": "Google Keep",
+    "description": "À partir d'un export Takeout",
+    "description_long": "Dans Google Takeout, exportez vos données Keep au format .zip, puis sélectionnez le fichier obtenu ici.",
+    "choose_file": "Export Google Keep (.zip)",
+    "import": "Importer"
+  },
+  "evernote_import": {
+    "name": "Evernote",
+    "description": "À partir de fichiers .enex",
+    "description_long": "Dans Evernote, exportez un carnet de notes (ou jusqu'à 100 notes à la fois) sous forme de fichier ENEX, puis sélectionnez un ou plusieurs fichiers .enex ici. Chaque fichier est importé en tant que carnet de notes distinct.",
+    "choose_file": "Export Evernote (.enex)",
+    "import": "Importer"
+  },
+  "options": {
+    "title": "Options",
+    "back": "Retour à toutes les options"
+  },
+  "full_content_width_switch": {
+    "title": "Pleine largeur"
+  },
+  "dashboard_view": {
+    "refresh-widget": "Rafraîchir",
+    "remove-widget": "Retirer du tableau de bord",
+    "empty-hint": "Toute note enfant devient un widget. Faites glisser une note depuis l'arborescence ou créez-en une nouvelle."
+  },
+  "file_upload": {
+    "drop_or_browse_single": "Glissez-déposez un fichier ici, ou cliquez pour parcourir",
+    "drop_or_browse_multiple": "Glissez-déposez des fichiers ici, ou cliquez pour parcourir",
+    "browse_single": "Touchez pour choisir un fichier",
+    "browse_multiple": "Touchez pour choisir des fichiers"
+  },
+  "anytype_import": {
+    "name": "Anytype",
+    "description": "À partir d'un export JSON",
+    "description_long": "Dans Anytype, exportez votre espace en utilisant le format « Any-Block » avec « JSON » sélectionné, puis choisissez le fichier .zip résultant ici. Seules les pages et leur texte sont actuellement importées.",
+    "choose_file": "Export Anytype (.zip)",
+    "import": "Import"
+  },
+  "obsidian_import": {
+    "name": "Obsidian",
+    "description": "À partir d'un coffre",
+    "description_long": "Zippez votre dossier de coffre Obsidian, puis sélectionnez le fichier .zip généré ici.",
+    "choose_file": "Coffre Obsidian (.zip)",
+    "import": "Import"
   }
 }

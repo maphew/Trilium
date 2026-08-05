@@ -25,13 +25,66 @@ export const NOTE_TYPE_ICONS = {
     llmChat: "bx bx-message-square-dots"
 };
 
-const FILE_MIME_MAPPINGS = {
+/**
+ * Note types that can be embedded as an image but are not images themselves, mapped to the title of
+ * the attachment holding their rendered picture. The type widgets write these attachments, the
+ * `api/images/<noteId>` routes serve them in place of the note's own content, the ZIP export writes
+ * them out beside the note and the importer resolves them back, and note orphan-erasure exempts
+ * them. Everything keys off this one table so those five places cannot drift apart.
+ */
+export const NOTE_TYPE_IMAGE_ATTACHMENTS = {
+    canvas: "canvas-export.svg",
+    mermaid: "mermaid-export.svg",
+    mindMap: "mindmap-export.svg",
+    spreadsheet: "spreadsheet-export.png"
+} as const satisfies Partial<Record<NoteType, string>>;
+
+/**
+ * The title of the attachment holding the rendered image of the given note type, or `undefined` if
+ * notes of that type carry their image as content and are served directly.
+ *
+ * Prefer indexing {@link NOTE_TYPE_IMAGE_ATTACHMENTS} directly when the note type is known
+ * statically — it narrows to the exact title instead of `string | undefined`.
+ */
+export function getImageAttachmentTitle(type: NoteType | null | undefined): string | undefined {
+    if (!type) {
+        return undefined;
+    }
+
+    return (NOTE_TYPE_IMAGE_ATTACHMENTS as Partial<Record<NoteType, string>>)[type];
+}
+
+/**
+ * The note a mind map node's link points at, or `null` where it points somewhere else entirely.
+ *
+ * A node carries one link of its own — Mind Elixir's `hyperLink` — which the editor writes as the
+ * in-app address a note link wears everywhere else in Trilium, so that following it is answered by
+ * the delegated link handler with nothing else to wire up. The whole value has to be that address:
+ * a page whose own address happens to carry `#root/…` is a page, not a link between notes.
+ *
+ * Shared, so that what writes a link, what follows one, and what relates the two notes to each
+ * other all agree on what a link is.
+ */
+export function parseMindMapNoteLink(link: unknown): { notePath: string; noteId: string } | null {
+    if (typeof link !== "string" || !/^#root(\/[a-zA-Z0-9_]+)*$/.test(link)) {
+        return null;
+    }
+
+    const notePath = link.slice(1);
+    const segments = notePath.split("/");
+    return {
+        notePath,
+        noteId: segments[segments.length - 1]
+    };
+}
+
+const FILE_MIME_MAPPINGS: Record<string, string> = {
     "application/pdf": "bx bxs-file-pdf",
     "application/vnd.oasis.opendocument.text": "bx bxs-file-doc",
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document": "bx bxs-file-doc",
 };
 
-const IMAGE_MIME_MAPPINGS = {
+const IMAGE_MIME_MAPPINGS: Record<string, string> = {
     "image/gif": "bx bxs-file-gif",
 };
 
@@ -61,12 +114,44 @@ export function getNoteIcon({ noteId, type, mime, iconClass, workspaceIconClass,
         const correspondingMimeType = MIME_TYPES_DICT.find(m => m.mime === mime);
         return correspondingMimeType?.icon ?? NOTE_TYPE_ICONS.code;
     } else if (type === "file") {
-        if (mime.startsWith("video/")) return "bx bx-video";
-        if (mime.startsWith("audio/")) return "bx bx-music";
-        return FILE_MIME_MAPPINGS[mime] ?? NOTE_TYPE_ICONS.file;
+        return getFileMimeIcon(mime);
     } else if (type === "image") {
-        return IMAGE_MIME_MAPPINGS[mime] ?? NOTE_TYPE_ICONS.image;
+        return getImageMimeIcon(mime);
     }
 
     return NOTE_TYPE_ICONS[type];
+}
+
+/**
+ * The icon for something known only by its media type — an attachment, or anything else the app holds
+ * that is not a note and so has no type to ask about.
+ *
+ * A note of the same content gets the same icon, which is the point of routing both through here: a PDF
+ * is a PDF whether it was uploaded as a note or attached to one.
+ */
+export function getMimeIcon(mime: string | undefined | null): string {
+    if (!mime) {
+        return NOTE_TYPE_ICONS.file;
+    }
+
+    return mime.startsWith("image/") ? getImageMimeIcon(mime) : getFileMimeIcon(mime);
+}
+
+function getFileMimeIcon(mime: string): string {
+    if (mime.startsWith("video/")) return "bx bx-video";
+    if (mime.startsWith("audio/")) return "bx bx-music";
+    return lookUpMime(FILE_MIME_MAPPINGS, mime) ?? NOTE_TYPE_ICONS.file;
+}
+
+function getImageMimeIcon(mime: string): string {
+    return lookUpMime(IMAGE_MIME_MAPPINGS, mime) ?? NOTE_TYPE_ICONS.image;
+}
+
+/**
+ * `hasOwn` rather than a plain lookup: the media type is whatever was stored, so `"constructor"` reaches
+ * these tables, and reading it off one would answer with something from its prototype — a function, which
+ * survives the `??` and is handed on as an icon class.
+ */
+function lookUpMime(mappings: Record<string, string>, mime: string): string | undefined {
+    return Object.hasOwn(mappings, mime) ? mappings[mime] : undefined;
 }

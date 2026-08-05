@@ -1,7 +1,6 @@
-import { type AttachmentRow, type AttributeRow, type BranchRow, dayjs, type NoteRow, type NoteType } from "@triliumnext/commons";
+import { type AttachmentRow, attachmentRoleTraits, type AttributeRow, type BranchRow, dayjs, isEmbeddedAttachmentRole, isImageAttachmentRole, type NoteRow, NOTE_TYPE_IMAGE_ATTACHMENTS, type NoteType, parseMindMapNoteLink } from "@triliumnext/commons";
 import { t } from "i18next";
 import { parse as parseHtml } from "node-html-parser";
-import url from "url";
 
 import becca from "../becca/becca.js";
 import BAttachment from "../becca/entities/battachment.js";
@@ -15,9 +14,9 @@ import * as cls from "./context.js";
 import entityChangesService from "./entity_changes.js";
 import eventService from "./events.js";
 import imageService from "./image.js";
+import { downloadImages, storeLinkPreviewPictures } from "./image_download.js";
 import noteTypesService from "./note_types.js";
 import optionService from "./options.js";
-import request from "./request.js";
 import revisionService from "./revisions.js";
 import { evaluateTemplateSafe } from "./safe_template.js";
 import { sanitizeHtml } from "./sanitizer.js";
@@ -25,8 +24,7 @@ import { getSql } from "./sql/index.js";
 import type TaskContext from "./task_context.js";
 import { decodeBase64 } from "./utils/binary.js";
 import date_utils from "./utils/date.js";
-import { newEntityId, quoteRegex, toMap, unescapeHtml } from "./utils/index.js";
-import { basename } from "./utils/path.js";
+import { newEntityId, replaceAll, toMap, unescapeHtml } from "./utils/index.js";
 import ws from "./ws.js";
 
 interface FoundLink {
@@ -61,6 +59,12 @@ export interface NoteParams {
     notePosition?: number;
     dateCreated?: string;
     utcDateCreated?: string;
+    /**
+     * Set internally when the client requested no `type` and it was derived from the parent note instead.
+     * In that case a `child:template` of a different type is still applied (and converts the note), whereas
+     * an explicitly chosen type wins over such a template (#3015).
+     */
+    isTypeDefaulted?: boolean;
     ignoreForbiddenParents?: boolean;
     target?: "into";
     /** Attributes to be set on the note. These are set atomically on note creation, so entity changes are not sent for attributes defined here. */
@@ -68,7 +72,10 @@ export interface NoteParams {
 }
 
 function getNewNotePosition(parentNote: BNote) {
-    if (parentNote.isLabelTruthy("newNotesOnTop")) {
+    // An import that preserves its source order suspends newNotesOnTop for the content it creates, so an
+    // inherited `#newNotesOnTop` on the import target doesn't reverse the imported tree (see
+    // {@link cls.setImportOrderPreserved}).
+    if (!cls.isImportOrderPreserved() && parentNote.isLabelTruthy("newNotesOnTop")) {
         const minNotePos = parentNote
             .getChildBranches()
             .filter((branch) => branch?.noteId !== "_hidden") // has "always last" note position
@@ -100,16 +107,24 @@ function deriveMime(type: string, mime?: string) {
     return noteTypesService.getDefaultMimeForNoteType(type);
 }
 
-function copyChildAttributes(parentNote: BNote, childNote: BNote) {
+function copyChildAttributes(parentNote: BNote, childNote: BNote, isTypeDefaulted = false) {
     for (const attr of parentNote.getAttributes()) {
         if (attr.name.startsWith("child:")) {
             const name = attr.name.substring(6);
-            const hasAlreadyTemplate = childNote.hasRelation("template");
 
-            if (hasAlreadyTemplate && attr.type === "relation" && name === "template") {
-                // if the note already has a template, it means the template was chosen by the user explicitly
-                // in the menu. In that case, we should override the default templates defined in the child: attrs
-                continue;
+            if (attr.type === "relation" && name === "template") {
+                if (childNote.hasRelation("template")) {
+                    // if the note already has a template, it means the template was chosen by the user explicitly
+                    // in the menu. In that case, we should override the default templates defined in the child: attrs
+                    continue;
+                }
+
+                const templateNote = becca.getNote(attr.value);
+                if (!isTypeDefaulted && templateNote && templateNote.type !== childNote.type) {
+                    // the explicitly chosen note type wins over the default template, which would otherwise
+                    // convert the note and fill it with content of a different type (#3015)
+                    continue;
+                }
             }
 
             new BAttribute({
@@ -126,7 +141,7 @@ function copyChildAttributes(parentNote: BNote, childNote: BNote) {
 
 function copyAttachments(origNote: BNote, newNote: BNote) {
     for (const attachment of origNote.getAttachments()) {
-        if (attachment.role === "image") {
+        if (isImageAttachmentRole(attachment.role)) {
             // Handled separately, see `checkImageAttachments`.
             continue;
         }
@@ -306,7 +321,7 @@ function createNewNote(params: NoteParams): {
             // no special handling for ~inherit since it doesn't matter if it's assigned with the note creation or later
         }
 
-        copyChildAttributes(parentNote, note);
+        copyChildAttributes(parentNote, note, params.isTypeDefaulted);
 
         eventService.emit(eventService.ENTITY_CREATED, { entityName: "notes", entity: note });
         eventService.emit(eventService.ENTITY_CHANGED, { entityName: "notes", entity: note });
@@ -317,7 +332,11 @@ function createNewNote(params: NoteParams): {
         eventService.emit(eventService.ENTITY_CHANGED, { entityName: "branches", entity: branch });
         eventService.emit(eventService.CHILD_NOTE_CREATED, { childNote: note, parentNote });
 
-        getLog().info(`Created new note '${note.noteId}', branch '${branch.branchId}' of type '${note.type}', mime '${note.mime}'`);
+        if (!isEntityEventsDisabled) {
+            // Skip per-note logging during bulk operations (e.g. import), where it would otherwise
+            // emit one line per created note and flood the log on large imports.
+            getLog().info(`Created new note '${note.noteId}', branch '${branch.branchId}' of type '${note.type}', mime '${note.mime}'`);
+        }
 
         return {
             note,
@@ -326,14 +345,18 @@ function createNewNote(params: NoteParams): {
     });
 }
 
-function createNewNoteWithTarget(target: "into" | "after" | "before", targetBranchId: string | undefined, params: NoteParams) {
-    if (!params.type) {
-        const parentNote = becca.notes[params.parentNoteId];
+function createNewNoteWithTarget(target: "into" | "after" | "before", targetBranchId: string | undefined, rawParams: Omit<NoteParams, "type"> & { type?: NoteType }) {
+    if (!rawParams.type) {
+        const parentNote = becca.notes[rawParams.parentNoteId];
 
         // code note type can be inherited, otherwise "text" is the default
-        params.type = parentNote.type === "code" ? "code" : "text";
-        params.mime = parentNote.type === "code" ? parentNote.mime : "text/html";
+        rawParams.type = parentNote.type === "code" ? "code" : "text";
+        rawParams.mime = parentNote.type === "code" ? parentNote.mime : "text/html";
+        // the type is not an explicit user choice, so a child:template of another type may still convert the note
+        rawParams.isTypeDefaulted = true;
     }
+
+    const params = rawParams as NoteParams;
 
     if (target === "into") {
         return createNewNote(params);
@@ -417,33 +440,85 @@ function protectNote(note: BNote, protect: boolean) {
 }
 
 export function checkImageAttachments(note: BNote, content: string) {
+    // Canvas references images by the Excalidraw fileId stored as the attachment *title* in its
+    // scene JSON, so orphans are detected by title; every other type references them by attachmentId
+    // embedded in the content (an image URL or attachment link).
+    const isCanvas = note.type === "canvas";
     const foundAttachmentIds = new Set<string>();
-    let match;
+    /**
+     * Of those, the ones the content refers to as a link preview's own pictures rather than as a
+     * picture of its own. A copy of one of these is still a preview's, so it keeps its role; a copy
+     * reached any other way was put there by hand and takes the role that says so.
+     */
+    const previewPictureIds = new Set<string>();
+    const foundCanvasFileIds = isCanvas ? collectCanvasImageFileIds(content) : new Set<string>();
 
-    const patterns = note.isMarkdown()
-        ? [
-            // ![...](api/attachments/{id}/image/...) or similar markdown image syntax
-            /api\/attachments\/([a-zA-Z0-9_]+)\/image/g,
-            // [...](#root/{noteId}?viewMode=attachments&attachmentId={id})
-            /attachmentId=([a-zA-Z0-9_]+)/g
-        ]
-        : [
-            // <img src="api/attachments/{id}/image/...">
-            /src="[^"]*api\/attachments\/([a-zA-Z0-9_]+)\/image/g,
-            // <a href="...attachmentId={id}">
-            /href="[^"]+attachmentId=([a-zA-Z0-9_]+)/g
-        ];
+    if (!isCanvas) {
+        let match;
 
-    for (const pattern of patterns) {
-        while ((match = pattern.exec(content))) {
-        foundAttachmentIds.add(match[1]);
+        // Spreadsheet and mind map content is JSON storing images as bare
+        // `api/attachments/{id}/image/...` URLs (no `src="..."` wrapper), so they scan with the same
+        // loose pattern as Markdown.
+        const patterns: { pattern: RegExp, previewPicture?: boolean }[] = (note.isMarkdown() || note.type === "spreadsheet" || note.type === "mindMap")
+            ? [
+                // ![...](api/attachments/{id}/image/...) or similar markdown image syntax
+                { pattern: /api\/attachments\/([a-zA-Z0-9_]+)\/image/g },
+                // [...](#root/{noteId}?viewMode=attachments&attachmentId={id})
+                { pattern: /attachmentId=([a-zA-Z0-9_]+)/g }
+            ]
+            : [
+                // <img src="api/attachments/{id}/image/...">
+                { pattern: /src="[^"]*api\/attachments\/([a-zA-Z0-9_]+)\/image/g },
+                // Link previews reference both of their pictures from data attributes rather than
+                // from an <img>: the card image, and the favicon that an inline mention carries on
+                // its own. <section class="link-embed" data-image="api/attachments/{id}/image/..."
+                // data-favicon="api/attachments/{id}/image/...">
+                { pattern: /data-(?:image|favicon)="[^"]*api\/attachments\/([a-zA-Z0-9_]+)\/image/g, previewPicture: true },
+                // <a href="...attachmentId={id}">
+                { pattern: /href="[^"]+attachmentId=([a-zA-Z0-9_]+)/g }
+            ];
+
+        for (const { pattern, previewPicture } of patterns) {
+            while ((match = pattern.exec(content))) {
+                foundAttachmentIds.add(match[1]);
+
+                if (previewPicture) {
+                    previewPictureIds.add(match[1]);
+                }
+            }
         }
     }
 
     const attachments = note.getAttachments();
 
     for (const attachment of attachments) {
-        const attachmentInContent = attachment.attachmentId && foundAttachmentIds.has(attachment.attachmentId);
+        // Only attachments that live in the note content are auto-scheduled for erasure when nothing
+        // refers to them any more; the rest are managed explicitly by their owners and must not be
+        // cleaned up here. Which is which is a property of the role — see `AttachmentRoleTraits`.
+        if (!isEmbeddedAttachmentRole(attachment.role)) {
+            continue;
+        }
+
+        // The spreadsheet preview thumbnail is never referenced from the content — it is the note's
+        // rendered image, looked up by title by the image endpoint — so leave it alone (otherwise it
+        // would be scheduled for erasure on every save).
+        if (note.type === "spreadsheet" && attachment.title === NOTE_TYPE_IMAGE_ATTACHMENTS.spreadsheet) {
+            continue;
+        }
+
+        // Likewise for the mind map SVG export preview, which the map JSON never references.
+        if (note.type === "mindMap" && attachment.title === NOTE_TYPE_IMAGE_ATTACHMENTS.mindMap) {
+            continue;
+        }
+
+        // Likewise for the canvas SVG export preview, which the scene JSON never references.
+        if (isCanvas && attachment.title === NOTE_TYPE_IMAGE_ATTACHMENTS.canvas) {
+            continue;
+        }
+
+        const attachmentInContent = isCanvas
+            ? foundCanvasFileIds.has(attachment.title)
+            : !!attachment.attachmentId && foundAttachmentIds.has(attachment.attachmentId);
 
         if (attachment.utcDateScheduledForErasureSince && attachmentInContent) {
             attachment.utcDateScheduledForErasureSince = null;
@@ -454,14 +529,32 @@ export function checkImageAttachments(note: BNote, content: string) {
         }
     }
 
+    // Canvas references images by title, not by attachmentId, so the foreign-attachment copy step
+    // (which keys off attachmentIds found in the content) does not apply.
+    if (isCanvas) {
+        return { forceFrontendReload: false, content };
+    }
+
     const existingAttachmentIds = new Set<string | undefined>(attachments.map((att) => att.attachmentId));
     const unknownAttachmentIds = Array.from(foundAttachmentIds).filter((foundAttId) => !existingAttachmentIds.has(foundAttId));
     const unknownAttachments = becca.getAttachments(unknownAttachmentIds);
 
     for (const unknownAttachment of unknownAttachments) {
+        // A role says who made the attachment and why, so the copy's role is decided by how this note
+        // refers to it. Still a link preview's picture here — the whole preview having been pasted —
+        // and it stays the preview's. Reached any other way it is a picture or a file someone placed,
+        // and carrying the app's role over would leave the copy deduplicated against this note's own
+        // previews, denied the OCR and compression a picture is offered, and filed out of sight. A
+        // role we know nothing about is left alone: there is nothing better to say about it.
+        const copiedRole = previewPictureIds.has(unknownAttachment.attachmentId ?? "")
+            ? unknownAttachment.role
+            : attachmentRoleTraits(unknownAttachment.role)?.copiedAs ?? unknownAttachment.role;
+
         // the attachment belongs to a different note (was copy-pasted). Attachments can be linked only from the note
         // which owns it, so either find an existing attachment having the same content or make a copy.
-        let localAttachment = note.getAttachments().find((att) => att.role === unknownAttachment.role && att.blobId === unknownAttachment.blobId);
+        // Matched on the role the copy would take, not the one it came with, or a picture this note
+        // already holds would never be recognised and every save would copy the bytes again.
+        let localAttachment = note.getAttachments().find((att) => att.role === copiedRole && att.blobId === unknownAttachment.blobId);
 
         if (localAttachment) {
             if (localAttachment.utcDateScheduledForErasureSince) {
@@ -476,14 +569,20 @@ export function checkImageAttachments(note: BNote, content: string) {
         } else {
             localAttachment = unknownAttachment.copy();
             localAttachment.ownerId = note.noteId;
+            localAttachment.role = copiedRole;
             localAttachment.setContent(unknownAttachment.getContent(), { forceSave: true });
 
             ws.sendMessageToAllClients({ type: "toast", message: `Attachment '${localAttachment.title}' has been copied to note '${note.title}'.` });
             getLog().info(`Copied attachment '${unknownAttachment.attachmentId}' of note '${unknownAttachment.ownerId}' to new '${localAttachment.attachmentId}' of note '${note.noteId}'`);
         }
 
-        // replace image links
-        content = content.replace(`api/attachments/${unknownAttachment.attachmentId}/image`, `api/attachments/${localAttachment.attachmentId}/image`);
+        // Replace image links — every one of them. A string first argument to replace() rewrites
+        // only the first match, which was survivable while each reference had an attachment of its
+        // own, but a deduplicated role (a link preview's favicon, one per site rather than one per
+        // link) is referenced as many times as the note links that site. Leaving the rest pointing
+        // at the foreign attachment made them resolve to another note's picture until a later save
+        // happened to fix one more, each one announcing itself with a toast.
+        content = replaceAll(content, `api/attachments/${unknownAttachment.attachmentId}/image`, `api/attachments/${localAttachment.attachmentId}/image`);
         // replace reference links
         content = content.replace(
             new RegExp(`href="[^"]+attachmentId=${unknownAttachment.attachmentId}[^"]*"`, "g"),
@@ -495,6 +594,30 @@ export function checkImageAttachments(note: BNote, content: string) {
         forceFrontendReload: unknownAttachments.length > 0,
         content
     };
+}
+
+/**
+ * Collects the Excalidraw `fileId`s referenced by a canvas note's scene JSON. Canvas images are
+ * stored as attachments titled with these fileIds, so the set identifies which image attachments are
+ * still in use (the persisted scene contains only non-deleted elements). Returns an empty set for
+ * malformed content rather than throwing, so a save is never blocked.
+ */
+export function collectCanvasImageFileIds(content: string): Set<string> {
+    const fileIds = new Set<string>();
+
+    try {
+        const parsed = JSON.parse(content) as { elements?: { fileId?: string }[] };
+        const elements = Array.isArray(parsed?.elements) ? parsed.elements : [];
+        for (const element of elements) {
+            if (element?.fileId) {
+                fileIds.add(element.fileId);
+            }
+        }
+    } catch {
+        // Malformed content (e.g. note type just changed) — treat as referencing nothing.
+    }
+
+    return fileIds;
 }
 
 function findImageLinks(content: string, foundLinks: FoundLink[]) {
@@ -694,153 +817,46 @@ function findRelationMapLinks(content: string, foundLinks: FoundLink[]) {
     }
 }
 
-const imageUrlToAttachmentIdMapping: Record<string, string> = {};
-
-async function downloadImage(noteId: string, imageUrl: string) {
-    const unescapedUrl = unescapeHtml(imageUrl);
-
-    // SSRF protection: only allow http(s) URLs and block file:// and other schemes.
+/**
+ * Collects the notes a mind map's nodes link to.
+ *
+ * A node carries one link of its own, and what makes it a link to a note is
+ * {@link parseMindMapNoteLink}'s to say; anything else is an address outside Trilium. The whole map
+ * is walked rather than only its nodes, so that a link stays found wherever Mind Elixir comes to
+ * keep one.
+ */
+export function findMindMapLinks(content: string, foundLinks: FoundLink[]) {
     try {
-        const parsed = new URL(unescapedUrl);
-        if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-            getLog().error(`Download of '${imageUrl}' for note '${noteId}' rejected: only http/https URLs are allowed.`);
-            return;
+        collectMindMapLinks(JSON.parse(content), foundLinks);
+    } catch (e: any) {
+        getLog().error(`Could not scan for mind map links: ${e.message}`);
+    }
+}
+
+function collectMindMapLinks(value: unknown, foundLinks: FoundLink[]) {
+    if (Array.isArray(value)) {
+        for (const item of value) {
+            collectMindMapLinks(item, foundLinks);
         }
-    } catch {
-        getLog().error(`Download of '${imageUrl}' for note '${noteId}' rejected: invalid URL.`);
         return;
     }
 
-    try {
-        const imageBuffer = new Uint8Array(await request.getImage(unescapedUrl));
-
-        const parsedUrl = url.parse(unescapedUrl);
-        const title = basename(parsedUrl.pathname || "");
-
-        const attachment = imageService.saveImageToAttachment(noteId, imageBuffer, title, true, true);
-
-        if (attachment.attachmentId) {
-            imageUrlToAttachmentIdMapping[imageUrl] = attachment.attachmentId;
-        } else {
-            getLog().error(`Download of '${imageUrl}' for note '${noteId}' failed due to no attachment ID.`);
-        }
-
-        getLog().info(`Download of '${imageUrl}' succeeded and was saved as image attachment '${attachment.attachmentId}' of note '${noteId}'`);
-    } catch (e: any) {
-        getLog().error(`Download of '${imageUrl}' for note '${noteId}' failed with error: ${e.message} ${e.stack}`);
-    }
-}
-
-/** url => download promise */
-const downloadImagePromises: Record<string, Promise<void>> = {};
-
-function replaceUrl(content: string, url: string, attachment: Attachment) {
-    const quotedUrl = quoteRegex(url);
-
-    return content.replace(new RegExp(`\\s+src=[\"']${quotedUrl}[\"']`, "ig"), ` src="api/attachments/${attachment.attachmentId}/image/${encodeURIComponent(attachment.title)}"`);
-}
-
-function downloadImages(noteId: string, content: string) {
-    const imageRe = /<img[^>]*?\ssrc=['"]([^'">]+)['"]/gi;
-    let imageMatch;
-
-    while ((imageMatch = imageRe.exec(content))) {
-        const url = imageMatch[1];
-        const inlineImageMatch = /^data:image\/[a-z]+;base64,/.exec(url);
-
-        if (inlineImageMatch) {
-            const imageBase64 = url.substring(inlineImageMatch[0].length);
-            const imageBuffer = decodeBase64(imageBase64);
-
-            const attachment = imageService.saveImageToAttachment(noteId, imageBuffer, "inline image", true, true);
-
-            const encodedTitle = encodeURIComponent(attachment.title);
-
-            content = `${content.substring(0, imageMatch.index)}<img src="api/attachments/${attachment.attachmentId}/image/${encodedTitle}"${content.substring(imageMatch.index + imageMatch[0].length)}`;
-        } else if (
-            !url.includes("api/images/") &&
-            !/api\/attachments\/.+\/image\/?.*/.test(url) &&
-            // this is an exception for the web clipper's "imageId"
-            (url.length !== 20 || url.toLowerCase().startsWith("http"))
-        ) {
-            if (!optionService.getOptionBool("downloadImagesAutomatically")) {
-                continue;
-            }
-
-            if (url in imageUrlToAttachmentIdMapping) {
-                const attachment = becca.getAttachment(imageUrlToAttachmentIdMapping[url]);
-
-                if (!attachment) {
-                    delete imageUrlToAttachmentIdMapping[url];
-                } else {
-                    content = replaceUrl(content, url, attachment);
-                    continue;
-                }
-            }
-
-            if (url in downloadImagePromises) {
-                // download is already in progress
-                continue;
-            }
-
-            // this is done asynchronously, it would be too slow to wait for the download
-            // given that save can be triggered very often
-            downloadImagePromises[url] = downloadImage(noteId, url);
-        }
+    if (!value || typeof value !== "object") {
+        return;
     }
 
-    Promise.all(Object.values(downloadImagePromises)).then(() => {
-        setTimeout(() => {
-            // the normal expected flow of the offline image saving is that users will paste the image(s)
-            // which will get asynchronously downloaded, during that time they keep editing the note
-            // once the download is finished, the image note representing the downloaded image will be used
-            // to replace the IMG link.
-            // However, there's another flow where the user pastes the image and leaves the note before the images
-            // are downloaded and the IMG references are not updated. For this occasion we have this code
-            // which upon the download of all the images will update the note if the links have not been fixed before
+    const record = value as Record<string, unknown>;
+    const noteId = parseMindMapNoteLink(record.hyperLink)?.noteId;
+    if (noteId) {
+        foundLinks.push({
+            name: "internalLink",
+            value: noteId
+        });
+    }
 
-            cls.getContext().init(() => {
-                getSql().transactional(() => {
-                const imageNotes = becca.getNotes(Object.values(imageUrlToAttachmentIdMapping), true);
-                    const log = getLog();
-
-                const origNote = becca.getNote(noteId);
-
-                if (!origNote) {
-                    log.error(`Cannot find note '${noteId}' to replace image link.`);
-                    return;
-                }
-
-                const origContent = origNote.getContent();
-                let updatedContent = origContent;
-
-                if (typeof updatedContent !== "string") {
-                    log.error(`Note '${noteId}' has a non-string content, cannot replace image link.`);
-                    return;
-                }
-
-                for (const url in imageUrlToAttachmentIdMapping) {
-                    const imageNote = imageNotes.find((note) => note.noteId === imageUrlToAttachmentIdMapping[url]);
-
-                    if (imageNote) {
-                        updatedContent = replaceUrl(updatedContent, url, imageNote);
-                    }
-                }
-
-                // update only if the links have not been already fixed.
-                if (updatedContent !== origContent) {
-                    origNote.setContent(updatedContent);
-
-                    asyncPostProcessContent(origNote, updatedContent);
-
-                    console.log(`Fixed the image links for note '${noteId}' to the offline saved.`);
-                }
-                });
-            });
-        }, 5000);
-    });
-
-    return content;
+    for (const key of Object.keys(record)) {
+        collectMindMapLinks(record[key], foundLinks);
+    }
 }
 
 /**
@@ -880,12 +896,36 @@ function saveAttachments(note: BNote, content: string) {
     // we also omit / at the beginning to keep the paths relative
     content = content.replace(/src="[^"]*\/api\/attachments\//g, 'src="api/attachments/');
 
+    content = stripStaleSrcset(content);
+
     return content;
+}
+
+/**
+ * When an image is pasted from the web its `src` is localized to a Trilium
+ * attachment, but the copied HTML often still carries the original `srcset`
+ * (and its companion `sizes`) pointing at external URLs. Browsers prefer
+ * `srcset` over `src`, so once those external URLs disappear the image breaks
+ * even though the local attachment is intact. Drop `srcset`/`sizes` from any
+ * `<img>` already backed by a local attachment so the valid `src` is used.
+ * Images whose `src` is still external keep their `srcset` — there it is the
+ * legitimate (and only) source.
+ */
+function stripStaleSrcset(content: string): string {
+    return content.replace(/<img\b[^>]*>/gi, (imgTag) => {
+        // Match quotes as balanced pairs (and allow optional whitespace around `=`) so a value
+        // containing the opposite quote character doesn't truncate the match and corrupt the tag.
+        if (!/\ssrc\s*=\s*(?:"api\/attachments\/[^"]+"|'api\/attachments\/[^']+')/i.test(imgTag)) {
+            return imgTag;
+        }
+
+        return imgTag.replace(/\s(?:srcset|sizes)\s*=\s*(?:"[^"]*"|'[^']*')/gi, "");
+    });
 }
 
 
 export function saveLinks(note: BNote, content: string | Uint8Array) {
-    if ((note.type !== "text" && note.type !== "relationMap" && note.type !== "llmChat" && !note.isMarkdown()) || (note.isProtected && !protectedSessionService.isProtectedSessionAvailable())) {
+    if ((note.type !== "text" && note.type !== "relationMap" && note.type !== "llmChat" && note.type !== "spreadsheet" && note.type !== "canvas" && note.type !== "mindMap" && !note.isMarkdown()) || (note.isProtected && !protectedSessionService.isProtectedSessionAvailable())) {
         return {
             forceFrontendReload: false,
             content
@@ -908,6 +948,21 @@ export function saveLinks(note: BNote, content: string | Uint8Array) {
     } else if (note.isMarkdown() && typeof content === "string") {
         findMarkdownImageLinks(content, foundLinks);
         findMarkdownInternalLinks(content, foundLinks);
+        ({ forceFrontendReload, content } = checkImageAttachments(note, content));
+    } else if (note.type === "spreadsheet" && typeof content === "string") {
+        // Spreadsheet images are stored as attachments referenced from the workbook JSON; scan for
+        // orphans (inserted-then-removed images) so they get scheduled for erasure. There are no
+        // Trilium internal links to extract from spreadsheet content.
+        ({ forceFrontendReload, content } = checkImageAttachments(note, content));
+    } else if (note.type === "canvas" && typeof content === "string") {
+        // Canvas images are stored as attachments titled with the Excalidraw fileId referenced from
+        // the scene JSON; scan for orphans (inserted-then-removed images) so they get scheduled for
+        // erasure. There are no Trilium internal links to extract from canvas content.
+        ({ forceFrontendReload, content } = checkImageAttachments(note, content));
+    } else if (note.type === "mindMap" && typeof content === "string") {
+        findMindMapLinks(content, foundLinks);
+        // Mind map node images are stored as attachments referenced by URL from the map JSON; scan
+        // for orphans (inserted-then-removed images) so they get scheduled for erasure.
         ({ forceFrontendReload, content } = checkImageAttachments(note, content));
     } else if (note.type === "relationMap" && typeof content === "string") {
         findRelationMapLinks(content, foundLinks);
@@ -1005,24 +1060,86 @@ function updateNoteData(noteId: string, content: string, attachments: Attachment
     }
 }
 
-function undeleteNote(noteId: string, taskContext: TaskContext<"undeleteNotes">) {
-    const noteRow = getSql().getRow<NoteRow>("SELECT * FROM notes WHERE noteId = ?", [noteId]);
+export interface UndeleteNoteOptions {
+    /**
+     * When the note's original parent no longer survives (it is itself deleted, or has been erased),
+     * reattach the note under this note instead — typically the inbox / default new-note location.
+     * Without it, such a note cannot be restored at all.
+     */
+    fallbackParentNoteId?: string;
+}
+
+export interface UndeleteNoteResult {
+    /** Whether the note (and its deleted subtree) was actually restored. */
+    undeleted: boolean;
+    /** True when the original location was gone and the note was reattached under the fallback parent. */
+    restoredToFallbackParent: boolean;
+}
+
+/**
+ * Attempts to restore a soft-deleted note (and the deleted subtree below it, sharing its deleteId).
+ *
+ * Normally the note is reattached to whichever of its original parents is still alive. If none is —
+ * because the parent was itself deleted or already erased — the note is an orphan: it can only be
+ * restored by giving it a new home, via {@link UndeleteNoteOptions.fallbackParentNoteId}.
+ */
+function undeleteNote(
+    noteId: string,
+    taskContext: TaskContext<"undeleteNotes">,
+    opts: UndeleteNoteOptions = {}
+): UndeleteNoteResult {
+    const failed: UndeleteNoteResult = { undeleted: false, restoredToFallbackParent: false };
+
+    // Use getRowOrNull: the note may have been erased (e.g. by the erasure scheduler or another client)
+    // between the caller observing it and this call, in which case its row no longer exists.
+    const noteRow = getSql().getRowOrNull<NoteRow>("SELECT * FROM notes WHERE noteId = ?", [noteId]);
+
+    if (!noteRow) {
+        getLog().info(`Note '${noteId}' no longer exists (has been erased) and thus cannot be undeleted.`);
+        return failed;
+    }
 
     if (!noteRow.isDeleted || !noteRow.deleteId) {
         getLog().error(`Note '${noteId}' is not deleted and thus cannot be undeleted.`);
-        return;
+        return failed;
     }
 
-    const undeletedParentBranchIds = getUndeletedParentBranchIds(noteId, noteRow.deleteId);
+    const deleteId = noteRow.deleteId;
+    const undeletedParentBranchIds = getUndeletedParentBranchIds(noteId, deleteId);
 
-    if (undeletedParentBranchIds.length === 0) {
-        // cannot undelete if there's no undeleted parent
-        return;
+    if (undeletedParentBranchIds.length > 0) {
+        for (const parentBranchId of undeletedParentBranchIds) {
+            undeleteBranch(parentBranchId, deleteId, taskContext);
+        }
+
+        return { undeleted: true, restoredToFallbackParent: false };
     }
 
-    for (const parentBranchId of undeletedParentBranchIds) {
-        undeleteBranch(parentBranchId, noteRow.deleteId, taskContext);
+    // The note is an orphan: none of its original parents survive.
+    if (!opts.fallbackParentNoteId) {
+        return failed;
     }
+
+    const fallbackParent = becca.getNote(opts.fallbackParentNoteId);
+
+    if (!fallbackParent) {
+        getLog().error(`Fallback parent '${opts.fallbackParentNoteId}' for undeleting note '${noteId}' was not found.`);
+        return failed;
+    }
+
+    // A fresh branch gives the orphan a new home. Constructing it also materialises the note's becca
+    // skeleton (see BBranch.childNote), which restoreNoteAndDescendants then fills in from the row.
+    new BBranch({
+        noteId,
+        parentNoteId: fallbackParent.noteId,
+        prefix: null
+    } as BranchRow).save();
+
+    taskContext.increaseProgressCount();
+
+    restoreNoteAndDescendants(noteRow, deleteId, taskContext);
+
+    return { undeleted: true, restoredToFallbackParent: true };
 }
 
 function undeleteBranch(branchId: string, deleteId: string, taskContext: TaskContext<"undeleteNotes">) {
@@ -1044,56 +1161,66 @@ function undeleteBranch(branchId: string, deleteId: string, taskContext: TaskCon
     taskContext.increaseProgressCount();
 
     if (noteRow.isDeleted && noteRow.deleteId === deleteId) {
-        // becca entity was already created as skeleton in "new Branch()" above
-        const noteEntity = becca.getNote(noteRow.noteId);
-        if (!noteEntity) {
-            throw new Error("Unable to find the just restored branch.");
-        }
+        restoreNoteAndDescendants(noteRow, deleteId, taskContext);
+    }
+}
 
-        noteEntity.updateFromRow(noteRow);
-        noteEntity.save();
+/**
+ * Restores a deleted note's row, attributes and attachments, then recurses into the branches of the
+ * subtree deleted alongside it. The note's becca skeleton must already exist — it is created as a
+ * side effect of saving a branch that points at it (see BBranch.childNote).
+ */
+function restoreNoteAndDescendants(noteRow: NoteRow, deleteId: string, taskContext: TaskContext<"undeleteNotes">) {
+    const sql = getSql();
+    const noteEntity = becca.getNote(noteRow.noteId);
 
-        const attributeRows = sql.getRows<AttributeRow>(
-            `
-                SELECT * FROM attributes
-                WHERE isDeleted = 1
-                AND deleteId = ?
-                AND (noteId = ?
-                            OR (type = 'relation' AND value = ?))`,
-            [deleteId, noteRow.noteId, noteRow.noteId]
-        );
+    if (!noteEntity) {
+        throw new Error("Unable to find the just restored note.");
+    }
 
-        for (const attributeRow of attributeRows) {
-            // relation might point to a note which hasn't been undeleted yet and would thus throw up
-            new BAttribute(attributeRow).save({ skipValidation: true });
-        }
+    noteEntity.updateFromRow(noteRow);
+    noteEntity.save();
 
-        const attachmentRows = sql.getRows<AttachmentRow>(
-            `
-            SELECT * FROM attachments
+    const attributeRows = sql.getRows<AttributeRow>(
+        `
+            SELECT * FROM attributes
             WHERE isDeleted = 1
             AND deleteId = ?
-            AND ownerId = ?`,
-            [deleteId, noteRow.noteId]
-        );
+            AND (noteId = ?
+                        OR (type = 'relation' AND value = ?))`,
+        [deleteId, noteRow.noteId, noteRow.noteId]
+    );
 
-        for (const attachmentRow of attachmentRows) {
-            new BAttachment(attachmentRow).save();
-        }
+    for (const attributeRow of attributeRows) {
+        // relation might point to a note which hasn't been undeleted yet and would thus throw up
+        new BAttribute(attributeRow).save({ skipValidation: true });
+    }
 
-        const childBranchIds = sql.getColumn<string>(
-            `
-            SELECT branches.branchId
-            FROM branches
-            WHERE branches.isDeleted = 1
-            AND branches.deleteId = ?
-            AND branches.parentNoteId = ?`,
-            [deleteId, noteRow.noteId]
-        );
+    const attachmentRows = sql.getRows<AttachmentRow>(
+        `
+        SELECT * FROM attachments
+        WHERE isDeleted = 1
+        AND deleteId = ?
+        AND ownerId = ?`,
+        [deleteId, noteRow.noteId]
+    );
 
-        for (const childBranchId of childBranchIds) {
-            undeleteBranch(childBranchId, deleteId, taskContext);
-        }
+    for (const attachmentRow of attachmentRows) {
+        new BAttachment(attachmentRow).save();
+    }
+
+    const childBranchIds = sql.getColumn<string>(
+        `
+        SELECT branches.branchId
+        FROM branches
+        WHERE branches.isDeleted = 1
+        AND branches.deleteId = ?
+        AND branches.parentNoteId = ?`,
+        [deleteId, noteRow.noteId]
+    );
+
+    for (const childBranchId of childBranchIds) {
+        undeleteBranch(childBranchId, deleteId, taskContext);
     }
 }
 
@@ -1115,7 +1242,9 @@ function getUndeletedParentBranchIds(noteId: string, deleteId: string) {
 }
 
 function scanForLinks(note: BNote, content: string | Uint8Array) {
-    if (!note || !["text", "relationMap"].includes(note.type)) {
+    // A mind map is scanned here as well as on save, so that one arriving by import carries its
+    // links to the notes it points at without having to be opened and edited first.
+    if (!note || !["text", "relationMap", "mindMap"].includes(note.type)) {
         return;
     }
 
@@ -1146,7 +1275,10 @@ async function asyncPostProcessContent(note: BNote, content: string | Uint8Array
     }
 
     scanForLinks(note, content);
+    // Read from the note rather than from `content`: scanForLinks may just have rewritten it.
+    await storeLinkPreviewPictures(note);
 }
+
 
 // all keys should be replaced by the corresponding values
 function replaceByMap(str: string, mapObj: Record<string, string>) {

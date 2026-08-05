@@ -164,6 +164,27 @@ describe("MoveBlockUpDownPlugin", () => {
         expect(spy).toHaveBeenCalledWith("moveBlockDown");
     });
 
+    it("removes the native keydown listener when the editor is destroyed (#10095)", async () => {
+        setModelData(editor.model, "<paragraph>First[]</paragraph>");
+
+        await new Promise<void>((resolve) => {
+            editor.editing.view.once("render", () => resolve());
+            editor.editing.view.forceRender();
+        });
+
+        const domRoot = editor.editing.view.getDomRoot();
+        expect(domRoot).toBeTruthy();
+        if (!domRoot) { return; }
+
+        const removeSpy = vi.spyOn(domRoot, "removeEventListener");
+
+        await editor.destroy();
+
+        // The capturing keydown listener must be torn down so it cannot linger on the
+        // reused editing root and swallow the shortcut after the editor is recreated.
+        expect(removeSpy).toHaveBeenCalledWith("keydown", expect.any(Function), { capture: true });
+    });
+
     it("ignores Ctrl+Alt+ArrowUp (only pure Alt should trigger)", async () => {
         setModelData(editor.model,
             "<paragraph>First</paragraph>" +

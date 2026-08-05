@@ -12,7 +12,11 @@ Since these files come from an external source, it is not possible to create a _
 
 ### PDFs
 
-See <a class="reference-link" href="File/PDFs.md">PDFs</a>.
+PDFs can be uploaded to Trilium and they will display a live preview with full support for various features such as table of contents, annotations, as well as remembering the last page read. For more information, see the dedicated <a class="reference-link" href="File/PDFs.md">PDFs</a> page.
+
+## Office documents
+
+Trilium offers previews for Office documents such as Word (`.docx`), Excel (`.xlsx`) and PowerPoint (`.pptx`). For more information, see the dedicated <a class="reference-link" href="File/Office%20documents.md">Office documents</a>.
 
 ### Images
 
@@ -26,7 +30,7 @@ Interaction:
 
 ### Videos
 
-See <a class="reference-link" href="File/Videos.md">Videos</a>.
+See <a class="reference-link" href="File/Audio%20%26%20Video.md">Audio &amp; Video</a>.
 
 ### Audio
 
@@ -73,3 +77,7 @@ If the file could not be identified as any of the supported file types from abov
     <img class="image_resized" style="aspect-ratio:853/315;width:50%;" src="4_File_image.png" width="853" height="315">
 *   Non-image files can be embedded into text notes as read-only widgets via the <a class="reference-link" href="Text/Include%20Note.md">Include Note</a> functionality.
 *   Image files can be embedded into text notes like normal images via <a class="reference-link" href="Text/Images/Image%20references.md">Image references</a>.
+
+## File size limit
+
+An individual file cannot be bigger than 374 MiB. For more information see _Maximum import size_ in <a class="reference-link" href="../Basic%20Concepts%20and%20Features/Import%20%26%20Export.md">Import &amp; Export</a>.

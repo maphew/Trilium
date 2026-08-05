@@ -1,13 +1,46 @@
-import type { LlmChatConfig, LlmCitation, LlmMessage, LlmModelInfo,LlmUsage } from "@triliumnext/commons";
+import type { LlmChatConfig, LlmCitation, LlmErrorDetails, LlmMessage, LlmModelInfo,LlmUsage } from "@triliumnext/commons";
 
 import server from "./server.js";
 
+/** Credentials describing a provider whose live model list should be fetched. */
+export interface ProviderModelsQuery {
+    provider: string;
+    apiKey?: string;
+    baseURL?: string;
+}
+
 /**
- * Fetch available models from all configured providers.
+ * Fetch the live model list for a provider from its credentials. Used by the
+ * model-selection screen while adding or editing a provider — the config need
+ * not be saved yet. A server-side failure (e.g. a bad API key) rejects with a
+ * clean message the screen can display.
  */
-export async function getAvailableModels(): Promise<LlmModelInfo[]> {
-    const response = await server.get<{ models?: LlmModelInfo[] }>("llm-chat/models");
-    return response.models ?? [];
+export async function fetchProviderModels(query: ProviderModelsQuery): Promise<LlmModelInfo[]> {
+    try {
+        const response = await server.post<{ models?: LlmModelInfo[] }>("llm-chat/provider-models", query);
+        return response.models ?? [];
+    } catch (error) {
+        throw new Error(serverErrorMessage(error));
+    }
+}
+
+/**
+ * Extract a human-readable message from a rejected `server.post`, which surfaces
+ * the raw response body (a `{ "message": … }` JSON string) rather than an Error.
+ */
+function serverErrorMessage(error: unknown): string {
+    if (typeof error === "string") {
+        try {
+            const parsed = JSON.parse(error);
+            if (parsed && typeof parsed.message === "string") {
+                return parsed.message;
+            }
+        } catch {
+            // Not JSON — the raw string is the best message we have.
+        }
+        return error;
+    }
+    return error instanceof Error ? error.message : String(error);
 }
 
 export interface StreamCallbacks {
@@ -19,7 +52,12 @@ export interface StreamCallbacks {
     onToolResult?: (toolCallId: string, toolName: string, result: string, isError?: boolean) => void;
     onCitation?: (citation: LlmCitation) => void;
     onUsage?: (usage: LlmUsage) => void;
-    onError: (error: string) => void;
+    /**
+     * @param error human-readable message.
+     * @param details provider-call context (status, URL, response body), present only
+     *   for failures that reached a provider — never for connection/transport errors raised here.
+     */
+    onError: (error: string, details?: LlmErrorDetails) => void;
     onDone: () => void;
 }
 
@@ -121,7 +159,7 @@ export async function streamChatCompletion(
                                 }
                                 break;
                             case "error":
-                                callbacks.onError(data.error);
+                                callbacks.onError(data.error, data.errorDetails);
                                 break;
                             case "done":
                                 callbacks.onDone();

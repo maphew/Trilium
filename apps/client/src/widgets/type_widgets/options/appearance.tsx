@@ -6,11 +6,12 @@ import { createPortal } from "preact/compat";
 import { useEffect, useMemo, useState } from "preact/hooks";
 
 import zoomService from "../../../components/zoom";
+import { ColorScheme, resolveColorScheme, THEME_FAMILY_SCHEMES } from "../../../services/color_scheme";
 import { t } from "../../../services/i18n";
 import server from "../../../services/server";
 import { isElectron, isMobile, reloadFrontendApp, restartDesktopApp } from "../../../services/utils";
 import { VerticalLayoutIcon } from "../../buttons/global_menu";
-import { ButtonGroup } from "../../react/Button";
+import Button, { ButtonGroup } from "../../react/Button";
 import Dropdown from "../../react/Dropdown";
 import FormList, { FormListHeader, FormListItem } from "../../react/FormList";
 import { FormTextBoxWithUnit } from "../../react/FormTextBox";
@@ -18,7 +19,8 @@ import { useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import Icon from "../../react/Icon";
 import Modal from "../../react/Modal";
 import Slider from "../../react/Slider";
-import OptionsRow, { OptionsRowWithButton, OptionsRowWithToggle } from "./components/OptionsRow";
+import OptionsPageHeader from "./components/OptionsPageHeader";
+import OptionsRow, { OptionsRowWithToggle } from "./components/OptionsRow";
 import OptionsSection from "./components/OptionsSection";
 import PlatformIndicator from "./components/PlatformIndicator";
 import RadioWithIllustration from "./components/RadioWithIllustration";
@@ -33,8 +35,6 @@ interface CustomTheme {
     noteId?: string;
 }
 
-type ColorScheme = "system" | "light" | "dark";
-
 interface ThemeFamily {
     key: string;
     title: string;
@@ -47,13 +47,13 @@ const THEME_FAMILIES: ThemeFamily[] = [
         key: "modern",
         title: t("theme.modern_themes"),
         icon: "bx bx-star",
-        schemes: { system: "next", light: "next-light", dark: "next-dark" }
+        schemes: THEME_FAMILY_SCHEMES.modern
     },
     {
         key: "legacy",
         title: t("theme.legacy_themes"),
         icon: "bx bx-history",
-        schemes: { system: "auto", light: "light", dark: "dark" }
+        schemes: THEME_FAMILY_SCHEMES.legacy
     }
 ];
 
@@ -64,15 +64,9 @@ const COLOR_SCHEMES: { key: ColorScheme; label: string; icon: string }[] = [
 ];
 
 function resolveTheme(themeVal: string | null): { family: ThemeFamily | null; scheme: ColorScheme; isCustom: boolean } {
-    for (const family of THEME_FAMILIES) {
-        for (const [scheme, val] of Object.entries(family.schemes)) {
-            if (val === themeVal) {
-                return { family, scheme: scheme as ColorScheme, isCustom: false };
-            }
-        }
-    }
-    // Custom theme
-    return { family: null, scheme: "system", isCustom: true };
+    const { family: familyKey, scheme, isCustom } = resolveColorScheme(themeVal);
+    const family = THEME_FAMILIES.find(f => f.key === familyKey) ?? null;
+    return { family, scheme, isCustom };
 }
 
 interface FontFamilyEntry {
@@ -125,6 +119,7 @@ const FONT_FAMILIES: FontGroup[] = [
 export default function AppearanceSettings() {
     return (
         <>
+            <OptionsPageHeader />
             <UserInterface />
             <Fonts />
             {isElectron() && <ElectronIntegration /> }
@@ -622,11 +617,14 @@ function ElectronIntegration() {
                 disabled={nativeTitleBarVisible || !backgroundEffectsSupported}
             />
 
-            <OptionsRowWithButton
-                label={t("electron_integration.restart-app-button")}
-                icon="bx bx-refresh"
-                onClick={restartDesktopApp}
-            />
+            <OptionsRow name="restart-app" centered>
+                <Button
+                    name="restart-app-button"
+                    text={t("electron_integration.restart-app-button")}
+                    icon="bx-refresh"
+                    onClick={restartDesktopApp}
+                />
+            </OptionsRow>
         </OptionsSection>
     );
 }
@@ -660,6 +658,8 @@ function Performance() {
 
         {isElectron() && <SmoothScrollEnabledOption />}
 
+        {isElectron() && <HardwareAccelerationOption />}
+
     </OptionsSection>;
 }
 
@@ -672,6 +672,18 @@ function SmoothScrollEnabledOption() {
         description={t("ui-performance.app-restart-required")}
         currentValue={smoothScrollEnabled}
         onChange={setSmoothScrollEnabled}
+    />;
+}
+
+function HardwareAccelerationOption() {
+    const [ hardwareAccelerationEnabled, setHardwareAccelerationEnabled ] = useTriliumOptionBool("hardwareAccelerationEnabled");
+
+    return <OptionsRowWithToggle
+        name="hardware-acceleration-enabled"
+        label={t("ui-performance.enable-hardware-acceleration")}
+        description={t("ui-performance.enable-hardware-acceleration-description")}
+        currentValue={hardwareAccelerationEnabled}
+        onChange={setHardwareAccelerationEnabled}
     />;
 }
 

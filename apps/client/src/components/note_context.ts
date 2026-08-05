@@ -13,7 +13,9 @@ import { shouldRedirectPinnedNavigation } from "../services/tab_pinning.js";
 import treeService from "../services/tree.js";
 import utils from "../services/utils.js";
 import { ReactWrappedWidget } from "../widgets/basic_widget.js";
+import type { HighlightContext } from "../widgets/sidebar/HighlightsList.js";
 import type { HeadingContext } from "../widgets/sidebar/TableOfContents.js";
+import type { ChatHighlightsContext } from "../widgets/type_widgets/llm_chat/chat_highlights.js";
 import appContext, { type EventData, type EventListener } from "./app_context.js";
 import Component from "./component.js";
 
@@ -39,6 +41,8 @@ const READ_ONLY_CAPABLE_TYPES: string[] = [
 
 export interface NoteContextDataMap {
     toc: HeadingContext;
+    highlights: HighlightContext;
+    chatHighlights: ChatHighlightsContext;
     pdfPages: {
         totalPages: number;
         currentPage: number;
@@ -47,7 +51,7 @@ export interface NoteContextDataMap {
     };
     pdfAttachments: {
         attachments: PdfAttachment[];
-        downloadAttachment(filename: string): void;
+        downloadAttachment(id: string): void;
     };
     pdfLayers: {
         layers: PdfLayer[];
@@ -457,6 +461,12 @@ class NoteContext extends Component implements EventListener<"entitiesReloaded">
         }
 
         if (note.mime === "text/x-sqlite;schema=trilium") {
+            return false;
+        }
+
+        // Icon packs render their glyph-grid preview across the whole pane; a children overview below it
+        // would be out of place.
+        if (note.isIconPack()) {
             return false;
         }
 

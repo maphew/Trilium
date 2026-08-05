@@ -299,13 +299,14 @@ function buildHiddenSubtreeDefinition(helpSubtree: HiddenSubtreeItem[]): HiddenS
                     { id: "_optionsShortcuts", title: t("hidden-subtree.shortcuts-title"), type: "contentWidget", icon: "bxs-keyboard" },
                     { id: "_optionsTextNotes", title: t("hidden-subtree.text-notes"), type: "contentWidget", icon: "bx-text" },
                     { id: "_optionsCodeNotes", title: t("hidden-subtree.code-notes-title"), type: "contentWidget", icon: "bx-code" },
+                    { id: "_optionsContentManager", title: t("hidden-subtree.content-manager-title"), type: "contentWidget", icon: "bx-package" },
                     { id: "_optionsImages", title: "Images", type: "contentWidget", enforceDeleted: true },
                     { id: "_optionsMedia", title: t("hidden-subtree.images-title"), type: "contentWidget", icon: "bx-image" },
                     { id: "_optionsSpellcheck", title: t("hidden-subtree.spellcheck-title"), type: "contentWidget", icon: "bx-check-double", attributes: [{ type: "label", name: "electronOnly" }] },
                     { id: "_optionsDesktop", title: t("hidden-subtree.desktop-title"), type: "contentWidget", icon: "bx-desktop", attributes: [{ type: "label", name: "electronOnly" }] },
                     { id: "_optionsSecurity", title: t("hidden-subtree.security-title"), type: "contentWidget", icon: "bx-shield" },
                     { id: "_optionsPassword", title: t("hidden-subtree.password-title"), type: "contentWidget", icon: "bx-lock" },
-                    { id: '_optionsMFA', title: t('hidden-subtree.multi-factor-authentication-title'), type: 'contentWidget', icon: 'bx-lock ', attributes: [{ type: "label", name: "serverOnly" }] },
+                    { id: "_optionsMFA", title: t("hidden-subtree.multi-factor-authentication-title"), type: "contentWidget", enforceDeleted: true },
                     { id: "_optionsEtapi", title: t("hidden-subtree.etapi-title"), type: "contentWidget", icon: "bx-extension" },
                     { id: "_optionsBackup", title: t("hidden-subtree.backup-title"), type: "contentWidget", icon: "bx-data" },
                     { id: "_optionsSync", title: t("hidden-subtree.sync-title"), type: "contentWidget", icon: "bx-wifi" },
@@ -439,9 +440,22 @@ function checkHiddenSubtreeRecursively(parentNoteId: string, item: HiddenSubtree
         // Existing item, check if it's in the right state.
         branch = note.getParentBranches().find((branch) => branch.parentNoteId === parentNoteId);
 
-        if (item.content && note.getContent() !== item.content) {
-            log.info(`Updating content of ${item.id}.`);
-            note.setContent(item.content);
+        if (item.content && !note.isContentAvailable()) {
+            // The note was protected by the user. Without a protected session the content can neither be
+            // read (getContent() returns "") nor written — attempting to write would throw and take down
+            // the whole hidden subtree check (see #10549), so leave the content alone.
+            log.info(`Skipping content update of ${item.id} since it is protected and no protected session is available.`);
+        } else if (item.content) {
+            try {
+                if (note.getContent() !== item.content) {
+                    log.info(`Updating content of ${item.id}.`);
+                    note.setContent(item.content);
+                }
+            } catch (e) {
+                // Unreadable content of a single built-in note (e.g. a missing blob row in a damaged
+                // database) must not abort — and thereby roll back — the entire hidden subtree check.
+                log.error(`Failed to update content of ${item.id}: ${e instanceof Error ? (e.stack ?? e.message) : String(e)}`);
+            }
         }
 
         if (item.enforceBranches || item.id.startsWith("_help")) {
@@ -547,8 +561,12 @@ function checkHiddenSubtreeRecursively(parentNoteId: string, item: HiddenSubtree
                 continue;
             }
 
-            // Ensure value is consistent.
-            if (attribute.value !== attrDef.value || attribute.type !== attrDef.type) {
+            // Ensure value is consistent. Normalize the expected value the same way it is written
+            // below (`attrDef.value ?? ""`): many definitions omit `value` (undefined) while the
+            // stored attribute holds "". Comparing the raw `attrDef.value` made `"" !== undefined`
+            // always true, so every value-less attribute was re-saved on each run — and save()
+            // unconditionally emits a sync entity change, churning all open editors.
+            if (attribute.value !== (attrDef.value ?? "") || attribute.type !== attrDef.type) {
                 attribute.type = attrDef.type;
                 attribute.value = attrDef.value ?? "";
                 attribute.save();

@@ -47,6 +47,28 @@ The following features are supported by Trilium's Markdown format and will show 
     ```
     [[Hg8TS5ZOxti6]]
     ```
+*   To-do lists with extended task states:
+    
+    <table class="ck-table-resized" style="border-style:none">
+        <colgroup>
+            <col style="width:80.6%;">
+            <col style="width:19.4%;">
+        </colgroup>
+        <tbody>
+            <tr>
+                <td><pre><code class="language-text-x-markdown">- [ ] None
+    - [/] Doing
+    - [X] Done
+    - [?] Maybe
+    - [-] Cancelled</code></pre></td>
+                <td><figure class="image image-style-align-right"><img style="aspect-ratio:218/221;" src="Markdown_image.png" width="218" height="221"></figure></td>
+            </tr>
+        </tbody>
+    </table>
+    
+    Task states are customizable: you can reorder them, create new ones with different colors and symbols, or delete the ones you don't need. See <a class="reference-link" href="../Advanced%20Usage/Customizing%20to-do%20task%20states.md">Customizing to-do task states</a> for more details.
+    
+    Note that to-do items with task states other than "None" and "Done" are Trilium-specific and may not work well with other Markdown software.
 *   <a class="reference-link" href="Text/Footnotes.md">Footnotes</a> are also supported via the corresponding Markdown syntax:
     
     ```
@@ -57,10 +79,16 @@ The following features are supported by Trilium's Markdown format and will show 
     ```
     
     *   These can also be quickly created using the `/footnote` command.
-*   Page breaks for <a class="reference-link" href="#root/jdjRLhLV3TtI/yeqU0zo0ZQ83/W0msUwLxm40d">Printing and exporting to PDF</a>:
+*   Page breaks for <a class="reference-link" href="../Basic%20Concepts%20and%20Features/Notes/Printing%20%26%20Exporting%20as%20PDF.md">Printing &amp; Exporting as PDF</a>:
     
     ```
     <div class="page-break"></div>
+    ```
+*   Highlights (background color) are supported both via the `==` Markdown syntax, as well as the canonical HTML representation in Trilium:
+    
+    ```gfm
+    ==highlighted==
+    <span style="background-color:hsl(0,0%,100%);">Highlighted</span>
     ```
 
 ### Links
@@ -87,6 +115,8 @@ To create a link, either:
 
 *   Type it manually using the syntax described above.
 *   Use the _Add link_ dialog by pressing <kbd>Ctrl</kbd>+<kbd>L</kbd> or typing the `/link` command.
+
+<a class="reference-link" href="Text/Link%20Previews.md">Link Previews</a> are also rendered, but there is no mechanism to insert them automatically as of now, they have to be copied from a <a class="reference-link" href="Text.md">Text</a> note instead.
 
 ### Keyboard shortcuts
 
@@ -119,15 +149,33 @@ An image reference to an attachment looks like this:
 ![Name.jpeg](api/attachments/z50RceuHXe9J/image/image)
 ```
 
-### Slash commands
+### Auto-completion
+
+#### Slash commands
 
 Just like <a class="reference-link" href="Text.md">Text</a> notes, Markdown notes support a selection of slash commands:
 
-*   Creating [admonitions](Text/Block%20quotes%20%26%20admonitions.md) (e.g. `/tip`)
-*   Uploading images (`/image`).
 *   Inserting the current date & time (`/date`).
+*   [Including](Text/Include%20Note.md) another note (`/include`).
+*   Uploading and inserting an image (`/image`).
+*   Inserting a note link (`/link`).
+*   Inserting a math equation block (`/math`).
+*   Inserting a [footnote](Text/Footnotes.md) (`/footnote`).
+*   Inserting a [Mermaid](Mermaid%20Diagrams.md) diagram (`/mermaid`), with one variant per sample template (e.g. `/mermaid:flowchart`).
+*   Inserting a collapsible block (`/collapsible`).
+*   Inserting a page break for printing (`/page-break`).
+*   Inserting a table (`/table`).
+*   Creating admonitions (e.g. `/tip`, `/note`, `/important`, `/caution`, `/warning`).
+*   Inserting task items (`/todo:<state>`, e.g. `/todo:done`), one per configured task state.
+*   Inserting code snippets (`/snippet:<name>`) from your Markdown/plain-text snippet notes.
 
-Note that slash commands only work outside of inline 
+Note that slash commands only work outside of code blocks and inline code.
+
+#### Code block language auto-completion
+
+Starting with v0.104.0, typing \`\`\` to insert a code block will automatically open a list of suggested language types which have syntax highlighting.
+
+The list of languages matches the one for <a class="reference-link" href="Code.md">Code</a> notes set in <a class="reference-link" href="../Basic%20Concepts%20and%20Features/UI%20Elements/Options.md">Options</a>, it's not the full list of languages supported by Trilium.
 
 ### Other features
 
@@ -176,20 +224,7 @@ If the Markdown note contains attachments, a ZIP export will rewrite the links t
 
 ## Conversion between text notes and Markdown notes
 
-Currently there is no built-in functionality to convert a <a class="reference-link" href="Text.md">Text</a> note into a Markdown note or vice-versa. We do have plans to address this in the future.
-
-This can be achieved manually, for a single note:
-
-1.  Export the file as Markdown, with single format.
-2.  Import the file again, but unchecking _Import HTML, Markdown and TXT as text notes if it's unclear from the metadata_.
-
-For multiple notes, the process is slightly more involved:
-
-1.  Export the file as Markdown, ZIP.
-2.  Extract the archive.
-3.  Remove the `!!!meta.json` file.
-4.  Compress the extracted files back into an archive.
-5.  Import the newly create archive, but unchecking _Import HTML, Markdown and TXT as text notes if it's unclear from the metadata_.
+<a class="reference-link" href="Text.md">Text</a> notes can be converted into Markdown notes and vice versa. See <a class="reference-link" href="Converting%20between%20note%20types.md">Converting between note types</a>.
 
 ## Sync-scrolling & block highlight
 

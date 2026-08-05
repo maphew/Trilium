@@ -386,6 +386,389 @@ describe("renderSpreadsheetToXlsx", () => {
             expect(bytes[1]).toBe(0x4b); // 'K'
         });
     });
+
+    describe("images", () => {
+        // 1x1 transparent PNG.
+        const PNG = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==";
+        const resolveAsPng: NonNullable<Parameters<typeof renderSpreadsheetToXlsx>[1]>["resolveImage"] =
+            async (source) => (source ? { base64: PNG, extension: "png" } : null);
+
+        function floatingImageWorkbook(
+            drawing: Record<string, unknown> & { drawingId: string },
+            sheetExtra: Record<string, unknown> = {}
+        ): string {
+            const sheetId = "s1";
+            return JSON.stringify({
+                version: 1,
+                workbook: {
+                    sheetOrder: [sheetId],
+                    styles: {},
+                    sheets: {
+                        [sheetId]: {
+                            id: sheetId,
+                            name: "Sheet1",
+                            hidden: 0,
+                            defaultColumnWidth: 88,
+                            defaultRowHeight: 24,
+                            mergeData: [],
+                            cellData: { "0": { "0": { v: "x" } } },
+                            rowData: {},
+                            columnData: {},
+                            ...sheetExtra
+                        }
+                    },
+                    resources: [
+                        { name: "SHEET_DRAWING_PLUGIN", data: JSON.stringify({ [sheetId]: { data: { [drawing.drawingId]: drawing }, order: [drawing.drawingId] } }) }
+                    ]
+                }
+            });
+        }
+
+        async function load(buffer: ExcelJS.Buffer): Promise<ExcelJS.Workbook> {
+            const wb = new ExcelJS.Workbook();
+            await wb.xlsx.load(buffer as ArrayBuffer);
+            return wb;
+        }
+
+        it("embeds a floating image with a two-cell anchor from its from/to cells", async () => {
+            const buffer = await renderSpreadsheetToXlsx(
+                floatingImageWorkbook({
+                    drawingId: "img1",
+                    imageSourceType: "URL",
+                    source: "api/attachments/cgN4jEBCA1Kn/image/image.png",
+                    sheetTransform: {
+                        from: { row: 4, rowOffset: 12, column: 1, columnOffset: 44 },
+                        to: { row: 8, rowOffset: 0, column: 3, columnOffset: 0 }
+                    }
+                }),
+                { resolveImage: resolveAsPng }
+            );
+            const wb = await load(buffer);
+            const images = wb.getWorksheet("Sheet1")?.getImages() ?? [];
+            expect(images.length).toBe(1);
+            const range = images[0].range;
+            // column 1 + 44/88 = 1.5; row 4 + 12/24 = 4.5; to-corner has no offsets.
+            expect(range.tl.col).toBeCloseTo(1.5);
+            expect(range.tl.row).toBeCloseTo(4.5);
+            expect(range.br?.col).toBeCloseTo(3);
+            expect(range.br?.row).toBeCloseTo(8);
+            expect(wb.model.media[0]?.extension).toBe("png");
+        });
+
+        it("embeds a cell image anchored to its cell at the drawing size", async () => {
+            const buffer = await renderSpreadsheetToXlsx(
+                singleCellWorkbook({
+                    p: {
+                        drawings: {
+                            d1: { drawingId: "d1", source: "api/attachments/BBBBBBBBBBBB/image/y.png", transform: { width: 120, height: 90 } }
+                        },
+                        drawingsOrder: ["d1"]
+                    }
+                }),
+                { resolveImage: resolveAsPng }
+            );
+            const wb = await load(buffer);
+            const images = wb.worksheets[0].getImages();
+            expect(images.length).toBe(1);
+            const range = images[0].range;
+            expect(range.tl.col).toBeCloseTo(0);
+            expect(range.tl.row).toBeCloseTo(0);
+            const ext = (range as unknown as { ext?: { width: number; height: number } }).ext;
+            expect(ext?.width).toBe(120);
+            expect(ext?.height).toBe(90);
+        });
+
+        it("embeds no images when no resolver is provided", async () => {
+            const wb = await load(await renderSpreadsheetToXlsx(
+                floatingImageWorkbook({
+                    drawingId: "img1",
+                    source: "api/attachments/cgN4jEBCA1Kn/image/image.png",
+                    sheetTransform: { from: { row: 0, column: 0 }, to: { row: 2, column: 2 } }
+                })
+            ));
+            expect(wb.getWorksheet("Sheet1")?.getImages().length).toBe(0);
+        });
+
+        it("skips an image the resolver returns null for", async () => {
+            const wb = await load(await renderSpreadsheetToXlsx(
+                floatingImageWorkbook({
+                    drawingId: "img1",
+                    source: "api/attachments/cgN4jEBCA1Kn/image/image.png",
+                    sheetTransform: { from: { row: 0, column: 0 }, to: { row: 2, column: 2 } }
+                }),
+                { resolveImage: async () => null }
+            ));
+            expect(wb.getWorksheet("Sheet1")?.getImages().length).toBe(0);
+        });
+
+        it("embeds cell images in insertion order when the document has no drawingsOrder", async () => {
+            const wb = await load(await renderSpreadsheetToXlsx(
+                singleCellWorkbook({
+                    p: {
+                        drawings: {
+                            d1: { drawingId: "d1", source: "api/attachments/AAAAAAAAAAAA/image/a.png", transform: { width: 10, height: 10 } },
+                            d2: { drawingId: "d2", source: "api/attachments/BBBBBBBBBBBB/image/b.png", transform: { width: 20, height: 20 } }
+                        }
+                    }
+                }),
+                { resolveImage: resolveAsPng }
+            ));
+            expect(wb.worksheets[0].getImages().length).toBe(2);
+        });
+
+        it("skips cell drawings that are stale, unsized or unresolvable", async () => {
+            // Each of these is a drawing exceljs cannot anchor: an id left behind in the order, a
+            // drawing whose size is missing or degenerate, one with no source, and one the caller's
+            // resolver declines. None may abort the export.
+            const wb = await load(await renderSpreadsheetToXlsx(
+                singleCellWorkbook({
+                    p: {
+                        drawings: {
+                            unsized: { drawingId: "unsized", source: "api/attachments/AAAAAAAAAAAA/image/a.png" },
+                            zeroWidth: { drawingId: "zeroWidth", source: "api/attachments/AAAAAAAAAAAA/image/a.png", transform: { width: 0, height: 10 } },
+                            zeroHeight: { drawingId: "zeroHeight", source: "api/attachments/AAAAAAAAAAAA/image/a.png", transform: { width: 10, height: 0 } },
+                            sourceless: { drawingId: "sourceless", transform: { width: 10, height: 10 } },
+                            declined: { drawingId: "declined", source: "decline-me", transform: { width: 10, height: 10 } },
+                            good: { drawingId: "good", source: "api/attachments/BBBBBBBBBBBB/image/b.png", transform: { width: 10, height: 10 } }
+                        },
+                        drawingsOrder: ["stale", "unsized", "zeroWidth", "zeroHeight", "sourceless", "declined", "good"]
+                    }
+                }),
+                { resolveImage: async (source) => (source === "decline-me" ? { base64: "", extension: "png" } : { base64: PNG, extension: "png" }) }
+            ));
+            expect(wb.worksheets[0].getImages().length).toBe(1);
+        });
+
+        it("anchors a floating image at the cell corner when its track has no size", async () => {
+            // A collapsed row/column gives the offset nothing to be a fraction of; the anchor must
+            // fall back to the cell corner instead of dividing by zero.
+            const wb = await load(await renderSpreadsheetToXlsx(
+                floatingImageWorkbook({
+                    drawingId: "img1",
+                    source: "api/attachments/cgN4jEBCA1Kn/image/image.png",
+                    sheetTransform: {
+                        from: { row: 0, rowOffset: 5, column: 0, columnOffset: 5 },
+                        to: { row: 2, rowOffset: 0, column: 2, columnOffset: 0 }
+                    }
+                }, { rowData: { "0": { h: 0 } }, columnData: { "0": { w: 0 } } }),
+                { resolveImage: resolveAsPng }
+            ));
+            const range = wb.getWorksheet("Sheet1")?.getImages()[0]?.range;
+            expect(range?.tl.col).toBeCloseTo(0);
+            expect(range?.tl.row).toBeCloseTo(0);
+        });
+
+        it("uses explicit track sizes, and the built-in defaults when the sheet declares none", async () => {
+            // The offset is expressed as a fraction of the containing cell, so the same offset
+            // resolves differently depending on whether the track carries its own size.
+            const sized = await load(await renderSpreadsheetToXlsx(
+                floatingImageWorkbook({
+                    drawingId: "img1",
+                    source: "api/attachments/cgN4jEBCA1Kn/image/image.png",
+                    sheetTransform: {
+                        from: { row: 0, rowOffset: 25, column: 0, columnOffset: 50 },
+                        to: { row: 2, rowOffset: 0, column: 2, columnOffset: 0 }
+                    }
+                }, { rowData: { "0": { h: 50 } }, columnData: { "0": { w: 100 } } }),
+                { resolveImage: resolveAsPng }
+            ));
+            const sizedRange = sized.getWorksheet("Sheet1")?.getImages()[0]?.range;
+            expect(sizedRange?.tl.col).toBeCloseTo(0.5);
+            expect(sizedRange?.tl.row).toBeCloseTo(0.5);
+
+            // With no per-track and no sheet default, the built-in 88px column / 24px row apply.
+            const defaulted = await load(await renderSpreadsheetToXlsx(
+                floatingImageWorkbook({
+                    drawingId: "img1",
+                    source: "api/attachments/cgN4jEBCA1Kn/image/image.png",
+                    sheetTransform: {
+                        from: { row: 0, rowOffset: 12, column: 0, columnOffset: 44 },
+                        to: { row: 2, rowOffset: 0, column: 2, columnOffset: 0 }
+                    }
+                }, { defaultColumnWidth: undefined, defaultRowHeight: undefined }),
+                { resolveImage: resolveAsPng }
+            ));
+            const defaultedRange = defaulted.getWorksheet("Sheet1")?.getImages()[0]?.range;
+            expect(defaultedRange?.tl.col).toBeCloseTo(0.5);
+            expect(defaultedRange?.tl.row).toBeCloseTo(0.5);
+        });
+
+        it("treats a missing anchor index or offset as zero", async () => {
+            const wb = await load(await renderSpreadsheetToXlsx(
+                floatingImageWorkbook({
+                    drawingId: "img1",
+                    source: "api/attachments/cgN4jEBCA1Kn/image/image.png",
+                    sheetTransform: { from: {}, to: { row: 2, column: 2 } }
+                }),
+                { resolveImage: resolveAsPng }
+            ));
+            const range = wb.getWorksheet("Sheet1")?.getImages()[0]?.range;
+            expect(range?.tl.col).toBeCloseTo(0);
+            expect(range?.tl.row).toBeCloseTo(0);
+        });
+
+        it("skips a floating drawing that has no from/to anchor", async () => {
+            const wb = await load(await renderSpreadsheetToXlsx(
+                floatingImageWorkbook({
+                    drawingId: "img1",
+                    source: "api/attachments/cgN4jEBCA1Kn/image/image.png",
+                    transform: { left: 10, top: 10, width: 50, height: 50 }
+                }),
+                { resolveImage: resolveAsPng }
+            ));
+            expect(wb.getWorksheet("Sheet1")?.getImages().length).toBe(0);
+        });
+    });
+
+    describe("data validation", () => {
+        function validationWorkbook(rules: unknown[]): string {
+            const sheetId = "s1";
+            return JSON.stringify({
+                version: 1,
+                workbook: {
+                    sheetOrder: [sheetId],
+                    styles: {},
+                    sheets: {
+                        [sheetId]: {
+                            id: sheetId,
+                            name: "Sheet1",
+                            hidden: 0,
+                            mergeData: [],
+                            cellData: { "0": { "0": { v: "x" } } },
+                            rowData: {},
+                            columnData: {}
+                        }
+                    },
+                    resources: [
+                        { name: "SHEET_DATA_VALIDATION_PLUGIN", data: JSON.stringify({ [sheetId]: rules }) }
+                    ]
+                }
+            });
+        }
+
+        it("writes an inline dropdown list as an Excel inline list over its range", async () => {
+            const ws = (await roundTrip(validationWorkbook([
+                {
+                    uid: "dv1",
+                    type: "list",
+                    formula1: JSON.stringify(["Low", "Medium", "High"]),
+                    ranges: [{ startRow: 1, endRow: 2, startColumn: 3, endColumn: 4 }]
+                }
+            ]))).getWorksheet("Sheet1");
+
+            const dv = ws?.getCell("D2").dataValidation;
+            expect(dv?.type).toBe("list");
+            // Excel inline list: the options comma-joined and wrapped in double quotes.
+            expect(dv?.formulae).toEqual(['"Low,Medium,High"']);
+            // The whole 2x2 rectangle carries the rule.
+            expect(ws?.getCell("E3").dataValidation?.type).toBe("list");
+        });
+
+        it("writes a numeric constraint with its operator and both bounds", async () => {
+            const ws = (await roundTrip(validationWorkbook([
+                {
+                    uid: "dv1",
+                    type: "whole",
+                    operator: "between",
+                    formula1: "1",
+                    formula2: "10",
+                    ranges: [{ startRow: 1, endRow: 1, startColumn: 1, endColumn: 1 }]
+                }
+            ]))).getWorksheet("Sheet1");
+
+            const dv = ws?.getCell("B2").dataValidation;
+            expect(dv?.type).toBe("whole");
+            expect(dv?.operator).toBe("between");
+            // exceljs coerces the numeric formula text back to numbers on read.
+            expect(dv?.formulae).toEqual([1, 10]);
+        });
+
+        it("passes a range-referenced list through as a formula, not an inline list", async () => {
+            const ws = (await roundTrip(validationWorkbook([
+                {
+                    uid: "dv1",
+                    type: "list",
+                    formula1: "$A$1:$A$3",
+                    ranges: [{ startRow: 0, endRow: 0, startColumn: 2, endColumn: 2 }]
+                }
+            ]))).getWorksheet("Sheet1");
+
+            const dv = ws?.getCell("C1").dataValidation;
+            expect(dv?.type).toBe("list");
+            expect(dv?.formulae).toEqual(["$A$1:$A$3"]);
+        });
+
+        it("applies a rule with multiple ranges to each range", async () => {
+            const ws = (await roundTrip(validationWorkbook([
+                {
+                    uid: "dv1",
+                    type: "list",
+                    formula1: JSON.stringify(["a", "b"]),
+                    ranges: [
+                        { startRow: 1, endRow: 5, startColumn: 3, endColumn: 3 },
+                        { startRow: 1, endRow: 5, startColumn: 5, endColumn: 5 }
+                    ]
+                }
+            ]))).getWorksheet("Sheet1");
+
+            expect(ws?.getCell("D2").dataValidation?.type).toBe("list");
+            expect(ws?.getCell("F6").dataValidation?.type).toBe("list");
+            // A cell between the two ranges is untouched.
+            expect(ws?.getCell("E3").dataValidation).toBeUndefined();
+        });
+
+        it("writes a custom-formula validation (a formula, no operator)", async () => {
+            const ws = (await roundTrip(validationWorkbook([
+                {
+                    uid: "dv1",
+                    type: "custom",
+                    formula1: "=B2>0",
+                    ranges: [{ startRow: 1, endRow: 1, startColumn: 1, endColumn: 1 }]
+                }
+            ]))).getWorksheet("Sheet1");
+
+            const dv = ws?.getCell("B2").dataValidation;
+            expect(dv?.type).toBe("custom");
+            expect(dv?.formulae).toEqual(["=B2>0"]);
+            expect(dv?.operator).toBeUndefined();
+        });
+
+        it("skips a list validation that has no options", async () => {
+            const ws = (await roundTrip(validationWorkbook([
+                {
+                    uid: "dv1",
+                    type: "list",
+                    ranges: [{ startRow: 0, endRow: 0, startColumn: 0, endColumn: 0 }]
+                },
+                // An option array that parses but is empty — what importing an inline list of only
+                // empty tokens (`",,"`) yields. It must be skipped, not written as an empty list.
+                {
+                    uid: "dv2",
+                    type: "list",
+                    formula1: "[]",
+                    ranges: [{ startRow: 0, endRow: 0, startColumn: 2, endColumn: 2 }]
+                }
+            ]))).getWorksheet("Sheet1");
+            expect(ws?.getCell("A1").dataValidation).toBeUndefined();
+            expect(ws?.getCell("C1").dataValidation).toBeUndefined();
+        });
+
+        it("skips a validation type Excel cannot represent", async () => {
+            const ws = (await roundTrip(validationWorkbook([
+                {
+                    uid: "dv1",
+                    type: "checkbox",
+                    ranges: [{ startRow: 0, endRow: 0, startColumn: 0, endColumn: 0 }]
+                }
+            ]))).getWorksheet("Sheet1");
+            expect(ws?.getCell("A1").dataValidation).toBeUndefined();
+        });
+
+        it("renders without error when there is no validation resource", async () => {
+            const ws = (await roundTrip(singleCellWorkbook({ v: "x" }))).getWorksheet("Sheet1");
+            expect(ws?.getCell("A1").dataValidation).toBeUndefined();
+        });
+    });
 });
 
 describe("uniqueSheetName", () => {
