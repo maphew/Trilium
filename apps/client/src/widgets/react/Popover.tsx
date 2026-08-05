@@ -47,6 +47,7 @@ export interface PopoverProps {
  */
 export default function Popover({ getAnchorRect, placement, updateKey, className, keepOpenSelector, onDismiss, children }: PopoverProps) {
     const elRef = useRef<HTMLDivElement>(null);
+    const arrowRef = useRef<HTMLDivElement>(null);
     const popperRef = useRef<Instance>();
 
     // Held in a ref so the popper built once keeps asking the newest question — rebuilding it on
@@ -64,8 +65,13 @@ export default function Popover({ getAnchorRect, placement, updateKey, className
             // Fixed, as the element stands in the body rather than beside its anchor.
             strategy: "fixed",
             modifiers: [
-                { name: "offset", options: { offset: [ 0, 12 ] } },
-                { name: "preventOverflow", options: { padding: 8 } }
+                // Room for the arrow to stand in, and a little air past its tip.
+                { name: "offset", options: { offset: [ 0, 10 ] } },
+                { name: "preventOverflow", options: { padding: 8 } },
+                // Kept clear of the panel's rounded corners, where an arrow would grow out of thin
+                // air; an anchor so near a corner that it cannot be pointed at squarely gets the
+                // arrow as close as the padding allows.
+                { name: "arrow", options: { element: arrowRef.current, padding: 10 } }
             ]
         });
         popperRef.current = popper;
@@ -104,6 +110,10 @@ export default function Popover({ getAnchorRect, placement, updateKey, className
 
     return createPortal(
         <div ref={elRef} className={clsx("tn-popover", className)}>
+            {/* What the popover is pointing at, drawn by Popper against whichever side it ended up
+                on (see the placements in Popover.css). First in the panel so its static position is
+                the panel's own corner, which is what Popper's offset is reckoned from. */}
+            <div ref={arrowRef} className="tn-popover-arrow" />
             {children}
         </div>,
         document.body
