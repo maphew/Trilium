@@ -82,6 +82,10 @@ export default function EventPopover({ noteId, anchor, container, parentNote, is
             placement={glob.isRtl ? "left-start" : "right-start"}
             getAnchorRect={() => eventAnchorRect(container, noteId, anchor)}
             updateKey={noteId}
+            // A press on another chip is not a dismissal but a switch: the click behind it re-points
+            // this popover at that event (see onEventClick), which would otherwise have to tear the
+            // popover down on the press and build it again on the click.
+            keepOpenSelector=".fc-event"
             onDismiss={close}
         >
             <EmbeddedNoteScope component={component} noteContext={noteContext}>

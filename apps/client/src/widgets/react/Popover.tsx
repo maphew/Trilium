@@ -6,6 +6,8 @@ import { ComponentChildren } from "preact";
 import { createPortal } from "preact/compat";
 import { useEffect, useRef } from "preact/hooks";
 
+import { FLOATING_LAYER_SELECTOR, isWithinFloatingLayer } from "./floating_layers";
+
 export interface PopoverProps {
     /**
      * Where the popover points: a rectangle in viewport coordinates, asked for afresh on every
@@ -23,6 +25,13 @@ export interface PopoverProps {
      */
     updateKey?: unknown;
     className?: string;
+    /**
+     * Presses matching this keep the popover open, over and above the app's own floating layers
+     * (see {@link FLOATING_LAYER_SELECTOR}) — for what the popover stands beside and answers to
+     * rather than closes for: the calendar's chips, each of which re-points the standing popover
+     * at its own event.
+     */
+    keepOpenSelector?: string;
     /** Called on a press outside the popover; the owner decides what being dismissed means. The
      *  press itself still lands where it fell — dismissal must not swallow it, or pressing the
      *  thing the popover stands beside would take two tries. */
@@ -36,7 +45,7 @@ export interface PopoverProps {
  * container clips it and no containment root flattens its frosting (see the Dropdown notes in
  * CLAUDE.md); positioned by Popper, which also keeps it in place while ancestors scroll.
  */
-export default function Popover({ getAnchorRect, placement, updateKey, className, onDismiss, children }: PopoverProps) {
+export default function Popover({ getAnchorRect, placement, updateKey, className, keepOpenSelector, onDismiss, children }: PopoverProps) {
     const elRef = useRef<HTMLDivElement>(null);
     const popperRef = useRef<Instance>();
 
@@ -76,15 +85,22 @@ export default function Popover({ getAnchorRect, placement, updateKey, className
 
         const onPointerDown = (e: PointerEvent) => {
             const el = elRef.current;
-            if (el && e.target instanceof Node && !el.contains(e.target)) {
-                onDismiss();
-            }
+            if (!el || !(e.target instanceof Node) || el.contains(e.target)) return;
+
+            // A layer standing over the popover is not a place away from it: a dropdown the
+            // popover opened lives in the body rather than within it, and dismissing on the press
+            // would take the menu down before the click that chose anything could arrive (see
+            // floating_layers.ts). Nor is what the popover answers to (see keepOpenSelector).
+            if (isWithinFloatingLayer(e.target)) return;
+            if (keepOpenSelector && e.target instanceof Element && e.target.closest(keepOpenSelector)) return;
+
+            onDismiss();
         };
         // Captured, so the popover hears of the press wherever it lands — including places that
         // stop propagation for reasons of their own.
         document.addEventListener("pointerdown", onPointerDown, true);
         return () => document.removeEventListener("pointerdown", onPointerDown, true);
-    }, [ onDismiss ]);
+    }, [ onDismiss, keepOpenSelector ]);
 
     return createPortal(
         <div ref={elRef} className={clsx("tn-popover", className)}>
