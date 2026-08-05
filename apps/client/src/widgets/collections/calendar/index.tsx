@@ -202,6 +202,31 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
         }
     }, [ isCalendarRoot, selection, noteIds ]);
 
+    /**
+     * Follows a link inside the event surface whose note stands on this calendar: the surface
+     * switches to it — the same as if its chip had been clicked — and the calendar turns to its
+     * date, whatever the view (a day, a month), so the chip the surface re-anchors to is on the
+     * grid. Answers whether the note stands on the calendar at all, a link to anything else
+     * keeping its ordinary meaning (see useFollowLinksWithin in EmbeddedNotePane, and the geo
+     * map's followLink, whose bargain this is).
+     *
+     * The calendar itself is asked rather than the note's labels read: every chip is built with
+     * its noteId for an id (see buildEvent), so this honours whatever label names the calendar
+     * builds its events by. In calendar-root mode events are fetched by visible range, so a note
+     * beyond it is not found and its link keeps its ordinary meaning — a bounded loss, as root
+     * calendars are read rather than cross-linked.
+     */
+    const followLink = useCallback((noteId: string) => {
+        const event = calendarRef.current?.getEventById(noteId);
+        if (!event) return false;
+
+        // Where the chip is named by the anchor of last resort: null, there being no press on the
+        // grid to name one — the popover re-anchors to the first chip drawn (see eventAnchorRect).
+        setSelection({ noteId, anchor: null });
+        if (event.start) calendarRef.current?.gotoDate(event.start);
+        return true;
+    }, []);
+
     // A click on an event opens it into the event surface instead of navigating to the popup the
     // event's `url` names — a popover beside the chip, or a sheet where there is no beside (see
     // EventPopover).
@@ -303,6 +328,7 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
                     parentNote={note}
                     isEditable={isEditable}
                     onClose={() => setSelection(null)}
+                    onFollowLink={followLink}
                 />
             )}
             {selection && "draft" in selection && (

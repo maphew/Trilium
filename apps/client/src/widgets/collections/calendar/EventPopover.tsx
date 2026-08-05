@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
 import { isMobile } from "../../../services/utils";
-import { announceEmbeddedNoteClosing, EmbeddedNoteActions, EmbeddedNoteScope, MaximizeToQuickEditAction, NoteColorAction, OpenNoteActions, useEmbeddedNoteContext } from "../../EmbeddedNotePane";
+import { announceEmbeddedNoteClosing, EmbeddedNoteActions, EmbeddedNoteScope, MaximizeToQuickEditAction, NoteColorAction, OpenNoteActions, useEmbeddedNoteContext, useFollowLinksWithin } from "../../EmbeddedNotePane";
 import TitleRow from "../../layout/TitleRow";
 import NoteDetail from "../../NoteDetail";
 import PromotedAttributes from "../../PromotedAttributes";
@@ -40,11 +40,11 @@ const EVENT_LABELS = [ "startDate", "endDate", "startTime", "endTime", "recurren
  * One surface for the selection rather than one per event: clicking another chip is a note switch
  * within a standing surface — the editors hear it and save.
  */
-export default function EventPopover({ noteId, anchor, container, parentNote, isEditable, onClose }: {
+export default function EventPopover({ noteId, anchor, container, parentNote, isEditable, onClose, onFollowLink }: {
     noteId: string;
     /** Where the chip was clicked — which of the event's segments to stand by, and the anchor of
-     *  last resort when no chip is on the grid at all (a note just committed from a ghost, whose
-     *  chip has yet to be drawn). Of no interest to the sheet, which is anchored to nothing. */
+     *  last resort where none can be found on the grid. Of no interest to the sheet, which is
+     *  anchored to nothing. */
     anchor: AnchorPoint | null;
     /** The calendar the chips are read out of (see {@link eventAnchorRect}). */
     container: HTMLElement | null;
@@ -54,6 +54,9 @@ export default function EventPopover({ noteId, anchor, container, parentNote, is
      *  more — a calendar root's day notes are not events to be recoloured or taken off it. */
     isEditable: boolean;
     onClose(): void;
+    /** Offered a link's note; answers whether the calendar took the navigation over (see
+     *  {@link useFollowLinksWithin} and followLink in index.tsx). */
+    onFollowLink(noteId: string): boolean;
 }) {
     const note = useNote(noteId);
     const { noteContext, component } = useEmbeddedNoteContext(note ?? undefined, POPOVER_NTX_ID);
@@ -78,7 +81,7 @@ export default function EventPopover({ noteId, anchor, container, parentNote, is
     return (
         <EmbeddedNoteScope component={component} noteContext={noteContext}>
             {isMobile() ? (
-                <EventSheet note={note} parentNote={parentNote} isEditable={isEditable} onClose={close} />
+                <EventSheet note={note} parentNote={parentNote} isEditable={isEditable} onClose={close} onFollowLink={onFollowLink} />
             ) : (
                 <EventPopoverShell
                     note={note}
@@ -87,6 +90,7 @@ export default function EventPopover({ noteId, anchor, container, parentNote, is
                     parentNote={parentNote}
                     isEditable={isEditable}
                     onClose={close}
+                    onFollowLink={onFollowLink}
                 />
             )}
         </EmbeddedNoteScope>
@@ -94,13 +98,14 @@ export default function EventPopover({ noteId, anchor, container, parentNote, is
 }
 
 /** The event beside its chip, as a desktop shows it. */
-function EventPopoverShell({ note, anchorRect, updateKey, parentNote, isEditable, onClose }: {
+function EventPopoverShell({ note, anchorRect, updateKey, parentNote, isEditable, onClose, onFollowLink }: {
     note: FNote;
     anchorRect(): DOMRect;
     updateKey: string;
     parentNote: FNote;
     isEditable: boolean;
     onClose(): void;
+    onFollowLink(noteId: string): boolean;
 }) {
     useEffect(() => {
         const onKeyDown = (e: KeyboardEvent) => {
@@ -122,7 +127,7 @@ function EventPopoverShell({ note, anchorRect, updateKey, parentNote, isEditable
             keepOpenSelector=".fc-event"
             onDismiss={onClose}
         >
-            <EventDetails note={note} parentNote={parentNote} isEditable={isEditable} onClose={onClose} />
+            <EventDetails note={note} parentNote={parentNote} isEditable={isEditable} onClose={onClose} onFollowLink={onFollowLink} />
         </Popover>
     );
 }
@@ -139,16 +144,21 @@ function EventPopoverShell({ note, anchorRect, updateKey, parentNote, isEditable
  *
  * Escape and the backdrop are the dialog's own to answer.
  */
-function EventSheet({ note, parentNote, isEditable, onClose }: {
+function EventSheet({ note, parentNote, isEditable, onClose, onFollowLink }: {
     note: FNote;
     parentNote: FNote;
     isEditable: boolean;
     onClose(): void;
+    onFollowLink(noteId: string): boolean;
 }) {
     // Marked on the dialog itself rather than on its body, so that what heads it is inside the
     // marked element too (see {@link useLegacyComponentElement}).
     const modalRef = useRef<HTMLDivElement>(null);
     useLegacyComponentElement(modalRef);
+
+    // A link to another event switches the sheet, the calendar behind it turning to the event's
+    // date for when the sheet comes down (see the shared hook).
+    useFollowLinksWithin(modalRef, onFollowLink);
 
     /*
      * Closing is asked of the dialog rather than done to it: what is inside says it is finished —
@@ -182,17 +192,22 @@ function EventSheet({ note, parentNote, isEditable, onClose }: {
 const POPOVER_NTX_ID = "_calendar-event-popover";
 
 /** The popover's contents: what heads it, and the event under that. */
-function EventDetails({ note, parentNote, isEditable, onClose }: {
+function EventDetails({ note, parentNote, isEditable, onClose, onFollowLink }: {
     note: FNote;
     parentNote: FNote;
     isEditable: boolean;
     onClose(): void;
+    onFollowLink(noteId: string): boolean;
 }) {
     // The popover stands for its component in the DOM, which is how the text editor finds its
     // host — without this it resolves the widget enclosing the calendar instead (see the geo pane).
     // A sheet marks its dialog instead, what heads it being the dialog's own.
     const innerRef = useRef<HTMLDivElement>(null);
     useLegacyComponentElement(innerRef);
+
+    // A link to another event switches this popover, the calendar turning to the event's date and
+    // the popover re-anchoring to its chip (see the shared hook and followLink in index.tsx).
+    useFollowLinksWithin(innerRef, onFollowLink);
 
     return (
         <div className="calendar-event-popover-inner" ref={innerRef}>
