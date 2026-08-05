@@ -63,7 +63,9 @@
     "link_title": "링크 제목",
     "button_add_link": "링크 추가",
     "anchor": "앵커(선택)",
-    "anchor_none": "없음(노트 전체 링크)"
+    "anchor_none": "없음(노트 전체 링크)",
+    "edit_link": "링크 편집",
+    "button_edit_link": "링크 저장"
   },
   "branch_prefix": {
     "save": "저장",
@@ -791,7 +793,9 @@
     "hoisted_note": "실행 메뉴가 대상을 열 때 루트로 볼 노트입니다.",
     "share_logo": "공유 페이지의 로고로 사용되는 이미지 노트입니다. 이 노트는 공유 하위 트리 안에 있어야 합니다.",
     "share_open_graph_image_relation": "공유 페이지의 <code>og:image</code> 로 사용할 이미지 노트입니다. 이미지 주소를 지정하려면 같은 이름의 레이블을 대신 설정합니다.",
-    "share_html": "해당 노트의 <code>#shareHtmlLocation</code> 설정에 따라 공유 페이지에 삽입할 HTML 노트입니다. 이 노트는 공유된 하위 트리 안에 있어야 합니다."
+    "share_html": "해당 노트의 <code>#shareHtmlLocation</code> 설정에 따라 공유 페이지에 삽입할 HTML 노트입니다. 이 노트는 공유된 하위 트리 안에 있어야 합니다.",
+    "map_dark_style": "<code>map:style</code> 에 지정된 사용자 지정 스타일이 어두운 스타일임을 지리 지도에 알려, 그 위에 표시되는 마커 제목을 밝게 그리도록 합니다. 컬렉션 속성에서 제공하는 스타일은 자체적으로 이를 나타내므로 이러한 레이블이 필요하지 않습니다.",
+    "map_cluster": "서로 가까이 표시되는 마커를 하나의 숫자 원으로 묶으며, 클릭하면 펼쳐집니다."
   },
   "attribute_editor": {
     "help_text_body1": "레이블을 추가하려면 예를 들어 <code>#rock</code> 값을 입력합니다. 값도 함께 추가하려면 예를 들어 <code>#year = 2020</code> 값을 입력합니다",
@@ -2690,12 +2694,20 @@
     "create-child-note-text": "마커 추가",
     "create-child-note-instruction": "지도에서 위치를 클릭하여 새 노트를 만들거나 Escape 키를 눌러 취소하세요.",
     "create-child-note-toast-title": "새 노트",
-    "unable-to-load-map": "맵을 로드할 수 없습니다."
+    "unable-to-load-map": "맵을 로드할 수 없습니다.",
+    "move-marker-instruction": "지도를 클릭하여 마커를 해당 위치로 이동하거나 Esc 키를 눌러 취소합니다.",
+    "move-marker-toast-title": "마커 이동",
+    "webgl-unavailable": "WebGL을 사용할 수 없어 이 지도를 표시할 수 없습니다. 하드웨어 가속이 활성화되어 있고 그래픽 드라이버가 최신 상태인지 확인하세요.",
+    "zoom-in": "확대",
+    "zoom-out": "축소",
+    "fullscreen": "전체 화면",
+    "exit-fullscreen": "전체 화면 종료"
   },
   "geo-map-context": {
     "open-location": "위치 열기",
     "remove-from-map": "맵에서 제거",
-    "add-note": "이 위치에 마커 추가"
+    "add-note": "이 위치에 마커 추가",
+    "move-marker": "다른 위치로 이동"
   },
   "help-button": {
     "title": "관련 도움말 페이지 열기"
@@ -2992,7 +3004,8 @@
     "vector_light": "벡터(밝게)",
     "vector_dark": "벡터(어둡게)",
     "show-scale": "축척 표시",
-    "show-labels": "마커 이름 표시"
+    "show-labels": "마커 이름 표시",
+    "cluster-markers": "가까운 마커 그룹화"
   },
   "table_context_menu": {
     "delete_row": "행 삭제"
@@ -3437,7 +3450,8 @@
     "moveUp": "위로 이동",
     "moveDown": "아래로 이동",
     "clickTips": "대상 노드를 클릭하세요",
-    "summary": "요약"
+    "summary": "요약",
+    "draw-arrow": "화살표를 그릴 대상…"
   },
   "llm": {
     "disabled_placeholder": "AI 기능이 꺼져 있습니다. 제공업체와 MCP를 설정하려면 AI 기능을 활성화하세요.",
@@ -3716,5 +3730,10 @@
     "viewConfig": "보기 설정",
     "canvasLibraryItem": "캔버스 라이브러리",
     "importSource": "가져오기 원본"
+  },
+  "color-picker": {
+    "clear-color": "색상 지우기",
+    "set-color": "색상 설정",
+    "set-custom-color": "사용자 지정 색상 설정"
   }
 }
