@@ -111,7 +111,7 @@
     "cancel": "取消",
     "ok": "确定",
     "are_you_sure_remove_note": "确定要从关系图中移除笔记 \"{{title}}\" ？ ",
-    "if_you_dont_check": "如果不选中此项，笔记将仅从关系图中移除。",
+    "if_you_dont_check": "笔记本身会被保留；仅将其从当前位置移除。",
     "also_delete_note": "同时删除笔记"
   },
   "delete_notes": {
