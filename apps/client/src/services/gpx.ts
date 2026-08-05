@@ -15,6 +15,16 @@ export interface GpxElevationSample {
     elevation: number;
 }
 
+/** A named place the file marks beside its lines — only what a listing shows of one. */
+export interface GpxWaypoint {
+    name?: string;
+    /** The `<desc>`, kept only where it says more than the name — tools often write the name into
+     *  both, and a listing that repeats each name twice says nothing. */
+    description?: string;
+    /** Metres, when the waypoint carries one. */
+    elevation?: number;
+}
+
 export interface GpxStats {
     /** What the file calls itself (its metadata, else its first track or route) — which may well
      *  differ from the note's title, typically a file name. */
@@ -25,7 +35,8 @@ export interface GpxStats {
     segmentCount: number;
     /** Track and route points that carry a readable position. */
     pointCount: number;
-    waypointCount: number;
+    /** The file's waypoints that carry a readable position, in file order. */
+    waypoints: GpxWaypoint[];
     /** Metres travelled, summed within each segment and route. The jumps between segments are not
      *  counted: a track is split exactly where it stopped being recorded, so whatever ground lies
      *  between two segments was not travelled on this track. */
@@ -78,7 +89,7 @@ export function parseGpxStats(xml: string): GpxStats | null {
         routeCount: doc.querySelectorAll("rte").length,
         segmentCount: doc.querySelectorAll("trkseg").length,
         pointCount: segments.reduce((count, segment) => count + segment.length, 0),
-        waypointCount: countPositioned(doc.querySelectorAll("wpt")),
+        waypoints: readWaypoints(doc),
         distance: 0
     };
 
@@ -312,8 +323,30 @@ function readPoints(elements: Iterable<Element>, { withTime = true } = {}): GpxP
     return points;
 }
 
-function countPositioned(elements: Iterable<Element>): number {
-    return readPoints(elements).length;
+/** The file's waypoints as a listing shows them, skipping any that cannot say where they are. */
+function readWaypoints(doc: Document): GpxWaypoint[] {
+    const waypoints: GpxWaypoint[] = [];
+
+    for (const element of doc.querySelectorAll("wpt")) {
+        const [ point ] = readPoints([ element ], { withTime: false });
+        if (!point) continue;
+
+        const waypoint: GpxWaypoint = {};
+        const name = childText(element, "name")?.trim();
+        if (name) {
+            waypoint.name = name;
+        }
+        const description = childText(element, "desc")?.trim();
+        if (description && description !== name) {
+            waypoint.description = description;
+        }
+        if (point.elevation !== undefined) {
+            waypoint.elevation = point.elevation;
+        }
+        waypoints.push(waypoint);
+    }
+
+    return waypoints;
 }
 
 /** What the file calls the given field: its metadata's (kept directly on the root in GPX 1.0,

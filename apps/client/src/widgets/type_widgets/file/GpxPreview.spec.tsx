@@ -19,6 +19,13 @@ vi.mock("../../../services/i18n", () => ({
     t: (key: string, opts?: Record<string, unknown>) => [ key, ...Object.values(opts ?? {}) ].join("|")
 }));
 
+// Collapsible pulls the real hooks module, which imports half the app (app_context, keyboard
+// actions) at module scope; only the two hooks it actually uses are stood in for.
+vi.mock("../../react/hooks", () => ({
+    useElementSize: () => ({ width: 100, height: 100 }),
+    useUniqueName: () => "test-collapsible"
+}));
+
 const { default: GpxPreview } = await import("./GpxPreview");
 
 type PreviewProps = Parameters<typeof GpxPreview>[0];
@@ -100,6 +107,27 @@ describe("GpxPreview", () => {
         // And the way to the whole track is pointed out. (Inside a geo map's own pane the hint is
         // suppressed by the pane's CSS, which a DOM assertion here cannot see.)
         expect(container.querySelector(".gpx-preview-map-hint")?.textContent).toContain("gpx_preview.map_hint");
+    });
+
+    it("lists the waypoints under a collapsed section, one row apiece", async () => {
+        serverGet.mockResolvedValue(GPX.replace("<trk>", `
+            <wpt lat="0" lon="0"><name>GATE16</name><desc>Gate 16</desc><ele>77.7</ele></wpt>
+            <wpt lat="0" lon="0.01"><name>5066</name><desc>5066</desc></wpt>
+        <trk>`));
+
+        mount();
+        await vi.waitFor(() => expect(container.querySelector(".gpx-waypoints")).not.toBeNull());
+
+        expect(container.querySelector(".gpx-waypoints .collapsible-title")?.textContent)
+            .toContain("gpx_preview.waypoints_with_count|2");
+
+        const rows = [ ...container.querySelectorAll(".gpx-waypoint-list > li") ];
+        expect(rows.map((row) => row.querySelector(".gpx-waypoint-name")?.textContent)).toEqual([ "GATE16", "5066" ]);
+        // The desc shows only where it says more than the name; the elevation only where there is one.
+        expect(rows[0].querySelector(".gpx-waypoint-description")?.textContent).toBe("Gate 16");
+        expect(rows[0].querySelector(".gpx-waypoint-elevation")?.textContent).toBe("gpx_preview.unit_m|78");
+        expect(rows[1].querySelector(".gpx-waypoint-description")).toBeNull();
+        expect(rows[1].querySelector(".gpx-waypoint-elevation")).toBeNull();
     });
 
     it("decodes a binary response and paints the profile in the note's own colour", async () => {

@@ -9,6 +9,7 @@ import { t } from "../../../services/i18n";
 import server from "../../../services/server";
 import { getMeasurementSystem } from "../../../utils/formatters";
 import Alert from "../../react/Alert";
+import Collapsible from "../../react/Collapsible";
 
 type MeasurementSystem = ReturnType<typeof getMeasurementSystem>;
 
@@ -48,7 +49,7 @@ export default function GpxPreview({ note, blob }: GpxPreviewProps) {
     if (stats === undefined) {
         return null;
     }
-    if (!stats || (stats.pointCount === 0 && stats.waypointCount === 0)) {
+    if (!stats || (stats.pointCount === 0 && stats.waypoints.length === 0)) {
         // A file that is not readable GPX gets the notice any other unpreviewable file gets.
         return (
             <Alert className="file-preview-not-available" type="info">
@@ -90,6 +91,28 @@ export default function GpxPreview({ note, blob }: GpxPreviewProps) {
                     system={system}
                     trackColor={trackColor}
                 />
+            )}
+
+            {/* Collapsed by default: a file can carry dozens (the GPX spec's sample has 86), and
+                the numbers above should not have to be scrolled back to over a directory. */}
+            {stats.waypoints.length > 0 && (
+                <Collapsible
+                    className="gpx-waypoints"
+                    title={t("gpx_preview.waypoints_with_count", { count: stats.waypoints.length })}
+                >
+                    <ul className="gpx-waypoint-list">
+                        {stats.waypoints.map((waypoint, index) => (
+                            <li key={index}>
+                                <span className="bx bx-pin" aria-hidden="true" />
+                                <span className="gpx-waypoint-name">{waypoint.name ?? t("gpx_preview.unnamed_waypoint")}</span>
+                                {waypoint.description && <span className="gpx-waypoint-description">{waypoint.description}</span>}
+                                {waypoint.elevation !== undefined && (
+                                    <span className="gpx-waypoint-elevation">{formatElevation(waypoint.elevation, system)}</span>
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                </Collapsible>
             )}
 
             {/* Where the track itself can be seen — hidden when this preview already sits in a geo
@@ -136,8 +159,8 @@ function buildTiles(stats: GpxStats, system: MeasurementSystem) {
     if (stats.routeCount > 0) {
         tiles.push({ label: t("gpx_preview.routes"), value: stats.routeCount.toLocaleString() });
     }
-    if (stats.waypointCount > 0) {
-        tiles.push({ label: t("gpx_preview.waypoints"), value: stats.waypointCount.toLocaleString() });
+    if (stats.waypoints.length > 0) {
+        tiles.push({ label: t("gpx_preview.waypoints"), value: stats.waypoints.length.toLocaleString() });
     }
 
     return tiles;

@@ -76,10 +76,10 @@ describe("parseGpxStats", () => {
             routeCount: 1,
             segmentCount: 2,
             pointCount: 7,
-            // The waypoint without a position is not counted.
-            waypointCount: 1,
             name: "Morning ride"
         });
+        // The waypoint without a position is not counted.
+        expect(stats?.waypoints).toHaveLength(1);
         // 0.02° within the first segment, 0.01° within the second, 0.01° along the route — and
         // nothing for the ~1° gaps between them, which were not travelled.
         expect(stats?.distance).toBeCloseTo(0.04 * DEGREE_M, -1);
@@ -163,7 +163,21 @@ describe("parseGpxStats", () => {
     <name>Fells loop</name><desc>A ramble</desc>
     <wpt lat="42.4" lon="-71.1"><name>Crossing</name></wpt>
 </gpx>`);
-        expect(stats).toMatchObject({ name: "Fells loop", description: "A ramble", waypointCount: 1 });
+        expect(stats).toMatchObject({ name: "Fells loop", description: "A ramble", waypoints: [ { name: "Crossing" } ] });
+    });
+
+    it("lists the waypoints — a desc kept only where it says more than the name", () => {
+        const stats = parseGpxStats(gpx(`
+            <wpt lat="1" lon="1"><name>5236BRIDGE</name><desc>Bridge</desc><ele>89.9</ele></wpt>
+            <wpt lat="2" lon="2"><name>5066</name><desc>5066</desc></wpt>
+            <wpt lat="3" lon="3"/>
+        `));
+        expect(stats?.waypoints).toEqual([
+            { name: "5236BRIDGE", description: "Bridge", elevation: 89.9 },
+            // The desc repeating the name is dropped; a bare point still counts as a waypoint.
+            { name: "5066" },
+            {}
+        ]);
     });
 
     it("reads points sitting outside any segment or route, as the map does", () => {
@@ -192,7 +206,7 @@ describe("parseGpxStats", () => {
     });
 
     it("returns zeroed stats for well-formed XML with no points, and null for junk", () => {
-        expect(parseGpxStats(gpx(""))).toMatchObject({ pointCount: 0, waypointCount: 0, distance: 0 });
+        expect(parseGpxStats(gpx(""))).toMatchObject({ pointCount: 0, waypoints: [], distance: 0 });
         expect(parseGpxStats("this is not xml at all <")).toBeNull();
     });
 });

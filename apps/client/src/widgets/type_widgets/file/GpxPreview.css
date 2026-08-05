@@ -130,6 +130,43 @@
         color: var(--muted-text-color);
     }
 
+    .gpx-waypoints {
+        margin-top: 12px;
+    }
+
+    .gpx-waypoint-list {
+        list-style: none;
+        margin: 0;
+        padding: 2px 0 0;
+
+        > li {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
+            padding: 2px 0;
+
+            > .bx {
+                color: var(--muted-text-color);
+                /* An icon has no baseline worth aligning to; centred it sits on the text's height. */
+                align-self: center;
+            }
+        }
+    }
+
+    .gpx-waypoint-description {
+        color: var(--muted-text-color);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .gpx-waypoint-elevation {
+        margin-left: auto;
+        color: var(--muted-text-color);
+        font-variant-numeric: tabular-nums;
+        white-space: nowrap;
+    }
+
     .gpx-preview-map-hint {
         display: flex;
         align-items: center;
