@@ -24,7 +24,7 @@ import { ParentComponent } from "../../react/react_utils";
 import { ViewModeProps } from "../interface";
 import { changeEvent, newEvent } from "./api";
 import Calendar from "./calendar";
-import DetailDock from "./DetailDock";
+import DetailDock, { DockSelection, EventDraft } from "./DetailDock";
 import { openCalendarContextMenu } from "./context_menu";
 import { buildEvents, buildEventsForCalendar } from "./event_builder";
 import { formatDateToLocalISO, isValidDuration, parseStartEndDateFromEvent, parseStartEndTimeFromEvent } from "./utils";
@@ -114,8 +114,9 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
     const containerRef = useRef<HTMLDivElement>(null);
     const calendarMainRef = useRef<HTMLDivElement>(null);
     const calendarRef = useRef<FullCalendar>(null);
-    // The note of the selected event, which the dock at the trailing edge stands for.
-    const [ selectedNoteId, setSelectedNoteId ] = useState<string | null>(null);
+    // The event the dock at the trailing edge stands for — a chip clicked, or a note just created
+    // by drag-selecting a range (see DockSelection).
+    const [ selection, setSelection ] = useState<DockSelection | null>(null);
 
     const [ calendarRoot ] = useNoteLabelBoolean(note, "calendarRoot");
     const [ workspaceCalendarRoot ] = useNoteLabelBoolean(note, "workspaceCalendarRoot");
@@ -144,15 +145,41 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
     const locale = useLocale();
 
     const { eventDidMount } = useEventDisplayCustomization(note, parentComponent?.componentId);
-    const editingProps = useEditing(note, isEditable, isCalendarRoot, parentComponent?.componentId);
+    const editingProps = useEditing(note, isEditable, isCalendarRoot, parentComponent?.componentId,
+        (draft) => setSelection({ draft }));
+
+    // Turns the standing ghost into the note: created only now, at the commit, and — where the
+    // reader typed nothing — named by the calendar's own titleTemplate, the very thing the old
+    // title prompt used to override.
+    const commitDraft = useCallback(async (title: string) => {
+        if (!selection || !("draft" in selection)) return;
+
+        const created = await newEvent(note, {
+            title: title.trim() || undefined,
+            ...selection.draft,
+            componentId: parentComponent?.componentId
+        });
+        if (created) {
+            setSelection({ noteId: created.noteId });
+        }
+    }, [ selection, note, parentComponent?.componentId ]);
+
+    // The dragged range keeps its shading for as long as the ghost stands for it — unselectAuto is
+    // off, so pressing into the dock's own form does not clear it — and is let go the moment the
+    // selection is anything else: committed into a note, moved on from, or gone.
+    useEffect(() => {
+        if (!selection || !("draft" in selection)) {
+            calendarRef.current?.unselect();
+        }
+    }, [ selection ]);
 
     // An event taken off the calendar takes the dock with it. Not in calendar-root mode, whose
     // events (day notes and their children) are not in the collection's noteIds at all.
     useEffect(() => {
-        if (!isCalendarRoot && selectedNoteId && !noteIds.includes(selectedNoteId)) {
-            setSelectedNoteId(null);
+        if (!isCalendarRoot && selection && "noteId" in selection && !noteIds.includes(selection.noteId)) {
+            setSelection(null);
         }
-    }, [ isCalendarRoot, selectedNoteId, noteIds ]);
+    }, [ isCalendarRoot, selection, noteIds ]);
 
     // A click on an event opens it into the dock instead of navigating to the popup the event's
     // `url` names. Not on mobile, where a tap is already spoken for (see eventDidMount) and the
@@ -167,7 +194,7 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
         e.jsEvent.stopPropagation();
         const noteId = e.event.extendedProps.noteId;
         if (noteId) {
-            setSelectedNoteId(noteId);
+            setSelection({ noteId });
         }
     }, []);
 
@@ -219,8 +246,9 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
                         initialDate={initialDate || undefined}
                         locale={locale}
                         {...editingProps}
+                        unselectAuto={false}
                         eventClick={onEventClick}
-                        eventClassNames={(arg) => arg.event.extendedProps.noteId === selectedNoteId ? [ "calendar-event-in-dock" ] : []}
+                        eventClassNames={(arg) => selection && "noteId" in selection && arg.event.extendedProps.noteId === selection.noteId ? [ "calendar-event-in-dock" ] : []}
                         eventDidMount={eventDidMount}
                         viewDidMount={({ view }) => {
                             if (initialView.current !== view.type) {
@@ -231,10 +259,11 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
                     />
                 </div>
                 <DetailDock
-                    noteId={selectedNoteId}
+                    selection={selection}
                     parentNote={note}
                     isEditable={isEditable}
-                    onClose={() => setSelectedNoteId(null)}
+                    onCommitDraft={(title) => void commitDraft(title)}
+                    onClose={() => setSelection(null)}
                 />
             </div>
         </div>
@@ -371,20 +400,31 @@ function useLocale() {
     return calendarLocale;
 }
 
-function useEditing(note: FNote, isEditable: boolean, isCalendarRoot: boolean, componentId: string | undefined) {
+function useEditing(note: FNote, isEditable: boolean, isCalendarRoot: boolean, componentId: string | undefined,
+    onDraft: (draft: EventDraft) => void) {
     const onCalendarSelection = useCallback(async (e: DateSelectArg) => {
         const { startDate, endDate } = parseStartEndDateFromEvent(e);
         if (!startDate) return;
         const { startTime, endTime } = parseStartEndTimeFromEvent(e);
 
-        // Ask for the title
-        const title = await dialog.prompt({ message: t("relation_map.enter_title_of_new_note"), defaultValue: t("relation_map.default_new_note_title") });
-        if (!title?.trim()) {
+        // On a phone the dock does not open (see the event click), so the title is still asked for
+        // up front, in the dialog this flow always led with. Unselected by hand either way round:
+        // unselectAuto is off for the ghost's sake, so nothing else clears the drag's shading.
+        if (isMobile()) {
+            const title = await dialog.prompt({ message: t("relation_map.enter_title_of_new_note"), defaultValue: t("relation_map.default_new_note_title") });
+            if (title?.trim()) {
+                await newEvent(note, { title, startDate, endDate, startTime, endTime, componentId });
+            }
+            e.view.calendar.unselect();
             return;
         }
 
-        newEvent(note, { title, startDate, endDate, startTime, endTime, componentId });
-    }, [ note, componentId ]);
+        // Nothing is created yet: the range is handed over as a draft for the dock's ghost form,
+        // and a note is made only when the draft is committed (see commitDraft) — a stray drag
+        // dismissed costs nothing. The range keeps its shading meanwhile, standing on the grid for
+        // the event to be; the view lets it go when the draft resolves.
+        onDraft({ startDate, endDate, startTime, endTime });
+    }, [ note, componentId, onDraft ]);
 
     const onEventChange = useCallback(async (e: EventChangeArg) => {
         // Only process actual date/time changes, not other property changes (e.g., title via setProp).

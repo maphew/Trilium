@@ -50,5 +50,36 @@
         min-height: 0;
         overflow-y: auto;
         padding: 10px;
+        /* The scrollbar's room is kept whether or not it shows, so the fields hold one width
+           across events instead of narrowing by its thickness when a longer note brings it. */
+        scrollbar-gutter: stable;
+    }
+
+    /* The ghost face (see DraftForm): a heading standing where the note's title row will, and the
+       little there is to say laid down the same column the note's widgets will use. */
+    .calendar-detail-dock-draft-heading {
+        flex: 1;
+        min-width: 0;
+        padding: 6px 0;
+        font-weight: 600;
+    }
+
+    .calendar-detail-dock-draft-body {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+    }
+
+    .calendar-detail-dock-draft-when {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        color: var(--muted-text-color);
+        font-size: 0.9em;
+    }
+
+    .calendar-detail-dock-draft-actions {
+        display: flex;
+        justify-content: flex-end;
     }
 }

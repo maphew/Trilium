@@ -8,7 +8,9 @@ import note_create from "../../../services/note_create";
 import { deleteNoteOrBranch } from "../../../services/note_deletion";
 
 interface NewEventOpts {
-    title: string;
+    /** Left out, the note is named the way any new child of the calendar is — by the calendar's
+     *  `#titleTemplate` where one is set (see getNewNoteTitle in trilium-core). */
+    title?: string;
     startDate: string;
     endDate?: string | null;
     startTime?: string | null;
@@ -53,8 +55,8 @@ export async function newEvent(parentNote: FNote, { title, startDate, endDate, s
         });
     }
 
-    // Create the note.
-    await note_create.createNote(parentNote.noteId, {
+    // Create the note, and hand it back for the detail dock to open on.
+    const { note } = await note_create.createNote(parentNote.noteId, {
         title,
         isProtected: parentNote.isProtected,
         content: "",
@@ -62,6 +64,8 @@ export async function newEvent(parentNote: FNote, { title, startDate, endDate, s
         attributes,
         activate: false
     }, componentId);
+
+    return note;
 }
 
 /**

@@ -8,14 +8,13 @@ import FNote from "../../../entities/fnote";
 import { copyTextWithToast } from "../../../services/clipboard_ext";
 import { t } from "../../../services/i18n";
 import link from "../../../services/link";
-import { announceEmbeddedNoteClosing, EmbeddedNoteActions, EmbeddedNoteScope, NoteColorAction, OpenNoteActions, useEmbeddedNoteContext } from "../../EmbeddedNotePane";
+import { announceEmbeddedNoteClosing, EmbeddedNoteActions, EmbeddedNoteScope, NoteColorAction, OpenNoteActions, SelectTitleOnFirstOpen, useEmbeddedNoteContext } from "../../EmbeddedNotePane";
 import TitleRow from "../../layout/TitleRow";
 import NoteDetail from "../../NoteDetail";
 import PromotedAttributes from "../../PromotedAttributes";
 import ActionButton from "../../react/ActionButton";
-import { useLegacyComponentElement, useNoteColorClass, useNoteContext, useNoteLabel, useStaticTooltip } from "../../react/hooks";
+import { useLegacyComponentElement, useNoteColorClass, useNoteLabel, useStaticTooltip } from "../../react/hooks";
 import OverlayPanel, { OverlayPanelBody } from "../../react/OverlayPanel";
-import { ParentComponent } from "../../react/react_utils";
 import { removeFromMap } from "./api";
 import { GPX_MIME, trackHitLayers, trackSourceId } from "./GpxTrack";
 import { ParentMap } from "./map";
@@ -234,33 +233,6 @@ export default function DetailPane({ notes, parentNote, placing, isReadOnly, sel
             {selection?.isNew && <SelectTitleOnFirstOpen />}
         </EmbeddedNoteScope>
     );
-}
-
-/**
- * Puts the caret in the title with the whole of the stock name selected — how the pane opens on a
- * note the map has just created, whose name is the one thing it still lacks (see PaneSelection).
- *
- * A component rather than a call after `setNote`, because only rendering says when there is an
- * input to focus: the title widget grows one as the switch's announcement works through it, over
- * more than one render, and a dispatch fired after any fixed delay is a bet on how many. This
- * hears the announcement the same way the title widget does, so by the time its effect runs, the
- * commit that mounted the input is done. The widget matches the event on the pane's ntxId, as it
- * matches the one note_create raises for a note created anywhere else.
- */
-function SelectTitleOnFirstOpen() {
-    const { note } = useNoteContext();
-    const parentComponent = useContext(ParentComponent);
-    // Once per opening: the note being edited re-announces itself (a rename saving, say), and the
-    // caret must not jump back to the title mid-thought.
-    const done = useRef(false);
-
-    useEffect(() => {
-        if (!note || done.current || !parentComponent) return;
-        done.current = true;
-        void parentComponent.handleEventInChildren("focusAndSelectTitle", { isNewNote: true, ntxId: PANE_NTX_ID });
-    }, [ note?.noteId, parentComponent ]);
-
-    return null;
 }
 
 /** Must agree with `--geo-detail-pane-width` in DetailPane.css. */

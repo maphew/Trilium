@@ -1,7 +1,7 @@
 import "./EmbeddedNotePane.css";
 
 import { ComponentChildren } from "preact";
-import { useContext, useEffect, useState } from "preact/hooks";
+import { useContext, useEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../components/app_context";
 import Component from "../components/component";
@@ -13,6 +13,7 @@ import { t } from "../services/i18n";
 import ActionButton from "./react/ActionButton";
 import Dropdown from "./react/Dropdown";
 import { FormListItem } from "./react/FormList";
+import { useNoteContext } from "./react/hooks";
 import { NoteContextContext, ParentComponent } from "./react/react_utils";
 
 /*
@@ -110,6 +111,34 @@ export function EmbeddedNoteScope({ component, noteContext, children }: {
             </NoteContextContext.Provider>
         </ParentComponent.Provider>
     );
+}
+
+/**
+ * Puts the caret in the title with the whole of the stock name selected — how a pane opens on a
+ * note its host has just created, whose name is the one thing it still lacks. Rendered inside the
+ * pane's {@link EmbeddedNoteScope}, and only while the host says the note is new.
+ *
+ * A component rather than a call after `setNote`, because only rendering says when there is an
+ * input to focus: the title widget grows one as the switch's announcement works through it, over
+ * more than one render, and a dispatch fired after any fixed delay is a bet on how many. This
+ * hears the announcement the same way the title widget does, so by the time its effect runs, the
+ * commit that mounted the input is done. The widget matches the event on the pane's ntxId, as it
+ * matches the one note_create raises for a note created anywhere else.
+ */
+export function SelectTitleOnFirstOpen() {
+    const { note, ntxId } = useNoteContext();
+    const parentComponent = useContext(ParentComponent);
+    // Once per opening: the note being edited re-announces itself (a rename saving, say), and the
+    // caret must not jump back to the title mid-thought.
+    const done = useRef(false);
+
+    useEffect(() => {
+        if (!note || done.current || !parentComponent) return;
+        done.current = true;
+        void parentComponent.handleEventInChildren("focusAndSelectTitle", { isNewNote: true, ntxId });
+    }, [ note?.noteId, parentComponent ]);
+
+    return null;
 }
 
 /**

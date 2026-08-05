@@ -10,6 +10,8 @@ import TitleRow from "../../layout/TitleRow";
 import NoteDetail from "../../NoteDetail";
 import PromotedAttributes from "../../PromotedAttributes";
 import ActionButton from "../../react/ActionButton";
+import Button from "../../react/Button";
+import FormTextBox from "../../react/FormTextBox";
 import { useLegacyComponentElement, useNote } from "../../react/hooks";
 import { removeFromCalendar } from "./api";
 import EventDatesEditor from "./EventDatesEditor";
@@ -24,37 +26,81 @@ import RecurrenceEditor from "./RecurrenceEditor";
 const EVENT_LABELS = [ "startDate", "endDate", "startTime", "endTime", "recurrence" ];
 
 /**
- * A pane docked at the trailing edge of the calendar, holding the note of the selected event — the
- * calendar reflowing beside it as it comes and goes.
+ * An event still being decided on: the range the reader dragged out, standing for a note that does
+ * not exist yet. Nothing is created until the draft is committed (see {@link DraftForm}), so a
+ * ghost dismissed costs nothing — no note to clean up, no tombstone in the sync history.
  */
-export default function DetailDock({ noteId, parentNote, isEditable, onClose }: {
-    /** The note of the selected event, or `null` for a dock that is closed. */
-    noteId: string | null;
+export interface EventDraft {
+    startDate: string;
+    endDate?: string | null;
+    startTime?: string | null;
+    endTime?: string | null;
+}
+
+/**
+ * Which event the dock stands for, and why it came to be selected: the note of a chip clicked, or
+ * a range just dragged out whose note is yet to be (see {@link EventDraft}).
+ *
+ * Owned by the calendar view rather than by the dock, because a click on a chip is not the only
+ * way in, and state the dock kept to itself could not be set from the code that hands drafts over.
+ */
+export type DockSelection =
+    | { noteId: string }
+    | { draft: EventDraft };
+
+/**
+ * A pane docked at the trailing edge of the calendar, holding the note of the selected event — the
+ * calendar reflowing beside it as it comes and goes — or, for a draft, the ghost form the event is
+ * decided in (see {@link DraftForm}).
+ */
+export default function DetailDock({ selection, parentNote, isEditable, onCommitDraft, onClose }: {
+    /** The event the dock stands for, or `null` for a dock that is closed. See {@link DockSelection}. */
+    selection: DockSelection | null;
     /** The calendar's own note, which is how the tree is told what the calendar holds a note by. */
     parentNote: FNote;
     /** The calendar may not be edited, which leaves the dock the ways of opening a note and no
      *  more — a calendar root's day notes are not events to be recoloured or taken off it. */
     isEditable: boolean;
+    /** Asks for the standing draft to become a note, under the given title — or, given a blank
+     *  one, under whatever name the calendar's own titleTemplate writes. */
+    onCommitDraft(title: string): void;
     onClose(): void;
 }) {
-    const note = useNote(noteId ?? undefined);
+    const draft = selection && "draft" in selection ? selection.draft : null;
+    const note = useNote(selection && "noteId" in selection ? selection.noteId : undefined);
     // Held through the closing slide, so the dock empties only once it is out of sight.
     const [ shownNote, setShownNote ] = useState<FNote>();
-    const open = !!note;
+    const [ shownDraft, setShownDraft ] = useState<EventDraft>();
+    const open = !!note || !!draft;
+    // The note keeps the pane until its closing has been announced (the effect below), so the
+    // editors are still mounted when the announcement is raised — whether the pane is sliding
+    // shut or a draft is taking it over.
     const contentNote = note ?? shownNote;
+    const contentDraft = draft ?? (open ? undefined : shownDraft);
     const { noteContext, component: dockComponent } = useEmbeddedNoteContext(contentNote, DOCK_NTX_ID);
 
     useEffect(() => {
         if (note) setShownNote(note);
     }, [ note ]);
 
-    // Closing announces the note context's removal, which is what the editors save on — the content
-    // is still mounted through the slide, so the event still finds them.
     useEffect(() => {
-        if (!open && shownNote) {
-            void announceEmbeddedNoteClosing(dockComponent, DOCK_NTX_ID);
+        if (draft) {
+            setShownDraft(draft);
+        } else if (note) {
+            // Committed into the note the dock now holds, or moved on from: the form goes at once.
+            setShownDraft(undefined);
         }
-    }, [ open ]);
+    }, [ draft, note ]);
+
+    // The editors save through the note context's removal announcement, raised while they are
+    // still mounted: a closing dock keeps them up through the slide, and a draft taking the pane
+    // over lets them go only here, once the announcement is out.
+    useEffect(() => {
+        if (note || !shownNote) return;
+
+        void announceEmbeddedNoteClosing(dockComponent, DOCK_NTX_ID);
+        if (draft) setShownNote(undefined);
+    }, [ note, draft, shownNote, dockComponent ]);
 
     useEffect(() => {
         if (!open) return;
@@ -70,14 +116,19 @@ export default function DetailDock({ noteId, parentNote, isEditable, onClose }: 
         <div
             className={clsx("calendar-detail-dock", open && "open")}
             onTransitionEnd={(e) => {
-                if (!open && e.propertyName === "width") setShownNote(undefined);
+                if (!open && e.propertyName === "width") {
+                    setShownNote(undefined);
+                    setShownDraft(undefined);
+                }
             }}
         >
-            {contentNote && (
+            {contentNote ? (
                 <EmbeddedNoteScope component={dockComponent} noteContext={noteContext}>
                     <DockContent note={contentNote} parentNote={parentNote} isEditable={isEditable} onClose={onClose} />
                 </EmbeddedNoteScope>
-            )}
+            ) : contentDraft ? (
+                <DraftForm draft={contentDraft} onCommit={onCommitDraft} onCancel={onClose} />
+            ) : null}
         </div>
     );
 }
@@ -153,4 +204,96 @@ function DockContent({ note, parentNote, isEditable, onClose }: {
             </div>
         </div>
     );
+}
+
+/**
+ * The dock's ghost face: the form an event is decided in before its note exists. It asks for the
+ * one thing the drag did not say — the name — and writes out the one thing it did; everything else
+ * an event can hold waits for the note, one commit away. Dismissed — Escape, the close button, a
+ * click that selects something else — the draft simply evaporates: nothing was created.
+ *
+ * Committing with the title blank is allowed and meaningful: the note is then named by the
+ * calendar's own `#titleTemplate` where one is set (see getNewNoteTitle in trilium-core), which
+ * the old title prompt used to override with whatever stood in its box.
+ */
+function DraftForm({ draft, onCommit, onCancel }: {
+    draft: EventDraft;
+    onCommit(title: string): void;
+    onCancel(): void;
+}) {
+    const [ title, setTitle ] = useState("");
+    // Committing is asked for once, however many times Enter falls before the note arrives and
+    // the form goes: each ask would make its own note.
+    const [ committing, setCommitting ] = useState(false);
+
+    const commit = () => {
+        if (committing) return;
+        setCommitting(true);
+        onCommit(title);
+    };
+
+    return (
+        <div className="calendar-detail-dock-inner calendar-detail-dock-draft">
+            <div className="calendar-detail-dock-header">
+                <span className="calendar-detail-dock-draft-heading">{t("calendar_view.new_event")}</span>
+                <ActionButton
+                    className="calendar-detail-dock-close"
+                    icon="bx bx-x"
+                    text={t("calendar.close_details")}
+                    onClick={onCancel}
+                />
+            </div>
+
+            <div className="calendar-detail-dock-body calendar-detail-dock-draft-body">
+                <FormTextBox
+                    autoFocus
+                    currentValue={title}
+                    placeholder={t("calendar_view.draft_title_placeholder")}
+                    onChange={setTitle}
+                    onKeyDown={(e) => {
+                        if (e.key === "Enter") commit();
+                    }}
+                />
+
+                <div className="calendar-detail-dock-draft-when">
+                    <span className="bx bx-calendar" />
+                    {describeDraft(draft)}
+                </div>
+
+                <div className="calendar-detail-dock-draft-actions">
+                    <Button
+                        kind="primary"
+                        text={t("calendar_view.create_event")}
+                        disabled={committing}
+                        onClick={commit}
+                    />
+                </div>
+            </div>
+        </div>
+    );
+}
+
+/**
+ * When the draft happens, written out for the form: the one thing the drag already decided.
+ * Decorative and short-lived — the note's real date fields take over the moment the draft is
+ * committed — so the browser's own formatter is enough.
+ */
+function describeDraft({ startDate, endDate, startTime, endTime }: EventDraft) {
+    // Taken apart by hand: `new Date("2026-08-05")` reads as UTC midnight, which is the evening
+    // before in half the world's timezones.
+    const date = (iso: string) => {
+        const [ year, month, day ] = iso.split("-").map(Number);
+        return new Date(year, month - 1, day)
+            .toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric" });
+    };
+
+    const spansDays = !!endDate && endDate !== startDate;
+
+    if (startTime) {
+        return spansDays
+            ? `${date(startDate)}, ${startTime} – ${date(endDate ?? startDate)}, ${endTime ?? ""}`
+            : `${date(startDate)}, ${startTime}${endTime ? ` – ${endTime}` : ""}`;
+    }
+
+    return spansDays ? `${date(startDate)} – ${date(endDate ?? startDate)}` : date(startDate);
 }
