@@ -1,5 +1,5 @@
 /**
- * Reader and writer for the Trilium `.tbak` backup container: one SQLite database wrapped with
+ * Reader and writer for the Trilium backup container: one SQLite database wrapped with
  * optional gzip compression and optional AES-256-GCM encryption.
  *
  * The module depends on nothing outside the Node standard library, carries no translated strings, and

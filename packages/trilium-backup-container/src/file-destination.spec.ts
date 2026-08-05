@@ -13,7 +13,7 @@ describe("file destination", () => {
     let directory = "";
 
     beforeAll(async () => {
-        directory = await mkdtemp(join(tmpdir(), "tbak-"));
+        directory = await mkdtemp(join(tmpdir(), "backup-container-"));
     });
 
     afterAll(async () => {
@@ -23,8 +23,8 @@ describe("file destination", () => {
     it("writes to a file, patches the digest, and reads back byte for byte", async () => {
         const database = fakeDatabase(3 * 1024 * 1024);
         const source = join(directory, "document.db");
-        const partial = join(directory, "backup.tbak.part");
-        const container = join(directory, "backup.tbak");
+        const partial = join(directory, "backup.part");
+        const container = join(directory, "backup");
         const restored = join(directory, "restored.db");
         await writeFile(source, database);
 

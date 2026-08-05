@@ -5,7 +5,7 @@
  * be selected from this reason instead, so that the module carries no translations.
  */
 export type BackupContainerErrorReason =
-    /** The first bytes are not the container magic, i.e. this is not a `.tbak` file at all. */
+    /** The first bytes are not the container magic, i.e. this is not a backup container at all. */
     | "not-a-container"
     /** Written by a newer version of the format than this reader implements. */
     | "unsupported-version"
