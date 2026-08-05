@@ -2,17 +2,17 @@ import "./DetailPane.css";
 
 import clsx from "clsx";
 import type { GeoJSONSource, MapGeoJSONFeature, Map as MapLibreGLMap, MapMouseEvent, MapSourceDataEvent } from "maplibre-gl";
-import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { useCallback, useContext, useEffect, useMemo, useRef } from "preact/hooks";
 
 import appContext from "../../../components/app_context";
-import Component from "../../../components/component";
-import NoteContext, { openInCurrentNoteContext } from "../../../components/note_context";
+import { openInCurrentNoteContext } from "../../../components/note_context";
 import FNote from "../../../entities/fnote";
 import NoteColorPicker from "../../../menus/custom-items/NoteColorPicker";
 import linkContextMenu from "../../../menus/link_context_menu";
 import { copyTextWithToast } from "../../../services/clipboard_ext";
 import { t } from "../../../services/i18n";
 import link from "../../../services/link";
+import { announceEmbeddedNoteClosing, EmbeddedNoteScope, useEmbeddedNoteContext } from "../../EmbeddedNotePane";
 import TitleRow from "../../layout/TitleRow";
 import NoteDetail from "../../NoteDetail";
 import PromotedAttributes from "../../PromotedAttributes";
@@ -21,7 +21,7 @@ import Dropdown from "../../react/Dropdown";
 import { FormListItem } from "../../react/FormList";
 import { useLegacyComponentElement, useNoteColorClass, useNoteContext, useNoteLabel, useStaticTooltip } from "../../react/hooks";
 import OverlayPanel, { OverlayPanelBody } from "../../react/OverlayPanel";
-import { NoteContextContext, ParentComponent } from "../../react/react_utils";
+import { ParentComponent } from "../../react/react_utils";
 import { removeFromMap } from "./api";
 import { GPX_MIME, trackHitLayers, trackSourceId } from "./GpxTrack";
 import { ParentMap } from "./map";
@@ -79,22 +79,15 @@ export default function DetailPane({ notes, parentNote, placing, isReadOnly, sel
     const map = useContext(ParentMap);
     const note = notes.find((note) => note.noteId === selection?.noteId);
     const [ location ] = useNoteLabel(note, LOCATION_ATTRIBUTE);
-    const { noteContext, paneComponent } = usePaneNoteContext(note);
+    const { noteContext, component: paneComponent } = useEmbeddedNoteContext(note, PANE_NTX_ID);
 
     /**
-     * Lets the pane go, having given whatever is being edited in it the chance to save.
-     *
-     * Switching from one marker to another needs no such thing: that is a note switch within the
-     * pane, and the context announces it. Closing announces nothing at all — the widgets are simply
-     * unmounted — so the event a note context is removed under is raised here in its place, which is
-     * what the editors are listening for (see the spaced updates in hooks.tsx).
-     *
-     * Raised but not waited on: the save is under way by the time the call returns, and a request
-     * already in flight does not care that what started it has gone. Waiting would hold the pane
-     * open for a round trip to the server every time it was closed with something unsaved in it.
+     * Lets the pane go, having given whatever is being edited in it the chance to save (see
+     * {@link announceEmbeddedNoteClosing}). Switching from one marker to another needs no such
+     * thing: that is a note switch within the pane, and the context announces it.
      */
     const closePane = useCallback(() => {
-        void paneComponent.handleEventInChildren("beforeNoteContextRemove", { ntxIds: [ PANE_NTX_ID ] });
+        void announceEmbeddedNoteClosing(paneComponent, PANE_NTX_ID);
         onSelect(null);
     }, [ paneComponent, onSelect ]);
 
@@ -239,13 +232,13 @@ export default function DetailPane({ notes, parentNote, placing, isReadOnly, sel
 
     return (
         // What the pane holds reads the note out of the context rather than being handed one (see
-        // TitleRow), and answers to the pane's own component rather than the map's (see below).
-        <ParentComponent.Provider value={paneComponent}>
-            <NoteContextContext.Provider value={noteContext}>
-                <MarkerDetails note={note} parentNote={parentNote} isReadOnly={isReadOnly} onClose={closePane} onRelocate={relocate} onFollowLink={followLink} />
-                {selection?.isNew && <SelectTitleOnFirstOpen />}
-            </NoteContextContext.Provider>
-        </ParentComponent.Provider>
+        // TitleRow), and answers to the pane's own component rather than the map's (see
+        // EmbeddedNotePane) — the map would otherwise rebind to the marker's note, tear the map
+        // down and take the WebGL context with it.
+        <EmbeddedNoteScope component={paneComponent} noteContext={noteContext}>
+            <MarkerDetails note={note} parentNote={parentNote} isReadOnly={isReadOnly} onClose={closePane} onRelocate={relocate} onFollowLink={followLink} />
+            {selection?.isNew && <SelectTitleOnFirstOpen />}
+        </EmbeddedNoteScope>
     );
 }
 
@@ -458,7 +451,7 @@ function MarkerDetails({ note, parentNote, isReadOnly, onClose, onRelocate, onFo
             header={<TitleRow compact />}
             close={{ text: t("geo-map.close-details"), onClick: onClose }}
         >
-            <OverlayPanelBody className="geo-detail-pane-body">
+            <OverlayPanelBody className="geo-detail-pane-body tn-embedded-note-pane">
                 <MarkerLocation note={note} />
 
                 <MarkerActions note={note} parentNote={parentNote} isReadOnly={isReadOnly} onRelocate={onRelocate} />
@@ -484,63 +477,6 @@ function MarkerDetails({ note, parentNote, isReadOnly, onClose, onRelocate, onFo
 
 /** The pane's own ntxId, as the quick editor has one of its own. */
 const PANE_NTX_ID = "_geo-detail-pane";
-
-/**
- * A note context of the pane's own, pointed at whichever marker is selected — the arrangement the
- * quick editor makes, so that the icon and title widgets work and a rename saves the usual way.
- *
- * One context for the pane rather than one per marker: moving between markers is a note switch
- * within a standing pane, not a new pane.
- */
-function usePaneNoteContext(note: FNote | undefined) {
-    const parentComponent = useContext(ParentComponent);
-    const [ noteContext ] = useState(() => new NoteContext(PANE_NTX_ID));
-    // Stands between the map's component and the pane's contents. See below for why.
-    const [ paneComponent ] = useState(() => new Component());
-
-    useEffect(() => {
-        if (!parentComponent) return;
-
-        // A child of the map's component, so app-wide events still travel down into the pane — a
-        // component hanging off nothing would never hear that its note was edited elsewhere.
-        parentComponent.child(paneComponent);
-        return () => parentComponent.removeChild(paneComponent);
-    }, [ parentComponent, paneComponent ]);
-
-    useEffect(() => {
-        /*
-         * The context was built here rather than by the tab manager, so it has no parent to raise
-         * events through and is given one by hand — the pane's component, not the map's.
-         *
-         * Pointing a note context at a note announces a note switch, and an unbound `useNoteContext`
-         * rebinds to whatever context it hears named (see hooks.tsx). The quick editor gets away
-         * with announcing to its parent because it is a dialog at the root; the pane is inside the
-         * map, so the collection view around it would rebind to the marker's note, tear the map down
-         * and take the WebGL context with it.
-         */
-        noteContext.triggerEvent = (name, data) => paneComponent.handleEventInChildren(name, data);
-    }, [ noteContext, paneComponent ]);
-
-    useEffect(() => {
-        if (!note) return;
-
-        const notePath = note.getBestNotePathString(appContext.tabManager.getActiveContext()?.hoistedNoteId);
-        void noteContext.setNote(notePath, {
-            // Selecting a marker is not the kind of navigation that should dismiss an open dialog.
-            keepActiveDialog: true,
-            viewScope: {
-                // A note held read-only only because of its size is editable here, as it is in the
-                // quick editor; one the reader has marked read-only stays that way.
-                readOnlyTemporarilyDisabled: !note.hasLabel("readOnly"),
-                // The pane has a third of a note's width, which is not a toolbar's worth: the
-                // editor's own follows the selection instead of standing in a bar (see link.ts).
-                floatingToolbar: true
-            }
-        });
-    }, [ noteContext, note?.noteId ]);
-
-    return { noteContext, paneComponent };
-}
 
 /**
  * What can be done with the marker: the ways of opening its note, then the ways of changing it.

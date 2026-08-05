@@ -42,66 +42,13 @@
         }
     }
 
+    /* The note's own widgets are laid out by the shared class (see EmbeddedNotePane.css), which
+       also brings the column they stand in; what is peculiar to the dock is that its body is the
+       thing that scrolls. */
     .calendar-detail-dock-body {
         flex: 1;
         min-height: 0;
         overflow-y: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
         padding: 10px;
-    }
-
-    /* The note fills the rest of the dock rather than ending where its content does, so that
-       clicking below a short note still puts the caret in it. */
-    .note-detail {
-        flex: 1;
-        /* Written for a note split, where the split hands it one; there is no split here. */
-        max-width: none;
-        min-height: 120px;
-    }
-
-    /* The note's promoted fields, one under the other: laid out for a third of the width they are
-       written for (as the geo pane lays them). */
-    .promoted-attributes-container {
-        flex-direction: column;
-        align-items: stretch;
-        gap: 8px;
-        margin: 0;
-        /* The body of the dock is the one thing that scrolls. */
-        max-height: none;
-        overflow: visible;
-    }
-
-    .promoted-attribute-cell {
-        margin: 0;
-
-        > .input-group,
-        > .promoted-attribute-values {
-            flex: 1;
-            min-width: 0;
-            margin-inline-start: 8px;
-        }
-
-        input[type="text"],
-        input[type="number"] {
-            width: auto !important;
-        }
-
-        > label {
-            min-width: 0;
-            overflow: hidden;
-            text-overflow: ellipsis;
-        }
-
-        .tn-field {
-            min-width: 0;
-            padding: 0;
-        }
-    }
-
-    /* An event promoting nothing would still take its share of the body's gap. */
-    .promoted-attributes-widget:not(:has(.promoted-attribute-cell)) {
-        display: none;
     }
 }
