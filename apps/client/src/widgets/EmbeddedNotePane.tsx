@@ -230,6 +230,31 @@ export const OTHER_WAYS_TO_OPEN = [
 ] as const;
 
 /**
+ * The pane grown into the quick editor: the same note in the larger surface, taking the pane's
+ * place rather than standing over it — opened first and closed after, as the quick editor's own
+ * maximize hands over to a tab. Which is what earns it the place in the header that the quick-edit
+ * menu entry is denied in the row (see {@link OTHER_WAYS_TO_OPEN}): a maximize replaces the pane
+ * instead of putting a modal back over it, the close giving whatever is being edited the chance to
+ * save. Stands beside the header's X, and is dressed as its neighbour is (see EmbeddedNotePane.css).
+ *
+ * A path rather than an id, as the menu passes one, so the two roads into the quick editor agree.
+ */
+export function MaximizeToQuickEditAction({ note, onClose }: { note: FNote; onClose(): void }) {
+    return (
+        <ActionButton
+            className="tn-embedded-note-maximize"
+            icon="bx bx-expand-alt"
+            text={t("embedded_note.maximize")}
+            onClick={() => {
+                const notePath = note.getBestNotePathString(appContext.tabManager.getActiveContext()?.hoistedNoteId);
+                appContext.triggerCommand("openInPopup", { noteIdOrPath: notePath || note.noteId });
+                onClose();
+            }}
+        />
+    );
+}
+
+/**
  * The colour the note's marker, chip or card is drawn in, which the pane already wears in its title
  * but would otherwise have no way of setting — the right-click menu was the only place it could be
  * reached. Named by the host: what the colour dresses is the host's to say (a marker, an event).

@@ -2,11 +2,10 @@ import "./EventPopover.css";
 
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
-import appContext from "../../../components/app_context";
 import FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
 import { isMobile } from "../../../services/utils";
-import { announceEmbeddedNoteClosing, EmbeddedNoteActions, EmbeddedNoteScope, NoteColorAction, OpenNoteActions, useEmbeddedNoteContext } from "../../EmbeddedNotePane";
+import { announceEmbeddedNoteClosing, EmbeddedNoteActions, EmbeddedNoteScope, MaximizeToQuickEditAction, NoteColorAction, OpenNoteActions, useEmbeddedNoteContext } from "../../EmbeddedNotePane";
 import TitleRow from "../../layout/TitleRow";
 import NoteDetail from "../../NoteDetail";
 import PromotedAttributes from "../../PromotedAttributes";
@@ -200,23 +199,8 @@ function EventDetails({ note, parentNote, isEditable, onClose }: {
         <div className="calendar-event-popover-inner" ref={innerRef}>
             <div className="calendar-event-popover-header">
                 <TitleRow compact />
-                {/* The popover grown into the quick editor: the same note in the larger surface,
-                    taking the popover's place rather than standing over it — opened first and
-                    closed after, as the quick editor's own maximize hands over to a tab. A path
-                    rather than an id, as the more-ways-to-open menu passes one (see
-                    OpenNoteActions), so the two roads into the quick editor agree.
-
-                    A sheet is offered none: it already has the whole screen to grow into. */}
-                <ActionButton
-                    icon="bx bx-expand-alt"
-                    text={t("calendar.maximize_details")}
-                    onClick={() => {
-                        const notePath = note.getBestNotePathString(
-                            appContext.tabManager.getActiveContext()?.hoistedNoteId);
-                        appContext.triggerCommand("openInPopup", { noteIdOrPath: notePath || note.noteId });
-                        onClose();
-                    }}
-                />
+                {/* A sheet is offered no maximize: it already has the whole screen to grow into. */}
+                <MaximizeToQuickEditAction note={note} onClose={onClose} />
                 <ActionButton
                     icon="bx bx-x"
                     text={t("calendar.close_details")}

@@ -100,3 +100,18 @@
 :root .tn-embedded-note-pane .tn-embedded-note-remove.icon-action {
     color: var(--dropdown-item-icon-destructive-color);
 }
+
+/*
+ * The maximize button (see MaximizeToQuickEditAction), dressed as the X it stands beside: the
+ * compact round surface the theme reserves for close crosses (`.icon-action.bx-x` in
+ * theme-next/forms.css), minus the red close hover. The icon keeps the stock ratio rather than the
+ * X's 0.8 — the expand glyph fills its em box where the X's does not, so the stock size is what
+ * stands at the X's visual weight. Stated from `:root` and with the icon's own class doubled on,
+ * so as to outweigh the theme's blanket `border-radius` whichever way the stylesheets are ordered
+ * (the bargain the attribute list's delete button strikes; see AttributeList.css).
+ */
+:root .icon-action.bx-expand-alt.tn-embedded-note-maximize {
+    --icon-button-size: 24px;
+
+    border-radius: 50%;
+}

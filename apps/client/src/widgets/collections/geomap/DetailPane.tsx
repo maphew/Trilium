@@ -8,7 +8,7 @@ import FNote from "../../../entities/fnote";
 import { copyTextWithToast } from "../../../services/clipboard_ext";
 import { t } from "../../../services/i18n";
 import link from "../../../services/link";
-import { announceEmbeddedNoteClosing, EmbeddedNoteActions, EmbeddedNoteScope, NoteColorAction, OpenNoteActions, SelectTitleOnFirstOpen, useEmbeddedNoteContext } from "../../EmbeddedNotePane";
+import { announceEmbeddedNoteClosing, EmbeddedNoteActions, EmbeddedNoteScope, MaximizeToQuickEditAction, NoteColorAction, OpenNoteActions, SelectTitleOnFirstOpen, useEmbeddedNoteContext } from "../../EmbeddedNotePane";
 import TitleRow from "../../layout/TitleRow";
 import NoteDetail from "../../NoteDetail";
 import PromotedAttributes from "../../PromotedAttributes";
@@ -415,6 +415,7 @@ function MarkerDetails({ note, parentNote, isReadOnly, onClose, onRelocate, onFo
             containerRef={paneRef}
             className={clsx("geo-detail-pane", colorClass)}
             header={<TitleRow compact />}
+            headerActions={<MaximizeToQuickEditAction note={note} onClose={onClose} />}
             close={{ text: t("geo-map.close-details"), onClick: onClose }}
         >
             <OverlayPanelBody className="geo-detail-pane-body tn-embedded-note-pane">
