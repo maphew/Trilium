@@ -1,5 +1,8 @@
 .gpx-preview {
     max-width: 1000px;
+    /* Its own padding rather than the wrapper's: the wrapper is the unpadded scroll host (see
+       File.css), so the scrollbar hugs the split edge and this padding scrolls with the content. */
+    padding: 10px;
 
     .gpx-preview-name {
         margin: 0 0 4px;
