@@ -8,6 +8,8 @@ export type OptionValue = number | string;
 class Options {
     initializedPromise: Promise<void>;
     private arr!: Record<string, OptionValue>;
+    /** Which save was the most recent for a key, so a failing one knows whether it still speaks for it. */
+    private latestSave: Record<string, number> = {};
 
     constructor() {
         // Don't fetch on the share view, nor on the login / set-password pre-auth screens, where an
@@ -73,6 +75,8 @@ class Options {
 
     async save(key: OptionNames, value: OptionValue) {
         const previous = this.arr?.[key];
+        const save = (this.latestSave[key] ?? 0) + 1;
+        this.latestSave[key] = save;
         this.set(key, value);
 
         const payload: Record<string, OptionValue> = {};
@@ -85,9 +89,14 @@ class Options {
             // back when the server refuses it: a cache that keeps reporting a value which was never
             // stored makes the failure invisible to whoever asks afterwards.
             //
-            // Only while this call's own value is still the one held, so that a save which fails
-            // slowly cannot undo a later one that has already succeeded.
-            if (this.arr?.[key] === value) {
+            // Only when this is still the newest save for the key *and* what it wrote is still what
+            // is held. Either alone is not enough: a later save of the same value would otherwise be
+            // undone by this one failing, and so would a value the server pushed here meanwhile.
+            //
+            // Two saves of one key failing together still leave the cache on the older one's value
+            // rather than on what the server holds, which is what it did before any of this and is
+            // as far as a single record without a known-persisted value can get.
+            if (this.latestSave[key] === save && this.arr?.[key] === value) {
                 this.set(key, previous as OptionValue);
             }
             throw e;

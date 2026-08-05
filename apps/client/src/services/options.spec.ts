@@ -123,6 +123,41 @@ describe("Options service", () => {
         expect(options.get(k("str"))).toBe("fast");
     });
 
+    it("save() leaves a repeated value alone when an earlier save of it fails after a later one", async () => {
+        options.load({ str: "before" });
+        let failTheFirst = (_: Error) => {};
+        let requests = 0;
+        server.put = vi.fn(() => {
+            requests++;
+            return requests === 1
+                ? new Promise((_resolve, reject) => { failTheFirst = reject; })
+                : Promise.resolve({});
+        }) as unknown as typeof server.put;
+
+        // Both write the same value, so the value alone cannot say which save the cache belongs to.
+        const first = options.save(k("str"), "same");
+        await options.save(k("str"), "same");
+        failTheFirst(new Error("HTTP 500"));
+
+        await expect(first).rejects.toThrow("HTTP 500");
+        expect(options.get(k("str"))).toBe("same");
+    });
+
+    it("save() leaves a value the server pushed alone when an in-flight save then fails", async () => {
+        options.load({ str: "before" });
+        let fail = (_: Error) => {};
+        server.put = vi.fn(() =>
+            new Promise((_resolve, reject) => { fail = reject; })) as unknown as typeof server.put;
+
+        const saving = options.save(k("str"), "mine");
+        // What froca_updater does when the server reports the option changed elsewhere.
+        options.set(k("str"), "from the server");
+        fail(new Error("HTTP 500"));
+
+        await expect(saving).rejects.toThrow("HTTP 500");
+        expect(options.get(k("str"))).toBe("from the server");
+    });
+
     it("saveMany() PUTs the whole record verbatim", async () => {
         const put = (server.put = vi.fn(async () => ({})) as typeof server.put);
         const payload = { a: "1", b: "2" } as unknown as Record<OptionNames, string>;
