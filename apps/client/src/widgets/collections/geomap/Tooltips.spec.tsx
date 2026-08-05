@@ -71,18 +71,29 @@ const { FakePopup } = vi.hoisted(() => {
 
 vi.mock("maplibre-gl", () => ({ Popup: FakePopup }));
 
-/** A map that only delegates layer events, which is all this component asks of one. */
+/** A map that only delegates events — per layer or map-wide — which is all this component asks of one. */
 function fakeMap() {
     const listeners = new Map<string, Set<(e: unknown) => void>>();
     const key = (event: string, layer: string) => `${event}:${layer}`;
+    // The two shapes MapLibre's `on`/`off` take: with a layer between event and listener, and without.
+    const unpack = (layerOrFn: string | ((e: unknown) => void), fn?: (e: unknown) => void) =>
+        typeof layerOrFn === "function" ? { layer: "", fn: layerOrFn } : { layer: layerOrFn, fn };
 
     return {
-        on(event: string, layer: string, fn: (e: unknown) => void) {
+        on(event: string, layerOrFn: string | ((e: unknown) => void), maybeFn?: (e: unknown) => void) {
+            const { layer, fn } = unpack(layerOrFn, maybeFn);
+            if (!fn) return;
             const listenersForKey = listeners.get(key(event, layer)) ?? new Set();
             listeners.set(key(event, layer), listenersForKey.add(fn));
         },
-        off(event: string, layer: string, fn: (e: unknown) => void) {
+        off(event: string, layerOrFn: string | ((e: unknown) => void), maybeFn?: (e: unknown) => void) {
+            const { layer, fn } = unpack(layerOrFn, maybeFn);
+            if (!fn) return;
             listeners.get(key(event, layer))?.delete(fn);
+        },
+        /** A click landing anywhere on the map — a marker, a track or bare ground alike. */
+        click() {
+            for (const fn of listeners.get(key("click", "")) ?? []) fn({});
         },
         /** The pointer coming to rest on a marker, as MapLibre reports it. */
         hover(note: FNote) {
@@ -168,11 +179,13 @@ describe("Tooltips", () => {
         renderTooltip.mockClear();
     });
 
-    function mount(map: ReturnType<typeof fakeMap>) {
+    /** Mounts — or, called again, re-renders — the component. `selectedNoteId` is the marker the
+     *  detail pane stands for, as the map view passes it down. */
+    function mount(map: ReturnType<typeof fakeMap>, selectedNoteId: string | null = null) {
         return act(async () => {
             render(
                 <ParentMap.Provider value={map as never}>
-                    <Tooltips />
+                    <Tooltips selectedNoteId={selectedNoteId} />
                 </ParentMap.Provider>,
                 container as HTMLElement
             );
@@ -186,11 +199,17 @@ describe("Tooltips", () => {
 
         map.hover(note);
         // A marker merely passed over is not a note worth reading.
-        await advance(200);
+        await advance(100);
         expect(shownPreview()).toBeUndefined();
         expect(renderTooltip).not.toHaveBeenCalled();
 
-        await advance(400);
+        // A marker rested on is read at once — but shown only once the full wait is up, so the
+        // round trip hides inside the wait instead of stretching it.
+        await advance(200);
+        expect(renderTooltip).toHaveBeenCalled();
+        expect(shownPreview()).toBeUndefined();
+
+        await advance(200);
         expect(shownPreview()).toContain("Body of Somewhere");
         // Drawn in the shape the app's tooltip styles are written against.
         expect(FakePopup.open[0]?.html).toContain(`class="tooltip note-tooltip show"`);
@@ -273,6 +292,67 @@ describe("Tooltips", () => {
             // Named in the assertion so a failure says which placement covers the pin.
             expect(`${placement} is ${clear ? "clear of" : "over"} the pin`).toBe(`${placement} is clear of the pin`);
         }
+    });
+
+    /**
+     * A click is always something being done — a marker opened into the pane, a place chosen — and
+     * the preview must not stand over the result. A preview whose marker was clicked used to stand
+     * exactly where the pane then opened, and one still on its way landed on top of it.
+     */
+    it("dismisses the preview, up or still on its way, when the map is clicked", async () => {
+        const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+        const map = fakeMap();
+        await mount(map);
+
+        map.hover(note);
+        await advance(500);
+        expect(shownPreview()).toContain("Body of Somewhere");
+
+        await act(async () => { map.click(); });
+        expect(shownPreview()).toBeUndefined();
+
+        // A preview already being read when the click lands never arrives at all.
+        map.hover(note);
+        await advance(300);
+        expect(renderTooltip).toHaveBeenCalledTimes(2);
+        await act(async () => { map.click(); });
+        await advance(1000);
+        expect(shownPreview()).toBeUndefined();
+    });
+
+    it("never previews the marker the detail pane already stands for", async () => {
+        const selected = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+        const other = buildNote({ title: "Elsewhere", "#geolocation": "3,4" });
+        const map = fakeMap();
+        await mount(map, selected.noteId);
+
+        // The pane beside it already says everything the preview would — the note is not even read.
+        map.hover(selected);
+        await advance(1000);
+        expect(shownPreview()).toBeUndefined();
+        expect(renderTooltip).not.toHaveBeenCalled();
+
+        // Every other marker keeps its preview while the pane is up.
+        map.hover(other);
+        await advance(500);
+        expect(shownPreview()).toContain("Body of Elsewhere");
+    });
+
+    /**
+     * Not every selection is made by a click on the map: a note just created is opened into the
+     * pane by the code that created it. The selection changing is a dismissal in itself.
+     */
+    it("takes the preview down when its marker is selected without a click", async () => {
+        const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+        const map = fakeMap();
+        await mount(map);
+
+        map.hover(note);
+        await advance(500);
+        expect(shownPreview()).toContain("Body of Somewhere");
+
+        await mount(map, note.noteId);
+        expect(shownPreview()).toBeUndefined();
     });
 
     it("closes the preview when the pointer leaves the marker without reaching it", async () => {

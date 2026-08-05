@@ -252,7 +252,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                     onTogglePlacement={toggleNotePlacement}
                     onAddGpxTrack={addGpxTrack}
                 />
-                <Tooltips />
+                <Tooltips selectedNoteId={selection?.noteId ?? null} />
                 {/* The preview under the pointer while a click is armed to mean a place — the note
                     being moved wearing its own pin, a note to be created wearing the pin it will be
                     given (see api.ts). */}

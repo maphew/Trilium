@@ -11,9 +11,21 @@ import { MARKER_HEIGHT, MARKER_LAYER, MARKER_WIDTH } from "./Markers";
 /**
  * How long the pointer has to rest on a marker before its note is read.
  *
- * The same wait the tooltips everywhere else in the app make, and for the same reason: a preview is
- * a note's content, so dragging the pointer across a crowded map would otherwise read every note it
- * happens to brush past.
+ * A preview is a note's content, fetched from the server, so dragging the pointer across a crowded
+ * map would otherwise read every note it happens to brush past. Deliberately shorter than the
+ * {@link HOVER_DELAY} the preview itself sits out: the read begins part-way through that rest, so
+ * the round trip happens *during* the remainder of the wait rather than after it. Waiting the whole
+ * rest and only then reading is what made the preview arrive noticeably later here than anywhere
+ * else in the app, whose tooltips race the render against the delay (see note_tooltip.ts).
+ */
+const READ_DELAY = 150;
+
+/**
+ * How long the pointer has to rest on a marker before its preview is shown.
+ *
+ * The same wait the tooltips everywhere else in the app make: a preview flashing up under every
+ * passing pointer is flicker, not help. The note is read before this wait is over (see
+ * {@link READ_DELAY}), but shown no sooner than this however fast the read comes back.
  */
 const HOVER_DELAY = 500;
 
@@ -76,8 +88,19 @@ const PREVIEW_OFFSET: Offset = {
  * MapLibre popup rather than by the app's tooltip service because a marker is no longer an element:
  * the notes are drawn into one symbol layer (see {@link Markers}), and the service works by hovering
  * elements. What the layer gives us instead is the note behind the pixel under the pointer.
+ *
+ * Not every marker previews, and no preview outlives a click. The marker the detail pane stands for
+ * shows nothing — the pane beside it already says everything the preview would, at full length. And
+ * a click is always something being done — a marker opened into the pane, a place chosen, a pan
+ * begun — whose result the preview would otherwise stand over; the app's tooltip service dismisses
+ * on click for the same reason (see note_tooltip.ts). Without this, a preview whose marker was
+ * clicked stood exactly where the pane then opened, and one still on its way landed on top of it.
  */
-export default function Tooltips() {
+export default function Tooltips({ selectedNoteId }: {
+    /** The note the detail pane stands for, or `null` while the pane is down and every marker
+     *  previews. See the selection in DetailPane. */
+    selectedNoteId: string | null;
+}) {
     const map = useContext(ParentMap);
 
     useEffect(() => {
@@ -104,15 +127,24 @@ export default function Tooltips() {
         let shown: string | null = null;
         // Whether the pointer is on the preview itself, which is what keeps it open.
         let onTooltip = false;
+        // Whether this binding of the effect has been torn down, which is what stops a show still
+        // in flight from adding its popup to a map nothing manages any more.
+        let cancelled = false;
         let showTimer: ReturnType<typeof setTimeout> | undefined;
         let dismissTimer: ReturnType<typeof setTimeout> | undefined;
 
         async function show(noteId: string, coordinates: [ number, number ]) {
-            const note = await froca.getNote(noteId);
-            const content = await renderTooltip(note);
-            // A note with no content and no path renders to nothing, and the pointer may well have
-            // moved on to another marker while this one was being read.
-            if (!map || hovered !== noteId || !content || isHtmlEmpty(content)) return;
+            // The read raced against the rest of the wait rather than run after it: the preview
+            // holds to the full HOVER_DELAY however fast the note comes back, but a round trip no
+            // longer stretches that wait unless it outlasts what is left of it.
+            const [ content ] = await Promise.all([
+                froca.getNote(noteId).then((note) => renderTooltip(note)),
+                new Promise((resolve) => setTimeout(resolve, HOVER_DELAY - READ_DELAY))
+            ]);
+            // A note with no content and no path renders to nothing; the pointer may well have
+            // moved on to another marker while this one was being read; and a click may have
+            // dismissed the preview while it was still on its way (see dismiss).
+            if (cancelled || !map || hovered !== noteId || !content || isHtmlEmpty(content)) return;
 
             shown = noteId;
             tooltip
@@ -161,8 +193,25 @@ export default function Tooltips() {
             // there wrong for as long as the new one takes to read.
             if (shown && shown !== noteId) hide();
 
+            // The marker the pane stands for gets no preview: the pane beside it already says
+            // everything the preview would, at full length.
+            if (noteId === selectedNoteId) return;
+
             const coordinates = feature.geometry.coordinates as [ number, number ];
-            showTimer = setTimeout(() => show(noteId, coordinates), HOVER_DELAY);
+            showTimer = setTimeout(() => show(noteId, coordinates), READ_DELAY);
+        }
+
+        /**
+         * Puts the preview away — up or still on its way — because the map was clicked, whatever
+         * the click was for. Clearing `hovered` is what drops a show already past its timer, at
+         * the guard it shares with every other way of being overtaken; it also means the marker
+         * clicked does not re-arm until the pointer has left it and come back, which is the
+         * behaviour wanted of a marker that was just acted on.
+         */
+        function dismiss() {
+            hovered = null;
+            clearTimeout(dismissTimer);
+            hide();
         }
 
         function onMouseLeave() {
@@ -183,15 +232,23 @@ export default function Tooltips() {
 
         map.on("mousemove", MARKER_LAYER, onMouseMove);
         map.on("mouseleave", MARKER_LAYER, onMouseLeave);
+        // Bound to the map rather than to the marker layer: a click anywhere is something being
+        // done, and the preview goes whether the click landed on a pin, a track or bare ground.
+        map.on("click", dismiss);
 
         return () => {
+            cancelled = true;
             clearTimeout(showTimer);
             clearTimeout(dismissTimer);
             map.off("mousemove", MARKER_LAYER, onMouseMove);
             map.off("mouseleave", MARKER_LAYER, onMouseLeave);
+            map.off("click", dismiss);
             tooltip.remove();
         };
-    }, [ map ]);
+        // Depending on the selection makes every change of it a dismissal in itself, which covers
+        // the selections no click announces: a note created onto the map is opened into the pane
+        // by the code that created it (see index.tsx).
+    }, [ map, selectedNoteId ]);
 
     return null;
 }
