@@ -1009,6 +1009,7 @@
     "close_details": "Close event details",
     "dates": {
       "all_day": "All day",
+      "date": "Date",
       "start_date": "Start date",
       "end_date": "End date",
       "time": "Time",

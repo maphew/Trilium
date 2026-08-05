@@ -1,11 +1,12 @@
-.calendar-event-time-range {
-    /* The two hours share the row evenly, the dash between them taking only its own width. */
+/* A range said in one line — the days an event spans, or the hours within its day: the two ends
+   share the row evenly, the dash between them taking only its own width. */
+.calendar-event-range {
     > input {
         flex: 1 1 0;
         min-width: 0;
     }
 
-    .calendar-event-time-range-separator {
+    .calendar-event-range-separator {
         opacity: 0.75;
     }
 }

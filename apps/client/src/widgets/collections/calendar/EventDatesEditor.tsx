@@ -24,7 +24,6 @@ export default function EventDatesEditor({ note }: { note: FNote }) {
     const [ startTime, setStartTime ] = useNoteLabel(note, "startTime");
     const [ endTime, setEndTime ] = useNoteLabel(note, "endTime");
     const startDateId = useUniqueName("event-start-date");
-    const endDateId = useUniqueName("event-end-date");
 
     // All day is the absence of a start time, which is how the event builder reads it too. Held
     // locally so the switch answers the press at once — the labels the press writes come back only
@@ -56,33 +55,36 @@ export default function EventDatesEditor({ note }: { note: FNote }) {
                 onChange={toggleAllDay}
             />
 
-            <EventField name={t("calendar.dates.start_date")} htmlFor={startDateId}>
-                <LabelValueInput
-                    labelType="date"
-                    value={startDate ?? ""}
-                    commitOn="blur"
-                    // Never emptied: without a start date the note stops being an event at all, and
-                    // the dock is no place to do that by accident. The field snaps back instead.
-                    onCommit={(value) => value && setStartDate(value)}
-                    inputProps={{ id: startDateId, className: "form-control" }}
-                />
-            </EventField>
-
-            {allDay ? (
-                <EventField name={t("calendar.dates.end_date")} htmlFor={endDateId}>
+            {/* One line whichever the shape: the day, or the days it spans. */}
+            <EventField name={t("calendar.dates.date")} htmlFor={startDateId}>
+                <EventFieldControls className="calendar-event-range">
                     <LabelValueInput
                         labelType="date"
-                        value={endDate ?? ""}
+                        value={startDate ?? ""}
                         commitOn="blur"
-                        // Emptied, the event is a single day: the label goes rather than staying
-                        // blank, which is how the builder reads a day-long event.
-                        onCommit={(value) => setEndDate(value || null)}
-                        inputProps={{ id: endDateId, className: "form-control" }}
+                        // Never emptied: without a start date the note stops being an event at all,
+                        // and the dock is no place to do that by accident. The field snaps back.
+                        onCommit={(value) => value && setStartDate(value)}
+                        inputProps={{ id: startDateId, className: "form-control", "aria-label": t("calendar.dates.start_date") }}
                     />
-                </EventField>
-            ) : (
+                    {allDay && <>
+                        <span className="calendar-event-range-separator" aria-hidden="true">–</span>
+                        <LabelValueInput
+                            labelType="date"
+                            value={endDate ?? ""}
+                            commitOn="blur"
+                            // Emptied, the event is a single day: the label goes rather than
+                            // staying blank, which is how the builder reads a day-long event.
+                            onCommit={(value) => setEndDate(value || null)}
+                            inputProps={{ className: "form-control", "aria-label": t("calendar.dates.end_date") }}
+                        />
+                    </>}
+                </EventFieldControls>
+            </EventField>
+
+            {!allDay && (
                 <EventField name={t("calendar.dates.time")}>
-                    <EventFieldControls className="calendar-event-time-range">
+                    <EventFieldControls className="calendar-event-range">
                         <LabelValueInput
                             labelType="time"
                             value={startTime ?? ""}
@@ -92,7 +94,7 @@ export default function EventDatesEditor({ note }: { note: FNote }) {
                             onCommit={(value) => value && setStartTime(value)}
                             inputProps={{ className: "form-control", "aria-label": t("calendar.dates.start_time") }}
                         />
-                        <span className="calendar-event-time-range-separator" aria-hidden="true">–</span>
+                        <span className="calendar-event-range-separator" aria-hidden="true">–</span>
                         <LabelValueInput
                             labelType="time"
                             value={endTime ?? ""}
