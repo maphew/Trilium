@@ -24,7 +24,7 @@ import { AnchorPoint, EventDraft } from "./selection";
  * calendar's own `#titleTemplate` where one is set (see getNewNoteTitle in trilium-core), which
  * the old title prompt used to override with whatever stood in its box.
  */
-export default function GhostPopover({ draft, anchor, container, onCommit, onCancel }: {
+export default function GhostPopover({ draft, anchor, container, onCommit, onCancel, onDismiss }: {
     draft: EventDraft;
     /** Where the drag ended, in viewport coordinates — which of the shading's pieces to stand by,
      *  and the anchor of last resort when the shading cannot be found at all. */
@@ -32,7 +32,14 @@ export default function GhostPopover({ draft, anchor, container, onCommit, onCan
     /** The calendar the range's shading is read out of (see {@link ghostAnchorRect}). */
     container: HTMLElement | null;
     onCommit(title: string): void;
+    /** The draft given up on: Escape, or the close button. */
     onCancel(): void;
+    /**
+     * The draft pressed away from, which the host answers differently — the press itself decides
+     * what becomes of the range's shading, and the ghost is in no position to say (see
+     * dismissDraft in index.tsx).
+     */
+    onDismiss(): void;
 }) {
     const [ title, setTitle ] = useState("");
     // Committing is asked for once, however many times Enter falls before the note arrives and
@@ -58,7 +65,7 @@ export default function GhostPopover({ draft, anchor, container, onCommit, onCan
             className="calendar-ghost-popover"
             placement={glob.isRtl ? "left-start" : "right-start"}
             getAnchorRect={() => ghostAnchorRect(container, anchor)}
-            onDismiss={onCancel}
+            onDismiss={onDismiss}
         >
             <div className="calendar-ghost-header">
                 <span className="calendar-ghost-heading">{t("calendar_view.new_event")}</span>

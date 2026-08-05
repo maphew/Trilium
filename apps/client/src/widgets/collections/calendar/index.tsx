@@ -161,18 +161,33 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
             componentId: parentComponent?.componentId
         });
         if (created) {
+            // The range has become an event and its shading has nothing left to stand for; the
+            // chip takes its place. Said here because no press said it: committing is a key or a
+            // button within the ghost, and the ghost is exempt from clearing the shading.
+            calendarRef.current?.unselect();
             setSelection({ noteId: created.noteId, anchor: selection.anchor });
         }
     }, [ selection, note, parentComponent?.componentId ]);
 
-    // The dragged range keeps its shading for as long as the ghost stands for it — unselectAuto is
-    // off, so pressing into the ghost's own form does not clear it — and is let go the moment the
-    // selection is anything else: committed into a note, moved on from, or gone.
-    useEffect(() => {
-        if (!selection || !("draft" in selection)) {
-            calendarRef.current?.unselect();
-        }
-    }, [ selection ]);
+    /**
+     * The ghost given up on rather than pressed away from — Escape, or its own close button.
+     * Neither is a press on anything that would settle the shading, so it is let go by hand.
+     */
+    const cancelDraft = useCallback(() => {
+        calendarRef.current?.unselect();
+        setSelection(null);
+    }, []);
+
+    /**
+     * The ghost pressed away from, which is a different thing: the press itself settles what
+     * becomes of the shading, and saying anything here would be saying it too early. A press on the
+     * grid has already begun the next selection by the time this runs — the drag starts on the
+     * press, `selectMinDistance` being 0 — so clearing here would wipe the very range just started,
+     * which is why a click used to open a ghost over no shading at all while a drag kept its own
+     * (the drag's later moves made the selection again). A press anywhere else clears it through
+     * `unselectAuto`, and a press within the ghost is spared by `unselectCancel`.
+     */
+    const dismissDraft = useCallback(() => setSelection(null), []);
 
     // An event taken off the calendar takes the dock with it. Not in calendar-root mode, whose
     // events (day notes and their children) are not in the collection's noteIds at all.
@@ -253,7 +268,12 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
                 initialDate={initialDate || undefined}
                 locale={locale}
                 {...editingProps}
-                unselectAuto={false}
+                // The shading of a dragged range is FullCalendar's to keep and to clear, which it
+                // does on the press that follows — except a press within the ghost standing for
+                // that very range, which is what the exemption names. Letting it decide is what
+                // spares a press on the grid: the next selection has already begun by then, and
+                // FullCalendar knows not to clear what the same press has just made.
+                unselectCancel=".calendar-ghost-popover"
                 eventClick={onEventClick}
                 // The event the popover stands for is marked as such, and asks for no hover
                 // preview while it does: the popover beside it already says everything the
@@ -287,7 +307,8 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
                     anchor={selection.anchor}
                     container={containerRef.current}
                     onCommit={(title) => void commitDraft(title)}
-                    onCancel={() => setSelection(null)}
+                    onCancel={cancelDraft}
+                    onDismiss={dismissDraft}
                 />
             )}
         </div>
@@ -432,9 +453,8 @@ function useEditing(note: FNote, isEditable: boolean, isCalendarRoot: boolean, c
         const { startTime, endTime } = parseStartEndTimeFromEvent(e);
 
         // On a phone the ghost does not open (see the event click), so the title is still asked
-        // for up front, in the dialog this flow always led with. Unselected by hand either way
-        // round: unselectAuto is off for the ghost's sake, so nothing else clears the drag's
-        // shading.
+        // for up front, in the dialog this flow always led with. Unselected as the dialog closes,
+        // rather than leaving the range shaded behind it until the next press lands.
         if (isMobile()) {
             const title = await dialog.prompt({ message: t("relation_map.enter_title_of_new_note"), defaultValue: t("relation_map.default_new_note_title") });
             if (title?.trim()) {
