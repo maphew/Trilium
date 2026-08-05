@@ -10,18 +10,33 @@
   }
 }
 
+.geo-map-container.maplibregl-map {
+  font: inherit;
+
+  .maplibregl-ctrl-attrib {
+    font-size: 0.8em;
+  }
+}
+
 .geo-map-container {
-  /* How far everything standing over the map is held off its edges: the toolbar (see
-     MapToolbar.css) and MapLibre's own scale and attribution below. Settled here so that the two
-     agree, and matching the room the mind map gives its bars (see MindMap.css). */
-  --geo-map-inset: 20px;
+  /* How far everything standing over the map is held off its edges: the zoom controls (see
+     MapToolbar.css), the editing bar, and MapLibre's own scale and attribution below. The very
+     room the image viewer keeps its controls at, taken from the shared name rather than restated
+     (see the overlay buttons in theme-next/base.css), so the two cannot drift apart. */
+  --geo-map-inset: var(--overlay-button-inset, 10px);
+
+  /* How tall the controls in the corner stand, which is what anything else opened over that corner
+     has to end above (see DetailPane.css). The image viewer's zoom controls are the same height,
+     being the same group (see the overlay buttons in theme-next/forms.css); the fallback is that
+     height where no theme names one. */
+  --geo-map-toolbar-height: var(--overlay-button-height, 28px);
 
   /*
-   * What everything standing over the map is dressed in — our own bar and MapLibre's scale and
-   * attribution alike, so that the three read as one set rather than as ours beside theirs. The
-   * app's menu surface, which is what every panel floating over content in Trilium is drawn on
-   * (see OverlayToolbar.css); the map's furniture asks for it by these names, and the bar has them
-   * handed to it under the names the shared component reads (see MapToolbar.css).
+   * What everything standing over the map is dressed in — our own control groups and MapLibre's
+   * scale and attribution alike, so that they read as one set rather than as ours beside theirs.
+   * The app's menu surface, which is what every panel floating over content in Trilium is drawn on;
+   * the map's furniture asks for it by these names, and the groups have them handed over below,
+   * under the names their own surface reads.
    *
    * Thinner than a menu's, though, and that is the whole of the difference: a menu is opened over a
    * page that is mostly one flat colour, where 85% of that colour over the rest of it is glass
@@ -41,17 +56,25 @@
   --geo-map-panel-active-text-color: var(--active-item-text-color);
 
   height: 100%;
+  position: relative;
   overflow: hidden;
 
   .maplibregl-canvas-container {
     position: relative;
   }
 
-  /* MapLibre holds its controls 10px off the edge, which is half of what everything else over the
-     map keeps to; only the foot of the map carries any (the scale and the attribution). */
+  /* MapLibre spaces its controls off the edge by margins of its own; restated in the shared
+     inset's terms, so they stand where everything else over the map stands and follow it if it
+     ever moves. The foot carries the scale and, on desktop, the attribution; on mobile the
+     attribution stands at the head instead (see map.tsx). */
   .maplibregl-ctrl-bottom-left .maplibregl-ctrl,
   .maplibregl-ctrl-bottom-right .maplibregl-ctrl {
     margin-bottom: var(--geo-map-inset);
+    margin-inline: var(--geo-map-inset);
+  }
+
+  .maplibregl-ctrl-top-left .maplibregl-ctrl {
+    margin-top: var(--geo-map-inset);
     margin-inline: var(--geo-map-inset);
   }
 }
@@ -82,6 +105,28 @@
 }
 
 /*
+ * The control groups standing over the map — the camera's in the foot corner (MapToolbar) and the
+ * editing actions at the middle of the foot (EditToolbar) — dressed in the set the map's furniture
+ * shares, handed over here under the names the shared group reads (see the overlay buttons in
+ * theme-next/forms.css). The hover pair has no overlay-button name of its own, so the group's is
+ * asked for directly.
+ *
+ * Set on the groups rather than on the map, so that nothing else standing over the map is dressed
+ * for a theme the reader did not choose — a marker's preview is the app's own note tooltip, and it
+ * belongs to the app. The last pair marks a choice in force, which is the editing group's + while
+ * the map waits to be told a place.
+ */
+.geo-map-container .tn-overlay-control-group {
+  --overlay-button-background: var(--geo-map-panel-background);
+  --overlay-button-color: var(--geo-map-panel-text-color);
+  --overlay-button-backdrop-filter: var(--dropdown-backdrop-filter, blur(10px));
+  --opaque-icon-button-hover-background-color: var(--geo-map-panel-hover-background);
+  --opaque-icon-button-hover-color: var(--geo-map-panel-hover-text-color);
+  --active-item-background-color: var(--geo-map-panel-active-background);
+  --active-item-text-color: var(--geo-map-panel-active-text-color);
+}
+
+/*
  * MapLibre's own furniture, dressed as the bar opposite it is.
  *
  * It ships them as white boxes with hairlines of their own and nothing to switch: there is no dark
@@ -97,7 +142,7 @@
   border: 1px solid var(--geo-map-panel-border-color);
   border-radius: 8px;
   box-shadow: 0 2px 8px #0003;
-  /* The frosting the bar opposite wears, which is a menu's (see OverlayToolbar.css). */
+  /* The frosting the groups opposite wear, which is a menu's. */
   backdrop-filter: var(--dropdown-backdrop-filter, blur(10px));
 }
 
@@ -151,7 +196,18 @@
   mask-repeat: no-repeat;
 }
 
-.geo-view.placing-note .geo-map-container {
+/*
+ * The map is waiting to be told a place, and says so under the pointer.
+ *
+ * Set on MapLibre's own canvas container rather than on the map around it: MapLibre dresses that
+ * container itself (`.maplibregl-canvas-container.maplibregl-interactive { cursor: grab }`), so a
+ * cursor stated anywhere above it is never inherited through — which is why the rule stopped showing
+ * when the map moved off Leaflet. Named by four classes, which is what it takes to outweigh that.
+ *
+ * Left off while the pointer is down, so that panning the map to reach the place still says grabbing
+ * as it does at every other time — MapLibre's `:active` rule is a class fewer, and would lose.
+ */
+.geo-view.placing-note .geo-map-container .maplibregl-canvas-container:not(:active) {
   cursor: crosshair;
 }
 
@@ -178,72 +234,3 @@
   position: relative;
 }
 
-/* No `position` here: MapLibre positions markers itself with `.maplibregl-marker`'s
-   `position: absolute` + a transform, and this more specific selector would override it back to
-   `relative`, dropping every marker into the canvas container's normal flow — each one then sits
-   41px (a marker height) lower than the previous, so the marker added last lands furthest below its
-   coordinate. `absolute` is a positioned box too, so the badge and label below still anchor here. */
-.geo-map-container .geo-marker {
-  cursor: pointer;
-  overflow: visible;
-}
-
-.geo-map-container .geo-marker .marker-pin {
-  position: relative;
-}
-
-/* The same shadow the pins in the symbol layer are drawn with (see drawMarkerImage), expressed the
-   CSS way — its blur radius is twice the filter's standard deviation. */
-.geo-map-container .geo-marker .marker-pin svg {
-  display: block;
-  filter: drop-shadow(0 1.5px 3px rgba(0, 0, 0, 0.35));
-}
-
-/* Cut straight out of the pin — no disc behind it, so only the note's colour is seen. */
-.geo-map-container .geo-marker .tn-icon {
-  position: absolute;
-  top: 4px;
-  inset-inline-start: 4px;
-  color: white;
-  font-size: 17px;
-}
-
-/* The icon drawn as a picture (see buildIconHtml): sized as the span's glyph was. */
-.geo-map-container .geo-marker img.tn-icon {
-  width: 17px;
-  height: 17px;
-  display: block;
-}
-
-.geo-map-container .geo-marker .title-label {
-  display: block;
-  position: absolute;
-  top: 100%;
-  inset-inline-start: 50%;
-  transform: translateX(-50%);
-  font-size: 0.75rem;
-  height: 1rem;
-  --label-halo: rgba(255, 255, 255, 0.8);
-  color: #333;
-  width: 100px;
-  text-align: center;
-  text-overflow: ellipsis;
-  /* The soft glow the titles in the symbol layer are haloed with (see Markers), stacked because one
-     blurred shadow alone is too faint to hold the text apart from a busy map. */
-  text-shadow: 0 0 2px var(--label-halo), 0 0 2px var(--label-halo), 0 0 4px var(--label-halo);
-  white-space: nowrap;
-  overflow: hidden;
-}
-
-body[dir=rtl] .geo-map-container .geo-marker .title-label {
-  transform: translateX(50%);
-}
-
-.geo-map-container .geo-marker .archived {
-  opacity: 0.5;
-}
-
-.geo-map-container.dark .geo-marker .title-label {
-  --label-halo: rgba(0, 0, 0, 0.8);
-  color: white;
-}

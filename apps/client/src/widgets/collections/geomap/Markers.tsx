@@ -1,4 +1,4 @@
-import { AddLayerObject, type GeoJSONSource, type MapGeoJSONFeature, type Map as MapLibreGLMap, type MapMouseEvent } from "maplibre-gl";
+import { AddLayerObject, type ExpressionSpecification, type GeoJSONSource, type MapGeoJSONFeature, type Map as MapLibreGLMap, type MapMouseEvent } from "maplibre-gl";
 import { useCallback, useContext, useEffect, useRef, useState } from "preact/hooks";
 
 import appContext from "../../../components/app_context";
@@ -12,7 +12,9 @@ import { ParentMap } from "./map";
 export const LOCATION_ATTRIBUTE = "geolocation";
 export const MARKER_LAYER = "points-layer";
 export const MARKER_SOURCE = "points";
-const DEFAULT_MARKER_COLOR = "#2A81CB";
+/** The glow put under the selected marker, drawn from the same source beneath the pins. */
+export const SELECTION_LAYER = "selection-layer";
+export const DEFAULT_MARKER_COLOR = "#2A81CB";
 
 /**
  * The pin, in the coordinates its SVG is drawn in.
@@ -30,13 +32,13 @@ export const MARKER_HEIGHT = 41;
  * reads as a grey box behind the pin rather than as a shadow. Wide enough for the blur (about three
  * times its deviation) plus the distance it is pushed down.
  */
-const MARKER_SHADOW_PADDING = 6;
+export const MARKER_SHADOW_PADDING = 6;
 const MARKER_ICON_SIZE = 20;
 // Centred on the pin's round head, which is a circle of the pin's own width sitting at the top.
 const MARKER_ICON_X = (MARKER_WIDTH - MARKER_ICON_SIZE) / 2;
 const MARKER_ICON_Y = (MARKER_WIDTH - MARKER_ICON_SIZE) / 2;
 
-const LABEL_LAYOUT: Extract<AddLayerObject, { type: "symbol" }>["layout"] = {
+export const LABEL_LAYOUT: Extract<AddLayerObject, { type: "symbol" }>["layout"] = {
     "text-field": [ "get", "name" ],
     "text-font": [ "Open Sans Regular" ],
     "text-size": 12,
@@ -81,6 +83,30 @@ export const LABEL_PAINT = {
 const HIDDEN_TEXT_FIELD = "";
 
 /**
+ * How much bigger the selected pin is drawn than its neighbours.
+ *
+ * A layout scale on the standing layer rather than a second image: the pin is rasterized per colour
+ * and icon, and a "selected" variant apiece would double that work for the sake of one marker at a
+ * time. The `icon-offset` compensating for the shadow padding is multiplied by `icon-size`, so the
+ * grown pin keeps standing on its coordinate with no further arithmetic.
+ */
+const SELECTED_PIN_SCALE = 1.3;
+
+/**
+ * The glow itself: a blurred disc at the selected pin's tip, so the marker the pane stands for reads
+ * as standing in a spotlight. Dark over a light map and light over a dark one, striking the same
+ * bargain as the titles (see {@link LABEL_PAINT}) — a hue of its own would vanish behind any pin
+ * that happened to share it.
+ */
+const SELECTION_GLOW_PAINT = {
+    light: { "circle-color": "rgba(0, 0, 0, 0.35)" },
+    dark: { "circle-color": "rgba(255, 255, 255, 0.4)" }
+};
+
+/** The glow's reach in screen pixels, a little wider than the grown pin standing over it. */
+const SELECTION_GLOW_RADIUS = 18;
+
+/**
  * Every note that carries a location, drawn as one symbol layer.
  *
  * A layer rather than an element apiece: the map is meant to hold thousands of notes, and a DOM node
@@ -98,9 +124,24 @@ interface MarkersProps {
      * on the map like any other for as long as the map is waiting to be told one.
      */
     placing: boolean;
+    /**
+     * Whether opening the note is what a click on a marker means at all.
+     *
+     * False where something else on the map has taken that click over, which is what the detail pane
+     * does: a marker is opened *into the pane* instead, and the note itself is reached from there
+     * (see {@link DetailPane}). Left here rather than taken out, so that a map that carries no pane
+     * — should one ever be wanted — still opens its notes the way it always did.
+     */
+    opensNotes: boolean;
+    /**
+     * The note whose marker the detail pane stands for, or `null` while the pane is down. Its pin
+     * is drawn grown, above its neighbours and lit from below, so the map and the pane visibly
+     * agree on which place is being talked about.
+     */
+    selectedNoteId: string | null;
 }
 
-export default function Markers({ notes, hideLabels, isDarkTheme, clustered, placing }: MarkersProps) {
+export default function Markers({ notes, hideLabels, isDarkTheme, clustered, placing, opensNotes, selectedNoteId }: MarkersProps) {
     const map = useContext(ParentMap);
     const version = useNoteChangeVersion(notes);
     // Whether the style has finished loading at least once. Held outside the effects because either
@@ -116,6 +157,11 @@ export default function Markers({ notes, hideLabels, isDarkTheme, clustered, pla
     // one already standing is repainted by the effect at the end.
     const labelStyle = useRef({ hideLabels, isDarkTheme });
     labelStyle.current = { hideLabels, isDarkTheme };
+    // Which marker is selected, read rather than depended on for the same reason as the titles'
+    // look: selecting one is a repaint of the standing layers (see the effect at the end), not a
+    // rebuild of them. Only a layer being added fresh reads this.
+    const selected = useRef(selectedNoteId);
+    selected.current = selectedNoteId;
 
     /**
      * Puts the layer and its data on the map. A style is a world of its own — switching one wipes
@@ -159,7 +205,12 @@ export default function Markers({ notes, hideLabels, isDarkTheme, clustered, pla
                 filter: UNCLUSTERED_ONLY,
                 layout: {
                     "icon-image": [ "get", "icon" ],
-                    "icon-size": 1,
+                    "icon-size": selectionPinSize(selected.current),
+                    // The selected pin drawn above its neighbours, which a grown pin half-buried
+                    // under them would undo. Placement runs in the other order, so the selected
+                    // title is also the likeliest to lose a contest — bearable, the pane spelling
+                    // the title out anyway.
+                    "symbol-sort-key": selectionSortKey(selected.current),
                     "icon-anchor": "bottom",
                     // The image carries padding for the shadow, so its bottom edge sits below
                     // the pin's tip. Push it back down by exactly that much, or every marker
@@ -172,7 +223,7 @@ export default function Markers({ notes, hideLabels, isDarkTheme, clustered, pla
                     // laid over one.
                     "icon-allow-overlap": true,
                     ...LABEL_LAYOUT,
-                    ...(labelStyle.current.hideLabels ? { "text-field": HIDDEN_TEXT_FIELD } : {})
+                    "text-field": titleField(labelStyle.current.hideLabels, selected.current)
                 },
                 paint: {
                     // Archived notes are drawn faintly, as they were when each marker was an
@@ -184,6 +235,26 @@ export default function Markers({ notes, hideLabels, isDarkTheme, clustered, pla
                     "text-halo-blur": 1
                 }
             });
+        }
+
+        // The glow slides in beneath the pins — added after them, so there is a layer to name as
+        // the one to go under. It stands whether or not anything is selected: pointing its filter
+        // at the selection is a property set on a standing layer, the discipline everything else
+        // here follows.
+        if (!map.getLayer(SELECTION_LAYER)) {
+            map.addLayer({
+                id: SELECTION_LAYER,
+                type: "circle",
+                source: MARKER_SOURCE,
+                filter: isSelected(selected.current),
+                paint: {
+                    "circle-radius": SELECTION_GLOW_RADIUS,
+                    // Faded from the centre outwards, so it reads as light on the ground rather
+                    // than as a disc the pin stands on.
+                    "circle-blur": 1,
+                    ...SELECTION_GLOW_PAINT[labelStyle.current.isDarkTheme ? "dark" : "light"]
+                }
+            }, MARKER_LAYER);
         }
 
         if (clustered) {
@@ -243,7 +314,7 @@ export default function Markers({ notes, hideLabels, isDarkTheme, clustered, pla
 
             // The layers before the source they all draw from: a source still in use cannot be
             // removed.
-            for (const layer of [ MARKER_LAYER, ...CLUSTER_LAYERS ]) {
+            for (const layer of [ MARKER_LAYER, SELECTION_LAYER, ...CLUSTER_LAYERS ]) {
                 if (map.getLayer(layer)) {
                     map.removeLayer(layer);
                 }
@@ -279,17 +350,67 @@ export default function Markers({ notes, hideLabels, isDarkTheme, clustered, pla
     useEffect(() => {
         if (!map?.getLayer(MARKER_LAYER)) return;
 
-        map.setLayoutProperty(MARKER_LAYER, "text-field",
-            hideLabels ? HIDDEN_TEXT_FIELD : LABEL_LAYOUT?.["text-field"]);
+        map.setLayoutProperty(MARKER_LAYER, "text-field", titleField(hideLabels, selectedNoteId));
         for (const [ property, value ] of Object.entries(LABEL_PAINT[isDarkTheme ? "dark" : "light"])) {
             map.setPaintProperty(MARKER_LAYER, property, value);
         }
-    }, [ map, hideLabels, isDarkTheme ]);
+        // The glow keeps the same bargain the titles do, so it changes sides with them.
+        for (const [ property, value ] of Object.entries(SELECTION_GLOW_PAINT[isDarkTheme ? "dark" : "light"])) {
+            map.setPaintProperty(SELECTION_LAYER, property, value);
+        }
+    }, [ map, hideLabels, isDarkTheme, selectedNoteId ]);
 
-    useClusterExpansion(map, MARKER_SOURCE, clustered);
-    useMarkerOpening(map, !placing);
+    // The selected marker, told apart on the standing layers: its pin grown and raised above its
+    // neighbours, the glow's filter pointed at it. Property updates for the same reason as the
+    // titles' look — selecting a marker must not take every marker off the map and back. Nothing to
+    // do until the layers are up, since ones added after this have the selection built in (see
+    // `install`).
+    useEffect(() => {
+        if (!map?.getLayer(MARKER_LAYER)) return;
+
+        map.setLayoutProperty(MARKER_LAYER, "icon-size", selectionPinSize(selectedNoteId));
+        map.setLayoutProperty(MARKER_LAYER, "symbol-sort-key", selectionSortKey(selectedNoteId));
+        map.setFilter(SELECTION_LAYER, isSelected(selectedNoteId));
+    }, [ map, selectedNoteId ]);
+
+    useClusterExpansion(map, MARKER_SOURCE, clustered && !placing);
+    useMarkerOpening(map, opensNotes && !placing);
 
     return null;
+}
+
+/**
+ * Whether a feature is the note the detail pane stands for.
+ *
+ * Matches nothing when nothing is selected — no note's id is the empty string — which is what lets
+ * the glow layer stand permanently and be pointed by filter rather than added and taken away. A
+ * cluster carries no `id` of its own, so a bubble never matches even while it holds the selected
+ * note: a marker folded into one simply goes unhighlighted until the map is near enough to show it.
+ */
+function isSelected(selectedNoteId: string | null): ExpressionSpecification {
+    return [ "==", [ "get", "id" ], selectedNoteId ?? "" ];
+}
+
+/** The selected pin grown and every other left alone; the plain size where nothing is selected. */
+function selectionPinSize(selectedNoteId: string | null): ExpressionSpecification | number {
+    return selectedNoteId ? [ "case", isSelected(selectedNoteId), SELECTED_PIN_SCALE, 1 ] : 1;
+}
+
+/** The selected pin sorted above its neighbours, higher keys being drawn later and so on top. */
+function selectionSortKey(selectedNoteId: string | null): ExpressionSpecification | number {
+    return selectedNoteId ? [ "case", isSelected(selectedNoteId), 1, 0 ] : 0;
+}
+
+/**
+ * What the titles say: all of them, none of them — or, with the titles hidden, the selected one
+ * alone. A pane discussing a note whose name the map refuses to utter would leave the highlight
+ * pointing at an anonymous pin.
+ */
+function titleField(hideLabels: boolean, selectedNoteId: string | null) {
+    if (!hideLabels) return LABEL_LAYOUT?.["text-field"];
+    return selectedNoteId
+        ? [ "case", isSelected(selectedNoteId), [ "get", "name" ], HIDDEN_TEXT_FIELD ] as ExpressionSpecification
+        : HIDDEN_TEXT_FIELD;
 }
 
 /**
@@ -405,14 +526,28 @@ export function parseLocation(location: string | null | undefined): [number, num
     return [ lng, lat ];
 }
 
-function markerImageId(color: string, iconClass: string) {
+/**
+ * A place as it is written and as the label stores it — latitude first — from the `[lng, lat]`
+ * {@link parseLocation} yields and MapLibre reports.
+ *
+ * Six decimals name a spot to within a stride, which is as fine as anything is pointed out on a map.
+ * The full stored value is worth having when it is being carried somewhere else, so what is copied
+ * asks for every digit rather than what was read.
+ */
+export function formatLocation([ lng, lat ]: [number, number], precision = 6) {
+    return `${lat.toFixed(precision)}, ${lng.toFixed(precision)}`;
+}
+
+export function markerImageId(color: string, iconClass: string) {
     return `marker|${color}|${iconClass}`;
 }
 
 /** What has been rasterized already, since the same few pins are asked for over and over. */
 const markerImages = new Map<string, Promise<HTMLImageElement | null>>();
 
-function buildMarkerImage(color: string, iconClass: string) {
+/** The pin for a colour and icon, through the cache — what everything stamping pins should call,
+ *  the GPX marks included (see GpxTrack), so a map never draws the same pin twice. */
+export function buildMarkerImage(color: string, iconClass: string) {
     const id = markerImageId(color, iconClass);
 
     let image = markerImages.get(id);
@@ -437,7 +572,7 @@ function buildMarkerImage(color: string, iconClass: string) {
  * built-in pack's font competing with the pack the icon actually belongs to, and whichever won would
  * decide the font the glyph is drawn in.
  */
-async function drawMarkerImage(color: string, iconClass: string) {
+export async function drawMarkerImage(color: string, iconClass: string) {
     const scale = window.devicePixelRatio || 1;
     const icon = await renderIconImage(iconClass, {
         size: MARKER_ICON_SIZE,

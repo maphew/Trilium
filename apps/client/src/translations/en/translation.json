@@ -111,7 +111,11 @@
     "cancel": "Cancel",
     "ok": "OK",
     "are_you_sure_remove_note": "Are you sure you want to remove the note \"{{title}}\" from relation map? ",
-    "if_you_dont_check": "If you don't check this, the note will be only removed from the relation map.",
+    "if_you_dont_check": "The note itself is kept; only its place here is removed.",
+    "delete_note_keeps_note_one": "The note has {{count}} other clone, so the note itself is kept.",
+    "delete_note_keeps_note_other": "The note has {{count}} other clones, so the note itself is kept.",
+    "delete_note_deletes_note": "This is the note's only place in the tree, so the note itself will be deleted. This can be undone in recent changes.",
+    "delete_note_deletes_clones": "The note will be deleted from all {{places}} places it appears in. This can be undone in recent changes.",
     "also_delete_note": "Also delete the note"
   },
   "delete_notes": {
@@ -1001,7 +1005,8 @@
     "list": "List",
     "today": "Today",
     "pin_date": "Pin the current date so the calendar always opens on this interval instead of today",
-    "unpin_date": "Unpin the date so the calendar opens on today's date again"
+    "unpin_date": "Unpin the date so the calendar opens on today's date again",
+    "close_details": "Close event details"
   },
   "close_pane_button": {
     "close_this_pane": "Close this pane"
@@ -1531,6 +1536,35 @@
   "file": {
     "file_preview_not_available": "File preview is not available for this file format.",
     "too_big": "The preview only shows the first {{maxNumChars}} characters of the file for performance reasons. Download the file and open it externally to be able to see the entire content."
+  },
+  "gpx_preview": {
+    "distance": "Distance",
+    "duration": "Duration",
+    "avg_speed": "Avg. speed",
+    "elevation_gain": "Elevation gain",
+    "elevation_loss": "Elevation loss",
+    "max_elevation": "Max. elevation",
+    "points": "Points",
+    "segments": "Segments",
+    "tracks": "Tracks",
+    "routes": "Routes",
+    "waypoints": "Waypoints",
+    "waypoints_with_count": "Waypoints ({{count}})",
+    "tracks_with_count": "Tracks ({{count}})",
+    "routes_with_count": "Routes ({{count}})",
+    "journeys_with_count": "Tracks & routes ({{count}})",
+    "unnamed": "(unnamed)",
+    "recorded_on": "Recorded on",
+    "map_hint": "Place this note in a Geo Map collection to see the track drawn on a map.",
+    "elevation_profile": "Elevation profile",
+    "duration_minutes": "{{minutes}} min",
+    "duration_hours_minutes": "{{hours}} h {{minutes}} min",
+    "unit_m": "{{value}} m",
+    "unit_km": "{{value}} km",
+    "unit_mi": "{{value}} mi",
+    "unit_ft": "{{value}} ft",
+    "unit_kmh": "{{value}} km/h",
+    "unit_mph": "{{value}} mph"
   },
   "media": {
     "play": "Play",
@@ -2739,22 +2773,35 @@
   },
   "geo-map": {
     "create-child-note-title": "Create a new child note and add it to the map",
-    "create-child-note-text": "Add marker",
+    "create-child-note-cancel": "Cancel adding the note",
+    "add-marker": "Add marker",
+    "add-marker-cancel": "Cancel",
     "create-child-note-instruction": "Click on the map to create a new note at that location or press Escape to dismiss.",
     "create-child-note-toast-title": "New note",
+    "add-gpx-track": "Add a GPS track from a GPX file",
     "move-marker-instruction": "Click on the map to move the marker to that location or press Escape to dismiss.",
     "move-marker-toast-title": "Move marker",
     "unable-to-load-map": "Unable to load map.",
     "webgl-unavailable": "This map can't be drawn because WebGL isn't available. Check that hardware acceleration is enabled and that your graphics drivers are up to date.",
     "zoom-in": "Zoom in",
     "zoom-out": "Zoom out",
+    "enter-3d": "Tilt into a 3D view\nHold Ctrl and drag to tilt the map freely",
+    "exit-3d": "Lay the map flat again",
     "fullscreen": "Fullscreen",
-    "exit-fullscreen": "Exit fullscreen"
+    "exit-fullscreen": "Exit fullscreen",
+    "close-details": "Close",
+    "open-note": "Open note",
+    "more-ways-to-open": "More ways to open",
+    "marker-color": "Marker color",
+    "copy-coordinates": "Copy coordinates"
   },
   "geo-map-context": {
     "open-location": "Open location",
     "move-marker": "Move to another location",
     "remove-from-map": "Remove from map",
+    "remove-from-map-confirmation": "Are you sure you want to remove the note \"{{title}}\" from the map?",
+    "delete-note": "Delete note",
+    "delete-note-confirmation": "Are you sure you want to delete the note \"{{title}}\"? A track is drawn from its own note, so it cannot be taken off the map on its own.",
     "add-note": "Add a marker at this location"
   },
   "help-button": {
@@ -3589,6 +3636,7 @@
     "remove-tag": "Remove this tag",
     "zoom-in": "Zoom in",
     "zoom-out": "Zoom out",
+    "reset-zoom": "Reset zoom",
     "center-map": "Center the map",
     "fullscreen": "Fullscreen",
     "exit-fullscreen": "Exit fullscreen",

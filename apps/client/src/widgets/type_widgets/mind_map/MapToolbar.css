@@ -1,13 +1,16 @@
 /*
- * The bars are dressed as every bar standing over a canvas is (see OverlayToolbar.css), which is the
- * dress the node panel wears too (see NodePanel.css): the same surface, the same border and the same
- * blur, so that everything standing over a map reads as one family rather than as pieces from three
- * places. Left here is only what is the mind map's own — where they stand, and the marks a direction
- * is chosen by. How much room they leave the panel is settled between them in MindMap.css.
+ * The direction bar is dressed as every bar standing over a canvas is (see OverlayToolbar.css),
+ * which is the dress the node panel wears too (see NodePanel.css). The view controls at the foot
+ * are the image viewer's control group instead (see the overlay buttons in theme-next/forms.css),
+ * as the geo map's are. Left here is only what is the mind map's own — where each stands, and the
+ * marks a direction is chosen by. How much room they leave the panel is settled between them in
+ * MindMap.css.
  */
 
-/* What is done with the view stands at the foot of the map, out of the way of its root. */
+/* What is done with the view stands at the foot of the map, out of the way of its root. The control
+   group brings no place of its own the way the shared bar does, so it is pinned here. */
 .mind-map-container .mind-map-view-toolbar {
+    position: absolute;
     bottom: var(--mind-map-inset-bottom);
     inset-inline-end: var(--mind-map-inset);
 }

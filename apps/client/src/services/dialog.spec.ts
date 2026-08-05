@@ -462,6 +462,20 @@ describe("dialog service", () => {
             expect(typeof data.callback).toBe("function");
         });
 
+        /**
+         * The note and the placement it is being removed from, and nothing more: what ticking "Also
+         * delete the note" would cost is the dialog's to work out from those two, not the caller's
+         * to describe (see note_deletion.ts).
+         */
+        it("confirmDeleteNoteBoxWithNote carries the note and branch the dialog judges by", async () => {
+            triggerCommand.mockImplementation((_name, data: any) => data.callback({ confirmed: true, isDeleteNoteChecked: true }));
+
+            await dialogService.confirmDeleteNoteBoxWithNote("My note", { noteId: "n1", branchId: "b1" });
+
+            const [, data] = triggerCommand.mock.calls[0];
+            expect(data.deletionTarget).toEqual({ noteId: "n1", branchId: "b1" });
+        });
+
         it("prompt triggers showPromptDialog with merged props and resolves with the callback value", async () => {
             triggerCommand.mockImplementation((_name, data: any) => data.callback("typed text"));
 

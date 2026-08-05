@@ -1,37 +1,31 @@
 /*
- * The bar stands in the bottom corner, where every other bar floating over content in the app stands
- * — the mind map's own (see MapToolbar.css there), the relation map's zoom buttons — rather than in
- * the top corner MapLibre keeps its zoom buttons in. The corner is the map's to give: its attribution
+ * The controls stand in the bottom corner, where every other set of zoom controls floating over
+ * content in the app stands — the image viewer's, whose control group this is — rather than in the
+ * top corner MapLibre keeps its zoom buttons in. The corner is the map's to give: its attribution
  * has been moved to the foot of the other side, beside the scale (see map.tsx).
  *
  * Held off the edges by as much as everything else standing over the map is, which is settled for
- * both in index.css, so the bar and the scale opposite it stand on the same line.
+ * both in index.css, so the group and the scale opposite it stand on the same line.
  *
  * Above the canvas whatever order the two end up in: MapLibre builds its part of the container
  * itself, so what Preact renders alongside is not reliably the later sibling. The number clears
  * MapLibre's own control corners, which sit at 2.
  */
 .geo-map-container .geo-map-toolbar {
+    position: absolute;
     bottom: var(--geo-map-inset);
     inset-inline-end: var(--geo-map-inset);
     z-index: 3;
 }
 
-/*
- * The bar is dressed in the set the map's furniture shares (see index.css, which is where a dark map
- * darkens it), handed over here under the names the shared bar reads.
- *
- * Set on the bar rather than on the map, so that nothing else standing over the map is dressed for a
- * theme the reader did not choose — a marker's preview is the app's own note tooltip, and it belongs
- * to the app. The last pair is for whatever this bar comes to hold that stands for a choice in force
- * (see OverlayToolbar.css), which today is nothing.
- */
-.geo-map-container .geo-map-toolbar {
-    --menu-background-color: var(--geo-map-panel-background);
-    --menu-text-color: var(--geo-map-panel-text-color);
-    --dropdown-border-color: var(--geo-map-panel-border-color);
-    --icon-button-hover-background: var(--geo-map-panel-hover-background);
-    --icon-button-hover-color: var(--geo-map-panel-hover-text-color);
-    --active-item-background-color: var(--geo-map-panel-active-background);
-    --active-item-text-color: var(--geo-map-panel-active-text-color);
+/* The group is dressed in the set the map's furniture shares, handed over once for every control
+   group standing over this map — see the palette handoff in index.css, which is also where a dark
+   map darkens it. */
+
+/* The tilt wears text — 3D or 2D, a word the icon set has no glyph for — but it is one action, so
+   it keeps an icon button's width rather than the readout's roomier chip. */
+.geo-map-container .geo-map-toolbar .geo-map-tilt-button {
+    min-width: 0;
+    width: 32px;
 }
+
