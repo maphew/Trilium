@@ -211,6 +211,8 @@ const defaultOptions: DefaultOption[] = [
     { name: "weeklyBackupEnabled", value: "true", isSynced: false },
     { name: "monthlyBackupEnabled", value: "true", isSynced: false },
     { name: "customDbBackupDir", value: "", isSynced: false },
+    { name: "backupEnableCompression", value: "false", isSynced: false },
+    { name: "backupEnableEncryption", value: "false", isSynced: false },
     { name: "maxContentWidth", value: "1200", isSynced: false },
     { name: "centerContent", value: "false", isSynced: false },
     { name: "compressImages", value: "true", isSynced: true },

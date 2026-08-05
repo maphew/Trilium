@@ -492,6 +492,34 @@ export interface ElectronSecurityApi {
     setLanAccessEnabled(enabled: boolean): Promise<boolean>;
 }
 
+/** What the Options UI needs to know about the stored backup passphrase. */
+export interface BackupPassphraseStatus {
+    /**
+     * Whether the OS offers a keyring to keep the passphrase in. Without one it cannot be stored
+     * safely, and since unattended backups cannot ask for it, encryption is unavailable altogether.
+     */
+    available: boolean;
+    /** Whether a passphrase is currently stored. */
+    set: boolean;
+}
+
+/**
+ * The backup passphrase, kept encrypted by the OS keyring in a file outside the database (the database
+ * is what ends up inside the backup, so a passphrase stored there would ride along inside the very
+ * container it protects).
+ *
+ * Deliberately write-only: there is no way to read the passphrase back, so a frontend script cannot
+ * exfiltrate it. Only the main process ever sees the plaintext again, when it writes a backup.
+ */
+export interface ElectronBackupPassphraseApi {
+    /** Whether a passphrase can be stored on this system, and whether one already is. */
+    getStatus(): Promise<BackupPassphraseStatus>;
+    /** Stores a passphrase, replacing any existing one. Returns `false` when the OS has no keyring. */
+    set(passphrase: string): Promise<boolean>;
+    /** Forgets the stored passphrase. Existing backups keep the passphrase they were written with. */
+    clear(): Promise<void>;
+}
+
 /** Outcome of a {@link ElectronOneNoteApi.login} attempt. */
 export interface OneNoteLoginResult {
     /** True if sign-in completed and a Microsoft Graph token was stored. */
@@ -645,6 +673,8 @@ export interface ElectronApi {
     ws: ElectronWsApi;
     /** Security settings (backend scripting, SQL console) stored outside the DB. */
     security: ElectronSecurityApi;
+    /** Write-only access to the backup passphrase, kept in the OS keyring. */
+    backupPassphrase: ElectronBackupPassphraseApi;
     /** OneNote importer sign-in via a loopback OAuth redirect (desktop only). */
     onenote: ElectronOneNoteApi;
     /** Desktop-native subtree export that streams a `.zip` straight to a file. */

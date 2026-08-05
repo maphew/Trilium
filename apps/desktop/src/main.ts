@@ -32,6 +32,7 @@ import { setupReferer } from "./services/referer";
 import { setupDialogHandlers } from "./services/dialog";
 import { setupExportHandlers } from "./services/export";
 import { setupImportHandlers } from "./services/import";
+import { registerBackupPassphraseIpcHandlers } from "./services/backup_passphrase";
 import { setupOneNoteHandlers } from "./services/onenote";
 import { setupPrintingHandlers } from "./services/printing";
 import ElectronRequestProvider from "./services/request";
@@ -132,6 +133,7 @@ export async function main() {
     setupImportHandlers();
     setupDialogHandlers();
     registerSecurityIpcHandlers();
+    registerBackupPassphraseIpcHandlers();
     setupStartupMetricsIpc();
 
     app.on("will-quit", () => {

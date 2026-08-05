@@ -91,6 +91,8 @@ const ALLOWED_OPTIONS = new Set<OptionNames>([
     "weeklyBackupEnabled",
     "monthlyBackupEnabled",
     "customDbBackupDir",
+    "backupEnableCompression",
+    "backupEnableEncryption",
     "motionEnabled",
     "shadowsEnabled",
     "smoothScrollEnabled",
