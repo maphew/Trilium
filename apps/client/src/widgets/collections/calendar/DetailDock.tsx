@@ -141,8 +141,10 @@ function DockContent({ note, parentNote, isEditable, onClose }: {
                     notes are days, and a day neither moves nor recurs. */}
                 {isEditable && (
                     <EventFieldList>
-                        <EventDatesEditor note={note} />
-                        <RecurrenceEditor note={note} />
+                        {/* The repeats field is handed to the dates editor to stand beside its
+                            all-day switch, the two being the one line of shape-of-the-event
+                            switches (see EventDatesEditor). */}
+                        <EventDatesEditor note={note} repeats={<RecurrenceEditor note={note} />} />
                     </EventFieldList>
                 )}
 

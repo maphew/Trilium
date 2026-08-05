@@ -1,13 +1,14 @@
 import "./EventDatesEditor.css";
 
+import { ComponentChildren } from "preact";
 import { useEffect, useState } from "preact/hooks";
 
 import FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
 import LabelValueInput from "../../attribute_widgets/label_value_input";
-import FormCheckbox from "../../react/FormCheckbox";
+import FormToggle from "../../react/FormToggle";
 import { useNoteLabel, useUniqueName } from "../../react/hooks";
-import { EventField, EventFieldControls } from "./EventField";
+import { EventField, EventFieldControls, EventFieldRow } from "./EventField";
 
 /**
  * Edits when the event happens, through the date and time labels the calendar draws it by (see
@@ -18,12 +19,18 @@ import { EventField, EventFieldControls } from "./EventField";
  *
  * Only the stock label names, as the dock reads only those (see EVENT_LABELS in DetailDock.tsx).
  */
-export default function EventDatesEditor({ note }: { note: FNote }) {
+export default function EventDatesEditor({ note, repeats }: {
+    note: FNote;
+    /** The repeats field, handed in to stand beside the all-day switch: how the event repeats
+     *  belongs to the recurrence editor, but the room next to the switch is this editor's to give. */
+    repeats?: ComponentChildren;
+}) {
     const [ startDate, setStartDate ] = useNoteLabel(note, "startDate");
     const [ endDate, setEndDate ] = useNoteLabel(note, "endDate");
     const [ startTime, setStartTime ] = useNoteLabel(note, "startTime");
     const [ endTime, setEndTime ] = useNoteLabel(note, "endTime");
     const startDateId = useUniqueName("event-start-date");
+    const allDayId = useUniqueName("event-all-day");
 
     // All day is the absence of a start time, which is how the event builder reads it too. Held
     // locally so the switch answers the press at once — the labels the press writes come back only
@@ -49,11 +56,22 @@ export default function EventDatesEditor({ note }: { note: FNote }) {
 
     return (
         <>
-            <FormCheckbox
-                label={t("calendar.dates.all_day")}
-                currentValue={allDay}
-                onChange={toggleAllDay}
-            />
+            {/* The two shape-of-the-event switches share the first line: whether it takes the whole
+                day, and whether it comes back. The app's own toggle (see the revisions dialog),
+                nameless because the field's name speaks for it — a switch rather than a checkbox,
+                as it reads as the mode flip it is. */}
+            <EventFieldRow>
+                <EventField name={t("calendar.dates.all_day")} htmlFor={allDayId}>
+                    <div className="calendar-all-day-switch">
+                        <FormToggle
+                            id={allDayId}
+                            currentValue={allDay}
+                            onChange={toggleAllDay}
+                        />
+                    </div>
+                </EventField>
+                {repeats}
+            </EventFieldRow>
 
             {/* One line whichever the shape: the day, or the days it spans. */}
             <EventField name={t("calendar.dates.date")} htmlFor={startDateId}>

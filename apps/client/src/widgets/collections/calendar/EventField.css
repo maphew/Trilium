@@ -9,6 +9,17 @@
         gap: 4px;
     }
 
+    /* Fields sharing one line, splitting it evenly whatever each holds. */
+    .calendar-event-field-row {
+        display: flex;
+        gap: 10px;
+
+        > * {
+            flex: 1 1 0;
+            min-width: 0;
+        }
+    }
+
     /* Faded as the promoted grid fades its labels (see theme-next/shell.css), so the event's own
        fields and the note's promoted ones read as one form when they stand in the same dock. */
     .calendar-event-field-name {
