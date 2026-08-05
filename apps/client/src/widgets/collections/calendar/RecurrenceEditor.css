@@ -20,6 +20,12 @@
         /* Room for the widest of its rows — the seven weekday pills — to breathe. */
         min-width: 300px;
     }
+
+    /* A locale that writes the frequencies long breaks the segments onto a second line rather
+       than stretching the menu across the calendar. */
+    .tn-segmented-choice {
+        flex-wrap: wrap;
+    }
 }
 
 .calendar-recurrence-weekdays {

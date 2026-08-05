@@ -10,6 +10,7 @@ import Dropdown from "../../react/Dropdown";
 import FormSelect from "../../react/FormSelect";
 import FormTextBox, { FormTextBoxWithUnit } from "../../react/FormTextBox";
 import { useNoteLabel, useUniqueName } from "../../react/hooks";
+import SegmentedChoice from "../../react/SegmentedChoice";
 import { EventField, EventFieldControls, EventFieldList } from "./EventField";
 import {
     FREQUENCIES,
@@ -89,38 +90,39 @@ function modelTitle(model: ParsedRecurrence): string {
     }
 }
 
-/** What the frequency dropdown offers beside the frequencies themselves. */
+/** What the frequency choice offers beside the frequencies themselves. */
 const NO_REPEAT = "none";
 const CUSTOM = "custom";
 
 /**
- * The rule's headline: how often, or not at all. A rule beyond the structured fields shows as
- * "Custom" — an entry that exists only while it is the answer, since there is no such thing as
- * asking for a custom rule with nothing to say in it.
+ * The rule's headline: how often, or not at all. Segmented buttons rather than a select — a select
+ * inside the already-open menu is a menu within a menu — and every choice on show at once. A rule
+ * beyond the structured fields shows as "Custom", a segment that exists only while it is the
+ * answer, since there is no such thing as asking for a custom rule with nothing to say in it.
  */
 function FrequencyField({ model, commit }: {
     model: ParsedRecurrence;
     commit(next: ParsedRecurrence): void;
 }) {
-    const selectId = useUniqueName("recurrence-frequency");
     const current = model.kind === "simple" ? model.rule.frequency
         : model.kind === "custom" ? CUSTOM : NO_REPEAT;
 
     const choices = [
-        { key: NO_REPEAT, title: t("calendar.recurrence.does_not_repeat") },
-        ...FREQUENCIES.map((frequency) => ({ key: frequency, title: FREQUENCY_TITLES[frequency]() })),
-        ...(model.kind === "custom" ? [ { key: CUSTOM, title: t("calendar.recurrence.custom") } ] : [])
+        // "None" rather than the closed row's "Does not repeat": a segment is a word, not a sentence.
+        { value: NO_REPEAT, label: t("calendar.recurrence.none") },
+        ...FREQUENCIES.map((frequency) => ({ value: frequency, label: FREQUENCY_TITLES[frequency]() })),
+        ...(model.kind === "custom" ? [ { value: CUSTOM, label: t("calendar.recurrence.custom") } ] : [])
     ];
 
-    const onChange = (key: string) => {
-        if (key === current) return;
+    const onChange = (value: string) => {
+        if (value === current) return;
 
-        if (key === NO_REPEAT) {
+        if (value === NO_REPEAT) {
             commit({ kind: "none" });
             return;
         }
 
-        const frequency = FREQUENCIES.find((f) => f === key);
+        const frequency = FREQUENCIES.find((f) => f === value);
         if (!frequency) return;
 
         // What the old rule already said — how often within its period, and when it stops — is
@@ -138,15 +140,8 @@ function FrequencyField({ model, commit }: {
     };
 
     return (
-        <EventField name={t("calendar.recurrence.frequency")} htmlFor={selectId}>
-            <FormSelect
-                id={selectId}
-                values={choices}
-                keyProperty="key"
-                titleProperty="title"
-                currentValue={current}
-                onChange={onChange}
-            />
+        <EventField name={t("calendar.recurrence.frequency")}>
+            <SegmentedChoice options={choices} currentValue={current} onChange={onChange} />
         </EventField>
     );
 }

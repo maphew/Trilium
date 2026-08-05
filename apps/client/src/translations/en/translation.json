@@ -1019,6 +1019,7 @@
     "recurrence": {
       "repeats": "Repeats",
       "frequency": "Frequency",
+      "none": "None",
       "does_not_repeat": "Does not repeat",
       "daily": "Daily",
       "weekly": "Weekly",
