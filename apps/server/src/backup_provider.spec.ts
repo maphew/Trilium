@@ -1,5 +1,5 @@
 import type { OptionNames } from "@triliumnext/commons";
-import { getSql, ws } from "@triliumnext/core";
+import { getLog, getSql, ws } from "@triliumnext/core";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -153,6 +153,54 @@ describe("ServerBackupService: fallback when the custom directory cannot be writ
 
         await expect(desktopService("").backupNow("now")).rejects.toThrow("EACCES");
         expect(ws.sendMessageToAllClients).not.toHaveBeenCalled();
+    });
+});
+
+describe("ServerBackupService: what reaches the backend log", () => {
+    /** The log is meant to be postable for diagnostics as-is, so no backup path may appear in it. */
+    function loggedBy(method: "info" | "error") {
+        return vi.spyOn(getLog(), method).mockImplementation(() => {});
+    }
+
+    function linesFrom(spy: ReturnType<typeof loggedBy>) {
+        return spy.mock.calls.flat().join("\n");
+    }
+
+    it("names the backup relative to its directory, never the directory itself", async () => {
+        const info = loggedBy("info");
+
+        await desktopService("").backupNow("daily");
+
+        expect(linesFrom(info)).toContain(`Created backup .${path.sep}backup-daily.db`);
+        expect(linesFrom(info)).not.toContain(DEFAULT_DIR);
+    });
+
+    it("says a backup went to the custom location without saying where that is", async () => {
+        const info = loggedBy("info");
+
+        await desktopService(CUSTOM_DIR).backupNow("daily");
+
+        expect(linesFrom(info)).toContain(`Created backup .${path.sep}backup-daily.db in the custom backup location.`);
+        expect(linesFrom(info)).not.toContain(CUSTOM_DIR);
+    });
+
+    it("keeps the reason for a fallback but strips the location the error quotes back", async () => {
+        const error = loggedBy("error");
+        copyDatabase.mockRejectedValueOnce(new Error(`EACCES: permission denied, open '${CUSTOM_DIR}\\backup-daily.db'`));
+
+        await desktopService(CUSTOM_DIR).backupNow("daily");
+
+        expect(linesFrom(error)).toContain("EACCES: permission denied");
+        expect(linesFrom(error)).not.toContain(CUSTOM_DIR);
+    });
+
+    it("strips the location from the failure it propagates when there is nowhere left to fall back to", async () => {
+        copyDatabase.mockRejectedValue(new Error(`ENOSPC: no space left on device, open '${DEFAULT_DIR}\\backup-now.db'`));
+
+        const failure = await desktopService("").backupNow("now").catch((e: Error) => e.message);
+
+        expect(failure).toContain("ENOSPC: no space left on device");
+        expect(failure).not.toContain(DEFAULT_DIR);
     });
 });
 

@@ -1,5 +1,5 @@
 import type { DatabaseBackup } from "@triliumnext/commons";
-import { BackupOptionsService, BackupService, getLog, sync_mutex as syncMutexService, ws } from "@triliumnext/core";
+import { BackupOptionsService, BackupService, utils as coreUtils, getLog, sync_mutex as syncMutexService, ws } from "@triliumnext/core";
 import fs from "fs";
 import { t } from "i18next";
 import path from "path";
@@ -53,11 +53,12 @@ export default class ServerBackupService extends BackupService {
 
             if (customDir) {
                 try {
-                    return await writeBackup(customDir, fileName);
+                    return await writeBackup(customDir, fileName, "custom");
                 } catch (e) {
                     // A backup that cannot reach the chosen location is still worth having, so the
-                    // default one takes over instead of the backup being lost altogether.
-                    getLog().error(`Could not back up to '${customDir}', falling back to the default directory: ${e}`);
+                    // default one takes over instead of the backup being lost altogether. The reason
+                    // reaches the log; where it was headed reaches only the user, in the toast.
+                    getLog().error(`Could not back up to the custom backup location, using the default one instead: ${e}`);
                     ws.sendMessageToAllClients({
                         type: "toast",
                         message: t("backup.custom_directory_unwritable", { location: customDir }),
@@ -66,7 +67,7 @@ export default class ServerBackupService extends BackupService {
                 }
             }
 
-            return await writeBackup(getDefaultBackupDir(), fileName);
+            return await writeBackup(getDefaultBackupDir(), fileName, "default");
         });
     }
 
@@ -147,7 +148,7 @@ function listBackupsIn(directory: string): DatabaseBackup[] {
         });
 }
 
-async function writeBackup(directory: string, fileName: string): Promise<string> {
+async function writeBackup(directory: string, fileName: string, location: "default" | "custom"): Promise<string> {
     const backupFile = path.resolve(directory, fileName);
 
     fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
@@ -159,9 +160,20 @@ async function writeBackup(directory: string, fileName: string): Promise<string>
         // Whatever was written before the failure is not a usable database, and would otherwise be
         // listed and offered for download as if it were one.
         fs.rmSync(backupFile, { force: true });
-        throw e;
+        throw new Error(withoutDirectory(e, directory));
     }
-    getLog().info(`Created backup at ${backupFile}`);
+    getLog().info(`Created backup .${path.sep}${fileName}${location === "custom" ? " in the custom backup location." : ""}`);
 
     return backupFile;
+}
+
+/**
+ * Keeps the backup directory out of anything that reaches the log. It carries the user's name on most
+ * platforms, and the backend log is meant to be shareable for diagnostics without having to be censored
+ * first — so the reason for a failure is kept and the location filesystem errors quote back is not.
+ */
+function withoutDirectory(error: unknown, directory: string): string {
+    const message = error instanceof Error ? error.message : String(error);
+
+    return coreUtils.replaceAll(message, directory, "<backup location>");
 }
