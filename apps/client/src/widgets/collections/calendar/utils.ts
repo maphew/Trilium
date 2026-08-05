@@ -104,7 +104,9 @@ export function parseDurationSeconds(str: string | null | undefined): number | n
     return Number(hours) * 3600 + Number(minutes) * 60 + Number(seconds);
 }
 
-export function isValidDuration(str: string | null | undefined): boolean {
+/** Whether a duration is written as `HH:MM:SS` and lasts a length a calendar will take. Answers
+ *  as a narrowing, a duration that passes being a string a caller can go on to use. */
+export function isValidDuration(str: string | null | undefined): str is string {
     // The regex already constrains minutes/seconds to 00–59, so only the total needs bounding.
     const totalSeconds = parseDurationSeconds(str);
     if (totalSeconds === null) return false;

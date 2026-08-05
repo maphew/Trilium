@@ -29,7 +29,7 @@ import GhostPopover from "./GhostPopover";
 import { openCalendarContextMenu } from "./context_menu";
 import { CalendarSelection, EventDraft } from "./selection";
 import { buildEvents, buildEventsForCalendar } from "./event_builder";
-import { formatDateToLocalISO, formatTimeToLocalISO, isValidDuration, parseStartEndDateFromEvent, parseStartEndTimeFromEvent } from "./utils";
+import { formatDateToLocalISO, formatTimeToLocalISO, isValidDuration, parseDurationSeconds, parseStartEndDateFromEvent, parseStartEndTimeFromEvent } from "./utils";
 
 interface CalendarViewData {
 
@@ -133,6 +133,9 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
     useResizeObserver(containerRef, () => calendarRef.current?.updateSize());
     const isCalendarRoot = (calendarRoot || workspaceCalendarRoot);
     const isEditable = !isCalendarRoot;
+    // Worked out once and handed to both the grid and the tap that makes an event of one of its
+    // slots (see draftFromDateClick), so that the two cannot come to disagree on a slot's length.
+    const effectiveSlotDuration = isValidDuration(slotDuration) ? slotDuration : DEFAULT_SLOT_DURATION;
     const eventBuilder = useMemo(() => {
         if (!isCalendarRoot) {
             return async () => await buildEvents(noteIds);
@@ -145,7 +148,7 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
 
     const { eventDidMount } = useEventDisplayCustomization(note, parentComponent?.componentId);
     const editingProps = useEditing(note, isEditable, isCalendarRoot, parentComponent?.componentId,
-        (draft, anchor) => setSelection({ draft, anchor }));
+        (draft, anchor) => setSelection({ draft, anchor }), effectiveSlotDuration);
 
     /**
      * Turns the standing ghost into the note: created only now, at the commit, and — where the
@@ -288,7 +291,7 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
                 firstDay={firstDayOfWeek ?? 0}
                 weekends={!hideWeekends}
                 weekNumbers={weekNumbers}
-                slotDuration={isValidDuration(slotDuration) ? slotDuration : DEFAULT_SLOT_DURATION}
+                slotDuration={effectiveSlotDuration}
                 slotLabelInterval={isValidDuration(slotLabelInterval) ? slotLabelInterval : DEFAULT_SLOT_LABEL_INTERVAL}
                 height="100%"
                 nowIndicator
@@ -476,7 +479,9 @@ function useLocale() {
 }
 
 function useEditing(note: FNote, isEditable: boolean, isCalendarRoot: boolean, componentId: string | undefined,
-    onDraft: (draft: EventDraft, anchor: { x: number; y: number } | null) => void) {
+    onDraft: (draft: EventDraft, anchor: { x: number; y: number } | null) => void,
+    /** The length of one of the grid's slots, which is how long a tapped event lasts. */
+    slotDuration: string) {
     const onCalendarSelection = useCallback((e: DateSelectArg) => {
         const { startDate, endDate } = parseStartEndDateFromEvent(e);
         if (!startDate) return;
@@ -525,9 +530,9 @@ function useEditing(note: FNote, isEditable: boolean, isCalendarRoot: boolean, c
             return;
         }
 
-        const draft = draftFromDateClick(e);
+        const draft = draftFromDateClick(e, slotDuration);
         if (draft) onDraft(draft, null);
-    }, [ note, isCalendarRoot, onDraft ]);
+    }, [ note, isCalendarRoot, onDraft, slotDuration ]);
 
     return {
         select: onCalendarSelection,
@@ -542,10 +547,15 @@ function useEditing(note: FNote, isEditable: boolean, isCalendarRoot: boolean, c
 
 /**
  * The draft a tap stands for, a tap naming a moment where a drag names a range: the whole of a day
- * where the view deals in days, and an hour from the slot where it deals in hours — the length
- * FullCalendar itself gives an event whose end nobody said.
+ * where the view deals in days, and the slot it landed in where the view deals in hours.
+ *
+ * One slot rather than any length of our own, because that is what a click makes of a moment on a
+ * desktop — a click selects the slot it fell in, `selectMinDistance` being 0 — and a tap and a
+ * click are the same wish. An hour, which this used to give, was an hour whichever way the grid was
+ * divided, and a tap between two slots then made an event starting at the quarter or half hour and
+ * running an hour from there.
  */
-function draftFromDateClick(e: DateClickArg): EventDraft | null {
+function draftFromDateClick(e: DateClickArg, slotDuration: string): EventDraft | null {
     const startDate = formatDateToLocalISO(e.date);
     if (!startDate) return null;
 
@@ -553,19 +563,17 @@ function draftFromDateClick(e: DateClickArg): EventDraft | null {
         return { startDate };
     }
 
-    const end = new Date(e.date.getTime() + TAPPED_EVENT_DURATION);
+    const slotSeconds = parseDurationSeconds(slotDuration) ?? 0;
+    const end = new Date(e.date.getTime() + slotSeconds * 1000);
     const endDate = formatDateToLocalISO(end);
     return {
         startDate,
-        // Only where the hour runs into the next day; a single day says itself with the start.
+        // Only where the slot runs into the next day; a single day says itself with the start.
         endDate: endDate !== startDate ? endDate : undefined,
         startTime: formatTimeToLocalISO(e.date),
         endTime: formatTimeToLocalISO(end)
     };
 }
-
-/** How long an event tapped into being lasts, FullCalendar's own default for one that says no end. */
-const TAPPED_EVENT_DURATION = 60 * 60 * 1000;
 
 function useEventDisplayCustomization(parentNote: FNote, componentId: string | undefined) {
     const eventDidMount = useCallback((e: EventMountArg) => {
