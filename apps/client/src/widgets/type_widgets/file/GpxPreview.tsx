@@ -61,10 +61,18 @@ export default function GpxPreview({ note, blob }: GpxPreviewProps) {
     const tiles = buildTiles(stats, system);
     const trackColor = note.getLabelValue("color");
 
+    // The file's internal name is metadata, not a second title — the note's own title already
+    // heads the window — so it and the description share one quiet byline above the tiles.
+    const bylineName = stats.name !== note.title ? stats.name : undefined;
+
     return (
         <div className="gpx-preview selectable-text">
-            {stats.name && stats.name !== note.title && <h4 className="gpx-preview-name">{stats.name}</h4>}
-            {stats.description && <p className="gpx-preview-description">{stats.description}</p>}
+            {(bylineName || stats.description) && (
+                <div className="gpx-preview-byline">
+                    {bylineName && <span className="gpx-preview-name">{bylineName}</span>}
+                    {stats.description && <span className="gpx-preview-description">{stats.description}</span>}
+                </div>
+            )}
 
             <div className="gpx-preview-stats">
                 {tiles.map(({ label, value }) => (

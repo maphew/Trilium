@@ -4,13 +4,21 @@
        File.css), so the scrollbar hugs the split edge and this padding scrolls with the content. */
     padding: 10px;
 
+    .gpx-preview-byline {
+        margin-bottom: 12px;
+    }
+
     .gpx-preview-name {
-        margin: 0 0 4px;
+        font-weight: 600;
     }
 
     .gpx-preview-description {
-        margin: 0 0 12px;
         color: var(--muted-text-color);
+    }
+
+    /* Only between the two — a lone name or a lone description stands unpunctuated. */
+    .gpx-preview-name + .gpx-preview-description::before {
+        content: " · ";
     }
 
     .gpx-preview-stats {
