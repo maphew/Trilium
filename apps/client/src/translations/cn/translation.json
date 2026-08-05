@@ -2175,7 +2175,6 @@
     "create-child-note-title": "创建一个新的子笔记并将其添加到地图中",
     "create-child-note-instruction": "单击地图以在该位置创建新笔记，或按 Escape 以取消。",
     "unable-to-load-map": "无法加载地图。",
-    "create-child-note-text": "添加标记",
     "create-child-note-toast-title": "新笔记",
     "move-marker-instruction": "点击地图即可将标记移动到该位置，或按 Escape 取消。",
     "move-marker-toast-title": "移动标记",

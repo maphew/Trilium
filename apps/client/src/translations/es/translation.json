@@ -2217,7 +2217,6 @@
     "create-child-note-title": "Crear una nueva subnota y agregarla al mapa",
     "create-child-note-instruction": "Dé clic en el mapa para crear una nueva nota en esa ubicación o presione Escape para cancelar.",
     "unable-to-load-map": "No se puede cargar el mapa.",
-    "create-child-note-text": "Agregar marcador",
     "create-child-note-toast-title": "Nueva nota",
     "move-marker-instruction": "Haga clic en el mapa para mover el marcador a esa ubicación o pulse Escape para cancelar.",
     "move-marker-toast-title": "Mover marcador",

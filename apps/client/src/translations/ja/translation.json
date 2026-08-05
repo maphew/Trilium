@@ -2212,7 +2212,6 @@
     "create-child-note-title": "新しい子ノートを作成し、マップに追加する",
     "create-child-note-instruction": "地図をクリックしてその場所に新しいノートを作成するか、Esc キーを押して閉じます。",
     "unable-to-load-map": "マップを読み込めません。",
-    "create-child-note-text": "マーカーを追加",
     "create-child-note-toast-title": "新しいノート",
     "move-marker-instruction": "地図をクリックしてマーカーをその位置に移動するか、Esc キーを押して閉じてください。",
     "move-marker-toast-title": "マーカーを移動",

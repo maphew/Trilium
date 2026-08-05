@@ -1946,8 +1946,7 @@
   "geo-map": {
     "create-child-note-title": "Utwórz nową notatkę podrzędną i dodaj ją do mapy",
     "create-child-note-instruction": "Kliknij na mapie, aby utworzyć nową notatkę w tej lokalizacji lub naciśnij Escape, aby anulować.",
-    "unable-to-load-map": "Nie można załadować mapy.",
-    "create-child-note-text": "Dodaj zaznaczenie"
+    "unable-to-load-map": "Nie można załadować mapy."
   },
   "geo-map-context": {
     "open-location": "Otwórz lokalizację",

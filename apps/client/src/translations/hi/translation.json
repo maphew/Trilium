@@ -1999,7 +1999,6 @@
   },
   "geo-map": {
     "create-child-note-title": "नया चाइल्ड नोट बनाकर मैप पर जोड़ें",
-    "create-child-note-text": "मार्कर जोड़ें",
     "create-child-note-instruction": "नई जगह पर नोट बनाने के लिए मैप पर क्लिक करें, या बंद करने के लिए Escape दबाएं।",
     "unable-to-load-map": "मैप लोड नहीं हो सका।"
   },

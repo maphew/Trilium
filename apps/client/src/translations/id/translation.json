@@ -2480,7 +2480,6 @@
   },
   "geo-map": {
     "create-child-note-title": "Buat catatan anak baru dan tambahkan ke peta",
-    "create-child-note-text": "Tambahkan marker",
     "create-child-note-instruction": "Klik pada peta untuk membuat catatan baru di lokasi tersebut atau tekan Escape untuk menutup.",
     "unable-to-load-map": "Tidak dapat memuat peta.",
     "create-child-note-toast-title": "Catatan baru"

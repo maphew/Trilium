@@ -2074,7 +2074,6 @@
   },
   "geo-map": {
     "create-child-note-title": "Cruthaigh nóta nua do pháistí agus cuir leis an léarscáil é",
-    "create-child-note-text": "Cuir marcóir leis",
     "create-child-note-instruction": "Cliceáil ar an léarscáil chun nóta nua a chruthú ag an suíomh sin nó brúigh Escape chun é a dhíbhe.",
     "unable-to-load-map": "Ní féidir an léarscáil a luchtú.",
     "create-child-note-toast-title": "Nóta nua"

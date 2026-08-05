@@ -222,8 +222,7 @@
   "geo-map": {
     "create-child-note-title": "Crea una nota figlia e aggiungila alla mappa",
     "create-child-note-instruction": "Clicca sulla mappa per creare una nuova nota qui o premi Escape per uscire.",
-    "unable-to-load-map": "Impossibile caricare la mappa.",
-    "create-child-note-text": "Aggiungi indicatore"
+    "unable-to-load-map": "Impossibile caricare la mappa."
   },
   "geo-map-context": {
     "open-location": "Apri la posizione",

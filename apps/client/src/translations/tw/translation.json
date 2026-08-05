@@ -1973,8 +1973,7 @@
   "geo-map": {
     "create-child-note-title": "建立一個新的子筆記並將其加至地圖中",
     "create-child-note-instruction": "點擊地圖以在該位置建立新筆記，或按 Escape 以取消。",
-    "unable-to-load-map": "無法載入地圖。",
-    "create-child-note-text": "新增地圖標記"
+    "unable-to-load-map": "無法載入地圖。"
   },
   "geo-map-context": {
     "open-location": "打開位置",

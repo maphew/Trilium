@@ -2691,7 +2691,6 @@
   },
   "geo-map": {
     "create-child-note-title": "새 하위 노트를 만들어 맵에 추가",
-    "create-child-note-text": "마커 추가",
     "create-child-note-instruction": "지도에서 위치를 클릭하여 새 노트를 만들거나 Escape 키를 눌러 취소하세요.",
     "create-child-note-toast-title": "새 노트",
     "unable-to-load-map": "맵을 로드할 수 없습니다.",
