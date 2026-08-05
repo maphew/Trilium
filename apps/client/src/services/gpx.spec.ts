@@ -1,0 +1,137 @@
+import { describe, expect, it } from "vitest";
+
+import { parseGpxStats } from "./gpx";
+
+/** One degree of longitude on the equator, which the distance assertions are stated in. */
+const DEGREE_M = (Math.PI / 180) * 6371000;
+
+function gpx(body: string) {
+    return `<?xml version="1.0" encoding="UTF-8"?>
+<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1" creator="test">${body}</gpx>`;
+}
+
+describe("parseGpxStats", () => {
+    it("counts the pieces and sums the distance within segments, not across the gaps", () => {
+        const stats = parseGpxStats(gpx(`
+            <wpt lat="1" lon="1"/>
+            <wpt lon="broken"/>
+            <trk><name>Morning ride</name>
+                <trkseg>
+                    <trkpt lat="0" lon="0"/>
+                    <trkpt lat="0" lon="0.01"/>
+                    <trkpt lat="0" lon="0.02"/>
+                </trkseg>
+                <trkseg>
+                    <trkpt lat="0" lon="1"/>
+                    <trkpt lat="0" lon="1.01"/>
+                </trkseg>
+            </trk>
+            <rte>
+                <rtept lat="0" lon="2"/>
+                <rtept lat="0" lon="2.01"/>
+            </rte>
+        `));
+
+        expect(stats).not.toBeNull();
+        expect(stats).toMatchObject({
+            trackCount: 1,
+            routeCount: 1,
+            segmentCount: 2,
+            pointCount: 7,
+            // The waypoint without a position is not counted.
+            waypointCount: 1,
+            name: "Morning ride"
+        });
+        // 0.02° within the first segment, 0.01° within the second, 0.01° along the route — and
+        // nothing for the ~1° gaps between them, which were not travelled.
+        expect(stats?.distance).toBeCloseTo(0.04 * DEGREE_M, -1);
+        expect(stats?.elevation).toBeUndefined();
+        expect(stats?.time).toBeUndefined();
+    });
+
+    it("reads elevation extremes and accumulates gain/loss through the noise window", () => {
+        const track = [ 100, 102, 100, 110, 108, 120, 90 ]
+            .map((elevation, i) => `<trkpt lat="0" lon="${i * 0.001}"><ele>${elevation}</ele></trkpt>`)
+            .join("");
+        const stats = parseGpxStats(gpx(`<trk><trkseg>${track}</trkseg></trk>`));
+
+        // The ±2 m wobbles sit inside the 5 m hysteresis window and count for nothing; the real
+        // climbs (100→110→120) and the drop to 90 do.
+        expect(stats?.elevation).toMatchObject({ min: 90, max: 120, gain: 20, loss: 30 });
+
+        const profile = stats?.elevation?.profile ?? [];
+        expect(profile).toHaveLength(7);
+        expect(profile[0]).toEqual({ distance: 0, elevation: 100 });
+        expect(profile[6].elevation).toBe(90);
+        // Distance along the profile grows monotonically.
+        for (let i = 1; i < profile.length; i++) {
+            expect(profile[i].distance).toBeGreaterThan(profile[i - 1].distance);
+        }
+    });
+
+    it("does not carry the elevation anchor across a segment gap", () => {
+        const stats = parseGpxStats(gpx(`<trk>
+            <trkseg>
+                <trkpt lat="0" lon="0"><ele>100</ele></trkpt>
+                <trkpt lat="0" lon="0.001"><ele>110</ele></trkpt>
+            </trkseg>
+            <trkseg>
+                <trkpt lat="0" lon="1"><ele>500</ele></trkpt>
+                <trkpt lat="0" lon="1.001"><ele>510</ele></trkpt>
+            </trkseg>
+        </trk>`));
+
+        // 10 m climbed in each segment; the 390 m between them happened off the record.
+        expect(stats?.elevation).toMatchObject({ gain: 20, loss: 0, min: 100, max: 510 });
+    });
+
+    it("reads the travel time from the points' own timestamps, not from extensions", () => {
+        const stats = parseGpxStats(gpx(`<trk><trkseg>
+            <trkpt lat="0" lon="0"><time>2024-06-01T10:00:00Z</time></trkpt>
+            <trkpt lat="0" lon="0.01"><extensions><time>1999-01-01T00:00:00Z</time></extensions></trkpt>
+            <trkpt lat="0" lon="0.02"><time>2024-06-01T11:30:00Z</time></trkpt>
+        </trkseg></trk>`));
+
+        expect(stats?.time?.start.toISOString()).toBe("2024-06-01T10:00:00.000Z");
+        expect(stats?.time?.end.toISOString()).toBe("2024-06-01T11:30:00.000Z");
+        expect(stats?.time?.duration).toBe(90 * 60 * 1000);
+    });
+
+    it("prefers the metadata name and description over the first track's", () => {
+        const stats = parseGpxStats(gpx(`
+            <metadata><name>The file</name><desc>All of it</desc></metadata>
+            <trk><name>First track</name><desc>Only part</desc><trkseg><trkpt lat="0" lon="0"/></trkseg></trk>
+        `));
+        expect(stats).toMatchObject({ name: "The file", description: "All of it" });
+    });
+
+    it("reads points sitting outside any segment or route, as the map does", () => {
+        const stats = parseGpxStats(gpx(`<trkpt lat="0" lon="0"/><trkpt lat="0" lon="0.01"/>`));
+        expect(stats?.pointCount).toBe(2);
+        expect(stats?.distance).toBeCloseTo(0.01 * DEGREE_M, -1);
+    });
+
+    it("decimates a long profile while keeping its ends and its extremes", () => {
+        const points = Array.from({ length: 2000 }, (_, i) => {
+            // A gentle slope with one sharp summit in the middle of a bucket.
+            const elevation = i === 1111 ? 9999 : 100 + i * 0.01;
+            return `<trkpt lat="0" lon="${i * 0.0001}"><ele>${elevation}</ele></trkpt>`;
+        }).join("");
+        const stats = parseGpxStats(gpx(`<trk><trkseg>${points}</trkseg></trk>`));
+
+        const profile = stats?.elevation?.profile ?? [];
+        expect(profile.length).toBeLessThan(600);
+        expect(profile[0].elevation).toBe(100);
+        expect(profile[profile.length - 1].elevation).toBeCloseTo(100 + 1999 * 0.01, 5);
+        // The summit survives decimation.
+        expect(profile.some((sample) => sample.elevation === 9999)).toBe(true);
+        for (let i = 1; i < profile.length; i++) {
+            expect(profile[i].distance).toBeGreaterThanOrEqual(profile[i - 1].distance);
+        }
+    });
+
+    it("returns zeroed stats for well-formed XML with no points, and null for junk", () => {
+        expect(parseGpxStats(gpx(""))).toMatchObject({ pointCount: 0, waypointCount: 0, distance: 0 });
+        expect(parseGpxStats("this is not xml at all <")).toBeNull();
+    });
+});

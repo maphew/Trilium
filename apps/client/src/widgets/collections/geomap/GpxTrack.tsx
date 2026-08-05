@@ -1,11 +1,13 @@
 import type { FilterSpecification, Map as MapLibreGLMap } from "maplibre-gl";
 import { useContext, useEffect } from "preact/hooks";
 
+import { GPX_MIME } from "../../../services/gpx";
 import { MapStyleLoaded, ParentMap } from "./map";
 import { buildMarkerImage, LABEL_LAYOUT, LABEL_PAINT, MARKER_SHADOW_PADDING, markerImageId } from "./Markers";
 
-/** What marks a note as a GPX track: the mime its file carries. */
-export const GPX_MIME = "application/gpx+xml";
+// Re-exported from the leaf module it moved to (the file preview reads it too, and importing it
+// from here would drag the whole map into that bundle), so the map-side consumers keep one home.
+export { GPX_MIME };
 
 export interface GpxTrackProps {
     /** The note the track belongs to, which is what its layers are named after and what a click on
@@ -83,7 +85,7 @@ export function GpxTrack({ noteId, title, gpxXmlString, trackColor, pinColor, ic
         // Named after the note rather than at random. A random name is a different name on every run
         // of this effect, so every track used to churn through a handful of sources and layers on
         // its way onto the map, leaving nothing an outside observer could have recognised it by.
-        const sourceId = `gpx-source-${noteId}`;
+        const sourceId = trackSourceId(noteId);
         const layerId = `gpx-layer-${noteId}`;
         const labelLayerId = `gpx-label-${noteId}`;
         const hitLayerId = `${HIT_LAYER_PREFIX}${noteId}`;
@@ -291,6 +293,14 @@ export function GpxTrack({ noteId, title, gpxXmlString, trackColor, pinColor, ic
     }, [ parentMap, styleLoaded, noteId, title, gpxXmlString, trackColor, pinColor, iconClass, isDarkTheme, hideLabels ]);
 
     return <div />;
+}
+
+/**
+ * The one source a track's layers draw from, named here for whoever needs to read the track back
+ * off the map — the pane fits the viewport around it when the track is opened (see DetailPane).
+ */
+export function trackSourceId(noteId: string) {
+    return `gpx-source-${noteId}`;
 }
 
 /**

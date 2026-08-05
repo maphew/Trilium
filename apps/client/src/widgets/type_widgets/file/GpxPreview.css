@@ -1,0 +1,124 @@
+.gpx-preview {
+    max-width: 1000px;
+
+    .gpx-preview-name {
+        margin: 0 0 4px;
+    }
+
+    .gpx-preview-description {
+        margin: 0 0 12px;
+        color: var(--muted-text-color);
+    }
+
+    .gpx-preview-stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+        gap: 10px;
+        margin-bottom: 20px;
+    }
+
+    .gpx-stat {
+        padding: 10px 12px;
+        border-radius: 8px;
+        background: var(--accented-background-color);
+    }
+
+    .gpx-stat-value {
+        font-size: 1.3em;
+        font-weight: 600;
+        /* The digits of neighbouring tiles line up instead of jittering by glyph width. */
+        font-variant-numeric: tabular-nums;
+    }
+
+    .gpx-stat-label {
+        margin-top: 2px;
+        font-size: 0.85em;
+        color: var(--muted-text-color);
+    }
+
+    .gpx-profile-heading {
+        margin-bottom: 6px;
+        font-size: 0.85em;
+        color: var(--muted-text-color);
+    }
+
+    .gpx-profile-plot {
+        position: relative;
+        height: 160px;
+        /* What the line and its fill are drawn in when the note carries no colour of its own —
+           the note's own colour, set inline, wins over this. */
+        color: var(--link-color);
+        border-bottom: 1px solid var(--main-border-color);
+    }
+
+    .gpx-profile-plot svg {
+        display: block;
+        width: 100%;
+        height: 100%;
+    }
+
+    .gpx-profile-area {
+        fill: currentColor;
+        fill-opacity: 0.15;
+        stroke: none;
+    }
+
+    .gpx-profile-line {
+        fill: none;
+        stroke: currentColor;
+        stroke-width: 2px;
+    }
+
+    .gpx-profile-gridline {
+        stroke: var(--main-border-color);
+        stroke-width: 1px;
+        stroke-dasharray: 4 4;
+        opacity: 0.6;
+    }
+
+    .gpx-profile-crosshair {
+        stroke: var(--muted-text-color);
+        stroke-width: 1px;
+    }
+
+    .gpx-profile-max,
+    .gpx-profile-min {
+        position: absolute;
+        left: 6px;
+        font-size: 0.8em;
+        color: var(--muted-text-color);
+        pointer-events: none;
+    }
+
+    .gpx-profile-max {
+        top: 2px;
+    }
+
+    .gpx-profile-min {
+        bottom: 2px;
+    }
+
+    .gpx-profile-tooltip {
+        position: absolute;
+        top: 6px;
+        transform: translateX(-50%);
+        padding: 2px 8px;
+        border-radius: 4px;
+        /* The plain surface pair rather than the tooltip variables: the legacy themes carry no
+           tooltip foreground, and a dark tooltip background with inherited dark text is unreadable. */
+        background: var(--main-background-color);
+        color: var(--main-text-color);
+        border: 1px solid var(--main-border-color);
+        font-size: 0.85em;
+        white-space: nowrap;
+        pointer-events: none;
+    }
+
+    .gpx-profile-axis {
+        display: flex;
+        justify-content: space-between;
+        margin-top: 2px;
+        font-size: 0.8em;
+        color: var(--muted-text-color);
+    }
+}

@@ -1532,6 +1532,28 @@
     "file_preview_not_available": "File preview is not available for this file format.",
     "too_big": "The preview only shows the first {{maxNumChars}} characters of the file for performance reasons. Download the file and open it externally to be able to see the entire content."
   },
+  "gpx_preview": {
+    "distance": "Distance",
+    "duration": "Duration",
+    "avg_speed": "Avg. speed",
+    "elevation_gain": "Elevation gain",
+    "elevation_loss": "Elevation loss",
+    "max_elevation": "Max. elevation",
+    "points": "Points",
+    "segments": "Segments",
+    "tracks": "Tracks",
+    "routes": "Routes",
+    "waypoints": "Waypoints",
+    "elevation_profile": "Elevation profile",
+    "duration_minutes": "{{minutes}} min",
+    "duration_hours_minutes": "{{hours}} h {{minutes}} min",
+    "unit_m": "{{value}} m",
+    "unit_km": "{{value}} km",
+    "unit_mi": "{{value}} mi",
+    "unit_ft": "{{value}} ft",
+    "unit_kmh": "{{value}} km/h",
+    "unit_mph": "{{value}} mph"
+  },
   "media": {
     "play": "Play",
     "activate": "Play {{- title}}",
