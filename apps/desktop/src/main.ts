@@ -29,6 +29,7 @@ import { registerTriliumAppScheme, setupTriliumAppProtocol } from "./protocol";
 import { applyLaunchOnStartup, setupAutoLaunch, wasLaunchedHidden } from "./services/auto_launch";
 import { setupCustomDictionary } from "./services/custom_dictionary";
 import { setupReferer } from "./services/referer";
+import { setupDialogHandlers } from "./services/dialog";
 import { setupExportHandlers } from "./services/export";
 import { setupImportHandlers } from "./services/import";
 import { setupOneNoteHandlers } from "./services/onenote";
@@ -129,6 +130,7 @@ export async function main() {
     setupPrintingHandlers();
     setupExportHandlers();
     setupImportHandlers();
+    setupDialogHandlers();
     registerSecurityIpcHandlers();
     setupStartupMetricsIpc();
 
@@ -257,7 +259,8 @@ export async function main() {
         getDemoArchive: async () => fs.readFileSync(path.join(RESOURCE_DIR, "db", "demo.zip")),
         inAppHelp: new NodejsInAppHelpProvider(),
         log: new ServerLogService(),
-        backup: new ServerBackupService(options),
+        // Only the desktop lets the user pick where backups go; the server uses TRILIUM_BACKUP_DIR.
+        backup: new ServerBackupService(options, { allowCustomDirectory: true }),
         image: (await import("@triliumnext/server/src/services/image_provider.js")).serverImageProvider,
         config,
         extraAppInfo: {
