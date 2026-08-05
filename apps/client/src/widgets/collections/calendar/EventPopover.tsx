@@ -164,7 +164,6 @@ function EventSheet({ note, parentNote, isEditable, onClose }: {
             className="calendar-event-sheet"
             size="lg"
             title={<TitleRow />}
-            scrollable
             modalRef={modalRef}
             show={shown}
             onHidden={onClose}

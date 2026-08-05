@@ -56,8 +56,23 @@
     overflow: hidden;
 }
 
-/* The body gives up the padding and the scrolling it keeps for itself in the popover: the dialog
-   scrolls its own (`scrollable`), and pads it. */
+/*
+ * The dialog's own body takes what the head leaves and scrolls within it, which is what holds the
+ * sheet at its full height however little the event has to say. Its own scrolling rather than
+ * Bootstrap's `scrollable`: that hands the dialog back to its contents on a phone
+ * (`body.mobile .modal-dialog.modal-dialog-scrollable` in style.css sets `height: unset`), so the
+ * sheet would stand only as tall as the note within it. The quick editor scrolls its body for the
+ * same reason.
+ */
+.modal.calendar-event-sheet .modal-body {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: auto;
+}
+
+/* The note's widgets give up the padding and the scrolling they keep for themselves in the
+   popover, both being the dialog's above. */
 .modal.calendar-event-sheet .calendar-event-popover-body {
     padding: 0;
     overflow: visible;
