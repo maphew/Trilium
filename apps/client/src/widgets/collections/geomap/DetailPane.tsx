@@ -280,8 +280,11 @@ const PANE_WIDTH = 380;
 /** Must agree with `--geo-map-inset` in index.css. */
 const PANE_INSET = 20;
 
-/** How far into the map the pane reaches: its width plus the gap, which it also covers. */
-const PANE_REACH = PANE_WIDTH + PANE_INSET;
+/** How far into the map the pane reaches: its width plus the gap, which it also covers. Exported
+ *  because everything the map places has to keep out from under the pane — the camera holds the
+ *  selected marker clear of it (below), and the marker previews slide clear of it too (see
+ *  {@link Tooltips}). */
+export const PANE_REACH = PANE_WIDTH + PANE_INSET;
 
 /**
  * How far off centre to hold a marker so the pane does not cover it.
@@ -625,7 +628,10 @@ function MarkerActions({ note, isReadOnly, onRelocate }: { note: FNote; isReadOn
                     <NoteColorPicker note={note} />
                 </Dropdown>
 
-                <ActionButton
+                {/* A track is offered nothing here: it is on the map by being drawn across it, and
+                    its place is the line its file holds rather than a location that could be
+                    written somewhere else. The right-click menu leaves it out for the same reason. */}
+                {note.mime !== GPX_MIME && <ActionButton
                     className="geo-detail-pane-move"
                     icon="bx bx-move"
                     text={t("geo-map-context.move-marker")}
@@ -633,7 +639,7 @@ function MarkerActions({ note, isReadOnly, onRelocate }: { note: FNote; isReadOn
                     // notes are drawn into one symbol layer, not an element apiece, so there is
                     // nothing on the map to take hold of.
                     onClick={onRelocate}
-                />
+                />}
 
                 <ActionButton
                     className="geo-detail-pane-remove"

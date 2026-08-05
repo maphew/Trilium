@@ -6,9 +6,10 @@ import contextMenu, { type MenuItem } from "../../../menus/context_menu.js";
 import NoteColorPicker from "../../../menus/custom-items/NoteColorPicker.jsx";
 import linkContextMenu from "../../../menus/link_context_menu.js";
 import { copyTextWithToast } from "../../../services/clipboard_ext.js";
+import froca from "../../../services/froca.js";
 import { t } from "../../../services/i18n.js";
 import link from "../../../services/link.js";
-import { trackHitLayers } from "./GpxTrack.js";
+import { GPX_MIME, trackHitLayers } from "./GpxTrack.js";
 import { type GeoMouseEvent, ParentMap, toGeoMouseEvent } from "./map.js";
 import { formatLocation, MARKER_LAYER } from "./Markers.js";
 
@@ -75,10 +76,7 @@ export function openContextMenu(noteId: string, e: GeoMouseEvent, isEditable: bo
         items = [
             ...items,
             { kind: "separator" },
-            // The marker is put somewhere else by being placed again rather than dragged: the notes
-            // are drawn into one symbol layer, not an element apiece, so there is nothing on the map
-            // to take hold of.
-            { title: t("geo-map-context.move-marker"), handler: () => onRelocate(noteId), uiIcon: "bx bx-move" },
+            ...buildRelocateItem(noteId, onRelocate),
             { title: t("geo-map-context.remove-from-map"), command: "deleteFromMap", uiIcon: "bx bx-trash" },
             { kind: "separator"},
             {
@@ -132,6 +130,27 @@ export function openMapContextMenu(e: GeoMouseEvent, isEditable: boolean, onCrea
             // Nothing to do, as the commands handle themselves.
         }
     });
+}
+
+/**
+ * The offer to put a marker somewhere else, where the note has a marker to put.
+ *
+ * The marker is moved by being placed again rather than dragged: the notes are drawn into one symbol
+ * layer, not an element apiece, so there is nothing on the map to take hold of.
+ *
+ * A GPX track is offered nothing, which is why this is a list and not an item. A track is on the map
+ * by being drawn across it — its place is the line its file holds, which no click can pick up. What
+ * the offer did was write a location onto the note, planting a stray pin somewhere else while the
+ * line stayed exactly where it was. The detail pane leaves the button out for the same reason.
+ */
+function buildRelocateItem(noteId: string, onRelocate: (noteId: string) => void): MenuItem<keyof CommandMappings>[] {
+    if (froca.getNoteFromCache(noteId)?.mime === GPX_MIME) {
+        return [];
+    }
+
+    return [
+        { title: t("geo-map-context.move-marker"), handler: () => onRelocate(noteId), uiIcon: "bx bx-move" }
+    ];
 }
 
 function buildGeoLocationItem(e: GeoMouseEvent) {

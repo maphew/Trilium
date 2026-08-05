@@ -15,6 +15,7 @@ import type { MenuCommandItem, MenuItem } from "../../../menus/context_menu";
 import { buildNote } from "../../../test/easy-froca";
 import { renderInto } from "../../../test/render";
 import ContextMenus from "./ContextMenus";
+import { GPX_MIME } from "./GpxTrack";
 import { ParentMap } from "./map";
 import { MARKER_LAYER } from "./Markers";
 
@@ -132,7 +133,7 @@ describe("ContextMenus", () => {
     });
 
     it("opens the note of a GPX track that was clicked, not the map's own menu", async () => {
-        const track = buildNote({ title: "A Sunday ride" });
+        const track = buildNote({ title: "A Sunday ride", mime: GPX_MIME });
         const { items } = await openMenu(fakeMap(undefined, track));
 
         // The note's menu rather than the map's: a track is a note, so what it offers is what a
@@ -141,9 +142,21 @@ describe("ContextMenus", () => {
         expect(items).toContainEqual(expect.objectContaining({ title: "geo-map-context.remove-from-map" }));
     });
 
+    /**
+     * A track has no marker to put somewhere else: it is on the map by being drawn across it, and
+     * its place is the line its file holds. The offer used to be made and only wrote a location onto
+     * the note — planting a stray pin elsewhere while the line stayed where it was.
+     */
+    it("does not offer to move a GPX track, which has no marker to move", async () => {
+        const track = buildNote({ title: "A Sunday ride", mime: GPX_MIME });
+        const { items } = await openMenu(fakeMap(undefined, track));
+
+        expect(moveItem(items)).toBeUndefined();
+    });
+
     it("prefers the marker to the track it stands on, both being under the pointer", async () => {
         const marker = buildNote({ title: "Where I stopped", "#geolocation": "1,2" });
-        const track = buildNote({ title: "A Sunday ride" });
+        const track = buildNote({ title: "A Sunday ride", mime: GPX_MIME });
         const { items, onRelocate } = await openMenu(fakeMap(marker, track));
 
         // Aiming at a pin standing on its own track has to mean the pin: it is the smaller target,

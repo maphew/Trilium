@@ -893,6 +893,27 @@ describe("DetailPane", () => {
             expect(pane()).toBeTruthy();
             expect(moveButton()).toBeNull();
         });
+
+        /**
+         * A track has no marker to put somewhere else: it is on the map by being drawn across it,
+         * and its place is the line its file holds. The button used to be offered and only wrote a
+         * location onto the note, planting a stray pin while the line stayed where it was.
+         */
+        it("is not offered for a GPX track, which has no marker to move", async () => {
+            buildNote({ id: "root", title: "root", children: [ { id: "hikemove", title: "A hike", mime: GPX_MIME } ] });
+            const note = froca.notes["hikemove"];
+            const map = fakeMap();
+
+            await mount([ note ], map);
+            map.setUnderPointer([ trackFeature(note) ]);
+            await act(async () => map.click());
+            await settle();
+
+            // The rest of the row stands: only the one offer that cannot mean anything is gone.
+            expect(pane()).toBeTruthy();
+            expect(container?.querySelector(".geo-detail-pane-actions button.bx-log-in")).toBeTruthy();
+            expect(moveButton()).toBeNull();
+        });
     });
 
     describe("taking the marker off the map", () => {
