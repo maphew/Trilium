@@ -34,7 +34,9 @@ export default function GhostPopover({ draft, anchor, container, onCommit, onCan
     anchor: AnchorPoint | null;
     /** The calendar the range's shading is read out of (see {@link ghostAnchorRect}). */
     container: HTMLElement | null;
-    onCommit(title: string): void;
+    /** Answers when the note has been made, or rejects having failed to make one — the ghost stays
+     *  up for a second try either way it is told (see {@link commit}). */
+    onCommit(title: string): Promise<void> | void;
     /** The draft given up on: Escape, or the close button. */
     onCancel(): void;
     /**
@@ -60,10 +62,25 @@ export default function GhostPopover({ draft, anchor, container, onCommit, onCan
      */
     const focusTitle = useCallback(() => titleRef.current?.focus(), []);
 
-    const commit = () => {
+    /**
+     * Asks for the note, once: the form is held shut while the request is out, or each Enter falling
+     * before the note arrives would make one of its own.
+     *
+     * Held shut only for as long as the asking lasts. A request that fails leaves the draft exactly
+     * as it stood — nothing was created, and the calendar keeps the ghost up — so the form is opened
+     * again for a second try rather than stranding the title just typed behind a button that can no
+     * longer be pressed. What went wrong is already said by the request itself (see server.ts, which
+     * shows the error before it throws). Succeeded, there is nothing to reopen: the draft resolves
+     * and the ghost goes with it (see commitDraft in index.tsx).
+     */
+    const commit = async () => {
         if (committing) return;
         setCommitting(true);
-        onCommit(title);
+        try {
+            await onCommit(title);
+        } catch {
+            setCommitting(false);
+        }
     };
 
     // The sheet answers Escape itself, being a dialog; the popover is not, so it listens.
@@ -86,7 +103,7 @@ export default function GhostPopover({ draft, anchor, container, onCommit, onCan
                 placeholder={t("calendar_view.draft_title_placeholder")}
                 onChange={setTitle}
                 onKeyDown={(e) => {
-                    if (e.key === "Enter") commit();
+                    if (e.key === "Enter") void commit();
                 }}
             />
 
@@ -100,7 +117,7 @@ export default function GhostPopover({ draft, anchor, container, onCommit, onCan
                     kind="primary"
                     text={t("calendar_view.create_event")}
                     disabled={committing}
-                    onClick={commit}
+                    onClick={() => void commit()}
                 />
             </div>
         </div>

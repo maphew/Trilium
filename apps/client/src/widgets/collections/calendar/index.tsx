@@ -362,7 +362,9 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
                     draft={selection.draft}
                     anchor={selection.anchor}
                     container={containerRef.current}
-                    onCommit={(title) => void commitDraft(title)}
+                    /* Handed over whole rather than fired and forgotten: a creation that fails has
+                       to reach the ghost, which is what opens its form again for another try. */
+                    onCommit={commitDraft}
                     onCancel={cancelDraft}
                     onDismiss={dismissDraft}
                 />
