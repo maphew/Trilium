@@ -29,6 +29,7 @@ import { registerTriliumAppScheme, setupTriliumAppProtocol } from "./protocol";
 import { applyLaunchOnStartup, setupAutoLaunch, wasLaunchedHidden } from "./services/auto_launch";
 import { setupCustomDictionary } from "./services/custom_dictionary";
 import { setupReferer } from "./services/referer";
+import { setupDialogHandlers } from "./services/dialog";
 import { setupExportHandlers } from "./services/export";
 import { setupImportHandlers } from "./services/import";
 import { setupOneNoteHandlers } from "./services/onenote";
@@ -129,6 +130,7 @@ export async function main() {
     setupPrintingHandlers();
     setupExportHandlers();
     setupImportHandlers();
+    setupDialogHandlers();
     registerSecurityIpcHandlers();
     setupStartupMetricsIpc();
 
