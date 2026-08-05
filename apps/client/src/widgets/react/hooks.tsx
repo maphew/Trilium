@@ -1731,10 +1731,17 @@ export function useNote(noteId: string | null | undefined, silentNotFoundError =
         });
     }, [ note, noteId, silentNotFoundError ]);
 
+    if (!noteId) {
+        return undefined;
+    }
     if (note?.noteId === noteId) {
         return note;
     }
-    return undefined;
+    // The state only catches up in the effect above — after the mismatched render is already
+    // painted. A note the cache holds is answered in the same render instead: an id change must
+    // not paint a note-less frame in between, which read as a width wobble everywhere the host
+    // keeps something open for exactly as long as there is a note (the calendar's detail dock).
+    return froca.getNoteFromCache(noteId) ?? undefined;
 }
 
 export function useNoteTitle(noteId: string | undefined, parentNoteId: string | undefined) {
