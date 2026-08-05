@@ -154,16 +154,14 @@ export async function readBackupContainer(
         ? readFrames(reader, header, header.encryption, key)
         : readPlainPayload(reader, header);
 
-    const stages = header.compressed ? [payload, createGunzip(), guard, output] : [
-        payload,
-        guard,
-        output
-    ];
-
     try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- pipeline's overloads do
-        // not accept a built array.
-        await pipeline(stages as any);
+        // Spelled out rather than built as an array: the source is an async generator, which only
+        // the variadic overloads accept.
+        if (header.compressed) {
+            await pipeline(payload, createGunzip(), guard, output);
+        } else {
+            await pipeline(payload, guard, output);
+        }
     } catch (error) {
         throw translatePipelineError(error);
     }
@@ -199,15 +197,14 @@ async function readHeader(reader: ByteReader, maxHeaderBytes: number): Promise<C
         }
         throw new BackupContainerError(
             "truncated",
-            `File ends after ${fixedBytes.length} bytes,
-            inside the header.`
+            `File ends after ${fixedBytes.length} bytes, inside the header.`
         );
     }
 
     const fixed = decodeFixedHeader(fixedBytes, maxHeaderBytes);
     const rest = await reader.readExactly(fixed.headerLength - FIXED_HEADER_BYTES);
 
-    return decodeHeader(Buffer.concat([fixedBytes, rest]), maxHeaderBytes);
+    return decodeHeader(Buffer.concat([ fixedBytes, rest ]), maxHeaderBytes);
 }
 
 /** Re-encodes the header so the authenticated span comes from the same layout the writer used. */

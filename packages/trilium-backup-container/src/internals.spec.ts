@@ -61,7 +61,7 @@ describe("FrameEncryptor", () => {
         const encryptor = new FrameEncryptor(randomBytes(32), randomBytes(8), Buffer.alloc(60), 0);
 
         const reason = await reasonOf(
-            pipeline(Readable.from([Buffer.alloc(2 * FRAME_SIZE)]), encryptor, new MemorySink())
+            pipeline(Readable.from([ Buffer.alloc(2 * FRAME_SIZE) ]), encryptor, new MemorySink())
         );
 
         expect(reason).toBe("payload-too-large");

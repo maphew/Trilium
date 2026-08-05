@@ -165,7 +165,7 @@ export function BackupOptions() {
         }
     }, []);
 
-    useEffect(() => { refreshPassphrase(); }, [refreshPassphrase]);
+    useEffect(() => { void refreshPassphrase(); }, [refreshPassphrase]);
 
     async function storePassword(password: string) {
         const result = await window.electronApi?.backupPassphrase.set(password);

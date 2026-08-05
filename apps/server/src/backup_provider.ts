@@ -4,7 +4,7 @@ import {
     writeBackupContainer
 } from "@triliumnext/backup-container";
 import type { DatabaseBackup } from "@triliumnext/commons";
-import { BackupOptionsService, BackupService, utils as coreUtils, getLog, sync_mutex as syncMutexService, ws } from "@triliumnext/core";
+import { BackupOptionsService, BackupService, getLog, sync_mutex as syncMutexService, utils as coreUtils, ws } from "@triliumnext/core";
 import fs from "fs";
 import fsp from "fs/promises";
 import { t } from "i18next";
@@ -47,6 +47,7 @@ interface BackupFormat {
 }
 
 export default class ServerBackupService extends BackupService {
+
     constructor(options: BackupOptionsService, private readonly config: ServerBackupConfig = {}) {
         super(options);
     }
@@ -173,8 +174,9 @@ export default class ServerBackupService extends BackupService {
         const customDir = this.getCustomBackupDir();
         const defaultDir = getDefaultBackupDir();
 
-        return customDir ? [customDir, defaultDir] : [defaultDir];
+        return customDir ? [ customDir, defaultDir ] : [ defaultDir ];
     }
+
 }
 
 function getDefaultBackupDir(): string {
@@ -211,10 +213,10 @@ function listBackupsIn(directory: string): DatabaseBackup[] {
 
             return [
                 { fileName,
-                filePath,
-                mtime: stat.mtime,
-                fileSize: stat.size,
-                ...describeContainer(filePath, fileName) }
+                    filePath,
+                    mtime: stat.mtime,
+                    fileSize: stat.size,
+                    ...describeContainer(filePath, fileName) }
             ];
         });
 }

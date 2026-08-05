@@ -32,9 +32,9 @@ const FRAME_OVERHEAD = 4 + TAG_BYTES;
 
 describe("round trip", () => {
     const cases: [string, WriteOptions, number][] = [
-        ["plain", {}, HEADER_BYTES_PLAIN],
-        ["compressed", { compress: true }, HEADER_BYTES_PLAIN],
-        ["encrypted", { passphrase: PASSPHRASE, scrypt: FAST_SCRYPT }, HEADER_BYTES_ENCRYPTED],
+        [ "plain", {}, HEADER_BYTES_PLAIN ],
+        [ "compressed", { compress: true }, HEADER_BYTES_PLAIN ],
+        [ "encrypted", { passphrase: PASSPHRASE, scrypt: FAST_SCRYPT }, HEADER_BYTES_ENCRYPTED ],
         [
             "compressed and encrypted",
             { compress: true, passphrase: PASSPHRASE, scrypt: FAST_SCRYPT },
@@ -50,7 +50,7 @@ describe("round trip", () => {
             { ...options, plaintextSize: database.length }
         );
         expect(written.result.headerLength).toBe(headerLength);
-        expect(written.patchedAt).toEqual([headerLength - 32]);
+        expect(written.patchedAt).toEqual([ headerLength - 32 ]);
 
         const read = await readFromBuffer(written.bytes, { passphrase: PASSPHRASE });
         expect(read.bytes.equals(database)).toBe(true);
@@ -253,7 +253,7 @@ describe("damage and tampering", () => {
 
     it("rejects bytes appended after the final frame", async () => {
         const written = await encrypted();
-        const extended = Buffer.concat([written.bytes, Buffer.from("extra")]);
+        const extended = Buffer.concat([ written.bytes, Buffer.from("extra") ]);
 
         expect(await failureOf(extended, { passphrase: PASSPHRASE })).toBe("trailing-data");
     });
@@ -290,14 +290,14 @@ describe("damage and tampering", () => {
         const written = await writeToBuffer(fakeDatabase(50_000), { compress: true });
         const damaged = flipByte(written.bytes, HEADER_BYTES_PLAIN + 40);
 
-        expect(["damaged-payload", "digest-mismatch"]).toContain(await failureOf(damaged));
+        expect([ "damaged-payload", "digest-mismatch" ]).toContain(await failureOf(damaged));
     });
 });
 
 describe("peeking at a container", () => {
     it.each([
-        ["plain", {}, { compressed: false, encrypted: false }],
-        ["compressed", { compress: true }, { compressed: true, encrypted: false }],
+        [ "plain", {}, { compressed: false, encrypted: false } ],
+        [ "compressed", { compress: true }, { compressed: true, encrypted: false } ],
         [
             "encrypted",
             { passphrase: PASSPHRASE, scrypt: FAST_SCRYPT },
@@ -334,10 +334,10 @@ describe("peeking at a container", () => {
     });
 
     it.each([
-        ["fewer bytes than a header", Buffer.alloc(20)],
-        ["something that is not a container", Buffer.alloc(64, 9)],
-        ["a version it does not know", tamper((bytes) => bytes.writeUInt8(2, 20))],
-        ["a reserved flag bit", tamper((bytes) => bytes.writeUInt8(0b100, 21))]
+        [ "fewer bytes than a header", Buffer.alloc(20) ],
+        [ "something that is not a container", Buffer.alloc(64, 9) ],
+        [ "a version it does not know", tamper((bytes) => bytes.writeUInt8(2, 20)) ],
+        [ "a reserved flag bit", tamper((bytes) => bytes.writeUInt8(0b100, 21)) ]
     ])("answers null for %s, so one bad file cannot derail a listing", (_label, bytes) => {
         expect(peekBackupContainer(bytes)).toBeNull();
     });
@@ -355,8 +355,8 @@ function tamper(mutate: (bytes: Buffer) => void): Buffer {
 
 describe("input that is not a container", () => {
     it.each([
-        ["random bytes", Buffer.alloc(300, 9), "not-a-container"],
-        ["an empty file, which identifies itself as nothing", Buffer.alloc(0), "not-a-container"],
+        [ "random bytes", Buffer.alloc(300, 9), "not-a-container" ],
+        [ "an empty file, which identifies itself as nothing", Buffer.alloc(0), "not-a-container" ],
         [
             "a short file whose bytes are not the start of the magic",
             Buffer.from("Trillium"),
@@ -432,15 +432,15 @@ describe("SQLite check", () => {
 describe("option validation", () => {
     it("requires patchHeader, since the digest is written after the payload", async () => {
         const reason = await reasonOf(
-            writeBackupContainer(Readable.from([fakeDatabase()]), new MemorySink(), {} as never)
+            writeBackupContainer(Readable.from([ fakeDatabase() ]), new MemorySink(), {} as never)
         );
 
         expect(reason).toBe("invalid-options");
     });
 
     it.each([
-        ["a negative plaintext size", { plaintextSize: -1 }, "invalid-options"],
-        ["a fractional plaintext size", { plaintextSize: 1.5 }, "invalid-options"],
+        [ "a negative plaintext size", { plaintextSize: -1 }, "invalid-options" ],
+        [ "a fractional plaintext size", { plaintextSize: 1.5 }, "invalid-options" ],
         [
             "scrypt parameters out of bounds",
             { passphrase: PASSPHRASE, scrypt: { log2N: 30, r: 8, p: 1 } },
@@ -486,7 +486,7 @@ describe("errors", () => {
         failing._write = (_chunk, _encoding, callback) =>
             callback(new Error("ENOSPC: no space left on device"));
 
-        const read = readBackupContainer(Readable.from([written.bytes]), failing);
+        const read = readBackupContainer(Readable.from([ written.bytes ]), failing);
 
         await expect(read).rejects.toThrow(/ENOSPC/);
     });

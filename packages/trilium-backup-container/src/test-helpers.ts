@@ -16,6 +16,7 @@ import {
 export const FAST_SCRYPT: ScryptParams = { log2N: 10, r: 8, p: 1 };
 
 export class MemorySink extends Writable {
+
     readonly chunks: Buffer[] = [];
 
     override _write(
@@ -30,6 +31,7 @@ export class MemorySink extends Writable {
     toBuffer(): Buffer {
         return Buffer.concat(this.chunks);
     }
+
 }
 
 /** A byte pattern that starts with a valid SQLite header and compresses well. */
@@ -49,7 +51,7 @@ export function chunked(data: Buffer, chunkSize: number): Readable {
         chunks.push(data.subarray(offset, offset + chunkSize));
     }
 
-    return Readable.from(chunks.length > 0 ? chunks : [Buffer.alloc(0)]);
+    return Readable.from(chunks.length > 0 ? chunks : [ Buffer.alloc(0) ]);
 }
 
 export interface WrittenContainer {
@@ -67,7 +69,7 @@ export async function writeToBuffer(
     const patches: { offset: number; data: Buffer }[] = [];
 
     const result = await writeBackupContainer(
-        Buffer.isBuffer(input) ? Readable.from([input]) : input,
+        Buffer.isBuffer(input) ? Readable.from([ input ]) : input,
         sink,
         {
             ...options,
@@ -93,7 +95,7 @@ export async function readFromBuffer(
     options: ReadBackupContainerOptions = {}
 ): Promise<ReadContainer> {
     const sink = new MemorySink();
-    const result = await readBackupContainer(Readable.from([container]), sink, options);
+    const result = await readBackupContainer(Readable.from([ container ]), sink, options);
 
     return { bytes: sink.toBuffer(), result };
 }

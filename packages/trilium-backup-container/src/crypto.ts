@@ -65,11 +65,11 @@ export function sealFrame(
     plaintext: Buffer
 ): Buffer {
     const cipher = createCipheriv("aes-256-gcm", key, nonceFor(noncePrefix, counter));
-    cipher.setAAD(Buffer.concat([aad, lengthField]));
+    cipher.setAAD(Buffer.concat([ aad, lengthField ]));
 
-    const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()]);
+    const ciphertext = Buffer.concat([ cipher.update(plaintext), cipher.final() ]);
 
-    return Buffer.concat([lengthField, ciphertext, cipher.getAuthTag()]);
+    return Buffer.concat([ lengthField, ciphertext, cipher.getAuthTag() ]);
 }
 
 /** Opens one frame, throwing `damaged-payload` when the tag does not match. */
@@ -84,11 +84,11 @@ export function openFrame(
     offset: number
 ): Buffer {
     const decipher = createDecipheriv("aes-256-gcm", key, nonceFor(noncePrefix, counter));
-    decipher.setAAD(Buffer.concat([aad, lengthField]));
+    decipher.setAAD(Buffer.concat([ aad, lengthField ]));
     decipher.setAuthTag(tag);
 
     try {
-        return Buffer.concat([decipher.update(ciphertext), decipher.final()]);
+        return Buffer.concat([ decipher.update(ciphertext), decipher.final() ]);
     } catch {
         throw new BackupContainerError(
             "damaged-payload",

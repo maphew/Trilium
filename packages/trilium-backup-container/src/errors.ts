@@ -47,6 +47,7 @@ export type BackupContainerErrorReason =
 
 /** Error thrown by every entry point in this module. */
 export class BackupContainerError extends Error {
+
     /** Machine-readable cause, for callers that must map failures to their own messages. */
     readonly reason: BackupContainerErrorReason;
 
@@ -55,6 +56,7 @@ export class BackupContainerError extends Error {
         this.name = "BackupContainerError";
         this.reason = reason;
     }
+
 }
 
 /** Narrowing helper for callers that catch errors from this module. */

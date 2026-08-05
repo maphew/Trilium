@@ -24,6 +24,9 @@ import {
 } from "./format.js";
 import { DigestTap, FrameEncryptor, GzipHeaderNormaliser } from "./streams.js";
 
+/** The stream shapes `pipeline` accepts, so a built array needs no cast at the call. */
+type PipelineStage = NodeJS.ReadableStream | NodeJS.WritableStream | NodeJS.ReadWriteStream;
+
 /**
  * Writes `data` at an absolute offset in the destination that is already being streamed to.
  *
@@ -87,8 +90,7 @@ export async function writeBackupContainer(
     if (!Number.isSafeInteger(plaintextSize) || plaintextSize < 0) {
         throw new BackupContainerError(
             "invalid-options",
-            `plaintextSize must be a non-negative safe integer,
-            got ${plaintextSize}.`
+            `plaintextSize must be a non-negative safe integer, got ${plaintextSize}.`
         );
     }
 
@@ -136,7 +138,8 @@ export async function writeBackupContainer(
 
     // input -> gzip -> frames -> digest -> output, with the stages the flags call for.
     const digestTap = new DigestTap();
-    const stages: (Readable | Writable)[] = [input];
+    // Typed as the streams `pipeline` accepts, so the built array needs no cast at the call.
+    const stages: PipelineStage[] = [ input ];
     if (compressed) {
         stages.push(
             createGzip({ level: options.compressionLevel ?? 6 }),
@@ -148,9 +151,7 @@ export async function writeBackupContainer(
     }
     stages.push(digestTap, output);
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- pipeline's overloads do not
-    // accept a built array.
-    await pipeline(stages as any);
+    await pipeline(stages);
 
     const digest = digestTap.digest();
     await options.patchHeader(digestOffset(header.headerLength), digest);

@@ -98,7 +98,7 @@ describe("backup passphrase storage", () => {
     it("stores a passphrase encrypted, and never in the clear", async () => {
         expect(await passphrase.storeBackupPassphrase("hunter2")).toBe(true);
 
-        const stored = [...h.fileStore.values()];
+        const stored = [ ...h.fileStore.values() ];
         expect(stored).toHaveLength(1);
         expect(stored[0].toString()).not.toContain("hunter2");
         expect(h.encrypt).toHaveBeenCalledWith("hunter2");
@@ -154,8 +154,8 @@ describe("keyring availability", () => {
     });
 
     it.each([
-        ["the app is not ready yet", () => { h.isReady = false; }],
-        ["the platform offers no encryption", () => { h.encryptionAvailable = false; }],
+        [ "the app is not ready yet", () => { h.isReady = false; } ],
+        [ "the platform offers no encryption", () => { h.encryptionAvailable = false; } ],
         [
             "Linux falls back to the hardcoded-password backend",
             () => { h.storageBackend = "basic_text"; }
@@ -203,7 +203,7 @@ describe("IPC handlers", () => {
     });
 
     it("registers status, set and clear, and nothing that reads the passphrase back", () => {
-        expect([...h.handlers.keys()].sort()).toEqual([
+        expect([ ...h.handlers.keys() ].sort()).toEqual([
             "backup-passphrase-clear",
             "backup-passphrase-set",
             "backup-passphrase-status"
@@ -220,8 +220,8 @@ describe("IPC handlers", () => {
     });
 
     it.each([
-        ["set", ["backup-passphrase-set", "hunter2"]],
-        ["clear", ["backup-passphrase-clear"]]
+        [ "set", [ "backup-passphrase-set", "hunter2" ] ],
+        [ "clear", [ "backup-passphrase-clear" ] ]
     ] as ConfirmCase[])("asks the OS before it %ss, with no escape from asking", async (
         _label,
         call

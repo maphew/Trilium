@@ -10,10 +10,10 @@ export default defineConfig(() => ({
         watch: false,
         globals: true,
         environment: "node",
-        include: ["src/**/*.{test,spec}.ts"],
+        include: [ "src/**/*.{test,spec}.ts" ],
         reporters: [
             "default",
-            ["junit", { outputFile: "./test-output/vitest/junit.xml", addFileAttribute: true }]
+            [ "junit", { outputFile: "./test-output/vitest/junit.xml", addFileAttribute: true } ]
         ],
         coverage: {
             thresholds: {
@@ -24,9 +24,9 @@ export default defineConfig(() => ({
             },
             reportsDirectory: "./test-output/vitest/coverage",
             provider: "v8" as const,
-            include: ["src/**/*.ts"],
-            exclude: ["**/*.spec.ts", "**/*.d.ts", "src/index.ts", "src/test-helpers.ts"],
-            reporter: ["text", ["lcov", { projectRoot: resolve(__dirname, "../..") }]]
+            include: [ "src/**/*.ts" ],
+            exclude: [ "**/*.spec.ts", "**/*.d.ts", "src/index.ts", "src/test-helpers.ts" ],
+            reporter: [ "text", [ "lcov", { projectRoot: resolve(__dirname, "../..") } ] ]
         }
     }
 }));

@@ -14,6 +14,7 @@ import { sealFrame } from "./crypto.js";
 
 /** Passes bytes through untouched while hashing them, so the digest costs no extra pass. */
 export class DigestTap extends Transform {
+
     readonly #hash: Hash = createHash("sha256");
     #bytes = 0;
 
@@ -35,6 +36,7 @@ export class DigestTap extends Transform {
     digest(): Buffer {
         return this.#hash.digest();
     }
+
 }
 
 /**
@@ -45,6 +47,7 @@ export class DigestTap extends Transform {
  * and outside gzip's CRC, so rewriting it is safe.
  */
 export class GzipHeaderNormaliser extends Transform {
+
     #seen = 0;
 
     override _transform(
@@ -61,6 +64,7 @@ export class GzipHeaderNormaliser extends Transform {
         this.#seen += chunk.length;
         callback(null, chunk);
     }
+
 }
 
 /**
@@ -72,6 +76,7 @@ export class GzipHeaderNormaliser extends Transform {
  * follows.
  */
 export class FrameEncryptor extends Transform {
+
     readonly #frame = Buffer.allocUnsafe(FRAME_SIZE);
     #filled = 0;
     #counter = 0;
@@ -145,6 +150,7 @@ export class FrameEncryptor extends Transform {
 
         return frame;
     }
+
 }
 
 /**
@@ -152,6 +158,7 @@ export class FrameEncryptor extends Transform {
  * SQLite header as soon as enough of it has passed, and counts what was written.
  */
 export class OutputGuard extends Transform {
+
     #written = 0;
     #head: Buffer[] = [];
     #headBytes = 0;
@@ -211,4 +218,5 @@ export class OutputGuard extends Transform {
         }
         callback();
     }
+
 }

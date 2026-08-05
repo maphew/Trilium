@@ -83,7 +83,8 @@ describe("header layout", () => {
         expect(bytes).toHaveLength(108);
         expect(bytes.readUInt8(21)).toBe(0b10);
         expect(bytes.readUInt8(32)).toBe(KDF_SCRYPT);
-        expect([bytes.readUInt8(33), bytes.readUInt8(34), bytes.readUInt8(35)]).toEqual([17, 8, 1]);
+        const params = [ bytes.readUInt8(33), bytes.readUInt8(34), bytes.readUInt8(35) ];
+        expect(params).toEqual([ 17, 8, 1 ]);
         expect(authenticatedHeaderEnd(108)).toBe(60);
         expect(digestOffset(108)).toBe(76);
 
@@ -124,8 +125,8 @@ describe("fixed header validation", () => {
             (bytes: Buffer) => bytes.write("Trillium Notes Bckp!", 0, "ascii"),
             "not-a-container"
         ],
-        ["version 0", (bytes: Buffer) => bytes.writeUInt8(0, 20), "unsupported-version"],
-        ["a newer version", (bytes: Buffer) => bytes.writeUInt8(2, 20), "unsupported-version"],
+        [ "version 0", (bytes: Buffer) => bytes.writeUInt8(0, 20), "unsupported-version" ],
+        [ "a newer version", (bytes: Buffer) => bytes.writeUInt8(2, 20), "unsupported-version" ],
         [
             "a reserved flag bit",
             (bytes: Buffer) => bytes.writeUInt8(0b100, 21),
@@ -173,11 +174,11 @@ describe("scrypt parameter bounds", () => {
     });
 
     it.each([
-        ["log2N below the floor", { log2N: 9, r: 8, p: 1 }],
-        ["log2N above the ceiling", { log2N: 21, r: 8, p: 1 }],
-        ["r out of range", { log2N: 14, r: 17, p: 1 }],
-        ["p out of range", { log2N: 14, r: 8, p: 9 }],
-        ["a non-integer", { log2N: 14.5, r: 8, p: 1 }]
+        [ "log2N below the floor", { log2N: 9, r: 8, p: 1 } ],
+        [ "log2N above the ceiling", { log2N: 21, r: 8, p: 1 } ],
+        [ "r out of range", { log2N: 14, r: 17, p: 1 } ],
+        [ "p out of range", { log2N: 14, r: 8, p: 9 } ],
+        [ "a non-integer", { log2N: 14.5, r: 8, p: 1 } ]
     ])("rejects %s", (_label, params) => {
         expect(() => validateScryptParams(params, 1024 ** 3)).toThrow(
             expect.objectContaining({ reason: "invalid-kdf-params" }) as Error
@@ -202,10 +203,10 @@ describe("SQLite header check", () => {
     });
 
     it.each([
-        ["a page size that is not a power of two", sqliteHead(3000)],
-        ["a page size below the floor", sqliteHead(256)],
-        ["output that is too short", sqliteHead(4096).subarray(0, 17)],
-        ["a foreign magic", Buffer.concat([Buffer.from("Not a database!!"), Buffer.alloc(2)])]
+        [ "a page size that is not a power of two", sqliteHead(3000) ],
+        [ "a page size below the floor", sqliteHead(256) ],
+        [ "output that is too short", sqliteHead(4096).subarray(0, 17) ],
+        [ "a foreign magic", Buffer.concat([ Buffer.from("Not a database!!"), Buffer.alloc(2) ]) ]
     ])("rejects %s", (_label, head) => {
         expect(() => validateSqliteHeader(head))
             .toThrow(expect.objectContaining({ reason: "not-a-database" }) as Error);

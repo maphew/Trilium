@@ -4,6 +4,7 @@ import { BackupContainerError } from "./errors.js";
 
 /** Pull-based view over a readable stream, so the reader can ask for exact byte counts. */
 export class ByteReader {
+
     readonly #iterator: AsyncIterator<Buffer>;
     #pending: Buffer[] = [];
     #pendingBytes = 0;
@@ -26,8 +27,7 @@ export class ByteReader {
         if (this.#pendingBytes < count) {
             throw new BackupContainerError(
                 "truncated",
-                `Expected ${count} bytes at offset ${this.#consumed},
-                found ${this.#pendingBytes}.`
+                `Expected ${count} bytes at offset ${this.#consumed}, found ${this.#pendingBytes}.`
             );
         }
 
@@ -71,10 +71,11 @@ export class ByteReader {
         const taken = merged.subarray(0, count);
         const rest = merged.subarray(count);
 
-        this.#pending = rest.length > 0 ? [rest] : [];
+        this.#pending = rest.length > 0 ? [ rest ] : [];
         this.#pendingBytes = rest.length;
         this.#consumed += count;
 
         return taken;
     }
+
 }
