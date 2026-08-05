@@ -1,7 +1,7 @@
 import "./DetailPane.css";
 
 import clsx from "clsx";
-import type { Map as MapLibreGLMap, MapMouseEvent } from "maplibre-gl";
+import type { GeoJSONSource, Map as MapLibreGLMap, MapMouseEvent, MapSourceDataEvent } from "maplibre-gl";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import appContext from "../../../components/app_context";
@@ -23,7 +23,7 @@ import { useLegacyComponentElement, useNoteColorClass, useNoteContext, useNoteLa
 import OverlayPanel, { OverlayPanelBody } from "../../react/OverlayPanel";
 import { NoteContextContext, ParentComponent } from "../../react/react_utils";
 import { moveMarker } from "./api";
-import { GPX_MIME, trackHitLayers } from "./GpxTrack";
+import { GPX_MIME, trackHitLayers, trackSourceId } from "./GpxTrack";
 import { ParentMap } from "./map";
 import { formatLocation, LOCATION_ATTRIBUTE, MARKER_LAYER, parseLocation } from "./Markers";
 
@@ -145,8 +145,43 @@ export default function DetailPane({ notes, placing, isReadOnly, selection, onSe
     // rather than in the click handler, so a marker the map opened by hand — the note it has just
     // created — is held clear of the pane the same way as one that was clicked; and off the
     // location too, so a marker that has just been put somewhere else is followed there.
+    //
+    // A GPX track is not a point but a shape, so it is fitted rather than centred: panned and
+    // zoomed until the whole of it stands in the part of the map the pane leaves uncovered.
     useEffect(() => {
         if (!map || !note) return;
+
+        if (note.mime === GPX_MIME) {
+            const sourceId = trackSourceId(note.noteId);
+            // Reading the track back off the map is asynchronous, and the answer may arrive after
+            // the pane has moved on — to another note, or to nothing at all — or after another
+            // asking of it has already fitted the map.
+            let done = false;
+
+            const fit = async () => {
+                const bounds = await trackBounds(map, note.noteId);
+                if (done || !bounds) return;
+                done = true;
+                map.off("sourcedata", onSourceData);
+                map.fitBounds(bounds, { padding: trackFitPadding(map), maxZoom: TRACK_FIT_MAX_ZOOM });
+            };
+
+            // A track selected the moment it was brought onto the map has no line yet: its content
+            // is still being fetched (see NoteGpxTrackWrapper), so the source the bounds are read
+            // from is not there to be asked. The source announces itself when it goes up, and the
+            // fit follows — once, the announcement repeating for as long as the source lives.
+            const onSourceData = (e: MapSourceDataEvent) => {
+                if (e.sourceId === sourceId) void fit();
+            };
+
+            map.on("sourcedata", onSourceData);
+            void fit();
+
+            return () => {
+                done = true;
+                map.off("sourcedata", onSourceData);
+            };
+        }
 
         const coordinates = parseLocation(location);
         if (!coordinates) return;
@@ -238,6 +273,66 @@ function paneOffset(map: MapLibreGLMap): [number, number] {
     // The pane stands at the trailing edge, which is the left one in a right-to-left app.
     const shift = PANE_REACH / 2;
     return [ glob.isRtl ? shift : -shift, 0 ];
+}
+
+/** Air kept around a fitted track, so its ends stand clear of the pane and the map's own edges. */
+const TRACK_FIT_AIR = 60;
+
+/** How close fitting a track may zoom: a stroll around the block is still shown as a map of the
+ *  neighbourhood, not of somebody's garden. */
+const TRACK_FIT_MAX_ZOOM = 16;
+
+/**
+ * The corners of the selected track, as `fitBounds` wants them, read back off the map itself — the
+ * source already holds every point of the line and its marks, so the file is not parsed twice.
+ * `null` for a track that is not on this map, or holds nothing with a place.
+ */
+async function trackBounds(map: MapLibreGLMap, noteId: string): Promise<[[number, number], [number, number]] | null> {
+    const data = await map.getSource<GeoJSONSource>(trackSourceId(noteId))?.getData();
+    if (!data || data.type !== "FeatureCollection") return null;
+
+    let west = Infinity, south = Infinity, east = -Infinity, north = -Infinity;
+    const extend = ([ lng, lat ]: number[]) => {
+        west = Math.min(west, lng);
+        south = Math.min(south, lat);
+        east = Math.max(east, lng);
+        north = Math.max(north, lat);
+    };
+
+    for (const { geometry } of data.features) {
+        if (geometry.type === "Point") {
+            extend(geometry.coordinates);
+        } else if (geometry.type === "MultiLineString") {
+            for (const line of geometry.coordinates) {
+                for (const point of line) {
+                    extend(point);
+                }
+            }
+        }
+    }
+
+    return Number.isFinite(west) ? [ [ west, south ], [ east, north ] ] : null;
+}
+
+/**
+ * What a fitted track has to keep clear of: the pane on its side of the map, and a rim of air all
+ * round, so the line reads as standing in the viewport rather than pinned to its corners.
+ *
+ * The air gives way on a map too small to spare it, and the pane's reach is only counted where
+ * there is room left over — the same bargain {@link paneOffset} strikes — since padding wider than
+ * the map does not clip the fit but forfeits it: MapLibre cannot solve the camera and leaves it
+ * where it stands.
+ */
+function trackFitPadding(map: MapLibreGLMap) {
+    const { clientWidth, clientHeight } = map.getContainer();
+    const air = Math.max(0, Math.min(TRACK_FIT_AIR, Math.floor(Math.min(clientWidth, clientHeight) / 4)));
+    const padding = { top: air, bottom: air, left: air, right: air };
+
+    if (clientWidth > PANE_REACH + 2 * air) {
+        padding[glob.isRtl ? "left" : "right"] += PANE_REACH;
+    }
+
+    return padding;
 }
 
 /** The pane itself, for a marker there is one to draw. */

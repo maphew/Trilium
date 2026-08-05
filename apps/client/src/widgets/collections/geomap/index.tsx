@@ -119,8 +119,12 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
     /**
      * Asks for a GPX file and brings it onto the map as a child note (see importGpxTrack). The
      * note is put among the map's own straight away, as a created note is, so the track is drawn
-     * the moment the file is read rather than after the collection reloads around it. No pane
-     * opens: a track is not a marker, and the file's name already names it.
+     * the moment the file is read rather than after the collection reloads around it.
+     *
+     * The pane opens on it too, as it opens on a note just placed — and it is the pane's own fit
+     * that brings the track into view (see DetailPane), waiting on the line if it has not been
+     * drawn yet, so a file from the other side of the world does not land off-screen. Unlike a
+     * placed note the title is not offered for typing over: the file's name already names it.
      */
     const addGpxTrack = useCallback(async () => {
         const file = await pickGpxFile();
@@ -130,6 +134,7 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
         if (!created) return;
 
         setNotes((current) => current.some((n) => n.noteId === created.noteId) ? current : [ ...current, created ]);
+        setSelection({ noteId: created.noteId });
     }, [ note ]);
 
     // Placement mode is armed by the button or by the context menu. Tying the instruction toast and

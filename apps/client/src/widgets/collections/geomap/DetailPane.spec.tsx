@@ -16,7 +16,7 @@ import { buildNote } from "../../../test/easy-froca";
 import { useLegacyImperativeHandlers, useNoteContext, useTriliumEvent } from "../../react/hooks";
 import { ParentComponent } from "../../react/react_utils";
 import DetailPane, { OTHER_WAYS_TO_OPEN, PaneSelection } from "./DetailPane";
-import { GPX_MIME } from "./GpxTrack";
+import { GPX_MIME, trackSourceId } from "./GpxTrack";
 import { ParentMap } from "./map";
 import { MARKER_LAYER } from "./Markers";
 
@@ -77,11 +77,22 @@ const MAP_WIDTH = 1200;
 function fakeMap({ width = MAP_WIDTH, features = [] as unknown[] } = {}) {
     const listeners = new Map<string, Set<Listener>>();
     const eased: unknown[] = [];
+    const fitted: unknown[] = [];
+    const sources = new Map<string, unknown>();
     let under: unknown[] = features;
 
     return {
         /** Every camera move the pane has asked for, which is how it holds a marker clear of itself. */
         get eased() { return eased; },
+        /** Every fit the pane has asked for, which is how it brings a whole track into view. */
+        get fitted() { return fitted; },
+        /** Registers a GeoJSON source as a track's layers would have added it, for the pane to read back. */
+        addSource(id: string, data: unknown) { sources.set(id, { getData: async () => data }); },
+        getSource(id: string) { return sources.get(id); },
+        /** A source announcing itself, as MapLibre does — repeatedly, for as long as it lives. */
+        fireSourceData(sourceId: string) {
+            for (const fn of listeners.get("sourcedata") ?? []) fn({ sourceId });
+        },
         /** What the next click will land on: a marker's feature, or nothing at all. */
         setUnderPointer(hit: unknown[]) { under = hit; },
         /** A click on the map, wherever `setUnderPointer` says it landed. */
@@ -101,7 +112,8 @@ function fakeMap({ width = MAP_WIDTH, features = [] as unknown[] } = {}) {
             return layers.includes(MARKER_LAYER) ? under : [];
         },
         easeTo(options: unknown) { eased.push(options); },
-        getContainer: () => ({ clientWidth: width }),
+        fitBounds(bounds: unknown, options: unknown) { fitted.push({ bounds, options }); },
+        getContainer: () => ({ clientWidth: width, clientHeight: 800 }),
         // Asked for by `trackHitLayers`, which reads the current GPX hit layers off the style.
         getLayersOrder: () => [] as string[]
     };
@@ -236,9 +248,76 @@ describe("DetailPane", () => {
         await settle();
 
         expect(pane()?.querySelector<HTMLInputElement>(".title-row input")?.value).toBe("A hike");
-        // Nothing to pan to and no place to write out, there being no location label to read.
+        // No place to write out, there being no location label to read — and nothing to move the
+        // camera for either, this map not carrying the track's source to fit the viewport around.
         expect(map.eased).toEqual([]);
+        expect(map.fitted).toEqual([]);
         expect(pane()?.querySelector(".geo-detail-pane-location")).toBeNull();
+    });
+
+    /**
+     * A track is not a point but a shape, so opening one does not centre a coordinate: the camera
+     * is solved for the track's corners — pan and zoom both — held clear of the pane on its side
+     * and given a rim of air on the others. The corners are read back off the track's own source,
+     * so the pane never parses the file itself.
+     */
+    it("fits the whole track into what the pane leaves uncovered", async () => {
+        buildNote({ id: "root", title: "root", children: [ { id: "hikefit", title: "A hike", mime: GPX_MIME } ] });
+        const note = froca.notes["hikefit"];
+        const map = fakeMap();
+        map.addSource(trackSourceId(note.noteId), {
+            type: "FeatureCollection",
+            features: [
+                { type: "Feature", properties: {}, geometry: { type: "MultiLineString", coordinates: [ [ [ 24.13, 45.79 ], [ 24.16, 45.96 ] ] ] } },
+                { type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [ 24.08, 45.89 ] } }
+            ]
+        });
+        await mount([ note ], map);
+
+        map.setUnderPointer([ trackFeature(note) ]);
+        await act(async () => map.click());
+        await settle();
+
+        expect(map.eased).toEqual([]);
+        expect(map.fitted).toEqual([ {
+            // The westmost point is the mark's, not the line's: everything the source holds counts.
+            bounds: [ [ 24.08, 45.79 ], [ 24.16, 45.96 ] ],
+            options: { padding: { top: 60, bottom: 60, left: 60, right: 460 }, maxZoom: 16 }
+        } ]);
+    });
+
+    /**
+     * A track selected the moment it was brought onto the map (see `addGpxTrack` in index.tsx) has
+     * no line yet — the note's content is still being fetched, so the source the bounds are read
+     * from is not there to be asked. The fit waits for the source to announce itself rather than
+     * giving up, and takes only the first announcement: they repeat for as long as the source
+     * lives, and a map re-fitted under the reader on each would never stay where it was put.
+     */
+    it("fits a track whose line arrives after it was selected, and only once", async () => {
+        buildNote({ id: "root", title: "root", children: [ { id: "hikelate", title: "A hike", mime: GPX_MIME } ] });
+        const note = froca.notes["hikelate"];
+        const map = fakeMap();
+
+        // Selected before any source exists, as the map view selects a track it has just imported.
+        await mount([ note ], map, false, false, { noteId: note.noteId });
+        await settle();
+        expect(map.fitted).toEqual([]);
+
+        // The track's layers go up once the content has arrived (see GpxTrack), source first.
+        map.addSource(trackSourceId(note.noteId), {
+            type: "FeatureCollection",
+            features: [ { type: "Feature", properties: {}, geometry: { type: "MultiLineString", coordinates: [ [ [ 24.13, 45.79 ], [ 24.16, 45.96 ] ] ] } } ]
+        });
+        await act(async () => { map.fireSourceData(trackSourceId(note.noteId)); });
+
+        expect(map.fitted).toEqual([ {
+            bounds: [ [ 24.13, 45.79 ], [ 24.16, 45.96 ] ],
+            options: { padding: { top: 60, bottom: 60, left: 60, right: 460 }, maxZoom: 16 }
+        } ]);
+
+        // Announced again — a repaint, a tile settling — the map stays where it was put.
+        await act(async () => { map.fireSourceData(trackSourceId(note.noteId)); });
+        expect(map.fitted).toHaveLength(1);
     });
 
     /**
