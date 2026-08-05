@@ -52,7 +52,7 @@
     "@triliumnext/core": "workspace:*",
     "@triliumnext/express-partial-content": "workspace:*",
     "@triliumnext/highlightjs": "workspace:*",
-    "@types/better-sqlite3": "7.6.13",
+    "@types/better-sqlite3": "9.6.0",
     "@types/cls-hooked": "4.3.9",
     "@types/compression": "1.8.1",
     "@types/cookie-parser": "1.4.10",
