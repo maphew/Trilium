@@ -7,14 +7,14 @@ import {
     safeHostname
 } from "@triliumnext/commons";
 import { getLog, imageService, ValidationError } from "@triliumnext/core";
+import { trimIcoToSmallestEntry } from "@triliumnext/core/src/services/ico.js";
+import { findPageDescription } from "@triliumnext/core/src/services/page_description.js";
 import type { Request } from "express";
 import isSvg from "is-svg";
 import { Jimp } from "jimp";
 import { parse } from "node-html-parser";
 
-import { trimIcoToSmallestEntry } from "../../services/ico.js";
 import { getImageTypeFromBuffer } from "../../services/image_codec.js";
-import { findPageDescription } from "../../services/page_description.js";
 import { safeFetch, validateUrl } from "../../services/safe_fetch.js";
 
 const MAX_RESPONSE_SIZE = 512 * 1024; // 512KB
