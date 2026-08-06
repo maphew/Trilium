@@ -4,6 +4,7 @@ import type { Request } from "express";
 import { createWriteStream } from "fs";
 import fsp from "fs/promises";
 import path from "path";
+import { Transform, type TransformCallback } from "stream";
 import { pipeline } from "stream/promises";
 
 /**
@@ -75,6 +76,14 @@ export interface ChunkedUploadConfig<T> {
     requireFreeSpace?: boolean;
     /** Called once the file is complete. See {@link CompletedUpload} on ownership. */
     onComplete(upload: CompletedUpload): Promise<T>;
+    /**
+     * Called when a session ends without producing anything: expired, aborted, refused for
+     * contradicting its declared size, or completed but rejected by {@link onComplete}.
+     *
+     * For a consumer that set something aside for the upload's sake, which nothing would otherwise
+     * put back: an expiry happens on a timer, with no request to fail and nobody to tell.
+     */
+    onSessionDiscarded?(): void;
 }
 
 /** What a client is told about a session, whether it is starting one or resuming one. */
@@ -182,19 +191,30 @@ export function createChunkedUpload<T>(config: ChunkedUploadConfig<T>): ChunkedU
             }
 
             const destination = createWriteStream(session.path, { flags: "a" });
+            let failure: unknown;
             try {
-                await pipeline(req, destination);
-            } finally {
-                // Whether the chunk arrived whole or the connection dropped partway, what counts is
-                // what reached the disk. Reading it back is what lets a broken chunk be resumed from
-                // the exact byte it stopped at rather than being re-sent or, worse, double-written.
-                session.receivedBytes = (await fsp.stat(session.path)).size;
-                session.expiresAt = Date.now() + sessionTtlMs;
+                // Capped as it is written, not measured once it is written: nothing authenticates the
+                // caller here, so one that declares a megabyte and then sends a hundred gigabytes has
+                // to be cut off mid-flight rather than found out when the disk is already full.
+                await pipeline(req, cappedAt(session.totalBytes - session.receivedBytes), destination);
+            } catch (e) {
+                failure = e;
             }
 
-            if (session.receivedBytes > session.totalBytes) {
-                await drop(session);
-                throw new ValidationError("The upload sent more bytes than it declared.");
+            // Whether the chunk arrived whole or the connection dropped partway, what counts is what
+            // reached the disk. Reading it back is what lets a broken chunk be resumed from the exact
+            // byte it stopped at rather than being re-sent or, worse, double-written.
+            session.receivedBytes = await sizeOf(session.path);
+            session.expiresAt = Date.now() + sessionTtlMs;
+
+            if (failure) {
+                // An overshoot is the caller contradicting what it declared, so the upload goes with
+                // it; a broken connection is kept, since that is exactly what resuming is for.
+                if (failure instanceof ValidationError) {
+                    await drop(session);
+                }
+
+                throw failure;
             }
 
             return describe(session);
@@ -230,6 +250,8 @@ export function createChunkedUpload<T>(config: ChunkedUploadConfig<T>): ChunkedU
                 // The consumer may have taken the file or may have failed before touching it; either
                 // way nothing else will come back for it.
                 await fsp.rm(session.path, { force: true }).catch(() => {});
+                config.onSessionDiscarded?.();
+
                 throw e;
             }
         });
@@ -275,9 +297,17 @@ export function createChunkedUpload<T>(config: ChunkedUploadConfig<T>): ChunkedU
         return session;
     }
 
+    /**
+     * Ends a session that produced nothing: expired, aborted, or contradicted what it declared.
+     *
+     * The consumer is told, because an upload is rarely the only thing that was set aside for it, and
+     * these are the endings nobody is waiting on a response for — an expiry has no caller at all.
+     */
     async function drop(session: Session): Promise<void> {
         sessions.delete(session.uploadId);
         await fsp.rm(session.path, { force: true }).catch(() => {});
+
+        config.onSessionDiscarded?.();
     }
 
     function describe(session: Session): ChunkedUploadStatus {
@@ -318,6 +348,39 @@ interface BeginBody {
     fileName?: string;
     totalBytes?: number;
     metadata?: Record<string, unknown>;
+}
+
+/**
+ * Passes at most `allowance` bytes through and fails on the one that would exceed it.
+ *
+ * A body arrives with nothing bounding it but what the sender chooses to send: `Content-Length` is
+ * the sender's own claim, and the chunk content type is deliberately one no body parser handles. So
+ * the ceiling is applied to the bytes themselves, on their way past, and the write ends the moment
+ * one too many arrives.
+ */
+function cappedAt(allowance: number): Transform {
+    let seen = 0;
+
+    return new Transform({
+        transform(chunk: Buffer, _encoding: BufferEncoding, callback: TransformCallback) {
+            seen += chunk.length;
+            if (seen > allowance) {
+                callback(new ValidationError("The upload sent more bytes than it declared."));
+                return;
+            }
+
+            callback(null, chunk);
+        }
+    });
+}
+
+/** How much of the file is there, counting a file that is not there at all as nothing. */
+async function sizeOf(filePath: string): Promise<number> {
+    try {
+        return (await fsp.stat(filePath)).size;
+    } catch {
+        return 0;
+    }
 }
 
 /**

@@ -143,6 +143,39 @@ describe("chunked upload: the offset rule", () => {
         await expect(upload.status(sessionRequest(uploadId))).rejects.toThrow(/No such upload/);
     });
 
+    it("cuts an oversized body off as it is written, rather than measuring it once it is on disk", async () => {
+        // Nothing authenticates the caller during setup, so a declared size that the body then
+        // ignores must stop at the declared size: the check cannot wait until the disk is full.
+        const { upload } = uploadService({ maxTotalBytes: 1024 * 1024 });
+        const { uploadId } = await upload.begin(beginRequest(8));
+        const written: number[] = [];
+        const flood = new Readable({
+            read() {
+                // Far more than was declared, and the stream keeps offering it until it is stopped.
+                written.push(64 * 1024);
+                this.push(Buffer.alloc(64 * 1024));
+            }
+        });
+
+        await expect(upload.chunk(chunkRequest(uploadId, 0, flood))).rejects.toThrow(/more bytes than it declared/);
+
+        // Whatever was let through, it is bounded by what was declared, not by what was sent.
+        expect(fs.existsSync(partialPath(tempRoot, uploadId))).toBe(false);
+        expect(written.reduce((total, size) => total + size, 0)).toBeLessThan(1024 * 1024);
+    });
+
+    it("keeps what the declared size allows and refuses only the byte past it", async () => {
+        const { upload } = uploadService();
+        const { uploadId } = await upload.begin(beginRequest(8));
+
+        // Exactly the allowance, in two chunks, is not an overshoot.
+        await upload.chunk(chunkRequest(uploadId, 0, Buffer.alloc(4, 1)));
+        const status = await upload.chunk(chunkRequest(uploadId, 4, Buffer.alloc(4, 2)));
+
+        expect(status.receivedBytes).toBe(8);
+        await expect(upload.finish(sessionRequest(uploadId))).resolves.toBeTruthy();
+    });
+
     it("counts what reached the disk when a chunk breaks partway, and resumes from there", async () => {
         const { upload } = uploadService({ maxTotalBytes: 4096 });
         const content = Buffer.alloc(2048, 3);
@@ -233,6 +266,59 @@ describe("chunked upload: starting and ending a session", () => {
         const { upload } = uploadService();
 
         await expect(upload.status(sessionRequest("nosuchupload"))).rejects.toThrow(/No such upload/);
+    });
+});
+
+describe("chunked upload: telling the consumer a session came to nothing", () => {
+    /** An upload that records every ending its consumer is told about. */
+    function watchedService(overrides: Partial<ChunkedUploadConfig<string>> = {}) {
+        const discarded = { count: 0 };
+        const { upload } = uploadService({ onSessionDiscarded: () => discarded.count++, ...overrides });
+
+        return { upload, discarded };
+    }
+
+    it("says so when an upload expires, which has no caller of its own to fail", async () => {
+        const { upload, discarded } = watchedService({ sessionTtlMs: 1 });
+        await upload.begin(beginRequest(8));
+
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        await upload.sweep();
+
+        expect(discarded.count).toBe(1);
+    });
+
+    it("says so when an upload is abandoned or contradicts its declared size", async () => {
+        const { upload, discarded } = watchedService();
+        const first = await upload.begin(beginRequest(8));
+        await upload.abort(sessionRequest(first.uploadId));
+
+        const second = await upload.begin(beginRequest(4));
+        await expect(upload.chunk(chunkRequest(second.uploadId, 0, Buffer.alloc(8)))).rejects.toThrow();
+
+        expect(discarded.count).toBe(2);
+    });
+
+    it("says so when the consumer itself refuses the finished file", async () => {
+        const { upload, discarded } = watchedService({
+            onComplete: async () => { throw new Error("not a database"); }
+        });
+        const { uploadId } = await upload.begin(beginRequest(4));
+        await upload.chunk(chunkRequest(uploadId, 0, Buffer.alloc(4)));
+
+        await expect(upload.finish(sessionRequest(uploadId))).rejects.toThrow("not a database");
+
+        expect(discarded.count).toBe(1);
+    });
+
+    it("stays quiet when the upload becomes what it was for", async () => {
+        const { upload, discarded } = watchedService();
+        const { uploadId } = await upload.begin(beginRequest(4));
+        await upload.chunk(chunkRequest(uploadId, 0, Buffer.alloc(4)));
+        await upload.finish(sessionRequest(uploadId));
+
+        // Nothing was set aside in vain, so nothing is put back.
+        expect(discarded.count).toBe(0);
     });
 });
 

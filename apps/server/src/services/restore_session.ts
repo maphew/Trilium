@@ -61,7 +61,18 @@ interface Pending extends PendingBackup {
     consumable: boolean;
 }
 
+/**
+ * How long a backup may wait to be restored before setup is given back, matching how long an upload
+ * may go quiet for.
+ *
+ * A backup goes pending as soon as it arrives, which is before the user has been asked for its
+ * passphrase — and they may never answer. Without a limit, closing that tab would leave the instance
+ * refusing every other way of setting itself up until it was restarted.
+ */
+const PENDING_TTL_MS = 60 * 60 * 1000;
+
 let pending: Pending | null = null;
+let pendingExpiry: ReturnType<typeof setTimeout> | null = null;
 let releaseSetupHold: (() => void) | null = null;
 
 /** Receives a backup a chunk at a time, and makes what arrives the pending one. */
@@ -70,6 +81,14 @@ export const backupUpload = createChunkedUpload<PendingBackup>({
     directory: path.join(dataDir.TMP_DIR, "uploads"),
     maxTotalBytes: MAX_BACKUP_BYTES,
     requireFreeSpace: true,
+    // An upload that ends with nothing to show for it gives setup back. Expiry is the case that
+    // needs saying: it happens on a timer, with no request to fail and nobody to tell, and without
+    // this the instance would refuse every other way of setting itself up until it was restarted.
+    onSessionDiscarded: () => {
+        if (!pending) {
+            freeSetup();
+        }
+    },
     onComplete: async ({ path: uploadedPath, fileName }) => {
         fs.mkdirSync(path.dirname(PENDING_UPLOAD_PATH), { recursive: true });
         fs.rmSync(PENDING_UPLOAD_PATH, { force: true });
@@ -84,6 +103,30 @@ export const backupUpload = createChunkedUpload<PendingBackup>({
 });
 
 /**
+ * Begins receiving an uploaded backup, reserving setup before the first byte of it arrives.
+ *
+ * Reserved this early because the reservation is the point: an hour of uploading must not end with
+ * another tab having created a document in the meantime. Given back by `onSessionDiscarded` if the
+ * upload never becomes a backup.
+ *
+ * @throws ConflictError when setup is busy with something else.
+ */
+export async function beginBackupUpload(req: Parameters<typeof backupUpload.begin>[0]) {
+    reserveSetup();
+
+    try {
+        return await backupUpload.begin(req);
+    } catch (e) {
+        // Refused before it started, so there is nothing left for the reservation to protect.
+        if (!pending) {
+            freeSetup();
+        }
+
+        throw e;
+    }
+}
+
+/**
  * Makes the backup at `filePath` the one waiting to be restored, and reserves setup for it.
  *
  * @param options.consumable whether the restore may take the file rather than copy it. True only for
@@ -93,7 +136,7 @@ export const backupUpload = createChunkedUpload<PendingBackup>({
 export function setPendingBackup(filePath: string, fileName: string, options: { consumable: boolean }): PendingBackup {
     // Taken before the backup is recorded, so a refusal leaves nothing pending behind it. Released
     // when the restore ends, or when the backup is discarded.
-    releaseSetupHold ??= holdSetup("restore-backup");
+    reserveSetup();
 
     pending = {
         path: filePath,
@@ -103,6 +146,7 @@ export function setPendingBackup(filePath: string, fileName: string, options: { 
         // without having to try the restore and fail first.
         encrypted: readBackupFormat(filePath)?.encrypted ?? false
     };
+    schedulePendingExpiry();
 
     return { fileName: pending.fileName, encrypted: pending.encrypted };
 }
@@ -125,16 +169,22 @@ export function pendingRestoreRequest(): Omit<RestoreRequest, "passphrase"> | nu
  * The setup lock is held for the whole of it, not just for starting it.
  */
 export function beginRestore(request: RestoreRequest): void {
+    // A restore is not a backup waiting to be restored, and a large one can outlast the wait it is
+    // allowed: left armed, the timer would delete the very file the restore is reading.
+    cancelPendingExpiry();
+
     void withSetupLock("restore-backup", async () => {
         try {
             await restoreDatabase(request);
             discardPendingBackup();
         } catch (e) {
             // A passphrase that was wrong or missing is the one failure the same backup can still
-            // recover from, so it is kept for the next attempt. Anything else will fail the same way
-            // however often it is tried.
+            // recover from, so it is kept for the next attempt — and starts waiting again, since the
+            // next attempt is another answer that may never come.
             if (!(e instanceof RestoreFailure) || !RETRYABLE_WITH_ANOTHER_PASSPHRASE.has(e.reason)) {
                 discardPendingBackup();
+            } else {
+                schedulePendingExpiry();
             }
 
             throw e;
@@ -162,6 +212,36 @@ export function discardPendingBackup(): void {
     }
 
     pending = null;
+    cancelPendingExpiry();
+    freeSetup();
+}
+
+/** Starts the wait over, so a backup only expires after it has been left alone for the whole of it. */
+function schedulePendingExpiry(): void {
+    cancelPendingExpiry();
+
+    pendingExpiry = setTimeout(() => {
+        getLog().info("A backup waiting to be restored was left long enough to give setup back.");
+        discardPendingBackup();
+    }, PENDING_TTL_MS);
+    // Nothing should be kept alive by a backup nobody came back for.
+    pendingExpiry.unref?.();
+}
+
+function cancelPendingExpiry(): void {
+    if (pendingExpiry) {
+        clearTimeout(pendingExpiry);
+        pendingExpiry = null;
+    }
+}
+
+/** Reserves setup for the restore that is coming, if it is not reserved already. */
+function reserveSetup(): void {
+    releaseSetupHold ??= holdSetup("restore-backup");
+}
+
+/** Gives setup back. Doing it twice is not an error; leaving it taken is the one that matters. */
+function freeSetup(): void {
     releaseSetupHold?.();
     releaseSetupHold = null;
 }

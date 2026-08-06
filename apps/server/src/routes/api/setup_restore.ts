@@ -6,6 +6,7 @@ import type ServerBackupService from "../../backup_provider.js";
 import { getRestoreProgress, type RestoreProgress, type RestoreRequest } from "../../services/database_restore.js";
 import {
     backupUpload,
+    beginBackupUpload,
     beginRestore,
     discardPendingBackup,
     pendingRestoreRequest
@@ -25,7 +26,7 @@ import {
  */
 
 async function beginUpload(req: Request) {
-    return await backupUpload.begin(req);
+    return await beginBackupUpload(req);
 }
 
 async function uploadChunk(req: Request) {
