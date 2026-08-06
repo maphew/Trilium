@@ -22,7 +22,8 @@ import {
     TAG_BYTES,
     validateScryptParams
 } from "./format.js";
-import { DigestTap, FrameEncryptor, GzipHeaderNormaliser } from "./streams.js";
+import { createProgressReporter, type ProgressOptions } from "./progress.js";
+import { DigestTap, FrameEncryptor, GzipHeaderNormaliser, ProgressTap } from "./streams.js";
 
 /** The stream shapes `pipeline` accepts, so a built array needs no cast at the call. */
 type PipelineStage = NodeJS.ReadableStream | NodeJS.WritableStream | NodeJS.ReadWriteStream;
@@ -35,14 +36,17 @@ type PipelineStage = NodeJS.ReadableStream | NodeJS.WritableStream | NodeJS.Read
  */
 export type PatchHeader = (offset: number, data: Buffer) => Promise<void> | void;
 
-export interface WriteBackupContainerOptions {
+export interface WriteBackupContainerOptions extends ProgressOptions {
     /** Patches the payload digest into the header once the payload is complete. Required. */
     patchHeader: PatchHeader;
     /** Compress the payload with gzip. */
     compress?: boolean;
     /** Encrypt the payload. Encryption is on exactly when a passphrase is given. */
     passphrase?: string;
-    /** Size of the wrapped database, recorded as a hint for restore progress. Omit when unknown. */
+    /**
+     * Size of the wrapped database, recorded as a hint for restore progress and used as the total
+     * this write reports its own progress against. Omit when unknown.
+     */
     plaintextSize?: number;
     /** scrypt cost. Defaults to {@link SCRYPT_DEFAULTS}. */
     scrypt?: ScryptParams;
@@ -96,6 +100,7 @@ export async function writeBackupContainer(
 
     const compressed = options.compress === true;
     const encrypted = options.passphrase !== undefined;
+    const progress = createProgressReporter(plaintextSize, options);
 
     // Build the header first: the verifier tag authenticates the bytes before it, so those must be
     // final.
@@ -140,6 +145,9 @@ export async function writeBackupContainer(
     const digestTap = new DigestTap();
     // Typed as the streams `pipeline` accepts, so the built array needs no cast at the call.
     const stages: PipelineStage[] = [ input ];
+    if (progress) {
+        stages.push(new ProgressTap(progress));
+    }
     if (compressed) {
         stages.push(
             createGzip({ level: options.compressionLevel ?? 6 }),
@@ -155,6 +163,10 @@ export async function writeBackupContainer(
 
     const digest = digestTap.digest();
     await options.patchHeader(digestOffset(header.headerLength), digest);
+
+    // After the patch rather than after the pipeline: the container is not written until the digest
+    // is in its header.
+    progress?.complete();
 
     return {
         headerLength: header.headerLength,
