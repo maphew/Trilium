@@ -15,6 +15,7 @@ import type { MenuCommandItem, MenuItem } from "../../../menus/context_menu";
 import { buildNote } from "../../../test/easy-froca";
 import { renderInto } from "../../../test/render";
 import ContextMenus from "./ContextMenus";
+import { GPX_MIME } from "./GpxTrack";
 import { ParentMap } from "./map";
 import { MARKER_LAYER } from "./Markers";
 
@@ -65,14 +66,15 @@ function fakeMap(markerUnderPointer?: FNote, trackUnderPointer?: FNote) {
 }
 
 /** Opens the menu over the given map and hands back the items it was shown with. */
-async function openMenu(map: ReturnType<typeof fakeMap>, { isReadOnly = false, onRelocate = vi.fn() } = {}) {
-    const note = buildNote({ title: "The map itself" });
+async function openMenu(map: ReturnType<typeof fakeMap>, { isReadOnly = false, onRelocate = vi.fn(), onCreateNote = vi.fn() } = {}) {
+    const parentNote = buildNote({ title: "The map" });
+
     // Settled before the map is clicked: the listener the menu opens from is bound in an effect, and
     // effects do not run within the render itself.
     await act(async () => {
         renderInto(
             <ParentMap.Provider value={map as never}>
-                <ContextMenus note={note} isReadOnly={isReadOnly} onRelocate={onRelocate} />
+                <ContextMenus parentNote={parentNote} isReadOnly={isReadOnly} onRelocate={onRelocate} onCreateNote={onCreateNote} />
             </ParentMap.Provider>
         );
     });
@@ -81,7 +83,7 @@ async function openMenu(map: ReturnType<typeof fakeMap>, { isReadOnly = false, o
     act(() => { map.rightClick(); });
 
     const items: MenuItem<string>[] = show.mock.calls[0]?.[0]?.items ?? [];
-    return { items, onRelocate };
+    return { items, onRelocate, onCreateNote };
 }
 
 /** The item offering to move a marker, where one was offered. */
@@ -117,19 +119,59 @@ describe("ContextMenus", () => {
         expect(items).toContainEqual(expect.objectContaining({ title: "geo-map-context.add-note" }));
     });
 
-    it("opens the note of a GPX track that was clicked, not the map's own menu", async () => {
-        const track = buildNote({ title: "A Sunday ride" });
+    /**
+     * Adding a note goes through the map view rather than being done here: the click has named the
+     * place already, so the map creates the note there and opens the pane on it — the same road a
+     * note created by the armed click takes (see `createNoteAt` in index.tsx).
+     */
+    it("hands the map the place a note was asked for", async () => {
+        const { items, onCreateNote } = await openMenu(fakeMap());
+
+        const add = items.find((item): item is MenuCommandItem<string> =>
+            "title" in item && item.title === "geo-map-context.add-note");
+        add?.handler?.(add, undefined as never);
+
+        expect(onCreateNote).toHaveBeenCalledWith(expect.objectContaining({ latlng: { lat: 1, lng: 2 } }));
+    });
+
+    /**
+     * And named for what taking it off would do, which is delete the note: a track's line is drawn
+     * from its own file rather than from a location written on it, so "remove from map" would be a
+     * promise the map cannot keep.
+     */
+    it("opens the note of a GPX track that was clicked, offering to delete rather than unpin it", async () => {
+        const track = buildNote({ title: "A Sunday ride", mime: GPX_MIME });
         const { items } = await openMenu(fakeMap(undefined, track));
 
-        // The note's menu rather than the map's: a track is a note, so what it offers is what a
-        // marker offers, and never the offer to add a note where the click landed.
+        // The note's menu rather than the map's: never the offer to add a note where the click landed.
         expect(items).not.toContainEqual(expect.objectContaining({ title: "geo-map-context.add-note" }));
+        expect(items).toContainEqual(expect.objectContaining({ title: "geo-map-context.delete-note" }));
+        expect(items).not.toContainEqual(expect.objectContaining({ title: "geo-map-context.remove-from-map" }));
+    });
+
+    it("offers a marker the plain removal, the note being able to outlive its pin", async () => {
+        const marker = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+        const { items } = await openMenu(fakeMap(marker));
+
         expect(items).toContainEqual(expect.objectContaining({ title: "geo-map-context.remove-from-map" }));
+        expect(items).not.toContainEqual(expect.objectContaining({ title: "geo-map-context.delete-note" }));
+    });
+
+    /**
+     * A track has no marker to put somewhere else: it is on the map by being drawn across it, and
+     * its place is the line its file holds. The offer used to be made and only wrote a location onto
+     * the note — planting a stray pin elsewhere while the line stayed where it was.
+     */
+    it("does not offer to move a GPX track, which has no marker to move", async () => {
+        const track = buildNote({ title: "A Sunday ride", mime: GPX_MIME });
+        const { items } = await openMenu(fakeMap(undefined, track));
+
+        expect(moveItem(items)).toBeUndefined();
     });
 
     it("prefers the marker to the track it stands on, both being under the pointer", async () => {
         const marker = buildNote({ title: "Where I stopped", "#geolocation": "1,2" });
-        const track = buildNote({ title: "A Sunday ride" });
+        const track = buildNote({ title: "A Sunday ride", mime: GPX_MIME });
         const { items, onRelocate } = await openMenu(fakeMap(marker, track));
 
         // Aiming at a pin standing on its own track has to mean the pin: it is the smaller target,

@@ -9,23 +9,13 @@
      */
     --node-panel-foot: calc(var(--mind-map-inset-bottom) + var(--mind-map-toolbar-height) + var(--mind-map-inset));
 
+    /* Everything the panel is made of — the sheet, the header row, the tabs under it — is the shared
+       panel's (see OverlayPanel.css). What is left here is where this one stands over the map. */
     position: absolute;
     top: var(--node-panel-top);
     inset-inline-end: var(--mind-map-inset);
     width: 240px;
     max-height: calc(100% - var(--node-panel-top) - var(--node-panel-foot));
-    /* The tab strip is the panel's header and stays put; only the tab under it scrolls. */
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    box-sizing: border-box;
-    background: var(--menu-background-color);
-    color: var(--menu-text-color);
-    border: 1px solid var(--dropdown-border-color);
-    border-radius: 8px;
-    box-shadow: 0 2px 8px #0003;
-    /* The frosting the bars beside it wear, which is a menu's (see OverlayToolbar.css). */
-    backdrop-filter: var(--dropdown-backdrop-filter, blur(10px));
 }
 
 /* On a screen of its own the panel starts where the map does, there being no note buttons over it
@@ -42,115 +32,23 @@ body.experimental-feature-new-layout .mind-map-node-panel {
 }
 
 /*
- * The head of the panel: a strip of tabs or a heading of one line, and beside either of them the
- * button that sends the panel away. Only the placing of that button is this row's business — what
- * heads the panel keeps its own padding and the line under it (see below), the two headers standing
- * at different heights.
- */
-.mind-map-node-panel .mind-map-node-panel-header {
-    position: relative;
-    /* The head of a full panel keeps its height; what gives way is the tab under it, which scrolls. */
-    flex-shrink: 0;
-}
-
-/*
- * At the end of the row and centred on it, whichever header it is standing at. What it looks like
- * is the theme's — an "x" icon button is dressed as the one closing a tab is, here as everywhere.
- *
- * Laid over the row rather than standing in it: the tabs are centred on the panel, and a button
- * taking its own place beside them would push them off it. There is room to spare next to two tabs
- * and next to one word, so the two never meet.
- */
-.mind-map-node-panel .mind-map-node-panel-close {
-    position: absolute;
-    inset-inline-end: 6px;
-    top: 50%;
-    transform: translateY(-50%);
-}
-
-/*
- * The strip is the right pane's, at the size it stands there (see TabStrip.css); what is left here
- * is the row it heads. It parts from the tab under it by a line the width of the panel, so that it
- * reads as the panel's header rather than as one more choice among the fields — which is what a
- * button group means everywhere else in here (the font sizes, the picture's shapes).
- */
-.mind-map-node-panel .mind-map-node-panel-tabs {
-    padding: 8px;
-    border-bottom: 1px solid var(--main-border-color);
-}
-
-/*
- * Where the memo is all there is (a map that can only be read), the strip gives way to a heading,
- * dressed as the strip was: the same line under it, and the same room — reckoned from the memo's own
- * padding, so that the heading stands over the writing rather than beside it.
- */
-.mind-map-node-panel .mind-map-node-panel-title {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    padding: 10px 15px;
-    /* Clear of the button laid over the end of the row, for a heading longer than English gives it. */
-    padding-inline-end: 36px;
-    border-bottom: 1px solid var(--main-border-color);
-    font-weight: 550;
-}
-
-/*
- * Every tab is laid into the same cell, so the panel stands as tall as the tallest of them and
- * keeps that height whichever is on show. Were each tab to size the panel in turn, switching to the
- * memo would collapse the panel to the height of one field — pulling the strip up the screen, out
- * from under the pointer that had just pressed a tab.
- */
-.mind-map-node-panel .mind-map-node-panel-bodies {
-    display: grid;
-    /* Without it a grid refuses to shrink past its content, and the panel scrolls as a whole. */
-    min-height: 0;
-}
-
-/* Each tab holds the padding, rather than the panel: the memo's is its own (see below). */
-.mind-map-node-panel .mind-map-node-panel-body {
-    grid-area: 1 / 1;
-    padding: 15px;
-    overflow: auto;
-    /* As above, for the tab within the cell. */
-    min-height: 0;
-}
-
-/*
- * The tab not on show keeps its place in the cell rather than leaving it, which is what holds the
- * height of the panel still. `visibility` and not `display`, whose `none` would give the place up —
- * it takes the tab out of reach of the pointer, the keyboard and a screen reader all the same.
- */
-.mind-map-node-panel .mind-map-node-panel-body[aria-hidden="true"] {
-    visibility: hidden;
-}
-
-/*
  * The memo is the whole of its tab, so it fills the height the panel took from the fields — and the
  * width edge to edge, the tab keeping none of the padding for itself. What insets the writing is
  * the memo's own padding (see NodeMemo.css), so that the two read as one surface rather than as a
  * sheet laid on a tab.
+ *
+ * The padding is given up through the variable the shared body reads it from rather than by setting
+ * `padding` over it: the two rules carry the same weight, and which of the two stylesheets is loaded
+ * last is not this file's to say.
  */
 .mind-map-node-panel .mind-map-node-panel-memo-body {
+    --overlay-panel-body-padding: 0;
+
     display: flex;
-    padding: 0;
 
     .mind-map-node-memo {
         flex: 1;
     }
-}
-
-.mind-map-node-panel .mind-map-node-panel-section + .mind-map-node-panel-section {
-    margin-top: 16px;
-}
-
-.mind-map-node-panel .mind-map-node-panel-section-label {
-    margin-bottom: 8px;
-    font-size: .85em;
-    font-weight: 550;
-    text-transform: uppercase;
-    letter-spacing: .75pt;
-    opacity: .75;
 }
 
 /* The icons of a node stand side by side, the button adding one more after them. */
@@ -166,8 +64,9 @@ body.experimental-feature-new-layout .mind-map-node-panel {
     --note-icon-size: 20px;
     --note-icon-container-padding-size: 4px;
 
-    &:last-child {
+    &:last-child:not(:hover) {
         --note-icon-background-color: transparent;
+        --note-icon-custom-color: var(--main-text-color);
     }
 }
 

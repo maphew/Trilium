@@ -686,9 +686,18 @@ export function useNoteRelationTarget(note: FNote, relationName: RelationNames) 
  * - if the value is null then the label is removed.
  */
 export function useNoteLabel(note: FNote | undefined | null, labelName: FilterLabelsByType<string>): [string | null | undefined, (newValue: string | null | undefined) => void] {
+    return useNoteLabelByName(note, labelName);
+}
+
+/**
+ * The same as {@link useNoteLabel} for a label the app does not know by name — one the user named
+ * themselves, e.g. a label a `#calendar:startDate` renaming points at. Prefer {@link useNoteLabel}
+ * wherever the name is a builtin one, as it holds the name to the declared vocabulary.
+ */
+export function useNoteLabelByName(note: FNote | undefined | null, labelName: string): [string | null | undefined, (newValue: string | null | undefined) => void] {
     const [ , setLabelValue ] = useState<string | null | undefined>();
 
-    useEffect(() => setLabelValue(note?.getLabelValue(labelName) ?? null), [ note ]);
+    useEffect(() => setLabelValue(note?.getLabelValue(labelName) ?? null), [ note, labelName ]);
     useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
         for (const attr of loadResults.getAttributeRows()) {
             if (attr.type === "label" && attr.name === labelName && attributes.isAffecting(attr, note)) {
@@ -710,7 +719,7 @@ export function useNoteLabel(note: FNote | undefined | null, labelName: FilterLa
                 attributes.removeOwnedLabelByName(note, labelName);
             }
         }
-    }, [note]);
+    }, [note, labelName]);
 
     useDebugValue(labelName);
 
@@ -1223,6 +1232,45 @@ export function useLegacyImperativeHandlers(handlers: Record<string, Function>) 
 }
 
 /**
+ * Marks an element as the one the parent component is found at, which is how anything outside the
+ * component tree asks for it: `appContext.getComponentByEl` climbs the DOM to the nearest element
+ * bearing a component and reads it off there.
+ *
+ * The counterpart of {@link useLegacyImperativeHandlers} — that hook writes methods onto the parent
+ * component, and this is what lets a caller holding only a DOM node arrive at the same object. The
+ * text editor is the caller that matters: every one of its calls back into the app resolves the host
+ * that way (`glob.getComponentByEl(editor.editing.view.getDomRoot())` — reference-link titles,
+ * included notes, link embeds), so an editor mounted in a subtree whose parent component the DOM
+ * cannot name reaches whichever widget happens to enclose it and dies on the first of those calls.
+ *
+ * Only needed where a subtree provides a `ParentComponent` of its own. A component built as a widget
+ * marks its own element (see `BasicWidget.render`), and a React tree mounted under one answers to
+ * that same widget, so the two already agree everywhere else.
+ */
+export function useLegacyComponentElement(elRef: RefObject<HTMLElement>) {
+    const parentComponent = useContext(ParentComponent);
+
+    useEffect(() => {
+        const el = elRef.current;
+        if (!el || !parentComponent) return;
+
+        // The attribute is what the lookup searches by; the component itself is handed over as a
+        // property of the element, which is where jQuery's `.prop("component")` reads it from. No
+        // `component` class as a widget adds: nothing looks for it, and it carries the theme's
+        // styling with it.
+        el.dataset.componentId = parentComponent.componentId;
+        (el as ComponentElement).component = parentComponent;
+
+        return () => {
+            delete el.dataset.componentId;
+            delete (el as ComponentElement).component;
+        };
+    }, [ elRef, parentComponent ]);
+}
+
+type ComponentElement = HTMLElement & { component?: Component };
+
+/**
  * Registers this widget's contextual shortcut hints on its host component. When the user requests
  * contextual shortcut help (Alt+F1 by default), the dispatcher walks up from the focused element
  * and asks each component in the chain to contribute its hints — so these appear only while this
@@ -1692,10 +1740,17 @@ export function useNote(noteId: string | null | undefined, silentNotFoundError =
         });
     }, [ note, noteId, silentNotFoundError ]);
 
+    if (!noteId) {
+        return undefined;
+    }
     if (note?.noteId === noteId) {
         return note;
     }
-    return undefined;
+    // The state only catches up in the effect above — after the mismatched render is already
+    // painted. A note the cache holds is answered in the same render instead: an id change must
+    // not paint a note-less frame in between, which read as a width wobble everywhere the host
+    // keeps something open for exactly as long as there is a note (the calendar's detail dock).
+    return froca.getNoteFromCache(noteId) ?? undefined;
 }
 
 export function useNoteTitle(noteId: string | undefined, parentNoteId: string | undefined) {

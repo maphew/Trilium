@@ -7,13 +7,14 @@
     "link_title_mirrors": "заголовок посилання відображає поточний заголовок нотатки",
     "link_title_arbitrary": "заголовок посилання можна змінювати довільно",
     "link_title": "Заголовок посилання",
-    "button_add_link": "Додати посилання"
+    "button_add_link": "Додати посилання",
+    "edit_link": "Редагувати посилання"
   },
   "branch_prefix": {
     "save": "Зберегти",
     "edit_branch_prefix": "Редагувати префікс гілки",
     "help_on_tree_prefix": "Довідка щодо префіксу дерева",
-    "prefix": "Префікс: ",
+    "prefix": "Префікс",
     "branch_prefix_saved": "Префікс гілки збережено.",
     "edit_branch_prefix_multiple": "Редагувати префікс гілки для {{count}} гілок",
     "branch_prefix_saved_multiple": "Префікс гілки збережено для {{count}} гілок.",
@@ -1208,8 +1209,7 @@
     "path": "Шлях",
     "database_backed_up_to": "Резервну копію бази даних створено у {{backupFilePath}}",
     "no_backup_yet": "резервної копії поки що немає",
-    "title": "Резервна копія",
-    "backup_location_description": "Резервні копії зберігаються в {{- backupFolder}}."
+    "title": "Резервна копія"
   },
   "etapi": {
     "description": "ETAPI — це REST API, який використовується для програмного доступу до екземпляра Trilium без інтерфейсу користувача.",
@@ -1964,5 +1964,8 @@
   "note-color": {
     "set-color": "Обрати колір нотатки",
     "set-custom-color": "Обрати власний колір нотатки"
+  },
+  "calendar_view": {
+    "delete_note": "Видалити нотатку..."
   }
 }

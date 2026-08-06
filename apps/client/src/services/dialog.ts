@@ -1,11 +1,12 @@
 import { Modal } from "bootstrap";
 
 import appContext from "../components/app_context.js";
-import type { ConfirmDialogOptions, ConfirmDialogResult, ConfirmWithMessageOptions, MessageType } from "../widgets/dialogs/confirm.js";
+import type { ConfirmDeleteNoteBoxOptions, ConfirmDialogOptions, ConfirmDialogResult, ConfirmWithMessageOptions, MessageType } from "../widgets/dialogs/confirm.js";
 import { InfoExtraProps } from "../widgets/dialogs/info.jsx";
 import type { PromptDialogOptions } from "../widgets/dialogs/prompt.js";
 import { focusSavedElement, saveFocusedElement } from "./focus.js";
 import keyboardActionsService from "./keyboard_actions.js";
+import type { NoteDeletionTarget } from "./note_deletion.js";
 
 /**
  * @param declaredZIndex the z-index the dialog defines for itself, if any (see {@link raiseAboveStackedPopup}).
@@ -202,8 +203,23 @@ async function confirm(message: MessageType) {
     );
 }
 
-async function confirmDeleteNoteBoxWithNote(title: string) {
-    return new Promise<ConfirmDialogResult | undefined>((res) => appContext.triggerCommand("showConfirmDeleteNoteBoxWithNoteDialog", { title, callback: res }));
+/**
+ * Asks whether a note should be taken off whatever is showing it, offering to delete the note along
+ * with it.
+ *
+ * Hand it the target and the dialog works out for itself what accepting that offer would cost — the
+ * note deleted outright, or merely one of its places removed — and says so under the checkbox. What
+ * comes back says only whether the reader agreed and whether they ticked the box; carrying it out is
+ * the caller's, through `deleteNoteOrBranch` in note_deletion.ts with the same target.
+ *
+ * @param title the note's title, which the stock question names.
+ * @param deletionTarget the note and the placement it is being removed from. See
+ *                       {@link NoteDeletionTarget}.
+ * @param options the question to ask in place of the stock one, and whether removing the note from
+ *                here deletes it whether the reader likes it or not.
+ */
+async function confirmDeleteNoteBoxWithNote(title: string, deletionTarget?: NoteDeletionTarget, options?: ConfirmDeleteNoteBoxOptions) {
+    return new Promise<ConfirmDialogResult | undefined>((res) => appContext.triggerCommand("showConfirmDeleteNoteBoxWithNoteDialog", { ...options, title, callback: res, deletionTarget }));
 }
 
 export async function prompt(props: PromptDialogOptions) {
