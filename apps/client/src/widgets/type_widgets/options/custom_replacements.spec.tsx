@@ -9,13 +9,12 @@ const state = vi.hoisted(() => ({
     watchers: new Set<(newValue: string) => void>()
 }));
 
-// Only `useTriliumOption` is replaced — the rest of the module stays real, so the buttons and text
-// boxes this renders keep the hooks they use.
+// Only `useTriliumOption` is replaced — the rest of the module stays real, so the chips and boxes
+// this renders keep the hooks they use.
 //
-// The stand-in holds the value in state and re-reads it when the store changes, as the real hook
-// does through `entitiesReloaded`. That is the whole point here: the bug is about the option moving
-// underneath a mounted page, and a stand-in that only returned the current value would never
-// reproduce it.
+// The stand-in holds the value in state and re-reads it when the store changes, as the real hook does
+// through `entitiesReloaded`: the cases below turn on the option moving underneath a mounted page,
+// which a stand-in only returning the current value could not reproduce.
 vi.mock("../../react/hooks", async (importOriginal) => {
     const { useEffect: onMount, useState: useLocal } = await import("preact/hooks");
     return {
@@ -49,7 +48,6 @@ vi.mock("../../../services/i18n", () => ({ t: (key: string) => key }));
 import { parseCustomReplacements } from "../text/replacements";
 import { CustomReplacements } from "./text_notes";
 
-/** Renders the editor and returns the container, so its inputs can be driven. */
 function renderEditor() {
     const container = document.createElement("div");
     document.body.append(container);
@@ -57,18 +55,37 @@ function renderEditor() {
     return container;
 }
 
-const inputs = (container: HTMLElement) => [ ...container.querySelectorAll("input") ];
+/** The replacements as the chips show them, each read as the `from → to` it stands for. */
+const chips = (container: HTMLElement) =>
+    [ ...container.querySelectorAll(".tn-chip > span") ].map((chip) => chip.textContent);
 
-/**
- * Leaving a field, which is what commits the rows. Dispatched as `focusout`: preact/compat is loaded
- * across the module graph and, like React, implements `onBlur` over the bubbling event rather than
- * the native `blur`, which does not bubble.
- */
-function blur(input: HTMLInputElement) {
+/** The two boxes the next pair is typed into. */
+const draftBoxes = (container: HTMLElement) => [ ...container.querySelectorAll("input") ];
+
+/** Types into a box, as a keystroke rather than an assignment. */
+function type(input: HTMLInputElement, value: string) {
     act(() => {
-        input.dispatchEvent(new FocusEvent("focusout", { bubbles: true }));
+        input.value = value;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
     });
 }
+
+/** Enter, which is what takes the pair. */
+function pressEnter(input: HTMLInputElement) {
+    act(() => {
+        input.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+    });
+}
+
+/** Types a whole pair and takes it. */
+function addPair(container: HTMLElement, from: string, to: string) {
+    const [ fromBox, toBox ] = draftBoxes(container);
+    type(fromBox, from);
+    type(toBox, to);
+    pressEnter(toBox);
+}
+
+const stored = () => parseCustomReplacements(state.writes.at(-1));
 
 afterEach(() => {
     state.stored = "[]";
@@ -78,89 +95,95 @@ afterEach(() => {
 });
 
 describe("CustomReplacements", () => {
-    it("shows the stored pairs", () => {
-        state.stored = `[{"from":"TN","to":"Trilium Notes"}]`;
+    it("shows what is held as chips, and offers empty boxes for the next", () => {
+        state.stored = `[{"from":"TN","to":"Trilium Notes"},{"from":"teh","to":"the"}]`;
+        const container = renderEditor();
 
-        expect(inputs(renderEditor()).map((input) => input.value)).toEqual([ "TN", "Trilium Notes" ]);
+        expect(chips(container)).toEqual([ "TN → Trilium Notes", "teh → the" ]);
+        expect(draftBoxes(container).map((box) => box.value)).toEqual([ "", "" ]);
     });
 
-    it("writes the rows when a field is left, not on every keystroke", () => {
+    it("takes a pair on Enter and clears the boxes for the next one", () => {
+        const container = renderEditor();
+
+        addPair(container, "TN", "Trilium Notes");
+
+        expect(stored()).toEqual([ { from: "TN", to: "Trilium Notes" } ]);
+        expect(chips(container)).toEqual([ "TN → Trilium Notes" ]);
+        expect(draftBoxes(container).map((box) => box.value)).toEqual([ "", "" ]);
+    });
+
+    it("will not take half a pair", () => {
+        const container = renderEditor();
+        const [ fromBox ] = draftBoxes(container);
+
+        type(fromBox, "TN");
+        pressEnter(fromBox);
+
+        // Storing it would put an entry in the set that could never fire.
+        expect(state.writes).toEqual([]);
+        expect(chips(container)).toEqual([]);
+    });
+
+    it("replaces an entry typed a second time rather than holding both", () => {
         state.stored = `[{"from":"TN","to":"Trilium Notes"}]`;
         const container = renderEditor();
-        const [ from ] = inputs(container);
 
-        act(() => {
-            from.value = "TNX";
-            from.dispatchEvent(new Event("input", { bubbles: true }));
-        });
-        expect(state.writes, "typing alone must not reach the server").toEqual([]);
+        addPair(container, "TN", "Trilium");
 
-        blur(from);
-        expect(parseCustomReplacements(state.writes.at(-1))).toEqual([ { from: "TNX", to: "Trilium Notes" } ]);
+        expect(stored()).toEqual([ { from: "TN", to: "Trilium" } ]);
     });
 
-    it("takes up a list that arrived from elsewhere instead of writing over it", () => {
-        // The reported case: the option changes underneath the open page — synced from another
-        // device, or saved by a second settings tab. Rows read once at mount would stay as they
-        // were, and the next blur would put the stale list back over the newer one.
+    it("counts a shortcut as the same one whatever case it is typed in", () => {
+        // Matching ignores case, so two entries differing only by it would leave the second unable
+        // ever to fire.
+        state.stored = `[{"from":"TN","to":"Trilium Notes"}]`;
+        const container = renderEditor();
+
+        addPair(container, "tn", "Trilium");
+
+        expect(stored()).toEqual([ { from: "tn", to: "Trilium" } ]);
+    });
+
+    it("removes the chip that was pressed, keeping its neighbours", () => {
+        state.stored = `[{"from":"TN","to":"Trilium Notes"},{"from":"teh","to":"the"}]`;
+        const container = renderEditor();
+
+        const [ , removeSecond ] = [ ...container.querySelectorAll<HTMLButtonElement>(".tn-chip-remove") ];
+        act(() => removeSecond.click());
+
+        expect(stored()).toEqual([ { from: "TN", to: "Trilium Notes" } ]);
+        expect(chips(container)).toEqual([ "TN → Trilium Notes" ]);
+    });
+
+    it("shows a list that arrived from elsewhere without being asked twice", () => {
+        // What is held is read back from the option on every render rather than copied into state at
+        // mount, so there is no second list to fall behind — nor to be written back over this one.
         state.stored = `[{"from":"TN","to":"Trilium Notes"}]`;
         const container = renderEditor();
 
         act(() => writeStore(`[{"from":"CT","to":"CherryTree"}]`));
 
-        expect(inputs(container).map((input) => input.value)).toEqual([ "CT", "CherryTree" ]);
-
-        // ...and leaving a field now writes what arrived, rather than resurrecting what it replaced.
-        blur(inputs(container)[0]);
-        expect(parseCustomReplacements(state.writes.at(-1))).toEqual([ { from: "CT", to: "CherryTree" } ]);
+        expect(chips(container)).toEqual([ "CT → CherryTree" ]);
     });
 
-    it("does not delete a half-written row when a list arrives mid-edit", () => {
-        // Adopting the arriving list outright would take the caret's row with it. What is on screen
-        // is the later intent of the two, and the blur that ends the edit is what writes it.
-        state.stored = `[{"from":"TN","to":"Trilium Notes"}]`;
+    it("leaves a pair being typed alone when a list arrives", () => {
+        // Only the pair being typed is held locally, and an arriving list is not written into it.
         const container = renderEditor();
-        const [ from ] = inputs(container);
-
-        from.focus();
-        act(() => {
-            from.value = "TNX";
-            from.dispatchEvent(new Event("input", { bubbles: true }));
-        });
+        const [ fromBox, toBox ] = draftBoxes(container);
+        type(fromBox, "TN");
+        type(toBox, "Trilium No");
 
         act(() => writeStore(`[{"from":"CT","to":"CherryTree"}]`));
 
-        expect(inputs(container).map((input) => input.value)).toEqual([ "TNX", "Trilium Notes" ]);
+        expect(chips(container)).toEqual([ "CT → CherryTree" ]);
+        expect(draftBoxes(container).map((box) => box.value)).toEqual([ "TN", "Trilium No" ]);
 
-        blur(from);
-        expect(parseCustomReplacements(state.writes.at(-1))).toEqual([ { from: "TNX", to: "Trilium Notes" } ]);
-    });
-
-    it("still takes the list when a field only holds the focus", () => {
-        // Focus alone is not an edit — there is nothing under the caret to lose, so waiting for a
-        // blur that may never come would leave the page showing a list that no longer exists.
-        state.stored = `[{"from":"TN","to":"Trilium Notes"}]`;
-        const container = renderEditor();
-
-        inputs(container)[0].focus();
-        act(() => writeStore(`[{"from":"CT","to":"CherryTree"}]`));
-
-        expect(inputs(container).map((input) => input.value)).toEqual([ "CT", "CherryTree" ]);
-    });
-
-    it("keeps what is being typed when the option settles to what we just wrote", () => {
-        // Our own save comes back through the same subscription; re-reading it then would throw away
-        // whatever had been typed since, and move the caret.
-        state.stored = `[{"from":"TN","to":"Trilium Notes"}]`;
-        const container = renderEditor();
-        const [ from ] = inputs(container);
-
-        act(() => {
-            from.value = "TNX";
-            from.dispatchEvent(new Event("input", { bubbles: true }));
-        });
-        blur(from);
-
-        expect(inputs(container).map((input) => input.value)).toEqual([ "TNX", "Trilium Notes" ]);
+        // ...and taking it keeps what arrived rather than replacing it.
+        pressEnter(toBox);
+        expect(stored()).toEqual([
+            { from: "CT", to: "CherryTree" },
+            { from: "TN", to: "Trilium No" }
+        ]);
     });
 });

@@ -8,9 +8,9 @@ import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 import { isExperimentalFeatureEnabled } from "../../../services/experimental_features";
 import { t } from "../../../services/i18n";
 import { ensureMimeTypesForHighlighting, loadHighlightingTheme } from "../../../services/syntax_highlight";
-import { formatDateTime, randomString, toggleBodyClass } from "../../../services/utils";
+import { formatDateTime, toggleBodyClass } from "../../../services/utils";
 import ActionButton from "../../react/ActionButton";
-import Button from "../../react/Button";
+import Chip from "../../react/Chip";
 import Dropdown from "../../react/Dropdown";
 import FormGroup from "../../react/FormGroup";
 import { FormListItem } from "../../react/FormList";
@@ -266,123 +266,111 @@ function QuoteStyleSelect({ currentValue, onChange }: { currentValue: string, on
     );
 }
 
-/** A row while it is being edited: the stored pair plus a key that survives its neighbours moving. */
-interface EditableReplacement extends CustomReplacement {
-    id: string;
-}
-
 /**
- * The user's own replacements, edited in place.
+ * The user's own replacements: those already held as chips, and a pair of boxes after them for the
+ * next one.
  *
- * The rows are held locally and written to the option when a field is left rather than on every
- * keystroke, so typing a replacement is not a request per character. A half-written row is stored as
- * it stands — {@link buildCustomTransformations} ignores a pair with either side blank — so nothing
- * the user is in the middle of typing is thrown away or acts before it is finished.
+ * Nothing is copied into local state but the pair being typed. What is held *is* the option, read
+ * back on every render, so a list arriving from another device or a second settings tab is simply
+ * what is drawn next — there is no second copy to fall behind it, and none to be written back over
+ * it. The rows this replaced needed a guard for each of those; a set that is added to and removed
+ * from rather than edited in place has neither problem to guard against.
+ *
+ * A pair cannot be edited once taken, which is what a chip costs. Typing a `from` already held
+ * replaces that entry instead of adding a second one, which gives the editing back without an
+ * affordance for it — and a second entry under the same `from` would in any case be dead weight,
+ * since the first match is the one that fires.
  */
 export function CustomReplacements() {
     const [ storedJson, setStoredJson ] = useTriliumOption("textNoteCustomReplacements");
-    const [ rows, setRows ] = useState<EditableReplacement[]>(() => toRows(storedJson));
-    // The row to put the caret in once it has rendered — the one just added, and nothing afterwards.
-    const [ focusedId, setFocusedId ] = useState<string>();
+    const replacements = parseCustomReplacements(storedJson);
 
-    // Blur handlers are created in the render that made the row, so reading `rows` from their closure
-    // would persist a stale list. The ref always holds what is on screen now.
-    const rowsRef = useRef(rows);
-    rowsRef.current = rows;
+    const [ draftFrom, setDraftFrom ] = useState("");
+    const [ draftTo, setDraftTo ] = useState("");
+    const fromRef = useRef<HTMLInputElement>(null);
+    const entryRef = useRef<HTMLDivElement>(null);
 
-    // What we last wrote ourselves. Anything else the option becomes arrived from outside — another
-    // device, or a second settings tab — and has to replace what is on screen: without this the rows
-    // would keep their first value and the next blur would write it back over the newer list.
-    const ownWrite = useRef(storedJson);
-    const containerRef = useRef<HTMLDivElement>(null);
+    const isComplete = draftFrom.trim().length > 0 && draftTo.trim().length > 0;
 
-    useEffect(() => {
-        if (storedJson === ownWrite.current) return;
-
-        // ...except over a field being typed into, where taking the arriving list would delete the
-        // half-written row under the caret. What is on screen is then the later intent of the two,
-        // and the blur that ends the edit writes it. Only an edit defers it: a field merely holding
-        // the focus has nothing to lose, so the list arrives at once.
-        const isEditing = containerRef.current?.contains(document.activeElement)
-            && serialize(rowsRef.current) !== ownWrite.current;
-        if (isEditing) return;
-
-        ownWrite.current = storedJson;
-        setRows(toRows(storedJson));
-    }, [ storedJson ]);
-
-    function persist(next: EditableReplacement[]) {
-        const json = serialize(next);
-        ownWrite.current = json;
-        void setStoredJson(json);
+    function save(next: CustomReplacement[]) {
+        void setStoredJson(JSON.stringify(next.map(({ from, to }) => ({ from, to }))));
     }
 
-    function editRow(id: string, changes: Partial<CustomReplacement>) {
-        setRows((current) => current.map((row) => (row.id === id ? { ...row, ...changes } : row)));
-    }
+    function take() {
+        const from = draftFrom.trim();
+        const to = draftTo.trim();
+        if (!from || !to) return;
 
-    function addRow() {
-        const row: EditableReplacement = { id: randomString(8), from: "", to: "" };
-        setRows((current) => [ ...current, row ]);
-        setFocusedId(row.id);
-    }
+        // Matching ignores case, so what counts as the same shortcut has to as well — otherwise
+        // `TN` and `tn` would sit there as two entries of which only the first could ever fire.
+        const kept = replacements.filter((replacement) => replacement.from.toLowerCase() !== from.toLowerCase());
+        save([ ...kept, { from, to } ]);
 
-    function removeRow(id: string) {
-        const next = rowsRef.current.filter((row) => row.id !== id);
-        setRows(next);
-        persist(next);
+        setDraftFrom("");
+        setDraftTo("");
+        fromRef.current?.focus();
     }
 
     return (
-        <div className="custom-replacements" ref={containerRef}>
+        <div className="custom-replacements">
             <div className="option-row-label">
                 <label>{t("automatic_replacements.custom")}</label>
                 <small className="option-row-description">{t("automatic_replacements.custom_description")}</small>
             </div>
 
-            {rows.map((row) => (
-                <div className="custom-replacement-row" key={row.id}>
+            <div className="tn-field">
+                {replacements.map((replacement) => (
+                    <Chip
+                        key={replacement.from}
+                        removeButtonText={t("automatic_replacements.custom_remove")}
+                        onRemove={() => save(replacements.filter((held) => held.from !== replacement.from))}
+                    >
+                        <span>{replacement.from} → {replacement.to}</span>
+                    </Chip>
+                ))}
+
+                {/* The two boxes and the button asking for what they hold are one thing on the page,
+                    so they wrap as one rather than the button stranding itself on a line of its own. */}
+                <div
+                    className="custom-replacement-entry"
+                    ref={entryRef}
+                    onFocusOut={(e) => {
+                        // Moving between the two boxes is not leaving the pair. Only a complete one
+                        // is taken on the way out: half of a replacement is not a replacement, and
+                        // storing it would put an entry in the set that could never fire.
+                        if (e.relatedTarget instanceof Node && entryRef.current?.contains(e.relatedTarget)) return;
+                        if (isComplete) take();
+                    }}
+                >
                     <FormTextBox
-                        currentValue={row.from}
+                        inputRef={fromRef}
+                        currentValue={draftFrom}
                         placeholder={t("automatic_replacements.custom_from_placeholder")}
-                        autoFocus={row.id === focusedId}
-                        onChange={(newValue) => editRow(row.id, { from: newValue })}
-                        onBlur={() => persist(rowsRef.current)}
+                        onChange={setDraftFrom}
+                        onKeyDown={(e) => e.key === "Enter" && take()}
                     />
                     <span className="custom-replacement-arrow" aria-hidden="true">→</span>
                     <FormTextBox
-                        currentValue={row.to}
+                        currentValue={draftTo}
                         placeholder={t("automatic_replacements.custom_to_placeholder")}
-                        onChange={(newValue) => editRow(row.id, { to: newValue })}
-                        onBlur={() => persist(rowsRef.current)}
+                        onChange={setDraftTo}
+                        onKeyDown={(e) => e.key === "Enter" && take()}
                     />
-                    <ActionButton
-                        icon="bx bx-trash"
-                        text={t("automatic_replacements.custom_remove")}
-                        onClick={() => removeRow(row.id)}
-                    />
-                </div>
-            ))}
 
-            <Button
-                className="custom-replacement-add"
-                icon="bx-plus"
-                text={t("automatic_replacements.custom_add")}
-                size="micro"
-                onClick={addRow}
-            />
+                    {/* Enter takes the pair, but nothing on the page says so — so once there is a
+                        whole one to take, the same offer appears where it can be seen. */}
+                    {isComplete && (
+                        <ActionButton
+                            className="custom-replacement-add"
+                            icon="bx bx-plus"
+                            text={t("automatic_replacements.custom_add")}
+                            onClick={take}
+                        />
+                    )}
+                </div>
+            </div>
         </div>
     );
-}
-
-/** The stored pairs as editable rows, each given a key its neighbours moving cannot disturb. */
-function toRows(storedJson: string): EditableReplacement[] {
-    return parseCustomReplacements(storedJson).map((replacement) => ({ ...replacement, id: randomString(8) }));
-}
-
-/** The rows as the option stores them, which is also how "unchanged" is told from "edited". */
-function serialize(rows: EditableReplacement[]): string {
-    return JSON.stringify(rows.map(({ from, to }) => ({ from, to })));
 }
 
 function Editor() {
