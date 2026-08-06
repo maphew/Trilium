@@ -162,6 +162,10 @@ const defaultOptions: DefaultOption[] = [
     { name: "detailFontSize", value: "110", isSynced: false },
     { name: "monospaceFontFamily", value: "theme", isSynced: false },
     { name: "monospaceFontSize", value: "110", isSynced: false },
+    // Off rather than on: the theme default is JetBrains Mono, whose ligatures nobody opted into,
+    // and which have been reported as characters being replaced often enough to be worth defaulting
+    // away from (#2851, #6224). Not synced, matching the font options it sits with in the UI.
+    { name: "monospaceLigaturesEnabled", value: "false", isSynced: false },
     { name: "spellCheckEnabled", value: "true", isSynced: false },
     { name: "spellCheckLanguageCode", value: "en-US", isSynced: false },
     { name: "imageMaxWidthHeight", value: "2000", isSynced: true },
@@ -271,6 +275,10 @@ const defaultOptions: DefaultOption[] = [
     // Internationalization
     { name: "locale", value: "en", isSynced: true },
     { name: "formattingLocale", value: "", isSynced: true }, // no value means auto-detect
+    // English rather than "" (which would follow the application's language), so that an install
+    // that never touches this keeps writing the quotes it wrote before the setting existed. An
+    // empty value is still honoured if the user picks the auto entry.
+    { name: "defaultContentLanguage", value: "en", isSynced: true },
     { name: "firstDayOfWeek", value: "1", isSynced: true },
     { name: "firstWeekOfYear", value: "0", isSynced: true },
     { name: "minDaysInFirstWeek", value: "4", isSynced: true },
@@ -297,6 +305,19 @@ const defaultOptions: DefaultOption[] = [
     // Text note configuration
     { name: "textNoteEditorType", value: "ckeditor-balloon", isSynced: true },
     { name: "textNoteEditorMultilineToolbar", value: "false", isSynced: true },
+    // The four groups of as-you-type replacements. All on, which is how the editor behaved before
+    // they could be turned off; the point of the setting is that the behaviour is now visible and
+    // refusable, not that it changes for anyone who leaves it alone.
+    // "auto" keeps the marks following the note's language, which is what the editor did before the
+    // setting existed. An explicit preset overrides the language entirely — the point of offering
+    // it. The two keys are set apart because the conventions disagree about which pair belongs on
+    // which: British typography puts the single curly marks where American puts the double ones.
+    { name: "textNoteDoubleQuoteStyle", value: "auto", isSynced: true },
+    { name: "textNoteSingleQuoteStyle", value: "auto", isSynced: true },
+    { name: "textNotePunctuationReplacementsEnabled", value: "true", isSynced: true },
+    { name: "textNoteMathReplacementsEnabled", value: "true", isSynced: true },
+    { name: "textNoteSymbolReplacementsEnabled", value: "true", isSynced: true },
+    { name: "textNoteCustomReplacements", value: "[]", isSynced: true },
     { name: "textNoteEmojiCompletionEnabled", value: "true", isSynced: true },
     { name: "textNoteCompletionEnabled", value: "true", isSynced: true },
     { name: "textNoteSlashCommandsEnabled", value: "true", isSynced: true },
