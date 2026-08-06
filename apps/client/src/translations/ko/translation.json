@@ -924,8 +924,8 @@
     "click_help_icon": "오른쪽의 도움말 아이콘을 클릭하면 모든 옵션을 볼 수 있습니다",
     "evaluated_as_js_string": "입력한 값을 JavaScript 문자열로 평가합니다. 주입된 <code>note</code> 변수(이름을 바꿀 노트)를 사용하여 동적 콘텐츠를 추가할 수 있습니다. 예:",
     "example_note": "<code>Note</code> - 일치하는 모든 노트의 이름을 'Note'로 변경합니다",
-    "example_new_title": "<code>NEW: ${note.title}</code> - 매칭된 노트 제목은 'NEW: '로 앞에 붙습니다",
-    "example_date_prefix": "<code>${note.dateCreatedObj.format('MM-DD:')}: ${note.title}</code> - 매칭된 노트는 노트의 생성 월-날짜가 접두사로 붙습니다",
+    "example_new_title": "<code>NEW: ${note.title}</code> - 일치하는 노트 제목 앞에 'NEW:'가 붙습니다",
+    "example_date_prefix": "<code>${note.dateCreatedObj.format('MM-DD:')}: ${note.title}</code> - 일치하는 노트 제목 앞에 노트 생성 월·일이 붙습니다",
     "api_docs": "자세한 내용은 <a href='https://zadam.github.io/trilium/backend_api/Note.html'>노트</a> API 문서와 <a href='https://day.js.org/docs/en/display/format'>dateCreatedObj / utcDateCreatedObj 속성</a> 문서를 참조하세요."
   },
   "add_relation": {
@@ -1156,7 +1156,7 @@
     "convert_to_text": "텍스트 노트로 변환",
     "convert_format_warning": "변환 과정에서 일부 서식이 손실되어 나중에 직접 수정해야 할 수 있습니다. 복원할 수 있도록 현재 노트의 수정본을 미리 저장합니다. 계속하시겠습니까?",
     "convert_format_warning_risky": "기능이 서로 다른 두 형식 간에 변환하므로 일부 서식이 손실되거나 지원되지 않는 요소가 제거될 수 있습니다.<br><br>이 위험을 감수하고 변환을 계속하시겠습니까?<br><br>원래 형식으로 되돌릴 수 있도록 현재 노트의 수정본을 미리 저장합니다.",
-    "convert_to_markdown_successful": "Note는 Markdown으로 전환되었습니다.",
+    "convert_to_markdown_successful": "노트가 Markdown으로 변환되었습니다.",
     "convert_to_text_successful": "노트는 텍스트 노트로 변환되었습니다.",
     "print_pdf": "PDF로 내보내기...",
     "export_as_image": "이미지로 내보내기",
@@ -1878,7 +1878,7 @@
     "manual_erasing_description": "트리거 지우기, 위의 타임아웃은 무시하고 수동으로 삭제하세요.",
     "erase_deleted_notes_now": "삭제된 노트 삭제",
     "erase_now_button": "지금 삭제",
-    "deleted_notes_erased": "삭제된 노트는 삭제되었습니다."
+    "deleted_notes_erased": "삭제된 노트를 영구적으로 삭제했습니다."
   },
   "revisions_snapshot": {
     "title": "노트 수정본"
@@ -2598,7 +2598,7 @@
     "please_wait_for_save": "저장이 끝날 때까지 몇 초만 기다렸다가 다시 시도해 주세요."
   },
   "note_create": {
-    "duplicated": "\"{{title}}\"이 중복되었습니다."
+    "duplicated": "노트 \"{{title}}\"을 복제했습니다."
   },
   "image": {
     "copied-to-clipboard": "이미지 참조를 클립보드에 복사했습니다. 모든 텍스트 노트에 붙여넣을 수 있습니다.",
@@ -2610,7 +2610,7 @@
   "clipboard": {
     "cut": "노트를 클립보드로 잘라냈습니다.",
     "copied": "노트는 클립보드에 복사되었습니다.",
-    "copy_failed": "허가 문제로 인해 클립보드에 복사할 수 없습니다.",
+    "copy_failed": "권한 문제로 인해 클립보드에 복사할 수 없습니다.",
     "copy_success": "클립보드에 복사했습니다."
   },
   "entrypoints": {
@@ -2621,7 +2621,7 @@
     "sql-error": "SQL 쿼리 실행 중 오류가 발생했습니다: {{message}}"
   },
   "branches": {
-    "cannot-move-notes-here": "여기서는 음을 옮길 수 없습니다.",
+    "cannot-move-notes-here": "여기서는 노트를 옮길 수 없습니다.",
     "delete-notes-in-progress": "진행 중인 노트 삭제: {{count}}",
     "delete-finished-successfully": "삭제는 성공적으로 완료되었습니다.",
     "undeleting-notes-in-progress": "노트 삭제 취소 중: {{count}}",
@@ -2908,7 +2908,7 @@
     "center_note_size": "노트: <Size/>",
     "center_note_size_help": "노트 크기에는 해당 노트의 본문과 첨부 파일만 포함됩니다(디스크 사용량: {{size}})",
     "center_revisions_size": "수정본: <Size/>",
-    "center_revisions_help": "하위 노트도 포함됩니다",
+    "center_revisions_help": "이 노트의 수정본 크기에는 하위 노트의 수정본도 포함됩니다",
     "center_subtree_size": "하위 트리: <Size/>",
     "center_subtree_size_help": "하위 트리 크기에는 하위 노트가 포함되지만 해당 노트의 수정본은 포함되지 않습니다(디스크 사용량: {{size}})",
     "back": "뒤로",
@@ -3252,7 +3252,7 @@
     "read_only_temporarily_disabled": "임시 편집 가능",
     "read_only_temporarily_disabled_description": "이 노트는 현재 편집 가능하지만 보통 읽기 전용입니다. 다른 노트로 이동하면 다시 읽기 전용으로 돌아갑니다.\n\n읽기 전용 모드를 다시 활성화하려면 클릭하세요.",
     "shared_publicly": "공개 공유",
-    "shared_locally": "지역 공유",
+    "shared_locally": "로컬 공유",
     "shared_copy_to_clipboard": "클립보드에 링크 복사",
     "shared_open_in_browser": "브라우저에서 링크 열기",
     "shared_unshare": "공유 삭제",
