@@ -83,6 +83,14 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     customSearchEngineUrl: string;
     locale: string;
     formattingLocale: string;
+    /**
+     * The language a note is written in when it carries no `#language` label of its own — which is
+     * almost every note, the label being opt-in. Governs what the content language drives: text
+     * direction and which typographic quotes typing produces.
+     *
+     * An empty value means "follow the application's language" rather than "no language".
+     */
+    defaultContentLanguage: string;
     codeBlockTheme: string;
     codeBlockThemeMatchesApp: boolean;
     codeBlockThemeLight: string;
@@ -177,6 +185,12 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     hasUserBackendScripts: boolean;
     isPasswordSet: boolean;
     overrideThemeFonts: boolean;
+    /**
+     * Whether the monospace font's programming ligatures (`!=` rendered as `≠`, `->` as `→`) are
+     * left on. Off by default: the bundled JetBrains Mono ships them enabled, so users get them
+     * without choosing them and repeatedly mistake them for their characters having been replaced.
+     */
+    monospaceLigaturesEnabled: boolean;
     spellCheckEnabled: boolean;
     autoFixConsistencyIssues: boolean;
     vimKeymapEnabled: boolean;
@@ -227,6 +241,22 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     codeNoteTabWidth: number;
     codeNoteIndentWithTabs: boolean;
     textNoteEditorMultilineToolbar: boolean;
+    /**
+     * Which marks a typed `"…"` becomes: `auto` to follow the note's content language, `off` to
+     * leave straight quotes alone, or the id of one of `QUOTE_MARK_PRESETS` to always use that pair
+     * whatever the note is written in.
+     */
+    textNoteDoubleQuoteStyle: string;
+    /** The same for a typed `'…'`, which conventions set a nested quotation in. */
+    textNoteSingleQuoteStyle: string;
+    /** Whether `...` becomes `…`, and ` -- ` / ` --- ` become an en/em dash, as they are typed. */
+    textNotePunctuationReplacementsEnabled: boolean;
+    /** Whether `1/2`, `!=`, `->` and their kin become `½`, `≠`, `→` as they are typed. */
+    textNoteMathReplacementsEnabled: boolean;
+    /** Whether `(c)`, `(r)` and `(tm)` become `©`, `®` and `™` as they are typed. */
+    textNoteSymbolReplacementsEnabled: boolean;
+    /** JSON: the user's own replacements, as `{ from, to }` pairs — see `CustomReplacement`. */
+    textNoteCustomReplacements: string;
     /** Whether keyboard auto-completion for emojis is triggered when typing `:`. */
     textNoteEmojiCompletionEnabled: boolean;
     /** Whether keyboard auto-completion for notes is triggered when typing `@` in text notes (attribute editing is not affected). */

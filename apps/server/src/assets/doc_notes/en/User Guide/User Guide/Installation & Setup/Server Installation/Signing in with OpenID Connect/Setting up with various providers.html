@@ -35,7 +35,9 @@
     <p>Unlike GitLab, <code spellcheck="false">client_id</code> is a name you choose
       rather than one the provider generates.</p>
   </li>
-  <li>Restart Authelia.</li>
+  <li>
+    <p>Restart Authelia.</p>
+  </li>
 </ol>
 <p>Adjust <code spellcheck="false">config.ini</code>, using the <code spellcheck="false">Random Password</code> from
   step 1:</p><pre><code class="language-text-x-trilium-auto">[MultiFactorAuthentication]
@@ -108,15 +110,10 @@ kanidm system oauth2 update-scope-map trilium &lt;group&gt; openid profile email
   <code
   spellcheck="false">&lt;idm&gt;</code>with the URL of your Kanidm instance and <code spellcheck="false">&lt;BasicSecret&gt;</code> with
     the value from step 2:</p><pre><code class="language-text-x-trilium-auto">[MultiFactorAuthentication]
-
 oauthBaseUrl=https://&lt;server&gt;
-
 oauthClientId=trilium
-
 oauthClientSecret=&lt;BasicSecret&gt;
-
 oauthIssuerBaseUrl=https://&lt;idm&gt;/oauth2/openid/trilium
-
 oauthIssuerName=Kanidm</code></pre>
 <p>The client name you chose in step 1 is both the client ID and the last
   path segment of the issuer URL, so the two must match.</p>
@@ -144,15 +141,10 @@ oauthIssuerName=Kanidm</code></pre>
 </ol>
 <p>Adjust <code spellcheck="false">config.ini</code> as follows, using the
   values from step 4:</p><pre><code class="language-text-x-trilium-auto">[MultiFactorAuthentication]
-
 oauthBaseUrl=https://&lt;server&gt;
-
 oauthClientId=&lt;ClientID&gt;
-
 oauthClientSecret=&lt;ClientSecret&gt;
-
 oauthIssuerBaseUrl=&lt;OIDCDiscoveryURL&gt;
-
 oauthIssuerName=Pocket ID</code></pre>
 <aside class="admonition note">
   <p>Pocket ID gives you an <em>OIDC Discovery URL</em> ending in <code spellcheck="false">/.well-known/openid-configuration</code>.

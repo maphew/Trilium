@@ -15,9 +15,10 @@
 </ol>
 <h3>Configuring the authentication provider</h3>
 <ol>
-  <li>First, make sure the authentication provider (e.g. Google, Authelia) is
-    configured properly. See&nbsp;<a class="reference-link" href="#root/_help_IgkTHSaFfq6A">Setting up with various providers</a>&nbsp;for
-    concrete examples.
+  <li>
+    <p>First, make sure the authentication provider (e.g. Google, Authelia) is
+      configured properly. See&nbsp;<a class="reference-link" href="#root/_help_IgkTHSaFfq6A">Setting up with various providers</a>&nbsp;for
+      concrete examples.</p>
     <ol>
       <li>The redirect URL of Trilium is <code spellcheck="false">https://&lt;your-trilium-domain&gt;/callback</code>.</li>
       <li>You should obtain the base URL, client ID and client secret.</li>
@@ -26,14 +27,8 @@
   <li>
     <p>Set the following information using&nbsp;<a class="reference-link" href="#root/_help_Gzjqa934BdH4">Configuration (config.ini or environment variables)</a>:</p>
     <figure
-    class="table" style="width:102.12%;">
-      <table class="ck-table-resized">
-        <colgroup>
-          <col style="width:11.58%;">
-            <col style="width:23.52%;">
-              <col style="width:30.39%;">
-                <col style="width:34.51%;">
-        </colgroup>
+    class="table">
+      <table>
         <thead>
           <tr>
             <th>Configuration</th>
@@ -84,13 +79,13 @@
             </td>
             <td><code spellcheck="false">TRILIUM_MULTIFACTORAUTHENTICATION_OAUTHIDTOKENSIGNINGALG</code>
             </td>
-            <td><span style="color:rgb(32,32,32);">The algorithm your provider signs ID tokens with, e.g. </span>
+            <td><span style="color:rgb(32,32,32)">The algorithm your provider signs ID tokens with, e.g.</span> 
               <code
-              spellcheck="false">RS256</code><span style="color:rgb(32,32,32);">, </span><code spellcheck="false">EdDSA</code>
+              spellcheck="false">RS256</code><span style="color:rgb(32,32,32)">,</span>  <code spellcheck="false">EdDSA</code>
                 <span
-                style="color:rgb(32,32,32);">,</span><code spellcheck="false">ES256</code><span style="color:rgb(32,32,32);">. Empty auto-detects from the provider. Only needed if sign-in fails with an </span>
+                style="color:rgb(32,32,32)">,</span> <code spellcheck="false">ES256</code><span style="color:rgb(32,32,32)">. Empty auto-detects from the provider. Only needed if sign-in fails with an</span> 
                   <code
-                  spellcheck="false">unexpected JWT alg</code><span style="color:rgb(32,32,32);"> error.</span>
+                  spellcheck="false">unexpected JWT alg</code> <span style="color:rgb(32,32,32)">error.</span>
             </td>
           </tr>
         </tbody>
@@ -105,15 +100,8 @@
       spellcheck="false">oauthIssuerName</code>, and <code spellcheck="false">oauthIssuerIcon</code> in
         the <code spellcheck="false">config.ini</code> file. Alternatively, these
         values can be set using environment variables:</p>
-    <figure class="table"
-    style="width:102.11%;">
-      <table class="ck-table-resized">
-        <colgroup>
-          <col style="width:11.57%;">
-            <col style="width:23.5%;">
-              <col style="width:31.17%;">
-                <col style="width:33.76%;">
-        </colgroup>
+    <figure class="table">
+      <table>
         <thead>
           <tr>
             <th>Configuration</th>
@@ -129,21 +117,18 @@
             </td>
             <td><code spellcheck="false">TRILIUM_MULTIFACTORAUTHENTICATION_OAUTHISSUERBASEURL</code>
             </td>
-            <td>
-              <p>Either the issuer itself (<code spellcheck="false">https://auth.example.com</code>)
-                or a full discovery URL (<code spellcheck="false">https://auth.example.com/.well-known/openid-configuration</code>).</p>
-              <p>&nbsp;</p>
-              <p>A URL containing <code spellcheck="false">/.well-known/</code> is used as-is
-                <span
-                style="color:rgb(32,32,32);">, which is convenient when your provider hands you a discovery URL to
-                  copy. A trailing slash may be included or omitted; Trilium matches whichever
-                  spelling the provider advertises.</span>
-              </p>
-              <p>&nbsp;</p>
-              <p>Use the full form when your provider advertises an issuer that differs
+            <td>Either the issuer itself (<code spellcheck="false">https://auth.example.com</code>)
+              or a full discovery URL (<code spellcheck="false">https://auth.example.com/.well-known/openid-configuration</code>).
+              <br>
+              <br>A URL containing <code spellcheck="false">/.well-known/</code> is used as-is
+              <span
+              style="color:rgb(32,32,32)">, which is convenient when your provider hands you a discovery URL to
+                copy. A trailing slash may be included or omitted; Trilium matches whichever
+                spelling the provider advertises.</span>
+                <br>
+                <br>Use the full form when your provider advertises an issuer that differs
                 from the path serving its discovery document, such as Authentik in "global"
-                issuer mode.</p>
-            </td>
+                issuer mode.</td>
           </tr>
           <tr>
             <td>Issuer name</td>
@@ -168,7 +153,9 @@
     </figure>
     <p>All the fields here are optional, since the default OAuth issuer is Google.</p>
   </li>
-  <li>Restart the server so that the changes are applied.</li>
+  <li>
+    <p>Restart the server so that the changes are applied.</p>
+  </li>
 </ol>
 <aside class="admonition note">
   <p>Legacy environment variables are also supported: <code spellcheck="false">TRILIUM_OAUTH_BASE_URL</code>,
@@ -178,7 +165,7 @@
       <code
       spellcheck="false">TRILIUM_OAUTH_ISSUER_NAME</code>, <code spellcheck="false">TRILIUM_OAUTH_ISSUER_ICON</code>,
         <code
-        spellcheck="false">TRILIUM_OAUTH_CLIENT_AUTH_METHOD</code>, <code spellcheck="false">TRILIUM_OAUTH_ID_TOKEN_SIGNING_ALG </code>.</p>
+        spellcheck="false">TRILIUM_OAUTH_CLIENT_AUTH_METHOD</code>, <code spellcheck="false">TRILIUM_OAUTH_ID_TOKEN_SIGNING_ALG</code> .</p>
 </aside>
 <h2>Connecting to the authentication provider</h2>
 <p>Once the server has been configured at the previous step, the next step

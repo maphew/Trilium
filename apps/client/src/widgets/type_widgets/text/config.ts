@@ -1,4 +1,4 @@
-import { type EditorConfig, getCkLocale, SnippetDefinition } from "@triliumnext/ckeditor5";
+import { type EditorConfig, getCkLocale, SnippetDefinition, type TextTransformationConfig } from "@triliumnext/ckeditor5";
 import emojiDefinitionsUrl from "@triliumnext/ckeditor5/src/emoji_definitions/en.json?url";
 import { ALLOWED_PROTOCOLS, DISPLAYABLE_LOCALE_IDS, formatShortcut, IMAGE_UPLOAD_SUBTYPES, joinShortcut, KATEX_MACROS, MIME_TYPE_AUTO, normalizeMimeTypeForCKEditor } from "@triliumnext/commons";
 import i18next from "i18next";
@@ -11,9 +11,12 @@ import { default as mimeTypesService, getHighlightJsNameForMime } from "../../..
 import noteAutocompleteService, { type Suggestion } from "../../../services/note_autocomplete.js";
 import options from "../../../services/options.js";
 import { ensureMimeTypesForHighlighting, isSyntaxHighlightEnabled } from "../../../services/syntax_highlight.js";
-import { isMac } from "../../../services/utils.js";
 import { getTaskStateDefinitions, openCustomTaskStateConfig } from "../../../services/task_states.js";
+import { isMac } from "../../../services/utils.js";
+import { resolveContentLanguage } from "../../../utils/formatters.js";
 import SAMPLE_DIAGRAMS from "../mermaid/sample_diagrams.js";
+import { buildQuoteTransformation, resolveQuoteSetting } from "./quotes.js";
+import { buildCustomTransformations, parseCustomReplacements } from "./replacements.js";
 import { buildToolbarConfig } from "./toolbar.js";
 
 /**
@@ -237,14 +240,28 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
         embedImage: (src: string) => imageService.embedReferenceImageAsDataUrl(src)
     };
 
-    // Set up content language.
-    const { contentLanguage } = opts;
+    // The language this note is written in, which governs both its text direction and which
+    // typographic quotes typing produces.
+    //
+    // The note's own `#language` label wins, being the only per-note signal and the one a
+    // multilingual writer sets deliberately. Almost no note carries one though — the label is
+    // opt-in, and the picker that sets it is empty until content languages are enabled — so the
+    // `defaultContentLanguage` option is what answers in practice. It defaults to English, which is
+    // what every note was implicitly treated as before the option existed; setting it to the empty
+    // "auto" entry follows the application's language instead.
+    //
+    // Deliberately not `formattingLocale`: that one is presented as "Date & number format", so
+    // someone who sets it for unambiguous dates would not expect it to restyle their prose.
+    const contentLanguage = resolveContentLanguage(opts.contentLanguage);
+
     if (contentLanguage) {
         config.language = {
             ui: (typeof config.language === "string" ? config.language : "en"),
             content: contentLanguage
         };
     }
+
+    config.typing = { transformations: buildTransformationsConfig(contentLanguage) };
 
     // Mention customisation.
     if (options.get("textNoteCompletionEnabled") === "true") {
@@ -288,6 +305,46 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
         ...config,
         ...buildToolbarConfig(opts.isClassicEditor)
     };
+}
+
+/**
+ * Which as-you-type replacements the editor runs, expressed as deltas against CKEditor's own default
+ * set rather than by restating it.
+ *
+ * That is deliberate: the dashes and the fractions are boundary-sensitive regexes upstream — ` -- `
+ * needs its surrounding spaces, and `1/2` needs the guards that stop `11/2` becoming `1½` — and
+ * those are exactly the definitions that break subtly when copied by hand. Naming a group in
+ * `remove` disables it without us ever holding its pattern.
+ *
+ * Quotes are the one exception we do own, because which marks they produce depends on the note's
+ * language and upstream has data for three locales. They are removed and re-supplied — but only when
+ * we actually have a pair for the language, so an unmapped locale keeps falling through to
+ * CKEditor's default rather than losing quote replacement altogether.
+ */
+function buildTransformationsConfig(contentLanguage: string | null): TextTransformationConfig {
+    const remove: string[] = [];
+    if (options.get("textNotePunctuationReplacementsEnabled") !== "true") remove.push("typography");
+    if (options.get("textNoteMathReplacementsEnabled") !== "true") remove.push("mathematical");
+    if (options.get("textNoteSymbolReplacementsEnabled") !== "true") remove.push("symbols");
+
+    // The two keys are settled apart, so each is taken over from upstream only when we have
+    // something to put in its place — naming the individual transformations rather than the `quotes`
+    // group, which would take both away together.
+    const double = resolveQuoteSetting(options.get("textNoteDoubleQuoteStyle"), "primary", contentLanguage);
+    const single = resolveQuoteSetting(options.get("textNoteSingleQuoteStyle"), "secondary", contentLanguage);
+    if (double.overridesUpstream) remove.push("quotesPrimary");
+    if (single.overridesUpstream) remove.push("quotesSecondary");
+
+    const extra = [
+        ...(double.marks ? [buildQuoteTransformation("\"", double.marks)] : []),
+        ...(single.marks ? [buildQuoteTransformation("'", single.marks)] : []),
+        ...buildCustomTransformations(parseCustomReplacements(options.get("textNoteCustomReplacements")))
+    ];
+
+    // `include` is typed as required even though upstream's own documented examples pass `remove`
+    // alone, and the plugin defines the default set in its constructor. Narrowed here rather than
+    // restating the default groups, so that a group upstream adds later keeps working.
+    return { remove, extra } as TextTransformationConfig;
 }
 
 /**
