@@ -107,7 +107,8 @@ export interface CardOptionProps extends CardSectionProps {
  * A card section built as one setting: what it is on the leading edge, what changes it on the
  * trailing one, with the sentence explaining it below the label.
  */
-export function CardOption({label, description, name, children, className, ...rest}: CardOptionProps) {
+export function CardOption(props: CardOptionProps) {
+    const {label, description, name, children, className, ...rest} = props;
     const id = useUniqueName(name);
     const bound = !!name && isValidElement(children);
 

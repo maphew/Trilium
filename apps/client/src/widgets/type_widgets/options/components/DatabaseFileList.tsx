@@ -42,7 +42,10 @@ interface DatabaseFileListProps<T extends DatabaseFile> {
     children?: ComponentChildren;
 }
 
-export default function DatabaseFileList<T extends DatabaseFile>({ title, description, files, downloadEndpoint, downloadText, emptyIcon, emptyText, fileBadges, children }: DatabaseFileListProps<T>) {
+export default function DatabaseFileList<T extends DatabaseFile>(props: DatabaseFileListProps<T>) {
+    const { title, description, files, downloadEndpoint, downloadText } = props;
+    const { emptyIcon, emptyText, fileBadges, children } = props;
+
     const sortedFiles = useMemo(() => [...files].sort((a, b) => {
         if (a.mtime < b.mtime) return 1;
         if (a.mtime > b.mtime) return -1;
@@ -60,7 +63,12 @@ export default function DatabaseFileList<T extends DatabaseFile>({ title, descri
                                 <span className="database-file-label">
                                     <span className="selectable-text">{file.fileName}</span>
                                     {fileBadges?.(file).map((badge) => (
-                                        <Badge key={badge} className="database-file-badge" text={badge} outline />
+                                        <Badge
+                                            key={badge}
+                                            className="database-file-badge"
+                                            text={badge}
+                                            outline
+                                        />
                                     ))}
                                 </span>
                             }
@@ -69,7 +77,7 @@ export default function DatabaseFileList<T extends DatabaseFile>({ title, descri
                             <ActionButton
                                 icon="bx bx-download"
                                 text={downloadText}
-                                onClick={() => open.download(open.getUrlForDownload(`${downloadEndpoint}?filePath=${encodeURIComponent(file.filePath)}`))}
+                                onClick={() => downloadFile(downloadEndpoint, file.filePath)}
                             />
                         </CardOption>
                     ))
@@ -83,6 +91,12 @@ export default function DatabaseFileList<T extends DatabaseFile>({ title, descri
             </Card>
         </div>
     );
+}
+
+function downloadFile(downloadEndpoint: string, filePath: string) {
+    const url = `${downloadEndpoint}?filePath=${encodeURIComponent(filePath)}`;
+
+    open.download(open.getUrlForDownload(url));
 }
 
 /**

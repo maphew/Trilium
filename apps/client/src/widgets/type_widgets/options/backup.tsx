@@ -1,6 +1,12 @@
 import "./backup.css";
 
-import { BackupDatabaseNowResponse, BackupPassphraseStatus, DatabaseBackup, dayjs, ExistingBackupsResponse } from "@triliumnext/commons";
+import {
+    BackupDatabaseNowResponse,
+    BackupPassphraseStatus,
+    DatabaseBackup,
+    dayjs,
+    ExistingBackupsResponse
+} from "@triliumnext/commons";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import dialogService from "../../../services/dialog";
@@ -36,7 +42,9 @@ export default function BackupSettings() {
 
     return (
         <>
-            <OptionsPageHeader below={<BackupStatus backups={backups} refreshCallback={refreshBackups} />} />
+            <OptionsPageHeader
+                below={<BackupStatus backups={backups} refreshCallback={refreshBackups} />}
+            />
             <BackupList backups={backups} backupFolderPath={backupFolderPath} />
             {/* Absent where there is no user-accessible location at all, e.g. backups kept in OPFS. */}
             {backupFolderPath && <BackupLocation backupFolderPath={backupFolderPath} refreshCallback={refreshBackups} />}
@@ -47,12 +55,17 @@ export default function BackupSettings() {
     );
 }
 
+interface BackupStatusProps {
+    backups: DatabaseBackup[];
+    refreshCallback: () => void;
+}
+
 /**
- * How the backups stand, and the one action that makes one now rather than on a schedule. Part of the
- * page's own header rather than of the list below it: the list card answers for what it holds, which
- * is not the same as what the page is for.
+ * How the backups stand, and the one action that makes one now rather than on a schedule. Part
+ * of the page's own header rather than of the list below it: the list card answers for what it
+ * holds, which is not the same as what the page is for.
  */
-function BackupStatus({ backups, refreshCallback }: { backups: DatabaseBackup[]; refreshCallback: () => void }) {
+function BackupStatus({ backups, refreshCallback }: BackupStatusProps) {
     const [backupInProgress, setBackupInProgress] = useState(false);
 
     return (
@@ -67,8 +80,14 @@ function BackupStatus({ backups, refreshCallback }: { backups: DatabaseBackup[];
                 onClick={async () => {
                     setBackupInProgress(true);
                     try {
-                        const { backupFile } = await server.post<BackupDatabaseNowResponse>("database/backup-database");
-                        toast.showMessage(t("backup.database_backed_up_to", { backupFilePath: backupFile }), 10000);
+                        const { backupFile } = await server.post<BackupDatabaseNowResponse>(
+                            "database/backup-database"
+                        );
+
+                        toast.showMessage(
+                            t("backup.database_backed_up_to", { backupFilePath: backupFile }),
+                            10000
+                        );
                         refreshCallback();
                     } finally {
                         setBackupInProgress(false);
@@ -80,18 +99,23 @@ function BackupStatus({ backups, refreshCallback }: { backups: DatabaseBackup[];
 }
 
 /**
- * How many backups there are and how long ago the last one was made — the two things the list itself
- * only answers by being read through. Nothing is said while there are none: the list stands empty
- * right below, which states it more plainly than a sentence could.
+ * How many backups there are and how long ago the last one was made — the two things the list
+ * itself only answers by being read through. Nothing is said while there are none: the list
+ * stands empty right below, which states it more plainly than a sentence could.
  */
 function summarizeBackups(backups: DatabaseBackup[]) {
     if (!backups.length) {
         return null;
     }
 
-    const mostRecent = backups.reduce((latest, backup) => (backup.mtime > latest.mtime ? backup : latest));
+    const mostRecent = backups.reduce((latest, backup) => (
+        backup.mtime > latest.mtime ? backup : latest
+    ));
 
-    return t("backup.backups_summary", { count: backups.length, age: dayjs(mostRecent.mtime).fromNow(true) });
+    return t("backup.backups_summary", {
+        count: backups.length,
+        age: dayjs(mostRecent.mtime).fromNow(true)
+    });
 }
 
 export function BackupConfiguration() {
@@ -106,15 +130,24 @@ export function BackupConfiguration() {
                 description={t("backup.automatic_backups_description")}
             >
                 <CardOption name="daily-backup-enabled" label={t("backup.enable_daily_backup")}>
-                    <FormToggle currentValue={dailyBackupEnabled} onChange={setDailyBackupEnabled} />
+                    <FormToggle
+                        currentValue={dailyBackupEnabled}
+                        onChange={setDailyBackupEnabled}
+                    />
                 </CardOption>
 
                 <CardOption name="weekly-backup-enabled" label={t("backup.enable_weekly_backup")}>
-                    <FormToggle currentValue={weeklyBackupEnabled} onChange={setWeeklyBackupEnabled} />
+                    <FormToggle
+                        currentValue={weeklyBackupEnabled}
+                        onChange={setWeeklyBackupEnabled}
+                    />
                 </CardOption>
 
                 <CardOption name="monthly-backup-enabled" label={t("backup.enable_monthly_backup")}>
-                    <FormToggle currentValue={monthlyBackupEnabled} onChange={setMonthlyBackupEnabled} />
+                    <FormToggle
+                        currentValue={monthlyBackupEnabled}
+                        onChange={setMonthlyBackupEnabled}
+                    />
                 </CardOption>
             </Card>
         </div>
@@ -258,7 +291,9 @@ export function BackupOptions() {
             <Card heading={t("backup.options_title")}>
                 <CardOption
                     label={t("backup.enable_encryption")}
-                    description={passphrase.available ? t("backup.enable_encryption_description") : t("backup.no_keyring")}
+                    description={passphrase.available
+                        ? t("backup.enable_encryption_description")
+                        : t("backup.no_keyring")}
                 >
                     {passphrase.set ? (
                         <>
@@ -289,7 +324,10 @@ export function BackupOptions() {
                     label={t("backup.enable_compression")}
                     description={t("backup.enable_compression_description")}
                 >
-                    <FormToggle currentValue={compressionEnabled} onChange={setCompressionEnabled} />
+                    <FormToggle
+                        currentValue={compressionEnabled}
+                        onChange={setCompressionEnabled}
+                    />
                 </CardOption>
             </Card>
 
@@ -327,7 +365,12 @@ function BackupPasswordModal({ show, onHidden, onSave }: { show: boolean; onHidd
     );
 }
 
-export function BackupList({ backups, backupFolderPath }: { backups: DatabaseBackup[]; backupFolderPath: string | null }) {
+interface BackupListProps {
+    backups: DatabaseBackup[];
+    backupFolderPath: string | null;
+}
+
+export function BackupList({ backups, backupFolderPath }: BackupListProps) {
     const [customDir] = useTriliumOption("customDbBackupDir");
 
     // What a row cannot say for itself: the format it was written in, and — with a custom location in

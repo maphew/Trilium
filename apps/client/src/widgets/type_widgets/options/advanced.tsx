@@ -168,7 +168,9 @@ function ExistingAnonymizedDatabases({ databases, anonymizedFolderPath }: { data
             title={t("database_anonymization.existing_anonymized_databases")}
             description={anonymizedFolderPath && (
                 <span className="selectable-text">
-                    {t("database_anonymization.anonymized_databases_location", { anonymizedFolder: anonymizedFolderPath })}
+                    {t("database_anonymization.anonymized_databases_location", {
+                        anonymizedFolder: anonymizedFolderPath
+                    })}
                 </span>
             )}
             files={databases}
