@@ -210,14 +210,6 @@ export function BackupOptions() {
         <div className="options-section backup-options">
             <Card heading={t("backup.options_title")}>
                 <CardOption
-                    name="backup-compression-enabled"
-                    label={t("backup.enable_compression")}
-                    description={t("backup.enable_compression_description")}
-                >
-                    <FormToggle currentValue={compressionEnabled} onChange={setCompressionEnabled} />
-                </CardOption>
-
-                <CardOption
                     label={t("backup.enable_encryption")}
                     description={passphrase.available ? t("backup.enable_encryption_description") : t("backup.no_keyring")}
                 >
@@ -243,6 +235,14 @@ export function BackupOptions() {
                             onClick={() => setPasswordModalShown(true)}
                         />
                     )}
+                </CardOption>
+
+                <CardOption
+                    name="backup-compression-enabled"
+                    label={t("backup.enable_compression")}
+                    description={t("backup.enable_compression_description")}
+                >
+                    <FormToggle currentValue={compressionEnabled} onChange={setCompressionEnabled} />
                 </CardOption>
             </Card>
 
