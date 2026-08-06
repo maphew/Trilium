@@ -234,6 +234,53 @@ describe("CK config - language & emoji", () => {
         expect(config.language).toBeUndefined();
     });
 
+    it("picks the quote style from the note's language, falling back down the locale chain", async () => {
+        const quotesOf = (config: Awaited<ReturnType<typeof buildConfig>>) =>
+            (config.typing?.transformations.extra ?? []).map((t) => (t as { to: string[] }).to);
+
+        // The note's own `#language` outranks both options.
+        optionsState.map.formattingLocale = "fr";
+        optionsState.map.locale = "ru";
+        expect(quotesOf(await buildConfig(baseOpts({ contentLanguage: "de" })))).toEqual([
+            [null, "„", null, "“"],
+            [null, "‚", null, "‘"]
+        ]);
+
+        // Without one, the formatting locale decides.
+        expect(quotesOf(await buildConfig(baseOpts({ contentLanguage: null })))).toEqual([
+            // The gap inside the guillemets is U+202F, the narrow no-break space French sets
+            // there — it looks like a plain space but is not one.
+            [null, "« ", null, " »"],
+            [null, "“", null, "”"]
+        ]);
+
+        // ...and without that, the UI language does.
+        optionsState.map.formattingLocale = "";
+        expect(quotesOf(await buildConfig(baseOpts({ contentLanguage: null })))).toEqual([
+            [null, "«", null, "»"],
+            [null, "„", null, "“"]
+        ]);
+    });
+
+    it("leaves CKEditor's own transformations alone for a locale with no mapping", async () => {
+        optionsState.map.formattingLocale = "ar";
+        optionsState.map.locale = "he";
+        // Last link in the chain, and unmapped too — otherwise the environment's own locale answers.
+        const language = vi.spyOn(navigator, "language", "get").mockReturnValue("fa");
+
+        const config = await buildConfig(baseOpts({ contentLanguage: "ku" }));
+
+        // No `typing` override at all, so the default `quotes` group stays in force.
+        expect(config.typing).toBeUndefined();
+        language.mockRestore();
+    });
+
+    it("keeps the non-quote transformation groups when overriding the quotes", async () => {
+        const config = await buildConfig(baseOpts({ contentLanguage: "de" }));
+
+        expect(config.typing?.transformations.include).toEqual(["symbols", "mathematical", "typography"]);
+    });
+
     it("prefixes the emoji definitions URL with the page origin in dev mode", async () => {
         const prod = await buildConfig(baseOpts());
         window.glob.isDev = true;

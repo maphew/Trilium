@@ -11,9 +11,10 @@ import { default as mimeTypesService, getHighlightJsNameForMime } from "../../..
 import noteAutocompleteService, { type Suggestion } from "../../../services/note_autocomplete.js";
 import options from "../../../services/options.js";
 import { ensureMimeTypesForHighlighting, isSyntaxHighlightEnabled } from "../../../services/syntax_highlight.js";
-import { isMac } from "../../../services/utils.js";
 import { getTaskStateDefinitions, openCustomTaskStateConfig } from "../../../services/task_states.js";
+import { isMac } from "../../../services/utils.js";
 import SAMPLE_DIAGRAMS from "../mermaid/sample_diagrams.js";
+import { buildQuoteTransformations, resolveQuoteStyle } from "./quotes.js";
 import { buildToolbarConfig } from "./toolbar.js";
 
 /**
@@ -236,6 +237,35 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
         enabled: () => options.get("clipboardImageEmbedEnabled") === "true",
         embedImage: (src: string) => imageService.embedReferenceImageAsDataUrl(src)
     };
+
+    // Which typographic quotes `"…"` and `'…'` turn into. CKEditor applies the US pair to every
+    // locale it has no entry for, which is wrong rather than merely unstyled for most of the
+    // languages Trilium ships — a German writer wants „…“, a French one « … ».
+    //
+    // Preference order: the note's own `#language` first, since it is the only per-note signal and
+    // the one a multilingual writer sets deliberately, then the same locale chain the date and
+    // number formatters resolve through. That way a German-speaking user gets German quotes without
+    // having labelled anything.
+    //
+    // Resolved here rather than pushed into a live editor because a note's language change already
+    // rebuilds the editor (see the effect deps in `CKEditorWithWatchdog`).
+    const quoteStyle = resolveQuoteStyle(
+        opts.contentLanguage,
+        options.get("formattingLocale"),
+        options.get("locale"),
+        navigator.language
+    );
+    if (quoteStyle) {
+        config.typing = {
+            transformations: {
+                // Upstream's default groups minus `quotes`, whose two transformations are replaced
+                // by the locale-specific pair below. Restated rather than filtered with `remove`
+                // because the config type requires `include`.
+                include: ["symbols", "mathematical", "typography"],
+                extra: buildQuoteTransformations(quoteStyle)
+            }
+        };
+    }
 
     // Set up content language.
     const { contentLanguage } = opts;
