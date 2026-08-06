@@ -633,7 +633,7 @@ function useEventDisplayCustomization(parentNote: FNote, componentId: string | u
      * Forma's chip with an icon in it rather than something of ours standing in for one.
      */
     const eventContent = useCallback((e: EventDisplayInfo) => {
-        const { iconClass } = e.event.extendedProps;
+        const { iconClass, promotedAttributes } = e.event.extendedProps;
 
         return (
             <>
@@ -642,13 +642,22 @@ function useEventDisplayCustomization(parentNote: FNote, componentId: string | u
                     {iconClass && <span className={`calendar-event-icon ${iconClass}`} />}
                     {e.event.title}
                 </div>
+                {!!promotedAttributes?.length && hasRoomForAttributes(e) && (
+                    <div className="calendar-event-attributes">
+                        {(promotedAttributes as Array<[string, string]>).map(([name, value], i) => (
+                            <div className="promoted-attribute" key={`${name}-${i}`}>
+                                <span className="promoted-attribute-name">{name}</span>
+                                {": "}
+                                <span className="promoted-attribute-value">{value}</span>
+                            </div>
+                        ))}
+                    </div>
+                )}
             </>
         );
     }, []);
 
     const eventDidMount = useCallback((e: MountInfo<EventDisplayInfo>) => {
-        const { promotedAttributes } = e.event.extendedProps;
-
         // The chip is tagged with its note, which is how the event popover finds the chip to
         // stand beside — FullCalendar redraws chips at will, so an element held onto would go
         // stale (see eventAnchorRect in EventPopover).
@@ -658,32 +667,6 @@ function useEventDisplayCustomization(parentNote: FNote, componentId: string | u
 
         // Disable the default context menu.
         e.el.dataset.noContextMenu = "true";
-
-        // Append promoted attributes to the end of the event container.
-        if (promotedAttributes) {
-            let promotedAttributesHtml = "";
-            for (const [name, value] of promotedAttributes) {
-                promotedAttributesHtml = `${promotedAttributesHtml  /*html*/}\
-                <div class="promoted-attribute">
-                    <span class="promoted-attribute-name">${name}</span>: <span class="promoted-attribute-value">${value}</span>
-                </div>`;
-            }
-
-            let mainContainer;
-            switch (e.view.type) {
-                case "timeGridDay":
-                case "timeGridWeek":
-                case "dayGridMonth":
-                    mainContainer = e.el.querySelector(".fc-event-main");
-                    break;
-                case "multiMonthYear":
-                    break;
-                case "listMonth":
-                    mainContainer = e.el.querySelector(".fc-list-event-title");
-                    break;
-            }
-            $(mainContainer ?? e.el).append($(promotedAttributesHtml));
-        }
 
         async function onContextMenu(contextMenuEvent: PointerEvent) {
             // A surface standing open is what the press is for. A menu raised over it would cover
@@ -710,6 +693,17 @@ function useEventDisplayCustomization(parentNote: FNote, componentId: string | u
         e.el.addEventListener("contextmenu", onContextMenu);
     }, [ dismissSurface ]);
     return { eventContent, eventDidMount };
+}
+
+/**
+ * Whether a chip has the room to say anything beyond its title.
+ *
+ * Only a timed event on a time grid stacks its content, and only where it is tall enough to. A row
+ * event — a month cell's chip, an all-day band — is one centred line however wide it gets, so
+ * attributes put there crowd the title along it rather than fall beneath it.
+ */
+function hasRoomForAttributes(e: EventDisplayInfo) {
+    return e.view.type.startsWith("timeGrid") && !e.event.allDay && !e.isShort;
 }
 
 function useOnDatesSet(calendarRef: RefObject<FullCalendar>) {

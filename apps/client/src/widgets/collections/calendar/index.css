@@ -31,15 +31,16 @@
     height: 100%;
 }
 
+/* Stacked beneath the title, the chip's own container being a column wherever these are shown at
+   all (see hasRoomForAttributes). Kept narrow so the overflow below has something to bite on. */
+.calendar-view .calendar-event-attributes {
+    min-width: 0;
+}
+
 .calendar-container .promoted-attribute {
     font-size: 0.85em;
     opacity: 0.85;
     overflow: hidden;
-    padding-inline: 4px;
-
-    &:last-of-type {
-        padding-bottom: 4px;
-    }
 }
 
 .calendar-view .collection-properties {
