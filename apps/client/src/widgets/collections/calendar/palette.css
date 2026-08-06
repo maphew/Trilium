@@ -52,8 +52,13 @@
      * Events, read through the same calendar-specific variables the collection already honours so
      * that a theme customising those keeps its say. Only the Next themes define them, hence the
      * fallbacks for the legacy pair.
+     *
+     * The accent is the *text* colour, not the background one: Forma spends this on the solid bar
+     * down a chip's leading edge, so handing it Trilium's already-pale #eaeaea left the bar all but
+     * invisible. The body it derives from the same colour is overridden in index.css, Trilium's
+     * chip being a flat grey rather than a tint of its bar.
      */
-    --fc-forma-event: var(--calendar-coll-event-background-color, var(--accented-background-color));
+    --fc-forma-event: var(--calendar-coll-event-text-color, var(--main-text-color));
     --fc-forma-event-contrast: var(--calendar-coll-event-text-color, var(--main-text-color));
     --fc-forma-background-event: var(--link-color);
 

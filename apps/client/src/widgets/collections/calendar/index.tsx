@@ -9,6 +9,7 @@ import "./palette.css";
 import "./index.css";
 
 import { DISPLAYABLE_LOCALE_IDS } from "@triliumnext/commons";
+import clsx from "clsx";
 import { Calendar as FullCalendar, DateClickInfo, DateSelectInfo, EventChangeInfo, EventClickInfo, EventDisplayInfo, EventSourceFuncInfo, LocaleInput, MountInfo, PluginInput } from "fullcalendar";
 import { RefObject } from "preact";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "preact/hooks";
@@ -341,9 +342,14 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
                 // preview would, at full length and editable, and the two are drawn beside the
                 // same chip. The geo map's marker previews keep clear of its detail pane the same
                 // way (see Tooltips there).
-                eventClass={(arg) => selection && "noteId" in selection && arg.event.extendedProps.noteId === selection.noteId
-                    ? "calendar-event-selected no-tooltip-preview"
-                    : undefined}
+                eventClass={(arg) => clsx(
+                    // What the chip's own colouring hangs off, Forma's single-accent chip not
+                    // being able to say Trilium's pair of a dark bar over a flat body (see
+                    // index.css).
+                    "calendar-event",
+                    selection && "noteId" in selection && arg.event.extendedProps.noteId === selection.noteId
+                        && "calendar-event-selected no-tooltip-preview"
+                )}
                 eventDidMount={eventDidMount}
                 viewDidMount={({ view }) => {
                     if (initialView.current !== view.type) {
