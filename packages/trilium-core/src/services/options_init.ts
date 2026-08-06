@@ -312,6 +312,7 @@ const defaultOptions: DefaultOption[] = [
     { name: "textNotePunctuationReplacementsEnabled", value: "true", isSynced: true },
     { name: "textNoteMathReplacementsEnabled", value: "true", isSynced: true },
     { name: "textNoteSymbolReplacementsEnabled", value: "true", isSynced: true },
+    { name: "textNoteCustomReplacements", value: "[]", isSynced: true },
     { name: "textNoteEmojiCompletionEnabled", value: "true", isSynced: true },
     { name: "textNoteCompletionEnabled", value: "true", isSynced: true },
     { name: "textNoteSlashCommandsEnabled", value: "true", isSynced: true },

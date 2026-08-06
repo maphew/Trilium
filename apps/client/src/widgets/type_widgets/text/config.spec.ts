@@ -304,6 +304,26 @@ describe("CK config - language & emoji", () => {
         expect(allOff.typing?.transformations.remove).toEqual(["typography", "mathematical", "symbols", "quotes"]);
     });
 
+    it("adds the user's own replacements alongside the quote ones", async () => {
+        optionsState.map.textNoteCustomReplacements = `[{"from":"TN","to":"Trilium Notes"},{"from":"half","to":""}]`;
+
+        const config = await buildConfig(baseOpts({ contentLanguage: "de" }));
+
+        // Two quote transformations plus the one finished custom pair; the half-written row compiles
+        // to nothing rather than acting before it is done.
+        expect(config.typing?.transformations.extra).toHaveLength(3);
+        expect(String((config.typing?.transformations.extra?.[2] as { from: RegExp }).from)).toContain("TN");
+    });
+
+    it("survives a custom replacements option that cannot be read", async () => {
+        optionsState.map.textNoteCustomReplacements = "}} not json {{";
+
+        const config = await buildConfig(baseOpts({ contentLanguage: "de" }));
+
+        // The editor still builds, with the quotes intact and no custom pairs.
+        expect(config.typing?.transformations.extra).toHaveLength(2);
+    });
+
     it("drops the quote replacements entirely when their toggle is off", async () => {
         optionsState.map.textNoteQuoteReplacementsEnabled = "false";
 

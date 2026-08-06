@@ -62,6 +62,9 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
     const [ punctuationReplacements ] = useTriliumOptionBool("textNotePunctuationReplacementsEnabled");
     const [ mathReplacements ] = useTriliumOptionBool("textNoteMathReplacementsEnabled");
     const [ symbolReplacements ] = useTriliumOptionBool("textNoteSymbolReplacementsEnabled");
+    // The raw JSON, deliberately: `useTriliumOptionJson` parses on every render and would hand back a
+    // new array each time, rebuilding the editor continuously. A string compares by value.
+    const [ customReplacements ] = useTriliumOption("textNoteCustomReplacements");
     // Which language a note with no `#language` of its own is written in, and so which quotes it
     // gets. The UI locale it can fall back to is already covered by `uiLanguage` above.
     const [ defaultContentLanguage ] = useTriliumOption("defaultContentLanguage");
@@ -293,7 +296,7 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
     }, [
         contentLanguage, uiLanguage, isClassicEditor, multilineToolbar,
         quoteReplacements, punctuationReplacements, mathReplacements, symbolReplacements,
-        defaultContentLanguage
+        customReplacements, defaultContentLanguage
     ]);
 
     // Push snippet ("template") definitions into the live editor instead of rebuilding it. The premium

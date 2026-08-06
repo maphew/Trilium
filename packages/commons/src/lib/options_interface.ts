@@ -252,6 +252,8 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     textNoteMathReplacementsEnabled: boolean;
     /** Whether `(c)`, `(r)` and `(tm)` become `©`, `®` and `™` as they are typed. */
     textNoteSymbolReplacementsEnabled: boolean;
+    /** JSON: the user's own replacements, as `{ from, to }` pairs — see `CustomReplacement`. */
+    textNoteCustomReplacements: string;
     /** Whether keyboard auto-completion for emojis is triggered when typing `:`. */
     textNoteEmojiCompletionEnabled: boolean;
     /** Whether keyboard auto-completion for notes is triggered when typing `@` in text notes (attribute editing is not affected). */

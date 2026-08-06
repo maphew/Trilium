@@ -3163,7 +3163,13 @@
     "math": "Mathematical symbols",
     "math_description": "Turns fractions such as 1/2 into ½, and the operators <=, >=, !=, <- and -> into ≤, ≥, ≠, ← and →.",
     "symbols": "Copyright and trademark",
-    "symbols_description": "Turns (c), (r) and (tm) into ©, ® and ™."
+    "symbols_description": "Turns (c), (r) and (tm) into ©, ® and ™.",
+    "custom": "Your own replacements",
+    "custom_description": "Each is replaced once you have typed it as a whole word and followed it with a space, so longer words starting with it are left alone.",
+    "custom_from_placeholder": "When I type…",
+    "custom_to_placeholder": "…replace it with",
+    "custom_add": "Add replacement",
+    "custom_remove": "Remove this replacement"
   },
   "editorfeatures": {
     "title": "Features",

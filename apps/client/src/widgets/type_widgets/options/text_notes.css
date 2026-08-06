@@ -127,3 +127,32 @@
 .code-sample-wrapper {
     padding-top: 0.75em;
 }
+
+.custom-replacements {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding-top: 0.75em;
+
+    .custom-replacement-row {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    /* min-width lets the boxes shrink with the pane; without it flex refuses to go below the
+       intrinsic input width and the delete button is pushed out of the card. */
+    .custom-replacement-row input {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .custom-replacement-arrow {
+        flex-shrink: 0;
+        opacity: 0.5;
+    }
+
+    .custom-replacement-add {
+        align-self: flex-start;
+    }
+}

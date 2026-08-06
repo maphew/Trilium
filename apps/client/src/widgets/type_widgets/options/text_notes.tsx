@@ -3,12 +3,14 @@ import "./text_notes.css";
 import { normalizeMimeTypeForCKEditor } from "@triliumnext/commons";
 import { getThemeVariant, Themes } from "@triliumnext/highlightjs";
 import type { CSSProperties } from "preact/compat";
-import { useEffect, useMemo, useState } from "preact/hooks";
+import { useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import { isExperimentalFeatureEnabled } from "../../../services/experimental_features";
 import { t } from "../../../services/i18n";
 import { ensureMimeTypesForHighlighting, loadHighlightingTheme } from "../../../services/syntax_highlight";
-import { formatDateTime, toggleBodyClass } from "../../../services/utils";
+import { formatDateTime, randomString, toggleBodyClass } from "../../../services/utils";
+import ActionButton from "../../react/ActionButton";
+import Button from "../../react/Button";
 import Dropdown from "../../react/Dropdown";
 import FormGroup from "../../react/FormGroup";
 import { FormListItem } from "../../react/FormList";
@@ -17,6 +19,7 @@ import FormText from "../../react/FormText";
 import FormTextBox, { FormTextBoxWithUnit } from "../../react/FormTextBox";
 import { useColorScheme, useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import { getHtml } from "../../react/RawHtml";
+import { type CustomReplacement, parseCustomReplacements } from "../text/replacements";
 import OptionsPageHeader from "./components/OptionsPageHeader";
 import OptionsRow, { OptionsRowWithToggle } from "./components/OptionsRow";
 import OptionsSection from "./components/OptionsSection";
@@ -222,7 +225,97 @@ function AutomaticReplacements() {
                 currentValue={symbolsEnabled}
                 onChange={setSymbolsEnabled}
             />
+
+            <CustomReplacements />
         </OptionsSection>
+    );
+}
+
+/** A row while it is being edited: the stored pair plus a key that survives its neighbours moving. */
+interface EditableReplacement extends CustomReplacement {
+    id: string;
+}
+
+/**
+ * The user's own replacements, edited in place.
+ *
+ * The rows are held locally and written to the option when a field is left rather than on every
+ * keystroke, so typing a replacement is not a request per character. A half-written row is stored as
+ * it stands — {@link buildCustomTransformations} ignores a pair with either side blank — so nothing
+ * the user is in the middle of typing is thrown away or acts before it is finished.
+ */
+function CustomReplacements() {
+    const [ storedJson, setStoredJson ] = useTriliumOption("textNoteCustomReplacements");
+    const [ rows, setRows ] = useState<EditableReplacement[]>(
+        () => parseCustomReplacements(storedJson).map((replacement) => ({ ...replacement, id: randomString(8) }))
+    );
+    // The row to put the caret in once it has rendered — the one just added, and nothing afterwards.
+    const [ focusedId, setFocusedId ] = useState<string>();
+
+    // Blur handlers are created in the render that made the row, so reading `rows` from their closure
+    // would persist a stale list. The ref always holds what is on screen now.
+    const rowsRef = useRef(rows);
+    rowsRef.current = rows;
+
+    function persist(next: EditableReplacement[]) {
+        void setStoredJson(JSON.stringify(next.map(({ from, to }) => ({ from, to }))));
+    }
+
+    function editRow(id: string, changes: Partial<CustomReplacement>) {
+        setRows((current) => current.map((row) => (row.id === id ? { ...row, ...changes } : row)));
+    }
+
+    function addRow() {
+        const row: EditableReplacement = { id: randomString(8), from: "", to: "" };
+        setRows((current) => [ ...current, row ]);
+        setFocusedId(row.id);
+    }
+
+    function removeRow(id: string) {
+        const next = rowsRef.current.filter((row) => row.id !== id);
+        setRows(next);
+        persist(next);
+    }
+
+    return (
+        <div className="custom-replacements">
+            <div className="option-row-label">
+                <label>{t("automatic_replacements.custom")}</label>
+                <small className="option-row-description">{t("automatic_replacements.custom_description")}</small>
+            </div>
+
+            {rows.map((row) => (
+                <div className="custom-replacement-row" key={row.id}>
+                    <FormTextBox
+                        currentValue={row.from}
+                        placeholder={t("automatic_replacements.custom_from_placeholder")}
+                        autoFocus={row.id === focusedId}
+                        onChange={(newValue) => editRow(row.id, { from: newValue })}
+                        onBlur={() => persist(rowsRef.current)}
+                    />
+                    <span className="custom-replacement-arrow" aria-hidden="true">→</span>
+                    <FormTextBox
+                        currentValue={row.to}
+                        placeholder={t("automatic_replacements.custom_to_placeholder")}
+                        onChange={(newValue) => editRow(row.id, { to: newValue })}
+                        onBlur={() => persist(rowsRef.current)}
+                    />
+                    <ActionButton
+                        icon="bx bx-trash"
+                        text={t("automatic_replacements.custom_remove")}
+                        onClick={() => removeRow(row.id)}
+                    />
+                </div>
+            ))}
+
+            <Button
+                className="custom-replacement-add"
+                icon="bx-plus"
+                text={t("automatic_replacements.custom_add")}
+                size="micro"
+                onClick={addRow}
+            />
+        </div>
     );
 }
 

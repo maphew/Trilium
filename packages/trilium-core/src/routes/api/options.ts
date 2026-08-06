@@ -128,6 +128,7 @@ const ALLOWED_OPTIONS = new Set<OptionNames>([
     "textNotePunctuationReplacementsEnabled",
     "textNoteMathReplacementsEnabled",
     "textNoteSymbolReplacementsEnabled",
+    "textNoteCustomReplacements",
     "textNoteEmojiCompletionEnabled",
     "textNoteCompletionEnabled",
     "textNoteSlashCommandsEnabled",

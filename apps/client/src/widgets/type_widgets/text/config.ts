@@ -16,6 +16,7 @@ import { isMac } from "../../../services/utils.js";
 import { resolveContentLanguage } from "../../../utils/formatters.js";
 import SAMPLE_DIAGRAMS from "../mermaid/sample_diagrams.js";
 import { buildQuoteTransformations, resolveQuoteStyle } from "./quotes.js";
+import { buildCustomTransformations, parseCustomReplacements } from "./replacements.js";
 import { buildToolbarConfig } from "./toolbar.js";
 
 /**
@@ -332,10 +333,15 @@ function buildTransformationsConfig(contentLanguage: string | null): TextTransfo
         remove.push("quotes");
     }
 
+    const extra = [
+        ...(quoteStyle ? buildQuoteTransformations(quoteStyle) : []),
+        ...buildCustomTransformations(parseCustomReplacements(options.get("textNoteCustomReplacements")))
+    ];
+
     // `include` is typed as required even though upstream's own documented examples pass `remove`
     // alone, and the plugin defines the default set in its constructor. Narrowed here rather than
     // restating the default groups, so that a group upstream adds later keeps working.
-    return { remove, extra: quoteStyle ? buildQuoteTransformations(quoteStyle) : [] } as TextTransformationConfig;
+    return { remove, extra } as TextTransformationConfig;
 }
 
 /**
