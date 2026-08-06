@@ -1,10 +1,4 @@
 .calendar-view {
-    --fc-event-border-color: var(--calendar-coll-event-text-color, var(--main-text-color));
-    --fc-event-bg-color: var(--calendar-coll-event-background-color, var(--accented-background-color));
-    --fc-event-text-color: var(--calendar-coll-event-text-color, var(--main-text-color));
-    --fc-event-selected-overlay-color: transparent;
-    --fc-today-bg-color: var(--calendar-coll-today-background-color, var(--more-accented-background-color));
-
     overflow: hidden;
     position: relative;
     outline: 0;
@@ -25,11 +19,6 @@
     }
 }
 
-.calendar-view a,
-:root .calendar-view a.fc-daygrid-event:hover {
-    color: var(--fc-event-text-color);
-}
-
 .search-result-widget-content .calendar-view {
     position: absolute;
     top: 0;
@@ -40,18 +29,6 @@
 
 .calendar-container {
     height: 100%;
-    --fc-page-bg-color: var(--main-background-color);
-    --fc-border-color: var(--main-border-color);
-    --fc-neutral-bg-color: var(--launcher-pane-background-color);
-    --fc-list-event-hover-bg-color: var(--left-pane-item-hover-background);
-}
-
-.calendar-container .fc-list-sticky .fc-list-day > * {
-    z-index: 50;
-}
-
-.calendar-container .fc-button {
-    padding: 0.2em 0.5em;
 }
 
 .calendar-container .promoted-attribute {
@@ -92,38 +69,8 @@
 
 /* #region Events */
 
-/*
- * week, month, year views
- */
-
 .calendar-view .calendar-event:hover {
     text-decoration: none;
-}
-
-.calendar-container a.fc-event.archived {
-    opacity: .65;
-}
-
-.calendar-container a.fc-event.archived::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    z-index: -1;
-
-    --c1: transparent;
-    --c2: var(--callendar-coll-event-archived-sripe-color, #00000013);
-
-    background: repeating-linear-gradient(45deg, var(--c1), var(--c1) 8px,
-                                          var(--c2) 8px, var(--c2) 16px);
-}
-
-.calendar-view a.fc-timegrid-event,
-.calendar-view a.fc-daygrid-event,
-.calendar-view .fc-daygrid-dot-event .fc-event-title {
-    font-weight: 500;
 }
 
 /*
@@ -135,6 +82,9 @@
  */
 .calendar-view .calendar-event {
     background: var(--calendar-coll-event-background-color, var(--accented-background-color));
+
+    /* Said outright, and so beyond the reach of the app-wide a:hover, the chip being an anchor. */
+    color: var(--calendar-coll-event-text-color, var(--main-text-color));
 }
 
 /*
@@ -155,53 +105,32 @@
     filter: var(--calendar-coll-event-hover-filter, none);
 }
 
-.calendar-view a.fc-timegrid-event:focus-visible,
-.calendar-view a.fc-daygrid-event:focus-visible {
-    outline: none;
+/* An archived note is faded and hatched, the stripes drawn behind its content. */
+.calendar-view .calendar-event.archived {
+    opacity: .65;
 }
 
-.calendar-view a.fc-timegrid-event.fc-event-selected,
-.calendar-view a.fc-timegrid-event.fc-event:focus,
-.calendar-view a.fc-daygrid-event.fc-event-selected,
-.calendar-view a.fc-daygrid-event.fc-event:focus {
-    --border-color: var(--custom-color, var(--input-focus-outline-color));
+.calendar-view .calendar-event.archived::after {
+    content: "";
+    position: absolute;
+    top: 0;
+    inset-inline-start: 0;
+    inset-inline-end: 0;
+    bottom: 0;
+    z-index: -1;
+
+    --c1: transparent;
+    --c2: var(--callendar-coll-event-archived-sripe-color, #00000013);
+
+    background: repeating-linear-gradient(45deg, var(--c1), var(--c1) 8px,
+                                          var(--c2) 8px, var(--c2) 16px);
 }
 
-/* The event the popover stands for, marked the way a focused event is. */
-.calendar-view a.fc-timegrid-event.calendar-event-selected,
-.calendar-view a.fc-daygrid-event.calendar-event-selected {
-    --border-color: var(--custom-color, var(--input-focus-outline-color));
-}
-
-.calendar-view a.fc-timegrid-event:hover,
-.calendar-view a.fc-daygrid-event:hover {
-    filter: var(--calendar-coll-event-hover-filter, none);
-    border-color: var(--fc-event-text-color);
-    text-decoration: none;
-    color: currentColor;
-    opacity: 1;
-}
-
-.calendar-view .fc-daygrid-event-dot {
-    display: none;
-}
-
-
-.calendar-view .fc-event-time {
-    opacity: .75;
-}
-
-/*
- * List view
- */
-
-.fc-list-table tr.fc-event.archived {
-    opacity: .5;
-}
-
-.fc-list-table .fc-list-event-dot {
-    /* Apply note colors to the list item dots */
-    --fc-event-border-color: var(--custom-color);
+/* The event the popover stands for, marked the way a focused event is. An outline rather than a
+   border, the chip's only border being the bar down its leading edge. */
+.calendar-view .calendar-event-selected {
+    outline: 2px solid var(--custom-color, var(--input-focus-outline-color));
+    outline-offset: -2px;
 }
 
 /* #endregion */
