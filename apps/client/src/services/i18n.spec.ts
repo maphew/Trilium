@@ -2,7 +2,7 @@ import { MESSAGE_KEY_PREFIX, MESSAGE_OVERRIDES, slugify } from "@triliumnext/cke
 import { dayjs, findDuplicateJsonKeys, findPluralKeyConflicts, LOCALES } from "@triliumnext/commons";
 import { readdirSync, readFileSync } from "fs";
 import { join } from "path";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 // Mock the http backend so i18next.init() never hits the network. The real
 // backend would try to fetch translation JSON over HTTP and the awaited init()
@@ -222,8 +222,48 @@ describe("i18n", () => {
     });
 
     describe("getAvailableLocales", () => {
+        function setDevBuild(isDev: boolean) {
+            (window as unknown as { glob: { isDev: boolean } }).glob.isDev = isDev;
+        }
+
+        afterEach(() => setDevBuild(false));
+
         it("returns the full LOCALES list", () => {
             expect(getAvailableLocales()).toBe(LOCALES);
+        });
+
+        it("annotates the names with their English equivalent in a development build", () => {
+            setDevBuild(true);
+            const names = Object.fromEntries(getAvailableLocales().map((l) => [ l.id, l.name ]));
+
+            expect(names).toMatchObject({
+                de: "Deutsch (German)",
+                ko: "한국어 (Korean)",
+                pt_br: "Português (Brasil) (Brazilian Portuguese)",
+                // Resolved through `zh-Hans`/`zh-Hant`, so the script — the thing that separates the
+                // two entries — is what the annotation states.
+                cn: "简体中文 (Simplified Chinese)",
+                tw: "繁體中文 (Traditional Chinese)"
+            });
+        });
+
+        it("leaves the English entries alone, including the malformed dev-only tag", () => {
+            setDevBuild(true);
+            const names = Object.fromEntries(getAvailableLocales().map((l) => [ l.id, l.name ]));
+
+            expect(names).toMatchObject({
+                en: "English (United States)",
+                "en-GB": "English (United Kingdom)",
+                en_rtl: "English RTL"
+            });
+        });
+
+        it("does not mutate the shared LOCALES entries", () => {
+            const before = LOCALES.map((l) => l.name);
+            setDevBuild(true);
+            getAvailableLocales();
+
+            expect(LOCALES.map((l) => l.name)).toEqual(before);
         });
     });
 
