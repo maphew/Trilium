@@ -98,7 +98,7 @@
  * week, month, year views
  */
 
-.calendar-container a.fc-event {
+.calendar-view .calendar-event:hover {
     text-decoration: none;
 }
 
