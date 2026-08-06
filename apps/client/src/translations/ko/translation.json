@@ -97,7 +97,7 @@
   "i18n": {
     "saturday": "토요일",
     "sunday": "일요일",
-    "first-week-of-the-year": "일년의 첫째 주",
+    "first-week-of-the-year": "한 해의 첫째 주",
     "first-week-contains-first-day": "첫 번째 주에는 올해의 첫날이 포함됩니다",
     "title": "현지화",
     "language": "언어",
@@ -366,7 +366,7 @@
   },
   "jump_to_note": {
     "search_placeholder": "이름이나 유형으로 노트를 검색하세요. > 명령으로...",
-    "search_button": "전문 검색"
+    "search_button": "전체 텍스트 검색"
   },
   "markdown_editor": {
     "image_upload_failed": "\"{{name}}\" 이미지를 업로드할 수 없습니다."
@@ -441,9 +441,9 @@
     "erase_notes_button": "지금 삭제된 노트를 지우세요",
     "more_actions": "추가 작업",
     "deleted_notes_settings": "삭제된 노트 설정",
-    "deleted_notes_message": "삭제된 노트는 삭제되었습니다.",
+    "deleted_notes_message": "삭제된 노트가 영구적으로 지워졌습니다.",
     "no_changes_message": "아직 변경 사항이 없습니다...",
-    "no_deleted_notes_message": "삭제된 노트를 보여줄 수 없습니다.",
+    "no_deleted_notes_message": "표시할 삭제된 노트가 없습니다.",
     "no_deleted_notes_erasure_hint": "삭제된 노트는 영구적으로 삭제되기 전에 {{- duration}} 동안 보관됩니다.",
     "undelete_link": "삭제 되돌리기",
     "confirm_undelete": "이 노트와 그 하위 노트를 삭제 취소하고 싶으신가요?",
@@ -460,7 +460,7 @@
     "confirm_delete_all": "이 노트의 모든 수정본을 삭제하시겠습니까?",
     "no_revisions": "이 노트는 아직 수정본이 없습니다...",
     "restore_button": "복원",
-    "highlight_changes": "하이라이트 변경 사항",
+    "highlight_changes": "변경 사항 강조",
     "diff_on": "변경 내용 보기",
     "diff_off": "내용 보기",
     "diff_on_hint": "노트 소스 변경 내용을 보려면 클릭",
@@ -675,7 +675,7 @@
     "date_pattern": "이 달력 루트 아래에서 생성되는 일별 노트의 제목 패턴입니다. 예: <code>{dateNumberPadded} - {weekDay}</code>.",
     "week_pattern": "이 캘린더 루트 아래에 생성되는 주간 노트의 제목 패턴입니다. <code>#enableWeekNote</code> 설정이 필요합니다.",
     "month_pattern": "이 달력 루트 아래에서 생성되는 월별 노트의 제목 패턴입니다. 예: <code>{monthNumberPadded} - {month}</code>.",
-    "quarter_pattern": "이 캘린더 루트 아래에 생성되는 주간 노트의 제목 패턴입니다. <code>#enableWeekNote</code> 설정이 필요합니다.",
+    "quarter_pattern": "이 캘린더 루트 아래에 생성되는 분기별 노트의 제목 패턴입니다. <code>#enableQuarterNote</code> 설정이 필요합니다.",
     "year_pattern": "이 달력 루트 아래에서 생성되는 연도별 노트의 제목 패턴입니다. 예: <code>{year}</code>.",
     "enable_week_note": "월별 노트와 일별 노트 사이에 주별 노트를 생성합니다. 달력 루트에 설정하며 기본값은 꺼짐입니다.",
     "enable_quarter_note": "연도별 노트와 월별 노트 사이에 분기별 노트를 생성합니다. 달력 루트에 설정하며 기본값은 꺼짐입니다.",
@@ -857,7 +857,7 @@
     "new_value_placeholder": "새 값",
     "help_text": "일치하는 모든 노트에 대해:",
     "help_text_item1": "노트에 아직 해당 라벨이 없으면 새로 생성",
-    "help_text_item2": "또는 기존 라벨의 값을 변경하는 방법",
+    "help_text_item2": "또는 기존 라벨이 있으면 값 변경",
     "help_text_note": "이 메서드는 값 없이 호출할 수도 있습니다. 이 경우 값이 없는 라벨을 노트에 지정합니다."
   },
   "delete_label": {
@@ -934,7 +934,7 @@
     "allowed_characters": "영숫자 문자, 밑줄, 콜론은 허용됩니다.",
     "to": "로",
     "target_note": "대상 노트",
-    "create_relation_on_all_matched_notes": "모든 매칭된 음에서 주어진 관계를 만드세요."
+    "create_relation_on_all_matched_notes": "일치하는 모든 노트에 지정된 관계를 생성합니다."
   },
   "delete_relation": {
     "delete_relation": "관계 삭제",
@@ -1616,7 +1616,7 @@
     "confirm_remove_relation": "관계를 제거하시겠습니까?",
     "specify_new_relation_name": "새로운 관계 이름을 지정하세요 (허용되는 문자: 영숫자, 콜론, 밑줄):",
     "connection_exists": "이 노트들 사이의 '{{name}}' 연결고리는 이미 존재합니다.",
-    "start_dragging_relations": "여기서부터 관계를 끌고 나가서 다른 조로 내려놓으세요.",
+    "start_dragging_relations": "여기에서 관계를 끌어 다른 노트에 놓으세요.",
     "note_not_found": "노트 {{noteId}}을(를) 찾을 수 없습니다!",
     "cannot_match_transform": "변환 매칭 불가: {{transform}}",
     "note_already_in_diagram": "\"{{title}}\"은 이미 도표에 표시되어 있습니다.",
@@ -2090,7 +2090,7 @@
     "protected_session_timeout_description": "설정한 시간 동안 활동이 없으면 세션 정보가 브라우저 메모리에서 삭제됩니다. 자세한 내용은",
     "wiki": "위키",
     "for_more_info": "자세한 내용은 다음을 참조하세요.",
-    "protected_session_timeout_label": "자동 종료 세션 후",
+    "protected_session_timeout_label": "다음 시간 후 세션 자동 종료",
     "reset_confirmation": "비밀번호를 재설정하면 기존의 모든 보호 노트에 대한 접근 권한을 영원히 잃게 됩니다. 정말 비밀번호를 재설정하고 싶으신가요?",
     "reset_success_message": "비밀번호가 초기화되었습니다. 새 비밀번호를 설정해 주세요",
     "change_password_heading": "비밀번호 변경",
@@ -2156,7 +2156,7 @@
     "oauth_description": "OpenID Connect를 사용하면 Google과 같은 다른 서비스의 계정으로 로그인하여 본인임을 확인할 수 있습니다. 기본 발급자는 Google이지만 다른 OpenID Connect 제공자로 변경할 수 있습니다. 자세한 내용은 <a href=\"#root/_hidden/_help/_help_Otzi9La2YAUX/_help_WOcw2SLH6tbX/_help_7DAiwaf8Z7Rz\">여기</a> 문서를 참조하세요. Google을 통해 OpenID Connect 서비스를 설정하려면 <a href=\"https://developers.google.com/identity/openid-connect/openid-connect\">이 안내</a> 내용을 따르세요.",
     "oauth_not_configured_title": "OpenID Connect 설정",
     "oauth_not_configured_hint": "OpenID Connect는 먼저 config.ini이나 환경 변수를 통해 설정해야 합니다.",
-    "oauth_missing_vars": "설정 남겨짐: {{-variables}}",
+    "oauth_missing_vars": "설정이 필요한 항목: {{-variables}}",
     "oauth_how_to_enable": "활성화 방법",
     "oauth_server_config_hint": "config.ini 파일에 다음 항목을 추가하고 애플리케이션을 재시작하세요:",
     "oauth_server_env_hint": "또는 다음 환경 변수를 설정할 수도 있습니다:",
@@ -2324,7 +2324,7 @@
   },
   "shared_info": {
     "shared_publicly": "이 노트는 {{- link}}에서 공개적으로 공유됩니다.",
-    "shared_locally": "이 노트는 {{- link}}에서 지역 공유됩니다.",
+    "shared_locally": "이 노트는 {{- link}}에서 로컬로 공유되고 있습니다.",
     "help_link": "도움이 필요하시면 방문하세요 <a href=\"https://triliumnext.github.io/Docs/Wiki/sharing.html\">위키</a>."
   },
   "read-only-info": {
@@ -2608,7 +2608,7 @@
     "cannot-download": "이미지를 다운로드할 수 없었어요."
   },
   "clipboard": {
-    "cut": "노트는 클립보드에 잘라냈습니다.",
+    "cut": "노트를 클립보드로 잘라냈습니다.",
     "copied": "노트는 클립보드에 복사되었습니다.",
     "copy_failed": "허가 문제로 인해 클립보드에 복사할 수 없습니다.",
     "copy_success": "클립보드에 복사했습니다."
@@ -2906,9 +2906,9 @@
     "attachment_tooltip": "첨부 파일: {{- title}} ({{size}})",
     "child_tooltip": "하위 노트: {{- title}} ({{size}})",
     "center_note_size": "노트: <Size/>",
-    "center_note_size_help": "음 크기는 자신의 몸체와 첨부 파일만 커버합니다(디스크 {{size}})",
+    "center_note_size_help": "노트 크기에는 해당 노트의 본문과 첨부 파일만 포함됩니다(디스크 사용량: {{size}})",
     "center_revisions_size": "수정본: <Size/>",
-    "center_revisions_help": "이 노트의 수정본 크기에는 후손 노트도 포함되어 있습니다",
+    "center_revisions_help": "하위 노트도 포함됩니다",
     "center_subtree_size": "하위 트리: <Size/>",
     "center_subtree_size_help": "하위 트리 크기에는 하위 노트가 포함되지만 해당 노트의 수정본은 포함되지 않습니다(디스크 사용량: {{size}})",
     "back": "뒤로",
@@ -3233,7 +3233,7 @@
     "traefik_blocks_requests": "Traefik 리버스 프록시를 사용 중이라면, 서버와의 통신에 영향을 주는 결정적인 변경이 발생했습니다."
   },
   "tab_history_navigation_buttons": {
-    "go-back": "이전 주도로 돌아가기",
+    "go-back": "이전 노트로 돌아가기",
     "go-forward": "다음 노트로 넘어가세요"
   },
   "breadcrumb": {
