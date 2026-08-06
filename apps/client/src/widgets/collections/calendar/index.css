@@ -106,6 +106,12 @@
     filter: var(--calendar-coll-event-hover-filter, none);
 }
 
+/* The shading a dragged range stands in, named by us rather than left to the theme's hashed class
+   so the ghost can anchor to it; the colour is still Forma's, off the palette. */
+.calendar-view .calendar-highlight {
+    background-color: var(--fc-forma-highlight);
+}
+
 /* The note's icon, leading its title on the chip (see eventContent). */
 .calendar-view .calendar-event-icon {
     margin-inline-end: .25em;

@@ -337,6 +337,10 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
                 // already begun by then, and FullCalendar knows not to clear what the same press
                 // has just made.
                 unselectCancel=".calendar-ghost-popover, .calendar-ghost-sheet"
+                // Named by us so the ghost can find the shading it stands beside, v7 drawing it
+                // under a hashed class otherwise (see ghostAnchorRect in GhostPopover). The look
+                // is Forma's own, which is one declaration off the palette.
+                highlightClass="calendar-highlight"
                 eventClick={onEventClick}
                 // The event the popover stands for is marked as such, and asks for no hover
                 // preview while it does: the popover beside it already says everything the

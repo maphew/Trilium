@@ -165,13 +165,16 @@ export default function GhostPopover({ draft, anchor, container, onCommit, onCan
 
 /**
  * Where the ghost stands: beside the range's own shading, read back off the grid. FullCalendar
- * draws the selection as one `.fc-highlight` per row it crosses, so the piece under the mouseup is
- * the one pointed at — where the drag ended is where the eye is — falling back to the last piece
- * drawn, and to the bare point where no shading is on the grid at all. Read afresh on every
- * reposition (see Popover), so the ghost follows the shading through scrolls and redraws.
+ * draws the selection as one piece per row it crosses, so the piece under the mouseup is the one
+ * pointed at — where the drag ended is where the eye is — falling back to the last piece drawn, and
+ * to the bare point where no shading is on the grid at all. Read afresh on every reposition (see
+ * Popover), so the ghost follows the shading through scrolls and redraws.
+ *
+ * The pieces answer to the name the calendar gives them through `highlightClass`, FullCalendar
+ * having no class of its own left to go by (see the calendar view).
  */
 function ghostAnchorRect(container: HTMLElement | null, point: AnchorPoint | null): DOMRect {
-    const highlights = container?.querySelectorAll<HTMLElement>(".fc-highlight");
+    const highlights = container?.querySelectorAll<HTMLElement>(".calendar-highlight");
 
     if (highlights?.length) {
         let pick: HTMLElement | undefined;
