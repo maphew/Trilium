@@ -1,5 +1,6 @@
 import type { NativeBackupPickResult } from "@triliumnext/commons";
-import { getLog, utils as coreUtils } from "@triliumnext/core";
+import { utils as coreUtils } from "@triliumnext/core";
+import { logRestoreError } from "@triliumnext/server/src/services/database_restore.js";
 import { setPendingBackup } from "@triliumnext/server/src/services/restore_session.js";
 import { default as electron } from "electron";
 import { t } from "i18next";
@@ -44,14 +45,15 @@ export function setupRestoreHandlers() {
         }
 
         try {
+            // The name is the user's and stays out of the log; what it is gets said where the backup
+            // is taken up, in terms that carry nothing of theirs.
             const backup = setPendingBackup(filePath, basename(filePath), { consumable: false });
-            getLog().info(`A backup was chosen for restoring (${backup.fileName}).`);
 
             return { status: "selected", ...backup };
         } catch (e) {
             // Setup being busy with something else is the expected one, e.g. a second window part-way
             // through its own restore.
-            getLog().error(`A backup could not be chosen for restoring: ${coreUtils.safeExtractMessageAndStackFromError(e)}`);
+            logRestoreError(`a backup could not be taken up from the file dialog: ${coreUtils.safeExtractMessageAndStackFromError(e)}`);
 
             return { status: "error", message: e instanceof Error ? e.message : String(e) };
         }

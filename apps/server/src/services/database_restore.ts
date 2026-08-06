@@ -5,7 +5,14 @@ import {
     peekBackupContainer,
     readBackupContainer
 } from "@triliumnext/backup-container";
-import { cls, events as eventService, getLog, getSql, sql_init as sqlInit } from "@triliumnext/core";
+import {
+    cls,
+    events as eventService,
+    getLog,
+    getSql,
+    sql_init as sqlInit,
+    utils as coreUtils
+} from "@triliumnext/core";
 import fs from "fs";
 import path from "path";
 
@@ -36,6 +43,71 @@ import { type DatabaseRejection, validateDatabaseFile } from "./database_validat
  *
  * @module
  */
+
+/**
+ * Prefix every line of a restore carries, so the whole of one can be picked out of a log by
+ * searching for it.
+ */
+const LOG_PREFIX = "Backup restore: ";
+
+/** Notes something that happened, for a log a user can be asked for and can hand over unread. */
+export function logRestore(message: string): void {
+    getLog().info(`${LOG_PREFIX}${withoutPaths(message)}`);
+}
+
+/** Notes something that went wrong. Reserved for actual failures; oddities that are handled use {@link logRestore}. */
+export function logRestoreError(message: string): void {
+    getLog().error(`${LOG_PREFIX}${withoutPaths(message)}`);
+}
+
+/**
+ * Takes the filesystem out of anything on its way to the log.
+ *
+ * The backend log is meant to be postable for diagnostics without being censored first, and the data
+ * directory carries the user's name on most platforms. Our own lines never name a file, but the
+ * errors we quote back are not ours: a filesystem error states the full path it failed on. This is
+ * the same treatment the backup service gives its own failures.
+ */
+function withoutPaths(text: string): string {
+    let scrubbed = text;
+
+    // Longest first, so a path inside the data directory is not reduced to the data directory and a
+    // leftover fragment of itself.
+    for (const [ directory, name ] of [
+        [ dataDir.DOCUMENT_PATH, "<database>" ],
+        [ dataDir.TMP_DIR, "<temporary files>" ],
+        [ dataDir.BACKUP_DIR, "<backup location>" ],
+        [ dataDir.TRILIUM_DATA_DIR, "<data directory>" ]
+    ] as const) {
+        scrubbed = coreUtils.replaceAll(scrubbed, directory, name);
+    }
+
+    return scrubbed;
+}
+
+/** How big a file is, counting one that cannot be measured as nothing rather than failing over it. */
+export function sizeOf(filePath: string): number {
+    return fs.statSync(filePath, { throwIfNoEntry: false })?.size ?? 0;
+}
+
+/** What a size is worth saying in a log line: the number, in units a person reads at a glance. */
+export function describeSize(bytes: number): string {
+    const units = [ "bytes", "KiB", "MiB", "GiB" ];
+    let size = bytes;
+    let unit = 0;
+
+    while (size >= 1024 && unit < units.length - 1) {
+        size /= 1024;
+        unit++;
+    }
+
+    return `${unit === 0 ? size : size.toFixed(1)} ${units[unit]}`;
+}
+
+/** How long something took, for the steps that can take long enough to be worth asking about. */
+function describeElapsed(since: number): string {
+    return `${((Date.now() - since) / 1000).toFixed(1)}s`;
+}
 
 /** What the restore is doing, in the order it does it. */
 export type RestoreStage =
@@ -103,9 +175,16 @@ export function getRestoreProgress(): RestoreProgress | null {
  *         is polling rather than waiting.
  */
 export async function restoreDatabase(request: RestoreRequest): Promise<void> {
-    const log = getLog();
-    log.info(`Restoring the database from a backup (${request.fileName}).`);
+    const startedAt = Date.now();
+
+    // The name is left out on purpose: it is the user's, and everything worth knowing about the file
+    // is stated below in terms that are not.
+    logRestore(`starting, from ${request.consumable ? "a backup this instance was given" : "a backup already on this device"}`);
+
+    // Announced through `report` like every other step, so that a log can be read by looking for the
+    // steps alone and the first one is not the exception that is missing.
     progress = { stage: "staging", fileName: request.fileName };
+    report("staging");
 
     try {
         // The whole restore runs in one execution context: what follows the swap writes to the
@@ -114,29 +193,37 @@ export async function restoreDatabase(request: RestoreRequest): Promise<void> {
             const candidate = await stageBackup(request);
 
             report("validating");
+            const validatedAt = Date.now();
             const validation = validateDatabaseFile(candidate);
             if (!validation.valid) {
                 throw new RestoreFailure(validation.rejection, validation.message);
             }
+            logRestore(`checked in ${describeElapsed(validatedAt)}: database version ${validation.dbVersion}`
+                + `, ${validation.needsMigration ? "needs migrating" : "already current"}`);
 
             report("swapping");
             swapInDatabase(candidate);
 
             report("migrating");
-            await openRestoredDatabase();
+            await openRestoredDatabase(validation.needsMigration);
         });
 
         report("done");
-        log.info("The database was restored.");
+        logRestore(`finished in ${describeElapsed(startedAt)}`);
     } catch (e) {
+        // Read before the progress is overwritten with the failure, which would otherwise report
+        // every failure as having happened at the 'failed' step.
+        const failedAt = progressStage();
         const failure = asFailure(e);
+
         progress = {
             stage: "failed",
             fileName: request.fileName,
             error: failure.message,
             reason: failure.reason
         };
-        log.error(`The database could not be restored (${failure.reason}): ${failure.message}`);
+        logRestoreError(`failed at the '${failedAt}' step after ${describeElapsed(startedAt)}`
+            + ` (${failure.reason}): ${failure.message}`);
 
         throw failure;
     } finally {
@@ -178,13 +265,14 @@ export function recoverInterruptedRestore(document: string = dataDir.DOCUMENT_PA
 
     const setAside = setAsideFor(document);
     if (fs.existsSync(setAside)) {
-        console.info("A restore was interrupted; putting the previous database back.");
+        console.info(`${LOG_PREFIX}a restore was interrupted partway; putting the previous database back.`);
         removeDatabaseFiles(document);
         fs.renameSync(setAside, document);
+        console.info(`${LOG_PREFIX}the previous database is back in place.`);
     } else {
         // Nothing was set aside, so either the exchange had not started or it had finished: the
         // database in place is the one to open either way.
-        console.info("A restore was interrupted; the database in place is intact.");
+        console.info(`${LOG_PREFIX}a restore was interrupted; the database in place is intact.`);
     }
 
     fs.rmSync(markerFor(document), { force: true });
@@ -271,13 +359,21 @@ export async function stageBackup(request: RestoreRequest): Promise<string> {
         throw new RestoreFailure("not-a-database", "The backup could not be read.");
     }
 
+    const sourceBytes = sizeOf(request.path);
+    logRestore(`the backup is ${format.container ? "a container" : "a plain database"}`
+        + `${format.encrypted ? ", encrypted" : ""}, ${describeSize(sourceBytes)}`);
+
     if (!format.container) {
         if (request.consumable) {
+            logRestore("using the backup where it lies, since it is ours to spend");
             return request.path;
         }
 
         const candidate = freshCandidatePath();
+        const copiedAt = Date.now();
         await fs.promises.copyFile(request.path, candidate);
+        logRestore(`copied the backup aside in ${describeElapsed(copiedAt)}, since the original has to survive`);
+
         return candidate;
     }
 
@@ -290,9 +386,13 @@ export async function stageBackup(request: RestoreRequest): Promise<string> {
     const candidate = freshCandidatePath();
     const source = fs.createReadStream(request.path);
     const destination = fs.createWriteStream(candidate);
+    const unwrappedAt = Date.now();
 
     try {
-        await readBackupContainer(source, destination, { passphrase: request.passphrase });
+        const unwrapped = await readBackupContainer(source, destination, { passphrase: request.passphrase });
+        logRestore(`unwrapped a version ${unwrapped.version} container in ${describeElapsed(unwrappedAt)}`
+            + `: ${describeSize(unwrapped.bytesWritten)} of database`
+            + `${unwrapped.compressed ? `, from ${describeSize(sourceBytes)} compressed` : ""}`);
     } finally {
         // Both streams are closed here rather than left to the reader, which only ends them once it
         // gets as far as its pipeline: a wrong passphrase is refused before that, from the header, so
@@ -320,15 +420,33 @@ export async function stageBackup(request: RestoreRequest): Promise<string> {
 function swapInDatabase(candidate: string): void {
     const document = dataDir.DOCUMENT_PATH;
 
+    // States nobody put the instance in on purpose. None of them stops the restore, and each one
+    // explains a shape the files could otherwise only be found in afterwards.
+    if (fs.existsSync(markerFor(document))) {
+        logRestore("a marker from an earlier restore was still in place; it is being replaced");
+    }
+    if (fs.existsSync(setAsideFor(document))) {
+        logRestore("a database set aside by an earlier restore was still there; it is being replaced");
+    }
+    if (fs.existsSync(`${document}-wal`) || fs.existsSync(`${document}-shm`)) {
+        logRestore("the database has sidecar files, so it was not closed cleanly; they go with it");
+    }
+
     // Written before anything moves: from here until the restored database opens, an interruption
     // leaves files that only this marker explains.
     fs.writeFileSync(markerFor(document), "");
+
+    logRestore(`detaching the database being replaced (${describeSize(sizeOf(document))})`);
     getSql().detachConnection();
 
     try {
         exchangeDatabaseFiles(candidate, document);
+        logRestore(`exchanged the files; the restored database is ${describeSize(sizeOf(document))}`);
+
         getSql().attachFromFile(document, config.General.readOnly);
+        logRestore("attached to the restored database");
     } catch (e) {
+        logRestoreError(`the exchange failed, putting the previous database back: ${messageOf(e)}`);
         putBack(setAsideFor(document), document);
         attachQuietly(document);
 
@@ -344,23 +462,32 @@ function swapInDatabase(candidate: string): void {
  * it is already initialized — and a restored one does, since it was initialized before it was backed
  * up. Mirrors what the "create new document" path does for the same reason.
  */
-async function openRestoredDatabase(): Promise<void> {
+async function openRestoredDatabase(needsMigration: boolean): Promise<void> {
     const document = dataDir.DOCUMENT_PATH;
+    const openedAt = Date.now();
+
+    // The one step that can run for minutes without anything to show for it, since migrating takes a
+    // backup of its own first. Said in advance so a log that stops here is not read as a hang.
+    logRestore(needsMigration
+        ? "opening the restored database, which is being migrated first and may take a while"
+        : "opening the restored database");
 
     try {
         await sqlInit.initDbConnection();
     } catch (e) {
+        logRestoreError(`the restored database would not open, putting the previous one back: ${messageOf(e)}`);
         putBack(setAsideFor(document), document);
         attachQuietly(document);
 
         throw new RestoreFailure("migration-failed", messageOf(e));
     }
 
+    logRestore(`the restored database is open after ${describeElapsed(openedAt)}`);
     eventService.emit(eventService.DB_INITIALIZED);
 
     // The restore is over, so neither the previous database nor the marker has anything left to say.
-    fs.rmSync(setAsideFor(document), { force: true });
-    fs.rmSync(markerFor(document), { force: true });
+    removeQuietly(setAsideFor(document));
+    removeQuietly(markerFor(document));
 }
 
 /** Where the database being replaced waits until the restored one has opened. */
@@ -373,10 +500,23 @@ function markerFor(document: string): string {
     return `${document}.restore-in-progress`;
 }
 
+/**
+ * Moves the restore on to its next step, and says so.
+ *
+ * Every step is logged as it is entered, so a restore that stops says where it stopped even when
+ * nothing threw — a process killed mid-swap leaves its last step as the last thing in the log.
+ */
 function report(stage: RestoreStage): void {
     if (progress) {
         progress = { ...progress, stage };
     }
+
+    logRestore(`step '${stage}'`);
+}
+
+/** The step the restore had reached, for saying where it was when something went wrong. */
+function progressStage(): RestoreStage | "unknown" {
+    return progress?.stage ?? "unknown";
 }
 
 /**
@@ -394,7 +534,7 @@ export function removeQuietly(target: string, options: { recursive?: boolean } =
         // leaving it alone, and every call that omitted it failed its own type check.
         fs.rmSync(target, { force: true, recursive: options.recursive === true });
     } catch (e) {
-        getLog().error(`Could not remove a temporary file after a restore: ${messageOf(e)}`);
+        logRestoreError(`a temporary file would not go away: ${messageOf(e)}`);
     }
 }
 
@@ -438,24 +578,34 @@ function moveInto(source: string, destination: string): void {
             throw e;
         }
 
+        // Worth saying: it turns the last step from instant into another full write of the database,
+        // which is otherwise a mysteriously slow finish on an instance with a relocated temp
+        // directory.
+        logRestore("the temporary files are on another filesystem, so the last step is a copy rather than a rename");
+        const copiedAt = Date.now();
+
         fs.copyFileSync(source, destination);
         fs.rmSync(source, { force: true });
+
+        logRestore(`copied into place in ${describeElapsed(copiedAt)}`);
     }
 }
 
 /** Puts the database that was set aside back, for a restore that got no further. */
 function putBack(setAside: string, document: string): void {
     if (!fs.existsSync(setAside)) {
+        logRestore("nothing had been set aside yet, so there is nothing to put back");
         return;
     }
 
     try {
         removeDatabaseFiles(document);
         fs.renameSync(setAside, document);
+        logRestore("the previous database is back in place");
     } catch (e) {
         // Nothing else can be done from here, and the marker is still in place: the next start
         // finds it and puts the database back before anything opens it.
-        getLog().error(`The previous database could not be put back: ${messageOf(e)}`);
+        logRestoreError(`the previous database could not be put back, leaving it to the next start: ${messageOf(e)}`);
     }
 }
 
@@ -463,8 +613,9 @@ function putBack(setAside: string, document: string): void {
 function attachQuietly(document: string): void {
     try {
         getSql().attachFromFile(document, config.General.readOnly);
+        logRestore("re-attached to the previous database");
     } catch (e) {
-        getLog().error(`The database could not be re-opened after a failed restore: ${messageOf(e)}`);
+        logRestoreError(`the database could not be re-opened after the failed restore: ${messageOf(e)}`);
     }
 }
 

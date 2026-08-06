@@ -1,17 +1,21 @@
-import { getLog, holdSetup, withSetupLock } from "@triliumnext/core";
+import { holdSetup, withSetupLock } from "@triliumnext/core";
 import fs from "fs";
 import path from "path";
 
 import { createChunkedUpload } from "./chunked_upload.js";
 import dataDir from "./data_dir.js";
 import {
+    describeSize,
+    logRestore,
+    logRestoreError,
     readBackupFormat,
     removeQuietly,
     reportRestoreFailure,
     restoreDatabase,
     RestoreFailure,
     type RestoreFailureReason,
-    type RestoreRequest
+    type RestoreRequest,
+    sizeOf
 } from "./database_restore.js";
 
 /**
@@ -85,18 +89,24 @@ export const backupUpload = createChunkedUpload<PendingBackup>({
     // needs saying: it happens on a timer, with no request to fail and nobody to tell, and without
     // this the instance would refuse every other way of setting itself up until it was restarted.
     onSessionDiscarded: () => {
+        logRestore(pending
+            ? "an upload ended with nothing to show for it, but a backup is already waiting"
+            : "an upload ended with nothing to show for it; setup is free again");
+
         if (!pending) {
             freeSetup();
         }
     },
-    onComplete: async ({ path: uploadedPath, fileName }) => {
+    // The name the user gave the file is carried on, since the screen shows it back to them; it is
+    // only the log that has no business repeating it.
+    onComplete: async ({ path: uploadedPath, fileName, totalBytes }) => {
+        logRestore(`an upload of ${describeSize(totalBytes)} arrived complete`);
+
         fs.mkdirSync(path.dirname(PENDING_UPLOAD_PATH), { recursive: true });
         fs.rmSync(PENDING_UPLOAD_PATH, { force: true });
         // A move rather than a copy: the file is the size of a database, and both ends are in the
         // same temporary directory.
         fs.renameSync(uploadedPath, PENDING_UPLOAD_PATH);
-
-        getLog().info(`A backup was uploaded for restoring (${fileName}).`);
 
         return setPendingBackup(PENDING_UPLOAD_PATH, fileName, { consumable: true });
     }
@@ -115,8 +125,14 @@ export async function beginBackupUpload(req: Parameters<typeof backupUpload.begi
     reserveSetup();
 
     try {
-        return await backupUpload.begin(req);
+        const session = await backupUpload.begin(req);
+        logRestore(`receiving a backup of ${describeSize(session.totalBytes)}`
+            + ` in ${describeSize(session.chunkSize)} pieces`);
+
+        return session;
     } catch (e) {
+        logRestoreError(`an upload was refused before it started: ${e instanceof Error ? e.message : String(e)}`);
+
         // Refused before it started, so there is nothing left for the reservation to protect.
         if (!pending) {
             freeSetup();
@@ -147,6 +163,9 @@ export function setPendingBackup(filePath: string, fileName: string, options: { 
         encrypted: readBackupFormat(filePath)?.encrypted ?? false
     };
     schedulePendingExpiry();
+
+    logRestore(`a backup of ${describeSize(sizeOf(filePath))} is waiting to be restored`
+        + `${pending.encrypted ? ", and needs a passphrase" : ""}`);
 
     return { fileName: pending.fileName, encrypted: pending.encrypted };
 }
@@ -208,6 +227,7 @@ export function beginRestore(request: RestoreRequest): void {
  */
 export function discardPendingBackup(): void {
     if (pending?.consumable) {
+        logRestore("dropping the backup that was waiting, and the copy of it that was ours");
         removeQuietly(pending.path);
     }
 
@@ -221,7 +241,7 @@ function schedulePendingExpiry(): void {
     cancelPendingExpiry();
 
     pendingExpiry = setTimeout(() => {
-        getLog().info("A backup waiting to be restored was left long enough to give setup back.");
+        logRestore("a backup waited to be restored for longer than it is allowed to; setup is free again");
         discardPendingBackup();
     }, PENDING_TTL_MS);
     // Nothing should be kept alive by a backup nobody came back for.

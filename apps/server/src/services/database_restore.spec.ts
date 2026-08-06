@@ -7,9 +7,12 @@ import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import dataDir from "./data_dir.js";
 import {
     exchangeDatabaseFiles,
     getRestoreProgress,
+    logRestore,
+    logRestoreError,
     readBackupFormat,
     removeQuietly,
     reportRestoreFailure,
@@ -165,6 +168,79 @@ describe("staging a backup", () => {
     it("refuses a file it cannot even open", async () => {
         await expect(stageBackup({ path: path.join(tempRoot, "gone.db"), fileName: "gone.db", consumable: false }))
             .rejects.toMatchObject({ reason: "not-a-database" });
+    });
+});
+
+describe("what the log is told", () => {
+    /** Everything the restore said, as one body of text to look through. */
+    function transcript(lines: string[]) {
+        return lines.join("\n");
+    }
+
+    it("prefixes every line, so one restore can be picked out of a log by searching for it", () => {
+        const said: string[] = [];
+        vi.spyOn(getLog(), "info").mockImplementation((message) => said.push(String(message)));
+        vi.spyOn(getLog(), "error").mockImplementation((message) => said.push(String(message)));
+
+        logRestore("something happened");
+        logRestoreError("something went wrong");
+
+        expect(said).toEqual([ "Backup restore: something happened", "Backup restore: something went wrong" ]);
+    });
+
+    it("keeps the filesystem out of what it quotes back, so the log can be handed over unread", () => {
+        const said: string[] = [];
+        vi.spyOn(getLog(), "error").mockImplementation((message) => said.push(String(message)));
+
+        // The shape a filesystem error arrives in: our own words, and a path we did not write.
+        logRestoreError(`the exchange failed: EPERM, Permission denied: ${dataDir.DOCUMENT_PATH}`);
+        logRestoreError(`a temporary file would not go away: ENOTEMPTY: ${dataDir.TMP_DIR}`);
+
+        expect(transcript(said)).not.toContain(dataDir.TRILIUM_DATA_DIR);
+        expect(said[0]).toContain("<database>");
+        expect(said[1]).toContain("<temporary files>");
+    });
+
+    it("names every step it enters and where it stopped, without naming the backup", async () => {
+        const said: string[] = [];
+        vi.spyOn(getLog(), "info").mockImplementation((message) => said.push(String(message)));
+        vi.spyOn(getLog(), "error").mockImplementation((message) => said.push(String(message)));
+
+        await expect(restoreDatabase({
+            path: fileWith("a photograph, renamed"),
+            fileName: "holidays-in-crete.db",
+            consumable: false
+        })).rejects.toBeInstanceOf(RestoreFailure);
+
+        const log = transcript(said);
+        expect(log).toContain("Backup restore: starting");
+        // Staged without complaint — any readable file can be copied — and refused by the check that
+        // opens it, which is the distinction the step in this line is there to draw.
+        expect(log).toContain("failed at the 'validating' step");
+        expect(log).toContain("not-a-database");
+        // The name is the user's, and says nothing a diagnosis needs.
+        expect(log).not.toContain("holidays-in-crete");
+    });
+
+    it("says which steps a restore got through, so one that stops says where", async () => {
+        const said: string[] = [];
+        vi.spyOn(getLog(), "info").mockImplementation((message) => said.push(String(message)));
+        vi.spyOn(getLog(), "error").mockImplementation(() => {});
+        const detach = vi.spyOn(getSql(), "detachConnection").mockImplementation(() => {
+            throw new Error("the database is in the middle of a transaction");
+        });
+
+        await expect(restoreDatabase({ path: validDatabase(), fileName: "backup.db", consumable: false }))
+            .rejects.toBeInstanceOf(RestoreFailure);
+
+        const log = transcript(said);
+        expect(detach).toHaveBeenCalled();
+        expect(log).toContain("the backup is a plain database");
+        expect(log).toContain("step 'validating'");
+        expect(log).toContain("database version");
+        expect(log).toContain("step 'swapping'");
+        // It never got as far as opening anything.
+        expect(log).not.toContain("step 'migrating'");
     });
 });
 

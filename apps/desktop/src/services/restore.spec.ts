@@ -20,7 +20,11 @@ vi.mock("i18next", () => ({ t: (key: string) => key }));
 
 vi.mock("@triliumnext/core", () => ({
     getLog: () => ({ info: vi.fn(), error: vi.fn() }),
-    utils: { safeExtractMessageAndStackFromError: (e: unknown) => String(e) }
+    utils: {
+        safeExtractMessageAndStackFromError: (e: unknown) => String(e),
+        // Used by the restore log to take the filesystem out of what it quotes back.
+        replaceAll: (text: string, from: string, to: string) => text.split(from).join(to)
+    }
 }));
 
 const sessionMock = vi.hoisted(() => ({
