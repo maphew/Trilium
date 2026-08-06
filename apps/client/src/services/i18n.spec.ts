@@ -226,7 +226,26 @@ describe("i18n", () => {
             (window as unknown as { glob: { isDev: boolean } }).glob.isDev = isDev;
         }
 
-        afterEach(() => setDevBuild(false));
+        /**
+         * Stands in for the name table `Intl` brings, so the answers it can give for a tag it cannot
+         * name — a throw, or nothing at all — can be had from the locales we actually ship. No entry
+         * in `LOCALES` draws either today: `en_rtl`, the one malformed tag among them, is turned away
+         * by the English check before `Intl` ever sees it.
+         */
+        function stubDisplayNames(of: () => string | undefined) {
+            vi.spyOn(Intl, "DisplayNames").mockImplementation(
+                // A plain function rather than an arrow: this stands in for a constructor, and is
+                // reached through `new`. Returning an object from one is what makes it the result.
+                function () {
+                    return { of };
+                } as unknown as typeof Intl.DisplayNames
+            );
+        }
+
+        afterEach(() => {
+            setDevBuild(false);
+            vi.restoreAllMocks();
+        });
 
         it("returns the full LOCALES list", () => {
             expect(getAvailableLocales()).toBe(LOCALES);
@@ -256,6 +275,27 @@ describe("i18n", () => {
                 "en-GB": "English (United Kingdom)",
                 en_rtl: "English RTL"
             });
+        });
+
+        it("shows the native name alone for a tag Intl refuses", () => {
+            // A tag `Intl` cannot parse is a RangeError rather than an empty answer, and a locale
+            // added later with an id like `en_rtl`'s would be one. The list has to survive it.
+            setDevBuild(true);
+            stubDisplayNames(() => { throw new RangeError("malformed tag"); });
+
+            const names = Object.fromEntries(getAvailableLocales().map((l) => [ l.id, l.name ]));
+
+            expect(names.de).toBe("Deutsch");
+            expect(names.ko).toBe("한국어");
+        });
+
+        it("shows the native name alone where Intl has no name to give", () => {
+            setDevBuild(true);
+            stubDisplayNames(() => undefined);
+
+            const names = Object.fromEntries(getAvailableLocales().map((l) => [ l.id, l.name ]));
+
+            expect(names.de).toBe("Deutsch");
         });
 
         it("does not mutate the shared LOCALES entries", () => {
