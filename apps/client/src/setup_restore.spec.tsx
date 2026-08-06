@@ -144,7 +144,7 @@ describe("uploading a backup", () => {
             fileName: "backup.db"
         }));
         expect(serverMock.post).toHaveBeenCalledWith("setup/restore/start", {
-            source: "uploaded",
+            source: "pending",
             filePath: undefined,
             passphrase: undefined
         });
@@ -168,8 +168,74 @@ describe("uploading a backup", () => {
 
         await chooseFile(new File([ "database bytes" ], "backup.db"));
 
-        expect(container.textContent).toContain("setup.restore-upload-failed");
+        expect(container.querySelector(".restore-error-headline")?.textContent).toBe("setup.restore-error-upload-failed");
+        expect(container.querySelector(".restore-error-detail")?.textContent).toBe("the disk is full");
         expect(container.querySelector(".restore-file-input")).toBeTruthy();
+    });
+});
+
+describe("choosing a backup on the desktop", () => {
+    const pickBackup = vi.fn();
+
+    beforeEach(() => {
+        window.electronApi = { restore: { pickBackup } } as unknown as typeof window.electronApi;
+    });
+
+    afterEach(() => {
+        window.electronApi = undefined;
+    });
+
+    it("uses the native picker instead of a file input, and restores what it puts forward", async () => {
+        pickBackup.mockResolvedValue({ status: "selected", fileName: "backup-daily.db", encrypted: false });
+        renderRestore();
+        await flushEffects();
+
+        // Nothing to upload: the file never leaves the disk it is already on.
+        expect(container.querySelector(".restore-file-input")).toBeFalsy();
+        container.querySelector<HTMLElement>(".restore-file-section button")?.click();
+        await flushEffects();
+
+        expect(uploadMock.uploadInChunks).not.toHaveBeenCalled();
+        expect(serverMock.post).toHaveBeenCalledWith("setup/restore/start", {
+            source: "pending",
+            filePath: undefined,
+            passphrase: undefined
+        });
+    });
+
+    it("asks for the password when the picked backup turns out to be encrypted", async () => {
+        pickBackup.mockResolvedValue({ status: "selected", fileName: "backup.tnbackup", encrypted: true });
+        renderRestore();
+        await flushEffects();
+
+        container.querySelector<HTMLElement>(".restore-file-section button")?.click();
+        await flushEffects();
+
+        expect(serverMock.post).not.toHaveBeenCalled();
+        expect(container.querySelector("input[type=password]")).toBeTruthy();
+    });
+
+    it("stays where it is when the dialog is dismissed", async () => {
+        pickBackup.mockResolvedValue({ status: "cancelled" });
+        renderRestore();
+        await flushEffects();
+
+        container.querySelector<HTMLElement>(".restore-file-section button")?.click();
+        await flushEffects();
+
+        expect(serverMock.post).not.toHaveBeenCalled();
+        expect(container.querySelector(".restore-error-headline")).toBeFalsy();
+    });
+
+    it("reports a refusal from the other side of the bridge", async () => {
+        pickBackup.mockResolvedValue({ status: "error", message: "setup is already busy with 'new-document'" });
+        renderRestore();
+        await flushEffects();
+
+        container.querySelector<HTMLElement>(".restore-file-section button")?.click();
+        await flushEffects();
+
+        expect(container.querySelector(".restore-error-detail")?.textContent).toBe("setup is already busy with 'new-document'");
     });
 });
 
@@ -235,5 +301,31 @@ describe("following the restore", () => {
 
         expect(container.textContent).toContain("The database is version 999.");
         expect(container.querySelector(".restore-file-input")).toBeTruthy();
+    });
+
+    it("leads with what went wrong in the user's terms, keeping the technical detail underneath", async () => {
+        await startRestore();
+
+        restore = { stage: "failed", reason: "not-a-database", error: "The file is not a SQLite database." };
+        await nextPoll();
+
+        // The reason chooses the sentence; the server's own words are kept, but not as the whole
+        // message, since "not a SQLite database" answers a question the user never asked.
+        expect(container.querySelector(".restore-error-headline")?.textContent).toBe("setup.restore-error-unusable");
+        expect(container.querySelector(".restore-error-detail")?.textContent).toBe("The file is not a SQLite database.");
+    });
+
+    it("says something of its own for the failures where the backup is not what is at fault", async () => {
+        await startRestore();
+        const headline = () => container.querySelector(".restore-error-headline")?.textContent;
+
+        restore = { stage: "failed", reason: "swap-failed", error: "EPERM" };
+        await nextPoll();
+        expect(headline()).toBe("setup.restore-error-swap-failed");
+
+        await startRestore();
+        restore = { stage: "failed", reason: "database-too-old", error: "version 200" };
+        await nextPoll();
+        expect(headline()).toBe("setup.restore-error-too-old");
     });
 });

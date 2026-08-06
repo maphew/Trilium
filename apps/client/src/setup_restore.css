@@ -1,4 +1,20 @@
 .page.restore-from-backup {
+    /* Two lines, not one sentence: what happened, then what the server said about it. */
+    .page-error {
+        .restore-error-headline {
+            display: block;
+        }
+
+        .restore-error-detail {
+            display: block;
+            margin-top: 0.4em;
+            opacity: 0.75;
+            font-size: 0.85em;
+            /* Filesystem errors arrive as one long line with no spaces to break at. */
+            overflow-wrap: anywhere;
+        }
+    }
+
     .restore-backup-row {
         display: flex;
         align-items: center;

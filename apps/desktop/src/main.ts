@@ -40,6 +40,7 @@ import {
 import { setupOneNoteHandlers } from "./services/onenote";
 import { setupPrintingHandlers } from "./services/printing";
 import ElectronRequestProvider from "./services/request";
+import { setupRestoreHandlers } from "./services/restore";
 import { getSecuritySettings, registerSecurityIpcHandlers } from "./services/security_settings";
 import { setupShellHandlers } from "./services/shell";
 import { markStartupMetric, setupStartupMetricsIpc } from "./services/startup_metrics";
@@ -135,6 +136,7 @@ export async function main() {
     setupPrintingHandlers();
     setupExportHandlers();
     setupImportHandlers();
+    setupRestoreHandlers();
     setupDialogHandlers();
     registerSecurityIpcHandlers();
     registerBackupPassphraseIpcHandlers();

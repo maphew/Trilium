@@ -1,6 +1,7 @@
 import "./setup_restore.css";
 
 import type { DatabaseBackup, ExistingBackupsResponse } from "@triliumnext/commons";
+import type { ComponentChildren } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import { uploadInChunks } from "./services/chunked_upload";
@@ -38,12 +39,12 @@ export default function RestoreFromBackup({ onBack, onRestored }: { onBack: () =
     const [ step, setStep ] = useState<Step>("picking");
     const [ selection, setSelection ] = useState<Selection | null>(null);
     const [ upload, setUpload ] = useState<UploadState | null>(null);
-    const [ error, setError ] = useState<string | null>(null);
+    const [ error, setError ] = useState<ComponentChildren>(null);
     const [ errorId, setErrorId ] = useState(0);
     const [ wrongPassphrase, setWrongPassphrase ] = useState(false);
 
-    const raiseError = useCallback((message: string) => {
-        setError(message);
+    const raiseError = useCallback((headline: string, detail?: string) => {
+        setError(<Failure headline={headline} detail={detail} />);
         setErrorId((id) => id + 1);
     }, []);
 
@@ -65,7 +66,7 @@ export default function RestoreFromBackup({ onBack, onRestored }: { onBack: () =
             setStep("restoring");
         } catch (e) {
             setStep("picking");
-            raiseError(e instanceof Error ? e.message : String(e));
+            raiseError(t("setup.restore-error-could-not-start"), detailOf(e));
         }
     }, [ raiseError ]);
 
@@ -81,10 +82,10 @@ export default function RestoreFromBackup({ onBack, onRestored }: { onBack: () =
                 onProgress: ({ sentBytes, totalBytes, fraction }) => setUpload({ sentBytes, totalBytes, fraction })
             });
 
-            await restore({ source: "uploaded", fileName: uploaded.fileName, encrypted: uploaded.encrypted });
+            await restore({ source: "pending", fileName: uploaded.fileName, encrypted: uploaded.encrypted });
         } catch (e) {
             setStep("picking");
-            raiseError(t("setup.restore-upload-failed", { message: e instanceof Error ? e.message : String(e) }));
+            raiseError(t("setup.restore-error-upload-failed"), detailOf(e));
         }
     }
 
@@ -97,7 +98,7 @@ export default function RestoreFromBackup({ onBack, onRestored }: { onBack: () =
         }
 
         setStep("picking");
-        raiseError(failure.error ?? t("setup.restore-failed-generic"));
+        raiseError(headlineFor(failure.reason), failure.error);
     }
 
     return (
@@ -110,7 +111,7 @@ export default function RestoreFromBackup({ onBack, onRestored }: { onBack: () =
             errorId={errorId}
             onBack={step === "restoring" ? undefined : onBack}
         >
-            {step === "picking" && <PickBackup onPick={restore} onUpload={uploadAndRestore} />}
+            {step === "picking" && <PickBackup onPick={restore} onUpload={uploadAndRestore} onFailure={raiseError} />}
             {step === "uploading" && upload && <UploadProgress upload={upload} />}
             {step === "passphrase" && selection && (
                 <AskPassphrase
@@ -129,9 +130,54 @@ export default function RestoreFromBackup({ onBack, onRestored }: { onBack: () =
     );
 }
 
+/**
+ * A failure as the user needs it: what went wrong in a sentence about backups, with the technical
+ * detail kept underneath.
+ *
+ * The detail is not dropped, because it is what a bug report is made of and what tells two identical-
+ * looking failures apart. It is just no longer the whole message: "The file is not a SQLite database"
+ * answers a question nobody standing in front of this screen asked.
+ */
+function Failure({ headline, detail }: { headline: string; detail?: string }) {
+    return (
+        <>
+            <span class="restore-error-headline">{headline}</span>
+            {detail && <small class="restore-error-detail selectable-text">{detail}</small>}
+        </>
+    );
+}
+
+/** What a thrown failure has to say for itself, for the detail line under the headline. */
+function detailOf(e: unknown): string | undefined {
+    const message = e instanceof Error ? e.message : String(e);
+
+    return message || undefined;
+}
+
+/**
+ * The sentence for a failure, chosen from the reason the server reported rather than from its
+ * message, which is fixed English meant for the log.
+ *
+ * Most of the reasons say the same thing to a user: the file cannot be used. The ones listed here are
+ * the ones where that would be misleading, because something other than the backup is at fault or
+ * because there is something the user could go and do about it.
+ */
+function headlineFor(reason: string | undefined): string {
+    switch (reason) {
+        case "database-too-new": return t("setup.restore-error-too-new");
+        case "database-too-old": return t("setup.restore-error-too-old");
+        case "database-not-initialized": return t("setup.restore-error-unfinished");
+        case "swap-failed": return t("setup.restore-error-swap-failed");
+        case "migration-failed": return t("setup.restore-error-would-not-open");
+        case "restore-refused": return t("setup.restore-error-refused");
+        default: return t("setup.restore-error-unusable");
+    }
+}
+
 /** Which backup is being restored, and where it is. */
 interface Selection {
-    source: "uploaded" | "existing";
+    /** `existing` names a backup on this device; `pending` is one the server already holds. */
+    source: "pending" | "existing";
     fileName: string;
     /** Only for a backup already on the server. */
     filePath?: string;
@@ -145,9 +191,29 @@ interface UploadState {
 }
 
 /** The backups already on this device, and the way to a file that is not. */
-function PickBackup({ onPick, onUpload }: { onPick: (selection: Selection) => void; onUpload: (file: File) => void }) {
+function PickBackup({ onPick, onUpload, onFailure }: {
+    onPick: (selection: Selection) => void;
+    onUpload: (file: File) => void;
+    onFailure: (headline: string, detail?: string) => void;
+}) {
     const [ backups, setBackups ] = useState<DatabaseBackup[] | null>(null);
     const fileInput = useRef<HTMLInputElement>(null);
+    // The desktop can read the file where it lies; a browser has to be handed it first.
+    const nativePicker = window.electronApi?.restore;
+
+    async function pickNatively() {
+        const picked = await nativePicker?.pickBackup();
+        if (!picked || picked.status === "cancelled") {
+            return;
+        }
+        if (picked.status === "error" || !picked.fileName) {
+            onFailure(t("setup.restore-error-could-not-start"), picked.message);
+            return;
+        }
+
+        // Already waiting on the other side of the bridge, so this goes straight to restoring it.
+        onPick({ source: "pending", fileName: picked.fileName, encrypted: picked.encrypted });
+    }
 
     useEffect(() => {
         server.get<ExistingBackupsResponse>("database/backups")
@@ -196,26 +262,28 @@ function PickBackup({ onPick, onUpload }: { onPick: (selection: Selection) => vo
 
             <Card heading={t("setup.restore-from-a-file")}>
                 <CardSection className="restore-file-section">
-                    <p>{t("setup.restore-from-a-file-description")}</p>
+                    <p>{nativePicker ? t("setup.restore-from-a-file-description-native") : t("setup.restore-from-a-file-description")}</p>
 
-                    <input
-                        ref={fileInput}
-                        type="file"
-                        accept=".db,.tnbackup"
-                        class="restore-file-input"
-                        onChange={(e) => {
-                            const file = (e.target as HTMLInputElement).files?.[0];
-                            if (file) {
-                                onUpload(file);
-                            }
-                        }}
-                    />
+                    {!nativePicker && (
+                        <input
+                            ref={fileInput}
+                            type="file"
+                            accept=".db,.tnbackup"
+                            class="restore-file-input"
+                            onChange={(e) => {
+                                const file = (e.target as HTMLInputElement).files?.[0];
+                                if (file) {
+                                    onUpload(file);
+                                }
+                            }}
+                        />
+                    )}
 
                     <Button
                         kind="primary"
                         icon="bx bx-folder-open"
                         text={t("setup.restore-choose-file")}
-                        onClick={() => fileInput.current?.click()}
+                        onClick={nativePicker ? pickNatively : () => fileInput.current?.click()}
                     />
                 </CardSection>
             </Card>
