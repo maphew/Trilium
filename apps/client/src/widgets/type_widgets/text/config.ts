@@ -4,7 +4,6 @@ import { ALLOWED_PROTOCOLS, DISPLAYABLE_LOCALE_IDS, formatShortcut, IMAGE_UPLOAD
 import i18next from "i18next";
 
 import { copyTextWithToast } from "../../../services/clipboard_ext.js";
-import { resolveContentLanguage } from "../../../services/content_language.js";
 import { t } from "../../../services/i18n.js";
 import imageService from "../../../services/image.js";
 import { getMermaidConfig } from "../../../services/mermaid.js";
@@ -14,6 +13,7 @@ import options from "../../../services/options.js";
 import { ensureMimeTypesForHighlighting, isSyntaxHighlightEnabled } from "../../../services/syntax_highlight.js";
 import { getTaskStateDefinitions, openCustomTaskStateConfig } from "../../../services/task_states.js";
 import { isMac } from "../../../services/utils.js";
+import { resolveContentLanguage } from "../../../utils/formatters.js";
 import SAMPLE_DIAGRAMS from "../mermaid/sample_diagrams.js";
 import { buildQuoteTransformations, resolveQuoteStyle } from "./quotes.js";
 import { buildToolbarConfig } from "./toolbar.js";

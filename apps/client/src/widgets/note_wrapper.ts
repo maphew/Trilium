@@ -2,8 +2,8 @@ import type { EventData } from "../components/app_context.js";
 import type NoteContext from "../components/note_context.js";
 import type FNote from "../entities/fnote.js";
 import attributeService from "../services/attributes.js";
-import { isContentRightToLeft } from "../services/content_language.js";
 import utils from "../services/utils.js";
+import { isContentRightToLeft } from "../utils/formatters.js";
 import type BasicWidget from "./basic_widget.js";
 import FlexContainer from "./containers/flex_container.js";
 
