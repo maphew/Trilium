@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { buildQuoteTransformations, type QuoteStyle, resolveQuoteStyle } from "./quotes.js";
+import { buildQuoteTransformations, getQuoteStylePreset, QUOTE_STYLE_PRESETS, type QuoteStyle, resolveQuoteStyle } from "./quotes.js";
 
 /**
  * Applies a transformation the way CKEditor's `TextTransformation` does: match the text before the
@@ -92,6 +92,41 @@ describe("resolveQuoteStyle", () => {
 /** U+202F, the narrow no-break space French sets inside its guillemets. Named so the assertions
  * below do not carry an invisible character that reads as stray whitespace. */
 const NNBSP = "\u202F";
+
+describe("QUOTE_STYLE_PRESETS", () => {
+    it("offers each pair once, under an id naming the marks rather than a language", () => {
+        const ids = QUOTE_STYLE_PRESETS.map((preset) => preset.id);
+
+        expect(new Set(ids).size).toBe(ids.length);
+        // Named for their shape: the same pair serves several languages, and a writer picking one is
+        // choosing marks, not declaring what they write in.
+        expect(ids).toContain("guillemets-spaced");
+        expect(ids).not.toContain("fr");
+    });
+
+    it("takes its marks from the locale table, so a pair is written in one place", () => {
+        // French above all: its narrow no-break spaces are invisible in a diff and have been
+        // mistyped before.
+        expect(getQuoteStylePreset("guillemets-spaced")).toEqual(resolveQuoteStyle("fr"));
+        expect(getQuoteStylePreset("low-high")).toEqual(resolveQuoteStyle("de"));
+        expect(getQuoteStylePreset("corner")).toEqual(resolveQuoteStyle("ja"));
+    });
+
+    it("inverts the levels for the single-curly pair rather than restating them", () => {
+        const english = resolveQuoteStyle("en");
+
+        expect(getQuoteStylePreset("single-curly")).toEqual({
+            primary: english?.secondary,
+            secondary: english?.primary
+        });
+    });
+
+    it("returns null for an id it does not know", () => {
+        expect(getQuoteStylePreset("no-such-style")).toBeNull();
+        expect(getQuoteStylePreset("")).toBeNull();
+        expect(getQuoteStylePreset(null)).toBeNull();
+    });
+});
 
 describe("buildQuoteTransformations", () => {
     it("replaces both marks of a quoted run, leaving the text between them alone", () => {

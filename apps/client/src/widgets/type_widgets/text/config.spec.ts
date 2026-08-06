@@ -324,14 +324,35 @@ describe("CK config - language & emoji", () => {
         expect(config.typing?.transformations.extra).toHaveLength(2);
     });
 
-    it("drops the quote replacements entirely when their toggle is off", async () => {
-        optionsState.map.textNoteQuoteReplacementsEnabled = "false";
+    it("drops the quote replacements entirely when the style is off", async () => {
+        optionsState.map.textNoteQuoteStyle = "off";
 
         const config = await buildConfig(baseOpts({ contentLanguage: "de" }));
 
         // Removed and not re-supplied, so a straight quote stays straight whatever the language.
         expect(config.typing?.transformations.remove).toContain("quotes");
         expect(config.typing?.transformations.extra).toEqual([]);
+    });
+
+    it("lets a chosen style outrank the note's language", async () => {
+        const quotesOf = (config: Awaited<ReturnType<typeof buildConfig>>) =>
+            (config.typing?.transformations.extra ?? []).map((t) => (t as { to: string[] }).to);
+
+        // The whole point of picking one: a note written in German still gets the chosen marks. This
+        // is what serves someone writing several languages in a single note, whom no per-note
+        // language setting can help.
+        optionsState.map.textNoteQuoteStyle = "corner";
+        expect(quotesOf(await buildConfig(baseOpts({ contentLanguage: "de" })))).toEqual([
+            [null, "「", null, "」"],
+            [null, "『", null, "』"]
+        ]);
+
+        // An id we do not know falls back to following the language rather than to no quotes.
+        optionsState.map.textNoteQuoteStyle = "no-such-style";
+        expect(quotesOf(await buildConfig(baseOpts({ contentLanguage: "de" })))).toEqual([
+            [null, "„", null, "“"],
+            [null, "‚", null, "‘"]
+        ]);
     });
 
     it("prefixes the emoji definitions URL with the page origin in dev mode", async () => {

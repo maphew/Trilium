@@ -124,7 +124,7 @@ const ALLOWED_OPTIONS = new Set<OptionNames>([
     "languages",
     "textNoteEditorType",
     "textNoteEditorMultilineToolbar",
-    "textNoteQuoteReplacementsEnabled",
+    "textNoteQuoteStyle",
     "textNotePunctuationReplacementsEnabled",
     "textNoteMathReplacementsEnabled",
     "textNoteSymbolReplacementsEnabled",

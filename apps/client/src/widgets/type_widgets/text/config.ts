@@ -15,7 +15,7 @@ import { getTaskStateDefinitions, openCustomTaskStateConfig } from "../../../ser
 import { isMac } from "../../../services/utils.js";
 import { resolveContentLanguage } from "../../../utils/formatters.js";
 import SAMPLE_DIAGRAMS from "../mermaid/sample_diagrams.js";
-import { buildQuoteTransformations, resolveQuoteStyle } from "./quotes.js";
+import { buildQuoteTransformations, getQuoteStylePreset, resolveQuoteStyle } from "./quotes.js";
 import { buildCustomTransformations, parseCustomReplacements } from "./replacements.js";
 import { buildToolbarConfig } from "./toolbar.js";
 
@@ -327,9 +327,13 @@ function buildTransformationsConfig(contentLanguage: string | null): TextTransfo
     if (options.get("textNoteMathReplacementsEnabled") !== "true") remove.push("mathematical");
     if (options.get("textNoteSymbolReplacementsEnabled") !== "true") remove.push("symbols");
 
-    const quotesEnabled = options.get("textNoteQuoteReplacementsEnabled") === "true";
-    const quoteStyle = quotesEnabled ? resolveQuoteStyle(contentLanguage) : null;
-    if (!quotesEnabled || quoteStyle) {
+    const quoteSetting = options.get("textNoteQuoteStyle") || "auto";
+    // An unknown id — the option hand-edited, or written by a version offering a preset this one has
+    // dropped — falls back to following the language rather than to no quotes at all.
+    const quoteStyle = quoteSetting === "off"
+        ? null
+        : getQuoteStylePreset(quoteSetting) ?? resolveQuoteStyle(contentLanguage);
+    if (quoteSetting === "off" || quoteStyle) {
         remove.push("quotes");
     }
 

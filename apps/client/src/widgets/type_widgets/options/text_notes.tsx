@@ -19,6 +19,7 @@ import FormText from "../../react/FormText";
 import FormTextBox, { FormTextBoxWithUnit } from "../../react/FormTextBox";
 import { useColorScheme, useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import { getHtml } from "../../react/RawHtml";
+import { QUOTE_STYLE_PRESETS } from "../text/quotes";
 import { type CustomReplacement, parseCustomReplacements } from "../text/replacements";
 import OptionsPageHeader from "./components/OptionsPageHeader";
 import OptionsRow, { OptionsRowWithToggle } from "./components/OptionsRow";
@@ -187,20 +188,34 @@ function EditorFeatures() {
  * behaviour being undocumented as about it being unwanted, so the examples are the point.
  */
 function AutomaticReplacements() {
-    const [quotesEnabled, setQuotesEnabled] = useTriliumOptionBool("textNoteQuoteReplacementsEnabled");
+    const [quoteStyle, setQuoteStyle] = useTriliumOption("textNoteQuoteStyle");
     const [punctuationEnabled, setPunctuationEnabled] = useTriliumOptionBool("textNotePunctuationReplacementsEnabled");
     const [mathEnabled, setMathEnabled] = useTriliumOptionBool("textNoteMathReplacementsEnabled");
     const [symbolsEnabled, setSymbolsEnabled] = useTriliumOptionBool("textNoteSymbolReplacementsEnabled");
 
     return (
         <OptionsSection title={t("automatic_replacements.title")} description={t("automatic_replacements.description")}>
-            <OptionsRowWithToggle
-                name="quote-replacements-enabled"
+            <OptionsRow
+                name="quote-style"
                 label={t("automatic_replacements.quotes")}
                 description={t("automatic_replacements.quotes_description")}
-                currentValue={quotesEnabled}
-                onChange={setQuotesEnabled}
-            />
+            >
+                <FormSelect
+                    currentValue={quoteStyle || "auto"}
+                    onChange={setQuoteStyle}
+                    keyProperty="value" titleProperty="label"
+                    values={[
+                        { value: "auto", label: t("automatic_replacements.quotes_auto") },
+                        { value: "off", label: t("automatic_replacements.quotes_off") },
+                        // The marks are their own label — no wording to translate, and nothing
+                        // between the choice and what it produces.
+                        ...QUOTE_STYLE_PRESETS.map(({ id, style }) => ({
+                            value: id,
+                            label: `${style.primary[0]}…${style.primary[1]}   ${style.secondary[0]}…${style.secondary[1]}`
+                        }))
+                    ]}
+                />
+            </OptionsRow>
 
             <OptionsRowWithToggle
                 name="punctuation-replacements-enabled"

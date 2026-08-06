@@ -242,10 +242,11 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     codeNoteIndentWithTabs: boolean;
     textNoteEditorMultilineToolbar: boolean;
     /**
-     * Whether a typed `"…"` becomes the typographic quotes of the note's language (`“…”`, `„…“`,
-     * `« … »`). Which marks are produced is decided by the content language, not by this flag.
+     * Which typographic quotes a typed `"…"` becomes: `auto` to follow the note's content language,
+     * `off` to leave straight quotes alone, or the id of one of `QUOTE_STYLE_PRESETS` to always use
+     * that pair whatever the note is written in.
      */
-    textNoteQuoteReplacementsEnabled: boolean;
+    textNoteQuoteStyle: string;
     /** Whether `...` becomes `…`, and ` -- ` / ` --- ` become an en/em dash, as they are typed. */
     textNotePunctuationReplacementsEnabled: boolean;
     /** Whether `1/2`, `!=`, `->` and their kin become `½`, `≠`, `→` as they are typed. */

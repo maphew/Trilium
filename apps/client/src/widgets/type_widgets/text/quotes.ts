@@ -72,6 +72,33 @@ const QUOTE_STYLES: Record<string, QuoteStyle> = {
 };
 
 /**
+ * The styles offered as an explicit choice, for writers who would rather name their marks than have
+ * a language name them — someone writing three languages in one note, or who simply prefers one
+ * pair and does not want the note's metadata deciding. macOS offers exactly this and nothing else;
+ * LibreOffice offers it alongside the locale defaults, which is the shape taken here.
+ *
+ * Each entry points at a row of the table above rather than restating its marks, so a pair is
+ * written in one place only — the French narrow no-break spaces above all, which are invisible in a
+ * diff and have already been mistyped twice.
+ */
+export const QUOTE_STYLE_PRESETS = [
+    { id: "double-curly", style: QUOTE_STYLES.en },
+    // The levels the other way up, which is how British typography traditionally set them.
+    { id: "single-curly", style: { primary: QUOTE_STYLES.en.secondary, secondary: QUOTE_STYLES.en.primary } },
+    { id: "low-high", style: QUOTE_STYLES.de },
+    { id: "low-right", style: QUOTE_STYLES.pl },
+    { id: "guillemets", style: QUOTE_STYLES.ru },
+    { id: "guillemets-spaced", style: QUOTE_STYLES.fr },
+    { id: "corner", style: QUOTE_STYLES.ja }
+] as const satisfies readonly { id: string; style: QuoteStyle }[];
+
+/** The style a preset id names, or `null` for an id we do not know — a hand-edited option, or one
+ *  written by a version that offered a preset this one has dropped. */
+export function getQuoteStylePreset(id: string | null | undefined): QuoteStyle | null {
+    return QUOTE_STYLE_PRESETS.find((preset) => preset.id === id)?.style ?? null;
+}
+
+/**
  * Picks the quote style for the first of `candidates` that maps to one, so callers can express a
  * preference order — the note's own `#language`, then the formatting locale, then the UI language.
  * Returns `null` when nothing matches, meaning CKEditor's own defaults should be left in place.
