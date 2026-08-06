@@ -2048,7 +2048,10 @@
     "min-days-in-first-week": "Minimum days in first week",
     "first-week-warning": "Changing this may cause duplicates with existing Week Notes.",
     "formatting-locale": "Date & number format",
-    "formatting-locale-auto": "Based on the application's language"
+    "formatting-locale-auto": "Based on the application's language",
+    "default-content-language": "Default content language",
+    "default-content-language-description": "The language notes are written in unless one is set on the note itself, in the Basic Properties section. It affects features such as right-to-left alignment and which quotation marks typing produces (for example \"quote\" becomes “quote” in English, but „quote“ in German).",
+    "default-content-language-auto": "Based on the application's language"
   },
   "backup": {
     "title": "Backup",
@@ -3108,7 +3111,7 @@
   },
   "content_language": {
     "title": "Content languages",
-    "description": "Select one or more languages that should appear in the language selection in the Basic Properties section of a read-only or editable text note. This will allow features such as spell-checking, right-to-left support and text extraction (OCR)."
+    "description": "Select one or more languages that should appear in the language selection in the Basic Properties section of a read-only or editable text note. This will allow features such as spell-checking, right-to-left support, quotation marks and text extraction (OCR)."
   },
   "switch_layout_button": {
     "title_vertical": "Move editing pane to the bottom",

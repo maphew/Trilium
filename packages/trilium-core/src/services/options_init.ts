@@ -275,6 +275,10 @@ const defaultOptions: DefaultOption[] = [
     // Internationalization
     { name: "locale", value: "en", isSynced: true },
     { name: "formattingLocale", value: "", isSynced: true }, // no value means auto-detect
+    // English rather than "" (which would follow the application's language), so that an install
+    // that never touches this keeps writing the quotes it wrote before the setting existed. An
+    // empty value is still honoured if the user picks the auto entry.
+    { name: "defaultContentLanguage", value: "en", isSynced: true },
     { name: "firstDayOfWeek", value: "1", isSynced: true },
     { name: "firstWeekOfYear", value: "0", isSynced: true },
     { name: "minDaysInFirstWeek", value: "4", isSynced: true },

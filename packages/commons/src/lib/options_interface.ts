@@ -83,6 +83,14 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     customSearchEngineUrl: string;
     locale: string;
     formattingLocale: string;
+    /**
+     * The language a note is written in when it carries no `#language` label of its own — which is
+     * almost every note, the label being opt-in. Governs what the content language drives: text
+     * direction and which typographic quotes typing produces.
+     *
+     * An empty value means "follow the application's language" rather than "no language".
+     */
+    defaultContentLanguage: string;
     codeBlockTheme: string;
     codeBlockThemeMatchesApp: boolean;
     codeBlockThemeLight: string;

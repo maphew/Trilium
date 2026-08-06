@@ -4,6 +4,7 @@ import { ALLOWED_PROTOCOLS, DISPLAYABLE_LOCALE_IDS, formatShortcut, IMAGE_UPLOAD
 import i18next from "i18next";
 
 import { copyTextWithToast } from "../../../services/clipboard_ext.js";
+import { resolveContentLanguage } from "../../../services/content_language.js";
 import { t } from "../../../services/i18n.js";
 import imageService from "../../../services/image.js";
 import { getMermaidConfig } from "../../../services/mermaid.js";
@@ -238,23 +239,32 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
         embedImage: (src: string) => imageService.embedReferenceImageAsDataUrl(src)
     };
 
-    // Which typographic quotes `"…"` and `'…'` turn into. CKEditor applies the US pair to every
-    // locale it has no entry for, which is wrong rather than merely unstyled for most of the
-    // languages Trilium ships — a German writer wants „…“, a French one « … ».
+    // The language this note is written in, which governs both its text direction and which
+    // typographic quotes typing produces.
     //
-    // Preference order: the note's own `#language` first, since it is the only per-note signal and
-    // the one a multilingual writer sets deliberately, then the same locale chain the date and
-    // number formatters resolve through. That way a German-speaking user gets German quotes without
-    // having labelled anything.
+    // The note's own `#language` label wins, being the only per-note signal and the one a
+    // multilingual writer sets deliberately. Almost no note carries one though — the label is
+    // opt-in, and the picker that sets it is empty until content languages are enabled — so the
+    // `defaultContentLanguage` option is what answers in practice. It defaults to English, which is
+    // what every note was implicitly treated as before the option existed; setting it to the empty
+    // "auto" entry follows the application's language instead.
     //
-    // Resolved here rather than pushed into a live editor because a note's language change already
-    // rebuilds the editor (see the effect deps in `CKEditorWithWatchdog`).
-    const quoteStyle = resolveQuoteStyle(
-        opts.contentLanguage,
-        options.get("formattingLocale"),
-        options.get("locale"),
-        navigator.language
-    );
+    // Deliberately not `formattingLocale`: that one is presented as "Date & number format", so
+    // someone who sets it for unambiguous dates would not expect it to restyle their prose.
+    const contentLanguage = resolveContentLanguage(opts.contentLanguage);
+
+    if (contentLanguage) {
+        config.language = {
+            ui: (typeof config.language === "string" ? config.language : "en"),
+            content: contentLanguage
+        };
+    }
+
+    // CKEditor knows quote conventions for three locales and applies the US pair to everything else,
+    // which is wrong rather than merely unstyled for most of the languages Trilium ships — a German
+    // writer wants „…“, a French one « … ». Resolved here rather than pushed into a live editor
+    // because a language change already rebuilds it (see the effect deps in `CKEditorWithWatchdog`).
+    const quoteStyle = resolveQuoteStyle(contentLanguage);
     if (quoteStyle) {
         config.typing = {
             transformations: {
@@ -264,15 +274,6 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
                 include: ["symbols", "mathematical", "typography"],
                 extra: buildQuoteTransformations(quoteStyle)
             }
-        };
-    }
-
-    // Set up content language.
-    const { contentLanguage } = opts;
-    if (contentLanguage) {
-        config.language = {
-            ui: (typeof config.language === "string" ? config.language : "en"),
-            content: contentLanguage
         };
     }
 

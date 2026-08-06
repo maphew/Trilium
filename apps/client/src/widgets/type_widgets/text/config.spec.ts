@@ -234,19 +234,32 @@ describe("CK config - language & emoji", () => {
         expect(config.language).toBeUndefined();
     });
 
-    it("picks the quote style from the note's language, falling back down the locale chain", async () => {
+    it("resolves the content language from the note, then the default, then the UI language", async () => {
+        optionsState.map.defaultContentLanguage = "fr";
+        optionsState.map.locale = "ru";
+
+        // The note's own `#language` outranks both options.
+        expect((await buildConfig(baseOpts({ contentLanguage: "de" }))).language).toMatchObject({ content: "de" });
+        // Without one, the default content language answers.
+        expect((await buildConfig(baseOpts({ contentLanguage: null }))).language).toMatchObject({ content: "fr" });
+        // ...and its empty "auto" value follows the application's language instead.
+        optionsState.map.defaultContentLanguage = "";
+        expect((await buildConfig(baseOpts({ contentLanguage: null }))).language).toMatchObject({ content: "ru" });
+    });
+
+    it("derives the quote style from that same resolved language", async () => {
         const quotesOf = (config: Awaited<ReturnType<typeof buildConfig>>) =>
             (config.typing?.transformations.extra ?? []).map((t) => (t as { to: string[] }).to);
 
-        // The note's own `#language` outranks both options.
-        optionsState.map.formattingLocale = "fr";
+        optionsState.map.defaultContentLanguage = "fr";
         optionsState.map.locale = "ru";
+
         expect(quotesOf(await buildConfig(baseOpts({ contentLanguage: "de" })))).toEqual([
             [null, "„", null, "“"],
             [null, "‚", null, "‘"]
         ]);
 
-        // Without one, the formatting locale decides.
+        // With no note language, the default content language decides.
         expect(quotesOf(await buildConfig(baseOpts({ contentLanguage: null })))).toEqual([
             // The gap inside the guillemets is U+202F, the narrow no-break space French sets
             // there — it looks like a plain space but is not one.
@@ -254,8 +267,8 @@ describe("CK config - language & emoji", () => {
             [null, "“", null, "”"]
         ]);
 
-        // ...and without that, the UI language does.
-        optionsState.map.formattingLocale = "";
+        // ...and the "auto" value follows the UI language.
+        optionsState.map.defaultContentLanguage = "";
         expect(quotesOf(await buildConfig(baseOpts({ contentLanguage: null })))).toEqual([
             [null, "«", null, "»"],
             [null, "„", null, "“"]
@@ -263,16 +276,12 @@ describe("CK config - language & emoji", () => {
     });
 
     it("leaves CKEditor's own transformations alone for a locale with no mapping", async () => {
-        optionsState.map.formattingLocale = "ar";
-        optionsState.map.locale = "he";
-        // Last link in the chain, and unmapped too — otherwise the environment's own locale answers.
-        const language = vi.spyOn(navigator, "language", "get").mockReturnValue("fa");
-
         const config = await buildConfig(baseOpts({ contentLanguage: "ku" }));
 
         // No `typing` override at all, so the default `quotes` group stays in force.
         expect(config.typing).toBeUndefined();
-        language.mockRestore();
+        // The language itself still applies, so right-to-left text lays out correctly regardless.
+        expect(config.language).toMatchObject({ content: "ku" });
     });
 
     it("keeps the non-quote transformation groups when overriding the quotes", async () => {

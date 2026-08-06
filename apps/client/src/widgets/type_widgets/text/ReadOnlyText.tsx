@@ -10,8 +10,8 @@ import { useEffect, useLayoutEffect, useMemo, useRef as usePreactRef } from "pre
 
 import appContext from "../../../components/app_context";
 import FNote from "../../../entities/fnote";
+import { isContentRightToLeft } from "../../../services/content_language";
 import { applyInlineMermaid, rewriteMermaidDiagramsInContainer } from "../../../services/content_renderer_text";
-import { getLocaleById } from "../../../services/i18n";
 import { applyLinkEmbeds } from "../../../services/link_embed";
 import { renderMathInElement } from "../../../services/math";
 import { trackPendingRender } from "../../../services/pending_renders";
@@ -139,10 +139,9 @@ export function ReadOnlyTextContent({ html, ntxId, dir, className, contentRef: e
 
 function useNoteLanguage(note: FNote) {
     const [ language ] = useNoteLabel(note, "language");
-    const isRtl = useMemo(() => {
-        const correspondingLocale = getLocaleById(language);
-        return correspondingLocale?.rtl;
-    }, [ language ]);
+    // Resolved rather than read straight off the label, so a note with no language of its own still
+    // lays out the way the default content language says it should.
+    const isRtl = useMemo(() => isContentRightToLeft(language), [ language ]);
     return { isRtl };
 }
 

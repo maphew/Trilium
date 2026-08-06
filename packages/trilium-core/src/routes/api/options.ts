@@ -117,6 +117,7 @@ const ALLOWED_OPTIONS = new Set<OptionNames>([
     "editedNotesOpenInRibbon",
     "locale",
     "formattingLocale",
+    "defaultContentLanguage",
     "firstDayOfWeek",
     "firstWeekOfYear",
     "minDaysInFirstWeek",
