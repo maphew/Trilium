@@ -13,6 +13,7 @@ import {
     getRestoreProgress,
     logRestore,
     logRestoreError,
+    reportStepProgress,
     readBackupFormat,
     removeQuietly,
     reportRestoreFailure,
@@ -222,6 +223,63 @@ describe("what the log is told", () => {
         expect(log).not.toContain("holidays-in-crete");
     });
 
+    it("reports how far a long step has got, in brackets, once per tenth of the way", () => {
+        const said: string[] = [];
+        vi.spyOn(getLog(), "info").mockImplementation((message) => said.push(String(message)));
+        const report = reportStepProgress("unwrapping the backup");
+
+        // What the container module sends: a position at whatever rate its own throttle allows.
+        for (const fraction of [ 0, 0.02, 0.05, 0.09, 0.1, 0.15, 0.2, 0.99, 1 ]) {
+            report(fraction);
+        }
+
+        expect(said).toEqual([
+            "Backup restore: unwrapping the backup [0%]",
+            "Backup restore: unwrapping the backup [10%]",
+            "Backup restore: unwrapping the backup [20%]",
+            "Backup restore: unwrapping the backup [99%]",
+            "Backup restore: unwrapping the backup [100%]"
+        ]);
+    });
+
+    it("says nothing more while a step is not getting anywhere, however often it is asked", () => {
+        const said: string[] = [];
+        vi.spyOn(getLog(), "info").mockImplementation((message) => said.push(String(message)));
+        const report = reportStepProgress("unwrapping the backup");
+
+        report(0.42);
+        for (let i = 0; i < 50; i++) {
+            report(0.42);
+        }
+
+        // A stall is told apart from slow going by the log not growing, which it cannot do if every
+        // report writes a line.
+        expect(said).toEqual([ "Backup restore: unwrapping the backup [42%]" ]);
+    });
+
+    it("reports the progress of a real unwrap", async () => {
+        const said: string[] = [];
+        vi.spyOn(getLog(), "info").mockImplementation((message) => said.push(String(message)));
+        const backup = await containerOf(validDatabase());
+
+        await stageBackup({ path: backup, fileName: "backup.tnbackup", consumable: false });
+
+        expect(transcript(said)).toContain("unwrapping the backup [100%]");
+    });
+
+    it("puts the position where the screen can see it, every time rather than every tenth", () => {
+        vi.spyOn(getLog(), "info").mockImplementation(() => {});
+        reportRestoreFailure("backup.db", new Error("so that there is a progress to carry it"));
+        const report = reportStepProgress("unwrapping the backup");
+
+        report(0.42);
+        expect(getRestoreProgress()?.fraction).toBe(0.42);
+
+        // Between two logged tenths, and still the latest thing the screen is told.
+        report(0.47);
+        expect(getRestoreProgress()?.fraction).toBe(0.47);
+    });
+
     it("says which steps a restore got through, so one that stops says where", async () => {
         const said: string[] = [];
         vi.spyOn(getLog(), "info").mockImplementation((message) => said.push(String(message)));
@@ -232,6 +290,9 @@ describe("what the log is told", () => {
 
         await expect(restoreDatabase({ path: validDatabase(), fileName: "backup.db", consumable: false }))
             .rejects.toBeInstanceOf(RestoreFailure);
+
+        // A step's position belongs to that step, so it is not left showing under the next one.
+        expect(getRestoreProgress()?.fraction).toBeUndefined();
 
         const log = transcript(said);
         expect(detach).toHaveBeenCalled();

@@ -3,6 +3,7 @@ import {
     FIXED_HEADER_BYTES,
     isBackupContainerError,
     peekBackupContainer,
+    type ProgressCallback,
     readBackupContainer
 } from "@triliumnext/backup-container";
 import {
@@ -85,6 +86,50 @@ function withoutPaths(text: string): string {
     return scrubbed;
 }
 
+/**
+ * How much of the way through a step has to pass before it is worth another line.
+ *
+ * A log is read after the fact, so what it needs from a step that runs for minutes is a trail
+ * proving it was moving, not a running total. Every tenth is ten or eleven lines however long the
+ * step takes, which is enough to tell a slow unwrap from a stalled one.
+ */
+const PROGRESS_LOG_STEP = 10;
+
+/**
+ * How often the container module is asked to report.
+ *
+ * Half the rate the screen polls at, so what it is shown is never much older than it is, and far
+ * below the rate the module would report at left alone.
+ */
+const PROGRESS_INTERVAL_MS = 500;
+
+/**
+ * Passes the container module's progress on to both places that want it, each at its own rate.
+ *
+ * The screen is polled about once a second and wants the latest position every time, so every report
+ * reaches it. The log wants the opposite: its reader comes to it afterwards and needs a trail, not a
+ * running total, so a line is written only when the position has actually moved on a tenth. Writing
+ * every report to both would make a stall indistinguishable from progress in the one place where
+ * that distinction is all there is.
+ */
+export function reportStepProgress(activity: string): ProgressCallback {
+    let lastLogged = -1;
+
+    return (fraction) => {
+        if (progress) {
+            progress = { ...progress, fraction };
+        }
+
+        const percent = Math.floor(fraction * 100);
+        const step = Math.floor(percent / PROGRESS_LOG_STEP);
+
+        if (step > lastLogged) {
+            lastLogged = step;
+            logRestore(`${activity} [${percent}%]`);
+        }
+    };
+}
+
 /** How big a file is, counting one that cannot be measured as nothing rather than failing over it. */
 export function sizeOf(filePath: string): number {
     return fs.statSync(filePath, { throwIfNoEntry: false })?.size ?? 0;
@@ -137,6 +182,14 @@ export interface RestoreProgress {
     stage: RestoreStage;
     /** The name of the backup being restored, so a reloaded page can say what is going on. */
     fileName: string;
+    /**
+     * How far through the current step, from 0 to 1.
+     *
+     * Absent for the steps that cannot say — checking a database reads it from beginning to end with
+     * nothing to report along the way, and exchanging the files is over in moments. It belongs to the
+     * step rather than to the restore, and starts again with each one.
+     */
+    fraction?: number;
     /** Set when `stage` is `failed`. */
     error?: string;
     /** Set when `stage` is `failed`. */
@@ -389,7 +442,14 @@ export async function stageBackup(request: RestoreRequest): Promise<string> {
     const unwrappedAt = Date.now();
 
     try {
-        const unwrapped = await readBackupContainer(source, destination, { passphrase: request.passphrase });
+        const unwrapped = await readBackupContainer(source, destination, {
+            passphrase: request.passphrase,
+            // The step that runs for minutes on a large backup, and the only one that can say how far
+            // through it is. Without this the log jumps from the format to the finished size, which
+            // reads the same whether it took a moment or is still going.
+            onProgress: reportStepProgress("unwrapping the backup"),
+            progressIntervalMs: PROGRESS_INTERVAL_MS
+        });
         logRestore(`unwrapped a version ${unwrapped.version} container in ${describeElapsed(unwrappedAt)}`
             + `: ${describeSize(unwrapped.bytesWritten)} of database`
             + `${unwrapped.compressed ? `, from ${describeSize(sourceBytes)} compressed` : ""}`);
@@ -508,7 +568,9 @@ function markerFor(document: string): string {
  */
 function report(stage: RestoreStage): void {
     if (progress) {
-        progress = { ...progress, stage };
+        // The position belonged to the step that has just ended, and would otherwise be read as this
+        // one's — a step with nothing to report showing the last one's bar, frozen where it stopped.
+        progress = { ...progress, stage, fraction: undefined };
     }
 
     logRestore(`step '${stage}'`);

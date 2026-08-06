@@ -106,6 +106,28 @@
         }
     }
 
+    /* Takes the rest of the row, so the bar does not depend on how long the step is named. */
+    .restore-stage-progress {
+        display: flex;
+        flex: 1;
+        align-items: center;
+        gap: 0.5em;
+        margin-left: auto;
+
+        progress {
+            flex: 1;
+            min-width: 4em;
+        }
+
+        span {
+            min-width: 3em;
+            font-size: 0.85em;
+            font-variant-numeric: tabular-nums;
+            text-align: right;
+            opacity: 0.7;
+        }
+    }
+
     .restore-banner {
         margin-top: 1em;
     }

@@ -354,14 +354,24 @@ function AskPassphrase({ fileName, wrong, onSubmit }: { fileName: string; wrong:
 /** The stages the server works through, and which one it is on. */
 const STAGES = [ "staging", "validating", "swapping", "migrating" ] as const;
 
+/** What the server says about the restore it is running. */
+interface RestoreStatus {
+    stage: string;
+    /** How far through the current stage, where that stage can say; absent where it cannot. */
+    fraction?: number;
+    error?: string;
+    reason?: string;
+}
+
 function RestoreProgress({ onRestored, onFailed }: { onRestored: () => void; onFailed: (failure: { error?: string; reason?: string }) => void }) {
     const [ stage, setStage ] = useState<string>("staging");
+    const [ fraction, setFraction ] = useState<number | null>(null);
 
     useEffect(() => {
         const interval = setInterval(async () => {
             let restore;
             try {
-                ({ restore } = await server.get<{ restore: { stage: string; error?: string; reason?: string } | null }>("setup/restore/status"));
+                ({ restore } = await server.get<{ restore: RestoreStatus | null }>("setup/restore/status"));
             } catch {
                 // The database is detached for the moment it takes to exchange the files, which any
                 // request landing in that moment cannot be answered through. The next one can.
@@ -383,6 +393,7 @@ function RestoreProgress({ onRestored, onFailed }: { onRestored: () => void; onF
             }
 
             setStage(restore.stage);
+            setFraction(restore.fraction ?? null);
         }, 1000);
 
         return () => clearInterval(interval);
@@ -397,6 +408,15 @@ function RestoreProgress({ onRestored, onFailed }: { onRestored: () => void; onF
                     <CardSection key={name} className={index < currentIndex ? "completed" : index === currentIndex ? "active" : ""}>
                         <Icon icon={index < currentIndex ? "bx bx-check-circle" : index === currentIndex ? "bx bx-loader-circle bx-spin" : "bx bx-circle"} />{" "}
                         {t(`setup.restore-stage-${name}`)}
+
+                        {/* Only the step that is running, and only where it can say how far it has
+                            got. The steps that cannot show nothing rather than an empty bar. */}
+                        {index === currentIndex && fraction !== null && (
+                            <div class="restore-stage-progress">
+                                <progress value={fraction} max={1} />
+                                <span>{Math.floor(fraction * 100)}%</span>
+                            </div>
+                        )}
                     </CardSection>
                 ))}
             </Card>

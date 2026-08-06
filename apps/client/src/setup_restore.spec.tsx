@@ -23,7 +23,7 @@ const BACKUPS = [
 ];
 
 let container: HTMLDivElement;
-let restore: { stage: string; error?: string; reason?: string } | null;
+let restore: { stage: string; fraction?: number; error?: string; reason?: string } | null;
 
 function renderRestore(props: Partial<{ onBack: () => void; onRestored: () => void }> = {}) {
     container = document.createElement("div");
@@ -259,6 +259,34 @@ describe("following the restore", () => {
 
         const active = container.querySelector(".restore-stages .active");
         expect(active?.textContent).toContain("setup.restore-stage-validating");
+    });
+
+    it("shows how far the running step has got, and only on that step", async () => {
+        await startRestore();
+
+        restore = { stage: "staging", fraction: 0.42 };
+        await nextPoll();
+
+        const bar = container.querySelector<HTMLProgressElement>(".restore-stages .active progress");
+        expect(bar?.value).toBe(0.42);
+        expect(container.querySelector(".restore-stages .active .restore-stage-progress")?.textContent).toContain("42%");
+        // One bar, on the step that is running.
+        expect(container.querySelectorAll(".restore-stages progress")).toHaveLength(1);
+    });
+
+    it("drops the bar for a step that cannot say how far it has got", async () => {
+        await startRestore();
+
+        restore = { stage: "staging", fraction: 0.9 };
+        await nextPoll();
+        expect(container.querySelector(".restore-stages progress")).toBeTruthy();
+
+        // Checking a database reads it from end to end with nothing to report along the way; the
+        // previous step's bar must not be left sitting under it.
+        restore = { stage: "validating" };
+        await nextPoll();
+
+        expect(container.querySelector(".restore-stages progress")).toBeFalsy();
     });
 
     it("finishes setup once the restore is done", async () => {
