@@ -174,7 +174,7 @@ export default class BridgedRequestProvider implements RequestProvider {
         const validated = validateFetchableUrl(resourceUrl).toString();
         const id = String(this.nextId++);
 
-        const msg = await new Promise<any>((resolve, reject) => {
+        const msg = await new Promise<BridgedResponse>((resolve, reject) => {
             this.pending.set(id, { resolve, reject });
 
             (self as unknown as Worker).postMessage({
@@ -202,4 +202,12 @@ export default class BridgedRequestProvider implements RequestProvider {
             bytes: Uint8Array.from(binary, (c) => c.charCodeAt(0))
         };
     }
+}
+
+/** What the main thread answers an HTTP_REQUEST with, for the binary shape of the exchange. */
+interface BridgedResponse {
+    status: number;
+    headers?: Record<string, string>;
+    /** Base64 for a binary response; the raw text otherwise. */
+    body?: string;
 }
