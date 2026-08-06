@@ -8,10 +8,10 @@ import {
 import { getLog, imageService, ValidationError } from "@triliumnext/core";
 import { trimIcoToSmallestEntry } from "@triliumnext/core/src/services/ico.js";
 import { storePictureBytes } from "@triliumnext/core/src/services/image_download.js";
-import { inspectImage, UNKNOWN_FORMAT } from "@triliumnext/core/src/services/image_inspect.js";
+import { type InspectedImage, inspectImage, UNKNOWN_FORMAT } from "@triliumnext/core/src/services/image_inspect.js";
+import { getImageProvider } from "@triliumnext/core/src/services/image_provider.js";
 import { findPageDescription } from "@triliumnext/core/src/services/page_description.js";
 import type { Request } from "express";
-import { Jimp } from "jimp";
 import { parse } from "node-html-parser";
 
 import { safeFetch, validateUrl } from "../../services/safe_fetch.js";
@@ -270,46 +270,47 @@ async function downloadPreviewImage(imageUrl: string, minSourceDimension = 0): P
     if (!downloaded) return undefined;
 
     const { bytes, contentType } = downloaded;
+    const inspected = inspectImage(bytes);
     const isSmallEnoughToKeepVerbatim = bytes.byteLength <= MAX_VERBATIM_IMAGE_SIZE;
 
-    // An SVG scales natively, so it is kept as-is rather than rasterised (Jimp cannot read it anyway),
-    // and it satisfies any minimum dimension by definition. The sniff reads the opening bytes only,
-    // so it costs the same whatever the file weighs.
-    if (contentType.includes("svg") || inspectImage(bytes).format === "svg") {
+    // An SVG scales natively, so it is kept as-is rather than rasterised, and it satisfies any
+    // minimum dimension by definition. The sniff reads the opening bytes only, so it costs the same
+    // whatever the file weighs.
+    if (contentType.includes("svg") || inspected.format === "svg") {
         return isSmallEnoughToKeepVerbatim ? { bytes } : undefined;
     }
 
-    try {
-        const image = await Jimp.read(Buffer.from(bytes));
-
-        if (Math.max(image.bitmap.width, image.bitmap.height) < minSourceDimension) {
-            return undefined;
-        }
-
-        // Only ever scale down: scaleToFit() would happily enlarge a smaller image.
-        if (image.bitmap.width > IMAGE_MAX_DIMENSION || image.bitmap.height > IMAGE_MAX_DIMENSION) {
-            image.scaleToFit({ w: IMAGE_MAX_DIMENSION, h: IMAGE_MAX_DIMENSION });
-        }
-
-        // hasAlpha() inspects the pixels, not just the channel, so an opaque PNG still takes the
-        // JPEG path. An animated GIF/WebP collapses to its first frame, which is fine for a thumbnail.
-        return image.hasAlpha()
-            ? { bytes: new Uint8Array(await image.getBuffer("image/png")) }
-            : { bytes: new Uint8Array(await image.getBuffer("image/jpeg", { quality: IMAGE_JPEG_QUALITY })) };
-    } catch (e: unknown) {
-        // Jimp bundles decoders for PNG/JPEG/GIF/BMP/TIFF only, so a WebP or AVIF lands here. Keep
-        // the original bytes when they are small enough — unresized, but still not hotlinked. The
-        // bytes are asked what they are, the same way a favicon's are, so that an error page served
-        // in place of the image (an undecodable response that is not an image at all) is dropped
-        // rather than embedded. A caller that requires a minimum size gets nothing: undecodable
-        // means unverifiable.
-        // The URL is deliberately left out of the log: it is the user's private browsing, and a
-        // pasted link can carry a one-time token in its path or query. The timestamp is enough to
-        // match a log line against the paste that caused it.
-        getLog().info(`Could not decode a link preview image: ${e}`);
-
-        return isSmallEnoughToKeepVerbatim && !minSourceDimension ? asPicture(bytes) : undefined;
+    if (minSourceDimension && !isAtLeast(inspected, minSourceDimension)) {
+        return undefined;
     }
+
+    const resized = await getImageProvider().resizeForPreview(bytes, {
+        maxEdge: IMAGE_MAX_DIMENSION,
+        jpegQuality: IMAGE_JPEG_QUALITY
+    });
+
+    if (resized.resized) {
+        return { bytes: resized.bytes };
+    }
+
+    // Nothing scaled it — an undecodable format (WebP, AVIF) where there is a decoder, anything at
+    // all where there is not. Keep the original bytes if they are small enough: unresized, but
+    // still stored rather than hotlinked, which is the property that matters. They are asked what
+    // they are on the way past, so an error page served in place of a picture is dropped rather
+    // than embedded.
+    return isSmallEnoughToKeepVerbatim ? asPicture(bytes) : undefined;
+}
+
+/**
+ * Whether a picture is at least `minEdge` across, read from its header.
+ *
+ * Header rather than decode, so the answer costs nothing and is available on a runtime that has no
+ * decoder at all — which is the point: the alternative was to decode purely to measure, and to
+ * treat every picture that would not decode as too small. A header that does not say is treated as
+ * too small, since unverified is not the same as large enough.
+ */
+function isAtLeast({ width, height }: InspectedImage, minEdge: number): boolean {
+    return width !== null && height !== null && Math.max(width, height) >= minEdge;
 }
 
 /**
