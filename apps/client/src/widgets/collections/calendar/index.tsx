@@ -1,9 +1,11 @@
 // FullCalendar v7 ships no bundled CSS of its own — the skeleton and the chosen theme have to be
-// pulled in by hand. Imported ahead of index.css so our own rules still come last.
+// pulled in by hand. The theme's own palette is deliberately not among them: palette.css states
+// the same variables in terms of Trilium's, which is the whole of the theming (see there).
+// Imported ahead of index.css so our own rules still come last.
 import "fullcalendar/skeleton.css";
-import "fullcalendar/themes/classic/theme.css";
-import "fullcalendar/themes/classic/palette.css";
+import "fullcalendar/themes/forma/theme.css";
 
+import "./palette.css";
 import "./index.css";
 
 import { DISPLAYABLE_LOCALE_IDS } from "@triliumnext/commons";
@@ -475,7 +477,7 @@ function usePlugins(isEditable: boolean, isCalendarRoot: boolean) {
             const plugins: PluginInput[] = [];
             // v7 pulled the theme out of core and made it a plugin; without one the calendar draws
             // with no styling at all.
-            plugins.push((await import("fullcalendar/themes/classic")).default);
+            plugins.push((await import("fullcalendar/themes/forma")).default);
             plugins.push((await import("fullcalendar/daygrid")).default);
             plugins.push((await import("fullcalendar/timegrid")).default);
             plugins.push((await import("fullcalendar/list")).default);
