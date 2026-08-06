@@ -4,9 +4,10 @@ import { createPopper, Instance, Placement, VirtualElement } from "@popperjs/cor
 import clsx from "clsx";
 import { ComponentChildren } from "preact";
 import { createPortal } from "preact/compat";
-import { useEffect, useRef } from "preact/hooks";
+import { useCallback, useEffect, useRef } from "preact/hooks";
 
 import { FLOATING_LAYER_SELECTOR, isWithinFloatingLayer } from "./floating_layers";
+import { useResizeObserver } from "./hooks";
 
 export interface PopoverProps {
     /**
@@ -93,6 +94,10 @@ export default function Popover({ getAnchorRect, placement, updateKey, className
     useEffect(() => {
         void popperRef.current?.update();
     }, [ updateKey ]);
+
+    // Placed again whenever what is placed changes size: what a popover holds arrives after it does
+    // — a note's editor mounting, its promoted attributes filling in — and Popper measures it once.
+    useResizeObserver(elRef, useCallback(() => void popperRef.current?.update(), []));
 
     useEffect(() => {
         if (!onDismiss) return;
