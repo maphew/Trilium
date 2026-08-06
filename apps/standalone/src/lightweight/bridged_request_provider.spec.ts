@@ -209,3 +209,59 @@ describe("BridgedRequestProvider.getImage", () => {
         await expect(promise).rejects.toThrow("404 GET");
     });
 });
+
+describe("BridgedRequestProvider.fetchResource", () => {
+    it("asks the native side for the bytes and reports what they came under", async () => {
+        const provider = new BridgedRequestProvider();
+        const promise = provider.fetchResource("https://example.com/p", {
+            maxBytes: 1000,
+            headers: { "user-agent": "TriliumNotes" }
+        });
+
+        expect(lastPosted().request).toMatchObject({
+            method: "GET",
+            url: "https://example.com/p",
+            headers: { "user-agent": "TriliumNotes" },
+            responseType: "arraybuffer"
+        });
+
+        respond({ status: 200, headers: { "content-type": "text/html; charset=utf-8" }, body: btoa("<html/>") });
+
+        await expect(promise).resolves.toEqual({
+            status: 200,
+            ok: true,
+            contentType: "text/html",
+            bytes: new TextEncoder().encode("<html/>")
+        });
+    });
+
+    it("answers a non-2xx rather than throwing, the page having said something", async () => {
+        const provider = new BridgedRequestProvider();
+        const promise = provider.fetchResource("https://example.com/gone", { maxBytes: 1000 });
+
+        respond({ status: 404, headers: {}, body: btoa("nope") });
+
+        await expect(promise).resolves.toMatchObject({ status: 404, ok: false, contentType: "" });
+    });
+
+    it("refuses an address before anything is posted for it", async () => {
+        const provider = new BridgedRequestProvider();
+        const posted = postSpy.mock.calls.length;
+
+        await expect(provider.fetchResource("file:///etc/passwd", { maxBytes: 10 })).rejects.toThrow(/http and https/);
+        expect(postSpy.mock.calls.length).toBe(posted);
+    });
+
+    /**
+     * The ceiling is checked on what arrived rather than on what is arriving — a native transport
+     * hands over a whole response, so there is no stream to abandon. It still has to hold.
+     */
+    it("refuses a body over the ceiling once it is back", async () => {
+        const provider = new BridgedRequestProvider();
+        const promise = provider.fetchResource("https://example.com/big", { maxBytes: 10 });
+
+        respond({ status: 200, headers: {}, body: btoa("x".repeat(50)) });
+
+        await expect(promise).rejects.toThrow(/exceeds the 10 byte limit/);
+    });
+});

@@ -1,4 +1,5 @@
-import type { ExecOpts, RequestProvider } from "@triliumnext/core";
+import type { ExecOpts, FetchedResource, FetchResourceOpts, RequestProvider } from "@triliumnext/core";
+import { validateFetchableUrl } from "@triliumnext/core/src/services/request.js";
 
 /**
  * A RequestProvider that delegates HTTP requests to the main thread via postMessage.
@@ -150,5 +151,55 @@ export default class BridgedRequestProvider implements RequestProvider {
         const binary = atob(msg.body);
         const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
         return bytes.buffer;
+    }
+
+    /**
+     * Fetches a third-party resource over the native transport, which is the whole reason this
+     * provider exists: the cross-origin hop happens outside the WebView, so a page that sends no
+     * CORS headers — which is nearly every page worth previewing — can still be read.
+     *
+     * Two things the server's implementation has are missing here, and neither can be had:
+     *
+     * - The body arrives whole, so `maxBytes` is enforced on what came back rather than on what is
+     *   still coming. A native transport hands over a complete response; there is no stream to
+     *   abandon partway. The ceiling still holds, it is just paid for before it is checked.
+     * - Nothing resolves the hostname, so the private-address check cannot be made and DNS
+     *   rebinding has no meaning here anyway. What is left is {@link validateFetchableUrl}, and
+     *   the reason that is enough: this transport runs on the user's own device, reaching the
+     *   network that user is already on, at the address that user just pasted. The server's rule —
+     *   that note content is not entitled to the network its host can see — is about a host reached
+     *   by people who are not its owner, which is not this.
+     */
+    async fetchResource(resourceUrl: string, opts: FetchResourceOpts): Promise<FetchedResource> {
+        const validated = validateFetchableUrl(resourceUrl).toString();
+        const id = String(this.nextId++);
+
+        const msg = await new Promise<any>((resolve, reject) => {
+            this.pending.set(id, { resolve, reject });
+
+            (self as unknown as Worker).postMessage({
+                type: "HTTP_REQUEST",
+                id,
+                request: {
+                    method: "GET",
+                    url: validated,
+                    headers: opts.headers ?? {},
+                    responseType: "arraybuffer"
+                }
+            });
+        });
+
+        const binary = atob(msg.body ?? "");
+
+        if (binary.length > opts.maxBytes) {
+            throw new Error(`Response exceeds the ${opts.maxBytes} byte limit`);
+        }
+
+        return {
+            status: msg.status,
+            ok: msg.status >= 200 && msg.status < 300,
+            contentType: (msg.headers?.["content-type"] ?? "").split(";")[0].trim().toLowerCase(),
+            bytes: Uint8Array.from(binary, (c) => c.charCodeAt(0))
+        };
     }
 }

@@ -5,6 +5,7 @@ import { getContext } from "./context.js";
 import { downloadImages, downloadPictureToAttachment, storeLinkPreviewPictures } from "./image_download.js";
 import noteService from "./notes.js";
 import optionService from "./options.js";
+import { fakeRequestProvider } from "../test/request_provider.js";
 import { initRequest } from "./request.js";
 
 /**
@@ -49,8 +50,7 @@ let asked: string[] = [];
 let answerWith: (url: string) => Buffer | undefined = () => PIXEL_PNG;
 
 beforeAll(() => {
-    initRequest({
-        exec: async () => { throw new Error("Not used by these tests."); },
+    initRequest(fakeRequestProvider({
         getImage: async (url: string) => {
             asked.push(url);
             const bytes = answerWith(url);
@@ -61,14 +61,11 @@ beforeAll(() => {
 
             return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
         }
-    });
+    }));
 });
 
 afterAll(() => {
-    initRequest({
-        exec: async () => { throw new Error("Request provider not initialized. Call initRequest() first."); },
-        getImage: async () => { throw new Error("Request provider not initialized. Call initRequest() first."); }
-    });
+    initRequest(fakeRequestProvider());
 });
 
 beforeEach(() => {
