@@ -39,14 +39,18 @@
     --fc-forma-strong-border: color-mix(in srgb, var(--main-text-color) 35%, transparent);
 
     /*
-     * Primary: what Forma marks today with, and draws the now-indicator and pressed buttons in.
-     * Its "over" and "down" steps darken on a light theme and lighten on a dark one — which is,
-     * again, what mixing the text colour in gives for nothing.
+     * Primary is what Forma marks today with, and draws the now-indicator and focus rings in. The
+     * link colour is the only accent Trilium names, the rest of its palette being neutral, but
+     * spending it here would colour a day header as though it were a link — so the emphasis is
+     * carried by the text colour instead, the same black the chips already lead with.
+     *
+     * The "over" and "down" steps sit either side of it for pressed states, and the foreground is
+     * the page colour, which contrasts with the text colour by construction in either theme.
      */
-    --fc-forma-primary: var(--link-color);
-    --fc-forma-primary-over: color-mix(in srgb, var(--link-color) 85%, var(--main-text-color));
-    --fc-forma-primary-down: color-mix(in srgb, var(--link-color) 70%, var(--main-text-color));
-    --fc-forma-primary-foreground: var(--active-item-text-color);
+    --fc-forma-primary: var(--main-text-color, #030712);
+    --fc-forma-primary-over: color-mix(in srgb, var(--fc-forma-primary) 85%, var(--main-background-color));
+    --fc-forma-primary-down: color-mix(in srgb, var(--fc-forma-primary) 70%, var(--main-background-color));
+    --fc-forma-primary-foreground: var(--main-background-color);
 
     /*
      * Events, read through the same calendar-specific variables the collection already honours so
