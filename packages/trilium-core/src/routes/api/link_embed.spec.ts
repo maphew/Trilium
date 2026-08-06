@@ -1,18 +1,15 @@
 import { extractYouTubeVideoId } from "@triliumnext/commons";
-import { ValidationError } from "@triliumnext/core";
-import imageService from "@triliumnext/core/src/services/image.js";
 import type { Request } from "express";
 import { Jimp } from "jimp";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
+import { ValidationError } from "../../errors.js";
+import imageService from "../../services/image.js";
+import { getImageProvider, type ImageProvider, initImageProvider } from "../../services/image_provider.js";
+import { initRequest, readCappedResponse } from "../../services/request.js";
+import { fakeRequestProvider } from "../../test/request_provider.js";
+
 const safeFetch = vi.hoisted(() => vi.fn());
-
-vi.mock("../../services/safe_fetch.js", () => ({
-    // Bypass SSRF/DNS checks in tests — just parse the URL.
-    validateUrl: (u: string) => new URL(u),
-    safeFetch: (...args: unknown[]) => safeFetch(...args)
-}));
-
 const saveImageToAttachment = vi.hoisted(() => vi.fn());
 const awaitImageWrite = vi.hoisted(() => vi.fn(async () => {}));
 
@@ -39,6 +36,16 @@ beforeEach(() => {
 
     vi.spyOn(imageService, "saveImageToAttachment").mockImplementation(saveImageToAttachment);
     vi.spyOn(imageService, "awaitImageWrite").mockImplementation(awaitImageWrite);
+
+    installResizer(resizeWithJimp);
+
+    // The route reaches the network through the request provider, so that is where the network is
+    // stood in for. Only the getting of the response is faked: what the tests hand back goes through
+    // the real readCappedResponse, so the ceilings and the content-type handling under test here are
+    // the ones that will run in production rather than a second implementation of them.
+    initRequest(fakeRequestProvider({
+        fetchResource: async (url, opts) => readCappedResponse(await safeFetch(url, opts), opts.maxBytes)
+    }));
 });
 
 /** What was handed to the attachment store under a given role, if anything was. */
@@ -48,36 +55,90 @@ function stored(role: "favicon" | "coverImage") {
     return call ? { buffer: Buffer.from(call[1] as Uint8Array), fileName: call[2] as string } : undefined;
 }
 
-function oneShotReader(bytes: Buffer) {
-    let sent = false;
-    return {
-        async read() {
-            if (sent) return { done: true, value: undefined };
-            sent = true;
-            return { done: false, value: new Uint8Array(bytes) };
-        },
-        async cancel() {}
-    };
+/**
+ * Puts a known resizer behind the route.
+ *
+ * This spec runs under both test projects, and they install different image providers — the server's
+ * decodes, standalone's has no decoder at all. Left to whichever one the runtime bootstrapped, half
+ * these tests would assert a resize under one and its absence under the other. So the provider is
+ * chosen here instead, and what the route does with each kind of answer is tested deliberately
+ * rather than by whichever project happened to run it.
+ */
+function installResizer(resizeForPreview: ImageProvider["resizeForPreview"]) {
+    initImageProvider({ ...getImageProvider(), resizeForPreview });
 }
 
+/**
+ * A resizer that really resizes, standing in for the platform implementation.
+ *
+ * Deliberately the same shape as the server's, since that is what the route is written against. It
+ * is not the same code: the real one lives in the server package with Jimp, along with its own
+ * tests. What is under test here is the route's handling of an answer, not the making of one.
+ */
+const resizeWithJimp: ImageProvider["resizeForPreview"] = async (bytes, { maxEdge, jpegQuality }) => {
+    try {
+        const image = await Jimp.fromBuffer(Buffer.from(bytes));
+
+        if (image.bitmap.width > maxEdge || image.bitmap.height > maxEdge) {
+            image.scaleToFit({ w: maxEdge, h: maxEdge });
+        }
+
+        return {
+            resized: true,
+            bytes: new Uint8Array(image.hasAlpha()
+                ? await image.getBuffer("image/png")
+                : await image.getBuffer("image/jpeg", { quality: jpegQuality }))
+        };
+    } catch {
+        return { resized: false, reason: "undecodable" };
+    }
+};
+
+/** What a runtime with no decoder answers — standalone, and the server for a format Jimp refuses. */
+const noResizer: ImageProvider["resizeForPreview"] = async () => ({
+    resized: false,
+    reason: "unsupported-platform"
+});
+
+/**
+ * What a site answers with, as a real `Response` — so the reading of it is the real reading of it.
+ *
+ * `json` is a convenience for an oEmbed answer: the payload *is* the JSON, since that is what the
+ * route now parses rather than asking a response object to do it.
+ */
 function fakeResponse(payload: string | Buffer, opts: { ok?: boolean; contentType?: string; json?: unknown } = {}) {
-    const buf = Buffer.isBuffer(payload) ? payload : Buffer.from(payload);
-    const headers: Record<string, string | null> = {
-        "content-type": opts.contentType ?? "text/html",
-        "content-length": String(buf.byteLength)
-    };
-    return {
-        ok: opts.ok ?? true,
+    const body = opts.json !== undefined ? Buffer.from(JSON.stringify(opts.json)) : Buffer.from(payload);
+
+    return new Response(body, {
         status: opts.ok === false ? 500 : 200,
-        headers: { get: (h: string) => headers[h.toLowerCase()] ?? null },
-        body: { getReader: () => oneShotReader(buf) },
-        json: async () => opts.json
-    };
+        headers: {
+            "content-type": opts.contentType ?? "text/html",
+            "content-length": String(body.byteLength)
+        }
+    });
 }
 
 /** A real, decodable PNG so the image pipeline runs for true rather than against a mock. */
 async function makePng(width: number, height: number, color: number) {
     const image = new Jimp({ width, height, color });
+    return Buffer.from(await image.getBuffer("image/png"));
+}
+
+/**
+ * A PNG that is genuinely large, for the ceilings that are about bytes rather than pixels.
+ *
+ * Noise, because a flat colour of any dimensions compresses to a few KB — a 2000x2000 one lands
+ * under even the 100KB verbatim cap, so a test written with one would pass while proving nothing.
+ */
+async function makeNoisyPng(edge: number) {
+    const image = new Jimp({ width: edge, height: edge, color: 0x000000ff });
+
+    for (let i = 0; i < image.bitmap.data.length; i += 4) {
+        image.bitmap.data[i] = (i * 7919) % 256;
+        image.bitmap.data[i + 1] = (i * 104729) % 256;
+        image.bitmap.data[i + 2] = (i * 15485863) % 256;
+    }
+
     return Buffer.from(await image.getBuffer("image/png"));
 }
 
@@ -299,6 +360,41 @@ describe("link-embed getMetadata", () => {
         it("does not embed a non-image response served in place of the image", async () => {
             serveImage({ payload: "<html>404</html>", contentType: "text/html" });
             expect(await imageOf()).toBeUndefined();
+        });
+
+        /**
+         * The runtime with no decoder — standalone, where there is no image library at all. The
+         * preview must survive it: a cover small enough to keep is kept exactly as it arrived, which
+         * is still stored rather than hotlinked, and one too large is dropped so a note does not
+         * take a megabyte of someone else's picture to show a card.
+         *
+         * This is the same path the server already takes for a WebP its own decoder refuses, which
+         * is why there is no third behaviour to write — only a second runtime reaching the second.
+         */
+        describe("where nothing can scale the picture", () => {
+            beforeEach(() => installResizer(noResizer));
+
+            it("keeps a cover image of a storable size exactly as it arrived", async () => {
+                const png = await makePng(400, 400, 0x336699ff);
+                serveImage({ payload: png, contentType: "image/png" });
+
+                const image = await imageOf();
+                expect(image?.fileName).toMatch(/\.png$/);
+                // Unscaled and byte-for-byte what the site served.
+                expect(image?.buffer.equals(png)).toBe(true);
+            });
+
+            it("drops a cover image too large to keep unscaled, leaving the rest of the preview", async () => {
+                // Noise rather than a flat colour: a solid 2000x2000 PNG compresses to a few KB and
+                // would sail under the verbatim cap this is about.
+                serveImage({ payload: await makeNoisyPng(600), contentType: "image/png" });
+
+                expect(await imageOf()).toBeUndefined();
+
+                const result = await linkEmbedRoute.getMetadata(req("https://example.com/page"));
+                expect(result.unresolved).toBeFalsy();
+                expect(result.title).toBeTruthy();
+            });
         });
     });
 
@@ -680,14 +776,13 @@ describe("link-embed getMetadata", () => {
 
     it("treats a bodyless or content-type-less page response as unresolved", async () => {
         // No body: there is no HTML to read, so the page names itself nowhere.
-        safeFetch.mockResolvedValue({ ...fakeResponse("<html><head><title>T</title></head></html>"), body: undefined });
+        safeFetch.mockResolvedValue(new Response(null, { headers: { "content-type": "text/html" } }));
         let result = await linkEmbedRoute.getMetadata(req("https://example.com/page"));
         expect(result.unresolved).toBe(true);
 
-        // No content-type header at all: not provably HTML, same as a wrong content type.
-        const response = fakeResponse("<html><head><title>T</title></head></html>");
-        response.headers = { get: () => null };
-        safeFetch.mockResolvedValue(response);
+        // No content-type header at all: not provably HTML, same as a wrong content type. A byte
+        // body is what makes that reachable — a string one would have fetch name it text/plain.
+        safeFetch.mockResolvedValue(new Response(Buffer.from("<html><head><title>T</title></head></html>")));
         result = await linkEmbedRoute.getMetadata(req("https://example.com/page"));
         expect(result.unresolved).toBe(true);
     });

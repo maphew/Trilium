@@ -34,6 +34,7 @@ import backendLogRoute from "./api/backend_log";
 import backupRoute from "./api/backup";
 import passwordApiRoute from "./api/password";
 import loginApiRoute from "./api/login";
+import linkEmbedRoute from "./api/link_embed";
 
 // TODO: Deduplicate with routes.ts
 const GET = "get",
@@ -141,6 +142,10 @@ export function buildSharedApiRoutes({ route, asyncRoute, apiRoute, asyncApiRout
     apiRoute(PST, "/api/image-compression/:taskId/cancel", imageRoute.cancelImageCompression);
     asyncApiRoute(PST, "/api/attachments/:attachmentId/compress-image", imageRoute.compressAttachmentImage);
     asyncRoute(PST, "/api/notes/:noteId/attachments/upload", [checkApiAuthOrElectron, uploadMiddlewareWithErrorHandling, csrfMiddleware], attachmentsApiRoute.uploadAttachment, apiResultHandler);
+
+    // POSTed rather than taking the URL in a query string: a link can carry a one-time token or a
+    // signature, and a query string ends up in every access log along the way.
+    asyncApiRoute(PST, "/api/link-embed/metadata", linkEmbedRoute.getMetadata);
 
     // group of the services below are meant to be executed from the outside
     route(GET, "/api/setup/status", [], setupApiRoute.getStatus, apiResultHandler);

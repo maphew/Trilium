@@ -5,18 +5,22 @@ import {
     linkPreviewImageName,
     safeHostname
 } from "@triliumnext/commons";
-import { getLog, imageService, ValidationError } from "@triliumnext/core";
-import { trimIcoToSmallestEntry } from "@triliumnext/core/src/services/ico.js";
-import { storePictureBytes } from "@triliumnext/core/src/services/image_download.js";
-import { type InspectedImage, inspectImage, UNKNOWN_FORMAT } from "@triliumnext/core/src/services/image_inspect.js";
-import { getImageProvider } from "@triliumnext/core/src/services/image_provider.js";
-import { findPageDescription } from "@triliumnext/core/src/services/page_description.js";
 import type { Request } from "express";
 import { parse } from "node-html-parser";
 
-import { safeFetch, validateUrl } from "../../services/safe_fetch.js";
+import { ValidationError } from "../../errors.js";
+import { trimIcoToSmallestEntry } from "../../services/ico.js";
+import imageService from "../../services/image.js";
+import { storePictureBytes } from "../../services/image_download.js";
+import { type InspectedImage, inspectImage, UNKNOWN_FORMAT } from "../../services/image_inspect.js";
+import { getImageProvider } from "../../services/image_provider.js";
+import { getLog } from "../../services/log.js";
+import { findPageDescription } from "../../services/page_description.js";
+import request, { type FetchedResource, validateFetchableUrl } from "../../services/request.js";
 
 const MAX_RESPONSE_SIZE = 512 * 1024; // 512KB
+/** An oEmbed answer is a handful of fields; anything approaching this is not one. */
+const MAX_OEMBED_SIZE = 64 * 1024; // 64KB
 
 /**
  * How much of a favicon to fetch.
@@ -69,82 +73,38 @@ const MAX_ICON_CANDIDATES = 3;
 const MAX_FAVICON_CANDIDATES = 3;
 
 /**
- * Reads the response body as text, stopping after maxBytes to avoid
- * buffering arbitrarily large responses into memory.
+ * A fetched resource read as text.
+ *
+ * Decoded as UTF-8 without exception, which is what the previous streaming read did as well. A page
+ * declaring some other encoding comes out mangled in its non-ASCII characters — but the tags this
+ * reads are ASCII, so it still finds them, and the alternative is carrying a charset decoder for the
+ * sake of a title that is occasionally accented.
  */
-async function readResponseText(response: Response, maxBytes: number): Promise<string> {
-    const reader = response.body?.getReader();
-    if (!reader) return "";
-
-    const decoder = new TextDecoder();
-    let result = "";
-    let bytesRead = 0;
-
-    while (bytesRead < maxBytes) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        bytesRead += value.byteLength;
-        result += decoder.decode(value, { stream: true });
-    }
-
-    void reader.cancel();
-    return result.slice(0, maxBytes);
+function asText({ bytes }: FetchedResource): string {
+    return new TextDecoder().decode(bytes);
 }
 
 /**
- * Downloads a binary resource, refusing anything over `maxBytes` — both up front, when the server
- * advertises the size, and while streaming, when it does not.
- * Returns undefined if the download fails or the resource is too large.
+ * Downloads a binary resource, or nothing where it could not be had.
+ *
+ * The ceiling, the streaming and the vetting of the address all belong to the request provider now,
+ * which is what lets this run on a runtime with no Node in it. What is left here is the one decision
+ * that is this route's rather than the transport's: a preview would rather go without a picture than
+ * fail, so every way of not getting one collapses to the same absence.
+ *
+ * `defaultContentType` stands in where a server named none — an `.ico` is routinely served as
+ * `application/octet-stream`, or as nothing at all.
  */
 async function downloadBinary(url: string, maxBytes: number, defaultContentType: string): Promise<{ bytes: Uint8Array; contentType: string } | undefined> {
     try {
-        const response = await safeFetch(url);
+        const response = await request.fetchResource(url, { maxBytes });
 
         if (!response.ok) return undefined;
 
-        // Bail early if the server advertises a size over the limit
-        const contentLength = response.headers.get("content-length");
-        if (contentLength && parseInt(contentLength, 10) > maxBytes) return undefined;
-
-        const contentType = (response.headers.get("content-type") || defaultContentType).split(";")[0];
-
-        // Stream the body and enforce the size limit during download
-        const reader = response.body?.getReader();
-        if (!reader) return undefined;
-
-        const chunks: Uint8Array[] = [];
-        let bytesRead = 0;
-
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            bytesRead += value.byteLength;
-            if (bytesRead > maxBytes) {
-                void reader.cancel();
-                return undefined;
-            }
-            chunks.push(value);
-        }
-
-        return { bytes: concatChunks(chunks, bytesRead), contentType };
+        return { bytes: response.bytes, contentType: response.contentType || defaultContentType };
     } catch {
         return undefined;
     }
-}
-
-/** Joins the pieces a streamed body arrived in into the single buffer the rest of the code wants. */
-function concatChunks(chunks: Uint8Array[], totalLength: number): Uint8Array {
-    const joined = new Uint8Array(totalLength);
-    let offset = 0;
-
-    for (const chunk of chunks) {
-        joined.set(chunk, offset);
-        offset += chunk.byteLength;
-    }
-
-    return joined;
 }
 
 /** A picture that has been fetched and identified, but not yet stored anywhere. */
@@ -372,7 +332,7 @@ function collectIconCandidates(document: ReturnType<typeof parse>, pageUrl: stri
     candidates.sort((a, b) => b.size - a.size);
 
     const urls = candidates.map((candidate) => candidate.url);
-    // `pageUrl` already passed validateUrl, so resolving the conventional path against it cannot fail.
+    // `pageUrl` already passed validateFetchableUrl, so resolving the conventional path against it cannot fail.
     const conventional = new URL("/apple-touch-icon.png", pageUrl).toString();
     if (!urls.includes(conventional)) {
         urls.push(conventional);
@@ -454,7 +414,7 @@ function collectFaviconCandidates(document: ReturnType<typeof parse>, pageUrl: s
     const urls = [ ...new Set(candidates.map((candidate) => candidate.url)) ].slice(0, MAX_FAVICON_CANDIDATES);
 
     // Every site is entitled to serve this whether it declares it or not, so it is the last resort
-    // rather than one of the ranked candidates. `pageUrl` already passed validateUrl, so it forms a
+    // rather than one of the ranked candidates. `pageUrl` already passed validateFetchableUrl, so it forms a
     // URL. Appended after the cap, never dropped by it.
     const conventional = new URL("/favicon.ico", pageUrl).toString();
     if (!urls.includes(conventional)) {
@@ -530,11 +490,11 @@ async function fetchYouTubeMetadata(url: string, videoId: string): Promise<Fetch
 
     try {
         const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
-        const response = await safeFetch(oembedUrl);
+        const response = await request.fetchResource(oembedUrl, { maxBytes: MAX_OEMBED_SIZE });
 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-        const data = await response.json();
+        const data = JSON.parse(asText(response));
         if (data.title) metadata.title = data.title;
         if (data.author_name) metadata.description = data.author_name;
         if (data.thumbnail_url) thumbnailUrl = data.thumbnail_url;
@@ -548,7 +508,8 @@ async function fetchYouTubeMetadata(url: string, videoId: string): Promise<Fetch
 }
 
 async function fetchOpenGraphData(url: string) {
-    const response = await safeFetch(url, {
+    const response = await request.fetchResource(url, {
+        maxBytes: MAX_RESPONSE_SIZE,
         headers: {
             "User-Agent": "TriliumNotes/1.0 (Link Preview; +https://triliumnotes.org/)",
             "Accept": "text/html"
@@ -557,13 +518,12 @@ async function fetchOpenGraphData(url: string) {
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-    const contentType = response.headers.get("content-type") || "";
+    const { contentType } = response;
     if (!contentType.includes("text/html") && !contentType.includes("application/xhtml+xml")) {
         throw new Error(`Unexpected Content-Type: ${contentType}`);
     }
 
-    const html = await readResponseText(response, MAX_RESPONSE_SIZE);
-    const document = parse(html);
+    const document = parse(asText(response));
 
     const getMeta = (property: string): string | undefined => {
         const ogEl = document.querySelector(`meta[property="${property}"]`);
@@ -618,7 +578,7 @@ async function getMetadata(req: Request) {
         throw new ValidationError("'noteId' is required");
     }
 
-    const validatedUrl = validateUrl(urlParam);
+    const validatedUrl = validateFetchableUrl(urlParam);
     const url = validatedUrl.toString();
     const videoId = extractYouTubeVideoId(url);
 
