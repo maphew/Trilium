@@ -18,7 +18,7 @@ import EventDatesEditor from "./EventDatesEditor";
 import { EventFieldList } from "./EventField";
 import { useEventLabelOmissions } from "./hooks";
 import RecurrenceEditor from "./RecurrenceEditor";
-import { AnchorPoint } from "./selection";
+import { AnchorPoint, narrowAnchorRect } from "./selection";
 
 /**
  * The whole of an event: the note's title, its own fields — when it happens, how it repeats — its
@@ -290,6 +290,9 @@ function EventDetailsBody({ note, parentNote, isEditable, onClose }: {
  * row, so the one under the click is the one pointed at, falling back to the first drawn, and to
  * the bare click point where no chip is on the grid at all. Read afresh on every reposition (see
  * Popover), so the popover follows the chip through scrolls and redraws.
+ *
+ * A chip too wide to be stood beside — an event spanning the whole week, which is drawn the width
+ * of the grid — is narrowed to the click within it (see {@link narrowAnchorRect}).
  */
 function eventAnchorRect(container: HTMLElement | null, noteId: string, point: AnchorPoint | null): DOMRect {
     const chips = container?.querySelectorAll<HTMLElement>(`[data-event-note-id="${CSS.escape(noteId)}"]`);
@@ -305,7 +308,7 @@ function eventAnchorRect(container: HTMLElement | null, noteId: string, point: A
                 }
             }
         }
-        return (pick ?? chips[0]).getBoundingClientRect();
+        return narrowAnchorRect((pick ?? chips[0]).getBoundingClientRect(), point);
     }
 
     return new DOMRect(point?.x ?? 0, point?.y ?? 0, 0, 0);
