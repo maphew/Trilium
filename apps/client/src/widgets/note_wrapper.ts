@@ -78,6 +78,9 @@ export default class NoteWrapperWidget extends FlexContainer<BasicWidget> {
         const noteId = this.noteContext?.noteId;
         if (
             loadResults.isNoteReloaded(noteId) ||
+            // The direction of a note carrying no `#language` comes from this option, so a change to it
+            // has to repaint the `rtl` class the same way a change to the label would.
+            loadResults.isOptionReloaded("defaultContentLanguage") ||
             loadResults.getAttributeRows().find((attr) => attr.type === "label" && LABELS_CAUSING_REFRESH.includes(attr.name ?? "") && attributeService.isAffecting(attr, this.noteContext?.note))
         ) {
             this.refresh();

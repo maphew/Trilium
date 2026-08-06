@@ -279,11 +279,9 @@ interface EditableReplacement extends CustomReplacement {
  * it stands — {@link buildCustomTransformations} ignores a pair with either side blank — so nothing
  * the user is in the middle of typing is thrown away or acts before it is finished.
  */
-function CustomReplacements() {
+export function CustomReplacements() {
     const [ storedJson, setStoredJson ] = useTriliumOption("textNoteCustomReplacements");
-    const [ rows, setRows ] = useState<EditableReplacement[]>(
-        () => parseCustomReplacements(storedJson).map((replacement) => ({ ...replacement, id: randomString(8) }))
-    );
+    const [ rows, setRows ] = useState<EditableReplacement[]>(() => toRows(storedJson));
     // The row to put the caret in once it has rendered — the one just added, and nothing afterwards.
     const [ focusedId, setFocusedId ] = useState<string>();
 
@@ -292,8 +290,21 @@ function CustomReplacements() {
     const rowsRef = useRef(rows);
     rowsRef.current = rows;
 
+    // What we last wrote ourselves. Anything else the option becomes arrived from outside — another
+    // device, or a second settings tab — and has to replace what is on screen: without this the rows
+    // would keep their first value and the next blur would write it back over the newer list.
+    const ownWrite = useRef(storedJson);
+
+    useEffect(() => {
+        if (storedJson === ownWrite.current) return;
+        ownWrite.current = storedJson;
+        setRows(toRows(storedJson));
+    }, [ storedJson ]);
+
     function persist(next: EditableReplacement[]) {
-        void setStoredJson(JSON.stringify(next.map(({ from, to }) => ({ from, to }))));
+        const json = JSON.stringify(next.map(({ from, to }) => ({ from, to })));
+        ownWrite.current = json;
+        void setStoredJson(json);
     }
 
     function editRow(id: string, changes: Partial<CustomReplacement>) {
@@ -352,6 +363,11 @@ function CustomReplacements() {
             />
         </div>
     );
+}
+
+/** The stored pairs as editable rows, each given a key its neighbours moving cannot disturb. */
+function toRows(storedJson: string): EditableReplacement[] {
+    return parseCustomReplacements(storedJson).map((replacement) => ({ ...replacement, id: randomString(8) }));
 }
 
 function Editor() {

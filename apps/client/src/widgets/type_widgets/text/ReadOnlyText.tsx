@@ -141,7 +141,10 @@ function useNoteLanguage(note: FNote) {
     const [ language ] = useNoteLabel(note, "language");
     // Resolved rather than read straight off the label, so a note with no language of its own still
     // lays out the way the default content language says it should.
-    const isRtl = useMemo(() => isContentRightToLeft(language), [ language ]);
+    // The default is subscribed to as well: `isContentRightToLeft` reads the options store directly,
+    // so without it a note carrying no label of its own would keep its old direction until reopened.
+    const [ defaultContentLanguage ] = useTriliumOption("defaultContentLanguage");
+    const isRtl = useMemo(() => isContentRightToLeft(language), [ language, defaultContentLanguage ]);
     return { isRtl };
 }
 
