@@ -94,6 +94,7 @@
  */
 .calendar-view .calendar-event.with-hue {
     border-color: var(--custom-color);
+    color: var(--custom-color);
     background: hsl(var(--custom-color-hue),
                     var(--calendar-coll-event-background-saturation, 80%),
                     var(--calendar-coll-event-background-lightness, 95%));
