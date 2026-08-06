@@ -1,0 +1,343 @@
+import { ConflictError, NotFoundError, utils as coreUtils, ValidationError } from "@triliumnext/core";
+import { Mutex } from "async-mutex";
+import type { Request } from "express";
+import { createWriteStream } from "fs";
+import fsp from "fs/promises";
+import path from "path";
+import { pipeline } from "stream/promises";
+
+/**
+ * Receives a large file as a sequence of appended chunks, so that an upload measured in gigabytes
+ * survives what a single request would not: a proxy's body limit, a request timeout, a dropped
+ * connection, and a progress bar that has nothing to report until the very end.
+ *
+ * The protocol is one rule: a chunk states the offset it belongs at, and that offset must equal how
+ * much the server has already received. Sparse writes, duplicated chunks and two clients writing to
+ * one session all fail that check, and a client that lost a response only has to ask where the file
+ * got to and carry on from there.
+ *
+ * Nothing here knows what the file is for. A consumer supplies {@link ChunkedUploadConfig.onComplete},
+ * which is handed the assembled file and takes ownership of it.
+ *
+ * @example Mounting an upload endpoint
+ * ```ts
+ * const upload = createChunkedUpload({
+ *     name: "restore",
+ *     directory: path.join(dataDirs.TMP_DIR, "uploads"),
+ *     maxTotalBytes: 64 * 1024 * 1024 * 1024,
+ *     onComplete: async ({ path: uploadedPath }) => restoreService.stage(uploadedPath)
+ * });
+ *
+ * asyncRoute(PST, "/api/setup/restore/upload/begin", [guard], upload.begin, apiResultHandler);
+ * ```
+ *
+ * @module
+ */
+
+/** Chunk size advertised to clients, chosen to stay under the body limit of a typical reverse proxy. */
+export const DEFAULT_CHUNK_SIZE = 32 * 1024 * 1024;
+
+const DEFAULT_SESSION_TTL_MS = 60 * 60 * 1000;
+const SWEEP_INTERVAL_MS = 5 * 60 * 1000;
+
+/** The assembled file, handed to the consumer once every byte is in. */
+export interface CompletedUpload {
+    /**
+     * Where the file is. The consumer **takes ownership**: it may rename the file into place, read
+     * it, or delete it, and the upload no longer tracks it. Renaming within the same filesystem is
+     * what keeps a multi-gigabyte upload from being copied a second time.
+     */
+    path: string;
+    /** The name the client gave the file, reduced to a base name. */
+    fileName: string;
+    totalBytes: number;
+    /** Whatever the client sent to `begin`, passed through untouched. */
+    metadata: Record<string, unknown>;
+}
+
+export interface ChunkedUploadConfig<T> {
+    /** Identifies this upload's files and log lines; also its subdirectory. */
+    name: string;
+    /** Where partial uploads are kept. Created if missing. */
+    directory: string;
+    /** Refuses anything larger, before a byte is written. */
+    maxTotalBytes: number;
+    /** Advertised to the client by `begin`; defaults to {@link DEFAULT_CHUNK_SIZE}. */
+    chunkSize?: number;
+    /** How long a session survives without activity. Defaults to an hour. */
+    sessionTtlMs?: number;
+    /** Sessions that may be open at once. Defaults to one. */
+    maxConcurrentSessions?: number;
+    /**
+     * Checks the filesystem has room for the whole file before accepting it, so an upload that
+     * cannot possibly fit fails at the start rather than after hours.
+     */
+    requireFreeSpace?: boolean;
+    /** Called once the file is complete. See {@link CompletedUpload} on ownership. */
+    onComplete(upload: CompletedUpload): Promise<T>;
+}
+
+/** What a client is told about a session, whether it is starting one or resuming one. */
+export interface ChunkedUploadStatus {
+    uploadId: string;
+    fileName: string;
+    totalBytes: number;
+    receivedBytes: number;
+    /** Size of the chunks the client should send. */
+    chunkSize: number;
+    /** When the session is dropped if nothing more arrives, as a Unix timestamp in milliseconds. */
+    expiresAt: number;
+}
+
+export interface ChunkedUpload<T> {
+    begin(req: Request): Promise<ChunkedUploadStatus>;
+    chunk(req: Request): Promise<ChunkedUploadStatus>;
+    status(req: Request): Promise<ChunkedUploadStatus>;
+    finish(req: Request): Promise<T>;
+    abort(req: Request): Promise<void>;
+    /** Drops expired sessions and any partial file left behind by an earlier run. */
+    sweep(): Promise<void>;
+    /** Stops the sweep timer. For tests, and for a shutdown that wants to be tidy. */
+    stop(): void;
+}
+
+/**
+ * Builds a set of request handlers implementing the chunked upload protocol.
+ *
+ * The handlers are plain route handlers returning their result, so they slot into `asyncRoute` with
+ * `apiResultHandler` like any other endpoint. Failures are thrown as {@link HttpError} subclasses,
+ * which the route layer turns into the matching status code.
+ */
+export function createChunkedUpload<T>(config: ChunkedUploadConfig<T>): ChunkedUpload<T> {
+    const chunkSize = config.chunkSize ?? DEFAULT_CHUNK_SIZE;
+    const sessionTtlMs = config.sessionTtlMs ?? DEFAULT_SESSION_TTL_MS;
+    const maxConcurrentSessions = config.maxConcurrentSessions ?? 1;
+    const directory = path.resolve(config.directory, config.name);
+    const sessions = new Map<string, Session>();
+
+    // Unreferenced so neither a test nor a shutdown waits on it.
+    const timer = setInterval(() => void sweep(), SWEEP_INTERVAL_MS);
+    timer.unref?.();
+
+    async function begin(req: Request): Promise<ChunkedUploadStatus> {
+        const { fileName, totalBytes, metadata } = (req.body ?? {}) as BeginBody;
+
+        // Before the count is checked, so an abandoned session never blocks the next one.
+        await sweep();
+
+        if (sessions.size >= maxConcurrentSessions) {
+            throw new ConflictError("Another upload is already in progress.");
+        }
+        if (typeof totalBytes !== "number" || !Number.isSafeInteger(totalBytes) || totalBytes <= 0) {
+            throw new ValidationError("The size of the upload must be stated as a positive integer.");
+        }
+        if (totalBytes > config.maxTotalBytes) {
+            throw new ValidationError(
+                `The upload is ${totalBytes} bytes, above the limit of ${config.maxTotalBytes}.`
+            );
+        }
+        if (config.requireFreeSpace) {
+            await requireRoomFor(directory, totalBytes);
+        }
+
+        await fsp.mkdir(directory, { recursive: true });
+
+        const uploadId = coreUtils.randomString(20);
+        const session: Session = {
+            uploadId,
+            // A base name, so a crafted name cannot reach outside the upload directory. Only ever
+            // handed back to the consumer; the file on disk is named after the session.
+            fileName: path.basename(String(fileName ?? "upload")),
+            totalBytes,
+            receivedBytes: 0,
+            metadata: (metadata ?? {}) as Record<string, unknown>,
+            path: path.join(directory, `${uploadId}.part`),
+            expiresAt: Date.now() + sessionTtlMs,
+            writing: new Mutex()
+        };
+
+        // Truncates any file left at this path, so a session always starts from nothing.
+        await fsp.writeFile(session.path, "");
+        sessions.set(uploadId, session);
+
+        return describe(session);
+    }
+
+    /**
+     * Appends one chunk. The request body is streamed straight to the file: buffering it would put a
+     * chunk of every concurrent upload in memory, which is the thing this protocol exists to avoid.
+     */
+    async function chunk(req: Request): Promise<ChunkedUploadStatus> {
+        const session = sessionFor(req);
+        const offset = Number(req.query.offset);
+
+        return session.writing.runExclusive(async () => {
+            if (!Number.isSafeInteger(offset) || offset < 0) {
+                throw new ValidationError("The offset of a chunk must be stated as an integer.");
+            }
+            if (offset !== session.receivedBytes) {
+                throw new ConflictError(
+                    `Chunk starts at ${offset}, but ${session.receivedBytes} bytes have been received.`
+                );
+            }
+
+            const destination = createWriteStream(session.path, { flags: "a" });
+            try {
+                await pipeline(req, destination);
+            } finally {
+                // Whether the chunk arrived whole or the connection dropped partway, what counts is
+                // what reached the disk. Reading it back is what lets a broken chunk be resumed from
+                // the exact byte it stopped at rather than being re-sent or, worse, double-written.
+                session.receivedBytes = (await fsp.stat(session.path)).size;
+                session.expiresAt = Date.now() + sessionTtlMs;
+            }
+
+            if (session.receivedBytes > session.totalBytes) {
+                await drop(session);
+                throw new ValidationError("The upload sent more bytes than it declared.");
+            }
+
+            return describe(session);
+        });
+    }
+
+    async function status(req: Request): Promise<ChunkedUploadStatus> {
+        return describe(sessionFor(req));
+    }
+
+    async function finish(req: Request): Promise<T> {
+        const session = sessionFor(req);
+
+        return session.writing.runExclusive(async () => {
+            if (session.receivedBytes !== session.totalBytes) {
+                throw new ConflictError(
+                    `The upload has ${session.receivedBytes} of ${session.totalBytes} bytes.`
+                );
+            }
+
+            // Ownership passes with the call, so the session goes first: the consumer is free to
+            // rename the file, and a sweep must not delete what is no longer ours.
+            sessions.delete(session.uploadId);
+
+            try {
+                return await config.onComplete({
+                    path: session.path,
+                    fileName: session.fileName,
+                    totalBytes: session.totalBytes,
+                    metadata: session.metadata
+                });
+            } catch (e) {
+                // The consumer may have taken the file or may have failed before touching it; either
+                // way nothing else will come back for it.
+                await fsp.rm(session.path, { force: true }).catch(() => {});
+                throw e;
+            }
+        });
+    }
+
+    async function abort(req: Request): Promise<void> {
+        await drop(sessionFor(req));
+    }
+
+    /**
+     * Drops what has expired, then anything in the directory no live session claims — which after a
+     * restart is everything, since sessions live only in memory while their files do not.
+     */
+    async function sweep(): Promise<void> {
+        const now = Date.now();
+        for (const session of [...sessions.values()]) {
+            if (session.expiresAt <= now) {
+                await drop(session);
+            }
+        }
+
+        let fileNames: string[];
+        try {
+            fileNames = await fsp.readdir(directory);
+        } catch {
+            return;
+        }
+
+        const live = new Set([...sessions.values()].map((session) => session.path));
+        for (const fileName of fileNames) {
+            const filePath = path.join(directory, fileName);
+            if (!live.has(filePath)) {
+                await fsp.rm(filePath, { force: true }).catch(() => {});
+            }
+        }
+    }
+
+    function sessionFor(req: Request): Session {
+        const session = sessions.get(String(req.params.uploadId));
+        if (!session) {
+            throw new NotFoundError("No such upload. It may have expired.");
+        }
+        return session;
+    }
+
+    async function drop(session: Session): Promise<void> {
+        sessions.delete(session.uploadId);
+        await fsp.rm(session.path, { force: true }).catch(() => {});
+    }
+
+    function describe(session: Session): ChunkedUploadStatus {
+        return {
+            uploadId: session.uploadId,
+            fileName: session.fileName,
+            totalBytes: session.totalBytes,
+            receivedBytes: session.receivedBytes,
+            chunkSize,
+            expiresAt: session.expiresAt
+        };
+    }
+
+    return {
+        begin,
+        chunk,
+        status,
+        finish,
+        abort,
+        sweep,
+        stop: () => clearInterval(timer)
+    };
+}
+
+interface Session {
+    uploadId: string;
+    fileName: string;
+    totalBytes: number;
+    receivedBytes: number;
+    metadata: Record<string, unknown>;
+    path: string;
+    expiresAt: number;
+    /** Serialises writes, so the offset a chunk is checked against is the one it is written at. */
+    writing: Mutex;
+}
+
+interface BeginBody {
+    fileName?: string;
+    totalBytes?: number;
+    metadata?: Record<string, unknown>;
+}
+
+/**
+ * Refuses an upload the filesystem cannot hold, which is worth knowing at the start of an hour-long
+ * transfer rather than at the end of one. A filesystem that cannot be measured is taken as roomy:
+ * the check is there to give a clear answer, not to become a new way to fail.
+ */
+async function requireRoomFor(directory: string, totalBytes: number): Promise<void> {
+    let available: number;
+    try {
+        const parent = path.dirname(directory);
+        const stats = await fsp.statfs(parent);
+        available = stats.bavail * stats.bsize;
+    } catch {
+        return;
+    }
+
+    if (available < totalBytes) {
+        throw new ValidationError(
+            `The upload needs ${totalBytes} bytes and only ${available} are free.`
+        );
+    }
+}

@@ -1,0 +1,261 @@
+import { writeBackupContainer } from "@triliumnext/backup-container";
+import { app_info as appInfo, getSql } from "@triliumnext/core";
+import Database from "better-sqlite3";
+import fs from "fs";
+import fsp from "fs/promises";
+import os from "os";
+import path from "path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+
+import {
+    exchangeDatabaseFiles,
+    getRestoreProgress,
+    readBackupFormat,
+    restoreDatabase,
+    RestoreFailure,
+    stageBackup
+} from "./database_restore.js";
+
+const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "trilium-restore-spec-"));
+let counter = 0;
+
+beforeEach(() => {
+    fs.rmSync(tempRoot, { recursive: true, force: true });
+    fs.mkdirSync(tempRoot, { recursive: true });
+});
+
+afterEach(() => vi.restoreAllMocks());
+
+/** A database that would pass validation, so a test can tell a rejected file from a rejected step. */
+function validDatabase(name = `db-${counter++}.db`) {
+    const filePath = path.join(tempRoot, name);
+    const db = new Database(filePath);
+    try {
+        for (const table of [ "options", "notes", "branches", "blobs" ]) {
+            db.exec(`CREATE TABLE ${table} (name TEXT, value TEXT)`);
+        }
+        const insert = db.prepare("INSERT INTO options (name, value) VALUES (?, ?)");
+        insert.run("initialized", "true");
+        insert.run("dbVersion", String(appInfo.dbVersion));
+    } finally {
+        db.close();
+    }
+
+    return filePath;
+}
+
+/** Wraps `source` the way a backup does, with the same writer the backup service uses. */
+async function containerOf(source: string, passphrase?: string, compress = false) {
+    const filePath = path.join(tempRoot, `backup-${counter++}.tnbackup`);
+
+    await writeBackupContainer(fs.createReadStream(source), fs.createWriteStream(filePath), {
+        compress,
+        passphrase,
+        plaintextSize: fs.statSync(source).size,
+        patchHeader: async (offset, data) => {
+            const handle = await fsp.open(filePath, "r+");
+            try {
+                await handle.write(data, 0, data.length, offset);
+            } finally {
+                await handle.close();
+            }
+        }
+    });
+
+    return filePath;
+}
+
+function fileWith(content: string, name = `file-${counter++}.bin`) {
+    const filePath = path.join(tempRoot, name);
+    fs.writeFileSync(filePath, content);
+
+    return filePath;
+}
+
+describe("reading what a backup file is", () => {
+    it("tells a container from a plain database, going by the header rather than the name", async () => {
+        const database = validDatabase("looks-like-a-backup.tnbackup");
+        expect(readBackupFormat(database)).toEqual({ container: false, encrypted: false });
+
+        const plain = await containerOf(validDatabase());
+        expect(readBackupFormat(plain)).toEqual({ container: true, encrypted: false });
+
+        const encrypted = await containerOf(validDatabase(), "hunter2");
+        expect(readBackupFormat(encrypted)).toEqual({ container: true, encrypted: true });
+    });
+
+    it("answers for a file it cannot read at all", () => {
+        expect(readBackupFormat(path.join(tempRoot, "not-here.db"))).toBe(null);
+        expect(readBackupFormat(fileWith("short"))).toEqual({ container: false, encrypted: false });
+    });
+});
+
+describe("staging a backup", () => {
+    it("takes an uploaded database where it lies rather than copying gigabytes for no reason", async () => {
+        const uploaded = validDatabase();
+
+        const candidate = await stageBackup({ path: uploaded, fileName: "backup.db", consumable: true });
+
+        expect(candidate).toBe(uploaded);
+    });
+
+    it("copies a backup that has to stay where it is, leaving the original untouched", async () => {
+        const existing = validDatabase();
+
+        const candidate = await stageBackup({ path: existing, fileName: "backup.db", consumable: false });
+
+        expect(candidate).not.toBe(existing);
+        expect(fs.existsSync(existing)).toBe(true);
+        expect(fs.readFileSync(candidate)).toEqual(fs.readFileSync(existing));
+    });
+
+    it("unwraps a container back into the database it was made from", async () => {
+        const source = validDatabase();
+        const backup = await containerOf(source, undefined, true);
+
+        const candidate = await stageBackup({ path: backup, fileName: "backup.tnbackup", consumable: true });
+
+        expect(fs.readFileSync(candidate)).toEqual(fs.readFileSync(source));
+        // Consumable: the container has served its purpose and the unwrapped copy is what matters now.
+        expect(fs.existsSync(backup)).toBe(false);
+    });
+
+    it("asks for a passphrase before reading an encrypted container, not after", async () => {
+        const backup = await containerOf(validDatabase(), "hunter2");
+        const readStream = vi.spyOn(fs, "createReadStream");
+
+        await expect(stageBackup({ path: backup, fileName: "backup.tnbackup", consumable: false }))
+            .rejects.toMatchObject({ reason: "passphrase-required" });
+
+        expect(readStream).not.toHaveBeenCalled();
+        // Nothing was consumed, so the same file can be tried again once the passphrase is known.
+        expect(fs.existsSync(backup)).toBe(true);
+    });
+
+    it("tells a wrong passphrase apart from a file that is damaged beyond it", async () => {
+        const backup = await containerOf(validDatabase(), "hunter2");
+
+        await expect(stageBackup({ path: backup, fileName: "b.tnbackup", consumable: true, passphrase: "wrong" }))
+            .rejects.toMatchObject({ reason: "wrong-passphrase-or-damaged-header" });
+
+        // Kept, because another passphrase is exactly what could still make it work.
+        expect(fs.existsSync(backup)).toBe(true);
+    });
+
+    it("refuses a file it cannot even open", async () => {
+        await expect(stageBackup({ path: path.join(tempRoot, "gone.db"), fileName: "gone.db", consumable: false }))
+            .rejects.toMatchObject({ reason: "not-a-database" });
+    });
+});
+
+describe("exchanging the database files", () => {
+    it("puts the candidate in place, keeps the old database aside, and drops its sidecars", () => {
+        const document = path.join(tempRoot, "document.db");
+        fs.writeFileSync(document, "the old database");
+        fs.writeFileSync(`${document}-wal`, "old write-ahead log");
+        fs.writeFileSync(`${document}-shm`, "old shared memory");
+        const candidate = fileWith("the restored database");
+
+        exchangeDatabaseFiles(candidate, document);
+
+        expect(fs.readFileSync(document, "utf-8")).toBe("the restored database");
+        expect(fs.readFileSync(`${document}.pre-restore`, "utf-8")).toBe("the old database");
+        expect(fs.existsSync(`${document}-wal`)).toBe(false);
+        expect(fs.existsSync(`${document}-shm`)).toBe(false);
+        expect(fs.existsSync(candidate)).toBe(false);
+    });
+
+    it("works where there is no database yet, which is the usual case during setup", () => {
+        const document = path.join(tempRoot, "document.db");
+
+        exchangeDatabaseFiles(fileWith("the restored database"), document);
+
+        expect(fs.readFileSync(document, "utf-8")).toBe("the restored database");
+        expect(fs.existsSync(`${document}.pre-restore`)).toBe(false);
+    });
+
+    it("replaces what an earlier restore had set aside rather than refusing to start", () => {
+        const document = path.join(tempRoot, "document.db");
+        fs.writeFileSync(document, "the current database");
+        fs.writeFileSync(`${document}.pre-restore`, "from an earlier attempt");
+
+        exchangeDatabaseFiles(fileWith("the restored database"), document);
+
+        expect(fs.readFileSync(`${document}.pre-restore`, "utf-8")).toBe("the current database");
+    });
+});
+
+describe("recovering from an interrupted restore", () => {
+    /** Imported lazily so the default path is bound per call rather than at module load. */
+    async function recover(document: string) {
+        const { recoverInterruptedRestore } = await import("./database_restore.js");
+        vi.spyOn(console, "info").mockImplementation(() => {});
+        recoverInterruptedRestore(document);
+    }
+
+    it("does nothing when no restore was under way", async () => {
+        const document = path.join(tempRoot, "document.db");
+        fs.writeFileSync(document, "the database");
+
+        await recover(document);
+
+        expect(fs.readFileSync(document, "utf-8")).toBe("the database");
+    });
+
+    it("puts the previous database back when one was set aside", async () => {
+        const document = path.join(tempRoot, "document.db");
+        fs.writeFileSync(document, "half a restored database");
+        fs.writeFileSync(`${document}-wal`, "a log belonging to neither");
+        fs.writeFileSync(`${document}.pre-restore`, "the database it had");
+        fs.writeFileSync(`${document}.restore-in-progress`, "");
+
+        await recover(document);
+
+        expect(fs.readFileSync(document, "utf-8")).toBe("the database it had");
+        expect(fs.existsSync(`${document}-wal`)).toBe(false);
+        expect(fs.existsSync(`${document}.pre-restore`)).toBe(false);
+        expect(fs.existsSync(`${document}.restore-in-progress`)).toBe(false);
+    });
+
+    it("keeps the database in place when nothing was set aside, and clears the marker", async () => {
+        const document = path.join(tempRoot, "document.db");
+        fs.writeFileSync(document, "a whole database");
+        fs.writeFileSync(`${document}.restore-in-progress`, "");
+
+        await recover(document);
+
+        expect(fs.readFileSync(document, "utf-8")).toBe("a whole database");
+        expect(fs.existsSync(`${document}.restore-in-progress`)).toBe(false);
+    });
+});
+
+describe("restoring a database", () => {
+    it("stops before touching the live database when the backup is not one", async () => {
+        const detach = vi.spyOn(getSql(), "detachConnection").mockImplementation(() => {});
+
+        await expect(restoreDatabase({
+            path: fileWith("a photograph, renamed"),
+            fileName: "holiday.db",
+            consumable: false
+        })).rejects.toBeInstanceOf(RestoreFailure);
+
+        expect(detach).not.toHaveBeenCalled();
+        expect(getRestoreProgress()).toMatchObject({
+            stage: "failed", fileName: "holiday.db", reason: "not-a-database"
+        });
+    });
+
+    it("stops before touching the live database when the backup is from a newer version", async () => {
+        const detach = vi.spyOn(getSql(), "detachConnection").mockImplementation(() => {});
+        const database = validDatabase();
+        const db = new Database(database);
+        db.prepare("UPDATE options SET value = ? WHERE name = 'dbVersion'").run(String(appInfo.dbVersion + 1));
+        db.close();
+
+        await expect(restoreDatabase({ path: database, fileName: "newer.db", consumable: false }))
+            .rejects.toMatchObject({ reason: "database-too-new" });
+
+        expect(detach).not.toHaveBeenCalled();
+        expect(getRestoreProgress()).toMatchObject({ stage: "failed", reason: "database-too-new" });
+    });
+});

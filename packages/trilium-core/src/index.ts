@@ -22,6 +22,7 @@ export { default as BackupService, getBackup, initBackup, type BackupOptionsServ
 export type * from "./services/sql/types";
 export * from "./services/sql/index";
 export { default as sql_init } from "./services/sql_init";
+export { getRunningSetupOperation, holdSetup, withSetupLock } from "./services/setup_lock";
 export * as protected_session from "./services/protected_session";
 export { default as data_encryption } from "./services/encryption/data_encryption";
 export { default as scrypt } from "./services/encryption/scrypt";

@@ -10,6 +10,7 @@ import logo from "./assets/icon-color.svg?url";
 import { getCurrentLanguage, initLocale, t } from "./services/i18n";
 import server from "./services/server";
 import { isElectron, isMobileApp } from "./services/utils";
+import RestoreFromBackup from "./setup_restore";
 import Admonition, { ExtendedAdmonition } from "./widgets/react/Admonition";
 import Button from "./widgets/react/Button";
 import { Card, CardFrame, CardSection } from "./widgets/react/Card";
@@ -38,9 +39,9 @@ async function main() {
     document.body.replaceChildren(bodyWrapper);
 }
 
-type State = "selectLanguage" | "firstOptions" | "createNewDocumentOptions" | "createNewDocumentWithDemo" | "createNewDocumentEmpty" | "syncFromDesktop" | "syncFromServer" | "syncFromServerInProgress" | "syncFromDesktopInProgress" | "syncFailed";
+type State = "selectLanguage" | "firstOptions" | "createNewDocumentOptions" | "createNewDocumentWithDemo" | "createNewDocumentEmpty" | "restoreFromBackup" | "syncFromDesktop" | "syncFromServer" | "syncFromServerInProgress" | "syncFromDesktopInProgress" | "syncFailed";
 
-const STATE_ORDER: State[] = ["selectLanguage", "firstOptions", "createNewDocumentOptions", "createNewDocumentWithDemo", "createNewDocumentEmpty", "syncFromDesktop", "syncFromServer", "syncFromServerInProgress", "syncFromDesktopInProgress", "syncFailed"];
+const STATE_ORDER: State[] = ["selectLanguage", "firstOptions", "createNewDocumentOptions", "createNewDocumentWithDemo", "createNewDocumentEmpty", "restoreFromBackup", "syncFromDesktop", "syncFromServer", "syncFromServerInProgress", "syncFromDesktopInProgress", "syncFailed"];
 
 export function renderState(state: State, setState: (state: State) => void) {
     switch (state) {
@@ -49,6 +50,7 @@ export function renderState(state: State, setState: (state: State) => void) {
         case "createNewDocumentOptions": return <CreateNewDocumentOptions setState={setState} />;
         case "createNewDocumentWithDemo": return <CreateNewDocumentInProgress withDemo />;
         case "createNewDocumentEmpty": return <CreateNewDocumentInProgress />;
+        case "restoreFromBackup": return <RestoreFromBackup onBack={() => setState("firstOptions")} onRestored={onSetupFinished} />;
         case "syncFromServer": return <SyncFromServer setState={setState} />;
         case "syncFromDesktop": return <SyncFromDesktop setState={setState} />;
         case "syncFromServerInProgress": return <SyncInProgress device="server" setState={setState} />;
@@ -160,6 +162,16 @@ function SetupOptions({ setState }: { setState: (state: State) => void }) {
                     title={t("setup.new-document")}
                     description={t("setup.new-document-description")}
                     onClick={() => setState("createNewDocumentOptions")}
+                />
+
+                <SetupOptionCard
+                    icon="bx bx-archive-in"
+                    title={t("setup.restore-from-backup")}
+                    description={t("setup.restore-from-backup-description")}
+                    // The backup has to be unwrapped and opened by a real database engine, which the
+                    // standalone build does not have: its database lives in the browser's own storage.
+                    disabled={glob.isStandalone}
+                    onClick={() => setState("restoreFromBackup")}
                 />
 
                 <SetupOptionCard

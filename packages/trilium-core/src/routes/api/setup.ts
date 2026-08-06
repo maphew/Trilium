@@ -1,5 +1,6 @@
 import sqlInit from "../../services/sql_init.js";
 import setupService from "../../services/setup.js";
+import { getRunningSetupOperation, withSetupLock } from "../../services/setup_lock.js";
 import { getLog } from "../../services/log.js";
 import appInfo from "../../services/app_info.js";
 import optionService from "../../services/options.js";
@@ -14,6 +15,9 @@ function getStatus() {
         isInitialized,
         schemaExists,
         syncVersion: appInfo.syncVersion,
+        // What another tab, or this one after a reload, has already started. Lets the wizard say so
+        // rather than only finding out by being refused.
+        setupOperation: getRunningSetupOperation(),
         // After a FAILED sync-from-server attempt the sync options are already stored in
         // the partial DB; expose them so the wizard can prefill the form when the user
         // goes back to correct it (#10548). Pre-initialization only: this endpoint is
@@ -30,15 +34,22 @@ function getStatus() {
 async function setupNewDocument(req: Request) {
     const { skipDemoDb } = req.query;
     const locale = req.body?.locale;
-    await sqlInit.createInitialDatabase(skipDemoDb !== undefined, locale);
+
+    await withSetupLock("new-document", () => sqlInit.createInitialDatabase(skipDemoDb !== undefined, locale));
 }
 
+/**
+ * The lock covers fetching the seed and creating the schema, not the sync that follows: an
+ * interrupted sync is resumed and retried across later requests, and a failed one has to leave the
+ * user free to take another path instead.
+ */
 function setupSyncFromServer(req: Request): Promise<SetupSyncFromServerResponse> {
     const { syncServerHost, syncProxy, password, syncMaxBlobContentSize } = req.body;
 
     const maxBlobContentSize = Number.isFinite(syncMaxBlobContentSize) && syncMaxBlobContentSize > 0 ? syncMaxBlobContentSize : 0;
 
-    return setupService.setupSyncFromSyncServer(syncServerHost, syncProxy, password, maxBlobContentSize);
+    return withSetupLock("sync-from-server", () =>
+        setupService.setupSyncFromSyncServer(syncServerHost, syncProxy, password, maxBlobContentSize));
 }
 
 async function saveSyncSeed(req: Request) {
@@ -62,7 +73,7 @@ async function saveSyncSeed(req: Request) {
 
     // Awaited so a failure surfaces as an error response to the pushing desktop
     // instead of an unhandled rejection with a 2xx already sent.
-    await sqlInit.createDatabaseForSync(options);
+    await withSetupLock("sync-seed", () => sqlInit.createDatabaseForSync(options));
 }
 
 /**
