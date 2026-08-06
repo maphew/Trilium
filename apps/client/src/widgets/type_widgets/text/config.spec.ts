@@ -35,6 +35,9 @@ vi.mock("../../../services/options.js", () => ({
         get(name: string) {
             if (name in optionsState.map) return optionsState.map[name];
             if (name === "allowedHtmlTags") return "[]";
+            // The replacement groups ship on, so an unset option here has to answer the way the
+            // real defaults do — otherwise every test would silently run with them all disabled.
+            if (name.startsWith("textNote") && name.endsWith("ReplacementsEnabled")) return "true";
             return undefined;
         },
         getJson(name: string) {
@@ -275,19 +278,40 @@ describe("CK config - language & emoji", () => {
         ]);
     });
 
-    it("leaves CKEditor's own transformations alone for a locale with no mapping", async () => {
+    it("leaves CKEditor's own quotes in force for a locale with no mapping", async () => {
         const config = await buildConfig(baseOpts({ contentLanguage: "ku" }));
 
-        // No `typing` override at all, so the default `quotes` group stays in force.
-        expect(config.typing).toBeUndefined();
+        // Not removed, so the default `quotes` group still runs — better than a locale we have no
+        // pair for losing quote replacement altogether.
+        expect(config.typing?.transformations.remove).not.toContain("quotes");
+        expect(config.typing?.transformations.extra).toEqual([]);
         // The language itself still applies, so right-to-left text lays out correctly regardless.
         expect(config.language).toMatchObject({ content: "ku" });
     });
 
-    it("keeps the non-quote transformation groups when overriding the quotes", async () => {
+    it("expresses the enabled groups as deltas, leaving CKEditor's defaults to upstream", async () => {
+        // All four groups on: only the quotes are taken over, and only because we supply our own.
+        const allOn = await buildConfig(baseOpts({ contentLanguage: "de" }));
+        expect(allOn.typing?.transformations.remove).toEqual(["quotes"]);
+        expect(allOn.typing?.transformations.extra).toHaveLength(2);
+
+        // Each toggle removes its group by name, so the patterns behind the dashes and fractions
+        // stay upstream's rather than being restated here.
+        optionsState.map.textNotePunctuationReplacementsEnabled = "false";
+        optionsState.map.textNoteMathReplacementsEnabled = "false";
+        optionsState.map.textNoteSymbolReplacementsEnabled = "false";
+        const allOff = await buildConfig(baseOpts({ contentLanguage: "de" }));
+        expect(allOff.typing?.transformations.remove).toEqual(["typography", "mathematical", "symbols", "quotes"]);
+    });
+
+    it("drops the quote replacements entirely when their toggle is off", async () => {
+        optionsState.map.textNoteQuoteReplacementsEnabled = "false";
+
         const config = await buildConfig(baseOpts({ contentLanguage: "de" }));
 
-        expect(config.typing?.transformations.include).toEqual(["symbols", "mathematical", "typography"]);
+        // Removed and not re-supplied, so a straight quote stays straight whatever the language.
+        expect(config.typing?.transformations.remove).toContain("quotes");
+        expect(config.typing?.transformations.extra).toEqual([]);
     });
 
     it("prefixes the emoji definitions URL with the page origin in dev mode", async () => {

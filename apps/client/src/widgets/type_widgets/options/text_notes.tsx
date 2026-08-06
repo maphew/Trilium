@@ -33,6 +33,7 @@ export default function TextNoteSettings() {
             <OptionsPageHeader />
             <FormattingToolbar />
             <EditorFeatures />
+            <AutomaticReplacements />
             <Editor />
             <CodeBlockStyle />
             <TableOfContent />
@@ -172,6 +173,54 @@ function EditorFeatures() {
                 description={t("editorfeatures.content_hints_description")}
                 currentValue={contentHintsEnabled}
                 onChange={setContentHintsEnabled}
+            />
+        </OptionsSection>
+    );
+}
+
+/**
+ * The as-you-type replacements, grouped the way CKEditor groups them. Each description names what
+ * the group actually does to your text: the complaints these settings answer were as much about the
+ * behaviour being undocumented as about it being unwanted, so the examples are the point.
+ */
+function AutomaticReplacements() {
+    const [quotesEnabled, setQuotesEnabled] = useTriliumOptionBool("textNoteQuoteReplacementsEnabled");
+    const [punctuationEnabled, setPunctuationEnabled] = useTriliumOptionBool("textNotePunctuationReplacementsEnabled");
+    const [mathEnabled, setMathEnabled] = useTriliumOptionBool("textNoteMathReplacementsEnabled");
+    const [symbolsEnabled, setSymbolsEnabled] = useTriliumOptionBool("textNoteSymbolReplacementsEnabled");
+
+    return (
+        <OptionsSection title={t("automatic_replacements.title")} description={t("automatic_replacements.description")}>
+            <OptionsRowWithToggle
+                name="quote-replacements-enabled"
+                label={t("automatic_replacements.quotes")}
+                description={t("automatic_replacements.quotes_description")}
+                currentValue={quotesEnabled}
+                onChange={setQuotesEnabled}
+            />
+
+            <OptionsRowWithToggle
+                name="punctuation-replacements-enabled"
+                label={t("automatic_replacements.punctuation")}
+                description={t("automatic_replacements.punctuation_description")}
+                currentValue={punctuationEnabled}
+                onChange={setPunctuationEnabled}
+            />
+
+            <OptionsRowWithToggle
+                name="math-replacements-enabled"
+                label={t("automatic_replacements.math")}
+                description={t("automatic_replacements.math_description")}
+                currentValue={mathEnabled}
+                onChange={setMathEnabled}
+            />
+
+            <OptionsRowWithToggle
+                name="symbol-replacements-enabled"
+                label={t("automatic_replacements.symbols")}
+                description={t("automatic_replacements.symbols_description")}
+                currentValue={symbolsEnabled}
+                onChange={setSymbolsEnabled}
             />
         </OptionsSection>
     );

@@ -241,6 +241,17 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     codeNoteTabWidth: number;
     codeNoteIndentWithTabs: boolean;
     textNoteEditorMultilineToolbar: boolean;
+    /**
+     * Whether a typed `"…"` becomes the typographic quotes of the note's language (`“…”`, `„…“`,
+     * `« … »`). Which marks are produced is decided by the content language, not by this flag.
+     */
+    textNoteQuoteReplacementsEnabled: boolean;
+    /** Whether `...` becomes `…`, and ` -- ` / ` --- ` become an en/em dash, as they are typed. */
+    textNotePunctuationReplacementsEnabled: boolean;
+    /** Whether `1/2`, `!=`, `->` and their kin become `½`, `≠`, `→` as they are typed. */
+    textNoteMathReplacementsEnabled: boolean;
+    /** Whether `(c)`, `(r)` and `(tm)` become `©`, `®` and `™` as they are typed. */
+    textNoteSymbolReplacementsEnabled: boolean;
     /** Whether keyboard auto-completion for emojis is triggered when typing `:`. */
     textNoteEmojiCompletionEnabled: boolean;
     /** Whether keyboard auto-completion for notes is triggered when typing `@` in text notes (attribute editing is not affected). */

@@ -1,4 +1,4 @@
-import { type EditorConfig, getCkLocale, SnippetDefinition } from "@triliumnext/ckeditor5";
+import { type EditorConfig, getCkLocale, SnippetDefinition, type TextTransformationConfig } from "@triliumnext/ckeditor5";
 import emojiDefinitionsUrl from "@triliumnext/ckeditor5/src/emoji_definitions/en.json?url";
 import { ALLOWED_PROTOCOLS, DISPLAYABLE_LOCALE_IDS, formatShortcut, IMAGE_UPLOAD_SUBTYPES, joinShortcut, KATEX_MACROS, MIME_TYPE_AUTO, normalizeMimeTypeForCKEditor } from "@triliumnext/commons";
 import i18next from "i18next";
@@ -260,22 +260,7 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
         };
     }
 
-    // CKEditor knows quote conventions for three locales and applies the US pair to everything else,
-    // which is wrong rather than merely unstyled for most of the languages Trilium ships — a German
-    // writer wants „…“, a French one « … ». Resolved here rather than pushed into a live editor
-    // because a language change already rebuilds it (see the effect deps in `CKEditorWithWatchdog`).
-    const quoteStyle = resolveQuoteStyle(contentLanguage);
-    if (quoteStyle) {
-        config.typing = {
-            transformations: {
-                // Upstream's default groups minus `quotes`, whose two transformations are replaced
-                // by the locale-specific pair below. Restated rather than filtered with `remove`
-                // because the config type requires `include`.
-                include: ["symbols", "mathematical", "typography"],
-                extra: buildQuoteTransformations(quoteStyle)
-            }
-        };
-    }
+    config.typing = { transformations: buildTransformationsConfig(contentLanguage) };
 
     // Mention customisation.
     if (options.get("textNoteCompletionEnabled") === "true") {
@@ -319,6 +304,38 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
         ...config,
         ...buildToolbarConfig(opts.isClassicEditor)
     };
+}
+
+/**
+ * Which as-you-type replacements the editor runs, expressed as deltas against CKEditor's own default
+ * set rather than by restating it.
+ *
+ * That is deliberate: the dashes and the fractions are boundary-sensitive regexes upstream — ` -- `
+ * needs its surrounding spaces, and `1/2` needs the guards that stop `11/2` becoming `1½` — and
+ * those are exactly the definitions that break subtly when copied by hand. Naming a group in
+ * `remove` disables it without us ever holding its pattern.
+ *
+ * Quotes are the one exception we do own, because which marks they produce depends on the note's
+ * language and upstream has data for three locales. They are removed and re-supplied — but only when
+ * we actually have a pair for the language, so an unmapped locale keeps falling through to
+ * CKEditor's default rather than losing quote replacement altogether.
+ */
+function buildTransformationsConfig(contentLanguage: string | null): TextTransformationConfig {
+    const remove: string[] = [];
+    if (options.get("textNotePunctuationReplacementsEnabled") !== "true") remove.push("typography");
+    if (options.get("textNoteMathReplacementsEnabled") !== "true") remove.push("mathematical");
+    if (options.get("textNoteSymbolReplacementsEnabled") !== "true") remove.push("symbols");
+
+    const quotesEnabled = options.get("textNoteQuoteReplacementsEnabled") === "true";
+    const quoteStyle = quotesEnabled ? resolveQuoteStyle(contentLanguage) : null;
+    if (!quotesEnabled || quoteStyle) {
+        remove.push("quotes");
+    }
+
+    // `include` is typed as required even though upstream's own documented examples pass `remove`
+    // alone, and the plugin defines the default set in its constructor. Narrowed here rather than
+    // restating the default groups, so that a group upstream adds later keeps working.
+    return { remove, extra: quoteStyle ? buildQuoteTransformations(quoteStyle) : [] } as TextTransformationConfig;
 }
 
 /**

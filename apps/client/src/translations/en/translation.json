@@ -3153,6 +3153,18 @@
     "continue_anyway": "Continue Anyway",
     "dont_show_again": "Don't show this warning again"
   },
+  "automatic_replacements": {
+    "title": "Automatic replacements",
+    "description": "As you type, some sequences of characters are replaced with the typographic symbol they stand for. This never happens inside a code block or inline code, and pasted text is left alone.",
+    "quotes": "Quotation marks",
+    "quotes_description": "Turns straight quotes into the curved ones of the note's language: \"quote\" becomes “quote” in English, „quote“ in German and « quote » in French.",
+    "punctuation": "Punctuation",
+    "punctuation_description": "Turns ... into an ellipsis (…), and -- and --- surrounded by spaces into an en dash (–) and an em dash (—).",
+    "math": "Mathematical symbols",
+    "math_description": "Turns fractions such as 1/2 into ½, and the operators <=, >=, !=, <- and -> into ≤, ≥, ≠, ← and →.",
+    "symbols": "Copyright and trademark",
+    "symbols_description": "Turns (c), (r) and (tm) into ©, ® and ™."
+  },
   "editorfeatures": {
     "title": "Features",
     "emoji_completion_enabled": "Emoji auto-completion",

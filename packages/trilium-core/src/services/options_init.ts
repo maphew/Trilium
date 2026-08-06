@@ -305,6 +305,13 @@ const defaultOptions: DefaultOption[] = [
     // Text note configuration
     { name: "textNoteEditorType", value: "ckeditor-balloon", isSynced: true },
     { name: "textNoteEditorMultilineToolbar", value: "false", isSynced: true },
+    // The four groups of as-you-type replacements. All on, which is how the editor behaved before
+    // they could be turned off; the point of the setting is that the behaviour is now visible and
+    // refusable, not that it changes for anyone who leaves it alone.
+    { name: "textNoteQuoteReplacementsEnabled", value: "true", isSynced: true },
+    { name: "textNotePunctuationReplacementsEnabled", value: "true", isSynced: true },
+    { name: "textNoteMathReplacementsEnabled", value: "true", isSynced: true },
+    { name: "textNoteSymbolReplacementsEnabled", value: "true", isSynced: true },
     { name: "textNoteEmojiCompletionEnabled", value: "true", isSynced: true },
     { name: "textNoteCompletionEnabled", value: "true", isSynced: true },
     { name: "textNoteSlashCommandsEnabled", value: "true", isSynced: true },
