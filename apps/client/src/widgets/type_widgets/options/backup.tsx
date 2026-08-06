@@ -10,7 +10,7 @@ import server from "../../../services/server";
 import toast from "../../../services/toast";
 import { isElectron } from "../../../services/utils";
 import Button from "../../react/Button";
-import { Card, CardSection } from "../../react/Card";
+import { Card, CardOption, CardSection } from "../../react/Card";
 import DirectoryLink from "../../react/DirectoryLink";
 import FormPasswordWithConfirmation from "../../react/FormPasswordWithConfirmation";
 import FormText from "../../react/FormText";
@@ -20,8 +20,6 @@ import Icon from "../../react/Icon";
 import Modal from "../../react/Modal";
 import DatabaseFileList from "./components/DatabaseFileList";
 import OptionsPageHeader from "./components/OptionsPageHeader";
-import OptionsRow, { OptionsRowWithToggle } from "./components/OptionsRow";
-import OptionsSection from "./components/OptionsSection";
 
 export default function BackupSettings() {
     const [backups, setBackups] = useState<DatabaseBackup[]>([]);
@@ -55,31 +53,24 @@ export function BackupConfiguration() {
     const [monthlyBackupEnabled, setMonthlyBackupEnabled] = useTriliumOptionBool("monthlyBackupEnabled");
 
     return (
-        <OptionsSection
-            title={t("backup.automatic_backups_title")}
-            description={t("backup.automatic_backups_description")}
-        >
-            <OptionsRowWithToggle
-                name="daily-backup-enabled"
-                label={t("backup.enable_daily_backup")}
-                currentValue={dailyBackupEnabled}
-                onChange={setDailyBackupEnabled}
-            />
+        <div className="options-section backup-configuration">
+            <Card
+                heading={t("backup.automatic_backups_title")}
+                description={t("backup.automatic_backups_description")}
+            >
+                <CardOption name="daily-backup-enabled" label={t("backup.enable_daily_backup")}>
+                    <FormToggle currentValue={dailyBackupEnabled} onChange={setDailyBackupEnabled} />
+                </CardOption>
 
-            <OptionsRowWithToggle
-                name="weekly-backup-enabled"
-                label={t("backup.enable_weekly_backup")}
-                currentValue={weeklyBackupEnabled}
-                onChange={setWeeklyBackupEnabled}
-            />
+                <CardOption name="weekly-backup-enabled" label={t("backup.enable_weekly_backup")}>
+                    <FormToggle currentValue={weeklyBackupEnabled} onChange={setWeeklyBackupEnabled} />
+                </CardOption>
 
-            <OptionsRowWithToggle
-                name="monthly-backup-enabled"
-                label={t("backup.enable_monthly_backup")}
-                currentValue={monthlyBackupEnabled}
-                onChange={setMonthlyBackupEnabled}
-            />
-        </OptionsSection>
+                <CardOption name="monthly-backup-enabled" label={t("backup.enable_monthly_backup")}>
+                    <FormToggle currentValue={monthlyBackupEnabled} onChange={setMonthlyBackupEnabled} />
+                </CardOption>
+            </Card>
+        </div>
     );
 }
 
@@ -218,23 +209,18 @@ export function BackupOptions() {
     return (
         <div className="options-section backup-options">
             <Card heading={t("backup.options_title")}>
-                <CardSection className="backup-options-row">
-                    <span className="backup-options-label">
-                        {t("backup.enable_compression")}
-                        <small className="backup-options-description">{t("backup.enable_compression_description")}</small>
-                    </span>
-
+                <CardOption
+                    name="backup-compression-enabled"
+                    label={t("backup.enable_compression")}
+                    description={t("backup.enable_compression_description")}
+                >
                     <FormToggle currentValue={compressionEnabled} onChange={setCompressionEnabled} />
-                </CardSection>
+                </CardOption>
 
-                <CardSection className="backup-options-row">
-                    <span className="backup-options-label">
-                        {t("backup.enable_encryption")}
-                        <small className="backup-options-description">
-                            {passphrase.available ? t("backup.enable_encryption_description") : t("backup.no_keyring")}
-                        </small>
-                    </span>
-
+                <CardOption
+                    label={t("backup.enable_encryption")}
+                    description={passphrase.available ? t("backup.enable_encryption_description") : t("backup.no_keyring")}
+                >
                     {passphrase.set ? (
                         <>
                             <Button
@@ -257,7 +243,7 @@ export function BackupOptions() {
                             onClick={() => setPasswordModalShown(true)}
                         />
                     )}
-                </CardSection>
+                </CardOption>
             </Card>
 
             <BackupPasswordModal
@@ -324,12 +310,11 @@ export function BackupList({ backups, backupFolderPath, refreshCallback }: { bac
             files={backups}
             fileBadges={fileBadges}
             downloadEndpoint="api/database/backup/download"
-            rowName="existing-backup"
             downloadText={t("backup.download")}
             emptyIcon="bx bx-archive"
             emptyText={t("backup.no_backup_yet")}
         >
-            <OptionsRow name="backup-now" centered>
+            <CardSection className="backup-now-section">
                 <Button
                     name="backup-database-now-button"
                     text={t("backup.backup_database_now")}
@@ -346,7 +331,7 @@ export function BackupList({ backups, backupFolderPath, refreshCallback }: { bac
                         }
                     }}
                 />
-            </OptionsRow>
+            </CardSection>
         </DatabaseFileList>
     );
 }

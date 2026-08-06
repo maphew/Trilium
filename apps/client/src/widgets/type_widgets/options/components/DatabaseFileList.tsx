@@ -9,9 +9,8 @@ import { formatSize } from "../../../../services/utils";
 import { formatDateTime } from "../../../../utils/formatters";
 import ActionButton from "../../../react/ActionButton";
 import { Badge } from "../../../react/Badge";
+import { Card, CardOption, CardSection } from "../../../react/Card";
 import NoItems from "../../../react/NoItems";
-import OptionsRow from "./OptionsRow";
-import OptionsSection from "./OptionsSection";
 
 export interface DatabaseFile {
     fileName: string;
@@ -34,17 +33,16 @@ interface DatabaseFileListProps<T extends DatabaseFile> {
     files: T[];
     /** Endpoint the per-file download links point to; the file path is appended as a query parameter. */
     downloadEndpoint: string;
-    rowName: string;
     downloadText: string;
     emptyIcon: string;
     emptyText: string;
     /** Labels individual files, for the ones that need telling apart — e.g. one kept somewhere else. */
     fileBadges?: (file: T) => string[];
-    /** Extra content rendered below the list (e.g. an action button). */
+    /** Extra card sections rendered below the list (e.g. an action button). */
     children?: ComponentChildren;
 }
 
-export default function DatabaseFileList<T extends DatabaseFile>({ title, locationDescription, files, downloadEndpoint, rowName, downloadText, emptyIcon, emptyText, fileBadges, children }: DatabaseFileListProps<T>) {
+export default function DatabaseFileList<T extends DatabaseFile>({ title, locationDescription, files, downloadEndpoint, downloadText, emptyIcon, emptyText, fileBadges, children }: DatabaseFileListProps<T>) {
     const sortedFiles = useMemo(() => [...files].sort((a, b) => {
         if (a.mtime < b.mtime) return 1;
         if (a.mtime > b.mtime) return -1;
@@ -52,40 +50,43 @@ export default function DatabaseFileList<T extends DatabaseFile>({ title, locati
     }), [files]);
 
     return (
-        <OptionsSection
-            title={title}
-            description={locationDescription && (
-                <span className="selectable-text">{locationDescription}</span>
-            )}
-        >
-            {sortedFiles.length > 0 ? (
-                sortedFiles.map((file) => (
-                    <OptionsRow
-                        key={file.filePath}
-                        name={rowName}
-                        label={
-                            <span className="database-file-label">
-                                <span className="selectable-text">{file.fileName}</span>
-                                {fileBadges?.(file).map((badge) => (
-                                    <Badge key={badge} className="database-file-badge" text={badge} outline />
-                                ))}
-                            </span>
-                        }
-                        description={describeFile(file)}
-                    >
-                        <ActionButton
-                            icon="bx bx-download"
-                            text={downloadText}
-                            onClick={() => open.download(open.getUrlForDownload(`${downloadEndpoint}?filePath=${encodeURIComponent(file.filePath)}`))}
-                        />
-                    </OptionsRow>
-                ))
-            ) : (
-                <NoItems icon={emptyIcon} text={emptyText} />
-            )}
+        <div className="options-section database-file-list">
+            <Card
+                heading={title}
+                description={locationDescription && (
+                    <span className="selectable-text">{locationDescription}</span>
+                )}
+            >
+                {sortedFiles.length > 0 ? (
+                    sortedFiles.map((file) => (
+                        <CardOption
+                            key={file.filePath}
+                            label={
+                                <span className="database-file-label">
+                                    <span className="selectable-text">{file.fileName}</span>
+                                    {fileBadges?.(file).map((badge) => (
+                                        <Badge key={badge} className="database-file-badge" text={badge} outline />
+                                    ))}
+                                </span>
+                            }
+                            description={describeFile(file)}
+                        >
+                            <ActionButton
+                                icon="bx bx-download"
+                                text={downloadText}
+                                onClick={() => open.download(open.getUrlForDownload(`${downloadEndpoint}?filePath=${encodeURIComponent(file.filePath)}`))}
+                            />
+                        </CardOption>
+                    ))
+                ) : (
+                    <CardSection>
+                        <NoItems icon={emptyIcon} text={emptyText} size="small" />
+                    </CardSection>
+                )}
 
-            {children}
-        </OptionsSection>
+                {children}
+            </Card>
+        </div>
     );
 }
 

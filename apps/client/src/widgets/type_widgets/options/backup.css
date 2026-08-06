@@ -3,34 +3,10 @@
     --bs-modal-width: 400px;
 }
 
-/* One row per setting: what it is on the leading edge, what switches it on the trailing one. */
-.backup-options-row {
+/* The one action of the backups list, closing it off rather than sitting in line with a file. */
+.backup-now-section {
     display: flex;
-    align-items: center;
-    gap: 8px;
-
-    /* The controls keep their natural width. Left to shrink, a button's nowrap label spills across
-       its own padding and ends up reading as though it had none; the label below gives instead. */
-    > * {
-        flex-shrink: 0;
-    }
-
-    .backup-options-label {
-        display: flex;
-        flex: 1 1 auto;
-        flex-direction: column;
-        gap: 2px;
-        min-width: 0;
-    }
-
-    .backup-options-description {
-        font-size: .85em;
-        opacity: .7;
-    }
-
-    .btn {
-        white-space: nowrap;
-    }
+    justify-content: center;
 }
 
 .backup-location .tn-card-section {
