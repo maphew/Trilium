@@ -99,6 +99,13 @@ export interface ChunkedUploadStatus {
 }
 
 export interface ChunkedUpload<T> {
+    /**
+     * How many uploads are open, not counting any whose time has run out since the last sweep.
+     *
+     * For a consumer that sets something aside for an upload's sake and has to know, before putting
+     * it back, whether any upload still depends on it.
+     */
+    activeSessions(): number;
     begin(req: Request): Promise<ChunkedUploadStatus>;
     chunk(req: Request): Promise<ChunkedUploadStatus>;
     status(req: Request): Promise<ChunkedUploadStatus>;
@@ -321,7 +328,18 @@ export function createChunkedUpload<T>(config: ChunkedUploadConfig<T>): ChunkedU
         };
     }
 
+    /**
+     * Counted rather than taken from the map's size: a session whose time has run out is gone as far
+     * as anyone asking is concerned, whether or not a sweep has got to it yet.
+     */
+    function activeSessions(): number {
+        const now = Date.now();
+
+        return [ ...sessions.values() ].filter((session) => session.expiresAt > now).length;
+    }
+
     return {
+        activeSessions,
         begin,
         chunk,
         status,

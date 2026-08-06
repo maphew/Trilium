@@ -81,6 +81,41 @@ describe("reserving setup for a backup that is coming", () => {
         expect(getRunningSetupOperation()).toBe(null);
     });
 
+    it("keeps the reservation when a second upload is refused in favour of the first", async () => {
+        const { uploadId } = await beginBackupUpload(beginRequest(8));
+
+        // Only one at a time, so this one is turned away — and must leave the running one's
+        // reservation exactly where it found it.
+        await expect(beginBackupUpload(beginRequest(8))).rejects.toThrow(/already in progress/);
+
+        expect(getRunningSetupOperation()).toBe("restore-backup");
+        // Still the one that was accepted, and still receiving.
+        await expect(backupUpload.chunk(chunkRequest(uploadId, 0, Buffer.alloc(4)))).resolves.toBeTruthy();
+    });
+
+    it("keeps the reservation the new upload took when opening it sweeps away an old one", async () => {
+        const abandoned = await beginBackupUpload(beginRequest(8));
+        await backupUpload.chunk(chunkRequest(abandoned.uploadId, 0, Buffer.alloc(4)));
+
+        // The abandoned one ages out. Opening the next upload sweeps it, and that sweep reports a
+        // discarded session — after the replacement has already reserved setup for itself.
+        vi.advanceTimersByTime(61 * 60 * 1000);
+        await beginBackupUpload(beginRequest(8));
+
+        expect(getRunningSetupOperation()).toBe("restore-backup");
+    });
+
+    it("keeps the reservation for an upload in flight when the backup that was waiting is dropped", async () => {
+        setPendingBackup(localBackup(), "backup-daily.db", { consumable: false });
+        const { uploadId } = await beginBackupUpload(beginRequest(8));
+
+        // The backup that was waiting expires while the one replacing it is still arriving.
+        discardPendingBackup();
+
+        expect(getRunningSetupOperation()).toBe("restore-backup");
+        await expect(backupUpload.chunk(chunkRequest(uploadId, 0, Buffer.alloc(4)))).resolves.toBeTruthy();
+    });
+
     it("keeps setup reserved once a backup is actually waiting to be restored", async () => {
         setPendingBackup(localBackup(), "backup-daily.db", { consumable: false });
 

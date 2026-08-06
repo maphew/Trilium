@@ -78,6 +78,14 @@ const PENDING_TTL_MS = 60 * 60 * 1000;
 let pending: Pending | null = null;
 let pendingExpiry: ReturnType<typeof setTimeout> | null = null;
 let releaseSetupHold: (() => void) | null = null;
+/**
+ * Uploads that have been reserved for but are not open yet.
+ *
+ * Opening one sweeps away the sessions whose time has run out, and each of those reports itself as
+ * discarded. Without counting the one being opened, that sweep would hand back the reservation the
+ * upload took a moment earlier, on its way to taking its place.
+ */
+let opening = 0;
 
 /** Receives a backup a chunk at a time, and makes what arrives the pending one. */
 export const backupUpload = createChunkedUpload<PendingBackup>({
@@ -89,13 +97,8 @@ export const backupUpload = createChunkedUpload<PendingBackup>({
     // needs saying: it happens on a timer, with no request to fail and nobody to tell, and without
     // this the instance would refuse every other way of setting itself up until it was restarted.
     onSessionDiscarded: () => {
-        logRestore(pending
-            ? "an upload ended with nothing to show for it, but a backup is already waiting"
-            : "an upload ended with nothing to show for it; setup is free again");
-
-        if (!pending) {
-            freeSetup();
-        }
+        logRestore("an upload ended with nothing to show for it");
+        releaseSetupIfUnused();
     },
     // The name the user gave the file is carried on, since the screen shows it back to them; it is
     // only the log that has no business repeating it.
@@ -123,6 +126,7 @@ export const backupUpload = createChunkedUpload<PendingBackup>({
  */
 export async function beginBackupUpload(req: Parameters<typeof backupUpload.begin>[0]) {
     reserveSetup();
+    opening++;
 
     try {
         const session = await backupUpload.begin(req);
@@ -132,13 +136,13 @@ export async function beginBackupUpload(req: Parameters<typeof backupUpload.begi
         return session;
     } catch (e) {
         logRestoreError(`an upload was refused before it started: ${e instanceof Error ? e.message : String(e)}`);
-
-        // Refused before it started, so there is nothing left for the reservation to protect.
-        if (!pending) {
-            freeSetup();
-        }
-
         throw e;
+    } finally {
+        // Counted down before the reservation is reconsidered, and reconsidered however this ended:
+        // an upload refused because another one is already running must leave that one's reservation
+        // exactly where it found it.
+        opening--;
+        releaseSetupIfUnused();
     }
 }
 
@@ -233,7 +237,7 @@ export function discardPendingBackup(): void {
 
     pending = null;
     cancelPendingExpiry();
-    freeSetup();
+    releaseSetupIfUnused();
 }
 
 /** Starts the wait over, so a backup only expires after it has been left alone for the whole of it. */
@@ -241,7 +245,7 @@ function schedulePendingExpiry(): void {
     cancelPendingExpiry();
 
     pendingExpiry = setTimeout(() => {
-        logRestore("a backup waited to be restored for longer than it is allowed to; setup is free again");
+        logRestore("a backup waited to be restored for longer than it is allowed to");
         discardPendingBackup();
     }, PENDING_TTL_MS);
     // Nothing should be kept alive by a backup nobody came back for.
@@ -260,8 +264,20 @@ function reserveSetup(): void {
     releaseSetupHold ??= holdSetup("restore-backup");
 }
 
-/** Gives setup back. Doing it twice is not an error; leaving it taken is the one that matters. */
-function freeSetup(): void {
+/**
+ * Gives setup back, but only once nothing a restore is doing still depends on it.
+ *
+ * There is one reservation and several things behind it: an upload being opened, uploads in flight,
+ * and a backup waiting to be restored. Whichever of them ends first must not hand back what the
+ * others are still standing on — a second upload being refused would otherwise unreserve setup for
+ * the upload it was refused in favour of, and a pending backup expiring would unreserve it for an
+ * upload halfway through replacing it.
+ */
+function releaseSetupIfUnused(): void {
+    if (opening > 0 || pending !== null || backupUpload.activeSessions() > 0) {
+        return;
+    }
+
     releaseSetupHold?.();
     releaseSetupHold = null;
 }

@@ -322,6 +322,40 @@ describe("chunked upload: telling the consumer a session came to nothing", () =>
     });
 });
 
+describe("chunked upload: counting what is open", () => {
+    it("counts the uploads in progress", async () => {
+        const { upload } = uploadService({ maxConcurrentSessions: 2 });
+        expect(upload.activeSessions()).toBe(0);
+
+        await upload.begin(beginRequest(8));
+        await upload.begin(beginRequest(8));
+
+        expect(upload.activeSessions()).toBe(2);
+    });
+
+    it("stops counting one whose time has run out, before any sweep has got to it", async () => {
+        const { upload } = uploadService({ sessionTtlMs: 1 });
+        await upload.begin(beginRequest(8));
+
+        await new Promise((resolve) => setTimeout(resolve, 5));
+
+        // Expired is gone as far as anyone asking is concerned; a consumer deciding whether to let
+        // go of something cannot be made to wait for the sweeper's next turn.
+        expect(upload.activeSessions()).toBe(0);
+    });
+
+    it("stops counting one that finished, so its consumer can let go of what it held for it", async () => {
+        const { upload } = uploadService();
+        const { uploadId } = await upload.begin(beginRequest(4));
+        await upload.chunk(chunkRequest(uploadId, 0, Buffer.alloc(4)));
+
+        expect(upload.activeSessions()).toBe(1);
+        await upload.finish(sessionRequest(uploadId));
+
+        expect(upload.activeSessions()).toBe(0);
+    });
+});
+
 describe("chunked upload: sweeping", () => {
     it("drops a session that has gone quiet for too long, and frees its slot", async () => {
         const { upload } = uploadService({ sessionTtlMs: 1 });
