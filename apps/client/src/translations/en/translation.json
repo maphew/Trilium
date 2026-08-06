@@ -3156,8 +3156,10 @@
   "automatic_replacements": {
     "title": "Automatic replacements",
     "description": "As you type, some sequences of characters are replaced with the typographic symbol they stand for. This never happens inside a code block or inline code, and pasted text is left alone.",
-    "quotes": "Quotation marks",
-    "quotes_description": "Which marks a straight quote turns into as you type it. Following the note's content language gives “quote” in English, „quote“ in German and « quote » in French; picking a pair instead uses it everywhere, whatever a note is written in.",
+    "double_quotes": "Double quotation marks",
+    "double_quotes_description": "Which marks a straight \" turns into as you type it. Following the note's content language gives “quote” in English, „quote“ in German and « quote » in French; picking a pair instead uses it everywhere, whatever a note is written in.",
+    "single_quotes": "Single quotation marks",
+    "single_quotes_description": "The same for a straight ', which most conventions keep for a quotation nested inside another one.",
     "quotes_auto": "Follow the note's content language",
     "quotes_off": "Leave straight quotes alone",
     "punctuation": "Punctuation",

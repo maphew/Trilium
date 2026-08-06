@@ -281,18 +281,21 @@ describe("CK config - language & emoji", () => {
     it("leaves CKEditor's own quotes in force for a locale with no mapping", async () => {
         const config = await buildConfig(baseOpts({ contentLanguage: "ku" }));
 
-        // Not removed, so the default `quotes` group still runs — better than a locale we have no
-        // pair for losing quote replacement altogether.
-        expect(config.typing?.transformations.remove).not.toContain("quotes");
+        // Not removed, so CKEditor's own quotes still run — better than a locale we have no pair for
+        // losing quote replacement altogether.
+        expect(config.typing?.transformations.remove).not.toContain("quotesPrimary");
+        expect(config.typing?.transformations.remove).not.toContain("quotesSecondary");
         expect(config.typing?.transformations.extra).toEqual([]);
         // The language itself still applies, so right-to-left text lays out correctly regardless.
         expect(config.language).toMatchObject({ content: "ku" });
     });
 
     it("expresses the enabled groups as deltas, leaving CKEditor's defaults to upstream", async () => {
-        // All four groups on: only the quotes are taken over, and only because we supply our own.
+        // All four groups on: only the two quote transformations are taken over, and only because we
+        // supply our own. Named individually rather than as the `quotes` group, which would take both
+        // away together — they are configured apart.
         const allOn = await buildConfig(baseOpts({ contentLanguage: "de" }));
-        expect(allOn.typing?.transformations.remove).toEqual(["quotes"]);
+        expect(allOn.typing?.transformations.remove).toEqual(["quotesPrimary", "quotesSecondary"]);
         expect(allOn.typing?.transformations.extra).toHaveLength(2);
 
         // Each toggle removes its group by name, so the patterns behind the dashes and fractions
@@ -301,7 +304,30 @@ describe("CK config - language & emoji", () => {
         optionsState.map.textNoteMathReplacementsEnabled = "false";
         optionsState.map.textNoteSymbolReplacementsEnabled = "false";
         const allOff = await buildConfig(baseOpts({ contentLanguage: "de" }));
-        expect(allOff.typing?.transformations.remove).toEqual(["typography", "mathematical", "symbols", "quotes"]);
+        expect(allOff.typing?.transformations.remove).toEqual([
+            "typography", "mathematical", "symbols", "quotesPrimary", "quotesSecondary"
+        ]);
+    });
+
+    it("settles the two quote keys apart", async () => {
+        const quotesOf = (config: Awaited<ReturnType<typeof buildConfig>>) =>
+            (config.typing?.transformations.extra ?? []).map((t) => (t as { to: string[] }).to);
+
+        // Guillemets on the double key, the language's own marks left on the single one — the mix
+        // that a single dropdown could not express.
+        optionsState.map.textNoteDoubleQuoteStyle = "guillemets";
+        const config = await buildConfig(baseOpts({ contentLanguage: "de" }));
+
+        expect(quotesOf(config)).toEqual([
+            [null, "«", null, "»"],
+            [null, "‚", null, "‘"]
+        ]);
+
+        // Switching one off leaves the other running.
+        optionsState.map.textNoteSingleQuoteStyle = "off";
+        const halfOff = await buildConfig(baseOpts({ contentLanguage: "de" }));
+        expect(quotesOf(halfOff)).toEqual([[null, "«", null, "»"]]);
+        expect(halfOff.typing?.transformations.remove).toContain("quotesSecondary");
     });
 
     it("adds the user's own replacements alongside the quote ones", async () => {
@@ -324,13 +350,14 @@ describe("CK config - language & emoji", () => {
         expect(config.typing?.transformations.extra).toHaveLength(2);
     });
 
-    it("drops the quote replacements entirely when the style is off", async () => {
-        optionsState.map.textNoteQuoteStyle = "off";
+    it("drops the quote replacements entirely when both are off", async () => {
+        optionsState.map.textNoteDoubleQuoteStyle = "off";
+        optionsState.map.textNoteSingleQuoteStyle = "off";
 
         const config = await buildConfig(baseOpts({ contentLanguage: "de" }));
 
         // Removed and not re-supplied, so a straight quote stays straight whatever the language.
-        expect(config.typing?.transformations.remove).toContain("quotes");
+        expect(config.typing?.transformations.remove).toEqual(["quotesPrimary", "quotesSecondary"]);
         expect(config.typing?.transformations.extra).toEqual([]);
     });
 
@@ -341,14 +368,16 @@ describe("CK config - language & emoji", () => {
         // The whole point of picking one: a note written in German still gets the chosen marks. This
         // is what serves someone writing several languages in a single note, whom no per-note
         // language setting can help.
-        optionsState.map.textNoteQuoteStyle = "corner";
+        optionsState.map.textNoteDoubleQuoteStyle = "corner";
+        optionsState.map.textNoteSingleQuoteStyle = "white-corner";
         expect(quotesOf(await buildConfig(baseOpts({ contentLanguage: "de" })))).toEqual([
             [null, "「", null, "」"],
             [null, "『", null, "』"]
         ]);
 
         // An id we do not know falls back to following the language rather than to no quotes.
-        optionsState.map.textNoteQuoteStyle = "no-such-style";
+        optionsState.map.textNoteDoubleQuoteStyle = "no-such-style";
+        optionsState.map.textNoteSingleQuoteStyle = "no-such-style";
         expect(quotesOf(await buildConfig(baseOpts({ contentLanguage: "de" })))).toEqual([
             [null, "„", null, "“"],
             [null, "‚", null, "‘"]

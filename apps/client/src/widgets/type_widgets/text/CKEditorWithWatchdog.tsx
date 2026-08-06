@@ -58,7 +58,8 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
     // the transformation list at plugin init — `normalizeTransformations` runs once inside
     // `_enableTransformationWatchers` — so unlike the settings read through a getter (link previews,
     // clipboard image embedding) a live editor has nothing left to re-read.
-    const [ quoteStyle ] = useTriliumOption("textNoteQuoteStyle");
+    const [ doubleQuoteStyle ] = useTriliumOption("textNoteDoubleQuoteStyle");
+    const [ singleQuoteStyle ] = useTriliumOption("textNoteSingleQuoteStyle");
     const [ punctuationReplacements ] = useTriliumOptionBool("textNotePunctuationReplacementsEnabled");
     const [ mathReplacements ] = useTriliumOptionBool("textNoteMathReplacementsEnabled");
     const [ symbolReplacements ] = useTriliumOptionBool("textNoteSymbolReplacementsEnabled");
@@ -295,7 +296,7 @@ export default function CKEditorWithWatchdog({ containerRef: externalContainerRe
         // which is acceptable for a change made deliberately over in the settings.
     }, [
         contentLanguage, uiLanguage, isClassicEditor, multilineToolbar,
-        quoteStyle, punctuationReplacements, mathReplacements, symbolReplacements,
+        doubleQuoteStyle, singleQuoteStyle, punctuationReplacements, mathReplacements, symbolReplacements,
         customReplacements, defaultContentLanguage
     ]);
 

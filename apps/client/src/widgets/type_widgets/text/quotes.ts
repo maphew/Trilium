@@ -2,12 +2,15 @@ import type { TextTypingTransformationDescription } from "@triliumnext/ckeditor5
 
 import { normalizeLocale } from "../../../utils/formatters.js";
 
-/** The opening and closing marks of one quotation level. */
+/** The opening and closing mark of one quotation level — what a single quote key produces. */
+export type QuoteMarks = readonly [open: string, close: string];
+
+/** Both levels a language sets its quotations in. */
 export interface QuoteStyle {
-    /** The marks a quotation is normally set in. */
-    primary: readonly [open: string, close: string];
-    /** The marks a quotation nested inside another one is set in. */
-    secondary: readonly [open: string, close: string];
+    /** The marks a quotation is normally set in — what the double quote key produces. */
+    primary: QuoteMarks;
+    /** The marks a quotation nested inside another one is set in — the single quote key. */
+    secondary: QuoteMarks;
 }
 
 /**
@@ -72,30 +75,65 @@ const QUOTE_STYLES: Record<string, QuoteStyle> = {
 };
 
 /**
- * The styles offered as an explicit choice, for writers who would rather name their marks than have
- * a language name them — someone writing three languages in one note, or who simply prefers one
- * pair and does not want the note's metadata deciding. macOS offers exactly this and nothing else;
- * LibreOffice offers it alongside the locale defaults, which is the shape taken here.
+ * The mark pairs offered as an explicit choice, for writers who would rather name their marks than
+ * have a language name them — someone writing three languages in a single note, or who simply
+ * prefers one pair and does not want the note's metadata deciding. macOS offers exactly this and
+ * nothing else; LibreOffice offers it alongside the locale defaults, which is the shape taken here.
  *
- * Each entry points at a row of the table above rather than restating its marks, so a pair is
- * written in one place only — the French narrow no-break spaces above all, which are invisible in a
- * diff and have already been mistyped twice.
+ * One flat list, offered for both the double and the single quote: which key a pair belongs on is a
+ * convention rather than a property of the marks, and the conventions disagree — British typography
+ * puts `‘…’` on the double quote where American puts `“…”`. Choosing for each key separately is what
+ * lets both be had.
+ *
+ * Every pair that a locale already writes points at that row rather than restating it, so the marks
+ * live in one place — the French narrow no-break spaces above all, which are invisible in a diff and
+ * have been mistyped twice already.
  */
-export const QUOTE_STYLE_PRESETS = [
-    { id: "double-curly", style: QUOTE_STYLES.en },
-    // The levels the other way up, which is how British typography traditionally set them.
-    { id: "single-curly", style: { primary: QUOTE_STYLES.en.secondary, secondary: QUOTE_STYLES.en.primary } },
-    { id: "low-high", style: QUOTE_STYLES.de },
-    { id: "low-right", style: QUOTE_STYLES.pl },
-    { id: "guillemets", style: QUOTE_STYLES.ru },
-    { id: "guillemets-spaced", style: QUOTE_STYLES.fr },
-    { id: "corner", style: QUOTE_STYLES.ja }
-] as const satisfies readonly { id: string; style: QuoteStyle }[];
+export const QUOTE_MARK_PRESETS = [
+    { id: "double-curly", marks: QUOTE_STYLES.en.primary },
+    { id: "single-curly", marks: QUOTE_STYLES.en.secondary },
+    { id: "low-high", marks: QUOTE_STYLES.de.primary },
+    { id: "single-low-high", marks: QUOTE_STYLES.de.secondary },
+    { id: "low-right", marks: QUOTE_STYLES.pl.primary },
+    { id: "guillemets", marks: QUOTE_STYLES.ru.primary },
+    { id: "guillemets-spaced", marks: QUOTE_STYLES.fr.primary },
+    // The only pair no locale in the table writes: single guillemets, which several conventions
+    // nest inside the double ones.
+    { id: "single-guillemets", marks: ["‹", "›"] },
+    { id: "corner", marks: QUOTE_STYLES.ja.primary },
+    { id: "white-corner", marks: QUOTE_STYLES.ja.secondary }
+] as const satisfies readonly { id: string; marks: readonly [open: string, close: string] }[];
 
-/** The style a preset id names, or `null` for an id we do not know — a hand-edited option, or one
+/** The marks a preset id names, or `null` for an id we do not know — a hand-edited option, or one
  *  written by a version that offered a preset this one has dropped. */
-export function getQuoteStylePreset(id: string | null | undefined): QuoteStyle | null {
-    return QUOTE_STYLE_PRESETS.find((preset) => preset.id === id)?.style ?? null;
+export function getQuoteMarkPreset(id: string | null | undefined): QuoteMarks | null {
+    return QUOTE_MARK_PRESETS.find((preset) => preset.id === id)?.marks ?? null;
+}
+
+/** What one of the two quote settings comes to for a given note. */
+export interface ResolvedQuoteSetting {
+    /** The marks to install, or `null` to install none. */
+    marks: QuoteMarks | null;
+    /** Whether CKEditor's own transformation for this key has to be taken out of the way. */
+    overridesUpstream: boolean;
+}
+
+/**
+ * Works out what one of the two settings means for a note: an explicit pair wins outright, `off`
+ * installs nothing, and anything else follows the note's language.
+ *
+ * The distinction the `overridesUpstream` flag carries is that a language we have no pair for keeps
+ * falling through to CKEditor's own quotes, rather than silently losing quote replacement — while
+ * `off` deliberately takes them away.
+ */
+export function resolveQuoteSetting(setting: string | null | undefined, level: keyof QuoteStyle, contentLanguage: string | null): ResolvedQuoteSetting {
+    if (setting === "off") return { marks: null, overridesUpstream: true };
+
+    const preset = getQuoteMarkPreset(setting);
+    if (preset) return { marks: preset, overridesUpstream: true };
+
+    const style = resolveQuoteStyle(contentLanguage);
+    return style ? { marks: style[level], overridesUpstream: true } : { marks: null, overridesUpstream: false };
 }
 
 /**
@@ -120,14 +158,12 @@ export function resolveQuoteStyle(...candidates: (string | null | undefined)[]):
 }
 
 /**
- * The transformations that replace a typed `"…"` and `'…'` with the style's marks, in the shape
- * CKEditor's `typing.transformations.extra` takes.
+ * The transformation that replaces a run typed between `quoteCharacter`s with `marks`, in the shape
+ * CKEditor's `typing.transformations.extra` takes. Built one key at a time, since the double and the
+ * single quote are configured apart.
  */
-export function buildQuoteTransformations(style: QuoteStyle): TextTypingTransformationDescription[] {
-    return [
-        { from: buildQuotesRegExp("\""), to: [null, style.primary[0], null, style.primary[1]] },
-        { from: buildQuotesRegExp("'"), to: [null, style.secondary[0], null, style.secondary[1]] }
-    ];
+export function buildQuoteTransformation(quoteCharacter: "\"" | "'", marks: QuoteMarks): TextTypingTransformationDescription {
+    return { from: buildQuotesRegExp(quoteCharacter), to: [null, marks[0], null, marks[1]] };
 }
 
 /**

@@ -309,8 +309,11 @@ const defaultOptions: DefaultOption[] = [
     // they could be turned off; the point of the setting is that the behaviour is now visible and
     // refusable, not that it changes for anyone who leaves it alone.
     // "auto" keeps the marks following the note's language, which is what the editor did before the
-    // setting existed. An explicit preset overrides the language entirely — the point of offering it.
-    { name: "textNoteQuoteStyle", value: "auto", isSynced: true },
+    // setting existed. An explicit preset overrides the language entirely — the point of offering
+    // it. The two keys are set apart because the conventions disagree about which pair belongs on
+    // which: British typography puts the single curly marks where American puts the double ones.
+    { name: "textNoteDoubleQuoteStyle", value: "auto", isSynced: true },
+    { name: "textNoteSingleQuoteStyle", value: "auto", isSynced: true },
     { name: "textNotePunctuationReplacementsEnabled", value: "true", isSynced: true },
     { name: "textNoteMathReplacementsEnabled", value: "true", isSynced: true },
     { name: "textNoteSymbolReplacementsEnabled", value: "true", isSynced: true },

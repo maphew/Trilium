@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
 
-import { buildQuoteTransformations, getQuoteStylePreset, QUOTE_STYLE_PRESETS, type QuoteStyle, resolveQuoteStyle } from "./quotes.js";
+import { buildQuoteTransformation, getQuoteMarkPreset, QUOTE_MARK_PRESETS, type QuoteStyle, resolveQuoteSetting, resolveQuoteStyle } from "./quotes.js";
 
 /**
  * Applies a transformation the way CKEditor's `TextTransformation` does: match the text before the
  * caret, then swap in every group the `to` array names, leaving the `null` ones alone. Lets the
  * regex and the replacement array be asserted together, which is where a quote pair actually breaks.
  */
-function transform(transformation: ReturnType<typeof buildQuoteTransformations>[number], text: string) {
+function transform(transformation: ReturnType<typeof buildQuoteTransformation>, text: string) {
     const from = transformation.from;
     if (!(from instanceof RegExp) || !Array.isArray(transformation.to)) {
         throw new Error("the quote transformations are built as a RegExp plus a replacement array");
@@ -27,8 +27,10 @@ function transform(transformation: ReturnType<typeof buildQuoteTransformations>[
 function transformationsFor(locale: string) {
     const style = resolveQuoteStyle(locale);
     if (!style) throw new Error(`expected ${locale} to resolve to a quote style`);
-    const [primary, secondary] = buildQuoteTransformations(style);
-    return { primary, secondary };
+    return {
+        primary: buildQuoteTransformation("\"", style.primary),
+        secondary: buildQuoteTransformation("'", style.secondary)
+    };
 }
 
 describe("resolveQuoteStyle", () => {
@@ -93,9 +95,9 @@ describe("resolveQuoteStyle", () => {
  * below do not carry an invisible character that reads as stray whitespace. */
 const NNBSP = "\u202F";
 
-describe("QUOTE_STYLE_PRESETS", () => {
+describe("QUOTE_MARK_PRESETS", () => {
     it("offers each pair once, under an id naming the marks rather than a language", () => {
-        const ids = QUOTE_STYLE_PRESETS.map((preset) => preset.id);
+        const ids = QUOTE_MARK_PRESETS.map((preset) => preset.id);
 
         expect(new Set(ids).size).toBe(ids.length);
         // Named for their shape: the same pair serves several languages, and a writer picking one is
@@ -107,24 +109,51 @@ describe("QUOTE_STYLE_PRESETS", () => {
     it("takes its marks from the locale table, so a pair is written in one place", () => {
         // French above all: its narrow no-break spaces are invisible in a diff and have been
         // mistyped before.
-        expect(getQuoteStylePreset("guillemets-spaced")).toEqual(resolveQuoteStyle("fr"));
-        expect(getQuoteStylePreset("low-high")).toEqual(resolveQuoteStyle("de"));
-        expect(getQuoteStylePreset("corner")).toEqual(resolveQuoteStyle("ja"));
+        expect(getQuoteMarkPreset("guillemets-spaced")).toEqual(resolveQuoteStyle("fr")?.primary);
+        expect(getQuoteMarkPreset("low-high")).toEqual(resolveQuoteStyle("de")?.primary);
+        expect(getQuoteMarkPreset("single-low-high")).toEqual(resolveQuoteStyle("de")?.secondary);
+        expect(getQuoteMarkPreset("white-corner")).toEqual(resolveQuoteStyle("ja")?.secondary);
     });
 
-    it("inverts the levels for the single-curly pair rather than restating them", () => {
-        const english = resolveQuoteStyle("en");
-
-        expect(getQuoteStylePreset("single-curly")).toEqual({
-            primary: english?.secondary,
-            secondary: english?.primary
-        });
+    it("offers both curly pairs, so either can go on either key", () => {
+        // The conventions disagree about which belongs on which — British typography sets on the
+        // single marks where American sets on the double — so neither is tied to a key here.
+        expect(getQuoteMarkPreset("double-curly")).toEqual(resolveQuoteStyle("en")?.primary);
+        expect(getQuoteMarkPreset("single-curly")).toEqual(resolveQuoteStyle("en")?.secondary);
     });
 
     it("returns null for an id it does not know", () => {
-        expect(getQuoteStylePreset("no-such-style")).toBeNull();
-        expect(getQuoteStylePreset("")).toBeNull();
-        expect(getQuoteStylePreset(null)).toBeNull();
+        expect(getQuoteMarkPreset("no-such-style")).toBeNull();
+        expect(getQuoteMarkPreset("")).toBeNull();
+        expect(getQuoteMarkPreset(null)).toBeNull();
+    });
+});
+
+describe("resolveQuoteSetting", () => {
+    it("lets a chosen pair outrank the note's language", () => {
+        expect(resolveQuoteSetting("corner", "primary", "de")).toEqual({
+            marks: resolveQuoteStyle("ja")?.primary,
+            overridesUpstream: true
+        });
+    });
+
+    it("takes the level asked for when following the language", () => {
+        const german = resolveQuoteStyle("de");
+
+        expect(resolveQuoteSetting("auto", "primary", "de")).toEqual({ marks: german?.primary, overridesUpstream: true });
+        expect(resolveQuoteSetting("auto", "secondary", "de")).toEqual({ marks: german?.secondary, overridesUpstream: true });
+    });
+
+    it("installs nothing but still takes over when switched off", () => {
+        expect(resolveQuoteSetting("off", "primary", "de")).toEqual({ marks: null, overridesUpstream: true });
+    });
+
+    it("leaves upstream in place for a language with no pair of ours", () => {
+        // The distinction that keeps an unmapped locale on CKEditor's own quotes rather than losing
+        // them: nothing to install, and nothing to remove either.
+        expect(resolveQuoteSetting("auto", "primary", "ku")).toEqual({ marks: null, overridesUpstream: false });
+        // An id we do not know is read as "auto" rather than as "off".
+        expect(resolveQuoteSetting("no-such-style", "primary", "ku")).toEqual({ marks: null, overridesUpstream: false });
     });
 });
 

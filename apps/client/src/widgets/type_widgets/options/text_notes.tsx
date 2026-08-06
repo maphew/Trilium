@@ -19,7 +19,7 @@ import FormText from "../../react/FormText";
 import FormTextBox, { FormTextBoxWithUnit } from "../../react/FormTextBox";
 import { useColorScheme, useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import { getHtml } from "../../react/RawHtml";
-import { QUOTE_STYLE_PRESETS } from "../text/quotes";
+import { QUOTE_MARK_PRESETS } from "../text/quotes";
 import { type CustomReplacement, parseCustomReplacements } from "../text/replacements";
 import OptionsPageHeader from "./components/OptionsPageHeader";
 import OptionsRow, { OptionsRowWithToggle } from "./components/OptionsRow";
@@ -188,7 +188,8 @@ function EditorFeatures() {
  * behaviour being undocumented as about it being unwanted, so the examples are the point.
  */
 function AutomaticReplacements() {
-    const [quoteStyle, setQuoteStyle] = useTriliumOption("textNoteQuoteStyle");
+    const [doubleQuoteStyle, setDoubleQuoteStyle] = useTriliumOption("textNoteDoubleQuoteStyle");
+    const [singleQuoteStyle, setSingleQuoteStyle] = useTriliumOption("textNoteSingleQuoteStyle");
     const [punctuationEnabled, setPunctuationEnabled] = useTriliumOptionBool("textNotePunctuationReplacementsEnabled");
     const [mathEnabled, setMathEnabled] = useTriliumOptionBool("textNoteMathReplacementsEnabled");
     const [symbolsEnabled, setSymbolsEnabled] = useTriliumOptionBool("textNoteSymbolReplacementsEnabled");
@@ -196,25 +197,19 @@ function AutomaticReplacements() {
     return (
         <OptionsSection title={t("automatic_replacements.title")} description={t("automatic_replacements.description")}>
             <OptionsRow
-                name="quote-style"
-                label={t("automatic_replacements.quotes")}
-                description={t("automatic_replacements.quotes_description")}
+                name="double-quote-style"
+                label={t("automatic_replacements.double_quotes")}
+                description={t("automatic_replacements.double_quotes_description")}
             >
-                <FormSelect
-                    currentValue={quoteStyle || "auto"}
-                    onChange={setQuoteStyle}
-                    keyProperty="value" titleProperty="label"
-                    values={[
-                        { value: "auto", label: t("automatic_replacements.quotes_auto") },
-                        { value: "off", label: t("automatic_replacements.quotes_off") },
-                        // The marks are their own label — no wording to translate, and nothing
-                        // between the choice and what it produces.
-                        ...QUOTE_STYLE_PRESETS.map(({ id, style }) => ({
-                            value: id,
-                            label: `${style.primary[0]}…${style.primary[1]}   ${style.secondary[0]}…${style.secondary[1]}`
-                        }))
-                    ]}
-                />
+                <QuoteStyleSelect currentValue={doubleQuoteStyle} onChange={setDoubleQuoteStyle} />
+            </OptionsRow>
+
+            <OptionsRow
+                name="single-quote-style"
+                label={t("automatic_replacements.single_quotes")}
+                description={t("automatic_replacements.single_quotes_description")}
+            >
+                <QuoteStyleSelect currentValue={singleQuoteStyle} onChange={setSingleQuoteStyle} />
             </OptionsRow>
 
             <OptionsRowWithToggle
@@ -243,6 +238,31 @@ function AutomaticReplacements() {
 
             <CustomReplacements />
         </OptionsSection>
+    );
+}
+
+/**
+ * The choice offered for one of the two quote keys. The same list serves both: which pair belongs on
+ * which key is a convention rather than a property of the marks, and the conventions disagree —
+ * British typography puts `‘…’` where American puts `“…”`.
+ */
+function QuoteStyleSelect({ currentValue, onChange }: { currentValue: string, onChange: (newValue: string) => void }) {
+    return (
+        <FormSelect
+            currentValue={currentValue || "auto"}
+            onChange={onChange}
+            keyProperty="value" titleProperty="label"
+            values={[
+                { value: "auto", label: t("automatic_replacements.quotes_auto") },
+                { value: "off", label: t("automatic_replacements.quotes_off") },
+                // The marks are their own label — no wording to translate, and nothing between the
+                // choice and what it produces.
+                ...QUOTE_MARK_PRESETS.map(({ id, marks }) => ({
+                    value: id,
+                    label: `${marks[0]}…${marks[1]}`
+                }))
+            ]}
+        />
     );
 }
 
