@@ -302,6 +302,7 @@ const defaultOptions: DefaultOption[] = [
     { name: "textNoteSlashCommandsEnabled", value: "true", isSynced: true },
     { name: "textNoteContentHintsEnabled", value: "true", isSynced: true },
     { name: "textNoteAutoLinkPreviewsEnabled", value: "true", isSynced: true },
+    { name: "clipboardImageEmbedEnabled", value: "true", isSynced: true },
     { name: "includeNoteDefaultBoxSize", value: "medium", isSynced: true },
 
     // HTML import configuration

@@ -237,6 +237,8 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     textNoteContentHintsEnabled: boolean;
     /** Whether a URL typed or pasted into a text note is automatically turned into a link preview. The "Link preview" dialog is unaffected and always inserts one on request. */
     textNoteAutoLinkPreviewsEnabled: boolean;
+    /** Whether copying note content embeds internal images as data: URIs so they paste into external apps (internal paste stays reference-based). Hidden kill-switch. */
+    clipboardImageEmbedEnabled: boolean;
     backgroundEffects: boolean;
     newLayout: boolean;
 
