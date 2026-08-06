@@ -294,15 +294,25 @@ export function CustomReplacements() {
     // device, or a second settings tab — and has to replace what is on screen: without this the rows
     // would keep their first value and the next blur would write it back over the newer list.
     const ownWrite = useRef(storedJson);
+    const containerRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         if (storedJson === ownWrite.current) return;
+
+        // ...except over a field being typed into, where taking the arriving list would delete the
+        // half-written row under the caret. What is on screen is then the later intent of the two,
+        // and the blur that ends the edit writes it. Only an edit defers it: a field merely holding
+        // the focus has nothing to lose, so the list arrives at once.
+        const isEditing = containerRef.current?.contains(document.activeElement)
+            && serialize(rowsRef.current) !== ownWrite.current;
+        if (isEditing) return;
+
         ownWrite.current = storedJson;
         setRows(toRows(storedJson));
     }, [ storedJson ]);
 
     function persist(next: EditableReplacement[]) {
-        const json = JSON.stringify(next.map(({ from, to }) => ({ from, to })));
+        const json = serialize(next);
         ownWrite.current = json;
         void setStoredJson(json);
     }
@@ -324,7 +334,7 @@ export function CustomReplacements() {
     }
 
     return (
-        <div className="custom-replacements">
+        <div className="custom-replacements" ref={containerRef}>
             <div className="option-row-label">
                 <label>{t("automatic_replacements.custom")}</label>
                 <small className="option-row-description">{t("automatic_replacements.custom_description")}</small>
@@ -368,6 +378,11 @@ export function CustomReplacements() {
 /** The stored pairs as editable rows, each given a key its neighbours moving cannot disturb. */
 function toRows(storedJson: string): EditableReplacement[] {
     return parseCustomReplacements(storedJson).map((replacement) => ({ ...replacement, id: randomString(8) }));
+}
+
+/** The rows as the option stores them, which is also how "unchanged" is told from "edited". */
+function serialize(rows: EditableReplacement[]): string {
+    return JSON.stringify(rows.map(({ from, to }) => ({ from, to })));
 }
 
 function Editor() {

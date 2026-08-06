@@ -115,6 +115,39 @@ describe("CustomReplacements", () => {
         expect(parseCustomReplacements(state.writes.at(-1))).toEqual([ { from: "CT", to: "CherryTree" } ]);
     });
 
+    it("does not delete a half-written row when a list arrives mid-edit", () => {
+        // Adopting the arriving list outright would take the caret's row with it. What is on screen
+        // is the later intent of the two, and the blur that ends the edit is what writes it.
+        state.stored = `[{"from":"TN","to":"Trilium Notes"}]`;
+        const container = renderEditor();
+        const [ from ] = inputs(container);
+
+        from.focus();
+        act(() => {
+            from.value = "TNX";
+            from.dispatchEvent(new Event("input", { bubbles: true }));
+        });
+
+        act(() => writeStore(`[{"from":"CT","to":"CherryTree"}]`));
+
+        expect(inputs(container).map((input) => input.value)).toEqual([ "TNX", "Trilium Notes" ]);
+
+        blur(from);
+        expect(parseCustomReplacements(state.writes.at(-1))).toEqual([ { from: "TNX", to: "Trilium Notes" } ]);
+    });
+
+    it("still takes the list when a field only holds the focus", () => {
+        // Focus alone is not an edit — there is nothing under the caret to lose, so waiting for a
+        // blur that may never come would leave the page showing a list that no longer exists.
+        state.stored = `[{"from":"TN","to":"Trilium Notes"}]`;
+        const container = renderEditor();
+
+        inputs(container)[0].focus();
+        act(() => writeStore(`[{"from":"CT","to":"CherryTree"}]`));
+
+        expect(inputs(container).map((input) => input.value)).toEqual([ "CT", "CherryTree" ]);
+    });
+
     it("keeps what is being typed when the option settles to what we just wrote", () => {
         // Our own save comes back through the same subscription; re-reading it then would throw away
         // whatever had been typed since, and move the caret.
