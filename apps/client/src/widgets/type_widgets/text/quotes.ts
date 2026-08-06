@@ -22,6 +22,11 @@ export interface QuoteStyle {
  * falls through to CKEditor's default, which is a better outcome than a confident guess. That
  * currently means the right-to-left content locales (`ar`, `he`, `ku`, `fa`, `ug`), where usage
  * varies by register and interacts with bidirectional text.
+ *
+ * Every entry here agrees with CLDR's `delimiters` data for the corresponding locale, which is the
+ * tie-breaker where a prescriptive rule and common usage disagree — Spanish being the case in point,
+ * where the RAE prescribes guillemets but CLDR (and everyday writing) uses the curly pair. The one
+ * intentional departure is French, whose narrow no-break spaces CLDR does not model in this field.
  */
 const QUOTE_STYLES: Record<string, QuoteStyle> = {
     // “…” / ‘…’ — the same pair CKEditor defaults to, restated so these locales resolve explicitly
@@ -33,9 +38,12 @@ const QUOTE_STYLES: Record<string, QuoteStyle> = {
     ko: { primary: ["“", "”"], secondary: ["‘", "’"] },
     zh: { primary: ["“", "”"], secondary: ["‘", "’"] },
     "pt-br": { primary: ["“", "”"], secondary: ["‘", "’"] },
-
-    // British usage inverts the two levels.
-    "en-gb": { primary: ["‘", "’"], secondary: ["“", "”"] },
+    es: { primary: ["“", "”"], secondary: ["‘", "’"] },
+    // Listed although it now matches `en`, so that the agreement reads as a decision rather than an
+    // omission: British usage traditionally inverts the two levels — which is what CKEditor's own
+    // `quotesPrimaryEnGb` still does — but CLDR has en-GB on double quotes, following the publishers
+    // that moved. Restoring the inverted pair wants evidence, not just the memory of the old rule.
+    "en-gb": { primary: ["“", "”"], secondary: ["‘", "’"] },
 
     // „…“ — the closing mark is the raised one, not a mirror of the opening.
     de: { primary: ["„", "“"], secondary: ["‚", "‘"] },
@@ -53,8 +61,9 @@ const QUOTE_STYLES: Record<string, QuoteStyle> = {
     // length-constrained, so the space rides along with the mark it belongs to.
     fr: { primary: ["« ", " »"], secondary: ["“", "”"] },
 
-    es: { primary: ["«", "»"], secondary: ["“", "”"] },
     it: { primary: ["«", "»"], secondary: ["“", "”"] },
+    // Portugal. Brazilian usage is the curly pair above, under `pt-br` — CLDR models the split the
+    // other way round, keeping Brazil in plain `pt` and Portugal in `pt-PT`.
     pt: { primary: ["«", "»"], secondary: ["“", "”"] },
 
     // Corner brackets, used by Japanese and by traditional (but not simplified) Chinese.

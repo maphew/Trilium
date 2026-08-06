@@ -57,10 +57,23 @@ describe("resolveQuoteStyle", () => {
         expect(resolveQuoteStyle("de-AT")).toEqual(resolveQuoteStyle("de"));
         expect(resolveQuoteStyle("fr-CA")).toEqual(resolveQuoteStyle("fr"));
 
-        // en-GB inverts the levels, so it must not collapse into `en`.
-        expect(resolveQuoteStyle("en-GB")).toEqual({ primary: ["‘", "’"], secondary: ["“", "”"] });
         expect(resolveQuoteStyle("en-US")).toEqual({ primary: ["“", "”"], secondary: ["‘", "’"] });
-        expect(resolveQuoteStyle("en-GB")).not.toEqual(resolveQuoteStyle("en"));
+
+        // A region that has an entry of its own keeps it instead of collapsing into the base
+        // language. Brazilian vs European Portuguese is the pair that still differs.
+        expect(resolveQuoteStyle("pt-BR")).toEqual({ primary: ["“", "”"], secondary: ["‘", "’"] });
+        expect(resolveQuoteStyle("pt-BR")).not.toEqual(resolveQuoteStyle("pt"));
+    });
+
+    it("follows CLDR where a prescriptive rule and common usage disagree", () => {
+        // Spanish: the RAE prescribes guillemets, CLDR and everyday writing use the curly pair.
+        expect(resolveQuoteStyle("es")).toEqual({ primary: ["“", "”"], secondary: ["‘", "’"] });
+
+        // en-GB: traditional British style inverts the two levels, and CKEditor's own
+        // `quotesPrimaryEnGb` still does, but CLDR has en-GB on doubles — so it matches `en`. The
+        // entry is kept rather than deleted so that agreeing reads as a decision, not an omission.
+        expect(resolveQuoteStyle("en-GB")).toEqual({ primary: ["“", "”"], secondary: ["‘", "’"] });
+        expect(resolveQuoteStyle("en-GB")).toEqual(resolveQuoteStyle("en"));
     });
 
     it("normalizes the locale ids Trilium stores, matching the date and number formatters", () => {
