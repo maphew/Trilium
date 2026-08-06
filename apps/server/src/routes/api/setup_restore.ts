@@ -9,6 +9,7 @@ import dataDir from "../../services/data_dir.js";
 import {
     getRestoreProgress,
     readBackupFormat,
+    removeQuietly,
     reportRestoreFailure,
     restoreDatabase,
     RestoreFailure,
@@ -204,10 +205,16 @@ function existingBackup(filePath: string | undefined) {
     return { path: resolvedPath, fileName: path.basename(resolvedPath), consumable: false };
 }
 
-/** Frees setup and the disk once an upload is restored, abandoned, or found to be unusable. */
+/**
+ * Frees setup and the disk once an upload is restored, abandoned, or found to be unusable.
+ *
+ * Runs while a failure is on its way to the user, so the file not going quietly must not become the
+ * failure they are told about. Setup is freed either way: a file left behind costs disk, a lock left
+ * behind costs them every other way out of the setup screen.
+ */
 function discardPendingUpload() {
     pendingUpload = null;
-    fs.rmSync(PENDING_UPLOAD_PATH, { force: true });
+    removeQuietly(PENDING_UPLOAD_PATH);
 
     releaseSetupHold?.();
     releaseSetupHold = null;

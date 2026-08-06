@@ -143,6 +143,24 @@ describe("staging a backup", () => {
         expect(fs.existsSync(backup)).toBe(true);
     });
 
+    it("closes both files when the unwrap fails, so what is left can be deleted and replaced", async () => {
+        // Windows refuses to delete or overwrite an open file, so a leaked handle turns one wrong
+        // password into a staging directory that cannot be cleared (ENOTEMPTY) and an uploaded
+        // backup the next attempt cannot replace (EPERM).
+        const backup = await containerOf(validDatabase(), "hunter2");
+        const opened = vi.spyOn(fs, "createReadStream");
+        const written = vi.spyOn(fs, "createWriteStream");
+
+        await expect(stageBackup({ path: backup, fileName: "b.tnbackup", consumable: false, passphrase: "wrong" }))
+            .rejects.toMatchObject({ reason: "wrong-passphrase-or-damaged-header" });
+
+        expect(opened.mock.results[0].value.closed).toBe(true);
+        expect(written.mock.results[0].value.closed).toBe(true);
+        // Which is what the caller then relies on, on both counts.
+        expect(() => fs.rmSync(path.dirname(String(written.mock.calls[0][0])), { recursive: true })).not.toThrow();
+        expect(() => fs.rmSync(backup)).not.toThrow();
+    });
+
     it("refuses a file it cannot even open", async () => {
         await expect(stageBackup({ path: path.join(tempRoot, "gone.db"), fileName: "gone.db", consumable: false }))
             .rejects.toMatchObject({ reason: "not-a-database" });
@@ -244,6 +262,22 @@ describe("restoring a database", () => {
         expect(getRestoreProgress()).toMatchObject({
             stage: "failed", fileName: "holiday.db", reason: "not-a-database"
         });
+    });
+
+    it("reports why it failed even when the tidying up afterwards fails too", async () => {
+        // A throw from the `finally` would replace the failure on its way out, and the client would
+        // be told the temporary directory would not delete rather than that the password was wrong.
+        vi.spyOn(fs, "rmSync").mockImplementation(() => {
+            throw new Error("ENOTEMPTY, Directory not empty");
+        });
+
+        await expect(restoreDatabase({
+            path: fileWith("a photograph, renamed"),
+            fileName: "holiday.db",
+            consumable: false
+        })).rejects.toMatchObject({ reason: "not-a-database" });
+
+        expect(getRestoreProgress()).toMatchObject({ stage: "failed", reason: "not-a-database" });
     });
 
     it("records a failure that happened instead of a restore, so nothing waits on a run that never began", () => {

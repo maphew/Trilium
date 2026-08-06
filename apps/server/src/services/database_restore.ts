@@ -140,8 +140,11 @@ export async function restoreDatabase(request: RestoreRequest): Promise<void> {
 
         throw failure;
     } finally {
-        // Whatever happened, the temporary files are of no further use.
-        fs.rmSync(stagingDirectory(), { recursive: true, force: true });
+        // Whatever happened, the temporary files are of no further use. Tidying up is never allowed
+        // to throw from here: an exception raised in a `finally` replaces the one on its way out, so
+        // a directory that would not delete used to bury the reason the restore actually failed —
+        // and with it the client's only way of telling a wrong passphrase from a broken backup.
+        removeQuietly(stagingDirectory(), { recursive: true });
     }
 }
 
@@ -285,11 +288,20 @@ export async function stageBackup(request: RestoreRequest): Promise<string> {
     }
 
     const candidate = freshCandidatePath();
-    await readBackupContainer(
-        fs.createReadStream(request.path),
-        fs.createWriteStream(candidate),
-        { passphrase: request.passphrase }
-    );
+    const source = fs.createReadStream(request.path);
+    const destination = fs.createWriteStream(candidate);
+
+    try {
+        await readBackupContainer(source, destination, { passphrase: request.passphrase });
+    } finally {
+        // Both streams are closed here rather than left to the reader, which only ends them once it
+        // gets as far as its pipeline: a wrong passphrase is refused before that, from the header, so
+        // on a failure the two handles are still open. Windows will not let an open file be deleted
+        // or replaced, which turns one wrong password into a staging directory that cannot be
+        // cleared and an uploaded backup that cannot be overwritten by the next attempt.
+        await closeStream(source);
+        await closeStream(destination);
+    }
 
     if (request.consumable) {
         await fs.promises.rm(request.path, { force: true });
@@ -365,6 +377,39 @@ function report(stage: RestoreStage): void {
     if (progress) {
         progress = { ...progress, stage };
     }
+}
+
+/**
+ * Deletes something that is no longer wanted, and carries on if it will not go.
+ *
+ * Every use of this is cleaning up after something else, on a path that is already reporting its own
+ * outcome. A leftover temporary file is worth a line in the log; it is not worth replacing the answer
+ * the caller was about to give, and on Windows a file another process has briefly opened — a virus
+ * scanner, an indexer — is a failure that says nothing about the operation at hand.
+ */
+export function removeQuietly(target: string, options: { recursive?: boolean } = {}): void {
+    try {
+        fs.rmSync(target, { force: true, recursive: options.recursive });
+    } catch (e) {
+        getLog().error(`Could not remove a temporary file after a restore: ${messageOf(e)}`);
+    }
+}
+
+/**
+ * Releases a stream's file handle and waits for the operating system to agree that it is released.
+ *
+ * Waiting is the point: `destroy()` only asks, and the handle is still open until `close` fires.
+ * Anything that then tries to delete or replace the file on Windows fails until it does.
+ */
+function closeStream(stream: NodeJS.EventEmitter & { closed: boolean; destroy(): void }): Promise<void> {
+    if (stream.closed) {
+        return Promise.resolve();
+    }
+
+    return new Promise((resolve) => {
+        stream.once("close", () => resolve());
+        stream.destroy();
+    });
 }
 
 function stagingDirectory(): string {
