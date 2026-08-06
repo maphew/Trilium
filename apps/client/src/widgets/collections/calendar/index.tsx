@@ -1,9 +1,13 @@
+// FullCalendar v7 ships no bundled CSS of its own — the skeleton and the chosen theme have to be
+// pulled in by hand. Imported ahead of index.css so our own rules still come last.
+import "fullcalendar/skeleton.css";
+import "fullcalendar/themes/classic/theme.css";
+import "fullcalendar/themes/classic/palette.css";
+
 import "./index.css";
 
-import { Calendar as FullCalendar } from "@fullcalendar/core";
-import { DateSelectArg, EventChangeArg, EventClickArg, EventMountArg, EventSourceFuncArg, LocaleInput, PluginDef } from "@fullcalendar/core/index.js";
-import { DateClickArg } from "@fullcalendar/interaction";
 import { DISPLAYABLE_LOCALE_IDS } from "@triliumnext/commons";
+import { Calendar as FullCalendar, DateClickInfo, DateSelectInfo, EventChangeInfo, EventClickInfo, EventDisplayInfo, EventSourceFuncInfo, LocaleInput, MountInfo, PluginInput } from "fullcalendar";
 import { RefObject } from "preact";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
@@ -20,7 +24,7 @@ import ActionButton from "../../react/ActionButton";
 import Button, { ButtonGroup } from "../../react/Button";
 import Dropdown from "../../react/Dropdown";
 import { FormListItem } from "../../react/FormList";
-import { useNoteLabel, useNoteLabelBoolean, useResizeObserver, useSpacedUpdate, useTriliumEvent, useTriliumOption, useTriliumOptionInt } from "../../react/hooks";
+import { useNoteLabel, useNoteLabelBoolean, useSpacedUpdate, useTriliumEvent, useTriliumOption, useTriliumOptionInt } from "../../react/hooks";
 import { ParentComponent } from "../../react/react_utils";
 import { ViewModeProps } from "../interface";
 import { changeEvent, newEvent } from "./api";
@@ -88,28 +92,28 @@ const DEFAULT_SLOT_LABEL_INTERVAL = "01:00:00";
 
 // Here we hard-code the imports in order to ensure that they are embedded by webpack without having to load all the languages.
 export const LOCALE_MAPPINGS: Record<DISPLAYABLE_LOCALE_IDS, (() => Promise<{ default: LocaleInput }>) | null> = {
-    de: () => import("@fullcalendar/core/locales/de"),
-    es: () => import("@fullcalendar/core/locales/es"),
-    fr: () => import("@fullcalendar/core/locales/fr"),
-    it: () => import("@fullcalendar/core/locales/it"),
-    hi: () => import("@fullcalendar/core/locales/hi"),
-    id: () => import("@fullcalendar/core/locales/id"),
+    de: () => import("fullcalendar/locales/de"),
+    es: () => import("fullcalendar/locales/es"),
+    fr: () => import("fullcalendar/locales/fr"),
+    it: () => import("fullcalendar/locales/it"),
+    hi: () => import("fullcalendar/locales/hi"),
+    id: () => import("fullcalendar/locales/id"),
     ga: null,
-    cn: () => import("@fullcalendar/core/locales/zh-cn"),
-    cs: () => import("@fullcalendar/core/locales/cs"),
-    tw: () => import("@fullcalendar/core/locales/zh-tw"),
-    ro: () => import("@fullcalendar/core/locales/ro"),
-    ru: () => import("@fullcalendar/core/locales/ru"),
-    ja: () => import("@fullcalendar/core/locales/ja"),
-    ko: () => import("@fullcalendar/core/locales/ko"),
-    pt: () => import("@fullcalendar/core/locales/pt"),
-    pl: () => import("@fullcalendar/core/locales/pl"),
-    "pt_br": () => import("@fullcalendar/core/locales/pt-br"),
-    uk: () => import("@fullcalendar/core/locales/uk"),
+    cn: () => import("fullcalendar/locales/zh-cn"),
+    cs: () => import("fullcalendar/locales/cs"),
+    tw: () => import("fullcalendar/locales/zh-tw"),
+    ro: () => import("fullcalendar/locales/ro"),
+    ru: () => import("fullcalendar/locales/ru"),
+    ja: () => import("fullcalendar/locales/ja"),
+    ko: () => import("fullcalendar/locales/ko"),
+    pt: () => import("fullcalendar/locales/pt"),
+    pl: () => import("fullcalendar/locales/pl"),
+    "pt_br": () => import("fullcalendar/locales/pt-br"),
+    uk: () => import("fullcalendar/locales/uk"),
     en: null,
-    "en-GB": () => import("@fullcalendar/core/locales/en-gb"),
+    "en-GB": () => import("fullcalendar/locales/en-gb"),
     "en_rtl": null,
-    ar: () => import("@fullcalendar/core/locales/ar")
+    ar: () => import("fullcalendar/locales/ar")
 };
 
 export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarViewData>) {
@@ -131,7 +135,8 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
     const [ slotLabelInterval ] = useNoteLabel(note, "calendar:slotLabelInterval");
     const initialView = useRef(calendarView);
     const viewSpacedUpdate = useSpacedUpdate(() => setCalendarView(initialView.current));
-    useResizeObserver(containerRef, () => calendarRef.current?.updateSize());
+    // FullCalendar v7 sizes itself from its own ResizeObserver; the v6 `updateSize()` nudge this
+    // used to need is gone along with the method.
     const isCalendarRoot = (calendarRoot || workspaceCalendarRoot);
     const isEditable = !isCalendarRoot;
     // Worked out once and handed to both the grid and the tap that makes an event of one of its
@@ -141,7 +146,7 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
         if (!isCalendarRoot) {
             return async () => await buildEvents(noteIds);
         }
-        return async (e: EventSourceFuncArg) => await buildEventsForCalendar(note, e);
+        return async (e: EventSourceFuncInfo) => await buildEventsForCalendar(note, e);
     }, [isCalendarRoot, noteIds]);
 
     const plugins = usePlugins(isEditable, isCalendarRoot);
@@ -248,7 +253,7 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
     // A click on an event opens it into the event surface instead of navigating to the popup the
     // event's `url` names — a popover beside the chip, or a sheet where there is no beside (see
     // EventPopover).
-    const onEventClick = useCallback((e: EventClickArg) => {
+    const onEventClick = useCallback((e: EventClickInfo) => {
         // The chip is an anchor at the event's `url`, and the app's document-level link handler
         // (see the delegated listeners in link.ts) would open the popup it names no matter what
         // FullCalendar makes of the click — so the click must not reach the document at all.
@@ -315,10 +320,9 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
                 weekends={!hideWeekends}
                 weekNumbers={weekNumbers}
                 slotDuration={effectiveSlotDuration}
-                slotLabelInterval={isValidDuration(slotLabelInterval) ? slotLabelInterval : DEFAULT_SLOT_LABEL_INTERVAL}
+                slotHeaderInterval={isValidDuration(slotLabelInterval) ? slotLabelInterval : DEFAULT_SLOT_LABEL_INTERVAL}
                 height="100%"
                 nowIndicator
-                handleWindowResize={false}
                 initialDate={initialDate || undefined}
                 locale={locale}
                 {...editingProps}
@@ -335,9 +339,9 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
                 // preview would, at full length and editable, and the two are drawn beside the
                 // same chip. The geo map's marker previews keep clear of its detail pane the same
                 // way (see Tooltips there).
-                eventClassNames={(arg) => selection && "noteId" in selection && arg.event.extendedProps.noteId === selection.noteId
-                    ? [ "calendar-event-selected", "no-tooltip-preview" ]
-                    : []}
+                eventClass={(arg) => selection && "noteId" in selection && arg.event.extendedProps.noteId === selection.noteId
+                    ? "calendar-event-selected no-tooltip-preview"
+                    : undefined}
                 eventDidMount={eventDidMount}
                 viewDidMount={({ view }) => {
                     if (initialView.current !== view.type) {
@@ -464,18 +468,21 @@ function MobileCalendarViewSwitcher({ calendarRef }: { calendarRef: RefObject<Fu
 }
 
 function usePlugins(isEditable: boolean, isCalendarRoot: boolean) {
-    const [ plugins, setPlugins ] = useState<PluginDef[]>();
+    const [ plugins, setPlugins ] = useState<PluginInput[]>();
 
     useEffect(() => {
         async function loadPlugins() {
-            const plugins: PluginDef[] = [];
-            plugins.push((await import("@fullcalendar/daygrid")).default);
-            plugins.push((await import("@fullcalendar/timegrid")).default);
-            plugins.push((await import("@fullcalendar/list")).default);
-            plugins.push((await import("@fullcalendar/multimonth")).default);
+            const plugins: PluginInput[] = [];
+            // v7 pulled the theme out of core and made it a plugin; without one the calendar draws
+            // with no styling at all.
+            plugins.push((await import("fullcalendar/themes/classic")).default);
+            plugins.push((await import("fullcalendar/daygrid")).default);
+            plugins.push((await import("fullcalendar/timegrid")).default);
+            plugins.push((await import("fullcalendar/list")).default);
+            plugins.push((await import("fullcalendar/multimonth")).default);
             plugins.push((await import("@fullcalendar/rrule")).default);
             if (isEditable || isCalendarRoot) {
-                plugins.push((await import("@fullcalendar/interaction")).default);
+                plugins.push((await import("fullcalendar/interaction")).default);
             }
             setPlugins(plugins);
         }
@@ -507,7 +514,7 @@ function useEditing(note: FNote, isEditable: boolean, isCalendarRoot: boolean, c
     onDraft: (draft: EventDraft, anchor: { x: number; y: number } | null) => void,
     /** The length of one of the grid's slots, which is how long a tapped event lasts. */
     slotDuration: string) {
-    const onCalendarSelection = useCallback((e: DateSelectArg) => {
+    const onCalendarSelection = useCallback((e: DateSelectInfo) => {
         const { startDate, endDate } = parseStartEndDateFromEvent(e);
         if (!startDate) return;
         const { startTime, endTime } = parseStartEndTimeFromEvent(e);
@@ -523,7 +530,7 @@ function useEditing(note: FNote, isEditable: boolean, isCalendarRoot: boolean, c
         );
     }, [ onDraft ]);
 
-    const onEventChange = useCallback(async (e: EventChangeArg) => {
+    const onEventChange = useCallback(async (e: EventChangeInfo) => {
         // Only process actual date/time changes, not other property changes (e.g., title via setProp).
         const datesChanged = e.oldEvent.start?.getTime() !== e.event.start?.getTime()
             || e.oldEvent.end?.getTime() !== e.event.end?.getTime()
@@ -546,7 +553,7 @@ function useEditing(note: FNote, isEditable: boolean, isCalendarRoot: boolean, c
      * selects no range and nothing would open at all — the tap stands for a draft instead, which
      * costs nothing if it was a mistake.
      */
-    const onDateClick = useCallback(async (e: DateClickArg) => {
+    const onDateClick = useCallback(async (e: DateClickInfo) => {
         if (isCalendarRoot) {
             const eventNote = await date_notes.getDayNote(e.dateStr, note.noteId);
             if (eventNote) {
@@ -580,7 +587,7 @@ function useEditing(note: FNote, isEditable: boolean, isCalendarRoot: boolean, c
  * divided, and a tap between two slots then made an event starting at the quarter or half hour and
  * running an hour from there.
  */
-function draftFromDateClick(e: DateClickArg, slotDuration: string): EventDraft | null {
+function draftFromDateClick(e: DateClickInfo, slotDuration: string): EventDraft | null {
     const startDate = formatDateToLocalISO(e.date);
     if (!startDate) return null;
 
@@ -603,7 +610,7 @@ function draftFromDateClick(e: DateClickArg, slotDuration: string): EventDraft |
 function useEventDisplayCustomization(parentNote: FNote, componentId: string | undefined,
     /** Puts away whatever surface stands over the calendar, answering whether there was one. */
     dismissSurface: () => boolean) {
-    const eventDidMount = useCallback((e: EventMountArg) => {
+    const eventDidMount = useCallback((e: MountInfo<EventDisplayInfo>) => {
         const { iconClass, promotedAttributes } = e.event.extendedProps;
 
         // The chip is tagged with its note, which is how the event popover finds the chip to

@@ -118,7 +118,9 @@ function EventPopoverShell({ note, anchorRect, updateKey, parentNote, isEditable
             // A press on another chip is not a dismissal but a switch: the click behind it re-points
             // this popover at that event (see onEventClick), which would otherwise have to tear the
             // popover down on the press and build it again on the click.
-            keepOpenSelector=".fc-event"
+            // Named by the attribute eventDidMount stamps on every chip rather than by a
+            // FullCalendar class: v7 emits hashed class names, so `.fc-event` no longer exists.
+            keepOpenSelector="[data-event-note-id]"
             onDismiss={onClose}
         >
             <EventDetails note={note} parentNote={parentNote} isEditable={isEditable} onClose={onClose} onFollowLink={onFollowLink} />
@@ -290,7 +292,7 @@ function EventDetailsBody({ note, parentNote, isEditable, onClose }: {
  * Popover), so the popover follows the chip through scrolls and redraws.
  */
 function eventAnchorRect(container: HTMLElement | null, noteId: string, point: AnchorPoint | null): DOMRect {
-    const chips = container?.querySelectorAll<HTMLElement>(`.fc-event[data-event-note-id="${CSS.escape(noteId)}"]`);
+    const chips = container?.querySelectorAll<HTMLElement>(`[data-event-note-id="${CSS.escape(noteId)}"]`);
 
     if (chips?.length) {
         let pick: HTMLElement | undefined;

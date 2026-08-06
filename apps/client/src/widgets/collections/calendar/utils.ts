@@ -1,8 +1,8 @@
-import { DateSelectArg } from "@fullcalendar/core/index.js";
-import { EventImpl } from "@fullcalendar/core/internal";
+import { DateSelectInfo, EventApi } from "fullcalendar";
+
 import FNote from "../../../entities/fnote";
 
-export function parseStartEndDateFromEvent(e: DateSelectArg | EventImpl) {
+export function parseStartEndDateFromEvent(e: DateSelectInfo | EventApi) {
     const startDate = formatDateToLocalISO(e.start);
     if (!startDate) {
         return { startDate: null, endDate: null };
@@ -16,7 +16,7 @@ export function parseStartEndDateFromEvent(e: DateSelectArg | EventImpl) {
     return { startDate, endDate };
 }
 
-export function parseStartEndTimeFromEvent(e: DateSelectArg | EventImpl) {
+export function parseStartEndTimeFromEvent(e: DateSelectInfo | EventApi) {
     let startTime: string | undefined | null = null;
     let endTime: string | undefined | null = null;
     if (!e.allDay) {
