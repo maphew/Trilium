@@ -12,16 +12,19 @@ function transform(replacement: CustomReplacement, text: string) {
     if (!transformation) return null;
 
     const { from, to } = transformation;
-    if (!(from instanceof RegExp) || !Array.isArray(to)) {
-        throw new Error("custom replacements are built as a RegExp plus a replacement array");
+    if (!(from instanceof RegExp) || typeof to !== "function") {
+        throw new Error("custom replacements are built as a RegExp plus a replacement function");
     }
 
     const matches = from.exec(text);
     if (!matches) return null;
 
+    // Upstream passes the captured groups, not the whole match, and maps the result back onto them.
+    const replaces = to(matches.slice(1));
+
     let result = text.slice(0, matches.index);
     for (let i = 1; i < matches.length; i++) {
-        result += to[i - 1] ?? matches[i];
+        result += replaces[i - 1] ?? matches[i];
     }
     return result + text.slice(matches.index + matches[0].length);
 }
@@ -73,6 +76,43 @@ describe("buildCustomTransformations", () => {
         expect(transform({ from: ".+", to: "…" }, "a .+ ")).toBe("a … ");
         // The classic catastrophic-backtracking shape is inert, being matched character for character.
         expect(transform({ from: "(a+)+$", to: "ok" }, "x (a+)+$ ")).toBe("x ok ");
+    });
+
+    it("matches whatever case the text was typed in", () => {
+        const replacement = { from: "teh", to: "the" };
+
+        expect(transform(replacement, "teh ")).toBe("the ");
+        expect(transform(replacement, "Teh ")).toBe("The ");
+        expect(transform(replacement, "TEH ")).toBe("THE ");
+        // A shortcut written in capitals is still found when typed in lowercase.
+        expect(transform({ from: "TN", to: "trilium" }, "tn ")).toBe("trilium ");
+    });
+
+    it("leaves a replacement that carries its own capitals exactly as written", () => {
+        // The capitals are the entire point of these, so no amount of shouting rewrites them.
+        expect(transform({ from: "TN", to: "Trilium Notes" }, "TN ")).toBe("Trilium Notes ");
+        expect(transform({ from: "TN", to: "Trilium Notes" }, "tn ")).toBe("Trilium Notes ");
+        expect(transform({ from: "iphone", to: "iPhone" }, "Iphone ")).toBe("iPhone ");
+    });
+
+    it("capitalizes only the first letter, and only for a single typed capital", () => {
+        // "For example", not "For Example" — and not "FOR EXAMPLE" off one capital letter.
+        expect(transform({ from: "eg", to: "for example" }, "Eg ")).toBe("For example ");
+        expect(transform({ from: "eg", to: "for example" }, "EG ")).toBe("FOR EXAMPLE ");
+        // A one-character shortcut typed capitalized is read as the gentler of the two readings.
+        expect(transform({ from: "a", to: "alpha" }, "A ")).toBe("Alpha ");
+    });
+
+    it("does not read an uncased first character as a capital", () => {
+        // `"(" === "(".toUpperCase()`, so looking at the first character rather than the first
+        // letter with a case would capitalize every shortcut that opens with punctuation.
+        expect(transform({ from: "(c)", to: "copyright" }, "(c) ")).toBe("copyright ");
+        expect(transform({ from: "->", to: "leads to" }, "-> ")).toBe("leads to ");
+    });
+
+    it("leaves a caseless script alone", () => {
+        // `toLowerCase` does nothing to these, so neither branch may claim them.
+        expect(transform({ from: "nihao", to: "你好" }, "Nihao ")).toBe("你好 ");
     });
 
     it("ignores a row that is still half-written", () => {

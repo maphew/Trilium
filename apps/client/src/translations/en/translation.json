@@ -2050,7 +2050,7 @@
     "formatting-locale": "Date & number format",
     "formatting-locale-auto": "Based on the application's language",
     "default-content-language": "Default content language",
-    "default-content-language-description": "The language notes are written in unless one is set on the note itself, in the Basic Properties section. It affects features such as right-to-left alignment and which quotation marks typing produces (for example \"quote\" becomes “quote” in English, but „quote“ in German).",
+    "default-content-language-description": "The language notes are written in unless one is set on the note itself, in the Basic Properties section. It affects features such as right-to-left alignment and which quotation marks typing produces.",
     "default-content-language-auto": "Based on the application's language"
   },
   "backup": {
@@ -3157,7 +3157,7 @@
     "title": "Automatic replacements",
     "description": "As you type, some sequences of characters are replaced with the typographic symbol they stand for. This never happens inside a code block or inline code, and pasted text is left alone.",
     "quotes": "Quotation marks",
-    "quotes_description": "Turns straight quotes into the curved ones of the note's language: \"quote\" becomes “quote” in English, „quote“ in German and « quote » in French.",
+    "quotes_description": "Turns straight quotes into the curved ones of the note's content language: \"quote\" becomes “quote” in English, „quote“ in German and « quote » in French.",
     "punctuation": "Punctuation",
     "punctuation_description": "Turns ... into an ellipsis (…), and -- and --- surrounded by spaces into an en dash (–) and an em dash (—).",
     "math": "Mathematical symbols",
