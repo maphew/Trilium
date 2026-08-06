@@ -57,7 +57,9 @@ export type RestoreFailureReason =
     /** The files could not be exchanged; the original database is back in place. */
     | "swap-failed"
     /** The restored database is in place but would not open. */
-    | "migration-failed";
+    | "migration-failed"
+    /** The restore never started, e.g. setup was busy with something else. */
+    | "restore-refused";
 
 export interface RestoreProgress {
     stage: RestoreStage;
@@ -141,6 +143,22 @@ export async function restoreDatabase(request: RestoreRequest): Promise<void> {
         // Whatever happened, the temporary files are of no further use.
         fs.rmSync(stagingDirectory(), { recursive: true, force: true });
     }
+}
+
+/**
+ * Records a failure that happened *instead of* a restore rather than during one, e.g. one that was
+ * refused before it could start.
+ *
+ * Without this such a failure is reported nowhere: {@link restoreDatabase} never ran, so it left no
+ * progress behind, and a client polling for one waits on a run that is never going to begin.
+ */
+export function reportRestoreFailure(fileName: string, error: unknown): void {
+    progress = {
+        stage: "failed",
+        fileName,
+        error: messageOf(error),
+        reason: error instanceof RestoreFailure ? error.reason : "restore-refused"
+    };
 }
 
 /**

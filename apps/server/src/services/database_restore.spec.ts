@@ -11,6 +11,7 @@ import {
     exchangeDatabaseFiles,
     getRestoreProgress,
     readBackupFormat,
+    reportRestoreFailure,
     restoreDatabase,
     RestoreFailure,
     stageBackup
@@ -242,6 +243,17 @@ describe("restoring a database", () => {
         expect(detach).not.toHaveBeenCalled();
         expect(getRestoreProgress()).toMatchObject({
             stage: "failed", fileName: "holiday.db", reason: "not-a-database"
+        });
+    });
+
+    it("records a failure that happened instead of a restore, so nothing waits on a run that never began", () => {
+        reportRestoreFailure("backup.db", new Error("setup is already busy with 'new-document'"));
+
+        expect(getRestoreProgress()).toEqual({
+            stage: "failed",
+            fileName: "backup.db",
+            error: "setup is already busy with 'new-document'",
+            reason: "restore-refused"
         });
     });
 

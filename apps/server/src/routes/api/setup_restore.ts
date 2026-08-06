@@ -9,6 +9,7 @@ import dataDir from "../../services/data_dir.js";
 import {
     getRestoreProgress,
     readBackupFormat,
+    reportRestoreFailure,
     restoreDatabase,
     RestoreFailure,
     type RestoreFailureReason,
@@ -139,8 +140,12 @@ async function start(req: Request) {
 
             throw e;
         }
-    }).catch(() => {
-        // Already recorded in the progress the client is polling, and logged where it happened.
+    }).catch((e) => {
+        // A restore that ran has already recorded why it stopped. One that was refused before it
+        // began has recorded nothing, and a client polling for progress would wait on it forever.
+        if (!(e instanceof RestoreFailure)) {
+            reportRestoreFailure(request.fileName, e);
+        }
     });
 
     return { started: true };

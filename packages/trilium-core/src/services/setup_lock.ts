@@ -52,6 +52,10 @@ export async function withSetupLock<T>(operation: SetupOperation, work: () => Pr
  */
 export function holdSetup(operation: SetupOperation): () => void {
     requireIdle(operation);
+    if (holds.has(operation)) {
+        throw new ConflictError(`Setup is already reserved for '${operation}'.`);
+    }
+
     holds.add(operation);
 
     return () => holds.delete(operation);
@@ -65,13 +69,25 @@ export function getRunningSetupOperation(): SetupOperation | null {
 /**
  * Deciding and taking must not be separated: two requests that both looked first and took second
  * would both proceed, which is the whole thing this exists to prevent.
+ *
+ * An operation's own hold does not stand in its way. A hold is taken *for* the operation that later
+ * runs — an upload reserving setup for the restore it is going to feed — so treating it as a rival
+ * would have the reservation refuse the very thing it was reserving for. The hold outlives the run
+ * and keeps setup reserved across a second attempt, e.g. after a passphrase turned out to be wrong.
  */
 function requireIdle(operation: SetupOperation): void {
-    const current = getRunningSetupOperation();
+    const blocking = running && running !== operation
+        ? running
+        : [ ...holds ].find((held) => held !== operation);
 
-    if (current) {
+    if (blocking) {
         throw new ConflictError(
-            `Cannot start '${operation}': setup is already busy with '${current}'.`
+            `Cannot start '${operation}': setup is already busy with '${blocking}'.`
         );
+    }
+
+    // Two runs of the same operation are still two runs, and the second must not join the first.
+    if (running) {
+        throw new ConflictError(`Cannot start '${operation}': it is already running.`);
     }
 }
