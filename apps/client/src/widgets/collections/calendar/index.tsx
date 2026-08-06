@@ -326,6 +326,7 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
                 slotHeaderInterval={isValidDuration(slotLabelInterval) ? slotLabelInterval : DEFAULT_SLOT_LABEL_INTERVAL}
                 height="100%"
                 nowIndicator
+                borderless
                 initialDate={initialDate || undefined}
                 locale={locale}
                 {...editingProps}
