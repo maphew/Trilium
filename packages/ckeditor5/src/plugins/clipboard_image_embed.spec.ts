@@ -155,7 +155,7 @@ describe("ClipboardImageEmbed", () => {
 
             it("embeds internal images in the serialized clipboard HTML", async () => {
                 const html = await copy(`<figure class="image"><img src="${REFERENCE}"></figure>`, {
-                    enabled: true,
+                    enabled: () => true,
                     embedImage: () => DATA_URI
                 });
 
@@ -165,7 +165,7 @@ describe("ClipboardImageEmbed", () => {
 
             it("does not embed when the kill-switch option is disabled", async () => {
                 const html = await copy(`<figure class="image"><img src="${REFERENCE}"></figure>`, {
-                    enabled: false,
+                    enabled: () => false,
                     embedImage: () => DATA_URI
                 });
 
@@ -173,8 +173,29 @@ describe("ClipboardImageEmbed", () => {
                 expect(html).not.toContain(TRILIUM_SRC_ATTRIBUTE);
             });
 
+            it("consults the switch on every copy, so flipping it reaches an already-open editor", async () => {
+                let enabled = true;
+                const editor = await createTestEditor(
+                    [Essentials, Paragraph, Image, ImageBlock, ImageInline, ClipboardImageEmbed],
+                    { clipboardImageEmbed: { enabled: () => enabled, embedImage: () => DATA_URI } }
+                );
+
+                function copyOnce() {
+                    const dataTransfer = recordingDataTransfer();
+                    const content = editor.data.processor.toView(`<figure class="image"><img src="${REFERENCE}"></figure>`) as ViewDocumentFragment;
+                    editor.editing.view.document.fire("clipboardOutput", { dataTransfer, content, method: "copy" });
+                    return dataTransfer.getData("text/html");
+                }
+
+                expect(copyOnce()).toContain(`src="${DATA_URI}"`);
+
+                // A boolean read once at construction would keep embedding here.
+                enabled = false;
+                expect(copyOnce()).toContain(`src="${REFERENCE}"`);
+            });
+
             it("does not embed when no resolver is configured", async () => {
-                const html = await copy(`<figure class="image"><img src="${REFERENCE}"></figure>`, { enabled: true });
+                const html = await copy(`<figure class="image"><img src="${REFERENCE}"></figure>`, { enabled: () => true });
 
                 expect(html).toContain(`src="${REFERENCE}"`);
                 expect(html).not.toContain(TRILIUM_SRC_ATTRIBUTE);

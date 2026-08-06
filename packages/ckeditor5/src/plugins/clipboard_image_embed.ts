@@ -9,9 +9,12 @@ import type { ClipboardInputTransformationData, ClipboardInputTransformationEven
  * `null` to leave the image untouched (non-internal images, images not yet loaded, or ones over a
  * size cap). The DOM/canvas work lives in the client so this plugin stays platform-agnostic and
  * unit-testable with a stub resolver.
+ *
+ * `enabled` is consulted per copy rather than read once, so flipping the option applies to editors
+ * that are already open — matching the application-level handler that covers read-only surfaces.
  */
 export interface ClipboardImageEmbedConfig {
-    enabled?: boolean;
+    enabled?: () => boolean;
     embedImage?: (src: string) => string | null;
 }
 
@@ -62,7 +65,7 @@ export default class ClipboardImageEmbed extends Plugin {
 
     private _embedImages(data: ViewDocumentClipboardOutputEventData) {
         const config = this.editor.config.get("clipboardImageEmbed") as ClipboardImageEmbedConfig | undefined;
-        if (!config?.enabled || !config.embedImage) {
+        if (!config?.enabled?.() || !config.embedImage) {
             return;
         }
 

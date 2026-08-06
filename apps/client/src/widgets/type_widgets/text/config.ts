@@ -229,8 +229,11 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
     // Embed internal images as data: URIs when content is copied out to external apps, while
     // keeping internal Trilium paste reference-based (see the ClipboardImageEmbed plugin). The
     // resolver does the synchronous canvas encoding; the hidden option is a kill-switch.
+    // `enabled` is a getter for the same reason as `autoLinkPreviewsEnabled` above, and because the
+    // application-level handler covering read-only surfaces reads the option per copy — a baked-in
+    // boolean would leave an open editor still embedding after the switch was flipped.
     config.clipboardImageEmbed = {
-        enabled: options.get("clipboardImageEmbedEnabled") === "true",
+        enabled: () => options.get("clipboardImageEmbedEnabled") === "true",
         embedImage: (src: string) => imageService.embedReferenceImageAsDataUrl(src)
     };
 
