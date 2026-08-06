@@ -1,20 +1,19 @@
 import {
     extractYouTubeVideoId,
     type ImageAttachmentRole,
-    imageExtensionForMime,
     type LinkEmbedMetadata,
     linkPreviewImageName,
     safeHostname
 } from "@triliumnext/commons";
 import { getLog, imageService, ValidationError } from "@triliumnext/core";
 import { trimIcoToSmallestEntry } from "@triliumnext/core/src/services/ico.js";
+import { storePictureBytes } from "@triliumnext/core/src/services/image_download.js";
+import { inspectImage, UNKNOWN_FORMAT } from "@triliumnext/core/src/services/image_inspect.js";
 import { findPageDescription } from "@triliumnext/core/src/services/page_description.js";
 import type { Request } from "express";
-import isSvg from "is-svg";
 import { Jimp } from "jimp";
 import { parse } from "node-html-parser";
 
-import { getImageTypeFromBuffer } from "../../services/image_codec.js";
 import { safeFetch, validateUrl } from "../../services/safe_fetch.js";
 
 const MAX_RESPONSE_SIZE = 512 * 1024; // 512KB
@@ -98,7 +97,7 @@ async function readResponseText(response: Response, maxBytes: number): Promise<s
  * advertises the size, and while streaming, when it does not.
  * Returns undefined if the download fails or the resource is too large.
  */
-async function downloadBinary(url: string, maxBytes: number, defaultContentType: string): Promise<{ buffer: Buffer; contentType: string } | undefined> {
+async function downloadBinary(url: string, maxBytes: number, defaultContentType: string): Promise<{ bytes: Uint8Array; contentType: string } | undefined> {
     try {
         const response = await safeFetch(url);
 
@@ -129,16 +128,28 @@ async function downloadBinary(url: string, maxBytes: number, defaultContentType:
             chunks.push(value);
         }
 
-        return { buffer: Buffer.concat(chunks), contentType };
+        return { bytes: concatChunks(chunks, bytesRead), contentType };
     } catch {
         return undefined;
     }
 }
 
+/** Joins the pieces a streamed body arrived in into the single buffer the rest of the code wants. */
+function concatChunks(chunks: Uint8Array[], totalLength: number): Uint8Array {
+    const joined = new Uint8Array(totalLength);
+    let offset = 0;
+
+    for (const chunk of chunks) {
+        joined.set(chunk, offset);
+        offset += chunk.byteLength;
+    }
+
+    return joined;
+}
+
 /** A picture that has been fetched and identified, but not yet stored anywhere. */
 interface DownloadedPicture {
-    buffer: Buffer;
-    mime: string;
+    bytes: Uint8Array;
 }
 
 /**
@@ -174,18 +185,17 @@ async function storePicture(
         return undefined;
     }
 
-    const fileName = `${baseName}.${imageExtensionForMime(picture.mime)}`;
-    const attachment = imageService.saveImageToAttachment(noteId, picture.buffer, fileName, false, false, role);
+    const stored = storePictureBytes(noteId, picture.bytes, { role, title: baseName, shrink: false });
 
-    if (!attachment.attachmentId) {
+    if (!stored) {
         return undefined;
     }
 
     // The client renders the preview the moment this answers, so the URL it is handed has to be
     // fetchable by then; otherwise the picture draws broken and stays that way until a reload.
-    await imageService.awaitImageWrite(attachment.attachmentId);
+    await imageService.awaitImageWrite(stored.attachmentId);
 
-    return `api/attachments/${attachment.attachmentId}/image/${encodeURIComponent(attachment.title)}`;
+    return stored.url;
 }
 
 /**
@@ -203,25 +213,19 @@ async function storePictures(noteId: string, url: string, fetched: FetchedPrevie
 }
 
 /**
- * The media type to name a downloaded picture by, read from its own bytes, or undefined when the
- * bytes are not a picture at all.
+ * Bytes that really are a picture, or nothing.
  *
  * The response header cannot answer this. `favicon.ico` is routinely served as
- * `application/octet-stream` or `text/plain`, and the media type is not decoration: it decides the
- * extension the attachment is titled with and the type the picture is later served under.
+ * `application/octet-stream` or `text/plain`, and the answer is not decoration: what a picture is
+ * decides the extension its attachment is titled with and the type it is later served under, which
+ * is why {@link storePictureBytes} reads it off the bytes again at the moment it stores them.
  *
- * Undefined also covers the case the header hides in the other direction — an HTML error page
- * served in place of an image, which is not something to keep whatever it claims to be.
+ * Asking here as well is what lets a candidate be rejected while there are still others to try: an
+ * HTML error page served where an icon should be has to fail now, so the next `<link rel="icon">`
+ * gets its turn, rather than at store time when the search is already over.
  */
-async function detectImageMime(buffer: Buffer): Promise<string | undefined> {
-    return (await getImageTypeFromBuffer(buffer))?.mime;
-}
-
-/** Downloads a picture and names it by its own bytes, or nothing if those are not a picture. */
-async function asPicture(buffer: Buffer): Promise<DownloadedPicture | undefined> {
-    const mime = await detectImageMime(buffer);
-
-    return mime ? { buffer, mime } : undefined;
+function asPicture(bytes: Uint8Array): DownloadedPicture | undefined {
+    return inspectImage(bytes).format === UNKNOWN_FORMAT ? undefined : { bytes };
 }
 
 /**
@@ -236,12 +240,11 @@ async function downloadFavicon(faviconUrl: string): Promise<DownloadedPicture | 
     }
 
     // An icon directory gives up the sizes nothing will look at; anything else is kept as it came.
-    const trimmed = trimIcoToSmallestEntry(downloaded.buffer, FAVICON_TARGET_EDGE);
-    const bytes = trimmed ? Buffer.from(trimmed) : downloaded.buffer;
+    const bytes = trimIcoToSmallestEntry(downloaded.bytes, FAVICON_TARGET_EDGE) ?? downloaded.bytes;
 
     // The ceiling is on what is kept, not on what arrived: a file that is one large picture has
     // nothing to give up, and is the case this refuses.
-    return bytes.byteLength <= MAX_FAVICON_SIZE ? await asPicture(bytes) : undefined;
+    return bytes.byteLength <= MAX_FAVICON_SIZE ? asPicture(bytes) : undefined;
 }
 
 /**
@@ -266,18 +269,18 @@ async function downloadPreviewImage(imageUrl: string, minSourceDimension = 0): P
     const downloaded = await downloadBinary(imageUrl, MAX_IMAGE_DOWNLOAD_SIZE, "image/jpeg");
     if (!downloaded) return undefined;
 
-    const { buffer, contentType } = downloaded;
-    const isSmallEnoughToKeepVerbatim = buffer.byteLength <= MAX_VERBATIM_IMAGE_SIZE;
+    const { bytes, contentType } = downloaded;
+    const isSmallEnoughToKeepVerbatim = bytes.byteLength <= MAX_VERBATIM_IMAGE_SIZE;
 
     // An SVG scales natively, so it is kept as-is rather than rasterised (Jimp cannot read it anyway),
-    // and it satisfies any minimum dimension by definition.
-    // The isSvg() sniff only runs on a buffer we would be willing to keep, to avoid stringifying megabytes.
-    if (contentType.includes("svg") || (isSmallEnoughToKeepVerbatim && isSvg(buffer.toString()))) {
-        return isSmallEnoughToKeepVerbatim ? { buffer, mime: "image/svg+xml" } : undefined;
+    // and it satisfies any minimum dimension by definition. The sniff reads the opening bytes only,
+    // so it costs the same whatever the file weighs.
+    if (contentType.includes("svg") || inspectImage(bytes).format === "svg") {
+        return isSmallEnoughToKeepVerbatim ? { bytes } : undefined;
     }
 
     try {
-        const image = await Jimp.read(buffer);
+        const image = await Jimp.read(Buffer.from(bytes));
 
         if (Math.max(image.bitmap.width, image.bitmap.height) < minSourceDimension) {
             return undefined;
@@ -291,8 +294,8 @@ async function downloadPreviewImage(imageUrl: string, minSourceDimension = 0): P
         // hasAlpha() inspects the pixels, not just the channel, so an opaque PNG still takes the
         // JPEG path. An animated GIF/WebP collapses to its first frame, which is fine for a thumbnail.
         return image.hasAlpha()
-            ? { buffer: Buffer.from(await image.getBuffer("image/png")), mime: "image/png" }
-            : { buffer: Buffer.from(await image.getBuffer("image/jpeg", { quality: IMAGE_JPEG_QUALITY })), mime: "image/jpeg" };
+            ? { bytes: new Uint8Array(await image.getBuffer("image/png")) }
+            : { bytes: new Uint8Array(await image.getBuffer("image/jpeg", { quality: IMAGE_JPEG_QUALITY })) };
     } catch (e: unknown) {
         // Jimp bundles decoders for PNG/JPEG/GIF/BMP/TIFF only, so a WebP or AVIF lands here. Keep
         // the original bytes when they are small enough — unresized, but still not hotlinked. The
@@ -305,7 +308,7 @@ async function downloadPreviewImage(imageUrl: string, minSourceDimension = 0): P
         // match a log line against the paste that caused it.
         getLog().info(`Could not decode a link preview image: ${e}`);
 
-        return isSmallEnoughToKeepVerbatim && !minSourceDimension ? await asPicture(buffer) : undefined;
+        return isSmallEnoughToKeepVerbatim && !minSourceDimension ? asPicture(bytes) : undefined;
     }
 }
 

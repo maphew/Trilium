@@ -1,5 +1,6 @@
 import { extractYouTubeVideoId } from "@triliumnext/commons";
 import { ValidationError } from "@triliumnext/core";
+import imageService from "@triliumnext/core/src/services/image.js";
 import type { Request } from "express";
 import { Jimp } from "jimp";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -15,34 +16,36 @@ vi.mock("../../services/safe_fetch.js", () => ({
 const saveImageToAttachment = vi.hoisted(() => vi.fn());
 const awaitImageWrite = vi.hoisted(() => vi.fn(async () => {}));
 
-/**
- * The route stores each picture it downloads as an attachment of the note the preview is going
- * into. What matters here is which picture was handed over, under which role and name — not that a
- * database took it — so the store is stood in for.
- */
-vi.mock("@triliumnext/core", async (importOriginal) => ({
-    ...(await importOriginal<Record<string, unknown>>()),
-    imageService: { saveImageToAttachment, awaitImageWrite }
-}));
-
 import linkEmbedRoute from "./link_embed.js";
 
 let attachmentCounter = 0;
 
+/**
+ * The route stores each picture it downloads as an attachment of the note the preview is going
+ * into. What matters here is which picture was handed over, under which role and name — not that a
+ * database took it — so the store is stood in for.
+ *
+ * Spied on the singleton rather than mocked as a module: the storing itself lives in core now, and
+ * core reaches its image service by a relative import that a mock of the package barrel would never
+ * intercept.
+ */
 beforeEach(() => {
     attachmentCounter = 0;
     saveImageToAttachment.mockReset();
-    saveImageToAttachment.mockImplementation((_noteId: string, _buffer: Buffer, fileName: string) => ({
+    saveImageToAttachment.mockImplementation((_noteId: string, _bytes: Uint8Array, fileName: string) => ({
         attachmentId: `att${++attachmentCounter}`,
         title: fileName
     }));
+
+    vi.spyOn(imageService, "saveImageToAttachment").mockImplementation(saveImageToAttachment);
+    vi.spyOn(imageService, "awaitImageWrite").mockImplementation(awaitImageWrite);
 });
 
 /** What was handed to the attachment store under a given role, if anything was. */
 function stored(role: "favicon" | "coverImage") {
     const call = saveImageToAttachment.mock.calls.find((args: unknown[]) => args[5] === role);
 
-    return call ? { buffer: call[1] as Buffer, fileName: call[2] as string } : undefined;
+    return call ? { buffer: Buffer.from(call[1] as Uint8Array), fileName: call[2] as string } : undefined;
 }
 
 function oneShotReader(bytes: Buffer) {
