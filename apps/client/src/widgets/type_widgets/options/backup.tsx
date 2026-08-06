@@ -37,12 +37,12 @@ export default function BackupSettings() {
     return (
         <>
             <OptionsPageHeader />
-            <BackupConfiguration />
+            <BackupList backups={backups} backupFolderPath={backupFolderPath} refreshCallback={refreshBackups} />
             {/* Absent where there is no user-accessible location at all, e.g. backups kept in OPFS. */}
             {backupFolderPath && <BackupLocation backupFolderPath={backupFolderPath} refreshCallback={refreshBackups} />}
+            <BackupConfiguration />
             {/* Desktop only: the passphrase needs an OS keyring to live in, which only the desktop has. */}
             {isElectron() && <BackupOptions />}
-            <BackupList backups={backups} backupFolderPath={backupFolderPath} refreshCallback={refreshBackups} />
         </>
     );
 }
