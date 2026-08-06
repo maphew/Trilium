@@ -1,6 +1,6 @@
 import "./backup.css";
 
-import { BackupDatabaseNowResponse, BackupPassphraseStatus, DatabaseBackup, ExistingBackupsResponse } from "@triliumnext/commons";
+import { BackupDatabaseNowResponse, BackupPassphraseStatus, DatabaseBackup, dayjs, ExistingBackupsResponse } from "@triliumnext/commons";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import dialogService from "../../../services/dialog";
@@ -36,8 +36,8 @@ export default function BackupSettings() {
 
     return (
         <>
-            <OptionsPageHeader />
-            <BackupList backups={backups} backupFolderPath={backupFolderPath} refreshCallback={refreshBackups} />
+            <OptionsPageHeader below={<BackupStatus backups={backups} refreshCallback={refreshBackups} />} />
+            <BackupList backups={backups} backupFolderPath={backupFolderPath} />
             {/* Absent where there is no user-accessible location at all, e.g. backups kept in OPFS. */}
             {backupFolderPath && <BackupLocation backupFolderPath={backupFolderPath} refreshCallback={refreshBackups} />}
             <BackupConfiguration />
@@ -45,6 +45,53 @@ export default function BackupSettings() {
             {isElectron() && <BackupOptions />}
         </>
     );
+}
+
+/**
+ * How the backups stand, and the one action that makes one now rather than on a schedule. Part of the
+ * page's own header rather than of the list below it: the list card answers for what it holds, which
+ * is not the same as what the page is for.
+ */
+function BackupStatus({ backups, refreshCallback }: { backups: DatabaseBackup[]; refreshCallback: () => void }) {
+    const [backupInProgress, setBackupInProgress] = useState(false);
+
+    return (
+        <div className="backup-status">
+            <span className="backup-status-summary">{summarizeBackups(backups)}</span>
+
+            <Button
+                name="backup-database-now-button"
+                text={t("backup.backup_now")}
+                size="micro"
+                disabled={backupInProgress}
+                onClick={async () => {
+                    setBackupInProgress(true);
+                    try {
+                        const { backupFile } = await server.post<BackupDatabaseNowResponse>("database/backup-database");
+                        toast.showMessage(t("backup.database_backed_up_to", { backupFilePath: backupFile }), 10000);
+                        refreshCallback();
+                    } finally {
+                        setBackupInProgress(false);
+                    }
+                }}
+            />
+        </div>
+    );
+}
+
+/**
+ * How many backups there are and how long ago the last one was made — the two things the list itself
+ * only answers by being read through. Nothing is said while there are none: the list stands empty
+ * right below, which states it more plainly than a sentence could.
+ */
+function summarizeBackups(backups: DatabaseBackup[]) {
+    if (!backups.length) {
+        return null;
+    }
+
+    const mostRecent = backups.reduce((latest, backup) => (backup.mtime > latest.mtime ? backup : latest));
+
+    return t("backup.backups_summary", { count: backups.length, age: dayjs(mostRecent.mtime).fromNow(true) });
 }
 
 export function BackupConfiguration() {
@@ -280,8 +327,7 @@ function BackupPasswordModal({ show, onHidden, onSave }: { show: boolean; onHidd
     );
 }
 
-export function BackupList({ backups, backupFolderPath, refreshCallback }: { backups: DatabaseBackup[]; backupFolderPath: string | null; refreshCallback: () => void }) {
-    const [backupInProgress, setBackupInProgress] = useState(false);
+export function BackupList({ backups, backupFolderPath }: { backups: DatabaseBackup[]; backupFolderPath: string | null }) {
     const [customDir] = useTriliumOption("customDbBackupDir");
 
     // What a row cannot say for itself: the format it was written in, and — with a custom location in
@@ -313,26 +359,7 @@ export function BackupList({ backups, backupFolderPath, refreshCallback }: { bac
             downloadText={t("backup.download")}
             emptyIcon="bx bx-archive"
             emptyText={t("backup.no_backup_yet")}
-        >
-            <CardSection className="backup-now-section">
-                <Button
-                    name="backup-database-now-button"
-                    text={t("backup.backup_database_now")}
-                    size="micro"
-                    disabled={backupInProgress}
-                    onClick={async () => {
-                        setBackupInProgress(true);
-                        try {
-                            const { backupFile } = await server.post<BackupDatabaseNowResponse>("database/backup-database");
-                            toast.showMessage(t("backup.database_backed_up_to", { backupFilePath: backupFile }), 10000);
-                            refreshCallback();
-                        } finally {
-                            setBackupInProgress(false);
-                        }
-                    }}
-                />
-            </CardSection>
-        </DatabaseFileList>
+        />
     );
 }
 

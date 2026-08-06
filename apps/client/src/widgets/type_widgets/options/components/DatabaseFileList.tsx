@@ -27,8 +27,8 @@ export interface DatabaseFile {
 
 interface DatabaseFileListProps<T extends DatabaseFile> {
     title: string;
-    /** Sentence describing where the files are stored; omitted when there is no user-accessible location. */
-    locationDescription?: string | null;
+    /** Sentence introducing the list — what it holds, or where the files are stored. */
+    description?: ComponentChildren;
     /** Displayed sorted by modification date & time in a descending order. */
     files: T[];
     /** Endpoint the per-file download links point to; the file path is appended as a query parameter. */
@@ -42,7 +42,7 @@ interface DatabaseFileListProps<T extends DatabaseFile> {
     children?: ComponentChildren;
 }
 
-export default function DatabaseFileList<T extends DatabaseFile>({ title, locationDescription, files, downloadEndpoint, downloadText, emptyIcon, emptyText, fileBadges, children }: DatabaseFileListProps<T>) {
+export default function DatabaseFileList<T extends DatabaseFile>({ title, description, files, downloadEndpoint, downloadText, emptyIcon, emptyText, fileBadges, children }: DatabaseFileListProps<T>) {
     const sortedFiles = useMemo(() => [...files].sort((a, b) => {
         if (a.mtime < b.mtime) return 1;
         if (a.mtime > b.mtime) return -1;
@@ -51,12 +51,7 @@ export default function DatabaseFileList<T extends DatabaseFile>({ title, locati
 
     return (
         <div className="options-section database-file-list">
-            <Card
-                heading={title}
-                description={locationDescription && (
-                    <span className="selectable-text">{locationDescription}</span>
-                )}
-            >
+            <Card heading={title} description={description}>
                 {sortedFiles.length > 0 ? (
                     sortedFiles.map((file) => (
                         <CardOption

@@ -3,10 +3,23 @@
     --bs-modal-width: 400px;
 }
 
-/* The one action of the backups list, closing it off rather than sitting in line with a file. */
-.backup-now-section {
+/* How the backups stand, with the button that makes one taking the end of the same row. */
+.backup-status {
     display: flex;
-    justify-content: center;
+    align-items: center;
+    gap: 8px;
+
+    .backup-status-summary {
+        flex: 1 1 auto;
+        min-width: 0;
+        color: var(--muted-text-color);
+        font-size: .9em;
+    }
+
+    .btn {
+        flex-shrink: 0;
+        white-space: nowrap;
+    }
 }
 
 .backup-location .tn-card-section {

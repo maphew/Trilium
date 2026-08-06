@@ -154,11 +154,7 @@ describe("BackupList: telling the two locations apart", () => {
 
     function renderList(folderPath: string, files: string[]) {
         return renderInto(
-            <BackupList
-                backups={files.map(backup)}
-                backupFolderPath={folderPath}
-                refreshCallback={refreshCallback}
-            />
+            <BackupList backups={files.map(backup)} backupFolderPath={folderPath} />
         );
     }
 
