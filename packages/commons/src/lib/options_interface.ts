@@ -177,6 +177,12 @@ export interface OptionDefinitions extends KeyboardShortcutsOptions<KeyboardActi
     hasUserBackendScripts: boolean;
     isPasswordSet: boolean;
     overrideThemeFonts: boolean;
+    /**
+     * Whether the monospace font's programming ligatures (`!=` rendered as `≠`, `->` as `→`) are
+     * left on. Off by default: the bundled JetBrains Mono ships them enabled, so users get them
+     * without choosing them and repeatedly mistake them for their characters having been replaced.
+     */
+    monospaceLigaturesEnabled: boolean;
     spellCheckEnabled: boolean;
     autoFixConsistencyIssues: boolean;
     vimKeymapEnabled: boolean;

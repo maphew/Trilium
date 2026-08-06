@@ -58,6 +58,7 @@ const ALLOWED_OPTIONS = new Set<OptionNames>([
     "detailFontFamily",
     "monospaceFontSize",
     "monospaceFontFamily",
+    "monospaceLigaturesEnabled",
     "openNoteContexts",
     "vimKeymapEnabled",
     "codeLineWrapEnabled",

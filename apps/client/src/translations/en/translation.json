@@ -1773,6 +1773,8 @@
     "note_detail_font": "Document text",
     "monospace_font": "Monospace text",
     "monospace_font_description": "Used for code notes and code blocks",
+    "monospace_ligatures": "Programming ligatures",
+    "monospace_ligatures_description": "Render character pairs such as != and -> as single symbols (≠, →), if the monospace font supports it. The text itself is unchanged.",
     "size_relative_to_general": "Size is relative to the general font size",
     "not_all_fonts_available": "Not all listed fonts may be available on your system",
     "apply_changes": "Reload to apply changes",

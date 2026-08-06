@@ -162,6 +162,10 @@ const defaultOptions: DefaultOption[] = [
     { name: "detailFontSize", value: "110", isSynced: false },
     { name: "monospaceFontFamily", value: "theme", isSynced: false },
     { name: "monospaceFontSize", value: "110", isSynced: false },
+    // Off rather than on: the theme default is JetBrains Mono, whose ligatures nobody opted into,
+    // and which have been reported as characters being replaced often enough to be worth defaulting
+    // away from (#2851, #6224). Not synced, matching the font options it sits with in the UI.
+    { name: "monospaceLigaturesEnabled", value: "false", isSynced: false },
     { name: "spellCheckEnabled", value: "true", isSynced: false },
     { name: "spellCheckLanguageCode", value: "en-US", isSynced: false },
     { name: "imageMaxWidthHeight", value: "2000", isSynced: true },
