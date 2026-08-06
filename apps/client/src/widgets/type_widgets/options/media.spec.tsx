@@ -3,8 +3,9 @@ import { act } from "preact/test-utils";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
- * The image compression card: the tool's own rows, driving the options that govern every image
- * arriving in the database rather than a run the user is watching.
+ * The images card: everything that happens to an image on its way in, compression included — the
+ * tool's own rows, driving the options that govern every image arriving in the database rather than
+ * a run the user is watching.
  *
  * What is worth holding here is the wiring, since the rows themselves are tested where they live —
  * that each row reads and writes the option it stands for, that the group hangs off the switch
@@ -73,13 +74,46 @@ function open(overrides: Record<string, string> = {}) {
 
 /** The card's rows, in the order they are drawn, named by their titles. */
 function rowTitles(): (string | undefined)[] {
-    return [ ...host.querySelectorAll(".media-image-compression .image-compression-section") ]
-        .map((row) => row.querySelector(".image-compression-section-title")?.textContent ?? undefined);
+    return rows().map(titleOf);
+}
+
+function rows(): HTMLElement[] {
+    return [ ...host.querySelectorAll<HTMLElement>(".media-images .tn-card-section") ];
 }
 
 function row(title: string): HTMLElement | undefined {
-    return [ ...host.querySelectorAll<HTMLElement>(".media-image-compression .image-compression-section") ]
-        .find((candidate) => candidate.querySelector(".image-compression-section-title")?.textContent === title);
+    return rows().find((candidate) => titleOf(candidate) === title);
+}
+
+/**
+ * What a row is called, whichever of the two kinds it is: the page's own option rows carry the
+ * sentence inside the label, so the title is the text ahead of it, where the compression tool's
+ * rows keep the title in an element of its own.
+ */
+function titleOf(row: Element): string | undefined {
+    const label = row.querySelector(".tn-card-option-label");
+
+    return label
+        ? label.childNodes[0]?.textContent ?? undefined
+        : row.querySelector(".image-compression-section-title")?.textContent ?? undefined;
+}
+
+/** The sentence beneath a row's title, from whichever of the two kinds of row it is. */
+function describes(title: string): string | undefined {
+    const row = rowOrFail(title);
+
+    return row.querySelector(".tn-card-option-description")?.textContent
+        ?? row.querySelector(".image-compression-section-description")?.textContent
+        ?? undefined;
+}
+
+function rowOrFail(title: string): HTMLElement {
+    const found = row(title);
+    if (!found) {
+        throw new Error(`No row titled "${title}".`);
+    }
+
+    return found;
 }
 
 /** Presses one of a row's choice buttons by its label. */
@@ -102,15 +136,17 @@ afterEach(() => {
     vi.clearAllMocks();
 });
 
-describe("the image compression card", () => {
+describe("the images card", () => {
     it("hangs the whole group off its switch, nesting what qualifies each choice", () => {
         open();
 
-        // What an untouched install shows, in order: the switch, scaling with its bound, then one
-        // exclusive choice per format. Recompressing a JPEG brings a quality with it; optimizing a
-        // PNG does not, there being no quality to reducing it to a palette — so only one of the two
-        // choices carries a nested row here.
+        // What an untouched install shows, in order: fetching a referenced image at all, then the
+        // switch over what is done to the ones that arrive, scaling with its bound, and one
+        // exclusive choice per format. Recompressing a JPEG brings a quality with it; optimizing
+        // a PNG does not, there being no quality to reducing it to a palette — so only one of the
+        // two choices carries a nested row here.
         expect(rowTitles()).toEqual([
+            "images.download_images_automatically",
             "images.automatic_image_compression",
             "space_usage.compress_resize",
             "space_usage.compress_max_dimensions",
@@ -120,9 +156,13 @@ describe("the image compression card", () => {
         ]);
 
         // Switched off, the settings are not merely greyed out but gone: there is nothing for them
-        // to govern, and a bound sitting there would read as one still in force.
+        // to govern, and a bound sitting there would read as one still in force. What the switch
+        // does not govern stays where it was — the card is not the compression alone.
         open({ compressImages: "false" });
-        expect(rowTitles()).toEqual([ "images.automatic_image_compression" ]);
+        expect(rowTitles()).toEqual([
+            "images.download_images_automatically",
+            "images.automatic_image_compression"
+        ]);
     });
 
     it("drops a quality that no longer qualifies anything", () => {
@@ -131,6 +171,7 @@ describe("the image compression card", () => {
         // Neither format is being re-encoded, so neither quality is in force — and resizing is
         // still on offer, being the one step that reaches an image whatever its encoding.
         expect(rowTitles()).toEqual([
+            "images.download_images_automatically",
             "images.automatic_image_compression",
             "space_usage.compress_resize",
             "space_usage.compress_max_dimensions",
@@ -145,9 +186,6 @@ describe("the image compression card", () => {
 
     it("carries the sentences the settings had before they were rows", () => {
         open();
-
-        const describes = (title: string) =>
-            row(title)?.querySelector(".image-compression-section-description")?.textContent;
 
         expect(describes("images.automatic_image_compression")).toBe("images.enable_image_compression_description");
         expect(describes("space_usage.compress_resize")).toBe("images.max_image_dimensions_description");
