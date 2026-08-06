@@ -13,7 +13,6 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    padding-bottom: 16px;
     box-sizing: border-box;
 
     @media (max-width: 991px) {
@@ -45,7 +44,6 @@
     --fc-border-color: var(--main-border-color);
     --fc-neutral-bg-color: var(--launcher-pane-background-color);
     --fc-list-event-hover-bg-color: var(--left-pane-item-hover-background);
-    padding: 0 var(--content-margin-inline);
 }
 
 .calendar-container .fc-list-sticky .fc-list-day > * {
