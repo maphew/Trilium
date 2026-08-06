@@ -1,5 +1,5 @@
 import { writeBackupContainer } from "@triliumnext/backup-container";
-import { app_info as appInfo, getSql } from "@triliumnext/core";
+import { app_info as appInfo, getLog, getSql } from "@triliumnext/core";
 import Database from "better-sqlite3";
 import fs from "fs";
 import fsp from "fs/promises";
@@ -11,6 +11,7 @@ import {
     exchangeDatabaseFiles,
     getRestoreProgress,
     readBackupFormat,
+    removeQuietly,
     reportRestoreFailure,
     restoreDatabase,
     RestoreFailure,
@@ -164,6 +165,39 @@ describe("staging a backup", () => {
     it("refuses a file it cannot even open", async () => {
         await expect(stageBackup({ path: path.join(tempRoot, "gone.db"), fileName: "gone.db", consumable: false }))
             .rejects.toMatchObject({ reason: "not-a-database" });
+    });
+});
+
+describe("removing what is no longer wanted", () => {
+    it("removes a file, and a directory when it is told to", () => {
+        const file = fileWith("temporary");
+        const directory = path.join(tempRoot, "staging");
+        fs.mkdirSync(directory, { recursive: true });
+        fs.writeFileSync(path.join(directory, "candidate.db"), "half a database");
+
+        removeQuietly(file);
+        removeQuietly(directory, { recursive: true });
+
+        expect(fs.existsSync(file)).toBe(false);
+        expect(fs.existsSync(directory)).toBe(false);
+    });
+
+    it("says nothing about something that was never there", () => {
+        const errors = vi.spyOn(getLog(), "error");
+
+        removeQuietly(path.join(tempRoot, "never-existed"));
+
+        expect(errors).not.toHaveBeenCalled();
+    });
+
+    it("logs and carries on when the file will not go, rather than raising", () => {
+        const errors = vi.spyOn(getLog(), "error").mockImplementation(() => {});
+        vi.spyOn(fs, "rmSync").mockImplementation(() => {
+            throw new Error("EPERM, Permission denied");
+        });
+
+        expect(() => removeQuietly(fileWith("locked"))).not.toThrow();
+        expect(errors).toHaveBeenCalledWith(expect.stringContaining("EPERM"));
     });
 });
 

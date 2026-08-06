@@ -389,7 +389,10 @@ function report(stage: RestoreStage): void {
  */
 export function removeQuietly(target: string, options: { recursive?: boolean } = {}): void {
     try {
-        fs.rmSync(target, { force: true, recursive: options.recursive });
+        // `recursive` is spelled out rather than passed through: `fs.rmSync` merges the options over
+        // its defaults, so a property that is present and undefined replaces the default rather than
+        // leaving it alone, and every call that omitted it failed its own type check.
+        fs.rmSync(target, { force: true, recursive: options.recursive === true });
     } catch (e) {
         getLog().error(`Could not remove a temporary file after a restore: ${messageOf(e)}`);
     }
