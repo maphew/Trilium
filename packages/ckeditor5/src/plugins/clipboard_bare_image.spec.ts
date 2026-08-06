@@ -1,5 +1,6 @@
 import { TRILIUM_SRC_ATTRIBUTE } from "@triliumnext/commons";
 import { ClassicEditor, Essentials, FileRepository, Image, ImageBlock, ImageInline, ImageUpload, Paragraph } from "ckeditor5";
+import type { ViewRange } from "ckeditor5";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { createTestEditor } from "../../test/editor-kit.js";
@@ -70,6 +71,10 @@ describe("ClipboardBareImage", () => {
             // Copied out of Trilium, where the reference beside the payload is the whole point.
             expect(isBareImageHtml(`<img src="data:image/png;base64,AAAA" ${TRILIUM_SRC_ATTRIBUTE}="api/images/n1/p.png">`)).toBe(false);
         });
+
+        it("accepts an image with no src at all, since the file is then the only thing to go on", () => {
+            expect(isBareImageHtml(`<img alt="no source">`)).toBe(true);
+        });
     });
 
     describe("bareImageFile", () => {
@@ -116,7 +121,7 @@ describe("ClipboardBareImage", () => {
             editor.setData("<p>start</p>");
         });
 
-        function paste(html: string, files: File[]) {
+        function paste(html: string, files: File[], targetRanges?: ViewRange[]) {
             const reachedRestOfPipeline = vi.fn();
             // Registered after the plugin's own `high`-priority listener, so it stands in for
             // everything downstream: reached only when the plugin declined the paste. Stopping here
@@ -127,7 +132,7 @@ describe("ClipboardBareImage", () => {
                 evt.stop();
             }, { priority: "high" });
 
-            editor.editing.view.document.fire("clipboardInput", { dataTransfer: clipboard(html, files), method: "paste" });
+            editor.editing.view.document.fire("clipboardInput", { dataTransfer: clipboard(html, files), method: "paste", targetRanges });
 
             return { reachedRestOfPipeline };
         }
@@ -147,6 +152,19 @@ describe("ClipboardBareImage", () => {
             expect(createLoader).toHaveBeenCalledWith(file);
             // The HTML — and its unreachable URL — never gets inserted.
             expect(reachedRestOfPipeline).not.toHaveBeenCalled();
+        });
+
+        it("drops the image where the paste landed rather than where the caret was", () => {
+            // A real paste always names its target ranges — a drop lands wherever it was released,
+            // and even a keyboard paste carries the ranges — so this is the ordinary path.
+            editor.setData("<p>before</p><p>after</p>");
+            const target = editor.model.document.getRoot()?.getChild(1);
+            const viewRange = editor.editing.mapper.toViewRange(editor.model.createRangeIn(target as never));
+
+            paste(SLACK_HTML, [imageFile()], [viewRange]);
+
+            expect(createLoader).toHaveBeenCalledTimes(1);
+            expect(editor.model.document.selection.getFirstPosition()?.parent).toBe(target);
         });
 
         it("keeps out of a paste whose HTML carries more than the picture", () => {
