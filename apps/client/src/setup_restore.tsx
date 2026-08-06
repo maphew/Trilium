@@ -5,18 +5,18 @@ import type { ComponentChildren } from "preact";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import { uploadInChunks } from "./services/chunked_upload";
-import { describeDatabaseFile } from "./services/database_files";
+import { describeDatabaseFile, describeDatabaseFormat } from "./services/database_files";
 import { t } from "./services/i18n";
 import server from "./services/server";
 import { formatSize } from "./services/utils";
-import Admonition from "./widgets/react/Admonition";
 import Button from "./widgets/react/Button";
 import { Card, CardSection } from "./widgets/react/Card";
+import DatabaseFileBadges from "./widgets/react/DatabaseFileBadges";
 import FormGroup from "./widgets/react/FormGroup";
 import FormTextBox from "./widgets/react/FormTextBox";
 import Icon from "./widgets/react/Icon";
-import NoItems from "./widgets/react/NoItems";
 import SetupPage from "./widgets/react/SetupPage";
+import SlidePages from "./widgets/react/SlidePages";
 
 /**
  * The setup screen's "restore from backup" path, from picking a backup to the restored database
@@ -32,6 +32,18 @@ import SetupPage from "./widgets/react/SetupPage";
 /** What the restore is waiting on, as far as this screen is concerned. */
 type Step = "picking" | "uploading" | "passphrase" | "restoring";
 
+/**
+ * Where "Back" goes from each step. A step with no entry here leaves the restore flow altogether,
+ * which is what the first one does and what any later step does if it has nothing to return to.
+ */
+const PREVIOUS_STEP: Partial<Record<Step, Step>> = {
+    uploading: "picking",
+    passphrase: "picking"
+};
+
+/** The steps in the order they are reached, which is what decides the way a slide goes. */
+const STEP_ORDER: Step[] = [ "picking", "uploading", "passphrase", "restoring" ];
+
 /** Failures the same backup can still get past, which send the user back to the passphrase rather than to the start. */
 const PASSPHRASE_FAILURES = new Set([ "passphrase-required", "wrong-passphrase-or-damaged-header" ]);
 
@@ -42,6 +54,20 @@ export default function RestoreFromBackup({ onBack, onRestored }: { onBack: () =
     const [ error, setError ] = useState<ComponentChildren>(null);
     const [ errorId, setErrorId ] = useState(0);
     const [ wrongPassphrase, setWrongPassphrase ] = useState(false);
+    /** Stops the upload in flight, for the one thing that can interrupt it: the user going back. */
+    const uploadCancellation = useRef<AbortController | null>(null);
+    /**
+     * Fetched here rather than by the step that lists them, which is mounted afresh every time it is
+     * returned to: asking again would show "looking for backups" for the length of each slide back.
+     */
+    const [ backups, setBackups ] = useState<DatabaseBackup[] | null>(null);
+
+    useEffect(() => {
+        server.get<ExistingBackupsResponse>("database/backups")
+            .then((response) => setBackups(response.backups))
+            // An unreadable backup directory is not a reason to lose the way in from a file.
+            .catch(() => setBackups([]));
+    }, []);
 
     const raiseError = useCallback((headline: string, detail?: string) => {
         setError(<Failure headline={headline} detail={detail} />);
@@ -71,21 +97,52 @@ export default function RestoreFromBackup({ onBack, onRestored }: { onBack: () =
     }, [ raiseError ]);
 
     async function uploadAndRestore(file: File) {
+        const cancellation = new AbortController();
+        uploadCancellation.current = cancellation;
+
         setStep("uploading");
-        setUpload({ sentBytes: 0, totalBytes: file.size, fraction: 0 });
+        setUpload({ sentBytes: 0, totalBytes: file.size, fraction: 0, bytesPerSecond: 0 });
 
         try {
             const uploaded = await uploadInChunks<{ fileName: string; encrypted: boolean }>({
                 endpoint: "setup/restore/upload",
                 blob: file,
                 fileName: file.name,
-                onProgress: ({ sentBytes, totalBytes, fraction }) => setUpload({ sentBytes, totalBytes, fraction })
+                signal: cancellation.signal,
+                onProgress: ({ sentBytes, totalBytes, fraction, bytesPerSecond }) =>
+                    setUpload({ sentBytes, totalBytes, fraction, bytesPerSecond })
             });
 
             await restore({ source: "pending", fileName: uploaded.fileName, encrypted: uploaded.encrypted });
         } catch (e) {
             setStep("picking");
-            raiseError(t("setup.restore-error-upload-failed"), detailOf(e));
+
+            // An upload the user walked away from ends in a failure they chose, and being told
+            // about it would read as something having gone wrong.
+            if (!cancellation.signal.aborted) {
+                raiseError(t("setup.restore-error-upload-failed"), detailOf(e));
+            }
+        } finally {
+            uploadCancellation.current = null;
+        }
+    }
+
+    /**
+     * Goes back a step, or out of the restore altogether from the step that has nothing before it.
+     *
+     * An upload in flight is stopped on the way: left running it would finish in the background and
+     * pull the user forward into the restore they had just walked away from.
+     */
+    function goBack() {
+        uploadCancellation.current?.abort();
+        // Belongs to the attempt being left behind, not to the next one.
+        setWrongPassphrase(false);
+
+        const previous = PREVIOUS_STEP[step];
+        if (previous) {
+            setStep(previous);
+        } else {
+            onBack();
         }
     }
 
@@ -109,23 +166,33 @@ export default function RestoreFromBackup({ onBack, onRestored }: { onBack: () =
             illustration={<Icon icon="bx bx-archive-in" className="illustration-icon" />}
             error={error}
             errorId={errorId}
-            onBack={step === "restoring" ? undefined : onBack}
+            // Nothing to go back to once the database is being replaced.
+            onBack={step === "restoring" ? undefined : goBack}
         >
-            {step === "picking" && <PickBackup onPick={restore} onUpload={uploadAndRestore} onFailure={raiseError} />}
-            {step === "uploading" && upload && <UploadProgress upload={upload} />}
-            {step === "passphrase" && selection && (
-                <AskPassphrase
-                    fileName={selection.fileName}
-                    wrong={wrongPassphrase}
-                    onSubmit={(passphrase) => {
-                        setWrongPassphrase(false);
-                        void restore(selection, passphrase);
-                    }}
-                />
-            )}
-            {step === "restoring" && (
-                <RestoreProgress onRestored={onRestored} onFailed={onRestoreFailed} />
-            )}
+            {/* In the flow rather than filling the page: each step is a different height, and the
+                one arriving is what the page should be as tall as. */}
+            <SlidePages current={step} order={STEP_ORDER} inFlow>
+                {(shown) => (
+                    <>
+                        {shown === "picking" && (
+                            <PickBackup backups={backups} onPick={restore} onUpload={uploadAndRestore} onFailure={raiseError} />
+                        )}
+                        {shown === "uploading" && upload && <UploadProgress upload={upload} />}
+                        {shown === "passphrase" && selection && (
+                            <AskPassphrase
+                                wrong={wrongPassphrase}
+                                onSubmit={(passphrase) => {
+                                    setWrongPassphrase(false);
+                                    void restore(selection, passphrase);
+                                }}
+                            />
+                        )}
+                        {shown === "restoring" && (
+                            <RestoreProgress onRestored={onRestored} onFailed={onRestoreFailed} />
+                        )}
+                    </>
+                )}
+            </SlidePages>
         </SetupPage>
     );
 }
@@ -188,15 +255,18 @@ interface UploadState {
     sentBytes: number;
     totalBytes: number;
     fraction: number;
+    /** Averaged over the transfer so far, so it settles rather than jumping about between pieces. */
+    bytesPerSecond: number;
 }
 
-/** The backups already on this device, and the way to a file that is not. */
-function PickBackup({ onPick, onUpload, onFailure }: {
+/** The backups already here, and the way to a file that is not. */
+function PickBackup({ backups, onPick, onUpload, onFailure }: {
+    /** What was found, or `null` while that is still being asked. */
+    backups: DatabaseBackup[] | null;
     onPick: (selection: Selection) => void;
     onUpload: (file: File) => void;
     onFailure: (headline: string, detail?: string) => void;
 }) {
-    const [ backups, setBackups ] = useState<DatabaseBackup[] | null>(null);
     const fileInput = useRef<HTMLInputElement>(null);
     // The desktop can read the file where it lies; a browser has to be handed it first.
     const nativePicker = window.electronApi?.restore;
@@ -215,24 +285,59 @@ function PickBackup({ onPick, onUpload, onFailure }: {
         onPick({ source: "pending", fileName: picked.fileName, encrypted: picked.encrypted });
     }
 
-    useEffect(() => {
-        server.get<ExistingBackupsResponse>("database/backups")
-            .then((response) => setBackups(response.backups))
-            // An unreadable backup directory is not a reason to lose the "choose a file" path.
-            .catch(() => setBackups([]));
-    }, []);
-
     const sorted = [ ...(backups ?? []) ].sort((a, b) => (a.mtime < b.mtime ? 1 : -1));
 
     return (
         <>
-            <Card heading={t("setup.restore-existing-backups")}>
-                {backups === null ? (
+            {/* A row rather than a section of its own: choosing a file and choosing one of the
+                backups already here are the same decision, so they read as one list of ways in. */}
+            <Card>
+                <CardSection
+                    className="restore-backup-row restore-choose-file"
+                    onAction={nativePicker ? pickNatively : () => fileInput.current?.click()}
+                >
+                    <Icon icon="bx bx-folder-open" />
+
+                    <div class="restore-backup-details">
+                        <div class="restore-backup-name">{t("setup.restore-choose-file")}</div>
+                        {/* One line for both ways in: selecting the file is the same act whether it
+                            is then uploaded or read where it lies. */}
+                        <div class="restore-backup-description">{t("setup.restore-choose-file-description")}</div>
+                    </div>
+
+                    <Icon icon="bx bx-chevron-right" />
+                </CardSection>
+
+                {/* Outside the row it belongs to: a hidden input inside it would have its own click
+                    bubble back to the row that opened it, and open it again. */}
+                {!nativePicker && (
+                    <input
+                        ref={fileInput}
+                        type="file"
+                        accept=".db,.tnbackup"
+                        class="restore-file-input"
+                        onChange={(e) => {
+                            const file = (e.target as HTMLInputElement).files?.[0];
+                            if (file) {
+                                onUpload(file);
+                            }
+                        }}
+                    />
+                )}
+            </Card>
+
+            {/* Absent until there is something to list, which on a device being set up for the first
+                time is the usual case: an empty card would only take up the screen to say that a
+                place the user has never been to holds nothing. */}
+            {backups === null ? (
+                <Card heading={t("setup.restore-existing-backups")}>
                     <CardSection className="restore-loading">
                         <Icon icon="bx bx-loader-circle bx-spin" /> {t("setup.restore-looking-for-backups")}
                     </CardSection>
-                ) : sorted.length > 0 ? (
-                    sorted.map((backup) => (
+                </Card>
+            ) : sorted.length > 0 && (
+                <Card heading={t("setup.restore-existing-backups")}>
+                    {sorted.map((backup) => (
                         <CardSection
                             key={backup.filePath}
                             className="restore-backup-row"
@@ -246,47 +351,19 @@ function PickBackup({ onPick, onUpload, onFailure }: {
                             <Icon icon={backup.encrypted ? "bx bx-lock-alt" : "bx bx-data"} />
 
                             <div class="restore-backup-details">
-                                <div class="restore-backup-name">{backup.fileName}</div>
+                                <div class="restore-backup-title">
+                                    <span class="restore-backup-name">{backup.fileName}</span>
+                                    <DatabaseFileBadges badges={describeDatabaseFormat(backup)} />
+                                </div>
+
                                 <div class="restore-backup-description">{describeDatabaseFile(backup)}</div>
                             </div>
 
                             <Icon icon="bx bx-chevron-right" />
                         </CardSection>
-                    ))
-                ) : (
-                    <CardSection>
-                        <NoItems icon="bx bx-archive" text={t("setup.restore-no-backups")} />
-                    </CardSection>
-                )}
-            </Card>
-
-            <Card heading={t("setup.restore-from-a-file")}>
-                <CardSection className="restore-file-section">
-                    <p>{nativePicker ? t("setup.restore-from-a-file-description-native") : t("setup.restore-from-a-file-description")}</p>
-
-                    {!nativePicker && (
-                        <input
-                            ref={fileInput}
-                            type="file"
-                            accept=".db,.tnbackup"
-                            class="restore-file-input"
-                            onChange={(e) => {
-                                const file = (e.target as HTMLInputElement).files?.[0];
-                                if (file) {
-                                    onUpload(file);
-                                }
-                            }}
-                        />
-                    )}
-
-                    <Button
-                        kind="primary"
-                        icon="bx bx-folder-open"
-                        text={t("setup.restore-choose-file")}
-                        onClick={nativePicker ? pickNatively : () => fileInput.current?.click()}
-                    />
-                </CardSection>
-            </Card>
+                    ))}
+                </Card>
+            )}
         </>
     );
 }
@@ -302,21 +379,34 @@ function UploadProgress({ upload }: { upload: UploadState }) {
                 <progress value={upload.sentBytes} max={upload.totalBytes} />
 
                 <div class="restore-progress-detail">
-                    {t("setup.restore-uploaded-so-far", {
-                        sent: formatSize(upload.sentBytes),
-                        total: formatSize(upload.totalBytes)
-                    })}
+                    <span>
+                        {t("setup.restore-uploaded-so-far", {
+                            sent: formatSize(upload.sentBytes),
+                            total: formatSize(upload.totalBytes)
+                        })}
+                    </span>
+
+                    {/* Only once something has actually gone out: before the first piece lands there
+                        is no elapsed time to divide by, and a rate of nothing says nothing. */}
+                    {upload.bytesPerSecond > 0 && (
+                        <span class="restore-upload-speed">
+                            {t("setup.restore-upload-speed", { speed: formatSize(upload.bytesPerSecond) })}
+                        </span>
+                    )}
                 </div>
             </CardSection>
         </Card>
     );
 }
 
-function AskPassphrase({ fileName, wrong, onSubmit }: { fileName: string; wrong: boolean; onSubmit: (passphrase: string) => void }) {
+function AskPassphrase({ wrong, onSubmit }: { wrong: boolean; onSubmit: (passphrase: string) => void }) {
     const [ passphrase, setPassphrase ] = useState("");
     const inputRef = useRef<HTMLInputElement>(null);
 
-    useEffect(() => inputRef.current?.focus(), []);
+    // Without `preventScroll` the browser scrolls the page to reveal a field that is still sliding
+    // in from off-screen, which drags the heading along with it and fights the animation the whole
+    // way. The field is about to be in view on its own.
+    useEffect(() => inputRef.current?.focus({ preventScroll: true }), []);
 
     return (
         <form onSubmit={(e) => {
@@ -325,8 +415,8 @@ function AskPassphrase({ fileName, wrong, onSubmit }: { fileName: string; wrong:
                 onSubmit(passphrase);
             }
         }}>
-            <Card heading={fileName}>
-                <CardSection>
+            <Card>
+                <CardSection className="restore-passphrase">
                     <FormGroup
                         name="backupPassphrase"
                         label={t("setup.restore-passphrase")}
@@ -350,9 +440,6 @@ function AskPassphrase({ fileName, wrong, onSubmit }: { fileName: string; wrong:
         </form>
     );
 }
-
-/** The stages the server works through, and which one it is on. */
-const STAGES = [ "staging", "validating", "swapping", "migrating" ] as const;
 
 /** What the server says about the restore it is running. */
 interface RestoreStatus {
@@ -399,31 +486,23 @@ function RestoreProgress({ onRestored, onFailed }: { onRestored: () => void; onF
         return () => clearInterval(interval);
     }, [ onRestored, onFailed ]);
 
-    const currentIndex = STAGES.indexOf(stage as typeof STAGES[number]);
-
+    // Only what is happening now, rather than the four steps as a list. Preparing the backup is the
+    // one that takes any time; the rest go by too quickly to be read, so a list of them mostly shows
+    // the user three things they will never see happen.
     return (
-        <>
-            <Card className="restore-stages">
-                {STAGES.map((name, index) => (
-                    <CardSection key={name} className={index < currentIndex ? "completed" : index === currentIndex ? "active" : ""}>
-                        <Icon icon={index < currentIndex ? "bx bx-check-circle" : index === currentIndex ? "bx bx-loader-circle bx-spin" : "bx bx-circle"} />{" "}
-                        {t(`setup.restore-stage-${name}`)}
+        <div class="restore-current-step">
+            <div class="restore-step-name">{t(`setup.restore-stage-${stage}`)}</div>
 
-                        {/* Only the step that is running, and only where it can say how far it has
-                            got. The steps that cannot show nothing rather than an empty bar. */}
-                        {index === currentIndex && fraction !== null && (
-                            <div class="restore-stage-progress">
-                                <progress value={fraction} max={1} />
-                                <span>{Math.floor(fraction * 100)}%</span>
-                            </div>
-                        )}
-                    </CardSection>
-                ))}
-            </Card>
+            {/* Only where the step can say how far it has got. The ones that cannot show nothing,
+                rather than an empty bar that never moves. */}
+            {fraction !== null && (
+                <div class="restore-stage-progress">
+                    <progress value={fraction} max={1} />
+                    <span>{Math.floor(fraction * 100)}%</span>
+                </div>
+            )}
 
-            <Admonition type="warning" className="restore-banner">
-                {t("setup.restore-do-not-close")}
-            </Admonition>
-        </>
+            <small class="restore-do-not-close">{t("setup.restore-do-not-close")}</small>
+        </div>
     );
 }

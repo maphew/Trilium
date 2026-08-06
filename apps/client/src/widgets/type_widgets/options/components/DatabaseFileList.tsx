@@ -6,7 +6,7 @@ import { useMemo } from "preact/hooks";
 import { type DatabaseFile, describeDatabaseFile } from "../../../../services/database_files";
 import open from "../../../../services/open";
 import ActionButton from "../../../react/ActionButton";
-import { Badge } from "../../../react/Badge";
+import DatabaseFileBadges from "../../../react/DatabaseFileBadges";
 import NoItems from "../../../react/NoItems";
 import OptionsRow from "./OptionsRow";
 import OptionsSection from "./OptionsSection";
@@ -53,9 +53,7 @@ export default function DatabaseFileList<T extends DatabaseFile>({ title, locati
                         label={
                             <span className="database-file-label">
                                 <span className="selectable-text">{file.fileName}</span>
-                                {fileBadges?.(file).map((badge) => (
-                                    <Badge key={badge} className="database-file-badge" text={badge} outline />
-                                ))}
+                                <DatabaseFileBadges badges={fileBadges?.(file) ?? []} />
                             </span>
                         }
                         description={describeDatabaseFile(file)}

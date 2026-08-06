@@ -1,8 +1,11 @@
 import { render } from "preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// t() returns the key so assertions are deterministic and not tied to English text.
-vi.mock("./services/i18n", () => ({ t: (key: string) => key }));
+// t() returns the key so assertions are deterministic and not tied to English text, with any
+// interpolated values after it: those are ours to get right, unlike the sentence around them.
+vi.mock("./services/i18n", () => ({
+    t: (key: string, values?: Record<string, unknown>) => [ key, ...Object.values(values ?? {}) ].join(" ")
+}));
 
 const serverMock = vi.hoisted(() => ({
     // The default serves what transitively imported modules ask for as they load (keyboard_actions
@@ -19,7 +22,7 @@ import RestoreFromBackup from "./setup_restore";
 
 const BACKUPS = [
     { fileName: "backup-daily.db", filePath: "/data/backup/backup-daily.db", mtime: "2026-08-01T10:00:00Z", fileSize: 2048, encrypted: false },
-    { fileName: "backup-weekly.tnbackup", filePath: "/data/backup/backup-weekly.tnbackup", mtime: "2026-08-05T10:00:00Z", fileSize: 1024, encrypted: true }
+    { fileName: "backup-weekly.tnbackup", filePath: "/data/backup/backup-weekly.tnbackup", mtime: "2026-08-05T10:00:00Z", fileSize: 1024, compressed: true, encrypted: true }
 ];
 
 let container: HTMLDivElement;
@@ -41,6 +44,8 @@ function backupRow(name: string) {
     return [ ...container.querySelectorAll<HTMLElement>(".restore-backup-row") ]
         .find((row) => row.textContent?.includes(name));
 }
+
+const goBack = () => container.querySelector<HTMLElement>(".back-button")?.click();
 
 beforeEach(() => {
     vi.useFakeTimers();
@@ -65,11 +70,24 @@ afterEach(() => {
 });
 
 describe("picking a backup", () => {
+    it("says what a backup was written as, in the same words the options use", async () => {
+        renderRestore();
+        await flushEffects();
+
+        const encrypted = backupRow("backup-weekly.tnbackup");
+        expect([ ...(encrypted?.querySelectorAll(".database-file-badge") ?? []) ].map((b) => b.textContent))
+            .toEqual([ "backup.compressed", "backup.encrypted" ]);
+        // Nothing to say about a plain copy, so nothing is said.
+        expect(backupRow("backup-daily.db")?.querySelectorAll(".database-file-badge")).toHaveLength(0);
+    });
+
     it("lists what is on the device, newest first, and starts restoring the one that is picked", async () => {
         renderRestore();
         await flushEffects();
 
-        const names = [ ...container.querySelectorAll(".restore-backup-name") ].map((row) => row.textContent);
+        // Everything but the row that opens a file, which is the same kind of row without being a backup.
+        const names = [ ...container.querySelectorAll(".restore-backup-row:not(.restore-choose-file) .restore-backup-name") ]
+            .map((row) => row.textContent);
         expect(names).toEqual([ "backup-weekly.tnbackup", "backup-daily.db" ]);
 
         backupRow("backup-daily.db")?.click();
@@ -80,7 +98,7 @@ describe("picking a backup", () => {
             filePath: "/data/backup/backup-daily.db",
             passphrase: undefined
         });
-        expect(container.querySelector(".restore-stages")).toBeTruthy();
+        expect(container.querySelector(".restore-current-step")).toBeTruthy();
     });
 
     it("asks for the password first when the backup is encrypted, and sends it with the restore", async () => {
@@ -115,8 +133,108 @@ describe("picking a backup", () => {
         renderRestore();
         await flushEffects();
 
+        expect(container.querySelector(".restore-choose-file")).toBeTruthy();
         expect(container.querySelector(".restore-file-input")).toBeTruthy();
-        expect(container.textContent).toContain("setup.restore-no-backups");
+    });
+
+    it("says nothing about existing backups when there are none, rather than an empty card", async () => {
+        serverMock.get.mockImplementation(async (url: string) =>
+            (url === "database/backups" ? { backups: [], backupFolderPath: "/data/backup" } : []));
+
+        renderRestore();
+        await flushEffects();
+
+        expect(container.textContent).not.toContain("setup.restore-existing-backups");
+        // A device being set up for the first time usually has none, and the way in still has to be there.
+        expect(container.querySelector(".restore-choose-file")).toBeTruthy();
+    });
+
+    it("says it is looking while it does not yet know", async () => {
+        let listBackups: (value: unknown) => void = () => {};
+        serverMock.get.mockImplementation(async (url: string) =>
+            (url === "database/backups" ? new Promise((resolve) => { listBackups = resolve; }) : []));
+
+        renderRestore();
+        await flushEffects();
+
+        expect(container.querySelector(".restore-loading")).toBeTruthy();
+
+        listBackups({ backups: BACKUPS, backupFolderPath: "/data/backup" });
+        await flushEffects();
+
+        expect(container.querySelector(".restore-loading")).toBeFalsy();
+        expect(container.querySelectorAll(".restore-backup-row:not(.restore-choose-file)")).toHaveLength(2);
+    });
+});
+
+describe("going back", () => {
+    it("leaves the restore altogether from the first step, since there is nothing before it", async () => {
+        const onBack = vi.fn();
+        renderRestore({ onBack });
+        await flushEffects();
+
+        goBack();
+
+        expect(onBack).toHaveBeenCalled();
+    });
+
+    it("returns to the backups from the password prompt, rather than out of the flow", async () => {
+        const onBack = vi.fn();
+        renderRestore({ onBack });
+        await flushEffects();
+        backupRow("backup-weekly.tnbackup")?.click();
+        await flushEffects();
+        expect(container.querySelector("input[type=password]")).toBeTruthy();
+
+        goBack();
+        await flushEffects();
+
+        expect(onBack).not.toHaveBeenCalled();
+        expect(container.querySelector(".restore-choose-file")).toBeTruthy();
+    });
+
+    it("carries no stale wrong-password warning back into the next attempt", async () => {
+        renderRestore();
+        await flushEffects();
+        backupRow("backup-weekly.tnbackup")?.click();
+        await flushEffects();
+
+        // The server refuses the password, which puts the prompt back with a warning on it.
+        restore = { stage: "failed", reason: "wrong-passphrase-or-damaged-header", error: "Verifier tag did not match." };
+        container.querySelector("input[type=password]")?.dispatchEvent(new Event("input", { bubbles: true }));
+        await nextPoll();
+
+        goBack();
+        await flushEffects();
+        backupRow("backup-weekly.tnbackup")?.click();
+        await flushEffects();
+
+        expect(container.textContent).not.toContain("setup.restore-wrong-passphrase");
+    });
+
+    it("stops an upload it walks away from, and says nothing about it", async () => {
+        let uploadSignal: AbortSignal | undefined;
+        uploadMock.uploadInChunks.mockImplementation(async ({ signal }: { signal: AbortSignal }) => {
+            uploadSignal = signal;
+
+            // Never settles on its own: only the abort can end it, which is the point.
+            return new Promise((_resolve, reject) => signal.addEventListener("abort", () => reject(signal.reason)));
+        });
+        renderRestore();
+        await flushEffects();
+
+        const input = container.querySelector<HTMLInputElement>(".restore-file-input");
+        Object.defineProperty(input, "files", { value: [ new File([ "bytes" ], "backup.db") ], configurable: true });
+        input?.dispatchEvent(new Event("change", { bubbles: true }));
+        await flushEffects();
+
+        goBack();
+        await flushEffects();
+
+        expect(uploadSignal?.aborted).toBe(true);
+        expect(container.querySelector(".restore-choose-file")).toBeTruthy();
+        // Cancelling is not a failure, so it is not reported as one.
+        expect(container.querySelector(".restore-error-headline")).toBeFalsy();
     });
 });
 
@@ -131,7 +249,7 @@ describe("uploading a backup", () => {
 
     it("sends the file in chunks, shows how far it has got, and restores it once it is there", async () => {
         uploadMock.uploadInChunks.mockImplementation(async ({ onProgress }: { onProgress: (p: unknown) => void }) => {
-            onProgress({ sentBytes: 512, totalBytes: 1024, fraction: 0.5 });
+            onProgress({ sentBytes: 512, totalBytes: 1024, fraction: 0.5, bytesPerSecond: 0 });
             return { fileName: "backup.db", encrypted: false };
         });
         renderRestore();
@@ -148,6 +266,33 @@ describe("uploading a backup", () => {
             filePath: undefined,
             passphrase: undefined
         });
+    });
+
+    it("shows how much has gone and how fast, once there is a rate to report", async () => {
+        let report: (progress: unknown) => void = () => {};
+        uploadMock.uploadInChunks.mockImplementation(async ({ onProgress }: { onProgress: (p: unknown) => void }) => {
+            report = onProgress;
+            report({ sentBytes: 0, totalBytes: 4 * 1024 * 1024, fraction: 0, bytesPerSecond: 0 });
+
+            return new Promise(() => {});
+        });
+        renderRestore();
+        await flushEffects();
+
+        await chooseFile(new File([ "database bytes" ], "backup.db"));
+
+        // Nothing has gone out yet, so there is no rate to divide into anything.
+        expect(container.querySelector(".restore-upload-speed")).toBeFalsy();
+
+        report({ sentBytes: 1024 * 1024, totalBytes: 4 * 1024 * 1024, fraction: 0.25, bytesPerSecond: 512 * 1024 });
+        await flushEffects();
+
+        expect(container.querySelector(".restore-progress-detail")?.textContent)
+            .toContain("setup.restore-uploaded-so-far 1 MiB 4 MiB");
+        // Its own element, since it is pushed to the far side of the line rather than read on from
+        // what came before it.
+        expect(container.querySelector(".restore-upload-speed")?.textContent?.trim())
+            .toBe("setup.restore-upload-speed 512 KiB");
     });
 
     it("asks for the password when what arrived turns out to be encrypted", async () => {
@@ -192,7 +337,7 @@ describe("choosing a backup on the desktop", () => {
 
         // Nothing to upload: the file never leaves the disk it is already on.
         expect(container.querySelector(".restore-file-input")).toBeFalsy();
-        container.querySelector<HTMLElement>(".restore-file-section button")?.click();
+        container.querySelector<HTMLElement>(".restore-choose-file")?.click();
         await flushEffects();
 
         expect(uploadMock.uploadInChunks).not.toHaveBeenCalled();
@@ -208,7 +353,7 @@ describe("choosing a backup on the desktop", () => {
         renderRestore();
         await flushEffects();
 
-        container.querySelector<HTMLElement>(".restore-file-section button")?.click();
+        container.querySelector<HTMLElement>(".restore-choose-file")?.click();
         await flushEffects();
 
         expect(serverMock.post).not.toHaveBeenCalled();
@@ -220,7 +365,7 @@ describe("choosing a backup on the desktop", () => {
         renderRestore();
         await flushEffects();
 
-        container.querySelector<HTMLElement>(".restore-file-section button")?.click();
+        container.querySelector<HTMLElement>(".restore-choose-file")?.click();
         await flushEffects();
 
         expect(serverMock.post).not.toHaveBeenCalled();
@@ -232,7 +377,7 @@ describe("choosing a backup on the desktop", () => {
         renderRestore();
         await flushEffects();
 
-        container.querySelector<HTMLElement>(".restore-file-section button")?.click();
+        container.querySelector<HTMLElement>(".restore-choose-file")?.click();
         await flushEffects();
 
         expect(container.querySelector(".restore-error-detail")?.textContent).toBe("setup is already busy with 'new-document'");
@@ -251,27 +396,27 @@ describe("following the restore", () => {
 
     beforeEach(() => { onRestored = vi.fn(); });
 
-    it("moves through the stages the server reports", async () => {
+    it("shows the step it is on, and only that one", async () => {
         await startRestore();
 
         restore = { stage: "validating" };
         await nextPoll();
 
-        const active = container.querySelector(".restore-stages .active");
-        expect(active?.textContent).toContain("setup.restore-stage-validating");
+        expect(container.querySelector(".restore-step-name")?.textContent).toBe("setup.restore-stage-validating");
+        // The steps it is not on say nothing: they go by too quickly to be read, and listing them
+        // mostly shows the user things they will never see happen.
+        expect(container.textContent).not.toContain("setup.restore-stage-swapping");
     });
 
-    it("shows how far the running step has got, and only on that step", async () => {
+    it("shows how far the running step has got", async () => {
         await startRestore();
 
         restore = { stage: "staging", fraction: 0.42 };
         await nextPoll();
 
-        const bar = container.querySelector<HTMLProgressElement>(".restore-stages .active progress");
+        const bar = container.querySelector<HTMLProgressElement>(".restore-current-step progress");
         expect(bar?.value).toBe(0.42);
-        expect(container.querySelector(".restore-stages .active .restore-stage-progress")?.textContent).toContain("42%");
-        // One bar, on the step that is running.
-        expect(container.querySelectorAll(".restore-stages progress")).toHaveLength(1);
+        expect(container.querySelector(".restore-stage-progress")?.textContent).toContain("42%");
     });
 
     it("drops the bar for a step that cannot say how far it has got", async () => {
@@ -279,14 +424,14 @@ describe("following the restore", () => {
 
         restore = { stage: "staging", fraction: 0.9 };
         await nextPoll();
-        expect(container.querySelector(".restore-stages progress")).toBeTruthy();
+        expect(container.querySelector(".restore-current-step progress")).toBeTruthy();
 
         // Checking a database reads it from end to end with nothing to report along the way; the
         // previous step's bar must not be left sitting under it.
         restore = { stage: "validating" };
         await nextPoll();
 
-        expect(container.querySelector(".restore-stages progress")).toBeFalsy();
+        expect(container.querySelector(".restore-current-step progress")).toBeFalsy();
     });
 
     it("finishes setup once the restore is done", async () => {
@@ -304,7 +449,7 @@ describe("following the restore", () => {
         serverMock.get.mockRejectedValueOnce(new Error("DB not open."));
         await nextPoll();
 
-        expect(container.querySelector(".restore-stages")).toBeTruthy();
+        expect(container.querySelector(".restore-current-step")).toBeTruthy();
 
         restore = { stage: "done" };
         await nextPoll();

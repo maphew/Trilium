@@ -25,6 +25,26 @@ export interface DatabaseFile {
  * Shared by every list of these files — the backups in the options, the backups the setup screen
  * offers to restore from — so that one line reads the same wherever it appears.
  */
+/**
+ * What a backup was written as, as short labels: compressed, encrypted, or neither.
+ *
+ * Read from the file's own header rather than from today's settings, so it describes the backup as
+ * it is. Shared by every list of these files, so that the same file is described the same way
+ * wherever it is shown.
+ */
+export function describeDatabaseFormat(file: { compressed?: boolean; encrypted?: boolean }): string[] {
+    const badges: string[] = [];
+
+    if (file.compressed) {
+        badges.push(t("backup.compressed"));
+    }
+    if (file.encrypted) {
+        badges.push(t("backup.encrypted"));
+    }
+
+    return badges;
+}
+
 export function describeDatabaseFile(file: DatabaseFile): string {
     const parts = [ file.mtime ? formatDateTime(file.mtime) : "-" ];
 
