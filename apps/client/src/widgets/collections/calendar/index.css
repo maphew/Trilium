@@ -105,6 +105,11 @@
     filter: var(--calendar-coll-event-hover-filter, none);
 }
 
+/* The note's icon, leading its title on the chip (see eventContent). */
+.calendar-view .calendar-event-icon {
+    margin-inline-end: .25em;
+}
+
 /* An archived note is faded and hatched, the stripes drawn behind its content. */
 .calendar-view .calendar-event.archived {
     opacity: .65;

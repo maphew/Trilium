@@ -21,7 +21,7 @@ import date_notes from "../../../services/date_notes";
 import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
 import note_tooltip from "../../../services/note_tooltip";
-import { escapeHtml, isMobile } from "../../../services/utils";
+import { isMobile } from "../../../services/utils";
 import CollectionProperties from "../../note_bars/CollectionProperties";
 import ActionButton from "../../react/ActionButton";
 import Button, { ButtonGroup } from "../../react/Button";
@@ -169,7 +169,7 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
         return true;
     }, []);
 
-    const { eventDidMount } = useEventDisplayCustomization(note, parentComponent?.componentId, dismissSurface);
+    const { eventContent, eventDidMount } = useEventDisplayCustomization(note, parentComponent?.componentId, dismissSurface);
     const editingProps = useEditing(note, isEditable, isCalendarRoot, parentComponent?.componentId,
         (draft, anchor) => setSelection({ draft, anchor }), effectiveSlotDuration);
 
@@ -351,6 +351,7 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
                     selection && "noteId" in selection && arg.event.extendedProps.noteId === selection.noteId
                         && "calendar-event-selected no-tooltip-preview"
                 )}
+                eventContent={eventContent}
                 eventDidMount={eventDidMount}
                 viewDidMount={({ view }) => {
                     if (initialView.current !== view.type) {
@@ -619,36 +620,36 @@ function draftFromDateClick(e: DateClickInfo, slotDuration: string): EventDraft 
 function useEventDisplayCustomization(parentNote: FNote, componentId: string | undefined,
     /** Puts away whatever surface stands over the calendar, answering whether there was one. */
     dismissSurface: () => boolean) {
+    /**
+     * The chip's own content, drawn so the note's icon can lead its title.
+     *
+     * Rendered rather than reached for after the fact, which is how the icon used to be put there:
+     * v7 names its elements with hashed classes, so there is no `.fc-event-title` left to find. The
+     * theme hands out the very classes its time and title would have worn, so what is drawn here is
+     * Forma's chip with an icon in it rather than something of ours standing in for one.
+     */
+    const eventContent = useCallback((e: EventDisplayInfo) => {
+        const { iconClass } = e.event.extendedProps;
+
+        return (
+            <>
+                {e.timeText && <div className={e.timeClass}>{e.timeText}</div>}
+                <div className={e.titleClass}>
+                    {iconClass && <span className={`calendar-event-icon ${iconClass}`} />}
+                    {e.event.title}
+                </div>
+            </>
+        );
+    }, []);
+
     const eventDidMount = useCallback((e: MountInfo<EventDisplayInfo>) => {
-        const { iconClass, promotedAttributes } = e.event.extendedProps;
+        const { promotedAttributes } = e.event.extendedProps;
 
         // The chip is tagged with its note, which is how the event popover finds the chip to
         // stand beside — FullCalendar redraws chips at will, so an element held onto would go
         // stale (see eventAnchorRect in EventPopover).
         if (e.event.extendedProps.noteId) {
             e.el.dataset.eventNoteId = String(e.event.extendedProps.noteId);
-        }
-
-        // Prepend the icon to the title, if any.
-        if (iconClass) {
-            let titleContainer: HTMLElement | null = null;
-            switch (e.view.type) {
-                case "timeGridDay":
-                case "timeGridWeek":
-                case "dayGridMonth":
-                    titleContainer = e.el.querySelector(".fc-event-title");
-                    break;
-                case "multiMonthYear":
-                    break;
-                case "listMonth":
-                    titleContainer = e.el.querySelector(".fc-list-event-title a");
-                    break;
-            }
-
-            if (titleContainer) {
-                const icon = /*html*/`<span class="${escapeHtml(iconClass)}"></span> `;
-                titleContainer.insertAdjacentHTML("afterbegin", icon);
-            }
         }
 
         // Disable the default context menu.
@@ -704,7 +705,7 @@ function useEventDisplayCustomization(parentNote: FNote, componentId: string | u
         // belongs to the event sheet, which offers what the menu offers and more (see onEventClick).
         e.el.addEventListener("contextmenu", onContextMenu);
     }, [ dismissSurface ]);
-    return { eventDidMount };
+    return { eventContent, eventDidMount };
 }
 
 function useOnDatesSet(calendarRef: RefObject<FullCalendar>) {
