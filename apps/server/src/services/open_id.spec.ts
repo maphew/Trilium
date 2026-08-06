@@ -7,7 +7,7 @@ import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import { describeError } from "../routes/error_handlers.js";
 import config from "./config.js";
 import openIDEncryption from "./encryption/open_id_encryption.js";
-import openID, { createReactiveOidcMiddleware, DEFAULT_ID_TOKEN_SIGNING_ALG, reconcileIssuerBaseUrl, resolveClientAuthMethod, resolveIdTokenSigningAlg, resolveOAuthIdentity, supportsRpInitiatedLogout } from "./open_id.js";
+import openID, { createReactiveOidcMiddleware, DEFAULT_ID_TOKEN_SIGNING_ALG, discoveryUrlFor, reconcileIssuerBaseUrl, resolveClientAuthMethod, resolveIdTokenSigningAlg, resolveOAuthIdentity, supportsRpInitiatedLogout } from "./open_id.js";
 import sql from "./sql.js";
 import sqlInit from "./sql_init.js";
 
@@ -553,6 +553,40 @@ describe("open_id", () => {
             expect(fetchSpy).not.toHaveBeenCalled();
         });
 
+        /**
+         * An issuer configured as an explicit `.well-known` URL — the documented way out of Authentik's
+         * "global" issuer mode (see reconcileIssuerBaseUrl), and what a user reported having to undo.
+         *
+         * openid-client uses such a URL as-is, so sign-in worked while the probe was advisory: appending
+         * a second `.well-known` 404'd, and the only casualty was RP-Initiated Logout. Once the signing
+         * algorithm came from the probe that blind spot stopped being harmless — a non-RS256 provider
+         * would fall back to RS256 and reject every token — and it also costs the handler its cache,
+         * since a probe that reads nothing is deliberately never cached.
+         */
+        it("uses an issuer that already points at a discovery document as-is", async () => {
+            setOauthConfig(true);
+            mfa.oauthIssuerBaseUrl = "https://sso.example.com/application/o/trilium/.well-known/openid-configuration";
+            const fetchSpy = mockFetch(() => ({
+                ok: true,
+                json: () => Promise.resolve({
+                    issuer: "https://sso.example.com/",
+                    id_token_signing_alg_values_supported: ["ES256"]
+                })
+            }));
+
+            const probe = await openID.probeDiscovery();
+
+            // Fetched exactly as configured — not with a second `.well-known` bolted on.
+            expect(fetchSpy).toHaveBeenCalledWith(mfa.oauthIssuerBaseUrl, expect.anything());
+            expect(probe.idTokenSigningAlg).toBe("ES256");
+            // Read, so the handler built from it is cacheable rather than rebuilt on every request.
+            expect(probe.metadataAvailable).toBe(true);
+            // The `.well-known` URL itself must reach express-openid-connect: the advertised issuer
+            // differs by more than a trailing slash (that is the whole point of this mode), and
+            // openid-client skips its equality check for such URLs.
+            expect(probe.issuerBaseUrl).toBe(mfa.oauthIssuerBaseUrl);
+        });
+
         it("reports the signing algorithm the issuer advertises", async () => {
             // Pocket ID with an Ed25519 key (discussion 6318): RS256 is not on offer at all, so expecting it is
             // what produced "unexpected JWT alg received, expected RS256, got: EdDSA".
@@ -664,6 +698,27 @@ describe("open_id", () => {
             // A configured value applies even to callers that never probed discovery.
             mfa.oauthIdTokenSigningAlg = "ES256";
             expect(openID.generateOAuthConfig().idTokenSigningAlg).toBe("ES256");
+        });
+    });
+
+    describe("discoveryUrlFor", () => {
+        it("appends the well-known path, or leaves an already-complete discovery URL alone", () => {
+            // The ordinary case, including a path-bearing issuer (Keycloak realms, Authentik apps).
+            expect(discoveryUrlFor("https://issuer.example.com"))
+                .toBe("https://issuer.example.com/.well-known/openid-configuration");
+            expect(discoveryUrlFor("https://sso.example.com/realms/trilium"))
+                .toBe("https://sso.example.com/realms/trilium/.well-known/openid-configuration");
+
+            // Already a discovery endpoint — appending again would 404. Matches openid-client's own
+            // test (`!href.includes('/.well-known/')`), so both agree on what is already an endpoint.
+            const wellKnown = "https://sso.example.com/application/o/trilium/.well-known/openid-configuration";
+            expect(discoveryUrlFor(wellKnown)).toBe(wellKnown);
+            // Any `/.well-known/` path counts, not just openid-configuration — again mirroring the library.
+            expect(discoveryUrlFor("https://sso.example.com/.well-known/oauth-authorization-server"))
+                .toBe("https://sso.example.com/.well-known/oauth-authorization-server");
+            // A bare `/.well-known` (no trailing segment) is not one, and the library agrees.
+            expect(discoveryUrlFor("https://sso.example.com/.well-known"))
+                .toBe("https://sso.example.com/.well-known/.well-known/openid-configuration");
         });
     });
 

@@ -495,10 +495,7 @@ async function fetchDiscoveryMetadata(configuredIssuer: string): Promise<unknown
         return null;
     }
 
-    // The discovery document lives at `{issuer}/.well-known/openid-configuration` — appended to the full
-    // issuer (which may carry a path, e.g. Keycloak realms) rather than resolved against the origin root.
-    // Trailing slashes are stripped first so both spellings of a path-bearing issuer reach the same URL.
-    const metadataUrl = `${issuer}/.well-known/openid-configuration`;
+    const metadataUrl = discoveryUrlFor(issuer);
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), DISCOVERY_TIMEOUT_MS);
     try {
@@ -514,6 +511,26 @@ async function fetchDiscoveryMetadata(configuredIssuer: string): Promise<unknown
     } finally {
         clearTimeout(timeout);
     }
+}
+
+/**
+ * Where an issuer's discovery document lives.
+ *
+ * Normally `{issuer}/.well-known/openid-configuration`, appended to the *full* issuer (which may carry a
+ * path, e.g. Keycloak realms) rather than resolved against the origin root. Callers strip trailing
+ * slashes first, so both spellings of a path-bearing issuer reach the same URL.
+ *
+ * An issuer that already points *at* a discovery document is used as-is. openid-client does exactly the
+ * same — `performDiscovery` skips resolution for any URL containing `/.well-known/`, and skips the
+ * issuer equality check along with it — which is what makes an explicit `.well-known` URL the documented
+ * way out of Authentik's "global" issuer mode (see {@link reconcileIssuerBaseUrl}). Appending a second
+ * `.well-known` there 404s, so the probe would come back blind on a configuration the library itself
+ * handles perfectly well, and everything derived from the document — the signing algorithm above all —
+ * would silently fall back. The `/.well-known/` test is the library's, character for character, so the
+ * two cannot disagree about which URLs are already discovery endpoints.
+ */
+export function discoveryUrlFor(issuer: string) {
+    return issuer.includes("/.well-known/") ? issuer : `${issuer}/.well-known/openid-configuration`;
 }
 
 /**
