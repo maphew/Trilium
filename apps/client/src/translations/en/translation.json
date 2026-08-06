@@ -3106,6 +3106,7 @@
   },
   "note_language": {
     "not_set": "No language set",
+    "not_set_with_default": "No language set — {{- language}}",
     "configure-languages": "Configure languages...",
     "help-on-languages": "Help on content languages..."
   },
