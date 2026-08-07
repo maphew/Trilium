@@ -37,15 +37,22 @@ globalThis.ResizeObserver = globalThis.ResizeObserver ?? (ResizeObserverStub as 
 describe("SegmentedChoice", () => {
     let container: HTMLDivElement;
 
+    let cover: HTMLDivElement;
+
     beforeEach(() => {
         isMobileMock.mockReturnValue(false);
         container = document.createElement("div");
         document.body.appendChild(container);
+        // The backdrop the dropdown reaches for by id; part of `index.html` rather than of any widget.
+        cover = document.createElement("div");
+        cover.id = "context-menu-cover";
+        document.body.appendChild(cover);
     });
 
     afterEach(() => {
         render(null, container);
         container.remove();
+        cover.remove();
     });
 
     const options = (extra?: { count?: number }) => [
@@ -109,7 +116,7 @@ describe("SegmentedChoice", () => {
             isMobileMock.mockReturnValue(true);
             renderOpened(<SegmentedChoice options={options()} currentValue="user" onChange={() => {}} />);
 
-            expect(container.querySelectorAll(".dropdown-item")).toHaveLength(0);
+            expect(menuItems()).toHaveLength(0);
             expect(container.querySelectorAll("button")).toHaveLength(2);
         });
 
@@ -123,7 +130,7 @@ describe("SegmentedChoice", () => {
             expect(toggle?.textContent).toContain("Dark");
             expect(toggle?.querySelector(".bx-moon")).not.toBeNull();
 
-            const items = [ ...container.querySelectorAll(".dropdown-item") ];
+            const items = menuItems();
             expect(items.map((item) => item.textContent?.trim())).toStrictEqual([ "Light", "Dark" ]);
             // The options carry icons, so the current one is highlighted rather than having its icon
             // replaced by a check mark.
@@ -143,19 +150,34 @@ describe("SegmentedChoice", () => {
                     onChange={() => {}}
                     collapseOnMobile
                 />);
-            expect([ ...container.querySelectorAll(".dropdown-item") ].map((item) => item.textContent?.trim()))
+            expect(menuItems().map((item) => item.textContent?.trim()))
                 .toStrictEqual([ "Square", "Round" ]);
 
             renderOpened(<SegmentedChoice options={options()} currentValue="system" onChange={() => {}} collapseOnMobile />);
-            const items = [ ...container.querySelectorAll(".dropdown-item") ];
+            const items = menuItems();
             expect(items[1].querySelector(".bx-check")).not.toBeNull();
+        });
+
+        it("comes up from the bottom of the screen, out of the dialog and over a backdrop", () => {
+            isMobileMock.mockReturnValue(true);
+            renderOpened(<SegmentedChoice options={iconOptions} currentValue="dark" onChange={() => {}} collapseOnMobile />);
+
+            // Placed by the app's own bottom-sheet rule rather than by Popper, which mobile's forced
+            // `position: fixed` leaves computing an offset for a menu positioned some other way.
+            const menu = document.querySelector(".dropdown-menu.mobile-bottom-menu");
+            expect(menu).not.toBeNull();
+            // Portaled out: inside the settings dialog it would be trapped in the transformed
+            // `.modal-dialog`, which is a containing block for `position: fixed` and a stacking
+            // context the backdrop would then cover the menu through.
+            expect(container.contains(menu)).toBe(false);
+            expect(document.getElementById("context-menu-cover")?.classList.contains("show")).toBe(true);
         });
 
         it("shows a count beside the name rather than as a badge, the menu line having room for it", () => {
             isMobileMock.mockReturnValue(true);
             renderOpened(<SegmentedChoice options={options({ count: 3 })} currentValue="user" onChange={() => {}} collapseOnMobile />);
 
-            const items = [ ...container.querySelectorAll(".dropdown-item") ];
+            const items = menuItems();
             expect(items.map((item) => item.querySelector("small")?.textContent)).toStrictEqual([ "3", "7" ]);
             expect(container.querySelectorAll(".tn-segmented-choice-count")).toHaveLength(0);
         });
@@ -168,5 +190,10 @@ describe("SegmentedChoice", () => {
         act(() => {
             if (dropdown) $(dropdown).trigger("show.bs.dropdown");
         });
+    }
+
+    /** Queried from the document rather than the container: the menu is portaled out to `body`. */
+    function menuItems() {
+        return [ ...document.querySelectorAll(".dropdown-item") ];
     }
 });
