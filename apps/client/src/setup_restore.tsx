@@ -57,6 +57,13 @@ export default function RestoreFromBackup({ onBack, onRestored }: { onBack: () =
     /** Stops the upload in flight, for the one thing that can interrupt it: the user going back. */
     const uploadCancellation = useRef<AbortController | null>(null);
     /**
+     * The file a standalone restore is working from, kept so a wrong passphrase can be answered
+     * without picking it again. It is a reference to bytes the browser already has, not a copy.
+     */
+    const localBackup = useRef<File | null>(null);
+    /** Where a standalone restore has got to, which it reports rather than being polled for. */
+    const [ localProgress, setLocalProgress ] = useState<RestoreStatus | null>(null);
+    /**
      * Fetched here rather than by the step that lists them, which is mounted afresh every time it is
      * returned to: asking again would show "looking for backups" for the length of each slide back.
      */
@@ -96,7 +103,38 @@ export default function RestoreFromBackup({ onBack, onRestored }: { onBack: () =
         }
     }, [ raiseError ]);
 
+    /**
+     * Restores a picked file through the standalone build's own way to the worker that owns the
+     * database, which is already on this device: there is nothing to upload, and the request path
+     * would serialise the whole database and give up on it besides.
+     */
+    async function restoreLocally(file: File, passphrase?: string) {
+        setSelection({ source: "pending", fileName: file.name });
+        localBackup.current = file;
+        setStep("restoring");
+
+        const result = await window.standaloneApi?.restore.importBackup({
+            backup: file,
+            passphrase,
+            onProgress: ({ stage, fraction }) => setLocalProgress({ stage, fraction })
+        });
+
+        if (result?.status === "restored") {
+            onRestored();
+        } else if (result?.status === "needs-passphrase") {
+            setStep("passphrase");
+        } else {
+            setStep("picking");
+            raiseError(headlineFor(result?.reason), result?.message);
+        }
+    }
+
     async function uploadAndRestore(file: File) {
+        if (window.standaloneApi) {
+            await restoreLocally(file);
+            return;
+        }
+
         const cancellation = new AbortController();
         uploadCancellation.current = cancellation;
 
@@ -183,12 +221,20 @@ export default function RestoreFromBackup({ onBack, onRestored }: { onBack: () =
                                 wrong={wrongPassphrase}
                                 onSubmit={(passphrase) => {
                                     setWrongPassphrase(false);
-                                    void restore(selection, passphrase);
+
+                                    // Standalone still has the file it was given, so answering the
+                                    // prompt starts again from it rather than from a server's copy.
+                                    const backup = localBackup.current;
+                                    void (backup ? restoreLocally(backup, passphrase) : restore(selection, passphrase));
                                 }}
                             />
                         )}
                         {shown === "restoring" && (
-                            <RestoreProgress onRestored={onRestored} onFailed={onRestoreFailed} />
+                            <RestoreProgress
+                                reported={localProgress}
+                                onRestored={onRestored}
+                                onFailed={onRestoreFailed}
+                            />
                         )}
                     </>
                 )}
@@ -450,11 +496,23 @@ interface RestoreStatus {
     reason?: string;
 }
 
-function RestoreProgress({ onRestored, onFailed }: { onRestored: () => void; onFailed: (failure: { error?: string; reason?: string }) => void }) {
+function RestoreProgress({ reported, onRestored, onFailed }: {
+    /** Where the restore has got to, where it says so itself; polled when it does not. */
+    reported?: RestoreStatus | null;
+    onRestored: () => void;
+    onFailed: (failure: { error?: string; reason?: string }) => void;
+}) {
     const [ stage, setStage ] = useState<string>("staging");
     const [ fraction, setFraction ] = useState<number | null>(null);
+    const polled = !reported;
 
     useEffect(() => {
+        // A restore that reports itself is already telling this component everything it knows, and
+        // there is nothing on the other end to ask besides.
+        if (!polled) {
+            return;
+        }
+
         const interval = setInterval(async () => {
             let restore;
             try {
@@ -484,21 +542,24 @@ function RestoreProgress({ onRestored, onFailed }: { onRestored: () => void; onF
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [ onRestored, onFailed ]);
+    }, [ polled, onRestored, onFailed ]);
+
+    const shownStage = reported?.stage ?? stage;
+    const shownFraction = (reported ? reported.fraction : fraction) ?? null;
 
     // Only what is happening now, rather than the four steps as a list. Preparing the backup is the
     // one that takes any time; the rest go by too quickly to be read, so a list of them mostly shows
     // the user three things they will never see happen.
     return (
         <div class="restore-current-step">
-            <div class="restore-step-name">{t(`setup.restore-stage-${stage}`)}</div>
+            <div class="restore-step-name">{t(`setup.restore-stage-${shownStage}`)}</div>
 
             {/* Only where the step can say how far it has got. The ones that cannot show nothing,
                 rather than an empty bar that never moves. */}
-            {fraction !== null && (
+            {shownFraction !== null && (
                 <div class="restore-stage-progress">
-                    <progress value={fraction} max={1} />
-                    <span>{Math.floor(fraction * 100)}%</span>
+                    <progress value={shownFraction} max={1} />
+                    <span>{Math.floor(shownFraction * 100)}%</span>
                 </div>
             )}
 

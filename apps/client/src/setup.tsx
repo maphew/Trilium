@@ -145,9 +145,6 @@ function SetupOptions({ setState }: { setState: (state: State) => void }) {
                     icon="bx bx-archive-in"
                     title={t("setup.restore-from-backup")}
                     description={t("setup.restore-from-backup-description")}
-                    // The backup has to be unwrapped and opened by a real database engine, which the
-                    // standalone build does not have: its database lives in the browser's own storage.
-                    disabled={glob.isStandalone}
                     onClick={() => setState("restoreFromBackup")}
                 />
 

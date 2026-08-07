@@ -825,6 +825,9 @@ importers:
       '@sqlite.org/sqlite-wasm':
         specifier: 3.51.1-build2
         version: 3.51.1-build2
+      '@triliumnext/backup-container':
+        specifier: workspace:*
+        version: link:../../packages/trilium-backup-container
       '@triliumnext/ckeditor5':
         specifier: workspace:*
         version: link:../../packages/ckeditor5
