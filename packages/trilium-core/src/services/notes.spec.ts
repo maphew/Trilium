@@ -187,6 +187,23 @@ describe("notes service (real DB)", () => {
             expect(applied).toEqual([chosen.note.noteId]);
         });
 
+        it("applies child:template even when the parent also has an inheritable ~template", () => {
+            const template = createNote("root", { title: "spec-inh-tmpl", content: "<p>tmpl</p>" });
+            const parent = createNote("root", {
+                title: "spec-inh-tmpl-parent",
+                attributes: [
+                    { type: "relation", name: "child:template", value: template.note.noteId },
+                    { type: "relation", name: "template", value: template.note.noteId, isInheritable: true }
+                ]
+            });
+
+            const { note } = createNote(parent.note.noteId, { title: "spec-inh-tmpl-child", content: "" });
+
+            // the relation must be owned, not merely inherited, so the template's content is copied
+            expect(note.getOwnedRelations("template").map((r) => r.value)).toEqual([template.note.noteId]);
+            expect(note.getContent()).toBe("<p>tmpl</p>");
+        });
+
         it("does not inherit the parent's child:template when the new note's type differs (#3015)", () => {
             const template = createNote("root", { title: "spec-child-tmpl-mismatch", content: "<p>day template</p>" });
             const parent = createNote("root", {
