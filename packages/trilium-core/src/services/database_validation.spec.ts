@@ -107,6 +107,27 @@ describe("validating a candidate database", () => {
             .toMatchObject({ valid: false, rejection: "not-a-trilium-database" });
     });
 
+    it("leaves the scan out when asked to, and keeps every other check", () => {
+        const asked: string[] = [];
+        const watched: CandidateDatabase = {
+            integrityCheck: () => { asked.push("integrity"); return "malformed database schema"; },
+            tableNames: () => { asked.push("tables"); return TRILIUM_TABLES; },
+            option: (name) => {
+                asked.push(`option:${name}`);
+                return name === "initialized" ? "true" : String(appInfo.dbVersion);
+            }
+        };
+
+        // Accepted despite an integrity check that would have failed, because it is never put.
+        expect(validateDatabase(watched, { skipIntegrityCheck: true }))
+            .toMatchObject({ valid: true, dbVersion: appInfo.dbVersion });
+        expect(asked).toEqual([ "tables", "option:initialized", "option:dbVersion" ]);
+
+        // Nothing else is waived: a database that is not ours is still refused.
+        expect(validateDatabase(candidate({ tables: [ "recipes" ] }), { skipIntegrityCheck: true }))
+            .toMatchObject({ valid: false, rejection: "not-a-trilium-database" });
+    });
+
     it("asks the cheapest questions first, so a damaged database is not read for its options", () => {
         const asked: string[] = [];
         const damaged: CandidateDatabase = {

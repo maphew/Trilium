@@ -180,12 +180,23 @@ async function stageCandidate(
     await Promise.all([ unwrapped, imported ]);
 }
 
-/** Opens the candidate and puts it through the checks every platform shares. */
+/**
+ * Opens the candidate and puts it through the checks every platform shares, minus the scan.
+ *
+ * `PRAGMA quick_check` reads every page, and here every page comes back through the pool's
+ * synchronous access handles into a WebAssembly database engine, which is the slowest reader of the
+ * three platforms and the one with a user watching a setup screen that cannot say how far along it
+ * is. What it would find is largely accounted for already: a container's payload is checked against
+ * a SHA-256 recorded when the backup was written, and any file is opened, its schema parsed and its
+ * options read before it is accepted. The remaining case, a plain `.db` damaged somewhere no schema
+ * read reaches, surfaces the way it would in any other Trilium, which never scans its database
+ * either except when asked to from the options screen.
+ */
 function validate(pool: SAHPoolUtil, candidate: string): DatabaseValidation {
     const db = new pool.OpfsSAHPoolDb(candidate);
 
     try {
-        return validateDatabase(candidateOf(db));
+        return validateDatabase(candidateOf(db), { skipIntegrityCheck: true });
     } catch (e) {
         // What a database too damaged to query throws is this driver's business, not the checks'.
         return {

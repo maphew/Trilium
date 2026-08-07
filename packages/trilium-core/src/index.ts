@@ -29,7 +29,8 @@ export {
     type DatabaseValidation,
     looksLikeSqlite,
     OLDEST_SUPPORTED_DB_VERSION,
-    validateDatabase
+    validateDatabase,
+    type ValidationOptions
 } from "./services/database_validation";
 export * as protected_session from "./services/protected_session";
 export { default as data_encryption } from "./services/encryption/data_encryption";

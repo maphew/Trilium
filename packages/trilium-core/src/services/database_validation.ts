@@ -49,7 +49,10 @@ export type DatabaseValidation =
  * Each is a plain read: nothing here writes, and nothing needs the whole database at once.
  */
 export interface CandidateDatabase {
-    /** What `PRAGMA quick_check` answers, which is `"ok"` and nothing else when all is well. */
+    /**
+     * What `PRAGMA quick_check` answers, which is `"ok"` and nothing else when all is well. Not
+     * asked at all when {@link ValidationOptions.skipIntegrityCheck} is set.
+     */
     integrityCheck(): string;
     /** The names of the tables it has. */
     tableNames(): string[];
@@ -79,18 +82,30 @@ export function looksLikeSqlite(head: Uint8Array): boolean {
     return true;
 }
 
+/** What a platform may leave out of the checks, and why it is allowed to. */
+export interface ValidationOptions {
+    /**
+     * Leaves out `PRAGMA quick_check`, which is the only check whose cost grows with the database.
+     *
+     * For a platform where that scan is prohibitive, and where the bytes have already been accounted
+     * for by other means. Everything else here is a handful of small reads and is always done.
+     */
+    skipIntegrityCheck?: boolean;
+}
+
 /**
  * Puts an open candidate through every check, in the order that answers most cheaply first.
  *
  * `PRAGMA quick_check` reads the whole database, which for a large one is not instant. It is worth
  * it: a restore that succeeds and leaves the user with a corrupt document is worse than one that
- * takes another minute to say no.
+ * takes another minute to say no. Where it is not worth it, see
+ * {@link ValidationOptions.skipIntegrityCheck}.
  *
  * @throws whatever the driver throws on a database too damaged to query; the caller knows its own
  *         driver's failures and turns them into {@link DatabaseRejection}.
  */
-export function validateDatabase(db: CandidateDatabase): DatabaseValidation {
-    const integrity = db.integrityCheck();
+export function validateDatabase(db: CandidateDatabase, options: ValidationOptions = {}): DatabaseValidation {
+    const integrity = options.skipIntegrityCheck ? "ok" : db.integrityCheck();
     if (integrity !== "ok") {
         return reject("damaged-database", `The database failed its integrity check: ${integrity}`);
     }

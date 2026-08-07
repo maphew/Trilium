@@ -63,6 +63,8 @@ async function containerOf(payload: Uint8Array, options: { passphrase?: string; 
 /** A pool that keeps its databases in memory and answers the checks however the test says. */
 function fakePool() {
     const files = new Map<string, Uint8Array>();
+    /** Every statement the checks put to the candidate, so a test can say what was not asked. */
+    const asked: string[] = [];
     const answers = {
         integrity: "ok",
         tables: [ "options", "notes", "branches", "blobs" ],
@@ -76,10 +78,12 @@ function fakePool() {
             }
         }
         selectValue(sql: string, params?: unknown[]) {
+            asked.push(sql);
             if (sql.includes("quick_check")) return answers.integrity;
             return answers.options[String((params ?? [])[0])];
         }
-        selectValues() {
+        selectValues(sql: string) {
+            asked.push(sql);
             return answers.tables;
         }
         close() { /* nothing to release */ }
@@ -102,7 +106,7 @@ function fakePool() {
         }
     };
 
-    return { files, answers, pool: pool as unknown as SAHPoolUtil };
+    return { asked, files, answers, pool: pool as unknown as SAHPoolUtil };
 }
 
 function concat(chunks: Uint8Array[]): Uint8Array {
@@ -227,6 +231,20 @@ describe("restoring from a picked backup", () => {
         await restoreDatabase(target, backup, { passphrase: "hunter2" });
 
         expect(files.get(CANDIDATE_NAME)).toEqual(original);
+    });
+
+    it("checks the database without reading all of it", async () => {
+        const { asked, pool } = fakePool();
+        const { target } = fakeTarget(pool);
+
+        await restoreDatabase(target, new Blob([ databaseBytes() ]));
+
+        // The one check whose cost grows with the database is left out here, where every page would
+        // come back through the pool into a WebAssembly engine.
+        expect(asked.some((sql) => sql.includes("quick_check"))).toBe(false);
+        // The rest is still asked: the schema and the version are what accept a database.
+        expect(asked.some((sql) => sql.includes("sqlite_master"))).toBe(true);
+        expect(asked.some((sql) => sql.includes("options"))).toBe(true);
     });
 
     it("says what it is doing as it goes", async () => {
