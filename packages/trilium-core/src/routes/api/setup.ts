@@ -1,6 +1,7 @@
 import sqlInit from "../../services/sql_init.js";
 import setupService from "../../services/setup.js";
 import { getRunningSetupOperation, withSetupLock } from "../../services/setup_lock.js";
+import { asSetupTargetScreen, getSetupMarkerStore } from "../../services/setup_mode.js";
 import { getLog } from "../../services/log.js";
 import appInfo from "../../services/app_info.js";
 import optionService from "../../services/options.js";
@@ -29,6 +30,24 @@ function getStatus() {
             }
             : {})
     };
+}
+
+/**
+ * Asks the next start of this instance to come up in the setup wizard rather than in the app.
+ *
+ * Writes the marker and answers; restarting is the caller's half, since only the client knows how
+ * this platform restarts. The language is filled in here from the instance's own option rather than
+ * taken from the request: it has to be the language whose database is about to be left closed.
+ */
+async function bootToSetup(req: Request) {
+    const targetScreen = asSetupTargetScreen(req.body?.targetScreen);
+
+    await getSetupMarkerStore().write({
+        lang: optionService.getOptionOrNull("locale") ?? "en",
+        ...(targetScreen ? { targetScreen } : {})
+    });
+
+    getLog().info(`Boot to setup requested${targetScreen ? ` for "${targetScreen}"` : ""}.`);
 }
 
 async function setupNewDocument(req: Request) {
@@ -115,6 +134,7 @@ function getSyncSeed() {
 
 export default {
     getStatus,
+    bootToSetup,
     setupNewDocument,
     setupSyncFromServer,
     getSyncSeed,

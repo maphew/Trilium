@@ -1,6 +1,6 @@
 import "./setup.css";
 
-import { LOCALES, MOBILE_SYNC_MAX_BLOB_CONTENT_SIZE, NetworkAddressesResponse, SetupSyncFromServerResponse } from "@triliumnext/commons";
+import { LOCALES, MOBILE_SYNC_MAX_BLOB_CONTENT_SIZE, NetworkAddressesResponse, SetupSyncFromServerResponse, type SetupTargetScreen } from "@triliumnext/commons";
 import clsx from "clsx";
 import { render } from "preact";
 import { useEffect, useMemo, useRef, useState } from "preact/hooks";
@@ -65,7 +65,7 @@ function App() {
     // A sync that already created the schema but was interrupted before finishing
     // resumes straight on the progress screen instead of restarting the wizard.
     const resuming = window.glob.syncInProgress === true;
-    const [state, setState] = useState<State>(resuming ? "syncFromServerInProgress" : "selectLanguage");
+    const [state, setState] = useState<State>(initialState(window.glob));
 
     useEffect(() => {
         if (!resuming) {
@@ -88,6 +88,27 @@ function App() {
             </SlidePages>
         </div>
     );
+}
+
+/**
+ * Where the wizard opens.
+ *
+ * A first run starts at the language step and works forward. The two exceptions both arrive already
+ * knowing where they belong: a sync interrupted after it created the schema, and an instance that
+ * asked to be here through a `setup.json` marker, which is how the app sends a user to a screen that
+ * needs the database closed.
+ */
+export function initialState(glob: { syncInProgress?: boolean; setupTargetScreen?: SetupTargetScreen }): State {
+    if (glob.syncInProgress) {
+        return "syncFromServerInProgress";
+    }
+
+    switch (glob.setupTargetScreen) {
+        case "restore-backup": return "restoreFromBackup";
+        // Deliberately not a lookup table: two of the states below create a document the moment they
+        // are shown, and nothing outside this file should be able to name one.
+        default: return "selectLanguage";
+    }
 }
 
 function SelectLanguage({ setState }: { setState: (state: State) => void }) {

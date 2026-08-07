@@ -12,6 +12,7 @@ import {
     events as eventService,
     getLog,
     getSql,
+    leaveSetupMode,
     sql_init as sqlInit,
     utils as coreUtils
 } from "@triliumnext/core";
@@ -532,6 +533,10 @@ async function openRestoredDatabase(needsMigration: boolean): Promise<void> {
     logRestore(needsMigration
         ? "opening the restored database, which is being migrated first and may take a while"
         : "opening the restored database");
+
+    // Whatever asked this instance into setup has had its answer, and until this is said the
+    // instance keeps reporting that it has nothing to open, which is what `initDbConnection` checks.
+    leaveSetupMode();
 
     try {
         await sqlInit.initDbConnection();

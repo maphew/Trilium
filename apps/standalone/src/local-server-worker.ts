@@ -50,6 +50,7 @@ import type { BrowserRouter } from './lightweight/browser_router';
 import type { StandaloneRestoreProgress, StandaloneRestoreResult } from "@triliumnext/commons";
 
 import { readCurrentDatabaseName, RestoreFailure, restoreDatabase } from './lightweight/database_restore';
+import { consumeSetupMarker, setupMarkerStore } from './lightweight/setup_marker';
 
 // Build-time constant injected by Vite (see `define` in vite.config.mts).
 declare const __TRILIUM_INTEGRATION_TEST__: string;
@@ -272,6 +273,10 @@ async function initialize(): Promise<void> {
                 },
                 inAppHelp: new StandaloneInAppHelpProvider(),
                 image: (await import("./services/image_provider.js")).standaloneImageProvider,
+                // Read before core opens anything, because what it says is whether to open the
+                // database at all: a page reloaded by the app itself comes back to the wizard.
+                setupMarker: await consumeSetupMarker(),
+                setupMarkerStore,
                 dbConfig: {
                     provider: sqlProvider!,
                     isReadOnly: false,
@@ -410,6 +415,10 @@ async function handleRestoreBackup(id: string, backup: File, passphrase?: string
             backup,
             { passphrase, report: ({ stage, fraction }) => report({ stage, fraction }) }
         );
+
+        // Whatever asked this instance into setup has had its answer, and until this is said the
+        // instance keeps reporting that it has nothing to open, which is what the next line checks.
+        core.leaveSetupMode();
 
         // What the "create new document" path announces for the same reason: everything that waits
         // on a database being there starts from here.

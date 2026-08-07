@@ -22,7 +22,7 @@ const serverMock = vi.hoisted(() => ({
 }));
 vi.mock("./services/server", () => ({ default: serverMock }));
 
-import { renderState, SyncFailed, SyncFromServer, SyncInProgress } from "./setup";
+import { initialState, renderState, SyncFailed, SyncFromServer, SyncInProgress } from "./setup";
 
 type Stats = { outstandingPullCount: number; totalPullCount: number | null; initialized: boolean; lastSyncError?: string | null };
 
@@ -194,5 +194,26 @@ describe("SyncFromServer", () => {
 
         const host = c.querySelector<HTMLInputElement>("input");
         expect(host?.value).toBe("");
+    });
+});
+
+describe("where the wizard opens", () => {
+    it("starts at the language step on a first run", () => {
+        expect(initialState({})).toBe("selectLanguage");
+    });
+
+    it("goes where a setup marker asked, which is how the app sends a user here", () => {
+        expect(initialState({ setupTargetScreen: "restore-backup" })).toBe("restoreFromBackup");
+    });
+
+    it("resumes an interrupted sync before anything else, since that one cannot wait", () => {
+        expect(initialState({ syncInProgress: true })).toBe("syncFromServerInProgress");
+        expect(initialState({ syncInProgress: true, setupTargetScreen: "restore-backup" }))
+            .toBe("syncFromServerInProgress");
+    });
+
+    it("ignores a screen it does not know rather than guessing at one", () => {
+        expect(initialState({ setupTargetScreen: "createNewDocumentEmpty" as never }))
+            .toBe("selectLanguage");
     });
 });

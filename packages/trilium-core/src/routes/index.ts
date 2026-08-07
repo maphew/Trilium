@@ -150,6 +150,9 @@ export function buildSharedApiRoutes({ route, asyncRoute, apiRoute, asyncApiRout
     asyncRoute(PST, "/api/setup/sync-from-server", [checkAppNotInitialized], setupApiRoute.setupSyncFromServer, apiResultHandler);
     route(GET, "/api/setup/sync-seed", [loginRateLimiter, checkCredentials], setupApiRoute.getSyncSeed, apiResultHandler);
     asyncRoute(PST, "/api/setup/sync-seed", [checkAppNotInitialized], setupApiRoute.saveSyncSeed, apiResultHandler);
+    // The one setup route that belongs to a running instance rather than to one without a database:
+    // it is how the app asks the next start to be the wizard.
+    asyncApiRoute(PST, "/api/setup/boot", setupApiRoute.bootToSetup);
 
     asyncApiRoute(PST, "/api/sync/test", syncApiRoute.testSync);
     asyncApiRoute(PST, "/api/sync/now", syncApiRoute.syncNow);
