@@ -216,6 +216,25 @@ describe("chunked upload: starting and ending a session", () => {
         await expect(upload.begin(beginRequest(8))).rejects.toThrow(/already in progress/);
     });
 
+    it("holds that limit against requests that arrive together, not just one after another", async () => {
+        // Nothing authenticates the caller during setup, so the limit is all there is between one
+        // upload and as many multi-gigabyte temporary files as anyone cares to ask for. Looking at
+        // the count and taking a place are several awaits apart, which is a gap two requests can
+        // both fit through unless opening a session is one act.
+        const { upload } = uploadService({ maxTotalBytes: 1024 * 1024 });
+        const outcomes = await Promise.allSettled(
+            Array.from({ length: 5 }, () => upload.begin(beginRequest(1024)))
+        );
+
+        expect(outcomes.filter((outcome) => outcome.status === "fulfilled")).toHaveLength(1);
+        expect(upload.activeSessions()).toBe(1);
+        for (const refused of outcomes.filter((outcome) => outcome.status === "rejected")) {
+            expect(String((refused as PromiseRejectedResult).reason)).toMatch(/already in progress/);
+        }
+        // One upload accepted means one file on disk, whatever was asked for.
+        expect(fs.readdirSync(path.join(tempRoot, "uploads", "spec"))).toHaveLength(1);
+    });
+
     it("reduces the stated name to a base name, so it cannot point outside the upload directory", async () => {
         const { upload, completed } = uploadService();
         const { uploadId } = await upload.begin(beginRequest(4, "../../etc/passwd"));

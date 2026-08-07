@@ -130,12 +130,27 @@ export function createChunkedUpload<T>(config: ChunkedUploadConfig<T>): ChunkedU
     const maxConcurrentSessions = config.maxConcurrentSessions ?? 1;
     const directory = path.resolve(config.directory, config.name);
     const sessions = new Map<string, Session>();
+    /** Lets one caller at a time open a session, so the limit on how many are open holds. */
+    const admission = new Mutex();
 
     // Unreferenced so neither a test nor a shutdown waits on it.
     const timer = setInterval(() => void sweep(), SWEEP_INTERVAL_MS);
     timer.unref?.();
 
+    /**
+     * Opens a session, one caller at a time.
+     *
+     * Looking at the count and taking a place are several awaits apart: sweeping first, then reading
+     * the free space, then creating the file. Two requests arriving together would both look while
+     * the other was between those steps, both see room, and both take it — which on an endpoint that
+     * needs no authentication is as many uploads, and as much of the disk, as anyone cares to ask
+     * for. Serialising the whole of it makes the two one act.
+     */
     async function begin(req: Request): Promise<ChunkedUploadStatus> {
+        return admission.runExclusive(() => admit(req));
+    }
+
+    async function admit(req: Request): Promise<ChunkedUploadStatus> {
         const { fileName, totalBytes, metadata } = (req.body ?? {}) as BeginBody;
 
         // Before the count is checked, so an abandoned session never blocks the next one.
