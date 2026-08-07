@@ -67,17 +67,13 @@ export function showErrorOverlay(title: string, message: string, detail?: string
         card.append(pre);
     }
 
-    const actions = document.createElement("div");
-    actions.className = "tn-eo-actions";
-
     const reload = document.createElement("button");
     reload.type = "button";
     reload.className = "tn-eo-button";
     reload.textContent = "Reload";
     reload.addEventListener("click", () => location.reload());
-    actions.append(reload);
 
-    card.append(actions);
+    card.append(reload);
     overlay.append(card);
     document.body.append(overlay);
 }
