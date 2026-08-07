@@ -167,6 +167,94 @@ describe("picking a backup", () => {
     });
 });
 
+describe("restoring on standalone", () => {
+    const importBackup = vi.fn();
+
+    /** Drives the file input, which is the only way in on standalone: there is nothing to upload. */
+    async function chooseFile(file: File) {
+        const input = container.querySelector<HTMLInputElement>(".restore-file-input");
+        Object.defineProperty(input, "files", { value: [ file ], configurable: true });
+        input?.dispatchEvent(new Event("change", { bubbles: true }));
+        await flushEffects();
+    }
+
+    beforeEach(() => {
+        window.standaloneApi = { restore: { importBackup } } as unknown as typeof window.standaloneApi;
+    });
+
+    afterEach(() => {
+        window.standaloneApi = undefined;
+    });
+
+    it("hands the file to the worker that owns the database, rather than uploading it", async () => {
+        importBackup.mockResolvedValue({ status: "restored" });
+        const onRestored = vi.fn();
+        renderRestore({ onRestored });
+        await flushEffects();
+
+        const backup = new File([ "database bytes" ], "backup.db");
+        await chooseFile(backup);
+
+        // The file itself goes across, not a copy of its bytes and not a request.
+        expect(importBackup).toHaveBeenCalledWith(expect.objectContaining({ backup }));
+        expect(uploadMock.uploadInChunks).not.toHaveBeenCalled();
+        expect(serverMock.post).not.toHaveBeenCalled();
+        expect(onRestored).toHaveBeenCalled();
+    });
+
+    it("asks for the passphrase when the worker says it needs one, and retries with the same file", async () => {
+        importBackup.mockResolvedValueOnce({ status: "needs-passphrase" });
+        renderRestore();
+        await flushEffects();
+
+        const backup = new File([ "container bytes" ], "backup.tnbackup");
+        await chooseFile(backup);
+
+        const input = container.querySelector<HTMLInputElement>("input[type=password]");
+        expect(input).toBeTruthy();
+
+        importBackup.mockResolvedValueOnce({ status: "restored" });
+        if (input) {
+            input.value = "hunter2";
+            input.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+        await flushEffects();
+        container.querySelector("form")?.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+        await flushEffects();
+
+        // The same file, kept as a reference: nothing was picked again and nothing was re-read.
+        expect(importBackup).toHaveBeenLastCalledWith(expect.objectContaining({ backup, passphrase: "hunter2" }));
+    });
+
+    it("shows the step the worker reports, since there is nothing to poll", async () => {
+        importBackup.mockImplementation(async ({ onProgress }: { onProgress: (p: unknown) => void }) => {
+            onProgress({ stage: "validating" });
+
+            return new Promise(() => {});
+        });
+        renderRestore();
+        await flushEffects();
+
+        await chooseFile(new File([ "database bytes" ], "backup.db"));
+
+        expect(container.querySelector(".restore-step-name")?.textContent).toBe("setup.restore-stage-validating");
+        expect(serverMock.get).not.toHaveBeenCalledWith("setup/restore/status");
+    });
+
+    it("reports a refusal in the same words every other platform uses", async () => {
+        importBackup.mockResolvedValue({
+            status: "error", reason: "database-too-new", message: "The database is version 999."
+        });
+        renderRestore();
+        await flushEffects();
+
+        await chooseFile(new File([ "database bytes" ], "backup.db"));
+
+        expect(container.querySelector(".restore-error-headline")?.textContent).toBe("setup.restore-error-too-new");
+        expect(container.querySelector(".restore-error-detail")?.textContent).toBe("The database is version 999.");
+    });
+});
+
 describe("going back", () => {
     it("leaves the restore altogether from the first step, since there is nothing before it", async () => {
         const onBack = vi.fn();
