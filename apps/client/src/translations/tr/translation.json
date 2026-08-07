@@ -315,11 +315,70 @@
   },
   "tree-context-menu": {
     "copy-clone": "Kopyala / çoğalt",
-    "clone-to": "Şuraya kopyala..."
+    "clone-to": "Şuraya kopyala...",
+    "open-in-a-new-tab": "Yeni sekmede aç",
+    "open-in-a-new-split": "Yeni bölmede aç",
+    "open-in-a-new-window": "Yeni pencerede aç",
+    "insert-note-after": "Sonrasına not ekle",
+    "insert-child-note": "Alt not ekle",
+    "archive": "Arşivle",
+    "unarchive": "Arşivden çıkar",
+    "delete": "Sil",
+    "search-in-subtree": "Alt ağaçta ara",
+    "hoist-note": "Notu yükselt",
+    "unhoist-note": "Not yükseltmeyi kaldır",
+    "edit-branch-prefix": "Dal önekini düzenle",
+    "advanced": "Gelişmiş",
+    "expand-subtree": "Alt ağacı genişlet",
+    "collapse-subtree": "Alt ağacı daralt",
+    "hide-subtree": "Alt ağacı gizle",
+    "show-subtree": "Alt ağacı göster",
+    "sort-by": "Sırala...",
+    "recent-changes-in-subtree": "Alt ağaçtaki son değişiklikler",
+    "convert-to-attachment": "Eke dönüştür",
+    "copy-note-path-to-clipboard": "Not yolunu panoya kopyala",
+    "protect-subtree": "Alt ağacı koru",
+    "unprotect-subtree": "Alt ağacın korumasını kaldır",
+    "cut": "Kes",
+    "move-to": "Taşı...",
+    "paste-into": "İçine yapıştır",
+    "paste-after": "Sonrasına yapıştır",
+    "duplicate": "Çoğalt",
+    "export": "Dışa aktar",
+    "import-into-note": "Nota içe aktar",
+    "apply-bulk-actions": "Toplu eylemleri uygula",
+    "converted-to-attachments_one": "{{count}} not eke dönüştürüldü.",
+    "converted-to-attachments_other": "{{count}} not eke dönüştürüldü.",
+    "convert-to-attachment-confirm": "Seçili notları üst notlarının ekine dönüştürmek istediğinizden emin misiniz? Bu işlem yalnızca Resim notları için geçerlidir, diğer notlar atlanacaktır.",
+    "open-in-popup": "Hızlı düzenle"
   },
   "note_tree": {
     "clone-indicator-tooltip": "Bu notun {{- count}} üst ögesi vardır: {{- parents}}",
-    "clone-indicator-tooltip-single": "Bu not kopyalanmıştır (1 ek üst öge: {{- parent}})"
+    "clone-indicator-tooltip-single": "Bu not kopyalanmıştır (1 ek üst öge: {{- parent}})",
+    "collapse-title": "Not ağacını daralt",
+    "scroll-active-title": "Etkin nota kaydır",
+    "tree-settings-title": "Ağaç ayarları",
+    "hide-archived-notes": "Arşivlenmiş notları gizle",
+    "automatically-collapse-notes": "Notları otomatik olarak daralt",
+    "automatically-collapse-notes-title": "Ağacı düzenli tutmak için notlar bir hareketsizlik süresinden sonra daraltılacaktır.",
+    "follow-active-note": "Etkin notu izle",
+    "follow-active-note-title": "Etkin notu göstermek için ağacı kaydırır ve üst düğümleri genişletir. Devre dışı bırakıldığında, ağaç yerinde kalır ve yalnızca arka plan vurgusu güncellenir.",
+    "save-changes": "Değişiklikleri kaydet ve uygula",
+    "auto-collapsing-notes-after-inactivity": "Hareketsizlikten sonra notlar otomatik daraltılıyor...",
+    "saved-search-note-refreshed": "Kaydedilmiş arama notu yenilendi.",
+    "hoist-this-note-workspace": "Bu notu yükselt (çalışma alanı)",
+    "refresh-saved-search-results": "Kaydedilmiş arama sonuçlarını yenile",
+    "create-child-note": "Alt not oluştur",
+    "unhoist": "Yükseltmeyi kaldır",
+    "toggle-sidebar": "Kenar çubuğunu aç/kapat",
+    "dropping-not-allowed": "Notların bu konuma bırakılmasına izin verilmiyor.",
+    "shared-indicator-tooltip": "Bu not herkese açık olarak paylaşılıyor",
+    "shared-indicator-tooltip-with-url": "Bu not şurada herkese açık olarak paylaşılıyor: {{- url}}",
+    "subtree-hidden-tooltip_one": "Ağaçtan gizlenmiş {{count}} alt not",
+    "subtree-hidden-tooltip_other": "Ağaçtan gizlenmiş {{count}} alt not",
+    "subtree-hidden-moved-title": "{{title}}'a eklendi",
+    "subtree-hidden-moved-description-collection": "Bu koleksiyon alt notlarını ağaçta gizler.",
+    "subtree-hidden-moved-description-other": "Bu not için alt notlar ağaçta gizlidir."
   },
   "llm": {
     "tools": {
@@ -2266,6 +2325,567 @@
     "recovery_keys_regenerated_instructions": "İşte yeni kurtarma kodlarınız. Şimdi kaydedin: bunlar önceki kodlarınızın yerini alır ve tekrar gösterilmeyecektir.",
     "recovery_keys_done": "Bitti",
     "recovery_keys_label": "Kurtarma kodları",
-    "recovery_keys_remaining": "{{total}} kodun {{remaining}} tanesi kaldı. Tekrar gösterilemez, yalnızca değiştirilebilir."
+    "recovery_keys_remaining": "{{total}} kodun {{remaining}} tanesi kaldı. Tekrar gösterilemez, yalnızca değiştirilebilir.",
+    "recovery_keys_dot_available": "Kullanılabilir",
+    "recovery_keys_dot_used": "{{- date}} tarihinde kullanıldı",
+    "oauth_title": "OpenID Connect",
+    "oauth_status_connected": "Bağlı",
+    "oauth_status_not_connected": "Bağlı değil",
+    "oauth_status_not_configured": "Yapılandırılmadı",
+    "oauth_description": "OpenID Connect, kimliğinizi doğrulamak için Google gibi başka bir hizmetten bir hesap kullanarak oturum açmanıza olanak tanır. Varsayılan sağlayıcı Google'dır, ancak bunu başka herhangi bir OpenID Connect sağlayıcısıyla değiştirebilirsiniz. Daha fazla bilgi için <a href=\"#root/_hidden/_help/_help_Otzi9La2YAUX/_help_WOcw2SLH6tbX/_help_7DAiwaf8Z7Rz\">buraya</a> bakın. Google üzerinden bir OpenID Connect hizmeti kurmak için şu <a href=\"https://developers.google.com/identity/openid-connect/openid-connect\">talimatları</a> izleyin.",
+    "oauth_not_configured_title": "OpenID Connect'i kur",
+    "oauth_not_configured_hint": "OpenID Connect'in önce config.ini veya ortam değişkenleri aracılığıyla yapılandırılması gerekir.",
+    "oauth_missing_vars": "Yapılandırılması kalanlar: {{-variables}}",
+    "oauth_how_to_enable": "Nasıl etkinleştirilir",
+    "oauth_server_config_hint": "config.ini dosyanıza şunu ekleyin ve uygulamayı yeniden başlatın:",
+    "oauth_server_env_hint": "Veya şu ortam değişkenlerini ayarlayın:",
+    "oauth_provider": "Sağlayıcı",
+    "oauth_provider_url": "Sağlayıcı URL'si",
+    "oauth_provider_unknown": "Bilinmeyen sağlayıcı",
+    "oauth_user_account": "Hesap adı",
+    "oauth_user_email": "E-posta adresi",
+    "oauth_user_not_logged_in": "Oturum açılmadı!",
+    "oauth_not_enrolled_title": "Bağlı hesap yok",
+    "oauth_not_enrolled_hint": "OpenID Connect yapılandırıldı, ancak henüz bağlı bir hesap yok.",
+    "oauth_not_enrolled_details_label": "Bu ne anlama gelir?",
+    "oauth_not_enrolled_details": "Bir hesap bağlanana kadar OpenID Connect etkin değildir ve parolanızla oturum açmaya devam edersiniz. Açmak için hesabınızı aşağıdan bağlayın.",
+    "oauth_connect_label": "Hesap bağla",
+    "oauth_connect_description": "Hesabınızı bağlamak için sağlayıcınızla bir kez oturum açın. Sonrasında yalnızca bu hesap oturum açabilecek.",
+    "oauth_connect_button": "Hesap bağla",
+    "oauth_disconnect_label": "Hesap bağlantısını kes",
+    "oauth_disconnect_description": "Bağlı hesabın bağlantısını kaldırır. Tekrar bir hesap bağlayana kadar oturum açma, parolanıza geri döner.",
+    "oauth_disconnect_button": "Bağlantıyı kes",
+    "oauth_disconnect_confirm": "Bu hesabın bağlantısını kesmek istediğinizden emin misiniz? Tekrar bir hesap bağlayana kadar oturum açma, parolanıza geri döner.",
+    "oauth_disconnected": "{{account}} hesabının {{provider}} ile bağlantısı kesildi.",
+    "oauth_connect_success": "{{provider}}'a {{account}} olarak bağlanıldı.",
+    "oauth_connect_success_generic": "Hesap başarıyla bağlandı.",
+    "oauth_connect_failed": "OpenID sağlayıcısına bağlanılamadı",
+    "oauth_account_unknown": "hesabınız"
+  },
+  "shortcuts": {
+    "keyboard_shortcuts": "Klavye Kısayolları",
+    "type_text_to_filter": "Kısayolları filtrelemek için metin yazın...",
+    "reload_app": "Uygulamayı yenile",
+    "set_all_to_default": "Tümünü sıfırla",
+    "confirm_reset": "Tüm klavye kısayollarını varsayılana sıfırlamak istediğinizden emin misiniz?",
+    "no_results": "'{{filter}}' ile eşleşen kısayol bulunamadı",
+    "modified_from_default": "Bu kısayol varsayılanından değiştirildi.",
+    "revert_to_default": "Varsayılana döndür ({{shortcuts}})",
+    "no_default_shortcut": "kısayol yok",
+    "record_shortcut": "Bir kısayol ekle",
+    "remove_shortcut": "Bu kısayolu kaldır",
+    "press_keys": "Tuşlara basın…",
+    "recording_toast": "Atamak için bir tuş bileşimine basın veya iptal etmek için Esc'e basın.",
+    "make_global": "Bunu sistem genelinde (genel) bir kısayol yap",
+    "make_local": "Bunu uygulama içi bir kısayol yap",
+    "global_shortcut": "Sistem genelinde (genel) kısayol, yalnızca masaüstü uygulamasında etkindir",
+    "conflict_chip": "Bu bileşim ayrıca şuna atanmıştır: {{actions}}",
+    "no_conflicts": "Çakışan kısayol yok.",
+    "no_matches": "Seçili filtrelerle eşleşen kısayol yok.",
+    "filter": "Kısayolları filtrele",
+    "filter_all": "Tüm kısayollar",
+    "filter_conflicts": "Çakışmalar ({{count}})",
+    "filter_global": "Genel kısayollar ({{count}})",
+    "filter_modified": "Varsayılandan değiştirildi ({{count}})",
+    "conflicts_badge_one": "{{count}} çakışma",
+    "conflicts_badge_other": "{{count}} çakışma",
+    "conflicts_badge_tooltip": "Bazı kısayollar birden fazla eyleme atanmıştır. Yalnızca çakışan kısayolları göstermek için tıklayın."
+  },
+  "keyboard_shortcut_keys": {
+    "ctrl": "Ctrl",
+    "alt": "Alt",
+    "shift": "Shift",
+    "meta": "Meta",
+    "enter": "Enter",
+    "escape": "Esc",
+    "delete": "Delete",
+    "backspace": "Backspace",
+    "space": "Boşluk",
+    "tab": "Tab",
+    "home": "Home",
+    "end": "End",
+    "page_up": "Page Up",
+    "page_down": "Page Down",
+    "insert": "Insert"
+  },
+  "spellcheck": {
+    "title": "Yazım Denetimi",
+    "description": "Bu seçenekler yalnızca masaüstü sürümleri için geçerlidir, tarayıcılar kendi yerel yazım denetimlerini kullanır.",
+    "enable": "Yazımı denetle",
+    "disabled_placeholder": "Yazım denetimi kapalı. Dilleri seçmek ve özel sözlüğü yönetmek için etkinleştirin.",
+    "language_code_label": "Yazım Denetimi Dilleri",
+    "custom_dictionary_title": "Özel Sözlük",
+    "custom_dictionary_description": "Sözlüğe eklenen kelimeler tüm cihazlarınız arasında senkronize edilir.",
+    "custom_dictionary_edit": "Özel kelimeler",
+    "custom_dictionary_edit_description": "Yazım denetleyicisi tarafından işaretlenmemesi gereken kelimelerin listesini düzenleyin. Değişiklikler yeniden başlatmadan sonra görünür olur.",
+    "custom_dictionary_open": "Sözlüğü düzenle",
+    "related_description": "Yazım denetimi dillerini ve özel sözlüğü yapılandırın."
+  },
+  "sync_2": {
+    "config_title": "Senkronizasyon Sunucusu",
+    "server_address": "Sunucu adresi",
+    "server_address_description": "Senkronize edilecek Trilium sunucusunun URL'si.",
+    "timeout": "Bağlantı zaman aşımı",
+    "timeout_description": "Yavaş bir bağlantıdan vazgeçmeden önce beklenecek süre.",
+    "proxy_label": "Vekil (proxy) sunucusu",
+    "proxy_description": "Sistem vekil sunucusunu kullanmak için boş bırakın (yalnızca masaüstü). Tüm vekil sunucularını atlamak için \"noproxy\" kullanın.",
+    "save": "Kaydet",
+    "help": "Yardım",
+    "test_title": "Bağlantıyı Test Et",
+    "test_description": "Senkronizasyon sunucusuna bağlantıyı test edin. Başlatılmamışsa, bu senkronizasyonu kuracaktır.",
+    "test_button": "Şimdi test et",
+    "handshake_failed": "Senkronizasyon sunucusu el sıkışması başarısız oldu, hata: {{message}}"
+  },
+  "api_log": {
+    "close": "Kapat"
+  },
+  "attachment_detail_2": {
+    "deletion_badge": "{{time}} içinde silinecek",
+    "deletion_badge_soon": "Yakında silinecek",
+    "deletion_badge_tooltip": "Bu ek, notun içeriğinde bağlantılı olmadığı için otomatik olarak silinecektir. Korumak için ek bağlantısını içeriğe geri ekleyin veya eki bir nota dönüştürün.",
+    "kind_and_size": "{{role}} · {{size}}",
+    "link_copied": "Ek başvurusu panoya kopyalandı.",
+    "unrecognized_role": "Tanınmayan ek rolü '{{role}}'."
+  },
+  "attachment_roles": {
+    "favicon": "Site simgesi",
+    "coverImage": "Kapak resmi",
+    "viewConfig": "Görünüm ayarları",
+    "canvasLibraryItem": "Tuval kitaplığı",
+    "importSource": "İçe aktarma kaynağı"
+  },
+  "bookmark_switch": {
+    "bookmark": "Yer imi",
+    "bookmark_this_note": "Bu notu sol yan panele yer imi olarak ekle",
+    "remove_bookmark": "Yer imini kaldır"
+  },
+  "editability_select": {
+    "auto": "Otomatik",
+    "read_only": "Salt okunur",
+    "always_editable": "Her Zaman Düzenlenebilir",
+    "note_is_editable": "Not, çok uzun değilse düzenlenebilir.",
+    "note_is_read_only": "Not salt okunur, ancak bir düğmeye tıklayarak düzenlenebilir.",
+    "note_is_always_editable": "Not, uzunluğundan bağımsız olarak her zaman düzenlenebilir."
+  },
+  "note-map": {
+    "button-link-map": "Bağlantı Haritası",
+    "button-tree-map": "Ağaç haritası"
+  },
+  "shared_info": {
+    "shared_publicly": "Bu not {{- link}} üzerinde herkese açık olarak paylaşılıyor.",
+    "shared_locally": "Bu not {{- link}} üzerinde yerel olarak paylaşılıyor.",
+    "help_link": "Yardım için <a href=\"https://triliumnext.github.io/Docs/Wiki/sharing.html\">wiki'yi</a> ziyaret edin."
+  },
+  "read-only-info": {
+    "read-only-note": "Şu anda salt okunur bir not görüntüleniyor.",
+    "auto-read-only-note": "Bu not, daha hızlı yükleme için salt okunur modda gösteriliyor.",
+    "edit-note": "Notu düzenle"
+  },
+  "note_types": {
+    "text": "Metin",
+    "code": "Kod",
+    "markdown": "Markdown",
+    "saved-search": "Kaydedilmiş Arama",
+    "relation-map": "İlişki Haritası",
+    "note-map": "Not Haritası",
+    "render-note": "Oluşturma Notu",
+    "book": "Koleksiyon",
+    "mermaid-diagram": "Mermaid Diyagramı",
+    "canvas": "Tuval",
+    "web-view": "Web Görünümü",
+    "mind-map": "Zihin Haritası",
+    "file": "Dosya",
+    "image": "Resim",
+    "launcher": "Başlatıcı",
+    "doc": "Belge",
+    "widget": "Widget",
+    "confirm-change": "Not içeriği boş değilken not türünü değiştirmek önerilmez. Yine de devam etmek istiyor musunuz?",
+    "geo-map": "Coğrafi Harita",
+    "beta-feature": "Beta",
+    "ai-chat": "Yapay Zeka Sohbeti",
+    "llm-chat": "Yapay Zeka Sohbeti",
+    "task-list": "Görev Listesi",
+    "new-feature": "Yeni",
+    "collections": "Koleksiyonlar",
+    "spreadsheet": "E-tablo"
+  },
+  "protect_note": {
+    "toggle-on": "Notu koru",
+    "toggle-off": "Not korumasını kaldır",
+    "toggle-on-hint": "Not korunmuyor, korumak için tıklayın",
+    "toggle-off-hint": "Not korunuyor, korumayı kaldırmak için tıklayın"
+  },
+  "llm_chat": {
+    "placeholder": "Bir mesaj yazın...",
+    "send": "Gönder",
+    "sending": "Gönderiliyor...",
+    "empty_state": "Aşağıya bir mesaj yazarak sohbete başlayın.",
+    "searching_web": "Web'de aranıyor...",
+    "web_search": "Web araması",
+    "web_search_unavailable_gemini": "Not erişimi açıkken Gemini modellerinde kullanılamaz — Google'ın API'si ikisinin birleştirilmesine izin vermiyor. Web aramasını kullanmak için not erişimini kapatın veya başka bir sağlayıcıya geçin.",
+    "note_tools": "Not erişimi",
+    "sources": "Kaynaklar",
+    "sources_summary": "{{sites}} siteden {{count}} kaynak",
+    "extended_thinking": "Genişletilmiş düşünme",
+    "model_cost_included": "Abonelik",
+    "no_models_selected": "Model seçilmedi — seçmek için kaleme tıklayın",
+    "no_model_selected": "Bir model seçin",
+    "edit_models": "Modelleri düzenle",
+    "thinking": "Düşünüyor...",
+    "thought_process": "Düşünme süreci",
+    "tool_calls": "{{count}} araç çağrısı",
+    "input": "Girdi",
+    "input_streaming": "Girdi (akış halinde…)",
+    "edit_index": "{{total}} içinden {{index}}. düzenleme",
+    "result": "Sonuç",
+    "error": "Hata",
+    "error_api": "API hatası (HTTP {{status}})",
+    "error_show_details": "Ayrıntıları göster",
+    "tool_error": "başarısız oldu",
+    "total_tokens": "{{total}} belirteç",
+    "tokens_detail": "{{prompt}} istem + {{completion}} tamamlama",
+    "tokens_used": "{{prompt}} istem + {{completion}} tamamlama = {{total}} belirteç",
+    "tokens_used_with_cost": "{{prompt}} istem + {{completion}} tamamlama = {{total}} belirteç (~${{cost}})",
+    "tokens_used_with_model": "{{model}}: {{prompt}} istem + {{completion}} tamamlama = {{total}} belirteç",
+    "tokens_used_with_model_and_cost": "{{model}}: {{prompt}} istem + {{completion}} tamamlama = {{total}} belirteç (~${{cost}})",
+    "tokens": "belirteç",
+    "context_usage_label": "Bağlam penceresi kullanımı",
+    "context_tooltip": "{{total}} belirtecin {{used}} tanesi kullanıldı (%{{percentage}})",
+    "context_nearly_full": "Bağlam neredeyse dolu. Yeni bir sohbet başlatmayı düşünün.",
+    "note_context_enabled": "Not bağlamını devre dışı bırakmak için tıklayın: {{title}}",
+    "note_context_disabled": "Geçerli notu bağlama dahil etmek için tıklayın: {{title}}",
+    "no_provider_message": "Yapılandırılmış yapay zeka sağlayıcısı yok. Sohbete başlamak için bir tane ekleyin.",
+    "add_provider": "Yapay Zeka Sağlayıcısı Ekle",
+    "free": "Ücretsiz",
+    "stop": "Durdur",
+    "retry": "Tekrar dene",
+    "scroll_to_bottom": "En yeniye kaydır",
+    "read_only_notice": "Bu yapay zeka sohbeti salt okunur olduğundan yanıtlama kullanılamaz.",
+    "toc_file": "Dosya: {{name}}",
+    "highlights_title": "Vurgular ({{count}})",
+    "highlights_empty": "Henüz vurgu yok. Bir mesajda metin seçin ve \"Vurgula\"yı seçin.",
+    "copy": "Kopyala",
+    "highlight_add": "Vurgula",
+    "highlight_remove": "Vurguyu kaldır",
+    "highlight_remove_confirm": "Bu vurgu kaldırılsın mı?",
+    "quote_selection": "Seçimi alıntıla",
+    "quoted_from": "Şuradan alıntılandı",
+    "show_quote_source": "Alıntı kaynağını göster",
+    "copy_message": "Mesajı kopyala",
+    "save_to_subnote": "Alt nota kaydet",
+    "save_as_note": "Not olarak kaydet",
+    "save_note_failed": "Mesajdan not oluşturulamadı.",
+    "regenerate": "Yeniden oluştur",
+    "delete_message": "Mesajı sil",
+    "delete_message_confirm": "Bu mesaj silinsin mi? Bu işlem geri alınamaz.",
+    "attach_file": "Resim, PDF veya metin dosyası ekle",
+    "remove_attachment": "Eki kaldır",
+    "attachment_upload_failed": "\"{{name}}\" yüklenemedi.",
+    "attachment_unsupported_type": "\"{{name}}\" desteklenen bir ek türü değil. Bir resim (PNG, JPEG, GIF, WebP), bir PDF veya bir metin/kaynak dosyası kullanın."
+  },
+  "sidebar_chat": {
+    "title": "Yapay Zeka Sohbeti",
+    "launcher_title": "Yapay Zeka Sohbetini Aç",
+    "new_chat": "Yeni sohbet başlat",
+    "more_actions": "Diğer eylemler",
+    "save_chat": "Sohbeti notlara kaydet",
+    "empty_state": "Bir sohbet başlatın",
+    "history": "Sohbet geçmişi",
+    "recent_chats": "Son sohbetler",
+    "no_chats": "Önceki sohbet yok",
+    "view_all_chats": "Tüm sohbetleri görüntüle",
+    "rename": "Yeniden adlandır",
+    "rename_title": "Sohbeti yeniden adlandır",
+    "rename_message": "Bu sohbet için yeni bir ad girin:",
+    "delete": "Sil",
+    "delete_chat": "Sohbeti sil",
+    "delete_confirm": "Bu sohbet silinsin mi? Bu geri alınamaz."
+  },
+  "shared_switch": {
+    "shared": "Paylaşıldı",
+    "toggle-on-title": "Notu paylaş",
+    "toggle-off-title": "Not paylaşımını kaldır",
+    "shared-branch": "Bu not yalnızca paylaşılan bir not olarak var, paylaşımı kaldırmak onu silecek. Devam etmek ve bu notu silmek istiyor musunuz?",
+    "inherited": "Not, bir üst notundan kalıtım yoluyla paylaşıldığı için burada paylaşımı kaldırılamaz."
+  },
+  "template_switch": {
+    "template": "Şablon",
+    "toggle-on-hint": "Notu şablon yap",
+    "toggle-off-hint": "Notun şablon olma özelliğini kaldır"
+  },
+  "full_content_width_switch": {
+    "title": "Tam genişlik"
+  },
+  "open-help-page": "Yardım sayfasını aç",
+  "show-help": "Yardımı göster",
+  "compress-images": "Resimleri sıkıştır",
+  "compress-image": "Resmi sıkıştır",
+  "find": {
+    "case_sensitive": "Büyük/küçük harf duyarlı",
+    "match_words": "Sözcükleri eşleştir",
+    "find_placeholder": "Metinde bul...",
+    "replace_placeholder": "Şununla değiştir...",
+    "replace": "Değiştir",
+    "replace_all": "Tümünü değiştir"
+  },
+  "highlights_list_2": {
+    "title": "Vurgular Listesi",
+    "title_with_count_one": "{{count}} vurgu",
+    "title_with_count_other": "{{count}} vurgu",
+    "options": "Seçenekler",
+    "menu_configure": "Vurgular listesini yapılandır...",
+    "no_highlights": "Vurgu bulunamadı."
+  },
+  "quick-search": {
+    "placeholder": "Hızlı arama",
+    "searching": "Aranıyor...",
+    "no-results": "Sonuç bulunamadı",
+    "more-results": "... ve {{number}} sonuç daha.",
+    "show-in-full-search": "Tam aramada göster"
+  },
+  "mobile_note_navigator": {
+    "back": "Bir seviye yukarı çık",
+    "loading": "Yükleniyor...",
+    "empty": "Bu notun alt notu yok.",
+    "children_count_one": "{{count}} not",
+    "children_count_other": "{{count}} not",
+    "add_child": "Alt not ekle",
+    "more_actions": "Diğer eylemler"
+  },
+  "title_bar_buttons": {
+    "window-on-top": "Pencereyi Üstte Tut"
+  },
+  "note_detail": {
+    "content_load_error": "Notun içeriği yüklenemedi.",
+    "content_load_retry": "Tekrar dene",
+    "content_load_stalled": "Notun içeriği hâlâ yükleniyor…",
+    "could_not_find_typewidget": "'{{type}}' türü için typeWidget bulunamadı",
+    "printing": "Yazdırma devam ediyor...",
+    "printing_pdf": "Yazdırma önizlemesi hazırlanıyor...",
+    "print_report_title": "Yazdırma raporu",
+    "print_report_error_title": "Yazdırılamadı",
+    "print_report_stack_trace": "Yığın izleme",
+    "print_report_collection_content_one": "Koleksiyondaki {{count}} not desteklenmediği veya korumalı olduğu için yazdırılamadı.",
+    "print_report_collection_content_other": "Koleksiyondaki {{count}} not desteklenmediği veya korumalı olduğu için yazdırılamadı.",
+    "print_report_collection_details_button": "Ayrıntılara bak",
+    "print_report_collection_details_ignored_notes": "Yok sayılan notlar"
+  },
+  "note_title": {
+    "placeholder": "notun başlığını buraya yazın...",
+    "created_on": "<Value /> tarihinde oluşturuldu",
+    "last_modified": "<Value /> tarihinde değiştirildi",
+    "note_type_switcher_label": "{{type}} türünden şuna geç:",
+    "note_type_switcher_others": "Diğer not türü",
+    "note_type_switcher_templates": "Şablon",
+    "note_type_switcher_collection": "Koleksiyon",
+    "edited_notes": "Bu gün düzenlenen notlar",
+    "promoted_attributes": "Öne çıkarılmış özellikler"
+  },
+  "search_result": {
+    "no_notes_found": "Verilen arama parametreleri için not bulunamadı.",
+    "search_not_executed": "Arama henüz çalıştırılmadı.",
+    "search_now": "Şimdi ara"
+  },
+  "sql_result": {
+    "not_executed": "Sorgu henüz çalıştırılmadı.",
+    "no_rows": "Bu sorgu için hiç satır döndürülmedi",
+    "failed": "SQL sorgusu çalıştırma başarısız oldu",
+    "statement_result": "İfade sonucu",
+    "execute_now": "Şimdi çalıştır"
+  },
+  "sql_table_schemas": {
+    "tables": "Tablolar"
+  },
+  "tab_row": {
+    "close_tab": "Sekmeyi kapat",
+    "add_new_tab": "Yeni sekme ekle",
+    "close": "Kapat",
+    "close_other_tabs": "Diğer sekmeleri kapat",
+    "close_right_tabs": "Sağdaki sekmeleri kapat",
+    "close_all_tabs": "Tüm sekmeleri kapat",
+    "pin_tab": "Sekmeyi sabitle",
+    "unpin_tab": "Sekme sabitlemesini kaldır",
+    "pinned_prefix": "Sabitlendi: ",
+    "reopen_last_tab": "Son kapatılan sekmeyi yeniden aç",
+    "move_tab_to_new_window": "Bu sekmeyi yeni bir pencereye taşı",
+    "copy_tab_to_new_window": "Bu sekmeyi yeni bir pencereye kopyala",
+    "new_tab": "Yeni sekme"
+  },
+  "toc": {
+    "table_of_contents": "İçindekiler",
+    "options": "Seçenekler",
+    "no_headings": "Başlık yok."
+  },
+  "watched_file_update_status": {
+    "file_last_modified": "<code class=\"file-path\"></code> dosyası en son <span class=\"file-last-modified\"></span> tarihinde değiştirildi.",
+    "upload_modified_file": "Değiştirilen dosyayı yükle",
+    "ignore_this_change": "Bu değişikliği yok say"
+  },
+  "app_context": {
+    "please_wait_for_save": "Kaydetmenin bitmesi için lütfen birkaç saniye bekleyin, ardından tekrar deneyebilirsiniz."
+  },
+  "note_create": {
+    "duplicated": "\"{{title}}\" notu çoğaltıldı."
+  },
+  "image": {
+    "copied-to-clipboard": "Resme bir başvuru panoya kopyalandı. Bu, herhangi bir metin notuna yapıştırılabilir.",
+    "cannot-copy": "Resim başvurusu panoya kopyalanamadı.",
+    "image-copied-to-clipboard": "Resim panoya kopyalandı.",
+    "cannot-copy-image": "Resim panoya kopyalanamadı.",
+    "cannot-download": "Resim indirilemedi."
+  },
+  "clipboard": {
+    "cut": "Not(lar) panoya kesildi.",
+    "copied": "Not(lar) panoya kopyalandı.",
+    "copy_failed": "İzin sorunları nedeniyle panoya kopyalanamıyor.",
+    "copy_success": "Panoya kopyalandı."
+  },
+  "entrypoints": {
+    "note-revision-created": "Not revizyonu oluşturuldu.",
+    "save-named-revision-title": "Adlandırılmış revizyon kaydet",
+    "save-named-revision-message": "Bu revizyon için bir ad girin (adsız için boş bırakın):",
+    "note-executed": "Not çalıştırıldı.",
+    "sql-error": "SQL sorgusu çalıştırılırken hata oluştu: {{message}}"
+  },
+  "branches": {
+    "cannot-move-notes-here": "Notlar buraya taşınamaz.",
+    "delete-notes-in-progress": "Not silme devam ediyor: {{count}}",
+    "delete-finished-successfully": "Silme başarıyla tamamlandı.",
+    "undeleting-notes-in-progress": "Not geri getirme devam ediyor: {{count}}",
+    "undeleting-notes-finished-successfully": "Not geri getirme başarıyla tamamlandı."
+  },
+  "frontend_script_api": {
+    "async_warning": "`api.runOnBackend()`'e bir async fonksiyon geçiriyorsunuz; bu muhtemelen amaçladığınız gibi çalışmayacaktır.\\nYa fonksiyonu eşzamanlı yapın (`async` anahtar kelimesini kaldırarak) ya da `api.runAsyncOnBackendWithManualTransactionHandling()`'i kullanın.",
+    "sync_warning": "`api.runAsyncOnBackendWithManualTransactionHandling()`'e eşzamanlı bir fonksiyon geçiriyorsunuz,\\noysa muhtemelen bunun yerine `api.runOnBackend()` kullanmanız gerekir.",
+    "backend_scripting_disabled_title": "Arka uç betiklemesi devre dışı",
+    "backend_scripting_disabled_message": "Bir betik sunucuda kod çalıştırmaya çalıştı, ancak güvenlik nedeniyle arka uç betiklemesi kapalı. Bu betiğe güveniyorsanız Seçenekler → Güvenlik'te etkinleştirin.",
+    "backend_scripting_disabled_notes_heading": "Arka uç kodu çalıştırmaya çalışan betikler:",
+    "backend_scripting_disabled_open_settings": "Güvenlik ayarlarını aç",
+    "backend_scripting_disabled_more_info": "Daha fazla bilgi"
+  },
+  "ws": {
+    "sync-check-failed": "Senkronizasyon denetimi başarısız oldu!",
+    "consistency-checks-failed": "Tutarlılık denetimleri başarısız oldu! Ayrıntılar için günlüklere bakın.",
+    "encountered-error": "\"{{message}}\" hatasıyla karşılaşıldı, konsolu kontrol edin.",
+    "lost-websocket-connection-title": "Sunucuyla bağlantı kesildi",
+    "lost-websocket-connection-message": "WebSocket bağlantılarının doğru bir şekilde izin verildiğinden ve engellenmediğinden emin olmak için ters vekil sunucu (örn. nginx veya Apache) yapılandırmanızı kontrol edin."
+  },
+  "hoisted_note": {
+    "confirm_unhoisting": "İstenen '{{requestedNote}}' notu, yükseltilmiş '{{hoistedNote}}' notunun alt ağacının dışında ve nota erişmek için yükseltmeyi kaldırmanız gerekir. Yükseltmeyi kaldırmaya devam etmek istiyor musunuz?"
+  },
+  "launcher_context_menu": {
+    "reset_launcher_confirm": "\"{{title}}\"'ı gerçekten sıfırlamak istiyor musunuz? Bu nottaki (ve alt notlarındaki) tüm veri / ayarlar kaybolacak ve başlatıcı özgün konumuna geri döndürülecektir.",
+    "add-note-launcher": "Bir not başlatıcısı ekle",
+    "add-script-launcher": "Bir betik başlatıcısı ekle",
+    "add-custom-widget": "Özel bir widget ekle",
+    "add-spacer": "Boşluk ekle",
+    "delete": "Sil <kbd data-command=\"deleteNotes\"></kbd>",
+    "reset": "Sıfırla",
+    "move-to-visible-launchers": "Görünür başlatıcılara taşı",
+    "move-to-available-launchers": "Mevcut başlatıcılara taşı",
+    "duplicate-launcher": "Başlatıcıyı çoğalt <kbd data-command=\"duplicateSubtree\">"
+  },
+  "launcher_button_context_menu": {
+    "remove_from_launch_bar": "Başlatma çubuğundan kaldır",
+    "configure_launch_bar": "Başlatma çubuğunu yapılandır",
+    "launch_bar_orientation": "Başlatma çubuğu yönü",
+    "will_reload_frontend": "(uygulamayı yeniden yükleyecek)"
+  },
+  "highlighting": {
+    "title": "Kod Blokları",
+    "description": "Metin notları içindeki kod bloklarının söz dizimi vurgulamasını denetler, kod notları etkilenmez.",
+    "color-scheme": "Renk Düzeni"
+  },
+  "code_block": {
+    "word_wrapping": "Satır kaydırma",
+    "theme_none": "Söz dizimi vurgulama yok",
+    "theme_group_light": "Açık temalar",
+    "theme_group_dark": "Koyu temalar",
+    "copy_title": "Panoya kopyala",
+    "click_to_copy": "Kopyalamak için tıklayın",
+    "tab_width": "Sekme genişliği",
+    "tab_width_unit": "boşluk"
+  },
+  "classic_editor_toolbar": {
+    "title": "Biçimlendirme"
+  },
+  "editor": {
+    "title": "Düzenleyici"
+  },
+  "editing": {
+    "editor_type": {
+      "label": "Biçimlendirme araç çubuğu",
+      "toolbar_style": "Araç çubuğu stili",
+      "floating": {
+        "title": "Kayan",
+        "description": "düzenleme araçları imlecin yakınında görünür;"
+      },
+      "fixed": {
+        "title": "Sabit",
+        "description": "düzenleme araçları \"Biçimlendirme\" şerit sekmesinde görünür."
+      },
+      "multiline-toolbar": "Sığmıyorsa araç çubuğunu birden çok satırda göster"
+    }
+  },
+  "electron_context_menu": {
+    "add-term-to-dictionary": "\"{{term}}\" terimini sözlüğe ekle",
+    "cut": "Kes",
+    "copy": "Kopyala",
+    "copy-as-markdown": "Markdown olarak kopyala",
+    "copy-link": "Bağlantıyı kopyala",
+    "paste": "Yapıştır",
+    "paste-as-plain-text": "Düz metin olarak yapıştır",
+    "search_in_trilium": "Trilium'da \"{{term}}\" için ara",
+    "search_online": "\"{{term}}\" için {{searchEngine}} ile ara"
+  },
+  "image_context_menu": {
+    "copy_reference_to_clipboard": "Başvuruyu panoya kopyala",
+    "copy_image_to_clipboard": "Resmi panoya kopyala"
+  },
+  "link": {
+    "failed_to_open": "'{{- href}}' bağlantısı açılamadı: {{- message}}"
+  },
+  "link_embed": {
+    "play_video": "Videoyu oynat"
+  },
+  "link_context_menu": {
+    "open_note_in_new_tab": "Notu yeni sekmede aç",
+    "open_note_in_new_split": "Notu yeni bölmede aç",
+    "open_note_in_other_split": "Notu diğer bölmede aç",
+    "open_note_in_new_window": "Notu yeni pencerede aç",
+    "open_note_in_popup": "Hızlı düzenle"
+  },
+  "electron_integration": {
+    "desktop-application": "Masaüstü Uygulaması",
+    "native-title-bar": "Yerel başlık çubuğu",
+    "native-title-bar-description": "Windows ve macOS için, yerel başlık çubuğunu kapalı tutmak uygulamayı daha kompakt gösterir. Linux'ta, yerel başlık çubuğunu açık tutmak sistemin geri kalanıyla daha iyi bütünleşir.",
+    "background-effects": "Arka plan efektlerini etkinleştir",
+    "background-effects-description": "Uygulama pencerelerine bulanık, şık bir arka plan ekleyerek derinlik ve modern bir görünüm oluşturur. \"Yerel başlık çubuğu\" devre dışı olmalıdır.",
+    "restart-app-button": "Değişiklikleri görmek için uygulamayı yeniden başlat",
+    "zoom-factor": "Yakınlaştırma oranı"
+  },
+  "note_autocomplete": {
+    "search-for": "\"{{term}}\" için ara",
+    "create-note": "\"{{term}}\" alt notunu oluştur ve bağlantı ver",
+    "insert-external-link": "\"{{term}}\" için harici bağlantı ekle",
+    "clear-text-field": "Metin alanını temizle",
+    "show-recent-notes": "Son notları göster",
+    "full-text-search": "Tam metin arama"
+  },
+  "note_tooltip": {
+    "note-has-been-deleted": "Not silindi.",
+    "quick-edit": "Hızlı düzenle"
+  },
+  "geo-map": {
+    "create-child-note-title": "Yeni bir alt not oluştur ve haritaya ekle",
+    "create-child-note-cancel": "Not eklemeyi iptal et",
+    "add-marker": "İşaretçi ekle",
+    "add-marker-cancel": "İptal",
+    "create-child-note-instruction": "O konumda yeni bir not oluşturmak için haritaya tıklayın veya vazgeçmek için Escape'e basın.",
+    "create-child-note-toast-title": "Yeni not",
+    "add-gpx-track": "Bir GPX dosyasından GPS parkuru ekle",
+    "move-marker-instruction": "İşaretçiyi o konuma taşımak için haritaya tıklayın veya vazgeçmek için Escape'e basın.",
+    "move-marker-toast-title": "İşaretçiyi taşı",
+    "unable-to-load-map": "Harita yüklenemiyor."
   }
 }
