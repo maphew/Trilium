@@ -8,6 +8,7 @@ import {
 } from "@triliumnext/backup-container";
 import {
     cls,
+    type DatabaseRejection,
     events as eventService,
     getLog,
     getSql,
@@ -19,7 +20,7 @@ import path from "path";
 
 import config from "./config.js";
 import dataDir from "./data_dir.js";
-import { type DatabaseRejection, validateDatabaseFile } from "./database_validation.js";
+import { validateDatabaseFile } from "./database_validation.js";
 
 /**
  * Puts a backup in place of this instance's database.
