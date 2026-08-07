@@ -45,6 +45,11 @@ async function containerOf(payload: Uint8Array, options: { passphrase?: string; 
         {
             compress: options.compress ?? false,
             passphrase: options.passphrase,
+            // The production cost takes seconds through pure-JS scrypt under coverage
+            // instrumentation, which is a test timeout and then a stray swap polluting the next
+            // test. The reader derives with whatever the header records, so a cheap cost changes
+            // nothing about what is being tested.
+            scrypt: { log2N: 10, r: 8, p: 1 },
             plaintextSize: payload.length,
             patchHeader: async (offset, data) => {
                 const handle = await fsp.open(filePath, "r+");
