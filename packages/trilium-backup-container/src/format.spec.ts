@@ -55,7 +55,7 @@ function encryptedHeader(): ContainerHeader {
 
 describe("header layout", () => {
     it("round-trips an unencrypted header and matches the documented offsets", () => {
-        const bytes = encodeHeader(plainHeader());
+        const bytes = Buffer.from(encodeHeader(plainHeader()));
 
         expect(bytes).toHaveLength(64);
         expect(bytes.subarray(0, 20).toString("ascii")).toBe("Trilium Notes Backup");
@@ -73,12 +73,12 @@ describe("header layout", () => {
             plaintextSize: 4096
         });
         expect(decoded.encryption).toBeNull();
-        expect(decoded.digest.equals(Buffer.alloc(32, 7))).toBe(true);
+        expect(Buffer.from(decoded.digest).equals(Buffer.alloc(32, 7))).toBe(true);
     });
 
     it("round-trips an encrypted header, with the tag and digest as the last two fields", () => {
         const header = encryptedHeader();
-        const bytes = encodeHeader(header);
+        const bytes = Buffer.from(encodeHeader(header));
 
         expect(bytes).toHaveLength(108);
         expect(bytes.readUInt8(21)).toBe(0b10);
@@ -90,13 +90,15 @@ describe("header layout", () => {
 
         const decoded = decodeHeader(bytes, DEFAULT_MAX_HEADER_BYTES);
         expect(decoded.encryption).toMatchObject({ kdfId: KDF_SCRYPT, log2N: 17, r: 8, p: 1 });
-        expect(decoded.encryption?.salt.equals(Buffer.alloc(16, 1))).toBe(true);
-        expect(decoded.encryption?.verifierTag.equals(Buffer.alloc(16, 3))).toBe(true);
+        expect(decoded.encryption ? Buffer.from(decoded.encryption.salt) : null)
+            .toEqual(Buffer.alloc(16, 1));
+        expect(decoded.encryption ? Buffer.from(decoded.encryption.verifierTag) : null)
+            .toEqual(Buffer.alloc(16, 3));
         expect(decoded.plaintextSize).toBe(123456789);
     });
 
     it("treats an unrepresentable plaintext size as unknown, so it can never widen a bound", () => {
-        const bytes = encodeHeader(plainHeader());
+        const bytes = Buffer.from(encodeHeader(plainHeader()));
         bytes.writeBigUInt64LE(2n ** 63n, 24);
 
         expect(decodeHeader(bytes, DEFAULT_MAX_HEADER_BYTES).plaintextSize).toBe(0);
@@ -106,14 +108,15 @@ describe("header layout", () => {
         const prefix = Buffer.alloc(8, 9);
 
         expect(nonceFor(prefix, 0)).toHaveLength(12);
-        expect(nonceFor(prefix, 0).equals(nonceFor(prefix, 1))).toBe(false);
-        expect(nonceFor(prefix, 0xffffffff).subarray(8).toString("hex")).toBe("ffffffff");
+        expect(nonceFor(prefix, 0)).not.toEqual(nonceFor(prefix, 1));
+        expect(Buffer.from(nonceFor(prefix, 0xffffffff)).subarray(8).toString("hex"))
+            .toBe("ffffffff");
     });
 });
 
 describe("fixed header validation", () => {
     const decode = (mutate: (bytes: Buffer) => void, max = DEFAULT_MAX_HEADER_BYTES) => {
-        const bytes = encodeHeader(plainHeader()).subarray(0, FIXED_HEADER_BYTES);
+        const bytes = Buffer.from(encodeHeader(plainHeader())).subarray(0, FIXED_HEADER_BYTES);
         mutate(bytes);
 
         return () => decodeFixedHeader(bytes, max);
@@ -159,7 +162,7 @@ describe("fixed header validation", () => {
     });
 
     it("rejects a KDF id it does not implement", () => {
-        const bytes = encodeHeader(encryptedHeader());
+        const bytes = Buffer.from(encodeHeader(encryptedHeader()));
         bytes.writeUInt8(2, 32);
 
         expect(() => decodeHeader(bytes, DEFAULT_MAX_HEADER_BYTES)).toThrow(
@@ -215,7 +218,7 @@ describe("SQLite header check", () => {
 
 function sqliteHead(pageSize: number): Buffer {
     const head = Buffer.alloc(18);
-    SQLITE_MAGIC.copy(head, 0);
+    head.set(SQLITE_MAGIC, 0);
     head.writeUInt16BE(pageSize, 16);
 
     return head;

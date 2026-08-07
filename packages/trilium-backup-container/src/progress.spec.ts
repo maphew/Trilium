@@ -2,7 +2,8 @@ import { Readable } from "node:stream";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { FRAME_SIZE } from "./format.js";
-import { readBackupContainer, type ReadBackupContainerOptions } from "./read.js";
+import { readBackupContainer } from "./node-streams.js";
+import type { ReadBackupContainerOptions } from "./read.js";
 import {
     chunked,
     fakeDatabase,
@@ -10,11 +11,9 @@ import {
     MemorySink,
     reasonOf,
     readFromBuffer,
+    type WriteOptions,
     writeToBuffer
 } from "./test-helpers.js";
-import type { WriteBackupContainerOptions } from "./write.js";
-
-type WriteOptions = Omit<WriteBackupContainerOptions, "patchHeader">;
 
 const PASSPHRASE = "correct horse battery staple";
 
@@ -234,18 +233,26 @@ describe("reading", () => {
 
 describe("throttling", () => {
     it("reports at most once per interval, whatever the clock does in between", async () => {
-        const { reports, onProgress } = collector();
+        const reports: { progress: number; at: number }[] = [];
         const database = fakeDatabase(64 * 1024);
         const clock = mockedClock();
 
-        // A hundred milliseconds per chunk against the default interval, so two chunks in three go
-        // unreported.
+        // A hundred milliseconds per chunk against the default interval of 250, so most chunks go
+        // unreported. The exact chunks that do report depend on how far the stream buffers ahead,
+        // so what is asserted is the throttle contract, not one buffering pattern.
         await writeToBuffer(ticking(chunked(database, 4096), clock, 100), {
             plaintextSize: database.length,
-            onProgress
+            onProgress: (progress) => reports.push({ progress, at: clock.now })
         });
 
-        expect(reports).toEqual([ 1, 4, 7, 10, 13, 16 ].map((chunk) => chunk / 16).concat(1));
+        expect(reports.length).toBeLessThan(17);
+        expect(reports.at(-1)?.progress).toBe(1);
+
+        const throttled = reports.slice(0, -1);
+        expect(throttled.length).toBeGreaterThan(2);
+        for (let index = 1; index < throttled.length; index++) {
+            expect(throttled[index].at - throttled[index - 1].at).toBeGreaterThanOrEqual(250);
+        }
     });
 
     it("reports the first chunk and the last, however little time passes", async () => {

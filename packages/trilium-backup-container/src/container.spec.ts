@@ -10,7 +10,8 @@ import {
     HEADER_BYTES_PLAIN,
     TAG_BYTES
 } from "./format.js";
-import { peekBackupContainer, readBackupContainer } from "./read.js";
+import { readBackupContainer, writeBackupContainer } from "./node-streams.js";
+import { peekBackupContainer } from "./read.js";
 import {
     chunked,
     fakeDatabase,
@@ -20,11 +21,9 @@ import {
     MemorySink,
     reasonOf,
     readFromBuffer,
+    type WriteOptions,
     writeToBuffer
 } from "./test-helpers.js";
-import { writeBackupContainer, type WriteBackupContainerOptions } from "./write.js";
-
-type WriteOptions = Omit<WriteBackupContainerOptions, "patchHeader">;
 type PeekCase = [string, WriteOptions, { compressed: boolean; encrypted: boolean }];
 
 const PASSPHRASE = "correct horse battery staple";
@@ -110,7 +109,7 @@ describe("payload digest", () => {
         const stored = written.bytes.subarray(HEADER_BYTES_ENCRYPTED - 32, HEADER_BYTES_ENCRYPTED);
 
         expect(stored.equals(createHash("sha256").update(payload).digest())).toBe(true);
-        expect(written.result.digest.equals(stored)).toBe(true);
+        expect(Buffer.from(written.result.digest).equals(stored)).toBe(true);
         expect(written.result.payloadBytes).toBe(payload.length);
     });
 
