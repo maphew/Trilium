@@ -108,9 +108,10 @@ function deriveMime(type: string, mime?: string) {
 }
 
 function copyChildAttributes(parentNote: BNote, childNote: BNote, isTypeDefaulted = false) {
-    // A template already present at this point was chosen by the user explicitly in the menu, and
-    // suppresses the `child:template` defaults (#3628). Deliberately read once, before the loop.
-    const hasUserChosenTemplate = childNote.hasRelation("template");
+    // A template *owned* at this point was chosen by the user explicitly in the menu, and suppresses
+    // the `child:template` defaults (#3628). Deliberately read once, before the loop, and owned-only
+    // so an inherited `~template` on the parent doesn't count as a choice.
+    const hasUserChosenTemplate = childNote.hasOwnedRelation("template");
 
     for (const attr of parentNote.getAttributes()) {
         if (attr.name.startsWith("child:")) {
