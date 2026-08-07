@@ -34,6 +34,7 @@ import backendLogRoute from "./api/backend_log";
 import backupRoute from "./api/backup";
 import passwordApiRoute from "./api/password";
 import loginApiRoute from "./api/login";
+import fontsRoute from "./api/fonts";
 
 // TODO: Deduplicate with routes.ts
 const GET = "get",
@@ -234,6 +235,8 @@ export function buildSharedApiRoutes({ route, asyncRoute, apiRoute, asyncApiRout
     apiRoute(GET, "/api/other/icon-usage", otherRoute.getIconUsage);
     apiRoute(PST, "/api/other/render-markdown", otherRoute.renderMarkdown);
     apiRoute(PST, "/api/other/to-markdown", otherRoute.toMarkdown);
+
+    route(GET, "/api/fonts", [checkApiAuthOrElectron], fontsRoute.getFontCss);
 
     asyncApiRoute(GET, "/api/similar-notes/:noteId", similarNotesRoute.getSimilarNotes);
     apiRoute(PST, "/api/relation-map", relationMapApiRoute.getRelationMap);
