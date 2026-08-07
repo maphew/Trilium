@@ -7,7 +7,7 @@
  */
 
 import { getLog, imageCompressionService, options as optionService } from "@triliumnext/core";
-import type { ImageCompressionOutcome, ImageCompressionPlan, ImageCompressionRequest, ImageFormat, ImageProvider, ProcessedImage } from "@triliumnext/core/src/services/image_provider.js";
+import type { ImageCompressionOutcome, ImageCompressionPlan, ImageCompressionRequest, ImageFormat, ImageProvider, PreviewResizeOutcome, PreviewResizeRequest, ProcessedImage } from "@triliumnext/core/src/services/image_provider.js";
 
 import { createConcurrencyGate } from "./concurrency_gate.js";
 import {
@@ -16,7 +16,8 @@ import {
     decodeCostOf,
     detectSvg,
     getImageTypeFromBuffer,
-    planFromBytes
+    planFromBytes,
+    resizePreviewImage
 } from "./image_codec.js";
 import { compressInWorker, compressionConcurrency } from "./image_worker_pool.js";
 
@@ -124,5 +125,9 @@ export const serverImageProvider: ImageProvider = {
         return offThread ?? compressImageBytes(buffer, request, toBackendLog);
     },
 
-    compressionConcurrency
+    compressionConcurrency,
+
+    async resizeForPreview(bytes: Uint8Array, request: PreviewResizeRequest): Promise<PreviewResizeOutcome> {
+        return await resizePreviewImage(bytes, request, toBackendLog);
+    }
 };

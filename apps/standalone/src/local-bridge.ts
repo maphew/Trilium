@@ -1,5 +1,6 @@
 import type { StandaloneRestoreProgress, StandaloneRestoreResult } from "@triliumnext/commons";
 
+import { showErrorOverlay } from "./error-overlay.js";
 import { isLeader } from "./leader_election.js";
 import LocalServerWorker from "./local-server-worker?worker";
 let localWorker: Worker | null = null;
@@ -161,10 +162,6 @@ export function registerNativeHttpHandler(handler: NativeHttpHandler) {
     nativeHttpHandler = handler;
 }
 
-function showFatalErrorDialog(message: string) {
-    alert(message);
-}
-
 export function startLocalServerWorker() {
     if (localWorker) return localWorker;
     localWorker = new LocalServerWorker();
@@ -177,6 +174,10 @@ export function startLocalServerWorker() {
     // Handle worker errors during initialization
     localWorker.onerror = (event) => {
         console.error("[LocalBridge] Worker error:", event);
+        showErrorOverlay(
+            "Trilium couldn't start",
+            event.message || "The database worker failed to start. See the console for details."
+        );
         // Reject all pending requests
         for (const [, resolver] of pending) {
             resolver.reject(new Error(`Worker error: ${event.message}`));
@@ -199,16 +200,25 @@ export function startLocalServerWorker() {
             return;
         }
 
-        // Handle fatal platform crashes (shown as a dialog to the user)
+        // Handle fatal platform crashes (shown as an overlay to the user)
         if (msg?.type === "FATAL_ERROR") {
             console.error("[LocalBridge] Fatal error:", msg.message);
-            showFatalErrorDialog(msg.message);
+            showErrorOverlay("Trilium crashed", msg.message);
             return;
         }
 
-        // Handle worker error reports
+        // Handle worker error reports. These are uncaught errors and unhandled
+        // rejections in the worker; an initialization failure in particular
+        // never resolves a request (it just hangs), so this message is the only
+        // signal the user would otherwise get — surface it instead of a blank
+        // screen.
         if (msg?.type === "WORKER_ERROR") {
             console.error("[LocalBridge] Worker reported error:", msg.error);
+            showErrorOverlay(
+                "Trilium couldn't start",
+                msg.error?.message || "The database worker reported an error.",
+                msg.error?.stack
+            );
             // Reject all pending requests with the error
             for (const [, resolver] of pending) {
                 resolver.reject(new Error(msg.error?.message || "Unknown worker error"));

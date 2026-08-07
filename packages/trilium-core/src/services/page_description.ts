@@ -1,5 +1,3 @@
-import type { HTMLElement } from "node-html-parser";
-
 /**
  * A description read out of a page's own text, for a page that publishes none of itself.
  *
@@ -10,6 +8,23 @@ import type { HTMLElement } from "node-html-parser";
  * Only ever a fallback. A description the site wrote for the purpose is what it wants shown, and is
  * always preferred to anything found here.
  */
+
+/**
+ * The part of a parsed document this reads.
+ *
+ * Described structurally rather than as node-html-parser's own `HTMLElement`, so that a caller is
+ * not obliged to hold the very copy of the parser core resolves. A monorepo routinely ends up with
+ * two, and two copies of the same parser are two nominally different types — which has nothing to
+ * do with whether the tree can be read, and is not a constraint core has any business imposing on
+ * the app that parsed the page.
+ */
+export interface PageElement {
+    textContent: string;
+    rawTagName?: string | null;
+    parentNode: PageElement | null;
+    querySelector(selector: string): PageElement | null;
+    querySelectorAll(selector: string): PageElement[];
+}
 
 /** Below this a paragraph is a caption, a byline or a stray line of chrome rather than a summary. */
 const MIN_LENGTH = 80;
@@ -45,7 +60,7 @@ const IGNORED_ANCESTORS = new Set([
     "nav", "aside", "header", "footer", "form", "figure", "figcaption", "table", "script", "style", "noscript", "template"
 ]);
 
-export function findPageDescription(document: HTMLElement): string | undefined {
+export function findPageDescription(document: PageElement): string | undefined {
     for (const scope of [ ...CONTENT_SCOPES.map((selector) => document.querySelector(selector)), document ]) {
         const summary = firstSummaryParagraph(scope);
 
@@ -57,7 +72,7 @@ export function findPageDescription(document: HTMLElement): string | undefined {
     return undefined;
 }
 
-function firstSummaryParagraph(scope: HTMLElement | null): string | undefined {
+function firstSummaryParagraph(scope: PageElement | null): string | undefined {
     for (const paragraph of scope?.querySelectorAll("p") ?? []) {
         const text = collapseWhitespace(paragraph.textContent);
 
@@ -75,7 +90,7 @@ function collapseWhitespace(text: string): string {
     return text.replace(/\s+/g, " ").trim();
 }
 
-function hasIgnoredAncestor(element: HTMLElement): boolean {
+function hasIgnoredAncestor(element: PageElement): boolean {
     for (let node = element.parentNode; node; node = node.parentNode) {
         if (IGNORED_ANCESTORS.has(node.rawTagName?.toLowerCase() ?? "")) {
             return true;
@@ -89,7 +104,7 @@ function hasIgnoredAncestor(element: HTMLElement): boolean {
  * A cookie notice, a row of breadcrumbs or a footer of policy links can all be long enough to pass
  * for a summary. What they are not is prose: nearly every word in them is a link.
  */
-function isMostlyLinks(paragraph: HTMLElement, text: string): boolean {
+function isMostlyLinks(paragraph: PageElement, text: string): boolean {
     const linked = paragraph.querySelectorAll("a")
         .reduce((total, anchor) => total + collapseWhitespace(anchor.textContent).length, 0);
 
