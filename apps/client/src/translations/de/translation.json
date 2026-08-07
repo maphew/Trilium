@@ -1422,7 +1422,6 @@
     "enable_monthly_backup": "Monatliche Sicherung",
     "backup_recommendation": "Es wird empfohlen, die Sicherung aktiviert zu lassen. Dies kann jedoch bei großen Datenbanken und/oder langsamen Speichergeräten den Anwendungsstart verlangsamen.",
     "backup_now": "Jetzt sichern",
-    "backup_database_now": "Jetzt Datenbank sichern",
     "existing_backups": "Vorhandene Sicherungen",
     "date-and-time": "Datum & Uhrzeit",
     "path": "Pfad",

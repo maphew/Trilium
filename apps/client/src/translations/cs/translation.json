@@ -1328,7 +1328,6 @@
     "enable_monthly_backup": "Povolit měsíční zálohování",
     "backup_recommendation": "Doporučuje se ponechat zálohování zapnuté, ale to může zpomalit spuštění aplikace s velkými databázemi a/nebo pomalými úložnými zařízeními.",
     "backup_now": "Zálohovat nyní",
-    "backup_database_now": "Zálohovat databázi nyní",
     "existing_backups": "Existující zálohy",
     "date-and-time": "Datum & čas",
     "path": "Cesta",

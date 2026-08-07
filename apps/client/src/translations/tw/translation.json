@@ -1408,7 +1408,6 @@
     "enable_monthly_backup": "每月備份",
     "backup_recommendation": "建議打開備份功能，但這可能會使有大型資料庫和 / 或慢速儲存設備的應用程式啟動變慢。",
     "backup_now": "立即備份",
-    "backup_database_now": "立即備份資料庫",
     "existing_backups": "現有備份",
     "date-and-time": "日期和時間",
     "path": "路徑",

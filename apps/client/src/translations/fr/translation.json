@@ -1396,7 +1396,6 @@
     "enable_monthly_backup": "Sauvegarde mensuelle",
     "backup_recommendation": "Il est recommandé de garder la sauvegarde activée, mais cela peut ralentir le démarrage des applications avec des bases de données volumineuses et/ou des périphériques de stockage lents.",
     "backup_now": "Sauvegarder maintenant",
-    "backup_database_now": "Sauvegarder la base de données maintenant",
     "existing_backups": "Sauvegardes existantes",
     "date-and-time": "Date & heure",
     "path": "Chemin",

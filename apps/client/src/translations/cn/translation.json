@@ -1401,7 +1401,9 @@
     "preview": "预览",
     "monospace_font_description": "用于代码注释和代码块",
     "size_relative_to_general": "大小相对于一般字体大小",
-    "apply_changes": "重新加载以应用更改"
+    "apply_changes": "重新加载以应用更改",
+    "monospace_ligatures": "代码连字（ligatures）",
+    "monospace_ligatures_description": "如果等宽字体支持，将 != 和 -> 等字符对渲染为单个符号（≠、→）。文本本身不会改变。"
   },
   "max_content_width": {
     "title": "内容宽度",
@@ -1616,7 +1618,10 @@
     "thursday": "周四",
     "friday": "周五",
     "saturday": "周六",
-    "formatting-locale-auto": "依应用的语言设置"
+    "formatting-locale-auto": "依应用的语言设置",
+    "default-content-language": "默认内容语言",
+    "default-content-language-description": "笔记默认使用的编写语言，除非在「基本属性」部分为笔记单独设置了语言。它会影响从右到左的排版以及输入时产生的引号样式等功能。",
+    "default-content-language-auto": "跟随应用的语言"
   },
   "backup": {
     "automatic_backup": "自动备份",
@@ -1626,7 +1631,6 @@
     "enable_monthly_backup": "每月备份",
     "backup_recommendation": "建议打开备份功能，但这可能会使大型数据库和/或慢速存储设备的应用程序启动变慢。",
     "backup_now": "立即备份",
-    "backup_database_now": "立即备份数据库",
     "existing_backups": "现有备份",
     "date-and-time": "日期和时间",
     "path": "路径",
@@ -2312,11 +2316,12 @@
   "note_language": {
     "not_set": "未设置语言",
     "configure-languages": "设置语言...",
-    "help-on-languages": "内容语言帮助..."
+    "help-on-languages": "内容语言帮助...",
+    "not_set_with_default": "未设置语言 — {{- language}}"
   },
   "content_language": {
     "title": "内容语言",
-    "description": "在只读或可编辑文本笔记的“基本属性”部分，选择一种或多种语言，这些语言将显示在语言选择列表中。这将启用拼写检查、从右到左的阅读支持和文本提取（OCR）等功能。"
+    "description": "在只读或可编辑文本笔记的「基本属性」部分，选择一种或多种语言以显示在语言选择列表中。这将启用拼写检查、从右到左支持、引号样式和文本提取（OCR）等功能。"
   },
   "switch_layout_button": {
     "title_vertical": "将编辑面板移至底部",
@@ -3909,5 +3914,27 @@
     "open-note": "打开笔记",
     "more-ways-to-open": "更多打开方式",
     "maximize": "在快速编辑中打开"
+  },
+  "automatic_replacements": {
+    "title": "自动替换",
+    "description": "输入时，某些字符序列会被替换为其对应的排版符号。替换不会应用于代码块或行内代码中，粘贴的文本不受影响。",
+    "double_quotes": "双引号",
+    "double_quotes_description": "直引号 \" 被替换成的字符。根据内容语言而定：英语使用 \"quote\"、德语使用 „quote“、法语使用 « quote »；选择一对引号后，该设置将应用于所有笔记，无论其语言如何。",
+    "single_quotes": "单引号",
+    "single_quotes_description": "直引号 ' 的相同设置，大多数规范将其保留用于嵌套在另一引号内的引用。",
+    "quotes_auto": "根据笔记的内容语言",
+    "quotes_off": "禁用",
+    "punctuation": "标点符号",
+    "punctuation_description": "将 ... 替换为省略号（…），将两侧有空格的 -- 和 --- 分别替换为短破折号（–）和长破折号（—）。",
+    "math": "数学符号",
+    "math_description": "将 1/2 等分数替换为 ½，将运算符 <=、>=、!=、<- 和 -> 分别替换为 ≤、≥、≠、← 和 →。",
+    "symbols": "版权和商标",
+    "symbols_description": "将 (c)、(r) 和 (tm) 分别替换为 ©、® 和 ™。",
+    "custom": "自定义替换",
+    "custom_description": "仅在文本以完整单词输入且后跟空格时生效，因此以它开头的较长单词不受影响。",
+    "custom_from_placeholder": "要替换的文本",
+    "custom_to_placeholder": "替换为",
+    "custom_add": "添加替换",
+    "custom_remove": "移除替换"
   }
 }
