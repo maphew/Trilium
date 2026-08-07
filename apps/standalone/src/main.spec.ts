@@ -4,13 +4,15 @@ const mocks = vi.hoisted(() => ({
     startLocalServerWorker: vi.fn(),
     attachServiceWorkerBridge: vi.fn(),
     registerNativeHttpHandler: vi.fn(),
+    restoreBackup: vi.fn(),
     capacitorHttpHandler: vi.fn()
 }));
 
 vi.mock("./local-bridge.js", () => ({
     startLocalServerWorker: mocks.startLocalServerWorker,
     attachServiceWorkerBridge: mocks.attachServiceWorkerBridge,
-    registerNativeHttpHandler: mocks.registerNativeHttpHandler
+    registerNativeHttpHandler: mocks.registerNativeHttpHandler,
+    restoreBackup: mocks.restoreBackup
 }));
 vi.mock("./services/capacitor_http_handler.js", () => ({ capacitorHttpHandler: mocks.capacitorHttpHandler }));
 // Avoid pulling the entire client bundle when loadScripts() runs.

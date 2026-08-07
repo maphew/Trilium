@@ -13,7 +13,6 @@
 
 .table-view-container {
     height: 100%;
-    margin-inline-start: var(--content-margin-inline);
 }
 
 .search-result-widget-content .table-view {

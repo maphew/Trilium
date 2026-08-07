@@ -1,10 +1,11 @@
-import { createHash, timingSafeEqual } from "node:crypto";
-import type { Readable, Writable } from "node:stream";
-import { pipeline } from "node:stream/promises";
-import { createGunzip } from "node:zlib";
-
+import {
+    type ByteSink,
+    type ByteSource,
+    type ContainerBackend,
+    deriveContainerKey
+} from "./backend.js";
+import { bytesEqual, concatBytes, constantTimeEqual, readU32LE } from "./bytes.js";
 import { ByteReader } from "./byte-reader.js";
-import { deriveKey, openFrame, verifyPassphrase } from "./crypto.js";
 import { BackupContainerError } from "./errors.js";
 import {
     authenticatedHeaderEnd,
@@ -20,15 +21,21 @@ import {
     FRAME_LENGTH_MASK,
     FRAME_SIZE,
     MAGIC,
+    nonceFor,
+    SQLITE_HEADER_BYTES,
     TAG_BYTES,
-    validateScryptParams
+    validateScryptParams,
+    validateSqliteHeader,
+    VERIFIER_COUNTER
 } from "./format.js";
-import { OutputGuard } from "./streams.js";
+import { createProgressReporter, type ProgressOptions, type ProgressReporter } from "./progress.js";
+
+const EMPTY = new Uint8Array(0);
 
 /** Ceiling on unwrapped output when the container does not record a smaller size. */
 export const DEFAULT_MAX_OUTPUT_BYTES = 64 * 1024 * 1024 * 1024;
 
-export interface ReadBackupContainerOptions {
+export interface ReadBackupContainerOptions extends ProgressOptions {
     /** Required when the container is encrypted. */
     passphrase?: string;
     /**
@@ -67,7 +74,7 @@ export interface BackupContainerInfo {
  * backups is never derailed by one damaged or foreign file.
  */
 export function peekBackupContainer(
-    head: Buffer,
+    head: Uint8Array,
     maxHeaderBytes: number = DEFAULT_MAX_HEADER_BYTES
 ): BackupContainerInfo | null {
     if (head.length < FIXED_HEADER_BYTES) {
@@ -97,7 +104,8 @@ export interface ReadBackupContainerResult {
 }
 
 /**
- * Unwraps a container back into a database.
+ * Unwraps a container back into a database. This is the runtime-neutral core; the Node and web
+ * entry points wrap it with their stream types and their backend.
  *
  * Frames are authenticated before any of their plaintext is emitted, the output ceiling is applied
  * before bytes reach the destination, and the payload digest and recorded size are checked at the
@@ -105,19 +113,21 @@ export interface ReadBackupContainerResult {
  *
  * @param input the container bytes.
  * @param output the destination for the database, which is ended by this call.
+ * @param backend the platform's crypto and compression primitives.
  * @param options see {@link ReadBackupContainerOptions}.
  * @returns what was read, see {@link ReadBackupContainerResult}.
  * @throws BackupContainerError with a `reason` property identifying the failure.
  */
-export async function readBackupContainer(
-    input: Readable,
-    output: Writable,
+export async function readContainer(
+    input: ByteSource,
+    output: ByteSink,
+    backend: ContainerBackend,
     options: ReadBackupContainerOptions = {}
 ): Promise<ReadBackupContainerResult> {
     const reader = new ByteReader(input);
     const header = await readHeader(reader, options.maxHeaderBytes ?? DEFAULT_MAX_HEADER_BYTES);
 
-    let key: Buffer | null = null;
+    let key: unknown = null;
     if (header.encryption) {
         if (options.passphrase === undefined) {
             throw new BackupContainerError(
@@ -130,15 +140,15 @@ export async function readBackupContainer(
             header.encryption,
             options.maxKdfMemoryBytes ?? DEFAULT_MAX_KDF_MEMORY_BYTES
         );
-        key = await deriveKey(options.passphrase, header.encryption.salt, header.encryption);
+        key = await deriveContainerKey(
+            backend,
+            options.passphrase,
+            header.encryption.salt,
+            header.encryption
+        );
 
         if (options.skipVerifier !== true) {
-            verifyPassphrase(
-                key,
-                header.encryption.noncePrefix,
-                aadOf(header),
-                header.encryption.verifierTag
-            );
+            await verifyPassphrase(backend, key, header, header.encryption);
         }
     }
 
@@ -148,23 +158,22 @@ export async function readBackupContainer(
         options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES,
         header.plaintextSize > 0 ? header.plaintextSize : Number.POSITIVE_INFINITY
     );
-    const guard = new OutputGuard(ceiling, options.requireSqliteHeader !== false);
+    // The recorded size is the only total there is: the container's own length measures the payload
+    // as stored, which for a compressed one is not what comes out the other end.
+    const progress = createProgressReporter(header.plaintextSize, options);
+    const guard = new OutputGuard(ceiling, options.requireSqliteHeader !== false, progress);
 
-    const payload = header.encryption && key
-        ? readFrames(reader, header, header.encryption, key)
-        : readPlainPayload(reader, header);
+    const payload = header.encryption && key !== null
+        ? readFrames(reader, header, header.encryption, key, backend)
+        : readPlainPayload(reader, header, backend);
 
-    try {
-        // Spelled out rather than built as an array: the source is an async generator, which only
-        // the variadic overloads accept.
-        if (header.compressed) {
-            await pipeline(payload, createGunzip(), guard, output);
-        } else {
-            await pipeline(payload, guard, output);
-        }
-    } catch (error) {
-        throw translatePipelineError(error);
+    const unwrapped = header.compressed ? backend.gunzip(payload) : payload;
+    for await (const chunk of unwrapped) {
+        guard.accept(chunk);
+        await output.write(chunk);
     }
+    guard.finish();
+    await output.end();
 
     if (header.plaintextSize > 0 && guard.bytesWritten !== header.plaintextSize) {
         throw new BackupContainerError(
@@ -172,6 +181,8 @@ export async function readBackupContainer(
             `Output is ${guard.bytesWritten} bytes, header records ${header.plaintextSize}.`
         );
     }
+
+    progress?.complete();
 
     return {
         version: header.version,
@@ -182,6 +193,68 @@ export async function readBackupContainer(
     };
 }
 
+/**
+ * Guards the unwrapped output: enforces the ceiling before bytes reach the destination, checks the
+ * SQLite header as soon as enough of it has passed, and counts what was written.
+ *
+ * The count it already keeps is what the reader's progress is a fraction of, so the reporting is
+ * done from here rather than from a tap of its own.
+ */
+class OutputGuard {
+
+    #written = 0;
+    #head: Uint8Array[] = [];
+    #headBytes = 0;
+    #headChecked = false;
+
+    constructor(
+        private readonly ceiling: number,
+        private readonly requireSqliteHeader: boolean,
+        private readonly progress: ProgressReporter | null
+    ) {}
+
+    get bytesWritten(): number {
+        return this.#written;
+    }
+
+    /** Vets one chunk on its way to the destination, throwing before a bad one reaches it. */
+    accept(chunk: Uint8Array): void {
+        if (this.#written + chunk.length > this.ceiling) {
+            throw new BackupContainerError(
+                "output-too-large",
+                `Output would exceed the ${this.ceiling} byte ceiling.`
+            );
+        }
+        this.#written += chunk.length;
+
+        if (this.requireSqliteHeader && !this.#headChecked) {
+            this.#head.push(chunk);
+            this.#headBytes += chunk.length;
+
+            if (this.#headBytes >= SQLITE_HEADER_BYTES) {
+                this.#headChecked = true;
+                validateSqliteHeader(concatBytes(...this.#head));
+                this.#head = [];
+            }
+        }
+
+        // Reported only once the chunk has passed every check, so a rejected output never reports
+        // having got anywhere.
+        this.progress?.at(this.#written);
+    }
+
+    /** Called once the payload has ended, to catch an output too short to have been checked. */
+    finish(): void {
+        if (this.requireSqliteHeader && !this.#headChecked) {
+            throw new BackupContainerError(
+                "not-a-database",
+                "Output is too short to be a SQLite database."
+            );
+        }
+    }
+
+}
+
 async function readHeader(reader: ByteReader, maxHeaderBytes: number): Promise<ContainerHeader> {
     const fixedBytes = await reader.readUpTo(FIXED_HEADER_BYTES);
 
@@ -189,7 +262,9 @@ async function readHeader(reader: ByteReader, maxHeaderBytes: number): Promise<C
     // judged on whether what is there could be the start of the magic.
     if (fixedBytes.length < FIXED_HEADER_BYTES) {
         const prefix = MAGIC.subarray(0, Math.min(fixedBytes.length, MAGIC.length));
-        if (fixedBytes.length === 0 || !fixedBytes.subarray(0, prefix.length).equals(prefix)) {
+        const couldBeMagic = fixedBytes.length > 0
+            && bytesEqual(fixedBytes.subarray(0, prefix.length), prefix);
+        if (!couldBeMagic) {
             throw new BackupContainerError(
                 "not-a-container",
                 "File does not start with the container magic."
@@ -204,12 +279,42 @@ async function readHeader(reader: ByteReader, maxHeaderBytes: number): Promise<C
     const fixed = decodeFixedHeader(fixedBytes, maxHeaderBytes);
     const rest = await reader.readExactly(fixed.headerLength - FIXED_HEADER_BYTES);
 
-    return decodeHeader(Buffer.concat([ fixedBytes, rest ]), maxHeaderBytes);
+    return decodeHeader(concatBytes(fixedBytes, rest), maxHeaderBytes);
 }
 
 /** Re-encodes the header so the authenticated span comes from the same layout the writer used. */
-function aadOf(header: ContainerHeader): Buffer {
+function aadOf(header: ContainerHeader): Uint8Array {
     return encodeHeader(header).subarray(0, authenticatedHeaderEnd(header.headerLength));
+}
+
+/**
+ * Checks the verifier tag, which tells a wrong passphrase from a usable one before any frame is
+ * read: the tag is GCM over an empty plaintext on the reserved counter, so opening it against an
+ * empty ciphertext is the check.
+ *
+ * A mismatch cannot distinguish a wrong passphrase from a bit flip in the salt, nonce prefix or
+ * tag, which is why the reason covers both.
+ */
+async function verifyPassphrase(
+    backend: ContainerBackend,
+    key: unknown,
+    header: ContainerHeader,
+    encryption: EncryptionHeader
+): Promise<void> {
+    const opened = await backend.gcmOpen(
+        key,
+        nonceFor(encryption.noncePrefix, VERIFIER_COUNTER),
+        aadOf(header),
+        EMPTY,
+        encryption.verifierTag.subarray(0, TAG_BYTES)
+    );
+
+    if (opened === null) {
+        throw new BackupContainerError(
+            "wrong-passphrase-or-damaged-header",
+            "Verifier tag did not match."
+        );
+    }
 }
 
 /** Yields the plaintext of each frame, after that frame has been authenticated. */
@@ -217,16 +322,17 @@ async function* readFrames(
     reader: ByteReader,
     header: ContainerHeader,
     encryption: EncryptionHeader,
-    key: Buffer
-): AsyncGenerator<Buffer> {
+    key: unknown,
+    backend: ContainerBackend
+): AsyncGenerator<Uint8Array> {
     const aad = aadOf(header);
-    const hash = createHash("sha256");
+    const hash = backend.createSha256();
     let counter = 0;
 
     for (;;) {
         const offset = reader.consumed;
         const lengthField = await reader.readExactly(4);
-        const raw = lengthField.readUInt32LE(0);
+        const raw = readU32LE(lengthField, 0);
         const final = (raw & FRAME_FINAL_FLAG) !== 0;
         const length = raw & FRAME_LENGTH_MASK;
 
@@ -240,18 +346,24 @@ async function* readFrames(
 
         const ciphertext = await reader.readExactly(length);
         const tag = await reader.readExactly(TAG_BYTES);
-        hash.update(lengthField).update(ciphertext).update(tag);
+        hash.update(lengthField);
+        hash.update(ciphertext);
+        hash.update(tag);
 
-        yield openFrame(
+        const plaintext = await backend.gcmOpen(
             key,
-            encryption.noncePrefix,
-            aad,
-            counter,
-            lengthField,
+            nonceFor(encryption.noncePrefix, counter),
+            concatBytes(aad, lengthField),
             ciphertext,
-            tag,
-            offset
+            tag
         );
+        if (plaintext === null) {
+            throw new BackupContainerError(
+                "damaged-payload",
+                `Frame ${counter} failed authentication at byte offset ${offset}.`
+            );
+        }
+        yield plaintext;
 
         if (final) {
             break;
@@ -272,9 +384,10 @@ async function* readFrames(
 /** Yields the payload of an unencrypted container, which runs to end of file. */
 async function* readPlainPayload(
     reader: ByteReader,
-    header: ContainerHeader
-): AsyncGenerator<Buffer> {
-    const hash = createHash("sha256");
+    header: ContainerHeader,
+    backend: ContainerBackend
+): AsyncGenerator<Uint8Array> {
+    const hash = backend.createSha256();
 
     for (;;) {
         const chunk = await reader.readUpTo(FRAME_SIZE);
@@ -288,26 +401,11 @@ async function* readPlainPayload(
     verifyDigest(hash.digest(), header.digest);
 }
 
-function verifyDigest(actual: Buffer, expected: Buffer): void {
-    if (!timingSafeEqual(actual, expected)) {
+function verifyDigest(actual: Uint8Array, expected: Uint8Array): void {
+    if (!constantTimeEqual(actual, expected)) {
         throw new BackupContainerError(
             "digest-mismatch",
             "Payload digest does not match the header."
         );
     }
-}
-
-/**
- * zlib failures mean a damaged payload; everything else, e.g. a full disk, belongs to the caller.
- */
-function translatePipelineError(error: unknown): unknown {
-    const code = (error as NodeJS.ErrnoException | undefined)?.code;
-    if (typeof code === "string" && code.startsWith("Z_")) {
-        return new BackupContainerError(
-            "damaged-payload",
-            `Compressed payload could not be read: ${code}.`
-        );
-    }
-
-    return error;
 }

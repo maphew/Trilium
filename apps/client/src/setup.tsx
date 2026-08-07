@@ -10,6 +10,7 @@ import logo from "./assets/icon-color.svg?url";
 import { getCurrentLanguage, initLocale, t } from "./services/i18n";
 import server from "./services/server";
 import { isElectron, isMobileApp } from "./services/utils";
+import RestoreFromBackup from "./setup_restore";
 import Admonition, { ExtendedAdmonition } from "./widgets/react/Admonition";
 import Button from "./widgets/react/Button";
 import { Card, CardFrame, CardSection } from "./widgets/react/Card";
@@ -18,6 +19,7 @@ import { FormListItem } from "./widgets/react/FormList";
 import FormTextBox from "./widgets/react/FormTextBox";
 import Icon from "./widgets/react/Icon";
 import SetupPage from "./widgets/react/SetupPage";
+import SlidePages from "./widgets/react/SlidePages";
 
 async function main() {
     await initLocale();
@@ -38,9 +40,9 @@ async function main() {
     document.body.replaceChildren(bodyWrapper);
 }
 
-type State = "selectLanguage" | "firstOptions" | "createNewDocumentOptions" | "createNewDocumentWithDemo" | "createNewDocumentEmpty" | "syncFromDesktop" | "syncFromServer" | "syncFromServerInProgress" | "syncFromDesktopInProgress" | "syncFailed";
+type State = "selectLanguage" | "firstOptions" | "createNewDocumentOptions" | "createNewDocumentWithDemo" | "createNewDocumentEmpty" | "restoreFromBackup" | "syncFromDesktop" | "syncFromServer" | "syncFromServerInProgress" | "syncFromDesktopInProgress" | "syncFailed";
 
-const STATE_ORDER: State[] = ["selectLanguage", "firstOptions", "createNewDocumentOptions", "createNewDocumentWithDemo", "createNewDocumentEmpty", "syncFromDesktop", "syncFromServer", "syncFromServerInProgress", "syncFromDesktopInProgress", "syncFailed"];
+const STATE_ORDER: State[] = ["selectLanguage", "firstOptions", "createNewDocumentOptions", "createNewDocumentWithDemo", "createNewDocumentEmpty", "restoreFromBackup", "syncFromDesktop", "syncFromServer", "syncFromServerInProgress", "syncFromDesktopInProgress", "syncFailed"];
 
 export function renderState(state: State, setState: (state: State) => void) {
     switch (state) {
@@ -49,6 +51,7 @@ export function renderState(state: State, setState: (state: State) => void) {
         case "createNewDocumentOptions": return <CreateNewDocumentOptions setState={setState} />;
         case "createNewDocumentWithDemo": return <CreateNewDocumentInProgress withDemo />;
         case "createNewDocumentEmpty": return <CreateNewDocumentInProgress />;
+        case "restoreFromBackup": return <RestoreFromBackup onBack={() => setState("firstOptions")} onRestored={onSetupFinished} />;
         case "syncFromServer": return <SyncFromServer setState={setState} />;
         case "syncFromDesktop": return <SyncFromDesktop setState={setState} />;
         case "syncFromServerInProgress": return <SyncInProgress device="server" setState={setState} />;
@@ -63,9 +66,6 @@ function App() {
     // resumes straight on the progress screen instead of restarting the wizard.
     const resuming = window.glob.syncInProgress === true;
     const [state, setState] = useState<State>(resuming ? "syncFromServerInProgress" : "selectLanguage");
-    const [prevState, setPrevState] = useState<State | null>(null);
-    const [transitioning, setTransitioning] = useState(false);
-    const prevStateRef = useRef<State>(state);
 
     useEffect(() => {
         if (!resuming) {
@@ -79,34 +79,13 @@ function App() {
         });
     }, [resuming]);
 
-    function handleSetState(newState: State) {
-        setPrevState(prevStateRef.current);
-        prevStateRef.current = newState;
-        setTransitioning(true);
-        setState(newState);
-    }
-
-    const direction = prevState !== null
-        ? STATE_ORDER.indexOf(state) > STATE_ORDER.indexOf(prevState) ? "forward" : "backward"
-        : "forward";
-
     return (
         <div class="setup-container">
             <div class="drag-region" />
-            {transitioning && prevState !== null && (
-                <div
-                    class={`slide-page slide-out-${direction}`}
-                    onAnimationEnd={() => {
-                        setTransitioning(false);
-                        setPrevState(null);
-                    }}
-                >
-                    {renderState(prevState, handleSetState)}
-                </div>
-            )}
-            <div class={`slide-page ${transitioning ? `slide-in-${direction}` : "slide-current"}`} key={state}>
-                {renderState(state, handleSetState)}
-            </div>
+
+            <SlidePages current={state} order={STATE_ORDER}>
+                {(page) => renderState(page, setState)}
+            </SlidePages>
         </div>
     );
 }
@@ -160,6 +139,13 @@ function SetupOptions({ setState }: { setState: (state: State) => void }) {
                     title={t("setup.new-document")}
                     description={t("setup.new-document-description")}
                     onClick={() => setState("createNewDocumentOptions")}
+                />
+
+                <SetupOptionCard
+                    icon="bx bx-archive-in"
+                    title={t("setup.restore-from-backup")}
+                    description={t("setup.restore-from-backup-description")}
+                    onClick={() => setState("restoreFromBackup")}
                 />
 
                 <SetupOptionCard

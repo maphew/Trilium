@@ -639,6 +639,37 @@ export interface ElectronNativeImportApi {
     importFromToken(opts: { token: string; parentNoteId: string; taskId: string; options: NativeImportOptions; last: boolean; format?: string }): Promise<NativeImportResult>;
 }
 
+/**
+ * Outcome of {@link ElectronRestoreApi.pickBackup}: what the chosen backup is, never where it is.
+ *
+ * The file itself stays with the main process, which holds it as the one waiting to be restored, so
+ * the renderer is given only what the screen has to show and decide with.
+ */
+export interface NativeBackupPickResult {
+    status: "selected" | "cancelled" | "error";
+    /** Display name of the chosen backup (when `status === "selected"`). */
+    fileName?: string;
+    /** Whether a passphrase has to be asked for before it can be restored. */
+    encrypted?: boolean;
+    /** Failure detail (when `status === "error"`), e.g. setup already being busy. */
+    message?: string;
+}
+
+/**
+ * Choosing a backup to restore from the desktop, where the file is already on the same disk as the
+ * database it is going to replace and has no business being uploaded to reach it.
+ *
+ * Only usable during setup: what it puts forward is restored by the ordinary
+ * `POST /api/setup/restore/start`, which refuses once the application is initialized.
+ */
+export interface ElectronRestoreApi {
+    /**
+     * Prompts a native "open file" dialog for a `.db` or `.tnbackup` backup and, if one is chosen,
+     * makes it the backup waiting to be restored.
+     */
+    pickBackup(): Promise<NativeBackupPickResult>;
+}
+
 /** Outcome of {@link ElectronDialogApi.pickDirectory}. */
 export interface NativeDirectoryPickResult {
     status: "selected" | "cancelled";
@@ -698,4 +729,6 @@ export interface ElectronApi {
     nativeImport: ElectronNativeImportApi;
     /** Native OS pickers that hand the renderer a location the user chose themselves. */
     dialog: ElectronDialogApi;
+    /** Choosing a backup to restore during setup, read where it lies rather than uploaded. */
+    restore: ElectronRestoreApi;
 }

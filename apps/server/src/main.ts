@@ -27,6 +27,11 @@ async function startApplication() {
     const config = (await import("./services/config.js")).default;
     const { DOCUMENT_PATH } = (await import("./services/data_dir.js")).default;
 
+    // Before anything opens the database: a restore that was interrupted between moving the old
+    // document aside and opening the new one is undone here, so the instance starts on a database
+    // that is whole rather than on whichever half the interruption left behind.
+    (await import("./services/database_restore.js")).recoverInterruptedRestore();
+
     const dbProvider = new BetterSqlite3Provider();
     if (process.env.TRILIUM_INTEGRATION_TEST === "memory") {
         // Load the database file into memory so mutations don't persist to

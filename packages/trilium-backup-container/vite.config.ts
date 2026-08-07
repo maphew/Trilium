@@ -25,7 +25,13 @@ export default defineConfig(() => ({
             reportsDirectory: "./test-output/vitest/coverage",
             provider: "v8" as const,
             include: [ "src/**/*.ts" ],
-            exclude: [ "**/*.spec.ts", "**/*.d.ts", "src/index.ts", "src/test-helpers.ts" ],
+            exclude: [
+                "**/*.spec.ts",
+                "**/*.d.ts",
+                "src/index.ts",
+                "src/web.ts",
+                "src/test-helpers.ts"
+            ],
             reporter: [ "text", [ "lcov", { projectRoot: resolve(__dirname, "../..") } ] ]
         }
     }

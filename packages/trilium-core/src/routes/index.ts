@@ -148,7 +148,9 @@ export function buildSharedApiRoutes({ route, asyncRoute, apiRoute, asyncApiRout
     asyncApiRoute(PST, "/api/link-embed/metadata", linkEmbedRoute.getMetadata);
 
     // group of the services below are meant to be executed from the outside
-    route(GET, "/api/setup/status", [], setupApiRoute.getStatus, apiResultHandler);
+    // Not transactional: a status read needs no transaction, and one is unopenable during the moment
+    // a restore has the database detached — which is exactly when the wizard is polling hardest.
+    asyncRoute(GET, "/api/setup/status", [], setupApiRoute.getStatus, apiResultHandler);
     asyncRoute(PST, "/api/setup/new-document", [checkAppNotInitialized], setupApiRoute.setupNewDocument, apiResultHandler);
     asyncRoute(PST, "/api/setup/sync-from-server", [checkAppNotInitialized], setupApiRoute.setupSyncFromServer, apiResultHandler);
     route(GET, "/api/setup/sync-seed", [loginRateLimiter, checkCredentials], setupApiRoute.getSyncSeed, apiResultHandler);

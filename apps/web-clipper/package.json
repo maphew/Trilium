@@ -13,9 +13,9 @@
     "postinstall": "wxt prepare"
   },
   "keywords": [],
-  "packageManager": "pnpm@11.19.0",
+  "packageManager": "pnpm@11.20.0",
   "devDependencies": {
-    "@wxt-dev/auto-icons": "1.1.1",
+    "@wxt-dev/auto-icons": "1.1.2",
     "jszip": "3.10.1",
     "wxt": "0.21.3"
   },

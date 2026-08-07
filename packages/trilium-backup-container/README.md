@@ -5,8 +5,9 @@ with optional gzip compression and optional AES-256-GCM encryption. It exists so
 be made smaller and unreadable to anyone else who can see the folder it is written to, which matters
 most when that folder is synced to the cloud. Both directions stream, so a multi-gigabyte database is
 never held in memory, and the reader authenticates every chunk before handing any of it to the
-destination. The module depends on nothing outside the Node standard library and contains no
-user-facing strings.
+destination. The module contains no user-facing strings and ships two entry points over one shared
+format layer: the root entry for Node, which depends on nothing outside the Node standard library,
+and `@triliumnext/backup-container/web` for browsers. A container written by either is read by both.
 
 ## Reading a container
 
@@ -59,6 +60,57 @@ await rename(partial, destination);      // rename last, so a partial file never
 Write to a temporary name and rename on success. Do not hand the payload stream a `FileHandle` opened
 with `autoClose: false` and patch through that same handle: its `close()` then waits forever on a
 stream that never emits `close`.
+
+## Using it in a browser
+
+`@triliumnext/backup-container/web` exposes the same two operations on Web Streams instead of Node
+streams, with the same options, results and errors. AES-256-GCM and randomness come from WebCrypto,
+gzip from the platform's `CompressionStream`, and the two primitives WebCrypto does not offer,
+scrypt and incremental SHA-256, from [`@noble/hashes`](https://github.com/paulmillr/noble-hashes),
+the entry point's only dependency. The Node entry point never loads it.
+
+```ts
+import { readBackupContainer } from "@triliumnext/backup-container/web";
+
+const handle = await directory.getFileHandle("document.db", { create: true });
+const info = await readBackupContainer(file.stream(), await handle.createWritable(), {
+    passphrase,
+    onProgress: (progress) => report(Math.round(progress * 100))
+});
+```
+
+Three platform limits are worth knowing. WebCrypto's `subtle` interface only exists in secure
+contexts (HTTPS, localhost, workers of either), so encrypted containers cannot be handled on a page
+served over plain HTTP. `CompressionStream` takes no compression level, so `compressionLevel` is
+ignored and the platform default applies; the header normalisation keeps the output canonical
+regardless. And `patchHeader` still needs random access to the finished bytes, which OPFS provides
+(`write` with `at`) but a streamed download does not, so writing a container means staging it
+somewhere seekable first. Key derivation is pure JavaScript here and takes seconds rather than
+milliseconds at the default cost; run it in a worker and say so in the UI.
+
+## Reporting progress
+
+Both directions accept `onProgress`, which is called with a number from 0 to 1 at most once every
+`progressIntervalMs` (250 by default), and once more with exactly 1 when the container is finished.
+
+```ts
+await readBackupContainer(input, output, {
+    passphrase,
+    onProgress: (progress) => report(Math.round(progress * 100))
+});
+```
+
+Progress is measured on the database and never on the payload: the writer reports how much of the
+database has gone in, and the reader reports how much has come out, so a compressed container does not
+report a fraction of the progress along with a fraction of the size. A fraction needs a total, which is
+the `plaintextSize` the writer records in the header, so a container written without one is read back
+reporting nothing but the final 1.
+
+Reports are throttled rather than debounced, since a container streams from beginning to end without
+ever pausing. Two things are outside them: key derivation, which is the slow part of opening an
+encrypted container and happens before the first byte is read, and success. A report of 1 says the
+payload has gone past, not that the destination took it, and the resolved promise is what says the
+container is written or unwrapped.
 
 ## Catching errors
 

@@ -1,8 +1,45 @@
+import type { StandaloneRestoreProgress, StandaloneRestoreResult } from "@triliumnext/commons";
+
 import LocalServerWorker from "./local-server-worker?worker";
 let localWorker: Worker | null = null;
 const pending = new Map();
+/** Restores in flight, by id, each with the progress callback that stays on this side. */
+const restores = new Map<string, {
+    resolve: (result: StandaloneRestoreResult) => void;
+    reject: (reason: unknown) => void;
+    onProgress?: (progress: StandaloneRestoreProgress) => void;
+}>();
 
 const LOCAL_API_PREFIXES = ["/bootstrap", "/api/", "/sync/", "/search/"];
+
+/**
+ * Restores the database from a backup, on the worker that owns it.
+ *
+ * The file goes across as a `File`, which structured cloning passes by reference, so nothing is
+ * copied and nothing is read into memory here. It deliberately avoids the request path: that
+ * serialises bodies whole and gives up after thirty seconds, neither of which a database survives.
+ *
+ * Progress is relayed from the worker to `onProgress`, which stays on this side of the boundary.
+ */
+export function restoreBackup(opts: {
+    backup: File;
+    passphrase?: string;
+    onProgress?: (progress: StandaloneRestoreProgress) => void;
+}): Promise<StandaloneRestoreResult> {
+    startLocalServerWorker();
+
+    const id = Math.random().toString(36).slice(2);
+
+    return new Promise((resolve, reject) => {
+        restores.set(id, { resolve, reject, onProgress: opts.onProgress });
+        localWorker!.postMessage({
+            type: "RESTORE_BACKUP",
+            id,
+            backup: opts.backup,
+            passphrase: opts.passphrase
+        });
+    });
+}
 
 export function isLocalApiRequest(url: URL): boolean {
     return LOCAL_API_PREFIXES.some(p => url.pathname.startsWith(p));
@@ -98,6 +135,18 @@ export function startLocalServerWorker() {
 
     localWorker.onmessage = (event) => {
         const msg = event.data;
+
+        // Restore progress and outcome, which travel on their own channel rather than as a response
+        // to a request: the backup that started them never went through one.
+        if (msg?.type === "RESTORE_PROGRESS") {
+            restores.get(msg.id)?.onProgress?.(msg.progress);
+            return;
+        }
+        if (msg?.type === "RESTORE_RESULT") {
+            restores.get(msg.id)?.resolve(msg.result);
+            restores.delete(msg.id);
+            return;
+        }
 
         // Handle fatal platform crashes (shown as a dialog to the user)
         if (msg?.type === "FATAL_ERROR") {

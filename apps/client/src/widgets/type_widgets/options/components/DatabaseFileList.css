@@ -4,7 +4,3 @@
     gap: 8px;
 }
 
-.database-file-badge {
-    --color: var(--muted-text-color);
-    flex-shrink: 0;
-}

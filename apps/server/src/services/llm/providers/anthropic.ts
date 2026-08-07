@@ -54,9 +54,12 @@ export class AnthropicProvider extends BaseProvider {
     }
 
     protected override addWebSearchTool(tools: ToolSet): void {
+        // `ToolSet` pins its input parameter to `never` in two of its four arms, which a
+        // provider-executed tool declaring a real input matches none of. Upstream's to fix; drop
+        // the cast once `ai` and `@ai-sdk/anthropic` agree again.
         tools.web_search = this.anthropic.tools.webSearch_20250305({
             maxUses: 5
-        });
+        }) as ToolSet[string];
     }
 
     override recommendedModelIds(models: ModelInfo[]): Set<string> {

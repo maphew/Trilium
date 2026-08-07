@@ -9,7 +9,7 @@ import Button from "../../react/Button";
 import FormTextBox from "../../react/FormTextBox";
 import Modal from "../../react/Modal";
 import Popover from "../../react/Popover";
-import { AnchorPoint, EventDraft } from "./selection";
+import { AnchorPoint, EventDraft, narrowAnchorRect } from "./selection";
 
 /**
  * The ghost: the form an event is decided in before its note exists. It asks for the one thing the
@@ -165,13 +165,19 @@ export default function GhostPopover({ draft, anchor, container, onCommit, onCan
 
 /**
  * Where the ghost stands: beside the range's own shading, read back off the grid. FullCalendar
- * draws the selection as one `.fc-highlight` per row it crosses, so the piece under the mouseup is
- * the one pointed at — where the drag ended is where the eye is — falling back to the last piece
- * drawn, and to the bare point where no shading is on the grid at all. Read afresh on every
- * reposition (see Popover), so the ghost follows the shading through scrolls and redraws.
+ * draws the selection as one piece per row it crosses, so the piece under the mouseup is the one
+ * pointed at — where the drag ended is where the eye is — falling back to the last piece drawn, and
+ * to the bare point where no shading is on the grid at all. Read afresh on every reposition (see
+ * Popover), so the ghost follows the shading through scrolls and redraws.
+ *
+ * A piece too wide to be stood beside — a range dragged across a whole week — is narrowed to the
+ * end of the drag within it (see {@link narrowAnchorRect}).
+ *
+ * The pieces answer to the name the calendar gives them through `highlightClass`, FullCalendar
+ * having no class of its own left to go by (see the calendar view).
  */
 function ghostAnchorRect(container: HTMLElement | null, point: AnchorPoint | null): DOMRect {
-    const highlights = container?.querySelectorAll<HTMLElement>(".fc-highlight");
+    const highlights = container?.querySelectorAll<HTMLElement>(".calendar-highlight");
 
     if (highlights?.length) {
         let pick: HTMLElement | undefined;
@@ -184,7 +190,7 @@ function ghostAnchorRect(container: HTMLElement | null, point: AnchorPoint | nul
                 }
             }
         }
-        return (pick ?? highlights[highlights.length - 1]).getBoundingClientRect();
+        return narrowAnchorRect((pick ?? highlights[highlights.length - 1]).getBoundingClientRect(), point);
     }
 
     return new DOMRect(point?.x ?? 0, point?.y ?? 0, 0, 0);
