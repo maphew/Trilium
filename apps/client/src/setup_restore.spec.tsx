@@ -241,6 +241,16 @@ describe("restoring on standalone", () => {
         expect(serverMock.get).not.toHaveBeenCalledWith("setup/restore/status");
     });
 
+    it("offers no list of existing backups, since there are none to offer", async () => {
+        renderRestore();
+        await flushEffects();
+
+        expect(serverMock.get).not.toHaveBeenCalledWith("database/backups");
+        expect(container.textContent).not.toContain("setup.restore-existing-backups");
+        // The way in from a file is the whole screen here.
+        expect(container.querySelector(".restore-choose-file")).toBeTruthy();
+    });
+
     it("reports a refusal in the same words every other platform uses", async () => {
         importBackup.mockResolvedValue({
             status: "error", reason: "database-too-new", message: "The database is version 999."

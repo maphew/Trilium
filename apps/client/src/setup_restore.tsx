@@ -70,6 +70,13 @@ export default function RestoreFromBackup({ onBack, onRestored }: { onBack: () =
     const [ backups, setBackups ] = useState<DatabaseBackup[] | null>(null);
 
     useEffect(() => {
+        // Standalone keeps no backups worth offering: nothing takes them on a schedule there, and a
+        // copy kept beside the database in the browser's own storage is cleared along with it.
+        if (window.standaloneApi) {
+            setBackups([]);
+            return;
+        }
+
         server.get<ExistingBackupsResponse>("database/backups")
             .then((response) => setBackups(response.backups))
             // An unreadable backup directory is not a reason to lose the way in from a file.
