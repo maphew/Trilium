@@ -247,6 +247,9 @@ export function buildSharedApiRoutes({ route, asyncRoute, apiRoute, asyncApiRout
 
     //#region Files
     route(GET, "/api/notes/:noteId/open", [checkApiAuthOrElectron], filesRoute.openFile);
+    // What the media players stream from: same content as /open, but answering byte ranges so they can seek.
+    route(GET, "/api/notes/:noteId/open-partial", [checkApiAuthOrElectron], filesRoute.openPartialFile);
+    route(GET, "/api/attachments/:attachmentId/open-partial", [checkApiAuthOrElectron], filesRoute.openPartialAttachment);
     asyncApiRoute(GET, "/api/notes/:noteId/office-preview", filesRoute.getNoteOfficePreview);
     asyncApiRoute(GET, "/api/attachments/:attachmentId/office-preview", filesRoute.getAttachmentOfficePreview);
     route(GET, "/api/notes/:noteId/download", [checkApiAuthOrElectron], filesRoute.downloadFile);

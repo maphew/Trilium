@@ -60,6 +60,24 @@ describe("registerRoutes (real wiring)", () => {
         expect(extra.isMainWindow).toBe(false);
     });
 
+    // The whole standalone media path in one request: the core handler slices the note's content,
+    // the mock response carries the slice out as a raw response, and the router turns the view into
+    // exactly those bytes. This is what an <audio>/<video> element does every time it seeks.
+    it("answers a byte range on open-partial with 206 and just that slice", async () => {
+        const created = parseJson((await router.dispatch("POST", "http://localhost/api/notes/root/children?target=into",
+            { title: "clip.mp3", type: "file", mime: "audio/mpeg", content: "0123456789" })).body) as { note: { noteId: string } };
+        const { noteId } = created.note;
+
+        const res = await router.dispatch("GET", `http://localhost/api/notes/${noteId}/open-partial?v=1`, undefined, {
+            range: "bytes=2-5"
+        });
+
+        expect(res.status).toBe(206);
+        expect(text(res.body)).toBe("2345");
+        expect(res.headers["Content-Range"]).toBe("bytes 2-5/10");
+        expect(res.headers["Accept-Ranges"]).toBe("bytes");
+    });
+
     it("returns the setup payload when the database is not initialized", async () => {
         vi.spyOn(sql_init, "isDbInitialized").mockReturnValue(false);
         const data = parseJson((await router.dispatch("GET", "http://localhost/bootstrap")).body) as Record<string, unknown>;

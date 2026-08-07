@@ -37,4 +37,18 @@ describe("Core routes over Express", () => {
         const res = await ctx.agent.get(`/api/notes/${noteId}`).expect(200);
         expect(res.body.title).toBe("Via Express");
     });
+
+    // Media players stream from open-partial, and only a real Express response can show that the
+    // slice leaves as bytes: `res.send()` treats anything that is not a Buffer as JSON.
+    it("answers a byte range on open-partial with 206 and the raw slice", async () => {
+        const { noteId } = await createTextNote(ctx, { content: "<p>hello</p>" });
+
+        const full = await ctx.agent.get(`/api/notes/${noteId}/open-partial`).expect(200);
+        expect(full.headers["accept-ranges"]).toBe("bytes");
+        expect(full.text).toBe("<p>hello</p>");
+
+        const ranged = await ctx.agent.get(`/api/notes/${noteId}/open-partial`).set("Range", "bytes=3-7").expect(206);
+        expect(ranged.headers["content-range"]).toBe("bytes 3-7/12");
+        expect(ranged.text).toBe("hello");
+    });
 });

@@ -1,5 +1,4 @@
 import { routes } from "@triliumnext/core";
-import { createPartialContentHandler } from "@triliumnext/express-partial-content";
 import express from "express";
 import rateLimit from "express-rate-limit";
 
@@ -113,29 +112,8 @@ function register(app: express.Application) {
     });
 
     route(PUT, "/api/notes/:noteId/file", [auth.checkApiAuthOrElectron, uploadMiddlewareWithErrorHandling, csrfMiddleware], filesRoute.updateFile, apiResultHandler);
-    asyncRoute(
-        GET,
-        "/api/notes/:noteId/open-partial",
-        [auth.checkApiAuthOrElectron],
-        createPartialContentHandler(filesRoute.fileContentProvider, {
-            debug: (string, extra) => {
-                console.log(string, extra);
-            }
-        })
-    );
     apiRoute(PST, "/api/notes/:noteId/save-to-tmp-dir", filesRoute.saveNoteToTmpDir);
     apiRoute(PST, "/api/notes/:noteId/upload-modified-file", filesRoute.uploadModifiedFileToNote);
-
-    asyncRoute(
-        GET,
-        "/api/attachments/:attachmentId/open-partial",
-        [auth.checkApiAuthOrElectron],
-        createPartialContentHandler(filesRoute.attachmentContentProvider, {
-            debug: (string, extra) => {
-                console.log(string, extra);
-            }
-        })
-    );
 
     apiRoute(PST, "/api/attachments/:attachmentId/save-to-tmp-dir", filesRoute.saveAttachmentToTmpDir);
     apiRoute(PST, "/api/attachments/:attachmentId/upload-modified-file", filesRoute.uploadModifiedFileToAttachment);

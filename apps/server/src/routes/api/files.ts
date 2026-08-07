@@ -3,7 +3,6 @@ import chokidar from "chokidar";
 import type { Request } from "express";
 import fs from "fs";
 import path from "path";
-import { Readable } from "stream";
 import tmp from "tmp";
 
 import { becca } from "@triliumnext/core";
@@ -57,48 +56,6 @@ function updateAttachment(req: Request<{ attachmentId: string }>) {
 
     return {
         uploaded: true
-    };
-}
-
-function fileContentProvider(req: Request<{ noteId: string }>) {
-    // Read the file name from route params.
-    const note = becca.getNoteOrThrow(req.params.noteId);
-
-    // blobId is a content hash, so it's a stable ETag that changes only when the content does.
-    return streamContent(note.getContent(), note.getFileName(), note.mime, note.blobId);
-}
-
-function attachmentContentProvider(req: Request<{ attachmentId: string }>) {
-    // Read the file name from route params.
-    const attachment = becca.getAttachmentOrThrow(req.params.attachmentId);
-
-    return streamContent(attachment.getContent(), attachment.getFileName(), attachment.mime, attachment.blobId);
-}
-
-async function streamContent(content: string | Uint8Array, fileName: string, mimeType: string, etag?: string) {
-    if (typeof content === "string") {
-        content = Buffer.from(content, "utf8");
-    }
-
-    const totalSize = content.byteLength;
-
-    const getStream = (range: { start: number; end: number }) => {
-        if (!range) {
-            // Request if for complete content.
-            return Readable.from(content);
-        }
-        // Partial content request.
-        const { start, end } = range;
-
-        return Readable.from(content.slice(start, end + 1));
-    };
-
-    return {
-        fileName,
-        totalSize,
-        mimeType,
-        etag,
-        getStream
     };
 }
 
@@ -228,10 +185,8 @@ function uploadModifiedFileToAttachment(req: Request<{ attachmentId: string }>) 
 export default {
     updateFile,
     updateAttachment,
-    fileContentProvider,
     saveNoteToTmpDir,
     saveAttachmentToTmpDir,
-    attachmentContentProvider,
     uploadModifiedFileToNote,
     uploadModifiedFileToAttachment
 };

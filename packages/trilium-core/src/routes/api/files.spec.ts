@@ -124,6 +124,76 @@ describe("Files API (core)", () => {
         });
     });
 
+    /**
+     * What the audio/video players stream from. A media element seeks by re-requesting a byte range,
+     * so these have to answer 206 with exactly the slice asked for — a full body every time would
+     * make seeking pull the whole file down again.
+     */
+    describe("byte-range streaming (open-partial)", () => {
+        const PAYLOAD = "0123456789";
+
+        async function createMediaNote(): Promise<string> {
+            const res = await api.post<{ note: { noteId: string } }>("/api/notes/root/children?target=into", {
+                body: { title: "clip.mp3", type: "file", mime: "audio/mpeg", content: PAYLOAD }
+            });
+            expect(res.status).toBe(200);
+            return res.body.note.noteId;
+        }
+
+        function bodyOf(body: unknown): string {
+            return Buffer.isBuffer(body) ? body.toString("utf8") : String(body);
+        }
+
+        it("serves a note's full content, advertising range support", async () => {
+            const noteId = await createMediaNote();
+
+            const res = await api.get(`/api/notes/${noteId}/open-partial`);
+            expect(res.status).toBe(200);
+            expect(bodyOf(res.body)).toBe(PAYLOAD);
+            expect(res.headers["Accept-Ranges"]).toBe("bytes");
+            expect(res.headers["Content-Type"]).toBe("audio/mpeg");
+            // The ETag is the blobId, so it moves only when the content does.
+            expect(res.headers.ETag).toMatch(/^".+"$/);
+        });
+
+        it("serves a requested range of a note as 206", async () => {
+            const noteId = await createMediaNote();
+
+            const res = await api.get(`/api/notes/${noteId}/open-partial`, { headers: { range: "bytes=3-6" } });
+            expect(res.status).toBe(206);
+            expect(bodyOf(res.body)).toBe("3456");
+            expect(res.headers["Content-Range"]).toBe("bytes 3-6/10");
+            expect(res.headers["Content-Length"]).toBe("4");
+        });
+
+        it("serves a requested range of an attachment as 206", async () => {
+            const { noteId } = await createTextNote(api, { title: "Has media attachment" });
+            expect((await api.post(`/api/notes/${noteId}/attachments`, {
+                body: { role: "file", mime: "audio/mpeg", title: "clip.mp3", content: PAYLOAD }
+            })).status).toBe(204);
+            const list = await api.get<AttachmentPojo[]>(`/api/notes/${noteId}/attachments`);
+            const { attachmentId } = list.body[0];
+
+            const res = await api.get(`/api/attachments/${attachmentId}/open-partial`, { headers: { range: "bytes=-2" } });
+            expect(res.status).toBe(206);
+            expect(bodyOf(res.body)).toBe("89");
+            expect(res.headers["Content-Range"]).toBe("bytes 8-9/10");
+        });
+
+        it("416s on a range past the end of the content", async () => {
+            const noteId = await createMediaNote();
+
+            const res = await api.get(`/api/notes/${noteId}/open-partial`, { headers: { range: "bytes=99-120" } });
+            expect(res.status).toBe(416);
+            expect(res.headers["Content-Range"]).toBe("bytes */10");
+        });
+
+        it("404s for a missing note or attachment", async () => {
+            expect((await api.get("/api/notes/missingNote123/open-partial")).status).toBe(404);
+            expect((await api.get("/api/attachments/missingAttachment123/open-partial")).status).toBe(404);
+        });
+    });
+
     describe("office preview", () => {
         // RTF is the only office format that can be created inline as plain text, which makes
         // it ideal to exercise the real officeparser conversion in both runtimes. It also

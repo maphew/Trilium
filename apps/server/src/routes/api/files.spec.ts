@@ -1,7 +1,6 @@
 import { becca, cls, note_service as noteService, ValidationError } from "@triliumnext/core";
 import type { Request } from "express";
 import fs from "fs";
-import { Readable } from "stream";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import filesRoute from "./files.js";
@@ -11,12 +10,6 @@ let attachmentId: string;
 
 function fileReq(params: Record<string, string>, file?: unknown, query: Record<string, string> = {}, body: Record<string, unknown> = {}) {
     return { params, file, query, body } as unknown as Request<{ noteId: string }>;
-}
-
-async function streamToString(stream: Readable) {
-    const chunks: Buffer[] = [];
-    for await (const chunk of stream) chunks.push(Buffer.from(chunk));
-    return Buffer.concat(chunks).toString("utf8");
 }
 
 describe("Files API", () => {
@@ -59,23 +52,6 @@ describe("Files API", () => {
             const file = { buffer: Buffer.from("new-att"), mimetype: "text/plain", originalname: "a.txt" };
             const req = fileReq({ attachmentId } as Record<string, string>, file) as unknown as Request<{ attachmentId: string }>;
             expect(cls.init(() => filesRoute.updateAttachment(req))).toEqual({ uploaded: true });
-        });
-    });
-
-    describe("content providers", () => {
-        it("streams full and ranged note content", async () => {
-            const current = becca.getNoteOrThrow(noteId).getContent() as string;
-            const provider = await filesRoute.fileContentProvider(fileReq({ noteId }));
-            expect(provider.totalSize).toBe(Buffer.byteLength(current));
-            expect(await streamToString(provider.getStream(undefined as never))).toBe(current);
-            expect(await streamToString(provider.getStream({ start: 0, end: 0 }))).toBe(current.slice(0, 1));
-        });
-
-        it("streams attachment content", async () => {
-            const req = fileReq({ attachmentId } as Record<string, string>) as unknown as Request<{ attachmentId: string }>;
-            const provider = await filesRoute.attachmentContentProvider(req);
-            expect(provider.mimeType).toBe("text/plain");
-            expect(await streamToString(provider.getStream(undefined as never))).toBe("new-att");
         });
     });
 
