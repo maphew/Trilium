@@ -33,11 +33,23 @@ export interface CardProps {
     heading?: string;
     /** Sentence introducing the card, shown between the heading and the first section. */
     description?: ComponentChildren;
+    /**
+     * Controls for the card as a whole, kept at the far end of its heading — a help mark, or a
+     * button that adds to what the card holds.
+     *
+     * Taken as children rather than named one by one, so that the card needs no import of its own
+     * for them: `Card` is in the login and setup bundles, which have no business pulling in the app
+     * a help mark would reach for.
+     */
+    actions?: ComponentChildren;
 }
 
 export function Card(props: {children: ComponentChildren} & CardProps) {
     return <div className={clsx("tn-card", props.className)}>
-        {props.heading && <h5 class="tn-card-heading">{props.heading}</h5>}
+        {(props.heading || props.actions) && <h5 class="tn-card-heading">
+            {props.heading}
+            {props.actions && <span className="tn-card-heading-actions">{props.actions}</span>}
+        </h5>}
         {props.description && <p className="tn-card-description">{props.description}</p>}
         <div className="tn-card-body">
             {props.children}
