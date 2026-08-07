@@ -269,7 +269,7 @@ async function initialize(): Promise<void> {
                 request: useNativeHttp ? new BridgedRequestProvider() : new FetchRequestProvider(),
                 platform: new StandalonePlatformProvider(queryString),
                 log: logService,
-                backup: new StandaloneBackupService(coreModule!.options),
+                backup: new StandaloneBackupService(coreModule!.options, () => sqlProvider ?? undefined),
                 translations: translationProvider,
                 schema: schemaModule.default,
                 getDemoArchive: async () => {

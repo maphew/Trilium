@@ -1,35 +1,77 @@
-import { getSql, options } from "@triliumnext/core";
+import { readBackupContainer } from "@triliumnext/backup-container";
+import { peekBackupContainer } from "@triliumnext/backup-container/web";
+import { options } from "@triliumnext/core";
+import { Readable, Writable } from "stream";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import StandaloneBackupService from "./backup_provider.js";
+import StandaloneBackupService, {
+    type BackupSqlAccess,
+    type SnapshotPool
+} from "./backup_provider.js";
 
 interface NavWithStorage {
-    storage?: { getDirectory?: () => Promise<unknown> };
+    storage?: {
+        getDirectory?: () => Promise<unknown>;
+        estimate?: () => Promise<{ quota?: number; usage?: number }>;
+    };
 }
 
 const realStorageDescriptor = Object.getOwnPropertyDescriptor(navigator, "storage");
 
-/** Build an in-memory OPFS directory handle backed by a Map. */
+/**
+ * An in-memory OPFS directory backed by a Map, close enough for the service: file handles carry
+ * `getFile` (with `slice`, for the container header peek) and `createSyncAccessHandle` (which is
+ * how backups are written).
+ */
 function makeOpfs(seed: Record<string, { data: Uint8Array; lastModified: number }> = {}) {
     const files = new Map(Object.entries(seed));
+    const failures = { syncAccess: false };
+    let clock = 1000;
 
     function fileHandle(name: string) {
         return {
             kind: "file" as const,
             async getFile() {
                 const entry = files.get(name);
+                const data = entry?.data ?? new Uint8Array();
                 return {
                     lastModified: entry?.lastModified ?? 0,
+                    size: data.byteLength,
+                    slice(start?: number, end?: number) {
+                        const part = data.slice(start, end);
+                        return { async arrayBuffer() {
+                            return part.buffer.slice(part.byteOffset, part.byteOffset + part.byteLength);
+                        } };
+                    },
                     async arrayBuffer() {
-                        return (entry?.data ?? new Uint8Array()).buffer;
+                        return data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength);
                     }
                 };
             },
-            async createWritable() {
-                let chunk = new Uint8Array();
+            async createSyncAccessHandle() {
+                if (failures.syncAccess) {
+                    throw new Error("file is locked");
+                }
                 return {
-                    async write(d: Uint8Array) { chunk = d; },
-                    async close() { files.set(name, { data: chunk, lastModified: 1000 }); }
+                    write(buffer: Uint8Array, opts?: { at?: number }) {
+                        const at = opts?.at ?? 0;
+                        const current = files.get(name)?.data ?? new Uint8Array();
+                        const grown = at + buffer.byteLength > current.byteLength
+                            ? new Uint8Array(at + buffer.byteLength)
+                            : current;
+                        if (grown !== current) {
+                            grown.set(current);
+                        }
+                        grown.set(buffer, at);
+                        files.set(name, { data: grown, lastModified: clock++ });
+                        return buffer.byteLength;
+                    },
+                    truncate(size: number) {
+                        const current = files.get(name)?.data ?? new Uint8Array();
+                        files.set(name, { data: current.slice(0, size), lastModified: clock++ });
+                    },
+                    flush() {},
+                    close() {}
                 };
             }
         };
@@ -37,32 +79,130 @@ function makeOpfs(seed: Record<string, { data: Uint8Array; lastModified: number 
 
     const dir = {
         async getFileHandle(name: string, opts?: { create?: boolean }) {
-            if (!files.has(name) && opts?.create) {
-                files.set(name, { data: new Uint8Array(), lastModified: 0 });
-            }
             if (!files.has(name)) {
-                throw new Error(`missing ${name}`);
+                if (!opts?.create) {
+                    throw new Error(`missing ${name}`);
+                }
+                files.set(name, { data: new Uint8Array(), lastModified: clock++ });
             }
             return fileHandle(name);
         },
-        async removeEntry(name: string) { files.delete(name); },
+        async removeEntry(name: string) {
+            if (!files.delete(name)) {
+                throw new Error(`missing ${name}`);
+            }
+        },
         async *entries(): AsyncGenerator<[string, unknown]> {
-            // include a directory entry and a non-matching file to exercise filtering
-            yield ["nested", { kind: "directory" }];
-            for (const [name, entry] of files) {
-                yield [name, {
-                    kind: "file",
-                    async getFile() { return { lastModified: entry.lastModified, size: entry.data.byteLength }; }
-                }];
+            // A directory entry and a non-backup file exercise the listing filters.
+            yield [ "nested", { kind: "directory" } ];
+            for (const name of [ ...files.keys() ]) {
+                yield [ name, fileHandle(name) ];
             }
         }
     };
 
-    return { dir, files, root: { async getDirectoryHandle() { return dir; } } };
+    return { dir, files, failures, root: { async getDirectoryHandle() { return dir; } } };
 }
 
-function installOpfs(getDirectory: () => Promise<unknown>) {
-    Object.defineProperty(navigator, "storage", { value: { getDirectory }, configurable: true });
+function installOpfs(
+    getDirectory: () => Promise<unknown>,
+    estimate?: () => Promise<{ quota?: number; usage?: number }>
+) {
+    Object.defineProperty(navigator, "storage", {
+        value: { getDirectory, estimate },
+        configurable: true
+    });
+}
+
+/** What the first page must start with: the container reader refuses payloads without it. */
+const SQLITE_MAGIC = new TextEncoder().encode("SQLite format 3\u0000");
+
+/** One fake page: filled with its own number, except that page 1 opens like a real database. */
+function pageBytes(page: number, pageSize: number): Uint8Array {
+    const bytes = new Uint8Array(pageSize).fill(page & 0xff);
+    if (page === 1) {
+        bytes.set(SQLITE_MAGIC);
+        // Big-endian page size at offset 16, which the container reader checks as well.
+        bytes[16] = pageSize >> 8;
+        bytes[17] = pageSize & 0xff;
+    }
+    return bytes;
+}
+
+/**
+ * A SQL provider whose pool serves `pageCount` pages of `pageSize` bytes for whatever snapshot
+ * name is opened. What the service executed and unlinked is recorded for the assertions.
+ */
+function makeSqlAccess({ pageSize = 512, pageCount = 8, free = 1 } = {}) {
+    const executed: string[] = [];
+    const unlinked: string[] = [];
+    const capacityAdded: number[] = [];
+
+    class FakePoolDb {
+        constructor(readonly name: string) {}
+        selectValue(sql: string) {
+            return sql.includes("page_size") ? pageSize : pageCount;
+        }
+        prepare() {
+            let page = 0;
+            return {
+                bind: (values: unknown[]) => void (page = values[0] as number),
+                step: () => page >= 1 && page <= pageCount,
+                get: () => [ pageBytes(page, pageSize) ],
+                reset: () => undefined,
+                finalize: () => undefined
+            };
+        }
+        close() {}
+    }
+
+    const pool = {
+        OpfsSAHPoolDb: FakePoolDb,
+        unlink: (name: string) => {
+            unlinked.push(name);
+            return true;
+        },
+        getFileCount: () => 6 - free,
+        getCapacity: () => 6,
+        addCapacity: async (entries: number) => {
+            capacityAdded.push(entries);
+            return 6 + entries;
+        }
+    } as unknown as SnapshotPool;
+
+    const access: BackupSqlAccess = {
+        exec: (sql: string) => void executed.push(sql),
+        sahPool: pool
+    };
+
+    return { access, executed, unlinked, capacityAdded, pool };
+}
+
+function service(access?: BackupSqlAccess) {
+    return new StandaloneBackupService(options, () => access);
+}
+
+/** Unwraps a container through the Node reader, proving the web writer's output reads back. */
+async function unwrapContainer(container: Uint8Array): Promise<Uint8Array> {
+    const chunks: Buffer[] = [];
+    const sink = new Writable({
+        write(chunk: Buffer, _encoding, callback) {
+            chunks.push(chunk);
+            callback();
+        }
+    });
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a Node stream over the bytes.
+    await readBackupContainer(Readable.from([ Buffer.from(container) ]) as any, sink);
+    return new Uint8Array(Buffer.concat(chunks));
+}
+
+/** The bytes the fake pool's snapshot streams out as: pages 1..n, laid end to end. */
+function expectedSnapshotBytes(pageSize = 512, pageCount = 8): Uint8Array {
+    const bytes = new Uint8Array(pageSize * pageCount);
+    for (let page = 1; page <= pageCount; page++) {
+        bytes.set(pageBytes(page, pageSize), (page - 1) * pageSize);
+    }
+    return bytes;
 }
 
 afterEach(() => {
@@ -77,7 +217,7 @@ afterEach(() => {
 describe("StandaloneBackupService without OPFS", () => {
     function serviceWithoutOpfs() {
         delete (navigator as unknown as NavWithStorage).storage;
-        return new StandaloneBackupService(options);
+        return service(makeSqlAccess().access);
     }
 
     it("scheduleBackups is a no-op", () => {
@@ -86,117 +226,261 @@ describe("StandaloneBackupService without OPFS", () => {
 
     it("backupNow warns and returns the nominal path", async () => {
         const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-        const service = serviceWithoutOpfs();
-        expect(await service.backupNow("now")).toBe("/backups/backup-now.db");
+        expect(await serviceWithoutOpfs().backupNow("now")).toBe("/backups/backup-now.db");
         expect(warn).toHaveBeenCalled();
+    });
+
+    it("backupAs refuses outright, because its caller shows the result to the user", async () => {
+        await expect(serviceWithoutOpfs().backupAs("Backup 1")).rejects.toThrow(/OPFS/);
     });
 
     it("listing, deleting and reading return empty results", async () => {
-        const service = serviceWithoutOpfs();
-        expect(await service.getExistingBackups()).toEqual([]);
-        await expect(service.deleteBackup("backup-x.db")).resolves.toBeUndefined();
-        expect(await service.getBackupContent("/backups/backup-x.db")).toBeNull();
-    });
-
-    it("ensureBackupDirectory resolves to null when OPFS is unavailable", async () => {
-        const service = serviceWithoutOpfs();
-        const ensure = (service as unknown as { ensureBackupDirectory(): Promise<unknown> }).ensureBackupDirectory();
-        expect(await ensure).toBeNull();
+        const svc = serviceWithoutOpfs();
+        expect(await svc.getExistingBackups()).toEqual([]);
+        await expect(svc.deleteBackup("backup-x.db")).resolves.toBeUndefined();
+        expect(await svc.getBackupContent("/backups/backup-x.db")).toBeNull();
     });
 });
 
-describe("StandaloneBackupService with OPFS", () => {
-    it("writes a serialized backup and reports the path", async () => {
+describe("StandaloneBackupService writing backups", () => {
+    it("streams a plain .db backup out of a vacuumed pool snapshot", async () => {
+        const fs = makeOpfs();
+        installOpfs(async () => fs.root);
+        vi.spyOn(console, "log").mockImplementation(() => {});
+        const sql = makeSqlAccess();
+
+        const path = await service(sql.access).backupNow("daily");
+
+        expect(path).toBe("/backups/backup-daily.db");
+        expect(fs.files.get("backup-daily.db")?.data).toEqual(expectedSnapshotBytes());
+        expect(fs.files.has("backup-daily.db.part")).toBe(false);
+        expect(sql.executed).toEqual([ "VACUUM INTO '/backup-snapshot.db'" ]);
+        // Unlinked once to clear the name for the vacuum and once to clean up after.
+        expect(sql.unlinked).toEqual([ "/backup-snapshot.db", "/backup-snapshot.db" ]);
+        // One free slot is one short of snapshot plus journal.
+        expect(sql.capacityAdded).toEqual([ 1 ]);
+    });
+
+    it("sanitizes the backup name the way the server does", async () => {
         const fs = makeOpfs();
         installOpfs(async () => fs.root);
         vi.spyOn(console, "log").mockImplementation(() => {});
 
-        const service = new StandaloneBackupService(options);
-        const path = await service.backupNow("daily");
-        expect(path).toBe("/backups/backup-daily.db");
-        expect(fs.files.get("backup-daily.db")?.data.byteLength).toBeGreaterThan(0);
+        expect(await service(makeSqlAccess().access).backupNow("../evil name"))
+            .toBe("/backups/backup-evilname.db");
+        expect(fs.files.has("backup-evilname.db")).toBe(true);
     });
 
-    it("leaves a database too large to hold in memory unbacked-up", async () => {
+    it("wraps the backup in a compressed container when the option asks for it", async () => {
+        const fs = makeOpfs({
+            // A stale plain copy under the same base name, which the container must retire.
+            "backup-daily.db": { data: new Uint8Array(4), lastModified: 1 }
+        });
+        installOpfs(async () => fs.root);
+        vi.spyOn(console, "log").mockImplementation(() => {});
+        vi.spyOn(options, "getOptionOrNull").mockImplementation(
+            (name: string) => name === "backupEnableCompression" ? "true" : null
+        );
+
+        const path = await service(makeSqlAccess().access).backupNow("daily");
+        expect(path).toBe("/backups/backup-daily.tnbackup");
+
+        const container = fs.files.get("backup-daily.tnbackup")?.data;
+        if (!container) {
+            throw new Error("no container was written");
+        }
+        const info = peekBackupContainer(container.slice(0, 256));
+        expect(info?.compressed).toBe(true);
+        expect(info?.encrypted).toBe(false);
+        expect(info?.plaintextSize).toBe(expectedSnapshotBytes().byteLength);
+
+        expect(await unwrapContainer(container)).toEqual(expectedSnapshotBytes());
+        expect(fs.files.has("backup-daily.db")).toBe(false);
+    });
+
+    it("refuses to start when the quota cannot hold the database", async () => {
+        const fs = makeOpfs();
+        installOpfs(async () => fs.root, async () => ({ quota: 100, usage: 100 }));
+        const error = vi.spyOn(console, "error").mockImplementation(() => {});
+        const sql = makeSqlAccess();
+
+        await service(sql.access).backupNow("daily");
+
+        expect(sql.executed).toEqual([]);
+        expect(fs.files.size).toBe(0);
+        expect(error.mock.calls.join("\n")).toMatch(/browser storage/);
+
+        await expect(service(sql.access).backupAs("Backup 1")).rejects.toThrow(/browser storage/);
+    });
+
+    it("cleans up the ruined file and marker when the stream fails mid-write", async () => {
         const fs = makeOpfs();
         installOpfs(async () => fs.root);
-        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-        // Serializing builds the whole database in the WebAssembly heap twice over, so past a size
-        // the attempt takes the tab down rather than failing. Nothing is written instead.
-        vi.spyOn(getSql(), "getValue").mockReturnValue(4 * 1024 * 1024 * 1024);
-        const serialize = vi.spyOn(getSql(), "serialize");
+        vi.spyOn(console, "error").mockImplementation(() => {});
+        const sql = makeSqlAccess();
+        // Pages come back the wrong size, which errors the stream partway through.
+        sql.pool.OpfsSAHPoolDb = class {
+            selectValue(query: string) {
+                return query.includes("page_size") ? 512 : 8;
+            }
+            prepare() {
+                return {
+                    bind: () => undefined,
+                    step: () => true,
+                    get: () => [ new Uint8Array(3) ],
+                    reset: () => undefined,
+                    finalize: () => undefined
+                };
+            }
+            close() {}
+        } as unknown as SnapshotPool["OpfsSAHPoolDb"];
 
-        expect(await new StandaloneBackupService(options).backupNow("before-migration"))
-            .toBe("/backups/backup-before-migration.db");
+        await service(sql.access).backupNow("daily");
 
-        expect(serialize).not.toHaveBeenCalled();
-        expect(fs.files.size).toBe(0);
-        expect(warn).toHaveBeenCalled();
+        expect(fs.files.has("backup-daily.db")).toBe(false);
+        expect(fs.files.has("backup-daily.db.part")).toBe(false);
+        // The snapshot does not outlive the failure either.
+        expect(sql.unlinked).toEqual([ "/backup-snapshot.db", "/backup-snapshot.db" ]);
     });
 
-    it("lists matching backups newest-first and ignores non-backup entries", async () => {
+    it("keeps an older backup of the same name when the new file never opened", async () => {
+        const previous = new Uint8Array([ 9, 9, 9 ]);
+        const fs = makeOpfs({ "backup-daily.db": { data: previous, lastModified: 5 } });
+        fs.failures.syncAccess = true;
+        installOpfs(async () => fs.root);
+        vi.spyOn(console, "error").mockImplementation(() => {});
+
+        await service(makeSqlAccess().access).backupNow("daily");
+
+        expect(fs.files.get("backup-daily.db")?.data).toEqual(previous);
+        expect(fs.files.has("backup-daily.db.part")).toBe(false);
+    });
+
+    it("sweeps out an abandoned partial backup before writing the next one", async () => {
+        const fs = makeOpfs({
+            "backup-crashed.tnbackup": { data: new Uint8Array(10), lastModified: 1 },
+            "backup-crashed.tnbackup.part": { data: new Uint8Array(), lastModified: 2 }
+        });
+        installOpfs(async () => fs.root);
+        vi.spyOn(console, "log").mockImplementation(() => {});
+
+        await service(makeSqlAccess().access).backupNow("daily");
+
+        expect(fs.files.has("backup-crashed.tnbackup")).toBe(false);
+        expect(fs.files.has("backup-crashed.tnbackup.part")).toBe(false);
+        expect(fs.files.has("backup-daily.db")).toBe(true);
+    });
+
+    it("fails gracefully when no SQL access was wired in", async () => {
+        installOpfs(async () => makeOpfs().root);
+        const error = vi.spyOn(console, "error").mockImplementation(() => {});
+
+        expect(await service(undefined).backupNow("daily")).toBe("/backups/backup-daily.db");
+        expect(error).toHaveBeenCalled();
+    });
+
+    it("backupAs reports what it wrote and keeps path separators out of the name", async () => {
+        const fs = makeOpfs();
+        installOpfs(async () => fs.root);
+        vi.spyOn(console, "log").mockImplementation(() => {});
+
+        const written = await service(makeSqlAccess().access).backupAs("Backup 2026/08/07");
+
+        expect(written).toEqual({
+            fileName: "Backup 2026-08-07.db",
+            filePath: "/backups/Backup 2026-08-07.db",
+            directoryPath: "/backups",
+            fileSize: expectedSnapshotBytes().byteLength,
+            encrypted: false
+        });
+        expect(fs.files.has("Backup 2026-08-07.db")).toBe(true);
+    });
+});
+
+describe("StandaloneBackupService listing and reading", () => {
+    it("lists backups of both shapes newest-first, with container metadata", async () => {
         const fs = makeOpfs({
             "backup-old.db": { data: new Uint8Array(3), lastModified: 100 },
-            "backup-new.db": { data: new Uint8Array(8), lastModified: 200 },
             "notes.txt": { data: new Uint8Array(), lastModified: 300 }
         });
         installOpfs(async () => fs.root);
+        vi.spyOn(console, "log").mockImplementation(() => {});
+        vi.spyOn(options, "getOptionOrNull").mockImplementation(
+            (name: string) => name === "backupEnableCompression" ? "true" : null
+        );
 
-        const backups = await new StandaloneBackupService(options).getExistingBackups();
-        expect(backups.map(b => b.fileName)).toEqual(["backup-new.db", "backup-old.db"]);
-        expect(backups[0].filePath).toBe("/backups/backup-new.db");
-        expect(backups.map(b => b.fileSize)).toEqual([8, 3]);
+        await service(makeSqlAccess().access).backupNow("new");
+        const backups = await service(makeSqlAccess().access).getExistingBackups();
+
+        expect(backups.map((backup) => backup.fileName))
+            .toEqual([ "backup-new.tnbackup", "backup-old.db" ]);
+        expect(backups[0].compressed).toBe(true);
+        expect(backups[0].encrypted).toBe(false);
+        expect(backups[0].plaintextSize).toBe(expectedSnapshotBytes().byteLength);
+        expect(backups[1].compressed).toBeUndefined();
+        expect(backups[1].filePath).toBe("/backups/backup-old.db");
     });
 
-    it("reads and deletes a backup by path/name", async () => {
-        const fs = makeOpfs({ "backup-keep.db": { data: new Uint8Array([1, 2, 3]), lastModified: 1 } });
+    it("does not list a backup its marker disowns", async () => {
+        const fs = makeOpfs({
+            "backup-good.db": { data: new Uint8Array(3), lastModified: 100 },
+            "backup-half.tnbackup": { data: new Uint8Array(5), lastModified: 200 },
+            "backup-half.tnbackup.part": { data: new Uint8Array(), lastModified: 201 }
+        });
+        installOpfs(async () => fs.root);
+
+        const backups = await service(makeSqlAccess().access).getExistingBackups();
+        expect(backups.map((backup) => backup.fileName)).toEqual([ "backup-good.db" ]);
+    });
+
+    it("reads and deletes a backup by path/name, marker included", async () => {
+        const fs = makeOpfs({
+            "backup-keep.tnbackup": { data: new Uint8Array([ 1, 2, 3 ]), lastModified: 1 },
+            "backup-keep.tnbackup.part": { data: new Uint8Array(), lastModified: 2 }
+        });
         installOpfs(async () => fs.root);
         vi.spyOn(console, "log").mockImplementation(() => {});
 
-        const service = new StandaloneBackupService(options);
-        const content = await service.getBackupContent("/backups/backup-keep.db");
-        expect(content && Array.from(content)).toEqual([1, 2, 3]);
+        const svc = service(makeSqlAccess().access);
+        const content = await svc.getBackupContent("/backups/backup-keep.tnbackup");
+        expect(content && Array.from(content)).toEqual([ 1, 2, 3 ]);
 
-        await service.deleteBackup("backup-keep.db");
-        expect(fs.files.has("backup-keep.db")).toBe(false);
+        await svc.deleteBackup("backup-keep.tnbackup");
+        expect(fs.files.has("backup-keep.tnbackup")).toBe(false);
+        expect(fs.files.has("backup-keep.tnbackup.part")).toBe(false);
     });
 
     it("returns null when the requested file name is not a backup", async () => {
         installOpfs(async () => makeOpfs().root);
-        const service = new StandaloneBackupService(options);
-        expect(await service.getBackupContent("/backups/secrets.txt")).toBeNull();
+        expect(await service(makeSqlAccess().access).getBackupContent("/backups/secrets.txt"))
+            .toBeNull();
     });
 
     it("handles a missing backup directory handle gracefully", async () => {
-        // root.getDirectoryHandle resolves to undefined → ensureBackupDirectory() returns null.
+        // root.getDirectoryHandle resolves to undefined → every operation degrades quietly.
         const root = { async getDirectoryHandle() { return undefined; } };
         installOpfs(async () => root);
-        vi.spyOn(console, "warn").mockImplementation(() => {});
+        vi.spyOn(console, "error").mockImplementation(() => {});
 
-        const service = new StandaloneBackupService(options);
-        expect(await service.backupNow("x")).toBe("/backups/backup-x.db");
-        expect(await service.getExistingBackups()).toEqual([]);
-        await expect(service.deleteBackup("backup-x.db")).resolves.toBeUndefined();
-        expect(await service.getBackupContent("/backups/backup-x.db")).toBeNull();
+        const svc = service(makeSqlAccess().access);
+        expect(await svc.backupNow("x")).toBe("/backups/backup-x.db");
+        expect(await svc.getExistingBackups()).toEqual([]);
+        await expect(svc.deleteBackup("backup-x.db")).resolves.toBeUndefined();
+        expect(await svc.getBackupContent("/backups/backup-x.db")).toBeNull();
     });
 
-    it("swallows OPFS errors on every operation", async () => {
-        const boom = async () => { throw new Error("opfs down"); };
+    it("swallows OPFS errors on every operation but backupAs", async () => {
+        const boom = async () => {
+            throw new Error("opfs down");
+        };
         installOpfs(boom);
         vi.spyOn(console, "error").mockImplementation(() => {});
 
-        const service = new StandaloneBackupService(options);
-        expect(await service.backupNow("x")).toBe("/backups/backup-x.db");
-        expect(await service.getExistingBackups()).toEqual([]);
-        await expect(service.deleteBackup("backup-x.db")).resolves.toBeUndefined();
-        expect(await service.getBackupContent("/backups/backup-x.db")).toBeNull();
-    });
-
-    it("caches the OPFS availability probe", async () => {
-        installOpfs(async () => makeOpfs().root);
-        const service = new StandaloneBackupService(options);
-        // Two calls; the second should reuse the cached availability flag.
-        await service.getExistingBackups();
-        await service.getExistingBackups();
+        const svc = service(makeSqlAccess().access);
+        expect(await svc.backupNow("x")).toBe("/backups/backup-x.db");
+        expect(await svc.getExistingBackups()).toEqual([]);
+        await expect(svc.deleteBackup("backup-x.db")).resolves.toBeUndefined();
+        expect(await svc.getBackupContent("/backups/backup-x.db")).toBeNull();
+        await expect(svc.backupAs("Backup 1")).rejects.toThrow("opfs down");
     });
 });
