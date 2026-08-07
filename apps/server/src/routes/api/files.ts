@@ -1,4 +1,4 @@
-import { note_service as noteService, ValidationError, ws } from "@triliumnext/core";
+import { ValidationError, ws } from "@triliumnext/core";
 import chokidar from "chokidar";
 import type { Request } from "express";
 import fs from "fs";
@@ -9,55 +9,6 @@ import { becca } from "@triliumnext/core";
 import dataDirs from "../../services/data_dir.js";
 import { getLog } from "@triliumnext/core";
 import utils from "../../services/utils.js";
-
-function updateFile(req: Request<{ noteId: string }>) {
-    const note = becca.getNoteOrThrow(req.params.noteId);
-
-    const file = req.file;
-    if (!file) {
-        return {
-            uploaded: false,
-            message: `Missing file.`
-        };
-    }
-
-    if (req.query.replace !== "1") {
-        note.saveRevision();
-    }
-
-    note.mime = file.mimetype.toLowerCase();
-    note.save();
-
-    note.setContent(file.buffer);
-
-    note.setLabel("originalFileName", file.originalname);
-
-    void noteService.asyncPostProcessContent(note, file.buffer);
-
-    return {
-        uploaded: true
-    };
-}
-
-function updateAttachment(req: Request<{ attachmentId: string }>) {
-    const attachment = becca.getAttachmentOrThrow(req.params.attachmentId);
-    const file = req.file;
-    if (!file) {
-        return {
-            uploaded: false,
-            message: `Missing file.`
-        };
-    }
-
-    attachment.getNote().saveRevision();
-
-    attachment.mime = file.mimetype.toLowerCase();
-    attachment.setContent(file.buffer, { forceSave: true });
-
-    return {
-        uploaded: true
-    };
-}
 
 function saveNoteToTmpDir(req: Request<{ noteId: string }>) {
     const note = becca.getNoteOrThrow(req.params.noteId);
@@ -183,8 +134,6 @@ function uploadModifiedFileToAttachment(req: Request<{ attachmentId: string }>) 
 }
 
 export default {
-    updateFile,
-    updateAttachment,
     saveNoteToTmpDir,
     saveAttachmentToTmpDir,
     uploadModifiedFileToNote,

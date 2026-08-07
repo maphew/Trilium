@@ -260,6 +260,8 @@ export function buildSharedApiRoutes({ route, asyncRoute, apiRoute, asyncApiRout
     // this "hacky" path is used for easier referencing of CSS resources
     route(GET, "/api/attachments/download/:attachmentId", [checkApiAuthOrElectron], filesRoute.downloadAttachment);
     route(GET, "/api/revisions/:revisionId/download", [checkApiAuthOrElectron], revisionsApiRoute.downloadRevision);
+    route(PUT, "/api/notes/:noteId/file", [checkApiAuthOrElectron, uploadMiddlewareWithErrorHandling, csrfMiddleware], filesRoute.updateFile, apiResultHandler);
+    route(PUT, "/api/attachments/:attachmentId/file", [checkApiAuthOrElectron, uploadMiddlewareWithErrorHandling, csrfMiddleware], filesRoute.updateAttachment, apiResultHandler);
     //#endregion
 
     //#region Export

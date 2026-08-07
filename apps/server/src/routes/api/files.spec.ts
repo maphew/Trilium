@@ -24,37 +24,6 @@ describe("Files API", () => {
         });
     });
 
-    describe("updateFile", () => {
-        it("reports a missing file", () => {
-            expect(cls.init(() => filesRoute.updateFile(fileReq({ noteId })))).toEqual({ uploaded: false, message: "Missing file." });
-        });
-
-        it("replaces note content without a revision when replace=1", () => {
-            const file = { buffer: Buffer.from("replaced"), mimetype: "TEXT/Plain", originalname: "new.txt" };
-            const result = cls.init(() => filesRoute.updateFile(fileReq({ noteId }, file, { replace: "1" })));
-            expect(result).toEqual({ uploaded: true });
-            expect(becca.getNoteOrThrow(noteId).mime).toBe("text/plain");
-        });
-
-        it("saves a revision when not replacing", () => {
-            const file = { buffer: Buffer.from("v2"), mimetype: "text/plain", originalname: "v2.txt" };
-            expect(cls.init(() => filesRoute.updateFile(fileReq({ noteId }, file)))).toEqual({ uploaded: true });
-        });
-    });
-
-    describe("updateAttachment", () => {
-        it("reports a missing file", () => {
-            const req = fileReq({ attachmentId } as Record<string, string>) as unknown as Request<{ attachmentId: string }>;
-            expect(cls.init(() => filesRoute.updateAttachment(req))).toEqual({ uploaded: false, message: "Missing file." });
-        });
-
-        it("updates attachment content", () => {
-            const file = { buffer: Buffer.from("new-att"), mimetype: "text/plain", originalname: "a.txt" };
-            const req = fileReq({ attachmentId } as Record<string, string>, file) as unknown as Request<{ attachmentId: string }>;
-            expect(cls.init(() => filesRoute.updateAttachment(req))).toEqual({ uploaded: true });
-        });
-    });
-
     describe("temp-dir round trip", () => {
         it("saves a note to a temp file then uploads the modified content back", () => {
             const { tmpFilePath } = cls.init(() => filesRoute.saveNoteToTmpDir(fileReq({ noteId })));

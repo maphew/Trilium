@@ -60,6 +60,31 @@ describe("registerRoutes (real wiring)", () => {
         expect(extra.isMainWindow).toBe(false);
     });
 
+    // The upload path end to end: a real FormData body, parsed by the router into the `req.file`
+    // the handler reads. What the PDF viewer saves annotations through, and what "upload new
+    // revision" sends — on the server multer builds that object, here the router does.
+    it("writes an uploaded file over a note", async () => {
+        const created = parseJson((await router.dispatch("POST", "http://localhost/api/notes/root/children?target=into",
+            { title: "notes.txt", type: "file", mime: "text/plain", content: "original" })).body) as { note: { noteId: string } };
+        const { noteId } = created.note;
+
+        const form = new FormData();
+        form.append("upload", new File([ "uploaded" ], "notes.txt", { type: "text/plain" }));
+        // One Response for both: each encoding of a FormData picks its own boundary, so a body and a
+        // content-type taken from two of them describe different messages and parse as neither.
+        const encoded = new Response(form);
+        const contentType = encoded.headers.get("content-type") ?? "";
+        const body = await encoded.arrayBuffer();
+
+        const res = await router.dispatch("PUT", `http://localhost/api/notes/${noteId}/file?replace=1`, body, {
+            "content-type": contentType
+        });
+
+        expect(res.status).toBe(200);
+        expect(parseJson(res.body)).toEqual({ uploaded: true });
+        expect(text((await router.dispatch("GET", `http://localhost/api/notes/${noteId}/open`)).body)).toBe("uploaded");
+    });
+
     // The whole standalone media path in one request: the core handler slices the note's content,
     // the mock response carries the slice out as a raw response, and the router turns the view into
     // exactly those bytes. This is what an <audio>/<video> element does every time it seeks.
