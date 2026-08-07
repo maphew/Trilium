@@ -477,7 +477,12 @@
   "text-editor": {
     "validation-errors": {
       "missing-icon": "eksik simge",
-      "undefined-name": "tanımsız tanımlayıcı"
+      "undefined-name": "tanımsız tanımlayıcı",
+      "invalid-name": "geçersiz tanımlayıcı",
+      "duplicate-name": "yinelenen tanımlayıcı",
+      "missing-title": "eksik başlık",
+      "invalid-symbol": "markdown sembolü \"[\", \" \", \"X\" ve \"]\" hariç tek bir karakter olmalıdır",
+      "duplicate-symbol": "yinelenen markdown sembolü"
     },
     "ck": {
       "align-text-to-the-center": "Metni merkeze hizala",
