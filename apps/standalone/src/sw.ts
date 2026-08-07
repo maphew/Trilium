@@ -92,23 +92,65 @@ async function networkFirst(request) {
     /* v8 ignore stop */
 }
 
-async function forwardToClientLocalServer(request, _clientId) {
-    // Find the main app window to handle the request
-    // We must route to the main app (which has the local bridge), not iframes like PDF.js viewer
+// Only one tab owns the database (it holds the Web Lock and is the only one with
+// a worker), so every tab's API traffic has to reach that specific tab. This is
+// a cache: the service worker is evicted when idle and loses it, so a miss falls
+// back to probing the open tabs.
+let leaderClientId = null;
+
+self.addEventListener("message", (event) => {
+    if (event.data?.type === "LEADER_ANNOUNCE" && event.source) {
+        leaderClientId = event.source.id;
+    }
+});
+
+function isMainAppWindow(client) {
+    const url = new URL(client.url);
+    // Main app is at root or index.html, not in /pdfjs/ or other iframe paths,
+    // which have no local bridge of their own.
+    return !url.pathname.startsWith("/pdfjs/");
+}
+
+/**
+ * Ask each candidate tab whether it is the leader. Used when the cached id is
+ * missing or stale; the answer is cached again for subsequent requests.
+ */
+async function findLeader(candidates) {
+    for (const candidate of candidates) {
+        const channel = new MessageChannel();
+        const replied = new Promise((resolve) => {
+            const timeout = setTimeout(() => resolve(null), 1_000);
+            channel.port1.onmessage = (event) => {
+                clearTimeout(timeout);
+                resolve(event.data);
+            };
+        });
+
+        candidate.postMessage({ type: "WHO_IS_LEADER" }, [channel.port2]);
+        const answer = await replied;
+        if (answer?.isLeader) {
+            leaderClientId = candidate.id;
+            return candidate;
+        }
+    }
+    return null;
+}
+
+async function forwardToClientLocalServer(request, _clientId, retried = false) {
     // @ts-expect-error - self.clients is valid in service worker context
     const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    const candidates = all.filter(isMainAppWindow);
 
-    // Find the main app window - it's the one NOT serving pdfjs or other embedded content
-    // The main app has the local bridge handler for LOCAL_FETCH messages
-    let client = all.find((c: { url: string }) => {
-        const url = new URL(c.url);
-        // Main app is at root or index.html, not in /pdfjs/ or other iframe paths
-        return !url.pathname.startsWith("/pdfjs/");
-    }) || null;
-
-    // If no main app window found, fall back to any available client
+    let client = candidates.find((c) => c.id === leaderClientId) || null;
     if (!client) {
-        client = all[0] || null;
+        client = await findLeader(candidates);
+    }
+
+    // No leader answered (e.g. the old one is closing and the next has not been
+    // promoted yet). Fall back to the first app window rather than dropping the
+    // request; if it is not the leader it replies NOT_LEADER and we retry below.
+    if (!client) {
+        client = candidates[0] || all[0] || null;
     }
 
     // If no page is available, fall back to network
@@ -118,9 +160,13 @@ async function forwardToClientLocalServer(request, _clientId) {
     const headersObj = {};
     for (const [k, v] of request.headers.entries()) headersObj[k] = v;
 
+    // Read from a clone: `request` itself must stay unconsumed so the NOT_LEADER
+    // path below can forward it again (or hand it to fetch()). Reading it
+    // directly makes any body-bearing retry fail with "Body has already been
+    // read".
     const body = (request.method === "GET" || request.method === "HEAD")
         ? null
-        : await request.arrayBuffer();
+        : await request.clone().arrayBuffer();
 
     const id = crypto.randomUUID();
     const channel = new MessageChannel();
@@ -153,6 +199,19 @@ async function forwardToClientLocalServer(request, _clientId) {
     }, [channel.port2]);
 
     const localResp = await responsePromise;
+
+    // We picked a follower. It refused to open a second database; re-resolve the
+    // leader and try once more. Only once: leadership can flip between a tab
+    // answering WHO_IS_LEADER and that same tab serving the fetch, so an
+    // unbounded retry could ping-pong between two tabs indefinitely.
+    if (localResp?.type === "NOT_LEADER") {
+        leaderClientId = null;
+        if (retried) return fetch(request);
+
+        const leader = await findLeader(candidates.filter((c) => c.id !== client.id));
+        if (!leader) return fetch(request);
+        return forwardToClientLocalServer(request, _clientId, true);
+    }
 
     if (!localResp || localResp.type !== "LOCAL_FETCH_RESPONSE" || localResp.id !== id) {
     // Protocol mismatch; fall back

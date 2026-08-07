@@ -1,5 +1,6 @@
 import type { StandaloneRestoreProgress, StandaloneRestoreResult } from "@triliumnext/commons";
 
+import { isLeader } from "./leader_election.js";
 import LocalServerWorker from "./local-server-worker?worker";
 let localWorker: Worker | null = null;
 const pending = new Map();
@@ -9,6 +10,44 @@ const restores = new Map<string, {
     reject: (reason: unknown) => void;
     onProgress?: (progress: StandaloneRestoreProgress) => void;
 }>();
+
+/**
+ * Carries the worker's WebSocket-style messages from the leader tab to the
+ * others. Only the leader has a worker, so without this relay a follower would
+ * never learn that an entity changed and its froca cache would go stale.
+ *
+ * A BroadcastChannel never echoes to the sender, so the leader posting here does
+ * not re-deliver to itself — it dispatches its own copy directly.
+ */
+const WS_RELAY_CHANNEL = "trilium-ws-relay";
+let wsRelay: BroadcastChannel | null = null;
+
+function getWsRelay(): BroadcastChannel | null {
+    if (typeof BroadcastChannel === "undefined") {
+        return null;
+    }
+    if (!wsRelay) {
+        wsRelay = new BroadcastChannel(WS_RELAY_CHANNEL);
+        wsRelay.onmessage = (event) => dispatchWsMessage(event.data);
+    }
+    return wsRelay;
+}
+
+function dispatchWsMessage(message: unknown): void {
+    window.dispatchEvent(new CustomEvent("trilium:ws-message", { detail: message }));
+}
+
+/**
+ * Tell the service worker that this tab owns the database, so it routes every
+ * tab's API traffic here. The service worker is evicted when idle and loses
+ * this, so it also probes for the leader on demand — see sw.ts.
+ */
+export function announceLeadership(): void {
+    // Start listening for relayed messages even as leader: if this tab is ever
+    // demoted the channel is already live.
+    getWsRelay();
+    navigator.serviceWorker?.controller?.postMessage({ type: "LEADER_ANNOUNCE" });
+}
 
 const LOCAL_API_PREFIXES = ["/bootstrap", "/api/", "/sync/", "/search/"];
 
@@ -20,19 +59,31 @@ const LOCAL_API_PREFIXES = ["/bootstrap", "/api/", "/sync/", "/search/"];
  * serialises bodies whole and gives up after thirty seconds, neither of which a database survives.
  *
  * Progress is relayed from the worker to `onProgress`, which stays on this side of the boundary.
+ *
+ * Only the leader tab can do this: it is the one holding the database, and the
+ * restore bypasses the request path that would otherwise proxy a follower's
+ * call through to it. Starting a worker here in a follower would open a second
+ * database against the same OPFS pool — the failure leadership exists to
+ * prevent — so a follower is refused outright instead.
  */
 export function restoreBackup(opts: {
     backup: File;
     passphrase?: string;
     onProgress?: (progress: StandaloneRestoreProgress) => void;
 }): Promise<StandaloneRestoreResult> {
-    startLocalServerWorker();
+    if (!isLeader()) {
+        return Promise.reject(new Error(
+            "A backup can only be restored from the tab that owns the database. "
+            + "Close the other Trilium tabs and try again."
+        ));
+    }
 
+    const worker = startLocalServerWorker();
     const id = Math.random().toString(36).slice(2);
 
     return new Promise((resolve, reject) => {
         restores.set(id, { resolve, reject, onProgress: opts.onProgress });
-        localWorker!.postMessage({
+        worker.postMessage({
             type: "RESTORE_BACKUP",
             id,
             backup: opts.backup,
@@ -169,9 +220,10 @@ export function startLocalServerWorker() {
         // Handle WebSocket-like messages from the worker (for frontend updates)
         if (msg?.type === "WS_MESSAGE" && msg.message) {
             // Dispatch a custom event that ws.ts listens to in standalone mode
-            window.dispatchEvent(new CustomEvent("trilium:ws-message", {
-                detail: msg.message
-            }));
+            dispatchWsMessage(msg.message);
+            // Only this tab has a worker, so pass the update on to the others —
+            // that is what makes one tab's edit show up in the rest.
+            getWsRelay()?.postMessage(msg.message);
             return;
         }
 
@@ -216,12 +268,31 @@ export function attachServiceWorkerBridge() {
         return;
     }
 
+    // Followers need the relay too, so they receive the leader's entity changes.
+    getWsRelay();
+
     navigator.serviceWorker.addEventListener("message", async (event) => {
         const msg = event.data;
+
+        // The service worker lost track of the leader and is probing for it.
+        if (msg?.type === "WHO_IS_LEADER") {
+            const replyPort = event.ports && event.ports[0];
+            replyPort?.postMessage({ type: "LEADER_REPLY", isLeader: isLeader() });
+            return;
+        }
+
         if (!msg || msg.type !== "LOCAL_FETCH") return;
 
         const port = event.ports && event.ports[0];
         if (!port) return;
+
+        // Never start a worker just because a request arrived: only the leader
+        // may own one. If the service worker guessed wrong, say so and let it
+        // find the real leader rather than opening a second, broken database.
+        if (!isLeader()) {
+            port.postMessage({ type: "NOT_LEADER", id: msg.id });
+            return;
+        }
 
         try {
             startLocalServerWorker();
