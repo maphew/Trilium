@@ -936,11 +936,26 @@ export type BootstrapDefinition = {
 };
 
 /**
+ * What the setup screen may be busy with. Each of these builds the database from nothing, so only
+ * one of them may run at a time.
+ */
+export type SetupOperation = "new-document" | "sync-from-server" | "sync-seed" | "restore-backup";
+
+/**
  * Response for /api/setup/status.
+ *
+ * Also parsed from a remote sync server, which may be running an older version than this one, so
+ * anything added after the two original fields is optional.
  */
 export interface SetupStatusResponse {
     syncVersion: number;
     schemaExists: boolean;
+    isInitialized?: boolean;
+    /** The operation setup is busy with, or `null` when it is free. */
+    setupOperation?: SetupOperation | null;
+    /** Kept from a failed sync attempt so the wizard can prefill the form; pre-initialization only. */
+    syncServerHost?: string;
+    syncProxy?: string;
 }
 
 /**

@@ -4,9 +4,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 
-import { readBackupContainer } from "./read.js";
+import { readBackupContainer, writeBackupContainer } from "./node-streams.js";
 import { fakeDatabase, FAST_SCRYPT } from "./test-helpers.js";
-import { writeBackupContainer } from "./write.js";
 
 /** Exercises the file destination from the module docs, including the out-of-order digest patch. */
 describe("file destination", () => {

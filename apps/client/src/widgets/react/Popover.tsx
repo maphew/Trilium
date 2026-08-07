@@ -4,9 +4,10 @@ import { createPopper, Instance, Placement, VirtualElement } from "@popperjs/cor
 import clsx from "clsx";
 import { ComponentChildren } from "preact";
 import { createPortal } from "preact/compat";
-import { useEffect, useRef } from "preact/hooks";
+import { useCallback, useEffect, useRef } from "preact/hooks";
 
 import { FLOATING_LAYER_SELECTOR, isWithinFloatingLayer } from "./floating_layers";
+import { useResizeObserver } from "./hooks";
 
 export interface PopoverProps {
     /**
@@ -67,7 +68,15 @@ export default function Popover({ getAnchorRect, placement, updateKey, className
             modifiers: [
                 // Room for the arrow to stand in, and a little air past its tip.
                 { name: "offset", options: { offset: [ 0, 10 ] } },
-                { name: "preventOverflow", options: { padding: 8 } },
+                // Held within the viewport on both axes. Popper keeps a popover inside it along the
+                // axis it was placed on and no further — a card standing to the left or the right
+                // is kept from running off the top and the bottom, and is left wherever the sides
+                // put it however far outside the window that is. An anchor with the room for a card
+                // on neither side (a calendar chip as wide as the grid, say) has no side to be
+                // placed on, so without this the card is put off the screen entirely and only its
+                // shadow is ever seen. Placement is still the first say — this is what is left when
+                // no placement fits.
+                { name: "preventOverflow", options: { padding: 8, altAxis: true } },
                 // Kept clear of the panel's rounded corners, where an arrow would grow out of thin
                 // air; an anchor so near a corner that it cannot be pointed at squarely gets the
                 // arrow as close as the padding allows.
@@ -85,6 +94,10 @@ export default function Popover({ getAnchorRect, placement, updateKey, className
     useEffect(() => {
         void popperRef.current?.update();
     }, [ updateKey ]);
+
+    // Placed again whenever what is placed changes size: what a popover holds arrives after it does
+    // — a note's editor mounting, its promoted attributes filling in — and Popper measures it once.
+    useResizeObserver(elRef, useCallback(() => void popperRef.current?.update(), []));
 
     useEffect(() => {
         if (!onDismiss) return;

@@ -41,6 +41,7 @@ const h = vi.hoisted(() => ({
     streamErrorHandlers: [] as Handler[],
     // Captured commandLine.appendSwitch calls.
     appendSwitch: vi.fn(),
+    recoverInterruptedRestore: vi.fn(),
     onBeforeSendHeaders: vi.fn(),
     setName: vi.fn(),
     quit: vi.fn(),
@@ -238,6 +239,11 @@ vi.mock("./services/auto_launch", () => ({
 }));
 vi.mock("./services/shell", () => ({ setupShellHandlers: vi.fn() }));
 vi.mock("./services/onenote", () => ({ setupOneNoteHandlers: vi.fn() }));
+// Reaches the server's restore session, and through it the data directory, which this spec does not have.
+vi.mock("./services/restore", () => ({ setupRestoreHandlers: vi.fn() }));
+vi.mock("@triliumnext/server/src/services/database_restore.js", () => ({
+    recoverInterruptedRestore: (...a: unknown[]) => h.recoverInterruptedRestore(...a)
+}));
 vi.mock("./services/security_settings", () => ({
     getSecuritySettings: () => h.securitySettings,
     registerSecurityIpcHandlers: vi.fn()
@@ -339,6 +345,13 @@ describe("main() bootstrap", () => {
         // Streams got an error handler; squirrel false → no exit.
         expect(h.streamErrorHandlers.length).toBe(2);
         expect(exitSpy).not.toHaveBeenCalled();
+
+        // A restore interrupted partway through exchanging the files is undone before anything opens
+        // the database. The "lang" switch is the first thing read out of it, so it comes after.
+        expect(h.recoverInterruptedRestore).toHaveBeenCalled();
+        const langSwitch = h.appendSwitch.mock.calls.findIndex(([ name ]) => name === "lang");
+        expect(h.recoverInterruptedRestore.mock.invocationCallOrder[0])
+            .toBeLessThan(h.appendSwitch.mock.invocationCallOrder[langSwitch]);
 
         // Smooth-scroll disabled + linux switches + lang switch were appended.
         const switches = h.appendSwitch.mock.calls.map((c) => c[0]);

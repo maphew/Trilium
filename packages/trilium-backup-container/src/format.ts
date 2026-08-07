@@ -1,7 +1,17 @@
+import {
+    bytesEqual,
+    readU16BE,
+    readU16LE,
+    readU64LE,
+    utf8,
+    writeU16LE,
+    writeU32LE,
+    writeU64LE
+} from "./bytes.js";
 import { BackupContainerError } from "./errors.js";
 
 /** ASCII magic that opens every container. */
-export const MAGIC = Buffer.from("Trilium Notes Backup", "ascii");
+export const MAGIC = utf8("Trilium Notes Backup");
 
 /** Format version this module reads and writes. Version 0 is never valid. */
 export const FORMAT_VERSION = 1;
@@ -52,7 +62,7 @@ export const DEFAULT_MAX_KDF_MEMORY_BYTES = 512 * 1024 * 1024;
 export const GZIP_OS_UNKNOWN = 255;
 
 /** First 16 bytes of any SQLite database file. */
-export const SQLITE_MAGIC = Buffer.from("SQLite format 3\0", "latin1");
+export const SQLITE_MAGIC = utf8("SQLite format 3\0");
 
 /** Bytes of output needed before the SQLite header can be checked. */
 export const SQLITE_HEADER_BYTES = 18;
@@ -65,9 +75,9 @@ export interface ScryptParams {
 
 export interface EncryptionHeader extends ScryptParams {
     kdfId: number;
-    salt: Buffer;
-    noncePrefix: Buffer;
-    verifierTag: Buffer;
+    salt: Uint8Array;
+    noncePrefix: Uint8Array;
+    verifierTag: Uint8Array;
 }
 
 export interface ContainerHeader {
@@ -81,7 +91,7 @@ export interface ContainerHeader {
     plaintextSize: number;
     headerLength: number;
     encryption: EncryptionHeader | null;
-    digest: Buffer;
+    digest: Uint8Array;
 }
 
 /** Header length implied by the flags, which readers require exactly. */
@@ -111,10 +121,10 @@ export function scryptMemoryBytes({ log2N, r }: ScryptParams): number {
 }
 
 /** 12-byte GCM nonce for a frame counter, or for {@link VERIFIER_COUNTER}. */
-export function nonceFor(noncePrefix: Buffer, counter: number): Buffer {
-    const nonce = Buffer.allocUnsafe(NONCE_BYTES);
-    noncePrefix.copy(nonce, 0);
-    nonce.writeUInt32LE(counter, NONCE_PREFIX_BYTES);
+export function nonceFor(noncePrefix: Uint8Array, counter: number): Uint8Array {
+    const nonce = new Uint8Array(NONCE_BYTES);
+    nonce.set(noncePrefix, 0);
+    writeU32LE(nonce, NONCE_PREFIX_BYTES, counter);
     return nonce;
 }
 
@@ -122,29 +132,29 @@ export function nonceFor(noncePrefix: Buffer, counter: number): Buffer {
  * Serialises a header. The digest is written as supplied, so a writer passes zeros and patches
  * later.
  */
-export function encodeHeader(header: ContainerHeader): Buffer {
-    const buffer = Buffer.alloc(header.headerLength);
+export function encodeHeader(header: ContainerHeader): Uint8Array {
+    const buffer = new Uint8Array(header.headerLength);
 
-    MAGIC.copy(buffer, 0);
-    buffer.writeUInt8(header.version, MAGIC.length);
+    buffer.set(MAGIC, 0);
+    buffer[MAGIC.length] = header.version;
     const compressed = header.compressed ? FLAG_COMPRESSED : 0;
     const encrypted = header.encrypted ? FLAG_ENCRYPTED : 0;
-    buffer.writeUInt8(compressed | encrypted, 21);
-    buffer.writeUInt16LE(header.headerLength, 22);
-    buffer.writeBigUInt64LE(BigInt(header.plaintextSize), 24);
+    buffer[21] = compressed | encrypted;
+    writeU16LE(buffer, 22, header.headerLength);
+    writeU64LE(buffer, 24, BigInt(header.plaintextSize));
 
     if (header.encryption) {
         const { kdfId, log2N, r, p, salt, noncePrefix, verifierTag } = header.encryption;
-        buffer.writeUInt8(kdfId, 32);
-        buffer.writeUInt8(log2N, 33);
-        buffer.writeUInt8(r, 34);
-        buffer.writeUInt8(p, 35);
-        salt.copy(buffer, 36);
-        noncePrefix.copy(buffer, 52);
-        verifierTag.copy(buffer, 60);
+        buffer[32] = kdfId;
+        buffer[33] = log2N;
+        buffer[34] = r;
+        buffer[35] = p;
+        buffer.set(salt, 36);
+        buffer.set(noncePrefix, 52);
+        buffer.set(verifierTag, 60);
     }
 
-    header.digest.copy(buffer, digestOffset(header.headerLength));
+    buffer.set(header.digest, digestOffset(header.headerLength));
 
     return buffer;
 }
@@ -164,15 +174,15 @@ export interface FixedHeader {
  * @param buffer the first {@link FIXED_HEADER_BYTES} bytes of the file.
  * @param maxHeaderBytes ceiling above which a header is refused outright.
  */
-export function decodeFixedHeader(buffer: Buffer, maxHeaderBytes: number): FixedHeader {
-    if (!buffer.subarray(0, MAGIC.length).equals(MAGIC)) {
+export function decodeFixedHeader(buffer: Uint8Array, maxHeaderBytes: number): FixedHeader {
+    if (!bytesEqual(buffer.subarray(0, MAGIC.length), MAGIC)) {
         throw new BackupContainerError(
             "not-a-container",
             "File does not start with the container magic."
         );
     }
 
-    const version = buffer.readUInt8(MAGIC.length);
+    const version = buffer[MAGIC.length];
     if (version === 0) {
         throw new BackupContainerError("unsupported-version", "Version 0 is never valid.");
     }
@@ -183,7 +193,7 @@ export function decodeFixedHeader(buffer: Buffer, maxHeaderBytes: number): Fixed
         );
     }
 
-    const flags = buffer.readUInt8(21);
+    const flags = buffer[21];
     if (flags & FLAG_RESERVED) {
         throw new BackupContainerError(
             "unsupported-flags",
@@ -192,7 +202,7 @@ export function decodeFixedHeader(buffer: Buffer, maxHeaderBytes: number): Fixed
     }
     const encrypted = (flags & FLAG_ENCRYPTED) !== 0;
 
-    const headerLength = buffer.readUInt16LE(22);
+    const headerLength = readU16LE(buffer, 22);
     if (headerLength > maxHeaderBytes) {
         throw new BackupContainerError(
             "invalid-header-length",
@@ -209,7 +219,7 @@ export function decodeFixedHeader(buffer: Buffer, maxHeaderBytes: number): Fixed
 
     // A hint that may only ever tighten a bound, so an unrepresentable value is the same as
     // "unknown".
-    const plaintextSize = buffer.readBigUInt64LE(24);
+    const plaintextSize = readU64LE(buffer, 24);
 
     return {
         version,
@@ -224,12 +234,12 @@ export function decodeFixedHeader(buffer: Buffer, maxHeaderBytes: number): Fixed
  * Parses the fields after the fixed header. `buffer` is the whole header, `headerLength` bytes
  * long.
  */
-export function decodeHeader(buffer: Buffer, maxHeaderBytes: number): ContainerHeader {
+export function decodeHeader(buffer: Uint8Array, maxHeaderBytes: number): ContainerHeader {
     const fixed = decodeFixedHeader(buffer.subarray(0, FIXED_HEADER_BYTES), maxHeaderBytes);
 
     let encryption: EncryptionHeader | null = null;
     if (fixed.encrypted) {
-        const kdfId = buffer.readUInt8(32);
+        const kdfId = buffer[32];
         if (kdfId !== KDF_SCRYPT) {
             throw new BackupContainerError(
                 "unsupported-kdf",
@@ -239,9 +249,9 @@ export function decodeHeader(buffer: Buffer, maxHeaderBytes: number): ContainerH
 
         encryption = {
             kdfId,
-            log2N: buffer.readUInt8(33),
-            r: buffer.readUInt8(34),
-            p: buffer.readUInt8(35),
+            log2N: buffer[33],
+            r: buffer[34],
+            p: buffer[35],
             salt: buffer.subarray(36, 52),
             noncePrefix: buffer.subarray(52, 60),
             verifierTag: buffer.subarray(60, 76)
@@ -290,9 +300,9 @@ export function validateScryptParams(params: ScryptParams, maxMemoryBytes: numbe
  *
  * @param head at least {@link SQLITE_HEADER_BYTES} bytes from offset 0 of the output.
  */
-export function validateSqliteHeader(head: Buffer): void {
+export function validateSqliteHeader(head: Uint8Array): void {
     const magicMatches = head.length >= SQLITE_HEADER_BYTES
-        && head.subarray(0, SQLITE_MAGIC.length).equals(SQLITE_MAGIC);
+        && bytesEqual(head.subarray(0, SQLITE_MAGIC.length), SQLITE_MAGIC);
 
     if (!magicMatches) {
         throw new BackupContainerError(
@@ -302,7 +312,7 @@ export function validateSqliteHeader(head: Buffer): void {
     }
 
     // Big-endian, and the value 1 encodes 65536 because that does not fit the field.
-    const pageSize = head.readUInt16BE(16);
+    const pageSize = readU16BE(head, 16);
     const isPowerOfTwo = pageSize >= 512 && pageSize <= 32768 && (pageSize & (pageSize - 1)) === 0;
     if (pageSize !== 1 && !isPowerOfTwo) {
         throw new BackupContainerError(

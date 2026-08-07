@@ -699,4 +699,13 @@ describe("preload script", () => {
             expect(ipcRendererInvoked).toContainEqual({ channel: "dialog-pick-directory", args: [undefined] });
         });
     });
+
+    describe("restore", () => {
+        const restore = () => getGroup("restore");
+
+        it("pickBackup invokes the open-dialog IPC channel, passing nothing it could steer", async () => {
+            await restore().pickBackup();
+            expect(ipcRendererInvoked).toContainEqual({ channel: "restore-pick-backup", args: [] });
+        });
+    });
 });

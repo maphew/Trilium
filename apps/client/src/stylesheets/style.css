@@ -2946,14 +2946,6 @@ iframe.print-iframe {
     overflow: hidden;
 }
 
-/* Calendar collection */
-
-.calendar-view a.fc-timegrid-event,
-.calendar-view a.fc-daygrid-event {
-    /* Workaround: set font weight only if the theme-next is not active */
-    font-weight: var(--root-background, 800);
-}
-
 @media (max-width: 991px) {
     body.mobile {
         .split-note-container-widget {

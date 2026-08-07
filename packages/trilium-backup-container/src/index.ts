@@ -2,9 +2,14 @@
  * Reader and writer for the Trilium backup container: one SQLite database wrapped with
  * optional gzip compression and optional AES-256-GCM encryption.
  *
- * The module depends on nothing outside the Node standard library, carries no translated strings,
- * and reports every failure as a {@link BackupContainerError} whose `reason` is a stable
- * machine-readable code the caller maps to its own messages.
+ * This is the Node entry point, which depends on nothing outside the Node standard library and
+ * takes Node streams. The browser entry point lives at `@triliumnext/backup-container/web`: the
+ * same operations on Web Streams, with WebCrypto and `@noble/hashes` underneath. The format layer
+ * and every check are shared between the two, so a container written by either is read by both.
+ *
+ * The module carries no translated strings and reports every failure as a
+ * {@link BackupContainerError} whose `reason` is a stable machine-readable code the caller maps to
+ * its own messages.
  *
  * @example Writing an encrypted, compressed container
  * ```ts
@@ -28,12 +33,12 @@
  * await rename(partial, final);
  * ```
  *
- * @example Reading one back
+ * @example Reading one back, reporting how far along it is
  * ```ts
  * const info = await readBackupContainer(
  *     fs.createReadStream(container),
  *     fs.createWriteStream(database),
- *     { passphrase }
+ *     { passphrase, onProgress: (progress) => report(Math.round(progress * 100)) }
  * );
  * ```
  *
@@ -53,17 +58,21 @@ export {
     SCRYPT_DEFAULTS,
     type ScryptParams
 } from "./format.js";
+export { readBackupContainer, writeBackupContainer } from "./node-streams.js";
+export {
+    DEFAULT_PROGRESS_INTERVAL_MS,
+    type ProgressCallback,
+    type ProgressOptions
+} from "./progress.js";
 export {
     type BackupContainerInfo,
     DEFAULT_MAX_OUTPUT_BYTES,
     peekBackupContainer,
-    readBackupContainer,
     type ReadBackupContainerOptions,
     type ReadBackupContainerResult
 } from "./read.js";
 export {
     type PatchHeader,
-    writeBackupContainer,
     type WriteBackupContainerOptions,
     type WriteBackupContainerResult
 } from "./write.js";
