@@ -491,7 +491,7 @@ function Font({ label, description, sizeDescription, fontFamilyOption, fontSizeO
                     {description && <small>{description}</small>}
                 </div>
                 <div className="option-row-input font-option-preview">
-                    <span style={{ fontFamily: getFontFamily(fontFamily ?? ""), fontSize: `${fontSize}%` }}>{displayLabel}</span>
+                    <span className="font-option-specimen" style={{ fontFamily: getFontFamily(fontFamily ?? ""), fontSize: `${fontSize}%` }}>{displayLabel}</span>
                     <span className="bx bx-chevron-right" />
                 </div>
             </button>
