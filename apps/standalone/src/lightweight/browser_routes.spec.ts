@@ -50,6 +50,16 @@ describe("registerRoutes (real wiring)", () => {
         expect(typeof data.triliumVersion).toBe("string");
     });
 
+    it("marks a plain window as the main one, and `?extraWindow` as a detached one", async () => {
+        const main = parseJson((await router.dispatch("GET", "http://localhost/bootstrap")).body) as Record<string, unknown>;
+        expect(main.isMainWindow).toBe(true);
+
+        // The detached window must not restore or persist `openNoteContexts`, otherwise it
+        // overwrites the tab set of the window it was opened from. See TabManager.
+        const extra = parseJson((await router.dispatch("GET", "http://localhost/bootstrap?extraWindow=1")).body) as Record<string, unknown>;
+        expect(extra.isMainWindow).toBe(false);
+    });
+
     it("returns the setup payload when the database is not initialized", async () => {
         vi.spyOn(sql_init, "isDbInitialized").mockReturnValue(false);
         const data = parseJson((await router.dispatch("GET", "http://localhost/bootstrap")).body) as Record<string, unknown>;

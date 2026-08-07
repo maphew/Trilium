@@ -59,6 +59,7 @@ import { buildNote } from "../test/easy-froca";
 import froca from "./froca.js";
 import treeService from "./tree.js";
 import linkService, {
+    calculateExtraWindowUrl,
     calculateHash,
     goToLinkExt,
     parseNavigationStateFromUrl
@@ -93,6 +94,13 @@ describe("parseNavigationStateFromUrl", () => {
 
     it("parses notePath with extraWindow", () => {
         const output = parseNavigationStateFromUrl(`127.0.0.1:8080/?extraWindow=1#root/QZGqKB7wVZF8?ntxId=0XPvXG`);
+        expect(output).toMatchObject({ notePath: "root/QZGqKB7wVZF8", noteId: "QZGqKB7wVZF8" });
+    });
+
+    it("parses notePath when extraWindow is not the first query parameter", () => {
+        // Standalone carries its environment in the query, so `extraWindow` is not necessarily
+        // the parameter right after the `?`.
+        const output = parseNavigationStateFromUrl(`127.0.0.1:8080/?safeMode=1&extraWindow=1#root/QZGqKB7wVZF8`);
         expect(output).toMatchObject({ notePath: "root/QZGqKB7wVZF8", noteId: "QZGqKB7wVZF8" });
     });
 
@@ -172,6 +180,46 @@ describe("calculateHash", () => {
 
     it("produces only the param string when note path is empty", () => {
         expect(calculateHash({ ntxId: "n1" } as any)).toBe("#?ntxId=n1");
+    });
+});
+
+describe("calculateExtraWindowUrl", () => {
+    it("marks the window as extra and appends the target hash", () => {
+        const url = calculateExtraWindowUrl({ notePath: "root/abc123" }, new URL("http://localhost:8080/"));
+        expect(url).toBe("http://localhost:8080/?extraWindow=1#root/abc123");
+    });
+
+    it("keeps the deployment sub-path, so a standalone build under a prefix still resolves", () => {
+        const url = calculateExtraWindowUrl({ notePath: "root/abc123" }, new URL("https://notes.test/trilium/"));
+        expect(url).toBe("https://notes.test/trilium/?extraWindow=1#root/abc123");
+    });
+
+    it("carries the current query string over instead of replacing it", () => {
+        // In standalone the query *is* the environment (`?safeMode`, `?startNoteId` — see
+        // QUERY_TO_ENV in the standalone platform provider). A window that dropped it would boot
+        // with different settings than the one it was torn from, and would apply those to every
+        // other window once it inherited the database lock.
+        const url = calculateExtraWindowUrl({ notePath: "root/abc123" }, new URL("http://localhost:8080/?safeMode=1"));
+        const { searchParams } = new URL(url);
+        expect(searchParams.get("safeMode")).toBe("1");
+        expect(searchParams.get("extraWindow")).toBe("1");
+    });
+
+    it("produces a URL the receiving window can still navigate from", () => {
+        const url = calculateExtraWindowUrl(
+            { notePath: "root/abc123", hoistedNoteId: "h1" },
+            new URL("http://localhost:8080/?safeMode=1")
+        );
+        expect(parseNavigationStateFromUrl(url)).toMatchObject({
+            notePath: "root/abc123",
+            noteId: "abc123",
+            hoistedNoteId: "h1"
+        });
+    });
+
+    it("omits the hash when there is no target, as when opening a blank window", () => {
+        const url = calculateExtraWindowUrl({ notePath: "", hoistedNoteId: "root" }, new URL("http://localhost:8080/"));
+        expect(url).toBe("http://localhost:8080/?extraWindow=1");
     });
 });
 
