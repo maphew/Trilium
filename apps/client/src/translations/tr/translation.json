@@ -93,7 +93,7 @@
     "safeImport": "Güvenli içe aktar",
     "explodeArchivesTooltip": "Bu seçenek işaretlendiğinde, Trilium <code>.zip</code>, <code>.enex</code> ve <code>.opml</code> dosyalarını okuyacak ve bu arşivlerin içindeki dosyalardan notlar oluşturacaktır. İşaretlenmezse, Trilium arşivleri doğrudan nota ekleyecektir.",
     "explodeArchives": "<code>.zip</code>, <code>.enex</code> ve <code>.opml</code> arşivlerinin içeriğini okuyun.",
-    "shrinkImagesTooltip": "<p>Bu seçeneği işaretlerseniz, Trilium içe aktarılan resimleri ölçeklendirme ve optimizasyon yoluyla küçültmeye çalışır; bu işlem, resim kalitesini olumsuz etkileyebilir. Seçenek işaretlenmezse, resimler herhangi bir değişiklik yapılmadan içe aktarılır.</p><p>Bu durum, meta veriler içeren <code>.zip</code> dosyalarının içe aktarılması için geçerli değildir; çünkü bu dosyaların zaten optimize edilmiş olduğu varsayılır.</p>",
+    "shrinkImagesTooltip": "İçe aktarılan resimlerin boyutunu küçültür; bu, kalitelerini biraz azaltabilir. Trilium meta verileri içeren <code>.zip</code> içe aktarımlarına uygulanmaz, çünkü bu içe aktarımlardaki resimlerin zaten sıkıştırılmış olduğu varsayılır.",
     "shrinkImages": "Resimleri küçült",
     "textImportedAsText": "Meta verilerden net anlaşılmıyorsa HTML, Markdown ve TXT dosyalarını metin notları olarak içe aktarın",
     "codeImportedAsCode": "Meta verilerden net anlaşılmıyorsa, tanınan kod dosyalarını (örn. <code>.json</code>) kod notları olarak içe aktarın",
@@ -154,7 +154,7 @@
     "widget-render-error": {
       "title": "Özel React widget'ı çizilirken sorun yaşandı"
     },
-    "scripting-error": "Özel betik hatası: {{title}}",
+    "scripting-error": "Betik notu çalıştırılamadı",
     "widget-missing-parent": "Özel widget'ın zorunlu '{{property}}' özelliği tanımlanmamıştır.\n\nBu komut dosyasının bir kullanıcı arayüzü öğesi olmadan çalıştırılması gerekiyorsa, bunun yerine '#run=frontendStartup' kullanın.",
     "open-script-note": "Komut dosyası notunu aç",
     "unhandled-error": {
