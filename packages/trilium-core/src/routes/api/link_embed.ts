@@ -17,6 +17,7 @@ import { getImageProvider } from "../../services/image_provider.js";
 import { getLog } from "../../services/log.js";
 import { findPageDescription } from "../../services/page_description.js";
 import request, { type FetchedResource, validateFetchableUrl } from "../../services/request.js";
+import { decodeUtf8 } from "../../services/utils/binary.js";
 
 const MAX_RESPONSE_SIZE = 512 * 1024; // 512KB
 /** An oEmbed answer is a handful of fields; anything approaching this is not one. */
@@ -81,7 +82,7 @@ const MAX_FAVICON_CANDIDATES = 3;
  * sake of a title that is occasionally accented.
  */
 function asText({ bytes }: FetchedResource): string {
-    return new TextDecoder().decode(bytes);
+    return decodeUtf8(bytes);
 }
 
 /**

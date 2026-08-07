@@ -264,4 +264,35 @@ describe("BridgedRequestProvider.fetchResource", () => {
 
         await expect(promise).rejects.toThrow(/exceeds the 10 byte limit/);
     });
+
+    /**
+     * And refuses it *before* decoding, which is the part that matters. Decoding is where an
+     * oversized body multiplies — atob builds a binary string and Uint8Array.from copies that again
+     * — so a check running afterwards has already paid for what it is about to refuse.
+     */
+    it("refuses an oversized body without decoding it", async () => {
+        const decode = vi.spyOn(globalThis, "atob");
+        const provider = new BridgedRequestProvider();
+        const promise = provider.fetchResource("https://example.com/big", { maxBytes: 10 });
+
+        respond({ status: 200, headers: {}, body: btoa("x".repeat(5000)) });
+
+        await expect(promise).rejects.toThrow(/exceeds the 10 byte limit/);
+        expect(decode).not.toHaveBeenCalled();
+    });
+
+    it("measures the decoded size rather than the encoded one, at every padding", async () => {
+        // Base64 runs 4/3 the size of what it carries, so measuring the encoded string would refuse
+        // a 30-byte body against a 30-byte ceiling. The three lengths cover the three paddings.
+        for (const length of [ 30, 29, 28 ]) {
+            const provider = new BridgedRequestProvider();
+            const promise = provider.fetchResource("https://example.com/exact", { maxBytes: 30 });
+
+            respond({ status: 200, headers: {}, body: btoa("x".repeat(length)) });
+
+            await expect(promise).resolves.toMatchObject({
+                bytes: new Uint8Array(length).fill("x".charCodeAt(0))
+            });
+        }
+    });
 });
