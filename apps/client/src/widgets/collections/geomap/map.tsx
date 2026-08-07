@@ -352,6 +352,31 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
 }
 
 /**
+ * How far the view is leaned over, followed as it changes — by the tilt button, or by Ctrl and a
+ * drag, which MapLibre honours without being asked.
+ *
+ * Read by anything whose answer differs between a flat map and a leaned-over one: which view the
+ * tilt button should offer (see {@link MapToolbar} — a tilt entered by hand is as much a 3D view as
+ * one the button gave), and whether the buildings are worth standing up (see {@link Buildings}).
+ */
+export function useMapPitch(map: MapLibreGLMap | null) {
+    const [ pitch, setPitch ] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (!map) return;
+
+        const report = () => setPitch(map.getPitch());
+        // The map may have been tilted between being built and being listened to.
+        report();
+
+        map.on("pitch", report);
+        return () => { map.off("pitch", report); };
+    }, [ map ]);
+
+    return pitch;
+}
+
+/**
  * Builds the map itself.
  *
  * Separate from the effect that calls it so that the throw it is wrapped in covers the constructor

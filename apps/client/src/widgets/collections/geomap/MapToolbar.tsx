@@ -6,7 +6,7 @@ import { useContext, useEffect, useRef, useState } from "preact/hooks";
 import { t } from "../../../services/i18n";
 import { isMobile } from "../../../services/utils";
 import { useFullscreen, useStaticTooltip } from "../../react/hooks";
-import { ParentMap } from "./map";
+import { ParentMap, useMapPitch } from "./map";
 
 /**
  * The controls standing in the corner of a geo map: how close in the map is drawn, and how much of
@@ -143,26 +143,4 @@ function useMapZoom(map: MapLibreGLMap | null) {
     }, [ map ]);
 
     return zoom;
-}
-
-/**
- * How far the view is leaned over, followed as it changes — by the tilt button, or by Ctrl and a
- * drag, which MapLibre honours without being asked. Read for which view the button should offer:
- * a tilt entered by hand is as much a 3D view as one the button gave.
- */
-function useMapPitch(map: MapLibreGLMap | null) {
-    const [ pitch, setPitch ] = useState<number | null>(null);
-
-    useEffect(() => {
-        if (!map) return;
-
-        const report = () => setPitch(map.getPitch());
-        // The map may have been tilted between being built and being listened to.
-        report();
-
-        map.on("pitch", report);
-        return () => { map.off("pitch", report); };
-    }, [ map ]);
-
-    return pitch;
 }
