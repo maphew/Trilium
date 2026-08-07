@@ -1,5 +1,5 @@
-import { writeBackupContainer } from "@triliumnext/backup-container";
 import type { SAHPoolUtil } from "@sqlite.org/sqlite-wasm";
+import { writeBackupContainer } from "@triliumnext/backup-container";
 import fs from "fs";
 import fsp from "fs/promises";
 import os from "os";
@@ -9,12 +9,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
     DEFAULT_DATABASE_NAME,
     readCurrentDatabaseName,
-    type RestoreProgress,
     restoreDatabase,
+    type RestoreProgress,
     type RestoreTarget
 } from "./database_restore.js";
 
-const CANDIDATE_NAME = "/trilium.candidate.db";
+/** The name a restore writes to while the default one is live: the two alternate. */
+const CANDIDATE_NAME = "/trilium.alt.db";
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "trilium-standalone-restore-"));
 
 /**
@@ -174,6 +175,21 @@ describe("which database is the live one", () => {
         await restoreDatabase(target, new Blob([ databaseBytes() ]));
 
         await expect(readCurrentDatabaseName()).resolves.toBe(CANDIDATE_NAME);
+    });
+
+    it("alternates between the two names, so a restore never prepares over the live database", async () => {
+        const { files, pool } = fakePool();
+        const { target } = fakeTarget(pool);
+        const second = databaseBytes(12288);
+
+        await restoreDatabase(target, new Blob([ databaseBytes() ]));
+        await restoreDatabase(target, new Blob([ second ]));
+
+        await expect(readCurrentDatabaseName()).resolves.toBe(DEFAULT_DATABASE_NAME);
+        // Only ever the one database: the name it went back to holds the newer backup, and the one
+        // it came from was dropped once the swap was through.
+        expect([ ...files.keys() ]).toEqual([ DEFAULT_DATABASE_NAME ]);
+        expect(files.get(DEFAULT_DATABASE_NAME)).toEqual(second);
     });
 });
 

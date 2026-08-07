@@ -1,3 +1,4 @@
+import type { SAHPoolUtil } from "@sqlite.org/sqlite-wasm";
 import {
     FIXED_HEADER_BYTES,
     isBackupContainerError,
@@ -11,7 +12,6 @@ import {
     looksLikeSqlite,
     validateDatabase
 } from "@triliumnext/core";
-import type { SAHPoolUtil } from "@sqlite.org/sqlite-wasm";
 
 /**
  * Puts a backup in place of this instance's database, in the browser.
@@ -34,11 +34,22 @@ import type { SAHPoolUtil } from "@sqlite.org/sqlite-wasm";
 /** Where the pointer to the live database is kept, in the origin's private filesystem. */
 const POINTER_FILE = "trilium-current-database";
 
-/** The database opened when nothing has ever been restored. */
-export const DEFAULT_DATABASE_NAME = "/trilium.db";
+/**
+ * The two names a database is ever kept under.
+ *
+ * A restore writes the new database in beside the old one and then points at it, so the name it
+ * writes to has to be the one that is *not* live. Alternating between two settles that: whichever is
+ * live, the other is free, and a restore can never be preparing over the database it is replacing.
+ */
+const DATABASE_NAMES = [ "/trilium.db", "/trilium.alt.db" ] as const;
 
-/** Where a backup is written while it is being checked, before it is anything to anyone. */
-const CANDIDATE_NAME = "/trilium.candidate.db";
+/** The database opened when nothing has ever been restored. */
+export const DEFAULT_DATABASE_NAME = DATABASE_NAMES[0];
+
+/** Where a backup is written while it is being checked, which is wherever the live one is not. */
+function candidateNameFor(live: string): string {
+    return DATABASE_NAMES.find((name) => name !== live) ?? DATABASE_NAMES[1];
+}
 
 /** What the restore is doing, in the order it does it. Mirrors the server's own steps. */
 export type RestoreStage = "staging" | "validating" | "swapping" | "done" | "failed";
@@ -90,26 +101,28 @@ export async function restoreDatabase(
     options: { passphrase?: string; report?: (progress: RestoreProgress) => void } = {}
 ): Promise<void> {
     const report = options.report ?? (() => {});
+    const live = await readCurrentDatabaseName();
+    const candidate = candidateNameFor(live);
 
     try {
         report({ stage: "staging" });
-        await stageCandidate(target.pool, backup, options.passphrase, (fraction) =>
+        await stageCandidate(target.pool, candidate, backup, options.passphrase, (fraction) =>
             report({ stage: "staging", fraction }));
 
         report({ stage: "validating" });
-        const validation = validate(target.pool);
+        const validation = validate(target.pool, candidate);
         if (!validation.valid) {
             throw new RestoreFailure(validation.rejection, validation.message);
         }
 
         report({ stage: "swapping" });
-        await swapIn(target);
+        await swapIn(target, live, candidate);
 
         report({ stage: "done" });
     } catch (e) {
         const failure = asFailure(e);
         // The candidate is no use to anyone now, and the pool's slots are finite.
-        await removeQuietly(target.pool, CANDIDATE_NAME);
+        await removeQuietly(target.pool, candidate);
         report({ stage: "failed", error: failure.message, reason: failure.reason });
 
         throw failure;
@@ -134,12 +147,13 @@ export class RestoreFailure extends Error {
  */
 async function stageCandidate(
     pool: SAHPoolUtil,
+    candidate: string,
     backup: Blob,
     passphrase: string | undefined,
     onProgress: ProgressCallback
 ): Promise<void> {
     await makeRoomFor(pool);
-    await removeQuietly(pool, CANDIDATE_NAME);
+    await removeQuietly(pool, candidate);
 
     const format = await readBackupFormat(backup);
     if (!format) {
@@ -147,7 +161,7 @@ async function stageCandidate(
     }
 
     if (!format.container) {
-        await pool.importDb(CANDIDATE_NAME, pullFrom(backup.stream()));
+        await pool.importDb(candidate, pullFrom(backup.stream()));
         onProgress(1);
         return;
     }
@@ -160,15 +174,15 @@ async function stageCandidate(
 
     const relay = new TransformStream<Uint8Array, Uint8Array>();
     const unwrapped = readBackupContainer(backup.stream(), relay.writable, { passphrase, onProgress });
-    const imported = pool.importDb(CANDIDATE_NAME, pullFrom(relay.readable));
+    const imported = pool.importDb(candidate, pullFrom(relay.readable));
 
     // Awaited together: either failing has to stop the other, which is what a rejected pipe does.
     await Promise.all([ unwrapped, imported ]);
 }
 
 /** Opens the candidate and puts it through the checks every platform shares. */
-function validate(pool: SAHPoolUtil): DatabaseValidation {
-    const db = new pool.OpfsSAHPoolDb(CANDIDATE_NAME);
+function validate(pool: SAHPoolUtil, candidate: string): DatabaseValidation {
+    const db = new pool.OpfsSAHPoolDb(candidate);
 
     try {
         return validateDatabase(candidateOf(db));
@@ -200,14 +214,12 @@ function candidateOf(db: InstanceType<SAHPoolUtil["OpfsSAHPoolDb"]>): CandidateD
  * changes, an interrupted restore leaves the old one live with an unused entry beside it, which the
  * next attempt overwrites.
  */
-async function swapIn(target: RestoreTarget): Promise<void> {
-    const previous = await readCurrentDatabaseName();
-
+async function swapIn(target: RestoreTarget, previous: string, candidate: string): Promise<void> {
     target.close();
-    await writeCurrentDatabaseName(CANDIDATE_NAME);
+    await writeCurrentDatabaseName(candidate);
 
     try {
-        target.open(CANDIDATE_NAME);
+        target.open(candidate);
     } catch (e) {
         // Put back what was live, so a candidate that will not open costs nothing.
         await writeCurrentDatabaseName(previous);
@@ -217,9 +229,7 @@ async function swapIn(target: RestoreTarget): Promise<void> {
     }
 
     // Only once the restored database is open: until then the old one is what a restart needs.
-    if (previous !== CANDIDATE_NAME) {
-        await removeQuietly(target.pool, previous);
-    }
+    await removeQuietly(target.pool, previous);
 }
 
 async function writeCurrentDatabaseName(dbName: string): Promise<void> {
