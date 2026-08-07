@@ -74,7 +74,9 @@
 .options-page-header {
     position: sticky;
     top: 0;
-    z-index: 1;
+    /* Above the 1–5 Bootstrap gives a control to lift it over its neighbours, below a dropdown
+       menu (999), which is meant to open over the header. */
+    z-index: 10;
     border-bottom: 1px solid var(--main-border-color);
     padding-block: 10px;
 }
