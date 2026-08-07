@@ -248,29 +248,6 @@ jobs:
           disable_search: true
           fail_ci_if_error: false
 
-      - name: Run the express-partial-content tests
-        id: test-express-partial-content
-        run: pnpm run --filter=express-partial-content test --coverage
-
-      - name: Upload express-partial-content coverage to Codecov
-        uses: codecov/codecov-action@v7
-        if: ${{ !cancelled() && steps.test-express-partial-content.outcome == 'success' }}
-        with:
-          files: packages/express-partial-content/test-output/vitest/coverage/lcov.info
-          flags: express-partial-content
-          disable_search: true
-          fail_ci_if_error: false
-
-      - name: Upload express-partial-content test results to Codecov
-        uses: codecov/test-results-action@v1
-        if: ${{ !cancelled() && steps.test-express-partial-content.outcome != 'skipped' }}
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: packages/express-partial-content/test-output/vitest/junit.xml
-          flags: express-partial-content
-          disable_search: true
-          fail_ci_if_error: false
-
       - name: Run the highlightjs tests
         id: test-highlightjs
         run: pnpm run --filter=highlightjs test --coverage
@@ -318,7 +295,7 @@ jobs:
           fail_ci_if_error: false
 
       - name: Run the rest of the tests
-        run: pnpm run --filter=\!client --filter=\!standalone --filter=\!server --filter=\!desktop --filter=\!commons --filter=\!ckeditor5 --filter=\!codemirror --filter=\!express-partial-content --filter=\!highlightjs --filter=\!pdfjs-viewer test
+        run: pnpm run --filter=\!client --filter=\!standalone --filter=\!server --filter=\!desktop --filter=\!commons --filter=\!ckeditor5 --filter=\!codemirror --filter=\!highlightjs --filter=\!pdfjs-viewer test
 
   build_docker:
     name: Build Docker image
