@@ -49,8 +49,6 @@ console.log("[Worker] Error handlers installed, loading modules...");
 import type { BrowserRouter } from './lightweight/browser_router';
 import type { StandaloneRestoreProgress, StandaloneRestoreResult } from "@triliumnext/commons";
 
-import { readCurrentDatabaseName, RestoreFailure, restoreDatabase } from './lightweight/database_restore';
-
 // Build-time constant injected by Vite (see `define` in vite.config.mts).
 declare const __TRILIUM_INTEGRATION_TEST__: string;
 
@@ -228,6 +226,7 @@ async function initialize(): Promise<void> {
             // Which pool entry holds the database is a stored answer rather than a constant: a
             // restore cannot rename an entry, so it writes the new database in beside the old one
             // and changes this. Unrestored instances read the name they have always used.
+            const { readCurrentDatabaseName } = await import('./lightweight/database_restore.js');
             const dbName = await readCurrentDatabaseName();
 
             if (integrationTestMode === "memory") {
@@ -399,6 +398,8 @@ async function handleRestoreBackup(id: string, backup: File, passphrase?: string
     }
 
     restoreInProgress = true;
+
+    const { restoreDatabase, RestoreFailure } = await import('./lightweight/database_restore.js');
 
     try {
         await restoreDatabase(
