@@ -137,7 +137,7 @@
   "toast": {
     "critical-error": {
       "title": "Kritik hata",
-      "message": "İstemci uygulamasının başlamasını engelleyen kritik bir hata oluştu:\n\n{{message}}\n\nBunun nedeni büyük olasılıkla bir komut dosyasının beklenmedik bir şekilde başarısız olmasıdır. Uygulamayı güvenli modda başlatmayı ve sorunu gidermeyi deneyin."
+      "message": "İstemci uygulamasının başlamasını engelleyen kritik bir hata oluştu:\n\n{{message}}\n\nBunun nedeni büyük olasılıkla bir betiğin beklenmedik bir şekilde başarısız olmasıdır. Uygulamayı güvenli modda başlatmayı ve sorunu gidermeyi deneyin."
     },
     "widget-error": {
       "title": "Bir widget başlatılamadı",
@@ -155,8 +155,8 @@
       "title": "Özel React widget'ı çizilirken sorun yaşandı"
     },
     "scripting-error": "Betik notu çalıştırılamadı",
-    "widget-missing-parent": "Özel widget'ın zorunlu '{{property}}' özelliği tanımlanmamıştır.\n\nBu komut dosyasının bir kullanıcı arayüzü öğesi olmadan çalıştırılması gerekiyorsa, bunun yerine '#run=frontendStartup' kullanın.",
-    "open-script-note": "Komut dosyası notunu aç",
+    "widget-missing-parent": "Özel widget'ın zorunlu '{{property}}' özelliği tanımlanmamıştır.\n\nBu betiğin bir kullanıcı arayüzü öğesi olmadan çalıştırılması gerekiyorsa, bunun yerine '#run=frontendStartup' kullanın.",
+    "open-script-note": "Betik notunu aç",
     "unhandled-error": {
       "title": "Arka plan görevi başarısız oldu",
       "details-button": "Daha fazla ayrıntı görüntüle...",
@@ -731,7 +731,7 @@
     "diff_on_hint": "Not kaynağındaki değişikliği görmek için tıklayın",
     "diff_not_available": "Değişiklik kullanılamaz.",
     "delete_button": "Sil",
-    "revision_restored": "Not sürümü geri yüklendi.",
+    "revision_restored": "Not revizyonu geri yüklendi.",
     "revision_deleted": "Not revizyonu silindi.",
     "snapshot_interval": "Not Revizyon Anlık Görüntü Aralığı: {{seconds}}s.",
     "save_named_revision": "Adlandırılmış revizyonu kaydet...",
@@ -799,10 +799,10 @@
     "value": "Değer",
     "target_note_title": "İlişki, kaynak not ile hedef not arasında kurulan adlandırılmış bir bağlantıdır.",
     "target_note": "Hedef not",
-    "promoted_title": "Öne çıkarılan öznitelik, not üzerinde belirgin bir şekilde gösterilir.",
+    "promoted_title": "Bu özelliğe sahip her notta düzenlenebilir bir alan olarak gösterilir.",
     "promoted": "Öne Çıkarılan",
     "promoted_alias": "Takma ad",
-    "multiplicity_title": "Çokluk, aynı isimde kaç tane öznitelik oluşturulabileceğini belirler. (sadece 1 veya 1 den fazla)",
+    "multiplicity_title": "Bir notun bu özelliği birden fazla kez taşımasına olanak tanır.",
     "multiplicity": "Çokluk",
     "single_value": "Tek değerli",
     "multi_value": "Çok değerli",
