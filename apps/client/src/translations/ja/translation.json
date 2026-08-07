@@ -260,7 +260,10 @@
     "wednesday": "水曜日",
     "thursday": "木曜日",
     "friday": "金曜日",
-    "saturday": "土曜日"
+    "saturday": "土曜日",
+    "default-content-language": "デフォルトのコンテンツ言語",
+    "default-content-language-description": "基本プロパティ セクションでノート自体に言語が設定されていない場合、ノートは指定された言語で記述されます。これは、右から左への配置や、入力時に表示される引用符の種類などの機能に影響します。",
+    "default-content-language-auto": "アプリケーションの言語に基づく"
   },
   "tab_row": {
     "close_tab": "タブを閉じる",
@@ -991,7 +994,9 @@
     "preview": "プレビュー",
     "monospace_font_description": "コードノートとコードブロックに使用されます",
     "size_relative_to_general": "サイズは一般的なフォントサイズを基準としています",
-    "apply_changes": "変更を適用するには再読み込みしてください"
+    "apply_changes": "変更を適用するには再読み込みしてください",
+    "monospace_ligatures": "プログラミング用合字",
+    "monospace_ligatures_description": "等幅フォントが対応している場合、!= や -> といった文字の組み合わせを単一の記号（≠、→）として表示します。テキスト自体は変更されません。"
   },
   "max_content_width": {
     "title": "コンテンツ幅",
@@ -1735,11 +1740,12 @@
   "note_language": {
     "not_set": "言語が設定されていません",
     "configure-languages": "言語を設定...",
-    "help-on-languages": "コンテンツの言語に関するヘルプ..."
+    "help-on-languages": "コンテンツの言語に関するヘルプ...",
+    "not_set_with_default": "言語が設定されていない場合 — {{- language}}"
   },
   "content_language": {
     "title": "コンテンツの言語",
-    "description": "読み取り専用または編集可能なテキストノートの基本プロパティセクションの言語選択に表示する言語を 1 つ以上選択してください。これにより、スペルチェック、右から左へのサポート、テキスト抽出（OCR）などの機能が利用できるようになります。"
+    "description": "読み取り専用または編集可能なテキストノートの基本プロパティセクションの言語選択に表示する言語を 1 つ以上選択してください。これにより、スペルチェック、右から左へのサポート、引用符、テキスト抽出（OCR）などの機能が利用できるようになります。"
   },
   "png_export_button": {
     "button_title": "図をPNG形式でエクスポート"
@@ -3909,5 +3915,27 @@
     "open-note": "ノートを開く",
     "more-ways-to-open": "その他の開き方",
     "maximize": "クイック編集で開く"
+  },
+  "automatic_replacements": {
+    "title": "自動置換",
+    "description": "特定の文字列を入力すると、それに対応する 表記上の記号（タイポグラフィ記号）へ自動的に置き換えます。置換は コードブロックやインラインコード内では適用されず、貼り付けたテキストにも影響しません。",
+    "double_quotes": "二重引用符",
+    "double_quotes_description": "通常の二重引用符（\"）が置き換えられる対象の文字です。コンテンツの言語に基づき、英語では「“quote”」、ドイツ語では「„quote“」、フランス語では「« quote »」が使用されます。特定の形式を選択すると、言語にかかわらずすべてのノートにその形式が適用されます。",
+    "single_quotes": "一重引用符",
+    "single_quotes_description": "一重引用符 (') も同様で多くの表記規則では、別の引用符の中にさらに入れ子にする引用のために使用されます。",
+    "quotes_auto": "ノートのコンテンツ言語に基づいて",
+    "quotes_off": "無効",
+    "punctuation": "句読点・記号",
+    "punctuation_description": "「...」を省略記号（…）に置き換え、スペースで囲まれた「--」や「---」をエンダッシュ（–）やエムダッシュ（—）に置き換えます。",
+    "math": "数学記号",
+    "math_description": "「1/2」などの分数を「½」に置き換え、演算子「<=」「>=」「!=」「<-」「->」を「≤」「≥」「≠」「←」「→」に置き換えます。",
+    "symbols": "著作権および商標",
+    "symbols_description": "「(c)」「(r)」「(tm)」を「©」「®」「™」に置き換えます。",
+    "custom": "カスタム置換",
+    "custom_description": "テキストが単語として入力され、その後にスペースが続く場合に適用されます。そのため、このルールで始まる長い単語には影響しません。",
+    "custom_from_placeholder": "置換対象のテキスト",
+    "custom_to_placeholder": "置換後のテキスト",
+    "custom_add": "置換を追加",
+    "custom_remove": "置換を削除"
   }
 }
