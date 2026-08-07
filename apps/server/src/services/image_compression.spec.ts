@@ -533,10 +533,7 @@ describe("compression parameters", () => {
         // The header pass is an optimization of the read, never a precondition for it — so when it
         // cannot answer, the run must go the long way round rather than report a failure.
         initImageProvider({
-            getImageType: (buffer) => real.getImageType(buffer),
-            processImage: (buffer, name, shrink) => real.processImage(buffer, name, shrink),
-            compressImage: (buffer, compressionRequest) => real.compressImage(buffer, compressionRequest),
-            compressionConcurrency: () => real.compressionConcurrency(),
+            ...real,
             planCompression: () => Promise.reject(new Error("planner unavailable"))
         });
 
@@ -567,9 +564,7 @@ describe("compression parameters", () => {
         let compressedSoFar = 0;
 
         initImageProvider({
-            getImageType: (buffer) => real.getImageType(buffer),
-            processImage: (buffer, name, shrink) => real.processImage(buffer, name, shrink),
-            planCompression: (header, req) => real.planCompression(header, req),
+            ...real,
             compressionConcurrency: () => 1,
             compressImage: async (buffer, req) => {
                 const outcome = await real.compressImage(buffer, req);
@@ -898,10 +893,7 @@ async function whileCompressing<T>(interfere: () => void, request: () => Promise
     const real = getImageProvider();
 
     initImageProvider({
-        getImageType: (buffer) => real.getImageType(buffer),
-        processImage: (buffer, originalName, shrink) => real.processImage(buffer, originalName, shrink),
-        planCompression: (header, compressionRequest) => real.planCompression(header, compressionRequest),
-        compressionConcurrency: () => real.compressionConcurrency(),
+        ...real,
         compressImage: (buffer, compressionRequest) => {
             interfere();
             return real.compressImage(buffer, compressionRequest);

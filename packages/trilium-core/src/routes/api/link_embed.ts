@@ -1,23 +1,27 @@
 import {
     extractYouTubeVideoId,
     type ImageAttachmentRole,
-    imageExtensionForMime,
     type LinkEmbedMetadata,
     linkPreviewImageName,
     safeHostname
 } from "@triliumnext/commons";
-import { getLog, imageService, ValidationError } from "@triliumnext/core";
 import type { Request } from "express";
-import isSvg from "is-svg";
-import { Jimp } from "jimp";
 import { parse } from "node-html-parser";
 
+import { ValidationError } from "../../errors.js";
 import { trimIcoToSmallestEntry } from "../../services/ico.js";
-import { getImageTypeFromBuffer } from "../../services/image_codec.js";
+import imageService from "../../services/image.js";
+import { storePictureBytes } from "../../services/image_download.js";
+import { type InspectedImage, inspectImage, UNKNOWN_FORMAT } from "../../services/image_inspect.js";
+import { getImageProvider } from "../../services/image_provider.js";
+import { getLog } from "../../services/log.js";
 import { findPageDescription } from "../../services/page_description.js";
-import { safeFetch, validateUrl } from "../../services/safe_fetch.js";
+import request, { type FetchedResource, validateFetchableUrl } from "../../services/request.js";
+import { decodeUtf8 } from "../../services/utils/binary.js";
 
 const MAX_RESPONSE_SIZE = 512 * 1024; // 512KB
+/** An oEmbed answer is a handful of fields; anything approaching this is not one. */
+const MAX_OEMBED_SIZE = 64 * 1024; // 64KB
 
 /**
  * How much of a favicon to fetch.
@@ -70,66 +74,35 @@ const MAX_ICON_CANDIDATES = 3;
 const MAX_FAVICON_CANDIDATES = 3;
 
 /**
- * Reads the response body as text, stopping after maxBytes to avoid
- * buffering arbitrarily large responses into memory.
+ * A fetched resource read as text.
+ *
+ * Decoded as UTF-8 without exception, which is what the previous streaming read did as well. A page
+ * declaring some other encoding comes out mangled in its non-ASCII characters — but the tags this
+ * reads are ASCII, so it still finds them, and the alternative is carrying a charset decoder for the
+ * sake of a title that is occasionally accented.
  */
-async function readResponseText(response: Response, maxBytes: number): Promise<string> {
-    const reader = response.body?.getReader();
-    if (!reader) return "";
-
-    const decoder = new TextDecoder();
-    let result = "";
-    let bytesRead = 0;
-
-    while (bytesRead < maxBytes) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        bytesRead += value.byteLength;
-        result += decoder.decode(value, { stream: true });
-    }
-
-    void reader.cancel();
-    return result.slice(0, maxBytes);
+function asText({ bytes }: FetchedResource): string {
+    return decodeUtf8(bytes);
 }
 
 /**
- * Downloads a binary resource, refusing anything over `maxBytes` — both up front, when the server
- * advertises the size, and while streaming, when it does not.
- * Returns undefined if the download fails or the resource is too large.
+ * Downloads a binary resource, or nothing where it could not be had.
+ *
+ * The ceiling, the streaming and the vetting of the address all belong to the request provider now,
+ * which is what lets this run on a runtime with no Node in it. What is left here is the one decision
+ * that is this route's rather than the transport's: a preview would rather go without a picture than
+ * fail, so every way of not getting one collapses to the same absence.
+ *
+ * `defaultContentType` stands in where a server named none — an `.ico` is routinely served as
+ * `application/octet-stream`, or as nothing at all.
  */
-async function downloadBinary(url: string, maxBytes: number, defaultContentType: string): Promise<{ buffer: Buffer; contentType: string } | undefined> {
+async function downloadBinary(url: string, maxBytes: number, defaultContentType: string): Promise<{ bytes: Uint8Array; contentType: string } | undefined> {
     try {
-        const response = await safeFetch(url);
+        const response = await request.fetchResource(url, { maxBytes });
 
         if (!response.ok) return undefined;
 
-        // Bail early if the server advertises a size over the limit
-        const contentLength = response.headers.get("content-length");
-        if (contentLength && parseInt(contentLength, 10) > maxBytes) return undefined;
-
-        const contentType = (response.headers.get("content-type") || defaultContentType).split(";")[0];
-
-        // Stream the body and enforce the size limit during download
-        const reader = response.body?.getReader();
-        if (!reader) return undefined;
-
-        const chunks: Uint8Array[] = [];
-        let bytesRead = 0;
-
-        while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-
-            bytesRead += value.byteLength;
-            if (bytesRead > maxBytes) {
-                void reader.cancel();
-                return undefined;
-            }
-            chunks.push(value);
-        }
-
-        return { buffer: Buffer.concat(chunks), contentType };
+        return { bytes: response.bytes, contentType: response.contentType || defaultContentType };
     } catch {
         return undefined;
     }
@@ -137,8 +110,7 @@ async function downloadBinary(url: string, maxBytes: number, defaultContentType:
 
 /** A picture that has been fetched and identified, but not yet stored anywhere. */
 interface DownloadedPicture {
-    buffer: Buffer;
-    mime: string;
+    bytes: Uint8Array;
 }
 
 /**
@@ -174,18 +146,17 @@ async function storePicture(
         return undefined;
     }
 
-    const fileName = `${baseName}.${imageExtensionForMime(picture.mime)}`;
-    const attachment = imageService.saveImageToAttachment(noteId, picture.buffer, fileName, false, false, role);
+    const stored = storePictureBytes(noteId, picture.bytes, { role, title: baseName, shrink: false });
 
-    if (!attachment.attachmentId) {
+    if (!stored) {
         return undefined;
     }
 
     // The client renders the preview the moment this answers, so the URL it is handed has to be
     // fetchable by then; otherwise the picture draws broken and stays that way until a reload.
-    await imageService.awaitImageWrite(attachment.attachmentId);
+    await imageService.awaitImageWrite(stored.attachmentId);
 
-    return `api/attachments/${attachment.attachmentId}/image/${encodeURIComponent(attachment.title)}`;
+    return stored.url;
 }
 
 /**
@@ -203,25 +174,19 @@ async function storePictures(noteId: string, url: string, fetched: FetchedPrevie
 }
 
 /**
- * The media type to name a downloaded picture by, read from its own bytes, or undefined when the
- * bytes are not a picture at all.
+ * Bytes that really are a picture, or nothing.
  *
  * The response header cannot answer this. `favicon.ico` is routinely served as
- * `application/octet-stream` or `text/plain`, and the media type is not decoration: it decides the
- * extension the attachment is titled with and the type the picture is later served under.
+ * `application/octet-stream` or `text/plain`, and the answer is not decoration: what a picture is
+ * decides the extension its attachment is titled with and the type it is later served under, which
+ * is why {@link storePictureBytes} reads it off the bytes again at the moment it stores them.
  *
- * Undefined also covers the case the header hides in the other direction — an HTML error page
- * served in place of an image, which is not something to keep whatever it claims to be.
+ * Asking here as well is what lets a candidate be rejected while there are still others to try: an
+ * HTML error page served where an icon should be has to fail now, so the next `<link rel="icon">`
+ * gets its turn, rather than at store time when the search is already over.
  */
-async function detectImageMime(buffer: Buffer): Promise<string | undefined> {
-    return (await getImageTypeFromBuffer(buffer))?.mime;
-}
-
-/** Downloads a picture and names it by its own bytes, or nothing if those are not a picture. */
-async function asPicture(buffer: Buffer): Promise<DownloadedPicture | undefined> {
-    const mime = await detectImageMime(buffer);
-
-    return mime ? { buffer, mime } : undefined;
+function asPicture(bytes: Uint8Array): DownloadedPicture | undefined {
+    return inspectImage(bytes).format === UNKNOWN_FORMAT ? undefined : { bytes };
 }
 
 /**
@@ -236,12 +201,11 @@ async function downloadFavicon(faviconUrl: string): Promise<DownloadedPicture | 
     }
 
     // An icon directory gives up the sizes nothing will look at; anything else is kept as it came.
-    const trimmed = trimIcoToSmallestEntry(downloaded.buffer, FAVICON_TARGET_EDGE);
-    const bytes = trimmed ? Buffer.from(trimmed) : downloaded.buffer;
+    const bytes = trimIcoToSmallestEntry(downloaded.bytes, FAVICON_TARGET_EDGE) ?? downloaded.bytes;
 
     // The ceiling is on what is kept, not on what arrived: a file that is one large picture has
     // nothing to give up, and is the case this refuses.
-    return bytes.byteLength <= MAX_FAVICON_SIZE ? await asPicture(bytes) : undefined;
+    return bytes.byteLength <= MAX_FAVICON_SIZE ? asPicture(bytes) : undefined;
 }
 
 /**
@@ -266,47 +230,48 @@ async function downloadPreviewImage(imageUrl: string, minSourceDimension = 0): P
     const downloaded = await downloadBinary(imageUrl, MAX_IMAGE_DOWNLOAD_SIZE, "image/jpeg");
     if (!downloaded) return undefined;
 
-    const { buffer, contentType } = downloaded;
-    const isSmallEnoughToKeepVerbatim = buffer.byteLength <= MAX_VERBATIM_IMAGE_SIZE;
+    const { bytes, contentType } = downloaded;
+    const inspected = inspectImage(bytes);
+    const isSmallEnoughToKeepVerbatim = bytes.byteLength <= MAX_VERBATIM_IMAGE_SIZE;
 
-    // An SVG scales natively, so it is kept as-is rather than rasterised (Jimp cannot read it anyway),
-    // and it satisfies any minimum dimension by definition.
-    // The isSvg() sniff only runs on a buffer we would be willing to keep, to avoid stringifying megabytes.
-    if (contentType.includes("svg") || (isSmallEnoughToKeepVerbatim && isSvg(buffer.toString()))) {
-        return isSmallEnoughToKeepVerbatim ? { buffer, mime: "image/svg+xml" } : undefined;
+    // An SVG scales natively, so it is kept as-is rather than rasterised, and it satisfies any
+    // minimum dimension by definition. The sniff reads the opening bytes only, so it costs the same
+    // whatever the file weighs.
+    if (contentType.includes("svg") || inspected.format === "svg") {
+        return isSmallEnoughToKeepVerbatim ? { bytes } : undefined;
     }
 
-    try {
-        const image = await Jimp.read(buffer);
-
-        if (Math.max(image.bitmap.width, image.bitmap.height) < minSourceDimension) {
-            return undefined;
-        }
-
-        // Only ever scale down: scaleToFit() would happily enlarge a smaller image.
-        if (image.bitmap.width > IMAGE_MAX_DIMENSION || image.bitmap.height > IMAGE_MAX_DIMENSION) {
-            image.scaleToFit({ w: IMAGE_MAX_DIMENSION, h: IMAGE_MAX_DIMENSION });
-        }
-
-        // hasAlpha() inspects the pixels, not just the channel, so an opaque PNG still takes the
-        // JPEG path. An animated GIF/WebP collapses to its first frame, which is fine for a thumbnail.
-        return image.hasAlpha()
-            ? { buffer: Buffer.from(await image.getBuffer("image/png")), mime: "image/png" }
-            : { buffer: Buffer.from(await image.getBuffer("image/jpeg", { quality: IMAGE_JPEG_QUALITY })), mime: "image/jpeg" };
-    } catch (e: unknown) {
-        // Jimp bundles decoders for PNG/JPEG/GIF/BMP/TIFF only, so a WebP or AVIF lands here. Keep
-        // the original bytes when they are small enough — unresized, but still not hotlinked. The
-        // bytes are asked what they are, the same way a favicon's are, so that an error page served
-        // in place of the image (an undecodable response that is not an image at all) is dropped
-        // rather than embedded. A caller that requires a minimum size gets nothing: undecodable
-        // means unverifiable.
-        // The URL is deliberately left out of the log: it is the user's private browsing, and a
-        // pasted link can carry a one-time token in its path or query. The timestamp is enough to
-        // match a log line against the paste that caused it.
-        getLog().info(`Could not decode a link preview image: ${e}`);
-
-        return isSmallEnoughToKeepVerbatim && !minSourceDimension ? await asPicture(buffer) : undefined;
+    if (minSourceDimension && !isAtLeast(inspected, minSourceDimension)) {
+        return undefined;
     }
+
+    const resized = await getImageProvider().resizeForPreview(bytes, {
+        maxEdge: IMAGE_MAX_DIMENSION,
+        jpegQuality: IMAGE_JPEG_QUALITY
+    });
+
+    if (resized.resized) {
+        return { bytes: resized.bytes };
+    }
+
+    // Nothing scaled it — an undecodable format (WebP, AVIF) where there is a decoder, anything at
+    // all where there is not. Keep the original bytes if they are small enough: unresized, but
+    // still stored rather than hotlinked, which is the property that matters. They are asked what
+    // they are on the way past, so an error page served in place of a picture is dropped rather
+    // than embedded.
+    return isSmallEnoughToKeepVerbatim ? asPicture(bytes) : undefined;
+}
+
+/**
+ * Whether a picture is at least `minEdge` across, read from its header.
+ *
+ * Header rather than decode, so the answer costs nothing and is available on a runtime that has no
+ * decoder at all — which is the point: the alternative was to decode purely to measure, and to
+ * treat every picture that would not decode as too small. A header that does not say is treated as
+ * too small, since unverified is not the same as large enough.
+ */
+function isAtLeast({ width, height }: InspectedImage, minEdge: number): boolean {
+    return width !== null && height !== null && Math.max(width, height) >= minEdge;
 }
 
 /**
@@ -368,7 +333,7 @@ function collectIconCandidates(document: ReturnType<typeof parse>, pageUrl: stri
     candidates.sort((a, b) => b.size - a.size);
 
     const urls = candidates.map((candidate) => candidate.url);
-    // `pageUrl` already passed validateUrl, so resolving the conventional path against it cannot fail.
+    // `pageUrl` already passed validateFetchableUrl, so resolving the conventional path against it cannot fail.
     const conventional = new URL("/apple-touch-icon.png", pageUrl).toString();
     if (!urls.includes(conventional)) {
         urls.push(conventional);
@@ -450,7 +415,7 @@ function collectFaviconCandidates(document: ReturnType<typeof parse>, pageUrl: s
     const urls = [ ...new Set(candidates.map((candidate) => candidate.url)) ].slice(0, MAX_FAVICON_CANDIDATES);
 
     // Every site is entitled to serve this whether it declares it or not, so it is the last resort
-    // rather than one of the ranked candidates. `pageUrl` already passed validateUrl, so it forms a
+    // rather than one of the ranked candidates. `pageUrl` already passed validateFetchableUrl, so it forms a
     // URL. Appended after the cap, never dropped by it.
     const conventional = new URL("/favicon.ico", pageUrl).toString();
     if (!urls.includes(conventional)) {
@@ -526,11 +491,11 @@ async function fetchYouTubeMetadata(url: string, videoId: string): Promise<Fetch
 
     try {
         const oembedUrl = `https://www.youtube.com/oembed?url=${encodeURIComponent(url)}&format=json`;
-        const response = await safeFetch(oembedUrl);
+        const response = await request.fetchResource(oembedUrl, { maxBytes: MAX_OEMBED_SIZE });
 
         if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-        const data = await response.json();
+        const data = JSON.parse(asText(response));
         if (data.title) metadata.title = data.title;
         if (data.author_name) metadata.description = data.author_name;
         if (data.thumbnail_url) thumbnailUrl = data.thumbnail_url;
@@ -544,7 +509,8 @@ async function fetchYouTubeMetadata(url: string, videoId: string): Promise<Fetch
 }
 
 async function fetchOpenGraphData(url: string) {
-    const response = await safeFetch(url, {
+    const response = await request.fetchResource(url, {
+        maxBytes: MAX_RESPONSE_SIZE,
         headers: {
             "User-Agent": "TriliumNotes/1.0 (Link Preview; +https://triliumnotes.org/)",
             "Accept": "text/html"
@@ -553,13 +519,12 @@ async function fetchOpenGraphData(url: string) {
 
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
-    const contentType = response.headers.get("content-type") || "";
+    const { contentType } = response;
     if (!contentType.includes("text/html") && !contentType.includes("application/xhtml+xml")) {
         throw new Error(`Unexpected Content-Type: ${contentType}`);
     }
 
-    const html = await readResponseText(response, MAX_RESPONSE_SIZE);
-    const document = parse(html);
+    const document = parse(asText(response));
 
     const getMeta = (property: string): string | undefined => {
         const ogEl = document.querySelector(`meta[property="${property}"]`);
@@ -614,7 +579,7 @@ async function getMetadata(req: Request) {
         throw new ValidationError("'noteId' is required");
     }
 
-    const validatedUrl = validateUrl(urlParam);
+    const validatedUrl = validateFetchableUrl(urlParam);
     const url = validatedUrl.toString();
     const videoId = extractYouTubeVideoId(url);
 

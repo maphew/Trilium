@@ -12,7 +12,7 @@
 
 import { IMAGE_COMPRESSIBLE_FORMATS, type ImageCompressionSkipReason } from "@triliumnext/commons";
 import { type InspectedImage, inspectImage } from "@triliumnext/core/src/services/image_inspect.js";
-import type { ImageCompressionOutcome, ImageCompressionRequest, ImageFormat } from "@triliumnext/core/src/services/image_provider.js";
+import type { ImageCompressionOutcome, ImageCompressionRequest, ImageFormat, PreviewResizeOutcome, PreviewResizeRequest } from "@triliumnext/core/src/services/image_provider.js";
 import { estimateJpegQuality } from "@triliumnext/core/src/services/jpeg_quality.js";
 import imageType from "image-type";
 import isAnimated from "is-animated";
@@ -440,5 +440,51 @@ export async function compressImageBytes(
     }
 
     return { compressed: true, buffer: result, format: toJpeg ? JPEG_FORMAT : PNG_FORMAT };
+}
+
+/**
+ * Scales a link preview's cover image down to `maxEdge` and re-encodes it.
+ *
+ * The bytes make a round trip — downloaded and stored in the same breath — so the reduction happens
+ * here rather than being left to the generic compression pass: a 5MB `og:image` has no business
+ * being carried through a pipeline sized for the user's own photographs to become a thumbnail
+ * nobody will see above a couple of hundred pixels.
+ *
+ * Transparency survives by re-encoding to PNG only where the picture actually has non-opaque pixels;
+ * an opaque one becomes a JPEG, which is several times smaller.
+ *
+ * Answers `undecodable` rather than throwing when Jimp cannot read the bytes — it bundles decoders
+ * for PNG/JPEG/GIF/BMP/TIFF only, so a WebP or an AVIF lands there, as does an error page served
+ * where a picture should have been. Saying so is enough; what a preview does without its picture is
+ * not this function's business.
+ */
+export async function resizePreviewImage(
+    bytes: Uint8Array,
+    { maxEdge, jpegQuality }: PreviewResizeRequest,
+    log: CodecLog = () => {}
+): Promise<PreviewResizeOutcome> {
+    try {
+        const image = await decodeImage(bytes);
+
+        // Only ever down: scaleToFit() would happily enlarge a smaller picture.
+        if (image.bitmap.width > maxEdge || image.bitmap.height > maxEdge) {
+            image.scaleToFit({ w: maxEdge, h: maxEdge });
+        }
+
+        // hasAlpha() inspects the pixels rather than just the channel, so an opaque PNG still takes
+        // the JPEG path. An animated GIF or WebP collapses to its first frame, which is all a
+        // thumbnail wanted of it.
+        const encoded = image.hasAlpha()
+            ? await image.getBuffer("image/png")
+            : await image.getBuffer("image/jpeg", { quality: jpegQuality });
+
+        return { resized: true, bytes: new Uint8Array(encoded) };
+    } catch (e: unknown) {
+        // The address is deliberately left out of the line: it is the user's private browsing, and a
+        // pasted link can carry a one-time token in its path or query.
+        log(`Could not decode a link preview image: ${e}`, true);
+
+        return { resized: false, reason: "undecodable" };
+    }
 }
 

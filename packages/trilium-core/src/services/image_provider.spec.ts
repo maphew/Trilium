@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-import type { ImageCompressionOutcome, ImageProvider, ProcessedImage } from "./image_provider.js";
+import type { ImageCompressionOutcome, ImageProvider, PreviewResizeOutcome, ProcessedImage } from "./image_provider.js";
 
 describe("image provider (core)", () => {
     // The core bootstrap installs a real image provider, so to exercise the
@@ -22,7 +22,11 @@ describe("image provider (core)", () => {
                 reason: "no-gain"
             })),
             planCompression: vi.fn(async () => ({ decodeCost: null })),
-            compressionConcurrency: vi.fn(() => 1)
+            compressionConcurrency: vi.fn(() => 1),
+            resizeForPreview: vi.fn(async (): Promise<PreviewResizeOutcome> => ({
+                resized: false,
+                reason: "unsupported-platform"
+            }))
         };
         mod.initImageProvider(fake);
         expect(mod.getImageProvider()).toBe(fake);

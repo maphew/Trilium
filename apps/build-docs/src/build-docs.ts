@@ -44,7 +44,8 @@ const stubImageProvider: ImageProvider = {
     },
     compressImage: async () => ({ compressed: false, reason: "unsupported-platform" }),
     planCompression: async () => ({ skip: "unsupported-platform" as const, decodeCost: null }),
-    compressionConcurrency: () => 1
+    compressionConcurrency: () => 1,
+    resizeForPreview: async () => ({ resized: false, reason: "unsupported-platform" as const })
 };
 import { ZipArchive } from "archiver";
 import { execSync } from "child_process";

@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest";
 import becca from "../../../becca/becca.js";
 import type BNote from "../../../becca/entities/bnote.js";
 import { getContext } from "../../context.js";
+import { fakeRequestProvider } from "../../../test/request_provider.js";
 import { initRequest } from "../../request.js";
 import TaskContext from "../../task_context.js";
 import notionImporter from "./importer.js";
@@ -1087,13 +1088,12 @@ describe("Notion importer — integration", () => {
             + `<img src="https://cdn.example.com/cover.png" class="bookmark-image"/></a></figure>`;
 
         const asked: string[] = [];
-        initRequest({
-            exec: async () => { throw new Error("Not used by this test."); },
+        initRequest(fakeRequestProvider({
             getImage: async (address: string) => {
                 asked.push(address);
                 return PIXEL_PNG.buffer.slice(PIXEL_PNG.byteOffset, PIXEL_PNG.byteOffset + PIXEL_PNG.byteLength) as ArrayBuffer;
             }
-        });
+        }));
 
         try {
             const importRoot = await importNotion({
@@ -1113,10 +1113,7 @@ describe("Notion importer — integration", () => {
             expect(content).not.toContain("https://cdn.example.com/cover.png");
             expect(content).toContain("api/attachments/");
         } finally {
-            initRequest({
-                exec: async () => { throw new Error("Request provider not initialized. Call initRequest() first."); },
-                getImage: async () => { throw new Error("Request provider not initialized. Call initRequest() first."); }
-            });
+            initRequest(fakeRequestProvider());
         }
     });
 
