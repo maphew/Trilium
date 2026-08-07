@@ -15,12 +15,6 @@
   },
   "dependencies": {
     "@excalidraw/excalidraw": "0.18.1",
-    "@fullcalendar/core": "6.1.21",
-    "@fullcalendar/daygrid": "6.1.21",
-    "@fullcalendar/interaction": "6.1.21",
-    "@fullcalendar/list": "6.1.21",
-    "@fullcalendar/multimonth": "6.1.21",
-    "@fullcalendar/timegrid": "6.1.21",
     "@mermaid-js/layout-elk": "0.2.2",
     "@popperjs/core": "2.11.8",
     "@preact/signals": "2.10.1",
@@ -41,6 +35,7 @@
     "draggabilly": "3.0.0",
     "fflate": "0.8.3",
     "force-graph": "1.51.4",
+    "fullcalendar": "7.0.2",
     "i18next": "26.3.6",
     "i18next-http-backend": "4.0.1",
     "aes-js": "3.1.2",
@@ -65,7 +60,8 @@
     "react-zoom-pan-pinch": "4.0.3",
     "reveal.js": "6.0.1",
     "svg-pan-zoom": "3.6.2",
-    "tabulator-tables": "6.5.2"
+    "tabulator-tables": "6.5.2",
+    "temporal-polyfill": "1.0.3"
   },
   "devDependencies": {
     "@types/aes-js": "3.1.4",

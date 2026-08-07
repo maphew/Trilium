@@ -4,6 +4,7 @@
     height: 100%;
 
     .note-list-wrapper {
+        margin-block: var(--content-margin-inline);
         height: 100%;
         overflow: auto;
     }
