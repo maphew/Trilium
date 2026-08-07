@@ -137,8 +137,7 @@ export function MasterDetailHeader({ inPage, onBack, backTitle, pageTitle, listT
                 // does not shift as the views change.
                 listIcon && <span class={clsx("tn-master-detail-icon icon-action", listIcon)} aria-hidden="true" />
             )}
-            {/* A page that names itself (the settings pages do) passes no title, and gets no room
-                taken for one. */}
+            {/* A page that names itself passes no title, and gets no room taken for one. */}
             {(inPage ? pageTitle : listTitle) && (
                 <h5 class="tn-master-detail-title">{inPage ? pageTitle : listTitle}</h5>
             )}

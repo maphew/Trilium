@@ -71,6 +71,7 @@ export default function OptionsDialog() {
                         inPage={mobileView === "page"}
                         onBack={() => switchMobileView("list")}
                         backTitle={t("options.back")}
+                        pageTitle={<ActivePageTitle />}
                         listTitle={t("options.title")}
                         listIcon="bx bx-cog"
                     />
@@ -114,6 +115,16 @@ export default function OptionsDialog() {
             </Modal>
         </NoteContextContext.Provider>
     );
+}
+
+/**
+ * Names the settings page on show, for the master-detail header to carry beside the way back. A
+ * component of its own rather than something the dialog reads: the dialog is what provides the note
+ * context the title comes from, so it cannot consume it itself.
+ */
+function ActivePageTitle() {
+    const { note } = useNoteContext();
+    return <>{note?.title}</>;
 }
 
 /**
