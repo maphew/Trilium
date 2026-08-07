@@ -166,10 +166,15 @@ function ExistingAnonymizedDatabases({ databases, anonymizedFolderPath }: { data
     return (
         <DatabaseFileList
             title={t("database_anonymization.existing_anonymized_databases")}
-            locationDescription={anonymizedFolderPath && t("database_anonymization.anonymized_databases_location", { anonymizedFolder: anonymizedFolderPath })}
+            description={anonymizedFolderPath && (
+                <span className="selectable-text">
+                    {t("database_anonymization.anonymized_databases_location", {
+                        anonymizedFolder: anonymizedFolderPath
+                    })}
+                </span>
+            )}
             files={databases}
             downloadEndpoint="api/database/anonymized/download"
-            rowName="anonymized-database"
             downloadText={t("database_anonymization.download")}
             emptyIcon="bx bx-glasses"
             emptyText={t("database_anonymization.no_anonymized_database_yet")}
