@@ -3552,7 +3552,7 @@
     "restore-error-already-initialized": "이 인스턴스에는 이미 지식 베이스가 있으므로 그 위에 복원할 수 없습니다. 페이지를 새로고침하세요."
   },
   "mind-map": {
-    "addChild": "자식 추가",
+    "addChild": "하위 노트 추가",
     "addParent": "부모 추가",
     "addSibling": "형제 노드 추가",
     "removeNode": "노드 제거",
