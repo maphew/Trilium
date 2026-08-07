@@ -1276,7 +1276,6 @@
     "images_section_title": "Bilder",
     "download_images_automatically": "Bilder automatisch herunterladen",
     "download_images_description": "Referenzierte Online-Bilder vom eingefügten HTML-Code herunterladen, damit diese offline zur Verfügung stehen.",
-    "enable_image_compression": "Bildkomprimierung",
     "max_image_dimensions": "Maximale Maße eines Bildes",
     "jpeg_quality_description": "Empfohlener Bereich liegt zwischen 50–85. Niedrige Werte reduzieren die Dateigröße, höhere Werte bewahren Details.",
     "max_image_dimensions_unit": "Pixel",

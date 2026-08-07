@@ -1607,7 +1607,6 @@
     "images_section_title": "Gambar",
     "download_images_automatically": "Unduh gambar secara otomatis",
     "download_images_description": "Unduh gambar online yang dirujuk dari HTML yang ditempel agar tersedia secara offline.",
-    "enable_image_compression": "Kompresi gambar",
     "enable_image_compression_description": "Kompres dan ubah ukuran gambar saat diunggah atau ditempel.",
     "max_image_dimensions": "Dimensi maksimum gambar",
     "max_image_dimensions_description": "Gambar yang melebihi ukuran ini akan diubah ukurannya secara otomatis.",

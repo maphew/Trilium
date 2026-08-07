@@ -1047,7 +1047,6 @@
     "images_section_title": "画像",
     "download_images_automatically": "画像を自動的にダウンロードする。",
     "download_images_description": "貼り付けた HTML 内の参照画像をダウンロードし、オフラインでも利用できるようにする。",
-    "enable_image_compression": "画像の圧縮",
     "max_image_dimensions": "画像の最大サイズ",
     "max_image_dimensions_unit": "ピクセル",
     "jpeg_quality_description": "推奨範囲は50～85です。値が低いほどファイルサイズが小さくなり、値が高いほどディテールが保持されます。",

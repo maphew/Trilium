@@ -847,7 +847,6 @@
   "images": {
     "images_section_title": "صور",
     "max_image_dimensions_unit": "بكسل",
-    "enable_image_compression": "ضغط الصورة",
     "jpeg_quality": "جودة JPEG",
     "ocr_min_confidence": "الحد الأدنى من الثقة",
     "ocr_section_title": "استخراج النص (OCR)",

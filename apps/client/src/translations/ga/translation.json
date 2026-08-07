@@ -1538,7 +1538,6 @@
     "images_section_title": "Íomhánna",
     "download_images_automatically": "Íomhánna a íoslódáil go huathoibríoch",
     "download_images_description": "Íoslódáil íomhánna tagartha ar líne ó HTML greamaithe ionas go mbeidh siad ar fáil as líne.",
-    "enable_image_compression": "Comhbhrú íomhá",
     "max_image_dimensions": "Uasmhéid toisí íomhá",
     "max_image_dimensions_unit": "picteilíní",
     "jpeg_quality_description": "Is é an raon molta ná 50–85. Laghdaíonn luachanna níos ísle méid an chomhaid, agus coinníonn luachanna níos airde sonraí.",

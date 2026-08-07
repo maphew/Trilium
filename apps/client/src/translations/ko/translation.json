@@ -1837,7 +1837,6 @@
     "images_section_title": "이미지",
     "download_images_automatically": "이미지를 자동으로 다운로드",
     "download_images_description": "붙여넣은 HTML에서 참고된 온라인 이미지를 다운로드하여 오프라인에서 볼 수 있습니다.",
-    "enable_image_compression": "이미지 압축",
     "enable_image_compression_description": "이미지를 업로드하거나 붙여넣을 때 압축하고 크기를 조절하세요.",
     "max_image_dimensions": "최대 이미지 크기",
     "max_image_dimensions_description": "이 크기를 초과하는 이미지는 자동으로 크기 조정됩니다.",
