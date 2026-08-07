@@ -1,4 +1,4 @@
-import { options } from "@triliumnext/core";
+import { getSql, options } from "@triliumnext/core";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import StandaloneBackupService from "./backup_provider.js";
@@ -115,6 +115,23 @@ describe("StandaloneBackupService with OPFS", () => {
         const path = await service.backupNow("daily");
         expect(path).toBe("/backups/backup-daily.db");
         expect(fs.files.get("backup-daily.db")?.data.byteLength).toBeGreaterThan(0);
+    });
+
+    it("leaves a database too large to hold in memory unbacked-up", async () => {
+        const fs = makeOpfs();
+        installOpfs(async () => fs.root);
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+        // Serializing builds the whole database in the WebAssembly heap twice over, so past a size
+        // the attempt takes the tab down rather than failing. Nothing is written instead.
+        vi.spyOn(getSql(), "getValue").mockReturnValue(4 * 1024 * 1024 * 1024);
+        const serialize = vi.spyOn(getSql(), "serialize");
+
+        expect(await new StandaloneBackupService(options).backupNow("before-migration"))
+            .toBe("/backups/backup-before-migration.db");
+
+        expect(serialize).not.toHaveBeenCalled();
+        expect(fs.files.size).toBe(0);
+        expect(warn).toHaveBeenCalled();
     });
 
     it("lists matching backups newest-first and ignores non-backup entries", async () => {

@@ -47,6 +47,9 @@ console.log("[Worker] Error handlers installed, loading modules...");
 // TYPE-ONLY IMPORTS (erased at runtime, safe as static imports)
 // =============================================================================
 import type { BrowserRouter } from './lightweight/browser_router';
+import type { StandaloneRestoreProgress, StandaloneRestoreResult } from "@triliumnext/commons";
+
+import { readCurrentDatabaseName, RestoreFailure, restoreDatabase } from './lightweight/database_restore';
 
 // Build-time constant injected by Vite (see `define` in vite.config.mts).
 declare const __TRILIUM_INTEGRATION_TEST__: string;
@@ -222,7 +225,10 @@ async function initialize(): Promise<void> {
             // __TRILIUM_INTEGRATION_TEST__ Vite define (derived from the
             // TRILIUM_INTEGRATION_TEST env var when the bundle was built).
             const integrationTestMode = __TRILIUM_INTEGRATION_TEST__;
-            const dbName = "/trilium.db";
+            // Which pool entry holds the database is a stored answer rather than a constant: a
+            // restore cannot rename an entry, so it writes the new database in beside the old one
+            // and changes this. Unrestored instances read the name they have always used.
+            const dbName = await readCurrentDatabaseName();
 
             if (integrationTestMode === "memory") {
                 // Use OPFS for the DB in integration test mode so option changes
@@ -358,6 +364,74 @@ async function dispatch(request: LocalRequest) {
     return appRouter.dispatch(request.method, request.url, request.body, request.headers);
 }
 
+/**
+ * Restores the database from a backup handed straight to this worker.
+ *
+ * Answers rather than throws: the caller is a page waiting on a message, and every way this can end
+ * is something the setup screen has to say to the user. A missing passphrase is not a failure but a
+ * question, so it is reported as one and the same file can be offered again with an answer.
+ */
+async function handleRestoreBackup(id: string, backup: File, passphrase?: string): Promise<void> {
+    const answer = (result: StandaloneRestoreResult) =>
+        (self as unknown as Worker).postMessage({ type: "RESTORE_RESULT", id, result });
+    const report = (progress: StandaloneRestoreProgress) =>
+        (self as unknown as Worker).postMessage({ type: "RESTORE_PROGRESS", id, progress });
+
+    const core = coreModule;
+    const pool = sqlProvider?.sahPool;
+    if (!core || !sqlProvider || !pool) {
+        answer({ status: "error", reason: "swap-failed", message: "The database is not ready yet." });
+        return;
+    }
+
+    // What `checkAppNotInitialized` is to the server's routes. A restore replaces the database
+    // wholesale, so it is only ever offered by the setup screen; a tab left open on that screen
+    // after another one finished setting up must not act on it.
+    if (core.sql_init.isDbInitialized()) {
+        answer({ status: "error", reason: "already-initialized", message: "The database is already set up." });
+        return;
+    }
+
+    // Two restores would prepare over each other, since they write the same candidate.
+    if (restoreInProgress) {
+        answer({ status: "error", reason: "restore-refused", message: "A restore is already running." });
+        return;
+    }
+
+    restoreInProgress = true;
+
+    try {
+        await restoreDatabase(
+            {
+                pool,
+                close: () => sqlProvider?.close(),
+                open: (dbName) => sqlProvider?.loadFromSahPool(dbName)
+            },
+            backup,
+            { passphrase, report: ({ stage, fraction }) => report({ stage, fraction }) }
+        );
+
+        // What the "create new document" path announces for the same reason: everything that waits
+        // on a database being there starts from here.
+        await core.sql_init.initDbConnection();
+        core.events.emit(core.events.DB_INITIALIZED);
+
+        answer({ status: "restored" });
+    } catch (e) {
+        const reason = e instanceof RestoreFailure ? e.reason : "swap-failed";
+        const message = e instanceof Error ? e.message : String(e);
+
+        answer(reason === "passphrase-required"
+            ? { status: "needs-passphrase" }
+            : { status: "error", reason, message });
+    } finally {
+        restoreInProgress = false;
+    }
+}
+
+/** Whether a restore is running, since a second one would prepare over the first one's work. */
+let restoreInProgress = false;
+
 // Wait for the INIT message before initializing so that queryString
 // (which may contain ?integrationTest=memory for e2e) is available.
 let initReceived = false;
@@ -383,6 +457,11 @@ self.onmessage = async (event) => {
                 });
             });
         }
+        return;
+    }
+
+    if (msg.type === "RESTORE_BACKUP") {
+        await handleRestoreBackup(msg.id, msg.backup, msg.passphrase);
         return;
     }
 
