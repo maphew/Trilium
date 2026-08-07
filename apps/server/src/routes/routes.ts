@@ -100,6 +100,8 @@ function register(app: express.Application) {
     routes.buildSharedApiRoutes({
         route,
         asyncRoute,
+        // The server's asyncRoute never opened a transaction to begin with.
+        asyncRouteWithoutTransaction: asyncRoute,
         apiRoute,
         asyncApiRoute,
         apiResultHandler,

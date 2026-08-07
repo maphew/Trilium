@@ -45,6 +45,15 @@ const GET = "get",
 interface SharedApiRoutesContext {
     route: any;
     asyncRoute: any;
+    /**
+     * Like `asyncRoute`, minus the transaction, on every platform.
+     *
+     * `asyncRoute` is transactional in the browser and not on the server, which is fine for handlers
+     * that only read or write rows. It is not fine for the handful that close the database and open
+     * another one: the transaction they started belongs to a connection that is gone by the time it
+     * would be committed, and SQLite says so.
+     */
+    asyncRouteWithoutTransaction: any;
     apiRoute: any;
     asyncApiRoute: any;
     checkApiAuth: any;
@@ -58,7 +67,7 @@ interface SharedApiRoutesContext {
     csrfMiddleware: any;
 }
 
-export function buildSharedApiRoutes({ route, asyncRoute, apiRoute, asyncApiRoute, checkApiAuth, apiResultHandler, checkApiAuthOrElectron, checkAppNotInitialized, checkCredentials, loginRateLimiter, uploadMiddlewareWithErrorHandling, importMiddlewareWithErrorHandling, csrfMiddleware }: SharedApiRoutesContext) {
+export function buildSharedApiRoutes({ route, asyncRoute, asyncRouteWithoutTransaction, apiRoute, asyncApiRoute, checkApiAuth, apiResultHandler, checkApiAuthOrElectron, checkAppNotInitialized, checkCredentials, loginRateLimiter, uploadMiddlewareWithErrorHandling, importMiddlewareWithErrorHandling, csrfMiddleware }: SharedApiRoutesContext) {
     apiRoute(GET, '/api/tree', treeApiRoute.getTree);
     apiRoute(PST, '/api/tree/load', treeApiRoute.load);
 
@@ -157,10 +166,12 @@ export function buildSharedApiRoutes({ route, asyncRoute, apiRoute, asyncApiRout
     // What becomes of the database the wizard was booted away from. Guarded like the rest of setup,
     // and refused again inside on an instance that has no such database. Not transactional: the
     // backup runs for minutes, and keeping the database reopens it.
-    asyncRoute(PST, "/api/setup/existing/backup", [checkAppNotInitialized], setupApiRoute.backUpExisting, apiResultHandler);
-    asyncRoute(GET, "/api/setup/existing/status", [checkAppNotInitialized], setupApiRoute.existingBackupStatus, apiResultHandler);
-    asyncRoute(PST, "/api/setup/existing/delete", [checkAppNotInitialized], setupApiRoute.deleteExisting, apiResultHandler);
-    asyncRoute(PST, "/api/setup/existing/keep", [checkAppNotInitialized], setupApiRoute.keepExisting, apiResultHandler);
+    // Without a transaction, on every platform: the backup runs for minutes with the database in
+    // use, and erasing or keeping it closes the connection any transaction would belong to.
+    asyncRouteWithoutTransaction(PST, "/api/setup/existing/backup", [checkAppNotInitialized], setupApiRoute.backUpExisting, apiResultHandler);
+    asyncRouteWithoutTransaction(GET, "/api/setup/existing/status", [checkAppNotInitialized], setupApiRoute.existingBackupStatus, apiResultHandler);
+    asyncRouteWithoutTransaction(PST, "/api/setup/existing/delete", [checkAppNotInitialized], setupApiRoute.deleteExisting, apiResultHandler);
+    asyncRouteWithoutTransaction(PST, "/api/setup/existing/keep", [checkAppNotInitialized], setupApiRoute.keepExisting, apiResultHandler);
 
     asyncApiRoute(PST, "/api/sync/test", syncApiRoute.testSync);
     asyncApiRoute(PST, "/api/sync/now", syncApiRoute.syncNow);

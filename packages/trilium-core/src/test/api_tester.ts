@@ -264,6 +264,7 @@ export class CoreApiTester {
         routes.buildSharedApiRoutes({
             route: buildRoute(true),
             asyncRoute: buildRoute(false),
+            asyncRouteWithoutTransaction: buildRoute(false),
             apiRoute,
             asyncApiRoute,
             apiResultHandler,
