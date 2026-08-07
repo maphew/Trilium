@@ -215,6 +215,22 @@ describe("geo map Buildings", () => {
         expect(extrusion(map)?.paint?.["fill-extrusion-color"]).not.toBe(overLightMap);
     });
 
+    it("takes them down on a style that arrives with nothing to stand up", () => {
+        // Switching to the raster map while the view is leaned over. `keepAdditions` now leaves the
+        // layer behind rather than handing it on without its source (see map.spec), but this does
+        // not lean on that: whatever a style load brings, the layer is left standing only where
+        // there is something under it to draw from.
+        const map = fakeMap();
+        renderBuildings(map);
+        act(() => map.tiltTo(45));
+        const carriedOver = extrusion(map);
+        if (!carriedOver) throw new Error("nothing to carry over");
+
+        act(() => map.loadStyle([ ...rasterStyleLayers(), carriedOver ]));
+
+        expect(extrusion(map)).toBeUndefined();
+    });
+
     it("stops listening to a map it is taken off, giving the flat buildings back", () => {
         const map = fakeMap();
         const container = renderBuildings(map);

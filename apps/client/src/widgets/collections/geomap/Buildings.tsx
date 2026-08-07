@@ -83,11 +83,13 @@ export default function Buildings({ isDarkTheme }: { isDarkTheme: boolean }) {
  * for the wrong map. Adding it afresh settles both without a separate path for each.
  */
 function install(map: MapLibreGLMap, isDarkTheme: boolean) {
-    if (!map.getSource(SHORTBREAD_SOURCE)) return;
-
+    // Taken down before the style is asked whether it has anything to put up, so that what this
+    // leaves behind is the same either way: the layer stands only where there is a source under it.
     if (map.getLayer(BUILDINGS_LAYER)) {
         map.removeLayer(BUILDINGS_LAYER);
     }
+
+    if (!map.getSource(SHORTBREAD_SOURCE)) return;
     // Under the style's own labels rather than over them: a place name buried behind a tower reads
     // as a missing label, and every 3D map worth copying puts its names on top. Under the markers
     // too, as a consequence — they are symbol layers added after the style's own.
