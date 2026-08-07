@@ -7,6 +7,7 @@ import type { DatabaseBackup, SetupExistingBackup } from "@triliumnext/commons";
 import { BackupOptionsService, BackupService, getLog, sync_mutex as syncMutexService, utils as coreUtils, ws } from "@triliumnext/core";
 import fs from "fs";
 import fsp from "fs/promises";
+import type { Response } from "express";
 import { t } from "i18next";
 import path from "path";
 
@@ -132,6 +133,7 @@ export default class ServerBackupService extends BackupService {
         return {
             fileName: path.basename(written.filePath),
             filePath: written.filePath,
+            directoryPath: path.dirname(written.filePath),
             fileSize: stat.size,
             encrypted: written.encrypted
         };
@@ -151,6 +153,24 @@ export default class ServerBackupService extends BackupService {
      * path use this directly rather than {@link getBackupContent}, which reads the whole file into
      * memory — no use at all for a backup measured in gigabytes.
      */
+    override sendBackup(filePath: string, res: Response): boolean {
+        const resolved = this.resolveBackupPath(filePath);
+        if (!resolved) {
+            return false;
+        }
+
+        res.setHeader("Content-Type", "application/octet-stream");
+        res.setHeader("Content-Disposition", `attachment; filename="${path.basename(resolved)}"`);
+        res.setHeader("Content-Length", String(fs.statSync(resolved).size));
+        // Committed before a single byte of the body: the desktop serves the renderer through a
+        // protocol bridge that only streams once headers are flushed, and buffers everything
+        // otherwise. A backup is exactly the response that must not be buffered.
+        res.flushHeaders();
+        fs.createReadStream(resolved).pipe(res);
+
+        return true;
+    }
+
     resolveBackupPath(filePath: string): string | null {
         const resolvedPath = path.resolve(filePath);
 

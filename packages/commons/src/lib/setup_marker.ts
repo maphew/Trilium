@@ -27,8 +27,15 @@ export type SetupTargetScreen = "restore-backup";
 /** A backup the setup screen took of the database it is about to replace. */
 export interface SetupExistingBackup {
     fileName: string;
-    /** Shown in full, because the user may lose sight of a custom backup directory afterwards. */
+    /** The whole path, for downloading it and for anything that needs to name the file itself. */
     filePath: string;
+    /**
+     * The directory holding it, shown on its own.
+     *
+     * Shown because the user may lose sight of a custom backup location afterwards: the option
+     * naming it lives in the database that is about to be replaced.
+     */
+    directoryPath: string;
     fileSize: number;
     /** Whether it is encrypted, which decides whether the user needs their backup password to use it. */
     encrypted: boolean;

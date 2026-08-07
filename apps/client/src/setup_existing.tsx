@@ -3,12 +3,13 @@ import "./setup_existing.css";
 import type { SetupExistingBackup } from "@triliumnext/commons";
 import { useEffect, useState } from "preact/hooks";
 
-import { formatSize } from "./services/utils";
 import { t } from "./services/i18n";
+import open from "./services/open";
 import server from "./services/server";
+import { formatSize, isElectron } from "./services/utils";
 import Admonition from "./widgets/react/Admonition";
 import Button from "./widgets/react/Button";
-import { Card, CardSection } from "./widgets/react/Card";
+import { Card, CardOption, CardSection } from "./widgets/react/Card";
 import FormRadioGroup from "./widgets/react/FormRadioGroup";
 import Icon from "./widgets/react/Icon";
 import SetupPage from "./widgets/react/SetupPage";
@@ -30,6 +31,11 @@ import SlidePages from "./widgets/react/SlidePages";
 
 /** What the user decided to do with the database that is already here. */
 type Choice = "back-up" | "delete";
+
+const CHOICES: { value: Choice; label: string }[] = [
+    { value: "back-up", label: "setup.existing-data-back-up" },
+    { value: "delete", label: "setup.existing-data-delete" }
+];
 
 /** The three screens, in the order they can be reached, which is also the order they slide in. */
 type Step = "choice" | "backing-up" | "backed-up";
@@ -185,18 +191,20 @@ export function ExistingDataChoice({ error, errorId, onBackUp, onDelete, onCance
                 </>
             }
         >
-            <Card>
-                <CardSection>
-                    <FormRadioGroup
-                        name="existing-data-choice"
-                        currentValue={choice ?? ""}
-                        onChange={(value) => setChoice(value as Choice)}
-                        values={[
-                            { value: "back-up", label: t("setup.existing-data-back-up") },
-                            { value: "delete", label: t("setup.existing-data-delete") }
-                        ]}
-                    />
-                </CardSection>
+            <Card className="existing-data-choices">
+                {/* A segment each, rather than two rows in one: this is the question the whole screen
+                    is for, and one of the answers erases a knowledge base. Which is checked is held
+                    here rather than by the browser's own grouping, so the two stay exclusive. */}
+                {CHOICES.map(({ value, label }) => (
+                    <CardSection key={value}>
+                        <FormRadioGroup
+                            name="existing-data-choice"
+                            currentValue={choice ?? ""}
+                            onChange={(chosen) => setChoice(chosen as Choice)}
+                            values={[ { value, label: t(label) } ]}
+                        />
+                    </CardSection>
+                ))}
             </Card>
 
             {choice === "delete" && (
@@ -239,12 +247,13 @@ export function ExistingDataBackingUp() {
         >
             <div class="existing-data-progress">
                 <div class="existing-data-progress-message">
-                    <span class="spinner-border" role="status" aria-hidden="true" />
+                    {/* The spinner is what stands in for a bar until the writer has said anything.
+                        Once the bar is there it has nothing left to add, and two things moving at
+                        once only compete. */}
+                    {fraction === null && <span class="spinner-border" role="status" aria-hidden="true" />}
                     <span>{t("setup.existing-data-backing-up-message")}</span>
                 </div>
 
-                {/* Only once the writer has said something. Until then there is nothing to draw, and
-                    an empty bar that never moves says less than no bar at all. */}
                 {fraction !== null && (
                     <div class="existing-data-progress-bar">
                         <progress value={fraction} max={1} />
@@ -285,17 +294,24 @@ export function ExistingDataBackedUp({ backup, onContinue, onCancel }: {
             }
         >
             <Card>
-                <CardSection>
-                    <dl class="existing-data-facts">
-                        <dt>{t("setup.existing-data-file-name")}</dt>
-                        <dd>{backup.fileName}</dd>
+                <CardOption label={t("setup.existing-data-file-name")}>
+                    <span class="existing-data-file-name">{backup.fileName}</span>
+                </CardOption>
 
-                        <dt>{t("setup.existing-data-file-path")}</dt>
-                        <dd class="existing-data-path">{backup.filePath}</dd>
+                <CardOption label={t("setup.existing-data-file-path")}>
+                    <BackupDirectory path={backup.directoryPath} />
+                </CardOption>
 
-                        <dt>{t("setup.existing-data-file-size")}</dt>
-                        <dd>{formatSize(backup.fileSize)}</dd>
-                    </dl>
+                <CardOption label={t("setup.existing-data-file-size")}>
+                    {formatSize(backup.fileSize)}
+                </CardOption>
+
+                <CardSection className="existing-data-actions">
+                    <Button
+                        text={isElectron() ? t("setup.existing-data-save-as") : t("setup.existing-data-download")}
+                        icon="bx bx-download"
+                        onClick={() => downloadBackup(backup.filePath)}
+                    />
                 </CardSection>
             </Card>
 
@@ -317,6 +333,39 @@ export function ExistingDataBackedUp({ backup, onContinue, onCancel }: {
  * still succeeding.
  */
 const BACKUP_TIMEOUT_MS = 60 * 60 * 1000;
+
+/**
+ * Where the backup went, as something the user can act on.
+ *
+ * The directory rather than the whole path: the file name is on the line above, and what a user
+ * wants from this line is to go and look. Only the desktop can open it, so everywhere else it stays
+ * a plain, selectable line of text.
+ */
+function BackupDirectory({ path }: { path: string }) {
+    if (!isElectron()) {
+        return <span class="existing-data-path">{path}</span>;
+    }
+
+    return (
+        <a
+            class="existing-data-path existing-data-path-link"
+            href="#"
+            title={t("setup.existing-data-open-folder")}
+            onClick={(e) => {
+                e.preventDefault();
+                void window.electronApi?.shell.openPath(path);
+            }}
+        >
+            {path}
+        </a>
+    );
+}
+
+/** Saves a copy of the backup wherever the user says, through the platform's own download. */
+function downloadBackup(filePath: string) {
+    open.download(open.getUrlForDownload(
+        `api/database/backup/download?filePath=${encodeURIComponent(filePath)}`));
+}
 
 /** Backs the existing database up, answering with what was written. */
 export function backUpExistingData(): Promise<SetupExistingBackup> {

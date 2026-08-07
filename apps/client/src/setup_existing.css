@@ -5,6 +5,10 @@
     }
 }
 
+.page.existing-data .existing-data-choices .tn-card-section {
+    padding-block: 12px;
+}
+
 /* The wait while a backup is written, centred under the icon like the restore's own steps. */
 .page.existing-data-backing-up .existing-data-progress {
     display: flex;
@@ -39,24 +43,20 @@
     }
 }
 
-.page.existing-data-backed-up .existing-data-facts {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: 8px 16px;
-    margin: 0;
-
-    dt {
-        color: var(--muted-text-color);
-        font-weight: normal;
-    }
-
-    dd {
-        margin: 0;
-    }
-
-    /* A path has no spaces to break at and is shown in full, since it may not be readable anywhere
-       else once the database holding the custom backup directory is gone. */
+.page.existing-data-backed-up {
+    /* A name and a path have no spaces to break at, and both are shown in full: they may not be
+       readable anywhere else once the database holding the custom backup location is gone. */
+    .existing-data-file-name,
     .existing-data-path {
         overflow-wrap: anywhere;
+        text-align: right;
+    }
+
+    .existing-data-path-link {
+        cursor: pointer;
+    }
+
+    .existing-data-actions {
+        justify-content: center;
     }
 }

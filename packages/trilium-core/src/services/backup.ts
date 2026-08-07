@@ -1,4 +1,6 @@
 import type { DatabaseBackup, FilterOptionsByType, OptionNames, SetupExistingBackup } from "@triliumnext/commons";
+import type { Response } from "express";
+
 import { getContext } from "./context.js";
 import dateUtils from "./utils/date.js";
 
@@ -78,6 +80,19 @@ export default abstract class BackupService {
      * Returns null if the backup doesn't exist or access is denied.
      */
     abstract getBackupContent(filePath: string): Promise<Uint8Array | null>;
+
+    /**
+     * Sends an existing backup to `res` as a download, a piece at a time.
+     *
+     * Neither reading it first nor handing the path to Express will do. {@link getBackupContent}
+     * holds the whole thing in memory, which Node refuses outright above 2 GiB, and `res.download`
+     * never flushes its headers, which is the signal the desktop's protocol bridge waits for before
+     * it streams — without it a multi-gigabyte backup is buffered whole on its way to the renderer
+     * and takes the application down with it.
+     *
+     * @returns whether it was sent; `false` for anything that is not an existing backup.
+     */
+    sendBackup?(filePath: string, res: Response): boolean;
 
     /**
      * Run the scheduled backup checks for daily, weekly, and monthly backups.

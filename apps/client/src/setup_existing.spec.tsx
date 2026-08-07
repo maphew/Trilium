@@ -13,11 +13,24 @@ const serverMock = vi.hoisted(() => ({
 }));
 vi.mock("./services/server", () => ({ default: serverMock }));
 
+const openMock = vi.hoisted(() => ({
+    download: vi.fn(),
+    getUrlForDownload: vi.fn((url: string) => `/${url}`)
+}));
+vi.mock("./services/open", () => ({ default: openMock }));
+
+const electronMock = vi.hoisted(() => ({ isElectron: vi.fn(() => false), openPath: vi.fn() }));
+vi.mock("./services/utils", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("./services/utils")>()),
+    isElectron: () => electronMock.isElectron()
+}));
+
 import ExistingData from "./setup_existing";
 
 const BACKUP = {
     fileName: "Backup 2026-08-07 10-32-21.tnbackup",
     filePath: "/mnt/usb/trilium/Backup 2026-08-07 10-32-21.tnbackup",
+    directoryPath: "/mnt/usb/trilium",
     fileSize: 209715200,
     encrypted: false
 };
@@ -55,6 +68,10 @@ beforeEach(() => {
     serverMock.post.mockReset().mockResolvedValue(undefined);
     serverMock.postWithTimeout.mockReset().mockResolvedValue(undefined);
     serverMock.get.mockClear();
+    openMock.download.mockClear();
+    electronMock.isElectron.mockReset().mockReturnValue(false);
+    electronMock.openPath.mockClear();
+    window.electronApi = undefined;
 });
 
 afterEach(() => {
@@ -73,6 +90,24 @@ describe("choosing what happens to the existing knowledge base", () => {
         choose("back-up");
         await settle();
         expect(button("setup.continue")?.disabled).toBe(false);
+    });
+
+    it("gives each answer a segment of its own, and keeps them exclusive", async () => {
+        renderScreens();
+        await settle();
+
+        expect(container.querySelectorAll(".existing-data-choices .tn-card-section")).toHaveLength(2);
+
+        choose("back-up");
+        await settle();
+        choose("delete");
+        await settle();
+
+        const checked = [ ...container.querySelectorAll<HTMLInputElement>("input[type=radio]") ]
+            .filter((radio) => radio.checked)
+            .map((radio) => radio.value);
+        // Two groups as far as the browser is concerned, one answer as far as the screen is.
+        expect(checked).toEqual([ "delete" ]);
     });
 
     it("warns about erasure only once erasure is what was chosen", async () => {
@@ -134,7 +169,9 @@ describe("backing it up first", () => {
         // The path in full: the option holding a custom backup directory is in the database that is
         // about to go, so this may be the last chance to read it.
         expect(container.textContent).toContain(BACKUP.fileName);
-        expect(container.textContent).toContain(BACKUP.filePath);
+        // The folder, not the whole path: the file name is on the line above it.
+        expect(container.textContent).toContain(BACKUP.directoryPath);
+        expect(container.textContent).not.toContain(BACKUP.filePath);
         expect(container.textContent).toContain("200 MiB");
         expect(serverMock.post).not.toHaveBeenCalledWith("setup/existing/delete");
 
@@ -158,11 +195,36 @@ describe("backing it up first", () => {
         button("setup.continue")?.click();
         await settle();
 
+        // Nothing to show yet, so the spinner stands in for the bar.
+        expect(container.querySelector(".spinner-border")).not.toBeNull();
+
         await vi.advanceTimersByTimeAsync(1000);
         expect(container.querySelector("progress")?.value).toBeCloseTo(0.42);
         expect(container.textContent).toContain("42%");
+        // ...and steps aside once there is one, rather than the two competing.
+        expect(container.querySelector(".spinner-border")).toBeNull();
 
         resolveBackup(BACKUP);
+    });
+
+    it("saves a copy wherever the user says, and opens the folder on the desktop", async () => {
+        electronMock.isElectron.mockReturnValue(true);
+        window.electronApi = { shell: { openPath: electronMock.openPath } } as never;
+        serverMock.postWithTimeout.mockResolvedValue(BACKUP);
+        renderScreens();
+        await settle();
+
+        choose("back-up");
+        await settle();
+        button("setup.continue")?.click();
+        await settle();
+
+        container.querySelector<HTMLAnchorElement>(".existing-data-path-link")?.click();
+        expect(electronMock.openPath).toHaveBeenCalledWith(BACKUP.directoryPath);
+
+        button("setup.existing-data-save-as")?.click();
+        expect(openMock.download).toHaveBeenCalledWith(
+            expect.stringContaining(encodeURIComponent(BACKUP.filePath)));
     });
 
     it("says to keep the backup password where the backup needs one", async () => {
