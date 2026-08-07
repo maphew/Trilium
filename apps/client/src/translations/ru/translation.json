@@ -1389,7 +1389,6 @@
     "enable_daily_backup": "Включить ежедневное резервное копирование",
     "enable_weekly_backup": "Включить еженедельное резервное копирование",
     "enable_monthly_backup": "Включить ежемесячное резервное копирование",
-    "backup_database_now": "Создать резервную копию",
     "date-and-time": "Дата и время",
     "no_backup_yet": "нет резервных копий",
     "database_backed_up_to": "Резервная копия базы данных создана в {{- backupFilePath}}",

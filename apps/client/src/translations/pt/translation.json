@@ -1265,7 +1265,6 @@
     "enable_monthly_backup": "Ativar backup mensal",
     "backup_recommendation": "É recomendado manter o backup ativado, mas isto pode fazer com que a inicialização da aplicação seja lenta com grandes bases de dados e/ou dispositivos de armazenamento lentos.",
     "backup_now": "Realizar backup agora",
-    "backup_database_now": "Realizar backup da base de dados agora",
     "existing_backups": "Backups existentes",
     "date-and-time": "Data & hora",
     "path": "Caminho",

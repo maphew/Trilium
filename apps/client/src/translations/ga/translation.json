@@ -1698,7 +1698,6 @@
     "enable_monthly_backup": "Cúltaca míosúil",
     "backup_recommendation": "Moltar an cúltaca a choinneáil casta air, ach is féidir leis seo moill a chur ar thosú feidhmchlár le bunachair shonraí móra agus/nó gléasanna stórála mall.",
     "backup_now": "Cúltaca anois",
-    "backup_database_now": "Cúltaca bunachar sonraí anois",
     "existing_backups": "Cúltacaí atá ann cheana féin",
     "date-and-time": "Dáta & am",
     "path": "Cosán",

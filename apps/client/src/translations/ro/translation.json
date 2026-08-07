@@ -258,7 +258,6 @@
   "backup": {
     "automatic_backup": "Copie de siguranță automată",
     "automatic_backup_description": "Trilium poate face copii de siguranță ale bazei de date în mod automat:",
-    "backup_database_now": "Crează o copie a bazei de date acum",
     "backup_now": "Crează o copie de siguranță acum",
     "backup_recommendation": "Se recomandă a se păstra activată funcția de copii de siguranță, dar acest lucru poate face pornirea aplicației mai lentă pentru baze de date mai mari sau pentru dispozitive de stocare lente.",
     "database_backed_up_to": "S-a creat o copie de siguranță a bazei de dată la {{backupFilePath}}",

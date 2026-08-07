@@ -1779,7 +1779,6 @@
     "enable_monthly_backup": "Pencadangan bulanan",
     "backup_recommendation": "Disarankan untuk tetap mengaktifkan cadangan, tetapi ini dapat memperlambat startup aplikasi pada database besar dan/atau perangkat penyimpanan yang lambat.",
     "backup_now": "Cadangkan sekarang",
-    "backup_database_now": "Cadangkan database sekarang",
     "existing_backups": "Cadangan yang sudah ada",
     "date-and-time": "Tanggal & waktu",
     "path": "Path",

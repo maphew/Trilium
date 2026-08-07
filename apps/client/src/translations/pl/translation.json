@@ -1538,7 +1538,6 @@
     "enable_monthly_backup": "Włącz comiesięczną kopię zapasową",
     "backup_recommendation": "Zaleca się włączenie kopii zapasowej, ale może to spowolnić uruchamianie aplikacji przy dużych bazach danych i/lub wolnych urządzeniach pamięci masowej.",
     "backup_now": "Utwórz kopię zapasową teraz",
-    "backup_database_now": "Utwórz kopię zapasową bazy danych teraz",
     "existing_backups": "Istniejące kopie zapasowe",
     "date-and-time": "Data i godzina",
     "path": "Ścieżka",

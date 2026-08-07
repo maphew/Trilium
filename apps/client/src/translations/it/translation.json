@@ -490,7 +490,6 @@
     "enable_monthly_backup": "Backup mensile",
     "backup_recommendation": "Si raccomanda di mantenere attive le archiviazioni, sebbene ciò possa rendere l'avvio dell'applicazione lento con database grandi e/o dispositivi di archiviazione lenti.",
     "backup_now": "Archivia adesso",
-    "backup_database_now": "Archivia il database adesso",
     "existing_backups": "Backup esistenti",
     "date-and-time": "Data e ora",
     "path": "Percorso",

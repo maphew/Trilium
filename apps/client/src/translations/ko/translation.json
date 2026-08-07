@@ -2001,7 +2001,6 @@
     "enable_monthly_backup": "월간 백업",
     "backup_recommendation": "백업을 켜두는 것이 권장되지만, 데이터베이스가 크거나 저장 장치가 느리면 애플리케이션 시작이 느려질 수 있습니다.",
     "backup_now": "지금 백업",
-    "backup_database_now": "지금 데이터베이스 백업",
     "existing_backups": "기존 백업",
     "date-and-time": "날짜 및 시간",
     "path": "경로",

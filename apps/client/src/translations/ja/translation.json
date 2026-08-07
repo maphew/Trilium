@@ -1151,7 +1151,6 @@
     "enable_monthly_backup": "毎月バックアップ",
     "backup_recommendation": "バックアップはオンが推奨されますが、大規模なデータベースや低速なストレージデバイスの場合、アプリの起動を遅くする可能性があります。",
     "backup_now": "今すぐバックアップ",
-    "backup_database_now": "今すぐデータベースをバックアップ",
     "existing_backups": "既存のバックアップ",
     "date-and-time": "日時",
     "path": "パス",

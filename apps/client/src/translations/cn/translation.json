@@ -1631,7 +1631,6 @@
     "enable_monthly_backup": "每月备份",
     "backup_recommendation": "建议打开备份功能，但这可能会使大型数据库和/或慢速存储设备的应用程序启动变慢。",
     "backup_now": "立即备份",
-    "backup_database_now": "立即备份数据库",
     "existing_backups": "现有备份",
     "date-and-time": "日期和时间",
     "path": "路径",
