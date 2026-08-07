@@ -119,18 +119,9 @@ function CollapsedChoice<T extends string>({ options, currentValue, onChange, cl
             disabled={disabled}
             // A handful of options, so the menu never scrolls — see the prop's own note.
             noDropdownListStyle
-            // The menu comes up from the bottom of the screen, as every other mobile menu does. Not
-            // only a matter of looks: left to place itself it lands as a narrow box adrift in the
-            // middle of the page, Popper having computed an offset that the app's own
-            // `body.mobile .dropdown-menu { position: fixed }` then measures from somewhere else.
-            dropdownContainerClassName="mobile-bottom-menu"
-            mobileBackdrop
-            // Out of whatever opened it, for the settings dialog it usually stands in: that dialog's
-            // `.modal-dialog` is transformed (the master-detail slide), which makes it the containing
-            // block a fixed menu is placed against *and* a stacking context the menu's own z-index
-            // cannot escape — so the backdrop, being a `<body>` child above the whole modal, would
-            // otherwise dim the menu along with the page under it.
-            portalToBody
+            // This only ever renders on a phone, where a menu is a sheet from the bottom of the
+            // screen rather than a box beside the control it belongs to.
+            mobileBottomSheet
         />
     );
 }

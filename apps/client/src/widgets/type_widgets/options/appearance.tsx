@@ -183,6 +183,7 @@ function UserInterface() {
                         <span className={currentFamilyIcon} style={{ marginRight: "8px" }} />
                         {currentFamilyLabel}
                     </>}
+                    mobileBottomSheet
                 >
                     {THEME_FAMILIES.map(family => (
                         <FormListItem

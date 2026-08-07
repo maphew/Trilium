@@ -421,7 +421,7 @@ function HeadingStyleSelector({ currentValue, onChange }: { currentValue: string
     const currentStyle = HEADING_STYLES.find(s => s.value === currentValue) ?? HEADING_STYLES[0];
 
     return (
-        <Dropdown text={t(currentStyle.labelKey)}>
+        <Dropdown text={t(currentStyle.labelKey)} mobileBottomSheet>
             {HEADING_STYLES.map(({ value, labelKey }) => (
                 <FormListItem
                     key={value}
