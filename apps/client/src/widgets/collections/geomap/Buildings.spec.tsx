@@ -8,7 +8,7 @@
  * that is an experimental extension of the tile schema rather than part of it, so a build of the
  * tiles without it must leave a town of low blocks rather than a flat grey plain.
  */
-import type { LayerSpecification, Map as MapLibreGLMap } from "maplibre-gl";
+import type { FillExtrusionLayerSpecification, LayerSpecification, Map as MapLibreGLMap } from "maplibre-gl";
 import { render } from "preact";
 import { act } from "preact/test-utils";
 import { describe, expect, it } from "vitest";
@@ -48,7 +48,8 @@ function fakeMap({ layers = vectorStyleLayers(), pitch = 0 } = {}) {
     return {
         layers,
         getStyle: () => ({ layers }),
-        getSource: (id: string) => layers.find((layer) => layer.source === id),
+        // A background layer draws from no source at all, so not every layer has one to compare.
+        getSource: (id: string) => layers.find((layer) => "source" in layer && layer.source === id),
         getLayer: (id: string) => layers.find((layer) => layer.id === id),
         addLayer(layer: LayerSpecification, beforeId?: string) {
             const at = beforeId ? layers.findIndex((existing) => existing.id === beforeId) : -1;
@@ -101,9 +102,15 @@ function renderBuildings(map: FakeMap, isDarkTheme = false) {
     return container;
 }
 
-/** The layer the component adds, or undefined while it stands down. */
-function extrusion(map: FakeMap) {
-    return map.layers.find((layer) => layer.id === BUILDINGS_LAYER);
+/**
+ * The layer the component adds, or undefined while it stands down.
+ *
+ * Narrowed to the one kind of layer it can be, so that what the tests below read off it — the
+ * filter, the extrusion paint — is known to be there rather than asserted to be.
+ */
+function extrusion(map: FakeMap): FillExtrusionLayerSpecification | undefined {
+    const layer = map.layers.find((existing) => existing.id === BUILDINGS_LAYER);
+    return layer?.type === "fill-extrusion" ? layer : undefined;
 }
 
 /** Whether the style's own flat drawing of the same footprints is still being drawn. */
