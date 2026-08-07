@@ -75,6 +75,40 @@ describe("keepAdditions", () => {
     });
 
     /**
+     * The 3D buildings, which draw from the vector style's own source rather than from one of their
+     * own (see Buildings). Switching to the raster map used to carry the layer across and leave the
+     * source behind, and MapLibre validates a whole style before applying any of it: the switch was
+     * refused outright with `source "versatiles-shortbread" not found`, no `style.load` fired, and
+     * the map stayed on the very style the reader had just asked to leave.
+     */
+    it("leaves behind an addition whose source belongs to the style that is going", () => {
+        const buildings3d = {
+            "id": "buildings-3d",
+            "type": "fill-extrusion",
+            "source": "openmaptiles",
+            "source-layer": "buildings"
+        } as LayerSpecification;
+        const withBuildings: StyleSpecification = {
+            ...applied,
+            layers: [ ...applied.layers, buildings3d ]
+        };
+
+        const transformed = keepAdditions(styleContents(applied))(withBuildings, next);
+
+        expect(transformed.layers.map((layer) => layer.id)).toEqual([ "land", "roads" ]);
+        expect(Object.keys(transformed.sources)).toEqual([ "versatiles" ]);
+    });
+
+    it("still carries an addition that brought its own source along", () => {
+        // The markers and the tracks, which are not affected by the rule above: their source is
+        // carried across with them, so the layer naming it is satisfied in the incoming style.
+        const transformed = keepAdditions(styleContents(applied))(withMarkers(applied), next);
+
+        expect(transformed.layers.map((layer) => layer.id)).toContain("points-layer");
+        expect(Object.keys(transformed.sources)).toContain("points");
+    });
+
+    /**
      * A style named by URL is fetched by MapLibre, so we never see what is in it and cannot tell its
      * sources from a child's. Carrying nothing leaves the markers to be added again on `style.load`,
      * which is what happened before any of this.

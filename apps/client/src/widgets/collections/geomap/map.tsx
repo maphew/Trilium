@@ -352,6 +352,31 @@ export default function Map({ coordinates, zoom, layerData, viewportChanged, chi
 }
 
 /**
+ * How far the view is leaned over, followed as it changes — by the tilt button, or by Ctrl and a
+ * drag, which MapLibre honours without being asked.
+ *
+ * Read by anything whose answer differs between a flat map and a leaned-over one: which view the
+ * tilt button should offer (see {@link MapToolbar} — a tilt entered by hand is as much a 3D view as
+ * one the button gave), and whether the buildings are worth standing up (see {@link Buildings}).
+ */
+export function useMapPitch(map: MapLibreGLMap | null) {
+    const [ pitch, setPitch ] = useState<number | null>(null);
+
+    useEffect(() => {
+        if (!map) return;
+
+        const report = () => setPitch(map.getPitch());
+        // The map may have been tilted between being built and being listened to.
+        report();
+
+        map.on("pitch", report);
+        return () => { map.off("pitch", report); };
+    }, [ map ]);
+
+    return pitch;
+}
+
+/**
  * Builds the map itself.
  *
  * Separate from the effect that calls it so that the throw it is wrapped in covers the constructor
@@ -471,6 +496,9 @@ export function styleContents(style: StyleSpecification): StyleContents {
  * that over would leave it drawn on top of the new one. The additions go last, so they stay above
  * the map rather than under it.
  *
+ * An addition that drew from the outgoing style's *own* source is the exception, and is dropped
+ * rather than handed on: there is nothing to hand it: see the note where that is decided below.
+ *
  * Note that the images a layer draws with are not part of a style and do not come across (see
  * `Markers`, which puts them back on `style.load`) — and that MapLibre applies this whether it can
  * turn one style into the other or has to build the new one from scratch, so nothing here depends on
@@ -494,9 +522,17 @@ export function keepAdditions(applied: StyleContents | undefined): TransformStyl
         const nextLayers = new Set(next.layers.map((layer) => layer.id));
         const layers = [ ...next.layers ];
         for (const layer of previous.layers) {
-            if (!applied.layers.has(layer.id) && !nextLayers.has(layer.id)) {
-                layers.push(layer);
-            }
+            if (applied.layers.has(layer.id) || nextLayers.has(layer.id)) continue;
+            // An addition drawing from a source that is not in the incoming style and was not
+            // carried across either — which means it drew from the outgoing style's own, as the 3D
+            // buildings do (see Buildings). Nothing can be done for it here: the source is the map
+            // that has just gone, and carrying that over would leave the old map drawn on top of
+            // the new one. It has to be left behind rather than handed on broken, because MapLibre
+            // validates the whole style before applying any of it — one layer naming a source that
+            // is not there and the switch is refused outright, leaving the map on the style the
+            // reader has just asked to leave.
+            if ("source" in layer && layer.source && !(layer.source in sources)) continue;
+            layers.push(layer);
         }
 
         return { ...next, sources, layers };
