@@ -14,6 +14,7 @@ import dialogService from "../../../services/dialog";
 import { t } from "../../../services/i18n";
 import options from "../../../services/options";
 import server from "../../../services/server";
+import { bootToSetup, canBootToSetup } from "../../../services/setup_mode";
 import toast from "../../../services/toast";
 import { isElectron } from "../../../services/utils";
 import Button from "../../react/Button";
@@ -66,12 +67,23 @@ interface BackupStatusProps {
  * of the page's own header rather than of the list below it: the list card answers for what it
  * holds, which is not the same as what the page is for.
  */
-function BackupStatus({ backups, refreshCallback }: BackupStatusProps) {
+export function BackupStatus({ backups, refreshCallback }: BackupStatusProps) {
     const [backupInProgress, setBackupInProgress] = useState(false);
 
     return (
         <div className="backup-status">
             <span className="backup-status-summary">{summarizeBackups(backups)}</span>
+
+            {/* Offered only where the app can start itself again, which is what a restore needs:
+                it happens in the setup screen, with this database closed. */}
+            {canBootToSetup() && (
+                <Button
+                    name="restore-backup-button"
+                    text={t("backup.restore_backup")}
+                    size="micro"
+                    onClick={() => bootToSetup({ targetScreen: "restore-backup" })}
+                />
+            )}
 
             <Button
                 name="backup-database-now-button"
