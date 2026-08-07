@@ -38,14 +38,34 @@ async function awaitResponse(event: { _response?: Promise<Response> }): Promise<
     return res;
 }
 
-function fetchEvent(url: string, init: { method?: string; mode?: string; headers?: [string, string][] } = {}): { request: unknown; clientId: string; respondWith(p: Promise<Response>): void; _response?: Promise<Response> } {
-    const request = {
+type RequestInit = { method?: string; mode?: string; headers?: [string, string][] };
+
+/**
+ * Models the real `Request` body semantics: a body can be read once, and a
+ * consumed request can neither be cloned nor re-read. Without this the mock
+ * silently permits double reads, which hides retry bugs.
+ */
+function mockRequest(url: string, init: RequestInit = {}) {
+    let bodyUsed = false;
+    return {
         url,
         method: init.method ?? "GET",
         mode: init.mode ?? "cors",
         headers: { entries: () => (init.headers ?? [])[Symbol.iterator]() },
-        arrayBuffer: async () => new TextEncoder().encode("body").buffer
+        arrayBuffer: async () => {
+            if (bodyUsed) throw new TypeError("Body is unusable: Body has already been read");
+            bodyUsed = true;
+            return new TextEncoder().encode("body").buffer;
+        },
+        clone: () => {
+            if (bodyUsed) throw new TypeError("Failed to clone: body already used");
+            return mockRequest(url, init);
+        }
     };
+}
+
+function fetchEvent(url: string, init: RequestInit = {}): { request: unknown; clientId: string; respondWith(p: Promise<Response>): void; _response?: Promise<Response> } {
+    const request = mockRequest(url, init);
     const event = { request, clientId: "c1" } as ReturnType<typeof fetchEvent>;
     event.respondWith = (p: Promise<Response>) => { event._response = p; };
     return event;
@@ -327,5 +347,52 @@ describe("forwardToClientLocalServer", () => {
         await vi.waitFor(() => expect(leader.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "LOCAL_FETCH" }), expect.anything()));
         channels.at(-1)?.port1.onmessage?.({ data: { type: "LOCAL_FETCH_RESPONSE", id: "uuid-1", response: { status: 200, headers: {}, body: null } } } as unknown);
         expect((await awaitResponse(event)).status).toBe(200);
+    });
+
+    it("re-sends the body when a body-bearing mutation hits a stale leader", async () => {
+        const stale = mainClient("c-stale", false);
+        const leader = mainClient("c-leader", true);
+        (self as unknown as SwGlobals).clients = {
+            claim: vi.fn(),
+            matchAll: vi.fn(async () => [stale, leader])
+        };
+        const handlers = await loadSw();
+        handlers.message({ data: { type: "LEADER_ANNOUNCE" }, source: { id: "c-stale" } });
+
+        const event = await dispatchLocal(handlers, "PUT");
+        await vi.waitFor(() => expect(stale.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "LOCAL_FETCH" }), expect.anything()));
+        channels.at(-1)?.port1.onmessage?.({ data: { type: "NOT_LEADER", id: "uuid-1" } } as unknown);
+
+        // The retry must carry the body, not fail on an already-consumed request.
+        await vi.waitFor(() => expect(leader.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "LOCAL_FETCH" }), expect.anything()));
+        const forwarded = leader.postMessage.mock.calls.find(([msg]) => msg?.type === "LOCAL_FETCH")?.[0];
+        expect(new TextDecoder().decode(forwarded?.request?.body)).toBe("body");
+
+        channels.at(-1)?.port1.onmessage?.({ data: { type: "LOCAL_FETCH_RESPONSE", id: "uuid-1", response: { status: 200, headers: {}, body: null } } } as unknown);
+        expect((await awaitResponse(event)).status).toBe(200);
+    });
+
+    it("gives up to the network rather than looping when the retry also refuses", async () => {
+        // Both tabs claim leadership when probed but refuse when asked to serve.
+        const a = mainClient("c-a", true);
+        const b = mainClient("c-b", true);
+        (self as unknown as SwGlobals).clients = {
+            claim: vi.fn(),
+            matchAll: vi.fn(async () => [a, b])
+        };
+        const fetchMock = vi.fn(async () => new Response("network", { status: 200 }));
+        vi.stubGlobal("fetch", fetchMock);
+
+        const handlers = await loadSw();
+        const event = await dispatchLocal(handlers, "PUT");
+
+        await vi.waitFor(() => expect(a.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "LOCAL_FETCH" }), expect.anything()));
+        channels.at(-1)?.port1.onmessage?.({ data: { type: "NOT_LEADER", id: "uuid-1" } } as unknown);
+
+        await vi.waitFor(() => expect(b.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "LOCAL_FETCH" }), expect.anything()));
+        channels.at(-1)?.port1.onmessage?.({ data: { type: "NOT_LEADER", id: "uuid-1" } } as unknown);
+
+        expect((await awaitResponse(event)).status).toBe(200);
+        expect(fetchMock).toHaveBeenCalled();
     });
 });

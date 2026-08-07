@@ -136,7 +136,7 @@ async function findLeader(candidates) {
     return null;
 }
 
-async function forwardToClientLocalServer(request, _clientId) {
+async function forwardToClientLocalServer(request, _clientId, retried = false) {
     // @ts-expect-error - self.clients is valid in service worker context
     const all = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
     const candidates = all.filter(isMainAppWindow);
@@ -160,9 +160,13 @@ async function forwardToClientLocalServer(request, _clientId) {
     const headersObj = {};
     for (const [k, v] of request.headers.entries()) headersObj[k] = v;
 
+    // Read from a clone: `request` itself must stay unconsumed so the NOT_LEADER
+    // path below can forward it again (or hand it to fetch()). Reading it
+    // directly makes any body-bearing retry fail with "Body has already been
+    // read".
     const body = (request.method === "GET" || request.method === "HEAD")
         ? null
-        : await request.arrayBuffer();
+        : await request.clone().arrayBuffer();
 
     const id = crypto.randomUUID();
     const channel = new MessageChannel();
@@ -197,12 +201,16 @@ async function forwardToClientLocalServer(request, _clientId) {
     const localResp = await responsePromise;
 
     // We picked a follower. It refused to open a second database; re-resolve the
-    // leader and try once more.
+    // leader and try once more. Only once: leadership can flip between a tab
+    // answering WHO_IS_LEADER and that same tab serving the fetch, so an
+    // unbounded retry could ping-pong between two tabs indefinitely.
     if (localResp?.type === "NOT_LEADER") {
         leaderClientId = null;
+        if (retried) return fetch(request);
+
         const leader = await findLeader(candidates.filter((c) => c.id !== client.id));
         if (!leader) return fetch(request);
-        return forwardToClientLocalServer(request, _clientId);
+        return forwardToClientLocalServer(request, _clientId, true);
     }
 
     if (!localResp || localResp.type !== "LOCAL_FETCH_RESPONSE" || localResp.id !== id) {
