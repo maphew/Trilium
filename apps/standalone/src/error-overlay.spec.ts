@@ -14,6 +14,7 @@ beforeEach(() => {
 
 afterEach(() => {
     document.getElementById("trilium-error-overlay")?.remove();
+    document.getElementById("trilium-error-overlay-style")?.remove();
 });
 
 describe("showErrorOverlay", () => {
@@ -31,6 +32,9 @@ describe("showErrorOverlay", () => {
         expect(overlay?.querySelector("button")?.textContent).toBe("Reload");
         // The pre-client shell may hide the body; the overlay must un-hide it.
         expect(document.body.style.display).toBe("block");
+        // Styles ship as an injected stylesheet so the overlay renders even when
+        // no bundled CSS came up.
+        expect(document.getElementById("trilium-error-overlay-style")).not.toBeNull();
     });
 
     it("omits the detail block when no detail is given", async () => {
