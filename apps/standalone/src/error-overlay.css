@@ -1,0 +1,162 @@
+/*
+ * Styles for the fatal-error overlay (see error-overlay.ts).
+ *
+ * Every colour is `var(--trilium-token, fallback)`: the token wins when the Next
+ * theme CSS loaded, so the overlay adopts the user's actual theme; the fallback
+ * (the theme's own light value, or its dark value under prefers-color-scheme)
+ * covers the case where it never did. Selectors are kept flat rather than nested
+ * so the one screen whose job is to render when things are broken needs no CSS
+ * nesting support.
+ */
+
+#trilium-error-overlay {
+    --tn-eo-bg: var(--main-background-color, #fff);
+    --tn-eo-text: var(--main-text-color, #1a1a1a);
+    --tn-eo-muted: var(--muted-text-color, #666);
+    --tn-eo-border: var(--main-border-color, #dbdbdb);
+    --tn-eo-surface: var(--left-pane-background-color, #f2f2f2);
+    --tn-eo-accent: var(--admonition-caution-accent-color, #ff2e2e);
+    --tn-eo-detail-bg: var(--card-background-color, #0000000d);
+    --tn-eo-btn-bg: var(--cmd-button-background-color, #0000000f);
+    --tn-eo-btn-text: var(--cmd-button-text-color, #000000ad);
+    --tn-eo-btn-hover: var(--cmd-button-hover-background-color, #00000016);
+    --tn-eo-btn-shadow: var(--cmd-button-shadow-color, #00000040);
+
+    position: fixed;
+    inset: 0;
+    z-index: 2147483647;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-sizing: border-box;
+    padding: calc(1.5rem + env(safe-area-inset-top)) calc(1.5rem + env(safe-area-inset-right))
+             calc(1.5rem + env(safe-area-inset-bottom)) calc(1.5rem + env(safe-area-inset-left));
+    font-family: var(--main-font-family, "Inter", system-ui, -apple-system, sans-serif);
+    color: var(--tn-eo-text);
+    background:
+        radial-gradient(ellipse at 20% 50%, rgba(99, 102, 241, 0.3) 0%, transparent 50%),
+        radial-gradient(ellipse at 80% 20%, rgba(168, 85, 247, 0.25) 0%, transparent 50%),
+        radial-gradient(ellipse at 60% 80%, rgba(59, 130, 246, 0.25) 0%, transparent 50%),
+        var(--tn-eo-surface);
+}
+
+#trilium-error-overlay .tn-eo-card {
+    box-sizing: border-box;
+    width: 100%;
+    max-width: 460px;
+    max-height: 100%;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 0.75rem;
+    padding: 2.25rem 2rem;
+    background: var(--tn-eo-bg);
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.16);
+    animation: tn-eo-in 0.18s ease-out;
+}
+
+#trilium-error-overlay .tn-eo-illustration {
+    color: var(--tn-eo-accent);
+    line-height: 0;
+    margin-bottom: 0.25rem;
+}
+
+#trilium-error-overlay .tn-eo-title {
+    margin: 0;
+    font-size: 1.4em;
+    font-weight: 600;
+}
+
+#trilium-error-overlay .tn-eo-message {
+    margin: 0;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: var(--tn-eo-muted);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+#trilium-error-overlay .tn-eo-detail {
+    align-self: stretch;
+    margin: 0.5rem 0 0;
+    padding: 0.75rem 0.85rem;
+    text-align: start;
+    background: var(--tn-eo-detail-bg);
+    border: 1px solid var(--tn-eo-border);
+    border-radius: 8px;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    max-height: 200px;
+    overflow: auto;
+    white-space: pre-wrap;
+    word-break: break-word;
+    /* The message is meant to be copied into bug reports — opt back out of the
+       app-wide user-select: none. */
+    user-select: text;
+}
+
+#trilium-error-overlay .tn-eo-actions {
+    margin-top: 1rem;
+}
+
+#trilium-error-overlay .tn-eo-button {
+    min-width: 120px;
+    padding: 7px 18px;
+    border: none;
+    border-radius: 6px;
+    background: var(--tn-eo-btn-bg);
+    color: var(--tn-eo-btn-text);
+    box-shadow: 1px 1px 1px var(--tn-eo-btn-shadow);
+    font-family: inherit;
+    font-size: 0.95rem;
+    cursor: pointer;
+    transition: background 0.15s ease-out;
+}
+
+#trilium-error-overlay .tn-eo-button:hover {
+    background: var(--tn-eo-btn-hover);
+}
+
+#trilium-error-overlay .tn-eo-button:active {
+    opacity: 0.85;
+    box-shadow: none;
+    transform: scale(0.96);
+}
+
+#trilium-error-overlay .tn-eo-button:focus-visible {
+    outline: 2px solid var(--input-focus-outline-color, #00000063);
+    outline-offset: 1px;
+}
+
+@keyframes tn-eo-in {
+    from { opacity: 0; transform: translateY(8px) scale(0.98); }
+    to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    #trilium-error-overlay .tn-eo-card {
+        animation: none;
+    }
+}
+
+@media (prefers-color-scheme: dark) {
+    #trilium-error-overlay {
+        --tn-eo-bg: var(--main-background-color, #242424);
+        --tn-eo-text: var(--main-text-color, #ccc);
+        --tn-eo-muted: var(--muted-text-color, #bbb);
+        --tn-eo-border: var(--main-border-color, #454545);
+        --tn-eo-surface: var(--left-pane-background-color, #1f1f1f);
+        --tn-eo-detail-bg: var(--card-background-color, #ffffff12);
+        --tn-eo-btn-bg: var(--cmd-button-background-color, #ffffff28);
+        --tn-eo-btn-text: var(--cmd-button-text-color, #ffffffc2);
+        --tn-eo-btn-hover: var(--cmd-button-hover-background-color, #ffffff37);
+        --tn-eo-btn-shadow: var(--cmd-button-shadow-color, #00000080);
+    }
+
+    #trilium-error-overlay .tn-eo-card {
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+}

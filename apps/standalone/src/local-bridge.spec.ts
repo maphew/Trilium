@@ -56,7 +56,6 @@ function lastWorker(): MockWorker {
 afterEach(() => {
     delete (navigator as unknown as NavServiceWorker).serviceWorker;
     document.getElementById("trilium-error-overlay")?.remove();
-    document.getElementById("trilium-error-overlay-style")?.remove();
     vi.restoreAllMocks();
 });
 
