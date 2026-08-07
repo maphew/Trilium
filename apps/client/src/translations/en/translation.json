@@ -3699,6 +3699,7 @@
     "restore-error-swap-failed": "The database could not be replaced. Your previous database is back in place.",
     "restore-error-would-not-open": "The restored database could not be opened. Your previous database is back in place.",
     "restore-error-refused": "Another setup step is already running.",
+    "restore-error-already-initialized": "This instance already has a knowledge base, so it cannot be restored over. Reload the page.",
     "restore-error-could-not-start": "The restore could not be started.",
     "restore-error-upload-failed": "The backup could not be uploaded.",
     "restore-passphrase": "Encryption password",

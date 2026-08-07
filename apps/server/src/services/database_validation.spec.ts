@@ -1,11 +1,17 @@
-import { app_info as appInfo } from "@triliumnext/core";
+import { app_info as appInfo, OLDEST_SUPPORTED_DB_VERSION } from "@triliumnext/core";
 import Database from "better-sqlite3";
 import fs from "fs";
 import os from "os";
 import path from "path";
 import { afterAll, describe, expect, it } from "vitest";
 
-import { OLDEST_SUPPORTED_DB_VERSION, validateDatabaseFile } from "./database_validation.js";
+import { validateDatabaseFile } from "./database_validation.js";
+
+/*
+ * What the checks decide is covered against a stand-in candidate in core, where it belongs and where
+ * no file is needed. These cover the opening: that a real database on disk answers those checks
+ * correctly through this platform's driver, and that files which are not one are turned away.
+ */
 
 const tempRoot = fs.mkdtempSync(path.join(os.tmpdir(), "trilium-db-validation-spec-"));
 let counter = 0;
@@ -48,8 +54,8 @@ function fileWith(content: Buffer | string) {
 
 const CURRENT = { initialized: "true", dbVersion: String(appInfo.dbVersion) };
 
-describe("validating a database file", () => {
-    it("accepts a database from this version, and one that only needs migrating", () => {
+describe("opening a candidate database on this platform", () => {
+    it("reads a real database's integrity, tables and options, and accepts it", () => {
         expect(validateDatabaseFile(triliumDatabase(CURRENT))).toEqual({
             valid: true, dbVersion: appInfo.dbVersion, needsMigration: false
         });
@@ -57,6 +63,16 @@ describe("validating a database file", () => {
         const older = triliumDatabase({ initialized: "true", dbVersion: String(OLDEST_SUPPORTED_DB_VERSION) });
         expect(validateDatabaseFile(older)).toEqual({
             valid: true, dbVersion: OLDEST_SUPPORTED_DB_VERSION, needsMigration: true
+        });
+    });
+
+    it("carries a rejection back from the checks, with the driver's own answers behind it", () => {
+        const notOurs = databaseWith((db) => db.exec("CREATE TABLE recipes (name TEXT)"));
+
+        expect(validateDatabaseFile(notOurs)).toMatchObject({
+            valid: false,
+            rejection: "not-a-trilium-database",
+            message: expect.stringContaining("options, notes, branches, blobs")
         });
     });
 
@@ -68,45 +84,6 @@ describe("validating a database file", () => {
         expect(validateDatabaseFile(fileWith("SQLite"))).toMatchObject({ valid: false, rejection: "not-a-database" });
         expect(validateDatabaseFile(path.join(tempRoot, "nothing-here.db"))).toMatchObject({
             valid: false, rejection: "not-a-database"
-        });
-    });
-
-    it("refuses a SQLite database that is not one of ours, naming what is missing", () => {
-        const empty = databaseWith((db) => db.exec("CREATE TABLE recipes (name TEXT)"));
-        expect(validateDatabaseFile(empty)).toMatchObject({
-            valid: false, rejection: "not-a-trilium-database", message: expect.stringContaining("options, notes, branches, blobs")
-        });
-
-        const partial = triliumDatabase(CURRENT, [ "options", "notes" ]);
-        expect(validateDatabaseFile(partial)).toMatchObject({
-            valid: false, rejection: "not-a-trilium-database", message: expect.stringContaining("branches, blobs")
-        });
-    });
-
-    it("refuses a database left behind by a setup that never finished", () => {
-        const unfinished = triliumDatabase({ dbVersion: String(appInfo.dbVersion) });
-
-        expect(validateDatabaseFile(unfinished)).toMatchObject({
-            valid: false, rejection: "database-not-initialized"
-        });
-    });
-
-    it("refuses a database from a version this one cannot migrate, in either direction", () => {
-        const tooOld = triliumDatabase({ initialized: "true", dbVersion: String(OLDEST_SUPPORTED_DB_VERSION - 1) });
-        expect(validateDatabaseFile(tooOld)).toMatchObject({ valid: false, rejection: "database-too-old" });
-
-        const tooNew = triliumDatabase({ initialized: "true", dbVersion: String(appInfo.dbVersion + 1) });
-        expect(validateDatabaseFile(tooNew)).toMatchObject({
-            valid: false, rejection: "database-too-new", message: expect.stringContaining(String(appInfo.dbVersion))
-        });
-    });
-
-    it("refuses a database that does not say which version it is from", () => {
-        expect(validateDatabaseFile(triliumDatabase({ initialized: "true" }))).toMatchObject({
-            valid: false, rejection: "not-a-trilium-database"
-        });
-        expect(validateDatabaseFile(triliumDatabase({ initialized: "true", dbVersion: "recent" }))).toMatchObject({
-            valid: false, rejection: "not-a-trilium-database"
         });
     });
 

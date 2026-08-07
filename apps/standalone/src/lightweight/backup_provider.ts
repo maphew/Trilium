@@ -5,6 +5,19 @@ const BACKUP_DIR_NAME = "backups";
 const BACKUP_FILE_PATTERN = /^backup-.*\.db$/;
 
 /**
+ * How large a database may be and still be backed up here.
+ *
+ * A backup on this platform is a `serialize()`, which builds the whole database as one array inside
+ * the WebAssembly heap and then copies it out to JavaScript: two copies of it in memory at once, in
+ * an address space a fraction of what a native process has. Past a certain size that allocation does
+ * not fail, it takes the tab down with it, so anything larger is left unbacked-up instead.
+ *
+ * The size that matters is the one a restore can bring in: a database restored from a large backup
+ * migrates on the next start, and the migration asks for a backup first.
+ */
+const MAX_SERIALIZABLE_BYTES = 256 * 1024 * 1024;
+
+/**
  * Standalone backup service using OPFS (Origin Private File System).
  * Stores database backups as serialized byte arrays in OPFS.
  * Falls back to no-op behavior when OPFS is not available (e.g., in tests).
@@ -58,6 +71,12 @@ export default class StandaloneBackupService extends BackupService {
                 return `/${BACKUP_DIR_NAME}/${fileName}`;
             }
 
+            const size = this.databaseSize();
+            if (size > MAX_SERIALIZABLE_BYTES) {
+                console.warn(`[Backup] Database is too large to back up in the browser (${size} bytes), skipping: ${fileName}`);
+                return `/${BACKUP_DIR_NAME}/${fileName}`;
+            }
+
             // Serialize the database
             const data = getSql().serialize();
 
@@ -74,6 +93,15 @@ export default class StandaloneBackupService extends BackupService {
             // Don't throw - backup failure shouldn't block operations
             return `/${BACKUP_DIR_NAME}/${fileName}`;
         }
+    }
+
+    /** How many bytes the live database occupies, asked of the database rather than of a copy of it. */
+    private databaseSize(): number {
+        const size = getSql().getValue<number>(
+            "SELECT page_count * page_size FROM pragma_page_count(), pragma_page_size()"
+        );
+
+        return typeof size === "number" ? size : 0;
     }
 
     override async getExistingBackups(): Promise<DatabaseBackup[]> {

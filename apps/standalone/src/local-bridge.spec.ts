@@ -350,3 +350,66 @@ describe("isLocalApiRequest", () => {
         expect(bridge.isLocalApiRequest(new URL("http://x/"))).toBe(false);
     });
 });
+
+describe("restoreBackup", () => {
+    /** The message the bridge sent to the worker to start a restore. */
+    function restoreMessage(worker: MockWorker) {
+        const sent = worker.postMessage.mock.calls
+            .map(([ message ]) => message as { type: string; id: string; backup?: File; passphrase?: string })
+            .find((message) => message.type === "RESTORE_BACKUP");
+        if (!sent) {
+            throw new Error("no restore was started");
+        }
+
+        return sent;
+    }
+
+    it("hands the file itself to the worker, rather than anything read out of it", async () => {
+        const bridge = await freshBridge();
+        const backup = new File([ "database bytes" ], "backup.db");
+
+        void bridge.restoreBackup({ backup, passphrase: "hunter2" });
+
+        const sent = restoreMessage(lastWorker());
+        // The same File, not a copy: structured cloning passes it by reference, which is the whole
+        // reason this does not go through the request path.
+        expect(sent.backup).toBe(backup);
+        expect(sent.passphrase).toBe("hunter2");
+        // No transfer list, since a File is not transferable and must not be treated as one.
+        expect(lastWorker().postMessage).toHaveBeenLastCalledWith(sent);
+    });
+
+    it("relays what the worker reports, and settles on the outcome", async () => {
+        const bridge = await freshBridge();
+        const seen: unknown[] = [];
+        const restoring = bridge.restoreBackup({
+            backup: new File([ "bytes" ], "backup.db"),
+            onProgress: (progress) => seen.push(progress)
+        });
+        const worker = lastWorker();
+        const { id } = restoreMessage(worker);
+
+        worker.onmessage?.({ data: { type: "RESTORE_PROGRESS", id, progress: { stage: "staging", fraction: 0.5 } } });
+        worker.onmessage?.({ data: { type: "RESTORE_RESULT", id, result: { status: "restored" } } });
+
+        await expect(restoring).resolves.toEqual({ status: "restored" });
+        expect(seen).toEqual([ { stage: "staging", fraction: 0.5 } ]);
+    });
+
+    it("keeps two restores apart, and stops listening once one has answered", async () => {
+        const bridge = await freshBridge();
+        const first = bridge.restoreBackup({ backup: new File([ "one" ], "one.db") });
+        const worker = lastWorker();
+        const { id } = restoreMessage(worker);
+
+        worker.onmessage?.({ data: { type: "RESTORE_RESULT", id, result: { status: "restored" } } });
+        await expect(first).resolves.toEqual({ status: "restored" });
+
+        // A late or repeated answer for a restore that is over has nobody to tell, and must not throw.
+        expect(() => worker.onmessage?.({ data: { type: "RESTORE_RESULT", id, result: { status: "error" } } }))
+            .not.toThrow();
+        // Nor does a message for a restore that was never started.
+        expect(() => worker.onmessage?.({ data: { type: "RESTORE_PROGRESS", id: "other", progress: {} } }))
+            .not.toThrow();
+    });
+});
