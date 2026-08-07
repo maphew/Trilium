@@ -8,6 +8,7 @@ import { entity_changes, getContext, getPlatform, getSharedBootstrapItems, getSq
 
 import packageJson from '../../package.json' with { type: 'json' };
 import { type BrowserRequest, BrowserRouter } from './browser_router';
+import { dbLock } from './db_lock';
 
 /** Minimal response object used by apiResultHandler to capture the processed result. */
 interface ResultHandlerResponse {
@@ -62,14 +63,14 @@ function setContextFromHeaders(req: BrowserRequest) {
  */
 function wrapHandler(handler: (req: any) => unknown, transactional: boolean) {
     return (req: BrowserRequest) => {
-        return getContext().init(() => {
+        return dbLock.runShared(() => getContext().init(() => {
             setContextFromHeaders(req);
             const expressLikeReq = toExpressLikeReq(req);
             if (transactional) {
                 return getSql().transactional(() => handler(expressLikeReq));
             }
             return handler(expressLikeReq);
-        });
+        }));
     };
 }
 
@@ -94,7 +95,7 @@ function createApiRoute(router: BrowserRouter, transactional: boolean) {
 function createRoute(router: BrowserRouter) {
     return (method: HttpMethod, path: string, _middleware: any[], handler: (req: any, res: any) => unknown, resultHandler?: ((req: any, res: any, result: unknown) => unknown) | null) => {
         router.register(method, path, (req: BrowserRequest) => {
-            return getContext().init(() => {
+            return dbLock.runShared(() => getContext().init(() => {
                 setContextFromHeaders(req);
                 const expressLikeReq = toExpressLikeReq(req);
                 const mockRes = createMockExpressResponse();
@@ -119,7 +120,7 @@ function createRoute(router: BrowserRouter) {
                 }
 
                 return result;
-            });
+            }));
         });
     };
 }
@@ -133,7 +134,9 @@ function createRoute(router: BrowserRouter) {
 function createAsyncRoute(router: BrowserRouter) {
     return (method: HttpMethod, path: string, _middleware: any[], handler: (req: any, res: any) => Promise<unknown>, resultHandler?: ((req: any, res: any, result: unknown) => unknown) | null) => {
         router.register(method, path, (req: BrowserRequest) => {
-            return getContext().init(async () => {
+            // Exclusive: this transaction stays open across awaits, so no other
+            // route may touch the connection until it commits. See db_lock.ts.
+            return dbLock.runExclusive(() => getContext().init(async () => {
                 setContextFromHeaders(req);
                 const expressLikeReq = toExpressLikeReq(req);
                 const mockRes = createMockExpressResponse();
@@ -158,7 +161,7 @@ function createAsyncRoute(router: BrowserRouter) {
                 }
 
                 return result;
-            });
+            }) as Promise<unknown>);
         });
     };
 }

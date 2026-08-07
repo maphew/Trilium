@@ -1,5 +1,6 @@
 import { installIosInterceptors } from "./ios-interceptors.js";
-import { attachServiceWorkerBridge, registerNativeHttpHandler, restoreBackup, startLocalServerWorker } from "./local-bridge.js";
+import { claimLeadership } from "./leader_election.js";
+import { announceLeadership, attachServiceWorkerBridge, registerNativeHttpHandler, restoreBackup, startLocalServerWorker } from "./local-bridge.js";
 
 async function waitForServiceWorkerControl(): Promise<void> {
     if (!("serviceWorker" in navigator) || !navigator.serviceWorker) {
@@ -56,8 +57,15 @@ async function bootstrap() {
             registerNativeHttpHandler(capacitorHttpHandler);
         }
 
-        // 1) Start local worker ASAP (so /bootstrap is fast)
-        startLocalServerWorker();
+        // 1) Start the local worker ASAP (so /bootstrap is fast) — but only in
+        // the tab that wins the database lock. A second worker cannot open the
+        // OPFS database at all; before this gate it silently fell back to an
+        // empty in-memory one. Other tabs reach this worker through the service
+        // worker instead. See leader_election.ts.
+        claimLeadership(() => {
+            startLocalServerWorker();
+            announceLeadership();
+        });
 
         // iOS Capacitor loads on the capacitor:// scheme, where WebKit rejects
         // service worker registration. Fall back to in-page request interceptors

@@ -2,7 +2,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 // A controllable stand-in for the bundled local-server-worker. vi.hoisted lets the
 // (hoisted) vi.mock factory share the instance registry with the test body.
-const { workerInstances } = vi.hoisted(() => ({ workerInstances: [] as MockWorker[] }));
+const { workerInstances, leadership } = vi.hoisted(() => ({
+    workerInstances: [] as MockWorker[],
+    // Most of this suite exercises the leader, which is the tab that owns the
+    // worker. Followers take a different path — see the leadership describe.
+    leadership: { isLeader: true }
+}));
+
+vi.mock("./leader_election.js", () => ({ isLeader: () => leadership.isLeader }));
 
 class MockWorker {
     postMessage = vi.fn();
@@ -25,6 +32,7 @@ let swHandler: ((event: unknown) => unknown) | undefined;
 async function freshBridge(withServiceWorker = true): Promise<LocalBridge> {
     vi.resetModules();
     workerInstances.length = 0;
+    leadership.isLeader = true;
     swHandler = undefined;
     if (withServiceWorker) {
         Object.defineProperty(navigator, "serviceWorker", {
@@ -411,5 +419,116 @@ describe("restoreBackup", () => {
         // Nor does a message for a restore that was never started.
         expect(() => worker.onmessage?.({ data: { type: "RESTORE_PROGRESS", id: "other", progress: {} } }))
             .not.toThrow();
+    });
+
+    it("refuses in a follower rather than opening a second database", async () => {
+        const bridge = await freshBridge();
+        leadership.isLeader = false;
+
+        await expect(bridge.restoreBackup({ backup: new File([ "bytes" ], "backup.db") }))
+            .rejects.toThrow(/tab that owns the database/);
+        expect(workerInstances).toHaveLength(0);
+    });
+});
+
+describe("leadership", () => {
+    it("a follower refuses to serve and never starts a worker", async () => {
+        const bridge = await freshBridge();
+        bridge.attachServiceWorkerBridge();
+        leadership.isLeader = false;
+
+        const port = { postMessage: vi.fn() };
+        await swHandler?.({
+            data: { type: "LOCAL_FETCH", id: "9", request: { method: "GET", url: "/api/x", headers: {} } },
+            ports: [port]
+        });
+
+        // Starting a worker here would open a second database against the same
+        // OPFS pool — the exact failure leadership exists to prevent.
+        expect(workerInstances).toHaveLength(0);
+        expect(port.postMessage).toHaveBeenCalledWith({ type: "NOT_LEADER", id: "9" });
+    });
+
+    it("answers the service worker's leader probe", async () => {
+        const bridge = await freshBridge();
+        bridge.attachServiceWorkerBridge();
+
+        const leaderPort = { postMessage: vi.fn() };
+        await swHandler?.({ data: { type: "WHO_IS_LEADER" }, ports: [leaderPort] });
+        expect(leaderPort.postMessage).toHaveBeenCalledWith({ type: "LEADER_REPLY", isLeader: true });
+
+        leadership.isLeader = false;
+        const followerPort = { postMessage: vi.fn() };
+        await swHandler?.({ data: { type: "WHO_IS_LEADER" }, ports: [followerPort] });
+        expect(followerPort.postMessage).toHaveBeenCalledWith({ type: "LEADER_REPLY", isLeader: false });
+    });
+
+    it("announceLeadership tells the controlling service worker", async () => {
+        const bridge = await freshBridge();
+        const controller = { postMessage: vi.fn() };
+        Object.defineProperty(navigator, "serviceWorker", {
+            value: { addEventListener: vi.fn(), controller },
+            configurable: true
+        });
+
+        bridge.announceLeadership();
+        expect(controller.postMessage).toHaveBeenCalledWith({ type: "LEADER_ANNOUNCE" });
+    });
+
+    it("survives announcing with no controlling service worker", async () => {
+        const bridge = await freshBridge(false);
+        expect(() => bridge.announceLeadership()).not.toThrow();
+    });
+});
+
+describe("cross-tab ws relay", () => {
+    it("relays the worker's ws messages to the other tabs", async () => {
+        const posted: unknown[] = [];
+        class MockBroadcastChannel {
+            onmessage: ((e: { data: unknown }) => void) | null = null;
+            postMessage = vi.fn((m: unknown) => { posted.push(m); });
+            close = vi.fn();
+        }
+        vi.stubGlobal("BroadcastChannel", MockBroadcastChannel);
+
+        const bridge = await freshBridge();
+        bridge.startLocalServerWorker();
+        lastWorker().onmessage?.({ data: { type: "WS_MESSAGE", message: { kind: "entity-change" } } });
+
+        // Only the leader has a worker, so without this relay a follower would
+        // never learn the entity changed.
+        expect(posted).toEqual([{ kind: "entity-change" }]);
+        vi.unstubAllGlobals();
+    });
+
+    it("dispatches a relayed message into this tab", async () => {
+        const channels: MockBroadcastChannel[] = [];
+        class MockBroadcastChannel {
+            onmessage: ((e: { data: unknown }) => void) | null = null;
+            postMessage = vi.fn();
+            close = vi.fn();
+            constructor() { channels.push(this); }
+        }
+        vi.stubGlobal("BroadcastChannel", MockBroadcastChannel);
+
+        const bridge = await freshBridge();
+        bridge.attachServiceWorkerBridge();
+        const dispatchSpy = vi.spyOn(window, "dispatchEvent");
+
+        channels.at(-1)?.onmessage?.({ data: { kind: "from-leader" } });
+
+        const event = dispatchSpy.mock.calls.at(-1)?.[0] as CustomEvent;
+        expect(event.type).toBe("trilium:ws-message");
+        expect(event.detail).toEqual({ kind: "from-leader" });
+        vi.unstubAllGlobals();
+    });
+
+    it("works when BroadcastChannel is unavailable", async () => {
+        vi.stubGlobal("BroadcastChannel", undefined);
+        const bridge = await freshBridge();
+        bridge.startLocalServerWorker();
+
+        expect(() => lastWorker().onmessage?.({ data: { type: "WS_MESSAGE", message: { kind: "x" } } })).not.toThrow();
+        vi.unstubAllGlobals();
     });
 });
