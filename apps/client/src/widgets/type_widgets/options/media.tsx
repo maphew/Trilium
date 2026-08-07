@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 import { t } from "../../../services/i18n";
 import server from "../../../services/server";
 import toast from "../../../services/toast";
-import { isElectron } from "../../../services/utils";
+import { isElectron, isStandalone } from "../../../services/utils";
 import {
     AUTOMATIC_IMAGE_COMPRESSION_DEFAULTS,
     type ImageCompressionToolOptions,
@@ -172,7 +172,9 @@ function OcrSettings() {
                         />
                     </CardOption>
 
-                    <BatchProcessing />
+                    {/* Running OCR needs the engine the server holds; a standalone client only ever
+                        reads text extracted elsewhere and synced to it. */}
+                    {!isStandalone && <BatchProcessing />}
                 </Card>
             </div>
 

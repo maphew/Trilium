@@ -14,7 +14,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
  */
 const mocks = vi.hoisted(() => ({
     stored: {} as Record<string, string>,
-    saved: vi.fn<(name: string, value: string) => void>()
+    saved: vi.fn<(name: string, value: string) => void>(),
+    standalone: false
+}));
+
+// `isStandalone` is a const in the target, read here through a getter so a scenario can flip which
+// kind of client we are pretending to be. Partial-mock, so the rest of utils stays real.
+vi.mock("../../../services/utils", async (importOriginal) => ({
+    ...(await importOriginal<typeof import("../../../services/utils")>()),
+    get isStandalone() {
+        return mocks.standalone;
+    }
 }));
 
 // i18next is never initialised for these tests and answers `undefined` until it is, which would
@@ -127,6 +137,7 @@ async function choose(title: string, label: string) {
 }
 
 beforeEach(() => {
+    mocks.standalone = false;
     host = document.body.appendChild(document.createElement("div"));
 });
 
@@ -208,5 +219,24 @@ describe("the images card", () => {
         // Each row writes its own and only its own: the settings are separate synced options, not
         // one blob, so a client that has never heard of the newer ones still reads the older ones.
         expect(mocks.saved.mock.calls.map(([ name ]) => name)).toEqual([ "imagePngHandling", "imageJpegHandling" ]);
+    });
+});
+
+describe("the OCR card", () => {
+    // Extracting text needs the engine the server holds. A standalone client reads OCR text that was
+    // extracted elsewhere and synced to it, so the settings governing extraction stay — they are
+    // synced options, read by whichever server does the work — but the button that would run it here
+    // goes, rather than answering a press with a 404.
+    it("offers batch processing only where OCR can actually run", () => {
+        open();
+        expect(host.querySelector(".media-batch-ocr")).not.toBeNull();
+        expect(host.querySelector(".media-ocr .tn-card-option")).not.toBeNull();
+
+        render(null, host);
+        mocks.standalone = true;
+        open();
+        expect(host.querySelector(".media-batch-ocr")).toBeNull();
+        // The card itself stays: its two settings govern the extraction wherever it happens.
+        expect(host.querySelector(".media-ocr .tn-card-option")).not.toBeNull();
     });
 });
