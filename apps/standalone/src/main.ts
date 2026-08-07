@@ -1,3 +1,4 @@
+import { showErrorOverlay } from "./error-overlay.js";
 import { installIosInterceptors } from "./ios-interceptors.js";
 import { claimLeadership } from "./leader_election.js";
 import { announceLeadership, attachServiceWorkerBridge, registerNativeHttpHandler, restoreBackup, startLocalServerWorker } from "./local-bridge.js";
@@ -85,17 +86,10 @@ async function bootstrap() {
         }
 
         console.error("[Bootstrap] Fatal error:", err);
-        document.body.innerHTML = `
-            <div style="padding: 40px; max-width: 600px; margin: 0 auto; font-family: system-ui, sans-serif;">
-                <h1 style="color: #d32f2f;">Failed to Initialize</h1>
-                <p>The application failed to start. Please check the browser console for details.</p>
-                <pre style="background: #f5f5f5; padding: 16px; border-radius: 4px; overflow: auto; white-space: pre-wrap; word-wrap: break-word;">${err instanceof Error ? err.message : String(err)}</pre>
-                <button onclick="location.reload()" style="padding: 12px 24px; background: #1976d2; color: white; border: none; border-radius: 4px; cursor: pointer; font-size: 16px;">
-                    Reload Page
-                </button>
-            </div>
-        `;
-        document.body.style.display = "block";
+        showErrorOverlay(
+            "Failed to Initialize",
+            err instanceof Error ? err.message : String(err)
+        );
     }
 }
 

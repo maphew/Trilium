@@ -55,6 +55,7 @@ function lastWorker(): MockWorker {
 
 afterEach(() => {
     delete (navigator as unknown as NavServiceWorker).serviceWorker;
+    document.getElementById("trilium-error-overlay")?.remove();
     vi.restoreAllMocks();
 });
 
@@ -79,15 +80,13 @@ describe("startLocalServerWorker", () => {
 });
 
 describe("worker message handling", () => {
-    it("shows a dialog on FATAL_ERROR", async () => {
-        const alertSpy = vi.fn();
-        vi.stubGlobal("alert", alertSpy);
+    it("shows an error overlay on FATAL_ERROR", async () => {
         vi.spyOn(console, "error").mockImplementation(() => {});
         const bridge = await freshBridge();
         bridge.startLocalServerWorker();
         lastWorker().onmessage?.({ data: { type: "FATAL_ERROR", message: "boom" } });
-        expect(alertSpy).toHaveBeenCalledWith("boom");
-        vi.unstubAllGlobals();
+        const overlay = document.getElementById("trilium-error-overlay");
+        expect(overlay?.textContent).toContain("boom");
     });
 
     it("dispatches a window event for WS_MESSAGE", async () => {
@@ -134,16 +133,25 @@ describe("worker message handling", () => {
         await vi.waitFor(() => expect(worker.postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: "HTTP_RESPONSE", id: "3", error: "plain rejection" })));
     });
 
-    it("rejects pending requests on WORKER_ERROR and on worker onerror", async () => {
+    it("shows an overlay and rejects pending requests on WORKER_ERROR", async () => {
         vi.spyOn(console, "error").mockImplementation(() => {});
         const bridge = await freshBridge();
         bridge.startLocalServerWorker();
-        const worker = lastWorker();
 
-        // WORKER_ERROR path
-        worker.onmessage?.({ data: { type: "WORKER_ERROR", error: { message: "crash" } } });
-        // onerror path
-        expect(() => worker.onerror?.({ message: "fatal" })).not.toThrow();
+        lastWorker().onmessage?.({ data: { type: "WORKER_ERROR", error: { message: "crash", stack: "at boom" } } });
+
+        const overlay = document.getElementById("trilium-error-overlay");
+        expect(overlay?.textContent).toContain("crash");
+        expect(overlay?.textContent).toContain("at boom");
+    });
+
+    it("shows an overlay on worker onerror without throwing", async () => {
+        vi.spyOn(console, "error").mockImplementation(() => {});
+        const bridge = await freshBridge();
+        bridge.startLocalServerWorker();
+
+        expect(() => lastWorker().onerror?.({ message: "fatal" })).not.toThrow();
+        expect(document.getElementById("trilium-error-overlay")?.textContent).toContain("fatal");
     });
 
     it("ignores messages without a recognized type", async () => {
