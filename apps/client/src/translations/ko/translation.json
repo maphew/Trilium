@@ -2016,9 +2016,9 @@
     "default_location": "기본 위치",
     "options_title": "백업 옵션",
     "enable_compression": "압축 사용",
-    "enable_compression_description": "각 백업 파일의 크기를 크게 줄이지만, 저장하는 데 시간이 조금 더 걸립니다.",
+    "enable_compression_description": "백업을 생성하는 데 시간이 조금 더 걸리는 대신 각 백업의 크기를 줄입니다.",
     "enable_encryption": "암호화 사용",
-    "enable_encryption_description": "각 백업을 개인 비밀번호로 잠가 다른 사람이 읽지 못하게 합니다. 백업을 동기화 폴더에 저장할 때 사용하면 좋습니다.",
+    "enable_encryption_description": "각 백업을 직접 설정한 비밀번호로 잠가 다른 사람이 내용을 볼 수 없게 합니다. 백업을 동기화 폴더나 공유 폴더에 저장할 때 사용하는 것을 권장합니다.",
     "no_keyring": "시스템에서 키링을 사용할 수 없습니다. 따라서 비밀번호를 안전하게 저장할 수 없어 백업 암호화를 사용할 수 없습니다.",
     "turn_on_encryption": "암호화 사용",
     "change_password": "비밀번호 변경",
@@ -2030,7 +2030,8 @@
     "encryption_not_disabled": "백업 비밀번호는 삭제되었지만 암호화를 끌 수 없습니다. 암호화를 다시 켜기 전까지 백업은 암호화되지 않습니다.",
     "encryption_not_enabled": "백업 비밀번호는 저장되었지만 암호화를 켤 수 없습니다. 암호화를 켜기 전까지 백업은 암호화되지 않습니다.",
     "compressed": "압축됨",
-    "encrypted": "암호화됨"
+    "encrypted": "암호화됨",
+    "backups_summary_other": "백업 {{count}}개, 가장 최근 백업은 {{age}} 전입니다."
   },
   "etapi": {
     "description": "ETAPI는 UI 없이 Trilium 인스턴스에 프로그래밍적으로 접근할 수 있는 REST API입니다.",
