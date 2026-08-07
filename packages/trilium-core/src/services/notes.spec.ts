@@ -141,6 +141,51 @@ describe("notes service (real DB)", () => {
             expect(note.getContent()).toBe("<p>day template</p>");
         });
 
+        it("inherits every one of the parent's child:template relations, not just one", () => {
+            const t1 = createNote("root", { title: "spec-multi-tmpl-1", content: "<p>one</p>" });
+            const t2 = createNote("root", { title: "spec-multi-tmpl-2", content: "<p>two</p>" });
+            const parent = createNote("root", {
+                title: "spec-multi-tmpl-parent",
+                attributes: [
+                    { type: "relation", name: "child:template", value: t1.note.noteId },
+                    { type: "relation", name: "child:template", value: t2.note.noteId }
+                ]
+            });
+
+            const { note } = createNote(parent.note.noteId, {
+                title: "spec-multi-tmpl-child",
+                content: ""
+            });
+
+            const applied = note.getRelations("template").map((r) => r.value);
+            expect(applied).toEqual([t1.note.noteId, t2.note.noteId]);
+        });
+
+        it("lets an explicitly chosen template suppress the child:template defaults", () => {
+            const chosen = createNote("root", {
+                title: "spec-multi-tmpl-chosen",
+                content: "<p>chosen</p>"
+            });
+            const t1 = createNote("root", { title: "spec-mt-def-1", content: "<p>one</p>" });
+            const t2 = createNote("root", { title: "spec-mt-def-2", content: "<p>two</p>" });
+            const parent = createNote("root", {
+                title: "spec-multi-tmpl-parent-chosen",
+                attributes: [
+                    { type: "relation", name: "child:template", value: t1.note.noteId },
+                    { type: "relation", name: "child:template", value: t2.note.noteId }
+                ]
+            });
+
+            const { note } = createNote(parent.note.noteId, {
+                title: "spec-multi-tmpl-child-chosen",
+                content: "",
+                templateNoteId: chosen.note.noteId
+            });
+
+            const applied = note.getRelations("template").map((r) => r.value);
+            expect(applied).toEqual([chosen.note.noteId]);
+        });
+
         it("does not inherit the parent's child:template when the new note's type differs (#3015)", () => {
             const template = createNote("root", { title: "spec-child-tmpl-mismatch", content: "<p>day template</p>" });
             const parent = createNote("root", {
