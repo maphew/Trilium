@@ -1,5 +1,5 @@
 import { SETUP_MARKER_FILE_NAME, type SetupMarker } from "@triliumnext/commons";
-import { parseSetupMarker, type SetupMarkerStore } from "@triliumnext/core";
+import { parseSetupMarker } from "@triliumnext/core";
 
 /**
  * The `setup.json` marker in the browser's own storage.
@@ -41,26 +41,25 @@ export async function consumeSetupMarker(): Promise<SetupMarker | null> {
     return parseSetupMarker(raw);
 }
 
-/** How this platform writes the marker, for the route that asks the next start to be the wizard. */
-export const setupMarkerStore: SetupMarkerStore = {
-    async write(marker: SetupMarker) {
-        const root = await navigator.storage.getDirectory();
-        const handle = await root.getFileHandle(SETUP_MARKER_FILE_NAME, { create: true });
-        const writable = await handle.createWritable();
+/** Leaves the marker that makes the next start the wizard. */
+export async function writeSetupMarker(marker: SetupMarker): Promise<void> {
+    const root = await navigator.storage.getDirectory();
+    const handle = await root.getFileHandle(SETUP_MARKER_FILE_NAME, { create: true });
+    const writable = await handle.createWritable();
 
-        try {
-            await writable.write(JSON.stringify(marker, null, 4));
-        } finally {
-            await writable.close();
-        }
-    },
-
-    async remove() {
-        try {
-            const root = await navigator.storage.getDirectory();
-            await root.removeEntry(SETUP_MARKER_FILE_NAME);
-        } catch {
-            // Nothing to remove, which is the state the caller wanted anyway.
-        }
+    try {
+        await writable.write(JSON.stringify(marker, null, 4));
+    } finally {
+        await writable.close();
     }
-};
+}
+
+/** Takes it back, for a request that was made and then abandoned. */
+export async function removeSetupMarker(): Promise<void> {
+    try {
+        const root = await navigator.storage.getDirectory();
+        await root.removeEntry(SETUP_MARKER_FILE_NAME);
+    } catch {
+        // Nothing to remove, which is the state the caller wanted anyway.
+    }
+}

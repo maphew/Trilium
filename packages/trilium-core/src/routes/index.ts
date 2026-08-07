@@ -154,6 +154,14 @@ export function buildSharedApiRoutes({ route, asyncRoute, apiRoute, asyncApiRout
     // it is how the app asks the next start to be the wizard.
     asyncApiRoute(PST, "/api/setup/boot", setupApiRoute.bootToSetup);
 
+    // What becomes of the database the wizard was booted away from. Guarded like the rest of setup,
+    // and refused again inside on an instance that has no such database. Not transactional: the
+    // backup runs for minutes, and keeping the database reopens it.
+    asyncRoute(PST, "/api/setup/existing/backup", [checkAppNotInitialized], setupApiRoute.backUpExisting, apiResultHandler);
+    asyncRoute(GET, "/api/setup/existing/status", [checkAppNotInitialized], setupApiRoute.existingBackupStatus, apiResultHandler);
+    asyncRoute(PST, "/api/setup/existing/delete", [checkAppNotInitialized], setupApiRoute.deleteExisting, apiResultHandler);
+    asyncRoute(PST, "/api/setup/existing/keep", [checkAppNotInitialized], setupApiRoute.keepExisting, apiResultHandler);
+
     asyncApiRoute(PST, "/api/sync/test", syncApiRoute.testSync);
     asyncApiRoute(PST, "/api/sync/now", syncApiRoute.syncNow);
     apiRoute(PST, "/api/sync/fill-entity-changes", syncApiRoute.fillEntityChanges);

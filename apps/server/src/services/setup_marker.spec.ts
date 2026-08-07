@@ -4,7 +4,7 @@ import path from "path";
 import { afterEach, describe, expect, it } from "vitest";
 
 import dataDirs from "./data_dir.js";
-import { consumeSetupMarker, setupMarkerStore } from "./setup_marker.js";
+import { consumeSetupMarker, setupPlatform } from "./setup_marker.js";
 
 const MARKER_PATH = path.join(dataDirs.TRILIUM_DATA_DIR, SETUP_MARKER_FILE_NAME);
 
@@ -37,18 +37,18 @@ describe("the marker a start finds", () => {
 
 describe("writing the marker", () => {
     it("leaves something the next start reads back as what was asked for", async () => {
-        await setupMarkerStore.write({ lang: "de", targetScreen: "restore-backup" });
+        await setupPlatform.writeMarker({ lang: "de", targetScreen: "restore-backup" });
 
         expect(fs.existsSync(MARKER_PATH)).toBe(true);
         expect(consumeSetupMarker()).toEqual({ lang: "de", targetScreen: "restore-backup" });
     });
 
     it("can be taken back, whether or not there was one", async () => {
-        await setupMarkerStore.write({ lang: "en" });
-        await setupMarkerStore.remove();
+        await setupPlatform.writeMarker({ lang: "en" });
+        await setupPlatform.removeMarker();
         expect(fs.existsSync(MARKER_PATH)).toBe(false);
 
         // Removing what is not there is how a cancelled request ends, and is not a failure.
-        await expect(setupMarkerStore.remove()).resolves.toBeUndefined();
+        await expect(setupPlatform.removeMarker()).resolves.toBeUndefined();
     });
 });

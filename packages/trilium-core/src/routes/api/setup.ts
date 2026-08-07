@@ -1,7 +1,13 @@
 import sqlInit from "../../services/sql_init.js";
 import setupService from "../../services/setup.js";
 import { getRunningSetupOperation, withSetupLock } from "../../services/setup_lock.js";
-import { asSetupTargetScreen, getSetupMarkerStore } from "../../services/setup_mode.js";
+import {
+    backUpExistingData,
+    deleteExistingData,
+    getExistingBackupProgress,
+    keepExistingData
+} from "../../services/setup_existing.js";
+import { asSetupTargetScreen, getSetupPlatform } from "../../services/setup_mode.js";
 import { getLog } from "../../services/log.js";
 import appInfo from "../../services/app_info.js";
 import optionService from "../../services/options.js";
@@ -42,12 +48,42 @@ function getStatus() {
 async function bootToSetup(req: Request) {
     const targetScreen = asSetupTargetScreen(req.body?.targetScreen);
 
-    await getSetupMarkerStore().write({
+    await getSetupPlatform().writeMarker({
         lang: optionService.getOptionOrNull("locale") ?? "en",
         ...(targetScreen ? { targetScreen } : {})
     });
 
     getLog().info(`Boot to setup requested${targetScreen ? ` for "${targetScreen}"` : ""}.`);
+}
+
+/**
+ * Backs up the database the wizard was booted away from, and says where it went.
+ *
+ * Answers only once the file is written, which for a large database is minutes: the screen that
+ * calls this shows a spinner for exactly that long, and has nothing useful to say in between.
+ */
+async function backUpExisting() {
+    return await backUpExistingData(new Date());
+}
+
+/**
+ * How far through the backup is, for the screen waiting on it.
+ *
+ * Polled rather than pushed: the answer is one number, the screen is the only thing asking, and a
+ * push would need a channel that setup does not otherwise have.
+ */
+function existingBackupStatus() {
+    return { fraction: getExistingBackupProgress() };
+}
+
+/** Erases that database. Everything else in the data directory, backups included, stays. */
+async function deleteExisting() {
+    await deleteExistingData();
+}
+
+/** Abandons setup and opens the database that was there all along. */
+async function keepExisting() {
+    await keepExistingData();
 }
 
 async function setupNewDocument(req: Request) {
@@ -135,6 +171,10 @@ function getSyncSeed() {
 export default {
     getStatus,
     bootToSetup,
+    backUpExisting,
+    existingBackupStatus,
+    deleteExisting,
+    keepExisting,
     setupNewDocument,
     setupSyncFromServer,
     getSyncSeed,

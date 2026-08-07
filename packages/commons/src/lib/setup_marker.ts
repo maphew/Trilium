@@ -24,6 +24,16 @@ export const SETUP_MARKER_FILE_NAME = "setup.json";
  */
 export type SetupTargetScreen = "restore-backup";
 
+/** A backup the setup screen took of the database it is about to replace. */
+export interface SetupExistingBackup {
+    fileName: string;
+    /** Shown in full, because the user may lose sight of a custom backup directory afterwards. */
+    filePath: string;
+    fileSize: number;
+    /** Whether it is encrypted, which decides whether the user needs their backup password to use it. */
+    encrypted: boolean;
+}
+
 /** What a start reads out of {@link SETUP_MARKER_FILE_NAME}. */
 export interface SetupMarker {
     /** The language the instance was using, so the wizard is in it rather than asking again. */

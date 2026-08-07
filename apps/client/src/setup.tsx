@@ -10,6 +10,7 @@ import logo from "./assets/icon-color.svg?url";
 import { getCurrentLanguage, initLocale, t } from "./services/i18n";
 import server from "./services/server";
 import { isElectron, isMobileApp } from "./services/utils";
+import ExistingData from "./setup_existing";
 import RestoreFromBackup from "./setup_restore";
 import Admonition, { ExtendedAdmonition } from "./widgets/react/Admonition";
 import Button from "./widgets/react/Button";
@@ -40,12 +41,18 @@ async function main() {
     document.body.replaceChildren(bodyWrapper);
 }
 
-type State = "selectLanguage" | "firstOptions" | "createNewDocumentOptions" | "createNewDocumentWithDemo" | "createNewDocumentEmpty" | "restoreFromBackup" | "syncFromDesktop" | "syncFromServer" | "syncFromServerInProgress" | "syncFromDesktopInProgress" | "syncFailed";
+type State = "existingData" | "selectLanguage" | "firstOptions" | "createNewDocumentOptions" | "createNewDocumentWithDemo" | "createNewDocumentEmpty" | "restoreFromBackup" | "syncFromDesktop" | "syncFromServer" | "syncFromServerInProgress" | "syncFromDesktopInProgress" | "syncFailed";
 
-const STATE_ORDER: State[] = ["selectLanguage", "firstOptions", "createNewDocumentOptions", "createNewDocumentWithDemo", "createNewDocumentEmpty", "restoreFromBackup", "syncFromDesktop", "syncFromServer", "syncFromServerInProgress", "syncFromDesktopInProgress", "syncFailed"];
+const STATE_ORDER: State[] = ["existingData", "selectLanguage", "firstOptions", "createNewDocumentOptions", "createNewDocumentWithDemo", "createNewDocumentEmpty", "restoreFromBackup", "syncFromDesktop", "syncFromServer", "syncFromServerInProgress", "syncFromDesktopInProgress", "syncFailed"];
 
 export function renderState(state: State, setState: (state: State) => void) {
     switch (state) {
+        case "existingData": return (
+            <ExistingData
+                onProceed={() => setState(afterExistingData(window.glob))}
+                onKept={onSetupFinished}
+            />
+        );
         case "selectLanguage": return <SelectLanguage setState={setState} />;
         case "firstOptions": return <SetupOptions setState={setState} />;
         case "createNewDocumentOptions": return <CreateNewDocumentOptions setState={setState} />;
@@ -90,19 +97,43 @@ function App() {
     );
 }
 
+/** What the wizard needs to know from the bootstrap to decide where it opens and where it goes next. */
+interface SetupGlob {
+    syncInProgress?: boolean;
+    initialSetup?: boolean;
+    setupTargetScreen?: SetupTargetScreen;
+}
+
 /**
  * Where the wizard opens.
  *
- * A first run starts at the language step and works forward. The two exceptions both arrive already
- * knowing where they belong: a sync interrupted after it created the schema, and an instance that
- * asked to be here through a `setup.json` marker, which is how the app sends a user to a screen that
- * needs the database closed.
+ * A first run starts at the language step and works forward. Three things come in already knowing
+ * better: a sync interrupted after it created the schema, an instance with a knowledge base still
+ * behind the wizard, which has to answer for that before anything else, and an instance sent to a
+ * particular screen through a `setup.json` marker.
  */
-export function initialState(glob: { syncInProgress?: boolean; setupTargetScreen?: SetupTargetScreen }): State {
+export function initialState(glob: SetupGlob): State {
     if (glob.syncInProgress) {
         return "syncFromServerInProgress";
     }
 
+    // Before the language, before the menu: everything past this point replaces or erases what is
+    // already here, and the user has not been asked about that yet.
+    if (glob.initialSetup === false) {
+        return "existingData";
+    }
+
+    return afterExistingData(glob);
+}
+
+/**
+ * Where the wizard goes once there is nothing left to lose.
+ *
+ * The same answer a first run gets, which is the point: by the time this is reached the instance has
+ * no database, so it is being set up exactly as a new one would be, except that it may have been
+ * told which screen the user was heading for.
+ */
+function afterExistingData(glob: SetupGlob): State {
     switch (glob.setupTargetScreen) {
         case "restore-backup": return "restoreFromBackup";
         // Deliberately not a lookup table: two of the states below create a document the moment they

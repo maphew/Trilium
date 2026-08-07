@@ -1,5 +1,5 @@
 import { SETUP_MARKER_FILE_NAME, type SetupMarker } from "@triliumnext/commons";
-import { getLog, parseSetupMarker, type SetupMarkerStore } from "@triliumnext/core";
+import { getLog, getSql, parseSetupMarker, type SetupPlatform } from "@triliumnext/core";
 import fs from "fs";
 import path from "path";
 
@@ -55,13 +55,24 @@ export function consumeSetupMarker(): SetupMarker | null {
     return marker;
 }
 
-/** How this platform writes the marker, for the route that asks the next start to be the wizard. */
-export const setupMarkerStore: SetupMarkerStore = {
-    async write(marker: SetupMarker) {
+/** What setup reaches for on this platform: the marker file, and the database beside it. */
+export const setupPlatform: SetupPlatform = {
+    async writeMarker(marker: SetupMarker) {
         fs.writeFileSync(markerPath(), JSON.stringify(marker, null, 4), "utf8");
     },
 
-    async remove() {
+    async removeMarker() {
         fs.rmSync(markerPath(), { force: true });
+    },
+
+    async removeDatabase() {
+        // Detached first: on Windows an open handle is enough to make the file undeletable, and
+        // leaving the connection attached to a file that is gone is worse than either.
+        getSql().detachConnection();
+
+        const document = dataDirs.DOCUMENT_PATH;
+        for (const file of [ document, `${document}-wal`, `${document}-shm` ]) {
+            fs.rmSync(file, { force: true });
+        }
     }
 };

@@ -4,9 +4,9 @@ import {
     asSetupTargetScreen,
     enterSetupMode,
     getSetupLanguage,
-    getSetupMarkerStore,
+    getSetupPlatform,
     getSetupTargetScreen,
-    initSetupMarkerStore,
+    initSetupPlatform,
     isInitialSetup,
     isSetupRequested,
     leaveSetupMode,
@@ -79,15 +79,16 @@ describe("being in setup because it was asked for", () => {
     });
 });
 
-describe("the marker store", () => {
+describe("what setup reaches for on its platform", () => {
     it("carries what a route writes to whichever platform registered itself", async () => {
         const written: unknown[] = [];
-        initSetupMarkerStore({
-            write: async (marker) => { written.push(marker); },
-            remove: async () => {}
+        initSetupPlatform({
+            writeMarker: async (marker) => { written.push(marker); },
+            removeMarker: async () => {},
+            removeDatabase: async () => {}
         });
 
-        await getSetupMarkerStore().write({ lang: "en", targetScreen: "restore-backup" });
+        await getSetupPlatform().writeMarker({ lang: "en", targetScreen: "restore-backup" });
         expect(written).toEqual([ { lang: "en", targetScreen: "restore-backup" } ]);
     });
 
@@ -95,6 +96,6 @@ describe("the marker store", () => {
         vi.resetModules();
         const fresh = await import("./setup_mode.js");
 
-        expect(() => fresh.getSetupMarkerStore()).toThrow(/not initialized/);
+        expect(() => fresh.getSetupPlatform()).toThrow(/not initialized/);
     });
 });

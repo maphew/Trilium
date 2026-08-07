@@ -8,8 +8,8 @@ import { initSql } from "./services/sql/index";
 import { SqlService, SqlServiceParams } from "./services/sql/sql";
 import { initMessaging, MessagingProvider } from "./services/messaging/index";
 import { initRequest, RequestProvider } from "./services/request";
-import { changeLanguage, initTranslations, TranslationProvider } from "./services/i18n";
-import { enterSetupMode, initSetupMarkerStore, type SetupMarkerStore } from "./services/setup_mode";
+import { initTranslations, TranslationProvider } from "./services/i18n";
+import { enterSetupMode, initSetupPlatform, type SetupPlatform } from "./services/setup_mode";
 import { initSchema, initDemoArchive } from "./services/sql_init";
 import appInfo from "./services/app_info";
 import { type PlatformProvider, initPlatform } from "./services/platform";
@@ -33,7 +33,7 @@ export {
     isSetupRequested,
     leaveSetupMode,
     parseSetupMarker,
-    type SetupMarkerStore
+    type SetupPlatform
 } from "./services/setup_mode";
 export {
     type CandidateDatabase,
@@ -162,7 +162,7 @@ export { default as scriptService } from "./services/script";
 export { default as BackendScriptApi, type Api as BackendScriptApiInterface } from "./services/backend_script_api";
 export * as scheduler from "./services/scheduler";
 
-export async function initializeCore({ dbConfig, executionContext, crypto, zip, zipExportProviderFactory, translations, messaging, request, schema, extraAppInfo, platform, getDemoArchive, inAppHelp, log, backup, image, config, setupMarker, setupMarkerStore }: {
+export async function initializeCore({ dbConfig, executionContext, crypto, zip, zipExportProviderFactory, translations, messaging, request, schema, extraAppInfo, platform, getDemoArchive, inAppHelp, log, backup, image, config, setupMarker, setupPlatform }: {
     dbConfig: SqlServiceParams,
     executionContext: ExecutionContext,
     crypto: CryptoProvider,
@@ -189,7 +189,7 @@ export async function initializeCore({ dbConfig, executionContext, crypto, zip, 
      */
     setupMarker?: SetupMarker | null;
     /** How this platform writes that file, for the route that asks for the next start to be setup. */
-    setupMarkerStore?: SetupMarkerStore;
+    setupPlatform?: SetupPlatform;
 }) {
     if (config) {
         initConfig(config);
@@ -200,16 +200,13 @@ export async function initializeCore({ dbConfig, executionContext, crypto, zip, 
     // Before anything reads the database: from here on this instance answers as one with nothing to
     // open, which is what `initSql` below relies on to leave the existing database alone.
     enterSetupMode(setupMarker ?? null);
-    if (setupMarkerStore) {
-        initSetupMarkerStore(setupMarkerStore);
+    if (setupPlatform) {
+        initSetupPlatform(setupPlatform);
     }
-    await initTranslations(translations);
-    // The wizard is for a user who has already chosen a language, so it opens in theirs. Applied
-    // here because the place that language is normally read from is the database this start is
-    // deliberately not opening.
-    if (setupMarker?.lang) {
-        await changeLanguage(setupMarker.lang);
-    }
+    // The wizard is for a user who has already chosen a language, so it opens in theirs. Passed in
+    // here, where the resources for a language are actually loaded, because the place that language
+    // is normally read from is the database this start is deliberately not opening.
+    await initTranslations(translations, setupMarker?.lang);
     initCrypto(crypto);
     initZipProvider(zip);
     initZipExportProviderFactory(zipExportProviderFactory);

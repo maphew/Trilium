@@ -114,27 +114,34 @@ export function asSetupTargetScreen(value: unknown): SetupTargetScreen | undefin
 }
 
 /**
- * Where the marker is kept, which is somewhere only the platform knows.
+ * What setup needs of the platform it is running on.
  *
- * Reading it is the platform's business too, and happens before any of this exists, so only the
- * writing side is registered here: a route shared by every platform has to be able to ask for setup
- * without knowing whether it is writing to a disk or to the browser's own storage.
+ * The marker and the database both live somewhere only the platform knows: a data directory on a
+ * disk, or the origin's private filesystem in a browser. Reading the marker is the platform's own
+ * business and happens before any of this exists, so only what a shared route has to reach is here.
  */
-export interface SetupMarkerStore {
-    write(marker: SetupMarker): Promise<void>;
-    remove(): Promise<void>;
+export interface SetupPlatform {
+    /** Leaves the marker that makes the next start the wizard. */
+    writeMarker(marker: SetupMarker): Promise<void>;
+    /** Takes it back, for a request that was made and then abandoned. */
+    removeMarker(): Promise<void>;
+    /**
+     * Erases the database this instance was booted away from, and only that: backups, configuration
+     * and the stored passphrase are what a user who deletes by mistake has left, and they stay.
+     */
+    removeDatabase(): Promise<void>;
 }
 
-let store: SetupMarkerStore | null = null;
+let platform: SetupPlatform | null = null;
 
-export function initSetupMarkerStore(instance: SetupMarkerStore): void {
-    store = instance;
+export function initSetupPlatform(instance: SetupPlatform): void {
+    platform = instance;
 }
 
-export function getSetupMarkerStore(): SetupMarkerStore {
-    if (!store) {
-        throw new Error("Setup marker store not initialized.");
+export function getSetupPlatform(): SetupPlatform {
+    if (!platform) {
+        throw new Error("Setup platform not initialized.");
     }
 
-    return store;
+    return platform;
 }

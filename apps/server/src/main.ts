@@ -19,7 +19,7 @@ import dataDirs from "./services/data_dir.js";
 import port from "./services/port.js";
 import NodeRequestProvider from "./services/request.js";
 import { RESOURCE_DIR } from "./services/resource_dir.js";
-import { consumeSetupMarker, setupMarkerStore } from "./services/setup_marker.js";
+import { consumeSetupMarker, setupPlatform } from "./services/setup_marker.js";
 import WebSocketMessagingProvider from "./services/ws_messaging_provider.js";
 import BetterSqlite3Provider from "./sql_provider.js";
 import NodejsZipProvider from "./zip_provider.js";
@@ -91,7 +91,7 @@ async function startApplication() {
         config,
         // Read before core exists, because what it says is whether to open the database at all.
         setupMarker: consumeSetupMarker(),
-        setupMarkerStore,
+        setupPlatform,
         extraAppInfo: {
             nodeVersion: process.version,
             dataDirectory: path.resolve(dataDirs.TRILIUM_DATA_DIR)

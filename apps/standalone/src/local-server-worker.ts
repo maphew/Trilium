@@ -49,8 +49,14 @@ console.log("[Worker] Error handlers installed, loading modules...");
 import type { BrowserRouter } from './lightweight/browser_router';
 import type { StandaloneRestoreProgress, StandaloneRestoreResult } from "@triliumnext/commons";
 
-import { readCurrentDatabaseName, RestoreFailure, restoreDatabase } from './lightweight/database_restore';
-import { consumeSetupMarker, setupMarkerStore } from './lightweight/setup_marker';
+import {
+    DEFAULT_DATABASE_NAME,
+    readCurrentDatabaseName,
+    RestoreFailure,
+    restoreDatabase,
+    writeCurrentDatabaseName
+} from './lightweight/database_restore';
+import { consumeSetupMarker, removeSetupMarker, writeSetupMarker } from './lightweight/setup_marker';
 
 // Build-time constant injected by Vite (see `define` in vite.config.mts).
 declare const __TRILIUM_INTEGRATION_TEST__: string;
@@ -276,7 +282,11 @@ async function initialize(): Promise<void> {
                 // Read before core opens anything, because what it says is whether to open the
                 // database at all: a page reloaded by the app itself comes back to the wizard.
                 setupMarker: await consumeSetupMarker(),
-                setupMarkerStore,
+                setupPlatform: {
+                    writeMarker: writeSetupMarker,
+                    removeMarker: removeSetupMarker,
+                    removeDatabase: removeStandaloneDatabase
+                },
                 dbConfig: {
                     provider: sqlProvider!,
                     isReadOnly: false,
@@ -367,6 +377,32 @@ async function dispatch(request: LocalRequest) {
 
     // Dispatch to the router
     return appRouter.dispatch(request.method, request.url, request.body, request.headers);
+}
+
+/**
+ * Erases the database the wizard was booted away from, and leaves an empty one in its place.
+ *
+ * The pool has no notion of "no database", and everything after this point in the wizard writes to
+ * one: creating a document, converging a sync. So the entry is unlinked and a fresh one opened under
+ * the name a first run uses, which is exactly the state a browser that had never run Trilium is in.
+ */
+async function removeStandaloneDatabase(): Promise<void> {
+    const pool = sqlProvider?.sahPool;
+    if (!sqlProvider || !pool) {
+        throw new Error("The database is not open, so there is nothing to erase.");
+    }
+
+    const live = await readCurrentDatabaseName();
+    sqlProvider.close();
+
+    try {
+        pool.unlink(live);
+    } catch {
+        // Already gone, which is the state the caller asked for.
+    }
+
+    await writeCurrentDatabaseName(DEFAULT_DATABASE_NAME);
+    sqlProvider.loadFromSahPool(DEFAULT_DATABASE_NAME);
 }
 
 /**

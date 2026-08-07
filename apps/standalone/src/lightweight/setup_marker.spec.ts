@@ -1,7 +1,7 @@
 import { SETUP_MARKER_FILE_NAME } from "@triliumnext/commons";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { consumeSetupMarker, setupMarkerStore } from "./setup_marker.js";
+import { consumeSetupMarker, removeSetupMarker, writeSetupMarker } from "./setup_marker.js";
 
 /** Stands in for the origin's private filesystem, which is where the marker lives here. */
 let files: Map<string, string>;
@@ -62,17 +62,17 @@ describe("the marker a start finds", () => {
 
 describe("writing the marker", () => {
     it("leaves something the next start reads back as what was asked for", async () => {
-        await setupMarkerStore.write({ lang: "de", targetScreen: "restore-backup" });
+        await writeSetupMarker({ lang: "de", targetScreen: "restore-backup" });
 
         await expect(consumeSetupMarker()).resolves.toEqual({ lang: "de", targetScreen: "restore-backup" });
     });
 
     it("can be taken back, whether or not there was one", async () => {
-        await setupMarkerStore.write({ lang: "en" });
-        await setupMarkerStore.remove();
+        await writeSetupMarker({ lang: "en" });
+        await removeSetupMarker();
         expect(files.has(SETUP_MARKER_FILE_NAME)).toBe(false);
 
         // Removing what is not there is how a cancelled request ends, and is not a failure.
-        await expect(setupMarkerStore.remove()).resolves.toBeUndefined();
+        await expect(removeSetupMarker()).resolves.toBeUndefined();
     });
 });

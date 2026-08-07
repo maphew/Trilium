@@ -206,6 +206,12 @@ describe("where the wizard opens", () => {
         expect(initialState({ setupTargetScreen: "restore-backup" })).toBe("restoreFromBackup");
     });
 
+    it("asks about the existing knowledge base before anything else, wherever it was headed", () => {
+        expect(initialState({ initialSetup: false })).toBe("existingData");
+        expect(initialState({ initialSetup: false, setupTargetScreen: "restore-backup" }))
+            .toBe("existingData");
+    });
+
     it("resumes an interrupted sync before anything else, since that one cannot wait", () => {
         expect(initialState({ syncInProgress: true })).toBe("syncFromServerInProgress");
         expect(initialState({ syncInProgress: true, setupTargetScreen: "restore-backup" }))
