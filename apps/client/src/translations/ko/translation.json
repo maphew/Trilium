@@ -3549,7 +3549,8 @@
     "restore-stage-validating": "데이터베이스 확인 중",
     "restore-stage-swapping": "데이터베이스 적용 중",
     "restore-stage-migrating": "데이터베이스 여는 중",
-    "restore-do-not-close": "이 창을 닫지 마세요."
+    "restore-do-not-close": "이 창을 닫지 마세요.",
+    "restore-error-already-initialized": "이 인스턴스에는 이미 지식 베이스가 있으므로 그 위에 복원할 수 없습니다. 페이지를 새로고침하세요."
   },
   "mind-map": {
     "addChild": "자식 추가",
