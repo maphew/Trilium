@@ -33,6 +33,7 @@ import ocrRoute from "./api/ocr.js";
 import onenoteImportRoute from "./api/onenote_import.js";
 import recoveryCodes from './api/recovery_codes.js';
 import senderRoute from "./api/sender.js";
+import setupRestoreRoute from "./api/setup_restore.js";
 import systemInfoRoute from "./api/system_info.js";
 import totp from './api/totp.js';
 import { doubleCsrfProtection as csrfMiddleware } from "./csrf_protection.js";
@@ -63,6 +64,21 @@ function register(app: express.Application) {
     route(PST, "/logout", [csrfMiddleware, auth.checkAuth], loginRoute.logout);
     asyncRoute(PST, "/set-password", [auth.checkAppInitialized, auth.checkPasswordNotSet], loginRoute.setPassword, null);
     route(GET, "/setup", [], setupRoute.setupPage);
+
+    // Restoring a backup, which only the setup screen offers: `checkAppNotInitialized` is what keeps
+    // it from ever running against a live database, since before the database exists there is no
+    // session to authenticate against and the whole wizard stands unauthenticated. None of these may
+    // be transactional — the swap detaches the database, which a wrapping transaction would be in the
+    // middle of.
+    asyncRoute(PST, "/api/setup/restore/upload/begin", [auth.checkAppNotInitialized], setupRestoreRoute.beginUpload, apiResultHandler);
+    asyncRoute(PST, "/api/setup/restore/upload/:uploadId/chunk", [auth.checkAppNotInitialized], setupRestoreRoute.uploadChunk, apiResultHandler);
+    asyncRoute(GET, "/api/setup/restore/upload/:uploadId", [auth.checkAppNotInitialized], setupRestoreRoute.uploadStatus, apiResultHandler);
+    asyncRoute(PST, "/api/setup/restore/upload/:uploadId/finish", [auth.checkAppNotInitialized], setupRestoreRoute.finishUpload, apiResultHandler);
+    asyncRoute(DEL, "/api/setup/restore/upload/:uploadId", [auth.checkAppNotInitialized], setupRestoreRoute.abortUpload, apiResultHandler);
+    asyncRoute(PST, "/api/setup/restore/start", [auth.checkAppNotInitialized], setupRestoreRoute.start, apiResultHandler);
+    // Readable throughout, including once the restore has succeeded: that is how the screen learns it
+    // is over and the application can be opened.
+    asyncRoute(GET, "/api/setup/restore/status", [], setupRestoreRoute.status, apiResultHandler);
 
 
     apiRoute(GET, '/api/totp/generate', totp.generateSecret);

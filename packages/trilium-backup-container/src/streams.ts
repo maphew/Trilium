@@ -10,6 +10,7 @@ import {
     SQLITE_HEADER_BYTES,
     validateSqliteHeader
 } from "./format.js";
+import type { ProgressReporter } from "./progress.js";
 import { sealFrame } from "./crypto.js";
 
 /** Passes bytes through untouched while hashing them, so the digest costs no extra pass. */
@@ -35,6 +36,33 @@ export class DigestTap extends Transform {
 
     digest(): Buffer {
         return this.#hash.digest();
+    }
+
+}
+
+/**
+ * Passes bytes through untouched while reporting how many of them have gone past.
+ *
+ * Sits at the head of the writer's pipeline, where the bytes are still the ones the recorded
+ * plaintext size counted: further down they are compressed, encrypted, or both, and a fraction of
+ * those is a fraction of a total nobody knows in advance.
+ */
+export class ProgressTap extends Transform {
+
+    #bytes = 0;
+
+    constructor(private readonly progress: ProgressReporter) {
+        super();
+    }
+
+    override _transform(
+        chunk: Buffer,
+        _encoding: BufferEncoding,
+        callback: TransformCallback
+    ): void {
+        this.#bytes += chunk.length;
+        this.progress.at(this.#bytes);
+        callback(null, chunk);
     }
 
 }
@@ -156,6 +184,9 @@ export class FrameEncryptor extends Transform {
 /**
  * Guards the unwrapped output: enforces the ceiling before bytes reach the destination, checks the
  * SQLite header as soon as enough of it has passed, and counts what was written.
+ *
+ * The count it already keeps is what the reader's progress is a fraction of, so the reporting is
+ * done from here rather than from a tap of its own.
  */
 export class OutputGuard extends Transform {
 
@@ -166,7 +197,8 @@ export class OutputGuard extends Transform {
 
     constructor(
         private readonly ceiling: number,
-        private readonly requireSqliteHeader: boolean
+        private readonly requireSqliteHeader: boolean,
+        private readonly progress: ProgressReporter | null = null
     ) {
         super();
     }
@@ -204,6 +236,10 @@ export class OutputGuard extends Transform {
                 this.#head = [];
             }
         }
+
+        // Reported only once the chunk has passed every check, so a rejected output never reports
+        // having got anywhere.
+        this.progress?.at(this.#written);
 
         callback(null, chunk);
     }

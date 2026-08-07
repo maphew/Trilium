@@ -28,6 +28,16 @@ export class ForbiddenError extends HttpError {
 
 }
 
+/** The request is well-formed but conflicts with the state it would act on, e.g. an offset that has moved on. */
+export class ConflictError extends HttpError {
+
+    constructor(message: string) {
+        super(message, 409);
+        this.name = "ConflictError";
+    }
+
+}
+
 export class OpenIdError {
     message: string;
 

@@ -23,12 +23,13 @@ import {
     TAG_BYTES,
     validateScryptParams
 } from "./format.js";
+import { createProgressReporter, type ProgressOptions } from "./progress.js";
 import { OutputGuard } from "./streams.js";
 
 /** Ceiling on unwrapped output when the container does not record a smaller size. */
 export const DEFAULT_MAX_OUTPUT_BYTES = 64 * 1024 * 1024 * 1024;
 
-export interface ReadBackupContainerOptions {
+export interface ReadBackupContainerOptions extends ProgressOptions {
     /** Required when the container is encrypted. */
     passphrase?: string;
     /**
@@ -148,7 +149,10 @@ export async function readBackupContainer(
         options.maxOutputBytes ?? DEFAULT_MAX_OUTPUT_BYTES,
         header.plaintextSize > 0 ? header.plaintextSize : Number.POSITIVE_INFINITY
     );
-    const guard = new OutputGuard(ceiling, options.requireSqliteHeader !== false);
+    // The recorded size is the only total there is: the container's own length measures the payload
+    // as stored, which for a compressed one is not what comes out the other end.
+    const progress = createProgressReporter(header.plaintextSize, options);
+    const guard = new OutputGuard(ceiling, options.requireSqliteHeader !== false, progress);
 
     const payload = header.encryption && key
         ? readFrames(reader, header, header.encryption, key)
@@ -172,6 +176,8 @@ export async function readBackupContainer(
             `Output is ${guard.bytesWritten} bytes, header records ${header.plaintextSize}.`
         );
     }
+
+    progress?.complete();
 
     return {
         version: header.version,

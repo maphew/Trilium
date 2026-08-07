@@ -60,6 +60,30 @@ Write to a temporary name and rename on success. Do not hand the payload stream 
 with `autoClose: false` and patch through that same handle: its `close()` then waits forever on a
 stream that never emits `close`.
 
+## Reporting progress
+
+Both directions accept `onProgress`, which is called with a number from 0 to 1 at most once every
+`progressIntervalMs` (250 by default), and once more with exactly 1 when the container is finished.
+
+```ts
+await readBackupContainer(input, output, {
+    passphrase,
+    onProgress: (progress) => report(Math.round(progress * 100))
+});
+```
+
+Progress is measured on the database and never on the payload: the writer reports how much of the
+database has gone in, and the reader reports how much has come out, so a compressed container does not
+report a fraction of the progress along with a fraction of the size. A fraction needs a total, which is
+the `plaintextSize` the writer records in the header, so a container written without one is read back
+reporting nothing but the final 1.
+
+Reports are throttled rather than debounced, since a container streams from beginning to end without
+ever pausing. Two things are outside them: key derivation, which is the slow part of opening an
+encrypted container and happens before the first byte is read, and success. A report of 1 says the
+payload has gone past, not that the destination took it, and the resolved promise is what says the
+container is written or unwrapped.
+
 ## Catching errors
 
 Every failure is a `BackupContainerError` carrying a `reason`. The message is fixed English for logs;

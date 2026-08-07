@@ -28,12 +28,12 @@
  * await rename(partial, final);
  * ```
  *
- * @example Reading one back
+ * @example Reading one back, reporting how far along it is
  * ```ts
  * const info = await readBackupContainer(
  *     fs.createReadStream(container),
  *     fs.createWriteStream(database),
- *     { passphrase }
+ *     { passphrase, onProgress: (progress) => report(Math.round(progress * 100)) }
  * );
  * ```
  *
@@ -53,6 +53,11 @@ export {
     SCRYPT_DEFAULTS,
     type ScryptParams
 } from "./format.js";
+export {
+    DEFAULT_PROGRESS_INTERVAL_MS,
+    type ProgressCallback,
+    type ProgressOptions
+} from "./progress.js";
 export {
     type BackupContainerInfo,
     DEFAULT_MAX_OUTPUT_BYTES,

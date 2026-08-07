@@ -241,6 +241,12 @@ contextBridge.exposeInMainWorld("electronApi", {
         }
     },
 
+    restore: {
+        pickBackup() {
+            return ipcRenderer.invoke("restore-pick-backup");
+        }
+    },
+
     ws: {
         // Renderer → main process. Mirror channel name with the server-side
         // IpcMessagingProvider constants.
