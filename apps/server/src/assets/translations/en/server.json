@@ -383,6 +383,11 @@
   "import": {
     "invalid_file_grant": "The file selection has expired or is invalid. Please choose the file again."
   },
+  "restore": {
+    "pick_backup_title": "Choose a backup to restore",
+    "backup_filter": "Trilium backup (*.db, *.tnbackup)",
+    "any_file_filter": "All files"
+  },
   "pdf": {
     "export_filter": "PDF Document (*.pdf)",
     "unable-to-export-message": "The current note could not be exported as a PDF.",

@@ -104,18 +104,27 @@ export default class ServerBackupService extends BackupService {
     }
 
     override async getBackupContent(filePath: string): Promise<Uint8Array | null> {
+        const resolvedPath = this.resolveBackupPath(filePath);
+
+        return resolvedPath ? fs.readFileSync(resolvedPath) : null;
+    }
+
+    /**
+     * The absolute path of an existing backup, or `null` for anything that is not one.
+     *
+     * A path arriving from a client is a request to name a file, not permission to reach it: without
+     * this, an endpoint taking one would read any file the process can. Callers that only need the
+     * path use this directly rather than {@link getBackupContent}, which reads the whole file into
+     * memory — no use at all for a backup measured in gigabytes.
+     */
+    resolveBackupPath(filePath: string): string | null {
         const resolvedPath = path.resolve(filePath);
 
-        // Security check: ensure the path is within one of the backup directories
         if (!this.getBackupDirectories().some((dir) => isInsideDirectory(dir, resolvedPath))) {
             return null;
         }
 
-        if (!fs.existsSync(resolvedPath)) {
-            return null;
-        }
-
-        return fs.readFileSync(resolvedPath);
+        return fs.existsSync(resolvedPath) ? resolvedPath : null;
     }
 
     /**

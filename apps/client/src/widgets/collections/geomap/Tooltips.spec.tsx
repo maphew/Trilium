@@ -214,6 +214,34 @@ describe("Tooltips", () => {
     });
 
     /**
+     * The theme tints a preview through `.note-tooltip.with-hue`, off the hue carried by the note's
+     * own colour class — so a preview built by hand has to wear that class or it is drawn plain,
+     * however the note is coloured. The previews the tooltip service puts up get it for free (see
+     * the template in note_tooltip.ts), which is what made this the odd one out.
+     */
+    it("tints the preview with the note's colour", async () => {
+        const note = buildNote({ title: "Somewhere", "#geolocation": "1,2", "#color": "#ff0000" });
+        const map = fakeMap();
+        await mount(map);
+
+        map.hover(note);
+        await advance(500);
+        expect(FakePopup.open[0]?.html).toContain(note.getColorClass());
+        expect(note.getColorClass()).toContain("with-hue");
+    });
+
+    it("draws an uncoloured note's preview plain", async () => {
+        const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+        const map = fakeMap();
+        await mount(map);
+
+        map.hover(note);
+        await advance(500);
+        // No trailing space where the colour class would have gone.
+        expect(FakePopup.open[0]?.html).toContain(`class="tooltip note-tooltip show"`);
+    });
+
+    /**
      * `mouseenter` fires on entering the layer, not on entering a marker, so a pointer dragged from
      * one pin straight onto the next never leaves it — the first note's preview used to stay up over
      * the second, which is why the move is what is watched.

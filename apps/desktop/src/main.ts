@@ -6,6 +6,7 @@ import NodejsCryptoProvider from "@triliumnext/server/src/crypto_provider.js";
 import NodejsInAppHelpProvider from "@triliumnext/server/src/in_app_help_provider.js";
 import ServerLogService from "@triliumnext/server/src/log_provider.js";
 import config from "@triliumnext/server/src/services/config.js";
+import { recoverInterruptedRestore } from "@triliumnext/server/src/services/database_restore.js";
 import dataDirs from "@triliumnext/server/src/services/data_dir.js";
 import port from "@triliumnext/server/src/services/port.js";
 import { RESOURCE_DIR } from "@triliumnext/server/src/services/resource_dir.js";
@@ -39,6 +40,7 @@ import {
 import { setupOneNoteHandlers } from "./services/onenote";
 import { setupPrintingHandlers } from "./services/printing";
 import ElectronRequestProvider from "./services/request";
+import { setupRestoreHandlers } from "./services/restore";
 import { getSecuritySettings, registerSecurityIpcHandlers } from "./services/security_settings";
 import { setupShellHandlers } from "./services/shell";
 import { markStartupMetric, setupStartupMetricsIpc } from "./services/startup_metrics";
@@ -134,6 +136,7 @@ export async function main() {
     setupPrintingHandlers();
     setupExportHandlers();
     setupImportHandlers();
+    setupRestoreHandlers();
     setupDialogHandlers();
     registerSecurityIpcHandlers();
     registerBackupPassphraseIpcHandlers();
@@ -191,6 +194,10 @@ export async function main() {
     if (securitySettings.allowLanAccess !== undefined) {
         config.Security.allowLanAccess = securitySettings.allowLanAccess;
     }
+
+    // Before the database is opened: undoes a restore that was interrupted partway through
+    // exchanging the files, so the app starts on a whole database rather than on neither.
+    recoverInterruptedRestore();
 
     const dbProvider = new BetterSqlite3Provider();
     dbProvider.loadFromFile(dataDirs.DOCUMENT_PATH, config.General.readOnly);

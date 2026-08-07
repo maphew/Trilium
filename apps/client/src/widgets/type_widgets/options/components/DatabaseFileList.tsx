@@ -3,27 +3,14 @@ import "./DatabaseFileList.css";
 import { ComponentChildren } from "preact";
 import { useMemo } from "preact/hooks";
 
-import { t } from "../../../../services/i18n";
+import { type DatabaseFile, describeDatabaseFile } from "../../../../services/database_files";
 import open from "../../../../services/open";
-import { formatSize } from "../../../../services/utils";
-import { formatDateTime } from "../../../../utils/formatters";
 import ActionButton from "../../../react/ActionButton";
-import { Badge } from "../../../react/Badge";
 import { Card, CardOption, CardSection } from "../../../react/Card";
+import DatabaseFileBadges from "../../../react/DatabaseFileBadges";
 import NoItems from "../../../react/NoItems";
 
-export interface DatabaseFile {
-    fileName: string;
-    filePath: string;
-    mtime: Date;
-    /** Size of the file, in bytes. */
-    fileSize: number;
-    /**
-     * Size of the database the file was made from, in bytes, where that differs from the file's own
-     * size — a compressed backup, say. Both are then shown, so the saving is visible.
-     */
-    plaintextSize?: number;
-}
+export type { DatabaseFile };
 
 interface DatabaseFileListProps<T extends DatabaseFile> {
     title: string;
@@ -62,17 +49,10 @@ export default function DatabaseFileList<T extends DatabaseFile>(props: Database
                             label={
                                 <span className="database-file-label">
                                     <span className="selectable-text">{file.fileName}</span>
-                                    {fileBadges?.(file).map((badge) => (
-                                        <Badge
-                                            key={badge}
-                                            className="database-file-badge"
-                                            text={badge}
-                                            outline
-                                        />
-                                    ))}
+                                    <DatabaseFileBadges badges={fileBadges?.(file) ?? []} />
                                 </span>
                             }
-                            description={describeFile(file)}
+                            description={describeDatabaseFile(file)}
                         >
                             <ActionButton
                                 icon="bx bx-download"
@@ -97,20 +77,4 @@ function downloadFile(downloadEndpoint: string, filePath: string) {
     const url = `${downloadEndpoint}?filePath=${encodeURIComponent(filePath)}`;
 
     open.download(open.getUrlForDownload(url));
-}
-
-/**
- * When the file was written, and how big it is. A file made from a database larger than itself states
- * both, so what compressing it saved is visible rather than having to be worked out.
- */
-function describeFile(file: DatabaseFile): string {
-    const parts = [file.mtime ? formatDateTime(file.mtime) : "-"];
-
-    if (file.plaintextSize && file.plaintextSize !== file.fileSize) {
-        parts.push(formatSize(file.plaintextSize), t("database_file_list.size_on_disk", { size: formatSize(file.fileSize) }));
-    } else {
-        parts.push(formatSize(file.fileSize));
-    }
-
-    return parts.join(" • ");
 }

@@ -1,6 +1,6 @@
-import { EventInput, EventSourceFuncArg, EventSourceInput } from "@fullcalendar/core/index.js";
 import { dayjs } from "@triliumnext/commons";
 import clsx from "clsx";
+import { EventInput, EventSourceFuncInfo, EventSourceInput } from "fullcalendar";
 import * as rruleLib from 'rrule';
 
 import FNote from "../../../entities/fnote";
@@ -48,7 +48,7 @@ export async function buildEvents(noteIds: string[]) {
     return events.flat();
 }
 
-export async function buildEventsForCalendar(note: FNote, e: EventSourceFuncArg) {
+export async function buildEventsForCalendar(note: FNote, e: EventSourceFuncInfo) {
     const events: EventInput[] = [];
 
     // Gather all the required date note IDs.

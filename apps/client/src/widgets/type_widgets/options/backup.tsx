@@ -9,6 +9,7 @@ import {
 } from "@triliumnext/commons";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
+import { describeDatabaseFormat } from "../../../services/database_files";
 import dialogService from "../../../services/dialog";
 import { t } from "../../../services/i18n";
 import options from "../../../services/options";
@@ -382,14 +383,10 @@ export function BackupList({ backups, backupFolderPath }: BackupListProps) {
         if (customDir && backupFolderPath && !isInsideDirectory(backupFolderPath, file.filePath)) {
             badges.push(t("backup.default_location"));
         }
-        if (file.compressed) {
-            badges.push(t("backup.compressed"));
-        }
-        if (file.encrypted) {
-            badges.push(t("backup.encrypted"));
-        }
 
-        return badges;
+        // What the file is comes from the shared description, so it reads the same here as it does
+        // on the setup screen that offers to restore from it.
+        return [ ...badges, ...describeDatabaseFormat(file) ];
     }, [customDir, backupFolderPath]);
 
     return (

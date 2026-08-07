@@ -1,3 +1,4 @@
+import clsx from "clsx";
 import { type Map as MapLibreGLMap, type MapGeoJSONFeature, type MapMouseEvent, Popup } from "maplibre-gl";
 import { useContext, useEffect } from "preact/hooks";
 
@@ -113,10 +114,16 @@ export default function Tooltips({ selectedNoteId }: {
             // The read raced against the rest of the wait rather than run after it: the preview
             // holds to the full HOVER_DELAY however fast the note comes back, but a round trip no
             // longer stretches that wait unless it outlasts what is left of it.
-            const [ content ] = await Promise.all([
-                froca.getNote(noteId).then((note) => renderTooltip(note)),
+            const [ rendered ] = await Promise.all([
+                froca.getNote(noteId).then(async (note) => ({
+                    content: await renderTooltip(note),
+                    // The note's own colour, which the preview is tinted with exactly as the
+                    // tooltip service tints the ones it puts up itself (see note_tooltip.ts).
+                    colorClass: note?.getColorClass()
+                })),
                 new Promise((resolve) => setTimeout(resolve, HOVER_DELAY - READ_DELAY))
             ]);
+            const { content, colorClass } = rendered;
             // A note with no content and no path renders to nothing; the pointer may well have
             // moved on to another marker while this one was being read; and a click may have
             // dismissed the preview while it was still on its way (see dismiss).
@@ -125,7 +132,7 @@ export default function Tooltips({ selectedNoteId }: {
             shown = noteId;
             tooltip
                 .setLngLat(coordinates)
-                .setHTML(buildTooltipHtml(content))
+                .setHTML(buildTooltipHtml(content, colorClass))
                 .addTo(map);
             placePreview(map, tooltip, coordinates, selectedNoteId !== null);
 
@@ -302,9 +309,12 @@ function placePreview(map: MapLibreGLMap, tooltip: Popup, coordinates: [ number,
  * Written without a line break anywhere between the tags, because `.tooltip-inner` is `pre-line`:
  * every newline inside it is a newline the preview is drawn with, and laying this out as one would
  * lay out markup put a blank line above the preview and another below it.
+ *
+ * @param colorClass the note's colour, which belongs on this same element: the theme tints a
+ *                   preview through `.note-tooltip.with-hue`, off the hue the class carries.
  */
-function buildTooltipHtml(content: string) {
-    return `<div class="tooltip note-tooltip show" role="tooltip">`
+function buildTooltipHtml(content: string, colorClass?: string) {
+    return `<div class="${clsx("tooltip", "note-tooltip", "show", colorClass)}" role="tooltip">`
         + `<div class="tooltip-inner">`
         + `<div class="note-tooltip-content">${sanitizeNoteContentHtml(content)}</div>`
         + `</div>`

@@ -1,18 +1,20 @@
-import type { Readable } from "node:stream";
-
+import type { ByteSource } from "./backend.js";
+import { concatBytes } from "./bytes.js";
 import { BackupContainerError } from "./errors.js";
 
-/** Pull-based view over a readable stream, so the reader can ask for exact byte counts. */
+const EMPTY = new Uint8Array(0);
+
+/** Pull-based view over a byte source, so the reader can ask for exact byte counts. */
 export class ByteReader {
 
-    readonly #iterator: AsyncIterator<Buffer>;
-    #pending: Buffer[] = [];
+    readonly #iterator: AsyncIterator<Uint8Array>;
+    #pending: Uint8Array[] = [];
     #pendingBytes = 0;
     #exhausted = false;
     #consumed = 0;
 
-    constructor(stream: Readable) {
-        this.#iterator = stream[Symbol.asyncIterator]() as AsyncIterator<Buffer>;
+    constructor(source: ByteSource) {
+        this.#iterator = source[Symbol.asyncIterator]();
     }
 
     /** Bytes handed out so far, which is the offset a failure should be reported at. */
@@ -21,7 +23,7 @@ export class ByteReader {
     }
 
     /** Reads exactly `count` bytes, or throws `truncated`. */
-    async readExactly(count: number): Promise<Buffer> {
+    async readExactly(count: number): Promise<Uint8Array> {
         await this.#buffer(count);
 
         if (this.#pendingBytes < count) {
@@ -35,7 +37,7 @@ export class ByteReader {
     }
 
     /** Reads up to `count` bytes, returning fewer at end of input. */
-    async readUpTo(count: number): Promise<Buffer> {
+    async readUpTo(count: number): Promise<Uint8Array> {
         await this.#buffer(count);
 
         return this.#take(Math.min(count, this.#pendingBytes));
@@ -59,15 +61,14 @@ export class ByteReader {
         }
     }
 
-    #take(count: number): Buffer {
+    #take(count: number): Uint8Array {
         if (count === 0) {
-            return Buffer.alloc(0);
+            return EMPTY;
         }
 
-        const merged = this.#pending.length === 1 ? this.#pending[0] : Buffer.concat(
-            this.#pending,
-            this.#pendingBytes
-        );
+        const merged = this.#pending.length === 1
+            ? this.#pending[0]
+            : concatBytes(...this.#pending);
         const taken = merged.subarray(0, count);
         const rest = merged.subarray(count);
 

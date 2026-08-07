@@ -6,8 +6,15 @@
   "type": "module",
   "private": true,
   "main": "./src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./web": "./src/web.ts"
+  },
   "scripts": {
     "test": "vitest"
+  },
+  "dependencies": {
+    "@noble/hashes": "^2.2.0"
   },
   "keywords": [
     "backup",
