@@ -43,6 +43,9 @@ jobs:
       - name: Typecheck
         run: pnpm typecheck
 
+      - name: Run the repo-script tests
+        run: pnpm scripts:test
+
       - name: Run the client-side tests
         id: test-client
         run: pnpm run --filter=client test --coverage

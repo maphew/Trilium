@@ -26,16 +26,19 @@
         pkgs = import nixpkgs { inherit system; };
 
         electronVersion = packageJsonDesktop.devDependencies.electron;
-        electronFromNixpkgs = pkgs."electron_${lib.versions.major electronVersion}";
+        # `or null` because a major bump lands in apps/desktop/package.json long before
+        # nixpkgs has the matching electron_<major> attribute; without it the flake dies
+        # with an attribute error instead of falling through to the pinned binary below.
+        electronFromNixpkgs = pkgs."electron_${lib.versions.major electronVersion}" or null;
 
         # nixpkgs lags behind the Electron version pinned in apps/desktop/package.json
         # (electron_43 is still 43.1.0), and its source build cannot be bumped without
         # upstream's Chromium dependency hashes. Build the exact pinned version from
         # Electron's official binary release instead, reusing the nixpkgs builder.
         #
-        # When bumping Electron, refresh these hashes:
-        #   zips:    curl -sL https://github.com/electron/electron/releases/download/v<version>/SHASUMS256.txt
-        #   headers: nix-prefetch-url --unpack https://artifacts.electronjs.org/headers/dist/v<version>/node-v<version>-headers.tar.gz
+        # Don't refresh these by hand — `pnpm chore:update-flake-electron` rewrites both
+        # bindings from the release's SHASUMS256.txt, and the update-nix-flake workflow
+        # opens a PR whenever apps/desktop/package.json moves ahead of the pin.
         pinnedElectronVersion = "43.2.0";
         pinnedElectronHashes = {
           x86_64-linux = "f77ca6ed67bbc68702b69b56ad499bca6ae090705ade7d04f0ac545e409dec68";
@@ -50,7 +53,7 @@
         ) { };
 
         electron =
-          if electronFromNixpkgs.version == electronVersion then
+          if electronFromNixpkgs != null && electronFromNixpkgs.version == electronVersion then
             electronFromNixpkgs
           else
             lib.throwIf (pinnedElectronVersion != electronVersion) ''
@@ -379,6 +382,11 @@ nodejs.python
         packages.build-docs = build-docs;
 
         packages.default = desktop;
+
+        # Not something to install — it is here so the pinned Electron binary can be
+        # built (and therefore its hashes verified) on its own, without going through
+        # a full desktop build. The update-nix-flake workflow does exactly that.
+        packages.electron = electron;
 
         devShells.default = pkgs.mkShell {
           buildInputs = [
