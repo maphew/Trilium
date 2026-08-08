@@ -2,10 +2,10 @@ import sqlInit from "../../services/sql_init.js";
 import setupService from "../../services/setup.js";
 import { getRunningSetupOperation, withSetupLock } from "../../services/setup_lock.js";
 import {
-    backUpExistingData,
     deleteExistingData,
-    getExistingBackupProgress,
-    keepExistingData
+    getExistingBackupStatus,
+    keepExistingData,
+    startBackUpExistingData
 } from "../../services/setup_existing.js";
 import { asSetupTargetScreen, getSetupPlatform } from "../../services/setup_mode.js";
 import { getLog } from "../../services/log.js";
@@ -57,23 +57,26 @@ async function bootToSetup(req: Request) {
 }
 
 /**
- * Backs up the database the wizard was booted away from, and says where it went.
+ * Starts backing up the database the wizard was booted away from.
  *
- * Answers only once the file is written, which for a large database is minutes: the screen that
- * calls this shows a spinner for exactly that long, and has nothing useful to say in between.
+ * Answers as soon as the write is underway rather than once it is done: the write runs for minutes
+ * on a large database, and on standalone a request rides the service worker, whose fetches the
+ * browser reclaims after a few minutes no matter how patient the caller is. The screen follows the
+ * write, and learns where it went, through {@link existingBackupStatus}.
  */
-async function backUpExisting() {
-    return await backUpExistingData(new Date());
+function backUpExisting() {
+    startBackUpExistingData(new Date());
 }
 
 /**
- * How far through the backup is, for the screen waiting on it.
+ * Where the backup stands, for the screen waiting on it: how far along, and once it is over, what
+ * was written or what stopped it.
  *
- * Polled rather than pushed: the answer is one number, the screen is the only thing asking, and a
- * push would need a channel that setup does not otherwise have.
+ * Polled rather than pushed: the screen is the only thing asking, and a push would need a channel
+ * that setup does not otherwise have.
  */
 function existingBackupStatus() {
-    return { fraction: getExistingBackupProgress() };
+    return getExistingBackupStatus();
 }
 
 /** Erases that database. Everything else in the data directory, backups included, stays. */

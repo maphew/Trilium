@@ -8,6 +8,7 @@ import {
     FRAME_SIZE,
     HEADER_BYTES_ENCRYPTED,
     HEADER_BYTES_PLAIN,
+    streamedContainerSize,
     TAG_BYTES
 } from "./format.js";
 import { readBackupContainer, writeBackupContainer } from "./node-streams.js";
@@ -21,6 +22,7 @@ import {
     MemorySink,
     reasonOf,
     readFromBuffer,
+    readFromBufferWeb,
     type WriteOptions,
     writeToBuffer
 } from "./test-helpers.js";
@@ -322,6 +324,7 @@ describe("peeking at a container", () => {
         expect(peekBackupContainer(written.bytes.subarray(0, FIXED_HEADER_BYTES))).toEqual({
             version: 1,
             plaintextSize: 9_000,
+            streamed: false,
             ...expected
         });
     });
@@ -488,5 +491,59 @@ describe("errors", () => {
         const read = readBackupContainer(Readable.from([ written.bytes ]), failing);
 
         await expect(read).rejects.toThrow(/ENOSPC/);
+    });
+});
+
+describe("streamed containers", () => {
+    const STREAMED: WriteOptions = { streamed: true, passphrase: PASSPHRASE, scrypt: FAST_SCRYPT };
+
+    it("writes front to back, sized exactly as stated, and reads back on both runtimes", async () => {
+        const database = fakeDatabase(64 * 1024);
+        const written = await writeToBuffer(database, { ...STREAMED, plaintextSize: database.length });
+
+        // No patch was asked of the destination, and none was needed.
+        expect(written.patchedAt).toEqual([]);
+        expect(written.bytes.length).toBe(streamedContainerSize(database.length));
+        // The digest field stays zeros, which is what "no digest" looks like in the header.
+        expect(written.bytes.subarray(HEADER_BYTES_ENCRYPTED - 32, HEADER_BYTES_ENCRYPTED)
+            .every((byte) => byte === 0)).toBe(true);
+        expect(peekBackupContainer(written.bytes.subarray(0, FIXED_HEADER_BYTES)))
+            .toMatchObject({ encrypted: true, streamed: true, compressed: false });
+
+        const read = await readFromBuffer(written.bytes, { passphrase: PASSPHRASE });
+        expect(read.bytes.equals(database)).toBe(true);
+
+        const readWeb = await readFromBufferWeb(written.bytes, { passphrase: PASSPHRASE });
+        expect(readWeb.bytes.equals(database)).toBe(true);
+    });
+
+    it("sizes a payload that is an exact multiple of the frame size, empty final frame included", async () => {
+        const database = fakeDatabase(FRAME_SIZE);
+        const written = await writeToBuffer(database, STREAMED);
+
+        expect(written.bytes.length).toBe(streamedContainerSize(FRAME_SIZE));
+        const read = await readFromBuffer(written.bytes, { passphrase: PASSPHRASE });
+        expect(read.bytes.equals(database)).toBe(true);
+    });
+
+    it("still catches tampering: the frames authenticate what the digest no longer covers", async () => {
+        const database = fakeDatabase(64 * 1024);
+        const written = await writeToBuffer(database, STREAMED);
+
+        const tampered = flipByte(written.bytes, HEADER_BYTES_ENCRYPTED + 4 + 100);
+        expect(await failureOf(tampered, { passphrase: PASSPHRASE })).toBe("damaged-payload");
+    });
+
+    it("refuses to write a streamed container without encryption", async () => {
+        expect(await reasonOf(writeToBuffer(fakeDatabase(), { streamed: true })))
+            .toBe("invalid-options");
+    });
+
+    it("refuses to read a streamed flag on an unencrypted container", async () => {
+        const written = await writeToBuffer(fakeDatabase());
+        const forged = Buffer.from(written.bytes);
+        forged[21] |= 0b100;
+
+        expect(await failureOf(forged)).toBe("unsupported-flags");
     });
 });

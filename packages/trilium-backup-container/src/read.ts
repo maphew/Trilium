@@ -62,6 +62,8 @@ export interface BackupContainerInfo {
     version: number;
     compressed: boolean;
     encrypted: boolean;
+    /** Written front to back with no payload digest; the frames alone carry the integrity. */
+    streamed: boolean;
     /** Size of the wrapped database before compression, or 0 when the writer did not record it. */
     plaintextSize: number;
 }
@@ -82,12 +84,12 @@ export function peekBackupContainer(
     }
 
     try {
-        const { version, compressed, encrypted, plaintextSize } = decodeFixedHeader(
+        const { version, compressed, encrypted, streamed, plaintextSize } = decodeFixedHeader(
             head.subarray(0, FIXED_HEADER_BYTES),
             maxHeaderBytes
         );
 
-        return { version, compressed, encrypted, plaintextSize };
+        return { version, compressed, encrypted, streamed, plaintextSize };
     } catch {
         return null;
     }
@@ -326,7 +328,8 @@ async function* readFrames(
     backend: ContainerBackend
 ): AsyncGenerator<Uint8Array> {
     const aad = aadOf(header);
-    const hash = backend.createSha256();
+    // A streamed container records no digest, so hashing towards one would only slow the restore.
+    const hash = header.streamed ? null : backend.createSha256();
     let counter = 0;
 
     for (;;) {
@@ -346,9 +349,11 @@ async function* readFrames(
 
         const ciphertext = await reader.readExactly(length);
         const tag = await reader.readExactly(TAG_BYTES);
-        hash.update(lengthField);
-        hash.update(ciphertext);
-        hash.update(tag);
+        if (hash) {
+            hash.update(lengthField);
+            hash.update(ciphertext);
+            hash.update(tag);
+        }
 
         const plaintext = await backend.gcmOpen(
             key,
@@ -378,7 +383,9 @@ async function* readFrames(
         );
     }
 
-    verifyDigest(hash.digest(), header.digest);
+    if (hash) {
+        verifyDigest(hash.digest(), header.digest);
+    }
 }
 
 /** Yields the payload of an unencrypted container, which runs to end of file. */

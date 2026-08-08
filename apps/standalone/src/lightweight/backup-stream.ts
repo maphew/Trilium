@@ -1,17 +1,16 @@
 /**
- * Streams a database between the SAH pool and a plain OPFS file without ever holding it whole.
+ * Streams the database out of the browser without ever holding it whole, or copying it first.
  *
- * The pool has no streaming read: its `exportFile` builds the entire file as one array, which for
- * a database measured in gigabytes is the difference between a backup and a crashed tab. What it
- * does have is SQLite itself, and SQLite can serve its own file a page at a time through the
- * `sqlite_dbpage` table, the same mechanism the official `sqlite3_rsync` utility is built on. For
- * a quiesced, freshly `VACUUM INTO`-ed database the pages in order *are* the file, byte for byte,
- * and SQLite hands them over without this code knowing anything about their layout.
+ * The SAH pool has no streaming read, and staging a copy of the database beside itself needs
+ * storage a browser quota may simply not have. What the pool does have is SQLite, and SQLite can
+ * serve its own file a page at a time through the `sqlite_dbpage` table, the same mechanism the
+ * official `sqlite3_rsync` utility is built on. The pages come straight off the live database,
+ * and consistency is watched rather than arranged: the database's write counters are checked as
+ * the stream goes, and a write landing mid-stream errors it so the caller can start over.
  *
- * The two halves here are deliberately dumb pipes: {@link streamDatabasePages} turns an open
- * database into a `ReadableStream` of page batches, and {@link openBackupDestination} turns a
- * synchronous OPFS file handle into the `WritableStream`-plus-random-access the backup container
- * writer needs. What flows between them, and whether a container wraps it, is the caller's story.
+ * Deliberately a dumb pipe: {@link streamLiveDatabasePages} turns the live database into a
+ * `ReadableStream` of page batches, and where they flow is the caller's story — today that is the
+ * backup download, which relays them through the service worker to the browser's disk.
  *
  * @module
  */
@@ -19,20 +18,17 @@
 /** How many pages travel per stream chunk: 1 MiB at the default 8 KiB page size. */
 const BATCH_PAGES = 128;
 
-/** What the page streamer asks of a database connection. `oo1.DB` matches it as it stands. */
-export interface SnapshotConnection {
-    selectValue(sql: string, bind?: unknown[]): unknown;
-    prepare(sql: string): SnapshotStatement;
-    close(): void;
+/** Reads the live database through the core SQL layer, which fronts the one connection there is. */
+export interface LiveDatabaseReader {
+    getValue(sql: string, params?: unknown[]): unknown;
 }
 
-/** The slice of a prepared statement the page reads use. */
-export interface SnapshotStatement {
-    bind(values: unknown[]): unknown;
-    step(): boolean;
-    get(target: unknown[]): unknown[];
-    reset(): unknown;
-    finalize(): unknown;
+/** Thrown by {@link streamLiveDatabasePages} when a write lands mid-stream. The caller retries. */
+export class DatabaseChangedError extends Error {
+    constructor() {
+        super("The database changed while it was being backed up.");
+        this.name = "DatabaseChangedError";
+    }
 }
 
 export interface DatabaseStream {
@@ -42,47 +38,34 @@ export interface DatabaseStream {
 }
 
 /**
- * Streams the database open on `db` as its exact file bytes, a batch of pages at a time.
+ * Streams the live database as its exact logical bytes, without any copy of it anywhere.
  *
- * The connection is taken over: it is closed when the stream ends, errors, or is cancelled, and
- * must not be used by anyone else meanwhile. The database must be quiescent and not in WAL mode,
- * which is what `VACUUM INTO` produces; a database being written to mid-stream would hand over
- * pages of two different files.
+ * The database is in use while it is being read, and there is only the one connection, so nothing
+ * can hold the content in place across the stream's yields. Consistency comes from detection
+ * instead: the write counters are fingerprinted at the start and checked before every batch and
+ * once more before the stream closes, and any write anywhere in between errors the stream with
+ * {@link DatabaseChangedError} rather than sealing a backup that is part before and part after.
+ * Every write in this process goes through the one connection the counters watch, so nothing can
+ * slip past them.
  *
  * @throws Error before any stream exists when the engine lacks `sqlite_dbpage`, so a caller fails
  *   before it has created a destination to clean up.
  */
-export function streamDatabasePages(db: SnapshotConnection): DatabaseStream {
-    let pageSize: number;
-    let pageCount: number;
-    let statement: SnapshotStatement;
-    try {
-        pageSize = countOf(db.selectValue("PRAGMA page_size"), "page_size");
-        pageCount = countOf(db.selectValue("PRAGMA page_count"), "page_count");
-        statement = preparePageReader(db);
-    } catch (e) {
-        // The connection was taken over, so it is not left open on the way out either.
-        db.close();
-        throw e;
-    }
+export function streamLiveDatabasePages(db: LiveDatabaseReader): DatabaseStream {
+    const pageSize = countOf(db.getValue("PRAGMA page_size"), "page_size");
+    const pageCount = countOf(db.getValue("PRAGMA page_count"), "page_count");
+    const fingerprint = fingerprintOf(db);
 
     let nextPage = 1;
-    let released = false;
-    const release = () => {
-        if (!released) {
-            released = true;
-            statement.finalize();
-            db.close();
-        }
-    };
-
     return {
         byteSize: pageSize * pageCount,
         stream: new ReadableStream<Uint8Array>({
             pull(controller) {
                 try {
+                    if (fingerprintOf(db) !== fingerprint) {
+                        throw new DatabaseChangedError();
+                    }
                     if (nextPage > pageCount) {
-                        release();
                         controller.close();
                         return;
                     }
@@ -90,96 +73,36 @@ export function streamDatabasePages(db: SnapshotConnection): DatabaseStream {
                     const pages = Math.min(BATCH_PAGES, pageCount - nextPage + 1);
                     const batch = new Uint8Array(pages * pageSize);
                     for (let index = 0; index < pages; index++, nextPage++) {
-                        batch.set(readPage(statement, nextPage, pageSize), index * pageSize);
+                        batch.set(readLivePage(db, nextPage, pageSize), index * pageSize);
                     }
                     controller.enqueue(batch);
                 } catch (e) {
-                    release();
                     controller.error(e);
                 }
-            },
-            cancel: release
+            }
         })
     };
 }
 
-/** The slice of `FileSystemSyncAccessHandle` a backup write needs, kept structural for tests. */
-export interface SyncFileAccess {
-    write(buffer: Uint8Array, options?: { at?: number }): number;
-    truncate(newSize: number): void;
-    flush(): void;
-    close(): void;
-}
-
-export interface BackupDestination {
-    /** Takes the payload in order. Closing it flushes but keeps the file open for {@link patch}. */
-    writable: WritableStream<Uint8Array>;
-    /** Writes at an absolute offset: the digest a container learns only after its payload. */
-    patch(offset: number, data: Uint8Array): void;
-    /** Flushes and releases the file. Safe to call more than once, and meant for a `finally`. */
-    close(): void;
+/** One page, checked to be exactly a page: anything else means the file is not what it claims. */
+function readLivePage(db: LiveDatabaseReader, pageNumber: number, pageSize: number): Uint8Array {
+    const data = db.getValue("SELECT data FROM sqlite_dbpage WHERE pgno = ?", [ pageNumber ]);
+    if (!(data instanceof Uint8Array) || data.byteLength !== pageSize) {
+        throw new Error(`Page ${pageNumber} came back malformed.`);
+    }
+    return data;
 }
 
 /**
- * Turns a synchronous OPFS file handle into a backup destination.
- *
- * The handle is truncated on open, so a leftover from an interrupted attempt is overwritten rather
- * than appended to, and it stays open across the writable's own close: the container writer patches
- * its header digest *after* it has ended the payload stream, and reopening the file between the two
- * would be a second handle on a file the first still locks.
+ * What must not have moved between two looks for the pages to belong to one database: rows changed
+ * on this connection, the schema's own version, and the file's page count.
  */
-export function openBackupDestination(access: SyncFileAccess): BackupDestination {
-    access.truncate(0);
-    let offset = 0;
-    let open = true;
-
-    return {
-        writable: new WritableStream<Uint8Array>({
-            write(chunk) {
-                offset += writeFully(access, chunk, offset);
-            },
-            close() {
-                access.flush();
-            }
-        }),
-        patch(at, data) {
-            writeFully(access, data, at);
-        },
-        close() {
-            if (open) {
-                open = false;
-                access.flush();
-                access.close();
-            }
-        }
-    };
-}
-
-function preparePageReader(db: SnapshotConnection): SnapshotStatement {
-    try {
-        return db.prepare("SELECT data FROM sqlite_dbpage WHERE pgno = ?");
-    } catch (e) {
-        throw new Error("This SQLite build cannot serve database pages (sqlite_dbpage is "
-            + `missing), so nothing can be backed up: ${messageOf(e)}`);
-    }
-}
-
-/** One page, checked to be exactly a page: anything else means the file is not what it claims. */
-function readPage(statement: SnapshotStatement, pageNumber: number, pageSize: number): Uint8Array {
-    statement.bind([ pageNumber ]);
-    try {
-        if (!statement.step()) {
-            throw new Error(`The database did not serve page ${pageNumber}.`);
-        }
-
-        const data = statement.get([])[0];
-        if (!(data instanceof Uint8Array) || data.byteLength !== pageSize) {
-            throw new Error(`Page ${pageNumber} came back malformed.`);
-        }
-        return data;
-    } finally {
-        statement.reset();
-    }
+function fingerprintOf(db: LiveDatabaseReader): string {
+    return [
+        db.getValue("SELECT total_changes()"),
+        db.getValue("PRAGMA schema_version"),
+        db.getValue("PRAGMA page_count")
+    ].join("/");
 }
 
 /** A pragma answer as the positive integer it must be, or the reason it is not a database. */
@@ -190,23 +113,3 @@ function countOf(value: unknown, name: string): number {
     return value;
 }
 
-/**
- * Writes all of `data` at `at`, looping in case the handle takes it piecemeal. The specification
- * lets `write` return short; a handle doing so repeatedly without progress is reported rather than
- * spun on.
- */
-function writeFully(access: SyncFileAccess, data: Uint8Array, at: number): number {
-    let written = 0;
-    while (written < data.byteLength) {
-        const count = access.write(data.subarray(written), { at: at + written });
-        if (!(count > 0)) {
-            throw new Error("The backup file stopped accepting writes.");
-        }
-        written += count;
-    }
-    return written;
-}
-
-function messageOf(e: unknown): string {
-    return e instanceof Error ? e.message : String(e);
-}

@@ -1,4 +1,4 @@
-import type { SetupExistingBackup } from "@triliumnext/commons";
+import type { SetupExistingBackup, SetupExistingBackupStatus } from "@triliumnext/commons";
 
 import { getBackup } from "./backup.js";
 import eventService from "./events.js";
@@ -55,6 +55,46 @@ export async function backUpExistingData(now: Date): Promise<SetupExistingBackup
         progress = null;
     }
 }
+
+/**
+ * Starts the backup and answers at once, leaving the outcome to be polled for.
+ *
+ * The write itself runs for minutes on a large knowledge base, and a request held open that long
+ * does not survive every platform: on standalone it rides the service worker, whose fetches the
+ * browser reclaims after a few minutes however patient the caller is. So the caller that would have
+ * waited on {@link backUpExistingData} starts it here and follows it through
+ * {@link getExistingBackupStatus} instead.
+ *
+ * A backup already running is joined rather than doubled. What can be refused outright (no
+ * existing database, a platform with nowhere to write) still throws from here, so the starting
+ * request carries the reason.
+ */
+export function startBackUpExistingData(now: Date): void {
+    if (status.state === "running") {
+        return;
+    }
+
+    requireExistingData();
+    if (!getBackup().backupAs) {
+        throw new Error("This platform cannot write a backup of the existing database.");
+    }
+
+    status = { state: "running", fraction: null };
+    backUpExistingData(now)
+        .then((written) => {
+            status = { state: "done", fraction: 1, result: written };
+        })
+        .catch((e) => {
+            status = { state: "failed", fraction: null, error: messageOf(e) };
+        });
+}
+
+/** Where the latest backup stands, for the screen polling its way through it. */
+export function getExistingBackupStatus(): SetupExistingBackupStatus {
+    return status.state === "running" ? { ...status, fraction: progress } : status;
+}
+
+let status: SetupExistingBackupStatus = { state: "idle", fraction: null };
 
 /**
  * How far through the backup is, from 0 to 1, or `null` when none is running.
@@ -143,4 +183,8 @@ function requireExistingData(): void {
     if (isInitialSetup()) {
         throw new Error("There is no existing database: this instance is being set up for the first time.");
     }
+}
+
+function messageOf(e: unknown): string {
+    return e instanceof Error ? e.message : String(e);
 }

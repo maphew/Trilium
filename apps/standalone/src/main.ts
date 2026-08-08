@@ -1,5 +1,5 @@
 import { installIosInterceptors } from "./ios-interceptors.js";
-import { attachServiceWorkerBridge, registerNativeHttpHandler, restoreBackup, startLocalServerWorker } from "./local-bridge.js";
+import { attachServiceWorkerBridge, downloadDatabase, registerNativeHttpHandler, restoreBackup, startLocalServerWorker } from "./local-bridge.js";
 
 async function waitForServiceWorkerControl(): Promise<void> {
     if (!("serviceWorker" in navigator) || !navigator.serviceWorker) {
@@ -46,7 +46,10 @@ async function bootstrap() {
 
     // The client's way to the worker for the few things that carry a file, which the request path
     // would serialise whole and time out on. The desktop's `window.electronApi` is the same idea.
-    window.standaloneApi = { restore: { importBackup: restoreBackup } };
+    window.standaloneApi = {
+        restore: { importBackup: restoreBackup },
+        backup: { downloadDatabase }
+    };
 
     try {
         // When running inside a Capacitor WebView, register the native HTTP

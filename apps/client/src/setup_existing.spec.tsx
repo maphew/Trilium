@@ -6,10 +6,10 @@ vi.mock("./services/i18n", () => ({ t: (key: string) => key }));
 
 const serverMock = vi.hoisted(() => ({
     get: vi.fn(async (url: string): Promise<unknown> =>
-        (url === "setup/existing/status" ? { fraction: null } : url === "keyboard-actions" ? [] : {})),
-    post: vi.fn(async (_url: string): Promise<unknown> => ({})),
-    // The backup runs for minutes, so it asks for a timeout of its own rather than the default one.
-    postWithTimeout: vi.fn(async (_url: string, _timeoutMs: number): Promise<unknown> => ({}))
+        (url === "setup/existing/status"
+            ? { state: "idle", fraction: null }
+            : url === "keyboard-actions" ? [] : {})),
+    post: vi.fn(async (_url: string): Promise<unknown> => ({}))
 }));
 vi.mock("./services/server", () => ({ default: serverMock }));
 
@@ -66,7 +66,6 @@ beforeEach(() => {
     onProceed.mockReset();
     onKept.mockReset();
     serverMock.post.mockReset().mockResolvedValue(undefined);
-    serverMock.postWithTimeout.mockReset().mockResolvedValue(undefined);
     serverMock.get.mockClear();
     openMock.download.mockClear();
     electronMock.isElectron.mockReset().mockReturnValue(false);
@@ -139,7 +138,7 @@ describe("choosing what happens to the existing knowledge base", () => {
         expect(serverMock.post).toHaveBeenCalledWith("setup/existing/delete");
         expect(onProceed).toHaveBeenCalled();
         // Nothing was backed up, since nothing was asked to be.
-        expect(serverMock.postWithTimeout).not.toHaveBeenCalled();
+        expect(serverMock.post).not.toHaveBeenCalledWith("setup/existing/backup");
     });
 
     it("leaves everything alone and reopens the database on cancel", async () => {
@@ -155,17 +154,30 @@ describe("choosing what happens to the existing knowledge base", () => {
 });
 
 describe("backing it up first", () => {
-    it("says what was written, and erases nothing until that is confirmed", async () => {
-        serverMock.postWithTimeout.mockResolvedValue(BACKUP);
+    /** Answers the status polls with `status`, leaving every other GET as the default mock has it. */
+    function statusAnswers(status: unknown) {
+        serverMock.get.mockImplementation(async (url: string) =>
+            (url === "setup/existing/status" ? status : url === "keyboard-actions" ? [] : {}));
+    }
+
+    /** Chooses the backup, sets it going, and rides out one poll interval. */
+    async function backUpAndWait() {
         renderScreens();
         await settle();
 
         choose("back-up");
         await settle();
         button("setup.continue")?.click();
+        // The answer arrives over a poll, one interval after the backup was set going.
+        await vi.advanceTimersByTimeAsync(1100);
         await settle();
+    }
 
-        expect(serverMock.postWithTimeout).toHaveBeenCalledWith("setup/existing/backup", 3600000);
+    it("says what was written, and erases nothing until that is confirmed", async () => {
+        statusAnswers({ state: "done", fraction: 1, result: BACKUP });
+        await backUpAndWait();
+
+        expect(serverMock.post).toHaveBeenCalledWith("setup/existing/backup");
         // The path in full: the option holding a custom backup directory is in the database that is
         // about to go, so this may be the last chance to read it.
         expect(container.textContent).toContain(BACKUP.fileName);
@@ -182,11 +194,9 @@ describe("backing it up first", () => {
     });
 
     it("shows how far along the write is, once the writer has said anything", async () => {
-        // The backup answers only when it is finished, so this screen would otherwise show a spinner
-        // and nothing else for the minutes a large knowledge base takes.
-        let resolveBackup: (value: unknown) => void = () => {};
-        serverMock.postWithTimeout.mockImplementation(() => new Promise((resolve) => { resolveBackup = resolve; }));
-        serverMock.get.mockResolvedValue({ fraction: 0.42 });
+        // The write runs for minutes, so this screen would otherwise show a spinner and nothing
+        // else for the whole of it.
+        statusAnswers({ state: "running", fraction: null });
         renderScreens();
         await settle();
 
@@ -198,26 +208,19 @@ describe("backing it up first", () => {
         // Nothing to show yet, so the spinner stands in for the bar.
         expect(container.querySelector(".spinner-border")).not.toBeNull();
 
+        statusAnswers({ state: "running", fraction: 0.42 });
         await vi.advanceTimersByTimeAsync(1000);
         expect(container.querySelector("progress")?.value).toBeCloseTo(0.42);
         expect(container.textContent).toContain("42%");
         // ...and steps aside once there is one, rather than the two competing.
         expect(container.querySelector(".spinner-border")).toBeNull();
-
-        resolveBackup(BACKUP);
     });
 
     it("saves a copy wherever the user says, and opens the folder on the desktop", async () => {
         electronMock.isElectron.mockReturnValue(true);
         window.electronApi = { shell: { openPath: electronMock.openPath } } as never;
-        serverMock.postWithTimeout.mockResolvedValue(BACKUP);
-        renderScreens();
-        await settle();
-
-        choose("back-up");
-        await settle();
-        button("setup.continue")?.click();
-        await settle();
+        statusAnswers({ state: "done", fraction: 1, result: BACKUP });
+        await backUpAndWait();
 
         container.querySelector<HTMLAnchorElement>(".existing-data-path-link")?.click();
         expect(electronMock.openPath).toHaveBeenCalledWith(BACKUP.directoryPath);
@@ -228,22 +231,21 @@ describe("backing it up first", () => {
     });
 
     it("says to keep the backup password where the backup needs one", async () => {
-        serverMock.postWithTimeout.mockResolvedValue({ ...BACKUP, encrypted: true });
-        renderScreens();
-        await settle();
-
-        choose("back-up");
-        await settle();
-        button("setup.continue")?.click();
-        await settle();
+        statusAnswers({ state: "done", fraction: 1, result: { ...BACKUP, encrypted: true } });
+        await backUpAndWait();
 
         expect(container.querySelector(".existing-data-warning")?.textContent)
             .toContain("setup.existing-data-encrypted-warning");
     });
 
-    it("goes back to the question when the backup fails, having erased nothing", async () => {
+    it("goes back to the question when the backup cannot even start", async () => {
         // Rejected the way the client's request layer rejects: the response body, not an Error.
-        serverMock.postWithTimeout.mockRejectedValue('{"message":"the disk is full"}');
+        serverMock.post.mockImplementation(async (url: string) => {
+            if (url === "setup/existing/backup") {
+                throw '{"message":"the disk is full"}';
+            }
+            return undefined;
+        });
         renderScreens();
         await settle();
 
@@ -255,5 +257,135 @@ describe("backing it up first", () => {
         expect(container.querySelector(".page-error")?.textContent).toContain("the disk is full");
         expect(container.querySelector("input[type=radio]")).not.toBeNull();
         expect(onProceed).not.toHaveBeenCalled();
+    });
+
+    it("goes back to the question when the backup fails along the way", async () => {
+        statusAnswers({ state: "failed", fraction: null, error: "the disk is full" });
+        await backUpAndWait();
+
+        expect(container.querySelector(".page-error")?.textContent).toContain("the disk is full");
+        expect(container.querySelector("input[type=radio]")).not.toBeNull();
+        expect(onProceed).not.toHaveBeenCalled();
+    });
+
+    it("keeps waiting through polls that fail, and takes the answer from the one that succeeds", async () => {
+        // The standalone worker answers nothing while it is deep inside the write itself; a poll
+        // that dies must read as "still going", not as the backup having failed.
+        let polls = 0;
+        serverMock.get.mockImplementation(async (url: string) => {
+            if (url === "setup/existing/status") {
+                polls++;
+                if (polls < 3) {
+                    throw "rejected by browser";
+                }
+                return { state: "done", fraction: 1, result: BACKUP };
+            }
+            return url === "keyboard-actions" ? [] : {};
+        });
+        renderScreens();
+        await settle();
+
+        choose("back-up");
+        await settle();
+        button("setup.continue")?.click();
+        await vi.advanceTimersByTimeAsync(3500);
+        await settle();
+
+        expect(container.textContent).toContain(BACKUP.fileName);
+        expect(onProceed).not.toHaveBeenCalled();
+    });
+});
+
+describe("backing up straight to a download on standalone", () => {
+    const downloadDatabase = vi.fn();
+
+    beforeEach(() => {
+        downloadDatabase.mockClear();
+        window.standaloneApi = {
+            backup: { downloadDatabase }
+        } as unknown as typeof window.standaloneApi;
+    });
+
+    afterEach(() => {
+        window.standaloneApi = undefined;
+    });
+
+    /**
+     * The button on the page that arrived, not the one that left: happy-dom never fires the
+     * animation events that let SlidePages drop the leaving page, so after one transition both
+     * pages are in the DOM and the arriving one renders second.
+     */
+    function arrivingButton(label: string): HTMLButtonElement | undefined {
+        return [ ...container.querySelectorAll("button") ]
+            .filter((element) => element.textContent?.includes(label))
+            .at(-1);
+    }
+
+    /** Chooses the backup and arrives at the download screen, with nothing started yet. */
+    async function reachDownloadScreen() {
+        renderScreens();
+        await settle();
+
+        choose("back-up");
+        await settle();
+        button("setup.continue")?.click();
+        await settle();
+    }
+
+    it("shows the download step without starting anything, and gates Continue on it", async () => {
+        let finish: (result: unknown) => void = () => {};
+        downloadDatabase.mockImplementation(() => new Promise((resolve) => {
+            finish = resolve;
+        }));
+        await reachDownloadScreen();
+
+        // Arrived, but nothing downloads until the user says so, and Continue is not on offer.
+        expect(container.textContent).toContain("setup.existing-data-downloading");
+        expect(downloadDatabase).not.toHaveBeenCalled();
+        expect(arrivingButton("setup.continue")?.disabled).toBe(true);
+        expect(serverMock.post).not.toHaveBeenCalledWith("setup/existing/backup");
+
+        arrivingButton("setup.existing-data-download")?.click();
+        await settle();
+        expect(downloadDatabase).toHaveBeenCalledWith(
+            expect.stringMatching(/^Backup \d{4}-\d{2}-\d{2} \d{2}-\d{2}-\d{2}\.tnbackup$/),
+            "123456");
+        expect(container.textContent).toContain("setup.existing-data-downloading-in-progress");
+        expect(arrivingButton("setup.continue")?.disabled).toBe(true);
+
+        finish({ status: "done" });
+        await settle();
+        expect(container.textContent).toContain("setup.existing-data-downloading-done");
+        expect(arrivingButton("setup.continue")?.disabled).toBe(false);
+
+        arrivingButton("setup.continue")?.click();
+        await settle();
+        expect(serverMock.post).toHaveBeenCalledWith("setup/existing/delete");
+        expect(onProceed).toHaveBeenCalled();
+    });
+
+    it("shows what stopped a failed download, and keeps Continue out of reach", async () => {
+        downloadDatabase.mockResolvedValue({ status: "failed", message: "the stream broke" });
+        await reachDownloadScreen();
+
+        arrivingButton("setup.existing-data-download")?.click();
+        await settle();
+
+        expect(container.textContent).toContain("the stream broke");
+        expect(arrivingButton("setup.continue")?.disabled).toBe(true);
+        // The button is back, because trying again is the way out.
+        expect(arrivingButton("setup.existing-data-download")?.disabled).toBe(false);
+        expect(serverMock.post).not.toHaveBeenCalledWith("setup/existing/delete");
+    });
+
+    it("cancel leaves everything alone and reopens the database", async () => {
+        await reachDownloadScreen();
+
+        arrivingButton("setup.existing-data-cancel")?.click();
+        await settle();
+
+        expect(serverMock.post).toHaveBeenCalledWith("setup/existing/keep");
+        expect(serverMock.post).not.toHaveBeenCalledWith("setup/existing/delete");
+        expect(onKept).toHaveBeenCalled();
     });
 });

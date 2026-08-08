@@ -6,7 +6,9 @@ import {
     backupNameFor,
     deleteExistingData,
     getExistingBackupProgress,
-    keepExistingData
+    getExistingBackupStatus,
+    keepExistingData,
+    startBackUpExistingData
 } from "./setup_existing.js";
 import { enterSetupMode, initSetupPlatform, leaveSetupMode } from "./setup_mode.js";
 
@@ -97,5 +99,59 @@ describe("what becomes of the existing database", () => {
         await expect(deleteExistingData()).rejects.toThrow(/first time/);
         await expect(keepExistingData()).rejects.toThrow(/first time/);
         expect(platform.removeDatabase).not.toHaveBeenCalled();
+        expect(() => startBackUpExistingData(new Date())).toThrow(/first time/);
+    });
+});
+
+describe("the started backup, followed through its status", () => {
+    /** Puts a controllable backupAs in place and gives back the strings to pull. */
+    function stubBackup(behaviour: (onProgress?: (fraction: number) => void) => Promise<unknown>) {
+        const backup = getBackup() as { backupAs?: unknown };
+        const previous = backup.backupAs;
+        backup.backupAs = (_name: string, onProgress?: (fraction: number) => void) =>
+            behaviour(onProgress);
+
+        return () => {
+            backup.backupAs = previous;
+        };
+    }
+
+    it("runs with a live fraction, joins a second start, and ends holding what was written", async () => {
+        const written = { fileName: "b", filePath: "/b", fileSize: 1, encrypted: false };
+        let report: ((fraction: number) => void) | undefined;
+        let finish!: (value: typeof written) => void;
+        const restore = stubBackup((onProgress) => new Promise((resolve) => {
+            report = onProgress;
+            finish = resolve;
+        }));
+
+        startBackUpExistingData(new Date());
+        await vi.waitFor(() => expect(getExistingBackupStatus().state).toBe("running"));
+
+        report?.(0.25);
+        expect(getExistingBackupStatus()).toMatchObject({ state: "running", fraction: 0.25 });
+
+        // Asked to start again while running: joined, not doubled, so the fraction survives.
+        startBackUpExistingData(new Date());
+        expect(getExistingBackupStatus()).toMatchObject({ state: "running", fraction: 0.25 });
+
+        finish(written);
+        await vi.waitFor(() => expect(getExistingBackupStatus().state).toBe("done"));
+        expect(getExistingBackupStatus()).toEqual({ state: "done", fraction: 1, result: written });
+
+        restore();
+    });
+
+    it("ends failed with the reason, and lets the next attempt start over", async () => {
+        const restore = stubBackup(async () => {
+            throw new Error("disk full");
+        });
+
+        // The previous test left a done state behind, which a new start must replace.
+        startBackUpExistingData(new Date());
+        await vi.waitFor(() => expect(getExistingBackupStatus().state).toBe("failed"));
+        expect(getExistingBackupStatus()).toEqual({ state: "failed", fraction: null, error: "disk full" });
+
+        restore();
     });
 });

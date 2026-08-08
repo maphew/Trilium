@@ -74,6 +74,7 @@ let BridgedRequestProvider: typeof import('./lightweight/bridged_request_provide
 let StandalonePlatformProvider: typeof import('./lightweight/platform_provider').default;
 let StandaloneLogService: typeof import('./lightweight/log_provider').default;
 let StandaloneBackupService: typeof import('./lightweight/backup_provider').default;
+let removeBackupLeftovers: typeof import('./lightweight/backup_provider').removeBackupLeftovers;
 let StandaloneInAppHelpProvider: typeof import('./lightweight/in_app_help_provider').default;
 let translationProvider: typeof import('./lightweight/translation_provider').default;
 let createConfiguredRouter: typeof import('./lightweight/browser_routes').createConfiguredRouter;
@@ -179,6 +180,7 @@ async function loadModules(): Promise<void> {
     StandalonePlatformProvider = platformModule.default;
     StandaloneLogService = logModule.default;
     StandaloneBackupService = backupModule.default;
+    removeBackupLeftovers = backupModule.removeBackupLeftovers;
     translationProvider = translationModule.default;
     createConfiguredRouter = routesModule.createConfiguredRouter;
 
@@ -256,6 +258,14 @@ async function initialize(): Promise<void> {
 
             logService.info("[Worker] Database loaded");
 
+            // A backup interrupted by the page going away leaves its snapshot in the pool, up to
+            // the database's own size. Reclaimed here so the space is back whether or not another
+            // backup is ever taken.
+            const backupPool = sqlProvider?.sahPool;
+            if (backupPool) {
+                removeBackupLeftovers(backupPool);
+            }
+
             logService.info("[Worker] Loading @triliumnext/core...");
             const schemaModule = await import("@triliumnext/core/src/assets/schema.sql?raw");
             coreModule = await import("@triliumnext/core");
@@ -269,7 +279,7 @@ async function initialize(): Promise<void> {
                 request: useNativeHttp ? new BridgedRequestProvider() : new FetchRequestProvider(),
                 platform: new StandalonePlatformProvider(queryString),
                 log: logService,
-                backup: new StandaloneBackupService(coreModule!.options, () => sqlProvider ?? undefined),
+                backup: new StandaloneBackupService(coreModule!.options),
                 translations: translationProvider,
                 schema: schemaModule.default,
                 getDemoArchive: async () => {
@@ -477,6 +487,40 @@ async function handleRestoreBackup(id: string, backup: File, passphrase?: string
 /** Whether a restore is running, since a second one would prepare over the first one's work. */
 let restoreInProgress = false;
 
+/**
+ * Streams the database into a download the service worker is holding open on the other end of
+ * `port`. Every way this ends is reported twice over: through the port for the download's sake,
+ * and to the page, which keeps the service worker alive while the stream runs and whose screen
+ * gates its Continue on the outcome.
+ */
+async function handleBackupStream(port: MessagePort, passphrase?: string): Promise<void> {
+    const announce = (active: boolean, result?: { status: string; message?: string }) =>
+        (self as unknown as Worker).postMessage({ type: "BACKUP_STREAM_ACTIVE", active, result });
+
+    const core = coreModule;
+    if (!core || !sqlProvider?.isOpen()) {
+        port.postMessage({ type: "error", message: "The database is not ready yet." });
+        port.close();
+        announce(false, { status: "failed", message: "The database is not ready yet." });
+        return;
+    }
+
+    console.log("[Worker] Streaming a backup download...");
+    announce(true);
+
+    const { streamDatabaseDownload } = await import("./lightweight/backup-download.js");
+    const result = await streamDatabaseDownload(
+        { getValue: (sql, params) => core.getSql().getValue(sql, params) },
+        // A MessagePort satisfies the seam at runtime; only the `onmessage` property's event
+        // parameter is typed wider here than the seam's, which a cast is the whole cost of.
+        port as unknown as import("./lightweight/backup-download.js").DownloadPort,
+        { passphrase }
+    );
+
+    announce(false, result);
+    console.log(`[Worker] Backup download stream ended: ${result.status}.`);
+}
+
 // Wait for the INIT message before initializing so that queryString
 // (which may contain ?integrationTest=memory for e2e) is available.
 let initReceived = false;
@@ -507,6 +551,11 @@ self.onmessage = async (event) => {
 
     if (msg.type === "RESTORE_BACKUP") {
         await handleRestoreBackup(msg.id, msg.backup, msg.passphrase);
+        return;
+    }
+
+    if (msg.type === "BACKUP_STREAM") {
+        await handleBackupStream(msg.port, msg.passphrase);
         return;
     }
 

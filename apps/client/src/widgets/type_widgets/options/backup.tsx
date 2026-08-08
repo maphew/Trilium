@@ -9,6 +9,11 @@ import {
 } from "@triliumnext/commons";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
+import {
+    backupDownloadFileName,
+    isBackupDownloadSupported,
+    startBackupDownload
+} from "../../../services/backup_download";
 import { describeDatabaseFormat } from "../../../services/database_files";
 import dialogService from "../../../services/dialog";
 import { t } from "../../../services/i18n";
@@ -30,6 +35,13 @@ import DatabaseFileList from "./components/DatabaseFileList";
 import OptionsPageHeader from "./components/OptionsPageHeader";
 
 export default function BackupSettings() {
+    // Standalone keeps no backups anywhere: its one backup is a manual download, streamed straight
+    // off the live database, so the page reduces to that action and the way back in.
+    return isBackupDownloadSupported() ? <StandaloneBackupSettings /> : <StoredBackupSettings />;
+}
+
+/** The page everywhere backups are kept as files: the server, the desktop. */
+function StoredBackupSettings() {
     const [backups, setBackups] = useState<DatabaseBackup[]>([]);
     const [backupFolderPath, setBackupFolderPath] = useState<string | null>(null);
 
@@ -54,6 +66,60 @@ export default function BackupSettings() {
             {/* Desktop only: the passphrase needs an OS keyring to live in, which only the desktop has. */}
             {isElectron() && <BackupOptions />}
         </>
+    );
+}
+
+/**
+ * The whole backup page on the standalone platform: the summary says how backups work there, the
+ * same "Backup now" button as everywhere else hands one to the browser as a download, and restore
+ * boots to the setup screen the way it does on the other platforms. There is no list, location,
+ * schedule or format to configure, because nothing is ever stored.
+ */
+function StandaloneBackupSettings() {
+    const [downloading, setDownloading] = useState(false);
+
+    async function download() {
+        setDownloading(true);
+        try {
+            const fileName = backupDownloadFileName(new Date());
+            const result = await startBackupDownload(fileName);
+
+            if (result.status === "done") {
+                toast.showMessage(t("backup.download_finished", { fileName }), 10000);
+            } else if (result.status === "failed") {
+                toast.showError(result.message ?? t("backup.download_failed"));
+            }
+            // A cancelled download needs no telling: the user did it themselves, in the browser.
+        } finally {
+            setDownloading(false);
+        }
+    }
+
+    return (
+        <OptionsPageHeader
+            below={
+                <div className="backup-status">
+                    <span className="backup-status-summary">{t("backup.download_only_summary")}</span>
+
+                    {canBootToSetup() && (
+                        <Button
+                            name="restore-backup-button"
+                            text={t("backup.restore_backup")}
+                            size="micro"
+                            onClick={() => bootToSetup({ targetScreen: "restore-backup" })}
+                        />
+                    )}
+
+                    <Button
+                        name="backup-database-now-button"
+                        text={t("backup.backup_now")}
+                        size="micro"
+                        disabled={downloading}
+                        onClick={() => void download()}
+                    />
+                </div>
+            }
+        />
     );
 }
 

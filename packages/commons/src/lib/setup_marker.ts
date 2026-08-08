@@ -41,6 +41,25 @@ export interface SetupExistingBackup {
     encrypted: boolean;
 }
 
+/**
+ * Where the setup backup stands, polled by the screen waiting on it.
+ *
+ * The backup is started with one request and watched through this one, rather than answered on a
+ * request held open for however long the write takes: on the standalone platform a request rides
+ * the service worker, and the browser does not let a fetch stay open for the minutes a large
+ * database needs.
+ */
+export interface SetupExistingBackupStatus {
+    /** `idle` before any backup this boot; what became of the latest one after that. */
+    state: "idle" | "running" | "done" | "failed";
+    /** How far through the write, from 0 to 1, while running and once the writer can say. */
+    fraction: number | null;
+    /** What was written, once `done`. */
+    result?: SetupExistingBackup;
+    /** What stopped it, once `failed`. */
+    error?: string;
+}
+
 /** What a start reads out of {@link SETUP_MARKER_FILE_NAME}. */
 export interface SetupMarker {
     /** The language the instance was using, so the wizard is in it rather than asking again. */

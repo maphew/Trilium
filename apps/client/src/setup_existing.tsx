@@ -1,8 +1,13 @@
 import "./setup_existing.css";
 
-import type { SetupExistingBackup } from "@triliumnext/commons";
+import type { SetupExistingBackup, SetupExistingBackupStatus } from "@triliumnext/commons";
 import { useEffect, useState } from "preact/hooks";
 
+import {
+    backupDownloadFileName,
+    isBackupDownloadSupported,
+    startBackupDownload
+} from "./services/backup_download";
 import { t } from "./services/i18n";
 import open from "./services/open";
 import server from "./services/server";
@@ -37,9 +42,17 @@ const CHOICES: { value: Choice; label: string }[] = [
     { value: "delete", label: "setup.existing-data-delete" }
 ];
 
-/** The three screens, in the order they can be reached, which is also the order they slide in. */
-type Step = "choice" | "backing-up" | "backed-up";
-const STEP_ORDER: Step[] = [ "choice", "backing-up", "backed-up" ];
+/** The screens, in the order they can be reached, which is also the order they slide in. */
+type Step = "choice" | "backing-up" | "downloading" | "backed-up";
+const STEP_ORDER: Step[] = [ "choice", "backing-up", "downloading", "backed-up" ];
+
+/** Where the standalone platform's backup download stands, as its screen shows it. */
+interface DownloadStatus {
+    fileName: string;
+    state: "idle" | "running" | "done" | "failed";
+    /** What stopped it, shown when `state` is `failed`. */
+    error?: string;
+}
 
 /**
  * The whole question, as one step of the wizard.
@@ -54,6 +67,7 @@ const STEP_ORDER: Step[] = [ "choice", "backing-up", "backed-up" ];
 export default function ExistingData({ onProceed, onKept }: { onProceed: () => void; onKept: () => void }) {
     const [ step, setStep ] = useState<Step>("choice");
     const [ backup, setBackup ] = useState<SetupExistingBackup | null>(null);
+    const [ download, setDownload ] = useState<DownloadStatus | null>(null);
     const [ error, setError ] = useState<string>();
     const [ errorId, setErrorId ] = useState(0);
 
@@ -74,6 +88,16 @@ export default function ExistingData({ onProceed, onKept }: { onProceed: () => v
     }
 
     async function backUp() {
+        // Standalone streams the backup straight into a browser download: the browser's own
+        // storage may not have room for a second copy of the database, but the disk does. The
+        // screen comes first and the download starts from its own button, so nothing lands in
+        // the downloads bar unannounced.
+        if (isBackupDownloadSupported()) {
+            setDownload({ fileName: backupDownloadFileName(new Date()), state: "idle" });
+            setStep("downloading");
+            return;
+        }
+
         setStep("backing-up");
 
         try {
@@ -85,6 +109,18 @@ export default function ExistingData({ onProceed, onKept }: { onProceed: () => v
             setStep("choice");
             raiseError(messageOf(e) ?? t("setup.existing-data-backup-failed"));
         }
+    }
+
+    async function startDownload() {
+        if (!download) {
+            return;
+        }
+
+        setDownload({ ...download, state: "running", error: undefined });
+        const result = await startBackupDownload(download.fileName);
+        setDownload((current) => current && (result.status === "done"
+            ? { ...current, state: "done", error: undefined }
+            : { ...current, state: "failed", error: result.message }));
     }
 
     async function keep() {
@@ -111,6 +147,16 @@ export default function ExistingData({ onProceed, onKept }: { onProceed: () => v
                         />
                     )}
                     {shown === "backing-up" && <ExistingDataBackingUp />}
+                    {shown === "downloading" && download && (
+                        <ExistingDataDownloading
+                            fileName={download.fileName}
+                            state={download.state}
+                            error={download.error}
+                            onDownload={() => void startDownload()}
+                            onContinue={() => void erase()}
+                            onCancel={() => void keep()}
+                        />
+                    )}
                     {shown === "backed-up" && backup && (
                         <ExistingDataBackedUp
                             backup={backup}
@@ -229,7 +275,7 @@ export function ExistingDataBackingUp() {
     useEffect(() => {
         const interval = setInterval(async () => {
             try {
-                const { fraction } = await server.get<{ fraction: number | null }>("setup/existing/status");
+                const { fraction } = await server.get<SetupExistingBackupStatus>("setup/existing/status");
                 setFraction(fraction);
             } catch {
                 // The backup is what matters here; a missed reading is worth nothing being said about.
@@ -267,6 +313,71 @@ export function ExistingDataBackingUp() {
 
 /** How often the screen asks how far along the backup is. */
 const PROGRESS_INTERVAL_MS = 1000;
+
+/**
+ * The download step of the standalone platform, where the backup goes straight into a browser
+ * download rather than into the browser's own storage.
+ *
+ * The download starts from its own button rather than on arrival, so nothing appears in the
+ * downloads bar unannounced, and Continue stays disabled until the stream behind the download has
+ * been fully produced — the closest thing to "finished" the application can see, with the
+ * browser's own download UI carrying the transfer itself.
+ */
+export function ExistingDataDownloading({ fileName, state, error, onDownload, onContinue, onCancel }: {
+    fileName: string;
+    state: DownloadStatus["state"];
+    error?: string;
+    onDownload: () => void;
+    onContinue: () => void;
+    onCancel: () => void;
+}) {
+    return (
+        <SetupPage
+            className="existing-data-downloading top-aligned"
+            title={t("setup.existing-data-downloading")}
+            description={t("setup.existing-data-downloading-description", { fileName })}
+            illustration={<Icon icon="bx bx-download" className="illustration-icon" />}
+            footer={
+                <>
+                    <Button text={t("setup.existing-data-cancel")} onClick={onCancel} />
+                    <Button
+                        text={t("setup.continue")}
+                        kind="primary"
+                        disabled={state !== "done"}
+                        onClick={onContinue}
+                    />
+                </>
+            }
+        >
+            <div class="existing-data-download">
+                <Button
+                    text={t("setup.existing-data-download")}
+                    icon="bx bx-download"
+                    kind="primary"
+                    disabled={state === "running"}
+                    onClick={onDownload}
+                />
+
+                {state === "running" && (
+                    <div class="existing-data-progress-message">
+                        <span class="spinner-border" role="status" aria-hidden="true" />
+                        <span>{t("setup.existing-data-downloading-in-progress")}</span>
+                    </div>
+                )}
+                {state === "done" && <span>{t("setup.existing-data-downloading-done")}</span>}
+                {state === "failed" && (
+                    <Admonition type="warning" className="existing-data-download-error">
+                        {error ?? t("setup.existing-data-download-failed")}
+                    </Admonition>
+                )}
+            </div>
+
+            <Admonition type="caution" className="existing-data-warning">
+                {t("setup.existing-data-downloading-warning")}
+            </Admonition>
+        </SetupPage>
+    );
+}
 
 /**
  * What was written, before the database it was written from is erased.
@@ -325,7 +436,7 @@ export function ExistingDataBackedUp({ backup, onContinue, onCancel }: {
 }
 
 /**
- * How long the backup is given before the client stops waiting for its answer.
+ * How long the backup is given before the client stops asking after it.
  *
  * The default minute is nothing next to what this takes: a large knowledge base is copied, and
  * compressed and encrypted where the instance is set up for that, which runs into minutes. Giving up
@@ -367,9 +478,42 @@ function downloadBackup(filePath: string) {
         `api/database/backup/download?filePath=${encodeURIComponent(filePath)}`));
 }
 
-/** Backs the existing database up, answering with what was written. */
-export function backUpExistingData(): Promise<SetupExistingBackup> {
-    return server.postWithTimeout<SetupExistingBackup>("setup/existing/backup", BACKUP_TIMEOUT_MS);
+/**
+ * Backs the existing database up, answering with what was written.
+ *
+ * Started with one request and followed through the status endpoint rather than waited for on the
+ * request itself: on the standalone platform a request rides the service worker, and the browser
+ * reclaims a fetch held open for the minutes a large database needs. A poll that fails is retried
+ * rather than believed, because the write blocks the standalone worker for long stretches in which
+ * it answers nothing, and the backup is running all the while.
+ */
+export async function backUpExistingData(): Promise<SetupExistingBackup> {
+    await server.post("setup/existing/backup");
+
+    const deadline = Date.now() + BACKUP_TIMEOUT_MS;
+    while (Date.now() < deadline) {
+        await sleep(PROGRESS_INTERVAL_MS);
+
+        let status: SetupExistingBackupStatus;
+        try {
+            status = await server.get<SetupExistingBackupStatus>("setup/existing/status");
+        } catch {
+            continue;
+        }
+
+        if (status.state === "done" && status.result) {
+            return status.result;
+        }
+        if (status.state === "failed") {
+            throw new Error(status.error ?? t("setup.existing-data-backup-failed"));
+        }
+    }
+
+    throw new Error(t("setup.existing-data-backup-failed"));
+}
+
+function sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** Erases it, which is the point of no return. */
