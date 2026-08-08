@@ -19,9 +19,6 @@
  */
 export const FORBIDDEN_FILE_NAME_CHARACTERS = '<>:"/\\|?*';
 
-/** Trailing dots and spaces are legal to type and impossible to save on Windows. */
-const FORBIDDEN_AT_THE_END = /[. ]+$/;
-
 /** Reserved device names on Windows, which cannot be a file name there whatever the extension. */
 const RESERVED_FILE_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
 
@@ -38,9 +35,20 @@ export function toFilesystemFriendlyName(value: string): string {
 /**
  * The same, plus what can only be settled once the name is finished: surrounding whitespace and a
  * trailing dot, which are legal mid-edit and refused at save time.
+ *
+ * The trailing run is walked off by hand rather than matched. The obvious `/[. ]+$/` is quadratic
+ * on a name that is one long run of dots and does not end in one, and this runs on a name arriving
+ * over a request, where the length is the caller's to choose.
  */
 export function tidyFilesystemFriendlyName(value: string): string {
-    return toFilesystemFriendlyName(value).trim().replace(FORBIDDEN_AT_THE_END, "");
+    const name = toFilesystemFriendlyName(value).trim();
+
+    let end = name.length;
+    while (end > 0 && isForbiddenAtTheEnd(name[end - 1])) {
+        end--;
+    }
+
+    return name.slice(0, end);
 }
 
 /**
@@ -62,5 +70,14 @@ export function asFileName(value: string): string | null {
 /** Whether a single character is one no file name may contain. */
 function isForbidden(character: string): boolean {
     return FORBIDDEN_FILE_NAME_CHARACTERS.includes(character)
-        || (character.codePointAt(0) ?? 0) < 0x20;
+        // `charCodeAt` rather than `codePointAt`, which is typed as possibly absent and would
+        // leave a "no character there" case that this cannot reach and so cannot be tested. A
+        // character outside the basic plane reports the first half of its pair, far above the
+        // control characters this is looking for, which is the same answer either way.
+        || character.charCodeAt(0) < 0x20;
+}
+
+/** Whether a character is one no name may end on: legal to type, impossible to save on Windows. */
+function isForbiddenAtTheEnd(character: string): boolean {
+    return character === "." || character === " ";
 }
