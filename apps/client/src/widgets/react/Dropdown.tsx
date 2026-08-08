@@ -56,9 +56,27 @@ export interface DropdownProps extends Pick<HTMLProps<HTMLDivElement>, "id" | "c
      * class keeps applying even though the menu no longer lives inside the toggle's wrapper.
      */
     portalToBody?: boolean;
+    /**
+     * On a phone, show the menu as a sheet rising from the bottom of the screen over a dimmed page,
+     * the way the app's other mobile menus appear. No effect on a desktop layout.
+     *
+     * Prefer this to setting the pieces by hand. A menu left to place itself on mobile lands as a
+     * narrow box adrift in the middle of the page — Popper computes an offset that the app's own
+     * `body.mobile .dropdown-menu { position: fixed }` then measures from somewhere else — and one
+     * opened inside a dialog needs {@link portalToBody} besides, since a transformed `.modal-dialog`
+     * is both the box a fixed menu is placed against and a stacking context the backdrop, painting
+     * above the whole modal, would otherwise dim the menu through.
+     */
+    mobileBottomSheet?: boolean;
 }
 
-export default function Dropdown({ id, className, buttonClassName, isStatic, children, title, text, dropdownContainerStyle, dropdownContainerClassName, dropdownContainerRef: externalContainerRef, hideToggleArrow, iconAction, disabled, noSelectButtonStyle, noDropdownListStyle, forceShown, onShown: externalOnShown, onHidden: externalOnHidden, dropdownOptions, buttonProps, dropdownRef, titlePosition, titleOptions, mobileBackdrop, portalToBody }: DropdownProps) {
+export default function Dropdown({ id, className, buttonClassName, isStatic, children, title, text, dropdownContainerStyle, dropdownContainerClassName, dropdownContainerRef: externalContainerRef, hideToggleArrow, iconAction, disabled, noSelectButtonStyle, noDropdownListStyle, forceShown, onShown: externalOnShown, onHidden: externalOnHidden, dropdownOptions, buttonProps, dropdownRef, titlePosition, titleOptions, mobileBackdrop: mobileBackdropProp, portalToBody: portalToBodyProp, mobileBottomSheet }: DropdownProps) {
+    // The sheet is three things at once — placed by the app's own rule, dimming what is behind it,
+    // and lifted out of whatever opened it — so it is asked for as one thing and unpacked here.
+    const bottomSheet = !!mobileBottomSheet && isMobile();
+    const mobileBackdrop = mobileBackdropProp || bottomSheet;
+    const portalToBody = portalToBodyProp || bottomSheet;
+
     const containerRef = useRef<HTMLDivElement | null>(null);
     const triggerRef = useRef<HTMLButtonElement | null>(null);
     const dropdownContainerRef = useRef<HTMLUListElement | null>(null);
@@ -193,7 +211,7 @@ export default function Dropdown({ id, className, buttonClassName, isStatic, chi
 
     const menu = (
         <ul
-            class={`dropdown-menu tn-dropdown-menu ${isStatic ? "static" : ""} ${dropdownContainerClassName ?? ""} ${!noDropdownListStyle ? "tn-dropdown-list" : ""}`}
+            class={`dropdown-menu tn-dropdown-menu ${isStatic ? "static" : ""} ${dropdownContainerClassName ?? ""} ${bottomSheet ? "mobile-bottom-menu" : ""} ${!noDropdownListStyle ? "tn-dropdown-list" : ""}`}
             style={dropdownContainerStyle}
             aria-labelledby={ariaId}
             ref={dropdownContainerRef}

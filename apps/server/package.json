@@ -51,7 +51,6 @@
     "@triliumnext/backup-container": "workspace:*",
     "@triliumnext/commons": "workspace:*",
     "@triliumnext/core": "workspace:*",
-    "@triliumnext/express-partial-content": "workspace:*",
     "@triliumnext/highlightjs": "workspace:*",
     "@types/better-sqlite3": "9.6.0",
     "@types/cls-hooked": "4.3.9",

@@ -57,3 +57,17 @@
         }
     }
 }
+
+/* On a phone the buttons drop below the path rather than standing beside it: their labels do not
+   wrap, so the third column took 143px of 325px and left the path spelling itself down a column
+   81px wide. They keep the text's indent, and wrap between themselves once there are two. */
+body.mobile .backup-location .tn-card-section {
+    grid-template-columns: auto 1fr;
+
+    .backup-location-actions {
+        grid-column: 2;
+        grid-row: auto;
+        flex-wrap: wrap;
+        margin-top: 8px;
+    }
+}

@@ -634,9 +634,6 @@ importers:
       '@triliumnext/core':
         specifier: workspace:*
         version: link:../../packages/trilium-core
-      '@triliumnext/express-partial-content':
-        specifier: workspace:*
-        version: link:../../packages/express-partial-content
       '@triliumnext/highlightjs':
         specifier: workspace:*
         version: link:../../packages/highlightjs
@@ -1285,8 +1282,6 @@ importers:
       preact:
         specifier: 10.29.8
         version: 10.29.8(preact-render-to-string@6.7.0)
-
-  packages/express-partial-content: {}
 
   packages/highlightjs:
     dependencies:

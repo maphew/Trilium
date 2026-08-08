@@ -301,7 +301,8 @@ export function registerRoutes(router: BrowserRouter): void {
     apiRoute("get", "/api/system-checks", () => ({ isCpuArchMismatch: false }));
 }
 
-function bootstrapRoute(): BootstrapDefinition {
+/** The request as `apiRoute` hands it over: the Express-like wrapper, not the raw {@link BrowserRequest}. */
+function bootstrapRoute(req: { query: Record<string, string | undefined> }): BootstrapDefinition {
     const assetPath = ".";
 
     const isDbInitialized = sql_init.isDbInitialized();
@@ -309,7 +310,9 @@ function bootstrapRoute(): BootstrapDefinition {
         ...getSharedBootstrapItems(assetPath, isDbInitialized),
         isDev: import.meta.env.DEV,
         isStandalone: true,
-        isMainWindow: true,
+        // A window torn off into its own popup carries `?extraWindow`, same as on the server. It has
+        // to be told, or it restores the saved tab set on load and then writes its own back over it.
+        isMainWindow: !req.query.extraWindow,
         isElectron: false,
         hasNativeTitleBar: false,
         hasBackgroundEffects: false,

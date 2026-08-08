@@ -1,7 +1,8 @@
-import { cls, options as optionService } from "@triliumnext/core";
 import type { Request, Response } from "express";
 import { beforeEach, describe, expect, it } from "vitest";
 
+import * as cls from "../../services/context.js";
+import optionService from "../../services/options.js";
 import fontsRoute from "./fonts.js";
 
 function fakeRes() {

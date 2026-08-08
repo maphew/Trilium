@@ -1,5 +1,4 @@
 import { routes } from "@triliumnext/core";
-import { createPartialContentHandler } from "@triliumnext/express-partial-content";
 import express from "express";
 import rateLimit from "express-rate-limit";
 
@@ -22,7 +21,6 @@ import clipperRoute from "./api/clipper.js";
 import databaseRoute from "./api/database.js";
 import etapiTokensApiRoutes from "./api/etapi_tokens.js";
 import filesRoute from "./api/files.js";
-import fontsRoute from "./api/fonts.js";
 // API routes
 import llmChatRoute from "./api/llm_chat.js";
 import llmSpecialNotesRoute from "./api/llm_special_notes.js";
@@ -44,7 +42,6 @@ import setupRoute from "./setup.js";
 
 const GET = "get",
     PST = "post",
-    PUT = "put",
     PATCH = "patch",
     DEL = "delete";
 
@@ -112,34 +109,11 @@ function register(app: express.Application) {
         csrfMiddleware
     });
 
-    route(PUT, "/api/notes/:noteId/file", [auth.checkApiAuthOrElectron, uploadMiddlewareWithErrorHandling, csrfMiddleware], filesRoute.updateFile, apiResultHandler);
-    asyncRoute(
-        GET,
-        "/api/notes/:noteId/open-partial",
-        [auth.checkApiAuthOrElectron],
-        createPartialContentHandler(filesRoute.fileContentProvider, {
-            debug: (string, extra) => {
-                console.log(string, extra);
-            }
-        })
-    );
     apiRoute(PST, "/api/notes/:noteId/save-to-tmp-dir", filesRoute.saveNoteToTmpDir);
     apiRoute(PST, "/api/notes/:noteId/upload-modified-file", filesRoute.uploadModifiedFileToNote);
 
-    asyncRoute(
-        GET,
-        "/api/attachments/:attachmentId/open-partial",
-        [auth.checkApiAuthOrElectron],
-        createPartialContentHandler(filesRoute.attachmentContentProvider, {
-            debug: (string, extra) => {
-                console.log(string, extra);
-            }
-        })
-    );
-
     apiRoute(PST, "/api/attachments/:attachmentId/save-to-tmp-dir", filesRoute.saveAttachmentToTmpDir);
     apiRoute(PST, "/api/attachments/:attachmentId/upload-modified-file", filesRoute.uploadModifiedFileToAttachment);
-    route(PUT, "/api/attachments/:attachmentId/file", [auth.checkApiAuthOrElectron, uploadMiddlewareWithErrorHandling, csrfMiddleware], filesRoute.updateAttachment, apiResultHandler);
 
     apiRoute(GET, "/api/metrics", metricsRoute.getMetrics);
     apiRoute(GET, "/api/system-checks", systemInfoRoute.systemChecks);
@@ -196,7 +170,6 @@ function register(app: express.Application) {
     asyncRoute(PST, "/api/sender/image", [auth.checkEtapiToken, uploadMiddlewareWithErrorHandling], senderRoute.uploadImage, apiResultHandler);
     asyncRoute(PST, "/api/sender/note", [auth.checkEtapiToken], senderRoute.saveNote, apiResultHandler);
 
-    route(GET, "/api/fonts", [auth.checkApiAuthOrElectron], fontsRoute.getFontCss);
     // POST rather than GET: the URL would otherwise sit in the query string of every access-log
     // line (Trilium's own, and any reverse proxy in front of it), and a pasted URL can carry a
     // one-time token or a signed signature. The body is not logged.
@@ -228,8 +201,6 @@ function register(app: express.Application) {
     asyncApiRoute(PST, "/api/ocr/process-attachment/:attachmentId", ocrRoute.processAttachmentOCR);
     asyncApiRoute(PST, "/api/ocr/batch-process", ocrRoute.batchProcessOCR);
     asyncApiRoute(GET, "/api/ocr/batch-progress", ocrRoute.getBatchProgress);
-    asyncApiRoute(GET, "/api/ocr/notes/:noteId/text", ocrRoute.getNoteOCRText);
-    asyncApiRoute(GET, "/api/ocr/attachments/:attachmentId/text", ocrRoute.getAttachmentOCRText);
 
     app.use("", router);
 }

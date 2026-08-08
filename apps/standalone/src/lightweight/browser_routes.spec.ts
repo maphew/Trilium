@@ -50,6 +50,59 @@ describe("registerRoutes (real wiring)", () => {
         expect(typeof data.triliumVersion).toBe("string");
     });
 
+    it("marks a plain window as the main one, and `?extraWindow` as a detached one", async () => {
+        const main = parseJson((await router.dispatch("GET", "http://localhost/bootstrap")).body) as Record<string, unknown>;
+        expect(main.isMainWindow).toBe(true);
+
+        // The detached window must not restore or persist `openNoteContexts`, otherwise it
+        // overwrites the tab set of the window it was opened from. See TabManager.
+        const extra = parseJson((await router.dispatch("GET", "http://localhost/bootstrap?extraWindow=1")).body) as Record<string, unknown>;
+        expect(extra.isMainWindow).toBe(false);
+    });
+
+    // The upload path end to end: a real FormData body, parsed by the router into the `req.file`
+    // the handler reads. What the PDF viewer saves annotations through, and what "upload new
+    // revision" sends — on the server multer builds that object, here the router does.
+    it("writes an uploaded file over a note", async () => {
+        const created = parseJson((await router.dispatch("POST", "http://localhost/api/notes/root/children?target=into",
+            { title: "notes.txt", type: "file", mime: "text/plain", content: "original" })).body) as { note: { noteId: string } };
+        const { noteId } = created.note;
+
+        const form = new FormData();
+        form.append("upload", new File([ "uploaded" ], "notes.txt", { type: "text/plain" }));
+        // One Response for both: each encoding of a FormData picks its own boundary, so a body and a
+        // content-type taken from two of them describe different messages and parse as neither.
+        const encoded = new Response(form);
+        const contentType = encoded.headers.get("content-type") ?? "";
+        const body = await encoded.arrayBuffer();
+
+        const res = await router.dispatch("PUT", `http://localhost/api/notes/${noteId}/file?replace=1`, body, {
+            "content-type": contentType
+        });
+
+        expect(res.status).toBe(200);
+        expect(parseJson(res.body)).toEqual({ uploaded: true });
+        expect(text((await router.dispatch("GET", `http://localhost/api/notes/${noteId}/open`)).body)).toBe("uploaded");
+    });
+
+    // The whole standalone media path in one request: the core handler slices the note's content,
+    // the mock response carries the slice out as a raw response, and the router turns the view into
+    // exactly those bytes. This is what an <audio>/<video> element does every time it seeks.
+    it("answers a byte range on open-partial with 206 and just that slice", async () => {
+        const created = parseJson((await router.dispatch("POST", "http://localhost/api/notes/root/children?target=into",
+            { title: "clip.mp3", type: "file", mime: "audio/mpeg", content: "0123456789" })).body) as { note: { noteId: string } };
+        const { noteId } = created.note;
+
+        const res = await router.dispatch("GET", `http://localhost/api/notes/${noteId}/open-partial?v=1`, undefined, {
+            range: "bytes=2-5"
+        });
+
+        expect(res.status).toBe(206);
+        expect(text(res.body)).toBe("2345");
+        expect(res.headers["Content-Range"]).toBe("bytes 2-5/10");
+        expect(res.headers["Accept-Ranges"]).toBe("bytes");
+    });
+
     it("returns the setup payload when the database is not initialized", async () => {
         vi.spyOn(sql_init, "isDbInitialized").mockReturnValue(false);
         const data = parseJson((await router.dispatch("GET", "http://localhost/bootstrap")).body) as Record<string, unknown>;
