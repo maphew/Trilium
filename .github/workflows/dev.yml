@@ -513,17 +513,18 @@ jobs:
           disable_search: true
           fail_ci_if_error: false
 
+  # Deliberately ungated: this validates that the client and server build and
+  # that the image assembles, none of which depends on a test outcome. Waiting
+  # for the suites put ~4m of Docker work in series behind the slowest of them
+  # for no signal. It now runs alongside them, so the workflow finishes with the
+  # longest test job rather than after it.
+  #
+  # The trade is that a push whose tests fail still spends runner time building
+  # images. That is the accepted cost of taking the Docker work off the critical
+  # path; the concurrency group above still cancels superseded runs.
   build_docker:
     name: Build Docker image
     runs-on: ubuntu-latest
-    # Unchanged semantics: Docker still waits for every suite. test_server is the
-    # longest of them, so listing all of them costs nothing on the critical path,
-    # and the suites that were skipped complete immediately.
-    needs:
-      - test_dev
-      - test_server
-      - test_standalone
-      - test_ckeditor5_merge
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
@@ -551,6 +552,10 @@ jobs:
   test_docker:
     name: Check Docker build
     runs-on: ubuntu-latest
+    # Kept: build_docker populates the type=gha buildx cache this job reads. The
+    # two together (~4m) still finish well inside the slowest test job, so
+    # breaking the chain would buy nothing and would leave both jobs racing to
+    # write the same cache.
     needs:
       - build_docker
     strategy:
