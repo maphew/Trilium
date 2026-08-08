@@ -27,6 +27,7 @@ import FormToggle from "../../react/FormToggle";
 import { useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import Icon from "../../react/Icon";
 import Modal from "../../react/Modal";
+import SetupForm from "../helpers/SetupForm";
 import DatabaseFileList from "./components/DatabaseFileList";
 import OptionsPageHeader from "./components/OptionsPageHeader";
 
@@ -72,14 +73,22 @@ function StoredBackupSettings() {
  * schedule or format to configure, because nothing is ever stored.
  */
 function StandaloneBackupSettings() {
-    return <OptionsPageHeader below={<StandaloneBackupStatus />} />;
+    return (
+        <>
+            <OptionsPageHeader />
+            <StandaloneBackupSection />
+        </>
+    );
 }
 
 /**
- * The whole of what the standalone platform offers: back up, and restore. Both leave this screen
- * behind, because both need the database held still, which only the setup screen provides.
+ * The whole of what the standalone platform offers: back up, and restore.
+ *
+ * A page rather than a row of buttons, because there is nothing else on it: no list of backups, no
+ * location and no schedule, since nothing is ever stored. Both actions leave for the setup screen,
+ * which is where the database can be held still long enough to be copied or replaced.
  */
-export function StandaloneBackupStatus() {
+export function StandaloneBackupSection() {
     /**
      * Restarts into the setup screen, where the backup is actually taken.
      *
@@ -97,26 +106,28 @@ export function StandaloneBackupStatus() {
     }
 
     return (
-        <div className="backup-status">
-            <span className="backup-status-summary">{t("backup.download_only_summary")}</span>
+        <div className="options-section standalone-backup">
+            <SetupForm icon="bx bx-data">
+                <h3>{t("backup.standalone_heading")}</h3>
+                <p>{t("backup.standalone_description")}</p>
 
-            {canBootToSetup() && (
-                <>
-                    <Button
-                        name="restore-backup-button"
-                        text={t("backup.restore_backup")}
-                        size="micro"
-                        onClick={() => bootToSetup({ targetScreen: "restore-backup" })}
-                    />
+                {canBootToSetup() && (
+                    <div className="standalone-backup-actions">
+                        <Button
+                            name="backup-database-now-button"
+                            text={t("backup.create_and_download")}
+                            kind="primary"
+                            onClick={() => void backUp()}
+                        />
 
-                    <Button
-                        name="backup-database-now-button"
-                        text={t("backup.backup_now")}
-                        size="micro"
-                        onClick={() => void backUp()}
-                    />
-                </>
-            )}
+                        <Button
+                            name="restore-backup-button"
+                            text={t("backup.upload_and_restore")}
+                            onClick={() => bootToSetup({ targetScreen: "restore-backup" })}
+                        />
+                    </div>
+                )}
+            </SetupForm>
         </div>
     );
 }

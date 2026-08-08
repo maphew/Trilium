@@ -21,7 +21,7 @@ vi.mock("../../../services/i18n", async (importOriginal) => ({
 }));
 
 // Import AFTER the mocks (vi.mock is hoisted, but the component import must resolve the mocked deps).
-import { BackupStatus, StandaloneBackupStatus } from "./backup";
+import { BackupStatus, StandaloneBackupSection } from "./backup";
 
 let container: HTMLDivElement | undefined;
 
@@ -80,7 +80,7 @@ describe("backing up where a backup is a download (standalone)", () => {
     const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
     it("asks before restarting, then goes to the setup screen's backup step", async () => {
-        renderInto(<StandaloneBackupStatus />);
+        renderInto(<StandaloneBackupSection />);
 
         backupNowButton()?.click();
         await settle();
@@ -92,7 +92,7 @@ describe("backing up where a backup is a download (standalone)", () => {
 
     it("does nothing at all when the restart is declined", async () => {
         mocks.confirm.mockResolvedValue(false);
-        renderInto(<StandaloneBackupStatus />);
+        renderInto(<StandaloneBackupSection />);
 
         backupNowButton()?.click();
         await settle();
@@ -103,7 +103,7 @@ describe("backing up where a backup is a download (standalone)", () => {
     it("offers neither action where the app cannot start itself again", () => {
         // Both of them restart the application, so neither can be honoured without that.
         mocks.canBootToSetup.mockReturnValue(false);
-        renderInto(<StandaloneBackupStatus />);
+        renderInto(<StandaloneBackupSection />);
 
         expect(backupNowButton()).toBeNull();
         expect(restoreButton()).toBeNull();
