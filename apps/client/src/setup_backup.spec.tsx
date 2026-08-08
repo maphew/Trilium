@@ -52,10 +52,14 @@ describe("backing up from the setup screen", () => {
         renderScreen();
         await settle();
 
-        expect(container.textContent).toContain("setup.backup-database");
+        expect(container.textContent).toContain("setup.backup-data");
+        // The name is on the screen before the download, since it is what the user goes looking
+        // for afterwards, and it is the one part of the line that is not boilerplate.
+        expect(container.querySelector(".backup-download-file strong")?.textContent)
+            .toBe("Backup 2026-08-08 10-00-00.tnbackup");
         expect(mocks.startBackupDownload).not.toHaveBeenCalled();
         // Nothing here is destructive, so leaving is available from the start.
-        expect(button("setup.continue")?.disabled).toBe(false);
+        expect(button("setup.backup-finish")?.disabled).toBe(false);
     });
 
     it("downloads on request, and says so while it runs and once it is done", async () => {
@@ -66,18 +70,28 @@ describe("backing up from the setup screen", () => {
         renderScreen();
         await settle();
 
-        button("setup.existing-data-download")?.click();
+        button("setup.backup-download")?.click();
         await settle();
 
         expect(mocks.startBackupDownload).toHaveBeenCalledWith("Backup 2026-08-08 10-00-00.tnbackup");
-        expect(container.textContent).toContain("setup.existing-data-downloading-in-progress");
+        expect(container.textContent).toContain("setup.backup-downloading");
+        // Said while it runs, because leaving the screen is exactly what would break it.
+        expect(container.textContent).toContain("setup.backup-do-not-close");
+        // The running download has the screen to itself: nothing to press, nothing to re-read.
+        expect(button("setup.backup-download")).toBeUndefined();
+        expect(container.querySelector(".backup-download-file")).toBeNull();
         // Leaving mid-stream would abandon the download, so that one moment is held.
-        expect(button("setup.continue")?.disabled).toBe(true);
+        expect(button("setup.backup-finish")?.disabled).toBe(true);
 
         finish({ status: "done" });
         await settle();
-        expect(container.textContent).toContain("setup.existing-data-downloading-done");
-        expect(button("setup.backup-database-finish")?.disabled).toBe(false);
+        // The outcome is stated where it cannot be missed, and taking another copy is offered again.
+        expect(container.querySelector(".backup-download-outcome")?.textContent)
+            .toContain("setup.backup-downloaded");
+        expect(container.textContent).not.toContain("setup.backup-do-not-close");
+        expect(button("setup.backup-download")?.disabled).toBe(false);
+        expect(container.querySelector(".backup-download-file")).not.toBeNull();
+        expect(button("setup.backup-finish")?.disabled).toBe(false);
     });
 
     it("shows what stopped a failed download, and offers another go", async () => {
@@ -85,20 +99,23 @@ describe("backing up from the setup screen", () => {
         renderScreen();
         await settle();
 
-        button("setup.existing-data-download")?.click();
+        button("setup.backup-download")?.click();
         await settle();
 
-        expect(container.textContent).toContain("the stream broke");
-        expect(button("setup.existing-data-download")?.disabled).toBe(false);
+        expect(container.querySelector(".backup-download-outcome")?.textContent)
+            .toContain("the stream broke");
+        // Trying again is the way out, so the button and the name it writes are both back.
+        expect(button("setup.backup-download")?.disabled).toBe(false);
+        expect(container.querySelector(".backup-download-file")).not.toBeNull();
         // Still not trapped: the way back to the notes stays open through a failure.
-        expect(button("setup.continue")?.disabled).toBe(false);
+        expect(button("setup.backup-finish")?.disabled).toBe(false);
     });
 
     it("hands back to the application when it is done with", async () => {
         renderScreen();
         await settle();
 
-        button("setup.continue")?.click();
+        button("setup.backup-finish")?.click();
         await settle();
 
         expect(onDone).toHaveBeenCalled();

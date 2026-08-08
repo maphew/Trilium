@@ -340,22 +340,22 @@ describe("backing up straight to a download on standalone", () => {
         await reachDownloadScreen();
 
         // Arrived, but nothing downloads until the user says so, and Continue is not on offer.
-        expect(container.textContent).toContain("setup.existing-data-downloading");
+        expect(container.textContent).toContain("setup.backup-data");
         expect(downloadDatabase).not.toHaveBeenCalled();
         expect(arrivingButton("setup.continue")?.disabled).toBe(true);
         expect(serverMock.post).not.toHaveBeenCalledWith("setup/existing/backup");
 
-        arrivingButton("setup.existing-data-download")?.click();
+        arrivingButton("setup.backup-download")?.click();
         await settle();
         expect(downloadDatabase).toHaveBeenCalledWith(
             expect.stringMatching(/^Backup \d{4}-\d{2}-\d{2} \d{2}-\d{2}-\d{2}\.tnbackup$/),
             "123456");
-        expect(container.textContent).toContain("setup.existing-data-downloading-in-progress");
+        expect(container.textContent).toContain("setup.backup-downloading");
         expect(arrivingButton("setup.continue")?.disabled).toBe(true);
 
         finish({ status: "done" });
         await settle();
-        expect(container.textContent).toContain("setup.existing-data-downloading-done");
+        expect(container.textContent).toContain("setup.backup-downloaded");
         expect(arrivingButton("setup.continue")?.disabled).toBe(false);
 
         arrivingButton("setup.continue")?.click();
@@ -368,13 +368,13 @@ describe("backing up straight to a download on standalone", () => {
         downloadDatabase.mockResolvedValue({ status: "failed", message: "the stream broke" });
         await reachDownloadScreen();
 
-        arrivingButton("setup.existing-data-download")?.click();
+        arrivingButton("setup.backup-download")?.click();
         await settle();
 
         expect(container.textContent).toContain("the stream broke");
         expect(arrivingButton("setup.continue")?.disabled).toBe(true);
         // The button is back, because trying again is the way out.
-        expect(arrivingButton("setup.existing-data-download")?.disabled).toBe(false);
+        expect(arrivingButton("setup.backup-download")?.disabled).toBe(false);
         expect(serverMock.post).not.toHaveBeenCalledWith("setup/existing/delete");
     });
 

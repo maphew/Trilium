@@ -304,8 +304,7 @@ export function ExistingDataDownloading({ download, onContinue, onCancel }: {
     return (
         <SetupPage
             className="existing-data-downloading top-aligned"
-            title={t("setup.existing-data-downloading")}
-            description={t("setup.existing-data-downloading-description", { fileName: download.fileName })}
+            title={t("setup.backup-data")}
             illustration={<Icon icon="bx bx-download" className="illustration-icon" />}
             footer={
                 <>

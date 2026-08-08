@@ -62,28 +62,46 @@ export function useBackupDownload(): BackupDownload {
  * for its own sake are the same thing to a user.
  */
 export function BackupDownloadPanel({ download }: { download: BackupDownload }) {
-    return (
-        <div class="backup-download">
-            <Button
-                text={t("setup.existing-data-download")}
-                icon="bx bx-download"
-                kind="primary"
-                disabled={download.state === "running"}
-                onClick={download.start}
-            />
-
-            {download.state === "running" && (
+    // A download in flight takes the screen over: the file it is writing is named in the browser's
+    // own downloads, and offering the button again while it runs only invites a second copy of a
+    // download the user has just been asked not to disturb.
+    if (download.state === "running") {
+        return (
+            <div class="backup-download">
                 <div class="backup-download-message">
                     <span class="spinner-border" role="status" aria-hidden="true" />
-                    <span>{t("setup.existing-data-downloading-in-progress")}</span>
+                    <span>{t("setup.backup-downloading")}</span>
                 </div>
-            )}
-            {download.state === "done" && <span>{t("setup.existing-data-downloading-done")}</span>}
-            {download.state === "failed" && (
-                <Admonition type="warning" className="backup-download-error">
-                    {download.error ?? t("setup.existing-data-download-failed")}
+                <div class="backup-download-hint">{t("setup.backup-do-not-close")}</div>
+            </div>
+        );
+    }
+
+    return (
+        <div class="backup-download">
+            {/* What became of the last attempt comes first: it is the answer to the button below
+                it, and the button is what the user does next either way. */}
+            {download.state === "done" && (
+                <Admonition type="note" className="backup-download-outcome">
+                    {t("setup.backup-downloaded")}
                 </Admonition>
             )}
+            {download.state === "failed" && (
+                <Admonition type="warning" className="backup-download-outcome">
+                    {download.error ?? t("setup.backup-download-failed")}
+                </Admonition>
+            )}
+
+            <div class="backup-download-file">
+                {t("setup.backup-file")} <strong>{download.fileName}</strong>
+            </div>
+
+            <Button
+                text={t("setup.backup-download")}
+                icon="bx bx-download"
+                kind="primary"
+                onClick={download.start}
+            />
         </div>
     );
 }
@@ -104,12 +122,11 @@ export default function SetupBackupDatabase({ onDone }: { onDone: () => void }) 
     return (
         <SetupPage
             className="setup-backup-database top-aligned"
-            title={t("setup.backup-database")}
-            description={t("setup.backup-database-description", { fileName: download.fileName })}
+            title={t("setup.backup-data")}
             illustration={<Icon icon="bx bx-archive-out" className="illustration-icon" />}
             footer={
                 <Button
-                    text={download.state === "done" ? t("setup.backup-database-finish") : t("setup.continue")}
+                    text={t("setup.backup-finish")}
                     kind="primary"
                     disabled={download.state === "running"}
                     onClick={onDone}
@@ -117,10 +134,6 @@ export default function SetupBackupDatabase({ onDone }: { onDone: () => void }) 
             }
         >
             <BackupDownloadPanel download={download} />
-
-            <Admonition type="note" className="setup-backup-note">
-                {t("setup.backup-database-note")}
-            </Admonition>
         </SetupPage>
     );
 }
