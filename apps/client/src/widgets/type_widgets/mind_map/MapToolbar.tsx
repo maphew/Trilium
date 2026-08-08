@@ -127,9 +127,9 @@ export default function MapToolbar({ mind }: MapToolbarProps) {
 
 /**
  * The bar standing in the top corner opposite: which way the map's branches run from its root —
- * to the left of it, to the right of it, or to either side.
+ * to the left of it, to the right of it, to either side, or below it.
  *
- * The three are a choice rather than three things to do, so the one the map is laid out by is shown
+ * The four are a choice rather than four things to do, so the one the map is laid out by is shown
  * pressed. Their marks are Mind Elixir's own, kept because they draw the very thing they set and
  * nothing in Trilium's icon set says it (see MapToolbar.css).
  */
@@ -153,7 +153,8 @@ export function DirectionToolbar({ mind }: MapToolbarProps) {
 }
 
 /**
- * The ways a map is laid out, in the order Mind Elixir offered them: each with the value
+ * The ways a map is laid out, in the order Mind Elixir offered them — the downward one last, being
+ * the one it added last, and the only one its own bar never carried: each with the value
  * `mind.direction` reads as, the mark it wears, and the call that lays the map out that way.
  *
  * Named afresh on every render, which follows a change of locale.
@@ -177,6 +178,12 @@ function buildDirections() {
             icon: "mind-map-direction-side",
             label: t("mind-map.direction-side"),
             apply: (mind: MindElixirInstance) => mind.initSide()
+        },
+        {
+            value: 3,
+            icon: "mind-map-direction-down",
+            label: t("mind-map.direction-down"),
+            apply: (mind: MindElixirInstance) => mind.initDown()
         }
     ];
 }
