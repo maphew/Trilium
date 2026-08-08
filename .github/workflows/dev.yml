@@ -440,12 +440,16 @@ jobs:
 
       # Vitest names blobs `.vitest-reports/blob-<index>-<count>.json`, so the two
       # shards produce distinct filenames and merge-multiple cannot clobber them.
+      # That directory is dot-prefixed, and upload-artifact skips hidden paths
+      # unless told otherwise — without include-hidden-files it silently matches
+      # nothing.
       - name: Upload the shard blob report
         uses: actions/upload-artifact@v7
         if: ${{ !cancelled() && steps.test-ckeditor5.outcome == 'success' }}
         with:
           name: ckeditor5-blob-${{ matrix.shard }}
           path: packages/ckeditor5/.vitest-reports/
+          include-hidden-files: true
           if-no-files-found: error
           retention-days: 1
 
