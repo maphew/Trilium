@@ -2082,6 +2082,7 @@
     "create_and_download": "Download backup",
     "upload_and_restore": "Restore backup",
     "restart_for_backup": "Trilium needs to restart to back up your notes. You can go back to them as soon as it's done.\n\nRestart now?",
+    "restart_for_restore": "Trilium needs to restart before the restoration process. Once the restoration process is started, you will be prompted to back up your existing data before it's overwritten, so nothing is lost.\n\nRestart now?",
     "no_backup_yet": "no backup yet",
     "download": "Download",
     "options_title": "Backup options",

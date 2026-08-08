@@ -51,13 +51,30 @@ afterEach(() => {
     }
 });
 
+/** Lets a click's own promise chain settle, since confirming is asynchronous. */
+const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
 describe("restoring a backup from the options", () => {
-    it("sends the app into the setup screen, at the restore step", () => {
+    it("asks before restarting, then sends the app into the setup screen's restore step", async () => {
         renderInto(<BackupStatus backups={[]} refreshCallback={vi.fn()} />);
 
         restoreButton()?.click();
+        await settle();
 
+        // The same question on every platform that can restart itself, since the restart, and
+        // what it leads to, are the same thing everywhere.
+        expect(mocks.confirm).toHaveBeenCalledWith("backup.restart_for_restore");
         expect(mocks.bootToSetup).toHaveBeenCalledWith({ targetScreen: "restore-backup" });
+    });
+
+    it("stays put when the restart is declined", async () => {
+        mocks.confirm.mockResolvedValue(false);
+        renderInto(<BackupStatus backups={[]} refreshCallback={vi.fn()} />);
+
+        restoreButton()?.click();
+        await settle();
+
+        expect(mocks.bootToSetup).not.toHaveBeenCalled();
     });
 
     it("is not offered where the app cannot start itself again", () => {
@@ -75,9 +92,6 @@ describe("backing up where a backup is a download (standalone)", () => {
     function backupNowButton(): HTMLButtonElement | null {
         return container?.querySelector<HTMLButtonElement>("button[name='backup-database-now-button']") ?? null;
     }
-
-    /** Lets the click's own promise chain settle, since confirming is asynchronous. */
-    const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
 
     it("asks before restarting, then goes to the setup screen's backup step", async () => {
         renderInto(<StandaloneBackupSection />);
@@ -98,6 +112,16 @@ describe("backing up where a backup is a download (standalone)", () => {
         await settle();
 
         expect(mocks.bootToSetup).not.toHaveBeenCalled();
+    });
+
+    it("asks before restarting for a restore, and goes to that step", async () => {
+        renderInto(<StandaloneBackupSection />);
+
+        restoreButton()?.click();
+        await settle();
+
+        expect(mocks.confirm).toHaveBeenCalledWith("backup.restart_for_restore");
+        expect(mocks.bootToSetup).toHaveBeenCalledWith({ targetScreen: "restore-backup" });
     });
 
     it("offers neither action where the app cannot start itself again", () => {

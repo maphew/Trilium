@@ -89,22 +89,6 @@ function StandaloneBackupSettings() {
  * which is where the database can be held still long enough to be copied or replaced.
  */
 export function StandaloneBackupSection() {
-    /**
-     * Restarts into the setup screen, where the backup is actually taken.
-     *
-     * A backup is streamed off the live database over minutes, and a page of it read after a write
-     * would not match the pages read before: the copy has to come from a database nothing is
-     * touching. Only setup mode gives that — the database is open, but becca, sync and migrations
-     * are all held back — so the backup is taken there and the instance comes straight back here.
-     */
-    async function backUp() {
-        if (!await dialogService.confirm(t("backup.restart_for_backup"))) {
-            return;
-        }
-
-        await bootToSetup({ targetScreen: "backup-database" });
-    }
-
     return (
         <div className="options-section standalone-backup">
             <SetupForm icon="bx bx-data">
@@ -117,19 +101,50 @@ export function StandaloneBackupSection() {
                             name="backup-database-now-button"
                             text={t("backup.create_and_download")}
                             kind="primary"
-                            onClick={() => void backUp()}
+                            onClick={() => void backUpInSetup()}
                         />
 
                         <Button
                             name="restore-backup-button"
                             text={t("backup.upload_and_restore")}
-                            onClick={() => bootToSetup({ targetScreen: "restore-backup" })}
+                            onClick={() => void restoreInSetup()}
                         />
                     </div>
                 )}
             </SetupForm>
         </div>
     );
+}
+
+/**
+ * Restarts into the setup screen, where the backup is actually taken.
+ *
+ * A backup is streamed off the live database over minutes, and a page of it read after a write
+ * would not match the pages read before: the copy has to come from a database nothing is touching.
+ * Only setup mode gives that — the database is open, but becca, sync and migrations are all held
+ * back — so the backup is taken there and the instance comes straight back here.
+ */
+async function backUpInSetup() {
+    if (!await dialogService.confirm(t("backup.restart_for_backup"))) {
+        return;
+    }
+
+    await bootToSetup({ targetScreen: "backup-database" });
+}
+
+/**
+ * Restarts into the setup screen, which is where a backup can replace the database.
+ *
+ * Asked about on every platform that can restart itself, because the restart is the surprising part
+ * and because what follows it reads as destructive until the user knows they will be offered a copy
+ * of what is about to be replaced.
+ */
+async function restoreInSetup() {
+    if (!await dialogService.confirm(t("backup.restart_for_restore"))) {
+        return;
+    }
+
+    await bootToSetup({ targetScreen: "restore-backup" });
 }
 
 interface BackupStatusProps {
@@ -156,7 +171,7 @@ export function BackupStatus({ backups, refreshCallback }: BackupStatusProps) {
                     name="restore-backup-button"
                     text={t("backup.restore_backup")}
                     size="micro"
-                    onClick={() => bootToSetup({ targetScreen: "restore-backup" })}
+                    onClick={() => void restoreInSetup()}
                 />
             )}
 
