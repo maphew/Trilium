@@ -3,11 +3,15 @@ import {
     peekBackupContainer,
     writeBackupContainer
 } from "@triliumnext/backup-container";
-import type { DatabaseBackup, SetupExistingBackup } from "@triliumnext/commons";
+import type {
+    DatabaseBackup,
+    SetupBackupSettings,
+    SetupExistingBackup
+} from "@triliumnext/commons";
 import { BackupOptionsService, BackupService, getLog, sync_mutex as syncMutexService, utils as coreUtils, ws } from "@triliumnext/core";
+import type { Response } from "express";
 import fs from "fs";
 import fsp from "fs/promises";
-import type { Response } from "express";
 import { t } from "i18next";
 import path from "path";
 
@@ -105,37 +109,30 @@ export default class ServerBackupService extends BackupService {
     }
 
     /**
-     * Writes a backup under the given name, and says what was written.
+     * Writes the backup the setup screen asked for, and says what was written.
      *
-     * The name is used as it stands, spaces and all, because the setup screen shows it to the user
-     * and the user then goes looking for it in a file manager. It never reaches a shell, and the
-     * directory is this instance's own, so the sanitising `backupNow` does for names that arrive
-     * from a schedule would only make this one harder to read.
+     * The name is used as it stands, spaces and all, because the screen shows it to the user and
+     * the user then goes looking for it in a file manager. It is safe to use that way because it
+     * has already been reduced to a single file name on its way in, which is what keeps a name
+     * arriving over a request from naming somewhere else entirely.
      */
     override async backupAs(
-        baseName: string,
+        settings: SetupBackupSettings,
         onProgress?: (fraction: number) => void
     ): Promise<SetupExistingBackup> {
-        const written = await syncMutexService.doExclusively(async () => {
-            const format = await this.resolveFormat();
+        const filePath = await syncMutexService.doExclusively(async () => {
+            const format = await this.resolveFormat(settings);
             const directory = (format.keepLocal ? null : this.getCustomBackupDir()) ?? getDefaultBackupDir();
 
-            return {
-                filePath: await writeBackup(directory, baseName, format, "default", onProgress),
-                // What was actually written, not what was asked for: encryption falls back to an
-                // unencrypted local copy where the passphrase cannot be read, and the screen that
-                // tells the user to keep their password safe must not appear over one of those.
-                encrypted: format.passphrase !== null
-            };
+            return await writeBackup(directory, settings.name, format, "default", onProgress);
         });
-        const stat = fs.statSync(written.filePath);
+        const stat = fs.statSync(filePath);
 
         return {
-            fileName: path.basename(written.filePath),
-            filePath: written.filePath,
-            directoryPath: path.dirname(written.filePath),
-            fileSize: stat.size,
-            encrypted: written.encrypted
+            fileName: path.basename(filePath),
+            filePath,
+            directoryPath: path.dirname(filePath),
+            fileSize: stat.size
         };
     }
 
@@ -181,20 +178,38 @@ export default class ServerBackupService extends BackupService {
         return fs.existsSync(resolvedPath) ? resolvedPath : null;
     }
 
+    /** Whether there is a passphrase to be had, without letting the caller learn what it is. */
+    override async hasStoredPassphrase(): Promise<boolean> {
+        return !!(await this.config.getPassphrase?.());
+    }
+
     /**
-     * Settles what the backup is written as. Compression alone needs nothing but the option;
-     * encryption also needs a passphrase, and where that cannot be read the backup falls back to
-     * being unencrypted and local rather than not being taken at all.
+     * Settles what the backup is written as, from what the user asked for where they were asked at
+     * all, and from the instance's own options where they were not.
+     *
+     * Compression needs nothing but the answer. Encryption also needs a passphrase, and where the
+     * stored one was asked for and cannot be read the backup falls back to being unencrypted and
+     * local rather than not being taken at all.
+     *
+     * @param settings what the setup screen asked for; absent for the scheduled backups, which run
+     *                 with nobody there to ask.
      */
-    private async resolveFormat(): Promise<BackupFormat> {
+    private async resolveFormat(settings?: SetupBackupSettings): Promise<BackupFormat> {
         // Read leniently: the pre-migration backup runs before the options added by newer versions
         // exist.
         const isEnabled = (name: "backupEnableCompression" | "backupEnableEncryption") =>
             this.options.getOptionOrNull(name) === "true";
 
-        const compress = isEnabled("backupEnableCompression");
-        if (!isEnabled("backupEnableEncryption")) {
-            return { compress, passphrase: null, keepLocal: false };
+        const compress = settings?.compress ?? isEnabled("backupEnableCompression");
+
+        // A backup someone asked for carries the password they typed while asking. Wanting the
+        // stored one instead is a request rather than a value, since the passphrase is kept where
+        // the interface that asked cannot read it.
+        const useStored = settings
+            ? settings.useStoredPassphrase
+            : isEnabled("backupEnableEncryption");
+        if (!useStored) {
+            return { compress, passphrase: settings?.passphrase || null, keepLocal: false };
         }
 
         const passphrase = (await this.config.getPassphrase?.()) ?? null;

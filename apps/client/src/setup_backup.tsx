@@ -1,6 +1,10 @@
 import "./setup_backup.css";
 
-import { defaultBackupName } from "@triliumnext/commons";
+import {
+    defaultBackupName,
+    type SetupBackupDefaults,
+    type SetupBackupSettings
+} from "@triliumnext/commons";
 import type { ComponentChildren } from "preact";
 import { useMemo, useState } from "preact/hooks";
 
@@ -8,10 +12,11 @@ import { backupFileName, startBackupDownload } from "./services/backup_download"
 import { t } from "./services/i18n";
 import Admonition from "./widgets/react/Admonition";
 import Button from "./widgets/react/Button";
-import { Card, CardSection } from "./widgets/react/Card";
+import { Card, CardOption, CardSection } from "./widgets/react/Card";
 import FilesystemFriendlyName from "./widgets/react/FilesystemFriendlyName";
 import FormGroup from "./widgets/react/FormGroup";
 import FormPasswordWithConfirmation from "./widgets/react/FormPasswordWithConfirmation";
+import FormToggle from "./widgets/react/FormToggle";
 import Icon from "./widgets/react/Icon";
 import SetupPage from "./widgets/react/SetupPage";
 
@@ -28,14 +33,6 @@ import SetupPage from "./widgets/react/SetupPage";
  * @module
  */
 
-/** What the user settled on before the backup was taken. */
-export interface BackupSettings {
-    /** What to call it, already reduced to characters a filename can hold. */
-    name: string;
-    /** Empty for a backup anyone can open; anything else encrypts it. */
-    passphrase: string;
-}
-
 /** Where the download stands, and the one thing that can be done about it. */
 export interface BackupDownload {
     fileName: string;
@@ -45,8 +42,15 @@ export interface BackupDownload {
     start: () => void;
 }
 
-/** Owns a download of the file `settings` describes. */
-export function useBackupDownload(settings: BackupSettings): BackupDownload {
+/**
+ * Owns a download of the file `settings` describes.
+ *
+ * Only the name and the password are of any use here: the standalone platform produces its backup
+ * by streaming the live database into a download, and compressing that stream is more than the
+ * low-end devices it exists for can afford, so there is nothing for it to read a compression answer
+ * out of. Nor is there a stored passphrase anywhere in a browser to be asked for.
+ */
+export function useBackupDownload(settings: SetupBackupSettings): BackupDownload {
     const fileName = useMemo(() => backupFileName(settings.name), [ settings.name ]);
     const [ state, setState ] = useState<BackupDownload["state"]>("idle");
     const [ error, setError ] = useState<string>();
@@ -67,16 +71,23 @@ export function useBackupDownload(settings: BackupSettings): BackupDownload {
 }
 
 /**
- * What the backup is called and whether it is locked, asked before it is taken.
+ * What the backup is called, whether it is locked and whether it is compressed, asked before it is
+ * taken.
  *
  * The name matters more than it looks: a downloads folder two months from now is a list of
  * near-identical dated files, and the one thing that tells the user why they made this one is what
- * they called it. It is prefilled so that answering nothing is a perfectly good answer.
+ * they called it. It is prefilled so that answering nothing is a perfectly good answer, and so is
+ * everything else here: a user who has already set up how this instance backs up is shown those
+ * answers rather than asked to make them again.
  *
+ * @param defaults how this instance already backs up, or `null` where none of it is up for
+ *                 discussion — the standalone platform writes its backup by streaming it into a
+ *                 download, which can be neither compressed nor locked with a stored passphrase.
  * @param onContinue the settings to back up under; the screen after this one does the work.
  */
-export function BackupParameters({ onContinue, footer }: {
-    onContinue: (settings: BackupSettings) => void;
+export function BackupParameters({ defaults, onContinue, footer }: {
+    defaults: SetupBackupDefaults | null;
+    onContinue: (settings: SetupBackupSettings) => void;
     /** What sits beside Continue, which differs by the flow this screen was reached through. */
     footer?: ComponentChildren;
 }) {
@@ -84,6 +95,9 @@ export function BackupParameters({ onContinue, footer }: {
     // Null while the two password fields disagree, which is the one state Continue must not accept:
     // a half-typed password would otherwise be dropped and the backup written unlocked.
     const [ passphrase, setPassphrase ] = useState<string | null>("");
+    const [ useStoredPassphrase, setUseStoredPassphrase ] = useState(
+        () => !!defaults?.storedPassphrase && defaults.encrypt);
+    const [ compress, setCompress ] = useState(() => !!defaults?.compress);
 
     return (
         <SetupPage
@@ -97,7 +111,12 @@ export function BackupParameters({ onContinue, footer }: {
                         text={t("setup.continue")}
                         kind="primary"
                         disabled={passphrase === null}
-                        onClick={() => onContinue({ name, passphrase: passphrase ?? "" })}
+                        onClick={() => onContinue({
+                            name,
+                            passphrase: passphrase ?? "",
+                            useStoredPassphrase,
+                            compress
+                        })}
                     />
                 </>
             }
@@ -116,15 +135,52 @@ export function BackupParameters({ onContinue, footer }: {
                         </FormGroup>
                     </CardSection>
 
-                    <CardSection>
-                        <FormPasswordWithConfirmation
-                            optional
-                            label={t("setup.backup-password")}
-                            confirmationLabel={t("setup.backup-password-repeat")}
-                            onChange={setPassphrase}
-                        />
-                        <small class="form-text">{t("setup.backup-password-description")}</small>
-                    </CardSection>
+                    {/* Directly above the fields it replaces, because that is the whole of what it
+                        does: the stored passphrase cannot be shown, so choosing it is the only way
+                        to ask for the password the user has already set up. */}
+                    {defaults?.storedPassphrase && (
+                        <CardOption
+                            name="backup-use-stored-password"
+                            label={t("setup.backup-use-stored-password")}
+                            description={t("setup.backup-use-stored-password-description")}
+                        >
+                            <FormToggle
+                                currentValue={useStoredPassphrase}
+                                onChange={(enabled) => {
+                                    setUseStoredPassphrase(enabled);
+                                    // The fields leave with it, and a pair that is gone reports
+                                    // nothing: a password left half-typed in them would otherwise
+                                    // go on holding Continue disabled from a segment nobody can
+                                    // see, with nothing on screen to explain it.
+                                    if (enabled) {
+                                        setPassphrase("");
+                                    }
+                                }}
+                            />
+                        </CardOption>
+                    )}
+
+                    {!useStoredPassphrase && (
+                        <CardSection>
+                            <FormPasswordWithConfirmation
+                                optional
+                                label={t("setup.backup-password")}
+                                confirmationLabel={t("setup.backup-password-repeat")}
+                                onChange={setPassphrase}
+                            />
+                            <small class="form-text">{t("setup.backup-password-description")}</small>
+                        </CardSection>
+                    )}
+
+                    {defaults && (
+                        <CardOption
+                            name="backup-compress"
+                            label={t("setup.backup-compress")}
+                            description={t("setup.backup-compress-description")}
+                        >
+                            <FormToggle currentValue={compress} onChange={setCompress} />
+                        </CardOption>
+                    )}
                 </Card>
             </form>
         </SetupPage>
@@ -192,7 +248,7 @@ export function BackupDownloadPanel({ download }: { download: BackupDownload }) 
  * @param onDone the backup is over, one way or another; leave the wizard.
  */
 export function BackupDownloadStep({ settings, onDone }: {
-    settings: BackupSettings;
+    settings: SetupBackupSettings;
     onDone: () => void;
 }) {
     const download = useBackupDownload(settings);
@@ -228,11 +284,14 @@ export function BackupDownloadStep({ settings, onDone }: {
  * @param onDone leave setup and open the database that was there all along.
  */
 export default function SetupBackupDatabase({ onDone }: { onDone: () => void }) {
-    const [ settings, setSettings ] = useState<BackupSettings | null>(null);
+    const [ settings, setSettings ] = useState<SetupBackupSettings | null>(null);
 
     if (!settings) {
         return (
             <BackupParameters
+                // This screen is the standalone platform's, and its backup is a download: there is
+                // no instance-wide format for it to follow and nothing stored to lock it with.
+                defaults={null}
                 onContinue={setSettings}
                 footer={<Button text={t("setup.backup-finish")} onClick={onDone} />}
             />

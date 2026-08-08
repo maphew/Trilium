@@ -1,44 +1,8 @@
+import { tidyFilesystemFriendlyName, toFilesystemFriendlyName } from "@triliumnext/commons";
 import type { RefObject } from "preact";
 import { useLayoutEffect, useRef } from "preact/hooks";
 
 import FormTextBox, { type FormTextBoxProps } from "./FormTextBox";
-
-/**
- * A text box for something that becomes a file name, which refuses what a file name cannot hold.
- *
- * Add or remove characters here and both passes follow. Only what no major filesystem accepts
- * belongs in this list: Windows refuses these outright, `/` is the separator everywhere else, and
- * everything left out of it, accented letters and other scripts included, makes a perfectly good
- * file name. Control characters are blocked as well, below, since they cannot be written down here.
- */
-const FORBIDDEN_CHARACTERS = '<>:"/\\|?*';
-
-/** Trailing dots and spaces are legal to type and impossible to save on Windows. */
-const FORBIDDEN_AT_THE_END = /[. ]+$/;
-
-/** Whether a single character is one no file name may contain. */
-function isForbidden(character: string): boolean {
-    return FORBIDDEN_CHARACTERS.includes(character)
-        || (character.codePointAt(0) ?? 0) < 0x20;
-}
-
-/**
- * Drops every character a file name may not contain, and nothing else.
- *
- * Applied to each keystroke, so it must leave a half-typed name alone: anything that trimmed or
- * rearranged here would fight the person typing.
- */
-export function toFilesystemFriendlyName(value: string): string {
-    return [ ...value ].filter((character) => !isForbidden(character)).join("");
-}
-
-/**
- * The same, plus what can only be settled once the name is finished: surrounding whitespace and a
- * trailing dot, which are legal mid-edit and refused at save time.
- */
-export function tidyFilesystemFriendlyName(value: string): string {
-    return toFilesystemFriendlyName(value).trim().replace(FORBIDDEN_AT_THE_END, "");
-}
 
 export interface FilesystemFriendlyNameProps
     extends Omit<FormTextBoxProps, "currentValue" | "onBlur" | "onChange" | "type"> {

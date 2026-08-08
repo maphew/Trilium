@@ -24,6 +24,50 @@ export const SETUP_MARKER_FILE_NAME = "setup.json";
  */
 export type SetupTargetScreen = "restore-backup" | "backup-database";
 
+/**
+ * What the user settled on before a backup taken from the setup screen was written.
+ *
+ * Everything here is a question the screen asked, so that a backup taken by hand is not silently
+ * governed by settings meant for the unattended ones: this is the moment a user is deciding what
+ * happens to their data, and it is the one moment worth asking in.
+ */
+export interface SetupBackupSettings {
+    /** What to call it, before the extension the format decides on. */
+    name: string;
+    /**
+     * The password to lock it with. Empty leaves it unlocked, unless {@link useStoredPassphrase}.
+     */
+    passphrase: string;
+    /**
+     * Lock it with the passphrase the instance already keeps, rather than with {@link passphrase}.
+     *
+     * That passphrase lives in the OS keyring and is deliberately never readable from the interface
+     * — only the backend ever sees it again. So a user asking for the password they already
+     * configured can only ask for it, not type it back, which is what this is.
+     */
+    useStoredPassphrase: boolean;
+    /** Whether to compress it. */
+    compress: boolean;
+}
+
+/**
+ * What the instance is already configured for, which is what the screen offers as its answers.
+ *
+ * Read from the options of the database the wizard was booted away from, so a user who has set all
+ * of this up once is not asked to decide it again from scratch.
+ */
+export interface SetupBackupDefaults {
+    /**
+     * Whether there is a stored passphrase to lock the backup with, and so whether the screen has a
+     * "use the one I configured" to offer at all.
+     */
+    storedPassphrase: boolean;
+    /** Whether the instance encrypts its backups, which decides whether that is offered ticked. */
+    encrypt: boolean;
+    /** Whether the instance compresses its backups. */
+    compress: boolean;
+}
+
 /** A backup the setup screen took of the database it is about to replace. */
 export interface SetupExistingBackup {
     fileName: string;
@@ -37,8 +81,6 @@ export interface SetupExistingBackup {
      */
     directoryPath: string;
     fileSize: number;
-    /** Whether it is encrypted, which decides whether the user needs their backup password to use it. */
-    encrypted: boolean;
 }
 
 /**

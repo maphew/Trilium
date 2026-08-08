@@ -47,7 +47,15 @@ const STEP_ORDER: Step[] = [ "picking", "uploading", "passphrase", "restoring" ]
 /** Failures the same backup can still get past, which send the user back to the passphrase rather than to the start. */
 const PASSPHRASE_FAILURES = new Set([ "passphrase-required", "wrong-passphrase-or-damaged-header" ]);
 
-export default function RestoreFromBackup({ onBack, onRestored }: { onBack: () => void; onRestored: () => void }) {
+export default function RestoreFromBackup({ onBack, onRestored }: {
+    /**
+     * Leaves the restore for the step of the wizard that led here. Omitted where nothing did: an
+     * instance sent straight to this screen by a marker has no earlier step to be shown, so the
+     * first step of the restore has nowhere to go back to and offers no way.
+     */
+    onBack?: () => void;
+    onRestored: () => void;
+}) {
     const [ step, setStep ] = useState<Step>("picking");
     const [ selection, setSelection ] = useState<Selection | null>(null);
     const [ upload, setUpload ] = useState<UploadState | null>(null);
@@ -187,9 +195,15 @@ export default function RestoreFromBackup({ onBack, onRestored }: { onBack: () =
         if (previous) {
             setStep(previous);
         } else {
-            onBack();
+            onBack?.();
         }
     }
+
+    /**
+     * Whether there is anywhere to go back to: an earlier step of the restore, or the step of the
+     * wizard that led into it. The replacement itself has neither, and cannot be interrupted anyway.
+     */
+    const canGoBack = step !== "restoring" && (!!PREVIOUS_STEP[step] || !!onBack);
 
     function onRestoreFailed(failure: { error?: string; reason?: string }) {
         if (failure.reason && PASSPHRASE_FAILURES.has(failure.reason)) {
@@ -211,8 +225,10 @@ export default function RestoreFromBackup({ onBack, onRestored }: { onBack: () =
             illustration={<Icon icon="bx bx-archive-in" className="illustration-icon" />}
             error={error}
             errorId={errorId}
-            // Nothing to go back to once the database is being replaced.
-            onBack={step === "restoring" ? undefined : goBack}
+            // Offered only where there is somewhere to go: not once the database is being replaced,
+            // and not from the first step of a restore that is the whole of what the wizard was
+            // opened for.
+            onBack={canGoBack ? goBack : undefined}
         >
             {/* In the flow rather than filling the page: each step is a different height, and the
                 one arriving is what the page should be as tall as. */}

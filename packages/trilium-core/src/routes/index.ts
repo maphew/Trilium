@@ -176,6 +176,7 @@ export function buildSharedApiRoutes({ route, asyncRoute, asyncRouteWithoutTrans
     // Without a transaction, on every platform: the backup runs for minutes with the database in
     // use, and erasing or keeping it closes the connection any transaction would belong to.
     asyncRouteWithoutTransaction(PST, "/api/setup/existing/backup", [checkAppNotInitialized], setupApiRoute.backUpExisting, apiResultHandler);
+    asyncRouteWithoutTransaction(GET, "/api/setup/existing/backup-defaults", [checkAppNotInitialized], setupApiRoute.existingBackupDefaults, apiResultHandler);
     asyncRouteWithoutTransaction(GET, "/api/setup/existing/status", [checkAppNotInitialized], setupApiRoute.existingBackupStatus, apiResultHandler);
     asyncRouteWithoutTransaction(PST, "/api/setup/existing/delete", [checkAppNotInitialized], setupApiRoute.deleteExisting, apiResultHandler);
     asyncRouteWithoutTransaction(PST, "/api/setup/existing/keep", [checkAppNotInitialized], setupApiRoute.keepExisting, apiResultHandler);

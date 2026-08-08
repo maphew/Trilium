@@ -1,4 +1,10 @@
-import type { DatabaseBackup, FilterOptionsByType, OptionNames, SetupExistingBackup } from "@triliumnext/commons";
+import type {
+    DatabaseBackup,
+    FilterOptionsByType,
+    OptionNames,
+    SetupBackupSettings,
+    SetupExistingBackup
+} from "@triliumnext/commons";
 import type { Response } from "express";
 
 import { getContext } from "./context.js";
@@ -31,17 +37,33 @@ export default abstract class BackupService {
     abstract backupNow(name: string): Promise<string>;
 
     /**
-     * Create a backup under a name of the caller's choosing, reporting what was written.
+     * Create a backup the user has just described, reporting what was written.
      *
      * For the setup screen's offer to save the existing database before replacing it, where the user
      * is shown the file afterwards and so has to be told its name, its path and its size. Left out by
      * platforms with nowhere to write a file the user could then find.
      *
+     * Unlike {@link backupNow}, which runs to a schedule and so can only follow the instance's
+     * options, this one is asked for by a person who was standing there answering questions about
+     * it. What they answered arrives in `settings` and is what the backup is written as.
+     *
      * @param onProgress how far through the write it is, from 0 to 1. A backup of a large knowledge
      *                   base runs for minutes, and a screen with nothing to show for that long is
      *                   indistinguishable from one that has stopped.
      */
-    backupAs?(baseName: string, onProgress?: (fraction: number) => void): Promise<SetupExistingBackup>;
+    backupAs?(
+        settings: SetupBackupSettings,
+        onProgress?: (fraction: number) => void
+    ): Promise<SetupExistingBackup>;
+
+    /**
+     * Whether a passphrase is stored that a backup could be locked with.
+     *
+     * Answers with a yes or a no and never with the passphrase itself, which is the whole point:
+     * the screen offering "use the password I configured" has to know whether there is one, and
+     * must not be able to learn what it is. Left out by platforms that keep no passphrase.
+     */
+    hasStoredPassphrase?(): Promise<boolean>;
 
     /**
      * Perform regular scheduled backups (daily, weekly, monthly).

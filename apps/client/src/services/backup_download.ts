@@ -1,6 +1,4 @@
-import { defaultBackupName, type StandaloneDownloadResult } from "@triliumnext/commons";
-
-import { tidyFilesystemFriendlyName } from "../widgets/react/FilesystemFriendlyName";
+import { asFileName, defaultBackupName, type StandaloneDownloadResult } from "@triliumnext/commons";
 
 /**
  * Backing up by download, which is the standalone platform's one and only backup.
@@ -16,9 +14,6 @@ import { tidyFilesystemFriendlyName } from "../widgets/react/FilesystemFriendlyN
 /** Every backup is a container, with or without a password, so every backup has this extension. */
 const BACKUP_EXTENSION = ".tnbackup";
 
-/** Reserved device names on Windows, which cannot be a filename there whatever the extension. */
-const RESERVED_FILE_NAMES = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
-
 /** Whether this platform backs up by streaming a download, which is the standalone build. */
 export function isBackupDownloadSupported(): boolean {
     return !!window.standaloneApi;
@@ -27,16 +22,13 @@ export function isBackupDownloadSupported(): boolean {
 /**
  * The file a name is written to.
  *
- * The name arrives already tidied by the field it was typed into; this applies the same rules
- * again, because a name can also arrive from somewhere that never saw that field, and adds the two
- * things only a filename cares about: a name that is left empty, and the device names Windows
- * reserves whatever the extension. Either falls back to the suggested name rather than failing.
+ * The name arrives already tidied by the field it was typed into, and is put through the same rules
+ * again here, because a name can also arrive from somewhere that never saw that field. What is left
+ * of one that empties itself out, or that turns out to be a name the system keeps for itself, is
+ * the suggested name rather than a failure.
  */
 export function backupFileName(name: string): string {
-    const tidied = tidyFilesystemFriendlyName(name);
-    const usable = tidied && !RESERVED_FILE_NAMES.test(tidied) ? tidied : defaultBackupName(new Date());
-
-    return `${usable}${BACKUP_EXTENSION}`;
+    return `${asFileName(name) ?? defaultBackupName(new Date())}${BACKUP_EXTENSION}`;
 }
 
 /**

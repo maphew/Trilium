@@ -2,40 +2,10 @@ import { render } from "preact";
 import { useState } from "preact/hooks";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import FilesystemFriendlyName, {
-    tidyFilesystemFriendlyName,
-    toFilesystemFriendlyName
-} from "./FilesystemFriendlyName";
+import FilesystemFriendlyName from "./FilesystemFriendlyName";
 
-describe("what a file name may hold", () => {
-    it("keeps everything a file name can carry, other scripts included", () => {
-        expect(toFilesystemFriendlyName("Backup 2026-08-08 16-30-32"))
-            .toBe("Backup 2026-08-08 16-30-32");
-        expect(toFilesystemFriendlyName("Sicherungskopie (Änderungen)"))
-            .toBe("Sicherungskopie (Änderungen)");
-        expect(toFilesystemFriendlyName("備份")).toBe("備份");
-    });
-
-    it("drops what no filesystem would take", () => {
-        expect(toFilesystemFriendlyName('a<b>c:d"e/f\\g|h?i*j')).toBe("abcdefghij");
-        expect(toFilesystemFriendlyName("before\u0001after\u001Fend")).toBe("beforeafterend");
-    });
-
-    it("leaves a half-typed name alone, since it runs on every keystroke", () => {
-        // A trailing space or dot is on its way to becoming a word; tidying here would delete what
-        // the user is in the middle of typing.
-        expect(toFilesystemFriendlyName("Before the ")).toBe("Before the ");
-        expect(toFilesystemFriendlyName("v1.")).toBe("v1.");
-    });
-
-    it("tidies the edges only once the name is finished", () => {
-        expect(tidyFilesystemFriendlyName("  Before the import  ")).toBe("Before the import");
-        // Legal to type, impossible to save on Windows.
-        expect(tidyFilesystemFriendlyName("My backup...")).toBe("My backup");
-        expect(tidyFilesystemFriendlyName("mixed. . ")).toBe("mixed");
-    });
-});
-
+// What a file name may and may not hold is tested where those rules live, in
+// `@triliumnext/commons`; what is left here is the field's own behaviour as it is typed into.
 describe("FilesystemFriendlyName", () => {
     let container: HTMLDivElement | undefined;
     const onChange = vi.fn();

@@ -22,7 +22,7 @@ const serverMock = vi.hoisted(() => ({
 }));
 vi.mock("./services/server", () => ({ default: serverMock }));
 
-import { initialState, renderState, SyncFailed, SyncFromServer, SyncInProgress } from "./setup";
+import { initialState, openedAtRestore, renderState, SyncFailed, SyncFromServer, SyncInProgress } from "./setup";
 
 type Stats = { outstandingPullCount: number; totalPullCount: number | null; initialized: boolean; lastSyncError?: string | null };
 
@@ -233,5 +233,14 @@ describe("where the wizard opens", () => {
     it("ignores a screen it does not know rather than guessing at one", () => {
         expect(initialState({ setupTargetScreen: "createNewDocumentEmpty" as never }))
             .toBe("selectLanguage");
+    });
+
+    it("knows when the restore is the whole of what the wizard was opened for", () => {
+        // Which decides whether that screen offers a way back: there is one only where the user
+        // walked into the restore through the wizard's own menu.
+        expect(openedAtRestore({ setupTargetScreen: "restore-backup" })).toBe(true);
+        expect(openedAtRestore({ initialSetup: false, setupTargetScreen: "restore-backup" })).toBe(true);
+        expect(openedAtRestore({})).toBe(false);
+        expect(openedAtRestore({ setupTargetScreen: "backup-database" })).toBe(false);
     });
 });

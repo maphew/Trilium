@@ -1,3 +1,4 @@
+import type { SetupBackupDefaults } from "@triliumnext/commons";
 import { render } from "preact";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -15,7 +16,7 @@ vi.mock("./services/backup_download", async (importOriginal) => ({
     startBackupDownload: mocks.startBackupDownload
 }));
 
-import SetupBackupDatabase from "./setup_backup";
+import SetupBackupDatabase, { BackupParameters } from "./setup_backup";
 
 let container: HTMLDivElement;
 const onDone = vi.fn();
@@ -43,6 +44,20 @@ function nameField(): HTMLInputElement | null {
 /** The password pair, in the order they are filled in: the password, then its confirmation. */
 function passwordFields(): HTMLInputElement[] {
     return [ ...container.querySelectorAll<HTMLInputElement>("input[type=password]") ];
+}
+
+/** The toggles, in the order they appear: the stored password, then compression. */
+function toggles(): HTMLInputElement[] {
+    return [ ...container.querySelectorAll<HTMLInputElement>("input.switch-toggle") ];
+}
+
+/** Operates a toggle the way a click on it does. */
+function flip(toggle: HTMLInputElement | undefined) {
+    if (!toggle) {
+        throw new Error("the toggle is not on screen");
+    }
+
+    toggle.dispatchEvent(new Event("input", { bubbles: true }));
 }
 
 /** Types into a controlled text box the way the browser does: value, then an input event. */
@@ -159,6 +174,119 @@ describe("choosing what the backup is called and whether it is locked", () => {
 
         // Empty, not absent: the service turns that into an unencrypted container.
         expect(mocks.startBackupDownload).toHaveBeenCalledWith(`${chosen}.tnbackup`, "");
+    });
+});
+
+describe("the questions a platform that writes its own backup can ask", () => {
+    const onContinue = vi.fn();
+
+    /** Renders just the parameters screen, which is the only part of this the platform changes. */
+    async function renderParameters(defaults: SetupBackupDefaults | null) {
+        container = document.createElement("div");
+        document.body.appendChild(container);
+        render(<BackupParameters defaults={defaults} onContinue={onContinue} />, container);
+        await settle();
+    }
+
+    beforeEach(() => onContinue.mockReset());
+
+    it("asks nothing about the format where there is no format to choose", async () => {
+        // The standalone platform, whose backup is a download: nothing stored to lock it with, and
+        // compressing the stream is more than the devices it exists for can afford.
+        await renderParameters(null);
+
+        expect(container.textContent).toContain("setup.backup-name");
+        expect(container.textContent).not.toContain("setup.backup-compress");
+        expect(container.textContent).not.toContain("setup.backup-use-stored-password");
+        expect(toggles()).toHaveLength(0);
+    });
+
+    it("starts from how the instance already backs up, rather than from nothing", async () => {
+        await renderParameters({ storedPassphrase: true, encrypt: true, compress: true });
+
+        const [ stored, compress ] = toggles();
+        expect(stored.checked).toBe(true);
+        expect(compress.checked).toBe(true);
+        // Nothing to type, so nothing is asked for: the stored password is never shown, which is
+        // why asking for it is a choice rather than a value, and the fields it stands in for have
+        // no part left to play.
+        expect(passwordFields()).toHaveLength(0);
+        expect(container.textContent).not.toContain("setup.backup-password-description");
+        expect(button("setup.continue")?.disabled).toBe(false);
+    });
+
+    it("offers the password fields where the instance encrypts nothing", async () => {
+        await renderParameters({ storedPassphrase: true, encrypt: false, compress: false });
+
+        const [ stored, compress ] = toggles();
+        expect(stored.checked).toBe(false);
+        expect(compress.checked).toBe(false);
+        expect(passwordFields()).toHaveLength(2);
+    });
+
+    it("offers no stored password where there is none stored", async () => {
+        // Every server deployment, and any desktop whose system has no keyring to keep one in.
+        await renderParameters({ storedPassphrase: false, encrypt: true, compress: false });
+
+        expect(container.textContent).not.toContain("setup.backup-use-stored-password");
+        expect(container.textContent).toContain("setup.backup-compress");
+        expect(passwordFields()).toHaveLength(2);
+    });
+
+    it("gives the fields back when the stored password is turned off again", async () => {
+        await renderParameters({ storedPassphrase: true, encrypt: true, compress: false });
+
+        flip(toggles()[0]);
+        await settle();
+
+        expect(passwordFields()).toHaveLength(2);
+        type(passwordFields()[0], "hunter2");
+        type(passwordFields()[1], "hunter2");
+        await settle();
+
+        button("setup.continue")?.click();
+        expect(onContinue).toHaveBeenCalledWith(expect.objectContaining({
+            passphrase: "hunter2",
+            useStoredPassphrase: false
+        }));
+    });
+
+    it("does not let a password that is no longer on screen hold up continuing", async () => {
+        await renderParameters({ storedPassphrase: true, encrypt: false, compress: false });
+
+        // Half-typed, which is the one state Continue must not accept...
+        type(passwordFields()[0], "hunter2");
+        await settle();
+        expect(button("setup.continue")?.disabled).toBe(true);
+
+        // ...until the fields go away with the choice that replaces them. What they were holding
+        // goes with them, or Continue would stay disabled by a segment nobody can see.
+        flip(toggles()[0]);
+        await settle();
+        expect(passwordFields()).toHaveLength(0);
+        expect(button("setup.continue")?.disabled).toBe(false);
+
+        button("setup.continue")?.click();
+        expect(onContinue).toHaveBeenCalledWith(expect.objectContaining({
+            passphrase: "",
+            useStoredPassphrase: true
+        }));
+    });
+
+    it("hands on every answer, so the backup is written as the user described it", async () => {
+        await renderParameters({ storedPassphrase: false, encrypt: false, compress: false });
+
+        type(nameField(), "Before the import");
+        flip(toggles()[0]);
+        await settle();
+
+        button("setup.continue")?.click();
+        expect(onContinue).toHaveBeenCalledWith({
+            name: "Before the import",
+            passphrase: "",
+            useStoredPassphrase: false,
+            compress: true
+        });
     });
 });
 

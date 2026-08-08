@@ -1,14 +1,24 @@
 .page.existing-data,
-.page.existing-data-backed-up,
-.page.existing-data-downloading {
+.page.existing-data-backed-up {
     .existing-data-warning {
         margin-top: 16px;
     }
 }
 
 
+/* Set apart from the question, which now stands on its own without a paragraph between them. */
+.page.existing-data .existing-data-choices {
+    margin-top: 3em;
+}
+
 .page.existing-data .existing-data-choices .tn-card-section {
     padding-block: 12px;
+}
+
+/* The answer that erases the knowledge base, in the colour the rest of the app gives an action
+   that cannot be taken back. */
+.page.existing-data .existing-data-destructive .tn-radio {
+    color: var(--dropdown-item-icon-destructive-color);
 }
 
 /* The wait while a backup is written, centred under the icon like the restore's own steps. */

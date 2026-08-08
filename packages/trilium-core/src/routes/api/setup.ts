@@ -3,6 +3,7 @@ import setupService from "../../services/setup.js";
 import { getRunningSetupOperation, withSetupLock } from "../../services/setup_lock.js";
 import {
     deleteExistingData,
+    getExistingBackupDefaults,
     getExistingBackupStatus,
     keepExistingData,
     startBackUpExistingData
@@ -63,9 +64,24 @@ async function bootToSetup(req: Request) {
  * on a large database, and on standalone a request rides the service worker, whose fetches the
  * browser reclaims after a few minutes no matter how patient the caller is. The screen follows the
  * write, and learns where it went, through {@link existingBackupStatus}.
+ *
+ * What the user chose on the way in arrives in the body, and is treated as a request rather than as
+ * an instruction: nothing in it is trusted, and anything missing falls back to what the instance is
+ * already configured for.
  */
-function backUpExisting() {
-    startBackUpExistingData(new Date());
+function backUpExisting(req: Request) {
+    startBackUpExistingData(new Date(), req.body);
+}
+
+/**
+ * What the screen asking those questions offers as its answers: how this instance already backs up.
+ *
+ * Says whether a passphrase is stored rather than what it is. The passphrase is kept where the
+ * interface cannot read it, which is exactly why the screen has to offer using it as a choice
+ * instead of filling it into a box.
+ */
+function existingBackupDefaults() {
+    return getExistingBackupDefaults();
 }
 
 /**
@@ -175,6 +191,7 @@ export default {
     getStatus,
     bootToSetup,
     backUpExisting,
+    existingBackupDefaults,
     existingBackupStatus,
     deleteExisting,
     keepExisting,

@@ -1,8 +1,16 @@
-import { defaultBackupName, type SetupExistingBackup, type SetupExistingBackupStatus } from "@triliumnext/commons";
+import {
+    asFileName,
+    defaultBackupName,
+    type SetupBackupDefaults,
+    type SetupBackupSettings,
+    type SetupExistingBackup,
+    type SetupExistingBackupStatus
+} from "@triliumnext/commons";
 
 import { getBackup } from "./backup.js";
 import eventService from "./events.js";
 import { getLog } from "./log.js";
+import optionService from "./options.js";
 import { getSetupPlatform, isInitialSetup, leaveSetupMode } from "./setup_mode.js";
 import sqlInit from "./sql_init.js";
 
@@ -25,14 +33,13 @@ import sqlInit from "./sql_init.js";
 /**
  * Backs the existing database up, and says where it went.
  *
- * The format is the one the instance is already configured for: compressed or not, encrypted or not,
- * in the chosen directory or the default one. Nothing is asked again here, because the answer is in
- * the options the user already gave, and this is not the moment to be asking about formats.
- *
- * @param now the moment to name the backup after; passed in so the name is the caller's to decide.
+ * @param settings what the user answered on the screen before this one; already resolved by
+ *                 {@link resolveBackupSettings}, so nothing here has to guess at a missing answer.
  * @throws Error where the platform cannot write a backup, or the write itself failed.
  */
-export async function backUpExistingData(now: Date): Promise<SetupExistingBackup> {
+export async function backUpExistingData(
+    settings: SetupBackupSettings
+): Promise<SetupExistingBackup> {
     requireExistingData();
 
     const backup = getBackup();
@@ -44,13 +51,68 @@ export async function backUpExistingData(now: Date): Promise<SetupExistingBackup
     progress = 0;
 
     try {
-        const written = await backup.backupAs(defaultBackupName(now), reportProgress);
+        const written = await backup.backupAs(settings, reportProgress);
         getLog().info(`Setup: the existing database was backed up (${written.fileSize} bytes).`);
 
         return written;
     } finally {
         progress = null;
     }
+}
+
+/**
+ * What the instance is already set up to do, which is what the screen offers as its answers.
+ *
+ * The stored passphrase is reported as a yes or a no and never as itself: a screen that could read
+ * it could be made to hand it over, and it is the one thing standing between a stolen backup and
+ * the knowledge base inside it.
+ */
+export async function getExistingBackupDefaults(): Promise<SetupBackupDefaults> {
+    const backup = getBackup();
+
+    return {
+        storedPassphrase: (await backup.hasStoredPassphrase?.()) ?? false,
+        encrypt: isOptionEnabled("backupEnableEncryption"),
+        compress: isOptionEnabled("backupEnableCompression")
+    };
+}
+
+/**
+ * Settles what a backup asked for over a request is actually written as.
+ *
+ * Every field is treated as something a caller may have got wrong or left out rather than as an
+ * answer: what arrives here has crossed a request boundary, and the name in particular goes on to
+ * become a path. Anything missing falls back to what the instance is configured for, so a caller
+ * that asks for nothing at all still gets the backup it would have got before there was anything to
+ * ask.
+ *
+ * @param now the moment to name the backup after, where the caller named nothing usable.
+ */
+export function resolveBackupSettings(now: Date, requested: unknown): SetupBackupSettings {
+    const asked = (typeof requested === "object" && requested !== null
+        ? requested
+        : {}) as Partial<Record<keyof SetupBackupSettings, unknown>>;
+
+    return {
+        // Reduced to a single name that no directory can be escaped from, whatever was sent.
+        name: asFileName(typeof asked.name === "string" ? asked.name : "")
+            ?? defaultBackupName(now),
+        passphrase: typeof asked.passphrase === "string" ? asked.passphrase : "",
+        useStoredPassphrase: typeof asked.useStoredPassphrase === "boolean"
+            ? asked.useStoredPassphrase
+            : isOptionEnabled("backupEnableEncryption"),
+        compress: typeof asked.compress === "boolean"
+            ? asked.compress
+            : isOptionEnabled("backupEnableCompression")
+    };
+}
+
+/**
+ * Reads leniently, the way the backup itself does: setup runs against a database that has not been
+ * migrated, so an option added by a newer version may not be there to read at all.
+ */
+function isOptionEnabled(name: "backupEnableCompression" | "backupEnableEncryption"): boolean {
+    return optionService.getOptionOrNull(name) === "true";
 }
 
 /**
@@ -65,8 +127,11 @@ export async function backUpExistingData(now: Date): Promise<SetupExistingBackup
  * A backup already running is joined rather than doubled. What can be refused outright (no
  * existing database, a platform with nowhere to write) still throws from here, so the starting
  * request carries the reason.
+ *
+ * @param now the moment to name the backup after, where `requested` named nothing usable.
+ * @param requested what the user answered on the screen before this one, as it arrived.
  */
-export function startBackUpExistingData(now: Date): void {
+export function startBackUpExistingData(now: Date, requested?: unknown): void {
     if (status.state === "running") {
         return;
     }
@@ -77,7 +142,7 @@ export function startBackUpExistingData(now: Date): void {
     }
 
     status = { state: "running", fraction: null };
-    backUpExistingData(now)
+    backUpExistingData(resolveBackupSettings(now, requested))
         .then((written) => {
             status = { state: "done", fraction: 1, result: written };
         })

@@ -1,6 +1,11 @@
 import "./setup_existing.css";
 
-import type { SetupExistingBackup, SetupExistingBackupStatus } from "@triliumnext/commons";
+import type {
+    SetupBackupDefaults,
+    SetupBackupSettings,
+    SetupExistingBackup,
+    SetupExistingBackupStatus
+} from "@triliumnext/commons";
 import { useEffect, useState } from "preact/hooks";
 
 import { isBackupDownloadSupported } from "./services/backup_download";
@@ -8,6 +13,7 @@ import { t } from "./services/i18n";
 import open from "./services/open";
 import server from "./services/server";
 import { formatSize, isElectron } from "./services/utils";
+import { BackupDownloadPanel, BackupParameters, useBackupDownload } from "./setup_backup";
 import Admonition from "./widgets/react/Admonition";
 import Button from "./widgets/react/Button";
 import { Card, CardOption, CardSection } from "./widgets/react/Card";
@@ -15,12 +21,6 @@ import FormRadioGroup from "./widgets/react/FormRadioGroup";
 import Icon from "./widgets/react/Icon";
 import SetupPage from "./widgets/react/SetupPage";
 import SlidePages from "./widgets/react/SlidePages";
-import {
-    BackupDownloadPanel,
-    BackupParameters,
-    type BackupSettings,
-    useBackupDownload
-} from "./setup_backup";
 
 /**
  * What happens to the knowledge base that was already here.
@@ -61,7 +61,8 @@ const STEP_ORDER: Step[] = [ "choice", "backup-parameters", "backing-up", "downl
 export default function ExistingData({ onProceed, onKept }: { onProceed: () => void; onKept: () => void }) {
     const [ step, setStep ] = useState<Step>("choice");
     const [ backup, setBackup ] = useState<SetupExistingBackup | null>(null);
-    const [ settings, setSettings ] = useState<BackupSettings | null>(null);
+    const [ settings, setSettings ] = useState<SetupBackupSettings | null>(null);
+    const [ defaults, setDefaults ] = useState<SetupBackupDefaults | null>(null);
     const [ error, setError ] = useState<string>();
     const [ errorId, setErrorId ] = useState(0);
 
@@ -81,20 +82,43 @@ export default function ExistingData({ onProceed, onKept }: { onProceed: () => v
         }
     }
 
-    async function backUp() {
-        // Standalone streams the backup straight into a browser download: the browser's own
-        // storage may not have room for a second copy of the database, but the disk does. It is
-        // named and locked first, then downloaded from its own button, so nothing lands in the
-        // downloads bar unannounced.
-        if (isBackupDownloadSupported()) {
-            setStep("backup-parameters");
+    /**
+     * The same, asked about first, for the screens reached by taking a backup.
+     *
+     * Those screens are about the copy that was just made, and the erasure is what Continue does
+     * once the user is done reading about it — which is exactly the sort of thing a hand already
+     * moving towards the button does not notice. The wizard has no dialog stack of its own, so this
+     * is the browser's own, which is both unmissable and available on every platform.
+     */
+    async function confirmAndErase() {
+        if (!window.confirm(t("setup.existing-data-erase-confirm"))) {
             return;
         }
 
+        await erase();
+    }
+
+    /**
+     * Asks what the backup should be before taking it, which every platform does.
+     *
+     * What can be asked differs: the standalone platform's backup is a download and has no format
+     * to choose, while everywhere else the instance has settings of its own that the screen offers
+     * back as its answers.
+     */
+    async function backUp() {
+        if (!isBackupDownloadSupported()) {
+            setDefaults(await getBackupDefaults());
+        }
+
+        setStep("backup-parameters");
+    }
+
+    /** Writes it where the platform keeps backups, which is everywhere but standalone. */
+    async function runBackup(chosen: SetupBackupSettings) {
         setStep("backing-up");
 
         try {
-            setBackup(await backUpExistingData());
+            setBackup(await backUpExistingData(chosen));
             setStep("backed-up");
         } catch (e) {
             // Back to the question with nothing done: there is no continuing past a backup that was
@@ -129,9 +153,19 @@ export default function ExistingData({ onProceed, onKept }: { onProceed: () => v
                     )}
                     {shown === "backup-parameters" && (
                         <BackupParameters
+                            defaults={defaults}
                             onContinue={(chosen) => {
                                 setSettings(chosen);
-                                setStep("downloading");
+
+                                // Standalone streams the backup straight into a browser download:
+                                // the browser's own storage may not have room for a second copy of
+                                // the database, but the disk does. It is downloaded from its own
+                                // button, so nothing lands in the downloads bar unannounced.
+                                if (isBackupDownloadSupported()) {
+                                    setStep("downloading");
+                                } else {
+                                    void runBackup(chosen);
+                                }
                             }}
                             footer={<Button text={t("setup.existing-data-cancel")} onClick={() => void keep()} />}
                         />
@@ -140,14 +174,14 @@ export default function ExistingData({ onProceed, onKept }: { onProceed: () => v
                     {shown === "downloading" && settings && (
                         <ExistingDataDownloading
                             settings={settings}
-                            onContinue={() => void erase()}
+                            onContinue={() => void confirmAndErase()}
                             onCancel={() => void keep()}
                         />
                     )}
                     {shown === "backed-up" && backup && (
                         <ExistingDataBackedUp
                             backup={backup}
-                            onContinue={() => void erase()}
+                            onContinue={() => void confirmAndErase()}
                             onCancel={() => void keep()}
                         />
                     )}
@@ -205,8 +239,9 @@ export function ExistingDataChoice({ error, errorId, onBackUp, onDelete, onCance
     return (
         <SetupPage
             className="existing-data"
+            // A question and nothing else: the answer decides whether a knowledge base survives,
+            // and a paragraph above it is the part someone in a hurry reads past.
             title={t("setup.existing-data")}
-            description={t("setup.existing-data-description")}
             illustration={<Icon icon="bx bx-data" className="illustration-icon" />}
             error={error}
             errorId={errorId}
@@ -229,7 +264,9 @@ export function ExistingDataChoice({ error, errorId, onBackUp, onDelete, onCance
                     is for, and one of the answers erases a knowledge base. Which is checked is held
                     here rather than by the browser's own grouping, so the two stay exclusive. */}
                 {CHOICES.map(({ value, label }) => (
-                    <CardSection key={value}>
+                    // The answer that erases everything is coloured as such, so it is recognisable
+                    // before it is read rather than after.
+                    <CardSection key={value} className={value === "delete" ? "existing-data-destructive" : undefined}>
                         <FormRadioGroup
                             name="existing-data-choice"
                             currentValue={choice ?? ""}
@@ -311,7 +348,7 @@ const PROGRESS_INTERVAL_MS = 1000;
  * browser's own download UI carrying the transfer itself.
  */
 export function ExistingDataDownloading({ settings, onContinue, onCancel }: {
-    settings: BackupSettings;
+    settings: SetupBackupSettings;
     onContinue: () => void;
     onCancel: () => void;
 }) {
@@ -335,10 +372,6 @@ export function ExistingDataDownloading({ settings, onContinue, onCancel }: {
             }
         >
             <BackupDownloadPanel download={download} />
-
-            <Admonition type="caution" className="existing-data-warning">
-                {t("setup.existing-data-downloading-warning")}
-            </Admonition>
         </SetupPage>
     );
 }
@@ -389,12 +422,6 @@ export function ExistingDataBackedUp({ backup, onContinue, onCancel }: {
                     />
                 </CardSection>
             </Card>
-
-            {backup.encrypted && (
-                <Admonition type="warning" className="existing-data-warning">
-                    {t("setup.existing-data-encrypted-warning")}
-                </Admonition>
-            )}
         </SetupPage>
     );
 }
@@ -451,8 +478,10 @@ function downloadBackup(filePath: string) {
  * rather than believed, because the write blocks the standalone worker for long stretches in which
  * it answers nothing, and the backup is running all the while.
  */
-export async function backUpExistingData(): Promise<SetupExistingBackup> {
-    await server.post("setup/existing/backup");
+export async function backUpExistingData(
+    settings: SetupBackupSettings
+): Promise<SetupExistingBackup> {
+    await server.post("setup/existing/backup", settings);
 
     const deadline = Date.now() + BACKUP_TIMEOUT_MS;
     while (Date.now() < deadline) {
@@ -478,6 +507,20 @@ export async function backUpExistingData(): Promise<SetupExistingBackup> {
 
 function sleep(ms: number): Promise<void> {
     return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * How this instance already backs up, which is what the screen offers as its answers.
+ *
+ * A failure here is not worth stopping a backup over: what is lost is a set of prefilled answers,
+ * not the ability to give them, so the screen falls back to offering the plainest backup there is.
+ */
+export async function getBackupDefaults(): Promise<SetupBackupDefaults> {
+    try {
+        return await server.get<SetupBackupDefaults>("setup/existing/backup-defaults");
+    } catch {
+        return { storedPassphrase: false, encrypt: false, compress: false };
+    }
 }
 
 /** Erases it, which is the point of no return. */

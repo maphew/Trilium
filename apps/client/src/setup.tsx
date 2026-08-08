@@ -62,7 +62,15 @@ export function renderState(state: State, setState: (state: State) => void) {
         case "createNewDocumentOptions": return <CreateNewDocumentOptions setState={setState} />;
         case "createNewDocumentWithDemo": return <CreateNewDocumentInProgress withDemo />;
         case "createNewDocumentEmpty": return <CreateNewDocumentInProgress />;
-        case "restoreFromBackup": return <RestoreFromBackup onBack={() => setState("firstOptions")} onRestored={onSetupFinished} />;
+        // No way back where the wizard was opened for this and nothing else: the menu it would
+        // return to was never shown, and on an instance that had a database it is not a menu the
+        // user asked for.
+        case "restoreFromBackup": return (
+            <RestoreFromBackup
+                onBack={openedAtRestore(window.glob) ? undefined : () => setState("firstOptions")}
+                onRestored={onSetupFinished}
+            />
+        );
         case "syncFromServer": return <SyncFromServer setState={setState} />;
         case "syncFromDesktop": return <SyncFromDesktop setState={setState} />;
         case "syncFromServerInProgress": return <SyncInProgress device="server" setState={setState} />;
@@ -135,6 +143,14 @@ export function initialState(glob: SetupGlob): State {
     }
 
     return afterExistingData(glob);
+}
+
+/**
+ * Whether the restore screen is where this wizard was sent, rather than somewhere the user walked
+ * to through it. A marker naming it is the only way that happens.
+ */
+export function openedAtRestore(glob: SetupGlob): boolean {
+    return glob.setupTargetScreen === "restore-backup";
 }
 
 /**

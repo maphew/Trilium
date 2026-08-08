@@ -40,7 +40,10 @@ let restore: { stage: string; fraction?: number; error?: string; reason?: string
 function renderRestore(props: Partial<{ onBack: () => void; onRestored: () => void }> = {}) {
     container = document.createElement("div");
     document.body.appendChild(container);
-    render(<RestoreFromBackup onBack={props.onBack ?? vi.fn()} onRestored={props.onRestored ?? vi.fn()} />, container);
+    // `onBack` is omitted only when the caller says so: passing it undefined is the case where
+    // nothing led here, which is the whole point of some of the tests below.
+    const onBack = "onBack" in props ? props.onBack : vi.fn();
+    render(<RestoreFromBackup onBack={onBack} onRestored={props.onRestored ?? vi.fn()} />, container);
 
     return container;
 }
@@ -283,6 +286,27 @@ describe("going back", () => {
         goBack();
 
         expect(onBack).toHaveBeenCalled();
+    });
+
+    it("offers no way back from the first step where nothing led here", async () => {
+        // The wizard opened at this screen, so the step it would return to was never shown.
+        renderRestore({ onBack: undefined });
+        await flushEffects();
+
+        expect(container.querySelector(".back-button")).toBeNull();
+    });
+
+    it("still goes back a step within the restore, wherever the restore was entered from", async () => {
+        renderRestore({ onBack: undefined });
+        await flushEffects();
+        backupRow("backup-weekly.tnbackup")?.click();
+        await flushEffects();
+        expect(container.querySelector("input[type=password]")).toBeTruthy();
+
+        goBack();
+        await flushEffects();
+
+        expect(container.querySelector(".restore-choose-file")).toBeTruthy();
     });
 
     it("returns to the backups from the password prompt, rather than out of the flow", async () => {
