@@ -1,12 +1,12 @@
 // @vitest-environment happy-dom
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { readFileSync } from "node:fs";
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import interceptPersistence from "./persistence";
 import { allFeaturesPdf } from "./test/fixture_pdf";
 import { InstalledViewer, installViewerApp, uninstallViewerApp } from "./test/viewer_app";
+import { resolveViewerBundle } from "./test/viewer_bundle";
 
 const SIGNATURE_KEY = "pdfjs.signature";
 const ENTRY = { description: "Mine", signatureData: "data-1" };
@@ -270,25 +270,6 @@ function loadRealSignatureStorage(): { SignatureStorage: any } {
     // Expose the key pdf.js actually uses so the contract test can assert on it.
     SignatureStorage.EXPECTED_KEY = key;
     return { SignatureStorage };
-}
-
-/** Finds `viewer/viewer.mjs` by walking up from the working directory (or its package root). */
-function resolveViewerBundle(): string {
-    const relative = join("viewer", "viewer.mjs");
-    let dir = process.cwd();
-    for (;;) {
-        const candidates = [ join(dir, relative), join(dir, "packages", "pdfjs-viewer", relative) ];
-        for (const candidate of candidates) {
-            if (existsSync(candidate)) {
-                return candidate;
-            }
-        }
-        const parent = dirname(dir);
-        if (parent === dir) {
-            throw new Error("Could not locate the pdf.js viewer bundle (viewer/viewer.mjs)");
-        }
-        dir = parent;
-    }
 }
 
 /** Returns the index just past the `}` that closes the first `{` at or after `from`. */
