@@ -322,8 +322,8 @@ importers:
         specifier: 11.16.0
         version: 11.16.0
       mind-elixir:
-        specifier: 5.14.0
-        version: 5.14.0
+        specifier: 5.15.1
+        version: 5.15.1
       panzoom:
         specifier: 9.4.4
         version: 9.4.4
@@ -923,8 +923,8 @@ importers:
         specifier: 11.16.0
         version: 11.16.0
       mind-elixir:
-        specifier: 5.14.0
-        version: 5.14.0
+        specifier: 5.15.1
+        version: 5.15.1
       panzoom:
         specifier: 9.4.4
         version: 9.4.4
@@ -9699,8 +9699,8 @@ packages:
     resolution: {integrity: sha512-z0yWI+4FDrrweS8Zmt4Ej5HdJmky15+L2e6Wgn3+iK5fWzb6T3fhNFq2+MeTRb064c6Wr4N/wv0DzQTjNzHNGQ==}
     engines: {node: '>=10'}
 
-  mind-elixir@5.14.0:
-    resolution: {integrity: sha512-V1PHE6TcVvbWMku8Jgo00LV6/vFLC0StAVccPqRT3GmaQsj93SFMviRoDHEjv0M0Yn8n10gktxNWCDUWdgRY0Q==}
+  mind-elixir@5.15.1:
+    resolution: {integrity: sha512-Lm/IfNC3jnxqcchKsjkaX/arXDvgPvpPT+BLfTH2Kl1taO9+RPtv/jrCevn1LqPzHoWL2Yl4QeP/xFpjZuZFHw==}
 
   minimatch@10.2.5:
     resolution: {integrity: sha512-MULkVLfKGYDFYejP07QOurDLLQpcjk7Fw+7jXS2R2czRQzR56yHRveU5NDJEOviH+hETZKSkIk5c+T23GjFUMg==}
@@ -23218,7 +23218,7 @@ snapshots:
 
   mimic-response@3.1.0: {}
 
-  mind-elixir@5.14.0: {}
+  mind-elixir@5.15.1: {}
 
   minimatch@10.2.5:
     dependencies:
