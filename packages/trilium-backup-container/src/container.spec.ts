@@ -339,7 +339,7 @@ describe("peeking at a container", () => {
         [ "fewer bytes than a header", Buffer.alloc(20) ],
         [ "something that is not a container", Buffer.alloc(64, 9) ],
         [ "a version it does not know", tamper((bytes) => bytes.writeUInt8(2, 20)) ],
-        [ "a reserved flag bit", tamper((bytes) => bytes.writeUInt8(0b100, 21)) ]
+        [ "a reserved flag bit", tamper((bytes) => bytes.writeUInt8(0b1000, 21)) ]
     ])("answers null for %s, so one bad file cannot derail a listing", (_label, bytes) => {
         expect(peekBackupContainer(bytes)).toBeNull();
     });
@@ -503,7 +503,7 @@ describe("streamed containers", () => {
 
         // No patch was asked of the destination, and none was needed.
         expect(written.patchedAt).toEqual([]);
-        expect(written.bytes.length).toBe(streamedContainerSize(database.length));
+        expect(written.bytes.length).toBe(streamedContainerSize(database.length, true));
         // The digest field stays zeros, which is what "no digest" looks like in the header.
         expect(written.bytes.subarray(HEADER_BYTES_ENCRYPTED - 32, HEADER_BYTES_ENCRYPTED)
             .every((byte) => byte === 0)).toBe(true);
@@ -521,7 +521,7 @@ describe("streamed containers", () => {
         const database = fakeDatabase(FRAME_SIZE);
         const written = await writeToBuffer(database, STREAMED);
 
-        expect(written.bytes.length).toBe(streamedContainerSize(FRAME_SIZE));
+        expect(written.bytes.length).toBe(streamedContainerSize(FRAME_SIZE, true));
         const read = await readFromBuffer(written.bytes, { passphrase: PASSPHRASE });
         expect(read.bytes.equals(database)).toBe(true);
     });
@@ -534,16 +534,31 @@ describe("streamed containers", () => {
         expect(await failureOf(tampered, { passphrase: PASSPHRASE })).toBe("damaged-payload");
     });
 
-    it("refuses to write a streamed container without encryption", async () => {
-        expect(await reasonOf(writeToBuffer(fakeDatabase(), { streamed: true })))
-            .toBe("invalid-options");
+    it("writes and reads one without a passphrase, held together by its recorded size", async () => {
+        const database = fakeDatabase(64 * 1024);
+        const written = await writeToBuffer(database, { streamed: true, plaintextSize: database.length });
+
+        expect(written.patchedAt).toEqual([]);
+        expect(written.bytes.length).toBe(streamedContainerSize(database.length, false));
+        expect(peekBackupContainer(written.bytes.subarray(0, FIXED_HEADER_BYTES)))
+            .toMatchObject({ encrypted: false, streamed: true, compressed: false });
+
+        expect((await readFromBuffer(written.bytes)).bytes.equals(database)).toBe(true);
+        expect((await readFromBufferWeb(written.bytes)).bytes.equals(database)).toBe(true);
     });
 
-    it("refuses to read a streamed flag on an unencrypted container", async () => {
-        const written = await writeToBuffer(fakeDatabase());
-        const forged = Buffer.from(written.bytes);
-        forged[21] |= 0b100;
+    it("catches a truncated unencrypted one, which is what a broken download leaves", async () => {
+        const database = fakeDatabase(64 * 1024);
+        const written = await writeToBuffer(database, { streamed: true, plaintextSize: database.length });
 
-        expect(await failureOf(forged)).toBe("unsupported-flags");
+        // The digest is gone, so the recorded size is what stands between a half-written
+        // download and a restore that trusts it.
+        expect(await failureOf(written.bytes.subarray(0, written.bytes.length - 1024)))
+            .toBe("size-mismatch");
+    });
+
+    it("refuses to write an unencrypted streamed container that states no size", async () => {
+        expect(await reasonOf(writeToBuffer(fakeDatabase(), { streamed: true })))
+            .toBe("invalid-options");
     });
 });

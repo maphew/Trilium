@@ -15,7 +15,12 @@ import FormRadioGroup from "./widgets/react/FormRadioGroup";
 import Icon from "./widgets/react/Icon";
 import SetupPage from "./widgets/react/SetupPage";
 import SlidePages from "./widgets/react/SlidePages";
-import { type BackupDownload, BackupDownloadPanel, useBackupDownload } from "./setup_backup";
+import {
+    BackupDownloadPanel,
+    BackupParameters,
+    type BackupSettings,
+    useBackupDownload
+} from "./setup_backup";
 
 /**
  * What happens to the knowledge base that was already here.
@@ -40,8 +45,8 @@ const CHOICES: { value: Choice; label: string }[] = [
 ];
 
 /** The screens, in the order they can be reached, which is also the order they slide in. */
-type Step = "choice" | "backing-up" | "downloading" | "backed-up";
-const STEP_ORDER: Step[] = [ "choice", "backing-up", "downloading", "backed-up" ];
+type Step = "choice" | "backup-parameters" | "backing-up" | "downloading" | "backed-up";
+const STEP_ORDER: Step[] = [ "choice", "backup-parameters", "backing-up", "downloading", "backed-up" ];
 
 /**
  * The whole question, as one step of the wizard.
@@ -56,7 +61,7 @@ const STEP_ORDER: Step[] = [ "choice", "backing-up", "downloading", "backed-up" 
 export default function ExistingData({ onProceed, onKept }: { onProceed: () => void; onKept: () => void }) {
     const [ step, setStep ] = useState<Step>("choice");
     const [ backup, setBackup ] = useState<SetupExistingBackup | null>(null);
-    const download = useBackupDownload();
+    const [ settings, setSettings ] = useState<BackupSettings | null>(null);
     const [ error, setError ] = useState<string>();
     const [ errorId, setErrorId ] = useState(0);
 
@@ -78,11 +83,11 @@ export default function ExistingData({ onProceed, onKept }: { onProceed: () => v
 
     async function backUp() {
         // Standalone streams the backup straight into a browser download: the browser's own
-        // storage may not have room for a second copy of the database, but the disk does. The
-        // screen comes first and the download starts from its own button, so nothing lands in
-        // the downloads bar unannounced.
+        // storage may not have room for a second copy of the database, but the disk does. It is
+        // named and locked first, then downloaded from its own button, so nothing lands in the
+        // downloads bar unannounced.
         if (isBackupDownloadSupported()) {
-            setStep("downloading");
+            setStep("backup-parameters");
             return;
         }
 
@@ -122,10 +127,19 @@ export default function ExistingData({ onProceed, onKept }: { onProceed: () => v
                             onCancel={() => void keep()}
                         />
                     )}
+                    {shown === "backup-parameters" && (
+                        <BackupParameters
+                            onContinue={(chosen) => {
+                                setSettings(chosen);
+                                setStep("downloading");
+                            }}
+                            footer={<Button text={t("setup.existing-data-cancel")} onClick={() => void keep()} />}
+                        />
+                    )}
                     {shown === "backing-up" && <ExistingDataBackingUp />}
-                    {shown === "downloading" && (
+                    {shown === "downloading" && settings && (
                         <ExistingDataDownloading
-                            download={download}
+                            settings={settings}
                             onContinue={() => void erase()}
                             onCancel={() => void keep()}
                         />
@@ -296,11 +310,13 @@ const PROGRESS_INTERVAL_MS = 1000;
  * been fully produced — the closest thing to "finished" the application can see, with the
  * browser's own download UI carrying the transfer itself.
  */
-export function ExistingDataDownloading({ download, onContinue, onCancel }: {
-    download: BackupDownload;
+export function ExistingDataDownloading({ settings, onContinue, onCancel }: {
+    settings: BackupSettings;
     onContinue: () => void;
     onCancel: () => void;
 }) {
+    const download = useBackupDownload(settings);
+
     return (
         <SetupPage
             className="existing-data-downloading top-aligned"

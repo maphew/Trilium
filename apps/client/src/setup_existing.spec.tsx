@@ -321,7 +321,10 @@ describe("backing up straight to a download on standalone", () => {
             .at(-1);
     }
 
-    /** Chooses the backup and arrives at the download screen, with nothing started yet. */
+    /**
+     * Chooses the backup, accepts the suggested name and no password, and arrives at the download
+     * screen with nothing started yet.
+     */
     async function reachDownloadScreen() {
         renderScreens();
         await settle();
@@ -329,6 +332,10 @@ describe("backing up straight to a download on standalone", () => {
         choose("back-up");
         await settle();
         button("setup.continue")?.click();
+        await settle();
+
+        // The parameters screen, which the same Continue leaves as it was prefilled.
+        arrivingButton("setup.continue")?.click();
         await settle();
     }
 
@@ -347,9 +354,10 @@ describe("backing up straight to a download on standalone", () => {
 
         arrivingButton("setup.backup-download")?.click();
         await settle();
+        // The suggested name, and no password, which is what the parameters screen was left at.
         expect(downloadDatabase).toHaveBeenCalledWith(
-            expect.stringMatching(/^Backup \d{4}-\d{2}-\d{2} \d{2}-\d{2}-\d{2}\.tnbackup$/),
-            "123456");
+            expect.stringMatching(/^Trilium data \(\d{4}-\d{2}-\d{2} \d{2}-\d{2}-\d{2}\)\.tnbackup$/),
+            undefined);
         expect(container.textContent).toContain("setup.backup-downloading");
         expect(arrivingButton("setup.continue")?.disabled).toBe(true);
 

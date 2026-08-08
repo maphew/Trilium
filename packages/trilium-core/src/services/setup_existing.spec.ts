@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { getBackup } from "./backup.js";
 import {
     backUpExistingData,
-    backupNameFor,
     deleteExistingData,
     getExistingBackupProgress,
     getExistingBackupStatus,
@@ -30,16 +29,6 @@ afterEach(() => {
     vi.restoreAllMocks();
 });
 
-describe("naming the backup", () => {
-    it("is dated and readable, and is a filename on every platform", () => {
-        expect(backupNameFor(new Date(2026, 7, 7, 10, 32, 21))).toBe("Backup 2026-08-07 10-32-21");
-        // Padded, so a directory listing sorts by name and gets chronological order for free.
-        expect(backupNameFor(new Date(2026, 0, 2, 3, 4, 5))).toBe("Backup 2026-01-02 03-04-05");
-        // A colon is not a filename on Windows, and this one is written to a directory the user opens.
-        expect(backupNameFor(new Date())).not.toContain(":");
-    });
-});
-
 describe("what becomes of the existing database", () => {
     it("backs it up through the platform's own backup service", async () => {
         const written = { fileName: "Backup.tnbackup", filePath: "/b/Backup.tnbackup", fileSize: 12, encrypted: true };
@@ -51,7 +40,9 @@ describe("what becomes of the existing database", () => {
         backup.backupAs = backupAs;
 
         await expect(backUpExistingData(new Date(2026, 7, 7, 10, 32, 21))).resolves.toEqual(written);
-        expect(backupAs).toHaveBeenCalledWith("Backup 2026-08-07 10-32-21", expect.any(Function));
+        // The name every platform suggests, which commons settles and its own tests cover.
+        expect(backupAs)
+            .toHaveBeenCalledWith("Trilium data (2026-08-07 10-32-21)", expect.any(Function));
         // Nothing is erased by taking a copy of it.
         expect(platform.removeDatabase).not.toHaveBeenCalled();
 

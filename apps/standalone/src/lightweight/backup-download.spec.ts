@@ -65,28 +65,55 @@ function fakePort() {
     return port;
 }
 
+/**
+ * Everything the port carried, read back through the Node entry point: a container the browser
+ * wrote and the other runtime can open is the whole point of sharing the format.
+ */
+async function unwrap(port: ReturnType<typeof fakePort>, passphrase?: string): Promise<Uint8Array> {
+    const container = Buffer.concat(port.chunks().map((chunk) => Buffer.from(chunk)));
+    const unwrapped: Buffer[] = [];
+    const sink = new Writable({
+        write(chunk: Buffer, _encoding, callback) {
+            unwrapped.push(chunk);
+            callback();
+        }
+    });
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a Node stream over the bytes.
+    await readBackupContainer(Readable.from([ container ]) as any, sink, {
+        passphrase,
+        requireSqliteHeader: false
+    });
+
+    return new Uint8Array(Buffer.concat(unwrapped));
+}
+
 describe("streamDatabaseDownload", () => {
     afterEach(() => {
         vi.useRealTimers();
         vi.restoreAllMocks();
     });
 
-    it("announces the size, sends one chunk per pull, and ends done", async () => {
+    it("wraps an unpassworded download in a container too, and reads back as the database", async () => {
         const port = fakePort();
         const running = streamDatabaseDownload(fakeReader(), port);
 
-        for (let i = 0; i < 4; i++) {
+        for (let i = 0; i < 10; i++) {
             port.deliver({ type: "pull" });
         }
         const outcome = await running;
 
         expect(outcome).toEqual({ status: "done" });
-        expect(port.sent[0]).toEqual({ type: "begin", byteSize: PAGE_SIZE * PAGE_COUNT });
-        expect(port.chunks().map((chunk) => chunk.byteLength))
-            .toEqual([ 128 * PAGE_SIZE, 128 * PAGE_SIZE, 44 * PAGE_SIZE ]);
+        // One format whether or not a password was given, so one extension and one restore path.
+        expect(port.sent[0])
+            .toEqual({ type: "begin", byteSize: streamedContainerSize(PAGE_SIZE * PAGE_COUNT, false) });
+        expect(port.chunks().reduce((total, chunk) => total + chunk.byteLength, 0))
+            .toBe(port.sent[0].byteSize);
         expect(port.sent.at(-1)).toEqual({ type: "end" });
         expect(port.closed).toBe(true);
         expect(port.onmessage).toBeNull();
+
+        expect(await unwrap(port)).toEqual(fakeDatabaseBytes());
     });
 
     it("wraps the stream in an encrypted container, sized exactly as its begin announces", async () => {
@@ -104,25 +131,12 @@ describe("streamDatabaseDownload", () => {
         expect(outcome).toEqual({ status: "done" });
         // The announced size is what the download's Content-Length becomes, so it must be exact.
         const announced = port.sent[0].byteSize;
-        expect(announced).toBe(streamedContainerSize(PAGE_SIZE * PAGE_COUNT));
+        expect(announced).toBe(streamedContainerSize(PAGE_SIZE * PAGE_COUNT, true));
         const streamed = port.chunks().reduce((total, chunk) => total + chunk.byteLength, 0);
         expect(streamed).toBe(announced);
 
         // What went down the wire reads back as the database, through the other runtime's reader.
-        const container = Buffer.concat(port.chunks().map((chunk) => Buffer.from(chunk)));
-        const unwrapped: Buffer[] = [];
-        const sink = new Writable({
-            write(chunk: Buffer, _encoding, callback) {
-                unwrapped.push(chunk);
-                callback();
-            }
-        });
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a Node stream over the bytes.
-        await readBackupContainer(Readable.from([ container ]) as any, sink, {
-            passphrase: "123456",
-            requireSqliteHeader: false
-        });
-        expect(new Uint8Array(Buffer.concat(unwrapped))).toEqual(fakeDatabaseBytes());
+        expect(await unwrap(port, "123456")).toEqual(fakeDatabaseBytes());
     });
 
     it("stops quietly when the download is cancelled", async () => {

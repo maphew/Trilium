@@ -20,9 +20,12 @@ export const FLAG_COMPRESSED = 0b0000_0001;
 export const FLAG_ENCRYPTED = 0b0000_0010;
 /**
  * Written front to back, with no payload digest: the destination could not be revisited to patch
- * one in — a download already on its way to the user, for instance. Only ever valid together with
- * {@link FLAG_ENCRYPTED}: the frame tags then authenticate every payload byte, which is what the
- * digest was for, while on an unencrypted payload the digest is the only integrity there is.
+ * one in — a download already on its way to the user, for instance.
+ *
+ * What stands in for the digest depends on the other flags. Encrypted, every frame carries its own
+ * authentication tag, which covers each payload byte. Unencrypted, the recorded plaintext size is
+ * the check: the reader refuses output that does not measure exactly that, which is what a
+ * truncated download looks like. A streamed container therefore always records its size.
  */
 export const FLAG_STREAMED = 0b0000_0100;
 export const FLAG_RESERVED = 0b1111_1000;
@@ -213,14 +216,6 @@ export function decodeFixedHeader(buffer: Uint8Array, maxHeaderBytes: number): F
     }
     const encrypted = (flags & FLAG_ENCRYPTED) !== 0;
     const streamed = (flags & FLAG_STREAMED) !== 0;
-    if (streamed && !encrypted) {
-        // Without a digest and without frame tags there would be no integrity at all, so no
-        // writer produces this and no reader trusts it.
-        throw new BackupContainerError(
-            "unsupported-flags",
-            "A streamed container without encryption is never valid."
-        );
-    }
 
     const headerLength = readU16LE(buffer, 22);
     if (headerLength > maxHeaderBytes) {
@@ -252,12 +247,20 @@ export function decodeFixedHeader(buffer: Uint8Array, maxHeaderBytes: number): F
 }
 
 /**
- * Exact byte length of a streamed, encrypted, uncompressed container wrapping `plaintextSize`
- * bytes: the header, the payload, and the length field and tag around every frame — including the
- * final frame, which is empty when the payload is an exact multiple of the frame size. Exactness
- * is the point: a download that states its size correctly is one the browser gives a progress bar.
+ * Exact byte length of a streamed, uncompressed container wrapping `plaintextSize` bytes.
+ *
+ * Encrypted, that is the header, the payload, and the length field and tag around every frame —
+ * including the final frame, which is empty when the payload is an exact multiple of the frame
+ * size. Unencrypted, the payload is written as it stands and only the header precedes it.
+ *
+ * Exactness is the point: a download that states its size correctly is one the browser can draw a
+ * progress bar for.
  */
-export function streamedContainerSize(plaintextSize: number): number {
+export function streamedContainerSize(plaintextSize: number, encrypted: boolean): number {
+    if (!encrypted) {
+        return HEADER_BYTES_PLAIN + plaintextSize;
+    }
+
     const frames = Math.floor(plaintextSize / FRAME_SIZE) + 1;
 
     return HEADER_BYTES_ENCRYPTED + plaintextSize + frames * (4 + TAG_BYTES);

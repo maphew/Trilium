@@ -8,8 +8,9 @@ const mocks = vi.hoisted(() => ({
     startBackupDownload: vi.fn(async () => ({ status: "done" }) as { status: string; message?: string })
 }));
 
-vi.mock("./services/backup_download", () => ({
-    backupDownloadFileName: () => "Backup 2026-08-08 10-00-00.tnbackup",
+vi.mock("./services/backup_download", async (importOriginal) => ({
+    // The naming rules are real (they have their own tests); only the download is stubbed.
+    ...(await importOriginal<typeof import("./services/backup_download")>()),
     isBackupDownloadSupported: () => true,
     startBackupDownload: mocks.startBackupDownload
 }));
@@ -35,6 +36,55 @@ function button(label: string): HTMLButtonElement | undefined {
         .find((element) => element.textContent?.includes(label));
 }
 
+function nameField(): HTMLInputElement | null {
+    return container.querySelector<HTMLInputElement>("input:not([type=password])");
+}
+
+/** The password pair, in the order they are filled in: the password, then its confirmation. */
+function passwordFields(): HTMLInputElement[] {
+    return [ ...container.querySelectorAll<HTMLInputElement>("input[type=password]") ];
+}
+
+/** Types into a controlled text box the way the browser does: value, then an input event. */
+function type(input: HTMLInputElement | null, value: string) {
+    if (!input) {
+        throw new Error("the field is not on screen");
+    }
+
+    input.value = value;
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+}
+
+/** The shape of the name proposed by commons, which every platform now suggests. */
+const SUGGESTED_NAME = /^Trilium data \(\d{4}-\d{2}-\d{2} \d{2}-\d{2}-\d{2}\)$/;
+
+/**
+ * Answers the parameters screen and arrives at the download, which is where most of this is.
+ *
+ * @returns the name the backup was left under, since the field is gone by the time it matters.
+ */
+async function reachDownload({ name, password }: { name?: string; password?: string } = {}) {
+    renderScreen();
+    await settle();
+
+    if (name !== undefined) {
+        type(nameField(), name);
+        await settle();
+    }
+    if (password !== undefined) {
+        const [ first, second ] = passwordFields();
+        type(first, password);
+        type(second, password);
+        await settle();
+    }
+
+    const chosen = nameField()?.value ?? "";
+    button("setup.continue")?.click();
+    await settle();
+
+    return chosen;
+}
+
 beforeEach(() => {
     vi.useFakeTimers();
     onDone.mockReset();
@@ -47,18 +97,81 @@ afterEach(() => {
     vi.useRealTimers();
 });
 
-describe("backing up from the setup screen", () => {
-    it("names the file up front and downloads nothing until asked", async () => {
+describe("choosing what the backup is called and whether it is locked", () => {
+    it("opens on the parameters, with the name filled in and nothing downloading", async () => {
         renderScreen();
         await settle();
+
+        expect(container.textContent).toContain("setup.backup-name");
+        expect(nameField()?.value).toMatch(SUGGESTED_NAME);
+        // Optional, so both fields start empty and Continue is available anyway.
+        expect(passwordFields().map((field) => field.value)).toEqual([ "", "" ]);
+        expect(button("setup.continue")?.disabled).toBe(false);
+        expect(mocks.startBackupDownload).not.toHaveBeenCalled();
+        // Nothing here is destructive, so leaving is available from the start.
+        expect(button("setup.backup-finish")?.disabled).toBe(false);
+    });
+
+    it("will not continue on a password typed only once, which would back up unlocked", async () => {
+        renderScreen();
+        await settle();
+
+        const [ first, second ] = passwordFields();
+        type(first, "hunter2");
+        await settle();
+        expect(button("setup.continue")?.disabled).toBe(true);
+
+        type(second, "hunter3");
+        await settle();
+        expect(button("setup.continue")?.disabled).toBe(true);
+
+        type(second, "hunter2");
+        await settle();
+        expect(button("setup.continue")?.disabled).toBe(false);
+    });
+
+    it("refuses characters a filename cannot hold, as they are typed", async () => {
+        renderScreen();
+        await settle();
+
+        type(nameField(), 'Q3 notes: "final" <v2>');
+        await settle();
+
+        expect(nameField()?.value).toBe("Q3 notes final v2");
+    });
+
+    it("carries the name and password through to the download", async () => {
+        await reachDownload({ name: "Before the big import", password: "hunter2" });
+
+        button("setup.backup-download")?.click();
+        await settle();
+
+        expect(mocks.startBackupDownload)
+            .toHaveBeenCalledWith("Before the big import.tnbackup", "hunter2");
+    });
+
+    it("downloads under the suggested name, without a password, when neither was touched", async () => {
+        const chosen = await reachDownload();
+        expect(chosen).toMatch(SUGGESTED_NAME);
+
+        button("setup.backup-download")?.click();
+        await settle();
+
+        // Empty, not absent: the service turns that into an unencrypted container.
+        expect(mocks.startBackupDownload).toHaveBeenCalledWith(`${chosen}.tnbackup`, "");
+    });
+});
+
+describe("backing up from the setup screen", () => {
+    it("names the file up front and downloads nothing until asked", async () => {
+        const chosen = await reachDownload();
 
         expect(container.textContent).toContain("setup.backup-data");
         // The name is on the screen before the download, since it is what the user goes looking
         // for afterwards, and it is the one part of the line that is not boilerplate.
         expect(container.querySelector(".backup-download-file strong")?.textContent)
-            .toBe("Backup 2026-08-08 10-00-00.tnbackup");
+            .toBe(`${chosen}.tnbackup`);
         expect(mocks.startBackupDownload).not.toHaveBeenCalled();
-        // Nothing here is destructive, so leaving is available from the start.
         expect(button("setup.backup-finish")?.disabled).toBe(false);
     });
 
@@ -67,13 +180,11 @@ describe("backing up from the setup screen", () => {
         mocks.startBackupDownload.mockImplementation(() => new Promise((resolve) => {
             finish = resolve;
         }));
-        renderScreen();
-        await settle();
+        await reachDownload();
 
         button("setup.backup-download")?.click();
         await settle();
 
-        expect(mocks.startBackupDownload).toHaveBeenCalledWith("Backup 2026-08-08 10-00-00.tnbackup");
         expect(container.textContent).toContain("setup.backup-downloading");
         // Said while it runs, because leaving the screen is exactly what would break it.
         expect(container.textContent).toContain("setup.backup-do-not-close");
@@ -96,8 +207,7 @@ describe("backing up from the setup screen", () => {
 
     it("shows what stopped a failed download, and offers another go", async () => {
         mocks.startBackupDownload.mockResolvedValue({ status: "failed", message: "the stream broke" });
-        renderScreen();
-        await settle();
+        await reachDownload();
 
         button("setup.backup-download")?.click();
         await settle();
@@ -112,8 +222,7 @@ describe("backing up from the setup screen", () => {
     });
 
     it("hands back to the application when it is done with", async () => {
-        renderScreen();
-        await settle();
+        await reachDownload();
 
         button("setup.backup-finish")?.click();
         await settle();

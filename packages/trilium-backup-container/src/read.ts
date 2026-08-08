@@ -394,18 +394,22 @@ async function* readPlainPayload(
     header: ContainerHeader,
     backend: ContainerBackend
 ): AsyncGenerator<Uint8Array> {
-    const hash = backend.createSha256();
+    // A streamed container records no digest, so hashing towards one would only slow the restore.
+    // What it records instead is its size, which `readContainer` holds the output to.
+    const hash = header.streamed ? null : backend.createSha256();
 
     for (;;) {
         const chunk = await reader.readUpTo(FRAME_SIZE);
         if (chunk.length === 0) {
             break;
         }
-        hash.update(chunk);
+        hash?.update(chunk);
         yield chunk;
     }
 
-    verifyDigest(hash.digest(), header.digest);
+    if (hash) {
+        verifyDigest(hash.digest(), header.digest);
+    }
 }
 
 function verifyDigest(actual: Uint8Array, expected: Uint8Array): void {

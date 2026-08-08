@@ -1,4 +1,4 @@
-import type { SetupExistingBackup, SetupExistingBackupStatus } from "@triliumnext/commons";
+import { defaultBackupName, type SetupExistingBackup, type SetupExistingBackupStatus } from "@triliumnext/commons";
 
 import { getBackup } from "./backup.js";
 import eventService from "./events.js";
@@ -22,9 +22,6 @@ import sqlInit from "./sql_init.js";
  * @module
  */
 
-/** How the backup is named, since a user reading a directory listing is who has to recognise it. */
-const BACKUP_NAME_PREFIX = "Backup";
-
 /**
  * Backs the existing database up, and says where it went.
  *
@@ -47,7 +44,7 @@ export async function backUpExistingData(now: Date): Promise<SetupExistingBackup
     progress = 0;
 
     try {
-        const written = await backup.backupAs(backupNameFor(now), reportProgress);
+        const written = await backup.backupAs(defaultBackupName(now), reportProgress);
         getLog().info(`Setup: the existing database was backed up (${written.fileSize} bytes).`);
 
         return written;
@@ -155,21 +152,6 @@ export async function keepExistingData(): Promise<void> {
 
     await sqlInit.initDbConnection();
     eventService.emit(eventService.DB_INITIALIZED);
-}
-
-/**
- * The name a backup taken here is written under.
- *
- * Spaced and dated rather than slugged, because it is read in a file manager next to backups named
- * after the schedule that took them, and this one wants to be recognisable as the one from the day
- * everything was replaced. The time is dashed: a colon is not a filename on Windows.
- */
-export function backupNameFor(now: Date): string {
-    const stamp = (value: number) => String(value).padStart(2, "0");
-    const date = [ now.getFullYear(), stamp(now.getMonth() + 1), stamp(now.getDate()) ].join("-");
-    const time = [ stamp(now.getHours()), stamp(now.getMinutes()), stamp(now.getSeconds()) ].join("-");
-
-    return `${BACKUP_NAME_PREFIX} ${date} ${time}`;
 }
 
 /**

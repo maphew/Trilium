@@ -124,31 +124,24 @@ export async function streamDatabaseDownload(
         port.postMessage({ type: "chunk", data }, [ data ]);
     };
 
-    let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
+    let source: ReadableStream<Uint8Array> | undefined;
     try {
         const { byteSize, stream } = streamLiveDatabasePages(db);
+        source = stream;
 
-        if (options.passphrase === undefined) {
-            reader = stream.getReader();
-            port.postMessage({ type: "begin", byteSize });
-
-            for (;;) {
-                const { done, value } = await reader.read();
-                if (done) {
-                    port.postMessage({ type: "end" });
-                    return { status: "done" };
-                }
-                await sendChunk(value);
-            }
-        }
-
-        port.postMessage({ type: "begin", byteSize: streamedContainerSize(byteSize) });
+        // A container either way, so every backup this application writes has one shape and one
+        // extension. Without a passphrase it is the database with a header in front of it, held to
+        // the size that header records; with one, every frame is authenticated as well.
+        const encrypted = !!options.passphrase;
+        port.postMessage({ type: "begin", byteSize: streamedContainerSize(byteSize, encrypted) });
         await writeBackupContainer(
             stream,
             new WritableStream<Uint8Array>({ write: sendChunk }),
             {
                 passphrase: options.passphrase,
                 streamed: true,
+                // Never compressed: at these sizes it costs more than a low-end device can spare,
+                // and the browser is downloading to a disk rather than over a wire.
                 plaintextSize: byteSize,
                 scrypt: options.scrypt
             }
@@ -168,7 +161,9 @@ export async function streamDatabaseDownload(
         post(port, { type: "error", message });
         return { status: "failed", message };
     } finally {
-        await reader?.cancel().catch(() => undefined);
+        // Releases the pages still queued behind a stream that ended early; one already consumed
+        // or errored refuses, which is the same as being released.
+        await source?.cancel().catch(() => undefined);
         port.onmessage = null;
         port.close?.();
     }

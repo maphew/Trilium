@@ -49,9 +49,11 @@ export interface WriteBackupContainerOptions extends ProgressOptions {
     patchHeader?: PatchHeader;
     /**
      * Write front to back, recording no payload digest â€” for a destination that cannot be
-     * revisited, such as a download already on its way to the user. Requires `passphrase`: the
-     * GCM frame tags then authenticate every payload byte, which is what the digest was for,
-     * while on an unencrypted payload the digest is the only integrity there is.
+     * revisited, such as a download already on its way to the user.
+     *
+     * Encrypted, the GCM frame tags stand in for the digest. Unencrypted, {@link
+     * WriteBackupContainerOptions.plaintextSize} does, so it is required: without either, nothing
+     * about the payload could be checked.
      */
     streamed?: boolean;
     /** Compress the payload with gzip. */
@@ -105,11 +107,11 @@ export async function writeContainer(
     options: WriteBackupContainerOptions
 ): Promise<WriteBackupContainerResult> {
     const streamed = options.streamed === true;
-    if (streamed && options.passphrase === undefined) {
+    if (streamed && options.passphrase === undefined && !(options.plaintextSize ?? 0)) {
         throw new BackupContainerError(
             "invalid-options",
-            "A streamed container must be encrypted: without a digest, the frame tags are the "
-                + "only integrity it has."
+            "A streamed container that is not encrypted must record its plaintext size: with "
+                + "neither that nor frame tags, nothing about the payload could be checked."
         );
     }
     if (!streamed && typeof options.patchHeader !== "function") {
