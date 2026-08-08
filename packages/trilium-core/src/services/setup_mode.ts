@@ -19,7 +19,7 @@ import { type SetupMarker, type SetupTargetScreen } from "@triliumnext/commons";
  */
 
 /** The screens a marker is allowed to name, which is not every screen the wizard has. */
-const TARGET_SCREENS: readonly SetupTargetScreen[] = [ "restore-backup" ];
+const TARGET_SCREENS: readonly SetupTargetScreen[] = [ "restore-backup", "backup-database" ];
 
 let requested: SetupMarker | null = null;
 

@@ -9,11 +9,7 @@ import {
 } from "@triliumnext/commons";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
-import {
-    backupDownloadFileName,
-    isBackupDownloadSupported,
-    startBackupDownload
-} from "../../../services/backup_download";
+import { isBackupDownloadSupported } from "../../../services/backup_download";
 import { describeDatabaseFormat } from "../../../services/database_files";
 import dialogService from "../../../services/dialog";
 import { t } from "../../../services/i18n";
@@ -76,50 +72,52 @@ function StoredBackupSettings() {
  * schedule or format to configure, because nothing is ever stored.
  */
 function StandaloneBackupSettings() {
-    const [downloading, setDownloading] = useState(false);
+    return <OptionsPageHeader below={<StandaloneBackupStatus />} />;
+}
 
-    async function download() {
-        setDownloading(true);
-        try {
-            const fileName = backupDownloadFileName(new Date());
-            const result = await startBackupDownload(fileName);
-
-            if (result.status === "done") {
-                toast.showMessage(t("backup.download_finished", { fileName }), 10000);
-            } else if (result.status === "failed") {
-                toast.showError(result.message ?? t("backup.download_failed"));
-            }
-            // A cancelled download needs no telling: the user did it themselves, in the browser.
-        } finally {
-            setDownloading(false);
+/**
+ * The whole of what the standalone platform offers: back up, and restore. Both leave this screen
+ * behind, because both need the database held still, which only the setup screen provides.
+ */
+export function StandaloneBackupStatus() {
+    /**
+     * Restarts into the setup screen, where the backup is actually taken.
+     *
+     * A backup is streamed off the live database over minutes, and a page of it read after a write
+     * would not match the pages read before: the copy has to come from a database nothing is
+     * touching. Only setup mode gives that — the database is open, but becca, sync and migrations
+     * are all held back — so the backup is taken there and the instance comes straight back here.
+     */
+    async function backUp() {
+        if (!await dialogService.confirm(t("backup.restart_for_backup"))) {
+            return;
         }
+
+        await bootToSetup({ targetScreen: "backup-database" });
     }
 
     return (
-        <OptionsPageHeader
-            below={
-                <div className="backup-status">
-                    <span className="backup-status-summary">{t("backup.download_only_summary")}</span>
+        <div className="backup-status">
+            <span className="backup-status-summary">{t("backup.download_only_summary")}</span>
 
-                    {canBootToSetup() && (
-                        <Button
-                            name="restore-backup-button"
-                            text={t("backup.restore_backup")}
-                            size="micro"
-                            onClick={() => bootToSetup({ targetScreen: "restore-backup" })}
-                        />
-                    )}
+            {canBootToSetup() && (
+                <>
+                    <Button
+                        name="restore-backup-button"
+                        text={t("backup.restore_backup")}
+                        size="micro"
+                        onClick={() => bootToSetup({ targetScreen: "restore-backup" })}
+                    />
 
                     <Button
                         name="backup-database-now-button"
                         text={t("backup.backup_now")}
                         size="micro"
-                        disabled={downloading}
-                        onClick={() => void download()}
+                        onClick={() => void backUp()}
                     />
-                </div>
-            }
-        />
+                </>
+            )}
+        </div>
     );
 }
 

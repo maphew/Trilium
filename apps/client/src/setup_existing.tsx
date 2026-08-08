@@ -3,11 +3,7 @@ import "./setup_existing.css";
 import type { SetupExistingBackup, SetupExistingBackupStatus } from "@triliumnext/commons";
 import { useEffect, useState } from "preact/hooks";
 
-import {
-    backupDownloadFileName,
-    isBackupDownloadSupported,
-    startBackupDownload
-} from "./services/backup_download";
+import { isBackupDownloadSupported } from "./services/backup_download";
 import { t } from "./services/i18n";
 import open from "./services/open";
 import server from "./services/server";
@@ -19,6 +15,7 @@ import FormRadioGroup from "./widgets/react/FormRadioGroup";
 import Icon from "./widgets/react/Icon";
 import SetupPage from "./widgets/react/SetupPage";
 import SlidePages from "./widgets/react/SlidePages";
+import { type BackupDownload, BackupDownloadPanel, useBackupDownload } from "./setup_backup";
 
 /**
  * What happens to the knowledge base that was already here.
@@ -46,14 +43,6 @@ const CHOICES: { value: Choice; label: string }[] = [
 type Step = "choice" | "backing-up" | "downloading" | "backed-up";
 const STEP_ORDER: Step[] = [ "choice", "backing-up", "downloading", "backed-up" ];
 
-/** Where the standalone platform's backup download stands, as its screen shows it. */
-interface DownloadStatus {
-    fileName: string;
-    state: "idle" | "running" | "done" | "failed";
-    /** What stopped it, shown when `state` is `failed`. */
-    error?: string;
-}
-
 /**
  * The whole question, as one step of the wizard.
  *
@@ -67,7 +56,7 @@ interface DownloadStatus {
 export default function ExistingData({ onProceed, onKept }: { onProceed: () => void; onKept: () => void }) {
     const [ step, setStep ] = useState<Step>("choice");
     const [ backup, setBackup ] = useState<SetupExistingBackup | null>(null);
-    const [ download, setDownload ] = useState<DownloadStatus | null>(null);
+    const download = useBackupDownload();
     const [ error, setError ] = useState<string>();
     const [ errorId, setErrorId ] = useState(0);
 
@@ -93,7 +82,6 @@ export default function ExistingData({ onProceed, onKept }: { onProceed: () => v
         // screen comes first and the download starts from its own button, so nothing lands in
         // the downloads bar unannounced.
         if (isBackupDownloadSupported()) {
-            setDownload({ fileName: backupDownloadFileName(new Date()), state: "idle" });
             setStep("downloading");
             return;
         }
@@ -109,18 +97,6 @@ export default function ExistingData({ onProceed, onKept }: { onProceed: () => v
             setStep("choice");
             raiseError(messageOf(e) ?? t("setup.existing-data-backup-failed"));
         }
-    }
-
-    async function startDownload() {
-        if (!download) {
-            return;
-        }
-
-        setDownload({ ...download, state: "running", error: undefined });
-        const result = await startBackupDownload(download.fileName);
-        setDownload((current) => current && (result.status === "done"
-            ? { ...current, state: "done", error: undefined }
-            : { ...current, state: "failed", error: result.message }));
     }
 
     async function keep() {
@@ -147,12 +123,9 @@ export default function ExistingData({ onProceed, onKept }: { onProceed: () => v
                         />
                     )}
                     {shown === "backing-up" && <ExistingDataBackingUp />}
-                    {shown === "downloading" && download && (
+                    {shown === "downloading" && (
                         <ExistingDataDownloading
-                            fileName={download.fileName}
-                            state={download.state}
-                            error={download.error}
-                            onDownload={() => void startDownload()}
+                            download={download}
                             onContinue={() => void erase()}
                             onCancel={() => void keep()}
                         />
@@ -323,11 +296,8 @@ const PROGRESS_INTERVAL_MS = 1000;
  * been fully produced — the closest thing to "finished" the application can see, with the
  * browser's own download UI carrying the transfer itself.
  */
-export function ExistingDataDownloading({ fileName, state, error, onDownload, onContinue, onCancel }: {
-    fileName: string;
-    state: DownloadStatus["state"];
-    error?: string;
-    onDownload: () => void;
+export function ExistingDataDownloading({ download, onContinue, onCancel }: {
+    download: BackupDownload;
     onContinue: () => void;
     onCancel: () => void;
 }) {
@@ -335,7 +305,7 @@ export function ExistingDataDownloading({ fileName, state, error, onDownload, on
         <SetupPage
             className="existing-data-downloading top-aligned"
             title={t("setup.existing-data-downloading")}
-            description={t("setup.existing-data-downloading-description", { fileName })}
+            description={t("setup.existing-data-downloading-description", { fileName: download.fileName })}
             illustration={<Icon icon="bx bx-download" className="illustration-icon" />}
             footer={
                 <>
@@ -343,34 +313,13 @@ export function ExistingDataDownloading({ fileName, state, error, onDownload, on
                     <Button
                         text={t("setup.continue")}
                         kind="primary"
-                        disabled={state !== "done"}
+                        disabled={download.state !== "done"}
                         onClick={onContinue}
                     />
                 </>
             }
         >
-            <div class="existing-data-download">
-                <Button
-                    text={t("setup.existing-data-download")}
-                    icon="bx bx-download"
-                    kind="primary"
-                    disabled={state === "running"}
-                    onClick={onDownload}
-                />
-
-                {state === "running" && (
-                    <div class="existing-data-progress-message">
-                        <span class="spinner-border" role="status" aria-hidden="true" />
-                        <span>{t("setup.existing-data-downloading-in-progress")}</span>
-                    </div>
-                )}
-                {state === "done" && <span>{t("setup.existing-data-downloading-done")}</span>}
-                {state === "failed" && (
-                    <Admonition type="warning" className="existing-data-download-error">
-                        {error ?? t("setup.existing-data-download-failed")}
-                    </Admonition>
-                )}
-            </div>
+            <BackupDownloadPanel download={download} />
 
             <Admonition type="caution" className="existing-data-warning">
                 {t("setup.existing-data-downloading-warning")}

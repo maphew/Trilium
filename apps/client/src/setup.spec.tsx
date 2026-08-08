@@ -212,9 +212,21 @@ describe("where the wizard opens", () => {
             .toBe("existingData");
     });
 
+    it("goes straight to the backup screen, which is the one that replaces nothing", () => {
+        // Unlike a restore, a backup leaves the knowledge base exactly as it is, so the question
+        // about what to do with it would be asking about something that is not happening.
+        expect(initialState({ initialSetup: false, setupTargetScreen: "backup-database" }))
+            .toBe("backupDatabase");
+
+        // Except where there is nothing to back up, which is not a state the app can ask for.
+        expect(initialState({ setupTargetScreen: "backup-database" })).toBe("selectLanguage");
+    });
+
     it("resumes an interrupted sync before anything else, since that one cannot wait", () => {
         expect(initialState({ syncInProgress: true })).toBe("syncFromServerInProgress");
         expect(initialState({ syncInProgress: true, setupTargetScreen: "restore-backup" }))
+            .toBe("syncFromServerInProgress");
+        expect(initialState({ syncInProgress: true, initialSetup: false, setupTargetScreen: "backup-database" }))
             .toBe("syncFromServerInProgress");
     });
 

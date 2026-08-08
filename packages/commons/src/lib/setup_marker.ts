@@ -22,7 +22,7 @@ export const SETUP_MARKER_FILE_NAME = "setup.json";
  * Named for what the user asked for rather than for the wizard's own state, so the file format does
  * not follow the client's internals around. Screens are listed here as they gain a way in.
  */
-export type SetupTargetScreen = "restore-backup";
+export type SetupTargetScreen = "restore-backup" | "backup-database";
 
 /** A backup the setup screen took of the database it is about to replace. */
 export interface SetupExistingBackup {
