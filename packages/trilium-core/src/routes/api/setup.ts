@@ -1,6 +1,14 @@
 import sqlInit from "../../services/sql_init.js";
 import setupService from "../../services/setup.js";
 import { getRunningSetupOperation, withSetupLock } from "../../services/setup_lock.js";
+import {
+    deleteExistingData,
+    getExistingBackupDefaults,
+    getExistingBackupStatus,
+    keepExistingData,
+    startBackUpExistingData
+} from "../../services/setup_existing.js";
+import { asSetupTargetScreen, getSetupPlatform } from "../../services/setup_mode.js";
 import { getLog } from "../../services/log.js";
 import appInfo from "../../services/app_info.js";
 import optionService from "../../services/options.js";
@@ -29,6 +37,72 @@ function getStatus() {
             }
             : {})
     };
+}
+
+/**
+ * Asks the next start of this instance to come up in the setup wizard rather than in the app.
+ *
+ * Writes the marker and answers; restarting is the caller's half, since only the client knows how
+ * this platform restarts. The language is filled in here from the instance's own option rather than
+ * taken from the request: it has to be the language whose database is about to be left closed.
+ */
+async function bootToSetup(req: Request) {
+    const targetScreen = asSetupTargetScreen(req.body?.targetScreen);
+
+    await getSetupPlatform().writeMarker({
+        lang: optionService.getOptionOrNull("locale") ?? "en",
+        ...(targetScreen ? { targetScreen } : {})
+    });
+
+    getLog().info(`Boot to setup requested${targetScreen ? ` for "${targetScreen}"` : ""}.`);
+}
+
+/**
+ * Starts backing up the database the wizard was booted away from.
+ *
+ * Answers as soon as the write is underway rather than once it is done: the write runs for minutes
+ * on a large database, and on standalone a request rides the service worker, whose fetches the
+ * browser reclaims after a few minutes no matter how patient the caller is. The screen follows the
+ * write, and learns where it went, through {@link existingBackupStatus}.
+ *
+ * What the user chose on the way in arrives in the body, and is treated as a request rather than as
+ * an instruction: nothing in it is trusted, and anything missing falls back to what the instance is
+ * already configured for.
+ */
+function backUpExisting(req: Request) {
+    startBackUpExistingData(new Date(), req.body);
+}
+
+/**
+ * What the screen asking those questions offers as its answers: how this instance already backs up.
+ *
+ * Says whether a passphrase is stored rather than what it is. The passphrase is kept where the
+ * interface cannot read it, which is exactly why the screen has to offer using it as a choice
+ * instead of filling it into a box.
+ */
+function existingBackupDefaults() {
+    return getExistingBackupDefaults();
+}
+
+/**
+ * Where the backup stands, for the screen waiting on it: how far along, and once it is over, what
+ * was written or what stopped it.
+ *
+ * Polled rather than pushed: the screen is the only thing asking, and a push would need a channel
+ * that setup does not otherwise have.
+ */
+function existingBackupStatus() {
+    return getExistingBackupStatus();
+}
+
+/** Erases that database. Everything else in the data directory, backups included, stays. */
+async function deleteExisting() {
+    await deleteExistingData();
+}
+
+/** Abandons setup and opens the database that was there all along. */
+async function keepExisting() {
+    await keepExistingData();
 }
 
 async function setupNewDocument(req: Request) {
@@ -115,6 +189,12 @@ function getSyncSeed() {
 
 export default {
     getStatus,
+    bootToSetup,
+    backUpExisting,
+    existingBackupDefaults,
+    existingBackupStatus,
+    deleteExisting,
+    keepExisting,
     setupNewDocument,
     setupSyncFromServer,
     getSyncSeed,
