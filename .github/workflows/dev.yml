@@ -25,6 +25,60 @@ permissions:
   pull-requests: write  # for PR comments
 
 jobs:
+  # Decides which of the two heavyweight suites a given push/PR can actually
+  # affect. Both suites also run the shared trilium-core spec set, so anything
+  # under that package (or the workspace roots) has to trigger both.
+  changes:
+    name: Detect affected suites
+    runs-on: ubuntu-latest
+    outputs:
+      server: ${{ steps.filter.outputs.server }}
+      standalone: ${{ steps.filter.outputs.standalone }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            # Workspace-wide inputs plus the packages both suites compile in.
+            # `trilium-core` is here because apps/server and apps/standalone each
+            # include ../../packages/trilium-core/src/**/*.spec.ts in their vitest
+            # `include` — the standalone suite exists precisely to re-run that set
+            # under happy-dom + sql.js.
+            shared: &shared
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'package.json'
+              - 'tsconfig*.json'
+              - '.npmrc'
+              - '.nvmrc'
+              # pnpm-workspace.yaml patches @excalidraw/excalidraw, so editing a
+              # patch changes what actually gets installed.
+              - 'patches/**'
+              - '.github/workflows/dev.yml'
+              - 'packages/trilium-core/**'
+              - 'packages/commons/**'
+              # trilium-core depends on turndown-plugin-gfm, so it reaches both
+              # suites through the shared core spec set.
+              - 'packages/turndown-plugin-gfm/**'
+              - 'packages/trilium-backup-container/**'
+              - 'packages/highlightjs/**'
+            server:
+              - *shared
+              - 'apps/server/**'
+            # Widest closure in the repo: apps/standalone depends on eight
+            # workspace packages. It reaches into apps/client too, but only
+            # through ../../client/src/index.js, which main.spec.ts mocks — no
+            # client code executes in this suite, so apps/client is left out.
+            standalone:
+              - *shared
+              - 'apps/standalone/**'
+              - 'packages/ckeditor5/**'
+              - 'packages/codemirror/**'
+              - 'packages/share-theme/**'
+              - 'packages/splitjs/**'
+
   test_dev:
     name: Test development
     runs-on: ubuntu-latest
@@ -58,18 +112,6 @@ jobs:
           path: apps/client/test-output/vitest/html/
           retention-days: 30
 
-      - name: Run the server-side tests
-        id: test-server
-        run: pnpm run --filter=server test --coverage
-
-      - name: Upload server test report
-        uses: actions/upload-artifact@v7
-        if: always()
-        with:
-          name: server-test-report
-          path: apps/server/test-output/vitest/html/
-          retention-days: 30
-
       - name: Upload client coverage to Codecov
         uses: codecov/codecov-action@v7
         if: ${{ !cancelled() && steps.test-client.outcome == 'success' }}
@@ -86,52 +128,6 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: apps/client/test-output/vitest/junit.xml
           flags: client
-          disable_search: true
-          fail_ci_if_error: false
-
-      - name: Upload server coverage to Codecov
-        uses: codecov/codecov-action@v7
-        if: ${{ !cancelled() && steps.test-server.outcome == 'success' }}
-        with:
-          files: apps/server/test-output/vitest/coverage/lcov.info
-          flags: server
-          disable_search: true
-          fail_ci_if_error: false
-
-      - name: Upload server test results to Codecov
-        uses: codecov/test-results-action@v1
-        if: ${{ !cancelled() && steps.test-server.outcome != 'skipped' }}
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: apps/server/test-output/vitest/junit.xml
-          flags: server
-          disable_search: true
-          fail_ci_if_error: false
-
-      - name: Run the standalone tests
-        id: test-standalone
-        # Runs the same trilium-core spec set as the server suite, but in
-        # happy-dom + sql.js WASM via BrowserSqlProvider (see
-        # apps/standalone/src/test_setup.ts). Catches differences
-        # between the Node-side and browser-side runtimes.
-        run: pnpm run --filter=standalone test --coverage
-
-      - name: Upload standalone coverage to Codecov
-        uses: codecov/codecov-action@v7
-        if: ${{ !cancelled() && steps.test-standalone.outcome == 'success' }}
-        with:
-          files: apps/standalone/test-output/vitest/coverage/lcov.info
-          flags: standalone
-          disable_search: true
-          fail_ci_if_error: false
-
-      - name: Upload standalone test results to Codecov
-        uses: codecov/test-results-action@v1
-        if: ${{ !cancelled() && steps.test-standalone.outcome != 'skipped' }}
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: apps/standalone/test-output/vitest/junit.xml
-          flags: standalone
           disable_search: true
           fail_ci_if_error: false
 
@@ -300,11 +296,131 @@ jobs:
       - name: Run the rest of the tests
         run: pnpm run --filter=\!client --filter=\!standalone --filter=\!server --filter=\!desktop --filter=\!commons --filter=\!ckeditor5 --filter=\!codemirror --filter=\!highlightjs --filter=\!pdfjs-viewer test
 
+  # The two suites below are split out of test_dev so they run concurrently with
+  # it (and each other) rather than queueing behind the client/package suites.
+  #
+  # Each job always starts and gates its *steps* on the filter, rather than
+  # carrying a job-level `if:`. A job skipped at the job level reports no result
+  # to a branch-protection required check, and propagates the skip through
+  # `needs:` to build_docker. Gating the steps keeps the job green and the
+  # dependency graph intact on a run that touches neither suite; the cost is one
+  # checkout on an unaffected run.
+  test_server:
+    name: Test server
+    runs-on: ubuntu-latest
+    needs: changes
+    env:
+      AFFECTED: ${{ needs.changes.outputs.server }}
+    steps:
+      - name: Checkout the repository
+        if: env.AFFECTED == 'true'
+        uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        if: env.AFFECTED == 'true'
+      - name: Set up node & dependencies
+        if: env.AFFECTED == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: "pnpm"
+      - name: Install dependencies
+        if: env.AFFECTED == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Run the server-side tests
+        id: test-server
+        if: env.AFFECTED == 'true'
+        run: pnpm run --filter=server test --coverage
+
+      - name: Upload server test report
+        uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() && steps.test-server.outcome != 'skipped' }}
+        with:
+          name: server-test-report
+          path: apps/server/test-output/vitest/html/
+          retention-days: 30
+
+      - name: Upload server coverage to Codecov
+        uses: codecov/codecov-action@v7
+        if: ${{ !cancelled() && steps.test-server.outcome == 'success' }}
+        with:
+          files: apps/server/test-output/vitest/coverage/lcov.info
+          flags: server
+          disable_search: true
+          fail_ci_if_error: false
+
+      - name: Upload server test results to Codecov
+        uses: codecov/test-results-action@v1
+        if: ${{ !cancelled() && steps.test-server.outcome != 'skipped' }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: apps/server/test-output/vitest/junit.xml
+          flags: server
+          disable_search: true
+          fail_ci_if_error: false
+
+  test_standalone:
+    name: Test standalone
+    runs-on: ubuntu-latest
+    needs: changes
+    env:
+      AFFECTED: ${{ needs.changes.outputs.standalone }}
+    steps:
+      - name: Checkout the repository
+        if: env.AFFECTED == 'true'
+        uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        if: env.AFFECTED == 'true'
+      - name: Set up node & dependencies
+        if: env.AFFECTED == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: "pnpm"
+      - name: Install dependencies
+        if: env.AFFECTED == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Run the standalone tests
+        id: test-standalone
+        if: env.AFFECTED == 'true'
+        # Runs the same trilium-core spec set as the server suite, but in
+        # happy-dom + sql.js WASM via BrowserSqlProvider (see
+        # apps/standalone/src/test_setup.ts). Catches differences
+        # between the Node-side and browser-side runtimes.
+        run: pnpm run --filter=standalone test --coverage
+
+      - name: Upload standalone coverage to Codecov
+        uses: codecov/codecov-action@v7
+        if: ${{ !cancelled() && steps.test-standalone.outcome == 'success' }}
+        with:
+          files: apps/standalone/test-output/vitest/coverage/lcov.info
+          flags: standalone
+          disable_search: true
+          fail_ci_if_error: false
+
+      - name: Upload standalone test results to Codecov
+        uses: codecov/test-results-action@v1
+        if: ${{ !cancelled() && steps.test-standalone.outcome != 'skipped' }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: apps/standalone/test-output/vitest/junit.xml
+          flags: standalone
+          disable_search: true
+          fail_ci_if_error: false
+
   build_docker:
     name: Build Docker image
     runs-on: ubuntu-latest
+    # Unchanged semantics: Docker still waits for every suite. test_server is the
+    # longest of the three, so listing all of them costs nothing on the critical
+    # path, and the suites that were skipped complete immediately.
     needs:
       - test_dev
+      - test_server
+      - test_standalone
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
