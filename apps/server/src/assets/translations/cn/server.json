@@ -504,5 +504,10 @@
     "clear-message": "备份将不再加密。",
     "clear-detail": "已写入的备份保留其创建时所用的密码，仍可用该密码恢复。\n\n如果你并未预期看到此提示，请取消——可能是某个笔记或脚本发起了请求。",
     "clear-confirm": "忘记密码"
+  },
+  "restore": {
+    "pick_backup_title": "选择要恢复的备份",
+    "backup_filter": "Trilium 备份（*.db、*.tnbackup）",
+    "any_file_filter": "所有文件"
   }
 }
