@@ -19,7 +19,7 @@
     "donate": "Bağış yap",
     "donate_tooltip": "Bu projeyi desteklemek için bağış yap",
     "channel": {
-      "nightly": "Her gece",
+      "nightly": "Nightly",
       "standalone": "Tek başına"
     }
   },
@@ -38,17 +38,17 @@
   },
   "delete_notes": {
     "close": "Kapat",
-    "delete_all_clones_description": "Tüm kopyaları da sil (son değişiklikler bölümünden geri alınabilir)",
+    "delete_all_clones_description": "Tüm klonları da sil (son değişiklikler bölümünden geri alınabilir)",
     "erase_notes_description": "Notları geçici olarak silme yerine hemen kalıcı olarak silin. Bu işlem, geri alınamaz ve uygulamanın yeniden yüklenmesine neden olur.",
-    "erase_notes_warning": "Tüm kopyaları dahil notları kalıcı olarak sil (geri alınamaz). Bu işlemle uygulama yeniden yüklenecektir.",
+    "erase_notes_warning": "Tüm klonları dahil notları kalıcı olarak sil (geri alınamaz). Bu işlemle uygulama yeniden yüklenecektir.",
     "notes_to_be_deleted": "Silinecek notlar {{notesCount}}",
-    "no_note_to_delete": "Hiçbir not silinmeyecek (sadece kopyalar silinecek).",
+    "no_note_to_delete": "Hiçbir not silinmeyecek (sadece klonlar silinecek).",
     "broken_relations_to_be_deleted": "Bozulan ilişkiler {{relationCount}}",
     "cancel": "İptal",
     "title": "Notları sil",
-    "clones_label": "Kopyalar",
-    "delete_clones_description_one": "Ayrıca {{count}} kopyayı da silin. Bu işlem, son değişiklikler bölümünden geri alınabilir.",
-    "delete_clones_description_other": "Ayrıca {{count}} kopyaları da silin. Bu işlem, son değişiklikler bölümünden geri alınabilir.",
+    "clones_label": "Klonlar",
+    "delete_clones_description_one": "Ayrıca {{count}} klonu da silin. Bu işlem, son değişiklikler bölümünden geri alınabilir.",
+    "delete_clones_description_other": "Ayrıca {{count}} klonu da silin. Bu işlem, son değişiklikler bölümünden geri alınabilir.",
     "erase_notes_label": "Kalıcı olarak sil",
     "table_note_with_relation": "İlişkili not",
     "table_relation": "İlişki",
@@ -193,16 +193,16 @@
     "other": "Diğer"
   },
   "clone_to": {
-    "clone_notes_to": "Notları şuraya kopyala...",
+    "clone_notes_to": "Notları şuraya klonla...",
     "help_on_links": "Bağlantılarla ilgili yardım",
-    "notes_to_clone": "Çoğaltılacak notlar",
+    "notes_to_clone": "Klonlanacak notlar",
     "target_parent_note": "Hedef üst not",
     "search_for_note_by_its_name": "adına göre not ara",
-    "cloned_note_prefix_title": "Çoğaltılan not, belirtilen önekle birlikte not ağacında gösterilecektir",
+    "cloned_note_prefix_title": "Klonlanan not, belirtilen önekle birlikte not ağacında gösterilecektir",
     "prefix_optional": "ön ek (opsiyonel)",
-    "clone_to_selected_note": "Seçilen nota kopyala",
-    "no_path_to_clone_to": "Çoğaltılacak yol yok.",
-    "note_cloned": "Not: \"{{clonedTitle}}\" ögesi, \"{{targetTitle}}\" öğesine kopyalandı"
+    "clone_to_selected_note": "Seçilen nota klonla",
+    "no_path_to_clone_to": "Klonlanacak yol yok.",
+    "note_cloned": "Not: \"{{clonedTitle}}\" ögesi, \"{{targetTitle}}\" öğesine klonlandı"
   },
   "confirm": {
     "confirmation": "Onay",
@@ -211,8 +211,8 @@
     "are_you_sure_remove_note": "\"{{title}}\" notunu ilişki haritasından kaldırmak istediğinize emin misiniz?. ",
     "also_delete_note": "Notu da sil",
     "if_you_dont_check": "Bunu işaretlemezseniz, not yalnızca ilişki haritasından kaldırılacaktır.",
-    "delete_note_keeps_note_one": "Notun {{count}} başka kopyası var, bu yüzden notun kendisi korunur.",
-    "delete_note_keeps_note_other": "Notun {{count}} başka kopyası var, bu yüzden notun kendisi korunur.",
+    "delete_note_keeps_note_one": "Notun {{count}} başka klonu var, bu yüzden notun kendisi korunur.",
+    "delete_note_keeps_note_other": "Notun {{count}} başka klonu var, bu yüzden notun kendisi korunur.",
     "delete_note_deletes_note": "Bu, notun ağaçtaki tek yeri, bu yüzden notun kendisi silinecek. Bu işlem son değişiklikler bölümünden geri alınabilir.",
     "delete_note_deletes_clones": "Not, göründüğü tüm {{places}} yerden silinecek. Bu işlem son değişiklikler bölümünden geri alınabilir."
   },
@@ -240,7 +240,7 @@
     "creatingNotes": "Not oluşturma",
     "createNoteAfter": "etkin nottan sonra yeni not oluşturma",
     "createNoteInto": "etkin nota yeni bir alt not oluşturun",
-    "editBranchPrefix": "etkin notun kopyasının <a class=\"external\" href=\"https://triliumnext.github.io/Docs/Wiki/tree-concepts.html#prefix\">önekini</a> düzenle",
+    "editBranchPrefix": "etkin notun klonunun <a class=\"external\" href=\"https://triliumnext.github.io/Docs/Wiki/tree-concepts.html#prefix\">önekini</a> düzenle",
     "movingCloningNotes": "Notları taşıma / klonlama",
     "toggleArchivedNotes": "arşivlenmiş notları göster/gizle",
     "moveNoteUpDown": "notu not listesinde yukarı/aşağı taşı",
@@ -248,9 +248,9 @@
     "multiSelectNote": "yukarıdaki/aşağıdaki notu çoklu seç",
     "selectAllNotes": "mevcut seviyedeki tüm notları seç",
     "selectNote": "notu seç",
-    "copyNotes": "etkin notu (veya mevcut seçimi) panoya kopyala (<a class=\"external\" href=\"https://triliumnext.github.io/Docs/Wiki/cloning-notes.html#cloning-notes\">kopyalama</a> için kullanılır)",
+    "copyNotes": "etkin notu (veya mevcut seçimi) panoya kopyala (<a class=\"external\" href=\"https://triliumnext.github.io/Docs/Wiki/cloning-notes.html#cloning-notes\">klonlama</a> için kullanılır)",
     "cutNotes": "mevcut notu (veya seçili kısmı) panoya kopyala (notları taşımak için kullanılır)",
-    "pasteNotes": "notu/notları, aktif not için alt not olarak yapıştır (bu, panoya kopyalanmasına veya kesilmesine bağlı olarak taşıma veya çoğaltma işlemidir)",
+    "pasteNotes": "notu/notları, aktif not için alt not olarak yapıştır (bu, panoya kopyalanmasına veya kesilmesine bağlı olarak taşıma veya klonlama işlemidir)",
     "deleteNotes": "notu / alt ağacı sil",
     "editingNotes": "Düzenleme notları",
     "editNoteTitle": "ağaç görünümündeki tuş kombinasyonu, ağaç görünümünden not başlığına geçişi sağlar. Not başlığından Enter tuşuna basmak, odağı metin düzenleyiciye geçirir. <kbd>Ctrl+.</kbd> tuş kombinasyonu ise düzenleyiciden ağaç görünümüne geri dönmeyi sağlar.",
@@ -277,7 +277,7 @@
     "save": "Kaydet"
   },
   "move_note": {
-    "clone_note_new_parent": "Notun birden fazla kopyası veya dalı varsa, notu yeni üst nota kopyala (hangi dalın kaldırılması gerektiği belli değil)",
+    "clone_note_new_parent": "Notun birden fazla klonu veya dalı varsa, notu yeni üst nota klonla (hangi dalın kaldırılması gerektiği belli değil)",
     "move_note": "Notu taşı",
     "to": "şuraya",
     "target_parent_note": "hedef üst not",
@@ -286,7 +286,7 @@
     "nothing_will_happen": "not hedef nota taşınamıyorsa hiçbir şey olmaz (yani bu bir ağaç döngüsü oluşturur)"
   },
   "note_paths": {
-    "clone_button": "Notu yeni bir konuma kopyala...",
+    "clone_button": "Notu yeni bir konuma klonla...",
     "title": "Not Yolları",
     "intro_placed": "Bu not aşağıdaki yollara yerleştirilmiştir:",
     "intro_not_placed": "Bu not henüz not ağacına yerleştirilmemiş.",
@@ -295,7 +295,7 @@
     "search": "Ara"
   },
   "order_by": {
-    "parent_count": "Kopya sayısı",
+    "parent_count": "Klon sayısı",
     "order_by": "Sıralama ölçütü",
     "relevancy": "İlgi düzeyi (varsayılan)",
     "title": "Başlık",
@@ -314,8 +314,8 @@
     "desc": "Azalan"
   },
   "tree-context-menu": {
-    "copy-clone": "Kopyala / çoğalt",
-    "clone-to": "Şuraya kopyala...",
+    "copy-clone": "Kopyala / klonla",
+    "clone-to": "Şuraya klonla...",
     "open-in-a-new-tab": "Yeni sekmede aç",
     "open-in-a-new-split": "Yeni bölmede aç",
     "open-in-a-new-window": "Yeni pencerede aç",
@@ -354,7 +354,7 @@
   },
   "note_tree": {
     "clone-indicator-tooltip": "Bu notun {{- count}} üst ögesi vardır: {{- parents}}",
-    "clone-indicator-tooltip-single": "Bu not kopyalanmıştır (1 ek üst öge: {{- parent}})",
+    "clone-indicator-tooltip-single": "Bu not klonlanmıştır (1 ek üst öge: {{- parent}})",
     "collapse-title": "Not ağacını daralt",
     "scroll-active-title": "Etkin nota kaydır",
     "tree-settings-title": "Ağaç ayarları",
@@ -382,7 +382,7 @@
   },
   "llm": {
     "tools": {
-      "clone_note": "Notu kopyala",
+      "clone_note": "Notu klonla",
       "search_notes": "Notlarda ara",
       "get_note": "Notu getir",
       "get_note_content": "Not içeriğini getir",
@@ -901,7 +901,7 @@
     "run_on_note_content_change": "Not içeriği değiştiğinde çalışır (not oluşturmayı da içerir).",
     "run_on_note_change": "Not değiştiğinde çalışır (not oluşturmayı da içerir). İçerik değişikliklerini içermez.",
     "run_on_note_deletion": "Not silinirken çalışır.",
-    "run_on_branch_creation": "Bir dal oluşturulduğunda çalışır. Dal, üst not ile alt not arasındaki bağlantıdır ve örneğin not kopyalarken veya taşırken oluşturulur.",
+    "run_on_branch_creation": "Bir dal oluşturulduğunda çalışır. Dal, üst not ile alt not arasındaki bağlantıdır ve örneğin not klonlarken veya taşırken oluşturulur.",
     "run_on_branch_change": "Bir dal güncellendiğinde çalışır.",
     "run_on_branch_deletion": "Bir dal silindiğinde çalışır. Dal, üst not ile alt not arasındaki bağlantıdır ve örneğin not taşınırken silinir (eski dal/bağlantı silinir).",
     "run_on_attribute_creation": "Bu ilişkiyi tanımlayan not için yeni bir özellik oluşturulduğunda çalışır.",
@@ -1757,7 +1757,7 @@
     "note_map_what": "Bu notun neye bağlandığının bir haritası. Bağlantı haritası, ona giren ve çıkan dahili bağlantıları ve ilişkileri çizer; ağaç haritası ise not ağacında nerede bulunduğunu çizer. Bu başlıktaki geçiş anahtarı ikisi arasında seçim yapar.",
     "note_map_interaction": "Bir notun üzerine gelmek, kendi bağlantılarını öne çıkarır ve geri kalanını soldurur. Genişlet düğmesi, aynı haritayı pencere boyutunda açar.",
     "note_paths_what": "Bir not, aynı anda not ağacında birden fazla yerde bulunabilir ve bu yerlerin her biri burada bir yol olarak listelenir.",
-    "note_paths_cloning": "Bir yer eklemeye kopyalama denir: hiçbir şey kopyalanmaz, bu yüzden bir yol altında yapılan bir düzenleme hepsinde görünür ve bir yolu kaldırmak notu diğerlerinin altında bırakır.",
+    "note_paths_cloning": "Bir yer eklemeye klonlama denir: hiçbir şey kopyalanmaz, bu yüzden bir yol altında yapılan bir düzenleme hepsinde görünür ve bir yolu kaldırmak notu diğerlerinin altında bırakır.",
     "backlinks_what": "Metinlerinde bir bağlantı aracılığıyla veya buna adını veren bir ilişki aracılığıyla buna işaret eden notlar.",
     "backlinks_listing": "Bir metin bağlantısı, etrafındaki pasajla birlikte listelenir; bir ilişki, işaret ettiği adla listelenir. Bir bağlantının bu tarafı düzenlenemez: bunu oluşturan not bağlantıyı bıraktığında kaybolur.",
     "similar_notes_what": "Hiçbir şey onları bağlamasa bile buna ilişkili görünen notlar.",
@@ -3266,8 +3266,8 @@
     "center_subtree_size_help": "Alt ağaç boyutu, alt notları içerir ancak revizyonlarını içermez (diskte {{size}})",
     "back": "Geri",
     "current_note": "Geçerli not:",
-    "status_content_one": "{{size}} kaplayan 1 not ({{attachmentsSize}} ek olarak)",
-    "status_content_other": "{{size}} kaplayan {{count}} not ({{attachmentsSize}} ek olarak)",
+    "status_content_one": "{{size}} kaplayan 1 not (bunun {{attachmentsSize}} kadarı not ekleri)",
+    "status_content_other": "{{size}} kaplayan {{count}} not (bunun {{attachmentsSize}} kadarı not ekleri)",
     "status_content_hint": "Tüm notların (gizli olanlar dahil), eklerinin ve revizyonlarının kapladığı alan; yinelenen içerik bir kez sayılır",
     "status_deleted": "Silinmiş notlarda ve eklerde {{size}}",
     "status_deleted_hint": "Silinmiş notlar ve silinmiş ekler (notu hâlâ var olabilir) tarafından hâlâ tutulan alan; silmek bu alanı geri kazandırır",
