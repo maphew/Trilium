@@ -22,13 +22,13 @@
 }
 
 /*
- * The three marks a direction is chosen by, which are Mind Elixir's own (MIT, © 2019 DjZhou): each
+ * The four marks a direction is chosen by, which are Mind Elixir's own (MIT, © 2019 DjZhou): each
  * draws the very layout it sets, and Trilium's icon set has nothing that says it. They are drawn as
  * a mask filled with the button's own color rather than as pictures, so that they take the color a
  * boxicon would — including the one a pressed or hovered button lends its icon.
  *
- * Sized in `em` against the font size the theme gives an icon button's mark, so that the three sit
- * at the size the four beside them do and follow that setting wherever it is changed.
+ * Sized in `em` against the font size the theme gives an icon button's mark, so that the four sit
+ * at the size the ones beside them do and follow that setting wherever it is changed.
  */
 .mind-map-container .mind-map-direction-icon::before {
     content: "";
@@ -59,4 +59,11 @@
 .mind-map-container .mind-map-direction-side::before {
     -webkit-mask-image: url("./direction-side.svg");
     mask-image: url("./direction-side.svg");
+}
+
+/* The layout Mind Elixir added last came without a mark of its own, its own bar never having offered
+   it. Drawn here from the rightward one turned a quarter turn, which is what the layout itself is. */
+.mind-map-container .mind-map-direction-down::before {
+    -webkit-mask-image: url("./direction-down.svg");
+    mask-image: url("./direction-down.svg");
 }

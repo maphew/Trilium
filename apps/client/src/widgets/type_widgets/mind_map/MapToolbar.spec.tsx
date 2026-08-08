@@ -27,7 +27,7 @@ function buildMind({ scaleVal = 1, direction = 1, isFocusMode = false } = {}) {
     });
 
     // As the map does: it is laid out afresh, and says only that its branches have been drawn.
-    const relayOut = (value: 0 | 1 | 2) => vi.fn(() => {
+    const relayOut = (value: 0 | 1 | 2 | 3) => vi.fn(() => {
         mind.direction = value;
         fire("linkDiv");
     });
@@ -48,6 +48,7 @@ function buildMind({ scaleVal = 1, direction = 1, isFocusMode = false } = {}) {
         initLeft: relayOut(0),
         initRight: relayOut(1),
         initSide: relayOut(2),
+        initDown: relayOut(3),
         // As the map does: it is laid out afresh, showing all it has again.
         cancelFocus: vi.fn(() => {
             mind.isFocusMode = false;
@@ -79,6 +80,7 @@ const FULLSCREEN = 4;
 const LEFT = 0;
 const RIGHT = 1;
 const SIDE = 2;
+const DOWN = 3;
 
 /** Builds a bar and settles it, so that what it listens to is listened to before it is spoken to. */
 function renderBar(bar: ComponentChild) {
@@ -260,13 +262,16 @@ describe("MapToolbar", () => {
 });
 
 describe("DirectionToolbar", () => {
-    it("offers the three layouts the map's own bar did, each wearing its own mark", () => {
+    // The three the map's own bar offered, and the downward one Mind Elixir added without ever
+    // putting it in that bar.
+    it("offers every layout the map can take, each wearing its own mark", () => {
         const container = renderDirections(buildMind());
 
         expect(buttons(container).map((button) => button.className)).toEqual([
             expect.stringContaining("mind-map-direction-left"),
             expect.stringContaining("mind-map-direction-right"),
-            expect.stringContaining("mind-map-direction-side")
+            expect.stringContaining("mind-map-direction-side"),
+            expect.stringContaining("mind-map-direction-down")
         ]);
     });
 
@@ -280,6 +285,9 @@ describe("DirectionToolbar", () => {
         press(container, SIDE);
         expect(mind.initSide).toHaveBeenCalled();
 
+        press(container, DOWN);
+        expect(mind.initDown).toHaveBeenCalled();
+
         press(container, RIGHT);
         expect(mind.initRight).toHaveBeenCalled();
     });
@@ -289,12 +297,17 @@ describe("DirectionToolbar", () => {
         const container = renderDirections(mind);
 
         expect(buttons(container).map((button) => button.classList.contains("active")))
-            .toEqual([ false, true, false ]);
+            .toEqual([ false, true, false, false ]);
 
         press(container, SIDE);
 
         expect(buttons(container).map((button) => button.classList.contains("active")))
-            .toEqual([ false, false, true ]);
+            .toEqual([ false, false, true, false ]);
+
+        press(container, DOWN);
+
+        expect(buttons(container).map((button) => button.classList.contains("active")))
+            .toEqual([ false, false, false, true ]);
     });
 
     it("catches up with a map that took a direction from the content it was filled with", () => {
@@ -306,6 +319,6 @@ describe("DirectionToolbar", () => {
         act(() => mind.bus.fire("linkDiv"));
 
         expect(buttons(container).map((button) => button.classList.contains("active")))
-            .toEqual([ true, false, false ]);
+            .toEqual([ true, false, false, false ]);
     });
 });
