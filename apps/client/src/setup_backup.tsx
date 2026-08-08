@@ -201,6 +201,7 @@ export function BackupDownloadStep({ settings, onDone }: {
         <SetupPage
             className="setup-backup-database top-aligned"
             title={t("setup.backup-data")}
+            description={t("setup.backup-data-description")}
             illustration={<Icon icon="bx bx-archive-out" className="illustration-icon" />}
             footer={
                 <Button
