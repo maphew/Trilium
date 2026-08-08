@@ -270,6 +270,8 @@ function HandlingChoice<T extends string>({ title, help, description, values, cu
                 currentValue={disabled ? "" : currentValue}
                 options={values.map((value) => ({ value, label: t(`space_usage.${labelKey}_${value}`) }))}
                 onChange={(value) => !disabled && onChoose(value)}
+                // Three named choices are wider than a phone: the PNG row's ran 74px past its card.
+                collapseOnMobile
             />
         </>
     );

@@ -847,7 +847,6 @@
   "images": {
     "images_section_title": "صور",
     "max_image_dimensions_unit": "بكسل",
-    "enable_image_compression": "ضغط الصورة",
     "jpeg_quality": "جودة JPEG",
     "ocr_min_confidence": "الحد الأدنى من الثقة",
     "ocr_section_title": "استخراج النص (OCR)",
@@ -937,7 +936,6 @@
     "date-and-time": "التاريخ والوقت",
     "no_backup_yet": "لايوجد نسخة احتياطية لحد الان",
     "enable_daily_backup": "النسخ الاحتياطي اليومي",
-    "backup_database_now": "نسخ اختياطي لقاعدة البيانات الان",
     "download": "تنزيل",
     "title": "نسخة احتياطية",
     "backup_recommendation": "يُنصح بالإبقاء على النسخ الاحتياطي مفعّلًا، لكن قد يؤدي ذلك إلى بطء تشغيل التطبيق مع قواعد البيانات الكبيرة و/أو أجهزة التخزين البطيئة.",

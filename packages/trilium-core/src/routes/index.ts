@@ -34,6 +34,9 @@ import backendLogRoute from "./api/backend_log";
 import backupRoute from "./api/backup";
 import passwordApiRoute from "./api/password";
 import loginApiRoute from "./api/login";
+import fontsRoute from "./api/fonts";
+import ocrRoute from "./api/ocr";
+import linkEmbedRoute from "./api/link_embed";
 
 // TODO: Deduplicate with routes.ts
 const GET = "get",
@@ -151,6 +154,10 @@ export function buildSharedApiRoutes({ route, asyncRoute, asyncRouteWithoutTrans
     asyncApiRoute(PST, "/api/attachments/:attachmentId/compress-image", imageRoute.compressAttachmentImage);
     asyncRoute(PST, "/api/notes/:noteId/attachments/upload", [checkApiAuthOrElectron, uploadMiddlewareWithErrorHandling, csrfMiddleware], attachmentsApiRoute.uploadAttachment, apiResultHandler);
 
+    // POSTed rather than taking the URL in a query string: a link can carry a one-time token or a
+    // signature, and a query string ends up in every access log along the way.
+    asyncApiRoute(PST, "/api/link-embed/metadata", linkEmbedRoute.getMetadata);
+
     // group of the services below are meant to be executed from the outside
     // Not transactional: a status read needs no transaction, and one is unopenable during the moment
     // a restore has the database detached — which is exactly when the wizard is polling hardest.
@@ -257,6 +264,8 @@ export function buildSharedApiRoutes({ route, asyncRoute, asyncRouteWithoutTrans
     apiRoute(PST, "/api/other/render-markdown", otherRoute.renderMarkdown);
     apiRoute(PST, "/api/other/to-markdown", otherRoute.toMarkdown);
 
+    route(GET, "/api/fonts", [checkApiAuthOrElectron], fontsRoute.getFontCss);
+
     asyncApiRoute(GET, "/api/similar-notes/:noteId", similarNotesRoute.getSimilarNotes);
     apiRoute(PST, "/api/relation-map", relationMapApiRoute.getRelationMap);
     apiRoute(GET, "/api/recent-changes/:ancestorNoteId", recentChangesApiRoute.getRecentChanges);
@@ -266,6 +275,9 @@ export function buildSharedApiRoutes({ route, asyncRoute, asyncRouteWithoutTrans
 
     //#region Files
     route(GET, "/api/notes/:noteId/open", [checkApiAuthOrElectron], filesRoute.openFile);
+    // What the media players stream from: same content as /open, but answering byte ranges so they can seek.
+    route(GET, "/api/notes/:noteId/open-partial", [checkApiAuthOrElectron], filesRoute.openPartialFile);
+    route(GET, "/api/attachments/:attachmentId/open-partial", [checkApiAuthOrElectron], filesRoute.openPartialAttachment);
     asyncApiRoute(GET, "/api/notes/:noteId/office-preview", filesRoute.getNoteOfficePreview);
     asyncApiRoute(GET, "/api/attachments/:attachmentId/office-preview", filesRoute.getAttachmentOfficePreview);
     route(GET, "/api/notes/:noteId/download", [checkApiAuthOrElectron], filesRoute.downloadFile);
@@ -276,6 +288,13 @@ export function buildSharedApiRoutes({ route, asyncRoute, asyncRouteWithoutTrans
     // this "hacky" path is used for easier referencing of CSS resources
     route(GET, "/api/attachments/download/:attachmentId", [checkApiAuthOrElectron], filesRoute.downloadAttachment);
     route(GET, "/api/revisions/:revisionId/download", [checkApiAuthOrElectron], revisionsApiRoute.downloadRevision);
+    route(PUT, "/api/notes/:noteId/file", [checkApiAuthOrElectron, uploadMiddlewareWithErrorHandling, csrfMiddleware], filesRoute.updateFile, apiResultHandler);
+    route(PUT, "/api/attachments/:attachmentId/file", [checkApiAuthOrElectron, uploadMiddlewareWithErrorHandling, csrfMiddleware], filesRoute.updateAttachment, apiResultHandler);
+
+    // Reading the OCR text only. Extracting it needs the engine, which stays in the server — but the
+    // text is stored on the blob and syncs with it, so every client can show what was extracted.
+    apiRoute(GET, "/api/ocr/notes/:noteId/text", ocrRoute.getNoteOCRText);
+    apiRoute(GET, "/api/ocr/attachments/:attachmentId/text", ocrRoute.getAttachmentOCRText);
     //#endregion
 
     //#region Export

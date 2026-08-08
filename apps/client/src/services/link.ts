@@ -230,6 +230,35 @@ export function calculateHash({ notePath, ntxId, hoistedNoteId, viewScope = {} }
     return hash;
 }
 
+/** The subset of `window.location` needed to build a URL, which a plain `URL` also satisfies. */
+interface UrlParts {
+    protocol: string;
+    host: string;
+    pathname: string;
+    search: string;
+}
+
+/**
+ * Builds the address of a detached ("extra") window showing the given target.
+ *
+ * The current query string is carried over rather than replaced. On the server it holds nothing of
+ * interest, but in standalone the query *is* the environment (`?safeMode`, `?startNoteId` — see
+ * `QUERY_TO_ENV` in the standalone platform provider), so a window that dropped it would boot with
+ * different settings than the one it was opened from, and would apply those to every other window
+ * should it later inherit the database lock.
+ */
+export function calculateExtraWindowUrl(target: NoteCommandData, location: UrlParts = window.location) {
+    const params = new URLSearchParams(location.search);
+    params.set("extraWindow", "1");
+
+    return `${location.protocol}//${location.host}${location.pathname}?${params}${calculateHash(target)}`;
+}
+
+/** Whether the query string of `url` (everything before `hashIdx`) carries the `extraWindow` marker. */
+function isExtraWindowUrl(url: string, hashIdx: number) {
+    return /[?&]extraWindow(?:[=&]|$)/.test(url.slice(0, hashIdx));
+}
+
 export function parseNavigationStateFromUrl(url: string | undefined) {
     if (!url) {
         return {};
@@ -242,7 +271,7 @@ export function parseNavigationStateFromUrl(url: string | undefined) {
     }
 
     // Exclude external links that contain #
-    if (hashIdx !== 0 && !url.includes("/#root") && !url.includes("/#?searchString") && !url.includes("/?extraWindow")) {
+    if (hashIdx !== 0 && !url.includes("/#root") && !url.includes("/#?searchString") && !isExtraWindowUrl(url, hashIdx)) {
         return {};
     }
 
@@ -572,5 +601,6 @@ export default {
     getReferenceLinkTitle,
     getReferenceLinkTitleSync,
     calculateHash,
+    calculateExtraWindowUrl,
     parseNavigationStateFromUrl
 };

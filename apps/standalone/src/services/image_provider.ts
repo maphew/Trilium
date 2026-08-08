@@ -4,7 +4,7 @@
  * Images are saved as-is without resizing.
  */
 
-import type { ImageCompressionOutcome, ImageCompressionPlan, ImageFormat, ImageProvider, ProcessedImage } from "@triliumnext/core";
+import type { ImageCompressionOutcome, ImageCompressionPlan, ImageFormat, ImageProvider, PreviewResizeOutcome, ProcessedImage } from "@triliumnext/core";
 import { inspectImage, UNKNOWN_FORMAT } from "@triliumnext/core/src/services/image_inspect.js";
 
 /**
@@ -47,5 +47,18 @@ export const standaloneImageProvider: ImageProvider = {
         // Settled before an image is so much as weighed: nothing here is going to compress it
         // whatever its header says, so a run over a tree reads none of them.
         return { skip: "unsupported-platform", decodeCost: null };
+    },
+
+    /**
+     * Declined for the same reason as everything else on this runtime: there is no decoder to scale
+     * a picture with.
+     *
+     * The preview is not lost to it. The caller keeps a cover image that is already small enough to
+     * store as it came, and shows a preview without a picture where it is not — which is exactly
+     * what the server does for a WebP its own decoder cannot read, so this is a path already
+     * travelled rather than a new kind of degradation.
+     */
+    async resizeForPreview(): Promise<PreviewResizeOutcome> {
+        return { resized: false, reason: "unsupported-platform" };
     }
 };

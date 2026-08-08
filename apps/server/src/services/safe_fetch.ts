@@ -2,6 +2,7 @@ import dns from "node:dns";
 import net from "node:net";
 
 import { ValidationError } from "@triliumnext/core";
+import { validateFetchableUrl } from "@triliumnext/core/src/services/request.js";
 import ipaddr from "ipaddr.js";
 import { Agent, fetch as undiciFetch, type RequestInit as UndiciRequestInit, type Response as UndiciResponse } from "undici";
 
@@ -61,27 +62,11 @@ async function validateHostResolution(hostname: string): Promise<dns.LookupAddre
     return addresses;
 }
 
-function validateUrl(urlString: string): URL {
-    let parsed: URL;
-    try {
-        parsed = new URL(urlString);
-    } catch {
-        throw new ValidationError("Invalid URL");
-    }
-
-    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
-        throw new ValidationError("Only http and https URLs are supported");
-    }
-
-    // `https://user:pass@host/` would put the credentials on the wire, and — for a link preview —
-    // into the note's stored URL and the server log along with them. Nothing here needs to
-    // authenticate, so refuse the URL rather than carry a secret around.
-    if (parsed.username || parsed.password) {
-        throw new ValidationError("URLs containing credentials are not supported");
-    }
-
-    return parsed;
-}
+/**
+ * The address checks, which are core's — they are about the URL rather than about the network, so
+ * every runtime makes them and only this one can follow them with a resolution.
+ */
+const validateUrl = validateFetchableUrl;
 
 /**
  * Creates a custom DNS lookup function that only returns pre-validated IP addresses,

@@ -37,9 +37,6 @@
       "path": "./apps/edit-docs"
     },
     {
-      "path": "./packages/express-partial-content"
-    },
-    {
       "path": "./apps/db-compare"
     },
     {

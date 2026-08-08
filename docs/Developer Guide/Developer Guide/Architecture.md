@@ -94,7 +94,6 @@ trilium/
 │   ├── ckeditor5/         # Custom rich text editor
 │   ├── codemirror/        # Code editor customizations
 │   ├── highlightjs/       # Syntax highlighting
-│   ├── express-partial-content/  # HTTP partial content middleware
 │   ├── share-theme/              # Shared note theme
 │   ├── splitjs/                  # Split pane library
 │   └── turndown-plugin-gfm/      # Markdown conversion

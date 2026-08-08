@@ -49,14 +49,9 @@ console.log("[Worker] Error handlers installed, loading modules...");
 import type { BrowserRouter } from './lightweight/browser_router';
 import type { StandaloneRestoreProgress, StandaloneRestoreResult } from "@triliumnext/commons";
 
-import {
-    DEFAULT_DATABASE_NAME,
-    readCurrentDatabaseName,
-    RestoreFailure,
-    restoreDatabase,
-    writeCurrentDatabaseName
-} from './lightweight/database_restore';
-import { consumeSetupMarker, removeSetupMarker, writeSetupMarker } from './lightweight/setup_marker';
+// Nothing that opens a database or a backup is imported statically: both reach for the backup
+// container and the whole of core, and evaluating those at worker startup is what kept the iOS
+// worker from booting. Every use below loads its module when it is actually needed.
 
 // Build-time constant injected by Vite (see `define` in vite.config.mts).
 declare const __TRILIUM_INTEGRATION_TEST__: string;
@@ -237,6 +232,7 @@ async function initialize(): Promise<void> {
             // Which pool entry holds the database is a stored answer rather than a constant: a
             // restore cannot rename an entry, so it writes the new database in beside the old one
             // and changes this. Unrestored instances read the name they have always used.
+            const { readCurrentDatabaseName } = await import('./lightweight/database_restore.js');
             const dbName = await readCurrentDatabaseName();
 
             if (integrationTestMode === "memory") {
@@ -269,6 +265,11 @@ async function initialize(): Promise<void> {
             logService.info("[Worker] Loading @triliumnext/core...");
             const schemaModule = await import("@triliumnext/core/src/assets/schema.sql?raw");
             coreModule = await import("@triliumnext/core");
+            const {
+                consumeSetupMarker,
+                removeSetupMarker,
+                writeSetupMarker
+            } = await import('./lightweight/setup_marker.js');
 
             await coreModule.initializeCore({
                 executionContext: new BrowserExecutionContext(),
@@ -402,6 +403,12 @@ async function removeStandaloneDatabase(): Promise<void> {
         throw new Error("The database is not open, so there is nothing to erase.");
     }
 
+    const {
+        DEFAULT_DATABASE_NAME,
+        readCurrentDatabaseName,
+        writeCurrentDatabaseName
+    } = await import('./lightweight/database_restore.js');
+
     const live = await readCurrentDatabaseName();
     sqlProvider.close();
 
@@ -450,6 +457,8 @@ async function handleRestoreBackup(id: string, backup: File, passphrase?: string
     }
 
     restoreInProgress = true;
+
+    const { restoreDatabase, RestoreFailure } = await import('./lightweight/database_restore.js');
 
     try {
         await restoreDatabase(

@@ -35,6 +35,18 @@ import { decodeBase64 } from "./utils/binary.js";
 import { quoteRegex, unescapeHtml } from "./utils/index.js";
 import { basename } from "./utils/path.js";
 
+/** A picture that has been stored, and the two ways the rest of the code refers to it. */
+export interface StoredPicture {
+    /** The `api/attachments/...` address the note references the picture by. */
+    url: string;
+    /**
+     * The attachment now holding it, for a caller that has to know when the bytes are readable —
+     * `saveImageToAttachment` returns before the write lands. Anything that hands the URL straight
+     * to a client should pass this to {@link imageService.awaitImageWrite} first.
+     */
+    attachmentId: string;
+}
+
 /**
  * Keeps a picture's bytes as an attachment of `noteId`, answering with the URL that references it —
  * or nothing when the bytes are not a picture at all.
@@ -42,11 +54,11 @@ import { basename } from "./utils/path.js";
  * The bytes are asked what they are rather than the address, the server or the `data:` prefix being
  * taken for it, so a 404 page served where a picture should be is refused rather than stored.
  */
-function storePictureBytes(
+export function storePictureBytes(
     noteId: string,
     bytes: Uint8Array,
     { role, title, shrink }: { role: ImageAttachmentRole; title: string; shrink: boolean }
-): string | undefined {
+): StoredPicture | undefined {
     const { format, mime } = inspectImage(bytes);
 
     if (format === UNKNOWN_FORMAT) {
@@ -64,7 +76,10 @@ function storePictureBytes(
     );
 
     return attachment.attachmentId
-        ? `api/attachments/${attachment.attachmentId}/image/${encodeURIComponent(attachment.title)}`
+        ? {
+            url: `api/attachments/${attachment.attachmentId}/image/${encodeURIComponent(attachment.title)}`,
+            attachmentId: attachment.attachmentId
+        }
         : undefined;
 }
 
@@ -93,7 +108,7 @@ export async function downloadPictureToAttachment(
     try {
         const bytes = new Uint8Array(await request.getImage(pictureUrl));
 
-        return storePictureBytes(noteId, bytes, { role, title, shrink });
+        return storePictureBytes(noteId, bytes, { role, title, shrink })?.url;
     } catch (e: unknown) {
         // The address is deliberately left out of the line: it is a page the user was reading, and
         // the note it came from is enough to find this again.
@@ -392,7 +407,7 @@ function storeInlinePicture(
         // The picture was sized by whoever made the preview — ours are stored at an icon's and a
         // thumbnail's size already — so this only moves bytes, and recompressing them would be a
         // second lossy pass over a picture that has had one.
-        return storePictureBytes(noteId, decodeBase64(inline[1]), { role, title, shrink: false });
+        return storePictureBytes(noteId, decodeBase64(inline[1]), { role, title, shrink: false })?.url;
     } catch (e: unknown) {
         getLog().info(`Could not store an inline preview picture of note '${noteId}': ${e}`);
         return undefined;

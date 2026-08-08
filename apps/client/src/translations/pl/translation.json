@@ -1419,7 +1419,6 @@
     "images_section_title": "Obrazy",
     "download_images_automatically": "Pobieraj obrazy automatycznie do użytku offline.",
     "download_images_description": "Wklejony HTML może zawierać odniesienia do obrazów online, Trilium znajdzie te odniesienia i pobierze obrazy, aby były dostępne offline.",
-    "enable_image_compression": "Włącz kompresję obrazów",
     "max_image_dimensions": "Maksymalna szerokość / wysokość obrazu (obraz zostanie przeskalowany, jeśli przekroczy to ustawienie).",
     "max_image_dimensions_unit": "pikseli",
     "jpeg_quality_description": "Jakość JPEG (10 - najgorsza jakość, 100 - najlepsza jakość, zalecane 50 - 85)"
@@ -1538,7 +1537,6 @@
     "enable_monthly_backup": "Włącz comiesięczną kopię zapasową",
     "backup_recommendation": "Zaleca się włączenie kopii zapasowej, ale może to spowolnić uruchamianie aplikacji przy dużych bazach danych i/lub wolnych urządzeniach pamięci masowej.",
     "backup_now": "Utwórz kopię zapasową teraz",
-    "backup_database_now": "Utwórz kopię zapasową bazy danych teraz",
     "existing_backups": "Istniejące kopie zapasowe",
     "date-and-time": "Data i godzina",
     "path": "Ścieżka",

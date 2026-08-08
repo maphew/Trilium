@@ -258,7 +258,6 @@
   "backup": {
     "automatic_backup": "Copie de siguranță automată",
     "automatic_backup_description": "Trilium poate face copii de siguranță ale bazei de date în mod automat:",
-    "backup_database_now": "Crează o copie a bazei de date acum",
     "backup_now": "Crează o copie de siguranță acum",
     "backup_recommendation": "Se recomandă a se păstra activată funcția de copii de siguranță, dar acest lucru poate face pornirea aplicației mai lentă pentru baze de date mai mari sau pentru dispozitive de stocare lente.",
     "database_backed_up_to": "S-a creat o copie de siguranță a bazei de dată la {{backupFilePath}}",
@@ -765,7 +764,6 @@
   "images": {
     "download_images_automatically": "Descarcă imaginile automat pentru utilizare fără conexiune la internet.",
     "download_images_description": "Textul HTML inserat poate conține referințe către imagini online, Trilium le va identifica și va descărca acele imagini pentru a putea fi disponibile și fără o conexiune la internet.",
-    "enable_image_compression": "Activează compresia imaginilor",
     "images_section_title": "Imagini",
     "jpeg_quality_description": "Calitatea JPEG (10 - cea mai slabă calitate, 100 - cea mai bună calitate, se recomandă între 50 și 85)",
     "max_image_dimensions": "Lungimea/lățimea maximă a unei imagini (imaginea va fi redimensionată dacă depășește acest prag).",

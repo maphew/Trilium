@@ -504,5 +504,10 @@
     "clear-message": "이제부터 백업은 암호화되지 않습니다.",
     "clear-detail": "이미 생성된 백업은 생성 당시 사용한 비밀번호가 그대로 유지되며, 해당 비밀번호로 계속 복원할 수 있습니다.\n\n이 메시지가 표시될 것으로 예상하지 못했다면 취소하세요. 노트나 스크립트에서 이 작업을 요청했을 수 있습니다.",
     "clear-confirm": "비밀번호 삭제"
+  },
+  "restore": {
+    "pick_backup_title": "복원할 백업 선택",
+    "backup_filter": "Trilium 백업 (*.db, *.tnbackup)",
+    "any_file_filter": "모든 파일"
   }
 }

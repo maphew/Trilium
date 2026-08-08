@@ -75,7 +75,7 @@ packages/
   codemirror/           # Code editor integration
   highlightjs/          # Syntax highlighting
   share-theme/          # Theme for shared/published notes
-  express-partial-content/, pdfjs-viewer/, splitjs/
+  pdfjs-viewer/, splitjs/
   turndown-plugin-gfm/
 ```
 

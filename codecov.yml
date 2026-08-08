@@ -45,10 +45,6 @@ flags:
     paths:
       - packages/codemirror/src/
     carryforward: true
-  express-partial-content:
-    paths:
-      - packages/express-partial-content/src/
-    carryforward: true
   highlightjs:
     paths:
       - packages/highlightjs/src/

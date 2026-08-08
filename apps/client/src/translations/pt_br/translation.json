@@ -1255,7 +1255,6 @@
     "images_section_title": "Imagens",
     "download_images_automatically": "Baixar imagens automaticamente",
     "download_images_description": "HTML colado pode conter referências a imagens on-line, Trilium vai buscar estas referências e baixar as imagens para que eles estejam disponíveis off-line.",
-    "enable_image_compression": "Habilitar compressão de imagem",
     "max_image_dimensions": "Largura/altura máxima de uma imagem (a imagem será redimensionada se exceder este valor)",
     "max_image_dimensions_unit": "pixels",
     "jpeg_quality_description": "A faixa recomendada é de 50 a 85. Valores mais baixos reduzem o tamanho do arquivo, enquanto valores mais altos preservam os detalhes."
@@ -1374,7 +1373,6 @@
     "enable_monthly_backup": "Habilitar backup mensal",
     "backup_recommendation": "É recomendado manter o backup habilitado, mas isso pode fazer com que a inicialização da aplicação seja lenta com grandes bancos de dados e/ou dispositivos de armazenamento lentos.",
     "backup_now": "Realizar backup agora",
-    "backup_database_now": "Realizar backup do banco de dados agora",
     "existing_backups": "Backups existentes",
     "date-and-time": "Data & hora",
     "path": "Caminho",

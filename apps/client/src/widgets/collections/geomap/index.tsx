@@ -14,6 +14,7 @@ import ActionButton from "../../react/ActionButton";
 import { useCollectionTreeDrag, useNoteBlob, useNoteLabel, useNoteLabelBoolean, useNoteProperty, useSpacedUpdate } from "../../react/hooks";
 import { ViewModeProps } from "../interface";
 import { createNewNote, importGpxTrack, moveMarker } from "./api";
+import Buildings from "./Buildings";
 import ContextMenus from "./ContextMenus";
 import DetailPane, { PaneSelection } from "./DetailPane";
 import EditToolbar from "./EditToolbar";
@@ -255,6 +256,9 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                 {placement && <GhostPin note={placement.mode === "move" ? notes.find((n) => n.noteId === placement.noteId) : undefined} />}
                 <DetailPane notes={notes} parentNote={note} placing={!!placement} isReadOnly={isReadOnly} selection={selection} onSelect={setSelection} onRelocate={startMarkerRelocation} />
                 <ContextMenus parentNote={note} isReadOnly={isReadOnly} onRelocate={startMarkerRelocation} onCreateNote={createNoteAt} />
+                {/* Stood up only while the view is leaned over, so the 3D button changes the map
+                    and not merely the angle it is seen from. */}
+                <Buildings isDarkTheme={layerData.isDarkTheme ?? false} />
                 {/* The pane above is what a click on a marker opens now, so the markers no longer
                     open the note themselves — the two would otherwise both answer the same click,
                     raising the quick editor over the pane that had just opened behind it. */}

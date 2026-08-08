@@ -7,7 +7,7 @@ import appContext from "../../components/app_context";
 import NoteContext from "../../components/note_context";
 import type FNote from "../../entities/fnote";
 import { t } from "../../services/i18n";
-import utils, { isElectron } from "../../services/utils";
+import utils, { isElectron, isStandalone } from "../../services/utils";
 import NoteDetail from "../NoteDetail";
 import FormList, { FormListItem } from "../react/FormList";
 import { useChildNotes, useContainedLinkNavigation, useNoteContext, useTriliumEvent } from "../react/hooks";
@@ -71,6 +71,7 @@ export default function OptionsDialog() {
                         inPage={mobileView === "page"}
                         onBack={() => switchMobileView("list")}
                         backTitle={t("options.back")}
+                        pageTitle={<ActivePageTitle />}
                         listTitle={t("options.title")}
                         listIcon="bx bx-cog"
                     />
@@ -117,6 +118,16 @@ export default function OptionsDialog() {
 }
 
 /**
+ * Names the settings page on show, for the master-detail header to carry beside the way back. A
+ * component of its own rather than something the dialog reads: the dialog is what provides the note
+ * context the title comes from, so it cannot consume it itself.
+ */
+function ActivePageTitle() {
+    const { note } = useNoteContext();
+    return <>{note?.title}</>;
+}
+
+/**
  * The children of `_options` to list in the settings modal, filtered to those applicable to the
  * running platform (see {@link isOptionPageVisibleOnPlatform}). Shared by the desktop sidebar
  * ({@link SettingsNavigation}) and the mobile master list ({@link MobileSettingsList}) so both stay
@@ -128,13 +139,19 @@ export function useOptionPages() {
 
 /**
  * Whether an option page applies to the running platform. A page note in the hidden subtree (see
- * `hidden_subtree.ts`) can carry a boolean label restricting it to one platform: `#electronOnly`
- * hides it on the server (web/mobile) clients, `#serverOnly` hides it on the desktop (Electron) app.
- * Pages without either label apply everywhere. The page still exists in the note tree and stays
- * reachable directly; only the modal's navigation hides it.
+ * `hidden_subtree.ts`) can carry a boolean label restricting where it appears: `#electronOnly`
+ * hides it on the server (web/mobile) clients, `#serverOnly` hides it on the desktop (Electron)
+ * app, and `#notInStandalone` hides it in the standalone build. Pages without any of them apply
+ * everywhere. The page still exists in the note tree and stays reachable directly; only the modal's
+ * navigation hides it.
  *
- * This is the platform axis (Electron app vs. served over HTTP), distinct from the layout axis
- * (`isDesktop`/`isMobile`) that the launcher's `desktopOnly` label uses.
+ * The first two are one axis — where the stack is served from — and are written as `Only` labels
+ * because each names a single platform. Standalone is neither: its server runs in this browser, so
+ * it is Electron and server at once for some purposes and neither for others. What a page needs
+ * there is stated as the exclusion it is.
+ *
+ * All of this is the platform axis, distinct from the layout axis (`isDesktop`/`isMobile`) that the
+ * launcher's `desktopOnly` label uses.
  */
 export function isOptionPageVisibleOnPlatform(page: FNote) {
     if (!isElectron() && page.isLabelTruthy("electronOnly")) {
@@ -142,6 +159,10 @@ export function isOptionPageVisibleOnPlatform(page: FNote) {
     }
 
     if (isElectron() && page.isLabelTruthy("serverOnly")) {
+        return false;
+    }
+
+    if (isStandalone && page.isLabelTruthy("notInStandalone")) {
         return false;
     }
 

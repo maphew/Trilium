@@ -138,7 +138,7 @@ export { inspectImage, type InspectedImage, UNKNOWN_FORMAT } from "./services/im
 export { type CoreConfig, initConfig, getConfig } from "./services/config";
 export { default as imageService } from "./services/image";
 export { t } from "i18next";
-export type { RequestProvider, ExecOpts, CookieJar } from "./services/request";
+export type { RequestProvider, ExecOpts, CookieJar, FetchResourceOpts, FetchedResource } from "./services/request";
 export type * from "./meta";
 export * as routeHelpers from "./routes/helpers";
 

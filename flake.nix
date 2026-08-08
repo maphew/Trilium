@@ -240,7 +240,6 @@ nodejs.python
               "packages/ckeditor5"
               "packages/codemirror"
               "packages/commons"
-              "packages/express-partial-content"
               "packages/highlightjs"
               "packages/turndown-plugin-gfm"
 
