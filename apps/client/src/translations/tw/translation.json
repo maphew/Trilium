@@ -1274,7 +1274,6 @@
     "images_section_title": "圖片",
     "download_images_automatically": "自動下載圖片",
     "download_images_description": "從貼上的 HTML 下載引用的線上圖片以便離線使用。",
-    "enable_image_compression": "圖片壓縮",
     "max_image_dimensions": "最大圖片尺寸",
     "jpeg_quality_description": "建議範圍為 50–85。較低的數值可縮小檔案大小，較高的數值則能保留更多細節。",
     "max_image_dimensions_unit": "像素",

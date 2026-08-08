@@ -1719,7 +1719,6 @@
     "images_section_title": "Immagini",
     "download_images_automatically": "Scarica automaticamente le immagini",
     "download_images_description": "Scarica le immagini online a cui si fa riferimento nel codice HTML incollato, in modo che siano disponibili offline.",
-    "enable_image_compression": "Compressione delle immagini",
     "max_image_dimensions": "Dimensioni massime dell'immagine",
     "max_image_dimensions_unit": "pixel",
     "jpeg_quality_description": "Il range consigliato è compreso tra 50 e 85. Valori più bassi riducono le dimensioni del file, mentre valori più alti preservano i dettagli.",

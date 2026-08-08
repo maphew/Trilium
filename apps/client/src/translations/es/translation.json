@@ -1464,7 +1464,6 @@
     "images_section_title": "Imágenes",
     "download_images_automatically": "Descargar imágenes automáticamente",
     "download_images_description": "Descargar imágenes en línea referenciadas del HTML pegado para que estén disponibles sin conexión.",
-    "enable_image_compression": "Compresión de imágenes",
     "max_image_dimensions": "Dimensiones máximas de imagen",
     "max_image_dimensions_unit": "píxeles",
     "jpeg_quality_description": "Se recomienda un rango 50-85. Valores más pequeños reducen el tamaño del archivo, valores más altos preservan los detalles.",

@@ -1479,7 +1479,6 @@
     "images_section_title": "图片",
     "download_images_automatically": "自动下载图片",
     "download_images_description": "从粘贴的 HTML 代码中下载引用的在线图片，以便离线使用。",
-    "enable_image_compression": "图片压缩",
     "max_image_dimensions": "最大图像尺寸",
     "jpeg_quality_description": "建议范围为 50–85。较低的值可以减小文件大小，较高的值可以保留细节。",
     "max_image_dimensions_unit": "像素",

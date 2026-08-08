@@ -1419,7 +1419,6 @@
     "images_section_title": "Obrazy",
     "download_images_automatically": "Pobieraj obrazy automatycznie do użytku offline.",
     "download_images_description": "Wklejony HTML może zawierać odniesienia do obrazów online, Trilium znajdzie te odniesienia i pobierze obrazy, aby były dostępne offline.",
-    "enable_image_compression": "Włącz kompresję obrazów",
     "max_image_dimensions": "Maksymalna szerokość / wysokość obrazu (obraz zostanie przeskalowany, jeśli przekroczy to ustawienie).",
     "max_image_dimensions_unit": "pikseli",
     "jpeg_quality_description": "Jakość JPEG (10 - najgorsza jakość, 100 - najlepsza jakość, zalecane 50 - 85)"
