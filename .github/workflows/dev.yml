@@ -34,6 +34,7 @@ jobs:
     outputs:
       server: ${{ steps.filter.outputs.server }}
       standalone: ${{ steps.filter.outputs.standalone }}
+      ckeditor5: ${{ steps.filter.outputs.ckeditor5 }}
     steps:
       - uses: actions/checkout@v7
 
@@ -41,12 +42,10 @@ jobs:
         id: filter
         with:
           filters: |
-            # Workspace-wide inputs plus the packages both suites compile in.
-            # `trilium-core` is here because apps/server and apps/standalone each
-            # include ../../packages/trilium-core/src/**/*.spec.ts in their vitest
-            # `include` — the standalone suite exists precisely to re-run that set
-            # under happy-dom + sql.js.
-            shared: &shared
+            # Workspace-wide inputs: these change how anything installs or builds.
+            # Kept as its own anchor so the ckeditor5 filter can pick it up
+            # without inheriting the much wider trilium-core closure below.
+            workspace: &workspace
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
               - 'package.json'
@@ -57,27 +56,43 @@ jobs:
               # patch changes what actually gets installed.
               - 'patches/**'
               - '.github/workflows/dev.yml'
+            # apps/server and apps/standalone each include
+            # ../../packages/trilium-core/src/**/*.spec.ts in their vitest
+            # `include` — the standalone suite exists precisely to re-run that
+            # set under happy-dom + sql.js — so both need core and everything
+            # core pulls in. turndown-plugin-gfm is here because trilium-core
+            # depends on it; it is not a direct dependency of either app.
+            core: &core
               - 'packages/trilium-core/**'
               - 'packages/commons/**'
-              # trilium-core depends on turndown-plugin-gfm, so it reaches both
-              # suites through the shared core spec set.
               - 'packages/turndown-plugin-gfm/**'
               - 'packages/trilium-backup-container/**'
               - 'packages/highlightjs/**'
             server:
-              - *shared
+              - *workspace
+              - *core
               - 'apps/server/**'
             # Widest closure in the repo: apps/standalone depends on eight
             # workspace packages. It reaches into apps/client too, but only
             # through ../../client/src/index.js, which main.spec.ts mocks — no
             # client code executes in this suite, so apps/client is left out.
             standalone:
-              - *shared
+              - *workspace
+              - *core
               - 'apps/standalone/**'
               - 'packages/ckeditor5/**'
               - 'packages/codemirror/**'
               - 'packages/share-theme/**'
               - 'packages/splitjs/**'
+            # Narrowest closure of the three: the aggregate depends only on
+            # commons. Note this filter does not guard the t()/translation-key
+            # contract — apps/client/src/services/i18n.spec.ts reads
+            # packages/ckeditor5/src off disk to enforce that, and it runs in
+            # test_dev, which is ungated.
+            ckeditor5:
+              - *workspace
+              - 'packages/ckeditor5/**'
+              - 'packages/commons/**'
 
   test_dev:
     name: Test development
@@ -128,53 +143,6 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: apps/client/test-output/vitest/junit.xml
           flags: client
-          disable_search: true
-          fail_ci_if_error: false
-
-      - name: Run the CKEditor 5 aggregate tests
-        id: test-ckeditor5
-        # The suite drives a real headless Chrome through webdriverio. When the browser session
-        # fails to start, vitest waits on it rather than erroring, so cap the step instead of
-        # letting it sit until the job's default timeout.
-        timeout-minutes: 15
-        run: |
-          export CHROMEDRIVER_PATH=$(which chromedriver || find /usr/local/share -name chromedriver -type f 2>/dev/null | head -1)
-          echo "Using chromedriver at: $CHROMEDRIVER_PATH"
-          # A chromedriver whose major version does not match the installed Chrome fails the
-          # session handshake, which surfaces as a hang or a mid-run disconnect rather than a
-          # clear error — so record both up front.
-          "$CHROMEDRIVER_PATH" --version || echo "could not read the chromedriver version"
-          (google-chrome --version || chromium --version || chromium-browser --version) 2>/dev/null \
-            || echo "could not read the Chrome version"
-          # Browser mode keeps one page for the whole run, and v8 coverage data accumulates in it:
-          # measured locally, the heap reaches ~850MB by the 100th spec file with --coverage against
-          # ~240MB without it. That is where a CI runner's renderer gives out — the session either
-          # drops mid-run or stops responding. Run the suite in two shards (~60 files each, peaking
-          # around 500MB) and merge the blob reports afterwards, so the 100% gate is still evaluated
-          # over the whole suite rather than per shard.
-          SHARD_ARGS="--reporter=blob --coverage \
-            --coverage.thresholds.lines=0 --coverage.thresholds.functions=0 \
-            --coverage.thresholds.branches=0 --coverage.thresholds.statements=0"
-          pnpm run --filter=ckeditor5 test --shard=1/2 $SHARD_ARGS
-          pnpm run --filter=ckeditor5 test --shard=2/2 $SHARD_ARGS
-          pnpm run --filter=ckeditor5 test --mergeReports --coverage
-
-      - name: Upload ckeditor5 coverage to Codecov
-        uses: codecov/codecov-action@v7
-        if: ${{ !cancelled() && steps.test-ckeditor5.outcome == 'success' }}
-        with:
-          files: packages/ckeditor5/test-output/vitest/coverage/lcov.info
-          flags: ckeditor5
-          disable_search: true
-          fail_ci_if_error: false
-
-      - name: Upload ckeditor5 test results to Codecov
-        uses: codecov/test-results-action@v1
-        if: ${{ !cancelled() && steps.test-ckeditor5.outcome != 'skipped' }}
-        with:
-          token: ${{ secrets.CODECOV_TOKEN }}
-          files: packages/ckeditor5/test-output/vitest/junit.xml
-          flags: ckeditor5
           disable_search: true
           fail_ci_if_error: false
 
@@ -411,16 +379,147 @@ jobs:
           disable_search: true
           fail_ci_if_error: false
 
+  # The two shards the suite was already split into now run as separate jobs
+  # rather than back-to-back in one step, and a merge job evaluates the coverage
+  # gate over the combined blob reports. Sharding exists for renderer memory, not
+  # speed (see the comment on the test step); running the shards concurrently is
+  # what makes it also a speedup.
+  test_ckeditor5:
+    name: Test CKEditor 5 (shard ${{ matrix.shard }})
+    runs-on: ubuntu-latest
+    needs: changes
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2]
+    env:
+      AFFECTED: ${{ needs.changes.outputs.ckeditor5 }}
+    steps:
+      - name: Checkout the repository
+        if: env.AFFECTED == 'true'
+        uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        if: env.AFFECTED == 'true'
+      - name: Set up node & dependencies
+        if: env.AFFECTED == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: "pnpm"
+      - name: Install dependencies
+        if: env.AFFECTED == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Run the CKEditor 5 aggregate tests
+        id: test-ckeditor5
+        if: env.AFFECTED == 'true'
+        # The suite drives a real headless Chrome through webdriverio. When the browser session
+        # fails to start, vitest waits on it rather than erroring, so cap the step instead of
+        # letting it sit until the job's default timeout.
+        timeout-minutes: 15
+        run: |
+          export CHROMEDRIVER_PATH=$(which chromedriver || find /usr/local/share -name chromedriver -type f 2>/dev/null | head -1)
+          echo "Using chromedriver at: $CHROMEDRIVER_PATH"
+          # A chromedriver whose major version does not match the installed Chrome fails the
+          # session handshake, which surfaces as a hang or a mid-run disconnect rather than a
+          # clear error — so record both up front.
+          "$CHROMEDRIVER_PATH" --version || echo "could not read the chromedriver version"
+          (google-chrome --version || chromium --version || chromium-browser --version) 2>/dev/null \
+            || echo "could not read the Chrome version"
+          # Browser mode keeps one page for the whole run, and v8 coverage data accumulates in it:
+          # measured locally, the heap reaches ~850MB by the 100th spec file with --coverage against
+          # ~240MB without it. That is where a CI runner's renderer gives out — the session either
+          # drops mid-run or stops responding. Each shard is ~60 files, peaking around 500MB. The
+          # thresholds are zeroed here and evaluated once over the merged report instead, so the
+          # gate still covers the whole suite rather than each shard separately.
+          pnpm run --filter=ckeditor5 test --shard=${{ matrix.shard }}/${{ strategy.job-total }} \
+            --reporter=blob --coverage \
+            --coverage.thresholds.lines=0 --coverage.thresholds.functions=0 \
+            --coverage.thresholds.branches=0 --coverage.thresholds.statements=0
+
+      # Vitest names blobs `.vitest-reports/blob-<index>-<count>.json`, so the two
+      # shards produce distinct filenames and merge-multiple cannot clobber them.
+      - name: Upload the shard blob report
+        uses: actions/upload-artifact@v7
+        if: ${{ !cancelled() && steps.test-ckeditor5.outcome == 'success' }}
+        with:
+          name: ckeditor5-blob-${{ matrix.shard }}
+          path: packages/ckeditor5/.vitest-reports/
+          if-no-files-found: error
+          retention-days: 1
+
+  test_ckeditor5_merge:
+    name: CKEditor 5 coverage gate
+    runs-on: ubuntu-latest
+    needs:
+      - changes
+      - test_ckeditor5
+    env:
+      AFFECTED: ${{ needs.changes.outputs.ckeditor5 }}
+    steps:
+      - name: Checkout the repository
+        if: env.AFFECTED == 'true'
+        uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+        if: env.AFFECTED == 'true'
+      - name: Set up node & dependencies
+        if: env.AFFECTED == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: "pnpm"
+      - name: Install dependencies
+        if: env.AFFECTED == 'true'
+        run: pnpm install --frozen-lockfile
+
+      - name: Download the shard blob reports
+        if: env.AFFECTED == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          pattern: ckeditor5-blob-*
+          merge-multiple: true
+          path: packages/ckeditor5/.vitest-reports
+
+      # Re-runs no tests; it replays the blobs to produce the junit and lcov
+      # output and to evaluate the package's real coverage thresholds over the
+      # whole suite.
+      - name: Merge the shard reports and evaluate the coverage gate
+        id: test-ckeditor5
+        if: env.AFFECTED == 'true'
+        run: pnpm run --filter=ckeditor5 test --mergeReports --coverage
+
+      - name: Upload ckeditor5 coverage to Codecov
+        uses: codecov/codecov-action@v7
+        if: ${{ !cancelled() && steps.test-ckeditor5.outcome == 'success' }}
+        with:
+          files: packages/ckeditor5/test-output/vitest/coverage/lcov.info
+          flags: ckeditor5
+          disable_search: true
+          fail_ci_if_error: false
+
+      - name: Upload ckeditor5 test results to Codecov
+        uses: codecov/test-results-action@v1
+        if: ${{ !cancelled() && steps.test-ckeditor5.outcome != 'skipped' }}
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: packages/ckeditor5/test-output/vitest/junit.xml
+          flags: ckeditor5
+          disable_search: true
+          fail_ci_if_error: false
+
   build_docker:
     name: Build Docker image
     runs-on: ubuntu-latest
     # Unchanged semantics: Docker still waits for every suite. test_server is the
-    # longest of the three, so listing all of them costs nothing on the critical
-    # path, and the suites that were skipped complete immediately.
+    # longest of them, so listing all of them costs nothing on the critical path,
+    # and the suites that were skipped complete immediately.
     needs:
       - test_dev
       - test_server
       - test_standalone
+      - test_ckeditor5_merge
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6
