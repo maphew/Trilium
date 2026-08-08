@@ -3614,7 +3614,8 @@
     "direction-left": "왼쪽으로 가지 펼치기",
     "direction-right": "오른쪽으로 가지 펼치기",
     "direction-side": "양쪽으로 가지 펼치기",
-    "reset-zoom": "확대/축소 초기화"
+    "reset-zoom": "확대/축소 초기화",
+    "direction-down": "아래쪽으로 분기"
   },
   "llm": {
     "disabled_placeholder": "AI 기능이 꺼져 있습니다. 제공업체와 MCP를 설정하려면 AI 기능을 활성화하세요.",
