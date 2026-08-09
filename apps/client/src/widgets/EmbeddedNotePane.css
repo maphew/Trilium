@@ -33,6 +33,7 @@
      */
     .promoted-attributes-container {
         flex-direction: column;
+        flex-wrap: nowrap;
         align-items: stretch;
         gap: 8px;
         margin: 0;
