@@ -45,7 +45,11 @@
       "title": "Benutzerdefiniertes React-Widget konnte nicht dargestellt werden"
     },
     "widget-missing-parent": "Benutzerdefiniertes Widget hat die erforderliche '{{property}}'-Eigenschaft nicht korrekt definiert.\n\nFalls dieses Skript ohne UI-Element ausgeführt werden soll, verwenden Sie stattdessen '#run=frontendStartup'.",
-    "scripting-error": "Die Skriptnotiz konnte nicht ausgeführt werden"
+    "scripting-error": "Die Skriptnotiz konnte nicht ausgeführt werden",
+    "unhandled-error": {
+      "details-button": "Weitere Details anzeigen...",
+      "title": "Eine Hintergrundaufgabe ist fehlgeschlagen"
+    }
   },
   "add_link": {
     "add_link": "Link hinzufügen",
@@ -57,7 +61,9 @@
     "link_title": "Linktitel",
     "button_add_link": "Link hinzufügen",
     "anchor": "Anker (optional)",
-    "anchor_none": "Keine (Link zur Notiz)"
+    "anchor_none": "Keine (Link zur Notiz)",
+    "edit_link": "Link bearbeiten",
+    "button_edit_link": "Link speichern"
   },
   "branch_prefix": {
     "edit_branch_prefix": "Zweigpräfix bearbeiten",
@@ -104,7 +110,9 @@
     "ok": "OK",
     "are_you_sure_remove_note": "Möchten Sie die Notiz „{{title}}“ wirklich von der Relationskarte entfernen? ",
     "if_you_dont_check": "Wenn Sie dies nicht aktivieren, wird die Notiz nur aus der Relationskarte entfernt.",
-    "also_delete_note": "Auch die Notiz löschen"
+    "also_delete_note": "Auch die Notiz löschen",
+    "delete_note_keeps_note_one": "Die Notiz hat {{count}} weiteren Klon, deswegen wird die Notiz selbst behalten.",
+    "delete_note_keeps_note_other": "Die Notiz hat {{count}} weiter Klone, deswegen wird die Notiz selbst behalten."
   },
   "delete_notes": {
     "close": "Schließen",
