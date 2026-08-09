@@ -6,7 +6,6 @@ import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import dialog from "../../../services/dialog";
 import { t } from "../../../services/i18n";
 import server from "../../../services/server";
-import { isStandalone } from "../../../services/utils";
 import ActionButton from "../../react/ActionButton";
 import Button from "../../react/Button";
 import CodeBlock from "../../react/CodeBlock";
@@ -23,17 +22,6 @@ import AddProviderModal, { type LlmProviderConfig, PROVIDER_TYPES } from "./llm/
 
 export default function LlmSettings() {
     const [aiEnabled, setAiEnabled] = useTriliumOptionBool("aiEnabled");
-
-    if (isStandalone) {
-        return (
-            <>
-                <OptionsPageHeader helpUrl="GBBMSlVSOIGP" />
-                <OptionsSection>
-                    <NoItems icon="bx bx-bot" text={t("llm.not_available_in_standalone")} />
-                </OptionsSection>
-            </>
-        );
-    }
 
     return (
         <>

@@ -11,7 +11,6 @@ import { WidgetsByParent } from "../../services/bundle";
 import { t } from "../../services/i18n";
 import options from "../../services/options";
 import { DEFAULT_GUTTER_SIZE } from "../../services/resizer";
-import { isStandalone } from "../../services/utils";
 import ActionButton from "../react/ActionButton";
 import Button from "../react/Button";
 import { useActiveNoteContext, useGetContextData, useLegacyWidget, useNoteProperty, useTriliumEvent, useTriliumOption, useTriliumOptionBool, useTriliumOptionJson } from "../react/hooks";
@@ -283,7 +282,7 @@ function useItems(rightPaneVisible: boolean, widgetsByParent: WidgetsByParent): 
             // Loaded lazily because the chat pulls in the whole LLM + CKEditor graph,
             // which users without the LLM experimental feature should never download.
             el: <LazyComponent loader={() => import("./SidebarChat.jsx")} />,
-            enabled: noteType !== "llmChat" && !isStandalone && aiEnabled,
+            enabled: noteType !== "llmChat" && aiEnabled,
             position: 1000,
             tab: "chat"
         },

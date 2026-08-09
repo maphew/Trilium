@@ -3826,7 +3826,6 @@
   },
   "llm": {
     "disabled_placeholder": "AI features are turned off. Enable them to configure providers and MCP.",
-    "not_available_in_standalone": "AI/LLM features are not available in the standalone version of Trilium, as LLM providers do not allow direct access from a browser.",
     "feature_not_enabled": "Enable the LLM experimental feature in Settings → Advanced → Experimental features to use AI integrations.",
     "add_provider": "Add Provider",
     "add_provider_title": "Add AI Provider",
