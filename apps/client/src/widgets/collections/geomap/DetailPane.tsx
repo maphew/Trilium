@@ -8,7 +8,7 @@ import FNote from "../../../entities/fnote";
 import { copyTextWithToast } from "../../../services/clipboard_ext";
 import { t } from "../../../services/i18n";
 import link from "../../../services/link";
-import { announceEmbeddedNoteClosing, EmbeddedNoteActions, EmbeddedNoteScope, MaximizeToQuickEditAction, NoteColorAction, OpenNoteActions, SelectTitleOnFirstOpen, useEmbeddedNoteContext, useFollowLinksWithin } from "../../EmbeddedNotePane";
+import { announceEmbeddedNoteClosing, EmbeddedNoteActions, EmbeddedNoteScope, MaximizeAction, NoteColorAction, OpenNoteActions, SelectTitleOnFirstOpen, useEmbeddedNoteContext, useFollowLinksWithin } from "../../EmbeddedNotePane";
 import TitleRow from "../../layout/TitleRow";
 import NoteDetail from "../../NoteDetail";
 import PromotedAttributes from "../../PromotedAttributes";
@@ -54,7 +54,7 @@ export type PaneFocus =
  * pane outside it would leave the screen. It reads as a dock because the map keeps out of its way
  * (see {@link paneOffset}).
  */
-export default function DetailPane({ notes, parentNote, placing, isReadOnly, selection, onSelect, onRelocate }: {
+export default function DetailPane({ notes, parentNote, placing, isReadOnly, selection, onSelect, onRelocate, maximized, onMaximizedChange }: {
     notes: FNote[];
     /** The map's own note, which is how the tree is told what the map holds a note by. */
     parentNote: FNote;
@@ -68,6 +68,15 @@ export default function DetailPane({ notes, parentNote, placing, isReadOnly, sel
     onSelect: (selection: PaneSelection | null) => void;
     /** Arms this map for the selected marker to be put somewhere else, the next click being where. */
     onRelocate: (noteId: string) => void;
+    /**
+     * The pane has been grown to cover the map (see {@link MaximizeAction} in the header below).
+     * Owned by the map view rather than by the pane for the reason the selection is: the map places
+     * what it draws around the pane, and a pane covering the whole of it leaves nothing to place
+     * around — the marker previews have nowhere to stand clear to (see Tooltips), and the camera has
+     * no uncovered half to hold the marker in (see {@link paneOffset}).
+     */
+    maximized: boolean;
+    onMaximizedChange: (maximized: boolean) => void;
 }) {
     const map = useContext(ParentMap);
     const note = notes.find((note) => note.noteId === selection?.noteId);
@@ -111,6 +120,15 @@ export default function DetailPane({ notes, parentNote, placing, isReadOnly, sel
         onSelect({ noteId });
         return true;
     }, [ notes, onSelect ]);
+
+    // The pane comes back up beside the map rather than over it, however it was left: the state
+    // outlives the pane, being the map's (see the props), where a card that is taken down and built
+    // again would have forgotten by itself. Switching from one marker to another keeps it — the room
+    // was asked for, not the marker it was asked on — which is why this waits on the pane going down
+    // rather than on the note changing.
+    useEffect(() => {
+        if (!selection) onMaximizedChange(false);
+    }, [ selection, onMaximizedChange ]);
 
     // A note no longer on the map takes the pane with it. Its location may merely have been cleared
     // — which is all "remove from map" does — so the note being gone is not the only case. A GPX
@@ -160,7 +178,7 @@ export default function DetailPane({ notes, parentNote, placing, isReadOnly, sel
             // were reading at, exactly as a note marker is — flying out to frame the whole file
             // would lose the very flag they clicked.
             if (focus && "at" in focus) {
-                map.easeTo({ center: focus.at, offset: paneOffset(map) });
+                map.easeTo({ center: focus.at, offset: paneOffset(map, maximized) });
                 return;
             }
 
@@ -175,7 +193,7 @@ export default function DetailPane({ notes, parentNote, placing, isReadOnly, sel
                 if (done || !bounds) return;
                 done = true;
                 map.off("sourcedata", onSourceData);
-                map.fitBounds(bounds, { padding: trackFitPadding(map), maxZoom: TRACK_FIT_MAX_ZOOM });
+                map.fitBounds(bounds, { padding: trackFitPadding(map, maximized), maxZoom: TRACK_FIT_MAX_ZOOM });
             };
 
             // A track selected the moment it was brought onto the map has no line yet: its content
@@ -198,10 +216,14 @@ export default function DetailPane({ notes, parentNote, placing, isReadOnly, sel
         const coordinates = parseLocation(location);
         if (!coordinates) return;
 
-        map.easeTo({ center: coordinates, offset: paneOffset(map) });
+        map.easeTo({ center: coordinates, offset: paneOffset(map, maximized) });
         // The focus is depended on by identity, which a click renews even on the same note: every
         // click is a fresh ask, and re-clicking what is already open brings it back into view.
-    }, [ map, note?.noteId, location, selection?.focus ]);
+        //
+        // Growing and shrinking the pane are asks of the same kind, the room the camera is aiming
+        // into being what changed: a pane put back down brings its marker clear of it again, rather
+        // than leaving it under the pane until something else happens to move the camera.
+    }, [ map, note?.noteId, location, selection?.focus, maximized ]);
 
     // Bound only while something is selected, so the map's other Escape — giving up on placing a
     // marker (see index.tsx) — stands alone when nothing is.
@@ -229,7 +251,11 @@ export default function DetailPane({ notes, parentNote, placing, isReadOnly, sel
         // EmbeddedNotePane) — the map would otherwise rebind to the marker's note, tear the map
         // down and take the WebGL context with it.
         <EmbeddedNoteScope component={paneComponent} noteContext={noteContext}>
-            <MarkerDetails note={note} parentNote={parentNote} isReadOnly={isReadOnly} onClose={closePane} onRelocate={relocate} onFollowLink={followLink} />
+            <MarkerDetails
+                note={note} parentNote={parentNote} isReadOnly={isReadOnly}
+                maximized={maximized} onMaximizedChange={onMaximizedChange}
+                onClose={closePane} onRelocate={relocate} onFollowLink={followLink}
+            />
             {selection?.isNew && <SelectTitleOnFirstOpen />}
         </EmbeddedNoteScope>
     );
@@ -254,9 +280,11 @@ export const PANE_REACH = PANE_WIDTH + PANE_INSET;
  * transform, so `getCenter()` — which the view is saved from (see map.tsx) — would report the middle
  * of the uncovered half from then on, walking the saved viewport sideways on every open.
  */
-function paneOffset(map: MapLibreGLMap): [number, number] {
-    // An embedded map narrower than the pane leaves nowhere to hold the marker clear of.
-    if (map.getContainer().clientWidth <= PANE_REACH) {
+function paneOffset(map: MapLibreGLMap, maximized: boolean): [number, number] {
+    // A pane grown over the whole map leaves nowhere to hold the marker clear of, as an embedded map
+    // narrower than the pane does. Reading the note is what a grown pane is for; the marker is
+    // brought clear again as it is put back down (see the camera effect above).
+    if (maximized || map.getContainer().clientWidth <= PANE_REACH) {
         return [ 0, 0 ];
     }
 
@@ -353,12 +381,14 @@ async function trackBounds(map: MapLibreGLMap, noteId: string, track?: number): 
  * the map does not clip the fit but forfeits it: MapLibre cannot solve the camera and leaves it
  * where it stands.
  */
-function trackFitPadding(map: MapLibreGLMap) {
+function trackFitPadding(map: MapLibreGLMap, maximized: boolean) {
     const { clientWidth, clientHeight } = map.getContainer();
     const air = Math.max(0, Math.min(TRACK_FIT_AIR, Math.floor(Math.min(clientWidth, clientHeight) / 4)));
     const padding = { top: air, bottom: air, left: air, right: air };
 
-    if (clientWidth > PANE_REACH + 2 * air) {
+    // Nothing is reserved for a pane that covers the map: there is no uncovered side to fit the
+    // track into, and reserving one would forfeit the fit outright (see above).
+    if (!maximized && clientWidth > PANE_REACH + 2 * air) {
         padding[glob.isRtl ? "left" : "right"] += PANE_REACH;
     }
 
@@ -366,10 +396,12 @@ function trackFitPadding(map: MapLibreGLMap) {
 }
 
 /** The pane itself, for a marker there is one to draw. */
-function MarkerDetails({ note, parentNote, isReadOnly, onClose, onRelocate, onFollowLink }: {
+function MarkerDetails({ note, parentNote, isReadOnly, maximized, onMaximizedChange, onClose, onRelocate, onFollowLink }: {
     note: FNote;
     parentNote: FNote;
     isReadOnly: boolean;
+    maximized: boolean;
+    onMaximizedChange(maximized: boolean): void;
     onClose(): void;
     onRelocate(): void;
     /** Offered a link's note; answers whether the map took the navigation over. */
@@ -400,7 +432,14 @@ function MarkerDetails({ note, parentNote, isReadOnly, onClose, onRelocate, onFo
             containerRef={paneRef}
             className={clsx("geo-detail-pane", colorClass)}
             header={<TitleRow compact />}
-            headerActions={<MaximizeToQuickEditAction note={note} onClose={onClose} />}
+            maximized={maximized}
+            headerActions={
+                <MaximizeAction
+                    icon={maximized ? "bx bx-collapse-alt" : "bx bx-expand-alt"}
+                    text={maximized ? t("geo-map.restore-details") : t("geo-map.expand-details")}
+                    onClick={() => onMaximizedChange(!maximized)}
+                />
+            }
             close={{ text: t("geo-map.close-details"), onClick: onClose }}
         >
             <OverlayPanelBody className="geo-detail-pane-body tn-embedded-note-pane">

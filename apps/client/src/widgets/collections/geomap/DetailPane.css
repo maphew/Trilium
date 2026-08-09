@@ -24,6 +24,13 @@
     width: var(--geo-detail-pane-width);
     /* An embedded map may be narrower than the pane would like to be. */
     max-width: calc(100% - 2 * var(--geo-map-inset));
+
+    /* Grown over the map (see the maximize in MarkerDetails). Only the width gives: the pane
+       already stands the height of the map. What the map places around the pane is suppressed
+       while it is grown rather than recomputed — see `maximized` in DetailPane.tsx. */
+    &.maximized {
+        width: calc(100% - 2 * var(--geo-map-inset));
+    }
     /* Clear of MapLibre's own control corners, which sit at 2 (see MapToolbar.css). */
     z-index: 3;
 }

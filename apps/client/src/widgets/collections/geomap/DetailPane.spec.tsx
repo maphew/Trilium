@@ -187,6 +187,8 @@ describe("DetailPane", () => {
         notes: FNote[]; placing: boolean; isReadOnly: boolean; initialSelection?: PaneSelection;
     }) {
         const [ selection, setSelection ] = useState<PaneSelection | null>(initialSelection ?? null);
+        // Held here for the same reason, the map view owning whether the pane stands over it.
+        const [ maximized, setMaximized ] = useState(false);
         return <DetailPane
             notes={notes}
             parentNote={froca.notes["root"] ?? buildNote({ id: "root", title: "root" })}
@@ -195,6 +197,8 @@ describe("DetailPane", () => {
             selection={selection}
             onSelect={setSelection}
             onRelocate={onRelocate}
+            maximized={maximized}
+            onMaximizedChange={setMaximized}
         />;
     }
 
@@ -662,33 +666,72 @@ describe("DetailPane", () => {
         });
 
         /**
-         * The maximize in the header: the pane grown into the quick editor, which takes the pane's
-         * place rather than standing over it — the quick editor opened on the path the menu's own
-         * entry would open, and the pane standing down having told its editors to save (see
-         * MaximizeToQuickEditAction).
+         * The maximize in the header grows the pane over the map rather than handing the note to the
+         * quick editor, which has none of what the pane offers — the place under the title, the ways
+         * of moving the marker or taking it off the map. Growing the surface would have shrunk what
+         * could be done in it.
+         *
+         * What is pinned here above all is that the note's editor is the very same element on the
+         * other side of it: the pane is restyled where it stands, so nothing it holds is torn down
+         * and nothing has to be saved and read back to grow it. A pane replaced by a larger one
+         * would lose whatever had been typed and not yet saved.
          */
-        it("maximizes into the quick editor, the pane standing down behind it", async () => {
+        it("grows over the map without rebuilding what it holds, and comes back down again", async () => {
             const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
             const map = fakeMap();
-
-            const notePath = "root/places/somewhere";
-            const bestNotePath = vi.spyOn(note, "getBestNotePathString").mockReturnValue(notePath);
             const triggerCommand = vi.spyOn(appContext, "triggerCommand").mockResolvedValue(undefined as never);
 
             try {
                 await openPaneFor(note, map);
+                const editorEl = pane()?.querySelector(".note-detail-stub");
+                expect(editorEl).toBeTruthy();
 
-                await act(async () => {
+                const maximize = () => act(async () => {
                     pane()?.querySelector<HTMLButtonElement>(".tn-overlay-panel-header-actions button.tn-embedded-note-maximize")?.click();
                 });
 
-                expect(triggerCommand).toHaveBeenCalledWith("openInPopup", { noteIdOrPath: notePath });
-                expect(editorAskedToSave).toHaveBeenCalled();
-                expect(pane()).toBeNull();
+                await maximize();
+                expect(pane()?.classList.contains("maximized")).toBe(true);
+                // The same editor, never having been away.
+                expect(pane()?.querySelector(".note-detail-stub")).toBe(editorEl);
+                // Neither a hand-over to another surface nor a dismissal: the pane is still up, and
+                // nothing was asked to save because nothing is closing.
+                expect(triggerCommand).not.toHaveBeenCalledWith("openInPopup", expect.anything());
+                expect(editorAskedToSave).not.toHaveBeenCalled();
+
+                await maximize();
+                expect(pane()?.classList.contains("maximized")).toBe(false);
+                expect(pane()?.querySelector(".note-detail-stub")).toBe(editorEl);
             } finally {
-                bestNotePath.mockRestore();
                 triggerCommand.mockRestore();
             }
+        });
+
+        /**
+         * The map holds a selected marker clear of the pane, which a pane covering the whole map
+         * leaves nowhere to hold it in — so the offset is given up while it is grown, and taken up
+         * again as it comes back down (see paneOffset).
+         */
+        it("stops holding the marker clear of itself while it covers the map", async () => {
+            const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+            const map = fakeMap();
+            await openPaneFor(note, map);
+
+            const maximize = () => act(async () => {
+                pane()?.querySelector<HTMLButtonElement>(".tn-overlay-panel-header-actions button.tn-embedded-note-maximize")?.click();
+            });
+
+            await maximize();
+            await maximize();
+
+            // Held clear of the pane as it opens; brought back to the middle as the pane grows over
+            // the map, there being no uncovered half left to hold it in; and held clear once more as
+            // the pane comes down, rather than left under it until something else moves the camera.
+            expect(map.eased).toEqual([
+                { center: [ 2, 1 ], offset: [ -200, 0 ] },
+                { center: [ 2, 1 ], offset: [ 0, 0 ] },
+                { center: [ 2, 1 ], offset: [ -200, 0 ] }
+            ]);
         });
 
         /**

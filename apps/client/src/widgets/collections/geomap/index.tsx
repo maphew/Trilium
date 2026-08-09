@@ -61,6 +61,9 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
     // Which marker the detail pane stands for. Held here rather than in the pane so that creating a
     // note can open the pane on it (see createNoteAt below).
     const [ selection, setSelection ] = useState<PaneSelection | null>(null);
+    // Whether that pane has been grown over the map. Held here for the reason the selection is: what
+    // the map places around the pane has to know of it too (see the maximized pane in DetailPane).
+    const [ paneMaximized, setPaneMaximized ] = useState(false);
     const [ coordinates, setCoordinates ] = useState(viewConfig?.view?.center);
     const [ zoom, setZoom ] = useState(viewConfig?.view?.zoom);
     const [ hasScale ] = useNoteLabelBoolean(note, "map:scale");
@@ -249,12 +252,16 @@ export default function GeoView({ note, noteIds, viewConfig, saveConfig }: ViewM
                     onTogglePlacement={toggleNotePlacement}
                     onAddGpxTrack={addGpxTrack}
                 />
-                <Tooltips selectedNoteId={selection?.noteId ?? null} />
+                <Tooltips selectedNoteId={selection?.noteId ?? null} paneMaximized={paneMaximized} />
                 {/* The preview under the pointer while a click is armed to mean a place — the note
                     being moved wearing its own pin, a note to be created wearing the pin it will be
                     given (see api.ts). */}
                 {placement && <GhostPin note={placement.mode === "move" ? notes.find((n) => n.noteId === placement.noteId) : undefined} />}
-                <DetailPane notes={notes} parentNote={note} placing={!!placement} isReadOnly={isReadOnly} selection={selection} onSelect={setSelection} onRelocate={startMarkerRelocation} />
+                <DetailPane
+                    notes={notes} parentNote={note} placing={!!placement} isReadOnly={isReadOnly}
+                    selection={selection} onSelect={setSelection} onRelocate={startMarkerRelocation}
+                    maximized={paneMaximized} onMaximizedChange={setPaneMaximized}
+                />
                 <ContextMenus parentNote={note} isReadOnly={isReadOnly} onRelocate={startMarkerRelocation} onCreateNote={createNoteAt} />
                 {/* Stood up only while the view is leaned over, so the 3D button changes the map
                     and not merely the angle it is seen from. */}
