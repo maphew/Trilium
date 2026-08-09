@@ -2670,7 +2670,6 @@
     "base_url_description": "Optional. Greift über einen Proxy oder ein Gateway auf dieselbe API zu. Um ein Modell selbst auszuführen, fügen Sie stattdessen einen Ollama- oder LM-Studio-Anbieter hinzu.",
     "base_url_invalid": "Die Basis-URL muss eine gültige http://- oder https://-URL sein",
     "disabled_placeholder": "KI-Funktionen sind deaktiviert. Aktivieren Sie sie, um Anbieter und MCP zu konfigurieren.",
-    "not_available_in_standalone": "KI/LLM-Funktionen sind in der Standalone-Version von Trilium nicht verfügbar, da LLM-Anbieter keinen direkten Zugriff aus einem Browser erlauben.",
     "edit_provider_title": "{{- name}} bearbeiten",
     "edit_provider": "Bearbeiten",
     "save": "Speichern",

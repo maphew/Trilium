@@ -3094,7 +3094,6 @@
     "base_url": "Bun-URL",
     "base_url_description": "Roghnach. Sroicheann sé an API céanna trí sheachfhreastalaí nó geata. Chun samhail a rith tú féin, cuir soláthraí Ollama nó LM Studio leis ina ionad.",
     "base_url_invalid": "Ní mór don bhun-URL a bheith ina URL bailí http:// nó https://",
-    "not_available_in_standalone": "Níl gnéithe AI/LLM ar fáil sa leagan neamhspleách de Trilium, toisc nach gceadaíonn soláthraithe LLM rochtain dhíreach ó bhrabhsálaí.",
     "disabled_placeholder": "Tá gnéithe AI múchta. Cumasaigh iad chun soláthraithe agus MCP a chumrú.",
     "edit_provider_title": "Cuir in eagar {{- name}}",
     "edit_provider": "Eagar",

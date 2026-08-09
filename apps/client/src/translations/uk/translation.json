@@ -18,7 +18,8 @@
     "branch_prefix_saved": "Префікс гілки збережено.",
     "edit_branch_prefix_multiple": "Редагувати префікс гілки для {{count}} гілок",
     "branch_prefix_saved_multiple": "Префікс гілки збережено для {{count}} гілок.",
-    "affected_branches": "Уражені гілки ({{count}}):"
+    "affected_branches": "Уражені гілки ({{count}}):",
+    "cancel": "Скасувати"
   },
   "about": {
     "data_directory": "Каталог даних:",
@@ -59,7 +60,8 @@
   },
   "modal": {
     "help_title": "Показати більше інформації про це вікно",
-    "close": "Закрити"
+    "close": "Закрити",
+    "cancel": "Скасувати"
   },
   "toast": {
     "critical-error": {
@@ -1253,7 +1255,8 @@
     "set_password_heading": "Встановити Пароль",
     "set_password": "Встановити Пароль",
     "password_mismatch": "Нові паролі не однакові.",
-    "password_changed_success": "Пароль змінено. Trilium буде перезавантажено після натискання кнопки OK."
+    "password_changed_success": "Пароль змінено. Trilium буде перезавантажено після натискання кнопки OK.",
+    "cancel": "Скасувати"
   },
   "zoom_factor": {
     "title": "Коефіцієнт масштабування (лише для ПК)",
@@ -1541,7 +1544,8 @@
   "geo-map": {
     "create-child-note-title": "Створіть нову дочірню нотатку та додайте її до карти",
     "create-child-note-instruction": "Клацніть на карті, щоб створити нову нотатку в цьому місці, або натисніть Escape, щоб закрити.",
-    "unable-to-load-map": "Не вдалося завантажити карту."
+    "unable-to-load-map": "Не вдалося завантажити карту.",
+    "add-marker-cancel": "Скасувати"
   },
   "geo-map-context": {
     "open-location": "Відкрити місцезнаходження",
@@ -1965,5 +1969,12 @@
   },
   "calendar_view": {
     "delete_note": "Видалити нотатку..."
+  },
+  "common": {
+    "cancel": "Скасувати"
+  },
+  "space_usage": {
+    "compress_cancel": "Скасувати",
+    "cleanup_cancel": "Скасувати"
   }
 }

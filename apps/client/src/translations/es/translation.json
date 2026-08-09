@@ -3081,7 +3081,6 @@
       "get_help_toc": "Obtener el índice de la guía del usuario"
     },
     "disabled_placeholder": "Las funciones de IA están desactivadas. Habilítelas para configurar proveedores y MCP.",
-    "not_available_in_standalone": "Las funciones de IA/LLM no están disponibles en la versión autónoma de Trilium, ya que los proveedores de LLM no permiten el acceso directo desde un navegador.",
     "edit_provider_title": "Editar {{- name}}",
     "edit_provider": "Editar",
     "save": "Guardar",

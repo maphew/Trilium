@@ -3665,7 +3665,6 @@
   },
   "llm": {
     "disabled_placeholder": "AI 기능이 꺼져 있습니다. 제공업체와 MCP를 설정하려면 AI 기능을 활성화하세요.",
-    "not_available_in_standalone": "AI/LLM 기능은 Trilium의 독립 실행형 버전에서는 제공되지 않는데, LLM 제공업체가 브라우저에서 직접 접근을 허용하지 않기 때문입니다.",
     "feature_not_enabled": "설정 → 고급 → 실험 기능에서 LLM 실험 기능을 활성화하여 AI 통합을 활용하세요.",
     "add_provider": "공급자 추가",
     "add_provider_title": "AI 공급자 추가",
