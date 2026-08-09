@@ -143,8 +143,11 @@ describe("Promoted attributes", () => {
         const event = await buildEvent(note, { startDate: "2025-04-04" });
         expect(event).toHaveLength(1);
         expect(event[0]?.promotedAttributes).toMatchObject([
+            // No alias to go by, so the label says itself.
             [ "weight", "75" ],
-            [ "mood", "happy" ]
+            // Named as the definition names it, which is how the note's own promoted field is
+            // labelled — the chip would otherwise say the same value under a second name.
+            [ "Mood", "happy" ]
         ]);
     });
 
@@ -161,7 +164,20 @@ describe("Promoted attributes", () => {
         const event = await buildEvent(note, { startDate: "2025-04-04" });
         expect(event).toHaveLength(1);
         expect(event[0]?.promotedAttributes).toMatchObject([
-            [ "assignee", "Target note" ]
+            [ "Assignee", "Target note" ]
+        ]);
+    });
+
+    it("says an attribute nobody defined by its own name, promotion being no condition of showing one", async () => {
+        const note = buildNote({
+            title: "Hello",
+            "#mood": "happy",
+            "#calendar:displayedAttributes": "mood"
+        });
+
+        const event = await buildEvent(note, { startDate: "2025-04-04" });
+        expect(event[0]?.promotedAttributes).toMatchObject([
+            [ "mood", "happy" ]
         ]);
     });
 

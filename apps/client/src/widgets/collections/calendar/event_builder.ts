@@ -3,6 +3,7 @@ import clsx from "clsx";
 import { EventInput, EventSourceFuncInfo, EventSourceInput } from "fullcalendar";
 import * as rruleLib from 'rrule';
 
+import FAttribute from "../../../entities/fattribute";
 import FNote from "../../../entities/fnote";
 import froca from "../../../services/froca";
 import server from "../../../services/server";
@@ -227,9 +228,24 @@ async function buildDisplayedAttributes(note: FNote, calendarDisplayedAttributes
     const result: Array<[string, string]> = [];
 
     for (const attribute of filteredDisplayedAttributes) {
-        if (attribute.type === "label") result.push([attribute.name, attribute.value]);
-        else result.push([attribute.name, (await attribute.getTargetNote())?.title || ""]);
+        const name = displayedAttributeName(note, attribute);
+        if (attribute.type === "label") result.push([name, attribute.value]);
+        else result.push([name, (await attribute.getTargetNote())?.title || ""]);
     }
 
     return result;
+}
+
+/**
+ * What a field is called on the chip: the alias its definition gives it, and the attribute's own
+ * name where no definition gives one.
+ *
+ * Both halves are needed. The alias is the name the reader chose — the promoted field in the note
+ * itself is labelled by it, and a chip saying something else is the same value under two names. The
+ * fallback is what lets the calendar go on showing an attribute that was never promoted, which is
+ * the whole point of `#calendar:displayedAttributes` naming attributes rather than definitions.
+ */
+function displayedAttributeName(note: FNote, attribute: FAttribute) {
+    const definition = note.getAttribute("label", `${attribute.type}:${attribute.name}`);
+    return definition?.getDefinition().promotedAlias || attribute.name;
 }
