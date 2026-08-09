@@ -41,6 +41,16 @@
     display: none;
 }
 
+/* Frosting suits a card standing beside something, not one grown to fill the window: there is
+   little left to see through it, and a surface that size reads as smeared rather than glassy. The
+   opaque menu colour is the one the theme falls back to wherever the blur cannot be had (see the
+   `body.background-effects` rules in theme-next/base.css); the themes that state no such colour
+   have an opaque menu colour to begin with. */
+.tn-popover.maximized {
+    background: var(--menu-background-color-no-backdrop, var(--menu-background-color));
+    backdrop-filter: none;
+}
+
 /* The card's sibling rather than its child: `backdrop-filter` above makes the card the containing
    block for anything fixed within it. */
 .tn-popover-backdrop {
