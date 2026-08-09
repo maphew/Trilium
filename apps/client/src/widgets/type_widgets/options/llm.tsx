@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "preact/hooks";
 import dialog from "../../../services/dialog";
 import { t } from "../../../services/i18n";
 import server from "../../../services/server";
+import { isStandalone } from "../../../services/utils";
 import ActionButton from "../../react/ActionButton";
 import Button from "../../react/Button";
 import CodeBlock from "../../react/CodeBlock";
@@ -41,7 +42,7 @@ export default function LlmSettings() {
             {aiEnabled ? (
                 <>
                     <ProviderSettings />
-                    <McpSettings />
+                    {!isStandalone && <McpSettings />}
                 </>
             ) : (
                 <OptionsSection>
