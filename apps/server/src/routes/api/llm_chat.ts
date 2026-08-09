@@ -1,7 +1,7 @@
 import type { LlmMessage } from "@triliumnext/commons";
+import { runChat } from "@triliumnext/core/src/services/llm/chat.js";
+import type { LlmProviderConfig } from "@triliumnext/core/src/services/llm/types.js";
 import type { Request, Response } from "express";
-
-import { type LlmProviderConfig, runChat } from "../../services/llm/index.js";
 
 interface ChatRequest {
     messages: LlmMessage[];

@@ -9,7 +9,7 @@ const state = vi.hoisted(() => ({
 
 // The completion itself is core's and tested there; what this route adds is the
 // SSE framing around it, so only the chunk source is faked.
-vi.mock("../../services/llm/index.js", () => ({
+vi.mock("@triliumnext/core/src/services/llm/chat.js", () => ({
     async *runChat(_messages: unknown, _config: unknown, signal?: AbortSignal) {
         state.signal = signal;
         for (const c of state.chunks) yield c;

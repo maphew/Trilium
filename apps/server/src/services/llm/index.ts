@@ -1,12 +1,11 @@
 /**
- * The server's entry point into the LLM stack.
+ * The server's Node-only contributions to the LLM stack.
  *
- * The stack itself lives in `@triliumnext/core` so the browser-hosted
- * (standalone) build can run it too. What stays here is everything that needs
- * Node: the Claude Agent provider, which spawns the Claude Code CLI, and the
- * two tool registries that read off disk (the User Guide and the skill sheets).
- * Importing this module contributes them to core; it is the only supported way
- * in, so nothing can reach a half-registered stack.
+ * The stack itself lives in `@triliumnext/core`, so the browser-hosted
+ * (standalone) build can run it too. What could not follow it there is anything
+ * that needs Node: the Claude Agent provider, which spawns the Claude Code CLI,
+ * and the two tool registries that read off disk (the User Guide and the skill
+ * sheets). Core exposes a seam for each; this is where the server fills them in.
  */
 
 import { registerClaudeAgentProvider } from "@triliumnext/core/src/services/llm/index.js";
@@ -18,24 +17,15 @@ import { skillTools } from "./skills/index.js";
 import { getDocNoteHtml } from "./tools/doc_notes.js";
 import { helpTools } from "./tools/help_tools.js";
 
-export { runChat } from "@triliumnext/core/src/services/llm/chat.js";
-export {
-    clearProviderCache,
-    getProvider,
-    getProviderByType,
-    getSelectedModel,
-    hasConfiguredProviders,
-    listProviderModels,
-    type LlmProvider,
-    type LlmProviderConfig,
-    type LlmProviderSetup,
-    type ModelInfo,
-    type ModelPricing
-} from "@triliumnext/core/src/services/llm/index.js";
-export { allToolRegistries } from "@triliumnext/core/src/services/llm/tools/index.js";
-export type { ToolDefinition } from "@triliumnext/core/src/services/llm/tools/tool_registry.js";
-
-registerClaudeAgentProvider(() => new ClaudeAgentProvider());
-registerDocNoteHtmlReader(getDocNoteHtml);
-registerToolRegistry(helpTools);
-registerToolRegistry(skillTools);
+/**
+ * Contribute those pieces to core. Called once from startup, beside the other
+ * registrations there, rather than run as an import side effect: core's own LLM
+ * routes reach the stack directly, so what a chat can use must not depend on
+ * whether some module that happens to import this one was loaded first.
+ */
+export function registerServerLlmExtensions() {
+    registerClaudeAgentProvider(() => new ClaudeAgentProvider());
+    registerDocNoteHtmlReader(getDocNoteHtml);
+    registerToolRegistry(helpTools);
+    registerToolRegistry(skillTools);
+}

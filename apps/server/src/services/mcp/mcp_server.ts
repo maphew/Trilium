@@ -10,7 +10,9 @@ import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { app_info as appInfo } from "@triliumnext/core";
 import { cls } from "@triliumnext/core";
 
-import { allToolRegistries, type ToolDefinition } from "../llm/index.js";
+import { allToolRegistries } from "@triliumnext/core/src/services/llm/tools/index.js";
+import type { ToolDefinition } from "@triliumnext/core/src/services/llm/tools/tool_registry.js";
+
 import sql from "../sql.js";
 
 /**
