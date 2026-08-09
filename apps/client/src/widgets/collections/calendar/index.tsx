@@ -25,6 +25,7 @@ import { isMobile } from "../../../services/utils";
 import CollectionProperties from "../../note_bars/CollectionProperties";
 import ActionButton from "../../react/ActionButton";
 import Button, { ButtonGroup } from "../../react/Button";
+import CollapseOnOverflow from "../../react/CollapseOnOverflow";
 import Dropdown from "../../react/Dropdown";
 import { FormListItem } from "../../react/FormList";
 import { useNoteLabel, useNoteLabelBoolean, useSpacedUpdate, useTriliumEvent, useTriliumOption, useTriliumOptionInt } from "../../react/hooks";
@@ -324,7 +325,7 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
 
     return (plugins &&
         <div className="calendar-view" ref={containerRef} tabIndex={100}>
-            <CalendarCollectionProperties note={note} calendarRef={calendarRef} />
+            <CalendarCollectionProperties note={note} calendarRef={calendarRef} containerRef={containerRef} />
             <Calendar
                 events={eventBuilder}
                 calendarRef={calendarRef}
@@ -404,9 +405,10 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
     );
 }
 
-function CalendarCollectionProperties({ note, calendarRef }: {
+function CalendarCollectionProperties({ note, calendarRef, containerRef }: {
     note: FNote;
     calendarRef: RefObject<FullCalendar>;
+    containerRef: RefObject<HTMLDivElement>;
 }) {
     const { title, viewType: currentViewType } = useOnDatesSet(calendarRef);
     const currentViewData = CALENDAR_VIEWS.find(v => calendarRef.current && v.type === currentViewType);
@@ -421,10 +423,12 @@ function CalendarCollectionProperties({ note, calendarRef }: {
                 <ActionButton icon="bx bx-chevron-right" text={currentViewData?.nextText ?? ""} onClick={() => calendarRef.current?.next()} />
                 <Button text={t("calendar.today")} onClick={() => calendarRef.current?.today()} />
                 <PinDateButton note={note} calendarRef={calendarRef} />
-                {isMobileLocal && <MobileCalendarViewSwitcher calendarRef={calendarRef} />}
+                {/* On a phone the switcher is a menu whatever the width, and stands with the date
+                    rather than on a right-hand end the wrapped bar no longer has. */}
+                {isMobileLocal && <CalendarViewSwitcher calendarRef={calendarRef} containerRef={containerRef} />}
             </>}
             rightChildren={<>
-                {!isMobileLocal && <DesktopCalendarViewSwitcher calendarRef={calendarRef} />}
+                {!isMobileLocal && <CalendarViewSwitcher calendarRef={calendarRef} containerRef={containerRef} />}
             </>}
         />
     );
@@ -455,42 +459,49 @@ function PinDateButton({ note, calendarRef }: {
     );
 }
 
-function DesktopCalendarViewSwitcher({ calendarRef }: { calendarRef: RefObject<FullCalendar> }) {
-    const { viewType: currentViewType } = useOnDatesSet(calendarRef);
-
-    return (
-        <>
-            <ButtonGroup>
-                {CALENDAR_VIEWS.map(viewData => (
-                    <Button
-                        key={viewData.type}
-                        text={viewData.name}
-                        className={currentViewType === viewData.type ? "active" : ""}
-                        onClick={() => calendarRef.current?.changeView(viewData.type)}
-                    />
-                ))}
-            </ButtonGroup>
-        </>
-    );
-}
-
-function MobileCalendarViewSwitcher({ calendarRef }: { calendarRef: RefObject<FullCalendar> }) {
+/**
+ * The choice of view, as a row of buttons where the bar has the width for one and as a menu where it
+ * has not — five names beside the date and its buttons outgrow a split pane long before they outgrow
+ * a screen, which is why the fold is decided by the view's own width rather than by the device.
+ */
+function CalendarViewSwitcher({ calendarRef, containerRef }: {
+    calendarRef: RefObject<FullCalendar>;
+    /** The view's own element, whose width the row of buttons is weighed against. */
+    containerRef: RefObject<HTMLDivElement>;
+}) {
     const { viewType: currentViewType } = useOnDatesSet(calendarRef);
     const currentViewTypeData = CALENDAR_VIEWS.find(view => view.type === currentViewType);
 
     return (
-        <Dropdown
-            text={currentViewTypeData?.name}
-        >
-            {CALENDAR_VIEWS.map(viewData => (
-                <FormListItem
-                    key={viewData.type}
-                    selected={currentViewType === viewData.type}
-                    icon={viewData.icon}
-                    onClick={() => calendarRef.current?.changeView(viewData.type)}
-                >{viewData.name}</FormListItem>
-            ))}
-        </Dropdown>
+        <CollapseOnOverflow container={containerRef} alwaysCollapsed={isMobile()}>
+            {(collapsed) => (collapsed
+                ? (
+                    // A handful of views, so the menu never scrolls and can be frosted the way that
+                    // survives being opened inside the note's own content (see noDropdownListStyle).
+                    <Dropdown text={currentViewTypeData?.name} noDropdownListStyle>
+                        {CALENDAR_VIEWS.map(viewData => (
+                            <FormListItem
+                                key={viewData.type}
+                                selected={currentViewType === viewData.type}
+                                icon={viewData.icon}
+                                onClick={() => calendarRef.current?.changeView(viewData.type)}
+                            >{viewData.name}</FormListItem>
+                        ))}
+                    </Dropdown>
+                )
+                : (
+                    <ButtonGroup>
+                        {CALENDAR_VIEWS.map(viewData => (
+                            <Button
+                                key={viewData.type}
+                                text={viewData.name}
+                                className={currentViewType === viewData.type ? "active" : ""}
+                                onClick={() => calendarRef.current?.changeView(viewData.type)}
+                            />
+                        ))}
+                    </ButtonGroup>
+                ))}
+        </CollapseOnOverflow>
     );
 }
 

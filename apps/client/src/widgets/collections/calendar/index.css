@@ -66,6 +66,15 @@
         }
     }
 
+    /* The end the view switcher stands at is the one asked to give where the bar is short: it holds
+       a row that folds into a menu when it no longer fits (see CollapseOnOverflow), which is a
+       better answer than either half of what happens otherwise — a flex item keeps its content's
+       width unless told it may not, so the bar would grow past the pane rather than hand the
+       switcher less, and the switcher would never learn that it was short. */
+    .right-container {
+        min-width: 0;
+    }
+
     @media (max-width: 991px) {
         >div {
             justify-content: flex-start;
