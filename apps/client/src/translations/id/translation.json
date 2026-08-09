@@ -3263,7 +3263,6 @@
       "search_help": "Cari Panduan Pengguna",
       "get_help_toc": "Ambil isi Panduan Pengguna"
     },
-    "not_available_in_standalone": "Fitur AI/LLM tidak tersedia dalam versi standalone Trilium, karena penyedia LLM tidak mengizinkan akses langsung dari browser.",
     "disabled_placeholder": "Fitur AI dinonaktifkan. Aktifkan untuk mengonfigurasi provider dan MCP.",
     "edit_provider_title": "Edit {{- name}}",
     "edit_provider": "Edit",

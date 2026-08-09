@@ -2982,7 +2982,6 @@
     "base_url": "ベース URL",
     "base_url_description": "オプション。プロキシやゲートウェイ経由で同じ API に接続します。モデルを自前で実行したい場合は、代わりに Ollama または LM Studio のプロバイダーを追加してください。",
     "base_url_invalid": "ベース URL は、有効な http:// または https:// 形式の URL である必要があります",
-    "not_available_in_standalone": "LLM プロバイダーがブラウザからの直接アクセスを許可していないため、AI/LLM 機能は Trilium のスタンドアロン版では利用できません。",
     "disabled_placeholder": "AI 機能が無効になっています。有効にすると、プロバイダーや MCP の設定ができるようになります。",
     "edit_provider_title": "{{- name}} を編集",
     "edit_provider": "編集",

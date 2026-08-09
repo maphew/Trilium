@@ -2607,8 +2607,7 @@
     },
     "base_url": "URL di base",
     "base_url_description": "Facoltativo. Sovrascrivere l'endpoint API predefinito - utile per modelli self-hosted (Ollama, LM Studio, vLLM) o proxy.",
-    "base_url_invalid": "L'URL di base deve essere un URL valido del tipo http:// o https://",
-    "not_available_in_standalone": "Le funzionalità AI/LLM non sono disponibili nella versione standalone di Trilium, poiché i fornitori di LLM non consentono l'accesso diretto dal browser."
+    "base_url_invalid": "L'URL di base deve essere un URL valido del tipo http:// o https://"
   },
   "ocr": {
     "extracted_text": "Testo estratto (OCR)",

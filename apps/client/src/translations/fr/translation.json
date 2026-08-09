@@ -2533,8 +2533,7 @@
     "base_url": "URL de base",
     "base_url_description": "Optionnel. Permet de remplacer l'endpoint API par défaut (utile pour les modèles auto-hébergés comme Ollama, LM Studio, vLLM ou proxies).",
     "base_url_invalid": "L'URL de base doit être une adresse valide (commençant par http:// ou https://)",
-    "disabled_placeholder": "Les fonctionnalités d'IA sont désactivées. Activez-les pour configurer les fournisseurs et MCP.",
-    "not_available_in_standalone": "Les fonctionnalités basées sur l'IA ou les LLM ne sont pas disponibles dans la version autonome de Trilium, car les fournisseurs de LLM n'autorisent pas l'accès direct depuis un navigateur."
+    "disabled_placeholder": "Les fonctionnalités d'IA sont désactivées. Activez-les pour configurer les fournisseurs et MCP."
   },
   "status_bar": {
     "language_title": "Changer de langue",
