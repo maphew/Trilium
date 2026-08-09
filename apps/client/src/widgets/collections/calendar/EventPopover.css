@@ -1,7 +1,12 @@
 .calendar-event-popover {
-    width: 380px;
-    /* A fixed-width card as tall as its event needs, up to what the viewport can spare; what it
-       holds scrolls within it (see the body below). */
+    /* One width whatever event it stands for, and as tall as that event needs; what it holds
+       scrolls within it (see the body below). Both are held to what the window can spare: the card
+       is anchored beside a chip rather than laid over the page, and Popper answers a card too big
+       for the room by shifting it into the viewport rather than by narrowing it (see the
+       preventOverflow modifier in Popover.tsx) — so a width the window cannot take would hang off
+       the edge instead of being given back.
+       The width must agree with `MAX_ANCHOR_WIDTH` in selection.ts. */
+    width: min(480px, calc(100vw - 4rem));
     max-height: min(640px, 85vh);
 
     .calendar-event-popover-inner {
