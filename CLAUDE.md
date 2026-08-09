@@ -42,7 +42,7 @@ pnpm typecheck                 # TypeScript type check across all projects
 - **Never run ESLint** — `pnpm dev:linter-check`, `dev:linter-fix`, or `npx eslint` on any path. It currently dies with an out-of-memory error, so a run tells you nothing and costs minutes. CI lints. (Note `packages/*` is globally ignored by the ESLint config anyway, so most of `trilium-core` was never linted locally to begin with.)
 - **Never run `pnpm test:all`, `test:parallel`, `test:sequential`, or `pnpm coverage`** during development. They take a long time, and CI runs them on every push.
 - **Run the narrowest suite that covers what you touched**, and iterate on that: `pnpm --filter <pkg> test <path-or-pattern>`. Vitest treats the trailing argument as a substring filter over test file paths, so `pnpm --filter server test special_notes` runs every matching spec.
-- **Typecheck with `pnpm typecheck`, not a raw `tsc` invocation.** It resolves the project references and per-project configs that a hand-written `tsc --noEmit -p …` or `tsc -b …` gets wrong. It is cheaper than a suite but not instant, so run it when you've finished a change — not after every edit.
+- **Typecheck with `pnpm typecheck`, not a raw `tsc` invocation.** It resolves the project references and per-project configs that a hand-written `tsc --noEmit -p …` or `tsc -b …` gets wrong. It drives the native compiler, so even a full check of every project is a few seconds — cheap enough to run whenever you finish a change.
 - Core specs are the one case where "narrowest" means **two** commands: they run under both the server and standalone suites (see Testing below), so a targeted run against each is still the right scope.
 - Only reach for a full suite if the user asks, or when the work is finished and they want a final check.
 
@@ -419,3 +419,10 @@ The viewer under `packages/pdfjs-viewer/viewer/` is vendored from the pdf.js Git
 - ESBuild for production optimization
 - pnpm workspaces for dependency management
 - Docker support with multi-stage builds
+
+### Two TypeScript versions, on purpose
+The root `package.json` declares **both** `typescript` (6.x) and `tsc-native` (an alias of `typescript@7`). Do not "deduplicate" them by bumping `typescript` to 7:
+
+- **`typescript` 6.x is the library.** TypeScript 7 is the native Go port and its package no longer exports the JS compiler API (`exports["."]` is just a version stub). Everything that does `require("typescript")` — TypeDoc, typescript-eslint, the Vite plugins — needs 6.x and declares peer ranges that stop there.
+- **`tsc-native` is the compiler binary**, used only by `scripts/filter-tsc-output.mts` behind `pnpm typecheck`. It builds the whole project graph in roughly a seventh of the time 6.x takes.
+- pnpm gives `node_modules/.bin/tsc` to the alias, so a bare `tsc` on the command line is **7**, not the 6.x that tooling loads. That is also what keeps `.tsbuildinfo` in one format — the two majors cannot read each other's, and mixing them forces a full rebuild every time.
