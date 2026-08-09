@@ -316,11 +316,13 @@ export function startLocalServerWorker() {
             return;
         }
 
-        // Handle worker error reports. These are uncaught errors and unhandled
-        // rejections in the worker; an initialization failure in particular
-        // never resolves a request (it just hangs), so this message is the only
-        // signal the user would otherwise get — surface it instead of a blank
-        // screen.
+        // An error that escaped the worker before it finished starting up, which is
+        // to say the application never came up: nothing will ever answer a request,
+        // and it hangs rather than failing, so this message is the only signal the
+        // user would otherwise get. Errors escaping a *running* worker do not come
+        // this way — they arrive as `unhandled-error` and become a notification, so
+        // one background task's failure cannot blank the screen (see
+        // `reportEscapedError` in local-server-worker.ts).
         if (msg?.type === "WORKER_ERROR") {
             console.error("[LocalBridge] Worker reported error:", msg.error);
             showErrorOverlay(

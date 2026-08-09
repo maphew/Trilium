@@ -188,6 +188,11 @@ async function streamChatOverMessages(
     const onMessage = (message: WebSocketMessage) => {
         if (message.type === "llm-stream" && message.streamId === streamId) {
             handled = handled.then(() => handleChunk(message.chunk, callbacks));
+            // Marks the link handled the moment it is made. `await handled` below
+            // still rethrows, but without this a chunk handler that threw would sit
+            // as an unhandled rejection until the stream ends — and in the
+            // standalone build a stray rejection is reported, not ignored.
+            handled.catch(() => undefined);
         } else if (message.type === "llm-stream-end" && message.streamId === streamId) {
             resolveEnd();
         }
