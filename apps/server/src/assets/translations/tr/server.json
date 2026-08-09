@@ -315,7 +315,7 @@
   },
   "notes": {
     "new-note": "Yeni not",
-    "duplicate-note-suffix": "(kopya)",
+    "duplicate-note-suffix": "(çoğaltma)",
     "duplicate-note-title": "{{- noteTitle }} {{ duplicateNoteSuffix }}"
   },
   "note_conversion": {
@@ -468,7 +468,7 @@
   },
   "sql_init": {
     "db_not_initialized_desktop": "Veritabanı başlatılmadı, lütfen ekrandaki talimatları izleyin.",
-    "db_not_initialized_server": "Veritabanı başlatılmadı, Trilium'un nasıl başlatılacağına dair talimatları görmek için lütfen kurulum sayfasını ziyaret edin - http://[sunucu-adresiniz]:{{port}}"
+    "db_not_initialized_server": "Veritabanı başlatılmadı; Trilium'un nasıl başlatılacağına dair talimatlar için lütfen kurulum sayfasını (http://[sunucu-adresiniz]:{{port}}) ziyaret edin."
   },
   "script": {
     "wrong-environment": "\"{{- noteTitle}}\" ({{- noteId}}) notu çalıştırılamıyor. Bu bir {{- actualEnv}} betiği, ancak çalıştırma {{- expectedEnv}} ortamında denendi."
