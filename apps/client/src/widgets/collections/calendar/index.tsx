@@ -169,7 +169,7 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
         return true;
     }, []);
 
-    const { eventContent, eventDidMount } = useEventDisplayCustomization(note, parentComponent?.componentId, dismissSurface);
+    const { eventContent, eventDidMount, eventInnerClass } = useEventDisplayCustomization(note, parentComponent?.componentId, dismissSurface);
     const editingProps = useEditing(note, isEditable, isCalendarRoot, parentComponent?.componentId,
         (draft, anchor) => setSelection({ draft, anchor }), effectiveSlotDuration);
 
@@ -368,6 +368,7 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
                         && "calendar-event-selected no-tooltip-preview"
                 )}
                 eventContent={eventContent}
+                eventInnerClass={eventInnerClass}
                 eventDidMount={eventDidMount}
                 viewDidMount={({ view }) => {
                     if (initialView.current !== view.type) {
@@ -654,7 +655,7 @@ function useEventDisplayCustomization(parentNote: FNote, componentId: string | u
                     {iconClass && <span className={`calendar-event-icon ${iconClass}`} />}
                     {e.event.title}
                 </div>
-                {!!promotedAttributes?.length && hasRoomForAttributes(e) && (
+                {!!promotedAttributes?.length && roomForAttributes(e) && (
                     <div className="calendar-event-attributes">
                         {(promotedAttributes as Array<[string, string]>).map(([name, value], i) => (
                             <div className="promoted-attribute" key={`${name}-${i}`}>
@@ -704,18 +705,43 @@ function useEventDisplayCustomization(parentNote: FNote, componentId: string | u
         // belongs to the event sheet, which offers what the menu offers and more (see onEventClick).
         e.el.addEventListener("contextmenu", onContextMenu);
     }, [ dismissSurface ]);
-    return { eventContent, eventDidMount };
+    return { eventContent, eventDidMount, eventInnerClass };
 }
 
 /**
- * Whether a chip has the room to say anything beyond its title.
+ * Whether a chip has the room to say anything beyond its title, and how that room is come by.
  *
- * Only a timed event on a time grid stacks its content, and only where it is tall enough to. A row
- * event — a month cell's chip, an all-day band — is one centred line however wide it gets, so
- * attributes put there crowd the title along it rather than fall beneath it.
+ * A timed event on a time grid stacks its content of its own accord, wherever it is tall enough to:
+ * the attributes follow the title down the column with nothing further asked of the chip.
+ *
+ * Every other chip is a row — a month cell's, an all-day band's, a list item's — one centred line
+ * however wide it gets, so attributes put there would crowd the title along it. A month cell is
+ * wide enough for the row to be worth wrapping instead, which is what puts them beneath the title
+ * there, where they stood before v7 (see eventInnerClass). A cell too narrow to hold much of a
+ * title, the all-day bands and the lists are left as one line.
  */
-function hasRoomForAttributes(e: EventDisplayInfo) {
-    return e.view.type.startsWith("timeGrid") && !e.event.allDay && !e.isShort;
+export function roomForAttributes(e: EventDisplayInfo): "stacked" | "wrapped" | null {
+    if (e.view.type === "dayGridMonth") {
+        return !e.isNarrow ? "wrapped" : null;
+    }
+
+    if (e.view.type.startsWith("timeGrid")) {
+        return (!e.event.allDay && !e.isShort) ? "stacked" : null;
+    }
+
+    return null;
+}
+
+/**
+ * Turns the chip's inner — Forma's, and a row wherever this says anything at all — into something
+ * the attributes can fall beneath: a row that wraps, of which they claim a whole line (see
+ * index.css). Said as a class on the inner rather than drawn in eventContent because wrapping is
+ * the container's to declare and the container is the theme's, not ours.
+ */
+function eventInnerClass(e: EventDisplayInfo) {
+    const { promotedAttributes } = e.event.extendedProps;
+    return clsx(!!promotedAttributes?.length && roomForAttributes(e) === "wrapped"
+        && "calendar-event-inner-wrapped");
 }
 
 function useOnDatesSet(calendarRef: RefObject<FullCalendar>) {
