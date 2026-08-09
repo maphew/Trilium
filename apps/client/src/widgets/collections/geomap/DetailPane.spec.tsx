@@ -1157,4 +1157,52 @@ describe("DetailPane", () => {
         expect(onMouseDown).not.toHaveBeenCalled();
         expect(onKeyDown).not.toHaveBeenCalled();
     });
+
+    /*
+     * A phone shows the marker as a dialog over the whole screen rather than as a pane beside the
+     * map (see MarkerSheet). A pane holding a whole note takes most of the screen there whatever is
+     * done to it, so the maximize that would give it the rest has nothing left to give — and the
+     * camera, which holds a marker clear of the pane, has no uncovered half to hold it in.
+     */
+    describe("on a phone", () => {
+        beforeEach(() => { window.glob.device = "mobile"; });
+        afterEach(() => { window.glob.device = "desktop"; });
+
+        async function openSheetFor(note: FNote, map: ReturnType<typeof fakeMap>) {
+            await mount([ note ], map);
+            map.setUnderPointer([ markerFeature(note, [ 2, 1 ]) ]);
+            await act(async () => map.click());
+            // The dialog goes up first and reads its note out of the context after, so what it
+            // holds is drawn a turn later than the pane's is.
+            await act(async () => {});
+        }
+
+        const sheet = () => document.querySelector(".modal.geo-detail-sheet");
+
+        it("shows the marker as a dialog rather than as a pane over the map", async () => {
+            const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+            await openSheetFor(note, fakeMap());
+
+            expect(pane()).toBeNull();
+            expect(sheet()).toBeTruthy();
+            // The same contents either way: the note, and what may be done with the marker.
+            expect(sheet()?.querySelector(".note-detail-stub")).toBeTruthy();
+            expect(sheet()?.querySelector(".geo-detail-pane-location")).toBeTruthy();
+        });
+
+        it("offers no maximize, the dialog already having the screen", async () => {
+            const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+            await openSheetFor(note, fakeMap());
+
+            expect(document.querySelector(".tn-embedded-note-maximize")).toBeNull();
+        });
+
+        it("leaves the camera alone, there being no pane to hold the marker clear of", async () => {
+            const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
+            const map = fakeMap();
+            await openSheetFor(note, map);
+
+            expect(map.eased).toEqual([]);
+        });
+    });
 });
