@@ -11,19 +11,21 @@ function chip({ view, allDay = false, isShort = false, isNarrow = false }: {
 }
 
 describe("roomForAttributes", () => {
-    it("wraps a month cell's chip, which is a row wide enough to be worth wrapping", () => {
+    it("wraps a row chip, be it a month cell's or the all-day band's above a time grid", () => {
         expect(roomForAttributes(chip({ view: "dayGridMonth" }))).toBe("wrapped");
         expect(roomForAttributes(chip({ view: "dayGridMonth", allDay: true }))).toBe("wrapped");
+        expect(roomForAttributes(chip({ view: "timeGridWeek", allDay: true }))).toBe("wrapped");
+        expect(roomForAttributes(chip({ view: "timeGridDay", allDay: true }))).toBe("wrapped");
         // A cell too narrow to hold much of a title is left as the one line it is.
         expect(roomForAttributes(chip({ view: "dayGridMonth", isNarrow: true }))).toBe(null);
+        expect(roomForAttributes(chip({ view: "timeGridWeek", allDay: true, isNarrow: true }))).toBe(null);
     });
 
     it("lets a timed event on a time grid stack them, its content being a column already", () => {
         expect(roomForAttributes(chip({ view: "timeGridWeek" }))).toBe("stacked");
         expect(roomForAttributes(chip({ view: "timeGridDay" }))).toBe("stacked");
-        // Too short to say anything beneath its title, and the all-day band is a row.
+        // Too short to say anything beneath its title.
         expect(roomForAttributes(chip({ view: "timeGridWeek", isShort: true }))).toBe(null);
-        expect(roomForAttributes(chip({ view: "timeGridWeek", allDay: true }))).toBe(null);
     });
 
     it("has nowhere to put them on a year's chips or in a list", () => {

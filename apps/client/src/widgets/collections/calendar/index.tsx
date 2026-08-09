@@ -742,22 +742,28 @@ function useEventDisplayCustomization(parentNote: FNote, componentId: string | u
 /**
  * Whether a chip has the room to say anything beyond its title, and how that room is come by.
  *
- * A timed event on a time grid stacks its content of its own accord, wherever it is tall enough to:
- * the attributes follow the title down the column with nothing further asked of the chip.
+ * A chip drawn as a row — a month cell's, and an all-day band's, which is the very same row drawn
+ * above a time grid — is one centred line however wide it gets, so attributes put there would
+ * crowd the title along it. The row is asked to wrap instead and they take a line of their own
+ * beneath the title (see eventInnerClass), which is where they stood before v7. Only a band or a
+ * cell wide enough to be worth wrapping: a narrow one is left as the one line it is.
  *
- * Every other chip is a row — a month cell's, an all-day band's, a list item's — one centred line
- * however wide it gets, so attributes put there would crowd the title along it. A month cell is
- * wide enough for the row to be worth wrapping instead, which is what puts them beneath the title
- * there, where they stood before v7 (see eventInnerClass). A cell too narrow to hold much of a
- * title, the all-day bands and the lists are left as one line.
+ * A timed event on a time grid is a column already, wherever it is tall enough to be one, and its
+ * attributes follow the title down it with nothing further asked of the chip.
+ *
+ * Which leaves a year's chips and a list's, both of them one line with nothing to spare.
  */
 export function roomForAttributes(e: EventDisplayInfo): "stacked" | "wrapped" | null {
-    if (e.view.type === "dayGridMonth") {
+    const isTimeGrid = e.view.type.startsWith("timeGrid");
+
+    // An all-day event is the only kind the band above a time grid draws (see AllDaySplitter): a
+    // timed one is sliced into the columns below, however many days it runs.
+    if (e.view.type === "dayGridMonth" || (isTimeGrid && e.event.allDay)) {
         return !e.isNarrow ? "wrapped" : null;
     }
 
-    if (e.view.type.startsWith("timeGrid")) {
-        return (!e.event.allDay && !e.isShort) ? "stacked" : null;
+    if (isTimeGrid) {
+        return !e.isShort ? "stacked" : null;
     }
 
     return null;
