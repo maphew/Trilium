@@ -14,6 +14,7 @@ import noteTooltipService from "./services/note_tooltip.js";
 import { setBackgroundEffectsSuspended } from "./services/theme.js";
 import toastService from "./services/toast.js";
 import utils from "./services/utils.js";
+import { preloadCommonNoteTypes } from "./widgets/note_types.js";
 
 await appContext.earlyInit();
 
@@ -22,7 +23,10 @@ bundleService.getWidgetBundlesByParent().then(async (widgetBundles) => {
     const DesktopLayout = (await import("./layouts/desktop_layout.js")).default;
 
     appContext.setLayout(new DesktopLayout(widgetBundles));
-    appContext.start().then(reportFullRenderStartupMetric).catch((e) => {
+    appContext.start().then(() => {
+        reportFullRenderStartupMetric();
+        preloadCommonNoteTypes();
+    }).catch((e) => {
         toastService.showPersistent({
             id: "critical-error",
             title: t("toast.critical-error.title"),

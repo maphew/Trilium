@@ -223,6 +223,101 @@ describe("calculateExtraWindowUrl", () => {
     });
 });
 
+describe("split panes in the hash", () => {
+    const A = "root/aaaaaaaaaaaa";
+    const B = "root/bbbbbbbbbbbb";
+    const C = "root/cccccccccccc";
+
+    /** Wraps a bare hash in the address a detached window boots from. */
+    const asExtraWindowUrl = (hash: string) => `http://localhost:8080/?extraWindow=1${hash}`;
+
+    it("round-trips a tab's panes, keeping their order, hoisting and view scope", () => {
+        const hash = calculateHash({
+            notePath: A,
+            splits: [
+                { notePath: B, viewScope: { viewMode: "source" } },
+                { notePath: C, hoistedNoteId: "h1" }
+            ],
+            activeSplit: 1
+        });
+
+        // each pane is a hash body of its own, comma-joined and encoded as a single parameter
+        expect(hash).toBe(
+            `#${A}?splits=root%2Fbbbbbbbbbbbb%3FviewMode%3Dsource%2Croot%2Fcccccccccccc%3FhoistedNoteId%3Dh1&activeSplit=1`
+        );
+
+        expect(parseNavigationStateFromUrl(asExtraWindowUrl(hash))).toMatchObject({
+            notePath: A,
+            activeSplit: 1,
+            splits: [
+                { notePath: B, hoistedNoteId: null, viewScope: { viewMode: "source" } },
+                { notePath: C, hoistedNoteId: "h1", viewScope: { viewMode: "default" } }
+            ]
+        });
+    });
+
+    it("honours splits only when booting a detached window", () => {
+        // The same parser backs every link click inside a note. Were splits read there, any note —
+        // including an imported or synced one — could rearrange the panes of the window reading it.
+        const hash = calculateHash({ notePath: A, splits: [{ notePath: B }] });
+
+        expect(parseNavigationStateFromUrl(`http://localhost:8080/${hash}`)).toMatchObject({
+            notePath: A,
+            splits: null
+        });
+    });
+
+    it("keeps the layout of a tab whose first pane held no note", () => {
+        const hash = calculateHash({ notePath: null, splits: [{ notePath: B }] });
+
+        expect(hash).toBe("#?splits=root%2Fbbbbbbbbbbbb");
+        expect(parseNavigationStateFromUrl(asExtraWindowUrl(hash))).toMatchObject({
+            notePath: "",
+            noteId: null,
+            splits: [{ notePath: B }]
+        });
+
+        // without splits an empty note path still means "nothing to navigate to"
+        expect(parseNavigationStateFromUrl(asExtraWindowUrl("#"))).toStrictEqual({});
+    });
+
+    it("keeps empty panes, drops malformed ones and caps how many it will open", () => {
+        const parse = (splits: string) =>
+            parseNavigationStateFromUrl(asExtraWindowUrl(`#${A}?splits=${splits}`));
+
+        // an empty entry is a pane that held no note — kept, so the pane count survives
+        expect(parse(encodeURIComponent(`${B},,${C}`))).toMatchObject({
+            splits: [{ notePath: B }, { notePath: null }, { notePath: C }]
+        });
+
+        // a hand-written address shouldn't be able to open a pane on garbage, nor hundreds of them
+        expect(parse(encodeURIComponent(`${B},zz,${C}`))).toMatchObject({
+            splits: [{ notePath: B }, { notePath: C }]
+        });
+        expect(parse(encodeURIComponent(Array(20).fill(B).join(",")))).toMatchObject({
+            splits: Array(8).fill({ notePath: B })
+        });
+    });
+
+    it("shrugs off an active index that is not a number, and a parameter carrying no value", () => {
+        // Both reach the parser straight off the address bar, where anything at all may be typed.
+        expect(parseNavigationStateFromUrl(
+            asExtraWindowUrl(`#${A}?splits=${encodeURIComponent(B)}&activeSplit=whichever`)
+        )).toMatchObject({ activeSplit: 0, splits: [{ notePath: B }] });
+
+        // `popup` is a flag, so it is written bare — there is no `=` to split on.
+        expect(parseNavigationStateFromUrl(`#${A}?popup`)).toMatchObject({ openInPopup: true });
+    });
+
+    it("ignores parameters that describe a window rather than a pane", () => {
+        const nested = encodeURIComponent(`${B}?ntxId=n1&splits=${encodeURIComponent(C)}`);
+        const parsed = parseNavigationStateFromUrl(asExtraWindowUrl(`#${A}?splits=${nested}`));
+
+        expect(parsed).toMatchObject({ splits: [{ notePath: B, viewScope: { viewMode: "default" } }] });
+        expect((parsed as any).splits[0]).not.toHaveProperty("ntxId");
+    });
+});
+
 describe("getNotePathFromUrl", () => {
     it("extracts the note path from a hash url and returns null otherwise", () => {
         expect(linkService.getNotePathFromUrl("https://x.test/#root/abc_123")).toBe("root/abc_123");

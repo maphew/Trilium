@@ -128,8 +128,8 @@ export default function SpaceUsage({ sectionSwitcher }: ContentManagerSectionPro
  */
 function StatusEntry({ text, hint }: { text: string, hint: string }) {
     const ref = useRef<HTMLSpanElement>(null);
-    // `tooltip-top` raises the popup above the settings dialog: Bootstrap appends tooltips to
-    // `<body>`, where the base `.tooltip` z-index sits below a modal.
+    // `tooltip-top` is the app's "above everything" layer, which the status line needs: the content
+    // manager's own active-content overlay stands above the base tooltip layer.
     useStaticTooltip(ref, useMemo(
         () => ({ title: hint, placement: "top", customClass: "tooltip-top" }),
         [ hint ]

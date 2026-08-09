@@ -1007,6 +1007,8 @@
     "pin_date": "Pin the current date so the calendar always opens on this interval instead of today",
     "unpin_date": "Unpin the date so the calendar opens on today's date again",
     "close_details": "Close event details",
+    "expand_details": "Expand the event to fill the window",
+    "restore_details": "Put the event back beside its place in the calendar",
     "dates": {
       "all_day": "All day",
       "date": "Date",
@@ -2851,6 +2853,8 @@
     "quick-edit": "Quick edit"
   },
   "geo-map": {
+    "expand-details": "Expand the note to fill the map",
+    "restore-details": "Put the note back beside the map",
     "create-child-note-title": "Create a new child note and add it to the map",
     "create-child-note-cancel": "Cancel adding the note",
     "add-marker": "Add marker",

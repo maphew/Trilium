@@ -24,6 +24,13 @@
     width: var(--geo-detail-pane-width);
     /* An embedded map may be narrower than the pane would like to be. */
     max-width: calc(100% - 2 * var(--geo-map-inset));
+
+    /* Grown over the map (see the maximize in MarkerDetails). Only the width gives: the pane
+       already stands the height of the map. What the map places around the pane is suppressed
+       while it is grown rather than recomputed — see `maximized` in DetailPane.tsx. */
+    &.maximized {
+        width: calc(100% - 2 * var(--geo-map-inset));
+    }
     /* Clear of MapLibre's own control corners, which sit at 2 (see MapToolbar.css). */
     z-index: 3;
 }
@@ -71,7 +78,8 @@
  * to press: it is a line of text that happens to answer to a click, so it stands on no plate of its
  * own until it is aimed at.
  */
-.geo-map-container .geo-detail-pane .geo-detail-pane-location {
+.geo-map-container .geo-detail-pane .geo-detail-pane-location,
+.modal.geo-detail-sheet .geo-detail-pane-location {
     display: flex;
     align-items: center;
     gap: 6px;
@@ -92,3 +100,18 @@
     }
 }
 
+.modal.geo-detail-sheet .modal-dialog {
+    max-height: var(--tn-modal-max-height);
+    height: 100%;
+}
+
+.modal.geo-detail-sheet .modal-content {
+    overflow: hidden;
+}
+
+.modal.geo-detail-sheet .modal-body {
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+    overflow: auto;
+}
