@@ -37,7 +37,7 @@ import GhostPopover from "./GhostPopover";
 import { openCalendarContextMenu } from "./context_menu";
 import { CalendarSelection, EventDraft } from "./selection";
 import { buildEvents, buildEventsForCalendar } from "./event_builder";
-import { formatDateToLocalISO, formatTimeToLocalISO, isValidDuration, parseDurationSeconds, parseStartEndDateFromEvent, parseStartEndTimeFromEvent } from "./utils";
+import { formatDateToLocalISO, formatTimeToLocalISO, isAttributeChangeAffecting, isValidDuration, parseDurationSeconds, parseStartEndDateFromEvent, parseStartEndTimeFromEvent } from "./utils";
 
 interface CalendarViewData {
 
@@ -289,15 +289,27 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
         const api = calendarRef.current;
         if (!api) return;
 
-        // Subnote attribute change.
-        if (loadResults.getAttributeRows(parentComponent?.componentId).some((a) => noteIds.includes(a.noteId ?? ""))) {
+        // Attribute change on a note the calendar draws — written on the note itself, or inherited
+        // from an ancestor or a template, which is just as much a change to the chip (see
+        // isAttributeChangeAffecting).
+        //
+        // The notes asked about are the collection's own plus whatever chips stand on the grid: a
+        // calendar root draws day notes and their children, which are in no `noteIds` at all, and
+        // so answered nothing here.
+        const drawnNoteIds = new Set(noteIds);
+        for (const event of api.getEvents()) {
+            const noteId = event.extendedProps.noteId;
+            if (noteId) drawnNoteIds.add(String(noteId));
+        }
+
+        if (isAttributeChangeAffecting(loadResults.getAttributeRows(parentComponent?.componentId), drawnNoteIds)) {
             // Defer execution after the load results are processed so that the event builder has the updated data to work with.
             setTimeout(() => api.refetchEvents(), 0);
             return; // early return since we'll refresh the events anyway
         }
 
         // Title change.
-        for (const noteId of loadResults.getNoteIds().filter(noteId => noteIds.includes(noteId))) {
+        for (const noteId of loadResults.getNoteIds().filter(noteId => drawnNoteIds.has(noteId))) {
             const event = api.getEventById(noteId);
             const note = froca.getNoteFromCache(noteId);
             if (!event || !note) continue;
