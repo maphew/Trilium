@@ -1,6 +1,6 @@
 import { createGoogleGenerativeAI, type GoogleGenerativeAIProvider } from "@ai-sdk/google";
 import type { LlmMessage } from "@triliumnext/commons";
-import { getLog } from "@triliumnext/core";
+import { getLog } from "../../../services/log.js";
 import { stepCountIs, streamText, type ToolSet } from "ai";
 
 import type { LlmProviderConfig, StreamResult } from "../types.js";

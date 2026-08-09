@@ -7,12 +7,9 @@ const { getAttachmentMock, getBlobMock } = vi.hoisted(() => ({
 
 // Attachment + blob lookups go through SQL in the real becca; partial-mock core
 // so these two return deterministic stubs while the rest of core is untouched.
-vi.mock("@triliumnext/core", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("@triliumnext/core")>();
-    return {
-        ...actual,
-        becca: { ...actual.becca, getAttachment: getAttachmentMock, getBlob: getBlobMock }
-    };
+vi.mock("../../../becca/becca.js", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../../../becca/becca.js")>();
+    return { default: { ...actual.default, getAttachment: getAttachmentMock, getBlob: getBlobMock } };
 });
 
 import { attachmentTools } from "./attachment_tools.js";

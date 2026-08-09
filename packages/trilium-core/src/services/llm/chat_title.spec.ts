@@ -7,13 +7,14 @@ const { getNoteMock, getProviderMock, generateTitleMock } = vi.hoisted(() => ({
     generateTitleMock: vi.fn()
 }));
 
-vi.mock("@triliumnext/core", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("@triliumnext/core")>();
-    return {
-        ...actual,
-        becca: { ...actual.becca, getNote: getNoteMock },
-        getLog: () => ({ info: vi.fn(), error: vi.fn(), warn: vi.fn() })
-    };
+vi.mock("../../becca/becca.js", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../../becca/becca.js")>();
+    return { default: { ...actual.default, getNote: getNoteMock } };
+});
+
+vi.mock("../../services/log.js", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../../services/log.js")>();
+    return { ...actual, getLog: () => ({ info: vi.fn(), error: vi.fn(), warn: vi.fn() }) };
 });
 
 vi.mock("./index.js", () => ({

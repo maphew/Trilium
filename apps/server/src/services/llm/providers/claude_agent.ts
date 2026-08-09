@@ -24,6 +24,12 @@ import { type Options as AgentOptions, query, type SDKAssistantMessage, type SDK
 import type { ContentBlockParam } from "@anthropic-ai/sdk/resources";
 import type { LlmFilePart, LlmImagePart, LlmMessage, LlmMessagePart, LlmStreamChunk, LlmTextAttachmentPart } from "@triliumnext/commons";
 import { getLog } from "@triliumnext/core";
+import { resolveAttachmentPart } from "@triliumnext/core/src/services/llm/attachment_content.js";
+import { buildNoteHint } from "@triliumnext/core/src/services/llm/note_hint.js";
+import { anthropicRecommendedIds } from "@triliumnext/core/src/services/llm/providers/anthropic.js";
+import { buildModelList, mergeModelLists, type RemoteModel } from "@triliumnext/core/src/services/llm/providers/base_provider.js";
+import { buildSystemPrompt } from "@triliumnext/core/src/services/llm/system_prompt.js";
+import type { LlmProvider, LlmProviderConfig, ModelInfo, ModelPricing, StreamResult } from "@triliumnext/core/src/services/llm/types.js";
 import { encodeBase64 } from "@triliumnext/core/src/services/utils/binary.js";
 import { spawn as nodeSpawn } from "child_process";
 import { createHash } from "crypto";
@@ -32,12 +38,6 @@ import path from "path";
 
 import dataDirs from "../../data_dir.js";
 import { createMcpServer } from "../../mcp/mcp_server.js";
-import { resolveAttachmentPart } from "../attachment_content.js";
-import { buildNoteHint } from "../note_hint.js";
-import { buildSystemPrompt } from "../system_prompt.js";
-import type { LlmProvider, LlmProviderConfig, ModelInfo, ModelPricing, StreamResult } from "../types.js";
-import { anthropicRecommendedIds } from "./anthropic.js";
-import { buildModelList, mergeModelLists, type RemoteModel } from "./base_provider.js";
 import { resolveClaudeBinaryPath } from "./claude_binary.js";
 
 /** Image media types Anthropic accepts as a base64 image block. */

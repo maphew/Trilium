@@ -2,7 +2,8 @@
  * LLM tools for attribute operations (get, set, delete labels/relations).
  */
 
-import { attributes as attributeService, becca } from "@triliumnext/core";
+import attributeService from "../../../services/attributes.js";
+import becca from "../../../becca/becca.js";
 import { z } from "zod";
 
 import { flag } from "./helpers.js";

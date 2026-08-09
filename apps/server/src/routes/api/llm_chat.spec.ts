@@ -47,13 +47,13 @@ vi.mock("../../services/llm/index.js", () => {
 
 // Only the stream itself is faked; `formatStreamError` (used for the log line) is a pure
 // function and stays real, so the logged text is asserted against the production format.
-vi.mock("../../services/llm/stream.js", async (importOriginal) => ({
-    ...await importOriginal<typeof import("../../services/llm/stream.js")>(),
+vi.mock("@triliumnext/core/src/services/llm/stream.js", async (importOriginal) => ({
+    ...await importOriginal<typeof import("@triliumnext/core/src/services/llm/stream.js")>(),
     async *streamToChunks () { for (const c of state.chunks) yield c; }
 }));
 
 const generateChatTitle = vi.fn(async (..._args: unknown[]) => {});
-vi.mock("../../services/llm/chat_title.js", () => ({ generateChatTitle: (...args: unknown[]) => generateChatTitle(...args) }));
+vi.mock("@triliumnext/core/src/services/llm/chat_title.js", () => ({ generateChatTitle: (...args: unknown[]) => generateChatTitle(...args) }));
 
 import llmChatRoute from "./llm_chat.js";
 

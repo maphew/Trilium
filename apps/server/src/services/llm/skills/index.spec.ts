@@ -1,6 +1,6 @@
+import type { ToolDefinition } from "@triliumnext/core/src/services/llm/tools/tool_registry.js";
 import { describe, expect, it } from "vitest";
 
-import type { ToolDefinition } from "../tools/tool_registry.js";
 import { getSkillsSummary, skillTools } from "./index.js";
 
 function loadSkillTool(): ToolDefinition {

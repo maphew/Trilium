@@ -10,7 +10,7 @@
  */
 
 import { isAnchorState, type LlmMessage } from "@triliumnext/commons";
-import { task_states } from "@triliumnext/core";
+import * as task_states from "../../services/task_states.js";
 
 import type { LlmProviderConfig } from "./types.js";
 

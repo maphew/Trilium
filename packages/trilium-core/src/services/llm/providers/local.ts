@@ -15,7 +15,7 @@
  */
 
 import { createOpenAI, type OpenAIProvider as OpenAISDKProvider } from "@ai-sdk/openai";
-import { getLog } from "@triliumnext/core";
+import { getLog } from "../../../services/log.js";
 
 import type { ModelInfo, ModelPricing } from "../types.js";
 import { BaseProvider, type RemoteModel } from "./base_provider.js";

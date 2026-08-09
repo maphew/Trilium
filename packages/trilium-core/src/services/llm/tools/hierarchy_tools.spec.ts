@@ -1,4 +1,5 @@
-import { cls, note_service as noteService } from "@triliumnext/core";
+import * as cls from "../../../services/context.js";
+import noteService from "../../../services/notes.js";
 import { describe, expect, it } from "vitest";
 
 import { hierarchyTools } from "./hierarchy_tools.js";

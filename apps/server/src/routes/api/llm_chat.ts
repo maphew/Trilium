@@ -2,9 +2,9 @@ import type { LlmMessage, LlmStreamChunk } from "@triliumnext/commons";
 import { getLog, ValidationError } from "@triliumnext/core";
 import type { Request, Response } from "express";
 
-import { generateChatTitle } from "../../services/llm/chat_title.js";
+import { generateChatTitle } from "@triliumnext/core/src/services/llm/chat_title.js";
 import { getProvider, getProviderByType, getSelectedModel, hasConfiguredProviders, listProviderModels, type LlmProviderConfig } from "../../services/llm/index.js";
-import { formatStreamError, streamToChunks } from "../../services/llm/stream.js";
+import { formatStreamError, streamToChunks } from "@triliumnext/core/src/services/llm/stream.js";
 import { safeExtractMessageAndStackFromError } from "../../services/utils.js";
 
 interface ChatRequest {

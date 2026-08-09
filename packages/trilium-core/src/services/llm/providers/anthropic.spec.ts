@@ -26,12 +26,9 @@ vi.mock("ai", async (importOriginal) => {
 // The note hint embeds live note metadata into the system prompt. Partial-mock
 // core so the becca lookup returns a deterministic stub note while the rest of
 // core keeps its real implementation.
-vi.mock("@triliumnext/core", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("@triliumnext/core")>();
-    return {
-        ...actual,
-        becca: { ...actual.becca, getNote: (noteId: string) => ({ noteId } as any) }
-    };
+vi.mock("../../../becca/becca.js", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../../../becca/becca.js")>();
+    return { default: { ...actual.default, getNote: (noteId: string) => ({ noteId } as any) } };
 });
 
 vi.mock("../tools/helpers.js", async (importOriginal) => {

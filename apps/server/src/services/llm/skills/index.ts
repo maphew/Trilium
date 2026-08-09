@@ -4,13 +4,12 @@
  * included in the system prompt; full content is fetched via the load_skill tool.
  */
 
+import { defineTools } from "@triliumnext/core/src/services/llm/tools/tool_registry.js";
 import { readFileSync } from "fs";
 import { join } from "path";
-
 import { z } from "zod";
 
 import resourceDir from "../../resource_dir.js";
-import { defineTools } from "../tools/tool_registry.js";
 
 const SKILLS_DIR = join(resourceDir.RESOURCE_DIR, "llm", "skills");
 
@@ -70,8 +69,8 @@ export function getSkillsSummary(): string {
 
 export const skillTools = defineTools({
     load_skill: {
-        description: "Load a skill to get specialized instructions. Available skills:\n"
-            + SKILLS.map((s) => `- ${s.name}: ${s.description}`).join("\n"),
+        description: `Load a skill to get specialized instructions. Available skills:\n${
+            SKILLS.map((s) => `- ${s.name}: ${s.description}`).join("\n")}`,
         inputSchema: z.object({
             name: z.string().describe("The skill name to load")
         }),

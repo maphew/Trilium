@@ -1,5 +1,5 @@
 import type { LlmMessage, LlmMessagePart } from "@triliumnext/commons";
-import { encodeUtf8 } from "@triliumnext/core/src/services/utils/binary.js";
+import { encodeUtf8 } from "../../../services/utils/binary.js";
 import type { LanguageModel } from "ai";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -23,14 +23,15 @@ vi.mock("ai", async (importOriginal) => {
     return { ...actual, streamText: streamTextMock, generateText: generateTextMock };
 });
 
-vi.mock("@triliumnext/core", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("@triliumnext/core")>();
-    return {
-        ...actual,
-        becca: { ...actual.becca, ...beccaStub },
-        // Spreading the real logger loses prototype methods (e.g. info), so stub it too.
-        getLog: () => ({ ...actual.getLog(), error: errorLogMock, info: vi.fn() })
-    };
+vi.mock("../../../becca/becca.js", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../../../becca/becca.js")>();
+    return { default: { ...actual.default, ...beccaStub } };
+});
+
+vi.mock("../../../services/log.js", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../../../services/log.js")>();
+    // Spreading the real logger loses prototype methods (e.g. info), so stub it too.
+    return { ...actual, getLog: () => ({ ...actual.getLog(), error: errorLogMock, info: vi.fn() }) };
 });
 
 vi.mock("../tools/helpers.js", async (importOriginal) => {

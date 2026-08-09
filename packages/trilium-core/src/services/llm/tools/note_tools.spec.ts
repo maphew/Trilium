@@ -1,4 +1,5 @@
-import { becca, becca_easy_mocking } from "@triliumnext/core";
+import becca from "../../../becca/becca.js";
+import * as becca_easy_mocking from "../../../test/becca_easy_mocking.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { noteTools } from "./note_tools.js";
@@ -8,18 +9,14 @@ const { buildNote } = becca_easy_mocking;
 
 const findResultsMock = vi.hoisted(() => vi.fn());
 
-vi.mock("@triliumnext/core", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("@triliumnext/core")>();
-    return {
-        ...actual,
-        note_service: {
-            createNewNote: vi.fn()
-        },
-        search: {
-            ...actual.search,
-            findResultsWithQuery: findResultsMock
-        }
-    };
+vi.mock("../../../services/notes.js", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../../../services/notes.js")>();
+    return { ...actual, default: { createNewNote: vi.fn() } };
+});
+
+vi.mock("../../../services/search/services/search.js", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../../../services/search/services/search.js")>();
+    return { default: { ...actual.default, findResultsWithQuery: findResultsMock } };
 });
 
 function getTool(name: string): ToolDefinition {
@@ -212,7 +209,7 @@ describe("note_tools — write tools return post-write content", () => {
             const newNote = buildNote({ id: "new1", type: "code", mime: "text/plain", content: "hello" });
             withMutableContent(newNote, "hello");
 
-            const { note_service: noteService } = await import("@triliumnext/core");
+            const { default: noteService } = await import("../../../services/notes.js");
             vi.mocked(noteService.createNewNote).mockReturnValue({ note: newNote } as ReturnType<typeof noteService.createNewNote>);
 
             const result = getTool("create_note").execute({
@@ -246,7 +243,7 @@ describe("note_tools — write tools return post-write content", () => {
 
         it("renders Markdown to HTML for text notes and surfaces creation errors", async () => {
             buildNote({ id: "tparent", title: "TParent" });
-            const { note_service: noteService } = await import("@triliumnext/core");
+            const { default: noteService } = await import("../../../services/notes.js");
 
             const created = buildNote({ id: "tnew", type: "text", content: "<h2>Hi</h2>" });
             withMutableContent(created, "<h2>Hi</h2>");

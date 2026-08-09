@@ -52,7 +52,7 @@ const mutateRegistry: any = [
     ["mutate_tool", { description: "m", inputSchema: {}, mutates: true, execute: mutateExecute }]
 ];
 
-vi.mock("../llm/tools/index.js", () => ({
+vi.mock("../llm/index.js", () => ({
     allToolRegistries: [readRegistry, mutateRegistry]
 }));
 

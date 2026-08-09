@@ -10,8 +10,9 @@
  */
 
 import type { LlmMessagePart } from "@triliumnext/commons";
-import { becca, getLog } from "@triliumnext/core";
-import { decodeUtf8 } from "@triliumnext/core/src/services/utils/binary.js";
+import becca from "../../becca/becca.js";
+import { getLog } from "../../services/log.js";
+import { decodeUtf8 } from "../../services/utils/binary.js";
 
 export type ResolvedAttachment =
     | { kind: "text"; text: string }

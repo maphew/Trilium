@@ -1,4 +1,5 @@
-import type { BAttachment, BNote } from "@triliumnext/core";
+import type BAttachment from "../../../becca/entities/battachment.js";
+import type BNote from "../../../becca/entities/bnote.js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const getBlobMock = vi.hoisted(() => vi.fn());
@@ -6,33 +7,9 @@ const getBlobMock = vi.hoisted(() => vi.fn());
 // getContentPreview / getNoteContentForLlm consult becca.getBlob (SQL-backed);
 // partial-mock core so it returns deterministic blobs while markdown
 // import/export services keep their real implementations.
-vi.mock("@triliumnext/core", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("@triliumnext/core")>();
-    return {
-        ...actual,
-        becca: { ...actual.becca, getBlob: getBlobMock }
-    };
-});
-
-/** Fake on-disk help pages for getDocNoteHtml: path suffix → HTML content. */
-const docFiles = vi.hoisted(() => new Map<string, string>());
-
-// Doc notes read their HTML from disk — serve them from the docFiles fixture
-// map and pass every other path through to the real fs.
-vi.mock("fs", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("fs")>();
-    const readFileSync = ((filePath: unknown, ...rest: unknown[]) => {
-        const pathStr = String(filePath);
-        for (const [suffix, content] of docFiles) {
-            if (pathStr.endsWith(suffix)) return content;
-        }
-        if (pathStr.includes("doc_notes")) {
-            throw new Error(`ENOENT: ${pathStr}`);
-        }
-        return (actual.readFileSync as (...args: unknown[]) => unknown)(filePath, ...rest);
-    }) as typeof actual.readFileSync;
-    const mocked = { ...actual, readFileSync };
-    return { ...mocked, default: mocked };
+vi.mock("../../../becca/becca.js", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../../../becca/becca.js")>();
+    return { default: { ...actual.default, getBlob: getBlobMock } };
 });
 
 import {
@@ -43,6 +20,7 @@ import {
     getDocNoteHtml,
     getNoteContentForLlm,
     getNoteMeta,
+    registerDocNoteHtmlReader,
     setNoteContentFromLlm
 } from "./helpers.js";
 
@@ -131,34 +109,25 @@ describe("getNoteContentForLlm", () => {
     });
 });
 
-describe("getDocNoteHtml / doc notes", () => {
-    beforeEach(() => docFiles.clear());
+describe("doc notes", () => {
+    beforeEach(() => registerDocNoteHtmlReader(() => null));
 
-    it("reads the page HTML from disk under doc_notes/en", () => {
-        docFiles.set("Cloning Notes.html", "<h2>Cloning</h2>");
-        expect(getDocNoteHtml(docNoteStub("User Guide/User Guide/Cloning Notes"))).toBe("<h2>Cloning</h2>");
-    });
-
-    it("returns null without a docName label, on a missing file, and on path traversal attempts", () => {
+    it("resolves a doc note's HTML through the registered reader", () => {
+        registerDocNoteHtmlReader(note => (note.getLabelValue("docName") ? "<h2>Cloning</h2>" : null));
+        expect(getDocNoteHtml(docNoteStub("User Guide/Cloning Notes"))).toBe("<h2>Cloning</h2>");
         expect(getDocNoteHtml(docNoteStub(null))).toBeNull();
-        expect(getDocNoteHtml(docNoteStub("User Guide/Nonexistent Page"))).toBeNull();
-        // Traversal attempts must be rejected before touching the filesystem —
-        // register a catch-all fixture so any read would be visible.
-        docFiles.set(".html", "<p>leaked</p>");
-        expect(getDocNoteHtml(docNoteStub("../../../../etc/passwd"))).toBeNull();
-        expect(getDocNoteHtml(docNoteStub("/etc/passwd"))).toBeNull();
     });
 
-    it("getNoteContentForLlm converts doc-note HTML to Markdown", () => {
-        docFiles.set("Cloning Notes.html", "<h2>Cloning</h2><p>Place a note in two locations.</p>");
-        const content = getNoteContentForLlm(docNoteStub("User Guide/User Guide/Cloning Notes"));
+    it("getNoteContentForLlm converts the reader's HTML to Markdown", () => {
+        registerDocNoteHtmlReader(() => "<h2>Cloning</h2><p>Place a note in two locations.</p>");
+        const content = getNoteContentForLlm(docNoteStub("User Guide/Cloning Notes"));
         expect(content).toContain("## Cloning");
         expect(content).toContain("Place a note in two locations.");
     });
 
-    it("getNoteContentForLlm and getContentPreview degrade gracefully for unresolvable doc notes", () => {
+    it("degrades gracefully when no reader is registered — as in the browser build", () => {
         getBlobMock.mockReturnValue(null);
-        const note = docNoteStub(null);
+        const note = docNoteStub("User Guide/Cloning Notes");
         expect(getNoteContentForLlm(note)).toBe("[doc content not available]");
         expect(getContentPreview(note)).toBeNull();
     });

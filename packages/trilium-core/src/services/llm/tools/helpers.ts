@@ -2,12 +2,12 @@
  * Shared helpers for LLM tools — content conversion, metadata building, and previews.
  */
 
-import { type BAttachment, becca, type BNote, markdownExportService as markdownExport, markdownImportService as markdownImport } from "@triliumnext/core";
-import { unwrapStringOrBuffer } from "@triliumnext/core/src/services/utils/binary.js";
-import { readFileSync } from "fs";
-import path from "path";
-
-import resourceDir from "../../resource_dir.js";
+import type BAttachment from "../../../becca/entities/battachment.js";
+import becca from "../../../becca/becca.js";
+import type BNote from "../../../becca/entities/bnote.js";
+import markdownExport from "../../../services/export/markdown.js";
+import markdownImport from "../../../services/import/markdown.js";
+import { unwrapStringOrBuffer } from "../../../services/utils/binary.js";
 
 const CONTENT_PREVIEW_MAX_LENGTH = 500;
 const ATTACHMENT_PREVIEW_MAX_LENGTH = 200;
@@ -16,6 +16,29 @@ const CONTENT_PREVIEW_SIZE_THRESHOLD = 10_000;
 
 /** Note IDs that must not be deleted, moved, or cloned by the LLM. */
 export const PROTECTED_SYSTEM_NOTES = new Set(["root", "_hidden", "_share", "_lbRoot", "_globalNoteMap"]);
+
+/** Host-provided reader for doc-note HTML. See {@link registerDocNoteHtmlReader}. */
+let docNoteHtmlReader: ((note: BNote) => string | null) | null = null;
+
+/**
+ * Register the host's reader for in-app help pages.
+ *
+ * `doc` notes (the User Guide) keep no content in the database — their HTML
+ * ships as static files, which the server reads off disk. The browser-hosted
+ * build has no synchronous way to do that, so hosts that can supply it register
+ * a reader here and the rest simply report the content as unavailable.
+ */
+export function registerDocNoteHtmlReader(reader: (note: BNote) => string | null) {
+    docNoteHtmlReader = reader;
+}
+
+/**
+ * Resolve the HTML of a `doc` note via the registered reader, or null when no
+ * reader is registered or it cannot resolve the page.
+ */
+export function getDocNoteHtml(note: BNote): string | null {
+    return docNoteHtmlReader?.(note) ?? null;
+}
 
 /**
  * Return `true` if the value is truthy, otherwise `undefined`.
@@ -52,32 +75,6 @@ export function getNoteContentForLlm(note: BNote) {
         return markdownExport.toMarkdown(content);
     }
     return content;
-}
-
-/**
- * Resolve the on-disk HTML of a `doc` note (in-app help / User Guide pages,
- * identified by their `#docName` label), or null if it cannot be resolved.
- * The User Guide ships in English only, so the `en` tree is always used
- * (mirroring the client's doc_renderer behaviour).
- */
-export function getDocNoteHtml(note: BNote): string | null {
-    const docName = note.getLabelValue("docName");
-    if (!docName) {
-        return null;
-    }
-
-    const docNotesDir = path.resolve(resourceDir.RESOURCE_DIR, "doc_notes");
-    const filePath = path.resolve(docNotesDir, "en", `${docName}.html`);
-    if (!filePath.startsWith(docNotesDir + path.sep)) {
-        // Path traversal guard — the docName label is note data, not trusted input.
-        return null;
-    }
-
-    try {
-        return readFileSync(filePath, "utf-8");
-    } catch {
-        return null;
-    }
 }
 
 /**

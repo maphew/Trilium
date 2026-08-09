@@ -2,7 +2,7 @@
  * LLM tools for finding note icons across the available icon packs.
  */
 
-import { icon_packs } from "@triliumnext/core";
+import * as icon_packs from "../../../services/icon_packs.js";
 import { z } from "zod";
 
 import { defineTools } from "./tool_registry.js";

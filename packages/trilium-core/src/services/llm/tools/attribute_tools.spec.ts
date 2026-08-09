@@ -1,4 +1,6 @@
-import { becca, cls, note_service as noteService } from "@triliumnext/core";
+import becca from "../../../becca/becca.js";
+import * as cls from "../../../services/context.js";
+import noteService from "../../../services/notes.js";
 import { beforeAll, describe, expect, it } from "vitest";
 
 import { attributeTools } from "./attribute_tools.js";

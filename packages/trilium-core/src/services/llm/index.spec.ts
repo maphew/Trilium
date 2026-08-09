@@ -5,13 +5,14 @@ const { getOptionOrNullMock, errorMock } = vi.hoisted(() => ({
     errorMock: vi.fn()
 }));
 
-vi.mock("@triliumnext/core", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("@triliumnext/core")>();
-    return {
-        ...actual,
-        options: { ...actual.options, getOptionOrNull: getOptionOrNullMock },
-        getLog: () => ({ error: errorMock, info: vi.fn(), warn: vi.fn() })
-    };
+vi.mock("../../services/options.js", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../../services/options.js")>();
+    return { default: { ...actual.default, getOptionOrNull: getOptionOrNullMock } };
+});
+
+vi.mock("../../services/log.js", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../../services/log.js")>();
+    return { ...actual, getLog: () => ({ error: errorMock, info: vi.fn(), warn: vi.fn() }) };
 });
 
 /** Each provider stub records its constructor args and exposes a tagged model list. */
@@ -41,7 +42,6 @@ vi.mock("./providers/anthropic.js", () => ({ AnthropicProvider: makeProviderMock
 vi.mock("./providers/openai.js", () => ({ OpenAiProvider: makeProviderMock("openai") }));
 vi.mock("./providers/google.js", () => ({ GoogleProvider: makeProviderMock("google") }));
 vi.mock("./providers/deepseek.js", () => ({ DeepSeekProvider: makeProviderMock("deepseek") }));
-vi.mock("./providers/claude_agent.js", () => ({ ClaudeAgentProvider: makeProviderMock("claude-agent") }));
 vi.mock("./providers/local.js", () => ({ LocalProvider: makeProviderMock("local") }));
 
 import {
@@ -50,7 +50,8 @@ import {
     getProviderByType,
     getSelectedModel,
     hasConfiguredProviders,
-    listProviderModels
+    listProviderModels,
+    registerClaudeAgentProvider
 } from "./index.js";
 // Mocked module → this is the makeProviderMock("google") stand-in class, whose
 // prototype we can strip listModels from to exercise the curated-list fallback.
@@ -65,10 +66,18 @@ const TWO = [
     { id: "o1", name: "My GPT", provider: "openai", apiKey: "k2" }
 ];
 
+/**
+ * The Claude Agent provider is not part of core — it spawns the Claude Code CLI,
+ * so hosts that can run it register a factory. Stand one in for the same reason
+ * the other provider modules are mocked: to observe the constructor arguments.
+ */
+const ClaudeAgentProviderMock = makeProviderMock("claude-agent");
+
 describe("llm/index provider registry", () => {
     beforeEach(() => {
         clearProviderCache();
         vi.clearAllMocks();
+        registerClaudeAgentProvider(() => new ClaudeAgentProviderMock() as never);
     });
     afterEach(() => {
         clearProviderCache();

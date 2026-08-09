@@ -7,9 +7,13 @@
     "test": "echo \"Note: Core tests are run either through apps/server or apps/standalone, since they have different runtime environments.\""
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "4.0.30",
+    "@ai-sdk/google": "4.0.34",
+    "@ai-sdk/openai": "4.0.30",
     "@braintree/sanitize-url": "7.1.2",
     "@triliumnext/commons": "workspace:*",
     "@triliumnext/turndown-plugin-gfm": "workspace:*",
+    "ai": "7.0.52",
     "async-mutex": "0.5.0",
     "chardet": "2.2.0",
     "color": "5.0.3",
@@ -26,7 +30,8 @@
     "striptags": "3.2.0",
     "sucrase": "3.35.1",
     "turnish": "1.12.2",
-    "xml2js": "0.6.2"
+    "xml2js": "0.6.2",
+    "zod": "4.4.3"
   },
   "devDependencies": {
     "@types/escape-html": "1.0.4",

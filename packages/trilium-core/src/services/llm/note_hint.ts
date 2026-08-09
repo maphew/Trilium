@@ -6,7 +6,7 @@
  * to the prompt text).
  */
 
-import { becca } from "@triliumnext/core";
+import becca from "../../becca/becca.js";
 import { dump } from "js-yaml";
 
 import { getNoteMeta, SYSTEM_PROMPT_LIMITS } from "./tools/helpers.js";

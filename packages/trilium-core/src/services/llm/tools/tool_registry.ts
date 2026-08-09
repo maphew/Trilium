@@ -12,7 +12,7 @@ import { tool } from "ai";
 import type { z } from "zod";
 import type { ToolSet } from "ai";
 
-import sql from "../../sql.js";
+import { getSql } from "../../sql/index.js";
 
 /**
  * Type constraint that rejects Promises at compile time.
@@ -63,7 +63,7 @@ export class ToolRegistry implements Iterable<[string, ToolDefinition]> {
         const set: ToolSet = {};
         for (const [name, def] of this) {
             const execute = def.mutates
-                ? (args: unknown) => sql.transactional(() => def.execute(args))
+                ? (args: unknown) => getSql().transactional(() => def.execute(args))
                 : def.execute;
 
             set[name] = tool({

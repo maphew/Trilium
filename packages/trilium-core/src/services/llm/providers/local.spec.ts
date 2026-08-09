@@ -1,11 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@triliumnext/core", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("@triliumnext/core")>();
-    return {
-        ...actual,
-        getLog: () => ({ info: vi.fn(), error: vi.fn(), warn: vi.fn() })
-    };
+vi.mock("../../../services/log.js", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../../../services/log.js")>();
+    return { ...actual, getLog: () => ({ info: vi.fn(), error: vi.fn(), warn: vi.fn() }) };
 });
 
 const createOpenAiMock = vi.fn();

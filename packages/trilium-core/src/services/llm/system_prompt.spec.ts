@@ -4,10 +4,10 @@ import { describe, expect, it, vi } from "vitest";
 // to inject custom task states (the namespace re-export is frozen, so a plain
 // spy can't patch it).
 const getTaskStatesMock = vi.hoisted(() => vi.fn());
-vi.mock("@triliumnext/core", async (importOriginal) => {
-    const actual = await importOriginal<typeof import("@triliumnext/core")>();
-    getTaskStatesMock.mockImplementation(actual.task_states.getTaskStates);
-    return { ...actual, task_states: { ...actual.task_states, getTaskStates: getTaskStatesMock } };
+vi.mock("../../services/task_states.js", async (importOriginal) => {
+    const actual = await importOriginal<typeof import("../../services/task_states.js")>();
+    getTaskStatesMock.mockImplementation(actual.getTaskStates);
+    return { ...actual, getTaskStates: getTaskStatesMock };
 });
 
 import { buildSystemPrompt } from "./system_prompt.js";

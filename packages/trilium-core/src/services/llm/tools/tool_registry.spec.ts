@@ -5,8 +5,8 @@ const transactionalMock = vi.hoisted(() => vi.fn(<T>(cb: () => T) => cb()));
 
 // toToolSet wraps mutating tools in sql.transactional; stub it to just run the
 // callback so we can assert the wrapping happens without a real transaction.
-vi.mock("../../sql.js", () => ({
-    default: { transactional: transactionalMock }
+vi.mock("../../sql/index.js", () => ({
+    getSql: () => ({ transactional: transactionalMock })
 }));
 
 import { allToolRegistries } from "./index.js";
