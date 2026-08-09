@@ -46,20 +46,27 @@ describe("AnthropicProvider construction", () => {
     it("forwards apiKey only when no baseURL provided", () => {
         new AnthropicProvider("sk-ant-test");
         expect(createAnthropicMock).toHaveBeenCalledTimes(1);
-        expect(createAnthropicMock).toHaveBeenCalledWith({ apiKey: "sk-ant-test" });
+        expect(createAnthropicMock).toHaveBeenCalledWith({
+            apiKey: "sk-ant-test",
+            headers: { "anthropic-dangerous-direct-browser-access": "true" }
+        });
     });
 
     it("forwards apiKey and baseURL when both provided", () => {
         new AnthropicProvider("sk-ant-test", "https://proxy.example.com/v1");
         expect(createAnthropicMock).toHaveBeenCalledWith({
             apiKey: "sk-ant-test",
+            headers: { "anthropic-dangerous-direct-browser-access": "true" },
             baseURL: "https://proxy.example.com/v1"
         });
     });
 
     it("omits baseURL when empty string is provided", () => {
         new AnthropicProvider("sk-ant-test", "");
-        expect(createAnthropicMock).toHaveBeenCalledWith({ apiKey: "sk-ant-test" });
+        expect(createAnthropicMock).toHaveBeenCalledWith({
+            apiKey: "sk-ant-test",
+            headers: { "anthropic-dangerous-direct-browser-access": "true" }
+        });
     });
 
     it("throws when apiKey is missing", () => {
@@ -312,7 +319,13 @@ describe("AnthropicProvider model listing", () => {
         expect(fetchMock).toHaveBeenCalledWith(
             "https://api.anthropic.com/v1/models?limit=1000",
             expect.objectContaining({
-                headers: { "x-api-key": "sk-ant", "anthropic-version": "2023-06-01" }
+                // The browser-access header rides along so the standalone build's
+                // worker is not blocked by CORS before the request leaves the page.
+                headers: {
+                    "x-api-key": "sk-ant",
+                    "anthropic-version": "2023-06-01",
+                    "anthropic-dangerous-direct-browser-access": "true"
+                }
             })
         );
         expect(models.map((m) => m.id)).toEqual(["claude-sonnet-5", "claude-omega-6"]);

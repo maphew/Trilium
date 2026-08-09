@@ -7,6 +7,18 @@ import { BaseProvider, buildModelMessage, type RemoteModel } from "./base_provid
 
 const OFFICIAL_BASE_URL = "https://api.anthropic.com/v1";
 
+/**
+ * Opts this origin into Anthropic's CORS policy, without which a request made
+ * from a page — the standalone build's worker — is rejected by the browser
+ * before it reaches the API. It is what the official SDK's
+ * `dangerouslyAllowBrowser` puts on the wire, and it is inert on the server.
+ *
+ * The "dangerous" it names is the API key travelling from an environment the
+ * user can read. Standalone already holds the key locally: its whole database
+ * lives in this browser.
+ */
+const BROWSER_ACCESS_HEADER = { "anthropic-dangerous-direct-browser-access": "true" };
+
 /** Anthropic ephemeral prompt-caching breakpoint. */
 const CACHE_CONTROL = { anthropic: { cacheControl: { type: "ephemeral" as const } } };
 
@@ -31,7 +43,7 @@ export class AnthropicProvider extends BaseProvider {
         if (!apiKey) {
             throw new Error("API key is required for Anthropic provider");
         }
-        this.anthropic = createAnthropic({ apiKey, ...(baseURL && { baseURL }) });
+        this.anthropic = createAnthropic({ apiKey, headers: BROWSER_ACCESS_HEADER, ...(baseURL && { baseURL }) });
     }
 
     protected createModel(modelId: string) {
@@ -42,7 +54,8 @@ export class AnthropicProvider extends BaseProvider {
     protected override async fetchRemoteModels(): Promise<RemoteModel[] | null> {
         const payload = await this.fetchJson(`${this.baseURL ?? OFFICIAL_BASE_URL}/models?limit=1000`, {
             "x-api-key": this.apiKey,
-            "anthropic-version": "2023-06-01"
+            "anthropic-version": "2023-06-01",
+            ...BROWSER_ACCESS_HEADER
         });
         const data = (payload as { data?: unknown }).data;
         if (!Array.isArray(data)) {
