@@ -12,10 +12,10 @@
  * hermetic. This runs on demand (or from the weekly `update-model-prices.yml`
  * workflow, which opens a PR when the output changes). Usage:
  *
- *   pnpm --filter server update-model-prices
+ *   pnpm --filter @triliumnext/core update-model-prices
  */
 
-import { writeFileSync } from "node:fs";
+import { existsSync, writeFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import type { ModelPrice, ModelPriceTable, ProviderPrices } from "../src/services/llm/providers/base_provider.js";
@@ -73,6 +73,14 @@ interface LiteLlmEntry {
 }
 
 async function main() {
+    // The output is a committed file we overwrite, never one we create. If it is
+    // missing, the table has moved and this script is writing into a dead path --
+    // which is silent otherwise, since the write itself still succeeds and the
+    // workflow's `add-paths` then sees no change and opens no PR.
+    if (!existsSync(OUTPUT_PATH)) {
+        throw new Error(`${OUTPUT_PATH} does not exist; the price table has moved. Update OUTPUT_PATH (and the workflow's add-paths) to follow it.`);
+    }
+
     const response = await fetch(SOURCE_URL);
     if (!response.ok) {
         throw new Error(`Failed to fetch LiteLLM price list: HTTP ${response.status}`);
