@@ -14,7 +14,6 @@ import { Calendar as FullCalendar, DateClickInfo, DateSelectInfo, EventChangeInf
 import { RefObject } from "preact";
 import { useCallback, useContext, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
-import appContext from "../../../components/app_context";
 import FNote from "../../../entities/fnote";
 import contextMenu from "../../../menus/context_menu";
 import date_notes from "../../../services/date_notes";
@@ -172,7 +171,7 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
 
     const { eventContent, eventDidMount, eventInnerClass } = useEventDisplayCustomization(note, parentComponent?.componentId, dismissSurface);
     const editingProps = useEditing(note, isEditable, isCalendarRoot, parentComponent?.componentId,
-        (draft, anchor) => setSelection({ draft, anchor }), effectiveSlotDuration);
+        setSelection, effectiveSlotDuration);
 
     /**
      * Turns the standing ghost into the note: created only now, at the commit, and — where the
@@ -557,7 +556,8 @@ function useLocale() {
 }
 
 function useEditing(note: FNote, isEditable: boolean, isCalendarRoot: boolean, componentId: string | undefined,
-    onDraft: (draft: EventDraft, anchor: { x: number; y: number } | null) => void,
+    /** What the view's surfaces are to stand for from now on (see {@link CalendarSelection}). */
+    onSelect: (selection: CalendarSelection) => void,
     /** The length of one of the grid's slots, which is how long a tapped event lasts. */
     slotDuration: string) {
     const onCalendarSelection = useCallback((e: DateSelectInfo) => {
@@ -570,11 +570,11 @@ function useEditing(note: FNote, isEditable: boolean, isCalendarRoot: boolean, c
         // nothing. The range keeps its shading meanwhile, standing on the grid for the event to be;
         // the view lets it go when the draft resolves. Where the drag ended anchors the ghost
         // beside it (see ghostAnchorRect), which a sheet has no use for.
-        onDraft(
-            { startDate, endDate, startTime, endTime },
-            e.jsEvent ? { x: e.jsEvent.clientX, y: e.jsEvent.clientY } : null
-        );
-    }, [ onDraft ]);
+        onSelect({
+            draft: { startDate, endDate, startTime, endTime },
+            anchor: e.jsEvent ? { x: e.jsEvent.clientX, y: e.jsEvent.clientY } : null
+        });
+    }, [ onSelect ]);
 
     const onEventChange = useCallback(async (e: EventChangeInfo) => {
         // Only process actual date/time changes, not other property changes (e.g., title via setProp).
@@ -598,19 +598,31 @@ function useEditing(note: FNote, isEditable: boolean, isCalendarRoot: boolean, c
      * drag asks for a long press before it selects anything (`selectLongPressDelay`), so a tap
      * selects no range and nothing would open at all — the tap stands for a draft instead, which
      * costs nothing if it was a mistake.
+     *
+     * The day's note opens into the view's own event surface — the popover beside the day pressed,
+     * or a sheet where there is no beside — rather than the quick editor it used to be handed to.
+     * A day note is an event of this calendar like any other, and a click on the chip it will have
+     * from now on opens exactly that surface: the note just made and the note come back to are then
+     * the same thing to look at, and neither covers the grid the reader is working down.
      */
     const onDateClick = useCallback(async (e: DateClickInfo) => {
         if (isCalendarRoot) {
             const eventNote = await date_notes.getDayNote(e.dateStr, note.noteId);
             if (eventNote) {
-                appContext.triggerCommand("openInPopup", { noteIdOrPath: eventNote.noteId });
+                // Where the press fell, which is the anchor of last resort until the chip for the
+                // day appears on the grid — a day note made only now has nothing on the grid yet
+                // to stand beside (see eventAnchorRect in EventPopover).
+                onSelect({
+                    noteId: eventNote.noteId,
+                    anchor: { x: e.jsEvent.clientX, y: e.jsEvent.clientY }
+                });
             }
             return;
         }
 
         const draft = draftFromDateClick(e, slotDuration);
-        if (draft) onDraft(draft, null);
-    }, [ note, isCalendarRoot, onDraft, slotDuration ]);
+        if (draft) onSelect({ draft, anchor: null });
+    }, [ note, isCalendarRoot, onSelect, slotDuration ]);
 
     return {
         select: onCalendarSelection,
