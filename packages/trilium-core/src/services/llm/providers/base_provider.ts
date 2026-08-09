@@ -17,6 +17,20 @@ const DEFAULT_MAX_TOKENS = 8096;
 const TITLE_MAX_TOKENS = 30;
 
 /**
+ * Turns the AI SDK's telemetry off, on every call into it.
+ *
+ * Nothing here registers a telemetry integration and the SDK's tracing channel is
+ * Node-only (`node:diagnostics_channel`), so this gives up nothing at all. What it
+ * avoids is a leak in the browser build: left enabled, `streamText` eagerly builds
+ * `totalUsage.promise.then(…)` to hand the tracer a completion signal, and outside
+ * Node the tracer returns without ever taking it. The moment the stream fails — a
+ * 400 from the provider is enough — that derived promise rejects with nothing
+ * listening, and standalone reports the stray rejection to the user. Disabling
+ * telemetry leaves the dispatcher empty, so the promise is never built.
+ */
+export const TELEMETRY_OFF = { isEnabled: false } as const;
+
+/**
  * A model as reported by a provider's models endpoint. Only what the listing
  * APIs actually return — pricing is never part of it.
  */
@@ -383,7 +397,8 @@ export abstract class BaseProvider implements LlmProvider {
             // to stdout, bypassing Trilium's logger. The error is still delivered through
             // `fullStream`, where `streamToChunks` turns it into a detailed message that
             // the chat route logs — so suppress the unstructured stdout dump here.
-            onError: () => {}
+            onError: () => {},
+            telemetry: TELEMETRY_OFF
         };
 
         const tools = this.buildTools(config);
@@ -449,6 +464,7 @@ export abstract class BaseProvider implements LlmProvider {
         const { text } = await generateText({
             model: this.createModel(this.titleModel),
             maxOutputTokens: TITLE_MAX_TOKENS,
+            telemetry: TELEMETRY_OFF,
             messages: [
                 {
                     role: "user",

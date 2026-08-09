@@ -3,7 +3,7 @@ import type { LlmMessage } from "@triliumnext/commons";
 import { type ModelMessage, stepCountIs, streamText, type SystemModelMessage, type ToolSet } from "ai";
 
 import type { LlmProviderConfig, ModelInfo, StreamResult } from "../types.js";
-import { BaseProvider, buildModelMessage, type RemoteModel } from "./base_provider.js";
+import { BaseProvider, buildModelMessage, type RemoteModel, TELEMETRY_OFF } from "./base_provider.js";
 
 const OFFICIAL_BASE_URL = "https://api.anthropic.com/v1";
 
@@ -150,6 +150,7 @@ export class AnthropicProvider extends BaseProvider {
             maxOutputTokens: maxTokens,
             // Reject any system message smuggled into `messages` (prompt injection guard).
             allowSystemInMessages: false,
+            telemetry: TELEMETRY_OFF,
             providerOptions: {
                 anthropic: { thinking }
             }

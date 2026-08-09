@@ -144,6 +144,9 @@ describe("AnthropicProvider message building", () => {
         expect(opts.messages.every((m: any) => m.role !== "system")).toBe(true);
         expect(opts.system.role).toBe("system");
         expect(opts.system.content).toContain("BASE PROMPT");
+        // This override builds its own options, so it has to carry the base's
+        // telemetry opt-out with them — see TELEMETRY_OFF in base_provider.ts.
+        expect(opts.telemetry).toEqual({ isEnabled: false });
     });
 });
 

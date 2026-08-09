@@ -4,7 +4,7 @@ import { getLog } from "../../../services/log.js";
 import { stepCountIs, streamText, type ToolSet } from "ai";
 
 import type { LlmProviderConfig, StreamResult } from "../types.js";
-import { BaseProvider, type RemoteModel } from "./base_provider.js";
+import { BaseProvider, type RemoteModel, TELEMETRY_OFF } from "./base_provider.js";
 
 const OFFICIAL_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
@@ -104,6 +104,7 @@ export class GoogleProvider extends BaseProvider {
             maxOutputTokens: config.maxTokens || 8096,
             // Reject any system message smuggled into `messages` (prompt injection guard).
             allowSystemInMessages: false,
+            telemetry: TELEMETRY_OFF,
             providerOptions: {
                 google: {
                     thinkingConfig: {

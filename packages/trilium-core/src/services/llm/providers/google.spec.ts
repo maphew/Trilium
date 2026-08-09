@@ -97,6 +97,9 @@ describe("GoogleProvider message building", () => {
         expect(opts.messages.every((m: any) => m.role !== "system")).toBe(true);
         expect(typeof opts.system).toBe("string");
         expect(opts.system).toContain("BASE PROMPT");
+        // This override builds its own options, so it has to carry the base's
+        // telemetry opt-out with them — see TELEMETRY_OFF in base_provider.ts.
+        expect(opts.telemetry).toEqual({ isEnabled: false });
     });
 
     it("chat() with extended thinking also guards against system messages in `messages`", () => {

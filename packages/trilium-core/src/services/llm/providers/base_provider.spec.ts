@@ -547,6 +547,14 @@ describe("BaseProvider chat / pricing / models / title", () => {
         // onError is silenced (no-op) rather than left to the SDK's stdout dump.
         expect(typeof opts.onError).toBe("function");
         expect(opts.onError(new Error("x"))).toBeUndefined();
+        // Telemetry off — see TELEMETRY_OFF, and browser_runtime.spec.ts for what
+        // leaving it on costs the browser build.
+        expect(opts.telemetry).toEqual({ isEnabled: false });
+    });
+
+    it("disables telemetry on the title call too", async () => {
+        await new TestProvider().generateTitle("some first message");
+        expect((generateTextMock.mock.calls[0][0] as any).telemetry).toEqual({ isEnabled: false });
     });
 
     it("invokes the no-op base addWebSearchTool when web search is enabled (adds nothing)", () => {
