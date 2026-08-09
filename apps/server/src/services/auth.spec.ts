@@ -108,6 +108,7 @@ describe("Auth", () => {
             return {
                 method: "GET",
                 path: "/test",
+                query: {},
                 ip: "127.0.0.1",
                 sessionID: "sid",
                 headers: {},
@@ -165,14 +166,39 @@ describe("Auth", () => {
             const labelSpy = vi.spyOn(attributes, "getNotesWithLabel").mockReturnValue([]);
             const resLogin = makeRes();
             const nextLogin = vi.fn();
-            auth.checkAuth(makeReq({ session: { loggedIn: false } }), resLogin as never, nextLogin);
+            auth.checkAuth(makeReq({ path: "/", session: { loggedIn: false } }), resLogin as never, nextLogin);
             expect(nextLogin).toHaveBeenCalled();
             expect(resLogin.statusCode).not.toBe(404);
 
             labelSpy.mockReturnValue([{ noteId: "x" } as never]);
             const resShare = makeRes();
-            auth.checkAuth(makeReq({ session: { loggedIn: false } }), resShare as never, vi.fn());
+            auth.checkAuth(makeReq({ path: "/", session: { loggedIn: false } }), resShare as never, vi.fn());
             expect(resShare.redirectedTo).toBe("share");
+
+            cls.init(() => options.setOption("redirectBareDomain", "false"));
+        });
+
+        it("checkAuth limits the bare-domain redirect to bare root requests (#10552)", () => {
+            vi.spyOn(totp, "isTotpEnabled").mockReturnValue(false);
+            vi.spyOn(openID, "isOpenIDEnabled").mockReturnValue(false);
+            vi.spyOn(attributes, "getNotesWithLabel").mockReturnValue([{ noteId: "x" } as never]);
+            cls.init(() => options.setOption("redirectBareDomain", "true"));
+
+            // An explicit login navigation (GET /login redirects to the root with the
+            // `?login` marker) must reach the SPA login screen, not the share page.
+            const resLogin = makeRes();
+            const nextLogin = vi.fn();
+            auth.checkAuth(makeReq({ path: "/", query: { login: "" }, session: { loggedIn: false } }), resLogin as never, nextLogin);
+            expect(nextLogin).toHaveBeenCalled();
+            expect(resLogin.redirectedTo).toBeUndefined();
+
+            // SPA sub-requests such as /bootstrap must fall through too, or the login
+            // screen can never render its `loggedIn: false` payload.
+            const resBootstrap = makeRes();
+            const nextBootstrap = vi.fn();
+            auth.checkAuth(makeReq({ path: "/bootstrap", session: { loggedIn: false } }), resBootstrap as never, nextBootstrap);
+            expect(nextBootstrap).toHaveBeenCalled();
+            expect(resBootstrap.redirectedTo).toBeUndefined();
 
             cls.init(() => options.setOption("redirectBareDomain", "false"));
         });
@@ -206,29 +232,60 @@ describe("Auth", () => {
             errSpy.mockRestore();
         });
 
-        it("checkAuth handles the SSO-enabled path (authenticated vs not)", () => {
+        it("checkAuth passes through when SSO is enabled and the OIDC session is authenticated", () => {
             vi.spyOn(totp, "isTotpEnabled").mockReturnValue(false);
             vi.spyOn(openID, "isOpenIDEnabled").mockReturnValue(true);
-            const base = {
-                loggedIn: true,
-                lastAuthState: { totpEnabled: false, ssoEnabled: true }
-            };
 
             const nextOk = vi.fn();
             auth.checkAuth(
-                makeReq({ session: { ...base }, oidc: { isAuthenticated: () => true } }),
+                makeReq({
+                    session: { loggedIn: true, lastAuthState: { totpEnabled: false, ssoEnabled: true } },
+                    oidc: { isAuthenticated: () => true }
+                }),
                 makeRes() as never,
                 nextOk
             );
             expect(nextOk).toHaveBeenCalled();
+            // The unauthenticated / lapsed-OIDC case is covered by the regression test below.
+        });
 
-            const resRedirect = makeRes();
+        it("checkAuth does not bounce a stale SSO session to /login (regression: infinite /↔/login loop)", () => {
+            // Repro of the redirect loop shipped in v0.104.0. When OIDC/SSO is enabled and the
+            // Trilium session still carries loggedIn:true but the OIDC appSession has lapsed
+            // (oidc.isAuthenticated() === false), checkAuth 302s to "login" — but loginPage
+            // (routes/login.ts) 302s straight back to "." (the SPA root), so the browser
+            // ping-pongs /↔/login until it aborts with ERR_TOO_MANY_REDIRECTS.
+            //
+            // This desync is reachable by any active OAuth user, not just a stale-cookie dev
+            // artifact: the OIDC appSession has a hard absolute cap (express-openid-connect
+            // default 7d) that activity can't extend, while trilium.sid is rolling with a much
+            // longer window (default cookieMaxAge 21d). Once the OIDC cap lapses on a still-live
+            // trilium session, every navigation loops.
+            //
+            // Correct behaviour: treat the stale session as logged out and fall through to serve
+            // the SPA, which renders the login screen from the bootstrap loggedIn:false payload —
+            // no redirect, so no loop.
+            vi.spyOn(totp, "isTotpEnabled").mockReturnValue(false);
+            vi.spyOn(openID, "isOpenIDEnabled").mockReturnValue(true);
+
+            const res = makeRes();
+            const next = vi.fn();
+            // save() flushes the loggedIn:false flip before handoff; invoke its callback so next() runs.
+            const save = vi.fn((cb: (err?: unknown) => void) => cb());
+            const session = { loggedIn: true, lastAuthState: { totpEnabled: false, ssoEnabled: true }, save };
             auth.checkAuth(
-                makeReq({ session: { ...base }, oidc: { isAuthenticated: () => false } }),
-                resRedirect as never,
-                vi.fn()
+                makeReq({ session, oidc: { isAuthenticated: () => false } }),
+                res as never,
+                next
             );
-            expect(resRedirect.redirectedTo).toBe("login");
+
+            // The loop half we must break: never 302 to the login route (which comes right back).
+            expect(res.redirectedTo).not.toBe("login");
+            // Instead fall through so the SPA renders the login screen in place.
+            expect(next).toHaveBeenCalled();
+            // And the stale flag is cleared (and persisted) so subsequent requests take the logged-out path.
+            expect(session.loggedIn).toBe(false);
+            expect(save).toHaveBeenCalled();
         });
 
         it("checkAuth falls through to next on the normal logged-in path", () => {

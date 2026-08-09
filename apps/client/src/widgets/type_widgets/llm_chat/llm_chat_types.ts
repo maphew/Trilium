@@ -1,4 +1,4 @@
-import type { LlmCitation, LlmUsage } from "@triliumnext/commons";
+import type { LlmCitation, LlmErrorDetails, LlmUsage } from "@triliumnext/commons";
 
 export type MessageType = "message" | "error" | "thinking";
 
@@ -140,6 +140,12 @@ export interface StoredMessage {
     citations?: LlmCitation[];
     /** Message type for special rendering. Defaults to "message" if omitted. */
     type?: MessageType;
+    /**
+     * For `type: "error"` messages, the failed provider call's context (HTTP status, URL,
+     * raw response body). Drives the error card's title and its "show details" section.
+     * Absent when the failure never reached a provider, and in chats saved before this existed.
+     */
+    errorDetails?: LlmErrorDetails;
     /** Token usage for this response */
     usage?: LlmUsage;
     /** User-created text highlights over this message's rendered prose. */
@@ -158,6 +164,13 @@ export interface LlmChatContent {
      * provider by model ID in that case.
      */
     selectedProvider?: string;
+    /**
+     * ID of the provider configuration owning {@link selectedModel}. Stronger
+     * than {@link selectedProvider}: it also disambiguates multiple configs of
+     * the same type (e.g. OpenAI + a self-hosted Ollama endpoint). Absent in
+     * chats saved before this field existed.
+     */
+    selectedProviderId?: string;
     enableWebSearch?: boolean;
     enableNoteTools?: boolean;
     enableExtendedThinking?: boolean;

@@ -41,7 +41,7 @@ Additionally, shorter aliases are available for common configurations (see Alter
 | Environment Variable | Type | Default | Description |
 | --- | --- | --- | --- |
 | `TRILIUM_NETWORK_HOST` | string | "0.0.0.0" | Server host binding |
-| `TRILIUM_NETWORK_PORT` | string | "3000" | Server port |
+| `TRILIUM_NETWORK_PORT` | string | "8080" | Server port |
 | `TRILIUM_NETWORK_HTTPS` | boolean | false | Enable HTTPS |
 | `TRILIUM_NETWORK_CERTPATH` | string | "" | SSL certificate path |
 | `TRILIUM_NETWORK_KEYPATH` | string | "" | SSL key path |
@@ -67,14 +67,7 @@ Additionally, shorter aliases are available for common configurations (see Alter
 
 ### MultiFactorAuthentication Section
 
-| Environment Variable | Type | Default | Description |
-| --- | --- | --- | --- |
-| `TRILIUM_MULTIFACTORAUTHENTICATION_OAUTHBASEURL` | string | "" | OAuth/OpenID base URL |
-| `TRILIUM_MULTIFACTORAUTHENTICATION_OAUTHCLIENTID` | string | "" | OAuth client ID |
-| `TRILIUM_MULTIFACTORAUTHENTICATION_OAUTHCLIENTSECRET` | string | "" | OAuth client secret |
-| `TRILIUM_MULTIFACTORAUTHENTICATION_OAUTHISSUERBASEURL` | string | "[https://accounts.google.com](https://accounts.google.com)" | OAuth issuer base URL |
-| `TRILIUM_MULTIFACTORAUTHENTICATION_OAUTHISSUERNAME` | string | "Google" | OAuth issuer display name |
-| `TRILIUM_MULTIFACTORAUTHENTICATION_OAUTHISSUERICON` | string | "" | OAuth issuer icon URL |
+See <a class="reference-link" href="../Installation%20%26%20Setup/Server%20Installation/Signing%20in%20with%20OpenID%20Connect.md">Signing in with OpenID Connect</a>.
 
 ### Logging Section
 

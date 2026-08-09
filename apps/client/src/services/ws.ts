@@ -8,8 +8,8 @@ import frocaUpdater from "./froca_updater.js";
 import { t } from "./i18n.js";
 import options from "./options.js";
 import server from "./server.js";
-import toastService from "./toast.js";
-import utils from "./utils.js";
+import toastService, { showUnhandledError } from "./toast.js";
+import utils, { isPreAuthScreen } from "./utils.js";
 
 type MessageHandler = (message: WebSocketMessage) => void;
 let messageHandlers: MessageHandler[] = [];
@@ -105,6 +105,8 @@ export async function dispatchMessage(message: WebSocketMessage) {
         appContext.triggerEvent("apiLogMessages", { noteId: msg.noteId, messages: msg.messages });
     } else if (messageType === "toast") {
         toastService.showMessage(msg.message, msg.timeout);
+    } else if (messageType === "unhandled-error") {
+        showUnhandledError(msg.message, msg.stack);
     } else if (messageType === "execute-script") {
         const originEntity = msg.originEntityId ? await froca.getNote(msg.originEntityId) : null;
 
@@ -310,7 +312,10 @@ async function sendPing() {
 
 setTimeout(() => {
     if (glob.device === "print") return;
-    if (!glob.dbInitialized) return;
+    // Skip on the setup screen (!dbInitialized) and on the login / set-password pre-auth
+    // screens (isPreAuthScreen) — otherwise the browser opens a WebSocket it isn't authorised
+    // for, which the server refuses (#10589).
+    if (!glob.dbInitialized || isPreAuthScreen()) return;
 
     if (glob.isStandalone) {
         // In standalone mode, listen for messages from the local worker via custom event

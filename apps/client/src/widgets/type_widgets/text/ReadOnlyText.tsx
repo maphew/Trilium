@@ -11,19 +11,28 @@ import { useEffect, useLayoutEffect, useMemo, useRef as usePreactRef } from "pre
 import appContext from "../../../components/app_context";
 import FNote from "../../../entities/fnote";
 import { applyInlineMermaid, rewriteMermaidDiagramsInContainer } from "../../../services/content_renderer_text";
-import { getLocaleById } from "../../../services/i18n";
 import { applyLinkEmbeds } from "../../../services/link_embed";
 import { renderMathInElement } from "../../../services/math";
 import { trackPendingRender } from "../../../services/pending_renders";
 import { formatCodeBlocks } from "../../../services/syntax_highlight";
+import { isContentRightToLeft } from "../../../utils/formatters";
 import { useNoteBlob, useNoteLabel, useSyncedRef, useTriliumEvent, useTriliumOption, useTriliumOptionBool } from "../../react/hooks";
 import { RawHtmlBlock } from "../../react/RawHtml";
 import { TypeWidgetProps } from "../type_widget";
 import { applyReferenceLinks } from "./read_only_helper";
 import { loadIncludedNote, refreshIncludedNote, setupImageOpening } from "./utils";
 
-export default function ReadOnlyText({ note, noteContext, ntxId }: TypeWidgetProps) {
-    const blob = useNoteBlob(note, undefined, { reportLoadStateTo: noteContext });
+export default function ReadOnlyText({ note, noteContext, ntxId, parentComponent, isVisible }: TypeWidgetProps) {
+    // The componentId matters: the WS echo of a save made by the editable-text editor in the same
+    // split carries the shared parent component's id. Without it, this widget — kept mounted but
+    // hidden while the user temporarily edits an auto-read-only note — would refetch the whole blob
+    // after every save and flash the loading overlay over the editor (#10575). Skipped own-component
+    // changes are caught up on via refreshOnShow when this view is displayed again.
+    const blob = useNoteBlob(note, parentComponent?.componentId, {
+        reportLoadStateTo: noteContext,
+        isVisible,
+        refreshOnShow: true
+    });
     const { isRtl } = useNoteLanguage(note);
     const readOnlyContentRef = usePreactRef<HTMLDivElement>(null);
 
@@ -130,10 +139,12 @@ export function ReadOnlyTextContent({ html, ntxId, dir, className, contentRef: e
 
 function useNoteLanguage(note: FNote) {
     const [ language ] = useNoteLabel(note, "language");
-    const isRtl = useMemo(() => {
-        const correspondingLocale = getLocaleById(language);
-        return correspondingLocale?.rtl;
-    }, [ language ]);
+    // Resolved rather than read straight off the label, so a note with no language of its own still
+    // lays out the way the default content language says it should.
+    // The default is subscribed to as well: `isContentRightToLeft` reads the options store directly,
+    // so without it a note carrying no label of its own would keep its old direction until reopened.
+    const [ defaultContentLanguage ] = useTriliumOption("defaultContentLanguage");
+    const isRtl = useMemo(() => isContentRightToLeft(language), [ language, defaultContentLanguage ]);
     return { isRtl };
 }
 

@@ -33,10 +33,10 @@ const mcpEndpointMock = vi.hoisted(() => vi.fn(async () => "http://127.0.0.1:123
 vi.mock("./copilot_mcp_endpoint.js", () => ({ getCopilotMcpEndpointUrl: mcpEndpointMock }));
 
 const buildNoteHintMock = vi.hoisted(() => vi.fn((noteId: string): string | null => `NOTE_META(${noteId})`));
-vi.mock("./note_hint.js", () => ({ buildNoteHint: buildNoteHintMock }));
+vi.mock("@triliumnext/core/src/services/llm/note_hint.js", () => ({ buildNoteHint: buildNoteHintMock }));
 
 const resolveAttachmentPartMock = vi.hoisted(() => vi.fn());
-vi.mock("./attachment_content.js", () => ({ resolveAttachmentPart: resolveAttachmentPartMock }));
+vi.mock("@triliumnext/core/src/services/llm/attachment_content.js", () => ({ resolveAttachmentPart: resolveAttachmentPartMock }));
 
 // A scriptable fake ACP client. `AcpClient.start` returns the active instance;
 // each test scripts what `session/prompt` streams via onNotification and what

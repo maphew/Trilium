@@ -5,11 +5,13 @@ import { loadCoreSchema } from "@triliumnext/server/src/core_assets.js";
 import NodejsCryptoProvider from "@triliumnext/server/src/crypto_provider.js";
 import NodejsInAppHelpProvider from "@triliumnext/server/src/in_app_help_provider.js";
 import ServerLogService from "@triliumnext/server/src/log_provider.js";
+import config from "@triliumnext/server/src/services/config.js";
+import { recoverInterruptedRestore } from "@triliumnext/server/src/services/database_restore.js";
 import dataDirs from "@triliumnext/server/src/services/data_dir.js";
 import port from "@triliumnext/server/src/services/port.js";
-import ElectronRequestProvider from "./services/request";
+import { consumeSetupMarker, setupPlatform } from "@triliumnext/server/src/services/setup_marker.js";
 import { RESOURCE_DIR } from "@triliumnext/server/src/services/resource_dir.js";
-import windowService, { setupWindowing } from "./services/window";
+import WebSocketMessagingProvider from "@triliumnext/server/src/services/ws_messaging_provider.js";
 import BetterSqlite3Provider from "@triliumnext/server/src/sql_provider.js";
 import NodejsZipProvider from "@triliumnext/server/src/zip_provider.js";
 import { app, BrowserWindow,globalShortcut } from "electron";
@@ -22,20 +24,29 @@ import path, { join, resolve } from "path";
 
 import { deferred, LOCALES } from "../../../packages/commons/src";
 import { PRODUCT_NAME } from "./app-info";
+import CompositeMessagingProvider from "./composite_messaging_provider";
 import IpcMessagingProvider from "./ipc_messaging_provider";
 import DesktopPlatformProvider from "./platform_provider";
 import { registerTriliumAppScheme, setupTriliumAppProtocol } from "./protocol";
 import { applyLaunchOnStartup, setupAutoLaunch, wasLaunchedHidden } from "./services/auto_launch";
 import { setupCustomDictionary } from "./services/custom_dictionary";
-import { setupEmbedReferer } from "./services/embed_referer";
+import { setupReferer } from "./services/referer";
+import { setupDialogHandlers } from "./services/dialog";
 import { setupExportHandlers } from "./services/export";
 import { setupImportHandlers } from "./services/import";
+import {
+    getBackupPassphrase,
+    registerBackupPassphraseIpcHandlers
+} from "./services/backup_passphrase";
 import { setupOneNoteHandlers } from "./services/onenote";
 import { setupPrintingHandlers } from "./services/printing";
+import ElectronRequestProvider from "./services/request";
+import { setupRestoreHandlers } from "./services/restore";
 import { getSecuritySettings, registerSecurityIpcHandlers } from "./services/security_settings";
 import { setupShellHandlers } from "./services/shell";
 import { markStartupMetric, setupStartupMetricsIpc } from "./services/startup_metrics";
 import { setupSystemTray } from "./services/tray";
+import windowService, { setupWindowing } from "./services/window";
 
 export async function main() {
     markStartupMetric("main-process-start");
@@ -81,19 +92,12 @@ export async function main() {
 
     // needed for excalidraw export https://github.com/zadam/trilium/issues/4271
     app.commandLine.appendSwitch("enable-experimental-web-platform-features");
-    app.commandLine.appendSwitch("lang", getElectronLocale());
 
     // In dev mode, disable Chromium's HTTP cache so stale assets cached from a
     // previous production run (which served `max-age: 1y` headers) don't shadow
     // freshly built dev output. Must be set before the app's `ready` event.
     if (process.env.TRILIUM_ENV === "dev") {
         app.commandLine.appendSwitch("disable-http-cache");
-    }
-
-    // Disable smooth scroll if the option is set
-    const smoothScrollEnabled = options.getOptionOrNull("smoothScrollEnabled");
-    if (smoothScrollEnabled === "false") {
-        app.commandLine.appendSwitch("disable-smooth-scrolling");
     }
 
     if (process.platform === "linux") {
@@ -133,7 +137,10 @@ export async function main() {
     setupPrintingHandlers();
     setupExportHandlers();
     setupImportHandlers();
+    setupRestoreHandlers();
+    setupDialogHandlers();
     registerSecurityIpcHandlers();
+    registerBackupPassphraseIpcHandlers();
     setupStartupMetricsIpc();
 
     app.on("will-quit", () => {
@@ -155,17 +162,25 @@ export async function main() {
 
     // await initializeTranslations();
 
-    const isPrimaryInstance = (await import("electron")).app.requestSingleInstanceLock();
+    // Synchronous: `app` and `config`/`dataDirs` are all statically imported, so nothing
+    // between the top of main() and the database open below awaits. That keeps the whole
+    // prologue — including the pre-`ready` Chromium switches — running before Electron can
+    // emit `ready`, while still letting us open the database and read options from it first.
+    const isPrimaryInstance = app.requestSingleInstanceLock();
     if (!isPrimaryInstance) {
-        console.info(t("desktop.instance_already_running"));
+        // Deliberately not localized: this guard runs before the database is
+        // opened and initializeCore() wires up i18next, so t() would always
+        // return undefined here (which is why a second launch used to print a
+        // bare "undefined"). Opening the DB just to translate a diagnostic line
+        // that a second, immediately-exiting instance emits would defeat the
+        // point of bailing out early. The already-running window is focused via
+        // the `second-instance` handler registered above.
+        console.info("There's already an instance running, focusing that instance instead.");
         process.exit(0);
     }
 
     // this is to disable electron warning spam in the dev console (local development only)
     process.env["ELECTRON_DISABLE_SECURITY_WARNINGS"] = "true";
-
-    const { DOCUMENT_PATH } = (await import("@triliumnext/server/src/services/data_dir.js")).default;
-    const config = (await import("@triliumnext/server/src/services/config.js")).default;
 
     // Override scripting config from security.json (lives outside the DB for tamper resistance)
     const securitySettings = getSecuritySettings();
@@ -181,16 +196,46 @@ export async function main() {
         config.Security.allowLanAccess = securitySettings.allowLanAccess;
     }
 
+    // Before the database is opened: undoes a restore that was interrupted partway through
+    // exchanging the files, so the app starts on a whole database rather than on neither.
+    recoverInterruptedRestore();
+
     const dbProvider = new BetterSqlite3Provider();
-    dbProvider.loadFromFile(DOCUMENT_PATH, config.General.readOnly);
+    dbProvider.loadFromFile(dataDirs.DOCUMENT_PATH, config.General.readOnly);
     markStartupMetric("database-opened");
 
+    // These Chromium switches must be applied before `ready`; the prologue above is
+    // await-free, so `ready` cannot have fired yet. Their option values are read straight
+    // from the provider we just opened (and reuse for the whole app below) because the core
+    // options service isn't wired up until initializeCore() runs — reading via
+    // options.getOptionOrNull() here would always return null (#10559).
+    app.commandLine.appendSwitch("lang", getElectronLocale(dbProvider));
+    if (readDbOption(dbProvider, "smoothScrollEnabled") === "false") {
+        app.commandLine.appendSwitch("disable-smooth-scrolling");
+    }
+    // Lets users work around GPU driver incompatibilities that render a blank window
+    // (see #10572) without having to pass --disable-gpu on the command line. Like the
+    // switch above, this must run before `ready`.
+    if (readDbOption(dbProvider, "hardwareAccelerationEnabled") === "false") {
+        app.disableHardwareAcceleration();
+    }
+
     // The IPC provider just registers an `ipcMain.on` listener; no TCP socket
-    // or session parser needed, so we can init it here (before startTriliumServer)
-    // instead of going through www.ts. www.ts then only knows about the
-    // socket-bound WebSocket provider.
+    // or session parser needed, so we can init it here (before startTriliumServer).
+    // It's the messaging channel to the trusted renderer window(s).
     const ipcMessaging = new IpcMessagingProvider();
     ipcMessaging.init();
+
+    // Browser clients (accessing the desktop's HTTP listener directly) can't use the
+    // IPC channel, so they need a WebSocket endpoint for live updates. We only expose
+    // one when the user has opted into LAN/network access (`allowLanAccess`, already
+    // applied to config above) — otherwise the renderer's IPC channel is the sole
+    // transport and no WS port is bound. When enabled, the composite serves both: IPC
+    // for the renderer and WS for browsers. www.ts attaches the WS server (it owns the
+    // http.Server + session parser) via attachToHttpServer().
+    const messaging = config.Security.allowLanAccess
+        ? new CompositeMessagingProvider(ipcMessaging, new WebSocketMessagingProvider())
+        : ipcMessaging;
 
     await initializeCore({
         dbConfig: {
@@ -217,7 +262,7 @@ export async function main() {
         zipExportProviderFactory: (await import("@triliumnext/server/src/services/export/zip/factory.js")).serverZipExportProviderFactory,
         request: new ElectronRequestProvider(),
         executionContext: new ClsHookedExecutionContext(),
-        messaging: ipcMessaging,
+        messaging,
         schema: loadCoreSchema(),
         platform: new DesktopPlatformProvider(),
         translations: (await import("@triliumnext/server/src/services/i18n.js")).initializeTranslations,
@@ -227,9 +272,17 @@ export async function main() {
         getDemoArchive: async () => fs.readFileSync(path.join(RESOURCE_DIR, "db", "demo.zip")),
         inAppHelp: new NodejsInAppHelpProvider(),
         log: new ServerLogService(),
-        backup: new ServerBackupService(options),
+        // Only the desktop lets the user pick where backups go; the server uses TRILIUM_BACKUP_DIR.
+        backup: new ServerBackupService(
+            options,
+            { allowCustomDirectory: true, getPassphrase: getBackupPassphrase }
+        ),
         image: (await import("@triliumnext/server/src/services/image_provider.js")).serverImageProvider,
         config,
+        // Read before core exists, because what it says is whether to open the database at all: a
+        // relaunch asked for by the app itself comes back here and goes to the setup window instead.
+        setupMarker: consumeSetupMarker(),
+        setupPlatform,
         extraAppInfo: {
             nodeVersion: process.version,
             dataDirectory: path.resolve(dataDirs.TRILIUM_DATA_DIR)
@@ -256,6 +309,24 @@ export async function main() {
 }
 
 /**
+ * Reads a single option value from an already-open database provider, synchronously.
+ *
+ * Needed for the handful of settings consulted before `app.ready` (e.g. the
+ * `--disable-smooth-scrolling` Chromium switch): at that point initializeCore() has not
+ * run and the core options service is not wired up, so options.getOptionOrNull() always
+ * returns null — which silently dropped a persisted "false" (#10559). Returns null (the
+ * safe default) when the database has no schema yet, e.g. on the very first run.
+ */
+function readDbOption(provider: BetterSqlite3Provider, name: string): string | null {
+    try {
+        const value = provider.prepare("SELECT value FROM options WHERE name = ?").pluck().get(name);
+        return typeof value === "string" ? value : null;
+    } catch {
+        return null;
+    }
+}
+
+/**
  * Returns a unique user data directory for Electron so that single instance locks between legitimately different instances such as different port or data directory can still act independently, but we are focusing the main window otherwise.
  *
  * When running in portable mode, set TRILIUM_ELECTRON_DATA_DIR (e.g. via the trilium-portable script)
@@ -276,7 +347,7 @@ async function onReady() {
     // custom `trilium-app://` origin. We use the desktop's local server origin —
     // the same value the working browser client sends. Registered on the shared
     // default session before any window is created.
-    setupEmbedReferer(`http://localhost:${port}/`);
+    setupReferer(`http://localhost:${port}/`);
 
     // if db is not initialized -> setup process
     // if db is initialized, then we need to wait until the migration process is finished
@@ -316,9 +387,9 @@ async function onReady() {
     await windowService.registerGlobalShortcuts();
 }
 
-export function getElectronLocale() {
-    const uiLocale = options.getOptionOrNull("locale");
-    const formattingLocale = options.getOptionOrNull("formattingLocale");
+export function getElectronLocale(provider: BetterSqlite3Provider) {
+    const uiLocale = readDbOption(provider, "locale");
+    const formattingLocale = readDbOption(provider, "formattingLocale");
     const correspondingLocale = LOCALES.find(l => l.id === uiLocale);
 
     // For RTL, we have to force the UI locale to align the window buttons properly.

@@ -109,6 +109,8 @@ export interface FormListBadge {
 export interface FormListItemOpts {
     children: ComponentChildren;
     icon?: string;
+    /** Extra class for the icon itself, e.g. to hang a marker off its corner. */
+    iconClassName?: string;
     value?: string;
     title?: string;
     active?: boolean;
@@ -134,7 +136,7 @@ const TOOLTIP_CONFIG: Partial<Tooltip.Options> = {
     animation: false
 };
 
-export function FormListItem({ className, icon, value, title, active, disabled, checked, container, onClick, selected, rtl, triggerCommand, description, itemRef: externalItemRef, ...contentProps }: FormListItemOpts) {
+export function FormListItem({ className, icon, iconClassName, value, title, active, disabled, checked, container, onClick, selected, rtl, triggerCommand, description, itemRef: externalItemRef, ...contentProps }: FormListItemOpts) {
     const itemRef = useSyncedRef<HTMLLIElement>(externalItemRef, null);
 
     if (checked) {
@@ -153,7 +155,7 @@ export function FormListItem({ className, icon, value, title, active, disabled, 
             data-trigger-command={triggerCommand}
             dir={rtl ? "rtl" : undefined}
         >
-            <Icon icon={icon} />&nbsp;
+            <Icon icon={icon} className={iconClassName} />&nbsp;
             {description ? (
                 <div>
                     <FormListContent description={description} disabled={disabled} {...contentProps} />
@@ -223,12 +225,17 @@ function FormListContent({ children, badges, description, disabled, disabledTool
 
 interface FormListHeaderOpts {
     text: string;
+    /** Optional element rendered right-aligned in the header (e.g. an edit action). */
+    action?: ComponentChildren;
 }
 
-export function FormListHeader({ text }: FormListHeaderOpts) {
+export function FormListHeader({ text, action }: FormListHeaderOpts) {
     return (
         <li>
-            <h6 className="dropdown-header">{text}</h6>
+            <h6 className={`dropdown-header ${action ? "dropdown-header-with-action" : ""}`}>
+                <span>{text}</span>
+                {action}
+            </h6>
         </li>
     );
 }

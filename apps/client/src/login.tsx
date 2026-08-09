@@ -29,7 +29,7 @@ export function App() {
     const config = window.glob.login;
     const illustration = <img src={logo} alt="" className="illustration-logo" />;
 
-    const [ error, setError ] = useState<string | null>(ssoErrorMessage(config?.ssoError));
+    const [ error, setError ] = useState<string | null>(initialSsoError(config));
     const [ errorId, setErrorId ] = useState(0);
 
     function raiseError(message: string) {
@@ -188,11 +188,16 @@ export function PasswordLogin({ illustration, totpEnabled, error, errorId, onErr
     );
 }
 
-function ssoErrorMessage(ssoError: string | false | undefined): string | null {
-    if (!ssoError) {
-        return null;
+function initialSsoError(config: typeof window.glob.login): string | null {
+    // `ssoError` is the outcome of a round-trip that actually reached the provider, so it is the more
+    // specific message and wins over the generic connection failure.
+    if (config?.ssoError) {
+        return config.ssoError === "wrong_account" ? t("login.sso-wrong-account") : t("login.sso-not-enrolled");
     }
-    return ssoError === "wrong_account" ? t("login.sso-wrong-account") : t("login.sso-not-enrolled");
+    if (config?.ssoConnectionFailed) {
+        return t("login.sso-connection-failed");
+    }
+    return null;
 }
 
 // Skip the bootstrap render under test, where the components are imported directly.

@@ -22,18 +22,18 @@
 
 import type { LlmMessage, LlmMessagePart, LlmStreamChunk } from "@triliumnext/commons";
 import { getLog } from "@triliumnext/core";
+import { resolveAttachmentPart } from "@triliumnext/core/src/services/llm/attachment_content.js";
+import { buildNoteHint } from "@triliumnext/core/src/services/llm/note_hint.js";
+import { buildSystemPrompt } from "@triliumnext/core/src/services/llm/system_prompt.js";
+import type { LlmProvider, LlmProviderConfig, ModelInfo, ModelPricing, StreamResult } from "@triliumnext/core/src/services/llm/types.js";
 import { encodeBase64 } from "@triliumnext/core/src/services/utils/binary.js";
 import fs from "fs";
 import path from "path";
 
 import dataDirs from "../../data_dir.js";
-import type { LlmProvider, LlmProviderConfig, ModelInfo, ModelPricing, StreamResult } from "../types.js";
 import { AcpClient, AcpError } from "./acp_client.js";
-import { resolveAttachmentPart } from "./attachment_content.js";
 import { needsShell, resolveCopilotBinaryPath } from "./copilot_binary.js";
 import { getCopilotMcpEndpointUrl } from "./copilot_mcp_endpoint.js";
-import { buildNoteHint } from "./note_hint.js";
-import { buildSystemPrompt } from "./system_prompt.js";
 import { attachmentPlaceholder, buildHistoryReplay, hashTranscript } from "./transcript.js";
 
 /** Image media types the ACP prompt accepts as a base64 image block. */
@@ -42,17 +42,22 @@ const SUPPORTED_IMAGE_MIMES = new Set<string>(["image/png", "image/jpeg", "image
 /**
  * Models offered under a Copilot subscription, mirroring the CLI's own model
  * picker (as reported by `session/new`). Pricing is zero because usage is
- * covered by the subscription; `costMultiplier` carries the CLI-reported
- * premium-request multiplier instead (e.g. 0.33x, 1x).
+ * covered by the subscription, which is what the picker shows.
+ *
+ * The CLI additionally reports a premium-request multiplier per model (0.33x,
+ * 1x, …); it isn't carried here, because it is only comparable against other
+ * Copilot models and the picker has no way to say so — the same reason the
+ * shared model metadata dropped its relative multiplier in favour of absolute
+ * per-token prices.
  */
 const AVAILABLE_MODELS: ModelInfo[] = [
     { id: "auto", name: "Auto", pricing: { input: 0, output: 0 }, isDefault: true, isSubscription: true },
-    { id: "claude-sonnet-5", name: "Claude Sonnet 5", pricing: { input: 0, output: 0 }, costMultiplier: 1, isSubscription: true },
-    { id: "claude-haiku-4.5", name: "Claude Haiku 4.5", pricing: { input: 0, output: 0 }, costMultiplier: 0.3, isSubscription: true },
-    { id: "gpt-5.4", name: "GPT-5.4", pricing: { input: 0, output: 0 }, costMultiplier: 1, isSubscription: true },
-    { id: "gpt-5.3-codex", name: "GPT-5.3-Codex", pricing: { input: 0, output: 0 }, costMultiplier: 1, isSubscription: true },
-    { id: "gpt-5.4-mini", name: "GPT-5.4 mini", pricing: { input: 0, output: 0 }, costMultiplier: 0.3, isSubscription: true },
-    { id: "gpt-5-mini", name: "GPT-5 mini", pricing: { input: 0, output: 0 }, costMultiplier: 0, isSubscription: true }
+    { id: "claude-sonnet-5", name: "Claude Sonnet 5", pricing: { input: 0, output: 0 }, isSubscription: true },
+    { id: "claude-haiku-4.5", name: "Claude Haiku 4.5", pricing: { input: 0, output: 0 }, isSubscription: true },
+    { id: "gpt-5.4", name: "GPT-5.4", pricing: { input: 0, output: 0 }, isSubscription: true },
+    { id: "gpt-5.3-codex", name: "GPT-5.3-Codex", pricing: { input: 0, output: 0 }, isSubscription: true },
+    { id: "gpt-5.4-mini", name: "GPT-5.4 mini", pricing: { input: 0, output: 0 }, isSubscription: true },
+    { id: "gpt-5-mini", name: "GPT-5 mini", pricing: { input: 0, output: 0 }, isSubscription: true }
 ];
 
 /** Free-tier model used for the cheap title turn. */
@@ -148,6 +153,16 @@ export class CopilotAgentProvider implements LlmProvider {
 
     getAvailableModels(): ModelInfo[] {
         return AVAILABLE_MODELS;
+    }
+
+    /**
+     * Every model on offer. Unlike the API providers there is nothing to filter:
+     * the list is the CLI's own picker, curated here rather than discovered, so
+     * it carries no legacy or preview entries to leave out — and all of them cost
+     * the same (nothing beyond the subscription).
+     */
+    recommendedModelIds(models: ModelInfo[]): Set<string> {
+        return new Set(models.map(m => m.id));
     }
 
     /** Not used — the route prefers {@link chatChunks} when implemented. */

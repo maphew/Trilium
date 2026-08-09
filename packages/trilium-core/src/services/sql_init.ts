@@ -14,6 +14,7 @@ import TaskContext from "./task_context";
 import BOption from "../becca/entities/boption";
 import migrationService from "./migration";
 import passwordService from "./encryption/password";
+import { isSetupRequested, leaveSetupMode } from "./setup_mode";
 
 export const dbReady = deferred<void>();
 
@@ -34,6 +35,12 @@ function schemaExists() {
 }
 
 function isDbInitialized() {
+    // An instance asked to boot into setup answers as one that has nothing to open, which is what
+    // keeps the database closed and every uninitialized-only guard in force. See setup_mode.
+    if (isSetupRequested()) {
+        return false;
+    }
+
     try {
         if (!schemaExists()) {
             return false;
@@ -75,6 +82,9 @@ async function initDbConnection() {
 }
 
 function setDbAsInitialized() {
+    // A database is being brought up, so whatever asked for setup has had its answer.
+    leaveSetupMode();
+
     if (!isDbInitialized()) {
         optionService.setOption("initialized", "true");
 
@@ -132,7 +142,7 @@ async function createInitialDatabase(skipDemoDb?: boolean, locale?: string) {
     let rootNote!: BNote;
 
     // We have to import async since options init requires keyboard actions which require translations.
-    const { initDocumentOptions, initNotSyncedOptions, initStartupOptions } = await import("./options_init.js");
+    const { initDocumentOptions, initNewDocumentOptions, initNotSyncedOptions, initStartupOptions } = await import("./options_init.js");
     const { load: loadBecca } = await import("../becca/becca_loader.js");
 
     const sql = getSql();
@@ -166,6 +176,9 @@ async function createInitialDatabase(skipDemoDb?: boolean, locale?: string) {
         // Bring in option init.
         initDocumentOptions();
         initNotSyncedOptions(true, {});
+        // Only on this path, and never in `createDatabaseForSync`: these defaults are synced, so on a
+        // database created for sync they would overwrite the server's values (see #10626).
+        initNewDocumentOptions();
         initStartupOptions();
         // Persist the language chosen during setup, overriding the default ("en").
         if (isDisplayableLocale(locale)) {

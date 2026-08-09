@@ -18,6 +18,7 @@ import mcpRoutes from "./routes/mcp.js";
 import routes from "./routes/routes.js";
 import config from "./services/config.js";
 import { getLog } from "@triliumnext/core";
+import { desktopNetworkAccessGate } from "./services/desktop_network_gate.js";
 import { createReactiveOidcMiddleware } from "./services/open_id.js";
 import { RESOURCE_DIR } from "./services/resource_dir.js";
 import utils, { getResourceDir, isDev } from "./services/utils.js";
@@ -96,8 +97,17 @@ export default async function buildApp() {
     app.use(express.urlencoded({ extended: false }));
     app.use(cookieParser());
 
-    // MCP is registered before session/auth middleware — it uses its own
-    // localhost-only guard and does not require Trilium authentication.
+    // Desktop only: gate web access (SPA/login, /share, /api, static assets) behind
+    // the network-access opt-in. Mounted before the static/app/share routes, and before
+    // MCP so that the gate's loopback-Host check applies there too — Express dispatches
+    // in registration order, so a route registered first would answer before this ever
+    // ran. The localhost integrations it exempts stay reachable on loopback while the
+    // web app does not, unless the user enables network access. No-op on the server build.
+    app.use(desktopNetworkAccessGate);
+
+    // MCP is registered before session/auth middleware — it authenticates with its own
+    // guard (an ETAPI token, always required) and never uses the Trilium session, which
+    // would make the endpoint CSRF-able.
     mcpRoutes.register(app);
 
     app.use(express.static(path.join(publicDir, "root"), STATIC_OPTIONS));

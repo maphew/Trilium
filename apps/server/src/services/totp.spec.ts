@@ -9,7 +9,9 @@ vi.mock("time2fa", () => ({
     Totp: { generateKey: mockGenerateKey, validate: mockValidate }
 }));
 
-import { cls, options } from "@triliumnext/core";
+import type { OptionNames } from "@triliumnext/commons";
+import { becca_loader, cls, options } from "@triliumnext/core";
+import migrateDisableTotpWhenMfaWasTurnedOff from "@triliumnext/core/src/migrations/0239__disable_totp_when_mfa_was_turned_off";
 
 import recoveryCodes from "./encryption/recovery_codes.js";
 import totpEncryption from "./encryption/totp_encryption.js";
@@ -51,6 +53,66 @@ describe("totp", () => {
             options.setOption("mfaMethod", "totp");
         });
         expect(totp.isTotpEnabled()).toBe(true);
+    });
+
+    /**
+     * Regression cover for #10576. Up to v0.103.x, `mfaEnabled` was the master switch and
+     * {@link totp.isTotpEnabled} read it alongside the method and the secret:
+     *
+     *     mfaEnabled === "true" && mfaMethod === "totp" && isTotpSecretSet()
+     *
+     * v0.104.0 removed the enable checkbox (69022d2cb8), making enrollment itself the switch, and
+     * dropped the first term. Disabling MFA on v0.103 never cleared the secret — it only set the flag
+     * — so an upgraded install can carry a live secret plus `mfaMethod` at its "totp" default. With the
+     * flag no longer read, the two surviving terms are both true and TOTP silently switches back on,
+     * locking the owner out of the web UI behind a prompt they deliberately turned off.
+     *
+     * These two tests bracket that: the upgrade must preserve whichever intent the user had recorded.
+     */
+    describe("upgrading from a v0.103.x install that used mfaEnabled", () => {
+        /** Recreates the on-disk state such an install is upgraded with. */
+        function seedLegacyInstall(mfaEnabled: "true" | "false") {
+            cls.init(() => {
+                // `mfaEnabled` was dropped from OptionDefinitions in v0.104.0, so the name has to be cast
+                // back in. setOption creates the row when it is missing and writes through becca, leaving
+                // it visible whether the migration reads the cache or the table directly.
+                options.setOption("mfaEnabled" as OptionNames, mfaEnabled);
+                // Both installs kept a usable secret: v0.103's disable path cleared neither.
+                totp.setSecret(SECRET);
+                // The default, and what any install that enrolled TOTP carries.
+                options.setOption("mfaMethod", "totp");
+            });
+        }
+
+        /**
+         * Runs the upgrade the way startup does: the migration first, then becca. The migration works in
+         * raw SQL because migrations run before the options cache exists, so the reload is what makes its
+         * writes visible to {@link totp.isTotpEnabled} — exactly as the real boot sequence does.
+         */
+        function upgradeToCurrentVersion() {
+            cls.init(() => {
+                migrateDisableTotpWhenMfaWasTurnedOff();
+                becca_loader.load();
+            });
+        }
+
+        it("keeps prompting when MFA was left enabled", () => {
+            seedLegacyInstall("true");
+
+            upgradeToCurrentVersion();
+
+            expect(totp.isTotpEnabled()).toBe(true);
+        });
+
+        it("does not prompt when MFA was explicitly disabled", () => {
+            seedLegacyInstall("false");
+
+            upgradeToCurrentVersion();
+
+            // The owner turned MFA off on v0.103 and was never prompted again. An upgrade must not
+            // resurrect it from the secret their disable left behind.
+            expect(totp.isTotpEnabled()).toBe(false);
+        });
     });
 
     it("generateSecret returns a fresh secret and otpauth URL without persisting it", () => {

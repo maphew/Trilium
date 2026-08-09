@@ -18,6 +18,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Assets are published to the public "nightly" release only for runs on the main
+# branch (scheduled or manually dispatched). Runs on any other ref — PRs, branch
+# dispatches, renovate pushes — keep their outputs as workflow artifacts instead.
+# The main ref is intentionally a literal: the schedule event payload is minimal,
+# so deriving the default branch from it is not reliable.
+
 env:
   GITHUB_RELEASE_ID: 179589950
 
@@ -94,7 +100,7 @@ jobs:
 
       - name: Publish release
         uses: softprops/action-gh-release@v3.0.2
-        if: ${{ github.event_name != 'pull_request' }}
+        if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
         with:
           make_latest: false
           prerelease: true
@@ -106,7 +112,7 @@ jobs:
 
       - name: Publish artifacts
         uses: actions/upload-artifact@v7
-        if: ${{ github.event_name == 'pull_request' }}
+        if: ${{ github.event_name == 'pull_request' || github.ref != 'refs/heads/main' }}
         with:
           name: TriliumNotes ${{ matrix.os.name }} ${{ matrix.arch }}
           path: apps/desktop/upload
@@ -120,16 +126,37 @@ jobs:
 
       - name: Build mobile APK
         uses: ./.github/actions/build-mobile
+        with:
+          nightly: "true"
+          upload-artifact: "false"
+          keystore-base64: ${{ secrets.NIGHTLY_ANDROID_KEYSTORE_BASE64 }}
+          keystore-password: ${{ secrets.NIGHTLY_ANDROID_KEYSTORE_PASSWORD }}
+          key-alias: ${{ secrets.NIGHTLY_ANDROID_KEY_ALIAS }}
+          key-password: ${{ secrets.NIGHTLY_ANDROID_KEY_PASSWORD }}
+
+      - name: Rename APK
+        run: >-
+          mv apps/mobile/android/app/build/outputs/apk/release/app-release.apk
+          apps/mobile/android/app/build/outputs/apk/release/TriliumNotes-mobile-nightly.apk
 
       - name: Publish release
         uses: softprops/action-gh-release@v3.0.2
+        if: ${{ github.ref == 'refs/heads/main' }}
         with:
           make_latest: false
           prerelease: true
           draft: false
-          files: apps/mobile/android/app/build/outputs/apk/debug/*.apk
+          files: apps/mobile/android/app/build/outputs/apk/release/*.apk
           tag_name: nightly
           name: Mobile Nightly
+
+      - name: Publish artifacts
+        uses: actions/upload-artifact@v7
+        if: ${{ github.ref != 'refs/heads/main' }}
+        with:
+          name: TriliumNotes mobile nightly
+          path: apps/mobile/android/app/build/outputs/apk/release/*.apk
+          archive: false
 
   nightly-server:
     if: ${{ github.repository == vars.REPO_MAIN }}
@@ -155,7 +182,7 @@ jobs:
 
       - name: Publish release
         uses: softprops/action-gh-release@v3.0.2
-        if: ${{ github.event_name != 'pull_request' }}
+        if: ${{ github.event_name != 'pull_request' && github.ref == 'refs/heads/main' }}
         with:
           make_latest: false
           prerelease: true
@@ -164,3 +191,10 @@ jobs:
           files: upload/*.*
           tag_name: nightly
           name: Nightly Build
+
+      - name: Publish artifacts
+        uses: actions/upload-artifact@v7
+        if: ${{ github.event_name == 'pull_request' || github.ref != 'refs/heads/main' }}
+        with:
+          name: TriliumNotes server linux ${{ matrix.arch }}
+          path: upload
