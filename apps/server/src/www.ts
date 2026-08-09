@@ -10,6 +10,7 @@ import config from "./services/config.js";
 import { startCpuProfiler, writeCpuProfile } from "./services/cpu_profiler.js";
 import { registerOcrHandlers } from "./services/handlers.js";
 import host from "./services/host.js";
+import { registerServerLlmExtensions } from "./services/llm/index.js";
 import port from "./services/port.js";
 import { installProcessErrorHandlers, markAppReady } from "./services/process_errors.js";
 import { isScriptingEnabled } from "./services/scripting_guard.js";
@@ -89,6 +90,7 @@ export default async function startTriliumServer(): Promise<Express> {
     ws.init();
 
     registerOcrHandlers();
+    registerServerLlmExtensions();
 
     // Everything the application needs in order to be usable is now up, so from here on an escaped error
     // is a contained failure rather than a broken startup, and stops being fatal.

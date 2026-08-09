@@ -4,41 +4,56 @@
 // We use dynamic imports below to ensure error handlers are registered first.
 // =============================================================================
 
-self.onerror = (message, source, lineno, colno, error) => {
-    const errorMsg = `[Worker] Uncaught error: ${message}\n  at ${source}:${lineno}:${colno}`;
-    console.error(errorMsg, error);
+/**
+ * Set once the worker has finished starting up, which is what decides an escaped
+ * error's cost.
+ *
+ * Before it, an error means the application never came up — an unreadable database,
+ * a failed migration — and the page has nothing to show but the overlay saying so.
+ * After it, the worker is serving requests and the error belongs to one background
+ * task: an LLM completion, a sync tick, a timer. Blanking the screen and failing
+ * every request in flight over that costs the user their session for something that
+ * is usually inconsequential to it, so those are reported and the worker carries on.
+ *
+ * The server draws the same line for the same reason, in `process_errors.ts`.
+ */
+let workerStarted = false;
+
+/**
+ * Report an error nothing else caught, as fatal or as an aside depending on
+ * {@link workerStarted}. Deliberately free of imports: this runs before any module
+ * has loaded, which is exactly when the fatal case happens.
+ */
+function reportEscapedError(label: string, message: string, stack?: string) {
+    console.error(`[Worker] ${label}: ${message}`, stack);
     try {
-        self.postMessage({
-            type: "WORKER_ERROR",
-            error: {
-                message: String(message),
-                source,
-                lineno,
-                colno,
-                stack: error?.stack || new Error().stack
-            }
-        });
+        self.postMessage(workerStarted
+            // The same destination as the server's process-level safety net: a
+            // notification naming the failure, with the stack behind a details
+            // step. The client renders it from `unhandled-error` either way.
+            ? { type: "WS_MESSAGE", message: { type: "unhandled-error", message, stack } }
+            : { type: "WORKER_ERROR", error: { message, stack } });
     } catch (e) {
-        console.error("[Worker] Failed to report error:", e);
+        console.error(`[Worker] Failed to report ${label.toLowerCase()}:`, e);
     }
+}
+
+self.onerror = (message, source, lineno, colno, error) => {
+    reportEscapedError(
+        "Uncaught error",
+        `${message}\n  at ${source}:${lineno}:${colno}`,
+        error?.stack || new Error().stack
+    );
     return false;
 };
 
 self.onunhandledrejection = (event) => {
     const reason = event.reason;
-    const errorMsg = `[Worker] Unhandled rejection: ${reason?.message || reason}`;
-    console.error(errorMsg, reason);
-    try {
-        self.postMessage({
-            type: "WORKER_ERROR",
-            error: {
-                message: String(reason?.message || reason),
-                stack: reason?.stack || new Error().stack
-            }
-        });
-    } catch (e) {
-        console.error("[Worker] Failed to report rejection:", e);
-    }
+    reportEscapedError(
+        "Unhandled rejection",
+        String(reason?.message || reason),
+        reason?.stack || new Error().stack
+    );
 };
 
 console.log("[Worker] Error handlers installed, loading modules...");
@@ -311,6 +326,12 @@ async function initialize(): Promise<void> {
             });
             coreModule.ws.init();
 
+            // This build's half of the LLM stack, mirroring what the server
+            // contributes in registerServerLlmExtensions. Imported here rather than
+            // at the top of the file so the skill sheets it inlines travel in a
+            // chunk of their own instead of the worker's startup bundle.
+            (await import("./lightweight/llm_skills.js")).registerStandaloneLlmExtensions();
+
             logService.info(`[Worker] Supported routes: ${Object.keys(coreModule.routes).join(", ")}`);
 
             // Create and configure the router
@@ -352,6 +373,9 @@ async function initialize(): Promise<void> {
             coreModule.scheduler.startScheduler();
 
             logService.info("[Worker] Initialization complete");
+            // Past this point an escaped error is one background task's problem
+            // rather than the application's — see `workerStarted`.
+            workerStarted = true;
         } catch (error) {
             initError = error instanceof Error ? error : new Error(String(error));
             console.error("[Worker] Initialization failed:", initError);

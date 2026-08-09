@@ -37,6 +37,7 @@ import loginApiRoute from "./api/login";
 import fontsRoute from "./api/fonts";
 import ocrRoute from "./api/ocr";
 import linkEmbedRoute from "./api/link_embed";
+import llmRoute from "./api/llm";
 
 // TODO: Deduplicate with routes.ts
 const GET = "get",
@@ -206,6 +207,12 @@ export function buildSharedApiRoutes({ route, asyncRoute, asyncRouteWithoutTrans
     apiRoute(GET, "/api/search/:searchString", searchRoute.search);
     apiRoute(GET, "/api/search-templates", searchRoute.searchTemplates);
 
+    // Streaming a chat is not here — it has no single form every runtime can serve.
+    // The server and the desktop app answer `/api/llm-chat/stream` with Server-Sent
+    // Events; standalone, whose bridge cannot hold a response open, registers
+    // `llmRoute.startChatStream` itself. See `apps/standalone`'s browser_routes.ts.
+    asyncApiRoute(PST, "/api/llm-chat/provider-models", llmRoute.getProviderModels);
+
     apiRoute(GET, "/api/autocomplete", autocompleteApiRoute.getAutocomplete);
     apiRoute(GET, "/api/autocomplete/notesCount", autocompleteApiRoute.getNotesCount);
 
@@ -229,6 +236,11 @@ export function buildSharedApiRoutes({ route, asyncRoute, asyncRouteWithoutTrans
     apiRoute(PST, "/api/special-notes/launchers/:noteId/reset", specialNotesRoute.resetLauncher);
     apiRoute(PST, "/api/special-notes/launchers/:parentNoteId/:launcherType", specialNotesRoute.createLauncher);
     apiRoute(PUT, "/api/special-notes/api-script-launcher", specialNotesRoute.createOrUpdateScriptLauncherFromApi);
+    apiRoute(PST, "/api/special-notes/llm-chat", specialNotesRoute.createLlmChat);
+    apiRoute(GET, "/api/special-notes/most-recent-llm-chat", specialNotesRoute.getMostRecentLlmChat);
+    apiRoute(GET, "/api/special-notes/get-or-create-llm-chat", specialNotesRoute.getOrCreateLlmChat);
+    apiRoute(GET, "/api/special-notes/recent-llm-chats", specialNotesRoute.getRecentLlmChats);
+    apiRoute(PST, "/api/special-notes/save-llm-chat", specialNotesRoute.saveLlmChat);
 
     apiRoute(PST, "/api/note-map/:noteId/tree", noteMapRoute.getTreeMap);
     apiRoute(PST, "/api/note-map/:noteId/link", noteMapRoute.getLinkMap);

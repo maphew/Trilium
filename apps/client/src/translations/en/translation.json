@@ -3830,7 +3830,6 @@
   },
   "llm": {
     "disabled_placeholder": "AI features are turned off. Enable them to configure providers and MCP.",
-    "not_available_in_standalone": "AI/LLM features are not available in the standalone version of Trilium, as LLM providers do not allow direct access from a browser.",
     "feature_not_enabled": "Enable the LLM experimental feature in Settings → Advanced → Experimental features to use AI integrations.",
     "add_provider": "Add Provider",
     "add_provider_title": "Add AI Provider",
@@ -3853,6 +3852,7 @@
     "provider_name": "Name",
     "beta": "Beta",
     "provider_desc_claude_agent": "Requires Claude Code on the machine running Trilium.",
+    "provider_unavailable_standalone": "Unavailable in the browser version: this provider works by running Claude Code as a separate program, and there is no machine here to run it on.",
     "actions": "Actions",
     "delete_provider": "Delete",
     "delete_provider_confirmation": "Are you sure you want to delete the provider \"{{name}}\"?",
@@ -3883,6 +3883,7 @@
     "mcp_title": "MCP (Model Context Protocol)",
     "mcp_enabled": "MCP server",
     "mcp_enabled_description": "Expose a Model Context Protocol (MCP) endpoint so that AI coding assistants (e.g. Claude Code, GitHub Copilot) can read and modify your notes. Every request must be authenticated with an ETAPI token.",
+    "mcp_unavailable_standalone": "Unavailable in the browser version: assistants would connect to Trilium over the network, but this build has no address to give them, since it runs entirely inside this page.",
     "mcp_endpoint_title": "Endpoint URL",
     "mcp_endpoint_description": "Add one of these URLs to your AI assistant's MCP configuration, using the HTTP (streamable) transport rather than SSE.",
     "mcp_endpoint_this_device": "This device",

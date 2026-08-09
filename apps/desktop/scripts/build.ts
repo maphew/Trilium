@@ -22,6 +22,9 @@ async function main() {
     build.copy("src/assets", "assets/");
     build.copy("/apps/server/src/assets", "assets/");
     build.copy("/packages/trilium-core/src/assets/schema.sql", "assets/schema.sql");
+    // The LLM skill sheets moved to core with the rest of the stack, but the
+    // Node hosts still read them from RESOURCE_DIR. See server core_assets.ts.
+    build.copy("/packages/trilium-core/src/assets/llm/skills", "assets/llm/skills/");
     build.triggerBuildAndCopyTo("packages/share-theme", "share-theme/assets/");
     build.copy("/packages/share-theme/src/templates", "share-theme/templates/");
 

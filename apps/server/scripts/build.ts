@@ -16,6 +16,9 @@ async function main() {
     // alongside the server's own assets and read it via RESOURCE_DIR at
     // runtime. See main.ts.
     build.copy("/packages/trilium-core/src/assets/schema.sql", "assets/schema.sql");
+    // Same story for the LLM skill sheets: core owns them, the server reads them
+    // from RESOURCE_DIR at runtime. See core_assets.ts.
+    build.copy("/packages/trilium-core/src/assets/llm/skills", "assets/llm/skills/");
     build.triggerBuildAndCopyTo("packages/share-theme", "share-theme/assets/");
     build.copy("/packages/share-theme/src/templates", "share-theme/templates/");
 
