@@ -31,19 +31,59 @@ export interface LlmProviderSetup {
 const PROVIDER_TYPES = ["anthropic", "openai", "google", "deepseek", "claude-agent", "ollama", "lmstudio", "openai-compatible"];
 
 /**
- * Factory for the Claude Agent provider, supplied by hosts that can run it.
+ * Provider types core cannot build for itself, each mapped to the name the user
+ * knows it by.
  *
- * It drives the Claude Code CLI — a spawned process reading the filesystem — so
- * it cannot live here: core also runs in the browser (standalone), where there
- * is no process to spawn. The server and desktop builds register it at startup
- * via {@link registerClaudeAgentProvider}; where nothing registers it, selecting
- * the provider fails with the same "unknown provider type" error as a typo.
+ * What they have in common is a dependency on the runtime around them rather
+ * than on an API key: Claude Code is a CLI this process spawns, and the
+ * subscription services lined up behind it authenticate through the host's own
+ * account plumbing. Core runs in the browser too, where none of that exists, so
+ * the host that *can* do it registers a factory at startup with
+ * {@link registerHostProvider}. Where nothing registers one, selecting the
+ * provider fails with a message naming it rather than a bare "unknown type".
+ *
+ * Adding one means an entry here, a literal branch in
+ * {@link createProviderInstance} (see the note there on why it must be literal),
+ * and a registration in whichever hosts can serve it.
  */
-let claudeAgentFactory: (() => LlmProvider) | null = null;
+export const HOST_PROVIDED_TYPES = {
+    /** Claude Pro/Max through the Claude Agent SDK, authenticated by `claude /login`. */
+    "claude-agent": "Claude Code"
+} as const;
 
-/** Register the host's Claude Agent provider factory. See {@link claudeAgentFactory}. */
-export function registerClaudeAgentProvider(factory: () => LlmProvider) {
-    claudeAgentFactory = factory;
+/** A provider type from {@link HOST_PROVIDED_TYPES}. */
+export type HostProvidedType = keyof typeof HOST_PROVIDED_TYPES;
+
+const hostProviderFactories = new Map<string, () => LlmProvider>();
+
+/**
+ * Register the host's implementation of a provider core cannot construct.
+ * Called once at startup, before any chat can ask for it.
+ */
+export function registerHostProvider(type: HostProvidedType, factory: () => LlmProvider) {
+    hostProviderFactories.set(type, factory);
+}
+
+/**
+ * Forget every registered factory, putting the registry back to how a build that
+ * supplies none starts. For a runtime that re-initialises core (tests, an
+ * Electron reload), which registers again on the way back up.
+ */
+export function clearHostProviders() {
+    hostProviderFactories.clear();
+}
+
+/**
+ * Build a host-provided provider, or explain that this build has no one to build
+ * it. The type is always a literal from the call site — see
+ * {@link createProviderInstance} — never the string the user's config carried.
+ */
+function createHostProvider(type: HostProvidedType): LlmProvider {
+    const factory = hostProviderFactories.get(type);
+    if (!factory) {
+        throw new Error(`The ${HOST_PROVIDED_TYPES[type]} provider is not available in this build.`);
+    }
+    return factory();
 }
 
 /**
@@ -55,8 +95,9 @@ export function registerClaudeAgentProvider(factory: () => LlmProvider) {
  * untrusted input, which is exactly what CodeQL's
  * `js/unvalidated-dynamic-method-call` flags. Here every branch calls a
  * statically known constructor, so no dynamic dispatch is possible at all.
- * The one registered factory is likewise reached from a literal branch, never
- * looked up by the untrusted string.
+ * The host-provided factories are looked up too, but only ever under a literal
+ * spelled out in their branch below — the untrusted string picks the branch and
+ * goes no further.
  */
 function createProviderInstance(provider: string, apiKey: string, baseURL?: string): LlmProvider {
     switch (provider) {
@@ -70,13 +111,11 @@ function createProviderInstance(provider: string, apiKey: string, baseURL?: stri
         // custom endpoint so its models resolve against the committed price table.
         case "deepseek":
             return new DeepSeekProvider(apiKey, baseURL);
-        // Claude Pro/Max subscription via the Claude Agent SDK — no API key;
-        // authentication is handled by Claude Code itself (`claude /login`).
+        // Subscription providers, whose credentials belong to the host rather than
+        // to a key the user pastes in — so the host builds them. One branch each,
+        // naming its own type: see HOST_PROVIDED_TYPES.
         case "claude-agent":
-            if (!claudeAgentFactory) {
-                throw new Error("The Claude Code provider is not available in this build.");
-            }
-            return claudeAgentFactory();
+            return createHostProvider("claude-agent");
         // Self-hosted endpoints. The three cards differ only in the URL and setup
         // hint the UI prefills; they all speak the OpenAI-compatible API, with
         // Ollama and LM Studio additionally offering a richer native listing.

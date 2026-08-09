@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
 
 const registrations = vi.hoisted(() => ({
-    claudeAgentFactory: undefined as (() => unknown) | undefined,
+    hostProviders: [] as { type: string; factory: () => unknown }[],
     docNoteReader: undefined as ((note: unknown) => string | null) | undefined,
     skillReader: undefined as ((file: string) => string | null) | undefined,
     toolRegistries: [] as unknown[]
 }));
 
 vi.mock("@triliumnext/core/src/services/llm/index.js", () => ({
-    registerClaudeAgentProvider: (factory: () => unknown) => { registrations.claudeAgentFactory = factory; }
+    registerHostProvider: (type: string, factory: () => unknown) => { registrations.hostProviders.push({ type, factory }); }
 }));
 vi.mock("@triliumnext/core/src/services/llm/skills.js", () => ({
     registerSkillReader: (reader: (file: string) => string | null) => { registrations.skillReader = reader; }
@@ -28,9 +28,11 @@ describe("registerServerLlmExtensions", () => {
     it("hands core every piece of the stack that needs Node", () => {
         registerServerLlmExtensions();
 
-        // The subscription provider, which shells out to the Claude Code CLI.
-        // Registered as a factory, so nothing is constructed until a chat asks for it.
-        expect(registrations.claudeAgentFactory?.()).toBeInstanceOf(ClaudeAgentProvider);
+        // The subscription provider, which shells out to the Claude Code CLI, under
+        // the type core knows it by. Registered as a factory, so nothing is
+        // constructed until a chat asks for it.
+        expect(registrations.hostProviders.map(p => p.type)).toEqual(["claude-agent"]);
+        expect(registrations.hostProviders[0].factory()).toBeInstanceOf(ClaudeAgentProvider);
         // The User Guide reader, which core's note-content helper calls for doc notes.
         expect(registrations.docNoteReader).toBeTypeOf("function");
         // The skill sheets: core owns the catalog and the tool, the server only

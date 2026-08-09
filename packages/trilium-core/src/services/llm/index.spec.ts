@@ -45,13 +45,15 @@ vi.mock("./providers/deepseek.js", () => ({ DeepSeekProvider: makeProviderMock("
 vi.mock("./providers/local.js", () => ({ LocalProvider: makeProviderMock("local") }));
 
 import {
+    clearHostProviders,
     clearProviderCache,
     getProvider,
     getProviderByType,
     getSelectedModel,
     hasConfiguredProviders,
+    HOST_PROVIDED_TYPES,
     listProviderModels,
-    registerClaudeAgentProvider
+    registerHostProvider
 } from "./index.js";
 // Mocked module → this is the makeProviderMock("google") stand-in class, whose
 // prototype we can strip listModels from to exercise the curated-list fallback.
@@ -67,17 +69,22 @@ const TWO = [
 ];
 
 /**
- * The Claude Agent provider is not part of core — it spawns the Claude Code CLI,
- * so hosts that can run it register a factory. Stand one in for the same reason
- * the other provider modules are mocked: to observe the constructor arguments.
+ * Host-provided types are not part of core — the Claude Agent one spawns the
+ * Claude Code CLI — so whichever host can run them registers a factory. Stand one
+ * in per type, for the same reason the other provider modules are mocked: to
+ * observe what reaches the constructor.
  */
-const ClaudeAgentProviderMock = makeProviderMock("claude-agent");
+const hostProviderMocks = Object.fromEntries(
+    Object.keys(HOST_PROVIDED_TYPES).map((type) => [ type, makeProviderMock(type) ])
+);
 
 describe("llm/index provider registry", () => {
     beforeEach(() => {
         clearProviderCache();
         vi.clearAllMocks();
-        registerClaudeAgentProvider(() => new ClaudeAgentProviderMock() as never);
+        for (const [ type, Mock ] of Object.entries(hostProviderMocks)) {
+            registerHostProvider(type as keyof typeof HOST_PROVIDED_TYPES, () => new Mock() as never);
+        }
     });
     afterEach(() => {
         clearProviderCache();
@@ -139,6 +146,27 @@ describe("llm/index provider registry", () => {
         it("throws for an unknown provider type", () => {
             setProviders([{ id: "x", name: "X", provider: "mystery", apiKey: "k" }]);
             expect(() => getProvider("x")).toThrow(/Unknown LLM provider type: mystery/);
+        });
+
+        it("builds every host-provided type through the factory its host registered", () => {
+            // The catalog and the switch have to agree: a type listed in
+            // HOST_PROVIDED_TYPES with no branch of its own falls through to the
+            // default and reads as a typo, in a build that can in fact serve it.
+            const types = Object.keys(HOST_PROVIDED_TYPES);
+            setProviders(types.map((provider, index) => ({ id: `h${index}`, name: provider, provider, apiKey: "" })));
+
+            types.forEach((type, index) => {
+                expect(getProvider(`h${index}`)).toBeInstanceOf(hostProviderMocks[type]);
+            });
+        });
+
+        it("names the provider when no host in this build can build it", () => {
+            // What standalone hits for Claude Code: the type is real and the branch is
+            // there, but nothing registered a factory. Better than "unknown type",
+            // which would send the user looking for a typo.
+            clearHostProviders();
+            setProviders([{ id: "c", name: "C", provider: "claude-agent", apiKey: "" }]);
+            expect(() => getProvider("c")).toThrow("The Claude Code provider is not available in this build.");
         });
 
         it("drops cached instances when the llmProviders option changes", () => {
