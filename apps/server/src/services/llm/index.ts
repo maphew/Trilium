@@ -18,6 +18,7 @@ import { skillTools } from "./skills/index.js";
 import { getDocNoteHtml } from "./tools/doc_notes.js";
 import { helpTools } from "./tools/help_tools.js";
 
+export { runChat } from "@triliumnext/core/src/services/llm/chat.js";
 export {
     clearProviderCache,
     getProvider,

@@ -2,48 +2,19 @@ import type { Request, Response } from "express";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
-    configured: true,
     chunks: [] as unknown[],
-    availableModels: [{ id: "m1", name: "Model One", isDefault: true }] as { id: string; name: string; isDefault?: boolean }[],
-    chatThrows: undefined as unknown,
-    // When true, the fake provider is chunk-native (implements chatChunks) and
-    // records the abort signal the route wires to the response lifecycle.
-    chunkNative: false,
-    chunkSignal: undefined as AbortSignal | undefined,
-    // Records how streamChat resolved the provider.
-    providerIdRequested: undefined as string | undefined,
-    providerTypeRequested: undefined as string | undefined
+    /** The signal runChat was handed, so the disconnect wiring can be asserted. */
+    signal: undefined as AbortSignal | undefined
 }));
 
-vi.mock("../../services/llm/index.js", () => {
-    const makeProvider = () => ({
-        chat: () => { if (state.chatThrows !== undefined) throw state.chatThrows; return {}; },
-        chatChunks: state.chunkNative
-            ? async function* (_messages: unknown, _config: unknown, signal?: AbortSignal) {
-                state.chunkSignal = signal;
-                for (const c of state.chunks) yield c;
-            }
-            : undefined,
-        getAvailableModels: () => state.availableModels,
-        getModelPricing: () => ({ input: 0, output: 0 })
-    });
-    return {
-        hasConfiguredProviders: () => state.configured,
-        getSelectedModel: () => undefined,
-        getProvider: (id: string) => { state.providerIdRequested = id; return makeProvider(); },
-        getProviderByType: (type: string) => { state.providerTypeRequested = type; return makeProvider(); }
-    };
-});
-
-// Only the stream itself is faked; `formatStreamError` (used for the log line) is a pure
-// function and stays real, so the logged text is asserted against the production format.
-vi.mock("@triliumnext/core/src/services/llm/stream.js", async (importOriginal) => ({
-    ...await importOriginal<typeof import("@triliumnext/core/src/services/llm/stream.js")>(),
-    async *streamToChunks () { for (const c of state.chunks) yield c; }
+// The completion itself is core's and tested there; what this route adds is the
+// SSE framing around it, so only the chunk source is faked.
+vi.mock("../../services/llm/index.js", () => ({
+    async *runChat(_messages: unknown, _config: unknown, signal?: AbortSignal) {
+        state.signal = signal;
+        for (const c of state.chunks) yield c;
+    }
 }));
-
-const generateChatTitle = vi.fn(async (..._args: unknown[]) => {});
-vi.mock("@triliumnext/core/src/services/llm/chat_title.js", () => ({ generateChatTitle: (...args: unknown[]) => generateChatTitle(...args) }));
 
 import llmChatRoute from "./llm_chat.js";
 
@@ -74,161 +45,54 @@ function fakeRes({ withFlush = false } = {}) {
     };
 }
 
-describe("LLM chat API", () => {
+function req(body: unknown) { return { body } as unknown as Request; }
+
+describe("streamChat", () => {
     afterEach(() => {
-        Object.assign(state, {
-            configured: true,
-            chunks: [],
-            availableModels: [{ id: "m1", name: "Model One", isDefault: true }],
-            chatThrows: undefined,
-            chunkNative: false,
-            chunkSignal: undefined,
-            providerIdRequested: undefined,
-            providerTypeRequested: undefined
-        });
-        generateChatTitle.mockClear();
+        state.chunks = [];
+        state.signal = undefined;
     });
 
-    describe("streamChat", () => {
-        function req(body: unknown) { return { body } as unknown as Request; }
+    it("returns 400 for an empty messages array, without opening a stream", async () => {
+        const r = fakeRes();
+        await llmChatRoute.streamChat(req({ messages: [] }), r.res);
+        expect(r.statusCode).toBe(400);
+        expect(r.jsonBody).toEqual({ error: "messages array is required" });
+        expect(r.writes).toEqual([]);
+    });
 
-        it("returns 400 for an empty messages array", async () => {
-            const r = fakeRes();
-            await llmChatRoute.streamChat(req({ messages: [] }), r.res);
-            expect(r.statusCode).toBe(400);
-            expect(r.jsonBody).toEqual({ error: "messages array is required" });
-        });
+    it("writes each chunk as an SSE event, flushes it, and ends the response", async () => {
+        state.chunks = [{ type: "text", content: "Hi" }, { type: "done" }];
+        const r = fakeRes({ withFlush: true });
+        await llmChatRoute.streamChat(req({ messages: [{ role: "user", content: "hello" }] }), r.res);
 
-        it("emits an SSE error when no providers are configured", async () => {
-            state.configured = false;
-            const r = fakeRes();
-            await llmChatRoute.streamChat(req({ messages: [{ role: "user", content: "hi" }] }), r.res);
-            expect(r.writes.join("")).toContain("No LLM providers configured");
-            expect(r.ended).toBe(true);
-        });
+        expect(r.headers["Content-Type"]).toBe("text/event-stream");
+        expect(r.headers["X-Accel-Buffering"]).toBe("no");
+        expect(r.writes).toEqual([
+            'data: {"type":"text","content":"Hi"}\n\n',
+            'data: {"type":"done"}\n\n'
+        ]);
+        expect(r.flushes).toBe(2);
+        expect(r.ended).toBe(true);
+    });
 
-        it("routes by providerId when present, falling back to provider type", async () => {
-            state.chunks = [{ type: "done" }];
-            const r1 = fakeRes();
-            await llmChatRoute.streamChat(req({
-                messages: [{ role: "user", content: "hi" }],
-                config: { provider: "openai", providerId: "openai_123" }
-            }), r1.res);
-            expect(state.providerIdRequested).toBe("openai_123");
-            expect(state.providerTypeRequested).toBeUndefined();
+    it("ends the response and streams without a flush method available", async () => {
+        state.chunks = [{ type: "done" }];
+        const r = fakeRes();
+        await llmChatRoute.streamChat(req({ messages: [{ role: "user", content: "hi" }] }), r.res);
+        expect(r.writes.join("")).toContain('"type":"done"');
+        expect(r.ended).toBe(true);
+    });
 
-            // No providerId (chat saved before it existed) → type-based resolution.
-            state.providerIdRequested = undefined;
-            const r2 = fakeRes();
-            await llmChatRoute.streamChat(req({
-                messages: [{ role: "user", content: "hi" }],
-                config: { provider: "openai" }
-            }), r2.res);
-            expect(state.providerIdRequested).toBeUndefined();
-            expect(state.providerTypeRequested).toBe("openai");
-        });
+    it("aborts the completion when the client disconnects", async () => {
+        state.chunks = [{ type: "done" }];
+        const r = fakeRes();
+        await llmChatRoute.streamChat(req({ messages: [{ role: "user", content: "hi" }] }), r.res);
 
-        it("emits an SSE error when no model can be resolved", async () => {
-            state.availableModels = [];
-            const r = fakeRes();
-            await llmChatRoute.streamChat(req({ messages: [{ role: "user", content: "hi" }], config: {} }), r.res);
-            expect(r.writes.join("")).toContain("No model specified");
-        });
-
-        it("streams chunks, logs errors, ends the response and generates a title", async () => {
-            state.chunks = [{ type: "text", content: "Hi" }, { type: "error", error: "boom" }, { type: "done" }];
-            const r = fakeRes();
-            await llmChatRoute.streamChat(req({ messages: [{ role: "user", content: "hello" }], config: { chatNoteId: "abc" } }), r.res);
-            const body = r.writes.join("");
-            expect(body).toContain('"type":"text"');
-            expect(body).toContain('"type":"done"');
-            expect(r.ended).toBe(true);
-            expect(generateChatTitle).toHaveBeenCalledWith("abc", "hello");
-            expect(r.headers["Content-Type"]).toBe("text/event-stream");
-        });
-
-        it("writes an SSE error when the provider throws", async () => {
-            state.chatThrows = new Error("provider exploded");
-            const r = fakeRes();
-            await llmChatRoute.streamChat(req({ messages: [{ role: "user", content: "hi" }], config: {} }), r.res);
-            expect(r.writes.join("")).toContain("provider exploded");
-            expect(r.ended).toBe(true);
-        });
-
-        it("writes a generic SSE error when the provider throws a non-Error", async () => {
-            state.chatThrows = "weird failure";
-            const r = fakeRes();
-            await llmChatRoute.streamChat(req({ messages: [{ role: "user", content: "hi" }], config: {} }), r.res);
-            expect(r.writes.join("")).toContain("Unknown error");
-        });
-
-        it("prefers a chunk-native provider, wires the disconnect abort, and flushes each chunk", async () => {
-            state.chunkNative = true;
-            state.chunks = [{ type: "text", content: "native" }, { type: "done" }];
-            const r = fakeRes({ withFlush: true });
-            await llmChatRoute.streamChat(req({ messages: [{ role: "user", content: "hi" }], config: { provider: "claude-agent" } }), r.res);
-
-            const body = r.writes.join("");
-            expect(body).toContain('"content":"native"');
-            expect(r.flushes).toBeGreaterThanOrEqual(2);
-
-            // The provider received the signal tied to the response lifecycle:
-            // a client disconnect (res close) aborts the in-flight agent turn.
-            const signal = state.chunkSignal;
-            expect(signal).toBeInstanceOf(AbortSignal);
-            expect(signal?.aborted).toBe(false);
-            r.listeners.close();
-            expect(signal?.aborted).toBe(true);
-        });
-
-        it("falls back to the raw model id as display name for an unlisted model", async () => {
-            state.chunks = [{ type: "error", error: "boom" }];
-            const r = fakeRes();
-            await llmChatRoute.streamChat(req({ messages: [{ role: "user", content: "hi" }], config: { model: "custom-model" } }), r.res);
-            expect(r.writes.join("")).toContain("boom");
-            expect(r.ended).toBe(true);
-        });
-
-        it("titles from the text parts of a multimodal first message, and skips image-only ones", async () => {
-            const r1 = fakeRes();
-            await llmChatRoute.streamChat(req({
-                messages: [{ role: "user", content: [
-                    { type: "image", attachmentId: "a1", mime: "image/png" },
-                    { type: "text", text: "describe this" }
-                ] }],
-                config: { chatNoteId: "abc" }
-            }), r1.res);
-            expect(generateChatTitle).toHaveBeenCalledWith("abc", "describe this");
-
-            generateChatTitle.mockClear();
-            const r2 = fakeRes();
-            await llmChatRoute.streamChat(req({
-                messages: [{ role: "user", content: [{ type: "image", attachmentId: "a1", mime: "image/png" }] }],
-                config: { chatNoteId: "abc" }
-            }), r2.res);
-            expect(generateChatTitle).not.toHaveBeenCalled();
-        });
-
-        it("does not title follow-up turns", async () => {
-            const r = fakeRes();
-            await llmChatRoute.streamChat(req({
-                messages: [
-                    { role: "user", content: "first" },
-                    { role: "assistant", content: "reply" },
-                    { role: "user", content: "second" }
-                ],
-                config: { chatNoteId: "abc" }
-            }), r.res);
-            expect(generateChatTitle).not.toHaveBeenCalled();
-        });
-
-        it("keeps the chat alive when title generation fails", async () => {
-            generateChatTitle.mockRejectedValueOnce(new Error("title model down"));
-            state.chunks = [{ type: "done" }];
-            const r = fakeRes();
-            await llmChatRoute.streamChat(req({ messages: [{ role: "user", content: "hello" }], config: { chatNoteId: "abc" } }), r.res);
-            expect(r.writes.join("")).toContain('"type":"done"');
-            expect(r.ended).toBe(true);
-        });
+        const signal = state.signal;
+        expect(signal).toBeInstanceOf(AbortSignal);
+        expect(signal?.aborted).toBe(false);
+        r.listeners.close();
+        expect(signal?.aborted).toBe(true);
     });
 });
