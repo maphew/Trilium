@@ -56,6 +56,12 @@ class FakeAcpClient {
     static setModelError: Error | undefined;
     /** Id handed out by the next `session/new` (the real CLI never reuses one). */
     static newSessionId = "sess-1";
+    /**
+     * The `models` block `session/new` answers with. Shaped like the real CLI's
+     * (see the ACP model-selection state), including the `_meta` extensions
+     * Copilot hangs its premium-request accounting off.
+     */
+    static sessionModels: unknown = undefined;
 
     constructor(opts: { onNotification: (m: string, p: unknown) => void; onAgentRequest?: (m: string, p: unknown) => unknown }) {
         this.onNotification = opts.onNotification;
@@ -75,7 +81,7 @@ class FakeAcpClient {
         }
         if (method === "session/new") {
             if (FakeAcpClient.sessionNewError) throw FakeAcpClient.sessionNewError;
-            return { sessionId: FakeAcpClient.newSessionId } as T;
+            return { sessionId: FakeAcpClient.newSessionId, models: FakeAcpClient.sessionModels } as T;
         }
         if (method === "session/load") {
             if (FakeAcpClient.sessionLoadError) throw FakeAcpClient.sessionLoadError;
@@ -113,7 +119,15 @@ class FakeAcpError extends Error {
 
 vi.mock("./acp_client.js", () => ({ AcpClient: FakeAcpClient, AcpError: FakeAcpError }));
 
-const { buildPromptBlocks, CopilotAgentProvider, createUpdateCollector, decidePermission, resetAgentCwdForTests } = await import("./copilot_agent.js");
+const {
+    buildCopilotModelList,
+    buildPromptBlocks,
+    CopilotAgentProvider,
+    createUpdateCollector,
+    decidePermission,
+    resetAgentCwdForTests,
+    resetModelCatalogCacheForTests
+} = await import("./copilot_agent.js");
 
 async function collect(iterable: AsyncIterable<LlmStreamChunk>): Promise<LlmStreamChunk[]> {
     const chunks: LlmStreamChunk[] = [];
@@ -131,7 +145,10 @@ function resetFakes() {
     infoLogMock.mockReset();
     resolveAttachmentPartMock.mockReset();
     resetAgentCwdForTests();
+    resetModelCatalogCacheForTests();
     mcpEndpointMock.mockClear();
+    resolveCopilotBinaryMock.mockClear();
+    FakeAcpClient.sessionModels = undefined;
     FakeAcpClient.current = undefined;
     FakeAcpClient.initializeError = undefined;
     FakeAcpClient.sessionNewError = undefined;
@@ -142,13 +159,123 @@ function resetFakes() {
 }
 
 describe("CopilotAgentProvider metadata", () => {
-    it("exposes the subscription model list and refuses the AI-SDK chat entry point", () => {
+    beforeEach(resetFakes);
+
+    it("answers synchronously with the ids it names itself, and refuses the AI-SDK chat entry point", () => {
         const provider = new CopilotAgentProvider();
 
+        // The chat resolves a default and a title model without waiting on a
+        // probe, so both must be answerable offline.
+        expect(provider.getAvailableModels().map(m => m.id)).toEqual(["auto", "gpt-5-mini"]);
         expect(provider.getAvailableModels().filter(m => m.isDefault).map(m => m.id)).toEqual(["auto"]);
-        expect(provider.getModelPricing("gpt-5.4")).toEqual({ input: 0, output: 0 });
+        expect(provider.getModelPricing("gpt-5-mini")).toEqual({ input: 0, output: 0 });
         expect(provider.getModelPricing("gpt-4-turbo")).toBeUndefined();
         expect(() => provider.chat()).toThrow(/chatChunks/);
+    });
+});
+
+/**
+ * The catalog the CLI actually reports, trimmed to the cases that matter:
+ * the pickerless `auto`, a 1x model, a sub-1x model, two the account is
+ * charged a premium multiple for, and one its policy has switched off.
+ */
+const CLI_MODELS = [
+    { modelId: "auto", name: "Auto", description: "Let Copilot pick the best model" },
+    { modelId: "claude-sonnet-5", name: "Claude Sonnet 5", _meta: { copilotUsage: "1x", copilotEnablement: "enabled" } },
+    { modelId: "claude-haiku-4.5", name: "Claude Haiku 4.5", _meta: { copilotUsage: "0.33x", copilotEnablement: "enabled" } },
+    { modelId: "claude-opus-5", name: "Claude Opus 5", _meta: { copilotUsage: "15x", copilotEnablement: "enabled" } },
+    { modelId: "gemini-3.6-flash", name: "Gemini 3.6 Flash", _meta: { copilotUsage: "14x", copilotEnablement: "enabled" } },
+    { modelId: "gpt-5-mini", name: "GPT-5 mini", _meta: { copilotUsage: "0x", copilotEnablement: "enabled" } },
+    { modelId: "policy-blocked", name: "Blocked", _meta: { copilotUsage: "1x", copilotEnablement: "disabled" } }
+];
+
+describe("CopilotAgentProvider.listModels", () => {
+    beforeEach(resetFakes);
+
+    it("reads the account's catalog off session/new, keeping the CLI's own order", async () => {
+        FakeAcpClient.sessionModels = { availableModels: CLI_MODELS, currentModelId: "claude-sonnet-5" };
+
+        const models = await new CopilotAgentProvider().listModels();
+
+        // The CLI's order survives — it is the picker GitHub shows, already
+        // ordered for a human — and the disabled model is gone.
+        expect(models.map(m => m.id)).toEqual([
+            "auto", "claude-sonnet-5", "claude-haiku-4.5", "claude-opus-5", "gemini-3.6-flash", "gpt-5-mini"
+        ]);
+        // Every model is plan-covered, so the picker says "Subscription" rather
+        // than a per-token price, and `auto` stays the default the chat falls to.
+        expect(models.every(m => m.isSubscription && m.pricing?.input === 0 && m.pricing?.output === 0)).toBe(true);
+        expect(models.filter(m => m.isDefault).map(m => m.id)).toEqual(["auto"]);
+        // Discovered models price as free too, not as unknown ids.
+        expect(new CopilotAgentProvider().getModelPricing("gemini-3.6-flash")).toEqual({ input: 0, output: 0 });
+    });
+
+    it("pre-selects everything except the models billed above one premium request", async () => {
+        FakeAcpClient.sessionModels = { availableModels: CLI_MODELS };
+
+        const provider = new CopilotAgentProvider();
+        const models = await provider.listModels();
+
+        // Opus (15x) and Gemini Flash (14x) would each spend a fortnight's worth
+        // of a small allowance in a handful of turns, so they stay one tick away;
+        // `auto` reports no rate at all and is kept.
+        expect([...provider.recommendedModelIds(models)].sort())
+            .toEqual(["auto", "claude-haiku-4.5", "claude-sonnet-5", "gpt-5-mini"]);
+    });
+
+    it("probes once, then serves the cached catalog without respawning the CLI", async () => {
+        FakeAcpClient.sessionModels = { availableModels: CLI_MODELS };
+        const provider = new CopilotAgentProvider();
+
+        const [first, second] = await Promise.all([provider.listModels(), provider.listModels()]);
+        const third = await provider.listModels();
+
+        expect(second).toBe(first);
+        expect(third).toBe(first);
+        expect(resolveCopilotBinaryMock).toHaveBeenCalledTimes(1);
+        // The probe opens a session to read the catalog and sends no prompt, so
+        // it costs no premium request — and it tears the CLI down after.
+        const methods = FakeAcpClient.current?.requests.map(r => r.method);
+        expect(methods).toEqual(["initialize", "session/new"]);
+        expect(FakeAcpClient.current?.disposed).toBe(true);
+    });
+
+    it("surfaces why the probe failed instead of masking it with the fallback list", async () => {
+        resolveCopilotBinaryMock.mockRejectedValueOnce(new Error("Copilot CLI not found"));
+
+        await expect(new CopilotAgentProvider().listModels()).rejects.toThrow(/Copilot CLI not found/);
+        // A later call retries rather than serving a cached failure.
+        FakeAcpClient.sessionModels = { availableModels: CLI_MODELS };
+        expect((await new CopilotAgentProvider().listModels()).length).toBe(6);
+    });
+
+    it("falls back to the curated list when the CLI reports no usable models", async () => {
+        // An older CLI omits the block entirely; a locked-down account can also
+        // report a list with nothing enabled in it.
+        for (const models of [undefined, { availableModels: [] }, { availableModels: [CLI_MODELS[6]] }]) {
+            resetModelCatalogCacheForTests();
+            FakeAcpClient.sessionModels = models;
+
+            const listed = await new CopilotAgentProvider().listModels();
+            expect(listed).toEqual(new CopilotAgentProvider().getAvailableModels());
+        }
+    });
+});
+
+describe("buildCopilotModelList", () => {
+    it("names unnamed models and marks a default even when auto is not on offer", () => {
+        const curated = [{ id: "claude-sonnet-5", name: "Claude Sonnet 5", isSubscription: true }];
+        const models = buildCopilotModelList(
+            [{ modelId: "claude-sonnet-5" }, { modelId: "future-model-9" }],
+            curated
+        );
+
+        expect(models.map(m => ({ id: m.id, name: m.name, isDefault: m.isDefault ?? false }))).toEqual([
+            // The curated name fills in for a model the CLI left unnamed; an
+            // unknown id falls back to itself rather than rendering blank.
+            { id: "claude-sonnet-5", name: "Claude Sonnet 5", isDefault: true },
+            { id: "future-model-9", name: "future-model-9", isDefault: false }
+        ]);
     });
 });
 

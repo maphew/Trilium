@@ -40,28 +40,52 @@ import { attachmentPlaceholder, buildHistoryReplay, hashTranscript } from "./tra
 const SUPPORTED_IMAGE_MIMES = new Set<string>(["image/png", "image/jpeg", "image/gif", "image/webp"]);
 
 /**
- * Models offered under a Copilot subscription, mirroring the CLI's own model
- * picker (as reported by `session/new`). Pricing is zero because usage is
- * covered by the subscription, which is what the picker shows.
+ * The catalog available without asking the CLI anything.
  *
- * The CLI additionally reports a premium-request multiplier per model (0.33x,
- * 1x, …); it isn't carried here, because it is only comparable against other
- * Copilot models and the picker has no way to say so — the same reason the
- * shared model metadata dropped its relative multiplier in favour of absolute
- * per-token prices.
+ * {@link CopilotAgentProvider.listModels} reads the real line-up off
+ * `session/new`, but that costs a subprocess and a round-trip, and the
+ * {@link LlmProvider} interface also needs a *synchronous* answer: the chat
+ * resolves its default model and display name through `getAvailableModels()` on
+ * every turn, which cannot wait on a spawn. This is that answer, and the
+ * fallback when the probe can't run at all (CLI missing, logged out).
+ *
+ * So it holds only the two ids the provider itself names — `auto`, the default a
+ * chat falls back to when it has none stored, and {@link TITLE_MODEL} — rather
+ * than a mirror of the picker. Anything more would be a guess about someone
+ * else's account, stale the moment GitHub changes the line-up, and the picker
+ * never shows this list when the CLI can be reached. Pricing is zero throughout
+ * because the subscription covers it.
  */
 const AVAILABLE_MODELS: ModelInfo[] = [
     { id: "auto", name: "Auto", pricing: { input: 0, output: 0 }, isDefault: true, isSubscription: true },
-    { id: "claude-sonnet-5", name: "Claude Sonnet 5", pricing: { input: 0, output: 0 }, isSubscription: true },
-    { id: "claude-haiku-4.5", name: "Claude Haiku 4.5", pricing: { input: 0, output: 0 }, isSubscription: true },
-    { id: "gpt-5.4", name: "GPT-5.4", pricing: { input: 0, output: 0 }, isSubscription: true },
-    { id: "gpt-5.3-codex", name: "GPT-5.3-Codex", pricing: { input: 0, output: 0 }, isSubscription: true },
-    { id: "gpt-5.4-mini", name: "GPT-5.4 mini", pricing: { input: 0, output: 0 }, isSubscription: true },
     { id: "gpt-5-mini", name: "GPT-5 mini", pricing: { input: 0, output: 0 }, isSubscription: true }
 ];
 
 /** Free-tier model used for the cheap title turn. */
 const TITLE_MODEL = "gpt-5-mini";
+
+/**
+ * How long a probed catalog is reused. Matches the Claude Agent provider: the
+ * line-up changes with GitHub's releases and the user's plan, neither of which
+ * moves within an editing session, and the probe costs a CLI spawn.
+ */
+const MODEL_CATALOG_TTL_MS = 60 * 60 * 1000;
+
+/** Upper bound on the catalog probe — a spawn plus one round-trip, no prompt. */
+const MODEL_PROBE_TIMEOUT_MS = 60_000;
+
+/**
+ * Premium-request multipliers from the last successful probe, by model id.
+ *
+ * Kept beside the catalog rather than on {@link ModelInfo}, which has no field
+ * for it: the multiplier is a Copilot-plan quota rate, not a price, and is only
+ * comparable against other Copilot models. {@link
+ * CopilotAgentProvider.recommendedModelIds} is its one consumer.
+ */
+const premiumMultiplierById = new Map<string, number>();
+
+let modelCatalogCache: { models: ModelInfo[]; fetchedAt: number } | undefined;
+let modelCatalogInFlight: Promise<ModelInfo[]> | undefined;
 
 /**
  * CLI arguments passed alongside `--acp`. These form the *primary* security
@@ -144,11 +168,38 @@ interface AcpPermissionRequest {
     options?: { optionId: string; name?: string; kind?: string }[];
 }
 
+/** The `models` block of a `session/new` response — ACP's model-selection state. */
+interface AcpSessionModelState {
+    availableModels?: AcpModel[];
+    /** The model the session starts on. Not used: Trilium picks per chat. */
+    currentModelId?: string;
+}
+
+interface AcpModel {
+    modelId: string;
+    name?: string;
+    description?: string;
+    /**
+     * Vendor extensions ACP itself doesn't define. Copilot puts its quota
+     * accounting here: `copilotUsage` is the premium-request multiplier as a
+     * display string ("0.33x", "15x"), and `copilotEnablement` marks models the
+     * account or its policy can't actually use.
+     */
+    _meta?: { copilotUsage?: string; copilotEnablement?: string };
+}
+
 export class CopilotAgentProvider implements LlmProvider {
     name = "copilot-agent";
 
+    /**
+     * Free at the point of use for every model, discovered ones included: the
+     * subscription covers the whole catalog, so an id this build has never heard
+     * of still costs nothing per token. Only ids that aren't Copilot's at all
+     * come back unpriced.
+     */
     getModelPricing(model: string): ModelPricing | undefined {
-        return AVAILABLE_MODELS.some(m => m.id === model) ? { input: 0, output: 0 } : undefined;
+        const known = modelCatalogCache?.models ?? AVAILABLE_MODELS;
+        return known.some(m => m.id === model) ? { input: 0, output: 0 } : undefined;
     }
 
     getAvailableModels(): ModelInfo[] {
@@ -156,13 +207,77 @@ export class CopilotAgentProvider implements LlmProvider {
     }
 
     /**
-     * Every model on offer. Unlike the API providers there is nothing to filter:
-     * the list is the CLI's own picker, curated here rather than discovered, so
-     * it carries no legacy or preview entries to leave out — and all of them cost
-     * the same (nothing beyond the subscription).
+     * The models this account may use, as the installed CLI reports them.
+     *
+     * There is no `/models` endpoint to call: the catalog arrives on the
+     * `session/new` response, which reflects the CLI's version and the plan the
+     * user is signed in under — a Pro account and a Business one are offered
+     * different line-ups, and neither matches a list committed here months
+     * earlier. Opening a session sends no prompt, so the probe spends no premium
+     * requests.
+     *
+     * Cached for {@link MODEL_CATALOG_TTL_MS}, with concurrent callers sharing
+     * one probe. A *failure* propagates rather than falling back to
+     * {@link AVAILABLE_MODELS}, so the add/edit-provider screen can say the CLI
+     * is missing or logged out instead of showing three models that would fail
+     * on first use.
+     */
+    async listModels(): Promise<ModelInfo[]> {
+        if (modelCatalogCache && Date.now() - modelCatalogCache.fetchedAt < MODEL_CATALOG_TTL_MS) {
+            return modelCatalogCache.models;
+        }
+        if (!modelCatalogInFlight) {
+            modelCatalogInFlight = this.probeModelCatalog().finally(() => {
+                modelCatalogInFlight = undefined;
+            });
+        }
+        return modelCatalogInFlight;
+    }
+
+    /**
+     * Open a session purely to read the catalog off its response, then tear the
+     * CLI down. No `session/prompt` is ever sent, and note tools are left out of
+     * the session — nothing is asked of the agent, so it needs no capabilities.
+     */
+    private async probeModelCatalog(): Promise<ModelInfo[]> {
+        let client: AcpClient | undefined;
+        try {
+            client = await this.startClient(() => {});
+            const created = await client.request<{ models?: AcpSessionModelState }>(
+                "session/new",
+                { cwd: getAgentCwd(), mcpServers: [] },
+                MODEL_PROBE_TIMEOUT_MS
+            );
+            const models = buildCopilotModelList(created.models?.availableModels ?? [], AVAILABLE_MODELS);
+            modelCatalogCache = { models, fetchedAt: Date.now() };
+            return models;
+        } catch (err) {
+            // Name the reason (binary missing, not logged in, timeout) so the
+            // provider screen can show something the user can act on.
+            throw new Error(describeError(err));
+        } finally {
+            client?.dispose();
+        }
+    }
+
+    /**
+     * Everything except the models that bill at more than one premium request
+     * per turn.
+     *
+     * Copilot meters a monthly allowance of premium requests, not tokens, and
+     * the multipliers span two orders of magnitude — a turn on Opus 5 (15x)
+     * spends what fifteen Sonnet turns would. Pre-selecting those would let a
+     * user empty the month's allowance from a picker that gave no hint of it, so
+     * the expensive models stay one deliberate tick away while the 1x-and-under
+     * bulk of the catalog is on by default.
+     *
+     * Anything whose rate the CLI didn't report — `auto`, or a model listed by a
+     * future CLI that drops the metadata — is recommended: the flag only seeds a
+     * selection the user can change, so failing open costs less than hiding a
+     * model that may well be the cheap one.
      */
     recommendedModelIds(models: ModelInfo[]): Set<string> {
-        return new Set(models.map(m => m.id));
+        return new Set(models.filter(m => (premiumMultiplierById.get(m.id) ?? 0) <= 1).map(m => m.id));
     }
 
     /** Not used — the route prefers {@link chatChunks} when implemented. */
@@ -425,6 +540,72 @@ export class CopilotAgentProvider implements LlmProvider {
         /* v8 ignore next */
         return buildSystemPrompt(messages, config) ?? "";
     }
+}
+
+/**
+ * Turn the CLI's reported catalog into Trilium's model list, recording each
+ * model's premium-request multiplier on the way through.
+ *
+ * The CLI's order is kept as-is rather than re-sorted or filed behind the
+ * curated entries: unlike an HTTP `/models` endpoint, which dumps every id a
+ * vendor has ever shipped, this list *is* the picker GitHub shows in the
+ * terminal — already chosen and already ordered for a human. The curated list
+ * contributes only a display name for anything the CLI leaves unnamed.
+ *
+ * Models the CLI marks as not enabled are dropped: they appear so the terminal
+ * picker can grey them out with a reason, which a checkbox list has nowhere to
+ * put, and selecting one would fail at the first turn.
+ */
+export function buildCopilotModelList(remote: AcpModel[], curated: ModelInfo[]): ModelInfo[] {
+    const curatedById = new Map(curated.map(m => [m.id, m]));
+    premiumMultiplierById.clear();
+
+    const models = remote
+        .filter(m => m.modelId && (m._meta?.copilotEnablement ?? "enabled") === "enabled")
+        .map<ModelInfo>(m => {
+            const multiplier = parsePremiumMultiplier(m._meta?.copilotUsage);
+            if (multiplier !== undefined) {
+                premiumMultiplierById.set(m.modelId, multiplier);
+            }
+            return {
+                id: m.modelId,
+                name: m.name ?? curatedById.get(m.modelId)?.name ?? m.modelId,
+                // Every model on a Copilot plan is covered by the subscription;
+                // the picker says so instead of showing a per-token price.
+                pricing: { input: 0, output: 0 },
+                isSubscription: true
+            };
+        });
+
+    // Nothing usable came back — an account with no model entitlements at all,
+    // or a CLI that stopped reporting them. Fall back rather than hand the
+    // picker an empty list it would render as "no models".
+    if (models.length === 0) {
+        return curated;
+    }
+
+    // `find(m => m.isDefault)` is how the chat resolves an unset model, so the
+    // list must always carry one. Prefer the curated default (`auto`) when the
+    // account still offers it; otherwise the first model the CLI listed, which
+    // is the one its own picker leads with.
+    const preferred = models.find(m => curatedById.get(m.id)?.isDefault) ?? models[0];
+    return models.map(m => (m === preferred ? { ...m, isDefault: true } : m));
+}
+
+/** `"0.33x"` → `0.33`. Undefined for a missing or unparseable rate. */
+function parsePremiumMultiplier(usage: string | undefined): number | undefined {
+    if (!usage) {
+        return undefined;
+    }
+    const parsed = Number.parseFloat(usage);
+    return Number.isFinite(parsed) ? parsed : undefined;
+}
+
+/** For tests: forget the probed catalog so the next call re-probes. */
+export function resetModelCatalogCacheForTests(): void {
+    modelCatalogCache = undefined;
+    modelCatalogInFlight = undefined;
+    premiumMultiplierById.clear();
 }
 
 /** The MCP server list for `session/new`/`session/load`, pointing at the private loopback endpoint. */
