@@ -1,8 +1,18 @@
 import { existsSync } from "fs";
+import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { afterEach, describe, expect, it } from "vitest";
 
 import { getSkillsSummary, readSkill, registerSkillReader, SKILLS } from "./skills.js";
+
+/**
+ * This file's directory, taken apart rather than composed with
+ * `new URL(…, import.meta.url)`: core's specs run under the standalone project
+ * too, whose browser-flavoured Vite config rewrites that expression into a
+ * dev-server asset URL (`http://localhost:3000/@fs/…`) that no filesystem call
+ * can use.
+ */
+const HERE = dirname(fileURLToPath(import.meta.url));
 
 /** Restore the "no host has registered anything" state the module starts in. */
 function clearReader() {
@@ -16,7 +26,7 @@ describe("llm skill sheets", () => {
         // The catalog is the contract between core and both readers: an entry with
         // no file behind it is a tool call that fails at the far end of a chat.
         for (const skill of SKILLS) {
-            const path = fileURLToPath(new URL(`../../assets/llm/skills/${skill.file}`, import.meta.url));
+            const path = join(HERE, "../../assets/llm/skills", skill.file);
             expect(existsSync(path), `missing sheet: ${skill.file}`).toBe(true);
         }
     });
