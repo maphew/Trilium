@@ -47,12 +47,16 @@ pnpm typecheck                 # TypeScript type check across all projects
 
 ## Main Applications
 
-The four main apps share `packages/trilium-core/` for business logic but differ in runtime:
-
 - **client** (`apps/client/`): Preact frontend with jQuery widget system. Shared UI layer used by both server and desktop.
 - **server** (`apps/server/`): Node.js backend (Express, better-sqlite3). Serves the client and provides REST/WebSocket APIs.
 - **desktop** (`apps/desktop/`): Electron wrapper around server + client, running both in a single process.
 - **standalone** (`apps/standalone/` + `apps/standalone-desktop/`): Runs the entire stack in the browser — server logic compiled to WASM via sql.js, executed in a service worker. No Node.js dependency at runtime.
+
+**`packages/trilium-core/` is shared by server, desktop and standalone — *not* by the client.** `apps/client` neither depends on it nor imports it (zero `@triliumnext/core` imports); it reaches the backend over REST/WebSocket and shares only **types**, via `@triliumnext/commons`. The split that matters is backend-vs-frontend, not Node-vs-browser: standalone runs core in a browser worker, which is why core carries the no-Node-built-ins rules below.
+
+Practical consequences:
+- A dependency added to core lands in the **server, desktop and standalone** bundles. It does **not** reach the client, so "the client would pay for it" is never an argument for or against putting something in core — the argument is standalone's worker, which imports core at startup.
+- Frontend code cannot call a core function. Anything the client needs is either an API route or a type in `@triliumnext/commons`.
 
 ## Monorepo Structure
 
@@ -238,6 +242,7 @@ SQLite via `better-sqlite3`. SQL abstraction in `packages/trilium-core/src/servi
 - **Client-side**: `import { t } from "../services/i18n"` with keys in `apps/client/src/translations/en/translation.json`
 - **Server-side**: `import { t } from "i18next"` with keys in `apps/server/src/assets/translations/en/server.json`
 - **Electron main process** (e.g. `apps/desktop/src/`): `import { t } from "i18next"` — uses server-side keys from `apps/server/src/assets/translations/en/server.json` (same as server-side). **Never hardcode user-facing strings** in Electron dialogs, tray menus, or IPC handlers — always use `t()`.
+- **`packages/trilium-core`**: `import { t } from "i18next"` — also the server catalog. Despite the name, `server.json` is the catalog for **every** non-browser-UI runtime, standalone included: `apps/standalone/src/lightweight/translation_provider.ts` initialises i18next in the worker with `ns: "server"` and fetches `server-assets/translations/{{lng}}/server.json`, which `apps/standalone/vite.config.mts` populates by copying `apps/server/src/assets/**/*`. So a `t()` call added to core resolves in server, desktop **and** standalone with no extra work — don't assume a core string needs relocating or a fallback to run in the browser build. (That copy excludes `doc_notes/en/User Guide/**`, so the in-app User Guide itself is *not* in the standalone build.)
 - **Interpolation**: Use `{{variable}}` for normal interpolation; use `{{- variable}}` (with hyphen) for **unescaped** interpolation when the value contains special characters like quotes that shouldn't be HTML-escaped
 
 #### Text Editor (`packages/ckeditor5`) Translation Usage
@@ -331,6 +336,7 @@ Use `note.getOwnedAttribute()` for direct, `note.getAttribute()` for inherited.
 
 - **Server tests** (`apps/server/spec/`): Vitest, must run sequentially (shared DB), forks pool, max 6 workers
 - **Client tests** (`apps/client/src/`): Vitest with happy-dom environment, can run in parallel
+- **Core tests** (`packages/trilium-core/src/**/*.spec.ts`): `trilium-core` has no runner of its own — the **server and standalone suites both include** its specs (`apps/server/vite.config.mts`, `apps/standalone/vite.config.mts`) and run them against different platform providers (node + better-sqlite3 vs. happy-dom + sql.js WASM). Green under `pnpm --filter server test` is **not** proof; run `pnpm --filter standalone test` as well. See the `writing-unit-tests` skill for the cross-runtime traps
 - **E2E tests** (`packages/trilium-e2e/`): Shared Playwright tests, run via `pnpm --filter server e2e` or `pnpm --filter standalone e2e`
 - **ETAPI tests** (`apps/server/spec/etapi/`): External API contract tests
 
