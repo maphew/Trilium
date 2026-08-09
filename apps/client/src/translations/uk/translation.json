@@ -1973,9 +1973,6 @@
   "common": {
     "cancel": "Скасувати"
   },
-  "mind-map": {
-    "cancelFocus": ""
-  },
   "space_usage": {
     "compress_cancel": "Скасувати",
     "cleanup_cancel": "Скасувати"
