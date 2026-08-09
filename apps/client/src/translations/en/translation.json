@@ -3848,6 +3848,7 @@
     "provider_name": "Name",
     "beta": "Beta",
     "provider_desc_claude_agent": "Requires Claude Code on the machine running Trilium.",
+    "provider_unavailable_standalone": "Unavailable in the browser version: this provider works by running Claude Code as a separate program, and there is no machine here to run it on.",
     "actions": "Actions",
     "delete_provider": "Delete",
     "delete_provider_confirmation": "Are you sure you want to delete the provider \"{{name}}\"?",
