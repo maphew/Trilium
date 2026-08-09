@@ -778,7 +778,7 @@ export function roomForAttributes(e: EventDisplayInfo): "stacked" | "wrapped" | 
  * index.css). Said as a class on the inner rather than drawn in eventContent because wrapping is
  * the container's to declare and the container is the theme's, not ours.
  */
-function eventInnerClass(e: EventDisplayInfo) {
+export function eventInnerClass(e: EventDisplayInfo) {
     const { promotedAttributes } = e.event.extendedProps;
     return clsx(!!promotedAttributes?.length && roomForAttributes(e) === "wrapped"
         && "calendar-event-inner-wrapped");

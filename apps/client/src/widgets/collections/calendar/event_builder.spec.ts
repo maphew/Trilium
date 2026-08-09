@@ -168,6 +168,20 @@ describe("Promoted attributes", () => {
         ]);
     });
 
+    it("says nothing for a relation whose target has no title, rather than the word for nothing", async () => {
+        const note = buildNote({
+            "title": "Hello",
+            "~assignee": buildNote({ "title": "" }).noteId,
+            "#calendar:displayedAttributes": "assignee",
+            "#relation:assignee": "promoted,alias=Assignee,single,text"
+        });
+
+        const event = await buildEvent(note, { startDate: "2025-04-04" });
+        expect(event[0]?.promotedAttributes).toMatchObject([
+            [ "Assignee", "" ]
+        ]);
+    });
+
     it("says an attribute nobody defined by its own name, promotion being no condition of showing one", async () => {
         const note = buildNote({
             title: "Hello",
@@ -338,6 +352,24 @@ describe("Recurrence", () => {
         // occurrence used to come out "00:00" — no length at all.
         expect(events[0].duration).toEqual({ days: 1, hours: 0, minutes: 0 });
         expect(events[1].duration).toEqual({ days: 3, hours: 0, minutes: 0 });
+    });
+
+    it("gives no length to an occurrence whose event says only when it starts", async () => {
+        const noteIds = buildNotes([
+            {
+                title: "Recurring Open-Ended",
+                "#startDate": "2025-05-05",
+                "#startTime": "13:00",
+                "#recurrence": "FREQ=DAILY;COUNT=5"
+            }
+        ]);
+        const events = await buildEvents(noteIds);
+
+        expect(events).toHaveLength(1);
+        // Nothing said about how long it runs, so nothing is invented: FullCalendar gives the
+        // occurrence its default length rather than one worked out from an end that isn't there.
+        expect(events[0].duration).toBeUndefined();
+        expect(events[0].rrule).toContain("DTSTART:20250505T130000");
     });
 
     it("writes to console on invalid recurrence rule", async () => {

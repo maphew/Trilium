@@ -299,6 +299,16 @@ describe("split panes in the hash", () => {
         });
     });
 
+    it("shrugs off an active index that is not a number, and a parameter carrying no value", () => {
+        // Both reach the parser straight off the address bar, where anything at all may be typed.
+        expect(parseNavigationStateFromUrl(
+            asExtraWindowUrl(`#${A}?splits=${encodeURIComponent(B)}&activeSplit=whichever`)
+        )).toMatchObject({ activeSplit: 0, splits: [{ notePath: B }] });
+
+        // `popup` is a flag, so it is written bare — there is no `=` to split on.
+        expect(parseNavigationStateFromUrl(`#${A}?popup`)).toMatchObject({ openInPopup: true });
+    });
+
     it("ignores parameters that describe a window rather than a pane", () => {
         const nested = encodeURIComponent(`${B}?ntxId=n1&splits=${encodeURIComponent(C)}`);
         const parsed = parseNavigationStateFromUrl(asExtraWindowUrl(`#${A}?splits=${nested}`));

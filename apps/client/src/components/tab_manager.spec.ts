@@ -1,5 +1,6 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
+import appContext from "./app_context.js";
 import TabManager, { buildNoteContextStatesFromUrl } from "./tab_manager.js";
 
 describe("TabManager tab placement", () => {
@@ -93,6 +94,47 @@ describe("moving a tab with splits into a window of its own", () => {
 
         // the tear-off fires from dragMove, so a second call for an already-removed tab is expected
         expect(tm.captureTabAsWindowTarget("gone")).toBeNull();
+    });
+});
+
+describe("handing a tab over to a window of its own", () => {
+    it("moves the tab, having described it before the close takes its panes down", async () => {
+        const tm = new TabManager();
+        // closing a pane asks the app which manager owns it, which only booting normally answers
+        appContext.tabManager = tm;
+        const [main, other] = await openEmptyTabs(tm, 2);
+        const split = await tm.openEmptyTab(null, "root", main.ntxId);
+        main.notePath = "root/aaaaaaaaaaaa";
+        split.notePath = "root/bbbbbbbbbbbb";
+        const triggerCommand = vi.spyOn(tm, "triggerCommand").mockReturnValue(undefined);
+
+        await tm.moveTabToNewWindowCommand({ ntxId: main.ntxId ?? "" });
+
+        expect(triggerCommand).toHaveBeenCalledWith("openInWindow", expect.objectContaining({
+            notePath: "root/aaaaaaaaaaaa",
+            splits: [ expect.objectContaining({ notePath: "root/bbbbbbbbbbbb" }) ]
+        }));
+        // the tab left with its split, leaving the neighbouring tab behind
+        expect(ntxOrder(tm)).toEqual([other.ntxId]);
+    });
+
+    it("copies the tab without closing it, and asks for nothing once the tab is gone", async () => {
+        const tm = new TabManager();
+        const [main] = await openEmptyTabs(tm, 2);
+        main.notePath = "root/aaaaaaaaaaaa";
+        const triggerCommand = vi.spyOn(tm, "triggerCommand").mockReturnValue(undefined);
+
+        await tm.copyTabToNewWindowCommand({ ntxId: main.ntxId ?? "" });
+
+        expect(triggerCommand).toHaveBeenCalledWith("openInWindow", expect.objectContaining({
+            notePath: "root/aaaaaaaaaaaa"
+        }));
+        expect(tm.noteContexts).toContain(main);
+
+        // the tear-off drag fires repeatedly, so a call for an already-removed tab is expected
+        triggerCommand.mockClear();
+        await tm.copyTabToNewWindowCommand({ ntxId: "gone" });
+        expect(triggerCommand).not.toHaveBeenCalled();
     });
 });
 

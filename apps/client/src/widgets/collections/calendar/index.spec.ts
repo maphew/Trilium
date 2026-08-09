@@ -1,7 +1,7 @@
 import { EventDisplayInfo } from "fullcalendar";
 import { describe, expect, it } from "vitest";
 
-import { roomForAttributes } from "./index.js";
+import { eventInnerClass, roomForAttributes } from "./index.js";
 
 /** As much of a chip as the question is asked of: which view it is drawn in, and how it sits there. */
 function chip({ view, allDay = false, isShort = false, isNarrow = false }: {
@@ -32,5 +32,27 @@ describe("roomForAttributes", () => {
     it("has nowhere to put them on a year's chips or in a list", () => {
         expect(roomForAttributes(chip({ view: "multiMonthYear" }))).toBe(null);
         expect(roomForAttributes(chip({ view: "listMonth" }))).toBe(null);
+    });
+});
+
+describe("eventInnerClass", () => {
+    /** A chip as the class is asked of it: where it is drawn, and whether it has anything to say. */
+    function chipWithAttributes(view: string, promotedAttributes?: [string, string][]) {
+        return {
+            ...chip({ view }),
+            event: { allDay: false, extendedProps: { promotedAttributes } }
+        } as unknown as EventDisplayInfo;
+    }
+
+    it("makes a row that wraps of a chip whose attributes must fall beneath it", () => {
+        expect(eventInnerClass(chipWithAttributes("dayGridMonth", [[ "mood", "happy" ]])))
+            .toBe("calendar-event-inner-wrapped");
+    });
+
+    it("leaves the inner alone where the attributes stack, or where there are none to place", () => {
+        // A timed chip on a time grid is a column already, so its attributes need no line of their own.
+        expect(eventInnerClass(chipWithAttributes("timeGridWeek", [[ "mood", "happy" ]]))).toBe("");
+        expect(eventInnerClass(chipWithAttributes("dayGridMonth", []))).toBe("");
+        expect(eventInnerClass(chipWithAttributes("dayGridMonth"))).toBe("");
     });
 });
