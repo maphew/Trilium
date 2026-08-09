@@ -38,7 +38,7 @@ import GhostPopover from "./GhostPopover";
 import { openCalendarContextMenu } from "./context_menu";
 import { CalendarSelection, EventDraft } from "./selection";
 import { buildEvents, buildEventsForCalendar } from "./event_builder";
-import { formatDateToLocalISO, formatTimeToLocalISO, isAttributeChangeAffecting, isValidDuration, parseDurationSeconds, parseStartEndDateFromEvent, parseStartEndTimeFromEvent } from "./utils";
+import { formatDateToLocalISO, formatTimeToLocalISO, isAttributeChangeAffecting, isBranchChangeAffecting, isValidDuration, parseDurationSeconds, parseStartEndDateFromEvent, parseStartEndTimeFromEvent } from "./utils";
 
 interface CalendarViewData {
 
@@ -146,12 +146,12 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
     // Worked out once and handed to both the grid and the tap that makes an event of one of its
     // slots (see draftFromDateClick), so that the two cannot come to disagree on a slot's length.
     const effectiveSlotDuration = isValidDuration(slotDuration) ? slotDuration : DEFAULT_SLOT_DURATION;
-    const eventBuilder = useMemo(() => {
-        if (!isCalendarRoot) {
-            return async () => await buildEvents(noteIds);
-        }
-        return async (e: EventSourceFuncInfo) => await buildEventsForCalendar(note, e);
-    }, [isCalendarRoot, noteIds]);
+    // Memoized apart, and each on only what it reads: FullCalendar knows a source by the identity
+    // of the function, and a new one empties the grid before it fetches.
+    const rootEventBuilder = useMemo(() =>
+        async (e: EventSourceFuncInfo) => await buildEventsForCalendar(note, e), [note]);
+    const collectionEventBuilder = useMemo(() => async () => await buildEvents(noteIds), [noteIds]);
+    const eventBuilder = isCalendarRoot ? rootEventBuilder : collectionEventBuilder;
 
     const plugins = usePlugins(isEditable, isCalendarRoot);
     const locale = useLocale();
@@ -303,7 +303,15 @@ export default function CalendarView({ note, noteIds }: ViewModeProps<CalendarVi
             if (noteId) drawnNoteIds.add(String(noteId));
         }
 
-        if (isAttributeChangeAffecting(loadResults.getAttributeRows(parentComponent?.componentId), drawnNoteIds)) {
+        // A note filed anywhere in the journal may be a chip on a calendar root, which draws its
+        // day notes and their children rather than a list of ids (see isBranchChangeAffecting).
+        // Only for a root: a collection's own source is built from the ids, so it is renewed as
+        // they are, and asking here as well would fetch the same events twice.
+        const isFilingAffecting = isCalendarRoot
+            && isBranchChangeAffecting(loadResults.getBranchRows(), note.noteId, drawnNoteIds);
+
+        if (isFilingAffecting
+            || isAttributeChangeAffecting(loadResults.getAttributeRows(parentComponent?.componentId), drawnNoteIds)) {
             // Defer execution after the load results are processed so that the event builder has the updated data to work with.
             setTimeout(() => api.refetchEvents(), 0);
             return; // early return since we'll refresh the events anyway

@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 
-import { AttributeRow } from "../../../services/load_results";
+import { AttributeRow, BranchRow } from "../../../services/load_results";
 import { buildNote } from "../../../test/easy-froca";
-import { formatDateToLocalISO, formatTimeToLocalISO, getMonthsInDateRange, isAttributeChangeAffecting, offsetDate, parseStartEndDateFromEvent, parseStartEndTimeFromEvent } from "./utils";
+import { formatDateToLocalISO, formatTimeToLocalISO, getMonthsInDateRange, isAttributeChangeAffecting, isBranchChangeAffecting, offsetDate, parseStartEndDateFromEvent, parseStartEndTimeFromEvent } from "./utils";
 
 /**
  * A moment built in the machine's own zone, which is what the calendar hands these functions: a
@@ -175,5 +175,35 @@ describe("isAttributeChangeAffecting", () => {
 
         expect(isAttributeChangeAffecting([ changed("elsewhere", "color", true) ], [ "drawn" ])).toBe(false);
         expect(isAttributeChangeAffecting([], [ "drawn" ])).toBe(false);
+    });
+});
+
+describe("isBranchChangeAffecting", () => {
+    /** What a reload hands over for one branch; only where it puts the note is read. */
+    function filed(parentNoteId: string): BranchRow {
+        return { branchId: `${parentNoteId}_child`, componentId: "some-component", parentNoteId };
+    }
+
+    it("answers for a note filed under the calendar itself, which is where a new year lands", () => {
+        expect(isBranchChangeAffecting([ filed("journal") ], "journal", [])).toBe(true);
+    });
+
+    it("answers for a note filed under one the calendar already knows of", () => {
+        // The day note a click on an empty day makes: filed under a month the calendar knows, and
+        // itself unknown until the events are built again.
+        expect(isBranchChangeAffecting([ filed("month") ], "journal", [ "year", "month" ])).toBe(true);
+    });
+
+    it("answers where only the outermost of several new notes hangs off something known", () => {
+        // A click on a day of a month that has never been opened makes all three at once, and the
+        // day's own parent is as new as the day is.
+        const rows = [ filed("journal"), filed("year"), filed("month") ];
+
+        expect(isBranchChangeAffecting(rows, "journal", [])).toBe(true);
+    });
+
+    it("keeps quiet for a note filed somewhere else entirely, and for no filing at all", () => {
+        expect(isBranchChangeAffecting([ filed("elsewhere") ], "journal", [ "year", "month" ])).toBe(false);
+        expect(isBranchChangeAffecting([], "journal", [ "year" ])).toBe(false);
     });
 });
