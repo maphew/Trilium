@@ -22,22 +22,29 @@ pnpm client:build              # Frontend
 pnpm server:build              # Backend
 pnpm desktop:build             # Electron
 
-# Test
-pnpm test:all                  # All tests (parallel + sequential)
+# Test — run the narrowest thing that covers your change (see below)
+pnpm --filter server test <path-or-pattern>    # One package, filtered
+pnpm test:all                  # All tests (parallel + sequential) — CI's job, not yours
 pnpm test:parallel             # Client + most package tests
 pnpm test:sequential           # Server (shared DB) + browser-mode tests (ckeditor5)
-pnpm --filter server test      # Single package tests
 pnpm coverage                  # Coverage reports
 
 # Lint & Format
-pnpm dev:linter-check          # ESLint check
-pnpm dev:linter-fix            # ESLint fix
 pnpm dev:format-check          # Format check (stricter stylistic rules)
 pnpm dev:format-fix            # Format fix
 pnpm typecheck                 # TypeScript type check across all projects
 ```
 
 **Running a single test file**: `pnpm --filter server test spec/etapi/search.spec.ts`
+
+### Do not run full suites or ESLint
+
+- **Never run ESLint** — `pnpm dev:linter-check`, `dev:linter-fix`, or `npx eslint` on any path. It currently dies with an out-of-memory error, so a run tells you nothing and costs minutes. CI lints. (Note `packages/*` is globally ignored by the ESLint config anyway, so most of `trilium-core` was never linted locally to begin with.)
+- **Never run `pnpm test:all`, `test:parallel`, `test:sequential`, or `pnpm coverage`** during development. They take a long time, and CI runs them on every push.
+- **Run the narrowest suite that covers what you touched**, and iterate on that: `pnpm --filter <pkg> test <path-or-pattern>`. Vitest treats the trailing argument as a substring filter over test file paths, so `pnpm --filter server test special_notes` runs every matching spec.
+- **Typecheck with `pnpm typecheck`, not a raw `tsc` invocation.** It resolves the project references and per-project configs that a hand-written `tsc --noEmit -p …` or `tsc -b …` gets wrong. It is cheaper than a suite but not instant, so run it when you've finished a change — not after every edit.
+- Core specs are the one case where "narrowest" means **two** commands: they run under both the server and standalone suites (see Testing below), so a targeted run against each is still the right scope.
+- Only reach for a full suite if the user asks, or when the work is finished and they want a final check.
 
 ## Git Workflow
 

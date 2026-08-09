@@ -80,9 +80,11 @@ Debug a browser-mode package with a visible browser:
 vitest --inspect-brk --no-file-parallelism --browser.headless=false
 ```
 
-Root orchestration: `pnpm test:parallel` runs the light packages in parallel; `pnpm
-test:sequential` runs `ckeditor5` **sequentially** (browser resource
-limits), alongside the server. `pnpm test:all` runs both. Each package exposes `"test": "vitest"` and
+Root orchestration — **what CI runs, not what you run.** `pnpm test:parallel` runs the light
+packages in parallel; `pnpm test:sequential` runs `ckeditor5` **sequentially** (browser resource
+limits), alongside the server. `pnpm test:all` runs both. All three take minutes; during development
+run a filtered package suite instead (`pnpm --filter @triliumnext/ckeditor5 test <pattern>`), and
+leave the aggregates to CI. Each package exposes `"test": "vitest"` and
 `"test:debug": "vitest --inspect-brk --no-file-parallelism --browser.headless=false"`.
 
 **When the downloaded browser cannot run** — on NixOS the Chrome for Testing build and chromedriver
