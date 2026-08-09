@@ -72,8 +72,8 @@ export default function DetailPane({ notes, parentNote, placing, isReadOnly, sel
      * The pane has been grown to cover the map (see {@link MaximizeAction} in the header below).
      * Owned by the map view rather than by the pane for the reason the selection is: the map places
      * what it draws around the pane, and a pane covering the whole of it leaves nothing to place
-     * around — the marker previews have nowhere to stand clear to (see Tooltips), and the camera has
-     * no uncovered half to hold the marker in (see {@link paneOffset}).
+     * around — the marker previews have nowhere to stand clear to (see Tooltips), and the camera
+     * has no uncovered half to aim into (see the easing effect below).
      */
     maximized: boolean;
     onMaximizedChange: (maximized: boolean) => void;
@@ -170,6 +170,11 @@ export default function DetailPane({ notes, parentNote, placing, isReadOnly, sel
     // or only what the click named where it named more (see PaneFocus).
     useEffect(() => {
         if (!map || !note) return;
+        // Nothing is aimed at behind a pane that covers the map: the camera would be moving to a
+        // place nobody can see, and the move is seen — the map slides while the pane is still
+        // growing over it. Waiting instead is what makes the dependency below worth having, the
+        // pane coming back down being the moment the marker is worth framing again.
+        if (maximized) return;
 
         if (note.mime === GPX_MIME) {
             const focus = selection?.focus;
@@ -178,7 +183,7 @@ export default function DetailPane({ notes, parentNote, placing, isReadOnly, sel
             // were reading at, exactly as a note marker is — flying out to frame the whole file
             // would lose the very flag they clicked.
             if (focus && "at" in focus) {
-                map.easeTo({ center: focus.at, offset: paneOffset(map, maximized) });
+                map.easeTo({ center: focus.at, offset: paneOffset(map) });
                 return;
             }
 
@@ -193,7 +198,7 @@ export default function DetailPane({ notes, parentNote, placing, isReadOnly, sel
                 if (done || !bounds) return;
                 done = true;
                 map.off("sourcedata", onSourceData);
-                map.fitBounds(bounds, { padding: trackFitPadding(map, maximized), maxZoom: TRACK_FIT_MAX_ZOOM });
+                map.fitBounds(bounds, { padding: trackFitPadding(map), maxZoom: TRACK_FIT_MAX_ZOOM });
             };
 
             // A track selected the moment it was brought onto the map has no line yet: its content
@@ -216,7 +221,7 @@ export default function DetailPane({ notes, parentNote, placing, isReadOnly, sel
         const coordinates = parseLocation(location);
         if (!coordinates) return;
 
-        map.easeTo({ center: coordinates, offset: paneOffset(map, maximized) });
+        map.easeTo({ center: coordinates, offset: paneOffset(map) });
         // The focus is depended on by identity, which a click renews even on the same note: every
         // click is a fresh ask, and re-clicking what is already open brings it back into view.
         //
@@ -280,11 +285,9 @@ export const PANE_REACH = PANE_WIDTH + PANE_INSET;
  * transform, so `getCenter()` — which the view is saved from (see map.tsx) — would report the middle
  * of the uncovered half from then on, walking the saved viewport sideways on every open.
  */
-function paneOffset(map: MapLibreGLMap, maximized: boolean): [number, number] {
-    // A pane grown over the whole map leaves nowhere to hold the marker clear of, as an embedded map
-    // narrower than the pane does. Reading the note is what a grown pane is for; the marker is
-    // brought clear again as it is put back down (see the camera effect above).
-    if (maximized || map.getContainer().clientWidth <= PANE_REACH) {
+function paneOffset(map: MapLibreGLMap): [number, number] {
+    // An embedded map narrower than the pane leaves nowhere to hold the marker clear of.
+    if (map.getContainer().clientWidth <= PANE_REACH) {
         return [ 0, 0 ];
     }
 
@@ -381,14 +384,12 @@ async function trackBounds(map: MapLibreGLMap, noteId: string, track?: number): 
  * the map does not clip the fit but forfeits it: MapLibre cannot solve the camera and leaves it
  * where it stands.
  */
-function trackFitPadding(map: MapLibreGLMap, maximized: boolean) {
+function trackFitPadding(map: MapLibreGLMap) {
     const { clientWidth, clientHeight } = map.getContainer();
     const air = Math.max(0, Math.min(TRACK_FIT_AIR, Math.floor(Math.min(clientWidth, clientHeight) / 4)));
     const padding = { top: air, bottom: air, left: air, right: air };
 
-    // Nothing is reserved for a pane that covers the map: there is no uncovered side to fit the
-    // track into, and reserving one would forfeit the fit outright (see above).
-    if (!maximized && clientWidth > PANE_REACH + 2 * air) {
+    if (clientWidth > PANE_REACH + 2 * air) {
         padding[glob.isRtl ? "left" : "right"] += PANE_REACH;
     }
 

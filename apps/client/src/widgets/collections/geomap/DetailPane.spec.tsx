@@ -708,11 +708,12 @@ describe("DetailPane", () => {
         });
 
         /**
-         * The map holds a selected marker clear of the pane, which a pane covering the whole map
-         * leaves nowhere to hold it in — so the offset is given up while it is grown, and taken up
-         * again as it comes back down (see paneOffset).
+         * The camera waits out a pane that covers the map rather than aiming into it: there is
+         * nowhere left to hold the marker clear of, and a move made behind the pane would be a move
+         * to somewhere nobody can see — seen all the same, the map sliding while the pane is still
+         * growing over it. It is the coming back down that is worth framing for.
          */
-        it("stops holding the marker clear of itself while it covers the map", async () => {
+        it("leaves the camera alone while it covers the map, and frames again as it comes down", async () => {
             const note = buildNote({ title: "Somewhere", "#geolocation": "1,2" });
             const map = fakeMap();
             await openPaneFor(note, map);
@@ -722,14 +723,14 @@ describe("DetailPane", () => {
             });
 
             await maximize();
-            await maximize();
+            // Nothing moved for the growing.
+            expect(map.eased).toEqual([ { center: [ 2, 1 ], offset: [ -200, 0 ] } ]);
 
-            // Held clear of the pane as it opens; brought back to the middle as the pane grows over
-            // the map, there being no uncovered half left to hold it in; and held clear once more as
-            // the pane comes down, rather than left under it until something else moves the camera.
+            await maximize();
+            // And the marker is framed clear of the pane again as it comes back down, rather than
+            // left wherever it was until something else happens to move the camera.
             expect(map.eased).toEqual([
                 { center: [ 2, 1 ], offset: [ -200, 0 ] },
-                { center: [ 2, 1 ], offset: [ 0, 0 ] },
                 { center: [ 2, 1 ], offset: [ -200, 0 ] }
             ]);
         });
