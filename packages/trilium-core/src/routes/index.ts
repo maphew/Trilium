@@ -37,6 +37,7 @@ import loginApiRoute from "./api/login";
 import fontsRoute from "./api/fonts";
 import ocrRoute from "./api/ocr";
 import linkEmbedRoute from "./api/link_embed";
+import llmRoute from "./api/llm";
 
 // TODO: Deduplicate with routes.ts
 const GET = "get",
@@ -205,6 +206,8 @@ export function buildSharedApiRoutes({ route, asyncRoute, asyncRouteWithoutTrans
     apiRoute(PST, "/api/search-related", searchRoute.getRelatedNotes);
     apiRoute(GET, "/api/search/:searchString", searchRoute.search);
     apiRoute(GET, "/api/search-templates", searchRoute.searchTemplates);
+
+    asyncApiRoute(PST, "/api/llm-chat/provider-models", llmRoute.getProviderModels);
 
     apiRoute(GET, "/api/autocomplete", autocompleteApiRoute.getAutocomplete);
     apiRoute(GET, "/api/autocomplete/notesCount", autocompleteApiRoute.getNotesCount);

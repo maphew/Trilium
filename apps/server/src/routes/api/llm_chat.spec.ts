@@ -3,7 +3,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
     configured: true,
-    models: [] as unknown[],
     chunks: [] as unknown[],
     availableModels: [{ id: "m1", name: "Model One", isDefault: true }] as { id: string; name: string; isDefault?: boolean }[],
     chatThrows: undefined as unknown,
@@ -13,11 +12,7 @@ const state = vi.hoisted(() => ({
     chunkSignal: undefined as AbortSignal | undefined,
     // Records how streamChat resolved the provider.
     providerIdRequested: undefined as string | undefined,
-    providerTypeRequested: undefined as string | undefined,
-    // Records the credentials passed to listProviderModels by the provider-models route.
-    providerModelsArgs: undefined as unknown[] | undefined,
-    // When set, listProviderModels rejects with this (simulates a bad key).
-    providerModelsThrows: undefined as unknown
+    providerTypeRequested: undefined as string | undefined
 }));
 
 vi.mock("../../services/llm/index.js", () => {
@@ -34,11 +29,6 @@ vi.mock("../../services/llm/index.js", () => {
     });
     return {
         hasConfiguredProviders: () => state.configured,
-        listProviderModels: async (...args: unknown[]) => {
-            state.providerModelsArgs = args;
-            if (state.providerModelsThrows !== undefined) throw state.providerModelsThrows;
-            return state.models;
-        },
         getSelectedModel: () => undefined,
         getProvider: (id: string) => { state.providerIdRequested = id; return makeProvider(); },
         getProviderByType: (type: string) => { state.providerTypeRequested = type; return makeProvider(); }
@@ -88,50 +78,15 @@ describe("LLM chat API", () => {
     afterEach(() => {
         Object.assign(state, {
             configured: true,
-            models: [],
             chunks: [],
             availableModels: [{ id: "m1", name: "Model One", isDefault: true }],
             chatThrows: undefined,
             chunkNative: false,
             chunkSignal: undefined,
             providerIdRequested: undefined,
-            providerTypeRequested: undefined,
-            providerModelsArgs: undefined,
-            providerModelsThrows: undefined
+            providerTypeRequested: undefined
         });
         generateChatTitle.mockClear();
-    });
-
-    describe("getProviderModels", () => {
-        it("lists models for the credentials in the request body", async () => {
-            state.models = [{ id: "m1" }];
-            const req = { body: { provider: "openai", apiKey: "sk-test", baseURL: "http://localhost:11434/v1" } } as unknown as Request;
-            await expect(llmChatRoute.getProviderModels(req, {} as Response)).resolves.toEqual({ models: [{ id: "m1" }] });
-            expect(state.providerModelsArgs).toEqual(["openai", "sk-test", "http://localhost:11434/v1"]);
-        });
-
-        it("throws when no provider is given", async () => {
-            const req = { body: {} } as unknown as Request;
-            await expect(llmChatRoute.getProviderModels(req, {} as Response)).rejects.toThrow(/provider is required/);
-        });
-
-        it("surfaces a listing failure (e.g. a bad API key) instead of masking it", async () => {
-            state.providerModelsThrows = new Error("Authentication failed (HTTP 401) — check the API key.");
-            const req = { body: { provider: "openai", apiKey: "bad-key" } } as unknown as Request;
-            await expect(llmChatRoute.getProviderModels(req, {} as Response)).rejects.toThrow(/Authentication failed \(HTTP 401\)/);
-        });
-
-        it("defaults a missing apiKey to an empty string", async () => {
-            const req = { body: { provider: "claude-agent" } } as unknown as Request;
-            await llmChatRoute.getProviderModels(req, {} as Response);
-            expect(state.providerModelsArgs).toEqual(["claude-agent", "", undefined]);
-        });
-
-        it("stringifies a non-Error listing failure into the validation error", async () => {
-            state.providerModelsThrows = "socket hang up";
-            const req = { body: { provider: "openai", apiKey: "k" } } as unknown as Request;
-            await expect(llmChatRoute.getProviderModels(req, {} as Response)).rejects.toThrow("socket hang up");
-        });
     });
 
     describe("streamChat", () => {

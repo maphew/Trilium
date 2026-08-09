@@ -1,10 +1,10 @@
 import type { LlmMessage, LlmStreamChunk } from "@triliumnext/commons";
-import { getLog, ValidationError } from "@triliumnext/core";
+import { getLog } from "@triliumnext/core";
+import { generateChatTitle } from "@triliumnext/core/src/services/llm/chat_title.js";
+import { formatStreamError, streamToChunks } from "@triliumnext/core/src/services/llm/stream.js";
 import type { Request, Response } from "express";
 
-import { generateChatTitle } from "@triliumnext/core/src/services/llm/chat_title.js";
-import { getProvider, getProviderByType, getSelectedModel, hasConfiguredProviders, listProviderModels, type LlmProviderConfig } from "../../services/llm/index.js";
-import { formatStreamError, streamToChunks } from "@triliumnext/core/src/services/llm/stream.js";
+import { getProvider, getProviderByType, getSelectedModel, hasConfiguredProviders, type LlmProviderConfig } from "../../services/llm/index.js";
 import { safeExtractMessageAndStackFromError } from "../../services/utils.js";
 
 interface ChatRequest {
@@ -125,33 +125,6 @@ async function streamChat(req: Request, res: Response) {
     }
 }
 
-interface ProviderModelsRequest {
-    provider: string;
-    apiKey?: string;
-    baseURL?: string;
-}
-
-/**
- * List the live models for a provider described by raw credentials. Used by the
- * model-selection screen while adding or editing a provider — the config need
- * not be saved yet, so credentials come in the request body rather than by id.
- */
-async function getProviderModels(req: Request, _res: Response) {
-    const { provider, apiKey, baseURL } = req.body as ProviderModelsRequest;
-    if (!provider) {
-        throw new ValidationError("provider is required");
-    }
-    try {
-        return { models: await listProviderModels(provider, apiKey ?? "", baseURL) };
-    } catch (error) {
-        // A live-listing failure is almost always a bad credential or an
-        // unreachable endpoint the user just entered — surface it as a 400 so
-        // the model-selection screen shows the reason instead of a generic 500.
-        throw new ValidationError(error instanceof Error ? error.message : String(error));
-    }
-}
-
 export default {
-    streamChat,
-    getProviderModels
+    streamChat
 };

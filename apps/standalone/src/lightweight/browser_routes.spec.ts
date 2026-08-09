@@ -28,6 +28,16 @@ describe("registerRoutes (real wiring)", () => {
         expect(parseJson(res.body)).toEqual({ isCpuArchMismatch: false });
     });
 
+    // The model-selection screen calls this while adding a provider. It is an async
+    // handler in the shared table, so reaching its validation error here proves the
+    // browser router registers and awaits it — a provider name is rejected before the
+    // route reaches for the AI SDK, so no provider is contacted.
+    it("serves the LLM provider-models route", async () => {
+        const res = await router.dispatch("POST", "http://localhost/api/llm-chat/provider-models", {});
+        expect(res.status).toBe(400);
+        expect(text(res.body)).toContain("provider is required");
+    });
+
     it("serves the compatibility dummy routes", async () => {
         expect(parseJson((await router.dispatch("GET", "http://localhost/api/script/widgets")).body)).toEqual([]);
         expect(parseJson((await router.dispatch("GET", "http://localhost/api/script/startup")).body)).toEqual([]);
