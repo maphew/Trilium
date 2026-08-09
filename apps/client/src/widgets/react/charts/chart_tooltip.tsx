@@ -49,9 +49,10 @@ export function useChartTooltip<T extends HTMLElement>() {
         tooltipNode: tooltip && (
             // The `tooltip show` classes matter: the themes set the colours on `.tooltip` and scope
             // the text colour to `.tooltip .tooltip-inner`, so a bare inner would inherit the page's.
-            // `tooltip-top` is the app's "raise above everything" class: the base `.tooltip` z-index
-            // is derived from a CKEditor variable that is out of scope here, leaving the bubble at
-            // `auto` — under the hovered mark, which lifts itself to draw its outline.
+            // `tooltip-top` is the app's "raise above everything" class. Unlike a Bootstrap tooltip,
+            // this bubble is rendered inside the chart rather than appended to `<body>`, so it is
+            // stacked against the chart's own marks — and the hovered one lifts itself to draw its
+            // outline, which the base tooltip layer would not clear.
             <div
                 className={clsx(
                     "tooltip", "show", "tooltip-top", "chart-tooltip",
