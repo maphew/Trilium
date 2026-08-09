@@ -1579,13 +1579,18 @@ div.promoted-attribute-cell span.open-external-link-button {
 }
 
 div.promoted-attribute-cell .tn-checkbox {
-    --box-label-gap: 0;
+    --box-label-gap: 0px;
 
-    height: 1cap;
+    height: 1em;
+    vertical-align: calc((1cap - 1em) / 2);
+}
+
+div.promoted-attribute-cell .tn-checkbox > input[type="checkbox"] {
+    width: var(--box-size) !important;
 }
 
 div.promoted-attribute-cell.promoted-attribute-label-boolean > div:first-of-type {
-    margin-inline-end: 1.5em;
+    margin-inline-end: 0.5em;
 }
 
 /* The element containing the "new attribute" and "remove this attribute button" */
