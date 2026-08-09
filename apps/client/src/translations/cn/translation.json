@@ -2948,7 +2948,8 @@
     "direction-left": "分支向左",
     "direction-right": "分支向右",
     "direction-side": "分支向两侧",
-    "reset-zoom": "重置缩放"
+    "reset-zoom": "重置缩放",
+    "direction-down": "向下分支"
   },
   "llm": {
     "add_provider": "添加提供商",
