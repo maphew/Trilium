@@ -1,17 +1,16 @@
 /**
- * LLM skills — on-demand instruction sets that an LLM can load when it needs
- * specialized knowledge (e.g. search syntax). Only names and descriptions are
- * included in the system prompt; full content is fetched via the load_skill tool.
+ * The skill sheets: instruction sets an LLM loads on demand when a question
+ * needs knowledge the system prompt has no room for (search syntax, the
+ * scripting APIs, how a dashboard is put together).
+ *
+ * The sheets themselves are markdown under `src/assets/llm/skills`, and how a
+ * host gets at them differs by runtime — the server reads them off disk, the
+ * browser build has them inlined by its bundler — so this module carries only
+ * the catalog and the seam. Kept apart from {@link ../tools/skill_tools.js} so
+ * that registering a reader costs a host nothing but this file: the tool module
+ * reaches the AI SDK through the tool registry, which the standalone build goes
+ * to some length to keep out of its startup path.
  */
-
-import { defineTools } from "@triliumnext/core/src/services/llm/tools/tool_registry.js";
-import { readFileSync } from "fs";
-import { join } from "path";
-import { z } from "zod";
-
-import resourceDir from "../../resource_dir.js";
-
-const SKILLS_DIR = join(resourceDir.RESOURCE_DIR, "llm", "skills");
 
 interface SkillDefinition {
     name: string;
@@ -19,10 +18,11 @@ interface SkillDefinition {
     description: string;
     /** Short noun phrase for inline use in the system prompt. */
     summary: string;
+    /** Markdown file under `src/assets/llm/skills`, which is what a reader is asked for. */
     file: string;
 }
 
-const SKILLS: SkillDefinition[] = [
+export const SKILLS: SkillDefinition[] = [
     {
         name: "search_syntax",
         description: "Trilium search query syntax reference — labels, relations, note properties, boolean logic, ordering, and more.",
@@ -49,12 +49,31 @@ const SKILLS: SkillDefinition[] = [
     }
 ];
 
-function loadSkillContent(name: string): string | null {
+/** Host-provided reader for the sheets. See {@link registerSkillReader}. */
+let skillReader: ((file: string) => string | null) | null = null;
+
+/**
+ * Register the host's reader for skill sheets, keyed by the file name in
+ * {@link SKILLS}.
+ *
+ * Must answer synchronously, because a tool's `execute` does — so a host that
+ * cannot read on demand (no filesystem) inlines or preloads the sheets and
+ * answers from memory.
+ */
+export function registerSkillReader(reader: (file: string) => string | null) {
+    skillReader = reader;
+}
+
+/**
+ * The sheet's markdown, or null when the skill is unknown to the catalog or the
+ * host cannot produce it.
+ */
+export function readSkill(name: string): string | null {
     const skill = SKILLS.find((s) => s.name === name);
-    if (!skill) {
+    if (!skill || !skillReader) {
         return null;
     }
-    return readFileSync(join(SKILLS_DIR, skill.file), "utf-8");
+    return skillReader(skill.file);
 }
 
 /**
@@ -66,20 +85,3 @@ function loadSkillContent(name: string): string | null {
 export function getSkillsSummary(): string {
     return SKILLS.map((s) => `"${s.name}" for ${s.summary}`).join(", ");
 }
-
-export const skillTools = defineTools({
-    load_skill: {
-        description: `Load a skill to get specialized instructions. Available skills:\n${
-            SKILLS.map((s) => `- ${s.name}: ${s.description}`).join("\n")}`,
-        inputSchema: z.object({
-            name: z.string().describe("The skill name to load")
-        }),
-        execute: ({ name }) => {
-            const content = loadSkillContent(name);
-            if (!content) {
-                return { error: `Unknown skill: '${name}'. Available: ${SKILLS.map((s) => s.name).join(", ")}` };
-            }
-            return { skill: name, instructions: content };
-        }
-    }
-});

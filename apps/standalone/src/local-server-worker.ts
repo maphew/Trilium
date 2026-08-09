@@ -326,6 +326,12 @@ async function initialize(): Promise<void> {
             });
             coreModule.ws.init();
 
+            // This build's half of the LLM stack, mirroring what the server
+            // contributes in registerServerLlmExtensions. Imported here rather than
+            // at the top of the file so the skill sheets it inlines travel in a
+            // chunk of their own instead of the worker's startup bundle.
+            (await import("./lightweight/llm_skills.js")).registerStandaloneLlmExtensions();
+
             logService.info(`[Worker] Supported routes: ${Object.keys(coreModule.routes).join(", ")}`);
 
             // Create and configure the router

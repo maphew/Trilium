@@ -8,6 +8,7 @@ export { attributeTools } from "./attribute_tools.js";
 export { hierarchyTools } from "./hierarchy_tools.js";
 export { iconTools } from "./icon_tools.js";
 export { noteTools } from "./note_tools.js";
+export { skillTools } from "./skill_tools.js";
 export type { ToolDefinition } from "./tool_registry.js";
 export { ToolRegistry } from "./tool_registry.js";
 
@@ -16,22 +17,26 @@ import { attributeTools } from "./attribute_tools.js";
 import { hierarchyTools } from "./hierarchy_tools.js";
 import { iconTools } from "./icon_tools.js";
 import { noteTools } from "./note_tools.js";
+import { skillTools } from "./skill_tools.js";
 import type { ToolRegistry } from "./tool_registry.js";
 
 /**
  * All tool registries, for consumers that need to iterate every tool (e.g. MCP).
  *
- * Registries whose tools depend on a runtime core cannot provide — currently
- * the help and skill tools, which read the User Guide and the skill sheets off
- * disk — are contributed by the host via {@link registerToolRegistry} rather
- * than listed here, so the browser-hosted build simply runs without them.
+ * The skill sheets are listed here even though their markdown reaches each
+ * runtime differently: the catalog is core's, and every host registers a reader
+ * for it (see {@link ../skills.js}). What is still contributed from outside is
+ * the help tools, which read the User Guide off disk — a guide the browser build
+ * does not carry at all — so that registry arrives via
+ * {@link registerToolRegistry} and standalone simply runs without it.
  */
 export const allToolRegistries: ToolRegistry[] = [
     noteTools,
     attributeTools,
     attachmentTools,
     hierarchyTools,
-    iconTools
+    iconTools,
+    skillTools
 ];
 
 /**
