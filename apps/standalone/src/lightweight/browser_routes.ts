@@ -5,6 +5,7 @@
 
 import { BootstrapDefinition } from '@triliumnext/commons';
 import { entity_changes, getContext, getPlatform, getSharedBootstrapItems, getSql, routes, sql_init } from '@triliumnext/core';
+import llmRoute from '@triliumnext/core/src/routes/api/llm.js';
 
 import packageJson from '../../package.json' with { type: 'json' };
 import { type BrowserRequest, BrowserRouter } from './browser_router';
@@ -296,6 +297,16 @@ export function registerRoutes(router: BrowserRouter): void {
         csrfMiddleware: noopMiddleware
     });
     apiRoute('get', '/bootstrap', bootstrapRoute);
+
+    // Streaming a chat, in the only form this runtime can serve it: the request
+    // starts the completion and returns, and the chunks arrive over the
+    // WebSocket-style channel (see core's routes/api/llm.ts). It is registered
+    // here rather than in the shared table because the server and the desktop app
+    // answer `/api/llm-chat/stream` with Server-Sent Events instead — they can
+    // hold a response open, and it delivers the chunks to the one client that
+    // asked rather than broadcasting them to every device signed in.
+    apiRoute('post', '/api/llm-chat/stream-start', llmRoute.startChatStream);
+    apiRoute('post', '/api/llm-chat/stream-abort', llmRoute.abortChatStream);
 
     // Dummy routes for compatibility.
     apiRoute("get", "/api/script/widgets", () => []);

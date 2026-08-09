@@ -38,6 +38,20 @@ describe("registerRoutes (real wiring)", () => {
         expect(text(res.body)).toContain("provider is required");
     });
 
+    // Streaming is registered here rather than in the shared table, so nothing
+    // else would catch its loss. Rejected for a missing stream id, which the
+    // handler checks before starting anything — no completion is begun.
+    it("serves the LLM stream routes, which only this runtime has", async () => {
+        const start = await router.dispatch("POST", "http://localhost/api/llm-chat/stream-start", {});
+        expect(start.status).toBe(400);
+        expect(text(start.body)).toContain("streamId is required");
+
+        // Aborting an id that is not running is a no-op rather than an error, so
+        // reaching a 200 here is what proves the route is wired at all.
+        const abort = await router.dispatch("POST", "http://localhost/api/llm-chat/stream-abort", { streamId: "nope" });
+        expect(abort.status).toBe(200);
+    });
+
     it("serves the compatibility dummy routes", async () => {
         expect(parseJson((await router.dispatch("GET", "http://localhost/api/script/widgets")).body)).toEqual([]);
         expect(parseJson((await router.dispatch("GET", "http://localhost/api/script/startup")).body)).toEqual([]);

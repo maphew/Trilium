@@ -1,11 +1,14 @@
 /**
- * LLM endpoints that every runtime can serve.
+ * The LLM endpoints' handlers. Where each is *registered* differs by runtime, so
+ * only {@link getProviderModels} is in the shared route table.
  *
- * Streaming over Server-Sent Events is not among them — the browser build's
- * request bridge answers a request with one buffered body and cannot carry a
- * response that stays open. That route stays in `apps/server`; the equivalent
- * here starts a completion that reports itself over the WebSocket-style channel,
- * which every runtime already has.
+ * Streaming has no shared form. The server and the desktop app answer
+ * `/api/llm-chat/stream` with Server-Sent Events (that route lives in
+ * `apps/server`, and the desktop's custom-protocol bridge streams it too), which
+ * delivers to the one client that asked. The browser build cannot: its request
+ * bridge answers with a single buffered body and cannot hold a response open, so
+ * it registers {@link startChatStream} instead — see `apps/standalone`'s
+ * browser_routes.ts — and the chunks come back over the WebSocket-style channel.
  */
 
 import type { LlmMessage } from "@triliumnext/commons";

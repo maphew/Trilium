@@ -207,9 +207,11 @@ export function buildSharedApiRoutes({ route, asyncRoute, asyncRouteWithoutTrans
     apiRoute(GET, "/api/search/:searchString", searchRoute.search);
     apiRoute(GET, "/api/search-templates", searchRoute.searchTemplates);
 
+    // Streaming a chat is not here — it has no single form every runtime can serve.
+    // The server and the desktop app answer `/api/llm-chat/stream` with Server-Sent
+    // Events; standalone, whose bridge cannot hold a response open, registers
+    // `llmRoute.startChatStream` itself. See `apps/standalone`'s browser_routes.ts.
     asyncApiRoute(PST, "/api/llm-chat/provider-models", llmRoute.getProviderModels);
-    apiRoute(PST, "/api/llm-chat/stream-start", llmRoute.startChatStream);
-    apiRoute(PST, "/api/llm-chat/stream-abort", llmRoute.abortChatStream);
 
     apiRoute(GET, "/api/autocomplete", autocompleteApiRoute.getAutocomplete);
     apiRoute(GET, "/api/autocomplete/notesCount", autocompleteApiRoute.getNotesCount);
