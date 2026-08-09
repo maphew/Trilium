@@ -229,7 +229,7 @@ describe("Recurrence", () => {
         expect(events[0]).toMatchObject({
             title: "Recurring Event Spanning Day Boundary",
             start: "2025-05-05T23:00:00",
-            duration: "02:00"
+            duration: { days: 0, hours: 2, minutes: 0 }
         });
         expect(events[0].rrule).toContain("DTSTART:20250505T230000");
         expect(events[0].end).toBeUndefined();
@@ -251,7 +251,7 @@ describe("Recurrence", () => {
         expect(events[0]).toMatchObject({
             title: "Timed Recurring Event",
             start: "2025-05-05T13:00:00",
-            duration: "02:30"
+            duration: { days: 0, hours: 2, minutes: 30 }
         });
         expect(events[0].rrule).toContain("DTSTART:20250505T130000");
         expect(events[0].end).toBeUndefined();
@@ -271,6 +271,57 @@ describe("Recurrence", () => {
         expect(events).toHaveLength(1);
         expect(events[0].rrule).toBeDefined();
         expect(events[0].end).toBeUndefined();
+    });
+
+    it("keeps a recurring event whole-day where it has no times", async () => {
+        const noteIds = buildNotes([
+            {
+                title: "Recurring Whole Day",
+                "#startDate": "2025-05-05",
+                "#recurrence": "FREQ=DAILY;COUNT=5"
+            },
+            {
+                title: "Recurring Timed",
+                "#startDate": "2025-05-05",
+                "#startTime": "13:00",
+                "#endTime": "15:30",
+                "#recurrence": "FREQ=DAILY;COUNT=5"
+            }
+        ]);
+        const events = await buildEvents(noteIds);
+
+        expect(events).toHaveLength(2);
+        // Said outright rather than left to FullCalendar to guess: the rrule plugin reads the whole
+        // of the rule for a time, and a `UNTIL=…T235959Z` — which the recurrence editor writes —
+        // makes it guess a timed event however the DTSTART is written.
+        expect(events[0].allDay).toBe(true);
+        expect(events[1].allDay).toBe(false);
+        // And the DTSTART says the same, no midnight invented for a day that has no hours.
+        expect(events[0].rrule).toContain("DTSTART:20250505\n");
+        expect(events[1].rrule).toContain("DTSTART:20250505T130000\n");
+    });
+
+    it("carries the length of a recurring event that runs over days", async () => {
+        const noteIds = buildNotes([
+            {
+                title: "Recurring Single Day",
+                "#startDate": "2025-05-05",
+                "#recurrence": "FREQ=WEEKLY;COUNT=3"
+            },
+            {
+                title: "Recurring Three Days",
+                "#startDate": "2025-05-05",
+                "#endDate": "2025-05-07",
+                "#recurrence": "FREQ=WEEKLY;COUNT=3"
+            }
+        ]);
+        const events = await buildEvents(noteIds);
+
+        expect(events).toHaveLength(2);
+        // Days rather than hours: an `HH:mm` duration has nowhere to put them, so a whole-day
+        // occurrence used to come out "00:00" — no length at all.
+        expect(events[0].duration).toEqual({ days: 1, hours: 0, minutes: 0 });
+        expect(events[1].duration).toEqual({ days: 3, hours: 0, minutes: 0 });
     });
 
     it("writes to console on invalid recurrence rule", async () => {
