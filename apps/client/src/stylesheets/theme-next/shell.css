@@ -177,8 +177,27 @@ body.layout-horizontal > .horizontal {
     align-items: center;
 }
 
-body[dir=ltr] #launcher-container {
-    scrollbar-gutter: stable both-edges;
+/* Thin launcher-rail scrollbar; the padding below (set from the JS-measured
+ * `--launcher-scrollbar-size`) offsets its width so it never shifts the centred buttons. */
+#launcher-container {
+    --scrollbar-thickness: 4px;
+    --scrollbar-thumb-thickness: 4px;
+    --scrollbar-thumb-hover-thickness: 4px;
+    scrollbar-width: thin;
+}
+
+/* Style the base pseudo (forms.css styles only :vertical) so WebKit shows a persistent bar
+ * instead of an auto-hiding overlay. */
+#launcher-container::-webkit-scrollbar {
+    width: var(--scrollbar-thickness);
+    height: var(--scrollbar-thickness);
+}
+
+@supports (-webkit-box-reflect: below) {
+    /* Let ::-webkit-scrollbar win over scrollbar-width on WebKit (mirrors forms.css's :root reset). */
+    #launcher-container {
+        scrollbar-width: unset;
+    }
 }
 
 #launcher-pane.vertical {
@@ -205,6 +224,7 @@ body[dir=ltr] #launcher-container {
     height: 100%;
     overflow-x: hidden;
     overflow-y: auto;
+    padding-inline-start: var(--launcher-scrollbar-size, 0px);
 }
 
 #launcher-pane.horizontal {
@@ -230,6 +250,7 @@ body[dir=ltr] #launcher-container {
     height: 100%;
     overflow-x: auto;
     overflow-y: hidden;
+    padding-block-start: var(--launcher-scrollbar-size, 0px);
 }
 
 @media (max-width: 991px) {
