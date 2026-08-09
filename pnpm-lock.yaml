@@ -107,6 +107,9 @@ importers:
       '@types/node':
         specifier: 24.13.3
         version: 24.13.3
+      '@typescript/native':
+        specifier: npm:typescript@7.0.2
+        version: typescript@7.0.2
       '@vitest/browser-webdriverio':
         specifier: 4.1.10
         version: 4.1.10(vite@8.2.0(@types/node@24.13.3)(esbuild@0.28.1)(jiti@2.7.0)(terser@5.47.1)(tsx@4.23.8)(yaml@2.9.0))(vitest@4.1.10)(webdriverio@9.30.1(supports-color@10.2.2))
@@ -149,9 +152,6 @@ importers:
       js-yaml:
         specifier: 5.2.3
         version: 5.2.3
-      tsc-native:
-        specifier: npm:typescript@7.0.2
-        version: typescript@7.0.2
       tslib:
         specifier: 2.8.1
         version: 2.8.1

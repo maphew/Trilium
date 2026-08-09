@@ -2,16 +2,17 @@
  * Runs `tsc --build` and filters out noisy cascade errors (TS6305).
  * Numbers each remaining error and prints a summary at the end.
  *
- * The compiler is the native (Go) one, pulled in as the `tsc-native` alias of
- * typescript@7 -- it does the same build several times faster. The `typescript`
- * dependency stays on 6.x because TypeScript 7 ships no JS compiler API, and
- * typedoc / typescript-eslint / the Vite plugins all load it.
+ * The compiler is the native (Go) one, installed as `@typescript/native` -- it
+ * does the same build several times faster. The `typescript` dependency stays
+ * on 6.x because TypeScript 7 ships no JS compiler API, and TypeDoc,
+ * typescript-eslint and the browser-side script editor all load it.
+ * See "Two TypeScript versions, on purpose" in CLAUDE.md.
  */
 
 import { spawnSync } from "child_process";
 import { fileURLToPath } from "url";
 
-const TSC = fileURLToPath(new URL("../node_modules/tsc-native/bin/tsc", import.meta.url));
+const TSC = fileURLToPath(new URL("../node_modules/@typescript/native/bin/tsc", import.meta.url));
 const SUPPRESSED_CODES = [ "TS6305" ];
 const ERROR_LINE_PATTERN = /^.+\(\d+,\d+\): error TS\d+:/;
 
