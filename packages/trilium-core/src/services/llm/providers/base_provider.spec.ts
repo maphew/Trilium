@@ -598,6 +598,44 @@ describe("BaseProvider chat / pricing / models / title", () => {
         expect(args.maxOutputTokens).toBe(30);
         expect(args.messages[0].content).toContain("Some long first message");
     });
+
+    it("generateTitle buys a second, larger attempt when the first went entirely on thinking", async () => {
+        // What a reasoning model does to a 30-token budget: spends it all before
+        // writing a word, so the answer is empty and the call ends on "length".
+        generateTextMock
+            .mockResolvedValueOnce({
+                text: "",
+                finishReason: "length",
+                usage: { outputTokens: 30, outputTokenDetails: { reasoningTokens: 30 } }
+            } as any)
+            .mockResolvedValueOnce({ text: "  Considered Title  ", finishReason: "stop", usage: {} } as any);
+
+        const provider = new TestProvider();
+        expect(await provider.generateTitle("Some long first message")).toBe("Considered Title");
+        expect(generateTextMock).toHaveBeenCalledTimes(2);
+        expect((generateTextMock.mock.calls[0][0] as any).maxOutputTokens).toBe(30);
+        expect((generateTextMock.mock.calls[1][0] as any).maxOutputTokens).toBe(2000);
+
+        // Having learned that this model thinks, the next chat skips the attempt
+        // that cannot finish and asks for the room outright.
+        generateTextMock.mockResolvedValueOnce({ text: "Second Title", finishReason: "stop", usage: {} } as any);
+        expect(await provider.generateTitle("Another message")).toBe("Second Title");
+        expect(generateTextMock).toHaveBeenCalledTimes(3);
+        expect((generateTextMock.mock.calls[2][0] as any).maxOutputTokens).toBe(2000);
+    });
+
+    it("generateTitle takes an empty answer at its word when the budget was not what stopped it", async () => {
+        // Finished of its own accord with nothing to say: a bigger budget would buy
+        // the same silence twice.
+        generateTextMock.mockResolvedValueOnce({
+            text: "   ",
+            finishReason: "stop",
+            usage: { outputTokens: 1, outputTokenDetails: { reasoningTokens: 0 } }
+        } as any);
+
+        expect(await new TestProvider().generateTitle("hi")).toBe("");
+        expect(generateTextMock).toHaveBeenCalledOnce();
+    });
 });
 
 describe("BaseProvider default buildSystemMessage", () => {

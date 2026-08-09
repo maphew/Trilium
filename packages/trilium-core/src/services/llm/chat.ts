@@ -67,6 +67,10 @@ export async function* runChat(
 
         for await (const chunk of chunks) {
             if (abortSignal?.aborted) {
+                // Naming the chat is downstream of this loop, so a stopped turn
+                // leaves the note on its timestamp. Said out loud, since from the
+                // outside it is indistinguishable from naming having failed.
+                getLog().info("Chat turn stopped by the user; leaving the chat note unnamed.");
                 return;
             }
             if (chunk.type === "error") {
@@ -92,7 +96,14 @@ export async function* runChat(
  */
 async function generateTitleForFirstTurn(messages: LlmMessage[], config: LlmProviderConfig): Promise<void> {
     const userMessages = messages.filter(m => m.role === "user");
-    if (userMessages.length !== 1 || !config.chatNoteId) {
+    // Later turns are not a naming opportunity at all, so they pass without a word.
+    if (userMessages.length !== 1) {
+        return;
+    }
+    // Whereas a first turn that names no chat note is one: the chat is somewhere
+    // the caller never told us about, and it will keep its timestamp forever.
+    if (!config.chatNoteId) {
+        getLog().info("Not naming this chat: the request carried no chatNoteId.");
         return;
     }
 
@@ -103,9 +114,11 @@ async function generateTitleForFirstTurn(messages: LlmMessage[], config: LlmProv
         const firstText = typeof firstContent === "string"
             ? firstContent
             : firstContent.filter(p => p.type === "text").map(p => p.text).join("\n").trim();
-        if (firstText) {
-            await generateChatTitle(config.chatNoteId, firstText);
+        if (!firstText) {
+            getLog().info(`Not naming chat note ${config.chatNoteId}: the opening message carries no text.`);
+            return;
         }
+        await generateChatTitle(config.chatNoteId, firstText);
     } catch (err) {
         getLog().error(`Failed to generate chat title: ${safeExtractMessageAndStackFromError(err)}`);
     }

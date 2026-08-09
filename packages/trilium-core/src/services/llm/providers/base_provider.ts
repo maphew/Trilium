@@ -6,6 +6,7 @@
 import { type LlmMessage, type LlmMessagePart } from "@triliumnext/commons";
 import { type FilePart, generateText, type ImagePart, type LanguageModel, type ModelMessage, stepCountIs, streamText, type SystemModelMessage, type TextPart, type ToolSet } from "ai";
 
+import { getLog } from "../../log.js";
 import { resolveAttachmentPart } from "../attachment_content.js";
 import { buildNoteHint } from "../note_hint.js";
 import { buildSystemPrompt as composeSystemPrompt } from "../system_prompt.js";
@@ -14,7 +15,18 @@ import type { LlmProvider, LlmProviderConfig, ModelInfo, ModelPricing, StreamRes
 import MODEL_PRICES_JSON from "./model_prices.json" with { type: "json" };
 
 const DEFAULT_MAX_TOKENS = 8096;
+
+/** Room for the title and nothing else: six words, so a model that answers straight away never needs more. */
 const TITLE_MAX_TOKENS = 30;
+
+/**
+ * The second attempt's budget, for a model that thinks before it answers. Its
+ * reasoning spends the tight budget above and the call is cut off having written
+ * nothing, so the retry has to cover the thinking as well as the six words. Far
+ * more than a title costs, but it is one call per chat, and a title nobody gets
+ * is worth less than the tokens it saves.
+ */
+const REASONING_TITLE_MAX_TOKENS = 2000;
 
 /**
  * Turns the AI SDK's telemetry off, on every call into it.
@@ -460,10 +472,56 @@ export abstract class BaseProvider implements LlmProvider {
         return new Set(models.filter(m => !m.isLegacy && !/preview/i.test(m.id)).map(m => m.id));
     }
 
+    /**
+     * Name a chat after its opening message, in at most six words.
+     *
+     * Asked for twice at most. A model that reasons first spends the tight budget
+     * thinking and is cut off before writing any of the answer, which arrives as
+     * an empty text with a `length` finish — indistinguishable, to the caller,
+     * from a model that had nothing to say. That case buys one retry with room
+     * for the thinking too; everything else is taken at its word.
+     */
     async generateTitle(firstMessage: string): Promise<string> {
-        const { text } = await generateText({
+        const budget = this.titleNeedsRoomToThink ? REASONING_TITLE_MAX_TOKENS : TITLE_MAX_TOKENS;
+        const attempt = await this.requestTitle(firstMessage, budget);
+        if (attempt.title) {
+            return attempt.title;
+        }
+
+        // Only a first attempt is worth repeating: run out of the larger budget and
+        // the model is not going to fit a title into a larger one either.
+        const log = getLog();
+        const cutOffThinking = attempt.finishReason === "length" && budget === TITLE_MAX_TOKENS;
+        if (cutOffThinking) {
+            this.titleNeedsRoomToThink = true;
+            log.info(`${this.name} wrote no title within ${TITLE_MAX_TOKENS} tokens; retrying with ${REASONING_TITLE_MAX_TOKENS}.`);
+        }
+        const result = cutOffThinking
+            ? await this.requestTitle(firstMessage, REASONING_TITLE_MAX_TOKENS)
+            : attempt;
+
+        if (!result.title) {
+            const { outputTokens, outputTokenDetails } = result.usage;
+            log.info(`${this.name} produced no title with ${this.titleModel}: finished as `
+                + `"${result.finishReason}" after ${outputTokens ?? "?"} output tokens, `
+                + `${outputTokenDetails?.reasoningTokens ?? 0} of them reasoning.`);
+        }
+        return result.title;
+    }
+
+    /**
+     * Set the first time a title call is cut off mid-thought: this model reasons,
+     * so every chat after it starts on the larger budget instead of paying a round
+     * trip for an attempt that cannot finish. Kept on the instance, which is
+     * cached for as long as the provider configuration stands.
+     */
+    private titleNeedsRoomToThink = false;
+
+    /** One title call, with whatever the caller is willing to spend on it. */
+    private async requestTitle(firstMessage: string, maxOutputTokens: number) {
+        const { text, finishReason, usage } = await generateText({
             model: this.createModel(this.titleModel),
-            maxOutputTokens: TITLE_MAX_TOKENS,
+            maxOutputTokens,
             telemetry: TELEMETRY_OFF,
             messages: [
                 {
@@ -473,6 +531,6 @@ export abstract class BaseProvider implements LlmProvider {
             ]
         });
 
-        return text.trim();
+        return { title: text.trim(), finishReason, usage };
     }
 }
