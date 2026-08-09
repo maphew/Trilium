@@ -745,8 +745,11 @@ function useEventDisplayCustomization(parentNote: FNote, componentId: string | u
  * A chip drawn as a row — a month cell's, and an all-day band's, which is the very same row drawn
  * above a time grid — is one centred line however wide it gets, so attributes put there would
  * crowd the title along it. The row is asked to wrap instead and they take a line of their own
- * beneath the title (see eventInnerClass), which is where they stood before v7. Only a band or a
- * cell wide enough to be worth wrapping: a narrow one is left as the one line it is.
+ * beneath the title (see eventInnerClass), which is where they stood before v7.
+ *
+ * However narrow the cell: a phone's month is seven columns of some fifty pixels, and the fields
+ * asked for are wanted there as much as anywhere — read a few characters to the line, as they were
+ * before v7, rather than not at all.
  *
  * A timed event on a time grid is a column already, wherever it is tall enough to be one, and its
  * attributes follow the title down it with nothing further asked of the chip.
@@ -759,7 +762,7 @@ export function roomForAttributes(e: EventDisplayInfo): "stacked" | "wrapped" | 
     // An all-day event is the only kind the band above a time grid draws (see AllDaySplitter): a
     // timed one is sliced into the columns below, however many days it runs.
     if (e.view.type === "dayGridMonth" || (isTimeGrid && e.event.allDay)) {
-        return !e.isNarrow ? "wrapped" : null;
+        return "wrapped";
     }
 
     if (isTimeGrid) {

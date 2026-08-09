@@ -16,9 +16,10 @@ describe("roomForAttributes", () => {
         expect(roomForAttributes(chip({ view: "dayGridMonth", allDay: true }))).toBe("wrapped");
         expect(roomForAttributes(chip({ view: "timeGridWeek", allDay: true }))).toBe("wrapped");
         expect(roomForAttributes(chip({ view: "timeGridDay", allDay: true }))).toBe("wrapped");
-        // A cell too narrow to hold much of a title is left as the one line it is.
-        expect(roomForAttributes(chip({ view: "dayGridMonth", isNarrow: true }))).toBe(null);
-        expect(roomForAttributes(chip({ view: "timeGridWeek", allDay: true, isNarrow: true }))).toBe(null);
+        // Narrow as well — a phone's seven columns, where a few characters to the line is still
+        // more than the nothing they used to say.
+        expect(roomForAttributes(chip({ view: "dayGridMonth", isNarrow: true }))).toBe("wrapped");
+        expect(roomForAttributes(chip({ view: "timeGridWeek", allDay: true, isNarrow: true }))).toBe("wrapped");
     });
 
     it("lets a timed event on a time grid stack them, its content being a column already", () => {
