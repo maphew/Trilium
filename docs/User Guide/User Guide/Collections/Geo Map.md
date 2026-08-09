@@ -101,12 +101,18 @@ When a marker or a track is clicked, a popup will open to the right which contai
 *   An indicator for the coordinates; clicking it will copy the coordinates to clipboard.
 *   A button to maximize the popup.
 *   Buttons to interact with the markers:
-    *   Buttons to open the marker in the same pane, new tab, etc.
+    *   Open the marker in the same pane, new tab, etc.
     *   A button to open the location in a dedicated application (e.g. Google Maps on mobile).
     *   Color picker to change the color of the marker.
     *   Button to remove the marker from the map, which can optionally delete its corresponding note. Removing a marker without deleting the note will only remove its `#geolocation` attribute (case in which the coordinates have to be manually added back in in order to get the note to show on the map again).
 *   The <a class="reference-link" href="../Advanced%20Usage/Attributes/Promoted%20Attributes.md">Promoted Attributes</a> of the marker, if any.
 *   The note's content which can be edited directly from the panel.
+
+To dismiss the popup:
+
+*   Press the X button at the top-right of the popup.
+*   In the map, press anywhere outside the popup.
+*   Or simply press the <kbd spellcheck="false">Escape</kbd> key.
 
 When a marker is clicked, the map will automatically adjust the viewport so that the marker is still visible with the popup open. The currently selected marker is shown slightly bigger.
 
