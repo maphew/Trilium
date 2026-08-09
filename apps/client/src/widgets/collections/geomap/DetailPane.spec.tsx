@@ -690,8 +690,15 @@ describe("DetailPane", () => {
                     pane()?.querySelector<HTMLButtonElement>(".tn-overlay-panel-header-actions button.tn-embedded-note-maximize")?.click();
                 });
 
+                const body = () => pane()?.querySelector(".geo-detail-pane-body");
+                expect(body()?.classList.contains("tn-embedded-note-pane-wide")).toBe(false);
+
                 await maximize();
                 expect(pane()?.classList.contains("maximized")).toBe(true);
+                // Having a note's width, what it holds is laid out for one: the promoted fields
+                // stand side by side as the quick editor shows them, rather than one to a line
+                // (see `tn-embedded-note-pane-wide` in EmbeddedNotePane.css).
+                expect(body()?.classList.contains("tn-embedded-note-pane-wide")).toBe(true);
                 // The same editor, never having been away.
                 expect(pane()?.querySelector(".note-detail-stub")).toBe(editorEl);
                 // Neither a hand-over to another surface nor a dismissal: the pane is still up, and

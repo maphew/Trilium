@@ -443,7 +443,9 @@ function MarkerDetails({ note, parentNote, isReadOnly, maximized, onMaximizedCha
             }
             close={{ text: t("geo-map.close-details"), onClick: onClose }}
         >
-            <OverlayPanelBody className="geo-detail-pane-body tn-embedded-note-pane">
+            {/* Grown over the map, the pane has a note's width, so what it holds is laid out for one
+                (see `tn-embedded-note-pane-wide` in EmbeddedNotePane.css). */}
+            <OverlayPanelBody className={clsx("geo-detail-pane-body tn-embedded-note-pane", maximized && "tn-embedded-note-pane-wide")}>
                 <MarkerLocation note={note} />
 
                 <MarkerActions note={note} parentNote={parentNote} isReadOnly={isReadOnly} onRelocate={onRelocate} />

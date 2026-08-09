@@ -1,5 +1,6 @@
 import "./EventPopover.css";
 
+import clsx from "clsx";
 import { useCallback, useEffect, useRef, useState } from "preact/hooks";
 
 import FNote from "../../../entities/fnote";
@@ -248,7 +249,7 @@ function EventDetails({ note, parentNote, isEditable, maximized, setMaximized, o
                 />
             </div>
 
-            <EventDetailsBody note={note} parentNote={parentNote} isEditable={isEditable} onClose={onClose} />
+            <EventDetailsBody note={note} parentNote={parentNote} isEditable={isEditable} maximized={maximized} onClose={onClose} />
         </div>
     );
 }
@@ -258,10 +259,14 @@ function EventDetails({ note, parentNote, isEditable, maximized, setMaximized, o
  * promoted attributes and the note. Shared by the two shells, which differ only in what they put
  * around this and how they are dismissed.
  */
-function EventDetailsBody({ note, parentNote, isEditable, onClose }: {
+function EventDetailsBody({ note, parentNote, isEditable, maximized, onClose }: {
     note: FNote;
     parentNote: FNote;
     isEditable: boolean;
+    /** The card fills the window, so what it holds is laid out for a note's width rather than a
+     *  card's (see `tn-embedded-note-pane-wide` in EmbeddedNotePane.css). Never a sheet's, which is
+     *  a phone's whole screen and still only one field wide. */
+    maximized?: boolean;
     onClose(): void;
 }) {
     // The labels the body's own fields already speak for, so the promoted grid does not repeat
@@ -270,7 +275,7 @@ function EventDetailsBody({ note, parentNote, isEditable, onClose }: {
     const eventLabels = useEventLabelOmissions(note);
 
     return (
-        <div className="calendar-event-popover-body tn-embedded-note-pane">
+        <div className={clsx("calendar-event-popover-body tn-embedded-note-pane", maximized && "tn-embedded-note-pane-wide")}>
                 {/* What can be done with the event: the ways of opening its note (see
                     OpenNoteActions), then the ways of changing it — left out rather than disabled
                     where the calendar may not be edited, as the geo pane leaves them out. */}
