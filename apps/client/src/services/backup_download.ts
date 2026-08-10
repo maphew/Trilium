@@ -41,12 +41,13 @@ export function backupFileName(name: string): string {
  */
 export async function startBackupDownload(
     fileName: string,
-    passphrase?: string
+    passphrase?: string,
+    onProgress?: (sentBytes: number, totalBytes: number) => void
 ): Promise<StandaloneDownloadResult> {
     const api = window.standaloneApi;
     if (!api) {
         return { status: "failed", message: "This platform does not back up by download." };
     }
 
-    return await api.backup.downloadDatabase(fileName, passphrase || undefined);
+    return await api.backup.downloadDatabase(fileName, passphrase || undefined, onProgress);
 }

@@ -133,6 +133,7 @@ const DOWNLOAD_START_TIMEOUT_MS = 45_000;
 let pendingDownload: {
     resolve: (result: StandaloneDownloadResult) => void;
     startTimer: ReturnType<typeof setTimeout>;
+    onProgress?: (sentBytes: number, totalBytes: number) => void;
 } | null = null;
 
 /** Carried from {@link downloadDatabase} to the stream relay, so it never rides the URL. */
@@ -163,7 +164,11 @@ let pendingDownloadPassphrase: string | undefined;
  * leader's, and the passphrase asked for here never leaves this tab, so a follower would produce
  * either no backup or an unencrypted one under the belief it was encrypted.
  */
-export function downloadDatabase(fileName: string, passphrase?: string): Promise<StandaloneDownloadResult> {
+export function downloadDatabase(
+    fileName: string,
+    passphrase?: string,
+    onProgress?: (sentBytes: number, totalBytes: number) => void
+): Promise<StandaloneDownloadResult> {
     if (!isLeader()) {
         return Promise.resolve({
             status: "failed",
@@ -186,6 +191,7 @@ export function downloadDatabase(fileName: string, passphrase?: string): Promise
     return new Promise((resolve) => {
         pendingDownload = {
             resolve,
+            onProgress,
             startTimer: setTimeout(
                 () => settlePendingDownload({ status: "failed", message: "The download did not start." }),
                 DOWNLOAD_START_TIMEOUT_MS
@@ -344,6 +350,13 @@ export function startLocalServerWorker() {
         // resets that clock, so one is sent for as long as the worker says the stream is running.
         // The end of the stream also carries its outcome, which is what the caller of
         // downloadDatabase() has been waiting on.
+        // How far the download has got, which the screen shows because a phone hides its own
+        // download UI behind the notification shade.
+        if (msg?.type === "BACKUP_STREAM_PROGRESS") {
+            pendingDownload?.onProgress?.(Number(msg.sentBytes), Number(msg.totalBytes));
+            return;
+        }
+
         if (msg?.type === "BACKUP_STREAM_ACTIVE") {
             setBackupPinging(msg.active === true);
             if (msg.active === true) {

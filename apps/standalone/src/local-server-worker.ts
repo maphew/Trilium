@@ -550,7 +550,16 @@ async function handleBackupStream(port: MessagePort, passphrase?: string): Promi
         // A MessagePort satisfies the seam at runtime; only the `onmessage` property's event
         // parameter is typed wider here than the seam's, which a cast is the whole cost of.
         port as unknown as import("./lightweight/backup-download.js").DownloadPort,
-        { passphrase }
+        {
+            passphrase,
+            // To the page rather than the port: the browser's own download UI is out of reach on
+            // a phone until the notification shade is pulled down, so the screen says it itself.
+            onProgress: (sentBytes, totalBytes) => (self as unknown as Worker).postMessage({
+                type: "BACKUP_STREAM_PROGRESS",
+                sentBytes,
+                totalBytes
+            })
+        }
     );
 
     announce(false, result);

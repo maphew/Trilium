@@ -3723,6 +3723,8 @@
     "backup-file": "Backup will be saved as",
     "backup-download": "Generate and download backup",
     "backup-downloading": "Downloading...",
+    "backup-downloading-percent": "{{percent}}%",
+    "backup-downloading-size": "({{done}} of {{total}})",
     "backup-do-not-close": "Please do not switch away or close this screen until the download completes.",
     "backup-downloaded": "The download has completed. Press \"Finish\" to return to the application.",
     "backup-download-failed": "The download did not finish.",

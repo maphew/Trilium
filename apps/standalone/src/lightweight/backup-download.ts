@@ -55,7 +55,23 @@ export interface DownloadOptions {
     passphrase?: string;
     /** scrypt cost override, for tests that cannot afford the production one. */
     scrypt?: ScryptParams;
+    /**
+     * How much of the download has been handed over, for a screen to show.
+     *
+     * Called no more often than {@link PROGRESS_INTERVAL_MS}, and once at the end. Bytes rather
+     * than a fraction, because the screen shows both, and this is the only place that knows the
+     * total before the browser does.
+     */
+    onProgress?: (sentBytes: number, totalBytes: number) => void;
 }
+
+/**
+ * How often progress is worth reporting.
+ *
+ * A backup hands over thousands of chunks, and a message per chunk would be thousands of renders
+ * for a number that a person reads a few times a minute.
+ */
+const PROGRESS_INTERVAL_MS = 250;
 
 /**
  * How long the stream waits to be asked for more before giving the download up for dead.
@@ -122,6 +138,9 @@ export async function streamDatabaseDownload(
      * amount of reading or hashing faster would show up in the total.
      */
     let waitedMs = 0;
+    let sentBytes = 0;
+    let totalBytes = 0;
+    let reportedAt = 0;
 
     /** Posts one chunk per granted pull, or throws the stop that was granted instead. */
     const sendChunk = async (chunk: Uint8Array): Promise<void> => {
@@ -133,11 +152,20 @@ export async function streamDatabaseDownload(
             throw new DownloadStopped(request);
         }
 
+        const length = chunk.byteLength;
         // Fresh, whole buffers are handed over rather than copied; anything else is copied first.
         const data = chunk.byteOffset === 0 && chunk.byteLength === chunk.buffer.byteLength
             ? chunk.buffer
             : chunk.slice().buffer;
         port.postMessage({ type: "chunk", data }, [ data ]);
+
+        // Counted after the hand-over, so what is reported is what has actually gone.
+        sentBytes += length;
+        const now = Date.now();
+        if (now - reportedAt >= PROGRESS_INTERVAL_MS) {
+            reportedAt = now;
+            options.onProgress?.(sentBytes, totalBytes);
+        }
     };
 
     let source: ReadableStream<Uint8Array> | undefined;
@@ -150,7 +178,8 @@ export async function streamDatabaseDownload(
         // extension. Without a passphrase it is the database between a header and a trailer, the
         // trailer's digest vouching for it; with one, every frame is authenticated as well.
         const encrypted = !!options.passphrase;
-        port.postMessage({ type: "begin", byteSize: containerSize(byteSize, encrypted) });
+        totalBytes = containerSize(byteSize, encrypted);
+        port.postMessage({ type: "begin", byteSize: totalBytes });
         await writeBackupContainer(
             stream,
             new WritableStream<Uint8Array>({ write: sendChunk }),
@@ -164,6 +193,9 @@ export async function streamDatabaseDownload(
             }
         );
         port.postMessage({ type: "end" });
+        // The last one is unconditional: a throttled report would otherwise leave the screen a
+        // chunk short of the total it is about to be told is finished.
+        options.onProgress?.(sentBytes, totalBytes);
         reportTiming(byteSize, timing, waitedMs, Date.now() - startedAt);
 
         return { status: "done" };

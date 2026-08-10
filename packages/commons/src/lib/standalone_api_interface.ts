@@ -65,7 +65,11 @@ export interface StandaloneBackupApi {
      * to "the download finished" as the application can see: the browser's download manager may
      * still be settling the last bytes to disk for a moment after.
      */
-    downloadDatabase(fileName: string, passphrase?: string): Promise<StandaloneDownloadResult>;
+    downloadDatabase(
+        fileName: string,
+        passphrase?: string,
+        onProgress?: (sentBytes: number, totalBytes: number) => void
+    ): Promise<StandaloneDownloadResult>;
 }
 
 /** The complete surface the standalone build exposes to the client. */
