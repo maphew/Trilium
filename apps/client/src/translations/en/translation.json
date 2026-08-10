@@ -3747,6 +3747,8 @@
     "restore-error-unfinished": "This backup was taken from a setup that was never finished, so there is nothing in it to restore.",
     "restore-error-swap-failed": "The database could not be replaced. Your previous database is back in place.",
     "restore-error-swap-failed-reload": "The database could not be replaced. Your previous database is back in place, but Trilium could not reopen it. Reload this page to continue.",
+    "restore-error-check-failed": "The backup could not be checked. This may be a problem on this device rather than with the backup itself, so it is worth trying again.",
+    "restore-error-failed": "The restore could not be completed. Nothing was replaced, so your knowledge base is as it was.",
     "restore-error-would-not-open": "The restored database could not be opened. Your previous database is back in place.",
     "restore-error-refused": "Another setup step is already running.",
     "restore-error-already-initialized": "This instance already has a knowledge base, so it cannot be restored over. Reload the page.",

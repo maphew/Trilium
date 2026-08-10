@@ -122,8 +122,13 @@ export async function restoreDatabase(
         report({ stage: "done" });
     } catch (e) {
         const failure = asFailure(e);
-        // The candidate is no use to anyone now, and the pool's slots are finite.
-        await removeQuietly(target.pool, candidate);
+        // The candidate is no use to anyone now, and the pool's slots are finite. Unless a start
+        // would open it, which is the one case where it is not a leftover but the database itself:
+        // the pointer is only ever put on it once it has passed its checks, and removing what the
+        // pointer names would leave nothing to open at all.
+        if (await readCurrentDatabaseName() !== candidate) {
+            await removeQuietly(target.pool, candidate);
+        }
         report({ stage: "failed", error: failure.message, reason: failure.reason });
 
         throw failure;
@@ -132,8 +137,8 @@ export async function restoreDatabase(
 
 /** A failure with a reason attached, so the setup screen can tell the cases apart. */
 export class RestoreFailure extends Error {
-    constructor(readonly reason: string, message: string) {
-        super(message);
+    constructor(readonly reason: string, message: string, options?: ErrorOptions) {
+        super(message, options);
         this.name = "RestoreFailure";
     }
 }
@@ -199,19 +204,11 @@ function validate(pool: SAHPoolUtil, candidate: string): DatabaseValidation {
     try {
         return validateDatabase(candidateOf(db), { skipIntegrityCheck: true });
     } catch (e) {
-        // The browser taking the pool's handles away is not this database being damaged, and saying
-        // so would condemn a backup that is perfectly good. Left to the caller, which can take them
-        // back and ask again.
-        if (isClosedAccessHandle(e)) {
-            throw e;
-        }
-
-        // What a database too damaged to query throws is this driver's business, not the checks'.
-        return {
-            valid: false,
-            rejection: "damaged-database",
-            message: `The database could not be read: ${messageOf(e)}`
-        };
+        // Not a verdict on the backup. The checks call a database damaged by looking at it and
+        // finding it so; this is the looking itself having failed, which says nothing about what
+        // was being looked at. Calling it damaged because the device ran out of memory, or because
+        // the browser took the pool's handles away, is how a perfectly good backup gets thrown out.
+        throw new RestoreFailure("check-failed", messageOf(e), { cause: e });
     } finally {
         db.close();
     }
@@ -235,9 +232,11 @@ function candidateOf(db: InstanceType<SAHPoolUtil["OpfsSAHPoolDb"]>): CandidateD
  */
 async function swapIn(target: RestoreTarget, previous: string, candidate: string): Promise<void> {
     target.close();
-    await writeCurrentDatabaseName(candidate);
 
     try {
+        // Inside the rollback's reach, because a pointer half-written is the one failure that could
+        // leave a start reading neither name.
+        await writeCurrentDatabaseName(candidate);
         await openWithHandles(target, candidate);
     } catch (e) {
         // Put back what was live, so a candidate that will not open costs nothing.
@@ -281,7 +280,14 @@ async function rollBackTo(
     previous: string,
     cause: unknown
 ): Promise<RestoreFailure> {
-    await writeCurrentDatabaseName(previous);
+    try {
+        await writeCurrentDatabaseName(previous);
+    } catch {
+        // The pointer is whatever it was left as, which may be the candidate. That one has passed
+        // its checks, so a start finding it is not in danger; it is simply not the database this
+        // instance was told to keep, and only a start can settle which it opens.
+        return new RestoreFailure("swap-failed-reload", messageOf(cause));
+    }
 
     try {
         await openWithHandles(target, previous);
@@ -346,6 +352,12 @@ async function keepingHandles<T>(
  */
 function isClosedAccessHandle(e: unknown): boolean {
     if (e instanceof DOMException && e.name === "InvalidStateError") {
+        return true;
+    }
+
+    // Through whatever wrapped it. A step reports a failure in its own terms, and it has no business
+    // deciding on the way whether the browser's error underneath is one that can be recovered from.
+    if (e instanceof Error && e.cause !== undefined && isClosedAccessHandle(e.cause)) {
         return true;
     }
 
@@ -429,7 +441,10 @@ function asFailure(e: unknown): RestoreFailure {
         return new RestoreFailure(e.reason, e.message);
     }
 
-    return new RestoreFailure("swap-failed", messageOf(e));
+    // Not "swap-failed": everything that reaches here failed before the swap was reached, and
+    // saying otherwise would tell the user their database had been replaced and put back when it
+    // was never touched.
+    return new RestoreFailure("restore-failed", messageOf(e));
 }
 
 function messageOf(e: unknown): string {

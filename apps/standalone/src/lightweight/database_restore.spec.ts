@@ -180,9 +180,12 @@ function fakeTarget(pool: SAHPoolUtil, options: {
 
 /** Stands in for the origin's private filesystem, which is where the pointer lives. */
 let pointer: string | undefined;
+/** Set by a test to make writing the pointer fail, which is the one write nothing else can repair. */
+let refusePointer: ((name: string) => boolean) | undefined;
 
 beforeEach(() => {
     pointer = undefined;
+    refusePointer = undefined;
     vi.stubGlobal("navigator", {
         storage: {
             getDirectory: async () => ({
@@ -194,7 +197,12 @@ beforeEach(() => {
                     return {
                         getFile: async () => ({ text: async () => pointer ?? "" }),
                         createWritable: async () => ({
-                            write: async (text: string) => { pointer = text; },
+                            write: async (text: string) => {
+                                if (refusePointer?.(text)) {
+                                    throw new Error("the pointer could not be written");
+                                }
+                                pointer = text;
+                            },
                             close: async () => {}
                         })
                     };
@@ -387,7 +395,10 @@ describe("a backup that cannot be restored", () => {
         pool.OpfsSAHPoolDb.prototype.selectValues = function (sql: string) {
             if (answered.times++ === 0) {
                 handles.closed = true;
-                throw closedAccessHandle();
+                // Worded differently on purpose, and reported wrapped in the checks' own failure:
+                // what marks it out has to be the kind of error it is, not the sentence a given
+                // browser version happens to use.
+                throw new DOMException("The file handle was invalidated", "InvalidStateError");
             }
 
             return tables.call(this, sql);
@@ -399,6 +410,24 @@ describe("a backup that cannot be restored", () => {
         expect(pointer).toBe(CANDIDATE_NAME);
     });
 
+    it("says the check could not be carried out, rather than calling the backup damaged", async () => {
+        const { pool, files } = fakePool();
+        const { target } = fakeTarget(pool);
+        pool.OpfsSAHPoolDb.prototype.selectValues = () => {
+            throw new Error("out of memory");
+        };
+
+        // The checks call a database damaged by looking at it. Where the looking is what failed,
+        // there is nothing to conclude about the file, and concluding anyway is how someone deletes
+        // the only copy of their notes.
+        await expect(restoreDatabase(target, new Blob([ databaseBytes() ])))
+            .rejects.toMatchObject({ reason: "check-failed", message: expect.stringContaining("out of memory") });
+
+        // Still cleaned up after, and the live database is untouched.
+        expect(files.has(CANDIDATE_NAME)).toBe(false);
+        expect(pointer).toBeUndefined();
+    });
+
     it("reports what stopped an import that no recovery could help", async () => {
         const { pool, handles } = fakePool();
         const { target } = fakeTarget(pool);
@@ -406,11 +435,32 @@ describe("a backup that cannot be restored", () => {
             throw new Error("the pool is full");
         };
 
+        // Never reached the swap, so it must not say the database was replaced and put back.
         await expect(restoreDatabase(target, new Blob([ databaseBytes() ])))
-            .rejects.toMatchObject({ message: expect.stringContaining("the pool is full") });
+            .rejects.toMatchObject({
+                reason: "restore-failed",
+                message: expect.stringContaining("the pool is full")
+            });
 
         // Nothing to take back, so nothing was let go of either.
         expect(handles.paused).toBe(0);
+        expect(pointer).toBeUndefined();
+    });
+
+    it("keeps the restored database when the pointer cannot be put back on the old one", async () => {
+        const { pool, files } = fakePool();
+        const { target } = fakeTarget(pool, { failToOpen: CANDIDATE_NAME });
+        // The swap fails, and so does putting the pointer back, which leaves it naming the
+        // candidate: the one state where that entry is not a leftover but the database itself.
+        refusePointer = (name) => name === DEFAULT_DATABASE_NAME;
+
+        await expect(restoreDatabase(target, new Blob([ databaseBytes() ])))
+            .rejects.toMatchObject({ reason: "swap-failed-reload" });
+
+        // Kept, because a start would open it and removing it would leave nothing to open at all.
+        // It has passed its checks by this point, so opening it is safe.
+        expect(files.has(CANDIDATE_NAME)).toBe(true);
+        expect(pointer).toBe(CANDIDATE_NAME);
     });
 
     it("takes the pool's access handles back where the browser has closed them, and opens", async () => {

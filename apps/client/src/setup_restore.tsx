@@ -319,6 +319,8 @@ function headlineFor(reason: string | undefined): string {
         case "database-not-initialized": return t("setup.restore-error-unfinished");
         case "swap-failed": return t("setup.restore-error-swap-failed");
         case "swap-failed-reload": return t("setup.restore-error-swap-failed-reload");
+        case "check-failed": return t("setup.restore-error-check-failed");
+        case "restore-failed": return t("setup.restore-error-failed");
         case "migration-failed": return t("setup.restore-error-would-not-open");
         case "restore-refused": return t("setup.restore-error-refused");
         case "already-initialized": return t("setup.restore-error-already-initialized");
