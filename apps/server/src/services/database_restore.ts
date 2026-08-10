@@ -1,8 +1,8 @@
 import {
     type BackupContainerErrorReason,
     FIXED_HEADER_BYTES,
+    getInfo,
     isBackupContainerError,
-    peekBackupContainer,
     type ProgressCallback,
     readBackupContainer
 } from "@triliumnext/backup-container";
@@ -416,9 +416,12 @@ export function readBackupFormat(filePath: string): BackupFormat | null {
         }
     }
 
-    const container = peekBackupContainer(head);
+    const container = getInfo(head);
+    // A version this build cannot open is left to the reader to refuse, which it does by name; here
+    // it is only ever a file this path has no way to unwrap.
+    const readable = container.isValid && container.isSupported;
 
-    return { container: !!container, encrypted: container?.encrypted ?? false };
+    return { container: readable, encrypted: readable && container.isEncrypted };
 }
 
 /**

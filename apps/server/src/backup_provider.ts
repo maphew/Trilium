@@ -1,6 +1,6 @@
 import {
     FIXED_HEADER_BYTES,
-    peekBackupContainer,
+    getInfo,
     writeBackupContainer
 } from "@triliumnext/backup-container";
 import type {
@@ -325,16 +325,16 @@ function describeContainer(filePath: string, fileName: string): Partial<Database
         }
     }
 
-    const info = peekBackupContainer(head);
-    if (!info) {
+    const info = getInfo(head);
+    if (!info.isValid || !info.isSupported) {
         return {};
     }
 
     return {
-        compressed: info.compressed,
-        encrypted: info.encrypted,
+        compressed: info.isCompressed,
+        encrypted: info.isEncrypted,
         // Recorded as 0 when the writer did not know it, which reads the same as "not stated".
-        plaintextSize: info.plaintextSize > 0 ? info.plaintextSize : undefined
+        plaintextSize: info.size > 0 ? info.size : undefined
     };
 }
 

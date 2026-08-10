@@ -697,7 +697,7 @@ describe("what the restore calls the stage it is at", () => {
         }
     });
 
-    it("says what happens next once the restore is done, rather than naming a finished step", () => {
+    it("says what happens next once it is done, rather than naming a finished step", () => {
         // The frame between the last step and the reload, and the one the user watches hardest.
         expect(stageLabel("done")).toBe("setup.redirecting");
         // Nothing is said about a failure here: the screen replacing this one says it properly.

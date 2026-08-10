@@ -1,11 +1,11 @@
 import type { SAHPoolUtil } from "@sqlite.org/sqlite-wasm";
 import {
-    type BackupContainerInfo,
     FIXED_HEADER_BYTES,
+    getInfo,
     isBackupContainerError,
-    peekBackupContainer,
     type ProgressCallback,
     readBackupContainer,
+    type SupportedBackupContainer,
     containerSize
 } from "@triliumnext/backup-container/web";
 import {
@@ -399,12 +399,12 @@ export async function writeCurrentDatabaseName(dbName: string): Promise<void> {
  */
 async function readBackupFormat(backup: Blob): Promise<{ container: boolean; encrypted: boolean } | null> {
     const head = new Uint8Array(await backup.slice(0, FIXED_HEADER_BYTES).arrayBuffer());
-    const container = peekBackupContainer(head);
+    const container = getInfo(head);
 
-    if (container) {
+    if (container.isValid && container.isSupported) {
         requireWholeContainer(container, backup.size);
 
-        return { container: true, encrypted: container.encrypted };
+        return { container: true, encrypted: container.isEncrypted };
     }
 
     return looksLikeSqlite(head) ? { container: false, encrypted: false } : null;
@@ -417,12 +417,12 @@ async function readBackupFormat(backup: Blob): Promise<{ container: boolean; enc
  * header records. Compression breaks the derivation, since the payload is then shorter than the
  * plaintext by a ratio nothing states in advance.
  */
-function requireWholeContainer(container: BackupContainerInfo, size: number): void {
-    if (container.compressed || container.plaintextSize <= 0) {
+function requireWholeContainer(container: SupportedBackupContainer, size: number): void {
+    if (container.isCompressed || container.size <= 0) {
         return;
     }
 
-    const expected = containerSize(container.plaintextSize, container.encrypted);
+    const expected = containerSize(container.size, container.isEncrypted);
     if (size < expected) {
         throw incompleteBackup(size, expected);
     }
