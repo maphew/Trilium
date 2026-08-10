@@ -9,6 +9,7 @@ import {
     HEADER_BYTES_ENCRYPTED,
     HEADER_BYTES_PLAIN,
     containerSize,
+    SCRYPT_DEFAULTS,
     TRAILER_BYTES,
     TAG_BYTES
 } from "./format.js";
@@ -562,5 +563,42 @@ describe("forward-only writing", () => {
         const written = await writeToBuffer(database, {});
 
         expect((await readFromBuffer(written.bytes)).result.bytesWritten).toBe(database.length);
+    });
+});
+
+describe("what the trailer is holding the file to", () => {
+    it("refuses a payload that is not the length the trailer counted", async () => {
+        const database = fakeDatabase(9_000);
+        const written = await writeToBuffer(database, { plaintextSize: database.length });
+
+        // The size field alone, leaving the digest beside it intact: this is the check that stands
+        // on its own, rather than the one the digest would have caught anyway.
+        const lying = Buffer.from(written.bytes);
+        lying.writeBigUInt64LE(8_000n, lying.length - 8);
+
+        expect(await failureOf(lying)).toBe("size-mismatch");
+    });
+
+    it("reads a container whose payload is shorter than its own trailer", async () => {
+        // The edge the rolling window exists for: with nothing but a trailer left to look at, the
+        // reader has to hold all of it back rather than emit any of it as payload.
+        const written = await writeToBuffer(Buffer.alloc(0));
+
+        expect(written.bytes).toHaveLength(containerSize(0, false));
+
+        const read = await readFromBuffer(written.bytes, { requireSqliteHeader: false });
+        expect(read.bytes).toHaveLength(0);
+    });
+
+});
+
+describe("the cost of a key nobody chose", () => {
+    it("derives at the recommended cost when the caller does not say", async () => {
+        // Every other test here asks for a cheap derivation, which leaves the default untried; it
+        // is the one real users get, and the one whose bounds a reader checks against.
+        const written = await writeToBuffer(fakeDatabase(4096), { passphrase: PASSPHRASE });
+
+        expect([ ...written.bytes.subarray(41, 44) ])
+            .toEqual([ SCRYPT_DEFAULTS.log2N, SCRYPT_DEFAULTS.r, SCRYPT_DEFAULTS.p ]);
     });
 });

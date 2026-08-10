@@ -247,6 +247,9 @@ export async function readContainer(
     // The payload readers always leave one behind or throw, so this is a guard on their contract
     // rather than on the file.
     const trailer = found.trailer;
+    /* v8 ignore next 3 -- no input reaches it: both readers end by decoding a trailer, which either
+       assigns this or throws `truncated` itself. It stands so a reader added later cannot return
+       having quietly skipped the digest. */
     if (!trailer) {
         throw new BackupContainerError("truncated", "The container ended without a trailer.");
     }
