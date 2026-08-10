@@ -3599,7 +3599,13 @@
     "existing-data-delete-failed": "기존 지식 베이스를 삭제할 수 없습니다.",
     "existing-data-keep-failed": "기존 지식 베이스를 다시 열 수 없습니다.",
     "restore-upload-reconnecting": "연결이 다시 설정되기를 기다리는 중...",
-    "restore-error-upload-interrupted": "업로드가 중단되어 계속할 수 없습니다. 다시 시작하려면 백업을 다시 선택하세요."
+    "restore-error-upload-interrupted": "업로드가 중단되어 계속할 수 없습니다. 다시 시작하려면 백업을 다시 선택하세요.",
+    "backup-downloading-percent": "{{percent}}%",
+    "backup-downloading-size": "({{total}}개 중 {{done}}개)",
+    "restore-error-swap-failed-reload": "데이터베이스를 교체하지 못했습니다. 이전 데이터베이스는 원래 위치로 복원되었지만, Trilium에서 다시 열지 못했습니다. 계속하려면 이 페이지를 새로고침하세요.",
+    "restore-error-check-failed": "백업을 확인하지 못했습니다. 백업 자체의 문제가 아니라 이 기기의 문제일 수 있으므로 다시 시도해 보세요.",
+    "restore-error-failed": "복원을 완료하지 못했습니다. 아무것도 교체되지 않았으므로 지식 베이스는 이전 상태 그대로입니다.",
+    "restore-error-incomplete": "이 백업 파일은 불완전합니다. 파일이 전체적으로 복사되거나 다운로드되지 않았을 가능성이 있으니, 다시 전송해 보세요."
   },
   "mind-map": {
     "addChild": "하위 노트 추가",
@@ -3989,7 +3995,9 @@
     "maximize": "빠른 편집으로 열기"
   },
   "database_file_list": {
-    "size_on_disk": "디스크에서 {{size}}"
+    "size_on_disk": "디스크에서 {{size}}",
+    "invalid_backup": "유효하지 않은 백업 파일",
+    "unsupported_version": "지원하지 않는 백업 파일 형식 버전"
   },
   "password_with_confirmation": {
     "password": "비밀번호",
