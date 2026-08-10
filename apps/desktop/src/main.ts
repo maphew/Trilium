@@ -35,6 +35,7 @@ import { setupDialogHandlers } from "./services/dialog";
 import { setupExportHandlers } from "./services/export";
 import { setupImportHandlers } from "./services/import";
 import {
+    adoptBackupPassphrase,
     getBackupPassphrase,
     registerBackupPassphraseIpcHandlers
 } from "./services/backup_passphrase";
@@ -275,7 +276,11 @@ export async function main() {
         // Only the desktop lets the user pick where backups go; the server uses TRILIUM_BACKUP_DIR.
         backup: new ServerBackupService(
             options,
-            { allowCustomDirectory: true, getPassphrase: getBackupPassphrase }
+            {
+                allowCustomDirectory: true,
+                getPassphrase: getBackupPassphrase,
+                setPassphrase: adoptBackupPassphrase
+            }
         ),
         image: (await import("@triliumnext/server/src/services/image_provider.js")).serverImageProvider,
         config,

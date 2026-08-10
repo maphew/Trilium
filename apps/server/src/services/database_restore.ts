@@ -10,6 +10,7 @@ import {
     cls,
     type DatabaseRejection,
     events as eventService,
+    getBackup,
     getLog,
     getSql,
     leaveSetupMode,
@@ -19,6 +20,7 @@ import {
 import fs from "fs";
 import path from "path";
 
+import type ServerBackupService from "../backup_provider.js";
 import config from "./config.js";
 import dataDir from "./data_dir.js";
 import { validateDatabaseFile } from "./database_validation.js";
@@ -256,6 +258,10 @@ export async function restoreDatabase(request: RestoreRequest): Promise<void> {
     // is stated below in terms that are not.
     logRestore(`starting, from ${request.consumable ? "a backup this instance was given" : "a backup already on this device"}`);
 
+    // Read here rather than taken from the staging that follows, which consumes a backup this
+    // instance was given: by the time the restore has finished there may be no file left to ask.
+    const wasEncrypted = readBackupFormat(request.path)?.encrypted ?? false;
+
     // Announced through `report` like every other step, so that a log can be read by looking for the
     // steps alone and the first one is not the exception that is missing.
     progress = { stage: "staging", fileName: request.fileName };
@@ -283,6 +289,8 @@ export async function restoreDatabase(request: RestoreRequest): Promise<void> {
             await openRestoredDatabase(validation.needsMigration);
         });
 
+        await adoptBackupPassphrase(request, wasEncrypted);
+
         report("done");
         logRestore(`finished in ${describeElapsed(startedAt)}`);
     } catch (e) {
@@ -307,6 +315,39 @@ export async function restoreDatabase(request: RestoreRequest): Promise<void> {
         // a directory that would not delete used to bury the reason the restore actually failed —
         // and with it the client's only way of telling a wrong passphrase from a broken backup.
         removeQuietly(stagingDirectory(), { recursive: true });
+    }
+}
+
+/**
+ * Brings the stored backup passphrase into line with the database that has just been restored.
+ *
+ * The passphrase lives outside the database — an OS keyring on the desktop, nowhere at all
+ * elsewhere — so it is the one thing about how this instance backs up that a restore does not
+ * replace. Left alone, an instance restored from someone else's backup goes on encrypting with the
+ * password of the database it used to hold: the backups look fine, and the password the user
+ * expects does not open them.
+ *
+ * Never allowed to fail the restore. The database is already in place and open by this point, and a
+ * keyring that would not answer is not a reason to tell the user their restore did not work.
+ *
+ * @param wasEncrypted whether the backup was locked, which is what decides there is a password here
+ *                     worth taking on at all.
+ */
+export async function adoptBackupPassphrase(
+    request: RestoreRequest,
+    wasEncrypted: boolean
+): Promise<void> {
+    // A backup with no lock on it brings no password to take on, and the stored one is not an
+    // answer: it was the previous database's.
+    const passphrase = wasEncrypted ? request.passphrase ?? null : null;
+
+    try {
+        await (getBackup() as ServerBackupService).adoptPassphrase(passphrase);
+        logRestore(passphrase
+            ? "the backup password is now the one that opened this backup"
+            : "let go of the backup password, which belonged to the previous database");
+    } catch (e) {
+        logRestoreError(`the backup password could not be brought up to date: ${messageOf(e)}`);
     }
 }
 

@@ -679,3 +679,21 @@ describe("ServerBackupService: sending a backup for download", () => {
         expect(desktopService(CUSTOM_DIR).sendBackup?.("/etc/passwd", res as any)).toBe(false);
     });
 });
+
+describe("ServerBackupService.adoptPassphrase", () => {
+    it("hands the password to wherever this platform keeps one, and clears it on null", async () => {
+        const stored: (string | null)[] = [];
+        const service = desktopService("", {}, { setPassphrase: async (p) => void stored.push(p) });
+
+        await service.adoptPassphrase("the restored database's password");
+        await service.adoptPassphrase(null);
+
+        expect(stored).toEqual([ "the restored database's password", null ]);
+    });
+
+    it("does nothing where there is nowhere to keep one, rather than failing the restore", async () => {
+        // The server has no keyring, so it has no stored passphrase for a restore to bring up to
+        // date; the restore calls this the same way regardless of the platform it is running on.
+        await expect(serverService(null).adoptPassphrase("a password")).resolves.toBeUndefined();
+    });
+});

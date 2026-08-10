@@ -35,6 +35,13 @@ export interface ServerBackupConfig {
      * desktop application, which is the only one with an OS keyring to keep a passphrase in.
      */
     getPassphrase?: () => Promise<string | null>;
+    /**
+     * Stores the backup passphrase, or lets go of the stored one when given `null`. Set alongside
+     * {@link getPassphrase}, and used by the restore rather than by any screen: unset, an instance
+     * simply has nowhere to keep a passphrase, and there is nothing for a restore to bring up to
+     * date.
+     */
+    setPassphrase?: (passphrase: string | null) => Promise<void>;
 }
 
 /** How a backup is to be written, once the options and the passphrase have both had their say. */
@@ -180,6 +187,19 @@ export default class ServerBackupService extends BackupService {
     /** Whether there is a passphrase to be had, without letting the caller learn what it is. */
     override async hasStoredPassphrase(): Promise<boolean> {
         return !!(await this.config.getPassphrase?.());
+    }
+
+    /**
+     * Takes on the passphrase a restored backup was locked with, or lets go of the stored one when
+     * the backup brought none.
+     *
+     * The passphrase is not kept in the database, so a restore replaces every option that says how
+     * this instance backs up while leaving the password those options are carried out with. What is
+     * left is an instance encrypting its backups with the password of a database that is no longer
+     * here, saying nothing about it, and producing backups the user cannot open.
+     */
+    async adoptPassphrase(passphrase: string | null): Promise<void> {
+        await this.config.setPassphrase?.(passphrase);
     }
 
     /**
