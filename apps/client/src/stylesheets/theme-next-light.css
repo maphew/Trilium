@@ -311,7 +311,9 @@
     --tooltip-kbd-background: #ffffff32;
     --tooltip-kbd-border: #00000060;
 
-    --note-tooltip-background-color: white;
+    /* Translucent, as the app's other tooltips are: the theme frosts every tooltip
+       (`--tooltip-backdrop-filter`), and an opaque colour here is a blur with nothing behind it. */
+    --note-tooltip-background-color: #ffffffd9;
 
 
     --help-background-color: #fffc;
@@ -369,7 +371,10 @@
     --custom-bg-color: hsl(var(--custom-color-hue), 37%, 89%, 1);
 }
 
+/* The calendar's event shown as a sheet is the same thing the quick editor is — a whole note over
+   whatever raised it — so it is tinted by the same colours (see EventPopover.tsx). */
 .quick-edit-dialog-wrapper.with-hue,
+.calendar-event-sheet.with-hue,
 .note-tooltip.with-hue {
     --modal-background-color: hsl(var(--custom-color-hue), 56%, 96%);
     --modal-border-color: hsl(var(--custom-color-hue), 33%, 41%);
@@ -389,6 +394,8 @@
 .note-split.with-hue,
 .quick-edit-dialog-wrapper.with-hue,
 .geo-detail-pane.with-hue,
+.calendar-event-popover.with-hue,
+.calendar-event-sheet.with-hue,
 .nested-note-list-item.with-hue,
 .note-book-card.with-hue .note-book-header,
 .ck-template-icon.with-hue {
@@ -408,7 +415,31 @@
 }
 
 .note-tooltip.with-hue {
-    --tooltip-background-color: hsl(var(--custom-color-hue), 56%, 96%);
+    --tooltip-background-color: hsl(var(--custom-color-hue), 56%, 96%, 0.85);
+}
+
+/*
+ * The calendar's event card, standing beside its chip. Unlike the sheet and the tooltip this one
+ * frosts the grid behind it (see `.tn-popover` in Popover.css), so its tint is stated with the
+ * alpha the plain card already carries — an opaque tint would leave the blur nothing to show
+ * through, which is the whole of what the card is dressed as.
+ *
+ * The card grown to the window gives the frosting up, and takes the same tint opaque; so does a
+ * card whose blur cannot be had at all (background effects, or a reader who turned them off), both
+ * reading the no-backdrop colour.
+ */
+.calendar-event-popover.with-hue {
+    --menu-background-color: hsl(var(--custom-color-hue), 56%, 96%, 0.85);
+    --menu-background-color-no-backdrop: hsl(var(--custom-color-hue), 56%, 97%);
+    --dropdown-border-color: hsl(var(--custom-color-hue), 30%, 78%);
+    --promoted-attribute-card-background-color: hsl(var(--custom-color-hue), 40%, 88%);
+}
+
+/* A reader who turned backdrop effects off, which the card must answer here rather than by the swap
+   made on the body above: that swap is resolved where it is stated, so what reaches the card is the
+   plain opaque colour and not the tinted one the card states on itself. */
+body.backdrop-effects-disabled .calendar-event-popover.with-hue {
+    --menu-background-color: var(--menu-background-color-no-backdrop);
 }
 
 [data-trilium-task-state] {
