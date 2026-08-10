@@ -543,7 +543,10 @@ async function handleBackupStream(port: MessagePort, passphrase?: string): Promi
 
     const { streamDatabaseDownload } = await import("./lightweight/backup-download.js");
     const result = await streamDatabaseDownload(
-        { getValue: (sql, params) => core.getSql().getValue(sql, params) },
+        {
+            getValue: (sql, params) => core.getSql().getValue(sql, params),
+            getColumn: (sql, params) => core.getSql().getColumn(sql, params)
+        },
         // A MessagePort satisfies the seam at runtime; only the `onmessage` property's event
         // parameter is typed wider here than the seam's, which a cast is the whole cost of.
         port as unknown as import("./lightweight/backup-download.js").DownloadPort,
