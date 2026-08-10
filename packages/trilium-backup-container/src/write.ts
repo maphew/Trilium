@@ -74,13 +74,14 @@ export interface WriteBackupContainerResult {
  * Wraps a database into a container. This is the runtime-neutral core; the Node and web entry
  * points wrap it with their stream types and their backend.
  *
- * The header is written first with a zeroed digest, then the payload streams through gzip and the
- * frame encryptor as configured, and finally the digest is patched into the header.
+ * The header is written first and never returned to, then the payload streams through gzip and the
+ * frame encryptor as configured, and finally the trailer records the digest and the length the
+ * payload came to. One forward pass, so the destination need not be seekable.
  *
  * @param input the database bytes.
  * @param output the destination, which is ended by this call.
  * @param backend the platform's crypto and compression primitives.
- * @param options see {@link WriteBackupContainerOptions}; `patchHeader` is required.
+ * @param options see {@link WriteBackupContainerOptions}.
  * @returns what was written, see {@link WriteBackupContainerResult}.
  * @throws BackupContainerError with `reason` set, see {@link BackupContainerErrorReason}.
  */

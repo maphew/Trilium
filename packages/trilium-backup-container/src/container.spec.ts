@@ -13,7 +13,7 @@ import {
     TAG_BYTES
 } from "./format.js";
 import { readBackupContainer, writeBackupContainer } from "./node-streams.js";
-import { peekBackupContainer } from "./read.js";
+import { getInfo } from "./read.js";
 import {
     chunked,
     fakeDatabase,
@@ -27,7 +27,7 @@ import {
     type WriteOptions,
     writeToBuffer
 } from "./test-helpers.js";
-type PeekCase = [string, WriteOptions, { compressed: boolean; encrypted: boolean }];
+type PeekCase = [string, WriteOptions, { isCompressed: boolean; isEncrypted: boolean }];
 
 const PASSPHRASE = "correct horse battery staple";
 const FRAME_OVERHEAD = 4 + TAG_BYTES;
@@ -296,19 +296,19 @@ describe("damage and tampering", () => {
     });
 });
 
-describe("peeking at a container", () => {
+describe("describing a container for a listing", () => {
     it.each([
-        [ "plain", {}, { compressed: false, encrypted: false } ],
-        [ "compressed", { compress: true }, { compressed: true, encrypted: false } ],
+        [ "plain", {}, { isCompressed: false, isEncrypted: false } ],
+        [ "compressed", { compress: true }, { isCompressed: true, isEncrypted: false } ],
         [
             "encrypted",
             { passphrase: PASSPHRASE, scrypt: FAST_SCRYPT },
-            { compressed: false, encrypted: true }
+            { isCompressed: false, isEncrypted: true }
         ],
         [
             "both",
             { compress: true, passphrase: PASSPHRASE, scrypt: FAST_SCRYPT },
-            { compressed: true, encrypted: true }
+            { isCompressed: true, isEncrypted: true }
         ]
     ] as PeekCase[])("reports a %s container from its first bytes alone", async (
         _label,
@@ -321,30 +321,88 @@ describe("peeking at a container", () => {
             { ...options, plaintextSize: database.length }
         );
 
-        // Only the fixed header, and no passphrase, which is the whole point of the peek.
-        expect(peekBackupContainer(written.bytes.subarray(0, FIXED_HEADER_BYTES))).toEqual({
+        // Only the fixed header, and no passphrase, which is the whole point of describing one.
+        expect(getInfo(written.bytes.subarray(0, FIXED_HEADER_BYTES))).toEqual({
+            isValid: true,
+            isSupported: true,
             version: 1,
-            plaintextSize: 9_000,
-            timestamp: expect.any(Number),
+            size: 9_000,
+            creationTimestamp: expect.any(Number),
             ...expected
         });
     });
 
-    it("reports an unrecorded plaintext size as zero rather than guessing", async () => {
-        const written = await writeToBuffer(fakeDatabase(4096), { compress: true });
+    it("dates the backup from the container, not from the file it sits in", async () => {
+        const taken = Date.UTC(2026, 1, 3, 4, 5, 6);
+        const written = await writeToBuffer(fakeDatabase(4096), { timestamp: taken });
 
-        expect(peekBackupContainer(written.bytes)?.plaintextSize).toBe(0);
+        const info = getInfo(written.bytes);
+
+        expect(info).toMatchObject({ isValid: true, isSupported: true });
+        expect(info.isValid && info.isSupported && info.creationTimestamp).toBe(taken);
+    });
+
+    it("reports an unrecorded size as zero rather than guessing", async () => {
+        const written = await writeToBuffer(fakeDatabase(4096), { compress: true });
+        const info = getInfo(written.bytes);
+
+        expect(info.isValid && info.isSupported && info.size).toBe(0);
+    });
+
+    it.each([
+        [ "an ArrayBuffer", (head: Uint8Array) => copyOf(head, 0) ],
+        [ "a view over one", (head: Uint8Array) => new DataView(copyOf(head, 0)) ],
+        // The one an offset-blind reader gets silently wrong, since the bytes it wants are there.
+        [
+            "a view starting partway into one",
+            (head: Uint8Array) => new DataView(copyOf(head, 8), 8)
+        ]
+    ])("takes the head as %s, since callers hold it differently", async (_label, wrap) => {
+        const written = await writeToBuffer(fakeDatabase(4096), { plaintextSize: 4096 });
+        const head = written.bytes.subarray(0, FIXED_HEADER_BYTES);
+
+        expect(getInfo(wrap(head))).toEqual(getInfo(head));
     });
 
     it.each([
         [ "fewer bytes than a header", Buffer.alloc(20) ],
         [ "something that is not a container", Buffer.alloc(64, 9) ],
-        [ "a version it does not know", tamper((bytes) => bytes.writeUInt8(2, 20)) ],
-        [ "a reserved flag bit", tamper((bytes) => bytes.writeUInt8(0b100, 29)) ]
-    ])("answers null for %s, so one bad file cannot derail a listing", (_label, bytes) => {
-        expect(peekBackupContainer(bytes)).toBeNull();
+        [ "an empty file", Buffer.alloc(0) ]
+    ])("says %s is not a backup at all, so one foreign file cannot derail a listing", (
+        _label,
+        bytes
+    ) => {
+        expect(getInfo(bytes)).toEqual({ isValid: false });
+    });
+
+    it.each([
+        [ "a version written after this build", (bytes: Buffer) => bytes.writeUInt8(2, 20), 2 ],
+        [ "a version nothing could have written", (bytes: Buffer) => bytes.writeUInt8(0, 20), 0 ],
+        [ "a reserved flag bit", (bytes: Buffer) => bytes.writeUInt8(0b100, 29), 1 ],
+        [ "a header that does not measure up", (bytes: Buffer) => bytes.writeUInt16LE(64, 30), 1 ]
+    ])("owns %s as a backup it cannot open, rather than disowning it", (
+        _label,
+        mutate,
+        version
+    ) => {
+        // The difference a listing lives on: "not a backup" and "a backup this build is too old
+        // for" are the same null to a reader that only answers yes or no.
+        expect(getInfo(tamper(mutate))).toEqual({ isValid: true, isSupported: false, version });
     });
 });
+
+/**
+ * The bytes in an `ArrayBuffer` of their own, which a `Buffer` never has: Node allocates those out
+ * of a shared pool, so `.buffer` on one is most of the heap and starts nowhere near the bytes.
+ *
+ * @param offset how far into the buffer to put them, so a view at a non-zero offset can be built.
+ */
+function copyOf(bytes: Uint8Array, offset: number): ArrayBuffer {
+    const buffer = new ArrayBuffer(offset + bytes.length);
+    new Uint8Array(buffer).set(bytes, offset);
+
+    return buffer;
+}
 
 function tamper(mutate: (bytes: Buffer) => void): Buffer {
     const header = Buffer.alloc(FIXED_HEADER_BYTES);
@@ -448,8 +506,8 @@ describe("forward-only writing", () => {
 
         // Nothing was written back to: what the sink received in order is the whole file.
         expect(written.bytes.length).toBe(containerSize(database.length, true));
-        expect(peekBackupContainer(written.bytes.subarray(0, FIXED_HEADER_BYTES)))
-            .toMatchObject({ encrypted: true, compressed: false });
+        expect(getInfo(written.bytes.subarray(0, FIXED_HEADER_BYTES)))
+            .toMatchObject({ isEncrypted: true, isCompressed: false });
 
         const read = await readFromBuffer(written.bytes, { passphrase: PASSPHRASE });
         expect(read.bytes.equals(database)).toBe(true);
@@ -482,8 +540,8 @@ describe("forward-only writing", () => {
         const written = await writeToBuffer(database, { plaintextSize: database.length });
 
         expect(written.bytes.length).toBe(containerSize(database.length, false));
-        expect(peekBackupContainer(written.bytes.subarray(0, FIXED_HEADER_BYTES)))
-            .toMatchObject({ encrypted: false, compressed: false });
+        expect(getInfo(written.bytes.subarray(0, FIXED_HEADER_BYTES)))
+            .toMatchObject({ isEncrypted: false, isCompressed: false });
 
         expect((await readFromBuffer(written.bytes)).bytes.equals(database)).toBe(true);
         expect((await readFromBufferWeb(written.bytes)).bytes.equals(database)).toBe(true);

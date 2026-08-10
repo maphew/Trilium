@@ -60,42 +60,105 @@ export interface ReadBackupContainerOptions extends ProgressOptions {
     requireSqliteHeader?: boolean;
 }
 
-/** What a container says about itself, before any of its payload is read. */
-export interface BackupContainerInfo {
+/** The head of a container, however the caller happens to be holding it. */
+export type ContainerHead = ArrayBuffer | ArrayBufferView;
+
+/**
+ * What a container says about itself, before any of its payload is read.
+ *
+ * Three answers rather than two, because "not a backup" and "a backup this build is too old to
+ * open" call for entirely different things to be said to the user, and the fields below only exist
+ * for the third: a version whose layout this module does not implement is one whose flags and sizes
+ * it would only be guessing at.
+ */
+export type BackupContainerSummary =
+    /** Not a container at all: whatever else this file is, it did not come from here. */
+    | { isValid: false }
+    /** One of ours, but past what this module implements: nothing beyond the version is known. */
+    | { isValid: true; isSupported: false; version: number }
+    | SupportedBackupContainer;
+
+/** A container this module can act on, which is the only case any of these fields is known in. */
+export interface SupportedBackupContainer {
+    isValid: true;
+    isSupported: true;
     version: number;
-    compressed: boolean;
-    encrypted: boolean;
+    /**
+     * Size of the database inside, before compression, or 0 where the writer did not record it. Not
+     * the size of the file, which is this plus the wrapping and, once compressed, less than this by
+     * an amount nothing states in advance.
+     */
+    size: number;
     /** When the backup was taken, in milliseconds since the Unix epoch, or 0 when not recorded. */
-    timestamp: number;
-    /** Size of the wrapped database before compression, or 0 when the writer did not record it. */
-    plaintextSize: number;
+    creationTimestamp: number;
+    isCompressed: boolean;
+    isEncrypted: boolean;
 }
 
 /**
  * Identifies a container from its first {@link FIXED_HEADER_BYTES} bytes, without touching the
  * payload and without the passphrase: what a container is, is stated in the clear.
  *
- * Returns `null` for anything this reader does not recognise, so that listing a directory of
- * backups is never derailed by one damaged or foreign file.
+ * Built for listing a directory of them, so it is O(1) over a view of what it is given, copies
+ * nothing, and never throws: one damaged or foreign file among a hundred costs the listing a row,
+ * not the listing.
+ *
+ * @param head at least {@link FIXED_HEADER_BYTES} bytes from offset 0 of the file. Anything longer
+ *             is fine and nothing past those bytes is read, so a caller holding the whole file may
+ *             pass it as it stands.
+ * @param maxHeaderBytes ceiling above which a header is not worth describing.
  */
-export function peekBackupContainer(
-    head: Uint8Array,
+export function getInfo(
+    head: ContainerHead,
     maxHeaderBytes: number = DEFAULT_MAX_HEADER_BYTES
-): BackupContainerInfo | null {
-    if (head.length < FIXED_HEADER_BYTES) {
-        return null;
+): BackupContainerSummary {
+    const bytes = asBytes(head);
+
+    // Settled here rather than by catching what the decoder throws, because this is the rejection
+    // that happens in bulk: a folder of backups is also a folder of everything else the user keeps
+    // there, and each of those should cost a comparison rather than an exception.
+    const isContainer = bytes.length >= FIXED_HEADER_BYTES
+        && bytesEqual(bytes.subarray(0, MAGIC.length), MAGIC);
+    if (!isContainer) {
+        return { isValid: false };
     }
 
+    // Past the magic, so this field is where the format has always promised to keep it, which is
+    // the one thing that stays true of a version written after this module.
+    const version = bytes[MAGIC.length];
+
     try {
-        const { version, timestamp, compressed, encrypted, plaintextSize } = decodeFixedHeader(
-            head.subarray(0, FIXED_HEADER_BYTES),
+        const { timestamp, compressed, encrypted, plaintextSize } = decodeFixedHeader(
+            bytes.subarray(0, FIXED_HEADER_BYTES),
             maxHeaderBytes
         );
 
-        return { version, timestamp, compressed, encrypted, plaintextSize };
+        return {
+            isValid: true,
+            isSupported: true,
+            version,
+            size: plaintextSize,
+            creationTimestamp: timestamp,
+            isCompressed: compressed,
+            isEncrypted: encrypted
+        };
     } catch {
-        return null;
+        // Every remaining way the head can be refused says the same thing to a listing: ours, and
+        // not for this build to open. A version it does not implement and a header that does not
+        // measure what this version requires are both answered by pointing at the version.
+        return { isValid: true, isSupported: false, version };
     }
+}
+
+/** Views whatever the caller holds as bytes, copying none of them. */
+function asBytes(head: ContainerHead): Uint8Array {
+    if (head instanceof Uint8Array) {
+        return head;
+    }
+
+    return ArrayBuffer.isView(head)
+        ? new Uint8Array(head.buffer, head.byteOffset, head.byteLength)
+        : new Uint8Array(head);
 }
 
 export interface ReadBackupContainerResult {

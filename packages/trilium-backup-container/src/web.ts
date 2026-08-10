@@ -47,11 +47,13 @@ export {
     type ProgressOptions
 } from "./progress.js";
 export {
-    type BackupContainerInfo,
+    type BackupContainerSummary,
+    type ContainerHead,
     DEFAULT_MAX_OUTPUT_BYTES,
-    peekBackupContainer,
+    getInfo,
     type ReadBackupContainerOptions,
-    type ReadBackupContainerResult
+    type ReadBackupContainerResult,
+    type SupportedBackupContainer
 } from "./read.js";
 export { readBackupContainer, writeBackupContainer } from "./web-streams.js";
 export {

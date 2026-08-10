@@ -71,9 +71,12 @@ describe("cross-backend round trips", () => {
 
     it("writes byte-identical plain containers on both backends", async () => {
         const database = fakeDatabase(9_000);
+        // Stated rather than taken from the clock, which is the one field two writes are entitled
+        // to disagree on: a millisecond between them would fail this for the wrong reason.
+        const shared = { plaintextSize: database.length, timestamp: Date.UTC(2026, 0, 2, 3, 4, 5) };
 
-        const node = await writeToBuffer(database, { plaintextSize: database.length });
-        const web = await writeToBufferWeb(database, { plaintextSize: database.length });
+        const node = await writeToBuffer(database, shared);
+        const web = await writeToBufferWeb(database, shared);
 
         expect(web.bytes.equals(node.bytes)).toBe(true);
     });
