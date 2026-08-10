@@ -318,6 +318,7 @@ function headlineFor(reason: string | undefined): string {
         case "database-too-old": return t("setup.restore-error-too-old");
         case "database-not-initialized": return t("setup.restore-error-unfinished");
         case "swap-failed": return t("setup.restore-error-swap-failed");
+        case "swap-failed-reload": return t("setup.restore-error-swap-failed-reload");
         case "migration-failed": return t("setup.restore-error-would-not-open");
         case "restore-refused": return t("setup.restore-error-refused");
         case "already-initialized": return t("setup.restore-error-already-initialized");

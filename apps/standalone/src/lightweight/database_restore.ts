@@ -230,17 +230,90 @@ async function swapIn(target: RestoreTarget, previous: string, candidate: string
     await writeCurrentDatabaseName(candidate);
 
     try {
-        target.open(candidate);
+        await openWithHandles(target, candidate);
     } catch (e) {
         // Put back what was live, so a candidate that will not open costs nothing.
-        await writeCurrentDatabaseName(previous);
-        target.open(previous);
-
-        throw new RestoreFailure("swap-failed", messageOf(e));
+        throw await rollBackTo(target, previous, e);
     }
 
     // Only once the restored database is open: until then the old one is what a restart needs.
     await removeQuietly(target.pool, previous);
+}
+
+/**
+ * Opens `dbName`, taking the pool's access handles back first where the browser has closed them.
+ *
+ * Retried once, and only for that: a database that will not open for any other reason will not open
+ * the second time either, and the first failure is the one worth reporting.
+ */
+async function openWithHandles(target: RestoreTarget, dbName: string): Promise<void> {
+    try {
+        target.open(dbName);
+    } catch (e) {
+        if (!isClosedAccessHandle(e)) {
+            throw e;
+        }
+
+        await reacquireAccessHandles(target.pool);
+        target.open(dbName);
+    }
+}
+
+/**
+ * Puts the previous database back after a swap that did not take.
+ *
+ * The pointer is the whole of what decides which database a start opens, so restoring it is what
+ * makes a failed swap harmless: whatever happens next, the notes are the ones that were here before.
+ * Reopening it is the part that can fail again, since the handles the reopen needs may be the very
+ * thing that was taken, and that failure must not replace the one being reported or the screen would
+ * explain the wrong problem.
+ */
+async function rollBackTo(
+    target: RestoreTarget,
+    previous: string,
+    cause: unknown
+): Promise<RestoreFailure> {
+    await writeCurrentDatabaseName(previous);
+
+    try {
+        await openWithHandles(target, previous);
+    } catch {
+        // The pointer is back, so a start comes up on the database that was here all along. This
+        // instance simply cannot get there without one, which is the one thing the user has to be
+        // told rather than left to discover.
+        return new RestoreFailure("swap-failed-reload", messageOf(cause));
+    }
+
+    return new RestoreFailure("swap-failed", messageOf(cause));
+}
+
+/**
+ * Whether a failure is the browser having closed the pool's access handles underneath it.
+ *
+ * WebKit closes them whenever it suspends the page: a file picker, a screen lock, a switch to
+ * another application. The pool takes its handles once and holds them for its lifetime, so it never
+ * learns they are gone, and the next operation against it fails with this.
+ */
+function isClosedAccessHandle(e: unknown): boolean {
+    if (e instanceof DOMException && e.name === "InvalidStateError") {
+        return true;
+    }
+
+    return /access\s*handle.*closed|closed.*access\s*handle/i.test(messageOf(e));
+}
+
+/**
+ * Takes the pool's access handles back.
+ *
+ * The pause is the part that matters, and `isPaused` is no help in deciding whether to do it: it
+ * reports what the pool did to itself, and a pool whose handles were taken from underneath it still
+ * believes it holds them, so `unpauseVfs` on its own returns having done nothing. Pausing is what
+ * clears that belief. It is refused while any database is open, which is why this belongs to the
+ * moment between closing one and opening the next.
+ */
+async function reacquireAccessHandles(pool: SAHPoolUtil): Promise<void> {
+    pool.pauseVfs();
+    await pool.unpauseVfs();
 }
 
 /** Points the next start at `dbName`, which is the whole of what makes a database the live one. */

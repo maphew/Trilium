@@ -94,12 +94,30 @@ function fakePool() {
         close() { /* nothing to release */ }
     }
 
+    /**
+     * Whether the browser has taken the pool's access handles away, and what it took to get them
+     * back. A pool never notices the taking, which is the whole difficulty: only pausing clears its
+     * belief that it still holds them.
+     */
+    const handles = { closed: false, paused: 0, unpaused: 0 };
+
     const pool = {
         OpfsSAHPoolDb: FakeDb,
         getCapacity: () => 6,
         getFileCount: () => files.size,
         addCapacity: async () => 1,
         unlink: (name: string) => files.delete(name),
+        pauseVfs() {
+            handles.paused++;
+
+            return pool;
+        },
+        async unpauseVfs() {
+            handles.unpaused++;
+            handles.closed = false;
+
+            return pool;
+        },
         importDb: async (name: string, pull: () => Promise<Uint8Array | undefined>) => {
             const chunks: Uint8Array[] = [];
             for (let chunk = await pull(); chunk; chunk = await pull()) {
@@ -111,7 +129,12 @@ function fakePool() {
         }
     };
 
-    return { asked, files, answers, pool: pool as unknown as SAHPoolUtil };
+    return { asked, files, answers, handles, pool: pool as unknown as SAHPoolUtil };
+}
+
+/** What WebKit throws once it has closed a sync access handle underneath the pool holding it. */
+function closedAccessHandle(): DOMException {
+    return new DOMException("AccessHandle is closed", "InvalidStateError");
 }
 
 function concat(chunks: Uint8Array[]): Uint8Array {
@@ -127,12 +150,23 @@ function concat(chunks: Uint8Array[]): Uint8Array {
 }
 
 /** The database the restore acts on, recording what it was asked to do and in what order. */
-function fakeTarget(pool: SAHPoolUtil, options: { failToOpen?: string } = {}) {
+function fakeTarget(pool: SAHPoolUtil, options: {
+    failToOpen?: string;
+    /** Run before each open; throwing from it is how a test makes that open fail its own way. */
+    beforeOpen?: (dbName: string) => void;
+} = {}) {
     const acted: string[] = [];
     const target: RestoreTarget = {
         pool,
         close: () => { acted.push("close"); },
         open: (dbName) => {
+            try {
+                options.beforeOpen?.(dbName);
+            } catch (e) {
+                acted.push(`open-failed:${dbName}`);
+                throw e;
+            }
+
             if (dbName === options.failToOpen) {
                 acted.push(`open-failed:${dbName}`);
                 throw new Error("database is locked");
@@ -303,13 +337,61 @@ describe("a backup that cannot be restored", () => {
     });
 
     it("puts the previous database back when the restored one will not open", async () => {
-        const { pool } = fakePool();
+        const { pool, handles } = fakePool();
         const { target, acted } = fakeTarget(pool, { failToOpen: CANDIDATE_NAME });
 
         await expect(restoreDatabase(target, new Blob([ databaseBytes() ])))
             .rejects.toMatchObject({ reason: "swap-failed" });
 
         expect(acted).toEqual([ "close", `open-failed:${CANDIDATE_NAME}`, `open:${DEFAULT_DATABASE_NAME}` ]);
+        expect(pointer).toBe(DEFAULT_DATABASE_NAME);
+        // Tried once and not retried: the handles were never the problem, and an open refused for
+        // any other reason is refused just the same the second time.
+        expect(handles.paused).toBe(0);
+    });
+
+    it("takes the pool's access handles back where the browser has closed them, and opens", async () => {
+        const { pool, handles } = fakePool();
+        // Closed while the restore was working, which is what a file picker, a screen lock or a
+        // switch to another application does on iOS. The pool is never told, so the open is what
+        // finds out.
+        const { target, acted } = fakeTarget(pool, {
+            beforeOpen: () => {
+                if (handles.closed) {
+                    throw closedAccessHandle();
+                }
+            }
+        });
+        handles.closed = true;
+
+        await restoreDatabase(target, new Blob([ databaseBytes() ]));
+
+        expect(acted).toEqual([ "close", `open-failed:${CANDIDATE_NAME}`, `open:${CANDIDATE_NAME}` ]);
+        // Paused before unpausing: a pool whose handles were taken still believes it holds them, so
+        // unpausing on its own would return having done nothing at all.
+        expect(handles).toMatchObject({ paused: 1, unpaused: 1 });
+        expect(pointer).toBe(CANDIDATE_NAME);
+    });
+
+    it("reports what stopped the swap, not what stopped the rollback, and asks for a reload", async () => {
+        const { pool } = fakePool();
+        // The candidate will not open, and the previous one cannot be reopened either. Both halves
+        // failing is what used to leave the browser's own error standing in place of ours, over a
+        // sentence promising the previous database was back.
+        const { target } = fakeTarget(pool, {
+            failToOpen: CANDIDATE_NAME,
+            beforeOpen: (dbName) => {
+                if (dbName === DEFAULT_DATABASE_NAME) {
+                    throw closedAccessHandle();
+                }
+            }
+        });
+
+        await expect(restoreDatabase(target, new Blob([ databaseBytes() ])))
+            .rejects.toMatchObject({ reason: "swap-failed-reload", message: "database is locked" });
+
+        // The pointer is the whole of what a start reads, so the notes that were here are still the
+        // ones it opens; this instance just cannot get to them without one.
         expect(pointer).toBe(DEFAULT_DATABASE_NAME);
     });
 });
