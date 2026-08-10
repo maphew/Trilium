@@ -605,7 +605,7 @@ function RestoreProgress({ reported, onRestored, onFailed }: {
     // the user three things they will never see happen.
     return (
         <div class="restore-current-step">
-            <div class="restore-step-name">{t(`setup.restore-stage-${shownStage}`)}</div>
+            <div class="restore-step-name">{stageLabel(shownStage)}</div>
 
             {/* Only where the step can say how far it has got. The ones that cannot show nothing,
                 rather than an empty bar that never moves. */}
@@ -619,4 +619,29 @@ function RestoreProgress({ reported, onRestored, onFailed }: {
             <small class="restore-do-not-close">{t("setup.restore-do-not-close")}</small>
         </div>
     );
+}
+
+/**
+ * What to call the stage the restore says it is at.
+ *
+ * Spelled out rather than composed into a key. Built as `restore-stage-${stage}`, a stage nobody
+ * wrote a sentence for printed its own key at the user: `done` is reported by the browser-only
+ * restore in the moment between the last step and the reload, and that moment is the one the user
+ * is watching hardest.
+ *
+ * `done` is not a step at all but what follows the last one, so it says what is about to happen
+ * instead of naming something already finished. A failure says nothing here, because the screen it
+ * is about to be replaced by says it properly.
+ */
+export function stageLabel(stage: string): string {
+    switch (stage) {
+        case "validating": return t("setup.restore-stage-validating");
+        case "swapping": return t("setup.restore-stage-swapping");
+        case "migrating": return t("setup.restore-stage-migrating");
+        case "done": return t("setup.redirecting");
+        case "failed": return "";
+        // Staging both as itself and as the answer for a stage this does not know: whatever it is
+        // called, a restore that has not ended is one still working on the backup.
+        default: return t("setup.restore-stage-staging");
+    }
 }
