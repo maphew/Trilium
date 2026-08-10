@@ -410,7 +410,6 @@
       "get_help_toc": "Kullanıcı Kılavuzu içeriğini getir"
     },
     "disabled_placeholder": "Yapay zeka özellikleri kapalı. Sağlayıcıları ve MCP'yi yapılandırmak için etkinleştirin.",
-    "not_available_in_standalone": "LLM sağlayıcıları bir tarayıcıdan doğrudan erişime izin vermediği için, Yapay Zeka/LLM özellikleri Trilium'un tek başına sürümünde kullanılamaz.",
     "feature_not_enabled": "Yapay zeka bütünleşmelerini kullanmak için Ayarlar → Gelişmiş → Deneysel özellikler'de LLM deneysel özelliğini etkinleştirin.",
     "add_provider": "Sağlayıcı Ekle",
     "add_provider_title": "Yapay Zeka Sağlayıcısı Ekle",
@@ -1623,8 +1622,7 @@
     "open_all_in_tabs": "Tümünü aç",
     "open_all_in_tabs_tooltip": "Tüm sonuçları yeni sekmelerde aç",
     "open_all_confirm_one": "Bu, {{count}} notu yeni sekmelerde açacak. Devam edilsin mi?",
-    "open_all_confirm_other": "Bu, {{count}} notu yeni sekmelerde açacak. Devam edilsin mi?",
-    "open_all_too_many": "Bir kerede açmak için çok fazla not var ({{count}}). En fazla {{max}}, önce sonuçları daraltmayı deneyin."
+    "open_all_confirm_other": "Bu, {{count}} notu yeni sekmelerde açacak. Devam edilsin mi?"
   },
   "edited_notes": {
     "no_edited_notes_found": "Bu günde henüz düzenlenmiş not yok...",
@@ -2186,7 +2184,6 @@
     "images_section_title": "Resimler",
     "download_images_automatically": "Resimleri otomatik olarak indir",
     "download_images_description": "Yapıştırılan HTML'deki başvurulan çevrimiçi resimleri, çevrimdışı da kullanılabilmeleri için indirir.",
-    "enable_image_compression": "Resim sıkıştırma",
     "automatic_image_compression": "Resimleri otomatik olarak sıkıştır",
     "enable_image_compression_description": "Resimler yüklendiğinde veya yapıştırıldığında sıkıştırır ve yeniden boyutlandırır.",
     "max_image_dimensions": "En fazla resim boyutları",
