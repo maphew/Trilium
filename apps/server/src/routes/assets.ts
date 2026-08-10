@@ -52,7 +52,15 @@ async function register(app: express.Application) {
             },
             appType: "spa",
             configFile: path.join(clientDir, "vite.config.mts"),
-            base: `/${assetUrlFragment}/`
+            base: `/${assetUrlFragment}/`,
+            // One dep-optimizer cache per dev instance. The client config points
+            // `cacheDir` at a single repo-level directory, but the optimizer
+            // invalidates the whole cache whenever its `configHash` changes —
+            // and that hash differs between the Node-hosted dev server and the
+            // Electron-hosted one. Sharing the directory therefore made every
+            // switch between `server:start` and `desktop:start` re-scan and
+            // re-bundle the whole dependency graph, adding ~3s to startup.
+            cacheDir: path.join(clientDir, "../..", ".cache", `vite-${port}`)
         });
         app.use(`/${assetUrlFragment}/`, (req, res, next) => {
             if (req.url.startsWith("/images/") || req.url.startsWith("/doc_notes/")) {
