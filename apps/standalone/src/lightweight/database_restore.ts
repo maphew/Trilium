@@ -106,11 +106,12 @@ export async function restoreDatabase(
 
     try {
         report({ stage: "staging" });
-        await stageCandidate(target.pool, candidate, backup, options.passphrase, (fraction) =>
-            report({ stage: "staging", fraction }));
+        await keepingHandles(target, live, () =>
+            stageCandidate(target.pool, candidate, backup, options.passphrase, (fraction) =>
+                report({ stage: "staging", fraction })));
 
         report({ stage: "validating" });
-        const validation = validate(target.pool, candidate);
+        const validation = await keepingHandles(target, live, async () => validate(target.pool, candidate));
         if (!validation.valid) {
             throw new RestoreFailure(validation.rejection, validation.message);
         }
@@ -198,6 +199,13 @@ function validate(pool: SAHPoolUtil, candidate: string): DatabaseValidation {
     try {
         return validateDatabase(candidateOf(db), { skipIntegrityCheck: true });
     } catch (e) {
+        // The browser taking the pool's handles away is not this database being damaged, and saying
+        // so would condemn a backup that is perfectly good. Left to the caller, which can take them
+        // back and ask again.
+        if (isClosedAccessHandle(e)) {
+            throw e;
+        }
+
         // What a database too damaged to query throws is this driver's business, not the checks'.
         return {
             valid: false,
@@ -285,6 +293,48 @@ async function rollBackTo(
     }
 
     return new RestoreFailure("swap-failed", messageOf(cause));
+}
+
+/**
+ * Runs `work`, and where the browser closed the pool's handles underneath it, takes them back and
+ * runs it once more.
+ *
+ * This is for the part of a restore that happens before the swap, where the database being replaced
+ * is still open and serving the screen behind all this. Taking the handles back means letting go of
+ * it for a moment, since the pool refuses to be paused while anything is open at all, so it is
+ * closed and opened again around the recovery.
+ *
+ * The retry starts the work over rather than resuming it, which for the import means reading the
+ * backup from the beginning. That is worth it against the alternative: without it a restore that
+ * was suspended halfway is simply lost, and the suspension is usually the user coming back to the
+ * application rather than leaving it.
+ *
+ * @param live the database to put back, which is the one this restore has not replaced yet.
+ */
+async function keepingHandles<T>(
+    target: RestoreTarget,
+    live: string,
+    work: () => Promise<T>
+): Promise<T> {
+    try {
+        return await work();
+    } catch (e) {
+        if (!isClosedAccessHandle(e)) {
+            throw e;
+        }
+
+        try {
+            target.close();
+            await reacquireAccessHandles(target.pool);
+            target.open(live);
+        } catch {
+            // The handles could not be had back, so the failure to report is the one that was
+            // actually hit rather than whatever went wrong trying to recover from it.
+            throw e;
+        }
+
+        return await work();
+    }
 }
 
 /**

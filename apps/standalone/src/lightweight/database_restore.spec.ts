@@ -350,6 +350,69 @@ describe("a backup that cannot be restored", () => {
         expect(handles.paused).toBe(0);
     });
 
+    it("takes the handles back mid-import and starts the import over", async () => {
+        const { pool, files, handles } = fakePool();
+        const { target, acted } = fakeTarget(pool);
+        const original = databaseBytes();
+        // Closed while the backup was being read, which is the suspension this cannot otherwise
+        // survive: the database being replaced is still open, so the pool cannot even be paused
+        // until it is let go of.
+        let imports = 0;
+        const importDb = pool.importDb.bind(pool);
+        pool.importDb = async (name, pull) => {
+            if (imports++ === 0) {
+                handles.closed = true;
+                throw closedAccessHandle();
+            }
+
+            return importDb(name, pull);
+        };
+
+        await restoreDatabase(target, new Blob([ original ]));
+
+        expect(files.get(CANDIDATE_NAME)).toEqual(original);
+        expect(imports).toBe(2);
+        // Let go of, taken back, put straight back: the screen behind the restore still reads from
+        // the database that has not been replaced yet.
+        expect(acted.slice(0, 2)).toEqual([ "close", `open:${DEFAULT_DATABASE_NAME}` ]);
+        expect(handles).toMatchObject({ paused: 1, unpaused: 1 });
+        expect(pointer).toBe(CANDIDATE_NAME);
+    });
+
+    it("takes the handles back mid-check rather than calling the backup damaged", async () => {
+        const { pool, handles } = fakePool();
+        const { target } = fakeTarget(pool);
+        const answered = { times: 0 };
+        const tables = pool.OpfsSAHPoolDb.prototype.selectValues;
+        pool.OpfsSAHPoolDb.prototype.selectValues = function (sql: string) {
+            if (answered.times++ === 0) {
+                handles.closed = true;
+                throw closedAccessHandle();
+            }
+
+            return tables.call(this, sql);
+        };
+
+        await restoreDatabase(target, new Blob([ databaseBytes() ]));
+
+        expect(handles).toMatchObject({ paused: 1, unpaused: 1 });
+        expect(pointer).toBe(CANDIDATE_NAME);
+    });
+
+    it("reports what stopped an import that no recovery could help", async () => {
+        const { pool, handles } = fakePool();
+        const { target } = fakeTarget(pool);
+        pool.importDb = async () => {
+            throw new Error("the pool is full");
+        };
+
+        await expect(restoreDatabase(target, new Blob([ databaseBytes() ])))
+            .rejects.toMatchObject({ message: expect.stringContaining("the pool is full") });
+
+        // Nothing to take back, so nothing was let go of either.
+        expect(handles.paused).toBe(0);
+    });
+
     it("takes the pool's access handles back where the browser has closed them, and opens", async () => {
         const { pool, handles } = fakePool();
         // Closed while the restore was working, which is what a file picker, a screen lock or a
