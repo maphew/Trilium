@@ -321,6 +321,7 @@ function headlineFor(reason: string | undefined): string {
         case "swap-failed-reload": return t("setup.restore-error-swap-failed-reload");
         case "check-failed": return t("setup.restore-error-check-failed");
         case "restore-failed": return t("setup.restore-error-failed");
+        case "backup-incomplete": return t("setup.restore-error-incomplete");
         case "migration-failed": return t("setup.restore-error-would-not-open");
         case "restore-refused": return t("setup.restore-error-refused");
         case "already-initialized": return t("setup.restore-error-already-initialized");

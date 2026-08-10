@@ -9,6 +9,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
     DEFAULT_DATABASE_NAME,
     readCurrentDatabaseName,
+    readInSlices,
     restoreDatabase,
     type RestoreProgress,
     type RestoreTarget
@@ -59,6 +60,29 @@ async function containerOf(payload: Uint8Array, options: { passphrase?: string; 
                     await handle.close();
                 }
             }
+        }
+    );
+
+    return new Blob([ fs.readFileSync(filePath) ]);
+}
+
+/**
+ * The same, written front to back the way the standalone download writes one: no digest patched in
+ * afterwards, and the plaintext size recorded, which is what makes its total length predictable.
+ */
+async function streamedContainerOf(payload: Uint8Array, options: { passphrase?: string } = {}) {
+    const filePath = path.join(tempRoot, `streamed-${Math.random().toString(36).slice(2)}.tnbackup`);
+
+    await writeBackupContainer(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any -- a Node stream over the bytes.
+        (await import("stream")).Readable.from([ Buffer.from(payload) ]) as any,
+        fs.createWriteStream(filePath),
+        {
+            streamed: true,
+            compress: false,
+            passphrase: options.passphrase,
+            scrypt: { log2N: 10, r: 8, p: 1 },
+            plaintextSize: payload.length
         }
     );
 
@@ -259,6 +283,23 @@ describe("restoring from a picked backup", () => {
         expect(pointer).toBe(CANDIDATE_NAME);
     });
 
+    it("reads the file in slices rather than as one read for the whole of it", async () => {
+        const { files, pool } = fakePool();
+        const { target } = fakeTarget(pool);
+        const original = databaseBytes();
+        const backup = new Blob([ original ]);
+        const sliced = vi.spyOn(backup, "slice");
+        const streamed = vi.spyOn(backup, "stream");
+
+        await restoreDatabase(target, backup);
+
+        expect(files.get(CANDIDATE_NAME)).toEqual(original);
+        // One read living for the whole file is what a low-memory WebView was seen ending early,
+        // with nothing to say it had; bounded reads are what the chunked upload has always used.
+        expect(streamed).not.toHaveBeenCalled();
+        expect(sliced.mock.calls.length).toBeGreaterThan(1);
+    });
+
     it("unwraps a container back into the database it was made from", async () => {
         const { files, pool } = fakePool();
         const { target } = fakeTarget(pool);
@@ -307,6 +348,43 @@ describe("restoring from a picked backup", () => {
     });
 });
 
+describe("reading a file in slices", () => {
+    /** Drains a stream the way the readers here do, a chunk at a time. */
+    async function collect(stream: ReadableStream<Uint8Array>): Promise<Uint8Array> {
+        const reader = stream.getReader();
+        const chunks: Uint8Array[] = [];
+        for (let next = await reader.read(); !next.done; next = await reader.read()) {
+            chunks.push(next.value);
+        }
+
+        return concat(chunks);
+    }
+
+    it("hands back exactly the file, whatever the slices fall across", async () => {
+        const bytes = Uint8Array.from({ length: 1000 }, (_, at) => at % 251);
+
+        // A size that divides the file evenly, one that leaves a remainder, and one larger than
+        // the file: the boundaries are the only thing this has to get right.
+        for (const sliceSize of [ 100, 128, 4096 ]) {
+            await expect(collect(readInSlices(new Blob([ bytes ]), sliceSize))).resolves.toEqual(bytes);
+        }
+    });
+
+    it("refuses to end quietly where the file gives less than it claims", async () => {
+        const real = Uint8Array.from({ length: 256 }, (_, at) => at);
+        const backup = {
+            size: 1024,
+            slice: (start: number, end: number) =>
+                new Blob([ real.slice(start, Math.min(end, real.length)) ])
+        } as unknown as Blob;
+
+        await expect(collect(readInSlices(backup, 64))).rejects.toMatchObject({
+            reason: "backup-incomplete",
+            message: expect.stringContaining("256")
+        });
+    });
+});
+
 describe("a backup that cannot be restored", () => {
     it("asks for a passphrase before reading an encrypted container, and imports nothing", async () => {
         const { files, pool } = fakePool();
@@ -318,6 +396,37 @@ describe("a backup that cannot be restored", () => {
         expect(files.size).toBe(0);
         expect(acted).toEqual([]);
         expect(pointer).toBeUndefined();
+    });
+
+    it("says a file that ends early is incomplete, in the bytes it had and the bytes it needed", async () => {
+        const { pool } = fakePool();
+        const { target } = fakeTarget(pool);
+        const real = databaseBytes();
+        // A file whose size claims more than it can give, which is the shape the Android WebView
+        // presented: the read stops and the reader can only take that at its word.
+        const backup = {
+            size: real.length * 4,
+            slice: (start: number, end: number) =>
+                new Blob([ real.slice(start, Math.min(end, real.length)) ])
+        } as unknown as Blob;
+
+        await expect(restoreDatabase(target, backup)).rejects.toMatchObject({
+            reason: "backup-incomplete",
+            message: expect.stringContaining(String(real.length))
+        });
+    });
+
+    it("refuses a streamed container the file is too small to hold, without reading it", async () => {
+        const { pool, files } = fakePool();
+        const { target } = fakeTarget(pool);
+        const whole = await streamedContainerOf(databaseBytes());
+
+        await expect(restoreDatabase(target, whole.slice(0, whole.size - 64)))
+            .rejects.toMatchObject({ reason: "backup-incomplete" });
+
+        // Settled from the header alone: a container states the size it should be, so an
+        // incomplete one costs a second rather than however long its payload would have taken.
+        expect(files.size).toBe(0);
     });
 
     it("refuses a file that is neither a database nor a backup", async () => {

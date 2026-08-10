@@ -1,10 +1,12 @@
 import type { SAHPoolUtil } from "@sqlite.org/sqlite-wasm";
 import {
+    type BackupContainerInfo,
     FIXED_HEADER_BYTES,
     isBackupContainerError,
     peekBackupContainer,
     type ProgressCallback,
-    readBackupContainer
+    readBackupContainer,
+    streamedContainerSize
 } from "@triliumnext/backup-container/web";
 import {
     type CandidateDatabase,
@@ -167,7 +169,7 @@ async function stageCandidate(
     }
 
     if (!format.container) {
-        await pool.importDb(candidate, pullFrom(backup.stream()));
+        await pool.importDb(candidate, pullFrom(readInSlices(backup)));
         onProgress(1);
         return;
     }
@@ -179,7 +181,7 @@ async function stageCandidate(
     }
 
     const relay = new TransformStream<Uint8Array, Uint8Array>();
-    const unwrapped = readBackupContainer(backup.stream(), relay.writable, { passphrase, onProgress });
+    const unwrapped = readBackupContainer(readInSlices(backup), relay.writable, { passphrase, onProgress });
     const imported = pool.importDb(candidate, pullFrom(relay.readable));
 
     // Awaited together: either failing has to stop the other, which is what a rejected pipe does.
@@ -400,10 +402,80 @@ async function readBackupFormat(backup: Blob): Promise<{ container: boolean; enc
     const container = peekBackupContainer(head);
 
     if (container) {
+        requireWholeContainer(container, backup.size);
+
         return { container: true, encrypted: container.encrypted };
     }
 
     return looksLikeSqlite(head) ? { container: false, encrypted: false } : null;
+}
+
+/**
+ * Refuses a container the file is too small to hold, before a minute of work goes into it.
+ *
+ * Only a streamed one can be measured this way: it is written front to back with no compression, so
+ * its length follows from the size it records. Anything else is compressed, or was written by a
+ * writer that could revisit its own header, and its length says nothing in advance.
+ */
+function requireWholeContainer(container: BackupContainerInfo, size: number): void {
+    if (!container.streamed || container.plaintextSize <= 0) {
+        return;
+    }
+
+    const expected = streamedContainerSize(container.plaintextSize, container.encrypted);
+    if (size < expected) {
+        throw incompleteBackup(size, expected);
+    }
+}
+
+/**
+ * Reads a file a slice at a time, rather than as one read that lives for the whole of it.
+ *
+ * `Blob.stream()` is that one long read, and a browser is free to end it early. A low-memory Android
+ * WebView was seen doing exactly that with a complete 4.8 GB backup: the same byte every time, no
+ * error, just an end of input that a reader can only take at its word — which surfaced as a container
+ * that had run out of frames. Asking for a bounded range at a time is what the chunked upload has
+ * always done with files this size on the same hardware, and it is how the header below is read.
+ *
+ * Reaching the end before the file says it should is a failure here rather than silence, so a file
+ * that really is short says so in its own terms instead of through whatever was parsing it.
+ */
+export function readInSlices(blob: Blob, sliceSize = SLICE_BYTES): ReadableStream<Uint8Array> {
+    let offset = 0;
+
+    return new ReadableStream<Uint8Array>({
+        async pull(controller) {
+            if (offset >= blob.size) {
+                controller.close();
+                return;
+            }
+
+            const end = Math.min(offset + sliceSize, blob.size);
+            const slice = new Uint8Array(await blob.slice(offset, end).arrayBuffer());
+            if (slice.length === 0) {
+                throw incompleteBackup(offset, blob.size);
+            }
+
+            offset += slice.length;
+            controller.enqueue(slice);
+        }
+    });
+}
+
+/**
+ * How much is asked for at once: large enough that the per-read cost is lost against the work done
+ * with it, small enough that a device with very little memory never holds much. The container reads
+ * in frames a quarter of this size, and the stream keeps one slice queued.
+ */
+const SLICE_BYTES = 4 * 1024 * 1024;
+
+/** A file that stops before it should have, said in bytes because that is what makes it checkable. */
+function incompleteBackup(read: number, expected: number): RestoreFailure {
+    return new RestoreFailure(
+        "backup-incomplete",
+        `The backup file ends after ${read} bytes, short of the ${expected} it should hold. `
+            + "It was probably not copied or downloaded in full."
+    );
 }
 
 /** Turns a stream into the pull `importDb` asks for: a chunk each call, nothing at the end. */
