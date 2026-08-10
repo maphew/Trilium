@@ -1,5 +1,5 @@
 import { readBackupContainer } from "@triliumnext/backup-container";
-import { streamedContainerSize } from "@triliumnext/backup-container/web";
+import { containerSize } from "@triliumnext/backup-container/web";
 import { Readable, Writable } from "stream";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -106,7 +106,7 @@ describe("streamDatabaseDownload", () => {
         expect(outcome).toEqual({ status: "done" });
         // One format whether or not a password was given, so one extension and one restore path.
         expect(port.sent[0])
-            .toEqual({ type: "begin", byteSize: streamedContainerSize(PAGE_SIZE * PAGE_COUNT, false) });
+            .toEqual({ type: "begin", byteSize: containerSize(PAGE_SIZE * PAGE_COUNT, false) });
         expect(port.chunks().reduce((total, chunk) => total + chunk.byteLength, 0))
             .toBe(port.sent[0].byteSize);
         expect(port.sent.at(-1)).toEqual({ type: "end" });
@@ -131,7 +131,7 @@ describe("streamDatabaseDownload", () => {
         expect(outcome).toEqual({ status: "done" });
         // The announced size is what the download's Content-Length becomes, so it must be exact.
         const announced = port.sent[0].byteSize;
-        expect(announced).toBe(streamedContainerSize(PAGE_SIZE * PAGE_COUNT, true));
+        expect(announced).toBe(containerSize(PAGE_SIZE * PAGE_COUNT, true));
         const streamed = port.chunks().reduce((total, chunk) => total + chunk.byteLength, 0);
         expect(streamed).toBe(announced);
 

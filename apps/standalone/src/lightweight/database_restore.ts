@@ -6,7 +6,7 @@ import {
     peekBackupContainer,
     type ProgressCallback,
     readBackupContainer,
-    streamedContainerSize
+    containerSize
 } from "@triliumnext/backup-container/web";
 import {
     type CandidateDatabase,
@@ -413,16 +413,16 @@ async function readBackupFormat(backup: Blob): Promise<{ container: boolean; enc
 /**
  * Refuses a container the file is too small to hold, before a minute of work goes into it.
  *
- * Only a streamed one can be measured this way: it is written front to back with no compression, so
- * its length follows from the size it records. Anything else is compressed, or was written by a
- * writer that could revisit its own header, and its length says nothing in advance.
+ * Only an uncompressed one can be measured this way: its length follows exactly from the size its
+ * header records. Compression breaks the derivation, since the payload is then shorter than the
+ * plaintext by a ratio nothing states in advance.
  */
 function requireWholeContainer(container: BackupContainerInfo, size: number): void {
-    if (!container.streamed || container.plaintextSize <= 0) {
+    if (container.compressed || container.plaintextSize <= 0) {
         return;
     }
 
-    const expected = streamedContainerSize(container.plaintextSize, container.encrypted);
+    const expected = containerSize(container.plaintextSize, container.encrypted);
     if (size < expected) {
         throw incompleteBackup(size, expected);
     }

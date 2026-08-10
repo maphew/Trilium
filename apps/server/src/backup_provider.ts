@@ -11,7 +11,6 @@ import type {
 import { BackupOptionsService, BackupService, getLog, sync_mutex as syncMutexService, utils as coreUtils, ws } from "@triliumnext/core";
 import type { Response } from "express";
 import fs from "fs";
-import fsp from "fs/promises";
 import { t } from "i18next";
 import path from "path";
 
@@ -401,17 +400,7 @@ async function writeContainer(
             compress: format.compress,
             passphrase: format.passphrase ?? undefined,
             plaintextSize: fs.statSync(snapshot).size,
-            onProgress,
-            // The digest is only known once the payload is written, so it is patched in afterwards.
-            patchHeader: async (offset, data) => {
-                const handle = await fsp.open(partial, "r+");
-                try {
-                    await handle.write(data, 0, data.length, offset);
-                    await handle.sync();
-                } finally {
-                    await handle.close();
-                }
-            }
+            onProgress
         });
 
         // Renamed last, so a half-written container is never mistaken for a finished one.

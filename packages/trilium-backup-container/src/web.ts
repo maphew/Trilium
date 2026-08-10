@@ -35,7 +35,11 @@ export {
     SCRYPT_BOUNDS,
     SCRYPT_DEFAULTS,
     type ScryptParams,
-    streamedContainerSize
+    containerSize,
+    type ContainerTrailer,
+    decodeTrailer,
+    encodeTrailer,
+    TRAILER_BYTES
 } from "./format.js";
 export {
     DEFAULT_PROGRESS_INTERVAL_MS,
@@ -51,7 +55,6 @@ export {
 } from "./read.js";
 export { readBackupContainer, writeBackupContainer } from "./web-streams.js";
 export {
-    type PatchHeader,
     type WriteBackupContainerOptions,
     type WriteBackupContainerResult
 } from "./write.js";

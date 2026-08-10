@@ -6,7 +6,7 @@ import { nodeBackend } from "./backend-node.js";
 import { deriveContainerKey } from "./backend.js";
 import { ByteReader } from "./byte-reader.js";
 import { BackupContainerError, isBackupContainerError } from "./errors.js";
-import { FRAME_SIZE, HEADER_BYTES_PLAIN } from "./format.js";
+import { FRAME_SIZE, HEADER_BYTES_PLAIN, TRAILER_BYTES } from "./format.js";
 import {
     fakeDatabase,
     failureOf,
@@ -93,19 +93,18 @@ describe("compressed payload damage", () => {
     it("reports a broken gzip stream as a damaged payload, not as a digest mismatch", async () => {
         const written = await writeToBuffer(fakeDatabase(50_000), { compress: true });
 
-        // Corrupt the deflate data, then repair the digest so the failure can only come from zlib.
+        // Corrupt the deflate data, then repair the trailer's digest over it, so the failure can
+        // only come from zlib.
         const damaged = flipByte(written.bytes, HEADER_BYTES_PLAIN + 30);
-        createHash("sha256").update(damaged.subarray(HEADER_BYTES_PLAIN)).digest().copy(
-            damaged,
-            HEADER_BYTES_PLAIN - 32
-        );
+        createHash("sha256").update(damaged.subarray(HEADER_BYTES_PLAIN, -TRAILER_BYTES)).digest()
+            .copy(damaged, damaged.length - TRAILER_BYTES);
 
         expect(await failureOf(damaged)).toBe("damaged-payload");
     });
 
     it("surfaces a digest mismatch through the decompressor untranslated", async () => {
         const written = await writeToBuffer(fakeDatabase(50_000), { compress: true });
-        const damaged = flipByte(written.bytes, HEADER_BYTES_PLAIN - 5);   // inside the digest
+        const damaged = flipByte(written.bytes, written.bytes.length - TRAILER_BYTES + 5);   // in the digest
 
         expect(await failureOf(damaged)).toBe("digest-mismatch");
     });

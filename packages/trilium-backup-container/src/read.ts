@@ -10,10 +10,12 @@ import { BackupContainerError } from "./errors.js";
 import {
     authenticatedHeaderEnd,
     type ContainerHeader,
+    type ContainerTrailer,
     DEFAULT_MAX_HEADER_BYTES,
     DEFAULT_MAX_KDF_MEMORY_BYTES,
     decodeFixedHeader,
     decodeHeader,
+    decodeTrailer,
     encodeHeader,
     type EncryptionHeader,
     FIXED_HEADER_BYTES,
@@ -24,6 +26,7 @@ import {
     nonceFor,
     SQLITE_HEADER_BYTES,
     TAG_BYTES,
+    TRAILER_BYTES,
     validateScryptParams,
     validateSqliteHeader,
     VERIFIER_COUNTER
@@ -62,8 +65,8 @@ export interface BackupContainerInfo {
     version: number;
     compressed: boolean;
     encrypted: boolean;
-    /** Written front to back with no payload digest; the frames alone carry the integrity. */
-    streamed: boolean;
+    /** When the backup was taken, in milliseconds since the Unix epoch, or 0 when not recorded. */
+    timestamp: number;
     /** Size of the wrapped database before compression, or 0 when the writer did not record it. */
     plaintextSize: number;
 }
@@ -84,12 +87,12 @@ export function peekBackupContainer(
     }
 
     try {
-        const { version, compressed, encrypted, streamed, plaintextSize } = decodeFixedHeader(
+        const { version, timestamp, compressed, encrypted, plaintextSize } = decodeFixedHeader(
             head.subarray(0, FIXED_HEADER_BYTES),
             maxHeaderBytes
         );
 
-        return { version, compressed, encrypted, streamed, plaintextSize };
+        return { version, timestamp, compressed, encrypted, plaintextSize };
     } catch {
         return null;
     }
@@ -165,9 +168,10 @@ export async function readContainer(
     const progress = createProgressReporter(header.plaintextSize, options);
     const guard = new OutputGuard(ceiling, options.requireSqliteHeader !== false, progress);
 
+    const found: FoundTrailer = { trailer: null };
     const payload = header.encryption && key !== null
-        ? readFrames(reader, header, header.encryption, key, backend)
-        : readPlainPayload(reader, header, backend);
+        ? readFrames(reader, header, header.encryption, key, backend, found)
+        : readPlainPayload(reader, backend, found);
 
     const unwrapped = header.compressed ? backend.gunzip(payload) : payload;
     for await (const chunk of unwrapped) {
@@ -177,10 +181,26 @@ export async function readContainer(
     guard.finish();
     await output.end();
 
-    if (header.plaintextSize > 0 && guard.bytesWritten !== header.plaintextSize) {
+    // The payload readers always leave one behind or throw, so this is a guard on their contract
+    // rather than on the file.
+    const trailer = found.trailer;
+    if (!trailer) {
+        throw new BackupContainerError("truncated", "The container ended without a trailer.");
+    }
+
+    // The trailer's size is the authoritative one, counted as the payload was written rather than
+    // promised in advance, and it is what an unencrypted container leans on to notice truncation.
+    if (guard.bytesWritten !== trailer.plaintextSize) {
         throw new BackupContainerError(
             "size-mismatch",
-            `Output is ${guard.bytesWritten} bytes, header records ${header.plaintextSize}.`
+            `Output is ${guard.bytesWritten} bytes, the container records ${trailer.plaintextSize}.`
+        );
+    }
+    // Both stated the size, and they disagree: whichever is wrong, the file is not intact.
+    if (header.plaintextSize > 0 && header.plaintextSize !== trailer.plaintextSize) {
+        throw new BackupContainerError(
+            "size-mismatch",
+            `Header records ${header.plaintextSize} bytes, the trailer ${trailer.plaintextSize}.`
         );
     }
 
@@ -325,11 +345,11 @@ async function* readFrames(
     header: ContainerHeader,
     encryption: EncryptionHeader,
     key: unknown,
-    backend: ContainerBackend
+    backend: ContainerBackend,
+    found: FoundTrailer
 ): AsyncGenerator<Uint8Array> {
     const aad = aadOf(header);
-    // A streamed container records no digest, so hashing towards one would only slow the restore.
-    const hash = header.streamed ? null : backend.createSha256();
+    const hash = backend.createSha256();
     let counter = 0;
 
     for (;;) {
@@ -349,11 +369,9 @@ async function* readFrames(
 
         const ciphertext = await reader.readExactly(length);
         const tag = await reader.readExactly(TAG_BYTES);
-        if (hash) {
-            hash.update(lengthField);
-            hash.update(ciphertext);
-            hash.update(tag);
-        }
+        hash.update(lengthField);
+        hash.update(ciphertext);
+        hash.update(tag);
 
         const plaintext = await backend.gcmOpen(
             key,
@@ -376,40 +394,61 @@ async function* readFrames(
         counter++;
     }
 
+    // The frames say where they end, so the trailer is simply what follows the final one.
+    found.trailer = decodeTrailer(await reader.readExactly(TRAILER_BYTES));
+
     if (!(await reader.atEof())) {
         throw new BackupContainerError(
             "trailing-data",
-            `Bytes follow the final frame at offset ${reader.consumed}.`
+            `Bytes follow the trailer at offset ${reader.consumed}.`
         );
     }
 
-    if (hash) {
-        verifyDigest(hash.digest(), header.digest);
-    }
+    verifyDigest(hash.digest(), found.trailer.digest);
 }
 
-/** Yields the payload of an unencrypted container, which runs to end of file. */
+/**
+ * Yields the payload of an unencrypted container, which runs to the trailer.
+ *
+ * Nothing announces where that is, so the last {@link TRAILER_BYTES} bytes are held back as they go
+ * past and whatever is still held when the input ends is the trailer. That keeps the reader
+ * forward-only: it never has to know the file's length, let alone seek to it, which is what lets the
+ * same code read a file, a download and a stream that is still arriving.
+ */
 async function* readPlainPayload(
     reader: ByteReader,
-    header: ContainerHeader,
-    backend: ContainerBackend
+    backend: ContainerBackend,
+    found: FoundTrailer
 ): AsyncGenerator<Uint8Array> {
-    // A streamed container records no digest, so hashing towards one would only slow the restore.
-    // What it records instead is its size, which `readContainer` holds the output to.
-    const hash = header.streamed ? null : backend.createSha256();
+    const hash = backend.createSha256();
+    let held = EMPTY;
 
     for (;;) {
         const chunk = await reader.readUpTo(FRAME_SIZE);
         if (chunk.length === 0) {
             break;
         }
-        hash?.update(chunk);
-        yield chunk;
+
+        const pending = held.length === 0 ? chunk : concatBytes(held, chunk);
+        if (pending.length <= TRAILER_BYTES) {
+            // Copied, since it has to outlive the reader's own view of these bytes.
+            held = pending.slice();
+            continue;
+        }
+
+        const payload = pending.subarray(0, pending.length - TRAILER_BYTES);
+        held = pending.slice(pending.length - TRAILER_BYTES);
+        hash.update(payload);
+        yield payload;
     }
 
-    if (hash) {
-        verifyDigest(hash.digest(), header.digest);
-    }
+    found.trailer = decodeTrailer(held);
+    verifyDigest(hash.digest(), found.trailer.digest);
+}
+
+/** Where a payload reader leaves the trailer it consumed, for the caller that checks it. */
+interface FoundTrailer {
+    trailer: ContainerTrailer | null;
 }
 
 function verifyDigest(actual: Uint8Array, expected: Uint8Array): void {

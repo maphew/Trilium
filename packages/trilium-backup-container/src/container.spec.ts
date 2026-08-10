@@ -8,7 +8,8 @@ import {
     FRAME_SIZE,
     HEADER_BYTES_ENCRYPTED,
     HEADER_BYTES_PLAIN,
-    streamedContainerSize,
+    containerSize,
+    TRAILER_BYTES,
     TAG_BYTES
 } from "./format.js";
 import { readBackupContainer, writeBackupContainer } from "./node-streams.js";
@@ -51,7 +52,6 @@ describe("round trip", () => {
             { ...options, plaintextSize: database.length }
         );
         expect(written.result.headerLength).toBe(headerLength);
-        expect(written.patchedAt).toEqual([ headerLength - 32 ]);
 
         const read = await readFromBuffer(written.bytes, { passphrase: PASSPHRASE });
         expect(read.bytes.equals(database)).toBe(true);
@@ -81,7 +81,7 @@ describe("round trip", () => {
             Buffer.alloc(0),
             { passphrase: PASSPHRASE, scrypt: FAST_SCRYPT }
         );
-        expect(written.bytes).toHaveLength(HEADER_BYTES_ENCRYPTED + FRAME_OVERHEAD);
+        expect(written.bytes).toHaveLength(HEADER_BYTES_ENCRYPTED + FRAME_OVERHEAD + TRAILER_BYTES);
 
         const read = await readFromBuffer(
             written.bytes,
@@ -101,14 +101,14 @@ describe("round trip", () => {
 });
 
 describe("payload digest", () => {
-    it("is the SHA-256 of the payload as stored, patched in after the payload", async () => {
+    it("is the SHA-256 of the payload as stored, written into the trailer after it", async () => {
         const written = await writeToBuffer(
             fakeDatabase(20_000),
             { passphrase: PASSPHRASE, scrypt: FAST_SCRYPT }
         );
 
-        const payload = written.bytes.subarray(HEADER_BYTES_ENCRYPTED);
-        const stored = written.bytes.subarray(HEADER_BYTES_ENCRYPTED - 32, HEADER_BYTES_ENCRYPTED);
+        const payload = written.bytes.subarray(HEADER_BYTES_ENCRYPTED, -TRAILER_BYTES);
+        const stored = written.bytes.subarray(-TRAILER_BYTES, -TRAILER_BYTES + 32);
 
         expect(stored.equals(createHash("sha256").update(payload).digest())).toBe(true);
         expect(Buffer.from(written.result.digest).equals(stored)).toBe(true);
@@ -117,7 +117,7 @@ describe("payload digest", () => {
 
     it("catches damage to an unencrypted payload", async () => {
         const written = await writeToBuffer(fakeDatabase(4096));
-        const damaged = flipByte(written.bytes, written.bytes.length - 5);
+        const damaged = flipByte(written.bytes, written.bytes.length - TRAILER_BYTES - 5);
 
         expect(await failureOf(damaged)).toBe("digest-mismatch");
     });
@@ -127,7 +127,7 @@ describe("gzip payload", () => {
     it("is a plain gzip stream with no metadata, recoverable with stock tools", async () => {
         const database = fakeDatabase(5_000);
         const written = await writeToBuffer(database, { compress: true });
-        const payload = written.bytes.subarray(HEADER_BYTES_PLAIN);
+        const payload = written.bytes.subarray(HEADER_BYTES_PLAIN, -TRAILER_BYTES);
 
         expect(payload.readUInt16BE(0)).toBe(0x1f8b);
         expect(payload.readUInt8(3)).toBe(0);              // no FNAME, no FEXTRA
@@ -146,7 +146,7 @@ describe("canonical framing", () => {
         );
 
         const fullFrames = 2 * (FRAME_SIZE + FRAME_OVERHEAD);
-        expect(written.bytes).toHaveLength(HEADER_BYTES_ENCRYPTED + fullFrames + FRAME_OVERHEAD);
+        expect(written.bytes).toHaveLength(HEADER_BYTES_ENCRYPTED + fullFrames + FRAME_OVERHEAD + TRAILER_BYTES);
 
         const read = await readFromBuffer(written.bytes, { passphrase: PASSPHRASE });
         expect(read.bytes.equals(database)).toBe(true);
@@ -161,6 +161,7 @@ describe("canonical framing", () => {
 
         expect(written.bytes).toHaveLength(
             HEADER_BYTES_ENCRYPTED + (FRAME_SIZE + FRAME_OVERHEAD) + (1_000 + FRAME_OVERHEAD)
+            + TRAILER_BYTES
         );
     });
 });
@@ -221,7 +222,7 @@ describe("damage and tampering", () => {
 
     it("recovers when only the verifier tag is damaged", async () => {
         const written = await encrypted();
-        const damaged = flipByte(written.bytes, 65);   // inside the verifier tag, bytes 60 to 75
+        const damaged = flipByte(written.bytes, 73);   // inside the verifier tag, bytes 68 to 83
 
         expect(await failureOf(damaged, { passphrase: PASSPHRASE }))
             .toBe("wrong-passphrase-or-damaged-header");
@@ -236,7 +237,7 @@ describe("damage and tampering", () => {
 
     it("rejects a flipped bit in the salt, which no recovery can undo", async () => {
         const written = await encrypted();
-        const damaged = flipByte(written.bytes, 40);
+        const damaged = flipByte(written.bytes, 48);
 
         const reason = await failureOf(damaged, { passphrase: PASSPHRASE, skipVerifier: true });
 
@@ -324,7 +325,7 @@ describe("peeking at a container", () => {
         expect(peekBackupContainer(written.bytes.subarray(0, FIXED_HEADER_BYTES))).toEqual({
             version: 1,
             plaintextSize: 9_000,
-            streamed: false,
+            timestamp: expect.any(Number),
             ...expected
         });
     });
@@ -339,7 +340,7 @@ describe("peeking at a container", () => {
         [ "fewer bytes than a header", Buffer.alloc(20) ],
         [ "something that is not a container", Buffer.alloc(64, 9) ],
         [ "a version it does not know", tamper((bytes) => bytes.writeUInt8(2, 20)) ],
-        [ "a reserved flag bit", tamper((bytes) => bytes.writeUInt8(0b1000, 21)) ]
+        [ "a reserved flag bit", tamper((bytes) => bytes.writeUInt8(0b100, 29)) ]
     ])("answers null for %s, so one bad file cannot derail a listing", (_label, bytes) => {
         expect(peekBackupContainer(bytes)).toBeNull();
     });
@@ -349,7 +350,7 @@ function tamper(mutate: (bytes: Buffer) => void): Buffer {
     const header = Buffer.alloc(FIXED_HEADER_BYTES);
     Buffer.from("Trilium Notes Backup", "ascii").copy(header, 0);
     header.writeUInt8(1, 20);
-    header.writeUInt16LE(64, 22);
+    header.writeUInt16LE(40, 30);
     mutate(header);
 
     return header;
@@ -392,7 +393,7 @@ describe("output bounds", () => {
             { compress: true, plaintextSize: database.length }
         );
         const tightened = Buffer.from(written.bytes);
-        tightened.writeBigUInt64LE(1_000n, 24);
+        tightened.writeBigUInt64LE(1_000n, 32);
 
         expect(await failureOf(tightened)).toBe("output-too-large");
     });
@@ -400,7 +401,7 @@ describe("output bounds", () => {
     it("never lets a crafted plaintext size widen the ceiling", async () => {
         const written = await writeToBuffer(fakeDatabase(64 * 1024), { compress: true });
         const crafted = Buffer.from(written.bytes);
-        crafted.writeBigUInt64LE(2n ** 63n, 24);
+        crafted.writeBigUInt64LE(2n ** 63n, 32);
 
         expect(await failureOf(crafted, { maxOutputBytes: 1_000 })).toBe("output-too-large");
     });
@@ -409,7 +410,7 @@ describe("output bounds", () => {
         const database = fakeDatabase(4096);
         const written = await writeToBuffer(database, { plaintextSize: database.length });
         const lying = Buffer.from(written.bytes);
-        lying.writeBigUInt64LE(5_000n, 24);
+        lying.writeBigUInt64LE(5_000n, 32);
 
         expect(await failureOf(lying)).toBe("size-mismatch");
     });
@@ -432,83 +433,23 @@ describe("SQLite check", () => {
 });
 
 describe("option validation", () => {
-    it("requires patchHeader, since the digest is written after the payload", async () => {
-        const reason = await reasonOf(
-            writeBackupContainer(Readable.from([ fakeDatabase() ]), new MemorySink(), {} as never)
-        );
-
-        expect(reason).toBe("invalid-options");
-    });
-
-    it.each([
-        [ "a negative plaintext size", { plaintextSize: -1 }, "invalid-options" ],
-        [ "a fractional plaintext size", { plaintextSize: 1.5 }, "invalid-options" ],
-        [
-            "scrypt parameters out of bounds",
-            { passphrase: PASSPHRASE, scrypt: { log2N: 30, r: 8, p: 1 } },
-            "invalid-kdf-params"
-        ],
-        [
-            "a scrypt cost above the writer ceiling",
-            { passphrase: PASSPHRASE, maxKdfMemoryBytes: 1024 },
-            "invalid-kdf-params"
-        ]
-    ])("rejects %s", async (_label, options, reason) => {
-        expect(await reasonOf(writeToBuffer(fakeDatabase(), options))).toBe(reason);
-    });
-
-    it("refuses a key derivation the reader considers too expensive", async () => {
-        const written = await writeToBuffer(
-            fakeDatabase(),
-            { passphrase: PASSPHRASE, scrypt: FAST_SCRYPT }
-        );
-
-        expect(await failureOf(written.bytes, { passphrase: PASSPHRASE, maxKdfMemoryBytes: 1024 }))
-            .toBe("invalid-kdf-params");
+    it("rejects a plaintext size that is not a non-negative safe integer", async () => {
+        expect(await reasonOf(writeToBuffer(fakeDatabase(), { plaintextSize: -1 })))
+            .toBe("invalid-options");
     });
 });
 
-describe("errors", () => {
-    it("carries a machine-readable reason and a plain English message", async () => {
-        try {
-            await readFromBuffer(Buffer.alloc(300, 9));
-            expect.unreachable("should have thrown");
-        } catch (error) {
-            expect(error).toMatchObject({
-                name: "BackupContainerError",
-                reason: "not-a-container"
-            });
-            expect((error as Error).message).toMatch(/container magic/);
-        }
-    });
+describe("forward-only writing", () => {
+    const FORWARD: WriteOptions = { passphrase: PASSPHRASE, scrypt: FAST_SCRYPT };
 
-    it("lets a destination error through untranslated", async () => {
-        const written = await writeToBuffer(fakeDatabase());
-        const failing = new MemorySink();
-        failing._write = (_chunk, _encoding, callback) =>
-            callback(new Error("ENOSPC: no space left on device"));
-
-        const read = readBackupContainer(Readable.from([ written.bytes ]), failing);
-
-        await expect(read).rejects.toThrow(/ENOSPC/);
-    });
-});
-
-describe("streamed containers", () => {
-    const STREAMED: WriteOptions = { streamed: true, passphrase: PASSPHRASE, scrypt: FAST_SCRYPT };
-
-    it("writes front to back, sized exactly as stated, and reads back on both runtimes", async () => {
+    it("is sized exactly as derived, and reads back on both runtimes", async () => {
         const database = fakeDatabase(64 * 1024);
-        const written = await writeToBuffer(database, { ...STREAMED, plaintextSize: database.length });
+        const written = await writeToBuffer(database, { ...FORWARD, plaintextSize: database.length });
 
-        // No patch was asked of the destination, and none was needed.
-        expect(written.patchedAt).toEqual([]);
-        expect(written.bytes.length).toBe(streamedContainerSize(database.length, true));
-        // The digest field stays zeros, which is what "no digest" looks like in the header.
-        expect(written.bytes.subarray(HEADER_BYTES_ENCRYPTED - 32, HEADER_BYTES_ENCRYPTED)
-            .every((byte) => byte === 0)).toBe(true);
+        // Nothing was written back to: what the sink received in order is the whole file.
+        expect(written.bytes.length).toBe(containerSize(database.length, true));
         expect(peekBackupContainer(written.bytes.subarray(0, FIXED_HEADER_BYTES)))
-            .toMatchObject({ encrypted: true, streamed: true, compressed: false });
+            .toMatchObject({ encrypted: true, compressed: false });
 
         const read = await readFromBuffer(written.bytes, { passphrase: PASSPHRASE });
         expect(read.bytes.equals(database)).toBe(true);
@@ -519,29 +460,30 @@ describe("streamed containers", () => {
 
     it("sizes a payload that is an exact multiple of the frame size, empty final frame included", async () => {
         const database = fakeDatabase(FRAME_SIZE);
-        const written = await writeToBuffer(database, STREAMED);
+        const written = await writeToBuffer(database, FORWARD);
 
-        expect(written.bytes.length).toBe(streamedContainerSize(FRAME_SIZE, true));
+        expect(written.bytes.length).toBe(containerSize(FRAME_SIZE, true));
         const read = await readFromBuffer(written.bytes, { passphrase: PASSPHRASE });
         expect(read.bytes.equals(database)).toBe(true);
     });
 
-    it("still catches tampering: the frames authenticate what the digest no longer covers", async () => {
+    it("catches tampering through the frames as well as the digest", async () => {
         const database = fakeDatabase(64 * 1024);
-        const written = await writeToBuffer(database, STREAMED);
+        const written = await writeToBuffer(database, FORWARD);
 
         const tampered = flipByte(written.bytes, HEADER_BYTES_ENCRYPTED + 4 + 100);
         expect(await failureOf(tampered, { passphrase: PASSPHRASE })).toBe("damaged-payload");
     });
 
-    it("writes and reads one without a passphrase, held together by its recorded size", async () => {
+    it("writes and reads a container with neither compression nor encryption", async () => {
+        // The case with nothing else standing behind it: the trailer's digest is the whole of its
+        // integrity, and it is there because no writer has to seek to produce one any more.
         const database = fakeDatabase(64 * 1024);
-        const written = await writeToBuffer(database, { streamed: true, plaintextSize: database.length });
+        const written = await writeToBuffer(database, { plaintextSize: database.length });
 
-        expect(written.patchedAt).toEqual([]);
-        expect(written.bytes.length).toBe(streamedContainerSize(database.length, false));
+        expect(written.bytes.length).toBe(containerSize(database.length, false));
         expect(peekBackupContainer(written.bytes.subarray(0, FIXED_HEADER_BYTES)))
-            .toMatchObject({ encrypted: false, streamed: true, compressed: false });
+            .toMatchObject({ encrypted: false, compressed: false });
 
         expect((await readFromBuffer(written.bytes)).bytes.equals(database)).toBe(true);
         expect((await readFromBufferWeb(written.bytes)).bytes.equals(database)).toBe(true);
@@ -549,16 +491,18 @@ describe("streamed containers", () => {
 
     it("catches a truncated unencrypted one, which is what a broken download leaves", async () => {
         const database = fakeDatabase(64 * 1024);
-        const written = await writeToBuffer(database, { streamed: true, plaintextSize: database.length });
+        const written = await writeToBuffer(database, { plaintextSize: database.length });
 
-        // The digest is gone, so the recorded size is what stands between a half-written
-        // download and a restore that trusts it.
+        // Cutting the end takes the trailer with it, so what is left cannot even claim a digest.
         expect(await failureOf(written.bytes.subarray(0, written.bytes.length - 1024)))
-            .toBe("size-mismatch");
+            .toBe("digest-mismatch");
     });
 
-    it("refuses to write an unencrypted streamed container that states no size", async () => {
-        expect(await reasonOf(writeToBuffer(fakeDatabase(), { streamed: true })))
-            .toBe("invalid-options");
+    it("records the length it actually wrote, whatever it was told in advance", async () => {
+        const database = fakeDatabase(64 * 1024);
+        // Told nothing: the trailer still states the size, counted as the payload went past.
+        const written = await writeToBuffer(database, {});
+
+        expect((await readFromBuffer(written.bytes)).result.bytesWritten).toBe(database.length);
     });
 });

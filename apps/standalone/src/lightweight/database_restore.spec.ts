@@ -70,7 +70,10 @@ async function containerOf(payload: Uint8Array, options: { passphrase?: string; 
  * The same, written front to back the way the standalone download writes one: no digest patched in
  * afterwards, and the plaintext size recorded, which is what makes its total length predictable.
  */
-async function streamedContainerOf(payload: Uint8Array, options: { passphrase?: string } = {}) {
+async function streamedContainerOf(
+    payload: Uint8Array,
+    options: { passphrase?: string; compress?: boolean } = {}
+) {
     const filePath = path.join(tempRoot, `streamed-${Math.random().toString(36).slice(2)}.tnbackup`);
 
     await writeBackupContainer(
@@ -79,7 +82,7 @@ async function streamedContainerOf(payload: Uint8Array, options: { passphrase?: 
         fs.createWriteStream(filePath),
         {
             streamed: true,
-            compress: false,
+            compress: options.compress ?? false,
             passphrase: options.passphrase,
             scrypt: { log2N: 10, r: 8, p: 1 },
             plaintextSize: payload.length
@@ -414,6 +417,20 @@ describe("a backup that cannot be restored", () => {
             reason: "backup-incomplete",
             message: expect.stringContaining(String(real.length))
         });
+    });
+
+    it("does not measure a streamed container that is compressed, since its length is not stated", async () => {
+        const { files, pool } = fakePool();
+        const { target } = fakeTarget(pool);
+        const original = databaseBytes();
+        // Compresses to far less than the plaintext size the header records, so measuring the file
+        // against that size would condemn a complete backup.
+        const whole = await streamedContainerOf(original, { compress: true });
+        expect(whole.size).toBeLessThan(original.length);
+
+        await restoreDatabase(target, whole);
+
+        expect(files.get(CANDIDATE_NAME)).toEqual(original);
     });
 
     it("refuses a streamed container the file is too small to hold, without reading it", async () => {

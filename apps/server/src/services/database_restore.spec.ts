@@ -2,7 +2,6 @@ import { writeBackupContainer } from "@triliumnext/backup-container";
 import { app_info as appInfo, getLog, getSql } from "@triliumnext/core";
 import Database from "better-sqlite3";
 import fs from "fs";
-import fsp from "fs/promises";
 import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -57,15 +56,7 @@ async function containerOf(source: string, passphrase?: string, compress = false
     await writeBackupContainer(fs.createReadStream(source), fs.createWriteStream(filePath), {
         compress,
         passphrase,
-        plaintextSize: fs.statSync(source).size,
-        patchHeader: async (offset, data) => {
-            const handle = await fsp.open(filePath, "r+");
-            try {
-                await handle.write(data, 0, data.length, offset);
-            } finally {
-                await handle.close();
-            }
-        }
+        plaintextSize: fs.statSync(source).size
     });
 
     return filePath;

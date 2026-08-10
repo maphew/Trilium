@@ -57,7 +57,11 @@ export {
     SCRYPT_BOUNDS,
     SCRYPT_DEFAULTS,
     type ScryptParams,
-    streamedContainerSize
+    containerSize,
+    type ContainerTrailer,
+    decodeTrailer,
+    encodeTrailer,
+    TRAILER_BYTES
 } from "./format.js";
 export { readBackupContainer, writeBackupContainer } from "./node-streams.js";
 export {
@@ -73,7 +77,6 @@ export {
     type ReadBackupContainerResult
 } from "./read.js";
 export {
-    type PatchHeader,
     type WriteBackupContainerOptions,
     type WriteBackupContainerResult
 } from "./write.js";
