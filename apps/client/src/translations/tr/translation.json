@@ -1623,8 +1623,7 @@
     "open_all_in_tabs": "Tümünü aç",
     "open_all_in_tabs_tooltip": "Tüm sonuçları yeni sekmelerde aç",
     "open_all_confirm_one": "Bu, {{count}} notu yeni sekmelerde açacak. Devam edilsin mi?",
-    "open_all_confirm_other": "Bu, {{count}} notu yeni sekmelerde açacak. Devam edilsin mi?",
-    "open_all_too_many": "Bir kerede açmak için çok fazla not var ({{count}}). En fazla {{max}}, önce sonuçları daraltmayı deneyin."
+    "open_all_confirm_other": "Bu, {{count}} notu yeni sekmelerde açacak. Devam edilsin mi?"
   },
   "edited_notes": {
     "no_edited_notes_found": "Bu günde henüz düzenlenmiş not yok...",
