@@ -14,6 +14,11 @@ export interface DatabaseFile {
      * size — a compressed backup, say. Both are then shown, so the saving is visible.
      */
     plaintextSize?: number;
+    /**
+     * Why the file cannot be restored from, where its own header says as much. Absent for a plain
+     * copy and for a container this build can open.
+     */
+    unreadable?: "invalid" | "unsupported-version";
 }
 
 /**
@@ -52,6 +57,15 @@ export function describeDatabaseFile(file: DatabaseFile): string {
         parts.push(formatSize(file.plaintextSize), t("database_file_list.size_on_disk", { size: formatSize(file.fileSize) }));
     } else {
         parts.push(formatSize(file.fileSize));
+    }
+
+    // Last, after the two facts that identify which file this is. The date and the size are kept
+    // rather than replaced because they are what tells the user why it is no good: a backup that
+    // stopped halfway is the size of how far it got.
+    if (file.unreadable) {
+        parts.push(file.unreadable === "invalid"
+            ? t("database_file_list.invalid_backup")
+            : t("database_file_list.unsupported_version"));
     }
 
     return parts.join(" • ");

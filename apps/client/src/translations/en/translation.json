@@ -2106,7 +2106,9 @@
     "encrypted": "Encrypted"
   },
   "database_file_list": {
-    "size_on_disk": "{{size}} on disk"
+    "size_on_disk": "{{size}} on disk",
+    "invalid_backup": "Invalid backup file",
+    "unsupported_version": "Unsupported backup file format version"
   },
   "password_with_confirmation": {
     "password": "Password",
@@ -3723,6 +3725,8 @@
     "backup-file": "Backup will be saved as",
     "backup-download": "Generate and download backup",
     "backup-downloading": "Downloading...",
+    "backup-downloading-percent": "{{percent}}%",
+    "backup-downloading-size": "({{done}} of {{total}})",
     "backup-do-not-close": "Please do not switch away or close this screen until the download completes.",
     "backup-downloaded": "The download has completed. Press \"Finish\" to return to the application.",
     "backup-download-failed": "The download did not finish.",
@@ -3746,6 +3750,10 @@
     "restore-error-too-old": "This backup is from a version of Trilium that is too old to be restored.",
     "restore-error-unfinished": "This backup was taken from a setup that was never finished, so there is nothing in it to restore.",
     "restore-error-swap-failed": "The database could not be replaced. Your previous database is back in place.",
+    "restore-error-swap-failed-reload": "The database could not be replaced. Your previous database is back in place, but Trilium could not reopen it. Reload this page to continue.",
+    "restore-error-check-failed": "The backup could not be checked. This may be a problem on this device rather than with the backup itself, so it is worth trying again.",
+    "restore-error-failed": "The restore could not be completed. Nothing was replaced, so your knowledge base is as it was.",
+    "restore-error-incomplete": "This backup file is incomplete. It was probably not copied or downloaded in full, so try transferring it again.",
     "restore-error-would-not-open": "The restored database could not be opened. Your previous database is back in place.",
     "restore-error-refused": "Another setup step is already running.",
     "restore-error-already-initialized": "This instance already has a knowledge base, so it cannot be restored over. Reload the page.",

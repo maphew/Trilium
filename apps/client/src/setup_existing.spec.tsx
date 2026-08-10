@@ -414,7 +414,8 @@ describe("backing up straight to a download on standalone", () => {
         // The suggested name, and no password, which is what the parameters screen was left at.
         expect(downloadDatabase).toHaveBeenCalledWith(
             expect.stringMatching(/^Trilium data \(\d{4}-\d{2}-\d{2} \d{2}-\d{2}-\d{2}\)\.tnbackup$/),
-            undefined);
+            undefined,
+            expect.any(Function));
         expect(container.textContent).toContain("setup.backup-downloading");
         expect(arrivingButton("setup.continue")?.disabled).toBe(true);
 

@@ -10,6 +10,7 @@ import { useMemo, useState } from "preact/hooks";
 
 import { backupFileName, startBackupDownload } from "./services/backup_download";
 import { t } from "./services/i18n";
+import { formatSize } from "./services/utils";
 import Admonition from "./widgets/react/Admonition";
 import Button from "./widgets/react/Button";
 import { Card, CardOption, CardSection } from "./widgets/react/Card";
@@ -39,6 +40,8 @@ export interface BackupDownload {
     state: "idle" | "running" | "done" | "failed";
     /** What stopped it, once `failed`. */
     error?: string;
+    /** How far it has got, once the first bytes have gone. */
+    progress?: { sentBytes: number; totalBytes: number };
     start: () => void;
 }
 
@@ -54,15 +57,22 @@ export function useBackupDownload(settings: SetupBackupSettings): BackupDownload
     const fileName = useMemo(() => backupFileName(settings.name), [ settings.name ]);
     const [ state, setState ] = useState<BackupDownload["state"]>("idle");
     const [ error, setError ] = useState<string>();
+    const [ progress, setProgress ] = useState<BackupDownload["progress"]>();
 
     return {
         fileName,
         state,
         error,
+        progress,
         start: () => {
             setState("running");
             setError(undefined);
-            void startBackupDownload(fileName, settings.passphrase).then((result) => {
+            setProgress(undefined);
+
+            const onProgress = (sentBytes: number, totalBytes: number) =>
+                setProgress({ sentBytes, totalBytes });
+
+            void startBackupDownload(fileName, settings.passphrase, onProgress).then((result) => {
                 setState(result.status === "done" ? "done" : "failed");
                 setError(result.status === "done" ? undefined : result.message);
             });
@@ -200,9 +210,15 @@ export function BackupDownloadPanel({ download }: { download: BackupDownload }) 
     if (download.state === "running") {
         return (
             <div class="backup-download">
-                <div class="backup-download-message">
+                {/* The count sits with the spinner rather than apart from it: on a phone the
+                    browser's own download UI is behind the notification shade, so this is the only
+                    sign the application is doing anything, and a spinner alone reads as stuck. */}
+                <div class="backup-download-status">
                     <span class="spinner-border" role="status" aria-hidden="true" />
-                    <span>{t("setup.backup-downloading")}</span>
+                    <div class="backup-download-text">
+                        <span>{t("setup.backup-downloading")}</span>
+                        <DownloadProgress progress={download.progress} />
+                    </div>
                 </div>
                 <div class="backup-download-hint">{t("setup.backup-do-not-close")}</div>
             </div>
@@ -234,6 +250,40 @@ export function BackupDownloadPanel({ download }: { download: BackupDownload }) 
                 kind="primary"
                 onClick={download.start}
             />
+        </div>
+    );
+}
+
+/**
+ * How much of the download has gone, in the two forms a waiting user reads differently: the
+ * percentage answers "how much longer", the sizes answer "is it moving at all".
+ *
+ * Absent until the first bytes are handed over, since a total of nothing has no percentage and
+ * "0 B of 0 B" says less than the spinner does on its own.
+ */
+function DownloadProgress({ progress }: { progress?: BackupDownload["progress"] }) {
+    if (!progress || progress.totalBytes <= 0) {
+        return null;
+    }
+
+    return (
+        <div class="backup-download-progress">
+            {/* Its own element so a width can be held for it: the count grows from one digit to
+                three, and without that the sizes beside it would be shoved along twice. */}
+            <span class="backup-download-percent">
+                {t("setup.backup-downloading-percent", {
+                    // Rounded down, so it never reads 100% while there is still something to write.
+                    percent: Math.floor(100 * progress.sentBytes / progress.totalBytes)
+                })}
+            </span>
+            <span>
+                {/* Fixed places, since these are still counting: dropping a trailing zero would
+                    shorten the line on every other update. */}
+                {t("setup.backup-downloading-size", {
+                    done: formatSize(progress.sentBytes, 2),
+                    total: formatSize(progress.totalBytes, 2)
+                })}
+            </span>
         </div>
     );
 }

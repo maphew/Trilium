@@ -247,20 +247,32 @@ export function escapeQuotes(value: string) {
     return value.replaceAll('"', "&quot;");
 }
 
-export function formatSize(size: number | null | undefined) {
+/** The units a size is shown in, largest last, each 1024 of the one before it. */
+const SIZE_UNITS = ["B", "KiB", "MiB", "GiB", "TiB"];
+
+/**
+ * A byte count in the largest unit it fits in.
+ *
+ * @param decimals places to keep, trailing zeros and all. Omit it to round to at most two and drop
+ *   what is not needed, which reads best for a size at rest. Pass a number for a counter that is
+ *   still climbing: there, dropping a trailing zero shortens the text on every other update and the
+ *   line shifts about while it is being read.
+ */
+export function formatSize(size: number | null | undefined, decimals?: number) {
     if (size === null || size === undefined) {
         return "";
     }
 
-    if (size === 0) {
+    if (size <= 0) {
         return "0 B";
     }
 
-    const k = 1024;
-    const sizes = ["B", "KiB", "MiB", "GiB"];
-    const i = Math.floor(Math.log(size) / Math.log(k));
+    const unit = Math.min(Math.floor(Math.log(size) / Math.log(1024)), SIZE_UNITS.length - 1);
+    const value = size / Math.pow(1024, unit);
+    // Nothing below a byte to show, however many places were asked for.
+    const places = decimals !== undefined && unit === 0 ? 0 : decimals;
 
-    return `${Math.round((size / Math.pow(k, i)) * 100) / 100} ${sizes[i]}`;
+    return `${places === undefined ? Math.round(value * 100) / 100 : value.toFixed(places)} ${SIZE_UNITS[unit]}`;
 }
 
 function toObject<T, R>(array: T[], fn: (arg0: T) => [key: string, value: R]) {

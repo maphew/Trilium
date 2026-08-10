@@ -1,14 +1,15 @@
 import { writeBackupContainer } from "@triliumnext/backup-container";
-import { app_info as appInfo, getLog, getSql } from "@triliumnext/core";
+import { app_info as appInfo, getBackup, getLog, getSql } from "@triliumnext/core";
 import Database from "better-sqlite3";
 import fs from "fs";
-import fsp from "fs/promises";
 import os from "os";
 import path from "path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import type ServerBackupService from "../backup_provider.js";
 import dataDir from "./data_dir.js";
 import {
+    adoptBackupPassphrase,
     exchangeDatabaseFiles,
     getRestoreProgress,
     logRestore,
@@ -19,6 +20,7 @@ import {
     reportRestoreFailure,
     restoreDatabase,
     RestoreFailure,
+    type RestoreRequest,
     stageBackup
 } from "./database_restore.js";
 
@@ -57,15 +59,7 @@ async function containerOf(source: string, passphrase?: string, compress = false
     await writeBackupContainer(fs.createReadStream(source), fs.createWriteStream(filePath), {
         compress,
         passphrase,
-        plaintextSize: fs.statSync(source).size,
-        patchHeader: async (offset, data) => {
-            const handle = await fsp.open(filePath, "r+");
-            try {
-                await handle.write(data, 0, data.length, offset);
-            } finally {
-                await handle.close();
-            }
-        }
+        plaintextSize: fs.statSync(source).size
     });
 
     return filePath;
@@ -486,5 +480,49 @@ describe("restoring a database", () => {
 
         expect(detach).not.toHaveBeenCalled();
         expect(getRestoreProgress()).toMatchObject({ stage: "failed", reason: "database-too-new" });
+    });
+});
+
+describe("the backup password after a restore", () => {
+    /** What the restore reaches for: the desktop's keyring, by way of the backup service. */
+    const backupService = () => getBackup() as ServerBackupService;
+
+    function request(passphrase?: string): RestoreRequest {
+        const fileName = "backup.tnbackup";
+
+        return { path: fileName, fileName, consumable: false, passphrase };
+    }
+
+    it("takes on the password that opened the backup, which is this database's now", async () => {
+        const adopted = vi.spyOn(backupService(), "adoptPassphrase").mockResolvedValue();
+
+        await adoptBackupPassphrase(request("the newer database's password"), true);
+
+        expect(adopted).toHaveBeenCalledWith("the newer database's password");
+    });
+
+    it.each([
+        [ "an unlocked backup", undefined ],
+        [ "a password typed for a backup that turned out not to need one", "typed anyway" ]
+    ])("lets go of the stored password after %s", async (_label, passphrase) => {
+        // The stored one belongs to the database that was here before. Kept, this instance goes on
+        // encrypting with it and writes backups the password the user expects will not open.
+        const adopted = vi.spyOn(backupService(), "adoptPassphrase").mockResolvedValue();
+
+        await adoptBackupPassphrase(request(passphrase), false);
+
+        expect(adopted).toHaveBeenCalledWith(null);
+    });
+
+    it("does not fail a restore that already happened over a keyring that will not answer", async () => {
+        const said: string[] = [];
+        vi.spyOn(getLog(), "error").mockImplementation((message) => said.push(String(message)));
+        vi.spyOn(backupService(), "adoptPassphrase")
+            .mockRejectedValue(new Error("the keyring is locked"));
+
+        // The database is in place and open by this point; there is nothing left to undo and no
+        // honest way to call the restore failed.
+        await expect(adoptBackupPassphrase(request("a password"), true)).resolves.toBeUndefined();
+        expect(said.join("\n")).toContain("the keyring is locked");
     });
 });
