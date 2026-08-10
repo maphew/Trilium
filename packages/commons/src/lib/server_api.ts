@@ -186,6 +186,14 @@ export interface DatabaseBackup {
      * for a plain copy, where the file size already says it.
      */
     plaintextSize?: number;
+    /**
+     * Why the file cannot be restored from, where its own header says as much. Absent for a plain
+     * copy and for a container this build can open.
+     *
+     * Worth a listing telling the user about: a file that has been sitting in the backup directory
+     * for months, being counted as a backup, is one they are relying on.
+     */
+    unreadable?: "invalid" | "unsupported-version";
 }
 
 export interface ExistingBackupsResponse {

@@ -2106,7 +2106,9 @@
     "encrypted": "Encrypted"
   },
   "database_file_list": {
-    "size_on_disk": "{{size}} on disk"
+    "size_on_disk": "{{size}} on disk",
+    "invalid_backup": "Invalid backup file",
+    "unsupported_version": "Unsupported backup file format version"
   },
   "password_with_confirmation": {
     "password": "Password",

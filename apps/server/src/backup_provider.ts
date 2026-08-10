@@ -305,7 +305,8 @@ function listBackupsIn(directory: string): DatabaseBackup[] {
  * the shape it was written in, whatever the settings have since become.
  *
  * Only the fixed header is read, so this costs a few dozen bytes per file and never needs the
- * passphrase. A file whose header does not parse is listed as a plain one rather than not at all.
+ * passphrase. A file that is not a container this build can open is still listed, saying why: it is
+ * sitting in the backup directory being counted as a backup, and the user is relying on it.
  */
 function describeContainer(filePath: string, fileName: string): Partial<DatabaseBackup> {
     if (!fileName.endsWith(CONTAINER_EXTENSION)) {
@@ -313,11 +314,13 @@ function describeContainer(filePath: string, fileName: string): Partial<Database
     }
 
     const head = Buffer.alloc(FIXED_HEADER_BYTES);
+    let read: number;
     let descriptor: number | undefined;
     try {
         descriptor = fs.openSync(filePath, "r");
-        fs.readSync(descriptor, head, 0, head.length, 0);
+        read = fs.readSync(descriptor, head, 0, head.length, 0);
     } catch {
+        // Nothing was learned, which is not the same as having learned the file is no good.
         return {};
     } finally {
         if (descriptor !== undefined) {
@@ -325,9 +328,14 @@ function describeContainer(filePath: string, fileName: string): Partial<Database
         }
     }
 
-    const info = getInfo(head);
-    if (!info.isValid || !info.isSupported) {
-        return {};
+    // Only what the file actually held, so a file too short to have a header is judged on that
+    // rather than on the zeroes the buffer came with.
+    const info = getInfo(head.subarray(0, read));
+    if (!info.isValid) {
+        return { unreadable: "invalid" };
+    }
+    if (!info.isSupported) {
+        return { unreadable: "unsupported-version" };
     }
 
     return {

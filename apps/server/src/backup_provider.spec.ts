@@ -257,7 +257,7 @@ describe("ServerBackupService: backup format", () => {
         expect(byName.get("backup-plain.db")).not.toHaveProperty("plaintextSize");
     });
 
-    it("lists a container it cannot make sense of, rather than dropping it", async () => {
+    it("lists a container it cannot make sense of, saying so rather than dropping it", async () => {
         fs.mkdirSync(DEFAULT_DIR, { recursive: true });
         fs.writeFileSync(
             path.join(DEFAULT_DIR, "backup-damaged.tnbackup"),
@@ -266,9 +266,32 @@ describe("ServerBackupService: backup format", () => {
 
         const backups = await desktopService("").getExistingBackups();
 
+        // Listed, because a file sitting in the backup directory is one the user is relying on,
+        // and saying it is no good is the whole point of listing it.
         expect(backups.map((b) => b.fileName)).toEqual([ "backup-damaged.tnbackup" ]);
+        expect(backups[0]).toMatchObject({ unreadable: "invalid" });
         expect(backups[0]).not.toHaveProperty("compressed");
         expect(backups[0]).not.toHaveProperty("encrypted");
+    });
+
+    it("tells a backup from a newer Trilium apart from one that is not a backup", async () => {
+        fs.mkdirSync(DEFAULT_DIR, { recursive: true });
+
+        const compressing = desktopService("", { backupEnableCompression: "true" });
+        const newer = fs.readFileSync(await compressing.backupNow("daily"));
+        // The version byte, straight after the magic. Everything else about the file is intact,
+        // which is exactly the case that must not read as damaged.
+        newer.writeUInt8(2, 20);
+        fs.writeFileSync(path.join(DEFAULT_DIR, "backup-newer.tnbackup"), newer);
+
+        const byName = new Map(
+            (await desktopService("").getExistingBackups()).map((b) => [ b.fileName, b ])
+        );
+
+        expect(byName.get("backup-newer.tnbackup")).toMatchObject({
+            unreadable: "unsupported-version"
+        });
+        expect(byName.get("backup-daily.tnbackup")).not.toHaveProperty("unreadable");
     });
 });
 
