@@ -371,10 +371,11 @@
     --custom-bg-color: hsl(var(--custom-color-hue), 37%, 89%, 1);
 }
 
-/* The calendar's event shown as a sheet is the same thing the quick editor is — a whole note over
-   whatever raised it — so it is tinted by the same colours (see EventPopover.tsx). */
+/* A calendar event and a map marker shown as a sheet are the same thing the quick editor is — a
+   whole note over whatever raised it — so they are tinted by the same colours. */
 .quick-edit-dialog-wrapper.with-hue,
 .calendar-event-sheet.with-hue,
+.geo-detail-sheet.with-hue,
 .note-tooltip.with-hue {
     --modal-background-color: hsl(var(--custom-color-hue), 56%, 96%);
     --modal-border-color: hsl(var(--custom-color-hue), 33%, 41%);
@@ -396,6 +397,7 @@
 .geo-detail-pane.with-hue,
 .calendar-event-popover.with-hue,
 .calendar-event-sheet.with-hue,
+.geo-detail-sheet.with-hue,
 .nested-note-list-item.with-hue,
 .note-book-card.with-hue .note-book-header,
 .ck-template-icon.with-hue {
@@ -419,26 +421,27 @@
 }
 
 /*
- * The calendar's event card, standing beside its chip. Unlike the sheet and the tooltip this one
- * frosts the grid behind it (see `.tn-popover` in Popover.css), so its tint is stated with the
- * alpha the plain card already carries — an opaque tint would leave the blur nothing to show
- * through, which is the whole of what the card is dressed as.
+ * The surfaces that show a note over something else and frost what they stand on: the calendar's
+ * event card beside its chip, the geo map's marker pane over the map. Unlike the sheets and the
+ * tooltip, their tint is stated with the alpha the plain surface already carries — an opaque tint
+ * would leave the blur nothing to show through, which is the whole of what they are dressed as.
  *
- * The card grown to the window gives the frosting up, and takes the same tint opaque; so does a
- * card whose blur cannot be had at all (background effects, or a reader who turned them off), both
- * reading the no-backdrop colour.
+ * Grown to cover what they stand on, both give the frosting up and take the same tint opaque; so
+ * does one whose blur cannot be had at all (background effects, or a reader who turned them off),
+ * all of them reading the no-backdrop colour.
  */
-.calendar-event-popover.with-hue {
+.calendar-event-popover.with-hue,
+.geo-detail-pane.with-hue {
     --menu-background-color: hsl(var(--custom-color-hue), 56%, 96%, 0.85);
     --menu-background-color-no-backdrop: hsl(var(--custom-color-hue), 56%, 97%);
     --dropdown-border-color: hsl(var(--custom-color-hue), 30%, 78%);
     --promoted-attribute-card-background-color: hsl(var(--custom-color-hue), 40%, 88%);
 }
 
-/* A reader who turned backdrop effects off, which the card must answer here rather than by the swap
-   made on the body above: that swap is resolved where it is stated, so what reaches the card is the
-   plain opaque colour and not the tinted one the card states on itself. */
-body.backdrop-effects-disabled .calendar-event-popover.with-hue {
+/* A reader who turned backdrop effects off, which these must answer here rather than by the swap
+   made on the body above: that swap is resolved where it is stated, so what reaches the surface is
+   the plain opaque colour and not the tinted one the surface states on itself. */
+body.backdrop-effects-disabled :is(.calendar-event-popover, .geo-detail-pane).with-hue {
     --menu-background-color: var(--menu-background-color-no-backdrop);
 }
 
