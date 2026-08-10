@@ -292,6 +292,10 @@
     --card-shadow-color: rgba(0, 0, 0, 0.1);
     --card-box-shadow: none;
 
+    --inline-code-background-color: rgba(0, 0, 0, 0.05);
+    --inline-code-border-color: rgba(0, 0, 0, 0.11);
+    --inline-code-hover-background-color: rgba(0, 0, 0, 0.1);
+
     --calendar-color: var(--menu-text-color);
     --calendar-weekday-labels-color: var(--muted-text-color);
     --calendar-day-hover-color: var(--hover-item-text-color);
