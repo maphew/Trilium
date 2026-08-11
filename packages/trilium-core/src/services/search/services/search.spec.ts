@@ -5,7 +5,11 @@ import BBranch from "../../../becca/entities/bbranch.js";
 import SearchContext from "../search_context.js";
 import dateUtils from "../../utils/date.js";
 import becca from "../../../becca/becca.js";
+import protectedSessionService from "../../protected_session.js";
+import { encodeUtf8 } from "../../utils/binary.js";
 import { findNoteByTitle, note, NoteBuilder } from "../../../test/becca_mocking.js";
+
+const PROTECTED_KEY = encodeUtf8("0123456789abcdef"); // exactly 16 bytes
 
 describe("Search", () => {
     let rootNote: any;
@@ -870,6 +874,33 @@ describe("Search", () => {
 
         const snippet = searchService.extractContentSnippet(noteBuilder.note.noteId, [ "done" ]);
         expect(snippet).toBe("if a < b && b > c, then done");
+    });
+
+    it("takes a protected note's content as given, having already been decrypted on the way out", () => {
+        protectedSessionService.setDataKey(PROTECTED_KEY);
+        try {
+            const noteBuilder = note("Protected note");
+            noteBuilder.note.isProtected = true;
+            // What a real note hands back with a session open. Decrypting it a second time here would
+            // put it through the cipher as though it were still encrypted.
+            noteBuilder.note.getContent = () => "<p>secret body text</p>";
+            rootNote.child(noteBuilder);
+
+            expect(searchService.extractContentSnippet(noteBuilder.note.noteId, [ "secret" ]))
+                .toBe("secret body text");
+        } finally {
+            protectedSessionService.resetDataKey();
+        }
+    });
+
+    it("shows nothing of a protected note whose content the closed session withheld", () => {
+        const noteBuilder = note("Locked note");
+        noteBuilder.note.isProtected = true;
+        // A real note answers with nothing at all when it cannot be read.
+        noteBuilder.note.getContent = () => "";
+        rootNote.child(noteBuilder);
+
+        expect(searchService.extractContentSnippet(noteBuilder.note.noteId, [ "secret" ])).toBe("");
     });
 
     // FIXME: test what happens when we order without any filter criteria
