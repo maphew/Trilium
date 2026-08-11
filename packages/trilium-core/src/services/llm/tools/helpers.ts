@@ -5,6 +5,7 @@
 import type BAttachment from "../../../becca/entities/battachment.js";
 import becca from "../../../becca/becca.js";
 import type BNote from "../../../becca/entities/bnote.js";
+import blobService from "../../../services/blob.js";
 import markdownExport from "../../../services/export/markdown.js";
 import markdownImport from "../../../services/import/markdown.js";
 import { unwrapStringOrBuffer } from "../../../services/utils/binary.js";
@@ -66,8 +67,9 @@ export function getNoteContentForLlm(note: BNote) {
     if (typeof content !== "string") {
         // For binary content (images, files), use extracted text if available.
         const blob = note.blobId ? becca.getBlob({ blobId: note.blobId }) : null;
-        if (blob?.textRepresentation) {
-            return `[extracted text from ${note.type}]\n${blob.textRepresentation}`;
+        const extractedText = blobService.decryptTextRepresentation(blob?.textRepresentation, !!note.isProtected);
+        if (extractedText) {
+            return `[extracted text from ${note.type}]\n${extractedText}`;
         }
         return "[binary content]";
     }
@@ -184,7 +186,7 @@ export function getAttachmentContentPreview(att: BAttachment): string | null {
         text = unwrapStringOrBuffer(content);
     } else {
         const blob = att.blobId ? becca.getBlob({ blobId: att.blobId }) : null;
-        text = blob?.textRepresentation ?? null;
+        text = blobService.decryptTextRepresentation(blob?.textRepresentation, !!att.isProtected) || null;
     }
 
     if (!text) {

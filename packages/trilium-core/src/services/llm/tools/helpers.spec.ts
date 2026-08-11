@@ -12,6 +12,9 @@ vi.mock("../../../becca/becca.js", async (importOriginal) => {
     return { default: { ...actual.default, getBlob: getBlobMock } };
 });
 
+import blobService from "../../blob.js";
+import protectedSessionService from "../../protected_session.js";
+import { encodeUtf8 } from "../../utils/binary.js";
 import {
     applyTextEdits,
     flag,
@@ -58,6 +61,8 @@ function docNoteStub(docName: string | null) {
     });
 }
 
+const PROTECTED_KEY = encodeUtf8("0123456789abcdef"); // exactly 16 bytes
+
 function attachmentStub(overrides: Partial<Record<string, unknown>> = {}): BAttachment {
     return {
         attachmentId: "a1",
@@ -97,6 +102,23 @@ describe("getNoteContentForLlm", () => {
         const note = noteStub({ type: "image", getContent: () => new Uint8Array([1, 2, 3]) });
         getBlobMock.mockReturnValue({ textRepresentation: "scanned words" });
         expect(getNoteContentForLlm(note)).toBe("[extracted text from image]\nscanned words");
+    });
+
+    it("decrypts a protected note's extracted text, and withholds it when locked", () => {
+        const note = noteStub({ type: "image", isProtected: true, getContent: () => new Uint8Array([1, 2, 3]) });
+
+        protectedSessionService.setDataKey(PROTECTED_KEY);
+        try {
+            getBlobMock.mockReturnValue({
+                textRepresentation: blobService.encryptTextRepresentation("scanned secret", true)
+            });
+            expect(getNoteContentForLlm(note)).toBe("[extracted text from image]\nscanned secret");
+        } finally {
+            protectedSessionService.resetDataKey();
+        }
+
+        // Locked, with the same blob still in hand: the model must not be fed the ciphertext.
+        expect(getNoteContentForLlm(note)).toBe("[binary content]");
     });
 
     it("falls back to a binary-content marker when no extracted text exists", () => {
@@ -203,6 +225,22 @@ describe("getAttachmentContentPreview", () => {
         getBlobMock.mockReturnValue({ textRepresentation: "ocr text" });
         const att = attachmentStub({ hasStringContent: () => false, mime: "image/png" });
         expect(getAttachmentContentPreview(att)).toBe("ocr text");
+    });
+
+    it("decrypts a protected attachment's extracted text, and withholds it when locked", () => {
+        const att = attachmentStub({ hasStringContent: () => false, mime: "image/png", isProtected: true });
+
+        protectedSessionService.setDataKey(PROTECTED_KEY);
+        try {
+            getBlobMock.mockReturnValue({
+                textRepresentation: blobService.encryptTextRepresentation("ocr secret", true)
+            });
+            expect(getAttachmentContentPreview(att)).toBe("ocr secret");
+        } finally {
+            protectedSessionService.resetDataKey();
+        }
+
+        expect(getAttachmentContentPreview(att)).toBeNull();
     });
 
     it("returns null when no readable text exists", () => {

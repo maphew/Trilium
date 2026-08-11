@@ -5,9 +5,9 @@ import striptags from "striptags";
 import becca from "../../../becca/becca.js";
 import becca_service from "../../../becca/becca_service.js";
 import type BNote from "../../../becca/entities/bnote.js";
+import blobService from "../../blob.js";
 import hoistedNoteService from "../../hoisted_note.js";
 import { getLog } from "../../log.js";
-import protectedSessionService from "../../protected_session.js";
 import scriptService from "../../script.js";
 import { isScriptingEnabled } from "../../scripting_guard.js";
 import { escapeHtml, escapeRegExp, unescapeHtml } from "../../utils/index.js";
@@ -472,28 +472,20 @@ function extractContentSnippet(noteId: string, searchTokens: string[], maxLength
         let content: string | undefined;
 
         if (["text", "code", "mermaid", "canvas", "mindMap", "llmChat"].includes(note.type)) {
+            // Protection is already accounted for: a note hands back its content decrypted, and hands
+            // back nothing at all when there is no session to decrypt it with.
             const raw = note.getContent();
             if (raw && typeof raw === "string") {
                 content = raw;
             }
         } else {
-            // For non-text notes (image, file), use OCR text representation
-            content = getTextRepresentationForNote(note) || undefined;
+            // For non-text notes (image, file), use OCR text representation. That one is stored as it
+            // sits on the blob, so it is the reader's job to decrypt it — or to withhold it.
+            content = blobService.decryptTextRepresentation(getTextRepresentationForNote(note), !!note.isProtected) || undefined;
         }
 
         if (!content) {
             return "";
-        }
-
-        // Handle protected notes
-        if (note.isProtected && protectedSessionService.isProtectedSessionAvailable()) {
-            try {
-                content = protectedSessionService.decryptString(content) || "";
-            } catch (e) {
-                return ""; // Can't decrypt, don't show content
-            }
-        } else if (note.isProtected) {
-            return ""; // Protected but no session available
         }
 
         // Strip HTML tags for text notes
