@@ -1,7 +1,8 @@
 import { SETUP_MARKER_FILE_NAME } from "@triliumnext/commons";
+import { getSql } from "@triliumnext/core";
 import fs from "fs";
 import path from "path";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it } from "vitest";
 
 import dataDirs from "./data_dir.js";
 import { consumeSetupMarker, setupPlatform } from "./setup_marker.js";
@@ -51,4 +52,47 @@ describe("writing the marker", () => {
         // Removing what is not there is how a cancelled request ends, and is not a failure.
         await expect(setupPlatform.removeMarker()).resolves.toBeUndefined();
     });
+
+    it("says whether one is waiting, which is all an owner has to go on until they restart", async () => {
+        await expect(setupPlatform.hasMarker()).resolves.toBe(false);
+
+        await setupPlatform.writeMarker({ lang: "en" });
+        await expect(setupPlatform.hasMarker()).resolves.toBe(true);
+
+        await setupPlatform.removeMarker();
+        await expect(setupPlatform.hasMarker()).resolves.toBe(false);
+    });
 });
+
+/**
+ * Last in the file on purpose: this one really does erase the database, which for the rest of this
+ * process means the fixture every other spec here would have been sharing.
+ */
+describe("erasing the database the wizard was booted away from", () => {
+    afterAll(() => {
+        // A `document.db` left behind in the test data directory is found by later runs, which then
+        // fail on a database that has no schema. Closed before it is removed: on Windows an open
+        // handle is enough to make the file undeletable, which is the very reason the erase this
+        // spec covers detaches first.
+        getSql().detachConnection();
+        for (const file of documentFiles()) {
+            fs.rmSync(file, { force: true });
+        }
+    });
+
+    it("leaves an empty database open behind it, which is what the rest of the wizard writes to", async () => {
+        await setupPlatform.removeDatabase();
+
+        // Creating a document, taking a pushed sync seed and converging a sync all run against this
+        // connection moments later. Detaching without putting one back failed every one of them
+        // with "DB not open", on a screen with no way of saying so.
+        expect(getSql().getValue("SELECT 1")).toBe(1);
+        expect(fs.existsSync(dataDirs.DOCUMENT_PATH)).toBe(true);
+    });
+});
+
+function documentFiles(): string[] {
+    const document = dataDirs.DOCUMENT_PATH;
+
+    return [ document, `${document}-wal`, `${document}-shm` ];
+}

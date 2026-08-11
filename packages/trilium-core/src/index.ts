@@ -26,9 +26,12 @@ export type * from "./services/sql/types";
 export * from "./services/sql/index";
 export { default as sql_init } from "./services/sql_init";
 export { getRunningSetupOperation, holdSetup, withSetupLock } from "./services/setup_lock";
+export { authenticateSetup, isSetupAuthorized, isSetupAuthRequired, resetSetupAuth } from "./services/setup_auth";
 export {
+    enterSetupMode,
     getSetupLanguage,
     getSetupTargetScreen,
+    hasExistingData,
     isInitialSetup,
     isSetupRequested,
     leaveSetupMode,

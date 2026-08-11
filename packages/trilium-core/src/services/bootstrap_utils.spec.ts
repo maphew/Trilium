@@ -65,13 +65,13 @@ describe("bootstrap_utils (real DB)", () => {
         try {
             // A first run: nowhere in particular to go, and nothing behind the wizard.
             expect(getSharedBootstrapItems(ASSET_PATH, false)).toMatchObject({
-                initialSetup: true, setupTargetScreen: undefined
+                hasExistingData: false, setupTargetScreen: undefined
             });
 
             enterSetupMode({ lang: "ro", targetScreen: "restore-backup" });
             const items = getSharedBootstrapItems(ASSET_PATH, false);
 
-            expect(items).toMatchObject({ initialSetup: false, setupTargetScreen: "restore-backup" });
+            expect(items).toMatchObject({ hasExistingData: true, setupTargetScreen: "restore-backup" });
             // The schema of a finished database says nothing about an interrupted sync, so the
             // wizard must not be sent to the sync-progress screen instead of the one asked for.
             expect(items.syncInProgress).toBe(false);

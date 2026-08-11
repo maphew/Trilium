@@ -11,8 +11,9 @@ import { getCurrentLanguage, initLocale, t } from "./services/i18n";
 import server from "./services/server";
 import { isElectron, isMobileApp } from "./services/utils";
 import SetupBackupDatabase from "./setup_backup";
-import ExistingData, { keepExistingData } from "./setup_existing";
+import ExistingData, { deleteExistingData, hasExistingData, keepExistingData } from "./setup_existing";
 import RestoreFromBackup from "./setup_restore";
+import SetupUnlock from "./setup_unlock";
 import Admonition, { ExtendedAdmonition } from "./widgets/react/Admonition";
 import Button from "./widgets/react/Button";
 import { Card, CardFrame, CardSection } from "./widgets/react/Card";
@@ -42,12 +43,14 @@ async function main() {
     document.body.replaceChildren(bodyWrapper);
 }
 
-type State = "backupDatabase" | "existingData" | "selectLanguage" | "firstOptions" | "createNewDocumentOptions" | "createNewDocumentWithDemo" | "createNewDocumentEmpty" | "restoreFromBackup" | "syncFromDesktop" | "syncFromServer" | "syncFromServerInProgress" | "syncFromDesktopInProgress" | "syncFailed";
+type State = "unlock" | "backupDatabase" | "existingData" | "selectLanguage" | "firstOptions" | "createNewDocumentOptions" | "createNewDocumentWithDemo" | "createNewDocumentEmpty" | "restoreFromBackup" | "syncFromDesktop" | "syncFromServer" | "syncFromServerInProgress" | "syncFromDesktopInProgress" | "syncFailed";
 
-const STATE_ORDER: State[] = ["backupDatabase", "existingData", "selectLanguage", "firstOptions", "createNewDocumentOptions", "createNewDocumentWithDemo", "createNewDocumentEmpty", "restoreFromBackup", "syncFromDesktop", "syncFromServer", "syncFromServerInProgress", "syncFromDesktopInProgress", "syncFailed"];
+const STATE_ORDER: State[] = ["unlock", "backupDatabase", "existingData", "selectLanguage", "firstOptions", "createNewDocumentOptions", "createNewDocumentWithDemo", "createNewDocumentEmpty", "restoreFromBackup", "syncFromDesktop", "syncFromServer", "syncFromServerInProgress", "syncFromDesktopInProgress", "syncFailed"];
 
 export function renderState(state: State, setState: (state: State) => void) {
     switch (state) {
+        // Nothing else in the wizard can be reached until this is answered, which is the point.
+        case "unlock": return <SetupUnlock onUnlocked={() => setState(afterUnlock(window.glob))} />;
         // Leads nowhere by design: the wizard was opened to take a backup of the database it is
         // sitting on, so the only way out of it is back into that database.
         case "backupDatabase": return <SetupBackupDatabase onDone={() => void onExistingDataKept()} />;
@@ -58,13 +61,14 @@ export function renderState(state: State, setState: (state: State) => void) {
             />
         );
         case "selectLanguage": return <SelectLanguage setState={setState} />;
-        case "firstOptions": return <SetupOptions setState={setState} />;
+        case "firstOptions": return <SetupOptions setState={setState} onKeep={() => void onExistingDataKept()} />;
         case "createNewDocumentOptions": return <CreateNewDocumentOptions setState={setState} />;
-        case "createNewDocumentWithDemo": return <CreateNewDocumentInProgress withDemo />;
-        case "createNewDocumentEmpty": return <CreateNewDocumentInProgress />;
+        case "createNewDocumentWithDemo": return <CreateNewDocumentInProgress withDemo setState={setState} />;
+        case "createNewDocumentEmpty": return <CreateNewDocumentInProgress setState={setState} />;
         // No way back where the wizard was opened for this and nothing else: the menu it would
         // return to was never shown, and on an instance that had a database it is not a menu the
-        // user asked for.
+        // user asked for. Nothing is erased on the way in either — a restore checks the backup and
+        // only then swaps the database, so an unusable file leaves the user with what they had.
         case "restoreFromBackup": return (
             <RestoreFromBackup
                 onBack={openedAtRestore(window.glob) ? undefined : () => setState("firstOptions")}
@@ -112,33 +116,44 @@ function App() {
 /** What the wizard needs to know from the bootstrap to decide where it opens and where it goes next. */
 interface SetupGlob {
     syncInProgress?: boolean;
-    initialSetup?: boolean;
+    hasExistingData?: boolean;
+    setupAuthRequired?: boolean;
     setupTargetScreen?: SetupTargetScreen;
 }
 
 /**
  * Where the wizard opens.
  *
- * A first run starts at the language step and works forward. Three things come in already knowing
- * better: a sync interrupted after it created the schema, an instance with a knowledge base still
- * behind the wizard, which has to answer for that before anything else, and an instance sent to a
- * particular screen through a `setup.json` marker.
+ * A first run starts at the language step and works forward. Everything else comes in already
+ * knowing better: a wizard with a knowledge base behind it that has to be unlocked before it will
+ * do anything, a sync interrupted after it created the schema, an instance offered a copy of what is
+ * behind the wizard, and an instance sent to a particular screen through a `setup.json` marker.
  */
 export function initialState(glob: SetupGlob): State {
+    // First of all, because everything below it acts on a knowledge base that is still there.
+    if (glob.setupAuthRequired) {
+        return "unlock";
+    }
+
     if (glob.syncInProgress) {
         return "syncFromServerInProgress";
     }
 
+    return afterUnlock(glob);
+}
+
+/** The rest of the wizard, once there is nothing left standing in front of it. */
+function afterUnlock(glob: SetupGlob): State {
     // Asked for by a running instance that wants its database held still long enough to be copied.
-    // It skips the question below because it answers it: nothing here is being replaced or erased,
-    // and the instance goes back to the same database when the screen is done with.
-    if (glob.setupTargetScreen === "backup-database" && glob.initialSetup === false) {
+    // It skips the screen below because that screen is the same offer, made where the user is on
+    // their way somewhere else; here the copy is the whole errand.
+    if (glob.setupTargetScreen === "backup-database" && glob.hasExistingData) {
         return "backupDatabase";
     }
 
-    // Before the language, before the menu: everything past this point replaces or erases what is
-    // already here, and the user has not been asked about that yet.
-    if (glob.initialSetup === false) {
+    // Before the language, before the menu: this is the one moment the database is open and nothing
+    // is running against it, which is what taking a copy of it needs.
+    if (glob.hasExistingData) {
         return "existingData";
     }
 
@@ -204,12 +219,44 @@ function SelectLanguage({ setState }: { setState: (state: State) => void }) {
     );
 }
 
-function SetupOptions({ setState }: { setState: (state: State) => void }) {
+function SetupOptions({ setState, onKeep }: { setState: (state: State) => void; onKeep: () => void }) {
+    const [ error, setError ] = useState<string | null>(null);
+    const [ errorId, setErrorId ] = useState(0);
+
+    /**
+     * Clears the way for a knowledge base that another desktop will push, then waits for it.
+     *
+     * The one path that cannot erase at the moment the database is created, because that moment
+     * belongs to the other device rather than to anything pressed here: this instance only waits,
+     * and it decides it has a database by seeing a schema appear, which the old one would satisfy on
+     * its own. So arriving on the screen is what commits, and it is asked about with the browser's
+     * own dialog for the same reason every other erasure in the wizard is.
+     */
+    async function syncFromDesktop() {
+        if (hasExistingData()) {
+            if (!window.confirm(t("setup.existing-data-erase-confirm"))) {
+                return;
+            }
+
+            try {
+                await deleteExistingData();
+            } catch (e) {
+                setError(e instanceof Error ? e.message : String(e));
+                setErrorId((previous) => previous + 1);
+                return;
+            }
+        }
+
+        setState("syncFromDesktop");
+    }
+
     return (
         <SetupPage
             title={t("setup.heading")}
             className="setup-options-container"
             illustration={<img src={logo} alt="Setup illustration" className="illustration-logo" />}
+            error={error}
+            errorId={errorId}
             onBack={() => setState("selectLanguage")}
         >
             <div class="setup-options">
@@ -239,9 +286,23 @@ function SetupOptions({ setState }: { setState: (state: State) => void }) {
                     title={t("setup.sync-from-desktop")}
                     description={t("setup.sync-from-desktop-description")}
                     disabled={glob.isStandalone}
-                    onClick={() => setState("syncFromDesktop")}
+                    onClick={() => void syncFromDesktop()}
                 />
             </div>
+
+            {/* The way out, offered only while there is something to go back to. Set apart from the
+                four above rather than made a fifth of them: those replace the knowledge base and
+                this one is how the user leaves it exactly as they found it. */}
+            {hasExistingData() && (
+                <CardFrame className="setup-option-card setup-keep-card" onClick={onKeep}>
+                    <Icon icon="bx bx-log-in-circle" />
+
+                    <div>
+                        <h3>{t("setup.keep-existing")}</h3>
+                        <p>{t("setup.keep-existing-description")}</p>
+                    </div>
+                </CardFrame>
+            )}
         </SetupPage>
     );
 }
@@ -462,19 +523,69 @@ function CreateNewDocumentOptions({ setState }: { setState: (state: State) => vo
     );
 }
 
-function CreateNewDocumentInProgress({ withDemo = false }: { withDemo?: boolean }) {
+/**
+ * The wait while the database is created, and what became of it if it was not.
+ *
+ * A failure has to be said out loud rather than left to the spinner: this screen has nothing to
+ * poll and no other way of ending, so a request that comes back with an error would otherwise leave
+ * it turning for as long as the user was willing to watch it.
+ */
+function CreateNewDocumentInProgress({ withDemo = false, setState }: {
+    withDemo?: boolean;
+    setState: (state: State) => void;
+}) {
+    const [ error, setError ] = useState<string | null>(null);
+
     useEffect(() => {
-        server.post(`setup/new-document${withDemo ? "" : "?skipDemoDb"}`, { locale: getCurrentLanguage() }).then(onSetupFinished);
+        server.post(`setup/new-document${withDemo ? "" : "?skipDemoDb"}`, { locale: getCurrentLanguage() })
+            .then(onSetupFinished)
+            .catch((e: unknown) => setError(messageOf(e)));
     }, [ withDemo ]);
 
     return (
         <SetupPage
             className="create-new-document"
-            title={t("setup.create-new-document-title")}
-            description={t("setup.create-new-document-description")}
-            illustration={<Icon icon="bx bx-loader-circle bx-spin" className="illustration-icon" />}
+            title={error ? t("setup.create-new-document-failed") : t("setup.create-new-document-title")}
+            description={error ? undefined : t("setup.create-new-document-description")}
+            illustration={
+                <Icon
+                    icon={error ? "bx bx-error-circle" : "bx bx-loader-circle bx-spin"}
+                    className="illustration-icon"
+                />
+            }
+            error={error}
+            // Only once there is something to go back from: while it is running there is nothing to
+            // return to that would not leave a half-created database behind.
+            onBack={error ? () => setState("createNewDocumentOptions") : undefined}
         />
     );
+}
+
+/**
+ * Whatever the failure has to say for itself.
+ *
+ * A rejected request is not an `Error`: the client's own layer rejects with the response body as a
+ * string, or with a bare word when the browser dropped the request.
+ */
+function messageOf(e: unknown): string {
+    if (e instanceof Error) {
+        return e.message;
+    }
+    if (typeof e === "string") {
+        try {
+            const parsed: unknown = JSON.parse(e);
+            if (typeof parsed === "object" && parsed !== null && "message" in parsed
+                && typeof parsed.message === "string") {
+                return parsed.message;
+            }
+        } catch {
+            // Not JSON, so it is already whatever the server had to say.
+        }
+
+        return e;
+    }
+
+    return String(e);
 }
 
 export function SyncFromServer({ setState }: { setState: (state: State) => void }) {

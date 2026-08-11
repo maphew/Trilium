@@ -238,6 +238,9 @@ contextBridge.exposeInMainWorld("electronApi", {
     dialog: {
         pickDirectory(opts?: { defaultPath?: string }) {
             return ipcRenderer.invoke("dialog-pick-directory", opts);
+        },
+        confirmStartOver(): Promise<boolean> {
+            return ipcRenderer.invoke("dialog-confirm-start-over");
         }
     },
 

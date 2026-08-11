@@ -62,15 +62,17 @@ function register(app: express.Application) {
 
     // Restoring a backup, which only the setup screen offers: `checkAppNotInitialized` is what keeps
     // it from ever running against a live database, since before the database exists there is no
-    // session to authenticate against and the whole wizard stands unauthenticated. None of these may
-    // be transactional — the swap detaches the database, which a wrapping transaction would be in the
+    // session to authenticate against and the whole wizard stands unauthenticated. Where a knowledge
+    // base is sitting behind the wizard there IS something to authenticate against, and
+    // `checkSetupAuth` asks for it — a restore replaces that database. None of these may be
+    // transactional — the swap detaches the database, which a wrapping transaction would be in the
     // middle of.
-    asyncRoute(PST, "/api/setup/restore/upload/begin", [auth.checkAppNotInitialized], setupRestoreRoute.beginUpload, apiResultHandler);
-    asyncRoute(PST, "/api/setup/restore/upload/:uploadId/chunk", [auth.checkAppNotInitialized], setupRestoreRoute.uploadChunk, apiResultHandler);
-    asyncRoute(GET, "/api/setup/restore/upload/:uploadId", [auth.checkAppNotInitialized], setupRestoreRoute.uploadStatus, apiResultHandler);
-    asyncRoute(PST, "/api/setup/restore/upload/:uploadId/finish", [auth.checkAppNotInitialized], setupRestoreRoute.finishUpload, apiResultHandler);
-    asyncRoute(DEL, "/api/setup/restore/upload/:uploadId", [auth.checkAppNotInitialized], setupRestoreRoute.abortUpload, apiResultHandler);
-    asyncRoute(PST, "/api/setup/restore/start", [auth.checkAppNotInitialized], setupRestoreRoute.start, apiResultHandler);
+    asyncRoute(PST, "/api/setup/restore/upload/begin", [auth.checkAppNotInitialized, auth.checkSetupAuth], setupRestoreRoute.beginUpload, apiResultHandler);
+    asyncRoute(PST, "/api/setup/restore/upload/:uploadId/chunk", [auth.checkAppNotInitialized, auth.checkSetupAuth], setupRestoreRoute.uploadChunk, apiResultHandler);
+    asyncRoute(GET, "/api/setup/restore/upload/:uploadId", [auth.checkAppNotInitialized, auth.checkSetupAuth], setupRestoreRoute.uploadStatus, apiResultHandler);
+    asyncRoute(PST, "/api/setup/restore/upload/:uploadId/finish", [auth.checkAppNotInitialized, auth.checkSetupAuth], setupRestoreRoute.finishUpload, apiResultHandler);
+    asyncRoute(DEL, "/api/setup/restore/upload/:uploadId", [auth.checkAppNotInitialized, auth.checkSetupAuth], setupRestoreRoute.abortUpload, apiResultHandler);
+    asyncRoute(PST, "/api/setup/restore/start", [auth.checkAppNotInitialized, auth.checkSetupAuth], setupRestoreRoute.start, apiResultHandler);
     // Readable throughout, including once the restore has succeeded: that is how the screen learns it
     // is over and the application can be opened.
     asyncRoute(GET, "/api/setup/restore/status", [], setupRestoreRoute.status, apiResultHandler);
@@ -103,6 +105,7 @@ function register(app: express.Application) {
         checkApiAuth: auth.checkApiAuth,
         checkApiAuthOrElectron: auth.checkApiAuthOrElectron,
         checkAppNotInitialized: auth.checkAppNotInitialized,
+        checkSetupAuth: auth.checkSetupAuth,
         checkCredentials: auth.checkCredentials,
         loginRateLimiter,
         uploadMiddlewareWithErrorHandling,

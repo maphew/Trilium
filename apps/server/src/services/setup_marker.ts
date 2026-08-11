@@ -3,6 +3,7 @@ import { getLog, getSql, parseSetupMarker, type SetupPlatform } from "@triliumne
 import fs from "fs";
 import path from "path";
 
+import config from "./config.js";
 import dataDirs from "./data_dir.js";
 
 /**
@@ -61,6 +62,10 @@ export const setupPlatform: SetupPlatform = {
         fs.writeFileSync(markerPath(), JSON.stringify(marker, null, 4), "utf8");
     },
 
+    async hasMarker() {
+        return fs.existsSync(markerPath());
+    },
+
     async removeMarker() {
         fs.rmSync(markerPath(), { force: true });
     },
@@ -74,5 +79,11 @@ export const setupPlatform: SetupPlatform = {
         for (const file of [ document, `${document}-wal`, `${document}-shm` ]) {
             fs.rmSync(file, { force: true });
         }
+
+        // And an empty one opened in its place, because everything the wizard does from here writes
+        // to a database: creating a document, taking a pushed sync seed, converging a sync. Opening
+        // a path with nothing at it creates it empty, which is the state a first run begins in — so
+        // this leaves the instance exactly where a machine that had never run Trilium would be.
+        getSql().attachFromFile(document, config.General.readOnly);
     }
 };

@@ -1,0 +1,17 @@
+.options-section.start-over {
+    .start-over-actions {
+        display: flex;
+        justify-content: flex-end;
+        margin-top: 12px;
+    }
+
+    /* Coloured like every other action that cannot be taken back, so it is recognised before it is
+       read rather than after. */
+    .start-over-button {
+        color: var(--dropdown-item-icon-destructive-color);
+    }
+
+    .start-over-pending {
+        margin-top: 12px;
+    }
+}

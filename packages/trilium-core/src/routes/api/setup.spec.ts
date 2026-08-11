@@ -1,8 +1,15 @@
-import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import appInfo from "../../services/app_info";
+import * as passwordService from "../../services/encryption/password";
 import optionService from "../../services/options";
 import setupService from "../../services/setup";
+import {
+    enterSetupMode,
+    initSetupPlatform,
+    leaveSetupMode,
+    markExistingDataDiscarded
+} from "../../services/setup_mode";
 import sqlInit from "../../services/sql_init";
 import { CoreApiTester } from "../../test/api_tester";
 
@@ -130,3 +137,91 @@ describe("Setup API (core)", () => {
         expect(setupSync).toHaveBeenCalledWith("http://host", "", "pw", 0);
     });
 });
+
+describe("Setup API with a knowledge base behind the wizard (core)", () => {
+    beforeAll(() => {
+        api = CoreApiTester.build();
+    });
+
+    beforeEach(() => {
+        initSetupPlatform(platform);
+        enterSetupMode({ lang: "en" });
+    });
+
+    afterEach(() => {
+        leaveSetupMode();
+        Object.values(platform).forEach((fn) => fn.mockClear());
+        vi.restoreAllMocks();
+    });
+
+    it("erases it before creating a document, which is the moment the user commits to that", async () => {
+        const createInitial = vi.spyOn(sqlInit, "createInitialDatabase").mockResolvedValue(undefined);
+
+        const res = await api.post("/api/setup/new-document", { query: { skipDemoDb: "1" } });
+
+        expect(res.status).toBe(204);
+        expect(platform.removeDatabase).toHaveBeenCalledOnce();
+        expect(createInitial).toHaveBeenCalled();
+    });
+
+    it("erases it before syncing from a server, for the same reason", async () => {
+        vi.spyOn(setupService, "setupSyncFromSyncServer").mockResolvedValue({ result: "success" });
+
+        const res = await api.post("/api/setup/sync-from-server", {
+            body: { syncServerHost: "http://host", syncProxy: "", password: "pw" }
+        });
+
+        expect(res.status).toBe(200);
+        expect(platform.removeDatabase).toHaveBeenCalledOnce();
+    });
+
+    it("refuses a pushed sync seed until the local user has cleared the way for it", async () => {
+        // The push comes from the other device and carries nothing this instance issued, so what
+        // stands in for a token is the state: a schema is created here by wiping what is in the way.
+        const createForSync = vi.spyOn(sqlInit, "createDatabaseForSync").mockResolvedValue(undefined as never);
+
+        const refused = await api.post<{ error: string }>("/api/setup/sync-seed", {
+            body: { syncVersion: appInfo.syncVersion, options: [] }
+        });
+
+        expect(refused.status).toBe(400);
+        expect(createForSync).not.toHaveBeenCalled();
+
+        markExistingDataDiscarded();
+        const accepted = await api.post("/api/setup/sync-seed", {
+            body: { syncVersion: appInfo.syncVersion, options: [] }
+        });
+
+        expect(accepted.status).toBe(204);
+        expect(createForSync).toHaveBeenCalled();
+    });
+
+    it("withholds the stored sync server while the wizard is locked", async () => {
+        vi.spyOn(sqlInit, "isDbInitialized").mockReturnValue(false);
+        vi.spyOn(passwordService, "isPasswordSet").mockReturnValue(true);
+
+        const locked = await api.get<{ authRequired: boolean; syncServerHost?: string }>("/api/setup/status");
+
+        expect(locked.body.authRequired).toBe(true);
+        // A live instance's own sync server, on an endpoint anybody who can reach the port may read.
+        expect(locked.body.syncServerHost).toBeUndefined();
+    });
+
+    it("answers whether a start-over is waiting, and takes the request back", async () => {
+        platform.hasMarker.mockResolvedValue(true);
+        const pending = await api.get<{ requested: boolean }>("/api/setup/boot");
+        expect(pending.body.requested).toBe(true);
+
+        const cancelled = await api.delete("/api/setup/boot");
+        expect(cancelled.status).toBe(204);
+        expect(platform.removeMarker).toHaveBeenCalled();
+    });
+});
+
+/** A platform whose marker and database are only ever written down as having been asked for. */
+const platform = {
+    writeMarker: vi.fn(async () => {}),
+    hasMarker: vi.fn(async () => false),
+    removeMarker: vi.fn(async () => {}),
+    removeDatabase: vi.fn(async () => {})
+};

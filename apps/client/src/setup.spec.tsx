@@ -206,27 +206,37 @@ describe("where the wizard opens", () => {
         expect(initialState({ setupTargetScreen: "restore-backup" })).toBe("restoreFromBackup");
     });
 
-    it("asks about the existing knowledge base before anything else, wherever it was headed", () => {
-        expect(initialState({ initialSetup: false })).toBe("existingData");
-        expect(initialState({ initialSetup: false, setupTargetScreen: "restore-backup" }))
+    it("offers a copy of the existing knowledge base before anything else, wherever it was headed", () => {
+        expect(initialState({ hasExistingData: true })).toBe("existingData");
+        expect(initialState({ hasExistingData: true, setupTargetScreen: "restore-backup" }))
             .toBe("existingData");
     });
 
     it("goes straight to the backup screen, which is the one that replaces nothing", () => {
-        // Unlike a restore, a backup leaves the knowledge base exactly as it is, so the question
-        // about what to do with it would be asking about something that is not happening.
-        expect(initialState({ initialSetup: false, setupTargetScreen: "backup-database" }))
+        // Unlike a restore, a backup leaves the knowledge base exactly as it is, so the offer of a
+        // copy would be offering the very thing the screen after it is about to make.
+        expect(initialState({ hasExistingData: true, setupTargetScreen: "backup-database" }))
             .toBe("backupDatabase");
 
         // Except where there is nothing to back up, which is not a state the app can ask for.
         expect(initialState({ setupTargetScreen: "backup-database" })).toBe("selectLanguage");
     });
 
+    it("asks for the password first where the wizard is standing over a knowledge base", () => {
+        // Before everything, including the resumed sync below: what is behind the wizard is a real
+        // knowledge base, and every screen past this one can replace it.
+        expect(initialState({ setupAuthRequired: true, hasExistingData: true })).toBe("unlock");
+        expect(initialState({ setupAuthRequired: true, hasExistingData: true, syncInProgress: true }))
+            .toBe("unlock");
+        expect(initialState({ setupAuthRequired: true, hasExistingData: true, setupTargetScreen: "restore-backup" }))
+            .toBe("unlock");
+    });
+
     it("resumes an interrupted sync before anything else, since that one cannot wait", () => {
         expect(initialState({ syncInProgress: true })).toBe("syncFromServerInProgress");
         expect(initialState({ syncInProgress: true, setupTargetScreen: "restore-backup" }))
             .toBe("syncFromServerInProgress");
-        expect(initialState({ syncInProgress: true, initialSetup: false, setupTargetScreen: "backup-database" }))
+        expect(initialState({ syncInProgress: true, hasExistingData: true, setupTargetScreen: "backup-database" }))
             .toBe("syncFromServerInProgress");
     });
 
@@ -239,7 +249,7 @@ describe("where the wizard opens", () => {
         // Which decides whether that screen offers a way back: there is one only where the user
         // walked into the restore through the wizard's own menu.
         expect(openedAtRestore({ setupTargetScreen: "restore-backup" })).toBe(true);
-        expect(openedAtRestore({ initialSetup: false, setupTargetScreen: "restore-backup" })).toBe(true);
+        expect(openedAtRestore({ hasExistingData: true, setupTargetScreen: "restore-backup" })).toBe(true);
         expect(openedAtRestore({})).toBe(false);
         expect(openedAtRestore({ setupTargetScreen: "backup-database" })).toBe(false);
     });

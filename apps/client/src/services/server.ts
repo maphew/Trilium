@@ -1,4 +1,5 @@
 import { t } from "./i18n.js";
+import { getSetupAuthToken } from "./setup_auth.js";
 import utils, { isShare } from "./utils.js";
 import ValidationError from "./validation_error.js";
 
@@ -26,7 +27,10 @@ async function getHeaders(headers?: Headers) {
         "trilium-component-id": glob.componentId,
         "trilium-local-now-datetime": utils.localNowDateTime(),
         "trilium-hoisted-note-id": activeNoteContext ? activeNoteContext.hoistedNoteId : null,
-        "x-csrf-token": glob.csrfToken
+        "x-csrf-token": glob.csrfToken,
+        // What unlocks the setup wizard where a knowledge base is sitting behind it. Null on every
+        // other page, and dropped below along with every other header that has no value.
+        "trilium-setup-auth": getSetupAuthToken()
     };
 
     for (const headerName in headers) {

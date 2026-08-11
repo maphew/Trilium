@@ -1,4 +1,4 @@
-import { attributes, options, password as passwordService, password_encryption as passwordEncryptionService } from "@triliumnext/core";
+import { attributes, isSetupAuthorized, isSetupAuthRequired, options, password as passwordService, password_encryption as passwordEncryptionService } from "@triliumnext/core";
 import type { NextFunction, Request, Response } from "express";
 
 import config from "./config.js";
@@ -177,6 +177,32 @@ function checkAppNotInitialized(req: Request, res: Response, next: NextFunction)
     }
 }
 
+/**
+ * Guards the setup routes that could replace or erase a knowledge base sitting behind the wizard.
+ *
+ * The rest of the authentication in this file stands down while the database is uninitialized, which
+ * is exactly what an instance in setup mode reports, so nothing else here covers these routes. See
+ * `setup_auth` in core for why the session cannot be used and what is used instead.
+ *
+ * Three ways past it, all of them cases where there is nothing to guard against: an instance with no
+ * knowledge base behind the wizard, which is the ordinary first run; the desktop's own renderer,
+ * which reaches the server over the custom protocol and is the application itself; and an instance
+ * configured for no authentication, which has already said it trusts whoever can reach it.
+ */
+function checkSetupAuth(req: Request, res: Response, next: NextFunction) {
+    if (!isSetupAuthRequired() || isInternalElectronRequest(req) || noAuthentication) {
+        return next();
+    }
+
+    const token = req.headers["trilium-setup-auth"];
+    if (typeof token !== "string" || !isSetupAuthorized(token)) {
+        reject(req, res, "The existing knowledge base has not been unlocked.");
+        return;
+    }
+
+    next();
+}
+
 function checkEtapiToken(req: Request, res: Response, next: NextFunction) {
     if (etapiTokenService.isValidAuthHeader(req.headers.authorization)) {
         next();
@@ -260,6 +286,7 @@ export default {
     checkPasswordSet,
     checkPasswordNotSet,
     checkAppNotInitialized,
+    checkSetupAuth,
     checkApiAuthOrElectron,
     checkEtapiToken,
     checkCredentials

@@ -271,6 +271,7 @@ export class CoreApiTester {
             checkApiAuth: noop,
             checkApiAuthOrElectron: noop,
             checkAppNotInitialized: noop,
+            checkSetupAuth: noop,
             checkCredentials: noop,
             loginRateLimiter: noop,
             uploadMiddlewareWithErrorHandling: noop,
