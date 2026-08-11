@@ -46,6 +46,24 @@ describe("how the setup routes are registered", () => {
         "DELETE /api/setup/boot"
     ];
 
+    /**
+     * Every route that belongs to the wizard and must be refused on an instance that is running.
+     *
+     * The `boot` three are deliberately absent: asking for a start-over is something a running
+     * instance does, and it is guarded by the session instead.
+     */
+    const WIZARD_ONLY_ROUTES = [
+        "POST /api/setup/new-document",
+        "POST /api/setup/sync-from-server",
+        "POST /api/setup/sync-seed",
+        "POST /api/setup/auth",
+        "POST /api/setup/existing/backup",
+        "GET /api/setup/existing/backup-defaults",
+        "GET /api/setup/existing/status",
+        "POST /api/setup/existing/delete",
+        "POST /api/setup/existing/keep"
+    ];
+
     it("keeps every route that closes the database out of a transaction", () => {
         const { builders } = captureRegistrations();
 
@@ -61,6 +79,19 @@ describe("how the setup routes are registered", () => {
         for (const route of GATED_ROUTES) {
             expect(middleware.get(route), `${route} is not registered at all`)
                 .toContain("checkSetupAuth");
+        }
+    });
+
+    it("keeps the wizard's own routes off a running instance, which is a different guard entirely", () => {
+        // `checkSetupAuth` does nothing on a running instance: it asks for a password only while
+        // there is a knowledge base behind the wizard, and on a running instance there is no wizard.
+        // What refuses these there is `checkAppNotInitialized`, so it is the one carrying the weight
+        // for the case where no start-over was ever asked for.
+        const { middleware } = captureRegistrations();
+
+        for (const route of WIZARD_ONLY_ROUTES) {
+            expect(middleware.get(route), `${route} is not registered at all`)
+                .toContain("checkAppNotInitialized");
         }
     });
 

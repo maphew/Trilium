@@ -1,5 +1,7 @@
 import { writeBackupContainer } from "@triliumnext/backup-container";
-import { app_info as appInfo, getBackup, getLog, getSql } from "@triliumnext/core";
+// `sql_init` from core rather than the server's own re-export, which copies the function references
+// onto a fresh object: a spy on that one would not be seen by `database_restore`.
+import { app_info as appInfo, getBackup, getLog, getSql, sql_init as sqlInit } from "@triliumnext/core";
 import Database from "better-sqlite3";
 import fs from "fs";
 import os from "os";
@@ -30,6 +32,9 @@ let counter = 0;
 beforeEach(() => {
     fs.rmSync(tempRoot, { recursive: true, force: true });
     fs.mkdirSync(tempRoot, { recursive: true });
+    // The state a restore actually runs in: the setup screen, with no database of this instance's
+    // own open. `restoreDatabase` refuses anywhere else, and the shared fixture is initialized.
+    vi.spyOn(sqlInit, "isDbInitialized").mockReturnValue(false);
 });
 
 afterEach(() => vi.restoreAllMocks());
@@ -426,6 +431,22 @@ describe("recovering from an interrupted restore", () => {
 });
 
 describe("restoring a database", () => {
+    it("refuses outright on an instance that already has a database", async () => {
+        // The route this is reached through is guarded by `checkAppNotInitialized`, and until this
+        // check existed that middleware was the only thing between a running instance and a restore
+        // over the top of it. Every other way of replacing a database refuses on its own account.
+        vi.spyOn(sqlInit, "isDbInitialized").mockReturnValue(true);
+        const detach = vi.spyOn(getSql(), "detachConnection").mockImplementation(() => {});
+
+        await expect(restoreDatabase({
+            path: validDatabase(),
+            fileName: "holiday.db",
+            consumable: false
+        })).rejects.toMatchObject({ reason: "restore-refused" });
+
+        expect(detach).not.toHaveBeenCalled();
+    });
+
     it("stops before touching the live database when the backup is not one", async () => {
         const detach = vi.spyOn(getSql(), "detachConnection").mockImplementation(() => {});
 

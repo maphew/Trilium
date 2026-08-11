@@ -556,9 +556,21 @@ describe("Auth", () => {
  * around a supertest call.
  */
 describe("the setup wizard's gate", () => {
+    type GateOpts = {
+        token?: string;
+        internalElectron?: boolean;
+        /** Which guard to drive; `checkSetupAuth` by default. */
+        middleware?: "checkSetupAuth" | "checkApiAuth" | "checkApiAuthOrElectron";
+    };
+
     /** A request carrying the token, or nothing, plus what the middleware did with it. */
-    function callGate({ token, internalElectron = false }: { token?: string; internalElectron?: boolean } = {}) {
-        const req = { headers: token ? { "trilium-setup-auth": token } : {}, method: "POST", path: "/api/setup/existing/delete" } as unknown as Request;
+    function callGate({ token, internalElectron = false, middleware = "checkSetupAuth" }: GateOpts = {}) {
+        const req = {
+            headers: token ? { "trilium-setup-auth": token } : {},
+            method: "POST",
+            path: "/api/database/backup-database",
+            session: {}
+        } as unknown as Request;
         if (internalElectron) {
             markAsInternalElectronRequest(req);
         }
@@ -576,7 +588,7 @@ describe("the setup wizard's gate", () => {
             outcome.passed = true;
         };
 
-        auth.checkSetupAuth(req, res as unknown as Response, next);
+        auth[middleware](req, res as unknown as Response, next);
 
         return outcome;
     }
@@ -632,5 +644,40 @@ describe("the setup wizard's gate", () => {
         leaveSetupMode();
 
         expect(callGate()).toMatchObject({ passed: true });
+    });
+
+    describe("and the rest of the API, which stands down for the same reason", () => {
+        // The wizard's own routes are not the only ones reachable while it is open. Every ordinary
+        // API guard gives way on an instance that reports itself uninitialized — which setup mode
+        // makes it report — and the database is attached the whole time, so anything reaching it
+        // through SQL rather than through becca works. Backing the knowledge base up and then
+        // downloading that backup is two such requests, and would have been the whole of it.
+        for (const middleware of [ "checkApiAuth", "checkApiAuthOrElectron" ] as const) {
+            it(`refuses an unauthenticated request through ${middleware} while the wizard is locked`, () => {
+                expect(callGate({ middleware })).toEqual({ passed: false, status: 401 });
+            });
+
+            it(`lets ${middleware} through once the wizard has been unlocked`, async () => {
+                vi.spyOn(passwordEncryptionService, "verifyPassword").mockResolvedValue(true as never);
+                const token = await authenticateSetup("whatever the fixture's is");
+
+                // The client sends the token on every request once it holds one, so the rest of the
+                // wizard's own needs — keyboard actions, options, network addresses — keep working.
+                expect(callGate({ middleware, token: token ?? "" })).toMatchObject({ passed: true });
+
+                vi.restoreAllMocks();
+            });
+
+            it(`lets ${middleware} through on a first run, which has nothing to protect`, () => {
+                // No marker, so nothing behind the wizard, and no database open either: the state
+                // the bypass was written for, and the one it has to go on allowing.
+                leaveSetupMode();
+                vi.spyOn(sqlInit, "isDbInitialized").mockReturnValue(false);
+
+                expect(callGate({ middleware })).toMatchObject({ passed: true });
+
+                vi.restoreAllMocks();
+            });
+        }
     });
 });

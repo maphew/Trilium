@@ -108,10 +108,39 @@ export function refreshAuth() {
     noAuthentication = (config.General && config.General.noAuthentication === true);
 }
 
+/**
+ * Whether an uninitialized instance may let this request through unauthenticated.
+ *
+ * The bypass below exists because an instance with no database has nobody to authenticate and
+ * nothing worth protecting. An instance sitting in the setup wizard with a knowledge base behind it
+ * has both: the database is attached, and every route that reaches it through SQL rather than
+ * through becca works exactly as it would on a running instance. Taking a backup of it and
+ * downloading that backup are two such routes.
+ *
+ * So for the length of that window the bypass is conditional on the wizard's own token instead of
+ * being granted outright. The exemptions are the ones `checkSetupAuth` makes, for the same reasons.
+ */
+function mayPassAsUninitialized(req: Request): boolean {
+    if (sqlInit.isDbInitialized()) {
+        return false;
+    }
+    if (!isSetupAuthRequired() || isInternalElectronRequest(req) || noAuthentication) {
+        return true;
+    }
+
+    return isSetupAuthorized(readSetupAuthToken(req));
+}
+
+function readSetupAuthToken(req: Request): string | undefined {
+    const token = req.headers["trilium-setup-auth"];
+
+    return typeof token === "string" ? token : undefined;
+}
+
 // for electron things which need network stuff
 //  currently, we're doing that for file upload because handling form data seems to be difficult
 function checkApiAuthOrElectron(req: Request, res: Response, next: NextFunction) {
-    if (!sqlInit.isDbInitialized()) {
+    if (mayPassAsUninitialized(req)) {
         return next();
     }
 
@@ -124,7 +153,7 @@ function checkApiAuthOrElectron(req: Request, res: Response, next: NextFunction)
 }
 
 function checkApiAuth(req: Request, res: Response, next: NextFunction) {
-    if (!sqlInit.isDbInitialized()) {
+    if (mayPassAsUninitialized(req)) {
         return next();
     }
 
@@ -194,8 +223,7 @@ function checkSetupAuth(req: Request, res: Response, next: NextFunction) {
         return next();
     }
 
-    const token = req.headers["trilium-setup-auth"];
-    if (typeof token !== "string" || !isSetupAuthorized(token)) {
+    if (!isSetupAuthorized(readSetupAuthToken(req))) {
         reject(req, res, "The existing knowledge base has not been unlocked.");
         return;
     }

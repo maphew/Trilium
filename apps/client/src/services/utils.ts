@@ -8,23 +8,25 @@ const SVG_MIME = "image/svg+xml";
 export const isShare = !window.glob;
 
 /**
- * True when the client is showing one of the DB-initialized *pre-auth* SPA screens — the login
- * screen (`loggedIn: false`) or the set-password screen (`passwordSet: false`).
+ * True when the client is showing a *pre-auth* SPA screen — the login screen (`loggedIn: false`),
+ * the set-password screen (`passwordSet: false`), or a setup wizard still waiting to be unlocked
+ * (`setupAuthRequired: true`).
  *
- * These screens run with the database already initialized, so `glob.dbInitialized` (the historical
+ * The first two run with the database already initialized, so `glob.dbInitialized` (the historical
  * proxy for "pre-auth", back when setup was the only pre-auth screen) does NOT catch them. The eager
  * module-load side effects — froca's initial tree load, the WebSocket auto-connect, and the options /
  * keyboard-actions / fonts fetches — must skip on these screens too, otherwise they fire
  * unauthenticated requests that 401 with "Logged in session not found" (#10589).
  *
- * The setup screen (`dbInitialized: false`) is deliberately NOT flagged here: froca and the WebSocket
- * already gate on `!glob.dbInitialized`, and the options / keyboard-actions / fonts requests are
- * accepted unauthenticated server-side while the DB is uninitialized. The strict `=== false`
- * comparison is intentional: an unset flag (the fully-authenticated app, or a unit-test `glob`) must
- * not be treated as pre-auth, so the eager loads keep working there.
+ * An ordinary setup screen (`dbInitialized: false`) is deliberately NOT flagged: froca and the
+ * WebSocket already gate on `!glob.dbInitialized`, and those requests are accepted unauthenticated
+ * server-side while there is no database to protect. A wizard standing over a knowledge base is the
+ * exception — there the server asks for the wizard's password first, which this screen has not been
+ * given yet. The strict comparisons are intentional: an unset flag (the fully-authenticated app, or
+ * a unit-test `glob`) must not be treated as pre-auth, so the eager loads keep working there.
  */
 export function isPreAuthScreen(): boolean {
-    return glob.loggedIn === false || glob.passwordSet === false;
+    return glob.loggedIn === false || glob.passwordSet === false || glob.setupAuthRequired === true;
 }
 
 export function reloadFrontendApp(reason?: string) {
