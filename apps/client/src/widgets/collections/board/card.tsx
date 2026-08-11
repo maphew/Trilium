@@ -1,13 +1,14 @@
+import { memo } from "preact/compat";
 import { useCallback, useContext, useEffect, useRef, useState } from "preact/hooks";
 import FBranch from "../../../entities/fbranch";
 import FNote from "../../../entities/fnote";
 import BoardApi from "./api";
-import { BoardViewContext, TitleEditor } from ".";
+import { BoardActionsContext, TitleEditor } from ".";
 import { ContextMenuEvent } from "../../../menus/context_menu";
 import { openNoteContextMenu } from "./context_menu";
 import { t } from "../../../services/i18n";
 import UserAttributesDisplay from "../../attribute_widgets/UserAttributesList";
-import { useTriliumEvent } from "../../react/hooks";
+import { useNoteIcon, useNoteLabelBoolean, useTriliumEvent } from "../../react/hooks";
 
 export const CARD_CLIPBOARD_TYPE = "trilium/board-card";
 
@@ -18,29 +19,38 @@ export interface CardDragData {
     fromColumn: string;
 }
 
-export default function Card({
+function Card({
     api,
     note,
     branch,
     column,
     index,
-    isDragging
+    isDragging,
+    isEditing
 }: {
     api: BoardApi,
     note: FNote,
     branch: FBranch,
     column: string,
     index: number,
-    isDragging: boolean
+    isDragging: boolean,
+    /**
+     * Passed down rather than derived here from the drag state's `branchIdToEdit`, so that a card
+     * subscribes only to the board's stable context and a drag leaves it off the render path.
+     */
+    isEditing: boolean
 }) {
-    const { branchIdToEdit, setBranchIdToEdit, setDraggedCard } = useContext(BoardViewContext)!;
-    const isEditing = branch.branchId === branchIdToEdit;
+    const { setBranchIdToEdit, setDraggedCard } = useContext(BoardActionsContext);
     const colorClass = note.getColorClass() || '';
     const editorRef = useRef<HTMLInputElement>(null);
-    const isArchived = note.isArchived;
+    const [ isArchived ] = useNoteLabelBoolean(note, "archived");
     const [ isVisible, setVisible ] = useState(true);
     const [ title, setTitle ] = useState(note.title);
+    // Tracks the `iconClass` label, which an attribute change carries and the note row never does.
+    const icon = useNoteIcon(note);
 
+    // A card owns its own title: the board does not redraw for a note-row change. Setting the value
+    // already held is a no-op, so a save that left the title alone re-renders nothing.
     useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
         const row = loadResults.getEntityRow("notes", note.noteId);
         if (row) {
@@ -69,14 +79,14 @@ export default function Card({
 
     const handleEdit = useCallback((e: MouseEvent) => {
         e.stopPropagation(); // don't also open the note
-        setBranchIdToEdit?.(branch.branchId);
+        setBranchIdToEdit(branch.branchId);
     }, [ setBranchIdToEdit, branch ]);
 
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         if (e.key === "Enter") {
             api.openNote(note.noteId);
         } else if (e.key === "F2") {
-            setBranchIdToEdit?.(branch.branchId);
+            setBranchIdToEdit(branch.branchId);
         }
     }, [ setBranchIdToEdit, note ]);
 
@@ -109,7 +119,7 @@ export default function Card({
             {!isEditing ? (
                 <>
                     <span className="title">
-                        <span class={`icon ${note.getIcon()}`} />
+                        <span class={`icon ${icon}`} />
                         {title}
                     </span>
                     <span
@@ -133,3 +143,16 @@ export default function Card({
         </div>
     )
 }
+
+/**
+ * Memoized because a board holds hundreds of these and most redraws change none of them: a drag
+ * moves one card, and the rest receive the same props they already had.
+ *
+ * This only works because a card reads nothing from the board's drag-state context -- Preact
+ * re-renders a context consumer whatever its memo boundary says, so subscribing there would make
+ * the comparison below unreachable. `isEditing` and `isDragging` arrive as props for that reason.
+ *
+ * Note that `api` is rebuilt whenever the board's data is, so a refresh still re-renders every card
+ * regardless. This bails out on the drag and edit redraws, not on those.
+ */
+export default memo(Card);

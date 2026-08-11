@@ -5,6 +5,7 @@ import { Dispatch, StateUpdater, useCallback, useEffect, useMemo, useRef, useSta
 
 import FNote from "../../../entities/fnote";
 import { t } from "../../../services/i18n";
+import type LoadResults from "../../../services/load_results";
 import { isIMEComposing } from "../../../services/shortcuts";
 import toast from "../../../services/toast";
 import CollectionProperties from "../../note_bars/CollectionProperties";
@@ -29,24 +30,68 @@ export interface BoardColumnData {
     value: string;
 }
 
-interface BoardViewContextData {
-    api?: BoardApi;
-    parentNote?: FNote;
-    branchIdToEdit?: string;
-    columnNameToEdit?: string;
-    setColumnNameToEdit?: Dispatch<StateUpdater<string | undefined>>;
-    setBranchIdToEdit?: Dispatch<StateUpdater<string | undefined>>;
-    draggedColumn: { column: string, index: number } | null;
-    setDraggedColumn: (column: { column: string, index: number } | null) => void;
-    dropPosition: { column: string, index: number } | null;
-    setDropPosition: (position: { column: string, index: number } | null) => void;
-    setDropTarget: (target: string | null) => void,
-    dropTarget: string | null;
-    draggedCard: { noteId: string, branchId: string, fromColumn: string, index: number } | null;
-    setDraggedCard: Dispatch<StateUpdater<{ noteId: string; branchId: string; fromColumn: string; index: number; } | null>>;
+interface CardDrag {
+    noteId: string;
+    branchId: string;
+    fromColumn: string;
+    index: number;
 }
 
-export const BoardViewContext = createContext<BoardViewContextData | undefined>(undefined);
+interface ColumnDrag {
+    column: string;
+    index: number;
+}
+
+/**
+ * The board's setters, which `useState` gives a fixed identity, so this context never changes value
+ * at all.
+ *
+ * Kept apart from the drag state below because Preact re-renders every consumer of a context whose
+ * value changed, memo boundaries included. Merged into one value, as they used to be, a card could
+ * not be kept off the render path at all: it needs two of these setters, so it would subscribe to a
+ * value that changes several times per drag and re-render each time, all 949 of them.
+ *
+ * The board's `api` deliberately stays out. Every component that used to read it from here is also
+ * passed it as a prop, so having it in both places was duplication -- and being un-defaultable, it
+ * was the only reason this context had to be nullable.
+ */
+interface BoardActions {
+    setBranchIdToEdit: Dispatch<StateUpdater<string | undefined>>;
+    setColumnNameToEdit: Dispatch<StateUpdater<string | undefined>>;
+    setDraggedCard: Dispatch<StateUpdater<CardDrag | null>>;
+    setDraggedColumn: (column: ColumnDrag | null) => void;
+    setDropPosition: (position: ColumnDrag | null) => void;
+    setDropTarget: (target: string | null) => void;
+}
+
+/** The half that changes repeatedly while a card or column is dragged, or a title is being edited. */
+interface BoardDragState {
+    branchIdToEdit?: string;
+    columnNameToEdit?: string;
+    draggedCard: CardDrag | null;
+    draggedColumn: ColumnDrag | null;
+    dropPosition: ColumnDrag | null;
+    dropTarget: string | null;
+}
+
+// Both defaults are the honest identity value rather than a stand-in, which is what lets consumers
+// read these with a plain useContext(): no non-null assertion, and no guard for a provider that is
+// structurally always there. Nothing is being dragged, and the setters have nothing to set.
+export const BoardActionsContext = createContext<BoardActions>({
+    setBranchIdToEdit: () => undefined,
+    setColumnNameToEdit: () => undefined,
+    setDraggedCard: () => undefined,
+    setDraggedColumn: () => undefined,
+    setDropPosition: () => undefined,
+    setDropTarget: () => undefined
+});
+
+export const BoardDragStateContext = createContext<BoardDragState>({
+    draggedCard: null,
+    draggedColumn: null,
+    dropPosition: null,
+    dropTarget: null
+});
 
 export default function BoardView({ note: parentNote, noteIds, viewConfig, saveConfig }: ViewModeProps<BoardViewData>) {
     const [ statusAttributeWithPrefix ] = useNoteLabelWithDefault(parentNote, "board:groupBy", DEFAULT_GROUP_BY);
@@ -70,25 +115,28 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     const api = useMemo(() => {
         return new Api(byColumn, columns ?? [], parentNote, statusAttributeWithPrefix, viewConfig ?? {}, saveConfig, setBranchIdToEdit, statusDefinition );
     }, [ byColumn, columns, parentNote, statusAttributeWithPrefix, viewConfig, saveConfig, setBranchIdToEdit, statusDefinition ]);
-    const boardViewContext = useMemo<BoardViewContextData>(() => ({
-        api,
-        parentNote,
-        branchIdToEdit, setBranchIdToEdit,
-        columnNameToEdit, setColumnNameToEdit,
-        draggedColumn, setDraggedColumn,
-        dropPosition, setDropPosition,
-        draggedCard, setDraggedCard,
-        dropTarget, setDropTarget
+    // Every member is one of useState's own setters, so this value is built once and never changes
+    // identity -- a drag cannot reach anything that reads only this.
+    const boardActions = useMemo<BoardActions>(() => ({
+        setBranchIdToEdit,
+        setColumnNameToEdit,
+        setDraggedCard,
+        setDraggedColumn,
+        setDropPosition,
+        setDropTarget
     }), [
-        api,
-        parentNote,
-        branchIdToEdit, setBranchIdToEdit,
-        columnNameToEdit, setColumnNameToEdit,
-        draggedColumn, setDraggedColumn,
-        dropPosition, setDropPosition,
-        draggedCard, setDraggedCard,
-        dropTarget, setDropTarget
+        setBranchIdToEdit, setColumnNameToEdit, setDraggedCard,
+        setDraggedColumn, setDropPosition, setDropTarget
     ]);
+
+    const boardDragState = useMemo<BoardDragState>(() => ({
+        branchIdToEdit,
+        columnNameToEdit,
+        draggedCard,
+        draggedColumn,
+        dropPosition,
+        dropTarget
+    }), [ branchIdToEdit, columnNameToEdit, draggedCard, draggedColumn, dropPosition, dropTarget ]);
 
     function refresh() {
         getBoardData(parentNote, statusAttributeWithPrefix, viewConfig ?? {}, includeArchived, statusDefinition?.options ?? [])
@@ -132,22 +180,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
             setDefinitionRevision(revision => revision + 1);
         }
 
-        // Check if any changes affect our board
-        const hasRelevantChanges =
-            // React to changes in status attribute for notes in this board
-            loadResults.getAttributeRows().some(attr => attr.name === api.statusAttribute && noteIds.includes(attr.noteId!)) ||
-            // React to changes in note title
-            loadResults.getNoteIds().some(noteId => noteIds.includes(noteId)) ||
-            // React to changes in branches for subchildren (e.g., moved, added, or removed notes)
-            loadResults.getBranchRows().some(branch => noteIds.includes(branch.noteId!)) ||
-            // React to changes in note icon or color.
-            loadResults.getAttributeRows().some(attr => [ "iconClass", "color" ].includes(attr.name ?? "") && noteIds.includes(attr.noteId ?? "")) ||
-            // External changes to the board.json attachment arrive via the viewConfig prop
-            // (see useViewModeConfig), which re-triggers the refresh effect.
-            // React to changes in "groupBy"
-            loadResults.getAttributeRows().some(attr => attr.name === "board:groupBy" && attr.noteId === parentNote.noteId);
-
-        if (hasRelevantChanges) {
+        if (findRefreshReason(loadResults, api.statusAttribute, noteIds, parentNote.noteId)) {
             refresh();
         }
     });
@@ -182,39 +215,78 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
     return (
         <div className="board-view">
             <CollectionProperties note={parentNote} />
-            <BoardViewContext.Provider value={boardViewContext}>
-                {byColumn && columns && <div
-                    className="board-view-container"
-                    onDragOver={handleColumnDragOver}
-                    onDrop={handleContainerDrop}
-                    onWheel={onWheelHorizontalScroll}
-                >
-                    {columns.map((column, index) => (
-                        <>
-                            {columnDropPosition === index && (
-                                <div className="column-drop-placeholder show" />
-                            )}
-                            <Column
-                                isInRelationMode={isInRelationMode}
-                                api={api}
-                                column={column}
-                                columnIndex={index}
-                                columnItems={byColumn.get(column)}
-                                isDraggingColumn={draggedColumn?.column === column}
-                                onColumnHover={handleColumnHover}
-                                isAnyColumnDragging={!!draggedColumn}
-                            />
-                        </>
-                    ))}
-                    {columnDropPosition === columns?.length && draggedColumn && (
-                        <div className="column-drop-placeholder show" />
-                    )}
+            <BoardActionsContext.Provider value={boardActions}>
+                <BoardDragStateContext.Provider value={boardDragState}>
+                    {byColumn && columns && <div
+                        className="board-view-container"
+                        onDragOver={handleColumnDragOver}
+                        onDrop={handleContainerDrop}
+                        onWheel={onWheelHorizontalScroll}
+                    >
+                        {columns.map((column, index) => (
+                            <>
+                                {columnDropPosition === index && (
+                                    <div className="column-drop-placeholder show" />
+                                )}
+                                <Column
+                                    isInRelationMode={isInRelationMode}
+                                    api={api}
+                                    parentNote={parentNote}
+                                    column={column}
+                                    columnIndex={index}
+                                    columnItems={byColumn.get(column)}
+                                    isDraggingColumn={draggedColumn?.column === column}
+                                    onColumnHover={handleColumnHover}
+                                    isAnyColumnDragging={!!draggedColumn}
+                                />
+                            </>
+                        ))}
+                        {columnDropPosition === columns?.length && draggedColumn && (
+                            <div className="column-drop-placeholder show" />
+                        )}
 
-                    <AddNewColumn api={api} isInRelationMode={isInRelationMode} />
-                </div>}
-            </BoardViewContext.Provider>
+                        <AddNewColumn api={api} isInRelationMode={isInRelationMode} />
+                    </div>}
+                </BoardDragStateContext.Provider>
+            </BoardActionsContext.Provider>
         </div>
     );
+}
+
+/**
+ * Names the first change in `loadResults` that the board has to redraw for, or null if none does.
+ *
+ * A plain note-row change is deliberately not one of them. `getNoteIds()` reports every note in the
+ * change set whatever changed about it, so it cannot distinguish a card's title from its content,
+ * which no card displays. Cards keep their own title and icon in step instead, and nothing else the
+ * board derives comes off the note row: membership is branches, grouping is the status attribute,
+ * and `#archived` is a label.
+ *
+ * Naming the winning check, rather than returning a boolean, is what lets the profiler attribute a
+ * redraw to a cause.
+ */
+export function findRefreshReason(loadResults: LoadResults, statusAttribute: string, noteIds: string[], parentNoteId: string): string | null {
+    // A card moved between columns.
+    if (loadResults.getAttributeRows().some(attr => attr.name === statusAttribute && noteIds.includes(attr.noteId ?? ""))) {
+        return "status-attribute";
+    }
+
+    // Subchildren moved, added or removed.
+    if (loadResults.getBranchRows().some(branch => noteIds.includes(branch.noteId ?? ""))) {
+        return "branch";
+    }
+
+    if (loadResults.getAttributeRows().some(attr => [ "iconClass", "color" ].includes(attr.name ?? "") && noteIds.includes(attr.noteId ?? ""))) {
+        return "icon-or-color";
+    }
+
+    // External changes to the board.json attachment arrive via the viewConfig prop
+    // (see useViewModeConfig), which re-triggers the refresh effect.
+    if (loadResults.getAttributeRows().some(attr => attr.name === "board:groupBy" && attr.noteId === parentNoteId)) {
+        return "group-by";
+    }
+
+    return null;
 }
 
 function AddNewColumn({ api, isInRelationMode }: { api: BoardApi, isInRelationMode: boolean }) {
