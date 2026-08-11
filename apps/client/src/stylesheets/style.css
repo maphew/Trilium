@@ -1093,13 +1093,16 @@ code {
 
 .ck-content code:not(pre code) {
     padding: 0.1em 0.35em;
-    border: 1px solid var(--inline-code-border-color);
     border-radius: 5px;
     background-color: var(--inline-code-background-color);
     /* Monospace runs visually larger than the surrounding prose at the same nominal size. */
-    font-size: 0.9em;
+    font-size: 0.8em;
     /* A long path or identifier must wrap rather than push the paragraph past the note width. */
     overflow-wrap: break-word;
+
+    &.ck-code_selected {
+        background-color: var(--inline-code-hover-background-color) !important;
+    }
 }
 
 .animated {
