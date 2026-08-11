@@ -199,7 +199,7 @@ export function NoteContextMenu({ note, noteContext, itemsAtStart, itemsNearNote
                     <CommandItem icon="bx bx-collapse-alt" text={t("compress-images")}
                         disabled={isInOptionsOrHelp}
                         command={() => void showImageCompressionDialog({ type: "note", noteId: note.noteId })} />
-                    <CommandItem command="showNoteOCRText" icon="bx bx-text" disabled={!["image", "file"].includes(noteType)} text={t("note_actions.view_ocr_text")} />
+                    <CommandItem command="showNoteOCRText" icon="bx bx-text" disabled={!["image", "file"].includes(noteType) || !isContentAvailable} text={t("note_actions.view_ocr_text")} />
                     {(syncServerHost && isElectron) &&
                         <CommandItem command="openNoteOnServer" icon="bx bx-world" disabled={!syncServerHost} text={t("note_actions.open_note_on_server")} />
                     }
