@@ -152,8 +152,17 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         endMatch();
 
         if (reason) {
-            perfLog("board.refresh", { reason, changedNotes: loadResults.getNoteIds().length, cards: noteIds.length });
-            renderSpanRef.current = perfSpan(`board.refreshToPaint[${reason}]`);
+            // Logged when the redraw lands rather than when it starts, so each line carries its own
+            // cost. A STALL line cannot answer that on a saturated main thread -- it spans every
+            // redraw that fell inside one contiguous busy period.
+            const endRefresh = perfSpan(`board.refreshToPaint[${reason}]`);
+            renderSpanRef.current = () => perfLog("board.refreshToPaint", {
+                reason,
+                ms: Math.round(endRefresh()),
+                cards: noteIds.length,
+                changedNotes: loadResults.getNoteIds().length
+            });
+
             refresh();
         }
     });

@@ -1,18 +1,20 @@
+import { Fragment } from "preact";
 import { useCallback, useContext, useEffect, useRef, useState } from "preact/hooks";
+import { JSX } from "preact/jsx-runtime";
+
 import FBranch from "../../../entities/fbranch";
 import FNote from "../../../entities/fnote";
-import { BoardViewContext, TitleEditor } from ".";
-import branches from "../../../services/branches";
-import { openColumnContextMenu } from "./context_menu";
 import { ContextMenuEvent } from "../../../menus/context_menu";
-import Icon from "../../react/Icon";
+import branches from "../../../services/branches";
+import froca from "../../../services/froca";
 import { t } from "../../../services/i18n";
+import { DragData, TREE_CLIPBOARD_TYPE } from "../../note_tree";
+import Icon from "../../react/Icon";
+import NoteLink from "../../react/NoteLink";
+import { BoardViewContext, TitleEditor } from ".";
 import BoardApi from "./api";
 import Card, { CARD_CLIPBOARD_TYPE, CardDragData } from "./card";
-import { JSX } from "preact/jsx-runtime";
-import froca from "../../../services/froca";
-import { DragData, TREE_CLIPBOARD_TYPE } from "../../note_tree";
-import NoteLink from "../../react/NoteLink";
+import { openColumnContextMenu } from "./context_menu";
 
 interface DragContext {
     column: string;
@@ -108,8 +110,8 @@ export default function Column({
                     <>
                         <span className="title">
                             {isInRelationMode
-                            ? <NoteLink notePath={column} showNoteIcon />
-                            : column}
+                                ? <NoteLink notePath={column} showNoteIcon />
+                                : column}
                         </span>
                         <span className="counter-badge">{columnItems?.length ?? 0}</span>
                         <div className="spacer" />
@@ -136,12 +138,13 @@ export default function Column({
                                             draggedCard?.noteId !== note.noteId;
 
                     return (
-                        <>
+                        // Keyed on the fragment, since the fragment is what this map contributes to
+                        // the child array; on the <Card> inside it the key identifies nothing.
+                        <Fragment key={note.noteId}>
                             {showIndicatorBefore && (
                                 <div className="board-drop-placeholder show" />
                             )}
                             <Card
-                                key={note.noteId}
                                 api={api}
                                 note={note}
                                 branch={branch}
@@ -149,7 +152,7 @@ export default function Column({
                                 index={index}
                                 isDragging={draggedCard?.noteId === note.noteId}
                             />
-                        </>
+                        </Fragment>
                     );
                 })}
                 {dropPosition?.column === column && dropPosition.index === (columnItems?.length ?? 0) && (
@@ -159,7 +162,7 @@ export default function Column({
                 <AddNewItem api={api} column={column} />
             </div>
         </div>
-    )
+    );
 }
 
 function AddNewItem({ column, api }: { column: string, api: BoardApi }) {

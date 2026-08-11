@@ -22,9 +22,8 @@ interface Counter {
     maxMs: number;
 }
 
-const NOOP = () => {
-    /* recording is off */
-};
+/** Closing a span that was never opened, because recording is off. */
+const NOOP_SPAN = () => 0;
 
 /**
  * A main-thread block this long counts as a stall. Matches the Long Tasks API's own threshold, so
@@ -44,19 +43,24 @@ export function isPerfRecording() {
 
 /**
  * Opens a span. Call the returned function to close it, which records the elapsed time under
- * `label` and emits a matching `performance.measure()` entry.
+ * `label`, emits a matching `performance.measure()` entry, and returns the elapsed milliseconds.
+ *
+ * Prefer that returned number over the STALL lines for "what did this one operation cost": a stall
+ * is the gap between animation frames, so on a saturated main thread it reports the whole
+ * contiguous busy period and lumps however many operations fell inside it together.
  *
  * Returns a no-op when recording is off, so the caller does not need to branch.
  */
-export function perfSpan(label: string): () => void {
+export function perfSpan(label: string): () => number {
     if (!enabled) {
-        return NOOP;
+        return NOOP_SPAN;
     }
 
     const start = performance.now();
     return () => {
         const end = performance.now();
-        record(label, end - start);
+        const duration = end - start;
+        record(label, duration);
 
         try {
             // Same clock as performance.now(), so the span lands where it actually happened.
@@ -64,6 +68,8 @@ export function perfSpan(label: string): () => void {
         } catch (e) {
             // A measure() that the browser rejects must not take the instrumented code down.
         }
+
+        return duration;
     };
 }
 
