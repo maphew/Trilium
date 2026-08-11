@@ -1,3 +1,4 @@
+import { useLayoutEffect } from "preact/hooks";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import appContext from "../../components/app_context";
@@ -22,8 +23,8 @@ describe("SplitNoteContainer", () => {
         } as unknown as TabManager;
     });
 
-    async function openSplits(ntxIds: string[]) {
-        const container = new SplitNoteContainer(() => new NoteWrapperWidget());
+    async function openSplits(ntxIds: string[], widgetFactory = () => new NoteWrapperWidget()) {
+        const container = new SplitNoteContainer(widgetFactory);
         container.render();
 
         for (const ntxId of ntxIds) {
@@ -52,5 +53,31 @@ describe("SplitNoteContainer", () => {
         expect(openHandler).toHaveBeenCalledOnce();
         expect(closedHandler).not.toHaveBeenCalled();
         expect(container.children).toHaveLength(1);
+    });
+
+    it("unmounts the React widgets of a split once its tab is closed", async () => {
+        let isMounted = false;
+
+        function Probe() {
+            // A layout effect rather than useEffect: it runs during the commit, so the probe is
+            // mounted by the time render() returns, with no scheduled work to flush first.
+            useLayoutEffect(() => {
+                isMounted = true;
+                return () => { isMounted = false; };
+            }, []);
+
+            return <div className="probe" />;
+        }
+
+        const container = await openSplits(
+            [ "split-a" ],
+            () => new NoteWrapperWidget().child(<Probe />));
+        expect(isMounted).toBe(true);
+
+        container.noteContextRemovedEvent({ ntxIds: [ "split-a" ] });
+
+        // Detaching the widget stops the events; only unmounting releases the Preact tree and the
+        // DOM it still points at.
+        expect(isMounted).toBe(false);
     });
 });

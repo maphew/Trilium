@@ -6,10 +6,11 @@
  * normal use. Drive it from the devtools console:
  *
  * ```js
- * triliumPerf.enable();   // start recording; also logs every long task as it happens
- * triliumPerf.report();   // print what has been gathered so far
- * triliumPerf.reset();    // clear the counters, keep recording
+ * triliumPerf.enable();     // start recording; also logs every long task as it happens
+ * triliumPerf.report();     // print what has been gathered so far
+ * triliumPerf.reset();      // clear the counters, keep recording
  * triliumPerf.disable();
+ * triliumPerf.components(); // census the widget tree, for hunting leaked widgets
  * ```
  *
  * Spans additionally land on the User Timing track via `performance.measure()`, so a DevTools
@@ -226,7 +227,71 @@ function report() {
     console.table(rows);
 }
 
-const triliumPerf = { enable, disable, reset, report };
+/** The parts of a `Component` the census reads, so that this module doesn't have to import one. */
+interface CensusComponent {
+    children: CensusComponent[];
+    /** Handlers registered by `useTriliumEvent`. Private on the component, hence the local shape. */
+    listeners: Record<string, unknown[]> | null;
+}
+
+let previousCensus = new Map<string, number>();
+
+/**
+ * Prints how many components are reachable from the root of the widget tree, and how many React
+ * event handlers they hold, broken down by class and by event.
+ *
+ * For hunting leaks of the "the tab was closed but its widgets kept handling events" kind: take a
+ * reading, open and close a few tabs, take another. The `since last` column is what matters --
+ * anything that doesn't come back down stayed in the tree. `NoteWrapperWidget` should always equal
+ * the number of open splits.
+ *
+ * Independent of `enable()`: it walks live state rather than anything that had to be recorded.
+ */
+function components() {
+    const root = window.glob?.appContext as unknown as CensusComponent | undefined;
+    if (!root) {
+        console.log("[perf] no appContext to walk (is the app still starting up?).");
+        return;
+    }
+
+    const counts = new Map<string, number>();
+    let total = 0;
+    let handlers = 0;
+
+    function count(key: string, by: number) {
+        counts.set(key, (counts.get(key) ?? 0) + by);
+    }
+
+    (function walk(component: CensusComponent) {
+        total++;
+        count(`class ${component.constructor.name}`, 1);
+
+        for (const [ eventName, listeners ] of Object.entries(component.listeners ?? {})) {
+            handlers += listeners.length;
+            count(`event ${eventName}`, listeners.length);
+        }
+
+        component.children.forEach(walk);
+    })(root);
+
+    const rows = [ ...counts.entries() ]
+        .map(([ what, count ]) => ({ what, count, "since last": count - (previousCensus.get(what) ?? 0) }))
+        .sort((a, b) => b["since last"] - a["since last"] || b.count - a.count);
+
+    // Anything gone since the last reading has no row of its own, so surface it as a negative one.
+    for (const [ what, count ] of previousCensus) {
+        if (!counts.has(what)) {
+            rows.push({ what, count: 0, "since last": -count });
+        }
+    }
+
+    previousCensus = counts;
+
+    console.log(`[perf] ${total} components, ${handlers} React handlers reachable from the root`);
+    console.table(rows);
+}
+
+const triliumPerf = { enable, disable, reset, report, components };
 export default triliumPerf;
 
 window.triliumPerf = triliumPerf;
