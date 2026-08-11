@@ -1744,7 +1744,13 @@
     "failed": "Sync failed: {{message}}"
   },
   "database": {
-    "title": "Database"
+    "title": "Database",
+    "start_over_title": "Start over",
+    "start_over_description": "Switch to a new blank database, start again syncing with a new server or restore a backup. You will be prompted to backup your data before discarding the existing data.",
+    "start_over": "Start over",
+    "start_over_confirm": "Trilium will go back to the setup screen, where you can start a new knowledge base, restore a backup or sync from another device. You will be offered a backup of your current data first, and nothing is deleted until you choose one of those. Continue?",
+    "start_over_pending": "The setup screen will appear the next time this server is restarted. Restart the server when you are ready, or cancel below to leave everything as it is.",
+    "start_over_cancel": "Cancel start over"
   },
   "vacuum_database": {
     "title": "Vacuum Database",
@@ -2053,14 +2059,6 @@
     "default-content-language": "Default content language",
     "default-content-language-description": "The language notes are written in unless one is set on the note itself, in the Basic Properties section. It affects features such as right-to-left alignment and which quotation marks typing produces.",
     "default-content-language-auto": "Based on the application's language"
-  },
-  "database": {
-    "start_over_title": "Start over",
-    "start_over_description": "Switch to a new blank database, start again syncing with a new server or restore a backup. You will be prompted to backup your data before discarding the existing data.",
-    "start_over": "Start over",
-    "start_over_confirm": "Trilium will go back to the setup screen, where you can start a new knowledge base, restore a backup or sync from another device. You will be offered a backup of your current data first, and nothing is deleted until you choose one of those. Continue?",
-    "start_over_pending": "The setup screen will appear the next time this server is restarted. Restart the server when you are ready, or cancel below to leave everything as it is.",
-    "start_over_cancel": "Cancel start over"
   },
   "backup": {
     "title": "Backup",
