@@ -1,10 +1,12 @@
 import "./index.css";
 
 import { createContext, TargetedKeyboardEvent } from "preact";
-import { Dispatch, StateUpdater, useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
+import { Dispatch, StateUpdater, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import FNote from "../../../entities/fnote";
+import { perfLog, perfSpan } from "../../../services/debug_perf";
 import { t } from "../../../services/i18n";
+import type LoadResults from "../../../services/load_results";
 import { isIMEComposing } from "../../../services/shortcuts";
 import toast from "../../../services/toast";
 import CollectionProperties from "../../note_bars/CollectionProperties";
@@ -90,9 +92,22 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         dropTarget, setDropTarget
     ]);
 
+    /**
+     * Closed by the layout effect below rather than at the end of `refresh()`, so the span covers
+     * the commit the refresh causes and not just the state write, which Preact defers.
+     */
+    const renderSpanRef = useRef<(() => void) | null>(null);
+
+    useLayoutEffect(() => {
+        renderSpanRef.current?.();
+        renderSpanRef.current = null;
+    });
+
     function refresh() {
+        const endData = perfSpan("board.getBoardData");
         getBoardData(parentNote, statusAttributeWithPrefix, viewConfig ?? {}, includeArchived, statusDefinition?.options ?? [])
             .then(({ byColumn, columns, newPersistedData, isInRelationMode }) => {
+                endData();
                 setByColumn(byColumn);
                 setIsRelationMode(isInRelationMode);
                 setColumns(columns);
@@ -132,22 +147,13 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
             setDefinitionRevision(revision => revision + 1);
         }
 
-        // Check if any changes affect our board
-        const hasRelevantChanges =
-            // React to changes in status attribute for notes in this board
-            loadResults.getAttributeRows().some(attr => attr.name === api.statusAttribute && noteIds.includes(attr.noteId!)) ||
-            // React to changes in note title
-            loadResults.getNoteIds().some(noteId => noteIds.includes(noteId)) ||
-            // React to changes in branches for subchildren (e.g., moved, added, or removed notes)
-            loadResults.getBranchRows().some(branch => noteIds.includes(branch.noteId!)) ||
-            // React to changes in note icon or color.
-            loadResults.getAttributeRows().some(attr => [ "iconClass", "color" ].includes(attr.name ?? "") && noteIds.includes(attr.noteId ?? "")) ||
-            // External changes to the board.json attachment arrive via the viewConfig prop
-            // (see useViewModeConfig), which re-triggers the refresh effect.
-            // React to changes in "groupBy"
-            loadResults.getAttributeRows().some(attr => attr.name === "board:groupBy" && attr.noteId === parentNote.noteId);
+        const endMatch = perfSpan("board.matchRefreshReason");
+        const reason = findRefreshReason(loadResults, api.statusAttribute, noteIds, parentNote.noteId);
+        endMatch();
 
-        if (hasRelevantChanges) {
+        if (reason) {
+            perfLog("board.refresh", { reason, changedNotes: loadResults.getNoteIds().length, cards: noteIds.length });
+            renderSpanRef.current = perfSpan(`board.refreshToPaint[${reason}]`);
             refresh();
         }
     });
@@ -215,6 +221,43 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
             </BoardViewContext.Provider>
         </div>
     );
+}
+
+/**
+ * Names the first change in `loadResults` that the board has to redraw for, or null if none does.
+ *
+ * The checks are the same ones, in the same short-circuit order, that used to be `||`-chained
+ * inline; naming the winner is what lets the profiler attribute a redraw to a cause instead of
+ * reporting only that one happened.
+ */
+function findRefreshReason(loadResults: LoadResults, statusAttribute: string, noteIds: string[], parentNoteId: string): string | null {
+    // A card moved between columns.
+    if (loadResults.getAttributeRows().some(attr => attr.name === statusAttribute && noteIds.includes(attr.noteId ?? ""))) {
+        return "status-attribute";
+    }
+
+    // Intended as "a card's title changed", but getNoteIds() reports every note in the change set,
+    // so a plain content save of a card lands here too.
+    if (loadResults.getNoteIds().some(noteId => noteIds.includes(noteId))) {
+        return "note-row";
+    }
+
+    // Subchildren moved, added or removed.
+    if (loadResults.getBranchRows().some(branch => noteIds.includes(branch.noteId ?? ""))) {
+        return "branch";
+    }
+
+    if (loadResults.getAttributeRows().some(attr => [ "iconClass", "color" ].includes(attr.name ?? "") && noteIds.includes(attr.noteId ?? ""))) {
+        return "icon-or-color";
+    }
+
+    // External changes to the board.json attachment arrive via the viewConfig prop
+    // (see useViewModeConfig), which re-triggers the refresh effect.
+    if (loadResults.getAttributeRows().some(attr => attr.name === "board:groupBy" && attr.noteId === parentNoteId)) {
+        return "group-by";
+    }
+
+    return null;
 }
 
 function AddNewColumn({ api, isInRelationMode }: { api: BoardApi, isInRelationMode: boolean }) {

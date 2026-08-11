@@ -5,6 +5,7 @@ import BoardApi from "./api";
 import { BoardViewContext, TitleEditor } from ".";
 import { ContextMenuEvent } from "../../../menus/context_menu";
 import { openNoteContextMenu } from "./context_menu";
+import { perfCount } from "../../../services/debug_perf";
 import { t } from "../../../services/i18n";
 import UserAttributesDisplay from "../../attribute_widgets/UserAttributesList";
 import { useTriliumEvent } from "../../react/hooks";
@@ -33,6 +34,8 @@ export default function Card({
     index: number,
     isDragging: boolean
 }) {
+    perfCount("board.card.render");
+
     const { branchIdToEdit, setBranchIdToEdit, setDraggedCard } = useContext(BoardViewContext)!;
     const isEditing = branch.branchId === branchIdToEdit;
     const colorClass = note.getColorClass() || '';

@@ -7,6 +7,7 @@ import { useState } from "preact/hooks";
 import FNote from "../../entities/fnote";
 import attributes from "../../services/attributes";
 import { getReadableTextColor } from "../../services/css_class_manager";
+import { perfSpan } from "../../services/debug_perf";
 import { formatDateTime } from "../../utils/formatters";
 import { useTriliumEvent } from "../react/hooks";
 import Icon from "../react/Icon";
@@ -116,6 +117,15 @@ function buildUserAttribute(attr: AttributeWithDefinitions): ComponentChildren {
 }
 
 function getAttributesWithDefinitions(note: FNote, attributesToIgnore: string[] = []): AttributeWithDefinitions[] {
+    const endSpan = perfSpan("UserAttributesList.getAttributesWithDefinitions");
+    try {
+        return gatherAttributesWithDefinitions(note, attributesToIgnore);
+    } finally {
+        endSpan();
+    }
+}
+
+function gatherAttributesWithDefinitions(note: FNote, attributesToIgnore: string[]): AttributeWithDefinitions[] {
     const attributeDefintions = note.getAttributeDefinitions();
     const result: AttributeWithDefinitions[] = [];
     for (const attr of attributeDefintions) {
