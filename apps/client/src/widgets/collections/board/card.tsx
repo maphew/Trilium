@@ -8,7 +8,7 @@ import { ContextMenuEvent } from "../../../menus/context_menu";
 import { openNoteContextMenu } from "./context_menu";
 import { t } from "../../../services/i18n";
 import UserAttributesDisplay from "../../attribute_widgets/UserAttributesList";
-import { useNoteIcon, useTriliumEvent } from "../../react/hooks";
+import { useNoteIcon, useNoteLabelBoolean, useTriliumEvent } from "../../react/hooks";
 
 export const CARD_CLIPBOARD_TYPE = "trilium/board-card";
 
@@ -43,7 +43,7 @@ function Card({
     const { setBranchIdToEdit, setDraggedCard } = useContext(BoardActionsContext);
     const colorClass = note.getColorClass() || '';
     const editorRef = useRef<HTMLInputElement>(null);
-    const isArchived = note.isArchived;
+    const [ isArchived ] = useNoteLabelBoolean(note, "archived");
     const [ isVisible, setVisible ] = useState(true);
     const [ title, setTitle ] = useState(note.title);
     // Tracks the `iconClass` label, which an attribute change carries and the note row never does.
