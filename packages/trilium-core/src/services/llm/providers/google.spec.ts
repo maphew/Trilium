@@ -23,6 +23,12 @@ vi.mock("ai", async (importOriginal) => {
 });
 
 import { GoogleProvider, isGoogleChatModel } from "./google.js";
+import { installGlobalFetchAsApiTransport } from "../../../test/request_provider.js";
+import { llmFetch } from "./fetch.js";
+
+// A provider reaches its endpoint through the request provider rather than the global `fetch`, so
+// the specs that stub that global need one installed which leads back to it.
+beforeEach(installGlobalFetchAsApiTransport);
 
 describe("GoogleProvider construction", () => {
     beforeEach(() => {
@@ -32,20 +38,21 @@ describe("GoogleProvider construction", () => {
     it("forwards apiKey only when no baseURL provided", () => {
         new GoogleProvider("test-key");
         expect(createGoogleMock).toHaveBeenCalledTimes(1);
-        expect(createGoogleMock).toHaveBeenCalledWith({ apiKey: "test-key" });
+        expect(createGoogleMock).toHaveBeenCalledWith({ apiKey: "test-key", fetch: llmFetch });
     });
 
     it("forwards apiKey and baseURL when both provided", () => {
         new GoogleProvider("test-key", "https://proxy.example.com/v1beta");
         expect(createGoogleMock).toHaveBeenCalledWith({
             apiKey: "test-key",
-            baseURL: "https://proxy.example.com/v1beta"
+            baseURL: "https://proxy.example.com/v1beta",
+            fetch: llmFetch
         });
     });
 
     it("omits baseURL when empty string is provided", () => {
         new GoogleProvider("test-key", "");
-        expect(createGoogleMock).toHaveBeenCalledWith({ apiKey: "test-key" });
+        expect(createGoogleMock).toHaveBeenCalledWith({ apiKey: "test-key", fetch: llmFetch });
     });
 
     it("throws when apiKey is missing", () => {

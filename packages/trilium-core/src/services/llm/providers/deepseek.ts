@@ -2,6 +2,7 @@ import { createOpenAI, type OpenAIProvider as OpenAISDKProvider } from "@ai-sdk/
 
 import type { ModelInfo } from "../types.js";
 import { BaseProvider, type RemoteModel } from "./base_provider.js";
+import { llmFetch } from "./fetch.js";
 
 /**
  * DeepSeek's OpenAI-compatible endpoint. The `/v1` here is the compatibility
@@ -38,7 +39,7 @@ export class DeepSeekProvider extends BaseProvider {
         if (!apiKey) {
             throw new Error("API key is required for DeepSeek provider");
         }
-        this.openai = createOpenAI({ apiKey, baseURL: this.baseURL ?? OFFICIAL_BASE_URL });
+        this.openai = createOpenAI({ apiKey, baseURL: this.baseURL ?? OFFICIAL_BASE_URL, fetch: llmFetch });
     }
 
     /**

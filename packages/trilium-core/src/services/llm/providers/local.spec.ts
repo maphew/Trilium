@@ -17,6 +17,12 @@ vi.mock("@ai-sdk/openai", () => ({
 }));
 
 import { LocalProvider } from "./local.js";
+import { installGlobalFetchAsApiTransport } from "../../../test/request_provider.js";
+import { llmFetch } from "./fetch.js";
+
+// A provider reaches its endpoint through the request provider rather than the global `fetch`, so
+// the specs that stub that global need one installed which leads back to it.
+beforeEach(installGlobalFetchAsApiTransport);
 
 /** Minimal /api/tags payload with the fields the provider reads. */
 function ollamaTags(models: Array<{ name: string; parameter_size?: string; quantization_level?: string }>) {
@@ -83,36 +89,36 @@ describe("LocalProvider", () => {
     describe("endpoint resolution", () => {
         it("prefills each card's default endpoint", () => {
             new LocalProvider("ollama");
-            expect(createOpenAiMock).toHaveBeenLastCalledWith({ apiKey: "local", baseURL: "http://localhost:11434/v1" });
+            expect(createOpenAiMock).toHaveBeenLastCalledWith({ apiKey: "local", baseURL: "http://localhost:11434/v1", fetch: llmFetch });
 
             new LocalProvider("lmstudio");
-            expect(createOpenAiMock).toHaveBeenLastCalledWith({ apiKey: "local", baseURL: "http://localhost:1234/v1" });
+            expect(createOpenAiMock).toHaveBeenLastCalledWith({ apiKey: "local", baseURL: "http://localhost:1234/v1", fetch: llmFetch });
         });
 
         it("accepts a URL written with or without the /v1 suffix", () => {
             new LocalProvider("openai-compatible", "", "http://box:8080");
-            expect(createOpenAiMock).toHaveBeenLastCalledWith({ apiKey: "local", baseURL: "http://box:8080/v1" });
+            expect(createOpenAiMock).toHaveBeenLastCalledWith({ apiKey: "local", baseURL: "http://box:8080/v1", fetch: llmFetch });
 
             new LocalProvider("openai-compatible", "", "http://box:8080/v1");
-            expect(createOpenAiMock).toHaveBeenLastCalledWith({ apiKey: "local", baseURL: "http://box:8080/v1" });
+            expect(createOpenAiMock).toHaveBeenLastCalledWith({ apiKey: "local", baseURL: "http://box:8080/v1", fetch: llmFetch });
         });
 
         it("keeps a path prefix intact (proxied endpoints)", () => {
             new LocalProvider("openai-compatible", "", "https://proxy.example.com/llm/v1");
-            expect(createOpenAiMock).toHaveBeenLastCalledWith({ apiKey: "local", baseURL: "https://proxy.example.com/llm/v1" });
+            expect(createOpenAiMock).toHaveBeenLastCalledWith({ apiKey: "local", baseURL: "https://proxy.example.com/llm/v1", fetch: llmFetch });
         });
 
         it("forwards a supplied API key to the SDK", () => {
             new LocalProvider("openai-compatible", "sk-proxy", "http://box:8080/v1");
-            expect(createOpenAiMock).toHaveBeenLastCalledWith({ apiKey: "sk-proxy", baseURL: "http://box:8080/v1" });
+            expect(createOpenAiMock).toHaveBeenLastCalledWith({ apiKey: "sk-proxy", baseURL: "http://box:8080/v1", fetch: llmFetch });
         });
 
         it("falls back to the card's default for an invalid URL, but rejects one it cannot replace", () => {
             new LocalProvider("ollama", "", "not a url");
-            expect(createOpenAiMock).toHaveBeenLastCalledWith({ apiKey: "local", baseURL: "http://localhost:11434/v1" });
+            expect(createOpenAiMock).toHaveBeenLastCalledWith({ apiKey: "local", baseURL: "http://localhost:11434/v1", fetch: llmFetch });
 
             new LocalProvider("ollama", "", "ftp://example.com");
-            expect(createOpenAiMock).toHaveBeenLastCalledWith({ apiKey: "local", baseURL: "http://localhost:11434/v1" });
+            expect(createOpenAiMock).toHaveBeenLastCalledWith({ apiKey: "local", baseURL: "http://localhost:11434/v1", fetch: llmFetch });
 
             // The generic card has no default to fall back to.
             expect(() => new LocalProvider("openai-compatible", "", "not a url")).toThrow(/Invalid base URL/);
