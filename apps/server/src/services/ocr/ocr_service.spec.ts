@@ -35,18 +35,16 @@ const mockSql = {
 
 const mockBecca = {
     getNote: vi.fn(),
-    getAttachment: vi.fn(),
-    getBlob: vi.fn()
+    getAttachment: vi.fn()
 };
 
 const mockBlobService = {
-    calculateContentHash: vi.fn().mockReturnValue('hash123'),
     // Stands in for the real encryption: distinguishable from the plain text, and reversible by eye.
     encryptTextRepresentation: vi.fn((text: string, isProtected: boolean) => (isProtected ? `encrypted(${text})` : text))
 };
 
 const mockEntityChangesService = {
-    putEntityChange: vi.fn()
+    putBlobEntityChange: vi.fn()
 };
 
 vi.mock('../sql.js', () => ({
@@ -85,14 +83,6 @@ beforeEach(async () => {
     mockSql.getRow.mockReturnValue(null);
     mockSql.getRows.mockReturnValue([]);
     mockSql.getColumn.mockReturnValue([]);
-
-    // Mock getBlob for putBlobEntityChange
-    mockBecca.getBlob.mockReturnValue({
-        blobId: 'blob123',
-        content: Buffer.from('data'),
-        textRepresentation: null,
-        utcDateModified: '2025-01-01'
-    });
 
     mockTesseract.createWorker.mockImplementation(async () => {
         return mockWorker;
@@ -459,9 +449,8 @@ describe('OCRService', () => {
             (mockNote as any).blobId = 'blob123';
         });
 
-        it('skips storing the blob entity change when blob is missing', async () => {
+        it('has the stored blob re-hashed for sync, since the text is not part of its identity', async () => {
             mockSql.getRow.mockReturnValue(null);
-            mockBecca.getBlob.mockReturnValue(null);
             mockWorker.recognize.mockResolvedValue({
                 data: { text: 'text', confidence: 90, words: [] }
             });
@@ -469,7 +458,7 @@ describe('OCRService', () => {
             const result = await ocrService.processNoteOCR('note123');
 
             expect(result?.text).toBe('text');
-            expect(mockEntityChangesService.putEntityChange).not.toHaveBeenCalled();
+            expect(mockEntityChangesService.putBlobEntityChange).toHaveBeenCalledWith('blob123');
         });
     });
 

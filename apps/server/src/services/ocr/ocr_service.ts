@@ -242,7 +242,7 @@ class OCRService {
                 WHERE blobId = ?
             `, [textRepresentation, blobId]);
 
-            this.putBlobEntityChange(blobId);
+            entityChangesService.putBlobEntityChange(blobId);
 
             getLog().info(`Stored OCR result for blob ${blobId}`);
         } catch (error) {
@@ -382,28 +382,6 @@ class OCRService {
     /**
      * Get processor for a given MIME type
      */
-    /**
-     * Notifies the sync system that a blob has changed, without modifying the blob's identity.
-     */
-    private putBlobEntityChange(blobId: string): void {
-        const blob = becca.getBlob({ blobId });
-        if (!blob || !blob.blobId) return;
-
-        const hash = blobService.calculateContentHash({
-            blobId: blob.blobId,
-            content: blob.content,
-            textRepresentation: blob.textRepresentation
-        });
-        entityChangesService.putEntityChange({
-            entityName: "blobs",
-            entityId: blobId,
-            hash,
-            isErased: false,
-            utcDateChanged: blob.utcDateModified,
-            isSynced: true
-        });
-    }
-
     private getProcessorForMimeType(mimeType: string): FileProcessor | null {
         for (const processor of this.processors.values()) {
             if (processor.canProcess(mimeType)) {

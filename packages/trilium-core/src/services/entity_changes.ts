@@ -46,6 +46,34 @@ function putEntityChange(origEntityChange: EntityChange) {
     cls.putEntityChange(ec);
 }
 
+/**
+ * Re-records a blob's entity change from what is stored on it now, leaving the blob itself alone.
+ *
+ * A blob is identified by a hash of its content, so it is normally recorded once, when it is written,
+ * and never again. Its text representation is not part of that identity and is filled in afterwards —
+ * by OCR, or by carrying the text across a change of protection — which leaves the recorded hash
+ * describing a row that no longer matches, and sync comparing against something that was never stored.
+ */
+function putBlobEntityChange(blobId: string) {
+    const blob = getSql().getRowOrNull<Pick<BlobRow, "blobId" | "content" | "utcDateModified" | "textRepresentation">>(
+        /*sql*/`SELECT blobId, content, textRepresentation, utcDateModified FROM blobs WHERE blobId = ?`,
+        [blobId]
+    );
+
+    if (!blob) {
+        return;
+    }
+
+    putEntityChange({
+        entityName: "blobs",
+        entityId: blobId,
+        hash: blobService.calculateContentHash(blob),
+        isErased: false,
+        utcDateChanged: blob.utcDateModified,
+        isSynced: true // blobs are always synced
+    } as EntityChange);
+}
+
 function putNoteReorderingEntityChange(parentNoteId: string, componentId?: string) {
     putEntityChange({
         entityName: "note_reordering",
@@ -199,6 +227,7 @@ function recalculateMaxEntityChangeId() {
 }
 
 export default {
+    putBlobEntityChange,
     putNoteReorderingEntityChange,
     putEntityChangeForOtherInstances,
     putEntityChangeWithForcedChange,
