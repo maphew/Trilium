@@ -189,9 +189,15 @@ export function buildSharedApiRoutes({ route, asyncRoute, asyncRouteWithoutTrans
     // this is how the app asks the next start to be the wizard, and how it takes the request back.
     // Authenticated like the rest of the running app, which is what keeps a passer-by from sending
     // somebody else's instance to a screen that can erase it.
-    asyncApiRoute(PST, "/api/setup/boot", setupApiRoute.bootToSetup);
-    asyncApiRoute(GET, "/api/setup/boot", setupApiRoute.isBootToSetupRequested);
-    asyncApiRoute(DEL, "/api/setup/boot", setupApiRoute.cancelBootToSetup);
+    //
+    // `checkSetupAuth` as well, spelled out rather than taken from `asyncApiRoute`, because the
+    // session check above stands down on an instance that reports itself uninitialized — which is
+    // exactly what an instance sitting in the wizard does. Without it these three are the one part
+    // of the wizard a passer-by could still reach, to re-arm a start-over or to call off one the
+    // owner is waiting to act on.
+    asyncRoute(PST, "/api/setup/boot", [checkApiAuth, checkSetupAuth, csrfMiddleware], setupApiRoute.bootToSetup, apiResultHandler);
+    asyncRoute(GET, "/api/setup/boot", [checkApiAuth, checkSetupAuth, csrfMiddleware], setupApiRoute.isBootToSetupRequested, apiResultHandler);
+    asyncRoute(DEL, "/api/setup/boot", [checkApiAuth, checkSetupAuth, csrfMiddleware], setupApiRoute.cancelBootToSetup, apiResultHandler);
 
     // What becomes of the database the wizard was booted away from. Guarded like the rest of setup,
     // and refused again inside on an instance that has no such database. Not transactional: the
