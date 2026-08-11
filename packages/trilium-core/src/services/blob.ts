@@ -105,6 +105,33 @@ function processContent(content: Uint8Array | string | null, isProtected: boolea
     return content;
 }
 
+/**
+ * Prepares OCR-extracted text for storage on a blob.
+ *
+ * The text is a readable copy of what the blob holds, so for a protected entity it has to be encrypted
+ * at rest exactly like the content it was derived from — otherwise protecting a note would hide the
+ * image while leaving everything written in it in the clear. The counterpart on the way out is
+ * {@link processContent}'s handling of `content`: decrypt when a session is available, blank otherwise.
+ *
+ * A blob's protection state is unambiguous even though the `blobs` table does not record it: a
+ * protected entity's blobId is hashed with an `_ENCRYPTED_` prefix (see
+ * `AbstractBeccaEntity.getUnencryptedContentForHashCalculation`), so a blob is never shared between a
+ * protected and an unprotected entity. Any one of its referencing entities therefore answers for all.
+ */
+function encryptTextRepresentation(textRepresentation: string, isProtected: boolean): string {
+    if (!isProtected) {
+        return textRepresentation;
+    }
+
+    const encrypted = protectedSessionService.encrypt(textRepresentation);
+
+    if (!encrypted) {
+        throw new Error("Cannot encrypt the text representation since protected session is not available.");
+    }
+
+    return encrypted;
+}
+
 function calculateContentHash({ blobId, content, textRepresentation }: Pick<BlobRow, "blobId" | "content" | "textRepresentation">) {
     const textRepresentationSegment = textRepresentation ? `|${textRepresentation}` : "";
     return hash(`${blobId}|${content.toString()}${textRepresentationSegment}`);
@@ -114,5 +141,6 @@ export default {
     getBlobPojo,
     getDeletedNoteBlobPojo,
     processContent,
+    encryptTextRepresentation,
     calculateContentHash
 };

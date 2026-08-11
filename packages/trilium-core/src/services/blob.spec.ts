@@ -125,6 +125,34 @@ describe("blob", () => {
         });
     });
 
+    describe("encryptTextRepresentation", () => {
+        it("passes unprotected text through untouched", () => {
+            protectedSessionService.resetDataKey();
+            expect(blob.encryptTextRepresentation("extracted text", false)).toBe("extracted text");
+        });
+
+        it("encrypts protected text with the data key", () => {
+            protectedSessionService.setDataKey(PROTECTED_KEY);
+            try {
+                const encrypted = blob.encryptTextRepresentation("text read out of a protected image", true);
+
+                // The stored value must not contain the readable text...
+                expect(encrypted).not.toContain("protected image");
+                // ...and must decrypt back to it with the data key.
+                const decrypted = dataEncryption.decrypt(PROTECTED_KEY, encrypted);
+                expect(decrypted).toBeInstanceOf(Uint8Array);
+                expect(decodeUtf8(decrypted as Uint8Array)).toBe("text read out of a protected image");
+            } finally {
+                protectedSessionService.resetDataKey();
+            }
+        });
+
+        it("throws rather than storing protected text when no protected session is available", () => {
+            protectedSessionService.resetDataKey();
+            expect(() => blob.encryptTextRepresentation("secret", true)).toThrow(/protected session is not available/);
+        });
+    });
+
     describe("getBlobPojo", () => {
         it("throws NotFoundError when the entity does not exist", () => {
             expect(() => getContext().init(() => blob.getBlobPojo("notes", "doesNotExist123"))).toThrow(NotFoundError);

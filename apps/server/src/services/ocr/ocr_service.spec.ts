@@ -40,7 +40,9 @@ const mockBecca = {
 };
 
 const mockBlobService = {
-    calculateContentHash: vi.fn().mockReturnValue('hash123')
+    calculateContentHash: vi.fn().mockReturnValue('hash123'),
+    // Stands in for the real encryption: distinguishable from the plain text, and reversible by eye.
+    encryptTextRepresentation: vi.fn((text: string, isProtected: boolean) => (isProtected ? `encrypted(${text})` : text))
 };
 
 const mockEntityChangesService = {
@@ -237,15 +239,15 @@ describe('OCRService', () => {
     });
 
     describe('storeOCRResult', () => {
-        it('should store OCR result in blob successfully', () => {
-            const ocrResult = {
-                text: 'Sample text',
-                confidence: 0.95,
-                extractedAt: '2025-06-10T10:00:00.000Z',
-                language: 'eng'
-            };
+        const ocrResult = {
+            text: 'Sample text',
+            confidence: 0.95,
+            extractedAt: '2025-06-10T10:00:00.000Z',
+            language: 'eng'
+        };
 
-            ocrService.storeOCRResult('blob123', ocrResult);
+        it('should store OCR result in blob successfully', () => {
+            ocrService.storeOCRResult('blob123', ocrResult, false);
 
             expect(mockSql.execute).toHaveBeenCalledWith(
                 expect.stringContaining('UPDATE blobs SET textRepresentation = ?'),
@@ -253,15 +255,18 @@ describe('OCRService', () => {
             );
         });
 
-        it('should handle undefined blobId gracefully', () => {
-            const ocrResult = {
-                text: 'Sample text',
-                confidence: 0.95,
-                extractedAt: '2025-06-10T10:00:00.000Z',
-                language: 'eng'
-            };
+        it('encrypts the text before storing it on a protected blob', () => {
+            ocrService.storeOCRResult('blob123', ocrResult, true);
 
-            ocrService.storeOCRResult(undefined, ocrResult);
+            expect(mockBlobService.encryptTextRepresentation).toHaveBeenCalledWith('Sample text', true);
+            expect(mockSql.execute).toHaveBeenCalledWith(
+                expect.stringContaining('UPDATE blobs SET textRepresentation = ?'),
+                ['encrypted(Sample text)', 'blob123']
+            );
+        });
+
+        it('should handle undefined blobId gracefully', () => {
+            ocrService.storeOCRResult(undefined, ocrResult, false);
 
             expect(mockSql.execute).not.toHaveBeenCalled();
             expect(mockLog.error).toHaveBeenCalledWith('Cannot store OCR result: blobId is undefined');
@@ -273,15 +278,17 @@ describe('OCRService', () => {
                 throw error;
             });
 
-            const ocrResult = {
-                text: 'Sample text',
-                confidence: 0.95,
-                extractedAt: '2025-06-10T10:00:00.000Z',
-                language: 'eng'
-            };
-
-            expect(() => ocrService.storeOCRResult('blob123', ocrResult)).toThrow('Database error');
+            expect(() => ocrService.storeOCRResult('blob123', ocrResult, false)).toThrow('Database error');
             expect(mockLog.error).toHaveBeenCalledWith('Failed to store OCR result for blob blob123: Error: Database error');
+        });
+
+        it('propagates an encryption failure instead of storing the text unencrypted', () => {
+            mockBlobService.encryptTextRepresentation.mockImplementationOnce(() => {
+                throw new Error('Cannot encrypt the text representation since protected session is not available.');
+            });
+
+            expect(() => ocrService.storeOCRResult('blob123', ocrResult, true)).toThrow('Cannot encrypt');
+            expect(mockSql.execute).not.toHaveBeenCalled();
         });
     });
 
@@ -291,6 +298,8 @@ describe('OCRService', () => {
             type: 'image',
             mime: 'image/jpeg',
             blobId: 'blob123',
+            isProtected: false,
+            isContentAvailable: vi.fn(),
             getContent: vi.fn(),
             getLabelValue: vi.fn().mockReturnValue(null)
         };
@@ -298,6 +307,8 @@ describe('OCRService', () => {
         beforeEach(() => {
             mockBecca.getNote.mockReturnValue(mockNote);
             mockNote.getContent.mockReturnValue(Buffer.from('fake-image-data'));
+            mockNote.isContentAvailable.mockReturnValue(true);
+            mockNote.isProtected = false;
             mockNote.mime = 'image/jpeg';
         });
 
@@ -385,14 +396,52 @@ describe('OCRService', () => {
             expect(mockLog.info).toHaveBeenCalledWith('OCR already exists for note note123, skipping');
         });
 
-        it('should throw when content is not a Buffer', async () => {
-            mockNote.getContent.mockReturnValue('not a buffer');
+        it('should throw when the content holds no recognisable bytes', async () => {
+            // String content has no binary form, and an empty buffer has nothing to recognise.
+            for (const content of ['not a buffer', Buffer.alloc(0), new Uint8Array(0)]) {
+                mockNote.getContent.mockReturnValue(content);
 
-            await expect(ocrService.processNoteOCR('note123')).rejects.toThrow(
-                'Cannot get content for note note123'
-            );
+                await expect(ocrService.processNoteOCR('note123')).rejects.toThrow(
+                    'Cannot get content for note note123'
+                );
+            }
+
             expect(mockLog.error).toHaveBeenCalledWith(
                 expect.stringContaining('Failed to process OCR for note note123')
+            );
+        });
+
+        it('recognises a protected note and stores the extracted text encrypted', async () => {
+            mockNote.isProtected = true;
+            mockSql.getRow.mockReturnValue(null);
+            // Decryption hands back a plain Uint8Array rather than a Buffer — the same bytes, and they
+            // must reach the processor rather than being rejected as unreadable content.
+            mockNote.getContent.mockReturnValue(Uint8Array.from(Buffer.from('decrypted-image-data')));
+            mockWorker.recognize.mockResolvedValue({
+                data: { text: 'Secret text', confidence: 90, words: [] }
+            });
+
+            const result = await ocrService.processNoteOCR('note123');
+
+            expect(result?.text).toBe('Secret text');
+            expect(mockBlobService.encryptTextRepresentation).toHaveBeenCalledWith('Secret text', true);
+            expect(mockSql.execute).toHaveBeenCalledWith(
+                expect.stringContaining('UPDATE blobs SET textRepresentation = ?'),
+                ['encrypted(Secret text)', 'blob123']
+            );
+        });
+
+        it('skips a protected note when no protected session is available', async () => {
+            mockNote.isProtected = true;
+            mockNote.isContentAvailable.mockReturnValue(false);
+
+            const result = await ocrService.processNoteOCR('note123');
+
+            expect(result).toBeNull();
+            expect(mockNote.getContent).not.toHaveBeenCalled();
+            expect(mockSql.execute).not.toHaveBeenCalled();
+            expect(mockLog.info).toHaveBeenCalledWith(
+                'note note123 is protected and no protected session is available, skipping OCR'
             );
         });
 
@@ -431,6 +480,8 @@ describe('OCRService', () => {
             role: 'image',
             mime: 'image/png',
             blobId: 'blob456',
+            isProtected: false,
+            isContentAvailable: vi.fn(),
             getContent: vi.fn()
         };
 
@@ -438,6 +489,8 @@ describe('OCRService', () => {
             mockBecca.getAttachment.mockReturnValue(mockAttachment);
             mockBecca.getNote.mockReturnValue({ getLabelValue: vi.fn().mockReturnValue(null) });
             mockAttachment.getContent.mockReturnValue(Buffer.from('fake-image-data'));
+            mockAttachment.isContentAvailable.mockReturnValue(true);
+            mockAttachment.isProtected = false;
         });
 
         it('should process attachment OCR successfully', async () => {
@@ -466,6 +519,36 @@ describe('OCRService', () => {
 
             expect(result).toBe(null);
             expect(mockLog.error).toHaveBeenCalledWith('Attachment nonexistent not found');
+        });
+
+        it('recognises a protected attachment and stores the extracted text encrypted', async () => {
+            mockAttachment.isProtected = true;
+            mockSql.getRow.mockReturnValue(null);
+            mockAttachment.getContent.mockReturnValue(Uint8Array.from(Buffer.from('decrypted-image-data')));
+            mockWorker.recognize.mockResolvedValue({
+                data: { text: 'Secret attachment text', confidence: 92, words: [] }
+            });
+
+            const result = await ocrService.processAttachmentOCR('attach123');
+
+            expect(result?.text).toBe('Secret attachment text');
+            expect(mockSql.execute).toHaveBeenCalledWith(
+                expect.stringContaining('UPDATE blobs SET textRepresentation = ?'),
+                ['encrypted(Secret attachment text)', 'blob456']
+            );
+        });
+
+        it('skips a protected attachment when no protected session is available', async () => {
+            mockAttachment.isProtected = true;
+            mockAttachment.isContentAvailable.mockReturnValue(false);
+
+            const result = await ocrService.processAttachmentOCR('attach123');
+
+            expect(result).toBeNull();
+            expect(mockAttachment.getContent).not.toHaveBeenCalled();
+            expect(mockLog.info).toHaveBeenCalledWith(
+                'attachment attach123 is protected and no protected session is available, skipping OCR'
+            );
         });
     });
 
