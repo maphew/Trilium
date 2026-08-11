@@ -1,3 +1,4 @@
+import { memo } from "preact/compat";
 import { useCallback, useContext, useEffect, useRef, useState } from "preact/hooks";
 import FBranch from "../../../entities/fbranch";
 import FNote from "../../../entities/fnote";
@@ -19,7 +20,7 @@ export interface CardDragData {
     fromColumn: string;
 }
 
-export default function Card({
+function Card({
     api,
     note,
     branch,
@@ -141,3 +142,16 @@ export default function Card({
         </div>
     )
 }
+
+/**
+ * Memoized because a board holds hundreds of these and most redraws change none of them: a drag
+ * moves one card, and the rest receive the same props they already had.
+ *
+ * This only works because a card reads nothing from the board's drag-state context -- Preact
+ * re-renders a context consumer whatever its memo boundary says, so subscribing there would make
+ * the comparison below unreachable. `isEditing` and `isDragging` arrive as props for that reason.
+ *
+ * Note that `api` is rebuilt whenever the board's data is, so a refresh still re-renders every card
+ * regardless. This bails out on the drag and edit redraws, not on those.
+ */
+export default memo(Card);
