@@ -285,20 +285,19 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
 /**
  * Names the first change in `loadResults` that the board has to redraw for, or null if none does.
  *
- * The checks are the same ones, in the same short-circuit order, that used to be `||`-chained
- * inline; naming the winner is what lets the profiler attribute a redraw to a cause instead of
- * reporting only that one happened.
+ * A plain note-row change is deliberately not one of them. `getNoteIds()` reports every note in the
+ * change set whatever changed about it, so it cannot distinguish a card's title from its content,
+ * which no card displays. Cards keep their own title and icon in step instead, and nothing else the
+ * board derives comes off the note row: membership is branches, grouping is the status attribute,
+ * and `#archived` is a label.
+ *
+ * Naming the winning check, rather than returning a boolean, is what lets the profiler attribute a
+ * redraw to a cause.
  */
-function findRefreshReason(loadResults: LoadResults, statusAttribute: string, noteIds: string[], parentNoteId: string): string | null {
+export function findRefreshReason(loadResults: LoadResults, statusAttribute: string, noteIds: string[], parentNoteId: string): string | null {
     // A card moved between columns.
     if (loadResults.getAttributeRows().some(attr => attr.name === statusAttribute && noteIds.includes(attr.noteId ?? ""))) {
         return "status-attribute";
-    }
-
-    // Intended as "a card's title changed", but getNoteIds() reports every note in the change set,
-    // so a plain content save of a card lands here too.
-    if (loadResults.getNoteIds().some(noteId => noteIds.includes(noteId))) {
-        return "note-row";
     }
 
     // Subchildren moved, added or removed.

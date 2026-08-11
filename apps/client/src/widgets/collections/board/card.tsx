@@ -9,7 +9,7 @@ import { openNoteContextMenu } from "./context_menu";
 import { perfCount } from "../../../services/debug_perf";
 import { t } from "../../../services/i18n";
 import UserAttributesDisplay from "../../attribute_widgets/UserAttributesList";
-import { useTriliumEvent } from "../../react/hooks";
+import { useNoteIcon, useTriliumEvent } from "../../react/hooks";
 
 export const CARD_CLIPBOARD_TYPE = "trilium/board-card";
 
@@ -49,7 +49,11 @@ function Card({
     const isArchived = note.isArchived;
     const [ isVisible, setVisible ] = useState(true);
     const [ title, setTitle ] = useState(note.title);
+    // Tracks the `iconClass` label, which an attribute change carries and the note row never does.
+    const icon = useNoteIcon(note);
 
+    // A card owns its own title: the board does not redraw for a note-row change. Setting the value
+    // already held is a no-op, so a save that left the title alone re-renders nothing.
     useTriliumEvent("entitiesReloaded", ({ loadResults }) => {
         const row = loadResults.getEntityRow("notes", note.noteId);
         if (row) {
@@ -118,7 +122,7 @@ function Card({
             {!isEditing ? (
                 <>
                     <span className="title">
-                        <span class={`icon ${note.getIcon()}`} />
+                        <span class={`icon ${icon}`} />
                         {title}
                     </span>
                     <span

@@ -141,8 +141,6 @@ export default function Column({
                                             draggedCard?.noteId !== note.noteId;
 
                     return (
-                        // Keyed on the fragment, since the fragment is what this map contributes to
-                        // the child array; on the <Card> inside it the key identifies nothing.
                         <Fragment key={note.noteId}>
                             {showIndicatorBefore && (
                                 <div className="board-drop-placeholder show" />
