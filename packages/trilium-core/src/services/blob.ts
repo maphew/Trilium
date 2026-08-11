@@ -1,6 +1,7 @@
 import { BlobRow, EMPTY_BLOB_ID, NoteRow } from "@triliumnext/commons";
 import becca from "../becca/becca.js";
 import { NotFoundError } from "../errors";
+import { getLog } from "./log.js";
 import protectedSessionService from "./protected_session.js";
 import { getSql } from "./sql/index.js";
 import { decodeUtf8 } from "./utils/binary.js";
@@ -31,6 +32,10 @@ function getBlobPojo(entityName: string, entityId: string, opts?: { preview: boo
     } else {
         pojo.content = processContent(pojo.content, !!entity.isProtected, true) as string | Uint8Array;
     }
+
+    // The extracted text travels with the blob and is protected on the same terms as the content it
+    // was read out of, so it is decrypted (or withheld) on the same terms too.
+    pojo.textRepresentation = decryptTextRepresentation(pojo.textRepresentation, !!entity.isProtected) || null;
 
     return { ...pojo, isStubbed };
 }
@@ -132,6 +137,42 @@ function encryptTextRepresentation(textRepresentation: string, isProtected: bool
     return encrypted;
 }
 
+/**
+ * Reads OCR-extracted text back off a blob, for every consumer of `blobs.textRepresentation`.
+ *
+ * The counterpart of {@link encryptTextRepresentation}, and it mirrors what {@link processContent}
+ * does for `content`: decrypt when a protected session is available, and answer with nothing when it
+ * is not — so a locked note reports no extracted text rather than showing the ciphertext it stores.
+ * Text that will not decrypt is treated the same way, since no caller has anything better to do with
+ * it than a caller that has no key, and one unreadable blob should not fail the request around it.
+ *
+ * One inherited edge: a stored value whose length rules out ciphertext altogether takes
+ * dataEncryptionService's recovery path for zadam/trilium#510, which hands back what it was given —
+ * and only under Node, since that path is selected by a Node crypto error message. Nothing writes a
+ * value of that shape here ({@link encryptTextRepresentation} is the only writer and always emits real
+ * ciphertext), so this is noted rather than defended against.
+ */
+function decryptTextRepresentation(textRepresentation: string | null | undefined, isProtected: boolean): string {
+    if (!textRepresentation) {
+        return "";
+    }
+
+    if (!isProtected) {
+        return textRepresentation;
+    }
+
+    if (!protectedSessionService.isProtectedSessionAvailable()) {
+        return "";
+    }
+
+    try {
+        return protectedSessionService.decryptString(textRepresentation) || "";
+    } catch {
+        getLog().info("Cannot decrypt the text representation of a protected blob.");
+        return "";
+    }
+}
+
 function calculateContentHash({ blobId, content, textRepresentation }: Pick<BlobRow, "blobId" | "content" | "textRepresentation">) {
     const textRepresentationSegment = textRepresentation ? `|${textRepresentation}` : "";
     return hash(`${blobId}|${content.toString()}${textRepresentationSegment}`);
@@ -142,5 +183,6 @@ export default {
     getDeletedNoteBlobPojo,
     processContent,
     encryptTextRepresentation,
+    decryptTextRepresentation,
     calculateContentHash
 };
