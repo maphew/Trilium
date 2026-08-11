@@ -11,7 +11,7 @@ import { t } from "../../../services/i18n";
 import { DragData, TREE_CLIPBOARD_TYPE } from "../../note_tree";
 import Icon from "../../react/Icon";
 import NoteLink from "../../react/NoteLink";
-import { BoardViewContext, TitleEditor } from ".";
+import { BoardActionsContext, BoardDragStateContext, TitleEditor } from ".";
 import BoardApi from "./api";
 import Card, { CARD_CLIPBOARD_TYPE, CardDragData } from "./card";
 import { openColumnContextMenu } from "./context_menu";
@@ -28,6 +28,7 @@ export default function Column({
     isDraggingColumn,
     columnItems,
     api,
+    parentNote,
     onColumnHover,
     isAnyColumnDragging,
     isInRelationMode
@@ -35,20 +36,22 @@ export default function Column({
     columnItems?: { note: FNote, branch: FBranch }[];
     isDraggingColumn: boolean,
     api: BoardApi,
+    parentNote: FNote,
     onColumnHover?: (index: number, mouseX: number, rect: DOMRect) => void,
     isAnyColumnDragging?: boolean,
     isInRelationMode: boolean
 } & DragContext) {
     const [ isVisible, setVisible ] = useState(true);
-    const { columnNameToEdit, setColumnNameToEdit, dropTarget, draggedCard, dropPosition } = useContext(BoardViewContext)!;
+    const { setColumnNameToEdit } = useContext(BoardActionsContext);
+    const { branchIdToEdit, columnNameToEdit, dropTarget, draggedCard, dropPosition } = useContext(BoardDragStateContext);
     const isEditing = (columnNameToEdit === column);
     const editorRef = useRef<HTMLInputElement>(null);
     const { handleColumnDragStart, handleColumnDragEnd, handleDragOver, handleDragLeave, handleDrop } = useDragging({
-        column, columnIndex, columnItems, isEditing
+        column, columnIndex, columnItems, isEditing, api, parentNote
     });
 
     const handleEdit = useCallback(() => {
-        setColumnNameToEdit?.(column);
+        setColumnNameToEdit(column);
     }, [column]);
 
     const handleContextMenu = useCallback((e: ContextMenuEvent) => {
@@ -57,7 +60,7 @@ export default function Column({
 
     const handleTitleKeyDown = useCallback((e: KeyboardEvent) => {
         if (e.key === "F2") {
-            setColumnNameToEdit?.(column);
+            setColumnNameToEdit(column);
         }
     }, [ column ]);
 
@@ -125,7 +128,7 @@ export default function Column({
                     <TitleEditor
                         currentValue={column}
                         save={newTitle => api.renameColumn(column, newTitle)}
-                        dismiss={() => setColumnNameToEdit?.(undefined)}
+                        dismiss={() => setColumnNameToEdit(undefined)}
                         mode={isInRelationMode ? "relation" : "normal"}
                     />
                 )}
@@ -151,6 +154,7 @@ export default function Column({
                                 column={column}
                                 index={index}
                                 isDragging={draggedCard?.noteId === note.noteId}
+                                isEditing={branch.branchId === branchIdToEdit}
                             />
                         </Fragment>
                     );
@@ -198,8 +202,9 @@ function AddNewItem({ column, api }: { column: string, api: BoardApi }) {
     );
 }
 
-function useDragging({ column, columnIndex, columnItems, isEditing }: DragContext & { isEditing: boolean }) {
-    const { api, parentNote, draggedColumn, setDraggedColumn, setDropTarget, setDropPosition, dropPosition } = useContext(BoardViewContext)!;
+function useDragging({ column, columnIndex, columnItems, isEditing, api, parentNote }: DragContext & { isEditing: boolean, api: BoardApi, parentNote: FNote }) {
+    const { setDraggedColumn, setDropTarget, setDropPosition } = useContext(BoardActionsContext);
+    const { draggedColumn, dropPosition } = useContext(BoardDragStateContext);
     /** Needed to track if current column is dragged in real-time, since {@link draggedColumn} is populated one render cycle later.  */
     const isDraggingRef = useRef(false);
 
@@ -276,14 +281,14 @@ function useDragging({ column, columnIndex, columnItems, isEditing }: DragContex
             // From note tree.
             const { noteId, branchId } = draggedCard[0];
             const targetNote = await froca.getNote(noteId, true);
-            const parentNoteId = parentNote?.noteId;
-            if (!parentNoteId || !dropPosition) return;
+            const parentNoteId = parentNote.noteId;
+            if (!dropPosition) return;
 
             const targetIndex = dropPosition.index - 1;
             const targetItems = columnItems || [];
             const targetBranch = targetIndex >= 0 ? targetItems[targetIndex].branch : null;
 
-            await api?.changeColumn(noteId, column);
+            await api.changeColumn(noteId, column);
 
             const parents = targetNote?.getParentNoteIds();
             if (!parents?.includes(parentNoteId)) {
@@ -297,7 +302,7 @@ function useDragging({ column, columnIndex, columnItems, isEditing }: DragContex
                 await branches.moveAfterBranch([ branchId ], targetBranch.branchId);
             }
         } else if (draggedCard && dropPosition) {
-            api?.moveWithinBoard(draggedCard.noteId, draggedCard.branchId, draggedCard.index, dropPosition.index, draggedCard.fromColumn, column);
+            api.moveWithinBoard(draggedCard.noteId, draggedCard.branchId, draggedCard.index, dropPosition.index, draggedCard.fromColumn, column);
         }
 
     }, [ api, draggedColumn, dropPosition, columnItems, column, setDropTarget, setDropPosition ]);

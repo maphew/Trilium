@@ -2,7 +2,7 @@ import { useCallback, useContext, useEffect, useRef, useState } from "preact/hoo
 import FBranch from "../../../entities/fbranch";
 import FNote from "../../../entities/fnote";
 import BoardApi from "./api";
-import { BoardViewContext, TitleEditor } from ".";
+import { BoardActionsContext, TitleEditor } from ".";
 import { ContextMenuEvent } from "../../../menus/context_menu";
 import { openNoteContextMenu } from "./context_menu";
 import { perfCount } from "../../../services/debug_perf";
@@ -25,19 +25,24 @@ export default function Card({
     branch,
     column,
     index,
-    isDragging
+    isDragging,
+    isEditing
 }: {
     api: BoardApi,
     note: FNote,
     branch: FBranch,
     column: string,
     index: number,
-    isDragging: boolean
+    isDragging: boolean,
+    /**
+     * Passed down rather than derived here from the drag state's `branchIdToEdit`, so that a card
+     * subscribes only to the board's stable context and a drag leaves it off the render path.
+     */
+    isEditing: boolean
 }) {
     perfCount("board.card.render");
 
-    const { branchIdToEdit, setBranchIdToEdit, setDraggedCard } = useContext(BoardViewContext)!;
-    const isEditing = branch.branchId === branchIdToEdit;
+    const { setBranchIdToEdit, setDraggedCard } = useContext(BoardActionsContext);
     const colorClass = note.getColorClass() || '';
     const editorRef = useRef<HTMLInputElement>(null);
     const isArchived = note.isArchived;
@@ -72,14 +77,14 @@ export default function Card({
 
     const handleEdit = useCallback((e: MouseEvent) => {
         e.stopPropagation(); // don't also open the note
-        setBranchIdToEdit?.(branch.branchId);
+        setBranchIdToEdit(branch.branchId);
     }, [ setBranchIdToEdit, branch ]);
 
     const handleKeyDown = useCallback((e: KeyboardEvent) => {
         if (e.key === "Enter") {
             api.openNote(note.noteId);
         } else if (e.key === "F2") {
-            setBranchIdToEdit?.(branch.branchId);
+            setBranchIdToEdit(branch.branchId);
         }
     }, [ setBranchIdToEdit, note ]);
 
