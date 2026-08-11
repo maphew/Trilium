@@ -52,6 +52,11 @@ import {
     type ProviderPrices,
     type RemoteModel
 } from "./base_provider.js";
+import { installGlobalFetchAsApiTransport } from "../../../test/request_provider.js";
+
+// A provider reaches its endpoint through the request provider rather than the global `fetch`, so
+// the specs that stub that global need one installed which leads back to it.
+beforeEach(installGlobalFetchAsApiTransport);
 
 const TEST_MODELS: Parameters<typeof buildModelList>[0] = [
     { id: "cheap", name: "Cheap", pricing: { input: 1, output: 2 } },

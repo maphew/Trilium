@@ -5,6 +5,7 @@ import { stepCountIs, streamText, type ToolSet } from "ai";
 
 import type { LlmProviderConfig, StreamResult } from "../types.js";
 import { BaseProvider, type RemoteModel, TELEMETRY_OFF } from "./base_provider.js";
+import { llmFetch } from "./fetch.js";
 
 const OFFICIAL_BASE_URL = "https://generativelanguage.googleapis.com/v1beta";
 
@@ -32,7 +33,7 @@ export class GoogleProvider extends BaseProvider {
         if (!apiKey) {
             throw new Error("API key is required for Google provider");
         }
-        this.google = createGoogleGenerativeAI({ apiKey, ...(baseURL && { baseURL }) });
+        this.google = createGoogleGenerativeAI({ apiKey, ...(baseURL && { baseURL }), fetch: llmFetch });
     }
 
     protected createModel(modelId: string) {
