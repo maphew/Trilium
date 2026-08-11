@@ -15,6 +15,12 @@
  *
  * Spans additionally land on the User Timing track via `performance.measure()`, so a DevTools
  * performance capture shows them lined up against the long tasks they explain.
+ *
+ * Nothing calls into this by default, and that is deliberate rather than an oversight: instrument
+ * whatever is being investigated for as long as it takes to answer the question, then take the call
+ * sites back out. Adding the first `perfSpan()` or `perfCount()` anywhere is what pulls this module
+ * into the bundle, which is also what puts `triliumPerf` on `window` -- so there is nothing to arm
+ * beyond the call site itself.
  */
 
 interface Counter {

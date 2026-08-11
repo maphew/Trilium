@@ -1,10 +1,9 @@
 import "./index.css";
 
 import { createContext, TargetedKeyboardEvent } from "preact";
-import { Dispatch, StateUpdater, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "preact/hooks";
+import { Dispatch, StateUpdater, useCallback, useEffect, useMemo, useRef, useState } from "preact/hooks";
 
 import FNote from "../../../entities/fnote";
-import { perfLog, perfSpan } from "../../../services/debug_perf";
 import { t } from "../../../services/i18n";
 import type LoadResults from "../../../services/load_results";
 import { isIMEComposing } from "../../../services/shortcuts";
@@ -139,22 +138,9 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
         dropTarget
     }), [ branchIdToEdit, columnNameToEdit, draggedCard, draggedColumn, dropPosition, dropTarget ]);
 
-    /**
-     * Closed by the layout effect below rather than at the end of `refresh()`, so the span covers
-     * the commit the refresh causes and not just the state write, which Preact defers.
-     */
-    const renderSpanRef = useRef<(() => void) | null>(null);
-
-    useLayoutEffect(() => {
-        renderSpanRef.current?.();
-        renderSpanRef.current = null;
-    });
-
     function refresh() {
-        const endData = perfSpan("board.getBoardData");
         getBoardData(parentNote, statusAttributeWithPrefix, viewConfig ?? {}, includeArchived, statusDefinition?.options ?? [])
             .then(({ byColumn, columns, newPersistedData, isInRelationMode }) => {
-                endData();
                 setByColumn(byColumn);
                 setIsRelationMode(isInRelationMode);
                 setColumns(columns);
@@ -194,22 +180,7 @@ export default function BoardView({ note: parentNote, noteIds, viewConfig, saveC
             setDefinitionRevision(revision => revision + 1);
         }
 
-        const endMatch = perfSpan("board.matchRefreshReason");
-        const reason = findRefreshReason(loadResults, api.statusAttribute, noteIds, parentNote.noteId);
-        endMatch();
-
-        if (reason) {
-            // Logged when the redraw lands rather than when it starts, so each line carries its own
-            // cost. A STALL line cannot answer that on a saturated main thread -- it spans every
-            // redraw that fell inside one contiguous busy period.
-            const endRefresh = perfSpan(`board.refreshToPaint[${reason}]`);
-            renderSpanRef.current = () => perfLog("board.refreshToPaint", {
-                reason,
-                ms: Math.round(endRefresh()),
-                cards: noteIds.length,
-                changedNotes: loadResults.getNoteIds().length
-            });
-
+        if (findRefreshReason(loadResults, api.statusAttribute, noteIds, parentNote.noteId)) {
             refresh();
         }
     });

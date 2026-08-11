@@ -1,6 +1,5 @@
 import { promotedAttributeDefinitionParser } from "@triliumnext/commons";
 
-import { perfSpan } from "../services/debug_perf.js";
 import type { Froca } from "../services/froca-interface.js";
 
 /**
@@ -88,14 +87,7 @@ class FAttribute {
     }
 
     getDefinition() {
-        // Re-parses the definition string on every call, so a caller in a render path pays for it
-        // once per attribute per render; the span is what makes that visible.
-        const endSpan = perfSpan("FAttribute.getDefinition");
-        try {
-            return promotedAttributeDefinitionParser.parse(this.value);
-        } finally {
-            endSpan();
-        }
+        return promotedAttributeDefinitionParser.parse(this.value);
     }
 
     isDefinitionFor(attr: FAttribute) {
