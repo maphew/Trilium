@@ -171,7 +171,9 @@
     "task-state-attr-is-hidden": "Nascosto dall'elenco",
     "security-title": "Sicurezza",
     "deleted-notes-title": "Note eliminate",
-    "color-scheme-switcher-title": "Selettore della combinazione di colori"
+    "color-scheme-switcher-title": "Selettore della combinazione di colori",
+    "content-manager-title": "Responsabile dei contenuti",
+    "desktop-title": "Desktop"
   },
   "notes": {
     "new-note": "Nuova nota",
@@ -222,7 +224,8 @@
     "expand": "Espandi",
     "toggle-navigation": "Attiva/disattiva la navigazione",
     "toggle-toc": "Mostra/Nascondi sommario",
-    "logo-alt": "Logo"
+    "logo-alt": "Logo",
+    "login": "Login"
   },
   "keyboard_actions": {
     "back-in-note-history": "Naviga alla nota precedente della cronologia",
@@ -424,6 +427,91 @@
     "backend-scripting": "Esecuzione di script sul backend",
     "backend-scripting-warning": "Gli script di backend dispongono di pieno accesso al server, compreso il file system e la rete.",
     "sql-console": "Console SQL",
-    "sql-console-warning": "La console SQL consente di eseguire query SQL arbitrarie sul database."
+    "sql-console-warning": "La console SQL consente di eseguire query SQL arbitrarie sul database.",
+    "lan-access": "accesso alla rete",
+    "lan-access-warning": "L'app e le note condivise saranno accessibili tramite la rete, ovvero raggiungibili da un browser su questo computer e da altri dispositivi sulla rete locale."
+  },
+  "note_conversion": {
+    "revision_before_markdown": "Prima della conversione in Markdown",
+    "revision_before_text": "Prima della conversione in nota di testo"
+  },
+  "onenote_import": {
+    "root-title": "Importazione da OneNote",
+    "failed-page-placeholder": "Impossibile importare questa pagina da OneNote. Errore: {{error}}",
+    "failed-section-placeholder": "Impossibile importare questa sezione da OneNote, quindi è stata creata vuota. Errore: {{error}}",
+    "protected-section-error": "Questa sezione è protetta da password. Rimuovi la password in OneNote, quindi importala di nuovo.",
+    "protected-section-placeholder": "Questa sezione è protetta da password, quindi le sue pagine non sono state importate ed è stata creata vuota. Per importarla, apri la sezione in OneNote, rimuovi la protezione tramite password (clicca con il pulsante destro del mouse sulla sezione &rarr; Protezione con password &rarr; Rimuovi password), quindi esegui nuovamente l'importazione.",
+    "report": {
+      "row-pages": "Pagine importate correttamente",
+      "row-notebooks": "Notebook importati",
+      "row-sections": "Sezioni importate",
+      "row-duration": "Durata totale dell'importazione",
+      "row-images": "Immagini",
+      "row-attachments": "Allegati",
+      "row-ink": "Pagine con scritte a mano o disegni",
+      "row-links": "Collegamenti tra pagine",
+      "row-throttling": "Tempo limitato da Microsoft Graph",
+      "value-links": "{{resolved}} risolto, {{unresolved}} punta al di fuori della selezione importata",
+      "value-throttling_one": "{{- wait}} ({{count}} richieste limitate)",
+      "value-throttling_many": "{{- wait}} ({{count}} richiesta limitata)",
+      "value-throttling_other": "{{- wait}} ({{count}} richieste limitate)",
+      "skipped-sections-title": "Sezioni che non è stato possibile importare",
+      "skipped-sections-section": "Sezione",
+      "skipped-sections-notebook": "Computer",
+      "skipped-sections-error": "Errore",
+      "failed-pages-title": "Pagine che non è stato possibile importare",
+      "failed-pages-page": "Pagina",
+      "failed-pages-section": "Sezione",
+      "failed-pages-error": "Errore",
+      "failed-resources-title": "Immagini e allegati mancanti",
+      "failed-resources-item_one": "{{- pageLink}}: Impossibile scaricare la risorsa {{count}}",
+      "failed-resources-item_many": "{{- pageLink}}: Impossibile scaricare le {{count}} risorse",
+      "failed-resources-item_other": "{{- pageLink}}: Impossibile scaricare le {{count}} risorse"
+    }
+  },
+  "notion_import": {
+    "root-title": "Importazione del concetto",
+    "markdown-export-unsupported": "Sembra un'esportazione di Notion in formato \"Markdown e CSV\", che Trilium non è in grado di importare. Si prega di riesportare l'area di lavoro di Notion utilizzando il formato \"HTML\" e importare quello.",
+    "subpage-folders-disabled": "Questa esportazione da Notion è stata creata senza l'opzione \"Crea cartelle per le sottopagine\", pertanto la gerarchia delle pagine non può essere ricostruita. Si prega di riesportare il file da Notion con l'opzione \"Crea cartelle per le sottopagine\" abilitata e di importare il file risultante."
+  },
+  "keep_import": {
+    "root-title": "Importazione da Google Keep"
+  },
+  "anytype_import": {
+    "root-title": "Importazione di qualsiasi tipo",
+    "protobuf-export-unsupported": "Sembra un'esportazione Anytype \"Protobuf\", che Trilium non è in grado di importare. Si prega di riesportare lo spazio Anytype utilizzando il formato \"Any-Block\" con l'opzione \"JSON\" selezionata e di importare quest'ultimo.",
+    "markdown-export-unsupported": "Sembra un'esportazione Anytype in formato \"Markdown\", che Trilium non è in grado di importare. Si prega di riesportare lo spazio Anytype utilizzando il formato \"Any-Block\" con l'opzione \"JSON\" selezionata e di importare quest'ultimo."
+  },
+  "obsidian_import": {
+    "root-title": "Importazione di ossidiana"
+  },
+  "export": {
+    "zip_filter": "Archivio ZIP (*.zip)"
+  },
+  "import": {
+    "invalid_file_grant": "Il file selezionato è scaduto o non valido. Seleziona nuovamente il file."
+  },
+  "restore": {
+    "pick_backup_title": "Scegli un backup da ripristinare",
+    "backup_filter": "Backup Trilium (*.db, *.tnbackup)",
+    "any_file_filter": "Tutti i file"
+  },
+  "backup": {
+    "custom_directory_unwritable": "Backup del database non riuscito: impossibile scrivere in {{- location}}. Verrà eseguito il backup nella posizione predefinita.",
+    "passphrase_unavailable": "Impossibile leggere la password di backup, pertanto questo backup non è crittografato. È stato salvato nella posizione predefinita anziché in quella scelta."
+  },
+  "dialog": {
+    "select_directory": "Seleziona la cartella"
+  },
+  "backup-password-dialog": {
+    "cancel": "Cancellare",
+    "set-title": "Impostare la password di backup?",
+    "set-message": "I backup futuri saranno crittografati con questa password.",
+    "set-detail": "Trilium non può più mostrare questa password, quindi conservane una copia in un luogo sicuro: senza di essa, non sarà possibile ripristinare il backup.\n\nSe non ti aspettavi che ti venisse richiesta, annulla l'operazione: potrebbe essere stata richiesta da una nota o da uno script.",
+    "set-confirm": "Imposta password",
+    "clear-title": "Hai dimenticato la password di backup?",
+    "clear-message": "I backup non saranno più crittografati.",
+    "clear-detail": "I backup già creati mantengono la password con cui sono stati effettuati e possono essere ripristinati utilizzandola.\n\nSe non ti aspettavi questa richiesta, annullala: potrebbe essere stata richiesta da una nota o da uno script.",
+    "clear-confirm": "Password dimenticata"
   }
 }

@@ -3339,7 +3339,13 @@
     "existing-data-delete-failed": "无法删除现有的知识库。",
     "existing-data-keep-failed": "无法重新打开现有的知识库。",
     "restore-upload-reconnecting": "正在等待重新建立连接……",
-    "restore-error-upload-interrupted": "上传过程被中断，无法继续。再次选择备份文件以重新开始。"
+    "restore-error-upload-interrupted": "上传过程被中断，无法继续。再次选择备份文件以重新开始。",
+    "backup-downloading-percent": "{{percent}}%",
+    "backup-downloading-size": "({{done}} / {{total}})",
+    "restore-error-swap-failed-reload": "无法替换数据库。你之前的数据库已恢复原位，但 Trilium 无法重新打开它。请重新加载页面以继续。",
+    "restore-error-check-failed": "无法检查备份。这可能是此设备的问题，而非备份本身的问题，因此值得再试一次。",
+    "restore-error-failed": "无法完成恢复。未替换任何内容，因此你的知识库保持原样。",
+    "restore-error-incomplete": "此备份文件不完整。可能未完整复制或下载，请重新传输。"
   },
   "text-editor": {
     "validation-errors": {
@@ -3981,7 +3987,9 @@
     "unit_mph": "{{value}} 英里/小时"
   },
   "database_file_list": {
-    "size_on_disk": "磁盘占用 {{size}}"
+    "size_on_disk": "磁盘占用 {{size}}",
+    "invalid_backup": "无效的备份文件",
+    "unsupported_version": "不支持的备份文件格式版本"
   },
   "password_with_confirmation": {
     "password": "密码",

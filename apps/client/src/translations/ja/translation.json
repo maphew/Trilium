@@ -3339,7 +3339,13 @@
     "existing-data-delete-failed": "既存のナレッジベースを削除できませんでした。",
     "existing-data-keep-failed": "既存のナレッジベースを再開できませんでした。",
     "restore-upload-reconnecting": "接続の再確立を待機中...",
-    "restore-error-upload-interrupted": "アップロードが中断され、続行できませんでした。やり直すには、バックアップを再度選択してください。"
+    "restore-error-upload-interrupted": "アップロードが中断され、続行できませんでした。やり直すには、バックアップを再度選択してください。",
+    "backup-downloading-percent": "{{percent}} %",
+    "backup-downloading-size": "({{done}} / {{total}})",
+    "restore-error-swap-failed-reload": "データベースを置き換えることができませんでした。元のデータベースは復元されましたが、Trilium で再度開くことができません。続行するには、このページを再読み込みしてください。",
+    "restore-error-check-failed": "バックアップを検証できませんでした。バックアップ自体ではなく、このデバイスに問題がある可能性がありますので、もう一度試してみる価値はあります。",
+    "restore-error-failed": "復元を完了できませんでした。置き換えは行われなかったため、ナレッジベースは元の状態のままです。",
+    "restore-error-incomplete": "このバックアップファイルは不完全です。完全にコピーまたはダウンロードされていない可能性があるため、もう一度転送を試してください。"
   },
   "text-editor": {
     "validation-errors": {
@@ -3981,7 +3987,9 @@
     "unit_mph": "{{value}} mph"
   },
   "database_file_list": {
-    "size_on_disk": "ディスク上のサイズ {{size}}"
+    "size_on_disk": "ディスク上のサイズ {{size}}",
+    "invalid_backup": "無効なバックアップファイル",
+    "unsupported_version": "サポートされていないバックアップファイル形式のバージョン"
   },
   "password_with_confirmation": {
     "password": "パスワード",
