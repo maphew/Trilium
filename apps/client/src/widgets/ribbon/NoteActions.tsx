@@ -340,6 +340,7 @@ function DevelopmentActions({ note, noteContext }: { note: FNote, noteContext?: 
             <FormListHeader text="Development Actions" />
             <FormListItem
                 icon="bx bx-printer"
+                disabled={!note.isContentAvailable()}
                 onClick={() => window.open(`/?print=#root/${note.noteId}`, "_blank")}
             >Open print page</FormListItem>
             <FormListItem
