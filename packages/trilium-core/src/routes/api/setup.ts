@@ -165,17 +165,19 @@ async function setupNewDocument(req: Request) {
  * The lock covers erasing what was there, fetching the seed and creating the schema, not the sync
  * that follows: an interrupted sync is resumed and retried across later requests, and a failed one
  * has to leave the user free to take another path instead.
+ *
+ * The erasure is not done here, unlike the path above it. Reaching a sync server can fail on a
+ * mistyped host, a refused password or a version mismatch, and each of those has to leave the
+ * knowledge base where it was — so it is done inside, once the server has answered and the next
+ * step is the one that cannot be taken back.
  */
 function setupSyncFromServer(req: Request): Promise<SetupSyncFromServerResponse> {
     const { syncServerHost, syncProxy, password, syncMaxBlobContentSize } = req.body;
 
     const maxBlobContentSize = Number.isFinite(syncMaxBlobContentSize) && syncMaxBlobContentSize > 0 ? syncMaxBlobContentSize : 0;
 
-    return withSetupLock("sync-from-server", async () => {
-        await discardExistingData();
-
-        return setupService.setupSyncFromSyncServer(syncServerHost, syncProxy, password, maxBlobContentSize);
-    });
+    return withSetupLock("sync-from-server", () =>
+        setupService.setupSyncFromSyncServer(syncServerHost, syncProxy, password, maxBlobContentSize));
 }
 
 /**

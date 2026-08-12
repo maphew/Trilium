@@ -164,7 +164,11 @@ describe("Setup API with a knowledge base behind the wizard (core)", () => {
         expect(createInitial).toHaveBeenCalled();
     });
 
-    it("erases it before syncing from a server, for the same reason", async () => {
+    it("leaves the erasing to the sync itself, which alone knows when it is safe", async () => {
+        // Deliberately not here: reaching a sync server can fail on a mistyped host, a refused
+        // password or a version mismatch, and every one of those has to leave the knowledge base
+        // where it was. `setupSyncFromSyncServer` erases once the server has answered — see the
+        // service's own spec, which pins that ordering.
         vi.spyOn(setupService, "setupSyncFromSyncServer").mockResolvedValue({ result: "success" });
 
         const res = await api.post("/api/setup/sync-from-server", {
@@ -172,7 +176,7 @@ describe("Setup API with a knowledge base behind the wizard (core)", () => {
         });
 
         expect(res.status).toBe(200);
-        expect(platform.removeDatabase).toHaveBeenCalledOnce();
+        expect(platform.removeDatabase).not.toHaveBeenCalled();
     });
 
     it("refuses a pushed sync seed until the local user has cleared the way for it", async () => {
