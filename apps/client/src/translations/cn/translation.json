@@ -3108,7 +3108,12 @@
     "back": "返回"
   },
   "database": {
-    "title": "数据库"
+    "title": "数据库",
+    "start_over_description": "切换到新的空白数据库、重新与新服务器同步，或恢复备份。在丢弃现有数据之前，系统会提示你先备份数据。",
+    "start_over": "从头开始",
+    "start_over_confirm": "Trilium 将返回设置界面，你可以在那里创建新的知识库、恢复备份或从其他设备同步。系统会先提供当前数据的备份，在你做出选择之前不会删除任何内容。继续吗？",
+    "start_over_pending": "下次重启此服务器时，将出现设置界面。准备好后请重启服务器，或点击下方的「取消」保持现状。",
+    "start_over_cancel": "取消从头开始"
   },
   "revisions_snapshot": {
     "title": "笔记修订"
@@ -3273,7 +3278,7 @@
     "sync-failed-hint": "这可能是由于服务器地址错误、代理干扰连接或服务器暂时无法访问导致的。",
     "button-retry": "重试",
     "restore-from-backup": "从备份恢复",
-    "restore-from-backup-description": "从备份文件恢复，继续使用现有的知识库。",
+    "restore-from-backup-description": "开始使用从备份文件恢复的知识库。",
     "restore-from-backup-page-description": "选择要恢复的备份。",
     "restore-existing-backups": "现有备份",
     "restore-looking-for-backups": "正在查找备份…",
@@ -3333,7 +3338,7 @@
     "backup-downloaded": "下载已完成。点击“完成”返回应用程序。",
     "backup-download-failed": "下载尚未结束。",
     "backup-finish": "结束",
-    "existing-data-erase-confirm": "现有数据将被删除。请确保将备份文件保存在安全的地方。是否继续？",
+    "existing-data-erase-confirm": "你现有的知识库将被永久删除，以便此设备从你的桌面应用接收一个知识库。请确保你在安全的地方留有备份。继续吗？",
     "existing-data-keep-failed": "无法重新打开现有的知识库。",
     "restore-upload-reconnecting": "正在等待重新建立连接……",
     "restore-error-upload-interrupted": "上传过程被中断，无法继续。再次选择备份文件以重新开始。",
@@ -3342,7 +3347,13 @@
     "restore-error-swap-failed-reload": "无法替换数据库。你之前的数据库已恢复原位，但 Trilium 无法重新打开它。请重新加载页面以继续。",
     "restore-error-check-failed": "无法检查备份。这可能是此设备的问题，而非备份本身的问题，因此值得再试一次。",
     "restore-error-failed": "无法完成恢复。未替换任何内容，因此你的知识库保持原样。",
-    "restore-error-incomplete": "此备份文件不完整。可能未完整复制或下载，请重新传输。"
+    "restore-error-incomplete": "此备份文件不完整。可能未完整复制或下载，请重新传输。",
+    "create-new-document-failed": "无法创建你的知识库",
+    "existing-data-skip": "不，跳过备份，直接继续",
+    "existing-data-skip-warning": "目前尚未删除任何内容。只有当你选择创建新知识库、恢复备份或从其他设备同步时，你的知识库才会被替换。",
+    "unlock-refused": "这些信息未被接受。请重试。",
+    "keep-existing": "返回应用",
+    "keep-existing-description": "继续使用现有知识库并返回应用。"
   },
   "text-editor": {
     "validation-errors": {
