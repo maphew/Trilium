@@ -2250,7 +2250,6 @@
     "title": "맞춤법 검사",
     "description": "이 옵션들은 데스크톱 빌드에만 적용되며, 브라우저는 자체 맞춤법 검사를 사용합니다.",
     "enable": "맞춤법 확인",
-    "disabled_placeholder": "맞춤법 검사는 꺼져 있습니다. 언어 선택과 맞춤 사전을 관리할 수 있도록 활성화하세요.",
     "language_code_label": "맞춤법 검사 언어",
     "custom_dictionary_title": "맞춤 사전",
     "custom_dictionary_description": "사전에 추가된 단어는 모든 기기에서 동기화됩니다.",
@@ -3682,7 +3681,6 @@
     "direction-down": "아래쪽으로 분기"
   },
   "llm": {
-    "disabled_placeholder": "AI 기능이 꺼져 있습니다. 제공업체와 MCP를 설정하려면 AI 기능을 활성화하세요.",
     "feature_not_enabled": "설정 → 고급 → 실험 기능에서 LLM 실험 기능을 활성화하여 AI 통합을 활용하세요.",
     "add_provider": "공급자 추가",
     "add_provider_title": "AI 공급자 추가",
