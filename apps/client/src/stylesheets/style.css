@@ -3141,6 +3141,8 @@ iframe.print-iframe {
        variant — this makes both variants share one deterministic geometry. */
     position: absolute;
     top: calc((1lh - var(--_checkbox-size)) / 2);
+    inset-inline-start: -25px;
+    inset-inline-end: auto;
     /* `1lh` must resolve against the text's line height, not the UA form-control
        font, and the UA's 3px checkbox margins would offset the absolute position.
        (Bootstrap's reboot happens to do both, but don't depend on it.) */
