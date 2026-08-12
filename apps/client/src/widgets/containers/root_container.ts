@@ -31,12 +31,15 @@ const FONT_OPTIONS: OptionNames[] = [
  */
 export default class RootContainer extends FlexContainer<BasicWidget> {
 
-    private originalWindowHeight: number;
+    /** Window size the virtual keyboard detection compares against, per orientation. */
+    private baselineWindowHeight: number;
+    private baselineWindowWidth: number;
 
     constructor(isHorizontalLayout: boolean) {
         super(isHorizontalLayout ? "column" : "row");
 
-        this.originalWindowHeight = window.innerHeight ?? 0;
+        this.baselineWindowHeight = window.innerHeight ?? 0;
+        this.baselineWindowWidth = window.innerWidth ?? 0;
         this.id("root-widget");
         this.css("height", "100dvh");
     }
@@ -106,8 +109,16 @@ export default class RootContainer extends FlexContainer<BasicWidget> {
     }
 
     #onMobileResize() {
+        // The virtual keyboard never changes the window width, so a width change means the device was
+        // rotated (or the window resized) and the stored height no longer describes this orientation.
+        // Keeping it would make the shorter landscape window look like an open keyboard (#10835).
+        if (window.innerWidth !== this.baselineWindowWidth) {
+            this.baselineWindowWidth = window.innerWidth;
+            this.baselineWindowHeight = window.innerHeight;
+        }
+
         const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
-        const windowHeight = Math.max(window.innerHeight, this.originalWindowHeight); // inner height changes when keyboard is opened, we need to compare with the original height to detect it.
+        const windowHeight = Math.max(window.innerHeight, this.baselineWindowHeight); // inner height changes when keyboard is opened, we need to compare with the original height to detect it.
 
         // If viewport is significantly smaller, keyboard is likely open
         const isKeyboardOpened = windowHeight - viewportHeight > 150;
