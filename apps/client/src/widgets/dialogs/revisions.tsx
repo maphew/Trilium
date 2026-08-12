@@ -13,6 +13,7 @@ import FNote from "../../entities/fnote";
 import dialog from "../../services/dialog";
 import froca from "../../services/froca";
 import { t } from "../../services/i18n";
+import { applyLinkEmbeds } from "../../services/link_embed";
 import open from "../../services/open";
 import options from "../../services/options";
 import protected_session_holder from "../../services/protected_session_holder";
@@ -31,6 +32,7 @@ import Modal from "../react/Modal";
 import NoItems from "../react/NoItems";
 import { RawHtmlBlock, SanitizedHtml } from "../react/RawHtml";
 import PdfViewer from "../type_widgets/file/PdfViewer";
+import { applyReferenceLinks } from "../type_widgets/text/read_only_helper";
 
 const DIFFABLE_TYPES = ["text", "code", "mermaid"];
 
@@ -669,8 +671,22 @@ function RevisionContent({ noteContent, revisionItem, fullRevision, showDiff }: 
     }
 }
 
-function RevisionContentText({ content }: { content: string | Uint8Array | undefined }) {
+export function RevisionContentText({ content }: { content: string | Uint8Array | undefined }) {
     const contentRef = useRef<HTMLDivElement>(null);
+
+    // A revision stores what CKEditor's data downcast produced, and two of those constructs carry
+    // no visible content of their own: a link preview is an empty `<span class="link-mention">` /
+    // `<section class="link-embed">` holding only its metadata as data attributes, and a reference
+    // link stores a bare title that the note view turns into an icon-and-colour span. Without these
+    // passes a link preview is an empty gap in the revision (#10707).
+    useEffect(() => {
+        const container = contentRef.current;
+        if (!container) return;
+
+        applyLinkEmbeds(container);
+        void applyReferenceLinks(container);
+    }, [content]);
+
     useEffect(() => {
         if (contentRef.current?.querySelector("span.math-tex")) {
             // KaTeX is heavy, so the math service is only loaded when there are formulas to render.
