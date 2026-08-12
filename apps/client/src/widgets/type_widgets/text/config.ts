@@ -187,9 +187,7 @@ export async function buildConfig(opts: BuildEditorOptions): Promise<EditorConfi
         snippets: {
             definitions: opts.templates
         },
-        htmlSupport: {
-            allow: JSON.parse(options.get("allowedHtmlTags"))
-        },
+        htmlSupport: buildHtmlSupportConfig(),
         removePlugins: getDisabledPlugins(),
         // The locale's CKEditor translations, plus the dictionary of Trilium-authored editor
         // strings resolved through the app's i18n (see `messages.ts` in the ckeditor5 package).
@@ -385,6 +383,25 @@ function buildListOfLanguages() {
         },
         ...userLanguages
     ];
+}
+
+/**
+ * Turns the `allowedHtmlTags` option — a flat list of tag names, shared with the server-side
+ * sanitizer — into the General HTML Support allow-list.
+ *
+ * The wrapping is not cosmetic. `DataFilter#loadAllowedConfig` reads each entry's `name` and falls
+ * back to a match-everything pattern without one, so bare strings allowed *every* element, including
+ * GHS's `$customElement` catch-all: unknown tags round-tripped as opaque blobs that the editing view
+ * drew as an empty `<span data-ck-unsafe-element>` — visible in read mode and search, invisible and
+ * un-navigable while editing (#10989). `attributes`/`classes`/`styles` are the per-element rules
+ * `splitRules` looks for; without them GHS strips every attribute off what it does preserve.
+ */
+function buildHtmlSupportConfig(): EditorConfig["htmlSupport"] {
+    const allowedTags: string[] = JSON.parse(options.get("allowedHtmlTags"));
+
+    return {
+        allow: allowedTags.map((name) => ({ name, attributes: true, classes: true, styles: true }))
+    };
 }
 
 function getDisabledPlugins() {

@@ -218,6 +218,32 @@ describe("CK config", () => {
     });
 });
 
+describe("CK config - HTML support", () => {
+    it("names every allowed tag rather than handing GHS bare strings", async () => {
+        optionsState.map.allowedHtmlTags = JSON.stringify(["p", "section", "en-media"]);
+
+        const config = await buildConfig(baseOpts());
+
+        // The shape is the whole point: `DataFilter#loadAllowedConfig` falls back to a
+        // match-everything pattern for an entry with no `name`, so a list of plain strings allowed
+        // every element — including the `$customElement` catch-all, which round-tripped unknown tags
+        // as opaque blobs that were invisible and un-navigable in the editing view (#10989).
+        expect(config.htmlSupport?.allow).toEqual([
+            { name: "p", attributes: true, classes: true, styles: true },
+            { name: "section", attributes: true, classes: true, styles: true },
+            { name: "en-media", attributes: true, classes: true, styles: true }
+        ]);
+        // Nothing is disallowed outright; the allow-list alone decides.
+        expect(config.htmlSupport?.disallow).toBeUndefined();
+    });
+
+    it("allows nothing beyond the natively supported elements when the list is empty", async () => {
+        const config = await buildConfig(baseOpts());
+
+        expect(config.htmlSupport?.allow).toEqual([]);
+    });
+});
+
 describe("CK config - licensing", () => {
     it("always runs under the open-source license, with no premium plugins", async () => {
         // Every premium plugin Trilium used has an in-tree GPL replacement, so there is no
