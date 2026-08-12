@@ -2141,8 +2141,7 @@
     "custom_dictionary_edit": "Parole personalizzate",
     "custom_dictionary_edit_description": "Modifica l'elenco delle parole che non devono essere segnalate dal correttore ortografico. Le modifiche saranno visibili dopo il riavvio.",
     "custom_dictionary_open": "Modifica il dizionario",
-    "related_description": "Configura le lingue del controllo ortografico e il dizionario personalizzato.",
-    "disabled_placeholder": "Il controllo ortografico è disattivato. Attivalo per scegliere le lingue e gestire il dizionario personalizzato."
+    "related_description": "Configura le lingue del controllo ortografico e il dizionario personalizzato."
   },
   "api_log": {
     "close": "Vicino"
@@ -2980,7 +2979,6 @@
     "base_url": "URL di base",
     "base_url_description": "Facoltativo. Consente di accedere alla stessa API tramite un proxy o un gateway. Per eseguire autonomamente un modello, aggiungere invece un provider Ollama o LM Studio.",
     "base_url_invalid": "L'URL di base deve essere un URL valido del tipo http:// o https://",
-    "disabled_placeholder": "Le funzionalità di intelligenza artificiale sono disattivate. Abilitarle per configurare i provider e l'MCP.",
     "edit_provider_title": "Modifica {{- name}}",
     "edit_provider": "Modificare",
     "save": "Salva",

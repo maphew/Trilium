@@ -1923,8 +1923,7 @@
     "custom_dictionary_edit": "Focail saincheaptha",
     "custom_dictionary_edit_description": "Cuir an liosta focal in eagar nach ceart don seiceálaí litrithe a mharcáil. Beidh athruithe le feiceáil tar éis atosaithe.",
     "custom_dictionary_open": "Cuir an foclóir in eagar",
-    "related_description": "Cumraigh teangacha seiceála litrithe agus foclóir saincheaptha.",
-    "disabled_placeholder": "Tá an seiceáil litrithe múchta. Cumasaigh é chun teangacha a roghnú agus an foclóir saincheaptha a bhainistiú."
+    "related_description": "Cumraigh teangacha seiceála litrithe agus foclóir saincheaptha."
   },
   "sync_2": {
     "config_title": "Freastalaí Sioncrónaithe",
@@ -3106,7 +3105,6 @@
     "base_url": "Bun-URL",
     "base_url_description": "Roghnach. Sroicheann sé an API céanna trí sheachfhreastalaí nó geata. Chun samhail a rith tú féin, cuir soláthraí Ollama nó LM Studio leis ina ionad.",
     "base_url_invalid": "Ní mór don bhun-URL a bheith ina URL bailí http:// nó https://",
-    "disabled_placeholder": "Tá gnéithe AI múchta. Cumasaigh iad chun soláthraithe agus MCP a chumrú.",
     "edit_provider_title": "Cuir in eagar {{- name}}",
     "edit_provider": "Eagar",
     "save": "Sábháil",

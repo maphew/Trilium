@@ -143,7 +143,8 @@
     "localization": "언어 및 지역",
     "inbox-title": "받은 편지함",
     "tab-switcher-title": "탭 스위처",
-    "sidebar-chat-title": "AI 채팅"
+    "sidebar-chat-title": "AI 채팅",
+    "database-title": "데이터베이스"
   },
   "keyboard_action_names": {
     "back-in-note-history": "노트 기록에서 뒤로 이동",
@@ -509,5 +510,16 @@
     "pick_backup_title": "복원할 백업 선택",
     "backup_filter": "Trilium 백업 (*.db, *.tnbackup)",
     "any_file_filter": "모든 파일"
+  },
+  "setup-window": {
+    "getting-started": "시작하기 - Trilium Notes",
+    "start-over": "처음부터 다시 시작 - Trilium Notes"
+  },
+  "start-over-dialog": {
+    "title": "처음부터 다시 시작",
+    "message": "Trilium을 다시 시작하고 설정 화면으로 돌아가시겠습니까?",
+    "detail": "먼저 현재 지식 베이스의 백업이 제공됩니다. 새 지식 베이스를 만들거나, 백업을 복원하거나, 다른 기기에서 동기화하도록 선택하기 전까지는 아무것도 삭제되지 않습니다.\n\n스크립트나 익숙하지 않은 노트에서 이 작업을 하도록 안내했다면 계속하지 마세요.",
+    "cancel": "취소",
+    "confirm": "재시작 후 처음부터 시작"
   }
 }

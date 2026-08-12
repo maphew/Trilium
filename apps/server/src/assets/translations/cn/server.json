@@ -206,7 +206,8 @@
     "desktop-title": "桌面",
     "deleted-notes-title": "已删除的笔记",
     "color-scheme-switcher-title": "配色方案切换",
-    "content-manager-title": "扩展管理"
+    "content-manager-title": "扩展管理",
+    "database-title": "数据库"
   },
   "notes": {
     "new-note": "新建笔记",
@@ -509,5 +510,16 @@
     "pick_backup_title": "选择要恢复的备份",
     "backup_filter": "Trilium 备份（*.db、*.tnbackup）",
     "any_file_filter": "所有文件"
+  },
+  "setup-window": {
+    "getting-started": "开始使用 - Trilium Notes",
+    "start-over": "从头开始 - Trilium Notes"
+  },
+  "start-over-dialog": {
+    "title": "从头开始",
+    "message": "重启 Trilium 并返回设置界面？",
+    "detail": "系统会先提供当前知识库的备份。只有当你选择创建新知识库、恢复备份或从其他设备同步时，才会删除任何内容。\n\n如果是脚本或陌生笔记提示你执行此操作，请不要继续。",
+    "cancel": "取消",
+    "confirm": "重启并从头开始"
   }
 }

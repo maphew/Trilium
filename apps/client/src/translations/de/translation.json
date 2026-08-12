@@ -1530,8 +1530,7 @@
     "custom_dictionary_open": "Wörterbuch bearbeiten",
     "related_description": "Sprachen der Rechtschreibprüfung und benutzerdefiniertes Wörterbuch konfigurieren.",
     "custom_dictionary_description": "Zum Wörterbuch hinzugefügte Wörter werden auf all Ihren Geräten synchronisiert.",
-    "custom_dictionary_edit_description": "Bearbeiten Sie die Liste der Wörter, die von der Rechtschreibprüfung nicht markiert werden sollen. Änderungen werden nach einem Neustart sichtbar.",
-    "disabled_placeholder": "Die Rechtschreibprüfung ist deaktiviert. Aktivieren Sie sie, um Sprachen auszuwählen und das benutzerdefinierte Wörterbuch zu verwalten."
+    "custom_dictionary_edit_description": "Bearbeiten Sie die Liste der Wörter, die von der Rechtschreibprüfung nicht markiert werden sollen. Änderungen werden nach einem Neustart sichtbar."
   },
   "sync_2": {
     "config_title": "Sync-Server",
@@ -2669,7 +2668,6 @@
     "base_url": "Basis-URL",
     "base_url_description": "Optional. Greift über einen Proxy oder ein Gateway auf dieselbe API zu. Um ein Modell selbst auszuführen, fügen Sie stattdessen einen Ollama- oder LM-Studio-Anbieter hinzu.",
     "base_url_invalid": "Die Basis-URL muss eine gültige http://- oder https://-URL sein",
-    "disabled_placeholder": "KI-Funktionen sind deaktiviert. Aktivieren Sie sie, um Anbieter und MCP zu konfigurieren.",
     "edit_provider_title": "{{- name}} bearbeiten",
     "edit_provider": "Bearbeiten",
     "save": "Speichern",

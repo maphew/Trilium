@@ -1497,8 +1497,7 @@
     "custom_dictionary_edit": "Mots personnalisés",
     "custom_dictionary_edit_description": "Modifiez la liste des mots qui ne doivent pas être signalés par le correcteur orthographique. Les modifications seront visibles après un redémarrage.",
     "custom_dictionary_open": "Modifier le dictionnaire",
-    "related_description": "Configurez les langues du correcteur orthographique et le dictionnaire personnalisé.",
-    "disabled_placeholder": "La vérification orthographique est désactivée. Activez-la pour choisir les langues et gérer le dictionnaire personnalisé."
+    "related_description": "Configurez les langues du correcteur orthographique et le dictionnaire personnalisé."
   },
   "sync_2": {
     "config_title": "Serveur de synchronisation",
@@ -2532,8 +2531,7 @@
     "mcp_endpoint_description": "Ajoutez cette URL à la configuration MCP de votre assistant IA",
     "base_url": "URL de base",
     "base_url_description": "Optionnel. Permet de remplacer l'endpoint API par défaut (utile pour les modèles auto-hébergés comme Ollama, LM Studio, vLLM ou proxies).",
-    "base_url_invalid": "L'URL de base doit être une adresse valide (commençant par http:// ou https://)",
-    "disabled_placeholder": "Les fonctionnalités d'IA sont désactivées. Activez-les pour configurer les fournisseurs et MCP."
+    "base_url_invalid": "L'URL de base doit être une adresse valide (commençant par http:// ou https://)"
   },
   "status_bar": {
     "language_title": "Changer de langue",

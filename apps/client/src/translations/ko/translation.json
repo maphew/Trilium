@@ -1704,7 +1704,12 @@
     "failed": "동기화 실패: {{message}}"
   },
   "database": {
-    "title": "데이터베이스"
+    "title": "데이터베이스",
+    "start_over_description": "새 빈 데이터베이스로 전환하거나, 새 서버와 동기화를 다시 시작하거나, 백업을 복원합니다. 기존 데이터를 삭제하기 전에 데이터를 백업하라는 메시지가 표시됩니다.",
+    "start_over": "처음부터 다시 시작",
+    "start_over_confirm": "Trilium이 설정 화면으로 돌아갑니다. 여기에서 새 지식 베이스를 만들거나, 백업을 복원하거나, 다른 기기에서 동기화할 수 있습니다. 먼저 현재 데이터의 백업을 제공하며, 이 중 하나를 선택하기 전까지는 아무것도 삭제되지 않습니다. 계속하시겠습니까?",
+    "start_over_pending": "다음에 서버를 다시 시작하면 설정 화면이 표시됩니다. 준비가 되면 서버를 다시 시작하세요. 현재 상태를 그대로 유지하려면 아래에서 취소하세요.",
+    "start_over_cancel": "처음부터 다시 시작 취소"
   },
   "vacuum_database": {
     "title": "데이터베이스 압축",
@@ -2245,7 +2250,6 @@
     "title": "맞춤법 검사",
     "description": "이 옵션들은 데스크톱 빌드에만 적용되며, 브라우저는 자체 맞춤법 검사를 사용합니다.",
     "enable": "맞춤법 확인",
-    "disabled_placeholder": "맞춤법 검사는 꺼져 있습니다. 언어 선택과 맞춤 사전을 관리할 수 있도록 활성화하세요.",
     "language_code_label": "맞춤법 검사 언어",
     "custom_dictionary_title": "맞춤 사전",
     "custom_dictionary_description": "사전에 추가된 단어는 모든 기기에서 동기화됩니다.",
@@ -3533,7 +3537,7 @@
     "continue": "계속",
     "your-ip-addresses": "이 장치의 주소",
     "restore-from-backup": "백업에서 복원",
-    "restore-from-backup-description": "백업 파일에서 복원한 기존 지식 베이스를 계속 사용합니다.",
+    "restore-from-backup-description": "백업 파일에서 복원한 지식 베이스 사용 시작.",
     "restore-from-backup-page-description": "복원할 백업 파일을 선택하세요.",
     "restore-existing-backups": "기존 백업",
     "restore-looking-for-backups": "백업을 찾는 중...",
@@ -3593,7 +3597,7 @@
     "backup-downloaded": "다운로드가 완료되었습니다. 애플리케이션으로 돌아가려면 \"완료\"를 누르세요.",
     "backup-download-failed": "다운로드가 완료되지 않았습니다.",
     "backup-finish": "완료",
-    "existing-data-erase-confirm": "이제 기존 데이터가 삭제됩니다. 백업 파일을 안전한 곳에 보관하세요. 계속하시겠습니까?",
+    "existing-data-erase-confirm": "기존 지식 베이스가 영구적으로 삭제되며, 이 기기에서 데스크톱 앱의 지식 베이스를 받을 수 있게 됩니다. 안전한 곳에 백업이 있는지 확인하세요. 계속하시겠습니까?",
     "existing-data-keep-failed": "기존 지식 베이스를 다시 열 수 없습니다.",
     "restore-upload-reconnecting": "연결이 다시 설정되기를 기다리는 중...",
     "restore-error-upload-interrupted": "업로드가 중단되어 계속할 수 없습니다. 다시 시작하려면 백업을 다시 선택하세요.",
@@ -3602,7 +3606,13 @@
     "restore-error-swap-failed-reload": "데이터베이스를 교체하지 못했습니다. 이전 데이터베이스는 원래 위치로 복원되었지만, Trilium에서 다시 열지 못했습니다. 계속하려면 이 페이지를 새로고침하세요.",
     "restore-error-check-failed": "백업을 확인하지 못했습니다. 백업 자체의 문제가 아니라 이 기기의 문제일 수 있으므로 다시 시도해 보세요.",
     "restore-error-failed": "복원을 완료하지 못했습니다. 아무것도 교체되지 않았으므로 지식 베이스는 이전 상태 그대로입니다.",
-    "restore-error-incomplete": "이 백업 파일은 불완전합니다. 파일이 전체적으로 복사되거나 다운로드되지 않았을 가능성이 있으니, 다시 전송해 보세요."
+    "restore-error-incomplete": "이 백업 파일은 불완전합니다. 파일이 전체적으로 복사되거나 다운로드되지 않았을 가능성이 있으니, 다시 전송해 보세요.",
+    "create-new-document-failed": "지식 베이스를 만들 수 없습니다",
+    "existing-data-skip": "아니요, 백업 없이 계속합니다",
+    "existing-data-skip-warning": "아직 아무것도 삭제되지 않았습니다. 새 지식 베이스를 만들거나, 백업을 복원하거나, 다른 기기에서 동기화하도록 선택한 경우에만 현재 지식 베이스가 교체됩니다.",
+    "unlock-refused": "입력한 정보가 올바르지 않습니다. 다시 시도해 주세요.",
+    "keep-existing": "앱으로 돌아가기",
+    "keep-existing-description": "기존 지식 베이스를 계속 사용하고 앱으로 돌아갑니다."
   },
   "mind-map": {
     "addChild": "하위 노트 추가",
@@ -3671,7 +3681,6 @@
     "direction-down": "아래쪽으로 분기"
   },
   "llm": {
-    "disabled_placeholder": "AI 기능이 꺼져 있습니다. 제공업체와 MCP를 설정하려면 AI 기능을 활성화하세요.",
     "feature_not_enabled": "설정 → 고급 → 실험 기능에서 LLM 실험 기능을 활성화하여 AI 통합을 활용하세요.",
     "add_provider": "공급자 추가",
     "add_provider_title": "AI 공급자 추가",

@@ -1231,8 +1231,7 @@
     "custom_dictionary_edit": "カスタム単語",
     "custom_dictionary_edit_description": "スペルチェッカーでエラーとして検出されないようにする単語リストを編集します。変更は再起動後に反映されます。",
     "custom_dictionary_open": "辞書の編集",
-    "related_description": "スペルチェック対応言語とカスタム辞書を設定します。",
-    "disabled_placeholder": "スペルチェックは無効になっています。有効にすると、言語の選択とカスタム辞書の管理が可能になります。"
+    "related_description": "スペルチェック対応言語とカスタム辞書を設定します。"
   },
   "sync_2": {
     "config_title": "同期サーバー",
@@ -2986,7 +2985,6 @@
     "base_url": "ベース URL",
     "base_url_description": "オプション。プロキシやゲートウェイ経由で同じ API に接続します。モデルを自前で実行したい場合は、代わりに Ollama または LM Studio のプロバイダーを追加してください。",
     "base_url_invalid": "ベース URL は、有効な http:// または https:// 形式の URL である必要があります",
-    "disabled_placeholder": "AI 機能が無効になっています。有効にすると、プロバイダーや MCP の設定ができるようになります。",
     "edit_provider_title": "{{- name}} を編集",
     "edit_provider": "編集",
     "save": "保存",

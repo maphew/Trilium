@@ -409,7 +409,6 @@
       "search_help": "Kullanıcı Kılavuzunda ara",
       "get_help_toc": "Kullanıcı Kılavuzu içeriğini getir"
     },
-    "disabled_placeholder": "Yapay zeka özellikleri kapalı. Sağlayıcıları ve MCP'yi yapılandırmak için etkinleştirin.",
     "feature_not_enabled": "Yapay zeka bütünleşmelerini kullanmak için Ayarlar → Gelişmiş → Deneysel özellikler'de LLM deneysel özelliğini etkinleştirin.",
     "add_provider": "Sağlayıcı Ekle",
     "add_provider_title": "Yapay Zeka Sağlayıcısı Ekle",
@@ -2619,7 +2618,6 @@
     "title": "Yazım Denetimi",
     "description": "Bu seçenekler yalnızca masaüstü sürümleri için geçerlidir, tarayıcılar kendi yerel yazım denetimlerini kullanır.",
     "enable": "Yazımı denetle",
-    "disabled_placeholder": "Yazım denetimi kapalı. Dilleri seçmek ve özel sözlüğü yönetmek için etkinleştirin.",
     "language_code_label": "Yazım Denetimi Dilleri",
     "custom_dictionary_title": "Özel Sözlük",
     "custom_dictionary_description": "Sözlüğe eklenen kelimeler tüm cihazlarınız arasında senkronize edilir.",

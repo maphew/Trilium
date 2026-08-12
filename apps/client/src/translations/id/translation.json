@@ -2059,8 +2059,7 @@
     "custom_dictionary_edit": "Kata kustom",
     "custom_dictionary_edit_description": "Edit daftar kata yang tidak boleh ditandai oleh pemeriksa ejaan. Perubahan akan terlihat setelah restart.",
     "custom_dictionary_open": "Edit kamus",
-    "related_description": "Konfigurasikan bahasa pemeriksa ejaan dan kamus kustom.",
-    "disabled_placeholder": "Pemeriksaan ejaan dinonaktifkan. Aktifkan untuk memilih bahasa dan mengelola kamus kustom."
+    "related_description": "Konfigurasikan bahasa pemeriksa ejaan dan kamus kustom."
   },
   "sync_2": {
     "config_title": "Server Sinkronisasi",
@@ -3263,7 +3262,6 @@
       "search_help": "Cari Panduan Pengguna",
       "get_help_toc": "Ambil isi Panduan Pengguna"
     },
-    "disabled_placeholder": "Fitur AI dinonaktifkan. Aktifkan untuk mengonfigurasi provider dan MCP.",
     "edit_provider_title": "Edit {{- name}}",
     "edit_provider": "Edit",
     "save": "Simpan",

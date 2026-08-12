@@ -1806,8 +1806,7 @@
     "custom_dictionary_edit": "Palabras personalizadas",
     "custom_dictionary_edit_description": "Edita la lista de palabras que no deben ser marcadas por el corrector ortográfico. Los cambios serán visibles después de un reinicio.",
     "custom_dictionary_open": "Editar diccionario",
-    "related_description": "Configurar idiomas del corrector ortográfico y diccionario personalizado.",
-    "disabled_placeholder": "La corrección ortográfica está desactivada. Habilítela para elegir idiomas y gestionar el diccionario personalizado."
+    "related_description": "Configurar idiomas del corrector ortográfico y diccionario personalizado."
   },
   "sync_2": {
     "config_title": "Sincronizar servidor",
@@ -3080,7 +3079,6 @@
       "search_help": "Buscar en la guía del usuario",
       "get_help_toc": "Obtener el índice de la guía del usuario"
     },
-    "disabled_placeholder": "Las funciones de IA están desactivadas. Habilítelas para configurar proveedores y MCP.",
     "edit_provider_title": "Editar {{- name}}",
     "edit_provider": "Editar",
     "save": "Guardar",
