@@ -739,6 +739,48 @@ describe("processNoteContent", () => {
         await expect(testImportBuffer(zipBuffer, "import-name-collision-nested")).rejects.toThrow("Missing parent note ID.");
     });
 
+    it("imports a note whose file name carries a character outside Latin-1", async () => {
+        // Entry names come from note titles, so a curly apostrophe (U+2019) is routine. A provider that
+        // mangles it makes the path miss its !!!meta.json entry, at which point the importer falls back
+        // to path-based parentage and aborts on the folder it can no longer place the note under.
+        const metaFile = {
+            formatVersion: 2,
+            appVersion: "0.0.0",
+            files: [{
+                noteId: "curlyFolder1",
+                title: "Map",
+                type: "text",
+                mime: "text/html",
+                format: "html",
+                dataFileName: "Map.html",
+                dirFileName: "Map",
+                attributes: [],
+                attachments: [],
+                children: [{
+                    noteId: "curlyChild01",
+                    title: "Private Murnahan’s Holotape",
+                    type: "text",
+                    mime: "text/html",
+                    format: "html",
+                    dataFileName: "Private Murnahan’s Holotape.html",
+                    attributes: [],
+                    attachments: []
+                }]
+            }]
+        };
+
+        const zipBuffer = Buffer.from(zipSync({
+            "!!!meta.json": strToU8(JSON.stringify(metaFile)),
+            "Map.html": strToU8("<p>map</p>"),
+            "Map/Private Murnahan’s Holotape.html": strToU8("<p>holotape</p>")
+        }));
+
+        const { rootNote } = await testImportBuffer(zipBuffer, "import-non-latin1-name");
+        const folder = rootNote.getChildNotes().find((n) => n.title === "Map");
+
+        expect(folder?.getChildNotes().map((n) => n.title)).toEqual(["Private Murnahan’s Holotape"]);
+    });
+
     it("restores a cloned note whose clone entry precedes its primary", async () => {
         // An export writes a clone as a stub entry carrying the same noteId as the primary. When the
         // stub is read first, its branch materialises a type-less skeleton note in becca; the primary
