@@ -1,6 +1,6 @@
 import "./NoteTypeSwitcher.css";
 
-import { NoteType } from "@triliumnext/commons";
+import { NoteType, type TemplatesResponse } from "@triliumnext/commons";
 import { useEffect, useMemo, useState } from "preact/hooks";
 
 import FNote from "../../entities/fnote";
@@ -104,7 +104,7 @@ export function TemplateNoteTypes({ noteId, builtinTemplates }: { noteId: string
     const [ userTemplates, setUserTemplates ] = useState<FNote[]>([]);
 
     async function refreshTemplates() {
-        const templateNoteIds = await server.get<string[]>("search-templates");
+        const { templateNoteIds } = await server.get<TemplatesResponse>("search-templates");
         const templateNotes = await froca.getNotes(templateNoteIds);
         setUserTemplates(templateNotes);
     }

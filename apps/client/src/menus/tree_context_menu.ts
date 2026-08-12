@@ -127,6 +127,12 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
     const parentNotSearch = !parentNote || parentNote.type !== "search";
     const insertNoteAfterEnabled = isNotRoot && !isHoisted && parentNotSearch;
 
+    // Both submenus hit the server, so they are resolved together rather than one after the other.
+    const [ insertNoteAfterItems, insertChildNoteItems ] = await Promise.all([
+        insertNoteAfterEnabled ? noteTypesService.getNoteTypeItems("insertNoteAfter") : null,
+        notSearch ? noteTypesService.getNoteTypeItems("insertChildNote") : null
+    ]);
+
     const items: (MenuItem<TreeCommandNames> | null)[] = [
         { title: t("tree-context-menu.open-in-a-new-tab"), command: "openInTab", shortcut: "Ctrl+Click", uiIcon: "bx bx-link-external", enabled: noSelectedNotes },
         { title: t("tree-context-menu.open-in-a-new-split"), command: "openNoteInSplit", uiIcon: "bx bx-dock-right", enabled: noSelectedNotes },
@@ -153,7 +159,7 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
             command: "insertNoteAfter",
             keyboardShortcut: "createNoteAfter",
             uiIcon: "bx bx-plus",
-            items: insertNoteAfterEnabled ? await noteTypesService.getNoteTypeItems("insertNoteAfter") : null,
+            items: insertNoteAfterItems,
             enabled: insertNoteAfterEnabled && noSelectedNotes && notOptionsOrHelp,
             columns: 2
         },
@@ -163,7 +169,7 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
             command: "insertChildNote",
             keyboardShortcut: "createNoteInto",
             uiIcon: "bx bx-plus",
-            items: notSearch ? await noteTypesService.getNoteTypeItems("insertChildNote") : null,
+            items: insertChildNoteItems,
             enabled: notSearch && noSelectedNotes && notOptionsOrHelp && !hasSubtreeHidden && !isSpotlighted,
             columns: 2
         },

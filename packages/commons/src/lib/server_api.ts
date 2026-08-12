@@ -710,6 +710,17 @@ export type SimilarNoteResponse = SimilarNote[];
 
 export type SaveSearchNoteResponse = CloneResponse;
 
+export interface TemplatesResponse {
+    /** The IDs of the user-defined templates, i.e. the notes labelled with `#template`. */
+    templateNoteIds: string[];
+    /**
+     * The IDs of the templates that were created recently enough to be marked as new in the UI.
+     * Unlike {@link templateNoteIds} this also covers the built-in templates, which live in the
+     * hidden subtree and are thus not part of the search results.
+     */
+    newTemplateNoteIds: string[];
+}
+
 export interface CloneResponse {
     success: boolean;
     message?: string;
