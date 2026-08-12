@@ -698,6 +698,11 @@ describe("preload script", () => {
             await dialog().pickDirectory();
             expect(ipcRendererInvoked).toContainEqual({ channel: "dialog-pick-directory", args: [undefined] });
         });
+
+        it("confirmStartOver invokes its IPC channel, passing nothing it could steer", async () => {
+            await dialog().confirmStartOver();
+            expect(ipcRendererInvoked).toContainEqual({ channel: "dialog-confirm-start-over", args: [] });
+        });
     });
 
     describe("restore", () => {

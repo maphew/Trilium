@@ -302,6 +302,7 @@
     "multi-factor-authentication-title": "MFA",
     "etapi-title": "ETAPI",
     "backup-title": "Backup",
+    "database-title": "Database",
     "sync-title": "Sync",
     "other": "Other",
     "advanced-title": "Advanced",
@@ -511,5 +512,16 @@
     "sql-console-warning": "The SQL console allows executing arbitrary SQL queries against the database.",
     "lan-access": "network access",
     "lan-access-warning": "The app and your shared notes will be served over the network — reachable from a browser on this computer and from other devices on your local network."
+  },
+  "setup-window": {
+    "getting-started": "Getting Started - Trilium Notes",
+    "start-over": "Start Over - Trilium Notes"
+  },
+  "start-over-dialog": {
+    "title": "Start over",
+    "message": "Restart Trilium and go back to the setup screen?",
+    "detail": "You will be offered a backup of your current knowledge base first. Nothing is deleted until you choose to create a new knowledge base, restore a backup or sync from another device.\n\nDo not continue if a script or an unfamiliar note prompted you to.",
+    "cancel": "Cancel",
+    "confirm": "Restart and start over"
   }
 }

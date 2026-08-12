@@ -313,6 +313,7 @@ function buildHiddenSubtreeDefinition(helpSubtree: HiddenSubtreeItem[]): HiddenS
                     { id: "_optionsMFA", title: t("hidden-subtree.multi-factor-authentication-title"), type: "contentWidget", enforceDeleted: true },
                     { id: "_optionsEtapi", title: t("hidden-subtree.etapi-title"), type: "contentWidget", icon: "bx-extension", attributes: [{ type: "label", name: "notInStandalone" }] },
                     { id: "_optionsBackup", title: t("hidden-subtree.backup-title"), type: "contentWidget", icon: "bx-data" },
+                    { id: "_optionsDatabase", title: t("hidden-subtree.database-title"), type: "contentWidget", icon: "bx-hdd" },
                     { id: "_optionsSync", title: t("hidden-subtree.sync-title"), type: "contentWidget", icon: "bx-wifi" },
                     { id: "_optionsLlm", title: t("hidden-subtree.llm-title"), type: "contentWidget", icon: "bx-bot" },
                     { id: "_optionsAi", title: "AI Chat", type: "contentWidget", enforceDeleted: true },

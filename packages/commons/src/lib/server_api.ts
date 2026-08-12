@@ -853,13 +853,29 @@ export type BootstrapDefinition = {
      */
     syncInProgress?: boolean;
     /**
-     * Whether this is the instance's first run, with no database behind the setup screen.
+     * Whether there is still a knowledge base behind the setup screen.
      *
-     * Only meaningful while `dbInitialized` is `false`. It is `false` when setup was asked for by a
-     * running instance through a `setup.json` marker, which means there is a database to go back to
-     * and the wizard may offer to leave without doing anything.
+     * Only meaningful while `dbInitialized` is `false`. It is `true` when setup was asked for by a
+     * running instance through a `setup.json` marker and the user has not yet picked a path that
+     * replaces the database, which means there is something to offer a backup of and somewhere to
+     * go back to. A first run never has one, and neither does a wizard that has got past that point.
      */
-    initialSetup?: boolean;
+    hasExistingData?: boolean;
+    /**
+     * Whether the setup screen has to be unlocked with the instance's own password before it will
+     * do anything.
+     *
+     * Only meaningful while `dbInitialized` is `false`, and only ever `true` where there is a
+     * knowledge base behind the wizard and a password that guarded it. See `setup_auth` in core.
+     */
+    setupAuthRequired?: boolean;
+    /**
+     * Whether that unlock asks for a second factor as well as the password.
+     *
+     * Only ever `true` alongside `setupAuthRequired`. Says that one is wanted and nothing else: not
+     * which kind, and nothing about the answer.
+     */
+    setupSecondFactorRequired?: boolean;
     /**
      * The screen the wizard should open on, from the marker that asked for setup. Only meaningful
      * while `dbInitialized` is `false`, and absent for a first run, which starts at the language step.
@@ -973,6 +989,18 @@ export interface SetupStatusResponse {
     syncVersion: number;
     schemaExists: boolean;
     isInitialized?: boolean;
+    /**
+     * Whether there is still a knowledge base behind the wizard.
+     *
+     * The same answer the bootstrap gave when the page loaded, asked again: the paths that replace a
+     * knowledge base erase it on the server, so a page that has been sitting here since before one
+     * of them ran would otherwise go on offering a way back to something that is gone.
+     */
+    hasExistingData?: boolean;
+    /** Whether the wizard has to be unlocked before it will act on that knowledge base. */
+    authRequired?: boolean;
+    /** Whether that unlock asks for a second factor as well as the password. */
+    secondFactorRequired?: boolean;
     /** The operation setup is busy with, or `null` when it is free. */
     setupOperation?: SetupOperation | null;
     /** Kept from a failed sync attempt so the wizard can prefill the form; pre-initialization only. */

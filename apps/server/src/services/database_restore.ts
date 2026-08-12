@@ -254,6 +254,15 @@ export function getRestoreProgress(): RestoreProgress | null {
 export async function restoreDatabase(request: RestoreRequest): Promise<void> {
     const startedAt = Date.now();
 
+    // Refused against a live database, and said here rather than left to the route that calls it.
+    // Every other way of replacing a database refuses on its own account too — `createInitialDatabase`
+    // and `createDatabaseForSync` both do — and this was the one that did not, which made
+    // `checkAppNotInitialized` the single thing standing between a running instance and a restore
+    // over the top of it. The standalone build has had the same check on its own restore all along.
+    if (sqlInit.isDbInitialized()) {
+        throw new RestoreFailure("restore-refused", "This instance already has a database; a restore only runs from the setup screen.");
+    }
+
     // The name is left out on purpose: it is the user's, and everything worth knowing about the file
     // is stated below in terms that are not.
     logRestore(`starting, from ${request.consumable ? "a backup this instance was given" : "a backup already on this device"}`);

@@ -685,6 +685,16 @@ export interface ElectronDialogApi {
      * before any path comes back.
      */
     pickDirectory(opts?: { defaultPath?: string }): Promise<NativeDirectoryPickResult>;
+
+    /**
+     * Prompts a native message box before the application restarts into the setup screen, where the
+     * user may replace or erase their knowledge base.
+     *
+     * An OS dialog rather than one of the application's own, for the reason the security toggles use
+     * one: a note script can reach every dialog the app draws for itself, and this one guards the
+     * path to losing everything. It is never suppressible, so there is no "don't ask again" here.
+     */
+    confirmStartOver(): Promise<boolean>;
 }
 
 /**

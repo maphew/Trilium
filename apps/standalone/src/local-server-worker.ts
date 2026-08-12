@@ -282,6 +282,7 @@ async function initialize(): Promise<void> {
             coreModule = await import("@triliumnext/core");
             const {
                 consumeSetupMarker,
+                hasSetupMarker,
                 removeSetupMarker,
                 writeSetupMarker
             } = await import('./lightweight/setup_marker.js');
@@ -310,6 +311,7 @@ async function initialize(): Promise<void> {
                 setupMarker: await consumeSetupMarker(),
                 setupPlatform: {
                     writeMarker: writeSetupMarker,
+                    hasMarker: hasSetupMarker,
                     removeMarker: removeSetupMarker,
                     removeDatabase: removeStandaloneDatabase
                 },
@@ -423,27 +425,21 @@ async function dispatch(request: LocalRequest) {
  */
 async function removeStandaloneDatabase(): Promise<void> {
     const pool = sqlProvider?.sahPool;
-    if (!sqlProvider || !pool) {
+    if (!sqlProvider || !pool || !coreModule) {
         throw new Error("The database is not open, so there is nothing to erase.");
     }
 
-    const {
-        DEFAULT_DATABASE_NAME,
-        readCurrentDatabaseName,
-        writeCurrentDatabaseName
-    } = await import('./lightweight/database_restore.js');
+    const { eraseDatabase } = await import('./lightweight/database_restore.js');
 
-    const live = await readCurrentDatabaseName();
-    sqlProvider.close();
-
-    try {
-        pool.unlink(live);
-    } catch {
-        // Already gone, which is the state the caller asked for.
-    }
-
-    await writeCurrentDatabaseName(DEFAULT_DATABASE_NAME);
-    sqlProvider.loadFromSahPool(DEFAULT_DATABASE_NAME);
+    await eraseDatabase({
+        pool,
+        // Closed through the SQL service rather than straight at the provider: the service holds
+        // prepared statements of its own, bound to the connection this closes, and the wizard goes
+        // on using the same worker afterwards — creating a document runs against the database
+        // opened at the end of this, in this very request.
+        close: () => coreModule?.getSql().detachConnection(),
+        open: (dbName) => sqlProvider?.loadFromSahPool(dbName)
+    });
 }
 
 /**
