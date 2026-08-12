@@ -2,7 +2,7 @@ import { SETUP_MARKER_FILE_NAME } from "@triliumnext/commons";
 import { getSql } from "@triliumnext/core";
 import fs from "fs";
 import path from "path";
-import { afterAll, afterEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, describe, expect, it, vi } from "vitest";
 
 import dataDirs from "./data_dir.js";
 import { consumeSetupMarker, setupPlatform } from "./setup_marker.js";
@@ -26,6 +26,23 @@ describe("the marker a start finds", () => {
         expect(consumeSetupMarker()).toEqual({ lang: "ro", targetScreen: "restore-backup" });
         expect(fs.existsSync(MARKER_PATH)).toBe(false);
         expect(consumeSetupMarker()).toBeNull();
+    });
+
+    it("still acts on one it could not delete, and says so", async () => {
+        // A marker left behind sends the next start into the wizard as well, which is exactly the
+        // trap deleting it on read avoids — so it is worth a line in the log rather than a silence.
+        const { getLog } = await import("@triliumnext/core");
+        writeMarkerFile(JSON.stringify({ lang: "de" }));
+        const error = vi.spyOn(getLog(), "error").mockImplementation(() => {});
+        vi.spyOn(fs, "rmSync").mockImplementation(() => {
+            throw new Error("EACCES");
+        });
+
+        // What it asked for still stands: the start it belongs to should act on it either way.
+        expect(consumeSetupMarker()).toEqual({ lang: "de" });
+        expect(error).toHaveBeenCalledWith(expect.stringContaining("Could not remove the setup marker"));
+
+        vi.restoreAllMocks();
     });
 
     it("is removed even when it could not be read, so a bad one cannot trap the instance", () => {

@@ -95,6 +95,53 @@ describe("unlocking a wizard that is standing over a knowledge base", () => {
         expect(password()).not.toBeNull();
     });
 
+    it("says so on a connection that failed, which a wrong password never looks like", async () => {
+        // A refused password is answered, not thrown. Anything landing here is the connection, or
+        // the rate limiter counting the attempts.
+        serverMock.post.mockRejectedValue(new Error("network down"));
+        renderScreen();
+        await settle();
+
+        submit();
+        await settle();
+
+        expect(container.querySelector(".page-error")?.textContent).toContain("login.connection-error");
+        expect(onUnlocked).not.toHaveBeenCalled();
+    });
+
+    it("refuses the answer where the server said yes but handed nothing over", async () => {
+        serverMock.post.mockResolvedValue({ authenticated: true });
+        renderScreen();
+        await settle();
+
+        submit();
+        await settle();
+
+        expect(setSetupAuthToken).not.toHaveBeenCalled();
+        expect(onUnlocked).not.toHaveBeenCalled();
+    });
+
+    it("does not ask twice over while an answer is still coming", async () => {
+        // The button is disabled while it runs, but Enter in the field is a second way in.
+        let answer: (value: unknown) => void = () => {};
+        serverMock.post.mockImplementation(() => new Promise((resolve) => {
+            answer = resolve;
+        }));
+        renderScreen();
+        await settle();
+
+        submit();
+        await settle();
+        submit();
+        await settle();
+
+        expect(serverMock.post).toHaveBeenCalledOnce();
+
+        answer({ authenticated: true, token: "a-token" });
+        await settle();
+        expect(onUnlocked).toHaveBeenCalled();
+    });
+
     it("reads the password off the field at submit time, not from state", async () => {
         // A controlled value of "" overwrites what the browser autofilled, so the first press would
         // submit an empty password — the "incorrect password, press again" bug the login screen hit.

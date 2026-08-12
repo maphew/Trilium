@@ -509,7 +509,10 @@ export async function getBackupDefaults(): Promise<SetupBackupDefaults> {
  */
 export async function deleteExistingData(): Promise<void> {
     await server.post("setup/existing/delete");
-    discarded = true;
+    // The wizard's own account of what is behind it, kept in step with what now is. Written back
+    // onto the bootstrap's own answer rather than tracked beside it: the two can never disagree,
+    // since the only erasure any of these screens can cause is the one just above.
+    window.glob.hasExistingData = false;
 }
 
 /** Leaves it alone and opens it, which is what every Cancel in the wizard does. */
@@ -520,12 +523,10 @@ export function keepExistingData(): Promise<void> {
 /**
  * Whether there is still a knowledge base behind the wizard.
  *
- * What the start of the wizard reported, minus anything erased since. The flag is not re-read from
- * the server because the two answers cannot disagree: the only erasure this page can cause is the
- * one below.
+ * What the start of the wizard reported, until something here erases it. Not re-read from the
+ * server: a reload would ask the server again anyway, and within one run of the wizard this is the
+ * only thing that changes the answer.
  */
 export function hasExistingData(): boolean {
-    return !discarded && window.glob.hasExistingData === true;
+    return window.glob.hasExistingData === true;
 }
-
-let discarded = false;

@@ -129,6 +129,20 @@ describe("what becomes of the existing database", () => {
         expect(platform.removeDatabase).not.toHaveBeenCalled();
     });
 
+    it("says so rather than half-starting where the platform cannot write a backup at all", async () => {
+        // The standalone platform streams its backup into a download and has no `backupAs`. Both
+        // ways in have to refuse, and the one that answers before it starts has to refuse loudest:
+        // the screen behind it waits on a status that would otherwise never change.
+        const backup = getBackup() as { backupAs?: unknown };
+        const previous = backup.backupAs;
+        backup.backupAs = undefined;
+
+        await expect(backUpExistingData(ANY_SETTINGS)).rejects.toThrow(/cannot write a backup/);
+        expect(() => startBackUpExistingData(new Date())).toThrow(/cannot write a backup/);
+
+        backup.backupAs = previous;
+    });
+
     it("refuses every one of them where there is no existing database to act on", async () => {
         leaveSetupMode();
 

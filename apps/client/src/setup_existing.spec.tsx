@@ -179,6 +179,43 @@ describe("offering a copy of the existing knowledge base", () => {
         expect(serverMock.post).toHaveBeenCalledWith("setup/existing/keep");
         expect(onKept).toHaveBeenCalled();
     });
+
+    it("stays put and says why when the database will not reopen", async () => {
+        // Cancel is the way out of every screen here, so a failure in it has to be visible: the
+        // alternative is a button that does nothing and a user with no idea why.
+        serverMock.post.mockRejectedValue('{"message":"the database would not open"}');
+        renderScreens();
+        await settle();
+
+        button("setup.existing-data-cancel")?.click();
+        await settle();
+
+        expect(container.querySelector(".page-error")?.textContent).toContain("the database would not open");
+        expect(onKept).not.toHaveBeenCalled();
+        expect(container.querySelector("input[type=radio]")).not.toBeNull();
+    });
+
+    it("reads whatever the failure had to say, in each of the shapes one arrives in", async () => {
+        // A rejected request is not an Error: the client's own layer rejects with the response body
+        // as a string, which is JSON for a server error and a bare word when the browser dropped it.
+        for (const [ rejection, expected ] of [
+            [ new Error("an Error"), "an Error" ],
+            [ "rejected by browser", "rejected by browser" ],
+            [ { message: "an object carrying one" }, "an object carrying one" ],
+            [ 42, "setup.existing-data-keep-failed" ]
+        ] as const) {
+            serverMock.post.mockRejectedValue(rejection);
+            renderScreens();
+            await settle();
+
+            button("setup.existing-data-cancel")?.click();
+            await settle();
+
+            expect(container.querySelector(".page-error")?.textContent).toContain(expected);
+            render(null, container);
+            container.remove();
+        }
+    });
 });
 
 describe("backing it up first", () => {
@@ -199,6 +236,24 @@ describe("backing it up first", () => {
         await vi.advanceTimersByTimeAsync(1100);
         await settle();
     }
+
+    it("still offers the plainest backup there is when the instance's own answers cannot be read", async () => {
+        // Losing the prefilled answers is not worth losing the backup over.
+        serverMock.get.mockImplementation(async (url: string) =>
+            (url === "setup/existing/backup-defaults" ? Promise.reject(new Error("no answer")) : {}));
+        renderScreens();
+        await settle();
+
+        choose("back-up");
+        await settle();
+        button("setup.continue")?.click();
+        await settle();
+
+        expect(container.textContent).toContain("setup.backup-name");
+        // Offered, and off: the fallback is a backup with nothing switched on.
+        expect(container.textContent).toContain("setup.backup-compress");
+        expect(container.textContent).not.toContain("setup.backup-use-stored-password");
+    });
 
     it("asks what the backup should be before taking it, and sends those answers", async () => {
         serverMock.get.mockImplementation(async (url: string) =>

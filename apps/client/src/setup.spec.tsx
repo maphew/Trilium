@@ -8,6 +8,15 @@ vi.mock("./services/i18n", () => ({
     getCurrentLanguage: () => "en"
 }));
 
+// The language screen reads its own `t` off the react-i18next context, which no provider supplies
+// here. Mocked to the same key-echo, so it renders rather than throwing on a null context.
+vi.mock("react-i18next", () => ({
+    useTranslation: () => ({
+        t: (key: string) => key,
+        i18n: { language: "en", changeLanguage: vi.fn(async () => {}) }
+    })
+}));
+
 const serverMock = vi.hoisted(() => ({
     // Default implementation serves the module-load-time requests transitively imported
     // modules fire (e.g. keyboard_actions fetches its shortcut list on import) — the
@@ -18,7 +27,7 @@ const serverMock = vi.hoisted(() => ({
         }
         return {};
     }),
-    post: vi.fn(async (): Promise<unknown> => ({}))
+    post: vi.fn(async (_url: string, _data?: unknown): Promise<unknown> => ({}))
 }));
 vi.mock("./services/server", () => ({ default: serverMock }));
 
@@ -77,6 +86,203 @@ describe("the unlock screen, as the wizard renders it", () => {
         // Transparent to layout, so the page it wraps fills the frame rather than sitting in a box
         // of the width setup.css gives every other form.
         expect(c.querySelector("form.setup-unlock-form")).not.toBeNull();
+    });
+});
+
+describe("the menu, and what each way out of it commits to", () => {
+    /** Renders the menu as the wizard does, so the wiring between the two is covered as well. */
+    function renderMenu(setState = vi.fn()) {
+        renderInto(renderState("firstOptions", setState));
+        return setState;
+    }
+
+    function card(title: string) {
+        return [ ...container.querySelectorAll<HTMLElement>(".setup-option-card") ]
+            .find((element) => element.querySelector("h3")?.textContent === title);
+    }
+
+    beforeEach(() => {
+        window.glob.hasExistingData = undefined;
+        vi.stubGlobal("confirm", vi.fn(() => true));
+    });
+
+    afterEach(() => {
+        window.glob.hasExistingData = undefined;
+        vi.unstubAllGlobals();
+    });
+
+    it("offers the way back only while there is something to go back to", async () => {
+        renderMenu();
+        await flushEffects();
+        expect(card("setup.keep-existing")).toBeUndefined();
+
+        render(null, container);
+        window.glob.hasExistingData = true;
+        renderMenu();
+        await flushEffects();
+        expect(card("setup.keep-existing")).toBeDefined();
+    });
+
+    it("leaves the knowledge base alone and reopens it when that way back is taken", async () => {
+        window.glob.hasExistingData = true;
+        renderMenu();
+        await flushEffects();
+
+        card("setup.keep-existing")?.click();
+        await flushEffects();
+
+        expect(serverMock.post).toHaveBeenCalledWith("setup/existing/keep");
+        expect(serverMock.post).not.toHaveBeenCalledWith("setup/existing/delete");
+    });
+
+    it("walks a first run straight to the screen it picked, with nothing to erase", async () => {
+        const setState = renderMenu();
+        await flushEffects();
+
+        card("setup.new-document")?.click();
+        expect(setState).toHaveBeenCalledWith("createNewDocumentOptions");
+
+        card("setup.restore-from-backup")?.click();
+        expect(setState).toHaveBeenCalledWith("restoreFromBackup");
+
+        card("setup.sync-from-server")?.click();
+        expect(setState).toHaveBeenCalledWith("syncFromServer");
+
+        expect(serverMock.post).not.toHaveBeenCalledWith("setup/existing/delete");
+    });
+
+    describe("connecting a desktop app, the one path that erases from here", () => {
+        // Every other path erases at the moment it creates a database, server-side. This one waits
+        // for another device to push one, and decides it has arrived by seeing a schema appear —
+        // which the knowledge base already here would satisfy on its own. So arriving on the screen
+        // is what commits, and the erasure happens on the way in.
+        it("asks with the browser's own dialog before erasing, then waits for the push", async () => {
+            window.glob.hasExistingData = true;
+            const setState = renderMenu();
+            await flushEffects();
+
+            card("setup.sync-from-desktop")?.click();
+            await flushEffects();
+
+            expect(window.confirm).toHaveBeenCalledWith("setup.existing-data-erase-confirm");
+            expect(serverMock.post).toHaveBeenCalledWith("setup/existing/delete");
+            expect(setState).toHaveBeenCalledWith("syncFromDesktop");
+        });
+
+        it("erases nothing and goes nowhere when that dialog is answered no", async () => {
+            window.glob.hasExistingData = true;
+            vi.stubGlobal("confirm", vi.fn(() => false));
+            const setState = renderMenu();
+            await flushEffects();
+
+            card("setup.sync-from-desktop")?.click();
+            await flushEffects();
+
+            expect(serverMock.post).not.toHaveBeenCalledWith("setup/existing/delete");
+            expect(setState).not.toHaveBeenCalled();
+        });
+
+        it("asks nothing on a first run, which has nothing to clear out of the way", async () => {
+            const setState = renderMenu();
+            await flushEffects();
+
+            card("setup.sync-from-desktop")?.click();
+            await flushEffects();
+
+            expect(window.confirm).not.toHaveBeenCalled();
+            expect(serverMock.post).not.toHaveBeenCalledWith("setup/existing/delete");
+            expect(setState).toHaveBeenCalledWith("syncFromDesktop");
+        });
+
+        it("stays put and says why when the erasure fails, rather than waiting on a push it cannot take", async () => {
+            window.glob.hasExistingData = true;
+            serverMock.post.mockImplementation(async (url: string) => {
+                if (url === "setup/existing/delete") {
+                    throw new Error("the database is in use");
+                }
+                return {};
+            });
+            const setState = renderMenu();
+            await flushEffects();
+
+            card("setup.sync-from-desktop")?.click();
+            await flushEffects();
+
+            expect(container.querySelector(".page-error")?.textContent).toContain("the database is in use");
+            expect(setState).not.toHaveBeenCalled();
+        });
+    });
+});
+
+describe("the language step, as the wizard renders it", () => {
+    it("leads to the offer of a copy, or past it where there is nothing to copy", async () => {
+        // The step it leads to is worked out rather than named, and was a hardcoded state before
+        // the language moved in front of the offer — so the wiring is worth asserting, not just
+        // the function behind it.
+        const setState = vi.fn();
+        window.glob.hasExistingData = true;
+        renderInto(renderState("selectLanguage", setState));
+        await flushEffects();
+
+        container.querySelector<HTMLElement>("footer button")?.click();
+        expect(setState).toHaveBeenCalledWith("existingData");
+
+        render(null, container);
+        window.glob.hasExistingData = undefined;
+        const firstRun = vi.fn();
+        renderInto(renderState("selectLanguage", firstRun));
+        await flushEffects();
+
+        container.querySelector<HTMLElement>("footer button")?.click();
+        expect(firstRun).toHaveBeenCalledWith("firstOptions");
+    });
+});
+
+describe("creating the knowledge base", () => {
+    it("asks for the demo content or not, and finishes when the server is done", async () => {
+        renderInto(renderState("createNewDocumentWithDemo", vi.fn()));
+        await flushEffects();
+        expect(serverMock.post).toHaveBeenCalledWith("setup/new-document", { locale: "en" });
+
+        render(null, container);
+        serverMock.post.mockClear();
+        renderInto(renderState("createNewDocumentEmpty", vi.fn()));
+        await flushEffects();
+        expect(serverMock.post).toHaveBeenCalledWith("setup/new-document?skipDemoDb", { locale: "en" });
+    });
+
+    it("says what stopped it instead of spinning, and offers a way back", async () => {
+        // This screen has nothing to poll and no other way of ending, so a request that comes back
+        // with an error would otherwise leave it turning for as long as anyone watched it.
+        const setState = vi.fn();
+        serverMock.post.mockRejectedValue('{"message":"DB not open."}');
+        renderInto(renderState("createNewDocumentEmpty", setState));
+        await flushEffects();
+
+        expect(container.querySelector(".page-error")?.textContent).toContain("DB not open.");
+        expect(container.textContent).toContain("setup.create-new-document-failed");
+
+        container.querySelector<HTMLElement>(".back-button")?.click();
+        expect(setState).toHaveBeenCalledWith("createNewDocumentOptions");
+    });
+
+    it("reads whatever the failure had to say, in each of the shapes one arrives in", async () => {
+        // A rejected request is not an Error: the client's own layer rejects with the response body
+        // as a string, which is JSON for a server error and a bare word when the browser dropped it.
+        for (const [ rejection, expected ] of [
+            [ new Error("an Error"), "an Error" ],
+            [ '{"message":"a JSON body"}', "a JSON body" ],
+            [ "rejected by browser", "rejected by browser" ],
+            [ 42, "42" ]
+        ] as const) {
+            serverMock.post.mockRejectedValue(rejection);
+            renderInto(renderState("createNewDocumentEmpty", vi.fn()));
+            await flushEffects();
+
+            expect(container.querySelector(".page-error")?.textContent).toContain(expected);
+            render(null, container);
+            container.remove();
+        }
     });
 });
 
