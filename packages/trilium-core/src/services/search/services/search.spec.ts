@@ -853,6 +853,23 @@ describe("Search", () => {
         expect(result.highlightedContentSnippet).toBe("Summary Title<br><b>Body</b> text here<br>After the block");
     });
 
+    it("escapes angle brackets in the note title instead of dropping them", () => {
+        // The title is interpolated into the autocomplete dropdown as raw HTML, so a title
+        // containing markup-like text must come back escaped. Stripping only "<" would render
+        // "Issues caused by <div>" as "Issues caused by div>".
+        const result: any = { notePathTitle: "Issues caused by <div>", contentSnippet: "", attributeSnippet: "" };
+        searchService.highlightSearchResults([ result ], [ "caused" ]);
+        expect(result.highlightedNotePathTitle).toBe("Issues <b>caused</b> by &lt;div&gt;");
+
+        // Escaping happens after highlighting, so a token that looks like part of an entity
+        // ("lt" in "&lt;") cannot cut the entity in half and produce "&<b>lt</b>;".
+        const entityResult: any = { notePathTitle: "a < b", contentSnippet: "x < y", attributeSnippet: "#lt=1 < 2" };
+        searchService.highlightSearchResults([ entityResult ], [ "lt" ]);
+        expect(entityResult.highlightedNotePathTitle).toBe("a &lt; b");
+        expect(entityResult.highlightedContentSnippet).toBe("x &lt; y");
+        expect(entityResult.highlightedAttributeSnippet).toBe("#<b>lt</b>=1 &lt; 2");
+    });
+
     it("surfaces link-preview url/title/description as separate lines in the quick-search snippet", () => {
         // The url/title/description live in data attributes that striptags would otherwise drop,
         // leaving a blank snippet even though the note matched on the embedded title. The entity-
