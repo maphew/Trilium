@@ -75,25 +75,50 @@ const BETA_BADGE = {
 
 const SEPARATOR: MenuSeparatorItem = { kind: "separator" };
 
-async function getNoteTypeItems(command?: TreeCommandNames) {
+/**
+ * The templates the note type menus are built from. Kept separate from the menu items so that a
+ * caller building several menus at once (e.g. the tree context menu, which has both an "insert
+ * note after" and an "insert child note" submenu) pays for the requests only once.
+ */
+export interface NoteTypeData {
+    builtInTemplateNotes: FNote[];
+    userTemplateNotes: FNote[];
+    /** The IDs of the templates to mark with the "New" badge. */
+    newTemplates: Set<string>;
+}
+
+async function loadNoteTypeData(): Promise<NoteTypeData> {
     // A single request reports both the user templates and which templates are new, so that the
-    // menu can be assembled without a round trip per template.
-    const { templateNoteIds, newTemplateNoteIds } = await server.get<TemplatesResponse>("search-templates");
-    const newTemplates = new Set(newTemplateNoteIds);
+    // menus can be assembled without a round trip per template.
+    const { templateNoteIds, newTemplateNoteIds } =
+        await server.get<TemplatesResponse>("search-templates");
 
     const [ builtInTemplateNotes, userTemplateNotes ] = await Promise.all([
         getBuiltInTemplateNotes(),
         froca.getNotes(templateNoteIds)
     ]);
 
+    return { builtInTemplateNotes, userTemplateNotes, newTemplates: new Set(newTemplateNoteIds) };
+}
+
+function buildNoteTypeItems(data: NoteTypeData, command?: TreeCommandNames) {
+    const { builtInTemplateNotes, userTemplateNotes, newTemplates } = data;
+
     const items: MenuItem<TreeCommandNames>[] = [
         ...getBlankNoteTypes(command),
         ...getBuiltInTemplates(null, command, builtInTemplateNotes, false, newTemplates),
-        ...getBuiltInTemplates(t("note_types.collections"), command, builtInTemplateNotes, true, newTemplates),
+        ...getBuiltInTemplates(
+            t("note_types.collections"), command, builtInTemplateNotes, true, newTemplates
+        ),
         ...getUserTemplates(command, userTemplateNotes, newTemplates)
     ];
 
     return items;
+}
+
+/** Builds a single note type menu. Use {@link loadNoteTypeData} directly to build several. */
+async function getNoteTypeItems(command?: TreeCommandNames) {
+    return buildNoteTypeItems(await loadNoteTypeData(), command);
 }
 
 function getBlankNoteTypes(command?: TreeCommandNames): MenuItem<TreeCommandNames>[] {
@@ -208,5 +233,7 @@ function getBuiltInTemplates(title: string | null, command: TreeCommandNames | u
 }
 
 export default {
+    loadNoteTypeData,
+    buildNoteTypeItems,
     getNoteTypeItems
 };

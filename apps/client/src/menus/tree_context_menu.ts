@@ -127,11 +127,16 @@ export async function buildTreeContextMenuItems(ctx: TreeContextMenuContext): Pr
     const parentNotSearch = !parentNote || parentNote.type !== "search";
     const insertNoteAfterEnabled = isNotRoot && !isHoisted && parentNotSearch;
 
-    // Both submenus hit the server, so they are resolved together rather than one after the other.
-    const [ insertNoteAfterItems, insertChildNoteItems ] = await Promise.all([
-        insertNoteAfterEnabled ? noteTypesService.getNoteTypeItems("insertNoteAfter") : null,
-        notSearch ? noteTypesService.getNoteTypeItems("insertChildNote") : null
-    ]);
+    // Both submenus are built from the same templates, so they are fetched once and shared.
+    const noteTypeData = insertNoteAfterEnabled || notSearch
+        ? await noteTypesService.loadNoteTypeData()
+        : null;
+    const insertNoteAfterItems = noteTypeData && insertNoteAfterEnabled
+        ? noteTypesService.buildNoteTypeItems(noteTypeData, "insertNoteAfter")
+        : null;
+    const insertChildNoteItems = noteTypeData && notSearch
+        ? noteTypesService.buildNoteTypeItems(noteTypeData, "insertChildNote")
+        : null;
 
     const items: (MenuItem<TreeCommandNames> | null)[] = [
         { title: t("tree-context-menu.open-in-a-new-tab"), command: "openInTab", shortcut: "Ctrl+Click", uiIcon: "bx bx-link-external", enabled: noSelectedNotes },

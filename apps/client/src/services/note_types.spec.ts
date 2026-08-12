@@ -308,4 +308,25 @@ describe("new template badges", () => {
             restore();
         }
     });
+
+    it("builds several menus from one fetch", async () => {
+        // The tree context menu has two note type submenus. Building them from shared data
+        // must not fetch the templates twice.
+        const get = withTemplates();
+        const restore = withTemplatesRoot([fakeTemplate("tpl-plain", ["template"], "Plain")]);
+        try {
+            const data = await noteTypesService.loadNoteTypeData();
+            const first = noteTypesService.buildNoteTypeItems(data, "insertNoteAfter" as never);
+            const second = noteTypesService.buildNoteTypeItems(data, "insertChildNote" as never);
+
+            expect(get.mock.calls.map((c) => c[0])).toEqual(["search-templates"]);
+            // Same items, each bound to its own command.
+            const ids = (items: any[]) => items.map((i) => i.templateNoteId);
+            expect(ids(first)).toEqual(ids(second));
+            expect(first.every((i: any) => !i.type || i.command === "insertNoteAfter")).toBe(true);
+            expect(second.every((i: any) => !i.type || i.command === "insertChildNote")).toBe(true);
+        } finally {
+            restore();
+        }
+    });
 });
