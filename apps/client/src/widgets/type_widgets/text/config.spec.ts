@@ -1,4 +1,4 @@
-import { DISPLAYABLE_LOCALE_IDS, IMAGE_MIMES, LOCALES } from "@triliumnext/commons";
+import { DISPLAYABLE_LOCALE_IDS, IMAGE_MIMES, LOCALES, SANITIZER_DEFAULT_ALLOWED_TAGS } from "@triliumnext/commons";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import imageService from "../../../services/image.js";
@@ -241,6 +241,34 @@ describe("CK config - HTML support", () => {
         const config = await buildConfig(baseOpts());
 
         expect(config.htmlSupport?.allow).toEqual([]);
+    });
+
+    it("withholds div from the editor even when the option allows it", async () => {
+        // GHS gives div a dual content model — a paragraph impostor around inline content, an
+        // affordance-less container around a block — which is what strands the caret in a wrapped
+        // code block. Unwrapping it is the point; the sanitizer reads the same option and is
+        // deliberately left accepting div on import.
+        optionsState.map.allowedHtmlTags = JSON.stringify(["div", "p", "section"]);
+
+        const config = await buildConfig(baseOpts());
+
+        expect(config.htmlSupport?.allow).toEqual([
+            { name: "p", attributes: true, classes: true, styles: true },
+            { name: "section", attributes: true, classes: true, styles: true }
+        ]);
+    });
+
+    it("withholds div from the shipped default list too", async () => {
+        // The default is what nearly every install runs with, so the filter has to bite there
+        // rather than only on a hand-edited list.
+        optionsState.map.allowedHtmlTags = JSON.stringify(SANITIZER_DEFAULT_ALLOWED_TAGS);
+
+        const config = await buildConfig(baseOpts());
+
+        const names = (config.htmlSupport?.allow ?? []).map((pattern) => (pattern as { name: string }).name);
+        expect(names).not.toContain("div");
+        // Everything else the default list names still comes through.
+        expect(names).toEqual(SANITIZER_DEFAULT_ALLOWED_TAGS.filter((tag) => tag !== "div"));
     });
 });
 

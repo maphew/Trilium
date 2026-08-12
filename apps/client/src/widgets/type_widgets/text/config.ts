@@ -400,9 +400,23 @@ function buildHtmlSupportConfig(): EditorConfig["htmlSupport"] {
     const allowedTags: string[] = JSON.parse(options.get("allowedHtmlTags"));
 
     return {
-        allow: allowedTags.map((name) => ({ name, attributes: true, classes: true, styles: true }))
+        allow: allowedTags
+            .filter((name) => !EDITOR_ONLY_DISALLOWED_TAGS.has(name))
+            .map((name) => ({ name, attributes: true, classes: true, styles: true }))
     };
 }
+
+/**
+ * Withheld from the editor even when the option lists them, and only from the editor — the
+ * sanitizer reads the same option and still accepts them on import.
+ *
+ * `div` earns its place through GHS's dual content model: with inline content it becomes an
+ * `htmlDivParagraph` that every paragraph-keyed feature mistreats, and around a block it becomes a
+ * bare `htmlDiv` with no type-around, so a wrapped code block has nothing after it to escape into.
+ * Unwrapping loses nothing — no in-tree feature needs GHS to handle a div, footnotes claim their own
+ * by attribute — and it flattens the nested-div cruft that pasting from a web page drags in.
+ */
+const EDITOR_ONLY_DISALLOWED_TAGS = new Set(["div"]);
 
 function getDisabledPlugins() {
     const disabledPlugins: string[] = [];
