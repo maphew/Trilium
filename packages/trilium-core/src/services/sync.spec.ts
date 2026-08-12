@@ -1,4 +1,4 @@
-import type { EntityChange } from "@triliumnext/commons";
+import type { EntityChange, EntityChangeRecord } from "@triliumnext/commons";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import entityConstructor from "../becca/entity_constructor.js";
@@ -41,11 +41,18 @@ interface FakeConfig {
 let config: FakeConfig = {};
 let changedIdx = 0;
 let checkIdx = 0;
-const requestLog: Array<{ method: string; url: string }> = [];
+const requestLog: Array<{ method: string; url: string; body?: ExecOpts["body"] }> = [];
+
+/** The entity IDs actually sent to the sync server, across every push of the run. */
+const pushedEntityIds = () => requestLog
+    .filter((r) => r.url.includes("/api/sync/update"))
+    // syncRequest always serializes the body itself, so a push body is a JSON string.
+    .flatMap((r) => (typeof r.body === "string" ? JSON.parse(r.body || "{}").entities ?? [] : []) as EntityChangeRecord[])
+    .map((record) => record.entityChange.entityId);
 
 const fakeRequest: RequestProvider = fakeRequestProvider({
     exec: (<T,>(opts: ExecOpts): Promise<T> => {
-        requestLog.push({ method: opts.method, url: opts.url });
+        requestLog.push({ method: opts.method, url: opts.url, body: opts.body });
         const url = opts.url;
         const reply = (value: unknown) => Promise.resolve(value as T);
 
@@ -288,6 +295,35 @@ describe("sync service", () => {
         expect(checksSpy).toHaveBeenCalled();
         expect(sectorSpy).toHaveBeenCalledWith("notes", "a");
         expect(requestLog.some((r) => r.url.includes("/api/sync/queue-sector/notes/a"))).toBe(true);
+    });
+
+    // The situation the sector re-queue exists for: the sync server no longer has a change this
+    // instance holds. Since the change originally came from the server it carries the server's
+    // instance ID, which is exactly what pushChanges filters out, so before the re-queue took
+    // ownership of the row the one copy left in the cluster could never be sent back (#11073).
+    it("pushes a diverged change the sync server has lost even though it came from there", async () => {
+        const blobId = "9lostByServer";
+        cls.init(() => {
+            const sql = getSql();
+            sql.execute("INSERT INTO blobs (blobId, content, dateModified, utcDateModified) VALUES (?, 'lost content', ?, ?)",
+                [blobId, dateUtils.utcNowDateTime(), dateUtils.utcNowDateTime()]);
+            sql.execute(`
+                INSERT INTO entity_changes (entityName, entityId, hash, isErased, changeId, componentId, instanceId, isSynced, utcDateChanged)
+                VALUES ('blobs', ?, 'lostHash', 0, 'lostChangeId', 'NA', 'REMOTE_INSTANCE', 1, ?)`,
+                [blobId, dateUtils.utcNowDateTime()]);
+            // Everything is pushed as far as sync is concerned, so only the re-queue can resend it.
+            options.setOption("lastSyncedPush", String(syncService.getMaxEntityChangeId()));
+        });
+
+        vi.spyOn(consistencyChecks, "runEntityChangesChecks").mockImplementation(() => {});
+        vi.mocked(contentHashService.checkContentHashes).mockReturnValueOnce([{ entityName: "blobs", sector: "9" }]);
+        config.check = [
+            { maxEntityChangeId: 0, entityHashes: { blobs: { 9: "diverged" } } },
+            { maxEntityChangeId: 0, entityHashes: {} }
+        ];
+
+        await expect(runSync()).resolves.toEqual({ success: true });
+        expect(pushedEntityIds()).toContain(blobId);
     });
 
     describe("unresolvable content hash divergence", () => {
